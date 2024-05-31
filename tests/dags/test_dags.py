@@ -5,6 +5,8 @@ from pathlib import Path
 import pytest
 from airflow.models import DagBag
 
+from shared.settings import INSTRUMENTS
+
 DAG_FOLDER = Path(__file__).parent / Path("../../dags")
 
 
@@ -17,20 +19,22 @@ def dagbag() -> DagBag:
 def test_dag_loaded_acquisition_watcher(dagbag: DagBag) -> None:
     """Test that acquisition_watcher loads correctly."""
     # when
-    dag = dagbag.get_dag(dag_id="acquisition_watcher.test6")
+    for instrument in INSTRUMENTS:
+        dag = dagbag.get_dag(dag_id=f"acquisition_watcher.{instrument}")
 
-    # then
-    assert dagbag.import_errors == {}
-    assert dag is not None
-    assert len(dag.tasks) == 2  # noqa: PLR2004 no magic numbers
+        # then
+        assert dagbag.import_errors == {}
+        assert dag is not None
+        assert len(dag.tasks) == 2  # noqa: PLR2004 no magic numbers
 
 
 def test_dag_loaded_acquisition_handler(dagbag: DagBag) -> None:
     """Test that acquisition_watcher loads correctly."""
     # when
-    dag = dagbag.get_dag(dag_id="acquisition_handler.test6")
+    for instrument in INSTRUMENTS:
+        dag = dagbag.get_dag(dag_id=f"acquisition_handler.{instrument}")
 
-    # then
-    assert dagbag.import_errors == {}
-    assert dag is not None
-    assert len(dag.tasks) == 5  # noqa: PLR2004 no magic numbers
+        # then
+        assert dagbag.import_errors == {}
+        assert dag is not None
+        assert len(dag.tasks) == 5  # noqa: PLR2004 no magic numbers

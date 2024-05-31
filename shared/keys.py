@@ -1,5 +1,7 @@
 """Keys for accessing Dags, Tasks, etc.."""
 
+DAG_DELIMITER: str = "."
+
 
 class Dags:
     """Dag Names."""

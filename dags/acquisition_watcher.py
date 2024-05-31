@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+import sys
 from datetime import timedelta
 
 from airflow.models.dag import DAG
 from airflow.operators.bash import BashOperator
 from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 
-from plugins.shared.keys import Dags, Tasks
+# TODO: find a better way, this is required to find the shared module in docker-compose
+sys.path.insert(0, "/opt/airflow/")
+from shared.keys import Dags, Tasks
 
 with DAG(
     f"{Dags.ACQUISITON_WATCHER}.test6",

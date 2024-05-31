@@ -11,4 +11,5 @@ ignore = [
     "INP001", # implicit namespace package.
     "ERA001", # Found commented-out code"
     "D203", # 1 blank line required before class docstring
+    "TD002", "TD003", "FIX002"  # things around TODO
 ]

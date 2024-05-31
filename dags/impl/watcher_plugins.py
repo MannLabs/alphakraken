@@ -1,10 +1,13 @@
 """Business logic for the acquisition_watcher."""
 
 import logging
+import sys
 from time import sleep
 
 from airflow.models import TaskInstance
 
+# TODO: find a better way, this is required to unify module import between docker and bash
+sys.path.insert(0, "/opt/airflow/")
 from shared.keys import OpArgs
 
 

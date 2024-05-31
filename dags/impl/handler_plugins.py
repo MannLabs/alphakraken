@@ -1,10 +1,13 @@
 """Business logic for the acquisition_handler."""
 
 import logging
+import sys
 from time import sleep
 
 from airflow.models import TaskInstance
 
+# TODO: find a better way, this is required to unify module import between docker and bash
+sys.path.insert(0, "/opt/airflow/")
 from shared.keys import DagContext, DagParams, XComKeys
 from shared.utils import get_xcom, put_xcom
 
@@ -67,4 +70,16 @@ def upload_metrics(ti: TaskInstance, **kwargs) -> None:
 
     # IMPLEMENT:
     # put metrics to the database
+
+    from pymongo import MongoClient
+
+    # Create a client
+    client = MongoClient("mongodb://localhost:27017/")
+
+    # Connect to your database
+    db = client["your_database_name"]
+
+    # Now you can use `db` to interact with your database
+    logging.info(f"DB {db} connected!")
+
     sleep(10)

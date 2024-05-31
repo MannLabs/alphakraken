@@ -12,7 +12,7 @@ from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 
 # TODO: find a better way, this is required to unify module import between docker and bash
 sys.path.insert(0, "/opt/airflow/")
-from plugins.watcher_plugins import wait_for_finished_acquisition
+from dags.impl.watcher_plugins import wait_for_finished_acquisition
 from shared.keys import (
     DAG_DELIMITER,
     DagParams,

@@ -10,7 +10,7 @@ from airflow.operators.python import PythonOperator
 
 # TODO: find a better way, this is required to unify module import between docker and bash
 sys.path.insert(0, "/opt/airflow/")
-from plugins.handler_plugins import (
+from dags.impl.handler_plugins import (
     compute_metrics,
     monitor_quanting,
     prepare_quanting,

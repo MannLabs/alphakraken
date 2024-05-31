@@ -9,7 +9,12 @@ ignore = [
     "D213", # multi-line-summary-second-line
     "S101", # Use of `assert` detected
     "INP001", # implicit namespace package.
-    "ERA001", # Found commented-out code"
+    "ERA001", # Found commented-out code
     "D203", # 1 blank line required before class docstring
-    "TD002", "TD003", "FIX002"  # things around TODO
+    "TD002", "TD003", "FIX002",  # things around TO-DO
+    "PT011", #pytest.raises(ValueError) is too broad
+    "G004", "EM102", # Logging statement uses f-string
+    "TRY003", # Avoid specifying long messages outside the exception class
+    "ANN003", # Missing type annotation for `**kwargs
+    "FA102", # Missing `from __future__ import annotations
 ]

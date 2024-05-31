@@ -7,4 +7,7 @@ ignore = [
     "ISC001", #may cause conflicts when used with the formatter
     "D211", # no-blank-line-before-class
     "D213", # multi-line-summary-second-line
+    "S101", # Use of `assert` detected
+    "INP001", # implicit namespace package.
+    "ERA001" # Found commented-out code"
 ]

@@ -5,6 +5,7 @@ from __future__ import annotations
 import sys
 from datetime import timedelta
 
+import pendulum
 from airflow.models.dag import DAG
 from airflow.operators.bash import BashOperator
 from airflow.operators.trigger_dagrun import TriggerDagRunOperator
@@ -20,17 +21,19 @@ with DAG(
         "retries": 1,
         "retry_delay": timedelta(minutes=5),
         # 'queue': 'bash_queue',
-        "trigger_rule": "always",
     },
     description="Watch acquisition and trigger follow-up DAGS on demand.",
     catchup=False,
     tags=["kraken"],
+    start_date=pendulum.datetime(2000, 1, 1, tz="UTC"),
+    schedule="@continuous",
+    max_active_runs=1,
 ) as dag:
     dag.doc_md = __doc__
 
     wait_for_finished_acquisition = BashOperator(
         task_id=Tasks.WAIT_FOR_FINISHED_ACQUISITION,
-        bash_command="sleep 10",
+        bash_command="sleep 120",
     )
 
     start_acquisition_handler = TriggerDagRunOperator(

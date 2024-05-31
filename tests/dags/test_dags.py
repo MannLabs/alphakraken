@@ -1,4 +1,4 @@
-"""Test the acquisition_watcher DAG."""
+"""Test thats DAGs are correctly loaded."""
 
 from pathlib import Path
 
@@ -23,3 +23,14 @@ def test_dag_loaded_acquisition_watcher(dagbag: DagBag) -> None:
     assert dagbag.import_errors == {}
     assert dag is not None
     assert len(dag.tasks) == 2  # noqa: PLR2004 no magic numbers
+
+
+def test_dag_loaded_acquisition_handler(dagbag: DagBag) -> None:
+    """Test that acquisition_watcher loads correctly."""
+    # when
+    dag = dagbag.get_dag(dag_id="acquisition_handler.test6")
+
+    # then
+    assert dagbag.import_errors == {}
+    assert dag is not None
+    assert len(dag.tasks) == 5  # noqa: PLR2004 no magic numbers

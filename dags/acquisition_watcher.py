@@ -8,8 +8,10 @@ from airflow.models.dag import DAG
 from airflow.operators.bash import BashOperator
 from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 
+from plugins.shared.keys import Dags, Tasks
+
 with DAG(
-    "acquisition_watcher.test6",
+    f"{Dags.ACQUISITON_WATCHER}.test6",
     default_args={
         "depends_on_past": False,
         "retries": 1,
@@ -24,13 +26,13 @@ with DAG(
     dag.doc_md = __doc__
 
     wait_for_finished_acquisition = BashOperator(
-        task_id="wait_for_finished_acquisition",
+        task_id=Tasks.WAIT_FOR_FINISHED_ACQUISITION,
         bash_command="sleep 10",
     )
 
     start_acquisition_handler = TriggerDagRunOperator(
-        task_id="start_acquisition_handler",
-        trigger_dag_id="acquisition_handler.test6",
+        task_id=Tasks.START_ACQUISITION_HANDLER,
+        trigger_dag_id=f"{Dags.ACQUISITON_HANDLER}.test6",
         conf={"raw_file_name": "some_file.raw"},
     )
 

@@ -22,18 +22,19 @@ airflow standalone
 ```
 and open the webserver at `http://localhost:8080/`.
 
-
-Run airflow with
-```bash
-python -m pytest
-```
-and open the webserver at `http://localhost:8080/`.
-
 ### Docker
-Start the docker containers with
+As an alternative to `airflow standalone`, start the docker containers providing an all-in-one solution with
 ```bash
 docker-compose up
 ```
+
+
+### Tests
+Run the tests with
+```bash
+python -m pytest
+```
+If you encounter a `sqlite3.OperationalError: no such table: dag`, run `airflow db init` once.
 
 
 ### pre-commit hooks

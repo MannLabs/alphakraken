@@ -48,6 +48,8 @@ def create_acquisition_watcher_dag(instrument_id: str) -> None:
             op_kwargs={OpArgs.INSTRUMENT_ID: instrument_id},
         )
 
+        # IMPLEMENT: this needs to be generalized to be able to catch up on old files
+        # or: do the generalization in an upfront DAG
         start_acquisition_handler = TriggerDagRunOperator(
             task_id=Tasks.START_ACQUISITION_HANDLER,
             trigger_dag_id=f"{Dags.ACQUISITON_HANDLER}.{instrument_id}",

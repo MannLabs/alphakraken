@@ -15,7 +15,8 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
     raw_file_name = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_NAME]
     logging.info(f"Got {raw_file_name=}")
 
-    # some logic ..
+    # IMPLEMENT:
+    # create the alphadia inputfile and store it on the shared volume
     sleep(10)
 
     # push to XCOM
@@ -29,7 +30,9 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
     raw_file_name = get_xcom(ti, [XComKeys.RAW_FILE_NAME])[XComKeys.RAW_FILE_NAME]
     logging.info(f"Got {raw_file_name=}")
 
-    # some logic ..
+    # IMPLEMENT:
+    # wait for the cluster to be ready (20% idling) -> dedicated (sensor) task
+    # submit run script to the cluster
     sleep(10)
 
 
@@ -37,7 +40,12 @@ def monitor_quanting(ti: TaskInstance, **kwargs) -> None:
     """TODO."""
     del ti
     del kwargs
-    # some logic ..
+
+    # IMPLEMENT:
+    # this should be a sensor task!
+    # wait until cluster job is finished
+    # task config: max runtime
+    # error handling!
     sleep(10)
 
 
@@ -45,7 +53,10 @@ def compute_metrics(ti: TaskInstance, **kwargs) -> None:
     """TODO."""
     del ti
     del kwargs
-    # some logic ..
+
+    # IMPLEMENT:
+    # compute metrics from the output files
+    # store them locally (?)
     sleep(10)
 
 
@@ -53,5 +64,7 @@ def upload_metrics(ti: TaskInstance, **kwargs) -> None:
     """TODO."""
     del ti
     del kwargs
-    # some logic ..
+
+    # IMPLEMENT:
+    # put metrics to the database
     sleep(10)

@@ -9,5 +9,6 @@ ignore = [
     "D213", # multi-line-summary-second-line
     "S101", # Use of `assert` detected
     "INP001", # implicit namespace package.
-    "ERA001" # Found commented-out code"
+    "ERA001", # Found commented-out code"
+    "D203", # 1 blank line required before class docstring
 ]

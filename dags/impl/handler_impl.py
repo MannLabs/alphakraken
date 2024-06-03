@@ -12,6 +12,12 @@ from shared.keys import DagContext, DagParams, XComKeys
 from shared.utils import get_xcom, put_xcom
 
 
+def add_to_db(ti: TaskInstance, **kwargs) -> None:
+    """TODO."""
+    del ti
+    del kwargs
+
+
 def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
     """TODO."""
     # example how to retrieve parameters from the context

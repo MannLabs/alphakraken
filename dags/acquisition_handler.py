@@ -12,6 +12,7 @@ from airflow.operators.python import PythonOperator
 # TODO: find a better way, this is required to unify module import between docker and bash
 sys.path.insert(0, "/opt/airflow/")
 from dags.impl.handler_impl import (
+    add_to_db,
     compute_metrics,
     monitor_quanting,
     prepare_quanting,
@@ -40,6 +41,8 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
     ) as dag:
         dag.doc_md = __doc__
 
+        add_to_db_ = PythonOperator(task_id=Tasks.ADD_TO_DB, python_callable=add_to_db)
+
         prepare_quanting_ = PythonOperator(
             task_id=Tasks.PREPARE_QUANTING, python_callable=prepare_quanting
         )
@@ -61,7 +64,8 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
         )
 
     (
-        prepare_quanting_
+        add_to_db_
+        >> prepare_quanting_
         >> run_quanting_
         >> monitor_quanting_
         >> compute_metrics_

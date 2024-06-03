@@ -1,3 +1,4 @@
+# https://docs.streamlit.io/deploy/tutorials/docker
 FROM python:3.9-slim
 
 WORKDIR /app
@@ -8,7 +9,6 @@ RUN apt-get update && apt-get install -y \
     software-properties-common \
     git \
     && rm -rf /var/lib/apt/lists/*
-
 
 COPY requirements.txt requirements.txt
 COPY streamlit/requirements_streamlit.txt requirements_streamlit.txt

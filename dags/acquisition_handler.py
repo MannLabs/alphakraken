@@ -27,7 +27,7 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
     """Create acquisition_handler dag for instrument with `instrument_id`."""
     with DAG(
         f"{Dags.ACQUISITON_HANDLER}{DAG_DELIMITER}{instrument_id}",
-        schedule_interval=None,
+        schedule=None,
         default_args={
             "depends_on_past": False,
             "retries": 5,

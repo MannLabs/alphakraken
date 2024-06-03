@@ -25,7 +25,7 @@ def wrapper(mock_client: MagicMock) -> MongoDBWrapper:
 
 @pytest.fixture()
 def item() -> RawFile:
-    """Return a RawFile instance."""
+    """Return a RawFile instance. Note that this implicitly tests also the models.py module."""
     return RawFile("some_name")
 
 

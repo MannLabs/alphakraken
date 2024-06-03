@@ -1,5 +1,7 @@
 """Module to handle the database connection and the schema."""
 
+import logging
+
 from mongoengine import ConnectionFailure, Document, StringField, connect, disconnect
 
 DEFAULT_HOST = "mongodb://mongodb"
@@ -14,7 +16,9 @@ def connect_db() -> None:
     try:
         disconnect()
         # TODO: take this from environment
-        connect(host=f"{DEFAULT_HOST}:{DEFAULT_DB_PORT}/{DEFAULT_DB_NAME}")
+        host = f"{DEFAULT_HOST}:{DEFAULT_DB_PORT}/{DEFAULT_DB_NAME}"
+        logging.info("Connecting to database host {host}")
+        connect(host=host)
     except ConnectionFailure:
         pass
         # A different connection with alias `default` was already registered.

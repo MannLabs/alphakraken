@@ -23,7 +23,7 @@ def add_to_db(ti: TaskInstance, **kwargs) -> None:
     raw_file = RawFile(name=raw_file_name, status=RawFileStatus.NEW)
 
     # example: insert data to DB
-    raw_file.save()
+    raw_file.save(force_insert=True)
 
     # example: get data from DB
 
@@ -87,7 +87,7 @@ def upload_metrics(ti: TaskInstance, **kwargs) -> None:
     raw_file_name = get_xcom(ti, XComKeys.RAW_FILE_NAME)
     connect_db()
 
-    raw_file = RawFile.objects(pk=raw_file_name)
+    raw_file = RawFile.objects.with_id(raw_file_name)
     # example: update raw file status
 
     logging.info(f"got {raw_file=}")

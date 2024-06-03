@@ -7,8 +7,7 @@ from airflow.models import TaskInstance
 
 # TODO: find a better way, this is required to unify module import between docker and bash
 sys.path.insert(0, "/opt/airflow/")
-from shared.db.models import RawFile
-from shared.db.wrapper import MongoDBWrapper
+from shared.db.engine import RawFile, connect_db
 from shared.keys import DagContext, DagParams, XComKeys
 from shared.settings import RawFileStatus
 from shared.utils import get_xcom, put_xcom
@@ -20,21 +19,19 @@ def add_to_db(ti: TaskInstance, **kwargs) -> None:
     raw_file_name = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_NAME]
     logging.info(f"Got {raw_file_name=}")
 
-    db = MongoDBWrapper()
-
-    raw_file = RawFile(raw_file_name, RawFileStatus.NEW)
+    connect_db()
+    raw_file = RawFile(name=raw_file_name, status=RawFileStatus.NEW)
 
     # example: insert data to DB
-    x = db.insert(raw_file)
-    logging.info(f"Inserted item {x}")
+    raw_file.save()
 
     # example: get data from DB
-    raw_file_to_query = RawFile(raw_file_name)
-    y = db.count(raw_file_to_query)
-    logging.info(f"count in DB: {y}")
 
-    z = db.find(raw_file_to_query)
-    logging.info(f"got from DB: {z}")
+    for raw_file in RawFile.objects:
+        logging.info(raw_file.name)
+
+    for raw_file in RawFile.objects(name=raw_file_name):
+        logging.info(raw_file.name)
 
     # IMPLEMENT:
     # create the alphadia inputfile and store it on the shared volume
@@ -53,12 +50,8 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
 
 def run_quanting(ti: TaskInstance, **kwargs) -> None:
     """TODO."""
+    del ti
     del kwargs
-
-    # example: update raw file status
-    raw_file_name = get_xcom(ti, XComKeys.RAW_FILE_NAME)
-    raw_file = RawFile(raw_file_name, RawFileStatus.PROCESSING)
-    MongoDBWrapper().update(raw_file)
 
     # IMPLEMENT:
     # wait for the cluster to be ready (20% idling) -> dedicated (sensor) task
@@ -91,14 +84,18 @@ def upload_metrics(ti: TaskInstance, **kwargs) -> None:
     """TODO."""
     del kwargs
 
-    # example: update raw file status
     raw_file_name = get_xcom(ti, XComKeys.RAW_FILE_NAME)
-    raw_file = RawFile(raw_file_name, RawFileStatus.PROCESSED)
-    MongoDBWrapper().update(raw_file)
+    connect_db()
+
+    raw_file = RawFile.objects(pk=raw_file_name)
+    # example: update raw file status
+
+    logging.info(f"got {raw_file=}")
+    raw_file.update(status=RawFileStatus.PROCESSED)
 
     # sanity check:
-    z = MongoDBWrapper().find(raw_file)
-    logging.info(f"got from DB: {z}")
+    for raw_file in RawFile.objects(name=raw_file_name):
+        logging.info(f"{raw_file.name} {raw_file.status}")
 
     # IMPLEMENT:
     # put metrics to the database

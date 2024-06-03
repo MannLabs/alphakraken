@@ -23,14 +23,14 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
     sleep(10)
 
     # push to XCOM
-    put_xcom(ti, {XComKeys.RAW_FILE_NAME: raw_file_name})
+    put_xcom(ti, XComKeys.RAW_FILE_NAME, raw_file_name)
 
 
 def run_quanting(ti: TaskInstance, **kwargs) -> None:
     """TODO."""
     del kwargs
     # get from XCOM
-    raw_file_name = get_xcom(ti, [XComKeys.RAW_FILE_NAME])[XComKeys.RAW_FILE_NAME]
+    raw_file_name = get_xcom(ti, XComKeys.RAW_FILE_NAME)
     logging.info(f"Got {raw_file_name=}")
 
     # IMPLEMENT:

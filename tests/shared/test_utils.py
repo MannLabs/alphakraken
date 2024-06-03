@@ -13,9 +13,8 @@ def test_xcom_push_successful():
     ti = Mock()
     ti.xcom_push = Mock()
     # when
-    put_xcom(ti, {"key1": "value1", "key2": "value2"})
+    put_xcom(ti, "key1", "value1")
     ti.xcom_push.assert_any_call("key1", "value1")
-    ti.xcom_push.assert_any_call("key2", "value2")
 
 
 def test_xcom_push_with_none_value_raises_error():
@@ -23,25 +22,16 @@ def test_xcom_push_with_none_value_raises_error():
     ti = Mock()
     with pytest.raises(ValueError):
         # when
-        put_xcom(ti, {"key1": None})
-
-
-def test_xcom_push_with_empty_dict_does_nothing():
-    """Test that put_xcom does not push anything to XCom when given an empty dictionary."""
-    ti = Mock()
-    ti.xcom_push = Mock()
-    # when
-    put_xcom(ti, {})
-    ti.xcom_push.assert_not_called()
+        put_xcom(ti, "key1", None)
 
 
 def test_xcom_pull_successful():
     """Test that get_xcom successfully pulls values from XCom for given keys."""
     ti = Mock()
-    ti.xcom_pull = Mock(return_value="value")
+    ti.xcom_pull = Mock(return_value="value1")
     # when
-    result = get_xcom(ti, ["key1", "key2"])
-    assert result == {"key1": "value", "key2": "value"}
+    result = get_xcom(ti, "key1")
+    assert result == "value1"
 
 
 def test_xcom_pull_with_missing_key_raises_error():
@@ -50,12 +40,4 @@ def test_xcom_pull_with_missing_key_raises_error():
     ti.xcom_pull = Mock(return_value=None)
     # when
     with pytest.raises(ValueError):
-        get_xcom(ti, ["missing_key"])
-
-
-def test_xcom_pull_with_empty_keys_returns_empty_dict():
-    """Test that get_xcom returns an empty dictionary when given an empty list of keys."""
-    ti = Mock()
-    # when
-    result = get_xcom(ti, [])
-    assert result == {}
+        get_xcom(ti, "missing_key")

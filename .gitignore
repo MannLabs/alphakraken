@@ -163,5 +163,6 @@ cython_debug/
 
 .vscode
 
-# airflow
+# custom to the app
 logs
+db_data

@@ -1,10 +1,18 @@
 """Module to handle the database connection and the schema."""
 
 import logging
+from datetime import datetime
 
-from mongoengine import ConnectionFailure, Document, StringField, connect, disconnect
+from mongoengine import (
+    ConnectionFailure,
+    DateTimeField,
+    Document,
+    StringField,
+    connect,
+    disconnect,
+)
 
-DEFAULT_HOST = "mongodb://mongodb"
+DEFAULT_HOST = "mongodb://mongodb-service"
 
 DEFAULT_DB_NAME = "krakendb"
 
@@ -29,3 +37,4 @@ class RawFile(Document):
 
     name = StringField(required=True, primary_key=True)
     status = StringField(max_length=50)
+    created_at = DateTimeField(default=datetime.now)

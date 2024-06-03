@@ -1,0 +1,2 @@
+# extra requirements for the frontend container
+streamlit==1.35.0

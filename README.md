@@ -20,7 +20,7 @@ Start the docker containers providing an all-in-one solution with
 ```bash
 docker-compose up
 ```
-and open the webserver at `http://localhost:8080/`.
+The airflow webserver runs on http://localhost:8080/, the streamlit app on http://localhost:8051/ .
 
 Alternatively, run airflow without Docker using
 ```bash
@@ -28,6 +28,7 @@ airflow standalone
 ```
 
 Note that you will need to have a MongoDB running on the default port `27017`.
+Also, you will need to fire up the streamlit app yourself by `docker-compose run --service-ports streamlit-app`.
 
 
 ### Tests

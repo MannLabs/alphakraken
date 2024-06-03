@@ -5,6 +5,7 @@ from __future__ import annotations
 import sys
 from datetime import timedelta
 
+from airflow.models import Param
 from airflow.models.dag import DAG
 from airflow.operators.python import PythonOperator
 
@@ -25,6 +26,7 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
     """Create acquisition_handler dag for instrument with `instrument_id`."""
     with DAG(
         f"{Dags.ACQUISITON_HANDLER}{DAG_DELIMITER}{instrument_id}",
+        schedule_interval=None,
         default_args={
             "depends_on_past": False,
             "retries": 5,
@@ -34,6 +36,7 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
         description="Handle acquisition.",
         catchup=False,
         tags=["kraken"],
+        params={"raw_file_name": Param(type="string", minimum=3)},
     ) as dag:
         dag.doc_md = __doc__
 

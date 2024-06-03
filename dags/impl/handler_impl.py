@@ -70,16 +70,3 @@ def upload_metrics(ti: TaskInstance, **kwargs) -> None:
 
     # IMPLEMENT:
     # put metrics to the database
-
-    from pymongo import MongoClient
-
-    # Create a client
-    client = MongoClient("mongodb://localhost:27017/")
-
-    # Connect to your database
-    db = client["your_database_name"]
-
-    # Now you can use `db` to interact with your database
-    logging.info(f"DB {db} connected!")
-
-    sleep(10)

@@ -7,8 +7,8 @@ from airflow.models import TaskInstance
 
 # TODO: find a better way, this is required to unify module import between docker and bash
 sys.path.insert(0, "/opt/airflow/")
-from shared.db.client import MongoDBClient
 from shared.db.models import RawFile
+from shared.db.wrapper import MongoDBWrapper
 from shared.keys import DagContext, DagParams, XComKeys
 from shared.settings import RawFileStatus
 from shared.utils import get_xcom, put_xcom
@@ -20,20 +20,20 @@ def add_to_db(ti: TaskInstance, **kwargs) -> None:
     raw_file_name = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_NAME]
     logging.info(f"Got {raw_file_name=}")
 
-    client = MongoDBClient()
+    db = MongoDBWrapper()
 
     raw_file = RawFile(raw_file_name, RawFileStatus.NEW)
 
     # example: insert data to DB
-    x = client.insert(raw_file)
+    x = db.insert(raw_file)
     logging.info(f"Inserted item {x}")
 
     # example: get data from DB
     raw_file_to_query = RawFile(raw_file_name)
-    y = client.count(raw_file_to_query)
+    y = db.count(raw_file_to_query)
     logging.info(f"count in DB: {y}")
 
-    z = client.find(raw_file_to_query)
+    z = db.find(raw_file_to_query)
     logging.info(f"got from DB: {z}")
 
     # IMPLEMENT:
@@ -58,7 +58,7 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
     # example: update raw file status
     raw_file_name = get_xcom(ti, XComKeys.RAW_FILE_NAME)
     raw_file = RawFile(raw_file_name, RawFileStatus.PROCESSING)
-    MongoDBClient().update(raw_file)
+    MongoDBWrapper().update(raw_file)
 
     # IMPLEMENT:
     # wait for the cluster to be ready (20% idling) -> dedicated (sensor) task
@@ -94,10 +94,10 @@ def upload_metrics(ti: TaskInstance, **kwargs) -> None:
     # example: update raw file status
     raw_file_name = get_xcom(ti, XComKeys.RAW_FILE_NAME)
     raw_file = RawFile(raw_file_name, RawFileStatus.PROCESSED)
-    MongoDBClient().update(raw_file)
+    MongoDBWrapper().update(raw_file)
 
     # sanity check:
-    z = MongoDBClient().find(raw_file)
+    z = MongoDBWrapper().find(raw_file)
     logging.info(f"got from DB: {z}")
 
     # IMPLEMENT:

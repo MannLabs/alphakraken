@@ -20,13 +20,13 @@ DEFAULT_DB_NAME = "krakendb"
 DEFAULT_DB_PORT = 27017
 
 
-class MongoDBClient:
-    """A MongoDB client that provides methods to interact with a MongoDB database."""
+class MongoDBWrapper:
+    """A MongoDB wrapper that provides methods to interact with a MongoDB database."""
 
     def __init__(self) -> None:
-        """Initialize a new instance of the MongoDBClient class."""
-        self.client = MongoClient(DEFAULT_HOST, DEFAULT_DB_PORT)
-        self.db = self.client[DEFAULT_DB_NAME]
+        """Initialize a new instance of the MongoDBClientMongoDBWrapper class."""
+        _client = MongoClient(DEFAULT_HOST, DEFAULT_DB_PORT)
+        self._db = _client[DEFAULT_DB_NAME]
 
     def insert(self, item: MongoBaseModel) -> str:
         """Insert a new item into a collection.
@@ -36,10 +36,10 @@ class MongoDBClient:
         """
         logging.info(f"Inserting {item.to_dict()} into {item.table}")
 
-        if self.db[item.table].count_documents(item.pk):
+        if self._db[item.table].count_documents(item.pk):
             raise ValueError(f"Item with pk {item.pk} already exists in {item.table}")
 
-        inserted_id = str(self.db[item.table].insert_one(item.to_dict()).inserted_id)
+        inserted_id = str(self._db[item.table].insert_one(item.to_dict()).inserted_id)
         logging.info(f"Got id {inserted_id}")
         return inserted_id
 
@@ -51,7 +51,7 @@ class MongoDBClient:
         :return: The _id of the inserted document.
         """
         logging.info(f"Updating {item.to_dict()} in {item.table}")
-        update_result: UpdateResult = self.db[item.table].update_one(
+        update_result: UpdateResult = self._db[item.table].update_one(
             item.pk, {"$set": item.to_dict()}
         )
 
@@ -68,7 +68,7 @@ class MongoDBClient:
         :return: A list of matching documents.
         """
         logging.info(f"Finding {item.to_dict()} in {item.table}")
-        return [item.from_dict(a) for a in self.db[item.table].find(item.to_dict())]
+        return [item.from_dict(a) for a in self._db[item.table].find(item.to_dict())]
 
     def count(self, item: MongoBaseModel) -> int:
         """Count the number of documents in a collection that match an item.
@@ -77,4 +77,4 @@ class MongoDBClient:
         :return: The number of matching documents.
         """
         logging.info(f"Counting {item.to_dict()} in {item.table}")
-        return self.db[item.table].count_documents(item.to_dict())
+        return self._db[item.table].count_documents(item.to_dict())

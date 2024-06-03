@@ -54,8 +54,11 @@ def create_acquisition_watcher_dag(instrument_id: str) -> None:
             task_id=Tasks.START_ACQUISITION_HANDLER,
             trigger_dag_id=f"{Dags.ACQUISITON_HANDLER}.{instrument_id}",
             # example how to pass parameters to the python callable
-            conf={DagParams.RAW_FILE_NAME: "some_file.raw"},
+            conf={
+                DagParams.RAW_FILE_NAME: "raw_file_{{ now('YYYYMMDD-HH:mm:ss') }}.raw"
+            },
         )
+        # TODO: how to get instrument id from files? how is backup folder organized?
 
     wait_for_finished_acquisition_ >> start_acquisition_handler
 

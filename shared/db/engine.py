@@ -1,6 +1,7 @@
 """Module to handle the database connection and the schema."""
 
 import logging
+import os
 from datetime import datetime
 
 from mongoengine import (
@@ -12,21 +13,31 @@ from mongoengine import (
     disconnect,
 )
 
-DEFAULT_HOST = "mongodb://mongodb-service"
+DEFAULT_PROTOCOL = "mongodb://"
+DEFAULT_HOST = "mongodb-service"
 
-DEFAULT_DB_NAME = "krakendb"
+DB_NAME = "krakendb"
+DB_PORT = int(os.environ.get("MONGO_PORT", 27017))
 
-DEFAULT_DB_PORT = 27017
+
+USER = os.environ.get("MONGO_USER")
+PASSWORD = os.environ.get("MONGO_PASSWORD")
 
 
-def connect_db() -> None:
+def connect_db(host: str = DEFAULT_HOST, port: int = DB_PORT) -> None:
     """Connect to the database."""
     try:
         disconnect()
-        # TODO: take this from environment
-        host = f"{DEFAULT_HOST}:{DEFAULT_DB_PORT}/{DEFAULT_DB_NAME}"
-        logging.info("Connecting to database host {host}")
-        connect(host=host)
+        logging.info(f"Connecting to db: {host=} {DB_NAME=} {port=} {USER=}")
+
+        connect(
+            DB_NAME,
+            host=host,
+            port=port,
+            username=USER,
+            password=PASSWORD,
+            authentication_source=DB_NAME,
+        )
     except ConnectionFailure:
         pass
         # A different connection with alias `default` was already registered.

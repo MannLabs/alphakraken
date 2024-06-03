@@ -162,6 +162,8 @@ services:
       timeout: 10s
       retries: 5
       start_period: 30s
+    env_file:
+      - path: ./envs/.dev.env
     environment:
       <<: *airflow-common-env
       # Required to handle warm shutdown of the celery workers properly
@@ -172,6 +174,8 @@ services:
       <<: *airflow-common-depends-on
       airflow-init:
         condition: service_completed_successfully
+      mongodb-service:
+        condition: service_healthy
 
   airflow-triggerer:
     <<: *airflow-common
@@ -288,11 +292,23 @@ services:
         condition: service_completed_successfully
 
   mongodb-service:
+    # cf. https://www.mongodb.com/resources/products/compatibilities/docker
     image: mongo:6-jammy
     ports:
       - '27017:27017'
     volumes:
       - ${AIRFLOW_PROJ_DIR:-.}/db_data:/data/db
+      # init the DB: https://stackoverflow.com/a/53522699
+      - ./init-mongo.sh:/docker-entrypoint-initdb.d/init-mongo.sh
+    env_file:
+      - path: ./envs/.env-mongo
+      - path: ./envs/.dev.env
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "'db.runCommand(\"ping\").ok'", "--quiet"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
 
 volumes:
   postgres-db-volume:

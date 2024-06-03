@@ -38,7 +38,8 @@ python -m pytest
 If you encounter a `sqlite3.OperationalError: no such table: dag`, run `airflow db init` once.
 
 ### Connect to the DB
-Use e.g. MongoDB Compass to connect to the MongoDB running in Docker using the url `localhost:27017`.
+Use e.g. MongoDB Compass to connect to the MongoDB running in Docker using the url `localhost:27017`,
+the credentials (e.g. defined in `envs/.dev.env`) and make sure the "Authentication Database" is "krakendb".
 
 ### pre-commit hooks
 It is highly recommended to use the provided pre-commit hooks, as the CI pipeline enforces all checks therein to

@@ -47,3 +47,9 @@ class XComKeys:
     """Keys for accessing XCom."""
 
     RAW_FILE_NAME: str = "raw_file_name"
+
+
+class InstrumentKeys:
+    """Keys for accessing instrument data."""
+
+    RAW_DATA_PATH = "raw_data_path"

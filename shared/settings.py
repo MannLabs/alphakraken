@@ -29,3 +29,9 @@ class InternalPaths:
     """Paths to directories."""
 
     APC_PATH_PREFIX = "/opt/airflow/acquisition_pcs"
+
+
+class Timings:
+    """Timing constants."""
+
+    FILE_CREATION_POKE_INTERVAL_S = 60

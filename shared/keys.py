@@ -13,8 +13,9 @@ class Dags:
 class Tasks:
     """Task Names."""
 
+    WAIT_FOR_FILE_CREATION: str = "wait_for_file_creation"
+    FILTER_RAW_FILES: str = "filter_raw_files"
     START_ACQUISITION_HANDLER: str = "start_acquisition_handler"
-    WAIT_FOR_FINISHED_ACQUISITION: str = "wait_for_finished_acquisition"
 
     ADD_TO_DB: str = "add_to_db"
     PREPARE_QUANTING: str = "prepare_quanting"

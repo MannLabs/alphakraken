@@ -6,18 +6,16 @@ from unittest.mock import MagicMock, patch
 
 from plugins.sensors.file_sensor import FileCreationSensor
 
-SOME_INSTRUMENT_ID = "some_instrument_id"
-
 
 def get_sensor() -> FileCreationSensor:
     """Get an instance of the sensor."""
-    return FileCreationSensor(task_id="some_task_id", instrument_id=SOME_INSTRUMENT_ID)
+    with patch("plugins.sensors.file_sensor.get_instrument_data_path") as mock_get:
+        mock_get.return_value = Path("/opt/airflow/acquisition_pcs/apc_tims_1")
+        return FileCreationSensor(
+            task_id="some_task_id", instrument_id="some_instrument_id"
+        )
 
 
-@patch.dict(
-    "plugins.sensors.file_sensor.INSTRUMENTS",
-    {SOME_INSTRUMENT_ID: {"raw_data_path": "apc_tims_1"}},
-)
 @patch("plugins.sensors.file_sensor.Observer")
 @patch("plugins.sensors.file_sensor.FileCreationEventHandler")
 def test_poke_file_not_created(
@@ -43,10 +41,6 @@ def test_poke_file_not_created(
     mock_observer.return_value.join.assert_not_called()
 
 
-@patch.dict(
-    "plugins.sensors.file_sensor.INSTRUMENTS",
-    {SOME_INSTRUMENT_ID: {"raw_data_path": "apc_tims_1"}},
-)
 @patch("plugins.sensors.file_sensor.Observer")
 @patch("plugins.sensors.file_sensor.FileCreationEventHandler")
 def test_poke_file_created(

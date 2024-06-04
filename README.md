@@ -20,16 +20,20 @@ Start the docker containers providing an all-in-one solution with
 ```bash
 docker-compose up
 ```
-The airflow webserver runs on http://localhost:8080/, the streamlit app on http://localhost:8051/ .
+The airflow webserver runs on http://localhost:8080/ (default credentials: `airflow`/`airflow`), the streamlit app on http://localhost:8051/ .
 
 Alternatively, run airflow without Docker using
 ```bash
-airflow standalone
+MONGO_USER=<mongo_user>
 ```
+The login password to the UI is displayed in the logs below the line `Airflow is ready`.
+You need to point the `dags_folder` variable in ` ~/airflow/airflow.cfg` to the absolute path of the `dags` folder.
 
-Note that you will need to have a MongoDB running on the default port `27017`.
-Also, you will need to fire up the streamlit app yourself by `docker-compose run --service-ports streamlit-app`.
+Note that you will need to have a MongoDB running on the default port `27017`, e.g. by
+`docker-compose run --service-ports mongodb-service`
+Also, you will need to fire up the streamlit app yourself by `docker-compose run -e MONGO_USER=<mongo_user>
 
+Note that currently, the docker version is recommended.
 
 ### Tests
 Run the tests with

@@ -11,7 +11,7 @@ from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
 from watchdog.utils.dirsnapshot import DirectorySnapshot
 
-from shared.keys import InstrumentKeys
+from shared.keys import InstrumentKeys, XComKeys
 from shared.settings import INSTRUMENTS, InternalPaths
 from shared.utils import put_xcom
 
@@ -67,7 +67,10 @@ class FileCreationSensor(BaseSensorOperator):
             self._observer.stop()
             self._observer.join()
 
-            put_xcom(context["task_instance"], "directory_content", dir_snapshot.paths)
+            paths = [str(c) for c in dir_snapshot.paths]
+            put_xcom(
+                context["task_instance"], XComKeys.DIRECTORY_CONTENT, sorted(paths)
+            )
 
             return True
 

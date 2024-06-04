@@ -36,7 +36,7 @@ def test_poke_file_not_created(
     result = sensor.poke({"task_instance": ti})
 
     # then
-    assert result is not False
+    assert not result
     assert sensor._path_to_watch == Path("/opt/airflow/acquisition_pcs/apc_tims_1")
     mock_observer.return_value.schedule.assert_called_once()
     mock_observer.return_value.start.assert_called_once()
@@ -63,6 +63,7 @@ def test_poke_file_created(
     # given
     mock_event_handler.return_value.file_created = True
     mock_observer.return_value.is_alive.return_value = True
+    mock_dir_snapshot.return_value.paths = {Path("some_path_1"), Path("some_path_2")}
 
     ti = MagicMock()
 
@@ -77,5 +78,5 @@ def test_poke_file_created(
     mock_observer.return_value.stop.assert_called_once()
     mock_observer.return_value.join.assert_called_once()
     mock_put_xcom.assert_called_once_with(
-        ti, "directory_content", mock_dir_snapshot.return_value.paths
+        ti, "directory_content", ["some_path_1", "some_path_2"]
     )

@@ -20,9 +20,8 @@ def get_sensor() -> FileCreationSensor:
 )
 @patch("plugins.sensors.file_sensor.Observer")
 @patch("plugins.sensors.file_sensor.FileCreationEventHandler")
-@patch("plugins.sensors.file_sensor.put_xcom")
 def test_poke_file_not_created(
-    mock_put_xcom: MagicMock, mock_event_handler: MagicMock, mock_observer: MagicMock
+    mock_event_handler: MagicMock, mock_observer: MagicMock
 ) -> None:
     """Test poke method when file is not created and observer not alive."""
     # given
@@ -42,7 +41,6 @@ def test_poke_file_not_created(
     mock_observer.return_value.start.assert_called_once()
     mock_observer.return_value.stop.assert_not_called()
     mock_observer.return_value.join.assert_not_called()
-    mock_put_xcom.assert_not_called()
 
 
 @patch.dict(
@@ -51,11 +49,7 @@ def test_poke_file_not_created(
 )
 @patch("plugins.sensors.file_sensor.Observer")
 @patch("plugins.sensors.file_sensor.FileCreationEventHandler")
-@patch("plugins.sensors.file_sensor.DirectorySnapshot")
-@patch("plugins.sensors.file_sensor.put_xcom")
 def test_poke_file_created(
-    mock_put_xcom: MagicMock,
-    mock_dir_snapshot: MagicMock,
     mock_event_handler: MagicMock,
     mock_observer: MagicMock,
 ) -> None:
@@ -63,7 +57,6 @@ def test_poke_file_created(
     # given
     mock_event_handler.return_value.file_created = True
     mock_observer.return_value.is_alive.return_value = True
-    mock_dir_snapshot.return_value.paths = {Path("some_path_1"), Path("some_path_2")}
 
     ti = MagicMock()
 
@@ -77,6 +70,3 @@ def test_poke_file_created(
     mock_observer.return_value.start.assert_not_called()
     mock_observer.return_value.stop.assert_called_once()
     mock_observer.return_value.join.assert_called_once()
-    mock_put_xcom.assert_called_once_with(
-        ti, "directory_content", ["some_path_1", "some_path_2"]
-    )

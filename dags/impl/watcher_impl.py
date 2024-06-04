@@ -2,6 +2,7 @@
 # ruff: noqa: E402  # Module level import not at top of file
 
 import logging
+import os
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -16,16 +17,16 @@ if root_path not in sys.path:
     sys.path.insert(0, root_path)
 from shared.db.engine import get_raw_file_names_from_db
 from shared.keys import DagParams, Dags, OpArgs, XComKeys
-from shared.utils import get_xcom, put_xcom
+from shared.utils import get_instrument_data_path, get_xcom, put_xcom
 
 
-def filter_raw_files(ti: TaskInstance, **kwargs) -> None:
-    """Filter out raw files that are already in the database and push the remainer to XCom."""
-    del kwargs  # unused
+def get_raw_files(ti: TaskInstance, **kwargs) -> None:
+    """Get all raw files that are not already in the database and push to XCom."""
+    instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
+    instrument_data_path = get_instrument_data_path(instrument_id)
 
-    directory_content = get_xcom(ti, XComKeys.DIRECTORY_CONTENT)
-    if not directory_content:
-        raise ValueError("filter_raw_files: No raw files found in XCOM.")
+    if not (directory_content := os.listdir(instrument_data_path)):
+        raise ValueError("get_raw_files: No raw files found in XCOM.")
 
     raw_file_names = [Path(directory).name for directory in directory_content]
 

@@ -16,7 +16,7 @@ root_path = str(Path(__file__).parent / Path(".."))
 if root_path not in sys.path:
     sys.path.insert(0, root_path)
 
-from dags.impl.watcher_impl import filter_raw_files, start_acquisition_handler
+from dags.impl.watcher_impl import get_raw_files, start_acquisition_handler
 from plugins.sensors.file_sensor import FileCreationSensor
 from shared.keys import (
     DAG_DELIMITER,
@@ -52,9 +52,10 @@ def create_acquisition_watcher_dag(instrument_id: str) -> None:
             poke_interval=Timings.FILE_CREATION_POKE_INTERVAL_S,
         )
 
-        filter_raw_files_ = PythonOperator(
-            task_id=Tasks.FILTER_RAW_FILES,
-            python_callable=filter_raw_files,
+        get_raw_files_ = PythonOperator(
+            task_id=Tasks.GET_RAW_FILES,
+            python_callable=get_raw_files,
+            op_kwargs={OpArgs.INSTRUMENT_ID: instrument_id},
         )
 
         start_acquisition_handler_ = PythonOperator(
@@ -63,7 +64,7 @@ def create_acquisition_watcher_dag(instrument_id: str) -> None:
             op_kwargs={OpArgs.INSTRUMENT_ID: instrument_id},
         )
 
-    wait_for_file_creation_ >> filter_raw_files_ >> start_acquisition_handler_
+    wait_for_file_creation_ >> get_raw_files_ >> start_acquisition_handler_
 
 
 for instrument_id in INSTRUMENTS:

@@ -1,24 +1,31 @@
 """Tests for the watcher_impl module."""
 
+from pathlib import Path
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
-from dags.impl.watcher_impl import filter_raw_files, start_acquisition_handler
+from dags.impl.watcher_impl import get_raw_files, start_acquisition_handler
 from shared.keys import OpArgs, XComKeys
 
+SOME_INSTRUMENT_ID = "some_instrument_id"
 
-@patch("dags.impl.watcher_impl.get_xcom")
-@patch("dags.impl.watcher_impl.put_xcom")
+
+@patch("dags.impl.watcher_impl.get_instrument_data_path")
+@patch("os.listdir")
 @patch("dags.impl.watcher_impl.get_raw_file_names_from_db")
-def test_filter_raw_files_with_existing_files_in_db(
-    mock_get_raw_files_from_db: MagicMock,
+@patch("dags.impl.watcher_impl.put_xcom")
+def test_get_raw_files_with_existing_files_in_db(
     mock_put_xcom: MagicMock,
-    mock_get_xcom: MagicMock,
+    mock_get_raw_files_from_db: MagicMock,
+    mock_os_listdir: MagicMock,
+    mock_get_instrument_data_path: MagicMock,
 ) -> None:
-    """Test filter_raw_files with existing files in the database."""
+    """Test get_raw_files with existing files in the database."""
     # Given a list of raw files, some of which are already in the database
-    mock_get_xcom.return_value = [
+    mock_get_instrument_data_path.return_value = Path("path/to")
+
+    mock_os_listdir.return_value = [
         "path/to/file1.raw",
         "path/to/file2.raw",
         "path/to/file3.raw",
@@ -27,23 +34,27 @@ def test_filter_raw_files_with_existing_files_in_db(
     ti = Mock()
 
     # Call the function
-    filter_raw_files(ti)
+    get_raw_files(ti, **{OpArgs.INSTRUMENT_ID: SOME_INSTRUMENT_ID})
 
     # The function should call put_xcom with the correct arguments
     mock_put_xcom.assert_called_once_with(ti, XComKeys.RAW_FILE_NAMES, ["file3.raw"])
 
 
-@patch("dags.impl.watcher_impl.get_xcom")
-@patch("dags.impl.watcher_impl.put_xcom")
+@patch("dags.impl.watcher_impl.get_instrument_data_path")
+@patch("os.listdir")
 @patch("dags.impl.watcher_impl.get_raw_file_names_from_db")
-def test_filter_raw_files_with_no_existing_files_in_db(
-    mock_get_raw_files_from_db: MagicMock,
+@patch("dags.impl.watcher_impl.put_xcom")
+def test_get_raw_files_with_no_existing_files_in_db(
     mock_put_xcom: MagicMock,
-    mock_get_xcom: MagicMock,
+    mock_get_raw_files_from_db: MagicMock,
+    mock_os_listdir: MagicMock,
+    mock_get_instrument_data_path: MagicMock,
 ) -> None:
-    """Test filter_raw_files with no existing files in the database."""
-    # Given a list of raw files, none of which are in the database
-    mock_get_xcom.return_value = [
+    """Test get_raw_files with no existing files in the database."""
+    # Given a list of raw files, some of which are already in the database
+    mock_get_instrument_data_path.return_value = Path("path/to")
+
+    mock_os_listdir.return_value = [
         "path/to/file1.raw",
         "path/to/file2.raw",
         "path/to/file3.raw",
@@ -52,7 +63,7 @@ def test_filter_raw_files_with_no_existing_files_in_db(
     ti = Mock()
 
     # Call the function
-    filter_raw_files(ti)
+    get_raw_files(ti, **{OpArgs.INSTRUMENT_ID: SOME_INSTRUMENT_ID})
 
     # The function should call put_xcom with the correct arguments
     mock_put_xcom.assert_called_once_with(
@@ -60,22 +71,27 @@ def test_filter_raw_files_with_no_existing_files_in_db(
     )
 
 
-@patch("dags.impl.watcher_impl.get_xcom")
-@patch("dags.impl.watcher_impl.put_xcom")
+@patch("dags.impl.watcher_impl.get_instrument_data_path")
+@patch("os.listdir")
 @patch("dags.impl.watcher_impl.get_raw_file_names_from_db")
-def test_filter_raw_files_with_empty_directory(
-    mock_get_raw_files_from_db: MagicMock,
+@patch("dags.impl.watcher_impl.put_xcom")
+def test_get_raw_files_with_empty_directory(
     mock_put_xcom: MagicMock,
-    mock_get_xcom: MagicMock,
+    mock_get_raw_files_from_db: MagicMock,
+    mock_os_listdir: MagicMock,
+    mock_get_instrument_data_path: MagicMock,
 ) -> None:
-    """Test filter_raw_files with an empty directory."""
-    # Given an empty directory
-    mock_get_xcom.return_value = []
+    """Test get_raw_files with an empty directory."""
+    # Given a list of raw files, some of which are already in the database
+    mock_get_instrument_data_path.return_value = Path("path/to")
+
+    mock_os_listdir.return_value = []
+
     ti = Mock()
 
     # Call the function
     with pytest.raises(ValueError):
-        filter_raw_files(ti)
+        get_raw_files(ti, **{OpArgs.INSTRUMENT_ID: SOME_INSTRUMENT_ID})
 
     # The function should call put_xcom with the correct arguments
     mock_put_xcom.assert_not_called()

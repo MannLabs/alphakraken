@@ -14,7 +14,7 @@ class Tasks:
     """Task Names."""
 
     WAIT_FOR_FILE_CREATION: str = "wait_for_file_creation"
-    FILTER_RAW_FILES: str = "filter_raw_files"
+    GET_RAW_FILES: str = "get_raw_files"
     START_ACQUISITION_HANDLER: str = "start_acquisition_handler"
 
     ADD_TO_DB: str = "add_to_db"
@@ -48,8 +48,6 @@ class XComKeys:
     """Keys for accessing XCom."""
 
     RAW_FILE_NAME: str = "raw_file_name"
-    DIRECTORY_CONTENT: str = "directory_content"
-
     RAW_FILE_NAMES: str = "raw_file_names"
 
 

@@ -45,7 +45,7 @@ If you encounter a `sqlite3.OperationalError: no such table: dag`, run `airflow 
 ### Manual testing
 1. Run the docker-compose command above and log into the airflow UI.
 2. Unpause all DAGs. The "watchers" should start running.
-3. Create a test file: `I=$((I+1)); touch test_folders/acquisition_pcs/apc_test6/test_file_${I}.raw`
+3. Create a test file: `I=$((I+1)); touch test_folders/acquisition_pcs/apc_tims_1/test_file_${I}.raw`
 4. Wait until it appears in the streamlit UI.
 
 ### Connect to the DB

@@ -8,7 +8,7 @@ from pathlib import Path
 from airflow.models import TaskInstance
 
 # TODO: find a better way to unify import of modules 'dags', 'shared', ... between docker and standalone
-root_path = str(Path(__file__).parent / Path(".."))
+root_path = str(Path(__file__).parent / Path("../.."))
 if root_path not in sys.path:
     sys.path.insert(0, root_path)
 from shared.db.engine import RawFile, connect_db

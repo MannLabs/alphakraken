@@ -59,6 +59,12 @@ class RawFile(Document):
     created_at = DateTimeField(default=datetime.now)
 
 
+def get_raw_file_names_from_db(raw_file_names: list[str]) -> list[str]:
+    """Get raw files from the database with the given names."""
+    connect_db()
+    return [r.name for r in RawFile.objects.filter(name__in=raw_file_names)]
+
+
 def add_new_raw_file_to_db(
     raw_file_name: str, *, instrument_id: str, raw_file_size: float
 ) -> None:
@@ -72,9 +78,3 @@ def add_new_raw_file_to_db(
     )
     # this will fail if the file already exists
     raw_file.save(force_insert=True)
-
-
-def get_raw_file_names_from_db(raw_file_names: list[str]) -> list[str]:
-    """Get raw files from the database with the given names."""
-    connect_db()
-    return [r.name for r in RawFile.objects.filter(name__in=raw_file_names)]

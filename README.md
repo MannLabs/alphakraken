@@ -20,7 +20,7 @@ Start the docker containers providing an all-in-one solution with
 ```bash
 docker compose up
 ```
-The airflow webserver runs on http://localhost:8080/ (default credentials: `airflow`/`airflow`), the streamlit app on http://localhost:8051/ .
+The airflow webserver runs on http://localhost:8080/ (default credentials: `airflow`/`airflow`), the streamlit app on http://localhost:8501/ .
 
 Alternatively, run airflow without Docker using
 ```bash
@@ -75,7 +75,7 @@ pre-commit run --all-files
 within the airflow containers (otherwise, `root` would be used).
 4. Set up the network bind mounts (see below).
 5. Run `docker compose up -d` to start the services.
-6. Access the Airflow UI at `http://<kraken_pc_ip>:8080/` and the Streamlit app at `http://<kraken_pc_ip>:8051/`.
+6. Access the Airflow UI at `http://<kraken_pc_ip>:8080/` and the Streamlit app at `http://<kraken_pc_ip>:8501/`.
 
 #### Some useful commands:
 See state of containers

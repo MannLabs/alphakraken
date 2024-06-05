@@ -85,7 +85,7 @@ x-airflow-common:
     - ${AIRFLOW_PROJ_DIR:-.}/test_folders/acquisition_pcs:/opt/airflow/acquisition_pcs
     # ADD INSTRUMENTS HERE:
     # Test2 on ms14
-    - /home/kraken-user/alphakraken/sandbox/mounts/ms14/Test2/2024_06/:/opt/airflow/acquisition_pcs/test2
+    - /home/kraken-user/alphakraken/sandbox/mounts/ms14/Test2/2024_06/:/opt/airflow/acquisition_pcs/astral_1
 
   user: "${AIRFLOW_UID:-50000}:0"
   depends_on:

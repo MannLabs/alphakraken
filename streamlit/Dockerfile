@@ -18,7 +18,7 @@ RUN  --mount=type=cache,target=/root/.cache/pip \
      && pip install -r requirements_streamlit.txt
 
 COPY streamlit streamlit
-COPY shared/db streamlit/shared/db
+COPY shared streamlit/shared
 
 EXPOSE 8501
 

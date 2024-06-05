@@ -18,7 +18,7 @@ pip install -r requirements_development.txt
 
 Start the docker containers providing an all-in-one solution with
 ```bash
-docker-compose up
+docker compose up
 ```
 The airflow webserver runs on http://localhost:8080/ (default credentials: `airflow`/`airflow`), the streamlit app on http://localhost:8051/ .
 
@@ -30,8 +30,8 @@ The login password to the UI is displayed in the logs below the line `Airflow is
 You need to point the `dags_folder` variable in ` ~/airflow/airflow.cfg` to the absolute path of the `dags` folder.
 
 Note that you will need to have a MongoDB running on the default port `27017`, e.g. by
-`docker-compose run --service-ports mongodb-service`
-Also, you will need to fire up the streamlit app yourself by `docker-compose run -e MONGO_USER=<mongo_user>
+`docker compose run --service-ports mongodb-service`
+Also, you will need to fire up the streamlit app yourself by `docker compose run -e MONGO_USER=<mongo_user>
 
 Note that currently, the docker version is recommended.
 
@@ -43,7 +43,7 @@ python -m pytest
 If you encounter a `sqlite3.OperationalError: no such table: dag`, run `airflow db init` once.
 
 ### Manual testing
-1. Run the docker-compose command above and log into the airflow UI.
+1. Run the `docker compose` command above and log into the airflow UI.
 2. Unpause all DAGs. The "watchers" should start running.
 3. Create a test file: `I=$((I+1)); touch test_folders/acquisition_pcs/apc_tims_1/test_file_${I}.raw`
 4. Wait until it appears in the streamlit UI.

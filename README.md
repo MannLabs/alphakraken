@@ -64,3 +64,60 @@ You can run the checks yourself using:
 ```bash
 pre-commit run --all-files
 ```
+
+## Deployment
+### Initial setup of Kraken PC
+1. Install
+[Docker Compose](https://docs.docker.com/engine/install/ubuntu/) and
+[Docker](https://docs.docker.com/compose/install/linux/#install-using-the-repository).
+2. Clone the repository into `/home/kraken-user/alphakraken/sandbox/alphakraken`.
+3. `cd` into this directory and execute `echo -e "AIRFLOW_UID=$(id -u)" > .env` to set the current user as the user
+within the airflow containers (otherwise, `root` would be used).
+4. Set up the network bind mounts (see below).
+5. Run `docker compose up -d` to start the services.
+6. Access the Airflow UI at `http://<kraken_pc_ip>:8080/` and the Streamlit app at `http://<kraken_pc_ip>:8051/`.
+
+#### Some useful commands:
+See state of containers
+```bash
+docker ps
+```
+
+Watch logs for a given service (omit the last part to see all logs)
+```bash
+docker compose logs -f streamlit-app
+```
+
+
+### Set up network bind mounts
+1. Create the mount target directories:
+```bash
+mkdir -p /home/kraken-user/alphakraken/sandbox/mounts/ms14
+```
+2. Mount the network drives (TODO describe persistent mount):
+```bash
+sudo mount -t cifs -o username=krakenuser //samba-pool-backup/pool-backup /home/kraken-user/alphakraken/sandbox/mounts/ms14
+```
+Note: for now, user `krakenuser` should only have read access to the pool folder.
+
+### Add a new instrument
+1. Mount the network drive as described above such that the new instrument's files are accessible,
+e.g. at  `/home/kraken-user/alphakraken/sandbox/mounts/ms14/Test2`.
+
+2. In `docker-compose.yml`, locate the `# ADD INSTRUMENTS HERE` comment and add a new entry for the instrument:
+```
+# Test2 on ms14:
+- /home/kraken-user/alphakraken/sandbox/mounts/ms14/Test2:/opt/airflow/acquisition_pcs/astral_1
+```
+where `astral_1` can be freely chosen as long as it is unique.
+
+3. In the `settings.py:INSTRUMENTS` dictionary, add a new entry
+```
+    "test2": {
+        InstrumentKeys.RAW_DATA_PATH: "astral_1",
+    },
+```
+
+4. Shut down and restart the containers with `docker compose down` and `docker compose up -d`.
+
+5. Open the airflow UI and unpause the new `*.test2` DAGs.

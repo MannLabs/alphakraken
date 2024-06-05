@@ -9,6 +9,8 @@ from airflow.sensors.base import BaseSensorOperator
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
 
+# uncomment for local testing if watchdog does not work on Mac/Docker:
+# from watchdog.observers.polling import PollingObserver as Observer
 from shared.utils import get_instrument_data_path
 
 

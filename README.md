@@ -64,3 +64,11 @@ You can run the checks yourself using:
 ```bash
 pre-commit run --all-files
 ```
+
+
+## FAQ
+Q: The `acquisition_watcher` does not react on new files when testing locally on docker on Mac.
+
+A: In the Docker settings "Choose file sharing implementation for your containers", select "VirtioFS".
+If you cannot do that, you can fix it locally by substituting `watchdog.observers.Observer` with `PollingObserver`
+(see comment in `file_sensor.py`).

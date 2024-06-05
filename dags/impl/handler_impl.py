@@ -11,34 +11,27 @@ from airflow.models import TaskInstance
 root_path = str(Path(__file__).parent / Path("../.."))
 if root_path not in sys.path:
     sys.path.insert(0, root_path)
-from shared.db.engine import RawFile, connect_db
-from shared.keys import DagContext, DagParams, XComKeys
+from shared.db.engine import RawFile, add_new_raw_file_to_db, connect_db
+from shared.keys import DagContext, DagParams, OpArgs, XComKeys
 from shared.settings import RawFileStatus
-from shared.utils import get_xcom, put_xcom
+from shared.utils import get_instrument_data_path, get_xcom, put_xcom
 
 
 def add_to_db(ti: TaskInstance, **kwargs) -> None:
-    """TODO."""
+    """Add the file to the database with initial status and basic information."""
     # example how to retrieve parameters from the context
     raw_file_name = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_NAME]
-    logging.info(f"Got {raw_file_name=}")
+    instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
 
-    connect_db()
-    raw_file = RawFile(name=raw_file_name, status=RawFileStatus.NEW)
+    logging.info(f"Got {raw_file_name=} on {instrument_id=}")
 
-    # example: insert data to DB
-    raw_file.save(force_insert=True)
+    raw_file_path = get_instrument_data_path(instrument_id) / raw_file_name
+    raw_file_size = raw_file_path.stat().st_size / 1024**3
+    logging.info(f"Got {raw_file_size=} GB")
 
-    # example: get data from DB
-
-    for raw_file in RawFile.objects:
-        logging.info(raw_file.name)
-
-    for raw_file in RawFile.objects(name=raw_file_name):
-        logging.info(raw_file.name)
-
-    # IMPLEMENT:
-    # create the alphadia inputfile and store it on the shared volume
+    add_new_raw_file_to_db(
+        raw_file_name, instrument_id=instrument_id, raw_file_size=raw_file_size
+    )
 
     # push to XCOM
     put_xcom(ti, XComKeys.RAW_FILE_NAME, raw_file_name)

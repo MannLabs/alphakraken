@@ -8,8 +8,8 @@ INSTRUMENTS = {
         # raw data path relative to InternalPaths.APC_PATH_PREFIX, must be mounted in docker-compose.yml
         InstrumentKeys.RAW_DATA_PATH: "apc_tims_1",
     },
-    "test7": {
-        InstrumentKeys.RAW_DATA_PATH: "apc_tims_2",
+    "test2": {
+        InstrumentKeys.RAW_DATA_PATH: "astral_1",
     },
 }
 

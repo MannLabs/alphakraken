@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, Mock, patch
 import pytest
 
 from dags.impl.handler_impl import add_to_db
-from shared.keys import DagContext, DagParams, OpArgs, XComKeys
+from plugins.common.keys import DagContext, DagParams, OpArgs, XComKeys
 
 
 @patch("dags.impl.handler_impl.get_instrument_data_path")

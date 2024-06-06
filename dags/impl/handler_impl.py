@@ -7,14 +7,15 @@ from pathlib import Path
 
 from airflow.models import TaskInstance
 
-# TODO: find a better way to unify import of modules 'dags', 'shared', ... between docker and standalone
+from plugins.common.keys import DagContext, DagParams, OpArgs, XComKeys
+from plugins.common.settings import RawFileStatus
+from plugins.common.utils import get_instrument_data_path, get_xcom, put_xcom
+
+# TODO: find a better way to unify import of modules 'dags', 'common', ... between docker and standalone
 root_path = str(Path(__file__).parent / Path("../.."))
 if root_path not in sys.path:
     sys.path.insert(0, root_path)
 from shared.db.engine import RawFile, add_new_raw_file_to_db, connect_db
-from shared.keys import DagContext, DagParams, OpArgs, XComKeys
-from shared.settings import RawFileStatus
-from shared.utils import get_instrument_data_path, get_xcom, put_xcom
 
 
 def add_to_db(ti: TaskInstance, **kwargs) -> None:

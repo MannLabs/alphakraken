@@ -5,8 +5,8 @@ from pathlib import Path
 
 from airflow.models import TaskInstance
 
-from shared.keys import InstrumentKeys
-from shared.settings import INSTRUMENTS, InternalPaths
+from plugins.common.keys import InstrumentKeys
+from plugins.common.settings import INSTRUMENTS, InternalPaths
 
 
 def put_xcom(ti: TaskInstance, key: str, value: str | list) -> None:

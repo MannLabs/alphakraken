@@ -3,28 +3,21 @@
 
 from __future__ import annotations
 
-import sys
 from datetime import timedelta
-from pathlib import Path
 
 import pendulum
 from airflow.models.dag import DAG
 from airflow.operators.python import PythonOperator
+from impl.watcher_impl import get_raw_files, start_acquisition_handler
 
-# TODO: find a better way to unify import of modules 'dags', 'shared', ... between docker and standalone
-root_path = str(Path(__file__).parent / Path(".."))
-if root_path not in sys.path:
-    sys.path.insert(0, root_path)
-
-from dags.impl.watcher_impl import get_raw_files, start_acquisition_handler
-from plugins.sensors.file_sensor import FileCreationSensor
-from shared.keys import (
+from plugins.common.keys import (
     DAG_DELIMITER,
     Dags,
     OpArgs,
     Tasks,
 )
-from shared.settings import INSTRUMENTS, Timings
+from plugins.common.settings import INSTRUMENTS, Timings
+from plugins.sensors.file_sensor import FileCreationSensor
 
 
 def create_acquisition_watcher_dag(instrument_id: str) -> None:

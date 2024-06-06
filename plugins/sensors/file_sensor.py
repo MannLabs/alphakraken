@@ -14,7 +14,7 @@ from watchdog.events import FileSystemEvent, FileSystemEventHandler
 # from watchdog.observers import Observer
 from watchdog.observers.polling import PollingObserver as Observer
 
-from shared.utils import get_instrument_data_path
+from plugins.common.utils import get_instrument_data_path
 
 
 class FileCreationEventHandler(FileSystemEventHandler):

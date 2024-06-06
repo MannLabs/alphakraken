@@ -3,20 +3,12 @@
 # ruff: noqa: E402  # Module level import not at top of file
 from __future__ import annotations
 
-import sys
 from datetime import timedelta
-from pathlib import Path
 
 from airflow.models import Param
 from airflow.models.dag import DAG
 from airflow.operators.python import PythonOperator
-
-# TODO: find a better way to unify import of modules 'dags', 'shared', ... between docker and standalone
-root_path = str(Path(__file__).parent / Path(".."))
-if root_path not in sys.path:
-    sys.path.insert(0, root_path)
-
-from dags.impl.handler_impl import (
+from impl.handler_impl import (
     add_to_db,
     compute_metrics,
     monitor_quanting,
@@ -24,8 +16,9 @@ from dags.impl.handler_impl import (
     run_quanting,
     upload_metrics,
 )
-from shared.keys import DAG_DELIMITER, Dags, OpArgs, Tasks
-from shared.settings import INSTRUMENTS
+
+from plugins.common.keys import DAG_DELIMITER, Dags, OpArgs, Tasks
+from plugins.common.settings import INSTRUMENTS
 
 
 def create_acquisition_handler_dag(instrument_id: str) -> None:

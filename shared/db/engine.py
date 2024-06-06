@@ -14,7 +14,7 @@ from mongoengine import (
     disconnect,
 )
 
-from shared.settings import RawFileStatus
+from plugins.common.settings import RawFileStatus
 
 DOCKER_DB_HOST = "mongodb-service"
 DB_HOST = os.environ.get("MONGO_HOST", DOCKER_DB_HOST)  # localhost

@@ -5,12 +5,12 @@ from unittest.mock import MagicMock, patch
 import pytest
 from mongoengine import ConnectionFailure
 
+from plugins.common.settings import RawFileStatus
 from shared.db.engine import (
     add_new_raw_file_to_db,
     connect_db,
     get_raw_file_names_from_db,
 )
-from shared.settings import RawFileStatus
 
 
 @patch("shared.db.engine.disconnect")

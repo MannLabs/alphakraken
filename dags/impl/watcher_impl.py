@@ -11,13 +11,14 @@ import pytz
 from airflow.models import DagRun, TaskInstance
 from airflow.utils.types import DagRunType
 
-# TODO: find a better way to unify import of modules 'dags', 'shared', ... between docker and standalone
+from plugins.common.keys import DagParams, Dags, OpArgs, XComKeys
+from plugins.common.utils import get_instrument_data_path, get_xcom, put_xcom
+
+# TODO: find a better way to unify import of modules 'dags', 'common', ... between docker and standalone
 root_path = str(Path(__file__).parent / Path("../.."))
 if root_path not in sys.path:
     sys.path.insert(0, root_path)
 from shared.db.engine import get_raw_file_names_from_db
-from shared.keys import DagParams, Dags, OpArgs, XComKeys
-from shared.utils import get_instrument_data_path, get_xcom, put_xcom
 
 
 def get_raw_files(ti: TaskInstance, **kwargs) -> None:

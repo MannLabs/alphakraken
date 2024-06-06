@@ -11,8 +11,11 @@ conda activate alphakraken
 pip install apache-airflow==${AIRFLOW_VERSION} --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-${AIRFLOW_VERSION}/constraints-${PYTHON_VERSION}.txt"
 ```
 
-Install requirements for developing and testing with
+Install all requirements for running, developing and testing with
 ```bash
+pip install -r airflow_src/requirements_airflow.txt
+pip install -r shared/requirements_shared.txt
+pip install -r webapp/requirements_webapp.txt
 pip install -r requirements_development.txt
 ```
 

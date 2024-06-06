@@ -10,11 +10,11 @@ RUN apt-get update && apt-get install -y \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt requirements.txt
+COPY shared/requirements_shared.txt requirements_shared.txt
 COPY webapp/requirements_webapp.txt requirements_webapp.txt
 
 RUN  --mount=type=cache,target=/root/.cache/pip \
-     pip install -r requirements.txt \
+     pip install -r requirements_shared.txt \
      && pip install -r requirements_webapp.txt
 
 COPY webapp webapp

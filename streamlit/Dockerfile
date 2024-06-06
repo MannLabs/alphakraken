@@ -19,7 +19,7 @@ RUN  --mount=type=cache,target=/root/.cache/pip \
 
 COPY streamlit streamlit
 # shared and plugins are directories that contain modules that are required by the streamlit app
-COPY plugins streamlit/plugins
+COPY airflow_src/plugins streamlit/plugins
 COPY shared streamlit/shared
 
 # cf. README.md:A note on importing

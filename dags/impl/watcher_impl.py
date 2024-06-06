@@ -3,21 +3,15 @@
 
 import logging
 import os
-import sys
 from datetime import datetime
 from pathlib import Path
 
 import pytz
 from airflow.models import DagRun, TaskInstance
 from airflow.utils.types import DagRunType
+from common.keys import DagParams, Dags, OpArgs, XComKeys
+from common.utils import get_instrument_data_path, get_xcom, put_xcom
 
-from plugins.common.keys import DagParams, Dags, OpArgs, XComKeys
-from plugins.common.utils import get_instrument_data_path, get_xcom, put_xcom
-
-# TODO: find a better way to unify import of modules 'dags', 'common', ... between docker and standalone
-root_path = str(Path(__file__).parent / Path("../.."))
-if root_path not in sys.path:
-    sys.path.insert(0, root_path)
 from shared.db.engine import get_raw_file_names_from_db
 
 

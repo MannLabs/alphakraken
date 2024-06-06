@@ -1,6 +1,6 @@
 """Keys for accessing Dags, Tasks, etc.."""
 
-from plugins.common.keys import InstrumentKeys
+from common.keys import InstrumentKeys
 
 INSTRUMENTS = {
     # the toplevel keys determine the DAG name (e.g. 'acquisition_watcher.test6')

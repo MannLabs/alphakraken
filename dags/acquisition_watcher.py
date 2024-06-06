@@ -8,16 +8,15 @@ from datetime import timedelta
 import pendulum
 from airflow.models.dag import DAG
 from airflow.operators.python import PythonOperator
-from impl.watcher_impl import get_raw_files, start_acquisition_handler
-
-from plugins.common.keys import (
+from common.keys import (
     DAG_DELIMITER,
     Dags,
     OpArgs,
     Tasks,
 )
-from plugins.common.settings import INSTRUMENTS, Timings
-from plugins.sensors.file_sensor import FileCreationSensor
+from common.settings import INSTRUMENTS, Timings
+from impl.watcher_impl import get_raw_files, start_acquisition_handler
+from sensors.file_sensor import FileCreationSensor
 
 
 def create_acquisition_watcher_dag(instrument_id: str) -> None:

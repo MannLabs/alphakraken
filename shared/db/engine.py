@@ -4,6 +4,7 @@ import logging
 import os
 from datetime import datetime
 
+from common.settings import RawFileStatus
 from mongoengine import (
     ConnectionFailure,
     DateTimeField,
@@ -13,8 +14,6 @@ from mongoengine import (
     connect,
     disconnect,
 )
-
-from plugins.common.settings import RawFileStatus
 
 DOCKER_DB_HOST = "mongodb-service"
 DB_HOST = os.environ.get("MONGO_HOST", DOCKER_DB_HOST)  # localhost

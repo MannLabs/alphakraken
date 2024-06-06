@@ -8,6 +8,8 @@ from datetime import timedelta
 from airflow.models import Param
 from airflow.models.dag import DAG
 from airflow.operators.python import PythonOperator
+from common.keys import DAG_DELIMITER, Dags, OpArgs, Tasks
+from common.settings import INSTRUMENTS
 from impl.handler_impl import (
     add_to_db,
     compute_metrics,
@@ -16,9 +18,6 @@ from impl.handler_impl import (
     run_quanting,
     upload_metrics,
 )
-
-from plugins.common.keys import DAG_DELIMITER, Dags, OpArgs, Tasks
-from plugins.common.settings import INSTRUMENTS
 
 
 def create_acquisition_handler_dag(instrument_id: str) -> None:

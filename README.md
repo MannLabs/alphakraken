@@ -79,7 +79,7 @@ Note: beware of name clashes when introducing new top-level packages in addition
 [here](https://airflow.apache.org/docs/apache-airflow/stable/administration-and-deployment/modules_management.html#best-practices-for-your-code-naming).
 
 To have your IDE recognize the imports correctly, you might need to take some action.
-E.g. in PyCharm, you need to mark `dags`, `plugins` and `shared` as "Sources Root".
+E.g. in PyCharm, you need to mark `dags`, `plugins`, `shared`, and `airflow_src` as "Sources Root".
 
 ## Deployment
 ### Initial setup of Kraken PC
@@ -101,9 +101,18 @@ docker ps
 
 Watch logs for a given service (omit the last part to see all logs)
 ```bash
-docker compose logs -f webapp
+docker compose logs -f airflow-worker
 ```
 
+Start bash in a given service container
+```bash
+docker compose exec airflow-worker bash
+```
+
+Clean up all containers, volumes, and images (WARNING: data will be lost!)
+```bash
+docker-compose down --volumes  --remove-orphans --rmi all
+```
 
 ### Set up network bind mounts
 1. Create the mount target directories:

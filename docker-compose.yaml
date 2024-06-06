@@ -297,8 +297,6 @@ services:
     restart: always
     depends_on:
       <<: *airflow-common-depends-on
-      airflow-init:
-        condition: service_completed_successfully
 
   mongodb-service:
     # cf. https://www.mongodb.com/resources/products/compatibilities/docker
@@ -326,10 +324,11 @@ services:
       dockerfile: webapp/Dockerfile
     ports:
       - '8501:8501'
+    depends_on:
+      mongodb-service:
+        condition: service_healthy
     env_file:
       -  ./envs/.dev.env
-#    depends_on:
-#      mongodb-service:
-#        condition: service_healthy
+
 volumes:
   postgres-db-volume:

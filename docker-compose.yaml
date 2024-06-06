@@ -74,18 +74,17 @@ x-airflow-common:
     # The following line can be used to set a custom config file, stored in the local config folder
     # If you want to use it, outcomment it and replace airflow.cfg with the name of your config file
     # AIRFLOW_CONFIG: '/opt/airflow/config/airflow.cfg'
-    AIRFLOW_PROJ_DIR: ./airflow_src
   volumes:
     # the code is mounted directly into the container, so changes to DAGs and Tasks are immediately active
-    - ${AIRFLOW_PROJ_DIR:-.}/dags:/opt/airflow/dags
-    - ${AIRFLOW_PROJ_DIR:-.}/logs:/opt/airflow/logs
-    - ${AIRFLOW_PROJ_DIR:-.}/config:/opt/airflow/config
-    - ${AIRFLOW_PROJ_DIR:-.}/plugins:/opt/airflow/plugins
+    - ${AIRFLOW_PROJ_DIR:-./airflow_src}/dags:/opt/airflow/dags
+    - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_logs:/opt/airflow/logs
+    - ${AIRFLOW_PROJ_DIR:-./airflow_src}/config:/opt/airflow/config
+    - ${AIRFLOW_PROJ_DIR:-./airflow_src}/plugins:/opt/airflow/plugins
     # custom:
-    - ${AIRFLOW_PROJ_DIR:-.}/../shared:/opt/airflow/shared
+    - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../shared:/opt/airflow/shared
     # acquisition pcs # TODO move to workers
     # for local testing:
-    - ${AIRFLOW_PROJ_DIR:-.}/../test_folders/acquisition_pcs:/opt/airflow/acquisition_pcs
+    - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_test_folders/acquisition_pcs:/opt/airflow/acquisition_pcs
     # ADD INSTRUMENTS HERE:
     # Test2 on ms14
     - /home/kraken-user/alphakraken/sandbox/mounts/ms14/Test2/2024_06/:/opt/airflow/acquisition_pcs/astral_1
@@ -264,7 +263,7 @@ services:
       _PIP_ADDITIONAL_REQUIREMENTS: ''
     user: "0:0"
     volumes:
-      - ${AIRFLOW_PROJ_DIR:-.}:/sources
+      - ${AIRFLOW_PROJ_DIR:-./airflow_src}:/sources
 
   airflow-cli:
     <<: *airflow-common
@@ -307,7 +306,7 @@ services:
     ports:
       - '27017:27017'
     volumes:
-      - ${AIRFLOW_PROJ_DIR:-.}/db_data:/data/db
+      - ./mongodb_data:/data/db
       # init the DB: https://stackoverflow.com/a/53522699
       # Note that this could also be done via pyhon, cf. https://github.com/MannLabs/alphakraken/pull/6#discussion_r1624957906
       - ./init-mongo.sh:/docker-entrypoint-initdb.d/init-mongo.sh

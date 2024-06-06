@@ -15,5 +15,5 @@ ENV PYTHONUNBUFFERED=1
 ENV AIRFLOW_HOME=/opt/airflow
 ENV PYTHONPATH "${PYTHONPATH}:${AIRFLOW_HOME}"
 
-COPY requirements_airflow.txt /
+COPY airflow_src/requirements_airflow.txt /
 RUN pip install --no-cache-dir "apache-airflow==${AIRFLOW_VERSION}" -r /requirements_airflow.txt

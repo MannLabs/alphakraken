@@ -164,6 +164,6 @@ cython_debug/
 .vscode
 
 # custom to the app
-logs
-db_data
-test_folders
+airflow_logs
+monogodb_data
+airflow_test_folders

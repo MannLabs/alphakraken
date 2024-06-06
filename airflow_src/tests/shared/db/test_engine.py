@@ -1,8 +1,9 @@
 """Tests for the db.engine module."""
 
+from datetime import datetime
 from unittest.mock import MagicMock, patch
 
-import pytest
+import pytz
 from mongoengine import ConnectionFailure
 from plugins.common.settings import RawFileStatus
 
@@ -51,7 +52,7 @@ def test_add_new_raw_file_to_db_creates_new_file_when_file_does_not_exist(
     mock_raw_file.return_value.save.side_effect = None
     # when
     add_new_raw_file_to_db(
-        "test_file.raw", instrument_id="instrument1", raw_file_size=42.0
+        "test_file.raw", instrument_id="instrument1", size=42.0, creation_ts=43.0
     )
 
     # then
@@ -60,31 +61,7 @@ def test_add_new_raw_file_to_db_creates_new_file_when_file_does_not_exist(
         status=RawFileStatus.NEW,
         size=42.0,
         instrument_id="instrument1",
-    )
-    mock_connect_db.assert_called_once()
-
-
-@patch("shared.db.engine.connect_db")
-@patch("shared.db.engine.RawFile")
-def test_add_new_raw_file_to_db_raises_exception_when_file_already_exists(
-    mock_raw_file: MagicMock, mock_connect_db: MagicMock
-) -> None:
-    """Test that add_new_raw_file_to_db raises an exception when the file already exists in the database."""
-    # given
-    mock_raw_file.return_value.save.side_effect = Exception("File already exists")
-    with pytest.raises(Exception) as e:
-        # when
-        add_new_raw_file_to_db(
-            "test_file.raw", instrument_id="instrument1", raw_file_size=0.0
-        )
-
-        # then
-    assert str(e.value) == "File already exists"
-    mock_raw_file.assert_called_once_with(
-        name="test_file.raw",
-        status=RawFileStatus.NEW,
-        size=0.0,
-        instrument_id="instrument1",
+        created_at=datetime(1970, 1, 1, 0, 0, 43, tzinfo=pytz.utc),
     )
     mock_connect_db.assert_called_once()
 

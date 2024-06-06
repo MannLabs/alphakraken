@@ -4,6 +4,7 @@ import logging
 import os
 from datetime import datetime
 
+import pytz
 from common.settings import RawFileStatus
 from mongoengine import (
     ConnectionFailure,
@@ -52,10 +53,11 @@ class RawFile(Document):
     name = StringField(required=True, primary_key=True)
     status = StringField(max_length=50)
 
-    size = FloatField(min_value=0.0, max_value=1000.0)
+    size = FloatField(min_value=0.0, max_value=1000.0 * 1024**3)  # unit: bytes
     instrument_id = StringField(max_length=50)
 
-    created_at = DateTimeField(default=datetime.now)
+    created_at = DateTimeField()
+    db_entry_created_at = DateTimeField(default=datetime.now)
 
 
 def get_raw_file_names_from_db(raw_file_names: list[str]) -> list[str]:
@@ -65,15 +67,23 @@ def get_raw_file_names_from_db(raw_file_names: list[str]) -> list[str]:
 
 
 def add_new_raw_file_to_db(
-    raw_file_name: str, *, instrument_id: str, raw_file_size: float
+    file_name: str, *, instrument_id: str, size: float, creation_ts: float
 ) -> None:
-    """Add a new raw file to the database."""
+    """Add a new raw file to the database.
+
+    :param file_name: name of the file
+    :param instrument_id: id of the acquiring instrument
+    :param size: file size in bytes
+    :param creation_ts: creation timestamp (unix)
+    :return:
+    """
     connect_db()
     raw_file = RawFile(
-        name=raw_file_name,
+        name=file_name,
         status=RawFileStatus.NEW,
-        size=raw_file_size,
+        size=size,
         instrument_id=instrument_id,
+        created_at=datetime.fromtimestamp(creation_ts, pytz.utc),
     )
     # this will fail if the file already exists
     raw_file.save(force_insert=True)

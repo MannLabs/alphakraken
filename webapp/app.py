@@ -20,7 +20,7 @@ st.write(f"Processed {RawFile.objects.count()} raw files.")
 raw_file_data = defaultdict(list)
 for raw_file in RawFile.objects.order_by("-created_at"):
     raw_file_data["name"].append(raw_file.name)
-    raw_file_data["size"].append(raw_file.size)
+    raw_file_data["size_gb"].append(raw_file.size / 1024**3)
     raw_file_data["status"].append(raw_file.status)
     raw_file_data["created_at"].append(raw_file.created_at)
     raw_file_data["instrument_id"].append(raw_file.instrument_id)

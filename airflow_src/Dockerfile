@@ -16,4 +16,7 @@ ENV AIRFLOW_HOME=/opt/airflow
 ENV PYTHONPATH "${PYTHONPATH}:${AIRFLOW_HOME}"
 
 COPY airflow_src/requirements_airflow.txt /
-RUN pip install --no-cache-dir "apache-airflow==${AIRFLOW_VERSION}" -r /requirements_airflow.txt
+COPY ../shared/requirements_shared.txt /
+RUN pip install --no-cache-dir "apache-airflow==${AIRFLOW_VERSION}" \
+    -r /requirements_airflow.txt  \
+    -r /requirements_shared.txt

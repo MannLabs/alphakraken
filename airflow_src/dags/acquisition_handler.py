@@ -17,7 +17,7 @@ from impl.handler_impl import (
     run_quanting,
     upload_metrics,
 )
-from sensors.ssh_sensor import QuantingMonitorOperator
+from sensors.ssh_sensor import QuantingSSHSensor
 
 ssh_hook = SSHHook(ssh_conn_id="cluster-conn", conn_timeout=60, cmd_timeout=60)
 
@@ -65,7 +65,7 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
             op_kwargs={OpArgs.SSH_HOOK: ssh_hook, OpArgs.COMMAND: run_quanting_cmd},
         )
 
-        monitor_quanting_ = QuantingMonitorOperator(
+        monitor_quanting_ = QuantingSSHSensor(
             task_id=Tasks.MONITOR_QUANTING,
             ssh_hook=ssh_hook,
             poke_interval=Timings.QUANTING_MONITOR_POKE_INTERVAL_S,

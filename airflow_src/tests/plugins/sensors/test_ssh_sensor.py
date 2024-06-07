@@ -2,7 +2,7 @@
 
 from unittest.mock import MagicMock, patch
 
-from plugins.sensors.ssh_sensor import QuantingMonitorOperator, SSHSensorOperator
+from plugins.sensors.ssh_sensor import QuantingSSHSensor, SSHSensorOperator
 
 
 @patch.object(SSHSensorOperator, "ssh_execute")
@@ -16,7 +16,7 @@ def test_poke_executes_ssh_command_and_checks_returned_state(
     mock_ssh_execute.return_value = "RUNNING"
     context = {"ti": MagicMock()}
     ssh_hook = MagicMock()
-    operator = QuantingMonitorOperator(task_id="my_task", ssh_hook=ssh_hook)
+    operator = QuantingSSHSensor(task_id="my_task", ssh_hook=ssh_hook)
 
     # when
     result = operator.poke(context)
@@ -36,7 +36,7 @@ def test_poke_returns_true_when_state_not_in_running_states(
     mock_ssh_execute.return_value = "COMPLETED"
     context = {"ti": MagicMock()}
     ssh_hook = MagicMock()
-    operator = QuantingMonitorOperator(task_id="my_task", ssh_hook=ssh_hook)
+    operator = QuantingSSHSensor(task_id="my_task", ssh_hook=ssh_hook)
 
     # when
     result = operator.poke(context)

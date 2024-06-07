@@ -10,7 +10,7 @@ from common.utils import get_xcom
 
 
 class SSHSensorOperator(BaseSensorOperator, ABC):
-    """Wait for some ssh command to succeed."""
+    """Wait for a ssh command to return a certain output."""
 
     @property
     @abstractmethod
@@ -26,7 +26,7 @@ class SSHSensorOperator(BaseSensorOperator, ABC):
     @property
     @abstractmethod
     def running_states(self) -> list[str]:
-        """States that are considered 'running'."""
+        """Outputs of the command in `command_template` that are considered 'running'."""
 
     def __init__(self, ssh_hook: SSHHook, *args, **kwargs):
         """Initialize the operator.
@@ -70,7 +70,7 @@ class SSHSensorOperator(BaseSensorOperator, ABC):
         return agg_stdout.decode("utf-8").strip()
 
 
-class QuantingMonitorOperator(SSHSensorOperator):
+class QuantingSSHSensor(SSHSensorOperator):
     """Monitor the status of a quanting job on the SLURM cluster."""
 
     @property

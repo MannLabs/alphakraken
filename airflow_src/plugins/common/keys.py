@@ -29,6 +29,8 @@ class OpArgs:
     """Keys for passing arguments to operators."""
 
     INSTRUMENT_ID: str = "instrument_id"
+    SSH_HOOK: str = "ssh_hook"
+    COMMAND: str = "command"
 
 
 class DagContext:
@@ -49,6 +51,8 @@ class XComKeys:
 
     RAW_FILE_NAME: str = "raw_file_name"
     RAW_FILE_NAMES: str = "raw_file_names"
+
+    JOB_ID: str = "job_id"
 
 
 class InstrumentKeys:

@@ -5,9 +5,8 @@ from abc import ABC, abstractmethod
 
 from airflow.providers.ssh.hooks.ssh import SSHHook
 from airflow.sensors.base import BaseSensorOperator
-from common.keys import Tasks
+from common.keys import XComKeys
 from common.utils import get_xcom
-from impl.handler_impl import decode_base64
 
 
 class SSHSensorOperator(BaseSensorOperator, ABC):
@@ -41,29 +40,34 @@ class SSHSensorOperator(BaseSensorOperator, ABC):
         """Check the output of the ssh command."""
         logging.info(f"SSH command execute: {context}")
 
-        jid_b64 = get_xcom(context["ti"], "return_value", Tasks.RUN_QUANTING)
-        jid = decode_base64(jid_b64)
+        jid = get_xcom(context["ti"], XComKeys.JOB_ID)
 
         command = self.command_template.replace("REPLACE_JID", jid)
 
-        exit_status, agg_stdout, agg_stderr = self.ssh_hook.exec_ssh_client_command(
-            self.ssh_hook.get_conn(),
+        ssh_return = self.ssh_execute(command, self.ssh_hook)
+
+        logging.info("SSH command returned: '%s'", ssh_return)
+
+        if ssh_return in self.running_states:
+            return False
+
+        return True
+
+    @staticmethod
+    def ssh_execute(
+        command: str,
+        ssh_hook: SSHHook,
+    ) -> str:
+        """Execute the given `command` via the `ssh_hook`."""
+        exit_status, agg_stdout, agg_stderr = ssh_hook.exec_ssh_client_command(
+            ssh_hook.get_conn(),
             command,
             timeout=60,
             get_pty=False,
             environment={},
         )
-
         logging.info(f"Got {exit_status=} {agg_stdout=} {agg_stderr=}")
-
-        r = agg_stdout.decode("utf-8").strip()  # decode_base64(encoded_string)
-
-        logging.info("SSH command returned: '%s'", r)
-
-        if r in self.running_states:
-            return False
-
-        return True
+        return agg_stdout.decode("utf-8").strip()
 
 
 class QuantingMonitorOperator(SSHSensorOperator):

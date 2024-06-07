@@ -1,6 +1,7 @@
 """Test thats DAGs are correctly loaded."""
 
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 from airflow.models import DagBag
@@ -12,7 +13,8 @@ DAG_FOLDER = Path(__file__).parent / Path("../../dags")
 @pytest.fixture()
 def dagbag() -> DagBag:
     """Fixture for a DagBag instance with the DAGs loaded."""
-    return DagBag(dag_folder=DAG_FOLDER, include_examples=False)
+    with patch("airflow.providers.ssh.hooks.ssh.SSHHook"):
+        return DagBag(dag_folder=DAG_FOLDER, include_examples=False)
 
 
 def test_dag_loaded_acquisition_watcher(dagbag: DagBag) -> None:

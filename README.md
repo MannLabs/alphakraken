@@ -21,9 +21,9 @@ pip install -r requirements_development.txt
 
 Start the docker containers providing an all-in-one solution with
 ```bash
-docker compose up --build
+docker compose --env-file=envs/dev.env up --build
 ```
-The airflow webserver runs on http://localhost:8080/ (default credentials: `airflow`/`airflow`), the Streamlit webapp on http://localhost:8051/ .
+The airflow webserver runs on http://localhost:8080/ (default credentials: `airflow`/`airflow`), the Streamlit webapp on http://localhost:8501/ .
 
 Alternatively, run airflow without Docker using
 ```bash
@@ -33,7 +33,7 @@ The login password to the UI is displayed in the logs below the line `Airflow is
 You need to point the `dags_folder` variable in ` ~/airflow/airflow.cfg` to the absolute path of the `dags` folder.
 
 Note that you will need to have a MongoDB running on the default port `27017`, e.g. by
-`docker compose run --service-ports mongodb-service`
+`docker compose --env-file=envs/dev.env run --service-ports mongodb-service`
 Also, you will need to fire up the Streamlit webapp yourself by `docker compose run -e MONGO_USER=<mongo_user>
 
 Note that currently, the docker version is recommended.
@@ -90,15 +90,14 @@ E.g. in PyCharm, you need to mark `dags`, `plugins`, `shared`, and `airflow_src`
 3. `cd` into this directory and execute `echo -e "AIRFLOW_UID=$(id -u)" > .env` to set the current user as the user
 within the airflow containers (otherwise, `root` would be used).
 4. Set up the network bind mounts (see below).
-5. Run `docker compose up --build -d` to start the services.
-6. Access the Airflow UI at `http://<kraken_pc_ip>:8080/` and the Streamlit webapp at `http://<kraken_pc_ip>:8051/`.
 
-
-### Run production setup
-In order for the production setup to run, you need to execude the command
+### Run production containers
+In order for the production setup to run, you need to execute the command
 ```bash
-docker compose up --build --profile prod-workers -d
+docker compose --env-file=./envs/prod.env  up --build --profile prod-workers -d
 ```
+Then, access the Airflow UI at `http://<kraken_pc_ip>:8081/` and the Streamlit webapp at `http://<kraken_pc_ip>:8502/`.
+
 
 #### Some useful commands:
 See state of containers

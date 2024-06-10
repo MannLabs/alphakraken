@@ -44,6 +44,7 @@
 #
 # Feel free to modify this file to suit your needs.
 ---
+name: alphakraken-${ENV_NAME}
 x-airflow-common:
   &airflow-common
   # In order to add custom dependencies or upgrade provider packages you can use your extended image.
@@ -75,6 +76,10 @@ x-airflow-common:
     # The following line can be used to set a custom config file, stored in the local config folder
     # If you want to use it, outcomment it and replace airflow.cfg with the name of your config file
     # AIRFLOW_CONFIG: '/opt/airflow/config/airflow.cfg'
+    # environmental variables to be taken from the *.env file:
+    MONGO_USER: ${MONGO_USER:?error}
+    MONGO_PASSWORD: ${MONGO_PASSWORD:?error}
+    MONGO_PORT: ${MONGO_PORT:?error}
   volumes:
     - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_logs:/opt/airflow/logs
 #    # Uncomment for local development so that changes to DAGs and Tasks are immediately active
@@ -105,8 +110,6 @@ x-airflow-worker:
     timeout: 10s
     retries: 5
     start_period: 30s
-  env_file:
-    - ./envs/.dev.env
   environment:
     <<: *airflow-common-env
     # Required to handle warm shutdown of the celery workers properly
@@ -154,7 +157,7 @@ services:
     <<: *airflow-common
     command: webserver
     ports:
-      - "8080:8080"
+      - ${WEBSERVER_PORT:?error}:8080
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
       interval: 30s
@@ -301,15 +304,14 @@ services:
     # cf. https://www.mongodb.com/resources/products/compatibilities/docker
     image: mongo:6-jammy
     ports:
-      - '27017:27017'
+      - ${MONGO_PORT:?error}:27017
     volumes:
-      - ./mongodb_data:/data/db
+      - ./mongodb_data:/data/db_${ENV_NAME}
       # init the DB: https://stackoverflow.com/a/53522699
       # Note that this could also be done via pyhon, cf. https://github.com/MannLabs/alphakraken/pull/6#discussion_r1624957906
       - ./init-mongo.sh:/docker-entrypoint-initdb.d/init-mongo.sh
     env_file:
       - ./envs/.env-mongo
-      - ./envs/.dev.env
     healthcheck:
       test: ["CMD", "mongosh", "--eval", "'db.runCommand(\"ping\").ok'", "--quiet"]
       interval: 30s
@@ -322,7 +324,7 @@ services:
       context: .
       dockerfile: webapp/Dockerfile
     ports:
-      - '8501:8501'
+      - ${WEBAPP_PORT:?error}:8501
     depends_on:
       mongodb-service:
         condition: service_healthy
@@ -332,8 +334,6 @@ services:
       timeout: 10s
       retries: 5
       start_period: 30s
-    env_file:
-      -  ./envs/.dev.env
 
   airflow-worker-test1:
     # worker for local and sandbox testing

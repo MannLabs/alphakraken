@@ -132,19 +132,50 @@ docker compose down --volumes  --remove-orphans --rmi all
 ```
 
 ### Set up network bind mounts
+(TODO describe persistent mount)
+We need bind mounts set up to each backup pool folder, and to the project pool folder.
+Additionally, one bind mount per acquisition PC is needed (cf. section below).
+
 1. Create the mount target directories:
 ```bash
-mkdir -p /home/kraken-user/alphakraken/sandbox/mounts/ms14
+TARGET_BASE=/home/kraken-user/alphakraken/sandbox/mounts
+mkdir -p ${TARGET_BASE}/ms14
+mkdir -p ${TARGET_BASE}/settings
+mkdir -p ${TARGET_BASE}/output
 ```
-2. Mount the network drives (TODO describe persistent mount):
+
+2. Mount the backup pool folder:
 ```bash
-sudo mount -t cifs -o username=krakenuser //samba-pool-backup/pool-backup /home/kraken-user/alphakraken/sandbox/mounts/ms14
+sudo mount -t cifs -o username=krakenuser //samba-pool-backup/pool-backup ${TARGET_BASE}/ms14
 ```
-Note: for now, user `krakenuser` should only have read access to the pool folder.
+This is where the data will be
+
+3. Mount the project pool folder:
+```bash
+IO_POOL_FOLDER=//samba-pool-projects/pool-projects/alphakraken_test
+sudo mount -t cifs -o username=krakenuser ${IO_POOL_FOLDER}/settings ${TARGET_BASE}/settings
+sudo mount -t cifs -o username=krakenuser ${IO_POOL_FOLDER}/output ${TARGET_BASE}/output
+```
+The mount `settings` needs to contain fasta files, a spectral library and the config file in subfolder
+`fasta`, `speclib`, and `config`, respectively.
+
+Note: for now, user `krakenuser` should only have read access to the backup pool folder, but needs `read/write` on the `$IO_POOL_FOLDER`.
 
 ### Add a new instrument
-1. Mount the network drive as described above such that the new instrument's files are accessible,
-e.g. at  `/home/kraken-user/alphakraken/sandbox/mounts/ms14/Test2` (this will be referenced as `<SOURCE_MOUNT>` below).
+Each instrument is identified by a unique `<INSTRUMENT_ID>`,
+which should be lowercase and contain only letters and numbers but is otherwise arbitrary (e.g. "test2").
+
+1. Mount the acquisition PC (APC) drive
+```bash
+TARGET_BASE=/home/kraken-user/alphakraken/sandbox/mounts
+APC_TARGET=${TARGET_BASE}/acquisition_pcs/<INSTRUMENT_ID>
+mkdir -p ${MOUNT_TARGET}
+sudo mount -t cifs -o username=krakenuser ${APC_SOURCE} ${APC_TARGET}
+```
+where `${APC_SOURCE}` is the network folder of the APC.
+
+Until alphakraken takes over also the file transfer from APC to backup pool, this is the location on the backup pool folder,
+e.g. `//samba-pool-backup/pool-backup/Test2`.
 
 2. In `docker-compose.yml`, add a new worker service, by copying an existing one and adapting it like:
 ```
@@ -152,11 +183,11 @@ e.g. at  `/home/kraken-user/alphakraken/sandbox/mounts/ms14/Test2` (this will be
     <<: *airflow-worker
     command: celery worker -q kraken_queue_<INSTRUMENT_ID>
     volumes:
-      - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_logs:/opt/airflow/logs
-      - <SOURCE_MOUNT>:/opt/airflow/acquisition_pcs/<INSTRUMENT_ID>
+    # (some general mounts, just copy them)
+      - <APC_TARGET>:/opt/airflow/acquisition_pcs/<INSTRUMENT_ID>
     # (there might be additional keys here, just copy them)
 ```
-
+where `<APC_TARGET>` is the value of `${APC_TARGET}`, i.e. the absolute path to the mounted network drive.
 
 3. In the `settings.py:INSTRUMENTS` dictionary, add a new entry by copying an existing one and adapting it like
 ```
@@ -183,6 +214,22 @@ This connection is required to interact with the SLURM cluster.
     - Password: `<password of kraken SLURM user>`
 3. (optional) Click "Test" to verify the connection.
 4. Click "Save".
+
+### Setup alphaDIA
+For details on how to install alphaDIA on the SLURM cluster, follow the alphaDIA readme.
+
+In a nutshell, to install a certain version, e.g. 1.6.2:
+```bash
+conda create --name alphadia-1.6.2 python=3.11 -y
+```
+```bash
+conda activate alphadia-1.6.2
+```
+```bash
+pip  install "alphadia==1.6.2[stable]"
+```
+Make sure the environment is named `alphadia-$VERSION`.
+
 
 ## Troubleshooting
 ### Problem: worker does not start

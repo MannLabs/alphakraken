@@ -329,10 +329,17 @@ services:
     # "-q <XXX>" makes this worker handle only DAGs that reference queue_name=<XXX> during DAG instantiation
     command: celery worker -q kraken_queue_test1
     volumes:
+      # the following three mounts are required for the worker to work in general and are not instrument specific:
+      # airflow logs
       - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_logs:/opt/airflow/logs
+      # settings, output and backup folder
+      - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_test_folders/settings:/opt/airflow/settings
+      - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_test_folders/output:/opt/airflow/output
+#      - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_test_folders/backup:/opt/airflow/backup # this will be required when alphakraken does the backup
+      # instrument-specific bind mount:
       - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_test_folders/acquisition_pcs/test1:/opt/airflow/acquisition_pcs/test1
-#    # Uncomment for local development so that changes to DAGs and Tasks are immediately active
-#    # Note that this part is defined another time for the other services in x-airflow-common
+     # Uncomment for local development so that changes to DAGs and Tasks are immediately active for the test worker
+     # Note that this part is defined another time for the other services in x-airflow-common
       - ${AIRFLOW_PROJ_DIR:-./airflow_src}/dags:/opt/airflow/dags
       - ${AIRFLOW_PROJ_DIR:-./airflow_src}/config:/opt/airflow/config
       - ${AIRFLOW_PROJ_DIR:-./airflow_src}/plugins:/opt/airflow/plugins
@@ -344,6 +351,10 @@ services:
     command: celery worker -q kraken_queue_test2
     volumes:
       - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_logs:/opt/airflow/logs
+      - /home/kraken-user/alphakraken/sandbox/mounts/settings:/opt/airflow/settings
+      - /home/kraken-user/alphakraken/sandbox/mounts/output:/opt/airflow/output
+#      - /home/kraken-user/alphakraken/sandbox/mounts/ms14:/opt/airflow/backup  # this will be required when alphakraken does the backup
+      # instrument-specific bind mount:
       - /home/kraken-user/alphakraken/sandbox/mounts/ms14/Test2/2024_06/:/opt/airflow/acquisition_pcs/test2
 
   # INSTRUMENT: Test3
@@ -352,8 +363,11 @@ services:
     command: celery worker -q kraken_queue_test3
     volumes:
       - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_logs:/opt/airflow/logs
+      - /home/kraken-user/alphakraken/sandbox/mounts/settings:/opt/airflow/settings
+      - /home/kraken-user/alphakraken/sandbox/mounts/output:/opt/airflow/output
+#      - /home/kraken-user/alphakraken/sandbox/mounts/ms14:/opt/airflow/backup  # this will be required when alphakraken does the backup
+      # instrument-specific bind mount:
       - /home/kraken-user/alphakraken/sandbox/mounts/ms14/Test3/2024_06/:/opt/airflow/acquisition_pcs/test3
-
 
 volumes:
   postgres-db-volume:

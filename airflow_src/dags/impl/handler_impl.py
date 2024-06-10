@@ -43,13 +43,28 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
     # create the alphadia inputfile and store it on the shared volume
 
 
+# TODO: put this somewhere else
+# Must be a bash script that is executable on the cluster.
+# Its only output to stdout must be the job id of the submitted job.
+run_quanting_cmd = """
+cd ~/kraken &&
+JID=$(sbatch run.sh)
+echo ${JID##* }
+"""
+
+
 def run_quanting(ti: TaskInstance, **kwargs) -> None:
     """Run the quanting job on the cluster."""
     # IMPLEMENT:
     # wait for the cluster to be ready (20% idling) -> dedicated (sensor) task
 
     ssh_hook = kwargs[OpArgs.SSH_HOOK]
-    command = kwargs[OpArgs.COMMAND]
+
+    raw_file_name = get_xcom(ti, XComKeys.RAW_FILE_NAME)
+    export_cmd = f"export RAW_FILE_NAME={raw_file_name}\n"
+
+    command = export_cmd + run_quanting_cmd
+    logging.info(f"Running command: {command}")
 
     job_id = SSHSensorOperator.ssh_execute(command, ssh_hook)
 

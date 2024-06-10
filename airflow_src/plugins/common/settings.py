@@ -13,6 +13,9 @@ INSTRUMENTS = {
     },
 }
 
+# prefix for the queues the DAGs are assigned to (cf. docker-compose.yml)
+AIRFLOW_QUEUE_PREFIX = "kraken_queue_"
+
 
 class RawFileStatus:
     """Status of raw file."""

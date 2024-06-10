@@ -76,19 +76,13 @@ x-airflow-common:
     # If you want to use it, outcomment it and replace airflow.cfg with the name of your config file
     # AIRFLOW_CONFIG: '/opt/airflow/config/airflow.cfg'
   volumes:
-    # the code is mounted directly into the container, so changes to DAGs and Tasks are immediately active
-    - ${AIRFLOW_PROJ_DIR:-./airflow_src}/dags:/opt/airflow/dags
     - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_logs:/opt/airflow/logs
-    - ${AIRFLOW_PROJ_DIR:-./airflow_src}/config:/opt/airflow/config
-    - ${AIRFLOW_PROJ_DIR:-./airflow_src}/plugins:/opt/airflow/plugins
-    # custom:
-    - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../shared:/opt/airflow/shared
-    # acquisition pcs # TODO move to workers
-    # for local testing:
-    - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_test_folders/acquisition_pcs:/opt/airflow/acquisition_pcs
-    # ADD INSTRUMENTS HERE:
-    # Test2 on ms14
-    # - /home/kraken-user/alphakraken/sandbox/mounts/ms14/Test2/2024_06/:/opt/airflow/acquisition_pcs/astral_1
+#    # Uncomment for local development so that changes to DAGs and Tasks are immediately active
+#    # Note that this part is defined another time for the workers in x-airflow-worker
+#    - ${AIRFLOW_PROJ_DIR:-./airflow_src}/dags:/opt/airflow/dags
+#    - ${AIRFLOW_PROJ_DIR:-./airflow_src}/config:/opt/airflow/config
+#    - ${AIRFLOW_PROJ_DIR:-./airflow_src}/plugins:/opt/airflow/plugins
+#    - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../shared:/opt/airflow/shared
 
   user: "${AIRFLOW_UID:-50000}:0"
   depends_on:
@@ -96,6 +90,33 @@ x-airflow-common:
     redis:
       condition: service_healthy
     postgres:
+      condition: service_healthy
+
+x-airflow-worker:
+  &airflow-worker
+  <<: *airflow-common
+  healthcheck:
+    # yamllint disable rule:line-length
+    test:
+      - "CMD-SHELL"
+      - 'celery --app airflow.providers.celery.executors.celery_executor.app inspect ping -d "celery@$${HOSTNAME}" || celery --app airflow.executors.celery_executor.app inspect ping -d "celery@$${HOSTNAME}"'
+    interval: 30s
+    timeout: 10s
+    retries: 5
+    start_period: 30s
+  env_file:
+    - ./envs/.dev.env
+  environment:
+    <<: *airflow-common-env
+    # Required to handle warm shutdown of the celery workers properly
+    # See https://airflow.apache.org/docs/docker-stack/entrypoint.html#signal-propagation
+    DUMB_INIT_SETSID: "0"
+  restart: always
+  depends_on:
+    <<: *airflow-common-depends-on
+    airflow-init:
+      condition: service_completed_successfully
+    mongodb-service:
       condition: service_healthy
 
 services:
@@ -159,33 +180,6 @@ services:
       <<: *airflow-common-depends-on
       airflow-init:
         condition: service_completed_successfully
-
-  airflow-worker:
-    <<: *airflow-common
-    command: celery worker
-    healthcheck:
-      # yamllint disable rule:line-length
-      test:
-        - "CMD-SHELL"
-        - 'celery --app airflow.providers.celery.executors.celery_executor.app inspect ping -d "celery@$${HOSTNAME}" || celery --app airflow.executors.celery_executor.app inspect ping -d "celery@$${HOSTNAME}"'
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 30s
-    env_file:
-      - ./envs/.dev.env
-    environment:
-      <<: *airflow-common-env
-      # Required to handle warm shutdown of the celery workers properly
-      # See https://airflow.apache.org/docs/docker-stack/entrypoint.html#signal-propagation
-      DUMB_INIT_SETSID: "0"
-    restart: always
-    depends_on:
-      <<: *airflow-common-depends-on
-      airflow-init:
-        condition: service_completed_successfully
-      mongodb-service:
-        condition: service_healthy
 
   # only required if one wants to use 'deferrable operators'
   # cf. https://airflow.apache.org/docs/apache-airflow/stable/authoring-and-scheduling/deferring.html#using-deferrable-operators
@@ -339,6 +333,36 @@ services:
       start_period: 30s
     env_file:
       -  ./envs/.dev.env
+
+  airflow-worker-dev:
+    <<: *airflow-worker
+    command: celery worker -q kraken_queue_test2
+    volumes:
+      - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_logs:/opt/airflow/logs
+#    # Uncomment for local development so that changes to DAGs and Tasks are immediately active
+#    # Note that this part is defined another time for the workers in x-airflow-worker
+#    - ${AIRFLOW_PROJ_DIR:-./airflow_src}/dags:/opt/airflow/dags
+#    - ${AIRFLOW_PROJ_DIR:-./airflow_src}/config:/opt/airflow/config
+#    - ${AIRFLOW_PROJ_DIR:-./airflow_src}/plugins:/opt/airflow/plugins
+#    - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../shared:/opt/airflow/shared
+
+  airflow-worker-test2:
+    <<: *airflow-worker
+    command: celery worker -q kraken_queue_test2
+    volumes:
+      - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_logs:/opt/airflow/logs
+      # Test2 on ms14
+      - /home/kraken-user/alphakraken/sandbox/mounts/ms14/Test2/2024_06/:/opt/airflow/acquisition_pcs/astral_1
+
+
+  airflow-worker-test3:
+    <<: *airflow-worker
+    command: celery worker -q kraken_queue_test3
+    volumes:
+      - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_logs:/opt/airflow/logs
+      # Test2 on ms14
+      - /home/kraken-user/alphakraken/sandbox/mounts/ms14/Test3/2024_06/:/opt/airflow/acquisition_pcs/astral_2
+
 
 volumes:
   postgres-db-volume:

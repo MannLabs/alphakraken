@@ -330,7 +330,6 @@ services:
     command: celery worker -q kraken_queue_test1
     volumes:
       - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_logs:/opt/airflow/logs
-      - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_test_folders/acquisition_pcs:/opt/airflow/acquisition_pcs/test_1
       - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_test_folders/acquisition_pcs/test1:/opt/airflow/acquisition_pcs/test1
 #    # Uncomment for local development so that changes to DAGs and Tasks are immediately active
 #    # Note that this part is defined another time for the other services in x-airflow-common

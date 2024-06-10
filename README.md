@@ -2,7 +2,8 @@
 A new version of the Machine Kraken
 
 ## Local development
-Set up your environment for developing locally with
+### Initial setup
+1. Set up your environment for developing locally with
 ```bash
 PYTHON_VERSION=3.11
 AIRFLOW_VERSION=2.9.1
@@ -11,7 +12,7 @@ conda activate alphakraken
 pip install apache-airflow==${AIRFLOW_VERSION} --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-${AIRFLOW_VERSION}/constraints-${PYTHON_VERSION}.txt"
 ```
 
-Install all requirements for running, developing and testing with
+2. Install all requirements for running, developing and testing with
 ```bash
 pip install -r airflow_src/requirements_airflow.txt
 pip install -r shared/requirements_shared.txt
@@ -19,6 +20,12 @@ pip install -r webapp/requirements_webapp.txt
 pip install -r requirements_development.txt
 ```
 
+3. Run a one-time initialization of the internal airflow database:
+```bash
+docker compose --env-file=envs/dev.env run airflow-init
+```
+
+### Running the kraken
 Start the docker containers providing an all-in-one solution with
 ```bash
 docker compose --env-file=envs/dev.env up --build
@@ -34,7 +41,7 @@ You need to point the `dags_folder` variable in ` ~/airflow/airflow.cfg` to the 
 
 Note that you will need to have a MongoDB running on the default port `27017`, e.g. by
 `docker compose --env-file=envs/dev.env run --service-ports mongodb-service`
-Also, you will need to fire up the Streamlit webapp yourself by `docker compose run -e MONGO_USER=<mongo_user>
+Also, you will need to fire up the Streamlit webapp yourself by `docker compose --env-file=envs/dev.env run -e MONGO_HOST=host.docker.internal --service-ports webapp`.
 
 Note that currently, the docker version is recommended.
 
@@ -90,6 +97,10 @@ E.g. in PyCharm, you need to mark `dags`, `plugins`, `shared`, and `airflow_src`
 3. `cd` into this directory and execute `echo -e "AIRFLOW_UID=$(id -u)" > .env` to set the current user as the user
 within the airflow containers (otherwise, `root` would be used).
 4. Set up the network bind mounts (see below).
+5. Run one-time initialization of the internal airflow database:
+```bash
+docker compose --env-file=./envs/prod.env run airflow-init
+```
 
 ### Run production containers
 In order for the production setup to run, you need to execute the command

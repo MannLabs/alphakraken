@@ -118,8 +118,6 @@ x-airflow-worker:
   restart: always
   depends_on:
     <<: *airflow-common-depends-on
-    airflow-init:
-      condition: service_completed_successfully
     mongodb-service:
       condition: service_healthy
 
@@ -165,10 +163,6 @@ services:
       retries: 5
       start_period: 30s
     restart: always
-    depends_on:
-      <<: *airflow-common-depends-on
-      airflow-init:
-        condition: service_completed_successfully
 
   airflow-scheduler:
     <<: *airflow-common
@@ -180,10 +174,6 @@ services:
       retries: 5
       start_period: 30s
     restart: always
-    depends_on:
-      <<: *airflow-common-depends-on
-      airflow-init:
-        condition: service_completed_successfully
 
   # only required if one wants to use 'deferrable operators'
   # cf. https://airflow.apache.org/docs/apache-airflow/stable/authoring-and-scheduling/deferring.html#using-deferrable-operators
@@ -197,12 +187,9 @@ services:
 #      retries: 5
 #      start_period: 30s
 #    restart: always
-#    depends_on:
-#      <<: *airflow-common-depends-on
-#      airflow-init:
-#        condition: service_completed_successfully
 
   airflow-init:
+    profiles: ["airflow-init"]
     <<: *airflow-common
     entrypoint: /bin/bash
     # yamllint disable rule:line-length
@@ -268,8 +255,7 @@ services:
 
   airflow-cli:
     <<: *airflow-common
-    profiles:
-      - debug
+    profiles: ["debug"]
     environment:
       <<: *airflow-common-env
       CONNECTION_CHECK_MAX_COUNT: "0"
@@ -286,8 +272,7 @@ services:
 #  flower:
 #    <<: *airflow-common
 #    command: celery flower
-#    profiles:
-#      - flower
+#    profiles: ["flower"]
 #    ports:
 #      - "5555:5555"
 #    healthcheck:

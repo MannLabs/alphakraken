@@ -3,7 +3,7 @@
 import logging
 from pathlib import Path
 
-from airflow.models import TaskInstance
+from airflow.models import TaskInstance, Variable
 from common.keys import InstrumentKeys
 from common.settings import INSTRUMENTS, InternalPaths
 
@@ -25,6 +25,20 @@ def get_xcom(ti: TaskInstance, key: str) -> str:
         raise ValueError(f"No value found for XCOM key {key}")
 
     logging.info(f"Pulled from XCOM: '{key}'='{value}'")
+
+    return value
+
+
+def get_variable(key: str, default_value: str = "__DEFAULT_NOT_SET") -> str:
+    """Get the value of an Airflow Variable with `key` and an optional default."""
+    logging.info(f"Getting variable '{key}''")
+
+    if default_value == "__DEFAULT_NOT_SET":
+        value = Variable.get(key)
+    else:
+        value = Variable.get(key, default_var=default_value)
+
+    logging.info(f"Got variable: '{key}'='{value}'")
 
     return value
 

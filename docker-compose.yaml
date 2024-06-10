@@ -44,7 +44,7 @@
 #
 # Feel free to modify this file to suit your needs.
 ---
-name: alphakraken-${ENV_NAME}
+name: alphakraken-${ENV_NAME:?error}
 x-airflow-common:
   &airflow-common
   # In order to add custom dependencies or upgrade provider packages you can use your extended image.
@@ -291,7 +291,7 @@ services:
     ports:
       - ${MONGO_PORT:?error}:27017
     volumes:
-      - ./mongodb_data:/data/db_${ENV_NAME}
+      - ./mongodb_data:/data/db_${ENV_NAME:?error}
       # init the DB: https://stackoverflow.com/a/53522699
       # Note that this could also be done via pyhon, cf. https://github.com/MannLabs/alphakraken/pull/6#discussion_r1624957906
       - ./init-mongo.sh:/docker-entrypoint-initdb.d/init-mongo.sh

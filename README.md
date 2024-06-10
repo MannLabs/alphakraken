@@ -197,3 +197,10 @@ The path /home/kraken-user/alphakraken/sandbox/mounts/.... is not shared from th
 Check that the mounting has been done correctly. If the instrument is currently unavailable,
 you can either ignore the error or temporarily comment out the corresponding worker definition in `docker-compose.yml`.
 Once the instrument is available again, uncomment the worker definition and restart the container.
+
+## Airflow Variables
+These variables are set in the Airflow UI under "Admin" -> "Variables". They steer the behavior of the whole system,
+so be careful when changing them. If in doubt, pause all DAGs that are not part of the current problem before changing them.
+
+`debug_no_cluster_ssh` If set to `True`, the system will not connect to the SLURM cluster. This is useful for
+testing, debugging and to avoid flooding the cluster at the initial setup.

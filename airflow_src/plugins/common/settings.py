@@ -4,11 +4,14 @@ from common.keys import InstrumentKeys
 
 INSTRUMENTS = {
     # the toplevel keys determine the DAG name (e.g. 'acquisition_watcher.test6')
-    "test6": {
+    "test1": {
         # raw data path relative to InternalPaths.APC_PATH_PREFIX, must be mounted in docker-compose.yml
-        InstrumentKeys.RAW_DATA_PATH: "apc_tims_1",
+        InstrumentKeys.RAW_DATA_PATH: "test_1",
     },
     "test2": {
+        InstrumentKeys.RAW_DATA_PATH: "astral_1",
+    },
+    "test3": {
         InstrumentKeys.RAW_DATA_PATH: "astral_1",
     },
 }

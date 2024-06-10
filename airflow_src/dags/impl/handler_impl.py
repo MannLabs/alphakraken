@@ -44,6 +44,7 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
 
 
 # TODO: put this somewhere else
+# TODO: how to bring 'run.sh' to the cluster?
 # Must be a bash script that is executable on the cluster.
 # Its only output to stdout must be the job id of the submitted job.
 run_quanting_cmd = """

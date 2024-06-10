@@ -6,28 +6,26 @@
 #SBATCH --mem=16G
 #SBATCH --time=21-04:00:00
 #SxBATCH --partition=p.<node>
-
 # TODO replace directives with command-line args
-
-# TODO how to bring this file to the cluster?
 
 set -u -e
 
-# INPUT from environment
+# INPUT taken from environment variables
 # RAW_FILE_NAME=  # e.g. "20240606_OA1_Evo12_16min_JBMR_ADIAMA_HeLa_5ng_F-40_01.raw"
 
 # TODO make dynamic
-POOL_BACKUP_INSTRUMENT_SUBFOLDER="Test2/2024_06/"
-FASTA_FILE_NAME="2024_01_12_human.fasta"
-SPECLIB_FILE_NAME="hela_hybrid.small.hdf"
-CONFIG_FILE_NAME="config.yaml"
-POOL_MS="/fs/pool/pool-backup"
-POOL_PROJECTS="/fs/pool/pool-projects/alphakraken_test"
-CONDA_ENV="alphadia-1.6.2"
+POOL_MS="/fs/pool/pool-backup" # TODO get from dev.env
+POOL_BACKUP_INSTRUMENT_SUBFOLDER="Test2/2024_06/"  # TODO get from INSTRUMENTS)
+
+POOL_PROJECTS="/fs/pool/pool-projects/alphakraken_test"  # TODO get from dev.env
+FASTA_FILE_NAME="2024_01_12_human.fasta"  # TODO get from MongoDB (project)
+SPECLIB_FILE_NAME="hela_hybrid.small.hdf"  # TODO get from MongoDB (project)
+CONFIG_FILE_NAME="config.yaml"  # TODO get from MongoDB (project)
+
+CONDA_ENV="alphadia-1.6.2"  # TODO get from MongoDB (project)
 
 
-
-# these are determined by convention
+# these are determined by convention:
 ALPHAKRAKEN_SETTINGS="${POOL_PROJECTS}/settings"
 ALPHAKRAKEN_OUTPUT="${POOL_PROJECTS}/output"
 INSTRUMENT_BACKUP_FOLDER="${POOL_MS}/${POOL_BACKUP_INSTRUMENT_SUBFOLDER}"
@@ -37,7 +35,7 @@ CONFIG_FOLDER="${ALPHAKRAKEN_SETTINGS}/config"
 SPECLIB_FOLDER="${ALPHAKRAKEN_SETTINGS}/speclib"
 FASTA_FOLDER="${ALPHAKRAKEN_SETTINGS}/fasta"
 
-CONFIG_FILE_PATH="${FASTA_FOLDER}/${CONFIG_FILE_NAME}"
+CONFIG_FILE_PATH="${CONFIG_FOLDER}/${CONFIG_FILE_NAME}"
 FASTA_FILE_PATH="${FASTA_FOLDER}/${FASTA_FILE_NAME}"
 SPECLIB_FILE_PATH="${SPECLIB_FOLDER}/${SPECLIB_FILE_NAME}"
 
@@ -60,12 +58,15 @@ echo OUTPUT_FOLDER=${OUTPUT_FOLDER}
 mkdir -p ${OUTPUT_FOLDER}
 cd ${OUTPUT_FOLDER}
 
-conda run -n $CONDA_ENV \
-    alphadia \
-    --file ${RAW_FILE_PATH} \
-    -o ${OUTPUT_FOLDER} \
-    --library ${SPECLIB_FILE_PATH}
-    --config ${CONFIG_FILE_PATH}
+echo "Running alphadia.."
+echo "Check the logs in ${OUTPUT_FOLDER}/log.txt"
+
+# TODO how to handle potential overwriting on a second run?
+conda run -n $CONDA_ENV alphadia \
+    --file "${RAW_FILE_PATH}" \
+    --library "${SPECLIB_FILE_PATH}" \
+    --config "${CONFIG_FILE_PATH}" \
+    --output "${OUTPUT_FOLDER}"
 
 # some other useful commands:
 # --directory ${RAW_FOLDER}

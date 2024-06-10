@@ -109,6 +109,8 @@ docker compose --env-file=./envs/prod.env  up --build --profile prod-workers -d
 ```
 Then, access the Airflow UI at `http://<kraken_pc_ip>:8081/` and the Streamlit webapp at `http://<kraken_pc_ip>:8502/`.
 
+Note: after the first full startup it is currently required to make all files owned
+by the kraken user: `sudo chown -R kraken:kraken *` (needs to be done only once).
 
 #### Some useful commands:
 See state of containers
@@ -218,7 +220,8 @@ This connection is required to interact with the SLURM cluster.
 4. Click "Save".
 
 ### Setup alphaDIA
-For details on how to install alphaDIA on the SLURM cluster, follow the alphaDIA readme.
+For details on how to install alphaDIA on the SLURM cluster, follow the alphaDIA
+[https://github.com/MannLabs/alphadia/blob/main/docs/installation.md#slurm-cluster-installation](Readme).
 
 In a nutshell, to install a certain version, e.g. 1.6.2:
 ```bash
@@ -231,6 +234,7 @@ conda activate alphadia-1.6.2
 pip  install "alphadia==1.6.2[stable]"
 ```
 Make sure the environment is named `alphadia-$VERSION`.
+Also, don't forget to install `mono` (cf. alphaDIA Readme).
 
 
 ## Troubleshooting

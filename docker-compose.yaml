@@ -345,11 +345,11 @@ services:
       - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_logs:/opt/airflow/logs
       - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_test_folders/acquisition_pcs:/opt/airflow/acquisition_pcs/test_1
 #    # Uncomment for local development so that changes to DAGs and Tasks are immediately active
-#    # Note that this part is defined another time for the workers in x-airflow-worker
-#    - ${AIRFLOW_PROJ_DIR:-./airflow_src}/dags:/opt/airflow/dags
-#    - ${AIRFLOW_PROJ_DIR:-./airflow_src}/config:/opt/airflow/config
-#    - ${AIRFLOW_PROJ_DIR:-./airflow_src}/plugins:/opt/airflow/plugins
-#    - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../shared:/opt/airflow/shared
+#    # Note that this part is defined another time for the other services in x-airflow-common
+      - ${AIRFLOW_PROJ_DIR:-./airflow_src}/dags:/opt/airflow/dags
+      - ${AIRFLOW_PROJ_DIR:-./airflow_src}/config:/opt/airflow/config
+      - ${AIRFLOW_PROJ_DIR:-./airflow_src}/plugins:/opt/airflow/plugins
+      - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../shared:/opt/airflow/shared
 
   # INSTRUMENT: Test2
   airflow-worker-test2:
@@ -365,7 +365,6 @@ services:
     command: celery worker -q kraken_queue_test3
     volumes:
       - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_logs:/opt/airflow/logs
-      # Test2 on ms14
       - /home/kraken-user/alphakraken/sandbox/mounts/ms14/Test3/2024_06/:/opt/airflow/acquisition_pcs/test3
 
 

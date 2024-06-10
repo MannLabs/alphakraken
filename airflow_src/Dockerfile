@@ -25,5 +25,5 @@ RUN pip install --no-cache-dir "apache-airflow==${AIRFLOW_VERSION}" \
 # which makes code changes active immediately
 COPY airflow_src/dags /opt/airflow/dags
 COPY airflow_src/plugins /opt/airflow/plugins
-COPY airflow_src/config /opt/airflow/config
+# COPY airflow_src/config /opt/airflow/config  # comment in once config folder is being used
 COPY shared /opt/airflow/shared

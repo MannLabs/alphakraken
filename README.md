@@ -173,3 +173,17 @@ This connection is required to interact with the SLURM cluster.
     - Password: `<password of kraken SLURM user>`
 3. (optional) Click "Test" to verify the connection.
 4. Click "Save".
+
+## Troubleshooting
+### Problem: worker does not start
+
+A worker fails to start up with the error
+```
+Error response from daemon: Mounts denied:
+The path /home/kraken-user/alphakraken/sandbox/mounts/.... is not shared from the host and is not known to Docker.
+```
+
+#### Solution
+Check that the mounting has been done correctly. If the instrument is currently unavailable,
+you can either ignore the error or temporarily comment out the corresponding worker definition in `docker-compose.yml`.
+Once the instrument is available again, uncomment the worker definition and restart the container.

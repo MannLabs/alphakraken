@@ -14,10 +14,10 @@ set -u -e
 # RAW_FILE_NAME=  # e.g. "20240606_OA1_Evo12_16min_JBMR_ADIAMA_HeLa_5ng_F-40_01.raw"
 
 # TODO make dynamic
-POOL_MS="/fs/pool/pool-backup" # TODO get from dev.env
+POOL_MS="/fs/pool/pool-backup" # TODO get from .env
 POOL_BACKUP_INSTRUMENT_SUBFOLDER="Test2/2024_06/"  # TODO get from INSTRUMENTS)
 
-POOL_PROJECTS="/fs/pool/pool-projects/alphakraken_test"  # TODO get from dev.env
+POOL_PROJECTS="/fs/pool/pool-projects/alphakraken_test"  # TODO get from .env
 FASTA_FILE_NAME="2024_01_12_human.fasta"  # TODO get from MongoDB (project)
 SPECLIB_FILE_NAME="hela_hybrid.small.hdf"  # TODO get from MongoDB (project)
 CONFIG_FILE_NAME="config.yaml"  # TODO get from MongoDB (project)

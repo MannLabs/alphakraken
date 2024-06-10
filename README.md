@@ -22,13 +22,13 @@ pip install -r requirements_development.txt
 
 3. Run a one-time initialization of the internal airflow database:
 ```bash
-docker compose --env-file=envs/dev.env run airflow-init
+docker compose --env-file=envs/local.env run airflow-init
 ```
 
 ### Running the kraken
 Start the docker containers providing an all-in-one solution with
 ```bash
-docker compose --env-file=envs/dev.env up --build
+docker compose --env-file=envs/local.env up --build
 ```
 The airflow webserver runs on http://localhost:8080/ (default credentials: `airflow`/`airflow`), the Streamlit webapp on http://localhost:8501/ .
 
@@ -40,8 +40,8 @@ The login password to the UI is displayed in the logs below the line `Airflow is
 You need to point the `dags_folder` variable in ` ~/airflow/airflow.cfg` to the absolute path of the `dags` folder.
 
 Note that you will need to have a MongoDB running on the default port `27017`, e.g. by
-`docker compose --env-file=envs/dev.env run --service-ports mongodb-service`
-Also, you will need to fire up the Streamlit webapp yourself by `docker compose --env-file=envs/dev.env run -e MONGO_HOST=host.docker.internal --service-ports webapp`.
+`docker compose --env-file=envs/local.env run --service-ports mongodb-service`
+Also, you will need to fire up the Streamlit webapp yourself by `docker compose --env-file=envs/local.env run -e MONGO_HOST=host.docker.internal --service-ports webapp`.
 
 Note that currently, the docker version is recommended.
 
@@ -60,7 +60,7 @@ If you encounter a `sqlite3.OperationalError: no such table: dag`, run `airflow 
 
 ### Connect to the DB
 Use e.g. MongoDB Compass to connect to the MongoDB running in Docker using the url `localhost:27017`,
-the credentials (e.g. defined in `envs/.dev.env`) and make sure the "Authentication Database" is "krakendb".
+the credentials (e.g. defined in `envs/local.env`) and make sure the "Authentication Database" is "krakendb".
 
 ### pre-commit hooks
 It is highly recommended to use the provided pre-commit hooks, as the CI pipeline enforces all checks therein to

@@ -357,7 +357,6 @@ services:
     volumes:
       - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_logs:/opt/airflow/logs
       - /home/kraken-user/alphakraken/sandbox/mounts/output:/opt/airflow/output
-#      - /home/kraken-user/alphakraken/sandbox/mounts/ms14:/opt/airflow/backup  # this will be required when alphakraken does the backup
       # instrument-specific bind mount:
       - /home/kraken-user/alphakraken/sandbox/mounts/ms14/Test2/2024_06/:/opt/airflow/acquisition_pcs/test2
 
@@ -368,7 +367,6 @@ services:
     volumes:
       - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_logs:/opt/airflow/logs
       - /home/kraken-user/alphakraken/sandbox/mounts/output:/opt/airflow/output
-#      - /home/kraken-user/alphakraken/sandbox/mounts/ms14:/opt/airflow/backup  # this will be required when alphakraken does the backup
       # instrument-specific bind mount:
       - /home/kraken-user/alphakraken/sandbox/mounts/ms14/Test3/2024_06/:/opt/airflow/acquisition_pcs/test3
 

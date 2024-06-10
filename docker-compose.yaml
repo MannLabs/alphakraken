@@ -291,7 +291,7 @@ services:
     ports:
       - ${MONGO_PORT:?error}:27017
     volumes:
-      - ./mongodb_data:/data/db_${ENV_NAME:?error}
+      - ./mongodb_data_${ENV_NAME:?error}:/data/db
       # init the DB: https://stackoverflow.com/a/53522699
       # Note that this could also be done via pyhon, cf. https://github.com/MannLabs/alphakraken/pull/6#discussion_r1624957906
       - ./init-mongo.sh:/docker-entrypoint-initdb.d/init-mongo.sh
@@ -332,12 +332,13 @@ services:
       # the following three mounts are required for the worker to work in general and are not instrument specific:
       # airflow logs
       - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_logs:/opt/airflow/logs
-      # settings, output and backup folder
-      - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_test_folders/settings:/opt/airflow/settings
+      # output and backup folder
       - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_test_folders/output:/opt/airflow/output
 #      - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_test_folders/backup:/opt/airflow/backup # this will be required when alphakraken does the backup
       # instrument-specific bind mount:
       - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_test_folders/acquisition_pcs/test1:/opt/airflow/acquisition_pcs/test1
+      # settings are required only for a local test-worker
+      - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_test_folders/settings:/opt/airflow/settings
      # Uncomment for local development so that changes to DAGs and Tasks are immediately active for the test worker
      # Note that this part is defined another time for the other services in x-airflow-common
       - ${AIRFLOW_PROJ_DIR:-./airflow_src}/dags:/opt/airflow/dags
@@ -351,7 +352,6 @@ services:
     command: celery worker -q kraken_queue_test2
     volumes:
       - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_logs:/opt/airflow/logs
-      - /home/kraken-user/alphakraken/sandbox/mounts/settings:/opt/airflow/settings
       - /home/kraken-user/alphakraken/sandbox/mounts/output:/opt/airflow/output
 #      - /home/kraken-user/alphakraken/sandbox/mounts/ms14:/opt/airflow/backup  # this will be required when alphakraken does the backup
       # instrument-specific bind mount:
@@ -363,7 +363,6 @@ services:
     command: celery worker -q kraken_queue_test3
     volumes:
       - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_logs:/opt/airflow/logs
-      - /home/kraken-user/alphakraken/sandbox/mounts/settings:/opt/airflow/settings
       - /home/kraken-user/alphakraken/sandbox/mounts/output:/opt/airflow/output
 #      - /home/kraken-user/alphakraken/sandbox/mounts/ms14:/opt/airflow/backup  # this will be required when alphakraken does the backup
       # instrument-specific bind mount:

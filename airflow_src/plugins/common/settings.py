@@ -7,12 +7,17 @@ INSTRUMENTS = {
     "test1": {
         # raw data path relative to InternalPaths.APC_PATH_PREFIX, must be mounted in docker-compose.yml
         InstrumentKeys.RAW_DATA_PATH: "test1",
+        InstrumentKeys.POOL_RAW_DATA_PATH: "/Users/mschwoerer/work/kraken/alphakraken/airflow_test_folders/acquisition_pcs/test1",
     },
     "test2": {
         InstrumentKeys.RAW_DATA_PATH: "test2",
+        # this is the absolute path to access the raw data from the cluster
+        InstrumentKeys.POOL_RAW_DATA_PATH: "/fs/pool/pool-backup/Test2",
     },
     "test3": {
         InstrumentKeys.RAW_DATA_PATH: "test3",
+        # TODO: take this from the prod.env file RAW_DATA_PATH_ASTRAL1 (dynamic env var name)
+        InstrumentKeys.POOL_RAW_DATA_PATH: "/fs/pool/pool-backup/Test3",
     },
 }
 

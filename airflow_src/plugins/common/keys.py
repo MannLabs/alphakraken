@@ -60,6 +60,8 @@ class InstrumentKeys:
 
     RAW_DATA_PATH = "raw_data_path"
 
+    POOL_RAW_DATA_PATH = "pool_raw_data_path"
+
 
 class Variables:
     """Keys for accessing Airflow Variables."""

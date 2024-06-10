@@ -140,7 +140,6 @@ Additionally, one bind mount per acquisition PC is needed (cf. section below).
 ```bash
 TARGET_BASE=/home/kraken-user/alphakraken/sandbox/mounts
 mkdir -p ${TARGET_BASE}/ms14
-mkdir -p ${TARGET_BASE}/settings
 mkdir -p ${TARGET_BASE}/output
 ```
 
@@ -153,13 +152,16 @@ This is where the data will be
 3. Mount the project pool folder:
 ```bash
 IO_POOL_FOLDER=//samba-pool-projects/pool-projects/alphakraken_test
-sudo mount -t cifs -o username=krakenuser ${IO_POOL_FOLDER}/settings ${TARGET_BASE}/settings
 sudo mount -t cifs -o username=krakenuser ${IO_POOL_FOLDER}/output ${TARGET_BASE}/output
 ```
+
+Note: for now, user `krakenuser` should only have read access to the backup pool folder, but needs `read/write` on the `${TARGET_BASE}/output`.
+
+
+### Add settings
 The mount `settings` needs to contain fasta files, a spectral library and the config file in subfolder
 `fasta`, `speclib`, and `config`, respectively.
 
-Note: for now, user `krakenuser` should only have read access to the backup pool folder, but needs `read/write` on the `$IO_POOL_FOLDER`.
 
 ### Add a new instrument
 Each instrument is identified by a unique `<INSTRUMENT_ID>`,

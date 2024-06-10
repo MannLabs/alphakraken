@@ -95,6 +95,7 @@ x-airflow-common:
 x-airflow-worker:
   &airflow-worker
   <<: *airflow-common
+  profiles: ["prod-worker"]
   healthcheck:
     # yamllint disable rule:line-length
     test:
@@ -337,6 +338,7 @@ services:
   airflow-worker-test1:
     # worker for local and sandbox testing
     <<: *airflow-worker
+    profiles: []
     # "-q <XXX>" makes this worker handle only DAGs that reference queue_name=<XXX> during DAG instantiation
     command: celery worker -q kraken_queue_test1
     volumes:
@@ -349,22 +351,22 @@ services:
 #    - ${AIRFLOW_PROJ_DIR:-./airflow_src}/plugins:/opt/airflow/plugins
 #    - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../shared:/opt/airflow/shared
 
+  # INSTRUMENT: Test2
   airflow-worker-test2:
     <<: *airflow-worker
     command: celery worker -q kraken_queue_test2
     volumes:
       - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_logs:/opt/airflow/logs
-      # Test2 on ms14
-      - /home/kraken-user/alphakraken/sandbox/mounts/ms14/Test2/2024_06/:/opt/airflow/acquisition_pcs/astral_1
+      - /home/kraken-user/alphakraken/sandbox/mounts/ms14/Test2/2024_06/:/opt/airflow/acquisition_pcs/test2
 
-
+  # INSTRUMENT: Test3
   airflow-worker-test3:
     <<: *airflow-worker
     command: celery worker -q kraken_queue_test3
     volumes:
       - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_logs:/opt/airflow/logs
       # Test2 on ms14
-      - /home/kraken-user/alphakraken/sandbox/mounts/ms14/Test3/2024_06/:/opt/airflow/acquisition_pcs/astral_2
+      - /home/kraken-user/alphakraken/sandbox/mounts/ms14/Test3/2024_06/:/opt/airflow/acquisition_pcs/test3
 
 
 volumes:

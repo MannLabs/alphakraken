@@ -94,7 +94,7 @@ E.g. in PyCharm, you need to mark `dags`, `plugins`, `shared`, and `airflow_src`
 [Docker Compose](https://docs.docker.com/engine/install/ubuntu/) and
 [Docker](https://docs.docker.com/compose/install/linux/#install-using-the-repository).
 2. Clone the repository into `/home/kraken-user/alphakraken/sandbox/alphakraken`.
-3. `cd` into this directory and execute `echo -e "AIRFLOW_UID=$(id -u)" > .env` to set the current user as the user
+3. `cd` into this directory and execute `echo -e "AIRFLOW_UID=$(id -u)" > envs/.env-airflow` to set the current user as the user
 within the airflow containers (otherwise, `root` would be used).
 4. Set up the network bind mounts (see below).
 5. Run one-time initialization of the internal airflow database:

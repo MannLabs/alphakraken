@@ -80,6 +80,8 @@ x-airflow-common:
     MONGO_USER: ${MONGO_USER:?error}
     MONGO_PASSWORD: ${MONGO_PASSWORD:?error}
     MONGO_PORT: ${MONGO_PORT:?error}
+  env_file:
+    - ./envs/.env-airflow
   volumes:
     - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_logs:/opt/airflow/logs
 #    # Uncomment for local development so that changes to DAGs and Tasks are immediately active
@@ -100,7 +102,7 @@ x-airflow-common:
 x-airflow-worker:
   &airflow-worker
   <<: *airflow-common
-  profiles: ["prod-worker"]
+  profiles: ["prod-workers"]
   healthcheck:
     # yamllint disable rule:line-length
     test:
@@ -312,6 +314,8 @@ services:
       dockerfile: webapp/Dockerfile
     ports:
       - ${WEBAPP_PORT:?error}:8501
+    environment:
+      <<: *airflow-common-env
     depends_on:
       mongodb-service:
         condition: service_healthy

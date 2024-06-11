@@ -1,25 +1,39 @@
 """Keys for accessing Dags, Tasks, etc.."""
 
+from pathlib import Path
+
 from common.keys import InstrumentKeys
+from common.utils import get_environment_variable
 
 INSTRUMENTS = {
     # the toplevel keys determine the DAG name (e.g. 'acquisition_watcher.test6')
     "test1": {
-        # raw data path relative to InternalPaths.APC_PATH_PREFIX, must be mounted in docker-compose.yml
-        InstrumentKeys.RAW_DATA_PATH: "test1",
-        InstrumentKeys.POOL_RAW_DATA_PATH: "/Users/mschwoerer/work/kraken/alphakraken/airflow_test_folders/acquisition_pcs/test1",
+        # raw data path relative to InternalPaths.MOUNTS_PATH which must be mounted in docker-compose.yml
+        # TODO: fix: we need to provide a default here to make test_dags.py happy. Should not be an issue in production.
+        InstrumentKeys.RAW_DATA_PATH: get_environment_variable(
+            "INSTRUMENT_PATH_TEST1", "n_a"
+        ),
     },
     "test2": {
-        InstrumentKeys.RAW_DATA_PATH: "test2",
-        # this is the absolute path to access the raw data from the cluster
-        InstrumentKeys.POOL_RAW_DATA_PATH: "/fs/pool/pool-backup/Test2",
+        InstrumentKeys.RAW_DATA_PATH: get_environment_variable(
+            "INSTRUMENT_PATH_ASTRAL1", "n_a"
+        ),
     },
     "test3": {
-        InstrumentKeys.RAW_DATA_PATH: "test3",
-        # TODO: take this from the prod.env file RAW_DATA_PATH_ASTRAL1 (dynamic env var name)
-        InstrumentKeys.POOL_RAW_DATA_PATH: "/fs/pool/pool-backup/Test3",
+        InstrumentKeys.RAW_DATA_PATH: get_environment_variable(
+            "INSTRUMENT_PATH_ASTRAL2", "n_a"
+        ),
     },
 }
+
+
+def get_instrument_data_path(instrument_id: str) -> Path:
+    """Get internal path for the given instrument."""
+    return (
+        Path(InternalPaths.MOUNTS_PATH)
+        / INSTRUMENTS[instrument_id][InstrumentKeys.RAW_DATA_PATH]
+    )
+
 
 # prefix for the queues the DAGs are assigned to (cf. docker-compose.yml)
 AIRFLOW_QUEUE_PREFIX = "kraken_queue_"
@@ -39,7 +53,7 @@ class RawFileStatus:
 class InternalPaths:
     """Paths to directories."""
 
-    APC_PATH_PREFIX = "/opt/airflow/acquisition_pcs"
+    MOUNTS_PATH = "/opt/airflow/mounts/"
 
 
 class Timings:

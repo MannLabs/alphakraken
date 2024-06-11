@@ -10,7 +10,8 @@ from airflow.api.common.trigger_dag import trigger_dag
 from airflow.models import DagRun, TaskInstance
 from airflow.utils.types import DagRunType
 from common.keys import DagParams, Dags, OpArgs, XComKeys
-from common.utils import get_instrument_data_path, get_xcom, put_xcom
+from common.settings import get_instrument_data_path
+from common.utils import get_xcom, put_xcom
 
 from shared.db.engine import get_raw_file_names_from_db
 

@@ -5,7 +5,7 @@ from pathlib import Path
 
 from airflow.models import TaskInstance
 from common.keys import DagContext, DagParams, OpArgs, XComKeys
-from common.settings import InternalPaths, get_instrument_data_path
+from common.settings import OUTPUT_DIR_PREFIX, InternalPaths, get_instrument_data_path
 from common.utils import get_xcom, put_xcom
 from metrics.metrics_calculator import calc_metrics
 from sensors.ssh_sensor import SSHSensorOperator
@@ -92,7 +92,7 @@ def compute_metrics(ti: TaskInstance, **kwargs) -> None:
     del kwargs
 
     raw_file_name = get_xcom(ti, XComKeys.RAW_FILE_NAME)
-    output_directory = f"out_{raw_file_name}"
+    output_directory = f"{OUTPUT_DIR_PREFIX}{raw_file_name}"
     output_path = (
         Path(InternalPaths.MOUNTS_PATH) / Path(InternalPaths.OUTPUT) / output_directory
     )

@@ -36,9 +36,11 @@ def get_instrument_data_path(instrument_id: str) -> Path:
 # prefix for the queues the DAGs are assigned to (cf. docker-compose.yml)
 AIRFLOW_QUEUE_PREFIX = "kraken_queue_"
 
+OUTPUT_DIR_PREFIX = "out_"
+
 
 class InternalPaths:
-    """Paths to directories."""
+    """Paths to directories within the Docker containers."""
 
     MOUNTS_PATH = "/opt/airflow/mounts/"
     OUTPUT = "output"

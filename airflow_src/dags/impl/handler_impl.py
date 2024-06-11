@@ -92,10 +92,11 @@ def compute_metrics(ti: TaskInstance, **kwargs) -> None:
     del kwargs
 
     raw_file_name = get_xcom(ti, XComKeys.RAW_FILE_NAME)
-    result_directory_path = (
-        Path(InternalPaths.MOUNTS_PATH) / Path(InternalPaths.OUTPUT) / raw_file_name
+    output_directory = f"out_{raw_file_name}"
+    output_path = (
+        Path(InternalPaths.MOUNTS_PATH) / Path(InternalPaths.OUTPUT) / output_directory
     )
-    metrics = calc_metrics(str(result_directory_path))
+    metrics = calc_metrics(str(output_path))
 
     put_xcom(ti, XComKeys.METRICS, metrics)
 

@@ -95,7 +95,7 @@ def test_compute_metrics(
 
     mock_get_xcom.assert_called_once_with(mock_ti, XComKeys.RAW_FILE_NAME)
     mock_calc_metrics.assert_called_once_with(
-        "/opt/airflow/mounts/output/raw_file_name"
+        "/opt/airflow/mounts/output/out_raw_file_name"
     )
     mock_put_xcom.assert_called_once_with(
         mock_ti, XComKeys.METRICS, {"metric1": "value1"}

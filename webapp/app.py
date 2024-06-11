@@ -43,6 +43,7 @@ metrics_data_df.drop(
         "db_entry_created_at",
     ],
     inplace=True,
+    errors="ignore",
 )
 metrics_data_df.rename(columns={"raw_file": "name"}, inplace=True)
 

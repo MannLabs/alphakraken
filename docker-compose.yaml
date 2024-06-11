@@ -346,7 +346,7 @@ services:
       # airflow logs
       - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_logs:/opt/airflow/logs
       # output and backup folder
-      - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_test_mounts:/opt/airflow/mounts
+      - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_test_folders:/opt/airflow/mounts
      # Uncomment for local development so that changes to DAGs and Tasks are immediately active for the test worker
      # Note that this part is defined another time for the other services in x-airflow-common
       - ${AIRFLOW_PROJ_DIR:-./airflow_src}/dags:/opt/airflow/dags

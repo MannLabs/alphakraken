@@ -25,6 +25,11 @@ CONFIG_FILE_NAME="config.yaml"  # TODO get from MongoDB (project)
 CONDA_ENV="alphadia-1.6.2"  # TODO get from MongoDB (project)
 
 
+# TODO document this:
+#### Add settings
+#Upload fasta files, spectral libraries and config files in subfolders
+#`fasta`, `speclib`, and `config`, respectively, of POOL_PROJECTS}/settings.
+
 # these are determined by convention:
 ALPHAKRAKEN_SETTINGS="${POOL_PROJECTS}/settings"
 ALPHAKRAKEN_OUTPUT="${POOL_PROJECTS}/output"

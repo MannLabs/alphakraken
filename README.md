@@ -155,7 +155,6 @@ mkdir -p ${MOUNTS}/output
 ```bash
 sudo mount -t cifs -o username=krakenuser //samba-pool-backup/pool-backup ${MOUNTS}/pool-backup
 ```
-This is where the data will be
 
 3. Mount the project pool folder:
 ```bash
@@ -165,10 +164,6 @@ sudo mount -t cifs -o username=krakenuser ${IO_POOL_FOLDER}/output ${MOUNTS}/out
 
 Note: for now, user `krakenuser` should only have read access to the backup pool folder, but needs `read/write` on the `${MOUNTS}/output`.
 
-
-### Add settings
-The mount `settings` needs to contain fasta files, a spectral library and the config file in subfolder
-`fasta`, `speclib`, and `config`, respectively.
 
 
 ### Add a new instrument
@@ -194,7 +189,7 @@ where `${APC_SOURCE}` is the network folder of the APC. --
 by creating a new variable `INSTRUMENT_PATH_<INSTRUMENT_ID>` (all upper case), e.g.
 `INSTRUMENT_PATH_NEWINST1`:
 ```bash
-INSTRUMENT_PATH_NEWINST1=/some/path/to/new_instrument
+INSTRUMENT_PATH_NEWINST1=some/relative/path/to/new_instrument
 ```
 and add this new variable to `docker-compose.yml:x-airflow-common.environment`
 ```bash

@@ -167,3 +167,4 @@ cython_debug/
 airflow_logs
 mongodb_data*
 airflow_test_folders
+envs/.env-airflow

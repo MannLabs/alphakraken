@@ -8,6 +8,7 @@ from mongoengine import ConnectionFailure
 
 from shared.db.engine import (
     RawFileStatus,
+    add_metrics_to_raw_file,
     add_new_raw_file_to_db,
     connect_db,
     get_raw_file_names_from_db,
@@ -117,3 +118,26 @@ def test_get_raw_file_names_from_db_returns_only_existing_files_when_some_files_
     # then
     assert result == ["file1"]
     mock_connect_db.assert_called_once()
+
+
+@patch("shared.db.engine.connect_db")
+@patch("shared.db.engine.RawFile")
+@patch("shared.db.engine.Metrics")
+def test_add_metrics_to_raw_file_happy_path(
+    mock_metrics: MagicMock, mock_raw_file: MagicMock, mock_connect_db: MagicMock
+) -> None:
+    """Test that add_metrics_to_raw_file saves the metrics to the database."""
+    # given
+    mock_raw_file_from_db = MagicMock(fdfdfdsf="fdsfd")
+    mock_raw_file.objects.get.return_value = mock_raw_file_from_db
+
+    # when
+    add_metrics_to_raw_file("test_file", {"metric1": 1, "metric2": 2})
+
+    # then
+    mock_metrics.return_value.save.assert_called_once()
+    mock_connect_db.assert_called_once()
+    mock_raw_file.objects.get.assert_called_once_with(name="test_file")
+    mock_metrics.assert_called_once_with(
+        raw_file=mock_raw_file_from_db, metric1=1, metric2=2
+    )

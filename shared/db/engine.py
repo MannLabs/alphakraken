@@ -9,7 +9,9 @@ from mongoengine import (
     ConnectionFailure,
     DateTimeField,
     Document,
+    DynamicDocument,
     FloatField,
+    ReferenceField,
     StringField,
     connect,
     disconnect,
@@ -71,6 +73,26 @@ class RawFile(Document):
 
     created_at = DateTimeField()
     db_entry_created_at = DateTimeField(default=datetime.now)
+
+
+class Metrics(DynamicDocument):
+    """Schema for metrics calculated for a raw file.
+
+    Inheriting from `DynamicDocument` means that any parameter passed to the model will be added to the DB.
+    """
+
+    # https://docs.mongoengine.org/guide/defining-documents.html#dynamic-document-schemas
+    db_entry_created_at = DateTimeField(default=datetime.now)
+
+    # https://docs.mongoengine.org/guide/defining-documents.html#reference-fields
+    raw_file = ReferenceField(RawFile)
+
+
+def add_metrics_to_raw_file(raw_file_name: str, metrics: dict) -> None:
+    """Add `metrics` to DB entry of `raw_file_name`."""
+    connect_db()
+    raw_file = RawFile.objects.get(name=raw_file_name)
+    Metrics(raw_file=raw_file, **metrics).save()
 
 
 def get_raw_file_names_from_db(raw_file_names: list[str]) -> list[str]:

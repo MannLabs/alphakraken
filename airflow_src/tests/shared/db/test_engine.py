@@ -12,6 +12,7 @@ from shared.db.engine import (
     add_new_raw_file_to_db,
     connect_db,
     get_raw_file_names_from_db,
+    update_raw_file_status,
 )
 
 
@@ -122,13 +123,31 @@ def test_get_raw_file_names_from_db_returns_only_existing_files_when_some_files_
 
 @patch("shared.db.engine.connect_db")
 @patch("shared.db.engine.RawFile")
+def test_update_raw_file_status(
+    mock_raw_file: MagicMock, mock_connect_db: MagicMock
+) -> None:
+    """Test that update_raw_file_status updates the status of the raw file."""
+    # given
+    mock_raw_file_from_db = MagicMock()
+    mock_raw_file.objects.with_id.return_value = mock_raw_file_from_db
+
+    # when
+    update_raw_file_status("test_file", RawFileStatus.PROCESSED)
+
+    # then
+    mock_raw_file_from_db.update.assert_called_once_with(status=RawFileStatus.PROCESSED)
+    mock_connect_db.assert_called_once()
+
+
+@patch("shared.db.engine.connect_db")
+@patch("shared.db.engine.RawFile")
 @patch("shared.db.engine.Metrics")
 def test_add_metrics_to_raw_file_happy_path(
     mock_metrics: MagicMock, mock_raw_file: MagicMock, mock_connect_db: MagicMock
 ) -> None:
     """Test that add_metrics_to_raw_file saves the metrics to the database."""
     # given
-    mock_raw_file_from_db = MagicMock(fdfdfdsf="fdsfd")
+    mock_raw_file_from_db = MagicMock()
     mock_raw_file.objects.get.return_value = mock_raw_file_from_db
 
     # when

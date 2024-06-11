@@ -11,6 +11,8 @@ from dags.impl.handler_impl import (
 )
 from plugins.common.keys import DagContext, DagParams, OpArgs, XComKeys
 
+from shared.db.engine import RawFileStatus
+
 
 @patch("dags.impl.handler_impl.get_instrument_data_path")
 @patch("os.stat")
@@ -47,7 +49,9 @@ def test_add_to_db(
 @patch("dags.impl.handler_impl.get_xcom")
 @patch("dags.impl.handler_impl.SSHSensorOperator.ssh_execute")
 @patch("dags.impl.handler_impl.put_xcom")
+@patch("dags.impl.handler_impl.update_raw_file_status")
 def test_run_quanting_executes_ssh_command_and_stores_job_id(
+    mock_update: MagicMock,
     mock_put_xcom: MagicMock,
     mock_ssh_execute: MagicMock,
     mock_get_xcom: MagicMock,
@@ -70,6 +74,7 @@ def test_run_quanting_executes_ssh_command_and_stores_job_id(
     expected_command = "export RAW_FILE_NAME=test_file.raw\n\ncd ~/kraken &&\nJID=$(sbatch run.sh)\necho ${JID##* }\n"
     mock_ssh_execute.assert_called_once_with(expected_command, mock_ssh_hook)
     mock_put_xcom.assert_called_once_with(ti, XComKeys.JOB_ID, "12345")
+    mock_update.assert_called_once_with("test_file.raw", RawFileStatus.PROCESSING)
 
 
 @patch("dags.impl.handler_impl.get_xcom")
@@ -99,7 +104,9 @@ def test_compute_metrics(
 
 @patch("dags.impl.handler_impl.get_xcom")
 @patch("dags.impl.handler_impl.add_metrics_to_raw_file")
+@patch("dags.impl.handler_impl.update_raw_file_status")
 def test_upload_metrics(
+    mock_update: MagicMock,
     mock_add: MagicMock,
     mock_get_xcom: MagicMock,
 ) -> None:
@@ -110,3 +117,4 @@ def test_upload_metrics(
     upload_metrics(MagicMock())
 
     mock_add.assert_called_once_with("raw_file_name", {"metric1": "value1"})
+    mock_update.assert_called_once_with("raw_file_name", RawFileStatus.PROCESSED)

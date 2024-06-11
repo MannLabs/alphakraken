@@ -10,7 +10,12 @@ from common.utils import get_xcom, put_xcom
 from metrics.metrics_calculator import calc_metrics
 from sensors.ssh_sensor import SSHSensorOperator
 
-from shared.db.engine import add_metrics_to_raw_file, add_new_raw_file_to_db
+from shared.db.engine import (
+    RawFileStatus,
+    add_metrics_to_raw_file,
+    add_new_raw_file_to_db,
+    update_raw_file_status,
+)
 
 
 def add_to_db(ti: TaskInstance, **kwargs) -> None:
@@ -81,6 +86,8 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
 
     # TODO: fail on empty job id
 
+    update_raw_file_status(raw_file_name, RawFileStatus.PROCESSING)
+
     put_xcom(ti, XComKeys.JOB_ID, job_id)
 
 
@@ -106,6 +113,4 @@ def upload_metrics(ti: TaskInstance, **kwargs) -> None:
 
     add_metrics_to_raw_file(raw_file_name, metrics)
 
-    # example: get it back
-    # d = Metrics.objects(raw_file=RawFile.objects.get(name=raw_file_name))
-    # logging.info(f"Got {len(d)} {d.first().to_mongo()}")
+    update_raw_file_status(raw_file_name, RawFileStatus.PROCESSED)

@@ -45,9 +45,12 @@ metrics_data_df.drop(
     inplace=True,
     errors="ignore",
 )
-metrics_data_df.rename(columns={"raw_file": "name"}, inplace=True)
+metrics_data_df.rename(columns={"raw_file": "name"}, inplace=True, errors="ignore")
 
 # merge
-merged_df = raw_file_data_df.merge(metrics_data_df, on="name", how="left")
+try:
+    to_show_df = raw_file_data_df.merge(metrics_data_df, on="name", how="left")
+except Exception:  # noqa: BLE001
+    to_show_df = raw_file_data_df
 
-my_table = st.dataframe(merged_df)
+my_table = st.dataframe(to_show_df)

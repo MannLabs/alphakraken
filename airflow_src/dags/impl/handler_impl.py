@@ -24,10 +24,6 @@ def add_to_db(ti: TaskInstance, **kwargs) -> None:
     raw_file_name = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_NAME]
     instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
 
-    # # push to XCOM
-    # put_xcom(ti, XComKeys.RAW_FILE_NAME, raw_file_name)
-    # return
-
     logging.info(f"Got {raw_file_name=} on {instrument_id=}")
 
     # TODO: exception handling: retry vs noretry

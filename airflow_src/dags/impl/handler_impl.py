@@ -1,14 +1,16 @@
 """Business logic for the acquisition_handler."""
 
 import logging
+from pathlib import Path
 
 from airflow.models import TaskInstance
 from common.keys import DagContext, DagParams, OpArgs, XComKeys
-from common.settings import get_instrument_data_path
+from common.settings import InternalPaths, get_instrument_data_path
 from common.utils import get_xcom, put_xcom
+from metrics.metrics_calculator import calc_metrics
 from sensors.ssh_sensor import SSHSensorOperator
 
-from shared.db.engine import RawFile, RawFileStatus, add_new_raw_file_to_db, connect_db
+from shared.db.engine import add_metrics_to_raw_file, add_new_raw_file_to_db
 
 
 def add_to_db(ti: TaskInstance, **kwargs) -> None:
@@ -16,6 +18,10 @@ def add_to_db(ti: TaskInstance, **kwargs) -> None:
     # example how to retrieve parameters from the context
     raw_file_name = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_NAME]
     instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
+
+    # # push to XCOM
+    # put_xcom(ti, XComKeys.RAW_FILE_NAME, raw_file_name)
+    # return
 
     logging.info(f"Got {raw_file_name=} on {instrument_id=}")
 
@@ -79,31 +85,27 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
 
 
 def compute_metrics(ti: TaskInstance, **kwargs) -> None:
-    """TODO."""
-    del ti
-    del kwargs
-
-    # IMPLEMENT:
-    # compute metrics from the output files
-    # store them locally (?)
-
-
-def upload_metrics(ti: TaskInstance, **kwargs) -> None:
-    """TODO."""
+    """Compute metrics from the quanting results."""
     del kwargs
 
     raw_file_name = get_xcom(ti, XComKeys.RAW_FILE_NAME)
-    connect_db()
+    result_directory_path = (
+        Path(InternalPaths.MOUNTS_PATH) / Path(InternalPaths.OUTPUT) / raw_file_name
+    )
+    metrics = calc_metrics(str(result_directory_path))
 
-    raw_file = RawFile.objects.with_id(raw_file_name)
-    # example: update raw file status
+    put_xcom(ti, XComKeys.METRICS, metrics)
 
-    logging.info(f"got {raw_file=}")
-    raw_file.update(status=RawFileStatus.PROCESSED)
 
-    # sanity check:
-    for raw_file in RawFile.objects(name=raw_file_name):
-        logging.info(f"{raw_file.name} {raw_file.status}")
+def upload_metrics(ti: TaskInstance, **kwargs) -> None:
+    """Upload the metrics to the database."""
+    del kwargs
 
-    # IMPLEMENT:
-    # put metrics to the database
+    raw_file_name = get_xcom(ti, XComKeys.RAW_FILE_NAME)
+    metrics = get_xcom(ti, XComKeys.METRICS)
+
+    add_metrics_to_raw_file(raw_file_name, metrics)
+
+    # example: get it back
+    # d = Metrics.objects(raw_file=RawFile.objects.get(name=raw_file_name))
+    # logging.info(f"Got {len(d)} {d.first().to_mongo()}")

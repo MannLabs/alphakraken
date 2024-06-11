@@ -3,7 +3,12 @@
 from pathlib import Path
 from unittest.mock import MagicMock, Mock, patch
 
-from dags.impl.handler_impl import add_to_db, run_quanting
+from dags.impl.handler_impl import (
+    add_to_db,
+    compute_metrics,
+    run_quanting,
+    upload_metrics,
+)
 from plugins.common.keys import DagContext, DagParams, OpArgs, XComKeys
 
 
@@ -65,3 +70,43 @@ def test_run_quanting_executes_ssh_command_and_stores_job_id(
     expected_command = "export RAW_FILE_NAME=test_file.raw\n\ncd ~/kraken &&\nJID=$(sbatch run.sh)\necho ${JID##* }\n"
     mock_ssh_execute.assert_called_once_with(expected_command, mock_ssh_hook)
     mock_put_xcom.assert_called_once_with(ti, XComKeys.JOB_ID, "12345")
+
+
+@patch("dags.impl.handler_impl.get_xcom")
+@patch("dags.impl.handler_impl.calc_metrics")
+@patch("dags.impl.handler_impl.put_xcom")
+def test_compute_metrics(
+    mock_put_xcom: MagicMock,
+    mock_calc_metrics: MagicMock,
+    mock_get_xcom: MagicMock,
+) -> None:
+    """Test that compute_metrics makes the expected calls."""
+    mock_ti = MagicMock()
+    mock_get_xcom.return_value = "raw_file_name"
+    mock_calc_metrics.return_value = {"metric1": "value1"}
+
+    # when
+    compute_metrics(mock_ti)
+
+    mock_get_xcom.assert_called_once_with(mock_ti, XComKeys.RAW_FILE_NAME)
+    mock_calc_metrics.assert_called_once_with(
+        "/opt/airflow/mounts/output/raw_file_name"
+    )
+    mock_put_xcom.assert_called_once_with(
+        mock_ti, XComKeys.METRICS, {"metric1": "value1"}
+    )
+
+
+@patch("dags.impl.handler_impl.get_xcom")
+@patch("dags.impl.handler_impl.add_metrics_to_raw_file")
+def test_upload_metrics(
+    mock_add: MagicMock,
+    mock_get_xcom: MagicMock,
+) -> None:
+    """Test that compute_metrics makes the expected calls."""
+    mock_get_xcom.side_effect = ["raw_file_name", {"metric1": "value1"}]
+
+    # when
+    upload_metrics(MagicMock())
+
+    mock_add.assert_called_once_with("raw_file_name", {"metric1": "value1"})

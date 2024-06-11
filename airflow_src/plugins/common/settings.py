@@ -41,6 +41,7 @@ class InternalPaths:
     """Paths to directories."""
 
     MOUNTS_PATH = "/opt/airflow/mounts/"
+    OUTPUT = "output"
 
 
 class Timings:

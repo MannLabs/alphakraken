@@ -54,6 +54,8 @@ class XComKeys:
 
     JOB_ID: str = "job_id"
 
+    METRICS: str = "metrics"
+
 
 class InstrumentKeys:
     """Keys for accessing instrument data."""

@@ -55,7 +55,7 @@ If you encounter a `sqlite3.OperationalError: no such table: dag`, run `airflow 
 ### Manual testing
 1. Run the `docker compose` command above and log into the airflow UI.
 2. Unpause all DAGs. The "watchers" should start running.
-3. Create a test file: `I=$((I+1)); touch test_folders/instruments/test1/test_file_${I}.raw`
+3. Create a test file: `I=$((I+1)); touch test_folders/backup_pool/test1/test_file_${I}.raw`
 4. Wait until it appears in the webapp.
 
 ### Connect to the DB
@@ -176,18 +176,30 @@ Each instrument is identified by a unique `<INSTRUMENT_ID>`,
 which should be lowercase and contain only letters and numbers but is otherwise arbitrary (e.g. "test2").
 
 1. Mount the instrument
+
+Not needed until alphakraken takes over also the file transfer from acquisition PCS to backup pool.
+<details>
+  <summary>Mounting instruments (currently not needed)</summary>
+Mount the instrument
 ```bash
 MOUNTS=/home/kraken-user/alphakraken/sandbox/mounts
 INSTRUMENT_TARGET=${MOUNTS}/instruments/<INSTRUMENT_ID>
 mkdir -p ${INSTRUMENT_TARGET}
 sudo mount -t cifs -o username=krakenuser ${APC_SOURCE} ${INSTRUMENT_TARGET}
 ```
-where `${APC_SOURCE}` is the network folder of the APC.
+where `${APC_SOURCE}` is the network folder of the APC. --
+</details>
 
-Until alphakraken takes over also the file transfer from acquisition PCS to backup pool, this is the location on the backup pool folder,
-e.g. `//samba-pool-backup/pool-backup/Test2`.
+2. Add the location of the instrument data to the .env files in the `envs` folder:
+```bash
+INSTRUMENT_PATH_<INSTRUMENT_ID>=/some/path/to/new_instrument
+```
+and add this new variable to `docker-compose.yml:x-airflow-common.environment`
+```bash
+INSTRUMENT_PATH_<INSTRUMENT_ID>=${INSTRUMENT_PATH_<INSTRUMENT_ID>:?error}
+```
 
-2. In `docker-compose.yml`, add a new worker service, by copying an existing one and adapting it like:
+3. In `docker-compose.yml`, add a new worker service, by copying an existing one and adapting it like:
 ```
   airflow-worker-<INSTRUMENT_ID>:
     <<: *airflow-worker
@@ -195,7 +207,7 @@ e.g. `//samba-pool-backup/pool-backup/Test2`.
 ```
 where `<APC_TARGET>` is the value of `${APC_TARGET}`, i.e. the absolute path to the mounted network drive.
 
-3. In the `settings.py:INSTRUMENTS` dictionary, add a new entry by copying an existing one and adapting it like
+4. In the `settings.py:INSTRUMENTS` dictionary, add a new entry by copying an existing one and adapting it like
 ```
     "<INSTRUMENT_ID>": {
         InstrumentKeys.RAW_DATA_PATH: "<INSTRUMENT_ID>",
@@ -203,9 +215,9 @@ where `<APC_TARGET>` is the value of `${APC_TARGET}`, i.e. the absolute path to 
     },
 ```
 
-4. Shut down the containers with `docker compose down` and restart them (cf. above).
+5. Shut down the containers with `docker compose down` and restart them (cf. above).
 
-5. Open the airflow UI and unpause the new `*.<INSTRUMENT_ID>` DAGs.
+6. Open the airflow UI and unpause the new `*.<INSTRUMENT_ID>` DAGs.
 
 
 ### Setup SSH connection

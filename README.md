@@ -94,8 +94,14 @@ E.g. in PyCharm, you need to mark `dags`, `plugins`, `shared`, and `airflow_src`
 [Docker Compose](https://docs.docker.com/engine/install/ubuntu/) and
 [Docker](https://docs.docker.com/compose/install/linux/#install-using-the-repository).
 2. Clone the repository into `/home/kraken-user/alphakraken/sandbox/alphakraken`.
-3. `cd` into this directory and execute `echo -e "AIRFLOW_UID=$(id -u)" > envs/.env-airflow` to set the current user as the user
-within the airflow containers (otherwise, `root` would be used).
+3. `cd` into this directory and execute
+```bash
+echo -e "AIRFLOW_UID=$(id -u)" > envs/.env-airflow
+mkdir airflow_logs
+```
+to set the current user as the user within the airflow containers (otherwise, `root` would be used)
+and to have correct permissions for the logs directory.
+
 4. Set up the network bind mounts (see below).
 5. Run one-time initialization of the internal airflow database:
 ```bash
@@ -146,23 +152,23 @@ Additionally, one bind mount per instrument PC is needed (cf. section below).
 
 1. Create the mount target directories:
 ```bash
-TARGET_BASE=/home/kraken-user/alphakraken/sandbox/mounts
+MOUNTS=/home/kraken-user/alphakraken/sandbox/mounts
 mkdir -p ${MOUNTS}/pool-backup
 mkdir -p ${MOUNTS}/output
 ```
 
 2. Mount the backup pool folder:
 ```bash
-sudo mount -t cifs -o username=krakenuser //samba-pool-backup/pool-backup ${MOUNTS}/pool-backup
+sudo mount -t cifs -o username=kraken //samba-pool-backup/pool-backup ${MOUNTS}/pool-backup
 ```
 
 3. Mount the project pool folder:
 ```bash
 IO_POOL_FOLDER=//samba-pool-projects/pool-projects/alphakraken_test
-sudo mount -t cifs -o username=krakenuser ${IO_POOL_FOLDER}/output ${MOUNTS}/output
+sudo mount -t cifs -o username=kraken ${IO_POOL_FOLDER}/output ${MOUNTS}/output
 ```
 
-Note: for now, user `krakenuser` should only have read access to the backup pool folder, but needs `read/write` on the `${MOUNTS}/output`.
+Note: for now, user `kraken` should only have read access to the backup pool folder, but needs `read/write` on the `${MOUNTS}/output`.
 
 
 
@@ -180,7 +186,7 @@ Mount the instrument
 MOUNTS=/home/kraken-user/alphakraken/sandbox/mounts
 INSTRUMENT_TARGET=${MOUNTS}/instruments/<INSTRUMENT_ID>
 mkdir -p ${INSTRUMENT_TARGET}
-sudo mount -t cifs -o username=krakenuser ${APC_SOURCE} ${INSTRUMENT_TARGET}
+sudo mount -t cifs -o username=kraken ${APC_SOURCE} ${INSTRUMENT_TARGET}
 ```
 where `${APC_SOURCE}` is the network folder of the APC. --
 </details>
@@ -243,7 +249,7 @@ conda create --name alphadia-1.6.2 python=3.11 -y
 conda activate alphadia-1.6.2
 ```
 ```bash
-pip  install "alphadia==1.6.2[stable]"
+pip  install "alphadia[stable]==1.6.2"
 ```
 Make sure the environment is named `alphadia-$VERSION`.
 Also, don't forget to install `mono` (cf. alphaDIA Readme).

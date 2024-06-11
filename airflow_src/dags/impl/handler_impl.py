@@ -73,6 +73,8 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
     # TODO: prevent re-starting the same job again (SBATCH unique key or smth?)
     job_id = SSHSensorOperator.ssh_execute(command, ssh_hook)
 
+    # TODO: fail on empty job id
+
     put_xcom(ti, XComKeys.JOB_ID, job_id)
 
 

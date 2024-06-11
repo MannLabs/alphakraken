@@ -4,7 +4,7 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=10
 #SBATCH --mem=16G
-#SBATCH --time=21-04:00:00
+#SBATCH --time=04:00:00
 #SxBATCH --partition=p.<node>
 # TODO replace directives with command-line args
 

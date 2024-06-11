@@ -36,16 +36,12 @@ class DataStore:
     """Data store to read and cache data."""
 
     def __init__(self, data_dir: str):
-        """Data store to read and cache data.
+        """Initialize the data store.
 
-        Output files defined in `file_name_to_read_method_mapping` can be accessed as attributes, e.g.
+         Output files defined in `file_name_to_read_method_mapping` can be accessed as attributes, e.g.
             `stat_df = DataStore('/home/output')["stat.tsv"]`
 
-        Parameters
-        ----------
-        data_dir : str
-            Absolute path to the directory containing alphaDIA output data.
-
+        :param data_dir: Absolute path to the directory containing alphaDIA output data.
         """
         self._data_dir = data_dir
         self._data = {}
@@ -65,11 +61,7 @@ class Metrics(ABC):
     def __init__(self, data_store: DataStore):
         """Initialize Metrics.
 
-        Parameters
-        ----------
-        data_store : DataStore
-            Data store to get the data from.
-
+        :param data_store: Data store to get the data from.
         """
         self._data_store = data_store
         self._metrics = {}

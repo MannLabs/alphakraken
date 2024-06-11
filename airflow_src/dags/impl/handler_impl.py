@@ -19,6 +19,8 @@ def add_to_db(ti: TaskInstance, **kwargs) -> None:
 
     logging.info(f"Got {raw_file_name=} on {instrument_id=}")
 
+    # TODO: exception handling: retry vs noretry
+
     raw_file_path = get_instrument_data_path(instrument_id) / raw_file_name
     raw_file_size = raw_file_path.stat().st_size
     raw_file_creation_time = raw_file_path.stat().st_ctime

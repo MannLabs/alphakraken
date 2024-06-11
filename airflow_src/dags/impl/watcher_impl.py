@@ -28,6 +28,9 @@ def get_raw_files(ti: TaskInstance, **kwargs) -> None:
 
     logging.info(f"Raw files to be checked: {len(raw_file_names)} {raw_file_names}")
 
+    # TODO: when the kraken catches up after a stall, the acquisition_handler for a file could still be "queued"
+    #  -> the file is not added to the DB yet. Subsequently, another acquisition_handler will be triggered here
+    #  for the same file (which will then fail on add_to_db due to duplicate PK). Observe how often this occurs.
     for raw_file_name in get_raw_file_names_from_db(raw_file_names):
         logging.info(f"Raw file {raw_file_name} already in database.")
         raw_file_names.remove(raw_file_name)

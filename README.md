@@ -190,13 +190,15 @@ sudo mount -t cifs -o username=krakenuser ${APC_SOURCE} ${INSTRUMENT_TARGET}
 where `${APC_SOURCE}` is the network folder of the APC. --
 </details>
 
-2. Add the location of the instrument data to the .env files in the `envs` folder:
+2. Add the location of the instrument data to the .env files in the `envs` folder
+by creating a new variable `INSTRUMENT_PATH_<INSTRUMENT_ID>` (all upper case), e.g.
+`INSTRUMENT_PATH_NEWINST1`:
 ```bash
-INSTRUMENT_PATH_<INSTRUMENT_ID>=/some/path/to/new_instrument
+INSTRUMENT_PATH_NEWINST1=/some/path/to/new_instrument
 ```
 and add this new variable to `docker-compose.yml:x-airflow-common.environment`
 ```bash
-INSTRUMENT_PATH_<INSTRUMENT_ID>=${INSTRUMENT_PATH_<INSTRUMENT_ID>:?error}
+INSTRUMENT_PATH_NEWINST1=${INSTRUMENT_PATH_NEWINST1:?error}
 ```
 
 3. In `docker-compose.yml`, add a new worker service, by copying an existing one and adapting it like:
@@ -205,12 +207,13 @@ INSTRUMENT_PATH_<INSTRUMENT_ID>=${INSTRUMENT_PATH_<INSTRUMENT_ID>:?error}
     <<: *airflow-worker
     command: celery worker -q kraken_queue_<INSTRUMENT_ID>
 ```
-where `<APC_TARGET>` is the value of `${APC_TARGET}`, i.e. the absolute path to the mounted network drive.
 
 4. In the `settings.py:INSTRUMENTS` dictionary, add a new entry by copying an existing one and adapting it like
 ```
     "<INSTRUMENT_ID>": {
-        InstrumentKeys.RAW_DATA_PATH: "<INSTRUMENT_ID>",
+        InstrumentKeys.RAW_DATA_PATH: get_env_variable(
+            "INSTRUMENT_PATH_NEWINST1", "n_a"
+        ),
         # (there might be additional keys here, just copy them)
     },
 ```

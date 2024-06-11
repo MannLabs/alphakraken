@@ -67,7 +67,7 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
     export_cmd = f"export RAW_FILE_NAME={raw_file_name}\n"
 
     command = export_cmd + run_quanting_cmd
-    logging.info(f"Running command: {command}")
+    logging.info(f"Running command: >>>>\n{command}\n<<<< end of command")
 
     # TODO: prevent cluster from overfeeding on stall
     # TODO: prevent re-starting the same job again (SBATCH unique key or smth?)

@@ -80,6 +80,11 @@ x-airflow-common:
     MONGO_USER: ${MONGO_USER:?error}
     MONGO_PASSWORD: ${MONGO_PASSWORD:?error}
     MONGO_PORT: ${MONGO_PORT:?error}
+    # INSTRUMENT PATHS
+    INSTRUMENT_PATH_TEST1: ${INSTRUMENT_PATH_TEST1:?error}
+    INSTRUMENT_PATH_ASTRAL1: ${INSTRUMENT_PATH_ASTRAL1:?error}
+    INSTRUMENT_PATH_ASTRAL2: ${INSTRUMENT_PATH_ASTRAL2:?error}
+    # ... (add new instruments here)
   env_file:
     - ./envs/.env-airflow
   volumes:
@@ -122,6 +127,10 @@ x-airflow-worker:
     <<: *airflow-common-depends-on
     mongodb-service:
       condition: service_healthy
+  volumes:
+    - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_logs:/opt/airflow/logs
+    # all mounts (backup pool folders, results pool folders, instruments) need to be available in /mounts
+    - /home/kraken-user/alphakraken/sandbox/mounts:/opt/airflow/mounts
 
 services:
   postgres:
@@ -337,12 +346,7 @@ services:
       # airflow logs
       - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_logs:/opt/airflow/logs
       # output and backup folder
-      - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_test_folders/output:/opt/airflow/output
-#      - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_test_folders/backup:/opt/airflow/backup # this will be required when alphakraken does the backup
-      # instrument-specific bind mount:
-      - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_test_folders/acquisition_pcs/test1:/opt/airflow/acquisition_pcs/test1
-      # settings are required only for a local test-worker
-      - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_test_folders/settings:/opt/airflow/settings
+      - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_test_mounts:/opt/airflow/mounts
      # Uncomment for local development so that changes to DAGs and Tasks are immediately active for the test worker
      # Note that this part is defined another time for the other services in x-airflow-common
       - ${AIRFLOW_PROJ_DIR:-./airflow_src}/dags:/opt/airflow/dags
@@ -354,21 +358,11 @@ services:
   airflow-worker-test2:
     <<: *airflow-worker
     command: celery worker -q kraken_queue_test2
-    volumes:
-      - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_logs:/opt/airflow/logs
-      - /home/kraken-user/alphakraken/sandbox/mounts/output:/opt/airflow/output
-      # instrument-specific bind mount:
-      - /home/kraken-user/alphakraken/sandbox/mounts/ms14/Test2/2024_06/:/opt/airflow/acquisition_pcs/test2
 
   # INSTRUMENT: Test3
   airflow-worker-test3:
     <<: *airflow-worker
     command: celery worker -q kraken_queue_test3
-    volumes:
-      - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_logs:/opt/airflow/logs
-      - /home/kraken-user/alphakraken/sandbox/mounts/output:/opt/airflow/output
-      # instrument-specific bind mount:
-      - /home/kraken-user/alphakraken/sandbox/mounts/ms14/Test3/2024_06/:/opt/airflow/acquisition_pcs/test3
 
 volumes:
   postgres-db-volume:

@@ -4,8 +4,8 @@ import logging
 
 from airflow.models import TaskInstance
 from common.keys import DagContext, DagParams, OpArgs, XComKeys
-from common.settings import RawFileStatus
-from common.utils import get_instrument_data_path, get_xcom, put_xcom
+from common.settings import RawFileStatus, get_instrument_data_path
+from common.utils import get_xcom, put_xcom
 from sensors.ssh_sensor import SSHSensorOperator
 
 from shared.db.engine import RawFile, add_new_raw_file_to_db, connect_db
@@ -67,6 +67,8 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
     command = export_cmd + run_quanting_cmd
     logging.info(f"Running command: {command}")
 
+    # TODO: prevent cluster from overfeeding on stall
+    # TODO: prevent re-starting the same job again (SBATCH unique key or smth?)
     job_id = SSHSensorOperator.ssh_execute(command, ssh_hook)
 
     put_xcom(ti, XComKeys.JOB_ID, job_id)

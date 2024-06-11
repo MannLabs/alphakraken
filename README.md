@@ -55,7 +55,7 @@ If you encounter a `sqlite3.OperationalError: no such table: dag`, run `airflow 
 ### Manual testing
 1. Run the `docker compose` command above and log into the airflow UI.
 2. Unpause all DAGs. The "watchers" should start running.
-3. Create a test file: `I=$((I+1)); touch test_folders/acquisition_pcs/apc_tims_1/test_file_${I}.raw`
+3. Create a test file: `I=$((I+1)); touch test_folders/instruments/test1/test_file_${I}.raw`
 4. Wait until it appears in the webapp.
 
 ### Connect to the DB
@@ -133,31 +133,37 @@ Clean up all containers, volumes, and images (WARNING: data will be lost!)
 docker compose down --volumes  --remove-orphans --rmi all
 ```
 
+### General note on how Kraken gets to know the data
+Each worker needs two 'views' on the data: the first one enables direct access to it,
+by mounting a specific folder to a target on the kraken PC and then mounting the target
+to a worker container. The second one is the location of the data as seen from the cluster,
+this is required to set the paths for the cluster jobs correctly.
+
 ### Set up network bind mounts
 (TODO describe persistent mount)
 We need bind mounts set up to each backup pool folder, and to the project pool folder.
-Additionally, one bind mount per acquisition PC is needed (cf. section below).
+Additionally, one bind mount per instrument PC is needed (cf. section below).
 
 1. Create the mount target directories:
 ```bash
 TARGET_BASE=/home/kraken-user/alphakraken/sandbox/mounts
-mkdir -p ${TARGET_BASE}/ms14
-mkdir -p ${TARGET_BASE}/output
+mkdir -p ${MOUNTS}/pool-backup
+mkdir -p ${MOUNTS}/output
 ```
 
 2. Mount the backup pool folder:
 ```bash
-sudo mount -t cifs -o username=krakenuser //samba-pool-backup/pool-backup ${TARGET_BASE}/ms14
+sudo mount -t cifs -o username=krakenuser //samba-pool-backup/pool-backup ${MOUNTS}/pool-backup
 ```
 This is where the data will be
 
 3. Mount the project pool folder:
 ```bash
 IO_POOL_FOLDER=//samba-pool-projects/pool-projects/alphakraken_test
-sudo mount -t cifs -o username=krakenuser ${IO_POOL_FOLDER}/output ${TARGET_BASE}/output
+sudo mount -t cifs -o username=krakenuser ${IO_POOL_FOLDER}/output ${MOUNTS}/output
 ```
 
-Note: for now, user `krakenuser` should only have read access to the backup pool folder, but needs `read/write` on the `${TARGET_BASE}/output`.
+Note: for now, user `krakenuser` should only have read access to the backup pool folder, but needs `read/write` on the `${MOUNTS}/output`.
 
 
 ### Add settings
@@ -169,16 +175,16 @@ The mount `settings` needs to contain fasta files, a spectral library and the co
 Each instrument is identified by a unique `<INSTRUMENT_ID>`,
 which should be lowercase and contain only letters and numbers but is otherwise arbitrary (e.g. "test2").
 
-1. Mount the acquisition PC (APC) drive
+1. Mount the instrument
 ```bash
-TARGET_BASE=/home/kraken-user/alphakraken/sandbox/mounts
-APC_TARGET=${TARGET_BASE}/acquisition_pcs/<INSTRUMENT_ID>
-mkdir -p ${MOUNT_TARGET}
-sudo mount -t cifs -o username=krakenuser ${APC_SOURCE} ${APC_TARGET}
+MOUNTS=/home/kraken-user/alphakraken/sandbox/mounts
+INSTRUMENT_TARGET=${MOUNTS}/instruments/<INSTRUMENT_ID>
+mkdir -p ${INSTRUMENT_TARGET}
+sudo mount -t cifs -o username=krakenuser ${APC_SOURCE} ${INSTRUMENT_TARGET}
 ```
 where `${APC_SOURCE}` is the network folder of the APC.
 
-Until alphakraken takes over also the file transfer from APC to backup pool, this is the location on the backup pool folder,
+Until alphakraken takes over also the file transfer from acquisition PCS to backup pool, this is the location on the backup pool folder,
 e.g. `//samba-pool-backup/pool-backup/Test2`.
 
 2. In `docker-compose.yml`, add a new worker service, by copying an existing one and adapting it like:
@@ -186,10 +192,6 @@ e.g. `//samba-pool-backup/pool-backup/Test2`.
   airflow-worker-<INSTRUMENT_ID>:
     <<: *airflow-worker
     command: celery worker -q kraken_queue_<INSTRUMENT_ID>
-    volumes:
-    # (some general mounts, just copy them)
-      - <APC_TARGET>:/opt/airflow/acquisition_pcs/<INSTRUMENT_ID>
-    # (there might be additional keys here, just copy them)
 ```
 where `<APC_TARGET>` is the value of `${APC_TARGET}`, i.e. the absolute path to the mounted network drive.
 

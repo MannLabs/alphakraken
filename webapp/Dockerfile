@@ -18,12 +18,9 @@ RUN  --mount=type=cache,target=/root/.cache/pip \
      && pip install -r requirements_webapp.txt
 
 COPY webapp webapp
-# shared and plugins are directories that contain modules that are required by the webapp
-COPY airflow_src/plugins webapp/plugins
 COPY shared webapp/shared
 
 # cf. README.md:A note on importing
-ENV PYTHONPATH "${PYTHONPATH}:/app/webapp/plugins"
 ENV PYTHONPATH "${PYTHONPATH}:/app/webapp/shared"
 
 EXPOSE 8501

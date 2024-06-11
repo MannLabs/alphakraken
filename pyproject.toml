@@ -22,7 +22,8 @@ ignore = [
     "FA102", # Missing `from __future__ import annotations
     "EM101", # Exception must not use a string literal, assign to variable first
     "D104", # Missing docstring in public package
-    "ANN204" # Missing return type annotation for special method `__init__`
+    "ANN204", # Missing return type annotation for special method `__init__`
+    "D401" # First line of docstring should be in imperative mood
 ]
 
 [tool.pytest.ini_options]

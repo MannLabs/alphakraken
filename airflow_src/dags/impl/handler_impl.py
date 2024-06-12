@@ -99,6 +99,17 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
     put_xcom(ti, XComKeys.JOB_ID, job_id)
 
 
+def get_job_info(ti: TaskInstance, **kwargs) -> None:
+    """Get info (slurm logs, alphaDIA log) about the finished job from the cluster."""
+    ssh_hook = kwargs[OpArgs.SSH_HOOK]
+    job_id = get_xcom(ti, XComKeys.JOB_ID)
+
+    slurm_output_file = f"{CLUSTER_WORKING_DIR}/slurm-{job_id}.out"
+    print_slurm_output_file_cmd = f"cat {slurm_output_file}"
+
+    SSHSensorOperator.ssh_execute(print_slurm_output_file_cmd, ssh_hook)
+
+
 def compute_metrics(ti: TaskInstance, **kwargs) -> None:
     """Compute metrics from the quanting results."""
     del kwargs

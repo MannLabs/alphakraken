@@ -13,6 +13,7 @@ from common.settings import AIRFLOW_QUEUE_PREFIX, INSTRUMENTS, Timings
 from impl.handler_impl import (
     add_to_db,
     compute_metrics,
+    get_job_info,
     prepare_quanting,
     run_quanting,
     upload_metrics,
@@ -63,8 +64,12 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
             ssh_hook=ssh_hook,
             poke_interval=Timings.QUANTING_MONITOR_POKE_INTERVAL_S,
         )
-        # TODO: task config: max runtime
-        #  error handling!
+
+        get_job_info_ = PythonOperator(
+            task_id=Tasks.GET_JOB_INFO,
+            python_callable=get_job_info,
+            op_kwargs={OpArgs.SSH_HOOK: ssh_hook, OpArgs.INSTRUMENT_ID: instrument_id},
+        )
 
         compute_metrics_ = PythonOperator(
             task_id=Tasks.COMPUTE_METRICS, python_callable=compute_metrics
@@ -79,6 +84,7 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
         >> prepare_quanting_
         >> run_quanting_
         >> monitor_quanting_
+        >> get_job_info_
         >> compute_metrics_
         >> upload_metrics_
     )

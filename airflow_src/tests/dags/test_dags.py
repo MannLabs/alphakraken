@@ -19,7 +19,7 @@ def dagbag() -> DagBag:
         return DagBag(dag_folder=DAG_FOLDER, include_examples=False)
 
 
-def test_dag_loaded_acquisition_watcher(dagbag: DagBag) -> None:
+def test_dag_load_acquisition_watcher(dagbag: DagBag) -> None:
     """Test that acquisition_watcher loads correctly."""
     # when
     for instrument in INSTRUMENTS:
@@ -31,7 +31,7 @@ def test_dag_loaded_acquisition_watcher(dagbag: DagBag) -> None:
         assert len(dag.tasks) == 3  # noqa: PLR2004 no magic numbers
 
 
-def test_dag_loaded_acquisition_handler(dagbag: DagBag) -> None:
+def test_dag_load_acquisition_handler(dagbag: DagBag) -> None:
     """Test that acquisition_watcher loads correctly."""
     # when
     for instrument in INSTRUMENTS:
@@ -40,4 +40,4 @@ def test_dag_loaded_acquisition_handler(dagbag: DagBag) -> None:
         # then
         assert dagbag.import_errors == {}
         assert dag is not None
-        assert len(dag.tasks) == 6  # noqa: PLR2004 no magic numbers
+        assert len(dag.tasks) == 7  # noqa: PLR2004 no magic numbers

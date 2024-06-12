@@ -7,6 +7,7 @@ from common.settings import INSTRUMENTS
 from dags.impl.handler_impl import (
     add_to_db,
     compute_metrics,
+    get_job_info,
     run_quanting,
     upload_metrics,
 )
@@ -84,6 +85,31 @@ def test_run_quanting_executes_ssh_command_and_stores_job_id(
     mock_ssh_execute.assert_called_once_with(expected_command, mock_ssh_hook)
     mock_put_xcom.assert_called_once_with(ti, XComKeys.JOB_ID, "12345")
     mock_update.assert_called_once_with("test_file.raw", RawFileStatus.PROCESSING)
+
+
+@patch("dags.impl.handler_impl.get_xcom")
+@patch("dags.impl.handler_impl.SSHSensorOperator.ssh_execute")
+@patch("dags.impl.handler_impl.put_xcom")
+def test_get_job_info_happy_path(
+    mock_put_xcom: MagicMock, mock_ssh_execute: MagicMock, mock_get_xcom: MagicMock
+) -> None:
+    """Test that get_job_info makes the expected calls."""
+    mock_ti = MagicMock()
+    mock_get_xcom.side_effect = ["ssh_hook", "job_id"]
+    mock_ssh_execute.return_value = "00:08:42\nsome\nother\nlines\n"
+
+    mock_ssh_hook = MagicMock()
+    get_job_info(mock_ti, **{OpArgs.SSH_HOOK: mock_ssh_hook})
+
+    mock_get_xcom.assert_called_once_with(mock_ti, XComKeys.JOB_ID)
+    mock_ssh_execute.assert_called_once_with(
+        "TIME_ELAPSED=$(sacct --format=Elapsed -j  ssh_hook | tail -n 1); echo $TIME_ELAPSED\nsacct -l -j ssh_hook\ncat ~/slurm/jobs/slurm-ssh_hook.out\n",
+        mock_ssh_hook,
+    )
+
+    mock_put_xcom.assert_not_called()
+
+    mock_put_xcom.assert_called_once_with(mock_ti, XComKeys.TIME_ELAPSED, 522)
 
 
 @patch("dags.impl.handler_impl.get_xcom")

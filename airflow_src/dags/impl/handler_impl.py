@@ -106,7 +106,7 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
 
 
 def get_job_info(ti: TaskInstance, **kwargs) -> None:
-    """Get info (slurm logs, alphaDIA log) about the finished job from the cluster."""
+    """Get info (slurm log, alphaDIA log) about a job from the cluster."""
     ssh_hook = kwargs[OpArgs.SSH_HOOK]
     job_id = get_xcom(ti, XComKeys.JOB_ID)
 
@@ -114,11 +114,10 @@ def get_job_info(ti: TaskInstance, **kwargs) -> None:
 
     # To reduce the number of ssh calls, we combine multiple commands into one
     # In order to be able to extract the run time, we expect the first line to contain only that, e.g. "00:08:42"
-    get_job_info_cmd = f"""
-    TIME_ELAPSED=$(sacct --format=Elapsed -j  {job_id} | tail -n 1); echo $TIME_ELAPSED
-    sacct -l -j {job_id}
-    cat {slurm_output_file}
-    """
+    get_job_info_cmd = f"""TIME_ELAPSED=$(sacct --format=Elapsed -j  {job_id} | tail -n 1); echo $TIME_ELAPSED
+sacct -l -j {job_id}
+cat {slurm_output_file}
+"""
 
     ssh_return = SSHSensorOperator.ssh_execute(get_job_info_cmd, ssh_hook)
 

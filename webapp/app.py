@@ -17,7 +17,7 @@ connect_db()
 
 st.write(f"Processed {RawFile.objects.count()} raw files.")
 
-# TODO: this throwaway code!
+# TODO: this is throwaway code!
 
 # get raw file data
 raw_file_data = defaultdict(list)

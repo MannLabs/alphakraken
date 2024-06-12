@@ -13,6 +13,7 @@ from common.settings import (
 )
 from common.utils import get_xcom, put_xcom
 from metrics.metrics_calculator import calc_metrics
+from mongoengine.errors import NotUniqueError
 from sensors.ssh_sensor import SSHSensorOperator
 
 from shared.db.engine import (
@@ -33,17 +34,22 @@ def add_to_db(ti: TaskInstance, **kwargs) -> None:
 
     # TODO: exception handling: retry vs noretry
 
+    # calculate the file properties already here to have them available as early as possible
     raw_file_path = get_internal_instrument_data_path(instrument_id) / raw_file_name
     raw_file_size = raw_file_path.stat().st_size
     raw_file_creation_time = raw_file_path.stat().st_ctime
     logging.info(f"Got {raw_file_size / 1024**3} GB {raw_file_creation_time}")
 
-    add_new_raw_file_to_db(
-        raw_file_name,
-        instrument_id=instrument_id,
-        size=raw_file_size,
-        creation_ts=raw_file_creation_time,
-    )
+    try:
+        add_new_raw_file_to_db(
+            raw_file_name,
+            instrument_id=instrument_id,
+            size=raw_file_size,
+            creation_ts=raw_file_creation_time,
+        )
+    except NotUniqueError:  # TODO: remove
+        # we tolerate this for now to facilitate manual testing
+        logging.warning(f"File {raw_file_name} already in the database")
 
     # push to XCOM
     put_xcom(ti, XComKeys.RAW_FILE_NAME, raw_file_name)
@@ -105,15 +111,21 @@ def get_job_info(ti: TaskInstance, **kwargs) -> None:
     job_id = get_xcom(ti, XComKeys.JOB_ID)
 
     slurm_output_file = f"{CLUSTER_WORKING_DIR}/slurm-{job_id}.out"
-    print_slurm_output_file_cmd = f"""
-                                  TIME_ELAPSED=$(sacct --format=Elapsed -j  {job_id} | tail -n 1); echo $TIME_ELAPSED
-                                  sacct -l -j {job_id}
-                                  cat {slurm_output_file}
-                                  """
 
-    ssh_return = SSHSensorOperator.ssh_execute(print_slurm_output_file_cmd, ssh_hook)
+    # To reduce the number of ssh calls, we combine multiple commands into one
+    # In order to be able to extract the run time, we expect the first line to contain only that, e.g. "00:08:42"
+    get_job_info_cmd = f"""
+    TIME_ELAPSED=$(sacct --format=Elapsed -j  {job_id} | tail -n 1); echo $TIME_ELAPSED
+    sacct -l -j {job_id}
+    cat {slurm_output_file}
+    """
+
+    ssh_return = SSHSensorOperator.ssh_execute(get_job_info_cmd, ssh_hook)
 
     logging.info(ssh_return)
+
+    time_elapsed = ssh_return.split("\n")[0]
+    logging.info(f"{time_elapsed=}")
 
 
 def compute_metrics(ti: TaskInstance, **kwargs) -> None:

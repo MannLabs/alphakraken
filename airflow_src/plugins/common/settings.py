@@ -66,7 +66,7 @@ def get_relative_instrument_data_path(instrument_id: str) -> str:
 
 def get_output_dir_name(raw_file_name: str) -> str:
     """Get the output directory name for the given raw file name."""
-    return f"{OUTPUT_DIR_PREFIX}_{raw_file_name}"
+    return f"{OUTPUT_DIR_PREFIX}{raw_file_name}"
 
 
 def get_internal_output_path(raw_file_name: str) -> Path:

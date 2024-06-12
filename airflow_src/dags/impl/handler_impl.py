@@ -1,6 +1,7 @@
 """Business logic for the acquisition_handler."""
 
 import logging
+from datetime import datetime
 
 from airflow.models import TaskInstance
 from common.keys import DagContext, DagParams, OpArgs, XComKeys
@@ -123,8 +124,17 @@ cat {slurm_output_file}
 
     logging.info(ssh_return)
 
-    time_elapsed = ssh_return.split("\n")[0]
-    logging.info(f"{time_elapsed=}")
+    time_elapsed = _get_time_elapsed(ssh_return)
+
+    put_xcom(ti, XComKeys.TIME_ELAPSED, time_elapsed)
+
+
+def _get_time_elapsed(ssh_return: str) -> int:
+    """Extract the time in seconds from a string "hours:minutes:seconds" in the first line of a string."""
+    time_stamp = ssh_return.split("\n")[0]
+    logging.info(f"extracted {time_stamp=}")
+    t = datetime.strptime(time_stamp, "%H:%M:%S")  # noqa: DTZ007
+    return (t.hour * 3600) + (t.minute * 60) + t.second
 
 
 def compute_metrics(ti: TaskInstance, **kwargs) -> None:
@@ -145,6 +155,9 @@ def upload_metrics(ti: TaskInstance, **kwargs) -> None:
 
     raw_file_name = get_xcom(ti, XComKeys.RAW_FILE_NAME)
     metrics = get_xcom(ti, XComKeys.METRICS)
+
+    time_elapsed = get_xcom(ti, XComKeys.TIME_ELAPSED)
+    metrics["time_elapsed"] = time_elapsed
 
     add_metrics_to_raw_file(raw_file_name, metrics)
 

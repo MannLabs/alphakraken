@@ -107,8 +107,6 @@ def test_get_job_info_happy_path(
         mock_ssh_hook,
     )
 
-    mock_put_xcom.assert_not_called()
-
     mock_put_xcom.assert_called_once_with(mock_ti, XComKeys.TIME_ELAPSED, 522)
 
 
@@ -146,10 +144,12 @@ def test_upload_metrics(
     mock_get_xcom: MagicMock,
 ) -> None:
     """Test that compute_metrics makes the expected calls."""
-    mock_get_xcom.side_effect = ["raw_file_name", {"metric1": "value1"}]
+    mock_get_xcom.side_effect = ["raw_file_name", {"metric1": "value1"}, 123]
 
     # when
     upload_metrics(MagicMock())
 
-    mock_add.assert_called_once_with("raw_file_name", {"metric1": "value1"})
+    mock_add.assert_called_once_with(
+        "raw_file_name", {"metric1": "value1", "time_elapsed": 123}
+    )
     mock_update.assert_called_once_with("raw_file_name", RawFileStatus.PROCESSED)

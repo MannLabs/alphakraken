@@ -105,9 +105,15 @@ def get_job_info(ti: TaskInstance, **kwargs) -> None:
     job_id = get_xcom(ti, XComKeys.JOB_ID)
 
     slurm_output_file = f"{CLUSTER_WORKING_DIR}/slurm-{job_id}.out"
-    print_slurm_output_file_cmd = f"cat {slurm_output_file}"
+    print_slurm_output_file_cmd = f"""
+                                  TIME_ELAPSED=$(sacct --format=Elapsed -j  {job_id} | tail -n 1); echo $TIME_ELAPSED
+                                  sacct -l -j {job_id}
+                                  cat {slurm_output_file}
+                                  """
 
-    SSHSensorOperator.ssh_execute(print_slurm_output_file_cmd, ssh_hook)
+    ssh_return = SSHSensorOperator.ssh_execute(print_slurm_output_file_cmd, ssh_hook)
+
+    logging.info(ssh_return)
 
 
 def compute_metrics(ti: TaskInstance, **kwargs) -> None:

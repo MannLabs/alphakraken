@@ -27,7 +27,7 @@ INSTRUMENTS = {
 # prefix for the queues the DAGs are assigned to (cf. docker-compose.yml)
 AIRFLOW_QUEUE_PREFIX = "kraken_queue_"
 
-OUTPUT_DIR_PREFIX = "out_"
+OUTPUT_FOLDER_PREFIX = "out_"
 
 
 CLUSTER_BASE_DIR = "~/slurm"
@@ -69,9 +69,9 @@ def get_relative_instrument_data_path(instrument_id: str) -> str:
     return INSTRUMENTS[instrument_id][InstrumentKeys.RAW_DATA_PATH]
 
 
-def get_output_dir_name(raw_file_name: str) -> str:
+def get_output_folder_name(raw_file_name: str) -> str:
     """Get the output directory name for the given raw file name."""
-    return f"{OUTPUT_DIR_PREFIX}{raw_file_name}"
+    return f"{OUTPUT_FOLDER_PREFIX}{raw_file_name}"
 
 
 def get_internal_output_path(raw_file_name: str) -> Path:
@@ -79,5 +79,5 @@ def get_internal_output_path(raw_file_name: str) -> Path:
     return (
         Path(InternalPaths.MOUNTS_PATH)
         / Path(InternalPaths.OUTPUT)
-        / get_output_dir_name(raw_file_name)
+        / get_output_folder_name(raw_file_name)
     )

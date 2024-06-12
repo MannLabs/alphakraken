@@ -10,6 +10,7 @@ from common.settings import (
     CLUSTER_WORKING_DIR,
     get_internal_instrument_data_path,
     get_internal_output_path,
+    get_output_folder_name,
     get_relative_instrument_data_path,
 )
 from common.utils import get_xcom, put_xcom
@@ -86,10 +87,13 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
 
     raw_file_name = get_xcom(ti, XComKeys.RAW_FILE_NAME)
     instrument_subfolder = get_relative_instrument_data_path(instrument_id)
+    output_folder_name = get_output_folder_name(raw_file_name)
 
+    # TODO: move creation of env vars to dedicated method
     export_cmd = (
         f"export RAW_FILE_NAME={raw_file_name}\n"
         f"export POOL_BACKUP_INSTRUMENT_SUBFOLDER={instrument_subfolder}\n"
+        f"export OUTPUT_FOLDER_NAME={output_folder_name}\n"
     )
 
     command = export_cmd + run_quanting_cmd

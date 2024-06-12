@@ -77,7 +77,8 @@ def test_run_quanting_executes_ssh_command_and_stores_job_id(
     # then
     expected_command = (
         "export RAW_FILE_NAME=test_file.raw\n"
-        "export POOL_BACKUP_INSTRUMENT_SUBFOLDER=path/to/data\n\n"
+        "export POOL_BACKUP_INSTRUMENT_SUBFOLDER=path/to/data\n"
+        "export OUTPUT_FOLDER_NAME=out_test_file.raw\n\n"
         "cd ~/slurm/jobs &&\n"
         "JID=$(sbatch ~/slurm/submit_job.sh)\n"
         "echo ${JID##* }\n"

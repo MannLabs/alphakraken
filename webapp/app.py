@@ -3,6 +3,7 @@
 
 from collections import defaultdict
 
+import matplotlib.pyplot as plt
 import pandas as pd
 import streamlit as st
 
@@ -53,4 +54,21 @@ try:
 except Exception:  # noqa: BLE001
     to_show_df = raw_file_data_df
 
-my_table = st.dataframe(to_show_df)
+
+def show_filter(to_show_df: pd.DataFrame, text: str, column: str) -> pd.DataFrame:
+    """Filter the DataFrame based on user input."""
+    user_input = st.text_input(text, None)
+    if user_input is not None:
+        return to_show_df[to_show_df[column].str.contains(user_input)]
+    return to_show_df
+
+
+to_show_df2 = show_filter(to_show_df, "Raw file name", "name")
+to_show_df3 = show_filter(to_show_df2, "Instrument", "name")
+
+
+cmap = plt.get_cmap("RdYlGn")
+
+my_table = st.dataframe(
+    to_show_df3.style.background_gradient(subset="BasicStats_proteins_mean", cmap=cmap)
+)

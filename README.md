@@ -288,5 +288,6 @@ Once the instrument is available again, uncomment the worker definition and rest
 These variables are set in the Airflow UI under "Admin" -> "Variables". They steer the behavior of the whole system,
 so be careful when changing them. If in doubt, pause all DAGs that are not part of the current problem before changing them.
 
+### debug_no_cluster_ssh
 `debug_no_cluster_ssh` If set to `True`, the system will not connect to the SLURM cluster. This is useful for
 testing, debugging and to avoid flooding the cluster at the initial setup.

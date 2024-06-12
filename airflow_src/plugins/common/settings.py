@@ -24,26 +24,6 @@ INSTRUMENTS = {
     },
 }
 
-
-def get_internal_instrument_data_path(instrument_id: str) -> Path:
-    """Get internal path for the given instrument.
-
-    e.g. /opt/airflow/mounts/pool-backup/Test2
-    """
-    return (
-        Path(InternalPaths.MOUNTS_PATH)
-        / INSTRUMENTS[instrument_id][InstrumentKeys.RAW_DATA_PATH]
-    )
-
-
-def get_relative_instrument_data_path(instrument_id: str) -> Path:
-    """Get relative_path for the given instrument.
-
-    e.g. pool-backup/Test2
-    """
-    return INSTRUMENTS[instrument_id][InstrumentKeys.RAW_DATA_PATH]
-
-
 # prefix for the queues the DAGs are assigned to (cf. docker-compose.yml)
 AIRFLOW_QUEUE_PREFIX = "kraken_queue_"
 
@@ -63,3 +43,36 @@ class Timings:
     FILE_CREATION_POKE_INTERVAL_S = 60
 
     QUANTING_MONITOR_POKE_INTERVAL_S = 60
+
+
+def get_internal_instrument_data_path(instrument_id: str) -> Path:
+    """Get internal path for the given instrument.
+
+    e.g. /opt/airflow/mounts/pool-backup/Test2
+    """
+    return (
+        Path(InternalPaths.MOUNTS_PATH)
+        / INSTRUMENTS[instrument_id][InstrumentKeys.RAW_DATA_PATH]
+    )
+
+
+def get_relative_instrument_data_path(instrument_id: str) -> str:
+    """Get relative_path for the given instrument.
+
+    e.g. pool-backup/Test2
+    """
+    return INSTRUMENTS[instrument_id][InstrumentKeys.RAW_DATA_PATH]
+
+
+def get_output_dir_name(raw_file_name: str) -> str:
+    """Get the output directory name for the given raw file name."""
+    return f"{OUTPUT_DIR_PREFIX}_{raw_file_name}"
+
+
+def get_internal_output_path(raw_file_name: str) -> Path:
+    """Get internal output path for the given raw file name."""
+    return (
+        Path(InternalPaths.MOUNTS_PATH)
+        / Path(InternalPaths.OUTPUT)
+        / get_output_dir_name(raw_file_name)
+    )

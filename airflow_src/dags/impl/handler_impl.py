@@ -1,14 +1,12 @@
 """Business logic for the acquisition_handler."""
 
 import logging
-from pathlib import Path
 
 from airflow.models import TaskInstance
 from common.keys import DagContext, DagParams, OpArgs, XComKeys
 from common.settings import (
-    OUTPUT_DIR_PREFIX,
-    InternalPaths,
     get_internal_instrument_data_path,
+    get_internal_output_path,
     get_relative_instrument_data_path,
 )
 from common.utils import get_xcom, put_xcom
@@ -103,11 +101,9 @@ def compute_metrics(ti: TaskInstance, **kwargs) -> None:
     del kwargs
 
     raw_file_name = get_xcom(ti, XComKeys.RAW_FILE_NAME)
-    output_directory = f"{OUTPUT_DIR_PREFIX}{raw_file_name}"
-    output_path = (
-        Path(InternalPaths.MOUNTS_PATH) / Path(InternalPaths.OUTPUT) / output_directory
-    )
-    metrics = calc_metrics(str(output_path))
+
+    output_path = get_internal_output_path(raw_file_name)
+    metrics = calc_metrics(output_path)
 
     put_xcom(ti, XComKeys.METRICS, metrics)
 

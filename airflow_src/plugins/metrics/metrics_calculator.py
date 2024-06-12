@@ -91,9 +91,9 @@ class BasicStats(Metrics):
             # self._metrics[f"{self._name}_{col}_std"] = df[col].std()
 
 
-def calc_metrics(output_directory: str) -> dict[str, Any]:
+def calc_metrics(output_directory: Path) -> dict[str, Any]:
     """Calculate metrics for the given output directory."""
-    data_store = DataStore(output_directory)
+    data_store = DataStore(str(output_directory))
     metrics = BasicStats(data_store)
     m = metrics.get()
     logging.info(f"Calculated metrics: {m}")

@@ -60,8 +60,17 @@ If you encounter a `sqlite3.OperationalError: no such table: dag`, run `airflow 
 ### Manual testing
 1. Run the `docker compose` command above and log into the airflow UI.
 2. Unpause all DAGs. The "watchers" should start running.
-3. Create a test file: `I=$((I+1)); touch test_folders/backup_pool/test1/test_file_${I}.raw`
-4. Wait until it appears in the webapp.
+3. If you do not want to feed the cluster, set the Airflow variable `debug_no_cluster_ssh=True` (see below)
+4. Create a test file and copy fake alphaDIA result data to the expected output directory:
+```
+I=$((I+1)); NEW_FILE_NAME=test_file_${I}.raw; echo $NEW_FILE_NAME
+touch airflow_test_folders/backup_pool/test1/$NEW_FILE_NAME
+NEW_OUTPUT_FOLDER=airflow_test_folders/output/out_$NEW_FILE_NAME
+mkdir $NEW_OUTPUT_FOLDER
+cp airflow_test_folders/_data/stat.tsv $NEW_OUTPUT_FOLDER
+```
+5. Wait until the `acquisition_watchers` picks up the file (you may mark the `wait_for_new_files` task as "success" to speed up the process).
+6. Wait until it appears in the webapp.
 
 ### Connect to the DB
 Use e.g. MongoDB Compass to connect to the MongoDB running in Docker using the url `localhost:27017`,

@@ -2,6 +2,7 @@
 
 import logging
 from datetime import datetime
+from random import random
 
 from airflow.models import TaskInstance
 from common.keys import DagContext, DagParams, OpArgs, XComKeys
@@ -80,7 +81,7 @@ echo ${{JID##* }}
 def run_quanting(ti: TaskInstance, **kwargs) -> None:
     """Run the quanting job on the cluster."""
     # IMPLEMENT:
-    # wait for the cluster to be ready (20% idling) -> dedicated (sensor) task
+    # wait for the cluster to be ready (20% idling) -> dedicated (sensor) task, mind race condition! (have pool = 1 for that)
 
     ssh_hook = kwargs[OpArgs.SSH_HOOK]
     instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
@@ -89,11 +90,18 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
     instrument_subfolder = get_relative_instrument_data_path(instrument_id)
     output_folder_name = get_output_folder_name(raw_file_name)
 
+    # TODO: remove!!!
+    # this is so hacky it makes my head hurt:
+    # currently, two instances of alphaDIA compete for locking the speclib file
+    # This reduces the chance for this to happen by 90%
+    speclib_file_name = f"hela_hybrid.small.{int(random()*10)}.hdf"  # noqa: S311
+
     # TODO: move creation of env vars to dedicated method
     export_cmd = (
         f"export RAW_FILE_NAME={raw_file_name}\n"
         f"export POOL_BACKUP_INSTRUMENT_SUBFOLDER={instrument_subfolder}\n"
         f"export OUTPUT_FOLDER_NAME={output_folder_name}\n"
+        f"export SPECLIB_FILE_NAME={speclib_file_name}\n"
     )
 
     command = export_cmd + run_quanting_cmd

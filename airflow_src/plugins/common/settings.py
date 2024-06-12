@@ -30,6 +30,11 @@ AIRFLOW_QUEUE_PREFIX = "kraken_queue_"
 OUTPUT_DIR_PREFIX = "out_"
 
 
+CLUSTER_BASE_DIR = "~/slurm"
+CLUSTER_JOB_SCRIPT_PATH = f"{CLUSTER_BASE_DIR}/submit_job.sh"
+CLUSTER_WORKING_DIR = f"{CLUSTER_BASE_DIR}/jobs"
+
+
 class InternalPaths:
     """Paths to directories within the Docker containers."""
 

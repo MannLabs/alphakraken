@@ -77,8 +77,8 @@ def test_run_quanting_executes_ssh_command_and_stores_job_id(
     expected_command = (
         "export RAW_FILE_NAME=test_file.raw\n"
         "export POOL_BACKUP_INSTRUMENT_SUBFOLDER=path/to/data\n\n"
-        "cd ~/kraken &&\n"
-        "JID=$(sbatch submit_job.sh)\n"
+        "cd ~/slurm/jobs &&\n"
+        "JID=$(sbatch ~/slurm/submit_job.sh)\n"
         "echo ${JID##* }\n"
     )
     mock_ssh_execute.assert_called_once_with(expected_command, mock_ssh_hook)
@@ -104,7 +104,7 @@ def test_compute_metrics(
 
     mock_get_xcom.assert_called_once_with(mock_ti, XComKeys.RAW_FILE_NAME)
     mock_calc_metrics.assert_called_once_with(
-        "/opt/airflow/mounts/output/out_raw_file_name"
+        Path("/opt/airflow/mounts/output/out_raw_file_name")
     )
     mock_put_xcom.assert_called_once_with(
         mock_ti, XComKeys.METRICS, {"metric1": "value1"}

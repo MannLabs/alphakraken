@@ -6,7 +6,6 @@ from abc import ABC, abstractmethod
 from airflow.providers.ssh.hooks.ssh import SSHHook
 from airflow.sensors.base import BaseSensorOperator
 from common.keys import Variables, XComKeys
-from common.settings import get_internal_output_path
 from common.utils import get_variable, get_xcom
 
 
@@ -36,38 +35,20 @@ class SSHSensorOperator(BaseSensorOperator, ABC):
         """
         super().__init__(*args, **kwargs)
         self._ssh_hook = ssh_hook
-        self._jid = None
-        self._raw_file_name = None
+        self._job_id = None
 
     def pre_execute(self, context: dict[str, any]) -> None:
-        """Get the job id and raw file name from XCom."""
-        self._jid = get_xcom(context["ti"], XComKeys.JOB_ID)
-        self._raw_file_name = get_xcom(context["ti"], XComKeys.RAW_FILE_NAME)
+        """_job_id the job id from XCom."""
+        self._job_id = get_xcom(context["ti"], XComKeys.JOB_ID)
 
     def poke(self, context: dict[str, any]) -> bool:
         """Check the output of the ssh command."""
         logging.info(f"SSH command execute: {context}")
 
-        command = self.command_template.replace("REPLACE_JID", self._jid)
+        command = self.command_template.replace("REPLACE_JID", self._job_id)
 
         ssh_return = self.ssh_execute(command, self._ssh_hook)
-        logging.info("SSH command returned: '%s'", ssh_return)
-
-        log_file_path = get_internal_output_path(self._raw_file_name) / "log.txt"
-
-        try:
-            with open(log_file_path) as f:  # noqa: PTH123
-                for line in f:
-                    logging.info(line)
-        except Exception as e:  # noqa:BLE001
-            logging.warning(f"Exception when trying to read alphadia log: {e}.")
-
-        try:
-            slurm_output_file = f"~/kraken/slurm-{self._jid}.out"
-            print_slurm_output_file_cmd = f"cat {slurm_output_file}"
-            self.ssh_execute(print_slurm_output_file_cmd, self._ssh_hook)
-        except Exception as e:  # noqa:BLE001
-            logging.warning(f"Exception when trying to read slurm log: {e}.")
+        logging.info(f"ssh command returned: '{ssh_return}'")
 
         if ssh_return in self.running_states:
             return False

@@ -5,6 +5,8 @@ import logging
 from airflow.models import TaskInstance
 from common.keys import DagContext, DagParams, OpArgs, XComKeys
 from common.settings import (
+    CLUSTER_JOB_SCRIPT_PATH,
+    CLUSTER_WORKING_DIR,
     get_internal_instrument_data_path,
     get_internal_output_path,
     get_relative_instrument_data_path,
@@ -59,10 +61,11 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
 # TODO: how to bring 'submit_job.sh' to the cluster?
 # Must be a bash script that is executable on the cluster.
 # Its only output to stdout must be the job id of the submitted job.
-run_quanting_cmd = """
-cd ~/kraken &&
-JID=$(sbatch submit_job.sh)
-echo ${JID##* }
+# ${JID##* } is removing everything up to the last space
+run_quanting_cmd = f"""
+cd {CLUSTER_WORKING_DIR} &&
+JID=$(sbatch {CLUSTER_JOB_SCRIPT_PATH})
+echo ${{JID##* }}
 """
 
 

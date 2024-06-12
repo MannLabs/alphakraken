@@ -31,11 +31,22 @@ for raw_file in RawFile.objects.order_by("-created_at"):
 raw_file_data_df = pd.DataFrame(raw_file_data)
 
 # get metrics
-metrics_data = defaultdict(list)
-for metric in Metrics.objects().order_by("-created_at"):
-    for k, v in metric.to_mongo().items():
-        metrics_data[k].append(v)
+# we need to account for the fact that the fields change over time
+all_metrics_from_db = [
+    metric_db.to_mongo() for metric_db in Metrics.objects().order_by("-created_at")
+]
 
+all_keys = []
+for metric in all_metrics_from_db:
+    all_keys.extend(metric.keys())
+all_keys = list(set(all_keys))
+
+metrics_data = defaultdict(list)
+for metric in all_metrics_from_db:
+    for k in all_keys:
+        metrics_data[k].append(metric.get(k, None))
+
+# clean up metrics df
 metrics_data_df = pd.DataFrame(metrics_data)
 metrics_data_df.drop_duplicates(subset=["raw_file"], keep="last", inplace=True)
 metrics_data_df.drop(

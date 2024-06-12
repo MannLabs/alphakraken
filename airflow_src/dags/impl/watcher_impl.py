@@ -10,7 +10,7 @@ from airflow.api.common.trigger_dag import trigger_dag
 from airflow.models import DagRun, TaskInstance
 from airflow.utils.types import DagRunType
 from common.keys import DagParams, Dags, OpArgs, XComKeys
-from common.settings import get_instrument_data_path
+from common.settings import get_internal_instrument_data_path
 from common.utils import get_xcom, put_xcom
 
 from shared.db.engine import get_raw_file_names_from_db
@@ -19,7 +19,7 @@ from shared.db.engine import get_raw_file_names_from_db
 def get_raw_files(ti: TaskInstance, **kwargs) -> None:
     """Get all raw files that are not already in the database and push to XCom."""
     instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
-    instrument_data_path = get_instrument_data_path(instrument_id)
+    instrument_data_path = get_internal_instrument_data_path(instrument_id)
 
     if not (directory_content := os.listdir(instrument_data_path)):
         raise ValueError("get_raw_files: No raw files found in XCOM.")

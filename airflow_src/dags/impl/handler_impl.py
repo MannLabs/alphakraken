@@ -5,7 +5,12 @@ from pathlib import Path
 
 from airflow.models import TaskInstance
 from common.keys import DagContext, DagParams, OpArgs, XComKeys
-from common.settings import OUTPUT_DIR_PREFIX, InternalPaths, get_instrument_data_path
+from common.settings import (
+    OUTPUT_DIR_PREFIX,
+    InternalPaths,
+    get_internal_instrument_data_path,
+    get_relative_instrument_data_path,
+)
 from common.utils import get_xcom, put_xcom
 from metrics.metrics_calculator import calc_metrics
 from sensors.ssh_sensor import SSHSensorOperator
@@ -24,11 +29,15 @@ def add_to_db(ti: TaskInstance, **kwargs) -> None:
     raw_file_name = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_NAME]
     instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
 
+    # # push to XCOM
+    # put_xcom(ti, XComKeys.RAW_FILE_NAME, raw_file_name)
+    # return
+
     logging.info(f"Got {raw_file_name=} on {instrument_id=}")
 
     # TODO: exception handling: retry vs noretry
 
-    raw_file_path = get_instrument_data_path(instrument_id) / raw_file_name
+    raw_file_path = get_internal_instrument_data_path(instrument_id) / raw_file_name
     raw_file_size = raw_file_path.stat().st_size
     raw_file_creation_time = raw_file_path.stat().st_ctime
     logging.info(f"Got {raw_file_size / 1024**3} GB {raw_file_creation_time}")
@@ -69,9 +78,15 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
     # wait for the cluster to be ready (20% idling) -> dedicated (sensor) task
 
     ssh_hook = kwargs[OpArgs.SSH_HOOK]
+    instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
 
     raw_file_name = get_xcom(ti, XComKeys.RAW_FILE_NAME)
-    export_cmd = f"export RAW_FILE_NAME={raw_file_name}\n"
+    instrument_subfolder = get_relative_instrument_data_path(instrument_id)
+
+    export_cmd = (
+        f"export RAW_FILE_NAME={raw_file_name}\n"
+        f"POOL_BACKUP_INSTRUMENT_SUBFOLDER={instrument_subfolder}\n"
+    )
 
     command = export_cmd + run_quanting_cmd
     logging.info(f"Running command: >>>>\n{command}\n<<<< end of command")

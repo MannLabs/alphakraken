@@ -3,6 +3,7 @@
 from pathlib import Path
 from unittest.mock import MagicMock, Mock, patch
 
+from common.settings import INSTRUMENTS
 from dags.impl.handler_impl import (
     add_to_db,
     compute_metrics,
@@ -46,6 +47,7 @@ def test_add_to_db(
     mock_put_xcom.assert_called_once_with(ti, XComKeys.RAW_FILE_NAME, "test_file.raw")
 
 
+@patch.dict(INSTRUMENTS, {"some_instrument_id": {"raw_data_path": "path/to/data"}})
 @patch("dags.impl.handler_impl.get_xcom")
 @patch("dags.impl.handler_impl.SSHSensorOperator.ssh_execute")
 @patch("dags.impl.handler_impl.put_xcom")
@@ -65,13 +67,20 @@ def test_run_quanting_executes_ssh_command_and_stores_job_id(
 
     kwargs = {
         OpArgs.SSH_HOOK: mock_ssh_hook,
+        OpArgs.INSTRUMENT_ID: "some_instrument_id",
     }
 
     # when
     run_quanting(ti, **kwargs)
 
     # then
-    expected_command = "export RAW_FILE_NAME=test_file.raw\n\ncd ~/kraken &&\nJID=$(sbatch run.sh)\necho ${JID##* }\n"
+    expected_command = (
+        "export RAW_FILE_NAME=test_file.raw\n"
+        "POOL_BACKUP_INSTRUMENT_SUBFOLDER=path/to/data\n\n"
+        "cd ~/kraken &&\n"
+        "JID=$(sbatch run.sh)\n"
+        "echo ${JID##* }\n"
+    )
     mock_ssh_execute.assert_called_once_with(expected_command, mock_ssh_hook)
     mock_put_xcom.assert_called_once_with(ti, XComKeys.JOB_ID, "12345")
     mock_update.assert_called_once_with("test_file.raw", RawFileStatus.PROCESSING)

@@ -55,7 +55,7 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
         run_quanting_ = PythonOperator(
             task_id=Tasks.RUN_QUANTING,
             python_callable=run_quanting,
-            op_kwargs={OpArgs.SSH_HOOK: ssh_hook},
+            op_kwargs={OpArgs.SSH_HOOK: ssh_hook, OpArgs.INSTRUMENT_ID: instrument_id},
         )
 
         monitor_quanting_ = QuantingSSHSensor(

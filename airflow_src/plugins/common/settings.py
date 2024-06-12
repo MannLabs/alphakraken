@@ -25,12 +25,23 @@ INSTRUMENTS = {
 }
 
 
-def get_instrument_data_path(instrument_id: str) -> Path:
-    """Get internal path for the given instrument."""
+def get_internal_instrument_data_path(instrument_id: str) -> Path:
+    """Get internal path for the given instrument.
+
+    e.g. /opt/airflow/mounts/pool-backup/Test2
+    """
     return (
         Path(InternalPaths.MOUNTS_PATH)
         / INSTRUMENTS[instrument_id][InstrumentKeys.RAW_DATA_PATH]
     )
+
+
+def get_relative_instrument_data_path(instrument_id: str) -> Path:
+    """Get relative_path for the given instrument.
+
+    e.g. pool-backup/Test2
+    """
+    return INSTRUMENTS[instrument_id][InstrumentKeys.RAW_DATA_PATH]
 
 
 # prefix for the queues the DAGs are assigned to (cf. docker-compose.yml)

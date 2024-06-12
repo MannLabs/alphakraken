@@ -78,7 +78,7 @@ def test_run_quanting_executes_ssh_command_and_stores_job_id(
         "export RAW_FILE_NAME=test_file.raw\n"
         "export POOL_BACKUP_INSTRUMENT_SUBFOLDER=path/to/data\n\n"
         "cd ~/kraken &&\n"
-        "JID=$(sbatch run.sh)\n"
+        "JID=$(sbatch submit_job.sh)\n"
         "echo ${JID##* }\n"
     )
     mock_ssh_execute.assert_called_once_with(expected_command, mock_ssh_hook)

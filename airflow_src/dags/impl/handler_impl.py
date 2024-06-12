@@ -81,7 +81,7 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
 
     export_cmd = (
         f"export RAW_FILE_NAME={raw_file_name}\n"
-        f"POOL_BACKUP_INSTRUMENT_SUBFOLDER={instrument_subfolder}\n"
+        f"export POOL_BACKUP_INSTRUMENT_SUBFOLDER={instrument_subfolder}\n"
     )
 
     command = export_cmd + run_quanting_cmd

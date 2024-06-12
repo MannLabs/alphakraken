@@ -120,7 +120,7 @@ and to have correct permissions for the logs directory.
 
 6. Copy the cluster run script `submit_job.sh` to `/fs/home/kraken-user/kraken` on the cluster. Make sure to update it on changes.
 
-6. Run one-time initialization of the internal airflow database:
+7. Run one-time initialization of the internal airflow database:
 ```bash
 docker compose --env-file=envs/prod.env run airflow-init
 ```

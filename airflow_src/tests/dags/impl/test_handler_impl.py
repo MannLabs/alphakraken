@@ -15,7 +15,7 @@ from plugins.common.keys import DagContext, DagParams, OpArgs, XComKeys
 from shared.db.engine import RawFileStatus
 
 
-@patch("dags.impl.handler_impl.get_instrument_data_path")
+@patch("dags.impl.handler_impl.get_internal_instrument_data_path")
 @patch("os.stat")
 @patch("dags.impl.handler_impl.add_new_raw_file_to_db")
 @patch("dags.impl.handler_impl.put_xcom")

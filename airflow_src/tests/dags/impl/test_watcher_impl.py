@@ -10,7 +10,7 @@ from plugins.common.keys import OpArgs, XComKeys
 SOME_INSTRUMENT_ID = "some_instrument_id"
 
 
-@patch("dags.impl.watcher_impl.get_instrument_data_path")
+@patch("dags.impl.watcher_impl.get_internal_instrument_data_path")
 @patch("os.listdir")
 @patch("dags.impl.watcher_impl.get_raw_file_names_from_db")
 @patch("dags.impl.watcher_impl.put_xcom")
@@ -39,7 +39,7 @@ def test_get_raw_files_with_existing_files_in_db(
     mock_put_xcom.assert_called_once_with(ti, XComKeys.RAW_FILE_NAMES, ["file3.raw"])
 
 
-@patch("dags.impl.watcher_impl.get_instrument_data_path")
+@patch("dags.impl.watcher_impl.get_internal_instrument_data_path")
 @patch("os.listdir")
 @patch("dags.impl.watcher_impl.get_raw_file_names_from_db")
 @patch("dags.impl.watcher_impl.put_xcom")
@@ -70,7 +70,7 @@ def test_get_raw_files_with_no_existing_files_in_db(
     )
 
 
-@patch("dags.impl.watcher_impl.get_instrument_data_path")
+@patch("dags.impl.watcher_impl.get_internal_instrument_data_path")
 @patch("os.listdir")
 @patch("dags.impl.watcher_impl.get_raw_file_names_from_db")
 @patch("dags.impl.watcher_impl.put_xcom")

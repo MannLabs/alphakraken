@@ -63,8 +63,8 @@ def show_filter(to_show_df: pd.DataFrame, text: str, column: str) -> pd.DataFram
     return to_show_df
 
 
-to_show_df2 = show_filter(to_show_df, "Raw file name", "name")
-to_show_df3 = show_filter(to_show_df2, "Instrument", "name")
+to_show_df2 = show_filter(to_show_df, "Raw file name:", "name")
+to_show_df3 = show_filter(to_show_df2, "Instrument:", "instrument_id")
 
 
 cmap = plt.get_cmap("RdYlGn")

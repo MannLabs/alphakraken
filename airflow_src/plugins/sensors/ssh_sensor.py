@@ -63,7 +63,7 @@ class SSHSensorOperator(BaseSensorOperator, ABC):
             logging.warning(f"Exception when trying to read alphadia log: {e}.")
 
         try:
-            slurm_output_file = f"/home/kraken-user/slurm-{self._jid}.out"
+            slurm_output_file = f"~/kraken/slurm-{self._jid}.out"
             print_slurm_output_file_cmd = f"cat {slurm_output_file}"
             self.ssh_execute(print_slurm_output_file_cmd, self._ssh_hook)
         except Exception as e:  # noqa:BLE001

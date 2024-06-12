@@ -53,7 +53,9 @@ def test_add_to_db(
 @patch("dags.impl.handler_impl.SSHSensorOperator.ssh_execute")
 @patch("dags.impl.handler_impl.put_xcom")
 @patch("dags.impl.handler_impl.update_raw_file_status")
+@patch("dags.impl.handler_impl.random")
 def test_run_quanting_executes_ssh_command_and_stores_job_id(
+    mock_random: MagicMock,
     mock_update: MagicMock,
     mock_put_xcom: MagicMock,
     mock_ssh_execute: MagicMock,
@@ -71,6 +73,8 @@ def test_run_quanting_executes_ssh_command_and_stores_job_id(
         OpArgs.INSTRUMENT_ID: "some_instrument_id",
     }
 
+    mock_random.return_value = 0.44
+
     # when
     run_quanting(ti, **kwargs)
 
@@ -78,7 +82,8 @@ def test_run_quanting_executes_ssh_command_and_stores_job_id(
     expected_command = (
         "export RAW_FILE_NAME=test_file.raw\n"
         "export POOL_BACKUP_INSTRUMENT_SUBFOLDER=path/to/data\n"
-        "export OUTPUT_FOLDER_NAME=out_test_file.raw\n\n"
+        "export OUTPUT_FOLDER_NAME=out_test_file.raw\n"
+        "export SPECLIB_FILE_NAME=hela_hybrid.small.4.hdf\n\n"
         "cd ~/slurm/jobs &&\n"
         "JID=$(sbatch ~/slurm/submit_job.sh)\n"
         "echo ${JID##* }\n"
@@ -86,6 +91,8 @@ def test_run_quanting_executes_ssh_command_and_stores_job_id(
     mock_ssh_execute.assert_called_once_with(expected_command, mock_ssh_hook)
     mock_put_xcom.assert_called_once_with(ti, XComKeys.JOB_ID, "12345")
     mock_update.assert_called_once_with("test_file.raw", RawFileStatus.PROCESSING)
+
+    mock_random.assert_called_once()  # TODO: remove patching random once the hack is removed
 
 
 @patch("dags.impl.handler_impl.get_xcom")

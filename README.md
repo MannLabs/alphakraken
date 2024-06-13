@@ -1,143 +1,57 @@
 # alphakraken
 A new version of the Machine Kraken
 
-## Local development
-
-### Running the kraken (local version)
-First, run a one-time initialization of the internal airflow database:
-```bash
-docker compose --env-file=envs/local.env run airflow-init
-```
-
-Start the docker containers providing an all-in-one solution with
-```bash
-docker compose --env-file=envs/local.env up --build
-```
-After startup, the airflow webserver runs on http://localhost:8080/ (default credentials: `airflow`/`airflow`), the Streamlit webapp on http://localhost:8501/ .
-
-
-### Development setup
-1. Set up your environment for developing locally with
-```bash
-PYTHON_VERSION=3.11
-AIRFLOW_VERSION=2.9.1
-conda create --name alphakraken python=${PYTHON_VERSION} -y
-conda activate alphakraken
-pip install apache-airflow==${AIRFLOW_VERSION} --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-${AIRFLOW_VERSION}/constraints-${PYTHON_VERSION}.txt"
-```
-
-2. Install all requirements for running, developing and testing with
-```bash
-pip install -r airflow_src/requirements_airflow.txt
-pip install -r shared/requirements_shared.txt
-pip install -r webapp/requirements_webapp.txt
-pip install -r requirements_development.txt
-```
-
-
-### Run Airflow standalone (not actively maintained)
-Alternatively, run airflow without Docker using
-```bash
-MONGO_USER=<mongo_user>
-```
-The login password to the UI is displayed in the logs below the line `Airflow is ready`.
-You need to point the `dags_folder` variable in ` ~/airflow/airflow.cfg` to the absolute path of the `dags` folder.
-
-Note that you will need to have a MongoDB running on the default port `27017`, e.g. by
-`docker compose --env-file=envs/local.env run --service-ports mongodb-service`
-Also, you will need to fire up the Streamlit webapp yourself by `docker compose --env-file=envs/local.env run -e MONGO_HOST=host.docker.internal --service-ports webapp`.
-
-Note that currently, the docker version is recommended as the standalone version is not part of regular testing and
-might not work as expected.
-
-### Unit Tests
-Run the tests with
-```bash
-python -m pytest
-```
-If you encounter a `sqlite3.OperationalError: no such table: dag`, run `airflow db init` once.
-
-### Manual testing
-1. Run the `docker compose` command above and log into the airflow UI.
-2. Unpause all DAGs. The "watchers" should start running.
-3. If you do not want to feed the cluster, set the Airflow variable `debug_no_cluster_ssh=True` (see below)
-4. Create a test file and copy fake alphaDIA result data to the expected output directory:
-```
-I=$((I+1)); NEW_FILE_NAME=test_file_${I}.raw; echo $NEW_FILE_NAME
-touch airflow_test_folders/backup_pool/test1/$NEW_FILE_NAME
-NEW_OUTPUT_FOLDER=airflow_test_folders/output/out_$NEW_FILE_NAME
-mkdir $NEW_OUTPUT_FOLDER
-cp airflow_test_folders/_data/stat.tsv $NEW_OUTPUT_FOLDER
-```
-5. Wait until the `acquisition_watchers` picks up the file (you may mark the `wait_for_new_files` task as "success" to speed up the process).
-6. Wait until it appears in the webapp.
-
-### Connect to the DB
-Use e.g. MongoDB Compass to connect to the MongoDB running in Docker using the url `localhost:27017`,
-the credentials (e.g. defined in `envs/local.env`) and make sure the "Authentication Database" is "krakendb".
-
-### pre-commit hooks
-It is highly recommended to use the provided pre-commit hooks, as the CI pipeline enforces all checks therein to
-pass in order to merge a branch.
-
-The hooks need to be installed once by
-```bash
-pre-commit install
-```
-You can run the checks yourself using:
-```bash
-pre-commit run --all-files
-```
-
-### A note on importing and PYTHONPATH
-Airflow adds the folders `dags` and `plugins` to the `PYTHONPATH`
-by default (cf. [here](https://airflow.apache.org/docs/apache-airflow/stable/administration-and-deployment/modules_management.html#built-in-pythonpath-entries-in-airflow)).
-To enable a consistent importing of modules, we need to do the same for the Streamlit webapp (done in the Dockerfile) and for `pytest` (done in `pyproject.toml`).
-
-In addition, in order to import the `shared` module consistently, we need to add the root directory to the `PYTHONPATH`,
-for Airflow (done in the Dockerfile), the Streamlit webapp (done in the Dockerfile), and for `pytest` (done in `pyproject.toml`).
-Note: beware of name clashes when introducing new top-level packages in addition to `shared`, cf.
-[here](https://airflow.apache.org/docs/apache-airflow/stable/administration-and-deployment/modules_management.html#best-practices-for-your-code-naming).
-
-To have your IDE recognize the imports correctly, you might need to take some action.
-E.g. in PyCharm, you need to mark `dags`, `plugins`, `shared`, and `airflow_src` as "Sources Root".
-
 ## Deployment
-### Initial setup of Kraken PC
+This guide is both valid for a local setup (without connection to pool or cluster), and for sandbox/production setups.
+Upfront, set a bash variable `ENV`, which is either `local`, `sandbox`, or `prod`, e.g. `ENV=local`.
+
+### Initializing and running the kraken (local version)
+#### One-time initializations
 1. Install
 [Docker Compose](https://docs.docker.com/engine/install/ubuntu/) and
-[Docker](https://docs.docker.com/compose/install/linux/#install-using-the-repository).
-2. Clone the repository into `/home/kraken-user/alphakraken/sandbox/alphakraken`.
-3. `cd` into this directory and execute
+[Docker](https://docs.docker.com/compose/install/linux/#install-using-the-repository), clone the repository into a folder and `cd` into it.
+
+2. Set the current user as the user within the airflow containers and get the correct permissions on the "logs"
+directory (otherwise, `root` would be used)
 ```bash
 echo -e "AIRFLOW_UID=$(id -u)" > envs/.env-airflow
 mkdir airflow_logs
 ```
-to set the current user as the user within the airflow containers (otherwise, `root` would be used)
-and to have correct permissions for the logs directory.
 
-4. Set up the network bind mounts (see below).
+3. Initialize the internal airflow database:
+```bash
+docker compose --env-file=envs/.env-airflow --env-file=envs/${ENV}.env run airflow-init
+```
+Note: depending on your operating system and configuration, you might need to run this command with `sudo`.
+Please note also that this is only tested for MacOS and Linux.
 
-5. On the cluster:
+4. Setup SSH connection (see below). If you don't want to connect to the cluster, just create the "cluster-conn" with some dummy values.
+Make sure to set the Airflow variable `debug_no_cluster_ssh=True` (see below).
+
+#### Run the local version
+Start the docker containers providing an all-in-one solution with
+```bash
+docker compose --env-file=envs/.env-airflow --env-file=envs/${ENV}.env up --build -d
+```
+After startup, the airflow webserver runs on http://localhost:8080/ (default credentials: `airflow`/`airflow`), the Streamlit webapp on http://localhost:8501/ .
+
+
+### Additional steps required for the sandbox/production setup
+
+1. Set up the network bind mounts (see below).
+
+2. On the cluster:
 ```bash
 mkdir -p ~/slurm/jobs
 ```
-and copt the cluster run script `submit_job.sh` to `~/slurm`. Make sure to update it on changes.
+and copy the cluster run script `submit_job.sh` to `~/slurm`. Make sure to update it on changes.
 
-6. Run one-time initialization of the internal airflow database:
+3. In order for the production setup to run, you need to execute the command
 ```bash
-docker compose --env-file=envs/prod.env run airflow-init
-```
-
-### Running the kraken (production)
-In order for the production setup to run, you need to execute the command
-```bash
-docker compose --env-file=envs/.env-airflow --env-file=envs/prod.env up --build --profile prod-workers -d
+docker compose --env-file=envs/.env-airflow --env-file=envs/${ENV}.env up --build --profile all-workers -d
 ```
 Then, access the Airflow UI at `http://<kraken_pc_ip>:8081/` and the Streamlit webapp at `http://<kraken_pc_ip>:8502/`.
 
-Note: after the first full startup it is currently required to make all files owned
-by the kraken user: `sudo chown -R kraken:kraken *` (needs to be done only once).
 
 #### Some useful commands:
 See state of containers
@@ -157,7 +71,7 @@ docker compose exec airflow-worker bash
 
 Clean up all containers, volumes, and images (WARNING: data will be lost!)
 ```bash
-docker compose down --volumes  --remove-orphans --rmi all
+docker compose --env-file=envs/${ENV}.env down --volumes  --remove-orphans --rmi
 ```
 
 ### General note on how Kraken gets to know the data
@@ -275,6 +189,97 @@ pip  install "alphadia[stable]==1.6.2"
 Make sure the environment is named `alphadia-$VERSION`.
 Also, don't forget to install `mono` (cf. alphaDIA Readme).
 
+
+## Local development
+
+### Development setup
+This is required to have all the required dependencies for local deployment and testing.
+1. Set up your environment for developing locally with
+```bash
+PYTHON_VERSION=3.11
+AIRFLOW_VERSION=2.9.1
+git clone ...
+conda create --name alphakraken python=${PYTHON_VERSION} -y
+conda activate alphakraken
+pip install apache-airflow==${AIRFLOW_VERSION} --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-${AIRFLOW_VERSION}/constraints-${PYTHON_VERSION}.txt"
+```
+
+2. Install all requirements for running, developing and testing with
+```bash
+pip install -r airflow_src/requirements_airflow.txt
+pip install -r shared/requirements_shared.txt
+pip install -r webapp/requirements_webapp.txt
+pip install -r requirements_development.txt
+```
+
+3. (optional) mount ... TODO
+
+### Unit Tests
+Run the tests with
+```bash
+python -m pytest
+```
+If you encounter a `sqlite3.OperationalError: no such table: dag`, run `airflow db init` once.
+
+### Manual testing
+1. Run the `docker compose` command for the local setup (cf. above) and log into the airflow UI.
+2. Unpause all DAGs. The "watchers" should start running.
+3. If you do not want to feed the cluster, set the Airflow variable `debug_no_cluster_ssh=True` (see above)
+4. Create a test file and copy fake alphaDIA result data to the expected output directory:
+```
+I=$((I+1)); NEW_FILE_NAME=test_file_${I}.raw; echo $NEW_FILE_NAME
+touch airflow_test_folders/backup_pool/test1/$NEW_FILE_NAME
+NEW_OUTPUT_FOLDER=airflow_test_folders/output/out_$NEW_FILE_NAME
+mkdir $NEW_OUTPUT_FOLDER
+cp airflow_test_folders/_data/stat.tsv $NEW_OUTPUT_FOLDER
+```
+5. Wait until the `acquisition_watchers` picks up the file (you may mark the `wait_for_new_files` task as "success" to speed up the process).
+6. Wait until it appears in the webapp.
+
+### Connect to the DB
+Use e.g. MongoDB Compass to connect to the MongoDB running in Docker using the url `localhost:27017`,
+the credentials (e.g. defined in `envs/local.env`) and make sure the "Authentication Database" is "krakendb".
+
+### pre-commit hooks
+It is highly recommended to use the provided pre-commit hooks, as the CI pipeline enforces all checks therein to
+pass in order to merge a branch.
+
+The hooks need to be installed once by
+```bash
+pre-commit install
+```
+You can run the checks yourself using:
+```bash
+pre-commit run --all-files
+```
+
+### A note on importing and PYTHONPATH
+Airflow adds the folders `dags` and `plugins` to the `PYTHONPATH`
+by default (cf. [here](https://airflow.apache.org/docs/apache-airflow/stable/administration-and-deployment/modules_management.html#built-in-pythonpath-entries-in-airflow)).
+To enable a consistent importing of modules, we need to do the same for the Streamlit webapp (done in the Dockerfile) and for `pytest` (done in `pyproject.toml`).
+
+In addition, in order to import the `shared` module consistently, we need to add the root directory to the `PYTHONPATH`,
+for Airflow (done in the Dockerfile), the Streamlit webapp (done in the Dockerfile), and for `pytest` (done in `pyproject.toml`).
+Note: beware of name clashes when introducing new top-level packages in addition to `shared`, cf.
+[here](https://airflow.apache.org/docs/apache-airflow/stable/administration-and-deployment/modules_management.html#best-practices-for-your-code-naming).
+
+To have your IDE recognize the imports correctly, you might need to take some action.
+E.g. in PyCharm, you need to mark `dags`, `plugins`, `shared`, and `airflow_src` as "Sources Root".
+
+### Run Airflow standalone (not actively maintained)
+Alternatively, run airflow without Docker using
+```bash
+MONGO_USER=<mongo_user>
+```
+The login password to the UI is displayed in the logs below the line `Airflow is ready`.
+You need to point the `dags_folder` variable in ` ~/airflow/airflow.cfg` to the absolute path of the `dags` folder.
+
+Note that you will need to have a MongoDB running on the default port `27017`, e.g. by
+`docker compose --env-file=envs/local.env run --service-ports mongodb-service`
+Also, you will need to fire up the Streamlit webapp yourself by `docker compose --env-file=envs/local.env run -e MONGO_HOST=host.docker.internal --service-ports webapp`.
+
+Note that currently, the docker version is recommended as the standalone version is not part of regular testing and
+might not work as expected.
 
 ## Troubleshooting
 ### Problem: worker does not start

@@ -40,6 +40,7 @@ def df_from_db_data(
 
     if drop_duplicates:
         query_set_df.drop_duplicates(subset=drop_duplicates, keep="last", inplace=True)
+        query_set_df.reset_index(drop=True, inplace=True)
 
     if drop_columns:
         query_set_df.drop(

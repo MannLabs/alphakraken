@@ -18,49 +18,29 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    - uses: conda-incubator/setup-miniconda@v3
+    - uses: actions/setup-python@v5
       with:
-        auto-update-conda: true
-        activate-environment: alphakraken
         python-version: '3.11'
-    - name: Conda info
-      run: conda info
-    - name: Setup conda cache
-      # https://dev.to/epassaro/caching-anaconda-environments-in-github-actions-5hde
-      uses: actions/cache@v4
-      with:
-        path: |
-              /usr/share/miniconda/alphakraken
-              ~/conda/envs
-              ~/.condarc
-        key: ${{ matrix.os }}-conda-${{ hashFiles('**/requirements*.txt') }}-2
-
     - name: Setup pip cache
       uses: actions/cache@v4
-      if: steps.conda-cache.outputs.cache-hit != 'true'
       with:
         path: ~/.cache/pip
         key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
 
-    # strictly speaking, the two test sets should be in separate python envs but should be fine for now
-    - name: Setup conda env
-      if: steps.conda-cache.outputs.cache-hit != 'true'
+    - name: Run Airflow unit tests
       run: |
         pip install apache-airflow==2.9.1 --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.9.1/constraints-3.11.txt"
+        airflow db init
         pip install -r airflow_src/requirements_airflow.txt
         pip install -r shared/requirements_shared.txt
         pip install -r requirements_development.txt
-        pip install -r webapp/requirements_webapp.txt
-
-    - name: Run Airflow unit tests
-      run: |
-        airflow db init
         python -m pytest airflow_src
 
+    # strictly speaking, the two test sets should be in separate python envs but should be fine for now
     - name: Run webapp unit tests
       run: |
+        pip install -r webapp/requirements_webapp.txt
         python -m pytest webapp
-
   docker-compose-test:
     runs-on: ubuntu-latest
     steps:

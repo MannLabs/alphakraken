@@ -10,5 +10,6 @@ def show_filter(df: pd.DataFrame, text_to_display: str) -> pd.DataFrame:
     if user_input is not None:
         user_input = user_input.lower()
         mask = df.map(lambda x: user_input in str(x).lower()).any(axis=1)
+        mask |= df.index.map(lambda x: user_input in str(x).lower())
         return df[mask]
     return df

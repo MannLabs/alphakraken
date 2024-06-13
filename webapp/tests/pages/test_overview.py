@@ -1,5 +1,6 @@
-"""Test the app.py file."""
+"""Test the overview.py file."""
 
+from datetime import datetime
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -20,20 +21,31 @@ def test_overview(mock_df: MagicMock, mock_get: MagicMock) -> None:
         {
             "_id": [1, 2],
             "db_entry_created_at": ["2021-01-01", "2021-01-02"],
-            "created_at": ["2021-01-01", "2021-01-02"],
+            "created_at": [
+                datetime.fromtimestamp(0),  # noqa: DTZ006
+                datetime.fromtimestamp(1),  # noqa: DTZ006
+            ],
+            "size": [1024**3, 2 * 1024**3],
         },
     )
-    metrics_df = pd.DataFrame({"raw_file": [1, 2], "BasicStats_proteins_mean": [1, 2]})
+    metrics_df = pd.DataFrame(
+        {
+            "raw_file": [1, 2],
+            "BasicStats_proteins_mean": [1, 2],
+            "time_elapsed": [60, 120],
+        }
+    )
 
     mock_df.side_effect = [raw_files_df, metrics_df]
 
     at = AppTest.from_file(f"{APP_FOLDER}/pages/overview.py").run()
 
     expected_data = {
-        "BasicStats_proteins_mean": {0: 2, 1: 1},
-        "_id": {0: 2, 1: 1},
-        "created_at": {0: "2021-01-02", 1: "2021-01-01"},
-        "db_entry_created_at": {0: "2021-01-02", 1: "2021-01-01"},
-        "raw_file": {0: 2, 1: 1},
+        "BasicStats_proteins_mean": {1: 1, 2: 2},
+        "db_entry_created_at": {1: "2021-01-01", 2: "2021-01-02"},
+        "file_created": {1: "1970-01-01 01:00:00", 2: "1970-01-01 01:00:01"},
+        "quanting_time_minutes": {1: 1.0, 2: 2.0},
+        "size_gb": {1: 1.0, 2: 2.0},
     }
+
     assert expected_data == at.dataframe[0].value.to_dict()

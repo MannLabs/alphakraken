@@ -3,7 +3,7 @@
 import streamlit as st
 from service.utils import _log
 
-_log(f"start loading {__file__}")
+_log(f"loading {__file__}")
 
 st.set_page_config(page_title="AlphaKraken: home", layout="wide")
 

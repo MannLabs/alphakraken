@@ -1,6 +1,8 @@
 """Simple data overview."""
-# ruff: noqa: PD002 # `inplace=True` should be avoided; it has inconsistent behavior
 
+import pandas as pd
+
+# ruff: noqa: PD002 # `inplace=True` should be avoided; it has inconsistent behavior
 import streamlit as st
 from matplotlib import pyplot as plt
 from service.components import show_filter
@@ -57,16 +59,25 @@ combined_df = combined_df[
 
 # ########################################### DISPLAY
 
-st.write(
-    f"Processed {len(raw_files_df)} raw files. Latest update: {combined_df.iloc[0]['db_entry_created_at']}"
-)
 
-# filter
-filtered_df = show_filter(combined_df, "Filter:")
+# using a fragment to avoid re-doing the above operations on every filter change
+# cf. https://docs.streamlit.io/develop/concepts/architecture/fragments
+@st.experimental_fragment
+def display(df: pd.DataFrame) -> None:
+    """A fragment that displays a DataFrame with a filter."""
+    st.write(
+        f"Processed {len(raw_files_df)} raw files. Latest update: {combined_df.iloc[0]['db_entry_created_at']}"
+    )
+
+    # filter
+    filtered_df = show_filter(df, "Filter:")
+
+    cmap = plt.get_cmap("RdYlGn")
+    st.dataframe(
+        filtered_df.style.background_gradient(
+            subset="BasicStats_proteins_mean", cmap=cmap
+        )
+    )
 
 
-cmap = plt.get_cmap("RdYlGn")
-
-my_table = st.dataframe(
-    filtered_df.style.background_gradient(subset="BasicStats_proteins_mean", cmap=cmap)
-)
+display(combined_df)

@@ -3,9 +3,16 @@ A new version of the Machine Kraken
 
 ## Deployment
 This guide is both valid for a local setup (without connection to pool or cluster), and for sandbox/production setups.
-Upfront, set a bash variable `ENV`, which is either `local`, `sandbox`, or `prod`, e.g. `ENV=local`.
+Upfront, set a bash variable `ENV`, which is either `local`, `sandbox`, or `prod`, e.g.
+```bash
+ENV=local
+```
 
-### Initializing and running the kraken (local version)
+### Initializing and running the kraken
+All commands in this Readme assume you are in the root folder of the repository.
+Please note that running and developing the alphakraken is only tested for MacOS and Linux
+(the UI can be accessed from any OS, of course).
+
 #### One-time initializations
 1. Install
 [Docker Compose](https://docs.docker.com/engine/install/ubuntu/) and
@@ -22,37 +29,21 @@ mkdir airflow_logs
 ```bash
 docker compose --env-file=envs/.env-airflow --env-file=envs/${ENV}.env run airflow-init
 ```
-Note: depending on your operating system and configuration, you might need to run this command with `sudo`.
-Please note also that this is only tested for MacOS and Linux.
+Note: depending on your operating system and configuration, you might need to run `docker compose` command with `sudo`.
 
-4. Setup SSH connection (see below). If you don't want to connect to the cluster, just create the connection of type
+
+4. In the Airflow UI, set up the SSH connection to the cluster (see [below](#setup-ssh-connection)).
+If you don't want to connect to the cluster, just create the connection of type
 "ssh" and name "cluster-conn" with some dummy values for host, username, and password.
 In this case, make sure to set the Airflow variable `debug_no_cluster_ssh=True` (see below).
 
 #### Run the local version
 Start the docker containers providing an all-in-one solution with
 ```bash
+ENV=local
 docker compose --env-file=envs/.env-airflow --env-file=envs/${ENV}.env up --build -d
 ```
 After startup, the airflow webserver runs on http://localhost:8080/ (default credentials: `airflow`/`airflow`), the Streamlit webapp on http://localhost:8501/ .
-
-
-### Additional steps required for the sandbox/production setup
-
-1. Set up the network bind mounts (see below).
-
-2. On the cluster:
-```bash
-mkdir -p ~/slurm/jobs
-```
-and copy the cluster run script `submit_job.sh` to `~/slurm`. Make sure to update it on changes.
-
-3. In order for the production setup to run, you need to execute the command
-```bash
-docker compose --env-file=envs/.env-airflow --env-file=envs/${ENV}.env up --build --profile all-workers -d
-```
-Then, access the Airflow UI at `http://<kraken_pc_ip>:8081/` and the Streamlit webapp at `http://<kraken_pc_ip>:8502/`.
-
 
 #### Some useful commands:
 See state of containers
@@ -62,18 +53,41 @@ docker ps
 
 Watch logs for a given service (omit the last part to see all logs)
 ```bash
-docker compose logs -f airflow-worker
+docker compose --env-file=envs/${ENV}.env logs -f airflow-worker-test1
 ```
 
 Start bash in a given service container
 ```bash
-docker compose exec airflow-worker bash
+docker compose --env-file=envs/${ENV}.env exec airflow-worker-test1 bash
 ```
 
-Clean up all containers, volumes, and images (WARNING: data will be lost!)
+Clean up all containers, volumes, and images (WARNING: database will be lost!)
 ```bash
 docker compose --env-file=envs/${ENV}.env down --volumes  --remove-orphans --rmi
 ```
+
+### Additional steps required for the sandbox/production setup
+
+#### On the cluster
+1. Create this directory
+```bash
+mkdir -p ~/slurm/jobs
+```
+and copy the cluster run script `submit_job.sh` to `~/slurm`. Make sure to update it on changes.
+
+2. Set up alphaDIA  (see [below](#setup-alphadia)).
+
+#### On the kraken PC
+1. Set up the network bind mounts (see [below](#set-up-network-bind-mounts)) .
+
+2. Run the sandbox/production containers
+```bash
+docker compose --env-file=envs/.env-airflow --env-file=envs/${ENV}.env up --build --profile all-workers -d
+```
+which spins up additional worker containers for each instrument.
+
+Then, access the Airflow UI at http://10.31.0.192:8081/ and the Streamlit webapp at http://10.31.0.192:8502/.
+
 
 ### General note on how Kraken gets to know the data
 Each worker needs two 'views' on the data: the first one enables direct access to it,
@@ -124,10 +138,10 @@ INSTRUMENT_TARGET=${MOUNTS}/instruments/<INSTRUMENT_ID>
 mkdir -p ${INSTRUMENT_TARGET}
 sudo mount -t cifs -o username=kraken ${APC_SOURCE} ${INSTRUMENT_TARGET}
 ```
-where `${APC_SOURCE}` is the network folder of the APC. --
+where `${APC_SOURCE}` is the network folder of the APC.
 </details>
 
-2. Add the location of the instrument data to the .env files in the `envs` folder
+2. Add the location of the instrument data to all the files `local.env`, `sanbox.env` and `prod.env` in the `envs ` folder
 by creating a new variable `INSTRUMENT_PATH_<INSTRUMENT_ID>` (all upper case), e.g.
 `INSTRUMENT_PATH_NEWINST1`:
 ```bash
@@ -143,6 +157,7 @@ INSTRUMENT_PATH_NEWINST1=${INSTRUMENT_PATH_NEWINST1:?error}
   airflow-worker-<INSTRUMENT_ID>:
     <<: *airflow-worker
     command: celery worker -q kraken_queue_<INSTRUMENT_ID>
+    # there might be additional keys here, just copy them
 ```
 
 4. In the `settings.py:INSTRUMENTS` dictionary, add a new entry by copying an existing one and adapting it like
@@ -155,9 +170,13 @@ INSTRUMENT_PATH_NEWINST1=${INSTRUMENT_PATH_NEWINST1:?error}
     },
 ```
 
-5. Shut down the containers with `docker compose down` and restart them (cf. above).
+5. Restart the containers (cf. above).
 
 6. Open the airflow UI and unpause the new `*.<INSTRUMENT_ID>` DAGs.
+
+7. Without any further intervention, the kraken will now process all files on the new instrument. If this is
+not desired, you may pause all other DAGs, set the `debug_no_cluster_ssh` to `True` and wait until all
+files have run through the `acquisition_handler`. Then undo the just mentioned changes.
 
 
 ### Setup SSH connection

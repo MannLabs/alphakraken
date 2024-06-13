@@ -1,4 +1,4 @@
-"""Test the app.py file."""
+"""Test the home.py file."""
 
 from pathlib import Path
 
@@ -9,4 +9,4 @@ APP_FOLDER = Path(__file__).parent / Path("../")
 
 def test_app() -> None:
     """A very boring test for a very boring page."""
-    AppTest.from_file(f"{APP_FOLDER}/app.py").run()
+    AppTest.from_file(f"{APP_FOLDER}/home.py").run()

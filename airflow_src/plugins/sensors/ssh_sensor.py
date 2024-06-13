@@ -62,11 +62,9 @@ class SSHSensorOperator(BaseSensorOperator, ABC):
     ) -> str:
         """Execute the given `command` via the `ssh_hook`."""
         # this is a hack to prevent jobs to be run on the cluster, useful for debugging and initial setup.
+        # TODO: needs to be improved, maybe by setting up a container with a fake ssh server
         if get_variable(Variables.DEBUG_NO_CLUSTER_SSH, "False") == "True":
-            logging.warning(
-                f"Variable {Variables.DEBUG_NO_CLUSTER_SSH} set: Not running SSH command {command} on cluster."
-            )
-            return "COMPLETED"
+            return SSHSensorOperator._get_fake_ssh_response(command)
 
         exit_status, agg_stdout, agg_stderr = ssh_hook.exec_ssh_client_command(
             ssh_hook.get_conn(),
@@ -77,6 +75,19 @@ class SSHSensorOperator(BaseSensorOperator, ABC):
         )
         logging.info(f"Got {exit_status=} {agg_stdout=} {agg_stderr=}")
         return agg_stdout.decode("utf-8").strip()
+
+    @staticmethod
+    def _get_fake_ssh_response(command: str) -> str:
+        """Fake a ssh response for the given `command`."""
+        logging.warning(
+            f"Variable {Variables.DEBUG_NO_CLUSTER_SSH} set: Not running SSH command {command} on cluster."
+        )
+        # very heuristic way to return a fake response
+        if "sbatch" in command:  # run job
+            return "123"
+        if "TIME_ELAPSED" in command:  # get job info
+            return "00:00:01"
+        return "COMPLETED"  # monitor job
 
 
 class QuantingSSHSensor(SSHSensorOperator):

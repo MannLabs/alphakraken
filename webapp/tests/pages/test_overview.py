@@ -5,6 +5,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
+import pytz
 from streamlit.testing.v1 import AppTest
 
 APP_FOLDER = Path(__file__).parent / Path("../../")
@@ -22,8 +23,8 @@ def test_overview(mock_df: MagicMock, mock_get: MagicMock) -> None:
             "_id": [1, 2],
             "db_entry_created_at": ["2021-01-01", "2021-01-02"],
             "created_at": [
-                datetime.fromtimestamp(0),  # noqa: DTZ006
-                datetime.fromtimestamp(1),  # noqa: DTZ006
+                datetime.fromtimestamp(0, tz=pytz.utc),
+                datetime.fromtimestamp(1, tz=pytz.utc),
             ],
             "size": [1024**3, 2 * 1024**3],
         },

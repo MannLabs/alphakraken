@@ -9,7 +9,7 @@ from service.components import show_filter
 from service.db import df_from_db_data, get_all_data
 from service.utils import _log
 
-_log("loading overview.py")
+_log(f"loading {__file__}")
 
 
 # ########################################### PAGE HEADER

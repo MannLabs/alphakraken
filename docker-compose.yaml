@@ -85,8 +85,6 @@ x-airflow-common:
     INSTRUMENT_PATH_ASTRAL1: ${INSTRUMENT_PATH_ASTRAL1:?error}
     INSTRUMENT_PATH_ASTRAL2: ${INSTRUMENT_PATH_ASTRAL2:?error}
     # ... (add new instruments here)
-  env_file:
-    - ./envs/.env-airflow  # TODO: this gets overwritte by the --env-files option
   volumes:
     - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_logs:/opt/airflow/logs
 #    # Uncomment for local development so that changes to DAGs and Tasks are immediately active

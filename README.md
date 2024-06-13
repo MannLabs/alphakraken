@@ -25,8 +25,9 @@ docker compose --env-file=envs/.env-airflow --env-file=envs/${ENV}.env run airfl
 Note: depending on your operating system and configuration, you might need to run this command with `sudo`.
 Please note also that this is only tested for MacOS and Linux.
 
-4. Setup SSH connection (see below). If you don't want to connect to the cluster, just create the "cluster-conn" with some dummy values.
-Make sure to set the Airflow variable `debug_no_cluster_ssh=True` (see below).
+4. Setup SSH connection (see below). If you don't want to connect to the cluster, just create the connection of type
+"ssh" and name "cluster-conn" with some dummy values for host, username, and password.
+In this case, make sure to set the Airflow variable `debug_no_cluster_ssh=True` (see below).
 
 #### Run the local version
 Start the docker containers providing an all-in-one solution with
@@ -212,7 +213,11 @@ pip install -r webapp/requirements_webapp.txt
 pip install -r requirements_development.txt
 ```
 
-3. (optional) mount ... TODO
+3. (optional) Mount the code directly into the containers. This way, changes are reflected immediately, without having to
+rebuild or restart containers (this could be still necessary on certain changes though).
+Locate the corresponding mappings in `docker-compose.yaml` (look for "Uncomment for local development") and uncomment them.
+
+```bash
 
 ### Unit Tests
 Run the tests with
@@ -222,13 +227,19 @@ python -m pytest
 If you encounter a `sqlite3.OperationalError: no such table: dag`, run `airflow db init` once.
 
 ### Manual testing
+This allows testing most of the functionality on your local machine. The SSH connection is cut off, and a
+special worker ("test1") is used that is connected to the `airflow_test_folder` (not to the pool).
+
 1. Run the `docker compose` command for the local setup (cf. above) and log into the airflow UI.
-2. Unpause all DAGs. The "watchers" should start running.
+2. Unpause all `*.test1` DAGs. The "watcher" should start running.
 3. If you do not want to feed the cluster, set the Airflow variable `debug_no_cluster_ssh=True` (see above)
-4. Create a test file and copy fake alphaDIA result data to the expected output directory:
-```
+4. Create a test raw file in the backup pool folder to fake the acquisition
+```bash
 I=$((I+1)); NEW_FILE_NAME=test_file_${I}.raw; echo $NEW_FILE_NAME
 touch airflow_test_folders/backup_pool/test1/$NEW_FILE_NAME
+```
+and copy fake alphaDIA result data to the expected output directory to fake the processing
+```bash
 NEW_OUTPUT_FOLDER=airflow_test_folders/output/out_$NEW_FILE_NAME
 mkdir $NEW_OUTPUT_FOLDER
 cp airflow_test_folders/_data/stat.tsv $NEW_OUTPUT_FOLDER

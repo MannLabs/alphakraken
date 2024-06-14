@@ -21,22 +21,22 @@ DB_HOST = os.environ.get(
 
 # nonsensical default values are used by tests only
 DB_PORT = int(os.environ.get("MONGO_PORT", 12345))
-USER = os.environ.get("MONGO_USER", "user")
-PASSWORD = os.environ.get("MONGO_PASSWORD", "user")
+DB_USER = os.environ.get("MONGO_USER", "pika")
+DB_PASSWORD = os.environ.get("MONGO_PASSWORD", "chu")
 
 
 def connect_db() -> None:
     """Connect to the database."""
     try:
         disconnect()
-        logging.info(f"Connecting to db: {DB_HOST=} {DB_NAME=} {DB_PORT=} {USER=}")
+        logging.info(f"Connecting to db: {DB_HOST=} {DB_NAME=} {DB_PORT=} {DB_USER=}")
 
         connect(
             DB_NAME,
             host=DB_HOST,
             port=DB_PORT,
-            username=USER,
-            password=PASSWORD,
+            username=DB_USER,
+            password=DB_PASSWORD,
             authentication_source=DB_NAME,
         )
     except ConnectionFailure:

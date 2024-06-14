@@ -27,6 +27,34 @@ from shared.db.interface import (
 from shared.db.models import RawFileStatus
 
 
+def add_raw_file_to_db(
+    instrument_id: str, raw_file_name: str, status: str = RawFileStatus.NEW
+) -> None:
+    """Add the file to the database with initial status and basic information.
+
+    :param instrument_id: instrument id
+    :param raw_file_name: raw file name
+    :param status: status of the file
+    :return:
+    """
+    # calculate the file properties already here to have them available as early as possible
+    raw_file_path = get_internal_instrument_data_path(instrument_id) / raw_file_name
+    raw_file_size = raw_file_path.stat().st_size
+    raw_file_creation_time = raw_file_path.stat().st_ctime
+    logging.info(f"Got {raw_file_size / 1024 ** 3} GB {raw_file_creation_time}")
+    try:
+        add_new_raw_file_to_db(
+            raw_file_name,
+            status=status,
+            instrument_id=instrument_id,
+            size=raw_file_size,
+            creation_ts=raw_file_creation_time,
+        )
+    except NotUniqueError:  # TODO: remove
+        # we tolerate this for now to facilitate manual testing
+        logging.warning(f"File {raw_file_name} already in the database")
+
+
 def add_to_db(ti: TaskInstance, **kwargs) -> None:
     """Add the file to the database with initial status and basic information."""
     # example how to retrieve parameters from the context
@@ -37,22 +65,7 @@ def add_to_db(ti: TaskInstance, **kwargs) -> None:
 
     # TODO: exception handling: retry vs noretry
 
-    # calculate the file properties already here to have them available as early as possible
-    raw_file_path = get_internal_instrument_data_path(instrument_id) / raw_file_name
-    raw_file_size = raw_file_path.stat().st_size
-    raw_file_creation_time = raw_file_path.stat().st_ctime
-    logging.info(f"Got {raw_file_size / 1024**3} GB {raw_file_creation_time}")
-
-    try:
-        add_new_raw_file_to_db(
-            raw_file_name,
-            instrument_id=instrument_id,
-            size=raw_file_size,
-            creation_ts=raw_file_creation_time,
-        )
-    except NotUniqueError:  # TODO: remove
-        # we tolerate this for now to facilitate manual testing
-        logging.warning(f"File {raw_file_name} already in the database")
+    add_raw_file_to_db(instrument_id, raw_file_name)
 
     # push to XCOM
     put_xcom(ti, XComKeys.RAW_FILE_NAME, raw_file_name)

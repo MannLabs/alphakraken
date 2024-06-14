@@ -19,6 +19,7 @@ class RawFileStatus:
     """Status of raw file."""
 
     NEW = "new"
+    IGNORED = "ignore"
     # have a distinction between processing and copying as network drives caused issues in the past.
     COPYING = "copying"
     PROCESSING = "processing"

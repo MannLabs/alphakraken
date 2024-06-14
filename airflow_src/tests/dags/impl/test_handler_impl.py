@@ -43,7 +43,11 @@ def test_add_to_db(
     # Then
     mock_get_instrument_data_path.assert_called_once_with("instrument1")
     mock_add_new_raw_file_to_db.assert_called_once_with(
-        "test_file.raw", instrument_id="instrument1", size=42.0, creation_ts=43.0
+        "test_file.raw",
+        status="new",
+        instrument_id="instrument1",
+        size=42.0,
+        creation_ts=43.0,
     )
     mock_put_xcom.assert_called_once_with(ti, XComKeys.RAW_FILE_NAME, "test_file.raw")
 

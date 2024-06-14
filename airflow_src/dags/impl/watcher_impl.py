@@ -70,6 +70,8 @@ def check_project_id(ti: TaskInstance, **kwargs) -> None:
                 instrument_id, raw_file_name, status=RawFileStatus.IGNORED
             )
 
+    put_xcom(ti, XComKeys.RAW_FILE_NAMES, raw_file_names)
+
 
 def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
     """Trigger a acquisition_handler DAG run for each passed raw file."""

@@ -4,7 +4,8 @@ from pathlib import Path
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
-from dags.impl.watcher_impl import check_db, start_acquisition_handler
+from dags.impl.watcher_impl import check_db, check_project_id, start_acquisition_handler
+from db.models import RawFileStatus
 from plugins.common.keys import OpArgs, XComKeys
 
 SOME_INSTRUMENT_ID = "some_instrument_id"
@@ -95,6 +96,38 @@ def test_check_db_with_empty_directory(
     # The function should call put_xcom with the correct arguments
     mock_put_xcom.assert_not_called()
     mock_check_db_from_db.assert_not_called()
+
+
+@patch("dags.impl.watcher_impl.get_all_project_ids")
+@patch("dags.impl.watcher_impl.get_xcom")
+@patch("dags.impl.watcher_impl.get_unique_project_id")
+@patch("dags.impl.watcher_impl.add_raw_file_to_db")
+@patch("dags.impl.watcher_impl.put_xcom")
+def test_check_project_id(
+    mock_put: MagicMock,
+    mock_add_to_db: MagicMock,
+    mock_get_unique: MagicMock,
+    mock_get_xcom: MagicMock,
+    mock_get_project_ids: MagicMock,
+) -> None:
+    """A test for the check_project_id function."""
+    mock_ti = MagicMock()
+    mock_get_xcom.return_value = ["file1", "file2", "file3"]
+    mock_get_project_ids.return_value = ["project1", "project2"]
+    mock_get_unique.side_effect = [None, "project1", "project2"]
+
+    # when
+    check_project_id(mock_ti, instrument_id="instrument1")
+
+    mock_get_xcom.assert_called_once_with(mock_ti, "raw_file_names")
+    mock_get_project_ids.assert_called_once()
+    mock_get_unique.assert_any_call("file1", ["project1", "project2"])
+    mock_get_unique.assert_any_call("file2", ["project1", "project2"])
+    mock_get_unique.assert_any_call("file3", ["project1", "project2"])
+    mock_add_to_db.assert_called_once_with(
+        "instrument1", "file1", status=RawFileStatus.IGNORED
+    )
+    mock_put.assert_called_once_with(mock_ti, "raw_file_names", ["file2", "file3"])
 
 
 @patch("dags.impl.watcher_impl.get_xcom")

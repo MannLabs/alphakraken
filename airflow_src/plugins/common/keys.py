@@ -14,7 +14,8 @@ class Tasks:
     """Task Names."""
 
     WAIT_FOR_FILE_CREATION: str = "wait_for_file_creation"
-    GET_RAW_FILES: str = "get_raw_files"
+    CHECK_DB: str = "check_db"
+    CHECK_PROJECT_ID: str = "check_project_id"
     START_ACQUISITION_HANDLER: str = "start_acquisition_handler"
 
     ADD_TO_DB: str = "add_to_db"

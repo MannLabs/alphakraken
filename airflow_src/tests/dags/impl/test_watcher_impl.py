@@ -4,7 +4,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
-from dags.impl.watcher_impl import get_raw_files, start_acquisition_handler
+from dags.impl.watcher_impl import check_db, start_acquisition_handler
 from plugins.common.keys import OpArgs, XComKeys
 
 SOME_INSTRUMENT_ID = "some_instrument_id"
@@ -33,7 +33,7 @@ def test_get_raw_files_with_existing_files_in_db(
     ti = Mock()
 
     # Call the function
-    get_raw_files(ti, **{OpArgs.INSTRUMENT_ID: SOME_INSTRUMENT_ID})
+    check_db(ti, **{OpArgs.INSTRUMENT_ID: SOME_INSTRUMENT_ID})
 
     # The function should call put_xcom with the correct arguments
     mock_put_xcom.assert_called_once_with(ti, XComKeys.RAW_FILE_NAMES, ["file3.raw"])
@@ -62,7 +62,7 @@ def test_get_raw_files_with_no_existing_files_in_db(
     ti = Mock()
 
     # Call the function
-    get_raw_files(ti, **{OpArgs.INSTRUMENT_ID: SOME_INSTRUMENT_ID})
+    check_db(ti, **{OpArgs.INSTRUMENT_ID: SOME_INSTRUMENT_ID})
 
     # The function should call put_xcom with the correct arguments
     mock_put_xcom.assert_called_once_with(
@@ -90,7 +90,7 @@ def test_get_raw_files_with_empty_directory(
 
     # Call the function
     with pytest.raises(ValueError):
-        get_raw_files(ti, **{OpArgs.INSTRUMENT_ID: SOME_INSTRUMENT_ID})
+        check_db(ti, **{OpArgs.INSTRUMENT_ID: SOME_INSTRUMENT_ID})
 
     # The function should call put_xcom with the correct arguments
     mock_put_xcom.assert_not_called()

@@ -12,11 +12,14 @@ from airflow.utils.types import DagRunType
 from common.keys import DagParams, Dags, OpArgs, XComKeys
 from common.settings import get_internal_instrument_data_path
 from common.utils import get_xcom, put_xcom
+from impl.handler_impl import add_raw_file_to_db
+from impl.project_id_handler import get_unique_project_id
 
-from shared.db.interface import get_raw_file_names_from_db
+from shared.db.interface import get_all_project_ids, get_raw_file_names_from_db
+from shared.db.models import RawFileStatus
 
 
-def get_raw_files(ti: TaskInstance, **kwargs) -> None:
+def check_db(ti: TaskInstance, **kwargs) -> None:
     """Get all raw files that are not already in the database and push to XCom."""
     instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
     instrument_data_path = get_internal_instrument_data_path(instrument_id)
@@ -26,7 +29,9 @@ def get_raw_files(ti: TaskInstance, **kwargs) -> None:
 
     raw_file_names = [Path(directory).name for directory in directory_content]
 
-    logging.info(f"Raw files to be checked: {len(raw_file_names)} {raw_file_names}")
+    logging.info(
+        f"Raw files to be checked against DB: {len(raw_file_names)} {raw_file_names}"
+    )
 
     # TODO: when the kraken catches up after a stall, the acquisition_handler for a file could still be "queued"
     #  -> the file is not added to the DB yet. Subsequently, another acquisition_handler will be triggered here
@@ -35,9 +40,35 @@ def get_raw_files(ti: TaskInstance, **kwargs) -> None:
         logging.info(f"Raw file {raw_file_name} already in database.")
         raw_file_names.remove(raw_file_name)
 
-    logging.info(f"Raw files to be processed: {len(raw_file_names)} {raw_file_names}")
+    logging.info(
+        f"Raw files to spawn acquisition_handler for: {len(raw_file_names)} {raw_file_names}"
+    )
 
     put_xcom(ti, XComKeys.RAW_FILE_NAMES, raw_file_names)
+
+
+def check_project_id(ti: TaskInstance, **kwargs) -> None:
+    """Check if the raw files have a project id and ignore those that do not."""
+    instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
+    raw_file_names = get_xcom(ti, XComKeys.RAW_FILE_NAMES)
+
+    logging.info(
+        f"Raw files to be checked on project id: {len(raw_file_names)} {raw_file_names}"
+    )
+
+    # remove all raw files that do not have a project
+    all_project_ids = get_all_project_ids()
+    for raw_file_name in raw_file_names.copy():
+        if not get_unique_project_id(raw_file_name, all_project_ids):
+            logging.warning(
+                f"Raw file {raw_file_name} does not match any project of {all_project_ids}."
+            )
+            raw_file_names.remove(raw_file_name)
+
+            # TODO: in terms of separation of concerns, moving this to the acquisition_handler could be preferable
+            add_raw_file_to_db(
+                instrument_id, raw_file_name, status=RawFileStatus.IGNORED
+            )
 
 
 def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:

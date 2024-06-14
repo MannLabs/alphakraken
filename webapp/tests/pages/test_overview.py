@@ -21,7 +21,7 @@ def test_overview(mock_df: MagicMock, mock_get: MagicMock) -> None:
     raw_files_df = pd.DataFrame(
         {
             "_id": [1, 2],
-            "db_entry_created_at": ["2021-01-01", "2021-01-02"],
+            "created_at_": ["2021-01-01", "2021-01-02"],
             "created_at": [
                 datetime.fromtimestamp(0, tz=pytz.utc),
                 datetime.fromtimestamp(1, tz=pytz.utc),
@@ -43,7 +43,7 @@ def test_overview(mock_df: MagicMock, mock_get: MagicMock) -> None:
 
     expected_data = {
         "BasicStats_proteins_mean": {1: 1, 2: 2},
-        "db_entry_created_at": {1: "2021-01-01", 2: "2021-01-02"},
+        "created_at_": {1: "2021-01-01", 2: "2021-01-02"},
         "file_created": {1: "1970-01-01 00:00:00", 2: "1970-01-01 00:00:01"},
         "quanting_time_minutes": {1: 1.0, 2: 2.0},
         "size_gb": {1: 1.0, 2: 2.0},

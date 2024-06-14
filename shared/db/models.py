@@ -35,18 +35,21 @@ class RawFile(Document):
     size = FloatField(min_value=0.0, max_value=1000.0 * 1024**3)  # unit: bytes
     instrument_id = StringField(max_length=50)
 
-    created_at = DateTimeField()
-    db_entry_created_at = DateTimeField(default=datetime.now)
+    created_at = DateTimeField()  # when file was created
+
+    # audit fields
+    created_at_ = DateTimeField(default=datetime.now)
 
 
 class Metrics(DynamicDocument):
     """Schema for metrics calculated for a raw file.
 
     Inheriting from `DynamicDocument` means that any parameter passed to the model will be added to the DB.
+    cf. https://docs.mongoengine.org/guide/defining-documents.html#dynamic-document-schemas
     """
-
-    # https://docs.mongoengine.org/guide/defining-documents.html#dynamic-document-schemas
-    db_entry_created_at = DateTimeField(default=datetime.now)
 
     # https://docs.mongoengine.org/guide/defining-documents.html#reference-fields
     raw_file = ReferenceField(RawFile)
+
+    # audit fields
+    created_at_ = DateTimeField(default=datetime.now)

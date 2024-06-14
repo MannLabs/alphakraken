@@ -12,7 +12,7 @@ from mongoengine import (
     disconnect,
 )
 
-DB_NAME = "krakendb"
+DB_NAME: str = "krakendb"
 
 DOCKER_DB_HOST = "mongodb-service"
 DB_HOST = os.environ.get(

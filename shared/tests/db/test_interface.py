@@ -27,7 +27,11 @@ def test_add_new_raw_file_to_db_creates_new_file_when_file_does_not_exist(
     mock_raw_file.return_value.save.side_effect = None
     # when
     add_new_raw_file_to_db(
-        "test_file.raw", instrument_id="instrument1", size=42.0, creation_ts=43.0
+        "test_file.raw",
+        status=RawFileStatus.NEW,
+        instrument_id="instrument1",
+        size=42.0,
+        creation_ts=43.0,
     )
 
     # then

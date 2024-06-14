@@ -13,7 +13,7 @@ from dags.impl.handler_impl import (
 )
 from plugins.common.keys import DagContext, DagParams, OpArgs, XComKeys
 
-from shared.db.engine import RawFileStatus
+from shared.db.models import RawFileStatus
 
 
 @patch("dags.impl.handler_impl.get_internal_instrument_data_path")

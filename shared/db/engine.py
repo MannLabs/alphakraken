@@ -5,14 +5,9 @@ import os
 from datetime import datetime
 
 import pytz
+from db.models import Metrics, RawFile, RawFileStatus
 from mongoengine import (
     ConnectionFailure,
-    DateTimeField,
-    Document,
-    DynamicDocument,
-    FloatField,
-    ReferenceField,
-    StringField,
     connect,
     disconnect,
 )
@@ -32,17 +27,6 @@ USER = os.environ.get("MONGO_USER", "user")
 PASSWORD = os.environ.get("MONGO_PASSWORD", "user")
 
 
-class RawFileStatus:
-    """Status of raw file."""
-
-    NEW = "new"
-    # have a distinction between processing and copying as network drives caused issues in the past.
-    COPYING = "copying"
-    PROCESSING = "processing"
-    PROCESSED = "processed"
-    FAILED = "failed"
-
-
 def connect_db() -> None:
     """Connect to the database."""
     try:
@@ -60,32 +44,6 @@ def connect_db() -> None:
     except ConnectionFailure:
         pass
         # A different connection with alias `default` was already registered.
-
-
-class RawFile(Document):
-    """Schema for a raw file."""
-
-    name = StringField(required=True, primary_key=True)
-    status = StringField(max_length=50)
-
-    size = FloatField(min_value=0.0, max_value=1000.0 * 1024**3)  # unit: bytes
-    instrument_id = StringField(max_length=50)
-
-    created_at = DateTimeField()
-    db_entry_created_at = DateTimeField(default=datetime.now)
-
-
-class Metrics(DynamicDocument):
-    """Schema for metrics calculated for a raw file.
-
-    Inheriting from `DynamicDocument` means that any parameter passed to the model will be added to the DB.
-    """
-
-    # https://docs.mongoengine.org/guide/defining-documents.html#dynamic-document-schemas
-    db_entry_created_at = DateTimeField(default=datetime.now)
-
-    # https://docs.mongoengine.org/guide/defining-documents.html#reference-fields
-    raw_file = ReferenceField(RawFile)
 
 
 def get_raw_file_names_from_db(raw_file_names: list[str]) -> list[str]:

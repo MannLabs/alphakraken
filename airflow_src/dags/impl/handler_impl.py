@@ -15,6 +15,7 @@ from common.settings import (
     get_relative_instrument_data_path,
 )
 from common.utils import get_xcom, put_xcom
+from impl.project_id_handler import get_unique_project_id
 from metrics.metrics_calculator import calc_metrics
 from mongoengine.errors import NotUniqueError
 from sensors.ssh_sensor import SSHSensorOperator
@@ -22,6 +23,8 @@ from sensors.ssh_sensor import SSHSensorOperator
 from shared.db.interface import (
     add_metrics_to_raw_file,
     add_new_raw_file_to_db,
+    get_all_project_ids,
+    get_settings_for_project,
     update_raw_file_status,
 )
 from shared.db.models import RawFileStatus
@@ -103,11 +106,14 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
     instrument_subfolder = get_relative_instrument_data_path(instrument_id)
     output_folder_name = get_output_folder_name(raw_file_name)
 
+    all_project_ids = get_all_project_ids()
+    project_id = get_unique_project_id(raw_file_name, all_project_ids)
+    settings = get_settings_for_project(project_id)
     # TODO: remove!!!
     # this is so hacky it makes my head hurt:
     # currently, two instances of alphaDIA compete for locking the speclib file
     # This reduces the chance for this to happen by 90%
-    speclib_file_name = f"hela_hybrid.small.{int(random()*10)}.hdf"  # noqa: S311
+    speclib_file_name = f"{int(random()*10)}_{settings.speclib_file_name}"  # noqa: S311
 
     # TODO: move creation of env vars to dedicated method
     export_cmd = (
@@ -115,6 +121,10 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
         f"export POOL_BACKUP_INSTRUMENT_SUBFOLDER={instrument_subfolder}\n"
         f"export OUTPUT_FOLDER_NAME={output_folder_name}\n"
         f"export SPECLIB_FILE_NAME={speclib_file_name}\n"
+        f"export FASTA_FILE_NAME={settings.fasta_file_name}\n"
+        f"export CONFIG_FILE_NAME={settings.config_file_name}\n"
+        f"export SOFTWARE={settings.software}\n"
+        f"export PROJECT_ID={project_id}\n"
     )
 
     command = export_cmd + run_quanting_cmd
@@ -124,7 +134,7 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
     # TODO: prevent re-starting the same job again (SBATCH unique key or smth?)
     job_id = SSHSensorOperator.ssh_execute(command, ssh_hook)
 
-    # TODO: fail on empty job id
+    # TODO: fail on empty job id, e.g. unable to open file OR make monitor recognize it's not getting a status from sacct
 
     update_raw_file_status(raw_file_name, RawFileStatus.PROCESSING)
 

@@ -56,7 +56,7 @@ def check_project_id(ti: TaskInstance, **kwargs) -> None:
         f"Raw files to be checked on project id: {len(raw_file_names)} {raw_file_names}"
     )
 
-    # remove all raw files that do not have a project
+    # remove all raw files that do not have a project but add them to the DB as 'ignored'
     all_project_ids = get_all_project_ids()
     for raw_file_name in raw_file_names.copy():
         if not get_unique_project_id(raw_file_name, all_project_ids):

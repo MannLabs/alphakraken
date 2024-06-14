@@ -41,7 +41,7 @@ def check_db(ti: TaskInstance, **kwargs) -> None:
         raw_file_names.remove(raw_file_name)
 
     logging.info(
-        f"Raw files to spawn acquisition_handler for: {len(raw_file_names)} {raw_file_names}"
+        f"Raw files to check project_id on: {len(raw_file_names)} {raw_file_names}"
     )
 
     put_xcom(ti, XComKeys.RAW_FILE_NAMES, raw_file_names)
@@ -69,6 +69,10 @@ def check_project_id(ti: TaskInstance, **kwargs) -> None:
             add_raw_file_to_db(
                 instrument_id, raw_file_name, status=RawFileStatus.IGNORED
             )
+
+    logging.info(
+        f"Raw files to spawn acquisition_handler for: {len(raw_file_names)} {raw_file_names}"
+    )
 
     put_xcom(ti, XComKeys.RAW_FILE_NAMES, raw_file_names)
 

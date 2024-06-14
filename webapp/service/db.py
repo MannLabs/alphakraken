@@ -26,7 +26,7 @@ def get_raw_file_and_metrics_data() -> tuple[QuerySet, QuerySet]:
 
 
 def get_project_data() -> QuerySet:
-    """Connect to the database and return the QuerySets for Project."""
+    """Connect to the database and return the QuerySet for Project."""
     _log("Connecting to the database")
     connect_db()
     _log("Retrieving all project data")

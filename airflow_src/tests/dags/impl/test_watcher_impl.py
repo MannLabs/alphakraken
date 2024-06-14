@@ -14,13 +14,13 @@ SOME_INSTRUMENT_ID = "some_instrument_id"
 @patch("os.listdir")
 @patch("dags.impl.watcher_impl.get_raw_file_names_from_db")
 @patch("dags.impl.watcher_impl.put_xcom")
-def test_get_raw_files_with_existing_files_in_db(
+def test_check_db_with_existing_files_in_db(
     mock_put_xcom: MagicMock,
-    mock_get_raw_files_from_db: MagicMock,
+    mock_check_db_from_db: MagicMock,
     mock_os_listdir: MagicMock,
     mock_get_instrument_data_path: MagicMock,
 ) -> None:
-    """Test get_raw_files with existing files in the database."""
+    """Test check_db with existing files in the database."""
     # Given a list of raw files, some of which are already in the database
     mock_get_instrument_data_path.return_value = Path("path/to")
 
@@ -29,7 +29,7 @@ def test_get_raw_files_with_existing_files_in_db(
         "path/to/file2.raw",
         "path/to/file3.raw",
     ]
-    mock_get_raw_files_from_db.return_value = ["file1.raw", "file2.raw"]
+    mock_check_db_from_db.return_value = ["file1.raw", "file2.raw"]
     ti = Mock()
 
     # Call the function
@@ -43,13 +43,13 @@ def test_get_raw_files_with_existing_files_in_db(
 @patch("os.listdir")
 @patch("dags.impl.watcher_impl.get_raw_file_names_from_db")
 @patch("dags.impl.watcher_impl.put_xcom")
-def test_get_raw_files_with_no_existing_files_in_db(
+def test_check_db_with_no_existing_files_in_db(
     mock_put_xcom: MagicMock,
-    mock_get_raw_files_from_db: MagicMock,
+    mock_check_db_from_db: MagicMock,
     mock_os_listdir: MagicMock,
     mock_get_instrument_data_path: MagicMock,
 ) -> None:
-    """Test get_raw_files with no existing files in the database."""
+    """Test check_db with no existing files in the database."""
     # Given a list of raw files, some of which are already in the database
     mock_get_instrument_data_path.return_value = Path("path/to")
 
@@ -58,7 +58,7 @@ def test_get_raw_files_with_no_existing_files_in_db(
         "path/to/file2.raw",
         "path/to/file3.raw",
     ]
-    mock_get_raw_files_from_db.return_value = []
+    mock_check_db_from_db.return_value = []
     ti = Mock()
 
     # Call the function
@@ -74,13 +74,13 @@ def test_get_raw_files_with_no_existing_files_in_db(
 @patch("os.listdir")
 @patch("dags.impl.watcher_impl.get_raw_file_names_from_db")
 @patch("dags.impl.watcher_impl.put_xcom")
-def test_get_raw_files_with_empty_directory(
+def test_check_db_with_empty_directory(
     mock_put_xcom: MagicMock,
-    mock_get_raw_files_from_db: MagicMock,
+    mock_check_db_from_db: MagicMock,
     mock_os_listdir: MagicMock,
     mock_get_instrument_data_path: MagicMock,
 ) -> None:
-    """Test get_raw_files with an empty directory."""
+    """Test check_db with an empty directory."""
     # Given a list of raw files, some of which are already in the database
     mock_get_instrument_data_path.return_value = Path("path/to")
 
@@ -94,7 +94,7 @@ def test_get_raw_files_with_empty_directory(
 
     # The function should call put_xcom with the correct arguments
     mock_put_xcom.assert_not_called()
-    mock_get_raw_files_from_db.assert_not_called()
+    mock_check_db_from_db.assert_not_called()
 
 
 @patch("dags.impl.watcher_impl.get_xcom")

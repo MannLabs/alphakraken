@@ -25,7 +25,7 @@ def check_db(ti: TaskInstance, **kwargs) -> None:
     instrument_data_path = get_internal_instrument_data_path(instrument_id)
 
     if not (directory_content := os.listdir(instrument_data_path)):
-        raise ValueError("get_raw_files: No raw files found in XCOM.")
+        raise ValueError("check_db: No raw files found in XCOM.")
 
     raw_file_names = [Path(directory).name for directory in directory_content]
 

@@ -3,15 +3,18 @@
 Note: this module must not have any dependencies on the rest of the codebase.
 """
 
+import logging
 from datetime import datetime
 
 import pytz
-from db.engine import connect_db
-from db.models import Metrics, RawFile, RawFileStatus
+
+from shared.db.engine import connect_db
+from shared.db.models import Metrics, RawFile, RawFileStatus
 
 
 def get_raw_file_names_from_db(raw_file_names: list[str]) -> list[str]:
     """Get raw files from the database with the given names."""
+    logging.info(f"Getting from DB: {raw_file_names=}")
     connect_db()
     return [r.name for r in RawFile.objects.filter(name__in=raw_file_names)]
 
@@ -27,6 +30,7 @@ def add_new_raw_file_to_db(
     :param creation_ts: creation timestamp (unix)
     :return:
     """
+    logging.info(f"Adding to DB: {file_name=} {instrument_id=} {size=} {creation_ts=}")
     connect_db()
     raw_file = RawFile(
         name=file_name,
@@ -41,6 +45,7 @@ def add_new_raw_file_to_db(
 
 def update_raw_file_status(raw_file_name: str, new_status: str) -> None:
     """Set `status` of DB entity of `raw_file_name` to `new_status`."""
+    logging.info(f"Updating DB: {raw_file_name=} to {new_status=}")
     connect_db()
     raw_file = RawFile.objects.with_id(raw_file_name)
     raw_file.update(status=new_status)
@@ -48,6 +53,7 @@ def update_raw_file_status(raw_file_name: str, new_status: str) -> None:
 
 def add_metrics_to_raw_file(raw_file_name: str, metrics: dict) -> None:
     """Add `metrics` to DB entry of `raw_file_name`."""
+    logging.info(f"Adding to DB: {raw_file_name=} <- {metrics=}")
     connect_db()
     raw_file = RawFile.objects.get(name=raw_file_name)
     Metrics(raw_file=raw_file, **metrics).save()

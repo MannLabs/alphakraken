@@ -337,9 +337,9 @@ services:
       retries: 5
       start_period: 30s
 #    # Uncomment for local development so that changes to wepapp are immediately active
-#    volumes:
-#      - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../webapp:/app/webapp
-#      - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../shared:/app/webapp/shared
+    volumes:
+      - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../webapp:/app/webapp
+      - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../shared:/app/webapp/shared
 
   airflow-worker-test1:
     # worker for local and sandbox testing

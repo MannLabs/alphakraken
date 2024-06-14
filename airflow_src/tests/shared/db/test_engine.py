@@ -4,10 +4,10 @@ from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 import pytz
+from db.models import RawFileStatus
 from mongoengine import ConnectionFailure
 
 from shared.db.engine import (
-    RawFileStatus,
     add_metrics_to_raw_file,
     add_new_raw_file_to_db,
     connect_db,

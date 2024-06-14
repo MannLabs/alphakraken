@@ -15,12 +15,12 @@ from common.settings import (
     get_relative_instrument_data_path,
 )
 from common.utils import get_xcom, put_xcom
+from db.models import RawFileStatus
 from metrics.metrics_calculator import calc_metrics
 from mongoengine.errors import NotUniqueError
 from sensors.ssh_sensor import SSHSensorOperator
 
 from shared.db.engine import (
-    RawFileStatus,
     add_metrics_to_raw_file,
     add_new_raw_file_to_db,
     update_raw_file_status,

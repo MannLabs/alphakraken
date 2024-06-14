@@ -7,7 +7,7 @@ from db.engine import connect_db
 from mongoengine import QuerySet
 from service.utils import _log
 
-from shared.db.models import Metrics, RawFile
+from shared.db.models import Metrics, Project, RawFile
 
 
 # Cached values are accessible to all users across all sessions.
@@ -23,6 +23,15 @@ def get_raw_file_and_metrics_data() -> tuple[QuerySet, QuerySet]:
     metrics_db = Metrics.objects
 
     return raw_files_db, metrics_db
+
+
+def get_project_data() -> QuerySet:
+    """Connect to the database and return the QuerySets for Project."""
+    _log("Connecting to the database")
+    connect_db()
+    _log("Retrieving all project data")
+
+    return Project.objects
 
 
 def df_from_db_data(

@@ -14,12 +14,14 @@ from shared.db.models import Metrics, RawFile
 # Considering memory it should currently be fine to have all data cached.
 # Command for clearing the cache:  get_all_data.clear()
 @st.cache_data(ttl=60)
-def get_all_data() -> tuple[QuerySet, QuerySet]:
+def get_raw_file_and_metrics_data() -> tuple[QuerySet, QuerySet]:
     """Connect to the database and return the QuerySets for RawFile and Metrics."""
     _log("Connecting to the database")
     connect_db()
+    _log("Retrieving all raw file and metrics data")
     raw_files_db = RawFile.objects
     metrics_db = Metrics.objects
+
     return raw_files_db, metrics_db
 
 

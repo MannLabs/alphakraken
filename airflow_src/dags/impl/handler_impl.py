@@ -94,6 +94,11 @@ echo ${{JID##* }}
 """
 
 
+def _create_export_command(mapping: dict[str, str]) -> str:
+    """Create a bash command to export environment variables."""
+    return "\n".join([f"export {k}={v}" for k, v in mapping.items()])
+
+
 def run_quanting(ti: TaskInstance, **kwargs) -> None:
     """Run the quanting job on the cluster."""
     # IMPLEMENT:
@@ -112,22 +117,22 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
     # TODO: remove!!!
     # this is so hacky it makes my head hurt:
     # currently, two instances of alphaDIA compete for locking the speclib file
+    # cf. https://github.com/MannLabs/alphabase/issues/180
     # This reduces the chance for this to happen by 90%
     speclib_file_name = f"{int(random()*10)}_{settings.speclib_file_name}"  # noqa: S311
 
-    # TODO: move creation of env vars to dedicated method
-    export_cmd = (
-        f"export RAW_FILE_NAME={raw_file_name}\n"
-        f"export POOL_BACKUP_INSTRUMENT_SUBFOLDER={instrument_subfolder}\n"
-        f"export OUTPUT_FOLDER_NAME={output_folder_name}\n"
-        f"export SPECLIB_FILE_NAME={speclib_file_name}\n"
-        f"export FASTA_FILE_NAME={settings.fasta_file_name}\n"
-        f"export CONFIG_FILE_NAME={settings.config_file_name}\n"
-        f"export SOFTWARE={settings.software}\n"
-        f"export PROJECT_ID={project_id}\n"
-    )
+    submit_job_env_vars = {
+        "RAW_FILE_NAME": raw_file_name,
+        "POOL_BACKUP_INSTRUMENT_SUBFOLDER": instrument_subfolder,
+        "OUTPUT_FOLDER_NAME": output_folder_name,
+        "SPECLIB_FILE_NAME": speclib_file_name,
+        "FASTA_FILE_NAME": settings.fasta_file_name,
+        "CONFIG_FILE_NAME": settings.config_file_name,
+        "SOFTWARE": settings.software,
+        "PROJECT_ID": project_id,
+    }
 
-    command = export_cmd + run_quanting_cmd
+    command = _create_export_command(submit_job_env_vars) + run_quanting_cmd
     logging.info(f"Running command: >>>>\n{command}\n<<<< end of command")
 
     # TODO: prevent cluster from overfeeding on stall

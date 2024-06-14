@@ -19,6 +19,7 @@ _log(f"loading {__file__}")
 st.set_page_config(page_title="AlphaKraken: projects", layout="wide")
 st.markdown("# Projects")
 
+st.markdown("## Current projects")
 # ########################################### SIDEBAR
 show_feedback_in_sidebar()
 
@@ -54,6 +55,11 @@ form_items = {
         "help": "Human-readable project details.",
     },
 }
+
+
+# ###########################################
+
+st.markdown("## Add new project")
 
 with st.form("create_project_form"):
     project_name = st.text_input(**form_items["project_name"])

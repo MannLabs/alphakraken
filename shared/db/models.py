@@ -1,4 +1,7 @@
-"""Database models for the MongoDB."""
+"""Database models for the MongoDB.
+
+Note: this module must not have any dependencies on the rest of the codebase.
+"""
 
 from datetime import datetime
 

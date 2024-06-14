@@ -64,7 +64,7 @@ class ProjectStatus:
 
 
 class Project(Document):
-    """Schema for a raw file."""
+    """Schema for a project."""
 
     id = StringField(required=True, primary_key=True, max_length=16)
     name = StringField(required=True, max_length=64)

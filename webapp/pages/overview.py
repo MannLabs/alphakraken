@@ -68,7 +68,7 @@ def display(df: pd.DataFrame) -> None:
     )
 
     # filter
-    filtered_df = show_filter(df, "Filter:")
+    filtered_df = show_filter(df)
 
     cmap = plt.get_cmap("RdYlGn")
     st.dataframe(

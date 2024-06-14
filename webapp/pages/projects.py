@@ -1,6 +1,7 @@
 """Page allowing Project mgmt."""
 
 # ruff: noqa: PD002 # `inplace=True` should be avoided; it has inconsistent behavior
+import pandas as pd
 import streamlit as st
 from db.interface import add_new_project_to_db
 from service.components import show_filter
@@ -20,8 +21,12 @@ st.set_page_config(page_title="AlphaKraken: projects", layout="wide")
 st.markdown("# Projects")
 
 st.markdown("## Current projects")
+
+
 # ########################################### SIDEBAR
+
 show_feedback_in_sidebar()
+
 
 # ########################################### LOGIC
 
@@ -31,9 +36,17 @@ projects_df = df_from_db_data(projects_db)
 
 # ########################################### DISPLAY
 
-filtered_df = show_filter(projects_df, "Filter:")
 
-st.table(filtered_df)
+@st.experimental_fragment
+def display_projects(projects_df: pd.DataFrame) -> None:
+    """A Fragment to display projects in a table."""
+    filtered_df = show_filter(projects_df)
+    st.table(filtered_df)
+
+
+display_projects(projects_df)
+
+# ########################################### FORM
 
 form_items = {
     "project_name": {
@@ -56,8 +69,6 @@ form_items = {
     },
 }
 
-
-# ###########################################
 
 st.markdown("## Add new project")
 

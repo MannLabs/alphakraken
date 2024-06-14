@@ -18,7 +18,7 @@ Still, feedback on the current state is always welcome!
 
 ## A basic explanation of how to use this:
 
-If you want to see data for all raw files that have been processed, go to the "Overview" tab.
+If you want to see data for all raw files that have been processed, go to the "overview" tab.
 
-To create a new project, go to the "Projects" tab.
+To create a new project, go to the "projects" tab.
 """

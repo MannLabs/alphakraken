@@ -30,7 +30,7 @@ class RawFile(Document):
     """Schema for a raw file."""
 
     name = StringField(required=True, primary_key=True)
-    status = StringField(max_length=50)
+    status = StringField(max_length=32)
 
     size = FloatField(min_value=0.0, max_value=1000.0 * 1024**3)  # unit: bytes
     instrument_id = StringField(max_length=50)
@@ -52,4 +52,25 @@ class Metrics(DynamicDocument):
     raw_file = ReferenceField(RawFile)
 
     # audit fields
+    created_at_ = DateTimeField(default=datetime.now)
+
+
+class ProjectStatus:
+    """Status of project."""
+
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+    DELETED = "deleted"
+
+
+class Project(Document):
+    """Schema for a raw file."""
+
+    id = StringField(required=True, primary_key=True, max_length=16)
+    name = StringField(required=True, max_length=64)
+    description = StringField(max_length=256)
+
+    status = StringField(max_length=32, default=ProjectStatus.ACTIVE)
+
+    # missing: created by
     created_at_ = DateTimeField(default=datetime.now)

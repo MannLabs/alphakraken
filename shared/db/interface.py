@@ -9,7 +9,7 @@ from datetime import datetime
 import pytz
 
 from shared.db.engine import connect_db
-from shared.db.models import Metrics, RawFile, RawFileStatus
+from shared.db.models import Metrics, Project, RawFile, RawFileStatus
 
 
 def get_raw_file_names_from_db(raw_file_names: list[str]) -> list[str]:
@@ -57,3 +57,12 @@ def add_metrics_to_raw_file(raw_file_name: str, metrics: dict) -> None:
     connect_db()
     raw_file = RawFile.objects.get(name=raw_file_name)
     Metrics(raw_file=raw_file, **metrics).save()
+
+
+def add_new_project_to_db(*, project_id: str, name: str, description: str) -> None:
+    """Add a new project to the database."""
+    logging.info(f"Adding to DB: {project_id=} {name=} {description=}")
+    connect_db()
+    project = Project(id=project_id, name=name, description=description)
+    # this will fail if the project id already exists
+    project.save(force_insert=True)

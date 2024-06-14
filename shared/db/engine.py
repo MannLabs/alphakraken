@@ -9,7 +9,6 @@ import os
 from mongoengine import (
     ConnectionFailure,
     connect,
-    disconnect,
 )
 
 DB_NAME: str = "krakendb"
@@ -28,7 +27,9 @@ DB_PASSWORD = os.environ.get("MONGO_PASSWORD", "chu")
 def connect_db() -> None:
     """Connect to the database."""
     try:
-        disconnect()
+        # seems like this is not necessary:
+        # disconnect()
+        # TODO: think about putting DB connection to an Airflow connection
         logging.info(f"Connecting to db: {DB_HOST=} {DB_NAME=} {DB_PORT=} {DB_USER=}")
 
         connect(

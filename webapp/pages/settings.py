@@ -1,6 +1,7 @@
 """Simple data overview."""
 
-# ruff: noqa: PD002 # `inplace=True` should be avoided; it has inconsistent behavior
+# ruff: noqa: TRY301 # Abstract `raise` to an inner function
+
 import pandas as pd
 import streamlit as st
 from db.interface import add_new_settings_to_db
@@ -53,6 +54,7 @@ display_settings(settings_df)
 # ########################################### SELECT PROJECT
 
 st.markdown("## Add new settings for project")
+st.markdown("### Step 1/3: Select project")
 
 project_info = [""] + [p.id for p in projects_db]
 
@@ -64,10 +66,6 @@ project_id = empty_to_none(project_id)
 selected_project = None
 if project_id:
     selected_project = projects_db(id=project_id).first()
-    st.write("Settings will be added to the following project:")
-    st.write(f"Id: {selected_project.id}")
-    st.write(f"Name:  {selected_project.name}")
-    st.write(f"Description:  {selected_project.description}")
 
 # ########################################### FORM
 
@@ -102,7 +100,12 @@ form_items = {
 
 
 if selected_project:
-    st.markdown("### Define new settings..")
+    st.markdown("### Step 2/3: Define settings")
+
+    desc = f"('{selected_project.description}')" if selected_project.description else ""
+    st.write(
+        f"Settings will be added to the following project: `{selected_project.name}`{desc}"
+    )
 
     with st.form("add_settings_to_project"):
         name = st.text_input(**form_items["name"])
@@ -114,19 +117,33 @@ if selected_project:
         st.write(r"\* Required fields")
         st.write(r"\** At least one of the two must be given")
 
-        submit = st.form_submit_button("Add settings")
+        st.markdown("### Step 3/3: Upload files to pool folder")
+        st.markdown(
+            "Make sure you have uploaded all the files correctly to "
+            f"`/fs/pool/pool-projects/alphakraken_test/settings/{project_id}/`"
+        )
+        upload_checkbox = st.checkbox(
+            "I have uploaded the above files to this folder.", value=False
+        )
+
+        submit = st.form_submit_button(f"Add settings to project {selected_project.id}")
 
 
 if selected_project and submit:
-    if (
-        empty_to_none(fasta_file_name) is None
-        and empty_to_none(speclib_file_name) is None
-    ):
-        raise ValueError(
-            "At least one of the fasta and speclib file names must be given."
-        )
-
     try:
+        if (
+            empty_to_none(fasta_file_name) is None
+            and empty_to_none(speclib_file_name) is None
+        ):
+            raise ValueError(
+                "At least one of the fasta and speclib file names must be given."
+            )  # Abstract `raise` to an inner function
+
+        if not upload_checkbox:
+            raise ValueError(
+                "Please upload the files to the respective folders on the pool file system and check the respective box."
+            )
+
         add_new_settings_to_db(
             project_id=selected_project.id,
             name=empty_to_none(name),

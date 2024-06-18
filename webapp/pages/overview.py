@@ -67,17 +67,23 @@ def display(df: pd.DataFrame) -> None:
     """A fragment that displays a DataFrame with a filter."""
     st.write(f"Processed {len(df)} raw files.")
     now = datetime.now()  # noqa:  DTZ005 no tz argument
+    st.write(f"Crrent Kraken time: {now}")
+
     last_file_creation = df.iloc[0]["created_at"]
+    display_time = humanize.precisedelta(
+        now - last_file_creation, minimum_unit="seconds", format="%.0f"
+    )
     st.write(
-        f"Latest processed file acquisition start: {humanize.naturaltime(now - last_file_creation)} [{last_file_creation}]"
+        f"Latest processed file acquisition start: {display_time} ago [{last_file_creation}]"
     )
 
     last_update = df.sort_values(by="updated_at_", ascending=False).iloc[0][
         "updated_at_"
     ]
-    st.write(
-        f"Last raw file status update: {humanize.naturaltime(now - last_update)} [{last_update}]"
+    display_time = humanize.precisedelta(
+        now - last_update, minimum_unit="seconds", format="%.0f"
     )
+    st.write(f"Last raw file status update: {display_time} ago [{last_update}]")
 
     # filter
     filtered_df = show_filter(df)

@@ -5,7 +5,6 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
-import pytz
 from streamlit.testing.v1 import AppTest
 
 APP_FOLDER = Path(__file__).parent / Path("../../")
@@ -18,13 +17,22 @@ def test_overview(mock_df: MagicMock, mock_get: MagicMock) -> None:
     mock_raw_files_db, mock_metrics_db = MagicMock(), MagicMock()
     mock_get.return_value = mock_raw_files_db, mock_metrics_db
 
+    ts1 = pd.to_datetime(datetime.fromtimestamp(0))  # noqa: DTZ006
+    ts2 = pd.to_datetime(datetime.fromtimestamp(1))  # noqa: DTZ006
     raw_files_df = pd.DataFrame(
         {
             "_id": [1, 2],
-            "created_at_": ["2021-01-01", "2021-01-02"],
+            "created_at_": [
+                ts1,
+                ts2,
+            ],
+            "updated_at_": [
+                ts1,
+                ts2,
+            ],
             "created_at": [
-                datetime.fromtimestamp(0, tz=pytz.utc),
-                datetime.fromtimestamp(1, tz=pytz.utc),
+                ts1,
+                ts2,
             ],
             "size": [1024**3, 2 * 1024**3],
         },
@@ -41,12 +49,17 @@ def test_overview(mock_df: MagicMock, mock_get: MagicMock) -> None:
 
     at = AppTest.from_file(f"{APP_FOLDER}/pages/overview.py").run()
 
+    ts1str = ts1.strftime("%Y-%m-%d %H:%M:%S")
+    ts2str = ts2.strftime("%Y-%m-%d %H:%M:%S")
+
     expected_data = {
         "BasicStats_proteins_mean": {1: 1, 2: 2},
-        "created_at_": {1: "2021-01-01", 2: "2021-01-02"},
-        "file_created": {1: "1970-01-01 00:00:00", 2: "1970-01-01 00:00:01"},
+        "created_at": {1: ts1, 2: ts2},
+        "created_at_": {1: ts1, 2: ts2},
+        "updated_at_": {1: ts1, 2: ts2},
+        "file_created": {1: ts1str, 2: ts2str},
         "quanting_time_minutes": {1: 1.0, 2: 2.0},
         "size_gb": {1: 1.0, 2: 2.0},
     }
 
-    assert expected_data == at.dataframe[0].value.to_dict()
+    assert at.dataframe[0].value.to_dict() == expected_data

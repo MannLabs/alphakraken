@@ -97,18 +97,29 @@ def display(df: pd.DataFrame) -> None:
     )
 
     x = "file_created"
-    y = "BasicStats_proteins_mean"
+    for y in [
+        "BasicStats_proteins_mean",
+        "size_gb",
+        "quanting_time_minutes",
+    ]:
+        draw_plot(filtered_df, x, y)
+
+
+def draw_plot(df: pd.DataFrame, x: str, y: str) -> None:
+    """Draw a plot of a DataFrame."""
+    df_to_plot = df.reset_index()
+    median_ = df_to_plot[y].median()
     fig = px.scatter(
-        filtered_df,
+        df_to_plot,
         x=x,
         y=y,
         color="instrument_id",
-        # hover_name="filename",
-        # hover_data=["acquisition_date_time"],
-        # title=f"{y} - median {median_:.2f}",
+        hover_name="_id",
+        hover_data=["file_created"],
+        title=f"{y} - median {median_:.2f}",
         height=400,
     ).update_traces(mode="lines+markers")
-    # fig.add_hline(y=median_, line_dash="dash")
+    fig.add_hline(y=median_, line_dash="dash")
     st.plotly_chart(fig)
 
 

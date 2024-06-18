@@ -255,10 +255,11 @@ special worker ("test1") is used that is connected to the `airflow_test_folder` 
 1. Run the `docker compose` command for the local setup (cf. above) and log into the airflow UI.
 2. Unpause all `*.test1` DAGs. The "watcher" should start running.
 3. If you do not want to feed the cluster, set the Airflow variable `debug_no_cluster_ssh=True` (see above)
+4. In the webapp, create a project with the name `P1`, and add some fake settings to it.
 4. Create a test raw file in the backup pool folder to fake the acquisition
 and copy fake alphaDIA result data to the expected output directory to fake the processing:
 ```bash
-I=$((I+1)); NEW_FILE_NAME=test_file_${I}.raw; echo $NEW_FILE_NAME
+I=$((I+1)); NEW_FILE_NAME=test_file_SA_P1_${I}.raw; echo $NEW_FILE_NAME
 touch airflow_test_folders/backup_pool/test1/$NEW_FILE_NAME
 
 NEW_OUTPUT_FOLDER=airflow_test_folders/output/out_$NEW_FILE_NAME

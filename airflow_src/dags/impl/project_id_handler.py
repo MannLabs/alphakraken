@@ -1,4 +1,10 @@
-"""Module to extract the project ID from the raw file name."""
+"""Module to extract the project ID from the raw file name.
+
+This requires a lot of heuristics at the moment, as we expect the project id anywhere after the "_SA_" token.
+Because the naming convention is so loose, we need to compare each part of the file name with the actual projects
+in the DB.
+Could be simplified by a more strict naming convention, e.g. "2021-01-01_something__<project_id>_something.d".
+"""
 
 import logging
 import re

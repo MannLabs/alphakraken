@@ -1,17 +1,20 @@
 """Tests for the handler_impl module."""
 
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
+import pytest
+from airflow.exceptions import AirflowFailException
 from common.settings import INSTRUMENTS
 from dags.impl.handler_impl import (
     add_raw_file_to_db,
     compute_metrics,
     get_job_info,
+    prepare_quanting,
     run_quanting,
     upload_metrics,
 )
-from plugins.common.keys import OpArgs, XComKeys
+from plugins.common.keys import DagContext, DagParams, OpArgs, QuantingEnv, XComKeys
 
 from shared.db.models import RawFileStatus
 
@@ -45,37 +48,20 @@ def test_add_raw_file_to_db(
     )
 
 
-@patch.dict(INSTRUMENTS, {"some_instrument_id": {"raw_data_path": "path/to/data"}})
-@patch("dags.impl.handler_impl.get_xcom")
-@patch("dags.impl.handler_impl.SSHSensorOperator.ssh_execute")
+@patch.dict(INSTRUMENTS, {"instrument1": {"raw_data_path": "path/to/data"}})
 @patch("dags.impl.handler_impl.put_xcom")
-@patch("dags.impl.handler_impl.update_raw_file_status")
 @patch("dags.impl.handler_impl.random")
 @patch("dags.impl.handler_impl.get_all_project_ids")
 @patch("dags.impl.handler_impl.get_unique_project_id")
 @patch("dags.impl.handler_impl.get_settings_for_project")
-def test_run_quanting_executes_ssh_command_and_stores_job_id(  # noqa: PLR0913  # Too many arguments
+def test_prepare_quanting(
     mock_get_settings: MagicMock,
     mock_get_unique_project_id: MagicMock,
     mock_get_all_project_ids: MagicMock,
     mock_random: MagicMock,
-    mock_update: MagicMock,
     mock_put_xcom: MagicMock,
-    mock_ssh_execute: MagicMock,
-    mock_get_xcom: MagicMock,
 ) -> None:
-    """Test that the run_quanting function executes the SSH command and stores the job ID."""
-    # given
-    mock_get_xcom.return_value = "test_file.raw"
-    mock_ssh_execute.return_value = "12345"
-    ti = MagicMock()
-    mock_ssh_hook = MagicMock()
-
-    kwargs = {
-        OpArgs.SSH_HOOK: mock_ssh_hook,
-        OpArgs.INSTRUMENT_ID: "some_instrument_id",
-    }
-
+    """Test that prepare_quanting makes the expected calls."""
     mock_random.return_value = 0.44
     mock_get_all_project_ids.return_value = ["some_project_id", "P2"]
     mock_get_unique_project_id.return_value = "some_project_id"
@@ -85,6 +71,68 @@ def test_run_quanting_executes_ssh_command_and_stores_job_id(  # noqa: PLR0913  
         config_file_name="some_config_file_name",
         software="some_software",
     )
+    ti = MagicMock()
+
+    # when
+    kwargs = {
+        OpArgs.INSTRUMENT_ID: "instrument1",
+        DagContext.PARAMS: {
+            DagParams.RAW_FILE_NAME: "test_file.raw",
+        },
+    }
+
+    # when
+    prepare_quanting(ti, **kwargs)
+
+    mock_get_all_project_ids.assert_called_once_with()
+    mock_get_unique_project_id.assert_called_once_with(
+        "test_file.raw", ["some_project_id", "P2"]
+    )
+    mock_get_settings.assert_called_once_with("some_project_id")
+
+    expected_quanting_env = {
+        "RAW_FILE_NAME": "test_file.raw",
+        "INSTRUMENT_SUBFOLDER": "path/to/data",
+        "OUTPUT_FOLDER_NAME": "out_test_file.raw",
+        "SPECLIB_FILE_NAME": "4_some_speclib_file_name",
+        "FASTA_FILE_NAME": "some_fasta_file_name",
+        "CONFIG_FILE_NAME": "some_config_file_name",
+        "SOFTWARE": "some_software",
+        "PROJECT_ID": "some_project_id",
+    }
+
+    mock_put_xcom.assert_has_calls(
+        [
+            call(ti, "quanting_env", expected_quanting_env),
+            call(ti, "raw_file_name", "test_file.raw"),
+        ]
+    )
+    mock_random.assert_called_once()  # TODO: remove patching random once the hack is removed
+
+
+@patch("dags.impl.handler_impl.get_xcom")
+@patch("dags.impl.handler_impl.SSHSensorOperator.ssh_execute")
+@patch("dags.impl.handler_impl.put_xcom")
+@patch("dags.impl.handler_impl.update_raw_file_status")
+def test_run_quanting_executes_ssh_command_and_stores_job_id(
+    mock_update: MagicMock,
+    mock_put_xcom: MagicMock,
+    mock_ssh_execute: MagicMock,
+    mock_get_xcom: MagicMock,
+) -> None:
+    """Test that the run_quanting function executes the SSH command and stores the job ID."""
+    # given
+    mock_get_xcom.return_value = {
+        QuantingEnv.RAW_FILE_NAME: "test_file.raw"
+        # rest of quanting_env is left out here for brevity
+    }
+    mock_ssh_execute.return_value = "12345"
+    ti = MagicMock()
+    mock_ssh_hook = MagicMock()
+
+    kwargs = {
+        OpArgs.SSH_HOOK: mock_ssh_hook,
+    }
 
     # when
     run_quanting(ti, **kwargs)
@@ -92,13 +140,7 @@ def test_run_quanting_executes_ssh_command_and_stores_job_id(  # noqa: PLR0913  
     # then
     expected_export_command = (
         "export RAW_FILE_NAME=test_file.raw\n"
-        "export POOL_BACKUP_INSTRUMENT_SUBFOLDER=path/to/data\n"
-        "export OUTPUT_FOLDER_NAME=out_test_file.raw\n"
-        "export SPECLIB_FILE_NAME=4_some_speclib_file_name\n"
-        "export FASTA_FILE_NAME=some_fasta_file_name\n"
-        "export CONFIG_FILE_NAME=some_config_file_name\n"
-        "export SOFTWARE=some_software\n"
-        "export PROJECT_ID=some_project_id\n"
+        # rest of quanting_env is left out here for brevity
     )
 
     expected_command = expected_export_command + (
@@ -110,13 +152,27 @@ def test_run_quanting_executes_ssh_command_and_stores_job_id(  # noqa: PLR0913  
     mock_ssh_execute.assert_called_once_with(expected_command, mock_ssh_hook)
     mock_put_xcom.assert_called_once_with(ti, XComKeys.JOB_ID, "12345")
     mock_update.assert_called_once_with("test_file.raw", RawFileStatus.PROCESSING)
-    mock_get_all_project_ids.assert_called_once_with()
-    mock_get_unique_project_id.assert_called_once_with(
-        "test_file.raw", ["some_project_id", "P2"]
-    )
-    mock_get_settings.assert_called_once_with("some_project_id")
 
-    mock_random.assert_called_once()  # TODO: remove patching random once the hack is removed
+
+@patch("dags.impl.handler_impl.get_xcom")
+@patch("dags.impl.handler_impl.SSHSensorOperator.ssh_execute")
+def test_run_quanting_executes_ssh_command_error_wrong_job_id(
+    mock_ssh_execute: MagicMock,
+    mock_get_xcom: MagicMock,
+) -> None:
+    """run_quanting function raises an exception if the job ID is not an integer."""
+    # given
+    mock_get_xcom.return_value = {QuantingEnv.RAW_FILE_NAME: "test_file.raw"}
+    mock_ssh_execute.return_value = "some_wrong_job_id"
+    mock_ssh_hook = MagicMock()
+
+    kwargs = {
+        OpArgs.SSH_HOOK: mock_ssh_hook,
+    }
+
+    # when
+    with pytest.raises(AirflowFailException):
+        run_quanting(MagicMock(), **kwargs)
 
 
 @patch("dags.impl.handler_impl.get_xcom")

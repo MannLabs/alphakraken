@@ -54,6 +54,8 @@ class XComKeys:
     RAW_FILE_NAMES: str = "raw_file_names"
     RAW_FILE_HANDLING_DECISIONS: str = "raw_file_handling_decisions"
 
+    QUANTING_ENV: str = "quanting_env"
+
     JOB_ID: str = "job_id"
 
     METRICS: str = "metrics"
@@ -70,3 +72,17 @@ class Variables:
     """Keys for accessing Airflow Variables."""
 
     DEBUG_NO_CLUSTER_SSH = "debug_no_cluster_ssh"
+
+
+class QuantingEnv:
+    """Keys for setting quanting environment variables for the slurm submit script."""
+
+    RAW_FILE_NAME = "RAW_FILE_NAME"
+    INSTRUMENT_SUBFOLDER = "INSTRUMENT_SUBFOLDER"
+    OUTPUT_FOLDER_NAME = "OUTPUT_FOLDER_NAME"
+    SPECLIB_FILE_NAME = "SPECLIB_FILE_NAME"
+
+    FASTA_FILE_NAME = "FASTA_FILE_NAME"
+    CONFIG_FILE_NAME = "CONFIG_FILE_NAME"
+    SOFTWARE = "SOFTWARE"
+    PROJECT_ID = "PROJECT_ID"

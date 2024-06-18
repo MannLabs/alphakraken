@@ -7,7 +7,7 @@ from random import random
 from airflow.exceptions import AirflowFailException
 from airflow.models import TaskInstance
 from cluster_scripts.slurm_commands import get_job_info_cmd, get_run_quanting_cmd
-from common.keys import DagContext, DagParams, OpArgs, XComKeys
+from common.keys import DagContext, DagParams, OpArgs, QuantingEnv, XComKeys
 from common.settings import (
     CLUSTER_WORKING_DIR,
     get_internal_instrument_data_path,
@@ -56,14 +56,39 @@ def add_raw_file_to_db(
 
 
 def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
-    """TODO."""
+    """Prepare the environmental variables for the quanting job."""
     # TODO: temporary: introduce get_dagcontext(kwargs, DagParams.RAW_FILE_NAME)
     raw_file_name = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_NAME]
+    instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
 
+    instrument_subfolder = get_relative_instrument_data_path(instrument_id)
+    output_folder_name = get_output_folder_name(raw_file_name)
+
+    all_project_ids = get_all_project_ids()
+    project_id = get_unique_project_id(raw_file_name, all_project_ids)
+    settings = get_settings_for_project(project_id)
+
+    # TODO: remove!!!
+    # this is so hacky it makes my head hurt:
+    # currently, two instances of alphaDIA compete for locking the speclib file
+    # cf. https://github.com/MannLabs/alphabase/issues/180
+    # This reduces the chance for this to happen by 90%
+    speclib_file_name = f"{int(random()*10)}_{settings.speclib_file_name}"  # noqa: S311
+
+    quanting_env = {
+        QuantingEnv.RAW_FILE_NAME: raw_file_name,
+        QuantingEnv.INSTRUMENT_SUBFOLDER: instrument_subfolder,
+        QuantingEnv.OUTPUT_FOLDER_NAME: output_folder_name,
+        QuantingEnv.SPECLIB_FILE_NAME: speclib_file_name,
+        QuantingEnv.FASTA_FILE_NAME: settings.fasta_file_name,
+        QuantingEnv.CONFIG_FILE_NAME: settings.config_file_name,
+        QuantingEnv.SOFTWARE: settings.software,
+        QuantingEnv.PROJECT_ID: project_id,
+    }
+
+    put_xcom(ti, XComKeys.QUANTING_ENV, quanting_env)
+    # this is redundant to the entry in QUANTING_ENV, but makes downstream access a bit more convenient
     put_xcom(ti, XComKeys.RAW_FILE_NAME, raw_file_name)
-
-    # IMPLEMENT:
-    # create the alphadia inputfile and store it on the shared volume
 
 
 def _create_export_command(mapping: dict[str, str]) -> str:
@@ -76,47 +101,27 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
     # IMPLEMENT:
     # wait for the cluster to be ready (20% idling) -> dedicated (sensor) task, mind race condition! (have pool = 1 for that)
 
+    quanting_env = get_xcom(ti, XComKeys.QUANTING_ENV)
     ssh_hook = kwargs[OpArgs.SSH_HOOK]
-    instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
 
-    raw_file_name = get_xcom(ti, XComKeys.RAW_FILE_NAME)
-    instrument_subfolder = get_relative_instrument_data_path(instrument_id)
-    output_folder_name = get_output_folder_name(raw_file_name)
-
-    all_project_ids = get_all_project_ids()
-    project_id = get_unique_project_id(raw_file_name, all_project_ids)
-    settings = get_settings_for_project(project_id)
-    # TODO: remove!!!
-    # this is so hacky it makes my head hurt:
-    # currently, two instances of alphaDIA compete for locking the speclib file
-    # cf. https://github.com/MannLabs/alphabase/issues/180
-    # This reduces the chance for this to happen by 90%
-    speclib_file_name = f"{int(random()*10)}_{settings.speclib_file_name}"  # noqa: S311
-
-    submit_job_env_vars = {
-        "RAW_FILE_NAME": raw_file_name,
-        "POOL_BACKUP_INSTRUMENT_SUBFOLDER": instrument_subfolder,
-        "OUTPUT_FOLDER_NAME": output_folder_name,
-        "SPECLIB_FILE_NAME": speclib_file_name,
-        "FASTA_FILE_NAME": settings.fasta_file_name,
-        "CONFIG_FILE_NAME": settings.config_file_name,
-        "SOFTWARE": settings.software,
-        "PROJECT_ID": project_id,
-    }
-
-    command = _create_export_command(submit_job_env_vars) + get_run_quanting_cmd()
+    command = _create_export_command(quanting_env) + get_run_quanting_cmd()
     logging.info(f"Running command: >>>>\n{command}\n<<<< end of command")
 
-    # TODO: prevent re-starting the same job again (SBATCH unique key or smth?)
+    # TODO: prevent re-starting the same job again, by either
+    #  - give a unique job name and search latest history
+    #  - check if job_id is already set (weak!)
+    #  - check if output folder already exists
     ssh_return = SSHSensorOperator.ssh_execute(command, ssh_hook)
 
     try:
         job_id = str(int(ssh_return.split("\n")[-1]))
     except Exception as e:
-        logging.exception("Did not get a job id from the cluster.")
+        logging.exception("Did not get a valid job id from the cluster.")
         raise AirflowFailException from e
 
-    update_raw_file_status(raw_file_name, RawFileStatus.PROCESSING)
+    update_raw_file_status(
+        quanting_env[QuantingEnv.RAW_FILE_NAME], RawFileStatus.PROCESSING
+    )
 
     put_xcom(ti, XComKeys.JOB_ID, job_id)
 

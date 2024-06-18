@@ -8,7 +8,6 @@ from airflow.models import TaskInstance
 from cluster_scripts.slurm_commands import get_job_info_cmd, get_run_quanting_cmd
 from common.keys import DagContext, DagParams, OpArgs, XComKeys
 from common.settings import (
-    CLUSTER_JOB_SCRIPT_PATH,
     CLUSTER_WORKING_DIR,
     get_internal_instrument_data_path,
     get_internal_output_path,
@@ -64,18 +63,6 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
 
     # IMPLEMENT:
     # create the alphadia inputfile and store it on the shared volume
-
-
-# TODO: put this somewhere else
-# TODO: how to bring 'submit_job.sh' to the cluster?
-# Must be a bash script that is executable on the cluster.
-# Its only output to stdout must be the job id of the submitted job.
-# ${JID##* } is removing everything up to the last space
-run_quanting_cmd = f"""
-cd {CLUSTER_WORKING_DIR} &&
-JID=$(sbatch {CLUSTER_JOB_SCRIPT_PATH})
-echo ${{JID##* }}
-"""
 
 
 def _create_export_command(mapping: dict[str, str]) -> str:

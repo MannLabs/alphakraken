@@ -102,7 +102,8 @@ def test_run_quanting_executes_ssh_command_and_stores_job_id(  # noqa: PLR0913  
     )
 
     expected_command = expected_export_command + (
-        "cd ~/slurm/jobs &&\n"
+        "cd ~/slurm/jobs\n"
+        "cat ~/slurm/submit_job.sh\n"
         "JID=$(sbatch ~/slurm/submit_job.sh)\n"
         "echo ${JID##* }\n"
     )

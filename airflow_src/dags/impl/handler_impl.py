@@ -5,6 +5,7 @@ from datetime import datetime
 from random import random
 
 from airflow.models import TaskInstance
+from cluster_scripts.slurm_commands import get_job_info_cmd, get_run_quanting_cmd
 from common.keys import DagContext, DagParams, OpArgs, XComKeys
 from common.settings import (
     CLUSTER_JOB_SCRIPT_PATH,
@@ -115,7 +116,7 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
         "PROJECT_ID": project_id,
     }
 
-    command = _create_export_command(submit_job_env_vars) + run_quanting_cmd
+    command = _create_export_command(submit_job_env_vars) + get_run_quanting_cmd()
     logging.info(f"Running command: >>>>\n{command}\n<<<< end of command")
 
     # TODO: prevent cluster from overfeeding on stall
@@ -136,14 +137,8 @@ def get_job_info(ti: TaskInstance, **kwargs) -> None:
 
     slurm_output_file = f"{CLUSTER_WORKING_DIR}/slurm-{job_id}.out"
 
-    # To reduce the number of ssh calls, we combine multiple commands into one
-    # In order to be able to extract the run time, we expect the first line to contain only that, e.g. "00:08:42"
-    get_job_info_cmd = f"""TIME_ELAPSED=$(sacct --format=Elapsed -j  {job_id} | tail -n 1); echo $TIME_ELAPSED
-sacct -l -j {job_id}
-cat {slurm_output_file}
-"""
-
-    ssh_return = SSHSensorOperator.ssh_execute(get_job_info_cmd, ssh_hook)
+    cmd = get_job_info_cmd(job_id, slurm_output_file)
+    ssh_return = SSHSensorOperator.ssh_execute(cmd, ssh_hook)
 
     logging.info(ssh_return)
 

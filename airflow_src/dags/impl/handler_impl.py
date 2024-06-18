@@ -4,6 +4,7 @@ import logging
 from datetime import datetime
 from random import random
 
+from airflow.exceptions import AirflowFailException
 from airflow.models import TaskInstance
 from cluster_scripts.slurm_commands import get_job_info_cmd, get_run_quanting_cmd
 from common.keys import DagContext, DagParams, OpArgs, XComKeys
@@ -106,11 +107,14 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
     command = _create_export_command(submit_job_env_vars) + get_run_quanting_cmd()
     logging.info(f"Running command: >>>>\n{command}\n<<<< end of command")
 
-    # TODO: prevent cluster from overfeeding on stall
     # TODO: prevent re-starting the same job again (SBATCH unique key or smth?)
-    job_id = SSHSensorOperator.ssh_execute(command, ssh_hook)
+    ssh_return = SSHSensorOperator.ssh_execute(command, ssh_hook)
 
-    # TODO: fail on empty job id, e.g. unable to open file OR make monitor recognize it's not getting a status from sacct
+    try:
+        job_id = str(int(ssh_return.split("\n")[-1]))
+    except Exception as e:
+        logging.exception("Did not get a job id from the cluster.")
+        raise AirflowFailException from e
 
     update_raw_file_status(raw_file_name, RawFileStatus.PROCESSING)
 

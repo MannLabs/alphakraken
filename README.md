@@ -199,15 +199,15 @@ This connection is required to interact with the SLURM cluster.
 For details on how to install alphaDIA on the SLURM cluster, follow the alphaDIA
 [https://github.com/MannLabs/alphadia/blob/main/docs/installation.md#slurm-cluster-installation](Readme).
 
-In a nutshell, to install a certain version, e.g. 1.6.2:
+In a nutshell, to install a certain version, e.g. `VERSION=1.7.0`:
 ```bash
-conda create --name alphadia-1.6.2 python=3.11 -y
+conda create --name alphadia-${VERSION} python=3.11 -y
 ```
 ```bash
-conda activate alphadia-1.6.2
+conda activate alphadia-${VERSION}
 ```
 ```bash
-pip  install "alphadia[stable]==1.6.2"
+pip  install "alphadia[stable]==${VERSION}"
 ```
 Make sure the environment is named `alphadia-$VERSION`.
 Also, don't forget to install `mono` (cf. alphaDIA Readme).

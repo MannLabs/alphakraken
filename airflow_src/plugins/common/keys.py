@@ -14,8 +14,8 @@ class Tasks:
     """Task Names."""
 
     WAIT_FOR_FILE_CREATION: str = "wait_for_file_creation"
-    CHECK_DB: str = "check_db"
-    CHECK_PROJECT_ID: str = "check_project_id"
+    GET_UNKNOWN_RAW_FILES: str = "get_unknown_raw_files"
+    DECIDE_HANDLING: str = "decide_handling"
     START_ACQUISITION_HANDLER: str = "start_acquisition_handler"
 
     ADD_TO_DB: str = "add_to_db"
@@ -53,6 +53,7 @@ class XComKeys:
 
     RAW_FILE_NAME: str = "raw_file_name"
     RAW_FILE_NAMES: str = "raw_file_names"
+    RAW_FILE_HANDLING_DECISIONS: str = "raw_file_handling_decisions"
 
     JOB_ID: str = "job_id"
 

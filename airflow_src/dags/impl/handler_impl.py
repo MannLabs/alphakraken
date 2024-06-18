@@ -55,26 +55,13 @@ def add_raw_file_to_db(
         logging.warning(f"File {raw_file_name} already in the database")
 
 
-def add_to_db(ti: TaskInstance, **kwargs) -> None:
-    """Add the file to the database with initial status and basic information."""
-    # example how to retrieve parameters from the context
-    raw_file_name = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_NAME]
-    instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
-
-    logging.info(f"Got {raw_file_name=} on {instrument_id=}")
-
-    # TODO: exception handling: retry vs noretry
-
-    add_raw_file_to_db(instrument_id, raw_file_name)
-
-    # push to XCOM
-    put_xcom(ti, XComKeys.RAW_FILE_NAME, raw_file_name)
-
-
 def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
     """TODO."""
-    del ti
-    del kwargs
+    # TODO: temporary: introduce get_dagcontext(kwargs, DagParams.RAW_FILE_NAME)
+    raw_file_name = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_NAME]
+
+    put_xcom(ti, XComKeys.RAW_FILE_NAME, raw_file_name)
+
     # IMPLEMENT:
     # create the alphadia inputfile and store it on the shared volume
 

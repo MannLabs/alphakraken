@@ -11,7 +11,6 @@ from airflow.providers.ssh.hooks.ssh import SSHHook
 from common.keys import DAG_DELIMITER, Dags, OpArgs, Tasks
 from common.settings import AIRFLOW_QUEUE_PREFIX, INSTRUMENTS, Timings
 from impl.handler_impl import (
-    add_to_db,
     compute_metrics,
     get_job_info,
     prepare_quanting,
@@ -42,12 +41,6 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
         params={"raw_file_name": Param(type="string", minimum=3)},
     ) as dag:
         dag.doc_md = __doc__
-
-        add_to_db_ = PythonOperator(
-            task_id=Tasks.ADD_TO_DB,
-            python_callable=add_to_db,
-            op_kwargs={OpArgs.INSTRUMENT_ID: instrument_id},
-        )
 
         prepare_quanting_ = PythonOperator(
             task_id=Tasks.PREPARE_QUANTING, python_callable=prepare_quanting
@@ -80,8 +73,7 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
         )
 
     (
-        add_to_db_
-        >> prepare_quanting_
+        prepare_quanting_
         >> run_quanting_
         >> monitor_quanting_
         >> get_job_info_

@@ -18,7 +18,6 @@ class Tasks:
     DECIDE_HANDLING: str = "decide_handling"
     START_ACQUISITION_HANDLER: str = "start_acquisition_handler"
 
-    ADD_TO_DB: str = "add_to_db"
     PREPARE_QUANTING: str = "prepare_quanting"
     RUN_QUANTING: str = "run_quanting"
     MONITOR_QUANTING: str = "monitor_quanting"

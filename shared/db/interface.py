@@ -98,7 +98,7 @@ def add_new_settings_to_db(  # noqa: PLR0913 Too many arguments in function defi
 
     # TODO: get rid of this limitation: on adding a new setting for a project, set the status of the ACTIVE one to INACTIVE
     if Settings.objects(project=project).first() is not None:
-        raise ValueError("Currently,only one settings per project is allowed.")
+        raise ValueError("Currently, only one settings per project is allowed.")
 
     settings = Settings(
         project=project,

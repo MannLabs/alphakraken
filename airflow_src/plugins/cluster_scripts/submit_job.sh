@@ -6,7 +6,6 @@
 #SBATCH --mem=16G
 #SBATCH --time=04:00:00
 #SxBATCH --partition=p.<node>
-# TODO replace directives with command-line args
 
 set -u -e
 
@@ -20,19 +19,13 @@ set -u -e
 # SOFTWARE # e.g. alphadia-1.6.2
 # PROJECT_ID # e.g. A123
 
-# TODO make dynamic
 POOL_FS="/fs/pool/" # TODO get from .env
 POOL_PROJECTS="${POOL_FS}/pool-projects/alphakraken_test"  # TODO get from .env
-
-# TODO document this:
-#### Add settings
-#Upload fasta files, spectral libraries and config files in subfolders
-#`fasta`, `speclib`, and `config`, respectively, of POOL_PROJECTS}/settings.
 
 # these are determined by convention:
 CONDA_ENV=$SOFTWARE
 SETTINGS_PATH="${POOL_PROJECTS}/settings/${PROJECT_ID}"
-OUTPUT_PATH="${POOL_PROJECTS}/output/${PROJECT_ID}"
+OUTPUT_PATH="${POOL_PROJECTS}/output/" # TODO add ${PROJECT_ID} folder
 INSTRUMENT_BACKUP_FOLDER="${POOL_FS}/${INSTRUMENT_SUBFOLDER}"
 RAW_FILE_PATH="${INSTRUMENT_BACKUP_FOLDER}/${RAW_FILE_NAME}"
 CONFIG_FILE_PATH="${SETTINGS_PATH}/${CONFIG_FILE_NAME}"
@@ -56,7 +49,7 @@ cd ${OUTPUT_PATH}
 echo "Running alphadia.."
 echo "Check the logs in ${OUTPUT_PATH}/log.txt"
 
-# TODO how to handle potential overwriting on a second run?
+# TODO how to handle potential overwriting of output data on a second run?
 conda run -n $CONDA_ENV alphadia \
     --file "${RAW_FILE_PATH}" \
     --library "${SPECLIB_FILE_PATH}" \

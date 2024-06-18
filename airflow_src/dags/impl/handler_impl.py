@@ -40,7 +40,7 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
     project_id = get_unique_project_id(raw_file_name, all_project_ids)
     settings = get_settings_for_project(project_id)
 
-    # TODO: remove!!!
+    # TODO: remove random speclib file hack
     # this is so hacky it makes my head hurt:
     # currently, two instances of alphaDIA compete for locking the speclib file
     # cf. https://github.com/MannLabs/alphabase/issues/180

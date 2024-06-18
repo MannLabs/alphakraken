@@ -12,14 +12,39 @@ from airflow.utils.types import DagRunType
 from common.keys import DagParams, Dags, OpArgs, XComKeys
 from common.settings import get_internal_instrument_data_path
 from common.utils import get_xcom, put_xcom
-from impl.handler_impl import add_raw_file_to_db
 from impl.project_id_handler import get_unique_project_id
 
 from shared.db.interface import (
+    add_new_raw_file_to_db,
     get_all_project_ids,
     get_raw_file_names_from_db,
 )
 from shared.db.models import RawFileStatus
+
+
+def _add_raw_file_to_db(
+    instrument_id: str, raw_file_name: str, status: str = RawFileStatus.NEW
+) -> None:
+    """Add the file to the database with initial status and basic information.
+
+    :param instrument_id: instrument id
+    :param raw_file_name: raw file name
+    :param status: status of the file
+    :return:
+    """
+    # calculate the file properties already here to have them available as early as possible
+    raw_file_path = get_internal_instrument_data_path(instrument_id) / raw_file_name
+    raw_file_size = raw_file_path.stat().st_size
+    raw_file_creation_time = raw_file_path.stat().st_ctime
+    logging.info(f"Got {raw_file_size / 1024 ** 3} GB {raw_file_creation_time}")
+
+    add_new_raw_file_to_db(
+        raw_file_name,
+        status=status,
+        instrument_id=instrument_id,
+        size=raw_file_size,
+        creation_ts=raw_file_creation_time,
+    )
 
 
 def get_unknown_raw_files(ti: TaskInstance, **kwargs) -> None:
@@ -91,7 +116,7 @@ def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
     for raw_file_name, is_to_be_handled in raw_file_handling_decisions.items():
         status = RawFileStatus.NEW if is_to_be_handled else RawFileStatus.IGNORED
 
-        add_raw_file_to_db(instrument_id, raw_file_name, status=status)
+        _add_raw_file_to_db(instrument_id, raw_file_name, status=status)
 
         if is_to_be_handled:
             run_id = DagRun.generate_run_id(

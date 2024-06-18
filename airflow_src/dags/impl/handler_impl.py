@@ -16,7 +16,6 @@ from common.settings import (
 )
 from common.utils import get_xcom, put_xcom
 from metrics.metrics_calculator import calc_metrics
-from mongoengine.errors import NotUniqueError
 from sensors.ssh_sensor import SSHSensorOperator
 
 from shared.db.interface import (
@@ -42,17 +41,14 @@ def add_raw_file_to_db(
     raw_file_size = raw_file_path.stat().st_size
     raw_file_creation_time = raw_file_path.stat().st_ctime
     logging.info(f"Got {raw_file_size / 1024 ** 3} GB {raw_file_creation_time}")
-    try:
-        add_new_raw_file_to_db(
-            raw_file_name,
-            status=status,
-            instrument_id=instrument_id,
-            size=raw_file_size,
-            creation_ts=raw_file_creation_time,
-        )
-    except NotUniqueError:  # TODO: remove
-        # we tolerate this for now to facilitate manual testing
-        logging.warning(f"File {raw_file_name} already in the database")
+
+    add_new_raw_file_to_db(
+        raw_file_name,
+        status=status,
+        instrument_id=instrument_id,
+        size=raw_file_size,
+        creation_ts=raw_file_creation_time,
+    )
 
 
 def prepare_quanting(ti: TaskInstance, **kwargs) -> None:

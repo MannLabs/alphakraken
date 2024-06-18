@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 
 from common.settings import INSTRUMENTS
 from dags.impl.handler_impl import (
+    add_raw_file_to_db,
     compute_metrics,
     get_job_info,
     run_quanting,
@@ -13,6 +14,35 @@ from dags.impl.handler_impl import (
 from plugins.common.keys import OpArgs, XComKeys
 
 from shared.db.models import RawFileStatus
+
+
+@patch("dags.impl.handler_impl.get_internal_instrument_data_path")
+@patch("os.stat")
+@patch("dags.impl.handler_impl.add_new_raw_file_to_db")
+def test_add_raw_file_to_db(
+    mock_add_new_raw_file_to_db: MagicMock,
+    mock_stat: MagicMock,
+    mock_get_instrument_data_path: MagicMock,
+) -> None:
+    """Test add_to_db makes the expected calls."""
+    # Given
+
+    mock_get_instrument_data_path.return_value = Path("/path/to/data")
+    mock_stat.return_value.st_size = 42.0
+    mock_stat.return_value.st_ctime = 43.0
+
+    # When
+    add_raw_file_to_db("instrument1", "test_file.raw")
+
+    # Then
+    mock_get_instrument_data_path.assert_called_once_with("instrument1")
+    mock_add_new_raw_file_to_db.assert_called_once_with(
+        "test_file.raw",
+        status="new",
+        instrument_id="instrument1",
+        size=42.0,
+        creation_ts=43.0,
+    )
 
 
 @patch.dict(INSTRUMENTS, {"some_instrument_id": {"raw_data_path": "path/to/data"}})

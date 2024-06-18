@@ -4,6 +4,7 @@ from datetime import datetime
 
 import humanize
 import pandas as pd
+import plotly.express as px
 
 # ruff: noqa: PD002 # `inplace=True` should be avoided; it has inconsistent behavior
 import streamlit as st
@@ -94,6 +95,21 @@ def display(df: pd.DataFrame) -> None:
             subset="BasicStats_proteins_mean", cmap=cmap
         )
     )
+
+    x = "file_created"
+    y = "BasicStats_proteins_mean"
+    fig = px.scatter(
+        filtered_df,
+        x=x,
+        y=y,
+        color="instrument_id",
+        # hover_name="filename",
+        # hover_data=["acquisition_date_time"],
+        # title=f"{y} - median {median_:.2f}",
+        height=400,
+    ).update_traces(mode="lines+markers")
+    # fig.add_hline(y=median_, line_dash="dash")
+    st.plotly_chart(fig)
 
 
 display(combined_df)

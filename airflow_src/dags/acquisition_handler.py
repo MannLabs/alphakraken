@@ -27,10 +27,11 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
     with DAG(
         f"{Dags.ACQUISITON_HANDLER}{DAG_DELIMITER}{instrument_id}",
         schedule=None,
+        # these are the default arguments for each TASK
         default_args={
             "depends_on_past": False,
             "retries": 5,
-            "retry_delay": timedelta(minutes=5),
+            "retry_delay": timedelta(minutes=1),
             # this maps the DAG to the worker that is responsible for that queue, cf. docker-compose.yml
             # and https://airflow.apache.org/docs/apache-airflow-providers-celery/stable/celery_executor.html#queues
             "queue": f"{AIRFLOW_QUEUE_PREFIX}{instrument_id}",

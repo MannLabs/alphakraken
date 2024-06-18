@@ -17,7 +17,6 @@ from common.settings import (
 from common.utils import get_xcom, put_xcom
 from impl.project_id_handler import get_unique_project_id
 from metrics.metrics_calculator import calc_metrics
-from mongoengine.errors import NotUniqueError
 from sensors.ssh_sensor import SSHSensorOperator
 
 from shared.db.interface import (
@@ -45,39 +44,23 @@ def add_raw_file_to_db(
     raw_file_size = raw_file_path.stat().st_size
     raw_file_creation_time = raw_file_path.stat().st_ctime
     logging.info(f"Got {raw_file_size / 1024 ** 3} GB {raw_file_creation_time}")
-    try:
-        add_new_raw_file_to_db(
-            raw_file_name,
-            status=status,
-            instrument_id=instrument_id,
-            size=raw_file_size,
-            creation_ts=raw_file_creation_time,
-        )
-    except NotUniqueError:  # TODO: remove
-        # we tolerate this for now to facilitate manual testing
-        logging.warning(f"File {raw_file_name} already in the database")
 
-
-def add_to_db(ti: TaskInstance, **kwargs) -> None:
-    """Add the file to the database with initial status and basic information."""
-    # example how to retrieve parameters from the context
-    raw_file_name = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_NAME]
-    instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
-
-    logging.info(f"Got {raw_file_name=} on {instrument_id=}")
-
-    # TODO: exception handling: retry vs noretry
-
-    add_raw_file_to_db(instrument_id, raw_file_name)
-
-    # push to XCOM
-    put_xcom(ti, XComKeys.RAW_FILE_NAME, raw_file_name)
+    add_new_raw_file_to_db(
+        raw_file_name,
+        status=status,
+        instrument_id=instrument_id,
+        size=raw_file_size,
+        creation_ts=raw_file_creation_time,
+    )
 
 
 def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
     """TODO."""
-    del ti
-    del kwargs
+    # TODO: temporary: introduce get_dagcontext(kwargs, DagParams.RAW_FILE_NAME)
+    raw_file_name = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_NAME]
+
+    put_xcom(ti, XComKeys.RAW_FILE_NAME, raw_file_name)
+
     # IMPLEMENT:
     # create the alphadia inputfile and store it on the shared volume
 

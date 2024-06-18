@@ -14,7 +14,11 @@ from common.keys import (
     Tasks,
 )
 from common.settings import AIRFLOW_QUEUE_PREFIX, INSTRUMENTS, Timings
-from impl.watcher_impl import check_db, check_project_id, start_acquisition_handler
+from impl.watcher_impl import (
+    decide_raw_file_handling,
+    get_unknown_raw_files,
+    start_acquisition_handler,
+)
 from sensors.file_sensor import FileCreationSensor
 
 
@@ -45,15 +49,15 @@ def create_acquisition_watcher_dag(instrument_id: str) -> None:
             poke_interval=Timings.FILE_CREATION_POKE_INTERVAL_S,
         )
 
-        check_db_ = PythonOperator(
-            task_id=Tasks.CHECK_DB,
-            python_callable=check_db,
+        get_unknown_raw_files_ = PythonOperator(
+            task_id=Tasks.GET_UNKNOWN_RAW_FILES,
+            python_callable=get_unknown_raw_files,
             op_kwargs={OpArgs.INSTRUMENT_ID: instrument_id},
         )
 
-        check_project_id_ = PythonOperator(
-            task_id=Tasks.CHECK_PROJECT_ID,
-            python_callable=check_project_id,
+        decide_raw_file_handling_ = PythonOperator(
+            task_id=Tasks.DECIDE_HANDLING,
+            python_callable=decide_raw_file_handling,
             op_kwargs={OpArgs.INSTRUMENT_ID: instrument_id},
         )
 
@@ -65,8 +69,8 @@ def create_acquisition_watcher_dag(instrument_id: str) -> None:
 
     (
         wait_for_file_creation_
-        >> check_db_
-        >> check_project_id_
+        >> get_unknown_raw_files_
+        >> decide_raw_file_handling_
         >> start_acquisition_handler_
     )
 

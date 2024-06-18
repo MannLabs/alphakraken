@@ -4,8 +4,11 @@ from pathlib import Path
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
-from dags.impl.watcher_impl import check_db, check_project_id, start_acquisition_handler
-from db.models import RawFileStatus
+from dags.impl.watcher_impl import (
+    decide_raw_file_handling,
+    get_unknown_raw_files,
+    start_acquisition_handler,
+)
 from plugins.common.keys import OpArgs, XComKeys
 
 SOME_INSTRUMENT_ID = "some_instrument_id"
@@ -15,13 +18,13 @@ SOME_INSTRUMENT_ID = "some_instrument_id"
 @patch("os.listdir")
 @patch("dags.impl.watcher_impl.get_raw_file_names_from_db")
 @patch("dags.impl.watcher_impl.put_xcom")
-def test_check_db_with_existing_files_in_db(
+def test_get_unknown_raw_files_with_existing_files_in_db(
     mock_put_xcom: MagicMock,
-    mock_check_db_from_db: MagicMock,
+    mock_get_unknown_raw_files_from_db: MagicMock,
     mock_os_listdir: MagicMock,
     mock_get_instrument_data_path: MagicMock,
 ) -> None:
-    """Test check_db with existing files in the database."""
+    """Test get_unknown_raw_files with existing files in the database."""
     # Given a list of raw files, some of which are already in the database
     mock_get_instrument_data_path.return_value = Path("path/to")
 
@@ -30,11 +33,11 @@ def test_check_db_with_existing_files_in_db(
         "path/to/file2.raw",
         "path/to/file3.raw",
     ]
-    mock_check_db_from_db.return_value = ["file1.raw", "file2.raw"]
+    mock_get_unknown_raw_files_from_db.return_value = ["file1.raw", "file2.raw"]
     ti = Mock()
 
     # Call the function
-    check_db(ti, **{OpArgs.INSTRUMENT_ID: SOME_INSTRUMENT_ID})
+    get_unknown_raw_files(ti, **{OpArgs.INSTRUMENT_ID: SOME_INSTRUMENT_ID})
 
     # The function should call put_xcom with the correct arguments
     mock_put_xcom.assert_called_once_with(ti, XComKeys.RAW_FILE_NAMES, ["file3.raw"])
@@ -44,13 +47,13 @@ def test_check_db_with_existing_files_in_db(
 @patch("os.listdir")
 @patch("dags.impl.watcher_impl.get_raw_file_names_from_db")
 @patch("dags.impl.watcher_impl.put_xcom")
-def test_check_db_with_no_existing_files_in_db(
+def test_get_unknown_raw_files_with_no_existing_files_in_db(
     mock_put_xcom: MagicMock,
-    mock_check_db_from_db: MagicMock,
+    mock_get_unknown_raw_files_from_db: MagicMock,
     mock_os_listdir: MagicMock,
     mock_get_instrument_data_path: MagicMock,
 ) -> None:
-    """Test check_db with no existing files in the database."""
+    """Test get_unknown_raw_files with no existing files in the database."""
     # Given a list of raw files, some of which are already in the database
     mock_get_instrument_data_path.return_value = Path("path/to")
 
@@ -59,11 +62,11 @@ def test_check_db_with_no_existing_files_in_db(
         "path/to/file2.raw",
         "path/to/file3.raw",
     ]
-    mock_check_db_from_db.return_value = []
+    mock_get_unknown_raw_files_from_db.return_value = []
     ti = Mock()
 
     # Call the function
-    check_db(ti, **{OpArgs.INSTRUMENT_ID: SOME_INSTRUMENT_ID})
+    get_unknown_raw_files(ti, **{OpArgs.INSTRUMENT_ID: SOME_INSTRUMENT_ID})
 
     # The function should call put_xcom with the correct arguments
     mock_put_xcom.assert_called_once_with(
@@ -75,13 +78,13 @@ def test_check_db_with_no_existing_files_in_db(
 @patch("os.listdir")
 @patch("dags.impl.watcher_impl.get_raw_file_names_from_db")
 @patch("dags.impl.watcher_impl.put_xcom")
-def test_check_db_with_empty_directory(
+def test_get_unknown_raw_files_with_empty_directory(
     mock_put_xcom: MagicMock,
-    mock_check_db_from_db: MagicMock,
+    mock_get_unknown_raw_files_from_db: MagicMock,
     mock_os_listdir: MagicMock,
     mock_get_instrument_data_path: MagicMock,
 ) -> None:
-    """Test check_db with an empty directory."""
+    """Test get_unknown_raw_files with an empty directory."""
     # Given a list of raw files, some of which are already in the database
     mock_get_instrument_data_path.return_value = Path("path/to")
 
@@ -91,77 +94,67 @@ def test_check_db_with_empty_directory(
 
     # Call the function
     with pytest.raises(ValueError):
-        check_db(ti, **{OpArgs.INSTRUMENT_ID: SOME_INSTRUMENT_ID})
+        get_unknown_raw_files(ti, **{OpArgs.INSTRUMENT_ID: SOME_INSTRUMENT_ID})
 
     # The function should call put_xcom with the correct arguments
     mock_put_xcom.assert_not_called()
-    mock_check_db_from_db.assert_not_called()
+    mock_get_unknown_raw_files_from_db.assert_not_called()
 
 
 @patch("dags.impl.watcher_impl.get_all_project_ids")
 @patch("dags.impl.watcher_impl.get_xcom")
 @patch("dags.impl.watcher_impl.get_unique_project_id")
-@patch("dags.impl.watcher_impl.add_raw_file_to_db")
 @patch("dags.impl.watcher_impl.put_xcom")
-def test_check_project_id(
+def test_decide_raw_file_handling(
     mock_put: MagicMock,
-    mock_add_to_db: MagicMock,
     mock_get_unique: MagicMock,
     mock_get_xcom: MagicMock,
     mock_get_project_ids: MagicMock,
 ) -> None:
-    """A test for the check_project_id function."""
+    """A test for the decide_raw_file_handling function."""
     mock_ti = MagicMock()
     mock_get_xcom.return_value = ["file1", "file2", "file3"]
     mock_get_project_ids.return_value = ["project1", "project2"]
     mock_get_unique.side_effect = [None, "project1", "project2"]
 
     # when
-    check_project_id(mock_ti, instrument_id="instrument1")
+    decide_raw_file_handling(mock_ti, instrument_id="instrument1")
 
     mock_get_xcom.assert_called_once_with(mock_ti, "raw_file_names")
     mock_get_project_ids.assert_called_once()
     mock_get_unique.assert_any_call("file1", ["project1", "project2"])
     mock_get_unique.assert_any_call("file2", ["project1", "project2"])
     mock_get_unique.assert_any_call("file3", ["project1", "project2"])
-    mock_add_to_db.assert_called_once_with(
-        "instrument1", "file1", status=RawFileStatus.IGNORED
+    mock_put.assert_called_once_with(
+        mock_ti,
+        "raw_file_handling_decisions",
+        {"file1": False, "file2": True, "file3": True},
     )
-    mock_put.assert_called_once_with(mock_ti, "raw_file_names", ["file2", "file3"])
 
 
 @patch("dags.impl.watcher_impl.get_xcom")
-@patch("dags.impl.watcher_impl.DagRun.generate_run_id")
+@patch("dags.impl.watcher_impl.add_raw_file_to_db")
 @patch("dags.impl.watcher_impl.trigger_dag")
-@patch("dags.impl.watcher_impl.datetime")
-def test_start_acquisition_handler_with_multiple_files(
-    mock_datetime: MagicMock,
+def test_start_acquisition_handler_with_no_files(
     mock_trigger_dag: MagicMock,
-    mock_generate: MagicMock,
+    mock_add_raw_file_to_db: MagicMock,
     mock_get_xcom: MagicMock,
 ) -> None:
-    """Test start_acquisition_handler with multiple files."""
+    """Test start_acquisition_handler with no files."""
     # given
-    raw_file_names = ["file1.raw", "file2.raw", "file3.raw"]
-    mock_get_xcom.return_value = raw_file_names
-    run_ids = ["run_id1", "run_id2", "run_id3"]
-    mock_generate.side_effect = run_ids
-    mock_datetime.now.return_value = 123
+    mock_get_xcom.return_value = {}
     ti = Mock()
 
     # when
     start_acquisition_handler(ti, **{OpArgs.INSTRUMENT_ID: "instrument1"})
 
     # then
-    assert mock_trigger_dag.call_count == 3  # noqa: PLR2004 no magic numbers
-    for n, call in enumerate(mock_trigger_dag.call_args_list):
-        assert call[1]["dag_id"].endswith("instrument1")
-        assert run_ids[n] == call[1]["run_id"]
-        assert {"raw_file_name": raw_file_names[n]} == call[1]["conf"]
-        assert not call[1]["replace_microseconds"]
+    mock_trigger_dag.assert_not_called()
+    mock_add_raw_file_to_db.assert_not_called()
 
 
 @patch("dags.impl.watcher_impl.get_xcom")
+@patch("dags.impl.watcher_impl.add_raw_file_to_db")
 @patch("dags.impl.watcher_impl.DagRun.generate_run_id")
 @patch("dags.impl.watcher_impl.trigger_dag")
 @patch("dags.impl.watcher_impl.datetime")
@@ -169,11 +162,12 @@ def test_start_acquisition_handler_with_single_file(
     mock_datetime: MagicMock,
     mock_trigger_dag: MagicMock,
     mock_generate: MagicMock,
+    mock_add_raw_file_to_db: MagicMock,
     mock_get_xcom: MagicMock,
 ) -> None:
     """Test start_acquisition_handler with a single file."""
     # given
-    raw_file_names = ["file1.raw"]
+    raw_file_names = {"file1.raw": True}
     mock_get_xcom.return_value = raw_file_names
     run_ids = [
         "run_id1",
@@ -190,22 +184,49 @@ def test_start_acquisition_handler_with_single_file(
     for n, call in enumerate(mock_trigger_dag.call_args_list):
         assert call[1]["dag_id"].endswith("instrument1")
         assert run_ids[n] == call[1]["run_id"]
-        assert {"raw_file_name": raw_file_names[n]} == call[1]["conf"]
+        assert {"raw_file_name": list(raw_file_names.keys())[n]} == call[1]["conf"]
         assert not call[1]["replace_microseconds"]
+
+    mock_add_raw_file_to_db.assert_called_once_with(
+        "instrument1", "file1.raw", status="new"
+    )
 
 
 @patch("dags.impl.watcher_impl.get_xcom")
+@patch("dags.impl.watcher_impl.add_raw_file_to_db")
+@patch("dags.impl.watcher_impl.DagRun.generate_run_id")
 @patch("dags.impl.watcher_impl.trigger_dag")
-def test_start_acquisition_handler_with_no_files(
-    mock_trigger_dag: MagicMock, mock_get_xcom: MagicMock
+@patch("dags.impl.watcher_impl.datetime")
+def test_start_acquisition_handler_with_multiple_files(
+    mock_datetime: MagicMock,
+    mock_trigger_dag: MagicMock,
+    mock_generate: MagicMock,
+    mock_add_raw_file_to_db: MagicMock,
+    mock_get_xcom: MagicMock,
 ) -> None:
-    """Test start_acquisition_handler with no files."""
+    """Test start_acquisition_handler with multiple files."""
     # given
-    mock_get_xcom.return_value = []
-    ti = Mock()
+    raw_file_names = {"file1.raw": True, "file2.raw": True, "file3.raw": False}
+    mock_get_xcom.return_value = raw_file_names
+    run_ids = ["run_id1", "run_id2", "run_id3"]
+    mock_generate.side_effect = run_ids
+    mock_datetime.now.return_value = 123
 
     # when
-    start_acquisition_handler(ti, **{OpArgs.INSTRUMENT_ID: "instrument1"})
+    start_acquisition_handler(Mock(), **{OpArgs.INSTRUMENT_ID: "instrument1"})
 
     # then
-    mock_trigger_dag.assert_not_called()
+    assert mock_trigger_dag.call_count == 2  # noqa: PLR2004 no magic numbers
+    for n, call in enumerate(mock_trigger_dag.call_args_list):
+        assert call[1]["dag_id"].endswith("instrument1")
+        assert run_ids[n] == call[1]["run_id"]
+        assert {"raw_file_name": list(raw_file_names.keys())[n]} == call[1]["conf"]
+        assert not call[1]["replace_microseconds"]
+
+    mock_add_raw_file_to_db.assert_has_calls(
+        [
+            call("instrument1", "file1.raw", status="new"),
+            call("instrument1", "file2.raw", status="new"),
+            call("instrument1", "file3.raw", status="ignore"),
+        ]
+    )

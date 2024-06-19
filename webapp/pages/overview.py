@@ -109,8 +109,11 @@ def display(df: pd.DataFrame) -> None:
 
     x = "file_created"
     for y in [
-        "BasicStats_proteins_mean",
         "size_gb",
+        "BasicStats_precursors_mean",
+        "BasicStats_proteins_mean",
+        "BasicStats_ms1_accuracy_mean",
+        "BasicStats_ms1_fwhm_rt_mean",
         "quanting_time_minutes",
     ]:
         draw_plot(filtered_df, x, y)

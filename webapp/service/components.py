@@ -39,6 +39,8 @@ def show_date_select(
     st_display: Any = st,  # noqa: ANN401
 ) -> pd.DataFrame:
     """Filter the DataFrame on user input by date."""
+    if len(df) == 0:
+        return df
     oldest_file = df["created_at"].min()
     youngest_file = df["created_at"].max()
     two_weeks_ago = datetime.now() - timedelta(days=7 * 2)  # noqa:  DTZ005 no tz argument

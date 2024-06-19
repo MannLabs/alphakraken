@@ -113,10 +113,13 @@ def display(df: pd.DataFrame) -> None:
         "BasicStats_precursors_mean",
         "BasicStats_proteins_mean",
         "BasicStats_ms1_accuracy_mean",
-        "BasicStats_ms1_fwhm_rt_mean",
+        "BasicStats_fwhm_rt_mean",
         "quanting_time_minutes",
     ]:
-        draw_plot(filtered_df, x, y)
+        try:
+            draw_plot(filtered_df, x, y)
+        except Exception as e:  # noqa: BLE001, PERF203
+            _log(str(e))
 
 
 def draw_plot(df: pd.DataFrame, x: str, y: str) -> None:

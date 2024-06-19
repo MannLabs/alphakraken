@@ -215,6 +215,16 @@ Also, don't forget to install `mono` (cf. alphaDIA Readme).
 
 ## Local development
 
+### Deployment workflow: 'local' vs. 'sandbox' vs. 'production'
+All features should be tested locally before deploying them to the sandbox environment
+(which is technically equivalent to the production).
+There, depending on the scope of the feature, and of the likeliness of breaking something,
+another test with real data might be necessary.
+For instance, if you correct a typo in the webapp, you might well skip the sandbox testing.
+In contrast, a new feature that changes the way data is processed should definitely be tested in the sandbox environment.
+
+Only a well-tested feature should deployed to production.
+
 ### Development setup
 This is required to have all the required dependencies for local deployment and testing.
 1. Set up your environment for developing locally with

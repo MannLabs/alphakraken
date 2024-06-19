@@ -239,8 +239,6 @@ pip install -r requirements_development.txt
 rebuild or restart containers (this could be still necessary on certain changes though).
 Locate the corresponding mappings in `docker-compose.yaml` (look for "Uncomment for local development") and uncomment them.
 
-```bash
-
 ### Unit Tests
 Run the tests with
 ```bash

@@ -2,8 +2,8 @@
 #SBATCH --job-name=alphakraken_test
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=10
-#SBATCH --mem=16G
+#SBATCH --cpus-per-task=24
+#SBATCH --mem=128G
 #SBATCH --time=04:00:00
 #SxBATCH --partition=p.<node>
 

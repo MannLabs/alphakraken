@@ -60,7 +60,8 @@ def df_from_db_data(
     query_set_df = pd.DataFrame(query_set_as_dicts)
 
     if drop_duplicates:
-        query_set_df.drop_duplicates(subset=drop_duplicates, keep="last", inplace=True)
+        query_set_df.sort_values(by="created_at_", inplace=True, ascending=False)
+        query_set_df.drop_duplicates(subset=drop_duplicates, keep="first", inplace=True)
         query_set_df.reset_index(drop=True, inplace=True)
 
     if drop_columns:

@@ -76,7 +76,7 @@ def get_relative_instrument_data_path(instrument_id: str) -> str:
 
 
 def get_output_folder_rel_path(raw_file_name: str, project_id: str) -> Path:
-    """Get the output directory name for the given raw file name."""
+    """Get the relative path of the output directory for given raw file name."""
     return (
         Path(InternalPaths.OUTPUT)
         / project_id
@@ -85,7 +85,7 @@ def get_output_folder_rel_path(raw_file_name: str, project_id: str) -> Path:
 
 
 def get_internal_output_path(raw_file_name: str, project_id: str) -> Path:
-    """Get internal output path for the given raw file name."""
+    """Get abolute internal output path for the given raw file name."""
     return Path(InternalPaths.MOUNTS_PATH) / get_output_folder_rel_path(
         raw_file_name, project_id
     )

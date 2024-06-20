@@ -119,16 +119,15 @@ def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
 
         _add_raw_file_to_db(instrument_id, raw_file_name, status=status)
 
-        if project_id is not None:
-            run_id = DagRun.generate_run_id(
-                DagRunType.MANUAL, execution_date=datetime.now(tz=pytz.utc)
-            )
-            logging.info(
-                f"Triggering DAG {dag_id_to_trigger} with run_id {run_id} for raw_file_name {raw_file_name}."
-            )
-            trigger_dag(
-                dag_id=dag_id_to_trigger,
-                run_id=run_id,
-                conf={DagParams.RAW_FILE_NAME: raw_file_name},
-                replace_microseconds=False,
-            )
+        run_id = DagRun.generate_run_id(
+            DagRunType.MANUAL, execution_date=datetime.now(tz=pytz.utc)
+        )
+        logging.info(
+            f"Triggering DAG {dag_id_to_trigger} with run_id {run_id} for raw_file_name {raw_file_name}."
+        )
+        trigger_dag(
+            dag_id=dag_id_to_trigger,
+            run_id=run_id,
+            conf={DagParams.RAW_FILE_NAME: raw_file_name},
+            replace_microseconds=False,
+        )

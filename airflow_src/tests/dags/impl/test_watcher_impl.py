@@ -250,7 +250,7 @@ def test_start_acquisition_handler_with_multiple_files(
     start_acquisition_handler(Mock(), **{OpArgs.INSTRUMENT_ID: "instrument1"})
 
     # then
-    assert mock_trigger_dag.call_count == 2  # noqa: PLR2004 no magic numbers
+    assert mock_trigger_dag.call_count == 3  # noqa: PLR2004 no magic numbers
     for n, call in enumerate(mock_trigger_dag.call_args_list):
         assert call[1]["dag_id"].endswith("instrument1")
         assert run_ids[n] == call[1]["run_id"]

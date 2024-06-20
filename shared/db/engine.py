@@ -6,11 +6,12 @@ Note: this module must not have any dependencies on the rest of the codebase.
 import logging
 import os
 
-from keys import EnvVars
 from mongoengine import (
     ConnectionFailure,
     connect,
 )
+
+from shared.keys import EnvVars
 
 DB_NAME: str = "krakendb"
 

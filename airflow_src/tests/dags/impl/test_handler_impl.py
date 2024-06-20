@@ -79,7 +79,7 @@ def test_prepare_quanting(
     expected_quanting_env = {
         "RAW_FILE_NAME": "test_file.raw",
         "INSTRUMENT_SUBFOLDER": "path/to/data",
-        "OUTPUT_FOLDER_NAME": "out_test_file.raw",
+        "OUTPUT_FOLDER_REL_PATH": "output/some_project_id/out_test_file.raw",
         "SPECLIB_FILE_NAME": "4_some_speclib_file_name",
         "FASTA_FILE_NAME": "some_fasta_file_name",
         "CONFIG_FILE_NAME": "some_config_file_name",
@@ -195,15 +195,17 @@ def test_compute_metrics(
 ) -> None:
     """Test that compute_metrics makes the expected calls."""
     mock_ti = MagicMock()
-    mock_get_xcom.return_value = "raw_file_name"
+    mock_get_xcom.return_value = {
+        "RAW_FILE_NAME": "some_raw_file_name",
+        "PROJECT_ID": "P1",
+    }
     mock_calc_metrics.return_value = {"metric1": "value1"}
 
     # when
     compute_metrics(mock_ti)
 
-    mock_get_xcom.assert_called_once_with(mock_ti, XComKeys.RAW_FILE_NAME)
     mock_calc_metrics.assert_called_once_with(
-        Path("/opt/airflow/mounts/output/out_raw_file_name")
+        Path("/opt/airflow/mounts/output/P1/out_some_raw_file_name")
     )
     mock_put_xcom.assert_called_once_with(
         mock_ti, XComKeys.METRICS, {"metric1": "value1"}

@@ -35,6 +35,8 @@ projects_df = df_from_db_data(projects_db)
 
 # ########################################### DISPLAY
 
+st.warning("This page should currently be edited only by admin users!", icon="⚠️")
+
 
 @st.experimental_fragment
 def display_projects(projects_df: pd.DataFrame) -> None:

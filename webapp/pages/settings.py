@@ -42,6 +42,9 @@ settings_df = df_from_db_data(settings_db)
 st.markdown("## Current settings")
 
 
+st.warning("This page should currently be edited only by admin users!", icon="⚠️")
+
+
 @st.experimental_fragment
 def display_settings(settings_df: pd.DataFrame) -> None:
     """Fragment to display settings in a table."""

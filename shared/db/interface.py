@@ -38,7 +38,9 @@ def add_new_raw_file_to_db(  # noqa: PLR0913  # too many arguments
     :param creation_ts: creation timestamp (unix)
     :return:
     """
-    logging.info(f"Adding to DB: {file_name=} {instrument_id=} {size=} {creation_ts=}")
+    logging.info(
+        f"Adding to DB: {file_name=} {project_id=} {status=} {instrument_id=} {size=} {creation_ts=}"
+    )
     connect_db()
     raw_file = RawFile(
         name=file_name,

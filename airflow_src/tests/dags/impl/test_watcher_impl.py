@@ -158,7 +158,7 @@ def test_decide_raw_file_handling(
     mock_put.assert_called_once_with(
         mock_ti,
         "raw_file_handling_decisions",
-        {"file1": False, "file2": True, "file3": True},
+        {"file1": True, "file2": True, "file3": True},
     )
 
 

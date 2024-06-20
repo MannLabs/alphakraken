@@ -85,7 +85,7 @@ def decide_raw_file_handling(ti: TaskInstance, **kwargs) -> None:
 
     all_project_ids = get_all_project_ids()
 
-    raw_file_handling_decisions = {}
+    raw_file_handling_decisions: dict[str, bool] = {}
     for raw_file_name in raw_file_names:
         project_id = get_unique_project_id(raw_file_name, all_project_ids)
 
@@ -93,9 +93,10 @@ def decide_raw_file_handling(ti: TaskInstance, **kwargs) -> None:
             logging.warning(
                 f"Raw file {raw_file_name} does not match exactly one project of {all_project_ids}."
             )
-            raw_file_handling_decisions[raw_file_name] = False
-        else:
-            raw_file_handling_decisions[raw_file_name] = True
+
+        raw_file_handling_decisions[raw_file_name] = True
+
+        # here we could add more logic to decide whether to handle the file or not, e.g. a global blacklist
 
     put_xcom(ti, XComKeys.RAW_FILE_HANDLING_DECISIONS, raw_file_handling_decisions)
 

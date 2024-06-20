@@ -5,10 +5,10 @@ import os
 
 from airflow.models import TaskInstance, Variable
 
+_xcom_types = str | list[str] | dict[str, str | bool] | int
 
-def put_xcom(
-    ti: TaskInstance, key: str, value: str | list[str] | dict[str, str] | int
-) -> None:
+
+def put_xcom(ti: TaskInstance, key: str, value: _xcom_types) -> None:
     """Push to XCom `key`=`value`."""
     if value is None:
         raise ValueError(f"No value found for {key}.")
@@ -17,7 +17,7 @@ def put_xcom(
     ti.xcom_push(key, value)
 
 
-def get_xcom(ti: TaskInstance, key: str) -> str | list[str] | dict[str, str] | int:
+def get_xcom(ti: TaskInstance, key: str) -> _xcom_types:
     """Get the value of an XCom with `key`."""
     value = ti.xcom_pull(key=key)
 

@@ -10,6 +10,7 @@ from cluster_scripts.slurm_commands import get_job_info_cmd, get_run_quanting_cm
 from common.keys import DagContext, DagParams, OpArgs, QuantingEnv, XComKeys
 from common.settings import (
     CLUSTER_WORKING_DIR,
+    FALLBACK_PROJECT_ID,
     get_internal_output_path,
     get_output_folder_name,
     get_relative_instrument_data_path,
@@ -28,6 +29,13 @@ from shared.db.interface import (
 from shared.db.models import RawFileStatus
 
 
+def _get_project_id_for_raw_file(raw_file_name: str) -> str:
+    """Get the project id for a raw file or the fallback ID if not present."""
+    all_project_ids = get_all_project_ids()
+    unique_project_id = get_unique_project_id(raw_file_name, all_project_ids)
+    return unique_project_id if unique_project_id is not None else FALLBACK_PROJECT_ID
+
+
 def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
     """Prepare the environmental variables for the quanting job."""
     raw_file_name = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_NAME]
@@ -36,8 +44,8 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
     instrument_subfolder = get_relative_instrument_data_path(instrument_id)
     output_folder_name = get_output_folder_name(raw_file_name)
 
-    all_project_ids = get_all_project_ids()
-    project_id = get_unique_project_id(raw_file_name, all_project_ids)
+    project_id = _get_project_id_for_raw_file(raw_file_name)
+
     settings = get_settings_for_project(project_id)
 
     # TODO: remove random speclib file hack

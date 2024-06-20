@@ -6,6 +6,7 @@ Note: this module must not have any dependencies on the rest of the codebase.
 import logging
 import os
 
+from common.keys import EnvVars
 from mongoengine import (
     ConnectionFailure,
     connect,
@@ -14,10 +15,10 @@ from mongoengine import (
 DB_NAME: str = "krakendb"
 
 # nonsensical default values are used by tests only
-DB_HOST = os.environ.get("MONGO_HOST", "some_host")
-DB_PORT = int(os.environ.get("MONGO_PORT", 12345))
-DB_USER = os.environ.get("MONGO_USER", "pika")
-DB_PASSWORD = os.environ.get("MONGO_PASSWORD", "chu")
+DB_HOST = os.environ.get(EnvVars.MONGO_HOST, "some_host")
+DB_PORT = int(os.environ.get(EnvVars.MONGO_PORT, 12345))
+DB_USER = os.environ.get(EnvVars.MONGO_USER, "pika")
+DB_PASSWORD = os.environ.get(EnvVars.MONGO_PASSWORD, "chu")
 
 logging.info(f"DB connection: {DB_HOST=} {DB_PORT=} {DB_USER=}")
 

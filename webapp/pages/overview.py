@@ -103,7 +103,10 @@ def display(df: pd.DataFrame) -> None:
     cmap = plt.get_cmap("RdYlGn")
     st.dataframe(
         filtered_df.style.background_gradient(
-            subset=["BasicStats_proteins_mean", "BasicStats_precursors_mean"], cmap=cmap
+            subset=[
+                "BasicStats_proteins_mean",
+            ],
+            cmap=cmap,
         )
     )
 

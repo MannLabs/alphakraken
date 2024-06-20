@@ -19,7 +19,7 @@ def test_input_filter_happy_path(mock_text_input: MagicMock) -> None:
     )
 
     # when
-    filtered_df = show_filter(df, "Some Filter")
+    filtered_df = show_filter(df, text_to_display="Some Filter")
 
     assert len(filtered_df) == 1
     assert "filter_text" in filtered_df["column1"].to_numpy()
@@ -37,7 +37,7 @@ def test_input_filter_no_match(mock_text_input: MagicMock) -> None:
     )
 
     # when
-    filtered_df = show_filter(df, "Some Filter")
+    filtered_df = show_filter(df, text_to_display="Some Filter")
 
     assert len(filtered_df) == 0
 
@@ -54,6 +54,6 @@ def test_input_filter_empty_input(mock_text_input: MagicMock) -> None:
     )
 
     # when
-    filtered_df = show_filter(df, "Some Filter")
+    filtered_df = show_filter(df, text_to_display="Some Filter")
 
     assert filtered_df is df

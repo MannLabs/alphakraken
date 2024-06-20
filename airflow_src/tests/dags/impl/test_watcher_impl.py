@@ -257,6 +257,6 @@ def test_start_acquisition_handler_with_multiple_files(
         [
             call("instrument1", "file1.raw", status="new"),
             call("instrument1", "file2.raw", status="new"),
-            call("instrument1", "file3.raw", status="ignore"),
+            call("instrument1", "file3.raw", status="ignored"),
         ]
     )

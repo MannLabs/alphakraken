@@ -21,6 +21,7 @@ DB_PASSWORD = os.environ.get("MONGO_PASSWORD", "chu")
 
 logging.info(f"DB connection: {DB_HOST=} {DB_PORT=} {DB_USER=}")
 
+
 def connect_db() -> None:
     """Connect to the database."""
     try:

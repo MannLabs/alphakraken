@@ -31,14 +31,19 @@ def test_add_raw_file_to_db(
     mock_stat.return_value.st_ctime = 43.0
 
     # When
-    _add_raw_file_to_db("instrument1", "test_file.raw")
+    _add_raw_file_to_db(
+        "test_file.raw",
+        project_id="PID1",
+        instrument_id="instrument1",
+    )
 
     # Then
     mock_get_instrument_data_path.assert_called_once_with("instrument1")
     mock_add_new_raw_file_to_db.assert_called_once_with(
         "test_file.raw",
-        status="new",
+        project_id="PID1",
         instrument_id="instrument1",
+        status="new",
         size=42.0,
         creation_ts=43.0,
     )
@@ -197,7 +202,7 @@ def test_start_acquisition_handler_with_single_file(
 ) -> None:
     """Test start_acquisition_handler with a single file."""
     # given
-    raw_file_names = {"file1.raw": True}
+    raw_file_names = {"file1.raw": "PID1"}
     mock_get_xcom.return_value = raw_file_names
     run_ids = [
         "run_id1",
@@ -218,7 +223,7 @@ def test_start_acquisition_handler_with_single_file(
         assert not call[1]["replace_microseconds"]
 
     mock_add_raw_file_to_db.assert_called_once_with(
-        "instrument1", "file1.raw", status="new"
+        "file1.raw", project_id="PID1", instrument_id="instrument1", status="new"
     )
 
 
@@ -259,8 +264,23 @@ def test_start_acquisition_handler_with_multiple_files(
 
     mock_add_raw_file_to_db.assert_has_calls(
         [
-            call("instrument1", "file1.raw", status="new"),
-            call("instrument1", "file2.raw", status="new"),
-            call("instrument1", "file3.raw", status="ignored"),
+            call(
+                "file1.raw",
+                project_id="project1",
+                instrument_id="instrument1",
+                status="new",
+            ),
+            call(
+                "file2.raw",
+                project_id="project2",
+                instrument_id="instrument1",
+                status="new",
+            ),
+            call(
+                "file3.raw",
+                project_id=None,
+                instrument_id="instrument1",
+                status="ignored",
+            ),
         ]
     )

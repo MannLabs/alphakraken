@@ -23,12 +23,17 @@ from shared.db.models import RawFileStatus
 
 
 def _add_raw_file_to_db(
-    instrument_id: str, raw_file_name: str, status: str = RawFileStatus.NEW
+    raw_file_name: str,
+    *,
+    project_id: str,
+    instrument_id: str,
+    status: str = RawFileStatus.NEW,
 ) -> None:
     """Add the file to the database with initial status and basic information.
 
-    :param instrument_id: instrument id
     :param raw_file_name: raw file name
+    :param project_id: project id
+    :param instrument_id: instrument id
     :param status: status of the file
     :return:
     """
@@ -40,8 +45,9 @@ def _add_raw_file_to_db(
 
     add_new_raw_file_to_db(
         raw_file_name,
-        status=status,
+        project_id=project_id,
         instrument_id=instrument_id,
+        status=status,
         size=raw_file_size,
         creation_ts=raw_file_creation_time,
     )
@@ -117,7 +123,12 @@ def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
     for raw_file_name, project_id in raw_file_project_ids.items():
         status = RawFileStatus.NEW if project_id is not None else RawFileStatus.IGNORED
 
-        _add_raw_file_to_db(instrument_id, raw_file_name, status=status)
+        _add_raw_file_to_db(
+            raw_file_name,
+            project_id=project_id,
+            instrument_id=instrument_id,
+            status=status,
+        )
 
         run_id = DagRun.generate_run_id(
             DagRunType.MANUAL, execution_date=datetime.now(tz=pytz.utc)

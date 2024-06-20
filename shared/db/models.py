@@ -36,6 +36,8 @@ class RawFile(Document):
     size = FloatField(min_value=0.0, max_value=1000.0 * 1024**3)  # unit: bytes
     instrument_id = StringField(max_length=50)
 
+    project_id = StringField(max_length=32)
+
     created_at = DateTimeField()  # when file was created
 
     # audit fields

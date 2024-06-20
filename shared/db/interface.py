@@ -19,12 +19,19 @@ def get_raw_file_names_from_db(raw_file_names: list[str]) -> list[str]:
     return [r.name for r in RawFile.objects.filter(name__in=raw_file_names)]
 
 
-def add_new_raw_file_to_db(
-    file_name: str, *, status: str, instrument_id: str, size: float, creation_ts: float
+def add_new_raw_file_to_db(  # noqa: PLR0913  # too many arguments
+    file_name: str,
+    *,
+    project_id: str,
+    status: str,
+    instrument_id: str,
+    size: float,
+    creation_ts: float,
 ) -> None:
     """Add a new raw file to the database.
 
     :param file_name: name of the file
+    :param project_id: project id
     :param status: status of the file
     :param instrument_id: id of the acquiring instrument
     :param size: file size in bytes
@@ -35,9 +42,10 @@ def add_new_raw_file_to_db(
     connect_db()
     raw_file = RawFile(
         name=file_name,
+        project_id=project_id,
+        instrument_id=instrument_id,
         status=status,
         size=size,
-        instrument_id=instrument_id,
         created_at=datetime.fromtimestamp(creation_ts, pytz.utc),
     )
     # this will fail if the file already exists

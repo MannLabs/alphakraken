@@ -7,7 +7,7 @@ from random import random
 from airflow.exceptions import AirflowFailException
 from airflow.models import TaskInstance
 from cluster_scripts.slurm_commands import get_job_info_cmd, get_run_quanting_cmd
-from common.keys import DagContext, DagParams, EnvVars, OpArgs, QuantingEnv, XComKeys
+from common.keys import DagContext, DagParams, OpArgs, QuantingEnv, XComKeys
 from common.settings import (
     CLUSTER_WORKING_DIR,
     FALLBACK_PROJECT_ID,
@@ -17,6 +17,7 @@ from common.settings import (
 )
 from common.utils import get_env_variable, get_xcom, put_xcom
 from impl.project_id_handler import get_unique_project_id
+from keys import EnvVars
 from metrics.metrics_calculator import calc_metrics
 from sensors.ssh_sensor import SSHSensorOperator
 

@@ -1,13 +1,14 @@
 """Business logic for the acquisition_handler."""
 
 import logging
+import os
 from datetime import datetime
 from random import random
 
 from airflow.exceptions import AirflowFailException
 from airflow.models import TaskInstance
 from cluster_scripts.slurm_commands import get_job_info_cmd, get_run_quanting_cmd
-from common.keys import DagContext, DagParams, OpArgs, QuantingEnv, XComKeys
+from common.keys import DagContext, DagParams, EnvVars, OpArgs, QuantingEnv, XComKeys
 from common.settings import (
     CLUSTER_WORKING_DIR,
     FALLBACK_PROJECT_ID,
@@ -55,6 +56,8 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
     # This reduces the chance for this to happen by 90%
     speclib_file_name = f"{int(random()*10)}_{settings.speclib_file_name}"  # noqa: S311
 
+    io_pool_folder = os.environ.get(EnvVars.IO_POOL_FOLDER)
+
     quanting_env = {
         QuantingEnv.RAW_FILE_NAME: raw_file_name,
         QuantingEnv.INSTRUMENT_SUBFOLDER: instrument_subfolder,
@@ -64,6 +67,7 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
         QuantingEnv.CONFIG_FILE_NAME: settings.config_file_name,
         QuantingEnv.SOFTWARE: settings.software,
         QuantingEnv.PROJECT_ID: project_id,
+        QuantingEnv.IO_POOL_FOLDER: io_pool_folder,
     }
 
     put_xcom(ti, XComKeys.QUANTING_ENV, quanting_env)

@@ -10,6 +10,7 @@ Upfront, set a bash variable `ENV`, which is either `local`, `sandbox`, or `prod
 ```bash
 ENV=local
 ```
+This will use the environment variables defined in `envs/${ENV}.env`.
 
 ### Initializing and running the kraken
 All commands in this Readme assume you are in the root folder of the repository.
@@ -116,11 +117,12 @@ sudo mount -t cifs -o username=kraken //samba-pool-backup/pool-backup ${MOUNTS}/
 
 3. Mount the project pool folder:
 ```bash
-IO_POOL_FOLDER=//samba-pool-projects/pool-projects/alphakraken_test
-sudo mount -t cifs -o username=kraken ${IO_POOL_FOLDER}/output ${MOUNTS}/output
+IO_POOL_PATH=//samba-pool-projects/pool-projects/alphakraken_${ENV}
+sudo mount -t cifs -o username=kraken ${IO_POOL_PATH}/output ${MOUNTS}/output
 ```
 
 Note: for now, user `kraken` should only have read access to the backup pool folder, but needs `read/write` on the `${MOUNTS}/output`.
+Cf. also the environment variables `MOUNTS_PATH` and `IO_POOL_FOLDER` in the `envs/${ENV}.env` file.
 
 
 

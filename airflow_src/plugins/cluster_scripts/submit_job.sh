@@ -19,8 +19,8 @@ set -u -e
 # SOFTWARE # e.g. alphadia-1.6.2
 # PROJECT_ID # e.g. A123
 
-POOL_FS="/fs/pool/" # TODO get from .env
-POOL_PROJECTS="${POOL_FS}/pool-projects/alphakraken_test"  # TODO get from .env
+POOL_FS="/fs/pool/"  # probably okay to hardcode this
+POOL_PROJECTS="${POOL_FS}/${IO_POOL_FOLDER}"
 
 # these are determined by convention:
 CONDA_ENV=$SOFTWARE

@@ -17,7 +17,6 @@ from common.settings import (
 )
 from common.utils import get_env_variable, get_xcom, put_xcom
 from impl.project_id_handler import get_unique_project_id
-from keys import EnvVars
 from metrics.metrics_calculator import calc_metrics
 from sensors.ssh_sensor import SSHSensorOperator
 
@@ -28,6 +27,7 @@ from shared.db.interface import (
     update_raw_file_status,
 )
 from shared.db.models import RawFileStatus
+from shared.keys import EnvVars
 
 
 def _get_project_id_for_raw_file(raw_file_name: str) -> str:

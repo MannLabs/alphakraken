@@ -4,7 +4,8 @@ from pathlib import Path
 
 from common.keys import InstrumentKeys
 from common.utils import get_env_variable
-from keys import EnvVars
+
+from shared.keys import EnvVars
 
 INSTRUMENTS = {
     # the toplevel keys determine the DAG name (e.g. 'acquisition_watcher.test6')

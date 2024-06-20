@@ -6,7 +6,6 @@ import os
 import pandas as pd
 import streamlit as st
 from db.interface import add_new_settings_to_db
-from keys import EnvVars
 from service.components import show_filter
 from service.db import (
     df_from_db_data,
@@ -19,6 +18,8 @@ from service.utils import (
     empty_to_none,
     show_feedback_in_sidebar,
 )
+
+from shared.keys import EnvVars
 
 _log(f"loading {__file__}")
 

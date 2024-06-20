@@ -12,7 +12,7 @@ from common.settings import (
     CLUSTER_WORKING_DIR,
     FALLBACK_PROJECT_ID,
     get_internal_output_path,
-    get_output_folder_name,
+    get_output_folder_rel_path,
     get_relative_instrument_data_path,
 )
 from common.utils import get_env_variable, get_xcom, put_xcom
@@ -42,10 +42,10 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
     raw_file_name = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_NAME]
     instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
 
-    instrument_subfolder = get_relative_instrument_data_path(instrument_id)
-    output_folder_name = get_output_folder_name(raw_file_name)
-
     project_id = _get_project_id_for_raw_file(raw_file_name)
+
+    instrument_subfolder = get_relative_instrument_data_path(instrument_id)
+    output_folder_rel_path = get_output_folder_rel_path(raw_file_name, project_id)
 
     settings = get_settings_for_project(project_id)
 
@@ -61,7 +61,7 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
     quanting_env = {
         QuantingEnv.RAW_FILE_NAME: raw_file_name,
         QuantingEnv.INSTRUMENT_SUBFOLDER: instrument_subfolder,
-        QuantingEnv.OUTPUT_FOLDER_NAME: output_folder_name,
+        QuantingEnv.OUTPUT_FOLDER_REL_PATH: str(output_folder_rel_path),
         QuantingEnv.SPECLIB_FILE_NAME: speclib_file_name,
         QuantingEnv.FASTA_FILE_NAME: settings.fasta_file_name,
         QuantingEnv.CONFIG_FILE_NAME: settings.config_file_name,
@@ -139,9 +139,11 @@ def compute_metrics(ti: TaskInstance, **kwargs) -> None:
     """Compute metrics from the quanting results."""
     del kwargs
 
-    raw_file_name = get_xcom(ti, XComKeys.RAW_FILE_NAME)
+    quanting_env = get_xcom(ti, XComKeys.QUANTING_ENV)
 
-    output_path = get_internal_output_path(raw_file_name)
+    output_path = get_internal_output_path(
+        quanting_env[QuantingEnv.RAW_FILE_NAME], quanting_env[QuantingEnv.PROJECT_ID]
+    )
     metrics = calc_metrics(output_path)
 
     put_xcom(ti, XComKeys.METRICS, metrics)

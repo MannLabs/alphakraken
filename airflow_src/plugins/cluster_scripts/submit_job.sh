@@ -29,8 +29,6 @@ OUTPUT_PATH="${POOL_PROJECTS}/output/" # TODO add ${PROJECT_ID} folder
 INSTRUMENT_BACKUP_FOLDER="${POOL_FS}/${INSTRUMENT_SUBFOLDER}"
 RAW_FILE_PATH="${INSTRUMENT_BACKUP_FOLDER}/${RAW_FILE_NAME}"
 CONFIG_FILE_PATH="${SETTINGS_PATH}/${CONFIG_FILE_NAME}"
-FASTA_FILE_PATH="${SETTINGS_PATH}/${FASTA_FILE_NAME}"
-SPECLIB_FILE_PATH="${SETTINGS_PATH}/${SPECLIB_FILE_NAME}"
 OUTPUT_PATH="${OUTPUT_PATH}/${OUTPUT_FOLDER_NAME}"
 
 echo CONDA_ENV=${CONDA_ENV}
@@ -39,9 +37,22 @@ echo OUTPUT_PATH=${OUTPUT_PATH}
 echo INSTRUMENT_BACKUP_FOLDER=${INSTRUMENT_BACKUP_FOLDER}
 echo RAW_FILE_PATH=${RAW_FILE_PATH}
 echo CONFIG_FILE_PATH=${CONFIG_FILE_PATH}
-echo SPECLIB_FILE_PATH=${SPECLIB_FILE_PATH}
-echo FASTA_FILE_PATH=${FASTA_FILE_PATH}
+
 echo OUTPUT_PATH=${OUTPUT_PATH}
+
+# here we assume that at least one of these is set
+SPECLIB_COMMAND=""
+FASTA_COMMAND=""
+if [ -n "$FASTA_FILE_NAME" ]; then
+  FASTA_FILE_PATH="${SETTINGS_PATH}/${FASTA_FILE_NAME}"
+  echo FASTA_FILE_PATH=${FASTA_FILE_PATH}
+  FASTA_COMMAND="--fasta ${FASTA_FILE_PATH}"
+fi
+if [ -n "$SPECLIB_FILE_NAME" ]; then
+  SPECLIB_FILE_PATH="${SETTINGS_PATH}/${SPECLIB_FILE_NAME}"
+  echo SPECLIB_FILE_PATH=${SPECLIB_FILE_PATH}
+  SPECLIB_COMMAND="--library ${SPECLIB_FILE_PATH}"
+fi
 
 mkdir -p ${OUTPUT_PATH}
 cd ${OUTPUT_PATH}
@@ -52,14 +63,13 @@ echo "Check the logs in ${OUTPUT_PATH}/log.txt"
 # TODO how to handle potential overwriting of output data on a second run?
 conda run -n $CONDA_ENV alphadia \
     --file "${RAW_FILE_PATH}" \
-    --library "${SPECLIB_FILE_PATH}" \
+    "${SPECLIB_COMMAND}" \
+    "${FASTA_COMMAND}" \
     --config "${CONFIG_FILE_PATH}" \
     --output "${OUTPUT_PATH}"
-# TODO enable fasta
 
 # some other useful commands:
 # --directory ${RAW_FOLDER}
-# --fasta $FASTA_FILE_PATH
 # --config-dict '{"fdr": {"inference_strategy": "heuristic"}}'
 
 echo EXIT CODE:

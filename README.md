@@ -231,7 +231,8 @@ This is required to have all the required dependencies for local deployment and 
 ```bash
 PYTHON_VERSION=3.11
 AIRFLOW_VERSION=2.9.1
-git clone ...
+git clone git@github.com:MannLabs/alphakraken.git
+cd alphakraken
 conda create --name alphakraken python=${PYTHON_VERSION} -y
 conda activate alphakraken
 pip install apache-airflow==${AIRFLOW_VERSION} --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-${AIRFLOW_VERSION}/constraints-${PYTHON_VERSION}.txt"

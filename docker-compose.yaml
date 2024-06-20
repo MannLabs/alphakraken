@@ -90,10 +90,10 @@ x-airflow-common:
     - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_logs:/opt/airflow/logs
 #    # Uncomment for local development so that changes to DAGs and Tasks are immediately active
 #    # Note that this part is defined another time for the workers in x-airflow-worker
-#    - ${AIRFLOW_PROJ_DIR:-./airflow_src}/dags:/opt/airflow/dags
-#    - ${AIRFLOW_PROJ_DIR:-./airflow_src}/config:/opt/airflow/config
-#    - ${AIRFLOW_PROJ_DIR:-./airflow_src}/plugins:/opt/airflow/plugins
-#    - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../shared:/opt/airflow/shared
+    - ${AIRFLOW_PROJ_DIR:-./airflow_src}/dags:/opt/airflow/dags
+    - ${AIRFLOW_PROJ_DIR:-./airflow_src}/config:/opt/airflow/config
+    - ${AIRFLOW_PROJ_DIR:-./airflow_src}/plugins:/opt/airflow/plugins
+    - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../shared:/opt/airflow/shared
 
   user: "${AIRFLOW_UID:-50000}:0"
   depends_on:
@@ -336,9 +336,9 @@ services:
       retries: 5
       start_period: 30s
 #    # Uncomment for local development so that changes to wepapp are immediately active
-#    volumes:
-#      - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../webapp:/app/webapp
-#      - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../shared:/app/webapp/shared
+    volumes:
+      - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../webapp:/app/webapp
+      - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../shared:/app/webapp/shared
 
   airflow-worker-test1:
     # worker for local and sandbox testing

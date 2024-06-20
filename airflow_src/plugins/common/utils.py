@@ -43,15 +43,11 @@ def get_variable(key: str, default_value: str = "__DEFAULT_NOT_SET") -> str:
     return value
 
 
-def get_env_variable(key: str, default_value: str = "__DEFAULT_NOT_SET") -> str:
+def get_env_variable(key: str, default: str | None = None) -> str:
     """Get the value of an environment variable with `key` and an optional default."""
-    logging.info(f"Getting environment variable '{key}''")
+    if (value := os.getenv(key, default=default)) is None:
+        raise ValueError(f"Environment variable '{key}' not set.")
 
-    if default_value == "__DEFAULT_NOT_SET":
-        value = os.getenv(key)
-    else:
-        value = os.getenv(key, default=default_value)
-
-    logging.info(f"Got environment variable: '{key}'='{value}'")
+    logging.info(f"Got environment variable: '{key}'='{value}' (default: '{default}')")
 
     return value

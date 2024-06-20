@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from common.keys import InstrumentKeys
+from common.keys import EnvVars, InstrumentKeys
 from common.utils import get_env_variable
 
 INSTRUMENTS = {
@@ -10,16 +10,18 @@ INSTRUMENTS = {
     "test1": {
         # raw data path relative to InternalPaths.MOUNTS_PATH which must be mounted in docker-compose.yml
         # TODO: fix: we need to provide a default here to make test_dags.py happy. Should not be an issue in production.
-        InstrumentKeys.RAW_DATA_PATH: get_env_variable("INSTRUMENT_PATH_TEST1", "n_a"),
+        InstrumentKeys.RAW_DATA_PATH: get_env_variable(
+            EnvVars.INSTRUMENT_PATH_TEST1, "n_a"
+        ),
     },
     "test2": {
         InstrumentKeys.RAW_DATA_PATH: get_env_variable(
-            "INSTRUMENT_PATH_ASTRAL1", "n_a"
+            EnvVars.INSTRUMENT_PATH_ASTRAL1, "n_a"
         ),
     },
     "test3": {
         InstrumentKeys.RAW_DATA_PATH: get_env_variable(
-            "INSTRUMENT_PATH_ASTRAL2", "n_a"
+            EnvVars.INSTRUMENT_PATH_ASTRAL2, "n_a"
         ),
     },
 }

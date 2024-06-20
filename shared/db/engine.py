@@ -6,7 +6,7 @@ Note: this module must not have any dependencies on the rest of the codebase.
 import logging
 import os
 
-from common.keys import EnvVars
+from keys import EnvVars
 from mongoengine import (
     ConnectionFailure,
     connect,

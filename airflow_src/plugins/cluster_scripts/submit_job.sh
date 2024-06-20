@@ -63,8 +63,8 @@ echo "Check the logs in ${OUTPUT_PATH}/log.txt"
 # TODO how to handle potential overwriting of output data on a second run?
 conda run -n $CONDA_ENV alphadia \
     --file "${RAW_FILE_PATH}" \
-    "${SPECLIB_COMMAND}" \
-    "${FASTA_COMMAND}" \
+    ${SPECLIB_COMMAND} \
+    ${FASTA_COMMAND} \
     --config "${CONFIG_FILE_PATH}" \
     --output "${OUTPUT_PATH}"
 

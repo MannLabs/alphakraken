@@ -87,13 +87,3 @@ class QuantingEnv:
     SOFTWARE = "SOFTWARE"
     PROJECT_ID = "PROJECT_ID"
     IO_POOL_FOLDER = "IO_POOL_FOLDER"
-
-
-class EnvVars:
-    """Keys for accessing docker environmental variables for the airflow part."""
-
-    INSTRUMENT_PATH_TEST1 = "INSTRUMENT_PATH_TEST1"
-    INSTRUMENT_PATH_ASTRAL1 = "INSTRUMENT_PATH_ASTRAL1"
-    INSTRUMENT_PATH_ASTRAL2 = "INSTRUMENT_PATH_ASTRAL2"
-
-    IO_POOL_FOLDER = "IO_POOL_FOLDER"

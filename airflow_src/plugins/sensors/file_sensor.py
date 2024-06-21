@@ -57,7 +57,9 @@ class FileCreationSensor(BaseSensorOperator):
             )
             self._observer.start()
 
-        logging.info(f"Checking for new files in {self._path_to_watch}")
+        logging.info(
+            f"Checking for new files since start of this DAG run in {self._path_to_watch}"
+        )
 
         if self._event_handler.file_created:
             logging.info("self.event_handler.file_created()")

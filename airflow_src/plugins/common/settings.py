@@ -5,32 +5,15 @@ from pathlib import Path
 from common.keys import InstrumentKeys
 from common.utils import get_env_variable
 
-from shared.keys import EnvVars
-
 INSTRUMENTS = {
-    # the toplevel keys determine the DAG name (e.g. 'acquisition_watcher.test6')
+    # the toplevel keys determine the DAG name (e.g. 'acquisition_watcher.test1')
     "test1": {
-        # raw data path relative to InternalPaths.MOUNTS_PATH which must be mounted in docker-compose.yml
-        # TODO: fix: we need to provide a default here to make test_dags.py happy. Should not be an issue in production.
-        InstrumentKeys.RAW_DATA_PATH: get_env_variable(
-            EnvVars.INSTRUMENT_PATH_TEST1, "n_a"
-        ),
+        # this variable must be defined in all .env files and be made available to the container in docker-compose.yml
+        InstrumentKeys.RAW_DATA_PATH_VARIABLE_NAME: "INSTRUMENT_PATH_TEST1"
     },
-    "test2": {
-        InstrumentKeys.RAW_DATA_PATH: get_env_variable(
-            EnvVars.INSTRUMENT_PATH_ASTRAL1, "n_a"
-        ),
-    },
-    "test3": {
-        InstrumentKeys.RAW_DATA_PATH: get_env_variable(
-            EnvVars.INSTRUMENT_PATH_ASTRAL2, "n_a"
-        ),
-    },
-    "test4": {
-        InstrumentKeys.RAW_DATA_PATH: get_env_variable(
-            EnvVars.INSTRUMENT_PATH_ASTRAL3, "n_a"
-        ),
-    },
+    "test2": {InstrumentKeys.RAW_DATA_PATH_VARIABLE_NAME: "INSTRUMENT_PATH_ASTRAL1"},
+    "test3": {InstrumentKeys.RAW_DATA_PATH_VARIABLE_NAME: "INSTRUMENT_PATH_ASTRAL2"},
+    "test4": {InstrumentKeys.RAW_DATA_PATH_VARIABLE_NAME: "INSTRUMENT_PATH_ASTRAL3"},
 }
 
 # prefix for the queues the DAGs are assigned to (cf. docker-compose.yml)
@@ -66,9 +49,8 @@ def get_internal_instrument_data_path(instrument_id: str) -> Path:
 
     e.g. /opt/airflow/mounts/pool-backup/Test2
     """
-    return (
-        Path(InternalPaths.MOUNTS_PATH)
-        / INSTRUMENTS[instrument_id][InstrumentKeys.RAW_DATA_PATH]
+    return Path(InternalPaths.MOUNTS_PATH) / get_relative_instrument_data_path(
+        instrument_id
     )
 
 
@@ -77,7 +59,16 @@ def get_relative_instrument_data_path(instrument_id: str) -> str:
 
     e.g. pool-backup/Test2
     """
-    return INSTRUMENTS[instrument_id][InstrumentKeys.RAW_DATA_PATH]
+    # TODO: this name could be derived from the instrument_id by convention, but then it's less explicit
+    raw_data_path_variable_name = INSTRUMENTS[instrument_id][
+        InstrumentKeys.RAW_DATA_PATH_VARIABLE_NAME
+    ]
+
+    # TODO: fix: we need to provide a default here to make test_dags.py happy. Should not be an issue in production
+    # as the variable is enforced to be set in docker-compose.yml
+    return get_env_variable(
+        raw_data_path_variable_name, "error_raw_data_path_variable_name_not_set"
+    )
 
 
 def get_output_folder_rel_path(raw_file_name: str, project_id: str) -> Path:

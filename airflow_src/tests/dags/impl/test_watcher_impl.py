@@ -280,7 +280,7 @@ def test_start_acquisition_handler_with_multiple_files(
                 "file3.raw",
                 project_id=None,
                 instrument_id="instrument1",
-                status="ignored",
+                status="new",
             ),
         ]
     )

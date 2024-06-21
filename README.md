@@ -105,7 +105,7 @@ Additionally, one bind mount per instrument PC is needed (cf. section below).
 
 1. Create the mount target directories:
 ```bash
-MOUNTS=/home/kraken-user/alphakraken/sandbox/mounts
+MOUNTS=/home/kraken-user/alphakraken/${ENV}/mounts
 mkdir -p ${MOUNTS}/pool-backup
 mkdir -p ${MOUNTS}/output
 ```
@@ -136,8 +136,7 @@ Not needed until alphakraken takes over also the file transfer from acquisition 
 <details>
   <summary>Mounting instruments (currently not needed)</summary>
 Mount the instrument
-```bash
-MOUNTS=/home/kraken-user/alphakraken/sandbox/mounts
+MOUNTS=/home/kraken-user/alphakraken/${ENV}/mounts
 INSTRUMENT_TARGET=${MOUNTS}/instruments/<INSTRUMENT_ID>
 mkdir -p ${INSTRUMENT_TARGET}
 sudo mount -t cifs -o username=kraken ${APC_SOURCE} ${INSTRUMENT_TARGET}
@@ -156,7 +155,15 @@ and add this new variable to `docker-compose.yml:x-airflow-common.environment`
 INSTRUMENT_PATH_NEWINST1=${INSTRUMENT_PATH_NEWINST1:?error}
 ```
 
-3. In `docker-compose.yml`, add a new worker service, by copying an existing one and adapting it like:
+3. In the `settings.py:INSTRUMENTS` dictionary, add a new entry by copying an existing one and adapting it like
+```
+    "<INSTRUMENT_ID>": {
+        InstrumentKeys.RAW_DATA_PATH_VARIABLE_NAME: "INSTRUMENT_PATH_NEWINST1"
+        # (there might be additional keys here, just copy them)
+    },
+```
+
+4. In `docker-compose.yml`, add a new worker service, by copying an existing one and adapting it like:
 ```
   airflow-worker-<INSTRUMENT_ID>:
     <<: *airflow-worker
@@ -164,17 +171,7 @@ INSTRUMENT_PATH_NEWINST1=${INSTRUMENT_PATH_NEWINST1:?error}
     # there might be additional keys here, just copy them
 ```
 
-4. In the `settings.py:INSTRUMENTS` dictionary, add a new entry by copying an existing one and adapting it like
-```
-    "<INSTRUMENT_ID>": {
-        InstrumentKeys.RAW_DATA_PATH: get_env_variable(
-            "INSTRUMENT_PATH_NEWINST1", "n_a"
-        ),
-        # (there might be additional keys here, just copy them)
-    },
-```
-
-5. Restart the containers (cf. above).
+5. Restart all containers with the `--build` flag (cf. above).
 
 6. Open the airflow UI and unpause the new `*.<INSTRUMENT_ID>` DAGs.
 

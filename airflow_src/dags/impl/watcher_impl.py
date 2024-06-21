@@ -121,7 +121,9 @@ def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
 
     # adding the files to the DB and triggering the acquisition_handler DAG should be atomic
     for raw_file_name, project_id in raw_file_project_ids.items():
-        status = RawFileStatus.NEW if project_id is not None else RawFileStatus.IGNORED
+        status = (
+            RawFileStatus.NEW
+        )  # if project_id is not None else RawFileStatus.IGNORED
 
         _add_raw_file_to_db(
             raw_file_name,

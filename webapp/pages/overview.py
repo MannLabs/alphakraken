@@ -89,7 +89,7 @@ def display(df: pd.DataFrame) -> None:
     st.dataframe(
         filtered_df.style.background_gradient(
             subset=[
-                "BasicStats_proteins_mean",
+                "proteins_mean",
             ],
             cmap=cmap,
         )
@@ -101,10 +101,10 @@ def display(df: pd.DataFrame) -> None:
     x = "file_created"
     for y in [
         "size_gb",
-        "BasicStats_precursors_mean",
-        "BasicStats_proteins_mean",
-        "BasicStats_ms1_accuracy_mean",
-        "BasicStats_fwhm_rt_mean",
+        "precursors_mean",
+        "proteins_mean",
+        "ms1_accuracy_mean",
+        "fwhm_rt_mean",
         "quanting_time_minutes",
     ]:
         try:

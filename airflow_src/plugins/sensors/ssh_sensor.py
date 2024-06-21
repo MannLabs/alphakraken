@@ -86,7 +86,7 @@ class SSHSensorOperator(BaseSensorOperator, ABC):
         # very heuristic way to return a fake response
         if "sbatch" in command:  # run job
             return "something\nsomething\n123"
-        if "TIME_ELAPSED" in command:  # get job info
+        if "quanting_time_elapsed" in command:  # get job info
             return "00:00:01"
         return "COMPLETED"  # monitor job
 

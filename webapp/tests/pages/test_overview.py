@@ -41,7 +41,7 @@ def test_overview(mock_df: MagicMock, mock_get: MagicMock) -> None:
         {
             "raw_file": [1, 2],
             "BasicStats_proteins_mean": [1, 2],
-            "time_elapsed": [60, 120],
+            "quanting_time_elapsed": [60, 120],
         }
     )
 

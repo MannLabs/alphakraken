@@ -124,7 +124,7 @@ def get_job_info(ti: TaskInstance, **kwargs) -> None:
 
     time_elapsed = _get_time_elapsed(ssh_return)
 
-    put_xcom(ti, XComKeys.TIME_ELAPSED, time_elapsed)
+    put_xcom(ti, XComKeys.QUANTING_TIME_ELAPSED, time_elapsed)
 
 
 def _get_time_elapsed(ssh_return: str) -> int:
@@ -156,8 +156,7 @@ def upload_metrics(ti: TaskInstance, **kwargs) -> None:
     raw_file_name = get_xcom(ti, XComKeys.RAW_FILE_NAME)
     metrics = get_xcom(ti, XComKeys.METRICS)
 
-    time_elapsed = get_xcom(ti, XComKeys.TIME_ELAPSED)
-    metrics["time_elapsed"] = time_elapsed
+    metrics["quanting_time_elapsed"] = get_xcom(ti, XComKeys.QUANTING_TIME_ELAPSED)
 
     add_metrics_to_raw_file(raw_file_name, metrics)
 

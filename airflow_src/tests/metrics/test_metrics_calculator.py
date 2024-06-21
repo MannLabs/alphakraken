@@ -73,8 +73,8 @@ def test_basic_stats_calculation(mock_datastore: MagicMock) -> None:
     basic_stats = BasicStats(mock_datastore)
 
     assert basic_stats.get() == {
-        "proteins_mean": 1.0,
-        "precursors_mean": 2.0,
-        "ms1_accuracy_mean": 3.0,
-        "fwhm_rt_mean": 4.0,
+        "proteins": 1.0,
+        "precursors": 2.0,
+        "ms1_accuracy": 3.0,
+        "fwhm_rt": 4.0,
     }

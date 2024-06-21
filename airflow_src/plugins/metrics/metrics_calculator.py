@@ -87,7 +87,7 @@ class BasicStats(Metrics):
         stat_df = self._data_store[OutputFiles.STAT]
 
         for col in ["proteins", "precursors", "ms1_accuracy", "fwhm_rt"]:
-            self._metrics[f"{col}_mean"] = stat_df[col].mean()
+            self._metrics[f"{col}"] = stat_df[col].mean()
 
 
 def calc_metrics(output_directory: Path) -> dict[str, Any]:

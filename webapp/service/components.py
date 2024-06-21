@@ -1,8 +1,10 @@
 """UI components for the web application."""
 
+from collections import defaultdict
 from datetime import datetime, timedelta
 from typing import Any
 
+import humanize
 import pandas as pd
 import streamlit as st
 
@@ -59,3 +61,32 @@ def show_date_select(
     )
     min_date_with_time = datetime.combine(min_date, datetime.min.time())
     return df[df["created_at"] > min_date_with_time]
+
+
+def display_status(df: pd.DataFrame) -> None:
+    """Display the status of the kraken."""
+    now = datetime.now()  # noqa:  DTZ005 no tz argument
+    st.write(f"Current Kraken time: {now}")
+    status_data = defaultdict(list)
+    for instrument_id in df["instrument_id"].unique():
+        tmp_df = df[df["instrument_id"] == instrument_id]
+        status_data["instrument_id"].append(instrument_id)
+
+        last_file_creation = tmp_df.iloc[0]["created_at"]
+        display_time = humanize.precisedelta(
+            now - last_file_creation, minimum_unit="seconds", format="%.0f"
+        )
+        status_data["last_file_creation"].append(last_file_creation)
+        status_data["last_file_creation_text"].append(display_time)
+
+        last_update = tmp_df.sort_values(by="updated_at_", ascending=False).iloc[0][
+            "updated_at_"
+        ]
+        display_time = humanize.precisedelta(
+            now - last_update, minimum_unit="seconds", format="%.0f"
+        )
+        status_data["last_status_update"].append(last_update)
+        status_data["last_status_update_text"].append(display_time)
+
+    status_df = pd.DataFrame(status_data)
+    st.dataframe(status_df)

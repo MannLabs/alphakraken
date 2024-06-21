@@ -1,15 +1,12 @@
 """Simple data overview."""
 
-from datetime import datetime
-
-import humanize
 import pandas as pd
 import plotly.express as px
 
 # ruff: noqa: PD002 # `inplace=True` should be avoided; it has inconsistent behavior
 import streamlit as st
 from matplotlib import pyplot as plt
-from service.components import show_date_select, show_filter
+from service.components import display_status, show_date_select, show_filter
 from service.db import df_from_db_data, get_raw_file_and_metrics_data
 from service.utils import _log
 
@@ -66,25 +63,14 @@ combined_df = combined_df[
 @st.experimental_fragment
 def display(df: pd.DataFrame) -> None:
     """A fragment that displays a DataFrame with a filter."""
-    st.write(f"Processed {len(df)} raw files.")
-    now = datetime.now()  # noqa:  DTZ005 no tz argument
-    st.write(f"Current Kraken time: {now}")
+    st.markdown("## Status")
+    try:
+        display_status(df)
+    except Exception as e:  # noqa: BLE001
+        _log(str(e))
+        st.warning(f"Cannot not display status: {e}.")
 
-    last_file_creation = df.iloc[0]["created_at"]
-    display_time = humanize.precisedelta(
-        now - last_file_creation, minimum_unit="seconds", format="%.0f"
-    )
-    st.write(
-        f"Latest processed file acquisition start: {display_time} ago [{last_file_creation}]"
-    )
-
-    last_update = df.sort_values(by="updated_at_", ascending=False).iloc[0][
-        "updated_at_"
-    ]
-    display_time = humanize.precisedelta(
-        now - last_update, minimum_unit="seconds", format="%.0f"
-    )
-    st.write(f"Last raw file status update: {display_time} ago [{last_update}]")
+    st.markdown("## Data")
 
     # filter
     len_whole_df = len(df)

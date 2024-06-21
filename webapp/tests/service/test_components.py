@@ -30,7 +30,7 @@ def test_input_filter_happy_path(mock_text_input: MagicMock) -> None:
 @patch("streamlit.text_input")
 def test_input_filter_happy_path_exclusive(mock_text_input: MagicMock) -> None:
     """Test that the filter returns the correct DataFrame when a match is found."""
-    mock_text_input.return_value = "FILTER_text"
+    mock_text_input.return_value = "!FILTER_text"
     df = pd.DataFrame(
         {
             "column1": ["filter_text", "other_text"],
@@ -39,7 +39,7 @@ def test_input_filter_happy_path_exclusive(mock_text_input: MagicMock) -> None:
     )
 
     # when
-    filtered_df = show_filter(df, text_to_display="Some Filter", exclusive=True)
+    filtered_df = show_filter(df, text_to_display="Some Filter")
 
     assert len(filtered_df) == 1
     assert "filter_text" not in filtered_df["column1"].to_numpy()
@@ -77,6 +77,25 @@ def test_input_filter_empty_input(mock_text_input: MagicMock) -> None:
     filtered_df = show_filter(df, text_to_display="Some Filter")
 
     assert filtered_df is df
+
+
+@patch("streamlit.text_input")
+def test_input_filter_combination(mock_text_input: MagicMock) -> None:
+    """Test that the filter returns the original DataFrame when inclusive and exclusive filtering are combined."""
+    mock_text_input.return_value = "incl & !excl"
+    df = pd.DataFrame(
+        {
+            "column1": ["incl", "incl", "something"],
+            "column2": ["something", "excl", "something"],
+        }
+    )
+
+    # when
+    filtered_df = show_filter(df, text_to_display="Some Filter")
+
+    assert len(filtered_df) == 1
+    assert "incl" in filtered_df["column1"].to_numpy()
+    assert "excl" not in filtered_df["column2"].to_numpy()
 
 
 @patch("streamlit.date_input")

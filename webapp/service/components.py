@@ -11,20 +11,27 @@ def show_filter(
     df: pd.DataFrame,
     *,
     text_to_display: str = "Filter:",
-    exclusive: bool = False,
     st_display: Any = st,  # noqa: ANN401
 ) -> pd.DataFrame:
     """Filter the DataFrame on user input by case-insensitive textual comparison in all columns."""
     user_input = st_display.text_input(
-        text_to_display, None, help="Chain multiple conditions with '&'"
+        text_to_display,
+        None,
+        placeholder="e.g. 'test2 & !hela'",
+        help="Chain multiple conditions with '&', negate with '!'",
     )
     if user_input is not None and user_input != "":
         filters = [f.strip() for f in user_input.lower().split("&")]
         mask = [True] * len(df)
         for filter_ in filters:
+            negate = False
+            if filter_.startswith("!"):
+                negate = True
+                filter_ = filter_[1:].strip()  # noqa: PLW2901
+
             new_mask = df.map(lambda x: filter_ in str(x).lower()).any(axis=1)
             new_mask |= df.index.map(lambda x: filter_ in str(x).lower())
-            if exclusive:
+            if negate:
                 new_mask = ~new_mask
 
             mask &= new_mask
@@ -34,7 +41,7 @@ def show_filter(
 
 def show_date_select(
     df: pd.DataFrame,
-    text_to_display: str = "Minimum date:",
+    text_to_display: str = "Earliest file creation date:",
     st_display: Any = st,  # noqa: ANN401
 ) -> pd.DataFrame:
     """Filter the DataFrame on user input by date."""

@@ -58,7 +58,7 @@ combined_df = combined_df[
 ]
 
 
-# ########################################### DISPLAY
+# ########################################### DISPLAY: table
 
 
 # using a fragment to avoid re-doing the above operations on every filter change
@@ -87,20 +87,15 @@ def display(df: pd.DataFrame) -> None:
     st.write(f"Last raw file status update: {display_time} ago [{last_update}]")
 
     # filter
-    f1, f2, f3 = st.columns(3)
-    filtered_df = show_filter(df, text_to_display="Filter (inclusive):", st_display=f1)
-    filtered_df = show_filter(
-        filtered_df,
-        exclusive=True,
-        text_to_display="Filter (exclusive):",
-        st_display=f2,
-    )
+    len_whole_df = len(df)
+    c1, c2 = st.columns([0.7, 0.3])
+    filtered_df = show_filter(df, text_to_display="Filter:", st_display=c1)
     filtered_df = show_date_select(
         filtered_df,
-        st_display=f3,
+        st_display=c2,
     )
 
-    st.write(f"Found {len(filtered_df)} matches.")
+    st.write(f"Showing {len(filtered_df)} / {len_whole_df} entries.")
 
     cmap = plt.get_cmap("RdYlGn")
     st.dataframe(
@@ -112,6 +107,9 @@ def display(df: pd.DataFrame) -> None:
         )
     )
 
+    # ########################################### DISPLAY: plots
+
+    st.markdown("## Plots")
     x = "file_created"
     for y in [
         "size_gb",

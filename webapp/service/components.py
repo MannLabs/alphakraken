@@ -126,7 +126,4 @@ def display_status(df: pd.DataFrame) -> None:
 
     status_df = pd.DataFrame(status_data)
 
-    st.table(status_df.style.apply(lambda row: get_color(row), axis=1))
-
-    status_df = pd.DataFrame(status_data)
-    st.dataframe(status_df)
+    st.dataframe(status_df.style.apply(lambda row: get_color(row), axis=1))

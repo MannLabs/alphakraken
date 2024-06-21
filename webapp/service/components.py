@@ -90,40 +90,40 @@ def display_status(df: pd.DataFrame) -> None:
         status_data["last_status_update"].append(last_update)
         status_data["last_status_update_text"].append(display_time)
 
-    def get_color(
-        row: pd.Series,
-        green_age_h: int = 2,
-        red_age_h: int = 8,
-        columns: list[str] = ["last_file_creation", "last_status_update"],  # noqa: B006
-    ) -> list[str | None]:
-        """Get the color for the row based on the age of the columns.
-
-        :param row: a row of the status dataframe
-        :param green_age_h: everything younger than this is green
-        :param red_age_h:  everything older than this is red
-        :param columns: which columns to color
-        :return: style for the row
-        """
-        column_styles = {}
-        now = datetime.now()  # noqa:  DTZ005 no tz argument
-        for column in columns:
-            date = row[column]
-            delta = now - date
-
-            normalized_age = (delta - timedelta(hours=green_age_h)).total_seconds() / (
-                (red_age_h - green_age_h) * 3600
-            )  # gradient
-
-            normalized_age = min(1.0, max(0.0, normalized_age))
-
-            cmap = plt.get_cmap("RdYlGn_r")  # Inverse of the Red-Yellow-Green colormap
-            color = cmap(normalized_age)
-
-            style = "background-color: " + mpl.colors.rgb2hex(color, keep_alpha=True)
-            column_styles[column] = style
-
-        return [column_styles.get(c) for c in row.index]
-
     status_df = pd.DataFrame(status_data)
 
-    st.dataframe(status_df.style.apply(lambda row: get_color(row), axis=1))
+    st.dataframe(status_df.style.apply(lambda row: _get_color(row), axis=1))
+
+
+def _get_color(
+    row: pd.Series,
+    green_age_h: int = 2,
+    red_age_h: int = 8,
+    columns: list[str] = ["last_file_creation", "last_status_update"],  # noqa: B006
+) -> list[str | None]:
+    """Get the color for the row based on the age of the columns.
+
+    :param row: a row of the status dataframe
+    :param green_age_h: everything younger than this is green
+    :param red_age_h:  everything older than this is red
+    :param columns: which columns to color
+    :return: style for the row, e.g. [ "background-color: #FF0000", None, None]
+    """
+    column_styles = {}
+    now = datetime.now()  # noqa:  DTZ005 no tz argument
+    for column in columns:
+        time_delta = now - row[column]
+
+        normalized_age = (time_delta - timedelta(hours=green_age_h)).total_seconds() / (
+            (red_age_h - green_age_h) * 3600
+        )
+        normalized_age = min(1.0, max(0.0, normalized_age))
+
+        color = plt.get_cmap("RdYlGn_r")(
+            normalized_age
+        )  # Inverse of the Red-Yellow-Green colormap
+
+        style = "background-color: " + mpl.colors.rgb2hex(color)
+        column_styles[column] = style
+
+    return [column_styles.get(c) for c in row.index]

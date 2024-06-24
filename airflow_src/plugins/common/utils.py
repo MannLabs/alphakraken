@@ -29,7 +29,7 @@ def get_xcom(ti: TaskInstance, key: str) -> _xcom_types:
     return value
 
 
-def get_variable(key: str, default: str = "__DEFAULT_NOT_SET") -> str:
+def get_airflow_variable(key: str, default: str = "__DEFAULT_NOT_SET") -> str:
     """Get the value of an Airflow Variable with `key` with an optional default."""
     if default == "__DEFAULT_NOT_SET":
         value = Variable.get(key)

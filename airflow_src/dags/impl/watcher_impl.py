@@ -11,7 +11,7 @@ from airflow.models import DagRun, TaskInstance
 from airflow.utils.types import DagRunType
 from common.keys import AirflowVars, DagParams, Dags, OpArgs, XComKeys
 from common.settings import get_internal_instrument_data_path
-from common.utils import get_variable, get_xcom, put_xcom
+from common.utils import get_airflow_variable, get_xcom, put_xcom
 from impl.project_id_handler import get_unique_project_id
 
 from shared.db.interface import (
@@ -143,7 +143,9 @@ def _file_meets_age_criterion(
     :param instrument_id: instrument id
     :return: True if the file is younger than the given max. file age or if no max. file age defined, False otherwise
     """
-    max_file_age_in_hours: str = get_variable(AirflowVars.MAX_FILE_AGE_IN_HOURS, "-1")
+    max_file_age_in_hours: str = get_airflow_variable(
+        AirflowVars.MAX_FILE_AGE_IN_HOURS, "-1"
+    )
 
     try:
         max_file_age_in_hours_float = float(max_file_age_in_hours)

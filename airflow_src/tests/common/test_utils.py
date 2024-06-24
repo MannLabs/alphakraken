@@ -87,5 +87,5 @@ def test_get_env_variable_returns_default_when_value_not_found() -> None:
 def test_get_env_variable_raises_when_value_not_found() -> None:
     """Test that get_env_variable returns the default value when the value of an environment variable with a given key is not found."""
     # when
-    with pytest.raises(ValueError):
+    with pytest.raises(KeyError):
         get_env_variable("not_existing_env_var")

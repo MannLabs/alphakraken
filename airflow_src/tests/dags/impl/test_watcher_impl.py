@@ -1,7 +1,7 @@
 """Tests for the watcher_impl module."""
 
 from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import MagicMock, Mock, call, patch
 
 import pytest
 from dags.impl.watcher_impl import (
@@ -139,9 +139,11 @@ def test_get_unknown_raw_files_with_empty_directory(
 @patch("dags.impl.watcher_impl.get_all_project_ids")
 @patch("dags.impl.watcher_impl.get_xcom")
 @patch("dags.impl.watcher_impl.get_unique_project_id")
+@patch("dags.impl.watcher_impl._file_meets_age_criterion")
 @patch("dags.impl.watcher_impl.put_xcom")
 def test_decide_raw_file_handling(
     mock_put: MagicMock,
+    mock_file_meets: MagicMock,
     mock_get_unique: MagicMock,
     mock_get_xcom: MagicMock,
     mock_get_project_ids: MagicMock,
@@ -151,6 +153,7 @@ def test_decide_raw_file_handling(
     mock_get_xcom.return_value = ["file1", "file2", "file3"]
     mock_get_project_ids.return_value = ["project1", "project2"]
     mock_get_unique.side_effect = [None, "project1", "project2"]
+    mock_file_meets.side_effect = [True, True, False]
 
     # when
     decide_raw_file_handling(mock_ti, instrument_id="instrument1")
@@ -163,7 +166,18 @@ def test_decide_raw_file_handling(
     mock_put.assert_called_once_with(
         mock_ti,
         "raw_file_project_ids",
-        {"file1": None, "file2": "project1", "file3": "project2"},
+        {
+            "file1": (None, True),
+            "file2": ("project1", True),
+            "file3": ("project2", False),
+        },
+    )
+    mock_file_meets.assert_has_calls(
+        [
+            call("file1", "instrument1"),
+            call("file2", "instrument1"),
+            call("file3", "instrument1"),
+        ]
     )
 
 
@@ -202,7 +216,7 @@ def test_start_acquisition_handler_with_single_file(
 ) -> None:
     """Test start_acquisition_handler with a single file."""
     # given
-    raw_file_names = {"file1.raw": "PID1"}
+    raw_file_names = {"file1.raw": ("PID1", True)}
     mock_get_xcom.return_value = raw_file_names
     run_ids = [
         "run_id1",
@@ -216,11 +230,11 @@ def test_start_acquisition_handler_with_single_file(
 
     # then
     assert mock_trigger_dag.call_count == 1  # no magic numbers
-    for n, call in enumerate(mock_trigger_dag.call_args_list):
-        assert call[1]["dag_id"].endswith("instrument1")
-        assert run_ids[n] == call[1]["run_id"]
-        assert {"raw_file_name": list(raw_file_names.keys())[n]} == call[1]["conf"]
-        assert not call[1]["replace_microseconds"]
+    for n, call_ in enumerate(mock_trigger_dag.call_args_list):
+        assert call_[1]["dag_id"].endswith("instrument1")
+        assert run_ids[n] == call_[1]["run_id"]
+        assert {"raw_file_name": list(raw_file_names.keys())[n]} == call_[1]["conf"]
+        assert not call_[1]["replace_microseconds"]
 
     mock_add_raw_file_to_db.assert_called_once_with(
         "file1.raw", project_id="PID1", instrument_id="instrument1", status="new"
@@ -242,9 +256,9 @@ def test_start_acquisition_handler_with_multiple_files(
     """Test start_acquisition_handler with multiple files."""
     # given
     raw_file_names = {
-        "file1.raw": "project1",
-        "file2.raw": "project2",
-        "file3.raw": None,
+        "file1.raw": ("project1", True),
+        "file2.raw": (None, True),
+        "file3.raw": ("project2", False),
     }
     mock_get_xcom.return_value = raw_file_names
     run_ids = ["run_id1", "run_id2", "run_id3"]
@@ -255,12 +269,12 @@ def test_start_acquisition_handler_with_multiple_files(
     start_acquisition_handler(Mock(), **{OpArgs.INSTRUMENT_ID: "instrument1"})
 
     # then
-    assert mock_trigger_dag.call_count == 3  # noqa: PLR2004 no magic numbers
-    for n, call in enumerate(mock_trigger_dag.call_args_list):
-        assert call[1]["dag_id"].endswith("instrument1")
-        assert run_ids[n] == call[1]["run_id"]
-        assert {"raw_file_name": list(raw_file_names.keys())[n]} == call[1]["conf"]
-        assert not call[1]["replace_microseconds"]
+    assert mock_trigger_dag.call_count == 2  # noqa: PLR2004 no magic numbers
+    for n, call_ in enumerate(mock_trigger_dag.call_args_list):
+        assert call_[1]["dag_id"].endswith("instrument1")
+        assert run_ids[n] == call_[1]["run_id"]
+        assert {"raw_file_name": list(raw_file_names.keys())[n]} == call_[1]["conf"]
+        assert not call_[1]["replace_microseconds"]
 
     mock_add_raw_file_to_db.assert_has_calls(
         [
@@ -272,15 +286,15 @@ def test_start_acquisition_handler_with_multiple_files(
             ),
             call(
                 "file2.raw",
-                project_id="project2",
+                project_id=None,
                 instrument_id="instrument1",
                 status="new",
             ),
             call(
                 "file3.raw",
-                project_id=None,
+                project_id="project2",
                 instrument_id="instrument1",
-                status="new",
+                status="ignored",
             ),
         ]
     )

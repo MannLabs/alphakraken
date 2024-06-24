@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 from airflow.providers.ssh.hooks.ssh import SSHHook
 from airflow.sensors.base import BaseSensorOperator
 from cluster_scripts.slurm_commands import get_job_state_cmd
-from common.keys import Variables, XComKeys
+from common.keys import AirflowVars, XComKeys
 from common.utils import get_variable, get_xcom
 
 
@@ -64,7 +64,7 @@ class SSHSensorOperator(BaseSensorOperator, ABC):
         """Execute the given `command` via the `ssh_hook`."""
         # this is a hack to prevent jobs to be run on the cluster, useful for debugging and initial setup.
         # TODO: needs to be improved, maybe by setting up a container with a fake ssh server
-        if get_variable(Variables.DEBUG_NO_CLUSTER_SSH, "False") == "True":
+        if get_variable(AirflowVars.DEBUG_NO_CLUSTER_SSH, "False") == "True":
             return SSHSensorOperator._get_fake_ssh_response(command)
 
         exit_status, agg_stdout, agg_stderr = ssh_hook.exec_ssh_client_command(
@@ -81,7 +81,7 @@ class SSHSensorOperator(BaseSensorOperator, ABC):
     def _get_fake_ssh_response(command: str) -> str:
         """Fake a ssh response for the given `command`."""
         logging.warning(
-            f"Variable {Variables.DEBUG_NO_CLUSTER_SSH} set: Not running SSH command on cluster:\n{command}"
+            f"Variable {AirflowVars.DEBUG_NO_CLUSTER_SSH} set: Not running SSH command on cluster:\n{command}"
         )
         # very heuristic way to return a fake response
         if "sbatch" in command:  # run job

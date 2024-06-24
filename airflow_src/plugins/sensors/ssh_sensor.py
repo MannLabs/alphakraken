@@ -7,7 +7,7 @@ from airflow.providers.ssh.hooks.ssh import SSHHook
 from airflow.sensors.base import BaseSensorOperator
 from cluster_scripts.slurm_commands import get_job_state_cmd
 from common.keys import AirflowVars, XComKeys
-from common.utils import get_variable, get_xcom
+from common.utils import get_airflow_variable, get_xcom
 
 
 class SSHSensorOperator(BaseSensorOperator, ABC):
@@ -64,7 +64,7 @@ class SSHSensorOperator(BaseSensorOperator, ABC):
         """Execute the given `command` via the `ssh_hook`."""
         # this is a hack to prevent jobs to be run on the cluster, useful for debugging and initial setup.
         # TODO: needs to be improved, maybe by setting up a container with a fake ssh server
-        if get_variable(AirflowVars.DEBUG_NO_CLUSTER_SSH, "False") == "True":
+        if get_airflow_variable(AirflowVars.DEBUG_NO_CLUSTER_SSH, "False") == "True":
             return SSHSensorOperator._get_fake_ssh_response(command)
 
         exit_status, agg_stdout, agg_stderr = ssh_hook.exec_ssh_client_command(

@@ -22,9 +22,9 @@ class RawFileStatus:
     IGNORED = "ignored"
     # have a distinction between processing and copying as network drives caused issues in the past.
     COPYING = "copying"
-    PROCESSING = "processing"
-    PROCESSED = "processed"
-    FAILED = "failed"
+    # # queued(_for_processing)
+    PROCESSING = "processing"  # quanting
+    PROCESSED = "processed"  # quanted
     ERROR = "error"
 
 

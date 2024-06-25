@@ -143,7 +143,7 @@ def get_job_info(ti: TaskInstance, **kwargs) -> None:
     job_status = ssh_return.split("\n")[-1]
     if job_status != JobStates.COMPLETED:
         logging.info(f"Job {job_id} exited with status {job_status}.")
-        raise AirflowFailException("Quanting failed.")
+        raise AirflowFailException(f"Quanting failed: {job_status=}")
 
 
 def _get_time_elapsed(ssh_return: str) -> int:

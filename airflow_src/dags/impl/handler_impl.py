@@ -91,7 +91,7 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
 
     # upfront check 1
     if (job_id := get_xcom(ti, XComKeys.JOB_ID, -1)) != -1:
-        logging.info(f"Job already started with {job_id}, skipping.")
+        logging.warning(f"Job already started with {job_id}, skipping.")
         return
 
     # upfront check 2

@@ -77,7 +77,18 @@ def get_unknown_raw_files(ti: TaskInstance, **kwargs) -> None:
         f"Raw files left after DB check: {len(raw_file_names)} {raw_file_names}"
     )
 
-    put_xcom(ti, XComKeys.RAW_FILE_NAMES, raw_file_names)
+    raw_file_names_sorted = _sort_by_creation_date(raw_file_names, instrument_id)
+
+    put_xcom(ti, XComKeys.RAW_FILE_NAMES, raw_file_names_sorted)
+
+
+def _sort_by_creation_date(raw_file_names: list[str], instrument_id: str) -> list[str]:
+    """Sort raw files by creation timestamp (youngest first) to have them processed first."""
+    file_creation_timestamps = []
+    for raw_file_name in raw_file_names:
+        file_creation_ts, _ = _get_file_info(raw_file_name, instrument_id)
+        file_creation_timestamps.append(file_creation_ts)
+    return [r for _, r in sorted(zip(file_creation_timestamps, raw_file_names))][::-1]
 
 
 def decide_raw_file_handling(ti: TaskInstance, **kwargs) -> None:
@@ -192,15 +203,11 @@ def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
             logging.info(
                 f"Triggering DAG {dag_id_to_trigger} with {run_id=} for {raw_file_name=}."
             )
-            file_creation_ts, _ = _get_file_info(raw_file_name, instrument_id)
             trigger_dag(
                 dag_id=dag_id_to_trigger,
                 run_id=run_id,
                 conf={
                     DagParams.RAW_FILE_NAME: raw_file_name,
-                    # process younger files with higher priority
-                    # https://airflow.apache.org/docs/apache-airflow/stable/administration-and-deployment/priority-weight.html
-                    "priority_weight": int(file_creation_ts),
                 },
                 replace_microseconds=False,
             )

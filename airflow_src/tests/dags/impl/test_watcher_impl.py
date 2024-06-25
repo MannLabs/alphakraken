@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, Mock, call, patch
 
 import pytest
 import pytz
+from common.settings import INSTRUMENTS
 from dags.impl.watcher_impl import (
     _add_raw_file_to_db,
     _file_meets_age_criterion,
@@ -19,6 +20,9 @@ from plugins.common.keys import OpArgs, XComKeys
 SOME_INSTRUMENT_ID = "some_instrument_id"
 
 
+@patch.dict(
+    INSTRUMENTS, {"instrument1": {"raw_data_path_variable_name": "SOME_VARIABLE_NAME"}}
+)
 @patch("os.stat")
 def test_get_file_info(
     mock_stat: MagicMock,
@@ -66,15 +70,16 @@ def test_add_raw_file_to_db(
 @patch("dags.impl.watcher_impl.get_internal_instrument_data_path")
 @patch("os.listdir")
 @patch("dags.impl.watcher_impl.get_raw_file_names_from_db")
+@patch("dags.impl.watcher_impl._sort_by_creation_date")
 @patch("dags.impl.watcher_impl.put_xcom")
 def test_get_unknown_raw_files_with_existing_files_in_db(
     mock_put_xcom: MagicMock,
+    mock_sort: MagicMock,
     mock_get_unknown_raw_files_from_db: MagicMock,
     mock_os_listdir: MagicMock,
     mock_get_instrument_data_path: MagicMock,
 ) -> None:
     """Test get_unknown_raw_files with existing files in the database."""
-    # Given a list of raw files, some of which are already in the database
     mock_get_instrument_data_path.return_value = Path("path/to")
 
     mock_os_listdir.return_value = [
@@ -84,20 +89,23 @@ def test_get_unknown_raw_files_with_existing_files_in_db(
     ]
     mock_get_unknown_raw_files_from_db.return_value = ["file1.raw", "file2.raw"]
     ti = Mock()
+    mock_sort.return_value = ["file3.raw"]
 
-    # Call the function
+    # when
     get_unknown_raw_files(ti, **{OpArgs.INSTRUMENT_ID: SOME_INSTRUMENT_ID})
 
-    # The function should call put_xcom with the correct arguments
     mock_put_xcom.assert_called_once_with(ti, XComKeys.RAW_FILE_NAMES, ["file3.raw"])
+    mock_sort.assert_called_once_with(["file3.raw"], "some_instrument_id")
 
 
 @patch("dags.impl.watcher_impl.get_internal_instrument_data_path")
 @patch("os.listdir")
 @patch("dags.impl.watcher_impl.get_raw_file_names_from_db")
+@patch("dags.impl.watcher_impl._sort_by_creation_date")
 @patch("dags.impl.watcher_impl.put_xcom")
 def test_get_unknown_raw_files_with_no_existing_files_in_db(
     mock_put_xcom: MagicMock,
+    mock_sort: MagicMock,
     mock_get_unknown_raw_files_from_db: MagicMock,
     mock_os_listdir: MagicMock,
     mock_get_instrument_data_path: MagicMock,
@@ -113,13 +121,17 @@ def test_get_unknown_raw_files_with_no_existing_files_in_db(
     ]
     mock_get_unknown_raw_files_from_db.return_value = []
     ti = Mock()
+    mock_sort.return_value = ["file3.raw", "file2.raw", "file1.raw"]
 
     # Call the function
     get_unknown_raw_files(ti, **{OpArgs.INSTRUMENT_ID: SOME_INSTRUMENT_ID})
 
     # The function should call put_xcom with the correct arguments
     mock_put_xcom.assert_called_once_with(
-        ti, XComKeys.RAW_FILE_NAMES, ["file1.raw", "file2.raw", "file3.raw"]
+        ti, XComKeys.RAW_FILE_NAMES, ["file3.raw", "file2.raw", "file1.raw"]
+    )
+    mock_sort.assert_called_once_with(
+        ["file1.raw", "file2.raw", "file3.raw"], "some_instrument_id"
     )
 
 
@@ -277,13 +289,11 @@ def test_start_acquisition_handler_with_no_files(
 @patch("dags.impl.watcher_impl.get_xcom")
 @patch("dags.impl.watcher_impl._add_raw_file_to_db")
 @patch("dags.impl.watcher_impl.DagRun.generate_run_id")
-@patch("dags.impl.watcher_impl._get_file_info")
 @patch("dags.impl.watcher_impl.trigger_dag")
 @patch("dags.impl.watcher_impl.datetime")
-def test_start_acquisition_handler_with_single_file(  # noqa:  PLR0913 # Too many arguments
+def test_start_acquisition_handler_with_single_file(
     mock_datetime: MagicMock,
     mock_trigger_dag: MagicMock,
-    mock_get_file_info: MagicMock,
     mock_generate: MagicMock,
     mock_add_raw_file_to_db: MagicMock,
     mock_get_xcom: MagicMock,
@@ -297,7 +307,6 @@ def test_start_acquisition_handler_with_single_file(  # noqa:  PLR0913 # Too man
     ]
     mock_generate.side_effect = run_ids
     mock_datetime.now.return_value = 123
-    mock_get_file_info.return_value = 234, "ignored"
     ti = Mock()
 
     # when
@@ -310,7 +319,6 @@ def test_start_acquisition_handler_with_single_file(  # noqa:  PLR0913 # Too man
         assert run_ids[n] == call_[1]["run_id"]
         assert {
             "raw_file_name": list(raw_file_names.keys())[n],
-            "priority_weight": 234,
         } == call_[1]["conf"]
         assert not call_[1]["replace_microseconds"]
 
@@ -322,13 +330,11 @@ def test_start_acquisition_handler_with_single_file(  # noqa:  PLR0913 # Too man
 @patch("dags.impl.watcher_impl.get_xcom")
 @patch("dags.impl.watcher_impl._add_raw_file_to_db")
 @patch("dags.impl.watcher_impl.DagRun.generate_run_id")
-@patch("dags.impl.watcher_impl._get_file_info")
 @patch("dags.impl.watcher_impl.trigger_dag")
 @patch("dags.impl.watcher_impl.datetime")
-def test_start_acquisition_handler_with_multiple_files(  # noqa:  PLR0913 # Too many arguments
+def test_start_acquisition_handler_with_multiple_files(  # Too many arguments
     mock_datetime: MagicMock,
     mock_trigger_dag: MagicMock,
-    mock_get_file_info: MagicMock,
     mock_generate: MagicMock,
     mock_add_raw_file_to_db: MagicMock,
     mock_get_xcom: MagicMock,
@@ -345,7 +351,6 @@ def test_start_acquisition_handler_with_multiple_files(  # noqa:  PLR0913 # Too 
     mock_generate.side_effect = run_ids
     mock_datetime.now.return_value = 123
 
-    mock_get_file_info.return_value = 234, "ignored"
     # when
     start_acquisition_handler(Mock(), **{OpArgs.INSTRUMENT_ID: "instrument1"})
 
@@ -356,7 +361,6 @@ def test_start_acquisition_handler_with_multiple_files(  # noqa:  PLR0913 # Too 
         assert run_ids[n] == call_[1]["run_id"]
         assert {
             "raw_file_name": list(raw_file_names.keys())[n],
-            "priority_weight": 234,
         } == call_[1]["conf"]
         assert not call_[1]["replace_microseconds"]
 

@@ -74,7 +74,9 @@ class SSHSensorOperator(BaseSensorOperator, ABC):
             get_pty=False,
             environment={},
         )
-        logging.info(f"Got {exit_status=} {agg_stdout=} {agg_stderr=}")
+        logging.info(
+            f"ssh command returned: {exit_status=} {agg_stdout=} {agg_stderr=}"
+        )
         return agg_stdout.decode("utf-8").strip()
 
     @staticmethod

@@ -112,7 +112,7 @@ def test_update_raw_file_status(
     mock_raw_file.objects.with_id.return_value = mock_raw_file_from_db
 
     # when
-    update_raw_file_status("test_file", RawFileStatus.PROCESSED)
+    update_raw_file_status("test_file", new_status=RawFileStatus.PROCESSED)
 
     # then
     mock_raw_file_from_db.update.assert_called_once_with(

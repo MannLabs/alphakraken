@@ -62,6 +62,8 @@ fi
 mkdir -p ${OUTPUT_PATH}
 cd ${OUTPUT_PATH}
 
+conda run -n $CONDA_ENV pip freeze
+
 echo "Running alphadia.."
 echo "Check the logs in ${OUTPUT_PATH}/log.txt"
 

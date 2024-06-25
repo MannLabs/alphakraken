@@ -133,7 +133,7 @@ def get_job_info(ti: TaskInstance, **kwargs) -> None:
 
     slurm_output_file = f"{CLUSTER_WORKING_DIR}/slurm-{job_id}.out"
 
-    cmd = get_job_info_cmd(job_id, slurm_output_file) + get_job_state_cmd()
+    cmd = get_job_info_cmd(job_id, slurm_output_file) + get_job_state_cmd(job_id)
     ssh_return = SSHSensorOperator.ssh_execute(cmd, ssh_hook)
 
     time_elapsed = _get_time_elapsed(ssh_return)

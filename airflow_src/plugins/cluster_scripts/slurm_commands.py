@@ -21,24 +21,24 @@ echo ${{JID##* }}
 """
 
 
-def get_job_info_cmd(job_id: int, slurm_output_file: str) -> str:
+def get_job_info_cmd(job_id: str, slurm_output_file: str) -> str:
     """Get the job info for a given job id.
 
     To reduce the number of ssh calls, we combine multiple commands into one
     In order to be able to extract the run time, we expect the first line to contain only that, e.g. "00:08:42"
     """
-    return f"""TIME_ELAPSED=$(sacct --format=Elapsed -j  {job_id} | tail -n 1); echo $TIME_ELAPSED
+    return f"""TIME_ELAPSED=$(sacct --format=Elapsed -j {job_id} | tail -n 1); echo $TIME_ELAPSED
 sacct -l -j {job_id}
 cat {slurm_output_file}
 """
 
 
-def get_job_state_cmd() -> str:
+def get_job_state_cmd(job_id: str) -> str:
     """Get the state of a job with a given job id.
 
     Its only output must be the job status.
     """
-    return """
-ST=$(sacct -j REPLACE_JID -o State | awk 'FNR == 3 {{print $1}}')
+    return f"""
+ST=$(sacct -j {job_id} -o State | awk 'FNR == 3 {{print $1}}')
 echo $ST
 """

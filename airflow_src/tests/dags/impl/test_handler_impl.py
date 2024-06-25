@@ -265,8 +265,8 @@ def test_get_job_info_happy_path(
     get_job_info(mock_ti, **{OpArgs.SSH_HOOK: mock_ssh_hook})
 
     mock_ssh_execute.assert_called_once_with(
-        "TIME_ELAPSED=$(sacct --format=Elapsed -j  12345 | tail -n 1); echo $TIME_ELAPSED\nsacct -l -j 12345\n"
-        "cat ~/slurm/jobs/slurm-12345.out\n\nST=$(sacct -j REPLACE_JID -o State | awk 'FNR == 3 {{print $1}}')\necho $ST\n",
+        "TIME_ELAPSED=$(sacct --format=Elapsed -j 12345 | tail -n 1); echo $TIME_ELAPSED\nsacct -l -j 12345\n"
+        "cat ~/slurm/jobs/slurm-12345.out\n\nST=$(sacct -j 12345 -o State | awk 'FNR == 3 {print $1}')\necho $ST\n",
         mock_ssh_hook,
     )
 

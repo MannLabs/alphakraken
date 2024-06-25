@@ -37,7 +37,7 @@ def test_xcom_pull_successful() -> None:
     result = get_xcom(ti, "key1")
     assert result == "value1"
 
-    assert ti.xcom_pull.assert_called_once_with(key="key1", default=None)
+    ti.xcom_pull.assert_called_once_with(key="key1", default=None)
 
 
 def test_xcom_pull_with_missing_key_raises_error() -> None:

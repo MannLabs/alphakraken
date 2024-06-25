@@ -114,10 +114,14 @@ def test_run_quanting_executes_ssh_command_and_stores_job_id(
 ) -> None:
     """Test that the run_quanting function executes the SSH command and stores the job ID."""
     # given
-    mock_get_xcom.return_value = {
-        QuantingEnv.RAW_FILE_NAME: "test_file.raw"
-        # rest of quanting_env is left out here for brevity
-    }
+    mock_get_xcom.side_effect = [
+        {
+            QuantingEnv.RAW_FILE_NAME: "test_file.raw",
+            QuantingEnv.PROJECT_ID: "PID123",
+            # rest of quanting_env is left out here for brevity
+        },
+        -1,
+    ]
     mock_ssh_execute.return_value = "12345"
     ti = MagicMock()
     mock_ssh_hook = MagicMock()
@@ -131,7 +135,7 @@ def test_run_quanting_executes_ssh_command_and_stores_job_id(
 
     # then
     expected_export_command = (
-        "export RAW_FILE_NAME=test_file.raw\n"
+        "export RAW_FILE_NAME=test_file.raw\n" "export PROJECT_ID=PID123\n"
         # rest of quanting_env is left out here for brevity
     )
 
@@ -148,13 +152,79 @@ def test_run_quanting_executes_ssh_command_and_stores_job_id(
 
 @patch("dags.impl.handler_impl.get_xcom")
 @patch("dags.impl.handler_impl.SSHSensorOperator.ssh_execute")
+def test_run_quanting_job_id_exists(
+    mock_ssh_execute: MagicMock,
+    mock_get_xcom: MagicMock,
+) -> None:
+    """run_quanting function skips execution if the job ID already exists."""
+    # given
+    mock_get_xcom.side_effect = [
+        {
+            QuantingEnv.RAW_FILE_NAME: "test_file.raw",
+            QuantingEnv.PROJECT_ID: "PID123",
+            # rest of quanting_env is left out here for brevity
+        },
+        12345,
+    ]
+    ti = MagicMock()
+    mock_ssh_hook = MagicMock()
+
+    kwargs = {
+        OpArgs.SSH_HOOK: mock_ssh_hook,
+    }
+
+    # when
+    run_quanting(ti, **kwargs)
+
+    # then
+    mock_ssh_execute.assert_not_called()
+
+
+@patch("dags.impl.handler_impl.get_xcom")
+@patch("dags.impl.handler_impl.Path")
+def test_run_quanting_output_folder_exists(
+    mock_path: MagicMock,
+    mock_get_xcom: MagicMock,
+) -> None:
+    """run_quanting function raises an exception if the output path already exists."""
+    # given
+    mock_get_xcom.side_effect = [
+        {
+            QuantingEnv.RAW_FILE_NAME: "test_file.raw",
+            QuantingEnv.PROJECT_ID: "PID123",
+            # rest of quanting_env is left out here for brevity
+        },
+        -1,
+    ]
+    mock_path.return_value.exists.return_value = True
+
+    ti = MagicMock()
+    mock_ssh_hook = MagicMock()
+
+    kwargs = {
+        OpArgs.SSH_HOOK: mock_ssh_hook,
+    }
+
+    # when
+    with pytest.raises(AirflowFailException):
+        run_quanting(ti, **kwargs)
+
+
+@patch("dags.impl.handler_impl.get_xcom")
+@patch("dags.impl.handler_impl.SSHSensorOperator.ssh_execute")
 def test_run_quanting_executes_ssh_command_error_wrong_job_id(
     mock_ssh_execute: MagicMock,
     mock_get_xcom: MagicMock,
 ) -> None:
     """run_quanting function raises an exception if the job ID is not an integer."""
     # given
-    mock_get_xcom.return_value = {QuantingEnv.RAW_FILE_NAME: "test_file.raw"}
+    mock_get_xcom.side_effect = [
+        {
+            QuantingEnv.RAW_FILE_NAME: "test_file.raw",
+            QuantingEnv.PROJECT_ID: "PID123",
+        },
+        -1,
+    ]
     mock_ssh_execute.return_value = "some_wrong_job_id"
     mock_ssh_hook = MagicMock()
 

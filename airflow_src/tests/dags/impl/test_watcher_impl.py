@@ -11,6 +11,7 @@ from dags.impl.watcher_impl import (
     _add_raw_file_to_db,
     _file_meets_age_criterion,
     _get_file_info,
+    _sort_by_creation_date,
     decide_raw_file_handling,
     get_unknown_raw_files,
     start_acquisition_handler,
@@ -96,6 +97,22 @@ def test_get_unknown_raw_files_with_existing_files_in_db(
 
     mock_put_xcom.assert_called_once_with(ti, XComKeys.RAW_FILE_NAMES, ["file3.raw"])
     mock_sort.assert_called_once_with(["file3.raw"], "some_instrument_id")
+
+
+@patch("dags.impl.watcher_impl._get_file_info")
+def test_sort_by_creation_date_multiple_files(mock_get_file_info: MagicMock) -> None:
+    """Test _sort_by_creation_date with multiple files."""
+    mock_get_file_info.side_effect = [
+        (
+            datetime(2022, 1, 1, 12, 0, 0, tzinfo=pytz.utc).timestamp(),
+            0,
+        ),
+        (datetime(2022, 1, 1, 11, 0, 0, tzinfo=pytz.utc).timestamp(), 0),
+        (datetime(2022, 1, 1, 13, 0, 0, tzinfo=pytz.utc).timestamp(), 0),
+    ]
+    # when
+    result = _sort_by_creation_date(["file1", "file2", "file3"], "instrument1")
+    assert result == ["file3", "file1", "file2"]
 
 
 @patch("dags.impl.watcher_impl.get_internal_instrument_data_path")

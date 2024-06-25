@@ -58,6 +58,9 @@ def df_from_db_data(
     """
     query_set_as_dicts = [r.to_mongo() for r in query_set]
     query_set_df = pd.DataFrame(query_set_as_dicts)
+    if len(query_set_df) == 0:
+        return query_set_df
+
     query_set_df.sort_values(by="created_at_", inplace=True, ascending=False)
 
     if drop_duplicates:

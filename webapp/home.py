@@ -9,13 +9,14 @@ st.set_page_config(page_title="AlphaKraken: home", layout="wide")
 
 """
 # Welcome to AlphaKraken!
-Note: you are currently viewing the 'sandbox' environment. Everything could
-change any minute, and data could be gone at any time.
-Also, bear in mind that the whole AlphaKraken project is currenly work in progress.
+"""
 
-Still, feedback on the current state is always welcome!
+st.warning("""Note: you are currently viewing the 'sandbox' environment. Everything could
+change any minute, and data could be wrong or gone at any time.
+Also, bear in mind that the whole AlphaKraken project is currently work in progress
+and is far from complete in terms of features.""")
 
-
+"""
 ## A basic explanation of how to use this:
 
 If you want to see data for all raw files that have been processed, go to the "overview" tab.

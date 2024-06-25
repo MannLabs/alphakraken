@@ -1,11 +1,14 @@
 """Tests for the watcher_impl module."""
 
+from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import MagicMock, Mock, call, patch
 
 import pytest
+import pytz
 from dags.impl.watcher_impl import (
     _add_raw_file_to_db,
+    _file_meets_age_criterion,
     decide_raw_file_handling,
     get_unknown_raw_files,
     start_acquisition_handler,
@@ -179,6 +182,63 @@ def test_decide_raw_file_handling(
             call("file3", "instrument1"),
         ]
     )
+
+
+@patch("dags.impl.watcher_impl.get_airflow_variable")
+@patch("dags.impl.watcher_impl.get_internal_instrument_data_path")
+def test_file_meets_age_criterion_when_file_is_younger(
+    mock_get_path: MagicMock, mock_get_var: MagicMock
+) -> None:
+    """Test _file_meets_age_criterion when the file is younger than the max. age."""
+    mock_get_var.return_value = "2"
+    mock_get_path.return_value = Path("/path/to/file")
+
+    mocked_stat = MagicMock(
+        st_ctime=(datetime.now(tz=pytz.utc) - timedelta(hours=1)).timestamp()
+    )
+    with patch.object(Path, "stat", return_value=mocked_stat):
+        assert _file_meets_age_criterion("file", "instrument")
+
+
+@patch("dags.impl.watcher_impl.get_airflow_variable")
+@patch("dags.impl.watcher_impl.get_internal_instrument_data_path")
+def test_file_meets_age_criterion_when_file_is_older(
+    mock_get_path: MagicMock, mock_get_var: MagicMock
+) -> None:
+    """Test _file_meets_age_criterion when the file is older than the max. age."""
+    mock_get_var.return_value = "2"
+    mock_get_path.return_value = Path("/path/to/file")
+
+    mocked_stat = MagicMock(
+        st_ctime=(datetime.now(tz=pytz.utc) - timedelta(hours=3)).timestamp()
+    )
+    with patch.object(Path, "stat", return_value=mocked_stat):
+        assert not _file_meets_age_criterion("file", "instrument")
+
+
+@patch("dags.impl.watcher_impl.get_airflow_variable")
+@patch("dags.impl.watcher_impl.get_internal_instrument_data_path")
+def test_file_meets_age_criterion_when_no_max_age_defined(
+    mock_get_path: MagicMock, mock_get_var: MagicMock
+) -> None:
+    """Test _file_meets_age_criterion when no max. age is defined."""
+    mock_get_var.return_value = "-1"
+    mock_get_path.return_value = Path("/path/to/file")
+
+    mocked_stat = MagicMock(
+        st_ctime=(datetime.now(tz=pytz.utc) - timedelta(hours=3)).timestamp()
+    )
+    with patch.object(Path, "stat", return_value=mocked_stat):
+        assert _file_meets_age_criterion("file", "instrument")
+
+
+@patch("dags.impl.watcher_impl.get_airflow_variable")
+def test_file_meets_age_criterion_invalid_number(mock_get_var: MagicMock) -> None:
+    """Test _file_meets_age_criterion when the max. age is not a number."""
+    mock_get_var.return_value = "no_number"
+
+    with pytest.raises(ValueError):
+        _file_meets_age_criterion("file", "instrument")
 
 
 @patch("dags.impl.watcher_impl.get_xcom")

@@ -143,8 +143,9 @@ def _file_meets_age_criterion(
     :param instrument_id: instrument id
     :return: True if the file is younger than the given max. file age or if no max. file age defined, False otherwise
     """
+    max_file_age_in_hours_not_active = "-1"
     max_file_age_in_hours: str = get_airflow_variable(
-        AirflowVars.MAX_FILE_AGE_IN_HOURS, "-1"
+        AirflowVars.MAX_FILE_AGE_IN_HOURS, max_file_age_in_hours_not_active
     )
 
     try:
@@ -155,7 +156,7 @@ def _file_meets_age_criterion(
         )
         raise ValueError from e
 
-    if max_file_age_in_hours != "-1":
+    if max_file_age_in_hours != max_file_age_in_hours_not_active:
         raw_file_path = get_internal_instrument_data_path(instrument_id) / raw_file_name
         raw_file_creation_time = datetime.fromtimestamp(
             raw_file_path.stat().st_ctime, tz=pytz.utc
@@ -165,6 +166,7 @@ def _file_meets_age_criterion(
         time_delta = timedelta(hours=max_file_age_in_hours_float)
         logging.info(f"{now=} {raw_file_creation_time=} {time_delta=}")
         if now - raw_file_creation_time > time_delta:
+            logging.info(f"File {raw_file_name} is too old.")
             return False
 
     return True
@@ -201,11 +203,15 @@ def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
                 DagRunType.MANUAL, execution_date=datetime.now(tz=pytz.utc)
             )
             logging.info(
-                f"Triggering DAG {dag_id_to_trigger} with run_id {run_id} for raw_file_name {raw_file_name}."
+                f"Triggering DAG {dag_id_to_trigger} with {run_id=} for {raw_file_name=}."
             )
             trigger_dag(
                 dag_id=dag_id_to_trigger,
                 run_id=run_id,
                 conf={DagParams.RAW_FILE_NAME: raw_file_name},
                 replace_microseconds=False,
+            )
+        else:
+            logging.info(
+                f"Not triggering DAG {dag_id_to_trigger} for {raw_file_name=}."
             )

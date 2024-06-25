@@ -38,10 +38,10 @@ def _add_raw_file_to_db(
     :return:
     """
     # calculate the file properties already here to have them available as early as possible
-    raw_file_path = get_internal_instrument_data_path(instrument_id) / raw_file_name
-    raw_file_size = raw_file_path.stat().st_size
-    raw_file_creation_time = raw_file_path.stat().st_ctime
-    logging.info(f"Got {raw_file_size / 1024 ** 3} GB {raw_file_creation_time}")
+    raw_file_creation_timestamp, raw_file_size = _get_file_info(
+        raw_file_name, instrument_id
+    )
+    logging.info(f"Got {raw_file_size / 1024 ** 3} GB {raw_file_creation_timestamp}")
 
     add_new_raw_file_to_db(
         raw_file_name,
@@ -49,7 +49,7 @@ def _add_raw_file_to_db(
         instrument_id=instrument_id,
         status=status,
         size=raw_file_size,
-        creation_ts=raw_file_creation_time,
+        creation_ts=raw_file_creation_timestamp,
     )
 
 
@@ -78,6 +78,25 @@ def get_unknown_raw_files(ti: TaskInstance, **kwargs) -> None:
     )
 
     put_xcom(ti, XComKeys.RAW_FILE_NAMES, raw_file_names)
+
+
+# PIP FREEZE ON CLUSTER!!
+# def wait_till_file_is_copied(file_path: str, sleep_time=1, len_file_check=5):
+#     sizes = []
+#     while True:
+#         sleep(sleep_time)
+#         try:
+#             size = Path(file_path).stat().st_size
+#             logging.info(size)
+#         except FileNotFoundError:
+#             logging.warning(f"File {file_path} not found.")
+#             pass
+#         else:
+#             sizes.append(size)
+#
+#             if len(sizes) >= len_file_check and all(size == sizes[-1] for size in sizes[-len_file_check:]):
+#                 logging.info(sizes)
+#                 break
 
 
 def decide_raw_file_handling(ti: TaskInstance, **kwargs) -> None:
@@ -137,10 +156,8 @@ def _file_meets_age_criterion(
         raise ValueError from e
 
     if max_file_age_in_hours != max_file_age_in_hours_not_active:
-        raw_file_path = get_internal_instrument_data_path(instrument_id) / raw_file_name
-        raw_file_creation_time = datetime.fromtimestamp(
-            raw_file_path.stat().st_ctime, tz=pytz.utc
-        )
+        file_creation_ts, _ = _get_file_info(raw_file_name, instrument_id)
+        raw_file_creation_time = datetime.fromtimestamp(file_creation_ts, tz=pytz.utc)
 
         now = datetime.now(tz=pytz.utc)  # TODO: check time zone on acquisition PCS
         time_delta = timedelta(hours=max_file_age_in_hours_float)
@@ -150,6 +167,15 @@ def _file_meets_age_criterion(
             return False
 
     return True
+
+
+def _get_file_info(raw_file_name: str, instrument_id: str) -> tuple[float, float]:
+    """Get the creation timestamp (unix epoch) and the size (in bytes) of the raw file."""
+    raw_file_path = get_internal_instrument_data_path(instrument_id) / raw_file_name
+    file_creation_ts = raw_file_path.stat().st_ctime
+    file_size_bytes = raw_file_path.stat().st_size
+    logging.info(f"File {raw_file_name} has {file_size_bytes=} and {file_creation_ts=}")
+    return file_creation_ts, file_size_bytes
 
 
 def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
@@ -185,10 +211,16 @@ def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
             logging.info(
                 f"Triggering DAG {dag_id_to_trigger} with {run_id=} for {raw_file_name=}."
             )
+            file_creation_ts, _ = _get_file_info(raw_file_name, instrument_id)
             trigger_dag(
                 dag_id=dag_id_to_trigger,
                 run_id=run_id,
-                conf={DagParams.RAW_FILE_NAME: raw_file_name},
+                conf={
+                    DagParams.RAW_FILE_NAME: raw_file_name,
+                    # process younger files with higher priority
+                    # https://airflow.apache.org/docs/apache-airflow/stable/administration-and-deployment/priority-weight.html
+                    "priority_weight": int(file_creation_ts),
+                },
                 replace_microseconds=False,
             )
         else:

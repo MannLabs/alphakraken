@@ -28,12 +28,14 @@ jobs:
       run: |
         pip install -r requirements_development.txt
         pip install -r shared/requirements_shared.txt
+        pip freeze
         python -m pytest shared
 
     # strictly speaking, the webapp and airfloe test sets should be in separate python envs but should be fine for now
     - name: Run webapp unit tests
       run: |
         pip install -r webapp/requirements_webapp.txt
+        pip freeze
         python -m pytest webapp
 
     - name: Run Airflow unit tests
@@ -41,6 +43,7 @@ jobs:
         pip install apache-airflow==2.9.1 --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.9.1/constraints-3.11.txt"
         airflow db init
         pip install -r airflow_src/requirements_airflow.txt
+        pip freeze
         python -m pytest airflow_src
 
   docker-compose-test:

@@ -127,3 +127,20 @@ def _get_color(
         column_styles[column] = style
 
     return [column_styles.get(c) for c in row.index]
+
+
+def highlight_status_cell(row: pd.Series) -> list[str | None]:
+    """Highlight a single cell based on its value."""
+    status = row["status"]
+
+    if status == "error":
+        style = "background-color: darkred"
+    elif status == "processed":
+        style = "background-color: green"
+    elif status == "ignored":
+        style = "background-color: lightgray"
+    else:
+        style = "background-color: #aed989"
+
+    column_styles = {"status": style}
+    return [column_styles.get(c) for c in row.index]

@@ -6,7 +6,13 @@ from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
-from service.components import _get_color, display_status, show_date_select, show_filter
+from service.components import (
+    _get_color,
+    display_status,
+    highlight_status_cell,
+    show_date_select,
+    show_filter,
+)
 
 
 @patch("streamlit.text_input")
@@ -159,3 +165,18 @@ def test_get_color() -> None:
     # when
     result = _get_color(row)
     assert result == ["background-color: #006837", "background-color: #4bb05c", None]
+
+
+def get_status_cell_style() -> None:
+    """Test that the status cell is highlighted correctly."""
+    status_to_expected_style = {
+        "error": ["background-color: red"],
+        "processed": ["background-color: green"],
+        "ignored": ["background-color: lightgray"],
+        "other": ["background-color: #aed989"],
+    }
+
+    for status, expected_style in status_to_expected_style.items():
+        # when
+        style = highlight_status_cell(pd.Series({"status": status}))
+        assert style == expected_style

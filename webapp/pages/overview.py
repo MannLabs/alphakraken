@@ -6,7 +6,12 @@ import plotly.express as px
 # ruff: noqa: PD002 # `inplace=True` should be avoided; it has inconsistent behavior
 import streamlit as st
 from matplotlib import pyplot as plt
-from service.components import display_status, show_date_select, show_filter
+from service.components import (
+    display_status,
+    highlight_status_cell,
+    show_date_select,
+    show_filter,
+)
 from service.db import df_from_db_data, get_raw_file_and_metrics_data
 from service.utils import _log
 
@@ -91,10 +96,12 @@ def display(df: pd.DataFrame) -> None:
     st.dataframe(
         filtered_df.style.background_gradient(
             subset=[
+                "size_gb",
                 "proteins",
+                "precursors",
             ],
             cmap=cmap,
-        )
+        ).apply(highlight_status_cell, axis=1)
     )
 
     # ########################################### DISPLAY: plots

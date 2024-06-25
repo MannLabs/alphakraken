@@ -25,6 +25,7 @@ class RawFileStatus:
     PROCESSING = "processing"
     PROCESSED = "processed"
     FAILED = "failed"
+    ERROR = "error"
 
 
 class RawFile(Document):

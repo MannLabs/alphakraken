@@ -3,24 +3,35 @@
 import logging
 from typing import Any
 
-# from common.exceptions import RawfileProcessingError
+from common.keys import XComKeys
+from common.utils import get_xcom
+
 from shared.db.interface import update_raw_file_status
 from shared.db.models import RawFileStatus
 
 
 def on_failure_callback(context: dict[str, Any], **kwargs) -> None:
-    """Set raw file status depending on exceptions."""
+    """Set raw file status to error.
+
+    Assumes that "raw_file_name" is in the XCom.
+    """
     logging.info(f"on_failure_callback {context}, {kwargs}")
 
     ti = context["task_instance"]
     logging.info(f"task {ti.task_id} failed in dag {ti.dag_id} ")
 
+    try:
+        raw_file_name = get_xcom(ti, key=XComKeys.RAW_FILE_NAME)
+    except KeyError:
+        logging.warning(
+            "could not find raw file name in xcom. Not updating status in db."
+        )
+        return
+
     ex = context["exception"]
 
-    status_details = None
-    # if isinstance(ex, RawfileProcessingError):
-    #     status_details=ex.details
-
     update_raw_file_status(
-        ex.raw_file_name, RawFileStatus.ERROR, status_details=status_details
+        raw_file_name,
+        new_status=RawFileStatus.ERROR,
+        status_details=f"{ti.task_id}: {ex!s}",
     )

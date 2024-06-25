@@ -2,6 +2,7 @@
 
 from unittest.mock import MagicMock, patch
 
+from common.keys import JobStates
 from plugins.sensors.ssh_sensor import QuantingSSHSensor, SSHSensorOperator
 
 
@@ -13,7 +14,7 @@ def test_poke_executes_ssh_command_and_checks_returned_state(
     """Test that the poke function returns False when the returned state is in the running states."""
     # given
     mock_get_xcom.return_value = "12345"
-    mock_ssh_execute.return_value = "RUNNING"
+    mock_ssh_execute.return_value = JobStates.RUNNING
     context = {"ti": MagicMock()}
     ssh_hook = MagicMock()
     operator = QuantingSSHSensor(task_id="my_task", ssh_hook=ssh_hook)
@@ -35,7 +36,7 @@ def test_poke_returns_true_when_state_not_in_running_states(
     """Test that the poke function returns True when the returned state is not in the running states."""
     # given
     mock_get_xcom.return_value = "12345"
-    mock_ssh_execute.return_value = "COMPLETED"
+    mock_ssh_execute.return_value = JobStates.COMPLETED
     context = {"ti": MagicMock()}
     ssh_hook = MagicMock()
     operator = QuantingSSHSensor(task_id="my_task", ssh_hook=ssh_hook)

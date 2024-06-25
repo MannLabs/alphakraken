@@ -90,3 +90,11 @@ class QuantingEnv:
     SOFTWARE = "SOFTWARE"
     PROJECT_ID = "PROJECT_ID"
     IO_POOL_FOLDER = "IO_POOL_FOLDER"
+
+
+class JobStates:
+    """States of a slurm job as returned by the sacct command, cf slurm_commands.py:get_job_state_cmd()."""
+
+    PENDING: str = "PENDING"
+    RUNNING: str = "RUNNING"
+    COMPLETED: str = "COMPLETED"

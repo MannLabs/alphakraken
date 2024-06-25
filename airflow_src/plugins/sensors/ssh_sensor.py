@@ -85,12 +85,16 @@ class SSHSensorOperator(BaseSensorOperator, ABC):
         logging.warning(
             f"Variable {AirflowVars.DEBUG_NO_CLUSTER_SSH} set: Not running SSH command on cluster:\n{command}"
         )
-        # very heuristic way to return a fake response
+        # very heuristic way to decide which fake response to return
         if "sbatch" in command:  # run job
-            return "something\nsomething\n123"
-        if "quanting_time_elapsed" in command:  # get job info
-            return "00:00:01"
-        return JobStates.COMPLETED  # monitor job
+            response = "something\nsomething\n123"
+        elif "TIME_ELAPSED" in command:  # get job info
+            response = f"00:00:01\nsomething\n{JobStates.COMPLETED}"
+        else:
+            response = JobStates.COMPLETED  # monitor job
+
+        logging.warning(f"Returning fake response: {response}")
+        return response
 
 
 class QuantingSSHSensor(SSHSensorOperator):

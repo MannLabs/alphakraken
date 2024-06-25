@@ -266,18 +266,24 @@ special worker ("test1") is used that is connected to the `airflow_test_folder` 
 2. Unpause all `*.test1` DAGs. The "watcher" should start running.
 3. If you do not want to feed the cluster, set the Airflow variable `debug_no_cluster_ssh=True` (see above)
 4. In the webapp, create a project with the name `P1`, and add some fake settings to it.
-4. Create a test raw file in the backup pool folder to fake the acquisition
-and copy fake alphaDIA result data to the expected output directory to fake the processing:
+5. Create a test raw file in the backup pool folder to fake the acquisition
 ```bash
 I=$((I+1)); NEW_FILE_NAME=test_file_SA_P1_${I}.raw; echo $NEW_FILE_NAME
 touch airflow_test_folders/backup_pool/test1/$NEW_FILE_NAME
+```
 
-NEW_OUTPUT_FOLDER=airflow_test_folders/output/out_$NEW_FILE_NAME
-mkdir $NEW_OUTPUT_FOLDER
+6. Wait until the `acquisition_watchers` picks up the file (you may mark the `wait_for_new_files` task as "success" to speed up the process).
+
+7. After the `compute_metrics` task failed because of missing output files,
+create those by copying fake alphaDIA result data to the expected output directory
+```bash
+NEW_OUTPUT_FOLDER=airflow_test_folders/output/P1/out_$NEW_FILE_NAME
+mkdir -p $NEW_OUTPUT_FOLDER
 cp airflow_test_folders/_data/stat.tsv $NEW_OUTPUT_FOLDER
 ```
-5. Wait until the `acquisition_watchers` picks up the file (you may mark the `wait_for_new_files` task as "success" to speed up the process).
-6. Wait until it appears in the webapp.
+and clear the task state using the UI.
+
+8. Wait until DAG run finished and check results in the webapp.
 
 ### Connect to the DB
 Use e.g. MongoDB Compass to connect to the MongoDB running in Docker using the url `localhost:27017`,

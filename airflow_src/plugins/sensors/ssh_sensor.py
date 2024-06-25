@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 from airflow.providers.ssh.hooks.ssh import SSHHook
 from airflow.sensors.base import BaseSensorOperator
 from cluster_scripts.slurm_commands import get_job_state_cmd
-from common.keys import AirflowVars, XComKeys
+from common.keys import AirflowVars, JobStates, XComKeys
 from common.utils import get_airflow_variable, get_xcom
 
 
@@ -90,7 +90,7 @@ class SSHSensorOperator(BaseSensorOperator, ABC):
             return "something\nsomething\n123"
         if "quanting_time_elapsed" in command:  # get job info
             return "00:00:01"
-        return "COMPLETED"  # monitor job
+        return JobStates.COMPLETED  # monitor job
 
 
 class QuantingSSHSensor(SSHSensorOperator):
@@ -104,4 +104,4 @@ class QuantingSSHSensor(SSHSensorOperator):
     @property
     def running_states(self) -> list[str]:
         """States that are considered 'running'."""
-        return ["PENDING", "RUNNING"]
+        return [JobStates.PENDING, JobStates.RUNNING]

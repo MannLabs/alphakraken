@@ -2,7 +2,7 @@
 
 from unittest.mock import MagicMock, patch
 
-from common.keys import JobStates
+from plugins.common.keys import JobStates
 from plugins.sensors.ssh_sensor import QuantingSSHSensor, SSHSensorOperator
 
 

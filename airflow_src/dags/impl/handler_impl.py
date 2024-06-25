@@ -12,8 +12,7 @@ from cluster_scripts.slurm_commands import (
     get_job_state_cmd,
     get_run_quanting_cmd,
 )
-from common.exceptions import QuantingFailedError
-from common.keys import DagContext, DagParams, OpArgs, QuantingEnv, XComKeys
+from common.keys import DagContext, DagParams, JobStates, OpArgs, QuantingEnv, XComKeys
 from common.settings import (
     CLUSTER_WORKING_DIR,
     FALLBACK_PROJECT_ID,
@@ -130,7 +129,6 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
 def get_job_info(ti: TaskInstance, **kwargs) -> None:
     """Get info (slurm log, alphaDIA log) about a job from the cluster."""
     ssh_hook = kwargs[OpArgs.SSH_HOOK]
-    raw_file_name = get_xcom(ti, XComKeys.RAW_FILE_NAME)
     job_id = get_xcom(ti, XComKeys.JOB_ID)
 
     slurm_output_file = f"{CLUSTER_WORKING_DIR}/slurm-{job_id}.out"
@@ -143,9 +141,9 @@ def get_job_info(ti: TaskInstance, **kwargs) -> None:
     put_xcom(ti, XComKeys.QUANTING_TIME_ELAPSED, time_elapsed)
 
     job_status = ssh_return.split("\n")[-1]
-    if job_status != "COMPLETED":
+    if job_status != JobStates.COMPLETED:
         logging.info(f"Job {job_id} exited with status {job_status}.")
-        raise QuantingFailedError(raw_file_name, f"{job_status=}")
+        raise AirflowFailException("Quanting failed.")
 
 
 def _get_time_elapsed(ssh_return: str) -> int:

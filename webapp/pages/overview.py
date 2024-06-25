@@ -127,8 +127,8 @@ def draw_plot(df: pd.DataFrame, x: str, y: str) -> None:
     df_to_plot = df.reset_index()
     median_ = df_to_plot[y].median()
 
-    marker_color = [
-        "red" if x == "error" else "black" for x in df_to_plot["status"].to_numpy()
+    symbol = [
+        "x" if x == "error" else "circle" for x in df_to_plot["status"].to_numpy()
     ]
 
     fig = px.scatter(
@@ -142,7 +142,7 @@ def draw_plot(df: pd.DataFrame, x: str, y: str) -> None:
         height=400,
     ).update_traces(
         mode="lines+markers",
-        marker={"color": marker_color},
+        marker={"symbol": symbol},
     )
     fig.add_hline(y=median_, line_dash="dash", line={"color": "lightgrey"})
     st.plotly_chart(fig)

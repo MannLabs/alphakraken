@@ -80,25 +80,6 @@ def get_unknown_raw_files(ti: TaskInstance, **kwargs) -> None:
     put_xcom(ti, XComKeys.RAW_FILE_NAMES, raw_file_names)
 
 
-# PIP FREEZE ON CLUSTER!!
-# def wait_till_file_is_copied(file_path: str, sleep_time=1, len_file_check=5):
-#     sizes = []
-#     while True:
-#         sleep(sleep_time)
-#         try:
-#             size = Path(file_path).stat().st_size
-#             logging.info(size)
-#         except FileNotFoundError:
-#             logging.warning(f"File {file_path} not found.")
-#             pass
-#         else:
-#             sizes.append(size)
-#
-#             if len(sizes) >= len_file_check and all(size == sizes[-1] for size in sizes[-len_file_check:]):
-#                 logging.info(sizes)
-#                 break
-
-
 def decide_raw_file_handling(ti: TaskInstance, **kwargs) -> None:
     """Decide for each raw file wheter a acquisition handler should be triggered or not."""
     instrument_id = kwargs[OpArgs.INSTRUMENT_ID]

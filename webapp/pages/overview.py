@@ -50,6 +50,8 @@ combined_df = raw_files_df.merge(
 combined_df["size_gb"] = combined_df["size"] / 1024**3
 combined_df["file_created"] = combined_df["created_at"].dt.strftime("%Y-%m-%d %H:%M:%S")
 combined_df["quanting_time_minutes"] = combined_df["quanting_time_elapsed"] / 60
+combined_df["precursors"] = combined_df["precursors"].astype("Int64", errors="ignore")
+combined_df["proteins"] = combined_df["proteins"].astype("Int64", errors="ignore")
 
 # eye candy
 combined_df.sort_values(by="created_at", ascending=False, inplace=True)
@@ -101,7 +103,17 @@ def display(df: pd.DataFrame) -> None:
                 "precursors",
             ],
             cmap=cmap,
-        ).apply(highlight_status_cell, axis=1)
+        )
+        .apply(highlight_status_cell, axis=1)
+        .format(
+            subset=[
+                "size_gb",
+                "ms1_accuracy",
+                "fwhm_rt",
+                "quanting_time_minutes",
+            ],
+            formatter="{:.3}",
+        )
     )
 
     # ########################################### DISPLAY: plots

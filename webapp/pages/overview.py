@@ -156,6 +156,7 @@ def display(df: pd.DataFrame) -> None:
 def draw_plot(df: pd.DataFrame, x: str, y: str) -> None:
     """Draw a plot of a DataFrame."""
     median_ = df[y].median()
+    df = df.sort_values(by=x)
 
     symbol = ["x" if x == "error" else "circle" for x in df["status"].to_numpy()]
 

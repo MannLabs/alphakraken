@@ -80,11 +80,9 @@ column_order = [
 ] + columns_at_end
 
 
-# using a fragment to avoid re-doing the above operations on every filter change
-# cf. https://docs.streamlit.io/develop/concepts/architecture/fragments
 @st.experimental_fragment
-def display(df: pd.DataFrame) -> None:
-    """A fragment that displays a DataFrame with a filter."""
+def _display_status(df: pd.DataFrame) -> None:
+    """A fragment that displays the status information."""
     st.markdown("## Status")
     try:
         display_status(df)
@@ -92,6 +90,12 @@ def display(df: pd.DataFrame) -> None:
         _log(str(e))
         st.warning(f"Cannot not display status: {e}.")
 
+
+# using a fragment to avoid re-doing the above operations on every filter change
+# cf. https://docs.streamlit.io/develop/concepts/architecture/fragments
+@st.experimental_fragment
+def _display_table(df: pd.DataFrame) -> None:
+    """A fragment that displays a DataFrame with a filter."""
     st.markdown("## Data")
 
     # filter
@@ -132,8 +136,11 @@ def display(df: pd.DataFrame) -> None:
         column_order=column_order,
     )
 
-    # ########################################### DISPLAY: plots
 
+# ########################################### DISPLAY: plots
+@st.experimental_fragment
+def _display_plots(df: pd.DataFrame) -> None:
+    """A fragment that displays the plots."""
     st.markdown("## Plots")
     selectbox_columns = ["file_created"] + [
         col for col in column_order if col != "file_created"
@@ -148,12 +155,12 @@ def display(df: pd.DataFrame) -> None:
         "quanting_time_minutes",
     ]:
         try:
-            draw_plot(filtered_df, x, y)
+            _draw_plot(df, x, y)
         except Exception as e:  # noqa: BLE001, PERF203
             _log(str(e))
 
 
-def draw_plot(df: pd.DataFrame, x: str, y: str) -> None:
+def _draw_plot(df: pd.DataFrame, x: str, y: str) -> None:
     """Draw a plot of a DataFrame."""
     median_ = df[y].median()
     df = df.sort_values(by=x)
@@ -177,4 +184,6 @@ def draw_plot(df: pd.DataFrame, x: str, y: str) -> None:
     st.plotly_chart(fig)
 
 
-display(combined_df)
+_display_status(combined_df)
+_display_table(combined_df)
+_display_plots(combined_df)

@@ -106,6 +106,7 @@ def display(df: pd.DataFrame) -> None:
     st.write(f"Showing {len(filtered_df)} / {len_whole_df} entries.")
 
     cmap = plt.get_cmap("RdYlGn")
+    cmap.set_bad(color="white")
     st.dataframe(
         filtered_df.style.background_gradient(
             subset=[

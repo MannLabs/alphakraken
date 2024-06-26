@@ -66,10 +66,10 @@ cd ${OUTPUT_PATH}
 
 # output directory could already exists at this stage of overwrite flag it set
 echo OUTPUT ">>>>>>"
-if [ -d "${OUTPUT_PATH}" ]; then
-  du -s ${OUTPUT_PATH}/*
-  md5sum ${OUTPUT_PATH}/*
-fi
+set +e
+du -s ${OUTPUT_PATH}/*
+md5sum ${OUTPUT_PATH}/*
+set -e
 echo "<<<<<<"
 
 echo CONDA ENV ">>>>>>"
@@ -92,8 +92,8 @@ echo $?
 echo "<<<<<<"
 
 echo OUTPUT ">>>>>>"
-if [ -d "${OUTPUT_PATH}" ]; then
-  du -s ${OUTPUT_PATH}/*
-  md5sum ${OUTPUT_PATH}/*
-fi
+set +e
+du -s ${OUTPUT_PATH}/*
+md5sum ${OUTPUT_PATH}/*
+set -e
 echo "<<<<<<"

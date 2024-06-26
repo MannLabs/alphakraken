@@ -135,7 +135,10 @@ def display(df: pd.DataFrame) -> None:
     # ########################################### DISPLAY: plots
 
     st.markdown("## Plots")
-    x = "file_created"
+    selectbox_columns = ["file_created"] + [
+        col for col in column_order if col != "file_created"
+    ]
+    x = st.selectbox(label="Choose x-axis:", options=selectbox_columns)
     for y in [
         "size_gb",
         "precursors",

@@ -80,12 +80,14 @@ echo "<<<<<<"
 echo "Running alphadia.."
 echo "Check the logs in ${OUTPUT_PATH}/log.txt"
 
+set +e
 conda run -n $CONDA_ENV alphadia \
     --file "${RAW_FILE_PATH}" \
     ${SPECLIB_COMMAND} \
     ${FASTA_COMMAND} \
     --config "${CONFIG_FILE_PATH}" \
     --output "${OUTPUT_PATH}"
+set -e
 
 echo ALPHADIA EXIT CODE ">>>>>>"
 echo $?

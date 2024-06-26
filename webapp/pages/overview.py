@@ -63,9 +63,9 @@ combined_df.drop(
 columns_at_end = [
     "status_details",
     "project_id",
-    "created_at",
-    "created_at_",
     "updated_at_",
+    "created_at_",
+    "created_at",
 ]
 combined_df = combined_df[
     [col for col in combined_df.columns if col not in columns_at_end] + columns_at_end

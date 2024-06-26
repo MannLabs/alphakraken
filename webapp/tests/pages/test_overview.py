@@ -43,7 +43,9 @@ def test_overview(mock_df: MagicMock, mock_get: MagicMock) -> None:
             "raw_file": [1, 2],
             "proteins": [1, 2],
             "precursors": [1, 2],
-            "quanting_time_elapsed": [60, 120],
+            "ms1_accuracy": [1.0, 2.0],
+            "fwhm_rt": [1.0, 2.0],
+            "quanting_time_elapsed": [60.0, 120.0],
         }
     )
 
@@ -57,6 +59,8 @@ def test_overview(mock_df: MagicMock, mock_get: MagicMock) -> None:
     expected_data = {
         "proteins": {1: 1, 2: 2},
         "precursors": {1: 1, 2: 2},
+        "ms1_accuracy": {1: 1, 2: 2},
+        "fwhm_rt": {1: 1, 2: 2},
         "created_at": {1: ts1, 2: ts2},
         "created_at_": {1: ts1, 2: ts2},
         "updated_at_": {1: ts1, 2: ts2},

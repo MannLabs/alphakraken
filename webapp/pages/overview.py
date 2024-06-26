@@ -60,7 +60,13 @@ combined_df.index = combined_df["_id"]
 combined_df.drop(
     columns=["size", "quanting_time_elapsed", "raw_file", "_id"], inplace=True
 )
-columns_at_end = ["created_at", "created_at_", "updated_at_"]
+columns_at_end = [
+    "status_details",
+    "project_id",
+    "created_at",
+    "created_at_",
+    "updated_at_",
+]
 combined_df = combined_df[
     [col for col in combined_df.columns if col not in columns_at_end] + columns_at_end
 ]
@@ -101,6 +107,9 @@ def display(df: pd.DataFrame) -> None:
                 "size_gb",
                 "proteins",
                 "precursors",
+                "ms1_accuracy",
+                "fwhm_rt",
+                "quanting_time_minutes",
             ],
             cmap=cmap,
         )

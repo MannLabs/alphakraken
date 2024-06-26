@@ -35,7 +35,9 @@ def test_overview(mock_df: MagicMock, mock_get: MagicMock) -> None:
                 ts2,
             ],
             "size": [1024**3, 2 * 1024**3],
+            "project_id": ["P1", "P2"],
             "status": ["processed", "error"],
+            "status_details": ["", ""],
         },
     )
     metrics_df = pd.DataFrame(
@@ -67,7 +69,9 @@ def test_overview(mock_df: MagicMock, mock_get: MagicMock) -> None:
         "file_created": {1: ts1str, 2: ts2str},
         "quanting_time_minutes": {1: 1.0, 2: 2.0},
         "size_gb": {1: 1.0, 2: 2.0},
+        "project_id": {1: "P1", 2: "P2"},
         "status": {1: "processed", 2: "error"},
+        "status_details": {1: "", 2: ""},
     }
 
     assert at.dataframe[0].value.to_dict() == expected_data

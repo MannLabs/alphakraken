@@ -152,7 +152,7 @@ def _display_table_and_plots(df: pd.DataFrame) -> None:
         "quanting_time_minutes",
     ]:
         try:
-            _draw_plot(df, x, y)
+            _draw_plot(filtered_df, x, y)
         except Exception as e:  # noqa: BLE001, PERF203
             _log(str(e))
 

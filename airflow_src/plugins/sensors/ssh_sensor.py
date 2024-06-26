@@ -2,7 +2,9 @@
 
 import logging
 from abc import ABC, abstractmethod
+from time import sleep
 
+from airflow.exceptions import AirflowFailException
 from airflow.providers.ssh.hooks.ssh import SSHHook
 from airflow.sensors.base import BaseSensorOperator
 from cluster_scripts.slurm_commands import get_job_state_cmd
@@ -53,26 +55,34 @@ class SSHSensorOperator(BaseSensorOperator, ABC):
         return True
 
     @staticmethod
-    def ssh_execute(
-        command: str,
-        ssh_hook: SSHHook,
-    ) -> str:
+    def ssh_execute(command: str, ssh_hook: SSHHook, max_tries: int = 10) -> str:
         """Execute the given `command` via the `ssh_hook`."""
         # this is a hack to prevent jobs to be run on the cluster, useful for debugging and initial setup.
         # TODO: needs to be improved, maybe by setting up a container with a fake ssh server
         if get_airflow_variable(AirflowVars.DEBUG_NO_CLUSTER_SSH, "False") == "True":
             return SSHSensorOperator._get_fake_ssh_response(command)
 
-        exit_status, agg_stdout, agg_stderr = ssh_hook.exec_ssh_client_command(
-            ssh_hook.get_conn(),
-            command,
-            timeout=60,
-            get_pty=False,
-            environment={},
-        )
-        logging.info(
-            f"ssh command returned: {exit_status=} {agg_stdout=} {agg_stderr=}"
-        )
+        # Sometimes the SSH command returns an exit status '254', so retry until it is 200
+        exit_status = -1
+        call_count = 0
+        while exit_status != 0:
+            if exit_status != -1:
+                sleep(5 * call_count)
+            exit_status, agg_stdout, agg_stderr = ssh_hook.exec_ssh_client_command(
+                ssh_hook.get_conn(),
+                command,
+                timeout=60,
+                get_pty=False,
+                environment={},
+            )
+            logging.info(
+                f"ssh command call {call_count+1} returned: {exit_status=} {agg_stdout=} {agg_stderr=}"
+            )
+
+            call_count += 1
+            if call_count >= max_tries:
+                raise AirflowFailException(f"Too many calls to ssh_execute: {command=}")
+
         return agg_stdout.decode("utf-8").strip()
 
     @staticmethod

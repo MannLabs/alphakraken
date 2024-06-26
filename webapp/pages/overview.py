@@ -80,7 +80,7 @@ column_order = [
 ] + columns_at_end
 
 
-@st.experimental_fragment(run_every="10s")
+@st.experimental_fragment
 def _display_status(df: pd.DataFrame) -> None:
     """A fragment that displays the status information."""
     st.markdown("## Status")

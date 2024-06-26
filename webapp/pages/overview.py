@@ -52,27 +52,33 @@ combined_df["file_created"] = combined_df["created_at"].dt.strftime("%Y-%m-%d %H
 combined_df["quanting_time_minutes"] = combined_df["quanting_time_elapsed"] / 60
 combined_df["precursors"] = combined_df["precursors"].astype("Int64", errors="ignore")
 combined_df["proteins"] = combined_df["proteins"].astype("Int64", errors="ignore")
+combined_df["updated_at_"] = combined_df["updated_at_"].apply(
+    lambda x: x.replace(microsecond=0)
+)
+combined_df["created_at_"] = combined_df["created_at_"].apply(
+    lambda x: x.replace(microsecond=0)
+)
 
-# eye candy
+# sorting & indexing
 combined_df.sort_values(by="created_at", ascending=False, inplace=True)
 combined_df.reset_index(drop=True, inplace=True)
 combined_df.index = combined_df["_id"]
-combined_df.drop(
-    columns=["size", "quanting_time_elapsed", "raw_file", "_id"], inplace=True
-)
+
+
+# ########################################### DISPLAY: table
+
 columns_at_end = [
     "status_details",
     "project_id",
     "updated_at_",
     "created_at_",
-    "created_at",
 ]
-combined_df = combined_df[
-    [col for col in combined_df.columns if col not in columns_at_end] + columns_at_end
-]
-
-
-# ########################################### DISPLAY: table
+columns_to_hide = ["created_at", "size", "quanting_time_elapsed", "raw_file", "_id"]
+column_order = [
+    col
+    for col in combined_df.columns
+    if col not in columns_at_end and col not in columns_to_hide
+] + columns_at_end
 
 
 # using a fragment to avoid re-doing the above operations on every filter change
@@ -122,7 +128,8 @@ def display(df: pd.DataFrame) -> None:
                 "quanting_time_minutes",
             ],
             formatter="{:.3}",
-        )
+        ),
+        column_order=column_order,
     )
 
     # ########################################### DISPLAY: plots

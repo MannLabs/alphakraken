@@ -64,7 +64,7 @@ combined_df.sort_values(by="created_at", ascending=False, inplace=True)
 combined_df.reset_index(drop=True, inplace=True)
 combined_df.index = combined_df["_id"]
 
-
+st.dataframe(combined_df)
 # ########################################### DISPLAY: table
 
 columns_at_end = [
@@ -152,15 +152,12 @@ def display(df: pd.DataFrame) -> None:
 
 def draw_plot(df: pd.DataFrame, x: str, y: str) -> None:
     """Draw a plot of a DataFrame."""
-    df_to_plot = df.reset_index()
-    median_ = df_to_plot[y].median()
+    median_ = df[y].median()
 
-    symbol = [
-        "x" if x == "error" else "circle" for x in df_to_plot["status"].to_numpy()
-    ]
+    symbol = ["x" if x == "error" else "circle" for x in df["status"].to_numpy()]
 
     fig = px.scatter(
-        df_to_plot,
+        df,
         x=x,
         y=y,
         color="instrument_id",

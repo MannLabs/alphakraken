@@ -191,7 +191,9 @@ def test_run_quanting_job_id_exists(
 
 @patch("dags.impl.handler_impl.get_xcom")
 @patch("dags.impl.handler_impl.Path")
+@patch("dags.impl.handler_impl.get_airflow_variable")
 def test_run_quanting_output_folder_exists(
+    mock_get_airflow_variable: MagicMock,
     mock_path: MagicMock,
     mock_get_xcom: MagicMock,
 ) -> None:
@@ -206,6 +208,7 @@ def test_run_quanting_output_folder_exists(
         -1,
     ]
     mock_path.return_value.exists.return_value = True
+    mock_get_airflow_variable.return_value = "False"
 
     ti = MagicMock()
     mock_ssh_hook = MagicMock()
@@ -217,6 +220,8 @@ def test_run_quanting_output_folder_exists(
     # when
     with pytest.raises(AirflowFailException):
         run_quanting(ti, **kwargs)
+
+    mock_get_airflow_variable.assert_called_once_with("allow_output_overwrite", "False")
 
 
 @patch("dags.impl.handler_impl.get_xcom")

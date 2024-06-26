@@ -64,7 +64,6 @@ combined_df.sort_values(by="created_at", ascending=False, inplace=True)
 combined_df.reset_index(drop=True, inplace=True)
 combined_df.index = combined_df["_id"]
 
-st.dataframe(combined_df)
 # ########################################### DISPLAY: table
 
 columns_at_end = [

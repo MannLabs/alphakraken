@@ -80,7 +80,7 @@ column_order = [
 ] + columns_at_end
 
 
-@st.experimental_fragment
+@st.experimental_fragment(run_every="10s")
 def _display_status(df: pd.DataFrame) -> None:
     """A fragment that displays the status information."""
     st.markdown("## Status")
@@ -94,7 +94,7 @@ def _display_status(df: pd.DataFrame) -> None:
 # using a fragment to avoid re-doing the above operations on every filter change
 # cf. https://docs.streamlit.io/develop/concepts/architecture/fragments
 @st.experimental_fragment
-def _display_table(df: pd.DataFrame) -> None:
+def _display_table_and_plots(df: pd.DataFrame) -> None:
     """A fragment that displays a DataFrame with a filter."""
     st.markdown("## Data")
 
@@ -136,11 +136,8 @@ def _display_table(df: pd.DataFrame) -> None:
         column_order=column_order,
     )
 
+    # ########################################### DISPLAY: plots
 
-# ########################################### DISPLAY: plots
-@st.experimental_fragment
-def _display_plots(df: pd.DataFrame) -> None:
-    """A fragment that displays the plots."""
     st.markdown("## Plots")
     selectbox_columns = ["file_created"] + [
         col for col in column_order if col != "file_created"
@@ -185,5 +182,5 @@ def _draw_plot(df: pd.DataFrame, x: str, y: str) -> None:
 
 
 _display_status(combined_df)
-_display_table(combined_df)
-_display_plots(combined_df)
+
+_display_table_and_plots(combined_df)

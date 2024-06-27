@@ -74,7 +74,6 @@ def test_prepare_quanting(
     )
     ti = MagicMock()
 
-    # when
     kwargs = {
         OpArgs.INSTRUMENT_ID: "instrument1",
         DagContext.PARAMS: {

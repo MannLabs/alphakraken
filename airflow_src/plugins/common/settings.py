@@ -33,6 +33,8 @@ class InternalPaths:
     """Paths to directories within the Docker containers."""
 
     MOUNTS_PATH = "/opt/airflow/mounts/"
+    INSTRUMENTS = "instruments"
+    BACKUP = "backup"
     OUTPUT = "output"
 
 

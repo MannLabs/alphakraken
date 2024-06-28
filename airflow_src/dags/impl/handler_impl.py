@@ -24,6 +24,7 @@ from common.keys import (
 from common.settings import (
     CLUSTER_WORKING_DIR,
     FALLBACK_PROJECT_ID,
+    InternalPaths,
     get_internal_output_path,
     get_output_folder_rel_path,
     get_relative_instrument_data_path,
@@ -57,7 +58,13 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
 
     project_id = _get_project_id_for_raw_file(raw_file_name)
 
-    instrument_subfolder = get_relative_instrument_data_path(instrument_id)
+    if instrument_id == "test2":
+        io_pool_folder = get_env_variable(EnvVars.IO_POOL_FOLDER)
+        instrument_subfolder = (
+            f"{io_pool_folder}/{InternalPaths.BACKUP}/{instrument_id}"
+        )
+    else:
+        instrument_subfolder = get_relative_instrument_data_path(instrument_id)
     output_folder_rel_path = get_output_folder_rel_path(raw_file_name, project_id)
 
     settings = get_settings_for_project(project_id)

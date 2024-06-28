@@ -30,8 +30,8 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
 
     update_raw_file(raw_file_name, new_status=RawFileStatus.COPYING)
 
-    src = InternalPaths.MOUNTS_PATH / "instruments" / instrument_id / raw_file_name
-    dst = InternalPaths.MOUNTS_PATH / "backup" / instrument_id / raw_file_name
+    src = f"{InternalPaths.MOUNTS_PATH}/{InternalPaths.INSTRUMENTS}/{instrument_id}/{raw_file_name}"
+    dst = f"{InternalPaths.MOUNTS_PATH}/{InternalPaths.BACKUP}/{instrument_id}/{raw_file_name}"
 
     logging.info(f"Preparing copying {src} to {dst} ..")
 

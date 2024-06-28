@@ -17,6 +17,7 @@ from common.keys import (
 )
 from common.settings import AIRFLOW_QUEUE_PREFIX, INSTRUMENTS
 from impl.monitor_impl import start_acquisition_handler
+from sensors.acquisition_monitor import AcquisitionMonitor
 
 
 # TODO: rename to acquisition_monitor (or handler? then acquisition_handler would be acquisition_processor)
@@ -42,8 +43,8 @@ def create_file_handler_dag(instrument_id: str) -> None:
     ) as dag:
         dag.doc_md = __doc__
 
-        monitor_acquisition_ = EmptyOperator(
-            task_id=Tasks.MONITOR_ACQUISITION,
+        monitor_acquisition_ = AcquisitionMonitor(
+            task_id=Tasks.MONITOR_ACQUISITION, instrument_id=instrument_id
         )
 
         copy_raw_files_ = EmptyOperator(

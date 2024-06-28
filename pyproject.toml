@@ -25,7 +25,8 @@ ignore = [
     "ANN204", # Missing return type annotation for special method `__init__`
     "D401", # First line of docstring should be in imperative mood
     "B023", # Function definition does not bind loop variable
-    "PD901" # Avoid using the generic variable name `df` for DataFrames"
+    "PD901", # Avoid using the generic variable name `df` for DataFrames"
+    "TCH003" # Move standard library import into a type-checking block
 ]
 
 [tool.pytest.ini_options]

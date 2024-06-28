@@ -2,6 +2,7 @@
 
 import logging
 import shutil
+from datetime import datetime
 from pathlib import Path
 
 from airflow.models import TaskInstance
@@ -35,15 +36,18 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
 
     logging.info(f"Preparing copying {src} to {dst} ..")
 
-    if instrument_id == "test2":
-        logging.info(f"Copying {src} to {dst} ..")
+    logging.info(f"Copying {src} to {dst} ..")
 
-        shutil.copy2(src, dst)
-        logging.info("Copying done!")
+    start = datetime.now()  # noqa: DTZ005
+    shutil.copy2(src, dst)
+    time_elapsed = (datetime.now() - start).total_seconds()  # noqa: DTZ005
 
-        size_src = Path(src).stat().st_size
-        size_dst = Path(dst).stat().st_size
-        assert size_src == size_dst, f"Size mismatch: {size_src} != {size_dst}"
+    size_src = Path(src).stat().st_size
+    size_dst = Path(dst).stat().st_size
+
+    logging.info(f"Copying done! {size_src/time_elapsed/1024**2} MB/s")
+
+    assert size_src == size_dst, f"Size mismatch: {size_src} != {size_dst}"
 
     file_size = _get_file_size(raw_file_name, instrument_id)
 

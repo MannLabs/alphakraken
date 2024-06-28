@@ -14,7 +14,7 @@ from dags.impl.watcher_impl import (
     _sort_by_creation_date,
     decide_raw_file_handling,
     get_unknown_raw_files,
-    start_acquisition_handler,
+    start_file_handler,
 )
 from plugins.common.keys import OpArgs, XComKeys
 
@@ -285,18 +285,18 @@ def test_file_meets_age_criterion_invalid_number(mock_get_var: MagicMock) -> Non
 @patch("dags.impl.watcher_impl.get_xcom")
 @patch("dags.impl.watcher_impl._add_raw_file_to_db")
 @patch("dags.impl.watcher_impl.trigger_dag")
-def test_start_acquisition_handler_with_no_files(
+def test_start_file_handler_with_no_files(
     mock_trigger_dag: MagicMock,
     mock_add_raw_file_to_db: MagicMock,
     mock_get_xcom: MagicMock,
 ) -> None:
-    """Test start_acquisition_handler with no files."""
+    """Test start_file_handler with no files."""
     # given
     mock_get_xcom.return_value = {}
     ti = Mock()
 
     # when
-    start_acquisition_handler(ti, **{OpArgs.INSTRUMENT_ID: "instrument1"})
+    start_file_handler(ti, **{OpArgs.INSTRUMENT_ID: "instrument1"})
 
     # then
     mock_trigger_dag.assert_not_called()
@@ -308,14 +308,14 @@ def test_start_acquisition_handler_with_no_files(
 @patch("dags.impl.watcher_impl.DagRun.generate_run_id")
 @patch("dags.impl.watcher_impl.trigger_dag")
 @patch("dags.impl.watcher_impl.datetime")
-def test_start_acquisition_handler_with_single_file(
+def test_start_file_handler_with_single_file(
     mock_datetime: MagicMock,
     mock_trigger_dag: MagicMock,
     mock_generate: MagicMock,
     mock_add_raw_file_to_db: MagicMock,
     mock_get_xcom: MagicMock,
 ) -> None:
-    """Test start_acquisition_handler with a single file."""
+    """Test start_file_handler with a single file."""
     # given
     raw_file_names = {"file1.raw": ("PID1", True)}
     mock_get_xcom.return_value = raw_file_names
@@ -327,7 +327,7 @@ def test_start_acquisition_handler_with_single_file(
     ti = Mock()
 
     # when
-    start_acquisition_handler(ti, **{OpArgs.INSTRUMENT_ID: "instrument1"})
+    start_file_handler(ti, **{OpArgs.INSTRUMENT_ID: "instrument1"})
 
     # then
     assert mock_trigger_dag.call_count == 1  # no magic numbers
@@ -349,14 +349,14 @@ def test_start_acquisition_handler_with_single_file(
 @patch("dags.impl.watcher_impl.DagRun.generate_run_id")
 @patch("dags.impl.watcher_impl.trigger_dag")
 @patch("dags.impl.watcher_impl.datetime")
-def test_start_acquisition_handler_with_multiple_files(  # Too many arguments
+def test_start_file_handler_with_multiple_files(  # Too many arguments
     mock_datetime: MagicMock,
     mock_trigger_dag: MagicMock,
     mock_generate: MagicMock,
     mock_add_raw_file_to_db: MagicMock,
     mock_get_xcom: MagicMock,
 ) -> None:
-    """Test start_acquisition_handler with multiple files."""
+    """Test start_file_handler with multiple files."""
     # given
     raw_file_names = {
         "file1.raw": ("project1", True),
@@ -369,7 +369,7 @@ def test_start_acquisition_handler_with_multiple_files(  # Too many arguments
     mock_datetime.now.return_value = 123
 
     # when
-    start_acquisition_handler(Mock(), **{OpArgs.INSTRUMENT_ID: "instrument1"})
+    start_file_handler(Mock(), **{OpArgs.INSTRUMENT_ID: "instrument1"})
 
     # then
     assert mock_trigger_dag.call_count == 2  # noqa: PLR2004 no magic numbers

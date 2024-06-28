@@ -67,7 +67,7 @@ def get_unknown_raw_files(ti: TaskInstance, **kwargs) -> None:
         f"Raw files to be checked against DB: {len(raw_file_names)} {raw_file_names}"
     )
 
-    # Note there's a potential race condition with the "add to db" operation in start_acquisition_handler(),
+    # Note there's a potential race condition with the "add to db" operation in start_file_handler(),
     # however, as we allow only one of these DAGs to run at a time, this should not be an issue.
     for raw_file_name in get_raw_file_names_from_db(raw_file_names):
         logging.info(f"Raw file {raw_file_name} already in database.")
@@ -172,26 +172,27 @@ def _get_file_info(raw_file_name: str, instrument_id: str) -> tuple[float, float
     return file_creation_ts, file_size_bytes
 
 
-def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
-    """Trigger a acquisition_handler DAG run for specific raw files.
+def start_file_handler(ti: TaskInstance, **kwargs) -> None:
+    """Trigger a file_handler DAG run for specific raw files.
 
     Each raw file is added to the database first.
     Then, for each raw file, the project id is determined.
-    Only for raw files that carry a project id, the acquisition_handler DAG is triggered.
+    Only for raw files that carry a project id, the file_handler DAG is triggered.
     """
     instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
     raw_file_project_ids = get_xcom(ti, XComKeys.RAW_FILE_PROJECT_IDS)
     logging.info(f"Got {len(raw_file_project_ids)} raw files to handle.")
 
-    dag_id_to_trigger = f"{Dags.ACQUISITON_HANDLER}.{instrument_id}"
+    dag_id_to_trigger = f"{Dags.FILE_HANDLER}.{instrument_id}"
 
-    # adding the files to the DB and triggering the acquisition_handler DAG should be atomic
+    # adding the files to the DB and triggering the file_handler DAG should be atomic
     for raw_file_name, (
         project_id,
         file_needs_handling,
     ) in raw_file_project_ids.items():
         status = (RawFileStatus.NEW) if file_needs_handling else RawFileStatus.IGNORED
 
+        # mongoengine.errors.NotUniqueError: on catchup
         _add_raw_file_to_db(
             raw_file_name,
             project_id=project_id,

@@ -18,7 +18,7 @@ from common.settings import AIRFLOW_QUEUE_PREFIX, INSTRUMENTS, Timings
 from impl.watcher_impl import (
     decide_raw_file_handling,
     get_unknown_raw_files,
-    start_acquisition_handler,
+    start_file_handler,
 )
 from sensors.file_sensor import FileCreationSensor
 
@@ -38,9 +38,12 @@ def create_acquisition_watcher_dag(instrument_id: str) -> None:
             # this callback is executed when tasks fail
             "on_failure_callback": on_failure_callback,
         },
-        description="Watch acquisition and trigger follow-up DAGs on demand.",
+        description="Watch for new files.",
         catchup=False,
-        tags=["kraken"],
+        tags=[
+            "watcher",
+            instrument_id,
+        ],
         start_date=pendulum.datetime(2000, 1, 1, tz="UTC"),
         schedule="@continuous",
         max_active_runs=1,
@@ -65,9 +68,9 @@ def create_acquisition_watcher_dag(instrument_id: str) -> None:
             op_kwargs={OpArgs.INSTRUMENT_ID: instrument_id},
         )
 
-        start_acquisition_handler_ = PythonOperator(
-            task_id=Tasks.START_ACQUISITION_HANDLER,
-            python_callable=start_acquisition_handler,
+        start_file_handler_ = PythonOperator(
+            task_id=Tasks.START_FILE_HANDLER,
+            python_callable=start_file_handler,
             op_kwargs={OpArgs.INSTRUMENT_ID: instrument_id},
         )
 
@@ -75,7 +78,7 @@ def create_acquisition_watcher_dag(instrument_id: str) -> None:
         wait_for_file_creation_
         >> get_unknown_raw_files_
         >> decide_raw_file_handling_
-        >> start_acquisition_handler_
+        >> start_file_handler_
     )
 
 

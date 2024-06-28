@@ -103,28 +103,22 @@ this is required to set the paths for the cluster jobs correctly.
 We need bind mounts set up to each backup pool folder, and to the project pool folder.
 Additionally, one bind mount per instrument PC is needed (cf. section below).
 
-1. Create the mount target directories:
+1. Mount the backup pool folder
 ```bash
-MOUNTS=/home/kraken-user/alphakraken/${ENV}/mounts
-mkdir -p ${MOUNTS}/pool-backup
-mkdir -p ${MOUNTS}/output
+./mountall.sh $ENV backup
 ```
 
-2. Mount the backup pool folder:
+2. Mount the output folder
 ```bash
-sudo mount -t cifs -o username=kraken //samba-pool-backup/pool-backup ${MOUNTS}/pool-backup
+./mountall.sh $ENV output
 ```
 
-3. Mount the project pool folder:
-```bash
-IO_POOL_PATH=//samba-pool-projects/pool-projects/alphakraken_${ENV}
-sudo mount -t cifs -o username=kraken ${IO_POOL_PATH}/output ${MOUNTS}/output
-```
+Note: for now, user `kraken` should only have read access to the backup pool folder, but needs `read/write` on the `output`
+folder.
 
-Note: for now, user `kraken` should only have read access to the backup pool folder, but needs `read/write` on the `${MOUNTS}/output`.
 Cf. also the environment variables `MOUNTS_PATH` and `IO_POOL_FOLDER` in the `envs/${ENV}.env` file.
-
-
+If you need to remount one of the folders, add the `umount` option, e.g.
+`./mountall.sh $ENV output umount`.
 
 ### Add a new instrument
 Each instrument is identified by a unique `<INSTRUMENT_ID>`,
@@ -132,29 +126,28 @@ which should be lowercase and contain only letters and numbers but is otherwise 
 Note that some parts of the system rely on convention, so make sure to use exactly
 `<INSTRUMENT_ID>` (case-sensitive!) in the below steps.
 
-1. Mount the instrument
+1. Add the following block to the end of `mountall.sh`:
 ```bash
-USERNAME=<username for instrument>
-MOUNT_SRC=//<INSTRUMENT_IP_ADDRESS>/<INSTRUMENT_ID>
-MOUNT_TARGET=${MOUNTS}/instruments/<INSTRUMENT_ID>
-mkdir -p ${MOUNT_TARGET}
-sudo mount -t cifs -o username=${USERNAME} ${MOUNT_SRC} ${MOUNT_TARGET}
-```
-e.g. for the Test2:
-```bash
-USERNAME=leg...
-MOUNT_SRC=//10.31.0.75/test2
-MOUNT_TARGET=${MOUNTS}/instruments/test2
+if [ "${ENTITY}" == "<INSTRUMENT_ID>" ]; then
+  USERNAME=<username for instrument>
+  MOUNT_SRC=//<ip address of instrument>/<INSTRUMENT_ID>
+  MOUNT_TARGET=${MOUNTS}/instruments/<INSTRUMENT_ID>
+fi
 ```
 
-2. In the `settings.py:INSTRUMENTS` dictionary, add a new entry by copying an existing one and adapting it like
+2. Execute
+```
+./mountall.sh $ENV <INSTRUMENT_ID>
+```
+
+3. In the `settings.py:INSTRUMENTS` dictionary, add a new entry by copying an existing one and adapting it like
 ```
     "<INSTRUMENT_ID>": {
         # (there might be some keys here, just copy them)
     },
 ```
 
-3. In `docker-compose.yml`, add a new worker service, by copying an existing one and adapting it like:
+4. In `docker-compose.yml`, add a new worker service, by copying an existing one and adapting it like:
 ```
   airflow-worker-<INSTRUMENT_ID>:
     <<: *airflow-worker
@@ -162,11 +155,11 @@ MOUNT_TARGET=${MOUNTS}/instruments/test2
     # there might be additional keys here, just copy them
 ```
 
-4. Restart all containers with the `--build` flag (cf. above).
+5. Restart all containers with the `--build` flag (cf. above).
 
-5. Open the airflow UI and unpause the new `*.<INSTRUMENT_ID>` DAGs.
+6. Open the airflow UI and unpause the new `*.<INSTRUMENT_ID>` DAGs.
 
-6. Without any further intervention, the kraken will now process all files on the new instrument. If this is
+7. Without any further intervention, the kraken will now process all files on the new instrument. If this is
 not desired, you may temporarily set the `max_file_age_in_hours` Airflow variable (see below) to process only
 recent files.
 
@@ -346,6 +339,10 @@ Check that the mounting has been done correctly. If the instrument is currently 
 you can either ignore the error or temporarily comment out the corresponding worker definition in `docker-compose.yml`.
 Once the instrument is available again, uncomment the worker definition and restart the container.
 
+### Restarting Docker
+```
+sudo systemctl restart docker
+```
 
 ### Some useful MongoDB commands
 Find all files for a given instrument with a given status that are younger than a given date

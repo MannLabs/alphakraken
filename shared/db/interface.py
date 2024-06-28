@@ -66,15 +66,12 @@ def update_raw_file(
     raw_file = RawFile.objects.with_id(raw_file_name)
     logging.info(f"Old DB state: {raw_file.status=} {raw_file.status_details=}")
 
-    new_data = {
-        "status": new_status,
-        "updated_at_": datetime.now(tz=pytz.utc),
-        "status_details": status_details,
-    }
-    if size is not None:
-        new_data["size"] = size
-
-    raw_file.update(**new_data)
+    raw_file.update(
+        status=new_status,
+        updated_at_=datetime.now(tz=pytz.utc),
+        status_details=status_details,
+        size=size,
+    )
 
 
 def add_metrics_to_raw_file(raw_file_name: str, metrics: dict) -> None:

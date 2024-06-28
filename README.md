@@ -146,27 +146,14 @@ sudo mount -t cifs -o username=kraken ${APC_SOURCE} ${INSTRUMENT_TARGET}
 where `${APC_SOURCE}` is the network folder of the APC.
 </details>
 
-2. Add the location of the instrument data to all the files `local.env`, `sandbox.env` and `prod.env` in the `envs ` folder
-by creating a new variable `INSTRUMENT_PATH_<INSTRUMENT_ID>` (all upper case), e.g.
-`INSTRUMENT_PATH_NEWINST1`:
-```bash
-INSTRUMENT_PATH_NEWINST1=some/relative/path/to/new_instrument
-```
-and add this new variable to the `x-airflow-common.environment` section in `docker-compose.yml`
-to make it available within the containers:
-```bash
-INSTRUMENT_PATH_NEWINST1=${INSTRUMENT_PATH_NEWINST1:?error}
-```
-
-3. In the `settings.py:INSTRUMENTS` dictionary, add a new entry by copying an existing one and adapting it like
+2. In the `settings.py:INSTRUMENTS` dictionary, add a new entry by copying an existing one and adapting it like
 ```
     "<INSTRUMENT_ID>": {
-        InstrumentKeys.RAW_DATA_PATH_VARIABLE_NAME: "INSTRUMENT_PATH_NEWINST1"
-        # (there might be additional keys here, just copy them)
+        # (there might be some keys here, just copy them)
     },
 ```
 
-4. In `docker-compose.yml`, add a new worker service, by copying an existing one and adapting it like:
+3. In `docker-compose.yml`, add a new worker service, by copying an existing one and adapting it like:
 ```
   airflow-worker-<INSTRUMENT_ID>:
     <<: *airflow-worker
@@ -174,11 +161,11 @@ INSTRUMENT_PATH_NEWINST1=${INSTRUMENT_PATH_NEWINST1:?error}
     # there might be additional keys here, just copy them
 ```
 
-5. Restart all containers with the `--build` flag (cf. above).
+4. Restart all containers with the `--build` flag (cf. above).
 
-6. Open the airflow UI and unpause the new `*.<INSTRUMENT_ID>` DAGs.
+5. Open the airflow UI and unpause the new `*.<INSTRUMENT_ID>` DAGs.
 
-7. Without any further intervention, the kraken will now process all files on the new instrument. If this is
+6. Without any further intervention, the kraken will now process all files on the new instrument. If this is
 not desired, you may temporarily set the `max_file_age_in_hours` Airflow variable (see below) to process only
 recent files.
 

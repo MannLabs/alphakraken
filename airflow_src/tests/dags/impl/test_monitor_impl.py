@@ -1,6 +1,6 @@
 """Unit tests for monitor_impl.py."""
 
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import MagicMock, Mock, call, patch
 
 from common.keys import DagContext, DagParams, OpArgs
 from dags.impl.monitor_impl import (
@@ -26,10 +26,15 @@ def test_update_raw_file_status_calls_update_with_correct_args(
     )
 
 
+@patch("shutil.copy2")
+@patch("dags.impl.monitor_impl.Path")
 @patch("dags.impl.monitor_impl._get_file_size")
 @patch("dags.impl.monitor_impl.update_raw_file")
 def test_copy_raw_file_calls_update_with_correct_args(
-    mock_update_status: MagicMock, mock_get_file_size: MagicMock
+    mock_update_status: MagicMock,
+    mock_get_file_size: MagicMock,
+    mock_path: MagicMock,  # noqa: ARG001
+    mock_copy2: MagicMock,  # noqa: ARG001
 ) -> None:
     """Test copy_raw_file calls update with correct arguments."""
     ti = MagicMock()
@@ -42,8 +47,12 @@ def test_copy_raw_file_calls_update_with_correct_args(
     copy_raw_file(ti, **kwargs)
 
     mock_get_file_size.assert_called_once_with("test_file.raw", "instrument1")
-    mock_update_status.assert_called_once_with(
-        "test_file.raw", new_status=RawFileStatus.COPYING_FINISHED, size=1000
+
+    mock_update_status.assert_has_calls(
+        [
+            call("test_file.raw", new_status=RawFileStatus.COPYING),
+            call("test_file.raw", new_status=RawFileStatus.COPYING_FINISHED, size=1000),
+        ]
     )
 
 

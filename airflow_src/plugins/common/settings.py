@@ -2,18 +2,12 @@
 
 from pathlib import Path
 
-from common.keys import InstrumentKeys
-from common.utils import get_env_variable
-
 INSTRUMENTS = {
     # the toplevel keys determine the DAG name (e.g. 'acquisition_watcher.test1')
-    "test1": {
-        # this variable must be defined in all .env files and be made available to the container in docker-compose.yml
-        InstrumentKeys.RAW_DATA_PATH_VARIABLE_NAME: "INSTRUMENT_PATH_TEST1"
-    },
-    "test2": {InstrumentKeys.RAW_DATA_PATH_VARIABLE_NAME: "INSTRUMENT_PATH_ASTRAL1"},
-    "test3": {InstrumentKeys.RAW_DATA_PATH_VARIABLE_NAME: "INSTRUMENT_PATH_ASTRAL2"},
-    "test4": {InstrumentKeys.RAW_DATA_PATH_VARIABLE_NAME: "INSTRUMENT_PATH_ASTRAL3"},
+    "test1": {},
+    "test2": {},
+    "test3": {},
+    "test4": {},
 }
 
 # prefix for the queues the DAGs are assigned to (cf. docker-compose.yml)
@@ -59,28 +53,21 @@ class Concurrency:
 def get_internal_instrument_data_path(instrument_id: str) -> Path:
     """Get internal path for the given instrument.
 
-    e.g. /opt/airflow/mounts/pool-backup/Test2
+    e.g. /opt/airflow/mounts/instruments/test2
     """
-    return Path(InternalPaths.MOUNTS_PATH) / get_relative_instrument_data_path(
-        instrument_id
+    # TODO: remove backup once other backup script is gone
+    return (
+        Path(InternalPaths.MOUNTS_PATH)
+        / f"{InternalPaths.INSTRUMENTS}/{instrument_id}/Backup"
     )
 
 
-def get_relative_instrument_data_path(instrument_id: str) -> str:
-    """Get relative_path for the given instrument.
+def get_internal_instrument_backup_path(instrument_id: str) -> Path:
+    """Get internal path for the given instrument.
 
-    e.g. pool-backup/Test2
+    e.g. /opt/airflow/mounts/backup/test2
     """
-    # TODO: this name could be derived from the instrument_id by convention, but then it's less explicit
-    raw_data_path_variable_name = INSTRUMENTS[instrument_id][
-        InstrumentKeys.RAW_DATA_PATH_VARIABLE_NAME
-    ]
-
-    # TODO: fix: we need to provide a default here to make test_dags.py happy. Should not be an issue in production
-    # as the variable is enforced to be set in docker-compose.yml
-    return get_env_variable(
-        raw_data_path_variable_name, "error_raw_data_path_variable_name_not_set"
-    )
+    return Path(InternalPaths.MOUNTS_PATH) / f"{InternalPaths.BACKUP}/{instrument_id}"
 
 
 def get_output_folder_rel_path(raw_file_name: str, project_id: str) -> Path:

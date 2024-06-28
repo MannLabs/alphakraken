@@ -30,6 +30,7 @@ class AcquisitionMonitor(BaseSensorOperator):
 
         # TODO: this is vendor-specific!
         self._file_path_to_watch = self._base_path / raw_file_name
+        logging.info(f"Monitoring {self._file_path_to_watch}")
 
     def poke(self, context: dict[str, any]) -> bool:
         """Check if file was created. If so, push the folder contents to xcom and return."""

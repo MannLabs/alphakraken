@@ -7,7 +7,10 @@ from pathlib import Path
 
 from airflow.models import TaskInstance
 from common.keys import DagContext, DagParams, Dags, OpArgs
-from common.settings import InternalPaths
+from common.settings import (
+    get_internal_instrument_backup_path,
+    get_internal_instrument_data_path,
+)
 from common.utils import trigger_dag_run
 from impl.watcher_impl import _get_file_size
 
@@ -31,8 +34,8 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
 
     update_raw_file(raw_file_name, new_status=RawFileStatus.COPYING)
 
-    src = f"{InternalPaths.MOUNTS_PATH}/{InternalPaths.INSTRUMENTS}/{instrument_id}/{raw_file_name}"
-    dst = f"{InternalPaths.MOUNTS_PATH}/{InternalPaths.BACKUP}/{instrument_id}/{raw_file_name}"
+    src = get_internal_instrument_data_path(instrument_id) / raw_file_name
+    dst = get_internal_instrument_backup_path(instrument_id) / raw_file_name
 
     logging.info(f"Preparing copying {src} to {dst} ..")
 

@@ -46,12 +46,10 @@ def test_get_project_id_for_raw_file(
     )
 
 
-@patch.dict(
-    INSTRUMENTS, {"instrument1": {"raw_data_path_variable_name": "SOME_VARIABLE_NAME"}}
-)
+@patch.dict(INSTRUMENTS, {"instrument1": {}})
 @patch.dict(
     os.environ,
-    {"SOME_VARIABLE_NAME": "path/to/data", "IO_POOL_FOLDER": "some_io_pool_folder"},
+    {"IO_POOL_FOLDER": "some_io_pool_folder"},
 )
 @patch("dags.impl.handler_impl.put_xcom")
 @patch("dags.impl.handler_impl.random")
@@ -89,7 +87,7 @@ def test_prepare_quanting(
 
     expected_quanting_env = {
         "RAW_FILE_NAME": "test_file.raw",
-        "INSTRUMENT_SUBFOLDER": "path/to/data",
+        "INSTRUMENT_SUBFOLDER": "some_io_pool_folder/backup/instrument1",
         "OUTPUT_FOLDER_REL_PATH": "output/some_project_id/out_test_file.raw",
         "SPECLIB_FILE_NAME": "4_some_speclib_file_name",
         "FASTA_FILE_NAME": "some_fasta_file_name",

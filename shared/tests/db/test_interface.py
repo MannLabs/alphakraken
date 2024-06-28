@@ -31,7 +31,6 @@ def test_add_new_raw_file_to_db_creates_new_file_when_file_does_not_exist(
         project_id="PID1",
         instrument_id="instrument1",
         status=RawFileStatus.NEW,
-        size=42.0,
         creation_ts=43.0,
     )
 
@@ -41,7 +40,6 @@ def test_add_new_raw_file_to_db_creates_new_file_when_file_does_not_exist(
         project_id="PID1",
         instrument_id="instrument1",
         status=RawFileStatus.NEW,
-        size=42.0,
         created_at=datetime(1970, 1, 1, 0, 0, 43, tzinfo=pytz.utc),
     )
     mock_connect_db.assert_called_once()

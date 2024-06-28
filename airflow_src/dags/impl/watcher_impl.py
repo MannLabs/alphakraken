@@ -192,7 +192,7 @@ def start_file_handler(ti: TaskInstance, **kwargs) -> None:
     ) in raw_file_project_ids.items():
         status = (RawFileStatus.NEW) if file_needs_handling else RawFileStatus.IGNORED
 
-        # mongoengine.errors.NotUniqueError: on catchup
+        # TODO: fix: if this task is restarted, this could give a `mongoengine.errors.NotUniqueError`
         _add_raw_file_to_db(
             raw_file_name,
             project_id=project_id,

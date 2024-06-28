@@ -3,9 +3,10 @@
 from airflow.models import TaskInstance
 from common.keys import DagContext, DagParams, Dags, OpArgs
 from common.utils import trigger_dag_run
-from db.interface import update_raw_file
-from db.models import RawFileStatus
 from impl.watcher_impl import _get_file_size
+
+from shared.db.interface import update_raw_file
+from shared.db.models import RawFileStatus
 
 
 def update_raw_file_status(ti: TaskInstance, **kwargs) -> None:

@@ -133,18 +133,19 @@ Note that some parts of the system rely on convention, so make sure to use exact
 `<INSTRUMENT_ID>` (case-sensitive!) in the below steps.
 
 1. Mount the instrument
-
-<details>
-  <summary>(Not needed until alphakraken takes over also the file transfer from acquisition PCS to backup pool.)
-</summary>
-Mount the instrument
-MOUNTS=/home/kraken-user/alphakraken/${ENV}/mounts
-INSTRUMENT_TARGET=${MOUNTS}/instruments/<INSTRUMENT_ID>
-mkdir -p ${INSTRUMENT_TARGET}
-sudo mount -t cifs -o username=kraken ${APC_SOURCE} ${INSTRUMENT_TARGET}
+```bash
+USERNAME=<username for instrument>
+MOUNT_SRC=//<INSTRUMENT_IP_ADDRESS>/<INSTRUMENT_ID>
+MOUNT_TARGET=${MOUNTS}/instruments/<INSTRUMENT_ID>
+mkdir -p ${MOUNT_TARGET}
+sudo mount -t cifs -o username=${USERNAME} ${MOUNT_SRC} ${MOUNT_TARGET}
 ```
-where `${APC_SOURCE}` is the network folder of the APC.
-</details>
+e.g. for the Test2:
+```bash
+USERNAME=leg...
+MOUNT_SRC=//10.31.0.75/test2
+MOUNT_TARGET=${MOUNTS}/instruments/test2
+```
 
 2. In the `settings.py:INSTRUMENTS` dictionary, add a new entry by copying an existing one and adapting it like
 ```

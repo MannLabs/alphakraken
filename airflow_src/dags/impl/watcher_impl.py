@@ -121,6 +121,8 @@ def decide_raw_file_handling(ti: TaskInstance, **kwargs) -> None:
 
         # here we could add more logic to decide whether to handle the file or not, e.g. a global blacklist
 
+    logging.info(f"Got {len(raw_file_project_ids)} raw files to handle.")
+
     put_xcom(ti, XComKeys.RAW_FILE_PROJECT_IDS, raw_file_project_ids)
 
 
@@ -179,6 +181,7 @@ def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
     """
     instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
     raw_file_project_ids = get_xcom(ti, XComKeys.RAW_FILE_PROJECT_IDS)
+    logging.info(f"Got {len(raw_file_project_ids)} raw files to handle.")
 
     dag_id_to_trigger = f"{Dags.ACQUISITON_HANDLER}.{instrument_id}"
 

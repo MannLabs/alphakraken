@@ -358,6 +358,12 @@ you can either ignore the error or temporarily comment out the corresponding wor
 Once the instrument is available again, uncomment the worker definition and restart the container.
 
 
+### Some useful MongoDB commands
+Find all files for a given instrument with a given status that are younger than a given date
+```
+{ $and: [{status:"error"}, {instrument_id:"test2"}, {created_at_: {$gte: new ISODate("2024-06-27")}}]}
+```
+
 ## Airflow Variables
 These variables are set in the Airflow UI under "Admin" -> "Variables". They steer the behavior of the whole system,
 so be careful when changing them. If in doubt, pause all DAGs that are not part of the current problem before changing them.

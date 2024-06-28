@@ -72,7 +72,7 @@ def display_status(df: pd.DataFrame) -> None:
         f"Current Kraken time: {now.replace(microsecond=0)} [all time stamps are given in UTC!]"
     )
     status_data = defaultdict(list)
-    for instrument_id in df["instrument_id"].unique():
+    for instrument_id in sorted(df["instrument_id"].unique()):
         tmp_df = df[df["instrument_id"] == instrument_id]
         status_data["instrument_id"].append(instrument_id)
 

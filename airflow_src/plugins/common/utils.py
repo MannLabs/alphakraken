@@ -2,8 +2,12 @@
 
 import logging
 import os
+from datetime import datetime
 
-from airflow.models import TaskInstance, Variable
+import pytz
+from airflow.api.common.trigger_dag import trigger_dag
+from airflow.models import DagRun, TaskInstance, Variable
+from airflow.utils.types import DagRunType
 
 _xcom_types = str | list[str] | dict[str, str | bool] | int
 
@@ -51,3 +55,22 @@ def get_env_variable(key: str, default: str | None = None) -> str:
     logging.info(f"Got environment variable: '{key}'='{value}' (default: '{default}')")
 
     return value
+
+
+def trigger_dag_run(dag_id: str, conf: dict[str, str]) -> None:
+    """Trigger a DAG run with the given configuration."""
+    run_id = DagRun.generate_run_id(
+        DagRunType.MANUAL, execution_date=datetime.now(tz=pytz.utc)
+    )
+    logging.info(f"Triggering DAG {dag_id} with {run_id=} with {conf=}")
+    trigger_dag(
+        dag_id=dag_id,
+        run_id=run_id,
+        conf=conf,
+        replace_microseconds=False,
+    )
+
+
+# def truncate_string(input_string: str, n = 200) -> str:
+#     """Truncate the input string to `n` characters."""
+#     return input_string[:n//2] + " ... " + input_string[-n//2:]  if len(input_string) > n else input_string

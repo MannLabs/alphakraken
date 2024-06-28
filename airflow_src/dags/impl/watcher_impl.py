@@ -6,12 +6,10 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytz
-from airflow.api.common.trigger_dag import trigger_dag
-from airflow.models import DagRun, TaskInstance
-from airflow.utils.types import DagRunType
+from airflow.models import TaskInstance
 from common.keys import AirflowVars, DagParams, Dags, OpArgs, XComKeys
 from common.settings import get_internal_instrument_data_path
-from common.utils import get_airflow_variable, get_xcom, put_xcom
+from common.utils import get_airflow_variable, get_xcom, put_xcom, trigger_dag_run
 from impl.project_id_handler import get_unique_project_id
 
 from shared.db.interface import (
@@ -201,19 +199,11 @@ def start_file_handler(ti: TaskInstance, **kwargs) -> None:
         )
 
         if file_needs_handling:
-            run_id = DagRun.generate_run_id(
-                DagRunType.MANUAL, execution_date=datetime.now(tz=pytz.utc)
-            )
-            logging.info(
-                f"Triggering DAG {dag_id_to_trigger} with {run_id=} for {raw_file_name=}."
-            )
-            trigger_dag(
-                dag_id=dag_id_to_trigger,
-                run_id=run_id,
-                conf={
+            trigger_dag_run(
+                dag_id_to_trigger,
+                {
                     DagParams.RAW_FILE_NAME: raw_file_name,
                 },
-                replace_microseconds=False,
             )
         else:
             logging.info(

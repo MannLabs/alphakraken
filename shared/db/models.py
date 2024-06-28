@@ -18,10 +18,13 @@ from mongoengine import (
 class RawFileStatus:
     """Status of raw file."""
 
-    NEW = "new"
     IGNORED = "ignored"
+    NEW = "new"  # queued_for_monitoring? (only if there is a queue here)
     # have a distinction between processing and copying as network drives caused issues in the past.
+    ACQUISITION_STARTED = "acquisition_started"
+    ACQUISITION_FINISHED = "acquisition_finished"
     COPYING = "copying"
+    COPYING_FINISHED = "copying_finished"
     # # queued(_for_processing)
     PROCESSING = "processing"  # quanting
     PROCESSED = "processed"  # quanted

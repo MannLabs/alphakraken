@@ -3,6 +3,31 @@
 from airflow.models import TaskInstance
 from common.keys import DagContext, DagParams, Dags, OpArgs
 from common.utils import trigger_dag_run
+from db.interface import update_raw_file_status
+from db.models import RawFileStatus
+from impl.watcher_impl import _get_file_size
+
+
+def update_raw_file_in_db(ti: TaskInstance, **kwargs) -> None:
+    """Update the status of the raw file in the database."""
+    del ti  # unused
+    raw_file_name = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_NAME]
+
+    update_raw_file_status(raw_file_name, new_status=RawFileStatus.ACQUISITION_STARTED)
+
+
+def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
+    """Copy a raw file to the target location."""
+    del ti  # unused
+    raw_file_name = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_NAME]
+    instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
+
+    # implementation of copying still missing
+
+    file_size = _get_file_size(raw_file_name, instrument_id)
+    update_raw_file_status(
+        raw_file_name, new_status=RawFileStatus.COPYING_FINISHED, size=file_size
+    )
 
 
 def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:

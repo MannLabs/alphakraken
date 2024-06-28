@@ -52,20 +52,29 @@ def add_new_raw_file_to_db(  # too many arguments
 
 
 def update_raw_file_status(
-    raw_file_name: str, *, new_status: str, status_details: str | None = None
+    raw_file_name: str,
+    *,
+    new_status: str,
+    status_details: str | None = None,
+    size: float | None = None,
 ) -> None:
-    """Set `status` of DB entity of `raw_file_name` to `new_status`."""
+    """Set `status` and `size` of DB entity of `raw_file_name` to `new_status`."""
     logging.info(
-        f"Updating DB: {raw_file_name=} to {new_status=} with {status_details=}"
+        f"Updating DB: {raw_file_name=} to {new_status=} with {status_details=} and {size=}"
     )
     connect_db()
     raw_file = RawFile.objects.with_id(raw_file_name)
     logging.info(f"Old DB state: {raw_file.status=} {raw_file.status_details=}")
-    raw_file.update(
-        status=new_status,
-        updated_at_=datetime.now(tz=pytz.utc),
-        status_details=status_details,
-    )
+
+    new_data = {
+        "status": new_status,
+        "updated_at_": datetime.now(tz=pytz.utc),
+        "status_details": status_details,
+    }
+    if size is not None:
+        new_data["size"] = size
+
+    raw_file.update(**new_data)
 
 
 def add_metrics_to_raw_file(raw_file_name: str, metrics: dict) -> None:

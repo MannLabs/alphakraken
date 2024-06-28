@@ -123,6 +123,30 @@ def test_update_raw_file_status(
 
 @patch("shared.db.interface.connect_db")
 @patch("shared.db.interface.RawFile")
+@patch("shared.db.interface.datetime")
+def test_update_raw_file_status_with_size(
+    mock_datetime: MagicMock, mock_raw_file: MagicMock, mock_connect_db: MagicMock
+) -> None:
+    """Test that update_raw_file_status updates the status of the raw file."""
+    # given
+    mock_raw_file_from_db = MagicMock()
+    mock_raw_file.objects.with_id.return_value = mock_raw_file_from_db
+
+    # when
+    update_raw_file_status("test_file", new_status=RawFileStatus.PROCESSED, size=123)
+
+    # then
+    mock_raw_file_from_db.update.assert_called_once_with(
+        status=RawFileStatus.PROCESSED,
+        updated_at_=mock_datetime.now.return_value,
+        status_details=None,
+        size=123,
+    )
+    mock_connect_db.assert_called_once()
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.RawFile")
 @patch("shared.db.interface.Metrics")
 def test_add_metrics_to_raw_file_happy_path(
     mock_metrics: MagicMock, mock_raw_file: MagicMock, mock_connect_db: MagicMock

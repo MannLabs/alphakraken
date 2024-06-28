@@ -14,7 +14,7 @@ from common.keys import (
     OpArgs,
     Tasks,
 )
-from common.settings import AIRFLOW_QUEUE_PREFIX, INSTRUMENTS
+from common.settings import AIRFLOW_QUEUE_PREFIX, INSTRUMENTS, Timings
 from impl.monitor_impl import (
     copy_raw_file,
     start_acquisition_handler,
@@ -53,7 +53,9 @@ def create_file_handler_dag(instrument_id: str) -> None:
         )
 
         monitor_acquisition_ = AcquisitionMonitor(
-            task_id=Tasks.MONITOR_ACQUISITION, instrument_id=instrument_id
+            task_id=Tasks.MONITOR_ACQUISITION,
+            instrument_id=instrument_id,
+            poke_interval=Timings.ACQUISITION_MONITOR_POKE_INTERVAL_S,
         )
 
         copy_raw_file_ = PythonOperator(

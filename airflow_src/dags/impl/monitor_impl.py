@@ -1,7 +1,12 @@
 """Business logic for the "file_handler" DAG."""
 
+import logging
+import shutil
+from pathlib import Path
+
 from airflow.models import TaskInstance
 from common.keys import DagContext, DagParams, Dags, OpArgs
+from common.settings import InternalPaths
 from common.utils import trigger_dag_run
 from impl.watcher_impl import _get_file_size
 
@@ -23,9 +28,25 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
     raw_file_name = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_NAME]
     instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
 
-    # implementation of copying still missing
+    update_raw_file(raw_file_name, new_status=RawFileStatus.COPYING)
+
+    src = InternalPaths.MOUNTS_PATH / "instruments" / instrument_id / raw_file_name
+    dst = InternalPaths.MOUNTS_PATH / "backup" / instrument_id / raw_file_name
+
+    logging.info(f"Preparing copying {src} to {dst} ..")
+
+    if instrument_id == "test2":
+        logging.info(f"Copying {src} to {dst} ..")
+
+        shutil.copy2(src, dst)
+        logging.info("Copying done!")
+
+        size_src = Path(src).stat().st_size
+        size_dst = Path(dst).stat().st_size
+        assert size_src == size_dst, f"Size mismatch: {size_src} != {size_dst}"
 
     file_size = _get_file_size(raw_file_name, instrument_id)
+
     update_raw_file(
         raw_file_name, new_status=RawFileStatus.COPYING_FINISHED, size=file_size
     )

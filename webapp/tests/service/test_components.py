@@ -171,7 +171,7 @@ def get_status_cell_style() -> None:
     """Test that the status cell is highlighted correctly."""
     status_to_expected_style = {
         "error": ["background-color: red"],
-        "processed": ["background-color: green"],
+        "done": ["background-color: green"],
         "ignored": ["background-color: lightgray"],
         "other": ["background-color: #aed989"],
     }

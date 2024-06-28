@@ -134,7 +134,7 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
         raise AirflowFailException from e
 
     update_raw_file(
-        quanting_env[QuantingEnv.RAW_FILE_NAME], new_status=RawFileStatus.PROCESSING
+        quanting_env[QuantingEnv.RAW_FILE_NAME], new_status=RawFileStatus.QUANTING
     )
 
     put_xcom(ti, XComKeys.JOB_ID, job_id)
@@ -193,4 +193,4 @@ def upload_metrics(ti: TaskInstance, **kwargs) -> None:
 
     add_metrics_to_raw_file(raw_file_name, metrics)
 
-    update_raw_file(raw_file_name, new_status=RawFileStatus.PROCESSED)
+    update_raw_file(raw_file_name, new_status=RawFileStatus.DONE)

@@ -137,7 +137,7 @@ def highlight_status_cell(row: pd.Series) -> list[str | None]:
 
     if status == "error":
         style = "background-color: darkred"
-    elif status == "processed":
+    elif status == "done":
         style = "background-color: green"
     elif status == "ignored":
         style = "background-color: lightgray"

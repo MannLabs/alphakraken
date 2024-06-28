@@ -36,7 +36,7 @@ def test_overview(mock_df: MagicMock, mock_get: MagicMock) -> None:
             ],
             "size": [1024**3, 2 * 1024**3],
             "project_id": ["P1", "P2"],
-            "status": ["processed", "error"],
+            "status": ["done", "error"],
             "status_details": ["", ""],
         },
     )
@@ -76,7 +76,7 @@ def test_overview(mock_df: MagicMock, mock_get: MagicMock) -> None:
         "quanting_time_minutes": {1: 1.0, 2: 2.0},
         "size_gb": {1: 1.0, 2: 2.0},
         "project_id": {1: "P1", 2: "P2"},
-        "status": {1: "processed", 2: "error"},
+        "status": {1: "done", 2: "error"},
         "status_details": {1: "", 2: ""},
     }
 

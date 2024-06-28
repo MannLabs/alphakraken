@@ -51,7 +51,7 @@ def add_new_raw_file_to_db(  # too many arguments
     raw_file.save(force_insert=True)
 
 
-def update_raw_file_status(
+def update_raw_file(
     raw_file_name: str,
     *,
     new_status: str,

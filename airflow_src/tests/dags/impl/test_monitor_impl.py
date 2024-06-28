@@ -6,20 +6,20 @@ from common.keys import DagContext, DagParams, OpArgs
 from dags.impl.monitor_impl import (
     copy_raw_file,
     start_acquisition_handler,
-    update_raw_file_in_db,
+    update_raw_file_status,
 )
 from db.models import RawFileStatus
 
 
-@patch("dags.impl.monitor_impl.update_raw_file_status")
-def test_update_raw_file_in_db_calls_update_with_correct_args(
+@patch("dags.impl.monitor_impl.update_raw_file")
+def test_update_raw_file_status_calls_update_with_correct_args(
     mock_update_status: MagicMock,
 ) -> None:
-    """Test update_raw_file_in_db calls update with correct arguments."""
+    """Test update_raw_file_status calls update with correct arguments."""
     ti = MagicMock()
     kwargs = {"params": {"raw_file_name": "test_file.raw"}}
 
-    update_raw_file_in_db(ti, **kwargs)
+    update_raw_file_status(ti, **kwargs)
 
     mock_update_status.assert_called_once_with(
         "test_file.raw", new_status=RawFileStatus.ACQUISITION_STARTED
@@ -27,7 +27,7 @@ def test_update_raw_file_in_db_calls_update_with_correct_args(
 
 
 @patch("dags.impl.monitor_impl._get_file_size")
-@patch("dags.impl.monitor_impl.update_raw_file_status")
+@patch("dags.impl.monitor_impl.update_raw_file")
 def test_copy_raw_file_calls_update_with_correct_args(
     mock_update_status: MagicMock, mock_get_file_size: MagicMock
 ) -> None:

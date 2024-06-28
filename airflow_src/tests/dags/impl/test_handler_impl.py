@@ -111,7 +111,7 @@ def test_prepare_quanting(
 @patch("dags.impl.handler_impl.get_xcom")
 @patch("dags.impl.handler_impl.SSHSensorOperator.ssh_execute")
 @patch("dags.impl.handler_impl.put_xcom")
-@patch("dags.impl.handler_impl.update_raw_file_status")
+@patch("dags.impl.handler_impl.update_raw_file")
 def test_run_quanting_executes_ssh_command_and_stores_job_id(
     mock_update: MagicMock,
     mock_put_xcom: MagicMock,
@@ -323,7 +323,7 @@ def test_compute_metrics(
 
 @patch("dags.impl.handler_impl.get_xcom")
 @patch("dags.impl.handler_impl.add_metrics_to_raw_file")
-@patch("dags.impl.handler_impl.update_raw_file_status")
+@patch("dags.impl.handler_impl.update_raw_file")
 def test_upload_metrics(
     mock_update: MagicMock,
     mock_add: MagicMock,

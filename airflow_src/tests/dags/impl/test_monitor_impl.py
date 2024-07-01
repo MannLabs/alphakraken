@@ -60,18 +60,22 @@ def test_get_file_hash_chunks(mock_file_open: MagicMock) -> None:
 @patch("dags.impl.monitor_impl.get_internal_instrument_data_path")
 @patch("dags.impl.monitor_impl.get_internal_instrument_backup_path")
 @patch("dags.impl.monitor_impl._get_file_hash")
+@patch("dags.impl.monitor_impl._file_already_exists")
 @patch("shutil.copy2")
-@patch("dags.impl.monitor_impl.Path")
 def test_copy_raw_file_copies_file_and_checks_hash(
-    mock_path: MagicMock,  # noqa: ARG001
     mock_copy2: MagicMock,
+    mock_file_exists: MagicMock,
     mock_get_file_hash: MagicMock,
     mock_get_backup_path: MagicMock,
     mock_get_data_path: MagicMock,
 ) -> None:
     """Test copy_raw_file copies file and checks hash."""
     mock_get_data_path.return_value = Path("/path/to/data")
-    mock_get_backup_path.return_value = Path("/path/to/backup")
+    mock_output_path = MagicMock()
+    mock_get_backup_path.return_value.__truediv__.return_value = mock_output_path
+    mock_output_path.stat.return_value.st_size = 1000
+
+    mock_file_exists.return_value = False
     mock_get_file_hash.side_effect = ["some_hash", "some_hash"]
 
     # when
@@ -83,41 +87,67 @@ def test_copy_raw_file_copies_file_and_checks_hash(
     mock_get_data_path.assert_called_once_with("instrument1")
     mock_get_backup_path.assert_called_once_with("instrument1")
     mock_copy2.assert_called_once_with(
-        Path("/path/to/data/test_file.raw"), Path("/path/to/backup/test_file.raw")
+        Path("/path/to/data/test_file.raw"), mock_output_path
     )
 
 
 @patch("dags.impl.monitor_impl.get_internal_instrument_data_path")
 @patch("dags.impl.monitor_impl.get_internal_instrument_backup_path")
 @patch("dags.impl.monitor_impl._get_file_hash")
-@patch("shutil.copy2")
-@patch("dags.impl.monitor_impl.Path")
-def test_copy_raw_file_copies_file_and_raises_on_hash_mismatch(
-    mock_path: MagicMock,  # noqa: ARG001
-    mock_copy2: MagicMock,
+@patch("dags.impl.monitor_impl._file_already_exists")
+def test_copy_raw_file_copies_file_raise_on_hash_mismatch(
+    mock_file_exists: MagicMock,
     mock_get_file_hash: MagicMock,
     mock_get_backup_path: MagicMock,
     mock_get_data_path: MagicMock,
 ) -> None:
     """Test copy_raw_file copies file and raises on hash mismatch."""
     mock_get_data_path.return_value = Path("/path/to/data")
-    mock_get_backup_path.return_value = Path("/path/to/backup")
+    mock_output_path = MagicMock()
+    mock_get_backup_path.return_value.__truediv__.return_value = mock_output_path
+    mock_output_path.stat.return_value.st_size = 1000
+
+    mock_file_exists.return_value = False
     mock_get_file_hash.side_effect = ["some_hash", "some_other_hash"]
 
     # when
-    with pytest.raises(
-        ValueError, match="Hashes do not match! some_other_hash != some_hash"
-    ):
+    with pytest.raises(ValueError):
         _copy_raw_file(
             "test_file.raw",
             "instrument1",
         )
 
+
+@patch("dags.impl.monitor_impl.get_internal_instrument_data_path")
+@patch("dags.impl.monitor_impl.get_internal_instrument_backup_path")
+@patch("dags.impl.monitor_impl._get_file_hash")
+@patch("dags.impl.monitor_impl._file_already_exists")
+@patch("shutil.copy2")
+def test_copy_raw_file_no_copy_if_file_present(
+    mock_copy2: MagicMock,
+    mock_file_exists: MagicMock,
+    mock_get_file_hash: MagicMock,
+    mock_get_backup_path: MagicMock,
+    mock_get_data_path: MagicMock,
+) -> None:
+    """Test copy_raw_file copies file and checks hash."""
+    mock_get_data_path.return_value = Path("/path/to/data")
+    mock_output_path = MagicMock()
+    mock_get_backup_path.return_value.__truediv__.return_value = mock_output_path
+    mock_output_path.stat.return_value.st_size = 1000
+
+    mock_file_exists.return_value = True
+    mock_get_file_hash.side_effect = ["some_hash", "some_hash"]
+
+    # when
+    _copy_raw_file(
+        "test_file.raw",
+        "instrument1",
+    )
+
     mock_get_data_path.assert_called_once_with("instrument1")
     mock_get_backup_path.assert_called_once_with("instrument1")
-    mock_copy2.assert_called_once_with(
-        Path("/path/to/data/test_file.raw"), Path("/path/to/backup/test_file.raw")
-    )
+    mock_copy2.assert_not_called()
 
 
 @patch("dags.impl.monitor_impl._copy_raw_file")

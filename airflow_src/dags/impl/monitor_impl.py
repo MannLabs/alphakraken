@@ -54,6 +54,16 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
     )
 
 
+def _file_already_exists(dst_path: Path, src_hash: str) -> bool:
+    if dst_path.exists():
+        logging.info("File already exists in backup location. Checking hash ..")
+        if _get_file_hash(dst_path) == (src_hash):
+            logging.info("Hashes match.")
+            return True
+        logging.warning("Hashes do not match.")
+    return False
+
+
 def _copy_raw_file(
     raw_file_name: str,
     instrument_id: str,
@@ -64,13 +74,20 @@ def _copy_raw_file(
 
     logging.info(f"Copying {src_path} to {dst_path} ..")
     start = datetime.now()  # noqa: DTZ005
+
+    src_hash = _get_file_hash(src_path)
+    if _file_already_exists(dst_path, src_hash):
+        return
+
     shutil.copy2(src_path, dst_path)
     time_elapsed = (datetime.now() - start).total_seconds()  # noqa: DTZ005
-    size_dst = Path(dst_path).stat().st_size
-    logging.info(f"Copying done! {size_dst / max(time_elapsed, 1) / 1024 ** 2} MB/s")
+    dst_size = dst_path.stat().st_size
+    logging.info(
+        f"Copying done! {dst_size / max(time_elapsed, 1) / 1024 ** 2:.1f} MB/s"
+    )
 
-    if (hash_dst := _get_file_hash(dst_path)) != (hash_src := _get_file_hash(src_path)):
-        raise ValueError(f"Hashes do not match! {hash_src} != {hash_dst}")
+    if (hash_dst := _get_file_hash(dst_path)) != (src_hash):
+        raise ValueError(f"Hashes do not match ofter copy! {src_hash=} != {hash_dst=}")
 
 
 def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:

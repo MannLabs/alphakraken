@@ -12,10 +12,19 @@ APP_FOLDER = Path(__file__).parent / Path("../../")
 
 @patch("service.db.get_raw_file_and_metrics_data")
 @patch("service.db.df_from_db_data")
-def test_overview(mock_df: MagicMock, mock_get: MagicMock) -> None:
-    """A very boring test for a very boring page."""
-    mock_raw_files_db, mock_metrics_db = MagicMock(), MagicMock()
-    mock_get.return_value = mock_raw_files_db, mock_metrics_db
+@patch("service.db.get_status_data")
+def test_overview(
+    mock_get_status_data: MagicMock,  # noqa: ARG001
+    mock_df: MagicMock,
+    mock_get: MagicMock,
+) -> None:
+    """Test that overview page renders successfully."""
+    mock_raw_files_db, mock_metrics_db, mock_status_db = (
+        MagicMock(),
+        MagicMock(),
+        MagicMock(),
+    )
+    mock_get.side_effect = [(mock_raw_files_db, mock_metrics_db), mock_status_db]
 
     ts1 = pd.to_datetime(datetime.now())  # noqa: DTZ005
     ts2 = pd.to_datetime(datetime.fromtimestamp(5e9 + 0.5))  # noqa: DTZ006
@@ -38,6 +47,7 @@ def test_overview(mock_df: MagicMock, mock_get: MagicMock) -> None:
             "project_id": ["P1", "P2"],
             "status": ["done", "error"],
             "status_details": ["", ""],
+            "instrument_id": ["i1", "i1"],
         },
     )
     metrics_df = pd.DataFrame(
@@ -51,8 +61,25 @@ def test_overview(mock_df: MagicMock, mock_get: MagicMock) -> None:
         }
     )
 
-    mock_df.side_effect = [raw_files_df, metrics_df]
+    status_df = pd.DataFrame(
+        {
+            "_id": ["i1", "i1"],
+            "updated_at_": [
+                ts1,
+                ts2,
+            ],
+            "last_error_occurred_at": [
+                ts1,
+                ts2,
+            ],
+            "status": ["ok", "error"],
+            "status_details": ["", ""],
+        }
+    )
 
+    mock_df.side_effect = [raw_files_df, metrics_df, status_df]
+
+    # when
     at = AppTest.from_file(f"{APP_FOLDER}/pages/overview.py").run()
 
     ts1str = ts1.strftime("%Y-%m-%d %H:%M:%S")
@@ -78,6 +105,9 @@ def test_overview(mock_df: MagicMock, mock_get: MagicMock) -> None:
         "project_id": {1: "P1", 2: "P2"},
         "status": {1: "done", 2: "error"},
         "status_details": {1: "", 2: ""},
+        "instrument_id": {1: "i1", 2: "i1"},
     }
 
-    assert at.dataframe[0].value.to_dict() == expected_data
+    assert at.dataframe[0] is not None
+    assert at.dataframe[1].value.to_dict() == expected_data
+    # plots not tested

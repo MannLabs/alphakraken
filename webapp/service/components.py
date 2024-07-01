@@ -83,7 +83,9 @@ def display_status(combined_df: pd.DataFrame, status_data_df: pd.DataFrame) -> N
         status_data["last_file_check_text"].append(
             _get_display_time(last_file_check, now)
         )
-        status_data["last_file_check_error"].append(status_df["last_error_occurred_at"])
+        status_data["last_file_check_error"].append(
+            status_df["last_error_occurred_at"].to_numpy()[0]
+        )
 
         last_file_creation = tmp_df.iloc[0]["created_at"]
         status_data["last_file_creation"].append(last_file_creation)

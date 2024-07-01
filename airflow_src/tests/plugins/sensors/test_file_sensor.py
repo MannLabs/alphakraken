@@ -20,8 +20,11 @@ def get_sensor() -> FileCreationSensor:
 
 @patch("plugins.sensors.file_sensor.Observer")
 @patch("plugins.sensors.file_sensor.FileCreationEventHandler")
+@patch("plugins.sensors.file_sensor._check_health")
 def test_poke_file_not_created(
-    mock_event_handler: MagicMock, mock_observer: MagicMock
+    mock_check_health: MagicMock,
+    mock_event_handler: MagicMock,
+    mock_observer: MagicMock,
 ) -> None:
     """Test poke method when file is not created and observer not alive."""
     # given
@@ -41,11 +44,14 @@ def test_poke_file_not_created(
     mock_observer.return_value.start.assert_called_once()
     mock_observer.return_value.stop.assert_not_called()
     mock_observer.return_value.join.assert_not_called()
+    mock_check_health.assert_called_once_with("some_instrument_id")
 
 
 @patch("plugins.sensors.file_sensor.Observer")
 @patch("plugins.sensors.file_sensor.FileCreationEventHandler")
+@patch("plugins.sensors.file_sensor._check_health")
 def test_poke_file_created(
+    mock_check_health: MagicMock,
     mock_event_handler: MagicMock,
     mock_observer: MagicMock,
 ) -> None:
@@ -66,3 +72,4 @@ def test_poke_file_created(
     mock_observer.return_value.start.assert_not_called()
     mock_observer.return_value.stop.assert_called_once()
     mock_observer.return_value.join.assert_called_once()
+    mock_check_health.assert_called_once_with("some_instrument_id")

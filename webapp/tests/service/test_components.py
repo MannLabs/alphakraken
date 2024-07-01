@@ -138,8 +138,26 @@ def test_display_status_with_multiple_instruments(mock_st_dataframe: MagicMock) 
         }
     )
 
+    status_data_df = pd.DataFrame(
+        pd.DataFrame(
+            {
+                "_id": ["inst1", "inst2"],
+                "updated_at_": [
+                    ts1,
+                    ts2,
+                ],
+                "last_error_occurred_at": [
+                    ts1,
+                    ts2,
+                ],
+                "status": ["ok", "error"],
+                "status_details": ["", ""],
+            }
+        )
+    )
+
     # when
-    display_status(df)
+    display_status(df, status_data_df)
 
     mock_st_dataframe.assert_called_once()
     result_df = mock_st_dataframe.call_args_list[0].args[0].data
@@ -147,8 +165,11 @@ def test_display_status_with_multiple_instruments(mock_st_dataframe: MagicMock) 
     assert result_df["instrument_id"].tolist() == ["inst1", "inst2"]
     assert result_df["last_file_creation"].tolist() == [ts1, ts1]
     assert result_df["last_status_update"].tolist() == [ts1, ts1]
+    assert result_df["last_file_check"].tolist() == [ts1, ts2]
+    assert result_df["last_file_check_error"].tolist() == [ts1, ts2]
     assert "last_file_creation_text" in result_df.columns
     assert "last_status_update_text" in result_df.columns
+    assert "last_file_check_text" in result_df.columns
 
 
 def test_get_color() -> None:

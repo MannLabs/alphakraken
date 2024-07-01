@@ -138,7 +138,7 @@ def _get_color(
     red_ages_h: list[float] = [  # noqa: B006
         8,
         8,
-        0.04,
+        0.1,  # could take up to 5 minutes to resume checking after worker restart
     ],
 ) -> list[str | None]:
     """Get the color for the row based on the age of the columns.

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-import pendulum
 from airflow.models.dag import DAG
 from airflow.operators.python import PythonOperator
 from callbacks import on_failure_callback
@@ -28,6 +27,7 @@ def create_acquisition_watcher_dag(instrument_id: str) -> None:
     """Create acquisition_watcher dag for instrument with `instrument_id`."""
     with DAG(
         f"{Dags.ACQUISITON_WATCHER}{DAG_DELIMITER}{instrument_id}",
+        schedule="@continuous",
         # these are the default arguments for each TASK
         default_args={
             "depends_on_past": False,
@@ -45,8 +45,6 @@ def create_acquisition_watcher_dag(instrument_id: str) -> None:
             "watcher",
             instrument_id,
         ],
-        start_date=pendulum.datetime(2000, 1, 1, tz="UTC"),
-        schedule="@continuous",
         max_active_runs=1,
     ) as dag:
         dag.doc_md = __doc__

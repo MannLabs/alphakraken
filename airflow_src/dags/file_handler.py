@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-import pendulum
 from airflow.models.dag import DAG
 from airflow.operators.python import PythonOperator
 from callbacks import on_failure_callback
@@ -34,6 +33,7 @@ def create_file_handler_dag(instrument_id: str) -> None:
     """Create file_handler dag for instrument with `instrument_id`."""
     with DAG(
         f"{Dags.FILE_HANDLER}{DAG_DELIMITER}{instrument_id}",
+        schedule=None,
         # these are the default arguments for each TASK
         default_args={
             "depends_on_past": False,
@@ -48,7 +48,6 @@ def create_file_handler_dag(instrument_id: str) -> None:
         description="Watch acquisition, handle raw files and trigger follow-up DAGs on demand.",
         catchup=False,
         tags=["file_handler", instrument_id],
-        start_date=pendulum.datetime(2000, 1, 1, tz="UTC"),
     ) as dag:
         dag.doc_md = __doc__
 

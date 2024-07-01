@@ -54,7 +54,10 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
     )
 
 
-def _copy_raw_file(instrument_id: str, raw_file_name: str) -> None:
+def _copy_raw_file(
+    raw_file_name: str,
+    instrument_id: str,
+) -> None:
     """Copy a raw file to the backup location and check its hashsum."""
     src_path = get_internal_instrument_data_path(instrument_id) / raw_file_name
     dst_path = get_internal_instrument_backup_path(instrument_id) / raw_file_name

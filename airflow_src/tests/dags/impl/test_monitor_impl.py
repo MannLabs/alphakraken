@@ -75,7 +75,10 @@ def test_copy_raw_file_copies_file_and_checks_hash(
     mock_get_file_hash.side_effect = ["some_hash", "some_hash"]
 
     # when
-    _copy_raw_file("instrument1", "test_file.raw")
+    _copy_raw_file(
+        "test_file.raw",
+        "instrument1",
+    )
 
     mock_get_data_path.assert_called_once_with("instrument1")
     mock_get_backup_path.assert_called_once_with("instrument1")
@@ -105,7 +108,10 @@ def test_copy_raw_file_copies_file_and_raises_on_hash_mismatch(
     with pytest.raises(
         ValueError, match="Hashes do not match! some_other_hash != some_hash"
     ):
-        _copy_raw_file("instrument1", "test_file.raw")
+        _copy_raw_file(
+            "test_file.raw",
+            "instrument1",
+        )
 
     mock_get_data_path.assert_called_once_with("instrument1")
     mock_get_backup_path.assert_called_once_with("instrument1")

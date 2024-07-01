@@ -69,10 +69,12 @@ def get_internal_instrument_data_path(instrument_id: str) -> Path:
 
     e.g. /opt/airflow/mounts/instruments/test2
     """
-    # TODO: remove backup once other backup script is gone
+    # TODO: remove "Backup" part once other backup script is gone
     return (
         Path(InternalPaths.MOUNTS_PATH)
-        / f"{InternalPaths.INSTRUMENTS}/{instrument_id}/Backup"
+        / InternalPaths.INSTRUMENTS
+        / instrument_id
+        / "Backup"
     )
 
 
@@ -81,7 +83,7 @@ def get_internal_instrument_backup_path(instrument_id: str) -> Path:
 
     e.g. /opt/airflow/mounts/backup/test2
     """
-    return Path(InternalPaths.MOUNTS_PATH) / f"{InternalPaths.BACKUP}/{instrument_id}"
+    return Path(InternalPaths.MOUNTS_PATH) / InternalPaths.BACKUP / instrument_id
 
 
 def get_output_folder_rel_path(raw_file_name: str, project_id: str) -> Path:

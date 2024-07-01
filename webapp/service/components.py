@@ -131,12 +131,12 @@ def _get_color(
     green_ages_h: list[float] = [  # noqa: B006
         2,
         2,
-        0.2,
+        0.02,
     ],
     red_ages_h: list[float] = [  # noqa: B006
         8,
         8,
-        0.3,
+        0.04,
     ],
 ) -> list[str | None]:
     """Get the color for the row based on the age of the columns.

@@ -94,9 +94,11 @@ def display_status(combined_df: pd.DataFrame, status_data_df: pd.DataFrame) -> N
 
         # last file watcher poke
         last_file_check = status_df["updated_at_"].to_numpy()[0]
-        status_data["last_poke"].append(last_file_check)
-        status_data["last_poke_text"].append(_get_display_time(last_file_check, now))
-        status_data["last_poke_error"].append(
+        status_data["last_file_check"].append(last_file_check)
+        status_data["last_file_check_text"].append(
+            _get_display_time(last_file_check, now)
+        )
+        status_data["last_file_check_error"].append(
             status_df["last_error_occurred_at"].to_numpy()[0]
         )
         status_data["status_details"].append(status_df["status_details"].to_numpy()[0])

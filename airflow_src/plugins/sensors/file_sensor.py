@@ -11,7 +11,6 @@ from common.settings import (
     InternalPaths,
     get_internal_instrument_data_path,
 )
-from db.models import KrakenStatusValues
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
 
 # Over the network, and on some Mac/Docker configurations,
@@ -21,6 +20,7 @@ from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers.polling import PollingObserver as Observer
 
 from shared.db.interface import update_kraken_status
+from shared.db.models import KrakenStatusValues
 
 
 def _check_health(instrument_id: str) -> None:

@@ -7,6 +7,7 @@ import pytest
 from common.keys import DagContext, DagParams, OpArgs
 from dags.impl.monitor_impl import (
     _copy_raw_file,
+    _file_already_exists,
     _get_file_hash,
     copy_raw_file,
     start_acquisition_handler,
@@ -57,6 +58,56 @@ def test_get_file_hash_chunks(mock_file_open: MagicMock) -> None:
     assert return_value == "faff66b0fba39e3a4961b45dc5f9826c"
 
 
+@patch("dags.impl.monitor_impl._get_file_hash")
+@patch.object(Path, "exists")
+def test_file_already_exists_file_not_existing(
+    mock_exists: MagicMock, mock_get_file_hash: MagicMock
+) -> None:
+    """Test file_already_exists returns False when file does not exist."""
+    mock_exists.return_value = False
+
+    # when
+    result = _file_already_exists(Path("/backup/test_file.raw"), "some_hash")
+
+    mock_exists.assert_called_once()
+    mock_get_file_hash.assert_not_called()
+    assert result is False
+
+
+@patch("dags.impl.monitor_impl._get_file_hash")
+@patch.object(Path, "exists")
+def test_file_already_exists_hashes_match(
+    mock_exists: MagicMock, mock_get_file_hash: MagicMock
+) -> None:
+    """Test file_already_exists returns True when hashes match."""
+    mock_exists.return_value = True
+    mock_get_file_hash.return_value = "some_hash"
+
+    # when
+    result = _file_already_exists(Path("/backup/test_file.raw"), "some_hash")
+
+    mock_exists.assert_called_once()
+    mock_get_file_hash.assert_called_once_with(Path("/backup/test_file.raw"))
+    assert result is True
+
+
+@patch("dags.impl.monitor_impl._get_file_hash")
+@patch.object(Path, "exists")
+def test_file_already_exists_hashes_dont_match(
+    mock_exists: MagicMock, mock_get_file_hash: MagicMock
+) -> None:
+    """Test file_already_exists returns False when hashes don't match."""
+    mock_exists.return_value = True
+    mock_get_file_hash.return_value = "some_hash"
+
+    # when
+    result = _file_already_exists(Path("/backup/test_file.raw"), "some_other_hash")
+
+    mock_exists.assert_called_once()
+    mock_get_file_hash.assert_called_once_with(Path("/backup/test_file.raw"))
+    assert result is False
+
+
 @patch("dags.impl.monitor_impl.get_internal_instrument_data_path")
 @patch("dags.impl.monitor_impl.get_internal_instrument_backup_path")
 @patch("dags.impl.monitor_impl._get_file_hash")
@@ -95,13 +146,15 @@ def test_copy_raw_file_copies_file_and_checks_hash(
 @patch("dags.impl.monitor_impl.get_internal_instrument_backup_path")
 @patch("dags.impl.monitor_impl._get_file_hash")
 @patch("dags.impl.monitor_impl._file_already_exists")
-def test_copy_raw_file_copies_file_raise_on_hash_mismatch(
+@patch("shutil.copy2")
+def test_copy_raw_file_copies_file_and_checks_hash_raises(
+    mock_copy2: MagicMock,  # noqa: ARG001
     mock_file_exists: MagicMock,
     mock_get_file_hash: MagicMock,
     mock_get_backup_path: MagicMock,
     mock_get_data_path: MagicMock,
 ) -> None:
-    """Test copy_raw_file copies file and raises on hash mismatch."""
+    """Test copy_raw_file copies file and checks hash, raises on mismatch."""
     mock_get_data_path.return_value = Path("/path/to/data")
     mock_output_path = MagicMock()
     mock_get_backup_path.return_value.__truediv__.return_value = mock_output_path

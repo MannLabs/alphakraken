@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 
+import pendulum
 from airflow.models import Param
 from airflow.models.dag import DAG
 from airflow.operators.python import PythonOperator
@@ -28,6 +29,7 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
     with DAG(
         f"{Dags.ACQUISITON_HANDLER}{DAG_DELIMITER}{instrument_id}",
         schedule=None,
+        start_date=pendulum.datetime(2000, 1, 1, tz="UTC"),
         # these are the default arguments for each TASK
         default_args={
             "depends_on_past": False,

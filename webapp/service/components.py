@@ -91,7 +91,7 @@ def display_status(combined_df: pd.DataFrame, status_data_df: pd.DataFrame) -> N
             _get_display_time(last_file_creation, now)
         )
 
-        last_update = tmp_df["updated_at_"].to_numpy().sort()[::-1][0]
+        last_update = sorted(tmp_df["updated_at_"].to_numpy())[::-1][0]
         status_data["last_status_update"].append(last_update)
         status_data["last_status_update_text"].append(
             _get_display_time(last_update, now)

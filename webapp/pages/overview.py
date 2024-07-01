@@ -52,6 +52,9 @@ combined_df["file_created"] = combined_df["created_at"].dt.strftime("%Y-%m-%d %H
 combined_df["quanting_time_minutes"] = combined_df["quanting_time_elapsed"] / 60
 combined_df["precursors"] = combined_df["precursors"].astype("Int64", errors="ignore")
 combined_df["proteins"] = combined_df["proteins"].astype("Int64", errors="ignore")
+combined_df["created_at"] = combined_df["created_at"].apply(
+    lambda x: x.replace(microsecond=0)
+)
 combined_df["updated_at_"] = combined_df["updated_at_"].apply(
     lambda x: x.replace(microsecond=0)
 )

@@ -31,7 +31,7 @@ def create_file_handler_dag(instrument_id: str) -> None:
         # these are the default arguments for each TASK
         default_args={
             "depends_on_past": False,
-            "retries": 1,
+            "retries": 4,
             "retry_delay": timedelta(minutes=1),
             # this maps the DAG to the worker that is responsible for that queue, cf. docker-compose.yml
             # and https://airflow.apache.org/docs/apache-airflow-providers-celery/stable/celery_executor.html#queues
@@ -62,6 +62,11 @@ def create_file_handler_dag(instrument_id: str) -> None:
             task_id=Tasks.COPY_RAW_FILE,
             python_callable=copy_raw_file,
             op_kwargs={OpArgs.INSTRUMENT_ID: instrument_id},
+            # limit the number of concurrent copies to not over-stress the network.
+            # Note that this is a potential bottleneck, so a timeout is important here.
+            max_active_tis_per_dag=1,
+            execution_timeout=timedelta(minutes=5),
+            # TODO: introduce also a Pool for this task, to limit copies also across instruments
         )
 
         start_acquisition_handler_ = PythonOperator(

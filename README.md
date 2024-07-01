@@ -250,7 +250,7 @@ special worker ("test1") is used that is connected to the `airflow_test_folder` 
 5. Create a test raw file in the backup pool folder to fake the acquisition
 ```bash
 I=$((I+1)); NEW_FILE_NAME=test_file_SA_P1_${I}.raw; echo $NEW_FILE_NAME
-touch airflow_test_folders/backup_pool/test1/$NEW_FILE_NAME
+touch airflow_test_folders/instruments/test1/Backup/$NEW_FILE_NAME
 ```
 
 6. Wait until the `acquisition_watchers` picks up the file (you may mark the `wait_for_new_files` task as "success" to speed up the process).

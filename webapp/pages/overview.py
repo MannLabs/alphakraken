@@ -12,7 +12,7 @@ from service.components import (
     show_date_select,
     show_filter,
 )
-from service.db import df_from_db_data, get_raw_file_and_metrics_data
+from service.db import df_from_db_data, get_raw_file_and_metrics_data, get_status_data
 from service.utils import _log
 
 _log(f"loading {__file__}")
@@ -84,11 +84,16 @@ column_order = [
 
 
 @st.experimental_fragment
-def _display_status(df: pd.DataFrame) -> None:
+def _display_status(combined_df: pd.DataFrame) -> None:
     """A fragment that displays the status information."""
     st.markdown("## Status")
     try:
-        display_status(df)
+        status_data_df = df_from_db_data(get_status_data())
+
+        status_data_df["updated_at_"] = status_data_df["updated_at_"].apply(
+            lambda x: x.replace(microsecond=0)
+        )
+        display_status(combined_df, status_data_df)
     except Exception as e:  # noqa: BLE001
         _log(str(e))
         st.warning(f"Cannot not display status: {e}.")

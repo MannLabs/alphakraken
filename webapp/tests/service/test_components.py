@@ -163,7 +163,12 @@ def test_get_color() -> None:
     )
 
     # when
-    result = _get_color(row)
+    result = _get_color(
+        row,
+        columns=["last_file_creation", "last_status_update"],
+        green_ages_h=[2, 2],
+        red_ages_h=[8, 8],
+    )
     assert result == ["background-color: #006837", "background-color: #4bb05c", None]
 
 

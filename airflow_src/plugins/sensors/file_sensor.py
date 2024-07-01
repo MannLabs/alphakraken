@@ -4,9 +4,14 @@ Wait until creation of a new file or folder.
 """
 
 import logging
+from pathlib import Path
 
 from airflow.sensors.base import BaseSensorOperator
-from common.settings import get_internal_instrument_data_path
+from common.settings import (
+    InternalPaths,
+    get_internal_instrument_data_path,
+)
+from db.models import KrakenStatusValues
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
 
 # Over the network, and on some Mac/Docker configurations,
@@ -14,6 +19,28 @@ from watchdog.events import FileSystemEvent, FileSystemEventHandler
 # TODO: fix this or get rid of watchdog again
 # from watchdog.observers import Observer
 from watchdog.observers.polling import PollingObserver as Observer
+
+from shared.db.interface import update_kraken_status
+
+
+def _check_health(instrument_id: str) -> None:
+    """Check the health of the instrument data path and backup path. Update Kraken status."""
+    status_details = []
+    data_path = get_internal_instrument_data_path(instrument_id)
+    if not data_path.exists():
+        logging.error(f"Data path {data_path} does not exist.")
+        status_details.append("Instrument path not found.")
+
+    backup_path = Path(InternalPaths.MOUNTS_PATH) / InternalPaths.BACKUP
+    if not backup_path.exists():
+        logging.error(f"Backup path {backup_path} does not exist.")
+        status_details.append("Backup path not found.")
+
+    update_kraken_status(
+        instrument_id,
+        status=KrakenStatusValues.ERROR if status_details else KrakenStatusValues.OK,
+        status_details=";".join(status_details),
+    )
 
 
 class FileCreationEventHandler(FileSystemEventHandler):
@@ -36,6 +63,7 @@ class FileCreationSensor(BaseSensorOperator):
         """Initialize the sensor."""
         super().__init__(*args, **kwargs)
 
+        self._instrument_id = instrument_id
         self._path_to_watch = get_internal_instrument_data_path(instrument_id)
         logging.info(f"Creating FileCreationSensor for {self._path_to_watch}")
 
@@ -60,6 +88,8 @@ class FileCreationSensor(BaseSensorOperator):
         logging.info(
             f"Checking for new files since start of this DAG run in {self._path_to_watch}"
         )
+
+        _check_health(self._instrument_id)
 
         if self._event_handler.file_created:
             logging.info("self.event_handler.file_created()")

@@ -1,9 +1,12 @@
 """Unit tests for monitor_impl.py."""
 
+from pathlib import Path
 from unittest.mock import MagicMock, Mock, call, mock_open, patch
 
+import pytest
 from common.keys import DagContext, DagParams, OpArgs
 from dags.impl.monitor_impl import (
+    _copy_raw_file,
     _get_file_hash,
     copy_raw_file,
     start_acquisition_handler,
@@ -31,6 +34,8 @@ def test_update_raw_file_status_calls_update_with_correct_args(
 def test_get_file_hash(mock_file_open: MagicMock) -> None:
     """Test get_file_hash."""
     mock_file_open.return_value.read.side_effect = [b"some_file_content", None]
+
+    # when
     return_value = _get_file_hash("/test/file/path")
 
     assert return_value == "faff66b0fba39e3a4961b45dc5f9826c"
@@ -45,20 +50,77 @@ def test_get_file_hash_chunks(mock_file_open: MagicMock) -> None:
         b"content",
         None,
     ]
+
+    # when
     return_value = _get_file_hash("/test/file/path")
 
     assert return_value == "faff66b0fba39e3a4961b45dc5f9826c"
 
 
+@patch("dags.impl.monitor_impl.get_internal_instrument_data_path")
+@patch("dags.impl.monitor_impl.get_internal_instrument_backup_path")
+@patch("dags.impl.monitor_impl._get_file_hash")
 @patch("shutil.copy2")
 @patch("dags.impl.monitor_impl.Path")
+def test_copy_raw_file_copies_file_and_checks_hash(
+    mock_path: MagicMock,  # noqa: ARG001
+    mock_copy2: MagicMock,
+    mock_get_file_hash: MagicMock,
+    mock_get_backup_path: MagicMock,
+    mock_get_data_path: MagicMock,
+) -> None:
+    """Test copy_raw_file copies file and checks hash."""
+    mock_get_data_path.return_value = Path("/path/to/data")
+    mock_get_backup_path.return_value = Path("/path/to/backup")
+    mock_get_file_hash.side_effect = ["some_hash", "some_hash"]
+
+    # when
+    _copy_raw_file("instrument1", "test_file.raw")
+
+    mock_get_data_path.assert_called_once_with("instrument1")
+    mock_get_backup_path.assert_called_once_with("instrument1")
+    mock_copy2.assert_called_once_with(
+        Path("/path/to/data/test_file.raw"), Path("/path/to/backup/test_file.raw")
+    )
+
+
+@patch("dags.impl.monitor_impl.get_internal_instrument_data_path")
+@patch("dags.impl.monitor_impl.get_internal_instrument_backup_path")
+@patch("dags.impl.monitor_impl._get_file_hash")
+@patch("shutil.copy2")
+@patch("dags.impl.monitor_impl.Path")
+def test_copy_raw_file_copies_file_and_raises_on_hash_mismatch(
+    mock_path: MagicMock,  # noqa: ARG001
+    mock_copy2: MagicMock,
+    mock_get_file_hash: MagicMock,
+    mock_get_backup_path: MagicMock,
+    mock_get_data_path: MagicMock,
+) -> None:
+    """Test copy_raw_file copies file and raises on hash mismatch."""
+    mock_get_data_path.return_value = Path("/path/to/data")
+    mock_get_backup_path.return_value = Path("/path/to/backup")
+    mock_get_file_hash.side_effect = ["some_hash", "some_other_hash"]
+
+    # when
+    with pytest.raises(
+        ValueError, match="Hashes do not match! some_other_hash != some_hash"
+    ):
+        _copy_raw_file("instrument1", "test_file.raw")
+
+    mock_get_data_path.assert_called_once_with("instrument1")
+    mock_get_backup_path.assert_called_once_with("instrument1")
+    mock_copy2.assert_called_once_with(
+        Path("/path/to/data/test_file.raw"), Path("/path/to/backup/test_file.raw")
+    )
+
+
+@patch("dags.impl.monitor_impl._copy_raw_file")
 @patch("dags.impl.monitor_impl._get_file_size")
 @patch("dags.impl.monitor_impl.update_raw_file")
 def test_copy_raw_file_calls_update_with_correct_args(
     mock_update_status: MagicMock,
     mock_get_file_size: MagicMock,
-    mock_path: MagicMock,  # noqa: ARG001
-    mock_copy2: MagicMock,  # noqa: ARG001
+    mock_copy_raw_file: MagicMock,
 ) -> None:
     """Test copy_raw_file calls update with correct arguments."""
     ti = MagicMock()
@@ -68,10 +130,11 @@ def test_copy_raw_file_calls_update_with_correct_args(
     }
     mock_get_file_size.return_value = 1000
 
+    # when
     copy_raw_file(ti, **kwargs)
 
-    mock_get_file_size.assert_called_once_with("test_file.raw", "instrument1")
-
+    # then
+    mock_copy_raw_file("test_file.raw", "instrument1")
     mock_update_status.assert_has_calls(
         [
             call("test_file.raw", new_status=RawFileStatus.COPYING),

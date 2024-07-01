@@ -27,7 +27,7 @@ def update_raw_file_status(ti: TaskInstance, **kwargs) -> None:
     update_raw_file(raw_file_name, new_status=RawFileStatus.ACQUISITION_STARTED)
 
 
-def _get_file_hash(file_path: str, chunk_size: int = 8192) -> str:
+def _get_file_hash(file_path: Path, chunk_size: int = 8192) -> str:
     """Get the hash of a file."""
     with open(file_path, "rb") as f:  # noqa: PTH123
         file_hash = hashlib.md5()  # noqa: S324
@@ -45,27 +45,29 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
 
     update_raw_file(raw_file_name, new_status=RawFileStatus.COPYING)
 
-    src = get_internal_instrument_data_path(instrument_id) / raw_file_name
-    dst = get_internal_instrument_backup_path(instrument_id) / raw_file_name
-
-    logging.info(f"Copying {src} to {dst} ..")
-
-    start = datetime.now()  # noqa: DTZ005
-    shutil.copy2(src, dst)
-    time_elapsed = (datetime.now() - start).total_seconds()  # noqa: DTZ005
-
-    size_src = Path(src).stat().st_size
-    size_dst = Path(dst).stat().st_size
-
-    logging.info(f"Copying done! {size_src/time_elapsed/1024**2} MB/s")
-
-    assert size_src == size_dst, f"Size mismatch: {size_src} != {size_dst}"
-    assert _get_file_hash(src) == _get_file_hash(dst), "Hash mismatch"
+    # TODO: this needs to be vendor-specific
+    _copy_raw_file(raw_file_name, instrument_id)
 
     file_size = _get_file_size(raw_file_name, instrument_id)
     update_raw_file(
         raw_file_name, new_status=RawFileStatus.COPYING_FINISHED, size=file_size
     )
+
+
+def _copy_raw_file(instrument_id: str, raw_file_name: str) -> None:
+    """Copy a raw file to the backup location and check its hashsum."""
+    src_path = get_internal_instrument_data_path(instrument_id) / raw_file_name
+    dst_path = get_internal_instrument_backup_path(instrument_id) / raw_file_name
+
+    logging.info(f"Copying {src_path} to {dst_path} ..")
+    start = datetime.now()  # noqa: DTZ005
+    shutil.copy2(src_path, dst_path)
+    time_elapsed = (datetime.now() - start).total_seconds()  # noqa: DTZ005
+    size_dst = Path(dst_path).stat().st_size
+    logging.info(f"Copying done! {size_dst / max(time_elapsed, 1) / 1024 ** 2} MB/s")
+
+    if (hash_dst := _get_file_hash(dst_path)) != (hash_src := _get_file_hash(src_path)):
+        raise ValueError(f"Hashes do not match! {hash_src} != {hash_dst}")
 
 
 def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:

@@ -74,11 +74,14 @@ def update_raw_file(
     raw_file = RawFile.objects.with_id(raw_file_name)
     logging.info(f"Old DB state: {raw_file.status=} {raw_file.status_details=}")
 
+    # prevent overwriting the size with None if it is not given
+    optional_args = {"size": size} if size is not None else {}
+
     raw_file.update(
         status=new_status,
         updated_at_=datetime.now(tz=pytz.utc),
         status_details=status_details,
-        size=size,
+        **optional_args,
     )
 
 
@@ -147,7 +150,7 @@ def update_kraken_status(
     """Update the status of a instrument connected to kraken."""
     logging.info(f"Updating DB: {instrument_id=} to {status=} with {status_details=}")
     connect_db()
-    error_args = (
+    optional_args = (
         {"last_error_occurred_at": datetime.now(tz=pytz.utc)}
         if status == KrakenStatusValues.ERROR
         else {}
@@ -158,5 +161,5 @@ def update_kraken_status(
         status=status,
         updated_at_=datetime.now(tz=pytz.utc),
         status_details=status_details,
-        **error_args,
+        **optional_args,
     ).save()

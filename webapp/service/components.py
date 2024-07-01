@@ -78,7 +78,7 @@ def display_status(combined_df: pd.DataFrame, status_data_df: pd.DataFrame) -> N
 
         status_data["instrument_id"].append(instrument_id)
 
-        last_file_check = pd.Timestamp(status_df["updated_at_"].to_numpy()[0])
+        last_file_check = status_df["updated_at_"].to_numpy()[0]
         status_data["last_file_check"].append(last_file_check)
         status_data["last_file_check_text"].append(
             _get_display_time(last_file_check, now)
@@ -102,10 +102,10 @@ def display_status(combined_df: pd.DataFrame, status_data_df: pd.DataFrame) -> N
     st.dataframe(status_df.style.apply(lambda row: _get_color(row), axis=1))
 
 
-def _get_display_time(last_file_creation: datetime, now: datetime) -> str:
+def _get_display_time(past_time: datetime, now: datetime) -> str:
     """Get a human readable display time for the last file creation."""
     display_time = humanize.precisedelta(
-        now - last_file_creation, minimum_unit="seconds", format="%.0f"
+        now - pd.Timestamp(past_time), minimum_unit="seconds", format="%.0f"
     )
     for full, abbrev in {
         " seconds": "s",

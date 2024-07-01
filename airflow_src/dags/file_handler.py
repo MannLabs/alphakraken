@@ -14,7 +14,13 @@ from common.keys import (
     OpArgs,
     Tasks,
 )
-from common.settings import AIRFLOW_QUEUE_PREFIX, INSTRUMENTS, Timings
+from common.settings import (
+    AIRFLOW_QUEUE_PREFIX,
+    INSTRUMENTS,
+    Concurrency,
+    Pools,
+    Timings,
+)
 from impl.monitor_impl import (
     copy_raw_file,
     start_acquisition_handler,
@@ -64,9 +70,9 @@ def create_file_handler_dag(instrument_id: str) -> None:
             op_kwargs={OpArgs.INSTRUMENT_ID: instrument_id},
             # limit the number of concurrent copies to not over-stress the network.
             # Note that this is a potential bottleneck, so a timeout is important here.
-            max_active_tis_per_dag=1,
-            execution_timeout=timedelta(minutes=5),
-            # TODO: introduce also a Pool for this task, to limit copies also across instruments
+            max_active_tis_per_dag=Concurrency.MAX_ACTIVE_COPY_TASKS_PER_DAG,
+            execution_timeout=timedelta(Timings.FILE_COPY_TIMEOUT_M),
+            pool=Pools.FILE_COPY_POOL,
         )
 
         start_acquisition_handler_ = PythonOperator(

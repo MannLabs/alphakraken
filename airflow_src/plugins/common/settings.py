@@ -41,13 +41,27 @@ class Timings:
 
     QUANTING_MONITOR_POKE_INTERVAL_S = 60
 
+    FILE_COPY_TIMEOUT_M = 5
+
 
 class Concurrency:
     """Concurrency constants."""
 
     # limit to a number smaller than maximum number of runs per DAG (default is 16) to have free slots for other tasks
     # like starting quanting or metrics calculation
-    MAX_ACTIVE_MONITORINGS_PER_DAG = 14
+    MAX_ACTIVE_QUANTING_MONITORINGS_PER_DAG = 14
+
+    MAX_ACTIVE_COPY_TASKS_PER_DAG = 1
+
+
+class Pools:
+    """Pool names.
+
+    cf. https://airflow.apache.org/docs/apache-airflow/stable/administration-and-deployment/pools.html
+    """
+
+    # pool to limit file copying across all instruments
+    FILE_COPY_POOL = "file_copy_pool"  # suggested default: 2
 
 
 def get_internal_instrument_data_path(instrument_id: str) -> Path:

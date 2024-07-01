@@ -41,6 +41,8 @@ If you don't want to connect to the cluster, just create the connection of type
 "ssh" and name "cluster-conn" with some dummy values for host, username, and password.
 In this case, make sure to set the Airflow variable `debug_no_cluster_ssh=True` (see below).
 
+5. In the Airflow UI, set up the required Pools (see [below](#setup-pools)).
+
 #### Run the local version
 Start all docker containers (but without the workers mounted to the production file systems)
 ```bash
@@ -176,6 +178,12 @@ This connection is required to interact with the SLURM cluster.
     - Password: `<password of kraken SLURM user>`
 3. (optional) Click "Test" to verify the connection.
 4. Click "Save".
+
+### Setup required pools
+Pools are used to limit the number of parallel tasks for certain operations. They are managed via the Airflow UI
+and need to be created manually one.
+1. Open the Airflow UI, navigate to "Admin" -> "Pools".
+2. For each pool defined in `settings.py:Pools`, create a new pool with a sensible value (see suggestions in the `Pools` class).
 
 ### Setup alphaDIA
 For details on how to install alphaDIA on the SLURM cluster, follow the alphaDIA

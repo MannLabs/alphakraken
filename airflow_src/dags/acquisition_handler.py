@@ -62,7 +62,7 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
             task_id=Tasks.MONITOR_QUANTING,
             ssh_hook=ssh_hook,
             poke_interval=Timings.QUANTING_MONITOR_POKE_INTERVAL_S,
-            max_active_tis_per_dag=Concurrency.MAX_ACTIVE_MONITORINGS_PER_DAG,
+            max_active_tis_per_dag=Concurrency.MAX_ACTIVE_QUANTING_MONITORINGS_PER_DAG,
         )
 
         get_job_info_ = PythonOperator(

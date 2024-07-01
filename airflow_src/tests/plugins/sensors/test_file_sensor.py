@@ -4,7 +4,9 @@
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from plugins.sensors.file_sensor import FileCreationSensor
+from plugins.sensors.file_sensor import FileCreationSensor, _check_health
+
+from shared.db.models import KrakenStatusValues
 
 
 def get_sensor() -> FileCreationSensor:
@@ -73,3 +75,49 @@ def test_poke_file_created(
     mock_observer.return_value.stop.assert_called_once()
     mock_observer.return_value.join.assert_called_once()
     mock_check_health.assert_called_once_with("some_instrument_id")
+
+
+@patch("plugins.sensors.file_sensor.update_kraken_status")
+@patch("plugins.sensors.file_sensor.get_internal_instrument_data_path")
+@patch("plugins.sensors.file_sensor.get_internal_backup_path")
+def test_check_health_when_all_paths_exist(
+    mock_get_backup_path: MagicMock,
+    mock_get_data_path: MagicMock,
+    mock_update_status: MagicMock,
+) -> None:
+    """Test that the health check passes when both paths exist."""
+    mock_path = MagicMock()
+    mock_path.exists.side_effect = [True, True]
+    mock_get_data_path.return_value = mock_path
+    mock_get_backup_path.return_value = mock_path
+
+    # when
+    _check_health("instrument_id")
+
+    mock_update_status.assert_called_once_with(
+        "instrument_id", status=KrakenStatusValues.OK, status_details=""
+    )
+
+
+@patch("plugins.sensors.file_sensor.update_kraken_status")
+@patch("plugins.sensors.file_sensor.get_internal_instrument_data_path")
+@patch("plugins.sensors.file_sensor.get_internal_backup_path")
+def test_check_health_when_no_paths_exist(
+    mock_get_backup_path: MagicMock,
+    mock_get_data_path: MagicMock,
+    mock_update_status: MagicMock,
+) -> None:
+    """Test that the health check fails when both paths do not exist."""
+    mock_path = MagicMock()
+    mock_path.exists.side_effect = [False, False]
+    mock_get_data_path.return_value = mock_path
+    mock_get_backup_path.return_value = mock_path
+
+    # when
+    _check_health("instrument_id")
+
+    mock_update_status.assert_called_once_with(
+        "instrument_id",
+        status="error",
+        status_details="Instrument path not found.;Backup path not found.",
+    )

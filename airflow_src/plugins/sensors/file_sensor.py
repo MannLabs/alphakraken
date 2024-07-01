@@ -4,11 +4,10 @@ Wait until creation of a new file or folder.
 """
 
 import logging
-from pathlib import Path
 
 from airflow.sensors.base import BaseSensorOperator
 from common.settings import (
-    InternalPaths,
+    get_internal_backup_path,
     get_internal_instrument_data_path,
 )
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
@@ -31,7 +30,7 @@ def _check_health(instrument_id: str) -> None:
         logging.error(f"Data path {data_path} does not exist.")
         status_details.append("Instrument path not found.")
 
-    backup_path = Path(InternalPaths.MOUNTS_PATH) / InternalPaths.BACKUP
+    backup_path = get_internal_backup_path()
     if not backup_path.exists():
         logging.error(f"Backup path {backup_path} does not exist.")
         status_details.append("Backup path not found.")

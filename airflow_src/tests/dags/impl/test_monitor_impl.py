@@ -1,9 +1,10 @@
 """Unit tests for monitor_impl.py."""
 
-from unittest.mock import MagicMock, Mock, call, patch
+from unittest.mock import MagicMock, Mock, call, mock_open, patch
 
 from common.keys import DagContext, DagParams, OpArgs
 from dags.impl.monitor_impl import (
+    _get_file_hash,
     copy_raw_file,
     start_acquisition_handler,
     update_raw_file_status,
@@ -24,6 +25,29 @@ def test_update_raw_file_status_calls_update_with_correct_args(
     mock_update_status.assert_called_once_with(
         "test_file.raw", new_status=RawFileStatus.ACQUISITION_STARTED
     )
+
+
+@patch("builtins.open", new_callable=mock_open)
+def test_get_file_hash(mock_file_open: MagicMock) -> None:
+    """Test get_file_hash."""
+    mock_file_open.return_value.read.side_effect = [b"some_file_content", None]
+    return_value = _get_file_hash("/test/file/path")
+
+    assert return_value == "faff66b0fba39e3a4961b45dc5f9826c"
+
+
+@patch("builtins.open", new_callable=mock_open)
+def test_get_file_hash_chunks(mock_file_open: MagicMock) -> None:
+    """Test get_file_hash with multiple chunks."""
+    mock_file_open.return_value.read.side_effect = [
+        b"some_",
+        b"file_",
+        b"content",
+        None,
+    ]
+    return_value = _get_file_hash("/test/file/path")
+
+    assert return_value == "faff66b0fba39e3a4961b45dc5f9826c"
 
 
 @patch("shutil.copy2")

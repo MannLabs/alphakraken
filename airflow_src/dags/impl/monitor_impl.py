@@ -1,5 +1,6 @@
 """Business logic for the "file_handler" DAG."""
 
+import hashlib
 import logging
 import shutil
 from datetime import datetime
@@ -26,6 +27,16 @@ def update_raw_file_status(ti: TaskInstance, **kwargs) -> None:
     update_raw_file(raw_file_name, new_status=RawFileStatus.ACQUISITION_STARTED)
 
 
+def _get_file_hash(file_path: str, chunk_size: int = 8192) -> str:
+    """Get the hash of a file."""
+    with open(file_path, "rb") as f:  # noqa: PTH123
+        file_hash = hashlib.md5()  # noqa: S324
+        while chunk := f.read(chunk_size):
+            file_hash.update(chunk)
+    logging.info(f"Hash of {file_path} is {file_hash.hexdigest()}")
+    return file_hash.hexdigest()
+
+
 def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
     """Copy a raw file to the target location."""
     del ti  # unused
@@ -36,8 +47,6 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
 
     src = get_internal_instrument_data_path(instrument_id) / raw_file_name
     dst = get_internal_instrument_backup_path(instrument_id) / raw_file_name
-
-    logging.info(f"Preparing copying {src} to {dst} ..")
 
     logging.info(f"Copying {src} to {dst} ..")
 
@@ -51,9 +60,9 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
     logging.info(f"Copying done! {size_src/time_elapsed/1024**2} MB/s")
 
     assert size_src == size_dst, f"Size mismatch: {size_src} != {size_dst}"
+    assert _get_file_hash(src) == _get_file_hash(dst), "Hash mismatch"
 
     file_size = _get_file_size(raw_file_name, instrument_id)
-
     update_raw_file(
         raw_file_name, new_status=RawFileStatus.COPYING_FINISHED, size=file_size
     )

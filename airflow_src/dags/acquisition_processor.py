@@ -20,7 +20,9 @@ from impl.processor_impl import (
 )
 from sensors.ssh_sensor import QuantingSSHSensor
 
-ssh_hook = SSHHook(ssh_conn_id="cluster-conn", conn_timeout=60, cmd_timeout=60)
+ssh_hook = SSHHook(
+    ssh_conn_id="cluster_ssh_connection", conn_timeout=60, cmd_timeout=60
+)
 
 
 def create_acquisition_processor_dag(instrument_id: str) -> None:

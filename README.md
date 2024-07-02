@@ -38,7 +38,7 @@ Note: depending on your operating system and configuration, you might need to ru
 
 4. In the Airflow UI, set up the SSH connection to the cluster (see [below](#setup-ssh-connection)).
 If you don't want to connect to the cluster, just create the connection of type
-"ssh" and name "cluster-conn" with some dummy values for host, username, and password.
+"ssh" and name "cluster_ssh_connection" with some dummy values for host, username, and password.
 In this case, make sure to set the Airflow variable `debug_no_cluster_ssh=True` (see below).
 
 5. In the Airflow UI, set up the required Pools (see [below](#setup-pools)).
@@ -171,7 +171,7 @@ This connection is required to interact with the SLURM cluster.
 
 1. Open the Airflow UI, navigate to "Admin" -> "Connections" and click the "+" button.
 2. Fill in the following fields:
-    - Connection Id: `cluster-conn`
+    - Connection Id: `cluster_ssh_connection`
     - Conn Type: `SSH`
     - Host: `<cluster_head_node_ip>`  # the IP address of a cluster head node, in this case `<cluster_head_node>`
     - Username: `<user name of kraken SLURM user>`

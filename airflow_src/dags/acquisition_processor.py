@@ -1,4 +1,4 @@
-"""DAG to handle acquisition."""
+"""DAG to process acquisition data: quant and extract metrics."""
 
 from __future__ import annotations
 

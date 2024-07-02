@@ -1,4 +1,4 @@
-"""DAG to watch acquisition and handle raw files."""
+"""DAG to watch acquisition, copy raw files and trigger follow-up DAGs."""
 
 from __future__ import annotations
 

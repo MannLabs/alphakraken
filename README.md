@@ -220,7 +220,7 @@ This is required to have all the required dependencies for local deployment and 
 1. Set up your environment for developing locally with
 ```bash
 PYTHON_VERSION=3.11
-AIRFLOW_VERSION=2.9.1
+AIRFLOW_VERSION=2.9.2
 git clone git@github.com:MannLabs/alphakraken.git
 cd alphakraken
 conda create --name alphakraken python=${PYTHON_VERSION} -y

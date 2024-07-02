@@ -154,7 +154,7 @@ mkdir -p ${MOUNTS}/output/<INSTRUMENT_ID>
     },
 ```
 
-5. In `docker-compose.yml`, add a new worker service, by copying an existing one and adapting it like:
+5. In `docker-compose.yaml`, add a new worker service, by copying an existing one and adapting it like:
 ```
   airflow-worker-<INSTRUMENT_ID>:
     <<: *airflow-worker
@@ -350,7 +350,7 @@ The path /home/kraken-user/alphakraken/sandbox/mounts/.... is not shared from th
 
 #### Solution
 Check that the mounting has been done correctly. If the instrument is currently unavailable,
-you can either ignore the error or temporarily comment out the corresponding worker definition in `docker-compose.yml`.
+you can either ignore the error or temporarily comment out the corresponding worker definition in `docker-compose.yaml`.
 Once the instrument is available again, uncomment the worker definition and restart the container.
 
 Sometimes, substituting `--build` with `--build --force-recreate` in the `docker compose` command helps

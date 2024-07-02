@@ -11,7 +11,7 @@ INSTRUMENTS = {
     "test5": {},
 }
 
-# prefix for the queues the DAGs are assigned to (cf. docker-compose.yml)
+# prefix for the queues the DAGs are assigned to (cf. docker-compose.yaml)
 AIRFLOW_QUEUE_PREFIX = "kraken_queue_"
 
 OUTPUT_FOLDER_PREFIX = "out_"

@@ -35,7 +35,7 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
             "depends_on_past": False,
             "retries": 4,
             "retry_delay": timedelta(minutes=1),
-            # this maps the DAG to the worker that is responsible for that queue, cf. docker-compose.yml
+            # this maps the DAG to the worker that is responsible for that queue, cf. docker-compose.yaml
             # and https://airflow.apache.org/docs/apache-airflow-providers-celery/stable/celery_executor.html#queues
             "queue": f"{AIRFLOW_QUEUE_PREFIX}{instrument_id}",
             # this callback is executed when tasks fail

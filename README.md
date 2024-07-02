@@ -142,14 +142,19 @@ fi
 ./mountall.sh $ENV <INSTRUMENT_ID>
 ```
 
-3. In the `settings.py:INSTRUMENTS` dictionary, add a new entry by copying an existing one and adapting it like
+3. Create an output folder for the instrument
+```bash
+mkdir -p ${MOUNTS}/output/<INSTRUMENT_ID>
+```
+
+4. In the `settings.py:INSTRUMENTS` dictionary, add a new entry by copying an existing one and adapting it like
 ```
     "<INSTRUMENT_ID>": {
         # (there might be some keys here, just copy them)
     },
 ```
 
-4. In `docker-compose.yml`, add a new worker service, by copying an existing one and adapting it like:
+5. In `docker-compose.yml`, add a new worker service, by copying an existing one and adapting it like:
 ```
   airflow-worker-<INSTRUMENT_ID>:
     <<: *airflow-worker
@@ -157,13 +162,13 @@ fi
     # there might be additional keys here, just copy them
 ```
 
-5. Restart all containers with the `--build` flag (cf. [above](#on-the-kraken-pc)).
+6. Restart all containers with the `--build` flag (cf. [above](#on-the-kraken-pc)).
 
-6. (optional) Without any further intervention, the kraken would now process all files on the new instrument. If this is
+7. (optional) Without any further intervention, the kraken would now process all files on the new instrument. If this is
 not desired, you may temporarily set the `max_file_age_in_hours` Airflow variable (see below) to process only
 recent files. Older ones will then be added to the DB with status 'ignored'. Don't forget to set it back to the original value as this is a global setting.
 
-7. Open the airflow UI and unpause the new `*.<INSTRUMENT_ID>` DAGs. It might be wise to do this one after another,
+8. Open the airflow UI and unpause the new `*.<INSTRUMENT_ID>` DAGs. It might be wise to do this one after another,
 (`instrument_watcher` -> `acquisition_handler` -> `acquisition_processor`.) and to check the logs for errors before starting the next one.
 
 ### Setup SSH connection

@@ -138,7 +138,7 @@ services:
       POSTGRES_PASSWORD: airflow
       POSTGRES_DB: airflow
     volumes:
-      - postgres-db-volume:/var/lib/postgresql/data
+      - ./airflowdb_data_${ENV_NAME:?error}:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "airflow"]
       interval: 10s
@@ -369,6 +369,3 @@ services:
   airflow-worker-test4:
     <<: *airflow-worker
     command: celery worker -q kraken_queue_test4
-
-volumes:
-  postgres-db-volume:

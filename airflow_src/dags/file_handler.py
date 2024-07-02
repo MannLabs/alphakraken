@@ -22,13 +22,13 @@ from common.settings import (
 )
 from impl.monitor_impl import (
     copy_raw_file,
-    start_acquisition_handler,
+    start_acquisition_processor,
     update_raw_file_status,
 )
 from sensors.acquisition_monitor import AcquisitionMonitor
 
 
-# TODO: rename to acquisition_monitor (or handler? then acquisition_handler would be acquisition_processor)
+# TODO: rename to acquisition_monitor (or handler? then acquisition_processor would be acquisition_processor)
 def create_file_handler_dag(instrument_id: str) -> None:
     """Create file_handler dag for instrument with `instrument_id`."""
     with DAG(
@@ -74,9 +74,9 @@ def create_file_handler_dag(instrument_id: str) -> None:
             pool=Pools.FILE_COPY_POOL,
         )
 
-        start_acquisition_handler_ = PythonOperator(
-            task_id=Tasks.START_ACQUISITION_HANDLER,
-            python_callable=start_acquisition_handler,
+        start_acquisition_processor_ = PythonOperator(
+            task_id=Tasks.START_ACQUISITION_PROCESSOR,
+            python_callable=start_acquisition_processor,
             op_kwargs={OpArgs.INSTRUMENT_ID: instrument_id},
         )
 
@@ -84,7 +84,7 @@ def create_file_handler_dag(instrument_id: str) -> None:
         update_raw_file_
         >> monitor_acquisition_
         >> copy_raw_file_
-        >> start_acquisition_handler_
+        >> start_acquisition_processor_
     )
 
 

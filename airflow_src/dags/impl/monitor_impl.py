@@ -91,8 +91,8 @@ def _copy_raw_file(
         raise ValueError(f"Hashes do not match ofter copy! {src_hash=} != {hash_dst=}")
 
 
-def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
-    """Trigger an acquisition_handler DAG run for specific raw files.
+def start_acquisition_processor(ti: TaskInstance, **kwargs) -> None:
+    """Trigger an acquisition_processor DAG run for specific raw files.
 
     Each raw file is added to the database first.
     Then, for each raw file, the project id is determined.

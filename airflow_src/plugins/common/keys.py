@@ -8,7 +8,7 @@ class Dags:
 
     ACQUISITON_WATCHER: str = "acquisition_watcher"
     FILE_HANDLER: str = "file_handler"
-    ACQUISITON_HANDLER: str = "acquisition_handler"
+    ACQUISITON_HANDLER: str = "acquisition_processor"
 
 
 class Tasks:
@@ -22,7 +22,7 @@ class Tasks:
     MONITOR_ACQUISITION: str = "monitor_acquisition"
     UPDATE_RAW_FILE_STATUS: str = "update_raw_file_status"
     COPY_RAW_FILE: str = "copy_raw_file"
-    START_ACQUISITION_HANDLER: str = "start_acquisition_handler"
+    START_ACQUISITION_PROCESSOR: str = "start_acquisition_processor"
 
     PREPARE_QUANTING: str = "prepare_quanting"
     RUN_QUANTING: str = "run_quanting"

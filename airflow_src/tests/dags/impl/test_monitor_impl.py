@@ -10,7 +10,7 @@ from dags.impl.monitor_impl import (
     _file_already_exists,
     _get_file_hash,
     copy_raw_file,
-    start_acquisition_handler,
+    start_acquisition_processor,
     update_raw_file_status,
 )
 from db.models import RawFileStatus
@@ -233,16 +233,16 @@ def test_copy_raw_file_calls_update_with_correct_args(
 
 
 @patch("dags.impl.monitor_impl.trigger_dag_run")
-def test_start_acquisition_handler_with_single_file(
+def test_start_acquisition_processor_with_single_file(
     mock_trigger_dag_run: MagicMock,
 ) -> None:
-    """Test start_acquisition_handler with a single file."""
+    """Test start_acquisition_processor with a single file."""
     # given
     raw_file_names = {"file1.raw": ("PID1", True)}
     ti = Mock()
 
     # when
-    start_acquisition_handler(
+    start_acquisition_processor(
         ti,
         **{
             OpArgs.INSTRUMENT_ID: "instrument1",
@@ -253,7 +253,7 @@ def test_start_acquisition_handler_with_single_file(
     # then
     assert mock_trigger_dag_run.call_count == 1  # no magic numbers
     for n, call_ in enumerate(mock_trigger_dag_run.call_args_list):
-        assert call_.args[0] == ("acquisition_handler.instrument1")
+        assert call_.args[0] == ("acquisition_processor.instrument1")
         assert {
             "raw_file_name": list(raw_file_names.keys())[n],
         } == call_.args[1]

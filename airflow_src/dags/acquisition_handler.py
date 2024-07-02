@@ -23,8 +23,8 @@ from sensors.ssh_sensor import QuantingSSHSensor
 ssh_hook = SSHHook(ssh_conn_id="cluster-conn", conn_timeout=60, cmd_timeout=60)
 
 
-def create_acquisition_handler_dag(instrument_id: str) -> None:
-    """Create acquisition_handler dag for instrument with `instrument_id`."""
+def create_acquisition_processor_dag(instrument_id: str) -> None:
+    """Create acquisition_processor dag for instrument with `instrument_id`."""
     with DAG(
         f"{Dags.ACQUISITON_HANDLER}{DAG_DELIMITER}{instrument_id}",
         schedule=None,
@@ -41,7 +41,7 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
         },
         description="Handle acquisition.",
         catchup=False,
-        tags=["acquisition_handler", instrument_id],
+        tags=["acquisition_processor", instrument_id],
         params={"raw_file_name": Param(type="string", minimum=3)},
     ) as dag:
         dag.doc_md = __doc__
@@ -90,4 +90,4 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
 
 
 for instrument_id in INSTRUMENTS:
-    create_acquisition_handler_dag(instrument_id)
+    create_acquisition_processor_dag(instrument_id)

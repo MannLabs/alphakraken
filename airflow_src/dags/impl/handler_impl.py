@@ -1,4 +1,4 @@
-"""Business logic for the acquisition_handler."""
+"""Business logic for the acquisition_processor."""
 
 import logging
 from datetime import datetime

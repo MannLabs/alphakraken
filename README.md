@@ -43,7 +43,7 @@ In this case, make sure to set the Airflow variable `debug_no_cluster_ssh=True` 
 
 5. In the Airflow UI, set up the required Pools (see [below](#setup-pools)).
 
-#### Run the local version
+#### Run the containers (local version)
 Start all docker containers (but without the workers mounted to the production file systems)
 ```bash
 docker compose --env-file=envs/.env-airflow --env-file=envs/${ENV}.env up --build -d
@@ -85,9 +85,9 @@ and copy the cluster run script `submit_job.sh` to `~/slurm`. Make sure to updat
 #### On the kraken PC
 1. Set up the network bind mounts (see [below](#set-up-network-bind-mounts)) .
 
-2. Run the sandbox/production containers
+2. Run the containers (sandbox/production version)
 ```bash
-docker compose --env-file=envs/.env-airflow --env-file=envs/${ENV}.env up --build --profile all-workers -d
+docker compose --env-file=envs/.env-airflow --env-file=envs/${ENV}.env --profile all-workers up --build -d
 ```
 which spins up additional worker containers for each instrument.
 
@@ -157,14 +157,14 @@ fi
     # there might be additional keys here, just copy them
 ```
 
-5. Restart all containers with the `--build` flag (cf. above).
+5. Restart all containers with the `--build` flag (cf. [above](#on-the-kraken-pc)).
 
-6. Open the airflow UI and unpause the new `*.<INSTRUMENT_ID>` DAGs.
-
-7. Without any further intervention, the kraken will now process all files on the new instrument. If this is
+6. (optional) Without any further intervention, the kraken would now process all files on the new instrument. If this is
 not desired, you may temporarily set the `max_file_age_in_hours` Airflow variable (see below) to process only
-recent files.
+recent files. Older ones will then be added to the DB with status 'ignored'. Don't forget to set it back to the original value as this is a global setting.
 
+7. Open the airflow UI and unpause the new `*.<INSTRUMENT_ID>` DAGs. It might be wise to do this one after another,
+(`instrument_watcher` -> `acquisition_handler` -> `acquisition_processor`.) and to check the logs for errors before starting the next one.
 
 ### Setup SSH connection
 This connection is required to interact with the SLURM cluster.
@@ -347,6 +347,9 @@ The path /home/kraken-user/alphakraken/sandbox/mounts/.... is not shared from th
 Check that the mounting has been done correctly. If the instrument is currently unavailable,
 you can either ignore the error or temporarily comment out the corresponding worker definition in `docker-compose.yml`.
 Once the instrument is available again, uncomment the worker definition and restart the container.
+
+Sometimes, substituting `--build` with `--build --force-recreate` in the `docker compose` command helps
+resolve mounting problems.
 
 ### Restarting Docker
 ```

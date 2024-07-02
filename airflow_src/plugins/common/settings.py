@@ -8,6 +8,7 @@ INSTRUMENTS = {
     "test2": {},
     "test3": {},
     "test4": {},
+    "test5": {},
 }
 
 # prefix for the queues the DAGs are assigned to (cf. docker-compose.yml)

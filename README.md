@@ -261,7 +261,7 @@ I=$((I+1)); NEW_FILE_NAME=test_file_SA_P1_${I}.raw; echo $NEW_FILE_NAME
 touch airflow_test_folders/instruments/test1/Backup/$NEW_FILE_NAME
 ```
 
-6. Wait until the `acquisition_watchers` picks up the file (you may mark the `wait_for_new_files` task as "success" to speed up the process).
+6. Wait until the `instrument_watchers` picks up the file (you may mark the `wait_for_new_files` task as "success" to speed up the process).
 
 7. After the `compute_metrics` task failed because of missing output files,
 create those by copying fake alphaDIA result data to the expected output directory

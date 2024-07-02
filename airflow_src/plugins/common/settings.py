@@ -3,7 +3,7 @@
 from pathlib import Path
 
 INSTRUMENTS = {
-    # the toplevel keys determine the DAG name (e.g. 'acquisition_watcher.test1')
+    # the toplevel keys determine the DAG name (e.g. 'instrument_watcher.test1')
     "test1": {},
     "test2": {},
     "test3": {},

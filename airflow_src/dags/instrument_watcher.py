@@ -23,9 +23,8 @@ from impl.watcher_impl import (
 from sensors.file_sensor import FileCreationSensor
 
 
-# TODO: rename to instrument_watcher
-def create_acquisition_watcher_dag(instrument_id: str) -> None:
-    """Create acquisition_watcher dag for instrument with `instrument_id`."""
+def create_instrument_watcher_dag(instrument_id: str) -> None:
+    """Create instrument_watcher dag for instrument with `instrument_id`."""
     with DAG(
         f"{Dags.ACQUISITON_WATCHER}{DAG_DELIMITER}{instrument_id}",
         schedule="@continuous",
@@ -84,4 +83,4 @@ def create_acquisition_watcher_dag(instrument_id: str) -> None:
 
 
 for instrument_id in INSTRUMENTS:
-    create_acquisition_watcher_dag(instrument_id)
+    create_instrument_watcher_dag(instrument_id)

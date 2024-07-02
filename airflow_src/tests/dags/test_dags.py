@@ -19,11 +19,11 @@ def dagbag() -> DagBag:
         return DagBag(dag_folder=DAG_FOLDER, include_examples=False)
 
 
-def test_dag_load_acquisition_watcher(dagbag: DagBag) -> None:
-    """Test that acquisition_watcher loads correctly."""
+def test_dag_load_instrument_watcher(dagbag: DagBag) -> None:
+    """Test that instrument_watcher loads correctly."""
     # when
     for instrument in INSTRUMENTS:
-        dag = dagbag.get_dag(dag_id=f"acquisition_watcher.{instrument}")
+        dag = dagbag.get_dag(dag_id=f"instrument_watcher.{instrument}")
 
         # then
         assert dagbag.import_errors == {}
@@ -44,7 +44,7 @@ def test_dag_load_file_handler(dagbag: DagBag) -> None:
 
 
 def test_dag_load_acquisition_processor(dagbag: DagBag) -> None:
-    """Test that acquisition_watcher loads correctly."""
+    """Test that instrument_watcher loads correctly."""
     # when
     for instrument in INSTRUMENTS:
         dag = dagbag.get_dag(dag_id=f"acquisition_processor.{instrument}")

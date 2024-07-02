@@ -1,4 +1,4 @@
-"""Business logic for the acquisition_watcher."""
+"""Business logic for the instrument_watcher."""
 
 import logging
 import os

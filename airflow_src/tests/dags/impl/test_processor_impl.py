@@ -1,4 +1,4 @@
-"""Tests for the handler_impl module."""
+"""Tests for the processor_impl module."""
 
 import os
 from pathlib import Path
@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, call, patch
 import pytest
 from airflow.exceptions import AirflowFailException
 from common.settings import INSTRUMENTS
-from dags.impl.handler_impl import (
+from dags.impl.processor_impl import (
     _get_project_id_for_raw_file,
     compute_metrics,
     get_job_info,
@@ -27,8 +27,8 @@ from plugins.common.keys import (
 from shared.db.models import RawFileStatus
 
 
-@patch("dags.impl.handler_impl.get_all_project_ids")
-@patch("dags.impl.handler_impl.get_unique_project_id")
+@patch("dags.impl.processor_impl.get_all_project_ids")
+@patch("dags.impl.processor_impl.get_unique_project_id")
 def test_get_project_id_for_raw_file(
     mock_get_unique_project_id: MagicMock,
     mock_get_all_project_ids: MagicMock,
@@ -51,10 +51,10 @@ def test_get_project_id_for_raw_file(
     os.environ,
     {"IO_POOL_FOLDER": "some_io_pool_folder"},
 )
-@patch("dags.impl.handler_impl.put_xcom")
-@patch("dags.impl.handler_impl.random")
-@patch("dags.impl.handler_impl._get_project_id_for_raw_file")
-@patch("dags.impl.handler_impl.get_settings_for_project")
+@patch("dags.impl.processor_impl.put_xcom")
+@patch("dags.impl.processor_impl.random")
+@patch("dags.impl.processor_impl._get_project_id_for_raw_file")
+@patch("dags.impl.processor_impl.get_settings_for_project")
 def test_prepare_quanting(
     mock_get_settings: MagicMock,
     mock_get_project_id_for_raw_file: MagicMock,
@@ -106,10 +106,10 @@ def test_prepare_quanting(
     mock_random.assert_called_once()  # TODO: remove patching random once the hack is removed
 
 
-@patch("dags.impl.handler_impl.get_xcom")
-@patch("dags.impl.handler_impl.SSHSensorOperator.ssh_execute")
-@patch("dags.impl.handler_impl.put_xcom")
-@patch("dags.impl.handler_impl.update_raw_file")
+@patch("dags.impl.processor_impl.get_xcom")
+@patch("dags.impl.processor_impl.SSHSensorOperator.ssh_execute")
+@patch("dags.impl.processor_impl.put_xcom")
+@patch("dags.impl.processor_impl.update_raw_file")
 def test_run_quanting_executes_ssh_command_and_stores_job_id(
     mock_update: MagicMock,
     mock_put_xcom: MagicMock,
@@ -156,8 +156,8 @@ def test_run_quanting_executes_ssh_command_and_stores_job_id(
     )
 
 
-@patch("dags.impl.handler_impl.get_xcom")
-@patch("dags.impl.handler_impl.SSHSensorOperator.ssh_execute")
+@patch("dags.impl.processor_impl.get_xcom")
+@patch("dags.impl.processor_impl.SSHSensorOperator.ssh_execute")
 def test_run_quanting_job_id_exists(
     mock_ssh_execute: MagicMock,
     mock_get_xcom: MagicMock,
@@ -186,9 +186,9 @@ def test_run_quanting_job_id_exists(
     mock_ssh_execute.assert_not_called()
 
 
-@patch("dags.impl.handler_impl.get_xcom")
-@patch("dags.impl.handler_impl.Path")
-@patch("dags.impl.handler_impl.get_airflow_variable")
+@patch("dags.impl.processor_impl.get_xcom")
+@patch("dags.impl.processor_impl.Path")
+@patch("dags.impl.processor_impl.get_airflow_variable")
 def test_run_quanting_output_folder_exists(
     mock_get_airflow_variable: MagicMock,
     mock_path: MagicMock,
@@ -221,8 +221,8 @@ def test_run_quanting_output_folder_exists(
     mock_get_airflow_variable.assert_called_once_with("allow_output_overwrite", "False")
 
 
-@patch("dags.impl.handler_impl.get_xcom")
-@patch("dags.impl.handler_impl.SSHSensorOperator.ssh_execute")
+@patch("dags.impl.processor_impl.get_xcom")
+@patch("dags.impl.processor_impl.SSHSensorOperator.ssh_execute")
 def test_run_quanting_executes_ssh_command_error_wrong_job_id(
     mock_ssh_execute: MagicMock,
     mock_get_xcom: MagicMock,
@@ -248,9 +248,9 @@ def test_run_quanting_executes_ssh_command_error_wrong_job_id(
         run_quanting(MagicMock(), **kwargs)
 
 
-@patch("dags.impl.handler_impl.get_xcom")
-@patch("dags.impl.handler_impl.SSHSensorOperator.ssh_execute")
-@patch("dags.impl.handler_impl.put_xcom")
+@patch("dags.impl.processor_impl.get_xcom")
+@patch("dags.impl.processor_impl.SSHSensorOperator.ssh_execute")
+@patch("dags.impl.processor_impl.put_xcom")
 def test_get_job_info_happy_path(
     mock_put_xcom: MagicMock, mock_ssh_execute: MagicMock, mock_get_xcom: MagicMock
 ) -> None:
@@ -275,8 +275,8 @@ def test_get_job_info_happy_path(
     mock_put_xcom.assert_called_once_with(mock_ti, XComKeys.QUANTING_TIME_ELAPSED, 522)
 
 
-@patch("dags.impl.handler_impl.get_xcom")
-@patch("dags.impl.handler_impl.SSHSensorOperator.ssh_execute")
+@patch("dags.impl.processor_impl.get_xcom")
+@patch("dags.impl.processor_impl.SSHSensorOperator.ssh_execute")
 def test_get_job_info_raises(
     mock_ssh_execute: MagicMock, mock_get_xcom: MagicMock
 ) -> None:
@@ -292,9 +292,9 @@ def test_get_job_info_raises(
         get_job_info(mock_ti, **{OpArgs.SSH_HOOK: mock_ssh_hook})
 
 
-@patch("dags.impl.handler_impl.get_xcom")
-@patch("dags.impl.handler_impl.calc_metrics")
-@patch("dags.impl.handler_impl.put_xcom")
+@patch("dags.impl.processor_impl.get_xcom")
+@patch("dags.impl.processor_impl.calc_metrics")
+@patch("dags.impl.processor_impl.put_xcom")
 def test_compute_metrics(
     mock_put_xcom: MagicMock,
     mock_calc_metrics: MagicMock,
@@ -319,9 +319,9 @@ def test_compute_metrics(
     )
 
 
-@patch("dags.impl.handler_impl.get_xcom")
-@patch("dags.impl.handler_impl.add_metrics_to_raw_file")
-@patch("dags.impl.handler_impl.update_raw_file")
+@patch("dags.impl.processor_impl.get_xcom")
+@patch("dags.impl.processor_impl.add_metrics_to_raw_file")
+@patch("dags.impl.processor_impl.update_raw_file")
 def test_upload_metrics(
     mock_update: MagicMock,
     mock_add: MagicMock,

@@ -11,7 +11,7 @@ from airflow.providers.ssh.hooks.ssh import SSHHook
 from callbacks import on_failure_callback
 from common.keys import DAG_DELIMITER, Dags, OpArgs, Tasks
 from common.settings import AIRFLOW_QUEUE_PREFIX, INSTRUMENTS, Concurrency, Timings
-from impl.handler_impl import (
+from impl.processor_impl import (
     compute_metrics,
     get_job_info,
     prepare_quanting,

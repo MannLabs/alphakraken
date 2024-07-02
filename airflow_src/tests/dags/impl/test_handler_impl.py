@@ -1,11 +1,11 @@
-"""Unit tests for monitor_impl.py."""
+"""Unit tests for handler_impl.py."""
 
 from pathlib import Path
 from unittest.mock import MagicMock, Mock, call, mock_open, patch
 
 import pytest
 from common.keys import DagContext, DagParams, OpArgs
-from dags.impl.monitor_impl import (
+from dags.impl.handler_impl import (
     _copy_raw_file,
     _file_already_exists,
     _get_file_hash,
@@ -16,7 +16,7 @@ from dags.impl.monitor_impl import (
 from db.models import RawFileStatus
 
 
-@patch("dags.impl.monitor_impl.update_raw_file")
+@patch("dags.impl.handler_impl.update_raw_file")
 def test_update_raw_file_status_calls_update_with_correct_args(
     mock_update_status: MagicMock,
 ) -> None:
@@ -58,7 +58,7 @@ def test_get_file_hash_chunks(mock_file_open: MagicMock) -> None:
     assert return_value == "faff66b0fba39e3a4961b45dc5f9826c"
 
 
-@patch("dags.impl.monitor_impl._get_file_hash")
+@patch("dags.impl.handler_impl._get_file_hash")
 @patch.object(Path, "exists")
 def test_file_already_exists_file_not_existing(
     mock_exists: MagicMock, mock_get_file_hash: MagicMock
@@ -74,7 +74,7 @@ def test_file_already_exists_file_not_existing(
     assert result is False
 
 
-@patch("dags.impl.monitor_impl._get_file_hash")
+@patch("dags.impl.handler_impl._get_file_hash")
 @patch.object(Path, "exists")
 def test_file_already_exists_hashes_match(
     mock_exists: MagicMock, mock_get_file_hash: MagicMock
@@ -91,7 +91,7 @@ def test_file_already_exists_hashes_match(
     assert result is True
 
 
-@patch("dags.impl.monitor_impl._get_file_hash")
+@patch("dags.impl.handler_impl._get_file_hash")
 @patch.object(Path, "exists")
 def test_file_already_exists_hashes_dont_match(
     mock_exists: MagicMock, mock_get_file_hash: MagicMock
@@ -108,10 +108,10 @@ def test_file_already_exists_hashes_dont_match(
     assert result is False
 
 
-@patch("dags.impl.monitor_impl.get_internal_instrument_data_path")
-@patch("dags.impl.monitor_impl.get_internal_instrument_backup_path")
-@patch("dags.impl.monitor_impl._get_file_hash")
-@patch("dags.impl.monitor_impl._file_already_exists")
+@patch("dags.impl.handler_impl.get_internal_instrument_data_path")
+@patch("dags.impl.handler_impl.get_internal_instrument_backup_path")
+@patch("dags.impl.handler_impl._get_file_hash")
+@patch("dags.impl.handler_impl._file_already_exists")
 @patch("shutil.copy2")
 def test_copy_raw_file_copies_file_and_checks_hash(
     mock_copy2: MagicMock,
@@ -142,10 +142,10 @@ def test_copy_raw_file_copies_file_and_checks_hash(
     )
 
 
-@patch("dags.impl.monitor_impl.get_internal_instrument_data_path")
-@patch("dags.impl.monitor_impl.get_internal_instrument_backup_path")
-@patch("dags.impl.monitor_impl._get_file_hash")
-@patch("dags.impl.monitor_impl._file_already_exists")
+@patch("dags.impl.handler_impl.get_internal_instrument_data_path")
+@patch("dags.impl.handler_impl.get_internal_instrument_backup_path")
+@patch("dags.impl.handler_impl._get_file_hash")
+@patch("dags.impl.handler_impl._file_already_exists")
 @patch("shutil.copy2")
 def test_copy_raw_file_copies_file_and_checks_hash_raises(
     mock_copy2: MagicMock,  # noqa: ARG001
@@ -171,10 +171,10 @@ def test_copy_raw_file_copies_file_and_checks_hash_raises(
         )
 
 
-@patch("dags.impl.monitor_impl.get_internal_instrument_data_path")
-@patch("dags.impl.monitor_impl.get_internal_instrument_backup_path")
-@patch("dags.impl.monitor_impl._get_file_hash")
-@patch("dags.impl.monitor_impl._file_already_exists")
+@patch("dags.impl.handler_impl.get_internal_instrument_data_path")
+@patch("dags.impl.handler_impl.get_internal_instrument_backup_path")
+@patch("dags.impl.handler_impl._get_file_hash")
+@patch("dags.impl.handler_impl._file_already_exists")
 @patch("shutil.copy2")
 def test_copy_raw_file_no_copy_if_file_present(
     mock_copy2: MagicMock,
@@ -203,9 +203,9 @@ def test_copy_raw_file_no_copy_if_file_present(
     mock_copy2.assert_not_called()
 
 
-@patch("dags.impl.monitor_impl._copy_raw_file")
-@patch("dags.impl.monitor_impl._get_file_size")
-@patch("dags.impl.monitor_impl.update_raw_file")
+@patch("dags.impl.handler_impl._copy_raw_file")
+@patch("dags.impl.handler_impl._get_file_size")
+@patch("dags.impl.handler_impl.update_raw_file")
 def test_copy_raw_file_calls_update_with_correct_args(
     mock_update_status: MagicMock,
     mock_get_file_size: MagicMock,
@@ -232,7 +232,7 @@ def test_copy_raw_file_calls_update_with_correct_args(
     )
 
 
-@patch("dags.impl.monitor_impl.trigger_dag_run")
+@patch("dags.impl.handler_impl.trigger_dag_run")
 def test_start_acquisition_processor_with_single_file(
     mock_trigger_dag_run: MagicMock,
 ) -> None:

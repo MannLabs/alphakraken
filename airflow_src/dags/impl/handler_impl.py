@@ -1,4 +1,4 @@
-"""Business logic for the "file_handler" DAG."""
+"""Business logic for the "acquisition_handler" DAG."""
 
 import hashlib
 import logging
@@ -96,7 +96,7 @@ def start_acquisition_processor(ti: TaskInstance, **kwargs) -> None:
 
     Each raw file is added to the database first.
     Then, for each raw file, the project id is determined.
-    Only for raw files that carry a project id, the file_handler DAG is triggered.
+    Only for raw files that carry a project id, the acquisition_handler DAG is triggered.
     """
     del ti  # unused
     instrument_id = kwargs[OpArgs.INSTRUMENT_ID]

@@ -31,11 +31,11 @@ def test_dag_load_instrument_watcher(dagbag: DagBag) -> None:
         assert len(dag.tasks) == 4  # noqa: PLR2004 no magic numbers
 
 
-def test_dag_load_file_handler(dagbag: DagBag) -> None:
-    """Test that file_handler loads correctly."""
+def test_dag_load_acquisition_handler(dagbag: DagBag) -> None:
+    """Test that acquisition_handler loads correctly."""
     # when
     for instrument in INSTRUMENTS:
-        dag = dagbag.get_dag(dag_id=f"file_handler.{instrument}")
+        dag = dagbag.get_dag(dag_id=f"acquisition_handler.{instrument}")
 
         # then
         assert dagbag.import_errors == {}

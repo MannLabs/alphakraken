@@ -20,7 +20,7 @@ from common.settings import (
     Pools,
     Timings,
 )
-from impl.monitor_impl import (
+from impl.handler_impl import (
     copy_raw_file,
     start_acquisition_processor,
     update_raw_file_status,
@@ -28,11 +28,10 @@ from impl.monitor_impl import (
 from sensors.acquisition_monitor import AcquisitionMonitor
 
 
-# TODO: rename to acquisition_monitor (or handler? then acquisition_processor would be acquisition_processor)
-def create_file_handler_dag(instrument_id: str) -> None:
-    """Create file_handler dag for instrument with `instrument_id`."""
+def create_acquisition_handler_dag(instrument_id: str) -> None:
+    """Create acquisition_handler dag for instrument with `instrument_id`."""
     with DAG(
-        f"{Dags.FILE_HANDLER}{DAG_DELIMITER}{instrument_id}",
+        f"{Dags.ACQUISITION_HANDLER}{DAG_DELIMITER}{instrument_id}",
         schedule=None,
         # these are the default arguments for each TASK
         default_args={
@@ -47,7 +46,7 @@ def create_file_handler_dag(instrument_id: str) -> None:
         },
         description="Watch acquisition, handle raw files and trigger follow-up DAGs on demand.",
         catchup=False,
-        tags=["file_handler", instrument_id],
+        tags=["acquisition_handler", instrument_id],
     ) as dag:
         dag.doc_md = __doc__
 
@@ -89,4 +88,4 @@ def create_file_handler_dag(instrument_id: str) -> None:
 
 
 for instrument_id in INSTRUMENTS:
-    create_file_handler_dag(instrument_id)
+    create_acquisition_handler_dag(instrument_id)

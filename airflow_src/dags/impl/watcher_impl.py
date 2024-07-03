@@ -10,6 +10,7 @@ from airflow.models import TaskInstance
 from common.keys import AirflowVars, DagParams, Dags, OpArgs, XComKeys
 from common.settings import get_internal_instrument_data_path
 from common.utils import get_airflow_variable, get_xcom, put_xcom, trigger_dag_run
+from file_handling import _get_file_creation_timestamp
 from impl.project_id_handler import get_unique_project_id
 
 from shared.db.interface import (
@@ -157,22 +158,6 @@ def _file_meets_age_criterion(
             return False
 
     return True
-
-
-def _get_file_size(raw_file_name: str, instrument_id: str) -> float:
-    """Get the size (in bytes) of a raw file."""
-    raw_file_path = get_internal_instrument_data_path(instrument_id) / raw_file_name
-    file_size_bytes = raw_file_path.stat().st_size
-    logging.info(f"File {raw_file_name} has {file_size_bytes=}")
-    return file_size_bytes
-
-
-def _get_file_creation_timestamp(raw_file_name: str, instrument_id: str) -> float:
-    """Get the creation timestamp (unix epoch) of a raw file."""
-    raw_file_path = get_internal_instrument_data_path(instrument_id) / raw_file_name
-    file_creation_ts = raw_file_path.stat().st_ctime
-    logging.info(f"File {raw_file_name} has {file_creation_ts=}")
-    return file_creation_ts
 
 
 def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:

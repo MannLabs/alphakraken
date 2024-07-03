@@ -1,19 +1,10 @@
 """Business logic for the "acquisition_handler" DAG."""
 
-import hashlib
-import logging
-import shutil
-from datetime import datetime
-from pathlib import Path
-
 from airflow.models import TaskInstance
 from common.keys import DagContext, DagParams, Dags, OpArgs
-from common.settings import (
-    get_internal_instrument_backup_path,
-    get_internal_instrument_data_path,
-)
+from common.raw_data import RawDataWrapper
 from common.utils import trigger_dag_run
-from impl.watcher_impl import _get_file_size
+from file_handling import _get_file_size, copy_file
 
 from shared.db.interface import update_raw_file
 from shared.db.models import RawFileStatus
@@ -27,16 +18,6 @@ def update_raw_file_status(ti: TaskInstance, **kwargs) -> None:
     update_raw_file(raw_file_name, new_status=RawFileStatus.ACQUISITION_STARTED)
 
 
-def _get_file_hash(file_path: Path, chunk_size: int = 8192) -> str:
-    """Get the hash of a file."""
-    with open(file_path, "rb") as f:  # noqa: PTH123
-        file_hash = hashlib.md5()  # noqa: S324
-        while chunk := f.read(chunk_size):
-            file_hash.update(chunk)
-    logging.info(f"Hash of {file_path} is {file_hash.hexdigest()}")
-    return file_hash.hexdigest()
-
-
 def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
     """Copy a raw file to the target location."""
     del ti  # unused
@@ -45,50 +26,17 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
 
     update_raw_file(raw_file_name, new_status=RawFileStatus.COPYING)
 
-    # TODO: this needs to be vendor-specific
-    _copy_raw_file(raw_file_name, instrument_id)
+    raw_data_wrapper = RawDataWrapper.create(
+        instrument_id=instrument_id, raw_file_name=raw_file_name
+    )
 
-    file_size = _get_file_size(raw_file_name, instrument_id)
+    for src_path, dst_path in raw_data_wrapper.get_files_to_copy().items():
+        copy_file(src_path, dst_path)
+
+    file_size = _get_file_size(raw_data_wrapper.file_path_to_watch())
     update_raw_file(
         raw_file_name, new_status=RawFileStatus.COPYING_FINISHED, size=file_size
     )
-
-
-def _file_already_exists(dst_path: Path, src_hash: str) -> bool:
-    """Check if a file already exists in the backup location and has the same hash."""
-    if dst_path.exists():
-        logging.info("File already exists in backup location. Checking hash ..")
-        if _get_file_hash(dst_path) == (src_hash):
-            logging.info("Hashes match.")
-            return True
-        logging.warning("Hashes do not match.")
-    return False
-
-
-def _copy_raw_file(
-    raw_file_name: str,
-    instrument_id: str,
-) -> None:
-    """Copy a raw file to the backup location and check its hashsum."""
-    src_path = get_internal_instrument_data_path(instrument_id) / raw_file_name
-    dst_path = get_internal_instrument_backup_path(instrument_id) / raw_file_name
-
-    logging.info(f"Copying {src_path} to {dst_path} ..")
-    start = datetime.now()  # noqa: DTZ005
-
-    src_hash = _get_file_hash(src_path)
-    if _file_already_exists(dst_path, src_hash):
-        return
-
-    shutil.copy2(src_path, dst_path)
-    time_elapsed = (datetime.now() - start).total_seconds()  # noqa: DTZ005
-    dst_size = dst_path.stat().st_size
-    logging.info(
-        f"Copying done! {dst_size / max(time_elapsed, 1) / 1024 ** 2:.1f} MB/s"
-    )
-
-    if (hash_dst := _get_file_hash(dst_path)) != (src_hash):
-        raise ValueError(f"Hashes do not match ofter copy! {src_hash=} != {hash_dst=}")
 
 
 def start_acquisition_processor(ti: TaskInstance, **kwargs) -> None:

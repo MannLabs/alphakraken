@@ -6,12 +6,9 @@ from unittest.mock import MagicMock, Mock, call, patch
 
 import pytest
 import pytz
-from common.settings import INSTRUMENTS
 from dags.impl.watcher_impl import (
     _add_raw_file_to_db,
     _file_meets_age_criterion,
-    _get_file_creation_timestamp,
-    _get_file_size,
     _sort_by_creation_date,
     decide_raw_file_handling,
     get_unknown_raw_files,
@@ -20,38 +17,6 @@ from dags.impl.watcher_impl import (
 from plugins.common.keys import OpArgs, XComKeys
 
 SOME_INSTRUMENT_ID = "some_instrument_id"
-
-
-@patch.dict(
-    INSTRUMENTS, {"instrument1": {"raw_data_path_variable_name": "SOME_VARIABLE_NAME"}}
-)
-@patch("os.stat")
-def test_get_file_creation_timestamp(
-    mock_stat: MagicMock,
-) -> None:
-    """Test _get_file_creation_timestamp returns the expected values."""
-    mock_stat.return_value.st_ctime = 42.0
-
-    # when
-    result = _get_file_creation_timestamp("test_file.raw", "instrument1")
-
-    assert result == 42.0  # noqa: PLR2004
-
-
-@patch.dict(
-    INSTRUMENTS, {"instrument1": {"raw_data_path_variable_name": "SOME_VARIABLE_NAME"}}
-)
-@patch("os.stat")
-def test_get_file_size(
-    mock_stat: MagicMock,
-) -> None:
-    """Test _get_file_size returns the expected values."""
-    mock_stat.return_value.st_size = 42.0
-
-    # when
-    result = _get_file_size("test_file.raw", "instrument1")
-
-    assert result == 42.0  # noqa: PLR2004
 
 
 @patch("dags.impl.watcher_impl.get_internal_instrument_data_path")

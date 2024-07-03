@@ -2,13 +2,16 @@
 
 from pathlib import Path
 
+from common.keys import InstrumentKeys, InstrumentTypes
+
 INSTRUMENTS = {
     # the toplevel keys determine the DAG name (e.g. 'instrument_watcher.test1')
-    "test1": {},
-    "test2": {},
-    "test3": {},
-    "test4": {},
-    "test5": {},
+    "test1": {
+        InstrumentKeys.TYPE: InstrumentTypes.THERMO,
+    },
+    "test2": {
+        InstrumentKeys.TYPE: InstrumentTypes.THERMO,
+    },
 }
 
 # prefix for the queues the DAGs are assigned to (cf. docker-compose.yaml)
@@ -37,7 +40,7 @@ class Timings:
     """Timing constants."""
 
     # if you update this, you might also want to update the coloring in the webapp (components.py:_get_color())
-    FILE_CREATION_POKE_INTERVAL_S = 60
+    FILE_CREATION_POKE_INTERVAL_S = 5
 
     ACQUISITION_MONITOR_POKE_INTERVAL_S = 30
 
@@ -110,3 +113,8 @@ def get_internal_output_path(raw_file_name: str, project_id: str) -> Path:
     return Path(InternalPaths.MOUNTS_PATH) / get_output_folder_rel_path(
         raw_file_name, project_id
     )
+
+
+def get_instrument_type(instrument_id: str) -> str:
+    """Get the type of the instrument with the given ID."""
+    return INSTRUMENTS[instrument_id][InstrumentKeys.TYPE]

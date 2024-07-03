@@ -74,7 +74,15 @@ class XComKeys:
 class InstrumentKeys:
     """Keys for accessing instrument data."""
 
-    # TYPE: str = "type"
+    TYPE: str = "type"
+
+
+class InstrumentTypes:
+    """Types of instruments."""
+
+    THERMO: str = "thermo"
+    BRUKER: str = "bruker"
+    ZENO: str = "zeno"
 
 
 class AirflowVars:

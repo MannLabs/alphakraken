@@ -15,7 +15,10 @@ from common.settings import (
 
 
 class RawDataWrapper(ABC):
-    """Abstract class wrapping instrument-type specific logic."""
+    """Abstract class wrapping instrument-type specific logic.
+
+    Note: do not call constructors of subclasses directly, always use RawDataWrapper.create().
+    """
 
     @classmethod
     def create(cls, *, instrument_id: str, **kwargs) -> "RawDataWrapper":
@@ -27,10 +30,7 @@ class RawDataWrapper(ABC):
         raise ValueError(f"Unsupported vendor: {instrument_type}")
 
     def __init__(self, instrument_id: str, raw_file_name: str):
-        """Initialize the RawDataWrapper.
-
-        Note: do not call directly, always use RawDataWrapper.create().
-        """
+        """Initialize the RawDataWrapper."""
         # could be .raw file, one of the four .wiff files, or .d folder
         self._file_or_folder_name = raw_file_name
 

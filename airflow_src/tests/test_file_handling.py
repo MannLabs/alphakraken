@@ -14,9 +14,7 @@ from plugins.file_handling import (
 )
 
 
-@patch.dict(
-    INSTRUMENTS, {"instrument1": {"raw_data_path_variable_name": "SOME_VARIABLE_NAME"}}
-)
+@patch.dict(INSTRUMENTS, {"instrument1": {}})
 @patch("os.stat")
 def test_get_file_creation_timestamp(
     mock_stat: MagicMock,
@@ -30,9 +28,7 @@ def test_get_file_creation_timestamp(
     assert result == 42.0  # noqa: PLR2004
 
 
-@patch.dict(
-    INSTRUMENTS, {"instrument1": {"raw_data_path_variable_name": "SOME_VARIABLE_NAME"}}
-)
+@patch.dict(INSTRUMENTS, {"instrument1": {}})
 @patch("os.stat")
 def test_get_file_size(
     mock_stat: MagicMock,

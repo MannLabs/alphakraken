@@ -55,7 +55,7 @@ def copy_file(
     start = datetime.now()  # noqa: DTZ005
     src_hash = _get_file_hash(src_path)
     time_elapsed = (datetime.now() - start).total_seconds()  # noqa: DTZ005
-    logging.info(f"Hash calculated! time elapsed: {time_elapsed/60:.1f} min")
+    logging.info(f"Hash calculated. Time elapsed: {time_elapsed/60:.1f} min")
     if _file_already_exists(dst_path, src_hash):
         return
 
@@ -64,7 +64,7 @@ def copy_file(
     time_elapsed = (datetime.now() - start).total_seconds()  # noqa: DTZ005
     dst_size = get_file_size(dst_path)
     logging.info(
-        f"Copying done! time elapsed: {time_elapsed/60:.1f} min at {dst_size / max(time_elapsed, 1) / 1024 ** 2:.1f} MB/s"
+        f"Copying done. Time elapsed: {time_elapsed/60:.1f} min at {dst_size / max(time_elapsed, 1) / 1024 ** 2:.1f} MB/s"
     )
 
     if (hash_dst := _get_file_hash(dst_path)) != (src_hash):

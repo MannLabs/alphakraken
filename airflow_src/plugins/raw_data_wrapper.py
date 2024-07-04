@@ -64,7 +64,7 @@ class RawDataWrapper(ABC):
         return files_to_copy
 
     def _get_id(self) -> str:
-        """Get the ID (= name withpout extension) of the raw file."""
+        """Get the ID (= name without extension) of the raw file."""
         return Path(self._file_or_folder_name).stem
 
 
@@ -72,11 +72,11 @@ class ThermoRawDataWrapper(RawDataWrapper):
     """Class wrapping Thermo-specific logic."""
 
     def _file_path_to_watch(self) -> Path:
-        """See docu of superclass."""
+        """Get the path to the raw file."""
         return self._instrument_path / self._file_or_folder_name
 
     def _get_files_to_copy(self) -> dict[Path, Path]:
-        """See docu of superclass."""
+        """Get the mapping of the path to the raw file on the instrument to the target on the backup folder."""
         src_path = self._instrument_path / self._file_or_folder_name
         dst_path = self._backup_path / self._file_or_folder_name
 

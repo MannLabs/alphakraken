@@ -40,7 +40,7 @@ class Timings:
     """Timing constants."""
 
     # if you update this, you might also want to update the coloring in the webapp (components.py:_get_color())
-    FILE_CREATION_POKE_INTERVAL_S = 5
+    FILE_CREATION_POKE_INTERVAL_S = 60
 
     ACQUISITION_MONITOR_POKE_INTERVAL_S = 30
 

@@ -10,7 +10,6 @@ from callbacks import on_failure_callback
 from common.keys import (
     DAG_DELIMITER,
     Dags,
-    InstrumentKeys,
     OpArgs,
     Tasks,
 )
@@ -29,7 +28,7 @@ from impl.handler_impl import (
 from sensors.acquisition_monitor import AcquisitionMonitor
 
 
-def create_acquisition_handler_dag(instrument_id: str, instrument_type: str) -> None:
+def create_acquisition_handler_dag(instrument_id: str) -> None:
     """Create acquisition_handler dag for instrument with `instrument_id`."""
     with DAG(
         f"{Dags.ACQUISITION_HANDLER}{DAG_DELIMITER}{instrument_id}",
@@ -60,7 +59,6 @@ def create_acquisition_handler_dag(instrument_id: str, instrument_type: str) -> 
         monitor_acquisition_ = AcquisitionMonitor(
             task_id=Tasks.MONITOR_ACQUISITION,
             instrument_id=instrument_id,
-            instrument_type=instrument_type,
             poke_interval=Timings.ACQUISITION_MONITOR_POKE_INTERVAL_S,
         )
 
@@ -90,6 +88,4 @@ def create_acquisition_handler_dag(instrument_id: str, instrument_type: str) -> 
 
 
 for instrument_id in INSTRUMENTS:
-    create_acquisition_handler_dag(
-        instrument_id, INSTRUMENTS[instrument_id][InstrumentKeys.TYPE]
-    )
+    create_acquisition_handler_dag(instrument_id)

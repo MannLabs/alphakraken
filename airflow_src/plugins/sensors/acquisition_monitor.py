@@ -16,14 +16,11 @@ NUM_FILE_CHECKS_WITH_SAME_SIZE = 5
 class AcquisitionMonitor(BaseSensorOperator):
     """Sensor to check for file creation."""
 
-    def __init__(
-        self, instrument_id: str, instrument_type: str, *args, **kwargs
-    ) -> None:
+    def __init__(self, instrument_id: str, *args, **kwargs) -> None:
         """Initialize the sensor."""
         super().__init__(*args, **kwargs)
 
         self._instrument_id = instrument_id
-        self._instrument_type = instrument_type
 
         self._raw_data_wrapper: RawDataWrapper | None = None
 

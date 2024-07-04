@@ -32,7 +32,7 @@ class RawDataWrapper(ABC):
     def __init__(self, instrument_id: str, raw_file_name: str):
         """Initialize the RawDataWrapper."""
         # could be .raw file, one of the four .wiff files, or .d folder
-        self._raw_file_name = raw_file_name
+        self._file_or_folder_name = raw_file_name
 
         self._instrument_path = get_internal_instrument_data_path(instrument_id)
         self._backup_path = get_internal_instrument_backup_path(instrument_id)
@@ -65,7 +65,7 @@ class RawDataWrapper(ABC):
 
     def _get_id(self) -> str:
         """Get the ID (= name without extension) of the raw file."""
-        return Path(self._raw_file_name).stem
+        return Path(self._file_or_folder_name).stem
 
 
 class ThermoRawDataWrapper(RawDataWrapper):
@@ -73,11 +73,11 @@ class ThermoRawDataWrapper(RawDataWrapper):
 
     def _file_path_to_watch(self) -> Path:
         """Get the path to the raw file."""
-        return self._instrument_path / self._raw_file_name
+        return self._instrument_path / self._file_or_folder_name
 
     def _get_files_to_copy(self) -> dict[Path, Path]:
         """Get the mapping of the path to the raw file on the instrument to the target on the backup folder."""
-        src_path = self._instrument_path / self._raw_file_name
-        dst_path = self._backup_path / self._raw_file_name
+        src_path = self._instrument_path / self._file_or_folder_name
+        dst_path = self._backup_path / self._file_or_folder_name
 
         return {src_path: dst_path}

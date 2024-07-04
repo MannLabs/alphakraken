@@ -29,15 +29,13 @@ def test_get_file_creation_timestamp(
 
 
 @patch.dict(INSTRUMENTS, {"instrument1": {}})
-@patch("os.stat")
-def test_get_file_size(
-    mock_stat: MagicMock,
-) -> None:
+def test_get_file_size() -> None:
     """Test get_file_size returns the expected values."""
-    mock_stat.return_value.st_size = 42.0
+    mock_path = MagicMock()
+    mock_path.stat.return_value.st_size = 42.0
 
     # when
-    result = get_file_size(Path("test_file.raw"))
+    result = get_file_size(mock_path)
 
     assert result == 42.0  # noqa: PLR2004
 

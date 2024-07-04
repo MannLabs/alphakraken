@@ -3,7 +3,7 @@
 from airflow.models import TaskInstance
 from common.keys import DagContext, DagParams, Dags, OpArgs
 from common.utils import trigger_dag_run
-from file_handling import _get_file_size, copy_file
+from file_handling import copy_file, get_file_size
 from raw_data_wrapper import RawDataWrapper
 
 from shared.db.interface import update_raw_file
@@ -33,7 +33,7 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
     for src_path, dst_path in raw_data_wrapper.get_files_to_copy().items():
         copy_file(src_path, dst_path)
 
-    file_size = _get_file_size(raw_data_wrapper.file_path_to_watch())
+    file_size = get_file_size(raw_data_wrapper.file_path_to_watch())
     update_raw_file(
         raw_file_name, new_status=RawFileStatus.COPYING_FINISHED, size=file_size
     )

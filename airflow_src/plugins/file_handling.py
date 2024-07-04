@@ -9,7 +9,7 @@ from pathlib import Path
 from common.settings import get_internal_instrument_data_path
 
 
-def _get_file_creation_timestamp(raw_file_name: str, instrument_id: str) -> float:
+def get_file_creation_timestamp(raw_file_name: str, instrument_id: str) -> float:
     """Get the creation timestamp (unix epoch) of a raw file."""
     raw_file_path = get_internal_instrument_data_path(instrument_id) / raw_file_name
     file_creation_ts = raw_file_path.stat().st_ctime
@@ -17,7 +17,7 @@ def _get_file_creation_timestamp(raw_file_name: str, instrument_id: str) -> floa
     return file_creation_ts
 
 
-def _get_file_size(file_path: Path) -> float:
+def get_file_size(file_path: Path) -> float:
     """Get the size (in bytes) of a file."""
     file_size_bytes = file_path.stat().st_size
     logging.info(f"File {file_path} has {file_size_bytes=}")
@@ -62,7 +62,7 @@ def copy_file(
     start = datetime.now()  # noqa: DTZ005
     shutil.copy2(src_path, dst_path)
     time_elapsed = (datetime.now() - start).total_seconds()  # noqa: DTZ005
-    dst_size = _get_file_size(dst_path)
+    dst_size = get_file_size(dst_path)
     logging.info(
         f"Copying done! time elapsed: {time_elapsed/60:.1f} min at {dst_size / max(time_elapsed, 1) / 1024 ** 2:.1f} MB/s"
     )

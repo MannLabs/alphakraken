@@ -29,7 +29,7 @@ def test_update_raw_file_status_calls_update_with_correct_args(
 
 @patch("dags.impl.handler_impl.copy_file")
 @patch("dags.impl.handler_impl.RawDataWrapper")
-@patch("dags.impl.handler_impl._get_file_size")
+@patch("dags.impl.handler_impl.get_file_size")
 @patch("dags.impl.handler_impl.update_raw_file")
 def test_copy_raw_file_calls_update_with_correct_args(
     mock_update_status: MagicMock,

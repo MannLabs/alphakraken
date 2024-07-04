@@ -7,10 +7,10 @@ import pytest
 from plugins.common.settings import INSTRUMENTS
 from plugins.file_handling import (
     _file_already_exists,
-    _get_file_creation_timestamp,
     _get_file_hash,
-    _get_file_size,
     copy_file,
+    get_file_creation_timestamp,
+    get_file_size,
 )
 
 
@@ -19,11 +19,11 @@ from plugins.file_handling import (
 def test_get_file_creation_timestamp(
     mock_stat: MagicMock,
 ) -> None:
-    """Test _get_file_creation_timestamp returns the expected values."""
+    """Test get_file_creation_timestamp returns the expected values."""
     mock_stat.return_value.st_ctime = 42.0
 
     # when
-    result = _get_file_creation_timestamp("test_file.raw", "instrument1")
+    result = get_file_creation_timestamp("test_file.raw", "instrument1")
 
     assert result == 42.0  # noqa: PLR2004
 
@@ -33,11 +33,11 @@ def test_get_file_creation_timestamp(
 def test_get_file_size(
     mock_stat: MagicMock,
 ) -> None:
-    """Test _get_file_size returns the expected values."""
+    """Test get_file_size returns the expected values."""
     mock_stat.return_value.st_size = 42.0
 
     # when
-    result = _get_file_size(Path("test_file.raw"))
+    result = get_file_size(Path("test_file.raw"))
 
     assert result == 42.0  # noqa: PLR2004
 
@@ -72,7 +72,7 @@ def test_get_file_hash_chunks(mock_file_open: MagicMock) -> None:
 @patch("plugins.file_handling._get_file_hash")
 @patch("plugins.file_handling._file_already_exists")
 @patch("shutil.copy2")
-@patch("plugins.file_handling._get_file_size")
+@patch("plugins.file_handling.get_file_size")
 def test_copy_file_copies_file_and_checks_hash(
     mock_get_file_size: MagicMock,
     mock_copy2: MagicMock,
@@ -96,7 +96,7 @@ def test_copy_file_copies_file_and_checks_hash(
 @patch("plugins.file_handling._get_file_hash")
 @patch("plugins.file_handling._file_already_exists")
 @patch("shutil.copy2")
-@patch("plugins.file_handling._get_file_size")
+@patch("plugins.file_handling.get_file_size")
 def test_copy_file_copies_file_and_checks_hash_raises(
     mock_get_file_size: MagicMock,
     mock_copy2: MagicMock,  # noqa: ARG001

@@ -10,7 +10,7 @@ from airflow.models import TaskInstance
 from common.keys import AirflowVars, DagParams, Dags, OpArgs, XComKeys
 from common.settings import get_internal_instrument_data_path
 from common.utils import get_airflow_variable, get_xcom, put_xcom, trigger_dag_run
-from file_handling import _get_file_creation_timestamp
+from file_handling import get_file_creation_timestamp
 from impl.project_id_handler import get_unique_project_id
 
 from shared.db.interface import (
@@ -36,7 +36,7 @@ def _add_raw_file_to_db(
     :param status: status of the file
     :return:
     """
-    raw_file_creation_timestamp = _get_file_creation_timestamp(
+    raw_file_creation_timestamp = get_file_creation_timestamp(
         raw_file_name, instrument_id
     )
     logging.info(f"Got  {raw_file_creation_timestamp}")
@@ -83,7 +83,7 @@ def _sort_by_creation_date(raw_file_names: list[str], instrument_id: str) -> lis
     """Sort raw files by creation timestamp (youngest first) to have them processed first."""
     file_creation_timestamps = []
     for raw_file_name in raw_file_names:
-        file_creation_ts = _get_file_creation_timestamp(raw_file_name, instrument_id)
+        file_creation_ts = get_file_creation_timestamp(raw_file_name, instrument_id)
         file_creation_timestamps.append(file_creation_ts)
     return [r for _, r in sorted(zip(file_creation_timestamps, raw_file_names))][::-1]
 
@@ -147,7 +147,7 @@ def _file_meets_age_criterion(
         raise ValueError from e
 
     if max_file_age_in_hours != max_file_age_in_hours_not_active:
-        file_creation_ts = _get_file_creation_timestamp(raw_file_name, instrument_id)
+        file_creation_ts = get_file_creation_timestamp(raw_file_name, instrument_id)
         raw_file_creation_time = datetime.fromtimestamp(file_creation_ts, tz=pytz.utc)
 
         now = datetime.now(tz=pytz.utc)  # TODO: check time zone on acquisition PCS

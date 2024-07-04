@@ -14,10 +14,68 @@ def get_sensor() -> AcquisitionMonitor:
 
 
 @patch("plugins.sensors.acquisition_monitor.RawDataWrapper")
-def test_poke_file(
+def test_poke_file_dir_contents_change_file_is_added(
     mock_raw_data_wrapper: MagicMock,
 ) -> None:
-    """Test poke method correctly return file status."""
+    """Test poke method correctly return when dir contents change (file is added)."""
+    mock_path = MagicMock()
+    mock_path.stat.return_value = MagicMock(st_size=1)
+
+    mock_raw_data_wrapper.create.return_value.file_path_to_watch.return_value = (
+        mock_path
+    )
+
+    mock_raw_data_wrapper.create.return_value.get_dir_contents.side_effect = [
+        {"some_file.raw"},  # initial content (pre_execute)
+        {"some_file.raw"},  # first poke
+        {"some_file.raw", "some_new_file.raw"},  # second poke
+    ]
+
+    sensor = get_sensor()
+    sensor.pre_execute({DagContext.PARAMS: {DagParams.RAW_FILE_NAME: "some_file.raw"}})
+
+    # when
+    result = sensor.poke({})
+    assert not result
+
+    result = sensor.poke({})
+    assert result
+
+
+@patch("plugins.sensors.acquisition_monitor.RawDataWrapper")
+def test_poke_file_dir_contents_change_file_is_removed(
+    mock_raw_data_wrapper: MagicMock,
+) -> None:
+    """Test poke method correctly returns when dir contents change (file is removed)."""
+    mock_path = MagicMock()
+    mock_path.stat.return_value = MagicMock(st_size=1)
+
+    mock_raw_data_wrapper.create.return_value.file_path_to_watch.return_value = (
+        mock_path
+    )
+
+    mock_raw_data_wrapper.create.return_value.get_dir_contents.side_effect = [
+        {"some_file.raw", "some_file2.raw"},  # initial content (pre_execute)
+        {"some_file.raw", "some_file2.raw"},  # first poke
+        {"some_file.raw"},  # second poke
+    ]
+
+    sensor = get_sensor()
+    sensor.pre_execute({DagContext.PARAMS: {DagParams.RAW_FILE_NAME: "some_file.raw"}})
+
+    # when
+    result = sensor.poke({})
+    assert not result
+
+    result = sensor.poke({})
+    assert not result
+
+
+@patch("plugins.sensors.acquisition_monitor.RawDataWrapper")
+def test_poke_file_dir_contents_dont_change(
+    mock_raw_data_wrapper: MagicMock,
+) -> None:
+    """Test poke method correctly return file status when dir contents do not change."""
     mock_path = MagicMock()
     attempts_with_changing_size = [
         0,
@@ -31,6 +89,9 @@ def test_poke_file(
     mock_raw_data_wrapper.create.return_value.file_path_to_watch.return_value = (
         mock_path
     )
+    mock_raw_data_wrapper.create.return_value.get_dir_contents.return_value = (
+        set()
+    )  # this stays constant
 
     sensor = get_sensor()
     sensor.pre_execute({DagContext.PARAMS: {DagParams.RAW_FILE_NAME: "some_file.raw"}})

@@ -85,7 +85,7 @@ class FileCreationSensor(BaseSensorOperator):
             self._observer.start()
 
         logging.info(
-            f"Checking for new files since start of this DAG run in {self._path_to_watch}"
+            f"Checking for new files since start of this DAG run in {self._raw_data_wrapper.instrument_path}"
         )
 
         _check_health(self._instrument_id)

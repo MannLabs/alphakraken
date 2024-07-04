@@ -1,13 +1,16 @@
 """Utilities for the streamlit app."""
 
 import os
+from datetime import datetime
 
+import pytz
 import streamlit as st
 
 
 def _log(msg: str) -> None:
     """Write a log message."""
-    os.write(1, f"{msg}\n".encode())
+    now = datetime.now(tz=pytz.UTC).strftime("%Y-%m-%d %H:%M:%S.%f")
+    os.write(1, f"{now}: {msg}\n".encode())
 
 
 def empty_to_none(value: str) -> str | None:

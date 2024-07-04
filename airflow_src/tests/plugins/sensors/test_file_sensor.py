@@ -20,60 +20,53 @@ def get_sensor() -> FileCreationSensor:
         )
 
 
-@patch("plugins.sensors.file_sensor.Observer")
-@patch("plugins.sensors.file_sensor.FileCreationEventHandler")
+@patch("plugins.sensors.file_sensor.RawDataWrapper")
 @patch("plugins.sensors.file_sensor._check_health")
 def test_poke_file_not_created(
     mock_check_health: MagicMock,
-    mock_event_handler: MagicMock,
-    mock_observer: MagicMock,
+    mock_raw_data_wrapper: MagicMock,
 ) -> None:
-    """Test poke method when file is not created and observer not alive."""
+    """Test poke method when file is not created."""
     # given
-    mock_event_handler.return_value.file_created = False
-    mock_observer.return_value.is_alive.return_value = False
+    mock_raw_data_wrapper.create.return_value.get_dir_contents.side_effect = [
+        {"some_file.raw", "some_file2.raw"},  # initial content (pre_execute)
+        {"some_file.raw", "some_file2.raw"},  # first poke
+    ]
 
     ti = MagicMock()
 
     # when
     sensor = get_sensor()
+    sensor.pre_execute({})
     result = sensor.poke({"task_instance": ti})
 
     # then
     assert not result
-    assert sensor._path_to_watch == Path("/opt/airflow/acquisition_pcs/apc_tims_1")
-    mock_observer.return_value.schedule.assert_called_once()
-    mock_observer.return_value.start.assert_called_once()
-    mock_observer.return_value.stop.assert_not_called()
-    mock_observer.return_value.join.assert_not_called()
     mock_check_health.assert_called_once_with("some_instrument_id")
 
 
-@patch("plugins.sensors.file_sensor.Observer")
-@patch("plugins.sensors.file_sensor.FileCreationEventHandler")
+@patch("plugins.sensors.file_sensor.RawDataWrapper")
 @patch("plugins.sensors.file_sensor._check_health")
 def test_poke_file_created(
     mock_check_health: MagicMock,
-    mock_event_handler: MagicMock,
-    mock_observer: MagicMock,
+    mock_raw_data_wrapper: MagicMock,
 ) -> None:
-    """Test poke method when file is created and observer alive."""
+    """Test poke method when file is created."""
     # given
-    mock_event_handler.return_value.file_created = True
-    mock_observer.return_value.is_alive.return_value = True
+    mock_raw_data_wrapper.create.return_value.get_dir_contents.side_effect = [
+        {"some_file.raw"},  # initial content (pre_execute)
+        {"some_file.raw", "some_file2.raw"},  # first poke
+    ]
 
     ti = MagicMock()
 
     # when
     sensor = get_sensor()
+    sensor.pre_execute({})
     result = sensor.poke({"task_instance": ti})
 
     # then
     assert result
-    mock_observer.return_value.schedule.assert_not_called()
-    mock_observer.return_value.start.assert_not_called()
-    mock_observer.return_value.stop.assert_called_once()
-    mock_observer.return_value.join.assert_called_once()
     mock_check_health.assert_called_once_with("some_instrument_id")
 
 

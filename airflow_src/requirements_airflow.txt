@@ -1,3 +1,2 @@
 # requirements for the airflow tasks
-watchdog==4.0.1
 apache-airflow-providers-ssh --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.9.2/constraints-3.11.txt"

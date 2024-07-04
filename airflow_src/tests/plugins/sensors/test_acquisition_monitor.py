@@ -3,7 +3,10 @@
 from unittest.mock import MagicMock, patch
 
 from common.keys import DagContext, DagParams
-from plugins.sensors.acquisition_monitor import AcquisitionMonitor
+from plugins.sensors.acquisition_monitor import (
+    NUM_FILE_CHECKS_WITH_SAME_SIZE,
+    AcquisitionMonitor,
+)
 
 
 def get_sensor() -> AcquisitionMonitor:
@@ -81,7 +84,7 @@ def test_poke_file_dir_contents_dont_change(
         0,
         1,
     ]
-    attempts_with_constant_size = [100] * 5
+    attempts_with_constant_size = [100] * NUM_FILE_CHECKS_WITH_SAME_SIZE
     mock_path.stat.side_effect = [
         MagicMock(st_size=size)
         for size in attempts_with_changing_size + attempts_with_constant_size

@@ -48,6 +48,8 @@ class Timings:
 
     FILE_COPY_TIMEOUT_M = 5
 
+    ACQUISITION_MONITOR_TIMEOUT_M = 180
+
 
 class Concurrency:
     """Concurrency constants."""
@@ -56,7 +58,12 @@ class Concurrency:
     # like starting quanting or metrics calculation
     MAX_ACTIVE_QUANTING_MONITORINGS_PER_DAG = 14
 
+    # limit the number of concurrent copies to not over-stress the network.
+    # Note that this is a potential bottleneck, so a timeout is important here.
     MAX_ACTIVE_COPY_TASKS_PER_DAG = 1
+
+    # limit the number of concurrent monitors to not over-stress the network (relevant only during a catchup)
+    MAX_MONITOR_ACQUISITION_TASKS_PER_DAG = 5
 
 
 class Pools:

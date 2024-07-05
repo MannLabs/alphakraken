@@ -58,6 +58,7 @@ def get_unknown_raw_files(ti: TaskInstance, **kwargs) -> None:
     if not (directory_content := os.listdir(instrument_data_path)):
         raise ValueError("get_unknown_raw_files: No raw files found in XCOM.")
 
+    # TODO: Zeno: filter for some files only
     raw_file_names = [Path(directory).name for directory in directory_content]
 
     logging.info(

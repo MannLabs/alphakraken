@@ -21,7 +21,7 @@ class RawDataWrapper(ABC):
     """
 
     # the extension of the main raw data file (without leading dot!)
-    main_file_extension = None
+    _main_file_extension = None
 
     @classmethod
     def create(cls, *, instrument_id: str, **kwargs) -> "RawDataWrapper":
@@ -29,7 +29,8 @@ class RawDataWrapper(ABC):
         instrument_type = get_instrument_type(instrument_id)
         if instrument_type == InstrumentTypes.THERMO:
             return ThermoRawDataWrapper(instrument_id, **kwargs)
-
+        if instrument_type == InstrumentTypes.ZENO:
+            return ZenoRawDataWrapper(instrument_id, **kwargs)
         raise ValueError(f"Unsupported vendor: {instrument_type}")
 
     def __init__(self, instrument_id: str, raw_file_name: str | None):
@@ -94,3 +95,24 @@ class ThermoRawDataWrapper(RawDataWrapper):
         dst_path = self._backup_path / self._raw_file_name
 
         return {src_path: dst_path}
+
+
+class ZenoRawDataWrapper(RawDataWrapper):
+    """Class wrapping Zeno-specific logic."""
+
+    main_file_extension = "wiff"
+
+    def _file_path_to_watch(self) -> Path:
+        """See docu of superclass."""
+        return self._instrument_path / self._raw_file_name
+
+    def _get_files_to_copy(self) -> dict[Path, Path]:
+        """See docu of superclass."""
+        files_to_copy = {}
+        for file_path in self._instrument_path.rglob(f"{self._raw_file_name}.*"):
+            src_path = file_path
+            dst_path = self._backup_path / file_path
+
+            files_to_copy[src_path] = dst_path
+
+        return files_to_copy

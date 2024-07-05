@@ -374,3 +374,8 @@ services:
   airflow-worker-test5:
     <<: *airflow-worker
     command: celery worker -q kraken_queue_test5
+
+  # INSTRUMENT: Test11
+  airflow-worker-test11:
+    <<: *airflow-worker
+    command: celery worker -q kraken_queue_test11

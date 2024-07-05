@@ -127,7 +127,7 @@ class ZenoRawDataWrapper(RawDataWrapper):
         files_to_copy = {}
         for file_path in self._instrument_path.rglob(f"{self._raw_file_name}.*"):
             src_path = file_path
-            dst_path = self._backup_path / file_path
+            dst_path = self._backup_path / file_path.name
 
             files_to_copy[src_path] = dst_path
 

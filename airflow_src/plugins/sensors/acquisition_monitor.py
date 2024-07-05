@@ -36,7 +36,9 @@ class AcquisitionMonitor(BaseSensorOperator):
             instrument_id=self._instrument_id, raw_file_name=raw_file_name
         )
 
-        self._initial_dir_contents = self._raw_data_wrapper.get_dir_contents()
+        self._initial_dir_contents = (
+            self._raw_data_wrapper.get_raw_files_on_instrument()
+        )
 
         logging.info(f"Monitoring {self._raw_data_wrapper.file_path_to_watch()}")
 
@@ -45,7 +47,7 @@ class AcquisitionMonitor(BaseSensorOperator):
         del context  # unused
 
         if (
-            new_dir_content := self._raw_data_wrapper.get_dir_contents()
+            new_dir_content := self._raw_data_wrapper.get_raw_files_on_instrument()
             - self._initial_dir_contents
         ):
             logging.info(

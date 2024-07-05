@@ -36,18 +36,16 @@ def test_get_dir_contents_returns_correct_set_of_paths(
     mock_get_instrument_data_path: MagicMock,
 ) -> None:
     """Test that the correct set of paths is returned."""
-    expected_set = {
-        Path("/fake/instrument/path/file1.test_ext"),
-        Path("/fake/instrument/path/file2.test_ext"),
-    }
+    file_names = {"file1.test_ext", "file2.test_ext"}
+    returned_paths = {Path(f"/fake/instrument/path/{f}") for f in file_names}
 
-    mock_get_instrument_data_path.return_value.glob.return_value = list(expected_set)
+    mock_get_instrument_data_path.return_value.glob.return_value = list(returned_paths)
 
     raw_data_wrapper = TestableRawDataWrapper(
         instrument_id="instrument1", raw_file_name=None
     )
 
-    assert raw_data_wrapper.get_dir_contents() == expected_set
+    assert raw_data_wrapper.get_raw_files_on_instrument() == file_names
 
 
 @patch("plugins.raw_data_wrapper.get_internal_instrument_data_path")

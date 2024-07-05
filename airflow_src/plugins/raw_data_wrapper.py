@@ -1,4 +1,9 @@
-"""Class wrapping instrument-type specific logic for acquisition monitoring and file copying."""
+"""Class wrapping instrument-type specific logic for acquisition monitoring and file copying.
+
+A general note on naming:
+Within this code base, the term "raw file" refers to the "main" file (or folder) produced by the instrument.
+For thermo, it is the ".raw" file, for zeno, it is the ".wiff" file, and for bruker, it is the ".d" folder.
+"""
 
 import logging
 from abc import ABC, abstractmethod
@@ -20,8 +25,8 @@ class RawDataWrapper(ABC):
     Note: do not call constructors of subclasses directly, always use RawDataWrapper.create().
     """
 
-    # the extension of the main raw data file (without leading dot!)
-    _main_file_extension = None
+    # the extension of the main raw data file (with leading dot!)
+    _main_file_extension: str | None = None
 
     @classmethod
     def create(cls, *, instrument_id: str, **kwargs) -> "RawDataWrapper":
@@ -37,6 +42,14 @@ class RawDataWrapper(ABC):
         """Initialize the RawDataWrapper."""
         # could be .raw file, one of the four .wiff files, or .d folder
         self._raw_file_name = raw_file_name
+
+        if (
+            raw_file_name is not None
+            and (ext := Path(raw_file_name).suffix) != self._main_file_extension
+        ):
+            raise ValueError(
+                f"Unsupported file extension: {ext}, expected {self._main_file_extension}"
+            )
 
         self._instrument_path = get_internal_instrument_data_path(instrument_id)
         self._backup_path = get_internal_instrument_backup_path(instrument_id)
@@ -71,19 +84,22 @@ class RawDataWrapper(ABC):
         logging.info(f"{files_to_copy=}")
         return files_to_copy
 
-    def get_dir_contents(self) -> set[Path]:
-        """Get the current contents of the acquisition directory."""
-        dir_contents = set(self._instrument_path.glob(f"*.{self.main_file_extension}"))
+    def get_raw_files_on_instrument(self) -> set[str]:
+        """Get the current raw file names (only with the relevant extension) in the instrument directory."""
+        dir_contents = set(self._instrument_path.glob(f"*{self._main_file_extension}"))
+
+        file_names = {d.name for d in dir_contents}
+
         logging.info(
-            f"Current contents of {self._instrument_path} ({len(dir_contents)}): {dir_contents}"
+            f"Current contents of {self._instrument_path} ({len(file_names)}, extension '.{self._main_file_extension}'): {file_names}"
         )
-        return dir_contents
+        return file_names
 
 
 class ThermoRawDataWrapper(RawDataWrapper):
     """Class wrapping Thermo-specific logic."""
 
-    main_file_extension = "raw"
+    _main_file_extension = ".raw"
 
     def _file_path_to_watch(self) -> Path:
         """Get the path to the raw file."""
@@ -100,7 +116,7 @@ class ThermoRawDataWrapper(RawDataWrapper):
 class ZenoRawDataWrapper(RawDataWrapper):
     """Class wrapping Zeno-specific logic."""
 
-    main_file_extension = "wiff"
+    _main_file_extension = ".wiff"
 
     def _file_path_to_watch(self) -> Path:
         """See docu of superclass."""

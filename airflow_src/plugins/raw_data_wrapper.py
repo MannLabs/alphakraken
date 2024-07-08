@@ -102,11 +102,11 @@ class ThermoRawDataWrapper(RawDataWrapper):
     _main_file_extension = ".raw"
 
     def _file_path_to_watch(self) -> Path:
-        """Get the path to the raw file."""
+        """Get the (absolute) path to the raw file."""
         return self._instrument_path / self._raw_file_name
 
     def _get_files_to_copy(self) -> dict[Path, Path]:
-        """Get the mapping of the path to the raw file on the instrument to the target on the backup folder."""
+        """Get the mapping of source to destination path (both absolute) for the raw file."""
         src_path = self._instrument_path / self._raw_file_name
         dst_path = self._backup_path / self._raw_file_name
 
@@ -119,11 +119,15 @@ class ZenoRawDataWrapper(RawDataWrapper):
     _main_file_extension = ".wiff"
 
     def _file_path_to_watch(self) -> Path:
-        """See docu of superclass."""
+        """Get the (absolute) path to the raw file."""
         return self._instrument_path / self._raw_file_name
 
     def _get_files_to_copy(self) -> dict[Path, Path]:
-        """See docu of superclass."""
+        """Get the mapping of source to destination paths (both absolute) for the raw file.
+
+        In addition to the raw file (e.g. raw_file.wiff), all other files sharing
+        the same stem are considered here (e.g. raw_file.something).
+        """
         files_to_copy = {}
         for file_path in self._instrument_path.rglob(f"{self._raw_file_name}.*"):
             src_path = file_path

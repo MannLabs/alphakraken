@@ -1,18 +1,25 @@
 """A custom airflow acquisition monitor.
 
-Wait until file size has not changed for several tries.
+Wait until acquisition is done.
+
+An acquisition is considered "done" if either:
+- new files have been found or
+- the file size has not changed for a certain amount of time
 """
 
 import logging
+from datetime import datetime
 
+import pytz
 from airflow.sensors.base import BaseSensorOperator
 from common.keys import DagContext, DagParams
 from raw_data_wrapper import RawDataWrapper
 
-# Currently, this value together with ACQUISITION_MONITOR_POKE_INTERVAL_S determines the time
-# that the file size needs to stay constant in order to be regarded as "acquisition done"
-# TODO: decouple this from the poking frequency: measure time instead of number of pokes, measure file size only every n pokes
-NUM_FILE_CHECKS_WITH_SAME_SIZE = 20
+# For the second type of check, the file size is calculated every SIZE_CHECK_INTERVAL_M minutes,
+# if it has not changed between two checks, the acquisition is considered to be done
+# This part of the logic is triggered only at the end of an acquisition queue,
+# so this value is rather conservative and hard-coded for now.
+SIZE_CHECK_INTERVAL_M: int = 10
 
 
 class AcquisitionMonitor(BaseSensorOperator):
@@ -27,7 +34,8 @@ class AcquisitionMonitor(BaseSensorOperator):
         self._raw_data_wrapper: RawDataWrapper | None = None
         self._initial_dir_contents: set | None = None
 
-        self._file_sizes = []
+        self._last_poke_timestamp = None
+        self._last_file_size = -1
 
     def pre_execute(self, context: dict[str, any]) -> None:
         """_job_id the job id from XCom."""
@@ -41,10 +49,17 @@ class AcquisitionMonitor(BaseSensorOperator):
             self._raw_data_wrapper.get_raw_files_on_instrument()
         )
 
+        self._last_poke_timestamp = self._get_timestamp()
+
         logging.info(f"Monitoring {self._raw_data_wrapper.file_path_to_watch()}")
 
+    @staticmethod
+    def _get_timestamp() -> float:
+        """Get the current timestamp."""
+        return datetime.now(tz=pytz.utc).timestamp()
+
     def poke(self, context: dict[str, any]) -> bool:
-        """Check if file was created. If so, push the folder contents to xcom and return."""
+        """Return True if if acquisition is done."""
         del context  # unused
 
         if (
@@ -56,18 +71,22 @@ class AcquisitionMonitor(BaseSensorOperator):
             )
             return True
 
-        size = self._raw_data_wrapper.file_path_to_watch().stat().st_size
-        logging.info(size)
+        time_since_last_check = (
+            current_timestamp := self._get_timestamp()
+        ) - self._last_poke_timestamp
+        if time_since_last_check / 60 >= SIZE_CHECK_INTERVAL_M:
+            size = self._raw_data_wrapper.file_path_to_watch().stat().st_size
+            logging.info(f"File size: {size}")
 
-        self._file_sizes.append(size)
+            # TODO: check for size > threshold?
+            if size == self._last_file_size:
+                logging.info(
+                    f"File size {size} has not changed for >= {SIZE_CHECK_INTERVAL_M} min."
+                    f"Considering acquisition to be done."
+                )
+                return True
 
-        # TODO: check for size > threshold?
-        last_sizes_equal = all(
-            size == self._file_sizes[-1]
-            for size in self._file_sizes[-NUM_FILE_CHECKS_WITH_SAME_SIZE:]
-        )
-        if len(self._file_sizes) >= NUM_FILE_CHECKS_WITH_SAME_SIZE and last_sizes_equal:
-            logging.info(self._file_sizes)
-            return True
+            self._last_file_size = size
+            self._last_poke_timestamp = current_timestamp
 
         return False

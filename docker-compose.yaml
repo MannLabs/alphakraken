@@ -347,8 +347,8 @@ services:
       # the following three mounts are required for the worker to work in general and are not instrument specific:
       # airflow logs
       - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_logs:/opt/airflow/logs
-      # output and backup folder
-      - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_test_folders:/opt/airflow/mounts
+      # all mounts (backup pool folders, results pool folders, instruments) need to be available in $MOUNTS_PATH
+      - ${MOUNTS_PATH:?error}:/opt/airflow/mounts
      # for this worker, changes to DAGs and Tasks are immediately active
       - ${AIRFLOW_PROJ_DIR:-./airflow_src}/dags:/opt/airflow/dags
       - ${AIRFLOW_PROJ_DIR:-./airflow_src}/config:/opt/airflow/config

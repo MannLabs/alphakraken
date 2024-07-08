@@ -54,7 +54,7 @@ def show_date_select(
     oldest_file = df["created_at"].min()
     youngest_file = df["created_at"].max()
     two_weeks_ago = datetime.now() - timedelta(days=7 * 2)  # noqa:  DTZ005 no tz argument
-    last_selectable_date = max(oldest_file, two_weeks_ago)
+    last_selectable_date = min(youngest_file, max(oldest_file, two_weeks_ago))
     min_date = st_display.date_input(
         text_to_display,
         min_value=oldest_file,

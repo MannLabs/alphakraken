@@ -81,13 +81,7 @@ def get_internal_instrument_data_path(instrument_id: str) -> Path:
 
     e.g. /opt/airflow/mounts/instruments/test2
     """
-    # TODO: remove "Backup" part once other backup script is gone
-    return (
-        Path(InternalPaths.MOUNTS_PATH)
-        / InternalPaths.INSTRUMENTS
-        / instrument_id
-        / "Backup"
-    )
+    return Path(InternalPaths.MOUNTS_PATH) / InternalPaths.INSTRUMENTS / instrument_id
 
 
 def get_internal_backup_path() -> Path:

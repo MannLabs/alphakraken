@@ -57,6 +57,9 @@ def copy_file(
     logging.info(f"Hash calculated. Time elapsed: {time_elapsed/60:.1f} min")
     if _file_already_exists(dst_path, src_hash):
         return
+    if not dst_path.parent.exists():
+        logging.info(f"Creating parent directories for {dst_path} ..")
+        dst_path.parent.mkdir(parents=True, exist_ok=True)
 
     logging.info(f"Copying {src_path} to {dst_path} ..")
     start = datetime.now()  # noqa: DTZ005

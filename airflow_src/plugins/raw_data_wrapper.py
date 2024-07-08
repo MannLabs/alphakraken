@@ -93,7 +93,7 @@ class RawDataWrapper(ABC):
         file_names = {d.name for d in dir_contents}
 
         logging.info(
-            f"Current contents of {self._instrument_path} ({len(file_names)}, extension '.{self._main_file_extension}'): {file_names}"
+            f"Current contents of {self._instrument_path} ({len(file_names)}, extension '{self._main_file_extension}'): {file_names}"
         )
         return file_names
 

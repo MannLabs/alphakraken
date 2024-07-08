@@ -173,7 +173,7 @@ def test_zeno_get_files_to_copy(mock_instrument_path: MagicMock) -> None:
         ),
     }
     assert wrapper.get_files_to_copy() == expected_mapping
-    mock_instrument_path.return_value.glob.assert_called_once_with("*")
+    mock_instrument_path.return_value.glob.assert_called_once_with("sample.*")
 
 
 @patch("plugins.raw_data_wrapper.get_internal_instrument_data_path")

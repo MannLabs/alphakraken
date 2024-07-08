@@ -131,7 +131,8 @@ class ZenoRawDataWrapper(RawDataWrapper):
         the same stem are considered here (e.g. raw_file.something).
         """
         files_to_copy = {}
-        for file_path in self._instrument_path.rglob(f"{self._raw_file_name}.*"):
+        raw_file_stem = Path(self._raw_file_name).stem
+        for file_path in self._instrument_path.glob(f"{raw_file_stem}.*"):
             src_path = file_path
             dst_path = self._backup_path / file_path.name
 

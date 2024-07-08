@@ -11,7 +11,8 @@ from raw_data_wrapper import RawDataWrapper
 
 # Currently, this value together with ACQUISITION_MONITOR_POKE_INTERVAL_S determines the time
 # that the file size needs to stay constant in order to be regarded as "acquisition done"
-NUM_FILE_CHECKS_WITH_SAME_SIZE = 10
+# TODO: decouple this from the poking frequency: measure time instead of number of pokes, measure file size only every n pokes
+NUM_FILE_CHECKS_WITH_SAME_SIZE = 20
 
 
 class AcquisitionMonitor(BaseSensorOperator):

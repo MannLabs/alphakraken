@@ -254,16 +254,27 @@ If you encounter a `sqlite3.OperationalError: no such table: dag`, run `airflow 
 
 ### Manual testing
 This allows testing most of the functionality on your local machine. The SSH connection is cut off, and a
-special worker ("test1") is used that is connected to the `airflow_test_folder` (not to the pool).
+special worker ("test1") is used that has the `airflow_test_folder` mounted (instead of the pool).
+Note: the instrument type for `test1` is set to `thermo`. In order to test other workflows,
+change this locally in `settings.py:INSTRUMENTS`.
 
 1. Run the `docker compose` command for the local setup (cf. above) and log into the airflow UI.
 2. Unpause all `*.test1` DAGs. The "watcher" should start running.
 3. If you do not want to feed the cluster, set the Airflow variable `debug_no_cluster_ssh=True` (see above)
 4. In the webapp, create a project with the name `P1`, and add some fake settings to it.
-5. Create a test raw file in the backup pool folder to fake the acquisition
+5. Create a test raw file in the backup pool folder to fake the acquisition.
+
+For type "Thermo":
 ```bash
 I=$((I+1)); NEW_FILE_NAME=test_file_SA_P1_${I}.raw; echo $NEW_FILE_NAME
 touch airflow_test_folders/instruments/test1/Backup/$NEW_FILE_NAME
+```
+
+For type "Zeno":
+```bash
+I=$((I+1)); RAW_FILE_NAME=test_file_SA_P1_${I}.wiff; echo $RAW_FILE_NAME
+touch airflow_test_folders/instruments/test1/Backup/$RAW_FILE_NAME
+touch airflow_test_folders/instruments/test1/Backup/$RAW_FILE_NAME.scan
 ```
 
 6. Wait until the `instrument_watcher` picks up the file (you may mark the `wait_for_new_files` task as "success" to speed up the process).

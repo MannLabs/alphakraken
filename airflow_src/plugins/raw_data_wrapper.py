@@ -36,6 +36,8 @@ class RawDataWrapper(ABC):
             return ThermoRawDataWrapper(instrument_id, **kwargs)
         if instrument_type == InstrumentTypes.ZENO:
             return ZenoRawDataWrapper(instrument_id, **kwargs)
+        if instrument_type == InstrumentTypes.BRUKER:
+            return BrukerRawDataWrapper(instrument_id, **kwargs)
         raise ValueError(f"Unsupported vendor: {instrument_type}")
 
     def __init__(self, instrument_id: str, raw_file_name: str | None):
@@ -134,5 +136,35 @@ class ZenoRawDataWrapper(RawDataWrapper):
             dst_path = self._backup_path / file_path.name
 
             files_to_copy[src_path] = dst_path
+
+        return files_to_copy
+
+
+class BrukerRawDataWrapper(RawDataWrapper):
+    """Class wrapping Bruker-specific logic."""
+
+    _main_file_extension = ".d"
+    _file_name_to_watch = "analysis.tdf_bin"
+
+    def _file_path_to_watch(self) -> Path:
+        """Get the (absolute) path to the main raw data file."""
+        return self._instrument_path / self._raw_file_name / self._file_name_to_watch
+
+    def _get_files_to_copy(self) -> dict[Path, Path]:
+        """Get the mapping of source to destination paths (both absolute) for the raw file.
+
+        All files within the raw file directory are returned (including those in subfolders).
+        """
+        src_base_path = self._instrument_path / self._raw_file_name
+
+        files_to_copy = {}
+
+        for src_item in src_base_path.rglob("*"):
+            if src_item.is_file():
+                src_file_path = src_item
+                rel_file_path = src_file_path.relative_to(self._instrument_path)
+                dst_file_path = self._backup_path / rel_file_path
+
+                files_to_copy[src_file_path] = dst_file_path
 
         return files_to_copy

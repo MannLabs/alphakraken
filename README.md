@@ -277,13 +277,22 @@ touch airflow_test_folders/instruments/test1/Backup/$RAW_FILE_NAME
 touch airflow_test_folders/instruments/test1/Backup/$RAW_FILE_NAME.scan
 ```
 
+For type "Bruker":
+```bash
+I=$((I+1)); RAW_FILE_NAME=test_file_SA_P1_${I}.d; echo $RAW_FILE_NAME
+mkdir -p airflow_test_folders/instruments/test1/Backup/$RAW_FILE_NAME/some_folder
+touch airflow_test_folders/instruments/test1/Backup/$RAW_FILE_NAME/analysis.tdf_bin
+touch airflow_test_folders/instruments/test1/Backup/$RAW_FILE_NAME/analysis.tdf
+touch airflow_test_folders/instruments/test1/Backup/$RAW_FILE_NAME/some_folder/some_file.txt
+```
+
 6. Wait until the `instrument_watcher` picks up the file (you may mark the `wait_for_new_files` task as "success" to speed up the process).
 It should trigger a `acquisition_handler` DAG, which in turn should trigger a `acquisition_processor` DAG.
 
 7. After the `compute_metrics` task failed because of missing output files,
 create those by copying fake alphaDIA result data to the expected output directory
 ```bash
-NEW_OUTPUT_FOLDER=airflow_test_folders/output/P1/out_$NEW_FILE_NAME
+NEW_OUTPUT_FOLDER=airflow_test_folders/output/P1/out_$RAW_FILE_NAME
 mkdir -p $NEW_OUTPUT_FOLDER
 cp airflow_test_folders/_data/stat.tsv $NEW_OUTPUT_FOLDER
 ```

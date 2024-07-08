@@ -10,6 +10,7 @@ import pytest
 from common.keys import InstrumentTypes
 from common.settings import INSTRUMENTS
 from plugins.raw_data_wrapper import (
+    BrukerRawDataWrapper,
     RawDataWrapper,
     ThermoRawDataWrapper,
     ZenoRawDataWrapper,
@@ -87,6 +88,7 @@ def test_raw_data_wrapper_unsupported_vendor() -> None:
     [
         (ThermoRawDataWrapper, "sample.raw", ".raw"),
         (ZenoRawDataWrapper, "sample.wiff", ".wiff"),
+        (BrukerRawDataWrapper, "sample.d", ".d"),
     ],
 )
 def test_raw_data_wrapper_file_extension_check(
@@ -124,6 +126,11 @@ def test_get_raw_files_on_instrument(mock_instrument_path: MagicMock) -> None:
     [
         (ThermoRawDataWrapper, "sample.raw", Path("/path/to/instrument/sample.raw")),
         (ZenoRawDataWrapper, "sample.wiff", Path("/path/to/instrument/sample.wiff")),
+        (
+            BrukerRawDataWrapper,
+            "sample.d",
+            Path("/path/to/instrument/sample.d/analysis.tdf_bin"),
+        ),
     ],
 )
 def test_file_path_to_watch(
@@ -164,5 +171,28 @@ def test_zeno_get_files_to_copy(mock_instrument_path: MagicMock) -> None:
         Path("/path/to/instrument/sample.wiff.scan"): Path(
             "/opt/airflow/mounts/backup/instrument1/sample.wiff.scan"
         ),
+    }
+    assert wrapper.get_files_to_copy() == expected_mapping
+
+
+@patch("plugins.raw_data_wrapper.get_internal_instrument_data_path")
+def test_bruker_get_files_to_copy(mock_instrument_path: MagicMock) -> None:
+    """Test that get_files_to_copy returns the correct mapping for BrukerRawDataWrapper."""
+    mock_output_path = MagicMock()
+    mock_instrument_path.return_value.__truediv__.return_value = mock_output_path
+
+    mp1 = MagicMock(wraps=Path("/path/to/instrument/sample.d/file1.txt"))
+    mp1.is_file.return_value = True
+    mp1.relative_to.return_value = Path("sample.d/file1.txt")
+    mp2 = MagicMock(wraps=Path("/path/to/instrument/sample.d/subdir/file2.txt"))
+    mp2.is_file.return_value = True
+    mp2.relative_to.return_value = Path("sample.d/subdir/file2.txt")
+
+    mock_output_path.rglob.return_value = [mp1, mp2]
+
+    wrapper = BrukerRawDataWrapper("instrument1", "sample.d")
+    expected_mapping = {
+        mp1: Path("/opt/airflow/mounts/backup/instrument1/sample.d/file1.txt"),
+        mp2: Path("/opt/airflow/mounts/backup/instrument1/sample.d/subdir/file2.txt"),
     }
     assert wrapper.get_files_to_copy() == expected_mapping

@@ -3,6 +3,7 @@
 import logging
 from datetime import datetime, timedelta
 
+import mongoengine
 import pytz
 from airflow.models import TaskInstance
 from common.keys import AirflowVars, DagParams, Dags, OpArgs, XComKeys
@@ -59,7 +60,7 @@ def get_unknown_raw_files(ti: TaskInstance, **kwargs) -> None:
     )
 
     logging.info(
-        f"Raw files to be checked against DB: {len(raw_file_names)} {raw_file_names}"
+        f"{len(raw_file_names)} raw files to be checked against DB: {raw_file_names}"
     )
 
     # Note there's a potential race condition with the "add to db" operation in start_acquisition_handler(),
@@ -69,7 +70,7 @@ def get_unknown_raw_files(ti: TaskInstance, **kwargs) -> None:
         raw_file_names.remove(raw_file_name)
 
     logging.info(
-        f"Raw files left after DB check: {len(raw_file_names)} {raw_file_names}"
+        f"{len(raw_file_names)} raw files left after DB check: {raw_file_names}"
     )
 
     raw_file_names_sorted = _sort_by_creation_date(raw_file_names, instrument_id)
@@ -92,7 +93,7 @@ def decide_raw_file_handling(ti: TaskInstance, **kwargs) -> None:
     raw_file_names = get_xcom(ti, XComKeys.RAW_FILE_NAMES)
 
     logging.info(
-        f"Raw files to be checked on project id: {len(raw_file_names)} {raw_file_names}"
+        f"{len(raw_file_names)} raw files to be checked on project id: {raw_file_names}"
     )
 
     all_project_ids = get_all_project_ids()
@@ -181,13 +182,19 @@ def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
         # putting the file name to xcom to be able to access it in callback for error reporting
         put_xcom(ti, XComKeys.RAW_FILE_NAME, raw_file_name)
 
-        # TODO: fix: if this task is restarted, this could give a `mongoengine.errors.NotUniqueError`
-        _add_raw_file_to_db(
-            raw_file_name,
-            project_id=project_id,
-            instrument_id=instrument_id,
-            status=status,
-        )
+        try:
+            _add_raw_file_to_db(
+                raw_file_name,
+                project_id=project_id,
+                instrument_id=instrument_id,
+                status=status,
+            )
+        except mongoengine.errors.NotUniqueError:
+            # This could happen if this task is restarted and some files are already in the DB
+            # In this case, we assume that the downstream DAG has been triggered successfully.
+            # If not, this file will stay in the initial status ('new') and can be found in webapp.
+            logging.warning(f"Raw file {raw_file_name} already in database. Skipping.")
+            continue
 
         if file_needs_handling:
             trigger_dag_run(

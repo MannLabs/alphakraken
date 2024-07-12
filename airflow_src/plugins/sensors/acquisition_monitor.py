@@ -81,7 +81,7 @@ class AcquisitionMonitor(BaseSensorOperator):
             # TODO: check for size > threshold?
             if size == self._last_file_size:
                 logging.info(
-                    f"File size {size} has not changed for >= {SIZE_CHECK_INTERVAL_M} min."
+                    f"File size {size} has not changed for >= {SIZE_CHECK_INTERVAL_M} min. "
                     f"Considering acquisition to be done."
                 )
                 return True

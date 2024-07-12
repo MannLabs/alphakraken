@@ -83,7 +83,13 @@ and copy the cluster run script `submit_job.sh` to `~/slurm`. Make sure to updat
 2. Set up alphaDIA  (see [below](#setup-alphadia)).
 
 #### On the kraken PC
-1. Set up the network bind mounts (see [below](#set-up-network-bind-mounts)) .
+1. Set up the network bind mounts. First, install the `cifs-utils` package (otherwise you might get errors like
+`CIFS: VFS: cifs_mount failed w/return code = -13`)
+```bash
+sudo apt install cifs-utils
+```
+Then, set up the [network bind mounts](#set-up-network-bind-mounts))
+and the  [instruments](#add-a-new-instrument).
 
 2. Run the containers (sandbox/production version)
 ```bash
@@ -91,7 +97,7 @@ docker compose --env-file=envs/.env-airflow --env-file=envs/${ENV}.env --profile
 ```
 which spins up additional worker containers for each instrument.
 
-Then, access the Airflow UI at http://10.31.0.192:8081/ and the Streamlit webapp at http://10.31.0.192:8502/.
+Then, access the Airflow UI at http://somepc462:8081/ and the Streamlit webapp at http://somepc462:8502/.
 
 
 ### General note on how Kraken gets to know the data
@@ -121,6 +127,43 @@ folder.
 Cf. also the environment variables `MOUNTS_PATH` and `IO_POOL_FOLDER` in the `envs/${ENV}.env` file.
 If you need to remount one of the folders, add the `umount` option, e.g.
 `./mountall.sh $ENV output umount`.
+
+
+### Setup SSH connection
+This connection is required to interact with the SLURM cluster.
+
+1. Open the Airflow UI, navigate to "Admin" -> "Connections" and click the "+" button.
+2. Fill in the following fields:
+    - Connection Id: `cluster_ssh_connection`
+    - Conn Type: `SSH`
+    - Host: `<cluster_head_node_ip>`  # the IP address of a cluster head node, in this case `<cluster_head_node>`
+    - Username: `<user name of kraken SLURM user>`
+    - Password: `<password of kraken SLURM user>`
+3. (optional) Click "Test" to verify the connection.
+4. Click "Save".
+
+### Setup required pools
+Pools are used to limit the number of parallel tasks for certain operations. They are managed via the Airflow UI
+and need to be created manually one.
+1. Open the Airflow UI, navigate to "Admin" -> "Pools".
+2. For each pool defined in `settings.py:Pools`, create a new pool with a sensible value (see suggestions in the `Pools` class).
+
+### Setup alphaDIA
+For details on how to install alphaDIA on the SLURM cluster, follow the alphaDIA
+[https://github.com/MannLabs/alphadia/blob/main/docs/installation.md#slurm-cluster-installation](Readme).
+
+In a nutshell, to install a certain version, e.g. `VERSION=1.7.0`:
+```bash
+conda create --name alphadia-${VERSION} python=3.11 -y
+```
+```bash
+conda activate alphadia-${VERSION}
+```
+```bash
+pip  install "alphadia[stable]==${VERSION}"
+```
+Make sure the environment is named `alphadia-$VERSION`.
+Also, don't forget to install `mono` (cf. alphaDIA Readme).
 
 ### Add a new instrument
 Each instrument is identified by a unique `<INSTRUMENT_ID>`,
@@ -170,42 +213,6 @@ recent files. Older ones will then be added to the DB with status 'ignored'. Don
 
 8. Open the airflow UI and unpause the new `*.<INSTRUMENT_ID>` DAGs. It might be wise to do this one after another,
 (`instrument_watcher` -> `acquisition_handler` -> `acquisition_processor`.) and to check the logs for errors before starting the next one.
-
-### Setup SSH connection
-This connection is required to interact with the SLURM cluster.
-
-1. Open the Airflow UI, navigate to "Admin" -> "Connections" and click the "+" button.
-2. Fill in the following fields:
-    - Connection Id: `cluster_ssh_connection`
-    - Conn Type: `SSH`
-    - Host: `<cluster_head_node_ip>`  # the IP address of a cluster head node, in this case `<cluster_head_node>`
-    - Username: `<user name of kraken SLURM user>`
-    - Password: `<password of kraken SLURM user>`
-3. (optional) Click "Test" to verify the connection.
-4. Click "Save".
-
-### Setup required pools
-Pools are used to limit the number of parallel tasks for certain operations. They are managed via the Airflow UI
-and need to be created manually one.
-1. Open the Airflow UI, navigate to "Admin" -> "Pools".
-2. For each pool defined in `settings.py:Pools`, create a new pool with a sensible value (see suggestions in the `Pools` class).
-
-### Setup alphaDIA
-For details on how to install alphaDIA on the SLURM cluster, follow the alphaDIA
-[https://github.com/MannLabs/alphadia/blob/main/docs/installation.md#slurm-cluster-installation](Readme).
-
-In a nutshell, to install a certain version, e.g. `VERSION=1.7.0`:
-```bash
-conda create --name alphadia-${VERSION} python=3.11 -y
-```
-```bash
-conda activate alphadia-${VERSION}
-```
-```bash
-pip  install "alphadia[stable]==${VERSION}"
-```
-Make sure the environment is named `alphadia-$VERSION`.
-Also, don't forget to install `mono` (cf. alphaDIA Readme).
 
 
 ## Local development

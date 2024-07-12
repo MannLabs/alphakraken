@@ -3,6 +3,7 @@
 from datetime import datetime, timedelta
 from unittest.mock import MagicMock, Mock, call, patch
 
+import mongoengine
 import pytest
 import pytz
 from dags.impl.watcher_impl import (
@@ -292,6 +293,51 @@ def test_start_acquisition_handler_with_single_file(
 
     mock_add_raw_file_to_db.assert_called_once_with(
         "file1.raw", project_id="PID1", instrument_id="instrument1", status="new"
+    )
+
+
+@patch("dags.impl.watcher_impl.get_xcom")
+@patch("dags.impl.watcher_impl._add_raw_file_to_db")
+@patch("dags.impl.watcher_impl.trigger_dag_run")
+def test_start_acquisition_handler_with_multiple_files_one_already_in_db(
+    mock_trigger_dag_run: MagicMock,
+    mock_add_raw_file_to_db: MagicMock,
+    mock_get_xcom: MagicMock,
+) -> None:
+    """Test start_acquisition_handler with a multiple files where one is already in the DB."""
+    # given
+    raw_file_names = {"file1.raw": ("PID1", True), "file2.raw": ("PID1", True)}
+
+    mock_get_xcom.return_value = raw_file_names
+    ti = Mock()
+    mock_add_raw_file_to_db.side_effect = [mongoengine.errors.NotUniqueError, None]
+
+    # when
+    start_acquisition_handler(ti, **{OpArgs.INSTRUMENT_ID: "instrument1"})
+
+    # then
+    assert mock_trigger_dag_run.call_count == 1  # no magic numbers
+    for call_ in mock_trigger_dag_run.call_args_list:
+        assert call_.args[0] == ("acquisition_handler.instrument1")
+        assert {
+            "raw_file_name": "file2.raw",
+        } == call_.args[1]
+
+    mock_add_raw_file_to_db.assert_has_calls(
+        [
+            call(
+                "file1.raw",
+                project_id="PID1",
+                instrument_id="instrument1",
+                status="new",
+            ),
+            call(
+                "file2.raw",
+                project_id="PID1",
+                instrument_id="instrument1",
+                status="new",
+            ),
+        ]
     )
 
 

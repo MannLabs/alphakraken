@@ -11,6 +11,7 @@ from service.components import (
     highlight_status_cell,
     show_date_select,
     show_filter,
+    show_status_plot,
 )
 from service.db import df_from_db_data, get_raw_file_and_metrics_data, get_status_data
 from service.utils import _log
@@ -94,6 +95,7 @@ def _display_status(combined_df: pd.DataFrame) -> None:
             lambda x: x.replace(microsecond=0)
         )
         display_status(combined_df, status_data_df)
+        show_status_plot(combined_df)
     except Exception as e:  # noqa: BLE001
         _log(str(e))
         st.warning(f"Cannot not display status: {e}.")

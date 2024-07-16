@@ -23,7 +23,7 @@ class RawFileStatus:
     """
 
     IGNORED = "ignored"
-    NEW = "new"  # queued_for_monitoring? (only if there is a queue here)
+    QUEUED_FOR_MONITORING = "queued_for_monitoring"
 
     ACQUISITION_STARTED = "monitoring_acquisition"
     COPYING = "copying"
@@ -34,6 +34,7 @@ class RawFileStatus:
     DONE = "done"
 
     QUANTING_FAILED = "quanting_failed"
+
     ERROR = "error"
 
 

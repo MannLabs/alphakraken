@@ -25,7 +25,7 @@ def _add_raw_file_to_db(
     *,
     project_id: str,
     instrument_id: str,
-    status: str = RawFileStatus.NEW,
+    status: str = RawFileStatus.QUEUED_FOR_MONITORING,
 ) -> None:
     """Add the file to the database with initial status and basic information.
 
@@ -177,7 +177,11 @@ def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
         project_id,
         file_needs_handling,
     ) in raw_file_project_ids.items():
-        status = (RawFileStatus.NEW) if file_needs_handling else RawFileStatus.IGNORED
+        status = (
+            (RawFileStatus.QUEUED_FOR_MONITORING)
+            if file_needs_handling
+            else RawFileStatus.IGNORED
+        )
 
         # putting the file name to xcom to be able to access it in callback for error reporting
         put_xcom(ti, XComKeys.RAW_FILE_NAME, raw_file_name)

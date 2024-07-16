@@ -3,7 +3,6 @@
 import logging
 from datetime import datetime, timedelta
 
-import mongoengine
 import pytz
 from airflow.models import TaskInstance
 from common.keys import AirflowVars, DagParams, Dags, OpArgs, XComKeys
@@ -186,19 +185,12 @@ def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
         # putting the file name to xcom to be able to access it in callback for error reporting
         put_xcom(ti, XComKeys.RAW_FILE_NAME, raw_file_name)
 
-        try:
-            _add_raw_file_to_db(
-                raw_file_name,
-                project_id=project_id,
-                instrument_id=instrument_id,
-                status=status,
-            )
-        except mongoengine.errors.NotUniqueError:
-            # This could happen if this task is restarted and some files are already in the DB
-            # In this case, we assume that the downstream DAG has been triggered successfully.
-            # If not, this file will stay in the initial status ('new') and can be found in webapp.
-            logging.warning(f"Raw file {raw_file_name} already in database. Skipping.")
-            continue
+        _add_raw_file_to_db(
+            raw_file_name,
+            project_id=project_id,
+            instrument_id=instrument_id,
+            status=status,
+        )
 
         if file_needs_handling:
             trigger_dag_run(

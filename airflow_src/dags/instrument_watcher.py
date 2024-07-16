@@ -72,6 +72,9 @@ def create_instrument_watcher_dag(instrument_id: str) -> None:
             task_id=Tasks.START_ACQUISITION_HANDLER,
             python_callable=start_acquisition_handler,
             op_kwargs={OpArgs.INSTRUMENT_ID: instrument_id},
+            # No retries: on error, a new DAG run should take care of the remaining files.
+            # as otherwise we could end up in an inconsitent state (some files already in DB, some not)
+            retries=0,
         )
 
     (

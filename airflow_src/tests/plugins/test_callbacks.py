@@ -25,7 +25,7 @@ def test_on_failure_callback_with_other_exception(mock_update: MagicMock) -> Non
     mock_update.assert_called_once_with(
         "some_file.raw",
         new_status=RawFileStatus.ERROR,
-        status_details="task1: Some error",
+        status_details="[task1] Some error",
     )
 
 
@@ -48,7 +48,7 @@ def test_on_failure_callback_with_no_rawfile_in_xcom_but_dag_context(
     mock_update.assert_called_once_with(
         "some_file.raw",
         new_status=RawFileStatus.ERROR,
-        status_details="task1: Some error",
+        status_details="[task1] Some error",
     )
 
 

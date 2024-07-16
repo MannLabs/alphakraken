@@ -6,6 +6,7 @@ import pandas as pd
 import streamlit as st
 from service.components import (
     display_status,
+    show_status_plot,
 )
 from service.data_handling import get_combined_raw_files_and_metrics_df
 from service.db import df_from_db_data, get_status_data
@@ -33,7 +34,7 @@ def _display_status(combined_df: pd.DataFrame) -> None:
             lambda x: x.replace(microsecond=0)
         )
         display_status(combined_df, status_data_df)
-        # show_status_plot(combined_df)
+        show_status_plot(combined_df)
     except Exception as e:  # noqa: BLE001
         _log(str(e))
         st.warning(f"Cannot not display status: {e}.")

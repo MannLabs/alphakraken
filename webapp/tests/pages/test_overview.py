@@ -108,6 +108,5 @@ def test_overview(
         "instrument_id": {1: "i1", 2: "i1"},
     }
 
-    assert at.dataframe[0] is not None
-    assert at.dataframe[1].value.to_dict() == expected_data
+    assert at.dataframe[0].value.to_dict() == expected_data
     # plots not tested

@@ -7,13 +7,11 @@ import plotly.express as px
 import streamlit as st
 from matplotlib import pyplot as plt
 from service.components import (
-    display_status,
     highlight_status_cell,
     show_date_select,
     show_filter,
-    show_status_plot,
 )
-from service.db import df_from_db_data, get_raw_file_and_metrics_data, get_status_data
+from service.data_handling import get_combined_raw_files_and_metrics_df
 from service.utils import _log
 
 _log(f"loading {__file__}")
@@ -26,47 +24,8 @@ st.markdown("# Overview")
 
 # ########################################### LOGIC
 
-raw_files_db, metrics_db = get_raw_file_and_metrics_data()
+combined_df = get_combined_raw_files_and_metrics_df()
 
-raw_files_df = df_from_db_data(raw_files_db)
-
-metrics_df = df_from_db_data(
-    metrics_db,
-    drop_duplicates=["raw_file"],
-    drop_columns=["_id", "created_at_"],
-)
-
-if len(raw_files_df) == 0 or len(metrics_df) == 0:
-    st.write(f"No enough data yet: {len(raw_files_df)=} {len(metrics_df)=}.")
-    st.dataframe(raw_files_df)
-    st.dataframe(metrics_df)
-    st.stop()
-
-# the joining could also be done on DB level
-combined_df = raw_files_df.merge(
-    metrics_df, left_on="_id", right_on="raw_file", how="left"
-)
-
-# conversions
-combined_df["size_gb"] = combined_df["size"] / 1024**3
-combined_df["file_created"] = combined_df["created_at"].dt.strftime("%Y-%m-%d %H:%M:%S")
-combined_df["quanting_time_minutes"] = combined_df["quanting_time_elapsed"] / 60
-combined_df["precursors"] = combined_df["precursors"].astype("Int64", errors="ignore")
-combined_df["proteins"] = combined_df["proteins"].astype("Int64", errors="ignore")
-combined_df["created_at"] = combined_df["created_at"].apply(
-    lambda x: x.replace(microsecond=0)
-)
-combined_df["updated_at_"] = combined_df["updated_at_"].apply(
-    lambda x: x.replace(microsecond=0)
-)
-combined_df["created_at_"] = combined_df["created_at_"].apply(
-    lambda x: x.replace(microsecond=0)
-)
-
-# sorting & indexing
-combined_df.sort_values(by="created_at", ascending=False, inplace=True)
-combined_df.reset_index(drop=True, inplace=True)
-combined_df.index = combined_df["_id"]
 
 # ########################################### DISPLAY: table
 
@@ -82,23 +41,6 @@ column_order = [
     for col in combined_df.columns
     if col not in columns_at_end and col not in columns_to_hide
 ] + columns_at_end
-
-
-@st.experimental_fragment
-def _display_status(combined_df: pd.DataFrame) -> None:
-    """A fragment that displays the status information."""
-    st.markdown("## Status")
-    try:
-        status_data_df = df_from_db_data(get_status_data())
-
-        status_data_df["updated_at_"] = status_data_df["updated_at_"].apply(
-            lambda x: x.replace(microsecond=0)
-        )
-        display_status(combined_df, status_data_df)
-        show_status_plot(combined_df)
-    except Exception as e:  # noqa: BLE001
-        _log(str(e))
-        st.warning(f"Cannot not display status: {e}.")
 
 
 # using a fragment to avoid re-doing the above operations on every filter change
@@ -146,6 +88,26 @@ def _display_table_and_plots(df: pd.DataFrame) -> None:
         column_order=column_order,
     )
 
+    c1, _ = st.columns([0.5, 0.5])
+    with c1.expander("Click here for help ..."):
+        st.markdown("""
+            #### Explanation of 'status' information
+
+            - `done`: The file has been processed successfully.
+
+            - `quanting_failed`: something went wrong with the quanting, check the "status_details" column for more information.
+              -  `NO_RECALIBRATION_TARGET`: alphaDIA did not find enough precursors to calibrate the data.
+              -  `NOT_DIA_DATA`: the file is not DIA data
+
+            - `error`: an unknown error happened during processing, check the "status_details" column for more information
+                and report it to the developers if unsure.
+                -  `[check_job_status Quanting failed: job_status='TIMEOUT'`: the quanting job took too long and was stopped.
+
+            All other states are transient and should be self-explanatory. If you feel a file does not leave a certain status
+            for too long, please report it to the developers.
+
+        """)
+
     # ########################################### DISPLAY: plots
 
     st.markdown("## Plots")
@@ -190,7 +152,5 @@ def _draw_plot(df: pd.DataFrame, x: str, y: str) -> None:
     fig.add_hline(y=median_, line_dash="dash", line={"color": "lightgrey"})
     st.plotly_chart(fig)
 
-
-_display_status(combined_df)
 
 _display_table_and_plots(combined_df)

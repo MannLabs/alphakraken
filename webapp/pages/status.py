@@ -26,14 +26,16 @@ st.markdown("# Status")
 @st.experimental_fragment
 def _display_status(combined_df: pd.DataFrame) -> None:
     """A fragment that displays the status information."""
-    st.markdown("## Status")
     try:
         status_data_df = df_from_db_data(get_status_data())
 
         status_data_df["updated_at_"] = status_data_df["updated_at_"].apply(
             lambda x: x.replace(microsecond=0)
         )
+        st.markdown("## Latest data")
         display_status(combined_df, status_data_df)
+
+        st.markdown("## Current activity")
         show_status_plot(combined_df)
     except Exception as e:  # noqa: BLE001
         _log(str(e))

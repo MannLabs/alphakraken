@@ -193,7 +193,9 @@ def get_job_info(ti: TaskInstance, **kwargs) -> bool:
     job_status = ssh_return.split("\n")[-1]
     logging.info(f"Job {job_id} exited with status {job_status}.")
 
-    # now check for errors
+    if job_status == JobStates.COMPLETED:
+        return True  # continue with downstream tasks
+
     if job_status == JobStates.FAILED:
         quanting_env = get_xcom(ti, XComKeys.QUANTING_ENV)
         raw_file_name = quanting_env[QuantingEnv.RAW_FILE_NAME]
@@ -207,11 +209,9 @@ def get_job_info(ti: TaskInstance, **kwargs) -> bool:
             )
             return False  # skip downstream tasks
 
-    if job_status != JobStates.COMPLETED:  # this implicitly covers non-business error
-        logging.info(f"Job {job_id} exited with status {job_status}.")
-        raise AirflowFailException(f"Quanting failed: {job_status=}")
-
-    return True
+    # unknown state or non-business error: fail the DAG without retry
+    logging.info(f"Job {job_id} exited with status {job_status}.")
+    raise AirflowFailException(f"Quanting failed: {job_status=}")
 
 
 def _get_time_elapsed(ssh_return: str) -> int:

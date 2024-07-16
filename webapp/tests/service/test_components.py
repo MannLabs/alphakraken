@@ -189,8 +189,9 @@ def test_get_color() -> None:
         columns=["last_file_creation", "last_status_update"],
         green_ages_h=[2, 2],
         red_ages_h=[8, 8],
+        colormaps=["summer", "summer"],
     )
-    assert result == ["background-color: #006837", "background-color: #4bb05c", None]
+    assert result == ["background-color: #008066", "background-color: #2a9466", None]
 
 
 def get_status_cell_style() -> None:

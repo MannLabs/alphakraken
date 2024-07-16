@@ -9,7 +9,7 @@ from random import random
 from airflow.exceptions import AirflowFailException
 from airflow.models import TaskInstance
 from cluster_scripts.slurm_commands import (
-    get_job_info_cmd,
+    check_job_status_cmd,
     get_job_state_cmd,
     get_run_quanting_cmd,
 )
@@ -175,7 +175,7 @@ def get_business_errors(raw_file_name: str, project_id: str) -> list[str]:
     return error_codes
 
 
-def get_job_info(ti: TaskInstance, **kwargs) -> bool:
+def check_job_status(ti: TaskInstance, **kwargs) -> bool:
     """Get info (slurm log, alphaDIA log) about a job from the cluster.
 
     Return False in case downstream tasks should be skipped, True otherwise.
@@ -184,7 +184,7 @@ def get_job_info(ti: TaskInstance, **kwargs) -> bool:
     job_id = get_xcom(ti, XComKeys.JOB_ID)
 
     slurm_output_file = f"{CLUSTER_WORKING_DIR}/slurm-{job_id}.out"
-    cmd = get_job_info_cmd(job_id, slurm_output_file) + get_job_state_cmd(job_id)
+    cmd = check_job_status_cmd(job_id, slurm_output_file) + get_job_state_cmd(job_id)
     ssh_return = SSHSensorOperator.ssh_execute(cmd, ssh_hook)
 
     time_elapsed = _get_time_elapsed(ssh_return)

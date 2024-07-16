@@ -9,8 +9,8 @@ from airflow.exceptions import AirflowFailException
 from common.settings import INSTRUMENTS
 from dags.impl.processor_impl import (
     _get_project_id_for_raw_file,
+    check_job_status,
     compute_metrics,
-    get_job_info,
     prepare_quanting,
     run_quanting,
     upload_metrics,
@@ -251,10 +251,10 @@ def test_run_quanting_executes_ssh_command_error_wrong_job_id(
 @patch("dags.impl.processor_impl.get_xcom")
 @patch("dags.impl.processor_impl.SSHSensorOperator.ssh_execute")
 @patch("dags.impl.processor_impl.put_xcom")
-def test_get_job_info_happy_path(
+def test_check_job_status_happy_path(
     mock_put_xcom: MagicMock, mock_ssh_execute: MagicMock, mock_get_xcom: MagicMock
 ) -> None:
-    """Test that get_job_info makes the expected calls."""
+    """Test that check_job_status makes the expected calls."""
     mock_ti = MagicMock()
     mock_get_xcom.return_value = "12345"
     mock_ssh_execute.return_value = (
@@ -264,7 +264,7 @@ def test_get_job_info_happy_path(
     mock_ssh_hook = MagicMock()
 
     # when
-    get_job_info(mock_ti, **{OpArgs.SSH_HOOK: mock_ssh_hook})
+    check_job_status(mock_ti, **{OpArgs.SSH_HOOK: mock_ssh_hook})
 
     mock_ssh_execute.assert_called_once_with(
         "TIME_ELAPSED=$(sacct --format=Elapsed -j 12345 | tail -n 1); echo $TIME_ELAPSED\nsacct -l -j 12345\n"
@@ -277,10 +277,10 @@ def test_get_job_info_happy_path(
 
 @patch("dags.impl.processor_impl.get_xcom")
 @patch("dags.impl.processor_impl.SSHSensorOperator.ssh_execute")
-def test_get_job_info_raises(
+def test_check_job_status_raises(
     mock_ssh_execute: MagicMock, mock_get_xcom: MagicMock
 ) -> None:
-    """Test that get_job_info raises on failed quanting job."""
+    """Test that check_job_status raises on failed quanting job."""
     mock_ti = MagicMock()
     mock_get_xcom.side_effect = ["some_raw_file_name", "12345"]
     mock_ssh_execute.return_value = "00:08:42\nsome\nother\nlines\nSOME_JOB_STATE"
@@ -289,7 +289,7 @@ def test_get_job_info_raises(
 
     # when
     with pytest.raises(AirflowFailException):
-        get_job_info(mock_ti, **{OpArgs.SSH_HOOK: mock_ssh_hook})
+        check_job_status(mock_ti, **{OpArgs.SSH_HOOK: mock_ssh_hook})
 
 
 @patch("dags.impl.processor_impl.get_xcom")

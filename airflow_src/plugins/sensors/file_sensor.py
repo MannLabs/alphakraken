@@ -29,6 +29,8 @@ def _check_health(instrument_id: str) -> None:
         logging.error(f"Backup path {backup_path} does not exist.")
         status_details.append("Backup path not found.")
 
+    # TODO: check output path here
+
     update_kraken_status(
         instrument_id,
         status=KrakenStatusValues.ERROR if status_details else KrakenStatusValues.OK,

@@ -39,6 +39,7 @@ def create_instrument_watcher_dag(instrument_id: str) -> None:
             "queue": f"{AIRFLOW_QUEUE_PREFIX}{instrument_id}",
             # this callback is executed when tasks fail
             "on_failure_callback": on_failure_callback,
+            "priority_weight": 1000,  # make sure the watcher tasks always have highest priority
         },
         description="Watch for new files.",
         catchup=False,

@@ -31,7 +31,6 @@ class RawFileStatus:
     COPYING = "copying"
     COPYING_DONE = "copying_done"
 
-    # # queued(_for_processing)?
     QUEUED_FOR_QUANTING = "queued_for_quanting"
     QUANTING = "quanting"
     QUANTING_FAILED = "quanting_failed"

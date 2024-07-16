@@ -44,11 +44,11 @@ def start_acquisition_processor(ti: TaskInstance, **kwargs) -> None:
 
     dag_id_to_trigger = f"{Dags.ACQUISITON_HANDLER}.{instrument_id}"
 
+    update_raw_file(raw_file_name, new_status=RawFileStatus.QUEUED_FOR_QUANTING)
+
     trigger_dag_run(
         dag_id_to_trigger,
         {
             DagParams.RAW_FILE_NAME: raw_file_name,
         },
     )
-
-    update_raw_file(raw_file_name, new_status=RawFileStatus.QUEUED_FOR_QUANTING)

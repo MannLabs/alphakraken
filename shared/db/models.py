@@ -23,9 +23,11 @@ class RawFileStatus:
     """
 
     IGNORED = "ignored"
-    QUEUED_FOR_MONITORING = "queued_for_monitoring"
 
+    QUEUED_FOR_MONITORING = "queued_for_monitoring"
     MONITORING_ACQUISITION = "monitoring_acquisition"
+    MONITORING_DONE = "monitoring_done"
+
     COPYING = "copying"
     COPYING_DONE = "copying_done"
 

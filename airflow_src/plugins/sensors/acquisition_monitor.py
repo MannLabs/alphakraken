@@ -9,10 +9,13 @@ An acquisition is considered "done" if either:
 
 import logging
 from datetime import datetime
+from typing import Any
 
 import pytz
 from airflow.sensors.base import BaseSensorOperator
 from common.keys import DagContext, DagParams
+from db.interface import update_raw_file
+from db.models import RawFileStatus
 from raw_data_wrapper import RawDataWrapper
 
 # For the second type of check, the file size is calculated every SIZE_CHECK_INTERVAL_M minutes,
@@ -31,6 +34,7 @@ class AcquisitionMonitor(BaseSensorOperator):
 
         self._instrument_id = instrument_id
 
+        self._raw_file_name: str | None = None
         self._raw_data_wrapper: RawDataWrapper | None = None
         self._initial_dir_contents: set | None = None
 
@@ -39,10 +43,10 @@ class AcquisitionMonitor(BaseSensorOperator):
 
     def pre_execute(self, context: dict[str, any]) -> None:
         """_job_id the job id from XCom."""
-        raw_file_name = context[DagContext.PARAMS][DagParams.RAW_FILE_NAME]
+        self._raw_file_name = context[DagContext.PARAMS][DagParams.RAW_FILE_NAME]
 
         self._raw_data_wrapper = RawDataWrapper.create(
-            instrument_id=self._instrument_id, raw_file_name=raw_file_name
+            instrument_id=self._instrument_id, raw_file_name=self._raw_file_name
         )
 
         self._initial_dir_contents = (
@@ -51,7 +55,19 @@ class AcquisitionMonitor(BaseSensorOperator):
 
         self._last_poke_timestamp = self._get_timestamp()
 
+        update_raw_file(
+            self._raw_file_name, new_status=RawFileStatus.MONITORING_ACQUISITION
+        )
+
         logging.info(f"Monitoring {self._raw_data_wrapper.file_path_to_watch()}")
+
+    def post_execute(self, context: dict[str, any], result: Any = None) -> None:  # noqa: ANN401
+        """Update the status of the raw file in the database."""
+        del context  # unused
+        if result:
+            update_raw_file(
+                self._raw_file_name, new_status=RawFileStatus.MONITORING_DONE
+            )
 
     @staticmethod
     def _get_timestamp() -> float:

@@ -35,7 +35,7 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
 
     file_size = get_file_size(raw_data_wrapper.file_path_to_watch())
     update_raw_file(
-        raw_file_name, new_status=RawFileStatus.COPYING_FINISHED, size=file_size
+        raw_file_name, new_status=RawFileStatus.COPYING_DONE, size=file_size
     )
 
 

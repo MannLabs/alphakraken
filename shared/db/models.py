@@ -27,7 +27,7 @@ class RawFileStatus:
 
     ACQUISITION_STARTED = "monitoring_acquisition"
     COPYING = "copying"
-    COPYING_FINISHED = "copying_finished"
+    COPYING_DONE = "copying_done"
 
     # # queued(_for_processing)?
     QUANTING = "quanting"

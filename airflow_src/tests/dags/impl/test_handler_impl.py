@@ -58,7 +58,7 @@ def test_copy_raw_file_calls_update_with_correct_args(
     mock_update_status.assert_has_calls(
         [
             call("test_file.raw", new_status=RawFileStatus.COPYING),
-            call("test_file.raw", new_status=RawFileStatus.COPYING_FINISHED, size=1000),
+            call("test_file.raw", new_status=RawFileStatus.COPYING_DONE, size=1000),
         ]
     )
 

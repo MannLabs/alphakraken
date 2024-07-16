@@ -64,7 +64,9 @@ def test_copy_raw_file_calls_update_with_correct_args(
 
 
 @patch("dags.impl.handler_impl.trigger_dag_run")
+@patch("dags.impl.handler_impl.update_raw_file")
 def test_start_acquisition_processor_with_single_file(
+    mock_update_raw_file: MagicMock,
     mock_trigger_dag_run: MagicMock,
 ) -> None:
     """Test start_acquisition_processor with a single file."""
@@ -88,3 +90,6 @@ def test_start_acquisition_processor_with_single_file(
         assert {
             "raw_file_name": list(raw_file_names.keys())[n],
         } == call_.args[1]
+    mock_update_raw_file.assert_called_once_with(
+        "file1.raw", new_status=RawFileStatus.QUEUED_FOR_QUANTING
+    )

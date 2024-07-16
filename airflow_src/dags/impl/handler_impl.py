@@ -58,3 +58,5 @@ def start_acquisition_processor(ti: TaskInstance, **kwargs) -> None:
             DagParams.RAW_FILE_NAME: raw_file_name,
         },
     )
+
+    update_raw_file(raw_file_name, new_status=RawFileStatus.QUEUED_FOR_QUANTING)

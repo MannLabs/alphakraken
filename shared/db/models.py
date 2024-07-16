@@ -25,18 +25,17 @@ class RawFileStatus:
     IGNORED = "ignored"
     QUEUED_FOR_MONITORING = "queued_for_monitoring"
 
-    ACQUISITION_STARTED = "monitoring_acquisition"
     MONITORING_ACQUISITION = "monitoring_acquisition"
     COPYING = "copying"
     COPYING_DONE = "copying_done"
 
     # # queued(_for_processing)?
+    QUEUED_FOR_QUANTING = "queued_for_quanting"
     QUANTING = "quanting"
-    DONE = "done"
-
     QUANTING_FAILED = "quanting_failed"
 
     ERROR = "error"
+    DONE = "done"
 
 
 class RawFile(Document):

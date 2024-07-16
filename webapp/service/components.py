@@ -65,6 +65,32 @@ def show_date_select(
     return df[df["created_at"] > min_date_with_time]
 
 
+def show_status_plot(
+    combined_df: pd.DataFrame,
+    ignored_status: list[str] = ["error", "done", "ignored", "quanting_failed"],  # noqa: B006
+) -> None:
+    """Show a plot of the file statuses for each instrument."""
+    df = combined_df[~combined_df["status"].isin(ignored_status)]
+
+    status_counts = (
+        df.groupby(["instrument_id", "status"]).size().pivot_table(fill_value=0)
+    )
+    ax = status_counts.plot(kind="bar", stacked=True)
+
+    # Customize the plot
+    plt.xlabel("Instrument")
+    plt.ylabel("Count")
+    plt.legend(title="Status")
+    plt.tight_layout()
+
+    # Add value labels on the bars
+    for c in ax.containers:
+        ax.bar_label(c, label_type="center")
+
+    # Show the plot
+    st.pyplot(plt)
+
+
 def display_status(combined_df: pd.DataFrame, status_data_df: pd.DataFrame) -> None:
     """Display the status of the kraken."""
     now = datetime.now()  # noqa:  DTZ005 no tz argument
@@ -142,6 +168,11 @@ def _get_color(
         8,
         0.1,  # could take up to 5 minutes to resume checking after worker restart
     ],
+    colormaps: list[str] = [  # noqa: B006
+        "coolwarm",
+        "coolwarm",
+        "RdYlGn_r",
+    ],
 ) -> list[str | None]:
     """Get the color for the row based on the age of the columns.
 
@@ -153,8 +184,8 @@ def _get_color(
     """
     column_styles = {}
     now = datetime.now()  # noqa:  DTZ005 no tz argument
-    for column, green_age_h, red_age_h in zip(
-        columns, green_ages_h, red_ages_h, strict=True
+    for column, green_age_h, red_age_h, colormap in zip(
+        columns, green_ages_h, red_ages_h, colormaps, strict=True
     ):
         time_delta = now - row[column]
 
@@ -163,9 +194,7 @@ def _get_color(
         )
         normalized_age = min(1.0, max(0.0, normalized_age))
 
-        color = plt.get_cmap("RdYlGn_r")(
-            normalized_age
-        )  # Inverse of the Red-Yellow-Green colormap
+        color = plt.get_cmap(colormap)(normalized_age)
 
         style = "background-color: " + mpl.colors.rgb2hex(color)
         column_styles[column] = style
@@ -179,6 +208,8 @@ def highlight_status_cell(row: pd.Series) -> list[str | None]:
 
     if status == "error":
         style = "background-color: darkred"
+    elif status == "quanting_failed":
+        style = "background-color: red"
     elif status == "done":
         style = "background-color: green"
     elif status == "ignored":

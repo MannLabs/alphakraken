@@ -42,7 +42,7 @@ def test_add_raw_file_to_db(
         "test_file.raw",
         project_id="PID1",
         instrument_id="instrument1",
-        status="new",
+        status="queued_for_monitoring",
         creation_ts=42.0,
     )
 
@@ -292,7 +292,10 @@ def test_start_acquisition_handler_with_single_file(
         } == call_.args[1]
 
     mock_add_raw_file_to_db.assert_called_once_with(
-        "file1.raw", project_id="PID1", instrument_id="instrument1", status="new"
+        "file1.raw",
+        project_id="PID1",
+        instrument_id="instrument1",
+        status="queued_for_monitoring",
     )
 
 
@@ -329,13 +332,13 @@ def test_start_acquisition_handler_with_multiple_files_one_already_in_db(
                 "file1.raw",
                 project_id="PID1",
                 instrument_id="instrument1",
-                status="new",
+                status="queued_for_monitoring",
             ),
             call(
                 "file2.raw",
                 project_id="PID1",
                 instrument_id="instrument1",
-                status="new",
+                status="queued_for_monitoring",
             ),
         ]
     )
@@ -375,13 +378,13 @@ def test_start_acquisition_handler_with_multiple_files(  # Too many arguments
                 "file1.raw",
                 project_id="project1",
                 instrument_id="instrument1",
-                status="new",
+                status="queued_for_monitoring",
             ),
             call(
                 "file2.raw",
                 project_id=None,
                 instrument_id="instrument1",
-                status="new",
+                status="queued_for_monitoring",
             ),
             call(
                 "file3.raw",

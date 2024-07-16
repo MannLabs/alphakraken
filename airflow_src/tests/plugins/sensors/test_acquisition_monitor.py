@@ -51,6 +51,7 @@ def test_poke_file_dir_contents_change_file_is_added(
     )
 
 
+@patch("plugins.sensors.acquisition_monitor.RawDataWrapper")
 @patch("plugins.sensors.acquisition_monitor.update_raw_file")
 def test_poke_file_dir_contents_change_file_is_removed(
     mock_update_raw_file: MagicMock,

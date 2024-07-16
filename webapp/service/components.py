@@ -73,7 +73,7 @@ def show_status_plot(
     df = combined_df[~combined_df["status"].isin(ignored_status)]
 
     status_counts = df.groupby(["instrument_id", "status"]).size().unstack(fill_value=0)  # noqa: PD010
-    ax = status_counts.plot(kind="bar", stacked=True)
+    ax = status_counts.plot(kind="bar", stacked=True, figsize=(5, 5))
 
     # Customize the plot
     plt.xlabel("Instrument")
@@ -86,7 +86,8 @@ def show_status_plot(
         ax.bar_label(c, label_type="center")
 
     # Show the plot
-    st.pyplot(plt)
+    c1, _ = st.columns([0.2, 0.8])
+    c1.pyplot(plt)
 
 
 def display_status(combined_df: pd.DataFrame, status_data_df: pd.DataFrame) -> None:

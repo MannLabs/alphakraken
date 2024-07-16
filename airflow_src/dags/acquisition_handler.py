@@ -23,7 +23,6 @@ from common.settings import (
 from impl.handler_impl import (
     copy_raw_file,
     start_acquisition_processor,
-    update_raw_file_status,
 )
 from sensors.acquisition_monitor import AcquisitionMonitor
 
@@ -50,12 +49,6 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
     ) as dag:
         dag.doc_md = __doc__
 
-        update_raw_file_ = PythonOperator(
-            task_id=Tasks.UPDATE_RAW_FILE_STATUS,
-            python_callable=update_raw_file_status,
-            op_kwargs={OpArgs.INSTRUMENT_ID: instrument_id},
-        )
-
         monitor_acquisition_ = AcquisitionMonitor(
             task_id=Tasks.MONITOR_ACQUISITION,
             instrument_id=instrument_id,
@@ -79,12 +72,7 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
             op_kwargs={OpArgs.INSTRUMENT_ID: instrument_id},
         )
 
-    (
-        update_raw_file_
-        >> monitor_acquisition_
-        >> copy_raw_file_
-        >> start_acquisition_processor_
-    )
+    (monitor_acquisition_ >> copy_raw_file_ >> start_acquisition_processor_)
 
 
 for instrument_id in INSTRUMENTS:

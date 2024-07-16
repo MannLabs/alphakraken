@@ -7,24 +7,8 @@ from common.keys import DagContext, DagParams, OpArgs
 from dags.impl.handler_impl import (
     copy_raw_file,
     start_acquisition_processor,
-    update_raw_file_status,
 )
 from db.models import RawFileStatus
-
-
-@patch("dags.impl.handler_impl.update_raw_file")
-def test_update_raw_file_status_calls_update_with_correct_args(
-    mock_update_status: MagicMock,
-) -> None:
-    """Test update_raw_file_status calls update with correct arguments."""
-    ti = MagicMock()
-    kwargs = {"params": {"raw_file_name": "test_file.raw"}}
-
-    update_raw_file_status(ti, **kwargs)
-
-    mock_update_status.assert_called_once_with(
-        "test_file.raw", new_status=RawFileStatus.MONITORING_ACQUISITION
-    )
 
 
 @patch("dags.impl.handler_impl.copy_file")

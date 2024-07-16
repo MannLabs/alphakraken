@@ -10,14 +10,6 @@ from shared.db.interface import update_raw_file
 from shared.db.models import RawFileStatus
 
 
-def update_raw_file_status(ti: TaskInstance, **kwargs) -> None:
-    """Update the status of the raw file in the database."""
-    del ti  # unused
-    raw_file_name = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_NAME]
-
-    update_raw_file(raw_file_name, new_status=RawFileStatus.MONITORING_ACQUISITION)
-
-
 def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
     """Copy a raw file to the target location."""
     del ti  # unused

@@ -143,29 +143,27 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
     put_xcom(ti, XComKeys.JOB_ID, job_id)
 
 
+def _extract_error_codes(events_jsonl_file_path: Path) -> list[str]:
+    """Extract the error codes from the events.jsonl file."""
+    error_codes = []
+    with events_jsonl_file_path.open() as file:
+        for line in file:
+            try:
+                data = json.loads(line.strip())
+                if data.get("name") == "exception" and data.get("error_code", "") != "":
+                    error_codes.append(data["error_code"])
+            except json.JSONDecodeError:  # noqa: PERF203
+                logging.warning(f"Skipping invalid JSON: {line.strip()}")
+    return error_codes
+
+
 def get_business_errors(raw_file_name: str, project_id: str) -> list[str]:
     """Extract business errors from the alphaDIA output."""
-
-    def _extract_error_codes(events_jsonl_file_path: Path) -> list[str]:
-        """Extract the error codes from the events.jsonl file."""
-        error_codes = []
-        with events_jsonl_file_path.open() as file:
-            for line in file:
-                try:
-                    data = json.loads(line.strip())
-                    if (
-                        data.get("name") == "exception"
-                        and "error_code" in data
-                        and data["error_code"] != ""
-                    ):
-                        error_codes.append(data["error_code"])
-                except json.JSONDecodeError:  # noqa: PERF203
-                    logging.warning(f"Skipping invalid JSON: {line.strip()}")
-        return error_codes
-
     output_path = get_internal_output_path(raw_file_name, project_id)
 
-    events_jsonl_path = output_path / ".progress" / raw_file_name / "events.jsonl"
+    events_jsonl_path = (
+        output_path / ".progress" / Path(raw_file_name).stem / "events.jsonl"
+    )
 
     error_codes = []
     try:

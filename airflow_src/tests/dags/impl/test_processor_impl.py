@@ -2,7 +2,7 @@
 
 import os
 from pathlib import Path
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, call, mock_open, patch
 
 import pytest
 from airflow.exceptions import AirflowFailException
@@ -11,6 +11,7 @@ from dags.impl.processor_impl import (
     _get_project_id_for_raw_file,
     check_job_status,
     compute_metrics,
+    get_business_errors,
     prepare_quanting,
     run_quanting,
     upload_metrics,
@@ -363,6 +364,50 @@ def test_check_job_status_non_business_error(
 
     mock_get_business_errors.assert_called_once_with("some_raw_file_name", "PID1")
     mock_update_raw_file.assert_not_called()
+
+
+@patch("dags.impl.processor_impl.get_internal_output_path")
+def test_get_business_errors_with_valid_errors(mock_path: MagicMock) -> None:
+    """Test that get_business_errors returns the expected business errors."""
+    mock_content = [
+        '{"name": "exception", "error_code": "ERROR1"}',
+        '{"name": "exception", "error_code": "ERROR2"}',
+        '{"name": "other", "error_code": "ERROR3"}',
+    ]
+    mock_open_file = mock_open(read_data="\n".join(mock_content))
+    mock_path.return_value.__truediv__.return_value.__truediv__.return_value.__truediv__.return_value.open.return_value = mock_open_file()
+
+    result = get_business_errors("raw_file.raw", "project_id")
+
+    assert result == ["ERROR1", "ERROR2"]
+    mock_path.assert_called_once_with("raw_file.raw", "project_id")
+
+
+@patch("dags.impl.processor_impl.get_internal_output_path")
+def test_get_business_errors_with_no_errors(mock_path: MagicMock) -> None:
+    """Test that get_business_errors returns an empty list when there are no (valid) errors."""
+    mock_content = [
+        '{"name": "other", "error_code": "ERROR3"}',  # not an exception
+        '{"name": "exception", "error_code": ""}',  # error code empty
+        "invalid json",  # not a json
+        '{"name": "exception"}',  # no error code
+    ]
+    mock_open_file = mock_open(read_data="\n".join(mock_content))
+    mock_path.return_value.__truediv__.return_value.__truediv__.return_value.__truediv__.return_value.open.return_value = mock_open_file()
+
+    result = get_business_errors("raw_file.raw", "project_id")
+
+    assert result == []
+
+
+@patch("dags.impl.processor_impl.get_internal_output_path")
+def test_get_business_errors_file_not_found(mock_path: MagicMock) -> None:
+    """Test that get_business_errors returns an empty list when the file is not found."""
+    mock_path.return_value.__truediv__.return_value.__truediv__.return_value.__truediv__.return_value.open.side_effect = FileNotFoundError
+
+    result = get_business_errors("raw_file.raw", "project_id")
+
+    assert result == []
 
 
 @patch("dags.impl.processor_impl.get_xcom")

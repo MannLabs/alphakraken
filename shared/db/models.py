@@ -26,6 +26,7 @@ class RawFileStatus:
     QUEUED_FOR_MONITORING = "queued_for_monitoring"
 
     ACQUISITION_STARTED = "monitoring_acquisition"
+    MONITORING_ACQUISITION = "monitoring_acquisition"
     COPYING = "copying"
     COPYING_DONE = "copying_done"
 

@@ -15,7 +15,7 @@ def update_raw_file_status(ti: TaskInstance, **kwargs) -> None:
     del ti  # unused
     raw_file_name = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_NAME]
 
-    update_raw_file(raw_file_name, new_status=RawFileStatus.ACQUISITION_STARTED)
+    update_raw_file(raw_file_name, new_status=RawFileStatus.MONITORING_ACQUISITION)
 
 
 def copy_raw_file(ti: TaskInstance, **kwargs) -> None:

@@ -23,7 +23,7 @@ def test_update_raw_file_status_calls_update_with_correct_args(
     update_raw_file_status(ti, **kwargs)
 
     mock_update_status.assert_called_once_with(
-        "test_file.raw", new_status=RawFileStatus.ACQUISITION_STARTED
+        "test_file.raw", new_status=RawFileStatus.MONITORING_ACQUISITION
     )
 
 

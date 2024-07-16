@@ -6,7 +6,7 @@ from datetime import timedelta
 
 from airflow.models import Param
 from airflow.models.dag import DAG
-from airflow.operators.python import PythonOperator
+from airflow.operators.python import PythonOperator, ShortCircuitOperator
 from airflow.providers.ssh.hooks.ssh import SSHHook
 from callbacks import on_failure_callback
 from common.keys import DAG_DELIMITER, Dags, OpArgs, Tasks
@@ -67,7 +67,7 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
             max_active_tis_per_dag=Concurrency.MAX_ACTIVE_QUANTING_MONITORINGS_PER_DAG,
         )
 
-        get_job_info_ = PythonOperator(
+        get_job_info_ = ShortCircuitOperator(
             task_id=Tasks.GET_JOB_INFO,
             python_callable=get_job_info,
             op_kwargs={OpArgs.SSH_HOOK: ssh_hook},

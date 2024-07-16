@@ -119,3 +119,4 @@ class JobStates:
     PENDING: str = "PENDING"
     RUNNING: str = "RUNNING"
     COMPLETED: str = "COMPLETED"
+    FAILED: str = "FAILED"

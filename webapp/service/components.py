@@ -72,9 +72,7 @@ def show_status_plot(
     """Show a plot of the file statuses for each instrument."""
     df = combined_df[~combined_df["status"].isin(ignored_status)]
 
-    status_counts = (
-        df.groupby(["instrument_id", "status"]).size().pivot_table(fill_value=0)
-    )
+    status_counts = df.groupby(["instrument_id", "status"]).size().unstack(fill_value=0)  # noqa: PD010
     ax = status_counts.plot(kind="bar", stacked=True)
 
     # Customize the plot
@@ -169,8 +167,8 @@ def _get_color(
         0.1,  # could take up to 5 minutes to resume checking after worker restart
     ],
     colormaps: list[str] = [  # noqa: B006
-        "coolwarm",
-        "coolwarm",
+        "summer",
+        "summer",
         "RdYlGn_r",
     ],
 ) -> list[str | None]:

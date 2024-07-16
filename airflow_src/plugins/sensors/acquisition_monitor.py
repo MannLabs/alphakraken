@@ -14,9 +14,10 @@ from typing import Any
 import pytz
 from airflow.sensors.base import BaseSensorOperator
 from common.keys import DagContext, DagParams
-from db.interface import update_raw_file
-from db.models import RawFileStatus
 from raw_data_wrapper import RawDataWrapper
+
+from shared.db.interface import update_raw_file
+from shared.db.models import RawFileStatus
 
 # For the second type of check, the file size is calculated every SIZE_CHECK_INTERVAL_M minutes,
 # if it has not changed between two checks, the acquisition is considered to be done

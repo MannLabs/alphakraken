@@ -2,7 +2,7 @@
 A new version of the Machine Kraken.
 
 Note: this Readme is relevant only for developers and administrators. Regular user should find all required documentation
-in the [AlphaKraken WebApp](http://10.31.0.192:8501/).
+in the [AlphaKraken WebApp](http://somepc462:8501/).
 
 ## Deployment
 This guide is both valid for a local setup (without connection to pool or cluster), and for sandbox/production setups.
@@ -273,8 +273,8 @@ change this locally in `settings.py:INSTRUMENTS`.
 
 For type "Thermo":
 ```bash
-I=$((I+1)); NEW_FILE_NAME=test_file_SA_P1_${I}.raw; echo $NEW_FILE_NAME
-touch airflow_test_folders/instruments/test1/$NEW_FILE_NAME
+I=$((I+1)); RAW_FILE_NAME=test_file_SA_P1_${I}.raw; echo $RAW_FILE_NAME
+touch airflow_test_folders/instruments/test1/$RAW_FILE_NAME
 ```
 
 For type "Zeno":

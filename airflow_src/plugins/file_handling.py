@@ -70,5 +70,7 @@ def copy_file(
         f"Copying done. Time elapsed: {time_elapsed/60:.1f} min at {dst_size / max(time_elapsed, 1) / 1024 ** 2:.1f} MB/s"
     )
 
+    logging.info("Verifying hash ..")
     if (hash_dst := _get_file_hash(dst_path)) != (src_hash):
         raise ValueError(f"Hashes do not match ofter copy! {src_hash=} != {hash_dst=}")
+    logging.info("Verifying hash done!")

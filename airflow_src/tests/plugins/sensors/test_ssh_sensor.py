@@ -78,18 +78,19 @@ def test_ssh_execute_multiple_tries(mock_sleep: MagicMock) -> None:
     # given
     ssh_hook = MagicMock()
 
-    bad_return = (254, b"command output", b"")
-    ssh_hook.exec_ssh_client_command.side_effect = [bad_return] * 3 + [
-        (0, b"command output", b"")
-    ]
+    bad_return1 = (254, b"command output", b"")
+    bad_return2 = (0, b"", b"")
+    ssh_hook.exec_ssh_client_command.side_effect = (
+        [bad_return1] * 2 + [bad_return2] * 2 + [(0, b"command output", b"")]
+    )
 
     # when
     result = SSHSensorOperator.ssh_execute("my_command", ssh_hook)
 
     # then
     assert result == "command output"
-    assert mock_sleep.call_count == 3  # noqa: PLR2004
-    assert ssh_hook.exec_ssh_client_command.call_count == 4  # noqa: PLR2004
+    assert mock_sleep.call_count == 4  # noqa: PLR2004
+    assert ssh_hook.exec_ssh_client_command.call_count == 5  # noqa: PLR2004
 
     expected_call = call(
         ssh_hook.get_conn.return_value,

@@ -62,10 +62,12 @@ class SSHSensorOperator(BaseSensorOperator, ABC):
         if get_airflow_variable(AirflowVars.DEBUG_NO_CLUSTER_SSH, "False") == "True":
             return SSHSensorOperator._get_fake_ssh_response(command)
 
-        # Sometimes the SSH command returns an exit status '254', so retry until it is 200
+        # Sometimes the SSH command returns an exit status '254' or empty byte string,
+        # so retry until it is 200 and non empty
         exit_status = -1
+        agg_stdout = b""
         call_count = 0
-        while exit_status != 0:
+        while exit_status != 0 or agg_stdout == b"":
             if exit_status != -1:
                 sleep(5 * call_count)
             exit_status, agg_stdout, agg_stderr = ssh_hook.exec_ssh_client_command(
@@ -95,7 +97,7 @@ class SSHSensorOperator(BaseSensorOperator, ABC):
         if "sbatch" in command:  # run job
             response = "something\nsomething\n123"
         elif "TIME_ELAPSED" in command:  # get job info
-            response = f"00:00:01\nsomething\n{JobStates.COMPLETED}"
+            response = f"00:00:01\nsomething\n{JobStates.FAILED}"
         else:
             response = JobStates.COMPLETED  # monitor job
 

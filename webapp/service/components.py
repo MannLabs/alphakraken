@@ -70,9 +70,13 @@ def show_status_plot(
     ignored_status: list[str] = ["error", "done", "ignored", "quanting_failed"],  # noqa: B006
 ) -> None:
     """Show a plot of the file statuses for each instrument."""
-    df = combined_df[~combined_df["status"].isin(ignored_status)]
+    status_counts = (
+        combined_df.groupby(["instrument_id", "status"]).size().unstack(fill_value=0)  # noqa: PD010
+    )
 
-    status_counts = df.groupby(["instrument_id", "status"]).size().unstack(fill_value=0)  # noqa: PD010
+    status_counts.drop(columns=ignored_status, errors="ignore", inplace=True)  # noqa: PD002
+    status_counts.sort_index(inplace=True)  # noqa: PD002
+
     ax = status_counts.plot(kind="bar", stacked=True, figsize=(5, 5))
 
     # Customize the plot

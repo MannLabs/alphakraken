@@ -96,16 +96,15 @@ def _display_table_and_plots(df: pd.DataFrame) -> None:
             - `done`: The file has been processed successfully.
 
             - `quanting_failed`: something went wrong with the quanting, check the "status_details" column for more information.
-              -  `NO_RECALIBRATION_TARGET`: alphaDIA did not find enough precursors to calibrate the data.
-              -  `NOT_DIA_DATA`: the file is not DIA data
+              - `NO_RECALIBRATION_TARGET`: alphaDIA did not find enough precursors to calibrate the data.
+              - `NOT_DIA_DATA`: the file is not DIA data.
 
             - `error`: an unknown error happened during processing, check the "status_details" column for more information
                 and report it to the developers if unsure.
-                -  `[check_job_status Quanting failed: job_status='TIMEOUT'`: the quanting job took too long and was stopped.
+                - `[check_job_status Quanting failed: job_status='TIMEOUT'`: the quanting job took too long and was stopped.
 
-            All other states are transient and should be self-explanatory. If you feel a file does not leave a certain status
+            All other states are transient and should be self-explanatory. If you feel a file stays in a certain status
             for too long, please report it to the developers.
-
         """)
 
     # ########################################### DISPLAY: plots

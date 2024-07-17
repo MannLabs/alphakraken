@@ -24,11 +24,11 @@ _log(f"loading {__file__}")
 
 st.set_page_config(page_title="AlphaKraken: overview", layout="wide")
 
+st.markdown("# Overview")
+
 st.write(
     f"Current Kraken time: {datetime.now(tz=pytz.UTC).replace(microsecond=0)} [all time stamps are given in UTC!]"
 )
-
-st.markdown("# Overview")
 
 # ########################################### LOGIC
 

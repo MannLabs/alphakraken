@@ -65,10 +65,9 @@ class AcquisitionMonitor(BaseSensorOperator):
     def post_execute(self, context: dict[str, any], result: Any = None) -> None:  # noqa: ANN401
         """Update the status of the raw file in the database."""
         del context  # unused
-        if result:
-            update_raw_file(
-                self._raw_file_name, new_status=RawFileStatus.MONITORING_DONE
-            )
+        del result  # unused
+
+        update_raw_file(self._raw_file_name, new_status=RawFileStatus.MONITORING_DONE)
 
     @staticmethod
     def _get_timestamp() -> float:

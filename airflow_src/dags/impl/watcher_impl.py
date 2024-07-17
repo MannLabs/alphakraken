@@ -185,6 +185,10 @@ def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
         # putting the file name to xcom to be able to access it in callback for error reporting
         put_xcom(ti, XComKeys.RAW_FILE_NAME, raw_file_name)
 
+        # Here mongoengine.errors.NotUniqueError is raised when the file is already in the DB.
+        # This could happen if this task is restarted in the middle of processing.
+        # The NotUniqueError is deliberately raised here: the task will fail, but in the next DAG run, the
+        # file that caused the problem is filtered out in get_unknown_raw_files().
         _add_raw_file_to_db(
             raw_file_name,
             project_id=project_id,

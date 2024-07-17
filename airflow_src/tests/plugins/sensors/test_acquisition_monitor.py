@@ -87,6 +87,26 @@ def test_poke_file_dir_contents_change_file_is_removed(
 
 
 @patch("plugins.sensors.acquisition_monitor.RawDataWrapper")
+@patch("plugins.sensors.acquisition_monitor.update_raw_file")
+def test_poke_file_dir_contents_change_file_does_not_exist(
+    mock_update_raw_file: MagicMock,  # noqa: ARG001
+    mock_raw_data_wrapper: MagicMock,
+) -> None:
+    """Test poke method correctly returns when dir contents change (file is removed)."""
+    mock_path = MagicMock()
+    mock_path.stat.return_value = MagicMock(st_size=1)
+
+    mock_raw_data_wrapper.create.return_value.file_path_to_watch.return_value.exists.return_value = False
+
+    sensor = get_sensor()
+    sensor.pre_execute({DagContext.PARAMS: {DagParams.RAW_FILE_NAME: "some_file.raw"}})
+
+    # when
+    result = sensor.poke({})
+    assert not result
+
+
+@patch("plugins.sensors.acquisition_monitor.RawDataWrapper")
 @patch("plugins.sensors.acquisition_monitor.AcquisitionMonitor._get_timestamp")
 @patch("plugins.sensors.acquisition_monitor.update_raw_file")
 def test_poke_file_dir_contents_dont_change_but_file_is_unchanged(

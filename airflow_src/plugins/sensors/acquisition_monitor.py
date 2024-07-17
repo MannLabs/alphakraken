@@ -75,8 +75,12 @@ class AcquisitionMonitor(BaseSensorOperator):
         return datetime.now(tz=pytz.utc).timestamp()
 
     def poke(self, context: dict[str, any]) -> bool:
-        """Return True if if acquisition is done."""
+        """Return True if acquisition is done."""
         del context  # unused
+
+        if not self._raw_data_wrapper.file_path_to_watch().exists():
+            # this covers the case that sometimes for bruker, the folder exists, but the main file does not
+            return False
 
         if (
             new_dir_content := self._raw_data_wrapper.get_raw_files_on_instrument()

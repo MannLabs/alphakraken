@@ -80,6 +80,7 @@ class AcquisitionMonitor(BaseSensorOperator):
 
         if not self._raw_data_wrapper.file_path_to_watch().exists():
             # this covers the case that sometimes for bruker, the folder exists, but the main file does not
+            logging.info("Main file does not exist yet.")
             return False
 
         if (

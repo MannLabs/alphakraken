@@ -92,13 +92,10 @@ def _display_table_and_plots(df: pd.DataFrame) -> None:
     with c1.expander("Click here for help ..."):
         st.markdown("""
             #### Explanation of 'status' information
-
             - `done`: The file has been processed successfully.
-
             - `quanting_failed`: something went wrong with the quanting, check the "status_details" column for more information.
               - `NO_RECALIBRATION_TARGET`: alphaDIA did not find enough precursors to calibrate the data.
               - `NOT_DIA_DATA`: the file is not DIA data.
-
             - `error`: an unknown error happened during processing, check the "status_details" column for more information
                 and report it to the developers if unsure.
                 - `[check_job_status Quanting failed: job_status='TIMEOUT'`: the quanting job took too long and was stopped.

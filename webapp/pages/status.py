@@ -7,6 +7,7 @@ import streamlit as st
 from service.components import (
     display_status,
     show_status_plot,
+    show_time_in_status_table,
 )
 from service.data_handling import get_combined_raw_files_and_metrics_df
 from service.db import df_from_db_data, get_status_data
@@ -35,8 +36,25 @@ def _display_status(combined_df: pd.DataFrame) -> None:
         st.markdown("## Latest data")
         display_status(combined_df, status_data_df)
 
+        c1, _ = st.columns([0.5, 0.5])
+        with c1.expander("Click here for help ..."):
+            st.markdown("""
+                ### Explanation
+                - `last_file_creation`: timestamp of the youngest file that was picked up by the Kraken.
+                - `last_status_update`: timestamp of the most recent update of a raw file status.
+                - `last_file_check`: timestamp of the last check for new files. If this is > 5 minutes, something is wrong with
+                the instrument_watcher DAG.
+                """)
+
         st.markdown("## Current activity")
-        show_status_plot(combined_df)
+
+        c1, c2 = st.columns([0.5, 0.5])
+        c1.markdown("### Distribution of statuses")
+        show_status_plot(combined_df, c1)
+
+        c1.markdown("### Oldest transition to of status")
+        show_time_in_status_table(combined_df, c2)
+
     except Exception as e:  # noqa: BLE001
         _log(str(e))
         st.warning(f"Cannot not display status: {e}.")
@@ -45,16 +63,3 @@ def _display_status(combined_df: pd.DataFrame) -> None:
 combined_df = get_combined_raw_files_and_metrics_df()
 
 _display_status(combined_df)
-
-c1, _ = st.columns([0.5, 0.5])
-with c1.expander("Click here for help ..."):
-    st.markdown("""
-        ### Explanation
-        - `last_file_creation`: timestamp of the youngest file that was picked up by the Kraken.
-
-        - `last_status_update`: timestamp of the most recent update of a raw file status.
-
-        - `last_file_check`: timestamp of the last check for new files. If this is > 5 minutes, something is wrong with
-        the instrument_watcher DAG.
-
-        """)

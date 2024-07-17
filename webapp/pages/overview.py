@@ -1,7 +1,10 @@
 """Simple data overview."""
 
+from datetime import datetime
+
 import pandas as pd
 import plotly.express as px
+import pytz
 
 # ruff: noqa: PD002 # `inplace=True` should be avoided; it has inconsistent behavior
 import streamlit as st
@@ -20,6 +23,11 @@ _log(f"loading {__file__}")
 # ########################################### PAGE HEADER
 
 st.set_page_config(page_title="AlphaKraken: overview", layout="wide")
+
+st.write(
+    f"Current Kraken time: {datetime.now(tz=pytz.UTC).replace(microsecond=0)} [all time stamps are given in UTC!]"
+)
+
 st.markdown("# Overview")
 
 # ########################################### LOGIC

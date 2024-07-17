@@ -58,7 +58,7 @@ form_items = {
     },
     "project_id": {
         "label": "Project Id*",
-        "max_chars": 10,
+        "max_chars": 16,
         "placeholder": "e.g. P1234",
         "help": "Unique identifier of the project. This needs to be put in every file name in order to have it associated with this project. "
         "Exception: the special project id '_FALLBACK' will be used for files that do not belong to any project.",

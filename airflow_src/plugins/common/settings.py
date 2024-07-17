@@ -25,6 +25,7 @@ CLUSTER_JOB_SCRIPT_PATH = f"{CLUSTER_BASE_DIR}/submit_job.sh"
 CLUSTER_WORKING_DIR = f"{CLUSTER_BASE_DIR}/jobs"
 
 FALLBACK_PROJECT_ID = "_FALLBACK"
+FALLBACK_PROJECT_ID_BRUKER = "_FALLBACK_BRUKER"
 
 
 class InternalPaths:
@@ -119,3 +120,13 @@ def get_internal_output_path(raw_file_name: str, project_id: str) -> Path:
 def get_instrument_type(instrument_id: str) -> str:
     """Get the type of the instrument with the given ID."""
     return INSTRUMENTS[instrument_id][InstrumentKeys.TYPE]
+
+
+def get_fallback_project_id(instrument_id: str) -> str:
+    """Get the fallback project id."""
+    # This is on the edge of being hacky, this information could also be included in the `INSTRUMENTS` dict.
+    return (
+        FALLBACK_PROJECT_ID_BRUKER
+        if INSTRUMENTS[instrument_id][InstrumentKeys.TYPE] == InstrumentTypes.BRUKER
+        else FALLBACK_PROJECT_ID
+    )

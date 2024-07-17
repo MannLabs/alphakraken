@@ -52,7 +52,7 @@ def _display_status(combined_df: pd.DataFrame) -> None:
         c1.markdown("### Distribution of statuses")
         show_status_plot(combined_df, c1)
 
-        c1.markdown("### Oldest transition to of status")
+        c2.markdown("### Oldest transition to status")
         show_time_in_status_table(combined_df, c2)
 
     except Exception as e:  # noqa: BLE001

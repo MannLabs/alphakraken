@@ -9,7 +9,7 @@ from mongoengine import (
     DateTimeField,
     Document,
     DynamicDocument,
-    FloatField,
+    IntField,
     ReferenceField,
     StringField,
 )
@@ -38,15 +38,29 @@ class RawFileStatus:
     ERROR = "error"
     DONE = "done"
 
+    # currently considering "error" as a "fixed" state ..
+    # needs some thoughts .. or maybe go for existence of "size" only?
+    file_not_fixed_statuses = [QUEUED_FOR_MONITORING, MONITORING_ACQUISITION, ERROR]  # noqa: RUF012
+
+    @staticmethod
+    def is_file_fixed(status: str) -> bool:
+        """Return if file is fixed."""
+        return status not in RawFileStatus.file_not_fixed_statuses
+
 
 class RawFile(Document):
     """Schema for a raw file."""
 
-    name = StringField(required=True, primary_key=True)
+    name = StringField(max_length=128, required=True, primary_key=True)
+
+    collision_flag = StringField(max_length=32, default=None)
+
+    original_name = StringField(max_length=128, required=True)
+
     status = StringField(max_length=32)
     status_details = StringField(max_length=256)
 
-    size = FloatField(min_value=0.0, max_value=1000.0 * 1024**3)  # unit: bytes
+    size = IntField(min_value=0, max_value=int(1000 * 1024**3))  # unit: bytes
     instrument_id = StringField(max_length=50)
 
     project_id = StringField(max_length=32)

@@ -1,7 +1,9 @@
 """Business logic for the instrument_watcher."""
 
 import logging
+from collections import defaultdict
 from datetime import datetime, timedelta
+from pathlib import Path
 
 import pytz
 from airflow.models import TaskInstance
@@ -18,10 +20,20 @@ from shared.db.interface import (
 )
 from shared.db.models import RawFileStatus
 
+# TODO: add field to DB:
+# [
+#   {
+#     "$set": {
+#       "original_name": "$_id"
+#     }
+#   }
+# ]
+
 
 def _add_raw_file_to_db(
     raw_file_name: str,
     *,
+    collision_flag: str | None,
     project_id: str,
     instrument_id: str,
     status: str = RawFileStatus.QUEUED_FOR_MONITORING,
@@ -29,6 +41,7 @@ def _add_raw_file_to_db(
     """Add the file to the database with initial status and basic information.
 
     :param raw_file_name: raw file name
+    :param collision_flag: flag to resolve collisions
     :param project_id: project id
     :param instrument_id: instrument id
     :param status: status of the file
@@ -41,6 +54,7 @@ def _add_raw_file_to_db(
 
     add_new_raw_file_to_db(
         raw_file_name,
+        collision_flag=collision_flag,
         project_id=project_id,
         instrument_id=instrument_id,
         status=status,
@@ -48,33 +62,111 @@ def _add_raw_file_to_db(
     )
 
 
+NO_COLLISION = ""
+
+
 def get_unknown_raw_files(ti: TaskInstance, **kwargs) -> None:
-    """Get all raw files that are not already in the database and push to XCom."""
+    """Get all raw files that should be considered for further processing and push to XCom.
+
+    Due to potential file name collisions (i.e. a newly acquired file has the same name as one that is already processed),
+    this is non-trivial, because the properties (size, hashsum) of a file in the DB could still change if the file
+    is still being acquired.
+    For each file on the instrument, we check if it is already in the database.
+    If not, it is kept in the list of files to be processed that is eventually pushed to XCom.
+    If yes, we first check the status:
+        If it indicates the file in the DB is not fixed yet, i.e. acquisition is not done, we don't process the file in this DAG run.
+        It will be revisited in the next DAG run.
+
+        If the file in the DB is fixed, we compare the current file size with the one in the DB.
+            If they match, we consider the two files to be the same, and we don't process the file further.
+            Eventually, it will be moved from the instrument by another component.
+
+            If they don't match, we have found a collision, i.e. the file should be processed but also needs to be distinguished
+            from the file that is already in the DB. To achieve this, a "collision_flag" is added to the file, which serves to
+            tell the file apart from the original file (and also from other collisions).
+
+    Note there's a potential race condition with the "add to db" operation in the subsequent
+    start_acquisition_handler(), task, However, as we allow only one of these DAGs to run at a time, this should not be an issue.
+    """
     instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
 
-    raw_file_names = sorted(
+    raw_file_paths = sorted(
         RawDataWrapper.create(
             instrument_id=instrument_id, raw_file_name=None
         ).get_raw_files_on_instrument()
     )
+    raw_file_names_and_paths = {r.name: r for r in raw_file_paths}
 
     logging.info(
-        f"{len(raw_file_names)} raw files to be checked against DB: {raw_file_names}"
+        f"{len(raw_file_paths)} raw files to be checked against DB: {raw_file_names_and_paths.keys()}"
     )
 
-    # Note there's a potential race condition with the "add to db" operation in start_acquisition_handler(),
-    # however, as we allow only one of these DAGs to run at a time, this should not be an issue.
-    for raw_file_name in get_raw_file_names_from_db(raw_file_names):
-        logging.info(f"Raw file {raw_file_name} already in database.")
-        raw_file_names.remove(raw_file_name)
+    raw_files_from_db: dict[str, list[tuple[str, int]]] = defaultdict(list)
+    for raw_file in get_raw_file_names_from_db(list(raw_file_names_and_paths.keys())):
+        # due to collisions, there could be more than one raw file with the same name
+        raw_files_from_db[raw_file.original_name].append(
+            (raw_file.status, raw_file.size)
+        )
+    logging.info(f"got {raw_files_from_db=}")
+
+    raw_files_to_process: dict[str, str | None] = {}
+    for raw_file_name, raw_file_path in raw_file_names_and_paths.items():
+        if raw_file_name not in raw_files_from_db:
+            logging.info(f"File not in DB: {raw_file_name}")
+            collision_flag = NO_COLLISION
+        else:
+            logging.info(
+                f"File in DB: {raw_file_name}, checking for potential collision.."
+            )
+            collision_flag = _detect_collision(
+                raw_file_path, raw_files_from_db[raw_file_name]
+            )
+
+        if collision_flag is not None:
+            raw_files_to_process[raw_file_name] = collision_flag
 
     logging.info(
-        f"{len(raw_file_names)} raw files left after DB check: {raw_file_names}"
+        f"{len(raw_files_to_process)} raw files left after DB check: {raw_files_to_process}"
     )
 
-    raw_file_names_sorted = _sort_by_creation_date(raw_file_names, instrument_id)
+    raw_file_names_sorted = _sort_by_creation_date(
+        list(raw_files_to_process.keys()), instrument_id
+    )
+    raw_files_to_process_sorted = {
+        r: raw_files_to_process[r] for r in raw_file_names_sorted
+    }
 
-    put_xcom(ti, XComKeys.RAW_FILE_NAMES, raw_file_names_sorted)
+    put_xcom(ti, XComKeys.RAW_FILE_NAMES, raw_files_to_process_sorted)
+
+
+def _detect_collision(
+    raw_file_path: Path, statuses_and_sizes_from_db: list[tuple[str, int]]
+) -> str | None:
+    """Detect a collision between a raw file and a file in the database.
+
+    Returns None if there's no collision or decision not possible, otherwise a string value (=collision flag).
+    """
+    # TODO: use size here.. test: what if it is not set? is it None then?
+    statuses, sizes = zip(*statuses_and_sizes_from_db)
+    if not all(RawFileStatus.is_file_fixed(status) for status in statuses):
+        logging.info(
+            f"At least one file in DB is not fixed yet: {statuses=}, cannot decide on collision."
+        )
+        return None
+
+    logging.info(f"All files in DB are fixed: {statuses=}, checking size")
+    current_size = raw_file_path.stat().st_size
+    if any(current_size == size for size in sizes):
+        logging.info(
+            f"At least one file size match: {current_size=} {sizes=}. Assuming it's the same file, no collision."
+        )
+        return None
+
+    logging.info(f"File size mismatch {current_size=} {sizes=}.")
+    # the collision flag needs to be "unique enough", is used only to tell different collisions apart
+    collision_flag = datetime.now(tz=pytz.utc).strftime("%Y%m%d-%H%M%S-%f---")
+    logging.info(f"Adding {collision_flag=}.")
+    return collision_flag
 
 
 def _sort_by_creation_date(raw_file_names: list[str], instrument_id: str) -> list[str]:
@@ -89,16 +181,16 @@ def _sort_by_creation_date(raw_file_names: list[str], instrument_id: str) -> lis
 def decide_raw_file_handling(ti: TaskInstance, **kwargs) -> None:
     """Decide for each raw file whether an acquisition handler should be triggered or not."""
     instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
-    raw_file_names = get_xcom(ti, XComKeys.RAW_FILE_NAMES)
+    raw_file_names_with_collision_flag = get_xcom(ti, XComKeys.RAW_FILE_NAMES)
 
     logging.info(
-        f"{len(raw_file_names)} raw files to be checked on project id: {raw_file_names}"
+        f"{len(raw_file_names_with_collision_flag)} raw files to be checked on project id: {raw_file_names_with_collision_flag}"
     )
 
     all_project_ids = get_all_project_ids()
 
-    raw_file_project_ids: dict[str, tuple[str, bool]] = {}
-    for raw_file_name in raw_file_names:
+    raw_file_project_ids: dict[str, tuple[str, bool, str | None]] = {}
+    for raw_file_name, collision_flag in raw_file_names_with_collision_flag.items():
         project_id = get_unique_project_id(raw_file_name, all_project_ids)
 
         if project_id is None:
@@ -112,7 +204,11 @@ def decide_raw_file_handling(ti: TaskInstance, **kwargs) -> None:
             instrument_id,
         )
 
-        raw_file_project_ids[raw_file_name] = (project_id, file_needs_handling)
+        raw_file_project_ids[raw_file_name] = (
+            project_id,
+            file_needs_handling,
+            collision_flag,
+        )
 
         # here we could add more logic to decide whether to handle the file or not, e.g. a global blacklist
 
@@ -159,7 +255,7 @@ def _file_meets_age_criterion(
 
 
 def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
-    """Trigger a acquisition_handler DAG run for specific raw files.
+    """Trigger an acquisition_handler DAG run for specific raw files.
 
     Each raw file is added to the database first.
     Then, for each raw file, the project id is determined.
@@ -175,9 +271,10 @@ def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
     for raw_file_name, (
         project_id,
         file_needs_handling,
+        collision_flag,
     ) in raw_file_project_ids.items():
         status = (
-            (RawFileStatus.QUEUED_FOR_MONITORING)
+            RawFileStatus.QUEUED_FOR_MONITORING
             if file_needs_handling
             else RawFileStatus.IGNORED
         )
@@ -191,6 +288,7 @@ def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
         # file that caused the problem is filtered out in get_unknown_raw_files().
         _add_raw_file_to_db(
             raw_file_name,
+            collision_flag=collision_flag,
             project_id=project_id,
             instrument_id=instrument_id,
             status=status,
@@ -200,7 +298,8 @@ def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
             trigger_dag_run(
                 dag_id_to_trigger,
                 {
-                    DagParams.RAW_FILE_NAME: raw_file_name,
+                    # TODO: get this as return value from _add_raw_file_to_db
+                    DagParams.RAW_FILE_NAME: collision_flag + raw_file_name
                 },
             )
         else:

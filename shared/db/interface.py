@@ -20,15 +20,16 @@ from shared.db.models import (
 )
 
 
-def get_raw_file_names_from_db(raw_file_names: list[str]) -> list[str]:
-    """Get raw files from the database with the given names."""
+def get_raw_file_names_from_db(raw_file_names: list[str]) -> list[RawFile]:
+    """Get raw files from the database with the given original names."""
     logging.info(f"Getting from DB: {raw_file_names=}")
     connect_db()
-    return [r.name for r in RawFile.objects.filter(name__in=raw_file_names)]
+    return list(RawFile.objects.filter(original_name__in=raw_file_names))
 
 
-def add_new_raw_file_to_db(  # too many arguments
+def add_new_raw_file_to_db(  # noqa: PLR0913 too many arguments
     file_name: str,
+    collision_flag: str | None = None,
     *,
     project_id: str,
     status: str,
@@ -38,6 +39,7 @@ def add_new_raw_file_to_db(  # too many arguments
     """Add a new raw file to the database.
 
     :param file_name: name of the file
+    :param collision_flag: optional flag to indicate a collision
     :param project_id: project id
     :param status: status of the file
     :param instrument_id: id of the acquiring instrument
@@ -45,11 +47,13 @@ def add_new_raw_file_to_db(  # too many arguments
     :return:
     """
     logging.info(
-        f"Adding to DB: {file_name=} {project_id=} {status=} {instrument_id=} {creation_ts=}"
+        f"Adding to DB: {file_name=} {collision_flag=} {project_id=} {status=} {instrument_id=} {creation_ts=}"
     )
     connect_db()
     raw_file = RawFile(
-        name=file_name,
+        name=collision_flag + file_name,
+        collision_flag=collision_flag,
+        original_name=file_name,
         project_id=project_id,
         instrument_id=instrument_id,
         status=status,

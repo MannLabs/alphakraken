@@ -65,10 +65,14 @@ def test_get_unknown_raw_files_with_existing_files_in_db(
 ) -> None:
     """Test get_unknown_raw_files with existing files in the database."""
     mock_raw_data_wrapper.create.return_value.get_raw_files_on_instrument.return_value = {
+        "file1.raw",
+        "file2.raw",
+        "file3.raw",
+    }
+    mock_raw_data_wrapper.create.return_value.file_path_to_watch.side_effect = [
         Path("/path/to/file1.raw"),
         Path("/path/to/file2.raw"),
-        Path("/path/to/file3.raw"),
-    }
+    ]
 
     file1 = MagicMock(wraps=RawFile, original_name="file1.raw", status="done", size=123)
     file2 = MagicMock(wraps=RawFile, original_name="file2.raw", status="done", size=234)
@@ -98,7 +102,16 @@ def test_no_collision_if_files_not_fixed() -> None:
     """Test _detect_collision with no collision: one file status is not fixed."""
     mock_path = MagicMock(spec=Path)
 
-    status_and_size_from_db = [("queued_for_monitoring", 100), ("error", 100)]
+    status_and_size_from_db = [("queued_for_monitoring", 100), ("done", 100)]
+    assert _detect_collision(mock_path, status_and_size_from_db) is None
+
+
+def test_no_collision_if_main_files_no_found() -> None:
+    """Test _detect_collision with no collision: main file is not found."""
+    mock_path = MagicMock(spec=Path)
+    mock_path.exists.return_value = False
+
+    status_and_size_from_db = [("done", 100), ("done", 100)]
     assert _detect_collision(mock_path, status_and_size_from_db) is None
 
 
@@ -155,9 +168,9 @@ def test_get_unknown_raw_files_with_no_existing_files_in_db(
 ) -> None:
     """Test get_unknown_raw_files with no existing files in the database."""
     mock_raw_data_wrapper.create.return_value.get_raw_files_on_instrument.return_value = {
-        Path("/path/to/file1.raw"),
-        Path("/path/to/file2.raw"),
-        Path("/path/to/file3.raw"),
+        "file1.raw",
+        "file2.raw",
+        "file3.raw",
     }
 
     mock_get_unknown_raw_files_from_db.return_value = []

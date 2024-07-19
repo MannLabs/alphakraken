@@ -107,7 +107,7 @@ to a worker container. The second one is the location of the data as seen from t
 this is required to set the paths for the cluster jobs correctly.
 
 ### Set up network bind mounts
-(TODO describe persistent mount)
+(TODO: describe persistent mount)
 We need bind mounts set up to each backup pool folder, and to the project pool folder.
 Additionally, one bind mount per instrument PC is needed (cf. section below).
 

@@ -14,6 +14,7 @@ from typing import Any
 import pytz
 from airflow.sensors.base import BaseSensorOperator
 from common.keys import DagContext, DagParams
+from file_handling import get_file_size
 from raw_data_wrapper import RawDataWrapper
 
 from shared.db.interface import update_raw_file
@@ -96,7 +97,7 @@ class AcquisitionMonitor(BaseSensorOperator):
             current_timestamp := self._get_timestamp()
         ) - self._last_poke_timestamp
         if time_since_last_check / 60 >= SIZE_CHECK_INTERVAL_M:
-            size = self._raw_data_wrapper.file_path_to_watch().stat().st_size
+            size = get_file_size(self._raw_data_wrapper.file_path_to_watch())
             logging.info(f"File size: {size}")
 
             # TODO: check for size > threshold?

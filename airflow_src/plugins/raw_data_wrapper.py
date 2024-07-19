@@ -94,8 +94,8 @@ class RawDataWrapper(ABC):
         logging.info(f"{files_to_copy=}")
         return files_to_copy
 
-    def get_raw_files_on_instrument(self) -> set[Path]:
-        """Get the current raw file paths (only with the relevant extension) in the instrument directory."""
+    def get_raw_files_on_instrument(self) -> set[str]:
+        """Get the current raw file names (only with the relevant extension) in the instrument directory."""
         dir_contents = set(self._instrument_path.glob(f"*{self._main_file_extension}"))
 
         file_names = {d.name for d in dir_contents}
@@ -103,7 +103,7 @@ class RawDataWrapper(ABC):
         logging.info(
             f"Current contents of {self._instrument_path} ({len(file_names)}, extension '{self._main_file_extension}'): {file_names}"
         )
-        return dir_contents
+        return file_names
 
     def _get_destination_file_path(self, file_path: Path) -> Path:
         """Get destination file path by replacing the original file name with the raw file id in the given path."""

@@ -59,7 +59,7 @@ def test_get_dir_contents_returns_correct_set_of_paths(
         instrument_id="instrument1", raw_file_name=None
     )
 
-    assert raw_data_wrapper.get_raw_files_on_instrument() == returned_paths
+    assert raw_data_wrapper.get_raw_files_on_instrument() == file_names
 
 
 @pytest.fixture()
@@ -117,7 +117,7 @@ def test_get_raw_files_on_instrument(mock_instrument_path: MagicMock) -> None:
     mock_instrument_path.return_value.glob.return_value = file_paths
 
     wrapper = ThermoRawDataWrapper("instrument1", None)
-    assert wrapper.get_raw_files_on_instrument() == file_paths
+    assert wrapper.get_raw_files_on_instrument() == file_names
 
 
 @pytest.mark.parametrize(

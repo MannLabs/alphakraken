@@ -9,7 +9,7 @@ import pytz
 from airflow.models import TaskInstance
 from common.keys import AirflowVars, DagParams, Dags, OpArgs, XComKeys
 from common.utils import get_airflow_variable, get_xcom, put_xcom, trigger_dag_run
-from file_handling import get_file_creation_timestamp
+from file_handling import get_file_creation_timestamp, get_file_size
 from impl.project_id_handler import get_unique_project_id
 from raw_data_wrapper import RawDataWrapper
 
@@ -90,19 +90,18 @@ def get_unknown_raw_files(ti: TaskInstance, **kwargs) -> None:
     """
     instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
 
-    raw_file_paths = sorted(
+    raw_file_names = sorted(
         RawDataWrapper.create(
             instrument_id=instrument_id, raw_file_name=None
         ).get_raw_files_on_instrument()
     )
-    raw_file_names_and_paths = {r.name: r for r in raw_file_paths}
 
     logging.info(
-        f"{len(raw_file_paths)} raw files to be checked against DB: {raw_file_names_and_paths.keys()}"
+        f"{len(raw_file_names)} raw files to be checked against DB: {raw_file_names}"
     )
 
     raw_files_from_db: dict[str, list[tuple[str, int]]] = defaultdict(list)
-    for raw_file in get_raw_file_names_from_db(list(raw_file_names_and_paths.keys())):
+    for raw_file in get_raw_file_names_from_db(list(raw_file_names)):
         # due to collisions, there could be more than one raw file with the same name
         raw_files_from_db[raw_file.original_name].append(
             (raw_file.status, raw_file.size)
@@ -110,7 +109,7 @@ def get_unknown_raw_files(ti: TaskInstance, **kwargs) -> None:
     logging.info(f"got {raw_files_from_db=}")
 
     raw_files_to_process: dict[str, str | None] = {}
-    for raw_file_name, raw_file_path in raw_file_names_and_paths.items():
+    for raw_file_name in raw_file_names:
         if raw_file_name not in raw_files_from_db:
             logging.info(f"File not in DB: {raw_file_name}")
             collision_flag = NO_COLLISION
@@ -118,8 +117,11 @@ def get_unknown_raw_files(ti: TaskInstance, **kwargs) -> None:
             logging.info(
                 f"File in DB: {raw_file_name}, checking for potential collision.."
             )
+            file_path_to_watch = RawDataWrapper.create(
+                instrument_id=instrument_id, raw_file_name=raw_file_name
+            ).file_path_to_watch()
             collision_flag = _detect_collision(
-                raw_file_path, raw_files_from_db[raw_file_name]
+                file_path_to_watch, raw_files_from_db[raw_file_name]
             )
 
         if collision_flag is not None:
@@ -140,7 +142,7 @@ def get_unknown_raw_files(ti: TaskInstance, **kwargs) -> None:
 
 
 def _detect_collision(
-    raw_file_path: Path, statuses_and_sizes_from_db: list[tuple[str, int]]
+    file_path_to_watch: Path, statuses_and_sizes_from_db: list[tuple[str, int]]
 ) -> str | None:
     """Detect a collision between a raw file and a file in the database.
 
@@ -154,8 +156,15 @@ def _detect_collision(
         )
         return None
 
-    logging.info(f"All files in DB are fixed: {statuses=}, checking size")
-    current_size = raw_file_path.stat().st_size
+    logging.info(
+        f"All files in DB are fixed: {statuses=}, checking size against {sizes=}"
+    )
+
+    if not file_path_to_watch.exists():
+        logging.info("Main file does not exist yet.")
+        return None
+
+    current_size = get_file_size(file_path_to_watch)
     if any(current_size == size for size in sizes):
         logging.info(
             f"At least one file size match: {current_size=} {sizes=}. Assuming it's the same file, no collision."

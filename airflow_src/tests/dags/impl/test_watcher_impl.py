@@ -74,8 +74,8 @@ def test_get_unknown_raw_files_with_existing_files_in_db(
         Path("/path/to/file2.raw"),
     ]
 
-    file1 = MagicMock(wraps=RawFile, original_name="file1.raw", status="done", size=123)
-    file2 = MagicMock(wraps=RawFile, original_name="file2.raw", status="done", size=234)
+    file1 = MagicMock(wraps=RawFile, original_name="file1.raw", size=123)
+    file2 = MagicMock(wraps=RawFile, original_name="file2.raw", size=234)
     mock_get_unknown_raw_files_from_db.return_value = [file1, file2]
 
     mock_detect_collision.side_effect = [None, "123---"]
@@ -92,8 +92,8 @@ def test_get_unknown_raw_files_with_existing_files_in_db(
     mock_sort.assert_called_once_with(["file2.raw", "file3.raw"], "some_instrument_id")
     mock_detect_collision.assert_has_calls(
         [
-            call(Path("/path/to/file1.raw"), [("done", 123)]),
-            call(Path("/path/to/file2.raw"), [("done", 234)]),
+            call(Path("/path/to/file1.raw"), [123]),
+            call(Path("/path/to/file2.raw"), [234]),
         ]
     )
 
@@ -102,7 +102,7 @@ def test_no_collision_if_files_not_fixed() -> None:
     """Test _detect_collision with no collision: one file status is not fixed."""
     mock_path = MagicMock(spec=Path)
 
-    status_and_size_from_db = [("queued_for_monitoring", 100), ("done", 100)]
+    status_and_size_from_db = [100, None]
     assert _detect_collision(mock_path, status_and_size_from_db) is None
 
 
@@ -111,7 +111,7 @@ def test_no_collision_if_main_files_no_found() -> None:
     mock_path = MagicMock(spec=Path)
     mock_path.exists.return_value = False
 
-    status_and_size_from_db = [("done", 100), ("done", 100)]
+    status_and_size_from_db = [100, 100]
     assert _detect_collision(mock_path, status_and_size_from_db) is None
 
 
@@ -119,7 +119,7 @@ def test_no_collision_if_size_matches() -> None:
     """Test _detect_collision with no collision: all file status are fixed, but one size matches."""
     mock_path = MagicMock(spec=Path)
     mock_path.stat.return_value.st_size = 100
-    db_files_fixed_with_size_match = [("done", 100), ("done", 123)]
+    db_files_fixed_with_size_match = [100, 123]
     assert _detect_collision(mock_path, db_files_fixed_with_size_match) is None
 
 
@@ -128,7 +128,7 @@ def test_collision_if_size_mismatch(mock_datetime: MagicMock) -> None:
     """Test _detect_collision with a collision: all file status are fixed, but no size does match."""
     mock_path = MagicMock(spec=Path)
     mock_path.stat.return_value.st_size = 100
-    db_files_fixed_with_size_mismatch = [("done", 101), ("done", 102)]
+    db_files_fixed_with_size_mismatch = [123, 234]
 
     mock_datetime.now.return_value = datetime(
         2000, 1, 2, 3, 4, 5, 678901, tzinfo=pytz.utc

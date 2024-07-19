@@ -100,12 +100,10 @@ def get_unknown_raw_files(ti: TaskInstance, **kwargs) -> None:
         f"{len(raw_file_names)} raw files to be checked against DB: {raw_file_names}"
     )
 
-    raw_files_from_db: dict[str, list[tuple[str, int]]] = defaultdict(list)
+    raw_files_from_db: dict[str, list[int]] = defaultdict(list)
     for raw_file in get_raw_file_names_from_db(list(raw_file_names)):
         # due to collisions, there could be more than one raw file with the same name
-        raw_files_from_db[raw_file.original_name].append(
-            (raw_file.status, raw_file.size)
-        )
+        raw_files_from_db[raw_file.original_name].append(raw_file.size)
     logging.info(f"got {raw_files_from_db=}")
 
     raw_files_to_process: dict[str, str | None] = {}
@@ -141,24 +139,19 @@ def get_unknown_raw_files(ti: TaskInstance, **kwargs) -> None:
     put_xcom(ti, XComKeys.RAW_FILE_NAMES, raw_files_to_process_sorted)
 
 
-def _detect_collision(
-    file_path_to_watch: Path, statuses_and_sizes_from_db: list[tuple[str, int]]
-) -> str | None:
+def _detect_collision(file_path_to_watch: Path, sizes: list[int]) -> str | None:
     """Detect a collision between a raw file and a file in the database.
 
     Returns None if there's no collision or decision not possible, otherwise a string value (=collision flag).
     """
-    # TODO: use size here.. test: what if it is not set? is it None then?
-    statuses, sizes = zip(*statuses_and_sizes_from_db)
-    if not all(RawFileStatus.is_file_fixed(status) for status in statuses):
+    # TODO: handle the case where the Bruker analysis.tdf_bin does not show up
+    if any(s is None for s in sizes):
         logging.info(
-            f"At least one file in DB is not fixed yet: {statuses=}, cannot decide on collision."
+            f"At least one file in DB is not fixed yet: {sizes=}, cannot decide on collision."
         )
         return None
 
-    logging.info(
-        f"All files in DB are fixed: {statuses=}, checking size against {sizes=}"
-    )
+    logging.info(f"All files in DB are fixed, checking size against {sizes=}")
 
     if not file_path_to_watch.exists():
         logging.info("Main file does not exist yet.")

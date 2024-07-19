@@ -38,15 +38,6 @@ class RawFileStatus:
     ERROR = "error"
     DONE = "done"
 
-    # currently considering "error" as a "fixed" state ..
-    # needs some thoughts .. or maybe go for existence of "size" only?
-    file_not_fixed_statuses = [QUEUED_FOR_MONITORING, MONITORING_ACQUISITION, ERROR]  # noqa: RUF012
-
-    @staticmethod
-    def is_file_fixed(status: str) -> bool:
-        """Return if file is fixed."""
-        return status not in RawFileStatus.file_not_fixed_statuses
-
 
 class RawFile(Document):
     """Schema for a raw file."""

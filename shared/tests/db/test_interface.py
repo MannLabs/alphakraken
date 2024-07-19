@@ -3,6 +3,7 @@
 from datetime import datetime
 from unittest.mock import MagicMock, patch
 
+import pytest
 import pytz
 from db.models import RawFileStatus
 
@@ -20,8 +21,14 @@ from shared.db.interface import (
 
 @patch("shared.db.interface.connect_db")
 @patch("shared.db.interface.RawFile")
-def test_add_new_raw_file_to_db_creates_new_file_when_file_does_not_exist(
-    mock_raw_file: MagicMock, mock_connect_db: MagicMock
+@pytest.mark.parametrize(
+    ("collision_flag", "collision_string"), [(None, ""), ("123---", "123---")]
+)
+def test_add_new_raw_file_to_db_creates_new_file_when_file_does_not_exist_with_collision_flag(
+    mock_raw_file: MagicMock,
+    mock_connect_db: MagicMock,
+    collision_flag: str | None,
+    collision_string: str,
 ) -> None:
     """Test that add_new_raw_file_to_db creates a new file when the file does not exist in the database."""
     # given
@@ -29,7 +36,7 @@ def test_add_new_raw_file_to_db_creates_new_file_when_file_does_not_exist(
     # when
     add_new_raw_file_to_db(
         "test_file.raw",
-        collision_flag="123---",
+        collision_flag=collision_flag,
         project_id="PID1",
         instrument_id="instrument1",
         status=RawFileStatus.QUEUED_FOR_MONITORING,
@@ -38,9 +45,9 @@ def test_add_new_raw_file_to_db_creates_new_file_when_file_does_not_exist(
 
     # then
     mock_raw_file.assert_called_once_with(
-        name="123---test_file.raw",
+        name=f"{collision_string}test_file.raw",
         original_name="test_file.raw",
-        collision_flag="123---",
+        collision_flag=collision_flag,
         project_id="PID1",
         instrument_id="instrument1",
         status=RawFileStatus.QUEUED_FOR_MONITORING,

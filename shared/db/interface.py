@@ -35,7 +35,7 @@ def add_new_raw_file_to_db(  # noqa: PLR0913 too many arguments
     status: str,
     instrument_id: str,
     creation_ts: float,
-) -> None:
+) -> str:
     """Add a new raw file to the database.
 
     :param file_name: name of the file
@@ -44,14 +44,17 @@ def add_new_raw_file_to_db(  # noqa: PLR0913 too many arguments
     :param status: status of the file
     :param instrument_id: id of the acquiring instrument
     :param creation_ts: creation timestamp (unix)
-    :return:
+    :return: the raw file id. This is either equal to the raw_file_name or has a collision flag prefixed
     """
     logging.info(
         f"Adding to DB: {file_name=} {collision_flag=} {project_id=} {status=} {instrument_id=} {creation_ts=}"
     )
     connect_db()
+
+    name = file_name if collision_flag is None else f"{collision_flag}{file_name}"
+
     raw_file = RawFile(
-        name=collision_flag + file_name,
+        name=name,
         collision_flag=collision_flag,
         original_name=file_name,
         project_id=project_id,
@@ -61,6 +64,8 @@ def add_new_raw_file_to_db(  # noqa: PLR0913 too many arguments
     )
     # this will fail if the file already exists
     raw_file.save(force_insert=True)
+
+    return name
 
 
 def update_raw_file(

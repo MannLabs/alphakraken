@@ -11,6 +11,7 @@ from pathlib import Path
 
 from common.keys import InstrumentTypes
 from common.settings import (
+    COLLISION_FLAG_SEP,
     get_instrument_type,
     get_internal_instrument_backup_path,
     get_internal_instrument_data_path,
@@ -45,12 +46,12 @@ class RawDataWrapper(ABC):
         # could be .raw file, one of the four .wiff files, or .d folder
         self._raw_file_name = raw_file_name
 
-        # TODO: extracting the collision flag like this could lead to troubles if someone has "---" in their file name
-        # better solution: query the database to get the original name
+        # Extracting the collision flag like this is a bit hacky.
+        # Alternative solution: query the database to get the original name
         self._raw_file_original_name = (
             raw_file_name
-            if (raw_file_name is None or "---" not in raw_file_name)
-            else raw_file_name.split("---")[1]
+            if (raw_file_name is None or COLLISION_FLAG_SEP not in raw_file_name)
+            else raw_file_name.split(COLLISION_FLAG_SEP, maxsplit=1)[1]
         )
 
         if (

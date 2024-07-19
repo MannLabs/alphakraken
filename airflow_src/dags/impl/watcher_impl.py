@@ -8,6 +8,7 @@ from pathlib import Path
 import pytz
 from airflow.models import TaskInstance
 from common.keys import AirflowVars, DagParams, Dags, OpArgs, XComKeys
+from common.settings import COLLISION_FLAG_SEP
 from common.utils import get_airflow_variable, get_xcom, put_xcom, trigger_dag_run
 from file_handling import get_file_creation_timestamp, get_file_size
 from impl.project_id_handler import get_unique_project_id
@@ -19,15 +20,6 @@ from shared.db.interface import (
     get_raw_file_names_from_db,
 )
 from shared.db.models import RawFileStatus
-
-# TODO: add field to DB:
-# [
-#   {
-#     "$set": {
-#       "original_name": "$_id"
-#     }
-#   }
-# ]
 
 
 def _add_raw_file_to_db(
@@ -79,7 +71,7 @@ def get_unknown_raw_files(ti: TaskInstance, **kwargs) -> None:
             Eventually, it will be moved from the instrument by another component.
 
             If they don't match, we have found a collision, i.e. the file should be processed but also needs to be distinguished
-            from the file that is already in the DB. To achieve this, a "collision_flag" is added to the file, which serves to
+            from the file that is already in the DB. To achieve this, later a "collision_flag" is added to the file, which serves to
             tell the file apart from the original file (and also from other collisions).
 
     Note there's a potential race condition with the "add to db" operation in the subsequent
@@ -181,16 +173,16 @@ def _sort_by_creation_date(raw_file_names: list[str], instrument_id: str) -> lis
 def decide_raw_file_handling(ti: TaskInstance, **kwargs) -> None:
     """Decide for each raw file whether an acquisition handler should be triggered or not."""
     instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
-    raw_file_names_with_collision_flag = get_xcom(ti, XComKeys.RAW_FILE_NAMES)
+    raw_files_to_process = get_xcom(ti, XComKeys.RAW_FILE_NAMES)
 
     logging.info(
-        f"{len(raw_file_names_with_collision_flag)} raw files to be checked on project id: {raw_file_names_with_collision_flag}"
+        f"{len(raw_files_to_process)} raw files to be checked on project id: {raw_files_to_process}"
     )
 
     all_project_ids = get_all_project_ids()
 
     raw_file_project_ids: dict[str, tuple[str, bool, str | None]] = {}
-    for raw_file_name, is_collision in raw_file_names_with_collision_flag.items():
+    for raw_file_name, is_collision in raw_files_to_process.items():
         project_id = get_unique_project_id(raw_file_name, all_project_ids)
 
         if project_id is None:
@@ -257,8 +249,9 @@ def _file_meets_age_criterion(
 def _get_collision_flag() -> str:
     """Get a collision flag to resolve file name collisions."""
     # the collision flag needs to be "unique enough", is used only to tell different collisions apart
-    collision_flag = datetime.now(tz=pytz.utc).strftime("%Y%m%d-%H%M%S-%f---")
-    logging.info(f"Adding {collision_flag=}.")
+    timestamp = datetime.now(tz=pytz.utc).strftime("%Y%m%d-%H%M%S-%f")
+    collision_flag = f"{timestamp}{COLLISION_FLAG_SEP}"
+    logging.info(f"Adding {collision_flag=}")
     return collision_flag
 
 

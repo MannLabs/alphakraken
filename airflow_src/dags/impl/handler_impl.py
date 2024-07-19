@@ -6,7 +6,7 @@ from common.utils import trigger_dag_run
 from file_handling import copy_file, get_file_size
 from raw_data_wrapper import RawDataWrapper
 
-from shared.db.interface import update_raw_file
+from shared.db.interface import get_raw_file_by_id, update_raw_file
 from shared.db.models import RawFileStatus
 
 
@@ -16,10 +16,12 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
     raw_file_name = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_NAME]
     instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
 
+    raw_file = get_raw_file_by_id(raw_file_name)
+
     update_raw_file(raw_file_name, new_status=RawFileStatus.COPYING)
 
     raw_data_wrapper = RawDataWrapper.create(
-        instrument_id=instrument_id, raw_file_name=raw_file_name
+        instrument_id=instrument_id, raw_file=raw_file
     )
 
     for src_path, dst_path in raw_data_wrapper.get_files_to_copy().items():

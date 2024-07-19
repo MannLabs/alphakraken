@@ -22,7 +22,6 @@ from service.utils import (
 from shared.keys import EnvVars
 
 _log(f"loading {__file__}")
-
 # ########################################### PAGE HEADER
 
 st.set_page_config(page_title="AlphaKraken: settings", layout="wide")
@@ -39,6 +38,7 @@ settings_db = get_settings_data()
 projects_db = get_project_data()
 settings_df = df_from_db_data(settings_db)
 
+io_pool_folder = os.environ.get(EnvVars.IO_POOL_FOLDER)
 
 # ########################################### DISPLAY
 
@@ -53,6 +53,10 @@ def display_settings(settings_df: pd.DataFrame) -> None:
     """Fragment to display settings in a table."""
     filtered_df = show_filter(settings_df)
     st.table(filtered_df)
+    st.markdown(
+        "The settings of a given project are stored at "
+        f"`/fs/pool/{io_pool_folder}/settings/<project id>/`"
+    )
 
 
 display_settings(settings_df)
@@ -131,7 +135,6 @@ if selected_project:
         st.write(r"\** At least one of the two must be given")
 
         st.markdown("### Step 3/3: Upload files to pool folder")
-        io_pool_folder = os.environ.get(EnvVars.IO_POOL_FOLDER)
         st.markdown(
             "Make sure you have uploaded all the files correctly to "
             f"`/fs/pool/{io_pool_folder}/settings/{project_id}/`"

@@ -44,6 +44,7 @@ class RawDataWrapper(ABC):
     def __init__(
         self,
         instrument_id: str,
+        *,
         raw_file_name: str | None = None,
         raw_file: RawFile | None = None,
     ):

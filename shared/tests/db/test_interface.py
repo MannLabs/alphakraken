@@ -13,6 +13,7 @@ from shared.db.interface import (
     add_new_raw_file_to_db,
     add_new_settings_to_db,
     get_all_project_ids,
+    get_raw_file_by_id,
     get_raw_file_names_from_db,
     update_kraken_status,
     update_raw_file,
@@ -72,6 +73,23 @@ def test_get_raw_file_names_from_db_returns_expected_names_when_files_exist(
 
     # then
     assert result == [file1, file2]
+    mock_connect_db.assert_called_once()
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.RawFile")
+def test_get_raw_file_by_id(
+    mock_raw_file: MagicMock, mock_connect_db: MagicMock
+) -> None:
+    """Test get raw file with the given id from DB returns correct value."""
+    file1 = MagicMock()
+    mock_raw_file.objects.return_value.first.return_value = file1
+
+    result = get_raw_file_by_id("file1")
+
+    # then
+    assert result == file1
+
     mock_connect_db.assert_called_once()
 
 

@@ -30,25 +30,21 @@ from common.settings import (
     get_output_folder_rel_path,
 )
 from common.utils import get_airflow_variable, get_env_variable, get_xcom, put_xcom
-from impl.project_id_handler import get_unique_project_id
 from metrics.metrics_calculator import calc_metrics
 from sensors.ssh_sensor import SSHSensorOperator
 
 from shared.db.interface import (
     add_metrics_to_raw_file,
-    get_all_project_ids,
+    get_raw_file_by_id,
     get_settings_for_project,
     update_raw_file,
 )
-from shared.db.models import RawFileStatus
+from shared.db.models import RawFileStatus, get_created_at_year_month
 from shared.keys import EnvVars
 
 
-def _get_project_id_for_raw_file(raw_file_name: str, instrument_id: str) -> str:
+def _get_project_id_or_fallback(project_id: str | None, instrument_id: str) -> str:
     """Get the project id for a raw file or the fallback ID if not present."""
-    all_project_ids = get_all_project_ids()
-    project_id = get_unique_project_id(raw_file_name, all_project_ids)
-
     return (
         project_id if project_id is not None else get_fallback_project_id(instrument_id)
     )
@@ -59,13 +55,19 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
     raw_file_name = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_NAME]
     instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
 
-    project_id = _get_project_id_for_raw_file(raw_file_name, instrument_id)
+    raw_file = get_raw_file_by_id(raw_file_name)
 
     io_pool_folder = get_env_variable(EnvVars.IO_POOL_FOLDER)
-    instrument_subfolder = f"{io_pool_folder}/{InternalPaths.BACKUP}/{instrument_id}"
+    year_month_subfolder = get_created_at_year_month(raw_file)
+    input_data_rel_path = (
+        Path(io_pool_folder)
+        / InternalPaths.BACKUP
+        / instrument_id
+        / year_month_subfolder
+    )
 
+    project_id = _get_project_id_or_fallback(raw_file.project_id, instrument_id)
     output_folder_rel_path = get_output_folder_rel_path(raw_file_name, project_id)
-
     settings = get_settings_for_project(project_id)
 
     # TODO: remove random speclib file hack
@@ -79,7 +81,7 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
 
     quanting_env = {
         QuantingEnv.RAW_FILE_NAME: raw_file_name,
-        QuantingEnv.INSTRUMENT_SUBFOLDER: instrument_subfolder,
+        QuantingEnv.INPUT_DATA_REL_PATH: str(input_data_rel_path),
         QuantingEnv.OUTPUT_FOLDER_REL_PATH: str(output_folder_rel_path),
         QuantingEnv.SPECLIB_FILE_NAME: speclib_file_name,
         QuantingEnv.FASTA_FILE_NAME: settings.fasta_file_name,

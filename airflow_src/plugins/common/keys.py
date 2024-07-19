@@ -98,7 +98,7 @@ class QuantingEnv:
     """Keys for setting quanting environment variables for the slurm submit script."""
 
     RAW_FILE_NAME = "RAW_FILE_NAME"
-    INSTRUMENT_SUBFOLDER = "INSTRUMENT_SUBFOLDER"
+    INPUT_DATA_REL_PATH = "INPUT_DATA_REL_PATH"
     OUTPUT_FOLDER_REL_PATH = "OUTPUT_FOLDER_REL_PATH"
     SPECLIB_FILE_NAME = "SPECLIB_FILE_NAME"
 

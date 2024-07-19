@@ -50,6 +50,7 @@ columns_to_hide = [
     "raw_file",
     "_id",
     "original_name",
+    "collision_flag",
 ]
 column_order = [
     col

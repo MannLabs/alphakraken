@@ -6,12 +6,14 @@ from datetime import datetime, timedelta
 import humanize
 import matplotlib as mpl
 import pandas as pd
+import plotly.graph_objects as go
 import streamlit as st
 from matplotlib import pyplot as plt
 
 TERMINAL_STATUSES = ["error", "done", "ignored", "quanting_failed"]
 
 
+# TODO: if filter is set, set age filter to youngest file
 def show_filter(
     df: pd.DataFrame,
     *,
@@ -79,20 +81,30 @@ def show_status_plot(
     status_counts.drop(columns=ignored_status, errors="ignore", inplace=True)  # noqa: PD002
     status_counts.sort_index(inplace=True)  # noqa: PD002
 
-    ax = status_counts.plot(kind="bar", stacked=True, figsize=(5, 5))
+    fig = go.Figure()
 
-    # Customize the plot
-    plt.xlabel("Instrument")
-    plt.ylabel("Count")
-    plt.legend(title="Status")
-    plt.tight_layout()
+    for status in status_counts.columns:
+        fig.add_trace(
+            go.Bar(
+                x=status_counts.index,
+                y=status_counts[status],
+                name=status,
+                text=status_counts[status],
+                textposition="inside",
+            )
+        )
 
-    # Add value labels on the bars
-    for c in ax.containers:
-        ax.bar_label(c, label_type="center")
+    # Update the layout
+    fig.update_layout(
+        barmode="stack",
+        xaxis_title="Instrument",
+        yaxis_title="Count",
+        legend_title="Status",
+        width=500,
+        height=500,
+    )
 
-    # Show the plot
-    display.pyplot(plt)
+    display.plotly_chart(fig)
 
 
 def show_time_in_status_table(

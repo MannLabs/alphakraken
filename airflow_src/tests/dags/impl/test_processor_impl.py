@@ -81,6 +81,7 @@ def test_prepare_quanting(
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
         project_id="some_project_id",
     )
+    mock_raw_file.name = "test_file.raw"
     mock_get_raw_file_by_id.return_value = mock_raw_file
 
     mock_get_project_id_for_raw_file.return_value = "some_project_id"
@@ -125,6 +126,7 @@ def test_prepare_quanting(
             call(ti, "raw_file_name", "test_file.raw"),
         ]
     )
+    mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
     mock_random.assert_called_once()  # TODO: remove patching random once the hack is removed
 
 
@@ -180,6 +182,7 @@ def test_run_quanting_executes_ssh_command_and_stores_job_id(
         "echo ${JID##* }\n"
     )
     mock_ssh_execute.assert_called_once_with(expected_command, mock_ssh_hook)
+    mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
     mock_put_xcom.assert_called_once_with(ti, XComKeys.JOB_ID, "12345")
     mock_update.assert_called_once_with(
         "test_file.raw", new_status=RawFileStatus.QUANTING
@@ -217,11 +220,13 @@ def test_run_quanting_job_id_exists(
 
 
 @patch("dags.impl.processor_impl.get_xcom")
+@patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.Path")
 @patch("dags.impl.processor_impl.get_airflow_variable")
 def test_run_quanting_output_folder_exists(
     mock_get_airflow_variable: MagicMock,
     mock_path: MagicMock,
+    mock_get_raw_file_by_id: MagicMock,
     mock_get_xcom: MagicMock,
 ) -> None:
     """run_quanting function raises an exception if the output path already exists."""
@@ -248,6 +253,7 @@ def test_run_quanting_output_folder_exists(
     with pytest.raises(AirflowFailException):
         run_quanting(ti, **kwargs)
 
+    mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
     mock_get_airflow_variable.assert_called_once_with("allow_output_overwrite", "False")
 
 
@@ -328,6 +334,7 @@ def test_check_job_status_unknown_job_status(
 
 
 @patch("dags.impl.processor_impl.get_xcom")
+@patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.SSHSensorOperator.ssh_execute")
 @patch("dags.impl.processor_impl.get_business_errors")
 @patch("dags.impl.processor_impl.update_raw_file")
@@ -335,6 +342,7 @@ def test_check_job_status_business_error(
     mock_update_raw_file: MagicMock,
     mock_get_business_errors: MagicMock,
     mock_ssh_execute: MagicMock,
+    mock_get_raw_file_by_id: MagicMock,
     mock_get_xcom: MagicMock,
 ) -> None:
     """Test that check_job_status behaves correctly on business errors."""
@@ -342,10 +350,13 @@ def test_check_job_status_business_error(
     mock_get_xcom.side_effect = [
         "12345",
         {
-            QuantingEnv.RAW_FILE_NAME: "some_raw_file_name",
+            QuantingEnv.RAW_FILE_NAME: "test_file.raw",
             QuantingEnv.PROJECT_ID: "PID1",
         },
     ]
+    mock_raw_file = MagicMock(wraps=RawFile)
+    mock_raw_file.name = "test_file.raw"
+    mock_get_raw_file_by_id.return_value = mock_raw_file
     mock_ssh_execute.return_value = "00:08:42\nsome\nother\nlines\nFAILED"
     mock_get_business_errors.return_value = ["error1", "error2"]
 
@@ -357,15 +368,17 @@ def test_check_job_status_business_error(
     )
     assert not continue_downstream_tasks
 
-    mock_get_business_errors.assert_called_once_with("some_raw_file_name", "PID1")
+    mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
+    mock_get_business_errors.assert_called_once_with(mock_raw_file, "PID1")
     mock_update_raw_file.assert_called_once_with(
-        "some_raw_file_name",
+        "test_file.raw",
         new_status="quanting_failed",
         status_details="error1;error2",
     )
 
 
 @patch("dags.impl.processor_impl.get_xcom")
+@patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.SSHSensorOperator.ssh_execute")
 @patch("dags.impl.processor_impl.get_business_errors")
 @patch("dags.impl.processor_impl.update_raw_file")
@@ -373,6 +386,7 @@ def test_check_job_status_non_business_error(
     mock_update_raw_file: MagicMock,
     mock_get_business_errors: MagicMock,
     mock_ssh_execute: MagicMock,
+    mock_get_raw_file_by_id: MagicMock,
     mock_get_xcom: MagicMock,
 ) -> None:
     """Test that check_job_status behaves correctly on non-business errors."""
@@ -380,7 +394,7 @@ def test_check_job_status_non_business_error(
     mock_get_xcom.side_effect = [
         "12345",
         {
-            QuantingEnv.RAW_FILE_NAME: "some_raw_file_name",
+            QuantingEnv.RAW_FILE_NAME: "test_file.raw",
             QuantingEnv.PROJECT_ID: "PID1",
         },
     ]
@@ -393,7 +407,10 @@ def test_check_job_status_non_business_error(
     with pytest.raises(AirflowFailException):
         check_job_status(mock_ti, **{OpArgs.SSH_HOOK: mock_ssh_hook})
 
-    mock_get_business_errors.assert_called_once_with("some_raw_file_name", "PID1")
+    mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
+    mock_get_business_errors.assert_called_once_with(
+        mock_get_raw_file_by_id.return_value, "PID1"
+    )
     mock_update_raw_file.assert_not_called()
 
 
@@ -408,10 +425,13 @@ def test_get_business_errors_with_valid_errors(mock_path: MagicMock) -> None:
     mock_open_file = mock_open(read_data="\n".join(mock_content))
     mock_path.return_value.__truediv__.return_value.__truediv__.return_value.__truediv__.return_value.open.return_value = mock_open_file()
 
-    result = get_business_errors("raw_file.raw", "project_id")
+    mock_raw_file = MagicMock()
+
+    # when
+    result = get_business_errors(mock_raw_file, "project_id")
 
     assert result == ["ERROR1", "ERROR2"]
-    mock_path.assert_called_once_with("raw_file.raw", "project_id")
+    mock_path.assert_called_once_with(mock_raw_file, "project_id")
 
 
 @patch("dags.impl.processor_impl.get_internal_output_path")
@@ -426,7 +446,8 @@ def test_get_business_errors_with_no_errors(mock_path: MagicMock) -> None:
     mock_open_file = mock_open(read_data="\n".join(mock_content))
     mock_path.return_value.__truediv__.return_value.__truediv__.return_value.__truediv__.return_value.open.return_value = mock_open_file()
 
-    result = get_business_errors("raw_file.raw", "project_id")
+    raw_file = MagicMock()
+    result = get_business_errors(raw_file, "project_id")
 
     assert result == []
 
@@ -436,32 +457,43 @@ def test_get_business_errors_file_not_found(mock_path: MagicMock) -> None:
     """Test that get_business_errors returns an empty list when the file is not found."""
     mock_path.return_value.__truediv__.return_value.__truediv__.return_value.__truediv__.return_value.open.side_effect = FileNotFoundError
 
-    result = get_business_errors("raw_file.raw", "project_id")
+    raw_file = MagicMock()
+    result = get_business_errors(raw_file, "project_id")
 
     assert result == []
 
 
 @patch("dags.impl.processor_impl.get_xcom")
+@patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.calc_metrics")
 @patch("dags.impl.processor_impl.put_xcom")
 def test_compute_metrics(
     mock_put_xcom: MagicMock,
     mock_calc_metrics: MagicMock,
+    mock_get_raw_file_by_id: MagicMock,
     mock_get_xcom: MagicMock,
 ) -> None:
     """Test that compute_metrics makes the expected calls."""
     mock_ti = MagicMock()
     mock_get_xcom.return_value = {
-        "RAW_FILE_NAME": "some_raw_file_name",
+        "RAW_FILE_NAME": "test_file.raw",
         "PROJECT_ID": "P1",
     }
+    mock_raw_file = MagicMock(
+        wraps=RawFile,
+        created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
+    )
+    mock_raw_file.name = "test_file.raw"
+    mock_get_raw_file_by_id.return_value = mock_raw_file
+
     mock_calc_metrics.return_value = {"metric1": "value1"}
 
     # when
     compute_metrics(mock_ti)
 
+    mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
     mock_calc_metrics.assert_called_once_with(
-        Path("/opt/airflow/mounts/output/P1/out_some_raw_file_name")
+        Path("/opt/airflow/mounts/output/P1/out_test_file.raw")
     )
     mock_put_xcom.assert_called_once_with(
         mock_ti, XComKeys.METRICS, {"metric1": "value1"}

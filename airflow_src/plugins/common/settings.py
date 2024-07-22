@@ -1,8 +1,10 @@
-"""Keys for accessing Dags, Tasks, etc.."""
+"""Keys for accessing Dags, Tasks, etc.. and methods closely related."""
 
 from pathlib import Path
 
 from common.keys import InstrumentKeys, InstrumentTypes
+
+from shared.db.models import RawFile, get_created_at_year_month
 
 INSTRUMENTS = {
     # the toplevel keys determine the DAG name (e.g. 'instrument_watcher.test1')
@@ -27,6 +29,7 @@ CLUSTER_WORKING_DIR = f"{CLUSTER_BASE_DIR}/jobs"
 FALLBACK_PROJECT_ID = "_FALLBACK"
 FALLBACK_PROJECT_ID_BRUKER = "_FALLBACK_BRUKER"
 
+# separator between the timestamp and the raw file id in case of collisions
 COLLISION_FLAG_SEP = "---"
 
 
@@ -34,6 +37,7 @@ class InternalPaths:
     """Paths to directories within the Docker containers."""
 
     MOUNTS_PATH = "/opt/airflow/mounts/"
+
     INSTRUMENTS = "instruments"
     BACKUP = "backup"
     OUTPUT = "output"
@@ -103,19 +107,31 @@ def get_internal_instrument_backup_path(instrument_id: str) -> Path:
     return get_internal_backup_path() / instrument_id
 
 
-def get_output_folder_rel_path(raw_file_name: str, project_id: str) -> Path:
-    """Get the relative path of the output directory for given raw file name."""
+def get_output_folder_rel_path(raw_file: RawFile, project_id_or_fallback: str) -> Path:
+    """Get the relative path of the output directory for given raw file name.
+
+    Only if the raw_file has no project defined, we use a month-specific subfolder
+    This is to avoid having too many files in the fallback output folders.
+
+    E.g.
+        output/<project_id_or_fallback>>/2024_07/out_RAW-FILE-1.raw in case raw_file has no project ID
+        output/<project_id_or_fallback>>/out_RAW-FILE-1.raw in case raw_file has a project ID
+    """
+    optional_sub_folder = (
+        get_created_at_year_month(raw_file) if raw_file.project_id is None else ""
+    )
     return (
         Path(InternalPaths.OUTPUT)
-        / project_id
-        / f"{OUTPUT_FOLDER_PREFIX}{raw_file_name}"
+        / project_id_or_fallback
+        / optional_sub_folder
+        / f"{OUTPUT_FOLDER_PREFIX}{raw_file.name}"
     )
 
 
-def get_internal_output_path(raw_file_name: str, project_id: str) -> Path:
+def get_internal_output_path(raw_file: RawFile, project_id_or_fallback: str) -> Path:
     """Get absolute internal output path for the given raw file name."""
     return Path(InternalPaths.MOUNTS_PATH) / get_output_folder_rel_path(
-        raw_file_name, project_id
+        raw_file, project_id_or_fallback
     )
 
 
@@ -125,7 +141,11 @@ def get_instrument_type(instrument_id: str) -> str:
 
 
 def get_fallback_project_id(instrument_id: str) -> str:
-    """Get the fallback project id."""
+    """Get the fallback project id.
+
+    Fallback project IDs are used to get the respective settings and the output
+    folder in case no matching project ID is found.
+    """
     # This is on the edge of being hacky, this information could also be included in the `INSTRUMENTS` dict.
     return (
         FALLBACK_PROJECT_ID_BRUKER

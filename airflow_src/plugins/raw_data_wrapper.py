@@ -26,7 +26,7 @@ class RawDataWrapper(ABC):
     Note: do not call constructors of subclasses directly, always use RawDataWrapper.create().
     """
 
-    # the extension of the main raw data file (with leading dot!)
+    # the extension of the main file (sic!) containing the raw data (with leading dot)
     _main_file_extension: str | None = None
 
     @classmethod
@@ -50,48 +50,50 @@ class RawDataWrapper(ABC):
     ):
         """Initialize the RawDataWrapper.
 
+        Depending on instrument type, the passed 'raw_file' could refer to a .raw file, a .wiff file, or a .d folder.
+
         If neither raw_file_name nor raw_file is given, only get_raw_files_on_instrument() will work.
         If raw_file_name is given, all methods up to get_files_to_copy() will work.
         Full functionality if `raw_file` object is given.
         """
-        # could be .raw file, one of the four .wiff files, or .d folder
-        self._raw_file_name: str | None = None
-
-        self._raw_file_original_name: str | None = None
-        self._year_month_subfolder: str | None = None
-
         if raw_file is not None and raw_file_name is not None:
             raise ValueError("Only one of raw_file and raw_file_name must be given.")
 
+        raw_file_name_: str | None = None
+        raw_file_original_name_: str | None = None
+        year_month_subfolder_: str | None = None
+
         # this logic could be moved to a factory class
         if raw_file is not None:
-            self._raw_file_name = raw_file.name
-            self._raw_file_original_name = raw_file.original_name
-            self._year_month_subfolder = get_created_at_year_month(raw_file)
-            logging.info(f"Got {self._year_month_subfolder=}")
+            raw_file_name_ = raw_file.name
+            raw_file_original_name_ = raw_file.original_name
+            year_month_subfolder_ = get_created_at_year_month(raw_file)
         elif raw_file_name is not None:
-            self._raw_file_name = raw_file_name
-            # Extracting the collision flag like this is a bit hacky, but it makes the class work also without
-            # the raw_file object.
-            self._raw_file_original_name = (
+            raw_file_name_ = raw_file_name
+            # Extracting the collision flag like this is a bit hacky,
+            # but it makes the class work also without the raw_file object.
+            raw_file_original_name_ = (
                 raw_file_name
                 if (COLLISION_FLAG_SEP not in raw_file_name)
                 else raw_file_name.split(COLLISION_FLAG_SEP, maxsplit=1)[1]
             )
 
         if (
-            self._raw_file_name is not None
-            and (ext := Path(self._raw_file_name).suffix) != self._main_file_extension
+            raw_file_name_ is not None
+            and (ext := Path(raw_file_name_).suffix) != self._main_file_extension
         ):
             raise ValueError(
                 f"Unsupported file extension: {ext}, expected {self._main_file_extension}"
             )
 
+        self._raw_file_name: str | None = raw_file_name_
+        self._raw_file_original_name: str | None = raw_file_original_name_
+        self._year_month_subfolder: str | None = year_month_subfolder_
         self._instrument_path = get_internal_instrument_data_path(instrument_id)
         self._backup_path = get_internal_instrument_backup_path(instrument_id)
 
         logging.info(
-            f"Initialized with {self._instrument_path=} {self._backup_path=} {self._raw_file_name=} {self._raw_file_original_name=}"
+            f"Initialized with {self._raw_file_name=} {self._raw_file_original_name=} {self._year_month_subfolder} {self._instrument_path=} {self._backup_path=}"
         )
 
     @property

@@ -7,14 +7,17 @@ from common.settings import CLUSTER_JOB_SCRIPT_PATH, CLUSTER_WORKING_DIR
 
 
 # TODO: how to bring 'submit_job.sh' to the cluster?
-def get_run_quanting_cmd() -> str:
+def get_run_quanting_cmd(year_month_folder: str) -> str:
     """Get the command to run the quanting job on the cluster.
 
     Its last line of output to stdout must be the job id of the submitted job.
     ${JID##* } is removing everything up to the last space.
+
+    :param year_month_folder: the sub folder in which the slurm output script will be written to, e.g. "2024_07"
     """
     return f"""
-cd {CLUSTER_WORKING_DIR}
+mkdir -p {CLUSTER_WORKING_DIR}/{year_month_folder}
+cd {CLUSTER_WORKING_DIR}/{year_month_folder}
 cat {CLUSTER_JOB_SCRIPT_PATH}
 JID=$(sbatch {CLUSTER_JOB_SCRIPT_PATH})
 echo ${{JID##* }}

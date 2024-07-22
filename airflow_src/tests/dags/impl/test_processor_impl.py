@@ -129,6 +129,7 @@ def test_prepare_quanting(
 
 
 @patch("dags.impl.processor_impl.get_xcom")
+@patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.SSHSensorOperator.ssh_execute")
 @patch("dags.impl.processor_impl.put_xcom")
 @patch("dags.impl.processor_impl.update_raw_file")
@@ -136,6 +137,7 @@ def test_run_quanting_executes_ssh_command_and_stores_job_id(
     mock_update: MagicMock,
     mock_put_xcom: MagicMock,
     mock_ssh_execute: MagicMock,
+    mock_get_raw_file_by_id: MagicMock,
     mock_get_xcom: MagicMock,
 ) -> None:
     """Test that the run_quanting function executes the SSH command and stores the job ID."""
@@ -149,6 +151,11 @@ def test_run_quanting_executes_ssh_command_and_stores_job_id(
         -1,
     ]
     mock_ssh_execute.return_value = "12345"
+    mock_raw_file = MagicMock(
+        wraps=RawFile, created_at=datetime.fromtimestamp(0, tz=pytz.UTC)
+    )
+    mock_get_raw_file_by_id.return_value = mock_raw_file
+
     ti = MagicMock()
     mock_ssh_hook = MagicMock()
 
@@ -166,7 +173,8 @@ def test_run_quanting_executes_ssh_command_and_stores_job_id(
     )
 
     expected_command = expected_export_command + (
-        "cd ~/slurm/jobs\n"
+        "mkdir -p ~/slurm/jobs/1970_01\n"
+        "cd ~/slurm/jobs/1970_01\n"
         "cat ~/slurm/submit_job.sh\n"
         "JID=$(sbatch ~/slurm/submit_job.sh)\n"
         "echo ${JID##* }\n"
@@ -244,9 +252,11 @@ def test_run_quanting_output_folder_exists(
 
 
 @patch("dags.impl.processor_impl.get_xcom")
+@patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.SSHSensorOperator.ssh_execute")
 def test_run_quanting_executes_ssh_command_error_wrong_job_id(
     mock_ssh_execute: MagicMock,
+    mock_get_raw_file_by_id: MagicMock,  # noqa: ARG001
     mock_get_xcom: MagicMock,
 ) -> None:
     """run_quanting function raises an exception if the job ID is not an integer."""

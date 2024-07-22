@@ -39,8 +39,17 @@ echo RAW_FILE_PATH=${RAW_FILE_PATH}
 echo CONFIG_FILE_PATH=${CONFIG_FILE_PATH}
 
 echo INPUT INFORMATION ">>>>>>"
-echo RAW_FILE size and md5sum: $(du -s ${RAW_FILE_PATH}) $(md5sum ${RAW_FILE_PATH})
-echo CONFIG_FILE size and md5sum: $(du -s ${CONFIG_FILE_PATH}) $(md5sum ${CONFIG_FILE_PATH})
+if [ -d "$RAW_FILE_PATH" ]; then
+  du -s ${RAW_FILE_PATH}/*
+  md5sum ${RAW_FILE_PATH}/*
+  stat ${RAW_FILE_PATH}/*
+else
+  du -s ${RAW_FILE_PATH}
+  md5sum ${RAW_FILE_PATH}
+  stat ${RAW_FILE_PATH}
+fi
+echo CONFIG_FILE:
+echo size and md5sum: $(du -s ${CONFIG_FILE_PATH}) $(md5sum ${CONFIG_FILE_PATH})
 cat ${CONFIG_FILE_PATH}
 echo "<<<<<<"
 
@@ -68,6 +77,7 @@ echo OUTPUT ">>>>>>"
 set +e
 du -s ${OUTPUT_PATH}/*
 md5sum ${OUTPUT_PATH}/*
+stat ${OUTPUT_PATH}/*
 set -e
 echo "<<<<<<"
 
@@ -93,6 +103,7 @@ echo OUTPUT ">>>>>>"
 set +e
 du -s ${OUTPUT_PATH}/*
 md5sum ${OUTPUT_PATH}/*
+stat ${OUTPUT_PATH}/*
 set -e
 echo "<<<<<<"
 

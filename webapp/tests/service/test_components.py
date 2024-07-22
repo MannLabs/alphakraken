@@ -187,8 +187,8 @@ def test_get_color() -> None:
     result = _get_color(
         row,
         columns=["last_file_creation", "last_status_update"],
-        green_ages_h=[2, 2],
-        red_ages_h=[8, 8],
+        green_ages_m=[2 * 60, 2 * 60],
+        red_ages_m=[8 * 60, 8 * 60],
         colormaps=["summer", "summer"],
     )
     assert result == ["background-color: #008066", "background-color: #2a9466", None]

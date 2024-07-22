@@ -69,21 +69,22 @@ if [ -n "$SPECLIB_FILE_NAME" ]; then
   SPECLIB_COMMAND="--library ${SPECLIB_FILE_PATH}"
 fi
 
+echo CONDA_ENV ">>>>>>"
+conda info
+conda run -n $CONDA_ENV pip freeze
+echo "<<<<<<"
+
+echo Creating output path ..
 mkdir -p ${OUTPUT_PATH}
 cd ${OUTPUT_PATH}
 
 # output directory could already exists at this stage of overwrite flag it set
-echo OUTPUT ">>>>>>"
+echo OUTPUT_PATH ">>>>>>"
 set +e
 du -s ${OUTPUT_PATH}/*
 md5sum ${OUTPUT_PATH}/*
 stat ${OUTPUT_PATH}/*
 set -e
-echo "<<<<<<"
-
-echo CONDA ENV ">>>>>>"
-conda info
-conda run -n $CONDA_ENV pip freeze
 echo "<<<<<<"
 
 echo "Running alphadia.."
@@ -99,7 +100,7 @@ conda run -n $CONDA_ENV alphadia \
 alphadia_exit_code=$?  # this line must immediately follow the `conda run ..` command
 set -e
 
-echo OUTPUT ">>>>>>"
+echo OUTPUT_PATH ">>>>>>"
 set +e
 du -s ${OUTPUT_PATH}/*
 md5sum ${OUTPUT_PATH}/*

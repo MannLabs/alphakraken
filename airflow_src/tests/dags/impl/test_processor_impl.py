@@ -303,7 +303,7 @@ def test_check_job_status_happy_path(
     assert continue_downstream_tasks
     mock_ssh_execute.assert_called_once_with(
         "TIME_ELAPSED=$(sacct --format=Elapsed -j 12345 | tail -n 1); echo $TIME_ELAPSED\nsacct -l -j 12345\n"
-        "cat ~/slurm/jobs/slurm-12345.out\n\nST=$(sacct -j 12345 -o State | awk 'FNR == 3 {print $1}')\necho $ST\n",
+        "cat ~/slurm/jobs/*/slurm-12345.out\n\nST=$(sacct -j 12345 -o State | awk 'FNR == 3 {print $1}')\necho $ST\n",
         mock_ssh_hook,
     )
 

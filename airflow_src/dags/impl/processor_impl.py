@@ -188,7 +188,9 @@ def check_job_status(ti: TaskInstance, **kwargs) -> bool:
     ssh_hook = kwargs[OpArgs.SSH_HOOK]
     job_id = get_xcom(ti, XComKeys.JOB_ID)
 
-    slurm_output_file = f"{CLUSTER_WORKING_DIR}/slurm-{job_id}.out"
+    # the wildcard here is a bit of a hack to avoid retrieving the year_month
+    # subfolder here .. should be no problem if job_ids are unique
+    slurm_output_file = f"{CLUSTER_WORKING_DIR}/*/slurm-{job_id}.out"
     cmd = check_job_status_cmd(job_id, slurm_output_file) + get_job_state_cmd(job_id)
     ssh_return = SSHSensorOperator.ssh_execute(cmd, ssh_hook)
 

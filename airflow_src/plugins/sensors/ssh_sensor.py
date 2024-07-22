@@ -63,11 +63,11 @@ class SSHSensorOperator(BaseSensorOperator, ABC):
             return SSHSensorOperator._get_fake_ssh_response(command)
 
         # Sometimes the SSH command returns an exit status '254' or empty byte string,
-        # so retry until it is 200 and non empty
+        # so retry some time until it is 200 and nonempty
         exit_status = -1
         agg_stdout = b""
         call_count = 0
-        while exit_status != 0 or agg_stdout == b"":
+        while exit_status != 0 or agg_stdout in [b"", b"\n"]:
             if exit_status != -1:
                 sleep(5 * call_count)
             exit_status, agg_stdout, agg_stderr = ssh_hook.exec_ssh_client_command(

@@ -66,7 +66,7 @@ class Concurrency:
     MAX_ACTIVE_COPY_TASKS_PER_DAG = 1
 
     # limit the number of concurrent monitors to not over-stress the network (relevant only during a catchup)
-    MAX_MONITOR_ACQUISITION_TASKS_PER_DAG = 5
+    MAX_MONITOR_ACQUISITION_TASKS_PER_DAG = 10
 
 
 class Pools:

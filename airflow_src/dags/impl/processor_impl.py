@@ -121,18 +121,16 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
     )
     if Path(output_path).exists():
         msg = f"Output path {output_path} already exists."
-        if get_airflow_variable(AirflowVars.ALLOW_OUTPUT_OVERWRITE, "False") != "True":
+        if get_airflow_variable(AirflowVars.ALLOW_OUTPUT_OVERWRITE, "False") == "True":
+            logging.warning(
+                f"{msg} Overwriting it because ALLOW_OUTPUT_OVERWRITE is set."
+            )
+        else:
             raise AirflowFailException(
                 f"{msg} Remove it before restarting the quanting or set ALLOW_OUTPUT_OVERWRITE."
             )
-        logging.warning(f"{msg} Overwriting it because ALLOW_OUTPUT_OVERWRITE is set.")
 
-    raw_file = get_raw_file_by_id(quanting_env[QuantingEnv.RAW_FILE_NAME])
-    year_month_folder = get_created_at_year_month(raw_file)
-
-    command = _create_export_command(quanting_env) + get_run_quanting_cmd(
-        year_month_folder
-    )
+    command = _create_export_command(quanting_env) + get_run_quanting_cmd()
     logging.info(f"Running command: >>>>\n{command}\n<<<< end of command")
 
     ssh_return = SSHSensorOperator.ssh_execute(command, ssh_hook)

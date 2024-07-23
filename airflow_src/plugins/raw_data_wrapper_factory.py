@@ -125,7 +125,7 @@ class RawFileCopyWrapper(ABC):
         self._instrument_path = get_internal_instrument_data_path(instrument_id)
         self._backup_path = get_internal_instrument_backup_path(instrument_id)
 
-        self._acquisition_monitor = RawDataWrapperFactory.create_monitor_wrapper(
+        self._acquisition_monitor = RawFileWrapperFactory.create_monitor_wrapper(
             instrument_id, raw_file.original_name
         )
 
@@ -210,7 +210,7 @@ MONITOR = "monitor"
 COPIER = "copier"
 
 
-class RawDataWrapperFactory:
+class RawFileWrapperFactory:
     """Factory class for creating appropriate handlers based on instrument type."""
 
     _handlers: dict[str, dict[str, type]] = {  # noqa: RUF012

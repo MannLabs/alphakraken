@@ -15,7 +15,7 @@ import pytz
 from airflow.sensors.base import BaseSensorOperator
 from common.keys import DagContext, DagParams
 from file_handling import get_file_size
-from raw_data_wrapper_factory import RawDataWrapperFactory
+from raw_data_wrapper_factory import RawFileWrapperFactory
 
 from shared.db.interface import update_raw_file
 from shared.db.models import RawFileStatus
@@ -37,7 +37,7 @@ class AcquisitionMonitor(BaseSensorOperator):
         self._instrument_id = instrument_id
 
         self._raw_file_name: str | None = None
-        self._raw_data_wrapper: RawDataWrapperFactory | None = None
+        self._raw_data_wrapper: RawFileWrapperFactory | None = None
         self._initial_dir_contents: set | None = None
 
         self._last_poke_timestamp = None
@@ -47,7 +47,7 @@ class AcquisitionMonitor(BaseSensorOperator):
         """_job_id the job id from XCom."""
         self._raw_file_name = context[DagContext.PARAMS][DagParams.RAW_FILE_ID]
 
-        self._raw_data_wrapper = RawDataWrapperFactory.create_monitor_wrapper(
+        self._raw_data_wrapper = RawFileWrapperFactory.create_monitor_wrapper(
             instrument_id=self._instrument_id, raw_file_name=self._raw_file_name
         )
 

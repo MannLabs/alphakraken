@@ -20,7 +20,7 @@ def get_sensor() -> FileCreationSensor:
         )
 
 
-@patch("plugins.sensors.file_sensor.RawDataWrapperFactory")
+@patch("plugins.sensors.file_sensor.RawFileWrapperFactory")
 @patch("plugins.sensors.file_sensor._check_health")
 def test_poke_file_not_created(
     mock_check_health: MagicMock,
@@ -45,7 +45,7 @@ def test_poke_file_not_created(
     mock_check_health.assert_called_once_with("some_instrument_id")
 
 
-@patch("plugins.sensors.file_sensor.RawDataWrapperFactory")
+@patch("plugins.sensors.file_sensor.RawFileWrapperFactory")
 @patch("plugins.sensors.file_sensor._check_health")
 def test_poke_file_created(
     mock_check_health: MagicMock,

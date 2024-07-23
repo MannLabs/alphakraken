@@ -16,7 +16,7 @@ def get_sensor() -> AcquisitionMonitor:
     )
 
 
-@patch("plugins.sensors.acquisition_monitor.RawDataWrapperFactory")
+@patch("plugins.sensors.acquisition_monitor.RawFileWrapperFactory")
 @patch("plugins.sensors.acquisition_monitor.update_raw_file")
 def test_poke_file_dir_contents_change_file_is_added(
     mock_update_raw_file: MagicMock,
@@ -49,7 +49,7 @@ def test_poke_file_dir_contents_change_file_is_added(
     )
 
 
-@patch("plugins.sensors.acquisition_monitor.RawDataWrapperFactory")
+@patch("plugins.sensors.acquisition_monitor.RawFileWrapperFactory")
 @patch("plugins.sensors.acquisition_monitor.update_raw_file")
 def test_poke_file_dir_contents_change_file_is_removed(
     mock_update_raw_file: MagicMock,
@@ -82,7 +82,7 @@ def test_poke_file_dir_contents_change_file_is_removed(
     )
 
 
-@patch("plugins.sensors.acquisition_monitor.RawDataWrapperFactory")
+@patch("plugins.sensors.acquisition_monitor.RawFileWrapperFactory")
 @patch("plugins.sensors.acquisition_monitor.update_raw_file")
 def test_poke_file_dir_contents_change_file_does_not_exist(
     mock_update_raw_file: MagicMock,  # noqa: ARG001
@@ -102,7 +102,7 @@ def test_poke_file_dir_contents_change_file_does_not_exist(
     assert not result
 
 
-@patch("plugins.sensors.acquisition_monitor.RawDataWrapperFactory")
+@patch("plugins.sensors.acquisition_monitor.RawFileWrapperFactory")
 @patch("plugins.sensors.acquisition_monitor.AcquisitionMonitor._get_timestamp")
 @patch("plugins.sensors.acquisition_monitor.update_raw_file")
 def test_poke_file_dir_contents_dont_change_but_file_is_unchanged(
@@ -139,7 +139,7 @@ def test_poke_file_dir_contents_dont_change_but_file_is_unchanged(
     )
 
 
-@patch("plugins.sensors.acquisition_monitor.RawDataWrapperFactory")
+@patch("plugins.sensors.acquisition_monitor.RawFileWrapperFactory")
 @patch("plugins.sensors.acquisition_monitor.update_raw_file")
 def test_post_execute(
     mock_update_raw_file: MagicMock,

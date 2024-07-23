@@ -1,4 +1,4 @@
-"""Tests for the RawDataWrapperFactory class."""
+"""Tests for the RawFileWrapperFactory class."""
 
 from __future__ import annotations
 
@@ -15,8 +15,8 @@ from db.models import RawFile
 from plugins.raw_data_wrapper_factory import (
     BrukerRawFileCopyWrapper,
     BrukerRawFileMonitorWrapper,
-    RawDataWrapperFactory,
     RawFileMonitorWrapper,
+    RawFileWrapperFactory,
     ThermoRawFileCopyWrapper,
     ThermoRawFileMonitorWrapper,
     ZenoRawFileCopyWrapper,
@@ -62,11 +62,11 @@ def test_get_dir_contents_returns_correct_set_of_paths(
     ],
 )
 def test_raw_data_wrapper_instantiation_monitors(
-    instrument_type: str, extension: str, expected_class: type[RawDataWrapperFactory]
+    instrument_type: str, extension: str, expected_class: type[RawFileWrapperFactory]
 ) -> None:
-    """Test that the correct RawDataWrapperFactory subclass is instantiated."""
+    """Test that the correct RawFileWrapperFactory subclass is instantiated."""
     with patch.dict(INSTRUMENTS, {"instrument1": {"type": instrument_type}}):
-        wrapper = RawDataWrapperFactory.create_monitor_wrapper(
+        wrapper = RawFileWrapperFactory.create_monitor_wrapper(
             instrument_id="instrument1", raw_file_name=f"some_file{extension}"
         )
         assert isinstance(wrapper, expected_class)
@@ -80,16 +80,16 @@ def test_raw_data_wrapper_instantiation_monitors(
         (InstrumentTypes.BRUKER, BrukerRawFileCopyWrapper),
     ],
 )
-@patch("plugins.raw_data_wrapper_factory.RawDataWrapperFactory.create_monitor_wrapper")
+@patch("plugins.raw_data_wrapper_factory.RawFileWrapperFactory.create_monitor_wrapper")
 def test_raw_data_wrapper_instantiation_copier(
     mock_create_monitor_wrapper: MagicMock,  # noqa: ARG001
     instrument_type: str,
-    expected_class: type[RawDataWrapperFactory],
+    expected_class: type[RawFileWrapperFactory],
 ) -> None:
-    """Test that the correct RawDataWrapperFactory subclass is instantiated."""
+    """Test that the correct RawFileWrapperFactory subclass is instantiated."""
     mock_raw_file = MagicMock()
     with patch.dict(INSTRUMENTS, {"instrument1": {"type": instrument_type}}):
-        wrapper = RawDataWrapperFactory.create_copy_wrapper(
+        wrapper = RawFileWrapperFactory.create_copy_wrapper(
             instrument_id="instrument1", raw_file=mock_raw_file
         )
         assert isinstance(wrapper, expected_class)
@@ -115,7 +115,7 @@ def test_raw_data_wrapper_unsupported_vendor() -> None:
     ), pytest.raises(
         ValueError, match="Unsupported vendor or handler type: UNSUPPORTED, monitor"
     ):
-        RawDataWrapperFactory.create_monitor_wrapper(
+        RawFileWrapperFactory.create_monitor_wrapper(
             instrument_id="instrument1", raw_file_name="sample.raw"
         )
 
@@ -188,7 +188,7 @@ def test_file_path_to_monitor_acquisition(
     assert wrapper.file_path_to_monitor_acquisition() == expected_watch_path
 
 
-@patch("plugins.raw_data_wrapper_factory.RawDataWrapperFactory.create_monitor_wrapper")
+@patch("plugins.raw_data_wrapper_factory.RawFileWrapperFactory.create_monitor_wrapper")
 def test_thermo_get_files_to_copy(
     mock_create_monitor_wrapper: MagicMock,
     mock_instrument_paths: MagicMock,  # noqa: ARG001
@@ -211,7 +211,7 @@ def test_thermo_get_files_to_copy(
     mock_create_monitor_wrapper.assert_called_once_with("instrument1", "sample.raw")
 
 
-@patch("plugins.raw_data_wrapper_factory.RawDataWrapperFactory.create_monitor_wrapper")
+@patch("plugins.raw_data_wrapper_factory.RawFileWrapperFactory.create_monitor_wrapper")
 @patch("plugins.raw_data_wrapper_factory.get_internal_instrument_data_path")
 def test_zeno_get_files_to_copy(
     mock_instrument_path: MagicMock,
@@ -245,7 +245,7 @@ def test_zeno_get_files_to_copy(
     mock_create_monitor_wrapper.assert_called_once_with("instrument1", "sample.wiff")
 
 
-@patch("plugins.raw_data_wrapper_factory.RawDataWrapperFactory.create_monitor_wrapper")
+@patch("plugins.raw_data_wrapper_factory.RawFileWrapperFactory.create_monitor_wrapper")
 @patch("plugins.raw_data_wrapper_factory.get_internal_instrument_data_path")
 def test_bruker_get_files_to_copy(
     mock_instrument_path: MagicMock, mock_create_monitor_wrapper: MagicMock

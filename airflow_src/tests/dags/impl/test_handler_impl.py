@@ -13,7 +13,7 @@ from db.models import RawFileStatus
 
 @patch("dags.impl.handler_impl.get_raw_file_by_id")
 @patch("dags.impl.handler_impl.copy_file")
-@patch("dags.impl.handler_impl.RawDataWrapperFactory")
+@patch("dags.impl.handler_impl.RawFileWrapperFactory")
 @patch("dags.impl.handler_impl.get_file_size")
 @patch("dags.impl.handler_impl.update_raw_file")
 def test_copy_raw_file_calls_update_with_correct_args(

@@ -55,7 +55,7 @@ def test_add_raw_file_to_db(
     )
 
 
-@patch("dags.impl.watcher_impl.RawDataWrapperFactory")
+@patch("dags.impl.watcher_impl.RawFileWrapperFactory")
 @patch("dags.impl.watcher_impl.get_raw_files_by_names_from_db")
 @patch("dags.impl.watcher_impl._is_collision")
 @patch("dags.impl.watcher_impl._sort_by_creation_date")
@@ -165,7 +165,7 @@ def test_sort_by_creation_date_multiple_files(
     assert result == ["file3", "file1", "file2"]
 
 
-@patch("dags.impl.watcher_impl.RawDataWrapperFactory")
+@patch("dags.impl.watcher_impl.RawFileWrapperFactory")
 @patch("dags.impl.watcher_impl.get_raw_files_by_names_from_db")
 @patch("dags.impl.watcher_impl._sort_by_creation_date")
 @patch("dags.impl.watcher_impl.put_xcom")
@@ -199,7 +199,7 @@ def test_get_unknown_raw_files_with_no_existing_files_in_db(
     )
 
 
-@patch("dags.impl.watcher_impl.RawDataWrapperFactory")
+@patch("dags.impl.watcher_impl.RawFileWrapperFactory")
 @patch("dags.impl.watcher_impl.get_raw_files_by_names_from_db")
 @patch("dags.impl.watcher_impl.put_xcom")
 def test_get_unknown_raw_files_with_empty_directory(

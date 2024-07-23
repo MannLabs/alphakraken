@@ -10,7 +10,7 @@ from common.settings import (
     get_internal_backup_path,
     get_internal_instrument_data_path,
 )
-from raw_data_wrapper_factory import RawDataWrapperFactory
+from raw_data_wrapper_factory import RawFileWrapperFactory
 
 from shared.db.interface import update_kraken_status
 from shared.db.models import KrakenStatusValues
@@ -47,7 +47,7 @@ class FileCreationSensor(BaseSensorOperator):
 
         self._instrument_id = instrument_id
 
-        self._raw_data_wrapper = RawDataWrapperFactory.create_monitor_wrapper(
+        self._raw_data_wrapper = RawFileWrapperFactory.create_monitor_wrapper(
             instrument_id=instrument_id
         )
 

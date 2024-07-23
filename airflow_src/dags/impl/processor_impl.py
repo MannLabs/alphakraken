@@ -52,10 +52,10 @@ def _get_project_id_or_fallback(project_id: str | None, instrument_id: str) -> s
 
 def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
     """Prepare the environmental variables for the quanting job."""
-    raw_file_name = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID]
+    raw_file_id = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID]
     instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
 
-    raw_file = get_raw_file_by_id(raw_file_name)
+    raw_file = get_raw_file_by_id(raw_file_id)
 
     io_pool_folder = get_env_variable(EnvVars.IO_POOL_FOLDER)
     year_month_subfolder = get_created_at_year_month(raw_file)
@@ -81,7 +81,7 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
     io_pool_folder = get_env_variable(EnvVars.IO_POOL_FOLDER)
 
     quanting_env = {
-        QuantingEnv.RAW_FILE_NAME: raw_file_name,
+        QuantingEnv.RAW_FILE_ID: raw_file_id,
         QuantingEnv.INPUT_DATA_REL_PATH: str(input_data_rel_path),
         QuantingEnv.OUTPUT_FOLDER_REL_PATH: str(output_folder_rel_path),
         QuantingEnv.SPECLIB_FILE_NAME: speclib_file_name,
@@ -94,7 +94,7 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
 
     put_xcom(ti, XComKeys.QUANTING_ENV, quanting_env)
     # this is redundant to the entry in QUANTING_ENV, but makes downstream access a bit more convenient
-    put_xcom(ti, XComKeys.RAW_FILE_NAME, raw_file_name)
+    put_xcom(ti, XComKeys.RAW_FILE_NAME, raw_file_id)
 
 
 def _create_export_command(mapping: dict[str, str]) -> str:
@@ -115,7 +115,7 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
         logging.warning(f"Job already started with {job_id}, skipping.")
         return
 
-    raw_file = get_raw_file_by_id(quanting_env[QuantingEnv.RAW_FILE_NAME])
+    raw_file = get_raw_file_by_id(quanting_env[QuantingEnv.RAW_FILE_ID])
 
     # upfront check 2
     output_path = get_internal_output_path(
@@ -146,7 +146,7 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
         raise AirflowFailException from e
 
     update_raw_file(
-        quanting_env[QuantingEnv.RAW_FILE_NAME], new_status=RawFileStatus.QUANTING
+        quanting_env[QuantingEnv.RAW_FILE_ID], new_status=RawFileStatus.QUANTING
     )
 
     put_xcom(ti, XComKeys.JOB_ID, job_id)
@@ -208,7 +208,7 @@ def check_job_status(ti: TaskInstance, **kwargs) -> bool:
     if job_status == JobStates.FAILED:
         quanting_env = get_xcom(ti, XComKeys.QUANTING_ENV)
         project_id = quanting_env[QuantingEnv.PROJECT_ID]
-        raw_file = get_raw_file_by_id(quanting_env[QuantingEnv.RAW_FILE_NAME])
+        raw_file = get_raw_file_by_id(quanting_env[QuantingEnv.RAW_FILE_ID])
 
         if len(business_errors := get_business_errors(raw_file, project_id)):
             update_raw_file(
@@ -237,7 +237,7 @@ def compute_metrics(ti: TaskInstance, **kwargs) -> None:
 
     quanting_env = get_xcom(ti, XComKeys.QUANTING_ENV)
 
-    raw_file = get_raw_file_by_id(quanting_env[QuantingEnv.RAW_FILE_NAME])
+    raw_file = get_raw_file_by_id(quanting_env[QuantingEnv.RAW_FILE_ID])
 
     output_path = get_internal_output_path(
         raw_file, quanting_env[QuantingEnv.PROJECT_ID]

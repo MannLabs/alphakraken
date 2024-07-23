@@ -109,7 +109,7 @@ def test_prepare_quanting(
     mock_get_settings.assert_called_once_with("some_project_id")
 
     expected_quanting_env = {
-        "RAW_FILE_NAME": "test_file.raw",
+        "RAW_FILE_ID": "test_file.raw",
         "INPUT_DATA_REL_PATH": "some_io_pool_folder/backup/instrument1/1970_01",
         "OUTPUT_FOLDER_REL_PATH": "output/some_project_id/out_test_file.raw",
         "SPECLIB_FILE_NAME": "4_some_speclib_file_name",
@@ -146,7 +146,7 @@ def test_run_quanting_executes_ssh_command_and_stores_job_id(
     # given
     mock_get_xcom.side_effect = [
         {
-            QuantingEnv.RAW_FILE_NAME: "test_file.raw",
+            QuantingEnv.RAW_FILE_ID: "test_file.raw",
             QuantingEnv.PROJECT_ID: "PID123",
             # rest of quanting_env is left out here for brevity
         },
@@ -170,7 +170,7 @@ def test_run_quanting_executes_ssh_command_and_stores_job_id(
 
     # then
     expected_export_command = (
-        "export RAW_FILE_NAME=test_file.raw\n" "export PROJECT_ID=PID123\n"
+        "export RAW_FILE_ID=test_file.raw\n" "export PROJECT_ID=PID123\n"
         # rest of quanting_env is left out here for brevity
     )
 
@@ -199,7 +199,7 @@ def test_run_quanting_job_id_exists(
     # given
     mock_get_xcom.side_effect = [
         {
-            QuantingEnv.RAW_FILE_NAME: "test_file.raw",
+            QuantingEnv.RAW_FILE_ID: "test_file.raw",
             QuantingEnv.PROJECT_ID: "PID123",
             # rest of quanting_env is left out here for brevity
         },
@@ -233,7 +233,7 @@ def test_run_quanting_output_folder_exists(
     # given
     mock_get_xcom.side_effect = [
         {
-            QuantingEnv.RAW_FILE_NAME: "test_file.raw",
+            QuantingEnv.RAW_FILE_ID: "test_file.raw",
             QuantingEnv.PROJECT_ID: "PID123",
             # rest of quanting_env is left out here for brevity
         },
@@ -269,7 +269,7 @@ def test_run_quanting_executes_ssh_command_error_wrong_job_id(
     # given
     mock_get_xcom.side_effect = [
         {
-            QuantingEnv.RAW_FILE_NAME: "test_file.raw",
+            QuantingEnv.RAW_FILE_ID: "test_file.raw",
             QuantingEnv.PROJECT_ID: "PID123",
         },
         -1,
@@ -350,7 +350,7 @@ def test_check_job_status_business_error(
     mock_get_xcom.side_effect = [
         "12345",
         {
-            QuantingEnv.RAW_FILE_NAME: "test_file.raw",
+            QuantingEnv.RAW_FILE_ID: "test_file.raw",
             QuantingEnv.PROJECT_ID: "PID1",
         },
     ]
@@ -394,7 +394,7 @@ def test_check_job_status_non_business_error(
     mock_get_xcom.side_effect = [
         "12345",
         {
-            QuantingEnv.RAW_FILE_NAME: "test_file.raw",
+            QuantingEnv.RAW_FILE_ID: "test_file.raw",
             QuantingEnv.PROJECT_ID: "PID1",
         },
     ]
@@ -476,7 +476,7 @@ def test_compute_metrics(
     """Test that compute_metrics makes the expected calls."""
     mock_ti = MagicMock()
     mock_get_xcom.return_value = {
-        "RAW_FILE_NAME": "test_file.raw",
+        "RAW_FILE_ID": "test_file.raw",
         "PROJECT_ID": "P1",
     }
     mock_raw_file = MagicMock(

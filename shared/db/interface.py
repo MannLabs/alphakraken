@@ -76,18 +76,18 @@ def add_new_raw_file_to_db(  # noqa: PLR0913 too many arguments
 
 
 def update_raw_file(
-    raw_file_name: str,
+    raw_file_id: str,
     *,
     new_status: str,
     status_details: str | None = None,
     size: float | None = None,
 ) -> None:
-    """Set `status` and `size` of DB entity of `raw_file_name` to `new_status`."""
+    """Set `status` and `size` of DB entity of raw file with `raw_file_id` to `new_status`."""
     logging.info(
-        f"Updating DB: {raw_file_name=} to {new_status=} with {status_details=} and {size=}"
+        f"Updating DB: {raw_file_id=} to {new_status=} with {status_details=} and {size=}"
     )
     connect_db()
-    raw_file = RawFile.objects.with_id(raw_file_name)
+    raw_file = RawFile.objects.with_id(raw_file_id)
     logging.info(f"Old DB state: {raw_file.status=} {raw_file.status_details=}")
 
     # prevent overwriting the size with None if it is not given

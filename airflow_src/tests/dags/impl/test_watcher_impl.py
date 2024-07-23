@@ -56,7 +56,7 @@ def test_add_raw_file_to_db(
 
 
 @patch("dags.impl.watcher_impl.RawDataWrapper")
-@patch("dags.impl.watcher_impl.get_raw_file_names_from_db")
+@patch("dags.impl.watcher_impl.get_raw_files_by_names_from_db")
 @patch("dags.impl.watcher_impl._is_collision")
 @patch("dags.impl.watcher_impl._sort_by_creation_date")
 @patch("dags.impl.watcher_impl.put_xcom")
@@ -166,7 +166,7 @@ def test_sort_by_creation_date_multiple_files(
 
 
 @patch("dags.impl.watcher_impl.RawDataWrapper")
-@patch("dags.impl.watcher_impl.get_raw_file_names_from_db")
+@patch("dags.impl.watcher_impl.get_raw_files_by_names_from_db")
 @patch("dags.impl.watcher_impl._sort_by_creation_date")
 @patch("dags.impl.watcher_impl.put_xcom")
 def test_get_unknown_raw_files_with_no_existing_files_in_db(
@@ -200,7 +200,7 @@ def test_get_unknown_raw_files_with_no_existing_files_in_db(
 
 
 @patch("dags.impl.watcher_impl.RawDataWrapper")
-@patch("dags.impl.watcher_impl.get_raw_file_names_from_db")
+@patch("dags.impl.watcher_impl.get_raw_files_by_names_from_db")
 @patch("dags.impl.watcher_impl.put_xcom")
 def test_get_unknown_raw_files_with_empty_directory(
     mock_put_xcom: MagicMock,

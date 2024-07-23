@@ -20,8 +20,7 @@ from shared.db.models import (
 )
 
 
-# TODO: rename: get_raw_files_by_names_from_db
-def get_raw_file_names_from_db(raw_file_names: list[str]) -> list[RawFile]:
+def get_raw_files_by_names_from_db(raw_file_names: list[str]) -> list[RawFile]:
     """Get raw files from the database with the given original names."""
     logging.info(f"Getting from DB: {raw_file_names=}")
     connect_db()

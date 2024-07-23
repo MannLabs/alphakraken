@@ -17,7 +17,7 @@ from raw_data_wrapper import RawDataWrapper
 from shared.db.interface import (
     add_new_raw_file_to_db,
     get_all_project_ids,
-    get_raw_file_names_from_db,
+    get_raw_files_by_names_from_db,
 )
 from shared.db.models import RawFileStatus
 
@@ -88,7 +88,7 @@ def get_unknown_raw_files(ti: TaskInstance, **kwargs) -> None:
     )
 
     raw_files_sizes_from_db: dict[str, list[int]] = defaultdict(list)
-    for raw_file in get_raw_file_names_from_db(list(raw_file_names)):
+    for raw_file in get_raw_files_by_names_from_db(list(raw_file_names)):
         # due to collisions, there could be more than one raw file with the same name
         raw_files_sizes_from_db[raw_file.original_name].append(raw_file.size)
     logging.info(f"got {raw_files_sizes_from_db=}")

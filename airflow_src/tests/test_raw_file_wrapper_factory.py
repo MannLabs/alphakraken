@@ -46,11 +46,11 @@ def test_get_dir_contents_returns_correct_set_of_paths(
 
     mock_get_instrument_data_path.return_value.glob.return_value = list(returned_paths)
 
-    raw_file_wrapper_factory = TestableRawFileMonitorWrapper(
+    raw_file_monitor_wrapper = TestableRawFileMonitorWrapper(
         instrument_id="instrument1"
     )
 
-    assert raw_file_wrapper_factory.get_raw_files_on_instrument() == file_names
+    assert raw_file_monitor_wrapper.get_raw_files_on_instrument() == file_names
 
 
 @pytest.mark.parametrize(

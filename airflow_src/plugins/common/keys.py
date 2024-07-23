@@ -14,13 +14,13 @@ class Dags:
 class Tasks:
     """Task Names."""
 
-    WAIT_FOR_FILE_CREATION: str = "wait_for_file_creation"
+    WAIT_FOR_RAW_FILE_CREATION: str = "wait_for_raw_file_creation"
     GET_UNKNOWN_RAW_FILES: str = "get_unknown_raw_files"
     DECIDE_HANDLING: str = "decide_handling"
     START_ACQUISITION_HANDLER: str = "start_acquisition_handler"
 
     MONITOR_ACQUISITION: str = "monitor_acquisition"
-    COPY_RAW_DATA: str = "copy_raw_data"
+    COPY_RAW_FILE: str = "copy_raw_file"
     START_ACQUISITION_PROCESSOR: str = "start_acquisition_processor"
 
     PREPARE_QUANTING: str = "prepare_quanting"

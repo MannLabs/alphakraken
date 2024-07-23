@@ -51,8 +51,8 @@ def create_instrument_watcher_dag(instrument_id: str) -> None:
     ) as dag:
         dag.doc_md = __doc__
 
-        wait_for_file_creation_ = FileCreationSensor(
-            task_id=Tasks.WAIT_FOR_FILE_CREATION,
+        wait_for_raw_file_creation_ = FileCreationSensor(
+            task_id=Tasks.WAIT_FOR_RAW_FILE_CREATION,
             instrument_id=instrument_id,
             poke_interval=Timings.FILE_SENSOR_POKE_INTERVAL_S,
         )
@@ -79,7 +79,7 @@ def create_instrument_watcher_dag(instrument_id: str) -> None:
         )
 
     (
-        wait_for_file_creation_
+        wait_for_raw_file_creation_
         >> get_unknown_raw_files_
         >> decide_raw_file_handling_
         >> start_acquisition_handler_

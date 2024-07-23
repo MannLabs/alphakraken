@@ -123,7 +123,7 @@ def test_prepare_quanting(
     mock_put_xcom.assert_has_calls(
         [
             call(ti, "quanting_env", expected_quanting_env),
-            call(ti, "raw_file_name", "test_file.raw"),
+            call(ti, "raw_file_id", "test_file.raw"),
         ]
     )
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")

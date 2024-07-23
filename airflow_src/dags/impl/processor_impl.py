@@ -94,7 +94,7 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
 
     put_xcom(ti, XComKeys.QUANTING_ENV, quanting_env)
     # this is redundant to the entry in QUANTING_ENV, but makes downstream access a bit more convenient
-    put_xcom(ti, XComKeys.RAW_FILE_NAME, raw_file_id)
+    put_xcom(ti, XComKeys.RAW_FILE_ID, raw_file_id)
 
 
 def _create_export_command(mapping: dict[str, str]) -> str:
@@ -251,11 +251,11 @@ def upload_metrics(ti: TaskInstance, **kwargs) -> None:
     """Upload the metrics to the database."""
     del kwargs
 
-    raw_file_name = get_xcom(ti, XComKeys.RAW_FILE_NAME)
+    raw_file_id = get_xcom(ti, XComKeys.RAW_FILE_ID)
     metrics = get_xcom(ti, XComKeys.METRICS)
 
     metrics["quanting_time_elapsed"] = get_xcom(ti, XComKeys.QUANTING_TIME_ELAPSED)
 
-    add_metrics_to_raw_file(raw_file_name, metrics)
+    add_metrics_to_raw_file(raw_file_id, metrics)
 
-    update_raw_file(raw_file_name, new_status=RawFileStatus.DONE)
+    update_raw_file(raw_file_id, new_status=RawFileStatus.DONE)

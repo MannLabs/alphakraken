@@ -278,9 +278,6 @@ def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
             else RawFileStatus.IGNORED
         )
 
-        # putting the file name to xcom to be able to access it in callback for error reporting
-        put_xcom(ti, XComKeys.RAW_FILE_NAME, raw_file_name)
-
         # Here mongoengine.errors.NotUniqueError is raised when the file is already in the DB.
         # This could happen if this task is restarted in the middle of processing.
         # The NotUniqueError is deliberately raised here: the task will fail, but in the next DAG run, the
@@ -296,10 +293,7 @@ def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
         if file_needs_handling:
             trigger_dag_run(
                 dag_id_to_trigger,
-                {
-                    # TODO: rename raw_file_name (with flag) -> raw_file_id
-                    DagParams.RAW_FILE_ID: raw_file_id
-                },
+                {DagParams.RAW_FILE_ID: raw_file_id},
             )
         else:
             logging.info(

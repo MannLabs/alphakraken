@@ -55,9 +55,9 @@ class DagParams:
 class XComKeys:
     """Keys for accessing XCom."""
 
-    RAW_FILE_NAME: str = "raw_file_name"
+    RAW_FILE_ID: str = "raw_file_id"
     RAW_FILE_NAMES: str = "raw_file_names"
-    RAW_FILE_PROJECT_IDS: str = "raw_file_project_ids"
+    RAW_FILE_PROJECT_IDS: str = "raw_file_project_ids"  # TODO: raw_file_names_...
 
     QUANTING_ENV: str = "quanting_env"
 

@@ -101,11 +101,11 @@ def update_raw_file(
     )
 
 
-def add_metrics_to_raw_file(raw_file_name: str, metrics: dict) -> None:
-    """Add `metrics` to DB entry of `raw_file_name`."""
-    logging.info(f"Adding to DB: {raw_file_name=} <- {metrics=}")
+def add_metrics_to_raw_file(raw_file_id: str, metrics: dict) -> None:
+    """Add `metrics` to DB entry of `raw_file_id`."""
+    logging.info(f"Adding to DB: {raw_file_id=} <- {metrics=}")
     connect_db()
-    raw_file = RawFile.objects.get(name=raw_file_name)
+    raw_file = RawFile.objects.get(name=raw_file_id)
     Metrics(raw_file=raw_file, **metrics).save()
 
 

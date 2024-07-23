@@ -46,7 +46,7 @@ def test_add_new_raw_file_to_db_creates_new_file_when_file_does_not_exist_with_c
 
     # then
     mock_raw_file.assert_called_once_with(
-        name=f"{collision_string}test_file.raw",
+        id=f"{collision_string}test_file.raw",
         original_name="test_file.raw",
         collision_flag=collision_flag,
         project_id="PID1",
@@ -165,7 +165,7 @@ def test_add_metrics_to_raw_file_happy_path(
     # then
     mock_metrics.return_value.save.assert_called_once()
     mock_connect_db.assert_called_once()
-    mock_raw_file.objects.get.assert_called_once_with(name="test_file")
+    mock_raw_file.objects.get.assert_called_once_with(id="test_file")
     mock_metrics.assert_called_once_with(
         raw_file=mock_raw_file_from_db, metric1=1, metric2=2
     )

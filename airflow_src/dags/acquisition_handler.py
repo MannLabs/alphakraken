@@ -4,11 +4,13 @@ from __future__ import annotations
 
 from datetime import timedelta
 
+from airflow.models import Param
 from airflow.models.dag import DAG
 from airflow.operators.python import PythonOperator
 from callbacks import on_failure_callback
 from common.keys import (
     DAG_DELIMITER,
+    DagParams,
     Dags,
     OpArgs,
     Tasks,
@@ -46,6 +48,7 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
         description="Watch acquisition, handle raw files and trigger follow-up DAGs on demand.",
         catchup=False,
         tags=["acquisition_handler", instrument_id],
+        params={DagParams.RAW_FILE_ID: Param(type="string", minimum=3)},
     ) as dag:
         dag.doc_md = __doc__
 

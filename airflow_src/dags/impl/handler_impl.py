@@ -28,7 +28,7 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
         copy_file(src_path, dst_path)
 
     # TODO: add also hash to DB
-    file_size = get_file_size(raw_data_wrapper.file_path_to_watch())
+    file_size = get_file_size(raw_data_wrapper.file_path_to_monitor_acquisition())
     update_raw_file(raw_file_id, new_status=RawFileStatus.COPYING_DONE, size=file_size)
 
 

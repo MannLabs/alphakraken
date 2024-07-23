@@ -103,19 +103,18 @@ class RawDataWrapper(ABC):
         return self._instrument_path
 
     @abstractmethod
-    def _file_path_to_watch(self) -> Path:
+    def _file_path_to_monitor_acquisition(self) -> Path:
         """Get the path to the file to watch for changes."""
 
     @abstractmethod
     def _get_files_to_copy(self) -> dict[Path, Path]:
         """Get a dictionary mapping source file to destination paths (both absolute)."""
 
-    # TODO: file_path_to_watch_acquisition
-    def file_path_to_watch(self) -> Path:
+    def file_path_to_monitor_acquisition(self) -> Path:
         """Get the path to the file to watch for changes."""
-        file_path_to_watch = self._file_path_to_watch()
-        logging.info(f"{file_path_to_watch=}")
-        return file_path_to_watch
+        file_path_to_monitor_acquisition = self._file_path_to_monitor_acquisition()
+        logging.info(f"{file_path_to_monitor_acquisition=}")
+        return file_path_to_monitor_acquisition
 
     def get_files_to_copy(self) -> dict[Path, Path]:
         """Get a dictionary mapping source file to destination paths (both absolute)."""
@@ -148,7 +147,7 @@ class ThermoRawDataWrapper(RawDataWrapper):
 
     _main_file_extension = ".raw"
 
-    def _file_path_to_watch(self) -> Path:
+    def _file_path_to_monitor_acquisition(self) -> Path:
         """Get the (absolute) path to the raw file."""
         return self._instrument_path / self._raw_file_original_name
 
@@ -167,7 +166,7 @@ class ZenoRawDataWrapper(RawDataWrapper):
 
     _main_file_extension = ".wiff"
 
-    def _file_path_to_watch(self) -> Path:
+    def _file_path_to_monitor_acquisition(self) -> Path:
         """Get the (absolute) path to the raw file."""
         return self._instrument_path / self._raw_file_original_name
 
@@ -194,7 +193,7 @@ class BrukerRawDataWrapper(RawDataWrapper):
     _main_file_extension = ".d"
     _file_name_to_watch = "analysis.tdf_bin"
 
-    def _file_path_to_watch(self) -> Path:
+    def _file_path_to_monitor_acquisition(self) -> Path:
         """Get the (absolute) path to the main raw data file."""
         return (
             self._instrument_path

@@ -73,7 +73,7 @@ def test_get_unknown_raw_files_with_existing_files_in_db(
         "file2.raw",
         "file3.raw",
     }
-    mock_raw_data_wrapper.create.return_value.file_path_to_watch.side_effect = [
+    mock_raw_data_wrapper.create.return_value.file_path_to_monitor_acquisition.side_effect = [
         Path("/path/to/file1.raw"),
         Path("/path/to/file2.raw"),
     ]

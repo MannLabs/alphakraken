@@ -25,7 +25,7 @@ class TestableRawDataWrapper(RawDataWrapper):
 
     main_file_extension = "test_ext"
 
-    def _file_path_to_watch(self) -> Path:
+    def _file_path_to_monitor_acquisition(self) -> Path:
         """Dummy implementation."""
 
     def _get_files_to_copy(self) -> dict[Path, Path]:
@@ -135,15 +135,15 @@ def test_get_raw_files_on_instrument(mock_instrument_path: MagicMock) -> None:
         ),
     ],
 )
-def test_file_path_to_watch(
+def test_file_path_to_monitor_acquisition(
     wrapper_class: type[RawDataWrapper],
     raw_file_name: str,
     expected_watch_path: Path,
     mock_instrument_paths: MagicMock,  # noqa: ARG001
 ) -> None:
-    """Test that file_path_to_watch returns the correct path for each wrapper type."""
+    """Test that file_path_to_monitor_acquisition returns the correct path for each wrapper type."""
     wrapper = wrapper_class("instrument1", raw_file_name=raw_file_name)
-    assert wrapper.file_path_to_watch() == expected_watch_path
+    assert wrapper.file_path_to_monitor_acquisition() == expected_watch_path
 
 
 def test_thermo_get_files_to_copy(

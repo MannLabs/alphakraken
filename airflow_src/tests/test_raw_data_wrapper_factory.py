@@ -15,12 +15,12 @@ from db.models import RawFile
 from plugins.raw_data_wrapper_factory import (
     AcquisitionMonitor,
     BrukerAcquisitionMonitor,
-    BrukerFileCopier,
+    BrukerRawFileCopier,
     RawDataWrapperFactory,
     ThermoAcquisitionMonitor,
-    ThermoFileCopier,
+    ThermoRawFileCopier,
     ZenoAcquisitionMonitor,
-    ZenoFileCopier,
+    ZenoRawFileCopier,
 )
 
 
@@ -73,9 +73,9 @@ def test_raw_data_wrapper_instantiation_monitors(
 @pytest.mark.parametrize(
     ("instrument_type", "expected_class"),
     [
-        (InstrumentTypes.THERMO, ThermoFileCopier),
-        (InstrumentTypes.ZENO, ZenoFileCopier),
-        (InstrumentTypes.BRUKER, BrukerFileCopier),
+        (InstrumentTypes.THERMO, ThermoRawFileCopier),
+        (InstrumentTypes.ZENO, ZenoRawFileCopier),
+        (InstrumentTypes.BRUKER, BrukerRawFileCopier),
     ],
 )
 @patch("plugins.raw_data_wrapper_factory.RawDataWrapperFactory.create_monitor")
@@ -199,7 +199,7 @@ def test_thermo_get_files_to_copy(
         original_name="sample.raw",
     )
 
-    wrapper = ThermoFileCopier("instrument1", raw_file=mock_raw_file)
+    wrapper = ThermoRawFileCopier("instrument1", raw_file=mock_raw_file)
     expected_mapping = {
         Path("/path/to/instrument/sample.raw"): Path(
             "/path/to/backup/1970_01/123---sample.raw"
@@ -228,7 +228,7 @@ def test_zeno_get_files_to_copy(
         original_name="sample.wiff",
     )
 
-    wrapper = ZenoFileCopier("instrument1", raw_file=mock_raw_file)
+    wrapper = ZenoRawFileCopier("instrument1", raw_file=mock_raw_file)
     expected_mapping = {
         Path("/path/to/instrument/sample.wiff"): Path(
             "/opt/airflow/mounts/backup/instrument1/1970_01/123---sample.wiff"
@@ -268,7 +268,7 @@ def test_bruker_get_files_to_copy(
         original_name="sample.d",
     )
 
-    wrapper = BrukerFileCopier("instrument1", raw_file=mock_raw_file)
+    wrapper = BrukerRawFileCopier("instrument1", raw_file=mock_raw_file)
     expected_mapping = {
         mp1: Path(
             "/opt/airflow/mounts/backup/instrument1/1970_01/123---sample.d/file1.txt"

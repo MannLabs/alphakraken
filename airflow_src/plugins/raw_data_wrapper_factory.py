@@ -110,11 +110,11 @@ class BrukerAcquisitionMonitor(AcquisitionMonitor):
         return self._instrument_path / self._raw_file_name / self._file_name_to_watch
 
 
-class FileCopier(ABC):
+class RawFileCopier(ABC):
     """Abstract base class for copying raw data files."""
 
     def __init__(self, instrument_id: str, raw_file: RawFile):
-        """Initialize the FileCopier.
+        """Initialize the RawFileCopier.
 
         :param instrument_id: the ID of the instrument
         :param raw_file: a raw file object
@@ -144,7 +144,7 @@ class FileCopier(ABC):
         )
 
 
-class ThermoFileCopier(FileCopier):
+class ThermoRawFileCopier(RawFileCopier):
     """Class wrapping Thermo-specific logic."""
 
     def get_files_to_copy(self) -> dict[Path, Path]:
@@ -158,7 +158,7 @@ class ThermoFileCopier(FileCopier):
         return files_to_copy
 
 
-class ZenoFileCopier(FileCopier):
+class ZenoRawFileCopier(RawFileCopier):
     """Class wrapping Zeno-specific logic."""
 
     def get_files_to_copy(self) -> dict[Path, Path]:
@@ -179,7 +179,7 @@ class ZenoFileCopier(FileCopier):
         return files_to_copy
 
 
-class BrukerFileCopier(FileCopier):
+class BrukerRawFileCopier(RawFileCopier):
     """Class wrapping Bruker-specific logic."""
 
     def get_files_to_copy(self) -> dict[Path, Path]:
@@ -216,22 +216,22 @@ class RawDataWrapperFactory:
     _handlers: dict[str, dict[str, type]] = {  # noqa: RUF012
         InstrumentTypes.THERMO: {
             MONITOR: ThermoAcquisitionMonitor,
-            COPIER: ThermoFileCopier,
+            COPIER: ThermoRawFileCopier,
         },
         InstrumentTypes.ZENO: {
             MONITOR: ZenoAcquisitionMonitor,
-            COPIER: ZenoFileCopier,
+            COPIER: ZenoRawFileCopier,
         },
         InstrumentTypes.BRUKER: {
             MONITOR: BrukerAcquisitionMonitor,
-            COPIER: BrukerFileCopier,
+            COPIER: BrukerRawFileCopier,
         },
     }
 
     @classmethod
     def _create_handler(
         cls, handler_type: str, instrument_id: str, *args
-    ) -> Union["AcquisitionMonitor", "FileCopier"]:
+    ) -> Union["AcquisitionMonitor", "RawFileCopier"]:
         """Create a handler of the specified type for the given instrument.
 
         :param handler_type: The type of handler to create ('lister', 'monitor', or 'copier')
@@ -262,21 +262,10 @@ class RawDataWrapperFactory:
         return cls._create_handler(MONITOR, instrument_id, raw_file_name)
 
     @classmethod
-    def create_copier(cls, instrument_id: str, raw_file: RawFile) -> FileCopier:
-        """Create a FileCopier for the specified instrument and raw file.
+    def create_copier(cls, instrument_id: str, raw_file: RawFile) -> RawFileCopier:
+        """Create a RawFileCopier for the specified instrument and raw file.
 
         :param instrument_id: The ID of the instrument
         :param raw_file: a raw file object
         """
         return cls._create_handler(COPIER, instrument_id, raw_file)
-
-
-# Usage example:
-# lister = RawDataWrapperFactory.create_lister(instrument_id)
-# files = lister.get_raw_files_on_instrument()
-
-# monitor = RawDataWrapperFactory.create_monitor(instrument_id, raw_file_name)
-# file_to_watch = monitor.file_path_to_monitor_acquisition()
-
-# copier = RawDataWrapperFactory.create_copier(instrument_id, raw_file)
-# files_to_copy = copier.get_files_to_copy()

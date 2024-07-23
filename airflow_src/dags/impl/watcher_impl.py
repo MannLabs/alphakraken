@@ -12,7 +12,7 @@ from common.settings import COLLISION_FLAG_SEP
 from common.utils import get_airflow_variable, get_xcom, put_xcom, trigger_dag_run
 from file_handling import get_file_creation_timestamp, get_file_size
 from impl.project_id_handler import get_unique_project_id
-from raw_data_wrapper import RawDataWrapper
+from raw_data_wrapper_factory import RawDataWrapperFactory
 
 from shared.db.interface import (
     add_new_raw_file_to_db,
@@ -80,7 +80,9 @@ def get_unknown_raw_files(ti: TaskInstance, **kwargs) -> None:
     instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
 
     raw_file_names = sorted(
-        RawDataWrapper.create(instrument_id=instrument_id).get_raw_files_on_instrument()
+        RawDataWrapperFactory.create_monitor(
+            instrument_id=instrument_id
+        ).get_raw_files_on_instrument()
     )
 
     logging.info(
@@ -101,7 +103,7 @@ def get_unknown_raw_files(ti: TaskInstance, **kwargs) -> None:
             logging.info(
                 f"File in DB: {raw_file_name}, checking for potential collision.."
             )
-            file_path_to_monitor_acquisition = RawDataWrapper.create(
+            file_path_to_monitor_acquisition = RawDataWrapperFactory.create_monitor(
                 instrument_id=instrument_id, raw_file_name=raw_file_name
             ).file_path_to_monitor_acquisition()
             is_collision = _is_collision(

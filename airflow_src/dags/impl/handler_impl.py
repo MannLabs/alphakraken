@@ -4,7 +4,7 @@ from airflow.models import TaskInstance
 from common.keys import DagContext, DagParams, Dags, OpArgs
 from common.utils import trigger_dag_run
 from file_handling import copy_file, get_file_size
-from raw_data_wrapper import RawDataWrapper
+from raw_data_wrapper_factory import RawDataWrapperFactory
 
 from shared.db.interface import get_raw_file_by_id, update_raw_file
 from shared.db.models import RawFileStatus
@@ -20,7 +20,7 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
 
     update_raw_file(raw_file_id, new_status=RawFileStatus.COPYING)
 
-    raw_data_wrapper = RawDataWrapper.create(
+    raw_data_wrapper = RawDataWrapperFactory.create_copier(
         instrument_id=instrument_id, raw_file=raw_file
     )
 
@@ -28,7 +28,7 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
         copy_file(src_path, dst_path)
 
     # TODO: add also hash to DB
-    file_size = get_file_size(raw_data_wrapper.file_path_to_monitor_acquisition())
+    file_size = get_file_size(raw_data_wrapper.file_path_to_calculate_size())
     update_raw_file(raw_file_id, new_status=RawFileStatus.COPYING_DONE, size=file_size)
 
 

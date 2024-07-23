@@ -23,7 +23,7 @@ from shared.db.models import RawFileStatus
 
 
 def _add_raw_file_to_db(
-    raw_file_name_ok: str,
+    raw_file_name: str,
     *,
     is_collision: bool,
     project_id: str,
@@ -32,7 +32,7 @@ def _add_raw_file_to_db(
 ) -> str:
     """Add the file to the database with initial status and basic information.
 
-    :param raw_file_name_ok: name of the raw file
+    :param raw_file_name: name of the raw file
     :param is_collision: wheter or not there is a collision between raw file names
     :param project_id: project id
     :param instrument_id: instrument id
@@ -40,12 +40,12 @@ def _add_raw_file_to_db(
     :return: the raw file id
     """
     raw_file_creation_timestamp = get_file_creation_timestamp(
-        raw_file_name_ok, instrument_id
+        raw_file_name, instrument_id
     )
     logging.info(f"Got  {raw_file_creation_timestamp}")
 
     return add_new_raw_file_to_db(
-        raw_file_name_ok,
+        raw_file_name,
         collision_flag=_get_collision_flag() if is_collision else None,
         project_id=project_id,
         instrument_id=instrument_id,

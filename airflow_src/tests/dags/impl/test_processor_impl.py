@@ -11,7 +11,7 @@ from airflow.exceptions import AirflowFailException
 from common.settings import INSTRUMENTS
 from dags.impl.processor_impl import (
     _get_project_id_or_fallback,
-    check_job_status,
+    check_quanting_result,
     compute_metrics,
     get_business_errors,
     prepare_quanting,
@@ -290,10 +290,10 @@ def test_run_quanting_executes_ssh_command_error_wrong_job_id(
 @patch("dags.impl.processor_impl.get_xcom")
 @patch("dags.impl.processor_impl.SSHSensorOperator.ssh_execute")
 @patch("dags.impl.processor_impl.put_xcom")
-def test_check_job_status_happy_path(
+def test_check_quanting_result_happy_path(
     mock_put_xcom: MagicMock, mock_ssh_execute: MagicMock, mock_get_xcom: MagicMock
 ) -> None:
-    """Test that check_job_status makes the expected calls."""
+    """Test that check_quanting_result makes the expected calls."""
     mock_ti = MagicMock()
     mock_get_xcom.return_value = "12345"
     mock_ssh_execute.return_value = (
@@ -303,7 +303,7 @@ def test_check_job_status_happy_path(
     mock_ssh_hook = MagicMock()
 
     # when
-    continue_downstream_tasks = check_job_status(
+    continue_downstream_tasks = check_quanting_result(
         mock_ti, **{OpArgs.SSH_HOOK: mock_ssh_hook}
     )
 
@@ -319,10 +319,10 @@ def test_check_job_status_happy_path(
 
 @patch("dags.impl.processor_impl.get_xcom")
 @patch("dags.impl.processor_impl.SSHSensorOperator.ssh_execute")
-def test_check_job_status_unknown_job_status(
+def test_check_quanting_result_unknown_job_status(
     mock_ssh_execute: MagicMock, mock_get_xcom: MagicMock
 ) -> None:
-    """Test that check_job_status raises on unknown quanting job status."""
+    """Test that check_quanting_result raises on unknown quanting job status."""
     mock_ti = MagicMock()
     mock_get_xcom.return_value = "12345"
     mock_ssh_execute.return_value = "00:08:42\nsome\nother\nlines\nSOME_JOB_STATE"
@@ -331,7 +331,7 @@ def test_check_job_status_unknown_job_status(
 
     # when
     with pytest.raises(AirflowFailException):
-        check_job_status(mock_ti, **{OpArgs.SSH_HOOK: mock_ssh_hook})
+        check_quanting_result(mock_ti, **{OpArgs.SSH_HOOK: mock_ssh_hook})
 
 
 @patch("dags.impl.processor_impl.get_xcom")
@@ -339,14 +339,14 @@ def test_check_job_status_unknown_job_status(
 @patch("dags.impl.processor_impl.SSHSensorOperator.ssh_execute")
 @patch("dags.impl.processor_impl.get_business_errors")
 @patch("dags.impl.processor_impl.update_raw_file")
-def test_check_job_status_business_error(
+def test_check_quanting_result_business_error(
     mock_update_raw_file: MagicMock,
     mock_get_business_errors: MagicMock,
     mock_ssh_execute: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
     mock_get_xcom: MagicMock,
 ) -> None:
-    """Test that check_job_status behaves correctly on business errors."""
+    """Test that check_quanting_result behaves correctly on business errors."""
     mock_ti = MagicMock()
     mock_get_xcom.side_effect = [
         "12345",
@@ -363,7 +363,7 @@ def test_check_job_status_business_error(
     mock_ssh_hook = MagicMock()
 
     # when
-    continue_downstream_tasks = check_job_status(
+    continue_downstream_tasks = check_quanting_result(
         mock_ti, **{OpArgs.SSH_HOOK: mock_ssh_hook}
     )
     assert not continue_downstream_tasks
@@ -382,14 +382,14 @@ def test_check_job_status_business_error(
 @patch("dags.impl.processor_impl.SSHSensorOperator.ssh_execute")
 @patch("dags.impl.processor_impl.get_business_errors")
 @patch("dags.impl.processor_impl.update_raw_file")
-def test_check_job_status_non_business_error(
+def test_check_quanting_result_non_business_error(
     mock_update_raw_file: MagicMock,
     mock_get_business_errors: MagicMock,
     mock_ssh_execute: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
     mock_get_xcom: MagicMock,
 ) -> None:
-    """Test that check_job_status behaves correctly on non-business errors."""
+    """Test that check_quanting_result behaves correctly on non-business errors."""
     mock_ti = MagicMock()
     mock_get_xcom.side_effect = [
         "12345",
@@ -405,7 +405,7 @@ def test_check_job_status_non_business_error(
 
     # when
     with pytest.raises(AirflowFailException):
-        check_job_status(mock_ti, **{OpArgs.SSH_HOOK: mock_ssh_hook})
+        check_quanting_result(mock_ti, **{OpArgs.SSH_HOOK: mock_ssh_hook})
 
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
     mock_get_business_errors.assert_called_once_with(

@@ -24,7 +24,7 @@ echo ${{JID##* }}
 """
 
 
-def check_job_status_cmd(job_id: str, slurm_output_file: str) -> str:
+def check_quanting_result_cmd(job_id: str, slurm_output_file: str) -> str:
     """Get the job info for a given job id.
 
     To reduce the number of ssh calls, we combine multiple commands into one

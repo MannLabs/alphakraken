@@ -114,7 +114,7 @@ def _display_table_and_plots(df: pd.DataFrame) -> None:
               - `NOT_DIA_DATA`: the file is not DIA data.
             - `error`: an unknown error happened during processing, check the "status_details" column for more information
                 and report it to the developers if unsure.
-                - `[check_job_status Quanting failed: job_status='TIMEOUT'`: the quanting job took too long and was stopped.
+                - `[check_quanting_result Quanting failed: job_status='TIMEOUT'`: the quanting job took too long and was stopped.
 
             All other states are transient and should be self-explanatory. If you feel a file stays in a certain status
             for too long, please report it to the developers.

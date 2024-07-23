@@ -26,7 +26,7 @@ class Tasks:
     PREPARE_QUANTING: str = "prepare_quanting"
     RUN_QUANTING: str = "run_quanting"
     MONITOR_QUANTING: str = "monitor_quanting"
-    CHECK_JOB_STATUS: str = "check_job_status"
+    CHECK_QUANTING_RESULT: str = "check_quanting_result"
     COMPUTE_METRICS: str = "compute_metrics"
     UPLOAD_METRICS: str = "upload_metrics"
 

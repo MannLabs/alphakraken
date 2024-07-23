@@ -56,8 +56,8 @@ class XComKeys:
     """Keys for accessing XCom."""
 
     RAW_FILE_ID: str = "raw_file_id"
-    RAW_FILE_NAMES: str = "raw_file_names"
-    RAW_FILE_PROJECT_IDS: str = "raw_file_project_ids"  # TODO: raw_file_names_...
+    RAW_FILE_NAMES_TO_PROCESS: str = "raw_file_names_to_process"
+    RAW_FILE_NAMES_WITH_DECISIONS: str = "raw_file_names_with_decisions"
 
     QUANTING_ENV: str = "quanting_env"
 

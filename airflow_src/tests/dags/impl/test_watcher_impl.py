@@ -91,7 +91,7 @@ def test_get_unknown_raw_files_with_existing_files_in_db(
     get_unknown_raw_files(ti, **{OpArgs.INSTRUMENT_ID: SOME_INSTRUMENT_ID})
 
     mock_put_xcom.assert_called_once_with(
-        ti, XComKeys.RAW_FILE_NAMES, {"file3.raw": False, "file2.raw": True}
+        ti, XComKeys.RAW_FILE_NAMES_TO_PROCESS, {"file3.raw": False, "file2.raw": True}
     )
     mock_sort.assert_called_once_with(["file2.raw", "file3.raw"], "some_instrument_id")
     mock_is_collision.assert_has_calls(
@@ -191,7 +191,7 @@ def test_get_unknown_raw_files_with_no_existing_files_in_db(
 
     mock_put_xcom.assert_called_once_with(
         ti,
-        XComKeys.RAW_FILE_NAMES,
+        XComKeys.RAW_FILE_NAMES_TO_PROCESS,
         {"file3.raw": False, "file2.raw": False, "file1.raw": False},
     )
     mock_sort.assert_called_once_with(
@@ -215,7 +215,7 @@ def test_get_unknown_raw_files_with_empty_directory(
     get_unknown_raw_files(ti, **{OpArgs.INSTRUMENT_ID: SOME_INSTRUMENT_ID})
 
     mock_get_unknown_raw_files_from_db.assert_called_once_with([])
-    mock_put_xcom.assert_called_once_with(ti, XComKeys.RAW_FILE_NAMES, {})
+    mock_put_xcom.assert_called_once_with(ti, XComKeys.RAW_FILE_NAMES_TO_PROCESS, {})
 
 
 @patch("dags.impl.watcher_impl.get_all_project_ids")
@@ -240,14 +240,14 @@ def test_decide_raw_file_handling(
     # when
     decide_raw_file_handling(mock_ti, instrument_id="instrument1")
 
-    mock_get_xcom.assert_called_once_with(mock_ti, "raw_file_names")
+    mock_get_xcom.assert_called_once_with(mock_ti, "raw_file_names_to_process")
     mock_get_project_ids.assert_called_once()
     mock_get_unique.assert_any_call("file1", ["project1", "project2"])
     mock_get_unique.assert_any_call("file2", ["project1", "project2"])
     mock_get_unique.assert_any_call("file3", ["project1", "project2"])
     mock_put.assert_called_once_with(
         mock_ti,
-        "raw_file_project_ids",
+        "raw_file_names_with_decisions",
         {
             "file1": (None, True, ""),
             "file2": ("project1", True, ""),

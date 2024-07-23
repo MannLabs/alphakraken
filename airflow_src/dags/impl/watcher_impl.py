@@ -126,7 +126,7 @@ def get_unknown_raw_files(ti: TaskInstance, **kwargs) -> None:
         r: raw_file_names_to_process[r] for r in raw_file_names_sorted
     }
 
-    put_xcom(ti, XComKeys.RAW_FILE_NAMES, raw_files_to_process_sorted)
+    put_xcom(ti, XComKeys.RAW_FILE_NAMES_TO_PROCESS, raw_files_to_process_sorted)
 
 
 def _is_collision(file_path_to_watch: Path, sizes: list[int]) -> bool:
@@ -171,16 +171,16 @@ def _sort_by_creation_date(raw_file_names: list[str], instrument_id: str) -> lis
 def decide_raw_file_handling(ti: TaskInstance, **kwargs) -> None:
     """Decide for each raw file whether an acquisition handler should be triggered or not."""
     instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
-    raw_files_to_process = get_xcom(ti, XComKeys.RAW_FILE_NAMES)
+    raw_file_names_to_process = get_xcom(ti, XComKeys.RAW_FILE_NAMES_TO_PROCESS)
 
     logging.info(
-        f"{len(raw_files_to_process)} raw files to be checked on project id: {raw_files_to_process}"
+        f"{len(raw_file_names_to_process)} raw files to be checked on project id: {raw_file_names_to_process}"
     )
 
     all_project_ids = get_all_project_ids()
 
-    raw_file_project_ids: dict[str, tuple[str, bool, str | None]] = {}
-    for raw_file_name, is_collision in raw_files_to_process.items():
+    raw_file_names_with_decisions: dict[str, tuple[str, bool, str | None]] = {}
+    for raw_file_name, is_collision in raw_file_names_to_process.items():
         project_id = get_unique_project_id(raw_file_name, all_project_ids)
 
         if project_id is None:
@@ -194,7 +194,7 @@ def decide_raw_file_handling(ti: TaskInstance, **kwargs) -> None:
             instrument_id,
         )
 
-        raw_file_project_ids[raw_file_name] = (
+        raw_file_names_with_decisions[raw_file_name] = (
             project_id,
             file_needs_handling,
             is_collision,
@@ -202,9 +202,9 @@ def decide_raw_file_handling(ti: TaskInstance, **kwargs) -> None:
 
         # here we could add more logic to decide whether to handle the file or not, e.g. a global blacklist
 
-    logging.info(f"Got {len(raw_file_project_ids)} raw files to handle.")
+    logging.info(f"Got {len(raw_file_names_with_decisions)} raw files to handle.")
 
-    put_xcom(ti, XComKeys.RAW_FILE_PROJECT_IDS, raw_file_project_ids)
+    put_xcom(ti, XComKeys.RAW_FILE_NAMES_WITH_DECISIONS, raw_file_names_with_decisions)
 
 
 def _file_meets_age_criterion(
@@ -261,8 +261,8 @@ def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
     Only for raw files that carry a project id, the acquisition_handler DAG is triggered.
     """
     instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
-    raw_file_project_ids = get_xcom(ti, XComKeys.RAW_FILE_PROJECT_IDS)
-    logging.info(f"Got {len(raw_file_project_ids)} raw files to handle.")
+    raw_file_names_with_decisions = get_xcom(ti, XComKeys.RAW_FILE_NAMES_WITH_DECISIONS)
+    logging.info(f"Got {len(raw_file_names_with_decisions)} raw files to handle.")
 
     dag_id_to_trigger = f"{Dags.ACQUISITION_HANDLER}.{instrument_id}"
 
@@ -271,7 +271,7 @@ def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
         project_id,
         file_needs_handling,
         is_collision,
-    ) in raw_file_project_ids.items():
+    ) in raw_file_names_with_decisions.items():
         status = (
             RawFileStatus.QUEUED_FOR_MONITORING
             if file_needs_handling

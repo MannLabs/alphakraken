@@ -49,7 +49,7 @@ class RawFile(Document):
     # Unique prefix to indicate a collision. If None, no collision occurred.
     collision_flag = StringField(max_length=32, default=None)
 
-    # Original name of the file. In case of collisions, this is not unique
+    # Original name of the file. In case of collisions, this is not unique. Otherwise, equal to `id`.
     original_name = StringField(max_length=128, required=True)
 
     status = StringField(max_length=32)

@@ -40,10 +40,12 @@ echo CONFIG_FILE_PATH=${CONFIG_FILE_PATH}
 
 echo INPUT INFORMATION ">>>>>>"
 if [ -d "$RAW_FILE_PATH" ]; then
+  # RAW_FILE_PATH is a directory
   du -s ${RAW_FILE_PATH}/*
-  md5sum ${RAW_FILE_PATH}/*
+  find ${RAW_FILE_PATH} -type f -exec md5sum {} +
   stat ${RAW_FILE_PATH}/*
 else
+  # RAW_FILE_PATH is a file
   du -s ${RAW_FILE_PATH}
   md5sum ${RAW_FILE_PATH}
   stat ${RAW_FILE_PATH}

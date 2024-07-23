@@ -15,7 +15,7 @@ import pytz
 from airflow.sensors.base import BaseSensorOperator
 from common.keys import DagContext, DagParams
 from file_handling import get_file_size
-from raw_data_wrapper_factory import RawFileWrapperFactory
+from raw_file_wrapper_factory import RawFileWrapperFactory
 
 from shared.db.interface import update_raw_file
 from shared.db.models import RawFileStatus

@@ -12,7 +12,7 @@ import pytz
 from common.keys import InstrumentTypes
 from common.settings import INSTRUMENTS
 from db.models import RawFile
-from plugins.raw_data_wrapper_factory import (
+from plugins.raw_file_wrapper_factory import (
     BrukerRawFileCopyWrapper,
     BrukerRawFileMonitorWrapper,
     RawFileMonitorWrapper,
@@ -36,7 +36,7 @@ class TestableRawFileMonitorWrapper(RawFileMonitorWrapper):
         """Dummy implementation."""
 
 
-@patch("plugins.raw_data_wrapper_factory.get_internal_instrument_data_path")
+@patch("plugins.raw_file_wrapper_factory.get_internal_instrument_data_path")
 def test_get_dir_contents_returns_correct_set_of_paths(
     mock_get_instrument_data_path: MagicMock,
 ) -> None:
@@ -46,11 +46,11 @@ def test_get_dir_contents_returns_correct_set_of_paths(
 
     mock_get_instrument_data_path.return_value.glob.return_value = list(returned_paths)
 
-    raw_data_wrapper_factory = TestableRawFileMonitorWrapper(
+    raw_file_wrapper_factory = TestableRawFileMonitorWrapper(
         instrument_id="instrument1"
     )
 
-    assert raw_data_wrapper_factory.get_raw_files_on_instrument() == file_names
+    assert raw_file_wrapper_factory.get_raw_files_on_instrument() == file_names
 
 
 @pytest.mark.parametrize(
@@ -80,7 +80,7 @@ def test_raw_data_wrapper_instantiation_monitors(
         (InstrumentTypes.BRUKER, BrukerRawFileCopyWrapper),
     ],
 )
-@patch("plugins.raw_data_wrapper_factory.RawFileWrapperFactory.create_monitor_wrapper")
+@patch("plugins.raw_file_wrapper_factory.RawFileWrapperFactory.create_monitor_wrapper")
 def test_raw_data_wrapper_instantiation_copier(
     mock_create_monitor_wrapper: MagicMock,  # noqa: ARG001
     instrument_type: str,
@@ -99,9 +99,9 @@ def test_raw_data_wrapper_instantiation_copier(
 def mock_instrument_paths() -> Generator[Path, None, None]:
     """Mock the instrument data and backup paths."""
     with patch(
-        "plugins.raw_data_wrapper_factory.get_internal_instrument_data_path"
+        "plugins.raw_file_wrapper_factory.get_internal_instrument_data_path"
     ) as mock_data_path, patch(
-        "plugins.raw_data_wrapper_factory.get_internal_instrument_backup_path"
+        "plugins.raw_file_wrapper_factory.get_internal_instrument_backup_path"
     ) as mock_backup_path:
         mock_data_path.return_value = Path("/path/to/instrument")
         mock_backup_path.return_value = Path("/path/to/backup")
@@ -146,7 +146,7 @@ def test_raw_data_wrapper_invalid_file_extension() -> None:
         ThermoRawFileMonitorWrapper("instrument1", raw_file_name="sample.txt")
 
 
-@patch("plugins.raw_data_wrapper_factory.get_internal_instrument_data_path")
+@patch("plugins.raw_file_wrapper_factory.get_internal_instrument_data_path")
 def test_get_raw_files_on_instrument(mock_instrument_path: MagicMock) -> None:
     """Test that get_raw_files_on_instrument returns the correct set of file names."""
     file_names = {"file1.raw", "file2.raw"}
@@ -188,7 +188,7 @@ def test_file_path_to_monitor_acquisition(
     assert wrapper.file_path_to_monitor_acquisition() == expected_watch_path
 
 
-@patch("plugins.raw_data_wrapper_factory.RawFileWrapperFactory.create_monitor_wrapper")
+@patch("plugins.raw_file_wrapper_factory.RawFileWrapperFactory.create_monitor_wrapper")
 def test_thermo_get_files_to_copy(
     mock_create_monitor_wrapper: MagicMock,
     mock_instrument_paths: MagicMock,  # noqa: ARG001
@@ -211,8 +211,8 @@ def test_thermo_get_files_to_copy(
     mock_create_monitor_wrapper.assert_called_once_with("instrument1", "sample.raw")
 
 
-@patch("plugins.raw_data_wrapper_factory.RawFileWrapperFactory.create_monitor_wrapper")
-@patch("plugins.raw_data_wrapper_factory.get_internal_instrument_data_path")
+@patch("plugins.raw_file_wrapper_factory.RawFileWrapperFactory.create_monitor_wrapper")
+@patch("plugins.raw_file_wrapper_factory.get_internal_instrument_data_path")
 def test_zeno_get_files_to_copy(
     mock_instrument_path: MagicMock,
     mock_create_monitor_wrapper: MagicMock,
@@ -245,8 +245,8 @@ def test_zeno_get_files_to_copy(
     mock_create_monitor_wrapper.assert_called_once_with("instrument1", "sample.wiff")
 
 
-@patch("plugins.raw_data_wrapper_factory.RawFileWrapperFactory.create_monitor_wrapper")
-@patch("plugins.raw_data_wrapper_factory.get_internal_instrument_data_path")
+@patch("plugins.raw_file_wrapper_factory.RawFileWrapperFactory.create_monitor_wrapper")
+@patch("plugins.raw_file_wrapper_factory.get_internal_instrument_data_path")
 def test_bruker_get_files_to_copy(
     mock_instrument_path: MagicMock, mock_create_monitor_wrapper: MagicMock
 ) -> None:

@@ -4,7 +4,7 @@ from airflow.models import TaskInstance
 from common.keys import DagContext, DagParams, Dags, OpArgs
 from common.utils import trigger_dag_run
 from file_handling import copy_file, get_file_size
-from raw_data_wrapper_factory import RawFileWrapperFactory
+from raw_file_wrapper_factory import RawFileWrapperFactory
 
 from shared.db.interface import get_raw_file_by_id, update_raw_file
 from shared.db.models import RawFileStatus

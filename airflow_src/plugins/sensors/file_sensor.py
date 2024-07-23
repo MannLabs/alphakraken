@@ -10,7 +10,7 @@ from common.settings import (
     get_internal_backup_path,
     get_internal_instrument_data_path,
 )
-from raw_data_wrapper_factory import RawFileWrapperFactory
+from raw_file_wrapper_factory import RawFileWrapperFactory
 
 from shared.db.interface import update_kraken_status
 from shared.db.models import KrakenStatusValues

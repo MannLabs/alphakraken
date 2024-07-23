@@ -12,7 +12,7 @@ from common.settings import COLLISION_FLAG_SEP
 from common.utils import get_airflow_variable, get_xcom, put_xcom, trigger_dag_run
 from file_handling import get_file_creation_timestamp, get_file_size
 from impl.project_id_handler import get_unique_project_id
-from raw_data_wrapper_factory import RawFileWrapperFactory
+from raw_file_wrapper_factory import RawFileWrapperFactory
 
 from shared.db.interface import (
     add_new_raw_file_to_db,

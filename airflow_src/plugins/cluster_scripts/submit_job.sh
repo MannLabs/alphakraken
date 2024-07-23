@@ -17,7 +17,7 @@ set -u -e
 # FASTA_FILE_NAME # e.g. 2024_01_12_human.fasta
 # CONFIG_FILE_NAME #e .g."config.yaml"
 # SOFTWARE # e.g. alphadia-1.6.2
-# PROJECT_ID # e.g. A123
+# PROJECT_ID_OR_FALLBACK # e.g. A123
 # IO_POOL_FOLDER # e.g. "pool-projects/alphakraken_sandbox
 
 POOL_FS="/fs/pool/"  # probably okay to hardcode this
@@ -25,7 +25,7 @@ POOL_PROJECTS="${POOL_FS}/${IO_POOL_FOLDER}"
 
 # these are determined by convention:
 CONDA_ENV=$SOFTWARE
-SETTINGS_PATH="${POOL_PROJECTS}/settings/${PROJECT_ID}"
+SETTINGS_PATH="${POOL_PROJECTS}/settings/${PROJECT_ID_OR_FALLBACK}"
 OUTPUT_PATH="${POOL_PROJECTS}/${OUTPUT_FOLDER_REL_PATH}"
 INPUT_DATA_PATH="${POOL_FS}/${INPUT_DATA_REL_PATH}"
 RAW_FILE_PATH="${INPUT_DATA_PATH}/${RAW_FILE_ID}"

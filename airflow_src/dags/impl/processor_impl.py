@@ -66,10 +66,14 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
         / year_month_subfolder
     )
 
-    project_id = _get_project_id_or_fallback(raw_file.project_id, instrument_id)
+    project_id_or_fallback = _get_project_id_or_fallback(
+        raw_file.project_id, instrument_id
+    )
 
-    output_folder_rel_path = get_output_folder_rel_path(raw_file, project_id)
-    settings = get_settings_for_project(project_id)
+    output_folder_rel_path = get_output_folder_rel_path(
+        raw_file, project_id_or_fallback
+    )
+    settings = get_settings_for_project(project_id_or_fallback)
 
     # TODO: remove random speclib file hack
     # this is so hacky it makes my head hurt:
@@ -88,7 +92,7 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
         QuantingEnv.FASTA_FILE_NAME: settings.fasta_file_name,
         QuantingEnv.CONFIG_FILE_NAME: settings.config_file_name,
         QuantingEnv.SOFTWARE: settings.software,
-        QuantingEnv.PROJECT_ID: project_id,  # TODO: OR_FALLBACK
+        QuantingEnv.PROJECT_ID_OR_FALLBACK: project_id_or_fallback,
         QuantingEnv.IO_POOL_FOLDER: io_pool_folder,
     }
 
@@ -120,7 +124,7 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
     # upfront check 2
     output_path = get_internal_output_path(
         raw_file,
-        project_id_or_fallback=quanting_env[QuantingEnv.PROJECT_ID],
+        project_id_or_fallback=quanting_env[QuantingEnv.PROJECT_ID_OR_FALLBACK],
     )
     if Path(output_path).exists():
         msg = f"Output path {output_path} already exists."
@@ -207,7 +211,7 @@ def check_job_status(ti: TaskInstance, **kwargs) -> bool:
 
     if job_status == JobStates.FAILED:
         quanting_env = get_xcom(ti, XComKeys.QUANTING_ENV)
-        project_id = quanting_env[QuantingEnv.PROJECT_ID]
+        project_id = quanting_env[QuantingEnv.PROJECT_ID_OR_FALLBACK]
         raw_file = get_raw_file_by_id(quanting_env[QuantingEnv.RAW_FILE_ID])
 
         if len(business_errors := get_business_errors(raw_file, project_id)):
@@ -240,7 +244,7 @@ def compute_metrics(ti: TaskInstance, **kwargs) -> None:
     raw_file = get_raw_file_by_id(quanting_env[QuantingEnv.RAW_FILE_ID])
 
     output_path = get_internal_output_path(
-        raw_file, quanting_env[QuantingEnv.PROJECT_ID]
+        raw_file, quanting_env[QuantingEnv.PROJECT_ID_OR_FALLBACK]
     )
     metrics = calc_metrics(output_path)
 

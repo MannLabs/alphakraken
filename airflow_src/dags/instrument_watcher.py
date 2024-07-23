@@ -54,7 +54,7 @@ def create_instrument_watcher_dag(instrument_id: str) -> None:
         wait_for_file_creation_ = FileCreationSensor(
             task_id=Tasks.WAIT_FOR_FILE_CREATION,
             instrument_id=instrument_id,
-            poke_interval=Timings.FILE_CREATION_POKE_INTERVAL_S,
+            poke_interval=Timings.FILE_SENSOR_POKE_INTERVAL_S,
         )
 
         get_unknown_raw_files_ = PythonOperator(

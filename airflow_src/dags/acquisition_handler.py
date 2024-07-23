@@ -53,7 +53,7 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
             task_id=Tasks.MONITOR_ACQUISITION,
             instrument_id=instrument_id,
             poke_interval=Timings.ACQUISITION_MONITOR_POKE_INTERVAL_S,
-            max_active_tis_per_dag=Concurrency.MAX_MONITOR_ACQUISITION_TASKS_PER_DAG,
+            max_active_tis_per_dag=Concurrency.MAXNO_MONITOR_ACQUISITION_TASKS_PER_DAG,
             execution_timeout=timedelta(minutes=Timings.ACQUISITION_MONITOR_TIMEOUT_M),
         )
 
@@ -61,8 +61,8 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
             task_id=Tasks.COPY_RAW_DATA,
             python_callable=copy_raw_data,
             op_kwargs={OpArgs.INSTRUMENT_ID: instrument_id},
-            max_active_tis_per_dag=Concurrency.MAX_ACTIVE_COPY_TASKS_PER_DAG,
-            execution_timeout=timedelta(minutes=Timings.FILE_COPY_TIMEOUT_M),
+            max_active_tis_per_dag=Concurrency.MAXNO_COPY_RAW_DATA_TASKS_PER_DAG,
+            execution_timeout=timedelta(minutes=Timings.RAW_DATA_COPY_TASK_TIMEOUT_M),
             pool=Pools.FILE_COPY_POOL,
         )
 

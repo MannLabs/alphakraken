@@ -78,10 +78,10 @@ def test_prepare_quanting(
 
     mock_raw_file = MagicMock(
         wraps=RawFile,
+        id="test_file.raw",
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
         project_id="some_project_id",
     )
-    mock_raw_file.name = "test_file.raw"
     mock_get_raw_file_by_id.return_value = mock_raw_file
 
     mock_get_project_id_for_raw_file.return_value = "some_project_id"
@@ -354,8 +354,7 @@ def test_check_job_status_business_error(
             QuantingEnv.PROJECT_ID: "PID1",
         },
     ]
-    mock_raw_file = MagicMock(wraps=RawFile)
-    mock_raw_file.name = "test_file.raw"
+    mock_raw_file = MagicMock(wraps=RawFile, id="test_file.raw")
     mock_get_raw_file_by_id.return_value = mock_raw_file
     mock_ssh_execute.return_value = "00:08:42\nsome\nother\nlines\nFAILED"
     mock_get_business_errors.return_value = ["error1", "error2"]
@@ -481,9 +480,9 @@ def test_compute_metrics(
     }
     mock_raw_file = MagicMock(
         wraps=RawFile,
+        id="test_file.raw",
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
     )
-    mock_raw_file.name = "test_file.raw"
     mock_get_raw_file_by_id.return_value = mock_raw_file
 
     mock_calc_metrics.return_value = {"metric1": "value1"}

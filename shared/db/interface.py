@@ -31,7 +31,7 @@ def get_raw_file_by_id(raw_file_id: str) -> RawFile:
     """Get raw file from the database with the given id."""
     logging.info(f"Getting from DB: {raw_file_id=}")
     connect_db()
-    return RawFile.objects(name=raw_file_id).first()
+    return RawFile.objects(id=raw_file_id).first()
 
 
 def add_new_raw_file_to_db(  # noqa: PLR0913 too many arguments
@@ -47,21 +47,21 @@ def add_new_raw_file_to_db(  # noqa: PLR0913 too many arguments
 
     :param file_name: name of the file
     :param collision_flag: optional flag to indicate a collision
-    :param project_id: project id
+    :param project_id: project id_
     :param status: status of the file
-    :param instrument_id: id of the acquiring instrument
+    :param instrument_id: id_ of the acquiring instrument
     :param creation_ts: creation timestamp (unix)
-    :return: the raw file id. This is either equal to the raw_file_name or has a collision flag prefixed
+    :return: the raw file id_. This is either equal to the raw_file_name or has a collision flag prefixed
     """
     logging.info(
         f"Adding to DB: {file_name=} {collision_flag=} {project_id=} {status=} {instrument_id=} {creation_ts=}"
     )
     connect_db()
 
-    name = file_name if collision_flag is None else f"{collision_flag}{file_name}"
+    id_ = file_name if collision_flag is None else f"{collision_flag}{file_name}"
 
     raw_file = RawFile(
-        name=name,
+        id=id_,
         collision_flag=collision_flag,
         original_name=file_name,
         project_id=project_id,
@@ -72,7 +72,7 @@ def add_new_raw_file_to_db(  # noqa: PLR0913 too many arguments
     # this will fail if the file already exists
     raw_file.save(force_insert=True)
 
-    return name
+    return id_
 
 
 def update_raw_file(
@@ -105,7 +105,7 @@ def add_metrics_to_raw_file(raw_file_id: str, metrics: dict) -> None:
     """Add `metrics` to DB entry of `raw_file_id`."""
     logging.info(f"Adding to DB: {raw_file_id=} <- {metrics=}")
     connect_db()
-    raw_file = RawFile.objects.get(name=raw_file_id)
+    raw_file = RawFile.objects.get(id=raw_file_id)
     Metrics(raw_file=raw_file, **metrics).save()
 
 

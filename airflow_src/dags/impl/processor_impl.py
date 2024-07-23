@@ -171,7 +171,7 @@ def get_business_errors(raw_file: RawFile, project_id: str) -> list[str]:
     output_path = get_internal_output_path(raw_file, project_id)
 
     events_jsonl_path = (
-        output_path / ".progress" / Path(raw_file.name).stem / "events.jsonl"
+        output_path / ".progress" / Path(raw_file.id).stem / "events.jsonl"
     )
 
     error_codes = []
@@ -212,7 +212,7 @@ def check_job_status(ti: TaskInstance, **kwargs) -> bool:
 
         if len(business_errors := get_business_errors(raw_file, project_id)):
             update_raw_file(
-                raw_file.name,
+                raw_file.id,
                 new_status=RawFileStatus.QUANTING_FAILED,
                 status_details=";".join(business_errors),
             )

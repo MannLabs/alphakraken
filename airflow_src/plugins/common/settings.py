@@ -124,7 +124,7 @@ def get_output_folder_rel_path(raw_file: RawFile, project_id_or_fallback: str) -
         Path(InternalPaths.OUTPUT)
         / project_id_or_fallback
         / optional_sub_folder
-        / f"{OUTPUT_FOLDER_PREFIX}{raw_file.name}"
+        / f"{OUTPUT_FOLDER_PREFIX}{raw_file.id}"
     )
 
 

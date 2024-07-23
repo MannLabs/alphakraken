@@ -24,11 +24,11 @@ def get_sensor() -> FileCreationSensor:
 @patch("plugins.sensors.file_sensor._check_health")
 def test_poke_file_not_created(
     mock_check_health: MagicMock,
-    mock_raw_data_wrapper: MagicMock,
+    mock_raw_file_wrapper_factory: MagicMock,
 ) -> None:
     """Test poke method when file is not created."""
     # given
-    mock_raw_data_wrapper.create_monitor_wrapper.return_value.get_raw_files_on_instrument.side_effect = [
+    mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.get_raw_files_on_instrument.side_effect = [
         {"some_file.raw", "some_file2.raw"},  # initial content (pre_execute)
         {"some_file.raw", "some_file2.raw"},  # first poke
     ]
@@ -49,11 +49,11 @@ def test_poke_file_not_created(
 @patch("plugins.sensors.file_sensor._check_health")
 def test_poke_file_created(
     mock_check_health: MagicMock,
-    mock_raw_data_wrapper: MagicMock,
+    mock_raw_file_wrapper_factory: MagicMock,
 ) -> None:
     """Test poke method when file is created."""
     # given
-    mock_raw_data_wrapper.create_monitor_wrapper.return_value.get_raw_files_on_instrument.side_effect = [
+    mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.get_raw_files_on_instrument.side_effect = [
         {"some_file.raw"},  # initial content (pre_execute)
         {"some_file.raw", "some_file2.raw"},  # first poke
     ]

@@ -20,15 +20,15 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
 
     update_raw_file(raw_file_id, new_status=RawFileStatus.COPYING)
 
-    raw_data_wrapper = RawFileWrapperFactory.create_copy_wrapper(
+    raw_file_wrapper_factory = RawFileWrapperFactory.create_copy_wrapper(
         instrument_id=instrument_id, raw_file=raw_file
     )
 
-    for src_path, dst_path in raw_data_wrapper.get_files_to_copy().items():
+    for src_path, dst_path in raw_file_wrapper_factory.get_files_to_copy().items():
         copy_file(src_path, dst_path)
 
     # TODO: add also hash to DB
-    file_size = get_file_size(raw_data_wrapper.file_path_to_calculate_size())
+    file_size = get_file_size(raw_file_wrapper_factory.file_path_to_calculate_size())
     update_raw_file(raw_file_id, new_status=RawFileStatus.COPYING_DONE, size=file_size)
 
 

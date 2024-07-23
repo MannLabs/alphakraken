@@ -47,7 +47,7 @@ class FileCreationSensor(BaseSensorOperator):
 
         self._instrument_id = instrument_id
 
-        self._raw_data_wrapper = RawFileWrapperFactory.create_monitor_wrapper(
+        self._raw_file_wrapper_factory = RawFileWrapperFactory.create_monitor_wrapper(
             instrument_id=instrument_id
         )
 
@@ -58,7 +58,7 @@ class FileCreationSensor(BaseSensorOperator):
         del context  # unused
 
         self._initial_dir_contents = (
-            self._raw_data_wrapper.get_raw_files_on_instrument()
+            self._raw_file_wrapper_factory.get_raw_files_on_instrument()
         )
 
     def poke(self, context: dict[str, any]) -> bool:
@@ -66,13 +66,14 @@ class FileCreationSensor(BaseSensorOperator):
         del context  # unused
 
         logging.info(
-            f"Checking for new files since start of this DAG run in {self._raw_data_wrapper.instrument_path}"
+            f"Checking for new files since start of this DAG run in {self._raw_file_wrapper_factory.instrument_path}"
         )
 
         _check_health(self._instrument_id)
 
         if (
-            new_dir_content := self._raw_data_wrapper.get_raw_files_on_instrument()
+            new_dir_content
+            := self._raw_file_wrapper_factory.get_raw_files_on_instrument()
             - self._initial_dir_contents
         ):
             logging.info(f"got new dir_content {new_dir_content}")

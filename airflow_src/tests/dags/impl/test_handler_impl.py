@@ -19,7 +19,7 @@ from db.models import RawFileStatus
 def test_copy_raw_file_calls_update_with_correct_args(
     mock_update_status: MagicMock,
     mock_get_file_size: MagicMock,
-    mock_raw_data_wrapper: MagicMock,
+    mock_raw_file_wrapper_factory: MagicMock,
     mock_copy_file: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
 ) -> None:
@@ -33,7 +33,7 @@ def test_copy_raw_file_calls_update_with_correct_args(
     mock_get_raw_file_by_id.return_value = mock_raw_file
 
     mock_get_file_size.return_value = 1000
-    mock_raw_data_wrapper.create_copy_wrapper.return_value.get_files_to_copy.return_value = {
+    mock_raw_file_wrapper_factory.create_copy_wrapper.return_value.get_files_to_copy.return_value = {
         Path("/path/to/instrument/test_file.raw"): Path("/path/to/backup/test_file.raw")
     }
 

@@ -61,7 +61,7 @@ def test_get_dir_contents_returns_correct_set_of_paths(
         (InstrumentTypes.BRUKER, ".d", BrukerRawFileMonitorWrapper),
     ],
 )
-def test_raw_data_wrapper_instantiation_monitors(
+def test_raw_file_wrapper_factory_instantiation_monitors(
     instrument_type: str, extension: str, expected_class: type[RawFileWrapperFactory]
 ) -> None:
     """Test that the correct RawFileWrapperFactory subclass is instantiated."""
@@ -81,7 +81,7 @@ def test_raw_data_wrapper_instantiation_monitors(
     ],
 )
 @patch("plugins.raw_file_wrapper_factory.RawFileWrapperFactory.create_monitor_wrapper")
-def test_raw_data_wrapper_instantiation_copier(
+def test_raw_file_wrapper_factory_instantiation_copier(
     mock_create_monitor_wrapper: MagicMock,  # noqa: ARG001
     instrument_type: str,
     expected_class: type[RawFileWrapperFactory],
@@ -108,7 +108,7 @@ def mock_instrument_paths() -> Generator[Path, None, None]:
         yield mock_data_path, mock_backup_path
 
 
-def test_raw_data_wrapper_unsupported_vendor() -> None:
+def test_raw_file_wrapper_factory_unsupported_vendor() -> None:
     """Test that creating a wrapper for an unsupported vendor raises ValueError."""
     with patch.dict(
         INSTRUMENTS, {"instrument1": {"type": "UNSUPPORTED"}}
@@ -128,7 +128,7 @@ def test_raw_data_wrapper_unsupported_vendor() -> None:
         (BrukerRawFileMonitorWrapper, "sample.d", ".d"),
     ],
 )
-def test_raw_data_wrapper_file_extension_check(
+def test_raw_file_wrapper_factory_file_extension_check(
     wrapper_class: type[RawFileMonitorWrapper],
     raw_file_name: str,
     expected_extension: str,
@@ -138,7 +138,7 @@ def test_raw_data_wrapper_file_extension_check(
     assert wrapper._main_file_extension == expected_extension  # noqa: SLF001
 
 
-def test_raw_data_wrapper_invalid_file_extension() -> None:
+def test_raw_file_wrapper_factory_invalid_file_extension() -> None:
     """Test that initializing with an invalid file extension raises ValueError."""
     with pytest.raises(
         ValueError, match="Unsupported file extension: .txt, expected .raw"

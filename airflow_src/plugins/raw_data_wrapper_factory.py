@@ -21,13 +21,13 @@ from common.settings import (
 from shared.db.models import RawFile, get_created_at_year_month
 
 
-class RawFileWrapper(ABC):
-    """Abstract base class for monitoring file acquisitions."""
+class RawFileMonitorWrapper(ABC):
+    """Abstract base class for wrapping raw files for monitoring acquisitions."""
 
     _main_file_extension: str
 
     def __init__(self, instrument_id: str, raw_file_name: str | None = None):
-        """Initialize the RawFileWrapper.
+        """Initialize the RawFileMonitorWrapper.
 
         :param instrument_id: The ID of the instrument
         :param raw_file_name: The name of the raw file. Needs to be set to allow calling file_path_to_monitor_acquisition().
@@ -79,8 +79,8 @@ class RawFileWrapper(ABC):
         return self._instrument_path
 
 
-class ThermoRawFileWrapper(RawFileWrapper):
-    """RawFileWrapper for Thermo instruments."""
+class ThermoRawFileMonitorWrapper(RawFileMonitorWrapper):
+    """RawFileMonitorWrapper for Thermo instruments."""
 
     _main_file_extension = ".raw"
 
@@ -89,8 +89,8 @@ class ThermoRawFileWrapper(RawFileWrapper):
         return self._instrument_path / self._raw_file_name
 
 
-class ZenoRawFileWrapper(RawFileWrapper):
-    """RawFileWrapper for Zeno instruments."""
+class ZenoRawFileMonitorWrapper(RawFileMonitorWrapper):
+    """RawFileMonitorWrapper for Zeno instruments."""
 
     _main_file_extension = ".wiff"
 
@@ -99,8 +99,8 @@ class ZenoRawFileWrapper(RawFileWrapper):
         return self._instrument_path / self._raw_file_name
 
 
-class BrukerRawFileWrapper(RawFileWrapper):
-    """RawFileWrapper for Bruker instruments."""
+class BrukerRawFileMonitorWrapper(RawFileMonitorWrapper):
+    """RawFileMonitorWrapper for Bruker instruments."""
 
     _main_file_extension = ".d"
     _file_name_to_watch = "analysis.tdf_bin"
@@ -110,11 +110,11 @@ class BrukerRawFileWrapper(RawFileWrapper):
         return self._instrument_path / self._raw_file_name / self._file_name_to_watch
 
 
-class RawFileCopier(ABC):
+class RawFileCopyWrapper(ABC):
     """Abstract base class for copying raw data files."""
 
     def __init__(self, instrument_id: str, raw_file: RawFile):
-        """Initialize the RawFileCopier.
+        """Initialize the RawFileCopyWrapper.
 
         :param instrument_id: the ID of the instrument
         :param raw_file: a raw file object
@@ -125,7 +125,7 @@ class RawFileCopier(ABC):
         self._instrument_path = get_internal_instrument_data_path(instrument_id)
         self._backup_path = get_internal_instrument_backup_path(instrument_id)
 
-        self._acquisition_monitor = RawDataWrapperFactory.create_monitor(
+        self._acquisition_monitor = RawDataWrapperFactory.create_monitor_wrapper(
             instrument_id, raw_file.original_name
         )
 
@@ -144,7 +144,7 @@ class RawFileCopier(ABC):
         )
 
 
-class ThermoRawFileCopier(RawFileCopier):
+class ThermoRawFileCopyWrapper(RawFileCopyWrapper):
     """Class wrapping Thermo-specific logic."""
 
     def get_files_to_copy(self) -> dict[Path, Path]:
@@ -158,7 +158,7 @@ class ThermoRawFileCopier(RawFileCopier):
         return files_to_copy
 
 
-class ZenoRawFileCopier(RawFileCopier):
+class ZenoRawFileCopyWrapper(RawFileCopyWrapper):
     """Class wrapping Zeno-specific logic."""
 
     def get_files_to_copy(self) -> dict[Path, Path]:
@@ -179,7 +179,7 @@ class ZenoRawFileCopier(RawFileCopier):
         return files_to_copy
 
 
-class BrukerRawFileCopier(RawFileCopier):
+class BrukerRawFileCopyWrapper(RawFileCopyWrapper):
     """Class wrapping Bruker-specific logic."""
 
     def get_files_to_copy(self) -> dict[Path, Path]:
@@ -215,23 +215,23 @@ class RawDataWrapperFactory:
 
     _handlers: dict[str, dict[str, type]] = {  # noqa: RUF012
         InstrumentTypes.THERMO: {
-            MONITOR: ThermoRawFileWrapper,
-            COPIER: ThermoRawFileCopier,
+            MONITOR: ThermoRawFileMonitorWrapper,
+            COPIER: ThermoRawFileCopyWrapper,
         },
         InstrumentTypes.ZENO: {
-            MONITOR: ZenoRawFileWrapper,
-            COPIER: ZenoRawFileCopier,
+            MONITOR: ZenoRawFileMonitorWrapper,
+            COPIER: ZenoRawFileCopyWrapper,
         },
         InstrumentTypes.BRUKER: {
-            MONITOR: BrukerRawFileWrapper,
-            COPIER: BrukerRawFileCopier,
+            MONITOR: BrukerRawFileMonitorWrapper,
+            COPIER: BrukerRawFileCopyWrapper,
         },
     }
 
     @classmethod
     def _create_handler(
         cls, handler_type: str, instrument_id: str, *args
-    ) -> Union["RawFileWrapper", "RawFileCopier"]:
+    ) -> Union["RawFileMonitorWrapper", "RawFileCopyWrapper"]:
         """Create a handler of the specified type for the given instrument.
 
         :param handler_type: The type of handler to create ('lister', 'monitor', or 'copier')
@@ -250,20 +250,22 @@ class RawDataWrapperFactory:
         return handler_class(instrument_id, *args)
 
     @classmethod
-    def create_monitor(
+    def create_monitor_wrapper(
         cls, instrument_id: str, raw_file_name: str | None = None
-    ) -> RawFileWrapper:
-        """Create an RawFileWrapper for the specified instrument and raw file.
+    ) -> RawFileMonitorWrapper:
+        """Create an RawFileMonitorWrapper for the specified instrument and raw file.
 
         :param instrument_id: The ID of the instrument
         :param raw_file_name: The name of the raw file to monitor
-        :return: An instance of the appropriate RawFileWrapper subclass
+        :return: An instance of the appropriate RawFileMonitorWrapper subclass
         """
         return cls._create_handler(MONITOR, instrument_id, raw_file_name)
 
     @classmethod
-    def create_copier(cls, instrument_id: str, raw_file: RawFile) -> RawFileCopier:
-        """Create a RawFileCopier for the specified instrument and raw file.
+    def create_copy_wrapper(
+        cls, instrument_id: str, raw_file: RawFile
+    ) -> RawFileCopyWrapper:
+        """Create a RawFileCopyWrapper for the specified instrument and raw file.
 
         :param instrument_id: The ID of the instrument
         :param raw_file: a raw file object

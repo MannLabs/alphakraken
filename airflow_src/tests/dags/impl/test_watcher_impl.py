@@ -68,12 +68,12 @@ def test_get_unknown_raw_files_with_existing_files_in_db(
     mock_raw_data_wrapper: MagicMock,
 ) -> None:
     """Test get_unknown_raw_files with existing files in the database."""
-    mock_raw_data_wrapper.create_monitor.return_value.get_raw_files_on_instrument.return_value = {
+    mock_raw_data_wrapper.create_monitor_wrapper.return_value.get_raw_files_on_instrument.return_value = {
         "file1.raw",
         "file2.raw",
         "file3.raw",
     }
-    mock_raw_data_wrapper.create_monitor.return_value.file_path_to_monitor_acquisition.side_effect = [
+    mock_raw_data_wrapper.create_monitor_wrapper.return_value.file_path_to_monitor_acquisition.side_effect = [
         Path("/path/to/file1.raw"),
         Path("/path/to/file2.raw"),
     ]
@@ -176,7 +176,7 @@ def test_get_unknown_raw_files_with_no_existing_files_in_db(
     mock_raw_data_wrapper: MagicMock,
 ) -> None:
     """Test get_unknown_raw_files with no existing files in the database."""
-    mock_raw_data_wrapper.create_monitor.return_value.get_raw_files_on_instrument.return_value = {
+    mock_raw_data_wrapper.create_monitor_wrapper.return_value.get_raw_files_on_instrument.return_value = {
         "file1.raw",
         "file2.raw",
         "file3.raw",
@@ -208,7 +208,7 @@ def test_get_unknown_raw_files_with_empty_directory(
     mock_raw_data_wrapper: MagicMock,
 ) -> None:
     """Test get_unknown_raw_files with an empty directory."""
-    mock_raw_data_wrapper.create_monitor.return_value.get_raw_files_on_instrument.return_value = {}
+    mock_raw_data_wrapper.create_monitor_wrapper.return_value.get_raw_files_on_instrument.return_value = {}
     ti = Mock()
 
     # when

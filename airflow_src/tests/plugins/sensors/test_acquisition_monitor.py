@@ -26,9 +26,9 @@ def test_poke_file_dir_contents_change_file_is_added(
     mock_path = MagicMock()
     mock_path.stat.return_value = MagicMock(st_size=1)
 
-    mock_raw_data_wrapper.create_monitor.return_value.file_path_to_monitor_acquisition.return_value = mock_path
+    mock_raw_data_wrapper.create_monitor_wrapper.return_value.file_path_to_monitor_acquisition.return_value = mock_path
 
-    mock_raw_data_wrapper.create_monitor.return_value.get_raw_files_on_instrument.side_effect = [
+    mock_raw_data_wrapper.create_monitor_wrapper.return_value.get_raw_files_on_instrument.side_effect = [
         {"some_file.raw"},  # initial content (pre_execute)
         {"some_file.raw"},  # first poke
         {"some_file.raw", "some_new_file.raw"},  # second poke
@@ -59,9 +59,9 @@ def test_poke_file_dir_contents_change_file_is_removed(
     mock_path = MagicMock()
     mock_path.stat.return_value = MagicMock(st_size=1)
 
-    mock_raw_data_wrapper.create_monitor.return_value.file_path_to_monitor_acquisition.return_value = mock_path
+    mock_raw_data_wrapper.create_monitor_wrapper.return_value.file_path_to_monitor_acquisition.return_value = mock_path
 
-    mock_raw_data_wrapper.create_monitor.return_value.get_raw_files_on_instrument.side_effect = [
+    mock_raw_data_wrapper.create_monitor_wrapper.return_value.get_raw_files_on_instrument.side_effect = [
         {"some_file.raw", "some_file2.raw"},  # initial content (pre_execute)
         {"some_file.raw", "some_file2.raw"},  # first poke
         {"some_file.raw"},  # second poke
@@ -92,7 +92,7 @@ def test_poke_file_dir_contents_change_file_does_not_exist(
     mock_path = MagicMock()
     mock_path.stat.return_value = MagicMock(st_size=1)
 
-    mock_raw_data_wrapper.create_monitor.return_value.file_path_to_monitor_acquisition.return_value.exists.return_value = False
+    mock_raw_data_wrapper.create_monitor_wrapper.return_value.file_path_to_monitor_acquisition.return_value.exists.return_value = False
 
     sensor = get_sensor()
     sensor.pre_execute({DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"}})
@@ -112,8 +112,8 @@ def test_poke_file_dir_contents_dont_change_but_file_is_unchanged(
 ) -> None:
     """Test poke method correctly return file status when dir contents do not change and file also does not."""
     mock_path = MagicMock()
-    mock_raw_data_wrapper.create_monitor.return_value.file_path_to_monitor_acquisition.return_value = mock_path
-    mock_raw_data_wrapper.create_monitor.return_value.get_raw_files_on_instrument.return_value = set()  # this stays constant
+    mock_raw_data_wrapper.create_monitor_wrapper.return_value.file_path_to_monitor_acquisition.return_value = mock_path
+    mock_raw_data_wrapper.create_monitor_wrapper.return_value.get_raw_files_on_instrument.return_value = set()  # this stays constant
 
     mock_get_timestamp.side_effect = [
         1,  # pre_execute (initial time stamp)
@@ -148,9 +148,9 @@ def test_post_execute(
     """Test poke method correctly return when dir contents change (file is added)."""
     mock_path = MagicMock()
 
-    mock_raw_data_wrapper.create_monitor.return_value.file_path_to_monitor_acquisition.return_value = mock_path
+    mock_raw_data_wrapper.create_monitor_wrapper.return_value.file_path_to_monitor_acquisition.return_value = mock_path
 
-    mock_raw_data_wrapper.create_monitor.return_value.get_raw_files_on_instrument.side_effect = [
+    mock_raw_data_wrapper.create_monitor_wrapper.return_value.get_raw_files_on_instrument.side_effect = [
         {"some_file.raw"},  # initial content (pre_execute)
     ]
 

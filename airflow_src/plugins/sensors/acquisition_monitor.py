@@ -47,7 +47,7 @@ class AcquisitionMonitor(BaseSensorOperator):
         """_job_id the job id from XCom."""
         self._raw_file_name = context[DagContext.PARAMS][DagParams.RAW_FILE_ID]
 
-        self._raw_data_wrapper = RawDataWrapperFactory.create_monitor(
+        self._raw_data_wrapper = RawDataWrapperFactory.create_monitor_wrapper(
             instrument_id=self._instrument_id, raw_file_name=self._raw_file_name
         )
 

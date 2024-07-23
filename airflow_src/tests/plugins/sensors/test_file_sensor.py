@@ -28,7 +28,7 @@ def test_poke_file_not_created(
 ) -> None:
     """Test poke method when file is not created."""
     # given
-    mock_raw_data_wrapper.create_monitor.return_value.get_raw_files_on_instrument.side_effect = [
+    mock_raw_data_wrapper.create_monitor_wrapper.return_value.get_raw_files_on_instrument.side_effect = [
         {"some_file.raw", "some_file2.raw"},  # initial content (pre_execute)
         {"some_file.raw", "some_file2.raw"},  # first poke
     ]
@@ -53,7 +53,7 @@ def test_poke_file_created(
 ) -> None:
     """Test poke method when file is created."""
     # given
-    mock_raw_data_wrapper.create_monitor.return_value.get_raw_files_on_instrument.side_effect = [
+    mock_raw_data_wrapper.create_monitor_wrapper.return_value.get_raw_files_on_instrument.side_effect = [
         {"some_file.raw"},  # initial content (pre_execute)
         {"some_file.raw", "some_file2.raw"},  # first poke
     ]

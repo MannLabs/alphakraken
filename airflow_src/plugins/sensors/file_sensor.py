@@ -47,7 +47,7 @@ class FileCreationSensor(BaseSensorOperator):
 
         self._instrument_id = instrument_id
 
-        self._raw_data_wrapper = RawDataWrapperFactory.create_monitor(
+        self._raw_data_wrapper = RawDataWrapperFactory.create_monitor_wrapper(
             instrument_id=instrument_id
         )
 

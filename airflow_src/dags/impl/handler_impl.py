@@ -20,7 +20,7 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
 
     update_raw_file(raw_file_id, new_status=RawFileStatus.COPYING)
 
-    raw_data_wrapper = RawDataWrapperFactory.create_copier(
+    raw_data_wrapper = RawDataWrapperFactory.create_copy_wrapper(
         instrument_id=instrument_id, raw_file=raw_file
     )
 

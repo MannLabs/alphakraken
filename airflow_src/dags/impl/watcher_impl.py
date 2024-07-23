@@ -80,7 +80,7 @@ def get_unknown_raw_files(ti: TaskInstance, **kwargs) -> None:
     instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
 
     raw_file_names = sorted(
-        RawDataWrapperFactory.create_monitor(
+        RawDataWrapperFactory.create_monitor_wrapper(
             instrument_id=instrument_id
         ).get_raw_files_on_instrument()
     )
@@ -103,9 +103,11 @@ def get_unknown_raw_files(ti: TaskInstance, **kwargs) -> None:
             logging.info(
                 f"File in DB: {raw_file_name}, checking for potential collision.."
             )
-            file_path_to_monitor_acquisition = RawDataWrapperFactory.create_monitor(
-                instrument_id=instrument_id, raw_file_name=raw_file_name
-            ).file_path_to_monitor_acquisition()
+            file_path_to_monitor_acquisition = (
+                RawDataWrapperFactory.create_monitor_wrapper(
+                    instrument_id=instrument_id, raw_file_name=raw_file_name
+                ).file_path_to_monitor_acquisition()
+            )
             is_collision = _is_collision(
                 file_path_to_monitor_acquisition,
                 raw_files_names_to_sizes_from_db[raw_file_name],

@@ -87,17 +87,17 @@ def get_unknown_raw_files(ti: TaskInstance, **kwargs) -> None:
         f"{len(raw_file_names)} raw files to be checked against DB: {raw_file_names}"
     )
 
-    raw_files_sizes_from_db: dict[str, list[int]] = defaultdict(list)
+    raw_files_names_to_sizes_from_db: dict[str, list[int]] = defaultdict(list)
     for raw_file in get_raw_files_by_names_from_db(list(raw_file_names)):
         # due to collisions, there could be more than one raw file with the same name
-        raw_files_sizes_from_db[raw_file.original_name].append(raw_file.size)
-    logging.info(f"got {raw_files_sizes_from_db=}")
+        raw_files_names_to_sizes_from_db[raw_file.original_name].append(raw_file.size)
+    logging.info(f"got {raw_files_names_to_sizes_from_db=}")
 
-    raw_files_to_process: dict[str, bool] = {}
+    raw_file_names_to_process: dict[str, bool] = {}
     for raw_file_name in raw_file_names:
         is_collision = False
 
-        if raw_file_name in raw_files_sizes_from_db:
+        if raw_file_name in raw_files_names_to_sizes_from_db:
             logging.info(
                 f"File in DB: {raw_file_name}, checking for potential collision.."
             )
@@ -105,7 +105,7 @@ def get_unknown_raw_files(ti: TaskInstance, **kwargs) -> None:
                 instrument_id=instrument_id, raw_file_name=raw_file_name
             ).file_path_to_watch()
             is_collision = _is_collision(
-                file_path_to_watch, raw_files_sizes_from_db[raw_file_name]
+                file_path_to_watch, raw_files_names_to_sizes_from_db[raw_file_name]
             )
             if not is_collision:
                 logging.info(
@@ -113,17 +113,17 @@ def get_unknown_raw_files(ti: TaskInstance, **kwargs) -> None:
                 )
                 continue
 
-        raw_files_to_process[raw_file_name] = is_collision
+        raw_file_names_to_process[raw_file_name] = is_collision
 
     logging.info(
-        f"{len(raw_files_to_process)} raw files left after DB check: {raw_files_to_process}"
+        f"{len(raw_file_names_to_process)} raw files left after DB check: {raw_file_names_to_process}"
     )
 
     raw_file_names_sorted = _sort_by_creation_date(
-        list(raw_files_to_process.keys()), instrument_id
+        list(raw_file_names_to_process.keys()), instrument_id
     )
     raw_files_to_process_sorted = {
-        r: raw_files_to_process[r] for r in raw_file_names_sorted
+        r: raw_file_names_to_process[r] for r in raw_file_names_sorted
     }
 
     put_xcom(ti, XComKeys.RAW_FILE_NAMES, raw_files_to_process_sorted)

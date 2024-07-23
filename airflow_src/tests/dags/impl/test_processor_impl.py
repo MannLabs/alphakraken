@@ -509,12 +509,12 @@ def test_upload_metrics(
     mock_get_xcom: MagicMock,
 ) -> None:
     """Test that compute_metrics makes the expected calls."""
-    mock_get_xcom.side_effect = ["raw_file_name", {"metric1": "value1"}, 123]
+    mock_get_xcom.side_effect = ["some_file.raw", {"metric1": "value1"}, 123]
 
     # when
     upload_metrics(MagicMock())
 
     mock_add.assert_called_once_with(
-        "raw_file_name", {"metric1": "value1", "quanting_time_elapsed": 123}
+        "some_file.raw", {"metric1": "value1", "quanting_time_elapsed": 123}
     )
-    mock_update.assert_called_once_with("raw_file_name", new_status=RawFileStatus.DONE)
+    mock_update.assert_called_once_with("some_file.raw", new_status=RawFileStatus.DONE)

@@ -47,9 +47,7 @@ class FileCreationSensor(BaseSensorOperator):
 
         self._instrument_id = instrument_id
 
-        self._raw_data_wrapper = RawDataWrapper.create(
-            instrument_id=instrument_id, raw_file_name=None
-        )
+        self._raw_data_wrapper = RawDataWrapper.create(instrument_id=instrument_id)
 
         self._initial_dir_contents: set | None = None
 

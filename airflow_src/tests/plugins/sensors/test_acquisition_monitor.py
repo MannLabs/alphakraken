@@ -37,7 +37,7 @@ def test_poke_file_dir_contents_change_file_is_added(
     ]
 
     sensor = get_sensor()
-    sensor.pre_execute({DagContext.PARAMS: {DagParams.RAW_FILE_NAME: "some_file.raw"}})
+    sensor.pre_execute({DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"}})
 
     # when
     result = sensor.poke({})
@@ -72,7 +72,7 @@ def test_poke_file_dir_contents_change_file_is_removed(
     ]
 
     sensor = get_sensor()
-    sensor.pre_execute({DagContext.PARAMS: {DagParams.RAW_FILE_NAME: "some_file.raw"}})
+    sensor.pre_execute({DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"}})
 
     # when
     result = sensor.poke({})
@@ -99,7 +99,7 @@ def test_poke_file_dir_contents_change_file_does_not_exist(
     mock_raw_data_wrapper.create.return_value.file_path_to_watch.return_value.exists.return_value = False
 
     sensor = get_sensor()
-    sensor.pre_execute({DagContext.PARAMS: {DagParams.RAW_FILE_NAME: "some_file.raw"}})
+    sensor.pre_execute({DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"}})
 
     # when
     result = sensor.poke({})
@@ -129,7 +129,7 @@ def test_poke_file_dir_contents_dont_change_but_file_is_unchanged(
         2 * SIZE_CHECK_INTERVAL_M * 60 + 3,  # fourth poke, second file check
     ]
     sensor = get_sensor()
-    sensor.pre_execute({DagContext.PARAMS: {DagParams.RAW_FILE_NAME: "some_file.raw"}})
+    sensor.pre_execute({DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"}})
 
     # when
     for _ in range(3):
@@ -163,7 +163,7 @@ def test_post_execute(
     ]
 
     sensor = get_sensor()
-    sensor.pre_execute({DagContext.PARAMS: {DagParams.RAW_FILE_NAME: "some_file.raw"}})
+    sensor.pre_execute({DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"}})
 
     # when
     sensor.post_execute({}, result=True)

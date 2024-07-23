@@ -364,7 +364,7 @@ def test_start_acquisition_handler_with_single_file(
     for n, call_ in enumerate(mock_trigger_dag_run.call_args_list):
         assert call_.args[0] == ("acquisition_handler.instrument1")
         assert {
-            "raw_file_name": f"123---{list(raw_file_names.keys())[n]}",
+            "raw_file_id": f"123---{list(raw_file_names.keys())[n]}",
         } == call_.args[1]
 
     mock_add_raw_file_to_db.assert_called_once_with(
@@ -402,7 +402,7 @@ def test_start_acquisition_handler_with_multiple_files(  # Too many arguments
     for n, call_ in enumerate(mock_trigger_dag_run.call_args_list):
         assert call_.args[0] == ("acquisition_handler.instrument1")
         assert {
-            "raw_file_name": list(raw_file_names.keys())[n],
+            "raw_file_id": list(raw_file_names.keys())[n],
         } == call_.args[1]
 
     mock_add_raw_file_to_db.assert_has_calls(

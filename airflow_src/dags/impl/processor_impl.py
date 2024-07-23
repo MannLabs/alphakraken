@@ -52,7 +52,7 @@ def _get_project_id_or_fallback(project_id: str | None, instrument_id: str) -> s
 
 def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
     """Prepare the environmental variables for the quanting job."""
-    raw_file_name = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_NAME]
+    raw_file_name = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID]
     instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
 
     raw_file = get_raw_file_by_id(raw_file_name)

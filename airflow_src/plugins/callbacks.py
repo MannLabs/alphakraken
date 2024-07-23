@@ -21,7 +21,7 @@ def on_failure_callback(context: dict[str, Any], **kwargs) -> None:
     logging.info(f"task {ti.task_id} failed in dag {ti.dag_id} ")
 
     try:
-        raw_file_name = context[DagContext.PARAMS][DagParams.RAW_FILE_NAME]
+        raw_file_name = context[DagContext.PARAMS][DagParams.RAW_FILE_ID]
     except KeyError:
         try:
             raw_file_name = get_xcom(ti, key=XComKeys.RAW_FILE_NAME)

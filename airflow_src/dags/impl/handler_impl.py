@@ -13,7 +13,7 @@ from shared.db.models import RawFileStatus
 def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
     """Copy a raw file to the target location."""
     del ti  # unused
-    raw_file_name = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_NAME]
+    raw_file_name = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID]
     instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
 
     raw_file = get_raw_file_by_id(raw_file_name)
@@ -43,7 +43,7 @@ def start_acquisition_processor(ti: TaskInstance, **kwargs) -> None:
     """
     del ti  # unused
     instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
-    raw_file_name = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_NAME]
+    raw_file_name = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID]
 
     dag_id_to_trigger = f"{Dags.ACQUISITON_HANDLER}.{instrument_id}"
 
@@ -52,6 +52,6 @@ def start_acquisition_processor(ti: TaskInstance, **kwargs) -> None:
     trigger_dag_run(
         dag_id_to_trigger,
         {
-            DagParams.RAW_FILE_NAME: raw_file_name,
+            DagParams.RAW_FILE_ID: raw_file_name,
         },
     )

@@ -96,7 +96,7 @@ def test_prepare_quanting(
     kwargs = {
         OpArgs.INSTRUMENT_ID: "instrument1",
         DagContext.PARAMS: {
-            DagParams.RAW_FILE_NAME: "test_file.raw",
+            DagParams.RAW_FILE_ID: "test_file.raw",
         },
     }
 

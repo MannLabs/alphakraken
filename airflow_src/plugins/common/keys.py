@@ -49,7 +49,7 @@ class DagParams:
     """Keys for accessing parameters in DAG context 'params'."""
 
     # "params" level
-    RAW_FILE_NAME: str = "raw_file_name"
+    RAW_FILE_ID: str = "raw_file_id"
 
 
 class XComKeys:

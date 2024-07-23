@@ -45,7 +45,7 @@ class AcquisitionMonitor(BaseSensorOperator):
 
     def pre_execute(self, context: dict[str, any]) -> None:
         """_job_id the job id from XCom."""
-        self._raw_file_name = context[DagContext.PARAMS][DagParams.RAW_FILE_NAME]
+        self._raw_file_name = context[DagContext.PARAMS][DagParams.RAW_FILE_ID]
 
         self._raw_data_wrapper = RawDataWrapper.create(
             instrument_id=self._instrument_id, raw_file_name=self._raw_file_name

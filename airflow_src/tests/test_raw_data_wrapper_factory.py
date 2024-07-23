@@ -13,19 +13,19 @@ from common.keys import InstrumentTypes
 from common.settings import INSTRUMENTS
 from db.models import RawFile
 from plugins.raw_data_wrapper_factory import (
-    AcquisitionMonitor,
-    BrukerAcquisitionMonitor,
     BrukerRawFileCopier,
+    BrukerRawFileWrapper,
     RawDataWrapperFactory,
-    ThermoAcquisitionMonitor,
+    RawFileWrapper,
     ThermoRawFileCopier,
-    ZenoAcquisitionMonitor,
+    ThermoRawFileWrapper,
     ZenoRawFileCopier,
+    ZenoRawFileWrapper,
 )
 
 
-class TestableAcquisitionMonitor(AcquisitionMonitor):
-    """A testable subclass of AcquisitionMonitor to test the methods provided by the abstract class."""
+class TestableRawFileWrapper(RawFileWrapper):
+    """A testable subclass of RawFileWrapper to test the methods provided by the abstract class."""
 
     _main_file_extension = "test_ext"
 
@@ -46,7 +46,7 @@ def test_get_dir_contents_returns_correct_set_of_paths(
 
     mock_get_instrument_data_path.return_value.glob.return_value = list(returned_paths)
 
-    raw_data_wrapper_factory = TestableAcquisitionMonitor(instrument_id="instrument1")
+    raw_data_wrapper_factory = TestableRawFileWrapper(instrument_id="instrument1")
 
     assert raw_data_wrapper_factory.get_raw_files_on_instrument() == file_names
 
@@ -54,9 +54,9 @@ def test_get_dir_contents_returns_correct_set_of_paths(
 @pytest.mark.parametrize(
     ("instrument_type", "extension", "expected_class"),
     [
-        (InstrumentTypes.THERMO, ".raw", ThermoAcquisitionMonitor),
-        (InstrumentTypes.ZENO, ".wiff", ZenoAcquisitionMonitor),
-        (InstrumentTypes.BRUKER, ".d", BrukerAcquisitionMonitor),
+        (InstrumentTypes.THERMO, ".raw", ThermoRawFileWrapper),
+        (InstrumentTypes.ZENO, ".wiff", ZenoRawFileWrapper),
+        (InstrumentTypes.BRUKER, ".d", BrukerRawFileWrapper),
     ],
 )
 def test_raw_data_wrapper_instantiation_monitors(
@@ -121,13 +121,13 @@ def test_raw_data_wrapper_unsupported_vendor() -> None:
 @pytest.mark.parametrize(
     ("wrapper_class", "raw_file_name", "expected_extension"),
     [
-        (ThermoAcquisitionMonitor, "sample.raw", ".raw"),
-        (ZenoAcquisitionMonitor, "sample.wiff", ".wiff"),
-        (BrukerAcquisitionMonitor, "sample.d", ".d"),
+        (ThermoRawFileWrapper, "sample.raw", ".raw"),
+        (ZenoRawFileWrapper, "sample.wiff", ".wiff"),
+        (BrukerRawFileWrapper, "sample.d", ".d"),
     ],
 )
 def test_raw_data_wrapper_file_extension_check(
-    wrapper_class: type[AcquisitionMonitor],
+    wrapper_class: type[RawFileWrapper],
     raw_file_name: str,
     expected_extension: str,
 ) -> None:
@@ -141,7 +141,7 @@ def test_raw_data_wrapper_invalid_file_extension() -> None:
     with pytest.raises(
         ValueError, match="Unsupported file extension: .txt, expected .raw"
     ):
-        ThermoAcquisitionMonitor("instrument1", raw_file_name="sample.txt")
+        ThermoRawFileWrapper("instrument1", raw_file_name="sample.txt")
 
 
 @patch("plugins.raw_data_wrapper_factory.get_internal_instrument_data_path")
@@ -151,7 +151,7 @@ def test_get_raw_files_on_instrument(mock_instrument_path: MagicMock) -> None:
     file_paths = {Path(f"/path/to/instrument/{f}") for f in file_names}
     mock_instrument_path.return_value.glob.return_value = file_paths
 
-    wrapper = ThermoAcquisitionMonitor("instrument1")
+    wrapper = ThermoRawFileWrapper("instrument1")
     assert wrapper.get_raw_files_on_instrument() == file_names
 
 
@@ -159,24 +159,24 @@ def test_get_raw_files_on_instrument(mock_instrument_path: MagicMock) -> None:
     ("wrapper_class", "raw_file_name", "expected_watch_path"),
     [
         (
-            ThermoAcquisitionMonitor,
+            ThermoRawFileWrapper,
             "sample.raw",
             Path("/path/to/instrument/sample.raw"),
         ),
         (
-            ZenoAcquisitionMonitor,
+            ZenoRawFileWrapper,
             "sample.wiff",
             Path("/path/to/instrument/sample.wiff"),
         ),
         (
-            BrukerAcquisitionMonitor,
+            BrukerRawFileWrapper,
             "sample.d",
             Path("/path/to/instrument/sample.d/analysis.tdf_bin"),
         ),
     ],
 )
 def test_file_path_to_monitor_acquisition(
-    wrapper_class: type[AcquisitionMonitor],
+    wrapper_class: type[RawFileWrapper],
     raw_file_name: str,
     expected_watch_path: Path,
     mock_instrument_paths: MagicMock,  # noqa: ARG001

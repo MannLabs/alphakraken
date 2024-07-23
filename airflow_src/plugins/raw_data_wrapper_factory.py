@@ -21,13 +21,13 @@ from common.settings import (
 from shared.db.models import RawFile, get_created_at_year_month
 
 
-class AcquisitionMonitor(ABC):
+class RawFileWrapper(ABC):
     """Abstract base class for monitoring file acquisitions."""
 
     _main_file_extension: str
 
     def __init__(self, instrument_id: str, raw_file_name: str | None = None):
-        """Initialize the AcquisitionMonitor.
+        """Initialize the RawFileWrapper.
 
         :param instrument_id: The ID of the instrument
         :param raw_file_name: The name of the raw file. Needs to be set to allow calling file_path_to_monitor_acquisition().
@@ -79,8 +79,8 @@ class AcquisitionMonitor(ABC):
         return self._instrument_path
 
 
-class ThermoAcquisitionMonitor(AcquisitionMonitor):
-    """AcquisitionMonitor for Thermo instruments."""
+class ThermoRawFileWrapper(RawFileWrapper):
+    """RawFileWrapper for Thermo instruments."""
 
     _main_file_extension = ".raw"
 
@@ -89,8 +89,8 @@ class ThermoAcquisitionMonitor(AcquisitionMonitor):
         return self._instrument_path / self._raw_file_name
 
 
-class ZenoAcquisitionMonitor(AcquisitionMonitor):
-    """AcquisitionMonitor for Zeno instruments."""
+class ZenoRawFileWrapper(RawFileWrapper):
+    """RawFileWrapper for Zeno instruments."""
 
     _main_file_extension = ".wiff"
 
@@ -99,8 +99,8 @@ class ZenoAcquisitionMonitor(AcquisitionMonitor):
         return self._instrument_path / self._raw_file_name
 
 
-class BrukerAcquisitionMonitor(AcquisitionMonitor):
-    """AcquisitionMonitor for Bruker instruments."""
+class BrukerRawFileWrapper(RawFileWrapper):
+    """RawFileWrapper for Bruker instruments."""
 
     _main_file_extension = ".d"
     _file_name_to_watch = "analysis.tdf_bin"
@@ -215,15 +215,15 @@ class RawDataWrapperFactory:
 
     _handlers: dict[str, dict[str, type]] = {  # noqa: RUF012
         InstrumentTypes.THERMO: {
-            MONITOR: ThermoAcquisitionMonitor,
+            MONITOR: ThermoRawFileWrapper,
             COPIER: ThermoRawFileCopier,
         },
         InstrumentTypes.ZENO: {
-            MONITOR: ZenoAcquisitionMonitor,
+            MONITOR: ZenoRawFileWrapper,
             COPIER: ZenoRawFileCopier,
         },
         InstrumentTypes.BRUKER: {
-            MONITOR: BrukerAcquisitionMonitor,
+            MONITOR: BrukerRawFileWrapper,
             COPIER: BrukerRawFileCopier,
         },
     }
@@ -231,7 +231,7 @@ class RawDataWrapperFactory:
     @classmethod
     def _create_handler(
         cls, handler_type: str, instrument_id: str, *args
-    ) -> Union["AcquisitionMonitor", "RawFileCopier"]:
+    ) -> Union["RawFileWrapper", "RawFileCopier"]:
         """Create a handler of the specified type for the given instrument.
 
         :param handler_type: The type of handler to create ('lister', 'monitor', or 'copier')
@@ -252,12 +252,12 @@ class RawDataWrapperFactory:
     @classmethod
     def create_monitor(
         cls, instrument_id: str, raw_file_name: str | None = None
-    ) -> AcquisitionMonitor:
-        """Create an AcquisitionMonitor for the specified instrument and raw file.
+    ) -> RawFileWrapper:
+        """Create an RawFileWrapper for the specified instrument and raw file.
 
         :param instrument_id: The ID of the instrument
         :param raw_file_name: The name of the raw file to monitor
-        :return: An instance of the appropriate AcquisitionMonitor subclass
+        :return: An instance of the appropriate RawFileWrapper subclass
         """
         return cls._create_handler(MONITOR, instrument_id, raw_file_name)
 

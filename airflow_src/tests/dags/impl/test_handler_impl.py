@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, Mock, call, patch
 
 from common.keys import DagContext, DagParams, OpArgs
 from dags.impl.handler_impl import (
-    copy_raw_file,
+    copy_raw_data,
     start_acquisition_processor,
 )
 from db.models import RawFileStatus
@@ -16,14 +16,14 @@ from db.models import RawFileStatus
 @patch("dags.impl.handler_impl.RawDataWrapper")
 @patch("dags.impl.handler_impl.get_file_size")
 @patch("dags.impl.handler_impl.update_raw_file")
-def test_copy_raw_file_calls_update_with_correct_args(
+def test_copy_raw_data_calls_update_with_correct_args(
     mock_update_status: MagicMock,
     mock_get_file_size: MagicMock,
     mock_raw_data_wrapper: MagicMock,
     mock_copy_file: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
 ) -> None:
-    """Test copy_raw_file calls update with correct arguments."""
+    """Test copy_raw_data calls update with correct arguments."""
     ti = MagicMock()
     kwargs = {
         "params": {"raw_file_id": "test_file.raw"},
@@ -38,7 +38,7 @@ def test_copy_raw_file_calls_update_with_correct_args(
     }
 
     # when
-    copy_raw_file(ti, **kwargs)
+    copy_raw_data(ti, **kwargs)
 
     # then
     mock_copy_file.assert_called_once_with(

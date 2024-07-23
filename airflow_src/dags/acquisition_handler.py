@@ -21,7 +21,7 @@ from common.settings import (
     Timings,
 )
 from impl.handler_impl import (
-    copy_raw_file,
+    copy_raw_data,
     start_acquisition_processor,
 )
 from sensors.acquisition_monitor import AcquisitionMonitor
@@ -57,9 +57,9 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
             execution_timeout=timedelta(minutes=Timings.ACQUISITION_MONITOR_TIMEOUT_M),
         )
 
-        copy_raw_file_ = PythonOperator(
-            task_id=Tasks.COPY_RAW_FILE,
-            python_callable=copy_raw_file,
+        copy_raw_data_ = PythonOperator(
+            task_id=Tasks.COPY_RAW_DATA,
+            python_callable=copy_raw_data,
             op_kwargs={OpArgs.INSTRUMENT_ID: instrument_id},
             max_active_tis_per_dag=Concurrency.MAX_ACTIVE_COPY_TASKS_PER_DAG,
             execution_timeout=timedelta(minutes=Timings.FILE_COPY_TIMEOUT_M),
@@ -72,7 +72,7 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
             op_kwargs={OpArgs.INSTRUMENT_ID: instrument_id},
         )
 
-    (monitor_acquisition_ >> copy_raw_file_ >> start_acquisition_processor_)
+    (monitor_acquisition_ >> copy_raw_data_ >> start_acquisition_processor_)
 
 
 for instrument_id in INSTRUMENTS:

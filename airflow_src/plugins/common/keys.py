@@ -20,7 +20,7 @@ class Tasks:
     START_ACQUISITION_HANDLER: str = "start_acquisition_handler"
 
     MONITOR_ACQUISITION: str = "monitor_acquisition"
-    COPY_RAW_FILE: str = "copy_raw_file"
+    COPY_RAW_DATA: str = "copy_raw_data"
     START_ACQUISITION_PROCESSOR: str = "start_acquisition_processor"
 
     PREPARE_QUANTING: str = "prepare_quanting"

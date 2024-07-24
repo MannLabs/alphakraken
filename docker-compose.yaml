@@ -85,7 +85,7 @@ x-airflow-common:
     IO_POOL_FOLDER: ${IO_POOL_FOLDER:?error}
     MOUNTS_PATH: ${MOUNTS_PATH:?error}
   volumes:
-    - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_logs:/opt/airflow/logs
+    - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs
 #    # Uncomment for local development so that changes to DAGs and Tasks are immediately active
 #    # Note that this part is defined another time for the workers in x-airflow-worker
 #    - ${AIRFLOW_PROJ_DIR:-./airflow_src}/dags:/opt/airflow/dags
@@ -126,7 +126,7 @@ x-airflow-worker:
     mongodb-service:
       condition: service_healthy
   volumes:
-    - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_logs:/opt/airflow/logs
+    - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs
     # all mounts (backup pool folders, results pool folders, instruments) need to be available in $MOUNTS_PATH
     - ${MOUNTS_PATH:?error}:/opt/airflow/mounts
 
@@ -355,7 +355,7 @@ services:
     volumes:
       # the following three mounts are required for the worker to work in general and are not instrument specific:
       # airflow logs
-      - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_logs:/opt/airflow/logs
+      - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs
       # all mounts (backup pool folders, results pool folders, instruments) need to be available in $MOUNTS_PATH
       - ${MOUNTS_PATH:?error}:/opt/airflow/mounts
      # for this worker, changes to DAGs and Tasks are immediately active

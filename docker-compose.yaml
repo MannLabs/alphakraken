@@ -57,9 +57,9 @@ x-airflow-common:
   environment:
     &airflow-common-env
     AIRFLOW__CORE__EXECUTOR: CeleryExecutor
-    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
-    AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@postgres/airflow
-    AIRFLOW__CELERY__BROKER_URL: redis://:@redis:6379/0
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@${AIRFLOW_POSTGRES_HOST:?error}:${AIRFLOW_POSTGRES_PORT:?error}/airflow
+    AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@${AIRFLOW_POSTGRES_HOST:?error}:${AIRFLOW_POSTGRES_PORT:?error}/airflow
+    AIRFLOW__CELERY__BROKER_URL: redis://:@${AIRFLOW_REDIS_HOST:?error}:${AIRFLOW_REDIS_PORT:?error}/0
     AIRFLOW__CORE__TEST_CONNECTION: 'Enabled'
     AIRFLOW__CORE__FERNET_KEY: ''
     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
@@ -137,6 +137,8 @@ services:
     # and tasks sticking in 'scheduled' state for a long time
     # cf. https://stackoverflow.com/questions/51487740/airflow-psycopg2-operationalerror-fatal-sorry-too-many-clients-already
     command: -c 'max_connections=500'
+    ports:
+      - 5432:5432
     environment:
       POSTGRES_USER: airflow
       POSTGRES_PASSWORD: airflow
@@ -154,8 +156,8 @@ services:
     # Redis is limited to 7.2-bookworm due to licencing change
     # https://redis.io/blog/redis-adopts-dual-source-available-licensing/
     image: redis:7.2-bookworm
-    expose:
-      - 6379
+    ports:
+      - 6379:6379
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s

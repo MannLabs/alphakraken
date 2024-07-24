@@ -122,7 +122,7 @@ x-airflow-worker:
     - ${MOUNTS_PATH:?error}:/opt/airflow/mounts
 
 services:
-  postgres:
+  postgres-service:
     profiles: ["local", "infrastructure"]
     image: postgres:13
     # the default value of 100 connections yielded 'psycopg2.OperationalError: FATAL:  sorry, too many clients already'
@@ -144,7 +144,7 @@ services:
       start_period: 5s
     restart: always
 
-  redis:
+  redis-service:
     profiles: ["local", "infrastructure"]
     # Redis is limited to 7.2-bookworm due to licencing change
     # https://redis.io/blog/redis-adopts-dual-source-available-licensing/

@@ -57,8 +57,9 @@ x-airflow-common:
   environment:
     &airflow-common-env
     AIRFLOW__CORE__EXECUTOR: CeleryExecutor
-    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@${POSTGRES_HOST:?error}:${POSTGRES_PORT:?error}/airflow
-    AIRFLOW__CELERY__RESULT_BACKEND:     db+postgresql://airflow:airflow@${POSTGRES_HOST:?error}:${POSTGRES_PORT:?error}/airflow
+    # the next three lines define the connection to postgres & redis
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER:?error}:${POSTGRES_PASSWORD:?error}@${POSTGRES_HOST:?error}:${POSTGRES_PORT:?error}/${POSTGRES_DB:?error}
+    AIRFLOW__CELERY__RESULT_BACKEND:           db+postgresql://${POSTGRES_USER:?error}:${POSTGRES_PASSWORD:?error}@${POSTGRES_HOST:?error}:${POSTGRES_PORT:?error}/${POSTGRES_DB:?error}
     AIRFLOW__CELERY__BROKER_URL: redis://:@${REDIS_HOST:?error}:${REDIS_PORT:?error}/0
     AIRFLOW__CORE__TEST_CONNECTION: 'Enabled'
     AIRFLOW__CORE__FERNET_KEY: ''
@@ -140,9 +141,9 @@ services:
     ports:
       - 5432:5432
     environment:
-      POSTGRES_USER: airflow
-      POSTGRES_PASSWORD: airflow
-      POSTGRES_DB: airflow
+      POSTGRES_USER: ${POSTGRES_USER:?error}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?error}
+      POSTGRES_DB: ${POSTGRES_DB:?error}
     volumes:
       - ./airflowdb_data_${ENV_NAME:?error}:/var/lib/postgresql/data
     healthcheck:

@@ -57,9 +57,9 @@ x-airflow-common:
   environment:
     &airflow-common-env
     AIRFLOW__CORE__EXECUTOR: CeleryExecutor
-    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@${AIRFLOW_POSTGRES_HOST:?error}:${AIRFLOW_POSTGRES_PORT:?error}/airflow
-    AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@${AIRFLOW_POSTGRES_HOST:?error}:${AIRFLOW_POSTGRES_PORT:?error}/airflow
-    AIRFLOW__CELERY__BROKER_URL: redis://:@${AIRFLOW_REDIS_HOST:?error}:${AIRFLOW_REDIS_PORT:?error}/0
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@${POSTGRES_HOST:?error}:${POSTGRES_PORT:?error}/airflow
+    AIRFLOW__CELERY__RESULT_BACKEND:     db+postgresql://airflow:airflow@${POSTGRES_HOST:?error}:${POSTGRES_PORT:?error}/airflow
+    AIRFLOW__CELERY__BROKER_URL: redis://:@${REDIS_HOST:?error}:${REDIS_PORT:?error}/0
     AIRFLOW__CORE__TEST_CONNECTION: 'Enabled'
     AIRFLOW__CORE__FERNET_KEY: ''
     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'

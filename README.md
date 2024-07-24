@@ -6,9 +6,9 @@ in the [AlphaKraken WebApp](http://somepc462:8501/).
 
 ## Deployment
 This guide is both valid for a local setup (without connection to pool or cluster), and for sandbox/production setups.
-Upfront, set a bash variable `ENV`, which is either `local`, `sandbox`, or `prod`, e.g.
+Upfront, set an environment variable `ENV`, which is either `local`, `sandbox`, or `prod`, e.g.
 ```bash
-ENV=local
+export ENV=local
 ```
 This will use the environment variables defined in `envs/${ENV}.env`.
 
@@ -26,12 +26,11 @@ Please note that running and developing the alphakraken is only tested for MacOS
 directory (otherwise, `root` would be used)
 ```bash
 echo -e "AIRFLOW_UID=$(id -u)" > envs/.env-airflow
-mkdir airflow_logs
 ```
 
 3. Initialize the internal airflow database:
 ```bash
-docker compose --env-file=envs/.env-airflow --env-file=envs/${ENV}.env run airflow-init
+./compose.sh run airflow-init
 ```
 Note: depending on your operating system and configuration, you might need to run `docker compose` command with `sudo`.
 
@@ -44,66 +43,84 @@ In this case, make sure to set the Airflow variable `debug_no_cluster_ssh=True` 
 5. In the Airflow UI, set up the required Pools (see [below](#setup-pools)).
 
 #### Run the containers (local version)
-Start all docker containers (but without the workers mounted to the production file systems)
+Start all docker containers required for local testing with
 ```bash
-docker compose --env-file=envs/.env-airflow --env-file=envs/${ENV}.env up --build -d
+./compose.sh --profile local up --build -d
 ```
 After startup, the airflow webserver runs on http://localhost:8080/ (default credentials: `airflow`/`airflow`), the Streamlit webapp on http://localhost:8501/ .
 
-To spin the containers down again, use
+To spin all containers down again, use
 ```bash
-docker compose --env-file=envs/.env-airflow --env-file=envs/${ENV}.env down
+./compose.sh --profile local down
 ```
 
 #### Some useful commands:
+Instead of referencing a profile (which can refer to multiple services), you can also interact with individual services:
+```bash
+./compose.sh down airflow-webserver
+```
+
 See state of containers
 ```bash
 docker ps
 ```
+To force kill a certain container, get its `ID` from the above command, do `ps ax | grep <ID>` to get the process ID, and then `kill -9 <PID>`.
 
-Watch logs for a given service (omit the last part to see all logs)
+Watch logs for a given service
 ```bash
-docker compose --env-file=envs/.env-airflow --env-file=envs/${ENV}.env logs -f airflow-worker-test1
+./compose.sh logs airflow-worker-test1 -f
 ```
 
 Start bash in a given service container
 ```bash
-docker compose --env-file=envs/.env-airflow --env-file=envs/${ENV}.env exec airflow-worker-test1 bash
+./compose.sh exec airflow-worker-test1 bash
 ```
 
 Clean up all containers, volumes, and images
 ```bash
-docker compose --env-file=envs/.env-airflow --env-file=envs/${ENV}.env down --volumes  --remove-orphans --rmi
+./compose.sh down --volumes  --remove-orphans --rmi
 ```
 
+If you encounter problems with mounting or any sorts of caching issues, try to replace
+`--build` with `--build --force-recreate`.
+
 ### Additional steps required for the sandbox/production setup
+Remember to set `export ENV=sandbox` (`production`) first.
+
+The different services can be distributed over several machines. The only important thing is that there
+it exactly one instance of each of the `postgres-service`, `redis-service` and `mongodb-service`.
+The name of the host running are set by the respective variables in `./env/${ENV}.env`.
+
+One reasonable setup is to have the airflow infrastructure and the MongoDB service on one machine,
+and the workers on another. Of course, one machine could also host them all.
+
+#### On the PC (VM) hosting the airflow infrastructure
+1. Set up the [network bind mounts](#set-up-network-bind-mounts).
+
+2. Run the airflow infrastructure and MongoDB services
+```bash
+./compose.sh --profile infrastructure up --build -d
+```
+Then, access the Airflow UI at http://<hostname>:8081/ and the Streamlit webapp at http://<hostname>:8502/.
+
+#### On the PC (VM) hosting the workers
+1. Set up the [network bind mounts](#set-up-network-bind-mounts)
+and the mounts for the [instruments](#add-a-new-instrument).
+
+2. Run the worker containers (sandbox/production version)
+```bash
+./compose.sh --profile workers up --build -d
+```
+which spins up on worker service for each instrument.
 
 #### On the cluster
 1. Create this directory
 ```bash
 mkdir -p ~/slurm/jobs
 ```
-and copy the cluster run script `submit_job.sh` to `~/slurm`. Make sure to update it on changes.
+and copy the cluster run script `submit_job.sh` to `~/slurm`. Make sure to update this file when deploying new features.
 
 2. Set up alphaDIA  (see [below](#setup-alphadia)).
-
-#### On the kraken PC
-1. Set up the network bind mounts. First, install the `cifs-utils` package (otherwise you might get errors like
-`CIFS: VFS: cifs_mount failed w/return code = -13`)
-```bash
-sudo apt install cifs-utils
-```
-Then, set up the [network bind mounts](#set-up-network-bind-mounts))
-and the  [instruments](#add-a-new-instrument).
-
-2. Run the containers (sandbox/production version)
-```bash
-docker compose --env-file=envs/.env-airflow --env-file=envs/${ENV}.env --profile all-workers up --build -d
-```
-which spins up additional worker containers for each instrument.
-
-Then, access the Airflow UI at http://somepc462:8081/ and the Streamlit webapp at http://somepc462:8502/.
-
 
 ### General note on how Kraken gets to know the data
 Each worker needs two 'views' on the data: the first one enables direct access to it,
@@ -116,6 +133,12 @@ this is required to set the paths for the cluster jobs correctly.
 We need bind mounts set up to each backup pool folder, and to the project pool folder.
 Additionally, one bind mount per instrument PC is needed (cf. section below).
 
+0. Install the `cifs-utils` package (otherwise you might get errors like
+`CIFS: VFS: cifs_mount failed w/return code = -13`)
+```bash
+sudo apt install cifs-utils
+```
+
 1. Mount the backup pool folder
 ```bash
 ./mountall.sh $ENV backup
@@ -124,6 +147,11 @@ Additionally, one bind mount per instrument PC is needed (cf. section below).
 2. Mount the output folder
 ```bash
 ./mountall.sh $ENV output
+```
+
+3.Mount the logs folder
+```bash
+./mountall.sh $ENV logs
 ```
 
 Note: for now, user `kraken` should only have read access to the backup pool folder, but needs `read/write` on the `output`
@@ -165,7 +193,7 @@ conda create --name alphadia-${VERSION} python=3.11 -y
 conda activate alphadia-${VERSION}
 ```
 ```bash
-pip  install "alphadia[stable]==${VERSION}"
+pip install "alphadia[stable]==${VERSION}"
 ```
 Make sure the environment is named `alphadia-$VERSION`.
 Also, don't forget to install `mono` (cf. alphaDIA Readme).
@@ -233,7 +261,8 @@ In contrast, a new feature that changes the way data is processed should definit
 Only a well-tested feature should deployed to production.
 
 ### Development setup
-This is required to have all the required dependencies for local deployment and testing.
+This is required to have all the required dependencies for local development, in order to enable your IDE
+dereference all dependencies and to run the tests.
 1. Set up your environment for developing locally with
 ```bash
 PYTHON_VERSION=3.11
@@ -270,7 +299,7 @@ special worker ("test1") is used that has the `airflow_test_folder` mounted (ins
 Note: the instrument type for `test1` is set to `thermo`. In order to test other workflows,
 change this locally in `settings.py:INSTRUMENTS`.
 
-1. Run the `docker compose` command for the local setup (cf. above) and log into the airflow UI.
+1. Run the `docker compose` (`./compose.sh`) command for the local setup (cf. above) and log into the airflow UI.
 2. Unpause all `*.test1` DAGs. The "watcher" should start running.
 3. If you do not want to feed the cluster, set the Airflow variable `debug_no_cluster_ssh=True` (see above)
 4. In the webapp, create a project with the name `P1`, and add some fake settings to it.
@@ -356,6 +385,8 @@ To have your IDE recognize the imports correctly, you might need to take some ac
 E.g. in PyCharm, you need to mark `dags`, `plugins`, `shared`, and `airflow_src` as "Sources Root".
 
 ### Run Airflow standalone (not actively maintained)
+<details>
+  <summary>deprecated</summary>
 Alternatively, run airflow without Docker using
 ```bash
 MONGO_USER=<mongo_user>
@@ -369,6 +400,7 @@ Also, you will need to fire up the Streamlit webapp yourself by `docker compose 
 
 Note that currently, the docker version is recommended as the standalone version is not part of regular testing and
 might not work as expected.
+</details>
 
 ## Troubleshooting
 

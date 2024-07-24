@@ -61,12 +61,12 @@ x-airflow-common:
     AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER:?error}:${POSTGRES_PASSWORD:?error}@${POSTGRES_HOST:?error}:${POSTGRES_PORT:?error}/${POSTGRES_DB:?error}
     AIRFLOW__CELERY__RESULT_BACKEND:           db+postgresql://${POSTGRES_USER:?error}:${POSTGRES_PASSWORD:?error}@${POSTGRES_HOST:?error}:${POSTGRES_PORT:?error}/${POSTGRES_DB:?error}
     AIRFLOW__CELERY__BROKER_URL: redis://:@${REDIS_HOST:?error}:${REDIS_PORT:?error}/0
-    AIRFLOW__CORE__TEST_CONNECTION: 'Enabled'
     AIRFLOW__CORE__FERNET_KEY: ''
     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
     AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
     AIRFLOW__API__AUTH_BACKENDS: 'airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session'
     AIRFLOW__SCHEDULER__MIN_FILE_PROCESS_INTERVAL: 300 # reduce this number locally to get DAG changes faster
+    AIRFLOW__CORE__TEST_CONNECTION: 'Enabled'  # to allow testing connections via UI
     # yamllint disable rule:line-length
     # Use simple http server on scheduler for health checks
     # See https://airflow.apache.org/docs/apache-airflow/stable/administration-and-deployment/logging-monitoring/check-health.html#scheduler-health-check-server

@@ -93,6 +93,14 @@ class Pools:
     FILE_COPY_POOL = "file_copy_pool"  # suggested default: 2
 
 
+class AlphaDiaConstants:
+    """Constants for accessing AlphaDia output."""
+
+    LOG_FILE_NAME = "log.txt"
+    EVENTS_FILE_NAME = "events.jsonl"
+    PROGRESS_FOLDER_NAME = ".progress"
+
+
 def get_internal_instrument_data_path(instrument_id: str) -> Path:
     """Get internal path for the given instrument.
 

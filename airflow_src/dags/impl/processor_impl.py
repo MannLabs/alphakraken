@@ -26,6 +26,7 @@ from common.keys import (
 from common.settings import (
     CLUSTER_WORKING_DIR,
     ERROR_CODE_TO_STRING,
+    AlphaDiaConstants,
     InternalPaths,
     get_fallback_project_id,
     get_internal_output_path,
@@ -174,7 +175,7 @@ def _get_custom_error_codes(events_jsonl_file_path: Path) -> list[str]:
 
 def _get_other_error_codes(output_path: Path) -> str:
     """Extract non-custom errors from the alphaDIA logs."""
-    log_file_path = output_path / "log.txt"
+    log_file_path = output_path / AlphaDiaConstants.LOG_FILE_NAME
     if not log_file_path.exists():
         logging.warning(f"Could not find {log_file_path=}")
         return CustomAlphaDiaStates.NO_LOG_FILE
@@ -194,8 +195,12 @@ def get_business_errors(raw_file: RawFile, project_id: str) -> list[str]:
     """Extract business errors from the alphaDIA output."""
     output_path = get_internal_output_path(raw_file, project_id)
 
+    raw_file_progress_subfolder = Path(raw_file.id).stem
     events_jsonl_path = (
-        output_path / ".progress" / Path(raw_file.id).stem / "events.jsonl"
+        output_path
+        / AlphaDiaConstants.PROGRESS_FOLDER_NAME
+        / raw_file_progress_subfolder
+        / AlphaDiaConstants.EVENTS_FILE_NAME
     )
 
     error_codes = []

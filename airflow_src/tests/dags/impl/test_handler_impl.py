@@ -7,6 +7,7 @@ from common.keys import DagContext, DagParams, OpArgs
 from dags.impl.handler_impl import (
     copy_raw_file,
     start_acquisition_processor,
+    start_file_mover,
 )
 from db.models import RawFileStatus
 
@@ -49,6 +50,27 @@ def test_copy_raw_file_calls_update_with_correct_args(
             call("test_file.raw", new_status=RawFileStatus.COPYING),
             call("test_file.raw", new_status=RawFileStatus.COPYING_DONE, size=1000),
         ]
+    )
+
+
+@patch("dags.impl.handler_impl.trigger_dag_run")
+def test_start_file_mover(mock_trigger_dag_run: MagicMock) -> None:
+    """Test start_file_mover."""
+    ti = Mock()
+
+    # when
+    start_file_mover(
+        ti,
+        **{
+            DagContext.PARAMS: {DagParams.RAW_FILE_ID: "file1.raw"},
+        },
+    )
+
+    mock_trigger_dag_run.assert_called_once_with(
+        "file_mover",
+        {
+            DagParams.RAW_FILE_ID: "file1.raw",
+        },
     )
 
 

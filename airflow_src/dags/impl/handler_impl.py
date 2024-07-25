@@ -32,6 +32,19 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
     update_raw_file(raw_file_id, new_status=RawFileStatus.COPYING_DONE, size=file_size)
 
 
+def start_file_mover(ti: TaskInstance, **kwargs) -> None:
+    """Trigger the file_mover DAG for a specific raw file."""
+    del ti  # unused
+    raw_file_id = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID]
+
+    trigger_dag_run(
+        Dags.FILE_MOVER,
+        {
+            DagParams.RAW_FILE_ID: raw_file_id,
+        },
+    )
+
+
 def start_acquisition_processor(ti: TaskInstance, **kwargs) -> None:
     """Trigger an acquisition_processor DAG run for specific raw files.
 

@@ -25,6 +25,7 @@ from common.settings import (
 from impl.handler_impl import (
     copy_raw_file,
     start_acquisition_processor,
+    start_file_mover,
 )
 from sensors.acquisition_monitor import AcquisitionMonitor
 
@@ -69,13 +70,23 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
             pool=Pools.FILE_COPY_POOL,
         )
 
+        start_file_mover_ = PythonOperator(
+            task_id=Tasks.START_FILE_MOVER,
+            python_callable=start_file_mover,
+        )
+
         start_acquisition_processor_ = PythonOperator(
             task_id=Tasks.START_ACQUISITION_PROCESSOR,
             python_callable=start_acquisition_processor,
             op_kwargs={OpArgs.INSTRUMENT_ID: instrument_id},
         )
 
-    (monitor_acquisition_ >> copy_raw_file_ >> start_acquisition_processor_)
+    (
+        monitor_acquisition_
+        >> copy_raw_file_
+        >> start_file_mover_
+        >> start_acquisition_processor_
+    )
 
 
 for instrument_id in INSTRUMENTS:

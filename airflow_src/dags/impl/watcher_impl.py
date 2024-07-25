@@ -284,9 +284,11 @@ def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
         )
 
         # Here mongoengine.errors.NotUniqueError is raised when the file is already in the DB.
-        # This could happen if this task is restarted in the middle of processing.
         # The NotUniqueError is deliberately raised here: the task will fail, but in the next DAG run, the
         # file that caused the problem is filtered out in get_unknown_raw_files().
+        # Beware: if is_collision is True, and this task is re-run, it will be successfully saved and processed
+        # as a collision. So avoid manual restarts of this task.
+        # To prevent automatic task restarting, retries need to be set to 0.
         raw_file_id = _add_raw_file_to_db(
             raw_file_name,
             is_collision=is_collision,

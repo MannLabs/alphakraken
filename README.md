@@ -6,13 +6,26 @@ in the [AlphaKraken WebApp](http://somepc462:8501/).
 
 ## Deployment
 This guide is both valid for a local setup (without connection to pool or cluster), and for sandbox/production setups.
-Upfront, set an environment variable `ENV`, which is either `local`, `sandbox`, or `prod`, e.g.
+Upfront, set an environment variable `ENV`, which is either `local`, `sandbox`, or `production`, e.g.
 ```bash
 export ENV=local
 ```
 This will use the environment variables defined in `envs/${ENV}.env`.
 
-### Initializing and running the kraken
+### Deployment workflow: 'local' vs. 'sandbox' vs. 'production'
+All features should be tested `local`ly before deploying them to the `sandbox` environment
+for further testing. `sandbox` is technically equivalent to `production`, but it does not contain any valuable
+data and therefore it's perfectly fine to break and/or wipe it.
+There, depending on the scope of the feature, and of the likeliness of breaking something,
+another test with real data might be necessary.
+
+Use common sense when deciding the scope of testing:
+For instance, if you correct a typo in the webapp, you might well skip the sandbox testing.
+In contrast, a new feature that changes the way data is processed should definitely be tested in the sandbox environment.
+
+Only a well-tested feature should be deployed to production.
+
+### Initial deployment
 All commands in this Readme assume you are in the root folder of the repository.
 Please note that running and developing the alphakraken is only tested for MacOS and Linux
 (the UI can be accessed from any OS, of course).
@@ -54,45 +67,26 @@ To spin all containers down again, use
 ./compose.sh --profile local down
 ```
 
-#### Some useful commands:
-Instead of referencing a profile (which can refer to multiple services), you can also interact with individual services:
-```bash
-./compose.sh down airflow-webserver
-```
+See below for (some useful Docker commands)[#some-useful-docker-commands].
 
-See state of containers
-```bash
-docker ps
-```
-To force kill a certain container, get its `ID` from the above command, do `ps ax | grep <ID>` to get the process ID, and then `kill -9 <PID>`.
 
-Watch logs for a given service
-```bash
-./compose.sh logs airflow-worker-test1 -f
-```
+### Additional steps required for initial sandbox/production deployment
 
-Start bash in a given service container
-```bash
-./compose.sh exec airflow-worker-test1 bash
-```
-
-Clean up all containers, volumes, and images
-```bash
-./compose.sh down --volumes  --remove-orphans --rmi
-```
-
-If you encounter problems with mounting or any sorts of caching issues, try to replace
-`--build` with `--build --force-recreate`.
-
-### Additional steps required for the sandbox/production setup
-Remember to set `export ENV=sandbox` (`production`) first.
+The main differences between the `local` and the `sandbox`/`production` deployments are:
+- `local` has all services running on the same machine within the same docker-compose network
+- `sandbox`/`production` needs additional steps to configure the cluster and the network bind mounts
 
 The different services can be distributed over several machines. The only important thing is that there
 it exactly one instance of each of the `postgres-service`, `redis-service` and `mongodb-service`.
 The name of the host running are set by the respective variables in `./env/${ENV}.env`.
 
 One reasonable setup is to have the airflow infrastructure and the MongoDB service on one machine,
-and the workers on another. Of course, one machine could also host them all.
+and all workers on another. This is the current setup in the docker-compose, which is reflected by the
+profiles `infrastructure` and `workers`, respectively. If you move one of the central components (airflow postgres DB,
+airflow redis, mongo DB) to another machine, you might need to adjust the `*_HOST` variables in the
+`./env/{ENV}.env` files (see comments there). Of course, one machine could also host them all.
+
+Remember to set `export ENV=sandbox` (`production`) first.
 
 #### On the PC (VM) hosting the airflow infrastructure
 1. Set up the [network bind mounts](#set-up-network-bind-mounts).
@@ -129,36 +123,27 @@ to a worker container. The second one is the location of the data as seen from t
 this is required to set the paths for the cluster jobs correctly.
 
 ### Set up network bind mounts
-(TODO: describe persistent mount)
-We need bind mounts set up to each backup pool folder, and to the project pool folder.
+We need bind mounts set up to each backup pool folder, to the project pool folder and to a pool folder containing airflow logs.
 Additionally, one bind mount per instrument PC is needed (cf. section below).
 
-0. Install the `cifs-utils` package (otherwise you might get errors like
+1. Install the `cifs-utils` package (otherwise you might get errors like
 `CIFS: VFS: cifs_mount failed w/return code = -13`)
 ```bash
 sudo apt install cifs-utils
 ```
 
-1. Mount the backup pool folder
+2. Make sure the variables `MOUNTS_PATH` and `IO_POOL_FOLDER` in the `envs/${ENV}.env` file are set correctly. Check also
+`MOUNTS` in the `mountall.sh` script .
+
+3. Mount the backup, output and logs folder. You will be asked for passwords.
 ```bash
 ./mountall.sh $ENV backup
-```
-
-2. Mount the output folder
-```bash
 ./mountall.sh $ENV output
-```
-
-3.Mount the logs folder
-```bash
 ./mountall.sh $ENV logs
 ```
 
 Note: for now, user `kraken` should only have read access to the backup pool folder, but needs `read/write` on the `output`
-folder.
-
-Cf. also the environment variables `MOUNTS_PATH` and `IO_POOL_FOLDER` in the `envs/${ENV}.env` file.
-If you need to remount one of the folders, add the `umount` option, e.g.
+folder. If you need to remount one of the folders, add the `umount` option, e.g.
 `./mountall.sh $ENV output umount`.
 
 
@@ -249,16 +234,6 @@ recent files. Older ones will then be added to the DB with status 'ignored'. Don
 
 
 ## Local development
-
-### Deployment workflow: 'local' vs. 'sandbox' vs. 'production'
-All features should be tested locally before deploying them to the sandbox environment
-(which is technically equivalent to the production).
-There, depending on the scope of the feature, and of the likeliness of breaking something,
-another test with real data might be necessary.
-For instance, if you correct a typo in the webapp, you might well skip the sandbox testing.
-In contrast, a new feature that changes the way data is processed should definitely be tested in the sandbox environment.
-
-Only a well-tested feature should deployed to production.
 
 ### Development setup
 This is required to have all the required dependencies for local development, in order to enable your IDE
@@ -430,6 +405,36 @@ Find all files for a given instrument with a given status that are younger than 
 ```
 { $and: [{status:"error"}, {instrument_id:"test2"}, {created_at_: {$gte: new ISODate("2024-06-27")}}]}
 ```
+
+### Some useful Docker commands
+Instead of referencing a profile (which can refer to multiple services), you can also interact with individual services:
+```bash
+./compose.sh down airflow-webserver
+```
+
+See state of containers
+```bash
+docker ps
+```
+To force kill a certain container, get its `ID` from the above command, do `ps ax | grep <ID>` to get the process ID, and then `kill -9 <PID>`.
+
+Watch logs for a given service
+```bash
+./compose.sh logs airflow-worker-test1 -f
+```
+
+Start bash in a given service container
+```bash
+./compose.sh exec airflow-worker-test1 bash
+```
+
+Clean up all containers, volumes, and images
+```bash
+./compose.sh down --volumes  --remove-orphans --rmi
+```
+
+If you encounter problems with mounting or any sorts of caching issues, try to replace
+`--build` with `--build --force-recreate`.
 
 ## Airflow Variables
 These variables are set in the Airflow UI under "Admin" -> "Variables". They steer the behavior of the whole system,

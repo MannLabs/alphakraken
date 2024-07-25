@@ -67,7 +67,7 @@ To spin all containers down again, use
 ./compose.sh --profile local down
 ```
 
-See below for (some useful Docker commands)[#some-useful-docker-commands].
+See below for [some useful Docker commands](#some-useful-docker-commands).
 
 
 ### Additional steps required for initial sandbox/production deployment
@@ -77,28 +77,29 @@ The main differences between the `local` and the `sandbox`/`production` deployme
 - `sandbox`/`production` needs additional steps to configure the cluster and the network bind mounts
 
 The different services can be distributed over several machines. The only important thing is that there
-it exactly one instance of each of the `postgres-service`, `redis-service` and `mongodb-service`.
-The name of the host running are set by the respective variables in `./env/${ENV}.env`.
-
+it exactly one instance of each of the 'central components': `postgres-service`, `redis-service`, and `mongodb-service`.
 One reasonable setup is to have the airflow infrastructure and the MongoDB service on one machine,
 and all workers on another. This is the current setup in the docker-compose, which is reflected by the
-profiles `infrastructure` and `workers`, respectively. If you move one of the central components (airflow postgres DB,
-airflow redis, mongo DB) to another machine, you might need to adjust the `*_HOST` variables in the
-`./env/{ENV}.env` files (see comments there). Of course, one machine could also host them all.
+profiles `infrastructure` and `workers`, respectively. If you move one of the central components
+to another machine, you might need to adjust the `*_HOST` variables in the
+`./env/${ENV}.env` files (see comments there). Of course, one machine could also host them all.
 
-Remember to set `export ENV=sandbox` (`production`) first.
 
 #### On the PC (VM) hosting the airflow infrastructure
-1. Set up the [network bind mounts](#set-up-network-bind-mounts).
+0. `ssh` into the PC/VM and set `export ENV=sandbox` (`production`).
+
+1. Set up the [pool bind mounts](#set-up-pool-bind-mounts).
 
 2. Run the airflow infrastructure and MongoDB services
 ```bash
 ./compose.sh --profile infrastructure up --build -d
 ```
-Then, access the Airflow UI at http://<hostname>:8081/ and the Streamlit webapp at http://<hostname>:8502/.
+Then, access the Airflow UI at http://hostname:8080/ and the Streamlit webapp at http://hostname:8501/.
 
 #### On the PC (VM) hosting the workers
-1. Set up the [network bind mounts](#set-up-network-bind-mounts)
+0. `ssh` into the PC/VM and set `export ENV=sandbox` (`production`).
+
+1. Set up the [pool bind mounts](#set-up-pool-bind-mounts)
 and the mounts for the [instruments](#add-a-new-instrument).
 
 2. Run the worker containers (sandbox/production version)
@@ -117,14 +118,15 @@ and copy the cluster run script `submit_job.sh` to `~/slurm`. Make sure to updat
 2. Set up alphaDIA  (see [below](#setup-alphadia)).
 
 ### General note on how Kraken gets to know the data
-Each worker needs two 'views' on the data: the first one enables direct access to it,
-by mounting a specific folder to a target on the kraken PC and then mounting the target
-to a worker container. The second one is the location of the data as seen from the cluster,
-this is required to set the paths for the cluster jobs correctly.
+Each worker needs two 'views' on the data: the first view enables direct access to it,
+by mounting a specific folder to a target folder on the kraken PC and then mapping this target
+to a worker container. The second view is the location of the data as seen from the cluster,
+which is required to set the paths for the cluster jobs correctly.
 
-### Set up network bind mounts
-We need bind mounts set up to each backup pool folder, to the project pool folder and to a pool folder containing airflow logs.
-Additionally, one bind mount per instrument PC is needed (cf. section below).
+### Set up pool bind mounts
+The workers need bind mounts set up to the pool filesystems for backup and reading alphaDIA output data.
+All airflow components (webserver, scheduler and workers) need a bind mount to a pool folder to read and write airflow logs.
+Additionally, workers need one bind mount per instrument PC is needed (cf. section below).
 
 1. Install the `cifs-utils` package (otherwise you might get errors like
 `CIFS: VFS: cifs_mount failed w/return code = -13`)
@@ -237,7 +239,7 @@ recent files. Older ones will then be added to the DB with status 'ignored'. Don
 These steps need to be done on all machines that run alphakraken services. Make sure the code is always consistent across all machines!
 1. Stop all docker compose services across all machines using the `down` command.
 2. On each machine, pull the most recent version of the code from the repository.
-3. Check if there are any special changes to be done (e.g. new mounts, new environment variables, manual database interventions, ..)
+3. Check if there are any special changes to be done (e.g. updating `submit_job.sh` on the cluster, new mounts, new environment variables, manual database interventions, ..)
 and apply them.
 4. Start all docker compose services again, first the `infrastructure` services, then the `workers` services.
 5. Normal operation should be resumed after about 5 minutes. Depending on when they were shut down, some tasks
@@ -327,13 +329,13 @@ and clear the task state using the UI.
 8. Wait until DAG run finished and check results in the webapp.
 
 ### Connect to the DB
-Use e.g. MongoDB Compass to connect to the MongoDB running in Docker using the url `localhost:27017`,
-the credentials (e.g. defined in `envs/local.env`) and make sure the "Authentication Database" is "krakendb".
+Use e.g. MongoDB Compass to connect to the MongoDB running in Docker using the url `<hostname>:27017` (e.g. `localhost:27017`),
+the credentials (defined in `envs/$ENV.env`) and make sure the "Authentication Database" is "`krakendb`".
 
 #### Changing the DB 'schema'
 Although MongoDB is schema-less in principle, the use of `mongoengine` enforces a schema-like structure.
 In order to modify this structure of the DB (e.g. rename a field), you need to
-1. Backup the DB
+1. Backup the DB by copying the `mongodb_data_$ENV` folder
 2. Pause all DAGs and other services that may write to the DB
 3. Connect to the DB using  MongoDB Compass and use the `update` button with a command like
 ```
@@ -405,10 +407,8 @@ Once the instrument is available again, uncomment the worker definition and rest
 Sometimes, substituting `--build` with `--build --force-recreate` in the `docker compose` command helps
 resolve mounting problems.
 
-### Restarting Docker
-```
-sudo systemctl restart docker
-```
+
+## Useful comments
 
 ### Some useful MongoDB commands
 Find all files for a given instrument with a given status that are younger than a given date
@@ -445,6 +445,12 @@ Clean up all containers, volumes, and images
 
 If you encounter problems with mounting or any sorts of caching issues, try to replace
 `--build` with `--build --force-recreate`.
+
+Restarting Docker
+```
+systemctl restart docker
+```
+
 
 ## Airflow Variables
 These variables are set in the Airflow UI under "Admin" -> "Variables". They steer the behavior of the whole system,

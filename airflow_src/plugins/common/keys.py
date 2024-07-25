@@ -9,6 +9,7 @@ class Dags:
     ACQUISITON_WATCHER: str = "instrument_watcher"
     ACQUISITION_HANDLER: str = "acquisition_handler"
     ACQUISITON_HANDLER: str = "acquisition_processor"
+    FILE_MOVER: str = "file_mover"
 
 
 class Tasks:

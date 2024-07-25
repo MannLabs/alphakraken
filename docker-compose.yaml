@@ -356,6 +356,11 @@ services:
       - ${AIRFLOW_PROJ_DIR:-./airflow_src}/plugins:/opt/airflow/plugins
       - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../shared:/opt/airflow/shared
 
+  # file mover
+  airflow-worker-file-mover:
+    <<: *airflow-worker
+    command: celery worker -q kraken_queue_file_mover
+
   # INSTRUMENT: Test2
   airflow-worker-test2:
     <<: *airflow-worker

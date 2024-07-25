@@ -14,6 +14,8 @@ from common.keys import (
 )
 from common.settings import (
     AIRFLOW_QUEUE_PREFIX,
+    Concurrency,
+    Timings,
 )
 from impl.mover_impl import move_raw_file
 
@@ -42,8 +44,8 @@ def create_file_mover_dag() -> None:
         move_raw_file_ = PythonOperator(
             task_id=Tasks.MOVE_RAW_FILE,
             python_callable=move_raw_file,
-            # max_active_tis_per_dag=Concurrency.MAXNO_COPY_RAW_FILE_TASKS_PER_DAG,
-            # execution_timeout=timedelta(minutes=Timings.RAW_DATA_COPY_TASK_TIMEOUT_M),
+            max_active_tis_per_dag=Concurrency.MAXNO_MOVE_RAW_FILE_TASKS_PER_DAG,
+            execution_timeout=timedelta(minutes=Timings.MOVE_RAW_FILE_TASK_TIMEOUT_M),
         )
 
     move_raw_file_  # noqa: B018

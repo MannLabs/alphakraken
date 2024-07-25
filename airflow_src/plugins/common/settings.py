@@ -67,6 +67,8 @@ class Timings:
 
     ACQUISITION_MONITOR_TIMEOUT_M = 180
 
+    MOVE_RAW_FILE_TASK_TIMEOUT_M = 1
+
 
 class Concurrency:
     """Concurrency constants."""
@@ -81,6 +83,8 @@ class Concurrency:
 
     # limit the number of concurrent monitors to not over-stress the network (relevant only during a catchup)
     MAXNO_MONITOR_ACQUISITION_TASKS_PER_DAG = 10
+
+    MAXNO_MOVE_RAW_FILE_TASKS_PER_DAG = 1
 
 
 class Pools:

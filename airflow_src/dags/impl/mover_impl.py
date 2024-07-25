@@ -21,7 +21,7 @@ def move_raw_file(ti: TaskInstance, **kwargs) -> None:
     src_path = get_internal_instrument_data_path(instrument_id) / raw_file.original_name
     dst_path = (
         get_internal_instrument_data_path(instrument_id)
-        / "test-backup"
+        / "kraken-backup"
         / raw_file.original_name
     )
 

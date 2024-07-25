@@ -5,7 +5,8 @@ import logging
 from airflow.models import TaskInstance
 from common.keys import DagContext, DagParams
 from common.settings import get_internal_instrument_data_path
-from db.interface import get_raw_file_by_id
+
+from shared.db.interface import get_raw_file_by_id
 
 
 def move_raw_file(ti: TaskInstance, **kwargs) -> None:

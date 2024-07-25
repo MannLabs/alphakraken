@@ -1,6 +1,7 @@
 """Implementation of tasks for file_mover."""
 
 import logging
+import shutil
 
 from airflow.models import TaskInstance
 from common.keys import DagContext, DagParams
@@ -20,7 +21,7 @@ def move_raw_file(ti: TaskInstance, **kwargs) -> None:
     src_path = get_internal_instrument_data_path(instrument_id) / raw_file.original_name
     dst_path = (
         get_internal_instrument_data_path(instrument_id)
-        / "Backup"
+        / "test-backup"
         / raw_file.original_name
     )
 
@@ -31,4 +32,4 @@ def move_raw_file(ti: TaskInstance, **kwargs) -> None:
         raise FileExistsError(f"File {dst_path} already exists.")
 
     logging.info(f"Moving raw file {src_path} to {dst_path}")
-    # shutil.move(src_path, dst_path)
+    shutil.move(src_path, dst_path)

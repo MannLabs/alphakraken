@@ -240,32 +240,34 @@ def check_quanting_result(ti: TaskInstance, **kwargs) -> bool:
     if job_status == JobStates.COMPLETED:
         return True  # continue with downstream tasks
 
-    if job_status == JobStates.FAILED:
+    if job_status in [JobStates.FAILED, JobStates.TIMEOUT]:
         quanting_env = get_xcom(ti, XComKeys.QUANTING_ENV)
         project_id = quanting_env[QuantingEnv.PROJECT_ID_OR_FALLBACK]
         raw_file = get_raw_file_by_id(quanting_env[QuantingEnv.RAW_FILE_ID])
 
-        if len(business_errors := get_business_errors(raw_file, project_id)):
-            update_raw_file(
-                raw_file.id,
-                new_status=RawFileStatus.QUANTING_FAILED,
-                status_details=";".join(business_errors),
-            )
+        if job_status == JobStates.FAILED:
+            errors = get_business_errors(raw_file, project_id)
+        else:
+            errors = ["TIMEOUT"]
 
-            # fail the task run on new errors to make them transparent in Airflow UI
-            states_to_fail_task = [
-                CustomAlphaDiaStates.UNKNOWN_ERROR,
-                CustomAlphaDiaStates.NO_LOG_FILE,
-                CustomAlphaDiaStates.UNKNOWN_ERROR,
-            ]
-            if any(state in business_errors for state in states_to_fail_task):
-                raise AirflowFailException(
-                    f"Quanting failed with new error: {business_errors=}"
-                )
+        update_raw_file(
+            raw_file.id,
+            new_status=RawFileStatus.QUANTING_FAILED,
+            status_details=";".join(errors),
+        )
 
-            return False  # skip downstream tasks
+        # fail the DAG without retry on new errors to make them transparent in Airflow UI
+        states_to_fail_task = [
+            CustomAlphaDiaStates.UNKNOWN_ERROR,
+            CustomAlphaDiaStates.NO_LOG_FILE,
+            CustomAlphaDiaStates.UNKNOWN_ERROR,
+        ]
+        if any(state in errors for state in states_to_fail_task):
+            raise AirflowFailException(f"Quanting failed with new error: {errors=}")
 
-    # unknown state or non-business error: fail the DAG without retry
+        return False  # skip downstream tasks
+
+    # unknown state: fail the DAG without retry
     logging.info(f"Job {job_id} exited with status {job_status}.")
     raise AirflowFailException(f"Quanting failed: {job_status=}")
 

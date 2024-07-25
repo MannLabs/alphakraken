@@ -421,16 +421,14 @@ def test_check_quanting_result_business_error_raises(
 @patch("dags.impl.processor_impl.get_xcom")
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.SSHSensorOperator.ssh_execute")
-@patch("dags.impl.processor_impl.get_business_errors")
 @patch("dags.impl.processor_impl.update_raw_file")
-def test_check_quanting_result_non_business_error(
+def test_check_quanting_result_timeout(
     mock_update_raw_file: MagicMock,
-    mock_get_business_errors: MagicMock,
     mock_ssh_execute: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
     mock_get_xcom: MagicMock,
 ) -> None:
-    """Test that check_quanting_result behaves correctly on non-business errors."""
+    """Test that check_quanting_result behaves correctly on timeout."""
     mock_ti = MagicMock()
     mock_get_xcom.side_effect = [
         "12345",
@@ -439,20 +437,24 @@ def test_check_quanting_result_non_business_error(
             QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID1",
         },
     ]
-    mock_ssh_execute.return_value = "00:08:42\nsome\nother\nlines\nFAILED"
-    mock_get_business_errors.return_value = []
+    mock_raw_file = MagicMock(wraps=RawFile, id="test_file.raw")
+    mock_get_raw_file_by_id.return_value = mock_raw_file
+    mock_ssh_execute.return_value = "00:08:42\nsome\nother\nlines\nTIMEOUT"
 
     mock_ssh_hook = MagicMock()
 
     # when
-    with pytest.raises(AirflowFailException):
-        check_quanting_result(mock_ti, **{OpArgs.SSH_HOOK: mock_ssh_hook})
+    continue_downstream_tasks = check_quanting_result(
+        mock_ti, **{OpArgs.SSH_HOOK: mock_ssh_hook}
+    )
+    assert not continue_downstream_tasks
 
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
-    mock_get_business_errors.assert_called_once_with(
-        mock_get_raw_file_by_id.return_value, "PID1"
+    mock_update_raw_file.assert_called_once_with(
+        "test_file.raw",
+        new_status="quanting_failed",
+        status_details="TIMEOUT",
     )
-    mock_update_raw_file.assert_not_called()
 
 
 @patch("dags.impl.processor_impl.get_internal_output_path")

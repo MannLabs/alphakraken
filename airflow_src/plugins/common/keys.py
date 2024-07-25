@@ -116,6 +116,7 @@ class JobStates:
     RUNNING: str = "RUNNING"
     COMPLETED: str = "COMPLETED"
     FAILED: str = "FAILED"
+    TIMEOUT: str = "TIMEOUT"
 
 
 class CustomAlphaDiaStates:

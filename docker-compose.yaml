@@ -358,6 +358,7 @@ services:
 
   # file mover
   airflow-worker-file-mover:
+    profiles: ["local", "workers"]
     <<: *airflow-worker
     command: celery worker -q kraken_queue_file_mover
 

@@ -233,6 +233,16 @@ recent files. Older ones will then be added to the DB with status 'ignored'. Don
 (`instrument_watcher` -> `acquisition_handler` -> `acquisition_processor`.) and to check the logs for errors before starting the next one.
 
 
+### Deploying new code versions
+These steps need to be done on all machines that run alphakraken services. Make sure the code is always consistent across all machines!
+1. Stop all docker compose services across all machines using the `down` command.
+2. On each machine, pull the most recent version of the code from the repository.
+3. Check if there are any special changes to be done (e.g. new mounts, new environment variables, manual database interventions, ..)
+and apply them.
+4. Start all docker compose services again, first the `infrastructure` services, then the `workers` services.
+5. Normal operation should be resumed after about 5 minutes. Depending on when they were shut down, some tasks
+could be in an `error` state though. Check after a few hours if some files are stuck and resolve the issues with the Airflow UI.
+
 ## Local development
 
 ### Development setup

@@ -2,6 +2,6 @@
 pre-commit==3.7.1
 pytest==8.2.1
 
-# the apache/airflow:2.9.2 image comes with that pandas version,
+# the apache/airflow:2.9.3 image comes with that pandas version,
 # so we need to install it only for the unit tests
 pandas==2.1.4

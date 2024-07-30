@@ -40,6 +40,7 @@ ERROR_CODE_TO_STRING = {
     "_TOLERANCE_MUST_BE_LESS_THAN": "fragment_mz_tolerance must be less than",
     "_NEED_AT_LEAST_ONE_ARRAY": "need at least one array to concatenate",
     "_TRAIN_SET_WILL_BE_EMPTY": "the resulting train set will be empty",
+    "_CYCLE_NOT_CONSISTENT": "but does not consistent",
 }
 
 

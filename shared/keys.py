@@ -9,4 +9,5 @@ class EnvVars:
     MONGO_USER = "MONGO_USER"
     MONGO_PASSWORD = "MONGO_PASSWORD"  # noqa: S105  #Possible hardcoded password
 
+    BACKUP_POOL_FOLDER = "BACKUP_POOL_FOLDER"
     IO_POOL_FOLDER = "IO_POOL_FOLDER"

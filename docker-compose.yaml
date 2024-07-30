@@ -83,6 +83,7 @@ x-airflow-common:
     MONGO_USER: ${MONGO_USER:?error}
     MONGO_PASSWORD: ${MONGO_PASSWORD:?error}
     MONGO_PORT: ${MONGO_PORT:?error}
+    BACKUP_POOL_FOLDER: ${BACKUP_POOL_FOLDER:?error}
     IO_POOL_FOLDER: ${IO_POOL_FOLDER:?error}
     MOUNTS_PATH: ${MOUNTS_PATH:?error}
   volumes:

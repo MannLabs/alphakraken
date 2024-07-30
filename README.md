@@ -66,6 +66,10 @@ To spin all containers down again, use
 ```bash
 ./compose.sh --profile local down
 ```
+A more graceful 'warm shutdown' can be achieved by
+```bash
+./compose.sh --profile local stop
+```
 
 See below for [some useful Docker commands](#some-useful-docker-commands).
 
@@ -237,10 +241,11 @@ recent files. Older ones will then be added to the DB with status 'ignored'. Don
 
 ### Deploying new code versions
 These steps need to be done on all machines that run alphakraken services. Make sure the code is always consistent across all machines!
-1. Stop all docker compose services across all machines using the `down` command.
+0. If in doubt, create a  backup copy of the `mongodb_data_$ENV` and `airflowdb_data_$ENV` folders (on the machine that hosts the DBs).
+1. Stop all docker compose services across all machines using the `./compose.sh --profile <some profile> stop` command.
 2. On each machine, pull the most recent version of the code from the repository.
-3. Check if there are any special changes to be done (e.g. updating `submit_job.sh` on the cluster, new mounts, new environment variables, manual database interventions, ..)
-and apply them.
+3. Check if there are any special changes to be done (e.g. updating `submit_job.sh` on the cluster,
+new mounts, new environment variables, manual database interventions, ..) and apply them.
 4. Start all docker compose services again, first the `infrastructure` services, then the `workers` services.
 5. Normal operation should be resumed after about 5 minutes. Depending on when they were shut down, some tasks
 could be in an `error` state though. Check after a few hours if some files are stuck and resolve the issues with the Airflow UI.

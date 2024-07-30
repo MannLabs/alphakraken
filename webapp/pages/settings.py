@@ -105,12 +105,13 @@ form_items = {
         "placeholder": "e.g. very_fast_config.yaml",
         "help": "Name of the config file. If none is given, default will be used.",
     },
-    # TODO: make software selection
+    # TODO: make software selection dynamic
     "software": {
         "label": "software",
         "options": [
-            "alphadia-1.7.0",
-            "alphadia-1.6.2",
+            "alphadia-1.7.2",
+            "alphadia-1.7.2-dev",
+            "alphadia-1.7.1",
         ],
     },
 }

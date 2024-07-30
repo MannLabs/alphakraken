@@ -5,7 +5,12 @@ import shutil
 
 from airflow.models import TaskInstance
 from common.keys import DagContext, DagParams
-from common.settings import get_internal_instrument_data_path
+from common.settings import (
+    INSTRUMENT_BACKUP_FOLDER_NAME,
+    get_internal_instrument_data_path,
+)
+from common.utils import get_env_variable
+from keys import EnvVars
 
 from shared.db.interface import get_raw_file_by_id
 
@@ -21,7 +26,7 @@ def move_raw_file(ti: TaskInstance, **kwargs) -> None:
     src_path = get_internal_instrument_data_path(instrument_id) / raw_file.original_name
     dst_path = (
         get_internal_instrument_data_path(instrument_id)
-        / "Backup"
+        / INSTRUMENT_BACKUP_FOLDER_NAME
         / raw_file.original_name
     )
 
@@ -30,6 +35,13 @@ def move_raw_file(ti: TaskInstance, **kwargs) -> None:
 
     if dst_path.exists():
         raise FileExistsError(f"File {dst_path} already exists.")
+
+    # security measure to not have sandbox interfere with production
+    if get_env_variable(EnvVars.ENV_NAME) != "production":
+        logging.warning(
+            f"NOT moving raw file {src_path} to {dst_path}: not in production."
+        )
+        return
 
     dst_path.parent.mkdir(parents=True, exist_ok=True)
 

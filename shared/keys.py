@@ -4,6 +4,9 @@
 class EnvVars:
     """Keys for accessing docker environmental variables."""
 
+    # the logic that depends on the environment should be as little as possible
+    ENV_NAME = "ENV_NAME"
+
     MONGO_HOST = "MONGO_HOST"
     MONGO_PORT = "MONGO_PORT"
     MONGO_USER = "MONGO_USER"

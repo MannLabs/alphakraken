@@ -19,15 +19,17 @@ INSTRUMENTS = {
 # prefix for the queues the DAGs are assigned to (cf. docker-compose.yaml)
 AIRFLOW_QUEUE_PREFIX = "kraken_queue_"
 
-OUTPUT_FOLDER_PREFIX = "out_"
-
-
 CLUSTER_BASE_DIR = "~/slurm"
 CLUSTER_JOB_SCRIPT_PATH = f"{CLUSTER_BASE_DIR}/submit_job.sh"
 CLUSTER_WORKING_DIR = f"{CLUSTER_BASE_DIR}/jobs"
 
 FALLBACK_PROJECT_ID = "_FALLBACK"
 FALLBACK_PROJECT_ID_BRUKER = "_FALLBACK_BRUKER"
+
+OUTPUT_FOLDER_PREFIX = "out_"
+
+# local folder on the instruments to move files to after copying to pool-backup
+INSTRUMENT_BACKUP_FOLDER_NAME = "Backup"
 
 # separator between the timestamp and the raw file id in case of collisions
 COLLISION_FLAG_SEP = "---"

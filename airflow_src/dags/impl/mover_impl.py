@@ -10,9 +10,9 @@ from common.settings import (
     get_internal_instrument_data_path,
 )
 from common.utils import get_env_variable
-from keys import EnvVars
 
 from shared.db.interface import get_raw_file_by_id
+from shared.keys import EnvVars
 
 
 def move_raw_file(ti: TaskInstance, **kwargs) -> None:

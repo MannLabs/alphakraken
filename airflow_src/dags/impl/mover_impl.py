@@ -31,5 +31,7 @@ def move_raw_file(ti: TaskInstance, **kwargs) -> None:
     if dst_path.exists():
         raise FileExistsError(f"File {dst_path} already exists.")
 
+    dst_path.parent.mkdir(parents=True, exist_ok=True)
+
     logging.info(f"Moving raw file {src_path} to {dst_path}")
     shutil.move(src_path, dst_path)

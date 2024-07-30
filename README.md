@@ -186,7 +186,7 @@ conda activate alphadia-${VERSION}
 ```bash
 pip install "alphadia[stable]==${VERSION}"
 ```
-Make sure the environment is named `alphadia-$VERSION`.
+Make sure the environment is named `alphadia-${VERSION}`.
 Also, don't forget to install `mono` (cf. alphaDIA Readme).
 
 ### Add a new instrument

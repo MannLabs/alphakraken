@@ -62,9 +62,7 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
     backup_pool_folder = get_env_variable(EnvVars.BACKUP_POOL_FOLDER)
     year_month_subfolder = get_created_at_year_month(raw_file)
     input_data_rel_path = (
-        Path(backup_pool_folder)
-        / instrument_id  # TODO: capitalize??
-        / year_month_subfolder
+        Path(backup_pool_folder) / instrument_id / year_month_subfolder
     )
 
     project_id_or_fallback = _get_project_id_or_fallback(

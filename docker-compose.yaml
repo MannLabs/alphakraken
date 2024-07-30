@@ -22,7 +22,7 @@
 #
 # This configuration supports basic configuration using environment variables or an .env file
 # The following variables are supported:
-#
+# TODO: get rid of this AIRFLOW_PROJ_DIR
 # AIRFLOW_PROJ_DIR             - Base path to which all the files will be volumed.
 #                                Default: .
 # Those configurations are useful mostly in case of standalone testing/running Airflow in test/try-out mode

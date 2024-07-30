@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#SBATCH --job-name=alphakraken_test
+#SBATCH --job-name=alphakraken
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=24

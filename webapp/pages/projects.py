@@ -3,7 +3,7 @@
 import pandas as pd
 import streamlit as st
 from db.interface import add_new_project_to_db
-from service.components import show_filter
+from service.components import show_filter, show_sandbox_message
 from service.db import df_from_db_data, get_project_data
 from service.utils import (
     SessionStateKeys,
@@ -17,6 +17,9 @@ _log(f"loading {__file__}")
 # ########################################### PAGE HEADER
 
 st.set_page_config(page_title="AlphaKraken: projects", layout="wide")
+
+show_sandbox_message()
+
 st.markdown("# Projects")
 
 st.markdown("## Current projects")
@@ -35,7 +38,7 @@ projects_df = df_from_db_data(projects_db)
 
 # ########################################### DISPLAY
 
-st.warning("This page should currently be edited only by admin users!", icon="⚠️")
+st.warning("This page should be edited only by AlphaKraken admin users!", icon="⚠️")
 
 
 @st.experimental_fragment

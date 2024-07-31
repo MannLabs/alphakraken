@@ -6,7 +6,7 @@ import os
 import pandas as pd
 import streamlit as st
 from db.interface import add_new_settings_to_db
-from service.components import show_filter
+from service.components import show_filter, show_sandbox_message
 from service.db import (
     df_from_db_data,
     get_project_data,
@@ -25,6 +25,9 @@ _log(f"loading {__file__}")
 # ########################################### PAGE HEADER
 
 st.set_page_config(page_title="AlphaKraken: settings", layout="wide")
+
+show_sandbox_message()
+
 st.markdown("# Settings")
 
 # ########################################### SIDEBAR
@@ -45,7 +48,7 @@ io_pool_folder = os.environ.get(EnvVars.IO_POOL_FOLDER)
 st.markdown("## Current settings")
 
 
-st.warning("This page should currently be edited only by admin users!", icon="⚠️")
+st.warning("This page should be edited only by AlphaKraken admin users!", icon="⚠️")
 
 
 @st.experimental_fragment

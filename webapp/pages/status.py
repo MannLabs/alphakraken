@@ -6,6 +6,7 @@ import pandas as pd
 import streamlit as st
 from service.components import (
     display_status,
+    show_sandbox_message,
     show_status_plot,
     show_time_in_status_table,
 )
@@ -18,6 +19,9 @@ _log(f"loading {__file__}")
 # ########################################### PAGE HEADER
 
 st.set_page_config(page_title="AlphaKraken: status", layout="wide")
+
+show_sandbox_message()
+
 st.markdown("# Status")
 
 

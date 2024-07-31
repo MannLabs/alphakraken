@@ -1,7 +1,12 @@
 """A very simple Streamlit app that connects to a MongoDB database and displays the data from the RawFile collection."""
 
+import os
+
 import streamlit as st
+from service.components import show_sandbox_message
 from service.utils import _log
+
+from shared.keys import EnvVars
 
 _log(f"loading {__file__}")
 
@@ -11,10 +16,16 @@ st.set_page_config(page_title="AlphaKraken: home", layout="wide")
 # Welcome to AlphaKraken!
 """
 
-st.warning("""Note: you are currently viewing the 'sandbox' environment. Everything could
-change any minute, and data could be wrong or gone at any time.
-Also, bear in mind that the whole AlphaKraken project is currently work in progress
-and is far from complete in terms of features.""")
+if os.environ.get(EnvVars.ENV_NAME) == "production":
+    st.warning("""
+
+    Note: you are currently viewing the very first version of the AlphaKraken.
+    Bear in mind that the project is far from complete in terms of features.
+
+    If you are missing something or have a cool idea or found a bug, please let us know: <support_email>
+    """)
+else:
+    show_sandbox_message()
 
 """
 ## A basic explanation of how to use this:

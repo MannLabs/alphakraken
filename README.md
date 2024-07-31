@@ -44,9 +44,9 @@ directory (otherwise, `root` would be used)
 echo -e "AIRFLOW_UID=$(id -u)" > envs/.env-airflow
 ```
 
-3. Initialize the internal airflow database:
+3. On the PC that will host the internal airflow database run
 ```bash
-./compose.sh run airflow-init
+./compose.sh --profile infrastructure up airflow-init
 ```
 Note: depending on your operating system and configuration, you might need to run `docker compose` command with `sudo`.
 

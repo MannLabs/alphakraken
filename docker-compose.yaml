@@ -42,6 +42,7 @@ x-airflow-common:
     &airflow-common-env
     AIRFLOW__CORE__EXECUTOR: CeleryExecutor
     # the next three lines define the connection to postgres & redis
+    # make sure the passwords don't contain weird characters like '/' or '#'
     AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER:?error}:${POSTGRES_PASSWORD:?error}@${POSTGRES_HOST:?error}:${POSTGRES_PORT:?error}/${POSTGRES_DB:?error}
     AIRFLOW__CELERY__RESULT_BACKEND:           db+postgresql://${POSTGRES_USER:?error}:${POSTGRES_PASSWORD:?error}@${POSTGRES_HOST:?error}:${POSTGRES_PORT:?error}/${POSTGRES_DB:?error}
     AIRFLOW__CELERY__BROKER_URL: redis://:@${REDIS_HOST:?error}:${REDIS_PORT:?error}/0
@@ -247,6 +248,9 @@ services:
     user: "0:0"
     volumes:
       - ${AIRFLOW_PROJ_DIR:-./airflow_src}:/sources
+    depends_on:
+      postgres-service:
+        condition: service_healthy
 
   airflow-cli:
     <<: *airflow-common

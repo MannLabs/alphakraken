@@ -4,6 +4,7 @@ import os
 from unittest.mock import MagicMock, patch
 
 import pytest
+from airflow.exceptions import AirflowFailException
 from common.keys import DagContext, DagParams
 from dags.impl.mover_impl import move_raw_file
 
@@ -102,7 +103,7 @@ def test_move_raw_file_source_not_exists(
     mock_get_internal_instrument_data_path.return_value.__truediv__.return_value.__truediv__.return_value = mock_dst_path
 
     # when
-    with pytest.raises(FileNotFoundError):
+    with pytest.raises(AirflowFailException):
         move_raw_file(
             MagicMock(), **{DagContext.PARAMS: {DagParams.RAW_FILE_ID: "123"}}
         )
@@ -133,7 +134,7 @@ def test_move_raw_file_destination_exists(
     mock_get_internal_instrument_data_path.return_value.__truediv__.return_value.__truediv__.return_value = mock_dst_path
 
     # when
-    with pytest.raises(FileExistsError):
+    with pytest.raises(AirflowFailException):
         move_raw_file(
             MagicMock(), **{DagContext.PARAMS: {DagParams.RAW_FILE_ID: "123"}}
         )

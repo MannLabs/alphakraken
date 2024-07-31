@@ -29,7 +29,7 @@ def create_file_mover_dag() -> None:
         default_args={
             "depends_on_past": False,
             "retries": 4,
-            "retry_delay": timedelta(minutes=1),
+            "retry_delay": timedelta(minutes=5),
             # this maps the DAG to the worker that is responsible for that queue, cf. docker-compose.yaml
             # and https://airflow.apache.org/docs/apache-airflow-providers-celery/stable/celery_executor.html#queues
             "queue": f"{AIRFLOW_QUEUE_PREFIX}file_mover",

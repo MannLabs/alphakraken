@@ -76,6 +76,10 @@ conda info
 conda run -n $CONDA_ENV pip freeze
 echo "<<<<<<"
 
+echo MONO_VERSION ">>>>>>"
+conda run -n $CONDA_ENV mono --version
+echo "<<<<<<"
+
 echo Creating output path ..
 mkdir -p ${OUTPUT_PATH}
 cd ${OUTPUT_PATH}

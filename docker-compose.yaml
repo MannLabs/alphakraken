@@ -311,6 +311,7 @@ services:
       dockerfile: webapp/Dockerfile
     ports:
       - ${WEBAPP_PORT:?error}:8501
+      - 80:8501 # map webapp also to the standard port to access it directly via hostname
     environment:
       <<: *airflow-common-env
     healthcheck:

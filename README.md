@@ -34,9 +34,7 @@ Please note that running and developing the alphakraken is only tested for MacOS
 The following steps are required for both the `local` and the `sandbox`/`production` deployments.
 For the latter, additional steps are required, see [here](#additional-steps-required-for-initial-sandboxproduction-deployment).
 
-1. Install
-[Docker Compose](https://docs.docker.com/engine/install/ubuntu/) and
-[Docker](https://docs.docker.com/compose/install/linux/#install-using-the-repository), clone the repository into a folder and `cd` into it.
+1. Install [Docker](https://docs.docker.com/engine/install/ubuntu/), clone the repository into a folder and `cd` into it.
 
 2. Set the current user as the user within the airflow containers and get the correct permissions on the "logs"
 directory (otherwise, `root` would be used)

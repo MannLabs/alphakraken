@@ -97,7 +97,7 @@ class Pools:
     """
 
     # pool to limit file copying across all instruments
-    FILE_COPY_POOL = "file_copy_pool"  # suggested default: 2
+    FILE_COPY_POOL = "file_copy_pool"  # suggested default: 3
 
 
 class AlphaDiaConstants:

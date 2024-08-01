@@ -88,7 +88,9 @@ def test_move_raw_file_success(
 @patch.dict(os.environ, {"ENV_NAME": "NOT_production"})
 @patch("dags.impl.mover_impl.shutil.move")
 @patch("dags.impl.mover_impl.get_xcom")
+@patch("dags.impl.mover_impl.Path")
 def test_move_raw_file_success_not_production(
+    mock_path: MagicMock,
     mock_get_xcom: MagicMock,
     mock_shutil_move: MagicMock,
 ) -> None:
@@ -97,6 +99,8 @@ def test_move_raw_file_success_not_production(
     mock_src_path.exists.return_value = True
     mock_dst_path = MagicMock()
     mock_dst_path.exists.return_value = False
+
+    mock_path.side_effect = [mock_src_path, mock_dst_path]
 
     mock_get_xcom.return_value = {mock_src_path: mock_dst_path}
 

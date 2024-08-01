@@ -61,9 +61,10 @@ def move_files(ti: TaskInstance, **kwargs) -> None:
 
             raise AirflowFailException(f"File {dst_path=} already exists.")
 
+    env_name = get_env_variable(EnvVars.ENV_NAME)
     for src_path, dst_path in files_to_move.items():
         # security measure to not have sandbox interfere with production
-        if get_env_variable(EnvVars.ENV_NAME) != "production":
+        if env_name != "production":
             logging.warning(
                 f"NOT moving raw file {src_path} to {dst_path}: not in production."
             )

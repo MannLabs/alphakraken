@@ -38,7 +38,7 @@ def get_file_size(file_path: Path) -> float:
 
 def _get_file_hash(file_path: Path, chunk_size: int = 8192) -> str:
     """Get the hash of a file."""
-    with open(file_path, "rb") as f:  # noqa: PTH123
+    with file_path.open("rb") as f:
         file_hash = hashlib.md5()  # noqa: S324
         while chunk := f.read(chunk_size):
             file_hash.update(chunk)

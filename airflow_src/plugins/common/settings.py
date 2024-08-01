@@ -71,7 +71,7 @@ class Timings:
 
     ACQUISITION_MONITOR_TIMEOUT_M = 180
 
-    MOVE_RAW_FILE_TASK_TIMEOUT_M = 1
+    MOVE_RAW_FILE_TASK_TIMEOUT_M = 5
 
 
 class Concurrency:

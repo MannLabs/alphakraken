@@ -2,6 +2,7 @@
 
 import logging
 import shutil
+from pathlib import Path
 
 from airflow.exceptions import AirflowFailException
 from airflow.models import TaskInstance
@@ -33,14 +34,17 @@ def get_files_to_move(ti: TaskInstance, **kwargs) -> None:
 
     files_to_move = move_wrapper.get_files_to_move()
 
-    put_xcom(ti, XComKeys.FILES_TO_MOVE, files_to_move)
+    put_xcom(
+        ti, XComKeys.FILES_TO_MOVE, {str(k): str(v) for k, v in files_to_move.items()}
+    )
 
 
 def move_files(ti: TaskInstance, **kwargs) -> None:
     """Move files/folders to the instrument backup folder."""
     del kwargs  # unused
 
-    files_to_move = get_xcom(ti, XComKeys.FILES_TO_MOVE)
+    files_to_move_str = get_xcom(ti, XComKeys.FILES_TO_MOVE)
+    files_to_move = {Path(k): Path(v) for k, v in files_to_move_str.items()}
 
     for src_path, dst_path in files_to_move.items():
         if not src_path.exists():

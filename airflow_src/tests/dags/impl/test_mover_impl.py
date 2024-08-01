@@ -1,7 +1,8 @@
 """Tests for the mover_impl module."""
 
 import os
-from unittest.mock import MagicMock, patch
+from pathlib import Path
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 from airflow.exceptions import AirflowFailException
@@ -41,14 +42,16 @@ def test_get_files_to_move_correctly_puts_files_to_xcom(
         mock_dst_path
     )
 
-    files_to_move = {"src/file1": "dst/file1"}
+    files_to_move = {Path("/src/file1"): Path("/dst/file1")}
 
     mock_create_copy_wrapper.return_value.get_files_to_move.return_value = files_to_move
 
     # when
     get_files_to_move(ti, **kwargs)
 
-    mock_put_xcom.assert_called_once_with(ti, XComKeys.FILES_TO_MOVE, files_to_move)
+    mock_put_xcom.assert_called_once_with(
+        ti, XComKeys.FILES_TO_MOVE, {"/src/file1": "/dst/file1"}
+    )
     mock_create_copy_wrapper.assert_called_once_with(
         "instrument1", mock_raw_file, mock_dst_path
     )
@@ -57,7 +60,9 @@ def test_get_files_to_move_correctly_puts_files_to_xcom(
 @patch.dict(os.environ, {"ENV_NAME": "production"})
 @patch("dags.impl.mover_impl.shutil.move")
 @patch("dags.impl.mover_impl.get_xcom")
+@patch("dags.impl.mover_impl.Path")
 def test_move_raw_file_success(
+    mock_path: MagicMock,
     mock_get_xcom: MagicMock,
     mock_shutil_move: MagicMock,
 ) -> None:
@@ -67,7 +72,9 @@ def test_move_raw_file_success(
     mock_dst_path = MagicMock()
     mock_dst_path.exists.return_value = False
 
-    mock_get_xcom.return_value = {mock_src_path: mock_dst_path}
+    mock_path.side_effect = [mock_src_path, mock_dst_path]
+
+    mock_get_xcom.return_value = {"/src/file1": "/dst/file1"}
 
     # when
     move_files(MagicMock(), **{DagContext.PARAMS: {DagParams.RAW_FILE_ID: "123"}})
@@ -75,6 +82,7 @@ def test_move_raw_file_success(
     mock_shutil_move.assert_called_once_with(mock_src_path, mock_dst_path)
 
     mock_dst_path.parent.mkdir.assert_called_once_with(parents=True, exist_ok=True)
+    mock_path.assert_has_calls([call("/src/file1"), call("/dst/file1")])
 
 
 @patch.dict(os.environ, {"ENV_NAME": "NOT_production"})

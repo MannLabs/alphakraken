@@ -91,6 +91,8 @@ profiles `infrastructure` and `workers`, respectively. If you move one of the ce
 to another machine, you might need to adjust the `*_HOST` variables in the
 `./env/${ENV}.env` files (see comments there). Of course, one machine could also host them all.
 
+Make sure that the time is in sync between all machines, e.g. by using the same time server.
+
 For production: set strong passwords for `AIRFLOW_PASSWORD`, `MONGO_PASSWORD`, and `POSTGRES_PASSWORD`
 in `./env/production.env` and `MONGO_INITDB_ROOT_PASSWORD` in `./env/.env-mongo`.
 Make sure they don't contain weird characters like '\' or '#' as they might interfere with name resolution in `docker-compose.yaml`.
@@ -419,6 +421,15 @@ Once the instrument is available again, uncomment the worker definition and rest
 
 Sometimes, substituting `--build` with `--build --force-recreate` in the `docker compose` command helps
 resolve mounting problems.
+
+
+### Problem: a lot of tasks are in the 'scheduled' state
+This can be seen in the Airflow UI -> Admin -> Pools.
+If "Scheduled Slots" is large, but "Running Slots" reasonable small (less than 32 per scheduler)
+then it might help to give the scheduler a fresh start on the PC/VM hosting the infrastructure:
+```bash
+./compose.sh up airflow-scheduler --build --force-recreate -d
+```
 
 
 ## Useful comments

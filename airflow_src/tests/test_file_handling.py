@@ -251,13 +251,13 @@ def _setup_tmpdir_files(
     target_different_content: bool = False,
 ) -> tuple[Path, Path]:
     """Setup source and target files in a temporary directory."""
-    source = tmpdir.join(source_file)
+    source = tmpdir.mkdir("source").join(Path(source_file))
     source.write(source_file)
 
-    target = tmpdir.join(target_file)
+    target = tmpdir.mkdir("target").join(Path(target_file))
     string_to_write = target_file
     if target_different_content:
-        string_to_write = f"{string_to_write}_{0}"
+        string_to_write = f"{string_to_write}_0"
     target.write(string_to_write)
 
     return Path(source), Path(target)

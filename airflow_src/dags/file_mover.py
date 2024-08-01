@@ -17,7 +17,7 @@ from common.settings import (
     Concurrency,
     Timings,
 )
-from impl.mover_impl import move_raw_file
+from impl.mover_impl import get_files_to_move, move_files
 
 
 def create_file_mover_dag() -> None:
@@ -41,14 +41,19 @@ def create_file_mover_dag() -> None:
     ) as dag:
         dag.doc_md = __doc__
 
-        move_raw_file_ = PythonOperator(
-            task_id=Tasks.MOVE_RAW_FILE,
-            python_callable=move_raw_file,
+        get_files_to_move_ = PythonOperator(
+            task_id=Tasks.GET_FILES_TO_MOVE,
+            python_callable=get_files_to_move,
+        )
+
+        move_raw_files_ = PythonOperator(
+            task_id=Tasks.MOVE_RAW_FILES,
+            python_callable=move_files,
             max_active_tis_per_dag=Concurrency.MAXNO_MOVE_RAW_FILE_TASKS_PER_DAG,
             execution_timeout=timedelta(minutes=Timings.MOVE_RAW_FILE_TASK_TIMEOUT_M),
         )
 
-    move_raw_file_  # noqa: B018
+    get_files_to_move_ >> move_raw_files_
 
 
 create_file_mover_dag()

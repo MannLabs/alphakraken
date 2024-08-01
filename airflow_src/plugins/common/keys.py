@@ -32,7 +32,8 @@ class Tasks:
     COMPUTE_METRICS: str = "compute_metrics"
     UPLOAD_METRICS: str = "upload_metrics"
 
-    MOVE_RAW_FILE: str = "move_raw_file"
+    MOVE_RAW_FILES: str = "move_raw_file"
+    GET_FILES_TO_MOVE: str = "get_files_to_move"
 
 
 class OpArgs:
@@ -69,6 +70,8 @@ class XComKeys:
 
     METRICS: str = "metrics"
     QUANTING_TIME_ELAPSED: str = "quanting_time_elapsed"
+
+    FILES_TO_MOVE = "files_to_move"
 
 
 class InstrumentKeys:

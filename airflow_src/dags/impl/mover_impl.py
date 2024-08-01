@@ -5,21 +5,20 @@ import shutil
 
 from airflow.exceptions import AirflowFailException
 from airflow.models import TaskInstance
-from common.keys import DagContext, DagParams
+from common.keys import DagContext, DagParams, XComKeys
 from common.settings import (
     INSTRUMENT_BACKUP_FOLDER_NAME,
     get_internal_instrument_data_path,
 )
-from common.utils import get_env_variable
+from common.utils import get_env_variable, get_xcom, put_xcom
 from raw_file_wrapper_factory import RawFileWrapperFactory
 
 from shared.db.interface import get_raw_file_by_id
 from shared.keys import EnvVars
 
 
-def move_raw_file(ti: TaskInstance, **kwargs) -> None:
-    """Move a raw file to the instrument backup folder."""
-    del ti  # unused
+def get_files_to_move(ti: TaskInstance, **kwargs) -> None:
+    """Get files to move to the instrument backup folder."""
     raw_file_id = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID]
 
     raw_file = get_raw_file_by_id(raw_file_id)
@@ -34,19 +33,21 @@ def move_raw_file(ti: TaskInstance, **kwargs) -> None:
 
     files_to_move = move_wrapper.get_files_to_move()
 
-    # temporary deactivate for bruker until solution for moving dirs is found
-    # if INSTRUMENTS[instrument_id]["type"] == "bruker":
-    #     raise AirflowFailException()
+    put_xcom(ti, XComKeys.FILES_TO_MOVE, files_to_move)
+
+
+def move_files(ti: TaskInstance, **kwargs) -> None:
+    """Move files/folders to the instrument backup folder."""
+    del kwargs  # unused
+
+    files_to_move = get_xcom(ti, XComKeys.FILES_TO_MOVE)
 
     for src_path, dst_path in files_to_move.items():
         if not src_path.exists():
+            msg = f"File {src_path=} does not exist, but {dst_path=} does."
             if not dst_path.exists():
-                raise AirflowFailException(
-                    f"Neither {src_path=} nor {dst_path=} exist."
-                )
-            raise AirflowFailException(
-                f"File {src_path=} does not exist, but {dst_path=} does."
-            )
+                msg = f"Neither {src_path=} nor {dst_path=} exist."
+            raise AirflowFailException(msg)
 
         if dst_path.exists():
             # missing_files, different_files, items_only_in_target = compare_directories(src_path, dst_path)

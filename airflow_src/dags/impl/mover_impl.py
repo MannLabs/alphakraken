@@ -6,6 +6,10 @@ import shutil
 from airflow.exceptions import AirflowFailException
 from airflow.models import TaskInstance
 from common.keys import DagContext, DagParams
+from common.settings import (
+    INSTRUMENT_BACKUP_FOLDER_NAME,
+    get_internal_instrument_data_path,
+)
 from common.utils import get_env_variable
 from raw_file_wrapper_factory import RawFileWrapperFactory
 
@@ -21,7 +25,12 @@ def move_raw_file(ti: TaskInstance, **kwargs) -> None:
     raw_file = get_raw_file_by_id(raw_file_id)
     instrument_id = raw_file.instrument_id
 
-    move_wrapper = RawFileWrapperFactory.create_copy_wrapper(instrument_id, raw_file)
+    target_path = (
+        get_internal_instrument_data_path(instrument_id) / INSTRUMENT_BACKUP_FOLDER_NAME
+    )
+    move_wrapper = RawFileWrapperFactory.create_copy_wrapper(
+        instrument_id, raw_file, target_path
+    )
 
     files_to_move = move_wrapper.get_files_to_move()
 
@@ -29,7 +38,7 @@ def move_raw_file(ti: TaskInstance, **kwargs) -> None:
     # if INSTRUMENTS[instrument_id]["type"] == "bruker":
     #     raise AirflowFailException()
 
-    for src_path, dst_path in files_to_move:
+    for src_path, dst_path in files_to_move.items():
         if not src_path.exists():
             if not dst_path.exists():
                 raise AirflowFailException(
@@ -47,7 +56,7 @@ def move_raw_file(ti: TaskInstance, **kwargs) -> None:
 
             raise AirflowFailException(f"File {dst_path=} already exists.")
 
-    for src_path, dst_path in files_to_move:
+    for src_path, dst_path in files_to_move.items():
         # security measure to not have sandbox interfere with production
         if get_env_variable(EnvVars.ENV_NAME) != "production":
             logging.warning(

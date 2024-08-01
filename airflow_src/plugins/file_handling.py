@@ -7,6 +7,7 @@ from datetime import datetime
 from pathlib import Path
 
 import pytz
+from airflow.exceptions import AirflowFailException
 from common.settings import get_internal_instrument_data_path
 
 
@@ -85,3 +86,69 @@ def copy_file(
     if (hash_dst := _get_file_hash(dst_path)) != (src_hash):
         raise ValueError(f"Hashes do not match ofter copy! {src_hash=} != {hash_dst=}")
     logging.info("Verifying hash done!")
+
+
+def compare_paths(
+    source_path: Path, target_path: Path
+) -> tuple[list[str], list[str], list[str]]:
+    """Recursively compare items in source_path and target_path.
+
+    :param source_path: Path to the source file or directory.
+    :param target_path: Path to the target file or directory.
+
+    Returns a tuple of lists of strings containing the relative paths for:
+        - missing_files: files/folders that are missing in target_path
+        - different_files: files/folders that have a different hash sum in target_path
+        - items_only_in_target: files/folders that are only in target_path
+    """
+    if source_path.is_dir() and not target_path.is_dir():
+        raise AirflowFailException(
+            f"Source {source_path} is a directory but target {target_path} is not."
+        )
+
+    missing_items = []
+    different_items = []
+
+    source_items = (
+        list(source_path.rglob("*")) if source_path.is_dir() else [source_path]
+    )
+
+    for source_item in source_items:
+        if source_path.is_dir():
+            source_item_relative_path = source_item.relative_to(source_path)
+            target_item_path = target_path / source_item_relative_path
+        else:
+            source_item_relative_path = source_item.name
+            target_item_path = target_path
+
+        if not target_item_path.exists():
+            missing_items.append(str(source_item_relative_path))
+            continue
+
+        if source_item.is_dir():
+            # no hashsum check for directories
+            continue
+
+        source_hash = _get_file_hash(source_item)
+        target_hash = _get_file_hash(target_item_path)
+
+        if source_hash != target_hash:
+            different_items.append(str(source_item_relative_path))
+
+    items_only_in_target = (
+        [
+            str(p)
+            for p in (
+                _get_relative_paths(target_path) - _get_relative_paths(source_path)
+            )
+        ]
+        if source_path.is_dir()
+        else []
+    )
+
+    return missing_items, different_items, items_only_in_target
+
+
+def _get_relative_paths(dir_path: Path) -> set[Path]:
+    """Get relative paths of all files in a directory."""
+    return {file_path.relative_to(dir_path) for file_path in dir_path.rglob("*")}

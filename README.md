@@ -1,8 +1,8 @@
 # alphakraken
 A new version of the Machine Kraken.
 
-Note: this Readme is relevant only for developers and administrators. Regular user should find all required documentation
-in the [AlphaKraken WebApp](http://somepc462:8501/).
+Note: this Readme is relevant only for developers and administrators. Regular users should find all required documentation
+in the [AlphaKraken WebApp](http://<kraken_url>).
 
 ## Deployment
 This guide is both valid for a local setup (without connection to pool or cluster), and for sandbox/production setups.

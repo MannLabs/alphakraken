@@ -164,13 +164,15 @@ def _draw_plot(df: pd.DataFrame, x: str, y: str) -> None:
         y=y,
         color="instrument_id",
         hover_name="_id",
-        hover_data=["file_created"],
+        hover_data=["file_created", "status", "size_gb", "precursors"],
         title=f"{y} (median= {median_:.2f})",
         height=400,
-    ).update_traces(
-        mode="lines+markers",
-        marker={"symbol": symbol},
     )
+    if y != "status":  # could be improved
+        fig.update_traces(
+            mode="lines+markers",
+            marker={"symbol": symbol},
+        )
     fig.add_hline(y=median_, line_dash="dash", line={"color": "lightgrey"})
     st.plotly_chart(fig)
 

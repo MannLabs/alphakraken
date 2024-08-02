@@ -156,9 +156,6 @@ def _draw_plot(df: pd.DataFrame, x: str, y: str) -> None:
     y_is_numeric = pd.api.types.is_numeric_dtype(df[y])
     median_ = df[y].median() if y_is_numeric else 0
 
-    error_states = ["error", "quanting_failed"]
-    symbol = ["x" if x in error_states else "circle" for x in df["status"].to_numpy()]
-
     fig = px.scatter(
         df,
         x=x,
@@ -170,6 +167,10 @@ def _draw_plot(df: pd.DataFrame, x: str, y: str) -> None:
         height=400,
     )
     if y_is_numeric:
+        error_states = ["error", "quanting_failed"]
+        symbol = [
+            "x" if x in error_states else "circle" for x in df["status"].to_numpy()
+        ]
         fig.update_traces(
             mode="lines+markers",
             marker={"symbol": symbol},

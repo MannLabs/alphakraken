@@ -1,16 +1,26 @@
 """Utilities for the streamlit app."""
 
 import os
+import traceback
 from datetime import datetime
 
 import pytz
 import streamlit as st
 
 
-def _log(msg: str) -> None:
-    """Write a log message."""
+def _log(item_to_log: str | Exception, extra_msg: str = "") -> None:
+    """Write a log message and show it if it's an exception."""
     now = datetime.now(tz=pytz.UTC).strftime("%Y-%m-%d %H:%M:%S.%f")
-    os.write(1, f"{now}: {msg}\n".encode())
+
+    if isinstance(item_to_log, Exception):
+        if extra_msg:
+            st.write(extra_msg)
+        st.write(item_to_log)
+        msg = f"{extra_msg}{item_to_log}\n{traceback.format_exc()}"
+    else:
+        msg = f"{now}: {item_to_log}"
+
+    os.write(1, f"{msg}\n".encode())
 
 
 def empty_to_none(value: str) -> str | None:

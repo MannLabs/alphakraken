@@ -60,8 +60,7 @@ def _display_status(combined_df: pd.DataFrame) -> None:
         show_time_in_status_table(combined_df, c2)
 
     except Exception as e:  # noqa: BLE001
-        _log(str(e))
-        st.warning(f"Cannot not display status: {e}.")
+        _log(e, "Cannot not display status information.")
 
 
 combined_df = get_combined_raw_files_and_metrics_df()

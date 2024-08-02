@@ -145,7 +145,7 @@ def _display_table_and_plots(df: pd.DataFrame) -> None:
         try:
             _draw_plot(filtered_df, x, y)
         except Exception as e:  # noqa: BLE001, PERF203
-            _log(str(e))
+            _log(e, f"Cannot draw plot for {y} vs {x}.")
 
 
 def _draw_plot(df: pd.DataFrame, x: str, y: str) -> None:

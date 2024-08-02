@@ -43,7 +43,7 @@ def test_get_file_size() -> None:
     assert result == 42.0  # noqa: PLR2004
 
 
-@patch("builtins.open", new_callable=mock_open)
+@patch("plugins.file_handling.Path.open", new_callable=mock_open)
 def test_get_file_hash(mock_file_open: MagicMock) -> None:
     """Test get_file_hash."""
     mock_file_open.return_value.read.side_effect = [b"some_file_content", None]
@@ -54,7 +54,7 @@ def test_get_file_hash(mock_file_open: MagicMock) -> None:
     assert return_value == "faff66b0fba39e3a4961b45dc5f9826c"
 
 
-@patch("builtins.open", new_callable=mock_open)
+@patch("plugins.file_handling.Path.open", new_callable=mock_open)
 def test_get_file_hash_chunks(mock_file_open: MagicMock) -> None:
     """Test get_file_hash with multiple chunks."""
     mock_file_open.return_value.read.side_effect = [

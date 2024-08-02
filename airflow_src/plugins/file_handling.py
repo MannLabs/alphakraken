@@ -101,7 +101,8 @@ def compare_paths(
         - different_files: files/folders that have a different hash sum in target_path
         - items_only_in_target: files/folders that are only in target_path
     """
-    if source_path.is_dir() and not target_path.is_dir():
+    source_path_is_dir = source_path.is_dir()
+    if source_path_is_dir and not target_path.is_dir():
         raise AirflowFailException(
             f"Source {source_path} is a directory but target {target_path} is not."
         )
@@ -109,12 +110,10 @@ def compare_paths(
     missing_items = []
     different_items = []
 
-    source_items = (
-        list(source_path.rglob("*")) if source_path.is_dir() else [source_path]
-    )
+    source_items = list(source_path.rglob("*")) if source_path_is_dir else [source_path]
 
     for source_item in source_items:
-        if source_path.is_dir():
+        if source_path_is_dir:
             source_item_relative_path = source_item.relative_to(source_path)
             target_item_path = target_path / source_item_relative_path
         else:
@@ -136,17 +135,12 @@ def compare_paths(
             different_items.append(str(source_item_relative_path))
 
     items_only_in_target = (
-        [
-            str(p)
-            for p in (
-                _get_relative_paths(target_path) - _get_relative_paths(source_path)
-            )
-        ]
-        if source_path.is_dir()
-        else []
+        _get_relative_paths(target_path) - _get_relative_paths(source_path)
+        if source_path_is_dir
+        else {}
     )
 
-    return missing_items, different_items, items_only_in_target
+    return missing_items, different_items, [str(p) for p in items_only_in_target]
 
 
 def _get_relative_paths(dir_path: Path) -> set[Path]:

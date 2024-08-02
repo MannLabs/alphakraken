@@ -218,6 +218,7 @@ def test_file_already_exists_hashes_dont_match(
     assert result is False
 
 
+# using a 'real' file system here to test the file handling functions
 def _setup_tmpdir_folders(
     tmpdir: LocalPath,
     source_files: list[str],

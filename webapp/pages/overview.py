@@ -153,7 +153,8 @@ def _draw_plot(df: pd.DataFrame, x: str, y: str) -> None:
     """Draw a plot of a DataFrame."""
     df = df.sort_values(by=x)
 
-    median_ = df[y].median() if pd.api.types.is_numeric_dtype(df[y]) else 0
+    y_is_numeric = pd.api.types.is_numeric_dtype(df[y])
+    median_ = df[y].median() if y_is_numeric else 0
 
     error_states = ["error", "quanting_failed"]
     symbol = ["x" if x in error_states else "circle" for x in df["status"].to_numpy()]
@@ -168,7 +169,7 @@ def _draw_plot(df: pd.DataFrame, x: str, y: str) -> None:
         title=f"{y} (median= {median_:.2f})",
         height=400,
     )
-    if y != "status":  # could be improved
+    if y_is_numeric:
         fig.update_traces(
             mode="lines+markers",
             marker={"symbol": symbol},

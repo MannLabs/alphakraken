@@ -18,23 +18,11 @@
 
 # Basic Airflow cluster configuration for CeleryExecutor with Redis and PostgreSQL.
 #
-# WARNING: This configuration is for local development. Do not use it in a production deployment.
-#
 # This configuration supports basic configuration using environment variables or an .env file
-# The following variables are supported:
-# TODO: get rid of this AIRFLOW_PROJ_DIR
-# AIRFLOW_PROJ_DIR             - Base path to which all the files will be volumed.
-#                                Default: .
-# Those configurations are useful mostly in case of standalone testing/running Airflow in test/try-out mode
-#
-# Feel free to modify this file to suit your needs.
 ---
 name: alphakraken-${ENV_NAME:?error}
 x-airflow-common:
   &airflow-common
-  # In order to add custom dependencies or upgrade provider packages you can use your extended image.
-  # Comment the image line, place your Dockerfile in the directory where you placed the docker-compose.yaml
-  # and uncomment the "build" line below, Then run `docker compose build` to build the images.
   build:
       context: .
       dockerfile: airflow_src/Dockerfile
@@ -60,7 +48,8 @@ x-airflow-common:
     # The following line can be used to set a custom config file, stored in the local config folder
     # If you want to use it, outcomment it and replace airflow.cfg with the name of your config file
     # AIRFLOW_CONFIG: '/opt/airflow/config/airflow.cfg'
-    # environmental variables to be taken from the *.env file:
+    #
+    # environmental variables to be taken from the *.env file and passed to the containers:
     ENV_NAME: ${ENV_NAME:?error}
     MONGO_HOST: ${MONGO_HOST:?error}
     MONGO_USER: ${MONGO_USER:?error}
@@ -291,7 +280,7 @@ services:
     volumes:
       - ./mongodb_data_${ENV_NAME:?error}:/data/db
       # init the DB: https://stackoverflow.com/a/53522699
-      # Note that this could also be done via pyhon, cf. https://github.com/MannLabs/alphakraken/pull/6#discussion_r1624957906
+      # Note that this could also be done via python, cf. https://github.com/MannLabs/alphakraken/pull/6#discussion_r1624957906
       - ./init-mongo.sh:/docker-entrypoint-initdb.d/init-mongo.sh
     environment:
       <<: *airflow-common-env

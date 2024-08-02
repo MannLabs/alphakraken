@@ -135,6 +135,7 @@ def _display_table_and_plots(df: pd.DataFrame) -> None:
     ]
     x = st.selectbox(label="Choose x-axis:", options=selectbox_columns)
     for y in [
+        "status",
         "size_gb",
         "precursors",
         "proteins",
@@ -150,10 +151,12 @@ def _display_table_and_plots(df: pd.DataFrame) -> None:
 
 def _draw_plot(df: pd.DataFrame, x: str, y: str) -> None:
     """Draw a plot of a DataFrame."""
-    median_ = df[y].median()
     df = df.sort_values(by=x)
 
-    symbol = ["x" if x == "error" else "circle" for x in df["status"].to_numpy()]
+    median_ = df[y].median() if pd.api.types.is_numeric_dtype(df[y]) else 0
+
+    error_states = ["error", "quanting_failed"]
+    symbol = ["x" if x in error_states else "circle" for x in df["status"].to_numpy()]
 
     fig = px.scatter(
         df,

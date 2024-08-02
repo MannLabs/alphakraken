@@ -111,7 +111,7 @@ class BrukerRawFileMonitorWrapper(RawFileMonitorWrapper):
 
 
 class RawFileCopyWrapper(ABC):
-    """Abstract base class for copying raw data files."""
+    """Abstract base class for preparing the copying or moving of raw data files."""
 
     def __init__(
         self, instrument_id: str, raw_file: RawFile, target_path: Path | None = None
@@ -120,6 +120,8 @@ class RawFileCopyWrapper(ABC):
 
         :param instrument_id: the ID of the instrument
         :param raw_file: a raw file object
+        :param target_path: optional target base path. If not specified:
+            default backup path + year-month specific folder
         """
         self._raw_file = raw_file
 
@@ -138,10 +140,18 @@ class RawFileCopyWrapper(ABC):
 
     @abstractmethod
     def get_files_to_copy(self) -> dict[Path, Path]:
-        """Get a dictionary mapping source file to destination paths for copying."""
+        """Get a dictionary mapping source file to destination paths for copying.
+
+        This gives a 1:1 mapping between source and destination files (not folders!).
+        """
 
     def get_files_to_move(self) -> dict[Path, Path]:
-        """Get a dictionary mapping source file to destination paths for copying."""
+        """Get a dictionary mapping source file to destination paths for moving.
+
+        Default implementation for instruments that use "real" files: same output as get_files_to_copy().
+        Overwrite for instruments that use folders to returns a mapping of the folder source to the destination path
+        (not the individual files).
+        """
         return self.get_files_to_copy()
 
     def file_path_to_calculate_size(self) -> Path:
@@ -215,7 +225,10 @@ class BrukerRawFileCopyWrapper(RawFileCopyWrapper):
         return files_to_copy
 
     def get_files_to_move(self) -> dict[Path, Path]:
-        """Get a list of items that can be passed to a "move" command."""
+        """Get a dictionary mapping of items that can be passed to a "move" command.
+
+        In the case of Bruker, just map the folder name as "move" can handle it.
+        """
         return {
             self._instrument_path / self._raw_file.original_name: self._target_path
             / self._raw_file.id

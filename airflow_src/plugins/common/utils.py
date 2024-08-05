@@ -71,6 +71,10 @@ def trigger_dag_run(dag_id: str, conf: dict[str, str]) -> None:
     )
 
 
-# def truncate_string(input_string: str, n = 200) -> str:
-#     """Truncate the input string to `n` characters."""
-#     return input_string[:n//2] + " ... " + input_string[-n//2:]  if len(input_string) > n else input_string
+def truncate_string(input_string: str | None, n: int = 200) -> str | None:
+    """Truncate the input string to `n` characters."""
+    return (
+        input_string[: n // 2] + " ... " + input_string[-n // 2 :]
+        if input_string is not None and len(input_string) > n
+        else input_string
+    )

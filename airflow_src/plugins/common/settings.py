@@ -39,11 +39,13 @@ ERROR_CODE_TO_STRING = {
     "_FAILED_TO_DETERMINE_DIA_CYCLE": "Failed to determine start of DIA cycle",
     "_RUN_HEADER_EX": "RunHeaderEx",
     "_ARRAY_ERROR": "array must not contain infs or NaNs",
-    "_TOLERANCE_MUST_BE_LESS_THAN": "fragment_mz_tolerance must be less than",
+    "_FRAGMENT_MZ_TOLERANCE_MUST_BE_LESS_THAN": "fragment_mz_tolerance must be less than",
+    "_PRECURSOR_MZ_TOLERANCE_MUST_BE_LESS_THAN": "precursor_mz_tolerance must be less than",
     "_NEED_AT_LEAST_ONE_ARRAY": "need at least one array to concatenate",
     "_TRAIN_SET_WILL_BE_EMPTY": "the resulting train set will be empty",
     "_CYCLE_NOT_CONSISTENT": "but does not consistent",
-    "_NO_PSM_FILES": "No psm files accumulated",
+    "_NO_PSM_FILES": "No psm files accumulated",  # will become a known error in alphadia >1.7.2
+    "_NOT_DIA_DATA": "'TimsTOFTranspose' object has no attribute '_cycle'",  # will become a known error in alphadia >1.7.2
 }
 
 

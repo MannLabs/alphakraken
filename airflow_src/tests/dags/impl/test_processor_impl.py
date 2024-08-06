@@ -121,6 +121,8 @@ def test_prepare_quanting(
         "FASTA_FILE_NAME": "some_fasta_file_name",
         "CONFIG_FILE_NAME": "some_config_file_name",
         "SOFTWARE": "some_software",
+        "RAW_FILE_ID": "test_file.raw",
+        "PROJECT_ID_OR_FALLBACK": "some_project_id",
     }
 
     mock_put_xcom.assert_has_calls(

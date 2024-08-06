@@ -116,6 +116,9 @@ class QuantingEnv:
     CONFIG_FILE_NAME = "CONFIG_FILE_NAME"
     SOFTWARE = "SOFTWARE"
 
+    PROJECT_ID_OR_FALLBACK: str = "PROJECT_ID_OR_FALLBACK"
+    RAW_FILE_ID: str = "RAW_FILE_ID"
+
 
 class JobStates:
     """States of a slurm job as returned by the sacct command, cf slurm_commands.py:get_job_state_cmd()."""

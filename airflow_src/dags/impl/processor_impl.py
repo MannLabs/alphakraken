@@ -104,6 +104,9 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
         QuantingEnv.FASTA_FILE_NAME: settings.fasta_file_name,
         QuantingEnv.CONFIG_FILE_NAME: settings.config_file_name,
         QuantingEnv.SOFTWARE: settings.software,
+        # not required for slurm script:
+        QuantingEnv.RAW_FILE_ID: raw_file_id,
+        QuantingEnv.PROJECT_ID_OR_FALLBACK: project_id_or_fallback,
     }
 
     put_xcom(ti, XComKeys.QUANTING_ENV, quanting_env)

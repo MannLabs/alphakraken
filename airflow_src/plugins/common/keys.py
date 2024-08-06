@@ -23,6 +23,7 @@ class Tasks:
     MONITOR_ACQUISITION: str = "monitor_acquisition"
     COPY_RAW_FILE: str = "copy_raw_file"
     START_FILE_MOVER: str = "start_file_mover"
+    DECIDE_PROCESSING: str = "decide_processing"
     START_ACQUISITION_PROCESSOR: str = "start_acquisition_processor"
 
     PREPARE_QUANTING: str = "prepare_quanting"

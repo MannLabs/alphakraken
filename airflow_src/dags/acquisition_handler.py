@@ -6,7 +6,7 @@ from datetime import timedelta
 
 from airflow.models import Param
 from airflow.models.dag import DAG
-from airflow.operators.python import PythonOperator
+from airflow.operators.python import PythonOperator, ShortCircuitOperator
 from callbacks import on_failure_callback
 from common.keys import (
     DAG_DELIMITER,
@@ -24,6 +24,7 @@ from common.settings import (
 )
 from impl.handler_impl import (
     copy_raw_file,
+    decide_processing,
     start_acquisition_processor,
     start_file_mover,
 )
@@ -75,6 +76,11 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
             python_callable=start_file_mover,
         )
 
+        decide_processing_ = ShortCircuitOperator(
+            task_id=Tasks.DECIDE_PROCESSING,
+            python_callable=decide_processing,
+        )
+
         start_acquisition_processor_ = PythonOperator(
             task_id=Tasks.START_ACQUISITION_PROCESSOR,
             python_callable=start_acquisition_processor,
@@ -85,6 +91,7 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
         monitor_acquisition_
         >> copy_raw_file_
         >> start_file_mover_
+        >> decide_processing_
         >> start_acquisition_processor_
     )
 

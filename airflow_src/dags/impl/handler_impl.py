@@ -1,9 +1,9 @@
 """Business logic for the "acquisition_handler" DAG."""
 
 from airflow.models import TaskInstance
-from common.keys import DagContext, DagParams, Dags, OpArgs
-from common.utils import trigger_dag_run
-from file_handling import copy_file, get_file_size
+from common.keys import DagContext, DagParams, Dags, OpArgs, XComKeys
+from common.utils import get_xcom, trigger_dag_run
+from file_handling import copy_file
 from raw_file_wrapper_factory import RawFileWrapperFactory
 
 from shared.db.interface import get_raw_file_by_id, update_raw_file
@@ -28,7 +28,8 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
         copy_file(src_path, dst_path)
 
     # TODO: add also hash to DB
-    file_size = get_file_size(raw_file_copy_wrapper.file_path_to_calculate_size())
+    # HERE: try-catch
+    file_size = 1  # get_file_size(raw_file_copy_wrapper.file_path_to_calculate_size())
     update_raw_file(raw_file_id, new_status=RawFileStatus.COPYING_DONE, size=file_size)
 
 
@@ -43,6 +44,24 @@ def start_file_mover(ti: TaskInstance, **kwargs) -> None:
             DagParams.RAW_FILE_ID: raw_file_id,
         },
     )
+
+
+def decide_processing(ti: TaskInstance, **kwargs) -> bool:
+    """Decide whether to start the acquisition_processor DAG."""
+    raw_file_id = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID]
+
+    acquisition_monitor_errors = get_xcom(ti, XComKeys.ACQUISITION_MONITOR_ERRORS)
+
+    if not acquisition_monitor_errors:
+        return True  # continue with downstream tasks
+
+    # potential other checks:
+    #  - has 'blank' or 'DDA' in file name -> Variable?
+    #  - file size to small -> Variable?
+
+    update_raw_file(raw_file_id, new_status=RawFileStatus.ACQUISITION_FAILED)
+
+    return False  # skip downstream tasks
 
 
 def start_acquisition_processor(ti: TaskInstance, **kwargs) -> None:

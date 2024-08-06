@@ -1,10 +1,13 @@
 """Unit tests for the acquisition monitor plugin."""
 
+# ruff: noqa: SLF001
+
 from unittest.mock import MagicMock, call, patch
 
 from common.keys import DagContext, DagParams
 from plugins.sensors.acquisition_monitor import (
     SIZE_CHECK_INTERVAL_M,
+    SOFT_TIMEOUT_ON_MISSING_MAIN_FILE_M,
     AcquisitionMonitor,
 )
 
@@ -100,6 +103,40 @@ def test_poke_file_dir_contents_change_main_file_does_not_exist(
     # when
     result = sensor.poke({})
     assert not result
+    assert not sensor._main_file_exists
+
+
+@patch("plugins.sensors.acquisition_monitor.RawFileWrapperFactory")
+@patch("plugins.sensors.acquisition_monitor.AcquisitionMonitor._get_timestamp")
+@patch("plugins.sensors.acquisition_monitor.update_raw_file")
+def test_poke_file_dir_contents_change_main_file_does_not_exist_for_too_long(
+    mock_update_raw_file: MagicMock,  # noqa: ARG001
+    mock_get_timestamp: MagicMock,
+    mock_raw_file_wrapper_factory: MagicMock,
+) -> None:
+    """Test poke method correctly returns when dir contents change (file is removed)."""
+    mock_path = MagicMock()
+    mock_path.stat.return_value = MagicMock(st_size=1)
+
+    mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.file_path_to_monitor_acquisition.return_value.exists.return_value = False
+
+    mock_get_timestamp.side_effect = [
+        1,  # pre_execute (initial time stamp)
+        2,  # first poke
+        3,  # second poke
+        SOFT_TIMEOUT_ON_MISSING_MAIN_FILE_M * 60 + 3,  # third poke => too long
+    ]
+
+    sensor = get_sensor()
+    sensor.pre_execute({DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"}})
+
+    # when
+    sensor.poke({})
+    sensor.poke({})
+    result = sensor.poke({})
+    assert result
+
+    assert not sensor._main_file_exists
 
 
 @patch("plugins.sensors.acquisition_monitor.RawFileWrapperFactory")
@@ -158,7 +195,7 @@ def test_post_execute_ok(
 
     sensor = get_sensor()
     sensor.pre_execute({DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"}})
-    sensor._main_file_exists = True  # noqa: SLF001
+    sensor._main_file_exists = True
 
     ti = MagicMock()
     # when
@@ -193,7 +230,7 @@ def test_post_execute_acquisition_errors(
 
     sensor = get_sensor()
     sensor.pre_execute({DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"}})
-    sensor._main_file_exists = False  # noqa: SLF001
+    sensor._main_file_exists = False
 
     ti = MagicMock()
     # when

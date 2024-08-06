@@ -32,16 +32,18 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
         instrument_id=instrument_id, raw_file=raw_file
     )
 
-    file_info = {}
+    pool_base_path = Path(get_env_variable(EnvVars.POOL_BASE_PATH))
+    backup_pool_folder = get_env_variable(EnvVars.BACKUP_POOL_FOLDER)
+
+    file_info: dict[str, tuple[float, str]] = {}
     for src_path, dst_path in raw_file_copy_wrapper.get_files_to_copy().items():
         dst_size, dst_hash = copy_file(src_path, dst_path)
 
-        rel_dst_path = Path(get_env_variable(EnvVars.BACKUP_POOL_FOLDER)) / (
-            dst_path.relative_to(get_internal_backup_path())
+        rel_dst_path = dst_path.relative_to(get_internal_backup_path())
+        file_info[str(pool_base_path / backup_pool_folder / rel_dst_path)] = (
+            dst_size,
+            dst_hash,
         )
-        file_info[str(rel_dst_path)] = (dst_size, dst_hash)
-
-    logging.info(file_info)
 
     # a bit hacky to get the file size once again, but it's a cheap operation
     file_size = get_file_size(

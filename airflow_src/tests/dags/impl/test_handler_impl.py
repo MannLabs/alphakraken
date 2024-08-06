@@ -14,7 +14,10 @@ from dags.impl.handler_impl import (
 from db.models import RawFileStatus
 
 
-@patch.dict(os.environ, {"BACKUP_POOL_FOLDER": "/path/to/backup"})
+@patch.dict(
+    os.environ,
+    {"POOL_BASE_PATH": "/path/to/pool", "BACKUP_POOL_FOLDER": "some_backup_folder"},
+)
 @patch("dags.impl.handler_impl.get_raw_file_by_id")
 @patch("dags.impl.handler_impl.copy_file")
 @patch("dags.impl.handler_impl.RawFileWrapperFactory")
@@ -62,7 +65,12 @@ def test_copy_raw_file_calls_update_with_correct_args(
                 "test_file.raw",
                 new_status=RawFileStatus.COPYING_DONE,
                 size=1000,
-                file_info={"/path/to/backup/test_file.raw": (1001, "some_hash")},
+                file_info={
+                    "/path/to/pool/some_backup_folder/test_file.raw": (
+                        1001,
+                        "some_hash",
+                    )
+                },
             ),
         ]
     )

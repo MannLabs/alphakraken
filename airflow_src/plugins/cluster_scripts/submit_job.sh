@@ -11,8 +11,8 @@ set -u -e
 
 # INPUT taken from environment variables:
 # RAW_FILE_PATH # e.g. "/fs/pool/pool-backup/Test2/2024_07/20240606_OA1_Evo12_16min_JBMR_ADIAMA_HeLa_5ng_F-40_01.raw"
-# SETTINGS_PATH # e.g. "/fs/pool/<pool-url>-kraken/settings/PID123"
-# OUTPUT_PATH # e.g. "/fs/pool/<pool-url>-kraken/output/PID123/out_20240606_OA1_Evo12_16min_JBMR_ADIAMA_HeLa_5ng_F-40_01.raw"
+# SETTINGS_PATH # e.g. "/fs/pool/pool-alphakraken/settings/PID123"
+# OUTPUT_PATH # e.g. "/fs/pool/pool-alphakraken/output/PID123/out_20240606_OA1_Evo12_16min_JBMR_ADIAMA_HeLa_5ng_F-40_01.raw"
 # SPECLIB_FILE_NAME # e.g."hela_hybrid.small.hdf"
 # FASTA_FILE_NAME # e.g. 2024_01_12_human.fasta
 # CONFIG_FILE_NAME #e.g. "config.yaml"

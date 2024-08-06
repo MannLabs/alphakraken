@@ -59,19 +59,25 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
 
     raw_file = get_raw_file_by_id(raw_file_id)
 
+    # get raw_file_path
     backup_pool_folder = get_env_variable(EnvVars.BACKUP_POOL_FOLDER)
     year_month_subfolder = get_created_at_year_month(raw_file)
-    input_data_rel_path = (
-        Path(backup_pool_folder) / instrument_id / year_month_subfolder
+    raw_file_path = (
+        Path(backup_pool_folder) / instrument_id / year_month_subfolder / raw_file_id
     )
 
+    # get settings and output_path
+    quanting_pool_folder = get_env_variable(EnvVars.QUANTING_POOL_FOLDER)
     project_id_or_fallback = _get_project_id_or_fallback(
         raw_file.project_id, instrument_id
     )
 
-    output_folder_rel_path = get_output_folder_rel_path(
+    settings_path = Path(quanting_pool_folder) / "settings" / project_id_or_fallback
+
+    output_path = Path(quanting_pool_folder) / get_output_folder_rel_path(
         raw_file, project_id_or_fallback
     )
+
     settings = get_settings_for_project(project_id_or_fallback)
 
     # TODO: remove random speclib file hack
@@ -81,20 +87,14 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
     # This reduces the chance for this to happen by 90%
     speclib_file_name = f"{int(random()*10)}_{settings.speclib_file_name}"  # noqa: S311
 
-    io_pool_folder = get_env_variable(EnvVars.IO_POOL_FOLDER)
-
     quanting_env = {
-        QuantingEnv.RAW_FILE_ID: raw_file_id,
-        QuantingEnv.INPUT_DATA_REL_PATH: str(input_data_rel_path),
-        QuantingEnv.IO_POOL_FOLDER: io_pool_folder,
-        QuantingEnv.OUTPUT_FOLDER_REL_PATH: str(output_folder_rel_path),
+        QuantingEnv.RAW_FILE_PATH: str(raw_file_path),
+        QuantingEnv.SETTINGS_PATH: str(settings_path),
+        QuantingEnv.OUTPUT_PATH: str(output_path),
         QuantingEnv.SPECLIB_FILE_NAME: speclib_file_name,
         QuantingEnv.FASTA_FILE_NAME: settings.fasta_file_name,
         QuantingEnv.CONFIG_FILE_NAME: settings.config_file_name,
         QuantingEnv.SOFTWARE: settings.software,
-        QuantingEnv.PROJECT_ID_OR_FALLBACK: project_id_or_fallback,
-        # TODO: pass only the final paths here, not the single file names
-        # TODO: put /fs/pool to config
     }
 
     put_xcom(ti, XComKeys.QUANTING_ENV, quanting_env)

@@ -1,5 +1,7 @@
 """Business logic for the "acquisition_handler" DAG."""
 
+import logging
+
 from airflow.models import TaskInstance
 from common.keys import DagContext, DagParams, Dags, OpArgs, XComKeys
 from common.settings import DEFAULT_RAW_FILE_SIZE_IF_MAIN_FILE_MISSING
@@ -57,6 +59,10 @@ def decide_processing(ti: TaskInstance, **kwargs) -> bool:
 
     if not acquisition_monitor_errors:
         return True  # continue with downstream tasks
+
+    logging.info(
+        f"Acquisition monitor errors: {acquisition_monitor_errors}. Skipping downstream tasks.."
+    )
 
     # potential other checks:
     #  - has 'blank' or 'DDA' in file name -> Variable?

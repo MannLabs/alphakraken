@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, Mock, call, patch
 from common.keys import DagContext, DagParams, OpArgs
 from dags.impl.handler_impl import (
     copy_raw_file,
+    decide_processing,
     start_acquisition_processor,
     start_file_mover,
 )
@@ -75,6 +76,31 @@ def test_start_file_mover(mock_trigger_dag_run: MagicMock) -> None:
         {
             DagParams.RAW_FILE_ID: "file1.raw",
         },
+    )
+
+
+@patch("dags.impl.handler_impl.get_xcom", return_value=None)
+def test_decide_processing_returns_true_if_no_errors(
+    mock_get_xcom: MagicMock,  # noqa:ARG001
+) -> None:
+    """Test decide_processing returns True if no errors are present."""
+    ti = MagicMock()
+    kwargs = {DagContext.PARAMS: {DagParams.RAW_FILE_ID: 1}}
+    assert decide_processing(ti, **kwargs) is True
+
+
+@patch("dags.impl.handler_impl.get_xcom", return_value=["error1"])
+@patch("handler_impl.update_raw_file")
+def test_decide_processing_returns_false_if_errors_present(
+    mock_update_raw_file: MagicMock,
+    mock_get_xcom: MagicMock,  # noqa:ARG001
+) -> None:
+    """Test decide_processing returns False if errors are present."""
+    ti = MagicMock()
+    kwargs = {DagContext.PARAMS: {DagParams.RAW_FILE_ID: 1}}
+    assert decide_processing(ti, **kwargs) is False
+    mock_update_raw_file.assert_called_once_with(
+        1, new_status=RawFileStatus.ACQUISITION_FAILED
     )
 
 

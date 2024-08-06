@@ -94,6 +94,7 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
         QuantingEnv.SOFTWARE: settings.software,
         QuantingEnv.PROJECT_ID_OR_FALLBACK: project_id_or_fallback,
         # TODO: pass only the final paths here, not the single file names
+        # TODO: put /fs/pool to config
     }
 
     put_xcom(ti, XComKeys.QUANTING_ENV, quanting_env)

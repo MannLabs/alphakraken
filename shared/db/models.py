@@ -20,6 +20,8 @@ class RawFileStatus:
 
     Not every status is required for consecutive tasks (e.g. `ACQUISITION_FINISHED`).
     The last task of a DAG should set a status (e.g. `COPYING_FINISHED`).
+
+    Note that you might adapt the webapp when a new status is added, e.g. update TERMINAL_STATUSES, ERROR_STATUSES, highlight_status_cell()
     """
 
     IGNORED = "ignored"

@@ -16,7 +16,7 @@ from service.components import (
     show_sandbox_message,
 )
 from service.data_handling import get_combined_raw_files_and_metrics_df
-from service.utils import _log
+from service.utils import ERROR_STATUSES, _log
 
 _log(f"loading {__file__}")
 
@@ -167,9 +167,8 @@ def _draw_plot(df: pd.DataFrame, x: str, y: str) -> None:
         height=400,
     )
     if y_is_numeric:
-        error_states = ["error", "quanting_failed"]
         symbol = [
-            "x" if x in error_states else "circle" for x in df["status"].to_numpy()
+            "x" if x in ERROR_STATUSES else "circle" for x in df["status"].to_numpy()
         ]
         fig.update_traces(
             mode="lines+markers",

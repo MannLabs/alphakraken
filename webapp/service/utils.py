@@ -7,6 +7,19 @@ from datetime import datetime
 import pytz
 import streamlit as st
 
+from shared.db.models import RawFileStatus
+
+ERROR_STATUSES = [
+    RawFileStatus.ERROR,
+    RawFileStatus.QUANTING_FAILED,
+    RawFileStatus.ACQUISITION_FAILED,
+]
+TERMINAL_STATUSES = [
+    *ERROR_STATUSES,
+    RawFileStatus.DONE,
+    RawFileStatus.IGNORED,
+]
+
 
 def _log(item_to_log: str | Exception, extra_msg: str = "") -> None:
     """Write a log message and show it if it's an exception."""

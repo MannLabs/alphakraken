@@ -224,20 +224,27 @@ def test_post_execute_acquisition_errors(
 
     mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.file_path_to_monitor_acquisition.return_value = mock_path
 
-    mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.get_raw_files_on_instrument.side_effect = [
-        {"some_file.raw"},  # initial content (pre_execute)
-    ]
+    mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.get_raw_files_on_instrument.return_value = (
+        {"some_file.raw"},
+    )  # initial content (pre_execute)
+
+    mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.main_file_name = (
+        "analysis.tdf_bin"
+    )
 
     sensor = get_sensor()
     sensor.pre_execute({DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"}})
     sensor._main_file_exists = False
 
     ti = MagicMock()
+
     # when
     sensor.post_execute({"ti": ti}, result=True)
 
     mock_put_xcom.assert_called_once_with(
-        ti, "acquisition_monitor_errors", ["main_file_missing"]
+        ti,
+        "acquisition_monitor_errors",
+        ["Main file was not created: analysis.tdf_bin"],
     )
 
     mock_update_raw_file.assert_has_calls(

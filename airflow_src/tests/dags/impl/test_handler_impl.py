@@ -90,7 +90,7 @@ def test_decide_processing_returns_true_if_no_errors(
 
 
 @patch("dags.impl.handler_impl.get_xcom", return_value=["error1"])
-@patch("handler_impl.update_raw_file")
+@patch("dags.impl.handler_impl.update_raw_file")
 def test_decide_processing_returns_false_if_errors_present(
     mock_update_raw_file: MagicMock,
     mock_get_xcom: MagicMock,  # noqa:ARG001
@@ -99,8 +99,9 @@ def test_decide_processing_returns_false_if_errors_present(
     ti = MagicMock()
     kwargs = {DagContext.PARAMS: {DagParams.RAW_FILE_ID: 1}}
     assert decide_processing(ti, **kwargs) is False
+
     mock_update_raw_file.assert_called_once_with(
-        1, new_status=RawFileStatus.ACQUISITION_FAILED
+        1, new_status=RawFileStatus.ACQUISITION_FAILED, status_details="error1"
     )
 
 

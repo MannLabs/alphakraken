@@ -74,6 +74,7 @@ class Timings:
 
     RAW_DATA_COPY_TASK_TIMEOUT_M = 12
 
+    # this timeout needs to be big compared to the time scales defined in AcquisitionMonitor
     ACQUISITION_MONITOR_TIMEOUT_M = 180
 
     MOVE_RAW_FILE_TASK_TIMEOUT_M = 5

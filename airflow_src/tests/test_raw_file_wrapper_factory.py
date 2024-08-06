@@ -27,7 +27,7 @@ from plugins.raw_file_wrapper_factory import (
 class TestableRawFileMonitorWrapper(RawFileMonitorWrapper):
     """A testable subclass of RawFileMonitorWrapper to test the methods provided by the abstract class."""
 
-    _main_file_extension = "test_ext"
+    _raw_file_extension = "test_ext"
 
     def _file_path_to_monitor_acquisition(self) -> Path:
         """Dummy implementation."""
@@ -137,7 +137,7 @@ def test_raw_file_wrapper_factory_file_extension_check(
 ) -> None:
     """Test that the file extension check works correctly."""
     wrapper = wrapper_class("instrument1", raw_file_name=raw_file_name)
-    assert wrapper._main_file_extension == expected_extension  # noqa: SLF001
+    assert wrapper._raw_file_extension == expected_extension  # noqa: SLF001
 
 
 def test_raw_file_wrapper_factory_invalid_file_extension() -> None:

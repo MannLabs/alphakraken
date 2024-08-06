@@ -84,7 +84,7 @@ class AcquisitionMonitor(BaseSensorOperator):
             []
             if self._main_file_exists
             else [
-                f"{AcquisitionMonitorErrors.MAIN_FILE_MISSING}{self._raw_file_monitor_wrapper.file_name_to_watch}"
+                f"{AcquisitionMonitorErrors.MAIN_FILE_MISSING}{self._raw_file_monitor_wrapper.main_file_name}"
             ]
         )
         put_xcom(

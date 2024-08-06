@@ -23,7 +23,7 @@ from shared.db.interface import update_raw_file
 from shared.db.models import RawFileStatus
 
 # Soft timeout for the second type of check
-SOFT_TIMEOUT_ON_MISSING_MAIN_FILE_M: int = 0.1
+SOFT_TIMEOUT_ON_MISSING_MAIN_FILE_M: int = 60
 
 # For the third type of check, the file size is calculated every SIZE_CHECK_INTERVAL_M minutes,
 # if it has not changed between two checks, the acquisition is considered to be done
@@ -105,22 +105,34 @@ class AcquisitionMonitor(BaseSensorOperator):
             if self._raw_file_monitor_wrapper.file_path_to_monitor_acquisition().exists():
                 self._main_file_exists = True
             else:
-                # this covers the case that sometimes for bruker, the folder exists, but the main file does not
-                time_since_first_check_s = (
-                    self._get_timestamp()
-                ) - self._first_poke_timestamp
-                # exit path 0:
-                if time_since_first_check_s / 60 >= SOFT_TIMEOUT_ON_MISSING_MAIN_FILE_M:
-                    logging.info(
-                        f"Main file has not shown up for >= {SOFT_TIMEOUT_ON_MISSING_MAIN_FILE_M} min. Assuming failed acquisition."
-                    )
+                if self._main_file_missing_for_too_long():
                     return True
-
-                logging.info("Main file does not exist yet.")
-
                 return False
 
-        # exit path 1: new file(s) have been found
+        if self._new_files_found():
+            return True
+
+        if self._file_size_unchanged_for_some_time():
+            return True
+
+        return False
+
+    def _main_file_missing_for_too_long(self) -> bool:
+        """Return true if the main file has not appeared for a certain amount of time."""
+        time_since_first_check_s = (self._get_timestamp()) - self._first_poke_timestamp
+
+        if time_since_first_check_s / 60 >= SOFT_TIMEOUT_ON_MISSING_MAIN_FILE_M:
+            logging.info(
+                f"Main file has not shown up for >= {SOFT_TIMEOUT_ON_MISSING_MAIN_FILE_M} min. Assuming failed acquisition."
+            )
+            return True
+
+        logging.info("Main file does not exist yet.")
+
+        return False
+
+    def _new_files_found(self) -> bool:
+        """Return true if new files have been found."""
         if (
             new_dir_content
             := self._raw_file_monitor_wrapper.get_raw_files_on_instrument()
@@ -130,8 +142,10 @@ class AcquisitionMonitor(BaseSensorOperator):
                 f"New file(s) found: {new_dir_content}. Considering previous acquisition to be done."
             )
             return True
+        return False
 
-        # exit path 2: sufficient time has passed without file size change
+    def _file_size_unchanged_for_some_time(self) -> bool:
+        """Return true if the file size has not changed for a certain amount of time."""
         time_since_last_check_s = (
             current_timestamp := self._get_timestamp()
         ) - self._last_poke_timestamp
@@ -141,7 +155,6 @@ class AcquisitionMonitor(BaseSensorOperator):
             )
             logging.info(f"File size: {size}")
 
-            # TODO: check for size > threshold?
             if size == self._last_file_size:
                 logging.info(
                     f"File size {size} has not changed for >= {SIZE_CHECK_INTERVAL_M} min. "

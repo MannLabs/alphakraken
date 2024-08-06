@@ -84,7 +84,7 @@ def test_poke_file_dir_contents_change_file_is_removed(
 
 @patch("plugins.sensors.acquisition_monitor.RawFileWrapperFactory")
 @patch("plugins.sensors.acquisition_monitor.update_raw_file")
-def test_poke_file_dir_contents_change_file_does_not_exist(
+def test_poke_file_dir_contents_change_main_file_does_not_exist(
     mock_update_raw_file: MagicMock,  # noqa: ARG001
     mock_raw_file_wrapper_factory: MagicMock,
 ) -> None:
@@ -140,12 +140,14 @@ def test_poke_file_dir_contents_dont_change_but_file_is_unchanged(
 
 
 @patch("plugins.sensors.acquisition_monitor.RawFileWrapperFactory")
+@patch("plugins.sensors.acquisition_monitor.put_xcom")
 @patch("plugins.sensors.acquisition_monitor.update_raw_file")
-def test_post_execute(
+def test_post_execute_ok(
     mock_update_raw_file: MagicMock,
+    mock_put_xcom: MagicMock,
     mock_raw_file_wrapper_factory: MagicMock,
 ) -> None:
-    """Test poke method correctly return when dir contents change (file is added)."""
+    """Test post_execute correctly works if no acquisition errors."""
     mock_path = MagicMock()
 
     mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.file_path_to_monitor_acquisition.return_value = mock_path
@@ -156,9 +158,50 @@ def test_post_execute(
 
     sensor = get_sensor()
     sensor.pre_execute({DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"}})
+    sensor._main_file_exists = True  # noqa: SLF001
 
+    ti = MagicMock()
     # when
-    sensor.post_execute({}, result=True)
+    sensor.post_execute({"ti": ti}, result=True)
+
+    mock_put_xcom.assert_called_once_with(ti, "acquisition_monitor_errors", [])
+
+    mock_update_raw_file.assert_has_calls(
+        [
+            call("some_file.raw", new_status="monitoring_acquisition"),
+            call("some_file.raw", new_status="monitoring_done"),
+        ]
+    )
+
+
+@patch("plugins.sensors.acquisition_monitor.RawFileWrapperFactory")
+@patch("plugins.sensors.acquisition_monitor.put_xcom")
+@patch("plugins.sensors.acquisition_monitor.update_raw_file")
+def test_post_execute_acquisition_errors(
+    mock_update_raw_file: MagicMock,
+    mock_put_xcom: MagicMock,
+    mock_raw_file_wrapper_factory: MagicMock,
+) -> None:
+    """Test post_execute correctly works if no acquisition errors."""
+    mock_path = MagicMock()
+
+    mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.file_path_to_monitor_acquisition.return_value = mock_path
+
+    mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.get_raw_files_on_instrument.side_effect = [
+        {"some_file.raw"},  # initial content (pre_execute)
+    ]
+
+    sensor = get_sensor()
+    sensor.pre_execute({DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"}})
+    sensor._main_file_exists = False  # noqa: SLF001
+
+    ti = MagicMock()
+    # when
+    sensor.post_execute({"ti": ti}, result=True)
+
+    mock_put_xcom.assert_called_once_with(
+        ti, "acquisition_monitor_errors", ["main_file_missing"]
+    )
 
     mock_update_raw_file.assert_has_calls(
         [

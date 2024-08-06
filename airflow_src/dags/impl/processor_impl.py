@@ -58,12 +58,17 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
     instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
 
     raw_file = get_raw_file_by_id(raw_file_id)
+    pool_base_path = Path(get_env_variable(EnvVars.POOL_BASE_PATH))
 
     # get raw_file_path
     backup_pool_folder = get_env_variable(EnvVars.BACKUP_POOL_FOLDER)
     year_month_subfolder = get_created_at_year_month(raw_file)
     raw_file_path = (
-        Path(backup_pool_folder) / instrument_id / year_month_subfolder / raw_file_id
+        pool_base_path
+        / backup_pool_folder
+        / instrument_id
+        / year_month_subfolder
+        / raw_file_id
     )
 
     # get settings and output_path
@@ -72,10 +77,14 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
         raw_file.project_id, instrument_id
     )
 
-    settings_path = Path(quanting_pool_folder) / "settings" / project_id_or_fallback
+    settings_path = (
+        pool_base_path / quanting_pool_folder / "settings" / project_id_or_fallback
+    )
 
-    output_path = Path(quanting_pool_folder) / get_output_folder_rel_path(
-        raw_file, project_id_or_fallback
+    output_path = (
+        pool_base_path
+        / quanting_pool_folder
+        / get_output_folder_rel_path(raw_file, project_id_or_fallback)
     )
 
     settings = get_settings_for_project(project_id_or_fallback)

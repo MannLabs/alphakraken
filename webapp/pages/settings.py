@@ -79,8 +79,9 @@ with c1.expander("Click here for help ..."):
         Note: currently, updates of settings are not possible. If you need to change them, ask an AlphaKraken admin.
 
         ### Workflow
-        1. Create a project with a unique project id in the 'projects' tab.
-        2. Create quanting settings for the project.
+        1. Select a project to associate the new settings with.
+        2. Fill in required information (file names, etc.).
+        3. Upload the files to the designated location.
         """,
         icon="ℹ️",  # noqa: RUF001
     )

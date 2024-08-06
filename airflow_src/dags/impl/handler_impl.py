@@ -75,7 +75,7 @@ def decide_processing(ti: TaskInstance, **kwargs) -> bool:
     """Decide whether to start the acquisition_processor DAG."""
     raw_file_id = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID]
 
-    acquisition_monitor_errors = get_xcom(ti, XComKeys.ACQUISITION_MONITOR_ERRORS)
+    acquisition_monitor_errors = get_xcom(ti, XComKeys.ACQUISITION_MONITOR_ERRORS, [])
 
     if not acquisition_monitor_errors:
         return True  # continue with downstream tasks

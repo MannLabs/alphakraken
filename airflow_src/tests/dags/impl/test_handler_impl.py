@@ -38,6 +38,9 @@ def test_copy_raw_file_calls_update_with_correct_args(
         Path("/path/to/instrument/test_file.raw"): Path("/path/to/backup/test_file.raw")
     }
 
+    mock_file_path_to_calculate_size = MagicMock()
+    mock_raw_file_wrapper_factory.create_copy_wrapper.return_value.file_path_to_calculate_size.return_value = mock_file_path_to_calculate_size
+
     # when
     copy_raw_file(ti, **kwargs)
 
@@ -51,6 +54,7 @@ def test_copy_raw_file_calls_update_with_correct_args(
             call("test_file.raw", new_status=RawFileStatus.COPYING_DONE, size=1000),
         ]
     )
+    mock_get_file_size.assert_called_once_with(mock_file_path_to_calculate_size, -1)
 
 
 @patch("dags.impl.handler_impl.trigger_dag_run")

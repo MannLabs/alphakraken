@@ -56,7 +56,7 @@ class RawFile(Document):
     status = StringField(max_length=32)
     status_details = StringField(max_length=256)
 
-    size = IntField(min_value=0, max_value=int(1000 * 1024**3))  # unit: bytes
+    size = IntField(min_value=-1, max_value=int(1000 * 1024**3))  # unit: bytes
     instrument_id = StringField(max_length=50)
 
     project_id = StringField(max_length=32)

@@ -43,6 +43,29 @@ def test_get_file_size() -> None:
     assert result == 42.0  # noqa: PLR2004
 
 
+@patch.dict(INSTRUMENTS, {"instrument1": {}})
+def test_get_file_size_default() -> None:
+    """Test get_file_size returns the expected values."""
+    mock_path = MagicMock()
+    mock_path.stat.side_effect = FileNotFoundError
+
+    # when
+    result = get_file_size(mock_path, -1)
+
+    assert result == -1
+
+
+@patch.dict(INSTRUMENTS, {"instrument1": {}})
+def test_get_file_size_no_default_raises() -> None:
+    """Test get_file_size returns the expected values."""
+    mock_path = MagicMock()
+    mock_path.stat.side_effect = FileNotFoundError
+
+    # when
+    with pytest.raises(FileNotFoundError):
+        get_file_size(mock_path)
+
+
 @patch("plugins.file_handling.Path.open", new_callable=mock_open)
 def test_get_file_hash(mock_file_open: MagicMock) -> None:
     """Test get_file_hash."""

@@ -2,8 +2,9 @@
 
 from airflow.models import TaskInstance
 from common.keys import DagContext, DagParams, Dags, OpArgs, XComKeys
+from common.settings import DEFAULT_RAW_FILE_SIZE_IF_MAIN_FILE_MISSING
 from common.utils import get_xcom, trigger_dag_run
-from file_handling import copy_file
+from file_handling import copy_file, get_file_size
 from raw_file_wrapper_factory import RawFileWrapperFactory
 
 from shared.db.interface import get_raw_file_by_id, update_raw_file
@@ -28,8 +29,10 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
         copy_file(src_path, dst_path)
 
     # TODO: add also hash to DB
-    # HERE: try-catch
-    file_size = 1  # get_file_size(raw_file_copy_wrapper.file_path_to_calculate_size())
+    file_size = get_file_size(
+        raw_file_copy_wrapper.file_path_to_calculate_size(),
+        DEFAULT_RAW_FILE_SIZE_IF_MAIN_FILE_MISSING,
+    )
     update_raw_file(raw_file_id, new_status=RawFileStatus.COPYING_DONE, size=file_size)
 
 

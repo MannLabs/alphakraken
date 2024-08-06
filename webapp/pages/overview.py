@@ -111,7 +111,8 @@ def _display_table_and_plots(df: pd.DataFrame) -> None:
 
     c1, _ = st.columns([0.5, 0.5])
     with c1.expander("Click here for help ..."):
-        st.markdown("""
+        st.info(
+            """
             #### Explanation of 'status' information
             - `done`: The file has been processed successfully.
             - `quanting_failed`: something went wrong with the quanting, check the "status_details" column for more information:
@@ -125,7 +126,9 @@ def _display_table_and_plots(df: pd.DataFrame) -> None:
 
             All other states are transient and should be self-explanatory. If you feel a file stays in a certain status
             for too long, please report it to the developers.
-        """)
+        """,
+            icon="ℹ️",  # noqa: RUF001
+        )
 
     # ########################################### DISPLAY: plots
 

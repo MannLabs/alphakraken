@@ -50,28 +50,49 @@ st.markdown("## Current settings")
 
 st.warning("This page should be edited only by AlphaKraken admin users!", icon="⚠️")
 
+c1, _ = st.columns([0.5, 0.5])
+
 
 @st.experimental_fragment
-def display_settings(settings_df: pd.DataFrame) -> None:
+def display_settings(
+    settings_df: pd.DataFrame, st_display: st.delta_generator.DeltaGenerator = st
+) -> None:
     """Fragment to display settings in a table."""
-    filtered_df = show_filter(settings_df)
-    st.table(filtered_df)
-    st.markdown(
-        "The settings of a given project are stored at "
+    filtered_df = show_filter(settings_df, st_display=st_display)
+    st_display.table(filtered_df)
+    st_display.markdown(
+        "The files associated with the settings of a given project are stored at "
         f"`/fs/pool/{io_pool_folder}/settings/<project id>/`"
     )
 
 
-display_settings(settings_df)
+display_settings(settings_df, c1)
+
+with c1.expander("Click here for help ..."):
+    st.info(
+        """
+        ### Explanation
+        Settings are a defined tuple of input to the quanting software: config file, speclib file and/or fasta file
+        which will be used to process all files associated to the parent project.
+        Before creating the settings on this page, make sure you copied the corresponding files to the project-specific pool folder.
+
+        Note: currently, updates of settings are not possible. If you need to change them, ask an AlphaKraken admin.
+
+        ### Workflow
+        1. Create a project with a unique project id in the 'projects' tab.
+        2. Create quanting settings for the project.
+        """,
+        icon="ℹ️",  # noqa: RUF001
+    )
 
 # ########################################### SELECT PROJECT
 
-st.markdown("## Add new settings for project")
-st.markdown("### Step 1/3: Select project")
+c1.markdown("## Add new settings for project")
+c1.markdown("### Step 1/3: Select project")
 
 project_info = [""] + [p.id for p in projects_db]
 
-project_id = st.selectbox(
+project_id = c1.selectbox(
     label="Select project to add your settings to", options=project_info
 )
 project_id = empty_to_none(project_id)
@@ -121,14 +142,14 @@ form_items = {
 
 
 if selected_project:
-    st.markdown("### Step 2/3: Define settings")
+    c1.markdown("### Step 2/3: Define settings")
 
     desc = f"('{selected_project.description}')" if selected_project.description else ""
-    st.write(
+    c1.write(
         f"Settings will be added to the following project: `{selected_project.name}`{desc}"
     )
 
-    with st.form("add_settings_to_project"):
+    with c1.form("add_settings_to_project"):
         name = st.text_input(**form_items["name"])
         fasta_file_name = st.text_input(**form_items["fasta_file_name"])
         speclib_file_name = st.text_input(**form_items["speclib_file_name"])

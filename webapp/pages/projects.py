@@ -40,15 +40,19 @@ projects_df = df_from_db_data(projects_db)
 
 st.warning("This page should be edited only by AlphaKraken admin users!", icon="⚠️")
 
+c1, _ = st.columns([0.5, 0.5])
+
 
 @st.experimental_fragment
-def display_projects(projects_df: pd.DataFrame) -> None:
+def display_projects(
+    projects_df: pd.DataFrame, st_display: st.delta_generator.DeltaGenerator = st
+) -> None:
     """A Fragment to display projects in a table."""
-    filtered_df = show_filter(projects_df)
-    st.table(filtered_df)
+    filtered_df = show_filter(projects_df, st_display=st_display)
+    st_display.table(filtered_df)
 
 
-display_projects(projects_df)
+display_projects(projects_df, c1)
 
 # ########################################### FORM
 
@@ -74,10 +78,29 @@ form_items = {
     },
 }
 
+with c1.expander("Click here for help ..."):
+    st.info(
+        """
+        ### Explanation
+        A 'project' is a lightweight container for a tuple of quanting settings (=config, speclib, fasta).
+        The connection of samples to a project is done via the file name: all files containing a project-specific token (e.g. `A123`) surrounded by `_`
+        are associated with project `A123`.
+        Currently, only projects ids that follow after the pattern 'SA' are picked up, e.g. `20240801_something_SA_A123_my-sample.raw`.
+        If no matching project can be found for a file, then fallback settings are used.
+        Please make sure your project identifier is 'unique enough' ("DDA" might be a bad pick), otherwise it might cause false positives.
+        Needs to be > 3 characters.
 
-st.markdown("## Add new project")
+        ### Workflow
+        1. Create a project with a unique project id.
+        2. Use the 'settings' tab to associate quanting settings with the project.
+        """,
+        icon="ℹ️",  # noqa: RUF001
+    )
 
-with st.form("create_project_form"):
+
+c1.markdown("## Add new project")
+
+with c1.form("create_project_form"):
     project_name = st.text_input(**form_items["project_name"])
     project_id = st.text_input(**form_items["project_id"])
     project_description = st.text_area(**form_items["project_description"])

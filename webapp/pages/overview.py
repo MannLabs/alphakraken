@@ -43,9 +43,9 @@ combined_df = get_combined_raw_files_and_metrics_df()
 columns_at_end = [
     "status_details",
     "project_id",
-    "file_info",
     "updated_at_",
     "created_at_",
+    "file_info",
 ]
 columns_to_hide = [
     "created_at",

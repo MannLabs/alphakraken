@@ -68,7 +68,11 @@ def decide_processing(ti: TaskInstance, **kwargs) -> bool:
     #  - has 'blank' or 'DDA' in file name -> Variable?
     #  - file size to small -> Variable?
 
-    update_raw_file(raw_file_id, new_status=RawFileStatus.ACQUISITION_FAILED)
+    update_raw_file(
+        raw_file_id,
+        new_status=RawFileStatus.ACQUISITION_FAILED,
+        status_details=";".join(acquisition_monitor_errors),
+    )
 
     return False  # skip downstream tasks
 

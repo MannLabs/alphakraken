@@ -25,6 +25,7 @@ class RawFileMonitorWrapper(ABC):
     """Abstract base class for wrapping raw files for monitoring acquisitions."""
 
     _main_file_extension: str
+    file_name_to_watch: str | None = None
 
     def __init__(self, instrument_id: str, raw_file_name: str | None = None):
         """Initialize the RawFileMonitorWrapper.
@@ -103,7 +104,7 @@ class BrukerRawFileMonitorWrapper(RawFileMonitorWrapper):
     """RawFileMonitorWrapper for Bruker instruments."""
 
     _main_file_extension = ".d"
-    _file_name_to_watch = "analysis.tdf_bin"
+    file_name_to_watch = "analysis.tdf_bin"
 
     def _file_path_to_monitor_acquisition(self) -> Path:
         """Get the (absolute) path to the main raw data file to monitor."""

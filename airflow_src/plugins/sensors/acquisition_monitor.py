@@ -23,12 +23,13 @@ from shared.db.interface import update_raw_file
 from shared.db.models import RawFileStatus
 
 # Soft timeout for the second type of check
-SOFT_TIMEOUT_ON_MISSING_MAIN_FILE_M: int = 60
+SOFT_TIMEOUT_ON_MISSING_MAIN_FILE_M: int = 120
 
 # For the third type of check, the file size is calculated every SIZE_CHECK_INTERVAL_M minutes,
 # if it has not changed between two checks, the acquisition is considered to be done
-# This part of the logic is triggered only at the end of an acquisition queue,
+# This part of the logic should be triggered only at the end of an acquisition queue,
 # so this value is rather conservative and hard-coded for now.
+# Note that it takes at least 2*SIZE_CHECK_INTERVAL_M minutes to detect that the acquisition is done that way.
 SIZE_CHECK_INTERVAL_M: int = 60
 
 
@@ -46,7 +47,7 @@ class AcquisitionMonitor(BaseSensorOperator):
         self._initial_dir_contents: set | None = None
 
         self._first_poke_timestamp: float | None = None
-        self._last_poke_timestamp: float | None = None
+        self._latest_file_size_check_timestamp: float | None = None
         self._last_file_size = -1
 
         # to track whether the main file showed up (relevant for Bruker only)
@@ -65,7 +66,7 @@ class AcquisitionMonitor(BaseSensorOperator):
         )
 
         self._first_poke_timestamp = self._get_timestamp()
-        self._last_poke_timestamp = self._first_poke_timestamp
+        self._latest_file_size_check_timestamp = self._first_poke_timestamp
 
         update_raw_file(
             self._raw_file_name, new_status=RawFileStatus.MONITORING_ACQUISITION
@@ -82,7 +83,9 @@ class AcquisitionMonitor(BaseSensorOperator):
         acquisition_monitor_errors = (
             []
             if self._main_file_exists
-            else [AcquisitionMonitorErrors.MAIN_FILE_MISSING]
+            else [
+                f"{AcquisitionMonitorErrors.MAIN_FILE_MISSING}{self._raw_file_monitor_wrapper.file_name_to_watch}"
+            ]
         )
         put_xcom(
             context["ti"],
@@ -148,7 +151,7 @@ class AcquisitionMonitor(BaseSensorOperator):
         """Return true if the file size has not changed for a certain amount of time."""
         time_since_last_check_s = (
             current_timestamp := self._get_timestamp()
-        ) - self._last_poke_timestamp
+        ) - self._latest_file_size_check_timestamp
         if time_since_last_check_s / 60 >= SIZE_CHECK_INTERVAL_M:
             size = get_file_size(
                 self._raw_file_monitor_wrapper.file_path_to_monitor_acquisition()
@@ -163,6 +166,6 @@ class AcquisitionMonitor(BaseSensorOperator):
                 return True
 
             self._last_file_size = size
-            self._last_poke_timestamp = current_timestamp
+            self._latest_file_size_check_timestamp = current_timestamp
 
         return False

@@ -9,13 +9,11 @@ An acquisition is considered "done" if either:
 """
 
 import logging
-from datetime import datetime
 from typing import Any
 
-import pytz
 from airflow.sensors.base import BaseSensorOperator
 from common.keys import AcquisitionMonitorErrors, DagContext, DagParams, XComKeys
-from common.utils import put_xcom
+from common.utils import get_timestamp, put_xcom
 from file_handling import get_file_size
 from raw_file_wrapper_factory import RawFileMonitorWrapper, RawFileWrapperFactory
 
@@ -65,7 +63,7 @@ class AcquisitionMonitor(BaseSensorOperator):
             self._raw_file_monitor_wrapper.get_raw_files_on_instrument()
         )
 
-        self._first_poke_timestamp = self._get_timestamp()
+        self._first_poke_timestamp = get_timestamp()
         self._latest_file_size_check_timestamp = self._first_poke_timestamp
 
         update_raw_file(
@@ -75,6 +73,10 @@ class AcquisitionMonitor(BaseSensorOperator):
         logging.info(
             f"Monitoring {self._raw_file_monitor_wrapper.file_path_to_monitor_acquisition()}"
         )
+
+        # TODO: this also has implications on collision handling:
+        # uses nonzero file size to determine if acquisition is done
+        # should we have a dedicated flag for this?
 
     def post_execute(self, context: dict[str, any], result: Any = None) -> None:  # noqa: ANN401
         """Update the status of the raw file in the database."""
@@ -94,11 +96,6 @@ class AcquisitionMonitor(BaseSensorOperator):
         )
 
         update_raw_file(self._raw_file_name, new_status=RawFileStatus.MONITORING_DONE)
-
-    @staticmethod
-    def _get_timestamp() -> float:
-        """Get the current timestamp."""
-        return datetime.now(tz=pytz.utc).timestamp()
 
     def poke(self, context: dict[str, any]) -> bool:
         """Return True if acquisition is done."""
@@ -122,7 +119,7 @@ class AcquisitionMonitor(BaseSensorOperator):
 
     def _main_file_missing_for_too_long(self) -> bool:
         """Return true if the main file has not appeared for a certain amount of time."""
-        time_since_first_check_s = (self._get_timestamp()) - self._first_poke_timestamp
+        time_since_first_check_s = (get_timestamp()) - self._first_poke_timestamp
 
         if time_since_first_check_s / 60 >= SOFT_TIMEOUT_ON_MISSING_MAIN_FILE_M:
             logging.info(
@@ -150,7 +147,7 @@ class AcquisitionMonitor(BaseSensorOperator):
     def _file_size_unchanged_for_some_time(self) -> bool:
         """Return true if the file size has not changed for a certain amount of time."""
         time_since_last_check_s = (
-            current_timestamp := self._get_timestamp()
+            current_timestamp := get_timestamp()
         ) - self._latest_file_size_check_timestamp
         if time_since_last_check_s / 60 >= SIZE_CHECK_INTERVAL_M:
             size = get_file_size(

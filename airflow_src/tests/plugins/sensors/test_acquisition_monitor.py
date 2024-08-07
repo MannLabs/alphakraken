@@ -107,7 +107,7 @@ def test_poke_file_dir_contents_change_main_file_does_not_exist(
 
 
 @patch("plugins.sensors.acquisition_monitor.RawFileWrapperFactory")
-@patch("plugins.sensors.acquisition_monitor.AcquisitionMonitor._get_timestamp")
+@patch("plugins.sensors.acquisition_monitor.get_timestamp")
 @patch("plugins.sensors.acquisition_monitor.update_raw_file")
 def test_poke_file_dir_contents_change_main_file_does_not_exist_for_too_long(
     mock_update_raw_file: MagicMock,  # noqa: ARG001
@@ -140,7 +140,7 @@ def test_poke_file_dir_contents_change_main_file_does_not_exist_for_too_long(
 
 
 @patch("plugins.sensors.acquisition_monitor.RawFileWrapperFactory")
-@patch("plugins.sensors.acquisition_monitor.AcquisitionMonitor._get_timestamp")
+@patch("plugins.sensors.acquisition_monitor.get_timestamp")
 @patch("plugins.sensors.acquisition_monitor.update_raw_file")
 def test_poke_file_dir_contents_dont_change_but_file_is_unchanged(
     mock_update_raw_file: MagicMock,

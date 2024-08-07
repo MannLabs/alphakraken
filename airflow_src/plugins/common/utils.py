@@ -81,6 +81,11 @@ def truncate_string(input_string: str | None, n: int = 200) -> str | None:
     )
 
 
+def get_timestamp() -> float:
+    """Get the current timestamp."""
+    return datetime.now(tz=pytz.utc).timestamp()
+
+
 def get_cluster_ssh_hook() -> SSHHook:
     """Get the SSH hook for the cluster.
 

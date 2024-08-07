@@ -11,10 +11,13 @@ from common.settings import (
     get_internal_instrument_data_path,
     get_internal_output_path,
 )
+from common.utils import get_timestamp
 from raw_file_wrapper_factory import RawFileWrapperFactory
 
 from shared.db.interface import update_kraken_status
 from shared.db.models import KrakenStatusValues
+
+HEALTH_CHECK_INTERVAL_M: int = 5
 
 
 def _check_health(instrument_id: str) -> None:
@@ -56,6 +59,7 @@ class FileCreationSensor(BaseSensorOperator):
         )
 
         self._initial_dir_contents: set | None = None
+        self._latest_health_check_timestamp = 0
 
     def pre_execute(self, context: dict[str, any]) -> None:
         """Check the health of the instrument data path and backup path."""
@@ -73,7 +77,11 @@ class FileCreationSensor(BaseSensorOperator):
             f"Checking for new files since start of this DAG run in {self._raw_file_monitor_wrapper.instrument_path}"
         )
 
-        _check_health(self._instrument_id)
+        if (
+            current_timestamp := get_timestamp()
+        ) - self._latest_health_check_timestamp >= HEALTH_CHECK_INTERVAL_M * 60:
+            _check_health(self._instrument_id)
+            self._latest_health_check_timestamp = current_timestamp
 
         if (
             new_dir_content

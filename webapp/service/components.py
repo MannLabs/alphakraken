@@ -216,7 +216,7 @@ def _get_color(
     green_ages_m: list[float] = [  # noqa: B006
         2 * 60,
         2 * 60,
-        1.5,  # should be larger than FILE_CREATION_POKE_INTERVAL_S
+        5.1,  # should be larger than HEALTH_CHECK_INTERVAL_M
     ],
     red_ages_m: list[float] = [  # noqa: B006
         8 * 60,

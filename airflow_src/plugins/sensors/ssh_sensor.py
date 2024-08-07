@@ -37,16 +37,22 @@ class SSHSensorOperator(BaseSensorOperator, ABC):
         super().__init__(*args, **kwargs)
         self._ssh_hook: SSHHook = ssh_hook
         self._job_id: str | None = None
+        self._fake_ssh: bool | None = None
 
     def pre_execute(self, context: dict[str, any]) -> None:
         """_job_id the job id from XCom."""
         self._job_id = get_xcom(context["ti"], XComKeys.JOB_ID)
+        self._fake_ssh = (
+            get_airflow_variable(AirflowVars.DEBUG_NO_CLUSTER_SSH, "False") == "True"
+        )
 
     def poke(self, context: dict[str, any]) -> bool:
         """Check the output of the ssh command."""
-        logging.info(f"SSH command execute: {context}")
+        del context  # unused
 
-        ssh_return = self.ssh_execute(self.command, self._ssh_hook)
+        ssh_return = self.ssh_execute(
+            self.command, self._ssh_hook, fake_ssh=self._fake_ssh
+        )
         logging.info(f"ssh command returned: '{ssh_return}'")
 
         if ssh_return in self.running_states:
@@ -54,12 +60,16 @@ class SSHSensorOperator(BaseSensorOperator, ABC):
 
         return True
 
+    # show file size earlier
+
     @staticmethod
-    def ssh_execute(command: str, ssh_hook: SSHHook, max_tries: int = 10) -> str:
+    def ssh_execute(
+        command: str, ssh_hook: SSHHook, *, max_tries: int = 10, fake_ssh: bool = False
+    ) -> str:
         """Execute the given `command` via the `ssh_hook`."""
         # this is a hack to prevent jobs to be run on the cluster, useful for debugging and initial setup.
         # To get rid of this, e.g. set up a container with a fake ssh server
-        if get_airflow_variable(AirflowVars.DEBUG_NO_CLUSTER_SSH, "False") == "True":
+        if fake_ssh:
             return SSHSensorOperator._get_fake_ssh_response(command)
 
         str_stdout = ""

@@ -31,7 +31,12 @@ from common.settings import (
     get_internal_output_path_for_raw_file,
     get_output_folder_rel_path,
 )
-from common.utils import get_airflow_variable, get_env_variable, get_xcom, put_xcom
+from common.utils import (
+    get_airflow_variable,
+    get_env_variable,
+    get_xcom,
+    put_xcom,
+)
 from metrics.metrics_calculator import calc_metrics
 from sensors.ssh_sensor import SSHSensorOperator
 
@@ -121,11 +126,11 @@ def _create_export_command(mapping: dict[str, str]) -> str:
 
 def run_quanting(ti: TaskInstance, **kwargs) -> None:
     """Run the quanting job on the cluster."""
+    del kwargs  # unused
     # IMPLEMENT:
     # wait for the cluster to be ready (20% idling) -> dedicated (sensor) task, mind race condition! (have pool = 1 for that)
 
     quanting_env = get_xcom(ti, XComKeys.QUANTING_ENV)
-    ssh_hook = kwargs[OpArgs.SSH_HOOK]
 
     # upfront check 1
     if (job_id := get_xcom(ti, XComKeys.JOB_ID, -1)) != -1:
@@ -154,7 +159,7 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
     )
     logging.info(f"Running command: >>>>\n{command}\n<<<< end of command")
 
-    ssh_return = SSHSensorOperator.ssh_execute(command, ssh_hook)
+    ssh_return = SSHSensorOperator.ssh_execute(command)
 
     try:
         job_id = str(int(ssh_return.split("\n")[-1]))
@@ -230,7 +235,7 @@ def check_quanting_result(ti: TaskInstance, **kwargs) -> bool:
 
     Return False in case downstream tasks should be skipped, True otherwise.
     """
-    ssh_hook = kwargs[OpArgs.SSH_HOOK]
+    del kwargs  # unused
     job_id = get_xcom(ti, XComKeys.JOB_ID)
 
     # the wildcard here is a bit of a hack to avoid retrieving the year_month
@@ -239,7 +244,7 @@ def check_quanting_result(ti: TaskInstance, **kwargs) -> bool:
     cmd = check_quanting_result_cmd(job_id, slurm_output_file) + get_job_state_cmd(
         job_id
     )
-    ssh_return = SSHSensorOperator.ssh_execute(cmd, ssh_hook)
+    ssh_return = SSHSensorOperator.ssh_execute(cmd)
 
     time_elapsed = _get_time_elapsed(ssh_return)
     put_xcom(ti, XComKeys.QUANTING_TIME_ELAPSED, time_elapsed)

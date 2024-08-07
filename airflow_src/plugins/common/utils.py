@@ -86,6 +86,7 @@ def get_cluster_ssh_hook() -> SSHHook:
 
     The connection 'cluster_ssh_connection' needs to b e defined in Airflow UI.
     """
+    logging.info("Getting cluster SSH hook..")
     return SSHHook(
         ssh_conn_id="cluster_ssh_connection", conn_timeout=60, cmd_timeout=60
     )

@@ -7,6 +7,8 @@
 #SBATCH --time=02:00:00
 #SxBATCH --partition=p.<node>
 
+export TQDM_MININTERVAL=10  # avoid lots of tqdm outputs
+
 set -u -e
 
 # INPUT taken from environment variables:

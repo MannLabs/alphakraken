@@ -74,10 +74,6 @@ class AcquisitionMonitor(BaseSensorOperator):
             f"Monitoring {self._raw_file_monitor_wrapper.file_path_to_monitor_acquisition()}"
         )
 
-        # TODO: this also has implications on collision handling:
-        # uses nonzero file size to determine if acquisition is done
-        # should we have a dedicated flag for this?
-
     def post_execute(self, context: dict[str, any], result: Any = None) -> None:  # noqa: ANN401
         """Update the status of the raw file in the database."""
         del result  # unused
@@ -119,7 +115,7 @@ class AcquisitionMonitor(BaseSensorOperator):
 
     def _main_file_missing_for_too_long(self) -> bool:
         """Return true if the main file has not appeared for a certain amount of time."""
-        time_since_first_check_s = (get_timestamp()) - self._first_poke_timestamp
+        time_since_first_check_s = get_timestamp() - self._first_poke_timestamp
 
         if time_since_first_check_s / 60 >= SOFT_TIMEOUT_ON_MISSING_MAIN_FILE_M:
             logging.info(

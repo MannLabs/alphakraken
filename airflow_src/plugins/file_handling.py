@@ -40,17 +40,19 @@ def get_file_size(file_path: Path, default: int | None = None) -> float:
             logging.info(f"File {file_path} not found, returning {default=}")
             return default
         raise e from e
-    logging.info(f"File {file_path} has {file_size_bytes=}")
+    file_size_mb = file_size_bytes / 1024**2
+    logging.info(f"File {file_path} has {file_size_bytes=} ({file_size_mb:.2f} MB)")
     return file_size_bytes
 
 
 def _get_file_hash(file_path: Path, chunk_size: int = 8192) -> str:
     """Get the hash of a file."""
+    logging.info(f"Calculating hash of {file_path} ..")
     with file_path.open("rb") as f:
         file_hash = hashlib.md5()  # noqa: S324
         while chunk := f.read(chunk_size):
             file_hash.update(chunk)
-    logging.info(f"Hash of {file_path} is {file_hash.hexdigest()}")
+    logging.info(f".. hash is {file_hash.hexdigest()}")
     return file_hash.hexdigest()
 
 
@@ -70,7 +72,6 @@ def copy_file(
     dst_path: Path,
 ) -> tuple[float, str]:
     """Copy a raw file to the backup location and check its hashsum and return a tuple (file_size, file_hash)."""
-    logging.info(f"Calculating hash for {src_path} ..")
     start = datetime.now()  # noqa: DTZ005
     src_hash = _get_file_hash(src_path)
     time_elapsed = (datetime.now() - start).total_seconds()  # noqa: DTZ005

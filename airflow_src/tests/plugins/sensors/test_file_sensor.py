@@ -73,16 +73,19 @@ def test_poke_file_created(
 @patch("plugins.sensors.file_sensor.update_kraken_status")
 @patch("plugins.sensors.file_sensor.get_internal_instrument_data_path")
 @patch("plugins.sensors.file_sensor.get_internal_backup_path")
+@patch("plugins.sensors.file_sensor.get_internal_output_path")
 def test_check_health_when_all_paths_exist(
+    mock_get_output_path: MagicMock,
     mock_get_backup_path: MagicMock,
     mock_get_data_path: MagicMock,
     mock_update_status: MagicMock,
 ) -> None:
     """Test that the health check passes when both paths exist."""
     mock_path = MagicMock()
-    mock_path.exists.side_effect = [True, True]
+    mock_path.exists.side_effect = [True, True, True]
     mock_get_data_path.return_value = mock_path
     mock_get_backup_path.return_value = mock_path
+    mock_get_output_path.return_value = mock_path
 
     # when
     _check_health("instrument_id")
@@ -95,16 +98,19 @@ def test_check_health_when_all_paths_exist(
 @patch("plugins.sensors.file_sensor.update_kraken_status")
 @patch("plugins.sensors.file_sensor.get_internal_instrument_data_path")
 @patch("plugins.sensors.file_sensor.get_internal_backup_path")
+@patch("plugins.sensors.file_sensor.get_internal_output_path")
 def test_check_health_when_no_paths_exist(
+    mock_get_output_path: MagicMock,
     mock_get_backup_path: MagicMock,
     mock_get_data_path: MagicMock,
     mock_update_status: MagicMock,
 ) -> None:
     """Test that the health check fails when both paths do not exist."""
     mock_path = MagicMock()
-    mock_path.exists.side_effect = [False, False]
+    mock_path.exists.side_effect = [False, False, False]
     mock_get_data_path.return_value = mock_path
     mock_get_backup_path.return_value = mock_path
+    mock_get_output_path.return_value = mock_path
 
     # when
     _check_health("instrument_id")
@@ -112,5 +118,5 @@ def test_check_health_when_no_paths_exist(
     mock_update_status.assert_called_once_with(
         "instrument_id",
         status="error",
-        status_details="Instrument path not found.;Backup path not found.",
+        status_details="Instrument path not found.;Backup path not found.;Output path not found.",
     )

@@ -28,7 +28,7 @@ from common.settings import (
     ERROR_CODE_TO_STRING,
     AlphaDiaConstants,
     get_fallback_project_id,
-    get_internal_output_path,
+    get_internal_output_path_for_raw_file,
     get_output_folder_rel_path,
 )
 from common.utils import get_airflow_variable, get_env_variable, get_xcom, put_xcom
@@ -135,7 +135,7 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
     raw_file = get_raw_file_by_id(quanting_env[QuantingEnv.RAW_FILE_ID])
 
     # upfront check 2
-    output_path = get_internal_output_path(
+    output_path = get_internal_output_path_for_raw_file(
         raw_file,
         project_id_or_fallback=quanting_env[QuantingEnv.PROJECT_ID_OR_FALLBACK],
     )
@@ -203,7 +203,7 @@ def _get_other_error_codes(output_path: Path) -> str:
 
 def get_business_errors(raw_file: RawFile, project_id: str) -> list[str]:
     """Extract business errors from the alphaDIA output."""
-    output_path = get_internal_output_path(raw_file, project_id)
+    output_path = get_internal_output_path_for_raw_file(raw_file, project_id)
 
     raw_file_progress_subfolder = Path(raw_file.id).stem
     events_jsonl_path = (
@@ -298,7 +298,7 @@ def compute_metrics(ti: TaskInstance, **kwargs) -> None:
 
     raw_file = get_raw_file_by_id(quanting_env[QuantingEnv.RAW_FILE_ID])
 
-    output_path = get_internal_output_path(
+    output_path = get_internal_output_path_for_raw_file(
         raw_file, quanting_env[QuantingEnv.PROJECT_ID_OR_FALLBACK]
     )
     metrics = calc_metrics(output_path)

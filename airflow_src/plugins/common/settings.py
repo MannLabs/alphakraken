@@ -163,7 +163,14 @@ def get_output_folder_rel_path(raw_file: RawFile, project_id_or_fallback: str) -
     )
 
 
-def get_internal_output_path(raw_file: RawFile, project_id_or_fallback: str) -> Path:
+def get_internal_output_path() -> Path:
+    """Get absolute internal output path."""
+    return Path(InternalPaths.MOUNTS_PATH) / InternalPaths.OUTPUT
+
+
+def get_internal_output_path_for_raw_file(
+    raw_file: RawFile, project_id_or_fallback: str
+) -> Path:
     """Get absolute internal output path for the given raw file name."""
     return Path(InternalPaths.MOUNTS_PATH) / get_output_folder_rel_path(
         raw_file, project_id_or_fallback

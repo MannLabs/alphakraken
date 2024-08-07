@@ -9,6 +9,7 @@ from airflow.sensors.base import BaseSensorOperator
 from common.settings import (
     get_internal_backup_path,
     get_internal_instrument_data_path,
+    get_internal_output_path,
 )
 from raw_file_wrapper_factory import RawFileWrapperFactory
 
@@ -29,7 +30,10 @@ def _check_health(instrument_id: str) -> None:
         logging.error(f"Backup path {backup_path} does not exist.")
         status_details.append("Backup path not found.")
 
-    # TODO: check output path here
+    output_path = get_internal_output_path()
+    if not output_path.exists():
+        logging.error(f"Output path {output_path} does not exist.")
+        status_details.append("Output path not found.")
 
     update_kraken_status(
         instrument_id,

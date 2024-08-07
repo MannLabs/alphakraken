@@ -461,7 +461,7 @@ def test_check_quanting_result_timeout(
     )
 
 
-@patch("dags.impl.processor_impl.get_internal_output_path")
+@patch("dags.impl.processor_impl.get_internal_output_path_for_raw_file")
 def test_get_business_errors_with_valid_errors(mock_path: MagicMock) -> None:
     """Test that get_business_errors returns the expected business errors."""
     mock_content = [
@@ -481,7 +481,7 @@ def test_get_business_errors_with_valid_errors(mock_path: MagicMock) -> None:
     mock_path.assert_called_once_with(mock_raw_file, "project_id")
 
 
-@patch("dags.impl.processor_impl.get_internal_output_path")
+@patch("dags.impl.processor_impl.get_internal_output_path_for_raw_file")
 def test_get_business_errors_with_no_errors(mock_path: MagicMock) -> None:
     """Test that get_business_errors returns an empty list when there are no (valid) errors."""
     mock_content = [
@@ -501,7 +501,7 @@ def test_get_business_errors_with_no_errors(mock_path: MagicMock) -> None:
     assert result == ["__COULD_NOT_DETERMINE_ERROR"]
 
 
-@patch("dags.impl.processor_impl.get_internal_output_path")
+@patch("dags.impl.processor_impl.get_internal_output_path_for_raw_file")
 def test_get_business_errors_file_not_found(mock_path: MagicMock) -> None:
     """Test that get_business_errors returns an empty list when the file is not found."""
     mock_path.return_value.__truediv__.return_value.__truediv__.return_value.__truediv__.return_value.open.side_effect = FileNotFoundError
@@ -514,7 +514,7 @@ def test_get_business_errors_file_not_found(mock_path: MagicMock) -> None:
     assert result == ["__COULD_NOT_DETERMINE_ERROR"]
 
 
-@patch("dags.impl.processor_impl.get_internal_output_path")
+@patch("dags.impl.processor_impl.get_internal_output_path_for_raw_file")
 def test_get_business_errors_with_unknown_error(mock_path: MagicMock) -> None:
     """Test that get_business_errors returns an empty list when there are no (valid) errors."""
     mock_events_content = [

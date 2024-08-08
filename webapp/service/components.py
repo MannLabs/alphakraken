@@ -295,3 +295,33 @@ def show_sandbox_message() -> None:
         """,
             icon="⚠️",
         )
+
+
+def get_terminal_status_counts(
+    filtered_df: pd.DataFrame, statuses: list[str] = TERMINAL_STATUSES
+) -> str:
+    """Count the number of rows and calculate percentages for terminal statuses in the filtered DataFrame.
+
+    Args:
+    ----
+        filtered_df (pd.DataFrame): The filtered DataFrame containing the 'status' column.
+        statuses (list[str]): The statuses to consider.
+
+    Returns:
+    -------
+        str: A display-ready string with terminal status and 'count' and 'percentage' for each status.
+
+    """
+    terminal_df = filtered_df[filtered_df["status"].isin(statuses)]
+
+    if (total_terminal_rows := len(terminal_df)) == 0:
+        return "n/a"
+
+    status_counts = terminal_df["status"].value_counts().sort_values()
+
+    result = []
+    for status, count in status_counts.items():
+        percentage = (count / total_terminal_rows) * 100
+        result.append(f"{status}: {int(count)} ({percentage:.1f}%)")
+
+    return "; ".join(result)

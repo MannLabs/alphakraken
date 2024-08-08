@@ -10,6 +10,7 @@ import pytz
 import streamlit as st
 from matplotlib import pyplot as plt
 from service.components import (
+    get_terminal_status_counts,
     highlight_status_cell,
     show_date_select,
     show_filter,
@@ -31,6 +32,9 @@ st.markdown("# Overview")
 
 st.write(
     f"Current Kraken time: {datetime.now(tz=pytz.UTC).replace(microsecond=0)} [all time stamps are given in UTC!]"
+)
+st.write(
+    "Use the filter and date select to narrow down results both in the table and the plots below."
 )
 
 # ########################################### LOGIC
@@ -80,7 +84,7 @@ def _display_table_and_plots(df: pd.DataFrame) -> None:
     )
 
     st.write(
-        f"Showing {len(filtered_df)} / {len_whole_df} entries. Use the filter to narrow down results both in the table and the plots below."
+        f"Showing {len(filtered_df)} / {len_whole_df} entries. Distribution of terminal statuses: {get_terminal_status_counts(combined_df)}"
     )
 
     cmap = plt.get_cmap("RdYlGn")

@@ -103,7 +103,7 @@ class ProjectStatus:
 class Project(Document):
     """Schema for a project."""
 
-    id = StringField(required=True, primary_key=True, min_length=3, max_length=16)
+    id = StringField(required=True, primary_key=True, min_length=2, max_length=16)
     name = StringField(required=True, max_length=64)
     description = StringField(max_length=256)
 

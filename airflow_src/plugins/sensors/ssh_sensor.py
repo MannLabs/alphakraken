@@ -39,22 +39,16 @@ class SSHSensorOperator(BaseSensorOperator, ABC):
         super().__init__(*args, **kwargs)
         self._ssh_hook: SSHHook = get_cluster_ssh_hook()
         self._job_id: str | None = None
-        self._fake_ssh: bool | None = None
 
     def pre_execute(self, context: dict[str, any]) -> None:
         """_job_id the job id from XCom."""
         self._job_id = get_xcom(context["ti"], XComKeys.JOB_ID)
-        self._fake_ssh = (
-            get_airflow_variable(AirflowVars.DEBUG_NO_CLUSTER_SSH, "False") == "True"
-        )
 
     def poke(self, context: dict[str, any]) -> bool:
         """Check the output of the ssh command."""
         del context  # unused
 
-        ssh_return = self.ssh_execute(
-            self.command, self._ssh_hook, fake_ssh=self._fake_ssh
-        )
+        ssh_return = self.ssh_execute(self.command, self._ssh_hook)
         logging.info(f"ssh command returned: '{ssh_return}'")
 
         if ssh_return in self.running_states:
@@ -70,12 +64,11 @@ class SSHSensorOperator(BaseSensorOperator, ABC):
         ssh_hook: SSHHook | None = None,
         *,
         max_tries: int = 10,
-        fake_ssh: bool = False,
     ) -> str:
         """Execute the given `command` via the `ssh_hook`."""
         # this is a hack to prevent jobs to be run on the cluster, useful for debugging and initial setup.
         # To get rid of this, e.g. set up a container with a fake ssh server
-        if fake_ssh:
+        if get_airflow_variable(AirflowVars.DEBUG_NO_CLUSTER_SSH, "False") == "True":
             return SSHSensorOperator._get_fake_ssh_response(command)
         if ssh_hook is None:
             ssh_hook = get_cluster_ssh_hook()

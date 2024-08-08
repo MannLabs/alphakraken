@@ -58,7 +58,7 @@ class RawFileMonitorWrapper(ABC):
         file_names = {d.name for d in dir_contents}
 
         logging.info(
-            f"Current contents of {self._instrument_path} ({len(file_names)}, extension '{self._raw_file_extension}'): {file_names}"
+            f"Contents ('*.{self._raw_file_extension}') of {self._instrument_path} ({len(file_names)}): {file_names}"
         )
         return file_names
 

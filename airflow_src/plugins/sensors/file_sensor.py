@@ -17,11 +17,12 @@ from raw_file_wrapper_factory import RawFileWrapperFactory
 from shared.db.interface import update_kraken_status
 from shared.db.models import KrakenStatusValues
 
+# to reduce network traffic, do the health check only every few minutes. If changed, adapt also webapp color code.
 HEALTH_CHECK_INTERVAL_M: int = 5
 
 
 def _check_health(instrument_id: str) -> None:
-    """Check the health of the instrument data path and backup path. Update Kraken status."""
+    """Check the health of the instrument data, and the output and backup paths and update Kraken status."""
     status_details = []
     data_path = get_internal_instrument_data_path(instrument_id)
     if not data_path.exists():
@@ -59,7 +60,7 @@ class FileCreationSensor(BaseSensorOperator):
         )
 
         self._initial_dir_contents: set | None = None
-        self._latest_health_check_timestamp = 0
+        self._latest_health_check_timestamp: float = 0.0
 
     def pre_execute(self, context: dict[str, any]) -> None:
         """Check the health of the instrument data path and backup path."""

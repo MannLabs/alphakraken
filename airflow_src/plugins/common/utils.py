@@ -89,7 +89,7 @@ def get_timestamp() -> float:
 def get_cluster_ssh_hook() -> SSHHook:
     """Get the SSH hook for the cluster.
 
-    The connection 'cluster_ssh_connection' needs to b e defined in Airflow UI.
+    The connection 'cluster_ssh_connection' needs to be defined in Airflow UI.
     """
     logging.info("Getting cluster SSH hook..")
     return SSHHook(

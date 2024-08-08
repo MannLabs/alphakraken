@@ -28,7 +28,7 @@ def show_filter(
         text_to_display,
         None,
         placeholder="e.g. test2 & !hela",
-        help="Case insensitive. Chain multiple conditions with '&', negate with '!'. E.g. test2 & qc & !hela.",
+        help="Case insensitive filter on each column of the table. Chain multiple conditions with '&', negate with '!'. E.g. test2 & qc & !hela.",
     )
     if user_input is not None and user_input != "":
         filters = [f.strip() for f in user_input.lower().split("&")]
@@ -52,6 +52,7 @@ def show_filter(
 def show_date_select(
     df: pd.DataFrame,
     text_to_display: str = "Earliest file creation date:",
+    help_to_display: str = "Selects the earliest file creation date to display in table and plots.",
     st_display: st.delta_generator.DeltaGenerator = st,
 ) -> pd.DataFrame:
     """Filter the DataFrame on user input by date."""
@@ -66,6 +67,7 @@ def show_date_select(
         min_value=oldest_file,
         max_value=youngest_file,
         value=last_selectable_date,
+        help=help_to_display,
     )
     min_date_with_time = datetime.combine(min_date, datetime.min.time())
     return df[df["created_at"] > min_date_with_time]

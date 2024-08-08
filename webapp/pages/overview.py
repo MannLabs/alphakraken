@@ -72,7 +72,7 @@ def _display_table_and_plots(df: pd.DataFrame) -> None:
 
     # filter
     len_whole_df = len(df)
-    c1, c2 = st.columns([0.7, 0.3])
+    c1, c2, _ = st.columns([0.5, 0.125, 0.375])
     filtered_df = show_filter(df, text_to_display="Filter:", st_display=c1)
     filtered_df = show_date_select(
         filtered_df,
@@ -138,7 +138,12 @@ def _display_table_and_plots(df: pd.DataFrame) -> None:
     selectbox_columns = ["file_created"] + [
         col for col in column_order if col != "file_created"
     ]
-    x = st.selectbox(label="Choose x-axis:", options=selectbox_columns)
+    c1, _ = st.columns([0.125, 0.875])
+    x = c1.selectbox(
+        label="Choose x-axis:",
+        options=selectbox_columns,
+        help="Set the x-axis. Only required in special cases.",
+    )
     for y in [
         "status",
         "size_gb",

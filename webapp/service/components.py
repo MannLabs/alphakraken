@@ -131,8 +131,10 @@ def show_time_in_status_table(
     reshaped = latest_updates.sort_index()
 
     columns = reshaped.columns
-    green_ages_m = [0.5 * 60] * len(columns)
-    red_ages_m = [2 * 60] * len(columns)
+    green_ages_m = [1.5 * 60] * len(columns)
+    red_ages_m = [3 * 60] * len(
+        columns
+    )  # both quanting and waiting for new files timeout is 2h
     colormaps = ["RdYlGn_r"] * len(columns)
     display.dataframe(
         reshaped.style.apply(

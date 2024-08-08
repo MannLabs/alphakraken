@@ -83,12 +83,12 @@ def test_status(
 
     assert result["last_file_creation"] == {0: ts1}
     assert result["last_status_update"] == {0: ts2}
-    assert result["last_file_check"] == {0: ts1noms}
+    assert result["last_health_check"] == {0: ts1noms}
     assert result["status_details"] == {0: ""}
 
     for col in [
-        "last_file_check_error",
-        "last_file_check_text",
+        "last_health_check_error",
+        "last_health_check_text",
         "last_file_creation_text",
         "last_status_update_text",
     ]:

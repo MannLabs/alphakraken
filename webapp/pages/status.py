@@ -47,8 +47,8 @@ def _display_status(combined_df: pd.DataFrame) -> None:
                 ### Explanation
                 - `last_file_creation`: timestamp of the youngest file that was picked up by the Kraken.
                 - `last_status_update`: timestamp of the most recent update of a raw file status.
-                - `last_file_check`: timestamp of the last check for new files. If this is > 5 minutes, something is wrong with
-                the instrument_watcher DAG.
+                - `last_health_check`: timestamp of the last health check during check for new files. If this is > 10 minutes, something is wrong with
+                                       the instrument_watcher DAG.
                 """,
                 icon="ℹ️",  # noqa: RUF001
             )

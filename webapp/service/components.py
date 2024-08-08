@@ -176,12 +176,12 @@ def display_status(combined_df: pd.DataFrame, status_data_df: pd.DataFrame) -> N
         )
 
         # last file watcher poke
-        last_file_check = status_df["updated_at_"].to_numpy()[0]
-        status_data["last_file_check"].append(last_file_check)
-        status_data["last_file_check_text"].append(
-            _get_display_time(last_file_check, now)
+        last_health_check = status_df["updated_at_"].to_numpy()[0]
+        status_data["last_health_check"].append(last_health_check)
+        status_data["last_health_check_text"].append(
+            _get_display_time(last_health_check, now)
         )
-        status_data["last_file_check_error"].append(
+        status_data["last_health_check_error"].append(
             status_df["last_error_occurred_at"].to_numpy()[0]
         )
         status_data["status_details"].append(status_df["status_details"].to_numpy()[0])
@@ -213,7 +213,7 @@ def _get_color(
     columns: list[str] = [  # noqa: B006
         "last_file_creation",
         "last_status_update",
-        "last_file_check",
+        "last_health_check",
     ],
     green_ages_m: list[float] = [  # noqa: B006
         2 * 60,

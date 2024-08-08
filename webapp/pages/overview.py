@@ -84,7 +84,7 @@ def _display_table_and_plots(df: pd.DataFrame) -> None:
     )
 
     st.write(
-        f"Showing {len(filtered_df)} / {len_whole_df} entries. Distribution of terminal statuses: {get_terminal_status_counts(combined_df)}"
+        f"Showing {len(filtered_df)} / {len_whole_df} entries. Distribution of terminal statuses: {get_terminal_status_counts(filtered_df)}"
     )
 
     cmap = plt.get_cmap("RdYlGn")
@@ -177,9 +177,10 @@ def _draw_plot(df: pd.DataFrame, x: str, y: str) -> None:
         "precursors",
         "status",
     ]
-    hover_data.extend(
-        ["status_details"] if y == "status" and "status_details" in df else []
-    )
+
+    if y == "status" and "status_details" in df:
+        df.loc[pd.isna(df["status_details"]), "status_details"] = ""
+        hover_data.append("status_details")
 
     fig = px.scatter(
         df,

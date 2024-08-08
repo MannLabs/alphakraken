@@ -169,6 +169,17 @@ def _draw_plot(df: pd.DataFrame, x: str, y: str) -> None:
 
     y_is_numeric = pd.api.types.is_numeric_dtype(df[y])
     median_ = df[y].median() if y_is_numeric else 0
+    title = f"{y} (median= {median_:.2f})" if y_is_numeric else y
+
+    hover_data = [
+        "file_created",
+        "size_gb",
+        "precursors",
+        "status",
+    ]
+    hover_data.extend(
+        ["status_details"] if y == "status" and "status_details" in df else []
+    )
 
     fig = px.scatter(
         df,
@@ -176,8 +187,8 @@ def _draw_plot(df: pd.DataFrame, x: str, y: str) -> None:
         y=y,
         color="instrument_id",
         hover_name="_id",
-        hover_data=["file_created", "status", "size_gb", "precursors"],
-        title=f"{y} (median= {median_:.2f})",
+        hover_data=hover_data,
+        title=title,
         height=400,
     )
     if y_is_numeric:

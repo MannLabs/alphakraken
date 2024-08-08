@@ -17,10 +17,11 @@ jobs:
     runs-on: ubuntu-latest
     if: contains(github.event.pull_request.labels.*.name, 'code-review')
     steps:
-      - uses: MannLabs/alphashared/code-review-action@v1.1.4
+      - uses: MannLabs/alphashared/code-review-action@v1
         with:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.number }}
+          INCLUDE_CONTENT: false
 
   unit-tests:
     name: Run unit tests

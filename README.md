@@ -335,8 +335,9 @@ It should trigger a `acquisition_handler` DAG, which in turn should trigger a `a
 
 7. After the `compute_metrics` task failed because of missing output files,
 create those by copying fake alphaDIA result data to the expected output directory
+(set `YEAR_MONTH=<current year>_<current month>`, e.g. `2024_08`)
 ```bash
-NEW_OUTPUT_FOLDER=airflow_test_folders/output/P1/out_$RAW_FILE_NAME
+NEW_OUTPUT_FOLDER=airflow_test_folders/output/P1/$YEAR_MONTH/out_$RAW_FILE_NAME
 mkdir -p $NEW_OUTPUT_FOLDER
 cp airflow_test_folders/_data/stat.tsv $NEW_OUTPUT_FOLDER
 ```

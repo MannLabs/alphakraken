@@ -48,21 +48,23 @@ class RawFile(Document):
 
     # Unique identifier of the file. Either the raw file name or, in case of a collision,
     # the raw file name with a unique prefix.
-    id = StringField(max_length=128, required=True, primary_key=True)
+    id = StringField(
+        max_length=255, required=True, primary_key=True
+    )  # max_length of file names linux: 255
 
     # Unique prefix to indicate a collision. If None, no collision occurred.
     collision_flag = StringField(max_length=32, default=None)
 
     # Original name of the file. In case of collisions, this is not unique. Otherwise, equal to `id`.
-    original_name = StringField(max_length=128, required=True)
+    original_name = StringField(max_length=255, required=True)
 
     status = StringField(max_length=32)
-    status_details = StringField(max_length=256)
+    status_details = StringField(max_length=512)
 
     size = IntField(min_value=-1, max_value=int(1000 * 1024**3))  # unit: bytes
 
     file_info = DictField()  # mappping: path to hash and size
-    instrument_id = StringField(max_length=50)
+    instrument_id = StringField(max_length=32)
 
     project_id = StringField(max_length=32)
 
@@ -105,7 +107,7 @@ class Project(Document):
 
     id = StringField(required=True, primary_key=True, min_length=2, max_length=16)
     name = StringField(required=True, max_length=64)
-    description = StringField(max_length=256)
+    description = StringField(max_length=512)
 
     status = StringField(max_length=32, default=ProjectStatus.ACTIVE)
 
@@ -121,6 +123,7 @@ class Settings(Document):
     )
 
     name = StringField(required=True, primary_key=True, max_length=64)
+    # TODO: add description = StringField(max_length=512)
 
     # although only one of (speclib, fasta) is required by alphaDIA,
     # on DB level, we want both filled (empty string is alright)
@@ -136,7 +139,7 @@ class Settings(Document):
 
 
 class KrakenStatusValues:
-    """Status of kraken."""
+    """Values of kraken health status."""
 
     OK = "ok"
     ERROR = "error"
@@ -147,7 +150,7 @@ class KrakenStatus(Document):
 
     instrument_id = StringField(max_length=64, required=True, primary_key=True)
 
-    status = StringField(max_length=64, default=ProjectStatus.ACTIVE)
+    status = StringField(max_length=64, default="n/a")
     status_details = StringField(max_length=256)
 
     updated_at_ = DateTimeField(default=datetime.now)

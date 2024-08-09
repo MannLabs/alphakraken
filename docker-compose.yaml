@@ -87,6 +87,7 @@ x-airflow-common:
     INSTRUMENT_PATH_TEST1: ${INSTRUMENT_PATH_TEST1:?error}
     INSTRUMENT_PATH_ASTRAL1: ${INSTRUMENT_PATH_ASTRAL1:?error}
     INSTRUMENT_PATH_ASTRAL2: ${INSTRUMENT_PATH_ASTRAL2:?error}
+    INSTRUMENT_PATH_ASTRAL3: ${INSTRUMENT_PATH_ASTRAL3:?error}
     # ... (add new instruments here)
   volumes:
     - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_logs:/opt/airflow/logs
@@ -369,6 +370,11 @@ services:
   airflow-worker-test3:
     <<: *airflow-worker
     command: celery worker -q kraken_queue_test3
+
+  # INSTRUMENT: Test4
+  airflow-worker-test4:
+    <<: *airflow-worker
+    command: celery worker -q kraken_queue_test4
 
 volumes:
   postgres-db-volume:

@@ -26,6 +26,11 @@ INSTRUMENTS = {
             EnvVars.INSTRUMENT_PATH_ASTRAL2, "n_a"
         ),
     },
+    "test4": {
+        InstrumentKeys.RAW_DATA_PATH: get_env_variable(
+            EnvVars.INSTRUMENT_PATH_ASTRAL3, "n_a"
+        ),
+    },
 }
 
 # prefix for the queues the DAGs are assigned to (cf. docker-compose.yml)

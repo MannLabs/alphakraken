@@ -1,0 +1,2 @@
+# extra requirements for the streamlit container
+streamlit==1.35.0

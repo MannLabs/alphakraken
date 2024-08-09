@@ -45,7 +45,7 @@ jobs:
                 "end_line": 55,
                 "summary": "Extract cluster-related settings to a dedicated configuration",
                 "reason": "Improve maintainability and centralize configuration",
-                "proposed_code": "# Cluster configuration\\nCLUSTER_CONFIG = {\\n    'BASE_DIR': '~/slurm',\\n    'JOB_SCRIPT_PATH': '~/slurm/submit_job.sh',\\n    'WORKING_DIR': '~/slurm/jobs',\\n}\\n\\nCLUSTER_BASE_DIR = CLUSTER_CONFIG['BASE_DIR']\\nCLUSTER_JOB_SCRIPT_PATH = CLUSTER_CONFIG['JOB_SCRIPT_PATH']\\nCLUSTER_WORKING_DIR = CLUSTER_CONFIG['WORKING_DIR']"
+                "proposed_code": "# Cluster configuration__LB__CLUSTER_CONFIG = {__LB__    'BASE_DIR': '~/slurm',__LB__    'JOB_SCRIPT_PATH': '~/slurm/submit_job.sh',__LB__    'WORKING_DIR': '~/slurm/jobs',__LB__}__LB____LB__CLUSTER_BASE_DIR = CLUSTER_CONFIG['BASE_DIR']__LB__CLUSTER_JOB_SCRIPT_PATH = CLUSTER_CONFIG['JOB_SCRIPT_PATH']__LB__CLUSTER_WORKING_DIR = CLUSTER_CONFIG['WORKING_DIR']"
               },
               {
                 "change_id": "2",
@@ -54,7 +54,7 @@ jobs:
                 "end_line": 106,
                 "summary": "Enhance get_cluster_ssh_hook with improved error handling and retry mechanism",
                 "reason": "Improve reliability and error handling of SSH connections",
-                "proposed_code": "from airflow.exceptions import AirflowException\\nfrom tenacity import retry, stop_after_attempt, wait_exponential\\n\\n@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))\\ndef get_cluster_ssh_hook() -> SSHHook:\\n    \"\"\"Get the SSH hook for the cluster with retry mechanism.\\n\\n    The connection 'cluster_ssh_connection' needs to be defined in Airflow UI.\\n\\n    Returns:\\n        SSHHook: Configured SSH hook for cluster connection\\n\\n    Raises:\\n        AirflowException: If the SSH connection cannot be established after retries\\n    \"\"\"\\n    logging.info('Attempting to establish cluster SSH connection...')\\n    try:\\n        return SSHHook(\\n            ssh_conn_id='cluster_ssh_connection',\\n            conn_timeout=60,\\n            cmd_timeout=60\\n        )\\n    except Exception as e:\\n        logging.error(f'Failed to establish SSH connection: {e}')\\n        raise AirflowException('Failed to establish SSH connection to cluster') from e"
+                "proposed_code": "from airflow.exceptions import AirflowException__LB__from tenacity import retry, stop_after_attempt, wait_exponential__LB____LB__@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))__LB__def get_cluster_ssh_hook() -> SSHHook:__LB__    __DQ____DQ____DQ__Get the SSH hook for the cluster with retry mechanism.__LB____LB__    The connection 'cluster_ssh_connection' needs to be defined in Airflow UI.__LB____LB__    Returns:__LB__        SSHHook: Configured SSH hook for cluster connection__LB____LB__    Raises:__LB__        AirflowException: If the SSH connection cannot be established after retries__LB__    __DQ____DQ____DQ____LB__    logging.info('Attempting to establish cluster SSH connection...')__LB__    try:__LB__        return SSHHook(__LB__            ssh_conn_id='cluster_ssh_connection',__LB__            conn_timeout=60,__LB__            cmd_timeout=60__LB__        )__LB__    except Exception as e:__LB__        logging.error(f'Failed to establish SSH connection: {e}')__LB__        raise AirflowException('Failed to establish SSH connection to cluster') from e"
               },
               {
                 "change_id": "3",
@@ -63,7 +63,7 @@ jobs:
                 "end_line": 300,
                 "summary": "Refactor get_terminal_status_counts for better readability and move to utilities",
                 "reason": "Improve code organization and reusability",
-                "proposed_code": "from .utilities import get_terminal_status_counts\\n\\n# Use get_terminal_status_counts as before"
+                "proposed_code": "from .utilities import get_terminal_status_counts__LB____LB__# Use get_terminal_status_counts as before"
               },
               {
                 "change_id": "4",
@@ -72,7 +72,7 @@ jobs:
                 "end_line": 30,
                 "summary": "Create new utilities file with get_terminal_status_counts function",
                 "reason": "Improve code organization and reusability",
-                "proposed_code": "from typing import List\\nimport pandas as pd\\n\\ndef get_terminal_status_counts(\\n    filtered_df: pd.DataFrame,\\n    statuses: List[str]\\n) -> str:\\n    \"\"\"Count the number of rows and calculate percentages for terminal statuses in the filtered DataFrame.\\n\\n    Args:\\n        filtered_df (pd.DataFrame): The filtered DataFrame containing the 'status' column.\\n        statuses (List[str]): The statuses to consider.\\n\\n    Returns:\\n        str: A display-ready string with terminal status and 'count' and 'percentage' for each status.\\n    \"\"\"\\n    terminal_df = filtered_df[filtered_df['status'].isin(statuses)]\\n    total_terminal_rows = len(terminal_df)\\n\\n    if total_terminal_rows == 0:\\n        return 'n/a'\\n\\n    status_counts = terminal_df['status'].value_counts().sort_values()\\n    \\n    result = [\\n        f'{status}: {int(count)} ({(count / total_terminal_rows) * 100:.1f}%)'\\n        for status, count in status_counts.items()\\n    ]\\n\\n    return '; '.join(result)"
+                "proposed_code": "from typing import List__LB__import pandas as pd__LB____LB__def get_terminal_status_counts(__LB__    filtered_df: pd.DataFrame,__LB__    statuses: List[str]__LB__) -> str:__LB__    __DQ____DQ____DQ__Count the number of rows and calculate percentages for terminal statuses in the filtered DataFrame.__LB____LB__    Args:__LB__        filtered_df (pd.DataFrame): The filtered DataFrame containing the 'status' column.__LB__        statuses (List[str]): The statuses to consider.__LB____LB__    Returns:__LB__        str: A display-ready string with terminal status and 'count' and 'percentage' for each status.__LB__    __DQ____DQ____DQ____LB__    terminal_df = filtered_df[filtered_df['status'].isin(statuses)]__LB__    total_terminal_rows = len(terminal_df)__LB____LB__    if total_terminal_rows == 0:__LB__        return 'n/a'__LB____LB__    status_counts = terminal_df['status'].value_counts().sort_values()__LB__    __LB__    result = [__LB__        f'{status}: {int(count)} ({(count / total_terminal_rows) * 100:.1f}%)'__LB__        for status, count in status_counts.items()__LB__    ]__LB____LB__    return '; '.join(result)"
               },
               {
                 "change_id": "5",
@@ -81,7 +81,7 @@ jobs:
                 "end_line": 127,
                 "summary": "Add description field to Settings model",
                 "reason": "Implement TODO and provide more context for settings",
-                "proposed_code": "class Settings(Document):\\n    \"\"\"Schema for quanting settings.\"\"\"\\n\\n    project = ReferenceField(Project)\\n    name = StringField(required=True, primary_key=True, max_length=64)\\n    description = StringField(max_length=512)\\n\\n    # Rest of the class remains the same"
+                "proposed_code": "class Settings(Document):__LB__    __DQ____DQ____DQ__Schema for quanting settings.__DQ____DQ____DQ____LB____LB__    project = ReferenceField(Project)__LB__    name = StringField(required=True, primary_key=True, max_length=64)__LB__    description = StringField(max_length=512)__LB____LB__    # Rest of the class remains the same"
               }
               ]
 

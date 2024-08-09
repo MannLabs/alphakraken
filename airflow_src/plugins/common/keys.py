@@ -65,7 +65,7 @@ class XComKeys:
 class InstrumentKeys:
     """Keys for accessing instrument data."""
 
-    RAW_DATA_PATH = "raw_data_path"
+    RAW_DATA_PATH_VARIABLE_NAME: str = "raw_data_path_variable_name"
 
 
 class Variables:

@@ -28,115 +28,47 @@ jobs:
           PR_NUMBER: ${{ github.event.number }}
           INCLUDE_CONTENT: false
 
-  apply-code-review:
+  unit-tests:
+    name: Run unit tests
     runs-on: ubuntu-latest
-#    if: ${{ github.event.inputs.REVIEW_DATA != '' }}
     steps:
-      - uses: MannLabs/alphashared/apply-code-review@v1
+    - uses: actions/checkout@v4
+
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Run shared unit tests
+      run: |
+        pip install -r requirements_development.txt
+        pip install -r shared/requirements_shared.txt
+        pip freeze
+        python -m pytest shared
+
+    # strictly speaking, the webapp and airfloe test sets should be in separate python envs but should be fine for now
+    - name: Run webapp unit tests
+      run: |
+        pip install -r webapp/requirements_webapp.txt
+        pip freeze
+        python -m pytest webapp
+
+    - name: Run Airflow unit tests
+      run: |
+        pip install apache-airflow==2.9.3 --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.9.3/constraints-3.11.txt"
+        airflow db init
+        pip install -r airflow_src/requirements_airflow.txt
+        pip freeze
+        python -m pytest airflow_src
+
+  docker-compose-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - run: |
+          echo -e "AIRFLOW_UID=$(id -u)" > envs/.env-airflow
+      - uses: hoverkraft-tech/compose-action@v2.0.0
         with:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ github.event.number }}
-          REVIEW_DATA: |
-              [
-              {
-                "change_id": "1",
-                "file_name": "airflow_src/plugins/common/settings.py",
-                "start_line": 46,
-                "end_line": 55,
-                "summary": "Extract cluster-related settings to a dedicated configuration",
-                "reason": "Improve maintainability and centralize configuration",
-                "proposed_code": "# Cluster configuration__LB__CLUSTER_CONFIG = {__LB__    'BASE_DIR': '~/slurm',__LB__    'JOB_SCRIPT_PATH': '~/slurm/submit_job.sh',__LB__    'WORKING_DIR': '~/slurm/jobs',__LB__}__LB____LB__CLUSTER_BASE_DIR = CLUSTER_CONFIG['BASE_DIR']__LB__CLUSTER_JOB_SCRIPT_PATH = CLUSTER_CONFIG['JOB_SCRIPT_PATH']__LB__CLUSTER_WORKING_DIR = CLUSTER_CONFIG['WORKING_DIR']"
-              },
-              {
-                "change_id": "2",
-                "file_name": "airflow_src/plugins/common/utils.py",
-                "start_line": 83,
-                "end_line": 106,
-                "summary": "Enhance get_cluster_ssh_hook with improved error handling and retry mechanism",
-                "reason": "Improve reliability and error handling of SSH connections",
-                "proposed_code": "from airflow.exceptions import AirflowException__LB__from tenacity import retry, stop_after_attempt, wait_exponential__LB____LB__@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))__LB__def get_cluster_ssh_hook() -> SSHHook:__LB__    __DQ____DQ____DQ__Get the SSH hook for the cluster with retry mechanism.__LB____LB__    The connection 'cluster_ssh_connection' needs to be defined in Airflow UI.__LB____LB__    Returns:__LB__        SSHHook: Configured SSH hook for cluster connection__LB____LB__    Raises:__LB__        AirflowException: If the SSH connection cannot be established after retries__LB__    __DQ____DQ____DQ____LB__    logging.info('Attempting to establish cluster SSH connection...')__LB__    try:__LB__        return SSHHook(__LB__            ssh_conn_id='cluster_ssh_connection',__LB__            conn_timeout=60,__LB__            cmd_timeout=60__LB__        )__LB__    except Exception as e:__LB__        logging.error(f'Failed to establish SSH connection: {e}')__LB__        raise AirflowException('Failed to establish SSH connection to cluster') from e"
-              },
-              {
-                "change_id": "3",
-                "file_name": "webapp/service/components.py",
-                "start_line": 300,
-                "end_line": 300,
-                "summary": "Refactor get_terminal_status_counts for better readability and move to utilities",
-                "reason": "Improve code organization and reusability",
-                "proposed_code": "from .utilities import get_terminal_status_counts__LB____LB__# Use get_terminal_status_counts as before"
-              },
-              {
-                "change_id": "4",
-                "file_name": "webapp/service/utilities.py",
-                "start_line": 1,
-                "end_line": 30,
-                "summary": "Create new utilities file with get_terminal_status_counts function",
-                "reason": "Improve code organization and reusability",
-                "proposed_code": "from typing import List__LB__import pandas as pd__LB____LB__def get_terminal_status_counts(__LB__    filtered_df: pd.DataFrame,__LB__    statuses: List[str]__LB__) -> str:__LB__    __DQ____DQ____DQ__Count the number of rows and calculate percentages for terminal statuses in the filtered DataFrame.__LB____LB__    Args:__LB__        filtered_df (pd.DataFrame): The filtered DataFrame containing the 'status' column.__LB__        statuses (List[str]): The statuses to consider.__LB____LB__    Returns:__LB__        str: A display-ready string with terminal status and 'count' and 'percentage' for each status.__LB__    __DQ____DQ____DQ____LB__    terminal_df = filtered_df[filtered_df['status'].isin(statuses)]__LB__    total_terminal_rows = len(terminal_df)__LB____LB__    if total_terminal_rows == 0:__LB__        return 'n/a'__LB____LB__    status_counts = terminal_df['status'].value_counts().sort_values()__LB__    __LB__    result = [__LB__        f'{status}: {int(count)} ({(count / total_terminal_rows) * 100:.1f}%)'__LB__        for status, count in status_counts.items()__LB__    ]__LB____LB__    return '; '.join(result)"
-              },
-              {
-                "change_id": "5",
-                "file_name": "shared/db/models.py",
-                "start_line": 123,
-                "end_line": 127,
-                "summary": "Add description field to Settings model",
-                "reason": "Implement TODO and provide more context for settings",
-                "proposed_code": "class Settings(Document):__LB__    __DQ____DQ____DQ__Schema for quanting settings.__DQ____DQ____DQ____LB____LB__    project = ReferenceField(Project)__LB__    name = StringField(required=True, primary_key=True, max_length=64)__LB__    description = StringField(max_length=512)__LB____LB__    # Rest of the class remains the same"
-              }
-              ]
-
-
-#              [{
-#                "change_id": "1",
-#                "file_name": "airflow_src/plugins/common/settings.py",
-#                "start_line": "46",
-#                "end_line": "50",
-#                "summary": "Extract cluster-related settings to a dedicated configuration",
-#                "reason": "Improve maintainability and centralize configuration",
-#                "proposed_code": "# Cluster configuration\\nCLUSTER_CONFIG = {\\n    'BASE_DIR': '~/slurm',\\n    'JOB_SCRIPT_PATH': '~/slurm/submit_job.sh',\\n    'WORKING_DIR': '~/slurm/jobs',\\n}\\nCLUSTER_BASE_DIR =\\nCLUSTER_CONFIG['BASE_DIR']"
-#                }]
-
-#  unit-tests:
-#    name: Run unit tests
-#    runs-on: ubuntu-latest
-#    steps:
-#    - uses: actions/checkout@v4
-#
-#    - uses: actions/setup-python@v5
-#      with:
-#        python-version: '3.11'
-#        cache: 'pip'
-#
-#    - name: Run shared unit tests
-#      run: |
-#        pip install -r requirements_development.txt
-#        pip install -r shared/requirements_shared.txt
-#        pip freeze
-#        python -m pytest shared
-#
-#    # strictly speaking, the webapp and airfloe test sets should be in separate python envs but should be fine for now
-#    - name: Run webapp unit tests
-#      run: |
-#        pip install -r webapp/requirements_webapp.txt
-#        pip freeze
-#        python -m pytest webapp
-#
-#    - name: Run Airflow unit tests
-#      run: |
-#        pip install apache-airflow==2.9.3 --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.9.3/constraints-3.11.txt"
-#        airflow db init
-#        pip install -r airflow_src/requirements_airflow.txt
-#        pip freeze
-#        python -m pytest airflow_src
-#
-#  docker-compose-test:
-#    runs-on: ubuntu-latest
-#    steps:
-#      - name: Checkout
-#        uses: actions/checkout@v4
-#      - run: |
-#          echo -e "AIRFLOW_UID=$(id -u)" > envs/.env-airflow
-#      - uses: hoverkraft-tech/compose-action@v2.0.0
-#        with:
-#          compose-file: "docker-compose.yaml"
-#          compose-flags: "--env-file=envs/.env-airflow --env-file=envs/local.env --profile local"
+          compose-file: "docker-compose.yaml"
+          compose-flags: "--env-file=envs/.env-airflow --env-file=envs/local.env --profile local"

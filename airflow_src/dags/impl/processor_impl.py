@@ -121,16 +121,18 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
     )
     if Path(output_path).exists():
         msg = f"Output path {output_path} already exists."
-        if get_airflow_variable(AirflowVars.ALLOW_OUTPUT_OVERWRITE, "False") == "True":
-            logging.warning(
-                f"{msg} Overwriting it because ALLOW_OUTPUT_OVERWRITE is set."
-            )
-        else:
+        if get_airflow_variable(AirflowVars.ALLOW_OUTPUT_OVERWRITE, "False") != "True":
             raise AirflowFailException(
                 f"{msg} Remove it before restarting the quanting or set ALLOW_OUTPUT_OVERWRITE."
             )
+        logging.warning(f"{msg} Overwriting it because ALLOW_OUTPUT_OVERWRITE is set.")
 
-    command = _create_export_command(quanting_env) + get_run_quanting_cmd()
+    raw_file = get_raw_file_by_id(quanting_env[QuantingEnv.RAW_FILE_NAME])
+    year_month_folder = get_created_at_year_month(raw_file)
+
+    command = _create_export_command(quanting_env) + get_run_quanting_cmd(
+        year_month_folder
+    )
     logging.info(f"Running command: >>>>\n{command}\n<<<< end of command")
 
     ssh_return = SSHSensorOperator.ssh_execute(command, ssh_hook)
@@ -186,7 +188,9 @@ def check_job_status(ti: TaskInstance, **kwargs) -> bool:
     ssh_hook = kwargs[OpArgs.SSH_HOOK]
     job_id = get_xcom(ti, XComKeys.JOB_ID)
 
-    slurm_output_file = f"{CLUSTER_WORKING_DIR}/slurm-{job_id}.out"
+    # the wildcard here is a bit of a hack to avoid retrieving the year_month
+    # subfolder here .. should be no problem if job_ids are unique
+    slurm_output_file = f"{CLUSTER_WORKING_DIR}/*/slurm-{job_id}.out"
     cmd = check_job_status_cmd(job_id, slurm_output_file) + get_job_state_cmd(job_id)
     ssh_return = SSHSensorOperator.ssh_execute(cmd, ssh_hook)
 

@@ -3,7 +3,6 @@
 from pathlib import Path
 from unittest.mock import MagicMock, Mock, patch
 
-import pytest
 from dags.impl.handler_impl import add_to_db
 from plugins.common.keys import DagContext, DagParams, OpArgs, XComKeys
 
@@ -26,7 +25,8 @@ def test_add_to_db(
         OpArgs.INSTRUMENT_ID: "instrument1",
     }
     mock_get_instrument_data_path.return_value = Path("/path/to/data")
-    mock_stat.return_value.st_size = 42 * 1024**3
+    mock_stat.return_value.st_size = 42.0
+    mock_stat.return_value.st_ctime = 43.0
 
     # When
     add_to_db(ti, **kwargs)
@@ -34,8 +34,6 @@ def test_add_to_db(
     # Then
     mock_get_instrument_data_path.assert_called_once_with("instrument1")
     mock_add_new_raw_file_to_db.assert_called_once_with(
-        "test_file.raw",
-        instrument_id="instrument1",
-        raw_file_size=pytest.approx(42, 0.001),
+        "test_file.raw", instrument_id="instrument1", size=42.0, creation_ts=43.0
     )
     mock_put_xcom.assert_called_once_with(ti, XComKeys.RAW_FILE_NAME, "test_file.raw")

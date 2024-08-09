@@ -186,20 +186,22 @@ services:
       mongodb-service:
         condition: service_healthy
 
-  airflow-triggerer:
-    <<: *airflow-common
-    command: triggerer
-    healthcheck:
-      test: ["CMD-SHELL", 'airflow jobs check --job-type TriggererJob --hostname "$${HOSTNAME}"']
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 30s
-    restart: always
-    depends_on:
-      <<: *airflow-common-depends-on
-      airflow-init:
-        condition: service_completed_successfully
+  # only required if one wants to use 'deferrable operators'
+  # cf. https://airflow.apache.org/docs/apache-airflow/stable/authoring-and-scheduling/deferring.html#using-deferrable-operators
+#  airflow-triggerer:
+#    <<: *airflow-common
+#    command: triggerer
+#    healthcheck:
+#      test: ["CMD-SHELL", 'airflow jobs check --job-type TriggererJob --hostname "$${HOSTNAME}"']
+#      interval: 30s
+#      timeout: 10s
+#      retries: 5
+#      start_period: 30s
+#    restart: always
+#    depends_on:
+#      <<: *airflow-common-depends-on
+#      airflow-init:
+#        condition: service_completed_successfully
 
   airflow-init:
     <<: *airflow-common
@@ -278,25 +280,26 @@ services:
       - -c
       - airflow
 
+  # Flower enables monitoring the environment (e.g. the workers). Currently not used.
   # You can enable flower by adding "--profile flower" option e.g. docker compose--profile flower up
   # or by explicitly targeted on the command line e.g. docker compose up flower.
   # See: https://docs.docker.com/compose/profiles/
-  flower:
-    <<: *airflow-common
-    command: celery flower
-    profiles:
-      - flower
-    ports:
-      - "5555:5555"
-    healthcheck:
-      test: ["CMD", "curl", "--fail", "http://localhost:5555/"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 30s
-    restart: always
-    depends_on:
-      <<: *airflow-common-depends-on
+#  flower:
+#    <<: *airflow-common
+#    command: celery flower
+#    profiles:
+#      - flower
+#    ports:
+#      - "5555:5555"
+#    healthcheck:
+#      test: ["CMD", "curl", "--fail", "http://localhost:5555/"]
+#      interval: 30s
+#      timeout: 10s
+#      retries: 5
+#      start_period: 30s
+#    restart: always
+#    depends_on:
+#      <<: *airflow-common-depends-on
 
   mongodb-service:
     # cf. https://www.mongodb.com/resources/products/compatibilities/docker
@@ -327,6 +330,12 @@ services:
     depends_on:
       mongodb-service:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8501/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
     env_file:
       -  ./envs/.dev.env
 

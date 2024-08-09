@@ -111,7 +111,7 @@ docker compose exec airflow-worker bash
 
 Clean up all containers, volumes, and images (WARNING: data will be lost!)
 ```bash
-docker-compose down --volumes  --remove-orphans --rmi all
+docker compose down --volumes  --remove-orphans --rmi all
 ```
 
 ### Set up network bind mounts

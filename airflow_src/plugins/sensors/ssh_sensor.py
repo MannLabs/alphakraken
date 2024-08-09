@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 
 from airflow.providers.ssh.hooks.ssh import SSHHook
 from airflow.sensors.base import BaseSensorOperator
+from cluster_scripts.slurm_commands import get_job_state_cmd
 from common.keys import Variables, XComKeys
 from common.utils import get_variable, get_xcom
 
@@ -34,8 +35,8 @@ class SSHSensorOperator(BaseSensorOperator, ABC):
         :param ssh_hook: the ssh hook to use.
         """
         super().__init__(*args, **kwargs)
-        self._ssh_hook = ssh_hook
-        self._job_id = None
+        self._ssh_hook: SSHHook = ssh_hook
+        self._job_id: str | None = None
 
     def pre_execute(self, context: dict[str, any]) -> None:
         """_job_id the job id from XCom."""
@@ -80,11 +81,11 @@ class SSHSensorOperator(BaseSensorOperator, ABC):
     def _get_fake_ssh_response(command: str) -> str:
         """Fake a ssh response for the given `command`."""
         logging.warning(
-            f"Variable {Variables.DEBUG_NO_CLUSTER_SSH} set: Not running SSH command {command} on cluster."
+            f"Variable {Variables.DEBUG_NO_CLUSTER_SSH} set: Not running SSH command on cluster:\n{command}"
         )
         # very heuristic way to return a fake response
         if "sbatch" in command:  # run job
-            return "123"
+            return "something\nsomething\n123"
         if "TIME_ELAPSED" in command:  # get job info
             return "00:00:01"
         return "COMPLETED"  # monitor job
@@ -96,10 +97,7 @@ class QuantingSSHSensor(SSHSensorOperator):
     @property
     def command_template(self) -> str:
         """See docu of superclass."""
-        return """
-    ST=$(sacct -j REPLACE_JID -o State | awk 'FNR == 3 {print $1}')
-    echo $ST
-    """
+        return get_job_state_cmd()
 
     @property
     def running_states(self) -> list[str]:

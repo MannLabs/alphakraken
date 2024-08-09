@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 from dags.impl.watcher_impl import (
+    _add_raw_file_to_db,
     decide_raw_file_handling,
     get_unknown_raw_files,
     start_acquisition_handler,
@@ -12,6 +13,35 @@ from dags.impl.watcher_impl import (
 from plugins.common.keys import OpArgs, XComKeys
 
 SOME_INSTRUMENT_ID = "some_instrument_id"
+
+
+@patch("dags.impl.watcher_impl.get_internal_instrument_data_path")
+@patch("os.stat")
+@patch("dags.impl.watcher_impl.add_new_raw_file_to_db")
+def test_add_raw_file_to_db(
+    mock_add_new_raw_file_to_db: MagicMock,
+    mock_stat: MagicMock,
+    mock_get_instrument_data_path: MagicMock,
+) -> None:
+    """Test add_to_db makes the expected calls."""
+    # Given
+
+    mock_get_instrument_data_path.return_value = Path("/path/to/data")
+    mock_stat.return_value.st_size = 42.0
+    mock_stat.return_value.st_ctime = 43.0
+
+    # When
+    _add_raw_file_to_db("instrument1", "test_file.raw")
+
+    # Then
+    mock_get_instrument_data_path.assert_called_once_with("instrument1")
+    mock_add_new_raw_file_to_db.assert_called_once_with(
+        "test_file.raw",
+        status="new",
+        instrument_id="instrument1",
+        size=42.0,
+        creation_ts=43.0,
+    )
 
 
 @patch("dags.impl.watcher_impl.get_internal_instrument_data_path")
@@ -133,7 +163,7 @@ def test_decide_raw_file_handling(
 
 
 @patch("dags.impl.watcher_impl.get_xcom")
-@patch("dags.impl.watcher_impl.add_raw_file_to_db")
+@patch("dags.impl.watcher_impl._add_raw_file_to_db")
 @patch("dags.impl.watcher_impl.trigger_dag")
 def test_start_acquisition_handler_with_no_files(
     mock_trigger_dag: MagicMock,
@@ -154,7 +184,7 @@ def test_start_acquisition_handler_with_no_files(
 
 
 @patch("dags.impl.watcher_impl.get_xcom")
-@patch("dags.impl.watcher_impl.add_raw_file_to_db")
+@patch("dags.impl.watcher_impl._add_raw_file_to_db")
 @patch("dags.impl.watcher_impl.DagRun.generate_run_id")
 @patch("dags.impl.watcher_impl.trigger_dag")
 @patch("dags.impl.watcher_impl.datetime")
@@ -193,7 +223,7 @@ def test_start_acquisition_handler_with_single_file(
 
 
 @patch("dags.impl.watcher_impl.get_xcom")
-@patch("dags.impl.watcher_impl.add_raw_file_to_db")
+@patch("dags.impl.watcher_impl._add_raw_file_to_db")
 @patch("dags.impl.watcher_impl.DagRun.generate_run_id")
 @patch("dags.impl.watcher_impl.trigger_dag")
 @patch("dags.impl.watcher_impl.datetime")

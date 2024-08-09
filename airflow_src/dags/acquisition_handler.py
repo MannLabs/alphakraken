@@ -27,10 +27,11 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
     with DAG(
         f"{Dags.ACQUISITON_HANDLER}{DAG_DELIMITER}{instrument_id}",
         schedule=None,
+        # these are the default arguments for each TASK
         default_args={
             "depends_on_past": False,
             "retries": 5,
-            "retry_delay": timedelta(minutes=5),
+            "retry_delay": timedelta(minutes=1),
             # this maps the DAG to the worker that is responsible for that queue, cf. docker-compose.yml
             # and https://airflow.apache.org/docs/apache-airflow-providers-celery/stable/celery_executor.html#queues
             "queue": f"{AIRFLOW_QUEUE_PREFIX}{instrument_id}",
@@ -43,13 +44,15 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
         dag.doc_md = __doc__
 
         prepare_quanting_ = PythonOperator(
-            task_id=Tasks.PREPARE_QUANTING, python_callable=prepare_quanting
+            task_id=Tasks.PREPARE_QUANTING,
+            python_callable=prepare_quanting,
+            op_kwargs={OpArgs.INSTRUMENT_ID: instrument_id},
         )
 
         run_quanting_ = PythonOperator(
             task_id=Tasks.RUN_QUANTING,
             python_callable=run_quanting,
-            op_kwargs={OpArgs.SSH_HOOK: ssh_hook, OpArgs.INSTRUMENT_ID: instrument_id},
+            op_kwargs={OpArgs.SSH_HOOK: ssh_hook},
         )
 
         monitor_quanting_ = QuantingSSHSensor(
@@ -61,7 +64,7 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
         get_job_info_ = PythonOperator(
             task_id=Tasks.GET_JOB_INFO,
             python_callable=get_job_info,
-            op_kwargs={OpArgs.SSH_HOOK: ssh_hook, OpArgs.INSTRUMENT_ID: instrument_id},
+            op_kwargs={OpArgs.SSH_HOOK: ssh_hook},
         )
 
         compute_metrics_ = PythonOperator(

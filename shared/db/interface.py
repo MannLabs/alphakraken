@@ -9,7 +9,7 @@ from datetime import datetime
 import pytz
 
 from shared.db.engine import connect_db
-from shared.db.models import Metrics, Project, RawFile, Settings
+from shared.db.models import Metrics, Project, ProjectStatus, RawFile, Settings
 
 
 def get_raw_file_names_from_db(raw_file_names: list[str]) -> list[str]:
@@ -75,6 +75,14 @@ def get_all_project_ids() -> list[str]:
     return [p.id for p in Project.objects.all()]
 
 
+def get_settings_for_project(project_id: str) -> Settings:
+    """Get a project by its id."""
+    logging.info(f"Getting from DB: {project_id=}")
+    connect_db()
+    project = Project.objects.get(id=project_id)
+    return Settings.objects(project=project, status=ProjectStatus.ACTIVE).first()
+
+
 def add_new_settings_to_db(  # noqa: PLR0913 Too many arguments in function definition
     *,
     project_id: str,
@@ -90,7 +98,7 @@ def add_new_settings_to_db(  # noqa: PLR0913 Too many arguments in function defi
 
     # TODO: get rid of this limitation: on adding a new setting for a project, set the status of the ACTIVE one to INACTIVE
     if Settings.objects(project=project).first() is not None:
-        raise ValueError("Currently,only one settings per project is allowed.")
+        raise ValueError("Currently, only one settings per project is allowed.")
 
     settings = Settings(
         project=project,

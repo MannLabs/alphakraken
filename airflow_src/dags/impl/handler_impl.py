@@ -4,74 +4,68 @@ import logging
 from datetime import datetime
 from random import random
 
+from airflow.exceptions import AirflowFailException
 from airflow.models import TaskInstance
-from common.keys import DagContext, DagParams, OpArgs, XComKeys
+from cluster_scripts.slurm_commands import get_job_info_cmd, get_run_quanting_cmd
+from common.keys import DagContext, DagParams, OpArgs, QuantingEnv, XComKeys
 from common.settings import (
-    CLUSTER_JOB_SCRIPT_PATH,
     CLUSTER_WORKING_DIR,
-    get_internal_instrument_data_path,
     get_internal_output_path,
     get_output_folder_name,
     get_relative_instrument_data_path,
 )
 from common.utils import get_xcom, put_xcom
+from impl.project_id_handler import get_unique_project_id
 from metrics.metrics_calculator import calc_metrics
 from sensors.ssh_sensor import SSHSensorOperator
 
 from shared.db.interface import (
     add_metrics_to_raw_file,
-    add_new_raw_file_to_db,
+    get_all_project_ids,
+    get_settings_for_project,
     update_raw_file_status,
 )
 from shared.db.models import RawFileStatus
 
 
-def add_raw_file_to_db(
-    instrument_id: str, raw_file_name: str, status: str = RawFileStatus.NEW
-) -> None:
-    """Add the file to the database with initial status and basic information.
-
-    :param instrument_id: instrument id
-    :param raw_file_name: raw file name
-    :param status: status of the file
-    :return:
-    """
-    # calculate the file properties already here to have them available as early as possible
-    raw_file_path = get_internal_instrument_data_path(instrument_id) / raw_file_name
-    raw_file_size = raw_file_path.stat().st_size
-    raw_file_creation_time = raw_file_path.stat().st_ctime
-    logging.info(f"Got {raw_file_size / 1024 ** 3} GB {raw_file_creation_time}")
-
-    add_new_raw_file_to_db(
-        raw_file_name,
-        status=status,
-        instrument_id=instrument_id,
-        size=raw_file_size,
-        creation_ts=raw_file_creation_time,
-    )
-
-
 def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
-    """TODO."""
-    # TODO: temporary: introduce get_dagcontext(kwargs, DagParams.RAW_FILE_NAME)
+    """Prepare the environmental variables for the quanting job."""
     raw_file_name = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_NAME]
+    instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
 
+    instrument_subfolder = get_relative_instrument_data_path(instrument_id)
+    output_folder_name = get_output_folder_name(raw_file_name)
+
+    all_project_ids = get_all_project_ids()
+    project_id = get_unique_project_id(raw_file_name, all_project_ids)
+    settings = get_settings_for_project(project_id)
+
+    # TODO: remove random speclib file hack
+    # this is so hacky it makes my head hurt:
+    # currently, two instances of alphaDIA compete for locking the speclib file
+    # cf. https://github.com/MannLabs/alphabase/issues/180
+    # This reduces the chance for this to happen by 90%
+    speclib_file_name = f"{int(random()*10)}_{settings.speclib_file_name}"  # noqa: S311
+
+    quanting_env = {
+        QuantingEnv.RAW_FILE_NAME: raw_file_name,
+        QuantingEnv.INSTRUMENT_SUBFOLDER: instrument_subfolder,
+        QuantingEnv.OUTPUT_FOLDER_NAME: output_folder_name,
+        QuantingEnv.SPECLIB_FILE_NAME: speclib_file_name,
+        QuantingEnv.FASTA_FILE_NAME: settings.fasta_file_name,
+        QuantingEnv.CONFIG_FILE_NAME: settings.config_file_name,
+        QuantingEnv.SOFTWARE: settings.software,
+        QuantingEnv.PROJECT_ID: project_id,
+    }
+
+    put_xcom(ti, XComKeys.QUANTING_ENV, quanting_env)
+    # this is redundant to the entry in QUANTING_ENV, but makes downstream access a bit more convenient
     put_xcom(ti, XComKeys.RAW_FILE_NAME, raw_file_name)
 
-    # IMPLEMENT:
-    # create the alphadia inputfile and store it on the shared volume
 
-
-# TODO: put this somewhere else
-# TODO: how to bring 'submit_job.sh' to the cluster?
-# Must be a bash script that is executable on the cluster.
-# Its only output to stdout must be the job id of the submitted job.
-# ${JID##* } is removing everything up to the last space
-run_quanting_cmd = f"""
-cd {CLUSTER_WORKING_DIR} &&
-JID=$(sbatch {CLUSTER_JOB_SCRIPT_PATH})
-echo ${{JID##* }}
-"""
+def _create_export_command(mapping: dict[str, str]) -> str:
+    """Create a bash command to export environment variables."""
+    return "\n".join([f"export {k}={v}" for k, v in mapping.items()])
 
 
 def run_quanting(ti: TaskInstance, **kwargs) -> None:
@@ -79,37 +73,27 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
     # IMPLEMENT:
     # wait for the cluster to be ready (20% idling) -> dedicated (sensor) task, mind race condition! (have pool = 1 for that)
 
+    quanting_env = get_xcom(ti, XComKeys.QUANTING_ENV)
     ssh_hook = kwargs[OpArgs.SSH_HOOK]
-    instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
 
-    raw_file_name = get_xcom(ti, XComKeys.RAW_FILE_NAME)
-    instrument_subfolder = get_relative_instrument_data_path(instrument_id)
-    output_folder_name = get_output_folder_name(raw_file_name)
-
-    # TODO: remove!!!
-    # this is so hacky it makes my head hurt:
-    # currently, two instances of alphaDIA compete for locking the speclib file
-    # This reduces the chance for this to happen by 90%
-    speclib_file_name = f"hela_hybrid.small.{int(random()*10)}.hdf"  # noqa: S311
-
-    # TODO: move creation of env vars to dedicated method
-    export_cmd = (
-        f"export RAW_FILE_NAME={raw_file_name}\n"
-        f"export POOL_BACKUP_INSTRUMENT_SUBFOLDER={instrument_subfolder}\n"
-        f"export OUTPUT_FOLDER_NAME={output_folder_name}\n"
-        f"export SPECLIB_FILE_NAME={speclib_file_name}\n"
-    )
-
-    command = export_cmd + run_quanting_cmd
+    command = _create_export_command(quanting_env) + get_run_quanting_cmd()
     logging.info(f"Running command: >>>>\n{command}\n<<<< end of command")
 
-    # TODO: prevent cluster from overfeeding on stall
-    # TODO: prevent re-starting the same job again (SBATCH unique key or smth?)
-    job_id = SSHSensorOperator.ssh_execute(command, ssh_hook)
+    # TODO: prevent re-starting the same job again, by either
+    #  - give a unique job name and search latest history
+    #  - check if job_id is already set (weak!)
+    #  - check if output folder already exists
+    ssh_return = SSHSensorOperator.ssh_execute(command, ssh_hook)
 
-    # TODO: fail on empty job id
+    try:
+        job_id = str(int(ssh_return.split("\n")[-1]))
+    except Exception as e:
+        logging.exception("Did not get a valid job id from the cluster.")
+        raise AirflowFailException from e
 
-    update_raw_file_status(raw_file_name, RawFileStatus.PROCESSING)
+    update_raw_file_status(
+        quanting_env[QuantingEnv.RAW_FILE_NAME], RawFileStatus.PROCESSING
+    )
 
     put_xcom(ti, XComKeys.JOB_ID, job_id)
 
@@ -121,14 +105,8 @@ def get_job_info(ti: TaskInstance, **kwargs) -> None:
 
     slurm_output_file = f"{CLUSTER_WORKING_DIR}/slurm-{job_id}.out"
 
-    # To reduce the number of ssh calls, we combine multiple commands into one
-    # In order to be able to extract the run time, we expect the first line to contain only that, e.g. "00:08:42"
-    get_job_info_cmd = f"""TIME_ELAPSED=$(sacct --format=Elapsed -j  {job_id} | tail -n 1); echo $TIME_ELAPSED
-sacct -l -j {job_id}
-cat {slurm_output_file}
-"""
-
-    ssh_return = SSHSensorOperator.ssh_execute(get_job_info_cmd, ssh_hook)
+    cmd = get_job_info_cmd(job_id, slurm_output_file)
+    ssh_return = SSHSensorOperator.ssh_execute(cmd, ssh_hook)
 
     logging.info(ssh_return)
 

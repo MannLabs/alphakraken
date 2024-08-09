@@ -55,6 +55,8 @@ def test_calc_metrics_happy_path(
     result = calc_metrics("output_directory")
 
     assert result == {"metric": "value"}
+    mock_data_store.assert_called_once_with("output_directory")
+    mock_basic_stats.assert_called_once_with(mock_data_store.return_value)
 
 
 @patch("plugins.metrics.metrics_calculator.DataStore")

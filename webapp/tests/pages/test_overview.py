@@ -17,8 +17,8 @@ def test_overview(mock_df: MagicMock, mock_get: MagicMock) -> None:
     mock_raw_files_db, mock_metrics_db = MagicMock(), MagicMock()
     mock_get.return_value = mock_raw_files_db, mock_metrics_db
 
-    ts1 = pd.to_datetime(datetime.fromtimestamp(0))  # noqa: DTZ006
-    ts2 = pd.to_datetime(datetime.fromtimestamp(1))  # noqa: DTZ006
+    ts1 = pd.to_datetime(datetime.now())  # noqa: DTZ005
+    ts2 = pd.to_datetime(datetime.fromtimestamp(int(5e9)))  # noqa: DTZ006
     raw_files_df = pd.DataFrame(
         {
             "_id": [1, 2],

@@ -215,13 +215,24 @@ Also, don't forget to install `mono` (cf. alphaDIA Readme).
 
 ## Local development
 
+### Deployment workflow: 'local' vs. 'sandbox' vs. 'production'
+All features should be tested locally before deploying them to the sandbox environment
+(which is technically equivalent to the production).
+There, depending on the scope of the feature, and of the likeliness of breaking something,
+another test with real data might be necessary.
+For instance, if you correct a typo in the webapp, you might well skip the sandbox testing.
+In contrast, a new feature that changes the way data is processed should definitely be tested in the sandbox environment.
+
+Only a well-tested feature should deployed to production.
+
 ### Development setup
 This is required to have all the required dependencies for local deployment and testing.
 1. Set up your environment for developing locally with
 ```bash
 PYTHON_VERSION=3.11
 AIRFLOW_VERSION=2.9.1
-git clone ...
+git clone git@github.com:MannLabs/alphakraken.git
+cd alphakraken
 conda create --name alphakraken python=${PYTHON_VERSION} -y
 conda activate alphakraken
 pip install apache-airflow==${AIRFLOW_VERSION} --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-${AIRFLOW_VERSION}/constraints-${PYTHON_VERSION}.txt"
@@ -238,8 +249,6 @@ pip install -r requirements_development.txt
 3. (optional) Mount the code directly into the containers. This way, changes are reflected immediately, without having to
 rebuild or restart containers (this could be still necessary on certain changes though).
 Locate the corresponding mappings in `docker-compose.yaml` (look for "Uncomment for local development") and uncomment them.
-
-```bash
 
 ### Unit Tests
 Run the tests with

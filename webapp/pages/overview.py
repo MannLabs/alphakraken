@@ -4,11 +4,12 @@ from datetime import datetime
 
 import humanize
 import pandas as pd
+import plotly.express as px
 
 # ruff: noqa: PD002 # `inplace=True` should be avoided; it has inconsistent behavior
 import streamlit as st
 from matplotlib import pyplot as plt
-from service.components import show_filter
+from service.components import show_date_select, show_filter
 from service.db import df_from_db_data, get_raw_file_and_metrics_data
 from service.utils import _log
 
@@ -67,7 +68,7 @@ def display(df: pd.DataFrame) -> None:
     """A fragment that displays a DataFrame with a filter."""
     st.write(f"Processed {len(df)} raw files.")
     now = datetime.now()  # noqa:  DTZ005 no tz argument
-    st.write(f"Crrent Kraken time: {now}")
+    st.write(f"Current Kraken time: {now}")
 
     last_file_creation = df.iloc[0]["created_at"]
     display_time = humanize.precisedelta(
@@ -86,14 +87,60 @@ def display(df: pd.DataFrame) -> None:
     st.write(f"Last raw file status update: {display_time} ago [{last_update}]")
 
     # filter
-    filtered_df = show_filter(df)
+    f1, f2, f3 = st.columns(3)
+    filtered_df = show_filter(df, text_to_display="Filter (inclusive):", st_display=f1)
+    filtered_df = show_filter(
+        filtered_df,
+        exclusive=True,
+        text_to_display="Filter (exclusive):",
+        st_display=f2,
+    )
+    filtered_df = show_date_select(
+        filtered_df,
+        st_display=f3,
+    )
 
     cmap = plt.get_cmap("RdYlGn")
     st.dataframe(
         filtered_df.style.background_gradient(
-            subset="BasicStats_proteins_mean", cmap=cmap
+            subset=[
+                "BasicStats_proteins_mean",
+            ],
+            cmap=cmap,
         )
     )
+
+    x = "file_created"
+    for y in [
+        "size_gb",
+        "BasicStats_precursors_mean",
+        "BasicStats_proteins_mean",
+        "BasicStats_ms1_accuracy_mean",
+        "BasicStats_fwhm_rt_mean",
+        "quanting_time_minutes",
+    ]:
+        try:
+            draw_plot(filtered_df, x, y)
+        except Exception as e:  # noqa: BLE001, PERF203
+            _log(str(e))
+
+
+def draw_plot(df: pd.DataFrame, x: str, y: str) -> None:
+    """Draw a plot of a DataFrame."""
+    df_to_plot = df.reset_index()
+    median_ = df_to_plot[y].median()
+    fig = px.scatter(
+        df_to_plot,
+        x=x,
+        y=y,
+        color="instrument_id",
+        hover_name="_id",
+        hover_data=["file_created"],
+        title=f"{y} - median {median_:.2f}",
+        height=400,
+    ).update_traces(mode="lines+markers")
+    fig.add_hline(y=median_, line_dash="dash")
+    st.plotly_chart(fig)
 
 
 display(combined_df)

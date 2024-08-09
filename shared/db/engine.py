@@ -13,15 +13,13 @@ from mongoengine import (
 
 DB_NAME: str = "krakendb"
 
-DOCKER_DB_HOST = "mongodb-service"
-DB_HOST = os.environ.get(
-    "MONGO_HOST", DOCKER_DB_HOST
-)  # if mongodb does not run in Docker: use localhost
-
 # nonsensical default values are used by tests only
+DB_HOST = os.environ.get("MONGO_HOST", "some_host")
 DB_PORT = int(os.environ.get("MONGO_PORT", 12345))
 DB_USER = os.environ.get("MONGO_USER", "pika")
 DB_PASSWORD = os.environ.get("MONGO_PASSWORD", "chu")
+
+logging.info(f"DB connection: {DB_HOST=} {DB_PORT=} {DB_USER=}")
 
 
 def connect_db() -> None:

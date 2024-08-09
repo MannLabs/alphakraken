@@ -58,10 +58,10 @@ def df_from_db_data(
     """
     query_set_as_dicts = [r.to_mongo() for r in query_set]
     query_set_df = pd.DataFrame(query_set_as_dicts)
+    query_set_df.sort_values(by="created_at_", inplace=True, ascending=False)
 
     if drop_duplicates:
-        query_set_df.drop_duplicates(subset=drop_duplicates, keep="last", inplace=True)
-        query_set_df.reset_index(drop=True, inplace=True)
+        query_set_df.drop_duplicates(subset=drop_duplicates, keep="first", inplace=True)
 
     if drop_columns:
         query_set_df.drop(
@@ -69,4 +69,7 @@ def df_from_db_data(
             inplace=True,
             errors="ignore",
         )
+
+    query_set_df.reset_index(drop=True, inplace=True)
+
     return query_set_df

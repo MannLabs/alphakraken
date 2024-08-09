@@ -24,8 +24,8 @@ from common.keys import (
 )
 from common.settings import (
     CLUSTER_WORKING_DIR,
-    FALLBACK_PROJECT_ID,
     InternalPaths,
+    get_fallback_project_id,
     get_internal_output_path,
     get_output_folder_rel_path,
 )
@@ -44,11 +44,14 @@ from shared.db.models import RawFileStatus
 from shared.keys import EnvVars
 
 
-def _get_project_id_for_raw_file(raw_file_name: str) -> str:
+def _get_project_id_for_raw_file(raw_file_name: str, instrument_id: str) -> str:
     """Get the project id for a raw file or the fallback ID if not present."""
     all_project_ids = get_all_project_ids()
-    unique_project_id = get_unique_project_id(raw_file_name, all_project_ids)
-    return unique_project_id if unique_project_id is not None else FALLBACK_PROJECT_ID
+    project_id = get_unique_project_id(raw_file_name, all_project_ids)
+
+    return (
+        project_id if project_id is not None else get_fallback_project_id(instrument_id)
+    )
 
 
 def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
@@ -56,7 +59,7 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
     raw_file_name = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_NAME]
     instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
 
-    project_id = _get_project_id_for_raw_file(raw_file_name)
+    project_id = _get_project_id_for_raw_file(raw_file_name, instrument_id)
 
     io_pool_folder = get_env_variable(EnvVars.IO_POOL_FOLDER)
     instrument_subfolder = f"{io_pool_folder}/{InternalPaths.BACKUP}/{instrument_id}"

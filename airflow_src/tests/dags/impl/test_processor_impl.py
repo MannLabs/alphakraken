@@ -34,17 +34,52 @@ def test_get_project_id_for_raw_file(
     mock_get_unique_project_id: MagicMock,
     mock_get_all_project_ids: MagicMock,
 ) -> None:
-    """Test that _get_project_id_for_raw_file makes the expected calls."""
+    """Test that _get_project_id_for_raw_file returns correct project id and makes the expected calls."""
     mock_get_all_project_ids.return_value = ["some_project_id", "P2"]
     mock_get_unique_project_id.return_value = "some_project_id"
 
     # when
-    _get_project_id_for_raw_file("test_file.raw")
+    project_id = _get_project_id_for_raw_file("test_file.raw", "some_instrument_id")
 
+    assert project_id == "some_project_id"
     mock_get_all_project_ids.assert_called_once_with()
     mock_get_unique_project_id.assert_called_once_with(
         "test_file.raw", ["some_project_id", "P2"]
     )
+
+
+@patch.dict(INSTRUMENTS, {"instrument1": {"type": "some_type"}})
+@patch("dags.impl.processor_impl.get_all_project_ids")
+@patch("dags.impl.processor_impl.get_unique_project_id")
+def test_get_project_id_for_raw_file_fallback(
+    mock_get_unique_project_id: MagicMock,
+    mock_get_all_project_ids: MagicMock,
+) -> None:
+    """Test that _get_project_id_for_raw_file returns correct project id for non-bruker."""
+    mock_get_all_project_ids.return_value = ["some_project_id", "P2"]
+    mock_get_unique_project_id.return_value = None
+
+    # when
+    project_id = _get_project_id_for_raw_file("test_file.raw", "instrument1")
+
+    assert project_id == "_FALLBACK"
+
+
+@patch.dict(INSTRUMENTS, {"instrument1": {"type": "bruker"}})
+@patch("dags.impl.processor_impl.get_all_project_ids")
+@patch("dags.impl.processor_impl.get_unique_project_id")
+def test_get_project_id_for_raw_file_fallback_bruker(
+    mock_get_unique_project_id: MagicMock,
+    mock_get_all_project_ids: MagicMock,
+) -> None:
+    """Test that _get_project_id_for_raw_file returns correct project id for bruker."""
+    mock_get_all_project_ids.return_value = ["some_project_id", "P2"]
+    mock_get_unique_project_id.return_value = None
+
+    # when
+    project_id = _get_project_id_for_raw_file("test_file.raw", "instrument1")
+
+    assert project_id == "_FALLBACK_BRUKER"
 
 
 @patch.dict(INSTRUMENTS, {"instrument1": {}})
@@ -83,7 +118,9 @@ def test_prepare_quanting(
     # when
     prepare_quanting(ti, **kwargs)
 
-    mock_get_project_id_for_raw_file.assert_called_once_with("test_file.raw")
+    mock_get_project_id_for_raw_file.assert_called_once_with(
+        "test_file.raw", "instrument1"
+    )
     mock_get_settings.assert_called_once_with("some_project_id")
 
     expected_quanting_env = {

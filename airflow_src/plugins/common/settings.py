@@ -35,3 +35,5 @@ class Timings:
     """Timing constants."""
 
     FILE_CREATION_POKE_INTERVAL_S = 60
+
+    QUANTING_MONITOR_POKE_INTERVAL_S = 60

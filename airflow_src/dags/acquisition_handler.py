@@ -7,16 +7,28 @@ from datetime import timedelta
 from airflow.models import Param
 from airflow.models.dag import DAG
 from airflow.operators.python import PythonOperator
+from airflow.providers.ssh.hooks.ssh import SSHHook
 from common.keys import DAG_DELIMITER, Dags, OpArgs, Tasks
-from common.settings import INSTRUMENTS
+from common.settings import INSTRUMENTS, Timings
 from impl.handler_impl import (
     add_to_db,
     compute_metrics,
-    monitor_quanting,
     prepare_quanting,
     run_quanting,
     upload_metrics,
 )
+from sensors.ssh_sensor import QuantingSSHSensor
+
+ssh_hook = SSHHook(ssh_conn_id="cluster-conn", conn_timeout=60, cmd_timeout=60)
+
+# TODO: take from a file
+run_quanting_cmd = """
+cd ~/test &&
+JID=$(sbatch test.sh)
+echo ${JID##* }
+"""
+#         Must be a bash script that is executable on the cluster.
+#         Its only output to stdout must be the job id of the submitted job.
 
 
 def create_acquisition_handler_dag(instrument_id: str) -> None:
@@ -48,12 +60,18 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
         )
 
         run_quanting_ = PythonOperator(
-            task_id=Tasks.RUN_QUANTING, python_callable=run_quanting
+            task_id=Tasks.RUN_QUANTING,
+            python_callable=run_quanting,
+            op_kwargs={OpArgs.SSH_HOOK: ssh_hook, OpArgs.COMMAND: run_quanting_cmd},
         )
 
-        monitor_quanting_ = PythonOperator(
-            task_id=Tasks.MONITOR_QUANTING, python_callable=monitor_quanting
+        monitor_quanting_ = QuantingSSHSensor(
+            task_id=Tasks.MONITOR_QUANTING,
+            ssh_hook=ssh_hook,
+            poke_interval=Timings.QUANTING_MONITOR_POKE_INTERVAL_S,
         )
+        # TODO: task config: max runtime
+        #  error handling!
 
         compute_metrics_ = PythonOperator(
             task_id=Tasks.COMPUTE_METRICS, python_callable=compute_metrics

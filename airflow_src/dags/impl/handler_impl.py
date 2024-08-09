@@ -6,6 +6,7 @@ from airflow.models import TaskInstance
 from common.keys import DagContext, DagParams, OpArgs, XComKeys
 from common.settings import RawFileStatus
 from common.utils import get_instrument_data_path, get_xcom, put_xcom
+from sensors.ssh_sensor import SSHSensorOperator
 
 from shared.db.engine import RawFile, add_new_raw_file_to_db, connect_db
 
@@ -43,25 +44,16 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
 
 
 def run_quanting(ti: TaskInstance, **kwargs) -> None:
-    """TODO."""
-    del ti
-    del kwargs
-
+    """Run the quanting job on the cluster."""
     # IMPLEMENT:
     # wait for the cluster to be ready (20% idling) -> dedicated (sensor) task
-    # submit run script to the cluster
 
+    ssh_hook = kwargs[OpArgs.SSH_HOOK]
+    command = kwargs[OpArgs.COMMAND]
 
-def monitor_quanting(ti: TaskInstance, **kwargs) -> None:
-    """TODO."""
-    del ti
-    del kwargs
+    job_id = SSHSensorOperator.ssh_execute(command, ssh_hook)
 
-    # IMPLEMENT:
-    # this should be a sensor task!
-    # wait until cluster job is finished
-    # task config: max runtime
-    # error handling!
+    put_xcom(ti, XComKeys.JOB_ID, job_id)
 
 
 def compute_metrics(ti: TaskInstance, **kwargs) -> None:

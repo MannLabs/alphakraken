@@ -146,3 +146,17 @@ where `astral_1` can be freely chosen as long as it is unique.
 4. Shut down and restart the containers with `docker compose down` and `docker compose up -d`.
 
 5. Open the airflow UI and unpause the new `*.test2` DAGs.
+
+
+### Setup SSH connection
+This connection is required to interact with the SLURM cluster.
+
+1. Open the Airflow UI, navigate to "Admin" -> "Connections" and click the "+" button.
+2. Fill in the following fields:
+    - Connection Id: `cluster-conn`
+    - Conn Type: `SSH`
+    - Host: `<cluster_head_node_ip>`  # the IP address of a cluster head node, in this case `<cluster_head_node>`
+    - Username: `<user name of kraken SLURM user>`
+    - Password: `<password of kraken SLURM user>`
+3. (optional) Click "Test" to verify the connection.
+4. Click "Save".

@@ -5,7 +5,7 @@ import logging
 from airflow.models import TaskInstance
 
 
-def put_xcom(ti: TaskInstance, key: str, value: str) -> None:
+def put_xcom(ti: TaskInstance, key: str, value: str | list | set) -> None:
     """Push to XCom `key`=`value`."""
     if value is None:
         raise ValueError(f"No value found for {key}.")

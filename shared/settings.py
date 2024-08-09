@@ -1,8 +1,16 @@
 """Keys for accessing Dags, Tasks, etc.."""
 
+from shared.keys import InstrumentKeys
+
 INSTRUMENTS = {
-    "test6": {},
-    "test7": {},
+    # the toplevel keys determine the DAG name (e.g. 'acquisition_watcher.test6')
+    "test6": {
+        # raw data path relative to InternalPaths.APC_PATH_PREFIX, must be mounted in docker-compose.yml
+        InstrumentKeys.RAW_DATA_PATH: "apc_tims_1",
+    },
+    "test7": {
+        InstrumentKeys.RAW_DATA_PATH: "apc_tims_2",
+    },
 }
 
 
@@ -15,3 +23,9 @@ class RawFileStatus:
     PROCESSING = "processing"
     PROCESSED = "processed"
     FAILED = "failed"
+
+
+class InternalPaths:
+    """Paths to directories."""
+
+    APC_PATH_PREFIX = "/opt/airflow/acquisition_pcs"

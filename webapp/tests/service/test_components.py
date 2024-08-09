@@ -1,12 +1,12 @@
 """Tests for the service components."""
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # ruff: noqa: PD901 #  Avoid using the generic variable name `df` for DataFrames
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
-from service.components import show_date_select, show_filter
+from service.components import _get_color, display_status, show_date_select, show_filter
 
 
 @patch("streamlit.text_input")
@@ -30,7 +30,7 @@ def test_input_filter_happy_path(mock_text_input: MagicMock) -> None:
 @patch("streamlit.text_input")
 def test_input_filter_happy_path_exclusive(mock_text_input: MagicMock) -> None:
     """Test that the filter returns the correct DataFrame when a match is found."""
-    mock_text_input.return_value = "FILTER_text"
+    mock_text_input.return_value = "!FILTER_text"
     df = pd.DataFrame(
         {
             "column1": ["filter_text", "other_text"],
@@ -39,7 +39,7 @@ def test_input_filter_happy_path_exclusive(mock_text_input: MagicMock) -> None:
     )
 
     # when
-    filtered_df = show_filter(df, text_to_display="Some Filter", exclusive=True)
+    filtered_df = show_filter(df, text_to_display="Some Filter")
 
     assert len(filtered_df) == 1
     assert "filter_text" not in filtered_df["column1"].to_numpy()
@@ -79,6 +79,25 @@ def test_input_filter_empty_input(mock_text_input: MagicMock) -> None:
     assert filtered_df is df
 
 
+@patch("streamlit.text_input")
+def test_input_filter_combination(mock_text_input: MagicMock) -> None:
+    """Test that the filter returns the original DataFrame when inclusive and exclusive filtering are combined."""
+    mock_text_input.return_value = "incl & !excl"
+    df = pd.DataFrame(
+        {
+            "column1": ["incl", "incl", "something"],
+            "column2": ["something", "excl", "something"],
+        }
+    )
+
+    # when
+    filtered_df = show_filter(df, text_to_display="Some Filter")
+
+    assert len(filtered_df) == 1
+    assert "incl" in filtered_df["column1"].to_numpy()
+    assert "excl" not in filtered_df["column2"].to_numpy()
+
+
 @patch("streamlit.date_input")
 def test_date_input_happy_path(mock_date_input: MagicMock) -> None:
     """Test that the date filter returns the correct DataFrame when a match is found."""
@@ -98,3 +117,45 @@ def test_date_input_happy_path(mock_date_input: MagicMock) -> None:
 
     assert len(filtered_df) == 1
     assert "file2" in filtered_df["column2"].to_numpy()
+
+
+@patch("streamlit.dataframe")
+def test_display_status_with_multiple_instruments(mock_st_dataframe: MagicMock) -> None:
+    """Test that the display_status function works correctly."""
+    ts1 = datetime(2022, 1, 1, 11, 0, 0)  # noqa: DTZ001
+    ts2 = datetime(2022, 1, 1, 10, 0, 0)  # noqa: DTZ001
+    df = pd.DataFrame(
+        {
+            "instrument_id": ["inst1", "inst1", "inst2", "inst2"],
+            "created_at": [ts1, ts2, ts1, ts2],
+            "updated_at_": [ts1, ts2, ts1, ts2],
+        }
+    )
+
+    # when
+    display_status(df)
+
+    mock_st_dataframe.assert_called_once()
+    result_df = mock_st_dataframe.call_args_list[0].args[0].data
+
+    assert result_df["instrument_id"].tolist() == ["inst1", "inst2"]
+    assert result_df["last_file_creation"].tolist() == [ts1, ts1]
+    assert result_df["last_status_update"].tolist() == [ts1, ts1]
+    assert "last_file_creation_text" in result_df.columns
+    assert "last_status_update_text" in result_df.columns
+
+
+def test_get_color() -> None:
+    """Test that the color is returned correctly."""
+    now = datetime.now()  # noqa: DTZ005
+    row = pd.Series(
+        {
+            "last_file_creation": now - timedelta(hours=1),
+            "last_status_update": now - timedelta(hours=3),
+            "ignored": "value",
+        }
+    )
+
+    # when
+    result = _get_color(row)
+    assert result == ["background-color: #006837", "background-color: #4bb05c", None]

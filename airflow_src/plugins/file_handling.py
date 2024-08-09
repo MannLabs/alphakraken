@@ -68,15 +68,15 @@ def _file_already_exists(dst_path: Path, src_hash: str) -> bool:
 def copy_file(
     src_path: Path,
     dst_path: Path,
-) -> None:
-    """Copy a raw file to the backup location and check its hashsum."""
+) -> tuple[float, str]:
+    """Copy a raw file to the backup location and check its hashsum and return a tuple (file_size, file_hash)."""
     logging.info(f"Calculating hash for {src_path} ..")
     start = datetime.now()  # noqa: DTZ005
     src_hash = _get_file_hash(src_path)
     time_elapsed = (datetime.now() - start).total_seconds()  # noqa: DTZ005
     logging.info(f"Hash calculated. Time elapsed: {time_elapsed/60:.1f} min")
     if _file_already_exists(dst_path, src_hash):
-        return
+        return get_file_size(dst_path), src_hash
     if not dst_path.parent.exists():
         logging.info(f"Creating parent directories for {dst_path} ..")
         dst_path.parent.mkdir(parents=True, exist_ok=True)
@@ -91,9 +91,11 @@ def copy_file(
     )
 
     logging.info("Verifying hash ..")
-    if (hash_dst := _get_file_hash(dst_path)) != (src_hash):
-        raise ValueError(f"Hashes do not match ofter copy! {src_hash=} != {hash_dst=}")
+    if (dst_hash := _get_file_hash(dst_path)) != src_hash:
+        raise ValueError(f"Hashes do not match ofter copy! {src_hash=} != {dst_hash=}")
     logging.info("Verifying hash done!")
+
+    return dst_size, dst_hash
 
 
 def compare_paths(

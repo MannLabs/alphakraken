@@ -164,29 +164,34 @@ def test_copy_file_copies_file_and_creates_directory(
     dst_path.parent.mkdir.return_value = None
 
     # when
-    copy_file(src_path, dst_path)
+    result = copy_file(src_path, dst_path)
 
+    assert result == (1000, "some_hash")
     mock_copy2.assert_called_once_with(src_path, dst_path)
     dst_path.parent.mkdir.assert_called_once_with(parents=True, exist_ok=True)
 
 
 @patch("plugins.file_handling._get_file_hash")
 @patch("plugins.file_handling._file_already_exists")
+@patch("plugins.file_handling.get_file_size")
 @patch("shutil.copy2")
 def test_copy_file_no_copy_if_file_present(
     mock_copy2: MagicMock,
+    mock_get_file_size: MagicMock,
     mock_file_exists: MagicMock,
     mock_get_file_hash: MagicMock,
 ) -> None:
     """Test copy_file copies file and checks hash."""
     mock_file_exists.return_value = True
     mock_get_file_hash.side_effect = ["some_hash", "some_hash"]
+    mock_get_file_size.return_value = 1000
 
     src_path = Path("/path/to/instrument/test_file.raw")
     dst_path = Path("/path/to/backup/test_file.raw")
 
     # when
-    copy_file(src_path, dst_path)
+    result = copy_file(src_path, dst_path)
+    assert result == (1000, "some_hash")
 
     mock_copy2.assert_not_called()
 

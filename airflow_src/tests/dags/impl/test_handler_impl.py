@@ -1,5 +1,6 @@
 """Unit tests for handler_impl.py."""
 
+import os
 from pathlib import Path
 from unittest.mock import MagicMock, Mock, call, patch
 
@@ -13,13 +14,17 @@ from dags.impl.handler_impl import (
 from db.models import RawFileStatus
 
 
+@patch.dict(
+    os.environ,
+    {"POOL_BASE_PATH": "/path/to/pool", "BACKUP_POOL_FOLDER": "some_backup_folder"},
+)
 @patch("dags.impl.handler_impl.get_raw_file_by_id")
 @patch("dags.impl.handler_impl.copy_file")
 @patch("dags.impl.handler_impl.RawFileWrapperFactory")
 @patch("dags.impl.handler_impl.get_file_size")
 @patch("dags.impl.handler_impl.update_raw_file")
 def test_copy_raw_file_calls_update_with_correct_args(
-    mock_update_status: MagicMock,
+    mock_update_raw_file: MagicMock,
     mock_get_file_size: MagicMock,
     mock_raw_file_wrapper_factory: MagicMock,
     mock_copy_file: MagicMock,
@@ -36,8 +41,11 @@ def test_copy_raw_file_calls_update_with_correct_args(
 
     mock_get_file_size.return_value = 1000
     mock_raw_file_wrapper_factory.create_copy_wrapper.return_value.get_files_to_copy.return_value = {
-        Path("/path/to/instrument/test_file.raw"): Path("/path/to/backup/test_file.raw")
+        Path("/path/to/instrument/test_file.raw"): Path(
+            "/opt/airflow/mounts/backup/test_file.raw"
+        )
     }
+    mock_copy_file.return_value = (1001, "some_hash")
 
     mock_file_path_to_calculate_size = MagicMock()
     mock_raw_file_wrapper_factory.create_copy_wrapper.return_value.file_path_to_calculate_size.return_value = mock_file_path_to_calculate_size
@@ -47,12 +55,23 @@ def test_copy_raw_file_calls_update_with_correct_args(
 
     # then
     mock_copy_file.assert_called_once_with(
-        Path("/path/to/instrument/test_file.raw"), Path("/path/to/backup/test_file.raw")
+        Path("/path/to/instrument/test_file.raw"),
+        Path("/opt/airflow/mounts/backup/test_file.raw"),
     )
-    mock_update_status.assert_has_calls(
+    mock_update_raw_file.assert_has_calls(
         [
             call("test_file.raw", new_status=RawFileStatus.COPYING),
-            call("test_file.raw", new_status=RawFileStatus.COPYING_DONE, size=1000),
+            call(
+                "test_file.raw",
+                new_status=RawFileStatus.COPYING_DONE,
+                size=1000,
+                file_info={
+                    "/path/to/pool/some_backup_folder/test_file.raw": (
+                        1001,
+                        "some_hash",
+                    )
+                },
+            ),
         ]
     )
     mock_get_file_size.assert_called_once_with(mock_file_path_to_calculate_size, -1)

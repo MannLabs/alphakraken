@@ -7,6 +7,7 @@ from datetime import datetime
 
 from mongoengine import (
     DateTimeField,
+    DictField,
     Document,
     DynamicDocument,
     IntField,
@@ -59,6 +60,8 @@ class RawFile(Document):
     status_details = StringField(max_length=256)
 
     size = IntField(min_value=-1, max_value=int(1000 * 1024**3))  # unit: bytes
+
+    file_info = DictField()  # mappping: path to hash and size
     instrument_id = StringField(max_length=50)
 
     project_id = StringField(max_length=32)

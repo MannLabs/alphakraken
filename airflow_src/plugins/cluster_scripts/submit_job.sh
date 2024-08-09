@@ -9,34 +9,26 @@
 
 set -u -e
 
-# INPUT taken from environment variables
-# RAW_FILE_ID  # e.g. "20240606_OA1_Evo12_16min_JBMR_ADIAMA_HeLa_5ng_F-40_01.raw"
-# INPUT_DATA_REL_PATH # e.g. "pool-backup/Test2/2024_07"
-# IO_POOL_FOLDER # e.g. "<pool-url>-kraken"
-# OUTPUT_FOLDER_REL_PATH # e.g. "output/PID123/out_20240606_OA1_Evo12_16min_JBMR_ADIAMA_HeLa_5ng_F-40_01.raw"
+# INPUT taken from environment variables:
+# RAW_FILE_PATH # e.g. "/fs/pool/pool-backup/Test2/2024_07/20240606_OA1_Evo12_16min_JBMR_ADIAMA_HeLa_5ng_F-40_01.raw"
+# SETTINGS_PATH # e.g. "/fs/pool/pool-alphakraken/settings/PID123"
+# OUTPUT_PATH # e.g. "/fs/pool/pool-alphakraken/output/PID123/out_20240606_OA1_Evo12_16min_JBMR_ADIAMA_HeLa_5ng_F-40_01.raw"
 # SPECLIB_FILE_NAME # e.g."hela_hybrid.small.hdf"
 # FASTA_FILE_NAME # e.g. 2024_01_12_human.fasta
 # CONFIG_FILE_NAME #e.g. "config.yaml"
 # SOFTWARE # e.g. alphadia-1.6.2
-# PROJECT_ID_OR_FALLBACK # e.g. A123
-
-POOL_FS="/fs/pool/"  # probably okay to hardcode this
-IO_POOL_OUTPUT_PATH="${POOL_FS}/${IO_POOL_FOLDER}"
 
 # these are determined by convention:
 CONDA_ENV=$SOFTWARE
-SETTINGS_PATH="${IO_POOL_OUTPUT_PATH}/settings/${PROJECT_ID_OR_FALLBACK}"
-OUTPUT_PATH="${IO_POOL_OUTPUT_PATH}/${OUTPUT_FOLDER_REL_PATH}"
-INPUT_DATA_PATH="${POOL_FS}/${INPUT_DATA_REL_PATH}"
-RAW_FILE_PATH="${INPUT_DATA_PATH}/${RAW_FILE_ID}"
+
 CONFIG_FILE_PATH="${SETTINGS_PATH}/${CONFIG_FILE_NAME}"
 
-echo CONDA_ENV=${CONDA_ENV}
+
+echo RAW_FILE_PATH=${RAW_FILE_PATH}
 echo SETTINGS_PATH=${SETTINGS_PATH}
 echo OUTPUT_PATH=${OUTPUT_PATH}
-echo INPUT_DATA_PATH=${INPUT_DATA_PATH}
-echo RAW_FILE_PATH=${RAW_FILE_PATH}
 echo CONFIG_FILE_PATH=${CONFIG_FILE_PATH}
+echo CONDA_ENV=${CONDA_ENV}
 
 echo INPUT INFORMATION ">>>>>>"
 if [ -d "$RAW_FILE_PATH" ]; then

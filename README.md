@@ -147,10 +147,10 @@ Additionally, workers need one bind mount per instrument PC is needed (cf. secti
 sudo apt install cifs-utils
 ```
 
-1. Create folders `settings`, `output`, and `airflow_logs` in the desired pool location(s), e.g. under `/fs/pool/<pool-url>-kraken`.
+1. Create folders `settings`, `output`, and `airflow_logs` in the desired pool location(s), e.g. under `/fs/pool/pool-alphakraken`.
 
-2. Make sure the variables `MOUNTS_PATH`, `BACKUP_POOL_FOLDER` `IO_POOL_FOLDER` in the `envs/${ENV}.env` file are set correctly.
-Check also `MOUNTS_PATH`, `BACKUP_POOL_PATH` `IO_POOL_PATH` in the `mountall.sh` script.
+2. Make sure the variables `MOUNTS_PATH`, `BACKUP_POOL_FOLDER` `QUANTING_POOL_FOLDER` in the `envs/${ENV}.env` file are set correctly.
+Check also `MOUNTS_PATH`, `BACKUP_POOL_PATH` `QUANTING_POOL_PATH` in the `mountall.sh` script.
 
 3. Mount the backup, output and logs folder. You will be asked for passwords.
 ```bash

@@ -86,7 +86,7 @@ x-airflow-common:
     INSTRUMENT_PATH_ASTRAL2: ${INSTRUMENT_PATH_ASTRAL2:?error}
     # ... (add new instruments here)
   env_file:
-    - ./envs/.env-airflow
+    - ./envs/.env-airflow  # TODO: this gets overwritte by the --env-files option
   volumes:
     - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_logs:/opt/airflow/logs
 #    # Uncomment for local development so that changes to DAGs and Tasks are immediately active
@@ -334,6 +334,10 @@ services:
       timeout: 10s
       retries: 5
       start_period: 30s
+#    # Uncomment for local development so that changes to wepapp are immediately active
+#    volumes:
+#      - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../webapp:/app/webapp
+#      - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../shared:/app/webapp/shared
 
   airflow-worker-test1:
     # worker for local and sandbox testing

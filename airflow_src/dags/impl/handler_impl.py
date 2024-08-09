@@ -4,11 +4,11 @@ import logging
 
 from airflow.models import TaskInstance
 from common.keys import DagContext, DagParams, OpArgs, XComKeys
-from common.settings import RawFileStatus, get_instrument_data_path
+from common.settings import get_instrument_data_path
 from common.utils import get_xcom, put_xcom
 from sensors.ssh_sensor import SSHSensorOperator
 
-from shared.db.engine import RawFile, add_new_raw_file_to_db, connect_db
+from shared.db.engine import RawFile, RawFileStatus, add_new_raw_file_to_db, connect_db
 
 
 def add_to_db(ti: TaskInstance, **kwargs) -> None:

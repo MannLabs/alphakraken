@@ -37,17 +37,6 @@ def get_instrument_data_path(instrument_id: str) -> Path:
 AIRFLOW_QUEUE_PREFIX = "kraken_queue_"
 
 
-class RawFileStatus:
-    """Status of raw file."""
-
-    NEW = "new"
-    # have a distinction between processing and copying as network drives caused issues in the past.
-    COPYING = "copying"
-    PROCESSING = "processing"
-    PROCESSED = "processed"
-    FAILED = "failed"
-
-
 class InternalPaths:
     """Paths to directories."""
 

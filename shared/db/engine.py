@@ -5,7 +5,6 @@ import os
 from datetime import datetime
 
 import pytz
-from common.settings import RawFileStatus
 from mongoengine import (
     ConnectionFailure,
     DateTimeField,
@@ -15,6 +14,8 @@ from mongoengine import (
     connect,
     disconnect,
 )
+
+# Note: this module must not have any dependencies on the rest of the codebase
 
 DB_NAME = "krakendb"
 
@@ -27,6 +28,17 @@ DB_HOST = os.environ.get(
 DB_PORT = int(os.environ.get("MONGO_PORT", 12345))
 USER = os.environ.get("MONGO_USER", "user")
 PASSWORD = os.environ.get("MONGO_PASSWORD", "user")
+
+
+class RawFileStatus:
+    """Status of raw file."""
+
+    NEW = "new"
+    # have a distinction between processing and copying as network drives caused issues in the past.
+    COPYING = "copying"
+    PROCESSING = "processing"
+    PROCESSED = "processed"
+    FAILED = "failed"
 
 
 def connect_db() -> None:

@@ -2,7 +2,21 @@
 A new version of the Machine Kraken
 
 ## Local development
-### Initial setup
+
+### Running the kraken (local version)
+First, run a one-time initialization of the internal airflow database:
+```bash
+docker compose --env-file=envs/local.env run airflow-init
+```
+
+Start the docker containers providing an all-in-one solution with
+```bash
+docker compose --env-file=envs/local.env up --build
+```
+After startup, the airflow webserver runs on http://localhost:8080/ (default credentials: `airflow`/`airflow`), the Streamlit webapp on http://localhost:8501/ .
+
+
+### Development setup
 1. Set up your environment for developing locally with
 ```bash
 PYTHON_VERSION=3.11
@@ -20,18 +34,8 @@ pip install -r webapp/requirements_webapp.txt
 pip install -r requirements_development.txt
 ```
 
-3. Run a one-time initialization of the internal airflow database:
-```bash
-docker compose --env-file=envs/local.env run airflow-init
-```
 
-### Running the kraken
-Start the docker containers providing an all-in-one solution with
-```bash
-docker compose --env-file=envs/local.env up --build
-```
-The airflow webserver runs on http://localhost:8080/ (default credentials: `airflow`/`airflow`), the Streamlit webapp on http://localhost:8501/ .
-
+### Run Airflow standalone (not actively maintained)
 Alternatively, run airflow without Docker using
 ```bash
 MONGO_USER=<mongo_user>
@@ -43,7 +47,8 @@ Note that you will need to have a MongoDB running on the default port `27017`, e
 `docker compose --env-file=envs/local.env run --service-ports mongodb-service`
 Also, you will need to fire up the Streamlit webapp yourself by `docker compose --env-file=envs/local.env run -e MONGO_HOST=host.docker.internal --service-ports webapp`.
 
-Note that currently, the docker version is recommended.
+Note that currently, the docker version is recommended as the standalone version is not part of regular testing and
+might not work as expected.
 
 ### Unit Tests
 Run the tests with
@@ -105,13 +110,13 @@ and to have correct permissions for the logs directory.
 4. Set up the network bind mounts (see below).
 5. Run one-time initialization of the internal airflow database:
 ```bash
-docker compose --env-file=./envs/prod.env run airflow-init
+docker compose --env-file=envs/prod.env run airflow-init
 ```
 
-### Run production containers
+### Running the kraken (production)
 In order for the production setup to run, you need to execute the command
 ```bash
-docker compose --env-file=./envs/prod.env  up --build --profile prod-workers -d
+docker compose --env-file=envs/.env-airflow --env-file=envs/prod.env up --build --profile prod-workers -d
 ```
 Then, access the Airflow UI at `http://<kraken_pc_ip>:8081/` and the Streamlit webapp at `http://<kraken_pc_ip>:8502/`.
 

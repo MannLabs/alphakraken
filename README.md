@@ -1,4 +1,4 @@
-# alphakraken
+# AlphaKraken
 A new version of the Machine Kraken.
 
 Note: this Readme is relevant only for developers and administrators. Regular users should find all required documentation

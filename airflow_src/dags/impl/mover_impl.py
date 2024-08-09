@@ -3,6 +3,7 @@
 import logging
 import shutil
 
+from airflow.exceptions import AirflowFailException
 from airflow.models import TaskInstance
 from common.keys import DagContext, DagParams
 from common.settings import (
@@ -27,14 +28,14 @@ def move_raw_file(ti: TaskInstance, **kwargs) -> None:
     dst_path = (
         get_internal_instrument_data_path(instrument_id)
         / INSTRUMENT_BACKUP_FOLDER_NAME
-        / raw_file.original_name
+        / raw_file.id  # important to use id here to support collisions
     )
 
     if not src_path.exists():
-        raise FileNotFoundError(f"File {src_path} does not exist.")
+        raise AirflowFailException(f"File {src_path} does not exist.")
 
     if dst_path.exists():
-        raise FileExistsError(f"File {dst_path} already exists.")
+        raise AirflowFailException(f"File {dst_path} already exists.")
 
     # security measure to not have sandbox interfere with production
     if get_env_variable(EnvVars.ENV_NAME) != "production":

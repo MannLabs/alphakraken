@@ -34,9 +34,7 @@ Please note that running and developing the alphakraken is only tested for MacOS
 The following steps are required for both the `local` and the `sandbox`/`production` deployments.
 For the latter, additional steps are required, see [here](#additional-steps-required-for-initial-sandboxproduction-deployment).
 
-1. Install
-[Docker Compose](https://docs.docker.com/engine/install/ubuntu/) and
-[Docker](https://docs.docker.com/compose/install/linux/#install-using-the-repository), clone the repository into a folder and `cd` into it.
+1. Install [Docker](https://docs.docker.com/engine/install/ubuntu/), clone the repository into a folder and `cd` into it.
 
 2. Set the current user as the user within the airflow containers and get the correct permissions on the "logs"
 directory (otherwise, `root` would be used)
@@ -44,9 +42,9 @@ directory (otherwise, `root` would be used)
 echo -e "AIRFLOW_UID=$(id -u)" > envs/.env-airflow
 ```
 
-3. Initialize the internal airflow database:
+3. On the PC that will host the internal airflow database run
 ```bash
-./compose.sh run airflow-init
+./compose.sh --profile infrastructure up airflow-init
 ```
 Note: depending on your operating system and configuration, you might need to run `docker compose` command with `sudo`.
 
@@ -95,11 +93,12 @@ to another machine, you might need to adjust the `*_HOST` variables in the
 
 For production: set strong passwords for `AIRFLOW_PASSWORD`, `MONGO_PASSWORD`, and `POSTGRES_PASSWORD`
 in `./env/production.env` and `MONGO_INITDB_ROOT_PASSWORD` in `./env/.env-mongo`.
+Make sure they don't contain weird characters like '\' or '#' as they might interfere with name resolution in `docker-compose.yaml`.
 
 #### On the PC (VM) hosting the airflow infrastructure
 0. `ssh` into the PC/VM and set `export ENV=sandbox` (`production`).
 
-1. Set up the [pool bind mounts](#set-up-pool-bind-mounts).
+1. Set up the [pool bind mounts](#set-up-pool-bind-mounts) for `airflow_logs` only.
 
 2. Run the airflow infrastructure and MongoDB services
 ```bash
@@ -111,7 +110,7 @@ Then, access the Airflow UI at http://hostname:8080/ and the Streamlit webapp at
 0. `ssh` into the PC/VM and set `export ENV=sandbox` (`production`).
 
 1. Set up the [pool bind mounts](#set-up-pool-bind-mounts)
-and the mounts for the [instruments](#add-a-new-instrument).
+and mount all instruments using the `./mountall.sh` command described in [instruments](#add-a-new-instrument).
 
 2. Run the worker containers (sandbox/production version)
 ```bash
@@ -139,14 +138,16 @@ The workers need bind mounts set up to the pool filesystems for backup and readi
 All airflow components (webserver, scheduler and workers) need a bind mount to a pool folder to read and write airflow logs.
 Additionally, workers need one bind mount per instrument PC is needed (cf. section below).
 
-1. Install the `cifs-utils` package (otherwise you might get errors like
+0. (on demand) Install the `cifs-utils` package (otherwise you might get errors like
 `CIFS: VFS: cifs_mount failed w/return code = -13`)
 ```bash
 sudo apt install cifs-utils
 ```
 
-2. Make sure the variables `MOUNTS_PATH`, `BACKUP_POOL_FOLDER` `IO_POOL_FOLDER` in the `envs/${ENV}.env` file are set correctly. Check also
-`MOUNTS_PATH`, `BACKUP_POOL_PATH` `IO_POOL_PATH` in the `mountall.sh` script .
+1. Create folders `settings`, `output`, and `airflow_logs` in the desired pool location(s), e.g. under `/fs/pool/<pool-url>-kraken`.
+
+2. Make sure the variables `MOUNTS_PATH`, `BACKUP_POOL_FOLDER` `IO_POOL_FOLDER` in the `envs/${ENV}.env` file are set correctly.
+Check also `MOUNTS_PATH`, `BACKUP_POOL_PATH` `IO_POOL_PATH` in the `mountall.sh` script.
 
 3. Mount the backup, output and logs folder. You will be asked for passwords.
 ```bash

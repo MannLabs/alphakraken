@@ -6,6 +6,7 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 
+import pytz
 from common.settings import get_internal_instrument_data_path
 
 
@@ -17,7 +18,9 @@ def get_file_creation_timestamp(raw_file_name: str, instrument_id: str) -> float
     """
     raw_file_path = get_internal_instrument_data_path(instrument_id) / raw_file_name
     file_creation_ts = raw_file_path.stat().st_ctime
-    logging.info(f"File {raw_file_name} has {file_creation_ts=}")
+    logging.info(
+        f"File {raw_file_name} has {file_creation_ts=} {datetime.fromtimestamp(file_creation_ts, tz=pytz.UTC)}"
+    )
     return file_creation_ts
 
 

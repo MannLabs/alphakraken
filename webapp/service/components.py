@@ -1,5 +1,6 @@
 """UI components for the web application."""
 
+import os
 from collections import defaultdict
 from datetime import datetime, timedelta
 
@@ -9,6 +10,8 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 from matplotlib import pyplot as plt
+
+from shared.keys import EnvVars
 
 TERMINAL_STATUSES = ["error", "done", "ignored", "quanting_failed"]
 
@@ -274,3 +277,19 @@ def highlight_status_cell(row: pd.Series) -> list[str | None]:
 
     column_styles = {"status": style}
     return [column_styles.get(c) for c in row.index]
+
+
+def show_sandbox_message() -> None:
+    """Show a warning message if the environment is sandbox."""
+    if os.environ.get(EnvVars.ENV_NAME) == "sandbox":
+        st.error(
+            """
+        Note: you are currently viewing the 'sandbox' environment which
+        should be used for testing by AlphaKraken admins only. Everything could
+        change any minute, and data could be wrong or gone at any time.
+
+        You probably rather want to visit the 'production' environment:
+        [http://<kraken_url>](http://<kraken_url>).
+        """,
+            icon="⚠️",
+        )

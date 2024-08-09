@@ -10,4 +10,4 @@ if [ "$ENV" == "" ]; then
   exit 1
 fi
 
-docker compose --env-file=envs/.env-airflow --env-file=envs/${ENV}.env "$@"
+sudo docker compose --env-file=envs/.env-airflow --env-file=envs/${ENV}.env "$@"

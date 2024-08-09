@@ -13,6 +13,7 @@ from service.components import (
     highlight_status_cell,
     show_date_select,
     show_filter,
+    show_sandbox_message,
 )
 from service.data_handling import get_combined_raw_files_and_metrics_df
 from service.utils import _log
@@ -23,6 +24,8 @@ _log(f"loading {__file__}")
 # ########################################### PAGE HEADER
 
 st.set_page_config(page_title="AlphaKraken: overview", layout="wide")
+
+show_sandbox_message()
 
 st.markdown("# Overview")
 

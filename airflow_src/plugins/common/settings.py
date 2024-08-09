@@ -43,6 +43,7 @@ ERROR_CODE_TO_STRING = {
     "_NEED_AT_LEAST_ONE_ARRAY": "need at least one array to concatenate",
     "_TRAIN_SET_WILL_BE_EMPTY": "the resulting train set will be empty",
     "_CYCLE_NOT_CONSISTENT": "but does not consistent",
+    "_NO_PSM_FILES": "No psm files accumulated",
 }
 
 
@@ -97,7 +98,7 @@ class Pools:
     """
 
     # pool to limit file copying across all instruments
-    FILE_COPY_POOL = "file_copy_pool"  # suggested default: 2
+    FILE_COPY_POOL = "file_copy_pool"  # suggested default: 3
 
 
 class AlphaDiaConstants:

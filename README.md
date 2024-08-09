@@ -344,6 +344,7 @@ Note that currently, the docker version is recommended as the standalone version
 might not work as expected.
 
 ## Troubleshooting
+
 ### Problem: worker does not start
 
 A worker fails to start up with the error

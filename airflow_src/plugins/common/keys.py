@@ -7,6 +7,7 @@ class Dags:
     """Dag Names."""
 
     ACQUISITON_WATCHER: str = "acquisition_watcher"
+    FILE_HANDLER: str = "file_handler"
     ACQUISITON_HANDLER: str = "acquisition_handler"
 
 
@@ -16,6 +17,10 @@ class Tasks:
     WAIT_FOR_FILE_CREATION: str = "wait_for_file_creation"
     GET_UNKNOWN_RAW_FILES: str = "get_unknown_raw_files"
     DECIDE_HANDLING: str = "decide_handling"
+    START_FILE_HANDLER: str = "start_file_handler"
+
+    MONITOR_ACQUISITION: str = "monitor_acquisition"
+    COPY_RAW_FILES: str = "copy_raw_files"
     START_ACQUISITION_HANDLER: str = "start_acquisition_handler"
 
     PREPARE_QUANTING: str = "prepare_quanting"

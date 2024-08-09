@@ -158,7 +158,7 @@ def test_thermo_get_files_to_copy(
 @patch("plugins.raw_data_wrapper.get_internal_instrument_data_path")
 def test_zeno_get_files_to_copy(mock_instrument_path: MagicMock) -> None:
     """Test that get_files_to_copy returns the correct mapping for ZenoRawDataWrapper."""
-    mock_instrument_path.return_value.rglob.return_value = [
+    mock_instrument_path.return_value.glob.return_value = [
         Path("/path/to/instrument/sample.wiff"),
         Path("/path/to/instrument/sample.wiff.scan"),
     ]

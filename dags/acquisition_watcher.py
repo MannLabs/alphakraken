@@ -7,12 +7,19 @@ from datetime import timedelta
 
 import pendulum
 from airflow.models.dag import DAG
-from airflow.operators.bash import BashOperator
+from airflow.operators.python import PythonOperator
 from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 
-# TODO: find a better way, this is required to find the shared module in docker-compose
+# TODO: find a better way, this is required to unify module import between docker and bash
 sys.path.insert(0, "/opt/airflow/")
-from shared.keys import DAG_DELIMITER, Dags, Tasks
+from dags.impl.watcher_impl import wait_for_finished_acquisition
+from shared.keys import (
+    DAG_DELIMITER,
+    DagParams,
+    Dags,
+    OpArgs,
+    Tasks,
+)
 from shared.settings import INSTRUMENTS
 
 
@@ -35,18 +42,22 @@ def create_acquisition_watcher_dag(instrument_id: str) -> None:
     ) as dag:
         dag.doc_md = __doc__
 
-        wait_for_finished_acquisition = BashOperator(
+        wait_for_finished_acquisition_ = PythonOperator(
             task_id=Tasks.WAIT_FOR_FINISHED_ACQUISITION,
-            bash_command="sleep 120",
+            python_callable=wait_for_finished_acquisition,
+            op_kwargs={OpArgs.INSTRUMENT_ID: instrument_id},
         )
 
+        # IMPLEMENT: this needs to be generalized to be able to catch up on old files
+        # or: do the generalization in an upfront DAG
         start_acquisition_handler = TriggerDagRunOperator(
             task_id=Tasks.START_ACQUISITION_HANDLER,
             trigger_dag_id=f"{Dags.ACQUISITON_HANDLER}.{instrument_id}",
-            conf={"raw_file_name": "some_file.raw"},
+            # example how to pass parameters to the python callable
+            conf={DagParams.RAW_FILE_NAME: "some_file.raw"},
         )
 
-    wait_for_finished_acquisition >> start_acquisition_handler
+    wait_for_finished_acquisition_ >> start_acquisition_handler
 
 
 for instrument_id in INSTRUMENTS:

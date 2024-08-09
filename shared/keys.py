@@ -21,3 +21,28 @@ class Tasks:
     MONITOR_QUANTING: str = "monitor_quanting"
     COMPUTE_METRICS: str = "compute_metrics"
     UPLOAD_METRICS: str = "upload_metrics"
+
+
+class OpArgs:
+    """Keys for passing arguments to operators."""
+
+    INSTRUMENT_ID: str = "instrument_id"
+
+
+class DagContext:
+    """Keys for accessing context in DAGs."""
+
+    PARAMS: str = "params"
+
+
+class DagParams:
+    """Keys for accessing parameters in DAG context 'params'."""
+
+    # "params" level
+    RAW_FILE_NAME: str = "raw_file_name"
+
+
+class XComKeys:
+    """Keys for accessing XCom."""
+
+    RAW_FILE_NAME: str = "raw_file_name"

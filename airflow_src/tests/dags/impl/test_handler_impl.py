@@ -26,7 +26,7 @@ def test_copy_raw_file_calls_update_with_correct_args(
     """Test copy_raw_file calls update with correct arguments."""
     ti = MagicMock()
     kwargs = {
-        "params": {"raw_file_name": "test_file.raw"},
+        "params": {"raw_file_id": "test_file.raw"},
         "instrument_id": "test1",
     }
     mock_raw_file = MagicMock()
@@ -68,7 +68,7 @@ def test_start_acquisition_processor_with_single_file(
         ti,
         **{
             OpArgs.INSTRUMENT_ID: "instrument1",
-            DagContext.PARAMS: {DagParams.RAW_FILE_NAME: "file1.raw"},
+            DagContext.PARAMS: {DagParams.RAW_FILE_ID: "file1.raw"},
         },
     )
 
@@ -77,7 +77,7 @@ def test_start_acquisition_processor_with_single_file(
     for n, call_ in enumerate(mock_trigger_dag_run.call_args_list):
         assert call_.args[0] == ("acquisition_processor.instrument1")
         assert {
-            "raw_file_name": list(raw_file_names.keys())[n],
+            "raw_file_id": list(raw_file_names.keys())[n],
         } == call_.args[1]
     mock_update_raw_file.assert_called_once_with(
         "file1.raw", new_status=RawFileStatus.QUEUED_FOR_QUANTING

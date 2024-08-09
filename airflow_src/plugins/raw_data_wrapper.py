@@ -59,17 +59,18 @@ class RawDataWrapper(ABC):
         if raw_file is not None and raw_file_name is not None:
             raise ValueError("Only one of raw_file and raw_file_name must be given.")
 
-        raw_file_name_: str | None = None
+        raw_file_target_name_: str | None = None
         raw_file_original_name_: str | None = None
         year_month_subfolder_: str | None = None
 
         # this logic could be moved to a factory class
         if raw_file is not None:
-            raw_file_name_ = raw_file.name
+            raw_file_target_name_ = raw_file.id
             raw_file_original_name_ = raw_file.original_name
             year_month_subfolder_ = get_created_at_year_month(raw_file)
         elif raw_file_name is not None:
-            raw_file_name_ = raw_file_name
+            # TODO: separate this class into 3
+            raw_file_target_name_ = raw_file_name
             # Extracting the collision flag like this is a bit hacky,
             # but it makes the class work also without the raw_file object.
             raw_file_original_name_ = (
@@ -79,21 +80,21 @@ class RawDataWrapper(ABC):
             )
 
         if (
-            raw_file_name_ is not None
-            and (ext := Path(raw_file_name_).suffix) != self._main_file_extension
+            raw_file_target_name_ is not None
+            and (ext := Path(raw_file_target_name_).suffix) != self._main_file_extension
         ):
             raise ValueError(
                 f"Unsupported file extension: {ext}, expected {self._main_file_extension}"
             )
 
-        self._raw_file_name: str | None = raw_file_name_
+        self._raw_file_target_name: str | None = raw_file_target_name_
         self._raw_file_original_name: str | None = raw_file_original_name_
         self._year_month_subfolder: str | None = year_month_subfolder_
         self._instrument_path = get_internal_instrument_data_path(instrument_id)
         self._backup_path = get_internal_instrument_backup_path(instrument_id)
 
         logging.info(
-            f"Initialized with {self._raw_file_name=} {self._raw_file_original_name=} {self._year_month_subfolder} {self._instrument_path=} {self._backup_path=}"
+            f"Initialized with {self._raw_file_target_name=} {self._raw_file_original_name=} {self._year_month_subfolder} {self._instrument_path=} {self._backup_path=}"
         )
 
     @property
@@ -102,19 +103,18 @@ class RawDataWrapper(ABC):
         return self._instrument_path
 
     @abstractmethod
-    def _file_path_to_watch(self) -> Path:
+    def _file_path_to_monitor_acquisition(self) -> Path:
         """Get the path to the file to watch for changes."""
 
     @abstractmethod
     def _get_files_to_copy(self) -> dict[Path, Path]:
         """Get a dictionary mapping source file to destination paths (both absolute)."""
 
-    # TODO: file_path_to_watch_acquisition
-    def file_path_to_watch(self) -> Path:
+    def file_path_to_monitor_acquisition(self) -> Path:
         """Get the path to the file to watch for changes."""
-        file_path_to_watch = self._file_path_to_watch()
-        logging.info(f"{file_path_to_watch=}")
-        return file_path_to_watch
+        file_path_to_monitor_acquisition = self._file_path_to_monitor_acquisition()
+        logging.info(f"{file_path_to_monitor_acquisition=}")
+        return file_path_to_monitor_acquisition
 
     def get_files_to_copy(self) -> dict[Path, Path]:
         """Get a dictionary mapping source file to destination paths (both absolute)."""
@@ -136,7 +136,9 @@ class RawDataWrapper(ABC):
     def _get_destination_file_path(self, file_path: Path) -> Path:
         """Get destination file path by replacing the original file name with the raw file id in the given path."""
         return Path(
-            str(file_path).replace(self._raw_file_original_name, self._raw_file_name)
+            str(file_path).replace(
+                self._raw_file_original_name, self._raw_file_target_name
+            )
         )
 
 
@@ -145,14 +147,16 @@ class ThermoRawDataWrapper(RawDataWrapper):
 
     _main_file_extension = ".raw"
 
-    def _file_path_to_watch(self) -> Path:
+    def _file_path_to_monitor_acquisition(self) -> Path:
         """Get the (absolute) path to the raw file."""
         return self._instrument_path / self._raw_file_original_name
 
     def _get_files_to_copy(self) -> dict[Path, Path]:
         """Get the mapping of source to destination path (both absolute) for the raw file."""
         src_path = self._instrument_path / self._raw_file_original_name
-        dst_path = self._backup_path / self._year_month_subfolder / self._raw_file_name
+        dst_path = (
+            self._backup_path / self._year_month_subfolder / self._raw_file_target_name
+        )
 
         return {src_path: dst_path}
 
@@ -162,7 +166,7 @@ class ZenoRawDataWrapper(RawDataWrapper):
 
     _main_file_extension = ".wiff"
 
-    def _file_path_to_watch(self) -> Path:
+    def _file_path_to_monitor_acquisition(self) -> Path:
         """Get the (absolute) path to the raw file."""
         return self._instrument_path / self._raw_file_original_name
 
@@ -189,7 +193,7 @@ class BrukerRawDataWrapper(RawDataWrapper):
     _main_file_extension = ".d"
     _file_name_to_watch = "analysis.tdf_bin"
 
-    def _file_path_to_watch(self) -> Path:
+    def _file_path_to_monitor_acquisition(self) -> Path:
         """Get the (absolute) path to the main raw data file."""
         return (
             self._instrument_path

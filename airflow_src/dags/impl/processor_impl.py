@@ -9,7 +9,7 @@ from random import random
 from airflow.exceptions import AirflowFailException
 from airflow.models import TaskInstance
 from cluster_scripts.slurm_commands import (
-    check_job_status_cmd,
+    check_quanting_result_cmd,
     get_job_state_cmd,
     get_run_quanting_cmd,
 )
@@ -52,10 +52,10 @@ def _get_project_id_or_fallback(project_id: str | None, instrument_id: str) -> s
 
 def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
     """Prepare the environmental variables for the quanting job."""
-    raw_file_name = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_NAME]
+    raw_file_id = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID]
     instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
 
-    raw_file = get_raw_file_by_id(raw_file_name)
+    raw_file = get_raw_file_by_id(raw_file_id)
 
     io_pool_folder = get_env_variable(EnvVars.IO_POOL_FOLDER)
     year_month_subfolder = get_created_at_year_month(raw_file)
@@ -66,10 +66,14 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
         / year_month_subfolder
     )
 
-    project_id = _get_project_id_or_fallback(raw_file.project_id, instrument_id)
+    project_id_or_fallback = _get_project_id_or_fallback(
+        raw_file.project_id, instrument_id
+    )
 
-    output_folder_rel_path = get_output_folder_rel_path(raw_file, project_id)
-    settings = get_settings_for_project(project_id)
+    output_folder_rel_path = get_output_folder_rel_path(
+        raw_file, project_id_or_fallback
+    )
+    settings = get_settings_for_project(project_id_or_fallback)
 
     # TODO: remove random speclib file hack
     # this is so hacky it makes my head hurt:
@@ -81,20 +85,20 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
     io_pool_folder = get_env_variable(EnvVars.IO_POOL_FOLDER)
 
     quanting_env = {
-        QuantingEnv.RAW_FILE_NAME: raw_file_name,
+        QuantingEnv.RAW_FILE_ID: raw_file_id,
         QuantingEnv.INPUT_DATA_REL_PATH: str(input_data_rel_path),
         QuantingEnv.OUTPUT_FOLDER_REL_PATH: str(output_folder_rel_path),
         QuantingEnv.SPECLIB_FILE_NAME: speclib_file_name,
         QuantingEnv.FASTA_FILE_NAME: settings.fasta_file_name,
         QuantingEnv.CONFIG_FILE_NAME: settings.config_file_name,
         QuantingEnv.SOFTWARE: settings.software,
-        QuantingEnv.PROJECT_ID: project_id,  # TODO: OR_FALLBACK
+        QuantingEnv.PROJECT_ID_OR_FALLBACK: project_id_or_fallback,
         QuantingEnv.IO_POOL_FOLDER: io_pool_folder,
     }
 
     put_xcom(ti, XComKeys.QUANTING_ENV, quanting_env)
     # this is redundant to the entry in QUANTING_ENV, but makes downstream access a bit more convenient
-    put_xcom(ti, XComKeys.RAW_FILE_NAME, raw_file_name)
+    put_xcom(ti, XComKeys.RAW_FILE_ID, raw_file_id)
 
 
 def _create_export_command(mapping: dict[str, str]) -> str:
@@ -115,12 +119,12 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
         logging.warning(f"Job already started with {job_id}, skipping.")
         return
 
-    raw_file = get_raw_file_by_id(quanting_env[QuantingEnv.RAW_FILE_NAME])
+    raw_file = get_raw_file_by_id(quanting_env[QuantingEnv.RAW_FILE_ID])
 
     # upfront check 2
     output_path = get_internal_output_path(
         raw_file,
-        project_id_or_fallback=quanting_env[QuantingEnv.PROJECT_ID],
+        project_id_or_fallback=quanting_env[QuantingEnv.PROJECT_ID_OR_FALLBACK],
     )
     if Path(output_path).exists():
         msg = f"Output path {output_path} already exists."
@@ -146,7 +150,7 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
         raise AirflowFailException from e
 
     update_raw_file(
-        quanting_env[QuantingEnv.RAW_FILE_NAME], new_status=RawFileStatus.QUANTING
+        quanting_env[QuantingEnv.RAW_FILE_ID], new_status=RawFileStatus.QUANTING
     )
 
     put_xcom(ti, XComKeys.JOB_ID, job_id)
@@ -171,7 +175,7 @@ def get_business_errors(raw_file: RawFile, project_id: str) -> list[str]:
     output_path = get_internal_output_path(raw_file, project_id)
 
     events_jsonl_path = (
-        output_path / ".progress" / Path(raw_file.name).stem / "events.jsonl"
+        output_path / ".progress" / Path(raw_file.id).stem / "events.jsonl"
     )
 
     error_codes = []
@@ -182,7 +186,7 @@ def get_business_errors(raw_file: RawFile, project_id: str) -> list[str]:
     return error_codes
 
 
-def check_job_status(ti: TaskInstance, **kwargs) -> bool:
+def check_quanting_result(ti: TaskInstance, **kwargs) -> bool:
     """Get info (slurm log, alphaDIA log) about a job from the cluster.
 
     Return False in case downstream tasks should be skipped, True otherwise.
@@ -193,7 +197,9 @@ def check_job_status(ti: TaskInstance, **kwargs) -> bool:
     # the wildcard here is a bit of a hack to avoid retrieving the year_month
     # subfolder here .. should be no problem if job_ids are unique
     slurm_output_file = f"{CLUSTER_WORKING_DIR}/*/slurm-{job_id}.out"
-    cmd = check_job_status_cmd(job_id, slurm_output_file) + get_job_state_cmd(job_id)
+    cmd = check_quanting_result_cmd(job_id, slurm_output_file) + get_job_state_cmd(
+        job_id
+    )
     ssh_return = SSHSensorOperator.ssh_execute(cmd, ssh_hook)
 
     time_elapsed = _get_time_elapsed(ssh_return)
@@ -207,12 +213,12 @@ def check_job_status(ti: TaskInstance, **kwargs) -> bool:
 
     if job_status == JobStates.FAILED:
         quanting_env = get_xcom(ti, XComKeys.QUANTING_ENV)
-        project_id = quanting_env[QuantingEnv.PROJECT_ID]
-        raw_file = get_raw_file_by_id(quanting_env[QuantingEnv.RAW_FILE_NAME])
+        project_id = quanting_env[QuantingEnv.PROJECT_ID_OR_FALLBACK]
+        raw_file = get_raw_file_by_id(quanting_env[QuantingEnv.RAW_FILE_ID])
 
         if len(business_errors := get_business_errors(raw_file, project_id)):
             update_raw_file(
-                raw_file.name,
+                raw_file.id,
                 new_status=RawFileStatus.QUANTING_FAILED,
                 status_details=";".join(business_errors),
             )
@@ -237,10 +243,10 @@ def compute_metrics(ti: TaskInstance, **kwargs) -> None:
 
     quanting_env = get_xcom(ti, XComKeys.QUANTING_ENV)
 
-    raw_file = get_raw_file_by_id(quanting_env[QuantingEnv.RAW_FILE_NAME])
+    raw_file = get_raw_file_by_id(quanting_env[QuantingEnv.RAW_FILE_ID])
 
     output_path = get_internal_output_path(
-        raw_file, quanting_env[QuantingEnv.PROJECT_ID]
+        raw_file, quanting_env[QuantingEnv.PROJECT_ID_OR_FALLBACK]
     )
     metrics = calc_metrics(output_path)
 
@@ -251,11 +257,11 @@ def upload_metrics(ti: TaskInstance, **kwargs) -> None:
     """Upload the metrics to the database."""
     del kwargs
 
-    raw_file_name = get_xcom(ti, XComKeys.RAW_FILE_NAME)
+    raw_file_id = get_xcom(ti, XComKeys.RAW_FILE_ID)
     metrics = get_xcom(ti, XComKeys.METRICS)
 
     metrics["quanting_time_elapsed"] = get_xcom(ti, XComKeys.QUANTING_TIME_ELAPSED)
 
-    add_metrics_to_raw_file(raw_file_name, metrics)
+    add_metrics_to_raw_file(raw_file_id, metrics)
 
-    update_raw_file(raw_file_name, new_status=RawFileStatus.DONE)
+    update_raw_file(raw_file_id, new_status=RawFileStatus.DONE)

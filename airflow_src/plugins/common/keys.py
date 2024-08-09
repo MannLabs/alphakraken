@@ -14,7 +14,7 @@ class Dags:
 class Tasks:
     """Task Names."""
 
-    WAIT_FOR_FILE_CREATION: str = "wait_for_file_creation"
+    WAIT_FOR_RAW_FILE_CREATION: str = "wait_for_raw_file_creation"
     GET_UNKNOWN_RAW_FILES: str = "get_unknown_raw_files"
     DECIDE_HANDLING: str = "decide_handling"
     START_ACQUISITION_HANDLER: str = "start_acquisition_handler"
@@ -26,7 +26,7 @@ class Tasks:
     PREPARE_QUANTING: str = "prepare_quanting"
     RUN_QUANTING: str = "run_quanting"
     MONITOR_QUANTING: str = "monitor_quanting"
-    CHECK_JOB_STATUS: str = "check_job_status"
+    CHECK_QUANTING_RESULT: str = "check_quanting_result"
     COMPUTE_METRICS: str = "compute_metrics"
     UPLOAD_METRICS: str = "upload_metrics"
 
@@ -49,15 +49,15 @@ class DagParams:
     """Keys for accessing parameters in DAG context 'params'."""
 
     # "params" level
-    RAW_FILE_NAME: str = "raw_file_name"
+    RAW_FILE_ID: str = "raw_file_id"
 
 
 class XComKeys:
     """Keys for accessing XCom."""
 
-    RAW_FILE_NAME: str = "raw_file_name"
-    RAW_FILE_NAMES: str = "raw_file_names"
-    RAW_FILE_PROJECT_IDS: str = "raw_file_project_ids"
+    RAW_FILE_ID: str = "raw_file_id"
+    RAW_FILE_NAMES_TO_PROCESS: str = "raw_file_names_to_process"
+    RAW_FILE_NAMES_WITH_DECISIONS: str = "raw_file_names_with_decisions"
 
     QUANTING_ENV: str = "quanting_env"
 
@@ -97,7 +97,7 @@ class AirflowVars:
 class QuantingEnv:
     """Keys for setting quanting environment variables for the slurm submit script."""
 
-    RAW_FILE_NAME = "RAW_FILE_NAME"
+    RAW_FILE_ID = "RAW_FILE_ID"
     INPUT_DATA_REL_PATH = "INPUT_DATA_REL_PATH"
     OUTPUT_FOLDER_REL_PATH = "OUTPUT_FOLDER_REL_PATH"
     SPECLIB_FILE_NAME = "SPECLIB_FILE_NAME"
@@ -105,7 +105,7 @@ class QuantingEnv:
     FASTA_FILE_NAME = "FASTA_FILE_NAME"
     CONFIG_FILE_NAME = "CONFIG_FILE_NAME"
     SOFTWARE = "SOFTWARE"
-    PROJECT_ID = "PROJECT_ID"
+    PROJECT_ID_OR_FALLBACK = "PROJECT_ID_OR_FALLBACK"
     IO_POOL_FOLDER = "IO_POOL_FOLDER"
 
 

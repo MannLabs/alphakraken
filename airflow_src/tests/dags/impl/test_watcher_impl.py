@@ -56,7 +56,7 @@ def test_add_raw_file_to_db(
 
 
 @patch("dags.impl.watcher_impl.RawDataWrapper")
-@patch("dags.impl.watcher_impl.get_raw_file_names_from_db")
+@patch("dags.impl.watcher_impl.get_raw_files_by_names_from_db")
 @patch("dags.impl.watcher_impl._is_collision")
 @patch("dags.impl.watcher_impl._sort_by_creation_date")
 @patch("dags.impl.watcher_impl.put_xcom")
@@ -73,7 +73,7 @@ def test_get_unknown_raw_files_with_existing_files_in_db(
         "file2.raw",
         "file3.raw",
     }
-    mock_raw_data_wrapper.create.return_value.file_path_to_watch.side_effect = [
+    mock_raw_data_wrapper.create.return_value.file_path_to_monitor_acquisition.side_effect = [
         Path("/path/to/file1.raw"),
         Path("/path/to/file2.raw"),
     ]
@@ -91,7 +91,7 @@ def test_get_unknown_raw_files_with_existing_files_in_db(
     get_unknown_raw_files(ti, **{OpArgs.INSTRUMENT_ID: SOME_INSTRUMENT_ID})
 
     mock_put_xcom.assert_called_once_with(
-        ti, XComKeys.RAW_FILE_NAMES, {"file3.raw": False, "file2.raw": True}
+        ti, XComKeys.RAW_FILE_NAMES_TO_PROCESS, {"file3.raw": False, "file2.raw": True}
     )
     mock_sort.assert_called_once_with(["file2.raw", "file3.raw"], "some_instrument_id")
     mock_is_collision.assert_has_calls(
@@ -166,7 +166,7 @@ def test_sort_by_creation_date_multiple_files(
 
 
 @patch("dags.impl.watcher_impl.RawDataWrapper")
-@patch("dags.impl.watcher_impl.get_raw_file_names_from_db")
+@patch("dags.impl.watcher_impl.get_raw_files_by_names_from_db")
 @patch("dags.impl.watcher_impl._sort_by_creation_date")
 @patch("dags.impl.watcher_impl.put_xcom")
 def test_get_unknown_raw_files_with_no_existing_files_in_db(
@@ -191,7 +191,7 @@ def test_get_unknown_raw_files_with_no_existing_files_in_db(
 
     mock_put_xcom.assert_called_once_with(
         ti,
-        XComKeys.RAW_FILE_NAMES,
+        XComKeys.RAW_FILE_NAMES_TO_PROCESS,
         {"file3.raw": False, "file2.raw": False, "file1.raw": False},
     )
     mock_sort.assert_called_once_with(
@@ -200,7 +200,7 @@ def test_get_unknown_raw_files_with_no_existing_files_in_db(
 
 
 @patch("dags.impl.watcher_impl.RawDataWrapper")
-@patch("dags.impl.watcher_impl.get_raw_file_names_from_db")
+@patch("dags.impl.watcher_impl.get_raw_files_by_names_from_db")
 @patch("dags.impl.watcher_impl.put_xcom")
 def test_get_unknown_raw_files_with_empty_directory(
     mock_put_xcom: MagicMock,
@@ -215,7 +215,7 @@ def test_get_unknown_raw_files_with_empty_directory(
     get_unknown_raw_files(ti, **{OpArgs.INSTRUMENT_ID: SOME_INSTRUMENT_ID})
 
     mock_get_unknown_raw_files_from_db.assert_called_once_with([])
-    mock_put_xcom.assert_called_once_with(ti, XComKeys.RAW_FILE_NAMES, {})
+    mock_put_xcom.assert_called_once_with(ti, XComKeys.RAW_FILE_NAMES_TO_PROCESS, {})
 
 
 @patch("dags.impl.watcher_impl.get_all_project_ids")
@@ -240,14 +240,14 @@ def test_decide_raw_file_handling(
     # when
     decide_raw_file_handling(mock_ti, instrument_id="instrument1")
 
-    mock_get_xcom.assert_called_once_with(mock_ti, "raw_file_names")
+    mock_get_xcom.assert_called_once_with(mock_ti, "raw_file_names_to_process")
     mock_get_project_ids.assert_called_once()
     mock_get_unique.assert_any_call("file1", ["project1", "project2"])
     mock_get_unique.assert_any_call("file2", ["project1", "project2"])
     mock_get_unique.assert_any_call("file3", ["project1", "project2"])
     mock_put.assert_called_once_with(
         mock_ti,
-        "raw_file_project_ids",
+        "raw_file_names_with_decisions",
         {
             "file1": (None, True, ""),
             "file2": ("project1", True, ""),
@@ -364,7 +364,7 @@ def test_start_acquisition_handler_with_single_file(
     for n, call_ in enumerate(mock_trigger_dag_run.call_args_list):
         assert call_.args[0] == ("acquisition_handler.instrument1")
         assert {
-            "raw_file_name": f"123---{list(raw_file_names.keys())[n]}",
+            "raw_file_id": f"123---{list(raw_file_names.keys())[n]}",
         } == call_.args[1]
 
     mock_add_raw_file_to_db.assert_called_once_with(
@@ -402,7 +402,7 @@ def test_start_acquisition_handler_with_multiple_files(  # Too many arguments
     for n, call_ in enumerate(mock_trigger_dag_run.call_args_list):
         assert call_.args[0] == ("acquisition_handler.instrument1")
         assert {
-            "raw_file_name": list(raw_file_names.keys())[n],
+            "raw_file_id": list(raw_file_names.keys())[n],
         } == call_.args[1]
 
     mock_add_raw_file_to_db.assert_has_calls(

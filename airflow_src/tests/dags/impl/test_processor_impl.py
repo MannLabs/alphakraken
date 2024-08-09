@@ -11,7 +11,7 @@ from airflow.exceptions import AirflowFailException
 from common.settings import INSTRUMENTS
 from dags.impl.processor_impl import (
     _get_project_id_or_fallback,
-    check_job_status,
+    check_quanting_result,
     compute_metrics,
     get_business_errors,
     prepare_quanting,
@@ -78,10 +78,10 @@ def test_prepare_quanting(
 
     mock_raw_file = MagicMock(
         wraps=RawFile,
+        id="test_file.raw",
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
         project_id="some_project_id",
     )
-    mock_raw_file.name = "test_file.raw"
     mock_get_raw_file_by_id.return_value = mock_raw_file
 
     mock_get_project_id_for_raw_file.return_value = "some_project_id"
@@ -96,7 +96,7 @@ def test_prepare_quanting(
     kwargs = {
         OpArgs.INSTRUMENT_ID: "instrument1",
         DagContext.PARAMS: {
-            DagParams.RAW_FILE_NAME: "test_file.raw",
+            DagParams.RAW_FILE_ID: "test_file.raw",
         },
     }
 
@@ -108,22 +108,23 @@ def test_prepare_quanting(
     )
     mock_get_settings.assert_called_once_with("some_project_id")
 
+    # when you adapt something here, don't forget to adapt also the submit_job.sh script
     expected_quanting_env = {
-        "RAW_FILE_NAME": "test_file.raw",
+        "RAW_FILE_ID": "test_file.raw",
         "INPUT_DATA_REL_PATH": "some_io_pool_folder/backup/instrument1/1970_01",
         "OUTPUT_FOLDER_REL_PATH": "output/some_project_id/out_test_file.raw",
         "SPECLIB_FILE_NAME": "4_some_speclib_file_name",
         "FASTA_FILE_NAME": "some_fasta_file_name",
         "CONFIG_FILE_NAME": "some_config_file_name",
         "SOFTWARE": "some_software",
-        "PROJECT_ID": "some_project_id",
+        "PROJECT_ID_OR_FALLBACK": "some_project_id",
         "IO_POOL_FOLDER": "some_io_pool_folder",
     }
 
     mock_put_xcom.assert_has_calls(
         [
             call(ti, "quanting_env", expected_quanting_env),
-            call(ti, "raw_file_name", "test_file.raw"),
+            call(ti, "raw_file_id", "test_file.raw"),
         ]
     )
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
@@ -146,8 +147,8 @@ def test_run_quanting_executes_ssh_command_and_stores_job_id(
     # given
     mock_get_xcom.side_effect = [
         {
-            QuantingEnv.RAW_FILE_NAME: "test_file.raw",
-            QuantingEnv.PROJECT_ID: "PID123",
+            QuantingEnv.RAW_FILE_ID: "test_file.raw",
+            QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID123",
             # rest of quanting_env is left out here for brevity
         },
         -1,
@@ -170,7 +171,7 @@ def test_run_quanting_executes_ssh_command_and_stores_job_id(
 
     # then
     expected_export_command = (
-        "export RAW_FILE_NAME=test_file.raw\n" "export PROJECT_ID=PID123\n"
+        "export RAW_FILE_ID=test_file.raw\n" "export PROJECT_ID_OR_FALLBACK=PID123\n"
         # rest of quanting_env is left out here for brevity
     )
 
@@ -199,8 +200,8 @@ def test_run_quanting_job_id_exists(
     # given
     mock_get_xcom.side_effect = [
         {
-            QuantingEnv.RAW_FILE_NAME: "test_file.raw",
-            QuantingEnv.PROJECT_ID: "PID123",
+            QuantingEnv.RAW_FILE_ID: "test_file.raw",
+            QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID123",
             # rest of quanting_env is left out here for brevity
         },
         12345,
@@ -233,8 +234,8 @@ def test_run_quanting_output_folder_exists(
     # given
     mock_get_xcom.side_effect = [
         {
-            QuantingEnv.RAW_FILE_NAME: "test_file.raw",
-            QuantingEnv.PROJECT_ID: "PID123",
+            QuantingEnv.RAW_FILE_ID: "test_file.raw",
+            QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID123",
             # rest of quanting_env is left out here for brevity
         },
         -1,
@@ -269,8 +270,8 @@ def test_run_quanting_executes_ssh_command_error_wrong_job_id(
     # given
     mock_get_xcom.side_effect = [
         {
-            QuantingEnv.RAW_FILE_NAME: "test_file.raw",
-            QuantingEnv.PROJECT_ID: "PID123",
+            QuantingEnv.RAW_FILE_ID: "test_file.raw",
+            QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID123",
         },
         -1,
     ]
@@ -289,10 +290,10 @@ def test_run_quanting_executes_ssh_command_error_wrong_job_id(
 @patch("dags.impl.processor_impl.get_xcom")
 @patch("dags.impl.processor_impl.SSHSensorOperator.ssh_execute")
 @patch("dags.impl.processor_impl.put_xcom")
-def test_check_job_status_happy_path(
+def test_check_quanting_result_happy_path(
     mock_put_xcom: MagicMock, mock_ssh_execute: MagicMock, mock_get_xcom: MagicMock
 ) -> None:
-    """Test that check_job_status makes the expected calls."""
+    """Test that check_quanting_result makes the expected calls."""
     mock_ti = MagicMock()
     mock_get_xcom.return_value = "12345"
     mock_ssh_execute.return_value = (
@@ -302,7 +303,7 @@ def test_check_job_status_happy_path(
     mock_ssh_hook = MagicMock()
 
     # when
-    continue_downstream_tasks = check_job_status(
+    continue_downstream_tasks = check_quanting_result(
         mock_ti, **{OpArgs.SSH_HOOK: mock_ssh_hook}
     )
 
@@ -318,10 +319,10 @@ def test_check_job_status_happy_path(
 
 @patch("dags.impl.processor_impl.get_xcom")
 @patch("dags.impl.processor_impl.SSHSensorOperator.ssh_execute")
-def test_check_job_status_unknown_job_status(
+def test_check_quanting_result_unknown_job_status(
     mock_ssh_execute: MagicMock, mock_get_xcom: MagicMock
 ) -> None:
-    """Test that check_job_status raises on unknown quanting job status."""
+    """Test that check_quanting_result raises on unknown quanting job status."""
     mock_ti = MagicMock()
     mock_get_xcom.return_value = "12345"
     mock_ssh_execute.return_value = "00:08:42\nsome\nother\nlines\nSOME_JOB_STATE"
@@ -330,7 +331,7 @@ def test_check_job_status_unknown_job_status(
 
     # when
     with pytest.raises(AirflowFailException):
-        check_job_status(mock_ti, **{OpArgs.SSH_HOOK: mock_ssh_hook})
+        check_quanting_result(mock_ti, **{OpArgs.SSH_HOOK: mock_ssh_hook})
 
 
 @patch("dags.impl.processor_impl.get_xcom")
@@ -338,24 +339,23 @@ def test_check_job_status_unknown_job_status(
 @patch("dags.impl.processor_impl.SSHSensorOperator.ssh_execute")
 @patch("dags.impl.processor_impl.get_business_errors")
 @patch("dags.impl.processor_impl.update_raw_file")
-def test_check_job_status_business_error(
+def test_check_quanting_result_business_error(
     mock_update_raw_file: MagicMock,
     mock_get_business_errors: MagicMock,
     mock_ssh_execute: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
     mock_get_xcom: MagicMock,
 ) -> None:
-    """Test that check_job_status behaves correctly on business errors."""
+    """Test that check_quanting_result behaves correctly on business errors."""
     mock_ti = MagicMock()
     mock_get_xcom.side_effect = [
         "12345",
         {
-            QuantingEnv.RAW_FILE_NAME: "test_file.raw",
-            QuantingEnv.PROJECT_ID: "PID1",
+            QuantingEnv.RAW_FILE_ID: "test_file.raw",
+            QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID1",
         },
     ]
-    mock_raw_file = MagicMock(wraps=RawFile)
-    mock_raw_file.name = "test_file.raw"
+    mock_raw_file = MagicMock(wraps=RawFile, id="test_file.raw")
     mock_get_raw_file_by_id.return_value = mock_raw_file
     mock_ssh_execute.return_value = "00:08:42\nsome\nother\nlines\nFAILED"
     mock_get_business_errors.return_value = ["error1", "error2"]
@@ -363,7 +363,7 @@ def test_check_job_status_business_error(
     mock_ssh_hook = MagicMock()
 
     # when
-    continue_downstream_tasks = check_job_status(
+    continue_downstream_tasks = check_quanting_result(
         mock_ti, **{OpArgs.SSH_HOOK: mock_ssh_hook}
     )
     assert not continue_downstream_tasks
@@ -382,20 +382,20 @@ def test_check_job_status_business_error(
 @patch("dags.impl.processor_impl.SSHSensorOperator.ssh_execute")
 @patch("dags.impl.processor_impl.get_business_errors")
 @patch("dags.impl.processor_impl.update_raw_file")
-def test_check_job_status_non_business_error(
+def test_check_quanting_result_non_business_error(
     mock_update_raw_file: MagicMock,
     mock_get_business_errors: MagicMock,
     mock_ssh_execute: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
     mock_get_xcom: MagicMock,
 ) -> None:
-    """Test that check_job_status behaves correctly on non-business errors."""
+    """Test that check_quanting_result behaves correctly on non-business errors."""
     mock_ti = MagicMock()
     mock_get_xcom.side_effect = [
         "12345",
         {
-            QuantingEnv.RAW_FILE_NAME: "test_file.raw",
-            QuantingEnv.PROJECT_ID: "PID1",
+            QuantingEnv.RAW_FILE_ID: "test_file.raw",
+            QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID1",
         },
     ]
     mock_ssh_execute.return_value = "00:08:42\nsome\nother\nlines\nFAILED"
@@ -405,7 +405,7 @@ def test_check_job_status_non_business_error(
 
     # when
     with pytest.raises(AirflowFailException):
-        check_job_status(mock_ti, **{OpArgs.SSH_HOOK: mock_ssh_hook})
+        check_quanting_result(mock_ti, **{OpArgs.SSH_HOOK: mock_ssh_hook})
 
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
     mock_get_business_errors.assert_called_once_with(
@@ -476,14 +476,14 @@ def test_compute_metrics(
     """Test that compute_metrics makes the expected calls."""
     mock_ti = MagicMock()
     mock_get_xcom.return_value = {
-        "RAW_FILE_NAME": "test_file.raw",
-        "PROJECT_ID": "P1",
+        "RAW_FILE_ID": "test_file.raw",
+        "PROJECT_ID_OR_FALLBACK": "P1",
     }
     mock_raw_file = MagicMock(
         wraps=RawFile,
+        id="test_file.raw",
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
     )
-    mock_raw_file.name = "test_file.raw"
     mock_get_raw_file_by_id.return_value = mock_raw_file
 
     mock_calc_metrics.return_value = {"metric1": "value1"}
@@ -509,12 +509,12 @@ def test_upload_metrics(
     mock_get_xcom: MagicMock,
 ) -> None:
     """Test that compute_metrics makes the expected calls."""
-    mock_get_xcom.side_effect = ["raw_file_name", {"metric1": "value1"}, 123]
+    mock_get_xcom.side_effect = ["some_file.raw", {"metric1": "value1"}, 123]
 
     # when
     upload_metrics(MagicMock())
 
     mock_add.assert_called_once_with(
-        "raw_file_name", {"metric1": "value1", "quanting_time_elapsed": 123}
+        "some_file.raw", {"metric1": "value1", "quanting_time_elapsed": 123}
     )
-    mock_update.assert_called_once_with("raw_file_name", new_status=RawFileStatus.DONE)
+    mock_update.assert_called_once_with("some_file.raw", new_status=RawFileStatus.DONE)

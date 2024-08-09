@@ -4,11 +4,13 @@ from __future__ import annotations
 
 from datetime import timedelta
 
+from airflow.models import Param
 from airflow.models.dag import DAG
 from airflow.operators.python import PythonOperator
 from callbacks import on_failure_callback
 from common.keys import (
     DAG_DELIMITER,
+    DagParams,
     Dags,
     OpArgs,
     Tasks,
@@ -46,6 +48,7 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
         description="Watch acquisition, handle raw files and trigger follow-up DAGs on demand.",
         catchup=False,
         tags=["acquisition_handler", instrument_id],
+        params={DagParams.RAW_FILE_ID: Param(type="string", minimum=3)},
     ) as dag:
         dag.doc_md = __doc__
 
@@ -53,7 +56,7 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
             task_id=Tasks.MONITOR_ACQUISITION,
             instrument_id=instrument_id,
             poke_interval=Timings.ACQUISITION_MONITOR_POKE_INTERVAL_S,
-            max_active_tis_per_dag=Concurrency.MAX_MONITOR_ACQUISITION_TASKS_PER_DAG,
+            max_active_tis_per_dag=Concurrency.MAXNO_MONITOR_ACQUISITION_TASKS_PER_DAG,
             execution_timeout=timedelta(minutes=Timings.ACQUISITION_MONITOR_TIMEOUT_M),
         )
 
@@ -61,8 +64,8 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
             task_id=Tasks.COPY_RAW_FILE,
             python_callable=copy_raw_file,
             op_kwargs={OpArgs.INSTRUMENT_ID: instrument_id},
-            max_active_tis_per_dag=Concurrency.MAX_ACTIVE_COPY_TASKS_PER_DAG,
-            execution_timeout=timedelta(minutes=Timings.FILE_COPY_TIMEOUT_M),
+            max_active_tis_per_dag=Concurrency.MAXNO_COPY_RAW_FILE_TASKS_PER_DAG,
+            execution_timeout=timedelta(minutes=Timings.RAW_DATA_COPY_TASK_TIMEOUT_M),
             pool=Pools.FILE_COPY_POOL,
         )
 

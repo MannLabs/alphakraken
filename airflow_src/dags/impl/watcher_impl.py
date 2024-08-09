@@ -17,7 +17,7 @@ from raw_data_wrapper import RawDataWrapper
 from shared.db.interface import (
     add_new_raw_file_to_db,
     get_all_project_ids,
-    get_raw_file_names_from_db,
+    get_raw_files_by_names_from_db,
 )
 from shared.db.models import RawFileStatus
 
@@ -32,8 +32,8 @@ def _add_raw_file_to_db(
 ) -> str:
     """Add the file to the database with initial status and basic information.
 
-    :param raw_file_name: raw file name
-    :param collision_flag: flag to resolve collisions
+    :param raw_file_name: name of the raw file
+    :param is_collision: wheter or not there is a collision between raw file names
     :param project_id: project id
     :param instrument_id: instrument id
     :param status: status of the file
@@ -87,25 +87,26 @@ def get_unknown_raw_files(ti: TaskInstance, **kwargs) -> None:
         f"{len(raw_file_names)} raw files to be checked against DB: {raw_file_names}"
     )
 
-    raw_files_sizes_from_db: dict[str, list[int]] = defaultdict(list)
-    for raw_file in get_raw_file_names_from_db(list(raw_file_names)):
+    raw_files_names_to_sizes_from_db: dict[str, list[int]] = defaultdict(list)
+    for raw_file in get_raw_files_by_names_from_db(list(raw_file_names)):
         # due to collisions, there could be more than one raw file with the same name
-        raw_files_sizes_from_db[raw_file.original_name].append(raw_file.size)
-    logging.info(f"got {raw_files_sizes_from_db=}")
+        raw_files_names_to_sizes_from_db[raw_file.original_name].append(raw_file.size)
+    logging.info(f"got {raw_files_names_to_sizes_from_db=}")
 
-    raw_files_to_process: dict[str, bool] = {}
+    raw_file_names_to_process: dict[str, bool] = {}
     for raw_file_name in raw_file_names:
         is_collision = False
 
-        if raw_file_name in raw_files_sizes_from_db:
+        if raw_file_name in raw_files_names_to_sizes_from_db:
             logging.info(
                 f"File in DB: {raw_file_name}, checking for potential collision.."
             )
-            file_path_to_watch = RawDataWrapper.create(
+            file_path_to_monitor_acquisition = RawDataWrapper.create(
                 instrument_id=instrument_id, raw_file_name=raw_file_name
-            ).file_path_to_watch()
+            ).file_path_to_monitor_acquisition()
             is_collision = _is_collision(
-                file_path_to_watch, raw_files_sizes_from_db[raw_file_name]
+                file_path_to_monitor_acquisition,
+                raw_files_names_to_sizes_from_db[raw_file_name],
             )
             if not is_collision:
                 logging.info(
@@ -113,23 +114,23 @@ def get_unknown_raw_files(ti: TaskInstance, **kwargs) -> None:
                 )
                 continue
 
-        raw_files_to_process[raw_file_name] = is_collision
+        raw_file_names_to_process[raw_file_name] = is_collision
 
     logging.info(
-        f"{len(raw_files_to_process)} raw files left after DB check: {raw_files_to_process}"
+        f"{len(raw_file_names_to_process)} raw files left after DB check: {raw_file_names_to_process}"
     )
 
     raw_file_names_sorted = _sort_by_creation_date(
-        list(raw_files_to_process.keys()), instrument_id
+        list(raw_file_names_to_process.keys()), instrument_id
     )
     raw_files_to_process_sorted = {
-        r: raw_files_to_process[r] for r in raw_file_names_sorted
+        r: raw_file_names_to_process[r] for r in raw_file_names_sorted
     }
 
-    put_xcom(ti, XComKeys.RAW_FILE_NAMES, raw_files_to_process_sorted)
+    put_xcom(ti, XComKeys.RAW_FILE_NAMES_TO_PROCESS, raw_files_to_process_sorted)
 
 
-def _is_collision(file_path_to_watch: Path, sizes: list[int]) -> bool:
+def _is_collision(file_path_to_monitor_acquisition: Path, sizes: list[int]) -> bool:
     """Detect a collision between a raw file and a file in the database.
 
     Returns False if there's no collision or decision not possible, otherwise True.
@@ -143,11 +144,11 @@ def _is_collision(file_path_to_watch: Path, sizes: list[int]) -> bool:
 
     logging.info(f"All files in DB are fixed, checking size against {sizes=}")
 
-    if not file_path_to_watch.exists():
+    if not file_path_to_monitor_acquisition.exists():
         logging.info("Main file does not exist yet.")
         return False
 
-    current_size = get_file_size(file_path_to_watch)
+    current_size = get_file_size(file_path_to_monitor_acquisition)
     if any(current_size == size for size in sizes):
         logging.info(
             f"At least one file size match: {current_size=} {sizes=}. Assuming it's the same file, no collision."
@@ -171,16 +172,16 @@ def _sort_by_creation_date(raw_file_names: list[str], instrument_id: str) -> lis
 def decide_raw_file_handling(ti: TaskInstance, **kwargs) -> None:
     """Decide for each raw file whether an acquisition handler should be triggered or not."""
     instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
-    raw_files_to_process = get_xcom(ti, XComKeys.RAW_FILE_NAMES)
+    raw_file_names_to_process = get_xcom(ti, XComKeys.RAW_FILE_NAMES_TO_PROCESS)
 
     logging.info(
-        f"{len(raw_files_to_process)} raw files to be checked on project id: {raw_files_to_process}"
+        f"{len(raw_file_names_to_process)} raw files to be checked on project id: {raw_file_names_to_process}"
     )
 
     all_project_ids = get_all_project_ids()
 
-    raw_file_project_ids: dict[str, tuple[str, bool, str | None]] = {}
-    for raw_file_name, is_collision in raw_files_to_process.items():
+    raw_file_names_with_decisions: dict[str, tuple[str, bool, str | None]] = {}
+    for raw_file_name, is_collision in raw_file_names_to_process.items():
         project_id = get_unique_project_id(raw_file_name, all_project_ids)
 
         if project_id is None:
@@ -194,7 +195,7 @@ def decide_raw_file_handling(ti: TaskInstance, **kwargs) -> None:
             instrument_id,
         )
 
-        raw_file_project_ids[raw_file_name] = (
+        raw_file_names_with_decisions[raw_file_name] = (
             project_id,
             file_needs_handling,
             is_collision,
@@ -202,9 +203,9 @@ def decide_raw_file_handling(ti: TaskInstance, **kwargs) -> None:
 
         # here we could add more logic to decide whether to handle the file or not, e.g. a global blacklist
 
-    logging.info(f"Got {len(raw_file_project_ids)} raw files to handle.")
+    logging.info(f"Got {len(raw_file_names_with_decisions)} raw files to handle.")
 
-    put_xcom(ti, XComKeys.RAW_FILE_PROJECT_IDS, raw_file_project_ids)
+    put_xcom(ti, XComKeys.RAW_FILE_NAMES_WITH_DECISIONS, raw_file_names_with_decisions)
 
 
 def _file_meets_age_criterion(
@@ -261,8 +262,8 @@ def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
     Only for raw files that carry a project id, the acquisition_handler DAG is triggered.
     """
     instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
-    raw_file_project_ids = get_xcom(ti, XComKeys.RAW_FILE_PROJECT_IDS)
-    logging.info(f"Got {len(raw_file_project_ids)} raw files to handle.")
+    raw_file_names_with_decisions = get_xcom(ti, XComKeys.RAW_FILE_NAMES_WITH_DECISIONS)
+    logging.info(f"Got {len(raw_file_names_with_decisions)} raw files to handle.")
 
     dag_id_to_trigger = f"{Dags.ACQUISITION_HANDLER}.{instrument_id}"
 
@@ -271,15 +272,12 @@ def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
         project_id,
         file_needs_handling,
         is_collision,
-    ) in raw_file_project_ids.items():
+    ) in raw_file_names_with_decisions.items():
         status = (
             RawFileStatus.QUEUED_FOR_MONITORING
             if file_needs_handling
             else RawFileStatus.IGNORED
         )
-
-        # putting the file name to xcom to be able to access it in callback for error reporting
-        put_xcom(ti, XComKeys.RAW_FILE_NAME, raw_file_name)
 
         # Here mongoengine.errors.NotUniqueError is raised when the file is already in the DB.
         # This could happen if this task is restarted in the middle of processing.
@@ -296,10 +294,7 @@ def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
         if file_needs_handling:
             trigger_dag_run(
                 dag_id_to_trigger,
-                {
-                    # TODO: rename raw_file_name (with flag) -> raw_file_id
-                    DagParams.RAW_FILE_NAME: raw_file_id
-                },
+                {DagParams.RAW_FILE_ID: raw_file_id},
             )
         else:
             logging.info(

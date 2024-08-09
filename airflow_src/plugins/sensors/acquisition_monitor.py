@@ -45,7 +45,7 @@ class AcquisitionMonitor(BaseSensorOperator):
 
     def pre_execute(self, context: dict[str, any]) -> None:
         """_job_id the job id from XCom."""
-        self._raw_file_name = context[DagContext.PARAMS][DagParams.RAW_FILE_NAME]
+        self._raw_file_name = context[DagContext.PARAMS][DagParams.RAW_FILE_ID]
 
         self._raw_data_wrapper = RawDataWrapper.create(
             instrument_id=self._instrument_id, raw_file_name=self._raw_file_name
@@ -61,7 +61,9 @@ class AcquisitionMonitor(BaseSensorOperator):
             self._raw_file_name, new_status=RawFileStatus.MONITORING_ACQUISITION
         )
 
-        logging.info(f"Monitoring {self._raw_data_wrapper.file_path_to_watch()}")
+        logging.info(
+            f"Monitoring {self._raw_data_wrapper.file_path_to_monitor_acquisition()}"
+        )
 
     def post_execute(self, context: dict[str, any], result: Any = None) -> None:  # noqa: ANN401
         """Update the status of the raw file in the database."""
@@ -79,7 +81,7 @@ class AcquisitionMonitor(BaseSensorOperator):
         """Return True if acquisition is done."""
         del context  # unused
 
-        if not self._raw_data_wrapper.file_path_to_watch().exists():
+        if not self._raw_data_wrapper.file_path_to_monitor_acquisition().exists():
             # this covers the case that sometimes for bruker, the folder exists, but the main file does not
             logging.info("Main file does not exist yet.")
             return False
@@ -97,7 +99,9 @@ class AcquisitionMonitor(BaseSensorOperator):
             current_timestamp := self._get_timestamp()
         ) - self._last_poke_timestamp
         if time_since_last_check / 60 >= SIZE_CHECK_INTERVAL_M:
-            size = get_file_size(self._raw_data_wrapper.file_path_to_watch())
+            size = get_file_size(
+                self._raw_data_wrapper.file_path_to_monitor_acquisition()
+            )
             logging.info(f"File size: {size}")
 
             # TODO: check for size > threshold?

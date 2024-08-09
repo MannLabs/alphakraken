@@ -14,7 +14,7 @@ from shared.db.interface import (
     add_new_settings_to_db,
     get_all_project_ids,
     get_raw_file_by_id,
-    get_raw_file_names_from_db,
+    get_raw_files_by_names_from_db,
     update_kraken_status,
     update_raw_file,
 )
@@ -46,7 +46,7 @@ def test_add_new_raw_file_to_db_creates_new_file_when_file_does_not_exist_with_c
 
     # then
     mock_raw_file.assert_called_once_with(
-        name=f"{collision_string}test_file.raw",
+        id=f"{collision_string}test_file.raw",
         original_name="test_file.raw",
         collision_flag=collision_flag,
         project_id="PID1",
@@ -59,17 +59,17 @@ def test_add_new_raw_file_to_db_creates_new_file_when_file_does_not_exist_with_c
 
 @patch("shared.db.interface.connect_db")
 @patch("shared.db.interface.RawFile")
-def test_get_raw_file_names_from_db_returns_expected_names_when_files_exist(
+def test_get_raw_files_by_names_from_db_returns_expected_names_when_files_exist(
     mock_raw_file: MagicMock, mock_connect_db: MagicMock
 ) -> None:
-    """Test that get_raw_file_names_from_db returns the expected names when the files exist in the database."""
+    """Test that get_raw_files_by_names_from_db returns the expected names when the files exist in the database."""
     # given
     file1 = MagicMock()
     file2 = MagicMock()
     mock_raw_file.objects.filter.return_value = [file1, file2]
 
     # when
-    result = get_raw_file_names_from_db(["file1", "file2"])
+    result = get_raw_files_by_names_from_db(["file1", "file2"])
 
     # then
     assert result == [file1, file2]
@@ -95,14 +95,14 @@ def test_get_raw_file_by_id(
 
 @patch("shared.db.interface.connect_db")
 @patch("shared.db.interface.RawFile")
-def test_get_raw_file_names_from_db_returns_empty_list_when_no_files_exist(
+def test_get_raw_files_by_names_from_db_returns_empty_list_when_no_files_exist(
     mock_raw_file: MagicMock, mock_connect_db: MagicMock
 ) -> None:
-    """Test that get_raw_file_names_from_db returns an empty list when no files exist in the database."""
+    """Test that get_raw_files_by_names_from_db returns an empty list when no files exist in the database."""
     # given
     mock_raw_file.objects.filter.return_value = []
     # when
-    result = get_raw_file_names_from_db(["file1", "file2"])
+    result = get_raw_files_by_names_from_db(["file1", "file2"])
     # then
     assert result == []
     mock_connect_db.assert_called_once()
@@ -110,15 +110,15 @@ def test_get_raw_file_names_from_db_returns_empty_list_when_no_files_exist(
 
 @patch("shared.db.interface.connect_db")
 @patch("shared.db.interface.RawFile")
-def test_get_raw_file_names_from_db_returns_only_existing_files_when_some_files_do_not_exist(
+def test_get_raw_files_by_names_from_db_returns_only_existing_files_when_some_files_do_not_exist(
     mock_raw_file: MagicMock, mock_connect_db: MagicMock
 ) -> None:
-    """Test that get_raw_file_names_from_db returns only the names of the files that exist in the database."""
+    """Test that get_raw_files_by_names_from_db returns only the names of the files that exist in the database."""
     # given
     file1 = MagicMock()
     mock_raw_file.objects.filter.return_value = [file1]
     # when
-    result = get_raw_file_names_from_db(["file1", "file2"])
+    result = get_raw_files_by_names_from_db(["file1", "file2"])
     # then
     assert result == [file1]
     mock_connect_db.assert_called_once()
@@ -165,7 +165,7 @@ def test_add_metrics_to_raw_file_happy_path(
     # then
     mock_metrics.return_value.save.assert_called_once()
     mock_connect_db.assert_called_once()
-    mock_raw_file.objects.get.assert_called_once_with(name="test_file")
+    mock_raw_file.objects.get.assert_called_once_with(id="test_file")
     mock_metrics.assert_called_once_with(
         raw_file=mock_raw_file_from_db, metric1=1, metric2=2
     )

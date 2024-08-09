@@ -39,7 +39,7 @@ def test_on_failure_callback_with_no_rawfile_in_xcom_but_dag_context(
             task_id="task1", dag_id="dag1", xcom_pull=MagicMock(side_effect=KeyError)
         ),
         "exception": Exception("Some error"),
-        "params": {"raw_file_name": "some_file.raw"},
+        "params": {"raw_file_id": "some_file.raw"},
     }
 
     # when

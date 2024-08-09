@@ -13,10 +13,10 @@ def test_get_output_folder_rel_path_no_fallback() -> None:
     """Test that correct output folder is returned if project_id is given."""
     mock_raw_file = MagicMock(
         wraps=RawFile,
+        id="some_file.raw",
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
         project_id="some_project_id",
     )
-    mock_raw_file.name = "some_file.raw"
 
     # when
     result = get_output_folder_rel_path(mock_raw_file, "some_project_id")
@@ -28,10 +28,10 @@ def test_get_output_folder_rel_path_fallback() -> None:
     """Test that correct output folder is returned if no project_id is given."""
     mock_raw_file = MagicMock(
         wraps=RawFile,
+        id="some_file.raw",
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
         project_id=None,
     )
-    mock_raw_file.name = "some_file.raw"
 
     # when
     result = get_output_folder_rel_path(mock_raw_file, "some_fallback_id")

@@ -25,7 +25,7 @@ class TestableRawDataWrapper(RawDataWrapper):
 
     main_file_extension = "test_ext"
 
-    def _file_path_to_watch(self) -> Path:
+    def _file_path_to_monitor_acquisition(self) -> Path:
         """Dummy implementation."""
 
     def _get_files_to_copy(self) -> dict[Path, Path]:
@@ -135,15 +135,15 @@ def test_get_raw_files_on_instrument(mock_instrument_path: MagicMock) -> None:
         ),
     ],
 )
-def test_file_path_to_watch(
+def test_file_path_to_monitor_acquisition(
     wrapper_class: type[RawDataWrapper],
     raw_file_name: str,
     expected_watch_path: Path,
     mock_instrument_paths: MagicMock,  # noqa: ARG001
 ) -> None:
-    """Test that file_path_to_watch returns the correct path for each wrapper type."""
+    """Test that file_path_to_monitor_acquisition returns the correct path for each wrapper type."""
     wrapper = wrapper_class("instrument1", raw_file_name=raw_file_name)
-    assert wrapper.file_path_to_watch() == expected_watch_path
+    assert wrapper.file_path_to_monitor_acquisition() == expected_watch_path
 
 
 def test_thermo_get_files_to_copy(
@@ -152,10 +152,10 @@ def test_thermo_get_files_to_copy(
     """Test that get_files_to_copy returns the correct mapping for ThermoRawDataWrapper."""
     mock_raw_file = MagicMock(
         wraps=RawFile,
+        id="123---sample.raw",
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
         original_name="sample.raw",
     )
-    mock_raw_file.name = "123---sample.raw"
 
     wrapper = ThermoRawDataWrapper("instrument1", raw_file=mock_raw_file)
     expected_mapping = {
@@ -176,10 +176,10 @@ def test_zeno_get_files_to_copy(mock_instrument_path: MagicMock) -> None:
 
     mock_raw_file = MagicMock(
         wraps=RawFile,
+        id="123---sample.wiff",
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
         original_name="sample.wiff",
     )
-    mock_raw_file.name = "123---sample.wiff"
 
     wrapper = ZenoRawDataWrapper("instrument1", raw_file=mock_raw_file)
     expected_mapping = {
@@ -211,10 +211,10 @@ def test_bruker_get_files_to_copy(mock_instrument_path: MagicMock) -> None:
 
     mock_raw_file = MagicMock(
         wraps=RawFile,
+        id="123---sample.d",
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
         original_name="sample.d",
     )
-    mock_raw_file.name = "123---sample.d"
 
     wrapper = BrukerRawDataWrapper("instrument1", raw_file=mock_raw_file)
     expected_mapping = {

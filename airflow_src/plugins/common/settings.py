@@ -47,13 +47,13 @@ class Timings:
     """Timing constants."""
 
     # if you update this, you might also want to update the coloring in the webapp (components.py:_get_color())
-    FILE_CREATION_POKE_INTERVAL_S = 60
+    FILE_SENSOR_POKE_INTERVAL_S = 60
 
     ACQUISITION_MONITOR_POKE_INTERVAL_S = 30
 
     QUANTING_MONITOR_POKE_INTERVAL_S = 60
 
-    FILE_COPY_TIMEOUT_M = 8
+    RAW_DATA_COPY_TASK_TIMEOUT_M = 8
 
     ACQUISITION_MONITOR_TIMEOUT_M = 180
 
@@ -63,14 +63,14 @@ class Concurrency:
 
     # limit to a number smaller than maximum number of runs per DAG (default is 16) to have free slots for other tasks
     # like starting quanting or metrics calculation
-    MAX_ACTIVE_QUANTING_MONITORINGS_PER_DAG = 14
+    MAXNO_MONITOR_QUANTING_TASKS_PER_DAG = 14
 
     # limit the number of concurrent copies to not over-stress the network.
     # Note that this is a potential bottleneck, so a timeout is important here.
-    MAX_ACTIVE_COPY_TASKS_PER_DAG = 1
+    MAXNO_COPY_RAW_FILE_TASKS_PER_DAG = 1
 
     # limit the number of concurrent monitors to not over-stress the network (relevant only during a catchup)
-    MAX_MONITOR_ACQUISITION_TASKS_PER_DAG = 10
+    MAXNO_MONITOR_ACQUISITION_TASKS_PER_DAG = 10
 
 
 class Pools:
@@ -124,7 +124,7 @@ def get_output_folder_rel_path(raw_file: RawFile, project_id_or_fallback: str) -
         Path(InternalPaths.OUTPUT)
         / project_id_or_fallback
         / optional_sub_folder
-        / f"{OUTPUT_FOLDER_PREFIX}{raw_file.name}"
+        / f"{OUTPUT_FOLDER_PREFIX}{raw_file.id}"
     )
 
 

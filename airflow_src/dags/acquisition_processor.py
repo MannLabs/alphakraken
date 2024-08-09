@@ -9,10 +9,10 @@ from airflow.models.dag import DAG
 from airflow.operators.python import PythonOperator, ShortCircuitOperator
 from airflow.providers.ssh.hooks.ssh import SSHHook
 from callbacks import on_failure_callback
-from common.keys import DAG_DELIMITER, Dags, OpArgs, Tasks
+from common.keys import DAG_DELIMITER, DagParams, Dags, OpArgs, Tasks
 from common.settings import AIRFLOW_QUEUE_PREFIX, INSTRUMENTS, Concurrency, Timings
 from impl.processor_impl import (
-    check_job_status,
+    check_quanting_result,
     compute_metrics,
     prepare_quanting,
     run_quanting,
@@ -44,7 +44,7 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
         description="Handle acquisition.",
         catchup=False,
         tags=["acquisition_processor", instrument_id],
-        params={"raw_file_name": Param(type="string", minimum=3)},
+        params={DagParams.RAW_FILE_ID: Param(type="string", minimum=3)},
     ) as dag:
         dag.doc_md = __doc__
 
@@ -64,12 +64,12 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
             task_id=Tasks.MONITOR_QUANTING,
             ssh_hook=ssh_hook,
             poke_interval=Timings.QUANTING_MONITOR_POKE_INTERVAL_S,
-            max_active_tis_per_dag=Concurrency.MAX_ACTIVE_QUANTING_MONITORINGS_PER_DAG,
+            max_active_tis_per_dag=Concurrency.MAXNO_MONITOR_QUANTING_TASKS_PER_DAG,
         )
 
-        check_job_status_ = ShortCircuitOperator(
-            task_id=Tasks.CHECK_JOB_STATUS,
-            python_callable=check_job_status,
+        check_quanting_result_ = ShortCircuitOperator(
+            task_id=Tasks.CHECK_QUANTING_RESULT,
+            python_callable=check_quanting_result,
             op_kwargs={OpArgs.SSH_HOOK: ssh_hook},
         )
 
@@ -85,7 +85,7 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
         prepare_quanting_
         >> run_quanting_
         >> monitor_quanting_
-        >> check_job_status_
+        >> check_quanting_result_
         >> compute_metrics_
         >> upload_metrics_
     )

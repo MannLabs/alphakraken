@@ -38,12 +38,12 @@ Note: depending on your operating system and configuration, you might need to ru
 
 4. In the Airflow UI, set up the SSH connection to the cluster (see [below](#setup-ssh-connection)).
 If you don't want to connect to the cluster, just create the connection of type
-"ssh" and name "cluster-conn" with some dummy values for host, username, and password.
+"ssh" and name "cluster_ssh_connection" with some dummy values for host, username, and password.
 In this case, make sure to set the Airflow variable `debug_no_cluster_ssh=True` (see below).
 
 5. In the Airflow UI, set up the required Pools (see [below](#setup-pools)).
 
-#### Run the local version
+#### Run the containers (local version)
 Start all docker containers (but without the workers mounted to the production file systems)
 ```bash
 docker compose --env-file=envs/.env-airflow --env-file=envs/${ENV}.env up --build -d
@@ -85,9 +85,9 @@ and copy the cluster run script `submit_job.sh` to `~/slurm`. Make sure to updat
 #### On the kraken PC
 1. Set up the network bind mounts (see [below](#set-up-network-bind-mounts)) .
 
-2. Run the sandbox/production containers
+2. Run the containers (sandbox/production version)
 ```bash
-docker compose --env-file=envs/.env-airflow --env-file=envs/${ENV}.env up --build --profile all-workers -d
+docker compose --env-file=envs/.env-airflow --env-file=envs/${ENV}.env --profile all-workers up --build -d
 ```
 which spins up additional worker containers for each instrument.
 
@@ -142,14 +142,19 @@ fi
 ./mountall.sh $ENV <INSTRUMENT_ID>
 ```
 
-3. In the `settings.py:INSTRUMENTS` dictionary, add a new entry by copying an existing one and adapting it like
+3. Create an output folder for the instrument
+```bash
+mkdir -p ${MOUNTS}/output/<INSTRUMENT_ID>
+```
+
+4. In the `settings.py:INSTRUMENTS` dictionary, add a new entry by copying an existing one and adapting it like
 ```
     "<INSTRUMENT_ID>": {
         # (there might be some keys here, just copy them)
     },
 ```
 
-4. In `docker-compose.yml`, add a new worker service, by copying an existing one and adapting it like:
+5. In `docker-compose.yaml`, add a new worker service, by copying an existing one and adapting it like:
 ```
   airflow-worker-<INSTRUMENT_ID>:
     <<: *airflow-worker
@@ -157,21 +162,21 @@ fi
     # there might be additional keys here, just copy them
 ```
 
-5. Restart all containers with the `--build` flag (cf. above).
+6. Restart all containers with the `--build` flag (cf. [above](#on-the-kraken-pc)).
 
-6. Open the airflow UI and unpause the new `*.<INSTRUMENT_ID>` DAGs.
-
-7. Without any further intervention, the kraken will now process all files on the new instrument. If this is
+7. (optional) Without any further intervention, the kraken would now process all files on the new instrument. If this is
 not desired, you may temporarily set the `max_file_age_in_hours` Airflow variable (see below) to process only
-recent files.
+recent files. Older ones will then be added to the DB with status 'ignored'. Don't forget to set it back to the original value as this is a global setting.
 
+8. Open the airflow UI and unpause the new `*.<INSTRUMENT_ID>` DAGs. It might be wise to do this one after another,
+(`instrument_watcher` -> `acquisition_handler` -> `acquisition_processor`.) and to check the logs for errors before starting the next one.
 
 ### Setup SSH connection
 This connection is required to interact with the SLURM cluster.
 
 1. Open the Airflow UI, navigate to "Admin" -> "Connections" and click the "+" button.
 2. Fill in the following fields:
-    - Connection Id: `cluster-conn`
+    - Connection Id: `cluster_ssh_connection`
     - Conn Type: `SSH`
     - Host: `<cluster_head_node_ip>`  # the IP address of a cluster head node, in this case `<cluster_head_node>`
     - Username: `<user name of kraken SLURM user>`
@@ -345,8 +350,11 @@ The path /home/kraken-user/alphakraken/sandbox/mounts/.... is not shared from th
 
 #### Solution
 Check that the mounting has been done correctly. If the instrument is currently unavailable,
-you can either ignore the error or temporarily comment out the corresponding worker definition in `docker-compose.yml`.
+you can either ignore the error or temporarily comment out the corresponding worker definition in `docker-compose.yaml`.
 Once the instrument is available again, uncomment the worker definition and restart the container.
+
+Sometimes, substituting `--build` with `--build --force-recreate` in the `docker compose` command helps
+resolve mounting problems.
 
 ### Restarting Docker
 ```

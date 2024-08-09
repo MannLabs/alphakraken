@@ -1,7 +1,6 @@
 """Tests for the watcher_impl module."""
 
 from datetime import datetime, timedelta
-from pathlib import Path
 from unittest.mock import MagicMock, Mock, call, patch
 
 import pytest
@@ -19,16 +18,13 @@ from plugins.common.keys import OpArgs, XComKeys
 SOME_INSTRUMENT_ID = "some_instrument_id"
 
 
-@patch("dags.impl.watcher_impl.get_internal_instrument_data_path")
 @patch("dags.impl.watcher_impl.get_file_creation_timestamp")
 @patch("dags.impl.watcher_impl.add_new_raw_file_to_db")
 def test_add_raw_file_to_db(
     mock_add_new_raw_file_to_db: MagicMock,
     mock_get_file_creation_timestamp: MagicMock,
-    mock_get_instrument_data_path: MagicMock,
 ) -> None:
     """Test add_to_db makes the expected calls."""
-    mock_get_instrument_data_path.return_value = Path("/path/to/data")
     mock_get_file_creation_timestamp.return_value = 42.0
 
     # when
@@ -50,8 +46,7 @@ def test_add_raw_file_to_db(
     )
 
 
-@patch("dags.impl.watcher_impl.get_internal_instrument_data_path")
-@patch("os.listdir")
+@patch("dags.impl.watcher_impl.RawDataWrapper")
 @patch("dags.impl.watcher_impl.get_raw_file_names_from_db")
 @patch("dags.impl.watcher_impl._sort_by_creation_date")
 @patch("dags.impl.watcher_impl.put_xcom")
@@ -59,17 +54,15 @@ def test_get_unknown_raw_files_with_existing_files_in_db(
     mock_put_xcom: MagicMock,
     mock_sort: MagicMock,
     mock_get_unknown_raw_files_from_db: MagicMock,
-    mock_os_listdir: MagicMock,
-    mock_get_instrument_data_path: MagicMock,
+    mock_raw_data_wrapper: MagicMock,
 ) -> None:
     """Test get_unknown_raw_files with existing files in the database."""
-    mock_get_instrument_data_path.return_value = Path("path/to")
+    mock_raw_data_wrapper.create.return_value.get_raw_files_on_instrument.return_value = {
+        "file1.raw",
+        "file2.raw",
+        "file3.raw",
+    }
 
-    mock_os_listdir.return_value = [
-        "path/to/file1.raw",
-        "path/to/file2.raw",
-        "path/to/file3.raw",
-    ]
     mock_get_unknown_raw_files_from_db.return_value = ["file1.raw", "file2.raw"]
     ti = Mock()
     mock_sort.return_value = ["file3.raw"]
@@ -99,8 +92,7 @@ def test_sort_by_creation_date_multiple_files(
     assert result == ["file3", "file1", "file2"]
 
 
-@patch("dags.impl.watcher_impl.get_internal_instrument_data_path")
-@patch("os.listdir")
+@patch("dags.impl.watcher_impl.RawDataWrapper")
 @patch("dags.impl.watcher_impl.get_raw_file_names_from_db")
 @patch("dags.impl.watcher_impl._sort_by_creation_date")
 @patch("dags.impl.watcher_impl.put_xcom")
@@ -108,26 +100,22 @@ def test_get_unknown_raw_files_with_no_existing_files_in_db(
     mock_put_xcom: MagicMock,
     mock_sort: MagicMock,
     mock_get_unknown_raw_files_from_db: MagicMock,
-    mock_os_listdir: MagicMock,
-    mock_get_instrument_data_path: MagicMock,
+    mock_raw_data_wrapper: MagicMock,
 ) -> None:
     """Test get_unknown_raw_files with no existing files in the database."""
-    # Given a list of raw files, some of which are already in the database
-    mock_get_instrument_data_path.return_value = Path("path/to")
+    mock_raw_data_wrapper.create.return_value.get_raw_files_on_instrument.return_value = {
+        "file1.raw",
+        "file2.raw",
+        "file3.raw",
+    }
 
-    mock_os_listdir.return_value = [
-        "path/to/file1.raw",
-        "path/to/file2.raw",
-        "path/to/file3.raw",
-    ]
     mock_get_unknown_raw_files_from_db.return_value = []
     ti = Mock()
     mock_sort.return_value = ["file3.raw", "file2.raw", "file1.raw"]
 
-    # Call the function
+    # when
     get_unknown_raw_files(ti, **{OpArgs.INSTRUMENT_ID: SOME_INSTRUMENT_ID})
 
-    # The function should call put_xcom with the correct arguments
     mock_put_xcom.assert_called_once_with(
         ti, XComKeys.RAW_FILE_NAMES, ["file3.raw", "file2.raw", "file1.raw"]
     )
@@ -136,31 +124,23 @@ def test_get_unknown_raw_files_with_no_existing_files_in_db(
     )
 
 
-@patch("dags.impl.watcher_impl.get_internal_instrument_data_path")
-@patch("os.listdir")
+@patch("dags.impl.watcher_impl.RawDataWrapper")
 @patch("dags.impl.watcher_impl.get_raw_file_names_from_db")
 @patch("dags.impl.watcher_impl.put_xcom")
 def test_get_unknown_raw_files_with_empty_directory(
     mock_put_xcom: MagicMock,
     mock_get_unknown_raw_files_from_db: MagicMock,
-    mock_os_listdir: MagicMock,
-    mock_get_instrument_data_path: MagicMock,
+    mock_raw_data_wrapper: MagicMock,
 ) -> None:
     """Test get_unknown_raw_files with an empty directory."""
-    # Given a list of raw files, some of which are already in the database
-    mock_get_instrument_data_path.return_value = Path("path/to")
-
-    mock_os_listdir.return_value = []
-
+    mock_raw_data_wrapper.create.return_value.get_raw_files_on_instrument.return_value = {}
     ti = Mock()
 
-    # Call the function
-    with pytest.raises(ValueError):
-        get_unknown_raw_files(ti, **{OpArgs.INSTRUMENT_ID: SOME_INSTRUMENT_ID})
+    # when
+    get_unknown_raw_files(ti, **{OpArgs.INSTRUMENT_ID: SOME_INSTRUMENT_ID})
 
-    # The function should call put_xcom with the correct arguments
-    mock_put_xcom.assert_not_called()
-    mock_get_unknown_raw_files_from_db.assert_not_called()
+    mock_get_unknown_raw_files_from_db.assert_called_once_with([])
+    mock_put_xcom.assert_called_once_with(ti, XComKeys.RAW_FILE_NAMES, [])
 
 
 @patch("dags.impl.watcher_impl.get_all_project_ids")

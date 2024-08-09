@@ -50,8 +50,7 @@ def copy_file(
     dst_path: Path,
 ) -> None:
     """Copy a raw file to the backup location and check its hashsum."""
-    logging.info(f"Copying {src_path} to {dst_path} ..")
-
+    logging.info(f"Calculating hash for {src_path} ..")
     start = datetime.now()  # noqa: DTZ005
     src_hash = _get_file_hash(src_path)
     time_elapsed = (datetime.now() - start).total_seconds()  # noqa: DTZ005
@@ -59,6 +58,7 @@ def copy_file(
     if _file_already_exists(dst_path, src_hash):
         return
 
+    logging.info(f"Copying {src_path} to {dst_path} ..")
     start = datetime.now()  # noqa: DTZ005
     shutil.copy2(src_path, dst_path)
     time_elapsed = (datetime.now() - start).total_seconds()  # noqa: DTZ005

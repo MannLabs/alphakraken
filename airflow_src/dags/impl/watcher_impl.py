@@ -1,17 +1,15 @@
 """Business logic for the instrument_watcher."""
 
 import logging
-import os
 from datetime import datetime, timedelta
-from pathlib import Path
 
 import pytz
 from airflow.models import TaskInstance
 from common.keys import AirflowVars, DagParams, Dags, OpArgs, XComKeys
-from common.settings import get_internal_instrument_data_path
 from common.utils import get_airflow_variable, get_xcom, put_xcom, trigger_dag_run
 from file_handling import get_file_creation_timestamp
 from impl.project_id_handler import get_unique_project_id
+from raw_data_wrapper import RawDataWrapper
 
 from shared.db.interface import (
     add_new_raw_file_to_db,
@@ -53,12 +51,12 @@ def _add_raw_file_to_db(
 def get_unknown_raw_files(ti: TaskInstance, **kwargs) -> None:
     """Get all raw files that are not already in the database and push to XCom."""
     instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
-    instrument_data_path = get_internal_instrument_data_path(instrument_id)
 
-    if not (directory_content := os.listdir(instrument_data_path)):
-        raise ValueError("get_unknown_raw_files: No raw files found in XCOM.")
-
-    raw_file_names = [Path(directory).name for directory in directory_content]
+    raw_file_names = sorted(
+        RawDataWrapper.create(
+            instrument_id=instrument_id, raw_file_name=None
+        ).get_raw_files_on_instrument()
+    )
 
     logging.info(
         f"Raw files to be checked against DB: {len(raw_file_names)} {raw_file_names}"
@@ -89,7 +87,7 @@ def _sort_by_creation_date(raw_file_names: list[str], instrument_id: str) -> lis
 
 
 def decide_raw_file_handling(ti: TaskInstance, **kwargs) -> None:
-    """Decide for each raw file wheter a acquisition handler should be triggered or not."""
+    """Decide for each raw file whether an acquisition handler should be triggered or not."""
     instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
     raw_file_names = get_xcom(ti, XComKeys.RAW_FILE_NAMES)
 

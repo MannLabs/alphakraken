@@ -11,7 +11,8 @@ from raw_data_wrapper import RawDataWrapper
 
 # Currently, this value together with ACQUISITION_MONITOR_POKE_INTERVAL_S determines the time
 # that the file size needs to stay constant in order to be regarded as "acquisition done"
-NUM_FILE_CHECKS_WITH_SAME_SIZE = 10
+# TODO: decouple this from the poking frequency: measure time instead of number of pokes, measure file size only every n pokes
+NUM_FILE_CHECKS_WITH_SAME_SIZE = 20
 
 
 class AcquisitionMonitor(BaseSensorOperator):
@@ -36,7 +37,9 @@ class AcquisitionMonitor(BaseSensorOperator):
             instrument_id=self._instrument_id, raw_file_name=raw_file_name
         )
 
-        self._initial_dir_contents = self._raw_data_wrapper.get_dir_contents()
+        self._initial_dir_contents = (
+            self._raw_data_wrapper.get_raw_files_on_instrument()
+        )
 
         logging.info(f"Monitoring {self._raw_data_wrapper.file_path_to_watch()}")
 
@@ -45,7 +48,7 @@ class AcquisitionMonitor(BaseSensorOperator):
         del context  # unused
 
         if (
-            new_dir_content := self._raw_data_wrapper.get_dir_contents()
+            new_dir_content := self._raw_data_wrapper.get_raw_files_on_instrument()
             - self._initial_dir_contents
         ):
             logging.info(

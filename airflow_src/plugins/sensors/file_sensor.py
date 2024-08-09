@@ -55,7 +55,9 @@ class FileCreationSensor(BaseSensorOperator):
         """Check the health of the instrument data path and backup path."""
         del context  # unused
 
-        self._initial_dir_contents = self._raw_data_wrapper.get_dir_contents()
+        self._initial_dir_contents = (
+            self._raw_data_wrapper.get_raw_files_on_instrument()
+        )
 
     def poke(self, context: dict[str, any]) -> bool:
         """Check if file was created. If so, push the folder contents to xcom and return."""
@@ -68,7 +70,7 @@ class FileCreationSensor(BaseSensorOperator):
         _check_health(self._instrument_id)
 
         if (
-            new_dir_content := self._raw_data_wrapper.get_dir_contents()
+            new_dir_content := self._raw_data_wrapper.get_raw_files_on_instrument()
             - self._initial_dir_contents
         ):
             logging.info(f"got new dir_content {new_dir_content}")

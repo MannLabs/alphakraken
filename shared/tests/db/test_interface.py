@@ -13,7 +13,7 @@ from shared.db.interface import (
     add_new_settings_to_db,
     get_all_project_ids,
     get_raw_file_names_from_db,
-    update_raw_file_status,
+    update_raw_file,
 )
 
 
@@ -31,7 +31,6 @@ def test_add_new_raw_file_to_db_creates_new_file_when_file_does_not_exist(
         project_id="PID1",
         instrument_id="instrument1",
         status=RawFileStatus.NEW,
-        size=42.0,
         creation_ts=43.0,
     )
 
@@ -41,7 +40,6 @@ def test_add_new_raw_file_to_db_creates_new_file_when_file_does_not_exist(
         project_id="PID1",
         instrument_id="instrument1",
         status=RawFileStatus.NEW,
-        size=42.0,
         created_at=datetime(1970, 1, 1, 0, 0, 43, tzinfo=pytz.utc),
     )
     mock_connect_db.assert_called_once()
@@ -103,22 +101,23 @@ def test_get_raw_file_names_from_db_returns_only_existing_files_when_some_files_
 @patch("shared.db.interface.connect_db")
 @patch("shared.db.interface.RawFile")
 @patch("shared.db.interface.datetime")
-def test_update_raw_file_status(
+def test_update_raw_file(
     mock_datetime: MagicMock, mock_raw_file: MagicMock, mock_connect_db: MagicMock
 ) -> None:
-    """Test that update_raw_file_status updates the status of the raw file."""
+    """Test that update_raw_file updates the status and size of the raw file."""
     # given
     mock_raw_file_from_db = MagicMock()
     mock_raw_file.objects.with_id.return_value = mock_raw_file_from_db
 
     # when
-    update_raw_file_status("test_file", new_status=RawFileStatus.PROCESSED)
+    update_raw_file("test_file", new_status=RawFileStatus.DONE, size=123)
 
     # then
     mock_raw_file_from_db.update.assert_called_once_with(
-        status=RawFileStatus.PROCESSED,
+        status=RawFileStatus.DONE,
         updated_at_=mock_datetime.now.return_value,
         status_details=None,
+        size=123,
     )
     mock_connect_db.assert_called_once()
 

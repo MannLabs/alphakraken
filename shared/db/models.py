@@ -16,15 +16,23 @@ from mongoengine import (
 
 
 class RawFileStatus:
-    """Status of raw file."""
+    """Status of raw file.
 
-    NEW = "new"
+    Not every status is required for consecutive tasks (e.g. `ACQUISITION_FINISHED`).
+    The last task of a DAG should set a status (e.g. `COPYING_FINISHED`).
+    """
+
     IGNORED = "ignored"
-    # have a distinction between processing and copying as network drives caused issues in the past.
+    NEW = "new"  # queued_for_monitoring? (only if there is a queue here)
+
+    ACQUISITION_STARTED = "monitoring_acquisition"
     COPYING = "copying"
-    # # queued(_for_processing)
-    PROCESSING = "processing"  # quanting
-    PROCESSED = "processed"  # quanted
+    COPYING_FINISHED = "copying_finished"
+
+    # # queued(_for_processing)?
+    QUANTING = "quanting"
+    DONE = "done"
+
     ERROR = "error"
 
 

@@ -6,7 +6,6 @@ from datetime import timedelta
 
 import pendulum
 from airflow.models.dag import DAG
-from airflow.operators.empty import EmptyOperator
 from airflow.operators.python import PythonOperator
 from callbacks import on_failure_callback
 from common.keys import (
@@ -16,7 +15,12 @@ from common.keys import (
     Tasks,
 )
 from common.settings import AIRFLOW_QUEUE_PREFIX, INSTRUMENTS
-from impl.monitor_impl import start_acquisition_handler
+from impl.monitor_impl import (
+    copy_raw_file,
+    start_acquisition_handler,
+    update_raw_file_status,
+)
+from sensors.acquisition_monitor import AcquisitionMonitor
 
 
 # TODO: rename to acquisition_monitor (or handler? then acquisition_handler would be acquisition_processor)
@@ -42,12 +46,20 @@ def create_file_handler_dag(instrument_id: str) -> None:
     ) as dag:
         dag.doc_md = __doc__
 
-        monitor_acquisition_ = EmptyOperator(
-            task_id=Tasks.MONITOR_ACQUISITION,
+        update_raw_file_ = PythonOperator(
+            task_id=Tasks.UPDATE_RAW_FILE_STATUS,
+            python_callable=update_raw_file_status,
+            op_kwargs={OpArgs.INSTRUMENT_ID: instrument_id},
         )
 
-        copy_raw_files_ = EmptyOperator(
-            task_id=Tasks.COPY_RAW_FILES,
+        monitor_acquisition_ = AcquisitionMonitor(
+            task_id=Tasks.MONITOR_ACQUISITION, instrument_id=instrument_id
+        )
+
+        copy_raw_file_ = PythonOperator(
+            task_id=Tasks.COPY_RAW_FILE,
+            python_callable=copy_raw_file,
+            op_kwargs={OpArgs.INSTRUMENT_ID: instrument_id},
         )
 
         start_acquisition_handler_ = PythonOperator(
@@ -56,7 +68,12 @@ def create_file_handler_dag(instrument_id: str) -> None:
             op_kwargs={OpArgs.INSTRUMENT_ID: instrument_id},
         )
 
-    (monitor_acquisition_ >> copy_raw_files_ >> start_acquisition_handler_)
+    (
+        update_raw_file_
+        >> monitor_acquisition_
+        >> copy_raw_file_
+        >> start_acquisition_handler_
+    )
 
 
 for instrument_id in INSTRUMENTS:

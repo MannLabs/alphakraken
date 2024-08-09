@@ -35,18 +35,16 @@ def _add_raw_file_to_db(
     :param status: status of the file
     :return:
     """
-    # calculate the file properties already here to have them available as early as possible
-    raw_file_creation_timestamp, raw_file_size = _get_file_info(
+    raw_file_creation_timestamp = _get_file_creation_timestamp(
         raw_file_name, instrument_id
     )
-    logging.info(f"Got {raw_file_size / 1024 ** 3} GB {raw_file_creation_timestamp}")
+    logging.info(f"Got  {raw_file_creation_timestamp}")
 
     add_new_raw_file_to_db(
         raw_file_name,
         project_id=project_id,
         instrument_id=instrument_id,
         status=status,
-        size=raw_file_size,
         creation_ts=raw_file_creation_timestamp,
     )
 
@@ -84,7 +82,7 @@ def _sort_by_creation_date(raw_file_names: list[str], instrument_id: str) -> lis
     """Sort raw files by creation timestamp (youngest first) to have them processed first."""
     file_creation_timestamps = []
     for raw_file_name in raw_file_names:
-        file_creation_ts, _ = _get_file_info(raw_file_name, instrument_id)
+        file_creation_ts = _get_file_creation_timestamp(raw_file_name, instrument_id)
         file_creation_timestamps.append(file_creation_ts)
     return [r for _, r in sorted(zip(file_creation_timestamps, raw_file_names))][::-1]
 
@@ -148,7 +146,7 @@ def _file_meets_age_criterion(
         raise ValueError from e
 
     if max_file_age_in_hours != max_file_age_in_hours_not_active:
-        file_creation_ts, _ = _get_file_info(raw_file_name, instrument_id)
+        file_creation_ts = _get_file_creation_timestamp(raw_file_name, instrument_id)
         raw_file_creation_time = datetime.fromtimestamp(file_creation_ts, tz=pytz.utc)
 
         now = datetime.now(tz=pytz.utc)  # TODO: check time zone on acquisition PCS
@@ -161,13 +159,20 @@ def _file_meets_age_criterion(
     return True
 
 
-def _get_file_info(raw_file_name: str, instrument_id: str) -> tuple[float, float]:
-    """Get the creation timestamp (unix epoch) and the size (in bytes) of the raw file."""
+def _get_file_size(raw_file_name: str, instrument_id: str) -> float:
+    """Get the size (in bytes) of a raw file."""
+    raw_file_path = get_internal_instrument_data_path(instrument_id) / raw_file_name
+    file_size_bytes = raw_file_path.stat().st_size
+    logging.info(f"File {raw_file_name} has {file_size_bytes=}")
+    return file_size_bytes
+
+
+def _get_file_creation_timestamp(raw_file_name: str, instrument_id: str) -> float:
+    """Get the creation timestamp (unix epoch) of a raw file."""
     raw_file_path = get_internal_instrument_data_path(instrument_id) / raw_file_name
     file_creation_ts = raw_file_path.stat().st_ctime
-    file_size_bytes = raw_file_path.stat().st_size
-    logging.info(f"File {raw_file_name} has {file_size_bytes=} and {file_creation_ts=}")
-    return file_creation_ts, file_size_bytes
+    logging.info(f"File {raw_file_name} has {file_creation_ts=}")
+    return file_creation_ts
 
 
 def start_file_handler(ti: TaskInstance, **kwargs) -> None:

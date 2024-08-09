@@ -6,7 +6,7 @@ from typing import Any
 from common.keys import XComKeys
 from common.utils import get_xcom
 
-from shared.db.interface import update_raw_file_status
+from shared.db.interface import update_raw_file
 from shared.db.models import RawFileStatus
 
 
@@ -30,7 +30,7 @@ def on_failure_callback(context: dict[str, Any], **kwargs) -> None:
 
     ex = context["exception"]
 
-    update_raw_file_status(
+    update_raw_file(
         raw_file_name,
         new_status=RawFileStatus.ERROR,
         status_details=f"{ti.task_id}: {ex!s}",

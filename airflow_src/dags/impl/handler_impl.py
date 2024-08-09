@@ -37,7 +37,7 @@ from shared.db.interface import (
     add_metrics_to_raw_file,
     get_all_project_ids,
     get_settings_for_project,
-    update_raw_file_status,
+    update_raw_file,
 )
 from shared.db.models import RawFileStatus
 from shared.keys import EnvVars
@@ -133,8 +133,8 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
         logging.exception("Did not get a valid job id from the cluster.")
         raise AirflowFailException from e
 
-    update_raw_file_status(
-        quanting_env[QuantingEnv.RAW_FILE_NAME], new_status=RawFileStatus.PROCESSING
+    update_raw_file(
+        quanting_env[QuantingEnv.RAW_FILE_NAME], new_status=RawFileStatus.QUANTING
     )
 
     put_xcom(ti, XComKeys.JOB_ID, job_id)
@@ -193,4 +193,4 @@ def upload_metrics(ti: TaskInstance, **kwargs) -> None:
 
     add_metrics_to_raw_file(raw_file_name, metrics)
 
-    update_raw_file_status(raw_file_name, new_status=RawFileStatus.PROCESSED)
+    update_raw_file(raw_file_name, new_status=RawFileStatus.DONE)

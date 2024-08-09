@@ -111,7 +111,7 @@ def test_prepare_quanting(
 @patch("dags.impl.handler_impl.get_xcom")
 @patch("dags.impl.handler_impl.SSHSensorOperator.ssh_execute")
 @patch("dags.impl.handler_impl.put_xcom")
-@patch("dags.impl.handler_impl.update_raw_file_status")
+@patch("dags.impl.handler_impl.update_raw_file")
 def test_run_quanting_executes_ssh_command_and_stores_job_id(
     mock_update: MagicMock,
     mock_put_xcom: MagicMock,
@@ -154,7 +154,7 @@ def test_run_quanting_executes_ssh_command_and_stores_job_id(
     mock_ssh_execute.assert_called_once_with(expected_command, mock_ssh_hook)
     mock_put_xcom.assert_called_once_with(ti, XComKeys.JOB_ID, "12345")
     mock_update.assert_called_once_with(
-        "test_file.raw", new_status=RawFileStatus.PROCESSING
+        "test_file.raw", new_status=RawFileStatus.QUANTING
     )
 
 
@@ -323,7 +323,7 @@ def test_compute_metrics(
 
 @patch("dags.impl.handler_impl.get_xcom")
 @patch("dags.impl.handler_impl.add_metrics_to_raw_file")
-@patch("dags.impl.handler_impl.update_raw_file_status")
+@patch("dags.impl.handler_impl.update_raw_file")
 def test_upload_metrics(
     mock_update: MagicMock,
     mock_add: MagicMock,
@@ -338,6 +338,4 @@ def test_upload_metrics(
     mock_add.assert_called_once_with(
         "raw_file_name", {"metric1": "value1", "quanting_time_elapsed": 123}
     )
-    mock_update.assert_called_once_with(
-        "raw_file_name", new_status=RawFileStatus.PROCESSED
-    )
+    mock_update.assert_called_once_with("raw_file_name", new_status=RawFileStatus.DONE)

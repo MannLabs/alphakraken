@@ -1,51 +1,21 @@
-"""Tests for the db.engine module."""
+"""Tests for the db.interface module."""
 
 from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 import pytz
-from mongoengine import ConnectionFailure
+from db.models import RawFileStatus
 
-from shared.db.engine import (
-    RawFileStatus,
+from shared.db.interface import (
     add_metrics_to_raw_file,
     add_new_raw_file_to_db,
-    connect_db,
     get_raw_file_names_from_db,
     update_raw_file_status,
 )
 
 
-@patch("shared.db.engine.disconnect")
-@patch("shared.db.engine.connect")
-def test_connect_db_successful_connection(
-    mock_connect: MagicMock, mock_disconnect: MagicMock
-) -> None:
-    """Test that connect_db successfully connects to the database."""
-    # when
-    connect_db()
-
-    # then
-    mock_disconnect.assert_called_once()
-    mock_connect.assert_called_once()
-
-
-@patch("shared.db.engine.disconnect")
-@patch("shared.db.engine.connect", side_effect=ConnectionFailure)
-def test_connect_db_connection_failure(
-    mock_connect: MagicMock, mock_disconnect: MagicMock
-) -> None:
-    """Test that connect_db handles a connection failure gracefully."""
-    # when
-    connect_db()
-
-    # then
-    mock_disconnect.assert_called_once()
-    mock_connect.assert_called_once()
-
-
-@patch("shared.db.engine.connect_db")
-@patch("shared.db.engine.RawFile")
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.RawFile")
 def test_add_new_raw_file_to_db_creates_new_file_when_file_does_not_exist(
     mock_raw_file: MagicMock, mock_connect_db: MagicMock
 ) -> None:
@@ -68,8 +38,8 @@ def test_add_new_raw_file_to_db_creates_new_file_when_file_does_not_exist(
     mock_connect_db.assert_called_once()
 
 
-@patch("shared.db.engine.connect_db")
-@patch("shared.db.engine.RawFile")
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.RawFile")
 def test_get_raw_file_names_from_db_returns_expected_names_when_files_exist(
     mock_raw_file: MagicMock, mock_connect_db: MagicMock
 ) -> None:
@@ -89,8 +59,8 @@ def test_get_raw_file_names_from_db_returns_expected_names_when_files_exist(
     mock_connect_db.assert_called_once()
 
 
-@patch("shared.db.engine.connect_db")
-@patch("shared.db.engine.RawFile")
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.RawFile")
 def test_get_raw_file_names_from_db_returns_empty_list_when_no_files_exist(
     mock_raw_file: MagicMock, mock_connect_db: MagicMock
 ) -> None:
@@ -104,8 +74,8 @@ def test_get_raw_file_names_from_db_returns_empty_list_when_no_files_exist(
     mock_connect_db.assert_called_once()
 
 
-@patch("shared.db.engine.connect_db")
-@patch("shared.db.engine.RawFile")
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.RawFile")
 def test_get_raw_file_names_from_db_returns_only_existing_files_when_some_files_do_not_exist(
     mock_raw_file: MagicMock, mock_connect_db: MagicMock
 ) -> None:
@@ -121,8 +91,8 @@ def test_get_raw_file_names_from_db_returns_only_existing_files_when_some_files_
     mock_connect_db.assert_called_once()
 
 
-@patch("shared.db.engine.connect_db")
-@patch("shared.db.engine.RawFile")
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.RawFile")
 def test_update_raw_file_status(
     mock_raw_file: MagicMock, mock_connect_db: MagicMock
 ) -> None:
@@ -139,9 +109,9 @@ def test_update_raw_file_status(
     mock_connect_db.assert_called_once()
 
 
-@patch("shared.db.engine.connect_db")
-@patch("shared.db.engine.RawFile")
-@patch("shared.db.engine.Metrics")
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.RawFile")
+@patch("shared.db.interface.Metrics")
 def test_add_metrics_to_raw_file_happy_path(
     mock_metrics: MagicMock, mock_raw_file: MagicMock, mock_connect_db: MagicMock
 ) -> None:

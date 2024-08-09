@@ -3,10 +3,11 @@
 # ruff: noqa: PD002 # `inplace=True` should be avoided; it has inconsistent behavior
 import pandas as pd
 import streamlit as st
+from db.engine import connect_db
 from mongoengine import QuerySet
 from service.utils import _log
 
-from shared.db.engine import Metrics, RawFile, connect_db
+from shared.db.models import Metrics, RawFile
 
 
 # Cached values are accessible to all users across all sessions.

@@ -13,7 +13,7 @@ from common.keys import DagParams, Dags, OpArgs, XComKeys
 from common.settings import get_internal_instrument_data_path
 from common.utils import get_xcom, put_xcom
 
-from shared.db.engine import get_raw_file_names_from_db
+from shared.db.interface import get_raw_file_names_from_db
 
 
 def get_raw_files(ti: TaskInstance, **kwargs) -> None:

@@ -19,12 +19,12 @@ from metrics.metrics_calculator import calc_metrics
 from mongoengine.errors import NotUniqueError
 from sensors.ssh_sensor import SSHSensorOperator
 
-from shared.db.engine import (
-    RawFileStatus,
+from shared.db.interface import (
     add_metrics_to_raw_file,
     add_new_raw_file_to_db,
     update_raw_file_status,
 )
+from shared.db.models import RawFileStatus
 
 
 def add_to_db(ti: TaskInstance, **kwargs) -> None:

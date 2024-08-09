@@ -39,26 +39,29 @@ def test_add_to_db(
     mock_put_xcom.assert_called_once_with(ti, XComKeys.RAW_FILE_NAME, "test_file.raw")
 
 
+@patch("dags.impl.handler_impl.get_xcom")
 @patch("dags.impl.handler_impl.SSHSensorOperator.ssh_execute")
 @patch("dags.impl.handler_impl.put_xcom")
 def test_run_quanting_executes_ssh_command_and_stores_job_id(
     mock_put_xcom: MagicMock,
     mock_ssh_execute: MagicMock,
+    mock_get_xcom: MagicMock,
 ) -> None:
     """Test that the run_quanting function executes the SSH command and stores the job ID."""
     # given
+    mock_get_xcom.return_value = "test_file.raw"
     mock_ssh_execute.return_value = "12345"
     ti = MagicMock()
     mock_ssh_hook = MagicMock()
 
     kwargs = {
         OpArgs.SSH_HOOK: mock_ssh_hook,
-        OpArgs.COMMAND: "some_command",
     }
 
     # when
     run_quanting(ti, **kwargs)
 
     # then
-    mock_ssh_execute.assert_called_once_with("some_command", mock_ssh_hook)
+    expected_command = "export RAW_FILE_NAME=test_file.raw\n\ncd ~/kraken &&\nJID=$(sbatch run.sh)\necho ${JID##* }\n"
+    mock_ssh_execute.assert_called_once_with(expected_command, mock_ssh_hook)
     mock_put_xcom.assert_called_once_with(ti, XComKeys.JOB_ID, "12345")

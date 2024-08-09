@@ -21,15 +21,6 @@ from sensors.ssh_sensor import QuantingSSHSensor
 
 ssh_hook = SSHHook(ssh_conn_id="cluster-conn", conn_timeout=60, cmd_timeout=60)
 
-# TODO: take from a file
-run_quanting_cmd = """
-cd ~/test &&
-JID=$(sbatch test.sh)
-echo ${JID##* }
-"""
-#         Must be a bash script that is executable on the cluster.
-#         Its only output to stdout must be the job id of the submitted job.
-
 
 def create_acquisition_handler_dag(instrument_id: str) -> None:
     """Create acquisition_handler dag for instrument with `instrument_id`."""
@@ -64,7 +55,7 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
         run_quanting_ = PythonOperator(
             task_id=Tasks.RUN_QUANTING,
             python_callable=run_quanting,
-            op_kwargs={OpArgs.SSH_HOOK: ssh_hook, OpArgs.COMMAND: run_quanting_cmd},
+            op_kwargs={OpArgs.SSH_HOOK: ssh_hook},
         )
 
         monitor_quanting_ = QuantingSSHSensor(

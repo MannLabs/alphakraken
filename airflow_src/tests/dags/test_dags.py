@@ -9,6 +9,8 @@ from plugins.common.settings import INSTRUMENTS
 
 DAG_FOLDER = Path(__file__).parent / Path("../../dags")
 
+# Note: mocking in this module is not straightforward, as in dagbag.py:347 modules are imported again
+
 
 @pytest.fixture()
 def dagbag() -> DagBag:

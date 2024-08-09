@@ -1,11 +1,9 @@
 """Shared utils."""
 
 import logging
-from pathlib import Path
+import os
 
 from airflow.models import TaskInstance, Variable
-from common.keys import InstrumentKeys
-from common.settings import INSTRUMENTS, InternalPaths
 
 
 def put_xcom(ti: TaskInstance, key: str, value: str | list) -> None:
@@ -43,9 +41,15 @@ def get_variable(key: str, default_value: str = "__DEFAULT_NOT_SET") -> str:
     return value
 
 
-def get_instrument_data_path(instrument_id: str) -> Path:
-    """Get internal path for the given instrument."""
-    return (
-        Path(InternalPaths.APC_PATH_PREFIX)
-        / INSTRUMENTS[instrument_id][InstrumentKeys.RAW_DATA_PATH]
-    )
+def get_env_variable(key: str, default_value: str = "__DEFAULT_NOT_SET") -> str:
+    """Get the value of an environment variable with `key` and an optional default."""
+    logging.info(f"Getting environment variable '{key}''")
+
+    if default_value == "__DEFAULT_NOT_SET":
+        value = os.getenv(key)
+    else:
+        value = os.getenv(key, default=default_value)
+
+    logging.info(f"Got environment variable: '{key}'='{value}'")
+
+    return value

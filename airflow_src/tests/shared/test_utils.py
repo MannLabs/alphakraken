@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 from airflow.models import Variable
-from plugins.common.utils import get_variable, get_xcom, put_xcom
+from plugins.common.utils import get_env_variable, get_variable, get_xcom, put_xcom
 
 
 def test_xcom_push_successful() -> None:
@@ -54,13 +54,31 @@ def test_get_variable_returns_value_when_default_not_set(mock_get: MagicMock) ->
     mock_get.assert_called_once_with("my_key")
 
 
-@patch.object(Variable, "get")
-def test_get_variable_returns_default_when_value_not_found(mock_get: MagicMock) -> None:
+def test_get_variable_returns_default_when_value_not_found() -> None:
     """Test that get_variable returns the default value when the value of an Airflow Variable with a given key is not found."""
-    mock_get.return_value = "default_value"
-
     # when
-    result = get_variable("my_key", "default_value")
+    result = get_variable("not_existing_var", "default_value")
 
     assert result == "default_value"
-    mock_get.assert_called_once_with("my_key", default_var="default_value")
+
+
+@patch("os.getenv")
+def test_get_env_variable_returns_value_when_default_not_set(
+    mock_getenv: MagicMock,
+) -> None:
+    """Test that get_env_variable returns the value of an environment variable with a given key."""
+    mock_getenv.return_value = "value"
+
+    # when
+    result = get_env_variable("my_key")
+
+    assert result == "value"
+    mock_getenv.assert_called_once_with("my_key")
+
+
+def test_get_env_variable_returns_default_when_value_not_found() -> None:
+    """Test that get_env_variable returns the default value when the value of an environment variable with a given key is not found."""
+    # when
+    result = get_env_variable("not_existing_env_var", "default_value")
+
+    assert result == "default_value"

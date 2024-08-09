@@ -165,5 +165,6 @@ cython_debug/
 
 # custom to the app
 airflow_logs
-mongodb_data
+mongodb_data*
 airflow_test_folders
+envs/.env-airflow

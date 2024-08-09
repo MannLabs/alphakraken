@@ -22,13 +22,13 @@ pip install -r requirements_development.txt
 
 3. Run a one-time initialization of the internal airflow database:
 ```bash
-docker compose --env-file=envs/dev.env run airflow-init
+docker compose --env-file=envs/local.env run airflow-init
 ```
 
 ### Running the kraken
 Start the docker containers providing an all-in-one solution with
 ```bash
-docker compose --env-file=envs/dev.env up --build
+docker compose --env-file=envs/local.env up --build
 ```
 The airflow webserver runs on http://localhost:8080/ (default credentials: `airflow`/`airflow`), the Streamlit webapp on http://localhost:8501/ .
 
@@ -40,8 +40,8 @@ The login password to the UI is displayed in the logs below the line `Airflow is
 You need to point the `dags_folder` variable in ` ~/airflow/airflow.cfg` to the absolute path of the `dags` folder.
 
 Note that you will need to have a MongoDB running on the default port `27017`, e.g. by
-`docker compose --env-file=envs/dev.env run --service-ports mongodb-service`
-Also, you will need to fire up the Streamlit webapp yourself by `docker compose --env-file=envs/dev.env run -e MONGO_HOST=host.docker.internal --service-ports webapp`.
+`docker compose --env-file=envs/local.env run --service-ports mongodb-service`
+Also, you will need to fire up the Streamlit webapp yourself by `docker compose --env-file=envs/local.env run -e MONGO_HOST=host.docker.internal --service-ports webapp`.
 
 Note that currently, the docker version is recommended.
 
@@ -55,12 +55,12 @@ If you encounter a `sqlite3.OperationalError: no such table: dag`, run `airflow 
 ### Manual testing
 1. Run the `docker compose` command above and log into the airflow UI.
 2. Unpause all DAGs. The "watchers" should start running.
-3. Create a test file: `I=$((I+1)); touch test_folders/acquisition_pcs/apc_tims_1/test_file_${I}.raw`
+3. Create a test file: `I=$((I+1)); touch test_folders/backup_pool/test1/test_file_${I}.raw`
 4. Wait until it appears in the webapp.
 
 ### Connect to the DB
 Use e.g. MongoDB Compass to connect to the MongoDB running in Docker using the url `localhost:27017`,
-the credentials (e.g. defined in `envs/.dev.env`) and make sure the "Authentication Database" is "krakendb".
+the credentials (e.g. defined in `envs/local.env`) and make sure the "Authentication Database" is "krakendb".
 
 ### pre-commit hooks
 It is highly recommended to use the provided pre-commit hooks, as the CI pipeline enforces all checks therein to
@@ -94,8 +94,14 @@ E.g. in PyCharm, you need to mark `dags`, `plugins`, `shared`, and `airflow_src`
 [Docker Compose](https://docs.docker.com/engine/install/ubuntu/) and
 [Docker](https://docs.docker.com/compose/install/linux/#install-using-the-repository).
 2. Clone the repository into `/home/kraken-user/alphakraken/sandbox/alphakraken`.
-3. `cd` into this directory and execute `echo -e "AIRFLOW_UID=$(id -u)" > .env` to set the current user as the user
-within the airflow containers (otherwise, `root` would be used).
+3. `cd` into this directory and execute
+```bash
+echo -e "AIRFLOW_UID=$(id -u)" > envs/.env-airflow
+mkdir airflow_logs
+```
+to set the current user as the user within the airflow containers (otherwise, `root` would be used)
+and to have correct permissions for the logs directory.
+
 4. Set up the network bind mounts (see below).
 5. Run one-time initialization of the internal airflow database:
 ```bash
@@ -109,6 +115,8 @@ docker compose --env-file=./envs/prod.env  up --build --profile prod-workers -d
 ```
 Then, access the Airflow UI at `http://<kraken_pc_ip>:8081/` and the Streamlit webapp at `http://<kraken_pc_ip>:8502/`.
 
+Note: after the first full startup it is currently required to make all files owned
+by the kraken user: `sudo chown -R kraken:kraken *` (needs to be done only once).
 
 #### Some useful commands:
 See state of containers
@@ -131,44 +139,89 @@ Clean up all containers, volumes, and images (WARNING: data will be lost!)
 docker compose down --volumes  --remove-orphans --rmi all
 ```
 
+### General note on how Kraken gets to know the data
+Each worker needs two 'views' on the data: the first one enables direct access to it,
+by mounting a specific folder to a target on the kraken PC and then mounting the target
+to a worker container. The second one is the location of the data as seen from the cluster,
+this is required to set the paths for the cluster jobs correctly.
+
 ### Set up network bind mounts
+(TODO describe persistent mount)
+We need bind mounts set up to each backup pool folder, and to the project pool folder.
+Additionally, one bind mount per instrument PC is needed (cf. section below).
+
 1. Create the mount target directories:
 ```bash
-mkdir -p /home/kraken-user/alphakraken/sandbox/mounts/ms14
+MOUNTS=/home/kraken-user/alphakraken/sandbox/mounts
+mkdir -p ${MOUNTS}/pool-backup
+mkdir -p ${MOUNTS}/output
 ```
-2. Mount the network drives (TODO describe persistent mount):
+
+2. Mount the backup pool folder:
 ```bash
-sudo mount -t cifs -o username=krakenuser //samba-pool-backup/pool-backup /home/kraken-user/alphakraken/sandbox/mounts/ms14
+sudo mount -t cifs -o username=kraken //samba-pool-backup/pool-backup ${MOUNTS}/pool-backup
 ```
-Note: for now, user `krakenuser` should only have read access to the pool folder.
+
+3. Mount the project pool folder:
+```bash
+IO_POOL_FOLDER=//samba-pool-projects/pool-projects/alphakraken_test
+sudo mount -t cifs -o username=kraken ${IO_POOL_FOLDER}/output ${MOUNTS}/output
+```
+
+Note: for now, user `kraken` should only have read access to the backup pool folder, but needs `read/write` on the `${MOUNTS}/output`.
+
+
 
 ### Add a new instrument
-1. Mount the network drive as described above such that the new instrument's files are accessible,
-e.g. at  `/home/kraken-user/alphakraken/sandbox/mounts/ms14/Test2` (this will be referenced as `<SOURCE_MOUNT>` below).
+Each instrument is identified by a unique `<INSTRUMENT_ID>`,
+which should be lowercase and contain only letters and numbers but is otherwise arbitrary (e.g. "test2").
 
-2. In `docker-compose.yml`, add a new worker service, by copying an existing one and adapting it like:
+1. Mount the instrument
+
+Not needed until alphakraken takes over also the file transfer from acquisition PCS to backup pool.
+<details>
+  <summary>Mounting instruments (currently not needed)</summary>
+Mount the instrument
+```bash
+MOUNTS=/home/kraken-user/alphakraken/sandbox/mounts
+INSTRUMENT_TARGET=${MOUNTS}/instruments/<INSTRUMENT_ID>
+mkdir -p ${INSTRUMENT_TARGET}
+sudo mount -t cifs -o username=kraken ${APC_SOURCE} ${INSTRUMENT_TARGET}
+```
+where `${APC_SOURCE}` is the network folder of the APC. --
+</details>
+
+2. Add the location of the instrument data to the .env files in the `envs` folder
+by creating a new variable `INSTRUMENT_PATH_<INSTRUMENT_ID>` (all upper case), e.g.
+`INSTRUMENT_PATH_NEWINST1`:
+```bash
+INSTRUMENT_PATH_NEWINST1=some/relative/path/to/new_instrument
+```
+and add this new variable to `docker-compose.yml:x-airflow-common.environment`
+```bash
+INSTRUMENT_PATH_NEWINST1=${INSTRUMENT_PATH_NEWINST1:?error}
+```
+
+3. In `docker-compose.yml`, add a new worker service, by copying an existing one and adapting it like:
 ```
   airflow-worker-<INSTRUMENT_ID>:
     <<: *airflow-worker
     command: celery worker -q kraken_queue_<INSTRUMENT_ID>
-    volumes:
-      - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_logs:/opt/airflow/logs
-      - <SOURCE_MOUNT>:/opt/airflow/acquisition_pcs/<INSTRUMENT_ID>
-    # (there might be additional keys here, just copy them)
 ```
 
-
-3. In the `settings.py:INSTRUMENTS` dictionary, add a new entry by copying an existing one and adapting it like
+4. In the `settings.py:INSTRUMENTS` dictionary, add a new entry by copying an existing one and adapting it like
 ```
     "<INSTRUMENT_ID>": {
-        InstrumentKeys.RAW_DATA_PATH: "<INSTRUMENT_ID>",
+        InstrumentKeys.RAW_DATA_PATH: get_env_variable(
+            "INSTRUMENT_PATH_NEWINST1", "n_a"
+        ),
         # (there might be additional keys here, just copy them)
     },
 ```
 
-4. Shut down the containers with `docker compose down` and restart them (cf. above).
+5. Shut down the containers with `docker compose down` and restart them (cf. above).
 
-5. Open the airflow UI and unpause the new `*.<INSTRUMENT_ID>` DAGs.
+6. Open the airflow UI and unpause the new `*.<INSTRUMENT_ID>` DAGs.
 
 
 ### Setup SSH connection
@@ -183,6 +236,24 @@ This connection is required to interact with the SLURM cluster.
     - Password: `<password of kraken SLURM user>`
 3. (optional) Click "Test" to verify the connection.
 4. Click "Save".
+
+### Setup alphaDIA
+For details on how to install alphaDIA on the SLURM cluster, follow the alphaDIA
+[https://github.com/MannLabs/alphadia/blob/main/docs/installation.md#slurm-cluster-installation](Readme).
+
+In a nutshell, to install a certain version, e.g. 1.6.2:
+```bash
+conda create --name alphadia-1.6.2 python=3.11 -y
+```
+```bash
+conda activate alphadia-1.6.2
+```
+```bash
+pip  install "alphadia[stable]==1.6.2"
+```
+Make sure the environment is named `alphadia-$VERSION`.
+Also, don't forget to install `mono` (cf. alphaDIA Readme).
+
 
 ## Troubleshooting
 ### Problem: worker does not start

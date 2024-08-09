@@ -80,6 +80,13 @@ x-airflow-common:
     MONGO_USER: ${MONGO_USER:?error}
     MONGO_PASSWORD: ${MONGO_PASSWORD:?error}
     MONGO_PORT: ${MONGO_PORT:?error}
+    # INSTRUMENT PATHS
+    INSTRUMENT_PATH_TEST1: ${INSTRUMENT_PATH_TEST1:?error}
+    INSTRUMENT_PATH_ASTRAL1: ${INSTRUMENT_PATH_ASTRAL1:?error}
+    INSTRUMENT_PATH_ASTRAL2: ${INSTRUMENT_PATH_ASTRAL2:?error}
+    # ... (add new instruments here)
+  env_file:
+    - ./envs/.env-airflow
   volumes:
     - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_logs:/opt/airflow/logs
 #    # Uncomment for local development so that changes to DAGs and Tasks are immediately active
@@ -100,7 +107,7 @@ x-airflow-common:
 x-airflow-worker:
   &airflow-worker
   <<: *airflow-common
-  profiles: ["prod-worker"]
+  profiles: ["prod-workers"]
   healthcheck:
     # yamllint disable rule:line-length
     test:
@@ -120,6 +127,10 @@ x-airflow-worker:
     <<: *airflow-common-depends-on
     mongodb-service:
       condition: service_healthy
+  volumes:
+    - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_logs:/opt/airflow/logs
+    # all mounts (backup pool folders, results pool folders, instruments) need to be available in /mounts
+    - /home/kraken-user/alphakraken/sandbox/mounts:/opt/airflow/mounts
 
 services:
   postgres:
@@ -291,7 +302,7 @@ services:
     ports:
       - ${MONGO_PORT:?error}:27017
     volumes:
-      - ./mongodb_data:/data/db_${ENV_NAME:?error}
+      - ./mongodb_data_${ENV_NAME:?error}:/data/db
       # init the DB: https://stackoverflow.com/a/53522699
       # Note that this could also be done via pyhon, cf. https://github.com/MannLabs/alphakraken/pull/6#discussion_r1624957906
       - ./init-mongo.sh:/docker-entrypoint-initdb.d/init-mongo.sh
@@ -312,6 +323,8 @@ services:
       dockerfile: webapp/Dockerfile
     ports:
       - ${WEBAPP_PORT:?error}:8501
+    environment:
+      <<: *airflow-common-env
     depends_on:
       mongodb-service:
         condition: service_healthy
@@ -329,10 +342,13 @@ services:
     # "-q <XXX>" makes this worker handle only DAGs that reference queue_name=<XXX> during DAG instantiation
     command: celery worker -q kraken_queue_test1
     volumes:
+      # the following three mounts are required for the worker to work in general and are not instrument specific:
+      # airflow logs
       - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_logs:/opt/airflow/logs
-      - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_test_folders/acquisition_pcs/test1:/opt/airflow/acquisition_pcs/test1
-#    # Uncomment for local development so that changes to DAGs and Tasks are immediately active
-#    # Note that this part is defined another time for the other services in x-airflow-common
+      # output and backup folder
+      - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_test_folders:/opt/airflow/mounts
+     # Uncomment for local development so that changes to DAGs and Tasks are immediately active for the test worker
+     # Note that this part is defined another time for the other services in x-airflow-common
       - ${AIRFLOW_PROJ_DIR:-./airflow_src}/dags:/opt/airflow/dags
       - ${AIRFLOW_PROJ_DIR:-./airflow_src}/config:/opt/airflow/config
       - ${AIRFLOW_PROJ_DIR:-./airflow_src}/plugins:/opt/airflow/plugins
@@ -342,18 +358,11 @@ services:
   airflow-worker-test2:
     <<: *airflow-worker
     command: celery worker -q kraken_queue_test2
-    volumes:
-      - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_logs:/opt/airflow/logs
-      - /home/kraken-user/alphakraken/sandbox/mounts/ms14/Test2/2024_06/:/opt/airflow/acquisition_pcs/test2
 
   # INSTRUMENT: Test3
   airflow-worker-test3:
     <<: *airflow-worker
     command: celery worker -q kraken_queue_test3
-    volumes:
-      - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_logs:/opt/airflow/logs
-      - /home/kraken-user/alphakraken/sandbox/mounts/ms14/Test3/2024_06/:/opt/airflow/acquisition_pcs/test3
-
 
 volumes:
   postgres-db-volume:

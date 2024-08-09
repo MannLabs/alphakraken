@@ -6,7 +6,7 @@ Wait until creation of a new file or folder.
 import logging
 
 from airflow.sensors.base import BaseSensorOperator
-from common.utils import get_instrument_data_path
+from common.settings import get_instrument_data_path
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
 
 # Over the network, and on some Mac/Docker configurations,

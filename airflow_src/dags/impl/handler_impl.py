@@ -10,14 +10,6 @@ from shared.db.interface import update_raw_file
 from shared.db.models import RawFileStatus
 
 
-def update_raw_file_status(ti: TaskInstance, **kwargs) -> None:
-    """Update the status of the raw file in the database."""
-    del ti  # unused
-    raw_file_name = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_NAME]
-
-    update_raw_file(raw_file_name, new_status=RawFileStatus.ACQUISITION_STARTED)
-
-
 def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
     """Copy a raw file to the target location."""
     del ti  # unused
@@ -35,7 +27,7 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
 
     file_size = get_file_size(raw_data_wrapper.file_path_to_watch())
     update_raw_file(
-        raw_file_name, new_status=RawFileStatus.COPYING_FINISHED, size=file_size
+        raw_file_name, new_status=RawFileStatus.COPYING_DONE, size=file_size
     )
 
 
@@ -51,6 +43,8 @@ def start_acquisition_processor(ti: TaskInstance, **kwargs) -> None:
     raw_file_name = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_NAME]
 
     dag_id_to_trigger = f"{Dags.ACQUISITON_HANDLER}.{instrument_id}"
+
+    update_raw_file(raw_file_name, new_status=RawFileStatus.QUEUED_FOR_QUANTING)
 
     trigger_dag_run(
         dag_id_to_trigger,

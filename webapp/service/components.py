@@ -2,7 +2,6 @@
 
 from collections import defaultdict
 from datetime import datetime, timedelta
-from typing import Any
 
 import humanize
 import matplotlib as mpl
@@ -10,12 +9,14 @@ import pandas as pd
 import streamlit as st
 from matplotlib import pyplot as plt
 
+TERMINAL_STATUSES = ["error", "done", "ignored", "quanting_failed"]
+
 
 def show_filter(
     df: pd.DataFrame,
     *,
     text_to_display: str = "Filter:",
-    st_display: Any = st,  # noqa: ANN401
+    st_display: st.delta_generator.DeltaGenerator = st,
 ) -> pd.DataFrame:
     """Filter the DataFrame on user input by case-insensitive textual comparison in all columns."""
     user_input = st_display.text_input(
@@ -46,7 +47,7 @@ def show_filter(
 def show_date_select(
     df: pd.DataFrame,
     text_to_display: str = "Earliest file creation date:",
-    st_display: Any = st,  # noqa: ANN401
+    st_display: st.delta_generator.DeltaGenerator = st,
 ) -> pd.DataFrame:
     """Filter the DataFrame on user input by date."""
     if len(df) == 0:
@@ -63,6 +64,71 @@ def show_date_select(
     )
     min_date_with_time = datetime.combine(min_date, datetime.min.time())
     return df[df["created_at"] > min_date_with_time]
+
+
+def show_status_plot(
+    combined_df: pd.DataFrame,
+    display: st.delta_generator.DeltaGenerator,
+    ignored_status: list[str] = TERMINAL_STATUSES,
+) -> None:
+    """Show a plot of the file statuses for each instrument."""
+    status_counts = (
+        combined_df.groupby(["instrument_id", "status"]).size().unstack(fill_value=0)  # noqa: PD010
+    )
+
+    status_counts.drop(columns=ignored_status, errors="ignore", inplace=True)  # noqa: PD002
+    status_counts.sort_index(inplace=True)  # noqa: PD002
+
+    ax = status_counts.plot(kind="bar", stacked=True, figsize=(5, 5))
+
+    # Customize the plot
+    plt.xlabel("Instrument")
+    plt.ylabel("Count")
+    plt.legend(title="Status")
+    plt.tight_layout()
+
+    # Add value labels on the bars
+    for c in ax.containers:
+        ax.bar_label(c, label_type="center")
+
+    # Show the plot
+    display.pyplot(plt)
+
+
+def show_time_in_status_table(
+    combined_df: pd.DataFrame,
+    display: st.delta_generator.DeltaGenerator,
+    ignored_status: list[str] = TERMINAL_STATUSES,
+) -> None:
+    """Show a table displaying per instrument and status the timestamp of the oldest transistion."""
+    df = combined_df.copy()
+    df["updated_at"] = pd.to_datetime(df["updated_at_"])
+    df = df.sort_values("updated_at", ascending=False)
+
+    latest_updates = (
+        df.groupby(["instrument_id", "status"])["updated_at"].last().unstack()  # noqa: PD010
+    )
+
+    latest_updates = latest_updates.drop(columns=ignored_status, errors="ignore")
+
+    reshaped = latest_updates.sort_index()
+
+    columns = reshaped.columns
+    green_ages_h = [0.5] * len(columns)
+    red_ages_h = [2] * len(columns)
+    colormaps = ["RdYlGn_r"] * len(columns)
+    display.dataframe(
+        reshaped.style.apply(
+            lambda row: _get_color(
+                row,
+                columns=columns,
+                green_ages_h=green_ages_h,
+                red_ages_h=red_ages_h,
+                colormaps=colormaps,
+            ),
+            axis=1,
+        )
+    )
 
 
 def display_status(combined_df: pd.DataFrame, status_data_df: pd.DataFrame) -> None:
@@ -142,6 +208,11 @@ def _get_color(
         8,
         0.1,  # could take up to 5 minutes to resume checking after worker restart
     ],
+    colormaps: list[str] = [  # noqa: B006
+        "summer",
+        "summer",
+        "RdYlGn_r",
+    ],
 ) -> list[str | None]:
     """Get the color for the row based on the age of the columns.
 
@@ -153,9 +224,12 @@ def _get_color(
     """
     column_styles = {}
     now = datetime.now()  # noqa:  DTZ005 no tz argument
-    for column, green_age_h, red_age_h in zip(
-        columns, green_ages_h, red_ages_h, strict=True
+    for column, green_age_h, red_age_h, colormap in zip(
+        columns, green_ages_h, red_ages_h, colormaps, strict=True
     ):
+        if column not in row or pd.isna(row[column]):
+            continue
+
         time_delta = now - row[column]
 
         normalized_age = (time_delta - timedelta(hours=green_age_h)).total_seconds() / (
@@ -163,9 +237,7 @@ def _get_color(
         )
         normalized_age = min(1.0, max(0.0, normalized_age))
 
-        color = plt.get_cmap("RdYlGn_r")(
-            normalized_age
-        )  # Inverse of the Red-Yellow-Green colormap
+        color = plt.get_cmap(colormap)(normalized_age)
 
         style = "background-color: " + mpl.colors.rgb2hex(color)
         column_styles[column] = style
@@ -179,6 +251,8 @@ def highlight_status_cell(row: pd.Series) -> list[str | None]:
 
     if status == "error":
         style = "background-color: darkred"
+    elif status == "quanting_failed":
+        style = "background-color: red"
     elif status == "done":
         style = "background-color: green"
     elif status == "ignored":

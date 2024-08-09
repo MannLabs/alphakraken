@@ -7,24 +7,8 @@ from common.keys import DagContext, DagParams, OpArgs
 from dags.impl.handler_impl import (
     copy_raw_file,
     start_acquisition_processor,
-    update_raw_file_status,
 )
 from db.models import RawFileStatus
-
-
-@patch("dags.impl.handler_impl.update_raw_file")
-def test_update_raw_file_status_calls_update_with_correct_args(
-    mock_update_status: MagicMock,
-) -> None:
-    """Test update_raw_file_status calls update with correct arguments."""
-    ti = MagicMock()
-    kwargs = {"params": {"raw_file_name": "test_file.raw"}}
-
-    update_raw_file_status(ti, **kwargs)
-
-    mock_update_status.assert_called_once_with(
-        "test_file.raw", new_status=RawFileStatus.ACQUISITION_STARTED
-    )
 
 
 @patch("dags.impl.handler_impl.copy_file")
@@ -58,13 +42,15 @@ def test_copy_raw_file_calls_update_with_correct_args(
     mock_update_status.assert_has_calls(
         [
             call("test_file.raw", new_status=RawFileStatus.COPYING),
-            call("test_file.raw", new_status=RawFileStatus.COPYING_FINISHED, size=1000),
+            call("test_file.raw", new_status=RawFileStatus.COPYING_DONE, size=1000),
         ]
     )
 
 
 @patch("dags.impl.handler_impl.trigger_dag_run")
+@patch("dags.impl.handler_impl.update_raw_file")
 def test_start_acquisition_processor_with_single_file(
+    mock_update_raw_file: MagicMock,
     mock_trigger_dag_run: MagicMock,
 ) -> None:
     """Test start_acquisition_processor with a single file."""
@@ -88,3 +74,6 @@ def test_start_acquisition_processor_with_single_file(
         assert {
             "raw_file_name": list(raw_file_names.keys())[n],
         } == call_.args[1]
+    mock_update_raw_file.assert_called_once_with(
+        "file1.raw", new_status=RawFileStatus.QUEUED_FOR_QUANTING
+    )

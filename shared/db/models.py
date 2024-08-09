@@ -23,18 +23,20 @@ class RawFileStatus:
     """
 
     IGNORED = "ignored"
-    NEW = "new"  # queued_for_monitoring? (only if there is a queue here)
 
-    ACQUISITION_STARTED = "monitoring_acquisition"
+    QUEUED_FOR_MONITORING = "queued_for_monitoring"
+    MONITORING_ACQUISITION = "monitoring_acquisition"
+    MONITORING_DONE = "monitoring_done"
+
     COPYING = "copying"
-    COPYING_FINISHED = "copying_finished"
+    COPYING_DONE = "copying_done"
 
-    # # queued(_for_processing)?
+    QUEUED_FOR_QUANTING = "queued_for_quanting"
     QUANTING = "quanting"
-    DONE = "done"
-
     QUANTING_FAILED = "quanting_failed"
+
     ERROR = "error"
+    DONE = "done"
 
 
 class RawFile(Document):

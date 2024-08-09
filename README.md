@@ -148,7 +148,7 @@ and need to be created manually one.
 1. Open the Airflow UI, navigate to "Admin" -> "Pools".
 2. For each pool defined in `settings.py:Pools`, create a new pool with a sensible value (see suggestions in the `Pools` class).
 
-### Setup alphaDIA
+### Setup alphaDIA on the cluster
 For details on how to install alphaDIA on the SLURM cluster, follow the alphaDIA
 [https://github.com/MannLabs/alphadia/blob/main/docs/installation.md#slurm-cluster-installation](Readme).
 

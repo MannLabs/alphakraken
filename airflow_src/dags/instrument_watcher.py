@@ -39,6 +39,7 @@ def create_instrument_watcher_dag(instrument_id: str) -> None:
             "queue": f"{AIRFLOW_QUEUE_PREFIX}{instrument_id}",
             # this callback is executed when tasks fail
             "on_failure_callback": on_failure_callback,
+            "priority_weight": 1000,  # make sure the watcher tasks always have highest priority
         },
         description="Watch for new files.",
         catchup=False,
@@ -72,6 +73,9 @@ def create_instrument_watcher_dag(instrument_id: str) -> None:
             task_id=Tasks.START_ACQUISITION_HANDLER,
             python_callable=start_acquisition_handler,
             op_kwargs={OpArgs.INSTRUMENT_ID: instrument_id},
+            # No retries: on error, a new DAG run should take care of the remaining files.
+            # as otherwise we could end up in an inconsitent state (some files already in DB, some not)
+            retries=0,
         )
 
     (

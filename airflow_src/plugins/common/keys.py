@@ -20,7 +20,6 @@ class Tasks:
     START_ACQUISITION_HANDLER: str = "start_acquisition_handler"
 
     MONITOR_ACQUISITION: str = "monitor_acquisition"
-    UPDATE_RAW_FILE_STATUS: str = "update_raw_file_status"
     COPY_RAW_FILE: str = "copy_raw_file"
     START_ACQUISITION_PROCESSOR: str = "start_acquisition_processor"
 
@@ -51,9 +50,6 @@ class DagParams:
 
     # "params" level
     RAW_FILE_NAME: str = "raw_file_name"
-
-    NEW_STATUS: str = "new_status"
-    UPDATE_FILE_SIZE: str = "update_file_size"
 
 
 class XComKeys:

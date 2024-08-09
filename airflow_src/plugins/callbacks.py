@@ -36,5 +36,5 @@ def on_failure_callback(context: dict[str, Any], **kwargs) -> None:
     update_raw_file(
         raw_file_name,
         new_status=RawFileStatus.ERROR,
-        status_details=f"{ti.task_id}: {ex!s}",
+        status_details=f"[{ti.task_id}] {ex!s}",
     )

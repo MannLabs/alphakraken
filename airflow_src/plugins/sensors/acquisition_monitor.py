@@ -9,11 +9,15 @@ An acquisition is considered "done" if either:
 
 import logging
 from datetime import datetime
+from typing import Any
 
 import pytz
 from airflow.sensors.base import BaseSensorOperator
 from common.keys import DagContext, DagParams
 from raw_data_wrapper import RawDataWrapper
+
+from shared.db.interface import update_raw_file
+from shared.db.models import RawFileStatus
 
 # For the second type of check, the file size is calculated every SIZE_CHECK_INTERVAL_M minutes,
 # if it has not changed between two checks, the acquisition is considered to be done
@@ -31,6 +35,7 @@ class AcquisitionMonitor(BaseSensorOperator):
 
         self._instrument_id = instrument_id
 
+        self._raw_file_name: str | None = None
         self._raw_data_wrapper: RawDataWrapper | None = None
         self._initial_dir_contents: set | None = None
 
@@ -39,10 +44,10 @@ class AcquisitionMonitor(BaseSensorOperator):
 
     def pre_execute(self, context: dict[str, any]) -> None:
         """_job_id the job id from XCom."""
-        raw_file_name = context[DagContext.PARAMS][DagParams.RAW_FILE_NAME]
+        self._raw_file_name = context[DagContext.PARAMS][DagParams.RAW_FILE_NAME]
 
         self._raw_data_wrapper = RawDataWrapper.create(
-            instrument_id=self._instrument_id, raw_file_name=raw_file_name
+            instrument_id=self._instrument_id, raw_file_name=self._raw_file_name
         )
 
         self._initial_dir_contents = (
@@ -51,7 +56,18 @@ class AcquisitionMonitor(BaseSensorOperator):
 
         self._last_poke_timestamp = self._get_timestamp()
 
+        update_raw_file(
+            self._raw_file_name, new_status=RawFileStatus.MONITORING_ACQUISITION
+        )
+
         logging.info(f"Monitoring {self._raw_data_wrapper.file_path_to_watch()}")
+
+    def post_execute(self, context: dict[str, any], result: Any = None) -> None:  # noqa: ANN401
+        """Update the status of the raw file in the database."""
+        del context  # unused
+        del result  # unused
+
+        update_raw_file(self._raw_file_name, new_status=RawFileStatus.MONITORING_DONE)
 
     @staticmethod
     def _get_timestamp() -> float:
@@ -59,8 +75,13 @@ class AcquisitionMonitor(BaseSensorOperator):
         return datetime.now(tz=pytz.utc).timestamp()
 
     def poke(self, context: dict[str, any]) -> bool:
-        """Return True if if acquisition is done."""
+        """Return True if acquisition is done."""
         del context  # unused
+
+        if not self._raw_data_wrapper.file_path_to_watch().exists():
+            # this covers the case that sometimes for bruker, the folder exists, but the main file does not
+            logging.info("Main file does not exist yet.")
+            return False
 
         if (
             new_dir_content := self._raw_data_wrapper.get_raw_files_on_instrument()

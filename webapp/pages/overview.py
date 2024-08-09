@@ -16,7 +16,7 @@ from service.components import (
     show_sandbox_message,
 )
 from service.data_handling import get_combined_raw_files_and_metrics_df
-from service.utils import _log
+from service.utils import ERROR_STATUSES, _log
 
 _log(f"loading {__file__}")
 
@@ -111,7 +111,8 @@ def _display_table_and_plots(df: pd.DataFrame) -> None:
 
     c1, _ = st.columns([0.5, 0.5])
     with c1.expander("Click here for help ..."):
-        st.markdown("""
+        st.info(
+            """
             #### Explanation of 'status' information
             - `done`: The file has been processed successfully.
             - `quanting_failed`: something went wrong with the quanting, check the "status_details" column for more information:
@@ -125,7 +126,9 @@ def _display_table_and_plots(df: pd.DataFrame) -> None:
 
             All other states are transient and should be self-explanatory. If you feel a file stays in a certain status
             for too long, please report it to the developers.
-        """)
+        """,
+            icon="ℹ️",  # noqa: RUF001
+        )
 
     # ########################################### DISPLAY: plots
 
@@ -167,9 +170,8 @@ def _draw_plot(df: pd.DataFrame, x: str, y: str) -> None:
         height=400,
     )
     if y_is_numeric:
-        error_states = ["error", "quanting_failed"]
         symbol = [
-            "x" if x in error_states else "circle" for x in df["status"].to_numpy()
+            "x" if x in ERROR_STATUSES else "circle" for x in df["status"].to_numpy()
         ]
         fig.update_traces(
             mode="lines+markers",

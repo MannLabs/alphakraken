@@ -34,6 +34,9 @@ INSTRUMENT_BACKUP_FOLDER_NAME = "Backup"
 # separator between the timestamp and the raw file id in case of collisions
 COLLISION_FLAG_SEP = "---"
 
+# relevant for Bruker only
+DEFAULT_RAW_FILE_SIZE_IF_MAIN_FILE_MISSING = -1
+
 ERROR_CODE_TO_STRING = {
     "_CANNOT_FIND_ITEM": "Cannot find item [Idx] within the current storage",
     "_FAILED_TO_DETERMINE_DIA_CYCLE": "Failed to determine start of DIA cycle",
@@ -71,6 +74,7 @@ class Timings:
 
     RAW_DATA_COPY_TASK_TIMEOUT_M = 12
 
+    # this timeout needs to be big compared to the time scales defined in AcquisitionMonitor
     ACQUISITION_MONITOR_TIMEOUT_M = 180
 
     MOVE_RAW_FILE_TASK_TIMEOUT_M = 5

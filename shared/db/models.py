@@ -20,6 +20,8 @@ class RawFileStatus:
 
     Not every status is required for consecutive tasks (e.g. `ACQUISITION_FINISHED`).
     The last task of a DAG should set a status (e.g. `COPYING_FINISHED`).
+
+    Note that you might adapt the webapp when a new status is added, e.g. update TERMINAL_STATUSES, ERROR_STATUSES, highlight_status_cell()
     """
 
     IGNORED = "ignored"
@@ -30,6 +32,7 @@ class RawFileStatus:
 
     COPYING = "copying"
     COPYING_DONE = "copying_done"
+    ACQUISITION_FAILED = "acquisition_failed"
 
     QUEUED_FOR_QUANTING = "queued_for_quanting"
     QUANTING = "quanting"
@@ -55,7 +58,7 @@ class RawFile(Document):
     status = StringField(max_length=32)
     status_details = StringField(max_length=256)
 
-    size = IntField(min_value=0, max_value=int(1000 * 1024**3))  # unit: bytes
+    size = IntField(min_value=-1, max_value=int(1000 * 1024**3))  # unit: bytes
     instrument_id = StringField(max_length=50)
 
     project_id = StringField(max_length=32)
@@ -97,7 +100,7 @@ class ProjectStatus:
 class Project(Document):
     """Schema for a project."""
 
-    id = StringField(required=True, primary_key=True, max_length=16)
+    id = StringField(required=True, primary_key=True, min_length=3, max_length=16)
     name = StringField(required=True, max_length=64)
     description = StringField(max_length=256)
 

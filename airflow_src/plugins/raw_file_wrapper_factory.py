@@ -1,7 +1,7 @@
 """Classes wrapping instrument-type specific logic for acquisition monitoring and file copying.
 
 A general note on naming:
-Within this code base, the term "raw file" refers to the "main" file (or folder) produced by the instrument.
+Within this code base, the term "raw file" refers to the file (or folder) produced by the instrument.
 For thermo, it is the ".raw" file, for zeno, it is the ".wiff" file, and for bruker, it is the ".d" folder.
 """
 
@@ -24,7 +24,9 @@ from shared.db.models import RawFile, get_created_at_year_month
 class RawFileMonitorWrapper(ABC):
     """Abstract base class for wrapping raw files for monitoring acquisitions."""
 
-    _main_file_extension: str
+    _raw_file_extension: str
+    # The 'main file name' is just required if the instrument produces a folder.
+    main_file_name: str | None = None
 
     def __init__(self, instrument_id: str, raw_file_name: str | None = None):
         """Initialize the RawFileMonitorWrapper.
@@ -43,20 +45,20 @@ class RawFileMonitorWrapper(ABC):
 
         if (
             self._raw_file_name is not None
-            and (ext := Path(self._raw_file_name).suffix) != self._main_file_extension
+            and (ext := Path(self._raw_file_name).suffix) != self._raw_file_extension
         ):
             raise ValueError(
-                f"Unsupported file extension: {ext}, expected {self._main_file_extension}"
+                f"Unsupported file extension: {ext}, expected {self._raw_file_extension}"
             )
 
     def get_raw_files_on_instrument(self) -> set[str]:
         """Get the current raw file names (only with the relevant extension) in the instrument directory."""
-        dir_contents = set(self._instrument_path.glob(f"*{self._main_file_extension}"))
+        dir_contents = set(self._instrument_path.glob(f"*{self._raw_file_extension}"))
 
         file_names = {d.name for d in dir_contents}
 
         logging.info(
-            f"Current contents of {self._instrument_path} ({len(file_names)}, extension '{self._main_file_extension}'): {file_names}"
+            f"Current contents of {self._instrument_path} ({len(file_names)}, extension '{self._raw_file_extension}'): {file_names}"
         )
         return file_names
 
@@ -82,7 +84,7 @@ class RawFileMonitorWrapper(ABC):
 class ThermoRawFileMonitorWrapper(RawFileMonitorWrapper):
     """RawFileMonitorWrapper for Thermo instruments."""
 
-    _main_file_extension = ".raw"
+    _raw_file_extension = ".raw"
 
     def _file_path_to_monitor_acquisition(self) -> Path:
         """Get the (absolute) path to the raw file to monitor."""
@@ -92,7 +94,7 @@ class ThermoRawFileMonitorWrapper(RawFileMonitorWrapper):
 class ZenoRawFileMonitorWrapper(RawFileMonitorWrapper):
     """RawFileMonitorWrapper for Zeno instruments."""
 
-    _main_file_extension = ".wiff"
+    _raw_file_extension = ".wiff"
 
     def _file_path_to_monitor_acquisition(self) -> Path:
         """Get the (absolute) path to the raw file to monitor."""
@@ -102,12 +104,12 @@ class ZenoRawFileMonitorWrapper(RawFileMonitorWrapper):
 class BrukerRawFileMonitorWrapper(RawFileMonitorWrapper):
     """RawFileMonitorWrapper for Bruker instruments."""
 
-    _main_file_extension = ".d"
-    _file_name_to_watch = "analysis.tdf_bin"
+    _raw_file_extension = ".d"
+    main_file_name = "analysis.tdf_bin"
 
     def _file_path_to_monitor_acquisition(self) -> Path:
         """Get the (absolute) path to the main raw data file to monitor."""
-        return self._instrument_path / self._raw_file_name / self._file_name_to_watch
+        return self._instrument_path / self._raw_file_name / self.main_file_name
 
 
 class RawFileCopyWrapper(ABC):

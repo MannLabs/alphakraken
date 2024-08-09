@@ -23,6 +23,7 @@ class Tasks:
     MONITOR_ACQUISITION: str = "monitor_acquisition"
     COPY_RAW_FILE: str = "copy_raw_file"
     START_FILE_MOVER: str = "start_file_mover"
+    DECIDE_PROCESSING: str = "decide_processing"
     START_ACQUISITION_PROCESSOR: str = "start_acquisition_processor"
 
     PREPARE_QUANTING: str = "prepare_quanting"
@@ -63,6 +64,8 @@ class XComKeys:
     RAW_FILE_ID: str = "raw_file_id"
     RAW_FILE_NAMES_TO_PROCESS: str = "raw_file_names_to_process"
     RAW_FILE_NAMES_WITH_DECISIONS: str = "raw_file_names_with_decisions"
+
+    ACQUISITION_MONITOR_ERRORS: str = "acquisition_monitor_errors"
 
     QUANTING_ENV: str = "quanting_env"
 
@@ -132,3 +135,9 @@ class CustomAlphaDiaStates:
     NO_LOG_FILE: str = "__NO_LOG_FILE"
     UNKNOWN_ERROR: str = "__UNKNOWN_ERROR"
     COULD_NOT_DETERMINE_ERROR: str = "__COULD_NOT_DETERMINE_ERROR"
+
+
+class AcquisitionMonitorErrors:
+    """Errors that can occur during acquisition monitoring."""
+
+    MAIN_FILE_MISSING: str = "Main file was not created: "

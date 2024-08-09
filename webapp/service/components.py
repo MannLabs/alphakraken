@@ -10,10 +10,10 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 from matplotlib import pyplot as plt
+from service.utils import TERMINAL_STATUSES
 
+from shared.db.models import RawFileStatus
 from shared.keys import EnvVars
-
-TERMINAL_STATUSES = ["error", "done", "ignored", "quanting_failed"]
 
 
 # TODO: if filter is set, set age filter to youngest file
@@ -264,13 +264,13 @@ def highlight_status_cell(row: pd.Series) -> list[str | None]:
     """Highlight a single cell based on its value."""
     status = row["status"]
 
-    if status == "error":
+    if status == RawFileStatus.ERROR:
         style = "background-color: darkred"
-    elif status == "quanting_failed":
+    elif status in [RawFileStatus.QUANTING_FAILED, RawFileStatus.ACQUISITION_FAILED]:
         style = "background-color: red"
-    elif status == "done":
+    elif status == RawFileStatus.DONE:
         style = "background-color: green"
-    elif status == "ignored":
+    elif status == RawFileStatus.IGNORED:
         style = "background-color: lightgray"
     else:
         style = "background-color: #aed989"

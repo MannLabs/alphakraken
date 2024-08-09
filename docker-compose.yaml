@@ -61,7 +61,7 @@ x-airflow-common:
   volumes:
     - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs
 #    # Uncomment for local development so that changes to DAGs and Tasks are immediately active
-#    # Note that this part is defined another time for the workers in x-airflow-worker
+#    # Note that this part is defined another time for the airflow-worker-test1
 #    - ./airflow_src/dags:/opt/airflow/dags
 #    - ./airflow_src/config:/opt/airflow/config
 #    - ./airflow_src/plugins:/opt/airflow/plugins

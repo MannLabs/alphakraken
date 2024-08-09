@@ -25,13 +25,21 @@ def get_file_creation_timestamp(raw_file_name: str, instrument_id: str) -> float
     return file_creation_ts
 
 
-def get_file_size(file_path: Path) -> float:
+def get_file_size(file_path: Path, default: int | None = None) -> float:
     """Get the size (in bytes) of a file.
 
     Note that the results of this method will be compared for one file across different file systems,
     so make sure the results are file system independent.
+
+    An optional default value can be provided in case the file does not exist.
     """
-    file_size_bytes = file_path.stat().st_size
+    try:
+        file_size_bytes = file_path.stat().st_size
+    except FileNotFoundError as e:
+        if default is not None:
+            logging.info(f"File {file_path} not found, returning {default=}")
+            return default
+        raise e from e
     logging.info(f"File {file_path} has {file_size_bytes=}")
     return file_size_bytes
 

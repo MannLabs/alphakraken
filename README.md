@@ -23,7 +23,8 @@ Use common sense when deciding the scope of testing:
 For instance, if you correct a typo in the webapp, you might well skip the sandbox testing.
 In contrast, a new feature that changes the way data is processed should definitely be tested in the sandbox environment.
 
-Only a well-tested feature should be deployed to production.
+Only a well-tested feature should be deployed to production. Make sure a pull request is always self-contained
+and 'shippable', i.e. deployment to production should be possible at any time.
 
 ### Initial deployment
 All commands in this Readme assume you are in the root folder of the repository.

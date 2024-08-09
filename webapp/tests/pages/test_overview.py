@@ -40,8 +40,8 @@ def test_overview(mock_df: MagicMock, mock_get: MagicMock) -> None:
     metrics_df = pd.DataFrame(
         {
             "raw_file": [1, 2],
-            "BasicStats_proteins_mean": [1, 2],
-            "time_elapsed": [60, 120],
+            "proteins": [1, 2],
+            "quanting_time_elapsed": [60, 120],
         }
     )
 
@@ -53,7 +53,7 @@ def test_overview(mock_df: MagicMock, mock_get: MagicMock) -> None:
     ts2str = ts2.strftime("%Y-%m-%d %H:%M:%S")
 
     expected_data = {
-        "BasicStats_proteins_mean": {1: 1, 2: 2},
+        "proteins": {1: 1, 2: 2},
         "created_at": {1: ts1, 2: ts2},
         "created_at_": {1: ts1, 2: ts2},
         "updated_at_": {1: ts1, 2: ts2},

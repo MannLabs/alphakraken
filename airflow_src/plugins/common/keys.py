@@ -59,7 +59,7 @@ class XComKeys:
     JOB_ID: str = "job_id"
 
     METRICS: str = "metrics"
-    TIME_ELAPSED: str = "time_elapsed"
+    QUANTING_TIME_ELAPSED: str = "quanting_time_elapsed"
 
 
 class InstrumentKeys:

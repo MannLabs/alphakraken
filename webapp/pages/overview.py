@@ -42,13 +42,15 @@ combined_df = raw_files_df.merge(
 # conversions
 combined_df["size_gb"] = combined_df["size"] / 1024**3
 combined_df["file_created"] = combined_df["created_at"].dt.strftime("%Y-%m-%d %H:%M:%S")
-combined_df["quanting_time_minutes"] = combined_df["time_elapsed"] / 60
+combined_df["quanting_time_minutes"] = combined_df["quanting_time_elapsed"] / 60
 
 # eye candy
 combined_df.sort_values(by="created_at", ascending=False, inplace=True)
 combined_df.reset_index(drop=True, inplace=True)
 combined_df.index = combined_df["_id"]
-combined_df.drop(columns=["size", "time_elapsed", "raw_file", "_id"], inplace=True)
+combined_df.drop(
+    columns=["size", "quanting_time_elapsed", "raw_file", "_id"], inplace=True
+)
 columns_at_end = ["created_at", "created_at_", "updated_at_"]
 combined_df = combined_df[
     [col for col in combined_df.columns if col not in columns_at_end] + columns_at_end
@@ -87,7 +89,7 @@ def display(df: pd.DataFrame) -> None:
     st.dataframe(
         filtered_df.style.background_gradient(
             subset=[
-                "BasicStats_proteins_mean",
+                "proteins",
             ],
             cmap=cmap,
         )
@@ -99,10 +101,10 @@ def display(df: pd.DataFrame) -> None:
     x = "file_created"
     for y in [
         "size_gb",
-        "BasicStats_precursors_mean",
-        "BasicStats_proteins_mean",
-        "BasicStats_ms1_accuracy_mean",
-        "BasicStats_fwhm_rt_mean",
+        "precursors",
+        "proteins",
+        "ms1_accuracy",
+        "fwhm_rt",
         "quanting_time_minutes",
     ]:
         try:
@@ -122,7 +124,7 @@ def draw_plot(df: pd.DataFrame, x: str, y: str) -> None:
         color="instrument_id",
         hover_name="_id",
         hover_data=["file_created"],
-        title=f"{y} - median {median_:.2f}",
+        title=f"{y} (median= {median_:.2f})",
         height=400,
     ).update_traces(mode="lines+markers")
     fig.add_hline(y=median_, line_dash="dash")

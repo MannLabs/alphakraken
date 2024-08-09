@@ -182,7 +182,7 @@ def test_get_job_info_happy_path(
         mock_ssh_hook,
     )
 
-    mock_put_xcom.assert_called_once_with(mock_ti, XComKeys.TIME_ELAPSED, 522)
+    mock_put_xcom.assert_called_once_with(mock_ti, XComKeys.QUANTING_TIME_ELAPSED, 522)
 
 
 @patch("dags.impl.handler_impl.get_xcom")
@@ -227,6 +227,6 @@ def test_upload_metrics(
     upload_metrics(MagicMock())
 
     mock_add.assert_called_once_with(
-        "raw_file_name", {"metric1": "value1", "time_elapsed": 123}
+        "raw_file_name", {"metric1": "value1", "quanting_time_elapsed": 123}
     )
     mock_update.assert_called_once_with("raw_file_name", RawFileStatus.PROCESSED)

@@ -41,6 +41,8 @@ If you don't want to connect to the cluster, just create the connection of type
 "ssh" and name "cluster-conn" with some dummy values for host, username, and password.
 In this case, make sure to set the Airflow variable `debug_no_cluster_ssh=True` (see below).
 
+5. In the Airflow UI, set up the required Pools (see [below](#setup-pools)).
+
 #### Run the local version
 Start all docker containers (but without the workers mounted to the production file systems)
 ```bash
@@ -103,28 +105,22 @@ this is required to set the paths for the cluster jobs correctly.
 We need bind mounts set up to each backup pool folder, and to the project pool folder.
 Additionally, one bind mount per instrument PC is needed (cf. section below).
 
-1. Create the mount target directories:
+1. Mount the backup pool folder
 ```bash
-MOUNTS=/home/kraken-user/alphakraken/${ENV}/mounts
-mkdir -p ${MOUNTS}/pool-backup
-mkdir -p ${MOUNTS}/output
+./mountall.sh $ENV backup
 ```
 
-2. Mount the backup pool folder:
+2. Mount the output folder
 ```bash
-sudo mount -t cifs -o username=kraken //samba-pool-backup/pool-backup ${MOUNTS}/pool-backup
+./mountall.sh $ENV output
 ```
 
-3. Mount the project pool folder:
-```bash
-IO_POOL_PATH=//samba-pool-projects/pool-projects/alphakraken_${ENV}
-sudo mount -t cifs -o username=kraken ${IO_POOL_PATH}/output ${MOUNTS}/output
-```
+Note: for now, user `kraken` should only have read access to the backup pool folder, but needs `read/write` on the `output`
+folder.
 
-Note: for now, user `kraken` should only have read access to the backup pool folder, but needs `read/write` on the `${MOUNTS}/output`.
 Cf. also the environment variables `MOUNTS_PATH` and `IO_POOL_FOLDER` in the `envs/${ENV}.env` file.
-
-
+If you need to remount one of the folders, add the `umount` option, e.g.
+`./mountall.sh $ENV output umount`.
 
 ### Add a new instrument
 Each instrument is identified by a unique `<INSTRUMENT_ID>`,
@@ -132,37 +128,24 @@ which should be lowercase and contain only letters and numbers but is otherwise 
 Note that some parts of the system rely on convention, so make sure to use exactly
 `<INSTRUMENT_ID>` (case-sensitive!) in the below steps.
 
-1. Mount the instrument
-
-<details>
-  <summary>(Not needed until alphakraken takes over also the file transfer from acquisition PCS to backup pool.)
-</summary>
-Mount the instrument
-MOUNTS=/home/kraken-user/alphakraken/${ENV}/mounts
-INSTRUMENT_TARGET=${MOUNTS}/instruments/<INSTRUMENT_ID>
-mkdir -p ${INSTRUMENT_TARGET}
-sudo mount -t cifs -o username=kraken ${APC_SOURCE} ${INSTRUMENT_TARGET}
-```
-where `${APC_SOURCE}` is the network folder of the APC.
-</details>
-
-2. Add the location of the instrument data to all the files `local.env`, `sandbox.env` and `prod.env` in the `envs ` folder
-by creating a new variable `INSTRUMENT_PATH_<INSTRUMENT_ID>` (all upper case), e.g.
-`INSTRUMENT_PATH_NEWINST1`:
+1. Add the following block to the end of `mountall.sh`:
 ```bash
-INSTRUMENT_PATH_NEWINST1=some/relative/path/to/new_instrument
+if [ "${ENTITY}" == "<INSTRUMENT_ID>" ]; then
+  USERNAME=<username for instrument>
+  MOUNT_SRC=//<ip address of instrument>/<INSTRUMENT_ID>
+  MOUNT_TARGET=${MOUNTS}/instruments/<INSTRUMENT_ID>
+fi
 ```
-and add this new variable to the `x-airflow-common.environment` section in `docker-compose.yml`
-to make it available within the containers:
-```bash
-INSTRUMENT_PATH_NEWINST1=${INSTRUMENT_PATH_NEWINST1:?error}
+
+2. Execute
+```
+./mountall.sh $ENV <INSTRUMENT_ID>
 ```
 
 3. In the `settings.py:INSTRUMENTS` dictionary, add a new entry by copying an existing one and adapting it like
 ```
     "<INSTRUMENT_ID>": {
-        InstrumentKeys.RAW_DATA_PATH_VARIABLE_NAME: "INSTRUMENT_PATH_NEWINST1"
-        # (there might be additional keys here, just copy them)
+        # (there might be some keys here, just copy them)
     },
 ```
 
@@ -195,6 +178,12 @@ This connection is required to interact with the SLURM cluster.
     - Password: `<password of kraken SLURM user>`
 3. (optional) Click "Test" to verify the connection.
 4. Click "Save".
+
+### Setup required pools
+Pools are used to limit the number of parallel tasks for certain operations. They are managed via the Airflow UI
+and need to be created manually one.
+1. Open the Airflow UI, navigate to "Admin" -> "Pools".
+2. For each pool defined in `settings.py:Pools`, create a new pool with a sensible value (see suggestions in the `Pools` class).
 
 ### Setup alphaDIA
 For details on how to install alphaDIA on the SLURM cluster, follow the alphaDIA
@@ -269,7 +258,7 @@ special worker ("test1") is used that is connected to the `airflow_test_folder` 
 5. Create a test raw file in the backup pool folder to fake the acquisition
 ```bash
 I=$((I+1)); NEW_FILE_NAME=test_file_SA_P1_${I}.raw; echo $NEW_FILE_NAME
-touch airflow_test_folders/backup_pool/test1/$NEW_FILE_NAME
+touch airflow_test_folders/instruments/test1/Backup/$NEW_FILE_NAME
 ```
 
 6. Wait until the `acquisition_watchers` picks up the file (you may mark the `wait_for_new_files` task as "success" to speed up the process).
@@ -358,6 +347,10 @@ Check that the mounting has been done correctly. If the instrument is currently 
 you can either ignore the error or temporarily comment out the corresponding worker definition in `docker-compose.yml`.
 Once the instrument is available again, uncomment the worker definition and restart the container.
 
+### Restarting Docker
+```
+sudo systemctl restart docker
+```
 
 ### Some useful MongoDB commands
 Find all files for a given instrument with a given status that are younger than a given date

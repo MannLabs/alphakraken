@@ -84,13 +84,6 @@ x-airflow-common:
     MONGO_PORT: ${MONGO_PORT:?error}
     IO_POOL_FOLDER: ${IO_POOL_FOLDER:?error}
     MOUNTS_PATH: ${MOUNTS_PATH:?error}
-    # INSTRUMENT PATHS
-    # this maps the variable defined in the .env file (right) to environmental variables with the same name within the containers
-    INSTRUMENT_PATH_TEST1: ${INSTRUMENT_PATH_TEST1:?error}
-    INSTRUMENT_PATH_ASTRAL1: ${INSTRUMENT_PATH_ASTRAL1:?error}
-    INSTRUMENT_PATH_ASTRAL2: ${INSTRUMENT_PATH_ASTRAL2:?error}
-    INSTRUMENT_PATH_ASTRAL3: ${INSTRUMENT_PATH_ASTRAL3:?error}
-    # ... (add new instruments here)
   volumes:
     - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_logs:/opt/airflow/logs
 #    # Uncomment for local development so that changes to DAGs and Tasks are immediately active

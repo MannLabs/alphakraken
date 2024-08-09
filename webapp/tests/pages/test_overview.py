@@ -69,7 +69,7 @@ def test_overview(mock_df: MagicMock, mock_get: MagicMock) -> None:
         "precursors": {1: 1, 2: 2},
         "ms1_accuracy": {1: 1.0, 2: 2.0},
         "fwhm_rt": {1: 1.0, 2: 2.0},
-        "created_at": {1: ts1, 2: ts2},
+        "created_at": {1: ts1noms, 2: ts2noms},
         "created_at_": {1: ts1noms, 2: ts2noms},
         "updated_at_": {1: ts1noms, 2: ts2noms},
         "file_created": {1: ts1str, 2: ts2str},

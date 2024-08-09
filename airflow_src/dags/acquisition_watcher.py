@@ -28,10 +28,12 @@ def create_acquisition_watcher_dag(instrument_id: str) -> None:
     """Create acquisition_watcher dag for instrument with `instrument_id`."""
     with DAG(
         f"{Dags.ACQUISITON_WATCHER}{DAG_DELIMITER}{instrument_id}",
+        schedule="@continuous",
+        start_date=pendulum.datetime(2000, 1, 1, tz="UTC"),
         # these are the default arguments for each TASK
         default_args={
             "depends_on_past": False,
-            "retries": 1,
+            "retries": 4,
             "retry_delay": timedelta(minutes=1),
             # this maps the DAG to the worker that is responsible for that queue, cf. docker-compose.yml
             # and https://airflow.apache.org/docs/apache-airflow-providers-celery/stable/celery_executor.html#queues
@@ -45,8 +47,6 @@ def create_acquisition_watcher_dag(instrument_id: str) -> None:
             "watcher",
             instrument_id,
         ],
-        start_date=pendulum.datetime(2000, 1, 1, tz="UTC"),
-        schedule="@continuous",
         max_active_runs=1,
     ) as dag:
         dag.doc_md = __doc__

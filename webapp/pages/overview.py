@@ -27,7 +27,7 @@ raw_files_df = df_from_db_data(raw_files_db)
 metrics_df = df_from_db_data(
     metrics_db,
     drop_duplicates=["raw_file"],
-    drop_columns=["_id", "db_entry_created_at"],
+    drop_columns=["_id", "created_at_"],
 )
 
 if len(raw_files_df) == 0 or len(metrics_df) == 0:
@@ -52,8 +52,7 @@ combined_df.drop(
     columns=["size", "created_at", "time_elapsed", "raw_file", "_id"], inplace=True
 )
 combined_df = combined_df[
-    [col for col in combined_df.columns if col != "db_entry_created_at"]
-    + ["db_entry_created_at"]
+    [col for col in combined_df.columns if col != "created_at_"] + ["created_at_"]
 ]
 
 
@@ -66,7 +65,7 @@ combined_df = combined_df[
 def display(df: pd.DataFrame) -> None:
     """A fragment that displays a DataFrame with a filter."""
     st.write(
-        f"Processed {len(raw_files_df)} raw files. Latest update: {combined_df.iloc[0]['db_entry_created_at']}"
+        f"Processed {len(raw_files_df)} raw files. Latest update: {combined_df.iloc[0]['created_at_']}"
     )
 
     # filter

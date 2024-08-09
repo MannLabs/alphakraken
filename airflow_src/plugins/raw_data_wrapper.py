@@ -11,6 +11,7 @@ from pathlib import Path
 
 from common.keys import InstrumentTypes
 from common.settings import (
+    COLLISION_FLAG_SEP,
     get_instrument_type,
     get_internal_instrument_backup_path,
     get_internal_instrument_data_path,
@@ -45,6 +46,14 @@ class RawDataWrapper(ABC):
         # could be .raw file, one of the four .wiff files, or .d folder
         self._raw_file_name = raw_file_name
 
+        # Extracting the collision flag like this is a bit hacky.
+        # Alternative solution: query the database to get the original name
+        self._raw_file_original_name = (
+            raw_file_name
+            if (raw_file_name is None or COLLISION_FLAG_SEP not in raw_file_name)
+            else raw_file_name.split(COLLISION_FLAG_SEP, maxsplit=1)[1]
+        )
+
         if (
             raw_file_name is not None
             and (ext := Path(raw_file_name).suffix) != self._main_file_extension
@@ -57,7 +66,7 @@ class RawDataWrapper(ABC):
         self._backup_path = get_internal_instrument_backup_path(instrument_id)
 
         logging.info(
-            f"Initialized with {self._instrument_path=} {self._backup_path=} {self._raw_file_name=}"
+            f"Initialized with {self._instrument_path=} {self._backup_path=} {self._raw_file_name=} {self._raw_file_original_name=}"
         )
 
     @property
@@ -97,6 +106,12 @@ class RawDataWrapper(ABC):
         )
         return file_names
 
+    def _get_destination_file_path(self, file_path: Path) -> Path:
+        """Get destination file path by replacing the original file name with the raw file id in the given path."""
+        return Path(
+            str(file_path).replace(self._raw_file_original_name, self._raw_file_name)
+        )
+
 
 class ThermoRawDataWrapper(RawDataWrapper):
     """Class wrapping Thermo-specific logic."""
@@ -105,11 +120,11 @@ class ThermoRawDataWrapper(RawDataWrapper):
 
     def _file_path_to_watch(self) -> Path:
         """Get the (absolute) path to the raw file."""
-        return self._instrument_path / self._raw_file_name
+        return self._instrument_path / self._raw_file_original_name
 
     def _get_files_to_copy(self) -> dict[Path, Path]:
         """Get the mapping of source to destination path (both absolute) for the raw file."""
-        src_path = self._instrument_path / self._raw_file_name
+        src_path = self._instrument_path / self._raw_file_original_name
         dst_path = self._backup_path / self._raw_file_name
 
         return {src_path: dst_path}
@@ -122,7 +137,7 @@ class ZenoRawDataWrapper(RawDataWrapper):
 
     def _file_path_to_watch(self) -> Path:
         """Get the (absolute) path to the raw file."""
-        return self._instrument_path / self._raw_file_name
+        return self._instrument_path / self._raw_file_original_name
 
     def _get_files_to_copy(self) -> dict[Path, Path]:
         """Get the mapping of source to destination paths (both absolute) for the raw file.
@@ -131,12 +146,12 @@ class ZenoRawDataWrapper(RawDataWrapper):
         the same stem are considered here (e.g. raw_file.something).
         """
         files_to_copy = {}
-        raw_file_stem = Path(self._raw_file_name).stem
+        raw_file_stem = Path(self._raw_file_original_name).stem
         for file_path in self._instrument_path.glob(f"{raw_file_stem}.*"):
             src_path = file_path
             dst_path = self._backup_path / file_path.name
 
-            files_to_copy[src_path] = dst_path
+            files_to_copy[src_path] = self._get_destination_file_path(dst_path)
 
         return files_to_copy
 
@@ -149,14 +164,18 @@ class BrukerRawDataWrapper(RawDataWrapper):
 
     def _file_path_to_watch(self) -> Path:
         """Get the (absolute) path to the main raw data file."""
-        return self._instrument_path / self._raw_file_name / self._file_name_to_watch
+        return (
+            self._instrument_path
+            / self._raw_file_original_name
+            / self._file_name_to_watch
+        )
 
     def _get_files_to_copy(self) -> dict[Path, Path]:
         """Get the mapping of source to destination paths (both absolute) for the raw file.
 
         All files within the raw file directory are returned (including those in subfolders).
         """
-        src_base_path = self._instrument_path / self._raw_file_name
+        src_base_path = self._instrument_path / self._raw_file_original_name
 
         files_to_copy = {}
 
@@ -166,6 +185,8 @@ class BrukerRawDataWrapper(RawDataWrapper):
                 rel_file_path = src_file_path.relative_to(self._instrument_path)
                 dst_file_path = self._backup_path / rel_file_path
 
-                files_to_copy[src_file_path] = dst_file_path
+                files_to_copy[src_file_path] = self._get_destination_file_path(
+                    dst_file_path
+                )
 
         return files_to_copy

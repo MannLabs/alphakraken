@@ -43,7 +43,15 @@ columns_at_end = [
     "updated_at_",
     "created_at_",
 ]
-columns_to_hide = ["created_at", "size", "quanting_time_elapsed", "raw_file", "_id"]
+columns_to_hide = [
+    "created_at",
+    "size",
+    "quanting_time_elapsed",
+    "raw_file",
+    "_id",
+    "original_name",
+    "collision_flag",
+]
 column_order = [
     col
     for col in combined_df.columns

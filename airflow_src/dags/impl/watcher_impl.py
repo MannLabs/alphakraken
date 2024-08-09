@@ -1,13 +1,16 @@
 """Business logic for the instrument_watcher."""
 
 import logging
+from collections import defaultdict
 from datetime import datetime, timedelta
+from pathlib import Path
 
 import pytz
 from airflow.models import TaskInstance
 from common.keys import AirflowVars, DagParams, Dags, OpArgs, XComKeys
+from common.settings import COLLISION_FLAG_SEP
 from common.utils import get_airflow_variable, get_xcom, put_xcom, trigger_dag_run
-from file_handling import get_file_creation_timestamp
+from file_handling import get_file_creation_timestamp, get_file_size
 from impl.project_id_handler import get_unique_project_id
 from raw_data_wrapper import RawDataWrapper
 
@@ -22,25 +25,28 @@ from shared.db.models import RawFileStatus
 def _add_raw_file_to_db(
     raw_file_name: str,
     *,
+    is_collision: bool,
     project_id: str,
     instrument_id: str,
     status: str = RawFileStatus.QUEUED_FOR_MONITORING,
-) -> None:
+) -> str:
     """Add the file to the database with initial status and basic information.
 
     :param raw_file_name: raw file name
+    :param collision_flag: flag to resolve collisions
     :param project_id: project id
     :param instrument_id: instrument id
     :param status: status of the file
-    :return:
+    :return: the raw file id
     """
     raw_file_creation_timestamp = get_file_creation_timestamp(
         raw_file_name, instrument_id
     )
     logging.info(f"Got  {raw_file_creation_timestamp}")
 
-    add_new_raw_file_to_db(
+    return add_new_raw_file_to_db(
         raw_file_name,
+        collision_flag=_get_collision_flag() if is_collision else None,
         project_id=project_id,
         instrument_id=instrument_id,
         status=status,
@@ -49,7 +55,28 @@ def _add_raw_file_to_db(
 
 
 def get_unknown_raw_files(ti: TaskInstance, **kwargs) -> None:
-    """Get all raw files that are not already in the database and push to XCom."""
+    """Get all raw files that should be considered for further processing and push to XCom.
+
+    Due to potential file name collisions (i.e. a newly acquired file has the same name as one that is already processed),
+    this is non-trivial, because the properties (size, hashsum) of a file in the DB could still change if the file
+    is still being acquired.
+    For each file on the instrument, we check if it is already in the database.
+    If not, it is kept in the list of files to be processed that is eventually pushed to XCom.
+    If yes, we first check all file sizes in the DB:
+        If at least one is not set, we assume the acquisition is not done, we don't process the file in this DAG run.
+        It will be revisited in the next DAG run.
+
+        If the file in the DB is fixed, we compare the current file size with the one in the DB.
+            If they match, we consider the two files to be the same, and we don't process the file further.
+            Eventually, it will be moved from the instrument by another component.
+
+            If they don't match, we have found a collision, i.e. the file should be processed but also needs to be distinguished
+            from the file that is already in the DB. To achieve this, later a "collision_flag" is added to the file, which serves to
+            tell the file apart from the original file (and also from other collisions).
+
+    Note there's a potential race condition with the "add to db" operation in the subsequent
+    start_acquisition_handler(), task, However, as we allow only one of these DAGs to run at a time, this should not be an issue.
+    """
     instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
 
     raw_file_names = sorted(
@@ -62,19 +89,76 @@ def get_unknown_raw_files(ti: TaskInstance, **kwargs) -> None:
         f"{len(raw_file_names)} raw files to be checked against DB: {raw_file_names}"
     )
 
-    # Note there's a potential race condition with the "add to db" operation in start_acquisition_handler(),
-    # however, as we allow only one of these DAGs to run at a time, this should not be an issue.
-    for raw_file_name in get_raw_file_names_from_db(raw_file_names):
-        logging.info(f"Raw file {raw_file_name} already in database.")
-        raw_file_names.remove(raw_file_name)
+    raw_files_sizes_from_db: dict[str, list[int]] = defaultdict(list)
+    for raw_file in get_raw_file_names_from_db(list(raw_file_names)):
+        # due to collisions, there could be more than one raw file with the same name
+        raw_files_sizes_from_db[raw_file.original_name].append(raw_file.size)
+    logging.info(f"got {raw_files_sizes_from_db=}")
+
+    raw_files_to_process: dict[str, bool] = {}
+    for raw_file_name in raw_file_names:
+        is_collision = False
+
+        if raw_file_name in raw_files_sizes_from_db:
+            logging.info(
+                f"File in DB: {raw_file_name}, checking for potential collision.."
+            )
+            file_path_to_watch = RawDataWrapper.create(
+                instrument_id=instrument_id, raw_file_name=raw_file_name
+            ).file_path_to_watch()
+            is_collision = _is_collision(
+                file_path_to_watch, raw_files_sizes_from_db[raw_file_name]
+            )
+            if not is_collision:
+                logging.info(
+                    "File in DB is the same, not considering for further processing."
+                )
+                continue
+
+        raw_files_to_process[raw_file_name] = is_collision
 
     logging.info(
-        f"{len(raw_file_names)} raw files left after DB check: {raw_file_names}"
+        f"{len(raw_files_to_process)} raw files left after DB check: {raw_files_to_process}"
     )
 
-    raw_file_names_sorted = _sort_by_creation_date(raw_file_names, instrument_id)
+    raw_file_names_sorted = _sort_by_creation_date(
+        list(raw_files_to_process.keys()), instrument_id
+    )
+    raw_files_to_process_sorted = {
+        r: raw_files_to_process[r] for r in raw_file_names_sorted
+    }
 
-    put_xcom(ti, XComKeys.RAW_FILE_NAMES, raw_file_names_sorted)
+    put_xcom(ti, XComKeys.RAW_FILE_NAMES, raw_files_to_process_sorted)
+
+
+def _is_collision(file_path_to_watch: Path, sizes: list[int]) -> bool:
+    """Detect a collision between a raw file and a file in the database.
+
+    Returns False if there's no collision or decision not possible, otherwise True.
+    """
+    # TODO: handle the case where the Bruker analysis.tdf_bin does not show up
+    if any(s is None for s in sizes):
+        logging.info(
+            f"At least one file in DB is not fixed yet: {sizes=}, cannot decide on collision."
+        )
+        return False
+
+    logging.info(f"All files in DB are fixed, checking size against {sizes=}")
+
+    if not file_path_to_watch.exists():
+        logging.info("Main file does not exist yet.")
+        return False
+
+    current_size = get_file_size(file_path_to_watch)
+    if any(current_size == size for size in sizes):
+        logging.info(
+            f"At least one file size match: {current_size=} {sizes=}. Assuming it's the same file, no collision."
+        )
+        return False
+
+    logging.info(f"File size mismatch {current_size=} {sizes=}. Assuming collision.")
+
+    return True
 
 
 def _sort_by_creation_date(raw_file_names: list[str], instrument_id: str) -> list[str]:
@@ -89,16 +173,16 @@ def _sort_by_creation_date(raw_file_names: list[str], instrument_id: str) -> lis
 def decide_raw_file_handling(ti: TaskInstance, **kwargs) -> None:
     """Decide for each raw file whether an acquisition handler should be triggered or not."""
     instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
-    raw_file_names = get_xcom(ti, XComKeys.RAW_FILE_NAMES)
+    raw_files_to_process = get_xcom(ti, XComKeys.RAW_FILE_NAMES)
 
     logging.info(
-        f"{len(raw_file_names)} raw files to be checked on project id: {raw_file_names}"
+        f"{len(raw_files_to_process)} raw files to be checked on project id: {raw_files_to_process}"
     )
 
     all_project_ids = get_all_project_ids()
 
-    raw_file_project_ids: dict[str, tuple[str, bool]] = {}
-    for raw_file_name in raw_file_names:
+    raw_file_project_ids: dict[str, tuple[str, bool, str | None]] = {}
+    for raw_file_name, is_collision in raw_files_to_process.items():
         project_id = get_unique_project_id(raw_file_name, all_project_ids)
 
         if project_id is None:
@@ -112,7 +196,11 @@ def decide_raw_file_handling(ti: TaskInstance, **kwargs) -> None:
             instrument_id,
         )
 
-        raw_file_project_ids[raw_file_name] = (project_id, file_needs_handling)
+        raw_file_project_ids[raw_file_name] = (
+            project_id,
+            file_needs_handling,
+            is_collision,
+        )
 
         # here we could add more logic to decide whether to handle the file or not, e.g. a global blacklist
 
@@ -158,8 +246,17 @@ def _file_meets_age_criterion(
     return True
 
 
+def _get_collision_flag() -> str:
+    """Get a collision flag to resolve file name collisions."""
+    # the collision flag needs to be "unique enough", is used only to tell different collisions apart
+    timestamp = datetime.now(tz=pytz.utc).strftime("%Y%m%d-%H%M%S-%f")
+    collision_flag = f"{timestamp}{COLLISION_FLAG_SEP}"
+    logging.info(f"Adding {collision_flag=}")
+    return collision_flag
+
+
 def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
-    """Trigger a acquisition_handler DAG run for specific raw files.
+    """Trigger an acquisition_handler DAG run for specific raw files.
 
     Each raw file is added to the database first.
     Then, for each raw file, the project id is determined.
@@ -175,9 +272,10 @@ def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
     for raw_file_name, (
         project_id,
         file_needs_handling,
+        is_collision,
     ) in raw_file_project_ids.items():
         status = (
-            (RawFileStatus.QUEUED_FOR_MONITORING)
+            RawFileStatus.QUEUED_FOR_MONITORING
             if file_needs_handling
             else RawFileStatus.IGNORED
         )
@@ -189,8 +287,9 @@ def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
         # This could happen if this task is restarted in the middle of processing.
         # The NotUniqueError is deliberately raised here: the task will fail, but in the next DAG run, the
         # file that caused the problem is filtered out in get_unknown_raw_files().
-        _add_raw_file_to_db(
+        raw_file_id = _add_raw_file_to_db(
             raw_file_name,
+            is_collision=is_collision,
             project_id=project_id,
             instrument_id=instrument_id,
             status=status,
@@ -200,7 +299,8 @@ def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
             trigger_dag_run(
                 dag_id_to_trigger,
                 {
-                    DagParams.RAW_FILE_NAME: raw_file_name,
+                    # TODO: rename raw_file_name (with flag) -> raw_file_id
+                    DagParams.RAW_FILE_NAME: raw_file_id
                 },
             )
         else:

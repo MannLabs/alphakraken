@@ -113,9 +113,8 @@ def test_raw_data_wrapper_invalid_file_extension() -> None:
 def test_get_raw_files_on_instrument(mock_instrument_path: MagicMock) -> None:
     """Test that get_raw_files_on_instrument returns the correct set of file names."""
     file_names = {"file1.raw", "file2.raw"}
-    mock_instrument_path.return_value.glob.return_value = [
-        Path(f"/path/to/instrument/{f}") for f in file_names
-    ]
+    file_paths = {Path(f"/path/to/instrument/{f}") for f in file_names}
+    mock_instrument_path.return_value.glob.return_value = file_paths
 
     wrapper = ThermoRawDataWrapper("instrument1", None)
     assert wrapper.get_raw_files_on_instrument() == file_names

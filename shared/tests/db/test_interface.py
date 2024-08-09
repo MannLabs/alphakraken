@@ -3,6 +3,7 @@
 from datetime import datetime
 from unittest.mock import MagicMock, patch
 
+import pytest
 import pytz
 from db.models import RawFileStatus
 
@@ -20,8 +21,14 @@ from shared.db.interface import (
 
 @patch("shared.db.interface.connect_db")
 @patch("shared.db.interface.RawFile")
-def test_add_new_raw_file_to_db_creates_new_file_when_file_does_not_exist(
-    mock_raw_file: MagicMock, mock_connect_db: MagicMock
+@pytest.mark.parametrize(
+    ("collision_flag", "collision_string"), [(None, ""), ("123---", "123---")]
+)
+def test_add_new_raw_file_to_db_creates_new_file_when_file_does_not_exist_with_collision_flag(
+    mock_raw_file: MagicMock,
+    mock_connect_db: MagicMock,
+    collision_flag: str | None,
+    collision_string: str,
 ) -> None:
     """Test that add_new_raw_file_to_db creates a new file when the file does not exist in the database."""
     # given
@@ -29,6 +36,7 @@ def test_add_new_raw_file_to_db_creates_new_file_when_file_does_not_exist(
     # when
     add_new_raw_file_to_db(
         "test_file.raw",
+        collision_flag=collision_flag,
         project_id="PID1",
         instrument_id="instrument1",
         status=RawFileStatus.QUEUED_FOR_MONITORING,
@@ -37,7 +45,9 @@ def test_add_new_raw_file_to_db_creates_new_file_when_file_does_not_exist(
 
     # then
     mock_raw_file.assert_called_once_with(
-        name="test_file.raw",
+        name=f"{collision_string}test_file.raw",
+        original_name="test_file.raw",
+        collision_flag=collision_flag,
         project_id="PID1",
         instrument_id="instrument1",
         status=RawFileStatus.QUEUED_FOR_MONITORING,
@@ -53,17 +63,15 @@ def test_get_raw_file_names_from_db_returns_expected_names_when_files_exist(
 ) -> None:
     """Test that get_raw_file_names_from_db returns the expected names when the files exist in the database."""
     # given
-    mock1 = MagicMock()
-    mock1.name = "file1"
-    mock2 = MagicMock()
-    mock2.name = "file2"
-    mock_raw_file.objects.filter.return_value = [mock1, mock2]
+    file1 = MagicMock()
+    file2 = MagicMock()
+    mock_raw_file.objects.filter.return_value = [file1, file2]
 
     # when
     result = get_raw_file_names_from_db(["file1", "file2"])
 
     # then
-    assert result == ["file1", "file2"]
+    assert result == [file1, file2]
     mock_connect_db.assert_called_once()
 
 
@@ -89,13 +97,12 @@ def test_get_raw_file_names_from_db_returns_only_existing_files_when_some_files_
 ) -> None:
     """Test that get_raw_file_names_from_db returns only the names of the files that exist in the database."""
     # given
-    mock1 = MagicMock()
-    mock1.name = "file1"
-    mock_raw_file.objects.filter.return_value = [mock1]
+    file1 = MagicMock()
+    mock_raw_file.objects.filter.return_value = [file1]
     # when
     result = get_raw_file_names_from_db(["file1", "file2"])
     # then
-    assert result == ["file1"]
+    assert result == [file1]
     mock_connect_db.assert_called_once()
 
 

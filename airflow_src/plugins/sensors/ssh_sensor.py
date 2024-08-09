@@ -97,7 +97,7 @@ class SSHSensorOperator(BaseSensorOperator, ABC):
         if "sbatch" in command:  # run job
             response = "something\nsomething\n123"
         elif "TIME_ELAPSED" in command:  # get job info
-            response = f"00:00:01\nsomething\n{JobStates.FAILED}"
+            response = f"00:00:01\nsomething\n{JobStates.COMPLETED}"
         else:
             response = JobStates.COMPLETED  # monitor job
 

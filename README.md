@@ -50,6 +50,11 @@ docker compose --env-file=envs/.env-airflow --env-file=envs/${ENV}.env up --buil
 ```
 After startup, the airflow webserver runs on http://localhost:8080/ (default credentials: `airflow`/`airflow`), the Streamlit webapp on http://localhost:8501/ .
 
+To spin the containers down again, use
+```bash
+docker compose --env-file=envs/.env-airflow --env-file=envs/${ENV}.env down
+```
+
 #### Some useful commands:
 See state of containers
 ```bash
@@ -58,17 +63,17 @@ docker ps
 
 Watch logs for a given service (omit the last part to see all logs)
 ```bash
-docker compose --env-file=envs/${ENV}.env logs -f airflow-worker-test1
+docker compose --env-file=envs/.env-airflow --env-file=envs/${ENV}.env logs -f airflow-worker-test1
 ```
 
 Start bash in a given service container
 ```bash
-docker compose --env-file=envs/${ENV}.env exec airflow-worker-test1 bash
+docker compose --env-file=envs/.env-airflow --env-file=envs/${ENV}.env exec airflow-worker-test1 bash
 ```
 
-Clean up all containers, volumes, and images (WARNING: database will be lost!)
+Clean up all containers, volumes, and images
 ```bash
-docker compose --env-file=envs/${ENV}.env down --volumes  --remove-orphans --rmi
+docker compose --env-file=envs/.env-airflow --env-file=envs/${ENV}.env down --volumes  --remove-orphans --rmi
 ```
 
 ### Additional steps required for the sandbox/production setup
@@ -107,7 +112,7 @@ to a worker container. The second one is the location of the data as seen from t
 this is required to set the paths for the cluster jobs correctly.
 
 ### Set up network bind mounts
-(TODO describe persistent mount)
+(TODO: describe persistent mount)
 We need bind mounts set up to each backup pool folder, and to the project pool folder.
 Additionally, one bind mount per instrument PC is needed (cf. section below).
 

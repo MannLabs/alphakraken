@@ -1,6 +1,7 @@
 """Tests for the watcher_impl module."""
 
 from datetime import datetime, timedelta
+from pathlib import Path
 from unittest.mock import MagicMock, Mock, call, patch
 
 import pytest
@@ -8,11 +9,14 @@ import pytz
 from dags.impl.watcher_impl import (
     _add_raw_file_to_db,
     _file_meets_age_criterion,
+    _get_collision_flag,
+    _is_collision,
     _sort_by_creation_date,
     decide_raw_file_handling,
     get_unknown_raw_files,
     start_acquisition_handler,
 )
+from db.models import RawFile
 from plugins.common.keys import OpArgs, XComKeys
 
 SOME_INSTRUMENT_ID = "some_instrument_id"
@@ -20,16 +24,20 @@ SOME_INSTRUMENT_ID = "some_instrument_id"
 
 @patch("dags.impl.watcher_impl.get_file_creation_timestamp")
 @patch("dags.impl.watcher_impl.add_new_raw_file_to_db")
+@patch("dags.impl.watcher_impl._get_collision_flag")
 def test_add_raw_file_to_db(
+    mock_get_collision_flag: MagicMock,
     mock_add_new_raw_file_to_db: MagicMock,
     mock_get_file_creation_timestamp: MagicMock,
 ) -> None:
     """Test add_to_db makes the expected calls."""
     mock_get_file_creation_timestamp.return_value = 42.0
+    mock_get_collision_flag.return_value = "123---"
 
     # when
     _add_raw_file_to_db(
         "test_file.raw",
+        is_collision=True,
         project_id="PID1",
         instrument_id="instrument1",
     )
@@ -39,6 +47,7 @@ def test_add_raw_file_to_db(
     )
     mock_add_new_raw_file_to_db.assert_called_once_with(
         "test_file.raw",
+        collision_flag="123---",
         project_id="PID1",
         instrument_id="instrument1",
         status="queued_for_monitoring",
@@ -48,11 +57,13 @@ def test_add_raw_file_to_db(
 
 @patch("dags.impl.watcher_impl.RawDataWrapper")
 @patch("dags.impl.watcher_impl.get_raw_file_names_from_db")
+@patch("dags.impl.watcher_impl._is_collision")
 @patch("dags.impl.watcher_impl._sort_by_creation_date")
 @patch("dags.impl.watcher_impl.put_xcom")
 def test_get_unknown_raw_files_with_existing_files_in_db(
     mock_put_xcom: MagicMock,
     mock_sort: MagicMock,
+    mock_is_collision: MagicMock,
     mock_get_unknown_raw_files_from_db: MagicMock,
     mock_raw_data_wrapper: MagicMock,
 ) -> None:
@@ -62,16 +73,78 @@ def test_get_unknown_raw_files_with_existing_files_in_db(
         "file2.raw",
         "file3.raw",
     }
+    mock_raw_data_wrapper.create.return_value.file_path_to_watch.side_effect = [
+        Path("/path/to/file1.raw"),
+        Path("/path/to/file2.raw"),
+    ]
 
-    mock_get_unknown_raw_files_from_db.return_value = ["file1.raw", "file2.raw"]
+    file1 = MagicMock(wraps=RawFile, original_name="file1.raw", size=123)
+    file2 = MagicMock(wraps=RawFile, original_name="file2.raw", size=234)
+    mock_get_unknown_raw_files_from_db.return_value = [file1, file2]
+
+    mock_is_collision.side_effect = [False, True]
+
     ti = Mock()
-    mock_sort.return_value = ["file3.raw"]
+    mock_sort.return_value = ["file3.raw", "file2.raw"]
 
     # when
     get_unknown_raw_files(ti, **{OpArgs.INSTRUMENT_ID: SOME_INSTRUMENT_ID})
 
-    mock_put_xcom.assert_called_once_with(ti, XComKeys.RAW_FILE_NAMES, ["file3.raw"])
-    mock_sort.assert_called_once_with(["file3.raw"], "some_instrument_id")
+    mock_put_xcom.assert_called_once_with(
+        ti, XComKeys.RAW_FILE_NAMES, {"file3.raw": False, "file2.raw": True}
+    )
+    mock_sort.assert_called_once_with(["file2.raw", "file3.raw"], "some_instrument_id")
+    mock_is_collision.assert_has_calls(
+        [
+            call(Path("/path/to/file1.raw"), [123]),
+            call(Path("/path/to/file2.raw"), [234]),
+        ]
+    )
+
+
+def test_no_collision_if_files_not_fixed() -> None:
+    """Test _is_collision with no collision: one file status is not fixed."""
+    mock_path = MagicMock(spec=Path)
+
+    status_and_size_from_db = [100, None]
+    assert not _is_collision(mock_path, status_and_size_from_db)
+
+
+def test_no_collision_if_main_files_no_found() -> None:
+    """Test _is_collision with no collision: main file is not found."""
+    mock_path = MagicMock(spec=Path)
+    mock_path.exists.return_value = False
+
+    status_and_size_from_db = [100, 100]
+    assert not _is_collision(mock_path, status_and_size_from_db)
+
+
+def test_no_collision_if_size_matches() -> None:
+    """Test _is_collision with no collision: all file status are fixed, but one size matches."""
+    mock_path = MagicMock(spec=Path)
+    mock_path.stat.return_value.st_size = 100
+    db_files_fixed_with_size_match = [100, 123]
+    assert not _is_collision(mock_path, db_files_fixed_with_size_match)
+
+
+def test_collision_if_size_mismatch() -> None:
+    """Test _is_collision with a collision: all file status are fixed, but no size does match."""
+    mock_path = MagicMock(spec=Path)
+    mock_path.stat.return_value.st_size = 100
+    db_files_fixed_with_size_mismatch = [123, 234]
+
+    assert _is_collision(mock_path, db_files_fixed_with_size_mismatch)
+
+
+@patch("dags.impl.watcher_impl.datetime")
+def test_get_collision_flag(mock_datetime: MagicMock) -> None:
+    """Test construction of collision flag."""
+    mock_datetime.now.return_value = datetime(
+        2000, 1, 2, 3, 4, 5, 678901, tzinfo=pytz.utc
+    )
+
+    result = _get_collision_flag()
+    assert result == "20000102-030405-678901---"
 
 
 @patch("dags.impl.watcher_impl.get_file_creation_timestamp")
@@ -117,7 +190,9 @@ def test_get_unknown_raw_files_with_no_existing_files_in_db(
     get_unknown_raw_files(ti, **{OpArgs.INSTRUMENT_ID: SOME_INSTRUMENT_ID})
 
     mock_put_xcom.assert_called_once_with(
-        ti, XComKeys.RAW_FILE_NAMES, ["file3.raw", "file2.raw", "file1.raw"]
+        ti,
+        XComKeys.RAW_FILE_NAMES,
+        {"file3.raw": False, "file2.raw": False, "file1.raw": False},
     )
     mock_sort.assert_called_once_with(
         ["file1.raw", "file2.raw", "file3.raw"], "some_instrument_id"
@@ -140,7 +215,7 @@ def test_get_unknown_raw_files_with_empty_directory(
     get_unknown_raw_files(ti, **{OpArgs.INSTRUMENT_ID: SOME_INSTRUMENT_ID})
 
     mock_get_unknown_raw_files_from_db.assert_called_once_with([])
-    mock_put_xcom.assert_called_once_with(ti, XComKeys.RAW_FILE_NAMES, [])
+    mock_put_xcom.assert_called_once_with(ti, XComKeys.RAW_FILE_NAMES, {})
 
 
 @patch("dags.impl.watcher_impl.get_all_project_ids")
@@ -157,7 +232,7 @@ def test_decide_raw_file_handling(
 ) -> None:
     """A test for the decide_raw_file_handling function."""
     mock_ti = MagicMock()
-    mock_get_xcom.return_value = ["file1", "file2", "file3"]
+    mock_get_xcom.return_value = {"file1": "", "file2": "", "file3": "123---"}
     mock_get_project_ids.return_value = ["project1", "project2"]
     mock_get_unique.side_effect = [None, "project1", "project2"]
     mock_file_meets.side_effect = [True, True, False]
@@ -174,9 +249,9 @@ def test_decide_raw_file_handling(
         mock_ti,
         "raw_file_project_ids",
         {
-            "file1": (None, True),
-            "file2": ("project1", True),
-            "file3": ("project2", False),
+            "file1": (None, True, ""),
+            "file2": ("project1", True, ""),
+            "file3": ("project2", False, "123---"),
         },
     )
     mock_file_meets.assert_has_calls(
@@ -275,8 +350,10 @@ def test_start_acquisition_handler_with_single_file(
 ) -> None:
     """Test start_acquisition_handler with a single file."""
     # given
-    raw_file_names = {"file1.raw": ("PID1", True)}
+    raw_file_names = {"file1.raw": ("PID1", True, True)}
     mock_get_xcom.return_value = raw_file_names
+
+    mock_add_raw_file_to_db.return_value = "123---file1.raw"
     ti = Mock()
 
     # when
@@ -287,11 +364,12 @@ def test_start_acquisition_handler_with_single_file(
     for n, call_ in enumerate(mock_trigger_dag_run.call_args_list):
         assert call_.args[0] == ("acquisition_handler.instrument1")
         assert {
-            "raw_file_name": list(raw_file_names.keys())[n],
+            "raw_file_name": f"123---{list(raw_file_names.keys())[n]}",
         } == call_.args[1]
 
     mock_add_raw_file_to_db.assert_called_once_with(
         "file1.raw",
+        is_collision=True,
         project_id="PID1",
         instrument_id="instrument1",
         status="queued_for_monitoring",
@@ -309,11 +387,12 @@ def test_start_acquisition_handler_with_multiple_files(  # Too many arguments
     """Test start_acquisition_handler with multiple files."""
     # given
     raw_file_names = {
-        "file1.raw": ("project1", True),
-        "file2.raw": (None, True),
-        "file3.raw": ("project2", False),
+        "file1.raw": ("project1", True, False),
+        "file2.raw": (None, True, False),
+        "file3.raw": ("project2", False, False),
     }
     mock_get_xcom.return_value = raw_file_names
+    mock_add_raw_file_to_db.side_effect = raw_file_names
 
     # when
     start_acquisition_handler(Mock(), **{OpArgs.INSTRUMENT_ID: "instrument1"})
@@ -330,18 +409,21 @@ def test_start_acquisition_handler_with_multiple_files(  # Too many arguments
         [
             call(
                 "file1.raw",
+                is_collision=False,
                 project_id="project1",
                 instrument_id="instrument1",
                 status="queued_for_monitoring",
             ),
             call(
                 "file2.raw",
+                is_collision=False,
                 project_id=None,
                 instrument_id="instrument1",
                 status="queued_for_monitoring",
             ),
             call(
                 "file3.raw",
+                is_collision=False,
                 project_id="project2",
                 instrument_id="instrument1",
                 status="ignored",

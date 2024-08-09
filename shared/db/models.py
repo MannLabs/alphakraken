@@ -9,7 +9,7 @@ from mongoengine import (
     DateTimeField,
     Document,
     DynamicDocument,
-    FloatField,
+    IntField,
     ReferenceField,
     StringField,
 )
@@ -42,11 +42,20 @@ class RawFileStatus:
 class RawFile(Document):
     """Schema for a raw file."""
 
-    name = StringField(required=True, primary_key=True)
+    # Unique identifier of the file. Either the raw file name or, in case of a collision,
+    # the raw file name with a unique prefix.
+    name = StringField(max_length=128, required=True, primary_key=True)
+
+    # Unique prefix to indicate a collision. If None, no collision occurred.
+    collision_flag = StringField(max_length=32, default=None)
+
+    # Original name of the file. In case of collisions, this is not unique
+    original_name = StringField(max_length=128, required=True)
+
     status = StringField(max_length=32)
     status_details = StringField(max_length=256)
 
-    size = FloatField(min_value=0.0, max_value=1000.0 * 1024**3)  # unit: bytes
+    size = IntField(min_value=0, max_value=int(1000 * 1024**3))  # unit: bytes
     instrument_id = StringField(max_length=50)
 
     project_id = StringField(max_length=32)

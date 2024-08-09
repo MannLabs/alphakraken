@@ -27,6 +27,8 @@ CLUSTER_WORKING_DIR = f"{CLUSTER_BASE_DIR}/jobs"
 FALLBACK_PROJECT_ID = "_FALLBACK"
 FALLBACK_PROJECT_ID_BRUKER = "_FALLBACK_BRUKER"
 
+COLLISION_FLAG_SEP = "---"
+
 
 class InternalPaths:
     """Paths to directories within the Docker containers."""

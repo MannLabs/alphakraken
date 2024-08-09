@@ -18,9 +18,9 @@ pip install -r requirements_development.txt
 
 Start the docker containers providing an all-in-one solution with
 ```bash
-docker-compose up
+docker compose up
 ```
-The airflow webserver runs on http://localhost:8080/ (default credentials: `airflow`/`airflow`), the streamlit app on http://localhost:8051/ .
+The airflow webserver runs on http://localhost:8080/ (default credentials: `airflow`/`airflow`), the streamlit app on http://localhost:8501/ .
 
 Alternatively, run airflow without Docker using
 ```bash
@@ -30,8 +30,8 @@ The login password to the UI is displayed in the logs below the line `Airflow is
 You need to point the `dags_folder` variable in ` ~/airflow/airflow.cfg` to the absolute path of the `dags` folder.
 
 Note that you will need to have a MongoDB running on the default port `27017`, e.g. by
-`docker-compose run --service-ports mongodb-service`
-Also, you will need to fire up the streamlit app yourself by `docker-compose run -e MONGO_USER=<mongo_user>
+`docker compose run --service-ports mongodb-service`
+Also, you will need to fire up the streamlit app yourself by `docker compose run -e MONGO_USER=<mongo_user>
 
 Note that currently, the docker version is recommended.
 
@@ -43,7 +43,7 @@ python -m pytest
 If you encounter a `sqlite3.OperationalError: no such table: dag`, run `airflow db init` once.
 
 ### Manual testing
-1. Run the docker-compose command above and log into the airflow UI.
+1. Run the `docker compose` command above and log into the airflow UI.
 2. Unpause all DAGs. The "watchers" should start running.
 3. Create a test file: `I=$((I+1)); touch test_folders/acquisition_pcs/apc_tims_1/test_file_${I}.raw`
 4. Wait until it appears in the streamlit UI.
@@ -64,3 +64,60 @@ You can run the checks yourself using:
 ```bash
 pre-commit run --all-files
 ```
+
+## Deployment
+### Initial setup of Kraken PC
+1. Install
+[Docker Compose](https://docs.docker.com/engine/install/ubuntu/) and
+[Docker](https://docs.docker.com/compose/install/linux/#install-using-the-repository).
+2. Clone the repository into `/home/kraken-user/alphakraken/sandbox/alphakraken`.
+3. `cd` into this directory and execute `echo -e "AIRFLOW_UID=$(id -u)" > .env` to set the current user as the user
+within the airflow containers (otherwise, `root` would be used).
+4. Set up the network bind mounts (see below).
+5. Run `docker compose up -d` to start the services.
+6. Access the Airflow UI at `http://<kraken_pc_ip>:8080/` and the Streamlit app at `http://<kraken_pc_ip>:8501/`.
+
+#### Some useful commands:
+See state of containers
+```bash
+docker ps
+```
+
+Watch logs for a given service (omit the last part to see all logs)
+```bash
+docker compose logs -f streamlit-app
+```
+
+
+### Set up network bind mounts
+1. Create the mount target directories:
+```bash
+mkdir -p /home/kraken-user/alphakraken/sandbox/mounts/ms14
+```
+2. Mount the network drives (TODO describe persistent mount):
+```bash
+sudo mount -t cifs -o username=krakenuser //samba-pool-backup/pool-backup /home/kraken-user/alphakraken/sandbox/mounts/ms14
+```
+Note: for now, user `krakenuser` should only have read access to the pool folder.
+
+### Add a new instrument
+1. Mount the network drive as described above such that the new instrument's files are accessible,
+e.g. at  `/home/kraken-user/alphakraken/sandbox/mounts/ms14/Test2`.
+
+2. In `docker-compose.yml`, locate the `# ADD INSTRUMENTS HERE` comment and add a new entry for the instrument:
+```
+# Test2 on ms14:
+- /home/kraken-user/alphakraken/sandbox/mounts/ms14/Test2:/opt/airflow/acquisition_pcs/astral_1
+```
+where `astral_1` can be freely chosen as long as it is unique.
+
+3. In the `settings.py:INSTRUMENTS` dictionary, add a new entry
+```
+    "test2": {
+        InstrumentKeys.RAW_DATA_PATH: "astral_1",
+    },
+```
+
+4. Shut down and restart the containers with `docker compose down` and `docker compose up -d`.
+
+5. Open the airflow UI and unpause the new `*.test2` DAGs.

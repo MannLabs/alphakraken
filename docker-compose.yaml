@@ -48,7 +48,7 @@ x-airflow-common:
   &airflow-common
   # In order to add custom dependencies or upgrade provider packages you can use your extended image.
   # Comment the image line, place your Dockerfile in the directory where you placed the docker-compose.yaml
-  # and uncomment the "build" line below, Then run `docker-compose build` to build the images.
+  # and uncomment the "build" line below, Then run `docker compose build` to build the images.
   # image: ${AIRFLOW_IMAGE_NAME:-apache/airflow:2.9.1}
   build: .
   environment:
@@ -73,7 +73,7 @@ x-airflow-common:
     # If you want to use it, outcomment it and replace airflow.cfg with the name of your config file
     # AIRFLOW_CONFIG: '/opt/airflow/config/airflow.cfg'
   volumes:
-    # the code is mounted directly into the container, so changed to DAGs and Tasks are immediately active
+    # the code is mounted directly into the container, so changes to DAGs and Tasks are immediately active
     - ${AIRFLOW_PROJ_DIR:-.}/dags:/opt/airflow/dags
     - ${AIRFLOW_PROJ_DIR:-.}/logs:/opt/airflow/logs
     - ${AIRFLOW_PROJ_DIR:-.}/config:/opt/airflow/config
@@ -81,7 +81,12 @@ x-airflow-common:
     # custom:
     - ${AIRFLOW_PROJ_DIR:-.}/shared:/opt/airflow/shared
     # acquisition pcs # TODO move to workers
+    # for local testing:
     - ${AIRFLOW_PROJ_DIR:-.}/test_folders/acquisition_pcs:/opt/airflow/acquisition_pcs
+    # ADD INSTRUMENTS HERE:
+    # Test2 on ms14
+    - /home/kraken-user/alphakraken/sandbox/mounts/ms14/Test2/2024_06/:/opt/airflow/acquisition_pcs/test2
+
   user: "${AIRFLOW_UID:-50000}:0"
   depends_on:
     &airflow-common-depends-on
@@ -271,8 +276,8 @@ services:
       - -c
       - airflow
 
-  # You can enable flower by adding "--profile flower" option e.g. docker-compose --profile flower up
-  # or by explicitly targeted on the command line e.g. docker-compose up flower.
+  # You can enable flower by adding "--profile flower" option e.g. docker compose--profile flower up
+  # or by explicitly targeted on the command line e.g. docker compose up flower.
   # See: https://docs.docker.com/compose/profiles/
   flower:
     <<: *airflow-common

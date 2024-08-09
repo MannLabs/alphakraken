@@ -89,7 +89,7 @@ def get_output_folder_rel_path(raw_file_name: str, project_id: str) -> Path:
 
 
 def get_internal_output_path(raw_file_name: str, project_id: str) -> Path:
-    """Get abolute internal output path for the given raw file name."""
+    """Get absolute internal output path for the given raw file name."""
     return Path(InternalPaths.MOUNTS_PATH) / get_output_folder_rel_path(
         raw_file_name, project_id
     )

@@ -2,6 +2,7 @@
 
 import logging
 from datetime import datetime
+from pathlib import Path
 from random import random
 
 from airflow.exceptions import AirflowFailException
@@ -88,13 +89,24 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
     quanting_env = get_xcom(ti, XComKeys.QUANTING_ENV)
     ssh_hook = kwargs[OpArgs.SSH_HOOK]
 
+    # upfront check 1
+    if (job_id := get_xcom(ti, XComKeys.JOB_ID, -1)) != -1:
+        logging.warning(f"Job already started with {job_id}, skipping.")
+        return
+
+    # upfront check 2
+    output_path = get_internal_output_path(
+        quanting_env[QuantingEnv.RAW_FILE_NAME],
+        project_id=quanting_env[QuantingEnv.PROJECT_ID],
+    )
+    if Path(output_path).exists():
+        raise AirflowFailException(
+            f"Output path {output_path} already exists. Delete it first before restarting the quanting."
+        )
+
     command = _create_export_command(quanting_env) + get_run_quanting_cmd()
     logging.info(f"Running command: >>>>\n{command}\n<<<< end of command")
 
-    # TODO: prevent re-starting the same job again, by either
-    #  - give a unique job name and search latest history
-    #  - check if job_id is already set (weak!)
-    #  - check if output folder already exists
     ssh_return = SSHSensorOperator.ssh_execute(command, ssh_hook)
 
     try:

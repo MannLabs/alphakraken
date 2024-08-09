@@ -17,12 +17,14 @@ def put_xcom(ti: TaskInstance, key: str, value: _xcom_types) -> None:
     ti.xcom_push(key, value)
 
 
-def get_xcom(ti: TaskInstance, key: str) -> _xcom_types:
+def get_xcom(
+    ti: TaskInstance, key: str, default: _xcom_types | None = None
+) -> _xcom_types:
     """Get the value of an XCom with `key`."""
-    value = ti.xcom_pull(key=key)
+    value = ti.xcom_pull(key=key, default=default)
 
     if value is None:
-        raise ValueError(f"No value found for XCOM key {key}")
+        raise KeyError(f"No value found for XCOM key {key}")
 
     logging.info(f"Pulled from XCOM: '{key}'='{value}'")
 
@@ -36,7 +38,7 @@ def get_airflow_variable(key: str, default: str = "__DEFAULT_NOT_SET") -> str:
     else:
         value = Variable.get(key, default_var=default)
 
-    logging.info(f"Got variable: '{key}'='{value}' (default: '{default}')")
+    logging.info(f"Got airflow variable: '{key}'='{value}' (default: '{default}')")
 
     return value
 

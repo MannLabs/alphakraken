@@ -1,5 +1,4 @@
 """DAG to watch acquisition and trigger follow-up DAGS on demand."""
-# ruff: noqa: E402  # Module level import not at top of file
 
 from __future__ import annotations
 

@@ -4,7 +4,6 @@ from pathlib import Path
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
-
 from dags.impl.watcher_impl import get_raw_files, start_acquisition_handler
 from plugins.common.keys import OpArgs, XComKeys
 

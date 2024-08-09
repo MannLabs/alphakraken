@@ -4,7 +4,6 @@
 from unittest.mock import Mock
 
 import pytest
-
 from plugins.common.utils import get_xcom, put_xcom
 
 

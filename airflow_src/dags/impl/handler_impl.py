@@ -1,5 +1,4 @@
 """Business logic for the acquisition_handler."""
-# ruff: noqa: E402  # Module level import not at top of file
 
 import logging
 

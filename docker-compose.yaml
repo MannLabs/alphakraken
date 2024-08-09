@@ -50,7 +50,9 @@ x-airflow-common:
   # Comment the image line, place your Dockerfile in the directory where you placed the docker-compose.yaml
   # and uncomment the "build" line below, Then run `docker compose build` to build the images.
   # image: ${AIRFLOW_IMAGE_NAME:-apache/airflow:2.9.1}
-  build: .
+  build:
+      context: .
+      dockerfile: airflow_src/Dockerfile
   environment:
     &airflow-common-env
     AIRFLOW__CORE__EXECUTOR: CeleryExecutor
@@ -74,18 +76,18 @@ x-airflow-common:
     # AIRFLOW_CONFIG: '/opt/airflow/config/airflow.cfg'
   volumes:
     # the code is mounted directly into the container, so changes to DAGs and Tasks are immediately active
-    - ${AIRFLOW_PROJ_DIR:-.}/dags:/opt/airflow/dags
-    - ${AIRFLOW_PROJ_DIR:-.}/logs:/opt/airflow/logs
-    - ${AIRFLOW_PROJ_DIR:-.}/config:/opt/airflow/config
-    - ${AIRFLOW_PROJ_DIR:-.}/plugins:/opt/airflow/plugins
+    - ${AIRFLOW_PROJ_DIR:-./airflow_src}/dags:/opt/airflow/dags
+    - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_logs:/opt/airflow/logs
+    - ${AIRFLOW_PROJ_DIR:-./airflow_src}/config:/opt/airflow/config
+    - ${AIRFLOW_PROJ_DIR:-./airflow_src}/plugins:/opt/airflow/plugins
     # custom:
-    - ${AIRFLOW_PROJ_DIR:-.}/shared:/opt/airflow/shared
+    - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../shared:/opt/airflow/shared
     # acquisition pcs # TODO move to workers
     # for local testing:
-    - ${AIRFLOW_PROJ_DIR:-.}/test_folders/acquisition_pcs:/opt/airflow/acquisition_pcs
+    - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_test_folders/acquisition_pcs:/opt/airflow/acquisition_pcs
     # ADD INSTRUMENTS HERE:
     # Test2 on ms14
-    - /home/kraken-user/alphakraken/sandbox/mounts/ms14/Test2/2024_06/:/opt/airflow/acquisition_pcs/astral_1
+    # - /home/kraken-user/alphakraken/sandbox/mounts/ms14/Test2/2024_06/:/opt/airflow/acquisition_pcs/astral_1
 
   user: "${AIRFLOW_UID:-50000}:0"
   depends_on:
@@ -170,7 +172,7 @@ services:
       retries: 5
       start_period: 30s
     env_file:
-      - path: ./envs/.dev.env
+      - ./envs/.dev.env
     environment:
       <<: *airflow-common-env
       # Required to handle warm shutdown of the celery workers properly
@@ -261,7 +263,7 @@ services:
       _PIP_ADDITIONAL_REQUIREMENTS: ''
     user: "0:0"
     volumes:
-      - ${AIRFLOW_PROJ_DIR:-.}:/sources
+      - ${AIRFLOW_PROJ_DIR:-./airflow_src}:/sources
 
   airflow-cli:
     <<: *airflow-common
@@ -295,8 +297,6 @@ services:
     restart: always
     depends_on:
       <<: *airflow-common-depends-on
-      airflow-init:
-        condition: service_completed_successfully
 
   mongodb-service:
     # cf. https://www.mongodb.com/resources/products/compatibilities/docker
@@ -304,13 +304,13 @@ services:
     ports:
       - '27017:27017'
     volumes:
-      - ${AIRFLOW_PROJ_DIR:-.}/db_data:/data/db
+      - ./mongodb_data:/data/db
       # init the DB: https://stackoverflow.com/a/53522699
       # Note that this could also be done via pyhon, cf. https://github.com/MannLabs/alphakraken/pull/6#discussion_r1624957906
       - ./init-mongo.sh:/docker-entrypoint-initdb.d/init-mongo.sh
     env_file:
-      - path: ./envs/.env-mongo
-      - path: ./envs/.dev.env
+      - ./envs/.env-mongo
+      - ./envs/.dev.env
     healthcheck:
       test: ["CMD", "mongosh", "--eval", "'db.runCommand(\"ping\").ok'", "--quiet"]
       interval: 30s
@@ -318,18 +318,17 @@ services:
       retries: 5
       start_period: 30s
 
-  streamlit-app:
+  webapp:
     build:
       context: .
-      dockerfile: streamlit/Dockerfile
+      dockerfile: webapp/Dockerfile
     ports:
       - '8501:8501'
+    depends_on:
+      mongodb-service:
+        condition: service_healthy
     env_file:
-      - path: ./envs/.dev.env
-      - path: ./envs/.prod.env
-        required: false
-#    depends_on:
-#      mongodb-service:
-#        condition: service_healthy
+      -  ./envs/.dev.env
+
 volumes:
   postgres-db-volume:

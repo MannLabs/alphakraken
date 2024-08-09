@@ -1,5 +1,4 @@
 """Business logic for the acquisition_watcher."""
-# ruff: noqa: E402  # Module level import not at top of file
 
 import logging
 import os
@@ -7,6 +6,7 @@ from datetime import datetime
 from pathlib import Path
 
 import pytz
+from airflow.api.common.trigger_dag import trigger_dag
 from airflow.models import DagRun, TaskInstance
 from airflow.utils.types import DagRunType
 from common.keys import DagParams, Dags, OpArgs, XComKeys
@@ -34,9 +34,6 @@ def get_raw_files(ti: TaskInstance, **kwargs) -> None:
     logging.info(f"Raw files to be processed: {len(raw_file_names)} {raw_file_names}")
 
     put_xcom(ti, XComKeys.RAW_FILE_NAMES, raw_file_names)
-
-
-from airflow.api.common.trigger_dag import trigger_dag
 
 
 def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:

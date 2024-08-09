@@ -4,7 +4,6 @@ from pathlib import Path
 
 import pytest
 from airflow.models import DagBag
-
 from plugins.common.settings import INSTRUMENTS
 
 DAG_FOLDER = Path(__file__).parent / Path("../../dags")

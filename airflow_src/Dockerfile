@@ -15,5 +15,15 @@ ENV PYTHONUNBUFFERED=1
 ENV AIRFLOW_HOME=/opt/airflow
 ENV PYTHONPATH "${PYTHONPATH}:${AIRFLOW_HOME}"
 
-COPY requirements.txt /
-RUN pip install --no-cache-dir "apache-airflow==${AIRFLOW_VERSION}" -r /requirements.txt
+COPY airflow_src/requirements_airflow.txt /
+COPY ../shared/requirements_shared.txt /
+RUN pip install --no-cache-dir "apache-airflow==${AIRFLOW_VERSION}" \
+    -r /requirements_airflow.txt  \
+    -r /requirements_shared.txt
+
+# DAGs and plugins are currently imported via volume mounts
+# uncomment this if you want to copy the code over (more robust)
+#COPY airflow_src/dags /opt/airflow/dags
+#COPY airflow_src/plugins /opt/airflow/plugins
+#COPY airflow_src/config /opt/airflow/config
+#COPY shared /opt/airflow/shared

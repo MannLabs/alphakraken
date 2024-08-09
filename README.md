@@ -11,8 +11,11 @@ conda activate alphakraken
 pip install apache-airflow==${AIRFLOW_VERSION} --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-${AIRFLOW_VERSION}/constraints-${PYTHON_VERSION}.txt"
 ```
 
-Install requirements for developing and testing with
+Install all requirements for running, developing and testing with
 ```bash
+pip install -r airflow_src/requirements_airflow.txt
+pip install -r shared/requirements_shared.txt
+pip install -r webapp/requirements_webapp.txt
 pip install -r requirements_development.txt
 ```
 
@@ -20,7 +23,7 @@ Start the docker containers providing an all-in-one solution with
 ```bash
 docker compose up
 ```
-The airflow webserver runs on http://localhost:8080/ (default credentials: `airflow`/`airflow`), the streamlit app on http://localhost:8501/ .
+The airflow webserver runs on http://localhost:8080/ (default credentials: `airflow`/`airflow`), the Streamlit webapp on http://localhost:8051/ .
 
 Alternatively, run airflow without Docker using
 ```bash
@@ -31,7 +34,7 @@ You need to point the `dags_folder` variable in ` ~/airflow/airflow.cfg` to the 
 
 Note that you will need to have a MongoDB running on the default port `27017`, e.g. by
 `docker compose run --service-ports mongodb-service`
-Also, you will need to fire up the streamlit app yourself by `docker compose run -e MONGO_USER=<mongo_user>
+Also, you will need to fire up the Streamlit webapp yourself by `docker compose run -e MONGO_USER=<mongo_user>
 
 Note that currently, the docker version is recommended.
 
@@ -46,7 +49,7 @@ If you encounter a `sqlite3.OperationalError: no such table: dag`, run `airflow 
 1. Run the `docker compose` command above and log into the airflow UI.
 2. Unpause all DAGs. The "watchers" should start running.
 3. Create a test file: `I=$((I+1)); touch test_folders/acquisition_pcs/apc_tims_1/test_file_${I}.raw`
-4. Wait until it appears in the streamlit UI.
+4. Wait until it appears in the webapp.
 
 ### Connect to the DB
 Use e.g. MongoDB Compass to connect to the MongoDB running in Docker using the url `localhost:27017`,
@@ -68,15 +71,15 @@ pre-commit run --all-files
 ### A note on importing and PYTHONPATH
 Airflow adds the folders `dags` and `plugins` to the `PYTHONPATH`
 by default (cf. [here](https://airflow.apache.org/docs/apache-airflow/stable/administration-and-deployment/modules_management.html#built-in-pythonpath-entries-in-airflow)).
-To enable a consistent importing of modules, we need to do the same for the streamlit app (done in the Dockerfile) and for `pytest` (done in `pyproject.toml`).
+To enable a consistent importing of modules, we need to do the same for the Streamlit webapp (done in the Dockerfile) and for `pytest` (done in `pyproject.toml`).
 
 In addition, in order to import the `shared` module consistently, we need to add the root directory to the `PYTHONPATH`,
-for Airflow (done in the Dockerfile), the streamlit app (done in the Dockerfile), and for `pytest` (done in `pyproject.toml`).
+for Airflow (done in the Dockerfile), the Streamlit webapp (done in the Dockerfile), and for `pytest` (done in `pyproject.toml`).
 Note: beware of name clashes when introducing new top-level packages in addition to `shared`, cf.
 [here](https://airflow.apache.org/docs/apache-airflow/stable/administration-and-deployment/modules_management.html#best-practices-for-your-code-naming).
 
 To have your IDE recognize the imports correctly, you might need to take some action.
-E.g. in PyCharm, you need to mark `dags`, `plugins` and `shared` as "Sources Root".
+E.g. in PyCharm, you need to mark `dags`, `plugins`, `shared`, and `airflow_src` as "Sources Root".
 
 ## Deployment
 ### Initial setup of Kraken PC
@@ -88,7 +91,7 @@ E.g. in PyCharm, you need to mark `dags`, `plugins` and `shared` as "Sources Roo
 within the airflow containers (otherwise, `root` would be used).
 4. Set up the network bind mounts (see below).
 5. Run `docker compose up -d` to start the services.
-6. Access the Airflow UI at `http://<kraken_pc_ip>:8080/` and the Streamlit app at `http://<kraken_pc_ip>:8501/`.
+6. Access the Airflow UI at `http://<kraken_pc_ip>:8080/` and the Streamlit webapp at `http://<kraken_pc_ip>:8051/`.
 
 #### Some useful commands:
 See state of containers
@@ -98,9 +101,18 @@ docker ps
 
 Watch logs for a given service (omit the last part to see all logs)
 ```bash
-docker compose logs -f streamlit-app
+docker compose logs -f airflow-worker
 ```
 
+Start bash in a given service container
+```bash
+docker compose exec airflow-worker bash
+```
+
+Clean up all containers, volumes, and images (WARNING: data will be lost!)
+```bash
+docker-compose down --volumes  --remove-orphans --rmi all
+```
 
 ### Set up network bind mounts
 1. Create the mount target directories:

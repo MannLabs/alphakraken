@@ -1,6 +1,5 @@
 """DAG to handle acquisition."""
 
-# ruff: noqa: E402  # Module level import not at top of file
 from __future__ import annotations
 
 from datetime import timedelta

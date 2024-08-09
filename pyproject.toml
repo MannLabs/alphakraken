@@ -26,10 +26,11 @@ ignore = [
 ]
 
 [tool.pytest.ini_options]
-# cf. README.md:A note on importing
 pythonpath = [
-  ".",
-    "./dags",
-    "./plugins",
-    "./shared"
+# cf. README.md:A note on importing
+    "./airflow_src/dags",
+    "./airflow_src/plugins",
+    "./shared",
+    # this is to enable importing in tests as `from dags.impl. ...` rather than `from impl. ...`
+    "./airflow_src",
 ]

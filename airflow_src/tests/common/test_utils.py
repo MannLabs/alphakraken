@@ -73,7 +73,7 @@ def test_get_env_variable_returns_value_when_default_not_set(
     result = get_env_variable("my_key")
 
     assert result == "value"
-    mock_getenv.assert_called_once_with("my_key")
+    mock_getenv.assert_called_once_with("my_key", default=None)
 
 
 def test_get_env_variable_returns_default_when_value_not_found() -> None:
@@ -82,3 +82,10 @@ def test_get_env_variable_returns_default_when_value_not_found() -> None:
     result = get_env_variable("not_existing_env_var", "default_value")
 
     assert result == "default_value"
+
+
+def test_get_env_variable_raises_when_value_not_found() -> None:
+    """Test that get_env_variable returns the default value when the value of an environment variable with a given key is not found."""
+    # when
+    with pytest.raises(ValueError):
+        get_env_variable("not_existing_env_var")

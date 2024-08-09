@@ -81,6 +81,8 @@ x-airflow-common:
     MONGO_USER: ${MONGO_USER:?error}
     MONGO_PASSWORD: ${MONGO_PASSWORD:?error}
     MONGO_PORT: ${MONGO_PORT:?error}
+    IO_POOL_FOLDER: ${IO_POOL_FOLDER:?error}
+    MOUNTS_PATH: ${MOUNTS_PATH:?error}
     # INSTRUMENT PATHS
     INSTRUMENT_PATH_TEST1: ${INSTRUMENT_PATH_TEST1:?error}
     INSTRUMENT_PATH_ASTRAL1: ${INSTRUMENT_PATH_ASTRAL1:?error}
@@ -129,9 +131,8 @@ x-airflow-worker:
       condition: service_healthy
   volumes:
     - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_logs:/opt/airflow/logs
-    # all mounts (backup pool folders, results pool folders, instruments) need to be available in /mounts
-    # TODO take from ENV var
-    - /home/kraken-user/alphakraken/sandbox/mounts:/opt/airflow/mounts
+    # all mounts (backup pool folders, results pool folders, instruments) need to be available in $MOUNTS_PATH
+    - ${MOUNTS_PATH:?error}:/opt/airflow/mounts
 
 services:
   postgres:

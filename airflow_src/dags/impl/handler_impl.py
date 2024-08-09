@@ -15,7 +15,7 @@ from common.settings import (
     get_output_folder_name,
     get_relative_instrument_data_path,
 )
-from common.utils import get_xcom, put_xcom
+from common.utils import get_env_variable, get_xcom, put_xcom
 from impl.project_id_handler import get_unique_project_id
 from metrics.metrics_calculator import calc_metrics
 from sensors.ssh_sensor import SSHSensorOperator
@@ -27,6 +27,7 @@ from shared.db.interface import (
     update_raw_file_status,
 )
 from shared.db.models import RawFileStatus
+from shared.keys import EnvVars
 
 
 def _get_project_id_for_raw_file(raw_file_name: str) -> str:
@@ -55,6 +56,8 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
     # This reduces the chance for this to happen by 90%
     speclib_file_name = f"{int(random()*10)}_{settings.speclib_file_name}"  # noqa: S311
 
+    io_pool_folder = get_env_variable(EnvVars.IO_POOL_FOLDER)
+
     quanting_env = {
         QuantingEnv.RAW_FILE_NAME: raw_file_name,
         QuantingEnv.INSTRUMENT_SUBFOLDER: instrument_subfolder,
@@ -64,6 +67,7 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
         QuantingEnv.CONFIG_FILE_NAME: settings.config_file_name,
         QuantingEnv.SOFTWARE: settings.software,
         QuantingEnv.PROJECT_ID: project_id,
+        QuantingEnv.IO_POOL_FOLDER: io_pool_folder,
     }
 
     put_xcom(ti, XComKeys.QUANTING_ENV, quanting_env)

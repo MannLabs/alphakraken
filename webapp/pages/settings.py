@@ -1,7 +1,8 @@
 """Simple data overview."""
 
-# ruff: noqa: TRY301 # Abstract `raise` to an inner function
+import os
 
+# ruff: noqa: TRY301 # Abstract `raise` to an inner function
 import pandas as pd
 import streamlit as st
 from db.interface import add_new_settings_to_db
@@ -17,6 +18,8 @@ from service.utils import (
     empty_to_none,
     show_feedback_in_sidebar,
 )
+
+from shared.keys import EnvVars
 
 _log(f"loading {__file__}")
 
@@ -128,9 +131,10 @@ if selected_project:
         st.write(r"\** At least one of the two must be given")
 
         st.markdown("### Step 3/3: Upload files to pool folder")
+        io_pool_folder = os.environ.get(EnvVars.IO_POOL_FOLDER)
         st.markdown(
             "Make sure you have uploaded all the files correctly to "
-            f"`/fs/pool/pool-projects/alphakraken_test/settings/{project_id}/`"
+            f"`/fs/pool/{io_pool_folder}/settings/{project_id}/`"
         )
         upload_checkbox = st.checkbox(
             "I have uploaded the above files to this folder.", value=False

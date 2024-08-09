@@ -1,5 +1,6 @@
 """Tests for the handler_impl module."""
 
+import os
 from pathlib import Path
 from unittest.mock import MagicMock, call, patch
 
@@ -39,6 +40,7 @@ def test_get_project_id_for_raw_file(
 
 
 @patch.dict(INSTRUMENTS, {"instrument1": {"raw_data_path": "path/to/data"}})
+@patch.dict(os.environ, {"IO_POOL_FOLDER": "some_io_pool_folder"})
 @patch("dags.impl.handler_impl.put_xcom")
 @patch("dags.impl.handler_impl.random")
 @patch("dags.impl.handler_impl._get_project_id_for_raw_file")
@@ -83,6 +85,7 @@ def test_prepare_quanting(
         "CONFIG_FILE_NAME": "some_config_file_name",
         "SOFTWARE": "some_software",
         "PROJECT_ID": "some_project_id",
+        "IO_POOL_FOLDER": "some_io_pool_folder",
     }
 
     mock_put_xcom.assert_has_calls(

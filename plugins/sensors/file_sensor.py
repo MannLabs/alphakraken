@@ -6,6 +6,7 @@ Wait until creation of a new file or folder.
 import logging
 
 from airflow.sensors.base import BaseSensorOperator
+from common.utils import get_instrument_data_path
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
 
 # Over the network, and on some Mac/Docker configurations,
@@ -13,8 +14,6 @@ from watchdog.events import FileSystemEvent, FileSystemEventHandler
 # TODO: fix this or get rid of watchdog again
 # from watchdog.observers import Observer
 from watchdog.observers.polling import PollingObserver as Observer
-
-from shared.utils import get_instrument_data_path
 
 
 class FileCreationEventHandler(FileSystemEventHandler):

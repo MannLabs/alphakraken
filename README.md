@@ -65,6 +65,19 @@ You can run the checks yourself using:
 pre-commit run --all-files
 ```
 
+### A note on importing and PYTHONPATH
+Airflow adds the folders `dags` and `plugins` to the `PYTHONPATH`
+by default (cf. [here](https://airflow.apache.org/docs/apache-airflow/stable/administration-and-deployment/modules_management.html#built-in-pythonpath-entries-in-airflow)).
+To enable a consistent importing of modules, we need to do the same for the streamlit app (done in the Dockerfile) and for `pytest` (done in `pyproject.toml`).
+
+In addition, in order to import the `shared` module consistently, we need to add the root directory to the `PYTHONPATH`,
+for Airflow (done in the Dockerfile), the streamlit app (done in the Dockerfile), and for `pytest` (done in `pyproject.toml`).
+Note: beware of name clashes when introducing new top-level packages in addition to `shared`, cf.
+[here](https://airflow.apache.org/docs/apache-airflow/stable/administration-and-deployment/modules_management.html#best-practices-for-your-code-naming).
+
+To have your IDE recognize the imports correctly, you might need to take some action.
+E.g. in PyCharm, you need to mark `dags`, `plugins` and `shared` as "Sources Root".
+
 ## Deployment
 ### Initial setup of Kraken PC
 1. Install

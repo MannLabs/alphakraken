@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, Mock, patch
 import pytest
 
 from dags.impl.watcher_impl import get_raw_files, start_acquisition_handler
-from shared.keys import OpArgs, XComKeys
+from plugins.common.keys import OpArgs, XComKeys
 
 SOME_INSTRUMENT_ID = "some_instrument_id"
 

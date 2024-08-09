@@ -5,7 +5,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from shared.utils import get_xcom, put_xcom
+from plugins.common.utils import get_xcom, put_xcom
 
 
 def test_xcom_push_successful():

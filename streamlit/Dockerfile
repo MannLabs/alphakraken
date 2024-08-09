@@ -18,7 +18,13 @@ RUN  --mount=type=cache,target=/root/.cache/pip \
      && pip install -r requirements_streamlit.txt
 
 COPY streamlit streamlit
+# shared and plugins are directories that contain modules that are required by the streamlit app
+COPY plugins streamlit/plugins
 COPY shared streamlit/shared
+
+# cf. README.md:A note on importing
+ENV PYTHONPATH "${PYTHONPATH}:/app/streamlit/plugins"
+ENV PYTHONPATH "${PYTHONPATH}:/app/streamlit/shared"
 
 EXPOSE 8501
 

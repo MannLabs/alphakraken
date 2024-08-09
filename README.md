@@ -178,7 +178,7 @@ This connection is required to interact with the SLURM cluster.
 
 ### Setup required pools
 Pools are used to limit the number of parallel tasks for certain operations. They are managed via the Airflow UI
-and need to be created manually one.
+and need to be created manually once.
 1. Open the Airflow UI, navigate to "Admin" -> "Pools".
 2. For each pool defined in `settings.py:Pools`, create a new pool with a sensible value (see suggestions in the `Pools` class).
 

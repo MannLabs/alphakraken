@@ -135,6 +135,7 @@ def _display_table_and_plots(df: pd.DataFrame) -> None:
     ]
     x = st.selectbox(label="Choose x-axis:", options=selectbox_columns)
     for y in [
+        "status",
         "size_gb",
         "precursors",
         "proteins",
@@ -145,15 +146,15 @@ def _display_table_and_plots(df: pd.DataFrame) -> None:
         try:
             _draw_plot(filtered_df, x, y)
         except Exception as e:  # noqa: BLE001, PERF203
-            _log(str(e))
+            _log(e, f"Cannot draw plot for {y} vs {x}.")
 
 
 def _draw_plot(df: pd.DataFrame, x: str, y: str) -> None:
     """Draw a plot of a DataFrame."""
-    median_ = df[y].median()
     df = df.sort_values(by=x)
 
-    symbol = ["x" if x == "error" else "circle" for x in df["status"].to_numpy()]
+    y_is_numeric = pd.api.types.is_numeric_dtype(df[y])
+    median_ = df[y].median() if y_is_numeric else 0
 
     fig = px.scatter(
         df,
@@ -161,13 +162,19 @@ def _draw_plot(df: pd.DataFrame, x: str, y: str) -> None:
         y=y,
         color="instrument_id",
         hover_name="_id",
-        hover_data=["file_created"],
+        hover_data=["file_created", "status", "size_gb", "precursors"],
         title=f"{y} (median= {median_:.2f})",
         height=400,
-    ).update_traces(
-        mode="lines+markers",
-        marker={"symbol": symbol},
     )
+    if y_is_numeric:
+        error_states = ["error", "quanting_failed"]
+        symbol = [
+            "x" if x in error_states else "circle" for x in df["status"].to_numpy()
+        ]
+        fig.update_traces(
+            mode="lines+markers",
+            marker={"symbol": symbol},
+        )
     fig.add_hline(y=median_, line_dash="dash", line={"color": "lightgrey"})
     st.plotly_chart(fig)
 

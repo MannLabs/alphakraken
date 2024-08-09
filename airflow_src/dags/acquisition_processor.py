@@ -10,7 +10,13 @@ from airflow.operators.python import PythonOperator, ShortCircuitOperator
 from airflow.providers.ssh.hooks.ssh import SSHHook
 from callbacks import on_failure_callback
 from common.keys import DAG_DELIMITER, DagParams, Dags, OpArgs, Tasks
-from common.settings import AIRFLOW_QUEUE_PREFIX, INSTRUMENTS, Concurrency, Timings
+from common.settings import (
+    AIRFLOW_QUEUE_PREFIX,
+    INSTRUMENTS,
+    Concurrency,
+    Pools,
+    Timings,
+)
 from impl.processor_impl import (
     check_quanting_result,
     compute_metrics,
@@ -58,6 +64,8 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
             task_id=Tasks.RUN_QUANTING,
             python_callable=run_quanting,
             op_kwargs={OpArgs.SSH_HOOK: ssh_hook},
+            # shares a pool with monitor_quanting to limit the number of concurrent jobs on the cluster
+            pool=Pools.CLUSTER_SLOTS_POOL,
         )
 
         monitor_quanting_ = QuantingSSHSensor(
@@ -65,6 +73,8 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
             ssh_hook=ssh_hook,
             poke_interval=Timings.QUANTING_MONITOR_POKE_INTERVAL_S,
             max_active_tis_per_dag=Concurrency.MAXNO_MONITOR_QUANTING_TASKS_PER_DAG,
+            # shares a pool with monitor_quanting to limit the number of concurrent jobs on the cluster
+            pool=Pools.CLUSTER_SLOTS_POOL,
         )
 
         check_quanting_result_ = ShortCircuitOperator(

@@ -15,7 +15,7 @@ import pytz
 from airflow.sensors.base import BaseSensorOperator
 from common.keys import DagContext, DagParams
 from file_handling import get_file_size
-from raw_file_wrapper_factory import RawFileWrapperFactory
+from raw_file_wrapper_factory import RawFileMonitorWrapper, RawFileWrapperFactory
 
 from shared.db.interface import update_raw_file
 from shared.db.models import RawFileStatus
@@ -24,7 +24,7 @@ from shared.db.models import RawFileStatus
 # if it has not changed between two checks, the acquisition is considered to be done
 # This part of the logic is triggered only at the end of an acquisition queue,
 # so this value is rather conservative and hard-coded for now.
-SIZE_CHECK_INTERVAL_M: int = 10
+SIZE_CHECK_INTERVAL_M: int = 60
 
 
 class AcquisitionMonitor(BaseSensorOperator):
@@ -37,7 +37,7 @@ class AcquisitionMonitor(BaseSensorOperator):
         self._instrument_id = instrument_id
 
         self._raw_file_name: str | None = None
-        self._raw_file_monitor_wrapper: RawFileWrapperFactory | None = None
+        self._raw_file_monitor_wrapper: RawFileMonitorWrapper | None = None
         self._initial_dir_contents: set | None = None
 
         self._last_poke_timestamp = None

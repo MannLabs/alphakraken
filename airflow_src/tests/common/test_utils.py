@@ -9,6 +9,7 @@ from plugins.common.utils import (
     get_env_variable,
     get_xcom,
     put_xcom,
+    truncate_string,
 )
 
 
@@ -108,3 +109,32 @@ def test_get_env_variable_raises_when_value_not_found() -> None:
     # when
     with pytest.raises(KeyError):
         get_env_variable("not_existing_env_var")
+
+
+def test_truncate_string_returns_none_if_input_is_none() -> None:
+    """Test that truncate_string returns None if the input string is None."""
+    assert truncate_string(None) is None
+
+
+def test_truncate_string_handles_edge_case_of_empty_string() -> None:
+    """Test that truncate_string handles the edge case of an empty string."""
+    assert truncate_string("", 200) == ""
+
+
+def test_truncate_string_returns_input_if_length_is_less_than_n() -> None:
+    """Test that truncate_string returns the input string if its length is less than n."""
+    input_string = "short string"
+    assert truncate_string(input_string, 20) == input_string
+
+
+def test_truncate_string_truncates_correctly_if_length_is_greater_than_n() -> None:
+    """Test that truncate_string truncates the input string correctly if its length is greater than n."""
+    input_string = "a" * 300
+    expected_output = "a" * 100 + " ... " + "a" * 100
+    assert truncate_string(input_string, 200) == expected_output
+
+
+def test_truncate_string_handles_edge_case_of_exactly_n_characters() -> None:
+    """Test that truncate_string handles the edge case of exactly n characters."""
+    input_string = "a" * 200
+    assert truncate_string(input_string, 200) == input_string

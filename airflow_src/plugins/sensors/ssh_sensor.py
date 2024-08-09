@@ -9,7 +9,7 @@ from airflow.providers.ssh.hooks.ssh import SSHHook
 from airflow.sensors.base import BaseSensorOperator
 from cluster_scripts.slurm_commands import get_job_state_cmd
 from common.keys import AirflowVars, JobStates, XComKeys
-from common.utils import get_airflow_variable, get_xcom
+from common.utils import get_airflow_variable, get_xcom, truncate_string
 
 
 class SSHSensorOperator(BaseSensorOperator, ABC):
@@ -62,6 +62,8 @@ class SSHSensorOperator(BaseSensorOperator, ABC):
         if get_airflow_variable(AirflowVars.DEBUG_NO_CLUSTER_SSH, "False") == "True":
             return SSHSensorOperator._get_fake_ssh_response(command)
 
+        str_stdout = ""
+
         # Sometimes the SSH command returns an exit status '254' or empty byte string,
         # so retry some time until it is 200 and nonempty
         exit_status = -1
@@ -70,6 +72,7 @@ class SSHSensorOperator(BaseSensorOperator, ABC):
         while exit_status != 0 or agg_stdout in [b"", b"\n"]:
             if exit_status != -1:
                 sleep(5 * call_count)
+
             exit_status, agg_stdout, agg_stderr = ssh_hook.exec_ssh_client_command(
                 ssh_hook.get_conn(),
                 command,
@@ -77,15 +80,22 @@ class SSHSensorOperator(BaseSensorOperator, ABC):
                 get_pty=False,
                 environment={},
             )
+            str_stdout = SSHSensorOperator._byte_to_string(agg_stdout)
+            str_stdout_trunc = truncate_string(str_stdout)
             logging.info(
-                f"ssh command call {call_count+1} returned: {exit_status=} {agg_stdout=} {agg_stderr=}"
+                f"ssh command call {call_count+1} returned: {exit_status=} {str_stdout_trunc=} {agg_stderr=}"
             )
 
             call_count += 1
             if call_count >= max_tries:
                 raise AirflowFailException(f"Too many calls to ssh_execute: {command=}")
 
-        return agg_stdout.decode("utf-8").strip()
+        return str_stdout
+
+    @staticmethod
+    def _byte_to_string(input_: bytes) -> str:
+        """Convert the given `input_` to a string."""
+        return input_.decode("utf-8").strip()
 
     @staticmethod
     def _get_fake_ssh_response(command: str) -> str:

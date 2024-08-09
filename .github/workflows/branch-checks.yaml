@@ -15,9 +15,9 @@ jobs:
 
   get-code-review-input:
     runs-on: ubuntu-latest
-    if: contains(github.event.pull_request.labels.*.name, 'code-review')
+    #if: contains(github.event.pull_request.labels.*.name, 'code-review')
     steps:
-      - uses: MannLabs/alphashared/get-code-review-input@v1
+      - uses: MannLabs/alphashared/actions/get-code-review-input@v1
         with:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.number }}

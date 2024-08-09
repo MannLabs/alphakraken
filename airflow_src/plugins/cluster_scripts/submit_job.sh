@@ -12,12 +12,13 @@ set -u -e
 # INPUT taken from environment variables
 # RAW_FILE_NAME  # e.g. "20240606_OA1_Evo12_16min_JBMR_ADIAMA_HeLa_5ng_F-40_01.raw"
 # INSTRUMENT_SUBFOLDER # e.g. "pool-backup/Test2"
-# OUTPUT_FOLDER_NAME # e.g. "out_20240606_OA1_Evo12_16min_JBMR_ADIAMA_HeLa_5ng_F-40_01.raw"
+# OUTPUT_FOLDER_REL_PATH # e.g. "output/PID123/out_20240606_OA1_Evo12_16min_JBMR_ADIAMA_HeLa_5ng_F-40_01.raw"
 # SPECLIB_FILE_NAME # e.g."hela_hybrid.small.hdf"
 # FASTA_FILE_NAME # e.g. 2024_01_12_human.fasta
 # CONFIG_FILE_NAME #e .g."config.yaml"
 # SOFTWARE # e.g. alphadia-1.6.2
 # PROJECT_ID # e.g. A123
+# IO_POOL_FOLDER # e.g. "pool-projects/alphakraken_sandbox
 
 POOL_FS="/fs/pool/"  # probably okay to hardcode this
 POOL_PROJECTS="${POOL_FS}/${IO_POOL_FOLDER}"
@@ -25,11 +26,10 @@ POOL_PROJECTS="${POOL_FS}/${IO_POOL_FOLDER}"
 # these are determined by convention:
 CONDA_ENV=$SOFTWARE
 SETTINGS_PATH="${POOL_PROJECTS}/settings/${PROJECT_ID}"
-OUTPUT_PATH="${POOL_PROJECTS}/output/" # TODO add ${PROJECT_ID} folder
+OUTPUT_PATH="${POOL_PROJECTS}/${OUTPUT_FOLDER_REL_PATH}"
 INSTRUMENT_BACKUP_FOLDER="${POOL_FS}/${INSTRUMENT_SUBFOLDER}"
 RAW_FILE_PATH="${INSTRUMENT_BACKUP_FOLDER}/${RAW_FILE_NAME}"
 CONFIG_FILE_PATH="${SETTINGS_PATH}/${CONFIG_FILE_NAME}"
-OUTPUT_PATH="${OUTPUT_PATH}/${OUTPUT_FOLDER_NAME}"
 
 echo CONDA_ENV=${CONDA_ENV}
 echo SETTINGS_PATH=${SETTINGS_PATH}

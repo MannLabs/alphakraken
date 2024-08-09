@@ -75,15 +75,17 @@ def get_relative_instrument_data_path(instrument_id: str) -> str:
     return INSTRUMENTS[instrument_id][InstrumentKeys.RAW_DATA_PATH]
 
 
-def get_output_folder_name(raw_file_name: str) -> str:
-    """Get the output directory name for the given raw file name."""
-    return f"{OUTPUT_FOLDER_PREFIX}{raw_file_name}"
-
-
-def get_internal_output_path(raw_file_name: str) -> Path:
-    """Get internal output path for the given raw file name."""
+def get_output_folder_rel_path(raw_file_name: str, project_id: str) -> Path:
+    """Get the relative path of the output directory for given raw file name."""
     return (
-        Path(InternalPaths.MOUNTS_PATH)
-        / Path(InternalPaths.OUTPUT)
-        / get_output_folder_name(raw_file_name)
+        Path(InternalPaths.OUTPUT)
+        / project_id
+        / f"{OUTPUT_FOLDER_PREFIX}{raw_file_name}"
+    )
+
+
+def get_internal_output_path(raw_file_name: str, project_id: str) -> Path:
+    """Get abolute internal output path for the given raw file name."""
+    return Path(InternalPaths.MOUNTS_PATH) / get_output_folder_rel_path(
+        raw_file_name, project_id
     )

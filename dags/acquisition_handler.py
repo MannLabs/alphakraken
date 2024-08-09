@@ -24,7 +24,7 @@ from dags.impl.handler_impl import (
     run_quanting,
     upload_metrics,
 )
-from shared.keys import DAG_DELIMITER, Dags, Tasks
+from shared.keys import DAG_DELIMITER, Dags, OpArgs, Tasks
 from shared.settings import INSTRUMENTS
 
 
@@ -46,7 +46,11 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
     ) as dag:
         dag.doc_md = __doc__
 
-        add_to_db_ = PythonOperator(task_id=Tasks.ADD_TO_DB, python_callable=add_to_db)
+        add_to_db_ = PythonOperator(
+            task_id=Tasks.ADD_TO_DB,
+            python_callable=add_to_db,
+            op_kwargs={OpArgs.INSTRUMENT_ID: instrument_id},
+        )
 
         prepare_quanting_ = PythonOperator(
             task_id=Tasks.PREPARE_QUANTING, python_callable=prepare_quanting

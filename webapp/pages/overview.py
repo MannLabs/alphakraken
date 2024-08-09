@@ -6,7 +6,7 @@ import pandas as pd
 import streamlit as st
 from matplotlib import pyplot as plt
 from service.components import show_filter
-from service.db import df_from_db_data, get_all_data
+from service.db import df_from_db_data, get_raw_file_and_metrics_data
 from service.utils import _log
 
 _log(f"loading {__file__}")
@@ -17,10 +17,9 @@ _log(f"loading {__file__}")
 st.set_page_config(page_title="AlphaKraken: overview", layout="wide")
 st.markdown("# Overview")
 
-
 # ########################################### LOGIC
 
-raw_files_db, metrics_db = get_all_data()
+raw_files_db, metrics_db = get_raw_file_and_metrics_data()
 
 raw_files_df = df_from_db_data(raw_files_db)
 
@@ -69,7 +68,7 @@ def display(df: pd.DataFrame) -> None:
     )
 
     # filter
-    filtered_df = show_filter(df, "Filter:")
+    filtered_df = show_filter(df)
 
     cmap = plt.get_cmap("RdYlGn")
     st.dataframe(

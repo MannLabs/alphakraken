@@ -9,7 +9,16 @@ st.set_page_config(page_title="AlphaKraken: home", layout="wide")
 
 """
 # Welcome to AlphaKraken!
+Note: you are currently viewing the 'sandbox' environment. Everything could
+change any minute, and data could be gone at any time.
+Also, bear in mind that the whole AlphaKraken project is currenly work in progress.
 
-Here you will soon find a bit of an explanation of how to use this.
-For now, only the "overview" tab contains meaningful information.
+Still, feedback on the current state is always welcome!
+
+
+## A basic explanation of how to use this:
+
+If you want to see data for all raw files that have been processed, go to the "overview" tab.
+
+To create a new project, go to the "projects" tab.
 """

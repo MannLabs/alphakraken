@@ -8,6 +8,7 @@ from db.models import RawFileStatus
 
 from shared.db.interface import (
     add_metrics_to_raw_file,
+    add_new_project_to_db,
     add_new_raw_file_to_db,
     get_raw_file_names_from_db,
     update_raw_file_status,
@@ -130,3 +131,24 @@ def test_add_metrics_to_raw_file_happy_path(
     mock_metrics.assert_called_once_with(
         raw_file=mock_raw_file_from_db, metric1=1, metric2=2
     )
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.Project")
+def test_add_new_project_to_db(
+    mock_project: MagicMock, mock_connect_db: MagicMock
+) -> None:
+    """Test that add_new_project_to_db adds a new project to the database."""
+    # given
+    mock_project.return_value.save.side_effect = None
+
+    # when
+    add_new_project_to_db(
+        project_id="P1234", name="new project", description="some project description"
+    )
+
+    # then
+    mock_project.assert_called_once_with(
+        id="P1234", name="new project", description="some project description"
+    )
+    mock_connect_db.assert_called_once()

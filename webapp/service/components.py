@@ -4,7 +4,7 @@ import pandas as pd
 import streamlit as st
 
 
-def show_filter(df: pd.DataFrame, text_to_display: str) -> pd.DataFrame:
+def show_filter(df: pd.DataFrame, text_to_display: str = "Filter:") -> pd.DataFrame:
     """Filter the DataFrame on user input by case-insensitive textual comparison in all columns."""
     user_input = st.text_input(text_to_display, None)
     if user_input is not None and user_input != "":

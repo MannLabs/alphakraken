@@ -11,7 +11,7 @@ from streamlit.testing.v1 import AppTest
 APP_FOLDER = Path(__file__).parent / Path("../../")
 
 
-@patch("service.db.get_all_data")
+@patch("service.db.get_raw_file_and_metrics_data")
 @patch("service.db.df_from_db_data")
 def test_overview(mock_df: MagicMock, mock_get: MagicMock) -> None:
     """A very boring test for a very boring page."""

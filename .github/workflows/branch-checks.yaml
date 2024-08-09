@@ -18,21 +18,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
+
     - uses: actions/setup-python@v5
       with:
         python-version: '3.11'
-    - name: Setup pip cache
-      uses: actions/cache@v4
-      with:
-        path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
-    - run: |
+        cache: 'pip'
+
+    - name: Run Airflow unit tests
+      run: |
         pip install apache-airflow==2.9.1 --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.9.1/constraints-3.11.txt"
         airflow db init
         pip install -r airflow_src/requirements_airflow.txt
         pip install -r shared/requirements_shared.txt
         pip install -r requirements_development.txt
-        python -m pytest
+        python -m pytest airflow_src
+
+    # strictly speaking, the two test sets should be in separate python envs but should be fine for now
+    - name: Run webapp unit tests
+      run: |
+        pip install -r webapp/requirements_webapp.txt
+        python -m pytest webapp
 
   docker-compose-test:
     runs-on: ubuntu-latest

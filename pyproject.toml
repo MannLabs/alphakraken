@@ -34,4 +34,6 @@ pythonpath = [
     "./shared",
     # this is to enable importing in tests as `from dags.impl. ...` rather than `from impl. ...`
     "./airflow_src",
+    # note that package names must be unique in the airflow_src and webapp directories to not confuse the imports in pytest
+    "./webapp"
 ]

@@ -1,5 +1,8 @@
 """Simple data overview."""
 
+from datetime import datetime
+
+import humanize
 import pandas as pd
 
 # ruff: noqa: PD002 # `inplace=True` should be avoided; it has inconsistent behavior
@@ -47,11 +50,10 @@ combined_df["quanting_time_minutes"] = combined_df["time_elapsed"] / 60
 combined_df.sort_values(by="created_at", ascending=False, inplace=True)
 combined_df.reset_index(drop=True, inplace=True)
 combined_df.index = combined_df["_id"]
-combined_df.drop(
-    columns=["size", "created_at", "time_elapsed", "raw_file", "_id"], inplace=True
-)
+combined_df.drop(columns=["size", "time_elapsed", "raw_file", "_id"], inplace=True)
+columns_at_end = ["created_at", "created_at_", "updated_at_"]
 combined_df = combined_df[
-    [col for col in combined_df.columns if col != "created_at_"] + ["created_at_"]
+    [col for col in combined_df.columns if col not in columns_at_end] + columns_at_end
 ]
 
 
@@ -63,9 +65,25 @@ combined_df = combined_df[
 @st.experimental_fragment
 def display(df: pd.DataFrame) -> None:
     """A fragment that displays a DataFrame with a filter."""
-    st.write(
-        f"Processed {len(raw_files_df)} raw files. Latest update: {combined_df.iloc[0]['created_at_']}"
+    st.write(f"Processed {len(df)} raw files.")
+    now = datetime.now()  # noqa:  DTZ005 no tz argument
+    st.write(f"Crrent Kraken time: {now}")
+
+    last_file_creation = df.iloc[0]["created_at"]
+    display_time = humanize.precisedelta(
+        now - last_file_creation, minimum_unit="seconds", format="%.0f"
     )
+    st.write(
+        f"Latest processed file acquisition start: {display_time} ago [{last_file_creation}]"
+    )
+
+    last_update = df.sort_values(by="updated_at_", ascending=False).iloc[0][
+        "updated_at_"
+    ]
+    display_time = humanize.precisedelta(
+        now - last_update, minimum_unit="seconds", format="%.0f"
+    )
+    st.write(f"Last raw file status update: {display_time} ago [{last_update}]")
 
     # filter
     filtered_df = show_filter(df)

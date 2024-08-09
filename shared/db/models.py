@@ -40,6 +40,7 @@ class RawFile(Document):
 
     # audit fields
     created_at_ = DateTimeField(default=datetime.now)
+    updated_at_ = DateTimeField(default=datetime.now)
 
 
 class Metrics(DynamicDocument):

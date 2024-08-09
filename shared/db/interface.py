@@ -49,7 +49,7 @@ def update_raw_file_status(raw_file_name: str, new_status: str) -> None:
     logging.info(f"Updating DB: {raw_file_name=} to {new_status=}")
     connect_db()
     raw_file = RawFile.objects.with_id(raw_file_name)
-    raw_file.update(status=new_status)
+    raw_file.update(status=new_status, updated_at_=datetime.now(tz=pytz.utc))
 
 
 def add_metrics_to_raw_file(raw_file_name: str, metrics: dict) -> None:

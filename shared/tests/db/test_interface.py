@@ -100,8 +100,9 @@ def test_get_raw_file_names_from_db_returns_only_existing_files_when_some_files_
 
 @patch("shared.db.interface.connect_db")
 @patch("shared.db.interface.RawFile")
+@patch("shared.db.interface.datetime")
 def test_update_raw_file_status(
-    mock_raw_file: MagicMock, mock_connect_db: MagicMock
+    mock_datetime: MagicMock, mock_raw_file: MagicMock, mock_connect_db: MagicMock
 ) -> None:
     """Test that update_raw_file_status updates the status of the raw file."""
     # given
@@ -112,7 +113,9 @@ def test_update_raw_file_status(
     update_raw_file_status("test_file", RawFileStatus.PROCESSED)
 
     # then
-    mock_raw_file_from_db.update.assert_called_once_with(status=RawFileStatus.PROCESSED)
+    mock_raw_file_from_db.update.assert_called_once_with(
+        status=RawFileStatus.PROCESSED, updated_at_=mock_datetime.now.return_value
+    )
     mock_connect_db.assert_called_once()
 
 

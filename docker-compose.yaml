@@ -85,8 +85,6 @@ x-airflow-common:
     INSTRUMENT_PATH_ASTRAL1: ${INSTRUMENT_PATH_ASTRAL1:?error}
     INSTRUMENT_PATH_ASTRAL2: ${INSTRUMENT_PATH_ASTRAL2:?error}
     # ... (add new instruments here)
-  env_file:
-    - ./envs/.env-airflow  # TODO: this gets overwritte by the --env-files option
   volumes:
     - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_logs:/opt/airflow/logs
 #    # Uncomment for local development so that changes to DAGs and Tasks are immediately active
@@ -105,9 +103,10 @@ x-airflow-common:
       condition: service_healthy
 
 x-airflow-worker:
+  # This is the configuration for the production workers. For the test worker, the volume mapping is overwritten.
   &airflow-worker
   <<: *airflow-common
-  profiles: ["prod-workers"]
+  profiles: ["all-workers"]
   healthcheck:
     # yamllint disable rule:line-length
     test:
@@ -130,6 +129,7 @@ x-airflow-worker:
   volumes:
     - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_logs:/opt/airflow/logs
     # all mounts (backup pool folders, results pool folders, instruments) need to be available in /mounts
+    # TODO take from ENV var
     - /home/kraken-user/alphakraken/sandbox/mounts:/opt/airflow/mounts
 
 services:
@@ -342,7 +342,7 @@ services:
   airflow-worker-test1:
     # worker for local and sandbox testing
     <<: *airflow-worker
-    profiles: []
+    profiles: []  # this worker is always started
     # "-q <XXX>" makes this worker handle only DAGs that reference queue_name=<XXX> during DAG instantiation
     command: celery worker -q kraken_queue_test1
     volumes:

@@ -43,7 +43,7 @@ jobs:
 
   apply-code-review:
     runs-on: ubuntu-latest
-    if: ${{ github.event.inputs.REVIEW_DATA != '' }}
+#    if: ${{ github.event.inputs.REVIEW_DATA != '' }}
     steps:
       - uses: MannLabs/alphashared/apply-code-review@v1
         with:

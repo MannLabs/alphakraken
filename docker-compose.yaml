@@ -347,8 +347,8 @@ services:
       # the following three mounts are required for the worker to work in general and are not instrument specific:
       # airflow logs
       - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_logs:/opt/airflow/logs
-      # output and backup folder
-      - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_test_folders:/opt/airflow/mounts
+      # all mounts (backup pool folders, results pool folders, instruments) need to be available in $MOUNTS_PATH
+      - ${MOUNTS_PATH:?error}:/opt/airflow/mounts
      # for this worker, changes to DAGs and Tasks are immediately active
       - ${AIRFLOW_PROJ_DIR:-./airflow_src}/dags:/opt/airflow/dags
       - ${AIRFLOW_PROJ_DIR:-./airflow_src}/config:/opt/airflow/config
@@ -375,6 +375,11 @@ services:
     <<: *airflow-worker
     command: celery worker -q kraken_queue_test5
 
+  # INSTRUMENT: Test10
+  airflow-worker-test10:
+    <<: *airflow-worker
+    command: celery worker -q kraken_queue_test10
+
   # INSTRUMENT: Test11
   airflow-worker-test11:
     <<: *airflow-worker
@@ -384,3 +389,18 @@ services:
   airflow-worker-test6:
     <<: *airflow-worker
     command: celery worker -q kraken_queue_test6
+
+  # INSTRUMENT: Test7
+  airflow-worker-test7:
+    <<: *airflow-worker
+    command: celery worker -q kraken_queue_test7
+
+  # INSTRUMENT: Test8
+  airflow-worker-test8:
+    <<: *airflow-worker
+    command: celery worker -q kraken_queue_test8
+
+  # INSTRUMENT: Test9
+  airflow-worker-test9:
+    <<: *airflow-worker
+    command: celery worker -q kraken_queue_test9

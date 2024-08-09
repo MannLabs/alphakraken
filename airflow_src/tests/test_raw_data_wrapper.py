@@ -158,7 +158,7 @@ def test_thermo_get_files_to_copy(
 @patch("plugins.raw_data_wrapper.get_internal_instrument_data_path")
 def test_zeno_get_files_to_copy(mock_instrument_path: MagicMock) -> None:
     """Test that get_files_to_copy returns the correct mapping for ZenoRawDataWrapper."""
-    mock_instrument_path.return_value.rglob.return_value = [
+    mock_instrument_path.return_value.glob.return_value = [
         Path("/path/to/instrument/sample.wiff"),
         Path("/path/to/instrument/sample.wiff.scan"),
     ]
@@ -173,6 +173,7 @@ def test_zeno_get_files_to_copy(mock_instrument_path: MagicMock) -> None:
         ),
     }
     assert wrapper.get_files_to_copy() == expected_mapping
+    mock_instrument_path.return_value.glob.assert_called_once_with("sample.*")
 
 
 @patch("plugins.raw_data_wrapper.get_internal_instrument_data_path")
@@ -196,3 +197,4 @@ def test_bruker_get_files_to_copy(mock_instrument_path: MagicMock) -> None:
         mp2: Path("/opt/airflow/mounts/backup/instrument1/sample.d/subdir/file2.txt"),
     }
     assert wrapper.get_files_to_copy() == expected_mapping
+    mock_output_path.rglob.assert_called_once_with("*")

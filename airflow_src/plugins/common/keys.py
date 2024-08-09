@@ -52,7 +52,7 @@ class XComKeys:
 
     RAW_FILE_NAME: str = "raw_file_name"
     RAW_FILE_NAMES: str = "raw_file_names"
-    RAW_FILE_HANDLING_DECISIONS: str = "raw_file_handling_decisions"
+    RAW_FILE_PROJECT_IDS: str = "raw_file_project_ids"
 
     QUANTING_ENV: str = "quanting_env"
 

@@ -157,8 +157,8 @@ def test_decide_raw_file_handling(
     mock_get_unique.assert_any_call("file3", ["project1", "project2"])
     mock_put.assert_called_once_with(
         mock_ti,
-        "raw_file_handling_decisions",
-        {"file1": False, "file2": True, "file3": True},
+        "raw_file_project_ids",
+        {"file1": None, "file2": "project1", "file3": "project2"},
     )
 
 
@@ -236,7 +236,11 @@ def test_start_acquisition_handler_with_multiple_files(
 ) -> None:
     """Test start_acquisition_handler with multiple files."""
     # given
-    raw_file_names = {"file1.raw": True, "file2.raw": True, "file3.raw": False}
+    raw_file_names = {
+        "file1.raw": "project1",
+        "file2.raw": "project2",
+        "file3.raw": None,
+    }
     mock_get_xcom.return_value = raw_file_names
     run_ids = ["run_id1", "run_id2", "run_id3"]
     mock_generate.side_effect = run_ids
@@ -246,7 +250,7 @@ def test_start_acquisition_handler_with_multiple_files(
     start_acquisition_handler(Mock(), **{OpArgs.INSTRUMENT_ID: "instrument1"})
 
     # then
-    assert mock_trigger_dag.call_count == 2  # noqa: PLR2004 no magic numbers
+    assert mock_trigger_dag.call_count == 3  # noqa: PLR2004 no magic numbers
     for n, call in enumerate(mock_trigger_dag.call_args_list):
         assert call[1]["dag_id"].endswith("instrument1")
         assert run_ids[n] == call[1]["run_id"]

@@ -85,7 +85,7 @@ def decide_raw_file_handling(ti: TaskInstance, **kwargs) -> None:
 
     all_project_ids = get_all_project_ids()
 
-    raw_file_handling_decisions = {}
+    raw_file_project_ids: dict[str, bool] = {}
     for raw_file_name in raw_file_names:
         project_id = get_unique_project_id(raw_file_name, all_project_ids)
 
@@ -93,11 +93,12 @@ def decide_raw_file_handling(ti: TaskInstance, **kwargs) -> None:
             logging.warning(
                 f"Raw file {raw_file_name} does not match exactly one project of {all_project_ids}."
             )
-            raw_file_handling_decisions[raw_file_name] = False
-        else:
-            raw_file_handling_decisions[raw_file_name] = True
 
-    put_xcom(ti, XComKeys.RAW_FILE_HANDLING_DECISIONS, raw_file_handling_decisions)
+        raw_file_project_ids[raw_file_name] = project_id
+
+        # here we could add more logic to decide whether to handle the file or not, e.g. a global blacklist
+
+    put_xcom(ti, XComKeys.RAW_FILE_PROJECT_IDS, raw_file_project_ids)
 
 
 def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
@@ -108,26 +109,25 @@ def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
     Only for raw files that carry a project id, the acquisition_handler DAG is triggered.
     """
     instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
-    raw_file_handling_decisions = get_xcom(ti, XComKeys.RAW_FILE_HANDLING_DECISIONS)
+    raw_file_project_ids = get_xcom(ti, XComKeys.RAW_FILE_PROJECT_IDS)
 
     dag_id_to_trigger = f"{Dags.ACQUISITON_HANDLER}.{instrument_id}"
 
     # adding the files to the DB and triggering the acquisition_handler DAG should be atomic
-    for raw_file_name, is_to_be_handled in raw_file_handling_decisions.items():
-        status = RawFileStatus.NEW if is_to_be_handled else RawFileStatus.IGNORED
+    for raw_file_name, project_id in raw_file_project_ids.items():
+        status = RawFileStatus.NEW if project_id is not None else RawFileStatus.IGNORED
 
         _add_raw_file_to_db(instrument_id, raw_file_name, status=status)
 
-        if is_to_be_handled:
-            run_id = DagRun.generate_run_id(
-                DagRunType.MANUAL, execution_date=datetime.now(tz=pytz.utc)
-            )
-            logging.info(
-                f"Triggering DAG {dag_id_to_trigger} with run_id {run_id} for raw_file_name {raw_file_name}."
-            )
-            trigger_dag(
-                dag_id=dag_id_to_trigger,
-                run_id=run_id,
-                conf={DagParams.RAW_FILE_NAME: raw_file_name},
-                replace_microseconds=False,
-            )
+        run_id = DagRun.generate_run_id(
+            DagRunType.MANUAL, execution_date=datetime.now(tz=pytz.utc)
+        )
+        logging.info(
+            f"Triggering DAG {dag_id_to_trigger} with run_id {run_id} for raw_file_name {raw_file_name}."
+        )
+        trigger_dag(
+            dag_id=dag_id_to_trigger,
+            run_id=run_id,
+            conf={DagParams.RAW_FILE_NAME: raw_file_name},
+            replace_microseconds=False,
+        )

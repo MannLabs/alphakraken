@@ -100,6 +100,8 @@ def display(df: pd.DataFrame) -> None:
         st_display=f3,
     )
 
+    st.write(f"Found {len(filtered_df)} matches.")
+
     cmap = plt.get_cmap("RdYlGn")
     st.dataframe(
         filtered_df.style.background_gradient(

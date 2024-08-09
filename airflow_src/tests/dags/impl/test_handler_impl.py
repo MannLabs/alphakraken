@@ -7,6 +7,7 @@ import pytest
 from airflow.exceptions import AirflowFailException
 from common.settings import INSTRUMENTS
 from dags.impl.handler_impl import (
+    _get_project_id_for_raw_file,
     compute_metrics,
     get_job_info,
     prepare_quanting,
@@ -18,23 +19,39 @@ from plugins.common.keys import DagContext, DagParams, OpArgs, QuantingEnv, XCom
 from shared.db.models import RawFileStatus
 
 
+@patch("dags.impl.handler_impl.get_all_project_ids")
+@patch("dags.impl.handler_impl.get_unique_project_id")
+def test_get_project_id_for_raw_file(
+    mock_get_unique_project_id: MagicMock,
+    mock_get_all_project_ids: MagicMock,
+) -> None:
+    """Test that _get_project_id_for_raw_file makes the expected calls."""
+    mock_get_all_project_ids.return_value = ["some_project_id", "P2"]
+    mock_get_unique_project_id.return_value = "some_project_id"
+
+    # when
+    _get_project_id_for_raw_file("test_file.raw")
+
+    mock_get_all_project_ids.assert_called_once_with()
+    mock_get_unique_project_id.assert_called_once_with(
+        "test_file.raw", ["some_project_id", "P2"]
+    )
+
+
 @patch.dict(INSTRUMENTS, {"instrument1": {"raw_data_path": "path/to/data"}})
 @patch("dags.impl.handler_impl.put_xcom")
 @patch("dags.impl.handler_impl.random")
-@patch("dags.impl.handler_impl.get_all_project_ids")
-@patch("dags.impl.handler_impl.get_unique_project_id")
+@patch("dags.impl.handler_impl._get_project_id_for_raw_file")
 @patch("dags.impl.handler_impl.get_settings_for_project")
 def test_prepare_quanting(
     mock_get_settings: MagicMock,
-    mock_get_unique_project_id: MagicMock,
-    mock_get_all_project_ids: MagicMock,
+    mock_get_project_id_for_raw_file: MagicMock,
     mock_random: MagicMock,
     mock_put_xcom: MagicMock,
 ) -> None:
     """Test that prepare_quanting makes the expected calls."""
     mock_random.return_value = 0.44
-    mock_get_all_project_ids.return_value = ["some_project_id", "P2"]
-    mock_get_unique_project_id.return_value = "some_project_id"
+    mock_get_project_id_for_raw_file.return_value = "some_project_id"
     mock_get_settings.return_value = MagicMock(
         speclib_file_name="some_speclib_file_name",
         fasta_file_name="some_fasta_file_name",
@@ -54,10 +71,7 @@ def test_prepare_quanting(
     # when
     prepare_quanting(ti, **kwargs)
 
-    mock_get_all_project_ids.assert_called_once_with()
-    mock_get_unique_project_id.assert_called_once_with(
-        "test_file.raw", ["some_project_id", "P2"]
-    )
+    mock_get_project_id_for_raw_file.assert_called_once_with("test_file.raw")
     mock_get_settings.assert_called_once_with("some_project_id")
 
     expected_quanting_env = {

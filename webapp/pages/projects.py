@@ -35,6 +35,8 @@ projects_df = df_from_db_data(projects_db)
 
 # ########################################### DISPLAY
 
+st.warning("This page should currently be edited only by admin users!", icon="⚠️")
+
 
 @st.experimental_fragment
 def display_projects(projects_df: pd.DataFrame) -> None:
@@ -58,7 +60,8 @@ form_items = {
         "label": "Project Id*",
         "max_chars": 8,
         "placeholder": "e.g. P1234",
-        "help": "Unique identifier of the project. This needs to be put in every file name in order to have it associated with this project.",
+        "help": "Unique identifier of the project. This needs to be put in every file name in order to have it associated with this project. "
+        "Exception: the special project id '_FALLBACK' will be used for files that do not belong to any project.",
     },
     "project_description": {
         "label": "Project Description",

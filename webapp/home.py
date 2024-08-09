@@ -20,5 +20,5 @@ Still, feedback on the current state is always welcome!
 
 If you want to see data for all raw files that have been processed, go to the "overview" tab.
 
-To create a new project, go to the "projects" tab.
+That's it, the rest is only for admin users.
 """

@@ -28,7 +28,6 @@ def show_filter(
                 new_mask = ~new_mask
 
             mask &= new_mask
-        st.write(f"Found {mask.sum()} matches.")
         return df[mask]
     return df
 

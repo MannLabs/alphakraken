@@ -41,9 +41,8 @@ If you don't want to connect to the cluster, just create the connection of type
 In this case, make sure to set the Airflow variable `debug_no_cluster_ssh=True` (see below).
 
 #### Run the local version
-Start the docker containers providing an all-in-one solution with
+Start all docker containers (but without the workers mounted to the production file systems)
 ```bash
-ENV=local
 docker compose --env-file=envs/.env-airflow --env-file=envs/${ENV}.env up --build -d
 ```
 After startup, the airflow webserver runs on http://localhost:8080/ (default credentials: `airflow`/`airflow`), the Streamlit webapp on http://localhost:8501/ .

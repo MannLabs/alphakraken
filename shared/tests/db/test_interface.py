@@ -13,6 +13,7 @@ from shared.db.interface import (
     add_new_settings_to_db,
     get_all_project_ids,
     get_raw_file_names_from_db,
+    update_kraken_status,
     update_raw_file,
 )
 
@@ -220,3 +221,49 @@ def test_add_new_settings_to_db(
         software="software",
     )
     mock_connect_db.assert_called_once()
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.KrakenStatus")
+@patch("shared.db.interface.datetime")
+def test_update_kraken_status(
+    mock_datetime: MagicMock, mock_krakenstatus: MagicMock, mock_connect_db: MagicMock
+) -> None:
+    """Test that update_kraken_status updates the status correctly."""
+    # when
+    update_kraken_status(
+        instrument_id="instrument1",
+        status="error",
+        status_details="some details",
+    )
+
+    # then
+    mock_krakenstatus.assert_called_once_with(
+        instrument_id="instrument1",
+        status="error",
+        updated_at_=mock_datetime.now.return_value,
+        status_details="some details",
+        last_error_occurred_at=mock_datetime.now.return_value,
+    )
+    mock_connect_db.assert_called_once()
+
+
+# def update_kraken_status(
+#     instrument_id: str, *, status: str, status_details: str
+# ) -> None:
+#     """Update the status of a instrument connected to kraken."""
+#     logging.info(f"Updating DB: {instrument_id=} to {status=} with {status_details=}")
+#     connect_db()
+#     error_args = (
+#         {"last_error_occurred_at": datetime.now(tz=pytz.utc)}
+#         if status == KrakenStatusValues.ERROR
+#         else {}
+#     )
+#
+#     KrakenStatus(
+#         instrument_id=instrument_id,
+#         status=status,
+#         updated_at_=datetime.now(tz=pytz.utc),
+#         status_details=status_details,
+#         **error_args,
+#     ).save()

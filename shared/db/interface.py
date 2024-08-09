@@ -9,7 +9,15 @@ from datetime import datetime
 import pytz
 
 from shared.db.engine import connect_db
-from shared.db.models import Metrics, Project, ProjectStatus, RawFile, Settings
+from shared.db.models import (
+    KrakenStatus,
+    KrakenStatusValues,
+    Metrics,
+    Project,
+    ProjectStatus,
+    RawFile,
+    Settings,
+)
 
 
 def get_raw_file_names_from_db(raw_file_names: list[str]) -> list[str]:
@@ -131,3 +139,24 @@ def add_new_settings_to_db(  # noqa: PLR0913 Too many arguments in function defi
         software=software,
     )
     settings.save(force_insert=True)
+
+
+def update_kraken_status(
+    instrument_id: str, *, status: str, status_details: str
+) -> None:
+    """Update the status of a instrument connected to kraken."""
+    logging.info(f"Updating DB: {instrument_id=} to {status=} with {status_details=}")
+    connect_db()
+    error_args = (
+        {"last_error_occurred_at": datetime.now(tz=pytz.utc)}
+        if status == KrakenStatusValues.ERROR
+        else {}
+    )
+
+    KrakenStatus(
+        instrument_id=instrument_id,
+        status=status,
+        updated_at_=datetime.now(tz=pytz.utc),
+        status_details=status_details,
+        **error_args,
+    ).save()

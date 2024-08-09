@@ -65,55 +65,97 @@ def show_date_select(
     return df[df["created_at"] > min_date_with_time]
 
 
-def display_status(df: pd.DataFrame) -> None:
+def display_status(combined_df: pd.DataFrame, status_data_df: pd.DataFrame) -> None:
     """Display the status of the kraken."""
     now = datetime.now()  # noqa:  DTZ005 no tz argument
     st.write(
         f"Current Kraken time: {now.replace(microsecond=0)} [all time stamps are given in UTC!]"
     )
     status_data = defaultdict(list)
-    for instrument_id in sorted(df["instrument_id"].unique()):
-        tmp_df = df[df["instrument_id"] == instrument_id]
+    for instrument_id in sorted(combined_df["instrument_id"].unique()):
+        tmp_df = combined_df[combined_df["instrument_id"] == instrument_id]
+        status_df = status_data_df[status_data_df["_id"] == instrument_id]
+
         status_data["instrument_id"].append(instrument_id)
 
+        # timestamp of youngest file
         last_file_creation = tmp_df.iloc[0]["created_at"]
-        display_time = humanize.precisedelta(
-            now - last_file_creation, minimum_unit="seconds", format="%.0f"
-        )
         status_data["last_file_creation"].append(last_file_creation)
-        status_data["last_file_creation_text"].append(display_time)
-
-        last_update = tmp_df.sort_values(by="updated_at_", ascending=False).iloc[0][
-            "updated_at_"
-        ]
-        display_time = humanize.precisedelta(
-            now - last_update, minimum_unit="seconds", format="%.0f"
+        status_data["last_file_creation_text"].append(
+            _get_display_time(last_file_creation, now)
         )
+
+        # last status update (e.g. 'quanting' -> 'done')
+        last_update = sorted(tmp_df["updated_at_"].to_numpy())[::-1][0]
         status_data["last_status_update"].append(last_update)
-        status_data["last_status_update_text"].append(display_time)
+        status_data["last_status_update_text"].append(
+            _get_display_time(last_update, now)
+        )
+
+        # last file watcher poke
+        last_file_check = status_df["updated_at_"].to_numpy()[0]
+        status_data["last_file_check"].append(last_file_check)
+        status_data["last_file_check_text"].append(
+            _get_display_time(last_file_check, now)
+        )
+        status_data["last_file_check_error"].append(
+            status_df["last_error_occurred_at"].to_numpy()[0]
+        )
+        status_data["status_details"].append(status_df["status_details"].to_numpy()[0])
 
     status_df = pd.DataFrame(status_data)
 
     st.dataframe(status_df.style.apply(lambda row: _get_color(row), axis=1))
 
 
+def _get_display_time(past_time: datetime, now: datetime) -> str:
+    """Get a human readable display time for the last file creation."""
+    display_time = humanize.precisedelta(
+        now - pd.Timestamp(past_time), minimum_unit="seconds", format="%.0f"
+    )
+    for full, abbrev in {
+        " seconds": "s",
+        " second": "s",
+        " minutes": "m",
+        " minute": "m",
+        " hours": "h",
+        " hour": "h",
+    }.items():
+        display_time = display_time.replace(full, abbrev)
+    return f"{display_time} ago"
+
+
 def _get_color(
     row: pd.Series,
-    green_age_h: int = 2,
-    red_age_h: int = 8,
-    columns: list[str] = ["last_file_creation", "last_status_update"],  # noqa: B006
+    columns: list[str] = [  # noqa: B006
+        "last_file_creation",
+        "last_status_update",
+        "last_file_check",
+    ],
+    green_ages_h: list[float] = [  # noqa: B006
+        2,
+        2,
+        0.02,
+    ],
+    red_ages_h: list[float] = [  # noqa: B006
+        8,
+        8,
+        0.04,
+    ],
 ) -> list[str | None]:
     """Get the color for the row based on the age of the columns.
 
     :param row: a row of the status dataframe
-    :param green_age_h: everything younger than this is green
-    :param red_age_h:  everything older than this is red
     :param columns: which columns to color
+    :param green_ages_h: for each column: everything younger than this is green
+    :param red_ages_h:  for each column: everything older than this is red
     :return: style for the row, e.g. [ "background-color: #FF0000", None, None]
     """
     column_styles = {}
     now = datetime.now()  # noqa:  DTZ005 no tz argument
-    for column in columns:
+    for column, green_age_h, red_age_h in zip(
+        columns, green_ages_h, red_ages_h, strict=True
+    ):
         time_delta = now - row[column]
 
         normalized_age = (time_delta - timedelta(hours=green_age_h)).total_seconds() / (

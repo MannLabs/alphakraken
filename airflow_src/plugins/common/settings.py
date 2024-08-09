@@ -78,12 +78,20 @@ def get_internal_instrument_data_path(instrument_id: str) -> Path:
     )
 
 
+def get_internal_backup_path() -> Path:
+    """Get internal backup path.
+
+    e.g. /opt/airflow/mounts/backup
+    """
+    return Path(InternalPaths.MOUNTS_PATH) / InternalPaths.BACKUP
+
+
 def get_internal_instrument_backup_path(instrument_id: str) -> Path:
     """Get internal path for the given instrument.
 
     e.g. /opt/airflow/mounts/backup/test2
     """
-    return Path(InternalPaths.MOUNTS_PATH) / InternalPaths.BACKUP / instrument_id
+    return get_internal_backup_path() / instrument_id
 
 
 def get_output_folder_rel_path(raw_file_name: str, project_id: str) -> Path:

@@ -110,3 +110,22 @@ class Settings(Document):
     status = StringField(max_length=64, default=ProjectStatus.ACTIVE)
 
     created_at_ = DateTimeField(default=datetime.now)
+
+
+class KrakenStatusValues:
+    """Status of kraken."""
+
+    OK = "ok"
+    ERROR = "error"
+
+
+class KrakenStatus(Document):
+    """Schema for a project."""
+
+    instrument_id = StringField(max_length=64, required=True, primary_key=True)
+
+    status = StringField(max_length=64, default=ProjectStatus.ACTIVE)
+    status_details = StringField(max_length=256)
+
+    updated_at_ = DateTimeField(default=datetime.now)
+    last_error_occurred_at = DateTimeField(default=datetime.fromtimestamp(0))  # noqa: DTZ006

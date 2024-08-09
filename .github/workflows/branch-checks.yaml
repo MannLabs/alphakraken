@@ -3,11 +3,6 @@ name: branch-checks
 
 on:
   pull_request:
-  workflow_dispatch:
-    inputs:
-      REVIEW_DATA:
-        description: ""
-        required: true
 
 jobs:
   pre-commit:

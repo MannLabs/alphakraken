@@ -9,7 +9,9 @@ from plugins.sensors.file_sensor import FileCreationSensor
 
 def get_sensor() -> FileCreationSensor:
     """Get an instance of the sensor."""
-    with patch("plugins.sensors.file_sensor.get_instrument_data_path") as mock_get:
+    with patch(
+        "plugins.sensors.file_sensor.get_internal_instrument_data_path"
+    ) as mock_get:
         mock_get.return_value = Path("/opt/airflow/acquisition_pcs/apc_tims_1")
         return FileCreationSensor(
             task_id="some_task_id", instrument_id="some_instrument_id"

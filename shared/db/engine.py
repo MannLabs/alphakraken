@@ -9,7 +9,9 @@ from mongoengine import (
     ConnectionFailure,
     DateTimeField,
     Document,
+    DynamicDocument,
     FloatField,
+    ReferenceField,
     StringField,
     connect,
     disconnect,
@@ -73,6 +75,19 @@ class RawFile(Document):
     db_entry_created_at = DateTimeField(default=datetime.now)
 
 
+class Metrics(DynamicDocument):
+    """Schema for metrics calculated for a raw file.
+
+    Inheriting from `DynamicDocument` means that any parameter passed to the model will be added to the DB.
+    """
+
+    # https://docs.mongoengine.org/guide/defining-documents.html#dynamic-document-schemas
+    db_entry_created_at = DateTimeField(default=datetime.now)
+
+    # https://docs.mongoengine.org/guide/defining-documents.html#reference-fields
+    raw_file = ReferenceField(RawFile)
+
+
 def get_raw_file_names_from_db(raw_file_names: list[str]) -> list[str]:
     """Get raw files from the database with the given names."""
     connect_db()
@@ -100,3 +115,17 @@ def add_new_raw_file_to_db(
     )
     # this will fail if the file already exists
     raw_file.save(force_insert=True)
+
+
+def update_raw_file_status(raw_file_name: str, new_status: str) -> None:
+    """Set `status` of DB entity of `raw_file_name` to `new_status`."""
+    connect_db()
+    raw_file = RawFile.objects.with_id(raw_file_name)
+    raw_file.update(status=new_status)
+
+
+def add_metrics_to_raw_file(raw_file_name: str, metrics: dict) -> None:
+    """Add `metrics` to DB entry of `raw_file_name`."""
+    connect_db()
+    raw_file = RawFile.objects.get(name=raw_file_name)
+    Metrics(raw_file=raw_file, **metrics).save()

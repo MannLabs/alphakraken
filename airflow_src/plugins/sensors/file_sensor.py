@@ -6,7 +6,7 @@ Wait until creation of a new file or folder.
 import logging
 
 from airflow.sensors.base import BaseSensorOperator
-from common.settings import get_instrument_data_path
+from common.settings import get_internal_instrument_data_path
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
 
 # Over the network, and on some Mac/Docker configurations,
@@ -36,7 +36,7 @@ class FileCreationSensor(BaseSensorOperator):
         """Initialize the sensor."""
         super().__init__(*args, **kwargs)
 
-        self._path_to_watch = get_instrument_data_path(instrument_id)
+        self._path_to_watch = get_internal_instrument_data_path(instrument_id)
         logging.info(f"Creating FileCreationSensor for {self._path_to_watch}")
 
         self._event_handler = FileCreationEventHandler()

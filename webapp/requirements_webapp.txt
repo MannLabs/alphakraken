@@ -1,3 +1,4 @@
 # extra requirements for the webapp container
 pandas==2.2.2
 streamlit==1.35.0
+matplotlib==3.9.0

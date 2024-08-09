@@ -1,14 +1,26 @@
 """Business logic for the acquisition_handler."""
 
 import logging
+from pathlib import Path
 
 from airflow.models import TaskInstance
 from common.keys import DagContext, DagParams, OpArgs, XComKeys
-from common.settings import get_instrument_data_path
+from common.settings import (
+    OUTPUT_DIR_PREFIX,
+    InternalPaths,
+    get_internal_instrument_data_path,
+    get_relative_instrument_data_path,
+)
 from common.utils import get_xcom, put_xcom
+from metrics.metrics_calculator import calc_metrics
 from sensors.ssh_sensor import SSHSensorOperator
 
-from shared.db.engine import RawFile, RawFileStatus, add_new_raw_file_to_db, connect_db
+from shared.db.engine import (
+    RawFileStatus,
+    add_metrics_to_raw_file,
+    add_new_raw_file_to_db,
+    update_raw_file_status,
+)
 
 
 def add_to_db(ti: TaskInstance, **kwargs) -> None:
@@ -21,7 +33,7 @@ def add_to_db(ti: TaskInstance, **kwargs) -> None:
 
     # TODO: exception handling: retry vs noretry
 
-    raw_file_path = get_instrument_data_path(instrument_id) / raw_file_name
+    raw_file_path = get_internal_instrument_data_path(instrument_id) / raw_file_name
     raw_file_size = raw_file_path.stat().st_size
     raw_file_creation_time = raw_file_path.stat().st_ctime
     logging.info(f"Got {raw_file_size / 1024**3} GB {raw_file_creation_time}")
@@ -46,12 +58,12 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
 
 
 # TODO: put this somewhere else
-# TODO: how to bring 'run.sh' to the cluster?
+# TODO: how to bring 'submit_job.sh' to the cluster?
 # Must be a bash script that is executable on the cluster.
 # Its only output to stdout must be the job id of the submitted job.
 run_quanting_cmd = """
 cd ~/kraken &&
-JID=$(sbatch run.sh)
+JID=$(sbatch submit_job.sh)
 echo ${JID##* }
 """
 
@@ -62,9 +74,15 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
     # wait for the cluster to be ready (20% idling) -> dedicated (sensor) task
 
     ssh_hook = kwargs[OpArgs.SSH_HOOK]
+    instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
 
     raw_file_name = get_xcom(ti, XComKeys.RAW_FILE_NAME)
-    export_cmd = f"export RAW_FILE_NAME={raw_file_name}\n"
+    instrument_subfolder = get_relative_instrument_data_path(instrument_id)
+
+    export_cmd = (
+        f"export RAW_FILE_NAME={raw_file_name}\n"
+        f"export POOL_BACKUP_INSTRUMENT_SUBFOLDER={instrument_subfolder}\n"
+    )
 
     command = export_cmd + run_quanting_cmd
     logging.info(f"Running command: >>>>\n{command}\n<<<< end of command")
@@ -75,35 +93,32 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
 
     # TODO: fail on empty job id
 
+    update_raw_file_status(raw_file_name, RawFileStatus.PROCESSING)
+
     put_xcom(ti, XComKeys.JOB_ID, job_id)
 
 
 def compute_metrics(ti: TaskInstance, **kwargs) -> None:
-    """TODO."""
-    del ti
-    del kwargs
-
-    # IMPLEMENT:
-    # compute metrics from the output files
-    # store them locally (?)
-
-
-def upload_metrics(ti: TaskInstance, **kwargs) -> None:
-    """TODO."""
+    """Compute metrics from the quanting results."""
     del kwargs
 
     raw_file_name = get_xcom(ti, XComKeys.RAW_FILE_NAME)
-    connect_db()
+    output_directory = f"{OUTPUT_DIR_PREFIX}{raw_file_name}"
+    output_path = (
+        Path(InternalPaths.MOUNTS_PATH) / Path(InternalPaths.OUTPUT) / output_directory
+    )
+    metrics = calc_metrics(str(output_path))
 
-    raw_file = RawFile.objects.with_id(raw_file_name)
-    # example: update raw file status
+    put_xcom(ti, XComKeys.METRICS, metrics)
 
-    logging.info(f"got {raw_file=}")
-    raw_file.update(status=RawFileStatus.PROCESSED)
 
-    # sanity check:
-    for raw_file in RawFile.objects(name=raw_file_name):
-        logging.info(f"{raw_file.name} {raw_file.status}")
+def upload_metrics(ti: TaskInstance, **kwargs) -> None:
+    """Upload the metrics to the database."""
+    del kwargs
 
-    # IMPLEMENT:
-    # put metrics to the database
+    raw_file_name = get_xcom(ti, XComKeys.RAW_FILE_NAME)
+    metrics = get_xcom(ti, XComKeys.METRICS)
+
+    add_metrics_to_raw_file(raw_file_name, metrics)
+
+    update_raw_file_status(raw_file_name, RawFileStatus.PROCESSED)

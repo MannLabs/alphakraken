@@ -20,11 +20,19 @@ from shared.db.models import (
 )
 
 
+# TODO: rename: get_raw_files_by_names_from_db
 def get_raw_file_names_from_db(raw_file_names: list[str]) -> list[RawFile]:
     """Get raw files from the database with the given original names."""
     logging.info(f"Getting from DB: {raw_file_names=}")
     connect_db()
     return list(RawFile.objects.filter(original_name__in=raw_file_names))
+
+
+def get_raw_file_by_id(raw_file_id: str) -> RawFile:
+    """Get raw file from the database with the given id."""
+    logging.info(f"Getting from DB: {raw_file_id=}")
+    connect_db()
+    return RawFile.objects(name=raw_file_id).first()
 
 
 def add_new_raw_file_to_db(  # noqa: PLR0913 too many arguments

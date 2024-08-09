@@ -1,14 +1,16 @@
 """Tests for the processor_impl module."""
 
 import os
+from datetime import datetime
 from pathlib import Path
 from unittest.mock import MagicMock, call, mock_open, patch
 
 import pytest
+import pytz
 from airflow.exceptions import AirflowFailException
 from common.settings import INSTRUMENTS
 from dags.impl.processor_impl import (
-    _get_project_id_for_raw_file,
+    _get_project_id_or_fallback,
     check_job_status,
     compute_metrics,
     get_business_errors,
@@ -25,59 +27,31 @@ from plugins.common.keys import (
     XComKeys,
 )
 
-from shared.db.models import RawFileStatus
+from shared.db.models import RawFile, RawFileStatus
 
 
-@patch("dags.impl.processor_impl.get_all_project_ids")
-@patch("dags.impl.processor_impl.get_unique_project_id")
-def test_get_project_id_for_raw_file(
-    mock_get_unique_project_id: MagicMock,
-    mock_get_all_project_ids: MagicMock,
-) -> None:
-    """Test that _get_project_id_for_raw_file returns correct project id and makes the expected calls."""
-    mock_get_all_project_ids.return_value = ["some_project_id", "P2"]
-    mock_get_unique_project_id.return_value = "some_project_id"
-
+def test_get_project_id_for_raw_file() -> None:
+    """Test that _get_project_id_for_raw_file returns correct project id."""
     # when
-    project_id = _get_project_id_for_raw_file("test_file.raw", "some_instrument_id")
+    project_id = _get_project_id_or_fallback("PID1", "some_instrument_id")
 
-    assert project_id == "some_project_id"
-    mock_get_all_project_ids.assert_called_once_with()
-    mock_get_unique_project_id.assert_called_once_with(
-        "test_file.raw", ["some_project_id", "P2"]
-    )
+    assert project_id == "PID1"
 
 
 @patch.dict(INSTRUMENTS, {"instrument1": {"type": "some_type"}})
-@patch("dags.impl.processor_impl.get_all_project_ids")
-@patch("dags.impl.processor_impl.get_unique_project_id")
-def test_get_project_id_for_raw_file_fallback(
-    mock_get_unique_project_id: MagicMock,
-    mock_get_all_project_ids: MagicMock,
-) -> None:
+def test_get_project_id_for_raw_file_fallback() -> None:
     """Test that _get_project_id_for_raw_file returns correct project id for non-bruker."""
-    mock_get_all_project_ids.return_value = ["some_project_id", "P2"]
-    mock_get_unique_project_id.return_value = None
-
     # when
-    project_id = _get_project_id_for_raw_file("test_file.raw", "instrument1")
+    project_id = _get_project_id_or_fallback(None, "instrument1")
 
     assert project_id == "_FALLBACK"
 
 
 @patch.dict(INSTRUMENTS, {"instrument1": {"type": "bruker"}})
-@patch("dags.impl.processor_impl.get_all_project_ids")
-@patch("dags.impl.processor_impl.get_unique_project_id")
-def test_get_project_id_for_raw_file_fallback_bruker(
-    mock_get_unique_project_id: MagicMock,
-    mock_get_all_project_ids: MagicMock,
-) -> None:
+def test_get_project_id_for_raw_file_fallback_bruker() -> None:
     """Test that _get_project_id_for_raw_file returns correct project id for bruker."""
-    mock_get_all_project_ids.return_value = ["some_project_id", "P2"]
-    mock_get_unique_project_id.return_value = None
-
     # when
-    project_id = _get_project_id_for_raw_file("test_file.raw", "instrument1")
+    project_id = _get_project_id_or_fallback(None, "instrument1")
 
     assert project_id == "_FALLBACK_BRUKER"
 
@@ -87,18 +61,28 @@ def test_get_project_id_for_raw_file_fallback_bruker(
     os.environ,
     {"IO_POOL_FOLDER": "some_io_pool_folder"},
 )
+@patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.put_xcom")
 @patch("dags.impl.processor_impl.random")
-@patch("dags.impl.processor_impl._get_project_id_for_raw_file")
+@patch("dags.impl.processor_impl._get_project_id_or_fallback")
 @patch("dags.impl.processor_impl.get_settings_for_project")
 def test_prepare_quanting(
     mock_get_settings: MagicMock,
     mock_get_project_id_for_raw_file: MagicMock,
     mock_random: MagicMock,
     mock_put_xcom: MagicMock,
+    mock_get_raw_file_by_id: MagicMock,
 ) -> None:
     """Test that prepare_quanting makes the expected calls."""
     mock_random.return_value = 0.44
+
+    mock_raw_file = MagicMock(
+        wraps=RawFile,
+        created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
+        project_id="some_project_id",
+    )
+    mock_get_raw_file_by_id.return_value = mock_raw_file
+
     mock_get_project_id_for_raw_file.return_value = "some_project_id"
     mock_get_settings.return_value = MagicMock(
         speclib_file_name="some_speclib_file_name",
@@ -119,13 +103,13 @@ def test_prepare_quanting(
     prepare_quanting(ti, **kwargs)
 
     mock_get_project_id_for_raw_file.assert_called_once_with(
-        "test_file.raw", "instrument1"
+        "some_project_id", "instrument1"
     )
     mock_get_settings.assert_called_once_with("some_project_id")
 
     expected_quanting_env = {
         "RAW_FILE_NAME": "test_file.raw",
-        "INSTRUMENT_SUBFOLDER": "some_io_pool_folder/backup/instrument1",
+        "INPUT_DATA_REL_PATH": "some_io_pool_folder/backup/instrument1/1970_01",
         "OUTPUT_FOLDER_REL_PATH": "output/some_project_id/out_test_file.raw",
         "SPECLIB_FILE_NAME": "4_some_speclib_file_name",
         "FASTA_FILE_NAME": "some_fasta_file_name",

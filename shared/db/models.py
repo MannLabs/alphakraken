@@ -42,6 +42,7 @@ class RawFileStatus:
 class RawFile(Document):
     """Schema for a raw file."""
 
+    # TODO: get rid of "name" -> "id"
     # Unique identifier of the file. Either the raw file name or, in case of a collision,
     # the raw file name with a unique prefix.
     name = StringField(max_length=128, required=True, primary_key=True)
@@ -65,6 +66,11 @@ class RawFile(Document):
     # audit fields
     created_at_ = DateTimeField(default=datetime.now)
     updated_at_ = DateTimeField(default=datetime.now)
+
+
+def get_created_at_year_month(raw_file: RawFile) -> str:
+    """Get the year and month of the raw file creation date."""
+    return raw_file.created_at.strftime("%Y_%m")
 
 
 class Metrics(DynamicDocument):

@@ -80,9 +80,7 @@ def get_unknown_raw_files(ti: TaskInstance, **kwargs) -> None:
     instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
 
     raw_file_names = sorted(
-        RawDataWrapper.create(
-            instrument_id=instrument_id, raw_file_name=None
-        ).get_raw_files_on_instrument()
+        RawDataWrapper.create(instrument_id=instrument_id).get_raw_files_on_instrument()
     )
 
     logging.info(

@@ -15,7 +15,7 @@ import pytz
 from airflow.sensors.base import BaseSensorOperator
 from common.keys import DagContext, DagParams
 from file_handling import get_file_size
-from raw_data_wrapper import RawDataWrapper
+from raw_file_wrapper_factory import RawFileWrapperFactory
 
 from shared.db.interface import update_raw_file
 from shared.db.models import RawFileStatus
@@ -37,7 +37,7 @@ class AcquisitionMonitor(BaseSensorOperator):
         self._instrument_id = instrument_id
 
         self._raw_file_name: str | None = None
-        self._raw_data_wrapper: RawDataWrapper | None = None
+        self._raw_file_monitor_wrapper: RawFileWrapperFactory | None = None
         self._initial_dir_contents: set | None = None
 
         self._last_poke_timestamp = None
@@ -47,12 +47,12 @@ class AcquisitionMonitor(BaseSensorOperator):
         """_job_id the job id from XCom."""
         self._raw_file_name = context[DagContext.PARAMS][DagParams.RAW_FILE_ID]
 
-        self._raw_data_wrapper = RawDataWrapper.create(
+        self._raw_file_monitor_wrapper = RawFileWrapperFactory.create_monitor_wrapper(
             instrument_id=self._instrument_id, raw_file_name=self._raw_file_name
         )
 
         self._initial_dir_contents = (
-            self._raw_data_wrapper.get_raw_files_on_instrument()
+            self._raw_file_monitor_wrapper.get_raw_files_on_instrument()
         )
 
         self._last_poke_timestamp = self._get_timestamp()
@@ -62,7 +62,7 @@ class AcquisitionMonitor(BaseSensorOperator):
         )
 
         logging.info(
-            f"Monitoring {self._raw_data_wrapper.file_path_to_monitor_acquisition()}"
+            f"Monitoring {self._raw_file_monitor_wrapper.file_path_to_monitor_acquisition()}"
         )
 
     def post_execute(self, context: dict[str, any], result: Any = None) -> None:  # noqa: ANN401
@@ -81,13 +81,14 @@ class AcquisitionMonitor(BaseSensorOperator):
         """Return True if acquisition is done."""
         del context  # unused
 
-        if not self._raw_data_wrapper.file_path_to_monitor_acquisition().exists():
+        if not self._raw_file_monitor_wrapper.file_path_to_monitor_acquisition().exists():
             # this covers the case that sometimes for bruker, the folder exists, but the main file does not
             logging.info("Main file does not exist yet.")
             return False
 
         if (
-            new_dir_content := self._raw_data_wrapper.get_raw_files_on_instrument()
+            new_dir_content
+            := self._raw_file_monitor_wrapper.get_raw_files_on_instrument()
             - self._initial_dir_contents
         ):
             logging.info(
@@ -100,7 +101,7 @@ class AcquisitionMonitor(BaseSensorOperator):
         ) - self._last_poke_timestamp
         if time_since_last_check / 60 >= SIZE_CHECK_INTERVAL_M:
             size = get_file_size(
-                self._raw_data_wrapper.file_path_to_monitor_acquisition()
+                self._raw_file_monitor_wrapper.file_path_to_monitor_acquisition()
             )
             logging.info(f"File size: {size}")
 

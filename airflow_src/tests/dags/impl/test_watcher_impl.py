@@ -55,7 +55,7 @@ def test_add_raw_file_to_db(
     )
 
 
-@patch("dags.impl.watcher_impl.RawDataWrapper")
+@patch("dags.impl.watcher_impl.RawFileWrapperFactory")
 @patch("dags.impl.watcher_impl.get_raw_files_by_names_from_db")
 @patch("dags.impl.watcher_impl._is_collision")
 @patch("dags.impl.watcher_impl._sort_by_creation_date")
@@ -65,15 +65,15 @@ def test_get_unknown_raw_files_with_existing_files_in_db(
     mock_sort: MagicMock,
     mock_is_collision: MagicMock,
     mock_get_unknown_raw_files_from_db: MagicMock,
-    mock_raw_data_wrapper: MagicMock,
+    mock_raw_file_wrapper_factory: MagicMock,
 ) -> None:
     """Test get_unknown_raw_files with existing files in the database."""
-    mock_raw_data_wrapper.create.return_value.get_raw_files_on_instrument.return_value = {
+    mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.get_raw_files_on_instrument.return_value = {
         "file1.raw",
         "file2.raw",
         "file3.raw",
     }
-    mock_raw_data_wrapper.create.return_value.file_path_to_monitor_acquisition.side_effect = [
+    mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.file_path_to_monitor_acquisition.side_effect = [
         Path("/path/to/file1.raw"),
         Path("/path/to/file2.raw"),
     ]
@@ -165,7 +165,7 @@ def test_sort_by_creation_date_multiple_files(
     assert result == ["file3", "file1", "file2"]
 
 
-@patch("dags.impl.watcher_impl.RawDataWrapper")
+@patch("dags.impl.watcher_impl.RawFileWrapperFactory")
 @patch("dags.impl.watcher_impl.get_raw_files_by_names_from_db")
 @patch("dags.impl.watcher_impl._sort_by_creation_date")
 @patch("dags.impl.watcher_impl.put_xcom")
@@ -173,10 +173,10 @@ def test_get_unknown_raw_files_with_no_existing_files_in_db(
     mock_put_xcom: MagicMock,
     mock_sort: MagicMock,
     mock_get_unknown_raw_files_from_db: MagicMock,
-    mock_raw_data_wrapper: MagicMock,
+    mock_raw_file_wrapper_factory: MagicMock,
 ) -> None:
     """Test get_unknown_raw_files with no existing files in the database."""
-    mock_raw_data_wrapper.create.return_value.get_raw_files_on_instrument.return_value = {
+    mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.get_raw_files_on_instrument.return_value = {
         "file1.raw",
         "file2.raw",
         "file3.raw",
@@ -199,16 +199,16 @@ def test_get_unknown_raw_files_with_no_existing_files_in_db(
     )
 
 
-@patch("dags.impl.watcher_impl.RawDataWrapper")
+@patch("dags.impl.watcher_impl.RawFileWrapperFactory")
 @patch("dags.impl.watcher_impl.get_raw_files_by_names_from_db")
 @patch("dags.impl.watcher_impl.put_xcom")
 def test_get_unknown_raw_files_with_empty_directory(
     mock_put_xcom: MagicMock,
     mock_get_unknown_raw_files_from_db: MagicMock,
-    mock_raw_data_wrapper: MagicMock,
+    mock_raw_file_wrapper_factory: MagicMock,
 ) -> None:
     """Test get_unknown_raw_files with an empty directory."""
-    mock_raw_data_wrapper.create.return_value.get_raw_files_on_instrument.return_value = {}
+    mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.get_raw_files_on_instrument.return_value = {}
     ti = Mock()
 
     # when

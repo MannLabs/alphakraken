@@ -121,7 +121,7 @@ def test_copy_file_copies_file_and_checks_hash_raises(
 @patch("plugins.file_handling._file_already_exists")
 @patch("shutil.copy2")
 @patch("plugins.file_handling.get_file_size")
-def test_copy_file_copies_file_and_creates_directorry(
+def test_copy_file_copies_file_and_creates_directory(
     mock_get_file_size: MagicMock,
     mock_copy2: MagicMock,
     mock_file_exists: MagicMock,

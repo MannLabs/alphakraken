@@ -8,6 +8,18 @@ from common.settings import INSTRUMENTS
 from plugins.raw_data_wrapper import RawDataWrapper, ThermoRawDataWrapper
 
 
+class TestableRawDataWrapper(RawDataWrapper):
+    """A testable subclass of RawDataWrapper to test the methods provided by the abstract class."""
+
+    main_file_extension = "test_ext"
+
+    def _file_path_to_watch(self) -> Path:
+        """Dummy implementation."""
+
+    def _get_files_to_copy(self) -> dict[Path, Path]:
+        """Dummy implementation."""
+
+
 @patch.dict(INSTRUMENTS, {"instrument1": {"type": InstrumentTypes.THERMO}})
 def test_raw_data_wrapper_instantiation() -> None:
     """Test that the correct RawDataWrapper subclass is instantiated."""
@@ -17,6 +29,25 @@ def test_raw_data_wrapper_instantiation() -> None:
     )
 
     assert isinstance(wrapper, ThermoRawDataWrapper)
+
+
+@patch("plugins.raw_data_wrapper.get_internal_instrument_data_path")
+def test_get_dir_contents_returns_correct_set_of_paths(
+    mock_get_instrument_data_path: MagicMock,
+) -> None:
+    """Test that the correct set of paths is returned."""
+    expected_set = {
+        Path("/fake/instrument/path/file1.test_ext"),
+        Path("/fake/instrument/path/file2.test_ext"),
+    }
+
+    mock_get_instrument_data_path.return_value.glob.return_value = list(expected_set)
+
+    raw_data_wrapper = TestableRawDataWrapper(
+        instrument_id="instrument1", raw_file_name=None
+    )
+
+    assert raw_data_wrapper.get_dir_contents() == expected_set
 
 
 @patch("plugins.raw_data_wrapper.get_internal_instrument_data_path")

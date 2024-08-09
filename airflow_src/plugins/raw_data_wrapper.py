@@ -20,6 +20,9 @@ class RawDataWrapper(ABC):
     Note: do not call constructors of subclasses directly, always use RawDataWrapper.create().
     """
 
+    # the extension of the main raw data file (without leading dot!)
+    main_file_extension = None
+
     @classmethod
     def create(cls, *, instrument_id: str, **kwargs) -> "RawDataWrapper":
         """Create a RawDataWrapper instance based on the instrument type."""
@@ -29,7 +32,7 @@ class RawDataWrapper(ABC):
 
         raise ValueError(f"Unsupported vendor: {instrument_type}")
 
-    def __init__(self, instrument_id: str, raw_file_name: str):
+    def __init__(self, instrument_id: str, raw_file_name: str | None):
         """Initialize the RawDataWrapper."""
         # could be .raw file, one of the four .wiff files, or .d folder
         self._raw_file_name = raw_file_name
@@ -37,11 +40,14 @@ class RawDataWrapper(ABC):
         self._instrument_path = get_internal_instrument_data_path(instrument_id)
         self._backup_path = get_internal_instrument_backup_path(instrument_id)
 
-        self._id = self._get_id()
-
         logging.info(
-            f"Initialized with {self._instrument_path=} {self._backup_path=} {self._id=}"
+            f"Initialized with {self._instrument_path=} {self._backup_path=} {self._raw_file_name=}"
         )
+
+    @property
+    def instrument_path(self) -> Path:
+        """Get the path to the instrument data directory."""
+        return self._instrument_path
 
     @abstractmethod
     def _file_path_to_watch(self) -> Path:
@@ -51,6 +57,7 @@ class RawDataWrapper(ABC):
     def _get_files_to_copy(self) -> dict[Path, Path]:
         """Get a dictionary mapping source file to destination paths (both absolute)."""
 
+    # TODO: file_path_to_watch_acquisition
     def file_path_to_watch(self) -> Path:
         """Get the path to the file to watch for changes."""
         file_path_to_watch = self._file_path_to_watch()
@@ -63,13 +70,19 @@ class RawDataWrapper(ABC):
         logging.info(f"{files_to_copy=}")
         return files_to_copy
 
-    def _get_id(self) -> str:
-        """Get the ID (= name without extension) of the raw file."""
-        return Path(self._raw_file_name).stem
+    def get_dir_contents(self) -> set[Path]:
+        """Get the current contents of the acquisition directory."""
+        dir_contents = set(self._instrument_path.glob(f"*.{self.main_file_extension}"))
+        logging.info(
+            f"Current contents of {self._instrument_path} ({len(dir_contents)}): {dir_contents}"
+        )
+        return dir_contents
 
 
 class ThermoRawDataWrapper(RawDataWrapper):
     """Class wrapping Thermo-specific logic."""
+
+    main_file_extension = "raw"
 
     def _file_path_to_watch(self) -> Path:
         """Get the path to the raw file."""

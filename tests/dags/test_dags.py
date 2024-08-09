@@ -25,7 +25,7 @@ def test_dag_loaded_acquisition_watcher(dagbag: DagBag) -> None:
         # then
         assert dagbag.import_errors == {}
         assert dag is not None
-        assert len(dag.tasks) == 2  # noqa: PLR2004 no magic numbers
+        assert len(dag.tasks) == 3  # noqa: PLR2004 no magic numbers
 
 
 def test_dag_loaded_acquisition_handler(dagbag: DagBag) -> None:

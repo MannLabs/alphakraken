@@ -10,22 +10,21 @@ from pathlib import Path
 import pendulum
 from airflow.models.dag import DAG
 from airflow.operators.python import PythonOperator
-from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 
 # TODO: find a better way to unify import of modules 'dags', 'shared', ... between docker and standalone
 root_path = str(Path(__file__).parent / Path(".."))
 if root_path not in sys.path:
     sys.path.insert(0, root_path)
 
-from dags.impl.watcher_impl import wait_for_finished_acquisition
+from dags.impl.watcher_impl import get_raw_files, start_acquisition_handler
+from plugins.sensors.file_sensor import FileCreationSensor
 from shared.keys import (
     DAG_DELIMITER,
-    DagParams,
     Dags,
     OpArgs,
     Tasks,
 )
-from shared.settings import INSTRUMENTS
+from shared.settings import INSTRUMENTS, Timings
 
 
 def create_acquisition_watcher_dag(instrument_id: str) -> None:
@@ -47,23 +46,25 @@ def create_acquisition_watcher_dag(instrument_id: str) -> None:
     ) as dag:
         dag.doc_md = __doc__
 
-        wait_for_finished_acquisition_ = PythonOperator(
-            task_id=Tasks.WAIT_FOR_FINISHED_ACQUISITION,
-            python_callable=wait_for_finished_acquisition,
+        wait_for_file_creation_ = FileCreationSensor(
+            task_id=Tasks.WAIT_FOR_FILE_CREATION,
+            instrument_id=instrument_id,
+            poke_interval=Timings.FILE_CREATION_POKE_INTERVAL_S,
+        )
+
+        get_raw_files_ = PythonOperator(
+            task_id=Tasks.GET_RAW_FILES,
+            python_callable=get_raw_files,
             op_kwargs={OpArgs.INSTRUMENT_ID: instrument_id},
         )
 
-        # IMPLEMENT: this needs to be generalized to be able to catch up on old files
-        # or: do the generalization in an upfront DAG
-        start_acquisition_handler = TriggerDagRunOperator(
+        start_acquisition_handler_ = PythonOperator(
             task_id=Tasks.START_ACQUISITION_HANDLER,
-            trigger_dag_id=f"{Dags.ACQUISITON_HANDLER}.{instrument_id}",
-            # example how to pass parameters to the python callable
-            conf={DagParams.RAW_FILE_NAME: "raw_file_{{ ts_nodash }}.raw"},
+            python_callable=start_acquisition_handler,
+            op_kwargs={OpArgs.INSTRUMENT_ID: instrument_id},
         )
-        # TODO: how to get instrument id from files? how is backup folder organized?
 
-    wait_for_finished_acquisition_ >> start_acquisition_handler
+    wait_for_file_creation_ >> get_raw_files_ >> start_acquisition_handler_
 
 
 for instrument_id in INSTRUMENTS:

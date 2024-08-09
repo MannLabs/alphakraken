@@ -50,3 +50,9 @@ class RawFile(Document):
     name = StringField(required=True, primary_key=True)
     status = StringField(max_length=50)
     created_at = DateTimeField(default=datetime.now)
+
+
+def get_raw_file_names_from_db(raw_file_names: list[str]) -> list[str]:
+    """Get raw files from the database with the given names."""
+    connect_db()
+    return [r.name for r in RawFile.objects.filter(name__in=raw_file_names)]

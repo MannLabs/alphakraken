@@ -80,6 +80,8 @@ x-airflow-common:
     - ${AIRFLOW_PROJ_DIR:-.}/plugins:/opt/airflow/plugins
     # custom:
     - ${AIRFLOW_PROJ_DIR:-.}/shared:/opt/airflow/shared
+    # acquisition pcs # TODO move to workers
+    - ${AIRFLOW_PROJ_DIR:-.}/test_folders/acquisition_pcs:/opt/airflow/acquisition_pcs
   user: "${AIRFLOW_UID:-50000}:0"
   depends_on:
     &airflow-common-depends-on

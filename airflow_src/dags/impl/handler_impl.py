@@ -16,7 +16,6 @@ from common.settings import (
 )
 from common.utils import get_xcom, put_xcom
 from metrics.metrics_calculator import calc_metrics
-from mongoengine.errors import NotUniqueError
 from sensors.ssh_sensor import SSHSensorOperator
 
 from shared.db.interface import (
@@ -27,41 +26,38 @@ from shared.db.interface import (
 from shared.db.models import RawFileStatus
 
 
-def add_to_db(ti: TaskInstance, **kwargs) -> None:
-    """Add the file to the database with initial status and basic information."""
-    # example how to retrieve parameters from the context
-    raw_file_name = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_NAME]
-    instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
+def add_raw_file_to_db(
+    instrument_id: str, raw_file_name: str, status: str = RawFileStatus.NEW
+) -> None:
+    """Add the file to the database with initial status and basic information.
 
-    logging.info(f"Got {raw_file_name=} on {instrument_id=}")
-
-    # TODO: exception handling: retry vs noretry
-
+    :param instrument_id: instrument id
+    :param raw_file_name: raw file name
+    :param status: status of the file
+    :return:
+    """
     # calculate the file properties already here to have them available as early as possible
     raw_file_path = get_internal_instrument_data_path(instrument_id) / raw_file_name
     raw_file_size = raw_file_path.stat().st_size
     raw_file_creation_time = raw_file_path.stat().st_ctime
-    logging.info(f"Got {raw_file_size / 1024**3} GB {raw_file_creation_time}")
+    logging.info(f"Got {raw_file_size / 1024 ** 3} GB {raw_file_creation_time}")
 
-    try:
-        add_new_raw_file_to_db(
-            raw_file_name,
-            instrument_id=instrument_id,
-            size=raw_file_size,
-            creation_ts=raw_file_creation_time,
-        )
-    except NotUniqueError:  # TODO: remove
-        # we tolerate this for now to facilitate manual testing
-        logging.warning(f"File {raw_file_name} already in the database")
-
-    # push to XCOM
-    put_xcom(ti, XComKeys.RAW_FILE_NAME, raw_file_name)
+    add_new_raw_file_to_db(
+        raw_file_name,
+        status=status,
+        instrument_id=instrument_id,
+        size=raw_file_size,
+        creation_ts=raw_file_creation_time,
+    )
 
 
 def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
     """TODO."""
-    del ti
-    del kwargs
+    # TODO: temporary: introduce get_dagcontext(kwargs, DagParams.RAW_FILE_NAME)
+    raw_file_name = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_NAME]
+
+    put_xcom(ti, XComKeys.RAW_FILE_NAME, raw_file_name)
+
     # IMPLEMENT:
     # create the alphadia inputfile and store it on the shared volume
 

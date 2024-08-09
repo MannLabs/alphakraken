@@ -1,6 +1,5 @@
 """Page allowing Project mgmt."""
 
-# ruff: noqa: PD002 # `inplace=True` should be avoided; it has inconsistent behavior
 import pandas as pd
 import streamlit as st
 from db.interface import add_new_project_to_db

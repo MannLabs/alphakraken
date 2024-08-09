@@ -34,8 +34,6 @@ def show_feedback_in_sidebar() -> None:
                 msg_to_show = f"Success! {msg}"
                 st.sidebar.success(msg_to_show)
             else:
-                msg_to_show = (
-                    f"Error! Please send a screenshot to the AlphaKraken team!\n\n{msg}"
-                )
+                msg_to_show = f"Error! If you feel this is a bug, send a screenshot to the AlphaKraken team!\n\n{msg}"
                 st.sidebar.error(msg_to_show)
             del st.session_state[key]

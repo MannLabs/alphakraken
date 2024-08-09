@@ -19,6 +19,7 @@ class RawFileStatus:
     """Status of raw file."""
 
     NEW = "new"
+    IGNORED = "ignore"
     # have a distinction between processing and copying as network drives caused issues in the past.
     COPYING = "copying"
     PROCESSING = "processing"
@@ -73,4 +74,26 @@ class Project(Document):
     status = StringField(max_length=32, default=ProjectStatus.ACTIVE)
 
     # missing: created by
+    created_at_ = DateTimeField(default=datetime.now)
+
+
+class Settings(Document):
+    """Schema for quanting settings."""
+
+    project = ReferenceField(
+        Project,
+    )
+
+    name = StringField(required=True, primary_key=True, max_length=64)
+
+    # although only one of (speclib, fasta) is required by alphaDIA,
+    # on DB level, we want both filled (empty string is alright)
+    fasta_file_name = StringField(required=True, max_length=128)
+    speclib_file_name = StringField(required=True, max_length=128)
+
+    config_file_name = StringField(required=True, max_length=128)
+    software = StringField(required=True, max_length=128)
+
+    status = StringField(max_length=64, default=ProjectStatus.ACTIVE)
+
     created_at_ = DateTimeField(default=datetime.now)

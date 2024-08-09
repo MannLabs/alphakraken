@@ -10,6 +10,8 @@ from shared.db.interface import (
     add_metrics_to_raw_file,
     add_new_project_to_db,
     add_new_raw_file_to_db,
+    add_new_settings_to_db,
+    get_all_project_ids,
     get_raw_file_names_from_db,
     update_raw_file_status,
 )
@@ -25,7 +27,11 @@ def test_add_new_raw_file_to_db_creates_new_file_when_file_does_not_exist(
     mock_raw_file.return_value.save.side_effect = None
     # when
     add_new_raw_file_to_db(
-        "test_file.raw", instrument_id="instrument1", size=42.0, creation_ts=43.0
+        "test_file.raw",
+        status=RawFileStatus.NEW,
+        instrument_id="instrument1",
+        size=42.0,
+        creation_ts=43.0,
     )
 
     # then
@@ -150,5 +156,61 @@ def test_add_new_project_to_db(
     # then
     mock_project.assert_called_once_with(
         id="P1234", name="new project", description="some project description"
+    )
+    mock_connect_db.assert_called_once()
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.Project")
+def test_get_all_project_ids(
+    mock_project: MagicMock, mock_connect_db: MagicMock
+) -> None:
+    """get_all_project_ids returns all project ids."""
+    # given
+    mock_project.objects.all.return_value = [
+        MagicMock(id="P1234"),
+        MagicMock(id="P1235"),
+    ]
+
+    # when
+    result = get_all_project_ids()
+
+    # then
+    assert result == ["P1234", "P1235"]
+
+    mock_connect_db.assert_called_once()
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.Settings")
+@patch("shared.db.interface.Project")
+def test_add_new_settings_to_db(
+    mock_project: MagicMock, mock_settings: MagicMock, mock_connect_db: MagicMock
+) -> None:
+    """Test that add_new_settings_to_db adds new settings to the database."""
+    # given
+    mock_project_from_db = MagicMock()
+    mock_project.objects.get.return_value = mock_project_from_db
+
+    mock_settings.objects.return_value.first.return_value = None
+
+    # when
+    add_new_settings_to_db(
+        project_id="P1234",
+        name="new settings",
+        fasta_file_name="fasta_file",
+        speclib_file_name="speclib_file",
+        config_file_name="config_file",
+        software="software",
+    )
+
+    # then
+    mock_settings.assert_called_once_with(
+        project=mock_project_from_db,
+        name="new settings",
+        fasta_file_name="fasta_file",
+        speclib_file_name="speclib_file",
+        config_file_name="config_file",
+        software="software",
     )
     mock_connect_db.assert_called_once()

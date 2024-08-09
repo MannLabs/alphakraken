@@ -6,7 +6,12 @@ import plotly.express as px
 # ruff: noqa: PD002 # `inplace=True` should be avoided; it has inconsistent behavior
 import streamlit as st
 from matplotlib import pyplot as plt
-from service.components import display_status, show_date_select, show_filter
+from service.components import (
+    display_status,
+    highlight_status_cell,
+    show_date_select,
+    show_filter,
+)
 from service.db import df_from_db_data, get_raw_file_and_metrics_data
 from service.utils import _log
 
@@ -91,10 +96,12 @@ def display(df: pd.DataFrame) -> None:
     st.dataframe(
         filtered_df.style.background_gradient(
             subset=[
+                "size_gb",
                 "proteins",
+                "precursors",
             ],
             cmap=cmap,
-        )
+        ).apply(highlight_status_cell, axis=1)
     )
 
     # ########################################### DISPLAY: plots
@@ -119,6 +126,11 @@ def draw_plot(df: pd.DataFrame, x: str, y: str) -> None:
     """Draw a plot of a DataFrame."""
     df_to_plot = df.reset_index()
     median_ = df_to_plot[y].median()
+
+    symbol = [
+        "x" if x == "error" else "circle" for x in df_to_plot["status"].to_numpy()
+    ]
+
     fig = px.scatter(
         df_to_plot,
         x=x,
@@ -128,8 +140,11 @@ def draw_plot(df: pd.DataFrame, x: str, y: str) -> None:
         hover_data=["file_created"],
         title=f"{y} (median= {median_:.2f})",
         height=400,
-    ).update_traces(mode="lines+markers")
-    fig.add_hline(y=median_, line_dash="dash")
+    ).update_traces(
+        mode="lines+markers",
+        marker={"symbol": symbol},
+    )
+    fig.add_hline(y=median_, line_dash="dash", line={"color": "lightgrey"})
     st.plotly_chart(fig)
 
 

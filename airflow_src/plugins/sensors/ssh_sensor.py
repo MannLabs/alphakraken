@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 from airflow.providers.ssh.hooks.ssh import SSHHook
 from airflow.sensors.base import BaseSensorOperator
 from cluster_scripts.slurm_commands import get_job_state_cmd
-from common.keys import AirflowVars, XComKeys
+from common.keys import AirflowVars, JobStates, XComKeys
 from common.utils import get_airflow_variable, get_xcom
 
 
@@ -15,13 +15,11 @@ class SSHSensorOperator(BaseSensorOperator, ABC):
 
     @property
     @abstractmethod
-    def command_template(self) -> str:
-        """Template for the command to execute.
+    def command(self) -> str:
+        """The command to execute.
 
         Must be a bash script that is executable on the cluster.
         Its only output to stdout must be the status of the queried job.
-        The following placeholders are available and will be substituted before running:
-            - REPLACE_JID: the job id to query
         """
 
     @property
@@ -46,9 +44,7 @@ class SSHSensorOperator(BaseSensorOperator, ABC):
         """Check the output of the ssh command."""
         logging.info(f"SSH command execute: {context}")
 
-        command = self.command_template.replace("REPLACE_JID", self._job_id)
-
-        ssh_return = self.ssh_execute(command, self._ssh_hook)
+        ssh_return = self.ssh_execute(self.command, self._ssh_hook)
         logging.info(f"ssh command returned: '{ssh_return}'")
 
         if ssh_return in self.running_states:
@@ -74,7 +70,9 @@ class SSHSensorOperator(BaseSensorOperator, ABC):
             get_pty=False,
             environment={},
         )
-        logging.info(f"Got {exit_status=} {agg_stdout=} {agg_stderr=}")
+        logging.info(
+            f"ssh command returned: {exit_status=} {agg_stdout=} {agg_stderr=}"
+        )
         return agg_stdout.decode("utf-8").strip()
 
     @staticmethod
@@ -83,23 +81,27 @@ class SSHSensorOperator(BaseSensorOperator, ABC):
         logging.warning(
             f"Variable {AirflowVars.DEBUG_NO_CLUSTER_SSH} set: Not running SSH command on cluster:\n{command}"
         )
-        # very heuristic way to return a fake response
+        # very heuristic way to decide which fake response to return
         if "sbatch" in command:  # run job
-            return "something\nsomething\n123"
-        if "quanting_time_elapsed" in command:  # get job info
-            return "00:00:01"
-        return "COMPLETED"  # monitor job
+            response = "something\nsomething\n123"
+        elif "TIME_ELAPSED" in command:  # get job info
+            response = f"00:00:01\nsomething\n{JobStates.COMPLETED}"
+        else:
+            response = JobStates.COMPLETED  # monitor job
+
+        logging.warning(f"Returning fake response: {response}")
+        return response
 
 
 class QuantingSSHSensor(SSHSensorOperator):
     """Monitor the status of a quanting job on the SLURM cluster."""
 
     @property
-    def command_template(self) -> str:
+    def command(self) -> str:
         """See docu of superclass."""
-        return get_job_state_cmd()
+        return get_job_state_cmd(self._job_id)
 
     @property
     def running_states(self) -> list[str]:
         """States that are considered 'running'."""
-        return ["PENDING", "RUNNING"]
+        return [JobStates.PENDING, JobStates.RUNNING]

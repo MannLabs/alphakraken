@@ -22,9 +22,10 @@ class RawFileStatus:
     IGNORED = "ignored"
     # have a distinction between processing and copying as network drives caused issues in the past.
     COPYING = "copying"
-    PROCESSING = "processing"
-    PROCESSED = "processed"
-    FAILED = "failed"
+    # # queued(_for_processing)
+    PROCESSING = "processing"  # quanting
+    PROCESSED = "processed"  # quanted
+    ERROR = "error"
 
 
 class RawFile(Document):
@@ -32,6 +33,7 @@ class RawFile(Document):
 
     name = StringField(required=True, primary_key=True)
     status = StringField(max_length=32)
+    status_details = StringField(max_length=256)
 
     size = FloatField(min_value=0.0, max_value=1000.0 * 1024**3)  # unit: bytes
     instrument_id = StringField(max_length=50)

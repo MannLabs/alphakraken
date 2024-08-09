@@ -7,6 +7,7 @@ from datetime import timedelta
 import pendulum
 from airflow.models.dag import DAG
 from airflow.operators.python import PythonOperator
+from callbacks import on_failure_callback
 from common.keys import (
     DAG_DELIMITER,
     Dags,
@@ -34,6 +35,8 @@ def create_acquisition_watcher_dag(instrument_id: str) -> None:
             # this maps the DAG to the worker that is responsible for that queue, cf. docker-compose.yml
             # and https://airflow.apache.org/docs/apache-airflow-providers-celery/stable/celery_executor.html#queues
             "queue": f"{AIRFLOW_QUEUE_PREFIX}{instrument_id}",
+            # this callback is executed when tasks fail
+            "on_failure_callback": on_failure_callback,
         },
         description="Watch acquisition and trigger follow-up DAGs on demand.",
         catchup=False,

@@ -54,12 +54,21 @@ def add_new_raw_file_to_db(  # noqa: PLR0913  # too many arguments
     raw_file.save(force_insert=True)
 
 
-def update_raw_file_status(raw_file_name: str, new_status: str) -> None:
+def update_raw_file_status(
+    raw_file_name: str, *, new_status: str, status_details: str | None = None
+) -> None:
     """Set `status` of DB entity of `raw_file_name` to `new_status`."""
-    logging.info(f"Updating DB: {raw_file_name=} to {new_status=}")
+    logging.info(
+        f"Updating DB: {raw_file_name=} to {new_status=} with {status_details=}"
+    )
     connect_db()
     raw_file = RawFile.objects.with_id(raw_file_name)
-    raw_file.update(status=new_status, updated_at_=datetime.now(tz=pytz.utc))
+    logging.info(f"Old DB state: {raw_file.status=} to {raw_file.status_details=}")
+    raw_file.update(
+        status=new_status,
+        updated_at_=datetime.now(tz=pytz.utc),
+        status_details=status_details,
+    )
 
 
 def add_metrics_to_raw_file(raw_file_name: str, metrics: dict) -> None:

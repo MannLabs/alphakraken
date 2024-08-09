@@ -15,7 +15,14 @@ from dags.impl.handler_impl import (
     run_quanting,
     upload_metrics,
 )
-from plugins.common.keys import DagContext, DagParams, OpArgs, QuantingEnv, XComKeys
+from plugins.common.keys import (
+    DagContext,
+    DagParams,
+    JobStates,
+    OpArgs,
+    QuantingEnv,
+    XComKeys,
+)
 
 from shared.db.models import RawFileStatus
 
@@ -147,7 +154,9 @@ def test_run_quanting_executes_ssh_command_and_stores_job_id(
     )
     mock_ssh_execute.assert_called_once_with(expected_command, mock_ssh_hook)
     mock_put_xcom.assert_called_once_with(ti, XComKeys.JOB_ID, "12345")
-    mock_update.assert_called_once_with("test_file.raw", RawFileStatus.PROCESSING)
+    mock_update.assert_called_once_with(
+        "test_file.raw", new_status=RawFileStatus.PROCESSING
+    )
 
 
 @patch("dags.impl.handler_impl.get_xcom")
@@ -245,19 +254,40 @@ def test_get_job_info_happy_path(
 ) -> None:
     """Test that get_job_info makes the expected calls."""
     mock_ti = MagicMock()
-    mock_get_xcom.side_effect = ["ssh_hook", "job_id"]
-    mock_ssh_execute.return_value = "00:08:42\nsome\nother\nlines\n"
+    mock_get_xcom.return_value = "12345"
+    mock_ssh_execute.return_value = (
+        f"00:08:42\nsome\nother\nlines\n{JobStates.COMPLETED}"
+    )
 
     mock_ssh_hook = MagicMock()
+
+    # when
     get_job_info(mock_ti, **{OpArgs.SSH_HOOK: mock_ssh_hook})
 
-    mock_get_xcom.assert_called_once_with(mock_ti, XComKeys.JOB_ID)
     mock_ssh_execute.assert_called_once_with(
-        "TIME_ELAPSED=$(sacct --format=Elapsed -j  ssh_hook | tail -n 1); echo $TIME_ELAPSED\nsacct -l -j ssh_hook\ncat ~/slurm/jobs/slurm-ssh_hook.out\n",
+        "TIME_ELAPSED=$(sacct --format=Elapsed -j 12345 | tail -n 1); echo $TIME_ELAPSED\nsacct -l -j 12345\n"
+        "cat ~/slurm/jobs/slurm-12345.out\n\nST=$(sacct -j 12345 -o State | awk 'FNR == 3 {print $1}')\necho $ST\n",
         mock_ssh_hook,
     )
 
     mock_put_xcom.assert_called_once_with(mock_ti, XComKeys.QUANTING_TIME_ELAPSED, 522)
+
+
+@patch("dags.impl.handler_impl.get_xcom")
+@patch("dags.impl.handler_impl.SSHSensorOperator.ssh_execute")
+def test_get_job_info_raises(
+    mock_ssh_execute: MagicMock, mock_get_xcom: MagicMock
+) -> None:
+    """Test that get_job_info raises on failed quanting job."""
+    mock_ti = MagicMock()
+    mock_get_xcom.side_effect = ["some_raw_file_name", "12345"]
+    mock_ssh_execute.return_value = "00:08:42\nsome\nother\nlines\nSOME_JOB_STATE"
+
+    mock_ssh_hook = MagicMock()
+
+    # when
+    with pytest.raises(AirflowFailException):
+        get_job_info(mock_ti, **{OpArgs.SSH_HOOK: mock_ssh_hook})
 
 
 @patch("dags.impl.handler_impl.get_xcom")
@@ -304,4 +334,6 @@ def test_upload_metrics(
     mock_add.assert_called_once_with(
         "raw_file_name", {"metric1": "value1", "quanting_time_elapsed": 123}
     )
-    mock_update.assert_called_once_with("raw_file_name", RawFileStatus.PROCESSED)
+    mock_update.assert_called_once_with(
+        "raw_file_name", new_status=RawFileStatus.PROCESSED
+    )

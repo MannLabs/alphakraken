@@ -35,12 +35,14 @@ def test_overview(mock_df: MagicMock, mock_get: MagicMock) -> None:
                 ts2,
             ],
             "size": [1024**3, 2 * 1024**3],
+            "status": ["processed", "error"],
         },
     )
     metrics_df = pd.DataFrame(
         {
             "raw_file": [1, 2],
             "proteins": [1, 2],
+            "precursors": [1, 2],
             "quanting_time_elapsed": [60, 120],
         }
     )
@@ -54,12 +56,14 @@ def test_overview(mock_df: MagicMock, mock_get: MagicMock) -> None:
 
     expected_data = {
         "proteins": {1: 1, 2: 2},
+        "precursors": {1: 1, 2: 2},
         "created_at": {1: ts1, 2: ts2},
         "created_at_": {1: ts1, 2: ts2},
         "updated_at_": {1: ts1, 2: ts2},
         "file_created": {1: ts1str, 2: ts2str},
         "quanting_time_minutes": {1: 1.0, 2: 2.0},
         "size_gb": {1: 1.0, 2: 2.0},
+        "status": {1: "processed", 2: "error"},
     }
 
     assert at.dataframe[0].value.to_dict() == expected_data

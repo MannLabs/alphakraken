@@ -7,8 +7,12 @@ from random import random
 
 from airflow.exceptions import AirflowFailException
 from airflow.models import TaskInstance
-from cluster_scripts.slurm_commands import get_job_info_cmd, get_run_quanting_cmd
-from common.keys import DagContext, DagParams, OpArgs, QuantingEnv, XComKeys
+from cluster_scripts.slurm_commands import (
+    get_job_info_cmd,
+    get_job_state_cmd,
+    get_run_quanting_cmd,
+)
+from common.keys import DagContext, DagParams, JobStates, OpArgs, QuantingEnv, XComKeys
 from common.settings import (
     CLUSTER_WORKING_DIR,
     FALLBACK_PROJECT_ID,
@@ -116,7 +120,7 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
         raise AirflowFailException from e
 
     update_raw_file_status(
-        quanting_env[QuantingEnv.RAW_FILE_NAME], RawFileStatus.PROCESSING
+        quanting_env[QuantingEnv.RAW_FILE_NAME], new_status=RawFileStatus.PROCESSING
     )
 
     put_xcom(ti, XComKeys.JOB_ID, job_id)
@@ -129,14 +133,17 @@ def get_job_info(ti: TaskInstance, **kwargs) -> None:
 
     slurm_output_file = f"{CLUSTER_WORKING_DIR}/slurm-{job_id}.out"
 
-    cmd = get_job_info_cmd(job_id, slurm_output_file)
+    cmd = get_job_info_cmd(job_id, slurm_output_file) + get_job_state_cmd(job_id)
     ssh_return = SSHSensorOperator.ssh_execute(cmd, ssh_hook)
-
-    logging.info(ssh_return)
 
     time_elapsed = _get_time_elapsed(ssh_return)
 
     put_xcom(ti, XComKeys.QUANTING_TIME_ELAPSED, time_elapsed)
+
+    job_status = ssh_return.split("\n")[-1]
+    if job_status != JobStates.COMPLETED:
+        logging.info(f"Job {job_id} exited with status {job_status}.")
+        raise AirflowFailException(f"Quanting failed: {job_status=}")
 
 
 def _get_time_elapsed(ssh_return: str) -> int:
@@ -172,4 +179,4 @@ def upload_metrics(ti: TaskInstance, **kwargs) -> None:
 
     add_metrics_to_raw_file(raw_file_name, metrics)
 
-    update_raw_file_status(raw_file_name, RawFileStatus.PROCESSED)
+    update_raw_file_status(raw_file_name, new_status=RawFileStatus.PROCESSED)

@@ -39,7 +39,7 @@ from shared.db.interface import (
     get_settings_for_project,
     update_raw_file,
 )
-from shared.db.models import RawFileStatus, get_created_at_year_month
+from shared.db.models import RawFile, RawFileStatus, get_created_at_year_month
 from shared.keys import EnvVars
 
 
@@ -67,7 +67,8 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
     )
 
     project_id = _get_project_id_or_fallback(raw_file.project_id, instrument_id)
-    output_folder_rel_path = get_output_folder_rel_path(raw_file_name, project_id)
+
+    output_folder_rel_path = get_output_folder_rel_path(raw_file, project_id)
     settings = get_settings_for_project(project_id)
 
     # TODO: remove random speclib file hack
@@ -87,7 +88,7 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
         QuantingEnv.FASTA_FILE_NAME: settings.fasta_file_name,
         QuantingEnv.CONFIG_FILE_NAME: settings.config_file_name,
         QuantingEnv.SOFTWARE: settings.software,
-        QuantingEnv.PROJECT_ID: project_id,
+        QuantingEnv.PROJECT_ID: project_id,  # TODO: OR_FALLBACK
         QuantingEnv.IO_POOL_FOLDER: io_pool_folder,
     }
 
@@ -114,10 +115,12 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
         logging.warning(f"Job already started with {job_id}, skipping.")
         return
 
+    raw_file = get_raw_file_by_id(quanting_env[QuantingEnv.RAW_FILE_NAME])
+
     # upfront check 2
     output_path = get_internal_output_path(
-        quanting_env[QuantingEnv.RAW_FILE_NAME],
-        project_id=quanting_env[QuantingEnv.PROJECT_ID],
+        raw_file,
+        project_id_or_fallback=quanting_env[QuantingEnv.PROJECT_ID],
     )
     if Path(output_path).exists():
         msg = f"Output path {output_path} already exists."
@@ -127,7 +130,6 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
             )
         logging.warning(f"{msg} Overwriting it because ALLOW_OUTPUT_OVERWRITE is set.")
 
-    raw_file = get_raw_file_by_id(quanting_env[QuantingEnv.RAW_FILE_NAME])
     year_month_folder = get_created_at_year_month(raw_file)
 
     command = _create_export_command(quanting_env) + get_run_quanting_cmd(
@@ -164,12 +166,12 @@ def _extract_error_codes(events_jsonl_file_path: Path) -> list[str]:
     return error_codes
 
 
-def get_business_errors(raw_file_name: str, project_id: str) -> list[str]:
+def get_business_errors(raw_file: RawFile, project_id: str) -> list[str]:
     """Extract business errors from the alphaDIA output."""
-    output_path = get_internal_output_path(raw_file_name, project_id)
+    output_path = get_internal_output_path(raw_file, project_id)
 
     events_jsonl_path = (
-        output_path / ".progress" / Path(raw_file_name).stem / "events.jsonl"
+        output_path / ".progress" / Path(raw_file.name).stem / "events.jsonl"
     )
 
     error_codes = []
@@ -205,12 +207,12 @@ def check_job_status(ti: TaskInstance, **kwargs) -> bool:
 
     if job_status == JobStates.FAILED:
         quanting_env = get_xcom(ti, XComKeys.QUANTING_ENV)
-        raw_file_name = quanting_env[QuantingEnv.RAW_FILE_NAME]
         project_id = quanting_env[QuantingEnv.PROJECT_ID]
+        raw_file = get_raw_file_by_id(quanting_env[QuantingEnv.RAW_FILE_NAME])
 
-        if len(business_errors := get_business_errors(raw_file_name, project_id)):
+        if len(business_errors := get_business_errors(raw_file, project_id)):
             update_raw_file(
-                raw_file_name,
+                raw_file.name,
                 new_status=RawFileStatus.QUANTING_FAILED,
                 status_details=";".join(business_errors),
             )
@@ -235,8 +237,10 @@ def compute_metrics(ti: TaskInstance, **kwargs) -> None:
 
     quanting_env = get_xcom(ti, XComKeys.QUANTING_ENV)
 
+    raw_file = get_raw_file_by_id(quanting_env[QuantingEnv.RAW_FILE_NAME])
+
     output_path = get_internal_output_path(
-        quanting_env[QuantingEnv.RAW_FILE_NAME], quanting_env[QuantingEnv.PROJECT_ID]
+        raw_file, quanting_env[QuantingEnv.PROJECT_ID]
     )
     metrics = calc_metrics(output_path)
 

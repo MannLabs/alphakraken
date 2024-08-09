@@ -111,19 +111,28 @@ class BrukerRawFileMonitorWrapper(RawFileMonitorWrapper):
 
 
 class RawFileCopyWrapper(ABC):
-    """Abstract base class for copying raw data files."""
+    """Abstract base class for preparing the copying or moving of raw data files."""
 
-    def __init__(self, instrument_id: str, raw_file: RawFile):
+    def __init__(
+        self, instrument_id: str, raw_file: RawFile, target_path: Path | None = None
+    ):
         """Initialize the RawFileCopyWrapper.
 
         :param instrument_id: the ID of the instrument
         :param raw_file: a raw file object
+        :param target_path: optional target base path. If not specified:
+            default backup path + year-month specific folder
         """
         self._raw_file = raw_file
-        self._year_month_subfolder = get_created_at_year_month(raw_file)
 
         self._instrument_path = get_internal_instrument_data_path(instrument_id)
-        self._backup_path = get_internal_instrument_backup_path(instrument_id)
+
+        self._target_path = (
+            get_internal_instrument_backup_path(instrument_id)
+            / get_created_at_year_month(raw_file)
+            if target_path is None
+            else target_path
+        )
 
         self._acquisition_monitor = RawFileWrapperFactory.create_monitor_wrapper(
             instrument_id, raw_file.original_name
@@ -131,7 +140,19 @@ class RawFileCopyWrapper(ABC):
 
     @abstractmethod
     def get_files_to_copy(self) -> dict[Path, Path]:
-        """Get a dictionary mapping source file to destination paths."""
+        """Get a dictionary mapping source file to destination paths for copying.
+
+        This gives a 1:1 mapping between source and destination files (not folders!).
+        """
+
+    def get_files_to_move(self) -> dict[Path, Path]:
+        """Get a dictionary mapping source file to destination paths for moving.
+
+        Default implementation for instruments that use "real" files: same output as get_files_to_copy().
+        Overwrite for instruments that use folders to returns a mapping of the folder source to the destination path
+        (not the individual files).
+        """
+        return self.get_files_to_copy()
 
     def file_path_to_calculate_size(self) -> Path:
         """Get the path to the file to calculate size."""
@@ -150,7 +171,7 @@ class ThermoRawFileCopyWrapper(RawFileCopyWrapper):
     def get_files_to_copy(self) -> dict[Path, Path]:
         """Get the mapping of source to destination path (both absolute) for the raw file."""
         src_path = self._instrument_path / self._raw_file.original_name
-        dst_path = self._backup_path / self._year_month_subfolder / self._raw_file.id
+        dst_path = self._target_path / self._raw_file.id
 
         files_to_copy = {src_path: dst_path}
 
@@ -171,7 +192,7 @@ class ZenoRawFileCopyWrapper(RawFileCopyWrapper):
         src_file_stem = Path(self._raw_file.original_name).stem
         for file_path in self._instrument_path.glob(f"{src_file_stem}.*"):
             src_path = file_path
-            dst_path = self._backup_path / self._year_month_subfolder / file_path.name
+            dst_path = self._target_path / file_path.name
 
             files_to_copy[src_path] = self._get_destination_file_path(dst_path)
 
@@ -195,15 +216,23 @@ class BrukerRawFileCopyWrapper(RawFileCopyWrapper):
             if src_item.is_file():
                 src_file_path = src_item
                 rel_file_path = src_file_path.relative_to(self._instrument_path)
-                dst_file_path = (
-                    self._backup_path / self._year_month_subfolder / rel_file_path
-                )
+                dst_file_path = self._target_path / rel_file_path
 
                 files_to_copy[src_file_path] = self._get_destination_file_path(
                     dst_file_path
                 )
         logging.info(f"{files_to_copy=}")
         return files_to_copy
+
+    def get_files_to_move(self) -> dict[Path, Path]:
+        """Get a dictionary mapping of items that can be passed to a "move" command.
+
+        In the case of Bruker, just map the folder name as "move" can handle it.
+        """
+        return {
+            self._instrument_path / self._raw_file.original_name: self._target_path
+            / self._raw_file.id
+        }
 
 
 MONITOR = "monitor"
@@ -263,11 +292,12 @@ class RawFileWrapperFactory:
 
     @classmethod
     def create_copy_wrapper(
-        cls, instrument_id: str, raw_file: RawFile
+        cls, instrument_id: str, raw_file: RawFile, target_path: Path | None = None
     ) -> RawFileCopyWrapper:
         """Create a RawFileCopyWrapper for the specified instrument and raw file.
 
         :param instrument_id: The ID of the instrument
         :param raw_file: a raw file object
+        :param target_path: optional target base path
         """
-        return cls._create_handler(COPIER, instrument_id, raw_file)
+        return cls._create_handler(COPIER, instrument_id, raw_file, target_path)

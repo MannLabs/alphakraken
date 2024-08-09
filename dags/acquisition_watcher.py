@@ -1,17 +1,22 @@
 """DAG to watch acquisition and trigger follow-up DAGS on demand."""
+# ruff: noqa: E402  # Module level import not at top of file
 
 from __future__ import annotations
 
 import sys
 from datetime import timedelta
+from pathlib import Path
 
 import pendulum
 from airflow.models.dag import DAG
 from airflow.operators.python import PythonOperator
 from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 
-# TODO: find a better way, this is required to unify module import between docker and bash
-sys.path.insert(0, "/opt/airflow/")
+# TODO: find a better way to unify import of modules 'dags', 'shared', ... between docker and standalone
+root_path = str(Path(__file__).parent / Path(".."))
+if root_path not in sys.path:
+    sys.path.insert(0, root_path)
+
 from dags.impl.watcher_impl import wait_for_finished_acquisition
 from shared.keys import (
     DAG_DELIMITER,

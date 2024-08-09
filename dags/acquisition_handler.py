@@ -1,16 +1,21 @@
 """DAG to handle acquisition."""
 
+# ruff: noqa: E402  # Module level import not at top of file
 from __future__ import annotations
 
 import sys
 from datetime import timedelta
+from pathlib import Path
 
 from airflow.models import Param
 from airflow.models.dag import DAG
 from airflow.operators.python import PythonOperator
 
-# TODO: find a better way, this is required to unify module import between docker and bash
-sys.path.insert(0, "/opt/airflow/")
+# TODO: find a better way to unify import of modules 'dags', 'shared', ... between docker and standalone
+root_path = str(Path(__file__).parent / Path(".."))
+if root_path not in sys.path:
+    sys.path.insert(0, root_path)
+
 from dags.impl.handler_impl import (
     add_to_db,
     compute_metrics,

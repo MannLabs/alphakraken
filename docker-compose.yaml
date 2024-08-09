@@ -299,6 +299,7 @@ services:
     volumes:
       - ${AIRFLOW_PROJ_DIR:-.}/db_data:/data/db
       # init the DB: https://stackoverflow.com/a/53522699
+      # Note that this could also be done via pyhon, cf. https://github.com/MannLabs/alphakraken/pull/6#discussion_r1624957906
       - ./init-mongo.sh:/docker-entrypoint-initdb.d/init-mongo.sh
     env_file:
       - path: ./envs/.env-mongo

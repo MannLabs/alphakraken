@@ -1,12 +1,16 @@
 """Business logic for the acquisition_handler."""
+# ruff: noqa: E402  # Module level import not at top of file
 
 import logging
 import sys
+from pathlib import Path
 
 from airflow.models import TaskInstance
 
-# TODO: find a better way, this is required to unify module import between docker and bash
-sys.path.insert(0, "/opt/airflow/")
+# TODO: find a better way to unify import of modules 'dags', 'shared', ... between docker and standalone
+root_path = str(Path(__file__).parent / Path("../.."))
+if root_path not in sys.path:
+    sys.path.insert(0, root_path)
 from shared.db.engine import RawFile, connect_db
 from shared.keys import DagContext, DagParams, XComKeys
 from shared.settings import RawFileStatus

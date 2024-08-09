@@ -59,3 +59,9 @@ class InstrumentKeys:
     """Keys for accessing instrument data."""
 
     RAW_DATA_PATH = "raw_data_path"
+
+
+class Variables:
+    """Keys for accessing Airflow Variables."""
+
+    DEBUG_NO_CLUSTER_SSH = "debug_no_cluster_ssh"

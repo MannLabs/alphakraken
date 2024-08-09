@@ -1,13 +1,13 @@
 """Unit tests for the 'utils' module."""
 
-# ruff: noqa: ANN201 Missing return type annotation
-from unittest.mock import Mock
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
-from plugins.common.utils import get_xcom, put_xcom
+from airflow.models import Variable
+from plugins.common.utils import get_variable, get_xcom, put_xcom
 
 
-def test_xcom_push_successful():
+def test_xcom_push_successful() -> None:
     """Test that put_xcom successfully pushes key-value pairs to XCom."""
     ti = Mock()
     ti.xcom_push = Mock()
@@ -16,7 +16,7 @@ def test_xcom_push_successful():
     ti.xcom_push.assert_any_call("key1", "value1")
 
 
-def test_xcom_push_with_none_value_raises_error():
+def test_xcom_push_with_none_value_raises_error() -> None:
     """Test that put_xcom raises a ValueError when trying to push a None value to XCom."""
     ti = Mock()
     with pytest.raises(ValueError):
@@ -24,7 +24,7 @@ def test_xcom_push_with_none_value_raises_error():
         put_xcom(ti, "key1", None)
 
 
-def test_xcom_pull_successful():
+def test_xcom_pull_successful() -> None:
     """Test that get_xcom successfully pulls values from XCom for given keys."""
     ti = Mock()
     ti.xcom_pull = Mock(return_value="value1")
@@ -33,10 +33,34 @@ def test_xcom_pull_successful():
     assert result == "value1"
 
 
-def test_xcom_pull_with_missing_key_raises_error():
+def test_xcom_pull_with_missing_key_raises_error() -> None:
     """Test that get_xcom raises a ValueError when trying to pull a value for a missing key from XCom."""
     ti = Mock()
     ti.xcom_pull = Mock(return_value=None)
     # when
     with pytest.raises(ValueError):
         get_xcom(ti, "missing_key")
+
+
+@patch.object(Variable, "get")
+def test_get_variable_returns_value_when_default_not_set(mock_get: MagicMock) -> None:
+    """Test that get_variable returns the value of an Airflow Variable with a given key."""
+    mock_get.return_value = "value"
+
+    # when
+    result = get_variable("my_key")
+
+    assert result == "value"
+    mock_get.assert_called_once_with("my_key")
+
+
+@patch.object(Variable, "get")
+def test_get_variable_returns_default_when_value_not_found(mock_get: MagicMock) -> None:
+    """Test that get_variable returns the default value when the value of an Airflow Variable with a given key is not found."""
+    mock_get.return_value = "default_value"
+
+    # when
+    result = get_variable("my_key", "default_value")
+
+    assert result == "default_value"
+    mock_get.assert_called_once_with("my_key", default_var="default_value")

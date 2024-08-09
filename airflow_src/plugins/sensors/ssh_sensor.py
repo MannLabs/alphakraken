@@ -5,8 +5,8 @@ from abc import ABC, abstractmethod
 
 from airflow.providers.ssh.hooks.ssh import SSHHook
 from airflow.sensors.base import BaseSensorOperator
-from common.keys import XComKeys
-from common.utils import get_xcom
+from common.keys import Variables, XComKeys
+from common.utils import get_variable, get_xcom
 
 
 class SSHSensorOperator(BaseSensorOperator, ABC):
@@ -59,6 +59,13 @@ class SSHSensorOperator(BaseSensorOperator, ABC):
         ssh_hook: SSHHook,
     ) -> str:
         """Execute the given `command` via the `ssh_hook`."""
+        # this is a hack to prevent jobs to be run on the cluster, useful for debugging and initial setup.
+        if get_variable(Variables.DEBUG_NO_CLUSTER_SSH, "False") == "True":
+            logging.warning(
+                f"Variable {Variables.DEBUG_NO_CLUSTER_SSH} set: Not running SSH command {command} on cluster."
+            )
+            return "COMPLETED"
+
         exit_status, agg_stdout, agg_stderr = ssh_hook.exec_ssh_client_command(
             ssh_hook.get_conn(),
             command,

@@ -58,7 +58,7 @@ class SSHSensorOperator(BaseSensorOperator, ABC):
     def ssh_execute(command: str, ssh_hook: SSHHook, max_tries: int = 10) -> str:
         """Execute the given `command` via the `ssh_hook`."""
         # this is a hack to prevent jobs to be run on the cluster, useful for debugging and initial setup.
-        # TODO: needs to be improved, maybe by setting up a container with a fake ssh server
+        # To get rid of this, e.g. set up a container with a fake ssh server
         if get_airflow_variable(AirflowVars.DEBUG_NO_CLUSTER_SSH, "False") == "True":
             return SSHSensorOperator._get_fake_ssh_response(command)
 

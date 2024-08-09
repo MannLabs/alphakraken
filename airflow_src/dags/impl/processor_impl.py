@@ -27,7 +27,6 @@ from common.settings import (
     CLUSTER_WORKING_DIR,
     ERROR_CODE_TO_STRING,
     AlphaDiaConstants,
-    InternalPaths,
     get_fallback_project_id,
     get_internal_output_path,
     get_output_folder_rel_path,
@@ -60,13 +59,10 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
 
     raw_file = get_raw_file_by_id(raw_file_id)
 
-    io_pool_folder = get_env_variable(EnvVars.IO_POOL_FOLDER)
+    backup_pool_folder = get_env_variable(EnvVars.BACKUP_POOL_FOLDER)
     year_month_subfolder = get_created_at_year_month(raw_file)
     input_data_rel_path = (
-        Path(io_pool_folder)
-        / InternalPaths.BACKUP
-        / instrument_id
-        / year_month_subfolder
+        Path(backup_pool_folder) / instrument_id / year_month_subfolder
     )
 
     project_id_or_fallback = _get_project_id_or_fallback(
@@ -90,13 +86,14 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
     quanting_env = {
         QuantingEnv.RAW_FILE_ID: raw_file_id,
         QuantingEnv.INPUT_DATA_REL_PATH: str(input_data_rel_path),
+        QuantingEnv.IO_POOL_FOLDER: io_pool_folder,
         QuantingEnv.OUTPUT_FOLDER_REL_PATH: str(output_folder_rel_path),
         QuantingEnv.SPECLIB_FILE_NAME: speclib_file_name,
         QuantingEnv.FASTA_FILE_NAME: settings.fasta_file_name,
         QuantingEnv.CONFIG_FILE_NAME: settings.config_file_name,
         QuantingEnv.SOFTWARE: settings.software,
         QuantingEnv.PROJECT_ID_OR_FALLBACK: project_id_or_fallback,
-        QuantingEnv.IO_POOL_FOLDER: io_pool_folder,
+        # TODO: pass only the final paths here, not the single file names
     }
 
     put_xcom(ti, XComKeys.QUANTING_ENV, quanting_env)

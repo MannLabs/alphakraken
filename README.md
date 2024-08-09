@@ -13,7 +13,7 @@ export ENV=local
 This will use the environment variables defined in `envs/${ENV}.env`.
 
 ### Deployment workflow: 'local' vs. 'sandbox' vs. 'production'
-All features should be tested `local`ly before deploying them to the `sandbox` environment
+All features should be tested on `local` before deploying them to the `sandbox` environment
 for further testing. `sandbox` is technically equivalent to `production`, but it does not contain any valuable
 data and therefore it's perfectly fine to break and/or wipe it.
 There, depending on the scope of the feature, and of the likeliness of breaking something,
@@ -31,6 +31,9 @@ Please note that running and developing the alphakraken is only tested for MacOS
 (the UI can be accessed from any OS, of course).
 
 #### One-time initializations
+The following steps are required for both the `local` and the `sandbox`/`production` deployments.
+For the latter, additional steps are required, see [here](#additional-steps-required-for-initial-sandboxproduction-deployment).
+
 1. Install
 [Docker Compose](https://docs.docker.com/engine/install/ubuntu/) and
 [Docker](https://docs.docker.com/compose/install/linux/#install-using-the-repository), clone the repository into a folder and `cd` into it.
@@ -47,6 +50,8 @@ echo -e "AIRFLOW_UID=$(id -u)" > envs/.env-airflow
 ```
 Note: depending on your operating system and configuration, you might need to run `docker compose` command with `sudo`.
 
+Now run the containers (see below).
+The following initialization steps need to be done once the containers are up:
 
 4. In the Airflow UI, set up the SSH connection to the cluster (see [below](#setup-ssh-connection)).
 If you don't want to connect to the cluster, just create the connection of type
@@ -88,6 +93,8 @@ profiles `infrastructure` and `workers`, respectively. If you move one of the ce
 to another machine, you might need to adjust the `*_HOST` variables in the
 `./env/${ENV}.env` files (see comments there). Of course, one machine could also host them all.
 
+For production: set strong passwords for `AIRFLOW_PASSWORD`, `MONGO_PASSWORD`, and `POSTGRES_PASSWORD`
+in `./env/production.env` and `MONGO_INITDB_ROOT_PASSWORD` in `./env/.env-mongo`.
 
 #### On the PC (VM) hosting the airflow infrastructure
 0. `ssh` into the PC/VM and set `export ENV=sandbox` (`production`).
@@ -138,8 +145,8 @@ Additionally, workers need one bind mount per instrument PC is needed (cf. secti
 sudo apt install cifs-utils
 ```
 
-2. Make sure the variables `MOUNTS_PATH` and `IO_POOL_FOLDER` in the `envs/${ENV}.env` file are set correctly. Check also
-`MOUNTS` in the `mountall.sh` script .
+2. Make sure the variables `MOUNTS_PATH`, `BACKUP_POOL_FOLDER` `IO_POOL_FOLDER` in the `envs/${ENV}.env` file are set correctly. Check also
+`MOUNTS_PATH`, `BACKUP_POOL_PATH` `IO_POOL_PATH` in the `mountall.sh` script .
 
 3. Mount the backup, output and logs folder. You will be asked for passwords.
 ```bash
@@ -186,7 +193,7 @@ conda activate alphadia-${VERSION}
 ```bash
 pip install "alphadia[stable]==${VERSION}"
 ```
-Make sure the environment is named `alphadia-$VERSION`.
+Make sure the environment is named `alphadia-${VERSION}`.
 Also, don't forget to install `mono` (cf. alphaDIA Readme).
 
 ### Add a new instrument
@@ -258,7 +265,7 @@ dereference all dependencies and to run the tests.
 1. Set up your environment for developing locally with
 ```bash
 PYTHON_VERSION=3.11
-AIRFLOW_VERSION=2.9.2
+AIRFLOW_VERSION=2.9.3
 git clone git@github.com:MannLabs/alphakraken.git
 cd alphakraken
 conda create --name alphakraken python=${PYTHON_VERSION} -y

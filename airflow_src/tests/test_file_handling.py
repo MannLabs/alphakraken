@@ -4,10 +4,13 @@ from pathlib import Path
 from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
+from _pytest._py.path import LocalPath
+from airflow.exceptions import AirflowFailException
 from plugins.common.settings import INSTRUMENTS
 from plugins.file_handling import (
     _file_already_exists,
     _get_file_hash,
+    compare_paths,
     copy_file,
     get_file_creation_timestamp,
     get_file_size,
@@ -40,7 +43,7 @@ def test_get_file_size() -> None:
     assert result == 42.0  # noqa: PLR2004
 
 
-@patch("builtins.open", new_callable=mock_open)
+@patch("plugins.file_handling.Path.open", new_callable=mock_open)
 def test_get_file_hash(mock_file_open: MagicMock) -> None:
     """Test get_file_hash."""
     mock_file_open.return_value.read.side_effect = [b"some_file_content", None]
@@ -51,7 +54,7 @@ def test_get_file_hash(mock_file_open: MagicMock) -> None:
     assert return_value == "faff66b0fba39e3a4961b45dc5f9826c"
 
 
-@patch("builtins.open", new_callable=mock_open)
+@patch("plugins.file_handling.Path.open", new_callable=mock_open)
 def test_get_file_hash_chunks(mock_file_open: MagicMock) -> None:
     """Test get_file_hash with multiple chunks."""
     mock_file_open.return_value.read.side_effect = [
@@ -213,3 +216,172 @@ def test_file_already_exists_hashes_dont_match(
     mock_exists.assert_called_once()
     mock_get_file_hash.assert_called_once_with(Path("/backup/test_file.raw"))
     assert result is False
+
+
+# using a 'real' file system here to test the file handling functions
+def _setup_tmpdir_folders(
+    tmpdir: LocalPath,
+    source_files: list[str],
+    target_files: list[str],
+    *,
+    first_target_different_content: bool = False,
+) -> tuple[Path, Path]:
+    """Setup source and target folders with files in a temporary directory."""
+    source = tmpdir.mkdir("source")
+    target = tmpdir.mkdir("target")
+    for file in source_files:
+        p = source.join(file)
+        p.write(file)
+    for i, file in enumerate(target_files):
+        p = target.join(file)
+        string_to_write = file
+
+        if first_target_different_content and i == 0:
+            string_to_write = f"{string_to_write}_{i}"
+
+        p.write(string_to_write)
+
+    return Path(source), Path(target)
+
+
+def _setup_tmpdir_files(
+    tmpdir: LocalPath,
+    source_file: str,
+    target_file: str,
+    *,
+    target_different_content: bool = False,
+) -> tuple[Path, Path]:
+    """Setup source and target files in a temporary directory."""
+    source = tmpdir.mkdir("source").join(Path(source_file))
+    source.write(source_file)
+
+    target = tmpdir.mkdir("target").join(Path(target_file))
+    string_to_write = target_file
+    if target_different_content:
+        string_to_write = f"{string_to_write}_0"
+    target.write(string_to_write)
+
+    return Path(source), Path(target)
+
+
+def test_compare_paths_files_match(tmpdir: LocalPath) -> None:
+    """Test compare_paths returns empty lists when files match."""
+    source_path, target_path = _setup_tmpdir_files(tmpdir, "file1", "file1")
+
+    missing_files, different_files, items_only_in_target = compare_paths(
+        source_path, target_path
+    )
+
+    assert missing_files == []
+    assert different_files == []
+    assert items_only_in_target == []
+
+
+def test_compare_paths_files_correctly_identifies_missing(tmpdir: LocalPath) -> None:
+    """Test compare_paths correctly identifies missing files."""
+    source_path, target_path = _setup_tmpdir_files(tmpdir, "file1", "file1")
+    target_path = target_path / "MISSING"
+
+    missing_files, different_files, items_only_in_target = compare_paths(
+        source_path, target_path
+    )
+
+    assert missing_files == ["file1"]
+    assert different_files == []
+    assert items_only_in_target == []
+
+
+def test_compare_paths_files_orrectly_identifies_different_files(
+    tmpdir: LocalPath,
+) -> None:
+    """Test compare_paths correctly identifies different files."""
+    source_path, target_path = _setup_tmpdir_files(
+        tmpdir, "file1", "file1", target_different_content=True
+    )
+    missing_files, different_files, items_only_in_target = compare_paths(
+        source_path, target_path
+    )
+
+    assert missing_files == []
+    assert different_files == ["file1"]
+    assert items_only_in_target == []
+
+
+def test_compare_paths_folders_all_match(tmpdir: LocalPath) -> None:
+    """Test compare_paths returns empty lists when folders match."""
+    source_path, target_path = _setup_tmpdir_folders(
+        tmpdir, ["file1", "file2"], ["file1", "file2"]
+    )
+
+    missing_files, different_files, items_only_in_target = compare_paths(
+        source_path, target_path
+    )
+
+    assert missing_files == []
+    assert different_files == []
+    assert items_only_in_target == []
+
+
+def test_compare_paths_folders_correctly_identifies_missing_files(
+    tmpdir: LocalPath,
+) -> None:
+    """Test compare_paths correctly identifies missing files in folders."""
+    source_path, target_path = _setup_tmpdir_folders(
+        tmpdir, ["file1", "file2"], ["file1"]
+    )
+
+    missing_files, different_files, items_only_in_target = compare_paths(
+        source_path, target_path
+    )
+
+    assert missing_files == ["file2"]
+    assert different_files == []
+    assert items_only_in_target == []
+
+
+def test_compare_paths_folders_correctly_identifies_different_files(
+    tmpdir: LocalPath,
+) -> None:
+    """Test compare_paths correctly identifies different files in folders."""
+    source_path, target_path = _setup_tmpdir_folders(
+        tmpdir,
+        ["file1", "file2"],
+        ["file1", "file2"],
+        first_target_different_content=True,
+    )
+
+    missing_files, different_files, items_only_in_target = compare_paths(
+        source_path, target_path
+    )
+
+    assert missing_files == []
+    assert different_files == ["file1"]
+    assert items_only_in_target == []
+
+
+def test_compare_paths_folders_correctly_identifies_items_only_in_target(
+    tmpdir: LocalPath,
+) -> None:
+    """Test compare_paths correctly identifies items only in target folder."""
+    source_path, target_path = _setup_tmpdir_folders(
+        tmpdir, ["file1", "file2"], ["file1", "file2", "file3"]
+    )
+
+    missing_files, different_files, items_only_in_target = compare_paths(
+        source_path, target_path
+    )
+
+    assert missing_files == []
+    assert different_files == []
+    assert items_only_in_target == ["file3"]
+
+
+def test_compare_paths_raises_exception_if_source_is_dir_and_target_is_not() -> None:
+    """Test compare_paths raises an exception if source is a directory and target is not."""
+    source_path = MagicMock(spec=Path)
+    target_path = MagicMock(spec=Path)
+    source_path.is_dir.return_value = True
+    target_path.is_dir.return_value = False
+
+    with pytest.raises(AirflowFailException):
+        compare_paths(source_path, target_path)

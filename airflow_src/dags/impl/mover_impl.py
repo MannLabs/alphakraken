@@ -12,6 +12,7 @@ from common.settings import (
     get_internal_instrument_data_path,
 )
 from common.utils import get_env_variable, get_xcom, put_xcom
+from file_handling import compare_paths
 from raw_file_wrapper_factory import RawFileWrapperFactory
 
 from shared.db.interface import get_raw_file_by_id
@@ -48,16 +49,20 @@ def move_files(ti: TaskInstance, **kwargs) -> None:
 
     for src_path, dst_path in files_to_move.items():
         if not src_path.exists():
-            msg = f"File {src_path=} does not exist, but {dst_path=} does."
             if not dst_path.exists():
                 msg = f"Neither {src_path=} nor {dst_path=} exist."
+            else:
+                # in the future, this might not be an error, but a warning
+                msg = f"File {src_path=} does not exist, but {dst_path=} does."
             raise AirflowFailException(msg)
 
         if dst_path.exists():
-            # missing_files, different_files, items_only_in_target = compare_directories(src_path, dst_path)
-            # logging.warning(f"Files missing in target: {missing_files}")
-            # logging.warning(f"Files different in target: {different_files}")
-            # logging.warning(f"Files only in target: {items_only_in_target}")
+            missing_files, different_files, items_only_in_target = compare_paths(
+                src_path, dst_path
+            )
+            logging.info(f"Files missing in target: {missing_files}")
+            logging.info(f"Files different in target: {different_files}")
+            logging.info(f"Files only in target: {items_only_in_target}")
 
             raise AirflowFailException(f"File {dst_path=} already exists.")
 
@@ -70,6 +75,7 @@ def move_files(ti: TaskInstance, **kwargs) -> None:
             )
             continue
 
+        logging.info(f"Creating directory {dst_path.parent}")
         dst_path.parent.mkdir(parents=True, exist_ok=True)
 
         logging.info(f"Moving raw file {src_path} to {dst_path}")

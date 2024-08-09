@@ -40,7 +40,7 @@ def test_dag_load_acquisition_handler(dagbag: DagBag) -> None:
         # then
         assert dagbag.import_errors == {}
         assert dag is not None
-        assert len(dag.tasks) == 3  # noqa: PLR2004 no magic numbers
+        assert len(dag.tasks) == 4  # noqa: PLR2004 no magic numbers
 
 
 def test_dag_load_acquisition_processor(dagbag: DagBag) -> None:
@@ -53,3 +53,14 @@ def test_dag_load_acquisition_processor(dagbag: DagBag) -> None:
         assert dagbag.import_errors == {}
         assert dag is not None
         assert len(dag.tasks) == 6  # noqa: PLR2004 no magic numbers
+
+
+def test_dag_load_file_mover(dagbag: DagBag) -> None:
+    """Test that file_mover loads correctly."""
+    # when
+    dag = dagbag.get_dag(dag_id="file_mover")
+
+    # then
+    assert dagbag.import_errors == {}
+    assert dag is not None
+    assert len(dag.tasks) == 1  # no magic numbers

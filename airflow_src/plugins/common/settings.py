@@ -40,6 +40,7 @@ ERROR_CODE_TO_STRING = {
     "_TOLERANCE_MUST_BE_LESS_THAN": "fragment_mz_tolerance must be less than",
     "_NEED_AT_LEAST_ONE_ARRAY": "need at least one array to concatenate",
     "_TRAIN_SET_WILL_BE_EMPTY": "the resulting train set will be empty",
+    "_CYCLE_NOT_CONSISTENT": "but does not consistent",
 }
 
 
@@ -67,6 +68,8 @@ class Timings:
 
     ACQUISITION_MONITOR_TIMEOUT_M = 180
 
+    MOVE_RAW_FILE_TASK_TIMEOUT_M = 1
+
 
 class Concurrency:
     """Concurrency constants."""
@@ -81,6 +84,8 @@ class Concurrency:
 
     # limit the number of concurrent monitors to not over-stress the network (relevant only during a catchup)
     MAXNO_MONITOR_ACQUISITION_TASKS_PER_DAG = 10
+
+    MAXNO_MOVE_RAW_FILE_TASKS_PER_DAG = 1
 
 
 class Pools:

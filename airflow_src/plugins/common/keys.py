@@ -9,6 +9,7 @@ class Dags:
     ACQUISITON_WATCHER: str = "instrument_watcher"
     ACQUISITION_HANDLER: str = "acquisition_handler"
     ACQUISITON_HANDLER: str = "acquisition_processor"
+    FILE_MOVER: str = "file_mover"
 
 
 class Tasks:
@@ -21,6 +22,7 @@ class Tasks:
 
     MONITOR_ACQUISITION: str = "monitor_acquisition"
     COPY_RAW_FILE: str = "copy_raw_file"
+    START_FILE_MOVER: str = "start_file_mover"
     START_ACQUISITION_PROCESSOR: str = "start_acquisition_processor"
 
     PREPARE_QUANTING: str = "prepare_quanting"
@@ -29,6 +31,8 @@ class Tasks:
     CHECK_QUANTING_RESULT: str = "check_quanting_result"
     COMPUTE_METRICS: str = "compute_metrics"
     UPLOAD_METRICS: str = "upload_metrics"
+
+    MOVE_RAW_FILE: str = "move_raw_file"
 
 
 class OpArgs:

@@ -38,13 +38,15 @@ class TestableRawFileMonitorWrapper(RawFileMonitorWrapper):
 
 @patch("plugins.raw_file_wrapper_factory.get_internal_instrument_data_path")
 def test_get_dir_contents_returns_correct_set_of_paths(
-    mock_get_instrument_data_path: MagicMock,
+    mock_get_internal_instrument_data_path: MagicMock,
 ) -> None:
     """Test that the correct set of paths is returned."""
     file_names = {"file1.test_ext", "file2.test_ext"}
     returned_paths = {Path(f"/fake/instrument/path/{f}") for f in file_names}
 
-    mock_get_instrument_data_path.return_value.glob.return_value = list(returned_paths)
+    mock_get_internal_instrument_data_path.return_value.glob.return_value = list(
+        returned_paths
+    )
 
     raw_file_monitor_wrapper = TestableRawFileMonitorWrapper(
         instrument_id="instrument1"

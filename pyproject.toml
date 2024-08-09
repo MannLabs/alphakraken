@@ -1,0 +1,10 @@
+[tool.ruff.lint]
+select =  [ "ALL" ]
+ignore = [
+    "E501",  # Line too long  (ruff wraps code, but not docstrings)
+    "B028",  #  No explicit `stacklevel` keyword argument found (for warnings)
+    "COM812", #may cause conflicts when used with the formatter
+    "ISC001", #may cause conflicts when used with the formatter
+    "D211", # no-blank-line-before-class
+    "D213", # multi-line-summary-second-line
+]

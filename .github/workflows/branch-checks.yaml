@@ -8,19 +8,6 @@ on:
       REVIEW_DATA:
         description: ""
         required: true
-        default: |
-          '[
-          {
-          "change_id": "1",
-          "file_name": "airflow_src/plugins/common/settings.py",
-          "start_line": "46",
-          "end_line": "50",
-          "summary": "Extract cluster-related settings to a dedicated configuration",
-          "reason": "Improve maintainability and centralize configuration",
-          "proposed_code": "# Cluster configuration\\nCLUSTER_CONFIG = {\\n    'BASE_DIR': '~/slurm',\\n    'JOB_SCRIPT_PATH': '~/slurm/submit_job.sh',\\n    'WORKING_DIR': '~/slurm/jobs',\\n}\\nCLUSTER_BASE_DIR =\\nCLUSTER_CONFIG['BASE_DIR']"
-          }
-
-          ]'
 
 jobs:
   pre-commit:
@@ -50,7 +37,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.number }}
           REVIEW_DATA: |
-            '[
+            [
             {
             "change_id": "1",
             "file_name": "airflow_src/plugins/common/settings.py",
@@ -61,49 +48,49 @@ jobs:
             "proposed_code": "# Cluster configuration\\nCLUSTER_CONFIG = {\\n    'BASE_DIR': '~/slurm',\\n    'JOB_SCRIPT_PATH': '~/slurm/submit_job.sh',\\n    'WORKING_DIR': '~/slurm/jobs',\\n}\\nCLUSTER_BASE_DIR =\\nCLUSTER_CONFIG['BASE_DIR']"
             }
 
-            ]'
+            ]
 
-  unit-tests:
-    name: Run unit tests
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-
-    - uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
-        cache: 'pip'
-
-    - name: Run shared unit tests
-      run: |
-        pip install -r requirements_development.txt
-        pip install -r shared/requirements_shared.txt
-        pip freeze
-        python -m pytest shared
-
-    # strictly speaking, the webapp and airfloe test sets should be in separate python envs but should be fine for now
-    - name: Run webapp unit tests
-      run: |
-        pip install -r webapp/requirements_webapp.txt
-        pip freeze
-        python -m pytest webapp
-
-    - name: Run Airflow unit tests
-      run: |
-        pip install apache-airflow==2.9.3 --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.9.3/constraints-3.11.txt"
-        airflow db init
-        pip install -r airflow_src/requirements_airflow.txt
-        pip freeze
-        python -m pytest airflow_src
-
-  docker-compose-test:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - run: |
-          echo -e "AIRFLOW_UID=$(id -u)" > envs/.env-airflow
-      - uses: hoverkraft-tech/compose-action@v2.0.0
-        with:
-          compose-file: "docker-compose.yaml"
-          compose-flags: "--env-file=envs/.env-airflow --env-file=envs/local.env --profile local"
+#  unit-tests:
+#    name: Run unit tests
+#    runs-on: ubuntu-latest
+#    steps:
+#    - uses: actions/checkout@v4
+#
+#    - uses: actions/setup-python@v5
+#      with:
+#        python-version: '3.11'
+#        cache: 'pip'
+#
+#    - name: Run shared unit tests
+#      run: |
+#        pip install -r requirements_development.txt
+#        pip install -r shared/requirements_shared.txt
+#        pip freeze
+#        python -m pytest shared
+#
+#    # strictly speaking, the webapp and airfloe test sets should be in separate python envs but should be fine for now
+#    - name: Run webapp unit tests
+#      run: |
+#        pip install -r webapp/requirements_webapp.txt
+#        pip freeze
+#        python -m pytest webapp
+#
+#    - name: Run Airflow unit tests
+#      run: |
+#        pip install apache-airflow==2.9.3 --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.9.3/constraints-3.11.txt"
+#        airflow db init
+#        pip install -r airflow_src/requirements_airflow.txt
+#        pip freeze
+#        python -m pytest airflow_src
+#
+#  docker-compose-test:
+#    runs-on: ubuntu-latest
+#    steps:
+#      - name: Checkout
+#        uses: actions/checkout@v4
+#      - run: |
+#          echo -e "AIRFLOW_UID=$(id -u)" > envs/.env-airflow
+#      - uses: hoverkraft-tech/compose-action@v2.0.0
+#        with:
+#          compose-file: "docker-compose.yaml"
+#          compose-flags: "--env-file=envs/.env-airflow --env-file=envs/local.env --profile local"

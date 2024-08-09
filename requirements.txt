@@ -1,0 +1,3 @@
+# requirements for the airflow tasks
+pymongo==4.7.2
+mongoengine==0.28.2

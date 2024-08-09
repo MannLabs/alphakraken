@@ -29,5 +29,6 @@ jobs:
     - run: |
         pip install apache-airflow==2.9.1 --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.9.1/constraints-3.11.txt"
         airflow db init
-        pip install pytest
+        pip install -r requirements.txt
+        pip install -r requirements_development.txt
         python -m pytest

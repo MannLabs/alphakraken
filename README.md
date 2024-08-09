@@ -16,17 +16,18 @@ Install requirements for developing and testing with
 pip install -r requirements_development.txt
 ```
 
-Run airflow with
-```bash
-airflow standalone
-```
-and open the webserver at `http://localhost:8080/`.
-
-### Docker
-As an alternative to `airflow standalone`, start the docker containers providing an all-in-one solution with
+Start the docker containers providing an all-in-one solution with
 ```bash
 docker-compose up
 ```
+and open the webserver at `http://localhost:8080/`.
+
+Alternatively, run airflow without Docker using
+```bash
+airflow standalone
+```
+
+Note that you will need to have a MongoDB running on the default port `27017`.
 
 
 ### Tests
@@ -36,6 +37,9 @@ python -m pytest
 ```
 If you encounter a `sqlite3.OperationalError: no such table: dag`, run `airflow db init` once.
 
+### Connect to the DB
+Use e.g. MongoDB Compass to connect to the MongoDB running in Docker using the url `localhost:27017`,
+the credentials (e.g. defined in `envs/.dev.env`) and make sure the "Authentication Database" is "krakendb".
 
 ### pre-commit hooks
 It is highly recommended to use the provided pre-commit hooks, as the CI pipeline enforces all checks therein to

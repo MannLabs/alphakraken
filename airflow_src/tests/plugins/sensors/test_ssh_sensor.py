@@ -18,6 +18,8 @@ def test_poke_executes_ssh_command_and_checks_returned_state(
     ssh_hook = MagicMock()
     operator = QuantingSSHSensor(task_id="my_task", ssh_hook=ssh_hook)
 
+    operator.pre_execute(context)
+
     # when
     result = operator.poke(context)
 
@@ -37,6 +39,8 @@ def test_poke_returns_true_when_state_not_in_running_states(
     context = {"ti": MagicMock()}
     ssh_hook = MagicMock()
     operator = QuantingSSHSensor(task_id="my_task", ssh_hook=ssh_hook)
+
+    operator.pre_execute(context)
 
     # when
     result = operator.poke(context)

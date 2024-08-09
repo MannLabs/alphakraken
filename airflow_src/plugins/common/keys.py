@@ -21,6 +21,7 @@ class Tasks:
     PREPARE_QUANTING: str = "prepare_quanting"
     RUN_QUANTING: str = "run_quanting"
     MONITOR_QUANTING: str = "monitor_quanting"
+    GET_JOB_INFO: str = "get_job_info"
     COMPUTE_METRICS: str = "compute_metrics"
     UPLOAD_METRICS: str = "upload_metrics"
 
@@ -55,6 +56,7 @@ class XComKeys:
     JOB_ID: str = "job_id"
 
     METRICS: str = "metrics"
+    TIME_ELAPSED: str = "time_elapsed"
 
 
 class InstrumentKeys:

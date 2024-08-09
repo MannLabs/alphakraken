@@ -1,18 +1,22 @@
 """Business logic for the acquisition_handler."""
 
 import logging
-from pathlib import Path
+from datetime import datetime
+from random import random
 
 from airflow.models import TaskInstance
 from common.keys import DagContext, DagParams, OpArgs, XComKeys
 from common.settings import (
-    OUTPUT_DIR_PREFIX,
-    InternalPaths,
+    CLUSTER_JOB_SCRIPT_PATH,
+    CLUSTER_WORKING_DIR,
     get_internal_instrument_data_path,
+    get_internal_output_path,
+    get_output_folder_name,
     get_relative_instrument_data_path,
 )
 from common.utils import get_xcom, put_xcom
 from metrics.metrics_calculator import calc_metrics
+from mongoengine.errors import NotUniqueError
 from sensors.ssh_sensor import SSHSensorOperator
 
 from shared.db.engine import (
@@ -33,17 +37,22 @@ def add_to_db(ti: TaskInstance, **kwargs) -> None:
 
     # TODO: exception handling: retry vs noretry
 
+    # calculate the file properties already here to have them available as early as possible
     raw_file_path = get_internal_instrument_data_path(instrument_id) / raw_file_name
     raw_file_size = raw_file_path.stat().st_size
     raw_file_creation_time = raw_file_path.stat().st_ctime
     logging.info(f"Got {raw_file_size / 1024**3} GB {raw_file_creation_time}")
 
-    add_new_raw_file_to_db(
-        raw_file_name,
-        instrument_id=instrument_id,
-        size=raw_file_size,
-        creation_ts=raw_file_creation_time,
-    )
+    try:
+        add_new_raw_file_to_db(
+            raw_file_name,
+            instrument_id=instrument_id,
+            size=raw_file_size,
+            creation_ts=raw_file_creation_time,
+        )
+    except NotUniqueError:  # TODO: remove
+        # we tolerate this for now to facilitate manual testing
+        logging.warning(f"File {raw_file_name} already in the database")
 
     # push to XCOM
     put_xcom(ti, XComKeys.RAW_FILE_NAME, raw_file_name)
@@ -61,27 +70,38 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
 # TODO: how to bring 'submit_job.sh' to the cluster?
 # Must be a bash script that is executable on the cluster.
 # Its only output to stdout must be the job id of the submitted job.
-run_quanting_cmd = """
-cd ~/kraken &&
-JID=$(sbatch submit_job.sh)
-echo ${JID##* }
+# ${JID##* } is removing everything up to the last space
+run_quanting_cmd = f"""
+cd {CLUSTER_WORKING_DIR} &&
+JID=$(sbatch {CLUSTER_JOB_SCRIPT_PATH})
+echo ${{JID##* }}
 """
 
 
 def run_quanting(ti: TaskInstance, **kwargs) -> None:
     """Run the quanting job on the cluster."""
     # IMPLEMENT:
-    # wait for the cluster to be ready (20% idling) -> dedicated (sensor) task
+    # wait for the cluster to be ready (20% idling) -> dedicated (sensor) task, mind race condition! (have pool = 1 for that)
 
     ssh_hook = kwargs[OpArgs.SSH_HOOK]
     instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
 
     raw_file_name = get_xcom(ti, XComKeys.RAW_FILE_NAME)
     instrument_subfolder = get_relative_instrument_data_path(instrument_id)
+    output_folder_name = get_output_folder_name(raw_file_name)
 
+    # TODO: remove!!!
+    # this is so hacky it makes my head hurt:
+    # currently, two instances of alphaDIA compete for locking the speclib file
+    # This reduces the chance for this to happen by 90%
+    speclib_file_name = f"hela_hybrid.small.{int(random()*10)}.hdf"  # noqa: S311
+
+    # TODO: move creation of env vars to dedicated method
     export_cmd = (
         f"export RAW_FILE_NAME={raw_file_name}\n"
         f"export POOL_BACKUP_INSTRUMENT_SUBFOLDER={instrument_subfolder}\n"
+        f"export OUTPUT_FOLDER_NAME={output_folder_name}\n"
+        f"export SPECLIB_FILE_NAME={speclib_file_name}\n"
     )
 
     command = export_cmd + run_quanting_cmd
@@ -98,16 +118,45 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
     put_xcom(ti, XComKeys.JOB_ID, job_id)
 
 
+def get_job_info(ti: TaskInstance, **kwargs) -> None:
+    """Get info (slurm log, alphaDIA log) about a job from the cluster."""
+    ssh_hook = kwargs[OpArgs.SSH_HOOK]
+    job_id = get_xcom(ti, XComKeys.JOB_ID)
+
+    slurm_output_file = f"{CLUSTER_WORKING_DIR}/slurm-{job_id}.out"
+
+    # To reduce the number of ssh calls, we combine multiple commands into one
+    # In order to be able to extract the run time, we expect the first line to contain only that, e.g. "00:08:42"
+    get_job_info_cmd = f"""TIME_ELAPSED=$(sacct --format=Elapsed -j  {job_id} | tail -n 1); echo $TIME_ELAPSED
+sacct -l -j {job_id}
+cat {slurm_output_file}
+"""
+
+    ssh_return = SSHSensorOperator.ssh_execute(get_job_info_cmd, ssh_hook)
+
+    logging.info(ssh_return)
+
+    time_elapsed = _get_time_elapsed(ssh_return)
+
+    put_xcom(ti, XComKeys.TIME_ELAPSED, time_elapsed)
+
+
+def _get_time_elapsed(ssh_return: str) -> int:
+    """Extract the time in seconds from a string "hours:minutes:seconds" in the first line of a string."""
+    time_stamp = ssh_return.split("\n")[0]
+    logging.info(f"extracted {time_stamp=}")
+    t = datetime.strptime(time_stamp, "%H:%M:%S")  # noqa: DTZ007
+    return (t.hour * 3600) + (t.minute * 60) + t.second
+
+
 def compute_metrics(ti: TaskInstance, **kwargs) -> None:
     """Compute metrics from the quanting results."""
     del kwargs
 
     raw_file_name = get_xcom(ti, XComKeys.RAW_FILE_NAME)
-    output_directory = f"{OUTPUT_DIR_PREFIX}{raw_file_name}"
-    output_path = (
-        Path(InternalPaths.MOUNTS_PATH) / Path(InternalPaths.OUTPUT) / output_directory
-    )
-    metrics = calc_metrics(str(output_path))
+
+    output_path = get_internal_output_path(raw_file_name)
+    metrics = calc_metrics(output_path)
 
     put_xcom(ti, XComKeys.METRICS, metrics)
 
@@ -118,6 +167,9 @@ def upload_metrics(ti: TaskInstance, **kwargs) -> None:
 
     raw_file_name = get_xcom(ti, XComKeys.RAW_FILE_NAME)
     metrics = get_xcom(ti, XComKeys.METRICS)
+
+    time_elapsed = get_xcom(ti, XComKeys.TIME_ELAPSED)
+    metrics["time_elapsed"] = time_elapsed
 
     add_metrics_to_raw_file(raw_file_name, metrics)
 

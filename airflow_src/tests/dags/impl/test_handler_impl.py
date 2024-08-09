@@ -7,6 +7,7 @@ from common.settings import INSTRUMENTS
 from dags.impl.handler_impl import (
     add_to_db,
     compute_metrics,
+    get_job_info,
     run_quanting,
     upload_metrics,
 )
@@ -52,7 +53,9 @@ def test_add_to_db(
 @patch("dags.impl.handler_impl.SSHSensorOperator.ssh_execute")
 @patch("dags.impl.handler_impl.put_xcom")
 @patch("dags.impl.handler_impl.update_raw_file_status")
+@patch("dags.impl.handler_impl.random")
 def test_run_quanting_executes_ssh_command_and_stores_job_id(
+    mock_random: MagicMock,
     mock_update: MagicMock,
     mock_put_xcom: MagicMock,
     mock_ssh_execute: MagicMock,
@@ -70,20 +73,49 @@ def test_run_quanting_executes_ssh_command_and_stores_job_id(
         OpArgs.INSTRUMENT_ID: "some_instrument_id",
     }
 
+    mock_random.return_value = 0.44
+
     # when
     run_quanting(ti, **kwargs)
 
     # then
     expected_command = (
         "export RAW_FILE_NAME=test_file.raw\n"
-        "export POOL_BACKUP_INSTRUMENT_SUBFOLDER=path/to/data\n\n"
-        "cd ~/kraken &&\n"
-        "JID=$(sbatch submit_job.sh)\n"
+        "export POOL_BACKUP_INSTRUMENT_SUBFOLDER=path/to/data\n"
+        "export OUTPUT_FOLDER_NAME=out_test_file.raw\n"
+        "export SPECLIB_FILE_NAME=hela_hybrid.small.4.hdf\n\n"
+        "cd ~/slurm/jobs &&\n"
+        "JID=$(sbatch ~/slurm/submit_job.sh)\n"
         "echo ${JID##* }\n"
     )
     mock_ssh_execute.assert_called_once_with(expected_command, mock_ssh_hook)
     mock_put_xcom.assert_called_once_with(ti, XComKeys.JOB_ID, "12345")
     mock_update.assert_called_once_with("test_file.raw", RawFileStatus.PROCESSING)
+
+    mock_random.assert_called_once()  # TODO: remove patching random once the hack is removed
+
+
+@patch("dags.impl.handler_impl.get_xcom")
+@patch("dags.impl.handler_impl.SSHSensorOperator.ssh_execute")
+@patch("dags.impl.handler_impl.put_xcom")
+def test_get_job_info_happy_path(
+    mock_put_xcom: MagicMock, mock_ssh_execute: MagicMock, mock_get_xcom: MagicMock
+) -> None:
+    """Test that get_job_info makes the expected calls."""
+    mock_ti = MagicMock()
+    mock_get_xcom.side_effect = ["ssh_hook", "job_id"]
+    mock_ssh_execute.return_value = "00:08:42\nsome\nother\nlines\n"
+
+    mock_ssh_hook = MagicMock()
+    get_job_info(mock_ti, **{OpArgs.SSH_HOOK: mock_ssh_hook})
+
+    mock_get_xcom.assert_called_once_with(mock_ti, XComKeys.JOB_ID)
+    mock_ssh_execute.assert_called_once_with(
+        "TIME_ELAPSED=$(sacct --format=Elapsed -j  ssh_hook | tail -n 1); echo $TIME_ELAPSED\nsacct -l -j ssh_hook\ncat ~/slurm/jobs/slurm-ssh_hook.out\n",
+        mock_ssh_hook,
+    )
+
+    mock_put_xcom.assert_called_once_with(mock_ti, XComKeys.TIME_ELAPSED, 522)
 
 
 @patch("dags.impl.handler_impl.get_xcom")
@@ -104,7 +136,7 @@ def test_compute_metrics(
 
     mock_get_xcom.assert_called_once_with(mock_ti, XComKeys.RAW_FILE_NAME)
     mock_calc_metrics.assert_called_once_with(
-        "/opt/airflow/mounts/output/out_raw_file_name"
+        Path("/opt/airflow/mounts/output/out_raw_file_name")
     )
     mock_put_xcom.assert_called_once_with(
         mock_ti, XComKeys.METRICS, {"metric1": "value1"}
@@ -120,10 +152,12 @@ def test_upload_metrics(
     mock_get_xcom: MagicMock,
 ) -> None:
     """Test that compute_metrics makes the expected calls."""
-    mock_get_xcom.side_effect = ["raw_file_name", {"metric1": "value1"}]
+    mock_get_xcom.side_effect = ["raw_file_name", {"metric1": "value1"}, 123]
 
     # when
     upload_metrics(MagicMock())
 
-    mock_add.assert_called_once_with("raw_file_name", {"metric1": "value1"})
+    mock_add.assert_called_once_with(
+        "raw_file_name", {"metric1": "value1", "time_elapsed": 123}
+    )
     mock_update.assert_called_once_with("raw_file_name", RawFileStatus.PROCESSED)

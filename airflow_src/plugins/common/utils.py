@@ -7,7 +7,7 @@ from airflow.models import TaskInstance, Variable
 
 
 def put_xcom(
-    ti: TaskInstance, key: str, value: str | list[str] | dict[str, str]
+    ti: TaskInstance, key: str, value: str | list[str] | dict[str, str] | int
 ) -> None:
     """Push to XCom `key`=`value`."""
     if value is None:
@@ -17,7 +17,7 @@ def put_xcom(
     ti.xcom_push(key, value)
 
 
-def get_xcom(ti: TaskInstance, key: str) -> str | list[str] | dict[str, str]:
+def get_xcom(ti: TaskInstance, key: str) -> str | list[str] | dict[str, str] | int:
     """Get the value of an XCom with `key`."""
     value = ti.xcom_pull(key=key)
 
@@ -31,7 +31,7 @@ def get_xcom(ti: TaskInstance, key: str) -> str | list[str] | dict[str, str]:
 
 def get_variable(key: str, default_value: str = "__DEFAULT_NOT_SET") -> str:
     """Get the value of an Airflow Variable with `key` and an optional default."""
-    logging.info(f"Getting variable '{key}''")
+    logging.info(f"Getting variable '{key}'")
 
     if default_value == "__DEFAULT_NOT_SET":
         value = Variable.get(key)

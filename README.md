@@ -118,9 +118,13 @@ and to have correct permissions for the logs directory.
 
 4. Set up the network bind mounts (see below).
 
-6. Copy the cluster run script `submit_job.sh` to `/fs/home/kraken-user/kraken` on the cluster. Make sure to update it on changes.
+5. On the cluster:
+```bash
+mkdir -p ~/slurm/jobs
+```
+and copt the cluster run script `submit_job.sh` to `~/slurm`. Make sure to update it on changes.
 
-7. Run one-time initialization of the internal airflow database:
+6. Run one-time initialization of the internal airflow database:
 ```bash
 docker compose --env-file=envs/prod.env run airflow-init
 ```

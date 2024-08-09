@@ -34,19 +34,21 @@ class SSHSensorOperator(BaseSensorOperator, ABC):
         :param ssh_hook: the ssh hook to use.
         """
         super().__init__(*args, **kwargs)
-        self.ssh_hook = ssh_hook
+        self._ssh_hook = ssh_hook
+        self._job_id = None
+
+    def pre_execute(self, context: dict[str, any]) -> None:
+        """_job_id the job id from XCom."""
+        self._job_id = get_xcom(context["ti"], XComKeys.JOB_ID)
 
     def poke(self, context: dict[str, any]) -> bool:
         """Check the output of the ssh command."""
         logging.info(f"SSH command execute: {context}")
 
-        jid = get_xcom(context["ti"], XComKeys.JOB_ID)
+        command = self.command_template.replace("REPLACE_JID", self._job_id)
 
-        command = self.command_template.replace("REPLACE_JID", jid)
-
-        ssh_return = self.ssh_execute(command, self.ssh_hook)
-
-        logging.info("SSH command returned: '%s'", ssh_return)
+        ssh_return = self.ssh_execute(command, self._ssh_hook)
+        logging.info(f"ssh command returned: '{ssh_return}'")
 
         if ssh_return in self.running_states:
             return False

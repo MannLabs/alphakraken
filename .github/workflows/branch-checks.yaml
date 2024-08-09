@@ -37,18 +37,17 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.number }}
           REVIEW_DATA: |
-            [
-            {
-            "change_id": "1",
-            "file_name": "airflow_src/plugins/common/settings.py",
-            "start_line": "46",
-            "end_line": "50",
-            "summary": "Extract cluster-related settings to a dedicated configuration",
-            "reason": "Improve maintainability and centralize configuration",
-            "proposed_code": "# Cluster configuration\\nCLUSTER_CONFIG = {\\n    'BASE_DIR': '~/slurm',\\n    'JOB_SCRIPT_PATH': '~/slurm/submit_job.sh',\\n    'WORKING_DIR': '~/slurm/jobs',\\n}\\nCLUSTER_BASE_DIR =\\nCLUSTER_CONFIG['BASE_DIR']"
-            }
-
-            ]
+              JSON.stringify(
+              '[{
+                "change_id": "1",
+                "file_name": "airflow_src/plugins/common/settings.py",
+                "start_line": "46",
+                "end_line": "50",
+                "summary": "Extract cluster-related settings to a dedicated configuration",
+                "reason": "Improve maintainability and centralize configuration",
+                "proposed_code": "# Cluster configuration\\nCLUSTER_CONFIG = {\\n    'BASE_DIR': '~/slurm',\\n    'JOB_SCRIPT_PATH': '~/slurm/submit_job.sh',\\n    'WORKING_DIR': '~/slurm/jobs',\\n}\\nCLUSTER_BASE_DIR =\\nCLUSTER_CONFIG['BASE_DIR']"
+                }]'
+              )
 
 #  unit-tests:
 #    name: Run unit tests

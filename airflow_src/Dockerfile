@@ -21,9 +21,9 @@ RUN pip install --no-cache-dir "apache-airflow==${AIRFLOW_VERSION}" \
     -r /requirements_airflow.txt  \
     -r /requirements_shared.txt
 
-# DAGs and plugins are currently imported via volume mounts
-# uncomment this if you want to copy the code over (more robust)
-#COPY airflow_src/dags /opt/airflow/dags
-#COPY airflow_src/plugins /opt/airflow/plugins
-#COPY airflow_src/config /opt/airflow/config
-#COPY shared /opt/airflow/shared
+# Note that in docker-compose.yaml you can choose to import DAGs and plugins via volume mounts,
+# which makes code changes active immediately
+COPY airflow_src/dags /opt/airflow/dags
+COPY airflow_src/plugins /opt/airflow/plugins
+# COPY airflow_src/config /opt/airflow/config  # comment in once config folder is being used
+COPY shared /opt/airflow/shared

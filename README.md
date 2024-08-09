@@ -21,7 +21,7 @@ pip install -r requirements_development.txt
 
 Start the docker containers providing an all-in-one solution with
 ```bash
-docker compose up
+docker compose up --build
 ```
 The airflow webserver runs on http://localhost:8080/ (default credentials: `airflow`/`airflow`), the Streamlit webapp on http://localhost:8051/ .
 
@@ -90,8 +90,15 @@ E.g. in PyCharm, you need to mark `dags`, `plugins`, `shared`, and `airflow_src`
 3. `cd` into this directory and execute `echo -e "AIRFLOW_UID=$(id -u)" > .env` to set the current user as the user
 within the airflow containers (otherwise, `root` would be used).
 4. Set up the network bind mounts (see below).
-5. Run `docker compose up -d` to start the services.
+5. Run `docker compose up --build -d` to start the services.
 6. Access the Airflow UI at `http://<kraken_pc_ip>:8080/` and the Streamlit webapp at `http://<kraken_pc_ip>:8051/`.
+
+
+### Run production setup
+In order for the production setup to run, you need to execude the command
+```bash
+docker compose up --build --profile prod-workers -d
+```
 
 #### Some useful commands:
 See state of containers
@@ -127,25 +134,31 @@ Note: for now, user `krakenuser` should only have read access to the pool folder
 
 ### Add a new instrument
 1. Mount the network drive as described above such that the new instrument's files are accessible,
-e.g. at  `/home/kraken-user/alphakraken/sandbox/mounts/ms14/Test2`.
+e.g. at  `/home/kraken-user/alphakraken/sandbox/mounts/ms14/Test2` (this will be referenced as `<SOURCE_MOUNT>` below).
 
-2. In `docker-compose.yml`, locate the `# ADD INSTRUMENTS HERE` comment and add a new entry for the instrument:
+2. In `docker-compose.yml`, add a new worker service, by copying an existing one and adapting it like:
 ```
-# Test2 on ms14:
-- /home/kraken-user/alphakraken/sandbox/mounts/ms14/Test2:/opt/airflow/acquisition_pcs/astral_1
+  airflow-worker-<INSTRUMENT_ID>:
+    <<: *airflow-worker
+    command: celery worker -q kraken_queue_<INSTRUMENT_ID>
+    volumes:
+      - ${AIRFLOW_PROJ_DIR:-./airflow_src}/../airflow_logs:/opt/airflow/logs
+      - <SOURCE_MOUNT>:/opt/airflow/acquisition_pcs/<INSTRUMENT_ID>
+    # (there might be additional keys here, just copy them)
 ```
-where `astral_1` can be freely chosen as long as it is unique.
 
-3. In the `settings.py:INSTRUMENTS` dictionary, add a new entry
+
+3. In the `settings.py:INSTRUMENTS` dictionary, add a new entry by copying an existing one and adapting it like
 ```
-    "test2": {
-        InstrumentKeys.RAW_DATA_PATH: "astral_1",
+    "<INSTRUMENT_ID>": {
+        InstrumentKeys.RAW_DATA_PATH: "<INSTRUMENT_ID>",
+        # (there might be additional keys here, just copy them)
     },
 ```
 
-4. Shut down and restart the containers with `docker compose down` and `docker compose up -d`.
+4. Shut down the containers with `docker compose down` and restart them (cf. above).
 
-5. Open the airflow UI and unpause the new `*.test2` DAGs.
+5. Open the airflow UI and unpause the new `*.<INSTRUMENT_ID>` DAGs.
 
 
 ### Setup SSH connection
@@ -160,3 +173,17 @@ This connection is required to interact with the SLURM cluster.
     - Password: `<password of kraken SLURM user>`
 3. (optional) Click "Test" to verify the connection.
 4. Click "Save".
+
+## Troubleshooting
+### Problem: worker does not start
+
+A worker fails to start up with the error
+```
+Error response from daemon: Mounts denied:
+The path /home/kraken-user/alphakraken/sandbox/mounts/.... is not shared from the host and is not known to Docker.
+```
+
+#### Solution
+Check that the mounting has been done correctly. If the instrument is currently unavailable,
+you can either ignore the error or temporarily comment out the corresponding worker definition in `docker-compose.yml`.
+Once the instrument is available again, uncomment the worker definition and restart the container.

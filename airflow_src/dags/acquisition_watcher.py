@@ -13,7 +13,7 @@ from common.keys import (
     OpArgs,
     Tasks,
 )
-from common.settings import INSTRUMENTS, Timings
+from common.settings import AIRFLOW_QUEUE_PREFIX, INSTRUMENTS, Timings
 from impl.watcher_impl import get_raw_files, start_acquisition_handler
 from sensors.file_sensor import FileCreationSensor
 
@@ -26,7 +26,9 @@ def create_acquisition_watcher_dag(instrument_id: str) -> None:
             "depends_on_past": False,
             "retries": 1,
             "retry_delay": timedelta(minutes=5),
-            # 'queue': 'bash_queue',
+            # this maps the DAG to the worker that is responsible for that queue, cf. docker-compose.yml
+            # and https://airflow.apache.org/docs/apache-airflow-providers-celery/stable/celery_executor.html#queues
+            "queue": f"{AIRFLOW_QUEUE_PREFIX}{instrument_id}",
         },
         description="Watch acquisition and trigger follow-up DAGs on demand.",
         catchup=False,

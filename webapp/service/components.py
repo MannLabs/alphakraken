@@ -6,12 +6,14 @@ from datetime import datetime, timedelta
 import humanize
 import matplotlib as mpl
 import pandas as pd
+import plotly.graph_objects as go
 import streamlit as st
 from matplotlib import pyplot as plt
 
 TERMINAL_STATUSES = ["error", "done", "ignored", "quanting_failed"]
 
 
+# TODO: if filter is set, set age filter to youngest file
 def show_filter(
     df: pd.DataFrame,
     *,
@@ -79,20 +81,30 @@ def show_status_plot(
     status_counts.drop(columns=ignored_status, errors="ignore", inplace=True)  # noqa: PD002
     status_counts.sort_index(inplace=True)  # noqa: PD002
 
-    ax = status_counts.plot(kind="bar", stacked=True, figsize=(5, 5))
+    fig = go.Figure()
 
-    # Customize the plot
-    plt.xlabel("Instrument")
-    plt.ylabel("Count")
-    plt.legend(title="Status")
-    plt.tight_layout()
+    for status in status_counts.columns:
+        fig.add_trace(
+            go.Bar(
+                x=status_counts.index,
+                y=status_counts[status],
+                name=status,
+                text=status_counts[status],
+                textposition="inside",
+            )
+        )
 
-    # Add value labels on the bars
-    for c in ax.containers:
-        ax.bar_label(c, label_type="center")
+    # Update the layout
+    fig.update_layout(
+        barmode="stack",
+        xaxis_title="Instrument",
+        yaxis_title="Count",
+        legend_title="Status",
+        width=500,
+        height=500,
+    )
 
-    # Show the plot
-    display.pyplot(plt)
+    display.plotly_chart(fig)
 
 
 def show_time_in_status_table(
@@ -114,16 +126,16 @@ def show_time_in_status_table(
     reshaped = latest_updates.sort_index()
 
     columns = reshaped.columns
-    green_ages_h = [0.5] * len(columns)
-    red_ages_h = [2] * len(columns)
+    green_ages_m = [0.5 * 60] * len(columns)
+    red_ages_m = [2 * 60] * len(columns)
     colormaps = ["RdYlGn_r"] * len(columns)
     display.dataframe(
         reshaped.style.apply(
             lambda row: _get_color(
                 row,
                 columns=columns,
-                green_ages_h=green_ages_h,
-                red_ages_h=red_ages_h,
+                green_ages_m=green_ages_m,
+                red_ages_m=red_ages_m,
                 colormaps=colormaps,
             ),
             axis=1,
@@ -198,15 +210,15 @@ def _get_color(
         "last_status_update",
         "last_file_check",
     ],
-    green_ages_h: list[float] = [  # noqa: B006
-        2,
-        2,
-        0.02,
+    green_ages_m: list[float] = [  # noqa: B006
+        2 * 60,
+        2 * 60,
+        1.5,  # should be larger than FILE_CREATION_POKE_INTERVAL_S
     ],
-    red_ages_h: list[float] = [  # noqa: B006
-        8,
-        8,
-        0.1,  # could take up to 5 minutes to resume checking after worker restart
+    red_ages_m: list[float] = [  # noqa: B006
+        8 * 60,
+        8 * 60,
+        10,  # could take up to 5 minutes to resume checking after worker restart
     ],
     colormaps: list[str] = [  # noqa: B006
         "summer",
@@ -218,23 +230,23 @@ def _get_color(
 
     :param row: a row of the status dataframe
     :param columns: which columns to color
-    :param green_ages_h: for each column: everything younger than this is green
-    :param red_ages_h:  for each column: everything older than this is red
+    :param green_ages_m: for each column: everything younger than this is green (in minutes)
+    :param red_ages_m:  for each column: everything older than this is red (in minutes)
     :return: style for the row, e.g. [ "background-color: #FF0000", None, None]
     """
     column_styles = {}
     now = datetime.now()  # noqa:  DTZ005 no tz argument
-    for column, green_age_h, red_age_h, colormap in zip(
-        columns, green_ages_h, red_ages_h, colormaps, strict=True
+    for column, green_age_m, red_age_m, colormap in zip(
+        columns, green_ages_m, red_ages_m, colormaps, strict=True
     ):
         if column not in row or pd.isna(row[column]):
             continue
 
         time_delta = now - row[column]
 
-        normalized_age = (time_delta - timedelta(hours=green_age_h)).total_seconds() / (
-            (red_age_h - green_age_h) * 3600
-        )
+        normalized_age = (
+            time_delta - timedelta(minutes=green_age_m)
+        ).total_seconds() / ((red_age_m - green_age_m) * 60)
         normalized_age = min(1.0, max(0.0, normalized_age))
 
         color = plt.get_cmap(colormap)(normalized_age)

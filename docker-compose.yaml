@@ -133,6 +133,10 @@ x-airflow-worker:
 services:
   postgres:
     image: postgres:13
+    # the default value of 100 connections yielded 'psycopg2.OperationalError: FATAL:  sorry, too many clients already'
+    # and tasks sticking in 'scheduled' state for a long time
+    # cf. https://stackoverflow.com/questions/51487740/airflow-psycopg2-operationalerror-fatal-sorry-too-many-clients-already
+    command: -c 'max_connections=500'
     environment:
       POSTGRES_USER: airflow
       POSTGRES_PASSWORD: airflow
@@ -176,6 +180,9 @@ services:
   airflow-scheduler:
     <<: *airflow-common
     command: scheduler
+    # More replicas, quicker scheduling and more concurrently running tasks. Keep in mind max_connections of airflow DB.
+    deploy:
+      replicas: 2
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8974/health"]
       interval: 30s

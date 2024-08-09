@@ -10,7 +10,11 @@ from common.settings import get_internal_instrument_data_path
 
 
 def get_file_creation_timestamp(raw_file_name: str, instrument_id: str) -> float:
-    """Get the creation timestamp (unix epoch) of a raw file."""
+    """Get the creation timestamp (unix epoch) of a raw file.
+
+    Note that the results of this method will be compared for one file across different file systems,
+    so make sure the results are file system independent.
+    """
     raw_file_path = get_internal_instrument_data_path(instrument_id) / raw_file_name
     file_creation_ts = raw_file_path.stat().st_ctime
     logging.info(f"File {raw_file_name} has {file_creation_ts=}")
@@ -18,7 +22,11 @@ def get_file_creation_timestamp(raw_file_name: str, instrument_id: str) -> float
 
 
 def get_file_size(file_path: Path) -> float:
-    """Get the size (in bytes) of a file."""
+    """Get the size (in bytes) of a file.
+
+    Note that the results of this method will be compared for one file across different file systems,
+    so make sure the results are file system independent.
+    """
     file_size_bytes = file_path.stat().st_size
     logging.info(f"File {file_path} has {file_size_bytes=}")
     return file_size_bytes

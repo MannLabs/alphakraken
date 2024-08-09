@@ -21,8 +21,8 @@ def show_filter(
     user_input = st_display.text_input(
         text_to_display,
         None,
-        placeholder="e.g. 'test2 & !hela'",
-        help="Chain multiple conditions with '&', negate with '!'",
+        placeholder="e.g. test2 & !hela",
+        help="Case insensitive. Chain multiple conditions with '&', negate with '!'. E.g. test2 & qc & !hela.",
     )
     if user_input is not None and user_input != "":
         filters = [f.strip() for f in user_input.lower().split("&")]

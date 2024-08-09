@@ -4,7 +4,12 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 from airflow.models import Variable
-from plugins.common.utils import get_env_variable, get_variable, get_xcom, put_xcom
+from plugins.common.utils import (
+    get_airflow_variable,
+    get_env_variable,
+    get_xcom,
+    put_xcom,
+)
 
 
 def test_xcom_push_successful() -> None:
@@ -43,21 +48,23 @@ def test_xcom_pull_with_missing_key_raises_error() -> None:
 
 
 @patch.object(Variable, "get")
-def test_get_variable_returns_value_when_default_not_set(mock_get: MagicMock) -> None:
-    """Test that get_variable returns the value of an Airflow Variable with a given key."""
+def test_get_airflow_variable_returns_value_when_default_not_set(
+    mock_get: MagicMock,
+) -> None:
+    """Test that get_airflow_variable returns the value of an Airflow Variable with a given key."""
     mock_get.return_value = "value"
 
     # when
-    result = get_variable("my_key")
+    result = get_airflow_variable("my_key")
 
     assert result == "value"
     mock_get.assert_called_once_with("my_key")
 
 
-def test_get_variable_returns_default_when_value_not_found() -> None:
-    """Test that get_variable returns the default value when the value of an Airflow Variable with a given key is not found."""
+def test_get_airflow_variable_returns_default_when_value_not_found() -> None:
+    """Test that get_airflow_variable returns the default value when the value of an Airflow Variable with a given key is not found."""
     # when
-    result = get_variable("not_existing_var", "default_value")
+    result = get_airflow_variable("not_existing_var", "default_value")
 
     assert result == "default_value"
 
@@ -87,5 +94,5 @@ def test_get_env_variable_returns_default_when_value_not_found() -> None:
 def test_get_env_variable_raises_when_value_not_found() -> None:
     """Test that get_env_variable returns the default value when the value of an environment variable with a given key is not found."""
     # when
-    with pytest.raises(ValueError):
+    with pytest.raises(KeyError):
         get_env_variable("not_existing_env_var")

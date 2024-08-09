@@ -128,13 +128,15 @@ Cf. also the environment variables `MOUNTS_PATH` and `IO_POOL_FOLDER` in the `en
 
 ### Add a new instrument
 Each instrument is identified by a unique `<INSTRUMENT_ID>`,
-which should be lowercase and contain only letters and numbers but is otherwise arbitrary (e.g. "test2").
+which should be lowercase and contain only letters and numbers but is otherwise arbitrary (e.g. "newinst1").
+Note that some parts of the system rely on convention, so make sure to use exactly
+`<INSTRUMENT_ID>` (case-sensitive!) in the below steps.
 
 1. Mount the instrument
 
-Not needed until alphakraken takes over also the file transfer from acquisition PCS to backup pool.
 <details>
-  <summary>Mounting instruments (currently not needed)</summary>
+  <summary>(Not needed until alphakraken takes over also the file transfer from acquisition PCS to backup pool.)
+</summary>
 Mount the instrument
 MOUNTS=/home/kraken-user/alphakraken/${ENV}/mounts
 INSTRUMENT_TARGET=${MOUNTS}/instruments/<INSTRUMENT_ID>
@@ -144,13 +146,14 @@ sudo mount -t cifs -o username=kraken ${APC_SOURCE} ${INSTRUMENT_TARGET}
 where `${APC_SOURCE}` is the network folder of the APC.
 </details>
 
-2. Add the location of the instrument data to all the files `local.env`, `sanbox.env` and `prod.env` in the `envs ` folder
+2. Add the location of the instrument data to all the files `local.env`, `sandbox.env` and `prod.env` in the `envs ` folder
 by creating a new variable `INSTRUMENT_PATH_<INSTRUMENT_ID>` (all upper case), e.g.
 `INSTRUMENT_PATH_NEWINST1`:
 ```bash
 INSTRUMENT_PATH_NEWINST1=some/relative/path/to/new_instrument
 ```
-and add this new variable to `docker-compose.yml:x-airflow-common.environment`
+and add this new variable to the `x-airflow-common.environment` section in `docker-compose.yml`
+to make it available within the containers:
 ```bash
 INSTRUMENT_PATH_NEWINST1=${INSTRUMENT_PATH_NEWINST1:?error}
 ```
@@ -176,8 +179,8 @@ INSTRUMENT_PATH_NEWINST1=${INSTRUMENT_PATH_NEWINST1:?error}
 6. Open the airflow UI and unpause the new `*.<INSTRUMENT_ID>` DAGs.
 
 7. Without any further intervention, the kraken will now process all files on the new instrument. If this is
-not desired, you may pause all other DAGs, set the `debug_no_cluster_ssh` to `True` and wait until all
-files have run through the `acquisition_handler`. Then undo the just mentioned changes.
+not desired, you may temporarily set the `max_file_age_in_hours` Airflow variable (see below) to process only
+recent files.
 
 
 ### Setup SSH connection
@@ -356,3 +359,10 @@ so be careful when changing them. If in doubt, pause all DAGs that are not part 
 ### debug_no_cluster_ssh
 `debug_no_cluster_ssh` If set to `True`, the system will not connect to the SLURM cluster. This is useful for
 testing, debugging and to avoid flooding the cluster at the initial setup.
+
+### max_file_age_in_hours
+If set, files that are older will not be processed by the acquisition handler.
+They will nevertheless be added to the DB, with status="ignored".
+Needs to be a valid float, "-1" to deactivate.
+This is useful to avoid processing of older files if a new instrument is attached
+or after a long downtime.

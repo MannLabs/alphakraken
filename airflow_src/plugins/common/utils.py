@@ -29,24 +29,22 @@ def get_xcom(ti: TaskInstance, key: str) -> _xcom_types:
     return value
 
 
-def get_variable(key: str, default_value: str = "__DEFAULT_NOT_SET") -> str:
-    """Get the value of an Airflow Variable with `key` and an optional default."""
-    logging.info(f"Getting variable '{key}'")
-
-    if default_value == "__DEFAULT_NOT_SET":
+def get_airflow_variable(key: str, default: str = "__DEFAULT_NOT_SET") -> str:
+    """Get the value of an Airflow Variable with `key` with an optional default."""
+    if default == "__DEFAULT_NOT_SET":
         value = Variable.get(key)
     else:
-        value = Variable.get(key, default_var=default_value)
+        value = Variable.get(key, default_var=default)
 
-    logging.info(f"Got variable: '{key}'='{value}'")
+    logging.info(f"Got variable: '{key}'='{value}' (default: '{default}')")
 
     return value
 
 
 def get_env_variable(key: str, default: str | None = None) -> str:
-    """Get the value of an environment variable with `key` and an optional default."""
+    """Get the value of an environment variable with `key` with an optional default."""
     if (value := os.getenv(key, default=default)) is None:
-        raise ValueError(f"Environment variable '{key}' not set.")
+        raise KeyError(f"Environment variable '{key}' not set.")
 
     logging.info(f"Got environment variable: '{key}'='{value}' (default: '{default}')")
 

@@ -31,7 +31,9 @@ metrics_df = df_from_db_data(
 )
 
 if len(raw_files_df) == 0 or len(metrics_df) == 0:
-    st.write(f"No data found yet: {len(raw_files_df)=} {len(metrics_df)=}.")
+    st.write(f"No enough data yet: {len(raw_files_df)=} {len(metrics_df)=}.")
+    st.dataframe(raw_files_df)
+    st.dataframe(metrics_df)
     st.stop()
 
 # the joining could also be done on DB level

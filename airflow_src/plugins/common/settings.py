@@ -44,6 +44,14 @@ class Timings:
     QUANTING_MONITOR_POKE_INTERVAL_S = 60
 
 
+class Concurrency:
+    """Concurrency constants."""
+
+    # limit to a number smaller than maximum number of runs per DAG (default is 16) to have free slots for other tasks
+    # like starting quanting or metrics calculation
+    MAX_ACTIVE_MONITORINGS_PER_DAG = 14
+
+
 def get_internal_instrument_data_path(instrument_id: str) -> Path:
     """Get internal path for the given instrument.
 

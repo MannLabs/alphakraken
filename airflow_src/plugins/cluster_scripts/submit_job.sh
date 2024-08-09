@@ -37,8 +37,11 @@ echo OUTPUT_PATH=${OUTPUT_PATH}
 echo INSTRUMENT_BACKUP_FOLDER=${INSTRUMENT_BACKUP_FOLDER}
 echo RAW_FILE_PATH=${RAW_FILE_PATH}
 echo CONFIG_FILE_PATH=${CONFIG_FILE_PATH}
-
 echo OUTPUT_PATH=${OUTPUT_PATH}
+
+echo RAW_FILE size and md5sum: $(du -sh ${RAW_FILE_PATH}) $(md5sum ${RAW_FILE_PATH})
+echo CONFIG_FILE size and md5sum: $(du -sh ${CONFIG_FILE_PATH}) $(md5sum ${CONFIG_FILE_PATH})
+cat ${CONFIG_FILE_PATH}
 
 # here we assume that at least one of these is set
 SPECLIB_COMMAND=""
@@ -46,16 +49,20 @@ FASTA_COMMAND=""
 if [ -n "$FASTA_FILE_NAME" ]; then
   FASTA_FILE_PATH="${SETTINGS_PATH}/${FASTA_FILE_NAME}"
   echo FASTA_FILE_PATH=${FASTA_FILE_PATH}
+  echo FASTA_FILE size and md5sum: $(du -sh ${FASTA_FILE_PATH}) $(md5sum ${FASTA_FILE_PATH})
   FASTA_COMMAND="--fasta ${FASTA_FILE_PATH}"
 fi
 if [ -n "$SPECLIB_FILE_NAME" ]; then
   SPECLIB_FILE_PATH="${SETTINGS_PATH}/${SPECLIB_FILE_NAME}"
   echo SPECLIB_FILE_PATH=${SPECLIB_FILE_PATH}
+  echo SPECLIB size and md5sum: $(du -sh ${SPECLIB_FILE_PATH}) $(md5sum ${SPECLIB_FILE_PATH})
   SPECLIB_COMMAND="--library ${SPECLIB_FILE_PATH}"
 fi
 
 mkdir -p ${OUTPUT_PATH}
 cd ${OUTPUT_PATH}
+
+conda run -n $CONDA_ENV pip freeze
 
 echo "Running alphadia.."
 echo "Check the logs in ${OUTPUT_PATH}/log.txt"

@@ -68,9 +68,12 @@ class InstrumentKeys:
     RAW_DATA_PATH_VARIABLE_NAME: str = "raw_data_path_variable_name"
 
 
-class Variables:
-    """Keys for accessing Airflow Variables."""
+class AirflowVars:
+    """Keys for accessing Airflow Variables (set in the Airflow UI)."""
 
+    MAX_FILE_AGE_IN_HOURS: str = "max_file_age_in_hours"
+
+    # some flags that can be used for debugging and/or to simplify the local setup
     DEBUG_NO_CLUSTER_SSH = "debug_no_cluster_ssh"
 
 

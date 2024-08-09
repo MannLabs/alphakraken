@@ -19,6 +19,7 @@ INSTRUMENTS = {
 # prefix for the queues the DAGs are assigned to (cf. docker-compose.yaml)
 AIRFLOW_QUEUE_PREFIX = "kraken_queue_"
 
+# TODO: make slurm script location depend on ENV_NAME or get dedicated user for sandbox
 CLUSTER_BASE_DIR = "~/slurm"
 CLUSTER_JOB_SCRIPT_PATH = f"{CLUSTER_BASE_DIR}/submit_job.sh"
 CLUSTER_WORKING_DIR = f"{CLUSTER_BASE_DIR}/jobs"

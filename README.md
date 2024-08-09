@@ -220,7 +220,7 @@ This is required to have all the required dependencies for local deployment and 
 1. Set up your environment for developing locally with
 ```bash
 PYTHON_VERSION=3.11
-AIRFLOW_VERSION=2.9.1
+AIRFLOW_VERSION=2.9.2
 git clone git@github.com:MannLabs/alphakraken.git
 cd alphakraken
 conda create --name alphakraken python=${PYTHON_VERSION} -y
@@ -261,7 +261,8 @@ I=$((I+1)); NEW_FILE_NAME=test_file_SA_P1_${I}.raw; echo $NEW_FILE_NAME
 touch airflow_test_folders/instruments/test1/Backup/$NEW_FILE_NAME
 ```
 
-6. Wait until the `acquisition_watchers` picks up the file (you may mark the `wait_for_new_files` task as "success" to speed up the process).
+6. Wait until the `instrument_watcher` picks up the file (you may mark the `wait_for_new_files` task as "success" to speed up the process).
+It should trigger a `acquisition_handler` DAG, which in turn should trigger a `acquisition_processor` DAG.
 
 7. After the `compute_metrics` task failed because of missing output files,
 create those by copying fake alphaDIA result data to the expected output directory

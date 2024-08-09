@@ -18,14 +18,13 @@ from common.settings import AIRFLOW_QUEUE_PREFIX, INSTRUMENTS, Timings
 from impl.watcher_impl import (
     decide_raw_file_handling,
     get_unknown_raw_files,
-    start_file_handler,
+    start_acquisition_handler,
 )
 from sensors.file_sensor import FileCreationSensor
 
 
-# TODO: rename to instrument_watcher
-def create_acquisition_watcher_dag(instrument_id: str) -> None:
-    """Create acquisition_watcher dag for instrument with `instrument_id`."""
+def create_instrument_watcher_dag(instrument_id: str) -> None:
+    """Create instrument_watcher dag for instrument with `instrument_id`."""
     with DAG(
         f"{Dags.ACQUISITON_WATCHER}{DAG_DELIMITER}{instrument_id}",
         schedule="@continuous",
@@ -69,9 +68,9 @@ def create_acquisition_watcher_dag(instrument_id: str) -> None:
             op_kwargs={OpArgs.INSTRUMENT_ID: instrument_id},
         )
 
-        start_file_handler_ = PythonOperator(
-            task_id=Tasks.START_FILE_HANDLER,
-            python_callable=start_file_handler,
+        start_acquisition_handler_ = PythonOperator(
+            task_id=Tasks.START_ACQUISITION_HANDLER,
+            python_callable=start_acquisition_handler,
             op_kwargs={OpArgs.INSTRUMENT_ID: instrument_id},
         )
 
@@ -79,9 +78,9 @@ def create_acquisition_watcher_dag(instrument_id: str) -> None:
         wait_for_file_creation_
         >> get_unknown_raw_files_
         >> decide_raw_file_handling_
-        >> start_file_handler_
+        >> start_acquisition_handler_
     )
 
 
 for instrument_id in INSTRUMENTS:
-    create_acquisition_watcher_dag(instrument_id)
+    create_instrument_watcher_dag(instrument_id)

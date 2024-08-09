@@ -1,32 +1,37 @@
-"""DAG to handle acquisition."""
+"""DAG to watch acquisition, copy raw files and trigger follow-up DAGs."""
 
 from __future__ import annotations
 
 from datetime import timedelta
 
-from airflow.models import Param
 from airflow.models.dag import DAG
 from airflow.operators.python import PythonOperator
-from airflow.providers.ssh.hooks.ssh import SSHHook
 from callbacks import on_failure_callback
-from common.keys import DAG_DELIMITER, Dags, OpArgs, Tasks
-from common.settings import AIRFLOW_QUEUE_PREFIX, INSTRUMENTS, Concurrency, Timings
-from impl.handler_impl import (
-    compute_metrics,
-    get_job_info,
-    prepare_quanting,
-    run_quanting,
-    upload_metrics,
+from common.keys import (
+    DAG_DELIMITER,
+    Dags,
+    OpArgs,
+    Tasks,
 )
-from sensors.ssh_sensor import QuantingSSHSensor
-
-ssh_hook = SSHHook(ssh_conn_id="cluster-conn", conn_timeout=60, cmd_timeout=60)
+from common.settings import (
+    AIRFLOW_QUEUE_PREFIX,
+    INSTRUMENTS,
+    Concurrency,
+    Pools,
+    Timings,
+)
+from impl.handler_impl import (
+    copy_raw_file,
+    start_acquisition_processor,
+    update_raw_file_status,
+)
+from sensors.acquisition_monitor import AcquisitionMonitor
 
 
 def create_acquisition_handler_dag(instrument_id: str) -> None:
     """Create acquisition_handler dag for instrument with `instrument_id`."""
     with DAG(
-        f"{Dags.ACQUISITON_HANDLER}{DAG_DELIMITER}{instrument_id}",
+        f"{Dags.ACQUISITION_HANDLER}{DAG_DELIMITER}{instrument_id}",
         schedule=None,
         # these are the default arguments for each TASK
         default_args={
@@ -39,53 +44,46 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
             # this callback is executed when tasks fail
             "on_failure_callback": on_failure_callback,
         },
-        description="Handle acquisition.",
+        description="Watch acquisition, handle raw files and trigger follow-up DAGs on demand.",
         catchup=False,
         tags=["acquisition_handler", instrument_id],
-        params={"raw_file_name": Param(type="string", minimum=3)},
     ) as dag:
         dag.doc_md = __doc__
 
-        prepare_quanting_ = PythonOperator(
-            task_id=Tasks.PREPARE_QUANTING,
-            python_callable=prepare_quanting,
+        update_raw_file_ = PythonOperator(
+            task_id=Tasks.UPDATE_RAW_FILE_STATUS,
+            python_callable=update_raw_file_status,
             op_kwargs={OpArgs.INSTRUMENT_ID: instrument_id},
         )
 
-        run_quanting_ = PythonOperator(
-            task_id=Tasks.RUN_QUANTING,
-            python_callable=run_quanting,
-            op_kwargs={OpArgs.SSH_HOOK: ssh_hook},
+        monitor_acquisition_ = AcquisitionMonitor(
+            task_id=Tasks.MONITOR_ACQUISITION,
+            instrument_id=instrument_id,
+            poke_interval=Timings.ACQUISITION_MONITOR_POKE_INTERVAL_S,
         )
 
-        monitor_quanting_ = QuantingSSHSensor(
-            task_id=Tasks.MONITOR_QUANTING,
-            ssh_hook=ssh_hook,
-            poke_interval=Timings.QUANTING_MONITOR_POKE_INTERVAL_S,
-            max_active_tis_per_dag=Concurrency.MAX_ACTIVE_QUANTING_MONITORINGS_PER_DAG,
+        copy_raw_file_ = PythonOperator(
+            task_id=Tasks.COPY_RAW_FILE,
+            python_callable=copy_raw_file,
+            op_kwargs={OpArgs.INSTRUMENT_ID: instrument_id},
+            # limit the number of concurrent copies to not over-stress the network.
+            # Note that this is a potential bottleneck, so a timeout is important here.
+            max_active_tis_per_dag=Concurrency.MAX_ACTIVE_COPY_TASKS_PER_DAG,
+            execution_timeout=timedelta(Timings.FILE_COPY_TIMEOUT_M),
+            pool=Pools.FILE_COPY_POOL,
         )
 
-        get_job_info_ = PythonOperator(
-            task_id=Tasks.GET_JOB_INFO,
-            python_callable=get_job_info,
-            op_kwargs={OpArgs.SSH_HOOK: ssh_hook},
-        )
-
-        compute_metrics_ = PythonOperator(
-            task_id=Tasks.COMPUTE_METRICS, python_callable=compute_metrics
-        )
-
-        upload_metrics_ = PythonOperator(
-            task_id=Tasks.UPLOAD_METRICS, python_callable=upload_metrics
+        start_acquisition_processor_ = PythonOperator(
+            task_id=Tasks.START_ACQUISITION_PROCESSOR,
+            python_callable=start_acquisition_processor,
+            op_kwargs={OpArgs.INSTRUMENT_ID: instrument_id},
         )
 
     (
-        prepare_quanting_
-        >> run_quanting_
-        >> monitor_quanting_
-        >> get_job_info_
-        >> compute_metrics_
-        >> upload_metrics_
+        update_raw_file_
+        >> monitor_acquisition_
+        >> copy_raw_file_
+        >> start_acquisition_processor_
     )
 
 

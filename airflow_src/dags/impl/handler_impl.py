@@ -1,198 +1,112 @@
-"""Business logic for the acquisition_handler."""
+"""Business logic for the "acquisition_handler" DAG."""
 
+import hashlib
 import logging
+import shutil
 from datetime import datetime
 from pathlib import Path
-from random import random
 
-from airflow.exceptions import AirflowFailException
 from airflow.models import TaskInstance
-from cluster_scripts.slurm_commands import (
-    get_job_info_cmd,
-    get_job_state_cmd,
-    get_run_quanting_cmd,
-)
-from common.keys import (
-    AirflowVars,
-    DagContext,
-    DagParams,
-    JobStates,
-    OpArgs,
-    QuantingEnv,
-    XComKeys,
-)
+from common.keys import DagContext, DagParams, Dags, OpArgs
 from common.settings import (
-    CLUSTER_WORKING_DIR,
-    FALLBACK_PROJECT_ID,
-    InternalPaths,
-    get_internal_output_path,
-    get_output_folder_rel_path,
+    get_internal_instrument_backup_path,
+    get_internal_instrument_data_path,
 )
-from common.utils import get_airflow_variable, get_env_variable, get_xcom, put_xcom
-from impl.project_id_handler import get_unique_project_id
-from metrics.metrics_calculator import calc_metrics
-from sensors.ssh_sensor import SSHSensorOperator
+from common.utils import trigger_dag_run
+from impl.watcher_impl import _get_file_size
 
-from shared.db.interface import (
-    add_metrics_to_raw_file,
-    get_all_project_ids,
-    get_settings_for_project,
-    update_raw_file,
-)
+from shared.db.interface import update_raw_file
 from shared.db.models import RawFileStatus
-from shared.keys import EnvVars
 
 
-def _get_project_id_for_raw_file(raw_file_name: str) -> str:
-    """Get the project id for a raw file or the fallback ID if not present."""
-    all_project_ids = get_all_project_ids()
-    unique_project_id = get_unique_project_id(raw_file_name, all_project_ids)
-    return unique_project_id if unique_project_id is not None else FALLBACK_PROJECT_ID
+def update_raw_file_status(ti: TaskInstance, **kwargs) -> None:
+    """Update the status of the raw file in the database."""
+    del ti  # unused
+    raw_file_name = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_NAME]
+
+    update_raw_file(raw_file_name, new_status=RawFileStatus.ACQUISITION_STARTED)
 
 
-def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
-    """Prepare the environmental variables for the quanting job."""
+def _get_file_hash(file_path: Path, chunk_size: int = 8192) -> str:
+    """Get the hash of a file."""
+    with open(file_path, "rb") as f:  # noqa: PTH123
+        file_hash = hashlib.md5()  # noqa: S324
+        while chunk := f.read(chunk_size):
+            file_hash.update(chunk)
+    logging.info(f"Hash of {file_path} is {file_hash.hexdigest()}")
+    return file_hash.hexdigest()
+
+
+def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
+    """Copy a raw file to the target location."""
+    del ti  # unused
     raw_file_name = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_NAME]
     instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
 
-    project_id = _get_project_id_for_raw_file(raw_file_name)
+    update_raw_file(raw_file_name, new_status=RawFileStatus.COPYING)
 
-    io_pool_folder = get_env_variable(EnvVars.IO_POOL_FOLDER)
-    instrument_subfolder = f"{io_pool_folder}/{InternalPaths.BACKUP}/{instrument_id}"
+    # TODO: this needs to be vendor-specific
+    _copy_raw_file(raw_file_name, instrument_id)
 
-    output_folder_rel_path = get_output_folder_rel_path(raw_file_name, project_id)
-
-    settings = get_settings_for_project(project_id)
-
-    # TODO: remove random speclib file hack
-    # this is so hacky it makes my head hurt:
-    # currently, two instances of alphaDIA compete for locking the speclib file
-    # cf. https://github.com/MannLabs/alphabase/issues/180
-    # This reduces the chance for this to happen by 90%
-    speclib_file_name = f"{int(random()*10)}_{settings.speclib_file_name}"  # noqa: S311
-
-    io_pool_folder = get_env_variable(EnvVars.IO_POOL_FOLDER)
-
-    quanting_env = {
-        QuantingEnv.RAW_FILE_NAME: raw_file_name,
-        QuantingEnv.INSTRUMENT_SUBFOLDER: instrument_subfolder,
-        QuantingEnv.OUTPUT_FOLDER_REL_PATH: str(output_folder_rel_path),
-        QuantingEnv.SPECLIB_FILE_NAME: speclib_file_name,
-        QuantingEnv.FASTA_FILE_NAME: settings.fasta_file_name,
-        QuantingEnv.CONFIG_FILE_NAME: settings.config_file_name,
-        QuantingEnv.SOFTWARE: settings.software,
-        QuantingEnv.PROJECT_ID: project_id,
-        QuantingEnv.IO_POOL_FOLDER: io_pool_folder,
-    }
-
-    put_xcom(ti, XComKeys.QUANTING_ENV, quanting_env)
-    # this is redundant to the entry in QUANTING_ENV, but makes downstream access a bit more convenient
-    put_xcom(ti, XComKeys.RAW_FILE_NAME, raw_file_name)
+    file_size = _get_file_size(raw_file_name, instrument_id)
+    update_raw_file(
+        raw_file_name, new_status=RawFileStatus.COPYING_FINISHED, size=file_size
+    )
 
 
-def _create_export_command(mapping: dict[str, str]) -> str:
-    """Create a bash command to export environment variables."""
-    return "\n".join([f"export {k}={v}" for k, v in mapping.items()])
+def _file_already_exists(dst_path: Path, src_hash: str) -> bool:
+    """Check if a file already exists in the backup location and has the same hash."""
+    if dst_path.exists():
+        logging.info("File already exists in backup location. Checking hash ..")
+        if _get_file_hash(dst_path) == (src_hash):
+            logging.info("Hashes match.")
+            return True
+        logging.warning("Hashes do not match.")
+    return False
 
 
-def run_quanting(ti: TaskInstance, **kwargs) -> None:
-    """Run the quanting job on the cluster."""
-    # IMPLEMENT:
-    # wait for the cluster to be ready (20% idling) -> dedicated (sensor) task, mind race condition! (have pool = 1 for that)
+def _copy_raw_file(
+    raw_file_name: str,
+    instrument_id: str,
+) -> None:
+    """Copy a raw file to the backup location and check its hashsum."""
+    src_path = get_internal_instrument_data_path(instrument_id) / raw_file_name
+    dst_path = get_internal_instrument_backup_path(instrument_id) / raw_file_name
 
-    quanting_env = get_xcom(ti, XComKeys.QUANTING_ENV)
-    ssh_hook = kwargs[OpArgs.SSH_HOOK]
+    logging.info(f"Copying {src_path} to {dst_path} ..")
+    start = datetime.now()  # noqa: DTZ005
 
-    # upfront check 1
-    if (job_id := get_xcom(ti, XComKeys.JOB_ID, -1)) != -1:
-        logging.warning(f"Job already started with {job_id}, skipping.")
+    src_hash = _get_file_hash(src_path)
+    if _file_already_exists(dst_path, src_hash):
         return
 
-    # upfront check 2
-    output_path = get_internal_output_path(
-        quanting_env[QuantingEnv.RAW_FILE_NAME],
-        project_id=quanting_env[QuantingEnv.PROJECT_ID],
-    )
-    if Path(output_path).exists():
-        msg = f"Output path {output_path} already exists."
-        if get_airflow_variable(AirflowVars.ALLOW_OUTPUT_OVERWRITE, "False") == "True":
-            logging.warning(
-                f"{msg} Overwriting it because ALLOW_OUTPUT_OVERWRITE is set."
-            )
-        else:
-            raise AirflowFailException(
-                f"{msg} Remove it before restarting the quanting or set ALLOW_OUTPUT_OVERWRITE."
-            )
-
-    command = _create_export_command(quanting_env) + get_run_quanting_cmd()
-    logging.info(f"Running command: >>>>\n{command}\n<<<< end of command")
-
-    ssh_return = SSHSensorOperator.ssh_execute(command, ssh_hook)
-
-    try:
-        job_id = str(int(ssh_return.split("\n")[-1]))
-    except Exception as e:
-        logging.exception("Did not get a valid job id from the cluster.")
-        raise AirflowFailException from e
-
-    update_raw_file(
-        quanting_env[QuantingEnv.RAW_FILE_NAME], new_status=RawFileStatus.QUANTING
+    shutil.copy2(src_path, dst_path)
+    time_elapsed = (datetime.now() - start).total_seconds()  # noqa: DTZ005
+    dst_size = dst_path.stat().st_size
+    logging.info(
+        f"Copying done! {dst_size / max(time_elapsed, 1) / 1024 ** 2:.1f} MB/s"
     )
 
-    put_xcom(ti, XComKeys.JOB_ID, job_id)
+    if (hash_dst := _get_file_hash(dst_path)) != (src_hash):
+        raise ValueError(f"Hashes do not match ofter copy! {src_hash=} != {hash_dst=}")
 
 
-def get_job_info(ti: TaskInstance, **kwargs) -> None:
-    """Get info (slurm log, alphaDIA log) about a job from the cluster."""
-    ssh_hook = kwargs[OpArgs.SSH_HOOK]
-    job_id = get_xcom(ti, XComKeys.JOB_ID)
+def start_acquisition_processor(ti: TaskInstance, **kwargs) -> None:
+    """Trigger an acquisition_processor DAG run for specific raw files.
 
-    slurm_output_file = f"{CLUSTER_WORKING_DIR}/slurm-{job_id}.out"
+    Each raw file is added to the database first.
+    Then, for each raw file, the project id is determined.
+    Only for raw files that carry a project id, the acquisition_handler DAG is triggered.
+    """
+    del ti  # unused
+    instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
+    raw_file_name = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_NAME]
 
-    cmd = get_job_info_cmd(job_id, slurm_output_file) + get_job_state_cmd(job_id)
-    ssh_return = SSHSensorOperator.ssh_execute(cmd, ssh_hook)
+    dag_id_to_trigger = f"{Dags.ACQUISITON_HANDLER}.{instrument_id}"
 
-    time_elapsed = _get_time_elapsed(ssh_return)
-
-    put_xcom(ti, XComKeys.QUANTING_TIME_ELAPSED, time_elapsed)
-
-    job_status = ssh_return.split("\n")[-1]
-    if job_status != JobStates.COMPLETED:
-        logging.info(f"Job {job_id} exited with status {job_status}.")
-        raise AirflowFailException(f"Quanting failed: {job_status=}")
-
-
-def _get_time_elapsed(ssh_return: str) -> int:
-    """Extract the time in seconds from a string "hours:minutes:seconds" in the first line of a string."""
-    time_stamp = ssh_return.split("\n")[0]
-    logging.info(f"extracted {time_stamp=}")
-    t = datetime.strptime(time_stamp, "%H:%M:%S")  # noqa: DTZ007
-    return (t.hour * 3600) + (t.minute * 60) + t.second
-
-
-def compute_metrics(ti: TaskInstance, **kwargs) -> None:
-    """Compute metrics from the quanting results."""
-    del kwargs
-
-    quanting_env = get_xcom(ti, XComKeys.QUANTING_ENV)
-
-    output_path = get_internal_output_path(
-        quanting_env[QuantingEnv.RAW_FILE_NAME], quanting_env[QuantingEnv.PROJECT_ID]
+    trigger_dag_run(
+        dag_id_to_trigger,
+        {
+            DagParams.RAW_FILE_NAME: raw_file_name,
+        },
     )
-    metrics = calc_metrics(output_path)
-
-    put_xcom(ti, XComKeys.METRICS, metrics)
-
-
-def upload_metrics(ti: TaskInstance, **kwargs) -> None:
-    """Upload the metrics to the database."""
-    del kwargs
-
-    raw_file_name = get_xcom(ti, XComKeys.RAW_FILE_NAME)
-    metrics = get_xcom(ti, XComKeys.METRICS)
-
-    metrics["quanting_time_elapsed"] = get_xcom(ti, XComKeys.QUANTING_TIME_ELAPSED)
-
-    add_metrics_to_raw_file(raw_file_name, metrics)
-
-    update_raw_file(raw_file_name, new_status=RawFileStatus.DONE)

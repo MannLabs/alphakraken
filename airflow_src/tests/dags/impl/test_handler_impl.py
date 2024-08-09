@@ -1,339 +1,259 @@
-"""Tests for the handler_impl module."""
+"""Unit tests for handler_impl.py."""
 
-import os
 from pathlib import Path
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, Mock, call, mock_open, patch
 
 import pytest
-from airflow.exceptions import AirflowFailException
-from common.settings import INSTRUMENTS
+from common.keys import DagContext, DagParams, OpArgs
 from dags.impl.handler_impl import (
-    _get_project_id_for_raw_file,
-    compute_metrics,
-    get_job_info,
-    prepare_quanting,
-    run_quanting,
-    upload_metrics,
+    _copy_raw_file,
+    _file_already_exists,
+    _get_file_hash,
+    copy_raw_file,
+    start_acquisition_processor,
+    update_raw_file_status,
 )
-from plugins.common.keys import (
-    DagContext,
-    DagParams,
-    JobStates,
-    OpArgs,
-    QuantingEnv,
-    XComKeys,
-)
-
-from shared.db.models import RawFileStatus
+from db.models import RawFileStatus
 
 
-@patch("dags.impl.handler_impl.get_all_project_ids")
-@patch("dags.impl.handler_impl.get_unique_project_id")
-def test_get_project_id_for_raw_file(
-    mock_get_unique_project_id: MagicMock,
-    mock_get_all_project_ids: MagicMock,
+@patch("dags.impl.handler_impl.update_raw_file")
+def test_update_raw_file_status_calls_update_with_correct_args(
+    mock_update_status: MagicMock,
 ) -> None:
-    """Test that _get_project_id_for_raw_file makes the expected calls."""
-    mock_get_all_project_ids.return_value = ["some_project_id", "P2"]
-    mock_get_unique_project_id.return_value = "some_project_id"
-
-    # when
-    _get_project_id_for_raw_file("test_file.raw")
-
-    mock_get_all_project_ids.assert_called_once_with()
-    mock_get_unique_project_id.assert_called_once_with(
-        "test_file.raw", ["some_project_id", "P2"]
-    )
-
-
-@patch.dict(INSTRUMENTS, {"instrument1": {}})
-@patch.dict(
-    os.environ,
-    {"IO_POOL_FOLDER": "some_io_pool_folder"},
-)
-@patch("dags.impl.handler_impl.put_xcom")
-@patch("dags.impl.handler_impl.random")
-@patch("dags.impl.handler_impl._get_project_id_for_raw_file")
-@patch("dags.impl.handler_impl.get_settings_for_project")
-def test_prepare_quanting(
-    mock_get_settings: MagicMock,
-    mock_get_project_id_for_raw_file: MagicMock,
-    mock_random: MagicMock,
-    mock_put_xcom: MagicMock,
-) -> None:
-    """Test that prepare_quanting makes the expected calls."""
-    mock_random.return_value = 0.44
-    mock_get_project_id_for_raw_file.return_value = "some_project_id"
-    mock_get_settings.return_value = MagicMock(
-        speclib_file_name="some_speclib_file_name",
-        fasta_file_name="some_fasta_file_name",
-        config_file_name="some_config_file_name",
-        software="some_software",
-    )
+    """Test update_raw_file_status calls update with correct arguments."""
     ti = MagicMock()
+    kwargs = {"params": {"raw_file_name": "test_file.raw"}}
 
-    kwargs = {
-        OpArgs.INSTRUMENT_ID: "instrument1",
-        DagContext.PARAMS: {
-            DagParams.RAW_FILE_NAME: "test_file.raw",
-        },
-    }
+    update_raw_file_status(ti, **kwargs)
+
+    mock_update_status.assert_called_once_with(
+        "test_file.raw", new_status=RawFileStatus.ACQUISITION_STARTED
+    )
+
+
+@patch("builtins.open", new_callable=mock_open)
+def test_get_file_hash(mock_file_open: MagicMock) -> None:
+    """Test get_file_hash."""
+    mock_file_open.return_value.read.side_effect = [b"some_file_content", None]
 
     # when
-    prepare_quanting(ti, **kwargs)
+    return_value = _get_file_hash("/test/file/path")
 
-    mock_get_project_id_for_raw_file.assert_called_once_with("test_file.raw")
-    mock_get_settings.assert_called_once_with("some_project_id")
+    assert return_value == "faff66b0fba39e3a4961b45dc5f9826c"
 
-    expected_quanting_env = {
-        "RAW_FILE_NAME": "test_file.raw",
-        "INSTRUMENT_SUBFOLDER": "some_io_pool_folder/backup/instrument1",
-        "OUTPUT_FOLDER_REL_PATH": "output/some_project_id/out_test_file.raw",
-        "SPECLIB_FILE_NAME": "4_some_speclib_file_name",
-        "FASTA_FILE_NAME": "some_fasta_file_name",
-        "CONFIG_FILE_NAME": "some_config_file_name",
-        "SOFTWARE": "some_software",
-        "PROJECT_ID": "some_project_id",
-        "IO_POOL_FOLDER": "some_io_pool_folder",
+
+@patch("builtins.open", new_callable=mock_open)
+def test_get_file_hash_chunks(mock_file_open: MagicMock) -> None:
+    """Test get_file_hash with multiple chunks."""
+    mock_file_open.return_value.read.side_effect = [
+        b"some_",
+        b"file_",
+        b"content",
+        None,
+    ]
+
+    # when
+    return_value = _get_file_hash("/test/file/path")
+
+    assert return_value == "faff66b0fba39e3a4961b45dc5f9826c"
+
+
+@patch("dags.impl.handler_impl._get_file_hash")
+@patch.object(Path, "exists")
+def test_file_already_exists_file_not_existing(
+    mock_exists: MagicMock, mock_get_file_hash: MagicMock
+) -> None:
+    """Test file_already_exists returns False when file does not exist."""
+    mock_exists.return_value = False
+
+    # when
+    result = _file_already_exists(Path("/backup/test_file.raw"), "some_hash")
+
+    mock_exists.assert_called_once()
+    mock_get_file_hash.assert_not_called()
+    assert result is False
+
+
+@patch("dags.impl.handler_impl._get_file_hash")
+@patch.object(Path, "exists")
+def test_file_already_exists_hashes_match(
+    mock_exists: MagicMock, mock_get_file_hash: MagicMock
+) -> None:
+    """Test file_already_exists returns True when hashes match."""
+    mock_exists.return_value = True
+    mock_get_file_hash.return_value = "some_hash"
+
+    # when
+    result = _file_already_exists(Path("/backup/test_file.raw"), "some_hash")
+
+    mock_exists.assert_called_once()
+    mock_get_file_hash.assert_called_once_with(Path("/backup/test_file.raw"))
+    assert result is True
+
+
+@patch("dags.impl.handler_impl._get_file_hash")
+@patch.object(Path, "exists")
+def test_file_already_exists_hashes_dont_match(
+    mock_exists: MagicMock, mock_get_file_hash: MagicMock
+) -> None:
+    """Test file_already_exists returns False when hashes don't match."""
+    mock_exists.return_value = True
+    mock_get_file_hash.return_value = "some_hash"
+
+    # when
+    result = _file_already_exists(Path("/backup/test_file.raw"), "some_other_hash")
+
+    mock_exists.assert_called_once()
+    mock_get_file_hash.assert_called_once_with(Path("/backup/test_file.raw"))
+    assert result is False
+
+
+@patch("dags.impl.handler_impl.get_internal_instrument_data_path")
+@patch("dags.impl.handler_impl.get_internal_instrument_backup_path")
+@patch("dags.impl.handler_impl._get_file_hash")
+@patch("dags.impl.handler_impl._file_already_exists")
+@patch("shutil.copy2")
+def test_copy_raw_file_copies_file_and_checks_hash(
+    mock_copy2: MagicMock,
+    mock_file_exists: MagicMock,
+    mock_get_file_hash: MagicMock,
+    mock_get_backup_path: MagicMock,
+    mock_get_data_path: MagicMock,
+) -> None:
+    """Test copy_raw_file copies file and checks hash."""
+    mock_get_data_path.return_value = Path("/path/to/data")
+    mock_output_path = MagicMock()
+    mock_get_backup_path.return_value.__truediv__.return_value = mock_output_path
+    mock_output_path.stat.return_value.st_size = 1000
+
+    mock_file_exists.return_value = False
+    mock_get_file_hash.side_effect = ["some_hash", "some_hash"]
+
+    # when
+    _copy_raw_file(
+        "test_file.raw",
+        "instrument1",
+    )
+
+    mock_get_data_path.assert_called_once_with("instrument1")
+    mock_get_backup_path.assert_called_once_with("instrument1")
+    mock_copy2.assert_called_once_with(
+        Path("/path/to/data/test_file.raw"), mock_output_path
+    )
+
+
+@patch("dags.impl.handler_impl.get_internal_instrument_data_path")
+@patch("dags.impl.handler_impl.get_internal_instrument_backup_path")
+@patch("dags.impl.handler_impl._get_file_hash")
+@patch("dags.impl.handler_impl._file_already_exists")
+@patch("shutil.copy2")
+def test_copy_raw_file_copies_file_and_checks_hash_raises(
+    mock_copy2: MagicMock,  # noqa: ARG001
+    mock_file_exists: MagicMock,
+    mock_get_file_hash: MagicMock,
+    mock_get_backup_path: MagicMock,
+    mock_get_data_path: MagicMock,
+) -> None:
+    """Test copy_raw_file copies file and checks hash, raises on mismatch."""
+    mock_get_data_path.return_value = Path("/path/to/data")
+    mock_output_path = MagicMock()
+    mock_get_backup_path.return_value.__truediv__.return_value = mock_output_path
+    mock_output_path.stat.return_value.st_size = 1000
+
+    mock_file_exists.return_value = False
+    mock_get_file_hash.side_effect = ["some_hash", "some_other_hash"]
+
+    # when
+    with pytest.raises(ValueError):
+        _copy_raw_file(
+            "test_file.raw",
+            "instrument1",
+        )
+
+
+@patch("dags.impl.handler_impl.get_internal_instrument_data_path")
+@patch("dags.impl.handler_impl.get_internal_instrument_backup_path")
+@patch("dags.impl.handler_impl._get_file_hash")
+@patch("dags.impl.handler_impl._file_already_exists")
+@patch("shutil.copy2")
+def test_copy_raw_file_no_copy_if_file_present(
+    mock_copy2: MagicMock,
+    mock_file_exists: MagicMock,
+    mock_get_file_hash: MagicMock,
+    mock_get_backup_path: MagicMock,
+    mock_get_data_path: MagicMock,
+) -> None:
+    """Test copy_raw_file copies file and checks hash."""
+    mock_get_data_path.return_value = Path("/path/to/data")
+    mock_output_path = MagicMock()
+    mock_get_backup_path.return_value.__truediv__.return_value = mock_output_path
+    mock_output_path.stat.return_value.st_size = 1000
+
+    mock_file_exists.return_value = True
+    mock_get_file_hash.side_effect = ["some_hash", "some_hash"]
+
+    # when
+    _copy_raw_file(
+        "test_file.raw",
+        "instrument1",
+    )
+
+    mock_get_data_path.assert_called_once_with("instrument1")
+    mock_get_backup_path.assert_called_once_with("instrument1")
+    mock_copy2.assert_not_called()
+
+
+@patch("dags.impl.handler_impl._copy_raw_file")
+@patch("dags.impl.handler_impl._get_file_size")
+@patch("dags.impl.handler_impl.update_raw_file")
+def test_copy_raw_file_calls_update_with_correct_args(
+    mock_update_status: MagicMock,
+    mock_get_file_size: MagicMock,
+    mock_copy_raw_file: MagicMock,
+) -> None:
+    """Test copy_raw_file calls update with correct arguments."""
+    ti = MagicMock()
+    kwargs = {
+        "params": {"raw_file_name": "test_file.raw"},
+        "instrument_id": "instrument1",
     }
+    mock_get_file_size.return_value = 1000
 
-    mock_put_xcom.assert_has_calls(
+    # when
+    copy_raw_file(ti, **kwargs)
+
+    # then
+    mock_copy_raw_file("test_file.raw", "instrument1")
+    mock_update_status.assert_has_calls(
         [
-            call(ti, "quanting_env", expected_quanting_env),
-            call(ti, "raw_file_name", "test_file.raw"),
+            call("test_file.raw", new_status=RawFileStatus.COPYING),
+            call("test_file.raw", new_status=RawFileStatus.COPYING_FINISHED, size=1000),
         ]
     )
-    mock_random.assert_called_once()  # TODO: remove patching random once the hack is removed
 
 
-@patch("dags.impl.handler_impl.get_xcom")
-@patch("dags.impl.handler_impl.SSHSensorOperator.ssh_execute")
-@patch("dags.impl.handler_impl.put_xcom")
-@patch("dags.impl.handler_impl.update_raw_file")
-def test_run_quanting_executes_ssh_command_and_stores_job_id(
-    mock_update: MagicMock,
-    mock_put_xcom: MagicMock,
-    mock_ssh_execute: MagicMock,
-    mock_get_xcom: MagicMock,
+@patch("dags.impl.handler_impl.trigger_dag_run")
+def test_start_acquisition_processor_with_single_file(
+    mock_trigger_dag_run: MagicMock,
 ) -> None:
-    """Test that the run_quanting function executes the SSH command and stores the job ID."""
+    """Test start_acquisition_processor with a single file."""
     # given
-    mock_get_xcom.side_effect = [
-        {
-            QuantingEnv.RAW_FILE_NAME: "test_file.raw",
-            QuantingEnv.PROJECT_ID: "PID123",
-            # rest of quanting_env is left out here for brevity
-        },
-        -1,
-    ]
-    mock_ssh_execute.return_value = "12345"
-    ti = MagicMock()
-    mock_ssh_hook = MagicMock()
-
-    kwargs = {
-        OpArgs.SSH_HOOK: mock_ssh_hook,
-    }
+    raw_file_names = {"file1.raw": ("PID1", True)}
+    ti = Mock()
 
     # when
-    run_quanting(ti, **kwargs)
+    start_acquisition_processor(
+        ti,
+        **{
+            OpArgs.INSTRUMENT_ID: "instrument1",
+            DagContext.PARAMS: {DagParams.RAW_FILE_NAME: "file1.raw"},
+        },
+    )
 
     # then
-    expected_export_command = (
-        "export RAW_FILE_NAME=test_file.raw\n" "export PROJECT_ID=PID123\n"
-        # rest of quanting_env is left out here for brevity
-    )
-
-    expected_command = expected_export_command + (
-        "cd ~/slurm/jobs\n"
-        "cat ~/slurm/submit_job.sh\n"
-        "JID=$(sbatch ~/slurm/submit_job.sh)\n"
-        "echo ${JID##* }\n"
-    )
-    mock_ssh_execute.assert_called_once_with(expected_command, mock_ssh_hook)
-    mock_put_xcom.assert_called_once_with(ti, XComKeys.JOB_ID, "12345")
-    mock_update.assert_called_once_with(
-        "test_file.raw", new_status=RawFileStatus.QUANTING
-    )
-
-
-@patch("dags.impl.handler_impl.get_xcom")
-@patch("dags.impl.handler_impl.SSHSensorOperator.ssh_execute")
-def test_run_quanting_job_id_exists(
-    mock_ssh_execute: MagicMock,
-    mock_get_xcom: MagicMock,
-) -> None:
-    """run_quanting function skips execution if the job ID already exists."""
-    # given
-    mock_get_xcom.side_effect = [
-        {
-            QuantingEnv.RAW_FILE_NAME: "test_file.raw",
-            QuantingEnv.PROJECT_ID: "PID123",
-            # rest of quanting_env is left out here for brevity
-        },
-        12345,
-    ]
-    ti = MagicMock()
-    mock_ssh_hook = MagicMock()
-
-    kwargs = {
-        OpArgs.SSH_HOOK: mock_ssh_hook,
-    }
-
-    # when
-    run_quanting(ti, **kwargs)
-
-    # then
-    mock_ssh_execute.assert_not_called()
-
-
-@patch("dags.impl.handler_impl.get_xcom")
-@patch("dags.impl.handler_impl.Path")
-@patch("dags.impl.handler_impl.get_airflow_variable")
-def test_run_quanting_output_folder_exists(
-    mock_get_airflow_variable: MagicMock,
-    mock_path: MagicMock,
-    mock_get_xcom: MagicMock,
-) -> None:
-    """run_quanting function raises an exception if the output path already exists."""
-    # given
-    mock_get_xcom.side_effect = [
-        {
-            QuantingEnv.RAW_FILE_NAME: "test_file.raw",
-            QuantingEnv.PROJECT_ID: "PID123",
-            # rest of quanting_env is left out here for brevity
-        },
-        -1,
-    ]
-    mock_path.return_value.exists.return_value = True
-    mock_get_airflow_variable.return_value = "False"
-
-    ti = MagicMock()
-    mock_ssh_hook = MagicMock()
-
-    kwargs = {
-        OpArgs.SSH_HOOK: mock_ssh_hook,
-    }
-
-    # when
-    with pytest.raises(AirflowFailException):
-        run_quanting(ti, **kwargs)
-
-    mock_get_airflow_variable.assert_called_once_with("allow_output_overwrite", "False")
-
-
-@patch("dags.impl.handler_impl.get_xcom")
-@patch("dags.impl.handler_impl.SSHSensorOperator.ssh_execute")
-def test_run_quanting_executes_ssh_command_error_wrong_job_id(
-    mock_ssh_execute: MagicMock,
-    mock_get_xcom: MagicMock,
-) -> None:
-    """run_quanting function raises an exception if the job ID is not an integer."""
-    # given
-    mock_get_xcom.side_effect = [
-        {
-            QuantingEnv.RAW_FILE_NAME: "test_file.raw",
-            QuantingEnv.PROJECT_ID: "PID123",
-        },
-        -1,
-    ]
-    mock_ssh_execute.return_value = "some_wrong_job_id"
-    mock_ssh_hook = MagicMock()
-
-    kwargs = {
-        OpArgs.SSH_HOOK: mock_ssh_hook,
-    }
-
-    # when
-    with pytest.raises(AirflowFailException):
-        run_quanting(MagicMock(), **kwargs)
-
-
-@patch("dags.impl.handler_impl.get_xcom")
-@patch("dags.impl.handler_impl.SSHSensorOperator.ssh_execute")
-@patch("dags.impl.handler_impl.put_xcom")
-def test_get_job_info_happy_path(
-    mock_put_xcom: MagicMock, mock_ssh_execute: MagicMock, mock_get_xcom: MagicMock
-) -> None:
-    """Test that get_job_info makes the expected calls."""
-    mock_ti = MagicMock()
-    mock_get_xcom.return_value = "12345"
-    mock_ssh_execute.return_value = (
-        f"00:08:42\nsome\nother\nlines\n{JobStates.COMPLETED}"
-    )
-
-    mock_ssh_hook = MagicMock()
-
-    # when
-    get_job_info(mock_ti, **{OpArgs.SSH_HOOK: mock_ssh_hook})
-
-    mock_ssh_execute.assert_called_once_with(
-        "TIME_ELAPSED=$(sacct --format=Elapsed -j 12345 | tail -n 1); echo $TIME_ELAPSED\nsacct -l -j 12345\n"
-        "cat ~/slurm/jobs/slurm-12345.out\n\nST=$(sacct -j 12345 -o State | awk 'FNR == 3 {print $1}')\necho $ST\n",
-        mock_ssh_hook,
-    )
-
-    mock_put_xcom.assert_called_once_with(mock_ti, XComKeys.QUANTING_TIME_ELAPSED, 522)
-
-
-@patch("dags.impl.handler_impl.get_xcom")
-@patch("dags.impl.handler_impl.SSHSensorOperator.ssh_execute")
-def test_get_job_info_raises(
-    mock_ssh_execute: MagicMock, mock_get_xcom: MagicMock
-) -> None:
-    """Test that get_job_info raises on failed quanting job."""
-    mock_ti = MagicMock()
-    mock_get_xcom.side_effect = ["some_raw_file_name", "12345"]
-    mock_ssh_execute.return_value = "00:08:42\nsome\nother\nlines\nSOME_JOB_STATE"
-
-    mock_ssh_hook = MagicMock()
-
-    # when
-    with pytest.raises(AirflowFailException):
-        get_job_info(mock_ti, **{OpArgs.SSH_HOOK: mock_ssh_hook})
-
-
-@patch("dags.impl.handler_impl.get_xcom")
-@patch("dags.impl.handler_impl.calc_metrics")
-@patch("dags.impl.handler_impl.put_xcom")
-def test_compute_metrics(
-    mock_put_xcom: MagicMock,
-    mock_calc_metrics: MagicMock,
-    mock_get_xcom: MagicMock,
-) -> None:
-    """Test that compute_metrics makes the expected calls."""
-    mock_ti = MagicMock()
-    mock_get_xcom.return_value = {
-        "RAW_FILE_NAME": "some_raw_file_name",
-        "PROJECT_ID": "P1",
-    }
-    mock_calc_metrics.return_value = {"metric1": "value1"}
-
-    # when
-    compute_metrics(mock_ti)
-
-    mock_calc_metrics.assert_called_once_with(
-        Path("/opt/airflow/mounts/output/P1/out_some_raw_file_name")
-    )
-    mock_put_xcom.assert_called_once_with(
-        mock_ti, XComKeys.METRICS, {"metric1": "value1"}
-    )
-
-
-@patch("dags.impl.handler_impl.get_xcom")
-@patch("dags.impl.handler_impl.add_metrics_to_raw_file")
-@patch("dags.impl.handler_impl.update_raw_file")
-def test_upload_metrics(
-    mock_update: MagicMock,
-    mock_add: MagicMock,
-    mock_get_xcom: MagicMock,
-) -> None:
-    """Test that compute_metrics makes the expected calls."""
-    mock_get_xcom.side_effect = ["raw_file_name", {"metric1": "value1"}, 123]
-
-    # when
-    upload_metrics(MagicMock())
-
-    mock_add.assert_called_once_with(
-        "raw_file_name", {"metric1": "value1", "quanting_time_elapsed": 123}
-    )
-    mock_update.assert_called_once_with("raw_file_name", new_status=RawFileStatus.DONE)
+    assert mock_trigger_dag_run.call_count == 1  # no magic numbers
+    for n, call_ in enumerate(mock_trigger_dag_run.call_args_list):
+        assert call_.args[0] == ("acquisition_processor.instrument1")
+        assert {
+            "raw_file_name": list(raw_file_names.keys())[n],
+        } == call_.args[1]

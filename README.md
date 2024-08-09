@@ -6,13 +6,26 @@ in the [AlphaKraken WebApp](http://somepc462:8501/).
 
 ## Deployment
 This guide is both valid for a local setup (without connection to pool or cluster), and for sandbox/production setups.
-Upfront, set a bash variable `ENV`, which is either `local`, `sandbox`, or `prod`, e.g.
+Upfront, set an environment variable `ENV`, which is either `local`, `sandbox`, or `production`, e.g.
 ```bash
-ENV=local
+export ENV=local
 ```
 This will use the environment variables defined in `envs/${ENV}.env`.
 
-### Initializing and running the kraken
+### Deployment workflow: 'local' vs. 'sandbox' vs. 'production'
+All features should be tested `local`ly before deploying them to the `sandbox` environment
+for further testing. `sandbox` is technically equivalent to `production`, but it does not contain any valuable
+data and therefore it's perfectly fine to break and/or wipe it.
+There, depending on the scope of the feature, and of the likeliness of breaking something,
+another test with real data might be necessary.
+
+Use common sense when deciding the scope of testing:
+For instance, if you correct a typo in the webapp, you might well skip the sandbox testing.
+In contrast, a new feature that changes the way data is processed should definitely be tested in the sandbox environment.
+
+Only a well-tested feature should be deployed to production.
+
+### Initial deployment
 All commands in this Readme assume you are in the root folder of the repository.
 Please note that running and developing the alphakraken is only tested for MacOS and Linux
 (the UI can be accessed from any OS, of course).
@@ -26,12 +39,11 @@ Please note that running and developing the alphakraken is only tested for MacOS
 directory (otherwise, `root` would be used)
 ```bash
 echo -e "AIRFLOW_UID=$(id -u)" > envs/.env-airflow
-mkdir airflow_logs
 ```
 
 3. Initialize the internal airflow database:
 ```bash
-docker compose --env-file=envs/.env-airflow --env-file=envs/${ENV}.env run airflow-init
+./compose.sh run airflow-init
 ```
 Note: depending on your operating system and configuration, you might need to run `docker compose` command with `sudo`.
 
@@ -44,93 +56,96 @@ In this case, make sure to set the Airflow variable `debug_no_cluster_ssh=True` 
 5. In the Airflow UI, set up the required Pools (see [below](#setup-pools)).
 
 #### Run the containers (local version)
-Start all docker containers (but without the workers mounted to the production file systems)
+Start all docker containers required for local testing with
 ```bash
-docker compose --env-file=envs/.env-airflow --env-file=envs/${ENV}.env up --build -d
+./compose.sh --profile local up --build -d
 ```
 After startup, the airflow webserver runs on http://localhost:8080/ (default credentials: `airflow`/`airflow`), the Streamlit webapp on http://localhost:8501/ .
 
-To spin the containers down again, use
+To spin all containers down again, use
 ```bash
-docker compose --env-file=envs/.env-airflow --env-file=envs/${ENV}.env down
+./compose.sh --profile local down
 ```
 
-#### Some useful commands:
-See state of containers
-```bash
-docker ps
-```
+See below for [some useful Docker commands](#some-useful-docker-commands).
 
-Watch logs for a given service (omit the last part to see all logs)
-```bash
-docker compose --env-file=envs/.env-airflow --env-file=envs/${ENV}.env logs -f airflow-worker-test1
-```
 
-Start bash in a given service container
-```bash
-docker compose --env-file=envs/.env-airflow --env-file=envs/${ENV}.env exec airflow-worker-test1 bash
-```
+### Additional steps required for initial sandbox/production deployment
 
-Clean up all containers, volumes, and images
-```bash
-docker compose --env-file=envs/.env-airflow --env-file=envs/${ENV}.env down --volumes  --remove-orphans --rmi
-```
+The main differences between the `local` and the `sandbox`/`production` deployments are:
+- `local` has all services running on the same machine within the same docker-compose network
+- `sandbox`/`production` needs additional steps to configure the cluster and the network bind mounts
 
-### Additional steps required for the sandbox/production setup
+The different services can be distributed over several machines. The only important thing is that there
+it exactly one instance of each of the 'central components': `postgres-service`, `redis-service`, and `mongodb-service`.
+One reasonable setup is to have the airflow infrastructure and the MongoDB service on one machine,
+and all workers on another. This is the current setup in the docker-compose, which is reflected by the
+profiles `infrastructure` and `workers`, respectively. If you move one of the central components
+to another machine, you might need to adjust the `*_HOST` variables in the
+`./env/${ENV}.env` files (see comments there). Of course, one machine could also host them all.
+
+
+#### On the PC (VM) hosting the airflow infrastructure
+0. `ssh` into the PC/VM and set `export ENV=sandbox` (`production`).
+
+1. Set up the [pool bind mounts](#set-up-pool-bind-mounts).
+
+2. Run the airflow infrastructure and MongoDB services
+```bash
+./compose.sh --profile infrastructure up --build -d
+```
+Then, access the Airflow UI at http://hostname:8080/ and the Streamlit webapp at http://hostname:8501/.
+
+#### On the PC (VM) hosting the workers
+0. `ssh` into the PC/VM and set `export ENV=sandbox` (`production`).
+
+1. Set up the [pool bind mounts](#set-up-pool-bind-mounts)
+and the mounts for the [instruments](#add-a-new-instrument).
+
+2. Run the worker containers (sandbox/production version)
+```bash
+./compose.sh --profile workers up --build -d
+```
+which spins up on worker service for each instrument.
 
 #### On the cluster
 1. Create this directory
 ```bash
 mkdir -p ~/slurm/jobs
 ```
-and copy the cluster run script `submit_job.sh` to `~/slurm`. Make sure to update it on changes.
+and copy the cluster run script `submit_job.sh` to `~/slurm`. Make sure to update this file when deploying new features.
 
 2. Set up alphaDIA  (see [below](#setup-alphadia)).
 
-#### On the kraken PC
-1. Set up the network bind mounts. First, install the `cifs-utils` package (otherwise you might get errors like
+### General note on how Kraken gets to know the data
+Each worker needs two 'views' on the data: the first view enables direct access to it,
+by mounting a specific folder to a target folder on the kraken PC and then mapping this target
+to a worker container. The second view is the location of the data as seen from the cluster,
+which is required to set the paths for the cluster jobs correctly.
+
+### Set up pool bind mounts
+The workers need bind mounts set up to the pool filesystems for backup and reading alphaDIA output data.
+All airflow components (webserver, scheduler and workers) need a bind mount to a pool folder to read and write airflow logs.
+Additionally, workers need one bind mount per instrument PC is needed (cf. section below).
+
+1. Install the `cifs-utils` package (otherwise you might get errors like
 `CIFS: VFS: cifs_mount failed w/return code = -13`)
 ```bash
 sudo apt install cifs-utils
 ```
-Then, set up the [network bind mounts](#set-up-network-bind-mounts))
-and the  [instruments](#add-a-new-instrument).
 
-2. Run the containers (sandbox/production version)
-```bash
-docker compose --env-file=envs/.env-airflow --env-file=envs/${ENV}.env --profile all-workers up --build -d
-```
-which spins up additional worker containers for each instrument.
+2. Make sure the variables `MOUNTS_PATH` and `IO_POOL_FOLDER` in the `envs/${ENV}.env` file are set correctly. Check also
+`MOUNTS` in the `mountall.sh` script .
 
-Then, access the Airflow UI at http://somepc462:8081/ and the Streamlit webapp at http://somepc462:8502/.
-
-
-### General note on how Kraken gets to know the data
-Each worker needs two 'views' on the data: the first one enables direct access to it,
-by mounting a specific folder to a target on the kraken PC and then mounting the target
-to a worker container. The second one is the location of the data as seen from the cluster,
-this is required to set the paths for the cluster jobs correctly.
-
-### Set up network bind mounts
-(TODO: describe persistent mount)
-We need bind mounts set up to each backup pool folder, and to the project pool folder.
-Additionally, one bind mount per instrument PC is needed (cf. section below).
-
-1. Mount the backup pool folder
+3. Mount the backup, output and logs folder. You will be asked for passwords.
 ```bash
 ./mountall.sh $ENV backup
-```
-
-2. Mount the output folder
-```bash
 ./mountall.sh $ENV output
+./mountall.sh $ENV logs
 ```
 
 Note: for now, user `kraken` should only have read access to the backup pool folder, but needs `read/write` on the `output`
-folder.
-
-Cf. also the environment variables `MOUNTS_PATH` and `IO_POOL_FOLDER` in the `envs/${ENV}.env` file.
-If you need to remount one of the folders, add the `umount` option, e.g.
+folder. If you need to remount one of the folders, add the `umount` option, e.g.
 `./mountall.sh $ENV output umount`.
 
 
@@ -165,7 +180,7 @@ conda create --name alphadia-${VERSION} python=3.11 -y
 conda activate alphadia-${VERSION}
 ```
 ```bash
-pip  install "alphadia[stable]==${VERSION}"
+pip install "alphadia[stable]==${VERSION}"
 ```
 Make sure the environment is named `alphadia-$VERSION`.
 Also, don't forget to install `mono` (cf. alphaDIA Readme).
@@ -220,20 +235,21 @@ recent files. Older ones will then be added to the DB with status 'ignored'. Don
 (`instrument_watcher` -> `acquisition_handler` -> `acquisition_processor`.) and to check the logs for errors before starting the next one.
 
 
+### Deploying new code versions
+These steps need to be done on all machines that run alphakraken services. Make sure the code is always consistent across all machines!
+1. Stop all docker compose services across all machines using the `down` command.
+2. On each machine, pull the most recent version of the code from the repository.
+3. Check if there are any special changes to be done (e.g. updating `submit_job.sh` on the cluster, new mounts, new environment variables, manual database interventions, ..)
+and apply them.
+4. Start all docker compose services again, first the `infrastructure` services, then the `workers` services.
+5. Normal operation should be resumed after about 5 minutes. Depending on when they were shut down, some tasks
+could be in an `error` state though. Check after a few hours if some files are stuck and resolve the issues with the Airflow UI.
+
 ## Local development
 
-### Deployment workflow: 'local' vs. 'sandbox' vs. 'production'
-All features should be tested locally before deploying them to the sandbox environment
-(which is technically equivalent to the production).
-There, depending on the scope of the feature, and of the likeliness of breaking something,
-another test with real data might be necessary.
-For instance, if you correct a typo in the webapp, you might well skip the sandbox testing.
-In contrast, a new feature that changes the way data is processed should definitely be tested in the sandbox environment.
-
-Only a well-tested feature should deployed to production.
-
 ### Development setup
-This is required to have all the required dependencies for local deployment and testing.
+This is required to have all the required dependencies for local development, in order to enable your IDE
+dereference all dependencies and to run the tests.
 1. Set up your environment for developing locally with
 ```bash
 PYTHON_VERSION=3.11
@@ -270,7 +286,7 @@ special worker ("test1") is used that has the `airflow_test_folder` mounted (ins
 Note: the instrument type for `test1` is set to `thermo`. In order to test other workflows,
 change this locally in `settings.py:INSTRUMENTS`.
 
-1. Run the `docker compose` command for the local setup (cf. above) and log into the airflow UI.
+1. Run the `docker compose` (`./compose.sh`) command for the local setup (cf. above) and log into the airflow UI.
 2. Unpause all `*.test1` DAGs. The "watcher" should start running.
 3. If you do not want to feed the cluster, set the Airflow variable `debug_no_cluster_ssh=True` (see above)
 4. In the webapp, create a project with the name `P1`, and add some fake settings to it.
@@ -313,13 +329,13 @@ and clear the task state using the UI.
 8. Wait until DAG run finished and check results in the webapp.
 
 ### Connect to the DB
-Use e.g. MongoDB Compass to connect to the MongoDB running in Docker using the url `localhost:27017`,
-the credentials (e.g. defined in `envs/local.env`) and make sure the "Authentication Database" is "krakendb".
+Use e.g. MongoDB Compass to connect to the MongoDB running in Docker using the url `<hostname>:27017` (e.g. `localhost:27017`),
+the credentials (defined in `envs/$ENV.env`) and make sure the "Authentication Database" is "`krakendb`".
 
 #### Changing the DB 'schema'
 Although MongoDB is schema-less in principle, the use of `mongoengine` enforces a schema-like structure.
 In order to modify this structure of the DB (e.g. rename a field), you need to
-1. Backup the DB
+1. Backup the DB by copying the `mongodb_data_$ENV` folder
 2. Pause all DAGs and other services that may write to the DB
 3. Connect to the DB using  MongoDB Compass and use the `update` button with a command like
 ```
@@ -356,6 +372,8 @@ To have your IDE recognize the imports correctly, you might need to take some ac
 E.g. in PyCharm, you need to mark `dags`, `plugins`, `shared`, and `airflow_src` as "Sources Root".
 
 ### Run Airflow standalone (not actively maintained)
+<details>
+  <summary>deprecated</summary>
 Alternatively, run airflow without Docker using
 ```bash
 MONGO_USER=<mongo_user>
@@ -369,6 +387,7 @@ Also, you will need to fire up the Streamlit webapp yourself by `docker compose 
 
 Note that currently, the docker version is recommended as the standalone version is not part of regular testing and
 might not work as expected.
+</details>
 
 ## Troubleshooting
 
@@ -388,16 +407,50 @@ Once the instrument is available again, uncomment the worker definition and rest
 Sometimes, substituting `--build` with `--build --force-recreate` in the `docker compose` command helps
 resolve mounting problems.
 
-### Restarting Docker
-```
-sudo systemctl restart docker
-```
+
+## Useful comments
 
 ### Some useful MongoDB commands
 Find all files for a given instrument with a given status that are younger than a given date
 ```
 { $and: [{status:"error"}, {instrument_id:"test2"}, {created_at_: {$gte: new ISODate("2024-06-27")}}]}
 ```
+
+### Some useful Docker commands
+Instead of referencing a profile (which can refer to multiple services), you can also interact with individual services:
+```bash
+./compose.sh down airflow-webserver
+```
+
+See state of containers
+```bash
+docker ps
+```
+To force kill a certain container, get its `ID` from the above command, do `ps ax | grep <ID>` to get the process ID, and then `kill -9 <PID>`.
+
+Watch logs for a given service
+```bash
+./compose.sh logs airflow-worker-test1 -f
+```
+
+Start bash in a given service container
+```bash
+./compose.sh exec airflow-worker-test1 bash
+```
+
+Clean up all containers, volumes, and images
+```bash
+./compose.sh down --volumes  --remove-orphans --rmi
+```
+
+If you encounter problems with mounting or any sorts of caching issues, try to replace
+`--build` with `--build --force-recreate`.
+
+Restarting Docker
+```
+systemctl restart docker
+```
+
 
 ## Airflow Variables
 These variables are set in the Airflow UI under "Admin" -> "Variables". They steer the behavior of the whole system,

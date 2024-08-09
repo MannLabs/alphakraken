@@ -63,7 +63,7 @@ def update_raw_file_status(
     )
     connect_db()
     raw_file = RawFile.objects.with_id(raw_file_name)
-    logging.info(f"Old DB state: {raw_file.status=} to {raw_file.status_details=}")
+    logging.info(f"Old DB state: {raw_file.status=} {raw_file.status_details=}")
     raw_file.update(
         status=new_status,
         updated_at_=datetime.now(tz=pytz.utc),

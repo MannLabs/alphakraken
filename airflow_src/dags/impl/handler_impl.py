@@ -12,7 +12,15 @@ from cluster_scripts.slurm_commands import (
     get_job_state_cmd,
     get_run_quanting_cmd,
 )
-from common.keys import DagContext, DagParams, JobStates, OpArgs, QuantingEnv, XComKeys
+from common.keys import (
+    AirflowVars,
+    DagContext,
+    DagParams,
+    JobStates,
+    OpArgs,
+    QuantingEnv,
+    XComKeys,
+)
 from common.settings import (
     CLUSTER_WORKING_DIR,
     FALLBACK_PROJECT_ID,
@@ -20,7 +28,7 @@ from common.settings import (
     get_output_folder_rel_path,
     get_relative_instrument_data_path,
 )
-from common.utils import get_env_variable, get_xcom, put_xcom
+from common.utils import get_airflow_variable, get_env_variable, get_xcom, put_xcom
 from impl.project_id_handler import get_unique_project_id
 from metrics.metrics_calculator import calc_metrics
 from sensors.ssh_sensor import SSHSensorOperator
@@ -104,9 +112,15 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
         project_id=quanting_env[QuantingEnv.PROJECT_ID],
     )
     if Path(output_path).exists():
-        raise AirflowFailException(
-            f"Output path {output_path} already exists. Delete it first before restarting the quanting."
-        )
+        msg = f"Output path {output_path} already exists."
+        if get_airflow_variable(AirflowVars.ALLOW_OUTPUT_OVERWRITE, "False") == "True":
+            logging.warning(
+                f"{msg} Overwriting it because ALLOW_OUTPUT_OVERWRITE is set."
+            )
+        else:
+            raise AirflowFailException(
+                f"{msg} Remove it before restarting the quanting or set ALLOW_OUTPUT_OVERWRITE."
+            )
 
     command = _create_export_command(quanting_env) + get_run_quanting_cmd()
     logging.info(f"Running command: >>>>\n{command}\n<<<< end of command")

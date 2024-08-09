@@ -50,28 +50,39 @@ combined_df = raw_files_df.merge(
 combined_df["size_gb"] = combined_df["size"] / 1024**3
 combined_df["file_created"] = combined_df["created_at"].dt.strftime("%Y-%m-%d %H:%M:%S")
 combined_df["quanting_time_minutes"] = combined_df["quanting_time_elapsed"] / 60
+combined_df["precursors"] = combined_df["precursors"].astype("Int64", errors="ignore")
+combined_df["proteins"] = combined_df["proteins"].astype("Int64", errors="ignore")
+combined_df["updated_at_"] = combined_df["updated_at_"].apply(
+    lambda x: x.replace(microsecond=0)
+)
+combined_df["created_at_"] = combined_df["created_at_"].apply(
+    lambda x: x.replace(microsecond=0)
+)
 
-# eye candy
+# sorting & indexing
 combined_df.sort_values(by="created_at", ascending=False, inplace=True)
 combined_df.reset_index(drop=True, inplace=True)
 combined_df.index = combined_df["_id"]
-combined_df.drop(
-    columns=["size", "quanting_time_elapsed", "raw_file", "_id"], inplace=True
-)
-columns_at_end = ["created_at", "created_at_", "updated_at_"]
-combined_df = combined_df[
-    [col for col in combined_df.columns if col not in columns_at_end] + columns_at_end
-]
-
 
 # ########################################### DISPLAY: table
 
+columns_at_end = [
+    "status_details",
+    "project_id",
+    "updated_at_",
+    "created_at_",
+]
+columns_to_hide = ["created_at", "size", "quanting_time_elapsed", "raw_file", "_id"]
+column_order = [
+    col
+    for col in combined_df.columns
+    if col not in columns_at_end and col not in columns_to_hide
+] + columns_at_end
 
-# using a fragment to avoid re-doing the above operations on every filter change
-# cf. https://docs.streamlit.io/develop/concepts/architecture/fragments
+
 @st.experimental_fragment
-def display(df: pd.DataFrame) -> None:
-    """A fragment that displays a DataFrame with a filter."""
+def _display_status(df: pd.DataFrame) -> None:
+    """A fragment that displays the status information."""
     st.markdown("## Status")
     try:
         display_status(df)
@@ -79,6 +90,12 @@ def display(df: pd.DataFrame) -> None:
         _log(str(e))
         st.warning(f"Cannot not display status: {e}.")
 
+
+# using a fragment to avoid re-doing the above operations on every filter change
+# cf. https://docs.streamlit.io/develop/concepts/architecture/fragments
+@st.experimental_fragment
+def _display_table_and_plots(df: pd.DataFrame) -> None:
+    """A fragment that displays a DataFrame with a filter."""
     st.markdown("## Data")
 
     # filter
@@ -93,21 +110,39 @@ def display(df: pd.DataFrame) -> None:
     st.write(f"Showing {len(filtered_df)} / {len_whole_df} entries.")
 
     cmap = plt.get_cmap("RdYlGn")
+    cmap.set_bad(color="white")
     st.dataframe(
         filtered_df.style.background_gradient(
             subset=[
                 "size_gb",
                 "proteins",
                 "precursors",
+                "ms1_accuracy",
+                "fwhm_rt",
+                "quanting_time_minutes",
             ],
             cmap=cmap,
-        ).apply(highlight_status_cell, axis=1)
+        )
+        .apply(highlight_status_cell, axis=1)
+        .format(
+            subset=[
+                "size_gb",
+                "ms1_accuracy",
+                "fwhm_rt",
+                "quanting_time_minutes",
+            ],
+            formatter="{:.3}",
+        ),
+        column_order=column_order,
     )
 
     # ########################################### DISPLAY: plots
 
     st.markdown("## Plots")
-    x = "file_created"
+    selectbox_columns = ["file_created"] + [
+        col for col in column_order if col != "file_created"
+    ]
+    x = st.selectbox(label="Choose x-axis:", options=selectbox_columns)
     for y in [
         "size_gb",
         "precursors",
@@ -117,22 +152,20 @@ def display(df: pd.DataFrame) -> None:
         "quanting_time_minutes",
     ]:
         try:
-            draw_plot(filtered_df, x, y)
+            _draw_plot(filtered_df, x, y)
         except Exception as e:  # noqa: BLE001, PERF203
             _log(str(e))
 
 
-def draw_plot(df: pd.DataFrame, x: str, y: str) -> None:
+def _draw_plot(df: pd.DataFrame, x: str, y: str) -> None:
     """Draw a plot of a DataFrame."""
-    df_to_plot = df.reset_index()
-    median_ = df_to_plot[y].median()
+    median_ = df[y].median()
+    df = df.sort_values(by=x)
 
-    symbol = [
-        "x" if x == "error" else "circle" for x in df_to_plot["status"].to_numpy()
-    ]
+    symbol = ["x" if x == "error" else "circle" for x in df["status"].to_numpy()]
 
     fig = px.scatter(
-        df_to_plot,
+        df,
         x=x,
         y=y,
         color="instrument_id",
@@ -148,4 +181,6 @@ def draw_plot(df: pd.DataFrame, x: str, y: str) -> None:
     st.plotly_chart(fig)
 
 
-display(combined_df)
+_display_status(combined_df)
+
+_display_table_and_plots(combined_df)

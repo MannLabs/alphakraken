@@ -69,9 +69,13 @@ class InstrumentKeys:
 
 
 class AirflowVars:
-    """Keys for accessing Airflow Variables (set in the Airflow UI)."""
+    """Keys for accessing Airflow Variables (set in the Airflow UI). Cf. also Readme."""
 
+    # maximum file age in hours to be picked up by the quanting handler. Older files get status 'ignored'.
     MAX_FILE_AGE_IN_HOURS: str = "max_file_age_in_hours"
+
+    # If set to True, quanting can be started even if the output folder already exists.
+    ALLOW_OUTPUT_OVERWRITE: str = "allow_output_overwrite"
 
     # some flags that can be used for debugging and/or to simplify the local setup
     DEBUG_NO_CLUSTER_SSH = "debug_no_cluster_ssh"

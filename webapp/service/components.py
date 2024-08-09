@@ -68,7 +68,9 @@ def show_date_select(
 def display_status(df: pd.DataFrame) -> None:
     """Display the status of the kraken."""
     now = datetime.now()  # noqa:  DTZ005 no tz argument
-    st.write(f"Current Kraken time: {now}")
+    st.write(
+        f"Current Kraken time: {now.replace(microsecond=0)} [all time stamps are given in UTC!]"
+    )
     status_data = defaultdict(list)
     for instrument_id in df["instrument_id"].unique():
         tmp_df = df[df["instrument_id"] == instrument_id]

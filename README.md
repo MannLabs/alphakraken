@@ -362,13 +362,23 @@ Once the instrument is available again, uncomment the worker definition and rest
 These variables are set in the Airflow UI under "Admin" -> "Variables". They steer the behavior of the whole system,
 so be careful when changing them. If in doubt, pause all DAGs that are not part of the current problem before changing them.
 
-### debug_no_cluster_ssh
-`debug_no_cluster_ssh` If set to `True`, the system will not connect to the SLURM cluster. This is useful for
-testing, debugging and to avoid flooding the cluster at the initial setup.
-
 ### max_file_age_in_hours
 If set, files that are older will not be processed by the acquisition handler.
 They will nevertheless be added to the DB, with status="ignored".
 Needs to be a valid float, "-1" to deactivate.
 This is useful to avoid processing of older files if a new instrument is attached
 or after a long downtime.
+
+Recommended setting in production: -1 (default)
+
+### allow_output_overwrite
+If set to `True`, the system will overwrite existing output files. Convenience switch to avoid manual deletion of output files
+in case something went wrong with the quanting.
+
+Recommended setting in production: False (default)
+
+### debug_no_cluster_ssh
+`debug_no_cluster_ssh` If set to `True`, the system will not connect to the SLURM cluster. This is useful for
+testing, debugging and to avoid flooding the cluster at the initial setup.
+
+Recommended setting in production: False (default)

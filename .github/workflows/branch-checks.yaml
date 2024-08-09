@@ -10,5 +10,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    - uses: actions/setup-python@v3
+    - uses: actions/setup-python@v5
     - uses: pre-commit/action@v3.0.1
+
+  unit-tests:
+    name: Run unit tests
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    - name: Setup pip cache
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
+    - run: |
+        pip install apache-airflow==2.9.1 --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.9.1/constraints-3.11.txt"
+        airflow db init
+        pip install pytest
+        python -m pytest

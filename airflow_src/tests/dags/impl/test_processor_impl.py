@@ -2,15 +2,16 @@
 
 import os
 from pathlib import Path
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, call, mock_open, patch
 
 import pytest
 from airflow.exceptions import AirflowFailException
 from common.settings import INSTRUMENTS
 from dags.impl.processor_impl import (
     _get_project_id_for_raw_file,
+    check_job_status,
     compute_metrics,
-    get_job_info,
+    get_business_errors,
     prepare_quanting,
     run_quanting,
     upload_metrics,
@@ -251,10 +252,10 @@ def test_run_quanting_executes_ssh_command_error_wrong_job_id(
 @patch("dags.impl.processor_impl.get_xcom")
 @patch("dags.impl.processor_impl.SSHSensorOperator.ssh_execute")
 @patch("dags.impl.processor_impl.put_xcom")
-def test_get_job_info_happy_path(
+def test_check_job_status_happy_path(
     mock_put_xcom: MagicMock, mock_ssh_execute: MagicMock, mock_get_xcom: MagicMock
 ) -> None:
-    """Test that get_job_info makes the expected calls."""
+    """Test that check_job_status makes the expected calls."""
     mock_ti = MagicMock()
     mock_get_xcom.return_value = "12345"
     mock_ssh_execute.return_value = (
@@ -264,8 +265,11 @@ def test_get_job_info_happy_path(
     mock_ssh_hook = MagicMock()
 
     # when
-    get_job_info(mock_ti, **{OpArgs.SSH_HOOK: mock_ssh_hook})
+    continue_downstream_tasks = check_job_status(
+        mock_ti, **{OpArgs.SSH_HOOK: mock_ssh_hook}
+    )
 
+    assert continue_downstream_tasks
     mock_ssh_execute.assert_called_once_with(
         "TIME_ELAPSED=$(sacct --format=Elapsed -j 12345 | tail -n 1); echo $TIME_ELAPSED\nsacct -l -j 12345\n"
         "cat ~/slurm/jobs/slurm-12345.out\n\nST=$(sacct -j 12345 -o State | awk 'FNR == 3 {print $1}')\necho $ST\n",
@@ -277,19 +281,133 @@ def test_get_job_info_happy_path(
 
 @patch("dags.impl.processor_impl.get_xcom")
 @patch("dags.impl.processor_impl.SSHSensorOperator.ssh_execute")
-def test_get_job_info_raises(
+def test_check_job_status_unknown_job_status(
     mock_ssh_execute: MagicMock, mock_get_xcom: MagicMock
 ) -> None:
-    """Test that get_job_info raises on failed quanting job."""
+    """Test that check_job_status raises on unknown quanting job status."""
     mock_ti = MagicMock()
-    mock_get_xcom.side_effect = ["some_raw_file_name", "12345"]
+    mock_get_xcom.return_value = "12345"
     mock_ssh_execute.return_value = "00:08:42\nsome\nother\nlines\nSOME_JOB_STATE"
 
     mock_ssh_hook = MagicMock()
 
     # when
     with pytest.raises(AirflowFailException):
-        get_job_info(mock_ti, **{OpArgs.SSH_HOOK: mock_ssh_hook})
+        check_job_status(mock_ti, **{OpArgs.SSH_HOOK: mock_ssh_hook})
+
+
+@patch("dags.impl.processor_impl.get_xcom")
+@patch("dags.impl.processor_impl.SSHSensorOperator.ssh_execute")
+@patch("dags.impl.processor_impl.get_business_errors")
+@patch("dags.impl.processor_impl.update_raw_file")
+def test_check_job_status_business_error(
+    mock_update_raw_file: MagicMock,
+    mock_get_business_errors: MagicMock,
+    mock_ssh_execute: MagicMock,
+    mock_get_xcom: MagicMock,
+) -> None:
+    """Test that check_job_status behaves correctly on business errors."""
+    mock_ti = MagicMock()
+    mock_get_xcom.side_effect = [
+        "12345",
+        {
+            QuantingEnv.RAW_FILE_NAME: "some_raw_file_name",
+            QuantingEnv.PROJECT_ID: "PID1",
+        },
+    ]
+    mock_ssh_execute.return_value = "00:08:42\nsome\nother\nlines\nFAILED"
+    mock_get_business_errors.return_value = ["error1", "error2"]
+
+    mock_ssh_hook = MagicMock()
+
+    # when
+    continue_downstream_tasks = check_job_status(
+        mock_ti, **{OpArgs.SSH_HOOK: mock_ssh_hook}
+    )
+    assert not continue_downstream_tasks
+
+    mock_get_business_errors.assert_called_once_with("some_raw_file_name", "PID1")
+    mock_update_raw_file.assert_called_once_with(
+        "some_raw_file_name",
+        new_status="quanting_failed",
+        status_details="error1;error2",
+    )
+
+
+@patch("dags.impl.processor_impl.get_xcom")
+@patch("dags.impl.processor_impl.SSHSensorOperator.ssh_execute")
+@patch("dags.impl.processor_impl.get_business_errors")
+@patch("dags.impl.processor_impl.update_raw_file")
+def test_check_job_status_non_business_error(
+    mock_update_raw_file: MagicMock,
+    mock_get_business_errors: MagicMock,
+    mock_ssh_execute: MagicMock,
+    mock_get_xcom: MagicMock,
+) -> None:
+    """Test that check_job_status behaves correctly on non-business errors."""
+    mock_ti = MagicMock()
+    mock_get_xcom.side_effect = [
+        "12345",
+        {
+            QuantingEnv.RAW_FILE_NAME: "some_raw_file_name",
+            QuantingEnv.PROJECT_ID: "PID1",
+        },
+    ]
+    mock_ssh_execute.return_value = "00:08:42\nsome\nother\nlines\nFAILED"
+    mock_get_business_errors.return_value = []
+
+    mock_ssh_hook = MagicMock()
+
+    # when
+    with pytest.raises(AirflowFailException):
+        check_job_status(mock_ti, **{OpArgs.SSH_HOOK: mock_ssh_hook})
+
+    mock_get_business_errors.assert_called_once_with("some_raw_file_name", "PID1")
+    mock_update_raw_file.assert_not_called()
+
+
+@patch("dags.impl.processor_impl.get_internal_output_path")
+def test_get_business_errors_with_valid_errors(mock_path: MagicMock) -> None:
+    """Test that get_business_errors returns the expected business errors."""
+    mock_content = [
+        '{"name": "exception", "error_code": "ERROR1"}',
+        '{"name": "exception", "error_code": "ERROR2"}',
+        '{"name": "other", "error_code": "ERROR3"}',
+    ]
+    mock_open_file = mock_open(read_data="\n".join(mock_content))
+    mock_path.return_value.__truediv__.return_value.__truediv__.return_value.__truediv__.return_value.open.return_value = mock_open_file()
+
+    result = get_business_errors("raw_file.raw", "project_id")
+
+    assert result == ["ERROR1", "ERROR2"]
+    mock_path.assert_called_once_with("raw_file.raw", "project_id")
+
+
+@patch("dags.impl.processor_impl.get_internal_output_path")
+def test_get_business_errors_with_no_errors(mock_path: MagicMock) -> None:
+    """Test that get_business_errors returns an empty list when there are no (valid) errors."""
+    mock_content = [
+        '{"name": "other", "error_code": "ERROR3"}',  # not an exception
+        '{"name": "exception", "error_code": ""}',  # error code empty
+        "invalid json",  # not a json
+        '{"name": "exception"}',  # no error code
+    ]
+    mock_open_file = mock_open(read_data="\n".join(mock_content))
+    mock_path.return_value.__truediv__.return_value.__truediv__.return_value.__truediv__.return_value.open.return_value = mock_open_file()
+
+    result = get_business_errors("raw_file.raw", "project_id")
+
+    assert result == []
+
+
+@patch("dags.impl.processor_impl.get_internal_output_path")
+def test_get_business_errors_file_not_found(mock_path: MagicMock) -> None:
+    """Test that get_business_errors returns an empty list when the file is not found."""
+    mock_path.return_value.__truediv__.return_value.__truediv__.return_value.__truediv__.return_value.open.side_effect = FileNotFoundError
+
+    result = get_business_errors("raw_file.raw", "project_id")
+
+    assert result == []
 
 
 @patch("dags.impl.processor_impl.get_xcom")

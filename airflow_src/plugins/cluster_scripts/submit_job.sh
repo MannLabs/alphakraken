@@ -87,11 +87,8 @@ conda run -n $CONDA_ENV alphadia \
     ${FASTA_COMMAND} \
     --config "${CONFIG_FILE_PATH}" \
     --output "${OUTPUT_PATH}"
+alphadia_exit_code=$?  # this line must immediately follow the `conda run ..` command
 set -e
-
-echo ALPHADIA EXIT CODE ">>>>>>"
-echo $?
-echo "<<<<<<"
 
 echo OUTPUT ">>>>>>"
 set +e
@@ -99,3 +96,12 @@ du -s ${OUTPUT_PATH}/*
 md5sum ${OUTPUT_PATH}/*
 set -e
 echo "<<<<<<"
+
+echo ALPHADIA EXIT CODE ">>>>>>"
+echo $alphadia_exit_code
+echo "<<<<<<"
+
+if [ ! "$alphadia_exit_code" -eq 0 ]; then
+    echo got nonzero exit code $alphadia_exit_code
+    exit $alphadia_exit_code
+fi

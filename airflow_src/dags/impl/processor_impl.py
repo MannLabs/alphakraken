@@ -1,5 +1,6 @@
 """Business logic for the acquisition_processor."""
 
+import json
 import logging
 from datetime import datetime
 from pathlib import Path
@@ -8,7 +9,7 @@ from random import random
 from airflow.exceptions import AirflowFailException
 from airflow.models import TaskInstance
 from cluster_scripts.slurm_commands import (
-    get_job_info_cmd,
+    check_job_status_cmd,
     get_job_state_cmd,
     get_run_quanting_cmd,
 )
@@ -142,24 +143,73 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
     put_xcom(ti, XComKeys.JOB_ID, job_id)
 
 
-def get_job_info(ti: TaskInstance, **kwargs) -> None:
-    """Get info (slurm log, alphaDIA log) about a job from the cluster."""
+def _extract_error_codes(events_jsonl_file_path: Path) -> list[str]:
+    """Extract the error codes from the events.jsonl file."""
+    error_codes = []
+    with events_jsonl_file_path.open() as file:
+        for line in file:
+            try:
+                data = json.loads(line.strip())
+                if data.get("name") == "exception" and data.get("error_code", "") != "":
+                    error_codes.append(data["error_code"])
+            except json.JSONDecodeError:  # noqa: PERF203
+                logging.warning(f"Skipping invalid JSON: {line.strip()}")
+    return error_codes
+
+
+def get_business_errors(raw_file_name: str, project_id: str) -> list[str]:
+    """Extract business errors from the alphaDIA output."""
+    output_path = get_internal_output_path(raw_file_name, project_id)
+
+    events_jsonl_path = (
+        output_path / ".progress" / Path(raw_file_name).stem / "events.jsonl"
+    )
+
+    error_codes = []
+    try:
+        error_codes = _extract_error_codes(events_jsonl_path)
+    except FileNotFoundError:
+        logging.warning(f"Could not find {events_jsonl_path=}")
+    return error_codes
+
+
+def check_job_status(ti: TaskInstance, **kwargs) -> bool:
+    """Get info (slurm log, alphaDIA log) about a job from the cluster.
+
+    Return False in case downstream tasks should be skipped, True otherwise.
+    """
     ssh_hook = kwargs[OpArgs.SSH_HOOK]
     job_id = get_xcom(ti, XComKeys.JOB_ID)
 
     slurm_output_file = f"{CLUSTER_WORKING_DIR}/slurm-{job_id}.out"
-
-    cmd = get_job_info_cmd(job_id, slurm_output_file) + get_job_state_cmd(job_id)
+    cmd = check_job_status_cmd(job_id, slurm_output_file) + get_job_state_cmd(job_id)
     ssh_return = SSHSensorOperator.ssh_execute(cmd, ssh_hook)
 
     time_elapsed = _get_time_elapsed(ssh_return)
-
     put_xcom(ti, XComKeys.QUANTING_TIME_ELAPSED, time_elapsed)
 
     job_status = ssh_return.split("\n")[-1]
-    if job_status != JobStates.COMPLETED:
-        logging.info(f"Job {job_id} exited with status {job_status}.")
-        raise AirflowFailException(f"Quanting failed: {job_status=}")
+    logging.info(f"Job {job_id} exited with status {job_status}.")
+
+    if job_status == JobStates.COMPLETED:
+        return True  # continue with downstream tasks
+
+    if job_status == JobStates.FAILED:
+        quanting_env = get_xcom(ti, XComKeys.QUANTING_ENV)
+        raw_file_name = quanting_env[QuantingEnv.RAW_FILE_NAME]
+        project_id = quanting_env[QuantingEnv.PROJECT_ID]
+
+        if len(business_errors := get_business_errors(raw_file_name, project_id)):
+            update_raw_file(
+                raw_file_name,
+                new_status=RawFileStatus.QUANTING_FAILED,
+                status_details=";".join(business_errors),
+            )
+            return False  # skip downstream tasks
+
+    # unknown state or non-business error: fail the DAG without retry
+    logging.info(f"Job {job_id} exited with status {job_status}.")
+    raise AirflowFailException(f"Quanting failed: {job_status=}")
 
 
 def _get_time_elapsed(ssh_return: str) -> int:

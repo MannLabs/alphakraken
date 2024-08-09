@@ -33,6 +33,7 @@ class RawFileStatus:
     QUANTING = "quanting"
     DONE = "done"
 
+    QUANTING_FAILED = "quanting_failed"
     ERROR = "error"
 
 

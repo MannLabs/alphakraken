@@ -27,7 +27,7 @@ class Tasks:
     PREPARE_QUANTING: str = "prepare_quanting"
     RUN_QUANTING: str = "run_quanting"
     MONITOR_QUANTING: str = "monitor_quanting"
-    GET_JOB_INFO: str = "get_job_info"
+    CHECK_JOB_STATUS: str = "check_job_status"
     COMPUTE_METRICS: str = "compute_metrics"
     UPLOAD_METRICS: str = "upload_metrics"
 
@@ -119,3 +119,4 @@ class JobStates:
     PENDING: str = "PENDING"
     RUNNING: str = "RUNNING"
     COMPLETED: str = "COMPLETED"
+    FAILED: str = "FAILED"

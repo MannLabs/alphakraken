@@ -116,3 +116,12 @@ class JobStates:
     RUNNING: str = "RUNNING"
     COMPLETED: str = "COMPLETED"
     FAILED: str = "FAILED"
+    TIMEOUT: str = "TIMEOUT"
+
+
+class CustomAlphaDiaStates:
+    """Alphakraken-custom states to handle errors during retrieval of unknown alphaDIA errors."""
+
+    NO_LOG_FILE: str = "__NO_LOG_FILE"
+    UNKNOWN_ERROR: str = "__UNKNOWN_ERROR"
+    COULD_NOT_DETERMINE_ERROR: str = "__COULD_NOT_DETERMINE_ERROR"

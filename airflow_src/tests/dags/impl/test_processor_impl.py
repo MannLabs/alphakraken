@@ -382,14 +382,14 @@ def test_check_quanting_result_business_error(
 @patch("dags.impl.processor_impl.SSHSensorOperator.ssh_execute")
 @patch("dags.impl.processor_impl.get_business_errors")
 @patch("dags.impl.processor_impl.update_raw_file")
-def test_check_quanting_result_non_business_error(
+def test_check_quanting_result_business_error_raises(
     mock_update_raw_file: MagicMock,
     mock_get_business_errors: MagicMock,
     mock_ssh_execute: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
     mock_get_xcom: MagicMock,
 ) -> None:
-    """Test that check_quanting_result behaves correctly on non-business errors."""
+    """Test that check_quanting_result behaves correctly if business error is unknown."""
     mock_ti = MagicMock()
     mock_get_xcom.side_effect = [
         "12345",
@@ -398,8 +398,10 @@ def test_check_quanting_result_non_business_error(
             QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID1",
         },
     ]
+    mock_raw_file = MagicMock(wraps=RawFile, id="test_file.raw")
+    mock_get_raw_file_by_id.return_value = mock_raw_file
     mock_ssh_execute.return_value = "00:08:42\nsome\nother\nlines\nFAILED"
-    mock_get_business_errors.return_value = []
+    mock_get_business_errors.return_value = ["error1", "__UNKNOWN_ERROR"]
 
     mock_ssh_hook = MagicMock()
 
@@ -408,10 +410,51 @@ def test_check_quanting_result_non_business_error(
         check_quanting_result(mock_ti, **{OpArgs.SSH_HOOK: mock_ssh_hook})
 
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
-    mock_get_business_errors.assert_called_once_with(
-        mock_get_raw_file_by_id.return_value, "PID1"
+    mock_get_business_errors.assert_called_once_with(mock_raw_file, "PID1")
+    mock_update_raw_file.assert_called_once_with(
+        "test_file.raw",
+        new_status="quanting_failed",
+        status_details="error1;__UNKNOWN_ERROR",
     )
-    mock_update_raw_file.assert_not_called()
+
+
+@patch("dags.impl.processor_impl.get_xcom")
+@patch("dags.impl.processor_impl.get_raw_file_by_id")
+@patch("dags.impl.processor_impl.SSHSensorOperator.ssh_execute")
+@patch("dags.impl.processor_impl.update_raw_file")
+def test_check_quanting_result_timeout(
+    mock_update_raw_file: MagicMock,
+    mock_ssh_execute: MagicMock,
+    mock_get_raw_file_by_id: MagicMock,
+    mock_get_xcom: MagicMock,
+) -> None:
+    """Test that check_quanting_result behaves correctly on timeout."""
+    mock_ti = MagicMock()
+    mock_get_xcom.side_effect = [
+        "12345",
+        {
+            QuantingEnv.RAW_FILE_ID: "test_file.raw",
+            QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID1",
+        },
+    ]
+    mock_raw_file = MagicMock(wraps=RawFile, id="test_file.raw")
+    mock_get_raw_file_by_id.return_value = mock_raw_file
+    mock_ssh_execute.return_value = "00:08:42\nsome\nother\nlines\nTIMEOUT"
+
+    mock_ssh_hook = MagicMock()
+
+    # when
+    continue_downstream_tasks = check_quanting_result(
+        mock_ti, **{OpArgs.SSH_HOOK: mock_ssh_hook}
+    )
+    assert not continue_downstream_tasks
+
+    mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
+    mock_update_raw_file.assert_called_once_with(
+        "test_file.raw",
+        new_status="quanting_failed",
+        status_details="TIMEOUT",
+    )
 
 
 @patch("dags.impl.processor_impl.get_internal_output_path")
@@ -447,9 +490,11 @@ def test_get_business_errors_with_no_errors(mock_path: MagicMock) -> None:
     mock_path.return_value.__truediv__.return_value.__truediv__.return_value.__truediv__.return_value.open.return_value = mock_open_file()
 
     raw_file = MagicMock()
+
+    # when
     result = get_business_errors(raw_file, "project_id")
 
-    assert result == []
+    assert result == ["__COULD_NOT_DETERMINE_ERROR"]
 
 
 @patch("dags.impl.processor_impl.get_internal_output_path")
@@ -458,9 +503,36 @@ def test_get_business_errors_file_not_found(mock_path: MagicMock) -> None:
     mock_path.return_value.__truediv__.return_value.__truediv__.return_value.__truediv__.return_value.open.side_effect = FileNotFoundError
 
     raw_file = MagicMock()
+
+    # when
     result = get_business_errors(raw_file, "project_id")
 
-    assert result == []
+    assert result == ["__COULD_NOT_DETERMINE_ERROR"]
+
+
+@patch("dags.impl.processor_impl.get_internal_output_path")
+def test_get_business_errors_with_unknown_error(mock_path: MagicMock) -> None:
+    """Test that get_business_errors returns an empty list when there are no (valid) errors."""
+    mock_events_content = [
+        '{"name": "other", "error_code": "ERROR3"}',  # not an exception
+    ]
+    mock_open_events_file = mock_open(read_data="\n".join(mock_events_content))
+    mock_path.return_value.__truediv__.return_value.__truediv__.return_value.__truediv__.return_value.open.return_value = mock_open_events_file()
+
+    mock_log_content = [
+        "ERROR: bla"  # -> unknown error
+    ]
+    mock_open_log_file = mock_open(read_data="\n".join(mock_log_content))
+    mock_path.return_value.__truediv__.return_value.open.return_value = (
+        mock_open_log_file()
+    )
+
+    raw_file = MagicMock()
+
+    # when
+    result = get_business_errors(raw_file, "project_id")
+
+    assert result == ["__UNKNOWN_ERROR"]
 
 
 @patch("dags.impl.processor_impl.get_xcom")

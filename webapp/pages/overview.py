@@ -75,7 +75,9 @@ def _display_table_and_plots(df: pd.DataFrame) -> None:
         st_display=c2,
     )
 
-    st.write(f"Showing {len(filtered_df)} / {len_whole_df} entries.")
+    st.write(
+        f"Showing {len(filtered_df)} / {len_whole_df} entries. Use the filter to narrow down results both in the table and the plots below."
+    )
 
     cmap = plt.get_cmap("RdYlGn")
     cmap.set_bad(color="white")
@@ -109,12 +111,14 @@ def _display_table_and_plots(df: pd.DataFrame) -> None:
         st.markdown("""
             #### Explanation of 'status' information
             - `done`: The file has been processed successfully.
-            - `quanting_failed`: something went wrong with the quanting, check the "status_details" column for more information.
+            - `quanting_failed`: something went wrong with the quanting, check the "status_details" column for more information:
               - `NO_RECALIBRATION_TARGET`: alphaDIA did not find enough precursors to calibrate the data.
               - `NOT_DIA_DATA`: the file is not DIA data.
+              - `TIMEOUT`: the quanting job took too long and was stopped
+              - `_*`: a underscore as prefix indicates a known error, whose root cause has not been investigated yet.
+              - `__*`: a double underscore as prefix indicates that there was an error while investigating the error.
             - `error`: an unknown error happened during processing, check the "status_details" column for more information
                 and report it to the developers if unsure.
-                - `[check_quanting_result Quanting failed: job_status='TIMEOUT'`: the quanting job took too long and was stopped.
 
             All other states are transient and should be self-explanatory. If you feel a file stays in a certain status
             for too long, please report it to the developers.

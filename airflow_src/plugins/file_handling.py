@@ -46,7 +46,7 @@ def _file_already_exists(dst_path: Path, src_hash: str) -> bool:
     """Check if a file already exists in the backup location and has the same hash."""
     if dst_path.exists():
         logging.info("File already exists in backup location. Checking hash ..")
-        if _get_file_hash(dst_path) == (src_hash):
+        if _get_file_hash(dst_path) == src_hash:
             logging.info("Hashes match.")
             return True
         logging.warning("Hashes do not match.")

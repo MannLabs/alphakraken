@@ -15,6 +15,7 @@ from cluster_scripts.slurm_commands import (
 )
 from common.keys import (
     AirflowVars,
+    CustomAlphaDiaStates,
     DagContext,
     DagParams,
     JobStates,
@@ -24,6 +25,8 @@ from common.keys import (
 )
 from common.settings import (
     CLUSTER_WORKING_DIR,
+    ERROR_CODE_TO_STRING,
+    AlphaDiaConstants,
     InternalPaths,
     get_fallback_project_id,
     get_internal_output_path,
@@ -156,7 +159,7 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
     put_xcom(ti, XComKeys.JOB_ID, job_id)
 
 
-def _extract_error_codes(events_jsonl_file_path: Path) -> list[str]:
+def _get_custom_error_codes(events_jsonl_file_path: Path) -> list[str]:
     """Extract the error codes from the events.jsonl file."""
     error_codes = []
     with events_jsonl_file_path.open() as file:
@@ -170,19 +173,45 @@ def _extract_error_codes(events_jsonl_file_path: Path) -> list[str]:
     return error_codes
 
 
+def _get_other_error_codes(output_path: Path) -> str:
+    """Extract non-custom errors from the alphaDIA logs."""
+    log_file_path = output_path / AlphaDiaConstants.LOG_FILE_NAME
+    if not log_file_path.exists():
+        logging.warning(f"Could not find {log_file_path=}")
+        return CustomAlphaDiaStates.NO_LOG_FILE
+
+    with log_file_path.open() as file:
+        for line in reversed(file.readlines()):
+            if "ERROR" in line:
+                logging.info(f"Found error line: {line.strip()}")
+                for error_code, error_string in ERROR_CODE_TO_STRING.items():
+                    if error_string in line:
+                        return error_code
+                return CustomAlphaDiaStates.UNKNOWN_ERROR
+    return CustomAlphaDiaStates.COULD_NOT_DETERMINE_ERROR
+
+
 def get_business_errors(raw_file: RawFile, project_id: str) -> list[str]:
     """Extract business errors from the alphaDIA output."""
     output_path = get_internal_output_path(raw_file, project_id)
 
+    raw_file_progress_subfolder = Path(raw_file.id).stem
     events_jsonl_path = (
-        output_path / ".progress" / Path(raw_file.id).stem / "events.jsonl"
+        output_path
+        / AlphaDiaConstants.PROGRESS_FOLDER_NAME
+        / raw_file_progress_subfolder
+        / AlphaDiaConstants.EVENTS_FILE_NAME
     )
 
     error_codes = []
     try:
-        error_codes = _extract_error_codes(events_jsonl_path)
+        error_codes = _get_custom_error_codes(events_jsonl_path)
     except FileNotFoundError:
         logging.warning(f"Could not find {events_jsonl_path=}")
+
+    if not error_codes:
+        error_codes.append(_get_other_error_codes(output_path))
+
     return error_codes
 
 
@@ -211,20 +240,34 @@ def check_quanting_result(ti: TaskInstance, **kwargs) -> bool:
     if job_status == JobStates.COMPLETED:
         return True  # continue with downstream tasks
 
-    if job_status == JobStates.FAILED:
+    if job_status in [JobStates.FAILED, JobStates.TIMEOUT]:
         quanting_env = get_xcom(ti, XComKeys.QUANTING_ENV)
         project_id = quanting_env[QuantingEnv.PROJECT_ID_OR_FALLBACK]
         raw_file = get_raw_file_by_id(quanting_env[QuantingEnv.RAW_FILE_ID])
 
-        if len(business_errors := get_business_errors(raw_file, project_id)):
-            update_raw_file(
-                raw_file.id,
-                new_status=RawFileStatus.QUANTING_FAILED,
-                status_details=";".join(business_errors),
-            )
-            return False  # skip downstream tasks
+        if job_status == JobStates.FAILED:
+            errors = get_business_errors(raw_file, project_id)
+        else:
+            errors = ["TIMEOUT"]
 
-    # unknown state or non-business error: fail the DAG without retry
+        update_raw_file(
+            raw_file.id,
+            new_status=RawFileStatus.QUANTING_FAILED,
+            status_details=";".join(errors),
+        )
+
+        # fail the DAG without retry on new errors to make them transparent in Airflow UI
+        states_to_fail_task = [
+            CustomAlphaDiaStates.UNKNOWN_ERROR,
+            CustomAlphaDiaStates.NO_LOG_FILE,
+            CustomAlphaDiaStates.UNKNOWN_ERROR,
+        ]
+        if any(state in errors for state in states_to_fail_task):
+            raise AirflowFailException(f"Quanting failed with new error: {errors=}")
+
+        return False  # skip downstream tasks
+
+    # unknown state: fail the DAG without retry
     logging.info(f"Job {job_id} exited with status {job_status}.")
     raise AirflowFailException(f"Quanting failed: {job_status=}")
 

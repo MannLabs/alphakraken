@@ -2,13 +2,16 @@
 
 from pathlib import Path
 
+from common.keys import InstrumentKeys, InstrumentTypes
+
 INSTRUMENTS = {
     # the toplevel keys determine the DAG name (e.g. 'instrument_watcher.test1')
-    "test1": {},
-    "test2": {},
-    "test3": {},
-    "test4": {},
-    "test5": {},
+    "test1": {
+        InstrumentKeys.TYPE: InstrumentTypes.THERMO,
+    },
+    "test2": {
+        InstrumentKeys.TYPE: InstrumentTypes.THERMO,
+    },
 }
 
 # prefix for the queues the DAGs are assigned to (cf. docker-compose.yaml)
@@ -45,6 +48,8 @@ class Timings:
 
     FILE_COPY_TIMEOUT_M = 5
 
+    ACQUISITION_MONITOR_TIMEOUT_M = 180
+
 
 class Concurrency:
     """Concurrency constants."""
@@ -53,7 +58,12 @@ class Concurrency:
     # like starting quanting or metrics calculation
     MAX_ACTIVE_QUANTING_MONITORINGS_PER_DAG = 14
 
+    # limit the number of concurrent copies to not over-stress the network.
+    # Note that this is a potential bottleneck, so a timeout is important here.
     MAX_ACTIVE_COPY_TASKS_PER_DAG = 1
+
+    # limit the number of concurrent monitors to not over-stress the network (relevant only during a catchup)
+    MAX_MONITOR_ACQUISITION_TASKS_PER_DAG = 5
 
 
 class Pools:
@@ -110,3 +120,8 @@ def get_internal_output_path(raw_file_name: str, project_id: str) -> Path:
     return Path(InternalPaths.MOUNTS_PATH) / get_output_folder_rel_path(
         raw_file_name, project_id
     )
+
+
+def get_instrument_type(instrument_id: str) -> str:
+    """Get the type of the instrument with the given ID."""
+    return INSTRUMENTS[instrument_id][InstrumentKeys.TYPE]

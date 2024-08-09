@@ -6,12 +6,9 @@ from unittest.mock import MagicMock, Mock, call, patch
 
 import pytest
 import pytz
-from common.settings import INSTRUMENTS
 from dags.impl.watcher_impl import (
     _add_raw_file_to_db,
     _file_meets_age_criterion,
-    _get_file_creation_timestamp,
-    _get_file_size,
     _sort_by_creation_date,
     decide_raw_file_handling,
     get_unknown_raw_files,
@@ -22,40 +19,8 @@ from plugins.common.keys import OpArgs, XComKeys
 SOME_INSTRUMENT_ID = "some_instrument_id"
 
 
-@patch.dict(
-    INSTRUMENTS, {"instrument1": {"raw_data_path_variable_name": "SOME_VARIABLE_NAME"}}
-)
-@patch("os.stat")
-def test_get_file_creation_timestamp(
-    mock_stat: MagicMock,
-) -> None:
-    """Test _get_file_creation_timestamp returns the expected values."""
-    mock_stat.return_value.st_ctime = 42.0
-
-    # when
-    result = _get_file_creation_timestamp("test_file.raw", "instrument1")
-
-    assert result == 42.0  # noqa: PLR2004
-
-
-@patch.dict(
-    INSTRUMENTS, {"instrument1": {"raw_data_path_variable_name": "SOME_VARIABLE_NAME"}}
-)
-@patch("os.stat")
-def test_get_file_size(
-    mock_stat: MagicMock,
-) -> None:
-    """Test _get_file_size returns the expected values."""
-    mock_stat.return_value.st_size = 42.0
-
-    # when
-    result = _get_file_size("test_file.raw", "instrument1")
-
-    assert result == 42.0  # noqa: PLR2004
-
-
 @patch("dags.impl.watcher_impl.get_internal_instrument_data_path")
-@patch("dags.impl.watcher_impl._get_file_creation_timestamp")
+@patch("dags.impl.watcher_impl.get_file_creation_timestamp")
 @patch("dags.impl.watcher_impl.add_new_raw_file_to_db")
 def test_add_raw_file_to_db(
     mock_add_new_raw_file_to_db: MagicMock,
@@ -116,7 +81,7 @@ def test_get_unknown_raw_files_with_existing_files_in_db(
     mock_sort.assert_called_once_with(["file3.raw"], "some_instrument_id")
 
 
-@patch("dags.impl.watcher_impl._get_file_creation_timestamp")
+@patch("dags.impl.watcher_impl.get_file_creation_timestamp")
 def test_sort_by_creation_date_multiple_files(
     mock_get_file_creation_timestamp: MagicMock,
 ) -> None:
@@ -244,7 +209,7 @@ def test_decide_raw_file_handling(
 
 
 @patch("dags.impl.watcher_impl.get_airflow_variable")
-@patch("dags.impl.watcher_impl._get_file_creation_timestamp")
+@patch("dags.impl.watcher_impl.get_file_creation_timestamp")
 def test_file_meets_age_criterion_when_file_is_younger(
     mock_get_file_creation_timestamp: MagicMock, mock_get_var: MagicMock
 ) -> None:
@@ -259,7 +224,7 @@ def test_file_meets_age_criterion_when_file_is_younger(
 
 
 @patch("dags.impl.watcher_impl.get_airflow_variable")
-@patch("dags.impl.watcher_impl._get_file_creation_timestamp")
+@patch("dags.impl.watcher_impl.get_file_creation_timestamp")
 def test_file_meets_age_criterion_when_file_is_older(
     mock_get_file_creation_timestamp: MagicMock, mock_get_var: MagicMock
 ) -> None:
@@ -274,7 +239,7 @@ def test_file_meets_age_criterion_when_file_is_older(
 
 
 @patch("dags.impl.watcher_impl.get_airflow_variable")
-@patch("dags.impl.watcher_impl._get_file_creation_timestamp")
+@patch("dags.impl.watcher_impl.get_file_creation_timestamp")
 def test_file_meets_age_criterion_when_no_max_age_defined(
     mock_get_file_creation_timestamp: MagicMock, mock_get_var: MagicMock
 ) -> None:

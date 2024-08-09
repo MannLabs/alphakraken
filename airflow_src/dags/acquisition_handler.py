@@ -60,16 +60,16 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
             task_id=Tasks.MONITOR_ACQUISITION,
             instrument_id=instrument_id,
             poke_interval=Timings.ACQUISITION_MONITOR_POKE_INTERVAL_S,
+            max_active_tis_per_dag=Concurrency.MAX_MONITOR_ACQUISITION_TASKS_PER_DAG,
+            execution_timeout=timedelta(minutes=Timings.ACQUISITION_MONITOR_TIMEOUT_M),
         )
 
         copy_raw_file_ = PythonOperator(
             task_id=Tasks.COPY_RAW_FILE,
             python_callable=copy_raw_file,
             op_kwargs={OpArgs.INSTRUMENT_ID: instrument_id},
-            # limit the number of concurrent copies to not over-stress the network.
-            # Note that this is a potential bottleneck, so a timeout is important here.
             max_active_tis_per_dag=Concurrency.MAX_ACTIVE_COPY_TASKS_PER_DAG,
-            execution_timeout=timedelta(Timings.FILE_COPY_TIMEOUT_M),
+            execution_timeout=timedelta(minutes=Timings.FILE_COPY_TIMEOUT_M),
             pool=Pools.FILE_COPY_POOL,
         )
 

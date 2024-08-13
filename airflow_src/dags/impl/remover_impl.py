@@ -20,12 +20,8 @@ from shared.db.interface import get_raw_file_by_id, get_raw_file_ids_older_than
 from shared.keys import EnvVars
 
 
-class FileCheckError(Exception):
-    """Custom exception for file check errors."""
-
-
 class FileRemovalError(Exception):
-    """Custom exception for file removal errors."""
+    """Custom exception for file check and removal errors."""
 
 
 def get_raw_files_to_remove(ti: TaskInstance, **kwargs) -> None:
@@ -45,9 +41,7 @@ def _safe_remove_files(raw_file_id: str) -> None:
     :param raw_file_id: ID of the raw file to delete
 
     :raises:
-    - FileCheckError if one of the business checks fails
-    - FileRemovalError if one of the deletions fails
-
+    - FileRemovalError if one of the checks or deletions fails
 
     To avoid mistakes in deletion, this method works very defensively:
     - takes as ground truth the contents of the instrument Backup folder (i.e. the files that will be actually deleted)
@@ -107,29 +101,26 @@ def _remove_files(
     directory)
     :raises: FileRemovalError if removing a file fails.
     """
-    env_name = get_env_variable(EnvVars.ENV_NAME)
-    for file_path_to_remove in file_paths_to_remove:
-        if env_name != "production":
-            logging.warning(
-                f"NOT removing file {file_path_to_remove}: not in production."
-            )
-            continue
+    if get_env_variable(EnvVars.ENV_NAME) != "production":
+        logging.warning(
+            f"NOT removing files {base_file_path_to_remove}, {file_paths_to_remove}: not in production."
+        )
+        return
 
-        try:
+    try:
+        for file_path_to_remove in file_paths_to_remove:
             f"Removing file {file_path_to_remove} .."
             file_path_to_remove.unlink()
-        except Exception as e:
-            raise FileRemovalError(
-                f"Error removing file {file_path_to_remove}: {e}"
-            ) from e
+    except Exception as e:
+        raise FileRemovalError(f"Error removing {file_path_to_remove}: {e}") from e
 
     # special handling if `raw_file_id` is a directory
     if base_file_path_to_remove.exists() and base_file_path_to_remove.is_dir():
         try:
-            delete_empty_directory(base_file_path_to_remove)
+            _delete_empty_directory(base_file_path_to_remove)
         except Exception as e:
             raise FileRemovalError(
-                f"Error removing directory {base_file_path_to_remove}: {e}"
+                f"Error removing {base_file_path_to_remove}: {e}"
             ) from e
 
 
@@ -146,9 +137,7 @@ def _check_file(
 
     :raises: FileCheckError if one of the checks fails.
     """
-    logging.info(
-        f"Comparing file {file_path_to_remove=} to {file_path_pool_backup=} .. "
-    )
+    logging.info(f"Comparing {file_path_to_remove=} to {file_path_pool_backup=} .. ")
     size_on_instrument = get_file_size(file_path_to_remove)
 
     # Check 1: the single file to delete is present on the pool-backup
@@ -156,8 +145,9 @@ def _check_file(
     if size_on_instrument != (
         size_in_pool_backup := get_file_size(file_path_pool_backup)
     ):
-        msg = f"File {file_path_to_remove} mismatch with pool backup: {size_in_pool_backup=} vs {size_on_instrument=}"
-        raise FileCheckError(msg)
+        raise FileRemovalError(
+            f"File {file_path_to_remove} mismatch with pool backup: {size_in_pool_backup=} vs {size_on_instrument=}"
+        )
 
     # Check 2: single file to delete is the one we have in the DB
 
@@ -169,16 +159,17 @@ def _check_file(
             0
         ]  # first element of tuple (size, hash)
     ):
-        msg = f"File {rel_file_path} mismatch with instrument backup: {size_on_instrument=} vs {size_in_db=}"
-        raise FileCheckError(msg)
+        raise FileRemovalError(
+            f"File {rel_file_path} mismatch with instrument backup: {size_on_instrument=} vs {size_in_db=}"
+        )
 
 
-def delete_empty_directory(directory_path: Path) -> None:
+def _delete_empty_directory(directory_path: Path) -> None:
     """Recursively delete directory if it is empty or only contains empty directories."""
     logging.info(f"Deleting directory {directory_path} ..")
     for sub_path in directory_path.glob("*"):
         if sub_path.is_dir():
-            delete_empty_directory(sub_path)
+            _delete_empty_directory(sub_path)
     directory_path.rmdir()  # rmdir only removes empty directories
 
 
@@ -193,8 +184,7 @@ def remove_raw_files(ti: TaskInstance, **kwargs) -> None:
         error = None
         try:
             _safe_remove_files(raw_file_id)
-
-        except (FileCheckError, FileRemovalError) as e:
+        except FileRemovalError as e:
             error = f"Error: {e}"
         except Exception as e:  # noqa: BLE001
             error = f"Unknown error: {e} {traceback.format_exc()}"

@@ -6,12 +6,11 @@ from unittest.mock import MagicMock, patch
 import pytest
 from common.keys import XComKeys
 from dags.impl.remover_impl import (
-    FileCheckError,
     FileRemovalError,
     _check_file,
+    _delete_empty_directory,
     _remove_files,
     _safe_remove_files,
-    delete_empty_directory,
     get_raw_files_to_remove,
     remove_raw_files,
 )
@@ -60,7 +59,7 @@ def test_check_file_success(
 def test_check_file_mismatch_pool(
     mock_backup_path: MagicMock, mock_get_file_size: MagicMock
 ) -> None:
-    """Test that _check_file raises FileCheckError when pool backup size doesn't match."""
+    """Test that _check_file raises FileRemovalError when pool backup size doesn't match."""
     mock_backup_path.return_value = Path("/backup")
     mock_get_file_size.side_effect = [100, 200]  # Different sizes
     file_path_to_remove = Path("/instrument/file.raw")
@@ -68,7 +67,7 @@ def test_check_file_mismatch_pool(
     file_info_in_db = {"instrument/file.raw": (100, "hash")}
 
     # when
-    with pytest.raises(FileCheckError):
+    with pytest.raises(FileRemovalError):
         _check_file(file_path_to_remove, file_path_pool_backup, file_info_in_db)
 
 
@@ -77,7 +76,7 @@ def test_check_file_mismatch_pool(
 def test_check_file_mismatch_db(
     mock_backup_path: MagicMock, mock_get_file_size: MagicMock
 ) -> None:
-    """Test that _check_file raises FileCheckError when DB size doesn't match."""
+    """Test that _check_file raises FileRemovalError when DB size doesn't match."""
     mock_backup_path.return_value = Path("/backup")
     mock_get_file_size.side_effect = [100, 100]  # Same size for both files
     file_path_to_remove = Path("/instrument/file.raw")
@@ -85,7 +84,7 @@ def test_check_file_mismatch_db(
     file_info_in_db = {"instrument/file.raw": (200, "hash")}  # Different size in DB
 
     # when
-    with pytest.raises(FileCheckError):
+    with pytest.raises(FileRemovalError):
         _check_file(file_path_to_remove, file_path_pool_backup, file_info_in_db)
 
 
@@ -158,7 +157,7 @@ def test_safe_remove_files_check_error(
     mock_wrapper_factory: MagicMock,
     mock_get_raw_file: MagicMock,
 ) -> None:
-    """Test that _safe_remove_files raises FileCheckError when a check fails."""
+    """Test that _safe_remove_files raises FileRemovalError when a check fails."""
     mock_raw_file = MagicMock()
     mock_raw_file.instrument_id = "instrument1"
     mock_raw_file.file_info = {"file1": (100, "hash1")}
@@ -170,10 +169,10 @@ def test_safe_remove_files_check_error(
     }
     mock_wrapper_factory.create_copy_wrapper.return_value = mock_wrapper
 
-    mock_check_file.side_effect = FileCheckError("Check failed")
+    mock_check_file.side_effect = FileRemovalError("Check failed")
 
     # when
-    with pytest.raises(FileCheckError):
+    with pytest.raises(FileRemovalError):
         _safe_remove_files("raw_file_id")
 
 
@@ -185,7 +184,7 @@ def test_delete_empty_directory() -> None:
     mock_subdir.is_dir.return_value = True
 
     # when
-    delete_empty_directory(mock_dir)
+    _delete_empty_directory(mock_dir)
 
     # then
     mock_subdir.rmdir.assert_called_once()

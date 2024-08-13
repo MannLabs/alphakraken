@@ -15,10 +15,13 @@ To run the update:
 import sys
 
 from shared.db.engine import connect_db
-from shared.db.models import RawFile
+from shared.db.models import RawFile, get_created_at_year_month
 
 sys.path.insert(0, "/opt/airflow/plugins")
-from plugins.common.settings import get_internal_backup_path
+from plugins.common.settings import (
+    get_internal_backup_path,
+    get_internal_backup_path_for_instrument,
+)
 from plugins.file_handling import _get_file_hash, get_file_size
 from plugins.raw_file_wrapper_factory import RawFileWrapperFactory
 
@@ -35,10 +38,17 @@ def add_file_info(instrument_id: str, dry_run: bool = True) -> None:
     raw_files = RawFile.objects(instrument_id=instrument_id)
 
     skipped = 0
+    skipped_no_files = 0
+
     for raw_file in raw_files:
+        pool_backup_path = get_internal_backup_path_for_instrument(
+            instrument_id
+        ) / get_created_at_year_month(raw_file)
         # Create the appropriate RawFileCopyWrapper
         copy_wrapper = RawFileWrapperFactory.create_copy_wrapper(
-            instrument_id=raw_file.instrument_id, raw_file=raw_file
+            source_path=pool_backup_path,
+            instrument_id=raw_file.instrument_id,
+            raw_file=raw_file,
         )
         if raw_file.file_info is not None and len(raw_file.file_info) > 0:
             skipped += 1
@@ -46,8 +56,15 @@ def add_file_info(instrument_id: str, dry_run: bool = True) -> None:
 
         file_info = {}
         backup_base_path = get_internal_backup_path()
+        files_to_copy = copy_wrapper.get_files_to_copy().keys()
+
+        if len(files_to_copy) == 0:
+            print(f"Skipping {raw_file.id}: no files to copy.")
+            skipped_no_files += 1
+            continue
+
         # Get all files associated with this raw file
-        for dst_path in copy_wrapper.get_files_to_copy().values():
+        for dst_path in files_to_copy:
             # Calculate size and hash
             size = get_file_size(dst_path)
             file_hash = _get_file_hash(dst_path)
@@ -64,4 +81,6 @@ def add_file_info(instrument_id: str, dry_run: bool = True) -> None:
         if not dry_run:
             raw_file.update(file_info=file_info, backup_base_path=true_backup_base_path)
 
-    print(f"Processed {len(raw_files)} RawFile documents. {skipped=}")
+    print(
+        f"Processed {len(raw_files)} RawFile documents. {skipped=} {skipped_no_files=}"
+    )

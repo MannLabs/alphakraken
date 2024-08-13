@@ -61,12 +61,12 @@ x-airflow-common:
     QUANTING_POOL_FOLDER: ${QUANTING_POOL_FOLDER:?error}
   volumes:
     - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs
-    # Uncomment for local development so that changes to DAGs and Tasks are immediately active
-    # Note that this part is defined another time for the airflow-worker-test1
-    - ./airflow_src/dags:/opt/airflow/dags
-    - ./airflow_src/config:/opt/airflow/config
-    - ./airflow_src/plugins:/opt/airflow/plugins
-    - ./shared:/opt/airflow/shared
+#    # Uncomment for local development so that changes to DAGs and Tasks are immediately active
+#    # Note that this part is defined another time for the airflow-worker-test1
+#    - ./airflow_src/dags:/opt/airflow/dags
+#    - ./airflow_src/config:/opt/airflow/config
+#    - ./airflow_src/plugins:/opt/airflow/plugins
+#    - ./shared:/opt/airflow/shared
 #   User ID in Airflow containers
   user: "${AIRFLOW_UID:?error}:0"
 
@@ -94,12 +94,12 @@ x-airflow-worker:
     - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs
     # all mounts (backup pool folders, results pool folders, instruments) need to be available in $MOUNTS_PATH
     - ${MOUNTS_PATH:?error}:/opt/airflow/mounts
-    # Uncomment for local development so that changes to DAGs and Tasks are immediately active
-    # Note that this part is defined another time for the airflow-worker-test1
-    - ./airflow_src/dags:/opt/airflow/dags
-    - ./airflow_src/config:/opt/airflow/config
-    - ./airflow_src/plugins:/opt/airflow/plugins
-    - ./shared:/opt/airflow/shared
+#    # Uncomment for local development so that changes to DAGs and Tasks are immediately active
+#    # Note that this part is defined another time for the airflow-worker-test1
+#    - ./airflow_src/dags:/opt/airflow/dags
+#    - ./airflow_src/config:/opt/airflow/config
+#    - ./airflow_src/plugins:/opt/airflow/plugins
+#    - ./shared:/opt/airflow/shared
 
 services:
   postgres-service:
@@ -317,9 +317,9 @@ services:
       retries: 5
       start_period: 30s
 #    # Uncomment for local development so that changes to webapp are immediately active
-    volumes:
-      - ./webapp:/app/webapp
-      - ./shared:/app/webapp/shared
+#    volumes:
+#      - ./webapp:/app/webapp
+#      - ./shared:/app/webapp/shared
 
   airflow-worker-test1:
     profiles: ["local"]

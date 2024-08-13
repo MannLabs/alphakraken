@@ -30,7 +30,7 @@ FALLBACK_PROJECT_ID_BRUKER = "_FALLBACK_BRUKER"
 OUTPUT_FOLDER_PREFIX = "out_"
 
 # local folder on the instruments to move files to after copying to pool-backup
-INSTRUMENT_BACKUP_FOLDER_NAME = "Backup"
+INSTRUMENT_BACKUP_FOLDER_NAME = "Backup"  # TODO: rename this folder to "handled" or similar to avoid confusion with pool backup
 
 # separator between the timestamp and the raw file id in case of collisions
 COLLISION_FLAG_SEP = "---"

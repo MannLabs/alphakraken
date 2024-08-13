@@ -1,6 +1,6 @@
 """Tests for the db.interface module."""
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -14,6 +14,7 @@ from shared.db.interface import (
     add_new_settings_to_db,
     get_all_project_ids,
     get_raw_file_by_id,
+    get_raw_file_ids_older_than,
     get_raw_files_by_names_from_db,
     update_kraken_status,
     update_raw_file,
@@ -91,6 +92,29 @@ def test_get_raw_file_by_id(
     assert result == file1
 
     mock_connect_db.assert_called_once()
+    mock_raw_file.objects.assert_called_once_with(id="file1")
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.RawFile")
+@patch("shared.db.interface.datetime")
+def test_get_raw_file_ids_older_than(
+    mock_datetime: MagicMock, mock_raw_file: MagicMock, mock_connect_db: MagicMock
+) -> None:
+    """Test get raw file ids from DB returns correct value."""
+    file1 = MagicMock(id="id1")
+    mock_raw_file.objects.filter.return_value = [file1]
+
+    mock_datetime.now.return_value = datetime(2022, 7, 5, 4, 16, 0, 0, tzinfo=pytz.UTC)
+    result = get_raw_file_ids_older_than(30)
+
+    # then
+    assert result == ["id1"]
+
+    mock_connect_db.assert_called_once()
+    mock_raw_file.objects.filter.assert_called_once_with(
+        created_at__lt=mock_datetime.now.return_value - timedelta(days=30)
+    )
 
 
 @patch("shared.db.interface.connect_db")

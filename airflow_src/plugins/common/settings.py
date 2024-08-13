@@ -35,6 +35,8 @@ INSTRUMENT_BACKUP_FOLDER_NAME = "Backup"  # TODO: rename this folder to "handled
 # separator between the timestamp and the raw file id in case of collisions
 COLLISION_FLAG_SEP = "---"
 
+MIN_FILE_AGE_TO_REMOVE_D = 30  # days
+
 # relevant for Bruker only
 DEFAULT_RAW_FILE_SIZE_IF_MAIN_FILE_MISSING = -1
 

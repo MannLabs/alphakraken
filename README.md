@@ -163,6 +163,8 @@ Note: for now, user `kraken` should only have read access to the backup pool fol
 folder. If you need to remount one of the folders, add the `umount` option, e.g.
 `./mountall.sh $ENV output umount`.
 
+IMPORTANT NOTE: it is absolutely crucial that the mounts are set correctly (as provided by the `mountall.sh` script)
+as the workers operate only on docker-internal paths and cannot verify the correctness of the mounts.
 
 ### Setup SSH connection
 This connection is required to interact with the SLURM cluster.

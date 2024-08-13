@@ -14,7 +14,7 @@ from common.keys import InstrumentTypes
 from common.settings import (
     COLLISION_FLAG_SEP,
     get_instrument_type,
-    get_internal_instrument_backup_path,
+    get_internal_backup_path_for_instrument,
     get_internal_instrument_data_path,
 )
 
@@ -150,7 +150,7 @@ class RawFileCopyWrapper(ABC):  # TODO: rename to RawFileLocationWrapper, also m
             target_path
             if target_path is not None
             else (
-                get_internal_instrument_backup_path(instrument_id)
+                get_internal_backup_path_for_instrument(instrument_id)
                 / get_created_at_year_month(raw_file)
             )
         )

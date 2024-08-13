@@ -137,7 +137,9 @@ def get_internal_backup_path() -> Path:
     return Path(InternalPaths.MOUNTS_PATH) / InternalPaths.BACKUP
 
 
-def get_internal_instrument_backup_path(instrument_id: str) -> Path:
+def get_internal_backup_path_for_instrument(
+    instrument_id: str,
+) -> Path:
     """Get internal path for the given instrument.
 
     e.g. /opt/airflow/mounts/backup/test2

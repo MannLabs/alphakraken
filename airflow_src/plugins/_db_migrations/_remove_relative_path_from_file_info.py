@@ -22,10 +22,15 @@ def update_file_info_to_relative_paths(dry_run: bool = True) -> None:
     """
     connect_db()
 
-    raw_files = RawFile.objects(file_info__exists=True, backup_base_path__exists=False)
+    raw_files = RawFile.objects(backup_base_path__exists=False)
     backup_base_path = "/fs/pool/pool-backup/"  # deliberately hardcoded
+    skipped = 0
     for raw_file in raw_files:
         updated_file_info = {}
+
+        if raw_file.file_info is None or len(raw_file.file_info) == 0:
+            skipped += 1
+            continue
 
         for file_path, file_data in raw_file.file_info.items():
             # Convert the file_path to a Path object and make it relative to base_path
@@ -40,4 +45,4 @@ def update_file_info_to_relative_paths(dry_run: bool = True) -> None:
                 set__file_info=updated_file_info, set__backup_base_path=backup_base_path
             )
 
-    print(f"{dry_run=} Updated {len(raw_files)} RawFile documents.")
+    print(f"{dry_run=} Updated {len(raw_files)} RawFile documents. {skipped=}")

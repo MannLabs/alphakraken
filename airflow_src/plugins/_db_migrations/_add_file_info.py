@@ -15,7 +15,7 @@ To run the update:
 import sys
 
 from shared.db.engine import connect_db
-from shared.db.models import RawFile, get_created_at_year_month
+from shared.db.models import RawFile, RawFileStatus, get_created_at_year_month
 
 sys.path.insert(0, "/opt/airflow/plugins")
 from plugins.common.settings import (
@@ -41,6 +41,18 @@ def add_file_info(instrument_id: str, dry_run: bool = True) -> None:
     skipped_no_files = 0
 
     for raw_file in raw_files:
+        terminal_statuses = [
+            RawFileStatus.DONE,
+            RawFileStatus.QUANTING_FAILED,
+            RawFileStatus.ACQUISITION_FAILED,
+            RawFileStatus.ERROR,
+        ]
+        if (
+            raw_file.file_info is not None and len(raw_file.file_info) > 0
+        ) or raw_file.status not in terminal_statuses:
+            skipped += 1
+            continue
+
         pool_backup_path = get_internal_backup_path_for_instrument(
             instrument_id
         ) / get_created_at_year_month(raw_file)
@@ -50,9 +62,6 @@ def add_file_info(instrument_id: str, dry_run: bool = True) -> None:
             instrument_id=raw_file.instrument_id,
             raw_file=raw_file,
         )
-        if raw_file.file_info is not None and len(raw_file.file_info) > 0:
-            skipped += 1
-            continue
 
         file_info = {}
         backup_base_path = get_internal_backup_path()

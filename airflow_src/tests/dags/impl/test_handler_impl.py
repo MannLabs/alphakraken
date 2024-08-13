@@ -66,11 +66,12 @@ def test_copy_raw_file_calls_update_with_correct_args(
                 new_status=RawFileStatus.COPYING_DONE,
                 size=1000,
                 file_info={
-                    "/path/to/pool/some_backup_folder/test_file.raw": (
+                    "test_file.raw": (
                         1001,
                         "some_hash",
                     )
                 },
+                backup_base_path="/path/to/pool/some_backup_folder",
             ),
         ]
     )

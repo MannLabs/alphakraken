@@ -39,7 +39,11 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
 
     file_info = _get_file_info(copied_files)
 
-    # a bit hacky to get the file size once again, but it's a cheap operation
+    pool_base_path = Path(get_env_variable(EnvVars.POOL_BASE_PATH))
+    backup_pool_folder = get_env_variable(EnvVars.BACKUP_POOL_FOLDER)
+    backup_base_path = pool_base_path / backup_pool_folder
+
+    # a bit hacky to get the file size once again, but it's a cheap operation and avoids complicate logic
     file_size = get_file_size(
         raw_file_copy_wrapper.file_path_to_calculate_size(),
         DEFAULT_RAW_FILE_SIZE_IF_MAIN_FILE_MISSING,
@@ -49,6 +53,7 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
         new_status=RawFileStatus.COPYING_DONE,
         size=file_size,
         file_info=file_info,
+        backup_base_path=str(backup_base_path),
     )
 
 
@@ -57,17 +62,14 @@ def _get_file_info(
 ) -> dict[str, tuple[float, str]]:
     """Map the paths of the copied files from the internal to their actual locations.
 
-    e.g. from `/opt/airflow/mounts/backup/test1/2024_08/test_file_SA_P1_1.raw` -> `/fs/pool/pool-backup/test1/2024_08/test_file_SA_P1_1.raw`
+    e.g. from `/opt/airflow/mounts/backup/test1/2024_08/test_file_SA_P1_1.raw` -> `test1/2024_08/test_file_SA_P1_1.raw`
     """
-    pool_base_path = Path(get_env_variable(EnvVars.POOL_BASE_PATH))
-    backup_pool_folder = get_env_variable(EnvVars.BACKUP_POOL_FOLDER)
-    pool_backup_folder_path = pool_base_path / backup_pool_folder
     internal_backup_path = get_internal_backup_path()
 
     file_info: dict[str, tuple[float, str]] = {}
     for dst_path, file_size_and_hash in copied_files.items():
         rel_dst_path = dst_path.relative_to(internal_backup_path)
-        file_info[str(pool_backup_folder_path / rel_dst_path)] = file_size_and_hash
+        file_info[str(rel_dst_path)] = file_size_and_hash
 
     return file_info
 

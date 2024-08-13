@@ -40,8 +40,7 @@ def _safe_remove_files(raw_file_id: str) -> None:
 
     :param raw_file_id: ID of the raw file to delete
 
-    :raises:
-    - FileRemovalError if one of the checks or deletions fails
+    :raises: FileRemovalError if one of the checks or deletions fails
 
     To avoid mistakes in deletion, this method works very defensively:
     - takes as ground truth the contents of the instrument Backup folder (i.e. the files that will be actually deleted)
@@ -51,13 +50,13 @@ def _safe_remove_files(raw_file_id: str) -> None:
         - compares* it to the corresponding file in the DB (to verify that it is actually the file that should be deleted)
     - only if all checks pass for all files associated with a raw file, the file is deleted.
 
-    *Note: To avoid extra traffic, a size comparison instead of hash comparison is used for these checks. Given that
-        the instrument Backup folder contains only files that have passed a hash check against the pool backup,
-        this should be sufficient.
+    *Note: To avoid extra network traffic, a size comparison instead of hash comparison is used for these checks.
+        Given that the instrument Backup folder contains only files that have passed a hash check against the
+        pool backup, this should be sufficient.
     """
     raw_file = get_raw_file_by_id(raw_file_id)
-    instrument_id = raw_file.instrument_id
 
+    instrument_id = raw_file.instrument_id
     instrument_backup_path = (
         get_internal_instrument_data_path(instrument_id) / INSTRUMENT_BACKUP_FOLDER_NAME
     )
@@ -99,6 +98,7 @@ def _remove_files(
     :param file_paths_to_remove: list of absolute paths to remove
     :param base_file_path_to_remove: absolute path to base file to remove (redundant to file_paths_to_remove unless it's a
     directory)
+
     :raises: FileRemovalError if removing a file fails.
     """
     if get_env_variable(EnvVars.ENV_NAME) != "production":

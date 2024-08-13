@@ -23,7 +23,7 @@ def update_file_info_to_relative_paths(dry_run: bool = True) -> None:
     connect_db()
 
     raw_files = RawFile.objects(backup_base_path__exists=False)
-    backup_base_path = "/fs/pool/pool-backup/"  # deliberately hardcoded
+    backup_base_path = "/fs/pool/pool-backup"  # deliberately hardcoded
     skipped = 0
     for raw_file in raw_files:
         updated_file_info = {}
@@ -34,7 +34,7 @@ def update_file_info_to_relative_paths(dry_run: bool = True) -> None:
 
         for file_path, file_data in raw_file.file_info.items():
             # Convert the file_path to a Path object and make it relative to base_path
-            relative_path = file_path.replace(backup_base_path, "")
+            relative_path = file_path.replace(f"{backup_base_path}/", "")
             updated_file_info[relative_path] = file_data
 
         print(

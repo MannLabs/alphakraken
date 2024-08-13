@@ -112,28 +112,47 @@ class BrukerRawFileMonitorWrapper(RawFileMonitorWrapper):
         return self._instrument_path / self._raw_file_name / self.main_file_name
 
 
-class RawFileCopyWrapper(ABC):
+class RawFileCopyWrapper(ABC):  # TODO: rename to RawFileLocationWrapper, also methods
     """Abstract base class for preparing the copying or moving of raw data files."""
 
     def __init__(
-        self, instrument_id: str, raw_file: RawFile, target_path: Path | None = None
+        self,
+        instrument_id: str,
+        *,
+        raw_file: RawFile,
+        source_path: Path | None = None,
+        target_path: Path | None = None,
     ):
         """Initialize the RawFileCopyWrapper.
 
+        The default settings for `source_path` and `target_path` pertain to the
+        'copy files from instrument data path to pool backup path` cases.
+        Overwrite `source_path` and/or `target_path` for other cases
+        ('move to instrument backup'/'get files for removing from instrument backup').
+        TODO: think about moving this logic to here (or to some PathProvider class)
+
         :param instrument_id: the ID of the instrument
         :param raw_file: a raw file object
+        :param source_path: optional source base path. If not specified:
+            data path of instrument with `instrument_id`
         :param target_path: optional target base path. If not specified:
             default backup path + year-month specific folder
         """
         self._raw_file = raw_file
 
-        self._instrument_path = get_internal_instrument_data_path(instrument_id)
+        self._instrument_path = (
+            source_path
+            if source_path is not None
+            else get_internal_instrument_data_path(instrument_id)
+        )
 
         self._target_path = (
-            get_internal_instrument_backup_path(instrument_id)
-            / get_created_at_year_month(raw_file)
-            if target_path is None
-            else target_path
+            target_path
+            if target_path is not None
+            else (
+                get_internal_instrument_backup_path(instrument_id)
+                / get_created_at_year_month(raw_file)
+            )
         )
 
         self._acquisition_monitor = RawFileWrapperFactory.create_monitor_wrapper(
@@ -142,7 +161,7 @@ class RawFileCopyWrapper(ABC):
 
     @abstractmethod
     def get_files_to_copy(self) -> dict[Path, Path]:
-        """Get a dictionary mapping source file to destination paths for copying.
+        """Get a dictionary mapping source file to destination paths for file-by-file operations (copying or removing).
 
         This gives a 1:1 mapping between source and destination files (not folders!).
         """
@@ -261,7 +280,7 @@ class RawFileWrapperFactory:
 
     @classmethod
     def _create_handler(
-        cls, handler_type: str, instrument_id: str, *args
+        cls, handler_type: str, instrument_id: str, **kwargs
     ) -> Union["RawFileMonitorWrapper", "RawFileCopyWrapper"]:
         """Create a handler of the specified type for the given instrument.
 
@@ -278,7 +297,7 @@ class RawFileWrapperFactory:
                 f"Unsupported vendor or handler type: {instrument_type}, {handler_type}"
             )
 
-        return handler_class(instrument_id, *args)
+        return handler_class(instrument_id, **kwargs)
 
     @classmethod
     def create_monitor_wrapper(
@@ -290,16 +309,27 @@ class RawFileWrapperFactory:
         :param raw_file_name: The name of the raw file to monitor
         :return: An instance of the appropriate RawFileMonitorWrapper subclass
         """
-        return cls._create_handler(MONITOR, instrument_id, raw_file_name)
+        return cls._create_handler(MONITOR, instrument_id, raw_file_name=raw_file_name)
 
     @classmethod
     def create_copy_wrapper(
-        cls, instrument_id: str, raw_file: RawFile, target_path: Path | None = None
+        cls,
+        instrument_id: str,
+        raw_file: RawFile,
+        target_path: Path | None = None,
+        source_path: Path | None = None,
     ) -> RawFileCopyWrapper:
         """Create a RawFileCopyWrapper for the specified instrument and raw file.
 
         :param instrument_id: The ID of the instrument
         :param raw_file: a raw file object
-        :param target_path: optional target base path
+        :param source_path: optional source base path (see docu of RawFileCopyWrapper)
+        :param target_path: optional target base path (see docu of RawFileCopyWrapper)
         """
-        return cls._create_handler(COPIER, instrument_id, raw_file, target_path)
+        return cls._create_handler(
+            COPIER,
+            instrument_id,
+            raw_file=raw_file,
+            source_path=source_path,
+            target_path=target_path,
+        )

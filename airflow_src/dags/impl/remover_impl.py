@@ -66,25 +66,20 @@ def _safe_remove_files(raw_file_id: str) -> None:
         source_path=instrument_backup_path,  # TODO: better source_sub_folder?
     )
 
-    files_to_compare = file_wrapper.get_files_to_copy()
-    logging.info(f"{files_to_compare=}")
-
-    file_info_in_db: dict[str, tuple[float, str]] = raw_file.file_info
-    logging.info(f"{file_info_in_db=}")
-
     file_paths_to_remove: list[Path] = []
-    for file_path_to_remove, file_path_pool_backup in files_to_compare.items():
+    for (
+        file_path_to_remove,
+        file_path_pool_backup,
+    ) in file_wrapper.get_files_to_copy().items():
         _check_file(
             file_path_to_remove,
             file_path_pool_backup,
-            file_info_in_db,
+            raw_file.file_info,
         )
 
         logging.info(f"Marking file {file_path_to_remove} for removal .. ")
 
         file_paths_to_remove.append(file_path_to_remove)
-
-    logging.info(f"got {file_paths_to_remove=}")
 
     base_file_path_to_remove = instrument_backup_path / raw_file_id
     _remove_files(file_paths_to_remove, base_file_path_to_remove)
@@ -107,6 +102,7 @@ def _remove_files(
         )
         return
 
+    logging.info(f"removing files {base_file_path_to_remove}, {file_paths_to_remove}")
     try:
         for file_path_to_remove in file_paths_to_remove:
             f"Removing file {file_path_to_remove} .."
@@ -137,7 +133,9 @@ def _check_file(
 
     :raises: FileCheckError if one of the checks fails.
     """
-    logging.info(f"Comparing {file_path_to_remove=} to {file_path_pool_backup=} .. ")
+    logging.info(
+        f"Comparing {file_path_to_remove=} to {file_path_pool_backup=} with {file_info_in_db=}"
+    )
     size_on_instrument = get_file_size(file_path_to_remove)
 
     # Check 1: the single file to delete is present on the pool-backup

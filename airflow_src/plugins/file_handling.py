@@ -136,7 +136,7 @@ def compare_paths(
             continue
 
         if source_item.is_dir():
-            # no hashsum check for directories
+            # no comparison for directories
             continue
 
         source_hash = _get_file_hash(source_item)

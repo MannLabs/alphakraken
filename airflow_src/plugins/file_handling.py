@@ -56,8 +56,8 @@ def _get_file_hash(file_path: Path, chunk_size: int = 8192) -> str:
     return file_hash.hexdigest()
 
 
-def _file_already_exists(dst_path: Path, src_hash: str) -> bool:
-    """Check if a file already exists in the backup location and has the same hash."""
+def _identical_copy_exists(dst_path: Path, src_hash: str) -> bool:
+    """Check if a file already exists in `dst_path` and has the same hash."""
     if dst_path.exists():
         logging.info("File already exists in backup location. Checking hash ..")
         if _get_file_hash(dst_path) == src_hash:
@@ -76,7 +76,7 @@ def copy_file(
     src_hash = _get_file_hash(src_path)
     time_elapsed = (datetime.now() - start).total_seconds()  # noqa: DTZ005
     logging.info(f"Hash calculated. Time elapsed: {time_elapsed/60:.1f} min")
-    if _file_already_exists(dst_path, src_hash):
+    if _identical_copy_exists(dst_path, src_hash):
         return get_file_size(dst_path), src_hash
     if not dst_path.parent.exists():
         logging.info(f"Creating parent directories for {dst_path} ..")

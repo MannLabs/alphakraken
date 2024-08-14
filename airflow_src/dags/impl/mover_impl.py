@@ -108,7 +108,7 @@ def _check_main_file_to_move(
     file_path_to_calculate_size = Path(file_path_to_calculate_size_str)
     raw_file = get_raw_file_by_id(raw_file_id)
 
-    if current_size := get_file_size(file_path_to_calculate_size) != raw_file.size:
+    if (current_size := get_file_size(file_path_to_calculate_size)) != raw_file.size:
         raise AirflowFailException(
             f"File size mismatch for {file_path_to_calculate_size}. Current: {current_size}, DB: {raw_file.size}. "
         )

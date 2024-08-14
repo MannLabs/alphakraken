@@ -11,7 +11,9 @@ from airflow.exceptions import AirflowFailException
 from common.settings import get_internal_instrument_data_path
 
 
-def get_file_creation_timestamp(raw_file_name: str, instrument_id: str) -> float:
+def get_file_creation_timestamp(
+    raw_file_name: str, instrument_id: str, *, verbose: bool = True
+) -> float:
     """Get the creation timestamp (unix epoch) of a raw file.
 
     Note that the results of this method will be compared for one file across different file systems,
@@ -21,11 +23,13 @@ def get_file_creation_timestamp(raw_file_name: str, instrument_id: str) -> float
     file_creation_ts = raw_file_path.stat().st_ctime
     logging.info(
         f"File {raw_file_name} has {file_creation_ts=} {datetime.fromtimestamp(file_creation_ts, tz=pytz.UTC)}"
-    )
+    ) if verbose else None
     return file_creation_ts
 
 
-def get_file_size(file_path: Path, default: int | None = None) -> float:
+def get_file_size(
+    file_path: Path, default: int | None = None, *, verbose: bool = True
+) -> float:
     """Get the size (in bytes) of a file.
 
     Note that the results of this method will be compared for one file across different file systems,
@@ -37,22 +41,29 @@ def get_file_size(file_path: Path, default: int | None = None) -> float:
         file_size_bytes = file_path.stat().st_size
     except FileNotFoundError as e:
         if default is not None:
-            logging.info(f"File {file_path} not found, returning {default=}")
+            logging.info(
+                f"File {file_path} not found, returning {default=}"
+            ) if verbose else None
             return default
         raise e from e
     file_size_mb = file_size_bytes / 1024**2
-    logging.info(f"File {file_path} has {file_size_bytes=} ({file_size_mb:.2f} MB)")
+    logging.info(
+        f"File {file_path} has {file_size_bytes=} ({file_size_mb:.2f} MB)"
+    ) if verbose else None
     return file_size_bytes
 
 
-def _get_file_hash(file_path: Path, chunk_size: int = 8192) -> str:
+def _get_file_hash(
+    file_path: Path, chunk_size: int = 8192, *, verbose: bool = True
+) -> str:
     """Get the hash of a file."""
-    logging.info(f"Calculating hash of {file_path} ..")
+    logging.info(f"Calculating hash of {file_path} ..") if verbose else None
+
     with file_path.open("rb") as f:
         file_hash = hashlib.md5()  # noqa: S324
         while chunk := f.read(chunk_size):
             file_hash.update(chunk)
-    logging.info(f".. hash is {file_hash.hexdigest()}")
+    logging.info(f".. hash is {file_hash.hexdigest()}") if verbose else None
     return file_hash.hexdigest()
 
 

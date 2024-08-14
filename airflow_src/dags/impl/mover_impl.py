@@ -104,7 +104,7 @@ def _check_main_file_to_move(
     """
     raw_file_id = context[DagContext.PARAMS][DagParams.RAW_FILE_ID]
 
-    file_path_to_calculate_size_str = get_xcom(ti, XComKeys.FILES_TO_MOVE)
+    file_path_to_calculate_size_str = get_xcom(ti, XComKeys.MAIN_FILE_TO_MOVE)
     file_path_to_calculate_size = Path(file_path_to_calculate_size_str)
     raw_file = get_raw_file_by_id(raw_file_id)
 

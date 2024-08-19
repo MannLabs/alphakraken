@@ -261,7 +261,10 @@ class RawFileCopyWrapper(ABC):  # TODO: rename to RawFileLocationWrapper, also m
         return self._acquisition_monitor.file_path_to_monitor_acquisition()
 
     def _get_destination_file_path(self, file_path: Path) -> Path:
-        """Get destination file path by replacing the original file name with the raw file id in the given path."""
+        """Get destination file path by replacing the original file name with the raw file id in the given path.
+
+        Note: depending on the used PathProvider, the two could be the same.
+        """
         return Path(
             str(file_path).replace(self._source_file_name, self._target_file_name)
         )
@@ -287,10 +290,11 @@ class ZenoRawFileCopyWrapper(RawFileCopyWrapper):
     def get_files_to_copy(self) -> dict[Path, Path]:
         """Get the mapping of source to destination paths (both absolute) for the raw file.
 
-        In addition to the raw file (e.g. raw_file.wiff), all other files sharing
-        the same stem are considered here (e.g. raw_file.something).
+        All other files sharing the same stem with the raw file (e.g. `some_file.wiff` -> stem: `some_file`),
+        are considered here (e.g. some_file.wiff, some_file.wiff.scan, some_file.wiff2, some_file.timeseries.data).
         """
         files_to_copy = {}
+
         src_file_stem = Path(self._source_file_name).stem
         for file_path in self._source_path.glob(f"{src_file_stem}.*"):
             src_path = file_path

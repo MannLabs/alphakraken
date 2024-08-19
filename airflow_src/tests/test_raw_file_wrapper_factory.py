@@ -16,8 +16,10 @@ from plugins.raw_file_wrapper_factory import (
     BrukerRawFileCopyWrapper,
     BrukerRawFileMonitorWrapper,
     CopyPathProvider,
+    MovePathProvider,
     RawFileMonitorWrapper,
     RawFileWrapperFactory,
+    RemovePathProvider,
     ThermoRawFileCopyWrapper,
     ThermoRawFileMonitorWrapper,
     ZenoRawFileCopyWrapper,
@@ -73,6 +75,58 @@ def test_raw_file_wrapper_factory_instantiation_monitors(
             instrument_id="instrument1", raw_file_name=f"some_file{extension}"
         )
         assert isinstance(wrapper, expected_class)
+
+
+@pytest.fixture()
+def mock_raw_file() -> RawFile:
+    """Fixture for a mock RawFile."""
+    return RawFile(
+        id="123---original_file.raw",
+        original_name="original_file.raw",
+        created_at=datetime(2023, 1, 1, tzinfo=pytz.UTC),
+    )
+
+
+def test_copy_path_provider(mock_raw_file: RawFile) -> None:
+    """Test the CopyPathProvider class."""
+    provider = CopyPathProvider("instrument1", mock_raw_file)
+
+    assert provider.get_source_path() == Path(
+        "/opt/airflow/mounts/instruments/instrument1"
+    )
+    assert provider.get_target_path() == Path(
+        "/opt/airflow/mounts/backup/instrument1/2023_01"
+    )
+    assert provider.get_source_file_name() == "original_file.raw"
+    assert provider.get_target_file_name() == "123---original_file.raw"
+
+
+def test_move_path_provider(mock_raw_file: RawFile) -> None:
+    """Test the MovePathProvider class."""
+    provider = MovePathProvider("instrument1", mock_raw_file)
+
+    assert provider.get_source_path() == Path(
+        "/opt/airflow/mounts/instruments/instrument1"
+    )
+    assert provider.get_target_path() == Path(
+        "/opt/airflow/mounts/instruments/instrument1/Backup"
+    )
+    assert provider.get_source_file_name() == "original_file.raw"
+    assert provider.get_target_file_name() == "123---original_file.raw"
+
+
+def test_remove_path_provider(mock_raw_file: RawFile) -> None:
+    """Test the RemovePathProvider class."""
+    provider = RemovePathProvider("instrument1", mock_raw_file)
+
+    assert provider.get_source_path() == Path(
+        "/opt/airflow/mounts/instruments/instrument1/Backup"
+    )
+    assert provider.get_target_path() == Path(
+        "/opt/airflow/mounts/backup/instrument1/2023_01"
+    )
+    assert provider.get_source_file_name() == "123---original_file.raw"
+    assert provider.get_target_file_name() == "123---original_file.raw"
 
 
 @pytest.mark.parametrize(

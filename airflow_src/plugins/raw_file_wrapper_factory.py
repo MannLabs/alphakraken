@@ -260,15 +260,6 @@ class RawFileCopyWrapper(ABC):  # TODO: rename to RawFileLocationWrapper, also m
         """Get the path to the file to calculate size."""
         return self._acquisition_monitor.file_path_to_monitor_acquisition()
 
-    def _get_destination_file_path(self, file_path: Path) -> Path:
-        """Get destination file path by replacing the original file name with the raw file id in the given path.
-
-        Note: depending on the used PathProvider, the two could be the same.
-        """
-        return Path(
-            str(file_path).replace(self._source_file_name, self._target_file_name)
-        )
-
 
 class ThermoRawFileCopyWrapper(RawFileCopyWrapper):
     """Class wrapping Thermo-specific logic."""
@@ -296,11 +287,15 @@ class ZenoRawFileCopyWrapper(RawFileCopyWrapper):
         files_to_copy = {}
 
         src_file_stem = Path(self._source_file_name).stem
-        for file_path in self._source_path.glob(f"{src_file_stem}.*"):
-            src_path = file_path
-            dst_path = self._target_path / file_path.name
+        dst_file_stem = Path(self._target_file_name).stem
 
-            files_to_copy[src_path] = self._get_destination_file_path(dst_path)
+        for src_file_path in self._source_path.glob(f"{src_file_stem}.*"):
+            # resorting to string manipulation here, because of double-extensions (e.g. .wiff.scan)
+            dst_file_path = Path(
+                src_file_path.name.replace(src_file_stem, dst_file_stem)
+            )
+
+            files_to_copy[src_file_path] = self._target_path / dst_file_path
 
         logging.info(f"{files_to_copy=}")
         return files_to_copy
@@ -315,18 +310,17 @@ class BrukerRawFileCopyWrapper(RawFileCopyWrapper):
         All files within the raw file directory are returned (including those in subfolders).
         """
         src_base_path = self._source_path / self._source_file_name
+        dst_base_path = self._target_path / self._target_file_name
 
         files_to_copy = {}
 
         for src_item in src_base_path.rglob("*"):
             if src_item.is_file():
                 src_file_path = src_item
-                rel_file_path = src_file_path.relative_to(self._source_path)
-                dst_file_path = self._target_path / rel_file_path
+                rel_file_path = src_file_path.relative_to(src_base_path)
 
-                files_to_copy[src_file_path] = self._get_destination_file_path(
-                    dst_file_path
-                )
+                files_to_copy[src_file_path] = dst_base_path / rel_file_path
+
         logging.info(f"{files_to_copy=}")
         return files_to_copy
 

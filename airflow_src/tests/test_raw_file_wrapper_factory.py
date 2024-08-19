@@ -95,7 +95,7 @@ def test_raw_file_wrapper_factory_instantiation_copier(
         wrapper = RawFileWrapperFactory.create_copy_wrapper(
             instrument_id="instrument1",
             raw_file=mock_raw_file,
-            path_provider_class=CopyPathProvider,
+            path_provider=CopyPathProvider,
         )
         assert isinstance(wrapper, expected_class)
 
@@ -207,7 +207,7 @@ def test_thermo_get_files_to_copy(
     )
 
     wrapper = ThermoRawFileCopyWrapper(
-        "instrument1", raw_file=mock_raw_file, path_provider_class=CopyPathProvider
+        "instrument1", raw_file=mock_raw_file, path_provider=CopyPathProvider
     )
     expected_mapping = {
         Path("/path/to/instrument/sample.raw"): Path(
@@ -238,7 +238,7 @@ def test_zeno_get_files_to_copy(
     )
 
     wrapper = ZenoRawFileCopyWrapper(
-        "instrument1", raw_file=mock_raw_file, path_provider_class=CopyPathProvider
+        "instrument1", raw_file=mock_raw_file, path_provider=CopyPathProvider
     )
     expected_mapping = {
         Path("/path/to/instrument/sample.wiff"): Path(
@@ -280,7 +280,7 @@ def test_bruker_get_files_to_copy(
     )
 
     wrapper = BrukerRawFileCopyWrapper(
-        "instrument1", raw_file=mock_raw_file, path_provider_class=CopyPathProvider
+        "instrument1", raw_file=mock_raw_file, path_provider=CopyPathProvider
     )
     expected_mapping = {
         mp1: Path(

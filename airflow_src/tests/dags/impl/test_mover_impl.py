@@ -48,7 +48,7 @@ def test_get_files_to_move_correctly_puts_files_to_xcom(
     get_files_to_move(ti, **kwargs)
 
     mock_create_copy_wrapper.assert_called_once_with(
-        "instrument1", mock_raw_file, path_provider_class=MovePathProvider
+        "instrument1", mock_raw_file, path_provider=MovePathProvider
     )
 
     mock_put_xcom.assert_has_calls(

@@ -59,7 +59,7 @@ def _safe_remove_files(raw_file_id: str) -> None:
     instrument_id = raw_file.instrument_id
 
     file_wrapper = RawFileWrapperFactory.create_copy_wrapper(
-        instrument_id, raw_file, path_provider_class=RemovePathProvider
+        instrument_id, raw_file, path_provider=RemovePathProvider
     )
 
     file_paths_to_remove: list[Path] = []

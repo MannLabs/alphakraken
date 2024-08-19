@@ -149,7 +149,7 @@ def test_safe_remove_files_success(
     mock_check_file.assert_called_once()
     mock_remove_files.assert_called_once()
     mock_wrapper_factory.create_copy_wrapper.assert_called_once_with(
-        "instrument1", mock_raw_file, path_provider_class=RemovePathProvider
+        "instrument1", mock_raw_file, path_provider=RemovePathProvider
     )
 
 

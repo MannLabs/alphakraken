@@ -14,6 +14,7 @@ from dags.impl.remover_impl import (
     get_raw_files_to_remove,
     remove_raw_files,
 )
+from raw_file_wrapper_factory import RemovePathProvider
 
 
 @patch("dags.impl.remover_impl.get_raw_file_ids_older_than")
@@ -147,6 +148,9 @@ def test_safe_remove_files_success(
     # then
     mock_check_file.assert_called_once()
     mock_remove_files.assert_called_once()
+    mock_wrapper_factory.create_copy_wrapper.assert_called_once_with(
+        "instrument1", mock_raw_file, path_provider_class=RemovePathProvider
+    )
 
 
 @patch("dags.impl.remover_impl.get_raw_file_by_id")

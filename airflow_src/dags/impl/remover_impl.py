@@ -14,7 +14,7 @@ from common.settings import (
 )
 from common.utils import get_env_variable, get_xcom, put_xcom
 from file_handling import get_file_size
-from raw_file_wrapper_factory import RawFileWrapperFactory
+from raw_file_wrapper_factory import RawFileWrapperFactory, RemovePathProvider
 
 from shared.db.interface import get_raw_file_by_id, get_raw_file_ids_older_than
 from shared.keys import EnvVars
@@ -59,7 +59,7 @@ def _safe_remove_files(raw_file_id: str) -> None:
     instrument_id = raw_file.instrument_id
 
     file_wrapper = RawFileWrapperFactory.create_copy_wrapper(
-        instrument_id, raw_file, "REMOVE"
+        instrument_id, raw_file, path_provider_class=RemovePathProvider
     )
 
     file_paths_to_remove: list[Path] = []

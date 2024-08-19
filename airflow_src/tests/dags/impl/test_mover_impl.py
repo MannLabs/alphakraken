@@ -8,6 +8,7 @@ import pytest
 from airflow.exceptions import AirflowFailException
 from common.keys import DagContext, DagParams, XComKeys
 from dags.impl.mover_impl import _check_main_file_to_move, get_files_to_move, move_files
+from raw_file_wrapper_factory import MovePathProvider
 
 
 @pytest.fixture()
@@ -47,7 +48,7 @@ def test_get_files_to_move_correctly_puts_files_to_xcom(
     get_files_to_move(ti, **kwargs)
 
     mock_create_copy_wrapper.assert_called_once_with(
-        "instrument1", mock_raw_file, "MOVE"
+        "instrument1", mock_raw_file, path_provider_class=MovePathProvider
     )
 
     mock_put_xcom.assert_has_calls(

@@ -15,6 +15,7 @@ from db.models import RawFile
 from plugins.raw_file_wrapper_factory import (
     BrukerRawFileCopyWrapper,
     BrukerRawFileMonitorWrapper,
+    CopyPathProvider,
     RawFileMonitorWrapper,
     RawFileWrapperFactory,
     ThermoRawFileCopyWrapper,
@@ -92,7 +93,9 @@ def test_raw_file_wrapper_factory_instantiation_copier(
     mock_raw_file = MagicMock()
     with patch.dict(INSTRUMENTS, {"instrument1": {"type": instrument_type}}):
         wrapper = RawFileWrapperFactory.create_copy_wrapper(
-            instrument_id="instrument1", raw_file=mock_raw_file, operation="COPY"
+            instrument_id="instrument1",
+            raw_file=mock_raw_file,
+            path_provider_class=CopyPathProvider,
         )
         assert isinstance(wrapper, expected_class)
 
@@ -204,7 +207,7 @@ def test_thermo_get_files_to_copy(
     )
 
     wrapper = ThermoRawFileCopyWrapper(
-        "instrument1", raw_file=mock_raw_file, operation="COPY"
+        "instrument1", raw_file=mock_raw_file, path_provider_class=CopyPathProvider
     )
     expected_mapping = {
         Path("/path/to/instrument/sample.raw"): Path(
@@ -235,7 +238,7 @@ def test_zeno_get_files_to_copy(
     )
 
     wrapper = ZenoRawFileCopyWrapper(
-        "instrument1", raw_file=mock_raw_file, operation="COPY"
+        "instrument1", raw_file=mock_raw_file, path_provider_class=CopyPathProvider
     )
     expected_mapping = {
         Path("/path/to/instrument/sample.wiff"): Path(
@@ -277,7 +280,7 @@ def test_bruker_get_files_to_copy(
     )
 
     wrapper = BrukerRawFileCopyWrapper(
-        "instrument1", raw_file=mock_raw_file, operation="COPY"
+        "instrument1", raw_file=mock_raw_file, path_provider_class=CopyPathProvider
     )
     expected_mapping = {
         mp1: Path(

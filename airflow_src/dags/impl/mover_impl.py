@@ -10,7 +10,7 @@ from airflow.models import TaskInstance
 from common.keys import DagContext, DagParams, XComKeys
 from common.utils import get_env_variable, get_xcom, put_xcom
 from file_handling import compare_paths, get_file_size
-from raw_file_wrapper_factory import RawFileWrapperFactory
+from raw_file_wrapper_factory import MovePathProvider, RawFileWrapperFactory
 
 from shared.db.interface import get_raw_file_by_id
 from shared.keys import EnvVars
@@ -24,7 +24,7 @@ def get_files_to_move(ti: TaskInstance, **kwargs) -> None:
     instrument_id = raw_file.instrument_id
 
     move_wrapper = RawFileWrapperFactory.create_copy_wrapper(
-        instrument_id, raw_file, "MOVE"
+        instrument_id, raw_file, path_provider_class=MovePathProvider
     )
 
     files_to_move = move_wrapper.get_files_to_move()

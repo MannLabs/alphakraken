@@ -36,6 +36,7 @@ class RawFileMonitorWrapper(ABC):
         :param raw_file_name: The name of the raw file. Needs to be set to allow calling file_path_to_monitor_acquisition().
         """
         self._instrument_path = get_internal_instrument_data_path(instrument_id)
+
         # Extracting the collision flag like this is a bit hacky,
         # but it makes the class work also without the raw_file object.
         self._raw_file_name: str | None = (
@@ -113,6 +114,101 @@ class BrukerRawFileMonitorWrapper(RawFileMonitorWrapper):
         return self._instrument_path / self._raw_file_name / self.main_file_name
 
 
+class PathProvider(ABC):
+    """Abstract base class for providing source and target paths for raw file operations.
+
+    Depending on the use case (copy to pool backup, move to instrument backup, compare before deletion, the
+    source and target paths and file names can differ. This class provides a common interface for all of them.
+    """
+
+    @abstractmethod
+    def get_source_path(self, instrument_id: str) -> Path:
+        """Get the source path (=folder where raw file is located) for a raw file operation."""
+
+    @abstractmethod
+    def get_target_path(self, instrument_id: str, raw_file: RawFile) -> Path:
+        """Get the target path (=folder where raw file is located) for a raw file operation."""
+
+    @abstractmethod
+    def get_source_file_name(self, raw_file: RawFile) -> str:
+        """Get the source file name for a raw file operation."""
+
+    @abstractmethod
+    def get_target_file_name(self, raw_file: RawFile) -> str:
+        """Get the target file name for a raw file operation."""
+
+
+class CopyPathProvider(PathProvider):
+    """PathProvider for copying raw files from the instrument (original name) to the pool backup (raw file id)."""
+
+    def get_source_path(self, instrument_id: str) -> Path:
+        """See docu of superclass."""
+        return get_internal_instrument_data_path(instrument_id)
+
+    def get_target_path(self, instrument_id: str, raw_file: RawFile) -> Path:
+        """See docu of superclass."""
+        return get_internal_backup_path_for_instrument(
+            instrument_id
+        ) / get_created_at_year_month(raw_file)
+
+    def get_source_file_name(self, raw_file: RawFile) -> str:
+        """See docu of superclass."""
+        return raw_file.original_name
+
+    def get_target_file_name(self, raw_file: RawFile) -> str:
+        """See docu of superclass."""
+        return raw_file.id
+
+
+class MovePathProvider(PathProvider):
+    """PathProvider for moving raw files from the instrument (original name) to the instrument backup (raw file id)."""
+
+    def get_source_path(self, instrument_id: str) -> Path:
+        """See docu of superclass."""
+        return get_internal_instrument_data_path(instrument_id)
+
+    def get_target_path(self, instrument_id: str, raw_file: RawFile) -> Path:
+        """See docu of superclass."""
+        del raw_file  # unused
+        return (
+            get_internal_instrument_data_path(instrument_id)
+            / INSTRUMENT_BACKUP_FOLDER_NAME
+        )
+
+    def get_source_file_name(self, raw_file: RawFile) -> str:
+        """See docu of superclass."""
+        return raw_file.original_name
+
+    def get_target_file_name(self, raw_file: RawFile) -> str:
+        """See docu of superclass."""
+        return raw_file.id
+
+
+class RemovePathProvider(PathProvider):
+    """PathProvider for comparing raw files from instrument backup (raw file id) to the pool backup (raw file id)."""
+
+    def get_source_path(self, instrument_id: str) -> Path:
+        """See docu of superclass."""
+        return (
+            get_internal_instrument_data_path(instrument_id)
+            / INSTRUMENT_BACKUP_FOLDER_NAME
+        )
+
+    def get_target_path(self, instrument_id: str, raw_file: RawFile) -> Path:
+        """See docu of superclass."""
+        return get_internal_backup_path_for_instrument(
+            instrument_id
+        ) / get_created_at_year_month(raw_file)
+
+    def get_source_file_name(self, raw_file: RawFile) -> str:
+        """See docu of superclass."""
+        return raw_file.id
+
+    def get_target_file_name(self, raw_file: RawFile) -> str:
+        """See docu of superclass."""
+        return raw_file.id
+
+
 class RawFileCopyWrapper(ABC):  # TODO: rename to RawFileLocationWrapper, also methods
     """Abstract base class for preparing the copying or moving of raw data files."""
 
@@ -121,45 +217,19 @@ class RawFileCopyWrapper(ABC):  # TODO: rename to RawFileLocationWrapper, also m
         instrument_id: str,
         *,
         raw_file: RawFile,
-        operation: str,
+        path_provider_class: type[PathProvider],
     ):
         """Initialize the RawFileCopyWrapper.
 
         :param instrument_id: the ID of the instrument
         :param raw_file: a raw file object
-        :param operation: the operation to perform (COPY, MOVE, or REMOVE)
+        :param path_provider_class: the path provider class for the operation
         """
-        # copy: from instrument (original name) to pool backup (raw file id)
-        internal_instrument_data_path = get_internal_instrument_data_path(instrument_id)
-        if operation == "COPY":
-            self._source_path = internal_instrument_data_path
-            self._target_path = get_internal_backup_path_for_instrument(
-                instrument_id
-            ) / get_created_at_year_month(raw_file)
-            self._source_file_name = raw_file.original_name
-            self._target_file_name = raw_file.id
-
-        # move: from instrument (original name) to instrument backup (raw file id)
-        elif operation == "MOVE":
-            self._source_path = internal_instrument_data_path
-            self._target_path = (
-                internal_instrument_data_path / INSTRUMENT_BACKUP_FOLDER_NAME
-            )
-            self._source_file_name = raw_file.original_name
-            self._target_file_name = raw_file.id
-
-        # remove: compare from instrument backup (raw file id) to pool backup  (raw file id)
-        elif operation == "REMOVE":
-            self._source_path = (
-                internal_instrument_data_path / INSTRUMENT_BACKUP_FOLDER_NAME
-            )
-            self._target_path = get_internal_backup_path_for_instrument(
-                instrument_id
-            ) / get_created_at_year_month(raw_file)
-            self._source_file_name = raw_file.id
-            self._target_file_name = raw_file.id
-        else:
-            raise ValueError(f"Invalid operation type: {operation}")
+        path_provider = path_provider_class()
+        self._source_path = path_provider.get_source_path(instrument_id)
+        self._target_path = path_provider.get_target_path(instrument_id, raw_file)
+        self._source_file_name = path_provider.get_source_file_name(raw_file)
+        self._target_file_name = path_provider.get_target_file_name(raw_file)
 
         self._acquisition_monitor = RawFileWrapperFactory.create_monitor_wrapper(
             instrument_id, raw_file.original_name
@@ -322,17 +392,17 @@ class RawFileWrapperFactory:
         cls,
         instrument_id: str,
         raw_file: RawFile,
-        operation: str,
+        path_provider_class: type[PathProvider],
     ) -> RawFileCopyWrapper:
         """Create a RawFileCopyWrapper for the specified instrument and raw file.
 
         :param instrument_id: The ID of the instrument
         :param raw_file: a raw file object
-        :param operation: the operation to perform (COPY, MOVE, or REMOVE)
+        :param path_provider_class: the path provider class for the operation
         """
         return cls._create_handler(
             COPIER,
             instrument_id,
             raw_file=raw_file,
-            operation=operation,
+            path_provider_class=path_provider_class,
         )

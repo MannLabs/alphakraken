@@ -29,7 +29,7 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
     update_raw_file(raw_file_id, new_status=RawFileStatus.COPYING)
 
     raw_file_copy_wrapper = RawFileWrapperFactory.create_copy_wrapper(
-        instrument_id=instrument_id, raw_file=raw_file
+        instrument_id=instrument_id, raw_file=raw_file, operation="COPY"
     )
 
     copied_files: dict[Path, tuple[float, str]] = {}

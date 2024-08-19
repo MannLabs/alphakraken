@@ -92,7 +92,7 @@ def test_raw_file_wrapper_factory_instantiation_copier(
     mock_raw_file = MagicMock()
     with patch.dict(INSTRUMENTS, {"instrument1": {"type": instrument_type}}):
         wrapper = RawFileWrapperFactory.create_copy_wrapper(
-            instrument_id="instrument1", raw_file=mock_raw_file
+            instrument_id="instrument1", raw_file=mock_raw_file, operation="COPY"
         )
         assert isinstance(wrapper, expected_class)
 
@@ -203,7 +203,9 @@ def test_thermo_get_files_to_copy(
         original_name="sample.raw",
     )
 
-    wrapper = ThermoRawFileCopyWrapper("instrument1", raw_file=mock_raw_file)
+    wrapper = ThermoRawFileCopyWrapper(
+        "instrument1", raw_file=mock_raw_file, operation="COPY"
+    )
     expected_mapping = {
         Path("/path/to/instrument/sample.raw"): Path(
             "/path/to/backup/1970_01/123---sample.raw"
@@ -232,7 +234,9 @@ def test_zeno_get_files_to_copy(
         original_name="sample.wiff",
     )
 
-    wrapper = ZenoRawFileCopyWrapper("instrument1", raw_file=mock_raw_file)
+    wrapper = ZenoRawFileCopyWrapper(
+        "instrument1", raw_file=mock_raw_file, operation="COPY"
+    )
     expected_mapping = {
         Path("/path/to/instrument/sample.wiff"): Path(
             "/opt/airflow/mounts/backup/instrument1/1970_01/123---sample.wiff"
@@ -272,7 +276,9 @@ def test_bruker_get_files_to_copy(
         original_name="sample.d",
     )
 
-    wrapper = BrukerRawFileCopyWrapper("instrument1", raw_file=mock_raw_file)
+    wrapper = BrukerRawFileCopyWrapper(
+        "instrument1", raw_file=mock_raw_file, operation="COPY"
+    )
     expected_mapping = {
         mp1: Path(
             "/opt/airflow/mounts/backup/instrument1/1970_01/123---sample.d/file1.txt"

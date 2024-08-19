@@ -57,13 +57,9 @@ def _safe_remove_files(raw_file_id: str) -> None:
     raw_file = get_raw_file_by_id(raw_file_id)
 
     instrument_id = raw_file.instrument_id
-    instrument_backup_path = (
-        get_internal_instrument_data_path(instrument_id) / INSTRUMENT_BACKUP_FOLDER_NAME
-    )
+
     file_wrapper = RawFileWrapperFactory.create_copy_wrapper(
-        instrument_id,
-        raw_file,
-        source_path=instrument_backup_path,  # TODO: better source_sub_folder?
+        instrument_id, raw_file, "REMOVE"
     )
 
     file_paths_to_remove: list[Path] = []
@@ -81,7 +77,12 @@ def _safe_remove_files(raw_file_id: str) -> None:
 
         file_paths_to_remove.append(file_path_to_remove)
 
-    base_file_path_to_remove = instrument_backup_path / raw_file_id
+    instrument_backup_path = (
+        get_internal_instrument_data_path(instrument_id) / INSTRUMENT_BACKUP_FOLDER_NAME
+    )
+    base_file_path_to_remove = (
+        instrument_backup_path / raw_file_id
+    )  # TODO: get from wrapper
     _remove_files(file_paths_to_remove, base_file_path_to_remove)
 
 

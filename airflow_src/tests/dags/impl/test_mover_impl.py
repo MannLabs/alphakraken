@@ -20,13 +20,11 @@ def mock_raw_file() -> MagicMock:
 
 
 @patch("dags.impl.mover_impl.get_raw_file_by_id")
-@patch("dags.impl.mover_impl.get_internal_instrument_data_path")
 @patch("dags.impl.mover_impl.RawFileWrapperFactory.create_copy_wrapper")
 @patch("dags.impl.mover_impl.put_xcom")
 def test_get_files_to_move_correctly_puts_files_to_xcom(
     mock_put_xcom: MagicMock,
     mock_create_copy_wrapper: MagicMock,
-    mock_get_internal_instrument_data_path: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
     mock_raw_file: MagicMock,
 ) -> None:
@@ -36,11 +34,6 @@ def test_get_files_to_move_correctly_puts_files_to_xcom(
     kwargs = {DagContext.PARAMS: {DagParams.RAW_FILE_ID: 123}}
 
     mock_get_raw_file_by_id.return_value = mock_raw_file
-
-    mock_dst_path = MagicMock()
-    mock_get_internal_instrument_data_path.return_value.__truediv__.return_value = (
-        mock_dst_path
-    )
 
     files_to_move = {Path("/src/file1"): Path("/dst/file1")}
     file_path_to_calculate_size = Path("/src/file1")
@@ -54,7 +47,7 @@ def test_get_files_to_move_correctly_puts_files_to_xcom(
     get_files_to_move(ti, **kwargs)
 
     mock_create_copy_wrapper.assert_called_once_with(
-        "instrument1", mock_raw_file, mock_dst_path
+        "instrument1", mock_raw_file, "MOVE"
     )
 
     mock_put_xcom.assert_has_calls(

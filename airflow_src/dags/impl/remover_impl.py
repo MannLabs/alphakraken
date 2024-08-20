@@ -7,6 +7,7 @@ from pathlib import Path
 from airflow.models import TaskInstance
 from common.keys import XComKeys
 from common.settings import (
+    MIN_FILE_AGE_TO_REMOVE_D,
     get_internal_backup_path,
 )
 from common.utils import get_env_variable, get_xcom, put_xcom
@@ -28,7 +29,7 @@ def get_raw_files_to_remove(ti: TaskInstance, **kwargs) -> None:
     put_xcom(
         ti,
         XComKeys.FILES_TO_REMOVE,
-        get_raw_file_ids_older_than(-1),
+        get_raw_file_ids_older_than(MIN_FILE_AGE_TO_REMOVE_D),
     )
 
 

@@ -105,7 +105,6 @@ def test_precursor_stats_calculation(mock_datastore: MagicMock) -> None:
     mock_df = pd.DataFrame(
         {
             "weighted_ms1_intensity": [1.0, 2.0],
-            # "weighted_ms2_intensity": [2.0, 3.0],
         }
     )
 
@@ -115,6 +114,4 @@ def test_precursor_stats_calculation(mock_datastore: MagicMock) -> None:
     metrics = PrecursorStats(mock_datastore).get()
 
     assert metrics["weighted_ms1_intensity_mean"] == 1.5  # noqa: PLR2004
-    # assert metrics["weighted_ms2_intensity_mean"] == 2.5
     assert np.isclose(metrics["weighted_ms1_intensity_std"], 0.7071067811865476)
-    # assert np.isclose(metrics["weighted_ms2_intensity_std"], 0.7071067811865476)

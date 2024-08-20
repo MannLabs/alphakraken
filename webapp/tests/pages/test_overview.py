@@ -59,6 +59,7 @@ def test_overview(
             "fwhm_rt": [1.0, 2.0],
             "quanting_time_elapsed": [60.0, 120.0],
             "settings_version": [1, 2],
+            "weighted_ms1_intensity_sum": [1.0, 2.0],
         }
     )
 
@@ -108,6 +109,7 @@ def test_overview(
         "status_details": {1: "", 2: ""},
         "instrument_id": {1: "i1", 2: "i1"},
         "settings_version": {1: 1, 2: 2},
+        "weighted_ms1_intensity_sum": {1: 1.0, 2: 2.0},
     }
 
     assert not at.exception

@@ -269,7 +269,7 @@ def _draw_plot(df: pd.DataFrame, x: str, y: str) -> None:
         hover_data=hover_data,
         title=title,
         height=400,
-        error_y=None if not y.endswith("_mean") else y.replace("_mean", "_std"),
+        error_y=_get_yerror_column_name(y, df),
     )
     if y_is_numeric:
         symbol = [
@@ -281,6 +281,17 @@ def _draw_plot(df: pd.DataFrame, x: str, y: str) -> None:
         )
     fig.add_hline(y=median_, line_dash="dash", line={"color": "lightgrey"})
     st.plotly_chart(fig)
+
+
+def _get_yerror_column_name(y_column_name: str, df: pd.DataFrame) -> str | None:
+    """Get the name of the error column for `y_column_name`, if it endwith '_mean' and is available in the `df`."""
+    if not y_column_name.endswith("_mean"):
+        return None
+
+    if (yerror_column_name := y_column_name.replace("_mean", "_std")) not in df.columns:
+        return None
+
+    return yerror_column_name
 
 
 filter_value = (

@@ -18,18 +18,18 @@ from dags.impl.remover_impl import (
 from raw_file_wrapper_factory import RemovePathProvider
 
 
-@patch("dags.impl.remover_impl.get_env_variable")
+@patch("dags.impl.remover_impl.get_airflow_variable")
 @patch("dags.impl.remover_impl.get_raw_file_ids_older_than")
 @patch("dags.impl.remover_impl.put_xcom")
 def test_get_raw_files_to_remove(
     mock_put_xcom: MagicMock,
     mock_get_raw_file_ids_older_than: MagicMock,
-    mock_get_env_variable: MagicMock,
+    mock_get_airflow_variable: MagicMock,
 ) -> None:
     """Test that get_raw_files_to_remove calls the correct functions and puts the result in XCom."""
     mock_ti = MagicMock()
     mock_get_raw_file_ids_older_than.return_value = ["file1", "file2"]
-    mock_get_env_variable.return_value = 42
+    mock_get_airflow_variable.return_value = 42
 
     # when
     get_raw_files_to_remove(mock_ti)
@@ -39,7 +39,9 @@ def test_get_raw_files_to_remove(
     mock_put_xcom.assert_called_once_with(
         mock_ti, XComKeys.FILES_TO_REMOVE, ["file1", "file2"]
     )
-    mock_get_env_variable.assert_called_once_with("min_file_age_to_remove_in_days", 30)
+    mock_get_airflow_variable.assert_called_once_with(
+        "min_file_age_to_remove_in_days", 30
+    )
 
 
 @patch("dags.impl.remover_impl.get_file_size")

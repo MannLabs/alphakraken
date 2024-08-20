@@ -10,7 +10,7 @@ from common.settings import (
     DEFAULT_MIN_FILE_AGE_TO_REMOVE_D,
     get_internal_backup_path,
 )
-from common.utils import get_env_variable, get_xcom, put_xcom
+from common.utils import get_airflow_variable, get_env_variable, get_xcom, put_xcom
 from file_handling import get_file_size
 from raw_file_wrapper_factory import RawFileWrapperFactory, RemovePathProvider
 
@@ -27,7 +27,7 @@ def get_raw_files_to_remove(ti: TaskInstance, **kwargs) -> None:
     del kwargs  # unused
 
     min_file_age = int(
-        get_env_variable(
+        get_airflow_variable(
             AirflowVars.MIN_FILE_AGE_TO_REMOVE_IN_DAYS, DEFAULT_MIN_FILE_AGE_TO_REMOVE_D
         )
     )

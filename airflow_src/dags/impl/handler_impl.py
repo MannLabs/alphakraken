@@ -22,14 +22,12 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
     """Copy a raw file to the target location."""
     del ti  # unused
     raw_file_id = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID]
-    instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
 
     raw_file = get_raw_file_by_id(raw_file_id)
 
     update_raw_file(raw_file_id, new_status=RawFileStatus.COPYING)
 
     copy_wrapper = RawFileWrapperFactory.create_write_wrapper(
-        instrument_id=instrument_id,
         raw_file=raw_file,
         path_provider=CopyPathProvider,
     )

@@ -461,16 +461,15 @@ class RawFileWrapperFactory:
     @classmethod
     def create_write_wrapper(
         cls,
-        instrument_id: str,
         raw_file: RawFile,
         path_provider: type[PathProvider],
     ) -> RawFileWriteWrapper:
         """Create a RawFileWriteWrapper for the specified instrument and raw file.
 
-        :param instrument_id: The ID of the instrument
         :param raw_file: a raw file object
         :param path_provider: the path provider class for the operation
         """
+        instrument_id = raw_file.instrument_id
         return cls._create_handler(
             COPIER,
             instrument_id,

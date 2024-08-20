@@ -34,7 +34,6 @@ def test_copy_raw_file_calls_update_with_correct_args(
     ti = MagicMock()
     kwargs = {
         "params": {"raw_file_id": "test_file.raw"},
-        "instrument_id": "test1",
     }
     mock_raw_file = MagicMock()
     mock_get_raw_file_by_id.return_value = mock_raw_file

@@ -65,7 +65,6 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
         copy_raw_file_ = PythonOperator(
             task_id=Tasks.COPY_RAW_FILE,
             python_callable=copy_raw_file,
-            op_kwargs={OpArgs.INSTRUMENT_ID: instrument_id},
             max_active_tis_per_dag=Concurrency.MAXNO_COPY_RAW_FILE_TASKS_PER_DAG,
             execution_timeout=timedelta(minutes=Timings.RAW_DATA_COPY_TASK_TIMEOUT_M),
             pool=Pools.FILE_COPY_POOL,

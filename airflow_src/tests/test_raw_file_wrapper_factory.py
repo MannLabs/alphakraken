@@ -6,7 +6,7 @@ from __future__ import annotations
 import tempfile
 from datetime import datetime
 from pathlib import Path
-from typing import Generator
+from typing import Any, Generator
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -19,6 +19,7 @@ from plugins.raw_file_wrapper_factory import (
     BrukerRawFileMonitorWrapper,
     CopyPathProvider,
     MovePathProvider,
+    RawFileCopyWrapper,
     RawFileMonitorWrapper,
     RawFileWrapperFactory,
     RemovePathProvider,
@@ -34,11 +35,84 @@ class TestableRawFileMonitorWrapper(RawFileMonitorWrapper):
 
     _raw_file_extension = "test_ext"
 
-    def _file_path_to_monitor_acquisition(self) -> Path:
+    def _file_path_to_monitor_acquisition(self) -> Any:  # noqa: ANN401
         """Dummy implementation."""
 
-    def _get_files_to_copy(self) -> dict[Path, Path]:
+    def _get_files_to_copy(self) -> Any:  # noqa: ANN401
         """Dummy implementation."""
+
+
+class TestableRawFileCopyWrapper(RawFileCopyWrapper):
+    """A testable subclass of RawFileCopyWrapper to test the methods provided by the abstract class."""
+
+    def _get_files_to_copy(self) -> Any:  # noqa: ANN401
+        """Dummy implementation."""
+
+    def _get_files_to_move(self) -> Any:  # noqa: ANN401
+        """Dummy implementation."""
+
+    def _get_folder_to_remove(self) -> Any:  # noqa: ANN401
+        """Dummy implementation."""
+
+
+@patch("plugins.raw_file_wrapper_factory.RawFileWrapperFactory")
+def test_raw_file_wrapper_check_path_provider_copy(
+    mock_raw_file_wrapper_factory: MagicMock,  # noqa: ARG001
+) -> None:
+    """Test that the path provider is correctly checked."""
+    with patch.dict(INSTRUMENTS, {"instrument1": {"type": "bruker"}}):
+        wrapper = TestableRawFileCopyWrapper(
+            "instrument1", raw_file=MagicMock(), path_provider=CopyPathProvider
+        )
+
+    with pytest.raises(TypeError):
+        wrapper.get_files_to_remove()
+
+    with pytest.raises(TypeError):
+        wrapper.get_files_to_move()
+
+    wrapper.get_files_to_copy()
+    # ok: nothing raised
+
+
+@patch("plugins.raw_file_wrapper_factory.RawFileWrapperFactory")
+def test_raw_file_wrapper_check_path_provider_move(
+    mock_raw_file_wrapper_factory: MagicMock,  # noqa: ARG001
+) -> None:
+    """Test that the path provider is correctly checked."""
+    with patch.dict(INSTRUMENTS, {"instrument1": {"type": "bruker"}}):
+        wrapper = TestableRawFileCopyWrapper(
+            "instrument1", raw_file=MagicMock(), path_provider=MovePathProvider
+        )
+
+    with pytest.raises(TypeError):
+        wrapper.get_files_to_remove()
+
+    wrapper.get_files_to_move()
+    # ok: nothing raised
+
+    with pytest.raises(TypeError):
+        wrapper.get_files_to_copy()
+
+
+@patch("plugins.raw_file_wrapper_factory.RawFileWrapperFactory")
+def test_raw_file_wrapper_check_path_provider_remove(
+    mock_raw_file_wrapper_factory: MagicMock,  # noqa: ARG001
+) -> None:
+    """Test that the path provider is correctly checked."""
+    with patch.dict(INSTRUMENTS, {"instrument1": {"type": "bruker"}}):
+        wrapper = TestableRawFileCopyWrapper(
+            "instrument1", raw_file=MagicMock(), path_provider=RemovePathProvider
+        )
+
+    wrapper.get_files_to_remove()
+    # ok: nothing raised
+
+    with pytest.raises(TypeError):
+        wrapper.get_files_to_move()
+
+    with pytest.raises(TypeError):
+        wrapper.get_files_to_copy()
 
 
 @patch("plugins.raw_file_wrapper_factory.get_internal_instrument_data_path")

@@ -216,8 +216,8 @@ class RemovePathProvider(PathProvider):
         return self._raw_file.id
 
 
-class RawFileCopyWrapper(ABC):  # TODO: rename to RawFileLocationWrapper, also methods
-    """Abstract base class for preparing the copying or moving of raw data files."""
+class RawFileWriteWrapper(ABC):
+    """Abstract base class for preparing write operations (copying, moving or removing) of raw data files."""
 
     def __init__(
         self,
@@ -226,7 +226,7 @@ class RawFileCopyWrapper(ABC):  # TODO: rename to RawFileLocationWrapper, also m
         raw_file: RawFile,
         path_provider: type[PathProvider],
     ):
-        """Initialize the RawFileCopyWrapper.
+        """Initialize the RawFileWriteWrapper.
 
         :param instrument_id: the ID of the instrument
         :param raw_file: a raw file object
@@ -314,7 +314,7 @@ class RawFileCopyWrapper(ABC):  # TODO: rename to RawFileLocationWrapper, also m
         return self._acquisition_monitor.file_path_to_monitor_acquisition()
 
 
-class ThermoRawFileCopyWrapper(RawFileCopyWrapper):
+class ThermoRawFileWriteWrapper(RawFileWriteWrapper):
     """Class wrapping Thermo-specific logic."""
 
     def _get_files_to_copy(self) -> dict[Path, Path]:
@@ -333,7 +333,7 @@ class ThermoRawFileCopyWrapper(RawFileCopyWrapper):
         return None
 
 
-class ZenoRawFileCopyWrapper(RawFileCopyWrapper):
+class ZenoRawFileWriteWrapper(RawFileWriteWrapper):
     """Class wrapping Zeno-specific logic."""
 
     def _get_files_to_copy(self) -> dict[Path, Path]:
@@ -366,7 +366,7 @@ class ZenoRawFileCopyWrapper(RawFileCopyWrapper):
         return None
 
 
-class BrukerRawFileCopyWrapper(RawFileCopyWrapper):
+class BrukerRawFileWriteWrapper(RawFileWriteWrapper):
     """Class wrapping Bruker-specific logic."""
 
     def _get_files_to_copy(self) -> dict[Path, Path]:
@@ -413,22 +413,22 @@ class RawFileWrapperFactory:
     _handlers: dict[str, dict[str, type]] = {  # noqa: RUF012
         InstrumentTypes.THERMO: {
             MONITOR: ThermoRawFileMonitorWrapper,
-            COPIER: ThermoRawFileCopyWrapper,
+            COPIER: ThermoRawFileWriteWrapper,
         },
         InstrumentTypes.ZENO: {
             MONITOR: ZenoRawFileMonitorWrapper,
-            COPIER: ZenoRawFileCopyWrapper,
+            COPIER: ZenoRawFileWriteWrapper,
         },
         InstrumentTypes.BRUKER: {
             MONITOR: BrukerRawFileMonitorWrapper,
-            COPIER: BrukerRawFileCopyWrapper,
+            COPIER: BrukerRawFileWriteWrapper,
         },
     }
 
     @classmethod
     def _create_handler(
         cls, handler_type: str, instrument_id: str, **kwargs
-    ) -> Union["RawFileMonitorWrapper", "RawFileCopyWrapper"]:
+    ) -> Union["RawFileMonitorWrapper", "RawFileWriteWrapper"]:
         """Create a handler of the specified type for the given instrument.
 
         :param handler_type: The type of handler to create ('lister', 'monitor', or 'copier')
@@ -464,8 +464,8 @@ class RawFileWrapperFactory:
         instrument_id: str,
         raw_file: RawFile,
         path_provider: type[PathProvider],
-    ) -> RawFileCopyWrapper:
-        """Create a RawFileCopyWrapper for the specified instrument and raw file.
+    ) -> RawFileWriteWrapper:
+        """Create a RawFileWriteWrapper for the specified instrument and raw file.
 
         :param instrument_id: The ID of the instrument
         :param raw_file: a raw file object

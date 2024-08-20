@@ -15,18 +15,18 @@ from common.keys import InstrumentTypes
 from common.settings import INSTRUMENTS
 from db.models import RawFile
 from plugins.raw_file_wrapper_factory import (
-    BrukerRawFileCopyWrapper,
     BrukerRawFileMonitorWrapper,
+    BrukerRawFileWriteWrapper,
     CopyPathProvider,
     MovePathProvider,
-    RawFileCopyWrapper,
     RawFileMonitorWrapper,
     RawFileWrapperFactory,
+    RawFileWriteWrapper,
     RemovePathProvider,
-    ThermoRawFileCopyWrapper,
     ThermoRawFileMonitorWrapper,
-    ZenoRawFileCopyWrapper,
+    ThermoRawFileWriteWrapper,
     ZenoRawFileMonitorWrapper,
+    ZenoRawFileWriteWrapper,
 )
 
 
@@ -42,8 +42,8 @@ class TestableRawFileMonitorWrapper(RawFileMonitorWrapper):
         """Dummy implementation."""
 
 
-class TestableRawFileCopyWrapper(RawFileCopyWrapper):
-    """A testable subclass of RawFileCopyWrapper to test the methods provided by the abstract class."""
+class TestableRawFileWriteWrapper(RawFileWriteWrapper):
+    """A testable subclass of RawFileWriteWrapper to test the methods provided by the abstract class."""
 
     def _get_files_to_copy(self) -> Any:  # noqa: ANN401
         """Dummy implementation."""
@@ -61,7 +61,7 @@ def test_raw_file_wrapper_check_path_provider_copy(
 ) -> None:
     """Test that the path provider is correctly checked."""
     with patch.dict(INSTRUMENTS, {"instrument1": {"type": "bruker"}}):
-        wrapper = TestableRawFileCopyWrapper(
+        wrapper = TestableRawFileWriteWrapper(
             "instrument1", raw_file=MagicMock(), path_provider=CopyPathProvider
         )
 
@@ -81,7 +81,7 @@ def test_raw_file_wrapper_check_path_provider_move(
 ) -> None:
     """Test that the path provider is correctly checked."""
     with patch.dict(INSTRUMENTS, {"instrument1": {"type": "bruker"}}):
-        wrapper = TestableRawFileCopyWrapper(
+        wrapper = TestableRawFileWriteWrapper(
             "instrument1", raw_file=MagicMock(), path_provider=MovePathProvider
         )
 
@@ -101,7 +101,7 @@ def test_raw_file_wrapper_check_path_provider_remove(
 ) -> None:
     """Test that the path provider is correctly checked."""
     with patch.dict(INSTRUMENTS, {"instrument1": {"type": "bruker"}}):
-        wrapper = TestableRawFileCopyWrapper(
+        wrapper = TestableRawFileWriteWrapper(
             "instrument1", raw_file=MagicMock(), path_provider=RemovePathProvider
         )
 
@@ -208,9 +208,9 @@ def test_remove_path_provider(mock_raw_file: RawFile) -> None:
 @pytest.mark.parametrize(
     ("instrument_type", "expected_class"),
     [
-        (InstrumentTypes.THERMO, ThermoRawFileCopyWrapper),
-        (InstrumentTypes.ZENO, ZenoRawFileCopyWrapper),
-        (InstrumentTypes.BRUKER, BrukerRawFileCopyWrapper),
+        (InstrumentTypes.THERMO, ThermoRawFileWriteWrapper),
+        (InstrumentTypes.ZENO, ZenoRawFileWriteWrapper),
+        (InstrumentTypes.BRUKER, BrukerRawFileWriteWrapper),
     ],
 )
 @patch("plugins.raw_file_wrapper_factory.RawFileWrapperFactory.create_monitor_wrapper")
@@ -345,7 +345,7 @@ def test_thermo_get_files_to_copy(
         original_name="sample.raw",
     )
 
-    wrapper = ThermoRawFileCopyWrapper(
+    wrapper = ThermoRawFileWriteWrapper(
         "instrument1", raw_file=mock_raw_file, path_provider=CopyPathProvider
     )
     expected_mapping = {
@@ -376,7 +376,7 @@ def test_zeno_get_files_to_copy(
         original_name="sample.wiff",
     )
 
-    wrapper = ZenoRawFileCopyWrapper(
+    wrapper = ZenoRawFileWriteWrapper(
         "instrument1", raw_file=mock_raw_file, path_provider=CopyPathProvider
     )
     expected_mapping = {
@@ -429,7 +429,7 @@ def test_bruker_get_files_to_copy() -> None:
             "plugins.raw_file_wrapper_factory.get_internal_backup_path_for_instrument",
             side_effect=mock_get_internal_backup_path_for_instrument,
         ), patch.dict(INSTRUMENTS, {"instrument1": {"type": "bruker"}}):
-            wrapper = BrukerRawFileCopyWrapper(
+            wrapper = BrukerRawFileWriteWrapper(
                 "instrument1", raw_file=mock_raw_file, path_provider=CopyPathProvider
             )
 

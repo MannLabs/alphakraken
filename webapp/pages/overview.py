@@ -146,6 +146,7 @@ def _display_table_and_plots(
                 "precursors",
                 "ms1_accuracy",
                 "fwhm_rt",
+                "weighted_ms1_intensity_mean",
                 "quanting_time_minutes",
             ],
             cmap=cmap,
@@ -156,6 +157,7 @@ def _display_table_and_plots(
                 "size_gb",
                 "ms1_accuracy",
                 "fwhm_rt",
+                "weighted_ms1_intensity_mean",
                 "quanting_time_minutes",
             ],
             formatter="{:.3}",
@@ -228,8 +230,10 @@ def _display_table_and_plots(
         "proteins",
         "ms1_accuracy",
         "fwhm_rt",
+        "weighted_ms1_intensity_sum",
         "quanting_time_minutes",
         "settings_version",
+
     ]:
         try:
             _draw_plot(filtered_df, x, y)
@@ -265,6 +269,7 @@ def _draw_plot(df: pd.DataFrame, x: str, y: str) -> None:
         hover_data=hover_data,
         title=title,
         height=400,
+        error_y=None if not y.endswith("_mean") else y.replace("_mean", "_std"),
     )
     if y_is_numeric:
         symbol = [

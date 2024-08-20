@@ -24,7 +24,14 @@ def show_filter(
     text_to_display: str = "Filter:",
     st_display: st.delta_generator.DeltaGenerator = st,
 ) -> pd.DataFrame:
-    """Filter the DataFrame on user input by case-insensitive textual comparison in all columns."""
+    """Filter the DataFrame on user input by case-insensitive textual comparison in all columns.
+
+    :param df: The DataFrame to filter.
+    :param text_to_display: The text to display next to the input field.
+    :param st_display: The streamlit display object.
+
+    :return: The filtered DataFrame.
+    """
     user_input = st_display.text_input(
         text_to_display,
         default_value,

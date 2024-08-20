@@ -66,7 +66,7 @@ def _safe_remove_files(raw_file_id: str) -> None:
     for (
         file_path_to_remove,
         file_path_pool_backup,
-    ) in file_wrapper.get_files_to_copy().items():
+    ) in file_wrapper.get_files_to_remove().items():
         _check_file(
             file_path_to_remove,
             file_path_pool_backup,

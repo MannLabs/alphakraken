@@ -158,7 +158,7 @@ def test_safe_remove_files_success(
     mock_get_raw_file.return_value = mock_raw_file
 
     mock_wrapper = MagicMock()
-    mock_wrapper.get_files_to_copy.return_value = {
+    mock_wrapper.get_files_to_remove.return_value = {
         Path("/instrument/file1"): Path("/backup/file1")
     }
     mock_wrapper_factory.create_copy_wrapper.return_value = mock_wrapper
@@ -189,7 +189,7 @@ def test_safe_remove_files_check_error(
     mock_get_raw_file.return_value = mock_raw_file
 
     mock_wrapper = MagicMock()
-    mock_wrapper.get_files_to_copy.return_value = {
+    mock_wrapper.get_files_to_remove.return_value = {
         Path("/instrument/file1"): Path("/backup/file1")
     }
     mock_wrapper_factory.create_copy_wrapper.return_value = mock_wrapper

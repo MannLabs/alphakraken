@@ -45,6 +45,22 @@ It is mostly relevant for AlphaKraken admin users.
 
 The "project" and "settings" tabs allow to manage specific AlphaDIA settings for certain raw files.
 Currently they are meant to be used by AlphaKraken admin users only.
-""")
 
-# add link to http://<kraken_url>:8080 here
+
+### FAQ
+Q: A lot of jobs are stuck in status "quanting".
+
+A: This is the case when the cluster is under heavy load. The jobs will be processed as soon as possible.
+Currently, status "quanting" means "quanting job submitted", regardless if it's still PENDING or already RUNNING.
+
+
+Q: I am missing a feature or found a bug or find the AlphaKraken unintuitive to use or want to contribute.
+
+A: Please get in touch: [<support_email>](<support_email>)
+
+
+Q: I want to know more about the AlphaKraken.
+
+A: Have a look at the [github repo](https://github.com/MannLabs/alphakraken) or the underlying
+Airflow implementation [here](http://<kraken_url>:8080) (read-only, credentials: alphakraken/alphakraken).
+""")

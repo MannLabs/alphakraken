@@ -99,14 +99,18 @@ class InstrumentTypes:
 class AirflowVars:
     """Keys for accessing Airflow Variables (set in the Airflow UI). Cf. also Readme."""
 
-    # maximum file age in hours to be picked up by the quanting handler. Older files get status 'ignored'.
-    MAX_FILE_AGE_IN_HOURS: str = "max_file_age_in_hours"
-
     # If set to True, quanting can be started even if the output folder already exists.
     ALLOW_OUTPUT_OVERWRITE: str = "allow_output_overwrite"
 
+    # Sets the minimum file age in days for files to be removed by the file_remover.
+    MIN_FILE_AGE_TO_REMOVE_IN_DAYS: str = "min_file_age_to_remove_in_days"
+
     # some flags that can be used for debugging and/or to simplify the local setup
     DEBUG_NO_CLUSTER_SSH = "debug_no_cluster_ssh"
+
+    # maximum file age in hours to be picked up by the quanting handler. Older files get status 'ignored'
+    # and will not be backed up or quanted.
+    DEBUG_MAX_FILE_AGE_IN_HOURS: str = "debug_max_file_age_in_hours"
 
 
 class QuantingEnv:

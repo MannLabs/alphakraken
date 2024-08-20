@@ -258,11 +258,7 @@ mkdir -p ${MOUNTS}/output/<INSTRUMENT_ID>
 
 6. Restart all containers with the `--build` flag (cf. [above](#on-the-kraken-pc)).
 
-7. (optional) Without any further intervention, the kraken would now process all files on the new instrument. If this is
-not desired, you may temporarily set the `max_file_age_in_hours` Airflow variable (see below) to process only
-recent files. Older ones will then be added to the DB with status 'ignored'. Don't forget to set it back to the original value as this is a global setting.
-
-8. Open the airflow UI and unpause the new `*.<INSTRUMENT_ID>` DAGs. It might be wise to do this one after another,
+7. Open the airflow UI and unpause the new `*.<INSTRUMENT_ID>` DAGs. It might be wise to do this one after another,
 (`instrument_watcher` -> `acquisition_handler` -> `acquisition_processor`.) and to check the logs for errors before starting the next one.
 
 
@@ -500,15 +496,6 @@ systemctl restart docker
 These variables are set in the Airflow UI under "Admin" -> "Variables". They steer the behavior of the whole system,
 so be careful when changing them. If in doubt, pause all DAGs that are not part of the current problem before changing them.
 
-### max_file_age_in_hours
-If set, files that are older will not be processed by the acquisition handler.
-They will nevertheless be added to the DB, with status="ignored".
-Needs to be a valid float, "-1" to deactivate.
-This is useful to avoid processing of older files if a new instrument is attached
-or after a long downtime.
-
-Recommended setting in production: -1 (default)
-
 ### allow_output_overwrite
 If set to `True`, the system will overwrite existing output files. Convenience switch to avoid manual deletion of output files
 in case something went wrong with the quanting.
@@ -520,3 +507,10 @@ Recommended setting in production: False (default)
 testing, debugging and to avoid flooding the cluster at the initial setup.
 
 Recommended setting in production: False (default)
+
+### debug_max_file_age_in_hours
+If set, files that are older will not be processed by the acquisition handler, i.e. not be backed up nor quanted.
+They will nevertheless be added to the DB, with status="ignored".
+Needs to be a valid float, "-1" to deactivate.
+
+Recommended setting in production: -1 (default)

@@ -128,12 +128,20 @@ def _check_file(
 ) -> None:
     """Check that the file to remove is present in the pool backup and has the same size as in the DB.
 
+    Here, "file" means every single file that is part of a raw file.
+
     :param file_path_to_remove: absolute path to file to remove
     :param file_path_pool_backup: absolute path to location of file in pool backup
     :param file_info_in_db: dict with file info from DB
 
     :raises: FileCheckError if one of the checks fails.
     """
+    if not file_path_to_remove.exists():
+        logging.warning(
+            f"File {file_path_to_remove} does not exist. Presuming it was already removed."
+        )
+        return
+
     logging.info(
         f"Comparing {file_path_to_remove=} to {file_path_pool_backup=} with {file_info_in_db=}"
     )

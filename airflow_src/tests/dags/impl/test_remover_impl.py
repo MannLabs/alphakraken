@@ -44,7 +44,8 @@ def test_check_file_success(
     """Test that _check_file succeeds when file sizes match."""
     mock_backup_path.return_value = Path("/backup")
     mock_get_file_size.side_effect = [100, 100]  # Same size for both files
-    file_path_to_remove = Path("/instrument/file.raw")
+    file_path_to_remove = MagicMock(wraps=Path("/instrument/file.raw"))
+    file_path_to_remove.exists.return_value = True
     file_path_pool_backup = Path("/backup/instrument/file.raw")
     file_info_in_db = {"instrument/file.raw": (100, "hash")}
 
@@ -63,7 +64,8 @@ def test_check_file_mismatch_pool(
     """Test that _check_file raises FileRemovalError when pool backup size doesn't match."""
     mock_backup_path.return_value = Path("/backup")
     mock_get_file_size.side_effect = [100, 200]  # Different sizes
-    file_path_to_remove = Path("/instrument/file.raw")
+    file_path_to_remove = MagicMock(wraps=Path("/instrument/file.raw"))
+    file_path_to_remove.exists.return_value = True
     file_path_pool_backup = Path("/backup/instrument/file.raw")
     file_info_in_db = {"instrument/file.raw": (100, "hash")}
 
@@ -80,13 +82,32 @@ def test_check_file_mismatch_db(
     """Test that _check_file raises FileRemovalError when DB size doesn't match."""
     mock_backup_path.return_value = Path("/backup")
     mock_get_file_size.side_effect = [100, 100]  # Same size for both files
-    file_path_to_remove = Path("/instrument/file.raw")
+    file_path_to_remove = MagicMock(wraps=Path("/instrument/file.raw"))
+    file_path_to_remove.exists.return_value = True
     file_path_pool_backup = Path("/backup/instrument/file.raw")
     file_info_in_db = {"instrument/file.raw": (200, "hash")}  # Different size in DB
 
     # when
     with pytest.raises(FileRemovalError):
         _check_file(file_path_to_remove, file_path_pool_backup, file_info_in_db)
+
+
+@patch("dags.impl.remover_impl.get_file_size")
+@patch("dags.impl.remover_impl.get_internal_backup_path")
+def test_check_file_does_not_exists(
+    mock_backup_path: MagicMock, mock_get_file_size: MagicMock
+) -> None:
+    """Test that _check_file does not raise if file does not exist."""
+    mock_backup_path.return_value = MagicMock()
+    file_path_to_remove = MagicMock()
+    file_path_to_remove.exists.return_value = False
+    file_path_pool_backup = MagicMock()
+    file_info_in_db = MagicMock()
+
+    # when
+    _check_file(file_path_to_remove, file_path_pool_backup, file_info_in_db)
+
+    assert mock_get_file_size.call_count == 0
 
 
 @patch("dags.impl.remover_impl.get_env_variable")

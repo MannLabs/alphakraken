@@ -23,7 +23,7 @@ def get_files_to_move(ti: TaskInstance, **kwargs) -> None:
     raw_file = get_raw_file_by_id(raw_file_id)
     instrument_id = raw_file.instrument_id
 
-    move_wrapper = RawFileWrapperFactory.create_copy_wrapper(
+    move_wrapper = RawFileWrapperFactory.create_write_wrapper(
         instrument_id, raw_file, path_provider=MovePathProvider
     )
 

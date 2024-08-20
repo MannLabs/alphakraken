@@ -58,7 +58,7 @@ def _safe_remove_files(raw_file_id: str) -> None:
 
     instrument_id = raw_file.instrument_id
 
-    file_wrapper = RawFileWrapperFactory.create_copy_wrapper(
+    remove_wrapper = RawFileWrapperFactory.create_write_wrapper(
         instrument_id, raw_file, path_provider=RemovePathProvider
     )
 
@@ -66,7 +66,7 @@ def _safe_remove_files(raw_file_id: str) -> None:
     for (
         file_path_to_remove,
         file_path_pool_backup,
-    ) in file_wrapper.get_files_to_remove().items():
+    ) in remove_wrapper.get_files_to_remove().items():
         _check_file(
             file_path_to_remove,
             file_path_pool_backup,

@@ -222,7 +222,7 @@ def test_raw_file_wrapper_factory_instantiation_copier(
 ) -> None:
     """Test that the correct RawFileWrapperFactory subclass is instantiated."""
     with patch.dict(INSTRUMENTS, {"instrument1": {"type": instrument_type}}):
-        wrapper = RawFileWrapperFactory.create_copy_wrapper(
+        wrapper = RawFileWrapperFactory.create_write_wrapper(
             instrument_id="instrument1",
             raw_file=mock_raw_file,
             path_provider=CopyPathProvider,

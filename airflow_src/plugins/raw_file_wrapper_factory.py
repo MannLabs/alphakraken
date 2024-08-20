@@ -459,7 +459,7 @@ class RawFileWrapperFactory:
         return cls._create_handler(MONITOR, instrument_id, raw_file_name=raw_file_name)
 
     @classmethod
-    def create_copy_wrapper(
+    def create_write_wrapper(
         cls,
         instrument_id: str,
         raw_file: RawFile,

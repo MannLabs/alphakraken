@@ -57,7 +57,7 @@ def add_file_info(instrument_id: str, dry_run: bool = True) -> None:
             instrument_id
         ) / get_created_at_year_month(raw_file)
         # Create the appropriate RawFileWriteWrapper
-        copy_wrapper = RawFileWrapperFactory.create_copy_wrapper(
+        copy_wrapper = RawFileWrapperFactory.create_write_wrapper(
             source_path=pool_backup_path,
             instrument_id=raw_file.instrument_id,
             raw_file=raw_file,

@@ -161,7 +161,7 @@ def test_safe_remove_files_success(
     mock_wrapper.get_files_to_remove.return_value = {
         Path("/instrument/file1"): Path("/backup/file1")
     }
-    mock_wrapper_factory.create_copy_wrapper.return_value = mock_wrapper
+    mock_wrapper_factory.create_write_wrapper.return_value = mock_wrapper
 
     # when
     _safe_remove_files("raw_file_id")
@@ -169,7 +169,7 @@ def test_safe_remove_files_success(
     # then
     mock_check_file.assert_called_once()
     mock_remove_files.assert_called_once()
-    mock_wrapper_factory.create_copy_wrapper.assert_called_once_with(
+    mock_wrapper_factory.create_write_wrapper.assert_called_once_with(
         "instrument1", mock_raw_file, path_provider=RemovePathProvider
     )
 
@@ -192,7 +192,7 @@ def test_safe_remove_files_check_error(
     mock_wrapper.get_files_to_remove.return_value = {
         Path("/instrument/file1"): Path("/backup/file1")
     }
-    mock_wrapper_factory.create_copy_wrapper.return_value = mock_wrapper
+    mock_wrapper_factory.create_write_wrapper.return_value = mock_wrapper
 
     mock_check_file.side_effect = FileRemovalError("Check failed")
 

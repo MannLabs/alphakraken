@@ -40,7 +40,7 @@ def test_copy_raw_file_calls_update_with_correct_args(
     mock_get_raw_file_by_id.return_value = mock_raw_file
 
     mock_get_file_size.return_value = 1000
-    mock_raw_file_wrapper_factory.create_copy_wrapper.return_value.get_files_to_copy.return_value = {
+    mock_raw_file_wrapper_factory.create_write_wrapper.return_value.get_files_to_copy.return_value = {
         Path("/path/to/instrument/test_file.raw"): Path(
             "/opt/airflow/mounts/backup/test_file.raw"
         )
@@ -48,7 +48,7 @@ def test_copy_raw_file_calls_update_with_correct_args(
     mock_copy_file.return_value = (1001, "some_hash")
 
     mock_file_path_to_calculate_size = MagicMock()
-    mock_raw_file_wrapper_factory.create_copy_wrapper.return_value.file_path_to_calculate_size.return_value = mock_file_path_to_calculate_size
+    mock_raw_file_wrapper_factory.create_write_wrapper.return_value.file_path_to_calculate_size.return_value = mock_file_path_to_calculate_size
 
     # when
     copy_raw_file(ti, **kwargs)

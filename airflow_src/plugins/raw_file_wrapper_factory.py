@@ -251,8 +251,8 @@ class RawFileCopyWrapper(ABC):  # TODO: rename to RawFileLocationWrapper, also m
         """Get a dictionary mapping source file to destination paths for moving.
 
         Default implementation for instruments that use "real" files: same output as get_files_to_copy().
-        Overwrite for instruments that use folders to returns a mapping of the folder source to the destination path
-        (not the individual files).
+        Overwrite for instruments that use folders to returns a mapping of the folder source path
+        to the destination path (not the individual files).
         """
         return self.get_files_to_copy()
 
@@ -291,11 +291,11 @@ class ZenoRawFileCopyWrapper(RawFileCopyWrapper):
 
         for src_file_path in self._source_path.glob(f"{src_file_stem}.*"):
             # resorting to string manipulation here, because of double-extensions (e.g. .wiff.scan)
-            dst_file_path = Path(
+            dst_file_name = Path(
                 src_file_path.name.replace(src_file_stem, dst_file_stem)
             )
 
-            files_to_copy[src_file_path] = self._target_path / dst_file_path
+            files_to_copy[src_file_path] = self._target_path / dst_file_name
 
         logging.info(f"{files_to_copy=}")
         return files_to_copy
@@ -308,6 +308,7 @@ class BrukerRawFileCopyWrapper(RawFileCopyWrapper):
         """Get the mapping of source to destination paths (both absolute) for the raw file.
 
         All files within the raw file directory are returned (including those in subfolders).
+        Note that the code that does the copying must take care of creating the target directory if it does not exist.
         """
         src_base_path = self._source_path / self._source_file_name
         dst_base_path = self._target_path / self._target_file_name

@@ -92,8 +92,8 @@ def _remove_files(
     """Remove files.
 
     :param file_paths_to_remove: list of absolute paths to remove
-    :param base_file_path_to_remove: absolute path to base file to remove (redundant to file_paths_to_remove unless it's a
-    directory)
+    :param base_file_path_to_remove: absolute path to base file to remove (redundant to `file_paths_to_remove`
+    unless it's a directory)
 
     :raises: FileRemovalError if removing a file fails.
     """
@@ -177,6 +177,7 @@ def remove_raw_files(ti: TaskInstance, **kwargs) -> None:
     del kwargs  # unused
 
     raw_file_ids = get_xcom(ti, XComKeys.FILES_TO_REMOVE)
+    logging.info(f"Removing {len(raw_file_ids)} raw files: {raw_file_ids}")
 
     errors = []
     for raw_file_id in raw_file_ids:

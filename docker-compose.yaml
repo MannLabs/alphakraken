@@ -62,7 +62,7 @@ x-airflow-common:
     QUANTING_POOL_FOLDER: ${QUANTING_POOL_FOLDER:?error}
   volumes:
     # all mounts (backup pool folders, results pool folders, instruments, logs) need to be available in $MOUNTS_PATH
-    - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs
+    - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs:ro
 #    # Uncomment for local development so that changes to DAGs and Tasks are immediately active
 #    # Note that this part is defined another time for the airflow-worker-test1
 #    - ./airflow_src/dags:/opt/airflow/dags
@@ -90,14 +90,6 @@ x-airflow-worker:
     # See https://airflow.apache.org/docs/docker-stack/entrypoint.html#signal-propagation
     DUMB_INIT_SETSID: "0"
   restart: always
-  volumes:
-    - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs
-#    # Uncomment for local development so that changes to DAGs and Tasks are immediately active
-#    # Note that this part is defined another time for the airflow-worker-test1
-#    - ./airflow_src/dags:/opt/airflow/dags
-#    - ./airflow_src/config:/opt/airflow/config
-#    - ./airflow_src/plugins:/opt/airflow/plugins
-#    - ./shared:/opt/airflow/shared
 
 services:
   postgres-service:
@@ -326,16 +318,23 @@ services:
     # "-q <XXX>" makes this worker handle only DAGs that reference queue_name=<XXX> during DAG instantiation
     command: celery worker -q kraken_queue_test1
     volumes:
-      # all mounts (backup pool folders, results pool folders, instruments) need to be available in $MOUNTS_PATH
-      # the following three mounts are required for a worker
-      - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs
+      # all mounts (backup pool folders, results pool folders, instruments) need to be available in $MOUNTS_PATH .
+      # the following four mounts are required for a worker:
+      # to write the airflow logs:
+      - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs:rw
+      # to read the output for metrics calculation:
+      - ${MOUNTS_PATH:?error}/output:/opt/airflow/mounts/output:ro
+      # to read the raw file data from the instrument (for copying):
       - ${MOUNTS_PATH:?error}/instruments/test1:/opt/airflow/mounts/instruments/test1:ro
+      # to write the raw file data to the backup pool:
       - ${MOUNTS_PATH:?error}/backup/test1:/opt/airflow/mounts/backup/test1:rw
-     # for this worker, changes to DAGs and Tasks are immediately active
+      # for the test1 worker, changes to DAGs and Tasks are immediately active
       - ./airflow_src/dags:/opt/airflow/dags
       - ./airflow_src/config:/opt/airflow/config
       - ./airflow_src/plugins:/opt/airflow/plugins
       - ./shared:/opt/airflow/shared
+
+########################################## FILE MOVER/REMOVER WORKERS ##########################################
 
   # file mover: moves files from instrument to instrument Backup folder
   airflow-worker-file-mover:
@@ -343,8 +342,8 @@ services:
     <<: *airflow-worker
     command: celery worker -q kraken_queue_file_mover
     volumes:
-      - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs
-      # write (move) from instrument to instrument Backup folder
+      - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs:rw
+      # to write (move) from instrument to instrument Backup folder:
       - ${MOUNTS_PATH:?error}/instruments:/opt/airflow/mounts/instruments:rw
 
   # file remover: removes files from instrument Backup folder after comparing to pool Backup folder
@@ -353,18 +352,21 @@ services:
     <<: *airflow-worker
     command: celery worker -q kraken_queue_file_remover
     volumes:
-      - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs
-      - ${MOUNTS_PATH:?error}/backup:/opt/airflow/mounts/backup:ro # read from pool backup
-      # write (remove) from instrument Backup folder
-      # (this could be limited to the 'Backup' folders but then requires one entry per instrument)
+      - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs:rw
+      # to read from pool backup (for file comparison):
+      - ${MOUNTS_PATH:?error}/backup:/opt/airflow/mounts/backup:ro
+      # to write (remove) from instrument Backup folder: (this could be limited to the 'Backup' folders but then requires one entry per instrument)
       - ${MOUNTS_PATH:?error}/instruments:/opt/airflow/mounts/instruments:rw
+
+########################################## INSTRUMENT WORKERS ##########################################
+# cf. comments in airflow-worker-test1
 
   # INSTRUMENT: Test2
   airflow-worker-test2:
     <<: *airflow-worker
     command: celery worker -q kraken_queue_test2
     volumes:
-      - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs
+      - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs:rw
       - ${MOUNTS_PATH:?error}/output:/opt/airflow/mounts/output:ro
       - ${MOUNTS_PATH:?error}/instruments/test2:/opt/airflow/mounts/instruments/test2:ro
       - ${MOUNTS_PATH:?error}/backup/test2:/opt/airflow/mounts/backup/test2:rw
@@ -374,7 +376,7 @@ services:
     <<: *airflow-worker
     command: celery worker -q kraken_queue_test3
     volumes:
-      - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs
+      - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs:rw
       - ${MOUNTS_PATH:?error}/output:/opt/airflow/mounts/output:ro
       - ${MOUNTS_PATH:?error}/instruments/test3:/opt/airflow/mounts/instruments/test3:ro
       - ${MOUNTS_PATH:?error}/backup/test3:/opt/airflow/mounts/backup/test3:rw
@@ -384,7 +386,7 @@ services:
     <<: *airflow-worker
     command: celery worker -q kraken_queue_test4
     volumes:
-      - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs
+      - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs:rw
       - ${MOUNTS_PATH:?error}/output:/opt/airflow/mounts/output:ro
       - ${MOUNTS_PATH:?error}/instruments/test4:/opt/airflow/mounts/instruments/test4:ro
       - ${MOUNTS_PATH:?error}/backup/test4:/opt/airflow/mounts/backup/test4:rw
@@ -394,7 +396,7 @@ services:
     <<: *airflow-worker
     command: celery worker -q kraken_queue_test5
     volumes:
-      - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs
+      - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs:rw
       - ${MOUNTS_PATH:?error}/output:/opt/airflow/mounts/output:ro
       - ${MOUNTS_PATH:?error}/instruments/test5:/opt/airflow/mounts/instruments/test5:ro
       - ${MOUNTS_PATH:?error}/backup/test5:/opt/airflow/mounts/backup/test5:rw
@@ -404,7 +406,7 @@ services:
     <<: *airflow-worker
     command: celery worker -q kraken_queue_test10
     volumes:
-      - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs
+      - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs:rw
       - ${MOUNTS_PATH:?error}/output:/opt/airflow/mounts/output:ro
       - ${MOUNTS_PATH:?error}/instruments/test10:/opt/airflow/mounts/instruments/test10:ro
       - ${MOUNTS_PATH:?error}/backup/test10:/opt/airflow/mounts/backup/test10:rw
@@ -414,7 +416,7 @@ services:
     <<: *airflow-worker
     command: celery worker -q kraken_queue_test11
     volumes:
-      - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs
+      - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs:rw
       - ${MOUNTS_PATH:?error}/output:/opt/airflow/mounts/output:ro
       - ${MOUNTS_PATH:?error}/instruments/test11:/opt/airflow/mounts/instruments/test11:ro
       - ${MOUNTS_PATH:?error}/backup/test11:/opt/airflow/mounts/backup/test11:rw
@@ -424,7 +426,7 @@ services:
     <<: *airflow-worker
     command: celery worker -q kraken_queue_test6
     volumes:
-      - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs
+      - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs:rw
       - ${MOUNTS_PATH:?error}/output:/opt/airflow/mounts/output:ro
       - ${MOUNTS_PATH:?error}/instruments/test6:/opt/airflow/mounts/instruments/test6:ro
       - ${MOUNTS_PATH:?error}/backup/test6:/opt/airflow/mounts/backup/test6:rw
@@ -434,7 +436,7 @@ services:
     <<: *airflow-worker
     command: celery worker -q kraken_queue_test7
     volumes:
-      - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs
+      - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs:rw
       - ${MOUNTS_PATH:?error}/output:/opt/airflow/mounts/output:ro
       - ${MOUNTS_PATH:?error}/instruments/test7:/opt/airflow/mounts/instruments/test7:ro
       - ${MOUNTS_PATH:?error}/backup/test7:/opt/airflow/mounts/backup/test7:rw
@@ -444,7 +446,7 @@ services:
     <<: *airflow-worker
     command: celery worker -q kraken_queue_test8
     volumes:
-      - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs
+      - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs:rw
       - ${MOUNTS_PATH:?error}/output:/opt/airflow/mounts/output:ro
       - ${MOUNTS_PATH:?error}/instruments/test8:/opt/airflow/mounts/instruments/test8:ro
       - ${MOUNTS_PATH:?error}/backup/test8:/opt/airflow/mounts/backup/test8:rw
@@ -454,7 +456,7 @@ services:
     <<: *airflow-worker
     command: celery worker -q kraken_queue_test9
     volumes:
-      - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs
+      - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs:rw
       - ${MOUNTS_PATH:?error}/output:/opt/airflow/mounts/output:ro
       - ${MOUNTS_PATH:?error}/instruments/test9:/opt/airflow/mounts/instruments/test9:ro
       - ${MOUNTS_PATH:?error}/backup/test9:/opt/airflow/mounts/backup/test9:rw

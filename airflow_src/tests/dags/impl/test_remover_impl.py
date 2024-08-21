@@ -100,24 +100,6 @@ def test_check_file_mismatch_db(
         _check_file(file_path_to_remove, file_path_pool_backup, file_info_in_db)
 
 
-@patch("dags.impl.remover_impl.get_file_size")
-@patch("dags.impl.remover_impl.get_internal_backup_path")
-def test_check_file_does_not_exists(
-    mock_backup_path: MagicMock, mock_get_file_size: MagicMock
-) -> None:
-    """Test that _check_file does not raise if file does not exist."""
-    mock_backup_path.return_value = MagicMock()
-    file_path_to_remove = MagicMock()
-    file_path_to_remove.exists.return_value = False
-    file_path_pool_backup = MagicMock()
-    file_info_in_db = MagicMock()
-
-    # when
-    _check_file(file_path_to_remove, file_path_pool_backup, file_info_in_db)
-
-    assert mock_get_file_size.call_count == 0
-
-
 @patch("dags.impl.remover_impl.get_env_variable")
 def test_remove_files_production(mock_get_env: MagicMock) -> None:
     """Test that _remove_files removes files in production environment."""
@@ -194,9 +176,12 @@ def test_safe_remove_files_success(
     mock_raw_file.file_info = {"file1": (100, "hash1")}
     mock_get_raw_file.return_value = mock_raw_file
 
+    mock_path_to_delete = MagicMock(wraps=Path("/instrument/file1"))
+    mock_path_to_delete.exists.return_value = True
+
     mock_wrapper = MagicMock()
     mock_wrapper.get_files_to_remove.return_value = {
-        Path("/instrument/file1"): Path("/backup/file1")
+        mock_path_to_delete: Path("/backup/file1")
     }
     mock_wrapper.get_folder_to_remove.return_value = None
     mock_wrapper_factory.create_write_wrapper.return_value = mock_wrapper
@@ -205,8 +190,50 @@ def test_safe_remove_files_success(
     _safe_remove_files("raw_file_id")
 
     # then
-    mock_check_file.assert_called_once()
-    mock_remove_files.assert_called_once()
+    mock_check_file.assert_called_once_with(
+        mock_path_to_delete, Path("/backup/file1"), mock_raw_file.file_info
+    )
+    mock_remove_files.assert_called_once_with([mock_path_to_delete])
+    mock_remove_folder.assert_not_called()  # because get_folder_to_remove returned None
+    mock_wrapper_factory.create_write_wrapper.assert_called_once_with(
+        mock_raw_file, path_provider=RemovePathProvider
+    )
+
+
+@patch("dags.impl.remover_impl.get_raw_file_by_id")
+@patch("dags.impl.remover_impl.RawFileWrapperFactory")
+@patch("dags.impl.remover_impl._check_file")
+@patch("dags.impl.remover_impl._remove_files")
+@patch("dags.impl.remover_impl._remove_folder")
+def test_safe_remove_files_file_not_existing(
+    mock_remove_folder: MagicMock,
+    mock_remove_files: MagicMock,
+    mock_check_file: MagicMock,
+    mock_wrapper_factory: MagicMock,
+    mock_get_raw_file: MagicMock,
+) -> None:
+    """Test that _safe_remove_files gracefully handles nonexisting file to delete."""
+    mock_raw_file = MagicMock()
+    mock_raw_file.instrument_id = "instrument1"
+    mock_raw_file.file_info = {"file1": (100, "hash1")}
+    mock_get_raw_file.return_value = mock_raw_file
+
+    mock_path_to_delete = MagicMock(wraps=Path("/instrument/file1"))
+    mock_path_to_delete.exists.return_value = False
+
+    mock_wrapper = MagicMock()
+    mock_wrapper.get_files_to_remove.return_value = {
+        mock_path_to_delete: Path("/backup/file1")
+    }
+    mock_wrapper.get_folder_to_remove.return_value = None
+    mock_wrapper_factory.create_write_wrapper.return_value = mock_wrapper
+
+    # when
+    _safe_remove_files("raw_file_id")
+
+    # then
+    mock_check_file.assert_not_called()
+    mock_remove_files.assert_called_once_with([])
     mock_remove_folder.assert_not_called()  # because get_folder_to_remove returned None
     mock_wrapper_factory.create_write_wrapper.assert_called_once_with(
         mock_raw_file, path_provider=RemovePathProvider
@@ -227,9 +254,12 @@ def test_safe_remove_files_check_error(
     mock_raw_file.file_info = {"file1": (100, "hash1")}
     mock_get_raw_file.return_value = mock_raw_file
 
+    mock_path_to_delete = MagicMock(wraps=Path("/instrument/file1"))
+    mock_path_to_delete.exists.return_value = True
+
     mock_wrapper = MagicMock()
     mock_wrapper.get_files_to_remove.return_value = {
-        Path("/instrument/file1"): Path("/backup/file1")
+        mock_path_to_delete: Path("/backup/file1")
     }
     mock_wrapper_factory.create_write_wrapper.return_value = mock_wrapper
 

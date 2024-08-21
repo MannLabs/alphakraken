@@ -68,6 +68,12 @@ def _safe_remove_files(raw_file_id: str) -> None:
         file_path_to_remove,
         file_path_pool_backup,
     ) in remove_wrapper.get_files_to_remove().items():
+        if not file_path_to_remove.exists():
+            logging.warning(
+                f"File {file_path_to_remove} does not exist. Presuming it was already removed."
+            )
+            continue
+
         _check_file(
             file_path_to_remove,
             file_path_pool_backup,
@@ -147,12 +153,6 @@ def _check_file(
 
     :raises: FileCheckError if one of the checks fails.
     """
-    if not file_path_to_remove.exists():
-        logging.warning(
-            f"File {file_path_to_remove} does not exist. Presuming it was already removed."
-        )
-        return
-
     logging.info(
         f"Comparing {file_path_to_remove=} to {file_path_pool_backup=} with {file_info_in_db=}"
     )

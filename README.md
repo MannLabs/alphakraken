@@ -256,6 +256,7 @@ mkdir -p ${MOUNTS}/output/<INSTRUMENT_ID>
     # there might be additional keys here, just copy them
     volumes:
       - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs
+      - ${MOUNTS_PATH:?error}/output:/opt/airflow/mounts/output:ro
       - ${MOUNTS_PATH:?error}/instruments/<INSTRUMENT_ID>:/opt/airflow/mounts/instruments/<INSTRUMENT_ID>:ro
       - ${MOUNTS_PATH:?error}/backup/<INSTRUMENT_ID>:/opt/airflow/mounts/backup/<INSTRUMENT_ID>:rw
 ```

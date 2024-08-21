@@ -344,7 +344,8 @@ services:
     command: celery worker -q kraken_queue_file_mover
     volumes:
       - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs
-      - ${MOUNTS_PATH:?error}/instruments:/opt/airflow/mounts/instruments:rw  # write from instrument to instrument Backup folder
+      # write (move) from instrument to instrument Backup folder
+      - ${MOUNTS_PATH:?error}/instruments:/opt/airflow/mounts/instruments:rw
 
   # file remover: removes files from instrument Backup folder after comparing to pool Backup folder
   airflow-worker-file-remover:
@@ -354,7 +355,8 @@ services:
     volumes:
       - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs
       - ${MOUNTS_PATH:?error}/backup:/opt/airflow/mounts/backup:ro # read from pool backup
-      # write (remove) from instrument Backup folder (this could be limited to the 'Backup' folders but then requires one entry per instrument
+      # write (remove) from instrument Backup folder
+      # (this could be limited to the 'Backup' folders but then requires one entry per instrument)
       - ${MOUNTS_PATH:?error}/instruments:/opt/airflow/mounts/instruments:rw
 
   # INSTRUMENT: Test2

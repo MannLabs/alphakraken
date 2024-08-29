@@ -49,7 +49,7 @@ def test_get_raw_files_to_remove(
     mock_get_airflow_variable.assert_has_calls(
         [
             call("min_free_space_gb", "-1"),
-            call("min_file_age_to_remove_in_days", 30),
+            call("min_file_age_to_remove_in_days", 14),
         ]
     )
 

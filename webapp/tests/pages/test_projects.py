@@ -16,7 +16,7 @@ APP_FOLDER = Path(__file__).parent / Path("../../")
 @patch("service.db.get_project_data")
 @patch("service.db.df_from_db_data")
 def test_projects_display_table(mock_df: MagicMock, mock_get: MagicMock) -> None:
-    """Test that the table shows correclty on the projects page."""
+    """Test that the table shows correctly on the projects page."""
     mock_projects_db = MagicMock()
     mock_get.return_value = mock_projects_db
 

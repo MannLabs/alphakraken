@@ -10,6 +10,7 @@ import pytz
 import streamlit as st
 from matplotlib import pyplot as plt
 from service.components import (
+    get_terminal_status_counts,
     highlight_status_cell,
     show_date_select,
     show_filter,
@@ -31,6 +32,9 @@ st.markdown("# Overview")
 
 st.write(
     f"Current Kraken time: {datetime.now(tz=pytz.UTC).replace(microsecond=0)} [all time stamps are given in UTC!]"
+)
+st.write(
+    "Use the filter and date select to narrow down results both in the table and the plots below."
 )
 
 # ########################################### LOGIC
@@ -72,7 +76,7 @@ def _display_table_and_plots(df: pd.DataFrame) -> None:
 
     # filter
     len_whole_df = len(df)
-    c1, c2 = st.columns([0.7, 0.3])
+    c1, c2, _ = st.columns([0.5, 0.25, 0.25])
     filtered_df = show_filter(df, text_to_display="Filter:", st_display=c1)
     filtered_df = show_date_select(
         filtered_df,
@@ -80,7 +84,7 @@ def _display_table_and_plots(df: pd.DataFrame) -> None:
     )
 
     st.write(
-        f"Showing {len(filtered_df)} / {len_whole_df} entries. Use the filter to narrow down results both in the table and the plots below."
+        f"Showing {len(filtered_df)} / {len_whole_df} entries. Distribution of terminal statuses: {get_terminal_status_counts(filtered_df)}"
     )
 
     cmap = plt.get_cmap("RdYlGn")
@@ -138,7 +142,12 @@ def _display_table_and_plots(df: pd.DataFrame) -> None:
     selectbox_columns = ["file_created"] + [
         col for col in column_order if col != "file_created"
     ]
-    x = st.selectbox(label="Choose x-axis:", options=selectbox_columns)
+    c1, _ = st.columns([0.25, 0.75])
+    x = c1.selectbox(
+        label="Choose x-axis:",
+        options=selectbox_columns,
+        help="Set the x-axis. The default 'file_created' is suitable for most cases.",
+    )
     for y in [
         "status",
         "size_gb",
@@ -160,6 +169,18 @@ def _draw_plot(df: pd.DataFrame, x: str, y: str) -> None:
 
     y_is_numeric = pd.api.types.is_numeric_dtype(df[y])
     median_ = df[y].median() if y_is_numeric else 0
+    title = f"{y} (median= {median_:.2f})" if y_is_numeric else y
+
+    hover_data = [
+        "file_created",
+        "size_gb",
+        "precursors",
+        "status",
+    ]
+
+    if y == "status" and "status_details" in df:
+        df.loc[pd.isna(df["status_details"]), "status_details"] = ""
+        hover_data.append("status_details")
 
     fig = px.scatter(
         df,
@@ -167,8 +188,8 @@ def _draw_plot(df: pd.DataFrame, x: str, y: str) -> None:
         y=y,
         color="instrument_id",
         hover_name="_id",
-        hover_data=["file_created", "status", "size_gb", "precursors"],
-        title=f"{y} (median= {median_:.2f})",
+        hover_data=hover_data,
+        title=title,
         height=400,
     )
     if y_is_numeric:

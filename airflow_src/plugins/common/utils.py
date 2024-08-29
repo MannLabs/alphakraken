@@ -7,6 +7,7 @@ from datetime import datetime
 import pytz
 from airflow.api.common.trigger_dag import trigger_dag
 from airflow.models import DagRun, TaskInstance, Variable
+from airflow.providers.ssh.hooks.ssh import SSHHook
 from airflow.utils.types import DagRunType
 
 _xcom_types = str | list[str] | dict[str, str | bool] | int
@@ -77,4 +78,20 @@ def truncate_string(input_string: str | None, n: int = 200) -> str | None:
         input_string[: n // 2] + " ... " + input_string[-n // 2 :]
         if input_string is not None and len(input_string) > n
         else input_string
+    )
+
+
+def get_timestamp() -> float:
+    """Get the current timestamp."""
+    return datetime.now(tz=pytz.utc).timestamp()
+
+
+def get_cluster_ssh_hook() -> SSHHook:
+    """Get the SSH hook for the cluster.
+
+    The connection 'cluster_ssh_connection' needs to be defined in Airflow UI.
+    """
+    logging.info("Getting cluster SSH hook..")
+    return SSHHook(
+        ssh_conn_id="cluster_ssh_connection", conn_timeout=60, cmd_timeout=60
     )

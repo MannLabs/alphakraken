@@ -19,6 +19,7 @@ INSTRUMENTS = {
 # prefix for the queues the DAGs are assigned to (cf. docker-compose.yaml)
 AIRFLOW_QUEUE_PREFIX = "kraken_queue_"
 
+# TODO: make slurm script location depend on ENV_NAME or get dedicated user for sandbox
 CLUSTER_BASE_DIR = "~/slurm"
 CLUSTER_JOB_SCRIPT_PATH = f"{CLUSTER_BASE_DIR}/submit_job.sh"
 CLUSTER_WORKING_DIR = f"{CLUSTER_BASE_DIR}/jobs"
@@ -49,6 +50,7 @@ ERROR_CODE_TO_STRING = {
     "_CYCLE_NOT_CONSISTENT": "but does not consistent",
     "_NO_PSM_FILES": "No psm files accumulated",  # will become a known error in alphadia >1.7.2
     "_NOT_DIA_DATA": "'TimsTOFTranspose' object has no attribute '_cycle'",  # will become a known error in alphadia >1.7.2
+    "_KEY_MISSING_RT_CALIBRATED": "ERROR: 'rt_calibrated'",
 }
 
 
@@ -163,7 +165,14 @@ def get_output_folder_rel_path(raw_file: RawFile, project_id_or_fallback: str) -
     )
 
 
-def get_internal_output_path(raw_file: RawFile, project_id_or_fallback: str) -> Path:
+def get_internal_output_path() -> Path:
+    """Get absolute internal output path."""
+    return Path(InternalPaths.MOUNTS_PATH) / InternalPaths.OUTPUT
+
+
+def get_internal_output_path_for_raw_file(
+    raw_file: RawFile, project_id_or_fallback: str
+) -> Path:
     """Get absolute internal output path for the given raw file name."""
     return Path(InternalPaths.MOUNTS_PATH) / get_output_folder_rel_path(
         raw_file, project_id_or_fallback

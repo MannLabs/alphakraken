@@ -9,7 +9,12 @@ from airflow.providers.ssh.hooks.ssh import SSHHook
 from airflow.sensors.base import BaseSensorOperator
 from cluster_scripts.slurm_commands import get_job_state_cmd
 from common.keys import AirflowVars, JobStates, XComKeys
-from common.utils import get_airflow_variable, get_xcom, truncate_string
+from common.utils import (
+    get_airflow_variable,
+    get_cluster_ssh_hook,
+    get_xcom,
+    truncate_string,
+)
 
 
 class SSHSensorOperator(BaseSensorOperator, ABC):
@@ -29,13 +34,10 @@ class SSHSensorOperator(BaseSensorOperator, ABC):
     def running_states(self) -> list[str]:
         """Outputs of the command in `command_template` that are considered 'running'."""
 
-    def __init__(self, ssh_hook: SSHHook, *args, **kwargs):
-        """Initialize the operator.
-
-        :param ssh_hook: the ssh hook to use.
-        """
+    def __init__(self, *args, **kwargs):
+        """Initialize the operator."""
         super().__init__(*args, **kwargs)
-        self._ssh_hook: SSHHook = ssh_hook
+        self._ssh_hook: SSHHook = get_cluster_ssh_hook()
         self._job_id: str | None = None
 
     def pre_execute(self, context: dict[str, any]) -> None:
@@ -44,7 +46,7 @@ class SSHSensorOperator(BaseSensorOperator, ABC):
 
     def poke(self, context: dict[str, any]) -> bool:
         """Check the output of the ssh command."""
-        logging.info(f"SSH command execute: {context}")
+        del context  # unused
 
         ssh_return = self.ssh_execute(self.command, self._ssh_hook)
         logging.info(f"ssh command returned: '{ssh_return}'")
@@ -54,13 +56,22 @@ class SSHSensorOperator(BaseSensorOperator, ABC):
 
         return True
 
+    # show file size earlier
+
     @staticmethod
-    def ssh_execute(command: str, ssh_hook: SSHHook, max_tries: int = 10) -> str:
+    def ssh_execute(
+        command: str,
+        ssh_hook: SSHHook | None = None,
+        *,
+        max_tries: int = 10,
+    ) -> str:
         """Execute the given `command` via the `ssh_hook`."""
         # this is a hack to prevent jobs to be run on the cluster, useful for debugging and initial setup.
         # To get rid of this, e.g. set up a container with a fake ssh server
         if get_airflow_variable(AirflowVars.DEBUG_NO_CLUSTER_SSH, "False") == "True":
             return SSHSensorOperator._get_fake_ssh_response(command)
+        if ssh_hook is None:
+            ssh_hook = get_cluster_ssh_hook()
 
         str_stdout = ""
 

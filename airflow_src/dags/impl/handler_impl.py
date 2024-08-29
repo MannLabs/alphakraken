@@ -32,18 +32,12 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
         instrument_id=instrument_id, raw_file=raw_file
     )
 
-    pool_base_path = Path(get_env_variable(EnvVars.POOL_BASE_PATH))
-    backup_pool_folder = get_env_variable(EnvVars.BACKUP_POOL_FOLDER)
-
-    file_info: dict[str, tuple[float, str]] = {}
+    copied_files: dict[Path, tuple[float, str]] = {}
     for src_path, dst_path in raw_file_copy_wrapper.get_files_to_copy().items():
         dst_size, dst_hash = copy_file(src_path, dst_path)
+        copied_files[dst_path] = (dst_size, dst_hash)
 
-        rel_dst_path = dst_path.relative_to(get_internal_backup_path())
-        file_info[str(pool_base_path / backup_pool_folder / rel_dst_path)] = (
-            dst_size,
-            dst_hash,
-        )
+    file_info = _get_file_info(copied_files)
 
     # a bit hacky to get the file size once again, but it's a cheap operation
     file_size = get_file_size(
@@ -56,6 +50,26 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
         size=file_size,
         file_info=file_info,
     )
+
+
+def _get_file_info(
+    copied_files: dict[Path, tuple[float, str]],
+) -> dict[str, tuple[float, str]]:
+    """Map the paths of the copied files from the internal to their actual locations.
+
+    e.g. from `/opt/airflow/mounts/backup/test1/2024_08/test_file_SA_P1_1.raw` -> `/fs/pool/pool-backup/test1/2024_08/test_file_SA_P1_1.raw`
+    """
+    pool_base_path = Path(get_env_variable(EnvVars.POOL_BASE_PATH))
+    backup_pool_folder = get_env_variable(EnvVars.BACKUP_POOL_FOLDER)
+    pool_backup_folder_path = pool_base_path / backup_pool_folder
+    internal_backup_path = get_internal_backup_path()
+
+    file_info: dict[str, tuple[float, str]] = {}
+    for dst_path, file_size_and_hash in copied_files.items():
+        rel_dst_path = dst_path.relative_to(internal_backup_path)
+        file_info[str(pool_backup_folder_path / rel_dst_path)] = file_size_and_hash
+
+    return file_info
 
 
 def start_file_mover(ti: TaskInstance, **kwargs) -> None:

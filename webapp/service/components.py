@@ -28,7 +28,7 @@ def show_filter(
         text_to_display,
         None,
         placeholder="e.g. test2 & !hela",
-        help="Case insensitive. Chain multiple conditions with '&', negate with '!'. E.g. test2 & qc & !hela.",
+        help="Case insensitive filter on each column of the table. Chain multiple conditions with '&', negate with '!'. E.g. test2 & qc & !hela.",
     )
     if user_input is not None and user_input != "":
         filters = [f.strip() for f in user_input.lower().split("&")]
@@ -52,6 +52,7 @@ def show_filter(
 def show_date_select(
     df: pd.DataFrame,
     text_to_display: str = "Earliest file creation date:",
+    help_to_display: str = "Selects the earliest file creation date to display in table and plots.",
     st_display: st.delta_generator.DeltaGenerator = st,
 ) -> pd.DataFrame:
     """Filter the DataFrame on user input by date."""
@@ -66,6 +67,7 @@ def show_date_select(
         min_value=oldest_file,
         max_value=youngest_file,
         value=last_selectable_date,
+        help=help_to_display,
     )
     min_date_with_time = datetime.combine(min_date, datetime.min.time())
     return df[df["created_at"] > min_date_with_time]
@@ -129,8 +131,10 @@ def show_time_in_status_table(
     reshaped = latest_updates.sort_index()
 
     columns = reshaped.columns
-    green_ages_m = [0.5 * 60] * len(columns)
-    red_ages_m = [2 * 60] * len(columns)
+    green_ages_m = [1.5 * 60] * len(columns)
+    red_ages_m = [3 * 60] * len(
+        columns
+    )  # both quanting and waiting for new files timeout is 2h
     colormaps = ["RdYlGn_r"] * len(columns)
     display.dataframe(
         reshaped.style.apply(
@@ -174,12 +178,12 @@ def display_status(combined_df: pd.DataFrame, status_data_df: pd.DataFrame) -> N
         )
 
         # last file watcher poke
-        last_file_check = status_df["updated_at_"].to_numpy()[0]
-        status_data["last_file_check"].append(last_file_check)
-        status_data["last_file_check_text"].append(
-            _get_display_time(last_file_check, now)
+        last_health_check = status_df["updated_at_"].to_numpy()[0]
+        status_data["last_health_check"].append(last_health_check)
+        status_data["last_health_check_text"].append(
+            _get_display_time(last_health_check, now)
         )
-        status_data["last_file_check_error"].append(
+        status_data["last_health_check_error"].append(
             status_df["last_error_occurred_at"].to_numpy()[0]
         )
         status_data["status_details"].append(status_df["status_details"].to_numpy()[0])
@@ -211,12 +215,12 @@ def _get_color(
     columns: list[str] = [  # noqa: B006
         "last_file_creation",
         "last_status_update",
-        "last_file_check",
+        "last_health_check",
     ],
     green_ages_m: list[float] = [  # noqa: B006
         2 * 60,
         2 * 60,
-        1.5,  # should be larger than FILE_CREATION_POKE_INTERVAL_S
+        5.1,  # should be larger than HEALTH_CHECK_INTERVAL_M
     ],
     red_ages_m: list[float] = [  # noqa: B006
         8 * 60,
@@ -293,3 +297,33 @@ def show_sandbox_message() -> None:
         """,
             icon="⚠️",
         )
+
+
+def get_terminal_status_counts(
+    filtered_df: pd.DataFrame, statuses: list[str] = TERMINAL_STATUSES
+) -> str:
+    """Count the number of rows and calculate percentages for terminal statuses in the filtered DataFrame.
+
+    Args:
+    ----
+        filtered_df (pd.DataFrame): The filtered DataFrame containing the 'status' column.
+        statuses (list[str]): The statuses to consider.
+
+    Returns:
+    -------
+        str: A display-ready string with terminal status and 'count' and 'percentage' for each status.
+
+    """
+    terminal_df = filtered_df[filtered_df["status"].isin(statuses)]
+
+    if (total_terminal_rows := len(terminal_df)) == 0:
+        return "n/a"
+
+    status_counts = terminal_df["status"].value_counts().sort_values()
+
+    result = []
+    for status, count in status_counts.items():
+        percentage = (count / total_terminal_rows) * 100
+        result.append(f"{status}: {int(count)} ({percentage:.1f}%)")
+
+    return "; ".join(result)

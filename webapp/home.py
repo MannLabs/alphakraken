@@ -27,10 +27,24 @@ if os.environ.get(EnvVars.ENV_NAME) == "production":
 else:
     show_sandbox_message()
 
-"""
-## A basic explanation of how to use this:
+c1, _ = st.columns([0.5, 0.5])
 
-If you want to see data for all raw files that have been processed, go to the "overview" tab.
+c1.markdown("""### What is AlphaKraken?
 
-That's it, the rest is only for admin users.
-"""
+This tool should help you keep track of your acquisitions and monitor their status and quality in (near) real-time.
+By default, every single acquisition is processed by AlphaDIA and the results are stored in a database.
+The processing is done on the cluster, which means that on rare occasions, it might be delayed due to high load.
+
+
+### How to use it?
+
+The "overview" tab shows all results, allows for filtering and sorting, and provides some basic quality measure plots.
+
+The "status" tab shows the current status of the acquisition pipeline and the status of the last processed files.
+It is mostly relevant for AlphaKraken admin users.
+
+The "project" and "settings" tabs allow to manage specific AlphaDIA settings for certain raw files.
+Currently they are meant to be used by AlphaKraken admin users only.
+""")
+
+# add link to http://<kraken_url>:8080 here

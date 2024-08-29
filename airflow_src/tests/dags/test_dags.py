@@ -4,7 +4,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-from airflow.models import DagBag
+from airflow.models import Connection, DagBag
 from plugins.common.settings import INSTRUMENTS
 
 DAG_FOLDER = Path(__file__).parent / Path("../../dags")
@@ -13,9 +13,22 @@ DAG_FOLDER = Path(__file__).parent / Path("../../dags")
 
 
 @pytest.fixture()
-def dagbag() -> DagBag:
+def fixture_cluster_ssh_connection_uri() -> str:
+    """Fixture for a mock cluster SSH connection URI."""
+    mock_cluster_ssh_connection = Connection(
+        conn_type="ssh",
+        host="mock-conn-host",
+    )
+    return mock_cluster_ssh_connection.get_uri()
+
+
+@pytest.fixture()
+def dagbag(fixture_cluster_ssh_connection_uri: str) -> DagBag:
     """Fixture for a DagBag instance with the DAGs loaded."""
-    with patch("airflow.providers.ssh.hooks.ssh.SSHHook"):
+    with patch.dict(
+        "os.environ",
+        AIRFLOW_CONN_CLUSTER_SSH_CONNECTION=fixture_cluster_ssh_connection_uri,
+    ):
         return DagBag(dag_folder=DAG_FOLDER, include_examples=False)
 
 

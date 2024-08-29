@@ -41,7 +41,6 @@ class OpArgs:
     """Keys for passing arguments to operators."""
 
     INSTRUMENT_ID: str = "instrument_id"
-    SSH_HOOK: str = "ssh_hook"
     COMMAND: str = "command"
 
 

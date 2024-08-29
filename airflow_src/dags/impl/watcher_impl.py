@@ -139,7 +139,6 @@ def _is_collision(file_path_to_monitor_acquisition: Path, sizes: list[int]) -> b
 
     Returns False if there's no collision or decision not possible, otherwise True.
     """
-    # TODO: handle the case where the Bruker analysis.tdf_bin does not show up
     if any(s is None for s in sizes):
         logging.info(
             f"At least one file in DB is not fixed yet: {sizes=}, cannot decide on collision."

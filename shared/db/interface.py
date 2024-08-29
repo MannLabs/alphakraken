@@ -166,7 +166,7 @@ def add_new_settings_to_db(  # noqa: PLR0913 Too many arguments in function defi
 def update_kraken_status(
     instrument_id: str, *, status: str, status_details: str
 ) -> None:
-    """Update the status of a instrument connected to kraken."""
+    """Update the status of an instrument connected to kraken."""
     logging.info(f"Updating DB: {instrument_id=} to {status=} with {status_details=}")
     connect_db()
     optional_args = (

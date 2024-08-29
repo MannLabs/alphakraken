@@ -9,15 +9,20 @@ from airflow.sensors.base import BaseSensorOperator
 from common.settings import (
     get_internal_backup_path,
     get_internal_instrument_data_path,
+    get_internal_output_path,
 )
+from common.utils import get_timestamp
 from raw_file_wrapper_factory import RawFileWrapperFactory
 
 from shared.db.interface import update_kraken_status
 from shared.db.models import KrakenStatusValues
 
+# to reduce network traffic, do the health check only every few minutes. If changed, adapt also webapp color code.
+HEALTH_CHECK_INTERVAL_M: int = 5
+
 
 def _check_health(instrument_id: str) -> None:
-    """Check the health of the instrument data path and backup path. Update Kraken status."""
+    """Check the health of the instrument data, and the output and backup paths and update Kraken status."""
     status_details = []
     data_path = get_internal_instrument_data_path(instrument_id)
     if not data_path.exists():
@@ -29,7 +34,10 @@ def _check_health(instrument_id: str) -> None:
         logging.error(f"Backup path {backup_path} does not exist.")
         status_details.append("Backup path not found.")
 
-    # TODO: check output path here
+    output_path = get_internal_output_path()
+    if not output_path.exists():
+        logging.error(f"Output path {output_path} does not exist.")
+        status_details.append("Output path not found.")
 
     update_kraken_status(
         instrument_id,
@@ -52,10 +60,15 @@ class FileCreationSensor(BaseSensorOperator):
         )
 
         self._initial_dir_contents: set | None = None
+        self._latest_health_check_timestamp: float = 0.0
 
     def pre_execute(self, context: dict[str, any]) -> None:
         """Check the health of the instrument data path and backup path."""
         del context  # unused
+
+        logging.info(
+            f"Checking for new files since start of this DAG run in {self._raw_file_monitor_wrapper.instrument_path}"
+        )
 
         self._initial_dir_contents = (
             self._raw_file_monitor_wrapper.get_raw_files_on_instrument()
@@ -65,11 +78,11 @@ class FileCreationSensor(BaseSensorOperator):
         """Check if file was created. If so, push the folder contents to xcom and return."""
         del context  # unused
 
-        logging.info(
-            f"Checking for new files since start of this DAG run in {self._raw_file_monitor_wrapper.instrument_path}"
-        )
-
-        _check_health(self._instrument_id)
+        if (
+            current_timestamp := get_timestamp()
+        ) - self._latest_health_check_timestamp >= HEALTH_CHECK_INTERVAL_M * 60:
+            _check_health(self._instrument_id)
+            self._latest_health_check_timestamp = current_timestamp
 
         if (
             new_dir_content

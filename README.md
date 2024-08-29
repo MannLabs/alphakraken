@@ -509,6 +509,13 @@ in case something went wrong with the quanting.
 
 Recommended setting in production: False (default)
 
+### min_free_space_gb
+If set to a positive number (unit: GB), the `file_remover` will remove files (oldest first) from the
+instrument backup folder until the free space is above this threshold.
+
+Recommended setting in production: `300` (big enough to avoid running out of space over a weekend
+(in the worst case scenario that the file_remover stops running on Friday).
+
 ### debug_no_cluster_ssh
 `debug_no_cluster_ssh` If set to `True`, the system will not connect to the SLURM cluster. This is useful for
 testing, debugging and to avoid flooding the cluster at the initial setup.

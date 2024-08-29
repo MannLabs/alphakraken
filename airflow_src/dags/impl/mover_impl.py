@@ -17,7 +17,7 @@ from shared.keys import EnvVars
 
 
 def get_files_to_move(ti: TaskInstance, **kwargs) -> None:
-    """Get files to move to the instrument backup folder."""
+    """Get single files to move for a raw_file_id to the instrument backup folder."""
     raw_file_id = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID]
 
     raw_file = get_raw_file_by_id(raw_file_id)
@@ -36,32 +36,65 @@ def get_files_to_move(ti: TaskInstance, **kwargs) -> None:
 
 
 def move_files(ti: TaskInstance, **kwargs) -> None:
-    """Move files/folders to the instrument backup folder if their size matches the database record."""
+    """Move all files/folders associated with a raw file to the instrument backup folder."""
     _check_main_file_to_move(ti, kwargs)
 
     files_to_move_str = get_xcom(ti, XComKeys.FILES_TO_MOVE)
     files_to_move = {Path(k): Path(v) for k, v in files_to_move_str.items()}
 
-    for src_path, dst_path in files_to_move.items():
+    files_to_actually_move = _get_files_to_move(files_to_move)
+
+    _move_files(files_to_actually_move)
+
+
+def _get_files_to_move(files_to_check: dict[Path, Path]) -> dict[Path, Path]:
+    """Check if the files to move are in a consistent state with the destination.
+
+    - source does not exist, but target does -> OK
+    - source does not exist and target does not exist -> raise
+    - source exists and target does not exist -> OK
+    - source exists and target exists:
+        - if they are equal -> OK
+        - if not -> raise
+    """
+    files_to_move = {}
+    for src_path, dst_path in files_to_check.items():
         if not src_path.exists():
             if not dst_path.exists():
                 msg = f"Neither {src_path=} nor {dst_path=} exist."
-            else:
-                # in the future, this might not be an error, but a warning
-                msg = f"File {src_path=} does not exist, but {dst_path=} does."
-            raise AirflowFailException(msg)
+                # this is some weird state, better raise for now to enable investigation.
+                raise AirflowFailException(msg)
+
+            msg = f"File {src_path=} does not exist, but {dst_path=} does. Presuming it was moved before."
+            logging.info(msg)
+            continue
 
         if dst_path.exists():
             missing_files, different_files, items_only_in_target = compare_paths(
                 src_path, dst_path
             )
-            logging.info(f"Files missing in target: {missing_files}")
-            logging.info(f"Files different in target: {different_files}")
-            logging.info(f"Files only in target: {items_only_in_target}")
+            logging.info(f"File {dst_path=} already exists:")
+            logging.info(f"  Files missing in target: {missing_files}")
+            logging.info(f"  Files different in target: {different_files}")
+            logging.info(f"  Files only in target: {items_only_in_target}")
 
-            raise AirflowFailException(f"File {dst_path=} already exists.")
+            if not (missing_files + different_files + items_only_in_target):
+                logging.warning(f"{dst_path=} is identical to {src_path=}.")
+                continue
 
+            raise AirflowFailException(
+                f"{dst_path=} exists and is different to {src_path=}"
+            )
+
+        files_to_move[src_path] = dst_path
+
+    return files_to_move
+
+
+def _move_files(files_to_move: dict[Path, Path]) -> None:
+    """Move the files."""
     env_name = get_env_variable(EnvVars.ENV_NAME)
+
     for src_path, dst_path in files_to_move.items():
         # security measure to not have sandbox interfere with production
         if env_name != "production":

@@ -19,23 +19,23 @@ from raw_file_wrapper_factory import RemovePathProvider
 
 
 @patch("dags.impl.remover_impl.get_airflow_variable")
-@patch("dags.impl.remover_impl.get_raw_file_ids_older_than")
+@patch("dags.impl.remover_impl.get_raw_files_by_age")
 @patch("dags.impl.remover_impl.put_xcom")
 def test_get_raw_files_to_remove(
     mock_put_xcom: MagicMock,
-    mock_get_raw_file_ids_older_than: MagicMock,
+    mock_get_raw_files_by_age: MagicMock,
     mock_get_airflow_variable: MagicMock,
 ) -> None:
     """Test that get_raw_files_to_remove calls the correct functions and puts the result in XCom."""
     mock_ti = MagicMock()
-    mock_get_raw_file_ids_older_than.return_value = ["file1", "file2"]
+    mock_get_raw_files_by_age.return_value = ["file1", "file2"]
     mock_get_airflow_variable.return_value = 42
 
     # when
     get_raw_files_to_remove(mock_ti)
 
     # then
-    mock_get_raw_file_ids_older_than.assert_called_once_with(42)
+    mock_get_raw_files_by_age.assert_called_once_with(42)
     mock_put_xcom.assert_called_once_with(
         mock_ti, XComKeys.FILES_TO_REMOVE, ["file1", "file2"]
     )
@@ -292,7 +292,7 @@ def test_remove_raw_files_success(
 ) -> None:
     """Test that remove_raw_files successfully removes files."""
     mock_ti = MagicMock()
-    mock_get_xcom.return_value = ["file1", "file2"]
+    mock_get_xcom.return_value = {"instrument1": ["file1", "file2"]}
 
     # when
     remove_raw_files(mock_ti)
@@ -308,7 +308,8 @@ def test_remove_raw_files_error(
 ) -> None:
     """Test that remove_raw_files raises ValueError when errors occur."""
     mock_ti = MagicMock()
-    mock_get_xcom.return_value = ["file1", "file2"]
+
+    mock_get_xcom.return_value = {"instrument1": ["file1", "file2"]}
     mock_safe_remove.side_effect = [None, FileRemovalError("Removal failed")]
 
     # when

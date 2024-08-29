@@ -2,6 +2,7 @@
 
 import logging
 import traceback
+from collections import defaultdict
 from pathlib import Path
 
 from airflow.models import TaskInstance
@@ -195,23 +196,32 @@ def remove_raw_files(ti: TaskInstance, **kwargs) -> None:
     """Remove files/folders from the instrument backup folder."""
     del kwargs  # unused
 
-    raw_file_ids = get_xcom(ti, XComKeys.FILES_TO_REMOVE)
-    logging.info(f"Removing {len(raw_file_ids)} raw files: {raw_file_ids}")
+    raw_file_ids_to_remove = get_xcom(ti, XComKeys.FILES_TO_REMOVE)
 
-    errors = []
-    for raw_file_id in raw_file_ids:
-        error = None
-        try:
-            _safe_remove_files(raw_file_id)
-        except FileRemovalError as e:
-            error = f"Error: {e}"
-        except Exception as e:  # noqa: BLE001
-            error = f"Unknown error: {e} {traceback.format_exc()}"
-        finally:
-            if error:
-                errors.append(error)
-                logging.error(f"Error removing raw file {raw_file_id}:")
-                logging.error(error)
+    errors = defaultdict(list)
+    for instrument_id, raw_file_ids in raw_file_ids_to_remove.items():
+        logging.info(
+            f"Removing for {instrument_id} {len(raw_file_ids)} files: {raw_file_ids}"
+        )
+        for raw_file_id in raw_file_ids:
+            error = None
+            try:
+                _safe_remove_files(raw_file_id)
+            except FileRemovalError as e:
+                error = f"Error: {e}"
+            except Exception as e:  # noqa: BLE001
+                error = f"Unknown error: {e} {traceback.format_exc()}"
+            finally:
+                if error:
+                    msg = f"Error for {raw_file_id}: {error}"
+                    errors[instrument_id].append(msg)
+                    logging.error(error)
 
     if errors:
+        for instrument_id, error_list in errors.items():
+            errors_pretty = "\n  - ".join(error_list)
+            logging.error(
+                f"Errors removing files for {instrument_id}:\n{errors_pretty}\n\n"
+            )
+
         raise ValueError("Errors removing files.")

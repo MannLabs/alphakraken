@@ -1,13 +1,15 @@
 """Tests for the file_remover module."""
 
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 from common.keys import XComKeys
+from common.settings import INSTRUMENTS
 from dags.impl.remover_impl import (
     FileRemovalError,
     _check_file,
+    _decide_on_raw_files_to_remove,
     _delete_empty_directory,
     _remove_files,
     _remove_folder,
@@ -19,29 +21,85 @@ from raw_file_wrapper_factory import RemovePathProvider
 
 
 @patch("dags.impl.remover_impl.get_airflow_variable")
-@patch("dags.impl.remover_impl.get_raw_files_by_age")
+@patch("dags.impl.remover_impl._decide_on_raw_files_to_remove")
 @patch("dags.impl.remover_impl.put_xcom")
 def test_get_raw_files_to_remove(
     mock_put_xcom: MagicMock,
-    mock_get_raw_files_by_age: MagicMock,
+    mock_decide_on_raw_files_to_remove: MagicMock,
     mock_get_airflow_variable: MagicMock,
 ) -> None:
     """Test that get_raw_files_to_remove calls the correct functions and puts the result in XCom."""
     mock_ti = MagicMock()
-    mock_get_raw_files_by_age.return_value = ["file1", "file2"]
-    mock_get_airflow_variable.return_value = 42
+    mock_decide_on_raw_files_to_remove.return_value = {
+        "instrument1": ["file1", "file2"]
+    }
+    mock_get_airflow_variable.side_effect = [10, 42]
 
     # when
     get_raw_files_to_remove(mock_ti)
 
     # then
-    mock_get_raw_files_by_age.assert_called_once_with(42)
+    mock_decide_on_raw_files_to_remove.assert_called_once_with(
+        10, 42, INSTRUMENTS.keys()
+    )
     mock_put_xcom.assert_called_once_with(
-        mock_ti, XComKeys.FILES_TO_REMOVE, ["file1", "file2"]
+        mock_ti,
+        XComKeys.FILES_TO_REMOVE,
+        mock_decide_on_raw_files_to_remove.return_value,
     )
-    mock_get_airflow_variable.assert_called_once_with(
-        "min_file_age_to_remove_in_days", 30
+    mock_get_airflow_variable.assert_has_calls(
+        [
+            call("min_free_space_gb", "-1"),
+            call("min_file_age_to_remove_in_days", 30),
+        ]
     )
+
+
+@patch("dags.impl.remover_impl.get_internal_instrument_data_path")
+@patch("dags.impl.remover_impl.get_raw_files_by_age")
+@patch("dags.impl.remover_impl.shutil.disk_usage")
+def test_decide_on_raw_files_to_remove_ok(
+    mock_disk_usage: MagicMock,
+    mock_get_raw_files_by_age: MagicMock,
+    mock_get_internal_instrument_data_path: MagicMock,
+) -> None:
+    """Test that _decide_on_raw_files_to_remove returns the correct files to remove."""
+    mock_disk_usage.return_value = (0, 0, 200 * 1024**3)
+    mock_get_raw_files_by_age.return_value = [
+        MagicMock(id="file1", size=70 * 1024**3),
+        MagicMock(id="file2", size=30 * 1024**3),
+        MagicMock(id="file3", size=1 * 1024**3),
+    ]
+    mock_path = MagicMock()
+    mock_path.exists.return_value = True
+    mock_get_internal_instrument_data_path.side_effect = [
+        mock_path,
+        Path("/path/to/instrument2"),  # this does not exist
+    ]
+
+    result = _decide_on_raw_files_to_remove(300, 30, ["instrument1", "instrument2"])
+
+    assert result == {"instrument1": ["file1", "file2"]}
+
+
+@patch("dags.impl.remover_impl.get_internal_instrument_data_path")
+@patch("dags.impl.remover_impl.get_raw_files_by_age")
+@patch("dags.impl.remover_impl.shutil.disk_usage")
+def test_decide_on_raw_files_to_remove_nothing_to_remove_ok(
+    mock_disk_usage: MagicMock,
+    mock_get_raw_files_by_age: MagicMock,
+    mock_get_internal_instrument_data_path: MagicMock,
+) -> None:
+    """Test that _decide_on_raw_files_to_remove returns the correct files to remove."""
+    mock_disk_usage.return_value = (0, 0, 300 * 1024**3)
+    mock_get_raw_files_by_age.return_value = [MagicMock(id="file1", size=70 * 1024**3)]
+    mock_path = MagicMock()
+    mock_path.exists.return_value = True
+    mock_get_internal_instrument_data_path.return_value = mock_path
+
+    result = _decide_on_raw_files_to_remove(300, 30, ["instrument1"])
+
+    assert result == {}
 
 
 @patch("dags.impl.remover_impl.get_file_size")

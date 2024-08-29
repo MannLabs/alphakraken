@@ -1,6 +1,7 @@
 """Implementation of tasks for file_remover."""
 
 import logging
+import shutil
 import traceback
 from collections import defaultdict
 from pathlib import Path
@@ -9,14 +10,18 @@ from airflow.models import TaskInstance
 from common.keys import AirflowVars, XComKeys
 from common.settings import (
     DEFAULT_MIN_FILE_AGE_TO_REMOVE_D,
+    INSTRUMENTS,
     get_internal_backup_path,
+    get_internal_instrument_data_path,
 )
 from common.utils import get_airflow_variable, get_env_variable, get_xcom, put_xcom
 from file_handling import get_file_size
 from raw_file_wrapper_factory import RawFileWrapperFactory, RemovePathProvider
 
-from shared.db.interface import get_raw_file_by_id, get_raw_file_ids_older_than
+from shared.db.interface import get_raw_file_by_id, get_raw_files_by_age
 from shared.keys import EnvVars
+
+BYTES_TO_GB = 1 / 1024**3
 
 
 class FileRemovalError(Exception):
@@ -27,16 +32,90 @@ def get_raw_files_to_remove(ti: TaskInstance, **kwargs) -> None:
     """Get files to remove from the instrument backup folder."""
     del kwargs  # unused
 
+    min_free_gb = int(get_airflow_variable(AirflowVars.MIN_FREE_SPACE_GB, "-1"))
+
     min_file_age = int(
         get_airflow_variable(
             AirflowVars.MIN_FILE_AGE_TO_REMOVE_IN_DAYS, DEFAULT_MIN_FILE_AGE_TO_REMOVE_D
         )
     )
+    if min_free_gb > 0:
+        raw_file_ids_to_remove = _decide_on_raw_files_to_remove(
+            min_free_gb, min_file_age, INSTRUMENTS.keys()
+        )
+    else:
+        logging.warning(f"Skipping: {AirflowVars.MIN_FREE_SPACE_GB} not set.")
+        raw_file_ids_to_remove = {}
+
+    for instrument_id, files_to_remove in raw_file_ids_to_remove.items():
+        logging.info(
+            f"Removing for {instrument_id} {len(files_to_remove)} files: {files_to_remove}"
+        )
+
     put_xcom(
         ti,
         XComKeys.FILES_TO_REMOVE,
-        get_raw_file_ids_older_than(min_file_age),
+        raw_file_ids_to_remove,
     )
+
+
+def _decide_on_raw_files_to_remove(
+    min_free_gb: int, min_file_age: int, instrument_ids: list[str]
+) -> dict[str, list[str]]:
+    """Get raw files to remove from the instrument backup folder from the DB.
+
+    :param min_free_gb: minimum free space in GB to keep on the instrument
+    :param min_file_age: minimum age of files to remove in days
+
+    :return: dict with instrument_id as key and list of raw file ids to remove as value
+
+    For each instrument, get as many files (oldest first) as are required to free up the desired disk space.
+    """
+    raw_file_ids_to_remove = defaultdict(list)
+
+    for instrument_id in instrument_ids:
+        instrument_path = get_internal_instrument_data_path(instrument_id)
+
+        if not instrument_path.exists():
+            logging.warning(f"Skipping {instrument_id}: path does not exist.")
+            continue
+
+        total_bytes, used_bytes, free_bytes = shutil.disk_usage(instrument_path)
+        total_gb, used_gb, free_gb = (
+            total_bytes * BYTES_TO_GB,
+            used_bytes * BYTES_TO_GB,
+            free_bytes * BYTES_TO_GB,
+        )
+        # TODO: security check: <= 30 % ?
+
+        logging.info(f"{instrument_id=} {total_gb=} {used_gb=} {free_gb=}")
+
+        min_space_to_free_gb = min_free_gb - free_gb
+        if min_space_to_free_gb <= 0:
+            logging.info(
+                f"Skipping {instrument_id}: free space {free_gb} GB is already above minimum ({min_free_gb} GB)."
+            )
+            continue
+
+        raw_files = get_raw_files_by_age(
+            instrument_id, min_age_in_days=min_file_age, max_age_in_days=60
+        )
+        logging.info(
+            f"Found {len(raw_files)} files to remove for {instrument_id}: {raw_files}"
+        )
+
+        sum_size_gb = 0
+        for raw_file in raw_files:
+            sum_size_gb += raw_file.size * BYTES_TO_GB
+            raw_file_ids_to_remove[instrument_id].append(raw_file.id)
+
+            logging.info(f"Adding {raw_file.id=} {raw_file.size=} {sum_size_gb=}")
+            if sum_size_gb >= min_space_to_free_gb:
+                break
+        else:
+            logging.warning(f"Not enough files to remove, got only {sum_size_gb=}")
+
+    return raw_file_ids_to_remove
 
 
 def _safe_remove_files(raw_file_id: str) -> None:

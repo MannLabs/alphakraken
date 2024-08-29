@@ -8,13 +8,9 @@ from typing import Any
 from airflow.exceptions import AirflowFailException
 from airflow.models import TaskInstance
 from common.keys import DagContext, DagParams, XComKeys
-from common.settings import (
-    INSTRUMENT_BACKUP_FOLDER_NAME,
-    get_internal_instrument_data_path,
-)
 from common.utils import get_env_variable, get_xcom, put_xcom
 from file_handling import compare_paths, get_file_size
-from raw_file_wrapper_factory import RawFileWrapperFactory
+from raw_file_wrapper_factory import MovePathProvider, RawFileWrapperFactory
 
 from shared.db.interface import get_raw_file_by_id
 from shared.keys import EnvVars
@@ -27,11 +23,8 @@ def get_files_to_move(ti: TaskInstance, **kwargs) -> None:
     raw_file = get_raw_file_by_id(raw_file_id)
     instrument_id = raw_file.instrument_id
 
-    target_path = (
-        get_internal_instrument_data_path(instrument_id) / INSTRUMENT_BACKUP_FOLDER_NAME
-    )
     move_wrapper = RawFileWrapperFactory.create_copy_wrapper(
-        instrument_id, raw_file, target_path
+        instrument_id, raw_file, path_provider=MovePathProvider
     )
 
     files_to_move = move_wrapper.get_files_to_move()

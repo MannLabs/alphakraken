@@ -25,6 +25,7 @@ def create_file_mover_dag() -> None:
     with DAG(
         f"{Dags.FILE_MOVER}",
         schedule=None,
+        catchup=False,
         # these are the default arguments for each TASK
         default_args={
             "depends_on_past": False,
@@ -35,7 +36,6 @@ def create_file_mover_dag() -> None:
             "queue": f"{AIRFLOW_QUEUE_PREFIX}file_mover",
         },
         description="Move file from acquisition folder to backup folder on instrument.",
-        catchup=False,
         tags=["file_mover"],
         params={DagParams.RAW_FILE_ID: Param(type="string", minimum=3)},
     ) as dag:

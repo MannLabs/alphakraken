@@ -332,9 +332,11 @@ touch airflow_test_folders/instruments/test1/$RAW_FILE_NAME
 
 For type "Zeno":
 ```bash
-I=$((I+1)); RAW_FILE_NAME=test_file_SA_P1_${I}.wiff; echo $RAW_FILE_NAME
+I=$((I+1)); RAW_FILE_STEM=test_file_SA_P1_${I}; RAW_FILE_NAME=$RAW_FILE_STEM.wiff; echo $RAW_FILE_NAME
 touch airflow_test_folders/instruments/test1/$RAW_FILE_NAME
-touch airflow_test_folders/instruments/test1/$RAW_FILE_NAME.scan
+touch airflow_test_folders/instruments/test1/${RAW_FILE_STEM}.wiff2
+touch airflow_test_folders/instruments/test1/${RAW_FILE_STEM}.wiff.scan
+touch airflow_test_folders/instruments/test1/${RAW_FILE_STEM}.timeseries.data
 ```
 
 For type "Bruker":

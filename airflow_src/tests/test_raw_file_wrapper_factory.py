@@ -1,7 +1,9 @@
 """Tests for the RawFileWrapperFactory class."""
+# ruff: noqa: SLF001
 
 from __future__ import annotations
 
+import tempfile
 from datetime import datetime
 from pathlib import Path
 from typing import Generator
@@ -15,8 +17,11 @@ from db.models import RawFile
 from plugins.raw_file_wrapper_factory import (
     BrukerRawFileCopyWrapper,
     BrukerRawFileMonitorWrapper,
+    CopyPathProvider,
+    MovePathProvider,
     RawFileMonitorWrapper,
     RawFileWrapperFactory,
+    RemovePathProvider,
     ThermoRawFileCopyWrapper,
     ThermoRawFileMonitorWrapper,
     ZenoRawFileCopyWrapper,
@@ -74,6 +79,58 @@ def test_raw_file_wrapper_factory_instantiation_monitors(
         assert isinstance(wrapper, expected_class)
 
 
+@pytest.fixture()
+def mock_raw_file() -> RawFile:
+    """Fixture for a mock RawFile."""
+    return RawFile(
+        id="123---original_file.raw",
+        original_name="original_file.raw",
+        created_at=datetime(2023, 1, 1, tzinfo=pytz.UTC),
+    )
+
+
+def test_copy_path_provider(mock_raw_file: RawFile) -> None:
+    """Test the CopyPathProvider class."""
+    provider = CopyPathProvider("instrument1", mock_raw_file)
+
+    assert provider.get_source_path() == Path(
+        "/opt/airflow/mounts/instruments/instrument1"
+    )
+    assert provider.get_target_path() == Path(
+        "/opt/airflow/mounts/backup/instrument1/2023_01"
+    )
+    assert provider.get_source_file_name() == "original_file.raw"
+    assert provider.get_target_file_name() == "123---original_file.raw"
+
+
+def test_move_path_provider(mock_raw_file: RawFile) -> None:
+    """Test the MovePathProvider class."""
+    provider = MovePathProvider("instrument1", mock_raw_file)
+
+    assert provider.get_source_path() == Path(
+        "/opt/airflow/mounts/instruments/instrument1"
+    )
+    assert provider.get_target_path() == Path(
+        "/opt/airflow/mounts/instruments/instrument1/Backup"
+    )
+    assert provider.get_source_file_name() == "original_file.raw"
+    assert provider.get_target_file_name() == "123---original_file.raw"
+
+
+def test_remove_path_provider(mock_raw_file: RawFile) -> None:
+    """Test the RemovePathProvider class."""
+    provider = RemovePathProvider("instrument1", mock_raw_file)
+
+    assert provider.get_source_path() == Path(
+        "/opt/airflow/mounts/instruments/instrument1/Backup"
+    )
+    assert provider.get_target_path() == Path(
+        "/opt/airflow/mounts/backup/instrument1/2023_01"
+    )
+    assert provider.get_source_file_name() == "123---original_file.raw"
+    assert provider.get_target_file_name() == "123---original_file.raw"
+
+
 @pytest.mark.parametrize(
     ("instrument_type", "expected_class"),
     [
@@ -85,16 +142,27 @@ def test_raw_file_wrapper_factory_instantiation_monitors(
 @patch("plugins.raw_file_wrapper_factory.RawFileWrapperFactory.create_monitor_wrapper")
 def test_raw_file_wrapper_factory_instantiation_copier(
     mock_create_monitor_wrapper: MagicMock,  # noqa: ARG001
+    mock_raw_file: MagicMock,
     instrument_type: str,
     expected_class: type[RawFileWrapperFactory],
 ) -> None:
     """Test that the correct RawFileWrapperFactory subclass is instantiated."""
-    mock_raw_file = MagicMock()
     with patch.dict(INSTRUMENTS, {"instrument1": {"type": instrument_type}}):
         wrapper = RawFileWrapperFactory.create_copy_wrapper(
-            instrument_id="instrument1", raw_file=mock_raw_file
+            instrument_id="instrument1",
+            raw_file=mock_raw_file,
+            path_provider=CopyPathProvider,
         )
         assert isinstance(wrapper, expected_class)
+
+        assert wrapper._source_path == Path(
+            "/opt/airflow/mounts/instruments/instrument1"
+        )
+        assert wrapper._target_path == Path(
+            "/opt/airflow/mounts/backup/instrument1/2023_01"
+        )
+        assert wrapper._source_file_name == "original_file.raw"
+        assert wrapper._target_file_name == "123---original_file.raw"
 
 
 @pytest.fixture()
@@ -137,7 +205,7 @@ def test_raw_file_wrapper_factory_file_extension_check(
 ) -> None:
     """Test that the file extension check works correctly."""
     wrapper = wrapper_class("instrument1", raw_file_name=raw_file_name)
-    assert wrapper._raw_file_extension == expected_extension  # noqa: SLF001
+    assert wrapper._raw_file_extension == expected_extension
 
 
 def test_raw_file_wrapper_factory_invalid_file_extension() -> None:
@@ -203,7 +271,9 @@ def test_thermo_get_files_to_copy(
         original_name="sample.raw",
     )
 
-    wrapper = ThermoRawFileCopyWrapper("instrument1", raw_file=mock_raw_file)
+    wrapper = ThermoRawFileCopyWrapper(
+        "instrument1", raw_file=mock_raw_file, path_provider=CopyPathProvider
+    )
     expected_mapping = {
         Path("/path/to/instrument/sample.raw"): Path(
             "/path/to/backup/1970_01/123---sample.raw"
@@ -232,7 +302,9 @@ def test_zeno_get_files_to_copy(
         original_name="sample.wiff",
     )
 
-    wrapper = ZenoRawFileCopyWrapper("instrument1", raw_file=mock_raw_file)
+    wrapper = ZenoRawFileCopyWrapper(
+        "instrument1", raw_file=mock_raw_file, path_provider=CopyPathProvider
+    )
     expected_mapping = {
         Path("/path/to/instrument/sample.wiff"): Path(
             "/opt/airflow/mounts/backup/instrument1/1970_01/123---sample.wiff"
@@ -241,30 +313,16 @@ def test_zeno_get_files_to_copy(
             "/opt/airflow/mounts/backup/instrument1/1970_01/123---sample.wiff.scan"
         ),
     }
+
+    # when
     assert wrapper.get_files_to_copy() == expected_mapping
     mock_instrument_path.return_value.glob.assert_called_once_with("sample.*")
 
     mock_create_monitor_wrapper.assert_called_once_with("instrument1", "sample.wiff")
 
 
-@patch("plugins.raw_file_wrapper_factory.RawFileWrapperFactory.create_monitor_wrapper")
-@patch("plugins.raw_file_wrapper_factory.get_internal_instrument_data_path")
-def test_bruker_get_files_to_copy(
-    mock_instrument_path: MagicMock, mock_create_monitor_wrapper: MagicMock
-) -> None:
+def test_bruker_get_files_to_copy() -> None:
     """Test that get_files_to_copy returns the correct mapping for BrukerRawDataWrapper."""
-    mock_output_path = MagicMock()
-    mock_instrument_path.return_value.__truediv__.return_value = mock_output_path
-
-    mp1 = MagicMock(wraps=Path("/path/to/instrument/sample.d/file1.txt"))
-    mp1.is_file.return_value = True
-    mp1.relative_to.return_value = Path("sample.d/file1.txt")
-    mp2 = MagicMock(wraps=Path("/path/to/instrument/sample.d/subdir/file2.txt"))
-    mp2.is_file.return_value = True
-    mp2.relative_to.return_value = Path("sample.d/subdir/file2.txt")
-
-    mock_output_path.rglob.return_value = [mp1, mp2]
-
     mock_raw_file = MagicMock(
         wraps=RawFile,
         id="123---sample.d",
@@ -272,15 +330,46 @@ def test_bruker_get_files_to_copy(
         original_name="sample.d",
     )
 
-    wrapper = BrukerRawFileCopyWrapper("instrument1", raw_file=mock_raw_file)
-    expected_mapping = {
-        mp1: Path(
-            "/opt/airflow/mounts/backup/instrument1/1970_01/123---sample.d/file1.txt"
-        ),
-        mp2: Path(
-            "/opt/airflow/mounts/backup/instrument1/1970_01/123---sample.d/subdir/file2.txt"
-        ),
-    }
-    assert wrapper.get_files_to_copy() == expected_mapping
-    mock_output_path.rglob.assert_called_once_with("*")
-    mock_create_monitor_wrapper.assert_called_once_with("instrument1", "sample.d")
+    # using a tempdir here as the path manipulations are nontrivial and mocking them would reduce test scope
+    with tempfile.TemporaryDirectory() as tempdir:
+        instrument_path = Path(tempdir) / "instrument1"
+        raw_file_path = instrument_path / "sample.d"
+        raw_file_path.mkdir(parents=True)
+        (raw_file_path / "file1.txt").touch()
+        (raw_file_path / "subdir.m").mkdir()
+        (raw_file_path / "subdir.m" / "file2.txt").touch()
+
+        # Define mock functions for patching
+        def mock_get_internal_instrument_data_path(instrument_id: str) -> Path:
+            """Mock method for get_internal_instrument_data_path()."""
+            return Path(tempdir) / instrument_id
+
+        def mock_get_internal_backup_path_for_instrument(instrument_id: str) -> Path:
+            """Mock method for get_internal_backup_path_for_instrument()."""
+            return Path(tempdir) / "backup" / instrument_id
+
+        with patch(
+            "plugins.raw_file_wrapper_factory.get_internal_instrument_data_path",
+            side_effect=mock_get_internal_instrument_data_path,
+        ), patch(
+            "plugins.raw_file_wrapper_factory.get_internal_backup_path_for_instrument",
+            side_effect=mock_get_internal_backup_path_for_instrument,
+        ), patch.dict(INSTRUMENTS, {"instrument1": {"type": "bruker"}}):
+            wrapper = BrukerRawFileCopyWrapper(
+                "instrument1", raw_file=mock_raw_file, path_provider=CopyPathProvider
+            )
+
+            # when
+            files_to_copy = wrapper.get_files_to_copy()
+
+            expected_dst_path = (
+                Path(tempdir) / "backup" / "instrument1" / "1970_01" / "123---sample.d"
+            )
+            expected_mapping = {
+                raw_file_path / "file1.txt": expected_dst_path / "file1.txt",
+                raw_file_path / "subdir.m" / "file2.txt": expected_dst_path
+                / "subdir.m"
+                / "file2.txt",
+            }
+
+            assert files_to_copy == expected_mapping

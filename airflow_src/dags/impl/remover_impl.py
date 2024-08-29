@@ -14,7 +14,7 @@ from common.settings import (
 )
 from common.utils import get_env_variable, get_xcom, put_xcom
 from file_handling import get_file_size
-from raw_file_wrapper_factory import RawFileWrapperFactory
+from raw_file_wrapper_factory import RawFileWrapperFactory, RemovePathProvider
 
 from shared.db.interface import get_raw_file_by_id, get_raw_file_ids_older_than
 from shared.keys import EnvVars
@@ -57,13 +57,9 @@ def _safe_remove_files(raw_file_id: str) -> None:
     raw_file = get_raw_file_by_id(raw_file_id)
 
     instrument_id = raw_file.instrument_id
-    instrument_backup_path = (
-        get_internal_instrument_data_path(instrument_id) / INSTRUMENT_BACKUP_FOLDER_NAME
-    )
+
     file_wrapper = RawFileWrapperFactory.create_copy_wrapper(
-        instrument_id,
-        raw_file,
-        source_path=instrument_backup_path,  # TODO: better source_sub_folder?
+        instrument_id, raw_file, path_provider=RemovePathProvider
     )
 
     file_paths_to_remove: list[Path] = []
@@ -81,7 +77,12 @@ def _safe_remove_files(raw_file_id: str) -> None:
 
         file_paths_to_remove.append(file_path_to_remove)
 
-    base_file_path_to_remove = instrument_backup_path / raw_file_id
+    instrument_backup_path = (
+        get_internal_instrument_data_path(instrument_id) / INSTRUMENT_BACKUP_FOLDER_NAME
+    )
+    base_file_path_to_remove = (
+        instrument_backup_path / raw_file_id
+    )  # TODO: get from wrapper
     _remove_files(file_paths_to_remove, base_file_path_to_remove)
 
 
@@ -91,8 +92,8 @@ def _remove_files(
     """Remove files.
 
     :param file_paths_to_remove: list of absolute paths to remove
-    :param base_file_path_to_remove: absolute path to base file to remove (redundant to file_paths_to_remove unless it's a
-    directory)
+    :param base_file_path_to_remove: absolute path to base file to remove (redundant to `file_paths_to_remove`
+    unless it's a directory)
 
     :raises: FileRemovalError if removing a file fails.
     """
@@ -127,12 +128,20 @@ def _check_file(
 ) -> None:
     """Check that the file to remove is present in the pool backup and has the same size as in the DB.
 
+    Here, "file" means every single file that is part of a raw file.
+
     :param file_path_to_remove: absolute path to file to remove
     :param file_path_pool_backup: absolute path to location of file in pool backup
     :param file_info_in_db: dict with file info from DB
 
     :raises: FileCheckError if one of the checks fails.
     """
+    if not file_path_to_remove.exists():
+        logging.warning(
+            f"File {file_path_to_remove} does not exist. Presuming it was already removed."
+        )
+        return
+
     logging.info(
         f"Comparing {file_path_to_remove=} to {file_path_pool_backup=} with {file_info_in_db=}"
     )
@@ -176,6 +185,7 @@ def remove_raw_files(ti: TaskInstance, **kwargs) -> None:
     del kwargs  # unused
 
     raw_file_ids = get_xcom(ti, XComKeys.FILES_TO_REMOVE)
+    logging.info(f"Removing {len(raw_file_ids)} raw files: {raw_file_ids}")
 
     errors = []
     for raw_file_id in raw_file_ids:

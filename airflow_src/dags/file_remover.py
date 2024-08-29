@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 
+import pendulum
 from airflow.models.dag import DAG
 from airflow.operators.python import PythonOperator
 from common.keys import (
@@ -22,11 +23,13 @@ def create_file_remover_dag() -> None:
     """Create file_remover dag."""
     with DAG(
         f"{Dags.FILE_REMOVER}",
-        schedule=None,
+        schedule_interval="0 7 * * *",  # run every morning
+        start_date=pendulum.datetime(2000, 1, 1, tz="UTC"),
+        max_active_runs=1,
+        catchup=False,
         # these are the default arguments for each TASK
         default_args={
             "depends_on_past": False,
-            "schedule_interval": "0 7 * * *",  # run every morning
             "retries": 4,
             "retry_delay": timedelta(minutes=5),
             # this maps the DAG to the worker that is responsible for that queue, cf. docker-compose.yaml
@@ -34,7 +37,6 @@ def create_file_remover_dag() -> None:
             "queue": f"{AIRFLOW_QUEUE_PREFIX}file_mover",  # no typo: for now we use the file_mover container
         },
         description="Remove files from backup folder on instrument.",
-        catchup=False,
         tags=["file_remover"],
     ) as dag:
         dag.doc_md = __doc__

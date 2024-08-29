@@ -11,7 +11,7 @@ from common.settings import (
 )
 from common.utils import get_env_variable, get_xcom, trigger_dag_run
 from file_handling import copy_file, get_file_size
-from raw_file_wrapper_factory import RawFileWrapperFactory
+from raw_file_wrapper_factory import CopyPathProvider, RawFileWrapperFactory
 
 from shared.db.interface import get_raw_file_by_id, update_raw_file
 from shared.db.models import RawFileStatus
@@ -29,7 +29,9 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
     update_raw_file(raw_file_id, new_status=RawFileStatus.COPYING)
 
     raw_file_copy_wrapper = RawFileWrapperFactory.create_copy_wrapper(
-        instrument_id=instrument_id, raw_file=raw_file
+        instrument_id=instrument_id,
+        raw_file=raw_file,
+        path_provider=CopyPathProvider,
     )
 
     copied_files: dict[Path, tuple[float, str]] = {}

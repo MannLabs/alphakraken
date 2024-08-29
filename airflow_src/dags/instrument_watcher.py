@@ -29,6 +29,8 @@ def create_instrument_watcher_dag(instrument_id: str) -> None:
         f"{Dags.ACQUISITON_WATCHER}{DAG_DELIMITER}{instrument_id}",
         schedule="@continuous",
         start_date=pendulum.datetime(2000, 1, 1, tz="UTC"),
+        max_active_runs=1,
+        catchup=False,
         # these are the default arguments for each TASK
         default_args={
             "depends_on_past": False,
@@ -42,12 +44,10 @@ def create_instrument_watcher_dag(instrument_id: str) -> None:
             "priority_weight": 1000,  # make sure the watcher tasks always have highest priority
         },
         description="Watch for new files.",
-        catchup=False,
         tags=[
             "watcher",
             instrument_id,
         ],
-        max_active_runs=1,
     ) as dag:
         dag.doc_md = __doc__
 

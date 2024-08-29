@@ -78,6 +78,7 @@ class XComKeys:
     QUANTING_TIME_ELAPSED: str = "quanting_time_elapsed"
 
     FILES_TO_MOVE = "files_to_move"
+    MAIN_FILE_TO_MOVE = "main_file_to_move"
     FILES_TO_REMOVE = "files_to_remove"
 
 

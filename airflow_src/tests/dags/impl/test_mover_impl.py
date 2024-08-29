@@ -21,11 +21,11 @@ def mock_raw_file() -> MagicMock:
 
 
 @patch("dags.impl.mover_impl.get_raw_file_by_id")
-@patch("dags.impl.mover_impl.RawFileWrapperFactory.create_copy_wrapper")
+@patch("dags.impl.mover_impl.RawFileWrapperFactory.create_write_wrapper")
 @patch("dags.impl.mover_impl.put_xcom")
 def test_get_files_to_move_correctly_puts_files_to_xcom(
     mock_put_xcom: MagicMock,
-    mock_create_copy_wrapper: MagicMock,
+    mock_create_write_wrapper: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
     mock_raw_file: MagicMock,
 ) -> None:
@@ -39,16 +39,18 @@ def test_get_files_to_move_correctly_puts_files_to_xcom(
     files_to_move = {Path("/src/file1"): Path("/dst/file1")}
     file_path_to_calculate_size = Path("/src/file1")
 
-    mock_create_copy_wrapper.return_value.get_files_to_move.return_value = files_to_move
-    mock_create_copy_wrapper.return_value.file_path_to_calculate_size.return_value = (
+    mock_create_write_wrapper.return_value.get_files_to_move.return_value = (
+        files_to_move
+    )
+    mock_create_write_wrapper.return_value.file_path_to_calculate_size.return_value = (
         file_path_to_calculate_size
     )
 
     # when
     get_files_to_move(ti, **kwargs)
 
-    mock_create_copy_wrapper.assert_called_once_with(
-        "instrument1", mock_raw_file, path_provider=MovePathProvider
+    mock_create_write_wrapper.assert_called_once_with(
+        mock_raw_file, path_provider=MovePathProvider
     )
 
     mock_put_xcom.assert_has_calls(

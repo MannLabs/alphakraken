@@ -165,7 +165,7 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
         job_id = str(int(ssh_return.split("\n")[-1]))
     except Exception as e:
         logging.exception("Did not get a valid job id from the cluster.")
-        raise AirflowFailException from e
+        raise AirflowFailException("Job submission failed.") from e
 
     update_raw_file(
         quanting_env[QuantingEnv.RAW_FILE_ID], new_status=RawFileStatus.QUANTING

@@ -21,6 +21,9 @@ from common.settings import (
 
 from shared.db.models import RawFile, get_created_at_year_month
 
+MONITOR = "monitor"
+COPIER = "copier"
+
 
 class RawFileMonitorWrapper(ABC):
     """Abstract base class for wrapping raw files for monitoring acquisitions."""
@@ -213,8 +216,8 @@ class RemovePathProvider(PathProvider):
         return self._raw_file.id
 
 
-class RawFileCopyWrapper(ABC):  # TODO: rename to RawFileLocationWrapper, also methods
-    """Abstract base class for preparing the copying or moving of raw data files."""
+class RawFileWriteWrapper(ABC):
+    """Abstract base class for preparing write operations (copying, moving or removing) of raw data files."""
 
     def __init__(
         self,
@@ -223,62 +226,117 @@ class RawFileCopyWrapper(ABC):  # TODO: rename to RawFileLocationWrapper, also m
         raw_file: RawFile,
         path_provider: type[PathProvider],
     ):
-        """Initialize the RawFileCopyWrapper.
+        """Initialize the RawFileWriteWrapper.
 
         :param instrument_id: the ID of the instrument
         :param raw_file: a raw file object
         :param path_provider: the path provider class for the operation
         """
-        path_provider_instance = path_provider(instrument_id, raw_file)
+        self._path_provider_instance = path_provider(instrument_id, raw_file)
 
-        self._source_path = path_provider_instance.get_source_path()
-        self._target_path = path_provider_instance.get_target_path()
-        self._source_file_name = path_provider_instance.get_source_file_name()
-        self._target_file_name = path_provider_instance.get_target_file_name()
+        self._source_path = self._path_provider_instance.get_source_path()
+        self._target_path = self._path_provider_instance.get_target_path()
+        self._source_file_name = self._path_provider_instance.get_source_file_name()
+        self._target_file_name = self._path_provider_instance.get_target_file_name()
 
         self._acquisition_monitor = RawFileWrapperFactory.create_monitor_wrapper(
             instrument_id, raw_file.original_name
         )
 
-    @abstractmethod
+    def _check_path_provider(self, path_provider: type[PathProvider]) -> None:
+        """Check if the path provider is the correct one for the operation."""
+        if not isinstance(self._path_provider_instance, path_provider):
+            raise TypeError(
+                f"Wrong path provider for operation: {self._path_provider_instance.__class__}"
+            )
+
     def get_files_to_copy(self) -> dict[Path, Path]:
         """Get a dictionary mapping source file to destination paths for file-by-file operations (copying or removing).
 
         This gives a 1:1 mapping between source and destination files (not folders!).
+
+        :return: A dictionary mapping source to destination paths for 'copy' operations.
+        :raises ValueError: If the path provider is not the correct one for the operation.
         """
+        self._check_path_provider(CopyPathProvider)
+
+        files = self._get_files_to_copy()
+        logging.info(f"{files=}")
+        return files
+
+    @abstractmethod
+    def _get_files_to_copy(self) -> dict[Path, Path]:
+        """Actual implementation."""
 
     def get_files_to_move(self) -> dict[Path, Path]:
         """Get a dictionary mapping source file to destination paths for moving.
 
-        Default implementation for instruments that use "real" files: same output as get_files_to_copy().
-        Overwrite for instruments that use folders to returns a mapping of the folder source path
-        to the destination path (not the individual files).
+        :return: A dictionary mapping source to destination paths for 'move' operations.
+        :raises ValueError: If the path provider is not the correct one for the operation.
         """
-        return self.get_files_to_copy()
+        self._check_path_provider(MovePathProvider)
+
+        files = self._get_files_to_move()
+        logging.info(f"{files=}")
+        return files
+
+    @abstractmethod
+    def _get_files_to_move(self) -> dict[Path, Path]:
+        """Actual implementation."""
+
+    def get_folder_to_remove(self) -> Path | None:
+        """Get the absolute path of the folder to remove.
+
+        None if no folder to be removed.
+        """
+        self._check_path_provider(RemovePathProvider)
+
+        return self._get_folder_to_remove()
+
+    @abstractmethod
+    def _get_folder_to_remove(self) -> Path | None:
+        """Actual implementation."""
+
+    def get_files_to_remove(self) -> dict[Path, Path]:
+        """Get a dictionary mapping source file to destination paths for comparing before removing the 'keys'.
+
+        :return: A dictionary mapping source to destination paths for comparing before 'remove' operations.
+        :raises ValueError: If the path provider is not the correct one for the operation.
+        """
+        self._check_path_provider(RemovePathProvider)
+
+        files = self._get_files_to_copy()
+        logging.info(f"{files=}")
+        return files
 
     def file_path_to_calculate_size(self) -> Path:
-        """Get the path to the file to calculate size."""
+        """Get the absolute path to the file to calculate size."""
         return self._acquisition_monitor.file_path_to_monitor_acquisition()
 
 
-class ThermoRawFileCopyWrapper(RawFileCopyWrapper):
+class ThermoRawFileWriteWrapper(RawFileWriteWrapper):
     """Class wrapping Thermo-specific logic."""
 
-    def get_files_to_copy(self) -> dict[Path, Path]:
+    def _get_files_to_copy(self) -> dict[Path, Path]:
         """Get the mapping of source to destination path (both absolute) for the raw file."""
         src_path = self._source_path / self._source_file_name
         dst_path = self._target_path / self._target_file_name
 
-        files_to_copy = {src_path: dst_path}
+        return {src_path: dst_path}
 
-        logging.info(f"{files_to_copy=}")
-        return files_to_copy
+    def _get_files_to_move(self) -> dict[Path, Path]:
+        """Get a dictionary mapping source file to destination paths for moving."""
+        return self._get_files_to_copy()
+
+    def _get_folder_to_remove(self) -> Path | None:
+        """Get the folder to remove."""
+        return None
 
 
-class ZenoRawFileCopyWrapper(RawFileCopyWrapper):
+class ZenoRawFileWriteWrapper(RawFileWriteWrapper):
     """Class wrapping Zeno-specific logic."""
 
-    def get_files_to_copy(self) -> dict[Path, Path]:
+    def _get_files_to_copy(self) -> dict[Path, Path]:
         """Get the mapping of source to destination paths (both absolute) for the raw file.
 
         All other files sharing the same stem with the raw file (e.g. `some_file.wiff` -> stem: `some_file`),
@@ -297,14 +355,21 @@ class ZenoRawFileCopyWrapper(RawFileCopyWrapper):
 
             files_to_copy[src_file_path] = self._target_path / dst_file_name
 
-        logging.info(f"{files_to_copy=}")
         return files_to_copy
 
+    def _get_files_to_move(self) -> dict[Path, Path]:
+        """Get a dictionary mapping source file to destination paths for moving."""
+        return self._get_files_to_copy()
 
-class BrukerRawFileCopyWrapper(RawFileCopyWrapper):
+    def _get_folder_to_remove(self) -> Path | None:
+        """Get the folder to remove."""
+        return None
+
+
+class BrukerRawFileWriteWrapper(RawFileWriteWrapper):
     """Class wrapping Bruker-specific logic."""
 
-    def get_files_to_copy(self) -> dict[Path, Path]:
+    def _get_files_to_copy(self) -> dict[Path, Path]:
         """Get the mapping of source to destination paths (both absolute) for the raw file.
 
         All files within the raw file directory are returned (including those in subfolders).
@@ -322,10 +387,9 @@ class BrukerRawFileCopyWrapper(RawFileCopyWrapper):
 
                 files_to_copy[src_file_path] = dst_base_path / rel_file_path
 
-        logging.info(f"{files_to_copy=}")
         return files_to_copy
 
-    def get_files_to_move(self) -> dict[Path, Path]:
+    def _get_files_to_move(self) -> dict[Path, Path]:
         """Get a dictionary mapping of items that can be passed to a "move" command.
 
         In the case of Bruker, just map the folder name as "move" can handle it.
@@ -335,9 +399,12 @@ class BrukerRawFileCopyWrapper(RawFileCopyWrapper):
             / self._target_file_name
         }
 
+    def _get_folder_to_remove(self) -> Path | None:
+        """Get the folder to remove.
 
-MONITOR = "monitor"
-COPIER = "copier"
+        For Bruker instruments, the folder to remove is the source folder of the raw data.
+        """
+        return self._target_path / self._target_file_name
 
 
 class RawFileWrapperFactory:
@@ -346,22 +413,22 @@ class RawFileWrapperFactory:
     _handlers: dict[str, dict[str, type]] = {  # noqa: RUF012
         InstrumentTypes.THERMO: {
             MONITOR: ThermoRawFileMonitorWrapper,
-            COPIER: ThermoRawFileCopyWrapper,
+            COPIER: ThermoRawFileWriteWrapper,
         },
         InstrumentTypes.ZENO: {
             MONITOR: ZenoRawFileMonitorWrapper,
-            COPIER: ZenoRawFileCopyWrapper,
+            COPIER: ZenoRawFileWriteWrapper,
         },
         InstrumentTypes.BRUKER: {
             MONITOR: BrukerRawFileMonitorWrapper,
-            COPIER: BrukerRawFileCopyWrapper,
+            COPIER: BrukerRawFileWriteWrapper,
         },
     }
 
     @classmethod
     def _create_handler(
         cls, handler_type: str, instrument_id: str, **kwargs
-    ) -> Union["RawFileMonitorWrapper", "RawFileCopyWrapper"]:
+    ) -> Union["RawFileMonitorWrapper", "RawFileWriteWrapper"]:
         """Create a handler of the specified type for the given instrument.
 
         :param handler_type: The type of handler to create ('lister', 'monitor', or 'copier')
@@ -392,18 +459,17 @@ class RawFileWrapperFactory:
         return cls._create_handler(MONITOR, instrument_id, raw_file_name=raw_file_name)
 
     @classmethod
-    def create_copy_wrapper(
+    def create_write_wrapper(
         cls,
-        instrument_id: str,
         raw_file: RawFile,
         path_provider: type[PathProvider],
-    ) -> RawFileCopyWrapper:
-        """Create a RawFileCopyWrapper for the specified instrument and raw file.
+    ) -> RawFileWriteWrapper:
+        """Create a RawFileWriteWrapper for the specified instrument and raw file.
 
-        :param instrument_id: The ID of the instrument
         :param raw_file: a raw file object
         :param path_provider: the path provider class for the operation
         """
+        instrument_id = raw_file.instrument_id
         return cls._create_handler(
             COPIER,
             instrument_id,

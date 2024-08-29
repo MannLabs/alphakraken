@@ -22,20 +22,18 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
     """Copy a raw file to the target location."""
     del ti  # unused
     raw_file_id = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID]
-    instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
 
     raw_file = get_raw_file_by_id(raw_file_id)
 
     update_raw_file(raw_file_id, new_status=RawFileStatus.COPYING)
 
-    raw_file_copy_wrapper = RawFileWrapperFactory.create_copy_wrapper(
-        instrument_id=instrument_id,
+    copy_wrapper = RawFileWrapperFactory.create_write_wrapper(
         raw_file=raw_file,
         path_provider=CopyPathProvider,
     )
 
     copied_files: dict[Path, tuple[float, str]] = {}
-    for src_path, dst_path in raw_file_copy_wrapper.get_files_to_copy().items():
+    for src_path, dst_path in copy_wrapper.get_files_to_copy().items():
         dst_size, dst_hash = copy_file(src_path, dst_path)
         copied_files[dst_path] = (dst_size, dst_hash)
 
@@ -47,7 +45,7 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
 
     # a bit hacky to get the file size once again, but it's a cheap operation and avoids complicate logic
     file_size = get_file_size(
-        raw_file_copy_wrapper.file_path_to_calculate_size(),
+        copy_wrapper.file_path_to_calculate_size(),
         DEFAULT_RAW_FILE_SIZE_IF_MAIN_FILE_MISSING,
     )
     update_raw_file(

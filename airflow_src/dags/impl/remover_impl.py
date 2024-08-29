@@ -7,10 +7,8 @@ from pathlib import Path
 from airflow.models import TaskInstance
 from common.keys import XComKeys
 from common.settings import (
-    INSTRUMENT_BACKUP_FOLDER_NAME,
     MIN_FILE_AGE_TO_REMOVE_D,
     get_internal_backup_path,
-    get_internal_instrument_data_path,
 )
 from common.utils import get_env_variable, get_xcom, put_xcom
 from file_handling import get_file_size
@@ -56,17 +54,15 @@ def _safe_remove_files(raw_file_id: str) -> None:
     """
     raw_file = get_raw_file_by_id(raw_file_id)
 
-    instrument_id = raw_file.instrument_id
-
-    file_wrapper = RawFileWrapperFactory.create_copy_wrapper(
-        instrument_id, raw_file, path_provider=RemovePathProvider
+    remove_wrapper = RawFileWrapperFactory.create_write_wrapper(
+        raw_file, path_provider=RemovePathProvider
     )
 
     file_paths_to_remove: list[Path] = []
     for (
         file_path_to_remove,
         file_path_pool_backup,
-    ) in file_wrapper.get_files_to_copy().items():
+    ) in remove_wrapper.get_files_to_remove().items():
         _check_file(
             file_path_to_remove,
             file_path_pool_backup,
@@ -77,33 +73,30 @@ def _safe_remove_files(raw_file_id: str) -> None:
 
         file_paths_to_remove.append(file_path_to_remove)
 
-    instrument_backup_path = (
-        get_internal_instrument_data_path(instrument_id) / INSTRUMENT_BACKUP_FOLDER_NAME
-    )
-    base_file_path_to_remove = (
-        instrument_backup_path / raw_file_id
-    )  # TODO: get from wrapper
-    _remove_files(file_paths_to_remove, base_file_path_to_remove)
+    _remove_files(file_paths_to_remove)
+
+    if (
+        base_raw_file_path_to_remove := remove_wrapper.get_folder_to_remove()
+    ) is not None:
+        _remove_folder(base_raw_file_path_to_remove)
 
 
 def _remove_files(
-    file_paths_to_remove: list[Path], base_file_path_to_remove: Path
+    file_paths_to_remove: list[Path],
 ) -> None:
     """Remove files.
 
-    :param file_paths_to_remove: list of absolute paths to remove
-    :param base_file_path_to_remove: absolute path to base file to remove (redundant to `file_paths_to_remove`
-    unless it's a directory)
+    :param file_paths_to_remove: list of absolute file paths to remove
 
     :raises: FileRemovalError if removing a file fails.
     """
     if get_env_variable(EnvVars.ENV_NAME) != "production":
         logging.warning(
-            f"NOT removing files {base_file_path_to_remove}, {file_paths_to_remove}: not in production."
+            f"NOT removing files {file_paths_to_remove}: not in production."
         )
         return
 
-    logging.info(f"removing files {base_file_path_to_remove}, {file_paths_to_remove}")
+    logging.info(f"removing files {file_paths_to_remove}")
     try:
         for file_path_to_remove in file_paths_to_remove:
             f"Removing file {file_path_to_remove} .."
@@ -111,13 +104,26 @@ def _remove_files(
     except Exception as e:
         raise FileRemovalError(f"Error removing {file_path_to_remove}: {e}") from e
 
-    # special handling if `raw_file_id` is a directory
-    if base_file_path_to_remove.exists() and base_file_path_to_remove.is_dir():
+
+def _remove_folder(folder_path_to_remove: Path | None) -> None:
+    """Remove folder.
+
+    :param folder_path_to_remove: absolute path to raw data folder to remove
+
+    :raises: FileRemovalError if removing a file fails.
+    """
+    if get_env_variable(EnvVars.ENV_NAME) != "production":
+        logging.warning(
+            f"NOT removing folder {folder_path_to_remove}: not in production."
+        )
+        return
+
+    if folder_path_to_remove.exists() and folder_path_to_remove.is_dir():
         try:
-            _delete_empty_directory(base_file_path_to_remove)
+            _delete_empty_directory(folder_path_to_remove)
         except Exception as e:
             raise FileRemovalError(
-                f"Error removing {base_file_path_to_remove}: {e}"
+                f"Error removing {folder_path_to_remove}: {e}"
             ) from e
 
 

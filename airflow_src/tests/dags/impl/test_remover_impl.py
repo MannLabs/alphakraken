@@ -10,6 +10,7 @@ from dags.impl.remover_impl import (
     _check_file,
     _delete_empty_directory,
     _remove_files,
+    _remove_folder,
     _safe_remove_files,
     get_raw_files_to_remove,
     remove_raw_files,
@@ -115,11 +116,9 @@ def test_remove_files_production(mock_get_env: MagicMock) -> None:
     """Test that _remove_files removes files in production environment."""
     mock_get_env.return_value = "production"
     file_paths = [MagicMock(spec=Path), MagicMock(spec=Path)]
-    base_file_path = MagicMock(spec=Path)
-    base_file_path.exists.return_value = False
 
     # when
-    _remove_files(file_paths, base_file_path)
+    _remove_files(file_paths)
 
     # then
     for file_path in file_paths:
@@ -131,21 +130,52 @@ def test_remove_files_non_production(mock_get_env: MagicMock) -> None:
     """Test that _remove_files doesn't remove files in non-production environment."""
     mock_get_env.return_value = "development"
     file_paths = [MagicMock(spec=Path), MagicMock(spec=Path)]
-    base_file_path = MagicMock(spec=Path)
 
     # when
-    _remove_files(file_paths, base_file_path)
+    _remove_files(file_paths)
 
     # then
     for file_path in file_paths:
         file_path.unlink.assert_not_called()
 
 
+@patch("dags.impl.remover_impl.get_env_variable")
+def test_remove_folder_production(mock_get_env: MagicMock) -> None:
+    """Test that _remove_folder removes folder in production environment."""
+    mock_get_env.return_value = "production"
+    folder_path = MagicMock(spec=Path)
+    folder_path.exists.return_value = True
+    folder_path.is_dir.return_value = True
+
+    # when
+    _remove_folder(folder_path)
+
+    # then
+    folder_path.rmdir.assert_called_once()
+
+
+@patch("dags.impl.remover_impl.get_env_variable")
+def test_remove_folder_non_production(mock_get_env: MagicMock) -> None:
+    """Test that _remove_folder doesn't remove folder in non-production environment."""
+    mock_get_env.return_value = "development"
+    folder_path = MagicMock(spec=Path)
+    folder_path.exists.return_value = True
+    folder_path.is_dir.return_value = True
+
+    # when
+    _remove_folder(folder_path)
+
+    # then
+    folder_path.rmdir.assert_not_called()
+
+
 @patch("dags.impl.remover_impl.get_raw_file_by_id")
 @patch("dags.impl.remover_impl.RawFileWrapperFactory")
 @patch("dags.impl.remover_impl._check_file")
 @patch("dags.impl.remover_impl._remove_files")
+@patch("dags.impl.remover_impl._remove_folder")
 def test_safe_remove_files_success(
+    mock_remove_folder: MagicMock,
     mock_remove_files: MagicMock,
     mock_check_file: MagicMock,
     mock_wrapper_factory: MagicMock,
@@ -158,10 +188,11 @@ def test_safe_remove_files_success(
     mock_get_raw_file.return_value = mock_raw_file
 
     mock_wrapper = MagicMock()
-    mock_wrapper.get_files_to_copy.return_value = {
+    mock_wrapper.get_files_to_remove.return_value = {
         Path("/instrument/file1"): Path("/backup/file1")
     }
-    mock_wrapper_factory.create_copy_wrapper.return_value = mock_wrapper
+    mock_wrapper.get_folder_to_remove.return_value = None
+    mock_wrapper_factory.create_write_wrapper.return_value = mock_wrapper
 
     # when
     _safe_remove_files("raw_file_id")
@@ -169,8 +200,9 @@ def test_safe_remove_files_success(
     # then
     mock_check_file.assert_called_once()
     mock_remove_files.assert_called_once()
-    mock_wrapper_factory.create_copy_wrapper.assert_called_once_with(
-        "instrument1", mock_raw_file, path_provider=RemovePathProvider
+    mock_remove_folder.assert_not_called()  # because get_folder_to_remove returned None
+    mock_wrapper_factory.create_write_wrapper.assert_called_once_with(
+        mock_raw_file, path_provider=RemovePathProvider
     )
 
 
@@ -189,10 +221,10 @@ def test_safe_remove_files_check_error(
     mock_get_raw_file.return_value = mock_raw_file
 
     mock_wrapper = MagicMock()
-    mock_wrapper.get_files_to_copy.return_value = {
+    mock_wrapper.get_files_to_remove.return_value = {
         Path("/instrument/file1"): Path("/backup/file1")
     }
-    mock_wrapper_factory.create_copy_wrapper.return_value = mock_wrapper
+    mock_wrapper_factory.create_write_wrapper.return_value = mock_wrapper
 
     mock_check_file.side_effect = FileRemovalError("Check failed")
 

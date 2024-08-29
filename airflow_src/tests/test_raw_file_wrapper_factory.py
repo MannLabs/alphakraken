@@ -6,7 +6,7 @@ from __future__ import annotations
 import tempfile
 from datetime import datetime
 from pathlib import Path
-from typing import Generator
+from typing import Any, Generator
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -15,17 +15,18 @@ from common.keys import InstrumentTypes
 from common.settings import INSTRUMENTS
 from db.models import RawFile
 from plugins.raw_file_wrapper_factory import (
-    BrukerRawFileCopyWrapper,
     BrukerRawFileMonitorWrapper,
+    BrukerRawFileWriteWrapper,
     CopyPathProvider,
     MovePathProvider,
     RawFileMonitorWrapper,
     RawFileWrapperFactory,
+    RawFileWriteWrapper,
     RemovePathProvider,
-    ThermoRawFileCopyWrapper,
     ThermoRawFileMonitorWrapper,
-    ZenoRawFileCopyWrapper,
+    ThermoRawFileWriteWrapper,
     ZenoRawFileMonitorWrapper,
+    ZenoRawFileWriteWrapper,
 )
 
 
@@ -34,11 +35,84 @@ class TestableRawFileMonitorWrapper(RawFileMonitorWrapper):
 
     _raw_file_extension = "test_ext"
 
-    def _file_path_to_monitor_acquisition(self) -> Path:
+    def _file_path_to_monitor_acquisition(self) -> Any:  # noqa: ANN401
         """Dummy implementation."""
 
-    def _get_files_to_copy(self) -> dict[Path, Path]:
+    def _get_files_to_copy(self) -> Any:  # noqa: ANN401
         """Dummy implementation."""
+
+
+class TestableRawFileWriteWrapper(RawFileWriteWrapper):
+    """A testable subclass of RawFileWriteWrapper to test the methods provided by the abstract class."""
+
+    def _get_files_to_copy(self) -> Any:  # noqa: ANN401
+        """Dummy implementation."""
+
+    def _get_files_to_move(self) -> Any:  # noqa: ANN401
+        """Dummy implementation."""
+
+    def _get_folder_to_remove(self) -> Any:  # noqa: ANN401
+        """Dummy implementation."""
+
+
+@patch("plugins.raw_file_wrapper_factory.RawFileWrapperFactory")
+def test_raw_file_wrapper_check_path_provider_copy(
+    mock_raw_file_wrapper_factory: MagicMock,  # noqa: ARG001
+) -> None:
+    """Test that the path provider is correctly checked."""
+    with patch.dict(INSTRUMENTS, {"instrument1": {"type": "bruker"}}):
+        wrapper = TestableRawFileWriteWrapper(
+            "instrument1", raw_file=MagicMock(), path_provider=CopyPathProvider
+        )
+
+    with pytest.raises(TypeError):
+        wrapper.get_files_to_remove()
+
+    with pytest.raises(TypeError):
+        wrapper.get_files_to_move()
+
+    wrapper.get_files_to_copy()
+    # ok: nothing raised
+
+
+@patch("plugins.raw_file_wrapper_factory.RawFileWrapperFactory")
+def test_raw_file_wrapper_check_path_provider_move(
+    mock_raw_file_wrapper_factory: MagicMock,  # noqa: ARG001
+) -> None:
+    """Test that the path provider is correctly checked."""
+    with patch.dict(INSTRUMENTS, {"instrument1": {"type": "bruker"}}):
+        wrapper = TestableRawFileWriteWrapper(
+            "instrument1", raw_file=MagicMock(), path_provider=MovePathProvider
+        )
+
+    with pytest.raises(TypeError):
+        wrapper.get_files_to_remove()
+
+    wrapper.get_files_to_move()
+    # ok: nothing raised
+
+    with pytest.raises(TypeError):
+        wrapper.get_files_to_copy()
+
+
+@patch("plugins.raw_file_wrapper_factory.RawFileWrapperFactory")
+def test_raw_file_wrapper_check_path_provider_remove(
+    mock_raw_file_wrapper_factory: MagicMock,  # noqa: ARG001
+) -> None:
+    """Test that the path provider is correctly checked."""
+    with patch.dict(INSTRUMENTS, {"instrument1": {"type": "bruker"}}):
+        wrapper = TestableRawFileWriteWrapper(
+            "instrument1", raw_file=MagicMock(), path_provider=RemovePathProvider
+        )
+
+    wrapper.get_files_to_remove()
+    # ok: nothing raised
+
+    with pytest.raises(TypeError):
+        wrapper.get_files_to_move()
+
+    with pytest.raises(TypeError):
+        wrapper.get_files_to_copy()
 
 
 @patch("plugins.raw_file_wrapper_factory.get_internal_instrument_data_path")
@@ -86,6 +160,7 @@ def mock_raw_file() -> RawFile:
         id="123---original_file.raw",
         original_name="original_file.raw",
         created_at=datetime(2023, 1, 1, tzinfo=pytz.UTC),
+        instrument_id="instrument1",
     )
 
 
@@ -134,9 +209,9 @@ def test_remove_path_provider(mock_raw_file: RawFile) -> None:
 @pytest.mark.parametrize(
     ("instrument_type", "expected_class"),
     [
-        (InstrumentTypes.THERMO, ThermoRawFileCopyWrapper),
-        (InstrumentTypes.ZENO, ZenoRawFileCopyWrapper),
-        (InstrumentTypes.BRUKER, BrukerRawFileCopyWrapper),
+        (InstrumentTypes.THERMO, ThermoRawFileWriteWrapper),
+        (InstrumentTypes.ZENO, ZenoRawFileWriteWrapper),
+        (InstrumentTypes.BRUKER, BrukerRawFileWriteWrapper),
     ],
 )
 @patch("plugins.raw_file_wrapper_factory.RawFileWrapperFactory.create_monitor_wrapper")
@@ -148,8 +223,7 @@ def test_raw_file_wrapper_factory_instantiation_copier(
 ) -> None:
     """Test that the correct RawFileWrapperFactory subclass is instantiated."""
     with patch.dict(INSTRUMENTS, {"instrument1": {"type": instrument_type}}):
-        wrapper = RawFileWrapperFactory.create_copy_wrapper(
-            instrument_id="instrument1",
+        wrapper = RawFileWrapperFactory.create_write_wrapper(
             raw_file=mock_raw_file,
             path_provider=CopyPathProvider,
         )
@@ -271,7 +345,7 @@ def test_thermo_get_files_to_copy(
         original_name="sample.raw",
     )
 
-    wrapper = ThermoRawFileCopyWrapper(
+    wrapper = ThermoRawFileWriteWrapper(
         "instrument1", raw_file=mock_raw_file, path_provider=CopyPathProvider
     )
     expected_mapping = {
@@ -302,7 +376,7 @@ def test_zeno_get_files_to_copy(
         original_name="sample.wiff",
     )
 
-    wrapper = ZenoRawFileCopyWrapper(
+    wrapper = ZenoRawFileWriteWrapper(
         "instrument1", raw_file=mock_raw_file, path_provider=CopyPathProvider
     )
     expected_mapping = {
@@ -355,7 +429,7 @@ def test_bruker_get_files_to_copy() -> None:
             "plugins.raw_file_wrapper_factory.get_internal_backup_path_for_instrument",
             side_effect=mock_get_internal_backup_path_for_instrument,
         ), patch.dict(INSTRUMENTS, {"instrument1": {"type": "bruker"}}):
-            wrapper = BrukerRawFileCopyWrapper(
+            wrapper = BrukerRawFileWriteWrapper(
                 "instrument1", raw_file=mock_raw_file, path_provider=CopyPathProvider
             )
 

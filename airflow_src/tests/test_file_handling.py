@@ -8,8 +8,8 @@ from _pytest._py.path import LocalPath
 from airflow.exceptions import AirflowFailException
 from plugins.common.settings import INSTRUMENTS
 from plugins.file_handling import (
-    _file_already_exists,
     _get_file_hash,
+    _identical_copy_exists,
     compare_paths,
     copy_file,
     get_file_creation_timestamp,
@@ -94,7 +94,7 @@ def test_get_file_hash_chunks(mock_file_open: MagicMock) -> None:
 
 
 @patch("plugins.file_handling._get_file_hash")
-@patch("plugins.file_handling._file_already_exists")
+@patch("plugins.file_handling._identical_copy_exists")
 @patch("shutil.copy2")
 @patch("plugins.file_handling.get_file_size")
 def test_copy_file_copies_file_and_checks_hash(
@@ -120,7 +120,7 @@ def test_copy_file_copies_file_and_checks_hash(
 
 
 @patch("plugins.file_handling._get_file_hash")
-@patch("plugins.file_handling._file_already_exists")
+@patch("plugins.file_handling._identical_copy_exists")
 @patch("shutil.copy2")
 @patch("plugins.file_handling.get_file_size")
 def test_copy_file_copies_file_and_checks_hash_raises(
@@ -144,7 +144,7 @@ def test_copy_file_copies_file_and_checks_hash_raises(
 
 
 @patch("plugins.file_handling._get_file_hash")
-@patch("plugins.file_handling._file_already_exists")
+@patch("plugins.file_handling._identical_copy_exists")
 @patch("shutil.copy2")
 @patch("plugins.file_handling.get_file_size")
 def test_copy_file_copies_file_and_creates_directory(
@@ -172,7 +172,7 @@ def test_copy_file_copies_file_and_creates_directory(
 
 
 @patch("plugins.file_handling._get_file_hash")
-@patch("plugins.file_handling._file_already_exists")
+@patch("plugins.file_handling._identical_copy_exists")
 @patch("plugins.file_handling.get_file_size")
 @patch("shutil.copy2")
 def test_copy_file_no_copy_if_file_present(
@@ -198,14 +198,14 @@ def test_copy_file_no_copy_if_file_present(
 
 @patch("plugins.file_handling._get_file_hash")
 @patch.object(Path, "exists")
-def test_file_already_exists_file_not_existing(
+def test_identical_copy_exists_file_not_existing(
     mock_exists: MagicMock, mock_get_file_hash: MagicMock
 ) -> None:
     """Test file_already_exists returns False when file does not exist."""
     mock_exists.return_value = False
 
     # when
-    result = _file_already_exists(Path("/backup/test_file.raw"), "some_hash")
+    result = _identical_copy_exists(Path("/backup/test_file.raw"), "some_hash")
 
     mock_exists.assert_called_once()
     mock_get_file_hash.assert_not_called()
@@ -214,7 +214,7 @@ def test_file_already_exists_file_not_existing(
 
 @patch("plugins.file_handling._get_file_hash")
 @patch.object(Path, "exists")
-def test_file_already_exists_hashes_match(
+def test_identical_copy_exists_hashes_match(
     mock_exists: MagicMock, mock_get_file_hash: MagicMock
 ) -> None:
     """Test file_already_exists returns True when hashes match."""
@@ -222,7 +222,7 @@ def test_file_already_exists_hashes_match(
     mock_get_file_hash.return_value = "some_hash"
 
     # when
-    result = _file_already_exists(Path("/backup/test_file.raw"), "some_hash")
+    result = _identical_copy_exists(Path("/backup/test_file.raw"), "some_hash")
 
     mock_exists.assert_called_once()
     mock_get_file_hash.assert_called_once_with(Path("/backup/test_file.raw"))
@@ -231,7 +231,7 @@ def test_file_already_exists_hashes_match(
 
 @patch("plugins.file_handling._get_file_hash")
 @patch.object(Path, "exists")
-def test_file_already_exists_hashes_dont_match(
+def test_identical_copy_exists_hashes_dont_match(
     mock_exists: MagicMock, mock_get_file_hash: MagicMock
 ) -> None:
     """Test file_already_exists returns False when hashes don't match."""
@@ -239,7 +239,7 @@ def test_file_already_exists_hashes_dont_match(
     mock_get_file_hash.return_value = "some_hash"
 
     # when
-    result = _file_already_exists(Path("/backup/test_file.raw"), "some_other_hash")
+    result = _identical_copy_exists(Path("/backup/test_file.raw"), "some_other_hash")
 
     mock_exists.assert_called_once()
     mock_get_file_hash.assert_called_once_with(Path("/backup/test_file.raw"))

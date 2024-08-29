@@ -26,6 +26,8 @@ x-airflow-common:
   build:
       context: .
       dockerfile: airflow_src/Dockerfile
+  # User ID in Airflow containers
+  user: "${AIRFLOW_UID:?error}:0"
   environment:
     &airflow-common-env
     AIRFLOW__CORE__EXECUTOR: CeleryExecutor
@@ -67,8 +69,6 @@ x-airflow-common:
 #    - ./airflow_src/config:/opt/airflow/config
 #    - ./airflow_src/plugins:/opt/airflow/plugins
 #    - ./shared:/opt/airflow/shared
-  # User ID in Airflow containers
-  user: "${AIRFLOW_UID:?error}:0"
 
 x-airflow-worker:
   # This is the configuration for the production workers. For the test worker, the volume mapping is overwritten.
@@ -94,6 +94,12 @@ x-airflow-worker:
     - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs
     # all mounts (backup pool folders, results pool folders, instruments) need to be available in $MOUNTS_PATH
     - ${MOUNTS_PATH:?error}:/opt/airflow/mounts
+#    # Uncomment for local development so that changes to DAGs and Tasks are immediately active
+#    # Note that this part is defined another time for the airflow-worker-test1
+#    - ./airflow_src/dags:/opt/airflow/dags
+#    - ./airflow_src/config:/opt/airflow/config
+#    - ./airflow_src/plugins:/opt/airflow/plugins
+#    - ./shared:/opt/airflow/shared
 
 services:
   postgres-service:

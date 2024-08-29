@@ -50,7 +50,7 @@ class RawFile(Document):
     # the raw file name with a unique prefix.
     id = StringField(
         max_length=255, required=True, primary_key=True
-    )  # max_length of file names linux: 255
+    )  # max_length of file names on linux: 255
 
     # Unique prefix to indicate a collision. If None, no collision occurred.
     collision_flag = StringField(max_length=32, default=None)
@@ -58,15 +58,18 @@ class RawFile(Document):
     # Original name of the file. In case of collisions, this is not unique. Otherwise, equal to `id`.
     original_name = StringField(max_length=255, required=True)
 
+    instrument_id = StringField(max_length=32)
+    project_id = StringField(max_length=32)
+
     status = StringField(max_length=32)
     status_details = StringField(max_length=512)
 
     size = IntField(min_value=-1, max_value=int(1000 * 1024**3))  # unit: bytes
 
-    file_info = DictField()  # mappping: path to hash and size
-    instrument_id = StringField(max_length=32)
-
-    project_id = StringField(max_length=32)
+    backup_base_path = StringField(
+        max_length=128
+    )  # absolute path to pool backup location
+    file_info = DictField()  # mapping of relative path on backup to tuples (size, hash)
 
     created_at = DateTimeField()  # when file was created
 

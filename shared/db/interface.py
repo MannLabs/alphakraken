@@ -75,13 +75,14 @@ def add_new_raw_file_to_db(  # noqa: PLR0913 too many arguments
     return id_
 
 
-def update_raw_file(
+def update_raw_file(  # noqa: PLR0913
     raw_file_id: str,
     *,
     new_status: str,
     status_details: str | None = None,
     size: float | None = None,
     file_info: dict[str, tuple[float, str]] | None = None,
+    backup_base_path: str | None = None,
 ) -> None:
     """Set `status` and `size` of DB entity of raw file with `raw_file_id` to `new_status`."""
     logging.info(
@@ -94,6 +95,9 @@ def update_raw_file(
     # prevent overwriting these fields with None if they are not given
     optional_size_arg = {"size": size} if size is not None else {}
     optional_file_info_arg = {"file_info": file_info} if file_info is not None else {}
+    optional_backup_base_path_arg = (
+        {"backup_base_path": backup_base_path} if backup_base_path is not None else {}
+    )
 
     raw_file.update(
         status=new_status,
@@ -101,6 +105,7 @@ def update_raw_file(
         status_details=status_details,
         **optional_size_arg,
         **optional_file_info_arg,
+        **optional_backup_base_path_arg,
     )
 
 

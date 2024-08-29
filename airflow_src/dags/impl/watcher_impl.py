@@ -223,7 +223,7 @@ def _file_meets_age_criterion(
     """
     max_file_age_in_hours_not_active = "-1"
     max_file_age_in_hours: str = get_airflow_variable(
-        AirflowVars.MAX_FILE_AGE_IN_HOURS, max_file_age_in_hours_not_active
+        AirflowVars.DEBUG_MAX_FILE_AGE_IN_HOURS, max_file_age_in_hours_not_active
     )
 
     try:

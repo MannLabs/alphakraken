@@ -5,12 +5,12 @@ import traceback
 from pathlib import Path
 
 from airflow.models import TaskInstance
-from common.keys import XComKeys
+from common.keys import AirflowVars, XComKeys
 from common.settings import (
-    MIN_FILE_AGE_TO_REMOVE_D,
+    DEFAULT_MIN_FILE_AGE_TO_REMOVE_D,
     get_internal_backup_path,
 )
-from common.utils import get_env_variable, get_xcom, put_xcom
+from common.utils import get_airflow_variable, get_env_variable, get_xcom, put_xcom
 from file_handling import get_file_size
 from raw_file_wrapper_factory import RawFileWrapperFactory, RemovePathProvider
 
@@ -26,10 +26,15 @@ def get_raw_files_to_remove(ti: TaskInstance, **kwargs) -> None:
     """Get files to remove from the instrument backup folder."""
     del kwargs  # unused
 
+    min_file_age = int(
+        get_airflow_variable(
+            AirflowVars.MIN_FILE_AGE_TO_REMOVE_IN_DAYS, DEFAULT_MIN_FILE_AGE_TO_REMOVE_D
+        )
+    )
     put_xcom(
         ti,
         XComKeys.FILES_TO_REMOVE,
-        get_raw_file_ids_older_than(MIN_FILE_AGE_TO_REMOVE_D),
+        get_raw_file_ids_older_than(min_file_age),
     )
 
 

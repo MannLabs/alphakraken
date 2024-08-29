@@ -81,7 +81,8 @@ See below for [some useful Docker commands](#some-useful-docker-commands).
 ### Additional steps required for initial sandbox/production deployment
 
 The main differences between the `local` and the `sandbox`/`production` deployments are:
-- `local` has all services running on the same machine within the same docker-compose network
+- `local` has all services running on the same machine within the same docker-compose network,
+whereas `sandbox`/`production` is per default distributed over two machines
 - `sandbox`/`production` needs additional steps to configure the cluster and the network bind mounts
 
 The different services can be distributed over several machines. The only important thing is that there
@@ -122,19 +123,32 @@ and mount all instruments using the `./mountall.sh` command described in [instru
 which spins up on worker service for each instrument.
 
 #### On the cluster
-1. Create this directory
+1. Log into the cluster using the `kraken` user.
+2. Create this directory
 ```bash
 mkdir -p ~/slurm/jobs
 ```
-and copy the cluster run script `submit_job.sh` to `~/slurm`. Make sure to update this file when deploying new features.
+3. Copy the cluster run script `submit_job.sh` to `~/slurm`.
+Make sure to update also this file when deploying a new version of the AlphaKraken.
 
-2. Set up alphaDIA  (see [below](#setup-alphadia)).
+4. Set up AlphaDIA  (see [below](#setup-alphadia)).
 
 ### General note on how Kraken gets to know the data
-Each worker needs two 'views' on the data: the first view enables direct access to it,
-by mounting a specific folder to a target folder on the kraken PC and then mapping this target
-to a worker container. The second view is the location of the data as seen from the cluster,
+
+Each worker needs two 'views' on the pool backup and output data.
+
+The first view enables read/write access,
+by mounting on the Kraken host PC a specific (network) folder (e.g. `\\pool-backup\pool-backup` or `\\pool-output\pool-output`)
+using `cifs` mounts (wrapped by `mountall.sh`)
+to a target folder and then mapping this target folder to a worker container
+in `docker-compose.yaml`.
+
+The second view is the location of the data as seen from the cluster
+(e.g. `/fs/pool/pool-backup` or `/fs/pool/pool-output`),
 which is required to set the paths for the cluster jobs correctly.
+
+For instruments, only the first type of view is required, as the cluster does not access the instruments directly.
+
 
 ### Set up pool bind mounts
 The workers need bind mounts set up to the pool filesystems for backup and reading alphaDIA output data.
@@ -163,6 +177,8 @@ Note: for now, user `kraken` should only have read access to the backup pool fol
 folder. If you need to remount one of the folders, add the `umount` option, e.g.
 `./mountall.sh $ENV output umount`.
 
+IMPORTANT NOTE: it is absolutely crucial that the mounts are set correctly (as provided by the `mountall.sh` script)
+as the workers operate only on docker-internal paths and cannot verify the correctness of the mounts.
 
 ### Setup SSH connection
 This connection is required to interact with the SLURM cluster.

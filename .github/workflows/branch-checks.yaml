@@ -21,7 +21,6 @@ jobs:
         with:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.number }}
-          INCLUDE_CONTENT: false
 
   unit-tests:
     name: Run unit tests

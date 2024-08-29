@@ -50,6 +50,7 @@ columns_at_end = [
     "updated_at_",
     "created_at_",
     "file_info",
+    "backup_base_path",
 ]
 columns_to_hide = [
     "created_at",

@@ -103,7 +103,7 @@ def mock_instrument_paths() -> Generator[Path, None, None]:
     with patch(
         "plugins.raw_file_wrapper_factory.get_internal_instrument_data_path"
     ) as mock_data_path, patch(
-        "plugins.raw_file_wrapper_factory.get_internal_instrument_backup_path"
+        "plugins.raw_file_wrapper_factory.get_internal_backup_path_for_instrument"
     ) as mock_backup_path:
         mock_data_path.return_value = Path("/path/to/instrument")
         mock_backup_path.return_value = Path("/path/to/backup")

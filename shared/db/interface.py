@@ -4,7 +4,7 @@ Note: this module must not have any dependencies on the rest of the codebase.
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import pytz
 
@@ -32,6 +32,17 @@ def get_raw_file_by_id(raw_file_id: str) -> RawFile:
     logging.info(f"Getting from DB: {raw_file_id=}")
     connect_db()
     return RawFile.objects(id=raw_file_id).first()
+
+
+def get_raw_file_ids_older_than(age_in_days: int) -> list[str]:
+    """Get raw file ids older than the given age in days."""
+    connect_db()
+    return [
+        r.id
+        for r in RawFile.objects.filter(
+            created_at__lt=(datetime.now(tz=pytz.UTC) - timedelta(days=age_in_days))
+        )
+    ]
 
 
 def add_new_raw_file_to_db(  # noqa: PLR0913 too many arguments

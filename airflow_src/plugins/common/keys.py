@@ -10,6 +10,7 @@ class Dags:
     ACQUISITION_HANDLER: str = "acquisition_handler"
     ACQUISITON_HANDLER: str = "acquisition_processor"
     FILE_MOVER: str = "file_mover"
+    FILE_REMOVER: str = "file_remover"
 
 
 class Tasks:
@@ -35,6 +36,9 @@ class Tasks:
 
     MOVE_RAW_FILES: str = "move_raw_file"
     GET_FILES_TO_MOVE: str = "get_files_to_move"
+
+    REMOVE_RAW_FILES: str = "remove_raw_files"
+    GET_RAW_FILES_TO_REMOVE: str = "get_raw_files_to_remove"
 
 
 class OpArgs:
@@ -74,6 +78,7 @@ class XComKeys:
     QUANTING_TIME_ELAPSED: str = "quanting_time_elapsed"
 
     FILES_TO_MOVE = "files_to_move"
+    FILES_TO_REMOVE = "files_to_remove"
 
 
 class InstrumentKeys:

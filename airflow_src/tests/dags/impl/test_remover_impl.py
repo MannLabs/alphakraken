@@ -292,7 +292,7 @@ def test_safe_remove_files_file_not_existing(
 
     # then
     mock_check_file.assert_not_called()
-    mock_remove_files.assert_called_once_with([])
+    mock_remove_files.assert_not_called()
     mock_remove_folder.assert_not_called()  # because get_folder_to_remove returned None
     mock_wrapper_factory.create_write_wrapper.assert_called_once_with(
         mock_raw_file, path_provider=RemovePathProvider

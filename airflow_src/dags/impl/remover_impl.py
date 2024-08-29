@@ -167,7 +167,8 @@ def _safe_remove_files(raw_file_id: str) -> None:
 
         file_paths_to_remove.append(file_path_to_remove)
 
-    _remove_files(file_paths_to_remove)
+    if file_paths_to_remove:
+        _remove_files(file_paths_to_remove)
 
     if (
         base_raw_file_path_to_remove := remove_wrapper.get_folder_to_remove()
@@ -206,13 +207,13 @@ def _remove_folder(folder_path_to_remove: Path | None) -> None:
 
     :raises: FileRemovalError if removing a file fails.
     """
-    if get_env_variable(EnvVars.ENV_NAME) != "production":
-        logging.warning(
-            f"NOT removing folder {folder_path_to_remove}: not in production."
-        )
-        return
-
     if folder_path_to_remove.exists() and folder_path_to_remove.is_dir():
+        if get_env_variable(EnvVars.ENV_NAME) != "production":
+            logging.warning(
+                f"NOT removing folder {folder_path_to_remove}: not in production."
+            )
+            return
+
         try:
             _delete_empty_directory(folder_path_to_remove)
         except Exception as e:

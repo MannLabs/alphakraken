@@ -68,13 +68,20 @@ def _get_file_hash(
 
 
 def _identical_copy_exists(dst_path: Path, src_hash: str) -> bool:
-    """Check if a file already exists in `dst_path` and has the same hash."""
+    """Check if a file already exists in `dst_path` and has the same hash.
+
+    :param dst_path: Path to the destination file.
+    :param src_hash: Hash of the source file.
+
+    :return: True if an identical copy exists, False otherwise.
+    :raises ValueError: If the hash of the existing file does not match the source hash.
+    """
     if dst_path.exists():
         logging.info("File already exists in backup location. Checking hash ..")
         if _get_file_hash(dst_path) == src_hash:
             logging.info("Hashes match.")
             return True
-        logging.warning("Hashes do not match.")
+        raise ValueError("Hashes do not match.")
     return False
 
 
@@ -82,13 +89,23 @@ def copy_file(
     src_path: Path,
     dst_path: Path,
 ) -> tuple[float, str]:
-    """Copy a raw file to the backup location and check its hashsum and return a tuple (file_size, file_hash)."""
+    """Copy a raw file to the backup location, check its hashsum and return a tuple (file_size, file_hash)."""
     start = datetime.now()  # noqa: DTZ005
     src_hash = _get_file_hash(src_path)
     time_elapsed = (datetime.now() - start).total_seconds()  # noqa: DTZ005
     logging.info(f"Hash calculated. Time elapsed: {time_elapsed/60:.1f} min")
-    if _identical_copy_exists(dst_path, src_hash):
-        return get_file_size(dst_path), src_hash
+
+    try:
+        if _identical_copy_exists(dst_path, src_hash):
+            return get_file_size(dst_path), src_hash
+    except ValueError as e:
+        raise AirflowFailException(
+            "File already exists in backup location with different hash. "
+            "This might be due to a previous copy operation being interrupted. "
+            "Please check the backup location and remove the file from there necessary, "
+            "then restart this task."
+        ) from e
+
     if not dst_path.parent.exists():
         logging.info(f"Creating parent directories for {dst_path} ..")
         dst_path.parent.mkdir(parents=True, exist_ok=True)
@@ -104,7 +121,9 @@ def copy_file(
 
     logging.info("Verifying hash ..")
     if (dst_hash := _get_file_hash(dst_path)) != src_hash:
-        raise ValueError(f"Hashes do not match ofter copy! {src_hash=} != {dst_hash=}")
+        raise AirflowFailException(
+            f"Hashes do not match ofter copy! {src_hash=} != {dst_hash=}"
+        )
     logging.info("Verifying hash done!")
 
     return dst_size, dst_hash

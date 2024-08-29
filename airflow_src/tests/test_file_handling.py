@@ -100,11 +100,11 @@ def test_get_file_hash_chunks(mock_file_open: MagicMock) -> None:
 def test_copy_file_copies_file_and_checks_hash(
     mock_get_file_size: MagicMock,
     mock_copy2: MagicMock,
-    mock_file_exists: MagicMock,
+    mock_identical_copy_exists: MagicMock,
     mock_get_file_hash: MagicMock,
 ) -> None:
     """Test copy_file copies file and checks hash."""
-    mock_file_exists.return_value = False
+    mock_identical_copy_exists.return_value = False
     mock_get_file_hash.side_effect = ["some_hash", "some_hash"]
     mock_get_file_size.return_value = 1000
 
@@ -123,14 +123,14 @@ def test_copy_file_copies_file_and_checks_hash(
 @patch("plugins.file_handling._identical_copy_exists")
 @patch("shutil.copy2")
 @patch("plugins.file_handling.get_file_size")
-def test_copy_file_copies_file_and_checks_hash_raises(
+def test_copy_file_copies_file_and_checks_hash_hash_mismatch_raises(
     mock_get_file_size: MagicMock,
     mock_copy2: MagicMock,  # noqa: ARG001
-    mock_file_exists: MagicMock,
+    mock_identical_copy_exists: MagicMock,
     mock_get_file_hash: MagicMock,
 ) -> None:
     """Test copy_file copies file and checks hash, raises on mismatch."""
-    mock_file_exists.return_value = False
+    mock_identical_copy_exists.return_value = False
     mock_get_file_hash.side_effect = ["some_hash", "some_other_hash"]
     mock_get_file_size.return_value = 1000
 
@@ -139,7 +139,7 @@ def test_copy_file_copies_file_and_checks_hash_raises(
     dst_path.parent.exists.return_value = True
 
     # when
-    with pytest.raises(ValueError):
+    with pytest.raises(AirflowFailException):
         copy_file(src_path, dst_path)
 
 
@@ -150,11 +150,11 @@ def test_copy_file_copies_file_and_checks_hash_raises(
 def test_copy_file_copies_file_and_creates_directory(
     mock_get_file_size: MagicMock,
     mock_copy2: MagicMock,
-    mock_file_exists: MagicMock,
+    mock_identical_copy_exists: MagicMock,
     mock_get_file_hash: MagicMock,
 ) -> None:
     """Test copy_file copies file and creates target directory."""
-    mock_file_exists.return_value = False
+    mock_identical_copy_exists.return_value = False
     mock_get_file_hash.side_effect = ["some_hash", "some_hash"]
     mock_get_file_size.return_value = 1000
 
@@ -175,14 +175,14 @@ def test_copy_file_copies_file_and_creates_directory(
 @patch("plugins.file_handling._identical_copy_exists")
 @patch("plugins.file_handling.get_file_size")
 @patch("shutil.copy2")
-def test_copy_file_no_copy_if_file_present(
+def test_copy_file_no_copy_if_file_present_with_same_hash(
     mock_copy2: MagicMock,
     mock_get_file_size: MagicMock,
-    mock_file_exists: MagicMock,
+    mock_identical_copy_exists: MagicMock,
     mock_get_file_hash: MagicMock,
 ) -> None:
-    """Test copy_file copies file and checks hash."""
-    mock_file_exists.return_value = True
+    """Test copy_file does not copy file if file with same hash is present."""
+    mock_identical_copy_exists.return_value = True
     mock_get_file_hash.side_effect = ["some_hash", "some_hash"]
     mock_get_file_size.return_value = 1000
 
@@ -192,6 +192,27 @@ def test_copy_file_no_copy_if_file_present(
     # when
     result = copy_file(src_path, dst_path)
     assert result == (1000, "some_hash")
+
+    mock_copy2.assert_not_called()
+
+
+@patch("plugins.file_handling._get_file_hash")
+@patch("plugins.file_handling._identical_copy_exists")
+@patch("shutil.copy2")
+def test_copy_file_no_copy_if_file_present_with_different_hash_raises(
+    mock_copy2: MagicMock,
+    mock_identical_copy_exists: MagicMock,
+    mock_get_file_hash: MagicMock,  # noqa: ARG001
+) -> None:
+    """Test copy_file does not copy and raises file if file with differnet hash is present."""
+    mock_identical_copy_exists.side_effect = ValueError
+
+    src_path = Path("/path/to/instrument/test_file.raw")
+    dst_path = Path("/path/to/backup/test_file.raw")
+
+    # when
+    with pytest.raises(AirflowFailException):
+        copy_file(src_path, dst_path)
 
     mock_copy2.assert_not_called()
 
@@ -239,11 +260,11 @@ def test_identical_copy_exists_hashes_dont_match(
     mock_get_file_hash.return_value = "some_hash"
 
     # when
-    result = _identical_copy_exists(Path("/backup/test_file.raw"), "some_other_hash")
+    with pytest.raises(ValueError):
+        _identical_copy_exists(Path("/backup/test_file.raw"), "some_other_hash")
 
     mock_exists.assert_called_once()
     mock_get_file_hash.assert_called_once_with(Path("/backup/test_file.raw"))
-    assert result is False
 
 
 # using a 'real' file system here to test the file handling functions

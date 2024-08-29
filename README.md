@@ -254,7 +254,14 @@ mkdir -p ${MOUNTS}/output/<INSTRUMENT_ID>
     <<: *airflow-worker
     command: celery worker -q kraken_queue_<INSTRUMENT_ID>
     # there might be additional keys here, just copy them
+    volumes:
+      - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs:rw
+      - ${MOUNTS_PATH:?error}/output:/opt/airflow/mounts/output:ro
+      - ${MOUNTS_PATH:?error}/instruments/<INSTRUMENT_ID>:/opt/airflow/mounts/instruments/<INSTRUMENT_ID>:ro
+      - ${MOUNTS_PATH:?error}/backup/<INSTRUMENT_ID>:/opt/airflow/mounts/backup/<INSTRUMENT_ID>:rw
 ```
+Make sure to replace each instance of `<INSTRUMENT_ID>` with the correct instrument ID
+and to not accidentally drop the `ro` and `rw` flags as they limit file access rights.
 
 6. Restart all containers with the `--build` flag (cf. [above](#on-the-kraken-pc)).
 

@@ -34,15 +34,29 @@ def get_raw_file_by_id(raw_file_id: str) -> RawFile:
     return RawFile.objects(id=raw_file_id).first()
 
 
-def get_raw_file_ids_older_than(age_in_days: int) -> list[str]:
-    """Get raw file ids older than the given age in days."""
+def get_raw_files_by_age(
+    instrument_id: str,
+    *,
+    max_age_in_days: int,
+    min_age_in_days: int,
+) -> list[RawFile]:
+    """Get raw file ids older than the given age window in days for a given instrument sorted 'oldest first'."""
     connect_db()
-    return [
-        r.id
-        for r in RawFile.objects.filter(
-            created_at__lt=(datetime.now(tz=pytz.UTC) - timedelta(days=age_in_days))
-        )
-    ]
+    now = datetime.now(tz=pytz.UTC)
+
+    oldest_created_at = now - timedelta(days=max_age_in_days)
+    youngest_created_at = now - timedelta(days=min_age_in_days)
+    logging.info(
+        f"Getting from DB: {instrument_id=} {oldest_created_at=} {youngest_created_at=}"
+    )
+
+    return list(
+        RawFile.objects.filter(
+            instrument_id=instrument_id,
+            created_at__gte=oldest_created_at,
+            created_at__lt=youngest_created_at,
+        ).order_by("created_at")
+    )
 
 
 def add_new_raw_file_to_db(  # noqa: PLR0913 too many arguments

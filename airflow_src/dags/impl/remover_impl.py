@@ -100,11 +100,15 @@ def _decide_on_raw_files_to_remove(
             instrument_id, min_age_in_days=min_file_age, max_age_in_days=60
         )
         logging.info(
-            f"Found {len(raw_files)} files to remove for {instrument_id}: {raw_files}"
+            f"{instrument_id}: found {len(raw_files)} files as candidates for removal: "
+            f"{[(r.id, r.size, r.created_at) for r in raw_files]}"
         )
 
         sum_size_gb = 0
         for raw_file in raw_files:
+            if raw_file.size is None:
+                logging.warning(f"Skipping {raw_file.id}: size is None.")
+                continue
             sum_size_gb += raw_file.size * BYTES_TO_GB
             raw_file_ids_to_remove[instrument_id].append(raw_file.id)
 

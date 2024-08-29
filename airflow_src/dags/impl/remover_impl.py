@@ -10,6 +10,7 @@ from airflow.models import TaskInstance
 from common.keys import AirflowVars, XComKeys
 from common.settings import (
     BYTES_TO_GB,
+    DEFAULT_MAX_FILE_AGE_TO_REMOVE_D,
     DEFAULT_MIN_FILE_AGE_TO_REMOVE_D,
     INSTRUMENTS,
     get_internal_backup_path,
@@ -97,7 +98,9 @@ def _decide_on_raw_files_to_remove(
             continue
 
         raw_files = get_raw_files_by_age(
-            instrument_id, min_age_in_days=min_file_age, max_age_in_days=60
+            instrument_id,
+            min_age_in_days=min_file_age,
+            max_age_in_days=DEFAULT_MAX_FILE_AGE_TO_REMOVE_D,
         )
         logging.info(
             f"{instrument_id}: found {len(raw_files)} files as candidates for removal: "
@@ -152,7 +155,7 @@ def _safe_remove_files(raw_file_id: str) -> None:
         file_path_pool_backup,
     ) in remove_wrapper.get_files_to_remove().items():
         if not file_path_to_remove.exists():
-            logging.warning(
+            logging.info(
                 f"File {file_path_to_remove} does not exist. Presuming it was already removed."
             )
             continue

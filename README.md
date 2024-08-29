@@ -503,26 +503,33 @@ systemctl restart docker
 These variables are set in the Airflow UI under "Admin" -> "Variables". They steer the behavior of the whole system,
 so be careful when changing them. If in doubt, pause all DAGs that are not part of the current problem before changing them.
 
-### allow_output_overwrite
+### min_free_space_gb (default: -1)
+If set to a positive number (unit: GB), the `file_remover` will remove files (oldest first) from the
+instrument backup folder until the free space is above this threshold.
+The value of `min_file_age_to_remove_in_days` (see below) is taken into account when
+selection files to remove.
+
+Recommended setting in production: `300` (big enough to avoid running out of space over a weekend
+(in the worst case scenario that the file_remover stops running on Friday).
+
+### min_file_age_to_remove_in_days (default: 14)
+The minimum file age in days for files to be removed by the file_remover.
+
+Recommended setting in production: `14` (default)
+
+### allow_output_overwrite (default: False)
 If set to `True`, the system will overwrite existing output files. Convenience switch to avoid manual deletion of output files
 in case something went wrong with the quanting.
 
 Recommended setting in production: False (default)
 
-### min_free_space_gb
-If set to a positive number (unit: GB), the `file_remover` will remove files (oldest first) from the
-instrument backup folder until the free space is above this threshold.
-
-Recommended setting in production: `300` (big enough to avoid running out of space over a weekend
-(in the worst case scenario that the file_remover stops running on Friday).
-
-### debug_no_cluster_ssh
+### debug_no_cluster_ssh (default: False)
 `debug_no_cluster_ssh` If set to `True`, the system will not connect to the SLURM cluster. This is useful for
 testing, debugging and to avoid flooding the cluster at the initial setup.
 
 Recommended setting in production: False (default)
 
-### debug_max_file_age_in_hours
+### debug_max_file_age_in_hours (default: -1)
 If set, files that are older will not be processed by the acquisition handler, i.e. not be backed up nor quanted.
 They will nevertheless be added to the DB, with status="ignored".
 Needs to be a valid float, "-1" to deactivate.

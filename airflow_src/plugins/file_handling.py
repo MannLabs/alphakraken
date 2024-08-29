@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytz
 from airflow.exceptions import AirflowFailException
-from common.settings import get_internal_instrument_data_path
+from common.settings import BYTES_TO_MB, get_internal_instrument_data_path
 
 
 def get_file_creation_timestamp(
@@ -46,7 +46,7 @@ def get_file_size(
             ) if verbose else None
             return default
         raise e from e
-    file_size_mb = file_size_bytes / 1024**2
+    file_size_mb = file_size_bytes * BYTES_TO_MB
     logging.info(
         f"File {file_path} has {file_size_bytes=} ({file_size_mb:.2f} MB)"
     ) if verbose else None
@@ -116,7 +116,7 @@ def copy_file(
     time_elapsed = (datetime.now() - start).total_seconds()  # noqa: DTZ005
     dst_size = get_file_size(dst_path)
     logging.info(
-        f"Copying done. Time elapsed: {time_elapsed/60:.1f} min at {dst_size / max(time_elapsed, 1) / 1024 ** 2:.1f} MB/s"
+        f"Copying done. Time elapsed: {time_elapsed/60:.1f} min at {dst_size * BYTES_TO_MB / max(time_elapsed, 1):.1f} MB/s"
     )
 
     logging.info("Verifying hash ..")

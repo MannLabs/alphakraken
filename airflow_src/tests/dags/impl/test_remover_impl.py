@@ -38,7 +38,6 @@ def test_get_raw_files_to_remove(
     # when
     get_raw_files_to_remove(mock_ti)
 
-    # then
     mock_decide_on_raw_files_to_remove.assert_called_once_with(
         10, 42, INSTRUMENTS.keys()
     )
@@ -77,6 +76,7 @@ def test_decide_on_raw_files_to_remove_ok(
         Path("/path/to/instrument2"),  # this does not exist
     ]
 
+    # when
     result = _decide_on_raw_files_to_remove(300, 30, ["instrument1", "instrument2"])
 
     assert result == {"instrument1": ["file1", "file2"]}
@@ -97,6 +97,7 @@ def test_decide_on_raw_files_to_remove_nothing_to_remove_ok(
     mock_path.exists.return_value = True
     mock_get_internal_instrument_data_path.return_value = mock_path
 
+    # when
     result = _decide_on_raw_files_to_remove(300, 30, ["instrument1"])
 
     assert result == {}

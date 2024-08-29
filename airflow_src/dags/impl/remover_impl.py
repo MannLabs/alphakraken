@@ -9,6 +9,7 @@ from pathlib import Path
 from airflow.models import TaskInstance
 from common.keys import AirflowVars, XComKeys
 from common.settings import (
+    BYTES_TO_GB,
     DEFAULT_MIN_FILE_AGE_TO_REMOVE_D,
     INSTRUMENTS,
     get_internal_backup_path,
@@ -20,8 +21,6 @@ from raw_file_wrapper_factory import RawFileWrapperFactory, RemovePathProvider
 
 from shared.db.interface import get_raw_file_by_id, get_raw_files_by_age
 from shared.keys import EnvVars
-
-BYTES_TO_GB = 1 / 1024**3
 
 
 class FileRemovalError(Exception):

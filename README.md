@@ -454,8 +454,18 @@ then it might help to give the scheduler a fresh start on the PC/VM hosting the 
 ./compose.sh up airflow-scheduler --build --force-recreate -d
 ```
 
+### Problem: a `copy_raw_file` is stuck
+Symptom: the `copy_raw_file` task gets stuck when checking whether the file
+is already present on the pool backup. In addition, `ls` from the
+PC hosting the worker on pool backup folder containing the file does not
+return (from the cluster, it does).
 
-## Useful comments
+#### Solution
+Most likely, this is because the file copying got interrupted, e.g. due to manual restart of the worker.
+To resolve, move the file from the backup pool folder and restart the `copy_raw_file` task.
+
+
+## Useful commands
 
 ### Some useful MongoDB commands
 Find all files for a given instrument with a given status that are younger than a given date

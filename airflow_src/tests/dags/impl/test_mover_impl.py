@@ -179,7 +179,7 @@ def test_get_files_to_move_both_files_exist_but_different_eaises(
 def test_move_files_success_production(
     mock_shutil_move: MagicMock,
 ) -> None:
-    """Test move_raw_file success for two paths."""
+    """Test _move_files success for two paths."""
     mock_src_path1, mock_dst_path1 = MagicMock(), MagicMock()
     mock_src_path2, mock_dst_path2 = MagicMock(), MagicMock()
 
@@ -202,7 +202,7 @@ def test_move_files_success_production(
 def test_move_files_success_not_production(
     mock_shutil_move: MagicMock,
 ) -> None:
-    """Test move_raw_file success for two paths in non-production."""
+    """Test _move_files success for two paths in non-production."""
     mock_src_path1, mock_dst_path1 = MagicMock(), MagicMock()
     mock_src_path2, mock_dst_path2 = MagicMock(), MagicMock()
 
@@ -213,6 +213,51 @@ def test_move_files_success_not_production(
 
     mock_dst_path1.parent.mkdir.assert_not_called()
     mock_dst_path2.parent.mkdir.assert_not_called()
+
+
+@patch.dict(os.environ, {"ENV_NAME": "production"})
+@patch("dags.impl.mover_impl.shutil.move")
+def test_move_files_permission_error_dir_rename(
+    mock_shutil_move: MagicMock,
+) -> None:
+    """Test _move_files tries rename if shutil.move raises PermissionError and src_path is a directory."""
+    mock_src_path1, mock_dst_path1 = MagicMock(), MagicMock()
+
+    mock_shutil_move.side_effect = PermissionError
+
+    mock_src_path1.is_dir.return_value = True
+
+    # when
+    _move_files({mock_src_path1: mock_dst_path1})
+
+    mock_shutil_move.assert_called_once_with(mock_src_path1, mock_dst_path1)
+
+    mock_src_path1.rename.assert_called_once_with(f"{mock_src_path1!s}.deleteme")
+
+    mock_dst_path1.parent.mkdir.assert_called_once_with(parents=True, exist_ok=True)
+
+
+@patch.dict(os.environ, {"ENV_NAME": "production"})
+@patch("dags.impl.mover_impl.shutil.move")
+@patch("dags.impl.mover_impl.os.rename")
+def test_move_files_permission_error_not_dir_no_rename(
+    mock_os_rename: MagicMock,
+    mock_shutil_move: MagicMock,
+) -> None:
+    """Test _move_files raises PermissionError if shutil.move raises PermissionError and src_path is not a directory."""
+    mock_src_path1, mock_dst_path1 = MagicMock(), MagicMock()
+
+    mock_shutil_move.side_effect = PermissionError
+
+    mock_src_path1.is_dir.return_value = False
+
+    # when
+    with pytest.raises(PermissionError):
+        _move_files({mock_src_path1: mock_dst_path1})
+
+    mock_shutil_move.assert_called_once_with(mock_src_path1, mock_dst_path1)
+
+    mock_os_rename.assert_not_called()
 
 
 @patch("dags.impl.mover_impl.get_xcom")

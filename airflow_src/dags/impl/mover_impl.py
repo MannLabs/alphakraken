@@ -107,7 +107,23 @@ def _move_files(files_to_move: dict[Path, Path]) -> None:
         dst_path.parent.mkdir(parents=True, exist_ok=True)
 
         logging.info(f"Moving raw file {src_path} to {dst_path}")
-        shutil.move(src_path, dst_path)
+        try:
+            shutil.move(src_path, dst_path)
+        except PermissionError as e:
+            # sometimes for Bruker raw files the `unlink` operation that is done in the course of `move`
+            # fails on the `.m` subdirectory with a PermissionError.
+            # In this case, try to rename the source directory to facilitate manual cleanup.
+
+            if not src_path.is_dir():
+                raise e from e
+
+            # the new name _MUST_ have a different extension (than .d), otherwise
+            # it will be picked up as a new file
+            new_name = f"{src_path!s}.deleteme"
+            logging.warning(
+                f"Failed to move directory {src_path} to {dst_path}: {e}. Trying to rename to {new_name} .."
+            )
+            src_path.rename(new_name)
 
 
 def _check_main_file_to_move(

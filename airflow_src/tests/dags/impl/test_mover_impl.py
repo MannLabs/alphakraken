@@ -140,21 +140,6 @@ def test_get_files_to_move_both_files_dont_exist_raise() -> None:
 
 
 @patch("dags.impl.mover_impl.compare_paths")
-def test_get_files_to_move_both_files_exist_ok(mock_compare_paths: MagicMock) -> None:
-    """Test move_raw_file raises if both files are present and equal."""
-    mock_src_path = MagicMock()
-    mock_src_path.exists.return_value = True
-    mock_dst_path = MagicMock()
-    mock_dst_path.exists.return_value = True
-
-    mock_compare_paths.return_value = [], [], []
-
-    # when
-    assert {} == _get_files_to_move({mock_src_path: mock_dst_path})
-    mock_compare_paths.assert_called_once_with(mock_src_path, mock_dst_path)
-
-
-@patch("dags.impl.mover_impl.compare_paths")
 def test_get_files_to_move_both_files_exist_but_different_eaises(
     mock_compare_paths: MagicMock,
 ) -> None:
@@ -239,9 +224,7 @@ def test_move_files_permission_error_dir_rename(
 
 @patch.dict(os.environ, {"ENV_NAME": "production"})
 @patch("dags.impl.mover_impl.shutil.move")
-@patch("dags.impl.mover_impl.os.rename")
 def test_move_files_permission_error_not_dir_no_rename(
-    mock_os_rename: MagicMock,
     mock_shutil_move: MagicMock,
 ) -> None:
     """Test _move_files raises PermissionError if shutil.move raises PermissionError and src_path is not a directory."""
@@ -257,7 +240,7 @@ def test_move_files_permission_error_not_dir_no_rename(
 
     mock_shutil_move.assert_called_once_with(mock_src_path1, mock_dst_path1)
 
-    mock_os_rename.assert_not_called()
+    mock_src_path1.rename.assert_not_called()
 
 
 @patch("dags.impl.mover_impl.get_xcom")

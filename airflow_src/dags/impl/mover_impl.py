@@ -50,12 +50,10 @@ def move_files(ti: TaskInstance, **kwargs) -> None:
 def _get_files_to_move(files_to_check: dict[Path, Path]) -> dict[Path, Path]:
     """Check if the files to move are in a consistent state with the destination.
 
-    - source does not exist, but target does -> OK
+    - source does not exist, but target does -> skip
     - source does not exist and target does not exist -> raise
-    - source exists and target does not exist -> OK
-    - source exists and target exists:
-        - if they are equal -> OK
-        - if not -> raise
+    - source exists and target does not exist -> mark for moving
+    - source exists and target exists -> raise
     """
     files_to_move = {}
     for src_path, dst_path in files_to_check.items():
@@ -77,14 +75,9 @@ def _get_files_to_move(files_to_check: dict[Path, Path]) -> dict[Path, Path]:
             logging.info(f"  Files missing in target: {missing_files}")
             logging.info(f"  Files different in target: {different_files}")
             logging.info(f"  Files only in target: {items_only_in_target}")
+            # TODO: could try to remove if src and dst don't differ
 
-            if not (missing_files + different_files + items_only_in_target):
-                logging.warning(f"{dst_path=} is identical to {src_path=}.")
-                continue
-
-            raise AirflowFailException(
-                f"{dst_path=} exists and is different to {src_path=}"
-            )
+            raise AirflowFailException(f"{dst_path=} exists.")
 
         files_to_move[src_path] = dst_path
 

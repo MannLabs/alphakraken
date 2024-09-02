@@ -69,7 +69,9 @@ def test_decide_on_raw_files_to_remove_ok(
 
     mock_path = MagicMock()
     mock_path.exists.side_effect = [False, True, True, True]
-    mock_raw_file_wrapper_factory.create_write_wrapper.return_value.file_path_to_calculate_size.return_value = mock_path
+    mock_raw_file_wrapper_factory.create_write_wrapper.return_value.get_files_to_remove.return_value = {
+        mock_path: None
+    }
 
     mock_get_raw_files_by_age.return_value = [
         MagicMock(id="file1", size=70 * 1024**3),  # does not exist (cf. mock_path)

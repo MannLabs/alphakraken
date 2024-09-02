@@ -113,15 +113,18 @@ def _decide_on_raw_files_to_remove(
                 logging.warning(f"Skipping {raw_file.id}: size is None.")
                 continue
 
-            if (
-                not RawFileWrapperFactory.create_write_wrapper(
+            # TODO: this is a bit of a hack to check if the file is actually present, better check for a defined file
+            file_to_check = list(  # noqa: RUF015
+                RawFileWrapperFactory.create_write_wrapper(
                     raw_file, path_provider=RemovePathProvider
                 )
-                .file_path_to_calculate_size()
-                .exists()
-            ):
+                .get_files_to_remove()
+                .keys()
+            )[0]
+
+            if not file_to_check.exists():
                 logging.info(
-                    f"Skipping {raw_file.id}: file does not exist in instrument backup folder."
+                    f"Skipping {raw_file.id}: file {file_to_check} does not exist in instrument backup folder."
                 )
                 continue
 

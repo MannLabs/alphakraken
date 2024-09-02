@@ -102,16 +102,29 @@ def _decide_on_raw_files_to_remove(
             min_age_in_days=min_file_age,
             max_age_in_days=DEFAULT_MAX_FILE_AGE_TO_REMOVE_D,
         )
-        logging.info(
-            f"{instrument_id}: found {len(raw_files)} files as candidates for removal: "
-            f"{[(r.id, r.size, r.created_at) for r in raw_files]}"
-        )
+        # logging.info(
+        #     f"{instrument_id}: found {len(raw_files)} files as candidates for removal: "
+        #     f"{[(r.id, r.size, r.created_at) for r in raw_files]}"
+        # )
 
         sum_size_gb = 0
         for raw_file in raw_files:
             if raw_file.size is None:
                 logging.warning(f"Skipping {raw_file.id}: size is None.")
                 continue
+
+            if (
+                not RawFileWrapperFactory.create_write_wrapper(
+                    raw_file, path_provider=RemovePathProvider
+                )
+                .file_path_to_calculate_size()
+                .exists()
+            ):
+                logging.info(
+                    f"Skipping {raw_file.id}: file does not exist in instrument backup folder."
+                )
+                continue
+
             sum_size_gb += raw_file.size * BYTES_TO_GB
             raw_file_ids_to_remove[instrument_id].append(raw_file.id)
 

@@ -87,27 +87,41 @@ def start_file_mover(ti: TaskInstance, **kwargs) -> None:
     )
 
 
+def _filename_contains_special_chars(raw_file_id: str) -> bool:
+    """Check if the raw file name contains special characters."""
+    del raw_file_id  # unused
+
+
 def decide_processing(ti: TaskInstance, **kwargs) -> bool:
     """Decide whether to start the acquisition_processor DAG."""
     raw_file_id = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID]
 
-    acquisition_monitor_errors = get_xcom(ti, XComKeys.ACQUISITION_MONITOR_ERRORS, [])
-
-    if not acquisition_monitor_errors:
+    if acquisition_monitor_errors := get_xcom(
+        ti, XComKeys.ACQUISITION_MONITOR_ERRORS, []
+    ):
+        new_status = RawFileStatus.ACQUISITION_FAILED
+        status_details = ";".join(acquisition_monitor_errors)
+        logging.info(f"Acquisition monitor errors: {acquisition_monitor_errors}.")
+    elif "_dda_" in raw_file_id.lower():
+        new_status = RawFileStatus.DONE_NOT_QUANTED
+        status_details = "Filename contains 'dda'."
+        logging.info(f"f{raw_file_id} contains 'dda'.")
+    elif _filename_contains_special_chars(raw_file_id):
+        new_status = RawFileStatus.DONE_NOT_QUANTED
+        status_details = "Filename contains special characters."
+        logging.info(f"{raw_file_id} contains special characters.")
+    else:
         return True  # continue with downstream tasks
 
-    logging.info(
-        f"Acquisition monitor errors: {acquisition_monitor_errors}. Skipping downstream tasks.."
-    )
-
     # potential other checks:
-    #  - has 'blank' or 'DDA' in file name -> Variable?
     #  - file size to small -> Variable?
+
+    logging.info("Skipping downstream tasks..")
 
     update_raw_file(
         raw_file_id,
-        new_status=RawFileStatus.ACQUISITION_FAILED,
-        status_details=";".join(acquisition_monitor_errors),
+        new_status=new_status,
+        status_details=status_details,
     )
 
     return False  # skip downstream tasks

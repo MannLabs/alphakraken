@@ -104,23 +104,64 @@ def test_decide_processing_returns_true_if_no_errors(
 ) -> None:
     """Test decide_processing returns True if no errors are present."""
     ti = MagicMock()
-    kwargs = {DagContext.PARAMS: {DagParams.RAW_FILE_ID: 1}}
+    kwargs = {DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"}}
     assert decide_processing(ti, **kwargs) is True
 
 
 @patch("dags.impl.handler_impl.get_xcom", return_value=["error1"])
 @patch("dags.impl.handler_impl.update_raw_file")
-def test_decide_processing_returns_false_if_errors_present(
+def test_decide_processing_returns_false_if_acquisition_errors_present(
     mock_update_raw_file: MagicMock,
     mock_get_xcom: MagicMock,  # noqa:ARG001
 ) -> None:
-    """Test decide_processing returns False if errors are present."""
+    """Test decide_processing returns False if acquisition errors are present."""
     ti = MagicMock()
-    kwargs = {DagContext.PARAMS: {DagParams.RAW_FILE_ID: 1}}
+    kwargs = {DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"}}
     assert decide_processing(ti, **kwargs) is False
 
     mock_update_raw_file.assert_called_once_with(
-        1, new_status=RawFileStatus.ACQUISITION_FAILED, status_details="error1"
+        "some_file.raw",
+        new_status=RawFileStatus.ACQUISITION_FAILED,
+        status_details="error1",
+    )
+
+
+@patch("dags.impl.handler_impl.get_xcom", return_value=None)
+@patch("dags.impl.handler_impl.update_raw_file")
+def test_decide_processing_returns_false_if_dda(
+    mock_update_raw_file: MagicMock,
+    mock_get_xcom: MagicMock,  # noqa:ARG001
+) -> None:
+    """Test decide_processing returns False if file name contains 'dda'."""
+    ti = MagicMock()
+    kwargs = {DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_dda_file.raw"}}
+    assert decide_processing(ti, **kwargs) is False
+    mock_update_raw_file.assert_called_once_with(
+        "some_dda_file.raw",
+        new_status=RawFileStatus.DONE_NOT_QUANTED,
+        status_details="Filename contains 'dda'.",
+    )
+
+
+@patch("dags.impl.handler_impl.get_xcom", return_value=None)
+@patch("dags.impl.handler_impl._filename_contains_special_chars")
+@patch("dags.impl.handler_impl.update_raw_file")
+def test_decide_processing_returns_false_if_special_characters(
+    mock_update_raw_file: MagicMock,
+    mock__filename_contains_special_chars: MagicMock,
+    mock_get_xcom: MagicMock,  # noqa:ARG001
+) -> None:
+    """Test decide_processing returns False if file name contains special characters."""
+    ti = MagicMock()
+    kwargs = {DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"}}
+
+    mock__filename_contains_special_chars.return_value = True
+
+    assert decide_processing(ti, **kwargs) is False
+    mock_update_raw_file.assert_called_once_with(
+        "some_file.raw",
+        new_status=RawFileStatus.DONE_NOT_QUANTED,
+        status_details="Filename contains special characters.",
     )
 
 

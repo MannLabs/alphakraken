@@ -58,8 +58,9 @@ def test_overview(
             "ms1_accuracy": [1.0, 2.0],
             "fwhm_rt": [1.0, 2.0],
             "quanting_time_elapsed": [60.0, 120.0],
-            "settings_version": [1, 2],
             "weighted_ms1_intensity_sum": [1.0, 2.0],
+            "intensity_sum": [1.0, 2.0],
+            "settings_version": [1, 2],
         }
     )
 
@@ -108,8 +109,9 @@ def test_overview(
         "status": {1: "done", 2: "error"},
         "status_details": {1: "", 2: ""},
         "instrument_id": {1: "i1", 2: "i1"},
-        "settings_version": {1: 1, 2: 2},
         "weighted_ms1_intensity_sum": {1: 1.0, 2: 2.0},
+        "intensity_sum": {1: 1.0, 2: 2.0},
+        "settings_version": {1: 1, 2: 2},
     }
 
     assert not at.exception

@@ -3,7 +3,6 @@
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import numpy as np
 import pandas as pd
 from plugins.metrics.metrics_calculator import (
     BasicStats,
@@ -105,6 +104,7 @@ def test_precursor_stats_calculation(mock_datastore: MagicMock) -> None:
     mock_df = pd.DataFrame(
         {
             "weighted_ms1_intensity": [1.0, 2.0],
+            "intensity": [10.0, 20.0],
         }
     )
 
@@ -113,5 +113,5 @@ def test_precursor_stats_calculation(mock_datastore: MagicMock) -> None:
     # when
     metrics = PrecursorStats(mock_datastore).get()
 
-    assert metrics["weighted_ms1_intensity_mean"] == 1.5  # noqa: PLR2004
-    assert np.isclose(metrics["weighted_ms1_intensity_std"], 0.7071067811865476)
+    assert metrics["weighted_ms1_intensity_sum"] == 3.0  # noqa: PLR2004
+    assert metrics["intensity_sum"] == 30.0  # noqa: PLR2004

@@ -97,11 +97,8 @@ class PrecursorStats(Metrics):
         """Calculate metrics."""
         stat_df = self._data_store[OutputFiles.PRECURSORS]
 
-        for col in [
-            "weighted_ms1_intensity",
-        ]:
-            self._metrics[f"{col}_mean"] = stat_df[col].mean()
-            self._metrics[f"{col}_std"] = stat_df[col].std()
+        for col in ["weighted_ms1_intensity", "intensity"]:
+            self._metrics[f"{col}_sum"] = stat_df[col].sum()
 
 
 def calc_metrics(output_directory: Path) -> dict[str, Any]:

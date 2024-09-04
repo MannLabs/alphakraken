@@ -62,14 +62,15 @@ def show_date_select(
     text_to_display: str = "Earliest file creation date:",
     help_to_display: str = "Selects the earliest file creation date to display in table and plots.",
     st_display: st.delta_generator.DeltaGenerator = st,
+    max_age_days: int = 7,
 ) -> pd.DataFrame:
     """Filter the DataFrame on user input by date."""
     if len(df) == 0:
         return df
     oldest_file = df["created_at"].min()
     youngest_file = df["created_at"].max()
-    two_weeks_ago = datetime.now() - timedelta(days=7 * 2)  # noqa:  DTZ005 no tz argument
-    last_selectable_date = min(youngest_file, max(oldest_file, two_weeks_ago))
+    max_age = datetime.now() - timedelta(days=max_age_days)  # noqa:  DTZ005 no tz argument
+    last_selectable_date = min(youngest_file, max(oldest_file, max_age))
     min_date = st_display.date_input(
         text_to_display,
         min_value=oldest_file,

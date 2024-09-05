@@ -62,7 +62,7 @@ x-airflow-common:
     QUANTING_POOL_FOLDER: ${QUANTING_POOL_FOLDER:?error}
   volumes:
     # all mounts (backup pool folders, results pool folders, instruments, logs) need to be available in $MOUNTS_PATH
-    - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs:ro
+    - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs:rw
 #    # Uncomment for local development so that changes to DAGs and Tasks are immediately active
 #    # Note that this part is defined another time for the airflow-worker-test1
 #    - ./airflow_src/dags:/opt/airflow/dags

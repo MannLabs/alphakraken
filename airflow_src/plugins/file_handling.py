@@ -76,6 +76,7 @@ def _identical_copy_exists(dst_path: Path, src_hash: str) -> bool:
     :return: True if an identical copy exists, False otherwise.
     :raises ValueError: If the hash of the existing file does not match the source hash.
     """
+    logging.info(f"Checking if file already exists in {dst_path} ..")
     if dst_path.exists():
         logging.info("File already exists in backup location. Checking hash ..")
         if _get_file_hash(dst_path) == src_hash:

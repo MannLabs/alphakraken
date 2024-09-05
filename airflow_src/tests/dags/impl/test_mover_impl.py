@@ -7,7 +7,13 @@ from unittest.mock import MagicMock, call, patch
 import pytest
 from airflow.exceptions import AirflowFailException
 from common.keys import DagContext, DagParams, XComKeys
-from dags.impl.mover_impl import _check_main_file_to_move, get_files_to_move, move_files
+from dags.impl.mover_impl import (
+    _check_main_file_to_move,
+    _get_files_to_move,
+    _move_files,
+    get_files_to_move,
+    move_files,
+)
 from raw_file_wrapper_factory import MovePathProvider
 
 
@@ -61,18 +67,19 @@ def test_get_files_to_move_correctly_puts_files_to_xcom(
     )
 
 
-@patch.dict(os.environ, {"ENV_NAME": "production"})
-@patch("dags.impl.mover_impl._check_main_file_to_move")
-@patch("dags.impl.mover_impl.shutil.move")
 @patch("dags.impl.mover_impl.get_xcom")
 @patch("dags.impl.mover_impl.Path")
-def test_move_raw_file_success(
+@patch("dags.impl.mover_impl._check_main_file_to_move")
+@patch("dags.impl.mover_impl._get_files_to_move")
+@patch("dags.impl.mover_impl._move_files")
+def test_move_file_success(
+    mock_move_files: MagicMock,
+    mock_get_files_to_move: MagicMock,
+    mock_check_main_file_to_move: MagicMock,
     mock_path: MagicMock,
     mock_get_xcom: MagicMock,
-    mock_shutil_move: MagicMock,
-    mock_check_main_file_to_move: MagicMock,
 ) -> None:
-    """Test move_raw_file success."""
+    """Test move_raw_file makes correct calls."""
     mock_src_path = MagicMock()
     mock_src_path.exists.return_value = True
     mock_dst_path = MagicMock()
@@ -83,108 +90,163 @@ def test_move_raw_file_success(
     mock_get_xcom.return_value = {"/src/file1": "/dst/file1"}
     ti = MagicMock()
 
+    mock_get_files_to_move.return_value = {mock_src_path: mock_dst_path}
+
     # when
     move_files(ti, **{DagContext.PARAMS: {DagParams.RAW_FILE_ID: "123"}})
 
-    mock_shutil_move.assert_called_once_with(mock_src_path, mock_dst_path)
-
-    mock_dst_path.parent.mkdir.assert_called_once_with(parents=True, exist_ok=True)
     mock_path.assert_has_calls([call("/src/file1"), call("/dst/file1")])
     mock_check_main_file_to_move.assert_called_once_with(
         ti, {"params": {"raw_file_id": "123"}}
     )
+    mock_get_files_to_move.assert_called_once_with({mock_src_path: mock_dst_path})
+    mock_move_files.assert_called_once_with({mock_src_path: mock_dst_path})
 
 
-@patch.dict(os.environ, {"ENV_NAME": "NOT_production"})
-@patch("dags.impl.mover_impl._check_main_file_to_move")
-@patch("dags.impl.mover_impl.shutil.move")
-@patch("dags.impl.mover_impl.get_xcom")
-@patch("dags.impl.mover_impl.Path")
-def test_move_raw_file_success_not_production(
-    mock_path: MagicMock,
-    mock_get_xcom: MagicMock,
-    mock_shutil_move: MagicMock,
-    mock_check_main_file_to_move: MagicMock,
-) -> None:
+def test_get_files_to_move_success() -> None:
     """Test move_raw_file success."""
     mock_src_path = MagicMock()
     mock_src_path.exists.return_value = True
     mock_dst_path = MagicMock()
     mock_dst_path.exists.return_value = False
 
-    mock_path.side_effect = [mock_src_path, mock_dst_path]
+    # when
+    result = _get_files_to_move({mock_src_path: mock_dst_path})
 
-    mock_get_xcom.return_value = {mock_src_path: mock_dst_path}
+    assert result == {mock_src_path: mock_dst_path}
+
+
+def test_get_files_to_move_only_dst_exists_ok() -> None:
+    """Test move_raw_file returns correctly if only destination is present."""
+    mock_src_path = MagicMock()
+    mock_src_path.exists.return_value = False
+    mock_dst_path = MagicMock()
+    mock_dst_path.exists.return_value = True
 
     # when
-    move_files(MagicMock(), **{DagContext.PARAMS: {DagParams.RAW_FILE_ID: "123"}})
-
-    mock_shutil_move.assert_not_called()
-
-    mock_dst_path.parent.mkdir.assert_not_called()
-    mock_check_main_file_to_move.assert_called_once()
+    assert {} == _get_files_to_move({mock_src_path: mock_dst_path})
 
 
-@patch("dags.impl.mover_impl._check_main_file_to_move")
-@patch("dags.impl.mover_impl.shutil.move")
-@patch("dags.impl.mover_impl.get_xcom")
-@patch("dags.impl.mover_impl.Path")
-def test_move_raw_file_source_not_exists(
-    mock_path: MagicMock,
-    mock_get_xcom: MagicMock,
-    mock_shutil_move: MagicMock,
-    mock_check_main_file_to_move: MagicMock,
+def test_get_files_to_move_both_files_dont_exist_raise() -> None:
+    """Test move_raw_file raises if both files are not present."""
+    mock_src_path = MagicMock()
+    mock_src_path.exists.return_value = False
+    mock_dst_path = MagicMock()
+    mock_dst_path.exists.return_value = False
+
+    # when
+    with pytest.raises(AirflowFailException):
+        _get_files_to_move({mock_src_path: mock_dst_path})
+
+
+@patch("dags.impl.mover_impl.compare_paths")
+def test_get_files_to_move_both_files_exist_but_different_eaises(
+    mock_compare_paths: MagicMock,
 ) -> None:
-    """Test move_raw_file raises FileNotFoundError if source does not exist."""
+    """Test move_raw_file raises if both files are present and equal."""
     mock_src_path = MagicMock()
     mock_src_path.exists.return_value = True
     mock_dst_path = MagicMock()
     mock_dst_path.exists.return_value = True
 
-    mock_path.side_effect = [mock_src_path, mock_dst_path]
-
-    mock_get_xcom.return_value = {mock_src_path: mock_dst_path}
+    mock_compare_paths.return_value = ["something"], [], []
 
     # when
+
     with pytest.raises(AirflowFailException):
-        move_files(MagicMock(), **{DagContext.PARAMS: {DagParams.RAW_FILE_ID: "123"}})
+        _get_files_to_move({mock_src_path: mock_dst_path})
 
-    mock_shutil_move.assert_not_called()
-    mock_check_main_file_to_move.assert_called_once()
+    mock_compare_paths.assert_called_once_with(mock_src_path, mock_dst_path)
 
 
-@patch("dags.impl.mover_impl._check_main_file_to_move")
+@patch.dict(os.environ, {"ENV_NAME": "production"})
 @patch("dags.impl.mover_impl.shutil.move")
-@patch("dags.impl.mover_impl.get_xcom")
-@patch("dags.impl.mover_impl.Path")
-def test_move_raw_file_destination_exists(
-    mock_path: MagicMock,
-    mock_get_xcom: MagicMock,
+def test_move_files_success_production(
     mock_shutil_move: MagicMock,
-    mock_check_main_file_to_move: MagicMock,
 ) -> None:
-    """Test move_raw_file FileExistsError if destination exists."""
-    mock_src_path = MagicMock()
-    mock_src_path.exists.return_value = True
-    mock_dst_path = MagicMock()
-    mock_dst_path.exists.return_value = True
-
-    mock_path.side_effect = [mock_src_path, mock_dst_path]
-
-    mock_get_xcom.return_value = {mock_src_path: mock_dst_path}
+    """Test _move_files success for two paths."""
+    mock_src_path1, mock_dst_path1 = MagicMock(), MagicMock()
+    mock_src_path2, mock_dst_path2 = MagicMock(), MagicMock()
 
     # when
-    with pytest.raises(AirflowFailException):
-        move_files(MagicMock(), **{DagContext.PARAMS: {DagParams.RAW_FILE_ID: "123"}})
+    _move_files({mock_src_path1: mock_dst_path1, mock_src_path2: mock_dst_path2})
+
+    mock_shutil_move.assert_has_calls(
+        [
+            call(mock_src_path1, mock_dst_path1),
+            call(mock_src_path2, mock_dst_path2),
+        ]
+    )
+
+    mock_dst_path1.parent.mkdir.assert_called_once_with(parents=True, exist_ok=True)
+    mock_dst_path2.parent.mkdir.assert_called_once_with(parents=True, exist_ok=True)
+
+
+@patch.dict(os.environ, {"ENV_NAME": "NOT_production"})
+@patch("dags.impl.mover_impl.shutil.move")
+def test_move_files_success_not_production(
+    mock_shutil_move: MagicMock,
+) -> None:
+    """Test _move_files success for two paths in non-production."""
+    mock_src_path1, mock_dst_path1 = MagicMock(), MagicMock()
+    mock_src_path2, mock_dst_path2 = MagicMock(), MagicMock()
+
+    # when
+    _move_files({mock_src_path1: mock_dst_path1, mock_src_path2: mock_dst_path2})
 
     mock_shutil_move.assert_not_called()
-    mock_check_main_file_to_move.assert_called_once()
+
+    mock_dst_path1.parent.mkdir.assert_not_called()
+    mock_dst_path2.parent.mkdir.assert_not_called()
+
+
+@patch.dict(os.environ, {"ENV_NAME": "production"})
+@patch("dags.impl.mover_impl.shutil.move")
+def test_move_files_permission_error_dir_rename(
+    mock_shutil_move: MagicMock,
+) -> None:
+    """Test _move_files tries rename if shutil.move raises PermissionError and src_path is a directory."""
+    mock_src_path1, mock_dst_path1 = MagicMock(), MagicMock()
+
+    mock_shutil_move.side_effect = PermissionError
+
+    mock_src_path1.is_dir.return_value = True
+
+    # when
+    _move_files({mock_src_path1: mock_dst_path1})
+
+    mock_shutil_move.assert_called_once_with(mock_src_path1, mock_dst_path1)
+
+    mock_src_path1.rename.assert_called_once_with(f"{mock_src_path1!s}.deleteme")
+
+    mock_dst_path1.parent.mkdir.assert_called_once_with(parents=True, exist_ok=True)
+
+
+@patch.dict(os.environ, {"ENV_NAME": "production"})
+@patch("dags.impl.mover_impl.shutil.move")
+def test_move_files_permission_error_not_dir_no_rename(
+    mock_shutil_move: MagicMock,
+) -> None:
+    """Test _move_files raises PermissionError if shutil.move raises PermissionError and src_path is not a directory."""
+    mock_src_path1, mock_dst_path1 = MagicMock(), MagicMock()
+
+    mock_shutil_move.side_effect = PermissionError
+
+    mock_src_path1.is_dir.return_value = False
+
+    # when
+    with pytest.raises(PermissionError):
+        _move_files({mock_src_path1: mock_dst_path1})
+
+    mock_shutil_move.assert_called_once_with(mock_src_path1, mock_dst_path1)
+
+    mock_src_path1.rename.assert_not_called()
 
 
 @patch("dags.impl.mover_impl.get_xcom")
 @patch("dags.impl.mover_impl.get_raw_file_by_id")
 @patch("dags.impl.mover_impl.get_file_size")
-def test_file_size_matches_database_record(
+def test_check_main_file_to_movefile_size_matches_database_record(
     mock_get_file_size: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
     mock_get_xcom: MagicMock,
@@ -210,7 +272,7 @@ def test_file_size_matches_database_record(
 @patch("dags.impl.mover_impl.get_xcom")
 @patch("dags.impl.mover_impl.get_raw_file_by_id")
 @patch("dags.impl.mover_impl.get_file_size")
-def test_file_size_does_not_match_database_record_raises_exception(
+def test_check_main_file_to_movefile_size_does_not_match_database_record_raises_exception(
     mock_get_file_size: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
     mock_get_xcom: MagicMock,

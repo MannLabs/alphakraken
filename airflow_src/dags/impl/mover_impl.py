@@ -17,7 +17,7 @@ from shared.keys import EnvVars
 
 
 def get_files_to_move(ti: TaskInstance, **kwargs) -> None:
-    """Get files to move to the instrument backup folder."""
+    """Get single files to move for a raw_file_id to the instrument backup folder."""
     raw_file_id = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID]
 
     raw_file = get_raw_file_by_id(raw_file_id)
@@ -36,32 +36,58 @@ def get_files_to_move(ti: TaskInstance, **kwargs) -> None:
 
 
 def move_files(ti: TaskInstance, **kwargs) -> None:
-    """Move files/folders to the instrument backup folder if their size matches the database record."""
+    """Move all files/folders associated with a raw file to the instrument backup folder."""
     _check_main_file_to_move(ti, kwargs)
 
     files_to_move_str = get_xcom(ti, XComKeys.FILES_TO_MOVE)
     files_to_move = {Path(k): Path(v) for k, v in files_to_move_str.items()}
 
-    for src_path, dst_path in files_to_move.items():
+    files_to_actually_move = _get_files_to_move(files_to_move)
+
+    _move_files(files_to_actually_move)
+
+
+def _get_files_to_move(files_to_check: dict[Path, Path]) -> dict[Path, Path]:
+    """Check if the files to move are in a consistent state with the destination.
+
+    - source does not exist, but target does -> skip
+    - source does not exist and target does not exist -> raise
+    - source exists and target does not exist -> mark for moving
+    - source exists and target exists -> raise
+    """
+    files_to_move = {}
+    for src_path, dst_path in files_to_check.items():
         if not src_path.exists():
             if not dst_path.exists():
                 msg = f"Neither {src_path=} nor {dst_path=} exist."
-            else:
-                # in the future, this might not be an error, but a warning
-                msg = f"File {src_path=} does not exist, but {dst_path=} does."
-            raise AirflowFailException(msg)
+                # this is some weird state, better raise for now to enable investigation.
+                raise AirflowFailException(msg)
+
+            msg = f"File {src_path=} does not exist, but {dst_path=} does. Presuming it was moved before."
+            logging.info(msg)
+            continue
 
         if dst_path.exists():
             missing_files, different_files, items_only_in_target = compare_paths(
                 src_path, dst_path
             )
-            logging.info(f"Files missing in target: {missing_files}")
-            logging.info(f"Files different in target: {different_files}")
-            logging.info(f"Files only in target: {items_only_in_target}")
+            logging.info(f"File {dst_path=} already exists:")
+            logging.info(f"  Files missing in target: {missing_files}")
+            logging.info(f"  Files different in target: {different_files}")
+            logging.info(f"  Files only in target: {items_only_in_target}")
+            # TODO: could try to remove if src and dst don't differ
 
-            raise AirflowFailException(f"File {dst_path=} already exists.")
+            raise AirflowFailException(f"{dst_path=} exists.")
 
+        files_to_move[src_path] = dst_path
+
+    return files_to_move
+
+
+def _move_files(files_to_move: dict[Path, Path]) -> None:
+    """Move the files."""
     env_name = get_env_variable(EnvVars.ENV_NAME)
+
     for src_path, dst_path in files_to_move.items():
         # security measure to not have sandbox interfere with production
         if env_name != "production":
@@ -74,7 +100,23 @@ def move_files(ti: TaskInstance, **kwargs) -> None:
         dst_path.parent.mkdir(parents=True, exist_ok=True)
 
         logging.info(f"Moving raw file {src_path} to {dst_path}")
-        shutil.move(src_path, dst_path)
+        try:
+            shutil.move(src_path, dst_path)
+        except PermissionError as e:
+            # sometimes for Bruker raw files the `unlink` operation that is done in the course of `move`
+            # fails on the `.m` subdirectory with a PermissionError.
+            # In this case, try to rename the source directory to facilitate manual cleanup.
+
+            if not src_path.is_dir():
+                raise e from e
+
+            # the new name _MUST_ have a different extension (than .d), otherwise
+            # it will be picked up as a new file
+            new_name = f"{src_path!s}.deleteme"
+            logging.warning(
+                f"Failed to move directory {src_path} to {dst_path}: {e}. Trying to rename to {new_name} .."
+            )
+            src_path.rename(new_name)
 
 
 def _check_main_file_to_move(

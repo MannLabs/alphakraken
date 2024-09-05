@@ -26,9 +26,14 @@ def get_raw_file_and_metrics_data(max_age_in_days: int) -> tuple[QuerySet, Query
         datetime.now(tz=pytz.UTC) - timedelta(days=max_age_in_days)
     )
 
-    raw_files_db = RawFile.objects(
-        created_at__gte=min_created_at
-    )  # query on file creation date ('created_at')
+    raw_files_db = (
+        RawFile.objects(
+            created_at__gte=min_created_at  # query on file creation date ('created_at')
+        )
+        .exclude("file_info")
+        .exclude("backup_base_path")
+    )  # exclude some not-needed fields
+
     metrics_db = Metrics.objects(
         created_at___gte=min_created_at
     )  # query on db entry creation date ('created_at_')

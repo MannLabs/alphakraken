@@ -64,8 +64,6 @@ columns_at_end = [
     "project_id",
     "updated_at_",
     "created_at_",
-    "file_info",
-    "backup_base_path",
 ]
 columns_to_hide = [
     "created_at",

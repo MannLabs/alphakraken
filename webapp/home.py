@@ -64,9 +64,9 @@ Currently, status "quanting" means "quanting job submitted", regardless if it's 
 
 Q: I am tired of always filling the filter, can this be saved?
 
-A: Yes. Just add `?filter=your_value` to the URL to pre-fill the filter and then create a browser bookmark.
-For technical reasons, the `&` needs to be substituted by "AND" or "%26".
-Combine with the `max_age=` parameter like so: `?filter=your_value1ANDyour_value2&max_age=60`.
+A: Yes. Just add `?filter=value` to the URL to pre-fill the filter and then create a browser bookmark.
+For technical reasons, combining multiple conditions is done using "AND" or "%26", not "&" like in the UI.
+Combine with the `max_age=` parameter like so: `?filter=value1ANDvalue2&max_age=60`.
 
 
 Q: I am missing a feature or found a bug or find the AlphaKraken unintuitive to use or want to contribute.

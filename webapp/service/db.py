@@ -1,7 +1,10 @@
 """Database service for the web application."""
 
+from datetime import datetime, timedelta
+
 # ruff: noqa: PD002 # `inplace=True` should be avoided; it has inconsistent behavior
 import pandas as pd
+import pytz
 import streamlit as st
 from db.engine import connect_db
 from mongoengine import QuerySet
@@ -13,14 +16,22 @@ from shared.db.models import KrakenStatus, Metrics, Project, RawFile, Settings
 # Cached values are accessible to all users across all sessions.
 # Considering memory it should currently be fine to have all data cached.
 # Command for clearing the cache:  get_all_data.clear()
-@st.cache_data(ttl=60)
-def get_raw_file_and_metrics_data() -> tuple[QuerySet, QuerySet]:
-    """Connect to the database and return the QuerySets for RawFile and Metrics."""
+@st.cache_data(ttl=120)
+def get_raw_file_and_metrics_data(max_age_in_days: int) -> tuple[QuerySet, QuerySet]:
+    """Return from the database the QuerySets for RawFile and Metrics for files younger than max_age_in_days."""
     _log("Connecting to the database")
     connect_db()
     _log("Retrieving all raw file and metrics data")
-    raw_files_db = RawFile.objects
-    metrics_db = Metrics.objects
+    min_created_at = pd.Timestamp(
+        datetime.now(tz=pytz.UTC) - timedelta(days=max_age_in_days)
+    )
+
+    raw_files_db = RawFile.objects(
+        created_at__gte=min_created_at
+    )  # query on file creation date ('created_at')
+    metrics_db = Metrics.objects(
+        created_at___gte=min_created_at
+    )  # query on db entry creation date ('created_at_')
 
     return raw_files_db, metrics_db
 

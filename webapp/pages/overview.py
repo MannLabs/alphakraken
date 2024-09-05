@@ -17,7 +17,7 @@ from service.components import (
     show_sandbox_message,
 )
 from service.data_handling import get_combined_raw_files_and_metrics_df
-from service.utils import DEFAULT_MAX_AGE_OVERVIEW, ERROR_STATUSES, QueryParams, _log
+from service.utils import ERROR_STATUSES, _log
 
 _log(f"loading {__file__}")
 
@@ -33,28 +33,13 @@ st.markdown("# Overview")
 st.write(
     f"Current Kraken time: {datetime.now(tz=pytz.UTC).replace(microsecond=0)} [all time stamps are given in UTC!]"
 )
-
-# TODO: remove this hack once https://github.com/streamlit/streamlit/issues/8112 is available
-app_path = "http://<kraken_url>"
-days = 60
-st.markdown(
-    f"""
-    Note: for performance reasons, only data for the last {DEFAULT_MAX_AGE_OVERVIEW} days are loaded.
-    If you want to see more data, use the `?max_age=` query parameter in the url, e.g.
-    <a href="{app_path}/overview?max_age={days}" target="_self">{app_path}/overview?max_age={days}</a>
-    """,
-    unsafe_allow_html=True,
-)
-
 st.write(
     "Use the filter and date select to narrow down results both in the table and the plots below."
 )
 
 # ########################################### LOGIC
 
-combined_df = get_combined_raw_files_and_metrics_df(
-    int(st.query_params.get(QueryParams.MAX_AGE, DEFAULT_MAX_AGE_OVERVIEW))
-)
+combined_df = get_combined_raw_files_and_metrics_df()
 
 
 # ########################################### DISPLAY: table

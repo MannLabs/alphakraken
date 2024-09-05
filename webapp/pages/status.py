@@ -12,7 +12,7 @@ from service.components import (
 )
 from service.data_handling import get_combined_raw_files_and_metrics_df
 from service.db import df_from_db_data, get_status_data
-from service.utils import DEFAULT_MAX_AGE_STATUS, QueryParams, _log
+from service.utils import _log
 
 _log(f"loading {__file__}")
 
@@ -66,8 +66,6 @@ def _display_status(combined_df: pd.DataFrame) -> None:
         _log(e, "Cannot not display status information.")
 
 
-combined_df = get_combined_raw_files_and_metrics_df(
-    int(st.query_params.get(QueryParams.MAX_AGE, DEFAULT_MAX_AGE_STATUS))
-)
+combined_df = get_combined_raw_files_and_metrics_df()
 
 _display_status(combined_df)

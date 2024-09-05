@@ -239,14 +239,14 @@ def _display_table_and_plots(
     )
     for y in _filter_valid_columns(
         [
+            "status",
+            "size_gb",
             "precursors",
             "proteins",
             "ms1_accuracy",
             "fwhm_rt",
             "weighted_ms1_intensity_sum",
             "intensity_sum",
-            "status",
-            "size_gb",
             "quanting_time_minutes",
             "settings_version",
         ],

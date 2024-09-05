@@ -1,13 +1,15 @@
 """Tests for the file_remover module."""
 
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 from common.keys import XComKeys
+from common.settings import INSTRUMENTS
 from dags.impl.remover_impl import (
     FileRemovalError,
     _check_file,
+    _decide_on_raw_files_to_remove,
     _delete_empty_directory,
     _remove_files,
     _remove_folder,
@@ -19,29 +21,86 @@ from raw_file_wrapper_factory import RemovePathProvider
 
 
 @patch("dags.impl.remover_impl.get_airflow_variable")
-@patch("dags.impl.remover_impl.get_raw_file_ids_older_than")
+@patch("dags.impl.remover_impl._decide_on_raw_files_to_remove")
 @patch("dags.impl.remover_impl.put_xcom")
 def test_get_raw_files_to_remove(
     mock_put_xcom: MagicMock,
-    mock_get_raw_file_ids_older_than: MagicMock,
+    mock_decide_on_raw_files_to_remove: MagicMock,
     mock_get_airflow_variable: MagicMock,
 ) -> None:
     """Test that get_raw_files_to_remove calls the correct functions and puts the result in XCom."""
     mock_ti = MagicMock()
-    mock_get_raw_file_ids_older_than.return_value = ["file1", "file2"]
-    mock_get_airflow_variable.return_value = 42
+    mock_decide_on_raw_files_to_remove.return_value = {
+        "instrument1": ["file1", "file2"]
+    }
+    mock_get_airflow_variable.side_effect = [10, 42]
 
     # when
     get_raw_files_to_remove(mock_ti)
 
-    # then
-    mock_get_raw_file_ids_older_than.assert_called_once_with(42)
+    mock_decide_on_raw_files_to_remove.assert_called_once_with(
+        10, 42, INSTRUMENTS.keys()
+    )
     mock_put_xcom.assert_called_once_with(
-        mock_ti, XComKeys.FILES_TO_REMOVE, ["file1", "file2"]
+        mock_ti,
+        XComKeys.FILES_TO_REMOVE,
+        mock_decide_on_raw_files_to_remove.return_value,
     )
-    mock_get_airflow_variable.assert_called_once_with(
-        "min_file_age_to_remove_in_days", 30
+    mock_get_airflow_variable.assert_has_calls(
+        [
+            call("min_free_space_gb", "-1"),
+            call("min_file_age_to_remove_in_days", 14),
+        ]
     )
+
+
+@patch("dags.impl.remover_impl.get_internal_instrument_data_path")
+@patch("dags.impl.remover_impl.get_raw_files_by_age")
+@patch("dags.impl.remover_impl.shutil.disk_usage")
+def test_decide_on_raw_files_to_remove_ok(
+    mock_disk_usage: MagicMock,
+    mock_get_raw_files_by_age: MagicMock,
+    mock_get_internal_instrument_data_path: MagicMock,
+) -> None:
+    """Test that _decide_on_raw_files_to_remove returns the correct files to remove."""
+    mock_disk_usage.return_value = (0, 0, 200 * 1024**3)
+    mock_get_raw_files_by_age.return_value = [
+        MagicMock(id="file1", size=70 * 1024**3),
+        MagicMock(id="file2", size=30 * 1024**3),
+        MagicMock(id="file3", size=1 * 1024**3),
+    ]
+    mock_path = MagicMock()
+    mock_path.exists.return_value = True
+    mock_get_internal_instrument_data_path.side_effect = [
+        mock_path,
+        Path("/path/to/instrument2"),  # this does not exist
+    ]
+
+    # when
+    result = _decide_on_raw_files_to_remove(300, 30, ["instrument1", "instrument2"])
+
+    assert result == {"instrument1": ["file1", "file2"]}
+
+
+@patch("dags.impl.remover_impl.get_internal_instrument_data_path")
+@patch("dags.impl.remover_impl.get_raw_files_by_age")
+@patch("dags.impl.remover_impl.shutil.disk_usage")
+def test_decide_on_raw_files_to_remove_nothing_to_remove_ok(
+    mock_disk_usage: MagicMock,
+    mock_get_raw_files_by_age: MagicMock,
+    mock_get_internal_instrument_data_path: MagicMock,
+) -> None:
+    """Test that _decide_on_raw_files_to_remove returns the correct files to remove."""
+    mock_disk_usage.return_value = (0, 0, 300 * 1024**3)
+    mock_get_raw_files_by_age.return_value = [MagicMock(id="file1", size=70 * 1024**3)]
+    mock_path = MagicMock()
+    mock_path.exists.return_value = True
+    mock_get_internal_instrument_data_path.return_value = mock_path
+
+    # when
+    result = _decide_on_raw_files_to_remove(300, 30, ["instrument1"])
+
+    assert result == {}
 
 
 @patch("dags.impl.remover_impl.get_file_size")
@@ -233,7 +292,7 @@ def test_safe_remove_files_file_not_existing(
 
     # then
     mock_check_file.assert_not_called()
-    mock_remove_files.assert_called_once_with([])
+    mock_remove_files.assert_not_called()
     mock_remove_folder.assert_not_called()  # because get_folder_to_remove returned None
     mock_wrapper_factory.create_write_wrapper.assert_called_once_with(
         mock_raw_file, path_provider=RemovePathProvider
@@ -292,7 +351,7 @@ def test_remove_raw_files_success(
 ) -> None:
     """Test that remove_raw_files successfully removes files."""
     mock_ti = MagicMock()
-    mock_get_xcom.return_value = ["file1", "file2"]
+    mock_get_xcom.return_value = {"instrument1": ["file1", "file2"]}
 
     # when
     remove_raw_files(mock_ti)
@@ -308,7 +367,8 @@ def test_remove_raw_files_error(
 ) -> None:
     """Test that remove_raw_files raises ValueError when errors occur."""
     mock_ti = MagicMock()
-    mock_get_xcom.return_value = ["file1", "file2"]
+
+    mock_get_xcom.return_value = {"instrument1": ["file1", "file2"]}
     mock_safe_remove.side_effect = [None, FileRemovalError("Removal failed")]
 
     # when

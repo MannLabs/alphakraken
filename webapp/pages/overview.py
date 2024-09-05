@@ -39,7 +39,7 @@ app_path = "http://<kraken_url>"
 days = 60
 st.markdown(
     f"""
-    Note: for performance reasons, only data for the last {DEFAULT_MAX_AGE_OVERVIEW} days are loaded.
+    Note: for performance reasons, by default only data for the last {DEFAULT_MAX_AGE_OVERVIEW} days are loaded.
     If you want to see more data, use the `?max_age=` query parameter in the url, e.g.
     <a href="{app_path}/overview?max_age={days}" target="_self">{app_path}/overview?max_age={days}</a>
     """,
@@ -51,10 +51,10 @@ st.write(
 )
 
 # ########################################### LOGIC
-
-combined_df = get_combined_raw_files_and_metrics_df(
-    int(st.query_params.get(QueryParams.MAX_AGE, DEFAULT_MAX_AGE_OVERVIEW))
+max_age_in_days = int(
+    st.query_params.get(QueryParams.MAX_AGE, DEFAULT_MAX_AGE_OVERVIEW)
 )
+combined_df = get_combined_raw_files_and_metrics_df(max_age_in_days)
 
 
 # ########################################### DISPLAY: table
@@ -86,7 +86,9 @@ column_order = [
 # using a fragment to avoid re-doing the above operations on every filter change
 # cf. https://docs.streamlit.io/develop/concepts/architecture/fragments
 @st.experimental_fragment
-def _display_table_and_plots(df: pd.DataFrame, filter_value: str | None = "") -> None:
+def _display_table_and_plots(
+    df: pd.DataFrame, max_age_in_days: int, filter_value: str = ""
+) -> None:
     """A fragment that displays a DataFrame with a filter."""
     st.markdown("## Data")
 
@@ -102,7 +104,7 @@ def _display_table_and_plots(df: pd.DataFrame, filter_value: str | None = "") ->
     )
 
     st.write(
-        f"Showing {len(filtered_df)} / {len_whole_df} entries. Distribution of terminal statuses: {get_terminal_status_counts(filtered_df)}"
+        f"Showing {len(filtered_df)} / {len_whole_df} entries (last {max_age_in_days} days). Distribution of terminal statuses: {get_terminal_status_counts(filtered_df)}"
     )
 
     cmap = plt.get_cmap("RdYlGn")
@@ -227,4 +229,8 @@ filter_value = (
     st.query_params.get("filter", "").replace("AND", " & ").replace("and", " & ")
 )
 
-_display_table_and_plots(combined_df, filter_value)
+_display_table_and_plots(
+    combined_df,
+    max_age_in_days,
+    filter_value,
+)

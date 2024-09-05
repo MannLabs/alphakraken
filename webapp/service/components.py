@@ -20,7 +20,7 @@ from shared.keys import EnvVars
 def show_filter(
     df: pd.DataFrame,
     *,
-    default_value: str | None = None,
+    default_value: str = "",
     text_to_display: str = "Filter:",
     st_display: st.delta_generator.DeltaGenerator = st,
 ) -> pd.DataFrame:

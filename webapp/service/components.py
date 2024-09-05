@@ -20,13 +20,14 @@ from shared.keys import EnvVars
 def show_filter(
     df: pd.DataFrame,
     *,
+    default_value: str | None = None,
     text_to_display: str = "Filter:",
     st_display: st.delta_generator.DeltaGenerator = st,
 ) -> pd.DataFrame:
     """Filter the DataFrame on user input by case-insensitive textual comparison in all columns."""
     user_input = st_display.text_input(
         text_to_display,
-        None,
+        default_value,
         placeholder="e.g. test2 & !hela",
         help="Case insensitive filter on each column of the table. Chain multiple conditions with '&', negate with '!'. E.g. test2 & qc & !hela.",
     )

@@ -29,13 +29,14 @@ else:
 
 c1, _ = st.columns([0.5, 0.5])
 
-c1.markdown("""### What is AlphaKraken?
+c1.markdown(f"""### What is AlphaKraken?
 
 This tool should help you keep track of your acquisitions and monitor their status and quality in (near) real-time.
 By default, every single acquisition is processed by AlphaDIA and the results are stored in a database.
-The processing is done on the cluster, which means that on rare occasions, it might be delayed due to high load.""")
+The processing is done on the cluster, which means that on rare occasions, it might be delayed due to high load.
 
-c1.markdown("""### How to use it?
+
+### How to use it?
 
 The "overview" tab shows all results, allows for filtering and sorting, and provides some basic quality measure plots.
 
@@ -43,28 +44,25 @@ The "status" tab shows the current status of the acquisition pipeline and the st
 It is mostly relevant for AlphaKraken admin users.
 
 The "project" and "settings" tabs allow to manage specific AlphaDIA settings for certain raw files.
-Currently they are meant to be used by AlphaKraken admin users only.""")
+Currently they are meant to be used by AlphaKraken admin users only.
 
-c1.markdown(f"""### Rules
 
-To ensure a smooth automated processing, please follow these rules:
+### Rules
+To ensure a smooth processing, please follow these rules:
 - Do NOT do anything (!) on the acquisition folder (=the folder where the raw files are written to). In particular:
 **Do not _create_, _move_, _rename_, or _delete_ any files there**! Avoid opening them in any software (wait until the file is moved to the
 "Backup" subfolder and open it there).
 - Make sure to your raw filename does not contain any special characters. Only allowed: `{ALLOWED_CHARACTERS_IN_RAW_FILE_NAME}`
 (basic latin letters, numbers, and a few special characters like `-`, `_`, `+`). Otherwise, they will not be quanted.
-- If your file name contains `_dda_`, they will also not be quanted.""")
+- If your file name contains `_dda_`, they will also not be quanted.
 
-c1.markdown("""### FAQ
-Q: A lot of jobs are stuck in status "quanting" or "queued_for_quanting".
+
+### FAQ
+Q: A lot of jobs are stuck in status "quanting".
 
 A: This is the case when the cluster is under heavy load. The jobs will be processed as soon as possible.
 Currently, status "quanting" means "quanting job submitted", regardless if it's still PENDING or already RUNNING.
 
-Q: I am tired of always filling the filter, can this be saved?
-
-A: Yes. Just add `&filter=your_value` to the URL to pre-fill the filter and create a browser bookmark.
-For technical reasons, the `&` needs to be substituted by "AND" or "%26".
 
 Q: I am missing a feature or found a bug or find the AlphaKraken unintuitive to use or want to contribute.
 

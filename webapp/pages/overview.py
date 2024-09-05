@@ -86,16 +86,14 @@ column_order = [
 # using a fragment to avoid re-doing the above operations on every filter change
 # cf. https://docs.streamlit.io/develop/concepts/architecture/fragments
 @st.experimental_fragment
-def _display_table_and_plots(df: pd.DataFrame, filter_value: str | None = "") -> None:
+def _display_table_and_plots(df: pd.DataFrame) -> None:
     """A fragment that displays a DataFrame with a filter."""
     st.markdown("## Data")
 
     # filter
     len_whole_df = len(df)
     c1, c2, _ = st.columns([0.5, 0.25, 0.25])
-    filtered_df = show_filter(
-        df, text_to_display="Filter:", st_display=c1, default_value=filter_value
-    )
+    filtered_df = show_filter(df, text_to_display="Filter:", st_display=c1)
     filtered_df = show_date_select(
         filtered_df,
         st_display=c2,
@@ -223,8 +221,4 @@ def _draw_plot(df: pd.DataFrame, x: str, y: str) -> None:
     st.plotly_chart(fig)
 
 
-filter_value = (
-    st.query_params.get("filter", "").replace("AND", " & ").replace("and", " & ")
-)
-
-_display_table_and_plots(combined_df, filter_value)
+_display_table_and_plots(combined_df)

@@ -2,17 +2,19 @@
 
 import logging
 import shutil
+import time
 from pathlib import Path
-from typing import Any
 
 from airflow.exceptions import AirflowFailException
 from airflow.models import TaskInstance
-from common.keys import DagContext, DagParams, XComKeys
+from common.keys import DagContext, DagParams, InstrumentTypes, XComKeys
+from common.settings import INSTRUMENTS, Timings
 from common.utils import get_env_variable, get_xcom, put_xcom
 from file_handling import compare_paths, get_file_size
 from raw_file_wrapper_factory import MovePathProvider, RawFileWrapperFactory
 
 from shared.db.interface import get_raw_file_by_id
+from shared.db.models import RawFile
 from shared.keys import EnvVars
 
 
@@ -37,7 +39,16 @@ def get_files_to_move(ti: TaskInstance, **kwargs) -> None:
 
 def move_files(ti: TaskInstance, **kwargs) -> None:
     """Move all files/folders associated with a raw file to the instrument backup folder."""
-    _check_main_file_to_move(ti, kwargs)
+    raw_file_id = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID]
+    raw_file = get_raw_file_by_id(raw_file_id)
+
+    if INSTRUMENTS[raw_file.instrument_id] == InstrumentTypes.ZENO:
+        logging.info(
+            f"Sleeping for {Timings.ZENO_FILE_MOVE_DELAY_M} seconds to allow Zeno to finish writing."
+        )
+        time.sleep(Timings.ZENO_FILE_MOVE_DELAY_M * 60)
+
+    _check_main_file_to_move(ti, raw_file)
 
     files_to_move_str = get_xcom(ti, XComKeys.FILES_TO_MOVE)
     files_to_move = {Path(k): Path(v) for k, v in files_to_move_str.items()}
@@ -119,9 +130,7 @@ def _move_files(files_to_move: dict[Path, Path]) -> None:
             src_path.rename(new_name)
 
 
-def _check_main_file_to_move(
-    ti: TaskInstance, context: dict[str, dict[str, Any]]
-) -> None:
+def _check_main_file_to_move(ti: TaskInstance, raw_file: RawFile) -> None:
     """Check if the file size matches the database record.
 
     This is a safety measure to avoid moving the wrong files in the following (hypothetical) scenario:
@@ -132,15 +141,12 @@ def _check_main_file_to_move(
     Given the very low probability of this happening, a check on the file size of the main file should suffice.
 
     :param ti: TaskInstance object
-    :param context: DAG context
+    :param raw_file: RawFile from DB
 
     :raises: AirflowFailException if the file size does not match the database record.
     """
-    raw_file_id = context[DagContext.PARAMS][DagParams.RAW_FILE_ID]
-
     file_path_to_calculate_size_str = get_xcom(ti, XComKeys.MAIN_FILE_TO_MOVE)
     file_path_to_calculate_size = Path(file_path_to_calculate_size_str)
-    raw_file = get_raw_file_by_id(raw_file_id)
 
     if (current_size := get_file_size(file_path_to_calculate_size)) != raw_file.size:
         raise AirflowFailException(

@@ -31,6 +31,9 @@ class QueryParams:
     # max length of table to display
     MAX_TABLE_LEN = "max_table_len"
 
+    # prefilled filter string
+    FILTER = "filter"
+
 
 DEFAULT_MAX_AGE_OVERVIEW = 30  # days
 DEFAULT_MAX_AGE_STATUS = 7  # days

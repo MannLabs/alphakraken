@@ -268,7 +268,9 @@ def _draw_plot(df: pd.DataFrame, x: str, y: str) -> None:
 
 
 filter_value = (
-    st.query_params.get("filter", "").replace("AND", " & ").replace("and", " & ")
+    st.query_params.get(QueryParams.FILTER, "")
+    .replace("AND", " & ")
+    .replace("and", " & ")
 )
 
 _display_table_and_plots(

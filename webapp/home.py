@@ -61,7 +61,7 @@ c1.markdown(f"""### FAQ
 Q: Where to I find the AlphaDIA output files?
 
 A:  The output files associated for a given raw file are stored at
-   `/fs/pool/{quanting_pool_folder}/output/<project id>/out_<raw file name>`
+   `/fs/pool/{quanting_pool_folder}/output/<project id>/out_<raw file name>/`
 
 
 Q: A lot of jobs are stuck in status "quanting" or "queued_for_quanting".

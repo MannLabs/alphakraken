@@ -57,7 +57,7 @@ def display_projects(
     filtered_df = show_filter(projects_df, st_display=st_display)
     st_display.table(filtered_df)
     st_display.markdown(
-        "Output files are stored at `/fs/pool/{quanting_pool_folder}/output/<project id>/out_<raw file name>`"
+        "Output files are stored at `/fs/pool/{quanting_pool_folder}/output/<project id>/out_<raw file name>/`"
     )
 
 

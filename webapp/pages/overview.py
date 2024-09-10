@@ -111,14 +111,15 @@ def _display_table_and_plots(
     )
 
     st.write(
-        f"Showing {len(filtered_df)} / {len_whole_df} entries (last {max_age_in_days} days). Distribution of terminal statuses: {get_terminal_status_counts(filtered_df)}"
+        f"Found {len(filtered_df)} / {len_whole_df} entries (last {max_age_in_days} days). Distribution of terminal statuses: {get_terminal_status_counts(filtered_df)}"
     )
 
-    df_to_show = filtered_df.head(1000)
+    # display only subset of entries to speed up page loading
+    df_to_show = filtered_df.head(500)
 
     # hide the csv download button to not encourage downloading incomplete data
     st.markdown(
-        "<style>[data-testid='stElementToolbar'] { display: none; } </style>",
+        "<style>[data-testid='stElementToolbarButton']:first-of-type { display: none; } </style>",
         unsafe_allow_html=True,
     )
 
@@ -149,20 +150,6 @@ def _display_table_and_plots(
         column_order=column_order,
     )
 
-    st.download_button(
-        "⬇️ Download .csv (selection)",
-        df_to_csv(filtered_df),
-        f'{now.strftime("AlphaKraken_%Y%m%d-%H%M%S_filtered")}.csv',
-        "text/csv",
-    )
-
-    st.download_button(
-        "⬇️ Download .csv (all data)",
-        df_to_csv(df),
-        f'{now.strftime("AlphaKraken_%Y%m%d-%H%M%S_all")}.csv',
-        "text/csv",
-    )
-
     c1, _ = st.columns([0.5, 0.5])
     with c1.expander("Click here for help ..."):
         st.info(
@@ -185,6 +172,23 @@ def _display_table_and_plots(
         """,
             icon="ℹ️",  # noqa: RUF001
         )
+
+    # ########################################### DISPLAY: Download buttons
+
+    c1, c2, _ = st.columns([0.25, 0.25, 0.5])
+    c1.download_button(
+        label=f"⬇️ Download filtered table ({len(filtered_df)} entries)",
+        data=df_to_csv(filtered_df),
+        file_name=f'{now.strftime("AlphaKraken_%Y%m%d-%H%M%S_filtered")}.csv',
+        mime="text/csv",
+    )
+
+    c2.download_button(
+        label=f"⬇️ Download all data ({len(df)} entries)",
+        data=df_to_csv(df),
+        file_name=f'{now.strftime("AlphaKraken_%Y%m%d-%H%M%S_all")}.csv',
+        mime="text/csv",
+    )
 
     # ########################################### DISPLAY: plots
 

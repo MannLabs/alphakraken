@@ -70,6 +70,7 @@ columns_to_hide = [
     "size",
     "quanting_time_elapsed",
     "raw_file",
+    "file_info",
     "_id",
     "original_name",
     "collision_flag",

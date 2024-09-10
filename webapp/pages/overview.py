@@ -109,6 +109,18 @@ def _display_table_and_plots(
     )
 
     df_to_show = filtered_df if was_filter_applied else filtered_df.head(100)
+    if not was_filter_applied:
+        # hide the csv download button to not encourage downloading incomplete data
+        st.markdown(
+            """
+            <style>
+            [data-testid="stElementToolbar"] {
+                display: none;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True,
+        )
     cmap = plt.get_cmap("RdYlGn")
     cmap.set_bad(color="white")
     st.dataframe(

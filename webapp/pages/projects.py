@@ -123,18 +123,25 @@ ALLOWED_CHARACTERS_IN_PROJECT_ID = r"[^A-Z0-9]"
 FORBIDDEN_PROJECT_IDS = ["dda", "dia"]
 SPECIAL_PROJECT_IDS = ["_FALLBACK", "_FALLBACK_BRUKER"]
 
+
+def _check_project_id(project_id: str) -> None:
+    """Check if the project id is valid, raise ValueError if not."""
+    if (
+        project_id is None
+        or len(project_id) < 3  # noqa: PLR2004
+        or len(project_id) > 8  # noqa: PLR2004
+        or project_id.isdigit()
+        or re.findall(ALLOWED_CHARACTERS_IN_PROJECT_ID, project_id)
+        or project_id.lower() in FORBIDDEN_PROJECT_IDS
+    ) and project_id not in SPECIAL_PROJECT_IDS:
+        raise ValueError(
+            f"Invalid project id '{project_id}'. Please choose a different one."
+        )
+
+
 if form_submit:
     try:
-        if (
-            len(project_id) < 3  # noqa: PLR2004
-            or len(project_id) > 8  # noqa: PLR2004
-            or project_id.isdigit()
-            or re.findall(ALLOWED_CHARACTERS_IN_PROJECT_ID, project_id)
-            or project_id.lower() in FORBIDDEN_PROJECT_IDS
-        ) and project_id not in SPECIAL_PROJECT_IDS:
-            raise ValueError(  # noqa: TRY301
-                f"Invalid project id '{project_id}'. Please choose a different one."
-            )
+        _check_project_id(empty_to_none(project_id))
 
         add_new_project_to_db(
             project_id=empty_to_none(project_id),

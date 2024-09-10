@@ -82,6 +82,12 @@ column_order = [
 ] + columns_at_end
 
 
+@st.cache_data
+def df_to_csv(df: pd.DataFrame) -> str:
+    """Convert a DataFrame to a CSV string."""
+    return df.to_csv().encode("utf-8")
+
+
 # using a fragment to avoid re-doing the above operations on every filter change
 # cf. https://docs.streamlit.io/develop/concepts/architecture/fragments
 @st.experimental_fragment
@@ -90,6 +96,7 @@ def _display_table_and_plots(
 ) -> None:
     """A fragment that displays a DataFrame with a filter."""
     st.markdown("## Data")
+    now = datetime.now(tz=pytz.UTC)
 
     # filter
     len_whole_df = len(df)
@@ -102,25 +109,19 @@ def _display_table_and_plots(
         filtered_df,
         st_display=c2,
     )
-    was_filter_applied = len_whole_df != len(filtered_df)
 
     st.write(
         f"Showing {len(filtered_df)} / {len_whole_df} entries (last {max_age_in_days} days). Distribution of terminal statuses: {get_terminal_status_counts(filtered_df)}"
     )
 
-    df_to_show = filtered_df if was_filter_applied else filtered_df.head(100)
-    if not was_filter_applied:
-        # hide the csv download button to not encourage downloading incomplete data
-        st.markdown(
-            """
-            <style>
-            [data-testid="stElementToolbar"] {
-                display: none;
-            }
-            </style>
-            """,
-            unsafe_allow_html=True,
-        )
+    df_to_show = filtered_df.head(1000)
+
+    # hide the csv download button to not encourage downloading incomplete data
+    st.markdown(
+        "<style>[data-testid='stElementToolbar'] { display: none; } </style>",
+        unsafe_allow_html=True,
+    )
+
     cmap = plt.get_cmap("RdYlGn")
     cmap.set_bad(color="white")
     st.dataframe(
@@ -146,6 +147,20 @@ def _display_table_and_plots(
             formatter="{:.3}",
         ),
         column_order=column_order,
+    )
+
+    st.download_button(
+        "⬇️ Download .csv (selection)",
+        df_to_csv(filtered_df),
+        f'{now.strftime("AlphaKraken_%Y%m%d-%H%M%S_filtered")}.csv',
+        "text/csv",
+    )
+
+    st.download_button(
+        "⬇️ Download .csv (all data)",
+        df_to_csv(df),
+        f'{now.strftime("AlphaKraken_%Y%m%d-%H%M%S_all")}.csv',
+        "text/csv",
     )
 
     c1, _ = st.columns([0.5, 0.5])

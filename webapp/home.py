@@ -62,18 +62,19 @@ A: This is the case when the cluster is under heavy load. The jobs will be proce
 Currently, status "quanting" means "quanting job submitted", regardless if it's still PENDING or already RUNNING.
 
 
-Q: I am tired of always filling the filter, can this be saved?
-
-A: Yes. Just add `?filter=value` to the URL to pre-fill the filter and then create a browser bookmark.
-For technical reasons, combining multiple conditions is done using "AND" or "%26", not "&" like in the UI.
-Combine with the `max_age=` parameter like so: `?filter=value1ANDvalue2&max_age=60`.
-
 
 Q: The data on the overview page seems to be limited, can I see more?
 
 A: For performance reasons, by default only recent data are loaded, and the table is truncated (plots and csv download
-are not). If you really need to see more data, use the `?max_age=` and `?max_table_len=` query parameters in the URL (cf. above).
+are not). If you really need to see more data, use the `?max_age=` and `?max_table_len=` query parameters in the URL
+(cf. below how to combine).
 
+
+Q: I am tired of always filling the filter, can this be saved?
+
+A: Yes. Just add `?filter=value` to the URL to pre-fill the filter and then create a browser bookmark.
+For technical reasons, combining multiple conditions is done using "AND" or "%26", not "&" like in the UI.
+Combine with other parameters (like `max_age=`) like this: `?filter=value1ANDvalue2&max_age=60&max_table_len=9999`.
 
 
 Q: I am missing a feature or found a bug or find the AlphaKraken unintuitive to use or want to contribute.

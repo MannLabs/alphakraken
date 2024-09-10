@@ -104,7 +104,7 @@ class Concurrency:
 
     # limit the number of concurrent copies to not over-stress the network.
     # Note that this is a potential bottleneck, so a timeout is important here.
-    MAXNO_COPY_RAW_FILE_TASKS_PER_DAG = 1
+    MAXNO_COPY_RAW_FILE_TASKS_PER_DAG = 2
 
     # limit the number of concurrent monitors to not over-stress the network (relevant only during a catchup)
     MAXNO_MONITOR_ACQUISITION_TASKS_PER_DAG = 10

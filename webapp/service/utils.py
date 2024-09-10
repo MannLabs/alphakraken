@@ -28,9 +28,13 @@ class QueryParams:
     # max age of data to load from the DB
     MAX_AGE = "max_age"
 
+    # max length of table to display
+    MAX_TABLE_LEN = "max_table_len"
+
 
 DEFAULT_MAX_AGE_OVERVIEW = 30  # days
 DEFAULT_MAX_AGE_STATUS = 7  # days
+DEFAULT_MAX_TABLE_LEN = 500
 
 
 def _log(item_to_log: str | Exception, extra_msg: str = "") -> None:

@@ -17,7 +17,13 @@ from service.components import (
     show_sandbox_message,
 )
 from service.data_handling import get_combined_raw_files_and_metrics_df
-from service.utils import DEFAULT_MAX_AGE_OVERVIEW, ERROR_STATUSES, QueryParams, _log
+from service.utils import (
+    DEFAULT_MAX_AGE_OVERVIEW,
+    DEFAULT_MAX_TABLE_LEN,
+    ERROR_STATUSES,
+    QueryParams,
+    _log,
+)
 
 _log(f"loading {__file__}")
 
@@ -110,18 +116,21 @@ def _display_table_and_plots(
         st_display=c2,
     )
 
-    st.write(
-        f"Found {len(filtered_df)} / {len_whole_df} entries (last {max_age_in_days} days). Distribution of terminal statuses: {get_terminal_status_counts(filtered_df)}"
+    max_table_len = int(
+        st.query_params.get(QueryParams.MAX_TABLE_LEN, DEFAULT_MAX_TABLE_LEN)
     )
-
-    # display only subset of entries to speed up page loading
-    df_to_show = filtered_df.head(500)
+    st.write(
+        f"Found {len(filtered_df)} / {len_whole_df} entries. Distribution of terminal statuses: {get_terminal_status_counts(filtered_df)} "
+        f"Note: data is limited to last {max_age_in_days} days, table display is limited to first {max_table_len} entries. See FAQ how to change this.",
+    )
 
     # hide the csv download button to not encourage downloading incomplete data
     st.markdown(
         "<style>[data-testid='stElementToolbarButton']:first-of-type { display: none; } </style>",
         unsafe_allow_html=True,
     )
+    # display only subset of entries to speed up page loading
+    df_to_show = filtered_df.head(max_table_len)
 
     cmap = plt.get_cmap("RdYlGn")
     cmap.set_bad(color="white")

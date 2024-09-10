@@ -69,6 +69,13 @@ For technical reasons, combining multiple conditions is done using "AND" or "%26
 Combine with the `max_age=` parameter like so: `?filter=value1ANDvalue2&max_age=60`.
 
 
+Q: The data on the overview page seems to be limited, can I see more?
+
+A: For performance reasons, by default only recent data are loaded, and the table is truncated (plots and csv download
+are not). If you really need to see more data, use the `?max_age=` and `?max_table_len=` query parameters in the URL (cf. above).
+
+
+
 Q: I am missing a feature or found a bug or find the AlphaKraken unintuitive to use or want to contribute.
 
 A: Please get in touch: [<support_email>](<support_email>)

@@ -93,6 +93,7 @@ def _display_table_and_plots(
     # filter
     len_whole_df = len(df)
     c1, c2, _ = st.columns([0.5, 0.25, 0.25])
+
     filtered_df = show_filter(
         df, text_to_display="Filter:", st_display=c1, default_value=filter_value
     )
@@ -100,15 +101,17 @@ def _display_table_and_plots(
         filtered_df,
         st_display=c2,
     )
+    was_filter_applied = len_whole_df != len(filtered_df)
 
     st.write(
         f"Showing {len(filtered_df)} / {len_whole_df} entries (last {max_age_in_days} days). Distribution of terminal statuses: {get_terminal_status_counts(filtered_df)}"
     )
 
+    df_to_show = filtered_df if was_filter_applied else filtered_df.head(100)
     cmap = plt.get_cmap("RdYlGn")
     cmap.set_bad(color="white")
     st.dataframe(
-        filtered_df.style.background_gradient(
+        df_to_show.style.background_gradient(
             subset=[
                 "size_gb",
                 "proteins",

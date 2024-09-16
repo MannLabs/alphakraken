@@ -6,7 +6,7 @@ import streamlit as st
 from service.components import show_sandbox_message
 from service.utils import _log
 
-from shared.keys import EnvVars
+from shared.keys import ALLOWED_CHARACTERS_IN_RAW_FILE_NAME, EnvVars
 
 _log(f"loading {__file__}")
 
@@ -29,7 +29,7 @@ else:
 
 c1, _ = st.columns([0.5, 0.5])
 
-c1.markdown("""### What is AlphaKraken?
+c1.markdown(f"""### What is AlphaKraken?
 
 This tool should help you keep track of your acquisitions and monitor their status and quality in (near) real-time.
 By default, every single acquisition is processed by AlphaDIA and the results are stored in a database.
@@ -45,6 +45,16 @@ It is mostly relevant for AlphaKraken admin users.
 
 The "project" and "settings" tabs allow to manage specific AlphaDIA settings for certain raw files.
 Currently they are meant to be used by AlphaKraken admin users only.
+
+
+### Rules
+To ensure a smooth processing, please follow these rules:
+- Do NOT do anything (!) on the acquisition folder (=the folder where the raw files are written to). In particular:
+**Do not _create_, _move_, _rename_, or _delete_ any files there**! Avoid opening them in any software (wait until the file is moved to the
+"Backup" subfolder and open it there).
+- Make sure to your raw filename does not contain any special characters. Only allowed: `{ALLOWED_CHARACTERS_IN_RAW_FILE_NAME}`
+(basic latin letters, numbers, and a few special characters like `-`, `_`, `+`). Otherwise, they will not be quanted.
+- If your file name contains `_dda_`, they will also not be quanted.
 
 
 ### FAQ

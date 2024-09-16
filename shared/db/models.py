@@ -41,6 +41,7 @@ class RawFileStatus:
 
     ERROR = "error"
     DONE = "done"
+    DONE_NOT_QUANTED = "done_not_quanted"
 
 
 class RawFile(Document):

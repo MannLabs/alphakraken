@@ -1,6 +1,7 @@
 """Business logic for the "acquisition_handler" DAG."""
 
 import logging
+import re
 from pathlib import Path
 
 from airflow.models import TaskInstance
@@ -15,7 +16,11 @@ from raw_file_wrapper_factory import CopyPathProvider, RawFileWrapperFactory
 
 from shared.db.interface import get_raw_file_by_id, update_raw_file
 from shared.db.models import RawFileStatus
-from shared.keys import EnvVars
+from shared.keys import (
+    ALLOWED_CHARACTERS_IN_RAW_FILE_NAME,
+    DDA_FLAG_IN_RAW_FILE_NAME,
+    EnvVars,
+)
 
 
 def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
@@ -87,27 +92,48 @@ def start_file_mover(ti: TaskInstance, **kwargs) -> None:
     )
 
 
+def _count_special_characters(raw_file_id: str) -> int:
+    """Check if the raw file name contains special characters."""
+    pattern = re.compile(ALLOWED_CHARACTERS_IN_RAW_FILE_NAME)
+    return len(pattern.findall(raw_file_id))
+
+
 def decide_processing(ti: TaskInstance, **kwargs) -> bool:
-    """Decide whether to start the acquisition_processor DAG."""
+    """Decide whether to start the acquisition_processor DAG.
+
+    Skip the downstream tasks if the raw file is not suitable for processing:
+        - if the acquisition monitor has reported errors
+        - if the raw file name contains the DDA flag
+        - if the raw file name contains special characters
+    """
     raw_file_id = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID]
 
-    acquisition_monitor_errors = get_xcom(ti, XComKeys.ACQUISITION_MONITOR_ERRORS, [])
-
-    if not acquisition_monitor_errors:
+    if acquisition_monitor_errors := get_xcom(
+        ti, XComKeys.ACQUISITION_MONITOR_ERRORS, []
+    ):
+        new_status = RawFileStatus.ACQUISITION_FAILED
+        status_details = ";".join(acquisition_monitor_errors)
+        logging.info(f"Acquisition monitor errors: {acquisition_monitor_errors}.")
+    elif DDA_FLAG_IN_RAW_FILE_NAME in raw_file_id.lower():
+        new_status = RawFileStatus.DONE_NOT_QUANTED
+        status_details = "Filename contains 'dda'."
+        logging.info(f"f{raw_file_id} contains 'dda'.")
+    elif _count_special_characters(raw_file_id):
+        new_status = RawFileStatus.DONE_NOT_QUANTED
+        status_details = "Filename contains special characters."
+        logging.info(f"{raw_file_id} contains special characters.")
+    else:
         return True  # continue with downstream tasks
 
-    logging.info(
-        f"Acquisition monitor errors: {acquisition_monitor_errors}. Skipping downstream tasks.."
-    )
-
     # potential other checks:
-    #  - has 'blank' or 'DDA' in file name -> Variable?
     #  - file size to small -> Variable?
+
+    logging.info("Skipping downstream tasks..")
 
     update_raw_file(
         raw_file_id,
-        new_status=RawFileStatus.ACQUISITION_FAILED,
-        status_details=";".join(acquisition_monitor_errors),
+        new_status=new_status,
+        status_details=status_details,
     )
 
     return False  # skip downstream tasks

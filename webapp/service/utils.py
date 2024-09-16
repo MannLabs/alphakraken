@@ -17,6 +17,7 @@ ERROR_STATUSES = [
 TERMINAL_STATUSES = [
     *ERROR_STATUSES,
     RawFileStatus.DONE,
+    RawFileStatus.DONE_NOT_QUANTED,
     RawFileStatus.IGNORED,
 ]
 

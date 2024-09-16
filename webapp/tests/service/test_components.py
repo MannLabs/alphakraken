@@ -151,6 +151,7 @@ def test_display_status_with_multiple_instruments(mock_st_dataframe: MagicMock) 
                     ts2,
                 ],
                 "status": ["ok", "error"],
+                "free_space_gb": [100, 200],
                 "status_details": ["", ""],
             }
         )
@@ -167,6 +168,7 @@ def test_display_status_with_multiple_instruments(mock_st_dataframe: MagicMock) 
     assert result_df["last_status_update"].tolist() == [ts1, ts1]
     assert result_df["last_health_check"].tolist() == [ts1, ts2]
     assert result_df["last_health_check_error"].tolist() == [ts1, ts2]
+    assert result_df["free_space_gb"].tolist() == [100, 200]
     assert "last_file_creation_text" in result_df.columns
     assert "last_status_update_text" in result_df.columns
     assert "last_health_check_text" in result_df.columns

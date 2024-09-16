@@ -1,5 +1,8 @@
 """Page allowing Project mgmt."""
 
+import os
+import re
+
 import pandas as pd
 import streamlit as st
 from db.interface import add_new_project_to_db
@@ -11,6 +14,8 @@ from service.utils import (
     empty_to_none,
     show_feedback_in_sidebar,
 )
+
+from shared.keys import EnvVars
 
 _log(f"loading {__file__}")
 
@@ -35,6 +40,7 @@ show_feedback_in_sidebar()
 projects_db = get_project_data()
 projects_df = df_from_db_data(projects_db)
 
+quanting_pool_folder = os.environ.get(EnvVars.QUANTING_POOL_FOLDER)
 
 # ########################################### DISPLAY
 
@@ -50,6 +56,9 @@ def display_projects(
     """A Fragment to display projects in a table."""
     filtered_df = show_filter(projects_df, st_display=st_display)
     st_display.table(filtered_df)
+    st_display.markdown(
+        "Output files are stored at `/fs/pool/{quanting_pool_folder}/output/<project id>/out_<raw file name>/`"
+    )
 
 
 display_projects(projects_df, c1)
@@ -88,7 +97,7 @@ with c1.expander("Click here for help ..."):
         Currently, only projects ids that follow after the pattern 'SA' are picked up, e.g. `20240801_something_SA_A123_my-sample.raw`.
         If no matching project can be found for a file, then fallback settings are used.
         Please make sure your project identifier is 'unique enough' ("DDA" might be a bad pick), otherwise it might cause false positives.
-        Needs to be > 3 characters.
+        Needs to be between 3 and 8 characters, contain only uppercase letters and numbers, and at least one letter.
 
         ### Workflow
         1. Create a project with a unique project id.
@@ -109,8 +118,30 @@ with c1.form("create_project_form"):
     form_submit = st.form_submit_button("Create project")
 
 
+ALLOWED_CHARACTERS_IN_PROJECT_ID = r"[^A-Z0-9]"
+FORBIDDEN_PROJECT_IDS = ["dda", "dia"]
+SPECIAL_PROJECT_IDS = ["_FALLBACK", "_FALLBACK_BRUKER"]
+
+
+def _check_project_id(project_id: str) -> None:
+    """Check if the project id is valid, raise ValueError if not."""
+    if (
+        project_id is None
+        or len(project_id) < 3  # noqa: PLR2004
+        or len(project_id) > 8  # noqa: PLR2004
+        or project_id.isdigit()
+        or re.findall(ALLOWED_CHARACTERS_IN_PROJECT_ID, project_id)
+        or project_id.lower() in FORBIDDEN_PROJECT_IDS
+    ) and project_id not in SPECIAL_PROJECT_IDS:
+        raise ValueError(
+            f"Invalid project id '{project_id}'. Please choose a different one."
+        )
+
+
 if form_submit:
     try:
+        _check_project_id(empty_to_none(project_id))
+
         add_new_project_to_db(
             project_id=empty_to_none(project_id),
             name=empty_to_none(project_name),

@@ -22,6 +22,24 @@ TERMINAL_STATUSES = [
 ]
 
 
+class QueryParams:
+    """Query parameters for streamlit pages."""
+
+    # max age of data to load from the DB
+    MAX_AGE = "max_age"
+
+    # max length of table to display
+    MAX_TABLE_LEN = "max_table_len"
+
+    # prefilled filter string
+    FILTER = "filter"
+
+
+DEFAULT_MAX_AGE_OVERVIEW = 30  # days
+DEFAULT_MAX_AGE_STATUS = 7  # days
+DEFAULT_MAX_TABLE_LEN = 500
+
+
 def _log(item_to_log: str | Exception, extra_msg: str = "") -> None:
     """Write a log message and show it if it's an exception."""
     now = datetime.now(tz=pytz.UTC).strftime("%Y-%m-%d %H:%M:%S.%f")

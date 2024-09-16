@@ -17,7 +17,13 @@ from service.components import (
     show_sandbox_message,
 )
 from service.data_handling import get_combined_raw_files_and_metrics_df
-from service.utils import ERROR_STATUSES, _log
+from service.utils import (
+    DEFAULT_MAX_AGE_OVERVIEW,
+    DEFAULT_MAX_TABLE_LEN,
+    ERROR_STATUSES,
+    QueryParams,
+    _log,
+)
 
 _log(f"loading {__file__}")
 
@@ -33,13 +39,28 @@ st.markdown("# Overview")
 st.write(
     f"Current Kraken time: {datetime.now(tz=pytz.UTC).replace(microsecond=0)} [all time stamps are given in UTC!]"
 )
+
+# TODO: remove this hack once https://github.com/streamlit/streamlit/issues/8112 is available
+app_path = "http://<kraken_url>"
+days = 60
+st.markdown(
+    f"""
+    Note: for performance reasons, by default only data for the last {DEFAULT_MAX_AGE_OVERVIEW} days are loaded.
+    If you want to see more data, use the `?max_age=` query parameter in the url, e.g.
+    <a href="{app_path}/overview?max_age={days}" target="_self">{app_path}/overview?max_age={days}</a>
+    """,
+    unsafe_allow_html=True,
+)
+
 st.write(
     "Use the filter and date select to narrow down results both in the table and the plots below."
 )
 
 # ########################################### LOGIC
-
-combined_df = get_combined_raw_files_and_metrics_df()
+max_age_in_days = int(
+    st.query_params.get(QueryParams.MAX_AGE, DEFAULT_MAX_AGE_OVERVIEW)
+)
+combined_df = get_combined_raw_files_and_metrics_df(max_age_in_days)
 
 
 # ########################################### DISPLAY: table
@@ -49,14 +70,13 @@ columns_at_end = [
     "project_id",
     "updated_at_",
     "created_at_",
-    "file_info",
-    "backup_base_path",
 ]
 columns_to_hide = [
     "created_at",
     "size",
     "quanting_time_elapsed",
     "raw_file",
+    "file_info",
     "_id",
     "original_name",
     "collision_flag",
@@ -68,30 +88,54 @@ column_order = [
 ] + columns_at_end
 
 
+@st.cache_data
+def df_to_csv(df: pd.DataFrame) -> str:
+    """Convert a DataFrame to a CSV string."""
+    return df.to_csv().encode("utf-8")
+
+
 # using a fragment to avoid re-doing the above operations on every filter change
 # cf. https://docs.streamlit.io/develop/concepts/architecture/fragments
 @st.experimental_fragment
-def _display_table_and_plots(df: pd.DataFrame) -> None:
+def _display_table_and_plots(
+    df: pd.DataFrame, max_age_in_days: int, filter_value: str = ""
+) -> None:
     """A fragment that displays a DataFrame with a filter."""
     st.markdown("## Data")
+    now = datetime.now(tz=pytz.UTC)
 
     # filter
     len_whole_df = len(df)
     c1, c2, _ = st.columns([0.5, 0.25, 0.25])
-    filtered_df = show_filter(df, text_to_display="Filter:", st_display=c1)
+
+    filtered_df = show_filter(
+        df, text_to_display="Filter:", st_display=c1, default_value=filter_value
+    )
     filtered_df = show_date_select(
         filtered_df,
         st_display=c2,
     )
 
-    st.write(
-        f"Showing {len(filtered_df)} / {len_whole_df} entries. Distribution of terminal statuses: {get_terminal_status_counts(filtered_df)}"
+    max_table_len = int(
+        st.query_params.get(QueryParams.MAX_TABLE_LEN, DEFAULT_MAX_TABLE_LEN)
     )
+    st.write(
+        f"Found {len(filtered_df)} / {len_whole_df} entries. Distribution of terminal statuses: {get_terminal_status_counts(filtered_df)} "
+        f"Note: data is limited to last {max_age_in_days} days, table display is limited to first {max_table_len} entries. See FAQ how to change this.",
+    )
+
+    # hide the csv download button to not encourage downloading incomplete data
+    st.markdown(
+        "<style>[data-testid='stElementToolbarButton']:first-of-type { display: none; } </style>",
+        unsafe_allow_html=True,
+    )
+    # display only subset of entries to speed up page loading
+    df_to_show = filtered_df.head(max_table_len)
 
     cmap = plt.get_cmap("RdYlGn")
     cmap.set_bad(color="white")
     st.dataframe(
-        filtered_df.style.background_gradient(
+        df_to_show.style.background_gradient(
             subset=[
                 "size_gb",
                 "proteins",
@@ -137,6 +181,23 @@ def _display_table_and_plots(df: pd.DataFrame) -> None:
         """,
             icon="ℹ️",  # noqa: RUF001
         )
+
+    # ########################################### DISPLAY: Download buttons
+
+    c1, c2, _ = st.columns([0.25, 0.25, 0.5])
+    c1.download_button(
+        label=f"⬇️ Download filtered table ({len(filtered_df)} entries)",
+        data=df_to_csv(filtered_df),
+        file_name=f'{now.strftime("AlphaKraken_%Y%m%d-%H%M%S_filtered")}.csv',
+        mime="text/csv",
+    )
+
+    c2.download_button(
+        label=f"⬇️ Download all data ({len(df)} entries)",
+        data=df_to_csv(df),
+        file_name=f'{now.strftime("AlphaKraken_%Y%m%d-%H%M%S_all")}.csv',
+        mime="text/csv",
+    )
 
     # ########################################### DISPLAY: plots
 
@@ -206,4 +267,14 @@ def _draw_plot(df: pd.DataFrame, x: str, y: str) -> None:
     st.plotly_chart(fig)
 
 
-_display_table_and_plots(combined_df)
+filter_value = (
+    st.query_params.get(QueryParams.FILTER, "")
+    .replace("AND", " & ")
+    .replace("and", " & ")
+)
+
+_display_table_and_plots(
+    combined_df,
+    max_age_in_days,
+    filter_value,
+)

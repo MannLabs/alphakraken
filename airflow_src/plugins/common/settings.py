@@ -45,6 +45,7 @@ BYTES_TO_MB = 1 / 1024**2
 # relevant for Bruker only
 DEFAULT_RAW_FILE_SIZE_IF_MAIN_FILE_MISSING = -1
 
+# mapping AlphaDIA errors to human-readable short names
 ERROR_CODE_TO_STRING = {
     "_CANNOT_FIND_ITEM": "Cannot find item [Idx] within the current storage",
     "_FAILED_TO_DETERMINE_DIA_CYCLE": "Failed to determine start of DIA cycle",
@@ -60,6 +61,7 @@ ERROR_CODE_TO_STRING = {
     "_KEY_MISSING_RT_CALIBRATED": "ERROR: 'rt_calibrated'",  # deliberately include "ERROR" here to be more specific
     "_FIRST_ARRAY_ELEMENT_EMPTY": "first array argument cannot be empty",
     "_ARGMAX_OF_EMPTY_SEQUENCE": "attempt to get argmax of an empty sequence",
+    # deliberately not including "DivisionByZero" here as it is too generic
 }
 
 
@@ -90,6 +92,8 @@ class Timings:
 
     MOVE_RAW_FILE_TASK_TIMEOUT_M = 5
 
+    ZENO_FILE_MOVE_DELAY_M = 5
+
 
 class Concurrency:
     """Concurrency constants."""
@@ -100,7 +104,7 @@ class Concurrency:
 
     # limit the number of concurrent copies to not over-stress the network.
     # Note that this is a potential bottleneck, so a timeout is important here.
-    MAXNO_COPY_RAW_FILE_TASKS_PER_DAG = 1
+    MAXNO_COPY_RAW_FILE_TASKS_PER_DAG = 2
 
     # limit the number of concurrent monitors to not over-stress the network (relevant only during a catchup)
     MAXNO_MONITOR_ACQUISITION_TASKS_PER_DAG = 10

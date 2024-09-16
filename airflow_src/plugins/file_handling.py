@@ -122,8 +122,9 @@ def copy_file(
 
     logging.info("Verifying hash ..")
     if (dst_hash := _get_file_hash(dst_path)) != src_hash:
+        src_size = get_file_size(src_path)
         raise AirflowFailException(
-            f"Hashes do not match ofter copy! {src_hash=} != {dst_hash=}"
+            f"Hashes do not match ofter copy! {src_hash=} != {dst_hash=} (sizes: {dst_size=} {src_size=})"
         )
     logging.info("Verifying hash done!")
 

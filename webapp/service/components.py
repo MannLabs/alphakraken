@@ -10,7 +10,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 from matplotlib import pyplot as plt
-from service.utils import TERMINAL_STATUSES
+from service.utils import DEFAULT_MAX_AGE_STATUS, TERMINAL_STATUSES
 
 from shared.db.models import RawFileStatus
 from shared.keys import EnvVars
@@ -164,6 +164,10 @@ def display_status(combined_df: pd.DataFrame, status_data_df: pd.DataFrame) -> N
     now = datetime.now()  # noqa:  DTZ005 no tz argument
     st.write(
         f"Current Kraken time: {now.replace(microsecond=0)} [all time stamps are given in UTC!]"
+    )
+    st.write(
+        f"Note: for performance reasons, by default only data for the last {DEFAULT_MAX_AGE_STATUS} days are loaded, "
+        f"which means that mass specs that have been idling for longer than this period are not shown here."
     )
     status_data = defaultdict(list)
     for instrument_id in sorted(combined_df["instrument_id"].unique()):

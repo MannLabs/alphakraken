@@ -189,6 +189,8 @@ def display_status(combined_df: pd.DataFrame, status_data_df: pd.DataFrame) -> N
         )
         status_data["status_details"].append(status_df["status_details"].to_numpy()[0])
 
+        status_data["free_space_gb"].append(status_df["free_space_gb"].to_numpy()[0])
+
     status_df = pd.DataFrame(status_data)
 
     st.dataframe(status_df.style.apply(lambda row: _get_color(row), axis=1))

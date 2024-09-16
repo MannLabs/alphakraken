@@ -289,6 +289,7 @@ def test_update_kraken_status(
         instrument_id="instrument1",
         status="error",
         status_details="some details",
+        free_space_gb=123,
     )
 
     # then
@@ -298,6 +299,7 @@ def test_update_kraken_status(
         updated_at_=mock_datetime.now.return_value,
         status_details="some details",
         last_error_occurred_at=mock_datetime.now.return_value,
+        free_space_gb=123,
     )
     mock_connect_db.assert_called_once()
 

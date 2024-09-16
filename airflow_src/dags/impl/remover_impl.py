@@ -1,7 +1,6 @@
 """Implementation of tasks for file_remover."""
 
 import logging
-import shutil
 import traceback
 from collections import defaultdict
 from pathlib import Path
@@ -17,7 +16,7 @@ from common.settings import (
     get_internal_instrument_data_path,
 )
 from common.utils import get_airflow_variable, get_env_variable, get_xcom, put_xcom
-from file_handling import get_file_size
+from file_handling import get_disk_usage, get_file_size
 from raw_file_wrapper_factory import RawFileWrapperFactory, RemovePathProvider
 
 from shared.db.interface import get_raw_file_by_id, get_raw_files_by_age
@@ -80,12 +79,7 @@ def _decide_on_raw_files_to_remove(
             logging.warning(f"Skipping {instrument_id}: path does not exist.")
             continue
 
-        total_bytes, used_bytes, free_bytes = shutil.disk_usage(instrument_path)
-        total_gb, used_gb, free_gb = (
-            total_bytes * BYTES_TO_GB,
-            used_bytes * BYTES_TO_GB,
-            free_bytes * BYTES_TO_GB,
-        )
+        total_gb, used_gb, free_gb = get_disk_usage(instrument_path)
         # TODO: security check: <= 30 % ?
 
         logging.info(f"{instrument_id=} {total_gb=} {used_gb=} {free_gb=}")

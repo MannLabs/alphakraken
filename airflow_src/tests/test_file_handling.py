@@ -6,12 +6,13 @@ from unittest.mock import MagicMock, mock_open, patch
 import pytest
 from _pytest._py.path import LocalPath
 from airflow.exceptions import AirflowFailException
-from plugins.common.settings import INSTRUMENTS
+from plugins.common.settings import BYTES_TO_GB, INSTRUMENTS
 from plugins.file_handling import (
     _get_file_hash,
     _identical_copy_exists,
     compare_paths,
     copy_file,
+    get_disk_usage,
     get_file_creation_timestamp,
     get_file_size,
 )
@@ -64,6 +65,17 @@ def test_get_file_size_no_default_raises() -> None:
     # when
     with pytest.raises(FileNotFoundError):
         get_file_size(mock_path)
+
+
+@patch("plugins.file_handling.shutil.disk_usage")
+def test_get_disk_usage_returns_correct_values(mock_disk_usage: MagicMock) -> None:
+    """Test get_disk_usage returns the expected values."""
+    mock_disk_usage.return_value = (1000, 600, 400)
+
+    total_gb, used_gb, free_gb = get_disk_usage(Path("/fake/path"))
+    assert total_gb == 1000 * BYTES_TO_GB
+    assert used_gb == 600 * BYTES_TO_GB
+    assert free_gb == 400 * BYTES_TO_GB
 
 
 @patch("plugins.file_handling.Path.open", new_callable=mock_open)

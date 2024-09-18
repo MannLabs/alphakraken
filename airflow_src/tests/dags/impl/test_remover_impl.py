@@ -57,15 +57,15 @@ def test_get_raw_files_to_remove(
 @patch("dags.impl.remover_impl.get_internal_instrument_data_path")
 @patch("dags.impl.remover_impl.get_raw_files_by_age")
 @patch("dags.impl.remover_impl.RawFileWrapperFactory")
-@patch("dags.impl.remover_impl.shutil.disk_usage")
+@patch("dags.impl.remover_impl.get_disk_usage")
 def test_decide_on_raw_files_to_remove_ok(
-    mock_disk_usage: MagicMock,
+    mock_get_disk_usage: MagicMock,
     mock_raw_file_wrapper_factory: MagicMock,
     mock_get_raw_files_by_age: MagicMock,
     mock_get_internal_instrument_data_path: MagicMock,
 ) -> None:
     """Test that _decide_on_raw_files_to_remove returns the correct files to remove."""
-    mock_disk_usage.return_value = (0, 0, 200 * 1024**3)
+    mock_get_disk_usage.return_value = (0, 0, 200)
 
     mock_path = MagicMock()
     mock_path.exists.side_effect = [False, True, True, True]
@@ -94,14 +94,14 @@ def test_decide_on_raw_files_to_remove_ok(
 
 @patch("dags.impl.remover_impl.get_internal_instrument_data_path")
 @patch("dags.impl.remover_impl.get_raw_files_by_age")
-@patch("dags.impl.remover_impl.shutil.disk_usage")
+@patch("dags.impl.remover_impl.get_disk_usage")
 def test_decide_on_raw_files_to_remove_nothing_to_remove_ok(
-    mock_disk_usage: MagicMock,
+    mock_get_disk_usage: MagicMock,
     mock_get_raw_files_by_age: MagicMock,
     mock_get_internal_instrument_data_path: MagicMock,
 ) -> None:
     """Test that _decide_on_raw_files_to_remove returns the correct files to remove."""
-    mock_disk_usage.return_value = (0, 0, 300 * 1024**3)
+    mock_get_disk_usage.return_value = (0, 0, 300)
     mock_get_raw_files_by_age.return_value = [MagicMock(id="file1", size=70 * 1024**3)]
     mock_path = MagicMock()
     mock_path.exists.return_value = True

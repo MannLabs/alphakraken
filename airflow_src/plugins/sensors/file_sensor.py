@@ -12,6 +12,7 @@ from common.settings import (
     get_internal_output_path,
 )
 from common.utils import get_timestamp
+from file_handling import get_disk_usage
 from raw_file_wrapper_factory import RawFileWrapperFactory
 
 from shared.db.interface import update_kraken_status
@@ -39,10 +40,13 @@ def _check_health(instrument_id: str) -> None:
         logging.error(f"Output path {output_path} does not exist.")
         status_details.append("Output path not found.")
 
+    *_, free_space_gb = get_disk_usage(data_path)
+
     update_kraken_status(
         instrument_id,
         status=KrakenStatusValues.ERROR if status_details else KrakenStatusValues.OK,
         status_details=";".join(status_details),
+        free_space_gb=int(free_space_gb),
     )
 
 

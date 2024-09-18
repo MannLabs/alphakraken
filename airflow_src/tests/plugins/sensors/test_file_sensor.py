@@ -74,7 +74,9 @@ def test_poke_file_created(
 @patch("plugins.sensors.file_sensor.get_internal_instrument_data_path")
 @patch("plugins.sensors.file_sensor.get_internal_backup_path")
 @patch("plugins.sensors.file_sensor.get_internal_output_path")
+@patch("plugins.sensors.file_sensor.get_disk_usage")
 def test_check_health_when_all_paths_exist(
+    mock_get_disk_usage: MagicMock,
     mock_get_output_path: MagicMock,
     mock_get_backup_path: MagicMock,
     mock_get_data_path: MagicMock,
@@ -86,12 +88,16 @@ def test_check_health_when_all_paths_exist(
     mock_get_data_path.return_value = mock_path
     mock_get_backup_path.return_value = mock_path
     mock_get_output_path.return_value = mock_path
+    mock_get_disk_usage.return_value = (123, 456, 789)
 
     # when
     _check_health("instrument_id")
 
     mock_update_status.assert_called_once_with(
-        "instrument_id", status=KrakenStatusValues.OK, status_details=""
+        "instrument_id",
+        status=KrakenStatusValues.OK,
+        status_details="",
+        free_space_gb=789,
     )
 
 
@@ -99,7 +105,9 @@ def test_check_health_when_all_paths_exist(
 @patch("plugins.sensors.file_sensor.get_internal_instrument_data_path")
 @patch("plugins.sensors.file_sensor.get_internal_backup_path")
 @patch("plugins.sensors.file_sensor.get_internal_output_path")
+@patch("plugins.sensors.file_sensor.get_disk_usage")
 def test_check_health_when_no_paths_exist(
+    mock_get_disk_usage: MagicMock,
     mock_get_output_path: MagicMock,
     mock_get_backup_path: MagicMock,
     mock_get_data_path: MagicMock,
@@ -111,6 +119,7 @@ def test_check_health_when_no_paths_exist(
     mock_get_data_path.return_value = mock_path
     mock_get_backup_path.return_value = mock_path
     mock_get_output_path.return_value = mock_path
+    mock_get_disk_usage.return_value = (123, 456, 789)
 
     # when
     _check_health("instrument_id")
@@ -119,4 +128,5 @@ def test_check_health_when_no_paths_exist(
         "instrument_id",
         status="error",
         status_details="Instrument path not found.;Backup path not found.;Output path not found.",
+        free_space_gb=789,
     )

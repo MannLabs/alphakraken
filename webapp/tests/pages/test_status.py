@@ -49,6 +49,7 @@ def test_status(
             "project_id": ["P1", "P2"],
             "status": ["not_done", "not_error"],
             "status_details": ["", ""],
+            "free_space_gb": [100, 200],
             "instrument_id": ["i1", "i1"],
         },
     )
@@ -68,6 +69,7 @@ def test_status(
             ],
             "status": ["ok", "error"],
             "status_details": ["", ""],
+            "free_space_gb": [100, 200],
         }
     )
 

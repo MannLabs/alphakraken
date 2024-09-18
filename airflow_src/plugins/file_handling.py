@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytz
 from airflow.exceptions import AirflowFailException
-from common.settings import BYTES_TO_MB, get_internal_instrument_data_path
+from common.settings import BYTES_TO_GB, BYTES_TO_MB, get_internal_instrument_data_path
 
 
 def get_file_creation_timestamp(
@@ -51,6 +51,17 @@ def get_file_size(
         f"File {file_path} has {file_size_bytes=} ({file_size_mb:.2f} MB)"
     ) if verbose else None
     return file_size_bytes
+
+
+def get_disk_usage(path: Path) -> tuple[int, int, int]:
+    """Get the disk space (total, used, free) of a path in GB."""
+    total_bytes, used_bytes, free_bytes = shutil.disk_usage(path)
+    total_gb, used_gb, free_gb = (
+        total_bytes * BYTES_TO_GB,
+        used_bytes * BYTES_TO_GB,
+        free_bytes * BYTES_TO_GB,
+    )
+    return total_gb, used_gb, free_gb
 
 
 def _get_file_hash(

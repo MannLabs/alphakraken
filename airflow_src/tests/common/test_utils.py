@@ -125,7 +125,7 @@ def test_trigger_dag_run(mock_trigger_dag: MagicMock, mock_datetime: MagicMock) 
 
     mock_trigger_dag.assert_called_once_with(
         dag_id="dag_id",
-        run_id="manual__1970-01-01T01:00:00",
+        run_id="manual__1970-01-01T00:00:00+00:00",
         conf={"key": "value"},
         execution_date=None,
         replace_microseconds=False,
@@ -145,9 +145,9 @@ def test_trigger_dag_run_with_delay(
 
     mock_trigger_dag.assert_called_once_with(
         dag_id="dag_id",
-        run_id="manual__1970-01-01T01:00:00",
+        run_id="manual__1970-01-01T00:00:00+00:00",
         conf={"key": "value"},
-        execution_date=datetime(1970, 1, 1, 11, 0, tzinfo=pytz.utc),
+        execution_date=datetime(1970, 1, 1, 10, 0, tzinfo=pytz.utc),
         replace_microseconds=False,
     )
 

@@ -411,6 +411,18 @@ services:
       - ${MOUNTS_PATH:?error}/instruments/test10:/opt/airflow/mounts/instruments/test10:ro
       - ${MOUNTS_PATH:?error}/backup/test10:/opt/airflow/mounts/backup/test10:rw
 
+  # INSTRUMENT: Test12
+  airflow-worker-test12:
+    <<: *airflow-worker
+    command: celery worker -q kraken_queue_test12
+    # there might be additional keys here, just copy them
+    volumes:
+      - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs:rw
+      - ${MOUNTS_PATH:?error}/output:/opt/airflow/mounts/output:ro
+      - ${MOUNTS_PATH:?error}/instruments/test12:/opt/airflow/mounts/instruments/test12:ro
+      - ${MOUNTS_PATH:?error}/backup/test12:/opt/airflow/mounts/backup/test12:rw
+
+
   # INSTRUMENT: Test11
   airflow-worker-test11:
     <<: *airflow-worker

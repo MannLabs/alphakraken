@@ -114,6 +114,8 @@ class AcquisitionMonitor(BaseSensorOperator):
             logging.info(f"New file(s) found: {new_dir_content}.")
 
             if len(new_dir_content) == 1:
+                # potential additional check: is the new file "small enough" to be considered a freshly started acquisition
+                # but: to adjust the threshold the poke frequency and the data output of the instrument need to be considered
                 logging.info("Considering previous acquisition to be done.")
                 return True
 

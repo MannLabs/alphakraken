@@ -54,6 +54,53 @@ def test_poke_file_dir_contents_change_file_is_added(
 
 @patch("plugins.sensors.acquisition_monitor.RawFileWrapperFactory")
 @patch("plugins.sensors.acquisition_monitor.update_raw_file")
+def test_poke_file_dir_contents_change_two_files_are_added(
+    mock_update_raw_file: MagicMock,
+    mock_raw_file_wrapper_factory: MagicMock,
+) -> None:
+    """Test poke method correctly returns when dir contents change (two files are added)."""
+    mock_path = MagicMock()
+    mock_path.stat.return_value = MagicMock(st_size=1)
+
+    mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.file_path_to_monitor_acquisition.return_value = mock_path
+
+    mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.get_raw_files_on_instrument.side_effect = [
+        {"some_file.raw"},  # initial content (pre_execute)
+        {"some_file.raw"},  # first poke
+        {
+            "some_file.raw",
+            "some_new_file_1.raw",
+            "some_new_file_2.raw",
+        },  # second poke -> two new files
+        {
+            "some_file.raw",
+            "some_new_file_1.raw",
+            "some_new_file_2.raw",
+            "some_new_file_3.raw",
+        },  # third poke -> one new file
+    ]
+
+    sensor = get_sensor()
+    sensor.pre_execute({DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"}})
+
+    # when
+    result = sensor.poke({})
+    assert not result
+
+    # two files -> false
+    result = sensor.poke({})
+    assert not result
+
+    result = sensor.poke({})
+    assert result
+
+    mock_update_raw_file.assert_called_once_with(
+        "some_file.raw", new_status="monitoring_acquisition"
+    )
+
+
+@patch("plugins.sensors.acquisition_monitor.RawFileWrapperFactory")
+@patch("plugins.sensors.acquisition_monitor.update_raw_file")
 def test_poke_file_dir_contents_change_file_is_removed(
     mock_update_raw_file: MagicMock,
     mock_raw_file_wrapper_factory: MagicMock,

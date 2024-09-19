@@ -1,8 +1,22 @@
 # AlphaKraken
-A new version of the Machine Kraken.
 
-Note: this Readme is relevant only for developers and administrators. Regular users should find all required documentation
-in the [AlphaKraken WebApp](http://<kraken_url>).
+A fully automated data processing and analysis system for mass spectrometry experiments:
+- monitors acquisitions on mass spectrometers
+- copies raw data to a backup location
+- runs AlphaDIA on every sample and provides metrics in a web application
+
+## User quick-start
+
+Important note: to not interfere with the automated processing, please stick to the following simple rule:
+
+> Do not touch the acquisition folders*!
+
+*i.e. the folders where the acquisition software writes the raw files to. In particular,
+do not **delete**, **rename** or **open** files in these folders and do not **copy** or **move** files *from* or *to* these folders!
+
+Regular users should find all required documentation in the [AlphaKraken WebApp](http://<kraken_url>).
+The rest of this Readme is relevant only for developers and administrators.
+
 
 ## Deployment
 This guide is both valid for a local setup (without connection to pool or cluster), and for sandbox/production setups.

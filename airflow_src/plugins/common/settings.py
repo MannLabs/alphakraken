@@ -58,6 +58,7 @@ ERROR_CODE_TO_STRING = {
     "_TRAIN_SET_WILL_BE_EMPTY": "the resulting train set will be empty",
     "_CYCLE_NOT_CONSISTENT": "but does not consistent",
     "_NO_PSM_FILES": "No psm files accumulated",  # will become a known error in alphadia >1.7.2
+    "_COMBINED_PSM_FILE_EMPTY": "combined psm file is empty, can't continue",
     "_NOT_DIA_DATA": "'TimsTOFTranspose' object has no attribute '_cycle'",  # will become a known error in alphadia >1.7.2
     "_KEY_MISSING_RT_CALIBRATED": "ERROR: 'rt_calibrated'",  # deliberately include "ERROR" here to be more specific
     "_FIRST_ARRAY_ELEMENT_EMPTY": "first array argument cannot be empty",

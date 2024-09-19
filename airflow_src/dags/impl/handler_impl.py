@@ -111,6 +111,7 @@ def decide_processing(ti: TaskInstance, **kwargs) -> bool:
         - if the raw file name contains special characters
     """
     raw_file_id = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID]
+    instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
 
     if acquisition_monitor_errors := get_xcom(
         ti, XComKeys.ACQUISITION_MONITOR_ERRORS, []
@@ -118,6 +119,10 @@ def decide_processing(ti: TaskInstance, **kwargs) -> bool:
         new_status = RawFileStatus.ACQUISITION_FAILED
         status_details = ";".join(acquisition_monitor_errors)
         logging.info(f"Acquisition monitor errors: {acquisition_monitor_errors}.")
+    # TODO: this is a temporary solution to avoid processing of test12 files, this info needs to go to the "INSTRUMENT" dictionary
+    elif instrument_id == "test12":
+        new_status = RawFileStatus.DONE_NOT_QUANTED
+        status_details = "Test12 not supported for quanting."
     elif DDA_FLAG_IN_RAW_FILE_NAME in raw_file_id.lower():
         new_status = RawFileStatus.DONE_NOT_QUANTED
         status_details = "Filename contains 'dda'."

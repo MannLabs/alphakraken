@@ -6,6 +6,7 @@ from common.keys import InstrumentKeys, InstrumentTypes
 
 from shared.db.models import RawFile, get_created_at_year_month
 
+# TODO: this needs to come from a DB to be flexible
 INSTRUMENTS = {
     # the toplevel keys determine the DAG name (e.g. 'instrument_watcher.test1')
     "test1": {

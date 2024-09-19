@@ -50,6 +50,7 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
     backup_base_path = pool_base_path / backup_pool_folder
 
     # a bit hacky to get the file size once again, but it's a cheap operation and avoids complicate logic
+    # TODO: in rare cases (manual intervention) this could yield to inconsistencies, change this!
     file_size = get_file_size(
         copy_wrapper.file_path_to_calculate_size(),
         DEFAULT_RAW_FILE_SIZE_IF_MAIN_FILE_MISSING,

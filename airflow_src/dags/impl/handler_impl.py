@@ -8,6 +8,7 @@ from airflow.models import TaskInstance
 from common.keys import DagContext, DagParams, Dags, OpArgs, XComKeys
 from common.settings import (
     DEFAULT_RAW_FILE_SIZE_IF_MAIN_FILE_MISSING,
+    Timings,
     get_internal_backup_path,
 )
 from common.utils import get_env_variable, get_xcom, trigger_dag_run
@@ -89,6 +90,8 @@ def start_file_mover(ti: TaskInstance, **kwargs) -> None:
         {
             DagParams.RAW_FILE_ID: raw_file_id,
         },
+        # start only after some time to detect upstream false positive errors in detecting finished acquisitions
+        time_delay_minutes=Timings.FILE_MOVE_DELAY_M,
     )
 
 

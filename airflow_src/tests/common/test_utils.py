@@ -1,14 +1,17 @@
 """Unit tests for the 'utils' module."""
 
+from datetime import datetime
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
+import pytz
 from airflow.models import Variable
 from plugins.common.utils import (
     get_airflow_variable,
     get_env_variable,
     get_xcom,
     put_xcom,
+    trigger_dag_run,
     truncate_string,
 )
 
@@ -109,6 +112,44 @@ def test_get_env_variable_raises_when_value_not_found() -> None:
     # when
     with pytest.raises(KeyError):
         get_env_variable("not_existing_env_var")
+
+
+@patch("plugins.common.utils.datetime")
+@patch("plugins.common.utils.trigger_dag")
+def test_trigger_dag_run(mock_trigger_dag: MagicMock, mock_datetime: MagicMock) -> None:
+    """Test that trigger_dag_run triggers a DAG run with the given configuration."""
+    mock_datetime.now.return_value = datetime.fromtimestamp(0, tz=pytz.utc)
+
+    # when
+    trigger_dag_run("dag_id", {"key": "value"})
+
+    mock_trigger_dag.assert_called_once_with(
+        dag_id="dag_id",
+        run_id="manual__1970-01-01T01:00:00",
+        conf={"key": "value"},
+        execution_date=None,
+        replace_microseconds=False,
+    )
+
+
+@patch("plugins.common.utils.datetime")
+@patch("plugins.common.utils.trigger_dag")
+def test_trigger_dag_run_with_delay(
+    mock_trigger_dag: MagicMock, mock_datetime: MagicMock
+) -> None:
+    """Test that trigger_dag_run triggers a DAG run with the given configuration and time delay."""
+    mock_datetime.now.return_value = datetime.fromtimestamp(0, tz=pytz.utc)
+
+    # when
+    trigger_dag_run("dag_id", {"key": "value"}, 10)
+
+    mock_trigger_dag.assert_called_once_with(
+        dag_id="dag_id",
+        run_id="manual__1970-01-01T01:00:00",
+        conf={"key": "value"},
+        execution_date=datetime(1970, 1, 1, 11, 0, tzinfo=pytz.utc),
+        replace_microseconds=False,
+    )
 
 
 def test_truncate_string_returns_none_if_input_is_none() -> None:

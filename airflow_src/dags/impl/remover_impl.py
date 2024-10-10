@@ -17,11 +17,11 @@ from common.settings import (
     get_internal_instrument_data_path,
 )
 from common.utils import get_airflow_variable, get_env_variable, get_xcom, put_xcom
-from db.models import RawFile
 from file_handling import get_disk_usage, get_file_size
 from raw_file_wrapper_factory import RawFileWrapperFactory, RemovePathProvider
 
 from shared.db.interface import get_raw_file_by_id, get_raw_files_by_age
+from shared.db.models import RawFile
 from shared.keys import EnvVars
 
 

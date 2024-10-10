@@ -139,6 +139,7 @@ def _is_file_present(raw_file: RawFile) -> bool:
         return False
 
     # TODO: this is a bit of a hack to check if the file is actually present, better check for a defined file
+    # or: make RawFileWrapperFactory.get_files handle it: return only files that exist (cf. comment in _get_files_to_copy())
     file_to_check = files_to_remove[0]
     if not file_to_check.exists():
         logging.info(

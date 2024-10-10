@@ -10,6 +10,7 @@ from dags.impl.remover_impl import (
     _check_file,
     _decide_on_raw_files_to_remove,
     _delete_empty_directory,
+    _is_file_present,
     _remove_files,
     _remove_folder,
     _safe_remove_files,
@@ -71,24 +72,21 @@ def test_get_raw_files_to_remove(
 
 @patch("dags.impl.remover_impl.get_internal_instrument_data_path")
 @patch("dags.impl.remover_impl.get_raw_files_by_age")
-@patch("dags.impl.remover_impl.RawFileWrapperFactory")
+@patch("dags.impl.remover_impl._is_file_present")
 @patch("dags.impl.remover_impl.get_disk_usage")
 def test_decide_on_raw_files_to_remove_ok(
     mock_get_disk_usage: MagicMock,
-    mock_raw_file_wrapper_factory: MagicMock,
+    mock_is_file_present: MagicMock,
     mock_get_raw_files_by_age: MagicMock,
     mock_get_internal_instrument_data_path: MagicMock,
 ) -> None:
     """Test that _decide_on_raw_files_to_remove returns the correct files to remove."""
     mock_get_disk_usage.return_value = (0, 0, 200)
 
-    mock_path = MagicMock()
-    mock_path.exists.side_effect = [False, True, True, True]
-    mock_raw_file_wrapper_factory.create_write_wrapper.return_value.get_files_to_remove.return_value = {
-        mock_path: None
-    }
+    mock_is_file_present.side_effect = [False, True, True, True]
 
     mock_get_raw_files_by_age.return_value = [
+        MagicMock(id="file0", size=None),  # skipped to due to 'None' size
         MagicMock(id="file1", size=70 * 1024**3),  # does not exist (cf. mock_path)
         MagicMock(id="file2", size=70 * 1024**3),
         MagicMock(id="file3", size=30 * 1024**3),
@@ -116,12 +114,10 @@ def test_decide_on_raw_files_to_remove_ok(
 @patch("dags.impl.remover_impl.get_disk_usage")
 def test_decide_on_raw_files_to_remove_nothing_to_remove_ok(
     mock_get_disk_usage: MagicMock,
-    mock_get_raw_files_by_age: MagicMock,
     mock_get_internal_instrument_data_path: MagicMock,
 ) -> None:
-    """Test that _decide_on_raw_files_to_remove returns the correct files to remove."""
+    """Test that _decide_on_raw_files_to_remove returns empty list in case free space is already enough."""
     mock_get_disk_usage.return_value = (0, 0, 300)
-    mock_get_raw_files_by_age.return_value = [MagicMock(id="file1", size=70 * 1024**3)]
     mock_path = MagicMock()
     mock_path.exists.return_value = True
     mock_get_internal_instrument_data_path.return_value = mock_path
@@ -134,6 +130,53 @@ def test_decide_on_raw_files_to_remove_nothing_to_remove_ok(
     )
 
     assert result == []
+
+
+@patch("dags.impl.remover_impl.RawFileWrapperFactory")
+def test_is_file_present_ok(
+    mock_raw_file_wrapper_factory: MagicMock,
+) -> None:
+    """Test that _is_file_present returns correctly in case file exists."""
+    mock_path = MagicMock()
+    mock_path.exists.return_value = True
+    mock_raw_file_wrapper_factory.create_write_wrapper.return_value.get_files_to_remove.return_value = {
+        mock_path: None
+    }
+
+    mock_raw_file = MagicMock()
+
+    # when
+    assert _is_file_present(mock_raw_file)
+
+
+@patch("dags.impl.remover_impl.RawFileWrapperFactory")
+def test_is_file_present_no_files_returned(
+    mock_raw_file_wrapper_factory: MagicMock,
+) -> None:
+    """Test that _is_file_present returns correctly in case no files are returned."""
+    mock_raw_file_wrapper_factory.create_write_wrapper.return_value.get_files_to_remove.return_value = {}
+
+    mock_raw_file = MagicMock()
+
+    # when
+    assert not _is_file_present(mock_raw_file)
+
+
+@patch("dags.impl.remover_impl.RawFileWrapperFactory")
+def test_is_file_present_path_does_not_exist(
+    mock_raw_file_wrapper_factory: MagicMock,
+) -> None:
+    """Test that _is_file_present returns correctly in case path does not exist."""
+    mock_path = MagicMock()
+    mock_path.exists.return_value = False
+    mock_raw_file_wrapper_factory.create_write_wrapper.return_value.get_files_to_remove.return_value = {
+        mock_path: None
+    }
+
+    mock_raw_file = MagicMock()
+
+    # when
+    assert not _is_file_present(mock_raw_file)
 
 
 @patch("dags.impl.remover_impl.get_file_size")

@@ -103,25 +103,34 @@ def _decide_on_raw_files_to_remove(
 
         sum_size_gb = 0
         for raw_file in raw_files:
+            logging.info(
+                f"Checking {raw_file.id=} {raw_file.size=} {raw_file.created_at=}"
+            )
+
             if raw_file.size is None:
                 logging.warning(f"Skipping {raw_file.id}: size is None.")
                 continue
 
             # TODO: this is a bit of a hack to check if the file is actually present, better check for a defined file
-            file_to_check = list(  # noqa: RUF015
+            files_to_remove = list(
                 RawFileWrapperFactory.create_write_wrapper(
                     raw_file, path_provider=RemovePathProvider
                 )
                 .get_files_to_remove()
                 .keys()
-            )[0]
+            )
+            if not files_to_remove:
+                logging.info(f"Skipping {raw_file.id}: no files to remove.")
+                continue
 
+            file_to_check = files_to_remove[0]
             if not file_to_check.exists():
                 logging.info(
                     f"Skipping {raw_file.id}: file {file_to_check} does not exist in instrument backup folder."
                 )
                 continue
 
+            # TODO: size should be taken from `file_info` to get the real size
             sum_size_gb += raw_file.size * BYTES_TO_GB
             raw_file_ids_to_remove[instrument_id].append(raw_file.id)
 

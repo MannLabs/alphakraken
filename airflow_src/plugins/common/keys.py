@@ -80,6 +80,7 @@ class XComKeys:
     FILES_TO_MOVE = "files_to_move"
     MAIN_FILE_TO_MOVE = "main_file_to_move"
     FILES_TO_REMOVE = "files_to_remove"
+    INSTRUMENTS_WITH_ERRORS = "instrument_with_errors"
 
 
 class InstrumentKeys:

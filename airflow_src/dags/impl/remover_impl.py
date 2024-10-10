@@ -5,8 +5,9 @@ import traceback
 from collections import defaultdict
 from pathlib import Path
 
+from airflow.exceptions import AirflowFailException
 from airflow.models import TaskInstance
-from common.keys import AirflowVars, XComKeys
+from common.keys import AirflowVars, Tasks, XComKeys
 from common.settings import (
     BYTES_TO_GB,
     DEFAULT_MAX_FILE_AGE_TO_REMOVE_D,
@@ -38,26 +39,38 @@ def get_raw_files_to_remove(ti: TaskInstance, **kwargs) -> None:
         )
     )
 
-    min_free_gb = int(get_airflow_variable(AirflowVars.MIN_FREE_SPACE_GB, "-1"))
+    min_free_space_gb = int(get_airflow_variable(AirflowVars.MIN_FREE_SPACE_GB, "-1"))
 
     raw_file_ids_to_remove = {}
-    if min_free_gb > 0:
-        for instrument_id in INSTRUMENTS:
-            raw_file_ids_to_remove[instrument_id] = _decide_on_raw_files_to_remove(
-                instrument_id,
-                min_free_gb=min_free_gb,
-                min_file_age=min_file_age,
-            )
-            logging.info(
-                f"Removing for {instrument_id} {len(raw_file_ids_to_remove[instrument_id])} files: {raw_file_ids_to_remove[instrument_id]}"
-            )
-    else:
+    instruments_with_errors = []
+    if min_free_space_gb <= 0:
         logging.warning(f"Skipping: {AirflowVars.MIN_FREE_SPACE_GB} not set.")
+    else:
+        for instrument_id in INSTRUMENTS:
+            try:
+                raw_file_ids_to_remove[instrument_id] = _decide_on_raw_files_to_remove(
+                    instrument_id,
+                    min_free_gb=min_free_space_gb,
+                    min_file_age=min_file_age,
+                )
+                logging.info(
+                    f"Removing for {instrument_id} {len(raw_file_ids_to_remove[instrument_id])} files: {raw_file_ids_to_remove[instrument_id]}"
+                )
+            except Exception:  # noqa: PERF203
+                # catch all errors to avoid one instrument blocking all others
+                logging.exception(f"Error for {instrument_id}.")
+                instruments_with_errors.append(instrument_id)
 
     put_xcom(
         ti,
         XComKeys.FILES_TO_REMOVE,
         raw_file_ids_to_remove,
+    )
+
+    put_xcom(
+        ti,
+        XComKeys.INSTRUMENTS_WITH_ERRORS,
+        instruments_with_errors,
     )
 
 
@@ -67,7 +80,7 @@ def _decide_on_raw_files_to_remove(
     min_free_gb: int,
     min_file_age: int,
 ) -> list[str]:
-    """Get from the DB the raw files to remove from the instrument backup folder.
+    """Get from the DB the raw files to remove from the instrument backup folder and select as many as needed.
 
     :param instrument_id: ID of the instrument
     :param min_free_gb: minimum free space in GB to keep on the instrument
@@ -335,4 +348,10 @@ def remove_raw_files(ti: TaskInstance, **kwargs) -> None:
                 f"Errors removing files for {instrument_id}:\n{errors_pretty}\n\n"
             )
 
-        raise ValueError("Errors removing files.")
+        raise AirflowFailException("Errors removing files.")
+
+    # Fail in case raw file selection failed in the upstream task to make these errors transparent in Airflow UI:
+    if instruments_with_errors := get_xcom(ti, XComKeys.INSTRUMENTS_WITH_ERRORS):
+        raise AirflowFailException(
+            f"Error in previous task {Tasks.GET_RAW_FILES_TO_REMOVE} for {instruments_with_errors=}. Check the logs there."
+        )

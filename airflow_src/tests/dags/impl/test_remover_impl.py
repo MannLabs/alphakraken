@@ -4,6 +4,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, call, patch
 
 import pytest
+from airflow.exceptions import AirflowFailException
 from common.keys import XComKeys
 from dags.impl.remover_impl import (
     FileRemovalError,
@@ -57,15 +58,55 @@ def test_get_raw_files_to_remove(
             ),
         ]
     )
-    mock_put_xcom.assert_called_once_with(
-        mock_ti,
-        XComKeys.FILES_TO_REMOVE,
-        {"instrument1": ["file1", "file2"], "instrument2": ["file3", "file4"]},
+    mock_put_xcom.assert_has_calls(
+        [
+            call(
+                mock_ti,
+                XComKeys.FILES_TO_REMOVE,
+                {"instrument1": ["file1", "file2"], "instrument2": ["file3", "file4"]},
+            ),
+            call(mock_ti, XComKeys.INSTRUMENTS_WITH_ERRORS, []),
+        ]
     )
     mock_get_airflow_variable.assert_has_calls(
         [
             call("min_file_age_to_remove_in_days", 14),
             call("min_free_space_gb", "-1"),
+        ]
+    )
+
+
+@patch("dags.impl.remover_impl.get_airflow_variable")
+@patch("dags.impl.remover_impl._decide_on_raw_files_to_remove")
+@patch("dags.impl.remover_impl.put_xcom")
+def test_get_raw_files_to_remove_handle_error(
+    mock_put_xcom: MagicMock,
+    mock_decide_on_raw_files_to_remove: MagicMock,
+    mock_get_airflow_variable: MagicMock,
+) -> None:
+    """Test that get_raw_files_to_remove gracefully handles errors."""
+    mock_ti = MagicMock()
+    mock_decide_on_raw_files_to_remove.side_effect = [
+        ValueError("Error"),
+        ["file3", "file4"],
+    ]
+
+    mock_get_airflow_variable.side_effect = [10, 42]
+
+    # when
+    with patch(
+        "dags.impl.remover_impl.INSTRUMENTS", {"instrument1": {}, "instrument2": {}}
+    ):
+        get_raw_files_to_remove(mock_ti)
+
+    mock_put_xcom.assert_has_calls(
+        [
+            call(
+                mock_ti,
+                XComKeys.FILES_TO_REMOVE,
+                {"instrument2": ["file3", "file4"]},
+            ),
+            call(mock_ti, XComKeys.INSTRUMENTS_WITH_ERRORS, ["instrument1"]),
         ]
     )
 
@@ -110,7 +151,6 @@ def test_decide_on_raw_files_to_remove_ok(
 
 
 @patch("dags.impl.remover_impl.get_internal_instrument_data_path")
-@patch("dags.impl.remover_impl.get_raw_files_by_age")
 @patch("dags.impl.remover_impl.get_disk_usage")
 def test_decide_on_raw_files_to_remove_nothing_to_remove_ok(
     mock_get_disk_usage: MagicMock,
@@ -427,10 +467,27 @@ def test_remove_raw_files_success(
 ) -> None:
     """Test that remove_raw_files successfully removes files."""
     mock_ti = MagicMock()
-    mock_get_xcom.return_value = {"instrument1": ["file1", "file2"]}
+    mock_get_xcom.side_effect = [{"instrument1": ["file1", "file2"]}, []]
 
     # when
     remove_raw_files(mock_ti)
+
+    # then
+    assert mock_safe_remove.call_count == 2  # noqa: PLR2004
+
+
+@patch("dags.impl.remover_impl.get_xcom")
+@patch("dags.impl.remover_impl._safe_remove_files")
+def test_remove_raw_files_upstream_task_failed(
+    mock_safe_remove: MagicMock, mock_get_xcom: MagicMock
+) -> None:
+    """Test that remove_raw_files successfully raises if an upstream operation failed."""
+    mock_ti = MagicMock()
+    mock_get_xcom.side_effect = [{"instrument1": ["file1", "file2"]}, ["instrument2"]]
+
+    # when
+    with pytest.raises(AirflowFailException):
+        remove_raw_files(mock_ti)
 
     # then
     assert mock_safe_remove.call_count == 2  # noqa: PLR2004
@@ -448,5 +505,5 @@ def test_remove_raw_files_error(
     mock_safe_remove.side_effect = [None, FileRemovalError("Removal failed")]
 
     # when
-    with pytest.raises(ValueError):
+    with pytest.raises(AirflowFailException):
         remove_raw_files(mock_ti)

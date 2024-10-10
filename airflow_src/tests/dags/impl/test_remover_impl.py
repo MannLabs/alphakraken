@@ -5,7 +5,6 @@ from unittest.mock import MagicMock, call, patch
 
 import pytest
 from common.keys import XComKeys
-from common.settings import INSTRUMENTS
 from dags.impl.remover_impl import (
     FileRemovalError,
     _check_file,
@@ -30,26 +29,42 @@ def test_get_raw_files_to_remove(
 ) -> None:
     """Test that get_raw_files_to_remove calls the correct functions and puts the result in XCom."""
     mock_ti = MagicMock()
-    mock_decide_on_raw_files_to_remove.return_value = {
-        "instrument1": ["file1", "file2"]
-    }
+    mock_decide_on_raw_files_to_remove.side_effect = [
+        ["file1", "file2"],
+        ["file3", "file4"],
+    ]
+
     mock_get_airflow_variable.side_effect = [10, 42]
 
     # when
-    get_raw_files_to_remove(mock_ti)
+    with patch(
+        "dags.impl.remover_impl.INSTRUMENTS", {"instrument1": {}, "instrument2": {}}
+    ):
+        get_raw_files_to_remove(mock_ti)
 
-    mock_decide_on_raw_files_to_remove.assert_called_once_with(
-        10, 42, INSTRUMENTS.keys()
+    mock_decide_on_raw_files_to_remove.assert_has_calls(
+        [
+            call(
+                "instrument1",
+                min_file_age=10,
+                min_free_gb=42,
+            ),
+            call(
+                "instrument2",
+                min_file_age=10,
+                min_free_gb=42,
+            ),
+        ]
     )
     mock_put_xcom.assert_called_once_with(
         mock_ti,
         XComKeys.FILES_TO_REMOVE,
-        mock_decide_on_raw_files_to_remove.return_value,
+        {"instrument1": ["file1", "file2"], "instrument2": ["file3", "file4"]},
     )
     mock_get_airflow_variable.assert_has_calls(
         [
-            call("min_free_space_gb", "-1"),
             call("min_file_age_to_remove_in_days", 14),
+            call("min_free_space_gb", "-1"),
         ]
     )
 
@@ -87,9 +102,13 @@ def test_decide_on_raw_files_to_remove_ok(
     ]
 
     # when
-    result = _decide_on_raw_files_to_remove(300, 30, ["instrument1", "instrument2"])
+    result = _decide_on_raw_files_to_remove(
+        "instrument1",
+        min_free_gb=300,
+        min_file_age=30,
+    )
 
-    assert result == {"instrument1": ["file2", "file3"]}
+    assert result == ["file2", "file3"]
 
 
 @patch("dags.impl.remover_impl.get_internal_instrument_data_path")
@@ -108,9 +127,13 @@ def test_decide_on_raw_files_to_remove_nothing_to_remove_ok(
     mock_get_internal_instrument_data_path.return_value = mock_path
 
     # when
-    result = _decide_on_raw_files_to_remove(300, 30, ["instrument1"])
+    result = _decide_on_raw_files_to_remove(
+        "instrument1",
+        min_free_gb=300,
+        min_file_age=30,
+    )
 
-    assert result == {}
+    assert result == []
 
 
 @patch("dags.impl.remover_impl.get_file_size")

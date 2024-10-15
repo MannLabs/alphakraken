@@ -66,7 +66,7 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
             pool=Pools.CLUSTER_SLOTS_POOL,
         )
 
-        wait_for_submission_ = WaitForJobStartSSHSensor(
+        wait_for_job_start_ = WaitForJobStartSSHSensor(
             task_id=Tasks.WAIT_FOR_JOB_START,
             poke_interval=Timings.QUANTING_MONITOR_POKE_INTERVAL_S,
             max_active_tis_per_dag=Concurrency.MAXNO_MONITOR_QUANTING_TASKS_PER_DAG,
@@ -96,7 +96,7 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
     (
         prepare_quanting_
         >> run_quanting_
-        >> wait_for_submission_
+        >> wait_for_job_start_
         >> monitor_quanting_
         >> check_quanting_result_
         >> compute_metrics_

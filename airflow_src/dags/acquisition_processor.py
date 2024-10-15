@@ -23,7 +23,7 @@ from impl.processor_impl import (
     run_quanting,
     upload_metrics,
 )
-from sensors.ssh_sensor import QuantingSSHSensor
+from sensors.ssh_sensor import QuantingSSHSensor, WaitForJobStartSSHSensor
 
 
 def create_acquisition_processor_dag(instrument_id: str) -> None:
@@ -58,15 +58,20 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
         run_quanting_ = PythonOperator(
             task_id=Tasks.RUN_QUANTING,
             python_callable=run_quanting,
-            # shares a pool with monitor_quanting to limit the number of concurrent jobs on the cluster
+            pool=Pools.CLUSTER_SLOTS_POOL,
+        )
+
+        wait_for_submission_ = WaitForJobStartSSHSensor(
+            task_id=Tasks.WAIT_FOR_JOB_START,
+            poke_interval=Timings.QUANTING_MONITOR_POKE_INTERVAL_S,
+            max_active_tis_per_dag=Concurrency.MAXNO_MONITOR_QUANTING_TASKS_PER_DAG,
             pool=Pools.CLUSTER_SLOTS_POOL,
         )
 
         monitor_quanting_ = QuantingSSHSensor(
             task_id=Tasks.MONITOR_QUANTING,
             poke_interval=Timings.QUANTING_MONITOR_POKE_INTERVAL_S,
-            max_active_tis_per_dag=Concurrency.MAXNO_MONITOR_QUANTING_TASKS_PER_DAG,
-            # shares a pool with monitor_quanting to limit the number of concurrent jobs on the cluster
+            max_active_tis_per_dag=Concurrency.MAXNO_MONITOR_QUANTING_TASKS_PER_DAG,  # shares a pool with run_quanting_ to limit the number of concurrent jobs on the cluster
             pool=Pools.CLUSTER_SLOTS_POOL,
         )
 
@@ -86,6 +91,7 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
     (
         prepare_quanting_
         >> run_quanting_
+        >> wait_for_submission_
         >> monitor_quanting_
         >> check_quanting_result_
         >> compute_metrics_

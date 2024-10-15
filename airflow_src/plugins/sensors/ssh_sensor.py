@@ -31,7 +31,7 @@ class SSHSensorOperator(BaseSensorOperator, ABC):
 
     @property
     @abstractmethod
-    def running_states(self) -> list[str]:
+    def states(self) -> list[str]:
         """Outputs of the command in `command_template` that are considered 'running'."""
 
     def __init__(self, *args, **kwargs):
@@ -51,7 +51,7 @@ class SSHSensorOperator(BaseSensorOperator, ABC):
         ssh_return = self.ssh_execute(self.command, self._ssh_hook)
         logging.info(f"ssh command returned: '{ssh_return}'")
 
-        if ssh_return in self.running_states:
+        if ssh_return in self.states:
             return False
 
         return True
@@ -126,8 +126,8 @@ class SSHSensorOperator(BaseSensorOperator, ABC):
         return response
 
 
-class QuantingSSHSensor(SSHSensorOperator):
-    """Monitor the status of a quanting job on the SLURM cluster."""
+class WaitForJobStartSSHSensor(SSHSensorOperator):
+    """Wait until a SLURM job leaves status 'PENDING'."""
 
     @property
     def command(self) -> str:
@@ -135,6 +135,20 @@ class QuantingSSHSensor(SSHSensorOperator):
         return get_job_state_cmd(self._job_id)
 
     @property
-    def running_states(self) -> list[str]:
-        """States that are considered 'running'."""
-        return [JobStates.PENDING, JobStates.RUNNING]
+    def states(self) -> list[str]:
+        """List of states that keep the sensor waiting."""
+        return [JobStates.PENDING]
+
+
+class QuantingSSHSensor(SSHSensorOperator):
+    """Wait until a SLURM job leaves status 'RUNNING'."""
+
+    @property
+    def command(self) -> str:
+        """See docu of superclass."""
+        return get_job_state_cmd(self._job_id)
+
+    @property
+    def states(self) -> list[str]:
+        """List of states that keep the sensor waiting."""
+        return [JobStates.RUNNING]

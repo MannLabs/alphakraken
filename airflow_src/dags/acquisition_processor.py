@@ -41,8 +41,13 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
             "queue": f"{AIRFLOW_QUEUE_PREFIX}{instrument_id}",
             # this callback is executed when tasks fail
             "on_failure_callback": on_failure_callback,
+            # make sure that downstream tasks are executed before any upstream tasks
+            # to make sure the cluster_slots_pool works correctly ("run_quanting" should only run if all "monitoring" tasks are done)
+            # cf. https://airflow.apache.org/docs/apache-airflow/stable/administration-and-deployment/priority-weight.html
+            "weight_rule": "upstream",
+            # TODO: add docu on cluster load control to readme
         },
-        description="Handle acquisition.",
+        description="Process acquired files and add metrics to DB.",
         catchup=False,
         tags=["acquisition_processor", instrument_id],
         params={DagParams.RAW_FILE_ID: Param(type="string", minimum=3)},

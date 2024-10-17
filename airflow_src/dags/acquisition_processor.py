@@ -24,6 +24,7 @@ from impl.processor_impl import (
     upload_metrics,
 )
 from sensors.ssh_sensor import QuantingSSHSensor, WaitForJobStartSSHSensor
+from strategies import EpochPriorityStrategy
 
 
 def create_acquisition_processor_dag(instrument_id: str) -> None:
@@ -58,6 +59,8 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
             task_id=Tasks.PREPARE_QUANTING,
             python_callable=prepare_quanting,
             op_kwargs={OpArgs.INSTRUMENT_ID: instrument_id},
+            # make the youngest created task the one with the highest prio (last in, first out)
+            priority_weight=EpochPriorityStrategy(),
         )
 
         run_quanting_ = PythonOperator(

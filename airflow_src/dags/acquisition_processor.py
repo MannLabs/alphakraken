@@ -16,6 +16,7 @@ from common.settings import (
     Pools,
     Timings,
 )
+from common.utils import get_minutes_since_fixed_time_point
 from impl.processor_impl import (
     check_quanting_result,
     compute_metrics,
@@ -24,7 +25,6 @@ from impl.processor_impl import (
     upload_metrics,
 )
 from sensors.ssh_sensor import QuantingSSHSensor, WaitForJobStartSSHSensor
-from strategies import EpochPriorityStrategy
 
 
 def create_acquisition_processor_dag(instrument_id: str) -> None:
@@ -46,9 +46,6 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
             # to make sure the cluster_slots_pool works correctly ("run_quanting" should only run if all "monitoring" tasks are done)
             # cf. https://airflow.apache.org/docs/apache-airflow/stable/administration-and-deployment/priority-weight.html
             "weight_rule": "upstream",
-            # TODO: add docu on cluster load control to readme
-            # make the youngest created task the one with the highest prio (last in, first out)
-            # "weight_rule": EpochPriorityStrategy(),
         },
         description="Process acquired files and add metrics to DB.",
         catchup=False,
@@ -61,7 +58,8 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
             task_id=Tasks.PREPARE_QUANTING,
             python_callable=prepare_quanting,
             op_kwargs={OpArgs.INSTRUMENT_ID: instrument_id},
-            priority_weight=EpochPriorityStrategy().get_weight(),
+            # make the youngest created task the one with the highest prio (last in, first out)
+            priority_weight=get_minutes_since_fixed_time_point(),
         )
 
         run_quanting_ = PythonOperator(
@@ -80,7 +78,9 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
         monitor_quanting_ = QuantingSSHSensor(
             task_id=Tasks.MONITOR_QUANTING,
             poke_interval=Timings.QUANTING_MONITOR_POKE_INTERVAL_S,
-            max_active_tis_per_dag=Concurrency.MAXNO_MONITOR_QUANTING_TASKS_PER_DAG,  # shares a pool with run_quanting_ to limit the number of concurrent jobs on the cluster
+            max_active_tis_per_dag=Concurrency.MAXNO_MONITOR_QUANTING_TASKS_PER_DAG,
+            # Note: if we decouple this task from cluster_slots_pool, then this setting would steer only the
+            #  number of 'pending' jobs, which might be more desirable in some cases.
             pool=Pools.CLUSTER_SLOTS_POOL,
         )
 

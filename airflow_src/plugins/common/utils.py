@@ -97,6 +97,20 @@ def get_timestamp() -> float:
     return datetime.now(tz=pytz.utc).timestamp()
 
 
+def get_minutes_since_fixed_time_point() -> int:
+    """Return the minutes since a given point in time as the priority weight.
+
+    See https://airflow.apache.org/docs/apache-airflow/stable/administration-and-deployment/priority-weight.html
+
+
+    Use minutes and baseline to avoid NumericValueOutOfRange error in the airflow DB.
+    """
+    current_epoch_time = get_timestamp()
+    baseline = datetime(2024, 1, 1, tzinfo=pytz.utc).timestamp()
+
+    return int((current_epoch_time - baseline) // 60)
+
+
 def get_cluster_ssh_hook() -> SSHHook:
     """Get the SSH hook for the cluster.
 

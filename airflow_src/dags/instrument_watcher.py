@@ -42,8 +42,8 @@ def create_instrument_watcher_dag(instrument_id: str) -> None:
             # this callback is executed when tasks fail
             "on_failure_callback": on_failure_callback,
             # Make sure the watcher tasks always have highest priority among all tasks in the system.
-            # As some weights use "epoch", set this to a very large value (fine until the year 2128)
-            "priority_weight": 5000000000,
+            # As some weights use "epoch", set this to a very large value (should be fine until the year 2128)
+            "priority_weight": 20000000,
         },
         description="Watch for new files.",
         tags=[

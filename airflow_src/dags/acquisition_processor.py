@@ -45,10 +45,10 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
             # make sure that downstream tasks are executed before any upstream tasks
             # to make sure the cluster_slots_pool works correctly ("run_quanting" should only run if all "monitoring" tasks are done)
             # cf. https://airflow.apache.org/docs/apache-airflow/stable/administration-and-deployment/priority-weight.html
-            # "weight_rule": "upstream",
+            "weight_rule": "upstream",
             # TODO: add docu on cluster load control to readme
             # make the youngest created task the one with the highest prio (last in, first out)
-            "weight_rule": EpochPriorityStrategy(),
+            # "weight_rule": EpochPriorityStrategy(),
         },
         description="Process acquired files and add metrics to DB.",
         catchup=False,
@@ -61,6 +61,7 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
             task_id=Tasks.PREPARE_QUANTING,
             python_callable=prepare_quanting,
             op_kwargs={OpArgs.INSTRUMENT_ID: instrument_id},
+            priority_weight=EpochPriorityStrategy().get_weight(),
         )
 
         run_quanting_ = PythonOperator(

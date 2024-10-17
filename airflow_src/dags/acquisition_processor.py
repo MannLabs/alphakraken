@@ -60,7 +60,7 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
             python_callable=prepare_quanting,
             op_kwargs={OpArgs.INSTRUMENT_ID: instrument_id},
             # make the youngest created task the one with the highest prio (last in, first out)
-            priority_weight=EpochPriorityStrategy(),
+            weight_rule=EpochPriorityStrategy(),
         )
 
         run_quanting_ = PythonOperator(

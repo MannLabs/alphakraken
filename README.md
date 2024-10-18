@@ -527,9 +527,9 @@ systemctl restart docker
 
 ### Cluster load management
 For each acquired file, a processing job on the SLURM cluster will be scheduled. If, for any reason, the number of
-concurrently running (and pending) jobs should be limited, set the size of the `cluster_slots_pool`
-(in the Airflow UI under "Admin" -> "Pools") accordingly. Note that this setting does not affect currently
-running (pr pending) jobs.
+concurrently submitted jobs should be limited, set the size of the `cluster_slots_pool`
+(in the Airflow UI under "Admin" -> "Pools") accordingly. Note that this setting does not affect
+jobs that have already been submitted and thus may take a while to take effect.
 
 ## Airflow Variables
 These variables are set in the Airflow UI under "Admin" -> "Variables". They steer the behavior of the whole system,

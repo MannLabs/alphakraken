@@ -125,7 +125,7 @@ def test_ssh_execute_multiple_tries(mock_sleep: MagicMock) -> None:
 
     # then
     assert result == "command output"
-    assert mock_sleep.call_count == 4  # noqa: PLR2004
+    assert mock_sleep.call_count == 5  # noqa: PLR2004
     assert ssh_hook.exec_ssh_client_command.call_count == 5  # noqa: PLR2004
 
     expected_call = call(

@@ -65,24 +65,28 @@ class SSHSensorOperator(BaseSensorOperator, ABC):
         *,
         max_tries: int = 10,
     ) -> str:
-        """Execute the given `command` via the `ssh_hook`."""
-        # this is a hack to prevent jobs to be run on the cluster, useful for debugging and initial setup.
+        """Execute the given `command` via the `ssh_hook`.
+
+        Sometimes the SSH command returns a nonzero exit status '254' or empty byte string,
+        in this case it is retried until it is 200 and nonempty until `max_tries` is reached.
+        """
+        # This is a hack to prevent jobs to be run on the cluster, useful for debugging and initial setup.
         # To get rid of this, e.g. set up a container with a fake ssh server
         if get_airflow_variable(AirflowVars.DEBUG_NO_CLUSTER_SSH, "False") == "True":
             return SSHSensorOperator._get_fake_ssh_response(command)
+
         if ssh_hook is None:
             ssh_hook = get_cluster_ssh_hook()
 
         str_stdout = ""
-
-        # Sometimes the SSH command returns an exit status '254' or empty byte string,
-        # so retry some time until it is 200 and nonempty
-        exit_status = -1
-        agg_stdout = b""
+        exit_status = None
+        agg_stdout = None
         call_count = 0
         while exit_status != 0 or agg_stdout in [b"", b"\n"]:
-            if exit_status != -1:
-                sleep(5 * call_count)
+            sleep(5 * call_count)  # no sleep in the first iteration
+            call_count += 1
+            if call_count >= max_tries:
+                raise AirflowFailException(f"Too many calls to ssh_execute: {command=}")
 
             exit_status, agg_stdout, agg_stderr = ssh_hook.exec_ssh_client_command(
                 ssh_hook.get_conn(),
@@ -97,10 +101,6 @@ class SSHSensorOperator(BaseSensorOperator, ABC):
                 f"ssh command call {call_count+1} returned: {exit_status=} {str_stdout_trunc=} {agg_stderr=}"
             )
 
-            call_count += 1
-            if call_count >= max_tries:
-                raise AirflowFailException(f"Too many calls to ssh_execute: {command=}")
-
         return str_stdout
 
     @staticmethod
@@ -110,7 +110,10 @@ class SSHSensorOperator(BaseSensorOperator, ABC):
 
     @staticmethod
     def _get_fake_ssh_response(command: str) -> str:
-        """Fake a ssh response for the given `command`."""
+        """Fake an ssh response for the given `command`.
+
+        Only for testing and debugging.
+        """
         logging.warning(
             f"Variable {AirflowVars.DEBUG_NO_CLUSTER_SSH} set: Not running SSH command on cluster:\n{command}"
         )

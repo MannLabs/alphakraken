@@ -85,8 +85,6 @@ class SSHSensorOperator(BaseSensorOperator, ABC):
         while exit_status != 0 or agg_stdout in [b"", b"\n"]:
             sleep(5 * call_count)  # no sleep in the first iteration
             call_count += 1
-            if call_count >= max_tries:
-                raise AirflowFailException(f"Too many calls to ssh_execute: {command=}")
 
             exit_status, agg_stdout, agg_stderr = ssh_hook.exec_ssh_client_command(
                 ssh_hook.get_conn(),
@@ -97,9 +95,12 @@ class SSHSensorOperator(BaseSensorOperator, ABC):
             )
             str_stdout = SSHSensorOperator._byte_to_string(agg_stdout)
             str_stdout_trunc = truncate_string(str_stdout)
+
             logging.info(
-                f"ssh command call {call_count+1} returned: {exit_status=} {str_stdout_trunc=} {agg_stderr=}"
+                f"ssh command call #{call_count} returned: {exit_status=} {str_stdout_trunc=} {agg_stderr=}"
             )
+            if call_count >= max_tries:
+                raise AirflowFailException(f"Too many calls to ssh_execute: {command=}")
 
         return str_stdout
 

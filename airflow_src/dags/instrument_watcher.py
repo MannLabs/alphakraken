@@ -26,7 +26,7 @@ from sensors.file_sensor import FileCreationSensor
 def create_instrument_watcher_dag(instrument_id: str) -> None:
     """Create instrument_watcher dag for instrument with `instrument_id`."""
     with DAG(
-        f"{Dags.ACQUISITON_WATCHER}{DAG_DELIMITER}{instrument_id}",
+        f"{Dags.ACQUISITION_WATCHER}{DAG_DELIMITER}{instrument_id}",
         schedule="@continuous",
         start_date=pendulum.datetime(2000, 1, 1, tz="UTC"),
         max_active_runs=1,

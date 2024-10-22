@@ -6,9 +6,9 @@ DAG_DELIMITER: str = "."
 class Dags:
     """Dag Names."""
 
-    ACQUISITON_WATCHER: str = "instrument_watcher"
+    ACQUISITION_WATCHER: str = "instrument_watcher"
     ACQUISITION_HANDLER: str = "acquisition_handler"
-    ACQUISITON_HANDLER: str = "acquisition_processor"
+    ACQUISITION_PROCESSOR: str = "acquisition_processor"
     FILE_MOVER: str = "file_mover"
     FILE_REMOVER: str = "file_remover"
 

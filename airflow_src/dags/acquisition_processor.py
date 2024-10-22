@@ -30,7 +30,7 @@ from sensors.ssh_sensor import QuantingSSHSensor, WaitForJobStartSSHSensor
 def create_acquisition_processor_dag(instrument_id: str) -> None:
     """Create acquisition_processor dag for instrument with `instrument_id`."""
     with DAG(
-        f"{Dags.ACQUISITON_HANDLER}{DAG_DELIMITER}{instrument_id}",
+        f"{Dags.ACQUISITION_PROCESSOR}{DAG_DELIMITER}{instrument_id}",
         schedule=None,
         # these are the default arguments for each TASK
         default_args={

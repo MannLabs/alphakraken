@@ -46,7 +46,10 @@ def move_files(ti: TaskInstance, **kwargs) -> None:
     files_to_actually_move, files_to_actually_remove = _get_files_to_move(files_to_move)
 
     if files_to_actually_move or files_to_actually_remove:
-        _check_main_file_to_move(ti, raw_file)
+        try:
+            _check_main_file_to_move(ti, raw_file)
+        except FileNotFoundError as e:
+            logging.warning(f"File not found: {e}")
 
     _move_files(files_to_actually_move)
     _move_files(files_to_actually_remove)  # files_to_actually_remove

@@ -40,17 +40,21 @@ def move_files(ti: TaskInstance, **kwargs) -> None:
     raw_file_id = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID]
     raw_file = get_raw_file_by_id(raw_file_id)
 
-    _check_main_file_to_move(ti, raw_file)
-
     files_to_move_str = get_xcom(ti, XComKeys.FILES_TO_MOVE)
     files_to_move = {Path(k): Path(v) for k, v in files_to_move_str.items()}
 
-    files_to_actually_move = _get_files_to_move(files_to_move)
+    files_to_actually_move, files_to_actually_remove = _get_files_to_move(files_to_move)
+
+    if files_to_actually_move or files_to_actually_remove:
+        _check_main_file_to_move(ti, raw_file)
 
     _move_files(files_to_actually_move)
+    _move_files(files_to_actually_remove)  # files_to_actually_remove
 
 
-def _get_files_to_move(files_to_check: dict[Path, Path]) -> dict[Path, Path]:
+def _get_files_to_move(
+    files_to_check: dict[Path, Path],
+) -> tuple[dict[Path, Path], dict[Path, Path]]:
     """Check if the files to move are in a consistent state with the destination.
 
     - source does not exist, but target does -> skip
@@ -59,6 +63,7 @@ def _get_files_to_move(files_to_check: dict[Path, Path]) -> dict[Path, Path]:
     - source exists and target exists -> raise
     """
     files_to_move = {}
+    files_to_remove = {}
     for src_path, dst_path in files_to_check.items():
         if not src_path.exists():
             if not dst_path.exists():
@@ -78,13 +83,15 @@ def _get_files_to_move(files_to_check: dict[Path, Path]) -> dict[Path, Path]:
             logging.info(f"  Files missing in target: {missing_files}")
             logging.info(f"  Files different in target: {different_files}")
             logging.info(f"  Files only in target: {items_only_in_target}")
-            # TODO: could try to remove if src and dst don't differ
 
-            raise AirflowFailException(f"{dst_path=} exists.")
+            if not missing_files and not different_files:
+                files_to_remove[src_path] = dst_path
+            else:
+                raise AirflowFailException(f"{dst_path=} exists.")
 
         files_to_move[src_path] = dst_path
 
-    return files_to_move
+    return files_to_move, files_to_remove
 
 
 def _move_files(files_to_move: dict[Path, Path]) -> None:
@@ -102,17 +109,35 @@ def _move_files(files_to_move: dict[Path, Path]) -> None:
         logging.info(f"Creating directory {dst_path.parent}")
         dst_path.parent.mkdir(parents=True, exist_ok=True)
 
+        # if remove:
+        #     logging.info(f"Removing raw file {src_path} to {dst_path}")
+        #     if dst_path.is_dir():
+        #         shutil.rmtree(dst_path)
+        #     else:
+        #         dst_path.unlink()
+        #     continue
+
         logging.info(f"Moving raw file {src_path} to {dst_path}")
+        do_rename = False
+        e = None
         try:
             shutil.move(src_path, dst_path)
         except PermissionError as e:
             # sometimes for Bruker raw files the `unlink` operation that is done in the course of `move`
             # fails on the `.m` subdirectory with a PermissionError.
             # In this case, try to rename the source directory to facilitate manual cleanup.
-
             if not src_path.is_dir():
                 raise e from e
 
+            do_rename = True
+
+        except OSError as e:
+            # some for .raw files
+            if not src_path.is_file():
+                raise e from e
+            do_rename = True
+
+        if do_rename:
             # the new name _MUST_ have a different extension (than .d), otherwise
             # it will be picked up as a new file
             new_name = f"{src_path!s}.deleteme"

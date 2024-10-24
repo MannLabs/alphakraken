@@ -84,17 +84,28 @@ def test_move_file_success(  # noqa: PLR0913
     mock_get_xcom: MagicMock,
 ) -> None:
     """Test move_raw_file makes correct calls."""
-    mock_src_path = MagicMock()
-    mock_src_path.exists.return_value = True
-    mock_dst_path = MagicMock()
-    mock_dst_path.exists.return_value = False
+    mock_src_path1 = MagicMock()
+    mock_dst_path1 = MagicMock()
+    mock_src_path2 = MagicMock()
+    mock_dst_path2 = MagicMock()
 
-    mock_path.side_effect = [mock_src_path, mock_dst_path]
+    mock_path.side_effect = [
+        mock_src_path1,
+        mock_dst_path1,
+        mock_src_path2,
+        mock_dst_path2,
+    ]
 
-    mock_get_xcom.return_value = {"/src/file1": "/dst/file1"}
+    mock_get_xcom.return_value = {
+        "/src/file1": "/dst/file1",
+        "/src/file2": "/dst/file2",
+    }
     ti = MagicMock()
 
-    mock_get_files_to_move.return_value = {mock_src_path: mock_dst_path}
+    mock_get_files_to_move.return_value = (
+        {mock_src_path1: mock_dst_path1},
+        {mock_src_path2, mock_dst_path2},
+    )
     raw_file = MagicMock()
     raw_file.instrument_id = "instrument1"
     mock_get_raw_file_by_id.return_value = raw_file
@@ -106,8 +117,15 @@ def test_move_file_success(  # noqa: PLR0913
     mock_check_main_file_to_move.assert_called_once_with(
         ti, mock_get_raw_file_by_id.return_value
     )
-    mock_get_files_to_move.assert_called_once_with({mock_src_path: mock_dst_path})
-    mock_move_files.assert_called_once_with({mock_src_path: mock_dst_path})
+    mock_get_files_to_move.assert_called_once_with(
+        {mock_src_path1: mock_dst_path1, mock_src_path2: mock_dst_path2}
+    )
+    mock_move_files.assert_has_calls(
+        [
+            call({mock_src_path1: mock_dst_path1}),
+            call({mock_src_path2, mock_dst_path2}, only_rename=True),
+        ]
+    )
     mock_get_raw_file_by_id.assert_called_once_with("123")
 
 
@@ -121,7 +139,7 @@ def test_get_files_to_move_success() -> None:
     # when
     result = _get_files_to_move({mock_src_path: mock_dst_path})
 
-    assert result == {mock_src_path: mock_dst_path}
+    assert result == ({mock_src_path: mock_dst_path}, {})
 
 
 def test_get_files_to_move_only_dst_exists_ok() -> None:
@@ -132,7 +150,7 @@ def test_get_files_to_move_only_dst_exists_ok() -> None:
     mock_dst_path.exists.return_value = True
 
     # when
-    assert {} == _get_files_to_move({mock_src_path: mock_dst_path})
+    assert _get_files_to_move({mock_src_path: mock_dst_path}) == ({}, {})
 
 
 def test_get_files_to_move_both_files_dont_exist_raise() -> None:
@@ -148,10 +166,10 @@ def test_get_files_to_move_both_files_dont_exist_raise() -> None:
 
 
 @patch("dags.impl.mover_impl.compare_paths")
-def test_get_files_to_move_both_files_exist_but_different_eaises(
+def test_get_files_to_move_both_files_exist_but_different_raises(
     mock_compare_paths: MagicMock,
 ) -> None:
-    """Test move_raw_file raises if both files are present and equal."""
+    """Test move_raw_file raises if both files are present and not equal."""
     mock_src_path = MagicMock()
     mock_src_path.exists.return_value = True
     mock_dst_path = MagicMock()
@@ -167,6 +185,27 @@ def test_get_files_to_move_both_files_exist_but_different_eaises(
     mock_compare_paths.assert_called_once_with(mock_src_path, mock_dst_path)
 
 
+@patch("dags.impl.mover_impl.compare_paths")
+def test_get_files_to_move_both_files_exist_but_are_equal(
+    mock_compare_paths: MagicMock,
+) -> None:
+    """Test move_raw_file return correctly if both files are present and equal."""
+    mock_src_path = MagicMock()
+    mock_src_path.exists.return_value = True
+    mock_dst_path = MagicMock()
+    mock_dst_path.exists.return_value = True
+
+    mock_compare_paths.return_value = [], [], []
+
+    # when
+    assert _get_files_to_move({mock_src_path: mock_dst_path}) == (
+        {},
+        {mock_src_path: mock_dst_path},
+    )
+
+    mock_compare_paths.assert_called_once_with(mock_src_path, mock_dst_path)
+
+
 @patch.dict(os.environ, {"ENV_NAME": "production"})
 @patch("dags.impl.mover_impl.shutil.move")
 def test_move_files_success_production(
@@ -175,6 +214,8 @@ def test_move_files_success_production(
     """Test _move_files success for two paths."""
     mock_src_path1, mock_dst_path1 = MagicMock(), MagicMock()
     mock_src_path2, mock_dst_path2 = MagicMock(), MagicMock()
+    mock_dst_path1.parent.exists.return_value = False
+    mock_dst_path2.parent.exists.return_value = True
 
     # when
     _move_files({mock_src_path1: mock_dst_path1, mock_src_path2: mock_dst_path2})
@@ -187,7 +228,30 @@ def test_move_files_success_production(
     )
 
     mock_dst_path1.parent.mkdir.assert_called_once_with(parents=True, exist_ok=True)
-    mock_dst_path2.parent.mkdir.assert_called_once_with(parents=True, exist_ok=True)
+    mock_dst_path2.parent.mkdir.assert_not_called()
+
+
+@patch.dict(os.environ, {"ENV_NAME": "production"})
+@patch("dags.impl.mover_impl.shutil.move")
+def test_move_files_rename_success(
+    mock_shutil_move: MagicMock,
+) -> None:
+    """Test _move_files success for two paths."""
+    mock_src_path1, mock_dst_path1 = MagicMock(), MagicMock()
+    mock_src_path2, mock_dst_path2 = MagicMock(), MagicMock()
+    mock_dst_path1.parent.exists.return_value = False
+    mock_dst_path2.parent.exists.return_value = True
+
+    # when
+    _move_files(
+        {mock_src_path1: mock_dst_path1, mock_src_path2: mock_dst_path2},
+        only_rename=True,
+    )
+
+    mock_shutil_move.assert_not_called()
+
+    mock_src_path1.rename.assert_called_once_with(f"{mock_src_path1}.deleteme")
+    mock_src_path2.rename.assert_called_once_with(f"{mock_src_path2}.deleteme")
 
 
 @patch.dict(os.environ, {"ENV_NAME": "NOT_production"})
@@ -226,8 +290,6 @@ def test_move_files_permission_error_dir_rename(
     mock_shutil_move.assert_called_once_with(mock_src_path1, mock_dst_path1)
 
     mock_src_path1.rename.assert_called_once_with(f"{mock_src_path1!s}.deleteme")
-
-    mock_dst_path1.parent.mkdir.assert_called_once_with(parents=True, exist_ok=True)
 
 
 @patch.dict(os.environ, {"ENV_NAME": "production"})

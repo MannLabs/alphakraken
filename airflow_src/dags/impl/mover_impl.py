@@ -43,21 +43,20 @@ def move_files(ti: TaskInstance, **kwargs) -> None:
     files_to_move_str = get_xcom(ti, XComKeys.FILES_TO_MOVE)
     files_to_move = {Path(k): Path(v) for k, v in files_to_move_str.items()}
 
-    files_to_actually_move, files_to_actually_remove = _get_files_to_move(files_to_move)
+    files_to_actually_move = _get_files_to_move(files_to_move)
 
-    if files_to_actually_move or files_to_actually_remove:
+    if files_to_actually_move:
         try:
             _check_main_file_to_move(ti, raw_file)
         except FileNotFoundError as e:
             logging.warning(f"File not found: {e}")
 
     _move_files(files_to_actually_move)
-    _move_files(files_to_actually_remove)  # files_to_actually_remove
 
 
 def _get_files_to_move(
     files_to_check: dict[Path, Path],
-) -> tuple[dict[Path, Path], dict[Path, Path]]:
+) -> dict[Path, Path]:
     """Check if the files to move are in a consistent state with the destination.
 
     - source does not exist, but target does -> skip
@@ -66,7 +65,6 @@ def _get_files_to_move(
     - source exists and target exists -> raise
     """
     files_to_move = {}
-    files_to_remove = {}
     for src_path, dst_path in files_to_check.items():
         if not src_path.exists():
             if not dst_path.exists():
@@ -87,14 +85,12 @@ def _get_files_to_move(
             logging.info(f"  Files different in target: {different_files}")
             logging.info(f"  Files only in target: {items_only_in_target}")
 
-            if not missing_files and not different_files:
-                files_to_remove[src_path] = dst_path
-            else:
+            if missing_files or different_files:
                 raise AirflowFailException(f"{dst_path=} exists.")
 
         files_to_move[src_path] = dst_path
 
-    return files_to_move, files_to_remove
+    return files_to_move
 
 
 def _move_files(files_to_move: dict[Path, Path]) -> None:

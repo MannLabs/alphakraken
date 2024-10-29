@@ -5,8 +5,6 @@ import os
 # ruff: noqa: TRY301 # Abstract `raise` to an inner function
 import pandas as pd
 import streamlit as st
-from db.interface import add_new_settings_to_db
-from db.models import ProjectStatus
 from service.components import show_filter, show_sandbox_message
 from service.db import (
     df_from_db_data,
@@ -20,6 +18,8 @@ from service.utils import (
     show_feedback_in_sidebar,
 )
 
+from shared.db.interface import add_new_settings_to_db
+from shared.db.models import ProjectStatus
 from shared.keys import EnvVars
 
 _log(f"loading {__file__}")

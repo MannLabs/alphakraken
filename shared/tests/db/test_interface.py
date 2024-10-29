@@ -5,7 +5,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import pytz
-from db.models import RawFileStatus
 
 from shared.db.interface import (
     add_metrics_to_raw_file,
@@ -19,6 +18,7 @@ from shared.db.interface import (
     update_kraken_status,
     update_raw_file,
 )
+from shared.db.models import RawFileStatus
 
 
 @patch("shared.db.interface.connect_db")

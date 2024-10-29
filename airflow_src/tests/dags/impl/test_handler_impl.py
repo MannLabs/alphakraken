@@ -13,7 +13,8 @@ from dags.impl.handler_impl import (
     start_acquisition_processor,
     start_file_mover,
 )
-from db.models import RawFileStatus
+
+from shared.db.models import RawFileStatus
 
 
 @patch.dict(

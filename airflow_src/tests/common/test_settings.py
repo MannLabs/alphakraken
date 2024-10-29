@@ -6,7 +6,8 @@ from unittest.mock import MagicMock
 
 import pytz
 from common.settings import get_output_folder_rel_path
-from db.models import RawFile
+
+from shared.db.models import RawFile
 
 
 def test_get_output_folder_rel_path_no_fallback() -> None:

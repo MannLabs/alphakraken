@@ -16,8 +16,9 @@ from dags.impl.watcher_impl import (
     get_unknown_raw_files,
     start_acquisition_handler,
 )
-from db.models import RawFile
 from plugins.common.keys import OpArgs, XComKeys
+
+from shared.db.models import RawFile
 
 SOME_INSTRUMENT_ID = "some_instrument_id"
 

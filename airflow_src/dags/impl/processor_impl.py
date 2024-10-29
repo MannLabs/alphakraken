@@ -14,6 +14,7 @@ from cluster_scripts.slurm_commands import (
     get_run_quanting_cmd,
 )
 from common.keys import (
+    QUANTING_TIME_ELAPSED_METRIC,
     AirflowVars,
     CustomAlphaDiaStates,
     DagContext,
@@ -271,6 +272,11 @@ def check_quanting_result(ti: TaskInstance, **kwargs) -> bool:
             new_status=RawFileStatus.QUANTING_FAILED,
             status_details=";".join(errors),
         )
+        add_metrics_to_raw_file(
+            raw_file.id,
+            metrics={QUANTING_TIME_ELAPSED_METRIC: time_elapsed},
+            settings_version=quanting_env[QuantingEnv.SETTINGS_VERSION],
+        )
 
         # fail the DAG without retry on new errors to make them transparent in Airflow UI
         states_to_fail_task = [
@@ -320,7 +326,7 @@ def upload_metrics(ti: TaskInstance, **kwargs) -> None:
     quanting_env = get_xcom(ti, XComKeys.QUANTING_ENV)
     metrics = get_xcom(ti, XComKeys.METRICS)
 
-    metrics["quanting_time_elapsed"] = get_xcom(ti, XComKeys.QUANTING_TIME_ELAPSED)
+    metrics[QUANTING_TIME_ELAPSED_METRIC] = get_xcom(ti, XComKeys.QUANTING_TIME_ELAPSED)
 
     add_metrics_to_raw_file(
         raw_file_id,

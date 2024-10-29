@@ -318,7 +318,9 @@ def test_check_quanting_result_unknown_job_status(
 @patch("dags.impl.processor_impl.SSHSensorOperator.ssh_execute")
 @patch("dags.impl.processor_impl.get_business_errors")
 @patch("dags.impl.processor_impl.update_raw_file")
-def test_check_quanting_result_business_error(
+@patch("dags.impl.processor_impl.add_metrics_to_raw_file")
+def test_check_quanting_result_business_error(  # noqa: PLR0913
+    mock_add_metrics: MagicMock,
     mock_update_raw_file: MagicMock,
     mock_get_business_errors: MagicMock,
     mock_ssh_execute: MagicMock,
@@ -332,6 +334,7 @@ def test_check_quanting_result_business_error(
         {
             QuantingEnv.RAW_FILE_ID: "test_file.raw",
             QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID1",
+            QuantingEnv.SETTINGS_VERSION: 1,
         },
     ]
     mock_raw_file = MagicMock(wraps=RawFile, id="test_file.raw")
@@ -350,6 +353,9 @@ def test_check_quanting_result_business_error(
         new_status="quanting_failed",
         status_details="error1;error2",
     )
+    mock_add_metrics.assert_called_once_with(
+        "test_file.raw", metrics={"quanting_time_elapsed": 522}, settings_version=1
+    )
 
 
 @patch("dags.impl.processor_impl.get_xcom")
@@ -357,7 +363,9 @@ def test_check_quanting_result_business_error(
 @patch("dags.impl.processor_impl.SSHSensorOperator.ssh_execute")
 @patch("dags.impl.processor_impl.get_business_errors")
 @patch("dags.impl.processor_impl.update_raw_file")
-def test_check_quanting_result_business_error_raises(
+@patch("dags.impl.processor_impl.add_metrics_to_raw_file")
+def test_check_quanting_result_business_error_raises(  # noqa: PLR0913
+    mock_add_metrics: MagicMock,
     mock_update_raw_file: MagicMock,
     mock_get_business_errors: MagicMock,
     mock_ssh_execute: MagicMock,
@@ -371,6 +379,7 @@ def test_check_quanting_result_business_error_raises(
         {
             QuantingEnv.RAW_FILE_ID: "test_file.raw",
             QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID1",
+            QuantingEnv.SETTINGS_VERSION: 1,
         },
     ]
     mock_raw_file = MagicMock(wraps=RawFile, id="test_file.raw")
@@ -389,13 +398,18 @@ def test_check_quanting_result_business_error_raises(
         new_status="quanting_failed",
         status_details="error1;__UNKNOWN_ERROR",
     )
+    mock_add_metrics.assert_called_once_with(
+        "test_file.raw", metrics={"quanting_time_elapsed": 522}, settings_version=1
+    )
 
 
 @patch("dags.impl.processor_impl.get_xcom")
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.SSHSensorOperator.ssh_execute")
 @patch("dags.impl.processor_impl.update_raw_file")
+@patch("dags.impl.processor_impl.add_metrics_to_raw_file")
 def test_check_quanting_result_timeout(
+    mock_add_metrics: MagicMock,
     mock_update_raw_file: MagicMock,
     mock_ssh_execute: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
@@ -408,6 +422,7 @@ def test_check_quanting_result_timeout(
         {
             QuantingEnv.RAW_FILE_ID: "test_file.raw",
             QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID1",
+            QuantingEnv.SETTINGS_VERSION: 1,
         },
     ]
     mock_raw_file = MagicMock(wraps=RawFile, id="test_file.raw")
@@ -423,6 +438,9 @@ def test_check_quanting_result_timeout(
         "test_file.raw",
         new_status="quanting_failed",
         status_details="TIMEOUT",
+    )
+    mock_add_metrics.assert_called_once_with(
+        "test_file.raw", metrics={"quanting_time_elapsed": 522}, settings_version=1
     )
 
 

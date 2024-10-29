@@ -3,6 +3,9 @@
 DAG_DELIMITER: str = "."
 
 
+QUANTING_TIME_ELAPSED_METRIC: str = "quanting_time_elapsed"
+
+
 class Dags:
     """Dag Names."""
 

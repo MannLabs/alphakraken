@@ -156,6 +156,12 @@ def _display_table_and_plots(
                 "quanting_time_minutes",
             ],
             formatter="{:.3}",
+        )
+        .format(
+            subset=[
+                "settings_version",
+            ],
+            formatter="{:.0f}",
         ),
         column_order=column_order,
     )

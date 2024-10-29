@@ -60,6 +60,14 @@ To ensure a smooth automated processing, please follow these rules:
 - If your file name contains `_dda_`, they will also not be quanted.""")
 
 c1.markdown(f"""### FAQ
+
+Q: Why is there a strange prefix (like "20241029-162042-876912-") in front of my file name?
+
+A: This is because a file with the same name was already processed.
+File name uniqueness is a prerequisite for all automated downstream processing to work correctly,
+to tell those collision cases apart, a timestamp is added as a prefix.
+
+
 Q: Where to I find the AlphaDIA output files?
 
 A:  The output files associated for a given raw file are stored at

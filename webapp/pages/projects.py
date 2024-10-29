@@ -46,8 +46,6 @@ quanting_pool_folder = os.environ.get(EnvVars.QUANTING_POOL_FOLDER)
 
 st.warning("This page should be edited only by AlphaKraken admin users!", icon="⚠️")
 
-c1, _ = st.columns([0.5, 0.5])
-
 
 @st.experimental_fragment
 def display_projects(
@@ -61,7 +59,7 @@ def display_projects(
     )
 
 
-display_projects(projects_df, c1)
+display_projects(projects_df)
 
 # ########################################### FORM
 
@@ -87,6 +85,7 @@ form_items = {
     },
 }
 
+c1, _ = st.columns([0.5, 0.5])
 with c1.expander("Click here for help ..."):
     st.info(
         """

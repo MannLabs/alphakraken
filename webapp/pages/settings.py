@@ -51,8 +51,6 @@ st.markdown("## Current settings")
 
 st.warning("This page should be edited only by AlphaKraken admin users!", icon="⚠️")
 
-c1, _ = st.columns([0.5, 0.5])
-
 
 @st.experimental_fragment
 def display_settings(
@@ -81,8 +79,9 @@ def display_settings(
     )
 
 
-display_settings(settings_df, c1)
+display_settings(settings_df)
 
+c1, _ = st.columns([0.5, 0.5])
 with c1.expander("Click here for help ..."):
     st.info(
         """

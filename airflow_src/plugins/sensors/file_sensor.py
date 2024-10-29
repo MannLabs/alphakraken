@@ -4,7 +4,9 @@ Wait until creation of a new file or folder.
 """
 
 import logging
+from datetime import datetime, timedelta
 
+import pytz
 from airflow.sensors.base import BaseSensorOperator
 from common.settings import (
     get_internal_backup_path,
@@ -20,6 +22,11 @@ from shared.db.models import KrakenStatusValues
 
 # to reduce network traffic, do the health check only every few minutes. If changed, adapt also webapp color code.
 HEALTH_CHECK_INTERVAL_M: int = 5
+
+# consider the sensor as "success" after this time.
+# This is to avoid the sensor running indefinitely if no files are found, and to recover more quickly in some edge cases.
+# Note: The downstream tasks need to be able to handle the "no files found" case.
+SOFT_FAIL_TIMEOUT_H: int = 6
 
 
 def _check_health(instrument_id: str) -> None:
@@ -62,6 +69,7 @@ class FileCreationSensor(BaseSensorOperator):
         self._raw_file_monitor_wrapper = RawFileWrapperFactory.create_monitor_wrapper(
             instrument_id=instrument_id
         )
+        self._start_time = datetime.now(tz=pytz.utc)
 
         self._initial_dir_contents: set | None = None
         self._latest_health_check_timestamp: float = 0.0
@@ -94,6 +102,12 @@ class FileCreationSensor(BaseSensorOperator):
             - self._initial_dir_contents
         ):
             logging.info(f"got new dir_content {new_dir_content}")
+            return True
+
+        if self._start_time + timedelta(hours=SOFT_FAIL_TIMEOUT_H) < datetime.now(
+            tz=pytz.utc
+        ):
+            logging.info("Sensor timed out.")
             return True
 
         return False

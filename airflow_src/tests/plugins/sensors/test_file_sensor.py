@@ -1,9 +1,12 @@
 """Unit tests for the file sensor plugin."""
 
+from datetime import datetime
+
 # ruff: noqa: SLF001 # Private member accessed
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytz
 from plugins.sensors.file_sensor import FileCreationSensor, _check_health
 
 from shared.db.models import KrakenStatusValues
@@ -68,6 +71,25 @@ def test_poke_file_created(
     # then
     assert result
     mock_check_health.assert_called_once_with("some_instrument_id")
+
+
+@patch("plugins.sensors.file_sensor.RawFileWrapperFactory")
+@patch("plugins.sensors.file_sensor._check_health")
+@patch("plugins.sensors.file_sensor.datetime")
+def test_file_creation_sensor_timeout(
+    mock_datetime: MagicMock,
+    mock_check_health: MagicMock,  # noqa: ARG001
+    mock_raw_file_wrapper_factory: MagicMock,  # noqa: ARG001
+) -> None:
+    """Test that the sensor times out after the specified timeout period."""
+    mock_datetime.now.return_value = datetime(2023, 1, 1, 12, 0, 0, tzinfo=pytz.utc)
+    sensor = get_sensor()
+    sensor._start_time = datetime(2023, 1, 1, 6, 0, 0, tzinfo=pytz.utc)
+
+    # Simulate the passage of time to trigger the timeout
+    mock_datetime.now.return_value = datetime(2023, 1, 1, 12, 1, 0, tzinfo=pytz.utc)
+
+    assert sensor.poke({}) is True
 
 
 @patch("plugins.sensors.file_sensor.update_kraken_status")

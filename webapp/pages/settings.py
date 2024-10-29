@@ -183,9 +183,13 @@ if selected_project:
             "I have uploaded the above files to this folder.", value=False
         )
 
-        submit = st.form_submit_button(f"Add settings to project {selected_project.id}")
-        if len(settings_df[settings_df["project"] == selected_project.id]):
+        if "project" in settings_df.columns and len(
+            settings_df[settings_df["project"] == selected_project.id]
+        ):
             st.info("The current settings for this project will be set to 'inactive'.")
+
+        submit = st.form_submit_button(f"Add settings to project {selected_project.id}")
+
 
 if selected_project and submit:
     try:

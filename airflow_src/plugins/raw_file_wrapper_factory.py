@@ -12,7 +12,6 @@ from typing import Union
 
 from common.keys import InstrumentTypes
 from common.settings import (
-    COLLISION_FLAG_SEP,
     INSTRUMENT_BACKUP_FOLDER_NAME,
     get_instrument_type,
     get_internal_backup_path_for_instrument,
@@ -32,29 +31,42 @@ class RawFileMonitorWrapper(ABC):
     # The 'main file name' is just required if the instrument produces a folder.
     main_file_name: str | None = None
 
-    def __init__(self, instrument_id: str, raw_file_name: str | None = None):
+    def __init__(
+        self,
+        instrument_id: str,
+        raw_file: RawFile | None = None,
+        raw_file_original_name: str | None = None,
+    ):
         """Initialize the RawFileMonitorWrapper.
 
         :param instrument_id: The ID of the instrument
-        :param raw_file_name: The name of the raw file. Needs to be set to allow calling file_path_to_monitor_acquisition().
+        :param raw_file: The raw file object from DB.
+        :param raw_file_original_name: The original name of the raw file.
+
+        raw_file and raw_file_original_name are mutually exclusive, one of them
+        needs to be set to allow calling file_path_to_monitor_acquisition().
         """
         self._instrument_path = get_internal_instrument_data_path(instrument_id)
 
-        # Extracting the collision flag like this is a bit hacky,
-        # but it makes the class work also without the raw_file object.
-        self._raw_file_name: str | None = (
-            raw_file_name
-            if (raw_file_name is None or COLLISION_FLAG_SEP not in raw_file_name)
-            else raw_file_name.split(COLLISION_FLAG_SEP, maxsplit=1)[1]
-        )
+        original_name = None
+        if raw_file_original_name is not None:
+            if raw_file is not None:
+                raise ValueError(
+                    "Either raw_file or raw_file_original_name should be set, not both."
+                )
+            original_name = raw_file_original_name
+        elif raw_file is not None:
+            original_name = raw_file.original_name
 
         if (
-            self._raw_file_name is not None
-            and (ext := Path(self._raw_file_name).suffix) != self._raw_file_extension
+            original_name is not None
+            and (ext := Path(original_name).suffix) != self._raw_file_extension
         ):
             raise ValueError(
                 f"Unsupported file extension: {ext}, expected {self._raw_file_extension}"
             )
+
+        self._raw_file_original_name: str | None = original_name
 
     def get_raw_files_on_instrument(self) -> set[str]:
         """Get the current raw file names (only with the relevant extension) in the instrument directory."""
@@ -69,7 +81,7 @@ class RawFileMonitorWrapper(ABC):
 
     def file_path_to_monitor_acquisition(self) -> Path:
         """Get the path to the file to watch for changes."""
-        if self._raw_file_name is None:
+        if self._raw_file_original_name is None:
             raise ValueError("Raw file name not set.")
 
         file_path_to_monitor_acquisition = self._file_path_to_monitor_acquisition()
@@ -93,7 +105,7 @@ class ThermoRawFileMonitorWrapper(RawFileMonitorWrapper):
 
     def _file_path_to_monitor_acquisition(self) -> Path:
         """Get the (absolute) path to the raw file to monitor."""
-        return self._instrument_path / self._raw_file_name
+        return self._instrument_path / self._raw_file_original_name
 
 
 class ZenoRawFileMonitorWrapper(RawFileMonitorWrapper):
@@ -103,7 +115,7 @@ class ZenoRawFileMonitorWrapper(RawFileMonitorWrapper):
 
     def _file_path_to_monitor_acquisition(self) -> Path:
         """Get the (absolute) path to the raw file to monitor."""
-        return self._instrument_path / self._raw_file_name
+        return self._instrument_path / self._raw_file_original_name
 
 
 class BrukerRawFileMonitorWrapper(RawFileMonitorWrapper):
@@ -114,7 +126,9 @@ class BrukerRawFileMonitorWrapper(RawFileMonitorWrapper):
 
     def _file_path_to_monitor_acquisition(self) -> Path:
         """Get the (absolute) path to the main raw data file to monitor."""
-        return self._instrument_path / self._raw_file_name / self.main_file_name
+        return (
+            self._instrument_path / self._raw_file_original_name / self.main_file_name
+        )
 
 
 class PathProvider(ABC):
@@ -130,7 +144,7 @@ class PathProvider(ABC):
         self._raw_file = raw_file
 
     @abstractmethod
-    def get_source_path(self) -> Path:
+    def get_source_path(self) -> Path:  # TODO: rename to get_source_folder_path
         """Get the source path (=folder where raw file is located) for a raw file operation."""
 
     @abstractmethod
@@ -240,7 +254,7 @@ class RawFileWriteWrapper(ABC):
         self._target_file_name = self._path_provider_instance.get_target_file_name()
 
         self._acquisition_monitor = RawFileWrapperFactory.create_monitor_wrapper(
-            instrument_id, raw_file.original_name
+            instrument_id, raw_file
         )
 
     def _check_path_provider(self, path_provider: type[PathProvider]) -> None:
@@ -451,15 +465,23 @@ class RawFileWrapperFactory:
 
     @classmethod
     def create_monitor_wrapper(
-        cls, instrument_id: str, raw_file_name: str | None = None
+        cls,
+        instrument_id: str,
+        raw_file: RawFile | None = None,
+        raw_file_original_name: str | None = None,
     ) -> RawFileMonitorWrapper:
         """Create an RawFileMonitorWrapper for the specified instrument and raw file.
 
         :param instrument_id: The ID of the instrument
-        :param raw_file_name: The name of the raw file to monitor
+        :param raw_file: The RawFile instance of the raw file to monitor
         :return: An instance of the appropriate RawFileMonitorWrapper subclass
         """
-        return cls._create_handler(MONITOR, instrument_id, raw_file_name=raw_file_name)
+        return cls._create_handler(
+            MONITOR,
+            instrument_id,
+            raw_file=raw_file,
+            raw_file_original_name=raw_file_original_name,
+        )
 
     @classmethod
     def create_write_wrapper(

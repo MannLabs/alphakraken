@@ -149,7 +149,7 @@ def test_raw_file_wrapper_factory_instantiation_monitors(
     """Test that the correct RawFileWrapperFactory subclass is instantiated."""
     with patch.dict(INSTRUMENTS, {"instrument1": {"type": instrument_type}}):
         wrapper = RawFileWrapperFactory.create_monitor_wrapper(
-            instrument_id="instrument1", raw_file_name=f"some_file{extension}"
+            instrument_id="instrument1", raw_file_original_name=f"some_file{extension}"
         )
         assert isinstance(wrapper, expected_class)
 
@@ -261,7 +261,7 @@ def test_raw_file_wrapper_factory_unsupported_vendor() -> None:
         ValueError, match="Unsupported vendor or handler type: UNSUPPORTED, monitor"
     ):
         RawFileWrapperFactory.create_monitor_wrapper(
-            instrument_id="instrument1", raw_file_name="sample.raw"
+            instrument_id="instrument1", raw_file_original_name="sample.raw"
         )
 
 
@@ -279,7 +279,7 @@ def test_raw_file_wrapper_factory_file_extension_check(
     expected_extension: str,
 ) -> None:
     """Test that the file extension check works correctly."""
-    wrapper = wrapper_class("instrument1", raw_file_name=raw_file_name)
+    wrapper = wrapper_class("instrument1", raw_file_original_name=raw_file_name)
     assert wrapper._raw_file_extension == expected_extension
 
 
@@ -288,7 +288,7 @@ def test_raw_file_wrapper_factory_invalid_file_extension() -> None:
     with pytest.raises(
         ValueError, match="Unsupported file extension: .txt, expected .raw"
     ):
-        ThermoRawFileMonitorWrapper("instrument1", raw_file_name="sample.txt")
+        ThermoRawFileMonitorWrapper("instrument1", raw_file_original_name="sample.txt")
 
 
 @patch("plugins.raw_file_wrapper_factory.get_internal_instrument_data_path")
@@ -322,15 +322,59 @@ def test_get_raw_files_on_instrument(mock_instrument_path: MagicMock) -> None:
         ),
     ],
 )
-def test_file_path_to_monitor_acquisition(
+def test_file_path_to_monitor_acquisition_pass_raw_file_original_name(
     wrapper_class: type[RawFileMonitorWrapper],
     raw_file_name: str,
     expected_watch_path: Path,
     mock_instrument_paths: MagicMock,  # noqa: ARG001
 ) -> None:
     """Test that file_path_to_monitor_acquisition returns the correct path for each wrapper type."""
-    wrapper = wrapper_class("instrument1", raw_file_name=raw_file_name)
+    wrapper = wrapper_class("instrument1", raw_file_original_name=raw_file_name)
     assert wrapper.file_path_to_monitor_acquisition() == expected_watch_path
+
+
+@pytest.mark.parametrize(
+    ("wrapper_class", "raw_file", "expected_watch_path"),
+    [
+        (
+            ThermoRawFileMonitorWrapper,
+            MagicMock(wraps=RawFile, original_name="sample.raw"),
+            Path("/path/to/instrument/sample.raw"),
+        ),
+        (
+            ZenoRawFileMonitorWrapper,
+            MagicMock(wraps=RawFile, original_name="sample.wiff"),
+            Path("/path/to/instrument/sample.wiff"),
+        ),
+        (
+            BrukerRawFileMonitorWrapper,
+            MagicMock(wraps=RawFile, original_name="sample.d"),
+            Path("/path/to/instrument/sample.d/analysis.tdf_bin"),
+        ),
+    ],
+)
+def test_file_path_to_monitor_acquisition_pass_raw_file(
+    wrapper_class: type[RawFileMonitorWrapper],
+    raw_file: RawFile,
+    expected_watch_path: Path,
+    mock_instrument_paths: MagicMock,  # noqa: ARG001
+) -> None:
+    """Test that file_path_to_monitor_acquisition returns the correct path for each wrapper type."""
+    wrapper = wrapper_class("instrument1", raw_file=raw_file)
+    assert wrapper.file_path_to_monitor_acquisition() == expected_watch_path
+
+
+def test_file_path_to_monitor_acquisition_pass_both_raises() -> None:
+    """Test that file_path_to_monitor_acquisition raises if it get both raw_file arguments."""
+    raw_file = MagicMock(wraps=RawFile, original_name="sample.raw")
+
+    with pytest.raises(
+        ValueError,
+        match="Either raw_file or raw_file_original_name should be set, not both.",
+    ):
+        ThermoRawFileMonitorWrapper(
+            "instrument1", raw_file=raw_file, raw_file_original_name="sample.raw"
+        )
 
 
 @patch("plugins.raw_file_wrapper_factory.RawFileWrapperFactory.create_monitor_wrapper")
@@ -355,7 +399,7 @@ def test_thermo_get_files_to_copy(
         )
     }
     assert wrapper.get_files_to_copy() == expected_mapping
-    mock_create_monitor_wrapper.assert_called_once_with("instrument1", "sample.raw")
+    mock_create_monitor_wrapper.assert_called_once_with("instrument1", mock_raw_file)
 
 
 @patch("plugins.raw_file_wrapper_factory.RawFileWrapperFactory.create_monitor_wrapper")
@@ -393,7 +437,7 @@ def test_zeno_get_files_to_copy(
     assert wrapper.get_files_to_copy() == expected_mapping
     mock_instrument_path.return_value.glob.assert_called_once_with("sample.*")
 
-    mock_create_monitor_wrapper.assert_called_once_with("instrument1", "sample.wiff")
+    mock_create_monitor_wrapper.assert_called_once_with("instrument1", mock_raw_file)
 
 
 def test_bruker_get_files_to_copy() -> None:

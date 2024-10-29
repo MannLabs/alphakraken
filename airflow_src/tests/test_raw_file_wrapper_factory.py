@@ -158,7 +158,7 @@ def test_raw_file_wrapper_factory_instantiation_monitors(
 def mock_raw_file() -> RawFile:
     """Fixture for a mock RawFile."""
     return RawFile(
-        id="123---original_file.raw",
+        id="123-original_file.raw",
         original_name="original_file.raw",
         created_at=datetime(2023, 1, 1, tzinfo=pytz.UTC),
         instrument_id="instrument1",
@@ -176,7 +176,7 @@ def test_copy_path_provider(mock_raw_file: RawFile) -> None:
         "/opt/airflow/mounts/backup/instrument1/2023_01"
     )
     assert provider.get_source_file_name() == "original_file.raw"
-    assert provider.get_target_file_name() == "123---original_file.raw"
+    assert provider.get_target_file_name() == "123-original_file.raw"
 
 
 def test_move_path_provider(mock_raw_file: RawFile) -> None:
@@ -190,7 +190,7 @@ def test_move_path_provider(mock_raw_file: RawFile) -> None:
         "/opt/airflow/mounts/instruments/instrument1/Backup"
     )
     assert provider.get_source_file_name() == "original_file.raw"
-    assert provider.get_target_file_name() == "123---original_file.raw"
+    assert provider.get_target_file_name() == "123-original_file.raw"
 
 
 def test_remove_path_provider(mock_raw_file: RawFile) -> None:
@@ -203,8 +203,8 @@ def test_remove_path_provider(mock_raw_file: RawFile) -> None:
     assert provider.get_target_path() == Path(
         "/opt/airflow/mounts/backup/instrument1/2023_01"
     )
-    assert provider.get_source_file_name() == "123---original_file.raw"
-    assert provider.get_target_file_name() == "123---original_file.raw"
+    assert provider.get_source_file_name() == "123-original_file.raw"
+    assert provider.get_target_file_name() == "123-original_file.raw"
 
 
 @pytest.mark.parametrize(
@@ -237,7 +237,7 @@ def test_raw_file_wrapper_factory_instantiation_copier(
             "/opt/airflow/mounts/backup/instrument1/2023_01"
         )
         assert wrapper._source_file_name == "original_file.raw"
-        assert wrapper._target_file_name == "123---original_file.raw"
+        assert wrapper._target_file_name == "123-original_file.raw"
 
 
 @pytest.fixture()
@@ -385,7 +385,7 @@ def test_thermo_get_files_to_copy(
     """Test that get_files_to_copy returns the correct mapping for ThermoRawDataWrapper."""
     mock_raw_file = MagicMock(
         wraps=RawFile,
-        id="123---sample.raw",
+        id="123-sample.raw",
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
         original_name="sample.raw",
     )
@@ -395,7 +395,7 @@ def test_thermo_get_files_to_copy(
     )
     expected_mapping = {
         Path("/path/to/instrument/sample.raw"): Path(
-            "/path/to/backup/1970_01/123---sample.raw"
+            "/path/to/backup/1970_01/123-sample.raw"
         )
     }
     assert wrapper.get_files_to_copy() == expected_mapping
@@ -416,7 +416,7 @@ def test_zeno_get_files_to_copy(
 
     mock_raw_file = MagicMock(
         wraps=RawFile,
-        id="123---sample.wiff",
+        id="123-sample.wiff",
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
         original_name="sample.wiff",
     )
@@ -426,10 +426,10 @@ def test_zeno_get_files_to_copy(
     )
     expected_mapping = {
         Path("/path/to/instrument/sample.wiff"): Path(
-            "/opt/airflow/mounts/backup/instrument1/1970_01/123---sample.wiff"
+            "/opt/airflow/mounts/backup/instrument1/1970_01/123-sample.wiff"
         ),
         Path("/path/to/instrument/sample.wiff.scan"): Path(
-            "/opt/airflow/mounts/backup/instrument1/1970_01/123---sample.wiff.scan"
+            "/opt/airflow/mounts/backup/instrument1/1970_01/123-sample.wiff.scan"
         ),
     }
 
@@ -444,7 +444,7 @@ def test_bruker_get_files_to_copy() -> None:
     """Test that get_files_to_copy returns the correct mapping for BrukerRawDataWrapper."""
     mock_raw_file = MagicMock(
         wraps=RawFile,
-        id="123---sample.d",
+        id="123-sample.d",
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
         original_name="sample.d",
     )
@@ -482,7 +482,7 @@ def test_bruker_get_files_to_copy() -> None:
             files_to_copy = wrapper.get_files_to_copy()
 
             expected_dst_path = (
-                Path(tempdir) / "backup" / "instrument1" / "1970_01" / "123---sample.d"
+                Path(tempdir) / "backup" / "instrument1" / "1970_01" / "123-sample.d"
             )
             expected_mapping = {
                 raw_file_path / "file1.txt": expected_dst_path / "file1.txt",

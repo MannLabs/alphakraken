@@ -24,7 +24,7 @@ from shared.db.models import RawFileStatus
 @patch("shared.db.interface.connect_db")
 @patch("shared.db.interface.RawFile")
 @pytest.mark.parametrize(
-    ("collision_flag", "collision_string"), [(None, ""), ("123---", "123---")]
+    ("collision_flag", "collision_string"), [(None, ""), ("123-", "123-")]
 )
 def test_add_new_raw_file_to_db_creates_new_file_when_file_does_not_exist_with_collision_flag(
     mock_raw_file: MagicMock,

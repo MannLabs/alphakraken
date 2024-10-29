@@ -33,7 +33,7 @@ def test_add_raw_file_to_db(
 ) -> None:
     """Test add_to_db makes the expected calls."""
     mock_get_file_creation_timestamp.return_value = 42.0
-    mock_get_collision_flag.return_value = "123---"
+    mock_get_collision_flag.return_value = "123-"
 
     # when
     _add_raw_file_to_db(
@@ -48,7 +48,7 @@ def test_add_raw_file_to_db(
     )
     mock_add_new_raw_file_to_db.assert_called_once_with(
         "test_file.raw",
-        collision_flag="123---",
+        collision_flag="123-",
         project_id="PID1",
         instrument_id="instrument1",
         status="queued_for_monitoring",
@@ -145,7 +145,7 @@ def test_get_collision_flag(mock_datetime: MagicMock) -> None:
     )
 
     result = _get_collision_flag()
-    assert result == "20000102-030405-678901---"
+    assert result == "20000102-030405-678901-"
 
 
 @patch("dags.impl.watcher_impl.get_file_creation_timestamp")
@@ -233,7 +233,7 @@ def test_decide_raw_file_handling(
 ) -> None:
     """A test for the decide_raw_file_handling function."""
     mock_ti = MagicMock()
-    mock_get_xcom.return_value = {"file1": "", "file2": "", "file3": "123---"}
+    mock_get_xcom.return_value = {"file1": "", "file2": "", "file3": "123-"}
     mock_get_project_ids.return_value = ["project1", "project2"]
     mock_get_unique.side_effect = [None, "project1", "project2"]
     mock_file_meets.side_effect = [True, True, False]
@@ -252,7 +252,7 @@ def test_decide_raw_file_handling(
         {
             "file1": (None, True, ""),
             "file2": ("project1", True, ""),
-            "file3": ("project2", False, "123---"),
+            "file3": ("project2", False, "123-"),
         },
     )
     mock_file_meets.assert_has_calls(
@@ -354,7 +354,7 @@ def test_start_acquisition_handler_with_single_file(
     raw_file_names = {"file1.raw": ("PID1", True, True)}
     mock_get_xcom.return_value = raw_file_names
 
-    mock_add_raw_file_to_db.return_value = "123---file1.raw"
+    mock_add_raw_file_to_db.return_value = "123-file1.raw"
     ti = Mock()
 
     # when
@@ -365,7 +365,7 @@ def test_start_acquisition_handler_with_single_file(
     for n, call_ in enumerate(mock_trigger_dag_run.call_args_list):
         assert call_.args[0] == ("acquisition_handler.instrument1")
         assert {
-            "raw_file_id": f"123---{list(raw_file_names.keys())[n]}",
+            "raw_file_id": f"123-{list(raw_file_names.keys())[n]}",
         } == call_.args[1]
 
     mock_add_raw_file_to_db.assert_called_once_with(

@@ -94,6 +94,7 @@ def test_prepare_quanting(
         fasta_file_name="some_fasta_file_name",
         config_file_name="some_config_file_name",
         software="some_software",
+        version=1,
     )
     ti = MagicMock()
 
@@ -123,6 +124,7 @@ def test_prepare_quanting(
         "SOFTWARE": "some_software",
         "RAW_FILE_ID": "test_file.raw",
         "PROJECT_ID_OR_FALLBACK": "some_project_id",
+        "SETTINGS_VERSION": 1,
     }
 
     mock_put_xcom.assert_has_calls(
@@ -548,12 +550,22 @@ def test_upload_metrics(
     mock_get_xcom: MagicMock,
 ) -> None:
     """Test that compute_metrics makes the expected calls."""
-    mock_get_xcom.side_effect = ["some_file.raw", {"metric1": "value1"}, 123]
+    mock_get_xcom.side_effect = [
+        "some_file.raw",
+        {"SETTINGS_VERSION": 1},
+        {"metric1": "value1"},
+        123,
+    ]
 
     # when
     upload_metrics(MagicMock())
 
     mock_add.assert_called_once_with(
-        "some_file.raw", {"metric1": "value1", "quanting_time_elapsed": 123}
+        "some_file.raw",
+        metrics={
+            "metric1": "value1",
+            "quanting_time_elapsed": 123,
+        },
+        settings_version=1,
     )
     mock_update.assert_called_once_with("some_file.raw", new_status=RawFileStatus.DONE)

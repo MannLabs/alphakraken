@@ -6,6 +6,7 @@ import os
 import pandas as pd
 import streamlit as st
 from db.interface import add_new_settings_to_db
+from db.models import ProjectStatus
 from service.components import show_filter, show_sandbox_message
 from service.db import (
     df_from_db_data,
@@ -59,7 +60,21 @@ def display_settings(
 ) -> None:
     """Fragment to display settings in a table."""
     filtered_df = show_filter(settings_df, st_display=st_display)
-    st_display.table(filtered_df)
+
+    # beautify
+    del filtered_df["_id"]
+    st_display.table(
+        filtered_df.style.apply(
+            lambda row: [
+                "color: lightgray"
+                if row["status"] == ProjectStatus.INACTIVE
+                else "background-color: white"
+            ]
+            * len(row),
+            axis=1,
+        )
+    )
+
     st_display.markdown(
         "The files associated with the settings of a given project are stored at "
         f"`/fs/pool/{quanting_pool_folder}/settings/<project id>/`"
@@ -130,13 +145,12 @@ form_items = {
         "placeholder": "e.g. very_fast_config.yaml",
         "help": "Name of the config file. If none is given, default will be used.",
     },
-    # TODO: make software selection dynamic
+    # TODO: make software selection options dynamic
     "software": {
         "label": "software",
         "options": [
+            "alphadia-1.8.2",
             "alphadia-1.7.2",
-            "alphadia-1.7.2-dev",
-            "alphadia-1.7.1",
         ],
     },
 }

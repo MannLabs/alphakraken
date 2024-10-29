@@ -132,6 +132,7 @@ class QuantingEnv:
 
     PROJECT_ID_OR_FALLBACK: str = "PROJECT_ID_OR_FALLBACK"
     RAW_FILE_ID: str = "RAW_FILE_ID"
+    SETTINGS_VERSION: str = "SETTINGS_VERSION"
 
 
 class JobStates:

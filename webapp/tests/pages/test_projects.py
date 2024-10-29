@@ -56,6 +56,7 @@ def test_projects_display_table(mock_df: MagicMock, mock_get: MagicMock) -> None
         "project_id": {0: "P1234", 1: "P5678"},
     }
 
+    assert not at.exception
     assert expected_data == at.table[0].value.to_dict()
 
 

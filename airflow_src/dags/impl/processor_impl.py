@@ -112,6 +112,7 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
         # not required for slurm script:
         QuantingEnv.RAW_FILE_ID: raw_file_id,
         QuantingEnv.PROJECT_ID_OR_FALLBACK: project_id_or_fallback,
+        QuantingEnv.SETTINGS_VERSION: settings.version,
     }
 
     put_xcom(ti, XComKeys.QUANTING_ENV, quanting_env)
@@ -316,10 +317,15 @@ def upload_metrics(ti: TaskInstance, **kwargs) -> None:
     del kwargs
 
     raw_file_id = get_xcom(ti, XComKeys.RAW_FILE_ID)
+    quanting_env = get_xcom(ti, XComKeys.QUANTING_ENV)
     metrics = get_xcom(ti, XComKeys.METRICS)
 
     metrics["quanting_time_elapsed"] = get_xcom(ti, XComKeys.QUANTING_TIME_ELAPSED)
 
-    add_metrics_to_raw_file(raw_file_id, metrics)
+    add_metrics_to_raw_file(
+        raw_file_id,
+        metrics=metrics,
+        settings_version=quanting_env[QuantingEnv.SETTINGS_VERSION],
+    )
 
     update_raw_file(raw_file_id, new_status=RawFileStatus.DONE)

@@ -94,6 +94,8 @@ class Metrics(DynamicDocument):
     # https://docs.mongoengine.org/guide/defining-documents.html#reference-fields
     raw_file = ReferenceField(RawFile)
 
+    settings_version = IntField(min_value=1, default=1)
+
     # audit fields
     created_at_ = DateTimeField(default=datetime.now)
 
@@ -126,7 +128,8 @@ class Settings(Document):
         Project,
     )
 
-    name = StringField(required=True, primary_key=True, max_length=64)
+    name = StringField(required=True, max_length=64)
+    version = IntField(min_value=1, default=1)
     # TODO: add description = StringField(max_length=512)
 
     # although only one of (speclib, fasta) is required by alphaDIA,

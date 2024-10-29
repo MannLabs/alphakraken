@@ -189,14 +189,16 @@ def test_add_metrics_to_raw_file_happy_path(
     mock_raw_file.objects.get.return_value = mock_raw_file_from_db
 
     # when
-    add_metrics_to_raw_file("test_file", {"metric1": 1, "metric2": 2})
+    add_metrics_to_raw_file(
+        "test_file", metrics={"metric1": 1, "metric2": 2}, settings_version=1
+    )
 
     # then
     mock_metrics.return_value.save.assert_called_once()
     mock_connect_db.assert_called_once()
     mock_raw_file.objects.get.assert_called_once_with(id="test_file")
     mock_metrics.assert_called_once_with(
-        raw_file=mock_raw_file_from_db, metric1=1, metric2=2
+        raw_file=mock_raw_file_from_db, metric1=1, metric2=2, settings_version=1
     )
 
 
@@ -245,10 +247,10 @@ def test_get_all_project_ids(
 @patch("shared.db.interface.connect_db")
 @patch("shared.db.interface.Settings")
 @patch("shared.db.interface.Project")
-def test_add_new_settings_to_db(
+def test_add_new_settings_to_db_first(
     mock_project: MagicMock, mock_settings: MagicMock, mock_connect_db: MagicMock
 ) -> None:
-    """Test that add_new_settings_to_db adds new settings to the database."""
+    """Test that add_new_settings_to_db adds new settings to the database (first setting)."""
     # given
     mock_project_from_db = MagicMock()
     mock_project.objects.get.return_value = mock_project_from_db
@@ -273,6 +275,44 @@ def test_add_new_settings_to_db(
         speclib_file_name="speclib_file",
         config_file_name="config_file",
         software="software",
+        version=1,
+    )
+    mock_connect_db.assert_called_once()
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.Settings")
+@patch("shared.db.interface.Project")
+def test_add_new_settings_to_db_not_first(
+    mock_project: MagicMock, mock_settings: MagicMock, mock_connect_db: MagicMock
+) -> None:
+    """Test that add_new_settings_to_db adds new settings to the database (not the first setting)."""
+    # given
+    mock_project_from_db = MagicMock()
+    mock_project.objects.get.return_value = mock_project_from_db
+
+    mock_settings.objects.return_value.first.return_value = MagicMock()
+    mock_settings.objects.return_value.all.return_value.count.return_value = 41
+
+    # when
+    add_new_settings_to_db(
+        project_id="P1234",
+        name="new settings",
+        fasta_file_name="fasta_file",
+        speclib_file_name="speclib_file",
+        config_file_name="config_file",
+        software="software",
+    )
+
+    # then
+    mock_settings.assert_called_once_with(
+        project=mock_project_from_db,
+        name="new settings",
+        fasta_file_name="fasta_file",
+        speclib_file_name="speclib_file",
+        config_file_name="config_file",
+        software="software",
+        version=42,
     )
     mock_connect_db.assert_called_once()
 

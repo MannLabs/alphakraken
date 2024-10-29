@@ -81,6 +81,7 @@ def test_status(
     ts1noms = ts1.replace(microsecond=0)
     result = at.dataframe[0].value.to_dict()
 
+    assert not at.exception
     assert result["instrument_id"] == {0: "i1"}
 
     assert result["last_file_creation"] == {0: ts1}

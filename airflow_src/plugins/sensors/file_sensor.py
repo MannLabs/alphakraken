@@ -24,9 +24,10 @@ from shared.db.models import KrakenStatusValues
 HEALTH_CHECK_INTERVAL_M: int = 5
 
 # consider the sensor as "success" after this time.
-# This is to avoid the sensor running indefinitely if no files are found, and to recover more quickly in some edge cases.
+# This is to avoid the sensor running into a timeout if no files are found, and to recover more quickly in some edge
+# cases.
 # Note: The downstream tasks need to be able to handle the "no files found" case.
-SOFT_FAIL_TIMEOUT_H: int = 6
+SOFT_FAIL_TIMEOUT_H: int = 24
 
 
 def _check_health(instrument_id: str) -> None:

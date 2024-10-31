@@ -23,6 +23,7 @@ from service.utils import (
     ERROR_STATUSES,
     QueryParams,
     _log,
+    display_info_message,
 )
 
 _log(f"loading {__file__}")
@@ -55,6 +56,8 @@ st.markdown(
 st.write(
     "Use the filter and date select to narrow down results both in the table and the plots below."
 )
+
+display_info_message()
 
 # ########################################### LOGIC
 max_age_in_days = int(

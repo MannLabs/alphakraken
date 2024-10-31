@@ -4,7 +4,7 @@ import os
 
 import streamlit as st
 from service.components import show_sandbox_message
-from service.utils import _log
+from service.utils import _log, display_info_message
 
 from shared.keys import ALLOWED_CHARACTERS_IN_RAW_FILE_NAME, EnvVars
 
@@ -36,6 +36,8 @@ c1.markdown("""### What is AlphaKraken?
 This tool should help you keep track of your acquisitions and monitor their status and quality in (near) real-time.
 By default, every single acquisition is processed by AlphaDIA and the results are stored in a database.
 The processing is done on the cluster, which means that on rare occasions, it might be delayed due to high load.""")
+
+display_info_message(c1)
 
 c1.markdown("""### How to use it?
 

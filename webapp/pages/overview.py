@@ -1,5 +1,6 @@
 """Simple data overview."""
 
+from dataclasses import dataclass
 from datetime import datetime
 
 import pandas as pd
@@ -28,6 +29,50 @@ from service.utils import (
 
 _log(f"loading {__file__}")
 
+
+@dataclass
+class Column:
+    """Data class for information on how to display a column information."""
+
+    # hide column in table
+    hide: bool = False
+    # move column to end of table
+    at_end: bool = False
+    # color in table
+    color_table: bool = False
+    # create a plot
+    plot: bool = False
+
+
+COLUMNS_INFO = {
+    # hide
+    "created_at": Column(hide=True),
+    "size": Column(hide=True),
+    "quanting_time_elapsed": Column(hide=True),
+    "raw_file": Column(hide=True),
+    "file_info": Column(hide=True),
+    "_id": Column(hide=True),
+    "original_name": Column(hide=True),
+    "collision_flag": Column(hide=True),
+    # at end
+    "status_details": Column(at_end=True),
+    "project_id": Column(at_end=True),
+    "updated_at_": Column(at_end=True),
+    "created_at_": Column(at_end=True),
+    # plots
+    # Note: the order here determines the order of the plots
+    "size_gb": Column(color_table=True, plot=True),
+    "precursors": Column(color_table=True, plot=True),
+    "proteins": Column(color_table=True, plot=True),
+    "ms1_accuracy": Column(color_table=True, plot=True),
+    "fwhm_rt": Column(color_table=True, plot=True),
+    "weighted_ms1_intensity_sum": Column(color_table=True, plot=True),
+    "intensity_sum": Column(color_table=True, plot=True),
+    "settings_version": Column(at_end=True, plot=True),
+    "quanting_time_minutes": Column(color_table=True),
+    "duration_optimization": Column(color_table=True),
+    "duration_extraction": Column(color_table=True),
+}
 
 # ########################################### PAGE HEADER
 
@@ -60,7 +105,7 @@ st.write(
 display_info_message()
 
 # ########################################### LOGIC
-max_age_in_days = int(
+max_age_in_days = int(  # needed?
     st.query_params.get(QueryParams.MAX_AGE, DEFAULT_MAX_AGE_OVERVIEW)
 )
 combined_df = get_combined_raw_files_and_metrics_df(max_age_in_days)
@@ -68,23 +113,11 @@ combined_df = get_combined_raw_files_and_metrics_df(max_age_in_days)
 
 # ########################################### DISPLAY: table
 
-columns_at_end = [
-    "settings_version",
-    "status_details",
-    "project_id",
-    "updated_at_",
-    "created_at_",
-]
-columns_to_hide = [
-    "created_at",
-    "size",
-    "quanting_time_elapsed",
-    "raw_file",
-    "file_info",
-    "_id",
-    "original_name",
-    "collision_flag",
-]
+
+columns_at_end = [col for col, col_info in COLUMNS_INFO.items() if col_info.at_end]
+
+columns_to_hide = [col for col, col_info in COLUMNS_INFO.items() if col_info.hide]
+
 column_order = [
     col
     for col in combined_df.columns
@@ -145,39 +178,15 @@ def _display_table_and_plots(
     cmap.set_bad(color="white")
     st.dataframe(
         df_to_show.style.background_gradient(
-            # TODO: refactor the column handling: instroduce a dict with column names and their respective position, actions, etc..
             subset=_filter_valid_columns(
-                [
-                    "size_gb",
-                    "proteins",
-                    "precursors",
-                    "ms1_accuracy",
-                    "fwhm_rt",
-                    "weighted_ms1_intensity_sum",
-                    "intensity_sum",
-                    "quanting_time_minutes",
-                    "duration_optimization",
-                    "duration_extraction",
-                ],
+                [col for col, col_info in COLUMNS_INFO.items() if col_info.color_table],
                 filtered_df,
             ),
             cmap=cmap,
         )
         .apply(highlight_status_cell, axis=1)
         .format(
-            subset=_filter_valid_columns(
-                [
-                    "size_gb",
-                    "ms1_accuracy",
-                    "fwhm_rt",
-                    "weighted_ms1_intensity_sum",
-                    "intensity_sum",
-                    "quanting_time_minutes",
-                    "duration_optimization",
-                    "duration_extraction",
-                ],
-                filtered_df,
-            ),
+            subset=list(filtered_df.select_dtypes(include=["float64"]).columns),
             formatter="{:.3}",
         )
         .format(
@@ -242,21 +251,7 @@ def _display_table_and_plots(
         help="Set the x-axis. The default 'file_created' is suitable for most cases.",
     )
     for y in _filter_valid_columns(
-        [
-            "status",
-            "size_gb",
-            "precursors",
-            "proteins",
-            "ms1_accuracy",
-            "fwhm_rt",
-            "weighted_ms1_intensity_sum",
-            "intensity_sum",
-            "settings_version",
-            "quanting_time_minutes",
-            "settings_version",
-            "duration_optimization",
-            "duration_extraction",
-        ],
+        [col for col, col_info in COLUMNS_INFO.items() if col_info.plot],
         filtered_df,
     ):
         try:

@@ -87,7 +87,16 @@ class BasicStats(Metrics):
         """Calculate metrics."""
         stat_df = self._data_store[OutputFiles.STAT]
 
-        for col in ["proteins", "precursors", "ms1_accuracy", "fwhm_rt"]:
+        for col in [
+            "proteins",
+            "precursors",
+            "ms1_accuracy",
+            "fwhm_rt",
+            "ms1_error",
+            "ms2_error",
+            "rt_error",
+            "mobility_error",
+        ]:
             self._metrics[f"{col}"] = stat_df[col].mean()
 
 

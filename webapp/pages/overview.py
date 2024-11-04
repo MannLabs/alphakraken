@@ -72,6 +72,10 @@ COLUMNS_INFO = {
     "quanting_time_minutes": Column(color_table=True, plot=True),
     "duration_optimization": Column(color_table=True, plot=True),
     "duration_extraction": Column(color_table=True, plot=True),
+    "ms1_error": Column(color_table=True, plot=True),
+    "ms2_error": Column(color_table=True, plot=True),
+    "rt_error": Column(color_table=True, plot=True),
+    "mobility_error": Column(color_table=True, plot=True),
 }
 
 # ########################################### PAGE HEADER

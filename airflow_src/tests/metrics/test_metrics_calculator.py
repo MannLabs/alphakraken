@@ -94,6 +94,10 @@ def test_basic_stats_calculation(mock_datastore: MagicMock) -> None:
             "precursors": [2.0],
             "ms1_accuracy": [3.0],
             "fwhm_rt": [4.0],
+            "ms1_error": [5.0],
+            "ms2_error": [6.0],
+            "rt_error": [7.0],
+            "mobility_error": [8.0],
         }
     )
 
@@ -107,6 +111,10 @@ def test_basic_stats_calculation(mock_datastore: MagicMock) -> None:
         "precursors": 2.0,
         "ms1_accuracy": 3.0,
         "fwhm_rt": 4.0,
+        "ms1_error": 5.0,
+        "ms2_error": 6.0,
+        "rt_error": 7.0,
+        "mobility_error": 8.0,
     }
 
 

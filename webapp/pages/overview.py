@@ -57,7 +57,7 @@ COLUMNS_INFO = {
     "original_name": Column(hide=True),
     "collision_flag": Column(hide=True),
     # at front (order matters)
-    "instrument": Column(at_front=True),
+    "instrument_id": Column(at_front=True),
     "status": Column(at_front=True),
     "status_details": Column(at_front=True),
     "size_gb": Column(at_front=True, color_table=True, plot=True),

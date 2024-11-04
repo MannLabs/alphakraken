@@ -48,7 +48,9 @@ def test_datastore_getitem_returns_data_when_key_in_data(
 @patch("plugins.metrics.metrics_calculator.DataStore")
 @patch("plugins.metrics.metrics_calculator.BasicStats")
 @patch("plugins.metrics.metrics_calculator.PrecursorStats")
+@patch("plugins.metrics.metrics_calculator.InternalStats")
 def test_calc_metrics_happy_path(
+    mock_internal_stats: MagicMock,
     mock_precursor_stats: MagicMock,
     mock_basic_stats: MagicMock,
     mock_data_store: MagicMock,
@@ -65,12 +67,22 @@ def test_calc_metrics_happy_path(
     mock_precursor_stats.return_value = mock_precursor_stats_instance
     mock_precursor_stats_instance.get.return_value = {"precursor_metric": "value2"}
 
+    mock_internal_stats_instance = MagicMock()
+    mock_internal_stats.return_value = mock_internal_stats_instance
+    mock_internal_stats_instance.get.return_value = {"internal_metric": "value3"}
+
     # when
     result = calc_metrics(Path("output_directory"))
 
-    assert result == {"basic_metric": "value1", "precursor_metric": "value2"}
+    assert result == {
+        "basic_metric": "value1",
+        "precursor_metric": "value2",
+        "internal_metric": "value3",
+    }
     mock_data_store.assert_called_once_with(Path("output_directory"))
     mock_basic_stats.assert_called_once_with(mock_data_store.return_value)
+    mock_precursor_stats.assert_called_once_with(mock_data_store.return_value)
+    mock_internal_stats.assert_called_once_with(mock_data_store.return_value)
 
 
 @patch("plugins.metrics.metrics_calculator.DataStore")

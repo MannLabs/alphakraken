@@ -22,6 +22,7 @@ class OutputFiles:
     PG_MATRIX = "pg.matrix.tsv"
     PRECURSORS = "precursors.tsv"
     STAT = "stat.tsv"
+    INTERNAL = "internal.tsv"
     LOG = "log.txt"
 
 
@@ -90,6 +91,17 @@ class BasicStats(Metrics):
             self._metrics[f"{col}"] = stat_df[col].mean()
 
 
+class InternalStats(Metrics):
+    """Internal statistics."""
+
+    def _calc(self) -> None:
+        """Calculate metrics."""
+        stat_df = self._data_store[OutputFiles.INTERNAL]
+
+        for col in ["duration_optimization", "duration_extraction"]:
+            self._metrics[f"{col}"] = stat_df[col].mean()
+
+
 class PrecursorStats(Metrics):
     """Precursor statistics."""
 
@@ -104,8 +116,10 @@ class PrecursorStats(Metrics):
 def calc_metrics(output_directory: Path) -> dict[str, Any]:
     """Calculate metrics for the given output directory."""
     data_store = DataStore(output_directory)
+
     metrics = BasicStats(data_store).get()
     metrics |= PrecursorStats(data_store).get()
+    metrics |= InternalStats(data_store).get()
 
     logging.info(f"Calculated metrics: {metrics}")
     return metrics

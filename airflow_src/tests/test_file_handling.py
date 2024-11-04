@@ -48,7 +48,7 @@ def test_get_file_size() -> None:
 def test_get_file_size_default() -> None:
     """Test get_file_size returns the expected values."""
     mock_path = MagicMock()
-    mock_path.stat.side_effect = FileNotFoundError
+    mock_path.exists.return_value = False
 
     # when
     result = get_file_size(mock_path, -1)
@@ -60,7 +60,7 @@ def test_get_file_size_default() -> None:
 def test_get_file_size_no_default_raises() -> None:
     """Test get_file_size returns the expected values."""
     mock_path = MagicMock()
-    mock_path.stat.side_effect = FileNotFoundError
+    mock_path.exists.return_value = False
 
     # when
     with pytest.raises(FileNotFoundError):

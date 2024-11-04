@@ -37,15 +37,15 @@ def get_file_size(
 
     An optional default value can be provided in case the file does not exist.
     """
-    try:
+    if file_path.exists():
         file_size_bytes = file_path.stat().st_size
-    except FileNotFoundError as e:
+    else:
         if default is not None:
             logging.info(
                 f"File {file_path} not found, returning {default=}"
             ) if verbose else None
             return default
-        raise e from e
+        raise FileNotFoundError(f"File {file_path} not found.")
     file_size_mb = file_size_bytes * BYTES_TO_MB
     logging.info(
         f"File {file_path} has {file_size_bytes=} ({file_size_mb:.2f} MB)"

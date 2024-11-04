@@ -15,6 +15,7 @@ from common.utils import (
     get_xcom,
     truncate_string,
 )
+from paramiko.ssh_exception import SSHException
 
 
 class SSHSensorOperator(BaseSensorOperator, ABC):
@@ -83,24 +84,31 @@ class SSHSensorOperator(BaseSensorOperator, ABC):
         agg_stdout = None
         call_count = 0
         while exit_status != 0 or agg_stdout in [b"", b"\n"]:
-            sleep(5 * call_count)  # no sleep in the first iteration
+            if call_count >= max_tries:
+                raise AirflowFailException(f"Too many calls to ssh_execute: {command=}")
+
+            sleep(30 * call_count)  # no sleep in the first iteration
             call_count += 1
 
-            exit_status, agg_stdout, agg_stderr = ssh_hook.exec_ssh_client_command(
-                ssh_hook.get_conn(),
-                command,
-                timeout=60,
-                get_pty=False,
-                environment={},
-            )
+            try:
+                exit_status, agg_stdout, agg_stderr = ssh_hook.exec_ssh_client_command(
+                    ssh_hook.get_conn(),
+                    command,
+                    timeout=60,
+                    get_pty=False,
+                    environment={},
+                )
+            except SSHException as e:
+                # catch "Timeout opening channel."
+                logging.warning(f"SSHException: {e}")
+                continue
+
             str_stdout = SSHSensorOperator._byte_to_string(agg_stdout)
             str_stdout_trunc = truncate_string(str_stdout)
 
             logging.info(
                 f"ssh command call #{call_count} returned: {exit_status=} {str_stdout_trunc=} {agg_stderr=}"
             )
-            if call_count >= max_tries:
-                raise AirflowFailException(f"Too many calls to ssh_execute: {command=}")
 
         return str_stdout
 

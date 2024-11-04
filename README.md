@@ -1,14 +1,28 @@
 # AlphaKraken
-A new version of the Machine Kraken.
 
-Note: this Readme is relevant only for developers and administrators. Regular users should find all required documentation
-in the [AlphaKraken WebApp](http://<kraken_url>).
+A fully automated data processing and analysis system for mass spectrometry experiments:
+- monitors acquisitions on mass spectrometers
+- copies raw data to a backup location
+- runs AlphaDIA on every sample and provides metrics in a web application
+
+## User quick-start
+
+Important note: to not interfere with the automated processing, please stick to the following simple rule:
+
+> Do not touch the acquisition folders*!
+
+*i.e. the folders where the acquisition software writes the raw files to. In particular,
+do not **delete**, **rename** or **open** files in these folders and do not **copy** or **move** files *from* or *to* these folders!
+
+Regular users should find all required documentation in the [AlphaKraken WebApp](http://<kraken_url>).
+The rest of this Readme is relevant only for developers and administrators.
+
 
 ## Deployment
 This guide is both valid for a local setup (without connection to pool or cluster), and for sandbox/production setups.
 Upfront, set an environment variable `ENV`, which is either `local`, `sandbox`, or `production`, e.g.
 ```bash
-export ENV=local
+ENV=local && export ENV=$ENV
 ```
 This will use the environment variables defined in `envs/${ENV}.env`.
 
@@ -99,7 +113,7 @@ For production: set strong passwords for `AIRFLOW_PASSWORD`, `MONGO_PASSWORD`, a
 in `./env/production.env` and `MONGO_INITDB_ROOT_PASSWORD` in `./env/.env-mongo`.
 Make sure they don't contain weird characters like '\' or '#' as they might interfere with name resolution in `docker-compose.yaml`.
 
-#### On the PC (VM) hosting the airflow infrastructure
+#### On the PC (VM) hosting the airflow infrastructure [start-infrastructure]
 0. `ssh` into the PC/VM and set `export ENV=sandbox` (`production`).
 
 1. Set up the [pool bind mounts](#set-up-pool-bind-mounts) for `airflow_logs` only.
@@ -110,7 +124,7 @@ Make sure they don't contain weird characters like '\' or '#' as they might inte
 ```
 Then, access the Airflow UI at http://hostname:8080/ and the Streamlit webapp at http://hostname:8501/.
 
-#### On the PC (VM) hosting the workers
+#### On the PC (VM) hosting the workers [start-worker]
 0. `ssh` into the PC/VM and set `export ENV=sandbox` (`production`).
 
 1. Set up the [pool bind mounts](#set-up-pool-bind-mounts)
@@ -222,31 +236,32 @@ which should be lowercase and contain only letters and numbers but is otherwise 
 Note that some parts of the system rely on convention, so make sure to use exactly
 `<INSTRUMENT_ID>` (case-sensitive!) in the below steps.
 
-1. Add the following block to the end of `mountall.sh`:
+1. Create a folder named `Backup` in the folder where the acquired files are saved.
+
+2. Add the following block to the end of `mountall.sh`:
 ```bash
 if [ "${ENTITY}" == "<INSTRUMENT_ID>" ]; then
   USERNAME=<username for instrument>
-  MOUNT_SRC=//<ip address of instrument>/<INSTRUMENT_ID>
-  MOUNT_TARGET=${MOUNTS}/instruments/<INSTRUMENT_ID>
+  MOUNT_SRC=//<ip address of instrument>/<INSTRUMENT_ID>/$SUBFOLDER
+  MOUNT_TARGET=${MOUNTS_PATH}/instruments/<INSTRUMENT_ID>
 fi
 ```
 
-2. Execute
+3. Transfer this change to the AlphaKraken PC and execute
 ```
 ./mountall.sh $ENV <INSTRUMENT_ID>
-```
-
-3. Create an output folder for the instrument
-```bash
-mkdir -p ${MOUNTS}/output/<INSTRUMENT_ID>
 ```
 
 4. In the `settings.py:INSTRUMENTS` dictionary, add a new entry by copying an existing one and adapting it like
 ```
     "<INSTRUMENT_ID>": {
+        InstrumentKeys.TYPE: InstrumentTypes.<INSTRUMENT_TYPE>,
         # (there might be some keys here, just copy them)
     },
 ```
+Here, `<INSTRUMENT_TYPE>` is one of the keys defined in the `InstrumentKeys` class and determines what output is expected from the instrument:
+`THERMO` -> 1 `.raw` file, `BRUKER` -> `.d` folder, `ZENO` -> `.wiff` file plus more files with the same stem.
+
 
 5. In `docker-compose.yaml`, add a new worker service, by copying an existing one and adapting it like:
 ```
@@ -263,9 +278,11 @@ mkdir -p ${MOUNTS}/output/<INSTRUMENT_ID>
 Make sure to replace each instance of `<INSTRUMENT_ID>` with the correct instrument ID
 and to not accidentally drop the `ro` and `rw` flags as they limit file access rights.
 
-6. Restart all containers with the `--build` flag (cf. [above](#on-the-kraken-pc)).
+6. Start the new container `airflow-worker-<INSTRUMENT_ID>`  (cf. [above](#start-worker)).
 
-7. Open the airflow UI and unpause the new `*.<INSTRUMENT_ID>` DAGs. It might be wise to do this one after another,
+7. Restart all relevant containers (scheduler, file mover and remover) with the `--build` flag (cf. [above](#start-infrastructure)).
+
+8. Open the airflow UI and unpause the new `*.<INSTRUMENT_ID>` DAGs. It might be wise to do this one after another,
 (`instrument_watcher` -> `acquisition_handler` -> `acquisition_processor`.) and to check the logs for errors before starting the next one.
 
 

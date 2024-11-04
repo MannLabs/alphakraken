@@ -39,6 +39,7 @@ def test_settings(
             "speclib_file_name": ["speclib_file1", "speclib_file2"],
             "config_file_name": ["config_file1", "config_file2"],
             "software": ["software1", "software2"],
+            "status": ["active", "inactive"],
         },
     )
 
@@ -47,7 +48,6 @@ def test_settings(
     at = AppTest.from_file(f"{APP_FOLDER}/pages/settings.py").run()
 
     expected_data = {
-        "_id": {0: 1, 1: 2},
         "config_file_name": {0: "config_file1", 1: "config_file2"},
         "created_at": {
             0: Timestamp("1970-01-01 00:00:00+0000", tz="UTC"),
@@ -59,8 +59,10 @@ def test_settings(
         "project_id": {0: "P1234", 1: "P5678"},
         "software": {0: "software1", 1: "software2"},
         "speclib_file_name": {0: "speclib_file1", 1: "speclib_file2"},
+        "status": {0: "active", 1: "inactive"},
     }
 
+    assert not at.exception
     assert expected_data == at.table[0].value.to_dict()
 
 

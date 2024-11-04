@@ -23,6 +23,7 @@ from service.utils import (
     ERROR_STATUSES,
     QueryParams,
     _log,
+    display_info_message,
 )
 
 _log(f"loading {__file__}")
@@ -56,6 +57,8 @@ st.write(
     "Use the filter and date select to narrow down results both in the table and the plots below."
 )
 
+display_info_message()
+
 # ########################################### LOGIC
 max_age_in_days = int(
     st.query_params.get(QueryParams.MAX_AGE, DEFAULT_MAX_AGE_OVERVIEW)
@@ -66,6 +69,7 @@ combined_df = get_combined_raw_files_and_metrics_df(max_age_in_days)
 # ########################################### DISPLAY: table
 
 columns_at_end = [
+    "settings_version",
     "status_details",
     "project_id",
     "updated_at_",
@@ -155,6 +159,12 @@ def _display_table_and_plots(
                 "quanting_time_minutes",
             ],
             formatter="{:.3}",
+        )
+        .format(
+            subset=[
+                "settings_version",
+            ],
+            formatter="{:.0f}",
         ),
         column_order=column_order,
     )
@@ -219,6 +229,7 @@ def _display_table_and_plots(
         "ms1_accuracy",
         "fwhm_rt",
         "quanting_time_minutes",
+        "settings_version",
     ]:
         try:
             _draw_plot(filtered_df, x, y)

@@ -6,10 +6,10 @@ from datetime import datetime, timedelta
 import pandas as pd
 import pytz
 import streamlit as st
-from db.engine import connect_db
 from mongoengine import QuerySet
 from service.utils import _log
 
+from shared.db.engine import connect_db
 from shared.db.models import KrakenStatus, Metrics, Project, RawFile, Settings
 
 

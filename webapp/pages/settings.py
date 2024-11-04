@@ -5,7 +5,6 @@ import os
 # ruff: noqa: TRY301 # Abstract `raise` to an inner function
 import pandas as pd
 import streamlit as st
-from db.interface import add_new_settings_to_db
 from service.components import show_filter, show_sandbox_message
 from service.db import (
     df_from_db_data,
@@ -19,6 +18,8 @@ from service.utils import (
     show_feedback_in_sidebar,
 )
 
+from shared.db.interface import add_new_settings_to_db
+from shared.db.models import ProjectStatus
 from shared.keys import EnvVars
 
 _log(f"loading {__file__}")
@@ -50,8 +51,6 @@ st.markdown("## Current settings")
 
 st.warning("This page should be edited only by AlphaKraken admin users!", icon="⚠️")
 
-c1, _ = st.columns([0.5, 0.5])
-
 
 @st.experimental_fragment
 def display_settings(
@@ -59,15 +58,30 @@ def display_settings(
 ) -> None:
     """Fragment to display settings in a table."""
     filtered_df = show_filter(settings_df, st_display=st_display)
-    st_display.table(filtered_df)
+
+    # beautify
+    del filtered_df["_id"]
+    st_display.table(
+        filtered_df.style.apply(
+            lambda row: [
+                "color: lightgray"
+                if row["status"] == ProjectStatus.INACTIVE
+                else "background-color: white"
+            ]
+            * len(row),
+            axis=1,
+        )
+    )
+
     st_display.markdown(
         "The files associated with the settings of a given project are stored at "
         f"`/fs/pool/{quanting_pool_folder}/settings/<project id>/`"
     )
 
 
-display_settings(settings_df, c1)
+display_settings(settings_df)
 
+c1, _ = st.columns([0.5, 0.5])
 with c1.expander("Click here for help ..."):
     st.info(
         """
@@ -130,13 +144,12 @@ form_items = {
         "placeholder": "e.g. very_fast_config.yaml",
         "help": "Name of the config file. If none is given, default will be used.",
     },
-    # TODO: make software selection dynamic
+    # TODO: make software selection options dynamic
     "software": {
         "label": "software",
         "options": [
+            "alphadia-1.8.2",
             "alphadia-1.7.2",
-            "alphadia-1.7.2-dev",
-            "alphadia-1.7.1",
         ],
     },
 }
@@ -168,6 +181,11 @@ if selected_project:
         upload_checkbox = st.checkbox(
             "I have uploaded the above files to this folder.", value=False
         )
+
+        if "project" in settings_df.columns and len(
+            settings_df[settings_df["project"] == selected_project.id]
+        ):
+            st.info("The current settings for this project will be set to 'inactive'.")
 
         submit = st.form_submit_button(f"Add settings to project {selected_project.id}")
 

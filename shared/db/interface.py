@@ -134,12 +134,15 @@ def update_raw_file(  # noqa: PLR0913
     )
 
 
-def add_metrics_to_raw_file(raw_file_id: str, metrics: dict) -> None:
+def add_metrics_to_raw_file(
+    raw_file_id: str, *, metrics: dict, settings_version: int
+) -> None:
     """Add `metrics` to DB entry of `raw_file_id`."""
     logging.info(f"Adding to DB: {raw_file_id=} <- {metrics=}")
     connect_db()
     raw_file = RawFile.objects.get(id=raw_file_id)
-    Metrics(raw_file=raw_file, **metrics).save()
+
+    Metrics(raw_file=raw_file, settings_version=settings_version, **metrics).save()
 
 
 def add_new_project_to_db(*, project_id: str, name: str, description: str) -> None:
@@ -178,9 +181,20 @@ def add_new_settings_to_db(  # noqa: PLR0913 Too many arguments in function defi
     connect_db()
     project = Project.objects.get(id=project_id)
 
-    # TODO: get rid of this limitation: on adding a new setting for a project, set the status of the ACTIVE one to INACTIVE
-    if Settings.objects(project=project).first() is not None:
-        raise ValueError("Currently, only one settings per project is allowed.")
+    if (
+        current_active_setting := Settings.objects(
+            project=project, status=ProjectStatus.ACTIVE
+        ).first()
+    ) is not None:
+        logging.info(
+            f"Setting existing setting to INACTIVE: {current_active_setting.id}"
+        )
+        current_active_setting.status = ProjectStatus.INACTIVE
+        current_active_setting.save()
+
+        num_existing_settings = Settings.objects(project=project).all().count()
+    else:
+        num_existing_settings = 0
 
     settings = Settings(
         project=project,
@@ -189,6 +203,7 @@ def add_new_settings_to_db(  # noqa: PLR0913 Too many arguments in function defi
         speclib_file_name=speclib_file_name,
         config_file_name=config_file_name,
         software=software,
+        version=num_existing_settings + 1,
     )
     settings.save(force_insert=True)
 

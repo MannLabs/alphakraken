@@ -2,8 +2,9 @@
 
 from unittest.mock import MagicMock, patch
 
-from db.models import RawFileStatus
 from plugins.callbacks import on_failure_callback
+
+from shared.db.models import RawFileStatus
 
 
 @patch("plugins.callbacks.update_raw_file")

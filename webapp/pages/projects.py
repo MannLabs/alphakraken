@@ -5,7 +5,6 @@ import re
 
 import pandas as pd
 import streamlit as st
-from db.interface import add_new_project_to_db
 from service.components import show_filter, show_sandbox_message
 from service.db import df_from_db_data, get_project_data
 from service.utils import (
@@ -15,6 +14,7 @@ from service.utils import (
     show_feedback_in_sidebar,
 )
 
+from shared.db.interface import add_new_project_to_db
 from shared.keys import EnvVars
 
 _log(f"loading {__file__}")
@@ -46,8 +46,6 @@ quanting_pool_folder = os.environ.get(EnvVars.QUANTING_POOL_FOLDER)
 
 st.warning("This page should be edited only by AlphaKraken admin users!", icon="⚠️")
 
-c1, _ = st.columns([0.5, 0.5])
-
 
 @st.experimental_fragment
 def display_projects(
@@ -61,7 +59,7 @@ def display_projects(
     )
 
 
-display_projects(projects_df, c1)
+display_projects(projects_df)
 
 # ########################################### FORM
 
@@ -87,6 +85,7 @@ form_items = {
     },
 }
 
+c1, _ = st.columns([0.5, 0.5])
 with c1.expander("Click here for help ..."):
     st.info(
         """

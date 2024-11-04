@@ -3,6 +3,9 @@
 DAG_DELIMITER: str = "."
 
 
+QUANTING_TIME_ELAPSED_METRIC: str = "quanting_time_elapsed"
+
+
 class Dags:
     """Dag Names."""
 
@@ -132,6 +135,7 @@ class QuantingEnv:
 
     PROJECT_ID_OR_FALLBACK: str = "PROJECT_ID_OR_FALLBACK"
     RAW_FILE_ID: str = "RAW_FILE_ID"
+    SETTINGS_VERSION: str = "SETTINGS_VERSION"
 
 
 class JobStates:

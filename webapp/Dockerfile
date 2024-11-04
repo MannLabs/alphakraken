@@ -21,7 +21,7 @@ COPY webapp webapp
 COPY shared webapp/shared
 
 # cf. README.md:A note on importing
-ENV PYTHONPATH "${PYTHONPATH}:/app/webapp/shared"
+ENV PYTHONPATH "${PYTHONPATH}:/app/webapp/"
 
 EXPOSE 8501
 

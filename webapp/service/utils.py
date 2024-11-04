@@ -3,6 +3,7 @@
 import os
 import traceback
 from datetime import datetime
+from pathlib import Path
 
 import pytz
 import streamlit as st
@@ -82,3 +83,19 @@ def show_feedback_in_sidebar() -> None:
                 msg_to_show = f"Error! If you feel this is a bug, send a screenshot to the AlphaKraken team!\n\n{msg}"
                 st.sidebar.error(msg_to_show)
             del st.session_state[key]
+
+
+def display_info_message(st_display: st.delta_generator.DeltaGenerator = None) -> None:
+    """Read an info message from a file and display it as a streamlit info message."""
+    file_path = Path("/app/webapp/info_message.txt")
+    if not file_path.exists():
+        return
+
+    with file_path.open() as f:
+        content = f.read()
+    if content:
+        if st_display is None:
+            c1, _ = st.columns([0.5, 0.5])
+            c1.info(content, icon="ℹ️")  # noqa: RUF001
+        else:
+            st_display.info(content, icon="ℹ️")  # noqa: RUF001

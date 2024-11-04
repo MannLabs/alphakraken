@@ -13,7 +13,6 @@ import pytest
 import pytz
 from common.keys import InstrumentTypes
 from common.settings import INSTRUMENTS
-from db.models import RawFile
 from plugins.raw_file_wrapper_factory import (
     BrukerRawFileMonitorWrapper,
     BrukerRawFileWriteWrapper,
@@ -28,6 +27,8 @@ from plugins.raw_file_wrapper_factory import (
     ZenoRawFileMonitorWrapper,
     ZenoRawFileWriteWrapper,
 )
+
+from shared.db.models import RawFile
 
 
 class TestableRawFileMonitorWrapper(RawFileMonitorWrapper):

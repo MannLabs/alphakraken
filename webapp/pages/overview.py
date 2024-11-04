@@ -154,7 +154,7 @@ def df_to_csv(df: pd.DataFrame) -> str:
 # cf. https://docs.streamlit.io/develop/concepts/architecture/fragments
 @st.experimental_fragment
 def _display_table_and_plots(
-    df: pd.DataFrame, max_age_in_days: int, filter_value: str = ""
+    df: pd.DataFrame, max_age_in_days: float, filter_value: str = ""
 ) -> None:
     """A fragment that displays a DataFrame with a filter."""
     st.markdown("## Data")

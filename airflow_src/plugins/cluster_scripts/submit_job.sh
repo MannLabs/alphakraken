@@ -2,14 +2,17 @@
 #SBATCH --job-name=alphakraken
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=24
-#SBATCH --mem=128G
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=62G
 #SBATCH --time=02:00:00
-#SxBATCH --partition=p.<node>
+#SBATCH --partition=p.<node>
+#SBATCH --nodelist=<node>01,<node>02,<node>03
 
-export TQDM_MININTERVAL=10  # avoid lots of tqdm outputs
+NTHREADS=8
 
 set -u -e
+
+export TQDM_MININTERVAL=10  # avoid lots of tqdm outputs
 
 # INPUT taken from environment variables:
 # RAW_FILE_PATH # e.g. "/fs/pool/pool-backup/Test2/2024_07/20240606_OA1_Evo12_16min_JBMR_ADIAMA_HeLa_5ng_F-40_01.raw"
@@ -96,7 +99,8 @@ conda run -n $CONDA_ENV alphadia \
     ${SPECLIB_COMMAND} \
     ${FASTA_COMMAND} \
     --config "${CONFIG_FILE_PATH}" \
-    --output "${OUTPUT_PATH}"
+    --output "${OUTPUT_PATH}" \
+    --config-dict "{\"general\": {\"thread_count\": $NTHREADS}}"
 alphadia_exit_code=$?  # this line must immediately follow the `conda run ..` command
 set -e
 

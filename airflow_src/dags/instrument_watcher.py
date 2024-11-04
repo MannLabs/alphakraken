@@ -26,7 +26,7 @@ from sensors.file_sensor import FileCreationSensor
 def create_instrument_watcher_dag(instrument_id: str) -> None:
     """Create instrument_watcher dag for instrument with `instrument_id`."""
     with DAG(
-        f"{Dags.ACQUISITON_WATCHER}{DAG_DELIMITER}{instrument_id}",
+        f"{Dags.ACQUISITION_WATCHER}{DAG_DELIMITER}{instrument_id}",
         schedule="@continuous",
         start_date=pendulum.datetime(2000, 1, 1, tz="UTC"),
         max_active_runs=1,
@@ -41,7 +41,9 @@ def create_instrument_watcher_dag(instrument_id: str) -> None:
             "queue": f"{AIRFLOW_QUEUE_PREFIX}{instrument_id}",
             # this callback is executed when tasks fail
             "on_failure_callback": on_failure_callback,
-            "priority_weight": 1000,  # make sure the watcher tasks always have highest priority
+            # Make sure the watcher tasks always have highest priority among all tasks in the system.
+            # As some weights use "epoch", set this to a very large value (should be fine until the year 2128)
+            "priority_weight": 20000000,
         },
         description="Watch for new files.",
         tags=[

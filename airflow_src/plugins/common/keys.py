@@ -6,9 +6,9 @@ DAG_DELIMITER: str = "."
 class Dags:
     """Dag Names."""
 
-    ACQUISITON_WATCHER: str = "instrument_watcher"
+    ACQUISITION_WATCHER: str = "instrument_watcher"
     ACQUISITION_HANDLER: str = "acquisition_handler"
-    ACQUISITON_HANDLER: str = "acquisition_processor"
+    ACQUISITION_PROCESSOR: str = "acquisition_processor"
     FILE_MOVER: str = "file_mover"
     FILE_REMOVER: str = "file_remover"
 
@@ -29,6 +29,7 @@ class Tasks:
 
     PREPARE_QUANTING: str = "prepare_quanting"
     RUN_QUANTING: str = "run_quanting"
+    WAIT_FOR_JOB_START: str = "wait_for_job_start"
     MONITOR_QUANTING: str = "monitor_quanting"
     CHECK_QUANTING_RESULT: str = "check_quanting_result"
     COMPUTE_METRICS: str = "compute_metrics"

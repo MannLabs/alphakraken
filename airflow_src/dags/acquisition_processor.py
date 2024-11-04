@@ -16,6 +16,7 @@ from common.settings import (
     Pools,
     Timings,
 )
+from common.utils import get_minutes_since_fixed_time_point
 from impl.processor_impl import (
     check_quanting_result,
     compute_metrics,
@@ -23,13 +24,13 @@ from impl.processor_impl import (
     run_quanting,
     upload_metrics,
 )
-from sensors.ssh_sensor import QuantingSSHSensor
+from sensors.ssh_sensor import QuantingSSHSensor, WaitForJobStartSSHSensor
 
 
 def create_acquisition_processor_dag(instrument_id: str) -> None:
     """Create acquisition_processor dag for instrument with `instrument_id`."""
     with DAG(
-        f"{Dags.ACQUISITON_HANDLER}{DAG_DELIMITER}{instrument_id}",
+        f"{Dags.ACQUISITION_PROCESSOR}{DAG_DELIMITER}{instrument_id}",
         schedule=None,
         # these are the default arguments for each TASK
         default_args={
@@ -41,8 +42,12 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
             "queue": f"{AIRFLOW_QUEUE_PREFIX}{instrument_id}",
             # this callback is executed when tasks fail
             "on_failure_callback": on_failure_callback,
+            # make sure that downstream tasks are executed before any upstream tasks
+            # to make sure the cluster_slots_pool works correctly ("run_quanting" should only run if all "monitoring" tasks are done)
+            # cf. https://airflow.apache.org/docs/apache-airflow/stable/administration-and-deployment/priority-weight.html
+            "weight_rule": "upstream",
         },
-        description="Handle acquisition.",
+        description="Process acquired files and add metrics to DB.",
         catchup=False,
         tags=["acquisition_processor", instrument_id],
         params={DagParams.RAW_FILE_ID: Param(type="string", minimum=3)},
@@ -53,12 +58,20 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
             task_id=Tasks.PREPARE_QUANTING,
             python_callable=prepare_quanting,
             op_kwargs={OpArgs.INSTRUMENT_ID: instrument_id},
+            # make the youngest created task the one with the highest prio (last in, first out)
+            priority_weight=get_minutes_since_fixed_time_point(),
         )
 
         run_quanting_ = PythonOperator(
             task_id=Tasks.RUN_QUANTING,
             python_callable=run_quanting,
-            # shares a pool with monitor_quanting to limit the number of concurrent jobs on the cluster
+            pool=Pools.CLUSTER_SLOTS_POOL,
+        )
+
+        wait_for_job_start_ = WaitForJobStartSSHSensor(
+            task_id=Tasks.WAIT_FOR_JOB_START,
+            poke_interval=Timings.QUANTING_MONITOR_POKE_INTERVAL_S,
+            max_active_tis_per_dag=Concurrency.MAXNO_MONITOR_QUANTING_TASKS_PER_DAG,
             pool=Pools.CLUSTER_SLOTS_POOL,
         )
 
@@ -66,7 +79,8 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
             task_id=Tasks.MONITOR_QUANTING,
             poke_interval=Timings.QUANTING_MONITOR_POKE_INTERVAL_S,
             max_active_tis_per_dag=Concurrency.MAXNO_MONITOR_QUANTING_TASKS_PER_DAG,
-            # shares a pool with monitor_quanting to limit the number of concurrent jobs on the cluster
+            # Note: if we decouple this task from cluster_slots_pool, then this setting would steer only the
+            #  number of 'pending' jobs, which might be more desirable in some cases.
             pool=Pools.CLUSTER_SLOTS_POOL,
         )
 
@@ -86,6 +100,7 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
     (
         prepare_quanting_
         >> run_quanting_
+        >> wait_for_job_start_
         >> monitor_quanting_
         >> check_quanting_result_
         >> compute_metrics_

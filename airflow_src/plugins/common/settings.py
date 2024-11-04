@@ -64,6 +64,7 @@ ERROR_CODE_TO_STRING = {
     "_FIRST_ARRAY_ELEMENT_EMPTY": "first array argument cannot be empty",
     "_ARGMAX_OF_EMPTY_SEQUENCE": "attempt to get argmax of an empty sequence",
     "_INTERNAL_ERROR_CANDIDATE_CONFIG": "'CandidateConfig' object has no attribute 'reporter'",
+    "_COULD_NOT_OPEN_FILE": "could not be opened, is the file accessible",
     # deliberately not including "DivisionByZero" here as it is too generic
 }
 

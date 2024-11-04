@@ -267,6 +267,9 @@ class RawFileWriteWrapper(ABC):
     @abstractmethod
     def _get_files_to_copy(self) -> dict[Path, Path]:
         """Actual implementation."""
+        # TODO: there's currently an inconsistent behaviour between the different implementations:
+        #  some always return the source file path, some return nothing if the source file is not present
+        #  (same for _get_files_to_move)
 
     def get_files_to_move(self) -> dict[Path, Path]:
         """Get a dictionary mapping source file to destination paths for moving.

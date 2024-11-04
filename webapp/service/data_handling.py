@@ -5,7 +5,7 @@ import streamlit as st
 from service.db import df_from_db_data, get_raw_file_and_metrics_data
 
 
-def get_combined_raw_files_and_metrics_df(max_age_in_days: int) -> pd.DataFrame:
+def get_combined_raw_files_and_metrics_df(max_age_in_days: float) -> pd.DataFrame:
     """Get the combined DataFrame of raw files and metrics."""
     raw_files_db, metrics_db = get_raw_file_and_metrics_data(max_age_in_days)
     raw_files_df = df_from_db_data(raw_files_db)

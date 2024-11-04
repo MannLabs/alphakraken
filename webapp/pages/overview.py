@@ -105,10 +105,11 @@ st.write(
 display_info_message()
 
 # ########################################### LOGIC
-max_age_in_days = int(  # needed?
+max_age_in_days = float(
     st.query_params.get(QueryParams.MAX_AGE, DEFAULT_MAX_AGE_OVERVIEW)
 )
-combined_df = get_combined_raw_files_and_metrics_df(max_age_in_days)
+with st.spinner("Loading data ..."):
+    combined_df = get_combined_raw_files_and_metrics_df(max_age_in_days)
 
 
 # ########################################### DISPLAY: table

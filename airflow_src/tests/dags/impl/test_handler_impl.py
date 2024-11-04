@@ -97,6 +97,7 @@ def test_start_file_mover(mock_trigger_dag_run: MagicMock) -> None:
         {
             DagParams.RAW_FILE_ID: "file1.raw",
         },
+        time_delay_minutes=60,
     )
 
 

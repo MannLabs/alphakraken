@@ -2,7 +2,7 @@
 
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import pytz
 from airflow.api.common.trigger_dag import trigger_dag
@@ -58,16 +58,27 @@ def get_env_variable(key: str, default: str | None = None) -> str:
     return value
 
 
-def trigger_dag_run(dag_id: str, conf: dict[str, str]) -> None:
+def trigger_dag_run(
+    dag_id: str, conf: dict[str, str], time_delay_minutes: int | None = None
+) -> None:
     """Trigger a DAG run with the given configuration."""
-    run_id = DagRun.generate_run_id(
-        DagRunType.MANUAL, execution_date=datetime.now(tz=pytz.utc)
+    now = datetime.now(tz=pytz.utc)
+    run_id = DagRun.generate_run_id(DagRunType.MANUAL, execution_date=now)
+
+    execution_date = (
+        None
+        if time_delay_minutes is None
+        else now + timedelta(hours=time_delay_minutes)
     )
+
     logging.info(f"Triggering DAG {dag_id} with {run_id=} with {conf=}")
+
+    # TODO: handle occasional airflow.exceptions.DagNotFound: Dag id acquisition_handler.test4 not found
     trigger_dag(
         dag_id=dag_id,
         run_id=run_id,
         conf=conf,
+        execution_date=execution_date,
         replace_microseconds=False,
     )
 

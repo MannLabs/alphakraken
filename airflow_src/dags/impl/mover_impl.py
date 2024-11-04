@@ -2,13 +2,11 @@
 
 import logging
 import shutil
-import time
 from pathlib import Path
 
 from airflow.exceptions import AirflowFailException
 from airflow.models import TaskInstance
-from common.keys import DagContext, DagParams, InstrumentTypes, XComKeys
-from common.settings import INSTRUMENTS, Timings
+from common.keys import DagContext, DagParams, XComKeys
 from common.utils import get_env_variable, get_xcom, put_xcom
 from file_handling import compare_paths, get_file_size
 from raw_file_wrapper_factory import MovePathProvider, RawFileWrapperFactory
@@ -41,12 +39,6 @@ def move_files(ti: TaskInstance, **kwargs) -> None:
     """Move all files/folders associated with a raw file to the instrument backup folder."""
     raw_file_id = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID]
     raw_file = get_raw_file_by_id(raw_file_id)
-
-    if INSTRUMENTS[raw_file.instrument_id] == InstrumentTypes.ZENO:
-        logging.info(
-            f"Sleeping for {Timings.ZENO_FILE_MOVE_DELAY_M} seconds to allow Zeno to finish writing."
-        )
-        time.sleep(Timings.ZENO_FILE_MOVE_DELAY_M * 60)
 
     _check_main_file_to_move(ti, raw_file)
 

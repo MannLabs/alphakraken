@@ -93,7 +93,7 @@ class Timings:
 
     MOVE_RAW_FILE_TASK_TIMEOUT_M = 5
 
-    ZENO_FILE_MOVE_DELAY_M = 5
+    FILE_MOVE_DELAY_M = 60
 
 
 class Concurrency:

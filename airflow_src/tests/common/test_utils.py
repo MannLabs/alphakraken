@@ -147,7 +147,7 @@ def test_trigger_dag_run_with_delay(
         dag_id="dag_id",
         run_id="manual__1970-01-01T00:00:00+00:00",
         conf={"key": "value"},
-        execution_date=datetime(1970, 1, 1, 10, 0, tzinfo=pytz.utc),
+        execution_date=datetime(1970, 1, 1, 0, 10, tzinfo=pytz.utc),
         replace_microseconds=False,
     )
 

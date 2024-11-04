@@ -68,7 +68,7 @@ def trigger_dag_run(
     execution_date = (
         None
         if time_delay_minutes is None
-        else now + timedelta(hours=time_delay_minutes)
+        else now + timedelta(minutes=time_delay_minutes)
     )
 
     logging.info(f"Triggering DAG {dag_id} with {run_id=} with {conf=}")

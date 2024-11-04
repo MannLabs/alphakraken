@@ -107,7 +107,10 @@ def test_decide_processing_returns_true_if_no_errors(
 ) -> None:
     """Test decide_processing returns True if no errors are present."""
     ti = MagicMock()
-    kwargs = {DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"}}
+    kwargs = {
+        DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"},
+        OpArgs.INSTRUMENT_ID: "instrument1",
+    }
     assert decide_processing(ti, **kwargs) is True
 
 
@@ -119,7 +122,10 @@ def test_decide_processing_returns_false_if_acquisition_errors_present(
 ) -> None:
     """Test decide_processing returns False if acquisition errors are present."""
     ti = MagicMock()
-    kwargs = {DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"}}
+    kwargs = {
+        DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"},
+        OpArgs.INSTRUMENT_ID: "instrument1",
+    }
     assert decide_processing(ti, **kwargs) is False
 
     mock_update_raw_file.assert_called_once_with(
@@ -137,7 +143,10 @@ def test_decide_processing_returns_false_if_dda(
 ) -> None:
     """Test decide_processing returns False if file name contains 'dda'."""
     ti = MagicMock()
-    kwargs = {DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_dda_file.raw"}}
+    kwargs = {
+        DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_dda_file.raw"},
+        OpArgs.INSTRUMENT_ID: "instrument1",
+    }
     assert decide_processing(ti, **kwargs) is False
     mock_update_raw_file.assert_called_once_with(
         "some_dda_file.raw",
@@ -156,7 +165,10 @@ def test_decide_processing_returns_false_if_special_characters(
 ) -> None:
     """Test decide_processing returns False if file name contains special characters."""
     ti = MagicMock()
-    kwargs = {DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"}}
+    kwargs = {
+        DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"},
+        OpArgs.INSTRUMENT_ID: "instrument1",
+    }
 
     mock_count_special_characters.return_value = 1
 

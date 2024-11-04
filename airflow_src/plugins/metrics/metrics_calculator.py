@@ -30,6 +30,7 @@ file_name_to_read_method_mapping = {
     OutputFiles.PG_MATRIX: _load_tsv,
     OutputFiles.PRECURSORS: _load_tsv,
     OutputFiles.STAT: _load_tsv,
+    OutputFiles.INTERNAL: _load_tsv,
 }
 
 

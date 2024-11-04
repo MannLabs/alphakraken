@@ -36,11 +36,13 @@ class Column:
 
     # hide column in table
     hide: bool = False
+    # move column to front of table
+    at_front: bool = False
     # move column to end of table
     at_end: bool = False
     # color in table
     color_table: bool = False
-    # create a plot
+    # show as plot
     plot: bool = False
 
 
@@ -54,14 +56,17 @@ COLUMNS_INFO = {
     "_id": Column(hide=True),
     "original_name": Column(hide=True),
     "collision_flag": Column(hide=True),
-    # at end
-    "status_details": Column(at_end=True),
+    # at front (order matters)
+    "instrument": Column(at_front=True),
+    "status": Column(at_front=True),
+    "status_details": Column(at_front=True),
+    "size_gb": Column(at_front=True, color_table=True, plot=True),
+    "file_created": Column(at_front=True),
+    # at end (order matters)
     "project_id": Column(at_end=True),
     "updated_at_": Column(at_end=True),
     "created_at_": Column(at_end=True),
-    # plots
-    # Note: the order here determines the order of the plots
-    "size_gb": Column(color_table=True, plot=True),
+    # plots (order matters)
     "precursors": Column(color_table=True, plot=True),
     "proteins": Column(color_table=True, plot=True),
     "ms1_accuracy": Column(color_table=True, plot=True),
@@ -70,8 +75,8 @@ COLUMNS_INFO = {
     "intensity_sum": Column(color_table=True, plot=True),
     "settings_version": Column(at_end=True, plot=True),
     "quanting_time_minutes": Column(color_table=True, plot=True),
-    "duration_optimization": Column(color_table=True, plot=True),
-    "duration_extraction": Column(color_table=True, plot=True),
+    "duration_optimization": Column(color_table=True, plot=True, at_end=True),
+    "duration_extraction": Column(color_table=True, plot=True, at_end=True),
     "ms1_error": Column(color_table=True, plot=True),
     "ms2_error": Column(color_table=True, plot=True),
     "rt_error": Column(color_table=True, plot=True),
@@ -119,15 +124,19 @@ with st.spinner("Loading data ..."):
 # ########################################### DISPLAY: table
 
 
+columns_at_front = [col for col, col_info in COLUMNS_INFO.items() if col_info.at_front]
 columns_at_end = [col for col, col_info in COLUMNS_INFO.items() if col_info.at_end]
-
 columns_to_hide = [col for col, col_info in COLUMNS_INFO.items() if col_info.hide]
 
-column_order = [
-    col
-    for col in combined_df.columns
-    if col not in columns_at_end and col not in columns_to_hide
-] + columns_at_end
+column_order = (
+    columns_at_front
+    + [
+        col
+        for col in combined_df.columns
+        if col not in columns_at_front + columns_at_end + columns_to_hide
+    ]
+    + columns_at_end
+)
 
 
 def _filter_valid_columns(columns: list[str], df: pd.DataFrame) -> list[str]:

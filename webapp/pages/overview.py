@@ -69,9 +69,9 @@ COLUMNS_INFO = {
     "weighted_ms1_intensity_sum": Column(color_table=True, plot=True),
     "intensity_sum": Column(color_table=True, plot=True),
     "settings_version": Column(at_end=True, plot=True),
-    "quanting_time_minutes": Column(color_table=True),
-    "duration_optimization": Column(color_table=True),
-    "duration_extraction": Column(color_table=True),
+    "quanting_time_minutes": Column(color_table=True, plot=True),
+    "duration_optimization": Column(color_table=True, plot=True),
+    "duration_extraction": Column(color_table=True, plot=True),
 }
 
 # ########################################### PAGE HEADER
@@ -174,7 +174,7 @@ def _display_table_and_plots(
     # display only subset of entries to speed up page loading
     df_to_show = filtered_df.head(max_table_len)
 
-    cmap = plt.get_cmap("RdYlGn")
+    cmap = plt.get_cmap("Blues")
     cmap.set_bad(color="white")
     st.dataframe(
         df_to_show.style.background_gradient(

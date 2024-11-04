@@ -3,7 +3,7 @@
 Wait until acquisition is done.
 
 An acquisition is considered "done" if either:
-- new files have been found or
+- exactly one new file has been found
 - the main file has not appeared for a certain amount of time (relevant for Bruker only)
 - the file size has not changed for a certain amount of time
 """
@@ -105,11 +105,25 @@ class AcquisitionMonitor(BaseSensorOperator):
                     return True
                 return False
 
-        if self._new_files_found():
-            return True
-
         if self._file_size_unchanged_for_some_time():
             return True
+
+        current_dir_content, new_dir_content = self._get_dir_content()
+
+        if len(new_dir_content) > 0:
+            logging.info(f"New file(s) found: {new_dir_content}.")
+
+            if len(new_dir_content) == 1:
+                # potential additional check: is the new file "small enough" to be considered a freshly started acquisition
+                # but: to adjust the threshold the poke frequency and the data output of the instrument need to be considered
+                logging.info("Considering previous acquisition to be done.")
+                return True
+
+            logging.warning(
+                f"More than one new file found: {new_dir_content}. "
+                f"This could be due to a manual intervention on the file system."
+            )
+            self._initial_dir_contents = current_dir_content
 
         return False
 
@@ -127,18 +141,15 @@ class AcquisitionMonitor(BaseSensorOperator):
 
         return False
 
-    def _new_files_found(self) -> bool:
-        """Return true if new files have been found."""
-        if (
-            new_dir_content
-            := self._raw_file_monitor_wrapper.get_raw_files_on_instrument()
-            - self._initial_dir_contents
-        ):
-            logging.info(
-                f"New file(s) found: {new_dir_content}. Considering previous acquisition to be done."
-            )
-            return True
-        return False
+    def _get_dir_content(self) -> tuple[set[str], set[str]]:
+        """Return current and new directory content."""
+        current_dir_content = (
+            self._raw_file_monitor_wrapper.get_raw_files_on_instrument()
+        )
+
+        new_dir_content = current_dir_content - self._initial_dir_contents
+
+        return current_dir_content, new_dir_content
 
     def _file_size_unchanged_for_some_time(self) -> bool:
         """Return true if the file size has not changed for a certain amount of time."""

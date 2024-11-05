@@ -6,7 +6,7 @@
 #SBATCH --mem=62G
 #SBATCH --time=02:00:00
 #SBATCH --partition=p.<node>
-#SBATCH --nodelist=<node>01,<node>02,<node>03
+#SBATCH --nodelist=<node>02,<node>03
 
 NTHREADS=8
 

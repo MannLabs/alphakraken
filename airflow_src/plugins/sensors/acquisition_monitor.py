@@ -154,20 +154,31 @@ class AcquisitionMonitor(BaseSensorOperator):
 
     def _file_size_unchanged_for_some_time(self) -> bool:
         """Return true if the file size has not changed for a certain amount of time."""
-        time_since_last_check_s = (
-            current_timestamp := get_timestamp()
-        ) - self._latest_file_size_check_timestamp
-        if time_since_last_check_s / 60 >= SIZE_CHECK_INTERVAL_M:
+        time_since_last_check_m = (
+            (current_timestamp := get_timestamp())
+            - self._latest_file_size_check_timestamp
+        ) / 60
+
+        if time_since_last_check_m >= SIZE_CHECK_INTERVAL_M:
             size = get_file_size(
                 self._raw_file_monitor_wrapper.file_path_to_monitor_acquisition()
             )
-            logging.info(f"File size: {size}")
 
             if size == self._last_file_size:
                 logging.info(
-                    f"File size {size} has not changed for >= {SIZE_CHECK_INTERVAL_M} min. "
-                    f"Considering acquisition to be done."
+                    f"File size {size} has not changed for {time_since_last_check_m} >= {SIZE_CHECK_INTERVAL_M} min. "
                 )
+
+                if size == 0:
+                    # If a file is opened in the acquisition software, but not written to yet (because of, e.g. an LC error)
+                    # the size can remain 0 for a long time. Only once the next acquisition is started, the file is written to
+                    # and closed. As this could lead to inconsistencies, the acquisition ist not considered to be done in this case.
+                    logging.warning(
+                        "File size is 0. Presuming file is still open and acquisition is not done."
+                    )
+                    return False
+
+                logging.info("Considering acquisition to be done.")
                 return True
 
             self._last_file_size = size

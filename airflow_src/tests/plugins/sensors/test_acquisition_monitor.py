@@ -4,6 +4,7 @@
 
 from unittest.mock import MagicMock, call, patch
 
+import pytest
 from common.keys import DagContext, DagParams
 from plugins.sensors.acquisition_monitor import (
     SIZE_CHECK_INTERVAL_M,
@@ -196,19 +197,25 @@ def test_poke_file_dir_contents_change_main_file_does_not_exist_for_too_long(
     assert not sensor._main_file_exists
 
 
+@pytest.mark.parametrize(
+    ("file_size", "expected_sensor_result"), [(100, True), (0, False)]
+)
 @patch("plugins.sensors.acquisition_monitor.RawFileWrapperFactory")
 @patch("plugins.sensors.acquisition_monitor.get_timestamp")
 @patch("plugins.sensors.acquisition_monitor.update_raw_file")
 @patch("plugins.sensors.acquisition_monitor.get_raw_file_by_id")
-def test_poke_file_dir_contents_dont_change_but_file_is_unchanged(
+def test_poke_file_dir_contents_dont_change_but_file_is_unchanged(  # noqa: PLR0913
     mock_get_raw_file_by_id: MagicMock,
     mock_update_raw_file: MagicMock,
     mock_get_timestamp: MagicMock,
     mock_raw_file_wrapper_factory: MagicMock,
+    *,
+    file_size: str,
+    expected_sensor_result: bool,
 ) -> None:
-    """Test poke method correctly return file status when dir contents do not change and file also does not."""
+    """Test poke method correctly return file status when dir contents do not change and file also does not (for cases file size = 0 and != 0)."""
     mock_path = MagicMock()
-    mock_path.stat.return_value.st_size = 100
+    mock_path.stat.return_value.st_size = file_size
     mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.file_path_to_monitor_acquisition.return_value = mock_path
     mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.get_raw_files_on_instrument.return_value = set()  # this stays constant
 
@@ -227,7 +234,7 @@ def test_poke_file_dir_contents_dont_change_but_file_is_unchanged(
         result = sensor.poke({})
         assert not result
     result = sensor.poke({})
-    assert result
+    assert result == expected_sensor_result
 
     assert mock_path.stat.call_count == 2  # noqa: PLR2004
 

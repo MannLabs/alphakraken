@@ -90,7 +90,11 @@ with c1.expander("Click here for help ..."):
         which will be used to process all files associated to the parent project.
         Before creating the settings on this page, make sure you copied the corresponding files to the project-specific pool folder.
 
-        Note: currently, updates of settings are not possible. If you need to change them, ask an AlphaKraken admin.
+        If you want to update settings (e.g. use a newer AlphaDIA version or a different config file), just create a new settings entry
+        for the corresponding project. The current settings will be set to 'inactive', and the version number will be increased.
+        This version number is shown with each results metrics entry to keep track of the settings used for the analysis.
+
+        Note: currently, updates of settings are only possible by asking an AlphaKraken admin.
 
         ### Workflow
         1. Select a project to associate the new settings with.

@@ -98,7 +98,12 @@ class PrecursorStats(Metrics):
         stat_df = self._data_store[OutputFiles.PRECURSORS]
 
         for col in ["weighted_ms1_intensity", "intensity"]:
-            self._metrics[f"{col}_sum"] = stat_df[col].sum()
+            try:
+                self._metrics[f"{col}_sum"] = stat_df[col].sum()
+            except KeyError as e:  # noqa: PERF203
+                logging.warning(
+                    f"Column {col} not found in {stat_df.columns}. Error: {e}"
+                )
 
 
 def calc_metrics(output_directory: Path) -> dict[str, Any]:

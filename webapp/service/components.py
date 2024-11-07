@@ -10,7 +10,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 from matplotlib import pyplot as plt
-from service.utils import DEFAULT_MAX_AGE_STATUS, TERMINAL_STATUSES
+from service.utils import DEFAULT_MAX_AGE_STATUS, FILTER_MAPPING, TERMINAL_STATUSES
 
 from shared.db.models import RawFileStatus
 from shared.keys import EnvVars
@@ -22,8 +22,9 @@ def show_filter(
     *,
     default_value: str = "",
     text_to_display: str = "Filter:",
+    placeholder: str = "",
     st_display: st.delta_generator.DeltaGenerator = st,
-) -> pd.DataFrame:
+) -> tuple[pd.DataFrame, list[str]]:
     """Filter the DataFrame on user input by case-insensitive textual comparison in all columns.
 
     :param df: The DataFrame to filter.
@@ -35,9 +36,15 @@ def show_filter(
     user_input = st_display.text_input(
         text_to_display,
         default_value,
-        placeholder="e.g. test2 & !hela",
+        placeholder=placeholder,
         help="Case insensitive filter on each column of the table. Chain multiple conditions with '&', negate with '!'. E.g. test2 & qc & !hela.",
     )
+
+    inp = user_input
+    for key, value in FILTER_MAPPING.items():
+        inp = inp.replace(" ", "")
+        inp = inp.replace(value.strip(), key)
+    st.write(inp)
     if user_input is not None and user_input != "":
         filters = [f.strip() for f in user_input.lower().split("&")]
         mask = [True] * len(df)

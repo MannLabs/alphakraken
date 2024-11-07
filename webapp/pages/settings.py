@@ -57,7 +57,7 @@ def display_settings(
     settings_df: pd.DataFrame, st_display: st.delta_generator.DeltaGenerator = st
 ) -> None:
     """Fragment to display settings in a table."""
-    filtered_df = show_filter(settings_df, st_display=st_display)
+    filtered_df, _ = show_filter(settings_df, st_display=st_display)
 
     # beautify
     del filtered_df["_id"]

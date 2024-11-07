@@ -61,6 +61,7 @@ ERROR_CODE_TO_STRING = {
     "_COMBINED_PSM_FILE_EMPTY": "combined psm file is empty, can't continue",
     "_NOT_DIA_DATA": "'TimsTOFTranspose' object has no attribute '_cycle'",  # will become a known error in alphadia >1.7.2
     "_KEY_MISSING_RT_CALIBRATED": "ERROR: 'rt_calibrated'",  # deliberately include "ERROR" here to be more specific
+    "_KEY_MISSING_MZ_CALIBRATED": "ERROR: 'mz_calibrated'",  # deliberately include "ERROR" here to be more specific
     "_FIRST_ARRAY_ELEMENT_EMPTY": "first array argument cannot be empty",
     "_ARGMAX_OF_EMPTY_SEQUENCE": "attempt to get argmax of an empty sequence",
     "_INTERNAL_ERROR_CANDIDATE_CONFIG": "'CandidateConfig' object has no attribute 'reporter'",

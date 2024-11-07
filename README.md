@@ -116,7 +116,8 @@ Make sure they don't contain weird characters like '\' or '#' as they might inte
 #### On the PC (VM) hosting the airflow infrastructure [start-infrastructure]
 0. `ssh` into the PC/VM and set `export ENV=sandbox` (`production`).
 
-1. Set up the [pool bind mounts](#set-up-pool-bind-mounts) for `airflow_logs` only.
+1. Set up the [pool bind mounts](#set-up-pool-bind-mounts) for `airflow_logs` only. Here, the logs of the individual task runs will be stored
+for display in the Airflow UI.
 
 2. Run the airflow infrastructure and MongoDB services
 ```bash
@@ -287,14 +288,17 @@ and to not accidentally drop the `ro` and `rw` flags as they limit file access r
 
 
 ### Deploying new code versions
-These steps need to be done on all machines that run alphakraken services. Make sure the code is always consistent across all machines!
+These steps need to be done on all machines that run alphakraken services.
+Make sure the code is always consistent across all machines!
 0. If in doubt, create a  backup copy of the `mongodb_data_$ENV` and `airflowdb_data_$ENV` folders (on the machine that hosts the DBs).
-1. Stop all docker compose services across all machines using the `./compose.sh --profile <some profile> stop` command.
-2. On each machine, pull the most recent version of the code from the repository.
-3. Check if there are any special changes to be done (e.g. updating `submit_job.sh` on the cluster,
+1. On each machine, pull the most recent version of the code from the repository using `git pull` and a personal access token.
+2. Check if there are any special changes to be done (e.g. updating `submit_job.sh` on the cluster,
 new mounts, new environment variables, manual database interventions, ..) and apply them.
-4. Start all docker compose services again, first the `infrastructure` services, then the `workers` services.
-5. Normal operation should be resumed after about 5 minutes. Depending on when they were shut down, some tasks
+3. (when deploying workers) To avoid copying processes being interrupted, in the Airflow UI set the size of the `file_copy_pool` to 0 and wait until all `copy_raw_file` tasks are finished.
+4. Stop all docker compose services that need to be updated across all machines using the `./compose.sh --profile <some profile> stop` command.
+5. Start all docker compose services again, first the `infrastructure` services, then the `workers` services.
+6. Set the size of `file_copy_pool` to the number it was before.
+7. Normal operation should be resumed after about 5 minutes. Depending on when they were shut down, some tasks
 could be in an `error` state though. Check after a few hours if some files are stuck and resolve the issues with the Airflow UI.
 
 ## Local development
@@ -446,6 +450,8 @@ might not work as expected.
 
 ## Troubleshooting
 
+See also  .
+
 ### Problem: worker does not start
 
 A worker fails to start up with the error
@@ -471,7 +477,7 @@ then it might help to give the scheduler a fresh start on the PC/VM hosting the 
 ./compose.sh up airflow-scheduler --build --force-recreate -d
 ```
 
-### Problem: a `copy_raw_file` is stuck
+### Problem: a `copy_raw_file` task is stuck
 Symptom: the `copy_raw_file` task gets stuck when checking whether the file
 is already present on the pool backup. In addition, `ls` from the
 PC hosting the worker on pool backup folder containing the file does not
@@ -502,7 +508,12 @@ docker ps
 ```
 To force kill a certain container, get its `ID` from the above command, do `ps ax | grep <ID>` to get the process ID, and then `kill -9 <PID>`.
 
-Watch logs for a given service
+See state of mounts
+```bash
+df
+```
+
+Watch logs for a given service (don't confuse with the Airflow logs)
 ```bash
 ./compose.sh logs airflow-worker-test1 -f
 ```

@@ -40,13 +40,14 @@ def show_filter(
 
     :return: The filtered DataFrame.
     """
-    example_text = "E.g. P123" if placeholder == "" else placeholder
+    example_text = "E.g. `P123`" if placeholder == "" else placeholder
     user_input = st_display.text_input(
         text_to_display,
         default_value,
         placeholder=placeholder,
-        help="Case insensitive filter. Chain multiple conditions with '&', negate with '!'. "
-        "Append a column name followed by '=' to filter a specific column, otherwise each column of the table is considered. "
+        help="Case insensitive filter. Chain multiple conditions with `&`, negate with `!`. "
+        "Append a column name followed by `=` to filter a specific column, otherwise each column of the table is considered. "
+        "When searching a column, range search is done by `column=[lower, upper]`. "
         f"Supports regexps. {example_text}",
     )
 
@@ -58,20 +59,43 @@ def show_filter(
         for filter_ in filters:
             negate = False
             column = None
-            if filter_.startswith("!"):
-                negate = True
-                filter_ = filter_[1:].strip()  # noqa: PLW2901
-            if "=" in filter_:
-                column, filter_ = filter_.split("=", maxsplit=1)  # noqa: PLW2901
+            upper, lower = None, None
 
             try:
+                if filter_.startswith("!"):
+                    negate = True
+                    filter_ = filter_[1:].strip()  # noqa: PLW2901
+
+                if "=" in filter_:
+                    # separate "column=value" -> column, value
+                    column, filter_ = filter_.split("=", maxsplit=1)  # noqa: PLW2901
+
+                if (
+                    "[" in filter_
+                    and "]" in filter_
+                    and filter_.index("[") < filter_.index("]")
+                ):
+                    # extract "[1, 2]" -> 1, 2
+                    lower, upper = (
+                        filter_.split("[", maxsplit=1)[1]
+                        .split("]", maxsplit=1)[0]
+                        .split(",")
+                    )
+
                 if column is not None:
-                    new_mask = df[column].map(lambda x: _re_filter(x, filter_))
+                    if upper and lower:
+                        new_mask = df[column].map(
+                            lambda x: float(lower) <= float(x) <= float(upper)
+                        )
+                    else:
+                        new_mask = df[column].map(lambda x: _re_filter(x, filter_))
                 else:
                     new_mask = df.map(lambda x: _re_filter(x, filter_)).any(axis=1)
                     new_mask |= df.index.map(lambda x: _re_filter(x, filter_))
-            except re.error:
-                errors.append(f"Could not parse filter {filter_ }: ignoring it.")
+            except (re.error, ValueError) as e:
+                errors.append(
+                    f"Could not parse filter {filter_ }: ignoring it. {type(e)}: '{e}'"
+                )
                 continue
 
             if negate:

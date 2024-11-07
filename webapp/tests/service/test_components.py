@@ -17,27 +17,25 @@ from service.components import (
 
 
 @pytest.mark.parametrize(
-    ("column_content", "filter_value"),
+    ("filter_value"),
     [
-        (
-            "filter_text",
-            "FILTER_t",
-        ),
-        (
-            "filter_text",
-            "fi(.*)text",
-        ),
+        ("SOME_t"),
+        ("!other_t"),
+        ("so(.*)text"),
+        ("column1=[0.5,1]"),
+        ("column2=so(.*)text"),
     ],
 )
 @patch("streamlit.text_input")
 def test_input_filter_happy_path(
-    mock_text_input: MagicMock, filter_value: str, column_content: str
+    mock_text_input: MagicMock,
+    filter_value: str,
 ) -> None:
     """Test that the filter returns the correct DataFrame when a match is found."""
     mock_text_input.return_value = filter_value
     df = pd.DataFrame(
         {
-            "column1": [column_content, "other_text"],
+            "column1": [1, 2],
             "column2": ["some_text", "other_text"],
         }
     )
@@ -109,7 +107,9 @@ def test_input_filter_bad_regexp(mock_text_input: MagicMock) -> None:
     assert len(filtered_df) == 1
     assert "filter_text" in filtered_df["column1"].to_numpy()
     assert filter_value == "FILTER_text & (bad_regexp"
-    assert errors == ["Could not parse filter (bad_regexp: ignoring it."]
+    assert errors == [
+        "Could not parse filter (bad_regexp: ignoring it. <class 're.error'>: 'missing ), unterminated subpattern at position 0'"
+    ]
 
 
 @patch("streamlit.text_input")

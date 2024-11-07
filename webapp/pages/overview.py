@@ -19,6 +19,7 @@ from service.components import (
 )
 from service.data_handling import get_combined_raw_files_and_metrics_df
 from service.utils import (
+    APP_URL,
     DEFAULT_MAX_AGE_OVERVIEW,
     DEFAULT_MAX_TABLE_LEN,
     ERROR_STATUSES,
@@ -99,14 +100,14 @@ st.write(
     f"Current Kraken time: {datetime.now(tz=pytz.UTC).replace(microsecond=0)} [all time stamps are given in UTC!]"
 )
 
-# TODO: remove this hack once https://github.com/streamlit/streamlit/issues/8112 is available
-app_path = "http://<kraken_url>"
+
 days = 60
+url = f"{APP_URL}/overview?max_age={days}"
 st.markdown(
     f"""
     Note: for performance reasons, by default only data for the last {DEFAULT_MAX_AGE_OVERVIEW} days are loaded.
     If you want to see more data, use the `?max_age=` query parameter in the url, e.g.
-    <a href="{app_path}/overview?max_age={days}" target="_self">{app_path}/overview?max_age={days}</a>
+    <a href="{url}" target="_self">{url}</a>
     """,
     unsafe_allow_html=True,
 )
@@ -168,7 +169,7 @@ def _display_table_and_plots(
     len_whole_df = len(df)
     c1, c2, _ = st.columns([0.5, 0.25, 0.25])
 
-    filtered_df, filter_errors = show_filter(
+    filtered_df, user_input, filter_errors = show_filter(
         df,
         text_to_display="Filter:",
         st_display=c1,
@@ -179,8 +180,22 @@ def _display_table_and_plots(
         filtered_df,
         st_display=c2,
     )
+
     if filter_errors:
         st.warning("\n".join(filter_errors))
+
+    if user_input:
+        encoded_user_input = user_input
+        for key, value in FILTER_MAPPING.items():
+            encoded_user_input = encoded_user_input.replace(" ", "").replace(
+                value.strip(), key
+            )
+
+        url = f"{APP_URL}/overview?{QueryParams.FILTER}={encoded_user_input}"
+        st.markdown(
+            f"""Hint: save this filter by bookmarking <a href="{url}" target="_self">{url}</a>""",
+            unsafe_allow_html=True,
+        )
 
     max_table_len = int(
         st.query_params.get(QueryParams.MAX_TABLE_LEN, DEFAULT_MAX_TABLE_LEN)

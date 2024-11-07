@@ -11,7 +11,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 from matplotlib import pyplot as plt
-from service.utils import DEFAULT_MAX_AGE_STATUS, FILTER_MAPPING, TERMINAL_STATUSES
+from service.utils import DEFAULT_MAX_AGE_STATUS, TERMINAL_STATUSES
 
 from shared.db.models import RawFileStatus
 from shared.keys import EnvVars
@@ -25,7 +25,7 @@ def show_filter(
     text_to_display: str = "Filter:",
     placeholder: str = "",
     st_display: st.delta_generator.DeltaGenerator = st,
-) -> tuple[pd.DataFrame, list[str]]:
+) -> tuple[pd.DataFrame, str, list[str]]:
     """Filter the DataFrame on user input by case-insensitive textual comparison in all columns.
 
     :param df: The DataFrame to filter.
@@ -34,23 +34,20 @@ def show_filter(
 
     :return: The filtered DataFrame.
     """
+    example_text = "P123" if placeholder == "" else placeholder
     user_input = st_display.text_input(
         text_to_display,
         default_value,
         placeholder=placeholder,
-        help="Case insensitive filter on each column of the table. Chain multiple conditions with '&', negate with '!'. E.g. test2 & qc & !hela.",
+        help="Case insensitive filter on each column of the table. Chain multiple conditions with '&', negate with '!'. "
+        f"Supports regexps. E.g. {example_text}",
     )
 
-    inp = user_input
-    for key, value in FILTER_MAPPING.items():
-        inp = inp.replace(" ", "")
-        inp = inp.replace(value.strip(), key)
-    st.write(inp)
-
+    mask = [True] * len(df)
     errors = []
     if user_input is not None and user_input != "":
         filters = [f.strip() for f in user_input.lower().split("&")]
-        mask = [True] * len(df)
+
         for filter_ in filters:
             negate = False
             if filter_.startswith("!"):
@@ -72,8 +69,8 @@ def show_filter(
                 new_mask = ~new_mask
 
             mask &= new_mask
-        return df[mask], errors
-    return df, errors
+
+    return df[mask], user_input, errors
 
 
 def show_date_select(

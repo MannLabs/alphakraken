@@ -289,6 +289,7 @@ services:
       timeout: 10s
       retries: 5
       start_period: 30s
+    restart: always
 
   webapp:
     profiles: ["local", "infrastructure"]
@@ -306,6 +307,7 @@ services:
       timeout: 10s
       retries: 5
       start_period: 30s
+    restart: always
 #    # Uncomment for local development so that changes to webapp are immediately active
 #    volumes:
 #      - ./webapp:/app/webapp

@@ -76,7 +76,7 @@ COLUMNS = (
     Column("proteins", color_table=True, plot=True),
     Column("ms1_accuracy", color_table=True, plot=True),
     Column("fwhm_rt", color_table=True, plot=True),
-    Column("weighted_ms1_intensity_sum", color_table=True, plot=True),
+    Column("weighted_ms1_intensity_sum", color_table=True, plot=True, log_scale=True),
     Column("intensity_sum", color_table=True, plot=True, log_scale=True),
     Column("settings_version", at_end=True, plot=True),
     Column("quanting_time_minutes", color_table=True, plot=True),

@@ -1,6 +1,7 @@
 """UI components for the web application."""
 
 import os
+import re
 from collections import defaultdict
 from datetime import datetime, timedelta
 
@@ -45,6 +46,8 @@ def show_filter(
         inp = inp.replace(" ", "")
         inp = inp.replace(value.strip(), key)
     st.write(inp)
+
+    errors = []
     if user_input is not None and user_input != "":
         filters = [f.strip() for f in user_input.lower().split("&")]
         mask = [True] * len(df)
@@ -54,14 +57,23 @@ def show_filter(
                 negate = True
                 filter_ = filter_[1:].strip()  # noqa: PLW2901
 
-            new_mask = df.map(lambda x: filter_ in str(x).lower()).any(axis=1)
-            new_mask |= df.index.map(lambda x: filter_ in str(x).lower())
+            try:
+                new_mask = df.map(
+                    lambda x: bool(re.search(filter_, str(x), re.IGNORECASE))
+                ).any(axis=1)
+                new_mask |= df.index.map(
+                    lambda x: bool(re.search(filter_, str(x), re.IGNORECASE))
+                )
+            except re.error:
+                errors.append(f"Could not parse filter {filter_ }: ignoring it.")
+                continue
+
             if negate:
                 new_mask = ~new_mask
 
             mask &= new_mask
-        return df[mask]
-    return df
+        return df[mask], errors
+    return df, errors
 
 
 def show_date_select(

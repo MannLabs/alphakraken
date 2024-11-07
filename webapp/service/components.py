@@ -4,6 +4,7 @@ import os
 import re
 from collections import defaultdict
 from datetime import datetime, timedelta
+from typing import Any
 
 import humanize
 import matplotlib as mpl
@@ -15,6 +16,11 @@ from service.utils import DEFAULT_MAX_AGE_STATUS, TERMINAL_STATUSES
 
 from shared.db.models import RawFileStatus
 from shared.keys import EnvVars
+
+
+def _re_filter(text: Any, filter_: str) -> bool:  # noqa: ANN401
+    """Filter a value `x` with a `filter_` string."""
+    return bool(re.search(filter_, str(text), re.IGNORECASE))
 
 
 # TODO: if filter is set, set age filter to youngest file
@@ -34,13 +40,14 @@ def show_filter(
 
     :return: The filtered DataFrame.
     """
-    example_text = "P123" if placeholder == "" else placeholder
+    example_text = "E.g. P123" if placeholder == "" else placeholder
     user_input = st_display.text_input(
         text_to_display,
         default_value,
         placeholder=placeholder,
-        help="Case insensitive filter on each column of the table. Chain multiple conditions with '&', negate with '!'. "
-        f"Supports regexps. E.g. {example_text}",
+        help="Case insensitive filter. Chain multiple conditions with '&', negate with '!'. "
+        "Append a column name followed by '=' to filter a specific column, otherwise each column of the table is considered. "
+        f"Supports regexps. {example_text}",
     )
 
     mask = [True] * len(df)
@@ -50,17 +57,19 @@ def show_filter(
 
         for filter_ in filters:
             negate = False
+            column = None
             if filter_.startswith("!"):
                 negate = True
                 filter_ = filter_[1:].strip()  # noqa: PLW2901
+            if "=" in filter_:
+                column, filter_ = filter_.split("=", maxsplit=1)  # noqa: PLW2901
 
             try:
-                new_mask = df.map(
-                    lambda x: bool(re.search(filter_, str(x), re.IGNORECASE))
-                ).any(axis=1)
-                new_mask |= df.index.map(
-                    lambda x: bool(re.search(filter_, str(x), re.IGNORECASE))
-                )
+                if column is not None:
+                    new_mask = df[column].map(lambda x: _re_filter(x, filter_))
+                else:
+                    new_mask = df.map(lambda x: _re_filter(x, filter_)).any(axis=1)
+                    new_mask |= df.index.map(lambda x: _re_filter(x, filter_))
             except re.error:
                 errors.append(f"Could not parse filter {filter_ }: ignoring it.")
                 continue

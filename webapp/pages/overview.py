@@ -174,7 +174,7 @@ def _display_table_and_plots(
         text_to_display="Filter:",
         st_display=c1,
         default_value=filter_value,
-        placeholder="e.g. test2 & !hela & MaSc(*.)5ng",
+        placeholder="E.g. `test2 & !hela & MaSc(*.)5ng & status=done`",
     )
     filtered_df = show_date_select(
         filtered_df,

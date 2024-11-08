@@ -43,7 +43,7 @@ def send_slack_alert(stale_instruments: list[tuple[str, datetime]]) -> None:
     message = {
         "text": f"🚨 *Alert*: Health check status for `{instruments}` is stale\n"
         f"Last update: {oldest_updated_at.strftime('%Y-%m-%d %H:%M:%S')} UTC\n"
-        f"Time since last update: {(datetime.now(pytz.UTC) - pytz.utc.localize(oldest_updated_at)).total_seconds()/60} minutes."
+        f"Time since last update: {(datetime.now(pytz.UTC) - oldest_updated_at).total_seconds()/60} minutes."
     }
 
     try:

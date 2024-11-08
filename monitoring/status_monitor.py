@@ -11,6 +11,7 @@ from time import sleep
 
 import pytz
 import requests
+from keys import EnvVars
 from requests.exceptions import RequestException
 
 from shared.db.engine import connect_db
@@ -40,10 +41,12 @@ def send_slack_alert(stale_instruments: list[tuple[str, datetime]]) -> None:
     instruments = ", ".join([instrument_id for instrument_id, _ in stale_instruments])
     oldest_updated_at = min([updated_at for _, updated_at in stale_instruments])
 
+    env_name = os.environ.get(EnvVars.ENV_NAME)
+
     message = {
-        "text": f"🚨 *Alert*: Health check status for `{instruments}` is stale\n"
+        "text": f"🚨 *Alert*: [{env_name}] Health check status for `{instruments}` is stale\n"
         f"Last update: {oldest_updated_at.strftime('%Y-%m-%d %H:%M:%S')} UTC\n"
-        f"Time since last update: {(datetime.now(pytz.UTC) - oldest_updated_at).total_seconds()/60} minutes."
+        f"Time since last update: {(datetime.now(pytz.UTC) - oldest_updated_at).total_seconds()/60/60:.1f} hours."
     }
 
     try:
@@ -65,7 +68,7 @@ def _should_send_alert(stale_instruments: list[tuple[str, datetime]]) -> bool:
         cooldown_time = last_alerts[instrument_id] + timedelta(
             minutes=ALERT_COOLDOWN_MINUTES
         )
-        send_alert |= datetime.now(pytz.UTC) > pytz.utc.localize(cooldown_time)
+        send_alert |= datetime.now(pytz.UTC) > cooldown_time
 
     return send_alert
 

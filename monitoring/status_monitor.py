@@ -76,9 +76,9 @@ def _send_kraken_status_alert(stale_instruments: list[tuple[str, datetime]]) -> 
 def _send_slack_message(message: str) -> None:
     env_name = os.environ.get(EnvVars.ENV_NAME)
 
-    icon = "🚨 " if env_name == "production" else ""
+    prefix = "🚨 <!channel> " if env_name == "production" else ""
     payload = {
-        "text": f"{icon} [{env_name}] *Alert*:  {message}",
+        "text": f"{prefix} [{env_name}] *Alert*: {message}",
     }
     response = requests.post(SLACK_WEBHOOK_URL, json=payload, timeout=10)
     response.raise_for_status()

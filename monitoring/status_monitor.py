@@ -32,6 +32,9 @@ ALERT_COOLDOWN_MINUTES = (
     120  # Minimum time between repeated alerts for the same issue_type
 )
 
+# TODO: only alert in production?
+# TODO: report when error has resolved
+
 
 def _default_value() -> datetime:
     """Default value for defaultdict to have an alert on the first occurrence."""

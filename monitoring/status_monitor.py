@@ -7,6 +7,7 @@ import os
 import sys
 from collections import defaultdict
 from datetime import datetime, timedelta
+from functools import partial
 from time import sleep
 
 import pytz
@@ -30,7 +31,7 @@ ALERT_COOLDOWN_MINUTES = (
 )
 
 # Track when we last alerted about each instrument to implement cooldown
-last_alerts = defaultdict(datetime.now)
+last_alerts = defaultdict(partial(datetime.now, pytz.UTC))
 
 
 def send_slack_alert(stale_instruments: list[tuple[str, datetime]]) -> None:

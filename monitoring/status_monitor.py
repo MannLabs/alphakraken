@@ -11,15 +11,15 @@ from time import sleep
 
 import pytz
 import requests
-from keys import EnvVars
 from requests.exceptions import RequestException
 
 from shared.db.engine import connect_db
 from shared.db.models import KrakenStatus
+from shared.keys import EnvVars
 
-SLACK_WEBHOOK_URL = os.environ.get("SLACK_WEBHOOK_URL")
+SLACK_WEBHOOK_URL = os.environ.get(EnvVars.SLACK_WEBHOOK_URL)
 if not SLACK_WEBHOOK_URL:
-    logging.error("SLACK_WEBHOOK_URL environment variable must be set")
+    logging.error(f"{EnvVars.SLACK_WEBHOOK_URL} environment variable must be set")
     sys.exit(1)
 
 # Constants

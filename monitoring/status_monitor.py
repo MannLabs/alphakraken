@@ -24,49 +24,60 @@ if not SLACK_WEBHOOK_URL:
     sys.exit(1)
 
 # Constants
-CHECK_INTERVAL_SECONDS = 60  # How often to check MongoDB
-STALE_THRESHOLD_MINUTES = 15  # How old a status can be before considered stale
+CHECK_INTERVAL_SECONDS = 60
+STALE_STATUS_THRESHOLD_MINUTES = (
+    15  # How old a kraken status can be before considered stale
+)
 ALERT_COOLDOWN_MINUTES = (
-    120  # Minimum time between repeated alerts for the same instrument
+    120  # Minimum time between repeated alerts for the same issue_type
 )
 
-# Track when we last alerted about each instrument to implement cooldown
+# Track when we last alerted about each issue_type to implement cooldown
 last_alerts = defaultdict(partial(datetime.now, pytz.UTC))
 
 
-def send_slack_alert(stale_instruments: list[tuple[str, datetime]]) -> None:
+def _send_kraken_status_alert(stale_instruments: list[tuple[str, datetime]]) -> None:
     """Send alert to Slack about stale status."""
-    if not _should_send_alert(stale_instruments):
+    instruments = [instrument_id for instrument_id, _ in stale_instruments]
+
+    if not _should_send_alert(instruments):
         return
 
-    instruments = ", ".join([instrument_id for instrument_id, _ in stale_instruments])
+    instruments_str = ", ".join(instruments)
     oldest_updated_at = min([updated_at for _, updated_at in stale_instruments])
 
-    env_name = os.environ.get(EnvVars.ENV_NAME)
-
-    message = {
-        "text": f"🚨 *Alert*: [{env_name}] Health check status for `{instruments}` is stale\n"
+    message = (
+        f"Health check status for `{instruments_str}` is stale\n"
         f"Last update: {oldest_updated_at.strftime('%Y-%m-%d %H:%M:%S')} UTC\n"
         f"Time since last update: {(datetime.now(pytz.UTC) - oldest_updated_at).total_seconds()/60/60:.1f} hours."
-    }
+    )
 
     try:
-        response = requests.post(SLACK_WEBHOOK_URL, json=message, timeout=10)
-        response.raise_for_status()
-        logging.info("Successfully sent Slack alert.")
+        _send_slack_message(message)
 
-        for instrument_id, _ in stale_instruments:
+        for instrument_id in instruments:
             last_alerts[instrument_id] = datetime.now(pytz.UTC)
 
     except RequestException:
         logging.exception("Failed to send Slack alert.")
 
 
-def _should_send_alert(stale_instruments: list[tuple[str, datetime]]) -> bool:
+def _send_slack_message(message: str) -> None:
+    env_name = os.environ.get(EnvVars.ENV_NAME)
+
+    payload = {
+        "text": f"🚨 *Alert*: [{env_name}] {message}",
+    }
+    response = requests.post(SLACK_WEBHOOK_URL, json=payload, timeout=10)
+    response.raise_for_status()
+    logging.info("Successfully sent Slack alert.")
+
+
+def _should_send_alert(issue_types: list[str]) -> bool:
     """Check if we should send an alert based on cooldown period."""
     send_alert = False
-    for instrument_id, _ in stale_instruments:
-        cooldown_time = last_alerts[instrument_id] + timedelta(
+    for issue_type in issue_types:
+        cooldown_time = last_alerts[issue_type] + timedelta(
             minutes=ALERT_COOLDOWN_MINUTES
         )
         send_alert |= datetime.now(pytz.UTC) > cooldown_time
@@ -74,12 +85,12 @@ def _should_send_alert(stale_instruments: list[tuple[str, datetime]]) -> bool:
     return send_alert
 
 
-def check_kraken_status() -> None:
+def _check_kraken_update_status() -> None:
     """Check KrakenStatus collection for stale entries."""
     now = datetime.now(pytz.UTC)
-    stale_threshold = now - timedelta(minutes=STALE_THRESHOLD_MINUTES)
+    stale_threshold = now - timedelta(minutes=STALE_STATUS_THRESHOLD_MINUTES)
 
-    logging.info("Checking status...")
+    logging.info("Checking kraken update status...")
 
     stale_instruments = []
     statuses = KrakenStatus.objects
@@ -93,22 +104,41 @@ def check_kraken_status() -> None:
             stale_instruments.append((status.instrument_id, last_updated_at))
 
     if stale_instruments:
-        send_slack_alert(stale_instruments)
+        _send_kraken_status_alert(stale_instruments)
+
+
+def _send_db_alert() -> None:
+    """Send alert to Slack about MongoDB connection error."""
+    if not _should_send_alert(["db"]):
+        return
+
+    logging.info("Error connecting to MongoDB")
+
+    message = "Error connecting to MongoDB"
+    _send_slack_message(message)
+
+    last_alerts["db"] = datetime.now(pytz.UTC)
 
 
 def main() -> None:
     """Main monitoring loop."""
     logging.info(
         f"Starting KrakenStatus monitor (check interval: {CHECK_INTERVAL_SECONDS}s, "
-        f"stale threshold: {STALE_THRESHOLD_MINUTES}m)"
+        f"stale threshold: {STALE_STATUS_THRESHOLD_MINUTES}m)"
     )
 
     while True:
-        connect_db()
         try:
-            check_kraken_status()
+            connect_db()
+        except Exception:  # noqa: BLE001
+            _send_db_alert()
+
+        try:
+            _check_kraken_update_status()
         except Exception:
             logging.exception("Error checking KrakenStatus")
+
+        # TODO: add alert on failed health check here
 
         sleep(CHECK_INTERVAL_SECONDS)
 

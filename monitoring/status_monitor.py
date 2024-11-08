@@ -7,7 +7,6 @@ import os
 import sys
 from collections import defaultdict
 from datetime import datetime, timedelta
-from functools import partial
 from time import sleep
 
 import pytz
@@ -32,8 +31,14 @@ ALERT_COOLDOWN_MINUTES = (
     120  # Minimum time between repeated alerts for the same issue_type
 )
 
+
+def _default_value() -> datetime:
+    """Default value for defaultdict to have an alert on the first occurrence."""
+    return datetime.now(pytz.UTC) - timedelta(minutes=ALERT_COOLDOWN_MINUTES + 1)
+
+
 # Track when we last alerted about each issue_type to implement cooldown
-last_alerts = defaultdict(partial(datetime.now, pytz.UTC))
+last_alerts = defaultdict(_default_value)
 
 
 def _send_kraken_status_alert(stale_instruments: list[tuple[str, datetime]]) -> None:

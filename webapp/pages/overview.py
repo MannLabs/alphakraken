@@ -280,27 +280,33 @@ def _display_table_and_plots(
     # ########################################### DISPLAY: plots
 
     st.markdown("## Plots")
-    selectbox_columns = ["file_created"] + [
-        col for col in column_order if col != "file_created"
-    ]
-    c1, _ = st.columns([0.25, 0.75])
-    x = c1.selectbox(
+
+    c1, c2, *_ = st.columns([0.25, 0.25, 0.75])
+    color_by = c1.selectbox(
+        label="Color by:",
+        options=["instrument_id"]
+        + [col for col in column_order if col != "instrument_id"],
+        help="Choose the column to color by.",
+    )
+    x = c2.selectbox(
         label="Choose x-axis:",
-        options=selectbox_columns,
+        options=["file_created"]
+        + [col for col in column_order if col != "file_created"],
         help="Set the x-axis. The default 'file_created' is suitable for most cases.",
     )
+
     for column in [
         column
         for column in COLUMNS
         if (column.plot and column.name in filtered_df.columns)
     ]:
         try:
-            _draw_plot(filtered_df, x, column)
+            _draw_plot(filtered_df, x, column, color_by)
         except Exception as e:  # noqa: BLE001, PERF203
             _log(e, f"Cannot draw plot for {column.name} vs {x}.")
 
 
-def _draw_plot(df: pd.DataFrame, x: str, column: Column) -> None:
+def _draw_plot(df: pd.DataFrame, x: str, column: Column, color_by_column: str) -> None:
     """Draw a plot of a DataFrame."""
     df = df.sort_values(by=x)
 
@@ -324,7 +330,7 @@ def _draw_plot(df: pd.DataFrame, x: str, column: Column) -> None:
         df,
         x=x,
         y=y,
-        color="instrument_id",
+        color=color_by_column,
         hover_name="_id",
         hover_data=hover_data,
         title=title,

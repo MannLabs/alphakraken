@@ -71,8 +71,9 @@ def _send_kraken_status_alert(stale_instruments: list[tuple[str, datetime]]) -> 
 def _send_slack_message(message: str) -> None:
     env_name = os.environ.get(EnvVars.ENV_NAME)
 
+    icon = "🚨 " if env_name == "production" else ""
     payload = {
-        "text": f"🚨 *Alert*: [{env_name}] {message}",
+        "text": f"{icon} [{env_name}] *Alert*:  {message}",
     }
     response = requests.post(SLACK_WEBHOOK_URL, json=payload, timeout=10)
     response.raise_for_status()
@@ -113,17 +114,17 @@ def _check_kraken_update_status() -> None:
         _send_kraken_status_alert(stale_instruments)
 
 
-def _send_db_alert() -> None:
+def _send_db_alert(error_type: str) -> None:
     """Send alert to Slack about MongoDB connection error."""
-    if not _should_send_alert(["db"]):
+    if not _should_send_alert([error_type]):
         return
 
     logging.info("Error connecting to MongoDB")
 
-    message = "Error connecting to MongoDB"
+    message = f"Error connecting to MongoDB: {error_type}"
     _send_slack_message(message)
 
-    last_alerts["db"] = datetime.now(pytz.UTC)
+    last_alerts[error_type] = datetime.now(pytz.UTC)
 
 
 def main() -> None:
@@ -137,12 +138,12 @@ def main() -> None:
         try:
             connect_db(raise_on_error=True)
         except Exception:  # noqa: BLE001
-            _send_db_alert()
+            _send_db_alert("db_connection")
 
         try:
             _check_kraken_update_status()
         except ServerSelectionTimeoutError:
-            _send_db_alert()
+            _send_db_alert("db_timeout")
 
         except Exception:
             logging.exception("Error checking KrakenStatus")

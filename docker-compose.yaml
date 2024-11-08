@@ -313,6 +313,22 @@ services:
 #      - ./webapp:/app/webapp
 #      - ./shared:/app/webapp/shared
 
+  monitoring:
+    build:
+      context: .
+      dockerfile: monitoring/Dockerfile
+    profiles: ["infrastructure"]
+    environment:
+      <<: *airflow-common-env
+      SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL}
+    depends_on:
+      - mongodb-service
+#    healthcheck:
+#      test: ["CMD", "python", "-c", "..."]  # TODO add appropriate health check
+#      interval: 30s
+#      timeout: 10s
+#      retries: 3
+
   # test worker for local testing
   airflow-worker-test1:
     profiles: ["local"]

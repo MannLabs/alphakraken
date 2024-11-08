@@ -65,7 +65,7 @@ def _should_send_alert(stale_instruments: list[tuple[str, datetime]]) -> bool:
         cooldown_time = last_alerts[instrument_id] + timedelta(
             minutes=ALERT_COOLDOWN_MINUTES
         )
-        send_alert |= datetime.now(pytz.UTC) > cooldown_time
+        send_alert |= datetime.now(pytz.UTC) > pytz.utc.localize(cooldown_time)
 
     return send_alert
 

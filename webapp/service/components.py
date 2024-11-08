@@ -29,26 +29,27 @@ def show_filter(
     *,
     default_value: str = "",
     text_to_display: str = "Filter:",
-    placeholder: str = "",
+    example_text: str = "P123",
     st_display: st.delta_generator.DeltaGenerator = st,
 ) -> tuple[pd.DataFrame, str, list[str]]:
     """Filter the DataFrame on user input by case-insensitive textual comparison in all columns.
 
     :param df: The DataFrame to filter.
     :param text_to_display: The text to display next to the input field.
+    :param example_text: An example text to display in the input field and the help text.
     :param st_display: The streamlit display object.
 
     :return: The filtered DataFrame.
     """
-    example_text = "E.g. `P123`" if placeholder == "" else placeholder
     user_input = st_display.text_input(
         text_to_display,
         default_value,
-        placeholder=placeholder,
+        placeholder=f"example: {example_text}",
         help="Case insensitive filter. Chain multiple conditions with `&`, negate with `!`. "
         "Append a column name followed by `=` to filter a specific column, otherwise each column of the table is considered. "
         "When searching a column, range search is done by `column=[lower, upper]`. "
-        f"Supports regexps. {example_text}",
+        f"Supports regular expressions. "
+        f"Example: `{example_text}`",
     )
 
     mask = [True] * len(df)

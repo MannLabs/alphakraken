@@ -355,9 +355,7 @@ def _draw_plot(
         symbol = [
             "x" if x in ERROR_STATUSES else "circle" for x in df["status"].to_numpy()
         ]
-        fig.update_traces(
-            mode="lines+markers", marker={"symbol": symbol}, color=color_by_column
-        )
+        fig.update_traces(mode="lines+markers", marker={"symbol": symbol})
     fig.add_hline(y=median_, line_dash="dash", line={"color": "lightgrey"})
     st.plotly_chart(fig)
 

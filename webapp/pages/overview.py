@@ -281,8 +281,8 @@ def _display_table_and_plots(
 
     st.markdown("## Plots")
 
-    c1, c2, *_ = st.columns([0.25, 0.25, 0.75])
-    color_by = c1.selectbox(
+    c1, c2, c3 = st.columns([0.25, 0.25, 0.75])
+    color_by_column = c1.selectbox(
         label="Color by:",
         options=["instrument_id"]
         + [col for col in column_order if col != "instrument_id"],
@@ -294,6 +294,11 @@ def _display_table_and_plots(
         + [col for col in column_order if col != "file_created"],
         help="Set the x-axis. The default 'file_created' is suitable for most cases.",
     )
+    show_traces = c3.checkbox(
+        label="Show traces",
+        value=True,
+        help="Show traces for each data point.",
+    )
 
     for column in [
         column
@@ -301,12 +306,20 @@ def _display_table_and_plots(
         if (column.plot and column.name in filtered_df.columns)
     ]:
         try:
-            _draw_plot(filtered_df, x, column, color_by)
+            _draw_plot(
+                filtered_df,
+                x=x,
+                column=column,
+                color_by_column=color_by_column,
+                show_traces=show_traces,
+            )
         except Exception as e:  # noqa: BLE001, PERF203
             _log(e, f"Cannot draw plot for {column.name} vs {x}.")
 
 
-def _draw_plot(df: pd.DataFrame, x: str, column: Column, color_by_column: str) -> None:
+def _draw_plot(
+    df: pd.DataFrame, *, x: str, column: Column, color_by_column: str, show_traces: bool
+) -> None:
     """Draw a plot of a DataFrame."""
     df = df.sort_values(by=x)
 
@@ -338,13 +351,12 @@ def _draw_plot(df: pd.DataFrame, x: str, column: Column, color_by_column: str) -
         error_y=_get_yerror_column_name(y, df),
         log_y=column.log_scale,
     )
-    if y_is_numeric:
+    if y_is_numeric and show_traces:
         symbol = [
             "x" if x in ERROR_STATUSES else "circle" for x in df["status"].to_numpy()
         ]
         fig.update_traces(
-            mode="lines+markers",
-            marker={"symbol": symbol},
+            mode="lines+markers", marker={"symbol": symbol}, color=color_by_column
         )
     fig.add_hline(y=median_, line_dash="dash", line={"color": "lightgrey"})
     st.plotly_chart(fig)

@@ -11,6 +11,7 @@ from time import sleep
 
 import pytz
 import requests
+from pymongo.errors import ServerSelectionTimeoutError
 from requests.exceptions import RequestException
 
 from shared.db.engine import connect_db
@@ -134,12 +135,15 @@ def main() -> None:
 
     while True:
         try:
-            connect_db()
+            connect_db(raise_on_error=True)
         except Exception:  # noqa: BLE001
             _send_db_alert()
 
         try:
             _check_kraken_update_status()
+        except ServerSelectionTimeoutError:
+            _send_db_alert()
+
         except Exception:
             logging.exception("Error checking KrakenStatus")
 

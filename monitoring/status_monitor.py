@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-"""Script to monitor KrakenStatus and send alerts to Slack when health checks get stale."""
+"""Script to monitor AlphaKraken and send alerts to Slack."""
 
 import logging
 import os
@@ -32,8 +32,10 @@ ALERT_COOLDOWN_MINUTES = (
     120  # Minimum time between repeated alerts for the same issue_type
 )
 
+# TODO: add unit tests
 # TODO: only alert in production?
 # TODO: report when error has resolved
+# TODO: add a "all is well" message once a day?
 
 
 def _default_value() -> datetime:
@@ -152,6 +154,8 @@ def main() -> None:
             logging.exception("Error checking KrakenStatus")
 
         # TODO: add alert on failed health check here
+
+        # TODO: add alert on disk space here (< 200G)
 
         sleep(CHECK_INTERVAL_SECONDS)
 

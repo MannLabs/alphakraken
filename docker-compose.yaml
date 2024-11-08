@@ -318,7 +318,7 @@ services:
     build:
       context: .
       dockerfile: monitoring/Dockerfile
-    profiles: ["infrastructure"]
+    profiles: ["infrastructure", "workers"] # have monitoring running on all machines (downsides: potential alerts duplication)
     environment:
       <<: *airflow-common-env
       SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL}

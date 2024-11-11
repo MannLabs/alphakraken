@@ -74,18 +74,18 @@ COLUMNS = (
     # plots (order matters)
     Column("precursors", color_table=True, plot=True),
     Column("proteins", color_table=True, plot=True),
-    Column("ms1_accuracy", color_table=True, plot=True),
-    Column("fwhm_rt", color_table=True, plot=True),
     Column("weighted_ms1_intensity_sum", color_table=True, plot=True, log_scale=True),
     Column("intensity_sum", color_table=True, plot=True, log_scale=True),
-    Column("settings_version", at_end=True, plot=True),
-    Column("quanting_time_minutes", color_table=True, plot=True),
-    Column("duration_optimization", color_table=True, plot=True, at_end=True),
-    Column("duration_extraction", color_table=True, plot=True, at_end=True),
+    Column("ms1_accuracy", color_table=True, plot=True),
+    Column("fwhm_rt", color_table=True, plot=True),
     Column("ms1_error", color_table=True, plot=True),
     Column("ms2_error", color_table=True, plot=True),
     Column("rt_error", color_table=True, plot=True),
     Column("mobility_error", color_table=True, plot=True),
+    Column("settings_version", at_end=True, plot=True),
+    Column("quanting_time_minutes", color_table=True, plot=True),
+    Column("duration_optimization", color_table=True, plot=True, at_end=True),
+    Column("duration_extraction", color_table=True, plot=True, at_end=True),
 )
 
 # ########################################### PAGE HEADER
@@ -213,7 +213,7 @@ def _display_table_and_plots(
     # display only subset of entries to speed up page loading
     df_to_show = filtered_df.head(max_table_len)
 
-    cmap = plt.get_cmap("Blues")
+    cmap = plt.get_cmap("RdYlGn")
     cmap.set_bad(color="white")
     st.dataframe(
         df_to_show.style.background_gradient(

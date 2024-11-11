@@ -34,6 +34,7 @@ _log(f"loading {__file__}")
 class Column:
     """Data class for information on how to display a column information."""
 
+    name: str
     # hide column in table
     hide: bool = False
     # move column to front of table
@@ -44,44 +45,46 @@ class Column:
     color_table: bool = False
     # show as plot
     plot: bool = False
+    # use log scale for plot
+    log_scale: bool = False
 
 
-COLUMNS_INFO = {
+COLUMNS = (
     # hide
-    "created_at": Column(hide=True),
-    "size": Column(hide=True),
-    "quanting_time_elapsed": Column(hide=True),
-    "raw_file": Column(hide=True),
-    "file_info": Column(hide=True),
-    "_id": Column(hide=True),
-    "original_name": Column(hide=True),
-    "collision_flag": Column(hide=True),
+    Column("created_at", hide=True),
+    Column("size", hide=True),
+    Column("quanting_time_elapsed", hide=True),
+    Column("raw_file", hide=True),
+    Column("file_info", hide=True),
+    Column("_id", hide=True),
+    Column("original_name", hide=True),
+    Column("collision_flag", hide=True),
     # at front (order matters)
-    "instrument_id": Column(at_front=True),
-    "status": Column(at_front=True),
-    "status_details": Column(at_front=True),
-    "size_gb": Column(at_front=True, color_table=True, plot=True),
-    "file_created": Column(at_front=True),
+    Column("instrument_id", at_front=True),
+    Column("status", at_front=True),
+    Column("status_details", at_front=True),
+    Column("size_gb", at_front=True, color_table=True, plot=True),
+    Column("file_created", at_front=True),
     # at end (order matters)
-    "project_id": Column(at_end=True),
-    "updated_at_": Column(at_end=True),
-    "created_at_": Column(at_end=True),
+    Column("project_id", at_end=True),
+    Column("updated_at_", at_end=True),
+    Column("created_at_", at_end=True),
     # plots (order matters)
-    "precursors": Column(color_table=True, plot=True),
-    "proteins": Column(color_table=True, plot=True),
-    "ms1_accuracy": Column(color_table=True, plot=True),
-    "fwhm_rt": Column(color_table=True, plot=True),
-    "weighted_ms1_intensity_sum": Column(color_table=True, plot=True),
-    "intensity_sum": Column(color_table=True, plot=True),
-    "settings_version": Column(at_end=True, plot=True),
-    "quanting_time_minutes": Column(color_table=True, plot=True),
-    "duration_optimization": Column(color_table=True, plot=True, at_end=True),
-    "duration_extraction": Column(color_table=True, plot=True, at_end=True),
-    "ms1_error": Column(color_table=True, plot=True),
-    "ms2_error": Column(color_table=True, plot=True),
-    "rt_error": Column(color_table=True, plot=True),
-    "mobility_error": Column(color_table=True, plot=True),
-}
+    Column("precursors", color_table=True, plot=True),
+    Column("proteins", color_table=True, plot=True),
+    Column("ms1_accuracy", color_table=True, plot=True),
+    Column("fwhm_rt", color_table=True, plot=True),
+    Column("weighted_ms1_intensity_sum", color_table=True, plot=True),
+    Column("intensity_sum", color_table=True, plot=True, log_scale=True),
+    Column("settings_version", at_end=True, plot=True),
+    Column("quanting_time_minutes", color_table=True, plot=True),
+    Column("duration_optimization", color_table=True, plot=True, at_end=True),
+    Column("duration_extraction", color_table=True, plot=True, at_end=True),
+    Column("ms1_error", color_table=True, plot=True),
+    Column("ms2_error", color_table=True, plot=True),
+    Column("rt_error", color_table=True, plot=True),
+    Column("mobility_error", color_table=True, plot=True),
+)
 
 # ########################################### PAGE HEADER
 
@@ -124,9 +127,9 @@ with st.spinner("Loading data ..."):
 # ########################################### DISPLAY: table
 
 
-columns_at_front = [col for col, col_info in COLUMNS_INFO.items() if col_info.at_front]
-columns_at_end = [col for col, col_info in COLUMNS_INFO.items() if col_info.at_end]
-columns_to_hide = [col for col, col_info in COLUMNS_INFO.items() if col_info.hide]
+columns_at_front = [column.name for column in COLUMNS if column.at_front]
+columns_at_end = [column.name for column in COLUMNS if column.at_end]
+columns_to_hide = [column.name for column in COLUMNS if column.hide]
 
 column_order = (
     columns_at_front
@@ -193,7 +196,7 @@ def _display_table_and_plots(
     st.dataframe(
         df_to_show.style.background_gradient(
             subset=_filter_valid_columns(
-                [col for col, col_info in COLUMNS_INFO.items() if col_info.color_table],
+                [column.name for column in COLUMNS if column.color_table],
                 filtered_df,
             ),
             cmap=cmap,
@@ -264,20 +267,22 @@ def _display_table_and_plots(
         options=selectbox_columns,
         help="Set the x-axis. The default 'file_created' is suitable for most cases.",
     )
-    for y in _filter_valid_columns(
-        [col for col, col_info in COLUMNS_INFO.items() if col_info.plot],
-        filtered_df,
-    ):
+    for column in [
+        column
+        for column in COLUMNS
+        if (column.plot and column.name in filtered_df.columns)
+    ]:
         try:
-            _draw_plot(filtered_df, x, y)
+            _draw_plot(filtered_df, x, column)
         except Exception as e:  # noqa: BLE001, PERF203
-            _log(e, f"Cannot draw plot for {y} vs {x}.")
+            _log(e, f"Cannot draw plot for {column.name} vs {x}.")
 
 
-def _draw_plot(df: pd.DataFrame, x: str, y: str) -> None:
+def _draw_plot(df: pd.DataFrame, x: str, column: Column) -> None:
     """Draw a plot of a DataFrame."""
     df = df.sort_values(by=x)
 
+    y = column.name
     y_is_numeric = pd.api.types.is_numeric_dtype(df[y])
     median_ = df[y].median() if y_is_numeric else 0
     title = f"{y} (median= {median_:.2f})" if y_is_numeric else y
@@ -303,6 +308,7 @@ def _draw_plot(df: pd.DataFrame, x: str, y: str) -> None:
         title=title,
         height=400,
         error_y=_get_yerror_column_name(y, df),
+        log_y=column.log_scale,
     )
     if y_is_numeric:
         symbol = [

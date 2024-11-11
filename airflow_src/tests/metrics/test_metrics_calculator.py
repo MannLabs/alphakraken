@@ -135,3 +135,21 @@ def test_precursor_stats_calculation(mock_datastore: MagicMock) -> None:
 
     assert metrics["weighted_ms1_intensity_sum"] == 3.0  # noqa: PLR2004
     assert metrics["intensity_sum"] == 30.0  # noqa: PLR2004
+
+
+@patch("plugins.metrics.metrics_calculator.DataStore")
+def test_precursor_stats_calculation_column_missing(mock_datastore: MagicMock) -> None:
+    """Test precursor stats calculation os gracefully handling a missing column."""
+    mock_df = pd.DataFrame(
+        {
+            "weighted_ms1_intensity": [1.0, 2.0],
+        }
+    )
+
+    mock_datastore.__getitem__.return_value = mock_df
+
+    # when
+    metrics = PrecursorStats(mock_datastore).get()
+
+    assert metrics["weighted_ms1_intensity_sum"] == 3.0  # noqa: PLR2004
+    assert "intensity_sum" not in metrics

@@ -17,8 +17,8 @@ from common.utils import get_timestamp, put_xcom
 from file_handling import get_file_size
 from raw_file_wrapper_factory import RawFileMonitorWrapper, RawFileWrapperFactory
 
-from shared.db.interface import update_raw_file
-from shared.db.models import RawFileStatus
+from shared.db.interface import get_raw_file_by_id, update_raw_file
+from shared.db.models import RawFile, RawFileStatus
 
 # Soft timeout for the second type of check
 SOFT_TIMEOUT_ON_MISSING_MAIN_FILE_M: int = 120
@@ -40,7 +40,7 @@ class AcquisitionMonitor(BaseSensorOperator):
 
         self._instrument_id = instrument_id
 
-        self._raw_file_name: str | None = None
+        self._raw_file: RawFile | None = None
         self._raw_file_monitor_wrapper: RawFileMonitorWrapper | None = None
         self._initial_dir_contents: set | None = None
 
@@ -53,10 +53,11 @@ class AcquisitionMonitor(BaseSensorOperator):
 
     def pre_execute(self, context: dict[str, any]) -> None:
         """_job_id the job id from XCom."""
-        self._raw_file_name = context[DagContext.PARAMS][DagParams.RAW_FILE_ID]
+        raw_file_id = context[DagContext.PARAMS][DagParams.RAW_FILE_ID]
+        self._raw_file = get_raw_file_by_id(raw_file_id)
 
         self._raw_file_monitor_wrapper = RawFileWrapperFactory.create_monitor_wrapper(
-            instrument_id=self._instrument_id, raw_file_name=self._raw_file_name
+            instrument_id=self._instrument_id, raw_file=self._raw_file
         )
 
         self._initial_dir_contents = (
@@ -67,7 +68,7 @@ class AcquisitionMonitor(BaseSensorOperator):
         self._latest_file_size_check_timestamp = self._first_poke_timestamp
 
         update_raw_file(
-            self._raw_file_name, new_status=RawFileStatus.MONITORING_ACQUISITION
+            self._raw_file.id, new_status=RawFileStatus.MONITORING_ACQUISITION
         )
 
         logging.info(
@@ -91,7 +92,7 @@ class AcquisitionMonitor(BaseSensorOperator):
             acquisition_monitor_errors,
         )
 
-        update_raw_file(self._raw_file_name, new_status=RawFileStatus.MONITORING_DONE)
+        update_raw_file(self._raw_file.id, new_status=RawFileStatus.MONITORING_DONE)
 
     def poke(self, context: dict[str, any]) -> bool:
         """Return True if acquisition is done."""

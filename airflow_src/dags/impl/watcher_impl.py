@@ -79,38 +79,41 @@ def get_unknown_raw_files(ti: TaskInstance, **kwargs) -> None:
     """
     instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
 
-    raw_file_names = sorted(
+    raw_file_names_on_instrument = sorted(
         RawFileWrapperFactory.create_monitor_wrapper(
             instrument_id=instrument_id
         ).get_raw_files_on_instrument()
     )
 
     logging.info(
-        f"{len(raw_file_names)} raw files to be checked against DB: {raw_file_names}"
+        f"{len(raw_file_names_on_instrument)} raw files to be checked against DB: {raw_file_names_on_instrument}"
     )
 
     raw_files_names_to_sizes_from_db: dict[str, list[int]] = defaultdict(list)
-    for raw_file in get_raw_files_by_names_from_db(list(raw_file_names)):
+    for raw_file in get_raw_files_by_names_from_db(list(raw_file_names_on_instrument)):
         # due to collisions, there could be more than one raw file with the same name
         raw_files_names_to_sizes_from_db[raw_file.original_name].append(raw_file.size)
     logging.info(f"got {raw_files_names_to_sizes_from_db=}")
 
     raw_file_names_to_process: dict[str, bool] = {}
-    for raw_file_name in raw_file_names:
+    for raw_file_name_on_instrument in raw_file_names_on_instrument:
         is_collision = False
 
-        if raw_file_name in raw_files_names_to_sizes_from_db:
+        if raw_file_name_on_instrument in raw_files_names_to_sizes_from_db:
             logging.info(
-                f"File in DB: {raw_file_name}, checking for potential collision.."
+                f"File in DB: {raw_file_name_on_instrument}, checking for potential collision.."
             )
+
             file_path_to_monitor_acquisition = (
                 RawFileWrapperFactory.create_monitor_wrapper(
-                    instrument_id=instrument_id, raw_file_name=raw_file_name
+                    instrument_id=instrument_id,
+                    raw_file_original_name=raw_file_name_on_instrument,
                 ).file_path_to_monitor_acquisition()
             )
+
             is_collision = _is_collision(
                 file_path_to_monitor_acquisition,
-                raw_files_names_to_sizes_from_db[raw_file_name],
+                raw_files_names_to_sizes_from_db[raw_file_name_on_instrument],
             )
             if not is_collision:
                 logging.info(
@@ -118,7 +121,7 @@ def get_unknown_raw_files(ti: TaskInstance, **kwargs) -> None:
                 )
                 continue
 
-        raw_file_names_to_process[raw_file_name] = is_collision
+        raw_file_names_to_process[raw_file_name_on_instrument] = is_collision
 
     logging.info(
         f"{len(raw_file_names_to_process)} raw files left after DB check: {raw_file_names_to_process}"

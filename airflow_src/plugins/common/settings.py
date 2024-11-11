@@ -34,7 +34,7 @@ OUTPUT_FOLDER_PREFIX = "out_"
 INSTRUMENT_BACKUP_FOLDER_NAME = "Backup"  # TODO: rename this folder to "handled" or similar to avoid confusion with pool backup
 
 # separator between the timestamp and the raw file id in case of collisions
-COLLISION_FLAG_SEP = "---"
+COLLISION_FLAG_SEP = "-"
 
 DEFAULT_MIN_FILE_AGE_TO_REMOVE_D = 14  # days
 # this is to avoid getting a lot of removal candidates:
@@ -96,7 +96,9 @@ class Timings:
 
     MOVE_RAW_FILE_TASK_TIMEOUT_M = 5
 
-    FILE_MOVE_DELAY_M = 60
+    FILE_MOVE_DELAY_M = 5
+
+    FILE_MOVE_RETRY_DELAY_M = 30
 
 
 class Concurrency:

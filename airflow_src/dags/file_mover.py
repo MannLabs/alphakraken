@@ -50,6 +50,8 @@ def create_file_mover_dag() -> None:
             task_id=Tasks.MOVE_RAW_FILES,
             python_callable=move_files,
             max_active_tis_per_dag=Concurrency.MAXNO_MOVE_RAW_FILE_TASKS_PER_DAG,
+            retry_delay=timedelta(minutes=Timings.FILE_MOVE_RETRY_DELAY_M),
+            retry_exponential_backoff=True,
             execution_timeout=timedelta(minutes=Timings.MOVE_RAW_FILE_TASK_TIMEOUT_M),
         )
 

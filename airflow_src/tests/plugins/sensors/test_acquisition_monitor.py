@@ -21,7 +21,9 @@ def get_sensor() -> AcquisitionMonitor:
 
 @patch("plugins.sensors.acquisition_monitor.RawFileWrapperFactory")
 @patch("plugins.sensors.acquisition_monitor.update_raw_file")
+@patch("plugins.sensors.acquisition_monitor.get_raw_file_by_id")
 def test_poke_file_dir_contents_change_file_is_added(
+    mock_get_raw_file_by_id: MagicMock,
     mock_update_raw_file: MagicMock,
     mock_raw_file_wrapper_factory: MagicMock,
 ) -> None:
@@ -48,13 +50,15 @@ def test_poke_file_dir_contents_change_file_is_added(
     assert result
 
     mock_update_raw_file.assert_called_once_with(
-        "some_file.raw", new_status="monitoring_acquisition"
+        mock_get_raw_file_by_id.return_value.id, new_status="monitoring_acquisition"
     )
 
 
 @patch("plugins.sensors.acquisition_monitor.RawFileWrapperFactory")
 @patch("plugins.sensors.acquisition_monitor.update_raw_file")
+@patch("plugins.sensors.acquisition_monitor.get_raw_file_by_id")
 def test_poke_file_dir_contents_change_two_files_are_added(
+    mock_get_raw_file_by_id: MagicMock,
     mock_update_raw_file: MagicMock,
     mock_raw_file_wrapper_factory: MagicMock,
 ) -> None:
@@ -95,13 +99,15 @@ def test_poke_file_dir_contents_change_two_files_are_added(
     assert result
 
     mock_update_raw_file.assert_called_once_with(
-        "some_file.raw", new_status="monitoring_acquisition"
+        mock_get_raw_file_by_id.return_value.id, new_status="monitoring_acquisition"
     )
 
 
 @patch("plugins.sensors.acquisition_monitor.RawFileWrapperFactory")
 @patch("plugins.sensors.acquisition_monitor.update_raw_file")
+@patch("plugins.sensors.acquisition_monitor.get_raw_file_by_id")
 def test_poke_file_dir_contents_change_file_is_removed(
+    mock_get_raw_file_by_id: MagicMock,
     mock_update_raw_file: MagicMock,
     mock_raw_file_wrapper_factory: MagicMock,
 ) -> None:
@@ -128,13 +134,15 @@ def test_poke_file_dir_contents_change_file_is_removed(
     assert not result
 
     mock_update_raw_file.assert_called_once_with(
-        "some_file.raw", new_status="monitoring_acquisition"
+        mock_get_raw_file_by_id.return_value.id, new_status="monitoring_acquisition"
     )
 
 
 @patch("plugins.sensors.acquisition_monitor.RawFileWrapperFactory")
 @patch("plugins.sensors.acquisition_monitor.update_raw_file")
+@patch("plugins.sensors.acquisition_monitor.get_raw_file_by_id")
 def test_poke_file_dir_contents_change_main_file_does_not_exist(
+    mock_get_raw_file_by_id: MagicMock,  # noqa: ARG001
     mock_update_raw_file: MagicMock,  # noqa: ARG001
     mock_raw_file_wrapper_factory: MagicMock,
 ) -> None:
@@ -156,7 +164,9 @@ def test_poke_file_dir_contents_change_main_file_does_not_exist(
 @patch("plugins.sensors.acquisition_monitor.RawFileWrapperFactory")
 @patch("plugins.sensors.acquisition_monitor.get_timestamp")
 @patch("plugins.sensors.acquisition_monitor.update_raw_file")
+@patch("plugins.sensors.acquisition_monitor.get_raw_file_by_id")
 def test_poke_file_dir_contents_change_main_file_does_not_exist_for_too_long(
+    mock_get_raw_file_by_id: MagicMock,  # noqa: ARG001
     mock_update_raw_file: MagicMock,  # noqa: ARG001
     mock_get_timestamp: MagicMock,
     mock_raw_file_wrapper_factory: MagicMock,
@@ -189,7 +199,9 @@ def test_poke_file_dir_contents_change_main_file_does_not_exist_for_too_long(
 @patch("plugins.sensors.acquisition_monitor.RawFileWrapperFactory")
 @patch("plugins.sensors.acquisition_monitor.get_timestamp")
 @patch("plugins.sensors.acquisition_monitor.update_raw_file")
+@patch("plugins.sensors.acquisition_monitor.get_raw_file_by_id")
 def test_poke_file_dir_contents_dont_change_but_file_is_unchanged(
+    mock_get_raw_file_by_id: MagicMock,
     mock_update_raw_file: MagicMock,
     mock_get_timestamp: MagicMock,
     mock_raw_file_wrapper_factory: MagicMock,
@@ -220,14 +232,16 @@ def test_poke_file_dir_contents_dont_change_but_file_is_unchanged(
     assert mock_path.stat.call_count == 2  # noqa: PLR2004
 
     mock_update_raw_file.assert_called_once_with(
-        "some_file.raw", new_status="monitoring_acquisition"
+        mock_get_raw_file_by_id.return_value.id, new_status="monitoring_acquisition"
     )
 
 
 @patch("plugins.sensors.acquisition_monitor.RawFileWrapperFactory")
 @patch("plugins.sensors.acquisition_monitor.put_xcom")
 @patch("plugins.sensors.acquisition_monitor.update_raw_file")
+@patch("plugins.sensors.acquisition_monitor.get_raw_file_by_id")
 def test_post_execute_ok(
+    mock_get_raw_file_by_id: MagicMock,
     mock_update_raw_file: MagicMock,
     mock_put_xcom: MagicMock,
     mock_raw_file_wrapper_factory: MagicMock,
@@ -253,8 +267,11 @@ def test_post_execute_ok(
 
     mock_update_raw_file.assert_has_calls(
         [
-            call("some_file.raw", new_status="monitoring_acquisition"),
-            call("some_file.raw", new_status="monitoring_done"),
+            call(
+                mock_get_raw_file_by_id.return_value.id,
+                new_status="monitoring_acquisition",
+            ),
+            call(mock_get_raw_file_by_id.return_value.id, new_status="monitoring_done"),
         ]
     )
 
@@ -262,7 +279,9 @@ def test_post_execute_ok(
 @patch("plugins.sensors.acquisition_monitor.RawFileWrapperFactory")
 @patch("plugins.sensors.acquisition_monitor.put_xcom")
 @patch("plugins.sensors.acquisition_monitor.update_raw_file")
+@patch("plugins.sensors.acquisition_monitor.get_raw_file_by_id")
 def test_post_execute_acquisition_errors(
+    mock_get_raw_file_by_id: MagicMock,
     mock_update_raw_file: MagicMock,
     mock_put_xcom: MagicMock,
     mock_raw_file_wrapper_factory: MagicMock,
@@ -297,7 +316,10 @@ def test_post_execute_acquisition_errors(
 
     mock_update_raw_file.assert_has_calls(
         [
-            call("some_file.raw", new_status="monitoring_acquisition"),
-            call("some_file.raw", new_status="monitoring_done"),
+            call(
+                mock_get_raw_file_by_id.return_value.id,
+                new_status="monitoring_acquisition",
+            ),
+            call(mock_get_raw_file_by_id.return_value.id, new_status="monitoring_done"),
         ]
     )

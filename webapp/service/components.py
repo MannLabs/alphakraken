@@ -10,7 +10,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 from matplotlib import pyplot as plt
-from service.utils import TERMINAL_STATUSES
+from service.utils import DEFAULT_MAX_AGE_STATUS, TERMINAL_STATUSES
 
 from shared.db.models import RawFileStatus
 from shared.keys import EnvVars
@@ -24,7 +24,14 @@ def show_filter(
     text_to_display: str = "Filter:",
     st_display: st.delta_generator.DeltaGenerator = st,
 ) -> pd.DataFrame:
-    """Filter the DataFrame on user input by case-insensitive textual comparison in all columns."""
+    """Filter the DataFrame on user input by case-insensitive textual comparison in all columns.
+
+    :param df: The DataFrame to filter.
+    :param text_to_display: The text to display next to the input field.
+    :param st_display: The streamlit display object.
+
+    :return: The filtered DataFrame.
+    """
     user_input = st_display.text_input(
         text_to_display,
         default_value,
@@ -55,14 +62,15 @@ def show_date_select(
     text_to_display: str = "Earliest file creation date:",
     help_to_display: str = "Selects the earliest file creation date to display in table and plots.",
     st_display: st.delta_generator.DeltaGenerator = st,
+    max_age_days: int = 7,
 ) -> pd.DataFrame:
     """Filter the DataFrame on user input by date."""
     if len(df) == 0:
         return df
     oldest_file = df["created_at"].min()
     youngest_file = df["created_at"].max()
-    two_weeks_ago = datetime.now() - timedelta(days=7 * 2)  # noqa:  DTZ005 no tz argument
-    last_selectable_date = min(youngest_file, max(oldest_file, two_weeks_ago))
+    max_age = datetime.now() - timedelta(days=max_age_days)  # noqa:  DTZ005 no tz argument
+    last_selectable_date = min(youngest_file, max(oldest_file, max_age))
     min_date = st_display.date_input(
         text_to_display,
         min_value=oldest_file,
@@ -156,6 +164,10 @@ def display_status(combined_df: pd.DataFrame, status_data_df: pd.DataFrame) -> N
     now = datetime.now()  # noqa:  DTZ005 no tz argument
     st.write(
         f"Current Kraken time: {now.replace(microsecond=0)} [all time stamps are given in UTC!]"
+    )
+    st.write(
+        f"Note: for performance reasons, by default only data for the last {DEFAULT_MAX_AGE_STATUS} days are loaded, "
+        f"which means that mass specs that have been idling for longer than this period are not shown here."
     )
     status_data = defaultdict(list)
     for instrument_id in sorted(combined_df["instrument_id"].unique()):

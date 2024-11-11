@@ -377,7 +377,7 @@ create those by copying fake alphaDIA result data to the expected output directo
 ```bash
 NEW_OUTPUT_FOLDER=airflow_test_folders/output/P1/$YEAR_MONTH/out_$RAW_FILE_NAME
 mkdir -p $NEW_OUTPUT_FOLDER
-cp airflow_test_folders/_data/stat.tsv $NEW_OUTPUT_FOLDER
+cp airflow_test_folders/_data/* $NEW_OUTPUT_FOLDER
 ```
 and clear the task state using the UI.
 

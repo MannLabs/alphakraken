@@ -92,6 +92,11 @@ column_order = [
 ] + columns_at_end
 
 
+def _filter_valid_columns(columns: list[str], df: pd.DataFrame) -> list[str]:
+    """Filter out `columns` that are not in the `df`."""
+    return [col for col in columns if col in df.columns]
+
+
 @st.cache_data
 def df_to_csv(df: pd.DataFrame) -> str:
     """Convert a DataFrame to a CSV string."""
@@ -140,24 +145,35 @@ def _display_table_and_plots(
     cmap.set_bad(color="white")
     st.dataframe(
         df_to_show.style.background_gradient(
-            subset=[
-                "size_gb",
-                "proteins",
-                "precursors",
-                "ms1_accuracy",
-                "fwhm_rt",
-                "quanting_time_minutes",
-            ],
+            # TODO: refactor the column handling: instroduce a dict with column names and their respective position, actions, etc..
+            subset=_filter_valid_columns(
+                [
+                    "size_gb",
+                    "proteins",
+                    "precursors",
+                    "ms1_accuracy",
+                    "fwhm_rt",
+                    "weighted_ms1_intensity_sum",
+                    "intensity_sum",
+                    "quanting_time_minutes",
+                ],
+                filtered_df,
+            ),
             cmap=cmap,
         )
         .apply(highlight_status_cell, axis=1)
         .format(
-            subset=[
-                "size_gb",
-                "ms1_accuracy",
-                "fwhm_rt",
-                "quanting_time_minutes",
-            ],
+            subset=_filter_valid_columns(
+                [
+                    "size_gb",
+                    "ms1_accuracy",
+                    "fwhm_rt",
+                    "weighted_ms1_intensity_sum",
+                    "intensity_sum",
+                    "quanting_time_minutes",
+                ],
+                filtered_df,
+            ),
             formatter="{:.3}",
         )
         .format(
@@ -221,16 +237,21 @@ def _display_table_and_plots(
         options=selectbox_columns,
         help="Set the x-axis. The default 'file_created' is suitable for most cases.",
     )
-    for y in [
-        "status",
-        "size_gb",
-        "precursors",
-        "proteins",
-        "ms1_accuracy",
-        "fwhm_rt",
-        "quanting_time_minutes",
-        "settings_version",
-    ]:
+    for y in _filter_valid_columns(
+        [
+            "status",
+            "size_gb",
+            "precursors",
+            "proteins",
+            "ms1_accuracy",
+            "fwhm_rt",
+            "weighted_ms1_intensity_sum",
+            "intensity_sum",
+            "quanting_time_minutes",
+            "settings_version",
+        ],
+        filtered_df,
+    ):
         try:
             _draw_plot(filtered_df, x, y)
         except Exception as e:  # noqa: BLE001, PERF203
@@ -265,6 +286,7 @@ def _draw_plot(df: pd.DataFrame, x: str, y: str) -> None:
         hover_data=hover_data,
         title=title,
         height=400,
+        error_y=_get_yerror_column_name(y, df),
     )
     if y_is_numeric:
         symbol = [
@@ -276,6 +298,17 @@ def _draw_plot(df: pd.DataFrame, x: str, y: str) -> None:
         )
     fig.add_hline(y=median_, line_dash="dash", line={"color": "lightgrey"})
     st.plotly_chart(fig)
+
+
+def _get_yerror_column_name(y_column_name: str, df: pd.DataFrame) -> str | None:
+    """Get the name of the error column for `y_column_name`, if it endwith '_mean' and is available in the `df`."""
+    if not y_column_name.endswith("_mean"):
+        return None
+
+    if (yerror_column_name := y_column_name.replace("_mean", "_std")) not in df.columns:
+        return None
+
+    return yerror_column_name
 
 
 filter_value = (

@@ -23,6 +23,16 @@ TERMINAL_STATUSES = [
 ]
 
 
+# mapping of filter strings to url query parameters
+FILTER_MAPPING: dict[str, str] = {
+    "_AND_": " & ",
+    "_IS_": "=",
+}
+
+# TODO: remove this hack once https://github.com/streamlit/streamlit/issues/8112 is available
+APP_URL = "http://<kraken_url>"
+
+
 class QueryParams:
     """Query parameters for streamlit pages."""
 

@@ -21,7 +21,7 @@ quanting_pool_folder = os.environ.get(EnvVars.QUANTING_POOL_FOLDER)
 if os.environ.get(EnvVars.ENV_NAME) == "production":
     st.warning("""
 
-    Note: you are currently viewing the very first version of the AlphaKraken.
+    Note: you are currently viewing a first version of the AlphaKraken.
     Bear in mind that the project is far from complete in terms of features.
 
     If you are missing something or have a cool idea or found a bug, please let us know: <support_email>
@@ -41,7 +41,7 @@ display_info_message(c1)
 
 c1.markdown("""### How to use it?
 
-The "overview" tab shows all results, allows for filtering and sorting, and provides some basic quality measure plots.
+The "overview" tab shows all results, allows for filtering and sorting, and provides plots showing quality metrics.
 
 The "status" tab shows the current status of the acquisition pipeline and the status of the last processed files.
 It is mostly relevant for AlphaKraken admin users.
@@ -51,7 +51,7 @@ Currently they are meant to be used by AlphaKraken admin users only.""")
 
 c1.markdown(f"""### Rules
 
-To ensure a smooth automated processing, please follow these rules:
+To ensure a smooth automated processing, please follow these rules when acquiring files:
 - Do NOT do anything (!) on the acquisition folder (=the folder where the raw files are written to). In particular:
 **Do not _create_, _move_, _rename_, or _delete_ any files there**! Avoid opening them in any software (wait until the file is moved to the
 "Backup" subfolder and open it there).
@@ -77,7 +77,7 @@ A:  The output files associated for a given raw file are stored at
 Q: A lot of jobs are stuck in status "quanting" or "queued_for_quanting".
 
 A: This is the case when the cluster is under heavy load. The jobs will be processed as soon as possible.
-Currently, status "quanting" means "quanting job submitted", regardless if it's still PENDING or already RUNNING.
+Currently, status "quanting" means "quanting job submitted", regardless if the job is still PENDING or already RUNNING.
 
 
 
@@ -91,11 +91,12 @@ are not). If you really need to see more data, use the `?max_age=` and `?max_tab
 Q: I am tired of always filling the filter, can this be saved?
 
 A: Yes. Just add `?filter=value` to the URL to pre-fill the filter and then create a browser bookmark.
-For technical reasons, combining multiple conditions is done using "AND" or "%26", not "&" like in the UI.
-Combine with other parameters (like `max_age=`) like this: `?filter=value1ANDvalue2&max_age=60&max_table_len=9999`.
+For technical reasons, combining multiple conditions is done using "_AND_" or "%26", not "&" like in the UI,
+likewise for "=" which needs to be masked as "_IS_".
+Combine with other parameters (like `max_age=`) like this: `?filter=value1_AND_value2&max_age=60&max_table_len=9999`.
 
 
-Q: I am missing a feature or found a bug or find the AlphaKraken unintuitive to use or want to contribute.
+Q: I am missing a metric or a feature or found a bug or find the AlphaKraken unintuitive to use or want to contribute.
 
 A: Please get in touch: [<support_email>](<support_email>)
 

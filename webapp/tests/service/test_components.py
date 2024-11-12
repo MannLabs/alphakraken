@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
+import pytest
 from service.components import (
     _get_color,
     display_status,
@@ -15,22 +16,39 @@ from service.components import (
 )
 
 
+@pytest.mark.parametrize(
+    ("filter_value"),
+    [
+        ("SOME_t"),
+        ("!other_t"),
+        ("so(.*)text"),
+        ("column1=[0.5,1]"),
+        ("column2=so(.*)text"),
+    ],
+)
 @patch("streamlit.text_input")
-def test_input_filter_happy_path(mock_text_input: MagicMock) -> None:
+def test_input_filter_happy_path(
+    mock_text_input: MagicMock,
+    filter_value: str,
+) -> None:
     """Test that the filter returns the correct DataFrame when a match is found."""
-    mock_text_input.return_value = "FILTER_text"
+    mock_text_input.return_value = filter_value
     df = pd.DataFrame(
         {
-            "column1": ["filter_text", "other_text"],
-            "column2": ["other_text", "other_text"],
+            "column1": [1, 2],
+            "column2": ["some_text", "other_text"],
         }
     )
 
     # when
-    filtered_df = show_filter(df, text_to_display="Some Filter")
+    filtered_df, returned_filter_value, errors = show_filter(
+        df, text_to_display="Some Filter"
+    )
 
     assert len(filtered_df) == 1
-    assert "filter_text" in filtered_df["column1"].to_numpy()
+    assert "some_text" in filtered_df["column2"].to_numpy()
+    assert filter_value == returned_filter_value
+    assert errors == []
 
 
 @patch("streamlit.text_input")
@@ -45,10 +63,12 @@ def test_input_filter_happy_path_exclusive(mock_text_input: MagicMock) -> None:
     )
 
     # when
-    filtered_df = show_filter(df, text_to_display="Some Filter")
+    filtered_df, filter_value, errors = show_filter(df, text_to_display="Some Filter")
 
     assert len(filtered_df) == 1
     assert "filter_text" not in filtered_df["column1"].to_numpy()
+    assert filter_value == "!FILTER_text"
+    assert errors == []
 
 
 @patch("streamlit.text_input")
@@ -63,9 +83,33 @@ def test_input_filter_no_match(mock_text_input: MagicMock) -> None:
     )
 
     # when
-    filtered_df = show_filter(df, text_to_display="Some Filter")
+    filtered_df, filter_value, errors = show_filter(df, text_to_display="Some Filter")
 
     assert len(filtered_df) == 0
+    assert filter_value == "no_match"
+    assert errors == []
+
+
+@patch("streamlit.text_input")
+def test_input_filter_bad_regexp(mock_text_input: MagicMock) -> None:
+    """Test that the filter returns the correct DataFrame when a match is found but bad regexpt is ignored."""
+    mock_text_input.return_value = "FILTER_text & (bad_regexp"
+    df = pd.DataFrame(
+        {
+            "column1": ["filter_text", "other_text"],
+            "column2": ["other_text", "other_text"],
+        }
+    )
+
+    # when
+    filtered_df, filter_value, errors = show_filter(df, text_to_display="Some Filter")
+
+    assert len(filtered_df) == 1
+    assert "filter_text" in filtered_df["column1"].to_numpy()
+    assert filter_value == "FILTER_text & (bad_regexp"
+    assert errors == [
+        "Could not parse filter (bad_regexp: ignoring it. <class 're.error'>: 'missing ), unterminated subpattern at position 0'"
+    ]
 
 
 @patch("streamlit.text_input")
@@ -80,9 +124,11 @@ def test_input_filter_empty_input(mock_text_input: MagicMock) -> None:
     )
 
     # when
-    filtered_df = show_filter(df, text_to_display="Some Filter")
+    filtered_df, filter_value, errors = show_filter(df, text_to_display="Some Filter")
 
-    assert filtered_df is df
+    pd.testing.assert_frame_equal(filtered_df, df)
+    assert filter_value is None
+    assert errors == []
 
 
 @patch("streamlit.text_input")
@@ -97,11 +143,13 @@ def test_input_filter_combination(mock_text_input: MagicMock) -> None:
     )
 
     # when
-    filtered_df = show_filter(df, text_to_display="Some Filter")
+    filtered_df, filter_value, errors = show_filter(df, text_to_display="Some Filter")
 
     assert len(filtered_df) == 1
     assert "incl" in filtered_df["column1"].to_numpy()
     assert "excl" not in filtered_df["column2"].to_numpy()
+    assert filter_value == "incl & !excl"
+    assert errors == []
 
 
 @patch("streamlit.date_input")

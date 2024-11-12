@@ -1,8 +1,10 @@
 """UI components for the web application."""
 
 import os
+import re
 from collections import defaultdict
 from datetime import datetime, timedelta
+from typing import Any
 
 import humanize
 import matplotlib as mpl
@@ -16,18 +18,25 @@ from shared.db.models import RawFileStatus
 from shared.keys import EnvVars
 
 
+def _re_filter(text: Any, filter_: str) -> bool:  # noqa: ANN401
+    """Filter a value `x` with a `filter_` string."""
+    return bool(re.search(filter_, str(text), re.IGNORECASE))
+
+
 # TODO: if filter is set, set age filter to youngest file
 def show_filter(
     df: pd.DataFrame,
     *,
     default_value: str = "",
     text_to_display: str = "Filter:",
+    example_text: str = "P123",
     st_display: st.delta_generator.DeltaGenerator = st,
-) -> pd.DataFrame:
+) -> tuple[pd.DataFrame, str, list[str]]:
     """Filter the DataFrame on user input by case-insensitive textual comparison in all columns.
 
     :param df: The DataFrame to filter.
     :param text_to_display: The text to display next to the input field.
+    :param example_text: An example text to display in the input field and the help text.
     :param st_display: The streamlit display object.
 
     :return: The filtered DataFrame.
@@ -35,26 +44,67 @@ def show_filter(
     user_input = st_display.text_input(
         text_to_display,
         default_value,
-        placeholder="e.g. test2 & !hela",
-        help="Case insensitive filter on each column of the table. Chain multiple conditions with '&', negate with '!'. E.g. test2 & qc & !hela.",
+        placeholder=f"example: {example_text}",
+        help="Case insensitive filter. Chain multiple conditions with `&`, negate with `!`. "
+        "Append a column name followed by `=` to filter a specific column, otherwise each column of the table is considered. "
+        "When searching a column, range search is done by `column=[lower, upper]`. "
+        f"Supports regular expressions. "
+        f"Example: `{example_text}`",
     )
+
+    mask = [True] * len(df)
+    errors = []
     if user_input is not None and user_input != "":
         filters = [f.strip() for f in user_input.lower().split("&")]
-        mask = [True] * len(df)
+
         for filter_ in filters:
             negate = False
-            if filter_.startswith("!"):
-                negate = True
-                filter_ = filter_[1:].strip()  # noqa: PLW2901
+            column = None
+            upper, lower = None, None
 
-            new_mask = df.map(lambda x: filter_ in str(x).lower()).any(axis=1)
-            new_mask |= df.index.map(lambda x: filter_ in str(x).lower())
+            try:
+                if filter_.startswith("!"):
+                    negate = True
+                    filter_ = filter_[1:].strip()  # noqa: PLW2901
+
+                if "=" in filter_:
+                    # separate "column=value" -> column, value
+                    column, filter_ = filter_.split("=", maxsplit=1)  # noqa: PLW2901
+
+                if (
+                    "[" in filter_
+                    and "]" in filter_
+                    and filter_.index("[") < filter_.index("]")
+                ):
+                    # extract "[1, 2]" -> 1, 2
+                    lower, upper = (
+                        filter_.split("[", maxsplit=1)[1]
+                        .split("]", maxsplit=1)[0]
+                        .split(",")
+                    )
+
+                if column is not None:
+                    if upper and lower:
+                        new_mask = df[column].map(
+                            lambda x: float(lower) <= float(x) <= float(upper)
+                        )
+                    else:
+                        new_mask = df[column].map(lambda x: _re_filter(x, filter_))
+                else:
+                    new_mask = df.map(lambda x: _re_filter(x, filter_)).any(axis=1)
+                    new_mask |= df.index.map(lambda x: _re_filter(x, filter_))
+            except (re.error, ValueError) as e:
+                errors.append(
+                    f"Could not parse filter {filter_ }: ignoring it. {type(e)}: '{e}'"
+                )
+                continue
+
             if negate:
                 new_mask = ~new_mask
 
             mask &= new_mask
-        return df[mask]
-    return df
+
+    return df[mask], user_input, errors
 
 
 def show_date_select(

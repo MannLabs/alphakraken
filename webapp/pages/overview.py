@@ -74,18 +74,18 @@ COLUMNS = (
     # plots (order matters)
     Column("precursors", color_table=True, plot=True),
     Column("proteins", color_table=True, plot=True),
-    Column("ms1_accuracy", color_table=True, plot=True),
-    Column("fwhm_rt", color_table=True, plot=True),
     Column("weighted_ms1_intensity_sum", color_table=True, plot=True, log_scale=True),
     Column("intensity_sum", color_table=True, plot=True, log_scale=True),
-    Column("settings_version", at_end=True, plot=True),
-    Column("quanting_time_minutes", color_table=True, plot=True),
-    Column("duration_optimization", color_table=True, plot=True, at_end=True),
-    Column("duration_extraction", color_table=True, plot=True, at_end=True),
+    Column("ms1_accuracy", color_table=True, plot=True),
+    Column("fwhm_rt", color_table=True, plot=True),
     Column("ms1_error", color_table=True, plot=True),
     Column("ms2_error", color_table=True, plot=True),
     Column("rt_error", color_table=True, plot=True),
     Column("mobility_error", color_table=True, plot=True),
+    Column("settings_version", at_end=True, plot=True),
+    Column("quanting_time_minutes", color_table=True, plot=True),
+    Column("duration_optimization", color_table=True, plot=True, at_end=True),
+    Column("duration_extraction", color_table=True, plot=True, at_end=True),
 )
 
 # ########################################### PAGE HEADER
@@ -213,7 +213,7 @@ def _display_table_and_plots(
     # display only subset of entries to speed up page loading
     df_to_show = filtered_df.head(max_table_len)
 
-    cmap = plt.get_cmap("Blues")
+    cmap = plt.get_cmap("RdYlGn")
     cmap.set_bad(color="white")
     st.dataframe(
         df_to_show.style.background_gradient(
@@ -280,27 +280,46 @@ def _display_table_and_plots(
     # ########################################### DISPLAY: plots
 
     st.markdown("## Plots")
-    selectbox_columns = ["file_created"] + [
-        col for col in column_order if col != "file_created"
-    ]
-    c1, _ = st.columns([0.25, 0.75])
-    x = c1.selectbox(
+
+    c1, c2, c3 = st.columns([0.25, 0.25, 0.75])
+    color_by_column = c1.selectbox(
+        label="Color by:",
+        options=["instrument_id"]
+        + [col for col in column_order if col != "instrument_id"],
+        help="Choose the column to color by.",
+    )
+    x = c2.selectbox(
         label="Choose x-axis:",
-        options=selectbox_columns,
+        options=["file_created"]
+        + [col for col in column_order if col != "file_created"],
         help="Set the x-axis. The default 'file_created' is suitable for most cases.",
     )
+    show_traces = c3.checkbox(
+        label="Show traces",
+        value=True,
+        help="Show traces for each data point.",
+    )
+
     for column in [
         column
         for column in COLUMNS
         if (column.plot and column.name in filtered_df.columns)
     ]:
         try:
-            _draw_plot(filtered_df, x, column)
+            _draw_plot(
+                filtered_df,
+                x=x,
+                column=column,
+                color_by_column=color_by_column,
+                show_traces=show_traces,
+            )
         except Exception as e:  # noqa: BLE001, PERF203
             _log(e, f"Cannot draw plot for {column.name} vs {x}.")
 
 
-def _draw_plot(df: pd.DataFrame, x: str, column: Column) -> None:
+def _draw_plot(
+    df: pd.DataFrame, *, x: str, column: Column, color_by_column: str, show_traces: bool
+) -> None:
     """Draw a plot of a DataFrame."""
     df = df.sort_values(by=x)
 
@@ -324,7 +343,7 @@ def _draw_plot(df: pd.DataFrame, x: str, column: Column) -> None:
         df,
         x=x,
         y=y,
-        color="instrument_id",
+        color=color_by_column,
         hover_name="_id",
         hover_data=hover_data,
         title=title,
@@ -332,14 +351,11 @@ def _draw_plot(df: pd.DataFrame, x: str, column: Column) -> None:
         error_y=_get_yerror_column_name(y, df),
         log_y=column.log_scale,
     )
-    if y_is_numeric:
+    if y_is_numeric and show_traces:
         symbol = [
             "x" if x in ERROR_STATUSES else "circle" for x in df["status"].to_numpy()
         ]
-        fig.update_traces(
-            mode="lines+markers",
-            marker={"symbol": symbol},
-        )
+        fig.update_traces(mode="lines+markers", marker={"symbol": symbol})
     fig.add_hline(y=median_, line_dash="dash", line={"color": "lightgrey"})
     st.plotly_chart(fig)
 

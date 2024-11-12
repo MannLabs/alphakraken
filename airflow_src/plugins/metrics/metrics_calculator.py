@@ -22,6 +22,7 @@ class OutputFiles:
     PG_MATRIX = "pg.matrix.tsv"
     PRECURSORS = "precursors.tsv"
     STAT = "stat.tsv"
+    INTERNAL = "internal.tsv"
     LOG = "log.txt"
 
 
@@ -29,6 +30,7 @@ file_name_to_read_method_mapping = {
     OutputFiles.PG_MATRIX: _load_tsv,
     OutputFiles.PRECURSORS: _load_tsv,
     OutputFiles.STAT: _load_tsv,
+    OutputFiles.INTERNAL: _load_tsv,
 }
 
 
@@ -58,6 +60,10 @@ class DataStore:
 class Metrics(ABC):
     """Abstract class for metrics."""
 
+    _file: str
+    _columns: list[str]
+    _tolerate_missing: bool = False
+
     def __init__(self, data_store: DataStore):
         """Initialize Metrics.
 
@@ -70,47 +76,79 @@ class Metrics(ABC):
     def get(self) -> dict[str, Any]:
         """Get the metrics."""
         if not self._metrics:
-            self._calc()
+            self._calc_metrics()
+
         return self._metrics
 
+    def _calc_metrics(self) -> None:
+        """Calculate all the metrics."""
+        df = self._data_store[self._file]
+
+        for col in self._columns:
+            try:
+                self._calc(df, col)
+            except KeyError as e:  # noqa: PERF203
+                if not self._tolerate_missing:
+                    raise e from e
+                logging.warning(f"Column {col} not found in {df.columns}. Error: {e}")
+
     @abstractmethod
-    def _calc(self) -> None:
-        """Calculate the metrics."""
+    def _calc(self, df: pd.DataFrame, column: str) -> None:
+        """Calculate a single metrics."""
         raise NotImplementedError
 
 
 class BasicStats(Metrics):
     """Basic statistics."""
 
-    def _calc(self) -> None:
-        """Calculate metrics."""
-        stat_df = self._data_store[OutputFiles.STAT]
+    _file = OutputFiles.STAT
+    _columns = (
+        "proteins",
+        "precursors",
+        "ms1_accuracy",
+        "fwhm_rt",
+        "ms1_error",
+        "ms2_error",
+        "rt_error",
+        "mobility_error",
+    )
 
-        for col in ["proteins", "precursors", "ms1_accuracy", "fwhm_rt"]:
-            self._metrics[f"{col}"] = stat_df[col].mean()
+    def _calc(self, df: pd.DataFrame, column: str) -> None:
+        """Calculate metrics."""
+        self._metrics[f"{column}"] = df[column].mean()
+
+
+class InternalStats(Metrics):
+    """Internal statistics."""
+
+    _file = OutputFiles.INTERNAL
+    _columns = ("duration_optimization", "duration_extraction")
+    _tolerate_missing = True
+
+    def _calc(self, df: pd.DataFrame, column: str) -> None:
+        """Calculate metrics."""
+        self._metrics[f"{column}"] = df[column].mean()
 
 
 class PrecursorStats(Metrics):
     """Precursor statistics."""
 
-    def _calc(self) -> None:
-        """Calculate metrics."""
-        stat_df = self._data_store[OutputFiles.PRECURSORS]
+    _file = OutputFiles.PRECURSORS
+    _columns = ("weighted_ms1_intensity", "intensity")
+    _tolerate_missing = True
 
-        for col in ["weighted_ms1_intensity", "intensity"]:
-            try:
-                self._metrics[f"{col}_sum"] = stat_df[col].sum()
-            except KeyError as e:  # noqa: PERF203
-                logging.warning(
-                    f"Column {col} not found in {stat_df.columns}. Error: {e}"
-                )
+    def _calc(self, df: pd.DataFrame, column: str) -> None:
+        """Calculate metrics."""
+        self._metrics[f"{column}_sum"] = df[column].sum()
 
 
 def calc_metrics(output_directory: Path) -> dict[str, Any]:
     """Calculate metrics for the given output directory."""
     data_store = DataStore(output_directory)
+
     metrics = BasicStats(data_store).get()
     metrics |= PrecursorStats(data_store).get()
+    metrics |= InternalStats(data_store).get()
 
     logging.info(f"Calculated metrics: {metrics}")
     return metrics

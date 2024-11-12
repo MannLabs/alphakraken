@@ -1,5 +1,6 @@
 """Simple data overview."""
 
+from dataclasses import dataclass
 from datetime import datetime
 
 import pandas as pd
@@ -28,6 +29,62 @@ from service.utils import (
 
 _log(f"loading {__file__}")
 
+
+@dataclass
+class Column:
+    """Data class for information on how to display a column information."""
+
+    name: str
+    # hide column in table
+    hide: bool = False
+    # move column to front of table
+    at_front: bool = False
+    # move column to end of table
+    at_end: bool = False
+    # color in table
+    color_table: bool = False
+    # show as plot
+    plot: bool = False
+    # use log scale for plot
+    log_scale: bool = False
+
+
+COLUMNS = (
+    # hide
+    Column("created_at", hide=True),
+    Column("size", hide=True),
+    Column("quanting_time_elapsed", hide=True),
+    Column("raw_file", hide=True),
+    Column("file_info", hide=True),
+    Column("_id", hide=True),
+    Column("original_name", hide=True),
+    Column("collision_flag", hide=True),
+    # at front (order matters)
+    Column("instrument_id", at_front=True),
+    Column("status", at_front=True),
+    Column("status_details", at_front=True),
+    Column("size_gb", at_front=True, color_table=True, plot=True),
+    Column("file_created", at_front=True),
+    # at end (order matters)
+    Column("project_id", at_end=True),
+    Column("updated_at_", at_end=True),
+    Column("created_at_", at_end=True),
+    # plots (order matters)
+    Column("precursors", color_table=True, plot=True),
+    Column("proteins", color_table=True, plot=True),
+    Column("ms1_accuracy", color_table=True, plot=True),
+    Column("fwhm_rt", color_table=True, plot=True),
+    Column("weighted_ms1_intensity_sum", color_table=True, plot=True),
+    Column("intensity_sum", color_table=True, plot=True, log_scale=True),
+    Column("settings_version", at_end=True, plot=True),
+    Column("quanting_time_minutes", color_table=True, plot=True),
+    Column("duration_optimization", color_table=True, plot=True, at_end=True),
+    Column("duration_extraction", color_table=True, plot=True, at_end=True),
+    Column("ms1_error", color_table=True, plot=True),
+    Column("ms2_error", color_table=True, plot=True),
+    Column("rt_error", color_table=True, plot=True),
+    Column("mobility_error", color_table=True, plot=True),
+)
 
 # ########################################### PAGE HEADER
 
@@ -60,36 +117,29 @@ st.write(
 display_info_message()
 
 # ########################################### LOGIC
-max_age_in_days = int(
+max_age_in_days = float(
     st.query_params.get(QueryParams.MAX_AGE, DEFAULT_MAX_AGE_OVERVIEW)
 )
-combined_df = get_combined_raw_files_and_metrics_df(max_age_in_days)
+with st.spinner("Loading data ..."):
+    combined_df = get_combined_raw_files_and_metrics_df(max_age_in_days)
 
 
 # ########################################### DISPLAY: table
 
-columns_at_end = [
-    "settings_version",
-    "status_details",
-    "project_id",
-    "updated_at_",
-    "created_at_",
-]
-columns_to_hide = [
-    "created_at",
-    "size",
-    "quanting_time_elapsed",
-    "raw_file",
-    "file_info",
-    "_id",
-    "original_name",
-    "collision_flag",
-]
-column_order = [
-    col
-    for col in combined_df.columns
-    if col not in columns_at_end and col not in columns_to_hide
-] + columns_at_end
+
+columns_at_front = [column.name for column in COLUMNS if column.at_front]
+columns_at_end = [column.name for column in COLUMNS if column.at_end]
+columns_to_hide = [column.name for column in COLUMNS if column.hide]
+
+column_order = (
+    columns_at_front
+    + [
+        col
+        for col in combined_df.columns
+        if col not in columns_at_front + columns_at_end + columns_to_hide
+    ]
+    + columns_at_end
+)
 
 
 def _filter_valid_columns(columns: list[str], df: pd.DataFrame) -> list[str]:
@@ -107,7 +157,7 @@ def df_to_csv(df: pd.DataFrame) -> str:
 # cf. https://docs.streamlit.io/develop/concepts/architecture/fragments
 @st.experimental_fragment
 def _display_table_and_plots(
-    df: pd.DataFrame, max_age_in_days: int, filter_value: str = ""
+    df: pd.DataFrame, max_age_in_days: float, filter_value: str = ""
 ) -> None:
     """A fragment that displays a DataFrame with a filter."""
     st.markdown("## Data")
@@ -141,39 +191,19 @@ def _display_table_and_plots(
     # display only subset of entries to speed up page loading
     df_to_show = filtered_df.head(max_table_len)
 
-    cmap = plt.get_cmap("RdYlGn")
+    cmap = plt.get_cmap("Blues")
     cmap.set_bad(color="white")
     st.dataframe(
         df_to_show.style.background_gradient(
-            # TODO: refactor the column handling: instroduce a dict with column names and their respective position, actions, etc..
             subset=_filter_valid_columns(
-                [
-                    "size_gb",
-                    "proteins",
-                    "precursors",
-                    "ms1_accuracy",
-                    "fwhm_rt",
-                    "weighted_ms1_intensity_sum",
-                    "intensity_sum",
-                    "quanting_time_minutes",
-                ],
+                [column.name for column in COLUMNS if column.color_table],
                 filtered_df,
             ),
             cmap=cmap,
         )
         .apply(highlight_status_cell, axis=1)
         .format(
-            subset=_filter_valid_columns(
-                [
-                    "size_gb",
-                    "ms1_accuracy",
-                    "fwhm_rt",
-                    "weighted_ms1_intensity_sum",
-                    "intensity_sum",
-                    "quanting_time_minutes",
-                ],
-                filtered_df,
-            ),
+            subset=list(filtered_df.select_dtypes(include=["float64"]).columns),
             formatter="{:.3}",
         )
         .format(
@@ -237,31 +267,22 @@ def _display_table_and_plots(
         options=selectbox_columns,
         help="Set the x-axis. The default 'file_created' is suitable for most cases.",
     )
-    for y in _filter_valid_columns(
-        [
-            "status",
-            "size_gb",
-            "precursors",
-            "proteins",
-            "ms1_accuracy",
-            "fwhm_rt",
-            "weighted_ms1_intensity_sum",
-            "intensity_sum",
-            "quanting_time_minutes",
-            "settings_version",
-        ],
-        filtered_df,
-    ):
+    for column in [
+        column
+        for column in COLUMNS
+        if (column.plot and column.name in filtered_df.columns)
+    ]:
         try:
-            _draw_plot(filtered_df, x, y)
+            _draw_plot(filtered_df, x, column)
         except Exception as e:  # noqa: BLE001, PERF203
-            _log(e, f"Cannot draw plot for {y} vs {x}.")
+            _log(e, f"Cannot draw plot for {column.name} vs {x}.")
 
 
-def _draw_plot(df: pd.DataFrame, x: str, y: str) -> None:
+def _draw_plot(df: pd.DataFrame, x: str, column: Column) -> None:
     """Draw a plot of a DataFrame."""
     df = df.sort_values(by=x)
 
+    y = column.name
     y_is_numeric = pd.api.types.is_numeric_dtype(df[y])
     median_ = df[y].median() if y_is_numeric else 0
     title = f"{y} (median= {median_:.2f})" if y_is_numeric else y
@@ -287,6 +308,7 @@ def _draw_plot(df: pd.DataFrame, x: str, y: str) -> None:
         title=title,
         height=400,
         error_y=_get_yerror_column_name(y, df),
+        log_y=column.log_scale,
     )
     if y_is_numeric:
         symbol = [

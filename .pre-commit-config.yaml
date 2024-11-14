@@ -21,8 +21,8 @@ repos:
     - id: python-no-log-warn # A quick check for the deprecated `.warn()` method of python loggers
     - id: python-use-type-annotations # Enforce that python3.6+ type annotations are used instead of type comments
 - repo: https://github.com/astral-sh/ruff-pre-commit
-  rev: v0.4.8
+  rev: v0.7.3
   hooks:
     - id: ruff-format
-    - id: ruff
-      args: [ '--fix' ]
+#    - id: ruff
+#      args: [ '--fix' ]

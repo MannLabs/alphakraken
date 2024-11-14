@@ -168,7 +168,7 @@ def get_settings_for_project(project_id: str) -> Settings:
     return Settings.objects(project=project, status=ProjectStatus.ACTIVE).first()
 
 
-def add_new_settings_to_db(  # noqa: PLR0913 Too many arguments in function definition
+def add_new_settings_to_db(  # noqa: PLR0913 many arguments in function definition
     *,
     project_id: str,
     name: str,

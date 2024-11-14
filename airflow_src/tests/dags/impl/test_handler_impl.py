@@ -224,9 +224,9 @@ def test_start_acquisition_processor_with_single_file(
     assert mock_trigger_dag_run.call_count == 1  # no magic numbers
     for n, call_ in enumerate(mock_trigger_dag_run.call_args_list):
         assert call_.args[0] == ("acquisition_processor.instrument1")
-        assert {
+        assert call_.args[1] == {
             "raw_file_id": list(raw_file_names.keys())[n],
-        } == call_.args[1]
+        }
     mock_update_raw_file.assert_called_once_with(
         "file1.raw", new_status=RawFileStatus.QUEUED_FOR_QUANTING
     )

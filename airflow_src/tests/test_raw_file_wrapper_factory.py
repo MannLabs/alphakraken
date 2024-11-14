@@ -154,7 +154,7 @@ def test_raw_file_wrapper_factory_instantiation_monitors(
         assert isinstance(wrapper, expected_class)
 
 
-@pytest.fixture()
+@pytest.fixture
 def mock_raw_file() -> RawFile:
     """Fixture for a mock RawFile."""
     return RawFile(
@@ -240,7 +240,7 @@ def test_raw_file_wrapper_factory_instantiation_copier(
         assert wrapper._target_file_name == "123-original_file.raw"
 
 
-@pytest.fixture()
+@pytest.fixture
 def mock_instrument_paths() -> Generator[Path, None, None]:
     """Mock the instrument data and backup paths."""
     with patch(

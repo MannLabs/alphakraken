@@ -102,9 +102,7 @@ class AcquisitionMonitor(BaseSensorOperator):
             if self._raw_file_monitor_wrapper.file_path_to_monitor_acquisition().exists():
                 self._main_file_exists = True
             else:
-                if self._main_file_missing_for_too_long():
-                    return True
-                return False
+                return self._main_file_missing_for_too_long()
 
         if self._file_size_unchanged_for_some_time():
             return True

@@ -69,6 +69,12 @@ COLUMNS = (
     Column("status_details", at_front=True),
     Column("size_gb", at_front=True, color_table=True, plot=True),
     Column("file_created", at_front=True),
+    Column(
+        "gradient_length_m",
+        at_front=True,
+        color_table=True,
+        alternative_names=["raw.gradient_length_m"],
+    ),
     # at end (order matters)
     Column("project_id", at_end=True),
     Column("updated_at_", at_end=True),

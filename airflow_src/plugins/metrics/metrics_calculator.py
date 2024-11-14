@@ -114,7 +114,7 @@ class BasicStats(Metrics):
         "calibration.ms1_median_accuracy",
         # "calibration.ms2_median_accuracy",
         # "calibration.ms2_median_precision",
-        # "calibration.ms1_median_accuracy"
+        # "calibration.ms1_median_accuracy",
         # "calibration.ms1_median_precision",
         # "raw.gradient_min_m",
         # "raw.gradient_max_m",

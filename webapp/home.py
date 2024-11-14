@@ -67,6 +67,12 @@ A: This is because a file with the same name was already processed.
 File name uniqueness is a prerequisite for all automated downstream processing to work correctly,
 to tell those collision cases apart, a timestamp is added as a prefix.
 
+Q: Why do some files on the acquisition folder carry the extension `.deleteme`?
+
+A: This is because they could not be removed after copying it to the `Backup` subfolder on the instrument
+(e.g. due to the file being open). To facilitate manual cleanup, this extension is added.
+Those files can be deleted safely.
+
 
 Q: Where to I find the AlphaDIA output files?
 

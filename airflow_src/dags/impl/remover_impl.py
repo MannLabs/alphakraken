@@ -294,7 +294,7 @@ def _check_file(
 
     # Check 2: single file to delete is the one we have in the DB
 
-    # /opt/airflow/mounts/backup/test1/2024_08/test_file_SA_P1_2.raw => test1/2024_08/test_file_SA_P1_2.raw
+    # /opt/airflow/mounts/backup/test1/2024_08/test_file_SA_P123_2.raw => test1/2024_08/test_file_SA_P123_2.raw
     rel_file_path = str(file_path_pool_backup.relative_to(get_internal_backup_path()))
     logging.info(f"Comparing {file_path_to_remove=} to DB ({rel_file_path}) ..")
     if size_on_instrument != (

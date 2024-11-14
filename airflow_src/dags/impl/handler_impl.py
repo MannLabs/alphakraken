@@ -69,7 +69,7 @@ def _get_file_info(
 ) -> dict[str, tuple[float, str]]:
     """Map the paths of the copied files from the internal to their actual locations.
 
-    e.g. from `/opt/airflow/mounts/backup/test1/2024_08/test_file_SA_P1_1.raw` -> `test1/2024_08/test_file_SA_P1_1.raw`
+    e.g. from `/opt/airflow/mounts/backup/test1/2024_08/test_file_SA_P123_1.raw` -> `test1/2024_08/test_file_SA_P123_1.raw`
     """
     internal_backup_path = get_internal_backup_path()
 

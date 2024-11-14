@@ -345,18 +345,18 @@ change this locally in `settings.py:INSTRUMENTS`.
 1. Run the `docker compose` (`./compose.sh`) command for the local setup (cf. above) and log into the airflow UI.
 2. Unpause all `*.test1` DAGs. The "watcher" should start running.
 3. If you do not want to feed the cluster, set the Airflow variable `debug_no_cluster_ssh=True` (see above)
-4. In the webapp, create a project with the name `P1`, and add some fake settings to it.
+4. In the webapp, create a project with the name `P123`, and add some fake settings to it.
 5. Create a test raw file in the backup pool folder to fake the acquisition.
 
 For type "Thermo":
 ```bash
-I=$((I+1)); RAW_FILE_NAME=test_file_SA_P1_${I}.raw; echo $RAW_FILE_NAME
+I=$((I+1)); RAW_FILE_NAME=test_file_SA_P123_${I}.raw; echo $RAW_FILE_NAME
 touch airflow_test_folders/instruments/test1/$RAW_FILE_NAME
 ```
 
 For type "Zeno":
 ```bash
-I=$((I+1)); RAW_FILE_STEM=test_file_SA_P1_${I}; RAW_FILE_NAME=$RAW_FILE_STEM.wiff; echo $RAW_FILE_NAME
+I=$((I+1)); RAW_FILE_STEM=test_file_SA_P123_${I}; RAW_FILE_NAME=$RAW_FILE_STEM.wiff; echo $RAW_FILE_NAME
 touch airflow_test_folders/instruments/test1/$RAW_FILE_NAME
 touch airflow_test_folders/instruments/test1/${RAW_FILE_STEM}.wiff2
 touch airflow_test_folders/instruments/test1/${RAW_FILE_STEM}.wiff.scan
@@ -365,7 +365,7 @@ touch airflow_test_folders/instruments/test1/${RAW_FILE_STEM}.timeseries.data
 
 For type "Bruker":
 ```bash
-I=$((I+1)); RAW_FILE_NAME=test_file_SA_P1_${I}.d; echo $RAW_FILE_NAME
+I=$((I+1)); RAW_FILE_NAME=test_file_SA_P123_${I}.d; echo $RAW_FILE_NAME
 mkdir -p airflow_test_folders/instruments/test1/$RAW_FILE_NAME/some_folder
 touch airflow_test_folders/instruments/test1/$RAW_FILE_NAME/analysis.tdf_bin
 touch airflow_test_folders/instruments/test1/$RAW_FILE_NAME/analysis.tdf

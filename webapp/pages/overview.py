@@ -49,6 +49,8 @@ class Column:
     plot: bool = False
     # use log scale for plot
     log_scale: bool = False
+    # alternative names in the database
+    legacy_names: list[str] = None
 
 
 COLUMNS = (
@@ -76,12 +78,34 @@ COLUMNS = (
     Column("proteins", color_table=True, plot=True),
     Column("weighted_ms1_intensity_sum", color_table=True, plot=True, log_scale=True),
     Column("intensity_sum", color_table=True, plot=True, log_scale=True),
-    Column("ms1_accuracy", color_table=True, plot=True),
+    Column(
+        "ms1_median_accuracy",
+        color_table=True,
+        plot=True,
+        legacy_names=["ms1_accuracy"],
+    ),
     Column("fwhm_rt", color_table=True, plot=True),
-    Column("ms1_error", color_table=True, plot=True),
-    Column("ms2_error", color_table=True, plot=True),
-    Column("rt_error", color_table=True, plot=True),
-    Column("mobility_error", color_table=True, plot=True),
+    Column(
+        "optimization.ms1_error",
+        color_table=True,
+        plot=True,
+        legacy_names=["ms1_error"],
+    ),
+    Column(
+        "optimization.ms2_error",
+        color_table=True,
+        plot=True,
+        legacy_names=["ms2_error"],
+    ),
+    Column(
+        "optimization.rt_error", color_table=True, plot=True, legacy_names=["rt_error"]
+    ),
+    Column(
+        "optimization.mobility_error",
+        color_table=True,
+        plot=True,
+        legacy_names=["mobility_error"],
+    ),
     Column("settings_version", at_end=True, plot=True),
     Column("quanting_time_minutes", color_table=True, plot=True),
     Column("duration_optimization", color_table=True, plot=True, at_end=True),
@@ -122,8 +146,23 @@ display_info_message()
 max_age_in_days = float(
     st.query_params.get(QueryParams.MAX_AGE, DEFAULT_MAX_AGE_OVERVIEW)
 )
+
+
+def _harmonize_df(df: pd.DataFrame) -> pd.DataFrame:
+    """Harmonize the DataFrame by mapping all legacy names to their current ones."""
+    names_mapping = {
+        legacy_name: column.name
+        for column in COLUMNS
+        if column.legacy_names
+        for legacy_name in column.legacy_names
+        if column.legacy_names is not None
+    }
+    return df.rename(columns=names_mapping)
+
+
 with st.spinner("Loading data ..."):
     combined_df = get_combined_raw_files_and_metrics_df(max_age_in_days)
+    combined_df = _harmonize_df(combined_df)
 
 
 # ########################################### DISPLAY: table

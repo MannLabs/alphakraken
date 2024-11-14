@@ -88,34 +88,16 @@ def test_calc_metrics_happy_path(
 @patch("plugins.metrics.metrics_calculator.DataStore")
 def test_basic_stats_calculation(mock_datastore: MagicMock) -> None:
     """Test basic stats calculation."""
-    mock_df = pd.DataFrame(
-        {
-            "proteins": [1.0],
-            "precursors": [2.0],
-            "ms1_accuracy": [3.0],
-            "fwhm_rt": [4.0],
-            "ms1_error": [5.0],
-            "ms2_error": [6.0],
-            "rt_error": [7.0],
-            "mobility_error": [8.0],
-        }
-    )
+    data = {col: [i] for i, col in enumerate(BasicStats._columns)}  # noqa: SLF001
+    mock_df = pd.DataFrame(data)
 
     mock_datastore.__getitem__.return_value = mock_df
 
     # when
     metrics = BasicStats(mock_datastore).get()
 
-    assert metrics == {
-        "proteins": 1.0,
-        "precursors": 2.0,
-        "ms1_accuracy": 3.0,
-        "fwhm_rt": 4.0,
-        "ms1_error": 5.0,
-        "ms2_error": 6.0,
-        "rt_error": 7.0,
-        "mobility_error": 8.0,
-    }
+    expected_metrics = {col: i for i, col in enumerate(BasicStats._columns)}  # noqa: SLF001
+    assert metrics == expected_metrics
 
 
 @patch("plugins.metrics.metrics_calculator.DataStore")

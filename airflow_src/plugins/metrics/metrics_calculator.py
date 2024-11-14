@@ -105,12 +105,12 @@ class BasicStats(Metrics):
     _columns = (
         "proteins",
         "precursors",
-        "ms1_accuracy",
         "fwhm_rt",
-        "ms1_error",
-        "ms2_error",
-        "rt_error",
-        "mobility_error",
+        "optimization.ms1_error",
+        "optimization.ms2_error",
+        "optimization.rt_error",
+        "optimization.mobility_error",
+        "calibration.ms1_median_accuracy",
     )
 
     def _calc(self, df: pd.DataFrame, column: str) -> None:

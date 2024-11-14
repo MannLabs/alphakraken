@@ -157,6 +157,7 @@ def main() -> None:
 
         # TODO: add alert on disk space here (< 200G)
 
+        # TODO: add alert on pile up in non-terminal states
         sleep(CHECK_INTERVAL_SECONDS)
 
 

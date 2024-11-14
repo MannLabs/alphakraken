@@ -8,6 +8,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pandas as pd
 
 
@@ -142,8 +143,8 @@ class InternalStats(Metrics):
         self._metrics[f"{column}"] = df[column].mean()
 
 
-class PrecursorStats(Metrics):
-    """Precursor statistics."""
+class PrecursorStatsSum(Metrics):
+    """Precursor statistics (sum)."""
 
     _file = OutputFiles.PRECURSORS
     _columns = ("weighted_ms1_intensity", "intensity")
@@ -154,13 +155,46 @@ class PrecursorStats(Metrics):
         self._metrics[f"{column}_sum"] = df[column].sum()
 
 
+class PrecursorStatsMean(Metrics):
+    """Precursor statistics (mean)."""
+
+    _file = OutputFiles.PRECURSORS
+    _columns = ("charge", "base_width_rt", "base_width_mobility", "intensity")
+    _tolerate_missing = True
+
+    def _calc(self, df: pd.DataFrame, column: str) -> None:
+        """Calculate metrics."""
+        self._metrics[f"{column}_mean"] = df[column].mean()
+        self._metrics[f"{column}_std"] = df[column].std()
+
+
+class PrecursorStatsMeanLenSequence(Metrics):
+    """Precursor statistics (mean length sequence)."""
+
+    _file = OutputFiles.PRECURSORS
+    _columns = ("sequence",)
+    _tolerate_missing = True
+
+    def _calc(self, df: pd.DataFrame, column: str) -> None:
+        """Calculate metrics."""
+        sequence_lengths = np.array([len(x) for x in df[column]])
+
+        self._metrics[f"{column}_len_mean"] = sequence_lengths.mean()
+        self._metrics[f"{column}_len_std"] = sequence_lengths.std()
+
+
 def calc_metrics(output_directory: Path) -> dict[str, Any]:
     """Calculate metrics for the given output directory."""
     data_store = DataStore(output_directory)
 
     metrics = BasicStats(data_store).get()
-    metrics |= PrecursorStats(data_store).get()
+    metrics |= PrecursorStatsSum(data_store).get()
+    metrics |= PrecursorStatsMean(data_store).get()
+    metrics |= PrecursorStatsMeanLenSequence(data_store).get()
     metrics |= InternalStats(data_store).get()
 
-    logging.info(f"Calculated metrics: {metrics}")
-    return metrics
+    # MongoDB field names cannot contain dots (".") or null characters ("\0"), and they must not start with a dollar sign ("$").
+    metrics_cleaned = {k.replace(".", ":"): v for k, v in metrics.items()}
+
+    logging.info(f"Calculated metrics: {metrics_cleaned}")
+    return metrics_cleaned

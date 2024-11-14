@@ -7,7 +7,7 @@ import pandas as pd
 from plugins.metrics.metrics_calculator import (
     BasicStats,
     DataStore,
-    PrecursorStats,
+    PrecursorStatsSum,
     calc_metrics,
 )
 
@@ -47,11 +47,15 @@ def test_datastore_getitem_returns_data_when_key_in_data(
 
 @patch("plugins.metrics.metrics_calculator.DataStore")
 @patch("plugins.metrics.metrics_calculator.BasicStats")
-@patch("plugins.metrics.metrics_calculator.PrecursorStats")
+@patch("plugins.metrics.metrics_calculator.PrecursorStatsSum")
+@patch("plugins.metrics.metrics_calculator.PrecursorStatsMean")
+@patch("plugins.metrics.metrics_calculator.PrecursorStatsMeanLenSequence")
 @patch("plugins.metrics.metrics_calculator.InternalStats")
-def test_calc_metrics_happy_path(
+def test_calc_metrics_happy_path(  # noqa: PLR0913
     mock_internal_stats: MagicMock,
-    mock_precursor_stats: MagicMock,
+    mock_precursor_stats_mean_len_sequence: MagicMock,
+    mock_precursor_stats_mean: MagicMock,
+    mock_precursor_stats_sum: MagicMock,
     mock_basic_stats: MagicMock,
     mock_data_store: MagicMock,
 ) -> None:
@@ -63,26 +67,53 @@ def test_calc_metrics_happy_path(
     mock_basic_stats.return_value = mock_basic_stats_instance
     mock_basic_stats_instance.get.return_value = {"basic_metric": "value1"}
 
-    mock_precursor_stats_instance = MagicMock()
-    mock_precursor_stats.return_value = mock_precursor_stats_instance
-    mock_precursor_stats_instance.get.return_value = {"precursor_metric": "value2"}
+    mock_precursor_stats_sum_instance = MagicMock()
+    mock_precursor_stats_sum.return_value = mock_precursor_stats_sum_instance
+    mock_precursor_stats_sum_instance.get.return_value = {
+        "precursor_sum_metric": "value2"
+    }
+
+    mock_precursor_stats_mean_instance = MagicMock()
+    mock_precursor_stats_mean.return_value = mock_precursor_stats_mean_instance
+    mock_precursor_stats_mean_instance.get.return_value = {
+        "precursor_mean_metric": "value3"
+    }
+
+    mock_precursor_stats_mean_len_sequence_instance = MagicMock()
+    mock_precursor_stats_mean_len_sequence.return_value = (
+        mock_precursor_stats_mean_len_sequence_instance
+    )
+    mock_precursor_stats_mean_len_sequence_instance.get.return_value = {
+        "precursor_mean_len_sequence_metric": "value4"
+    }
 
     mock_internal_stats_instance = MagicMock()
     mock_internal_stats.return_value = mock_internal_stats_instance
-    mock_internal_stats_instance.get.return_value = {"internal_metric": "value3"}
+    mock_internal_stats_instance.get.return_value = {"internal_metric": "value5"}
 
     # when
     result = calc_metrics(Path("output_directory"))
 
     assert result == {
         "basic_metric": "value1",
-        "precursor_metric": "value2",
-        "internal_metric": "value3",
+        "precursor_sum_metric": "value2",
+        "precursor_mean_metric": "value3",
+        "precursor_mean_len_sequence_metric": "value4",
+        "internal_metric": "value5",
     }
     mock_data_store.assert_called_once_with(Path("output_directory"))
     mock_basic_stats.assert_called_once_with(mock_data_store.return_value)
-    mock_precursor_stats.assert_called_once_with(mock_data_store.return_value)
+    mock_precursor_stats_sum.assert_called_once_with(mock_data_store.return_value)
     mock_internal_stats.assert_called_once_with(mock_data_store.return_value)
+
+
+# just used for manual testing so far
+# def test_calc_metrics_real_data(
+#
+# ) -> None:
+#     """Test the happy path of calc_metrics with real_data."""
+#     # when
+#     result = calc_metrics(Path("alphakraken/airflow_test_folders/_data"))
 
 
 @patch("plugins.metrics.metrics_calculator.DataStore")
@@ -113,7 +144,7 @@ def test_precursor_stats_calculation(mock_datastore: MagicMock) -> None:
     mock_datastore.__getitem__.return_value = mock_df
 
     # when
-    metrics = PrecursorStats(mock_datastore).get()
+    metrics = PrecursorStatsSum(mock_datastore).get()
 
     assert metrics["weighted_ms1_intensity_sum"] == 3.0  # noqa: PLR2004
     assert metrics["intensity_sum"] == 30.0  # noqa: PLR2004
@@ -131,7 +162,7 @@ def test_precursor_stats_calculation_column_missing(mock_datastore: MagicMock) -
     mock_datastore.__getitem__.return_value = mock_df
 
     # when
-    metrics = PrecursorStats(mock_datastore).get()
+    metrics = PrecursorStatsSum(mock_datastore).get()
 
     assert metrics["weighted_ms1_intensity_sum"] == 3.0  # noqa: PLR2004
     assert "intensity_sum" not in metrics

@@ -73,12 +73,8 @@ COLUMNS = (
         "gradient_length_m",
         at_front=True,
         color_table=True,
-        alternative_names=["raw.gradient_length_m"],
+        alternative_names=["raw:gradient_length_m"],
     ),
-    # at end (order matters)
-    Column("project_id", at_end=True),
-    Column("updated_at_", at_end=True),
-    Column("created_at_", at_end=True),
     # plots (order matters)
     Column("precursors", color_table=True, plot=True),
     Column("proteins", color_table=True, plot=True),
@@ -88,37 +84,73 @@ COLUMNS = (
         "ms1_median_accuracy",
         color_table=True,
         plot=True,
-        alternative_names=["ms1_accuracy"],
+        alternative_names=["ms1_accuracy", "calibration:ms1_median_accuracy"],
     ),
     Column("fwhm_rt", color_table=True, plot=True),
     Column(
         "ms1_error",
         color_table=True,
         plot=True,
-        alternative_names=["optimization.ms1_error"],
+        alternative_names=["optimization:ms1_error"],
     ),
     Column(
         "ms2_error",
         color_table=True,
         plot=True,
-        alternative_names=["optimization.ms2_error"],
+        alternative_names=["optimization:ms2_error"],
     ),
     Column(
         "rt_error",
         color_table=True,
         plot=True,
-        alternative_names=["optimization.rt_error"],
+        alternative_names=["optimization:rt_error"],
     ),
     Column(
         "mobility_error",
         color_table=True,
         plot=True,
-        alternative_names=["optimization.mobility_error"],
+        alternative_names=["optimization:mobility_error"],
     ),
+    Column(
+        "charge_mean",
+        at_front=True,
+        color_table=True,
+        plot=True,
+    ),
+    Column(
+        "base_width_rt_mean",
+        at_front=True,
+        color_table=True,
+        plot=True,
+    ),
+    Column(
+        "base_width_mobility_mean",
+        at_front=True,
+        color_table=True,
+        plot=True,
+    ),
+    Column(
+        "precursor_intensity_mean",
+        at_front=True,
+        color_table=True,
+        plot=True,
+        alternative_names=["intensity_mean"],
+    ),
+    Column(
+        "sequence_len_mean",
+        at_front=True,
+        color_table=True,
+        plot=True,
+    ),
+    # some technical plots:
     Column("settings_version", at_end=True, plot=True),
     Column("quanting_time_minutes", color_table=True, plot=True),
     Column("duration_optimization", color_table=True, plot=True, at_end=True),
     Column("duration_extraction", color_table=True, plot=True, at_end=True),
+    # at end (order matters)
+    Column("project_id", at_end=True),
+    Column("updated_at_", at_end=True),
+    Column("created_at_", at_end=True),
 )
 
 # ########################################### PAGE HEADER
@@ -166,7 +198,10 @@ def _harmonize_df(df: pd.DataFrame) -> pd.DataFrame:
         for alternative_name in column.alternative_names
         if column.alternative_names is not None
     }
-    return df.rename(columns=names_mapping)
+    df = df.rename(columns=names_mapping)
+
+    # map all columns of the same name to the first one, assuming that not more than one of the values are filled
+    return df.groupby(axis=1, level=0).first()
 
 
 with st.spinner("Loading data ..."):
@@ -178,7 +213,9 @@ with st.spinner("Loading data ..."):
 
 
 columns_at_front = [column.name for column in COLUMNS if column.at_front]
-columns_at_end = [column.name for column in COLUMNS if column.at_end]
+columns_at_end = [column.name for column in COLUMNS if column.at_end] + [
+    col for col in combined_df.columns if col.endswith("_std")
+]
 columns_to_hide = [column.name for column in COLUMNS if column.hide]
 
 column_order = (

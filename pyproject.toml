@@ -1,5 +1,6 @@
 [tool.ruff.lint]
 select =  [ "ALL" ]
+
 ignore = [
     "E501",  # Line too long  (ruff wraps code, but not docstrings)
     "B028",  #  No explicit `stacklevel` keyword argument found (for warnings)
@@ -27,6 +28,11 @@ ignore = [
     "B023", # Function definition does not bind loop variable
     "PD901", # Avoid using the generic variable name `df` for DataFrames"
     "TCH003" # Move standard library import into a type-checking block
+]
+
+[tool.ruff.lint.per-file-ignores]
+"*.ipynb" = [
+    "T201" # use of 'print' detected
 ]
 
 [tool.pytest.ini_options]

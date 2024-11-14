@@ -1,8 +1,11 @@
 """SSH sensor operator."""
 
+from __future__ import annotations
+
 import logging
 from abc import ABC, abstractmethod
 from time import sleep
+from typing import TYPE_CHECKING
 
 from airflow.exceptions import AirflowFailException
 from airflow.providers.ssh.hooks.ssh import SSHHook
@@ -16,6 +19,9 @@ from common.utils import (
     truncate_string,
 )
 from paramiko.ssh_exception import SSHException
+
+if TYPE_CHECKING:
+    from airflow.providers.ssh.hooks.ssh import SSHHook
 
 
 class SSHSensorOperator(BaseSensorOperator, ABC):
@@ -35,7 +41,7 @@ class SSHSensorOperator(BaseSensorOperator, ABC):
     def states(self) -> list[str]:
         """Outputs of the command in `command_template` that are considered 'running'."""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         """Initialize the operator."""
         super().__init__(*args, **kwargs)
         self._ssh_hook: SSHHook = get_cluster_ssh_hook()
@@ -52,10 +58,7 @@ class SSHSensorOperator(BaseSensorOperator, ABC):
         ssh_return = self.ssh_execute(self.command, self._ssh_hook)
         logging.info(f"ssh command returned: '{ssh_return}'")
 
-        if ssh_return in self.states:
-            return False
-
-        return True
+        return ssh_return not in self.states
 
     # show file size earlier
 

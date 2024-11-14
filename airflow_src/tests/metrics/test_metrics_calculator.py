@@ -1,12 +1,15 @@
 """Tests for the metrics calculator."""
 
+# ruff: noqa: PLR2004 # magic numbers are fine in tests
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
+from metrics.metrics_calculator import PrecursorStatsMeanLenSequence
 from plugins.metrics.metrics_calculator import (
     BasicStats,
     DataStore,
+    PrecursorStatsMean,
     PrecursorStatsSum,
     calc_metrics,
 )
@@ -146,8 +149,8 @@ def test_precursor_stats_calculation(mock_datastore: MagicMock) -> None:
     # when
     metrics = PrecursorStatsSum(mock_datastore).get()
 
-    assert metrics["weighted_ms1_intensity_sum"] == 3.0  # noqa: PLR2004
-    assert metrics["intensity_sum"] == 30.0  # noqa: PLR2004
+    assert metrics["weighted_ms1_intensity_sum"] == 3.0
+    assert metrics["intensity_sum"] == 30.0
 
 
 @patch("plugins.metrics.metrics_calculator.DataStore")
@@ -164,5 +167,43 @@ def test_precursor_stats_calculation_column_missing(mock_datastore: MagicMock) -
     # when
     metrics = PrecursorStatsSum(mock_datastore).get()
 
-    assert metrics["weighted_ms1_intensity_sum"] == 3.0  # noqa: PLR2004
+    assert metrics["weighted_ms1_intensity_sum"] == 3.0
     assert "intensity_sum" not in metrics
+
+
+@patch("plugins.metrics.metrics_calculator.DataStore")
+def test_precursor_stats_mean_calculation(mock_datastore: MagicMock) -> None:
+    """Test precursor stats mean calculation."""
+    mock_df = pd.DataFrame(
+        {
+            "charge": [1.0, 2.0],
+        }
+    )
+
+    mock_datastore.__getitem__.return_value = mock_df
+
+    # when
+    metrics = PrecursorStatsMean(mock_datastore).get()
+
+    assert metrics["charge_mean"] == 1.5
+    assert metrics["charge_std"] == 0.7071067811865476
+
+
+@patch("plugins.metrics.metrics_calculator.DataStore")
+def test_precursor_stats_sequence_len_mean_calculation(
+    mock_datastore: MagicMock,
+) -> None:
+    """Test precursor stats sequence lengthmean calculation."""
+    mock_df = pd.DataFrame(
+        {
+            "sequence": ["A", "AB"],
+        }
+    )
+
+    mock_datastore.__getitem__.return_value = mock_df
+
+    # when
+    metrics = PrecursorStatsMeanLenSequence(mock_datastore).get()
+
+    assert metrics["sequence_len_mean"] == 1.5
+    assert metrics["sequence_len_std"] == 0.7071067811865476

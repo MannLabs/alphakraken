@@ -180,7 +180,7 @@ class PrecursorStatsMeanLenSequence(Metrics):
         sequence_lengths = np.array([len(x) for x in df[column]])
 
         self._metrics[f"{column}_len_mean"] = sequence_lengths.mean()
-        self._metrics[f"{column}_len_std"] = sequence_lengths.std()
+        self._metrics[f"{column}_len_std"] = sequence_lengths.std(ddof=1)
 
 
 def calc_metrics(output_directory: Path) -> dict[str, Any]:

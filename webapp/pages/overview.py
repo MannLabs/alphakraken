@@ -50,7 +50,7 @@ class Column:
     # use log scale for plot
     log_scale: bool = False
     # alternative names in the database
-    legacy_names: list[str] = None
+    alternative_names: list[str] = None
 
 
 COLUMNS = (
@@ -82,29 +82,32 @@ COLUMNS = (
         "ms1_median_accuracy",
         color_table=True,
         plot=True,
-        legacy_names=["ms1_accuracy"],
+        alternative_names=["ms1_accuracy"],
     ),
     Column("fwhm_rt", color_table=True, plot=True),
     Column(
-        "optimization.ms1_error",
+        "ms1_error",
         color_table=True,
         plot=True,
-        legacy_names=["ms1_error"],
+        alternative_names=["optimization.ms1_error"],
     ),
     Column(
-        "optimization.ms2_error",
+        "ms2_error",
         color_table=True,
         plot=True,
-        legacy_names=["ms2_error"],
+        alternative_names=["optimization.ms2_error"],
     ),
     Column(
-        "optimization.rt_error", color_table=True, plot=True, legacy_names=["rt_error"]
-    ),
-    Column(
-        "optimization.mobility_error",
+        "rt_error",
         color_table=True,
         plot=True,
-        legacy_names=["mobility_error"],
+        alternative_names=["optimization.rt_error"],
+    ),
+    Column(
+        "mobility_error",
+        color_table=True,
+        plot=True,
+        alternative_names=["optimization.mobility_error"],
     ),
     Column("settings_version", at_end=True, plot=True),
     Column("quanting_time_minutes", color_table=True, plot=True),
@@ -149,13 +152,13 @@ max_age_in_days = float(
 
 
 def _harmonize_df(df: pd.DataFrame) -> pd.DataFrame:
-    """Harmonize the DataFrame by mapping all legacy names to their current ones."""
+    """Harmonize the DataFrame by mapping all alternative names to their current ones."""
     names_mapping = {
-        legacy_name: column.name
+        alternative_name: column.name
         for column in COLUMNS
-        if column.legacy_names
-        for legacy_name in column.legacy_names
-        if column.legacy_names is not None
+        if column.alternative_names
+        for alternative_name in column.alternative_names
+        if column.alternative_names is not None
     }
     return df.rename(columns=names_mapping)
 

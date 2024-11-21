@@ -42,12 +42,12 @@ def _check_health(instrument_id: str) -> None:
         status_details.append("Instrument path not found.")
 
     backup_path = get_internal_backup_path()
-    if not backup_path.exists():
+    if not backup_path.exists() or not backup_path.rglob("*"):
         logging.error(f"Backup path {backup_path} does not exist.")
         status_details.append("Backup path not found.")
 
     output_path = get_internal_output_path()
-    if not output_path.exists():
+    if not output_path.exists() or not output_path.rglob("*"):
         logging.error(f"Output path {output_path} does not exist.")
         status_details.append("Output path not found.")
 

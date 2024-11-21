@@ -18,6 +18,14 @@ from shared.db.engine import connect_db
 from shared.db.models import KrakenStatus
 from shared.keys import EnvVars
 
+# TODO: add unit tests
+# TODO: only alert in production?
+# TODO: report when error has resolved
+# TODO: add a "all is well" message once a day/week?
+
+# TODO: add alert on failed health check here
+# TODO: add alert on pile up in non-terminal states
+
 SLACK_WEBHOOK_URL = os.environ.get(EnvVars.SLACK_WEBHOOK_URL)
 if not SLACK_WEBHOOK_URL:
     logging.error(f"{EnvVars.SLACK_WEBHOOK_URL} environment variable must be set")
@@ -25,17 +33,23 @@ if not SLACK_WEBHOOK_URL:
 
 # Constants
 CHECK_INTERVAL_SECONDS = 60
-STALE_STATUS_THRESHOLD_MINUTES = (
-    15  # How old a kraken status can be before considered stale
-)
 ALERT_COOLDOWN_MINUTES = (
     120  # Minimum time between repeated alerts for the same issue_type
 )
 
-# TODO: add unit tests
-# TODO: only alert in production?
-# TODO: report when error has resolved
-# TODO: add a "all is well" message once a day?
+STALE_STATUS_THRESHOLD_MINUTES = (
+    15  # How old a kraken status can be before considered stale
+)
+FREE_SPACE_THRESHOLD_GB = (
+    200  # regardless of the configuration in airflow: 200 GB is very low
+)
+
+
+class Cases:
+    """Cases for which to send alerts."""
+
+    STALE = "stale"
+    DISK_SPACE = "disk_space"
 
 
 def _default_value() -> datetime:
@@ -47,27 +61,40 @@ def _default_value() -> datetime:
 last_alerts = defaultdict(_default_value)
 
 
-def _send_kraken_status_alert(stale_instruments: list[tuple[str, datetime]]) -> None:
+def _send_kraken_instrument_alert(
+    instruments_with_data: list[tuple[str, datetime | str]], case: str
+) -> None:
     """Send alert to Slack about stale status."""
-    instruments = [instrument_id for instrument_id, _ in stale_instruments]
+    instruments = [instrument_id for instrument_id, _ in instruments_with_data]
 
-    if not _should_send_alert(instruments):
+    if not _should_send_alert(instruments, case):
         return
 
-    instruments_str = ", ".join(instruments)
-    oldest_updated_at = min([updated_at for _, updated_at in stale_instruments])
+    if case == Cases.STALE:
+        instruments_str = ", ".join(instruments)
+        oldest_updated_at = min([updated_at for _, updated_at in instruments_with_data])
 
-    message = (
-        f"Health check status for `{instruments_str}` is stale\n"
-        f"Last update: {oldest_updated_at.strftime('%Y-%m-%d %H:%M:%S')} UTC\n"
-        f"Time since last update: {(datetime.now(pytz.UTC) - oldest_updated_at).total_seconds()/60/60:.1f} hours."
-    )
+        message = (
+            f"Health check status for `{instruments_str}` is stale\n"
+            f"Last update: {oldest_updated_at.strftime('%Y-%m-%d %H:%M:%S')} UTC\n"  # pytype: disable=attribute-error
+            f"Time since last update: {(datetime.now(pytz.UTC) - oldest_updated_at).total_seconds()/60/60:.1f} hours."
+        )
+    elif case == Cases.DISK_SPACE:
+        instruments_str = ", ".join(
+            [
+                f"{instrument_id}: {space} GB"
+                for instrument_id, space in instruments_with_data
+            ]
+        )
+        message = f"Low disk space detected: {instruments_str}"
+    else:
+        raise ValueError(f"Unknown case: {case}")
 
     try:
         _send_slack_message(message)
 
         for instrument_id in instruments:
-            last_alerts[instrument_id] = datetime.now(pytz.UTC)
+            last_alerts[f"{case}{instrument_id}"] = datetime.now(pytz.UTC)
 
     except RequestException:
         logging.exception("Failed to send Slack alert.")
@@ -85,11 +112,11 @@ def _send_slack_message(message: str) -> None:
     logging.info("Successfully sent Slack alert.")
 
 
-def _should_send_alert(issue_types: list[str]) -> bool:
+def _should_send_alert(issue_types: list[str], case: str) -> bool:
     """Check if we should send an alert based on cooldown period."""
     send_alert = False
     for issue_type in issue_types:
-        cooldown_time = last_alerts[issue_type] + timedelta(
+        cooldown_time = last_alerts[f"{case}{issue_type}"] + timedelta(
             minutes=ALERT_COOLDOWN_MINUTES
         )
         send_alert |= datetime.now(pytz.UTC) > cooldown_time
@@ -105,23 +132,34 @@ def _check_kraken_update_status() -> None:
     logging.info("Checking kraken update status...")
 
     stale_instruments = []
-    statuses = KrakenStatus.objects
-    for status in statuses:
-        last_updated_at = pytz.utc.localize(status.updated_at_)
+    low_disk_instruments = []
+    kraken_statuses = KrakenStatus.objects
+    for kraken_status in kraken_statuses:
+        last_updated_at = pytz.utc.localize(kraken_status.updated_at_)
         if last_updated_at < stale_threshold:
             logging.warning(
-                f"Stale status detected for {status.instrument_id}, "
+                f"Stale status detected for {kraken_status.instrument_id}, "
                 f"last update: {last_updated_at}"
             )
-            stale_instruments.append((status.instrument_id, last_updated_at))
+            stale_instruments.append((kraken_status.instrument_id, last_updated_at))
+
+        if free_space_gb := kraken_status.free_space_gb < FREE_SPACE_THRESHOLD_GB:
+            logging.warning(
+                f"Low disk space detected for {kraken_status.instrument_id}, "
+                f"free space: {free_space_gb} GB"
+            )
+            low_disk_instruments.append((kraken_status.instrument_id, free_space_gb))
 
     if stale_instruments:
-        _send_kraken_status_alert(stale_instruments)
+        _send_kraken_instrument_alert(stale_instruments, Cases.STALE)
+
+    if low_disk_instruments:
+        _send_kraken_instrument_alert(low_disk_instruments, Cases.DISK_SPACE)
 
 
 def _send_db_alert(error_type: str) -> None:
     """Send alert to Slack about MongoDB connection error."""
-    if not _should_send_alert([error_type]):
+    if not _should_send_alert([error_type], "db"):
         return
 
     logging.info("Error connecting to MongoDB")
@@ -153,11 +191,6 @@ def main() -> None:
         except Exception:
             logging.exception("Error checking KrakenStatus")
 
-        # TODO: add alert on failed health check here
-
-        # TODO: add alert on disk space here (< 200G)
-
-        # TODO: add alert on pile up in non-terminal states
         sleep(CHECK_INTERVAL_SECONDS)
 
 

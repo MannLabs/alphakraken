@@ -163,4 +163,6 @@ class KrakenStatus(Document):
     free_space_gb = IntField(min_value=-1, default=-1)
 
     updated_at_ = DateTimeField(default=datetime.now)
-    last_error_occurred_at = DateTimeField(default=datetime.fromtimestamp(0))  # noqa: DTZ006
+
+    # TODO: remove (also from DB)
+    last_error_occurred_at = DateTimeField()

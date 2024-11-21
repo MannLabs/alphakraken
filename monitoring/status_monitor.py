@@ -81,7 +81,7 @@ def _send_kraken_instrument_alert(
 
         message = (
             f"Health check status for `{instruments_str}` is stale\n"
-            f"Last update: {oldest_updated_at.strftime('%Y-%m-%d %H:%M:%S')} UTC\n"  # pytype: disable=attribute-error
+            f"Last update: {oldest_updated_at.strftime('%Y-%m-%d %H:%M:%S')} UTC. "  # pytype: disable=attribute-error
             f"Time since last update: {(datetime.now(pytz.UTC) - oldest_updated_at).total_seconds()/60/60:.1f} hours."
         )
 
@@ -171,7 +171,7 @@ def _check_kraken_update_status() -> None:
             )
             stale_instruments.append((instrument_id, last_updated_at))
 
-        if free_space_gb := kraken_status.free_space_gb < FREE_SPACE_THRESHOLD_GB:
+        if (free_space_gb := kraken_status.free_space_gb) < FREE_SPACE_THRESHOLD_GB:
             logging.warning(
                 f"Low disk space detected for {instrument_id}, "
                 f"free space: {free_space_gb} GB"
@@ -187,7 +187,7 @@ def _check_kraken_update_status() -> None:
                 (instrument_id, kraken_status.status_details)
             )
 
-        status_pile_up_instruments = _get_status_pile_up_instruments(instrument_id)
+        _append_status_pile_up_instruments(instrument_id, status_pile_up_instruments)
 
     if stale_instruments:
         _send_kraken_instrument_alert(stale_instruments, Cases.STALE)
@@ -203,9 +203,10 @@ def _check_kraken_update_status() -> None:
         _send_kraken_instrument_alert(status_pile_up_instruments, Cases.STATUS_PILE_UP)
 
 
-def _get_status_pile_up_instruments(instrument_id: str) -> list[tuple[str, str]]:
-    """Get instrument with too many files in non-terminal statuses."""
-    status_pile_up_instruments = []
+def _append_status_pile_up_instruments(
+    instrument_id: str, status_pile_up_instruments: list[tuple[str, str]]
+) -> None:
+    """Add instruments with too many files in non-terminal statuses to status_pile_up_instruments."""
     status_counts = defaultdict(int)
 
     for raw_file in RawFile.objects(
@@ -226,8 +227,6 @@ def _get_status_pile_up_instruments(instrument_id: str) -> list[tuple[str, str]]
         )
 
         status_pile_up_instruments.append((instrument_id, piled_up_statuses_str))
-
-    return status_pile_up_instruments
 
 
 def _send_db_alert(error_type: str) -> None:

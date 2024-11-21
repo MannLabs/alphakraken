@@ -8,7 +8,6 @@ from time import sleep
 from typing import TYPE_CHECKING, Any
 
 from airflow.exceptions import AirflowFailException
-from airflow.providers.ssh.hooks.ssh import SSHHook
 from airflow.sensors.base import BaseSensorOperator
 from cluster_scripts.slurm_commands import get_job_state_cmd
 from common.keys import AirflowVars, JobStates, XComKeys

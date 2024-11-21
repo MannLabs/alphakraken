@@ -15,15 +15,13 @@ from pymongo.errors import ServerSelectionTimeoutError
 from requests.exceptions import RequestException
 
 from shared.db.engine import connect_db
-from shared.db.models import KrakenStatus
+from shared.db.models import KrakenStatus, KrakenStatusValues
 from shared.keys import EnvVars
 
 # TODO: add unit tests
-# TODO: only alert in production?
 # TODO: report when error has resolved
 # TODO: add a "all is well" message once a day/week?
 
-# TODO: add alert on failed health check here
 # TODO: add alert on pile up in non-terminal states
 
 SLACK_WEBHOOK_URL = os.environ.get(EnvVars.SLACK_WEBHOOK_URL)
@@ -49,7 +47,8 @@ class Cases:
     """Cases for which to send alerts."""
 
     STALE = "stale"
-    DISK_SPACE = "disk_space"
+    LOW_DISK_SPACE = "low_disk_space"
+    HEALTH_CHECK_FAILED = "health_check_failed"
 
 
 def _default_value() -> datetime:
@@ -62,7 +61,7 @@ last_alerts = defaultdict(_default_value)
 
 
 def _send_kraken_instrument_alert(
-    instruments_with_data: list[tuple[str, datetime | str]], case: str
+    instruments_with_data: list[tuple[str, datetime | int]], case: str
 ) -> None:
     """Send alert to Slack about stale status."""
     instruments = [instrument_id for instrument_id, _ in instruments_with_data]
@@ -79,14 +78,24 @@ def _send_kraken_instrument_alert(
             f"Last update: {oldest_updated_at.strftime('%Y-%m-%d %H:%M:%S')} UTC\n"  # pytype: disable=attribute-error
             f"Time since last update: {(datetime.now(pytz.UTC) - oldest_updated_at).total_seconds()/60/60:.1f} hours."
         )
-    elif case == Cases.DISK_SPACE:
+
+    elif case == Cases.LOW_DISK_SPACE:
         instruments_str = ", ".join(
             [
-                f"{instrument_id}: {space} GB"
-                for instrument_id, space in instruments_with_data
+                f"{instrument_id}: {disk_space} GB"
+                for instrument_id, disk_space in instruments_with_data
             ]
         )
         message = f"Low disk space detected: {instruments_str}"
+
+    elif case == Cases.HEALTH_CHECK_FAILED:
+        instruments_str = ", ".join(
+            [
+                f"{instrument_id}: {status_details}"
+                for instrument_id, status_details in instruments_with_data
+            ]
+        )
+        message = f"Health check failed: {instruments_str}"
     else:
         raise ValueError(f"Unknown case: {case}")
 
@@ -132,29 +141,45 @@ def _check_kraken_update_status() -> None:
     logging.info("Checking kraken update status...")
 
     stale_instruments = []
-    low_disk_instruments = []
+    low_disk_space_instruments = []
+    health_check_failed_instruments = []
     kraken_statuses = KrakenStatus.objects
     for kraken_status in kraken_statuses:
         last_updated_at = pytz.utc.localize(kraken_status.updated_at_)
+        instrument_id = kraken_status.instrument_id
         if last_updated_at < stale_threshold:
             logging.warning(
-                f"Stale status detected for {kraken_status.instrument_id}, "
+                f"Stale status detected for {instrument_id}, "
                 f"last update: {last_updated_at}"
             )
-            stale_instruments.append((kraken_status.instrument_id, last_updated_at))
+            stale_instruments.append((instrument_id, last_updated_at))
 
         if free_space_gb := kraken_status.free_space_gb < FREE_SPACE_THRESHOLD_GB:
             logging.warning(
-                f"Low disk space detected for {kraken_status.instrument_id}, "
+                f"Low disk space detected for {instrument_id}, "
                 f"free space: {free_space_gb} GB"
             )
-            low_disk_instruments.append((kraken_status.instrument_id, free_space_gb))
+            low_disk_space_instruments.append((instrument_id, free_space_gb))
+
+        if kraken_status.status != KrakenStatusValues.OK:
+            logging.warning(
+                f"Error detected for {instrument_id}, "
+                f"status details: {kraken_status.status_details}"
+            )
+            health_check_failed_instruments.append(
+                (instrument_id, kraken_status.status_details)
+            )
 
     if stale_instruments:
         _send_kraken_instrument_alert(stale_instruments, Cases.STALE)
 
-    if low_disk_instruments:
-        _send_kraken_instrument_alert(low_disk_instruments, Cases.DISK_SPACE)
+    if low_disk_space_instruments:
+        _send_kraken_instrument_alert(low_disk_space_instruments, Cases.LOW_DISK_SPACE)
+
+    if health_check_failed_instruments:
+        _send_kraken_instrument_alert(
+            health_check_failed_instruments, Cases.HEALTH_CHECK_FAILED
+        )
 
 
 def _send_db_alert(error_type: str) -> None:

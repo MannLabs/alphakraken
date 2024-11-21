@@ -76,18 +76,13 @@ def _send_kraken_instrument_alert(
         return
 
     if case == Cases.STALE:
-        oldest_updated_at = min([updated_at for _, updated_at in instruments_with_data])
-
         instruments_str = "\n".join(
             [
-                f"- `{instrument_id}`: {updated_at.strftime('%Y-%m-%d %H:%M:%S')} UTC"
+                f"- `{instrument_id}`: {updated_at.strftime('%Y-%m-%d %H:%M:%S')} UTC ({(datetime.now(pytz.UTC) - updated_at).total_seconds() / 60 / 60:.1f} hours ago)"
                 for instrument_id, updated_at in instruments_with_data
             ]
         )
-        message = (
-            f"Health check status is stale: {instruments_str}. \n"
-            f"Time since last update: {(datetime.now(pytz.UTC) - oldest_updated_at).total_seconds() / 60 / 60:.1f} hours."
-        )
+        message = f"Health check status is stale:\n{instruments_str}."
 
     elif case == Cases.LOW_DISK_SPACE:
         instruments_str = "\n".join(
@@ -96,7 +91,7 @@ def _send_kraken_instrument_alert(
                 for instrument_id, disk_space in instruments_with_data
             ]
         )
-        message = f"Low disk space detected: {instruments_str}"
+        message = f"Low disk space detected:\n{instruments_str}"
 
     elif case == Cases.HEALTH_CHECK_FAILED:
         instruments_str = "\n".join(
@@ -105,7 +100,8 @@ def _send_kraken_instrument_alert(
                 for instrument_id, status_details in instruments_with_data
             ]
         )
-        message = f"Health check failed: {instruments_str}"
+        message = f"Health check failed:\n{instruments_str}"
+
     elif case == Cases.STATUS_PILE_UP:
         instruments_str = "\n".join(
             [
@@ -113,19 +109,18 @@ def _send_kraken_instrument_alert(
                 for instrument_id, status_info in instruments_with_data
             ]
         )
-        message = f"Status pile up detected: {instruments_str}"
+        message = f"Status pile up detected:\n{instruments_str}"
 
     else:
         raise ValueError(f"Unknown case: {case}")
 
     try:
         _send_slack_message(message)
-
-        for instrument_id in instruments:
-            last_alerts[f"{case}{instrument_id}"] = datetime.now(pytz.UTC)
-
     except RequestException:
         logging.exception("Failed to send Slack alert.")
+    else:
+        for instrument_id in instruments:
+            last_alerts[f"{case}{instrument_id}"] = datetime.now(pytz.UTC)
 
 
 def _send_slack_message(message: str) -> None:

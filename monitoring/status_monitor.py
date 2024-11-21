@@ -15,14 +15,17 @@ from pymongo.errors import ServerSelectionTimeoutError
 from requests.exceptions import RequestException
 
 from shared.db.engine import connect_db
-from shared.db.models import KrakenStatus, KrakenStatusValues
+from shared.db.models import (
+    TERMINAL_STATUSES,
+    KrakenStatus,
+    KrakenStatusValues,
+    RawFile,
+)
 from shared.keys import EnvVars
 
 # TODO: add unit tests
 # TODO: report when error has resolved
 # TODO: add a "all is well" message once a day/week?
-
-# TODO: add alert on pile up in non-terminal states
 
 SLACK_WEBHOOK_URL = os.environ.get(EnvVars.SLACK_WEBHOOK_URL)
 if not SLACK_WEBHOOK_URL:
@@ -42,6 +45,8 @@ FREE_SPACE_THRESHOLD_GB = (
     200  # regardless of the configuration in airflow: 200 GB is very low
 )
 
+STATUS_PILE_UP_THRESHOLD = 5
+
 
 class Cases:
     """Cases for which to send alerts."""
@@ -49,6 +54,7 @@ class Cases:
     STALE = "stale"
     LOW_DISK_SPACE = "low_disk_space"
     HEALTH_CHECK_FAILED = "health_check_failed"
+    STATUS_PILE_UP = "status_pile_up"
 
 
 def _default_value() -> datetime:
@@ -96,6 +102,15 @@ def _send_kraken_instrument_alert(
             ]
         )
         message = f"Health check failed: {instruments_str}"
+    elif case == Cases.STATUS_PILE_UP:
+        instruments_str = ", ".join(
+            [
+                f"{instrument_id}: {status_info}"
+                for instrument_id, status_info in instruments_with_data
+            ]
+        )
+        message = f"Status pile up detected: {instruments_str}"
+
     else:
         raise ValueError(f"Unknown case: {case}")
 
@@ -143,6 +158,8 @@ def _check_kraken_update_status() -> None:
     stale_instruments = []
     low_disk_space_instruments = []
     health_check_failed_instruments = []
+    status_pile_up_instruments = []
+
     kraken_statuses = KrakenStatus.objects
     for kraken_status in kraken_statuses:
         last_updated_at = pytz.utc.localize(kraken_status.updated_at_)
@@ -170,6 +187,8 @@ def _check_kraken_update_status() -> None:
                 (instrument_id, kraken_status.status_details)
             )
 
+        status_pile_up_instruments = _get_status_pile_up_instruments(instrument_id)
+
     if stale_instruments:
         _send_kraken_instrument_alert(stale_instruments, Cases.STALE)
 
@@ -180,6 +199,35 @@ def _check_kraken_update_status() -> None:
         _send_kraken_instrument_alert(
             health_check_failed_instruments, Cases.HEALTH_CHECK_FAILED
         )
+    if status_pile_up_instruments:
+        _send_kraken_instrument_alert(status_pile_up_instruments, Cases.STATUS_PILE_UP)
+
+
+def _get_status_pile_up_instruments(instrument_id: str) -> list[tuple[str, str]]:
+    """Get instrument with too many files in non-terminal statuses."""
+    status_pile_up_instruments = []
+    status_counts = defaultdict(int)
+
+    for raw_file in RawFile.objects(
+        instrument_id=instrument_id, status__nin=TERMINAL_STATUSES
+    ):
+        status_counts[raw_file.status] += 1
+
+    if piled_up_statuses := [
+        status
+        for status in status_counts
+        if status_counts[status] > STATUS_PILE_UP_THRESHOLD
+    ]:
+        piled_up_statuses_str = "; ".join(
+            [f"{status}: {status_counts[status]}" for status in piled_up_statuses]
+        )
+        logging.warning(
+            f"Pile up detected for {instrument_id}, " f"{piled_up_statuses_str}"
+        )
+
+        status_pile_up_instruments.append((instrument_id, piled_up_statuses_str))
+
+    return status_pile_up_instruments
 
 
 def _send_db_alert(error_type: str) -> None:

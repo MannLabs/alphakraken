@@ -44,6 +44,19 @@ class RawFileStatus:
     DONE_NOT_QUANTED = "done_not_quanted"
 
 
+ERROR_STATUSES = [
+    RawFileStatus.ERROR,
+    RawFileStatus.QUANTING_FAILED,
+    RawFileStatus.ACQUISITION_FAILED,
+]
+TERMINAL_STATUSES = [
+    *ERROR_STATUSES,
+    RawFileStatus.DONE,
+    RawFileStatus.DONE_NOT_QUANTED,
+    RawFileStatus.IGNORED,
+]
+
+
 class RawFile(Document):
     """Schema for a raw file."""
 

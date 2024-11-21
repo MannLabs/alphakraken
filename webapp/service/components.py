@@ -12,9 +12,9 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 from matplotlib import pyplot as plt
-from service.utils import DEFAULT_MAX_AGE_STATUS, TERMINAL_STATUSES
+from service.utils import DEFAULT_MAX_AGE_STATUS
 
-from shared.db.models import RawFileStatus
+from shared.db.models import TERMINAL_STATUSES, RawFileStatus
 from shared.keys import EnvVars
 
 
@@ -176,7 +176,7 @@ def show_time_in_status_table(
     display: st.delta_generator.DeltaGenerator,
     ignored_status: list[str] = TERMINAL_STATUSES,
 ) -> None:
-    """Show a table displaying per instrument and status the timestamp of the oldest transistion."""
+    """Show a table displaying per instrument and status the timestamp of the oldest transition."""
     df = combined_df.copy()
     df["updated_at"] = pd.to_datetime(df["updated_at_"])
     df = df.sort_values("updated_at", ascending=False)

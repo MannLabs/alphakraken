@@ -53,7 +53,7 @@ def get_file_size(
     return file_size_bytes
 
 
-def get_disk_usage(path: Path) -> tuple[int, int, int]:
+def get_disk_usage(path: Path) -> tuple[float, float, float]:
     """Get the disk space (total, used, free) of a path in GB."""
     total_bytes, used_bytes, free_bytes = shutil.disk_usage(path)
     total_gb, used_gb, free_gb = (

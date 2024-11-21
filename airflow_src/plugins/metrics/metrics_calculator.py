@@ -12,7 +12,7 @@ import numpy as np
 import pandas as pd
 
 
-def _load_tsv(file_path: str) -> pd.DataFrame:
+def _load_tsv(file_path: Path) -> pd.DataFrame:
     """Load a tsv file."""
     return pd.read_csv(file_path, sep="\t")
 

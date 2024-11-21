@@ -46,3 +46,30 @@ pythonpath = [
     # note that package names must be unique in the airflow_src and webapp directories to not confuse the imports in pytest
     "./webapp"
 ]
+
+# NOTE: All relative paths are relative to the location of this file.
+
+[tool.pytype]
+
+# Space-separated list of files or directories to process.
+inputs = [
+    'airflow_src',
+    'webapp',
+    'shared'
+]
+
+# Python version (major.minor) of the target code.
+python_version = '3.11'
+
+# Paths to source code directories, separated by ':'.
+pythonpath = ".:./webapp:./shared:./airflow_src/plugins:./airflow_src/dags"
+
+# Space-separated list of error names to ignore.
+disable = [
+    "import-error" # TODO figure out why we have those
+]
+
+exclude = [
+    '**/tests/**',
+    '**/_db_migrations/*.py'
+    ]

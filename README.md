@@ -417,6 +417,13 @@ You can run the checks yourself using:
 pre-commit run --all-files
 ```
 
+### Type checking
+The code can be type-checked by
+```bash
+pip install pytype==2024.10.11
+pytype .
+```
+
 ### A note on importing and PYTHONPATH
 Airflow adds the folders `dags` and `plugins` to the `PYTHONPATH`
 by default (cf. [here](https://airflow.apache.org/docs/apache-airflow/stable/administration-and-deployment/modules_management.html#built-in-pythonpath-entries-in-airflow)).

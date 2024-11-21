@@ -50,7 +50,7 @@ class Column:
     # use log scale for plot
     log_scale: bool = False
     # alternative names in the database
-    alternative_names: list[str] = None
+    alternative_names: list[str] | None = None
 
 
 COLUMNS = (

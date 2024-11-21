@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from time import sleep
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from airflow.exceptions import AirflowFailException
 from airflow.providers.ssh.hooks.ssh import SSHHook
@@ -47,11 +47,11 @@ class SSHSensorOperator(BaseSensorOperator, ABC):
         self._ssh_hook: SSHHook = get_cluster_ssh_hook()
         self._job_id: str | None = None
 
-    def pre_execute(self, context: dict[str, any]) -> None:
+    def pre_execute(self, context: dict[str, Any]) -> None:
         """_job_id the job id from XCom."""
-        self._job_id = get_xcom(context["ti"], XComKeys.JOB_ID)
+        self._job_id = str(get_xcom(context["ti"], XComKeys.JOB_ID))
 
-    def poke(self, context: dict[str, any]) -> bool:
+    def poke(self, context: dict[str, Any]) -> bool:
         """Check the output of the ssh command."""
         del context  # unused
 

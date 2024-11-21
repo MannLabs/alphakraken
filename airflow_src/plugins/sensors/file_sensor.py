@@ -5,6 +5,7 @@ Wait until creation of a new file or folder.
 
 import logging
 from datetime import datetime, timedelta
+from typing import Any
 
 import pytz
 from airflow.sensors.base import BaseSensorOperator
@@ -75,7 +76,7 @@ class FileCreationSensor(BaseSensorOperator):
         self._initial_dir_contents: set | None = None
         self._latest_health_check_timestamp: float = 0.0
 
-    def pre_execute(self, context: dict[str, any]) -> None:
+    def pre_execute(self, context: dict[str, Any]) -> None:
         """Check the health of the instrument data path and backup path."""
         del context  # unused
 
@@ -87,7 +88,7 @@ class FileCreationSensor(BaseSensorOperator):
             self._raw_file_monitor_wrapper.get_raw_files_on_instrument()
         )
 
-    def poke(self, context: dict[str, any]) -> bool:
+    def poke(self, context: dict[str, Any]) -> bool:
         """Check if file was created. If so, push the folder contents to xcom and return."""
         del context  # unused
 

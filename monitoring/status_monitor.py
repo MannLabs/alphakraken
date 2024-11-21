@@ -76,36 +76,40 @@ def _send_kraken_instrument_alert(
         return
 
     if case == Cases.STALE:
-        instruments_str = ", ".join(instruments)
         oldest_updated_at = min([updated_at for _, updated_at in instruments_with_data])
 
+        instruments_str = "\n".join(
+            [
+                f"- `{instrument_id}`: {updated_at.strftime('%Y-%m-%d %H:%M:%S')} UTC"
+                for instrument_id, updated_at in instruments_with_data
+            ]
+        )
         message = (
-            f"Health check status for `{instruments_str}` is stale\n"
-            f"Last update: {oldest_updated_at.strftime('%Y-%m-%d %H:%M:%S')} UTC. "  # pytype: disable=attribute-error
-            f"Time since last update: {(datetime.now(pytz.UTC) - oldest_updated_at).total_seconds()/60/60:.1f} hours."
+            f"Health check status is stale: {instruments_str}. \n"
+            f"Time since last update: {(datetime.now(pytz.UTC) - oldest_updated_at).total_seconds() / 60 / 60:.1f} hours."
         )
 
     elif case == Cases.LOW_DISK_SPACE:
-        instruments_str = ", ".join(
+        instruments_str = "\n".join(
             [
-                f"{instrument_id}: {disk_space} GB"
+                f"- `{instrument_id}`: {disk_space} GB"
                 for instrument_id, disk_space in instruments_with_data
             ]
         )
         message = f"Low disk space detected: {instruments_str}"
 
     elif case == Cases.HEALTH_CHECK_FAILED:
-        instruments_str = ", ".join(
+        instruments_str = "\n".join(
             [
-                f"{instrument_id}: {status_details}"
+                f"- `{instrument_id}`: {status_details}"
                 for instrument_id, status_details in instruments_with_data
             ]
         )
         message = f"Health check failed: {instruments_str}"
     elif case == Cases.STATUS_PILE_UP:
-        instruments_str = ", ".join(
+        instruments_str = "\n".join(
             [
-                f"{instrument_id}: {status_info}"
+                f"- `{instrument_id}`: {status_info}"
                 for instrument_id, status_info in instruments_with_data
             ]
         )

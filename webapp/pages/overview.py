@@ -84,7 +84,10 @@ COLUMNS = (
         "ms1_median_accuracy",
         color_table=True,
         plot=True,
-        alternative_names=["ms1_accuracy", "calibration:ms1_median_accuracy"],
+        alternative_names=[
+            "ms1_accuracy",  # alphadia<=1.8.2
+            "calibration:ms1_median_accuracy",
+        ],
     ),
     Column("fwhm_rt", color_table=True, plot=True),
     Column(
@@ -130,7 +133,7 @@ COLUMNS = (
         plot=True,
     ),
     Column(
-        "precursor_intensity_mean",
+        "precursor_intensity_mean",  # to not confuse with "intensity_sum
         at_front=True,
         color_table=True,
         plot=True,

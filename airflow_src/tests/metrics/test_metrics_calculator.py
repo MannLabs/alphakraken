@@ -5,7 +5,10 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
-from metrics.metrics_calculator import PrecursorStatsMeanLenSequence
+from metrics.metrics_calculator import (
+    PrecursorStatsIntensity,
+    PrecursorStatsMeanLenSequence,
+)
 from plugins.metrics.metrics_calculator import (
     BasicStats,
     DataStore,
@@ -52,11 +55,13 @@ def test_datastore_getitem_returns_data_when_key_in_data(
 @patch("plugins.metrics.metrics_calculator.BasicStats")
 @patch("plugins.metrics.metrics_calculator.PrecursorStatsSum")
 @patch("plugins.metrics.metrics_calculator.PrecursorStatsMean")
+@patch("plugins.metrics.metrics_calculator.PrecursorStatsIntensity")
 @patch("plugins.metrics.metrics_calculator.PrecursorStatsMeanLenSequence")
 @patch("plugins.metrics.metrics_calculator.InternalStats")
 def test_calc_metrics_happy_path(  # noqa: PLR0913
     mock_internal_stats: MagicMock,
     mock_precursor_stats_mean_len_sequence: MagicMock,
+    mock_precursor_stats_intensity: MagicMock,
     mock_precursor_stats_mean: MagicMock,
     mock_precursor_stats_sum: MagicMock,
     mock_basic_stats: MagicMock,
@@ -90,9 +95,17 @@ def test_calc_metrics_happy_path(  # noqa: PLR0913
         "precursor_mean_len_sequence_metric": "value4"
     }
 
+    mock_precursor_stats_intensity_instance = MagicMock()
+    mock_precursor_stats_intensity.return_value = (
+        mock_precursor_stats_intensity_instance
+    )
+    mock_precursor_stats_intensity_instance.get.return_value = {
+        "precursor_intensity_metric": "value5"
+    }
+
     mock_internal_stats_instance = MagicMock()
     mock_internal_stats.return_value = mock_internal_stats_instance
-    mock_internal_stats_instance.get.return_value = {"internal_metric": "value5"}
+    mock_internal_stats_instance.get.return_value = {"internal_metric": "value6"}
 
     # when
     result = calc_metrics(Path("output_directory"))
@@ -102,7 +115,8 @@ def test_calc_metrics_happy_path(  # noqa: PLR0913
         "precursor_sum_metric": "value2",
         "precursor_mean_metric": "value3",
         "precursor_mean_len_sequence_metric": "value4",
-        "internal_metric": "value5",
+        "precursor_intensity_metric": "value5",
+        "internal_metric": "value6",
     }
     mock_data_store.assert_called_once_with(Path("output_directory"))
     mock_basic_stats.assert_called_once_with(mock_data_store.return_value)
@@ -193,7 +207,7 @@ def test_precursor_stats_mean_calculation(mock_datastore: MagicMock) -> None:
 def test_precursor_stats_sequence_len_mean_calculation(
     mock_datastore: MagicMock,
 ) -> None:
-    """Test precursor stats sequence lengthmean calculation."""
+    """Test precursor stats sequence length mean calculation."""
     mock_df = pd.DataFrame(
         {
             "sequence": ["A", "AB"],
@@ -207,3 +221,23 @@ def test_precursor_stats_sequence_len_mean_calculation(
 
     assert metrics["sequence_len_mean"] == 1.5
     assert metrics["sequence_len_std"] == 0.7071067811865476
+
+
+@patch("plugins.metrics.metrics_calculator.DataStore")
+def test_precursor_stats_intensity_median_calculation(
+    mock_datastore: MagicMock,
+) -> None:
+    """Test precursor stats sequence length mean calculation."""
+    mock_df = pd.DataFrame(
+        {
+            "sum_b_ion_intensity": [1.0, 2.0],
+            "sum_y_ion_intensity": [10.0, 20.0],
+        }
+    )
+
+    mock_datastore.__getitem__.return_value = mock_df
+
+    # when
+    metrics = PrecursorStatsIntensity(mock_datastore).get()
+
+    assert metrics["precursor_intensity_median"] == 33 / 2

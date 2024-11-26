@@ -103,10 +103,13 @@ class BasicStats(Metrics):
     """Basic statistics."""
 
     _file = OutputFiles.STAT
+    _tolerate_missing = True
+
     _columns = (
         "proteins",
         "precursors",
         "fwhm_rt",
+        "fwhm_mobility",
         "optimization.ms1_error",
         "optimization.ms2_error",
         "optimization.rt_error",
@@ -149,13 +152,29 @@ class PrecursorStatsMean(Metrics):
     """Precursor statistics (mean)."""
 
     _file = OutputFiles.PRECURSORS
-    _columns = ("charge", "base_width_rt", "base_width_mobility", "intensity")
+    _columns = ("charge",)
     _tolerate_missing = True
 
     def _calc(self, df: pd.DataFrame, column: str) -> None:
         """Calculate metrics."""
         self._metrics[f"{column}_mean"] = df[column].mean()
         self._metrics[f"{column}_std"] = df[column].std()
+
+
+class PrecursorStatsIntensity(Metrics):
+    """Precursor statistics (intensity)."""
+
+    _file = OutputFiles.PRECURSORS
+
+    def _calc_metrics(self) -> None:
+        """Calculate all the metrics."""
+        df = self._data_store[self._file]
+        self._metrics["precursor_intensity_median"] = (
+            df["sum_b_ion_intensity"] + df["sum_y_ion_intensity"]
+        ).median()
+
+    def _calc(self, df: pd.DataFrame, column: str) -> None:
+        pass
 
 
 class PrecursorStatsMeanLenSequence(Metrics):
@@ -180,6 +199,7 @@ def calc_metrics(output_directory: Path) -> dict[str, Any]:
     metrics = BasicStats(data_store).get()
     metrics |= PrecursorStatsSum(data_store).get()
     metrics |= PrecursorStatsMean(data_store).get()
+    metrics |= PrecursorStatsIntensity(data_store).get()
     metrics |= PrecursorStatsMeanLenSequence(data_store).get()
     metrics |= InternalStats(data_store).get()
 

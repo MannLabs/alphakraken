@@ -133,11 +133,10 @@ COLUMNS = (
         plot=True,
     ),
     Column(
-        "precursor_intensity_mean",  # to not confuse with "intensity_sum
+        "precursor_intensity_mean",  # do not confuse with "intensity_sum"
         at_front=True,
         color_table=True,
         plot=True,
-        alternative_names=["intensity_mean"],
     ),
     Column(
         "sequence_len_mean",

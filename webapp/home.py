@@ -84,10 +84,6 @@ Note: if AlphaKraken processing is disrupted for a certain time, it might take u
 acquisition is considered "finished".
 
 
-A: This is because a file with the same name was already processed.
-File name uniqueness is a prerequisite for all automated downstream processing to work correctly,
-to tell those collision cases apart, a timestamp is added as a prefix.
-
 Q: Where to I find the AlphaDIA output files?
 
 A:  The output files associated for a given raw file are stored at

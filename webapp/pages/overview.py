@@ -267,6 +267,9 @@ def _display_table_and_plots(
     filtered_df = show_date_select(
         filtered_df,
         st_display=c2,
+        max_age_days=9999
+        if user_input
+        else None,  # hacky way to always display all data if filter is set
     )
 
     if filter_errors:

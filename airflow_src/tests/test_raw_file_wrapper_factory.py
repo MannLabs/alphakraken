@@ -169,10 +169,10 @@ def test_copy_path_provider(mock_raw_file: RawFile) -> None:
     """Test the CopyPathProvider class."""
     provider = CopyPathProvider("instrument1", mock_raw_file)
 
-    assert provider.get_source_path() == Path(
+    assert provider.get_source_folder_path() == Path(
         "/opt/airflow/mounts/instruments/instrument1"
     )
-    assert provider.get_target_path() == Path(
+    assert provider.get_target_folder_path() == Path(
         "/opt/airflow/mounts/backup/instrument1/2023_01"
     )
     assert provider.get_source_file_name() == "original_file.raw"
@@ -183,10 +183,10 @@ def test_move_path_provider(mock_raw_file: RawFile) -> None:
     """Test the MovePathProvider class."""
     provider = MovePathProvider("instrument1", mock_raw_file)
 
-    assert provider.get_source_path() == Path(
+    assert provider.get_source_folder_path() == Path(
         "/opt/airflow/mounts/instruments/instrument1"
     )
-    assert provider.get_target_path() == Path(
+    assert provider.get_target_folder_path() == Path(
         "/opt/airflow/mounts/instruments/instrument1/Backup"
     )
     assert provider.get_source_file_name() == "original_file.raw"
@@ -197,10 +197,10 @@ def test_remove_path_provider(mock_raw_file: RawFile) -> None:
     """Test the RemovePathProvider class."""
     provider = RemovePathProvider("instrument1", mock_raw_file)
 
-    assert provider.get_source_path() == Path(
+    assert provider.get_source_folder_path() == Path(
         "/opt/airflow/mounts/instruments/instrument1/Backup"
     )
-    assert provider.get_target_path() == Path(
+    assert provider.get_target_folder_path() == Path(
         "/opt/airflow/mounts/backup/instrument1/2023_01"
     )
     assert provider.get_source_file_name() == "123-original_file.raw"

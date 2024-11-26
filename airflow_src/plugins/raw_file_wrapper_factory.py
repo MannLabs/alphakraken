@@ -144,11 +144,11 @@ class PathProvider(ABC):
         self._raw_file = raw_file
 
     @abstractmethod
-    def get_source_path(self) -> Path:  # TODO: rename to get_source_folder_path
+    def get_source_folder_path(self) -> Path:
         """Get the source path (=folder where raw file is located) for a raw file operation."""
 
     @abstractmethod
-    def get_target_path(self) -> Path:
+    def get_target_folder_path(self) -> Path:
         """Get the target path (=folder where raw file is located) for a raw file operation."""
 
     @abstractmethod
@@ -163,11 +163,11 @@ class PathProvider(ABC):
 class CopyPathProvider(PathProvider):
     """PathProvider for copying raw files from the instrument (original name) to the pool backup (raw file id)."""
 
-    def get_source_path(self) -> Path:
+    def get_source_folder_path(self) -> Path:
         """See docu of superclass."""
         return get_internal_instrument_data_path(self._instrument_id)
 
-    def get_target_path(self) -> Path:
+    def get_target_folder_path(self) -> Path:
         """See docu of superclass."""
         return get_internal_backup_path_for_instrument(
             self._instrument_id
@@ -185,11 +185,11 @@ class CopyPathProvider(PathProvider):
 class MovePathProvider(PathProvider):
     """PathProvider for moving raw files from the instrument (original name) to the instrument backup (raw file id)."""
 
-    def get_source_path(self) -> Path:
+    def get_source_folder_path(self) -> Path:
         """See docu of superclass."""
         return get_internal_instrument_data_path(self._instrument_id)
 
-    def get_target_path(self) -> Path:
+    def get_target_folder_path(self) -> Path:
         """See docu of superclass."""
         return (
             get_internal_instrument_data_path(self._instrument_id)
@@ -208,14 +208,14 @@ class MovePathProvider(PathProvider):
 class RemovePathProvider(PathProvider):
     """PathProvider for comparing raw files from instrument backup (raw file id) to the pool backup (raw file id)."""
 
-    def get_source_path(self) -> Path:
+    def get_source_folder_path(self) -> Path:
         """See docu of superclass."""
         return (
             get_internal_instrument_data_path(self._instrument_id)
             / INSTRUMENT_BACKUP_FOLDER_NAME
         )
 
-    def get_target_path(self) -> Path:
+    def get_target_folder_path(self) -> Path:
         """See docu of superclass."""
         return get_internal_backup_path_for_instrument(
             self._instrument_id
@@ -248,8 +248,8 @@ class RawFileWriteWrapper(ABC):
         """
         self._path_provider_instance = path_provider(instrument_id, raw_file)
 
-        self._source_path = self._path_provider_instance.get_source_path()
-        self._target_path = self._path_provider_instance.get_target_path()
+        self._source_folder_path = self._path_provider_instance.get_source_folder_path()
+        self._target_folder_path = self._path_provider_instance.get_target_folder_path()
         self._source_file_name = self._path_provider_instance.get_source_file_name()
         self._target_file_name = self._path_provider_instance.get_target_file_name()
 
@@ -336,8 +336,8 @@ class ThermoRawFileWriteWrapper(RawFileWriteWrapper):
 
     def _get_files_to_copy(self) -> dict[Path, Path]:
         """Get the mapping of source to destination path (both absolute) for the raw file."""
-        src_path = self._source_path / self._source_file_name
-        dst_path = self._target_path / self._target_file_name
+        src_path = self._source_folder_path / self._source_file_name
+        dst_path = self._target_folder_path / self._target_file_name
 
         return {src_path: dst_path}
 
@@ -364,13 +364,13 @@ class ZenoRawFileWriteWrapper(RawFileWriteWrapper):
         src_file_stem = Path(self._source_file_name).stem
         dst_file_stem = Path(self._target_file_name).stem
 
-        for src_file_path in self._source_path.glob(f"{src_file_stem}.*"):
+        for src_file_path in self._source_folder_path.glob(f"{src_file_stem}.*"):
             # resorting to string manipulation here, because of double-extensions (e.g. .wiff.scan)
             dst_file_name = Path(
                 src_file_path.name.replace(src_file_stem, dst_file_stem)
             )
 
-            files_to_copy[src_file_path] = self._target_path / dst_file_name
+            files_to_copy[src_file_path] = self._target_folder_path / dst_file_name
 
         return files_to_copy
 
@@ -392,8 +392,8 @@ class BrukerRawFileWriteWrapper(RawFileWriteWrapper):
         All files within the raw file directory are returned (including those in subfolders).
         Note that the code that does the copying must take care of creating the target directory if it does not exist.
         """
-        src_base_path = self._source_path / self._source_file_name
-        dst_base_path = self._target_path / self._target_file_name
+        src_base_path = self._source_folder_path / self._source_file_name
+        dst_base_path = self._target_folder_path / self._target_file_name
 
         files_to_copy = {}
 
@@ -412,7 +412,7 @@ class BrukerRawFileWriteWrapper(RawFileWriteWrapper):
         In the case of Bruker, just map the folder name as "move" can handle it.
         """
         return {
-            self._source_path / self._source_file_name: self._target_path
+            self._source_folder_path / self._source_file_name: self._target_folder_path
             / self._target_file_name
         }
 
@@ -421,7 +421,7 @@ class BrukerRawFileWriteWrapper(RawFileWriteWrapper):
 
         For Bruker instruments, the folder to remove is the source folder of the raw data.
         """
-        return self._target_path / self._target_file_name
+        return self._target_folder_path / self._target_file_name
 
 
 class RawFileWrapperFactory:

@@ -306,27 +306,31 @@ def _display_table_and_plots(
 
     cmap = plt.get_cmap("RdYlGn")
     cmap.set_bad(color="white")
-    st.dataframe(
-        df_to_show.style.background_gradient(
-            subset=_filter_valid_columns(
-                [column.name for column in COLUMNS if column.color_table],
-                filtered_df,
+    try:
+        st.dataframe(
+            df_to_show.style.background_gradient(
+                subset=_filter_valid_columns(
+                    [column.name for column in COLUMNS if column.color_table],
+                    filtered_df,
+                ),
+                cmap=cmap,
+            )
+            .apply(highlight_status_cell, axis=1)
+            .format(
+                subset=list(filtered_df.select_dtypes(include=["float64"]).columns),
+                formatter="{:.3}",
+            )
+            .format(
+                subset=[
+                    "settings_version",
+                ],
+                formatter="{:.0f}",
             ),
-            cmap=cmap,
+            column_order=column_order,
         )
-        .apply(highlight_status_cell, axis=1)
-        .format(
-            subset=list(filtered_df.select_dtypes(include=["float64"]).columns),
-            formatter="{:.3}",
-        )
-        .format(
-            subset=[
-                "settings_version",
-            ],
-            formatter="{:.0f}",
-        ),
-        column_order=column_order,
-    )
+    except Exception as e:  # noqa: BLE001
+        _log(e)
+        st.dataframe(df_to_show)
 
     c1, _ = st.columns([0.5, 0.5])
     with c1.expander("Click here for help ..."):

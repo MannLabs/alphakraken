@@ -368,7 +368,7 @@ def _display_table_and_plots(
 
     st.markdown("## Plots")
 
-    c1, c2, c3 = st.columns([0.25, 0.25, 0.75])
+    c1, c2, c3, c4 = st.columns([0.25, 0.25, 0.25, 0.25])
     color_by_column = c1.selectbox(
         label="Color by:",
         options=["instrument_id"]
@@ -386,6 +386,11 @@ def _display_table_and_plots(
         value=True,
         help="Show traces for each data point.",
     )
+    show_std = c4.checkbox(
+        label="Show standard deviations",
+        value=False,
+        help="Show standard deviations for mean values.",
+    )
 
     for column in [
         column
@@ -399,13 +404,20 @@ def _display_table_and_plots(
                 column=column,
                 color_by_column=color_by_column,
                 show_traces=show_traces,
+                show_std=show_std,
             )
         except Exception as e:  # noqa: BLE001, PERF203
             _log(e, f"Cannot draw plot for {column.name} vs {x}.")
 
 
-def _draw_plot(
-    df: pd.DataFrame, *, x: str, column: Column, color_by_column: str, show_traces: bool
+def _draw_plot(  # noqa: PLR0913
+    df: pd.DataFrame,
+    *,
+    x: str,
+    column: Column,
+    color_by_column: str,
+    show_traces: bool,
+    show_std: bool,
 ) -> None:
     """Draw a plot of a DataFrame."""
     df = df.sort_values(by=x)
@@ -435,7 +447,7 @@ def _draw_plot(
         hover_data=hover_data,
         title=title,
         height=400,
-        error_y=_get_yerror_column_name(y, df),
+        error_y=_get_yerror_column_name(y, df) if show_std else None,
         log_y=column.log_scale,
     )
     if y_is_numeric and show_traces:

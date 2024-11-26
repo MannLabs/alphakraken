@@ -148,17 +148,18 @@ class PrecursorStatsSum(Metrics):
         self._metrics[f"{column}_sum"] = df[column].sum()
 
 
-class PrecursorStatsMean(Metrics):
-    """Precursor statistics (mean)."""
+class PrecursorStatsAgg(Metrics):
+    """Precursor statistics (aggregates)."""
 
     _file = OutputFiles.PRECURSORS
-    _columns = ("charge",)
+    _columns = ("charge", "proba")
     _tolerate_missing = True
 
     def _calc(self, df: pd.DataFrame, column: str) -> None:
         """Calculate metrics."""
         self._metrics[f"{column}_mean"] = df[column].mean()
         self._metrics[f"{column}_std"] = df[column].std()
+        self._metrics[f"{column}_median"] = df[column].median()
 
 
 class PrecursorStatsIntensity(Metrics):
@@ -190,6 +191,7 @@ class PrecursorStatsMeanLenSequence(Metrics):
 
         self._metrics[f"{column}_len_mean"] = sequence_lengths.mean()
         self._metrics[f"{column}_len_std"] = sequence_lengths.std(ddof=1)
+        self._metrics[f"{column}_len_median"] = np.median(sequence_lengths)
 
 
 def calc_metrics(output_directory: Path) -> dict[str, Any]:
@@ -198,7 +200,7 @@ def calc_metrics(output_directory: Path) -> dict[str, Any]:
 
     metrics = BasicStats(data_store).get()
     metrics |= PrecursorStatsSum(data_store).get()
-    metrics |= PrecursorStatsMean(data_store).get()
+    metrics |= PrecursorStatsAgg(data_store).get()
     metrics |= PrecursorStatsIntensity(data_store).get()
     metrics |= PrecursorStatsMeanLenSequence(data_store).get()
     metrics |= InternalStats(data_store).get()

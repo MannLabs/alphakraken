@@ -90,7 +90,16 @@ COLUMNS = (
             "calibration:ms1_median_accuracy",
         ],
     ),
+    Column(
+        "ms2_median_accuracy",
+        color_table=True,
+        plot=True,
+        alternative_names=[
+            "calibration:ms2_median_accuracy",
+        ],
+    ),
     Column("fwhm_rt", color_table=True, plot=True),
+    Column("fwhm_mobility", color_table=True, plot=True),
     Column(
         "ms1_error",
         color_table=True,
@@ -122,19 +131,13 @@ COLUMNS = (
         plot=True,
     ),
     Column(
-        "base_width_rt_mean",
+        "proba_median",
         at_front=True,
         color_table=True,
         plot=True,
     ),
     Column(
-        "base_width_mobility_mean",
-        at_front=True,
-        color_table=True,
-        plot=True,
-    ),
-    Column(
-        "precursor_intensity_mean",  # do not confuse with "intensity_sum"
+        "precursor_intensity_median",  # do not confuse with "intensity_sum"
         at_front=True,
         color_table=True,
         plot=True,
@@ -415,7 +418,10 @@ def _display_table_and_plots(
                 show_std=show_std,
             )
         except Exception as e:  # noqa: BLE001, PERF203
-            _log(e, f"Cannot draw plot for {column.name} vs {x}.")
+            if not column.plot_optional:
+                _log(e, f"Cannot draw plot for {column.name} vs {x}.")
+            else:
+                st.write("n/a")
 
 
 def _draw_plot(  # noqa: PLR0913

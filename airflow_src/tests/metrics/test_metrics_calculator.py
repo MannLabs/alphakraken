@@ -125,12 +125,15 @@ def test_calc_metrics_happy_path(  # noqa: PLR0913
 
 
 # just used for manual testing so far
-# def test_calc_metrics_real_data(
-#
-# ) -> None:
+# def test_calc_metrics_real_data() -> None:
 #     """Test the happy path of calc_metrics with real_data."""
 #     # when
-#     result = calc_metrics(Path("alphakraken/airflow_test_folders/_data"))
+#     import os
+#
+#     current_dir = os.path.dirname(os.path.abspath(__file__))
+#
+#     result = calc_metrics(Path(current_dir) / "../../../airflow_test_folders/_data")
+#     print(result)
 
 
 @patch("plugins.metrics.metrics_calculator.DataStore")

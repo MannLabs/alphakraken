@@ -18,6 +18,6 @@ jobs:
         with:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          REVIEW_PROMPT: ${{ secrets.CODE_REVIEW_PROMPT }}
+          CODE_REVIEW_PROMPT: ${{ secrets.CODE_REVIEW_PROMPT }}
           GITHUB_EVENT_NUMBER: ${{ github.event.number }}
           EXCLUDED_EXTENSIONS: "ipynb;js"  # optional

@@ -230,10 +230,10 @@ def test_raw_file_wrapper_factory_instantiation_copier(
         )
         assert isinstance(wrapper, expected_class)
 
-        assert wrapper._source_path == Path(
+        assert wrapper._source_folder_path == Path(
             "/opt/airflow/mounts/instruments/instrument1"
         )
-        assert wrapper._target_path == Path(
+        assert wrapper._target_folder_path == Path(
             "/opt/airflow/mounts/backup/instrument1/2023_01"
         )
         assert wrapper._source_file_name == "original_file.raw"

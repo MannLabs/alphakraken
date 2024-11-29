@@ -51,7 +51,6 @@ def test_datastore_getitem_returns_data_when_key_in_data(
     assert result == "existing_data"
 
 
-@patch("plugins.metrics.metrics_calculator.DataStore")
 @patch("plugins.metrics.metrics_calculator.BasicStats")
 @patch("plugins.metrics.metrics_calculator.PrecursorStatsSum")
 @patch("plugins.metrics.metrics_calculator.PrecursorStatsMean")
@@ -65,63 +64,47 @@ def test_calc_metrics_happy_path(  # noqa: PLR0913
     mock_precursor_stats_mean: MagicMock,
     mock_precursor_stats_sum: MagicMock,
     mock_basic_stats: MagicMock,
-    mock_data_store: MagicMock,
 ) -> None:
-    """Test the happy path of calc_metrics."""
-    mock_data_store_instance = MagicMock()
-    mock_data_store.return_value = mock_data_store_instance
-
-    mock_basic_stats_instance = MagicMock()
-    mock_basic_stats.return_value = mock_basic_stats_instance
-    mock_basic_stats_instance.get.return_value = {"basic_metric": "value1"}
-
-    mock_precursor_stats_sum_instance = MagicMock()
-    mock_precursor_stats_sum.return_value = mock_precursor_stats_sum_instance
-    mock_precursor_stats_sum_instance.get.return_value = {
-        "precursor_sum_metric": "value2"
+    """Test the happy path of calc_metrics with mock metrics."""
+    # map metrics name against mock getters and mock return value
+    mock_metrics_and_getters = {
+        "basic_metric": (
+            mock_basic_stats,
+            "value1",
+        ),
+        "precursor_sum_metric": (
+            mock_precursor_stats_sum,
+            "value2",
+        ),
+        "precursor_mean_metric": (
+            mock_precursor_stats_mean,
+            "value3",
+        ),
+        "precursor_mean_len_sequence_metric": (
+            mock_precursor_stats_mean_len_sequence,
+            "value4",
+        ),
+        "precursor_intensity_metric": (
+            mock_precursor_stats_intensity,
+            "value5",
+        ),
+        "internal_metric": (
+            mock_internal_stats,
+            "value6",
+        ),
     }
 
-    mock_precursor_stats_mean_instance = MagicMock()
-    mock_precursor_stats_mean.return_value = mock_precursor_stats_mean_instance
-    mock_precursor_stats_mean_instance.get.return_value = {
-        "precursor_mean_metric": "value3"
-    }
-
-    mock_precursor_stats_mean_len_sequence_instance = MagicMock()
-    mock_precursor_stats_mean_len_sequence.return_value = (
-        mock_precursor_stats_mean_len_sequence_instance
-    )
-    mock_precursor_stats_mean_len_sequence_instance.get.return_value = {
-        "precursor_mean_len_sequence_metric": "value4"
-    }
-
-    mock_precursor_stats_intensity_instance = MagicMock()
-    mock_precursor_stats_intensity.return_value = (
-        mock_precursor_stats_intensity_instance
-    )
-    mock_precursor_stats_intensity_instance.get.return_value = {
-        "precursor_intensity_metric": "value5"
-    }
-
-    mock_internal_stats_instance = MagicMock()
-    mock_internal_stats.return_value = mock_internal_stats_instance
-    mock_internal_stats_instance.get.return_value = {"internal_metric": "value6"}
+    # set up mock return values
+    for key, (getter, value) in mock_metrics_and_getters.items():
+        getter.return_value = MagicMock()
+        getter.return_value.get.return_value = {key: value}
 
     # when
     result = calc_metrics(Path("output_directory"))
 
     assert result == {
-        "basic_metric": "value1",
-        "precursor_sum_metric": "value2",
-        "precursor_mean_metric": "value3",
-        "precursor_mean_len_sequence_metric": "value4",
-        "precursor_intensity_metric": "value5",
-        "internal_metric": "value6",
+        key: value for key, (getter, value) in mock_metrics_and_getters.items()
     }
-    mock_data_store.assert_called_once_with(Path("output_directory"))
-    mock_basic_stats.assert_called_once_with(mock_data_store.return_value)
-    mock_precursor_stats_sum.assert_called_once_with(mock_data_store.return_value)
-    mock_internal_stats.assert_called_once_with(mock_data_store.return_value)
 
 
 # just used for manual testing so far

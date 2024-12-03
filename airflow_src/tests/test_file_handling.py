@@ -230,6 +230,40 @@ def test_copy_file_no_copy_if_file_present_with_different_hash_raises(
 
 
 @patch("plugins.file_handling._get_file_hash")
+@patch("plugins.file_handling._identical_copy_exists")
+@patch("plugins.file_handling.get_airflow_variable")
+@patch("shutil.copy2")
+@patch("plugins.file_handling.get_file_size")
+def test_copy_file_no_copy_if_file_present_with_different_hash_raises_but_variable_set(
+    mock_get_file_size: MagicMock,
+    mock_copy2: MagicMock,
+    mock_get_airflow_variable: MagicMock,
+    mock_identical_copy_exists: MagicMock,
+    mock_get_file_hash: MagicMock,
+) -> None:
+    """Test copy_file copies file and creates target directory if file is present with different hash but airflow variable is set."""
+    mock_identical_copy_exists.side_effect = ValueError
+    mock_get_file_hash.side_effect = ["some_hash", "some_hash"]
+    mock_get_file_size.return_value = 1000
+
+    src_path = Path("/path/to/instrument/test_file.raw")
+    dst_path = MagicMock(wraps=Path("/path/to/backup/test_file.raw"))
+
+    dst_path.parent.exists.return_value = False
+    dst_path.parent.mkdir.return_value = None
+    dst_path.name = "test_file.raw"
+
+    mock_get_airflow_variable.return_value = "test_file.raw"
+
+    # when
+    result = copy_file(src_path, dst_path)
+
+    assert result == (1000, "some_hash")
+    mock_copy2.assert_called_once_with(src_path, dst_path)
+    dst_path.parent.mkdir.assert_called_once_with(parents=True, exist_ok=True)
+
+
+@patch("plugins.file_handling._get_file_hash")
 @patch.object(Path, "exists")
 def test_identical_copy_exists_file_not_existing(
     mock_exists: MagicMock, mock_get_file_hash: MagicMock

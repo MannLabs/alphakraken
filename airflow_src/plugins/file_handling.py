@@ -113,12 +113,13 @@ def copy_file(
         if _identical_copy_exists(dst_path, src_hash):
             return get_file_size(dst_path), src_hash
     except ValueError as e:
+        current_file_id = dst_path.name
         if (
-            get_airflow_variable(AirflowVars.BACKUP_OVERWRITE_FILE_ID, None)
-            == dst_path.name
+            get_airflow_variable(AirflowVars.BACKUP_OVERWRITE_FILE_ID, "")
+            == current_file_id
         ):
             logging.warning(
-                f"Overwriting file {dst_path.name} in backup location as requested by Airflow Variable."
+                f"Overwriting file {current_file_id} in backup location as requested by Airflow variable."
             )
 
         else:
@@ -127,8 +128,8 @@ def copy_file(
                 "This might be due to a previous copy operation being interrupted. "
                 "Please check the backup location and remove the file from there necessary, "
                 "then restart this task. If you are know what you are doing, you can also "
-                "set the Airflow Variable `backup_overwrite_file_id` to the current file id to overwrite the file "
-                "on the backup."
+                f"set the Airflow Variable `backup_overwrite_file_id` to the current file id '{current_file_id}' "
+                "to overwrite the file on the backup."
             ) from e
 
     if not dst_path.parent.exists():

@@ -137,7 +137,7 @@ class AlphaDiaConstants:
 
     LOG_FILE_NAME = "log.txt"
     EVENTS_FILE_NAME = "events.jsonl"
-    PROGRESS_FOLDER_NAME = ".progress"
+    PROGRESS_FOLDER_NAME = "quant"
 
 
 def get_internal_instrument_data_path(instrument_id: str) -> Path:

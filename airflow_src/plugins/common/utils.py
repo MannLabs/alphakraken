@@ -3,6 +3,7 @@
 import logging
 import os
 from datetime import datetime, timedelta
+from typing import Any
 
 import pytz
 from airflow.api.common.trigger_dag import trigger_dag
@@ -10,7 +11,7 @@ from airflow.models import DagRun, TaskInstance, Variable
 from airflow.providers.ssh.hooks.ssh import SSHHook
 from airflow.utils.types import DagRunType
 
-_xcom_types = str | list[str] | dict[str, str | bool] | int
+_xcom_types = str | list[str] | dict[str, Any] | int
 
 
 def put_xcom(ti: TaskInstance, key: str, value: _xcom_types) -> None:
@@ -36,7 +37,7 @@ def get_xcom(
     return value
 
 
-def get_airflow_variable(key: str, default: str = "__DEFAULT_NOT_SET") -> str:
+def get_airflow_variable(key: str, default: str | int = "__DEFAULT_NOT_SET") -> str:
     """Get the value of an Airflow Variable with `key` with an optional default."""
     if default == "__DEFAULT_NOT_SET":
         value = Variable.get(key)

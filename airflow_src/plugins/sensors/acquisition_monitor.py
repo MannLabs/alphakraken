@@ -51,7 +51,7 @@ class AcquisitionMonitor(BaseSensorOperator):
         # to track whether the main file showed up (relevant for Bruker only)
         self._main_file_exists = False
 
-    def pre_execute(self, context: dict[str, any]) -> None:
+    def pre_execute(self, context: dict[str, Any]) -> None:
         """_job_id the job id from XCom."""
         raw_file_id = context[DagContext.PARAMS][DagParams.RAW_FILE_ID]
         self._raw_file = get_raw_file_by_id(raw_file_id)
@@ -75,7 +75,7 @@ class AcquisitionMonitor(BaseSensorOperator):
             f"Monitoring {self._raw_file_monitor_wrapper.file_path_to_monitor_acquisition()}"
         )
 
-    def post_execute(self, context: dict[str, any], result: Any = None) -> None:  # noqa: ANN401
+    def post_execute(self, context: dict[str, Any], result: Any = None) -> None:  # noqa: ANN401
         """Update the status of the raw file in the database."""
         del result  # unused
 
@@ -94,7 +94,7 @@ class AcquisitionMonitor(BaseSensorOperator):
 
         update_raw_file(self._raw_file.id, new_status=RawFileStatus.MONITORING_DONE)
 
-    def poke(self, context: dict[str, any]) -> bool:
+    def poke(self, context: dict[str, Any]) -> bool:
         """Return True if acquisition is done."""
         del context  # unused
 
@@ -102,9 +102,7 @@ class AcquisitionMonitor(BaseSensorOperator):
             if self._raw_file_monitor_wrapper.file_path_to_monitor_acquisition().exists():
                 self._main_file_exists = True
             else:
-                if self._main_file_missing_for_too_long():
-                    return True
-                return False
+                return self._main_file_missing_for_too_long()
 
         if self._file_size_unchanged_for_some_time():
             return True

@@ -18,7 +18,7 @@ from dags.impl.mover_impl import (
 from raw_file_wrapper_factory import MovePathProvider
 
 
-@pytest.fixture()
+@pytest.fixture
 def mock_raw_file() -> MagicMock:
     """Fixture for a raw file."""
     mock = MagicMock()

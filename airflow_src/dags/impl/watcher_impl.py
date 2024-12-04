@@ -178,7 +178,9 @@ def _sort_by_creation_date(raw_file_names: list[str], instrument_id: str) -> lis
 def decide_raw_file_handling(ti: TaskInstance, **kwargs) -> None:
     """Decide for each raw file whether an acquisition handler should be triggered or not."""
     instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
-    raw_file_names_to_process = get_xcom(ti, XComKeys.RAW_FILE_NAMES_TO_PROCESS)
+    raw_file_names_to_process: dict[str, bool] = get_xcom(
+        ti, XComKeys.RAW_FILE_NAMES_TO_PROCESS
+    )  # pytype: disable=annotation-type-mismatch
 
     logging.info(
         f"{len(raw_file_names_to_process)} raw files to be checked on project id: {raw_file_names_to_process}"
@@ -186,7 +188,7 @@ def decide_raw_file_handling(ti: TaskInstance, **kwargs) -> None:
 
     all_project_ids = get_all_project_ids()
 
-    raw_file_names_with_decisions: dict[str, tuple[str, bool, str | None]] = {}
+    raw_file_names_with_decisions: dict[str, tuple[str, bool, bool]] = {}
     for raw_file_name, is_collision in raw_file_names_to_process.items():
         project_id = get_unique_project_id(raw_file_name, all_project_ids)
 
@@ -268,7 +270,9 @@ def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
     Only for raw files that carry a project id, the acquisition_handler DAG is triggered.
     """
     instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
-    raw_file_names_with_decisions = get_xcom(ti, XComKeys.RAW_FILE_NAMES_WITH_DECISIONS)
+    raw_file_names_with_decisions = get_xcom(
+        ti, XComKeys.RAW_FILE_NAMES_WITH_DECISIONS
+    )  # pytype: disable=annotation-type-mismatch
     logging.info(f"Got {len(raw_file_names_with_decisions)} raw files to handle.")
 
     dag_id_to_trigger = f"{Dags.ACQUISITION_HANDLER}.{instrument_id}"
@@ -278,7 +282,7 @@ def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
         project_id,
         file_needs_handling,
         is_collision,
-    ) in raw_file_names_with_decisions.items():
+    ) in raw_file_names_with_decisions.items():  # pytype: disable=attribute-error
         status = (
             RawFileStatus.QUEUED_FOR_MONITORING
             if file_needs_handling
@@ -291,7 +295,7 @@ def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
         # Beware: if is_collision is True, and this task is re-run, it will be successfully saved and processed
         # as a collision. So avoid manual restarts of this task.
         # To prevent automatic task restarting, retries need to be set to 0.
-        raw_file_id = _add_raw_file_to_db(
+        raw_file_id = _add_raw_file_to_db(  # pytype: disable=wrong-arg-types
             raw_file_name,
             is_collision=is_collision,
             project_id=project_id,

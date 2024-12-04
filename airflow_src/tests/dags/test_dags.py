@@ -12,7 +12,7 @@ DAG_FOLDER = Path(__file__).parent / Path("../../dags")
 # Note: mocking in this module is not straightforward, as in dagbag.py:347 modules are imported again
 
 
-@pytest.fixture()
+@pytest.fixture
 def fixture_cluster_ssh_connection_uri() -> str:
     """Fixture for a mock cluster SSH connection URI."""
     mock_cluster_ssh_connection = Connection(
@@ -22,7 +22,7 @@ def fixture_cluster_ssh_connection_uri() -> str:
     return mock_cluster_ssh_connection.get_uri()
 
 
-@pytest.fixture()
+@pytest.fixture
 def dagbag(fixture_cluster_ssh_connection_uri: str) -> DagBag:
     """Fixture for a DagBag instance with the DAGs loaded."""
     with patch.dict(

@@ -1,8 +1,11 @@
 """SSH sensor operator."""
 
+from __future__ import annotations
+
 import logging
 from abc import ABC, abstractmethod
 from time import sleep
+from typing import TYPE_CHECKING, Any
 
 from airflow.exceptions import AirflowFailException
 from airflow.providers.ssh.hooks.ssh import SSHHook
@@ -16,6 +19,9 @@ from common.utils import (
     truncate_string,
 )
 from paramiko.ssh_exception import SSHException
+
+if TYPE_CHECKING:
+    from airflow.providers.ssh.hooks.ssh import SSHHook
 
 
 class SSHSensorOperator(BaseSensorOperator, ABC):
@@ -35,27 +41,24 @@ class SSHSensorOperator(BaseSensorOperator, ABC):
     def states(self) -> list[str]:
         """Outputs of the command in `command_template` that are considered 'running'."""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         """Initialize the operator."""
         super().__init__(*args, **kwargs)
         self._ssh_hook: SSHHook = get_cluster_ssh_hook()
         self._job_id: str | None = None
 
-    def pre_execute(self, context: dict[str, any]) -> None:
+    def pre_execute(self, context: dict[str, Any]) -> None:
         """_job_id the job id from XCom."""
-        self._job_id = get_xcom(context["ti"], XComKeys.JOB_ID)
+        self._job_id = str(get_xcom(context["ti"], XComKeys.JOB_ID))
 
-    def poke(self, context: dict[str, any]) -> bool:
+    def poke(self, context: dict[str, Any]) -> bool:
         """Check the output of the ssh command."""
         del context  # unused
 
         ssh_return = self.ssh_execute(self.command, self._ssh_hook)
         logging.info(f"ssh command returned: '{ssh_return}'")
 
-        if ssh_return in self.states:
-            return False
-
-        return True
+        return ssh_return not in self.states
 
     # show file size earlier
 

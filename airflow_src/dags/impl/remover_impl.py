@@ -241,7 +241,7 @@ def _remove_files(
         raise FileRemovalError(f"Error removing {file_path_to_remove}: {e}") from e
 
 
-def _remove_folder(folder_path_to_remove: Path | None) -> None:
+def _remove_folder(folder_path_to_remove: Path) -> None:
     """Remove folder.
 
     :param folder_path_to_remove: absolute path to raw data folder to remove
@@ -320,10 +320,15 @@ def remove_raw_files(ti: TaskInstance, **kwargs) -> None:
     """Remove files/folders from the instrument backup folder."""
     del kwargs  # unused
 
-    raw_file_ids_to_remove = get_xcom(ti, XComKeys.FILES_TO_REMOVE)
+    raw_file_ids_to_remove = get_xcom(
+        ti, XComKeys.FILES_TO_REMOVE
+    )  # pytype: disable=attribute-error
 
     errors = defaultdict(list)
-    for instrument_id, raw_file_ids in raw_file_ids_to_remove.items():
+    for (
+        instrument_id,
+        raw_file_ids,
+    ) in raw_file_ids_to_remove.items():  # pytype: disable=attribute-error
         logging.info(
             f"Removing for {instrument_id} {len(raw_file_ids)} files: {raw_file_ids}"
         )

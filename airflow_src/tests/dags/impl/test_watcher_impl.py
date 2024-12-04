@@ -364,9 +364,9 @@ def test_start_acquisition_handler_with_single_file(
     assert mock_trigger_dag_run.call_count == 1  # no magic numbers
     for n, call_ in enumerate(mock_trigger_dag_run.call_args_list):
         assert call_.args[0] == ("acquisition_handler.instrument1")
-        assert {
+        assert call_.args[1] == {
             "raw_file_id": f"123-{list(raw_file_names.keys())[n]}",
-        } == call_.args[1]
+        }
 
     mock_add_raw_file_to_db.assert_called_once_with(
         "file1.raw",
@@ -402,9 +402,9 @@ def test_start_acquisition_handler_with_multiple_files(  # Too many arguments
     assert mock_trigger_dag_run.call_count == 2  # noqa: PLR2004 no magic numbers
     for n, call_ in enumerate(mock_trigger_dag_run.call_args_list):
         assert call_.args[0] == ("acquisition_handler.instrument1")
-        assert {
+        assert call_.args[1] == {
             "raw_file_id": list(raw_file_names.keys())[n],
-        } == call_.args[1]
+        }
 
     mock_add_raw_file_to_db.assert_has_calls(
         [

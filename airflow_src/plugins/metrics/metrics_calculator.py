@@ -8,6 +8,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pandas as pd
 
 
@@ -102,15 +103,20 @@ class BasicStats(Metrics):
     """Basic statistics."""
 
     _file = OutputFiles.STAT
+    _tolerate_missing = True
+
     _columns = (
         "proteins",
         "precursors",
-        "ms1_accuracy",
         "fwhm_rt",
-        "ms1_error",
-        "ms2_error",
-        "rt_error",
-        "mobility_error",
+        "fwhm_mobility",
+        "optimization.ms1_error",
+        "optimization.ms2_error",
+        "optimization.rt_error",
+        "optimization.mobility_error",
+        "calibration.ms1_median_accuracy",
+        "calibration.ms2_median_accuracy",
+        "raw.gradient_length_m",
     )
 
     def _calc(self, df: pd.DataFrame, column: str) -> None:
@@ -130,8 +136,8 @@ class InternalStats(Metrics):
         self._metrics[f"{column}"] = df[column].mean()
 
 
-class PrecursorStats(Metrics):
-    """Precursor statistics."""
+class PrecursorStatsSum(Metrics):
+    """Precursor statistics (sum)."""
 
     _file = OutputFiles.PRECURSORS
     _columns = ("weighted_ms1_intensity", "intensity")
@@ -142,13 +148,63 @@ class PrecursorStats(Metrics):
         self._metrics[f"{column}_sum"] = df[column].sum()
 
 
+class PrecursorStatsMean(Metrics):
+    """Precursor statistics (mean)."""
+
+    _file = OutputFiles.PRECURSORS
+    _columns = ("charge",)
+    _tolerate_missing = True
+
+    def _calc(self, df: pd.DataFrame, column: str) -> None:
+        """Calculate metrics."""
+        self._metrics[f"{column}_mean"] = df[column].mean()
+        self._metrics[f"{column}_std"] = df[column].std()
+
+
+class PrecursorStatsIntensity(Metrics):
+    """Precursor statistics (intensity)."""
+
+    _file = OutputFiles.PRECURSORS
+
+    def _calc_metrics(self) -> None:
+        """Calculate all the metrics."""
+        df = self._data_store[self._file]
+        self._metrics["precursor_intensity_median"] = (
+            df["sum_b_ion_intensity"] + df["sum_y_ion_intensity"]
+        ).median()
+
+    def _calc(self, df: pd.DataFrame, column: str) -> None:
+        pass
+
+
+class PrecursorStatsMeanLenSequence(Metrics):
+    """Precursor statistics (mean length sequence)."""
+
+    _file = OutputFiles.PRECURSORS
+    _columns = ("sequence",)
+    _tolerate_missing = True
+
+    def _calc(self, df: pd.DataFrame, column: str) -> None:
+        """Calculate metrics."""
+        sequence_lengths = np.array([len(x) for x in df[column]])
+
+        self._metrics[f"{column}_len_mean"] = sequence_lengths.mean()
+        self._metrics[f"{column}_len_std"] = sequence_lengths.std(ddof=1)
+
+
 def calc_metrics(output_directory: Path) -> dict[str, Any]:
     """Calculate metrics for the given output directory."""
     data_store = DataStore(output_directory)
 
     metrics = BasicStats(data_store).get()
-    metrics |= PrecursorStats(data_store).get()
+    metrics |= PrecursorStatsSum(data_store).get()
+    metrics |= PrecursorStatsMean(data_store).get()
+    metrics |= PrecursorStatsIntensity(data_store).get()
+    metrics |= PrecursorStatsMeanLenSequence(data_store).get()
     metrics |= InternalStats(data_store).get()
 
-    logging.info(f"Calculated metrics: {metrics}")
-    return metrics
+    # MongoDB field names cannot contain dots (".") or null characters ("\0"), and they must not start with a dollar sign ("$").
+    metrics_cleaned = {k.replace(".", ":"): v for k, v in metrics.items()}
+
+    logging.info(f"Calculated metrics: {metrics_cleaned}")
+    return metrics_cleaned

@@ -49,6 +49,8 @@ class Column:
     plot: bool = False
     # use log scale for plot
     log_scale: bool = False
+    # alternative names in the database
+    alternative_names: list[str] = None
 
 
 COLUMNS = (
@@ -67,25 +69,90 @@ COLUMNS = (
     Column("status_details", at_front=True),
     Column("size_gb", at_front=True, color_table=True, plot=True),
     Column("file_created", at_front=True),
-    # at end (order matters)
-    Column("project_id", at_end=True),
-    Column("updated_at_", at_end=True),
-    Column("created_at_", at_end=True),
+    Column(
+        "gradient_length_m",
+        at_front=True,
+        color_table=True,
+        alternative_names=["raw:gradient_length_m"],
+    ),
     # plots (order matters)
     Column("precursors", color_table=True, plot=True),
     Column("proteins", color_table=True, plot=True),
     Column("weighted_ms1_intensity_sum", color_table=True, plot=True, log_scale=True),
     Column("intensity_sum", color_table=True, plot=True, log_scale=True),
-    Column("ms1_accuracy", color_table=True, plot=True),
+    Column(
+        "ms1_median_accuracy",
+        color_table=True,
+        plot=True,
+        alternative_names=[
+            "ms1_accuracy",  # alphadia<=1.8.2
+            "calibration:ms1_median_accuracy",
+        ],
+    ),
     Column("fwhm_rt", color_table=True, plot=True),
-    Column("ms1_error", color_table=True, plot=True),
-    Column("ms2_error", color_table=True, plot=True),
-    Column("rt_error", color_table=True, plot=True),
-    Column("mobility_error", color_table=True, plot=True),
+    Column(
+        "ms1_error",
+        color_table=True,
+        plot=True,
+        alternative_names=["optimization:ms1_error"],
+    ),
+    Column(
+        "ms2_error",
+        color_table=True,
+        plot=True,
+        alternative_names=["optimization:ms2_error"],
+    ),
+    Column(
+        "rt_error",
+        color_table=True,
+        plot=True,
+        alternative_names=["optimization:rt_error"],
+    ),
+    Column(
+        "mobility_error",
+        color_table=True,
+        plot=True,
+        alternative_names=["optimization:mobility_error"],
+    ),
+    Column(
+        "charge_mean",
+        at_front=True,
+        color_table=True,
+        plot=True,
+    ),
+    Column(
+        "base_width_rt_mean",
+        at_front=True,
+        color_table=True,
+        plot=True,
+    ),
+    Column(
+        "base_width_mobility_mean",
+        at_front=True,
+        color_table=True,
+        plot=True,
+    ),
+    Column(
+        "precursor_intensity_mean",  # do not confuse with "intensity_sum"
+        at_front=True,
+        color_table=True,
+        plot=True,
+    ),
+    Column(
+        "sequence_len_mean",
+        at_front=True,
+        color_table=True,
+        plot=True,
+    ),
+    # some technical plots:
     Column("settings_version", at_end=True, plot=True),
     Column("quanting_time_minutes", color_table=True, plot=True),
     Column("duration_optimization", color_table=True, plot=True, at_end=True),
     Column("duration_extraction", color_table=True, plot=True, at_end=True),
+    # at end (order matters)
+    Column("project_id", at_end=True),
+    Column("updated_at_", at_end=True),
+    Column("created_at_", at_end=True),
 )
 
 # ########################################### PAGE HEADER
@@ -122,15 +189,35 @@ display_info_message()
 max_age_in_days = float(
     st.query_params.get(QueryParams.MAX_AGE, DEFAULT_MAX_AGE_OVERVIEW)
 )
+
+
+def _harmonize_df(df: pd.DataFrame) -> pd.DataFrame:
+    """Harmonize the DataFrame by mapping all alternative names to their current ones."""
+    names_mapping = {
+        alternative_name: column.name
+        for column in COLUMNS
+        if column.alternative_names
+        for alternative_name in column.alternative_names
+        if column.alternative_names is not None
+    }
+    df = df.rename(columns=names_mapping)
+
+    # map all columns of the same name to the first one, assuming that not more than one of the values are filled
+    return df.groupby(axis=1, level=0).first()
+
+
 with st.spinner("Loading data ..."):
     combined_df = get_combined_raw_files_and_metrics_df(max_age_in_days)
+    combined_df = _harmonize_df(combined_df)
 
 
 # ########################################### DISPLAY: table
 
 
 columns_at_front = [column.name for column in COLUMNS if column.at_front]
-columns_at_end = [column.name for column in COLUMNS if column.at_end]
+columns_at_end = [column.name for column in COLUMNS if column.at_end] + [
+    col for col in combined_df.columns if col.endswith("_std")
+]
 columns_to_hide = [column.name for column in COLUMNS if column.hide]
 
 column_order = (
@@ -281,7 +368,7 @@ def _display_table_and_plots(
 
     st.markdown("## Plots")
 
-    c1, c2, c3 = st.columns([0.25, 0.25, 0.75])
+    c1, c2, c3, c4 = st.columns([0.25, 0.25, 0.25, 0.25])
     color_by_column = c1.selectbox(
         label="Color by:",
         options=["instrument_id"]
@@ -299,6 +386,11 @@ def _display_table_and_plots(
         value=True,
         help="Show traces for each data point.",
     )
+    show_std = c4.checkbox(
+        label="Show standard deviations",
+        value=False,
+        help="Show standard deviations for mean values.",
+    )
 
     for column in [
         column
@@ -312,13 +404,20 @@ def _display_table_and_plots(
                 column=column,
                 color_by_column=color_by_column,
                 show_traces=show_traces,
+                show_std=show_std,
             )
         except Exception as e:  # noqa: BLE001, PERF203
             _log(e, f"Cannot draw plot for {column.name} vs {x}.")
 
 
-def _draw_plot(
-    df: pd.DataFrame, *, x: str, column: Column, color_by_column: str, show_traces: bool
+def _draw_plot(  # noqa: PLR0913
+    df: pd.DataFrame,
+    *,
+    x: str,
+    column: Column,
+    color_by_column: str,
+    show_traces: bool,
+    show_std: bool,
 ) -> None:
     """Draw a plot of a DataFrame."""
     df = df.sort_values(by=x)
@@ -348,7 +447,7 @@ def _draw_plot(
         hover_data=hover_data,
         title=title,
         height=400,
-        error_y=_get_yerror_column_name(y, df),
+        error_y=_get_yerror_column_name(y, df) if show_std else None,
         log_y=column.log_scale,
     )
     if y_is_numeric and show_traces:

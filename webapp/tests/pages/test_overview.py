@@ -97,7 +97,7 @@ def test_overview(
         "raw_file": {1: 1, 2: 2},
         "proteins": {1: 1, 2: 2},
         "precursors": {1: 1, 2: 2},
-        "ms1_accuracy": {1: 1.0, 2: 2.0},
+        "ms1_median_accuracy": {1: 1.0, 2: 2.0},
         "fwhm_rt": {1: 1.0, 2: 2.0},
         "created_at": {1: ts1noms, 2: ts2noms},
         "created_at_": {1: ts1noms, 2: ts2noms},

@@ -1,2 +1,2 @@
-run	channel	precursors	proteins	ms1_accuracy	fwhm_rt	fwhm_mobility	ms1_error	ms2_error	rt_error	mobility_error
-20240611_OA1_Evo12_16min_TiHe_ADIAMA_HeLa_5ng_F-40_04	0	51256	5939	0.463017	2.435222	0.000000	3.5	4.5	200.0	0.0
+run	channel	precursors	proteins	fwhm_rt	fwhm_mobility	optimization.ms2_error	optimization.ms1_error	optimization.rt_error	optimization.mobility_error	calibration.ms2_median_accuracy	calibration.ms2_median_precision	calibration.ms1_median_accuracy	calibration.ms1_median_precision	raw.gradient_min_m	raw.gradient_max_m	raw.gradient_length_m	raw.cycle_length	raw.cycle_duration	raw.cycle_number	raw.msms_range_min	raw.msms_range_max
+20231017_OA2_TiHe_ADIAMA_HeLa_200ng_Evo011_21min_F-40_05	0	93059	8025	3.077507	0.000000	7.000000	4.000000	100.000000	0.100000	0.319796	0.662022	1.039982	0.503308	0.000000	20.887636	1253.258179	301	1.554417	806	380.422795	980.695645

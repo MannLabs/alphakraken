@@ -14,6 +14,9 @@ set -u -e
 
 export TQDM_MININTERVAL=10  # avoid lots of tqdm outputs
 
+module purge
+module load anaconda/3/2023.03
+
 # INPUT taken from environment variables:
 # RAW_FILE_PATH # e.g. "/fs/pool/pool-backup/Test2/2024_07/20240606_OA1_Evo12_16min_JBMR_ADIAMA_HeLa_5ng_F-40_01.raw"
 # SETTINGS_PATH # e.g. "/fs/pool/pool-alphakraken/settings/PID123"

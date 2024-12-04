@@ -67,19 +67,15 @@ def test_get_project_id_for_raw_file_fallback_bruker() -> None:
 )
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.put_xcom")
-@patch("dags.impl.processor_impl.random")
 @patch("dags.impl.processor_impl._get_project_id_or_fallback")
 @patch("dags.impl.processor_impl.get_settings_for_project")
 def test_prepare_quanting(
     mock_get_settings: MagicMock,
     mock_get_project_id_for_raw_file: MagicMock,
-    mock_random: MagicMock,
     mock_put_xcom: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
 ) -> None:
     """Test that prepare_quanting makes the expected calls."""
-    mock_random.return_value = 0.44
-
     mock_raw_file = MagicMock(
         wraps=RawFile,
         id="test_file.raw",
@@ -118,7 +114,7 @@ def test_prepare_quanting(
         "RAW_FILE_PATH": "/pool/path/to/some_backup_pool_folder/instrument1/1970_01/test_file.raw",
         "SETTINGS_PATH": "/pool/path/to/some_quanting_pool_folder/settings/some_project_id",
         "OUTPUT_PATH": "/pool/path/to/some_quanting_pool_folder/output/some_project_id/out_test_file.raw",
-        "SPECLIB_FILE_NAME": "4_some_speclib_file_name",
+        "SPECLIB_FILE_NAME": "some_speclib_file_name",
         "FASTA_FILE_NAME": "some_fasta_file_name",
         "CONFIG_FILE_NAME": "some_config_file_name",
         "SOFTWARE": "some_software",
@@ -134,7 +130,6 @@ def test_prepare_quanting(
         ]
     )
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
-    mock_random.assert_called_once()  # TODO: remove patching random once the hack is removed
 
 
 @patch("dags.impl.processor_impl.get_xcom")

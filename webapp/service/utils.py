@@ -43,7 +43,7 @@ def _log(item_to_log: str | Exception, extra_msg: str = "") -> None:
     if isinstance(item_to_log, Exception):
         if extra_msg:
             st.write(extra_msg)
-        st.write(item_to_log)
+            st.write(item_to_log)
         msg = f"{extra_msg}{item_to_log}\n{traceback.format_exc()}"
     else:
         msg = f"{now}: {item_to_log}"

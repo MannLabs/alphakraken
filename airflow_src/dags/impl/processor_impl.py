@@ -4,7 +4,6 @@ import json
 import logging
 from datetime import datetime
 from pathlib import Path
-from random import random
 
 from airflow.exceptions import AirflowFailException
 from airflow.models import TaskInstance
@@ -95,18 +94,11 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
 
     settings = get_settings_for_project(project_id_or_fallback)
 
-    # TODO: remove random speclib file hack
-    # this is so hacky it makes my head hurt:
-    # currently, two instances of alphaDIA compete for locking the speclib file
-    # cf. https://github.com/MannLabs/alphabase/issues/180
-    # This reduces the chance for this to happen by 90%
-    speclib_file_name = f"{int(random()*10)}_{settings.speclib_file_name}"  # noqa: S311
-
     quanting_env = {
         QuantingEnv.RAW_FILE_PATH: str(raw_file_path),
         QuantingEnv.SETTINGS_PATH: str(settings_path),
         QuantingEnv.OUTPUT_PATH: str(output_path),
-        QuantingEnv.SPECLIB_FILE_NAME: speclib_file_name,
+        QuantingEnv.SPECLIB_FILE_NAME: settings.speclib_file_name,
         QuantingEnv.FASTA_FILE_NAME: settings.fasta_file_name,
         QuantingEnv.CONFIG_FILE_NAME: settings.config_file_name,
         QuantingEnv.SOFTWARE: settings.software,

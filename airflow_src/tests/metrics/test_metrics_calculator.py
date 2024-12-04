@@ -12,7 +12,7 @@ from metrics.metrics_calculator import (
 from plugins.metrics.metrics_calculator import (
     BasicStats,
     DataStore,
-    PrecursorStatsMean,
+    PrecursorStatsAgg,
     PrecursorStatsSum,
     calc_metrics,
 )
@@ -53,7 +53,7 @@ def test_datastore_getitem_returns_data_when_key_in_data(
 
 @patch("plugins.metrics.metrics_calculator.BasicStats")
 @patch("plugins.metrics.metrics_calculator.PrecursorStatsSum")
-@patch("plugins.metrics.metrics_calculator.PrecursorStatsMean")
+@patch("plugins.metrics.metrics_calculator.PrecursorStatsAgg")
 @patch("plugins.metrics.metrics_calculator.PrecursorStatsIntensity")
 @patch("plugins.metrics.metrics_calculator.PrecursorStatsMeanLenSequence")
 @patch("plugins.metrics.metrics_calculator.InternalStats")
@@ -108,12 +108,15 @@ def test_calc_metrics_happy_path(  # noqa: PLR0913
 
 
 # just used for manual testing so far
-# def test_calc_metrics_real_data(
-#
-# ) -> None:
+# def test_calc_metrics_real_data() -> None:
 #     """Test the happy path of calc_metrics with real_data."""
 #     # when
-#     result = calc_metrics(Path("alphakraken/airflow_test_folders/_data"))
+#     import os
+#
+#     current_dir = os.path.dirname(os.path.abspath(__file__))
+#
+#     result = calc_metrics(Path(current_dir) / "../../../airflow_test_folders/_data")
+#     print(result)
 
 
 @patch("plugins.metrics.metrics_calculator.DataStore")
@@ -180,10 +183,11 @@ def test_precursor_stats_mean_calculation(mock_datastore: MagicMock) -> None:
     mock_datastore.__getitem__.return_value = mock_df
 
     # when
-    metrics = PrecursorStatsMean(mock_datastore).get()
+    metrics = PrecursorStatsAgg(mock_datastore).get()
 
     assert metrics["charge_mean"] == 1.5
     assert metrics["charge_std"] == 0.7071067811865476
+    assert metrics["charge_median"] == 1.5
 
 
 @patch("plugins.metrics.metrics_calculator.DataStore")
@@ -204,6 +208,7 @@ def test_precursor_stats_sequence_len_mean_calculation(
 
     assert metrics["sequence_len_mean"] == 1.5
     assert metrics["sequence_len_std"] == 0.7071067811865476
+    assert metrics["sequence_len_median"] == 1.5
 
 
 @patch("plugins.metrics.metrics_calculator.DataStore")

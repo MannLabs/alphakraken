@@ -152,6 +152,7 @@ form_items = {
     "software": {
         "label": "software",
         "options": [
+            "alphadia-1.9.0",
             "alphadia-1.8.2",
             "alphadia-1.7.2",
         ],

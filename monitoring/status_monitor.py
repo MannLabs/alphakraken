@@ -206,17 +206,14 @@ def _append_status_pile_up_instruments(
     instrument_id: str, status_pile_up_instruments: list[tuple[str, str]]
 ) -> None:
     """Add instruments with too many files in non-terminal statuses to status_pile_up_instruments."""
-    status_counts = defaultdict(int)
-
-    for raw_file in RawFile.objects(
+    status_counts = RawFile.objects(
         instrument_id=instrument_id, status__nin=TERMINAL_STATUSES
-    ):
-        status_counts[raw_file.status] += 1
+    ).item_frequencies("status")
 
     if piled_up_statuses := [
         status
-        for status in status_counts
-        if status_counts[status] > STATUS_PILE_UP_THRESHOLD
+        for status, count in status_counts.items()
+        if count > STATUS_PILE_UP_THRESHOLD
     ]:
         piled_up_statuses_str = "; ".join(
             [f"{status}: {status_counts[status]}" for status in piled_up_statuses]

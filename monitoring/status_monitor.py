@@ -67,7 +67,7 @@ last_alerts = defaultdict(_default_value)
 
 
 def _send_kraken_instrument_alert(
-    instruments_with_data: list[tuple[str, datetime | int]], case: str
+    instruments_with_data: list[tuple[str, datetime | int | str]], case: str
 ) -> None:
     """Send alert to Slack about stale status."""
     instruments = [instrument_id for instrument_id, _ in instruments_with_data]

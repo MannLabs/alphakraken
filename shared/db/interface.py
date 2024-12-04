@@ -11,7 +11,6 @@ import pytz
 from shared.db.engine import connect_db
 from shared.db.models import (
     KrakenStatus,
-    KrakenStatusValues,
     Metrics,
     Project,
     ProjectStatus,
@@ -216,11 +215,6 @@ def update_kraken_status(
         f"Updating DB: {instrument_id=} to {status=} with {status_details=} {free_space_gb=}"
     )
     connect_db()
-    optional_args = (
-        {"last_error_occurred_at": datetime.now(tz=pytz.utc)}
-        if status == KrakenStatusValues.ERROR
-        else {}
-    )
 
     KrakenStatus(
         instrument_id=instrument_id,
@@ -228,5 +222,4 @@ def update_kraken_status(
         updated_at_=datetime.now(tz=pytz.utc),
         free_space_gb=free_space_gb,
         status_details=status_details,
-        **optional_args,
     ).save()

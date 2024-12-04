@@ -8,21 +8,6 @@ from pathlib import Path
 import pytz
 import streamlit as st
 
-from shared.db.models import RawFileStatus
-
-ERROR_STATUSES = [
-    RawFileStatus.ERROR,
-    RawFileStatus.QUANTING_FAILED,
-    RawFileStatus.ACQUISITION_FAILED,
-]
-TERMINAL_STATUSES = [
-    *ERROR_STATUSES,
-    RawFileStatus.DONE,
-    RawFileStatus.DONE_NOT_QUANTED,
-    RawFileStatus.IGNORED,
-]
-
-
 # mapping of filter strings to url query parameters
 FILTER_MAPPING: dict[str, str] = {
     "_AND_": " & ",

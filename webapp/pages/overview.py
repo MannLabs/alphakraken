@@ -22,12 +22,13 @@ from service.utils import (
     APP_URL,
     DEFAULT_MAX_AGE_OVERVIEW,
     DEFAULT_MAX_TABLE_LEN,
-    ERROR_STATUSES,
     FILTER_MAPPING,
     QueryParams,
     _log,
     display_info_message,
 )
+
+from shared.db.models import ERROR_STATUSES
 
 _log(f"loading {__file__}")
 

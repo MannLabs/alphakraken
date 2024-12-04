@@ -67,11 +67,21 @@ A: This is because a file with the same name was already processed.
 File name uniqueness is a prerequisite for all automated downstream processing to work correctly,
 to tell those collision cases apart, a timestamp is added as a prefix.
 
+
 Q: Why do some files on the acquisition folder carry the extension `.deleteme`?
 
 A: This is because they could not be removed after copying it to the `Backup` subfolder on the instrument
 (e.g. due to the file being open). To facilitate manual cleanup, this extension is added.
 Those files can be deleted safely.
+
+
+Q: Some of my files still have status "monitoring_acquisition" although acquisition is already finished.
+
+A: An acquisition is considered "finished" when either a new file is created in the acquisition folder or
+if the current file has been monitored for over 4 hours. As a consequence, the last file in a queue will be processed
+with this 4 hour delay (this could be remedied by adding a blank to the end of a queue).
+Note: if AlphaKraken processing is disrupted for a certain time, it might take up to 4 hours until their
+acquisition is considered "finished".
 
 
 Q: Where to I find the AlphaDIA output files?

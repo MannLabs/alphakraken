@@ -338,28 +338,6 @@ def test_update_kraken_status(
         status="error",
         updated_at_=mock_datetime.now.return_value,
         status_details="some details",
-        last_error_occurred_at=mock_datetime.now.return_value,
         free_space_gb=123,
     )
     mock_connect_db.assert_called_once()
-
-
-# def update_kraken_status(
-#     instrument_id: str, *, status: str, status_details: str
-# ) -> None:
-#     """Update the status of a instrument connected to kraken."""
-#     logging.info(f"Updating DB: {instrument_id=} to {status=} with {status_details=}")
-#     connect_db()
-#     error_args = (
-#         {"last_error_occurred_at": datetime.now(tz=pytz.utc)}
-#         if status == KrakenStatusValues.ERROR
-#         else {}
-#     )
-#
-#     KrakenStatus(
-#         instrument_id=instrument_id,
-#         status=status,
-#         updated_at_=datetime.now(tz=pytz.utc),
-#         status_details=status_details,
-#         **error_args,
-#     ).save()

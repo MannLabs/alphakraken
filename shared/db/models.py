@@ -44,6 +44,19 @@ class RawFileStatus:
     DONE_NOT_QUANTED = "done_not_quanted"
 
 
+ERROR_STATUSES = [
+    RawFileStatus.ERROR,
+    RawFileStatus.QUANTING_FAILED,
+    RawFileStatus.ACQUISITION_FAILED,
+]
+TERMINAL_STATUSES = [
+    *ERROR_STATUSES,
+    RawFileStatus.DONE,
+    RawFileStatus.DONE_NOT_QUANTED,
+    RawFileStatus.IGNORED,
+]
+
+
 class RawFile(Document):
     """Schema for a raw file."""
 
@@ -163,4 +176,6 @@ class KrakenStatus(Document):
     free_space_gb = IntField(min_value=-1, default=-1)
 
     updated_at_ = DateTimeField(default=datetime.now)
-    last_error_occurred_at = DateTimeField(default=datetime.fromtimestamp(0))  # noqa: DTZ006
+
+    # TODO: remove (also from DB)
+    last_error_occurred_at = DateTimeField()

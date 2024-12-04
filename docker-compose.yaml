@@ -322,6 +322,7 @@ services:
     environment:
       <<: *airflow-common-env
       SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL}
+    restart: always
 #    healthcheck:
 #      test: ["CMD", "python", "-c", "..."]  # TODO add appropriate health check
 #      interval: 30s

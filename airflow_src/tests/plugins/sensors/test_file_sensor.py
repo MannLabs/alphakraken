@@ -149,6 +149,6 @@ def test_check_health_when_no_paths_exist(
     mock_update_status.assert_called_once_with(
         "instrument_id",
         status="error",
-        status_details="Instrument path not found.;Backup path not found.;Output path not found.",
+        status_details="data path not healthy (check1=False check2=None check3=None); backup path not healthy (check1=False check2=None check3=None); output path not healthy (check1=False check2=None check3=None)",
         free_space_gb=789,
     )

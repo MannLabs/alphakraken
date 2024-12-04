@@ -5,6 +5,7 @@ Wait until creation of a new file or folder.
 
 import logging
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 import pytz
@@ -34,31 +35,40 @@ SOFT_FAIL_TIMEOUT_H: int = 24
 def _check_health(instrument_id: str) -> None:
     """Check the health of the instrument data, and the output and backup paths and update Kraken status."""
     status_details = []
+
     data_path = get_internal_instrument_data_path(instrument_id)
-    # using rglob to find out if the mount is sane is a bit hacky
-    # as it could give false negatives if the folder is empty.
-    if not data_path.exists() or not data_path.rglob("*"):
-        logging.error(f"Data path {data_path} does not exist.")
-        status_details.append("Instrument path not found.")
+    _check_path_health(data_path, "data", status_details)
 
     backup_path = get_internal_backup_path()
-    if not backup_path.exists() or not backup_path.rglob("*"):
-        logging.error(f"Backup path {backup_path} does not exist.")
-        status_details.append("Backup path not found.")
+    _check_path_health(backup_path, "backup", status_details)
 
     output_path = get_internal_output_path()
-    if not output_path.exists() or not output_path.rglob("*"):
-        logging.error(f"Output path {output_path} does not exist.")
-        status_details.append("Output path not found.")
+    _check_path_health(output_path, "output", status_details)
 
     *_, free_space_gb = get_disk_usage(data_path)
 
     update_kraken_status(
         instrument_id,
         status=KrakenStatusValues.ERROR if status_details else KrakenStatusValues.OK,
-        status_details=";".join(status_details),
+        status_details="; ".join(status_details),
         free_space_gb=int(free_space_gb),
     )
+
+
+def _check_path_health(path: Path, description: str, status_details: list[str]) -> None:
+    """Check the health of a path and add status details if necessary."""
+    check2 = check3 = None
+
+    # Note: using rglob could give false negatives if the folder is empty
+    if (
+        not (check1 := path.exists())
+        or not (check2 := path.is_mount())
+        or not (check3 := path.rglob("*"))
+    ):
+        logging.error(f"Path {path} failed checks: {check1=} {check2=} {check3=}")
+        status_details.append(
+            f"{description} path not healthy ({check1=} {check2=} {check3=})"
+        )
 
 
 class FileCreationSensor(BaseSensorOperator):

@@ -283,12 +283,15 @@ def _check_file(
     :param file_path_pool_backup: absolute path to location of file in pool backup
     :param file_info_in_db: dict with file info from DB
 
-    :raises: FileCheckError if one of the checks fails.
+    :raises: FileCheckError if one of the checks fails or if file is not present.
     """
     logging.info(
         f"Comparing {file_path_to_remove=} to {file_path_pool_backup=} with {file_info_in_db=}"
     )
-    size_on_instrument = get_file_size(file_path_to_remove, verbose=False)
+    try:
+        size_on_instrument = get_file_size(file_path_to_remove, verbose=False)
+    except FileNotFoundError as e:
+        raise FileRemovalError(f"File {file_path_to_remove} does not exist.") from e
 
     # Check 1: the single file to delete is present on the pool-backup
     logging.info(f"Comparing {file_path_to_remove=} to {file_path_pool_backup=} ..")

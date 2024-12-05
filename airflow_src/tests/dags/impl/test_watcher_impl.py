@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, Mock, call, patch
 
 import pytest
 import pytz
-from airflow.exceptions import DagNotFound
+from airflow.exceptions import AirflowFailException, DagNotFound
 from dags.impl.watcher_impl import (
     _add_raw_file_to_db,
     _file_meets_age_criterion,
@@ -463,7 +463,8 @@ def test_start_acquisition_handler_dagnotfound(
     ti = Mock()
 
     # when
-    start_acquisition_handler(ti, **{OpArgs.INSTRUMENT_ID: "instrument1"})
+    with pytest.raises(AirflowFailException):
+        start_acquisition_handler(ti, **{OpArgs.INSTRUMENT_ID: "instrument1"})
 
     # then
     assert mock_trigger_dag_run.call_count == 1  # no magic numbers

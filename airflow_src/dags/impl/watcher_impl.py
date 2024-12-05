@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytz
-from airflow.exceptions import DagNotFound
+from airflow.exceptions import AirflowFailException, DagNotFound
 from airflow.models import TaskInstance
 from common.keys import AirflowVars, DagParams, Dags, OpArgs, XComKeys
 from common.settings import COLLISION_FLAG_SEP
@@ -279,7 +279,6 @@ def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
 
     dag_id_to_trigger = f"{Dags.ACQUISITION_HANDLER}.{instrument_id}"
 
-    # adding the files to the DB and triggering the acquisition_handler DAG should be atomic
     for raw_file_name, (
         project_id,
         file_needs_handling,
@@ -311,14 +310,18 @@ def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
             )
             return
 
+        # adding the files to the DB and triggering the acquisition_handler DAG is a transaction
         try:
             trigger_dag_run(
                 dag_id_to_trigger,
                 {DagParams.RAW_FILE_ID: raw_file_id},
             )
-        except DagNotFound:
+        except DagNotFound as e:
             # this happens very rarely, but if not handled here, the file would need to be removed manually
             logging.exception(
                 f"DAG {dag_id_to_trigger} not found. Removing file from DB again."
             )
             delete_raw_file(raw_file_id)
+            raise AirflowFailException(
+                f"DAG {dag_id_to_trigger} not found. File {raw_file_id} will be picked up again in next DAG run."
+            ) from e

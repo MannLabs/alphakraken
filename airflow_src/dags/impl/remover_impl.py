@@ -120,10 +120,8 @@ def _decide_on_raw_files_to_remove(
 
         try:
             total_size = _get_total_size(raw_file)
-        except FileRemovalError:
-            logging.warning(
-                f"Skipping {raw_file.id}: file does not exist or does not match DB."
-            )
+        except FileRemovalError as e:
+            logging.warning(f"Skipping {raw_file.id}: {e}")
             continue
 
         logging.info(f"Adding {raw_file.id=} {total_size=} {sum_size_gb=}")

@@ -83,7 +83,7 @@ def show_filter(
                         .split(",")
                     )
 
-                if column is not None:
+                if column is not None and column in df.columns:
                     if upper and lower:
                         new_mask = df[column].map(
                             lambda x: float(lower) <= float(x) <= float(upper)

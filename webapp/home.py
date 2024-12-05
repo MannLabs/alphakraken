@@ -120,5 +120,6 @@ A: Please get in touch: [<support_email>](<support_email>)
 Q: I want to know more about the AlphaKraken.
 
 A: Have a look at the [github repo](https://github.com/MannLabs/alphakraken) or the underlying
-Airflow implementation [here](http://<kraken_url>:8080) (read-only, ask for credentials).
+Airflow implementation [here](http://<kraken_url>:8080) (read-only, ask for credentials),
+
 """)

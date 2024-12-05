@@ -18,7 +18,7 @@ from service.utils import (
     show_feedback_in_sidebar,
 )
 
-from shared.db.interface import add_new_settings_to_db
+from shared.db.interface import add_settings
 from shared.db.models import ProjectStatus
 from shared.keys import EnvVars
 
@@ -210,7 +210,7 @@ if selected_project and submit:
                 "Please upload the files to the respective folders on the pool file system and check the respective box."
             )
 
-        add_new_settings_to_db(
+        add_settings(
             project_id=selected_project.id,
             name=empty_to_none(name),
             fasta_file_name=fasta_file_name,

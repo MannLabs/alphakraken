@@ -25,11 +25,11 @@ SOME_INSTRUMENT_ID = "some_instrument_id"
 
 
 @patch("dags.impl.watcher_impl.get_file_creation_timestamp")
-@patch("dags.impl.watcher_impl.add_new_raw_file_to_db")
+@patch("dags.impl.watcher_impl.add_raw_file")
 @patch("dags.impl.watcher_impl._get_collision_flag")
 def test_add_raw_file_to_db(
     mock_get_collision_flag: MagicMock,
-    mock_add_new_raw_file_to_db: MagicMock,
+    mock_add_raw_file: MagicMock,
     mock_get_file_creation_timestamp: MagicMock,
 ) -> None:
     """Test add_to_db makes the expected calls."""
@@ -47,7 +47,7 @@ def test_add_raw_file_to_db(
     mock_get_file_creation_timestamp.assert_called_once_with(
         "test_file.raw", "instrument1"
     )
-    mock_add_new_raw_file_to_db.assert_called_once_with(
+    mock_add_raw_file.assert_called_once_with(
         "test_file.raw",
         collision_flag="123-",
         project_id="PID1",
@@ -58,7 +58,7 @@ def test_add_raw_file_to_db(
 
 
 @patch("dags.impl.watcher_impl.RawFileWrapperFactory")
-@patch("dags.impl.watcher_impl.get_raw_files_by_names_from_db")
+@patch("dags.impl.watcher_impl.get_raw_files_by_names")
 @patch("dags.impl.watcher_impl._is_collision")
 @patch("dags.impl.watcher_impl._sort_by_creation_date")
 @patch("dags.impl.watcher_impl.put_xcom")
@@ -168,7 +168,7 @@ def test_sort_by_creation_date_multiple_files(
 
 
 @patch("dags.impl.watcher_impl.RawFileWrapperFactory")
-@patch("dags.impl.watcher_impl.get_raw_files_by_names_from_db")
+@patch("dags.impl.watcher_impl.get_raw_files_by_names")
 @patch("dags.impl.watcher_impl._sort_by_creation_date")
 @patch("dags.impl.watcher_impl.put_xcom")
 def test_get_unknown_raw_files_with_no_existing_files_in_db(
@@ -202,7 +202,7 @@ def test_get_unknown_raw_files_with_no_existing_files_in_db(
 
 
 @patch("dags.impl.watcher_impl.RawFileWrapperFactory")
-@patch("dags.impl.watcher_impl.get_raw_files_by_names_from_db")
+@patch("dags.impl.watcher_impl.get_raw_files_by_names")
 @patch("dags.impl.watcher_impl.put_xcom")
 def test_get_unknown_raw_files_with_empty_directory(
     mock_put_xcom: MagicMock,

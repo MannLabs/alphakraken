@@ -16,10 +16,10 @@ from impl.project_id_handler import get_unique_project_id
 from raw_file_wrapper_factory import RawFileWrapperFactory
 
 from shared.db.interface import (
-    add_new_raw_file_to_db,
+    add_raw_file,
     delete_raw_file,
     get_all_project_ids,
-    get_raw_files_by_names_from_db,
+    get_raw_files_by_names,
 )
 from shared.db.models import RawFileStatus
 
@@ -46,7 +46,7 @@ def _add_raw_file_to_db(
     )
     logging.info(f"Got  {raw_file_creation_timestamp}")
 
-    return add_new_raw_file_to_db(
+    return add_raw_file(
         raw_file_name,
         collision_flag=_get_collision_flag() if is_collision else None,
         project_id=project_id,
@@ -92,7 +92,7 @@ def get_unknown_raw_files(ti: TaskInstance, **kwargs) -> None:
     )
 
     raw_files_names_to_sizes_from_db: dict[str, list[int]] = defaultdict(list)
-    for raw_file in get_raw_files_by_names_from_db(list(raw_file_names_on_instrument)):
+    for raw_file in get_raw_files_by_names(list(raw_file_names_on_instrument)):
         # due to collisions, there could be more than one raw file with the same name
         raw_files_names_to_sizes_from_db[raw_file.original_name].append(raw_file.size)
     logging.info(f"got {raw_files_names_to_sizes_from_db=}")

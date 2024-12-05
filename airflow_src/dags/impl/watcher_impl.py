@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytz
+from airflow.exceptions import DagNotFound
 from airflow.models import TaskInstance
 from common.keys import AirflowVars, DagParams, Dags, OpArgs, XComKeys
 from common.settings import COLLISION_FLAG_SEP
@@ -16,6 +17,7 @@ from raw_file_wrapper_factory import RawFileWrapperFactory
 
 from shared.db.interface import (
     add_new_raw_file_to_db,
+    delete_raw_file,
     get_all_project_ids,
     get_raw_files_by_names_from_db,
 )
@@ -290,9 +292,9 @@ def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
         )
 
         # Here mongoengine.errors.NotUniqueError is raised when the file is already in the DB.
-        # The NotUniqueError is deliberately raised here: the task will fail, but in the next DAG run, the
+        # It is deliberately not caught: on this error, the task will fail, but in the next DAG run, the
         # file that caused the problem is filtered out in get_unknown_raw_files().
-        # Beware: if is_collision is True, and this task is re-run, it will be successfully saved and processed
+        # Beware: if `is_collision` is `True`, and this task is re-run, it will be successfully saved and processed
         # as a collision. So avoid manual restarts of this task.
         # To prevent automatic task restarting, retries need to be set to 0.
         raw_file_id = _add_raw_file_to_db(  # pytype: disable=wrong-arg-types
@@ -303,12 +305,20 @@ def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
             status=status,
         )
 
-        if file_needs_handling:
+        if not file_needs_handling:
+            logging.info(
+                f"Not triggering DAG {dag_id_to_trigger} for {raw_file_name=}."
+            )
+            return
+
+        try:
             trigger_dag_run(
                 dag_id_to_trigger,
                 {DagParams.RAW_FILE_ID: raw_file_id},
             )
-        else:
-            logging.info(
-                f"Not triggering DAG {dag_id_to_trigger} for {raw_file_name=}."
+        except DagNotFound:
+            # this happens very rarely, but if not handled here, the file would need to be removed manually
+            logging.exception(
+                f"DAG {dag_id_to_trigger} not found. Removing file from DB again."
             )
+            delete_raw_file(raw_file_id)

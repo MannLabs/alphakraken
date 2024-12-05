@@ -74,7 +74,6 @@ def trigger_dag_run(
 
     logging.info(f"Triggering DAG {dag_id} with {run_id=} with {conf=}")
 
-    # TODO: handle occasional airflow.exceptions.DagNotFound: Dag id acquisition_handler.test4 not found
     trigger_dag(
         dag_id=dag_id,
         run_id=run_id,

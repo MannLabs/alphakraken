@@ -99,6 +99,13 @@ def add_new_raw_file_to_db(  # noqa: PLR0913 too many arguments
     return id_
 
 
+def delete_raw_file(raw_file_id: str) -> None:
+    """Remove raw file from the database."""
+    logging.info(f"Removing from DB: {raw_file_id=}")
+    connect_db()
+    RawFile.objects(id=raw_file_id).delete()
+
+
 def update_raw_file(  # noqa: PLR0913
     raw_file_id: str,
     *,

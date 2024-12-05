@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, Mock, call, patch
 
 import pytest
 import pytz
+from airflow.exceptions import DagNotFound
 from dags.impl.watcher_impl import (
     _add_raw_file_to_db,
     _file_meets_age_criterion,
@@ -322,10 +323,12 @@ def test_file_meets_age_criterion_invalid_number(mock_get_var: MagicMock) -> Non
 
 @patch("dags.impl.watcher_impl.get_xcom")
 @patch("dags.impl.watcher_impl._add_raw_file_to_db")
+@patch("dags.impl.watcher_impl.delete_raw_file")
 @patch("dags.impl.watcher_impl.trigger_dag_run")
 def test_start_acquisition_handler_with_no_files(
     mock_trigger_dag_run: MagicMock,
     mock_add_raw_file_to_db: MagicMock,
+    mock_delete_raw_file: MagicMock,
     mock_get_xcom: MagicMock,
 ) -> None:
     """Test start_acquisition_handler with no files."""
@@ -339,13 +342,16 @@ def test_start_acquisition_handler_with_no_files(
     # then
     mock_trigger_dag_run.assert_not_called()
     mock_add_raw_file_to_db.assert_not_called()
+    mock_delete_raw_file.assert_not_called()
 
 
 @patch("dags.impl.watcher_impl.get_xcom")
 @patch("dags.impl.watcher_impl._add_raw_file_to_db")
+@patch("dags.impl.watcher_impl.delete_raw_file")
 @patch("dags.impl.watcher_impl.trigger_dag_run")
 def test_start_acquisition_handler_with_single_file(
     mock_trigger_dag_run: MagicMock,
+    mock_delete_raw_file: MagicMock,
     mock_add_raw_file_to_db: MagicMock,
     mock_get_xcom: MagicMock,
 ) -> None:
@@ -375,13 +381,16 @@ def test_start_acquisition_handler_with_single_file(
         instrument_id="instrument1",
         status="queued_for_monitoring",
     )
+    mock_delete_raw_file.assert_not_called()
 
 
 @patch("dags.impl.watcher_impl.get_xcom")
 @patch("dags.impl.watcher_impl._add_raw_file_to_db")
+@patch("dags.impl.watcher_impl.delete_raw_file")
 @patch("dags.impl.watcher_impl.trigger_dag_run")
 def test_start_acquisition_handler_with_multiple_files(  # Too many arguments
     mock_trigger_dag_run: MagicMock,
+    mock_delete_raw_file: MagicMock,
     mock_add_raw_file_to_db: MagicMock,
     mock_get_xcom: MagicMock,
 ) -> None:
@@ -431,3 +440,45 @@ def test_start_acquisition_handler_with_multiple_files(  # Too many arguments
             ),
         ]
     )
+    mock_delete_raw_file.assert_not_called()
+
+
+@patch("dags.impl.watcher_impl.get_xcom")
+@patch("dags.impl.watcher_impl._add_raw_file_to_db")
+@patch("dags.impl.watcher_impl.delete_raw_file")
+@patch("dags.impl.watcher_impl.trigger_dag_run")
+def test_start_acquisition_handler_dagnotfound(
+    mock_trigger_dag_run: MagicMock,
+    mock_delete_raw_file: MagicMock,
+    mock_add_raw_file_to_db: MagicMock,
+    mock_get_xcom: MagicMock,
+) -> None:
+    """Test start_acquisition_handler with a single file, raises DagNotFound error."""
+    # given
+    raw_file_names = {"file1.raw": ("PID1", True, True)}
+    mock_get_xcom.return_value = raw_file_names
+
+    mock_add_raw_file_to_db.return_value = "123-file1.raw"
+    mock_trigger_dag_run.side_effect = DagNotFound()
+    ti = Mock()
+
+    # when
+    start_acquisition_handler(ti, **{OpArgs.INSTRUMENT_ID: "instrument1"})
+
+    # then
+    assert mock_trigger_dag_run.call_count == 1  # no magic numbers
+    for n, call_ in enumerate(mock_trigger_dag_run.call_args_list):
+        assert call_.args[0] == ("acquisition_handler.instrument1")
+        assert call_.args[1] == {
+            "raw_file_id": f"123-{list(raw_file_names.keys())[n]}",
+        }
+
+    mock_add_raw_file_to_db.assert_called_once_with(
+        "file1.raw",
+        is_collision=True,
+        project_id="PID1",
+        instrument_id="instrument1",
+        status="queued_for_monitoring",
+    )
+
+    mock_delete_raw_file.assert_called_once_with("123-file1.raw")

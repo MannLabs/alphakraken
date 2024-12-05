@@ -63,10 +63,6 @@ def test_status(
                 ts1,
                 ts2,
             ],
-            "last_error_occurred_at": [
-                ts1,
-                ts2,
-            ],
             "status": ["ok", "error"],
             "status_details": ["", ""],
             "free_space_gb": [100, 200],
@@ -90,7 +86,6 @@ def test_status(
     assert result["status_details"] == {0: ""}
 
     for col in [
-        "last_health_check_error",
         "last_health_check_text",
         "last_file_creation_text",
         "last_status_update_text",

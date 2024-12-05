@@ -283,16 +283,13 @@ def _check_file(
 
     :raises: FileCheckError if one of the checks fails or if file is not present.
     """
-    logging.info(
-        f"Comparing {file_path_to_remove=} to {file_path_pool_backup=} with {file_info_in_db=}"
-    )
     try:
         size_on_instrument = get_file_size(file_path_to_remove, verbose=False)
     except FileNotFoundError as e:
         raise FileRemovalError(f"File {file_path_to_remove} does not exist.") from e
 
     # Check 1: the single file to delete is present on the pool-backup
-    logging.info(f"Comparing {file_path_to_remove=} to {file_path_pool_backup=} ..")
+    logging.debug(f"Comparing {file_path_to_remove=} to {file_path_pool_backup=} ..")
     if size_on_instrument != (
         size_in_pool_backup := get_file_size(file_path_pool_backup, verbose=False)
     ):
@@ -304,7 +301,7 @@ def _check_file(
 
     # /opt/airflow/mounts/backup/test1/2024_08/test_file_SA_P123_2.raw => test1/2024_08/test_file_SA_P123_2.raw
     rel_file_path = str(file_path_pool_backup.relative_to(get_internal_backup_path()))
-    logging.info(f"Comparing {file_path_to_remove=} to DB ({rel_file_path}) ..")
+    logging.debug(f"Comparing {file_path_to_remove=} to DB ({rel_file_path}) ..")
     if size_on_instrument != (
         size_in_db := file_info_in_db.get(rel_file_path)[
             0

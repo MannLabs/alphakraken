@@ -118,18 +118,17 @@ def _decide_on_raw_files_to_remove(
     for raw_file in raw_files:
         logging.info(f"Checking {raw_file.id=} {raw_file.size=} {raw_file.created_at=}")
 
-        if raw_file.size is None:
-            logging.warning(f"Skipping {raw_file.id}: size is None.")
+        try:
+            total_size = _get_total_size(raw_file)
+        except FileRemovalError:
+            logging.warning(
+                f"Skipping {raw_file.id}: file does not exist or does not match DB."
+            )
             continue
 
-        if not _is_file_present(raw_file):
-            logging.info(f"Skipping {raw_file.id}: file does not exist.")
-            continue
-
-        # TODO: size should be taken from `file_info` to get the real size
-        logging.info(f"Adding {raw_file.id=} {raw_file.size=} {sum_size_gb=}")
+        logging.info(f"Adding {raw_file.id=} {total_size=} {sum_size_gb=}")
         raw_file_ids_to_remove.append(raw_file.id)
-        sum_size_gb += raw_file.size * BYTES_TO_GB
+        sum_size_gb += total_size * BYTES_TO_GB
         if sum_size_gb >= min_space_to_free_gb:
             break
     else:
@@ -138,28 +137,33 @@ def _decide_on_raw_files_to_remove(
     return raw_file_ids_to_remove
 
 
-def _is_file_present(raw_file: RawFile) -> bool:
-    """Return True if the file to remove is present in the instrument backup folder, False otherwise."""
-    files_to_remove = list(
-        RawFileWrapperFactory.create_write_wrapper(
-            raw_file, path_provider=RemovePathProvider
-        )
-        .get_files_to_remove()
-        .keys()
-    )
-    if not files_to_remove:
-        logging.info(f"{raw_file.id}: no files to remove.")
-        return False
+def _get_total_size(raw_file: RawFile) -> float:
+    """Return total size of all files associated with a raw_file that are actually on the disk.
 
-    # TODO: this is a bit of a hack to check if the file is actually present, better check for a defined file
-    # or: make RawFileWrapperFactory.get_files handle it: return only files that exist (cf. comment in _get_files_to_copy())
-    file_to_check = files_to_remove[0]
-    if not file_to_check.exists():
-        logging.info(
-            f"{raw_file.id}: file {file_to_check} does not exist in instrument backup folder."
+    This calculates the total size of all files associated with a raw file that are actually on the disk.
+    This is important, as there could be cases where some files for a raw file have been already removed from the disk,
+    which would overestimate the total size gain if this data was removed.
+    """
+    remove_wrapper = RawFileWrapperFactory.create_write_wrapper(
+        raw_file, path_provider=RemovePathProvider
+    )
+
+    files_to_remove = remove_wrapper.get_files_to_remove()
+
+    total_size_bytes = 0.0
+    for (
+        file_path_to_remove,
+        file_path_pool_backup,
+    ) in files_to_remove.items():
+        _check_file(
+            file_path_to_remove,
+            file_path_pool_backup,
+            raw_file.file_info,
         )
-        return False
-    return True
+
+        total_size_bytes += get_file_size(file_path_to_remove, verbose=False)
+
+    return total_size_bytes
 
 
 def _safe_remove_files(raw_file_id: str) -> None:

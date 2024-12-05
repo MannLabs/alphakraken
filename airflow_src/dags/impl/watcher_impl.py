@@ -310,7 +310,9 @@ def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
             )
             return
 
-        # adding the files to the DB and triggering the acquisition_handler DAG is a transaction
+        # Adding the files to the DB and triggering the acquisition_handler DAG must be an atomic transaction.
+        # To ensure atomicity of DB entry and DAG triggering, all operations on a single file need to be successful or none of them.
+        # In case of an error, the file is deleted from the DB again (=rollback).
         try:
             trigger_dag_run(
                 dag_id_to_trigger,
@@ -322,6 +324,8 @@ def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
                 f"DAG {dag_id_to_trigger} not found. Removing file from DB again."
             )
             delete_raw_file(raw_file_id)
+
+            # raising here to make this error transparent
             raise AirflowFailException(
                 f"DAG {dag_id_to_trigger} not found. File {raw_file_id} will be picked up again in next DAG run."
             ) from e

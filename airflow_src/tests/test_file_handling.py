@@ -234,14 +234,14 @@ def test_copy_file_no_copy_if_file_present_with_different_hash_raises(
 @patch("plugins.file_handling.get_airflow_variable")
 @patch("shutil.copy2")
 @patch("plugins.file_handling.get_file_size")
-def test_copy_file_no_copy_if_file_present_with_different_hash_raises_but_variable_set(
+def test_copy_file_with_overwrite_when_variable_set(
     mock_get_file_size: MagicMock,
     mock_copy2: MagicMock,
     mock_get_airflow_variable: MagicMock,
     mock_identical_copy_exists: MagicMock,
     mock_get_file_hash: MagicMock,
 ) -> None:
-    """Test copy_file copies file and creates target directory if file is present with different hash but airflow variable is set."""
+    """Test copy_file overwrites existing file when backup_overwrite_file_id variable is set."""
     mock_identical_copy_exists.side_effect = ValueError
     mock_get_file_hash.side_effect = ["some_hash", "some_hash"]
     mock_get_file_size.return_value = 1000

@@ -513,7 +513,13 @@ See state of containers
 ```bash
 docker ps
 ```
-To force kill a certain container, get its `ID` from the above command, do `ps ax | grep <ID>` to get the process ID, and then `kill -9 <PID>`.
+
+Sometimes, a container would refuse to stop ("Error while Stopping"):
+to force kill it, get its `ID` from the above command and kill it manually
+```bash
+ID=<ID of container, e.g. 8fb6a5985>
+sudo kill -9 $(ps ax | grep $ID | grep -v grep | awk '{print $1}')
+```
 
 See state of mounts
 ```bash

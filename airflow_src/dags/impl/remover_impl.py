@@ -116,7 +116,7 @@ def _decide_on_raw_files_to_remove(
 
     sum_size_gb = 0
     for raw_file in raw_files:
-        logging.info(f"Checking {raw_file.id=} {raw_file.size=} {raw_file.created_at=}")
+        logging.info(f"Checking {raw_file.id=} {raw_file.created_at=}")
 
         try:
             total_size = _get_total_size(raw_file)
@@ -149,6 +149,9 @@ def _get_total_size(raw_file: RawFile) -> float:
     )
 
     files_to_remove = remove_wrapper.get_files_to_remove()
+
+    if not files_to_remove:
+        raise FileRemovalError("No files to remove found")
 
     total_size_bytes = 0.0
     for (

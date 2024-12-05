@@ -201,8 +201,9 @@ def test_get_total_size_no_files_returned(
 
     mock_raw_file = MagicMock()
 
-    # when
-    assert _get_total_size(mock_raw_file) == 0
+    with pytest.raises(FileRemovalError):
+        # when
+        assert _get_total_size(mock_raw_file) == 0
 
 
 @patch("dags.impl.remover_impl.get_file_size")

@@ -308,7 +308,7 @@ def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
             logging.info(
                 f"Not triggering DAG {dag_id_to_trigger} for {raw_file_name=}."
             )
-            return
+            continue
 
         # Adding the files to the DB and triggering the acquisition_handler DAG must be an atomic transaction.
         # To ensure atomicity of DB entry and DAG triggering, all operations on a single file need to be successful or none of them.

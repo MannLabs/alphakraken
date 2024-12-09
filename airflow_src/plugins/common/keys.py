@@ -113,6 +113,9 @@ class AirflowVars:
     # Minimum free space that should be left after file removal.
     MIN_FREE_SPACE_GB: str = "min_free_space_gb"
 
+    # set to a specific file name to allow overwriting it on the pool backup
+    BACKUP_OVERWRITE_FILE_ID = "backup_overwrite_file_id"
+
     # some flags that can be used for debugging and/or to simplify the local setup
     DEBUG_NO_CLUSTER_SSH = "debug_no_cluster_ssh"
 

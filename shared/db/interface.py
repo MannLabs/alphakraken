@@ -19,7 +19,7 @@ from shared.db.models import (
 )
 
 
-def get_raw_files_by_names_from_db(raw_file_names: list[str]) -> list[RawFile]:
+def get_raw_files_by_names(raw_file_names: list[str]) -> list[RawFile]:
     """Get raw files from the database with the given original names."""
     logging.info(f"Getting from DB: {raw_file_names=}")
     connect_db()
@@ -58,7 +58,7 @@ def get_raw_files_by_age(
     )
 
 
-def add_new_raw_file_to_db(  # noqa: PLR0913 too many arguments
+def add_raw_file(  # noqa: PLR0913 too many arguments
     file_name: str,
     collision_flag: str | None = None,
     *,
@@ -97,6 +97,13 @@ def add_new_raw_file_to_db(  # noqa: PLR0913 too many arguments
     raw_file.save(force_insert=True)
 
     return id_
+
+
+def delete_raw_file(raw_file_id: str) -> None:
+    """Remove raw file from the database."""
+    logging.info(f"Removing from DB: {raw_file_id=}")
+    connect_db()
+    RawFile.objects(id=raw_file_id).delete()
 
 
 def update_raw_file(  # noqa: PLR0913
@@ -144,7 +151,7 @@ def add_metrics_to_raw_file(
     Metrics(raw_file=raw_file, settings_version=settings_version, **metrics).save()
 
 
-def add_new_project_to_db(*, project_id: str, name: str, description: str) -> None:
+def add_project(*, project_id: str, name: str, description: str) -> None:
     """Add a new project to the database."""
     logging.info(f"Adding to DB: {project_id=} {name=} {description=}")
     connect_db()
@@ -167,7 +174,7 @@ def get_settings_for_project(project_id: str) -> Settings:
     return Settings.objects(project=project, status=ProjectStatus.ACTIVE).first()
 
 
-def add_new_settings_to_db(  # noqa: PLR0913 many arguments in function definition
+def add_settings(  # noqa: PLR0913 many arguments in function definition
     *,
     project_id: str,
     name: str,

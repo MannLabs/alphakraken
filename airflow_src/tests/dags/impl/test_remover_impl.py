@@ -11,7 +11,7 @@ from dags.impl.remover_impl import (
     _check_file,
     _decide_on_raw_files_to_remove,
     _delete_empty_directory,
-    _is_file_present,
+    _get_total_size,
     _remove_files,
     _remove_folder,
     _safe_remove_files,
@@ -113,32 +113,31 @@ def test_get_raw_files_to_remove_handle_error(
 
 @patch("dags.impl.remover_impl.get_internal_instrument_data_path")
 @patch("dags.impl.remover_impl.get_raw_files_by_age")
-@patch("dags.impl.remover_impl._is_file_present")
+@patch("dags.impl.remover_impl._get_total_size")
 @patch("dags.impl.remover_impl.get_disk_usage")
 def test_decide_on_raw_files_to_remove_ok(
     mock_get_disk_usage: MagicMock,
-    mock_is_file_present: MagicMock,
+    mock_get_total_size: MagicMock,
     mock_get_raw_files_by_age: MagicMock,
     mock_get_internal_instrument_data_path: MagicMock,
 ) -> None:
     """Test that _decide_on_raw_files_to_remove returns the correct files to remove."""
     mock_get_disk_usage.return_value = (0, 0, 200)
 
-    mock_is_file_present.side_effect = [False, True, True, True]
+    mock_get_total_size.side_effect = [
+        FileRemovalError,
+        70 * 1024**3,
+        30 * 1024**3,
+        30 * 1024**3,
+    ]
 
     mock_get_raw_files_by_age.return_value = [
-        MagicMock(id="file0", size=None),  # skipped to due to 'None' size
-        MagicMock(id="file1", size=70 * 1024**3),  # does not exist (cf. mock_path)
-        MagicMock(id="file2", size=70 * 1024**3),
-        MagicMock(id="file3", size=30 * 1024**3),
-        MagicMock(id="file4", size=30 * 1024**3),  # deletion not necessary
+        MagicMock(id="file0"),  # skipped to due to FileRemovalError
+        MagicMock(id="file1"),
+        MagicMock(id="file2"),
+        MagicMock(id="file3"),  # deletion not necessary
     ]
-    mock_path = MagicMock()
-    mock_path.exists.return_value = True
-    mock_get_internal_instrument_data_path.side_effect = [
-        mock_path,
-        Path("/path/to/instrument2"),  # this does not exist
-    ]
+    mock_get_internal_instrument_data_path.return_value = MagicMock()
 
     # when
     result = _decide_on_raw_files_to_remove(
@@ -147,7 +146,7 @@ def test_decide_on_raw_files_to_remove_ok(
         min_file_age=30,
     )
 
-    assert result == ["file2", "file3"]
+    assert result == ["file1", "file2"]
 
 
 @patch("dags.impl.remover_impl.get_internal_instrument_data_path")
@@ -173,50 +172,38 @@ def test_decide_on_raw_files_to_remove_nothing_to_remove_ok(
 
 
 @patch("dags.impl.remover_impl.RawFileWrapperFactory")
-def test_is_file_present_ok(
+@patch("dags.impl.remover_impl._check_file")
+@patch("dags.impl.remover_impl.get_file_size")
+def test_get_total_size_ok(
+    mock_get_file_size: MagicMock,
+    mock_check_file: MagicMock,  # noqa: ARG001
     mock_raw_file_wrapper_factory: MagicMock,
 ) -> None:
-    """Test that _is_file_present returns correctly in case file exists."""
-    mock_path = MagicMock()
-    mock_path.exists.return_value = True
+    """Test that _get_total_size returns correctly in case file exists."""
     mock_raw_file_wrapper_factory.create_write_wrapper.return_value.get_files_to_remove.return_value = {
-        mock_path: None
+        MagicMock(): MagicMock(),
+        MagicMock(): MagicMock(),
     }
 
+    mock_get_file_size.side_effect = [100.0, 1.0]
     mock_raw_file = MagicMock()
 
     # when
-    assert _is_file_present(mock_raw_file)
+    assert _get_total_size(mock_raw_file) == 101.0  # noqa: PLR2004
 
 
 @patch("dags.impl.remover_impl.RawFileWrapperFactory")
-def test_is_file_present_no_files_returned(
+def test_get_total_size_no_files_returned(
     mock_raw_file_wrapper_factory: MagicMock,
 ) -> None:
-    """Test that _is_file_present returns correctly in case no files are returned."""
+    """Test that _get_total_size returns correctly in case no files are returned."""
     mock_raw_file_wrapper_factory.create_write_wrapper.return_value.get_files_to_remove.return_value = {}
 
     mock_raw_file = MagicMock()
 
-    # when
-    assert not _is_file_present(mock_raw_file)
-
-
-@patch("dags.impl.remover_impl.RawFileWrapperFactory")
-def test_is_file_present_path_does_not_exist(
-    mock_raw_file_wrapper_factory: MagicMock,
-) -> None:
-    """Test that _is_file_present returns correctly in case path does not exist."""
-    mock_path = MagicMock()
-    mock_path.exists.return_value = False
-    mock_raw_file_wrapper_factory.create_write_wrapper.return_value.get_files_to_remove.return_value = {
-        mock_path: None
-    }
-
-    mock_raw_file = MagicMock()
-
-    # when
-    assert not _is_file_present(mock_raw_file)
+    with pytest.raises(FileRemovalError):
+        # when
+        assert _get_total_size(mock_raw_file) == 0
 
 
 @patch("dags.impl.remover_impl.get_file_size")
@@ -237,6 +224,16 @@ def test_check_file_success(
 
     # then
     assert mock_get_file_size.call_count == 2  # noqa: PLR2004
+
+
+@patch("dags.impl.remover_impl.get_file_size")
+def test_check_file_not_existing(mock_get_file_size: MagicMock) -> None:
+    """Test that _check_file raises FileRemovalError when file doesn't exist."""
+    mock_get_file_size.side_effect = FileNotFoundError
+
+    # when
+    with pytest.raises(FileRemovalError):
+        _check_file(MagicMock(), MagicMock(), MagicMock())
 
 
 @patch("dags.impl.remover_impl.get_file_size")

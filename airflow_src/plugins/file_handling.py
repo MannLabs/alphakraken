@@ -8,7 +8,9 @@ from pathlib import Path
 
 import pytz
 from airflow.exceptions import AirflowFailException
+from common.keys import AirflowVars
 from common.settings import BYTES_TO_GB, BYTES_TO_MB, get_internal_instrument_data_path
+from common.utils import get_airflow_variable
 
 
 def get_file_creation_timestamp(
@@ -111,12 +113,24 @@ def copy_file(
         if _identical_copy_exists(dst_path, src_hash):
             return get_file_size(dst_path), src_hash
     except ValueError as e:
-        raise AirflowFailException(
-            "File already exists in backup location with different hash. "
-            "This might be due to a previous copy operation being interrupted. "
-            "Please check the backup location and remove the file from there necessary, "
-            "then restart this task."
-        ) from e
+        current_file_id = dst_path.name
+        logging.warning(
+            f"File {current_file_id} exists in backup location with different hash. "
+        )
+        if (
+            get_airflow_variable(AirflowVars.BACKUP_OVERWRITE_FILE_ID, "")
+            == current_file_id
+        ):
+            logging.warning(
+                f"Will overwrite as requested by Airflow variable {AirflowVars.BACKUP_OVERWRITE_FILE_ID}."
+            )
+        else:
+            raise AirflowFailException(
+                "This might be due to a previous copy operation being interrupted. \n"
+                "To resolve this issue: \n"
+                "1. Check and remove the file from backup if necessary, then restart this task, or"
+                f"2. Set the Airflow Variable {AirflowVars.BACKUP_OVERWRITE_FILE_ID} to '{current_file_id}' to force overwrite"
+            ) from e
 
     if not dst_path.parent.exists():
         logging.info(f"Creating parent directories for {dst_path} ..")

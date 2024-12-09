@@ -71,7 +71,7 @@ COLUMNS = (
     Column("size_gb", at_front=True, color_table=True, plot=True),
     Column("file_created", at_front=True),
     Column(
-        "gradient_length_m",
+        "gradient_length",
         at_front=True,
         color_table=True,
         alternative_names=["raw:gradient_length_m"],

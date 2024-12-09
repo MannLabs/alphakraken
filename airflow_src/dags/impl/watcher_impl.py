@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytz
+from airflow.exceptions import AirflowFailException, DagNotFound
 from airflow.models import TaskInstance
 from common.keys import AirflowVars, DagParams, Dags, OpArgs, XComKeys
 from common.settings import COLLISION_FLAG_SEP
@@ -15,9 +16,10 @@ from impl.project_id_handler import get_unique_project_id
 from raw_file_wrapper_factory import RawFileWrapperFactory
 
 from shared.db.interface import (
-    add_new_raw_file_to_db,
+    add_raw_file,
+    delete_raw_file,
     get_all_project_ids,
-    get_raw_files_by_names_from_db,
+    get_raw_files_by_names,
 )
 from shared.db.models import RawFileStatus
 
@@ -44,7 +46,7 @@ def _add_raw_file_to_db(
     )
     logging.info(f"Got  {raw_file_creation_timestamp}")
 
-    return add_new_raw_file_to_db(
+    return add_raw_file(
         raw_file_name,
         collision_flag=_get_collision_flag() if is_collision else None,
         project_id=project_id,
@@ -90,7 +92,7 @@ def get_unknown_raw_files(ti: TaskInstance, **kwargs) -> None:
     )
 
     raw_files_names_to_sizes_from_db: dict[str, list[int]] = defaultdict(list)
-    for raw_file in get_raw_files_by_names_from_db(list(raw_file_names_on_instrument)):
+    for raw_file in get_raw_files_by_names(list(raw_file_names_on_instrument)):
         # due to collisions, there could be more than one raw file with the same name
         raw_files_names_to_sizes_from_db[raw_file.original_name].append(raw_file.size)
     logging.info(f"got {raw_files_names_to_sizes_from_db=}")
@@ -277,7 +279,6 @@ def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
 
     dag_id_to_trigger = f"{Dags.ACQUISITION_HANDLER}.{instrument_id}"
 
-    # adding the files to the DB and triggering the acquisition_handler DAG should be atomic
     for raw_file_name, (
         project_id,
         file_needs_handling,
@@ -290,9 +291,9 @@ def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
         )
 
         # Here mongoengine.errors.NotUniqueError is raised when the file is already in the DB.
-        # The NotUniqueError is deliberately raised here: the task will fail, but in the next DAG run, the
+        # It is deliberately not caught: on this error, the task will fail, but in the next DAG run, the
         # file that caused the problem is filtered out in get_unknown_raw_files().
-        # Beware: if is_collision is True, and this task is re-run, it will be successfully saved and processed
+        # Beware: if `is_collision` is `True`, and this task is re-run, it will be successfully saved and processed
         # as a collision. So avoid manual restarts of this task.
         # To prevent automatic task restarting, retries need to be set to 0.
         raw_file_id = _add_raw_file_to_db(  # pytype: disable=wrong-arg-types
@@ -303,12 +304,28 @@ def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
             status=status,
         )
 
-        if file_needs_handling:
+        if not file_needs_handling:
+            logging.info(
+                f"Not triggering DAG {dag_id_to_trigger} for {raw_file_name=}."
+            )
+            continue
+
+        # Adding the files to the DB and triggering the acquisition_handler DAG must be an atomic transaction.
+        # To ensure atomicity of DB entry and DAG triggering, all operations on a single file need to be successful or none of them.
+        # In case of an error, the file is deleted from the DB again (=rollback).
+        try:
             trigger_dag_run(
                 dag_id_to_trigger,
                 {DagParams.RAW_FILE_ID: raw_file_id},
             )
-        else:
-            logging.info(
-                f"Not triggering DAG {dag_id_to_trigger} for {raw_file_name=}."
+        except DagNotFound as e:
+            # this happens very rarely, but if not handled here, the file would need to be removed manually
+            logging.exception(
+                f"DAG {dag_id_to_trigger} not found. Removing file from DB again."
             )
+            delete_raw_file(raw_file_id)
+
+            # raising here to make this error transparent
+            raise AirflowFailException(
+                f"DAG {dag_id_to_trigger} not found. File {raw_file_id} will be picked up again in next DAG run."
+            ) from e

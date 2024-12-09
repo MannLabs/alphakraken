@@ -513,7 +513,13 @@ See state of containers
 ```bash
 docker ps
 ```
-To force kill a certain container, get its `ID` from the above command, do `ps ax | grep <ID>` to get the process ID, and then `kill -9 <PID>`.
+
+Sometimes, a container would refuse to stop ("Error while Stopping"):
+to force kill it, get its `ID` from the above command and kill it manually
+```bash
+ID=<ID of container, e.g. 8fb6a5985>
+sudo kill -9 $(ps ax | grep $ID | grep -v grep | awk '{print $1}')
+```
 
 See state of mounts
 ```bash
@@ -572,6 +578,15 @@ If set to `True`, the system will overwrite existing output files. Convenience s
 in case something went wrong with the quanting.
 
 Recommended setting in production: False (default)
+
+### backup_overwrite_file_id (default: None)
+In case the `file_copy` task is interrupted (e.g. manually) while a file is being copied,
+simply restarting it will not help, as the partially copied file will not be overwritten
+due to a security mechanism.
+In this case, set the `backup_overwrite_file_id` variable to the file _id_ (not: file _name_), i.e. including
+potential collision flags, and restart the `file_copy` task. The overwrite protection
+will be deactivated just for this file id and the copying should succeed.
+
 
 ### debug_no_cluster_ssh (default: False)
 `debug_no_cluster_ssh` If set to `True`, the system will not connect to the SLURM cluster. This is useful for

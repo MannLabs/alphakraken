@@ -71,10 +71,6 @@ def test_overview(
                 ts1,
                 ts2,
             ],
-            "last_error_occurred_at": [
-                ts1,
-                ts2,
-            ],
             "status": ["ok", "error"],
             "status_details": ["", ""],
         }

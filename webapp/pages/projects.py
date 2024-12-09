@@ -14,7 +14,7 @@ from service.utils import (
     show_feedback_in_sidebar,
 )
 
-from shared.db.interface import add_new_project_to_db
+from shared.db.interface import add_project
 from shared.keys import EnvVars
 
 _log(f"loading {__file__}")
@@ -141,7 +141,7 @@ if form_submit:
     try:
         _check_project_id(empty_to_none(project_id))
 
-        add_new_project_to_db(
+        add_project(
             project_id=empty_to_none(project_id),
             name=empty_to_none(project_name),
             description=project_description,

@@ -83,7 +83,7 @@ def show_filter(
                         .split(",")
                     )
 
-                if column is not None:
+                if column is not None and column in df.columns:
                     if upper and lower:
                         new_mask = df[column].map(
                             lambda x: float(lower) <= float(x) <= float(upper)
@@ -248,9 +248,6 @@ def display_status(combined_df: pd.DataFrame, status_data_df: pd.DataFrame) -> N
         status_data["last_health_check"].append(last_health_check)
         status_data["last_health_check_text"].append(
             _get_display_time(last_health_check, now)
-        )
-        status_data["last_health_check_error"].append(
-            status_df["last_error_occurred_at"].to_numpy()[0]
         )
         status_data["status_details"].append(status_df["status_details"].to_numpy()[0])
 

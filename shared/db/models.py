@@ -176,6 +176,3 @@ class KrakenStatus(Document):
     free_space_gb = IntField(min_value=-1, default=-1)
 
     updated_at_ = DateTimeField(default=datetime.now)
-
-    # TODO: remove (also from DB)
-    last_error_occurred_at = DateTimeField()

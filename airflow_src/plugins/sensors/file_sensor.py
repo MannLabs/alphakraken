@@ -11,7 +11,7 @@ from typing import Any
 import pytz
 from airflow.sensors.base import BaseSensorOperator
 from common.settings import (
-    get_internal_backup_path,
+    get_internal_backup_path_for_instrument,
     get_internal_instrument_data_path,
     get_internal_output_path,
 )
@@ -39,7 +39,7 @@ def _check_health(instrument_id: str) -> None:
     data_path = get_internal_instrument_data_path(instrument_id)
     _check_path_health(data_path, "data", status_details)
 
-    backup_path = get_internal_backup_path()
+    backup_path = get_internal_backup_path_for_instrument(instrument_id)
     _check_path_health(backup_path, "backup", status_details)
 
     output_path = get_internal_output_path()

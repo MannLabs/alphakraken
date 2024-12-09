@@ -8,13 +8,13 @@ import pytz
 
 from shared.db.interface import (
     add_metrics_to_raw_file,
-    add_new_project_to_db,
-    add_new_raw_file_to_db,
-    add_new_settings_to_db,
+    add_project,
+    add_raw_file,
+    add_settings,
     get_all_project_ids,
     get_raw_file_by_id,
     get_raw_files_by_age,
-    get_raw_files_by_names_from_db,
+    get_raw_files_by_names,
     update_kraken_status,
     update_raw_file,
 )
@@ -26,17 +26,17 @@ from shared.db.models import RawFileStatus
 @pytest.mark.parametrize(
     ("collision_flag", "collision_string"), [(None, ""), ("123-", "123-")]
 )
-def test_add_new_raw_file_to_db_creates_new_file_when_file_does_not_exist_with_collision_flag(
+def test_add_raw_file_creates_new_file_when_file_does_not_exist_with_collision_flag(
     mock_raw_file: MagicMock,
     mock_connect_db: MagicMock,
     collision_flag: str | None,
     collision_string: str,
 ) -> None:
-    """Test that add_new_raw_file_to_db creates a new file when the file does not exist in the database."""
+    """Test that add_raw_file creates a new file when the file does not exist in the database."""
     # given
     mock_raw_file.return_value.save.side_effect = None
     # when
-    add_new_raw_file_to_db(
+    add_raw_file(
         "test_file.raw",
         collision_flag=collision_flag,
         project_id="PID1",
@@ -60,17 +60,17 @@ def test_add_new_raw_file_to_db_creates_new_file_when_file_does_not_exist_with_c
 
 @patch("shared.db.interface.connect_db")
 @patch("shared.db.interface.RawFile")
-def test_get_raw_files_by_names_from_db_returns_expected_names_when_files_exist(
+def test_get_raw_files_by_names_returns_expected_names_when_files_exist(
     mock_raw_file: MagicMock, mock_connect_db: MagicMock
 ) -> None:
-    """Test that get_raw_files_by_names_from_db returns the expected names when the files exist in the database."""
+    """Test that get_raw_files_by_names returns the expected names when the files exist in the database."""
     # given
     file1 = MagicMock()
     file2 = MagicMock()
     mock_raw_file.objects.filter.return_value = [file1, file2]
 
     # when
-    result = get_raw_files_by_names_from_db(["file1", "file2"])
+    result = get_raw_files_by_names(["file1", "file2"])
 
     # then
     assert result == [file1, file2]
@@ -124,14 +124,14 @@ def test_get_raw_files_by_age(
 
 @patch("shared.db.interface.connect_db")
 @patch("shared.db.interface.RawFile")
-def test_get_raw_files_by_names_from_db_returns_empty_list_when_no_files_exist(
+def test_get_raw_files_by_names_returns_empty_list_when_no_files_exist(
     mock_raw_file: MagicMock, mock_connect_db: MagicMock
 ) -> None:
-    """Test that get_raw_files_by_names_from_db returns an empty list when no files exist in the database."""
+    """Test that get_raw_files_by_names returns an empty list when no files exist in the database."""
     # given
     mock_raw_file.objects.filter.return_value = []
     # when
-    result = get_raw_files_by_names_from_db(["file1", "file2"])
+    result = get_raw_files_by_names(["file1", "file2"])
     # then
     assert result == []
     mock_connect_db.assert_called_once()
@@ -139,15 +139,15 @@ def test_get_raw_files_by_names_from_db_returns_empty_list_when_no_files_exist(
 
 @patch("shared.db.interface.connect_db")
 @patch("shared.db.interface.RawFile")
-def test_get_raw_files_by_names_from_db_returns_only_existing_files_when_some_files_do_not_exist(
+def test_get_raw_files_by_names_returns_only_existing_files_when_some_files_do_not_exist(
     mock_raw_file: MagicMock, mock_connect_db: MagicMock
 ) -> None:
-    """Test that get_raw_files_by_names_from_db returns only the names of the files that exist in the database."""
+    """Test that get_raw_files_by_names returns only the names of the files that exist in the database."""
     # given
     file1 = MagicMock()
     mock_raw_file.objects.filter.return_value = [file1]
     # when
-    result = get_raw_files_by_names_from_db(["file1", "file2"])
+    result = get_raw_files_by_names(["file1", "file2"])
     # then
     assert result == [file1]
     mock_connect_db.assert_called_once()
@@ -204,15 +204,13 @@ def test_add_metrics_to_raw_file_happy_path(
 
 @patch("shared.db.interface.connect_db")
 @patch("shared.db.interface.Project")
-def test_add_new_project_to_db(
-    mock_project: MagicMock, mock_connect_db: MagicMock
-) -> None:
-    """Test that add_new_project_to_db adds a new project to the database."""
+def test_add_project(mock_project: MagicMock, mock_connect_db: MagicMock) -> None:
+    """Test that add_project adds a new project to the database."""
     # given
     mock_project.return_value.save.side_effect = None
 
     # when
-    add_new_project_to_db(
+    add_project(
         project_id="P1234", name="new project", description="some project description"
     )
 
@@ -247,10 +245,10 @@ def test_get_all_project_ids(
 @patch("shared.db.interface.connect_db")
 @patch("shared.db.interface.Settings")
 @patch("shared.db.interface.Project")
-def test_add_new_settings_to_db_first(
+def test_add_settings_first(
     mock_project: MagicMock, mock_settings: MagicMock, mock_connect_db: MagicMock
 ) -> None:
-    """Test that add_new_settings_to_db adds new settings to the database (first setting)."""
+    """Test that add_settings adds new settings to the database (first setting)."""
     # given
     mock_project_from_db = MagicMock()
     mock_project.objects.get.return_value = mock_project_from_db
@@ -258,7 +256,7 @@ def test_add_new_settings_to_db_first(
     mock_settings.objects.return_value.first.return_value = None
 
     # when
-    add_new_settings_to_db(
+    add_settings(
         project_id="P1234",
         name="new settings",
         fasta_file_name="fasta_file",
@@ -283,10 +281,10 @@ def test_add_new_settings_to_db_first(
 @patch("shared.db.interface.connect_db")
 @patch("shared.db.interface.Settings")
 @patch("shared.db.interface.Project")
-def test_add_new_settings_to_db_not_first(
+def test_add_settings_not_first(
     mock_project: MagicMock, mock_settings: MagicMock, mock_connect_db: MagicMock
 ) -> None:
-    """Test that add_new_settings_to_db adds new settings to the database (not the first setting)."""
+    """Test that add_settings adds new settings to the database (not the first setting)."""
     # given
     mock_project_from_db = MagicMock()
     mock_project.objects.get.return_value = mock_project_from_db
@@ -295,7 +293,7 @@ def test_add_new_settings_to_db_not_first(
     mock_settings.objects.return_value.all.return_value.count.return_value = 41
 
     # when
-    add_new_settings_to_db(
+    add_settings(
         project_id="P1234",
         name="new settings",
         fasta_file_name="fasta_file",

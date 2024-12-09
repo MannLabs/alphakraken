@@ -67,7 +67,7 @@ def test_add_new_project_form_submission(
     mock_df: MagicMock,  # noqa: ARG001
     mock_get: MagicMock,  # noqa: ARG001
 ) -> None:
-    """Test that add_new_project_to_db is called with correct arguments when form is submitted."""
+    """Test that add_project is called with correct arguments when form is submitted."""
     # given
     # project_id = "P1234"
     # name = "new project"
@@ -75,7 +75,7 @@ def test_add_new_project_form_submission(
 
     # when
     # Problem 1: this patching seems to interfere with the form
-    #    with patch("pages.projects.add_new_project_to_db") as mock_add_new_project_to_db:
+    #    with patch("pages.projects.add_project") as mock_add_project:
     at = AppTest.from_file(f"{APP_FOLDER}/pages/projects.py").run()
 
     # Problem 2: this does not do anything on the form:

@@ -45,7 +45,7 @@ def get_status_data() -> QuerySet:
     """Connect to the database and return the QuerySets for KrakenStatus."""
     _log("Connecting to the database")
     connect_db()
-    _log("Retrieving all raw file and metrics data")
+    _log("Retrieving all status data")
     return KrakenStatus.objects
 
 
@@ -54,7 +54,6 @@ def get_project_data() -> QuerySet:
     _log("Connecting to the database")
     connect_db()
     _log("Retrieving all project data")
-
     return Project.objects
 
 
@@ -63,7 +62,6 @@ def get_settings_data() -> QuerySet:
     _log("Connecting to the database")
     connect_db()
     _log("Retrieving all settings data")
-
     return Settings.objects
 
 

@@ -23,7 +23,6 @@ def _re_filter(text: Any, filter_: str) -> bool:  # noqa: ANN401
     return bool(re.search(filter_, str(text), re.IGNORECASE))
 
 
-# TODO: if filter is set, set age filter to youngest file
 def show_filter(
     df: pd.DataFrame,
     *,
@@ -83,7 +82,7 @@ def show_filter(
                         .split(",")
                     )
 
-                if column is not None and column in df.columns:
+                if column is not None:
                     if upper and lower:
                         new_mask = df[column].map(
                             lambda x: float(lower) <= float(x) <= float(upper)
@@ -93,7 +92,7 @@ def show_filter(
                 else:
                     new_mask = df.map(lambda x: _re_filter(x, filter_)).any(axis=1)
                     new_mask |= df.index.map(lambda x: _re_filter(x, filter_))
-            except (re.error, ValueError) as e:
+            except (re.error, ValueError, KeyError) as e:
                 errors.append(
                     f"Could not parse filter {filter_ }: ignoring it. {type(e)}: '{e}'"
                 )

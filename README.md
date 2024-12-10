@@ -508,7 +508,6 @@ Instead of interacting with multiple services (by using `--profile`), you can al
 e.g.
 ```bash
 ./compose.sh down airflow-worker-test2
-./compose.sh restart airflow-worker-test2
 ./compose.sh up airflow-worker-test2 --build -d
 ```
 

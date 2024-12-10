@@ -17,7 +17,7 @@ from shared.db.models import KrakenStatus, Metrics, Project, RawFile, Settings
 # Considering memory it should currently be fine to have all data cached.
 # Command for clearing the cache:  get_all_data.clear()
 @st.cache_data(ttl=120)
-def get_raw_file_and_metrics_data(max_age_in_days: int) -> tuple[QuerySet, QuerySet]:
+def get_raw_file_and_metrics_data(max_age_in_days: float) -> tuple[QuerySet, QuerySet]:
     """Return from the database the QuerySets for RawFile and Metrics for files younger than max_age_in_days."""
     _log("Connecting to the database")
     connect_db()

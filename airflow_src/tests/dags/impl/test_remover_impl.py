@@ -227,9 +227,21 @@ def test_check_file_success(
 
 
 @patch("dags.impl.remover_impl.get_file_size")
-def test_check_file_not_existing(mock_get_file_size: MagicMock) -> None:
-    """Test that _check_file raises FileRemovalError when file doesn't exist."""
+def test_check_file_not_existing_on_instrument_backup(
+    mock_get_file_size: MagicMock,
+) -> None:
+    """Test that _check_file raises FileRemovalError when file_path_to_remove doesn't exist."""
     mock_get_file_size.side_effect = FileNotFoundError
+
+    # when
+    with pytest.raises(FileRemovalError):
+        _check_file(MagicMock(), MagicMock(), MagicMock())
+
+
+@patch("dags.impl.remover_impl.get_file_size")
+def test_check_file_not_existing_on_pool_backup(mock_get_file_size: MagicMock) -> None:
+    """Test that _check_file raises correctly when file_path_pool_backup does not exist."""
+    mock_get_file_size.side_effect = [100, FileNotFoundError]
 
     # when
     with pytest.raises(FileRemovalError):

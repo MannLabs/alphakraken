@@ -504,9 +504,12 @@ Find all files for a given instrument with a given status that are younger than 
 ```
 
 ### Some useful Docker commands
-Instead of referencing a profile (which can refer to multiple services), you can also interact with individual services:
+Instead of interacting with multiple services (by using `--profile`), you can also interact only with individual services,
+e.g.
 ```bash
-./compose.sh down airflow-webserver
+./compose.sh down airflow-worker-test2
+./compose.sh restart airflow-worker-test2
+./compose.sh up airflow-worker-test2 --build -d
 ```
 
 See state of containers
@@ -544,9 +547,13 @@ Clean up all containers, volumes, and images
 If you encounter problems with mounting or any sorts of caching issues, try to replace
 `--build` with `--build --force-recreate`.
 
-Restarting Docker
+As a last resort, try restarting Docker (this will kill all running containers!)
 ```
 systemctl restart docker
+```
+or the whole machine:
+```
+sudo reboot now
 ```
 
 ### Cluster load management

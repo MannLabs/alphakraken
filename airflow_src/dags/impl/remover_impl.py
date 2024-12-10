@@ -268,10 +268,6 @@ def _remove_folder(folder_path_to_remove: Path) -> None:
             ) from e
 
 
-# maybe rethink once more: file selection and removal should be closer together? but the
-# there's chances that the disk is wiped in certain cases
-
-
 def _check_file(
     file_path_to_remove: Path,
     file_path_pool_backup: Path,
@@ -292,8 +288,6 @@ def _check_file(
     except FileNotFoundError as e:
         raise FileRemovalError(f"File {file_path_to_remove} does not exist.") from e
 
-    # ask tim to ask bruker about these non-deleteable method files?
-
     # Check 1: the single file to delete is present on the pool-backup
     logging.debug(f"Comparing {file_path_to_remove=} to {file_path_pool_backup=} ..")
 
@@ -307,7 +301,6 @@ def _check_file(
             f"File {file_path_to_remove} mismatch with pool backup: {size_in_pool_backup=} vs {size_on_instrument=}"
         )
 
-    # whoe last 3 file names in slack
     # Check 2: single file to delete is the one we have in the DB
 
     # /opt/airflow/mounts/backup/test1/2024_08/test_file_SA_P123_2.raw => test1/2024_08/test_file_SA_P123_2.raw

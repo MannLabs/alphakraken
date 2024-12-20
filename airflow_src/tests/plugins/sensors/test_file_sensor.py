@@ -107,6 +107,8 @@ def test_check_health_when_all_paths_exist(
     """Test that the health check passes when both paths exist."""
     mock_path = MagicMock()
     mock_path.exists.side_effect = [True, True, True]
+    mock_path.is_mount.side_effect = [True, True, True]
+    mock_path.rglob.side_effect = [["file1"], ["file1"], ["file1"]]
     mock_get_data_path.return_value = mock_path
     mock_get_backup_path.return_value = mock_path
     mock_get_output_path.return_value = mock_path
@@ -144,11 +146,13 @@ def test_check_health_when_no_paths_exist(
     mock_get_disk_usage.return_value = (123, 456, 789)
 
     # when
-    _check_health("instrument_id")
+    _check_health(
+        "instrument_id"
+    )  # TODO: this could be tested separately, is_mount & has_files cases are missing
 
     mock_update_status.assert_called_once_with(
         "instrument_id",
         status="error",
-        status_details="data path not healthy (check1=False check2=None check3=None); backup path not healthy (check1=False check2=None check3=None); output path not healthy (check1=False check2=None check3=None)",
+        status_details="data path not healthy (exists=False is_mount=None has_files=None); backup path not healthy (exists=False is_mount=None has_files=None); output path not healthy (exists=False is_mount=None has_files=None)",
         free_space_gb=789,
     )

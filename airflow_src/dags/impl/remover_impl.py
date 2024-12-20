@@ -290,9 +290,13 @@ def _check_file(
 
     # Check 1: the single file to delete is present on the pool-backup
     logging.debug(f"Comparing {file_path_to_remove=} to {file_path_pool_backup=} ..")
-    if size_on_instrument != (
-        size_in_pool_backup := get_file_size(file_path_pool_backup, verbose=False)
-    ):
+
+    try:
+        size_in_pool_backup = get_file_size(file_path_pool_backup, verbose=False)
+    except FileNotFoundError as e:
+        raise FileRemovalError(f"File {file_path_pool_backup} does not exist.") from e
+
+    if size_on_instrument != size_in_pool_backup:
         raise FileRemovalError(
             f"File {file_path_to_remove} mismatch with pool backup: {size_in_pool_backup=} vs {size_on_instrument=}"
         )

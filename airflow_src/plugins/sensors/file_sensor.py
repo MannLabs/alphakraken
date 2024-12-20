@@ -57,17 +57,19 @@ def _check_health(instrument_id: str) -> None:
 
 def _check_path_health(path: Path, description: str, status_details: list[str]) -> None:
     """Check the health of a path and add status details if necessary."""
-    check2 = check3 = None
+    is_mount = has_files = None
 
     # Note: using rglob could give false negatives if the folder is empty
     if (
-        not (check1 := path.exists())
-        or not (check2 := path.is_mount())
-        or not (check3 := path.rglob("*"))
+        not (exists := path.exists())
+        or not (is_mount := path.is_mount())
+        or not (has_files := (any(True for _ in path.rglob("*"))))
     ):
-        logging.error(f"Path {path} failed checks: {check1=} {check2=} {check3=}")
+        logging.warning(
+            f"Path {path} failed checks: {exists=} {is_mount=} {has_files=}"
+        )
         status_details.append(
-            f"{description} path not healthy ({check1=} {check2=} {check3=})"
+            f"{description} path not healthy ({exists=} {is_mount=} {has_files=})"
         )
 
 
@@ -95,6 +97,10 @@ class FileCreationSensor(BaseSensorOperator):
         logging.info(
             f"Checking for new files since start of this DAG run in {self._raw_file_monitor_wrapper.instrument_path}"
         )
+
+        # check health upfront here, otherwise some errors might be reported in an ugly way in the next line
+        _check_health(self._instrument_id)
+        self._latest_health_check_timestamp = get_timestamp()
 
         self._initial_dir_contents = (
             self._raw_file_monitor_wrapper.get_raw_files_on_instrument()

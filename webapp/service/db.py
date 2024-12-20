@@ -13,11 +13,64 @@ from shared.db.engine import connect_db
 from shared.db.models import KrakenStatus, Metrics, Project, RawFile, Settings
 
 
+def get_raw_files_for_status_df(
+    max_age_in_days: float,
+) -> pd.DataFrame:
+    """Get a DataFrame optimized for status display: only minimal set of information is extracted.
+
+    :param max_age_in_days: Only consider files younger than this
+    :return: DataFrame with all non-terminal entries, sorted by creation date
+    """
+    connect_db()
+    min_created_at = pd.Timestamp(
+        datetime.now(tz=pytz.UTC) - timedelta(days=max_age_in_days)
+    )
+
+    raw_files_db = (
+        RawFile.objects(
+            created_at__gte=min_created_at,
+        )
+        .only(
+            "created_at",
+            "updated_at_",
+            "instrument_id",
+            "status",
+            "status_details",
+        )
+        .order_by("-created_at")
+    )
+
+    # Convert to DataFrame with proper column order
+    df = pd.DataFrame(
+        [
+            {
+                "instrument_id": r.instrument_id,
+                "created_at": r.created_at,
+                "updated_at_": r.updated_at_,
+                "status": r.status,
+                "status_details": r.status_details,
+            }
+            for r in raw_files_db
+        ]
+    )
+
+    if len(df) == 0:
+        return df
+
+    # Ensure consistent order and reset index
+    df.sort_values(
+        ["instrument_id", "created_at"], ascending=[True, False], inplace=True
+    )
+    df.reset_index(drop=True, inplace=True)
+
+    return df
+
+
 # Cached values are accessible to all users across all sessions.
 # Considering memory it should currently be fine to have all data cached.
 # Command for clearing the cache:  get_all_data.clear()
 @st.cache_data(ttl=120)
-def get_raw_file_and_metrics_data(max_age_in_days: int) -> tuple[QuerySet, QuerySet]:
+def get_raw_file_and_metrics_data(max_age_in_days: float) -> tuple[QuerySet, QuerySet]:
     """Return from the database the QuerySets for RawFile and Metrics for files younger than max_age_in_days."""
     _log("Connecting to the database")
     connect_db()
@@ -45,7 +98,7 @@ def get_status_data() -> QuerySet:
     """Connect to the database and return the QuerySets for KrakenStatus."""
     _log("Connecting to the database")
     connect_db()
-    _log("Retrieving all raw file and metrics data")
+    _log("Retrieving all status data")
     return KrakenStatus.objects
 
 
@@ -54,7 +107,6 @@ def get_project_data() -> QuerySet:
     _log("Connecting to the database")
     connect_db()
     _log("Retrieving all project data")
-
     return Project.objects
 
 
@@ -63,7 +115,6 @@ def get_settings_data() -> QuerySet:
     _log("Connecting to the database")
     connect_db()
     _log("Retrieving all settings data")
-
     return Settings.objects
 
 

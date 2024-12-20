@@ -10,8 +10,7 @@ from service.components import (
     show_status_plot,
     show_time_in_status_table,
 )
-from service.data_handling import get_combined_raw_files_and_metrics_df
-from service.db import df_from_db_data, get_status_data
+from service.db import df_from_db_data, get_raw_files_for_status_df, get_status_data
 from service.utils import DEFAULT_MAX_AGE_STATUS, QueryParams, _log
 
 _log(f"loading {__file__}")
@@ -66,7 +65,9 @@ def _display_status(combined_df: pd.DataFrame) -> None:
         _log(e, "Cannot not display status information.")
 
 
-combined_df = get_combined_raw_files_and_metrics_df(
+combined_df = get_raw_files_for_status_df(
+    # restricting the data retrieval also for the status page could in principle lead to some instruments not
+    # being displayed anymore (after a long standstill), but this is a rare case:
     int(st.query_params.get(QueryParams.MAX_AGE, DEFAULT_MAX_AGE_STATUS))
 )
 

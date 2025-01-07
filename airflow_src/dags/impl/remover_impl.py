@@ -181,10 +181,6 @@ def _safe_remove_files(raw_file_id: str) -> None:
         - compares* it to the corresponding file in the pool backup folder (to verify that the backup was successful)
         - compares* it to the corresponding file in the DB (to verify that it is actually the file that should be deleted)
     - only if all checks pass for all files associated with a raw file, the file is deleted.
-
-    *Note: To avoid extra network traffic, a size comparison instead of hash comparison is used for these checks.
-        Given that the instrument Backup folder contains only files that have passed a hash check against the
-        pool backup, this should be sufficient.
     """
     raw_file = get_raw_file_by_id(raw_file_id)
 

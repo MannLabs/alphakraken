@@ -221,7 +221,7 @@ def _safe_remove_files(raw_file_id: str) -> None:
 
     if file_paths_to_remove:
         if base_raw_file_path_to_remove is not None:  # Bruker case
-            _prepare_folder(base_raw_file_path_to_remove)
+            _change_folder_permissions(base_raw_file_path_to_remove)
 
         _remove_files(file_paths_to_remove)
 
@@ -229,17 +229,15 @@ def _safe_remove_files(raw_file_id: str) -> None:
         _remove_folder(base_raw_file_path_to_remove)
 
 
-def _prepare_folder(base_raw_file_path_to_remove: Path) -> None:
+def _change_folder_permissions(base_raw_file_path_to_remove: Path) -> None:
     """Make all subfolders in base_raw_file_path_to_remove writeable.
 
     For reasons known only to Bruker, the .m subfolder carrying the methods is not writeable by default (permissions dr-xr-xr-x)
     """
     for sub_path in base_raw_file_path_to_remove.rglob("*"):
         if sub_path.is_dir():
-            try:
-                sub_path.chmod(0o777)
-            except OSError as e:  # OSError: [Errno 30] Read-only file system
-                logging.warning(f"Error making {sub_path} writeable: {e}")
+            logging.info(f"Making {sub_path} writeable..")
+            sub_path.chmod(0o777)
 
 
 def _remove_files(file_paths_to_remove: list[Path]) -> None:

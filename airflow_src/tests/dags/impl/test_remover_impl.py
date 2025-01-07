@@ -9,6 +9,7 @@ from airflow.exceptions import AirflowFailException
 from common.keys import XComKeys
 from dags.impl.remover_impl import (
     FileRemovalError,
+    _change_folder_permissions,
     _check_file,
     _decide_on_raw_files_to_remove,
     _delete_empty_directory,
@@ -377,11 +378,13 @@ def test_remove_folder_non_production(mock_get_env: MagicMock) -> None:
 @patch("dags.impl.remover_impl.get_raw_file_by_id")
 @patch("dags.impl.remover_impl.RawFileWrapperFactory")
 @patch("dags.impl.remover_impl._check_file")
+@patch("dags.impl.remover_impl._change_folder_permissions")
 @patch("dags.impl.remover_impl._remove_files")
 @patch("dags.impl.remover_impl._remove_folder")
-def test_safe_remove_files_success(
+def test_safe_remove_files_success(  # noqa: PLR0913
     mock_remove_folder: MagicMock,
     mock_remove_files: MagicMock,
+    mock_change_folder_permissions: MagicMock,
     mock_check_file: MagicMock,
     mock_wrapper_factory: MagicMock,
     mock_get_raw_file: MagicMock,
@@ -392,7 +395,7 @@ def test_safe_remove_files_success(
     mock_raw_file.file_info = {"file1": (100, "hash1")}
     mock_get_raw_file.return_value = mock_raw_file
 
-    mock_path_to_delete = MagicMock(wraps=Path("/instrument/file1"))
+    mock_path_to_delete = MagicMock(wraps=Path("/instrument/Backup/file1"))
     mock_path_to_delete.exists.return_value = True
 
     mock_wrapper = MagicMock()
@@ -409,8 +412,57 @@ def test_safe_remove_files_success(
     mock_check_file.assert_called_once_with(
         mock_path_to_delete, Path("/backup/file1"), mock_raw_file.file_info
     )
+    mock_change_folder_permissions.assert_not_called()  # because get_folder_to_remove returned None
     mock_remove_files.assert_called_once_with([mock_path_to_delete])
     mock_remove_folder.assert_not_called()  # because get_folder_to_remove returned None
+    mock_wrapper_factory.create_write_wrapper.assert_called_once_with(
+        mock_raw_file, path_provider=RemovePathProvider
+    )
+
+
+@patch("dags.impl.remover_impl.get_raw_file_by_id")
+@patch("dags.impl.remover_impl.RawFileWrapperFactory")
+@patch("dags.impl.remover_impl._check_file")
+@patch("dags.impl.remover_impl._change_folder_permissions")
+@patch("dags.impl.remover_impl._remove_files")
+@patch("dags.impl.remover_impl._remove_folder")
+def test_safe_remove_files_folder_success(  # noqa: PLR0913
+    mock_remove_folder: MagicMock,
+    mock_remove_files: MagicMock,
+    mock_change_folder_permissions: MagicMock,
+    mock_check_file: MagicMock,
+    mock_wrapper_factory: MagicMock,
+    mock_get_raw_file: MagicMock,
+) -> None:
+    """Test that _safe_remove_files successfully removes files and the containing folders when all checks pass."""
+    mock_raw_file = MagicMock()
+    mock_raw_file.instrument_id = "instrument1"
+    mock_raw_file.file_info = {"file1": (100, "hash1")}
+    mock_get_raw_file.return_value = mock_raw_file
+
+    mock_path_to_delete = MagicMock(wraps=Path("/instrument/Backup/file1"))
+    mock_path_to_delete.exists.return_value = True
+
+    mock_wrapper = MagicMock()
+    mock_wrapper.get_files_to_remove.return_value = {
+        mock_path_to_delete: Path("/backup/file1")
+    }
+    mock_wrapper.get_folder_to_remove.return_value = Path("/instrument/Backup/file1")
+    mock_wrapper_factory.create_write_wrapper.return_value = mock_wrapper
+
+    # when
+    _safe_remove_files("raw_file_id")
+
+    # then
+    mock_check_file.assert_called_once_with(
+        mock_path_to_delete, Path("/backup/file1"), mock_raw_file.file_info
+    )
+    mock_change_folder_permissions.assert_called_once_with(
+        Path("/instrument/Backup/file1")
+    )
+    mock_remove_files.assert_called_once_with([mock_path_to_delete])
+    mock_remove_folder.assert_called_once_with(Path("/instrument/Backup/file1"))
+
     mock_wrapper_factory.create_write_wrapper.assert_called_once_with(
         mock_raw_file, path_provider=RemovePathProvider
     )
@@ -499,6 +551,23 @@ def test_delete_empty_directory() -> None:
     # then
     mock_subdir.rmdir.assert_called_once()
     mock_dir.rmdir.assert_called_once()
+
+
+def test_change_folder_permissions() -> None:
+    """Test that _change_folder_permissions changes directory paths' permissions correctly."""
+    base_path = MagicMock(spec=Path)  # Path('/some/path')
+    sub_path_1 = MagicMock(spec=Path)
+    sub_path_2 = MagicMock(spec=Path)
+    sub_path_1.is_dir.return_value = True
+    sub_path_2.is_dir.return_value = False
+    base_path.rglob.return_value = [sub_path_1, sub_path_2]
+
+    # when
+    _change_folder_permissions(base_path)
+
+    base_path.rglob.assert_called_once_with("*")
+    sub_path_1.chmod.assert_called_once_with(0o777)
+    sub_path_2.chmod.assert_not_called()
 
 
 @patch("dags.impl.remover_impl.get_xcom")

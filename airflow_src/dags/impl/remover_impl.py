@@ -209,18 +209,29 @@ def _safe_remove_files(raw_file_id: str) -> None:
 
         file_paths_to_remove.append(file_path_to_remove)
 
+    base_raw_file_path_to_remove = remove_wrapper.get_folder_to_remove()
+
     if file_paths_to_remove:
+        if base_raw_file_path_to_remove is not None:  # Bruker case
+            _prepare_folder(base_raw_file_path_to_remove)
+
         _remove_files(file_paths_to_remove)
 
-    if (
-        base_raw_file_path_to_remove := remove_wrapper.get_folder_to_remove()
-    ) is not None:
+    if base_raw_file_path_to_remove is not None:  # Bruker case
         _remove_folder(base_raw_file_path_to_remove)
 
 
-def _remove_files(
-    file_paths_to_remove: list[Path],
-) -> None:
+def _prepare_folder(base_raw_file_path_to_remove: Path) -> None:
+    """Make all subfolders in base_raw_file_path_to_remove writeable.
+
+    For reasons known only to Bruker, the .m subfolder carrying the methods is not writeable by default (permissions dr-xr-xr-x)
+    """
+    for sub_path in base_raw_file_path_to_remove.rglob("*"):
+        if sub_path.is_dir():
+            sub_path.chmod(0o777)
+
+
+def _remove_files(file_paths_to_remove: list[Path]) -> None:
     """Remove files.
 
     :param file_paths_to_remove: list of absolute file paths to remove
@@ -236,7 +247,7 @@ def _remove_files(
     logging.info(f"removing files {file_paths_to_remove}")
     try:
         for file_path_to_remove in file_paths_to_remove:
-            f"Removing file {file_path_to_remove} .."
+            logging.info(f"Removing file {file_path_to_remove} ..")
             file_path_to_remove.unlink()
     except Exception as e:
         raise FileRemovalError(f"Error removing {file_path_to_remove}: {e}") from e

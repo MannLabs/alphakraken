@@ -148,14 +148,15 @@ def _get_total_size(raw_file: RawFile) -> float:
 
     files_to_remove = remove_wrapper.get_files_to_remove()
 
-    if not files_to_remove:
-        raise FileRemovalError("No files to remove found")
-
     total_size_bytes = 0.0
+
     for (
         file_path_to_remove,
         file_path_pool_backup,
     ) in files_to_remove.items():
+        if not file_path_to_remove.exists():
+            continue  # file was already removed
+
         _check_file(
             file_path_to_remove,
             file_path_pool_backup,
@@ -294,9 +295,6 @@ def _check_file(
 
     :raises: FileCheckError if one of the checks fails or if file is not present.
     """
-    if not file_path_to_remove.exists():
-        raise FileRemovalError(f"File {file_path_to_remove} does not exist.")
-
     # Check 1: the single file to delete is present on the pool-backup
     if not file_path_pool_backup.exists():
         raise FileRemovalError(f"File {file_path_pool_backup} does not exist.")

@@ -202,9 +202,8 @@ def test_get_total_size_no_files_returned(
 
     mock_raw_file = MagicMock()
 
-    with pytest.raises(FileRemovalError):
-        # when
-        assert _get_total_size(mock_raw_file) == 0
+    # when
+    assert _get_total_size(mock_raw_file) == 0
 
 
 @patch("dags.impl.remover_impl.get_file_size")
@@ -236,26 +235,11 @@ def test_check_file_success(
 
 
 @patch("dags.impl.remover_impl.get_file_size")
-def test_check_file_not_existing_on_instrument_backup(
-    mock_get_file_size: MagicMock,  # noqa: ARG001
-) -> None:
-    """Test that _check_file raises FileRemovalError when file_path_to_remove doesn't exist."""
-    file_path_to_remove = MagicMock(wraps=Path("/instrument/file.raw"))
-    file_path_to_remove.exists.return_value = False
-    file_path_to_remove.__str__.return_value = "some_file"
-
-    # when
-    with pytest.raises(FileRemovalError, match="File some_file does not exist."):
-        _check_file(file_path_to_remove, MagicMock(), MagicMock())
-
-
-@patch("dags.impl.remover_impl.get_file_size")
 def test_check_file_not_existing_on_pool_backup(
     mock_get_file_size: MagicMock,  # noqa: ARG001
 ) -> None:
     """Test that _check_file raises correctly when file_path_pool_backup does not exist."""
-    file_path_to_remove = MagicMock(wraps=Path("/instrument/file.raw"))
-    file_path_to_remove.exists.return_value = True
+    file_path_to_remove = Path("/instrument/file.raw")
     file_path_pool_backup = MagicMock(wraps=Path("/backup/instrument/file.raw"))
     file_path_pool_backup.exists.return_value = False
     file_path_pool_backup.__str__.return_value = "some_file"
@@ -285,8 +269,7 @@ def test_check_file_mismatch_instrument(
     mock_backup_path.return_value = Path("/backup")
     mock_get_file_size.return_value = file_size
     mock_get_file_hash.return_value = file_hash
-    file_path_to_remove = MagicMock(wraps=Path("/instrument/file.raw"))
-    file_path_to_remove.exists.return_value = True
+    file_path_to_remove = Path("/instrument/file.raw")
     file_path_pool_backup = MagicMock(wraps=Path("/backup/instrument/file.raw"))
     file_path_pool_backup.exists.return_value = True
 

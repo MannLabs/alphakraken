@@ -119,9 +119,12 @@ def _decide_on_raw_files_to_remove(
         logging.info(f"Checking {raw_file.id=} {raw_file.created_at=}")
 
         try:
-            total_size = _get_total_size(raw_file)
+            total_size, num_files = _get_total_size(raw_file)
         except FileRemovalError as e:
             logging.warning(f"Skipping {raw_file.id}: {e}")
+            continue
+
+        if not num_files:
             continue
 
         logging.info(f"Adding {raw_file.id=} {total_size=} {sum_size_gb=}")
@@ -135,7 +138,7 @@ def _decide_on_raw_files_to_remove(
     return raw_file_ids_to_remove
 
 
-def _get_total_size(raw_file: RawFile) -> float:
+def _get_total_size(raw_file: RawFile) -> tuple[float, int]:
     """Return total size of all files associated with a raw_file that are actually on the disk.
 
     This calculates the total size of all files associated with a raw file that are actually on the disk.
@@ -149,6 +152,7 @@ def _get_total_size(raw_file: RawFile) -> float:
     files_to_remove = remove_wrapper.get_files_to_remove()
 
     total_size_bytes = 0.0
+    num_files = 0
 
     for (
         file_path_to_remove,
@@ -164,8 +168,9 @@ def _get_total_size(raw_file: RawFile) -> float:
         )
 
         total_size_bytes += get_file_size(file_path_to_remove, verbose=False)
+        num_files += 1
 
-    return total_size_bytes
+    return total_size_bytes, num_files
 
 
 def _safe_remove_files(raw_file_id: str) -> None:

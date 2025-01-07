@@ -127,9 +127,9 @@ def test_decide_on_raw_files_to_remove_ok(
 
     mock_get_total_size.side_effect = [
         FileRemovalError,
-        70 * 1024**3,
-        30 * 1024**3,
-        30 * 1024**3,
+        (70 * 1024**3, 1),
+        (30 * 1024**3, 1),
+        (30 * 1024**3, 1),
     ]
 
     mock_get_raw_files_by_age.return_value = [
@@ -190,7 +190,7 @@ def test_get_total_size_ok(
     mock_raw_file = MagicMock()
 
     # when
-    assert _get_total_size(mock_raw_file) == 101.0
+    assert _get_total_size(mock_raw_file) == (101.0, 2)
 
 
 @patch("dags.impl.remover_impl.RawFileWrapperFactory")
@@ -203,7 +203,7 @@ def test_get_total_size_no_files_returned(
     mock_raw_file = MagicMock()
 
     # when
-    assert _get_total_size(mock_raw_file) == 0
+    assert _get_total_size(mock_raw_file) == (0, 0)
 
 
 @patch("dags.impl.remover_impl.get_file_size")

@@ -17,7 +17,7 @@ from common.settings import (
     get_internal_instrument_data_path,
 )
 from common.utils import get_airflow_variable, get_env_variable, get_xcom, put_xcom
-from file_handling import get_disk_usage, get_file_size
+from file_handling import get_disk_usage, get_file_hash, get_file_size
 from raw_file_wrapper_factory import RawFileWrapperFactory, RemovePathProvider
 
 from shared.db.interface import get_raw_file_by_id, get_raw_files_by_age
@@ -273,9 +273,13 @@ def _check_file(
     file_path_pool_backup: Path,
     file_info_in_db: dict[str, tuple[float, str]],
 ) -> None:
-    """Check that the file to remove is present in the pool backup and has the same size as in the DB.
+    """Check that the file to remove is present in the pool backup and has the same size and hash as in the DB.
 
     Here, "file" means every single file that is part of a raw file.
+
+    We first compare sizes, then hashes, to prevent unnecessary network traffic.
+    Calculating hashes is the costly part: the file needs to be transferred over the network.
+    Unfortunately, the check only for file size is not sufficient to unambiguously identify a file.
 
     :param file_path_to_remove: absolute path to file to remove
     :param file_path_pool_backup: absolute path to location of file in pool backup
@@ -283,36 +287,43 @@ def _check_file(
 
     :raises: FileCheckError if one of the checks fails or if file is not present.
     """
-    try:
-        size_on_instrument = get_file_size(file_path_to_remove, verbose=False)
-    except FileNotFoundError as e:
-        raise FileRemovalError(f"File {file_path_to_remove} does not exist.") from e
+    if not file_path_to_remove.exists():
+        raise FileRemovalError(f"File {file_path_to_remove} does not exist.")
 
     # Check 1: the single file to delete is present on the pool-backup
+    if not file_path_pool_backup.exists():
+        raise FileRemovalError(f"File {file_path_pool_backup} does not exist.")
+
     logging.debug(f"Comparing {file_path_to_remove=} to {file_path_pool_backup=} ..")
-
-    try:
-        size_in_pool_backup = get_file_size(file_path_pool_backup, verbose=False)
-    except FileNotFoundError as e:
-        raise FileRemovalError(f"File {file_path_pool_backup} does not exist.") from e
-
-    if size_on_instrument != size_in_pool_backup:
-        raise FileRemovalError(
-            f"File {file_path_to_remove} mismatch with pool backup: {size_in_pool_backup=} vs {size_on_instrument=}"
-        )
-
-    # Check 2: single file to delete is the one we have in the DB
 
     # /opt/airflow/mounts/backup/test1/2024_08/test_file_SA_P123_2.raw => test1/2024_08/test_file_SA_P123_2.raw
     rel_file_path = str(file_path_pool_backup.relative_to(get_internal_backup_path()))
+    size_in_db, hash_in_db = file_info_in_db.get(rel_file_path)
+
     logging.debug(f"Comparing {file_path_to_remove=} to DB ({rel_file_path}) ..")
-    if size_on_instrument != (
-        size_in_db := file_info_in_db.get(rel_file_path)[
-            0
-        ]  # first element of tuple (size, hash)
+
+    # Check 2: compare the single file to delete with the DB (hash)
+    # this checks that the fingerprints of the file to remove match those in the db (prevents deleting the wrong file)
+    size_to_remove = get_file_size(file_path_to_remove, verbose=False)
+    hash_to_remove = None
+    if (
+        size_to_remove != size_in_db
+        or (hash_to_remove := get_file_hash(file_path_to_remove)) != hash_in_db
     ):
         raise FileRemovalError(
-            f"File {rel_file_path} mismatch with instrument backup: {size_on_instrument=} vs {size_in_db=}"
+            f"File {rel_file_path} mismatch with instrument backup: {size_to_remove=} vs {size_in_db=}, {hash_to_remove=} vs {hash_in_db=}"
+        )
+
+    # Check 3: compare the single file to delete with the pool backup (hash)
+    # this essentially re-checks the fingerprints that have been calculated right after file copying, would fail if pool backup was corrupted
+    size_on_pool_backup = get_file_size(file_path_pool_backup, verbose=False)
+    hash_on_pool_backup = None
+    if (
+        size_on_pool_backup != size_in_db
+        or (hash_on_pool_backup := get_file_hash(file_path_pool_backup)) != hash_in_db
+    ):
+        raise FileRemovalError(
+            f"File {rel_file_path} mismatch with pool backup: {size_on_pool_backup=} vs {size_in_db=}, {hash_on_pool_backup=} vs {hash_in_db=}"
         )
 
 

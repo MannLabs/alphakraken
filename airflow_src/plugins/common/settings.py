@@ -57,9 +57,7 @@ ERROR_CODE_TO_STRING = {
     "_NEED_AT_LEAST_ONE_ARRAY": "need at least one array to concatenate",
     "_NO_OBJECTS_TO_CONCATENATE": "No objects to concatenate",
     "_DATA_IN_LOW_DIM_SUBSPACE": "The data appears to lie in a lower-dimensional subspace of the space in which it is expressed",
-    "_OBJECT_REFERENCE_NOT_SET": "Object reference not set to an instance of an object",
     "_NO_CONSISTENT_SUBCYCLE_LENGTH": "No consistent subcycle length",
-    "_FILE_IS_NOT_A_DATABASE": "file is not a database",
     "_TRAIN_SET_WILL_BE_EMPTY": "the resulting train set will be empty",
     "_CYCLE_NOT_CONSISTENT": "but does not consistent",
     "_NO_PSM_FILES": "No psm files accumulated",  # will become a known error in alphadia >1.7.2
@@ -70,7 +68,10 @@ ERROR_CODE_TO_STRING = {
     "_FIRST_ARRAY_ELEMENT_EMPTY": "first array argument cannot be empty",
     "_ARGMAX_OF_EMPTY_SEQUENCE": "attempt to get argmax of an empty sequence",
     "_INTERNAL_ERROR_CANDIDATE_CONFIG": "'CandidateConfig' object has no attribute 'reporter'",
-    "_COULD_NOT_OPEN_FILE": "could not be opened, is the file accessible",
+    # the following are deliberately not included as they require a manual check:
+    # "_FILE_IS_NOT_A_DATABASE": "file is not a database", # corrupt file? -> check if something went wrong with copying
+    # "_COULD_NOT_OPEN_FILE": "could not be opened, is the file accessible", # hints at nonexisting file -> manual intervention?
+    # "_OBJECT_REFERENCE_NOT_SET": "Object reference not set to an instance of an object", # corrupt file? -> check if something went wrong with copying
     # deliberately not including "DivisionByZero" here as it is too generic
 }
 

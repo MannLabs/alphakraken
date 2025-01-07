@@ -127,10 +127,11 @@ def _decide_on_raw_files_to_remove(
         if not num_files:
             continue
 
-        logging.info(f"Adding {raw_file.id=} {total_size=} {sum_size_gb=}")
+        logging.info(f"Adding {raw_file.id=} {total_size=} bytes {sum_size_gb=}")
         raw_file_ids_to_remove.append(raw_file.id)
         sum_size_gb += total_size * BYTES_TO_GB
         if sum_size_gb >= min_space_to_free_gb:
+            logging.info("Got enough files.")
             break
     else:
         logging.warning(f"Not enough files to remove, got only {sum_size_gb=}")
@@ -235,7 +236,10 @@ def _prepare_folder(base_raw_file_path_to_remove: Path) -> None:
     """
     for sub_path in base_raw_file_path_to_remove.rglob("*"):
         if sub_path.is_dir():
-            sub_path.chmod(0o777)
+            try:
+                sub_path.chmod(0o777)
+            except OSError as e:  # OSError: [Errno 30] Read-only file system
+                logging.warning(f"Error making {sub_path} writeable: {e}")
 
 
 def _remove_files(file_paths_to_remove: list[Path]) -> None:

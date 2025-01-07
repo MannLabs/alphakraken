@@ -50,7 +50,7 @@ def create_file_remover_dag() -> None:
             task_id=Tasks.REMOVE_RAW_FILES,
             python_callable=remove_raw_files,
             max_active_tis_per_dag=Concurrency.MAXNO_MOVE_RAW_FILE_TASKS_PER_DAG,
-            execution_timeout=timedelta(minutes=Timings.MOVE_RAW_FILE_TASK_TIMEOUT_M),
+            execution_timeout=timedelta(minutes=Timings.REMOVE_RAW_FILE_TASK_TIMEOUT_M),
         )
 
     get_files_to_remove_ >> remove_raw_files_

@@ -421,7 +421,7 @@ class BrukerRawFileWriteWrapper(RawFileWriteWrapper):
 
         For Bruker instruments, the folder to remove is the source folder of the raw data.
         """
-        return self._target_folder_path / self._target_file_name
+        return self._source_folder_path / self._source_file_name
 
 
 class RawFileWrapperFactory:

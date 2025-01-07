@@ -55,6 +55,11 @@ ERROR_CODE_TO_STRING = {
     "_FRAGMENT_MZ_TOLERANCE_MUST_BE_LESS_THAN": "fragment_mz_tolerance must be less than",
     "_PRECURSOR_MZ_TOLERANCE_MUST_BE_LESS_THAN": "precursor_mz_tolerance must be less than",
     "_NEED_AT_LEAST_ONE_ARRAY": "need at least one array to concatenate",
+    "_NO_OBJECTS_TO_CONCATENATE": "No objects to concatenate",
+    "_DATA_IN_LOW_DIM_SUBSPACE": "The data appears to lie in a lower-dimensional subspace of the space in which it is expressed",
+    "_OBJECT_REFERENCE_NOT_SET": "Object reference not set to an instance of an object",
+    "_NO_CONSISTENT_SUBCYCLE_LENGTH": "No consistent subcycle length",
+    "_FILE_IS_NOT_A_DATABASE": "file is not a database",
     "_TRAIN_SET_WILL_BE_EMPTY": "the resulting train set will be empty",
     "_CYCLE_NOT_CONSISTENT": "but does not consistent",
     "_NO_PSM_FILES": "No psm files accumulated",  # will become a known error in alphadia >1.7.2
@@ -90,7 +95,7 @@ class Timings:
 
     QUANTING_MONITOR_POKE_INTERVAL_S = 60
 
-    RAW_DATA_COPY_TASK_TIMEOUT_M = 12
+    RAW_DATA_COPY_TASK_TIMEOUT_M = 15  # large enough to not time out on big files, small enough to not block other tasks
 
     # this timeout needs to be big compared to the time scales defined in AcquisitionMonitor
     ACQUISITION_MONITOR_TIMEOUT_M = 180

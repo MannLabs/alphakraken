@@ -22,7 +22,7 @@ from plugins.common.settings import (
     get_internal_backup_path,
     get_internal_backup_path_for_instrument,
 )
-from plugins.file_handling import _get_file_hash, get_file_size
+from plugins.file_handling import get_file_hash, get_file_size
 from plugins.raw_file_wrapper_factory import RawFileWrapperFactory
 
 
@@ -75,7 +75,7 @@ def add_file_info(instrument_id: str, dry_run: bool = True) -> None:
         for dst_path in files_to_copy:
             # Calculate size and hash
             size = get_file_size(dst_path)
-            file_hash = _get_file_hash(dst_path)
+            file_hash = get_file_hash(dst_path)
 
             # Use the relative path as the key
             relative_path = dst_path.relative_to(backup_base_path)

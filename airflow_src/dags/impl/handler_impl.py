@@ -4,6 +4,7 @@ import logging
 import re
 from pathlib import Path
 
+from airflow.exceptions import AirflowFailException
 from airflow.models import TaskInstance
 from common.keys import DagContext, DagParams, Dags, OpArgs, XComKeys
 from common.settings import (
@@ -42,7 +43,9 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
     for src_path, dst_path in copy_wrapper.get_files_to_copy().items():
         dst_size, dst_hash = copy_file(src_path, dst_path)
         copied_files[dst_path] = (dst_size, dst_hash)
-    # raise here if no files to copy!
+
+    if not copied_files:
+        raise AirflowFailException("No files were copied!")
 
     file_info = _get_file_info(copied_files)
 

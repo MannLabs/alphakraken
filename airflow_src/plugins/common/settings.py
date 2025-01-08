@@ -181,8 +181,8 @@ def get_output_folder_rel_path(raw_file: RawFile, project_id_or_fallback: str) -
     This is to avoid having too many files in the fallback output folders.
 
     E.g.
-        output/<project_id_or_fallback>>/2024_07/out_RAW-FILE-1.raw in case raw_file has no project ID
-        output/<project_id_or_fallback>>/out_RAW-FILE-1.raw in case raw_file has a project ID
+        output/<project_id_or_fallback>/2024_07/out_RAW-FILE-1.raw in case raw_file has no project ID
+        output/<project_id_or_fallback>/out_RAW-FILE-1.raw in case raw_file has a project ID
     """
     optional_sub_folder = (
         get_created_at_year_month(raw_file) if raw_file.project_id is None else ""

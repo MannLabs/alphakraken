@@ -122,27 +122,23 @@ def decide_processing(ti: TaskInstance, **kwargs) -> bool:
     ):
         new_status = RawFileStatus.ACQUISITION_FAILED
         status_details = ";".join(acquisition_monitor_errors)
-        logging.info(f"Acquisition monitor errors: {acquisition_monitor_errors}.")
-    # TODO: this is a temporary solution to avoid processing of test12 files, this info needs to go to the "INSTRUMENT" dictionary
     elif instrument_id == "test12":
+        # TODO: this is a temporary solution to avoid processing of test12 files, this info needs to go to the "INSTRUMENT" dictionary
         new_status = RawFileStatus.DONE_NOT_QUANTED
         status_details = "Test12 not supported for quanting."
     elif DDA_FLAG_IN_RAW_FILE_NAME in raw_file_id.lower():
         new_status = RawFileStatus.DONE_NOT_QUANTED
         status_details = "Filename contains 'dda'."
-        logging.info(f"f{raw_file_id} contains 'dda'.")
     elif _count_special_characters(raw_file_id):
         new_status = RawFileStatus.DONE_NOT_QUANTED
         status_details = "Filename contains special characters."
-        logging.info(f"{raw_file_id} contains special characters.")
-    # elif: # file size is 0
+    elif get_raw_file_by_id(raw_file_id).size == 0:
+        new_status = RawFileStatus.ACQUISITION_FAILED
+        status_details = "File size is zero."
     else:
         return True  # continue with downstream tasks
 
-    # potential other checks:
-    #  - file size to small -> Variable?
-
-    logging.info("Skipping downstream tasks..")
+    logging.info(f"Skipping downstream tasks: {status_details=}")
 
     update_raw_file(
         raw_file_id,

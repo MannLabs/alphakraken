@@ -23,7 +23,7 @@ def create_file_remover_dag() -> None:
     """Create file_remover dag."""
     with DAG(
         f"{Dags.FILE_REMOVER}",
-        schedule_interval="0 6 * * *",  # run every morning
+        schedule_interval="0 4 * * *",  # run every morning
         start_date=pendulum.datetime(2000, 1, 1, tz="UTC"),
         max_active_runs=1,
         catchup=False,

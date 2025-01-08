@@ -44,9 +44,6 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
         dst_size, dst_hash = copy_file(src_path, dst_path)
         copied_files[dst_path] = (dst_size, dst_hash)
 
-    if not copied_files:
-        raise AirflowFailException("No files were copied!")
-
     file_info = _get_file_info(copied_files)
 
     pool_base_path = Path(get_env_variable(EnvVars.POOL_BASE_PATH))
@@ -66,6 +63,10 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
         file_info=file_info,
         backup_base_path=str(backup_base_path),
     )
+
+    # to make this unusual situation transparent in UI:
+    if not copied_files:
+        raise AirflowFailException("No files were copied!")
 
 
 def _get_file_info(

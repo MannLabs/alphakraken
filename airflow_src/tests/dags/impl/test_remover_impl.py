@@ -566,7 +566,7 @@ def test_change_folder_permissions() -> None:
     _change_folder_permissions(base_path)
 
     base_path.rglob.assert_called_once_with("*")
-    sub_path_1.chmod.assert_called_once_with(0o777)
+    sub_path_1.chmod.assert_called_once_with(0o775)
     sub_path_2.chmod.assert_not_called()
 
 

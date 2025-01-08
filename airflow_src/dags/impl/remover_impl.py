@@ -116,7 +116,9 @@ def _decide_on_raw_files_to_remove(
 
     sum_size_gb = 0
     for raw_file in raw_files:
-        logging.info(f"Checking {raw_file.id=} {raw_file.created_at=}")
+        logging.info(
+            f"Checking {raw_file.id=} created_at={raw_file.created_at.strftime('%Y-%m-%d %H-%M-%S:%f')}"
+        )
 
         try:
             total_size, num_files = _get_total_size(raw_file)
@@ -125,6 +127,7 @@ def _decide_on_raw_files_to_remove(
             continue
 
         if not num_files:
+            logging.info(f"Skipping {raw_file.id}: no files found to remove")
             continue
 
         logging.info(f"Adding {raw_file.id=} {total_size=} bytes {sum_size_gb=}")
@@ -237,7 +240,7 @@ def _change_folder_permissions(base_raw_file_path_to_remove: Path) -> None:
     for sub_path in base_raw_file_path_to_remove.rglob("*"):
         if sub_path.is_dir():
             logging.info(f"Making {sub_path} writeable..")
-            sub_path.chmod(0o777)
+            sub_path.chmod(0o775)
 
 
 def _remove_files(file_paths_to_remove: list[Path]) -> None:

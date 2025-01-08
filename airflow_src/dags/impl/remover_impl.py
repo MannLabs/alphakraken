@@ -186,9 +186,9 @@ def _safe_remove_files(raw_file_id: str) -> None:
     - takes as ground truth the contents of the instrument Backup folder (i.e. the files that will be actually deleted)
         to account for files that have been added to it manually
     - for each single file to delete
-        - compares* it to the corresponding file in the pool backup folder (to verify that the backup was successful)
-        - compares* it to the corresponding file in the DB (to verify that it is actually the file that should be deleted)
-    - only if all checks pass for all files associated with a raw file, the file is deleted.
+        - compares it to the corresponding file in the DB (to verify that it is actually the file that should be deleted)
+        - compares it to the corresponding file in the pool backup folder (to verify that the backup was successful)
+    - only if all checks pass for all files associated with a raw file, those files are deleted.
     """
     raw_file = get_raw_file_by_id(raw_file_id)
 
@@ -304,7 +304,7 @@ def _check_file(
     :param file_info_in_db: dict with file info from DB
     :param hash_check: whether to check the hash of the file
 
-    :raises: FileCheckError if one of the checks fails or if file is not present.
+    :raises: FileRemovalError if one of the checks fails or if file is not present on the pool backup.
     """
     # Check 1: the single file to delete is present on the pool-backup
     if not file_path_pool_backup.exists():

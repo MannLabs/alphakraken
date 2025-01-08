@@ -42,6 +42,7 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
     for src_path, dst_path in copy_wrapper.get_files_to_copy().items():
         dst_size, dst_hash = copy_file(src_path, dst_path)
         copied_files[dst_path] = (dst_size, dst_hash)
+    # raise here if no files to copy!
 
     file_info = _get_file_info(copied_files)
 
@@ -131,6 +132,7 @@ def decide_processing(ti: TaskInstance, **kwargs) -> bool:
         new_status = RawFileStatus.DONE_NOT_QUANTED
         status_details = "Filename contains special characters."
         logging.info(f"{raw_file_id} contains special characters.")
+    # elif: # file size is 0
     else:
         return True  # continue with downstream tasks
 

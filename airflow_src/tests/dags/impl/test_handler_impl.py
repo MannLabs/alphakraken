@@ -59,6 +59,7 @@ def test_copy_raw_file_calls_update_with_correct_args(
     mock_copy_file.assert_called_once_with(
         Path("/path/to/instrument/test_file.raw"),
         Path("/opt/airflow/mounts/backup/test_file.raw"),
+        overwrite=False,
     )
     mock_update_raw_file.assert_has_calls(
         [
@@ -78,6 +79,55 @@ def test_copy_raw_file_calls_update_with_correct_args(
         ]
     )
     mock_get_file_size.assert_called_once_with(mock_file_path_to_calculate_size, -1)
+
+
+@patch.dict(
+    os.environ,
+    {"POOL_BASE_PATH": "/path/to/pool", "BACKUP_POOL_FOLDER": "some_backup_folder"},
+)
+@patch("dags.impl.handler_impl.get_raw_file_by_id")
+@patch("dags.impl.handler_impl.copy_file")
+@patch("dags.impl.handler_impl.RawFileWrapperFactory")
+@patch("dags.impl.handler_impl.get_airflow_variable", return_value="test_file.raw")
+@patch("dags.impl.handler_impl.get_file_size")
+@patch("dags.impl.handler_impl.update_raw_file")
+def test_copy_raw_file_calls_update_with_correct_args_overwrite(  # noqa: PLR0913
+    mock_update_raw_file: MagicMock,  # noqa:ARG001
+    mock_get_file_size: MagicMock,  # noqa:ARG001
+    mock_get_airflow_variable: MagicMock,
+    mock_raw_file_wrapper_factory: MagicMock,
+    mock_copy_file: MagicMock,
+    mock_get_raw_file_by_id: MagicMock,
+) -> None:
+    """Test copy_raw_file calls update with correct arguments in case overwrite is requested."""
+    ti = MagicMock()
+    kwargs = {
+        "params": {"raw_file_id": "test_file.raw"},
+    }
+    mock_raw_file = MagicMock()
+    mock_raw_file.id = "test_file.raw"
+    mock_get_raw_file_by_id.return_value = mock_raw_file
+
+    mock_raw_file_wrapper_factory.create_write_wrapper.return_value.get_files_to_copy.return_value = {
+        Path("/path/to/instrument/test_file.raw"): Path(
+            "/opt/airflow/mounts/backup/test_file.raw"
+        )
+    }
+    mock_copy_file.return_value = (1001, "some_hash")
+
+    # when
+    copy_raw_file(ti, **kwargs)
+
+    # then
+    mock_copy_file.assert_called_once_with(
+        Path("/path/to/instrument/test_file.raw"),
+        Path("/opt/airflow/mounts/backup/test_file.raw"),
+        overwrite=True,
+    )
+
+    mock_get_airflow_variable.assert_called_once_with("backup_overwrite_file_id", "")
+
+    # not repeating the checks of test_copy_raw_file_calls_update_with_correct_args
 
 
 @patch("dags.impl.handler_impl.trigger_dag_run")

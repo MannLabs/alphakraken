@@ -10,7 +10,6 @@ import pytz
 from airflow.exceptions import AirflowFailException
 from common.keys import AirflowVars
 from common.settings import BYTES_TO_GB, BYTES_TO_MB, get_internal_instrument_data_path
-from common.utils import get_airflow_variable
 
 
 def get_file_creation_timestamp(
@@ -102,8 +101,19 @@ def _identical_copy_exists(dst_path: Path, src_hash: str) -> bool:
 def copy_file(
     src_path: Path,
     dst_path: Path,
+    *,
+    overwrite: bool = False,
 ) -> tuple[float, str]:
-    """Copy a raw file to the backup location, check its hashsum and return a tuple (file_size, file_hash)."""
+    """Copy a single file from `src_path` to `dst_path` and check its hashsum.
+
+    :param src_path: Path to the source file.
+    :param dst_path: Path to the destination file.
+    :param overwrite: Whether to overwrite the file if it already exists with a different hash in the destination.
+        Defaults to False, which will raise an AirflowFailException if the file already exists with a different hash.
+    :return: A tuple containing the size and hash of the copied file.
+    :raises AirflowFailException: If the hash of the copied file does not match the source hash or
+        if the file already exists with a different hash in case overwrite=False.
+    """
     start = datetime.now()  # noqa: DTZ005
     src_hash = get_file_hash(src_path)
     time_elapsed = (datetime.now() - start).total_seconds()  # noqa: DTZ005
@@ -113,23 +123,17 @@ def copy_file(
         if _identical_copy_exists(dst_path, src_hash):
             return get_file_size(dst_path), src_hash
     except ValueError as e:
-        current_file_id = dst_path.name
         logging.warning(
-            f"File {current_file_id} exists in backup location with different hash. "
+            f"File {dst_path} exists in backup location with different hash. "
         )
-        if (
-            get_airflow_variable(AirflowVars.BACKUP_OVERWRITE_FILE_ID, "")
-            == current_file_id
-        ):
-            logging.warning(
-                f"Will overwrite as requested by Airflow variable {AirflowVars.BACKUP_OVERWRITE_FILE_ID}."
-            )
+        if overwrite:
+            logging.warning("Will overwrite file.")
         else:
             raise AirflowFailException(
                 "This might be due to a previous copy operation being interrupted. \n"
                 "To resolve this issue: \n"
-                "1. Check and remove the file from backup if necessary, then restart this task, or"
-                f"2. Set the Airflow Variable {AirflowVars.BACKUP_OVERWRITE_FILE_ID} to '{current_file_id}' to force overwrite"
+                "1. Check and remove the file from backup if necessary, then restart this task, or \n"
+                f"2. Set the Airflow Variable {AirflowVars.BACKUP_OVERWRITE_FILE_ID} to the ID of the raw file to force overwrite."
             ) from e
 
     if not dst_path.parent.exists():

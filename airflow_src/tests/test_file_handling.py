@@ -231,13 +231,11 @@ def test_copy_file_no_copy_if_file_present_with_different_hash_raises(
 
 @patch("plugins.file_handling.get_file_hash")
 @patch("plugins.file_handling._identical_copy_exists")
-@patch("plugins.file_handling.get_airflow_variable")
 @patch("shutil.copy2")
 @patch("plugins.file_handling.get_file_size")
 def test_copy_file_with_overwrite_when_variable_set(
     mock_get_file_size: MagicMock,
     mock_copy2: MagicMock,
-    mock_get_airflow_variable: MagicMock,
     mock_identical_copy_exists: MagicMock,
     mock_get_file_hash: MagicMock,
 ) -> None:
@@ -253,10 +251,8 @@ def test_copy_file_with_overwrite_when_variable_set(
     dst_path.parent.mkdir.return_value = None
     dst_path.name = "test_file.raw"
 
-    mock_get_airflow_variable.return_value = "test_file.raw"
-
     # when
-    result = copy_file(src_path, dst_path)
+    result = copy_file(src_path, dst_path, overwrite=True)
 
     assert result == (1000, "some_hash")
     mock_copy2.assert_called_once_with(src_path, dst_path)

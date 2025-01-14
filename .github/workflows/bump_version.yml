@@ -1,3 +1,5 @@
+# Bump the version for releases
+# Requires a .bumpversion.toml file in the root of the repository
 name: bump-version
 
 on:
@@ -9,17 +11,14 @@ on:
         default: 'patch'
         type: choice
         options:
+        - prerelease
         - patch
         - minor
         - major
-        - pre_n
 
 jobs:
   bump-version:
     uses: MannLabs/alphashared/.github/workflows/bump_version.yml@v1
     secrets: inherit
-#    permissions:
-#      contents: write
     with:
      bump_type: ${{inputs.bump_type}}
-#     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -12,6 +12,7 @@ on:
         - patch
         - minor
         - major
+        - pre_n
 
 jobs:
   bump-version:

@@ -219,7 +219,7 @@ def _append_status_pile_up_instruments(
             [f"{status}: {status_counts[status]}" for status in piled_up_statuses]
         )
         logging.warning(
-            f"Pile up detected for {instrument_id}, " f"{piled_up_statuses_str}"
+            f"Pile up detected for {instrument_id}, {piled_up_statuses_str}"
         )
 
         status_pile_up_instruments.append((instrument_id, piled_up_statuses_str))

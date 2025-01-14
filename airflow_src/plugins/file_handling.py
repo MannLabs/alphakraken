@@ -107,7 +107,7 @@ def copy_file(
     start = datetime.now()  # noqa: DTZ005
     src_hash = _get_file_hash(src_path)
     time_elapsed = (datetime.now() - start).total_seconds()  # noqa: DTZ005
-    logging.info(f"Hash calculated. Time elapsed: {time_elapsed/60:.1f} min")
+    logging.info(f"Hash calculated. Time elapsed: {time_elapsed / 60:.1f} min")
 
     try:
         if _identical_copy_exists(dst_path, src_hash):
@@ -142,7 +142,7 @@ def copy_file(
     time_elapsed = (datetime.now() - start).total_seconds()  # noqa: DTZ005
     dst_size = get_file_size(dst_path)
     logging.info(
-        f"Copying done. Time elapsed: {time_elapsed/60:.1f} min at {dst_size * BYTES_TO_MB / max(time_elapsed, 1):.1f} MB/s"
+        f"Copying done. Time elapsed: {time_elapsed / 60:.1f} min at {dst_size * BYTES_TO_MB / max(time_elapsed, 1):.1f} MB/s"
     )
 
     logging.info("Verifying hash ..")

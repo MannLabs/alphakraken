@@ -364,14 +364,14 @@ def _display_table_and_plots(
     c1.download_button(
         label=f"⬇️ Download filtered table ({len(filtered_df)} entries)",
         data=df_to_csv(filtered_df),
-        file_name=f'{now.strftime("AlphaKraken_%Y%m%d-%H%M%S_filtered")}.csv',
+        file_name=f"{now.strftime('AlphaKraken_%Y%m%d-%H%M%S_filtered')}.csv",
         mime="text/csv",
     )
 
     c2.download_button(
         label=f"⬇️ Download all data ({len(df)} entries)",
         data=df_to_csv(df),
-        file_name=f'{now.strftime("AlphaKraken_%Y%m%d-%H%M%S_all")}.csv',
+        file_name=f"{now.strftime('AlphaKraken_%Y%m%d-%H%M%S_all')}.csv",
         mime="text/csv",
     )
 

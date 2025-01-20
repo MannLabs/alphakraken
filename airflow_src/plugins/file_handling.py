@@ -73,7 +73,7 @@ def get_file_hash(
     logging.info(f"Calculating hash of {file_path} ..") if verbose else None
 
     with file_path.open("rb") as f:
-        file_hash = hashlib.md5()  # noqa: S324
+        file_hash = hashlib.md5()  # noqa: S324 hashlib-insecure-hash-function
         while chunk := f.read(chunk_size):
             file_hash.update(chunk)
     logging.info(f".. hash is {file_hash.hexdigest()}") if verbose else None

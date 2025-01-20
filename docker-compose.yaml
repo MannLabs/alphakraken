@@ -297,6 +297,10 @@ services:
     build:
       context: .
       dockerfile: webapp/Dockerfile
+    deploy:
+      resources:
+        limits:
+          memory: 4G  # assuming 8 GB total on the VM that is shared with the other non-worker services
     ports:
       - ${WEBAPP_PORT:?error}:8501
       - 80:8501 # map webapp also to the standard port to access it directly via hostname

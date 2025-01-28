@@ -55,6 +55,9 @@ ERROR_CODE_TO_STRING = {
     "_FRAGMENT_MZ_TOLERANCE_MUST_BE_LESS_THAN": "fragment_mz_tolerance must be less than",
     "_PRECURSOR_MZ_TOLERANCE_MUST_BE_LESS_THAN": "precursor_mz_tolerance must be less than",
     "_NEED_AT_LEAST_ONE_ARRAY": "need at least one array to concatenate",
+    "_NO_OBJECTS_TO_CONCATENATE": "No objects to concatenate",
+    "_DATA_IN_LOW_DIM_SUBSPACE": "The data appears to lie in a lower-dimensional subspace of the space in which it is expressed",
+    "_NO_CONSISTENT_SUBCYCLE_LENGTH": "No consistent subcycle length",
     "_TRAIN_SET_WILL_BE_EMPTY": "the resulting train set will be empty",
     "_CYCLE_NOT_CONSISTENT": "but does not consistent",
     "_NO_PSM_FILES": "No psm files accumulated",  # will become a known error in alphadia >1.7.2
@@ -62,10 +65,14 @@ ERROR_CODE_TO_STRING = {
     "_NOT_DIA_DATA": "'TimsTOFTranspose' object has no attribute '_cycle'",  # will become a known error in alphadia >1.7.2
     "_KEY_MISSING_RT_CALIBRATED": "ERROR: 'rt_calibrated'",  # deliberately include "ERROR" here to be more specific
     "_KEY_MISSING_MZ_CALIBRATED": "ERROR: 'mz_calibrated'",  # deliberately include "ERROR" here to be more specific
+    "_KEY_MISSING_MOBILITY_CALIBRATED": "ERROR: 'mobility_calibrated'",  # deliberately include "ERROR" here to be more specific
     "_FIRST_ARRAY_ELEMENT_EMPTY": "first array argument cannot be empty",
     "_ARGMAX_OF_EMPTY_SEQUENCE": "attempt to get argmax of an empty sequence",
     "_INTERNAL_ERROR_CANDIDATE_CONFIG": "'CandidateConfig' object has no attribute 'reporter'",
-    "_COULD_NOT_OPEN_FILE": "could not be opened, is the file accessible",
+    # the following are deliberately not included as they require a manual check:
+    # "_FILE_IS_NOT_A_DATABASE": "file is not a database", # corrupt file? -> check if something went wrong with copying
+    # "_COULD_NOT_OPEN_FILE": "could not be opened, is the file accessible", # hints at nonexisting file -> manual intervention?
+    # "_OBJECT_REFERENCE_NOT_SET": "Object reference not set to an instance of an object", # corrupt file? -> check if something went wrong with copying
     # deliberately not including "DivisionByZero" here as it is too generic
 }
 
@@ -90,12 +97,14 @@ class Timings:
 
     QUANTING_MONITOR_POKE_INTERVAL_S = 60
 
-    RAW_DATA_COPY_TASK_TIMEOUT_M = 12
+    RAW_DATA_COPY_TASK_TIMEOUT_M = 15  # large enough to not time out on big files, small enough to not block other tasks
 
     # this timeout needs to be big compared to the time scales defined in AcquisitionMonitor
     ACQUISITION_MONITOR_TIMEOUT_M = 180
 
     MOVE_RAW_FILE_TASK_TIMEOUT_M = 5
+
+    REMOVE_RAW_FILE_TASK_TIMEOUT_M = 6 * 60  # runs long due to hashsum calculation
 
     FILE_MOVE_DELAY_M = 5
 
@@ -173,8 +182,8 @@ def get_output_folder_rel_path(raw_file: RawFile, project_id_or_fallback: str) -
     This is to avoid having too many files in the fallback output folders.
 
     E.g.
-        output/<project_id_or_fallback>>/2024_07/out_RAW-FILE-1.raw in case raw_file has no project ID
-        output/<project_id_or_fallback>>/out_RAW-FILE-1.raw in case raw_file has a project ID
+        output/<project_id_or_fallback>/2024_07/out_RAW-FILE-1.raw in case raw_file has no project ID
+        output/<project_id_or_fallback>/out_RAW-FILE-1.raw in case raw_file has a project ID
     """
     optional_sub_folder = (
         get_created_at_year_month(raw_file) if raw_file.project_id is None else ""

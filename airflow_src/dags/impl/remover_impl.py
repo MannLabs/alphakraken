@@ -17,7 +17,7 @@ from common.settings import (
     get_internal_instrument_data_path,
 )
 from common.utils import get_airflow_variable, get_env_variable, get_xcom, put_xcom
-from file_handling import get_disk_usage, get_file_size
+from file_handling import get_disk_usage, get_file_hash, get_file_size
 from raw_file_wrapper_factory import RawFileWrapperFactory, RemovePathProvider
 
 from shared.db.interface import get_raw_file_by_id, get_raw_files_by_age
@@ -116,18 +116,25 @@ def _decide_on_raw_files_to_remove(
 
     sum_size_gb = 0
     for raw_file in raw_files:
-        logging.info(f"Checking {raw_file.id=} {raw_file.created_at=}")
+        logging.info(
+            f"Checking {raw_file.id=} created_at={raw_file.created_at.strftime('%Y-%m-%d %H-%M-%S:%f')}"
+        )
 
         try:
-            total_size = _get_total_size(raw_file)
+            total_size, num_files = _get_total_size(raw_file)
         except FileRemovalError as e:
             logging.warning(f"Skipping {raw_file.id}: {e}")
             continue
 
-        logging.info(f"Adding {raw_file.id=} {total_size=} {sum_size_gb=}")
+        if not num_files:
+            logging.info(f"Skipping {raw_file.id}: no files found to remove")
+            continue
+
+        logging.info(f"Adding {raw_file.id=} {total_size=} bytes {sum_size_gb=}")
         raw_file_ids_to_remove.append(raw_file.id)
         sum_size_gb += total_size * BYTES_TO_GB
         if sum_size_gb >= min_space_to_free_gb:
+            logging.info("Got enough files.")
             break
     else:
         logging.warning(f"Not enough files to remove, got only {sum_size_gb=}")
@@ -135,7 +142,7 @@ def _decide_on_raw_files_to_remove(
     return raw_file_ids_to_remove
 
 
-def _get_total_size(raw_file: RawFile) -> float:
+def _get_total_size(raw_file: RawFile) -> tuple[float, int]:
     """Return total size of all files associated with a raw_file that are actually on the disk.
 
     This calculates the total size of all files associated with a raw file that are actually on the disk.
@@ -148,23 +155,27 @@ def _get_total_size(raw_file: RawFile) -> float:
 
     files_to_remove = remove_wrapper.get_files_to_remove()
 
-    if not files_to_remove:
-        raise FileRemovalError("No files to remove found")
-
     total_size_bytes = 0.0
+    num_files = 0
+
     for (
         file_path_to_remove,
         file_path_pool_backup,
     ) in files_to_remove.items():
+        if not file_path_to_remove.exists():
+            continue  # file was already removed
+
         _check_file(
             file_path_to_remove,
             file_path_pool_backup,
             raw_file.file_info,
+            hash_check=False,  # we only want to check the sizes here
         )
 
         total_size_bytes += get_file_size(file_path_to_remove, verbose=False)
+        num_files += 1
 
-    return total_size_bytes
+    return total_size_bytes, num_files
 
 
 def _safe_remove_files(raw_file_id: str) -> None:
@@ -178,13 +189,9 @@ def _safe_remove_files(raw_file_id: str) -> None:
     - takes as ground truth the contents of the instrument Backup folder (i.e. the files that will be actually deleted)
         to account for files that have been added to it manually
     - for each single file to delete
-        - compares* it to the corresponding file in the pool backup folder (to verify that the backup was successful)
-        - compares* it to the corresponding file in the DB (to verify that it is actually the file that should be deleted)
-    - only if all checks pass for all files associated with a raw file, the file is deleted.
-
-    *Note: To avoid extra network traffic, a size comparison instead of hash comparison is used for these checks.
-        Given that the instrument Backup folder contains only files that have passed a hash check against the
-        pool backup, this should be sufficient.
+        - compares it to the corresponding file in the DB (to verify that it is actually the file that should be deleted)
+        - compares it to the corresponding file in the pool backup folder (to verify that the backup was successful)
+    - only if all checks pass for all files associated with a raw file, those files are deleted.
     """
     raw_file = get_raw_file_by_id(raw_file_id)
 
@@ -213,18 +220,30 @@ def _safe_remove_files(raw_file_id: str) -> None:
 
         file_paths_to_remove.append(file_path_to_remove)
 
+    base_raw_file_path_to_remove = remove_wrapper.get_folder_to_remove()
+
     if file_paths_to_remove:
+        if base_raw_file_path_to_remove is not None:  # Bruker case
+            _change_folder_permissions(base_raw_file_path_to_remove)
+
         _remove_files(file_paths_to_remove)
 
-    if (
-        base_raw_file_path_to_remove := remove_wrapper.get_folder_to_remove()
-    ) is not None:
+    if base_raw_file_path_to_remove is not None:  # Bruker case
         _remove_folder(base_raw_file_path_to_remove)
 
 
-def _remove_files(
-    file_paths_to_remove: list[Path],
-) -> None:
+def _change_folder_permissions(base_raw_file_path_to_remove: Path) -> None:
+    """Make all subfolders in base_raw_file_path_to_remove writeable.
+
+    For reasons known only to Bruker, the .m subfolder carrying the methods is not writeable by default (permissions dr-xr-xr-x)
+    """
+    for sub_path in base_raw_file_path_to_remove.rglob("*"):
+        if sub_path.is_dir():
+            logging.info(f"Making {sub_path} writeable..")
+            sub_path.chmod(0o775)
+
+
+def _remove_files(file_paths_to_remove: list[Path]) -> None:
     """Remove files.
 
     :param file_paths_to_remove: list of absolute file paths to remove
@@ -240,7 +259,7 @@ def _remove_files(
     logging.info(f"removing files {file_paths_to_remove}")
     try:
         for file_path_to_remove in file_paths_to_remove:
-            f"Removing file {file_path_to_remove} .."
+            logging.info(f"Removing file {file_path_to_remove} ..")
             file_path_to_remove.unlink()
     except Exception as e:
         raise FileRemovalError(f"Error removing {file_path_to_remove}: {e}") from e
@@ -272,47 +291,58 @@ def _check_file(
     file_path_to_remove: Path,
     file_path_pool_backup: Path,
     file_info_in_db: dict[str, tuple[float, str]],
+    *,
+    hash_check: bool = True,
 ) -> None:
-    """Check that the file to remove is present in the pool backup and has the same size as in the DB.
+    """Check that the file to remove is present in the pool backup and has the same size and hash as in the DB.
 
     Here, "file" means every single file that is part of a raw file.
+
+    We first compare sizes, then hashes, to prevent unnecessary network traffic.
+    Calculating hashes is the costly part: the file needs to be transferred over the network.
+    Unfortunately, the check only for file size is not sufficient to unambiguously identify a file.
 
     :param file_path_to_remove: absolute path to file to remove
     :param file_path_pool_backup: absolute path to location of file in pool backup
     :param file_info_in_db: dict with file info from DB
+    :param hash_check: whether to check the hash of the file
 
-    :raises: FileCheckError if one of the checks fails or if file is not present.
+    :raises: FileRemovalError if one of the checks fails or if file is not present on the pool backup.
     """
-    try:
-        size_on_instrument = get_file_size(file_path_to_remove, verbose=False)
-    except FileNotFoundError as e:
-        raise FileRemovalError(f"File {file_path_to_remove} does not exist.") from e
-
     # Check 1: the single file to delete is present on the pool-backup
+    if not file_path_pool_backup.exists():
+        raise FileRemovalError(f"File {file_path_pool_backup} does not exist.")
+
     logging.debug(f"Comparing {file_path_to_remove=} to {file_path_pool_backup=} ..")
-
-    try:
-        size_in_pool_backup = get_file_size(file_path_pool_backup, verbose=False)
-    except FileNotFoundError as e:
-        raise FileRemovalError(f"File {file_path_pool_backup} does not exist.") from e
-
-    if size_on_instrument != size_in_pool_backup:
-        raise FileRemovalError(
-            f"File {file_path_to_remove} mismatch with pool backup: {size_in_pool_backup=} vs {size_on_instrument=}"
-        )
-
-    # Check 2: single file to delete is the one we have in the DB
 
     # /opt/airflow/mounts/backup/test1/2024_08/test_file_SA_P123_2.raw => test1/2024_08/test_file_SA_P123_2.raw
     rel_file_path = str(file_path_pool_backup.relative_to(get_internal_backup_path()))
+    size_in_db, hash_in_db = file_info_in_db.get(rel_file_path)
+
     logging.debug(f"Comparing {file_path_to_remove=} to DB ({rel_file_path}) ..")
-    if size_on_instrument != (
-        size_in_db := file_info_in_db.get(rel_file_path)[
-            0
-        ]  # first element of tuple (size, hash)
+
+    # Check 2: compare the single file to delete with the DB (hash)
+    # this checks that the fingerprints of the file to remove match those in the db (prevents deleting the wrong file)
+    size_to_remove = get_file_size(file_path_to_remove, verbose=False)
+    hash_to_remove = None
+    if size_to_remove != size_in_db or (
+        hash_check
+        and (hash_to_remove := get_file_hash(file_path_to_remove)) != hash_in_db
     ):
         raise FileRemovalError(
-            f"File {rel_file_path} mismatch with instrument backup: {size_on_instrument=} vs {size_in_db=}"
+            f"File {rel_file_path} mismatch with instrument backup: {size_to_remove=} vs {size_in_db=}, {hash_to_remove=} vs {hash_in_db=}"
+        )
+
+    # Check 3: compare the single file to delete with the pool backup (hash)
+    # this essentially re-checks the fingerprints that have been calculated right after file copying, would fail if pool backup was corrupted
+    size_on_pool_backup = get_file_size(file_path_pool_backup, verbose=False)
+    hash_on_pool_backup = None
+    if size_on_pool_backup != size_in_db or (
+        hash_check
+        and (hash_on_pool_backup := get_file_hash(file_path_pool_backup)) != hash_in_db
+    ):
+        raise FileRemovalError(
+            f"File {rel_file_path} mismatch with pool backup: {size_on_pool_backup=} vs {size_in_db=}, {hash_on_pool_backup=} vs {hash_in_db=}"
         )
 
 

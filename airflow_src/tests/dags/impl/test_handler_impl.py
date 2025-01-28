@@ -103,7 +103,9 @@ def test_start_file_mover(mock_trigger_dag_run: MagicMock) -> None:
 
 
 @patch("dags.impl.handler_impl.get_xcom", return_value=None)
+@patch("dags.impl.handler_impl.get_raw_file_by_id", return_value=MagicMock())
 def test_decide_processing_returns_true_if_no_errors(
+    mock_get_raw_file_by_id: MagicMock,  # noqa:ARG001
     mock_get_xcom: MagicMock,  # noqa:ARG001
 ) -> None:
     """Test decide_processing returns True if no errors are present."""
@@ -112,6 +114,8 @@ def test_decide_processing_returns_true_if_no_errors(
         DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"},
         OpArgs.INSTRUMENT_ID: "instrument1",
     }
+
+    # when
     assert decide_processing(ti, **kwargs) is True
 
 
@@ -127,12 +131,38 @@ def test_decide_processing_returns_false_if_acquisition_errors_present(
         DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"},
         OpArgs.INSTRUMENT_ID: "instrument1",
     }
+
+    # when
     assert decide_processing(ti, **kwargs) is False
 
     mock_update_raw_file.assert_called_once_with(
         "some_file.raw",
         new_status=RawFileStatus.ACQUISITION_FAILED,
         status_details="error1",
+    )
+
+
+@patch("dags.impl.handler_impl.get_xcom", return_value=None)
+@patch("dags.impl.handler_impl.get_raw_file_by_id", return_value=MagicMock(size=0))
+@patch("dags.impl.handler_impl.update_raw_file")
+def test_decide_processing_returns_false_if_file_size_zero(
+    mock_update_raw_file: MagicMock,
+    mock_get_raw_file_by_id: MagicMock,  # noqa:ARG001
+    mock_get_xcom: MagicMock,  # noqa:ARG001
+) -> None:
+    """Test decide_processing returns False if file name contains 'dda'."""
+    ti = MagicMock()
+    kwargs = {
+        DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"},
+        OpArgs.INSTRUMENT_ID: "instrument1",
+    }
+
+    # when
+    assert decide_processing(ti, **kwargs) is False
+    mock_update_raw_file.assert_called_once_with(
+        "some_file.raw",
+        new_status=RawFileStatus.ACQUISITION_FAILED,
+        status_details="File size is zero.",
     )
 
 
@@ -148,6 +178,8 @@ def test_decide_processing_returns_false_if_dda(
         DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_dda_file.raw"},
         OpArgs.INSTRUMENT_ID: "instrument1",
     }
+
+    # when
     assert decide_processing(ti, **kwargs) is False
     mock_update_raw_file.assert_called_once_with(
         "some_dda_file.raw",
@@ -157,11 +189,11 @@ def test_decide_processing_returns_false_if_dda(
 
 
 @patch("dags.impl.handler_impl.get_xcom", return_value=None)
-@patch("dags.impl.handler_impl._count_special_characters")
+@patch("dags.impl.handler_impl._count_special_characters", return_value=1)
 @patch("dags.impl.handler_impl.update_raw_file")
 def test_decide_processing_returns_false_if_special_characters(
     mock_update_raw_file: MagicMock,
-    mock_count_special_characters: MagicMock,
+    mock_count_special_characters: MagicMock,  # noqa:ARG001
     mock_get_xcom: MagicMock,  # noqa:ARG001
 ) -> None:
     """Test decide_processing returns False if file name contains special characters."""
@@ -171,8 +203,7 @@ def test_decide_processing_returns_false_if_special_characters(
         OpArgs.INSTRUMENT_ID: "instrument1",
     }
 
-    mock_count_special_characters.return_value = 1
-
+    # when
     assert decide_processing(ti, **kwargs) is False
     mock_update_raw_file.assert_called_once_with(
         "some_file.raw",

@@ -23,7 +23,7 @@ def create_file_remover_dag() -> None:
     """Create file_remover dag."""
     with DAG(
         f"{Dags.FILE_REMOVER}",
-        schedule_interval="0 6 * * *",  # run every morning
+        schedule_interval="0 4 * * *",  # run every morning
         start_date=pendulum.datetime(2000, 1, 1, tz="UTC"),
         max_active_runs=1,
         catchup=False,
@@ -50,7 +50,7 @@ def create_file_remover_dag() -> None:
             task_id=Tasks.REMOVE_RAW_FILES,
             python_callable=remove_raw_files,
             max_active_tis_per_dag=Concurrency.MAXNO_MOVE_RAW_FILE_TASKS_PER_DAG,
-            execution_timeout=timedelta(minutes=Timings.MOVE_RAW_FILE_TASK_TIMEOUT_M),
+            execution_timeout=timedelta(minutes=Timings.REMOVE_RAW_FILE_TASK_TIMEOUT_M),
         )
 
     get_files_to_remove_ >> remove_raw_files_

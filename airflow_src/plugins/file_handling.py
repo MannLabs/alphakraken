@@ -66,14 +66,14 @@ def get_disk_usage(path: Path) -> tuple[float, float, float]:
     return total_gb, used_gb, free_gb
 
 
-def _get_file_hash(
+def get_file_hash(
     file_path: Path, chunk_size: int = 8192, *, verbose: bool = True
 ) -> str:
     """Get the hash of a file."""
     logging.info(f"Calculating hash of {file_path} ..") if verbose else None
 
     with file_path.open("rb") as f:
-        file_hash = hashlib.md5()  # noqa: S324
+        file_hash = hashlib.md5()  # noqa: S324 hashlib-insecure-hash-function
         while chunk := f.read(chunk_size):
             file_hash.update(chunk)
     logging.info(f".. hash is {file_hash.hexdigest()}") if verbose else None
@@ -92,7 +92,7 @@ def _identical_copy_exists(dst_path: Path, src_hash: str) -> bool:
     logging.info(f"Checking if file already exists in {dst_path} ..")
     if dst_path.exists():
         logging.info("File already exists in backup location. Checking hash ..")
-        if _get_file_hash(dst_path) == src_hash:
+        if get_file_hash(dst_path) == src_hash:
             logging.info("Hashes match.")
             return True
         raise ValueError("Hashes do not match.")
@@ -105,7 +105,7 @@ def copy_file(
 ) -> tuple[float, str]:
     """Copy a raw file to the backup location, check its hashsum and return a tuple (file_size, file_hash)."""
     start = datetime.now()  # noqa: DTZ005
-    src_hash = _get_file_hash(src_path)
+    src_hash = get_file_hash(src_path)
     time_elapsed = (datetime.now() - start).total_seconds()  # noqa: DTZ005
     logging.info(f"Hash calculated. Time elapsed: {time_elapsed/60:.1f} min")
 
@@ -146,7 +146,7 @@ def copy_file(
     )
 
     logging.info("Verifying hash ..")
-    if (dst_hash := _get_file_hash(dst_path)) != src_hash:
+    if (dst_hash := get_file_hash(dst_path)) != src_hash:
         src_size = get_file_size(src_path)
         raise AirflowFailException(
             f"Hashes do not match ofter copy! {src_hash=} != {dst_hash=} (sizes: {dst_size=} {src_size=})"
@@ -196,8 +196,8 @@ def compare_paths(
             # no comparison for directories
             continue
 
-        source_hash = _get_file_hash(source_item)
-        target_hash = _get_file_hash(target_item_path)
+        source_hash = get_file_hash(source_item)
+        target_hash = get_file_hash(target_item_path)
 
         if source_hash != target_hash:
             different_items.append(str(source_item_relative_path))

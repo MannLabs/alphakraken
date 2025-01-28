@@ -77,8 +77,8 @@ COLUMNS = (
         alternative_names=["raw:gradient_length_m"],
     ),
     # plots (order matters)
-    Column("precursors", color_table=True, plot=True),
-    Column("proteins", color_table=True, plot=True),
+    Column("precursors", at_front=True, color_table=True, plot=True),
+    Column("proteins", at_front=True, color_table=True, plot=True),
     Column("weighted_ms1_intensity_sum", color_table=True, plot=True, log_scale=True),
     Column("intensity_sum", color_table=True, plot=True, log_scale=True),
     Column(

@@ -8,12 +8,12 @@ from _pytest._py.path import LocalPath
 from airflow.exceptions import AirflowFailException
 from plugins.common.settings import BYTES_TO_GB, INSTRUMENTS
 from plugins.file_handling import (
-    _get_file_hash,
     _identical_copy_exists,
     compare_paths,
     copy_file,
     get_disk_usage,
     get_file_creation_timestamp,
+    get_file_hash,
     get_file_size,
 )
 
@@ -84,7 +84,7 @@ def test_get_file_hash(mock_file_open: MagicMock) -> None:
     mock_file_open.return_value.read.side_effect = [b"some_file_content", None]
 
     # when
-    return_value = _get_file_hash(Path("/test/file/path"))
+    return_value = get_file_hash(Path("/test/file/path"))
 
     assert return_value == "faff66b0fba39e3a4961b45dc5f9826c"
 
@@ -100,12 +100,12 @@ def test_get_file_hash_chunks(mock_file_open: MagicMock) -> None:
     ]
 
     # when
-    return_value = _get_file_hash(Path("/test/file/path"))
+    return_value = get_file_hash(Path("/test/file/path"))
 
     assert return_value == "faff66b0fba39e3a4961b45dc5f9826c"
 
 
-@patch("plugins.file_handling._get_file_hash")
+@patch("plugins.file_handling.get_file_hash")
 @patch("plugins.file_handling._identical_copy_exists")
 @patch("shutil.copy2")
 @patch("plugins.file_handling.get_file_size")
@@ -131,7 +131,7 @@ def test_copy_file_copies_file_and_checks_hash(
     dst_path.parent.mkdir.assert_not_called()
 
 
-@patch("plugins.file_handling._get_file_hash")
+@patch("plugins.file_handling.get_file_hash")
 @patch("plugins.file_handling._identical_copy_exists")
 @patch("shutil.copy2")
 @patch("plugins.file_handling.get_file_size")
@@ -155,7 +155,7 @@ def test_copy_file_copies_file_and_checks_hash_hash_mismatch_raises(
         copy_file(src_path, dst_path)
 
 
-@patch("plugins.file_handling._get_file_hash")
+@patch("plugins.file_handling.get_file_hash")
 @patch("plugins.file_handling._identical_copy_exists")
 @patch("shutil.copy2")
 @patch("plugins.file_handling.get_file_size")
@@ -183,7 +183,7 @@ def test_copy_file_copies_file_and_creates_directory(
     dst_path.parent.mkdir.assert_called_once_with(parents=True, exist_ok=True)
 
 
-@patch("plugins.file_handling._get_file_hash")
+@patch("plugins.file_handling.get_file_hash")
 @patch("plugins.file_handling._identical_copy_exists")
 @patch("plugins.file_handling.get_file_size")
 @patch("shutil.copy2")
@@ -208,7 +208,7 @@ def test_copy_file_no_copy_if_file_present_with_same_hash(
     mock_copy2.assert_not_called()
 
 
-@patch("plugins.file_handling._get_file_hash")
+@patch("plugins.file_handling.get_file_hash")
 @patch("plugins.file_handling._identical_copy_exists")
 @patch("shutil.copy2")
 def test_copy_file_no_copy_if_file_present_with_different_hash_raises(
@@ -229,7 +229,7 @@ def test_copy_file_no_copy_if_file_present_with_different_hash_raises(
     mock_copy2.assert_not_called()
 
 
-@patch("plugins.file_handling._get_file_hash")
+@patch("plugins.file_handling.get_file_hash")
 @patch("plugins.file_handling._identical_copy_exists")
 @patch("plugins.file_handling.get_airflow_variable")
 @patch("shutil.copy2")
@@ -263,7 +263,7 @@ def test_copy_file_with_overwrite_when_variable_set(
     dst_path.parent.mkdir.assert_called_once_with(parents=True, exist_ok=True)
 
 
-@patch("plugins.file_handling._get_file_hash")
+@patch("plugins.file_handling.get_file_hash")
 @patch.object(Path, "exists")
 def test_identical_copy_exists_file_not_existing(
     mock_exists: MagicMock, mock_get_file_hash: MagicMock
@@ -279,7 +279,7 @@ def test_identical_copy_exists_file_not_existing(
     assert result is False
 
 
-@patch("plugins.file_handling._get_file_hash")
+@patch("plugins.file_handling.get_file_hash")
 @patch.object(Path, "exists")
 def test_identical_copy_exists_hashes_match(
     mock_exists: MagicMock, mock_get_file_hash: MagicMock
@@ -296,7 +296,7 @@ def test_identical_copy_exists_hashes_match(
     assert result is True
 
 
-@patch("plugins.file_handling._get_file_hash")
+@patch("plugins.file_handling.get_file_hash")
 @patch.object(Path, "exists")
 def test_identical_copy_exists_hashes_dont_match(
     mock_exists: MagicMock, mock_get_file_hash: MagicMock

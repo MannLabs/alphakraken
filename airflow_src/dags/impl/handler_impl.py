@@ -6,13 +6,18 @@ from pathlib import Path
 
 from airflow.exceptions import AirflowFailException
 from airflow.models import TaskInstance
-from common.keys import DagContext, DagParams, Dags, OpArgs, XComKeys
+from common.keys import AirflowVars, DagContext, DagParams, Dags, OpArgs, XComKeys
 from common.settings import (
     DEFAULT_RAW_FILE_SIZE_IF_MAIN_FILE_MISSING,
     Timings,
     get_internal_backup_path,
 )
-from common.utils import get_env_variable, get_xcom, trigger_dag_run
+from common.utils import (
+    get_airflow_variable,
+    get_env_variable,
+    get_xcom,
+    trigger_dag_run,
+)
 from file_handling import copy_file, get_file_size
 from raw_file_wrapper_factory import CopyPathProvider, RawFileWrapperFactory
 
@@ -39,9 +44,16 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
         path_provider=CopyPathProvider,
     )
 
+    if overwrite := (
+        get_airflow_variable(AirflowVars.BACKUP_OVERWRITE_FILE_ID, "") == raw_file.id
+    ):
+        logging.warning(
+            f"Will overwrite files as requested by Airflow variable {AirflowVars.BACKUP_OVERWRITE_FILE_ID}."
+        )
+
     copied_files: dict[Path, tuple[float, str]] = {}
     for src_path, dst_path in copy_wrapper.get_files_to_copy().items():
-        dst_size, dst_hash = copy_file(src_path, dst_path)
+        dst_size, dst_hash = copy_file(src_path, dst_path, overwrite=overwrite)
         copied_files[dst_path] = (dst_size, dst_hash)
 
     file_info = _get_file_info(copied_files)

@@ -167,7 +167,7 @@ def test_run_quanting_executes_ssh_command_and_stores_job_id(
 
     # then
     expected_export_command = (
-        "export RAW_FILE_ID=test_file.raw\n" "export PROJECT_ID_OR_FALLBACK=PID123\n"
+        "export RAW_FILE_ID=test_file.raw\nexport PROJECT_ID_OR_FALLBACK=PID123\n"
         # rest of quanting_env is left out here for brevity
     )
 

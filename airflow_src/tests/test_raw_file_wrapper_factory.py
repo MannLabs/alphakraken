@@ -4,9 +4,10 @@
 from __future__ import annotations
 
 import tempfile
+from collections.abc import Generator
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Generator
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -243,11 +244,14 @@ def test_raw_file_wrapper_factory_instantiation_copier(
 @pytest.fixture
 def mock_instrument_paths() -> Generator[Path, None, None]:
     """Mock the instrument data and backup paths."""
-    with patch(
-        "plugins.raw_file_wrapper_factory.get_internal_instrument_data_path"
-    ) as mock_data_path, patch(
-        "plugins.raw_file_wrapper_factory.get_internal_backup_path_for_instrument"
-    ) as mock_backup_path:
+    with (
+        patch(
+            "plugins.raw_file_wrapper_factory.get_internal_instrument_data_path"
+        ) as mock_data_path,
+        patch(
+            "plugins.raw_file_wrapper_factory.get_internal_backup_path_for_instrument"
+        ) as mock_backup_path,
+    ):
         mock_data_path.return_value = Path("/path/to/instrument")
         mock_backup_path.return_value = Path("/path/to/backup")
         yield mock_data_path, mock_backup_path
@@ -255,10 +259,11 @@ def mock_instrument_paths() -> Generator[Path, None, None]:
 
 def test_raw_file_wrapper_factory_unsupported_vendor() -> None:
     """Test that creating a wrapper for an unsupported vendor raises ValueError."""
-    with patch.dict(
-        INSTRUMENTS, {"instrument1": {"type": "UNSUPPORTED"}}
-    ), pytest.raises(
-        ValueError, match="Unsupported vendor or handler type: UNSUPPORTED, monitor"
+    with (
+        patch.dict(INSTRUMENTS, {"instrument1": {"type": "UNSUPPORTED"}}),
+        pytest.raises(
+            ValueError, match="Unsupported vendor or handler type: UNSUPPORTED, monitor"
+        ),
     ):
         RawFileWrapperFactory.create_monitor_wrapper(
             instrument_id="instrument1", raw_file_original_name="sample.raw"
@@ -467,13 +472,17 @@ def test_bruker_get_files_to_copy() -> None:
             """Mock method for get_internal_backup_path_for_instrument()."""
             return Path(tempdir) / "backup" / instrument_id
 
-        with patch(
-            "plugins.raw_file_wrapper_factory.get_internal_instrument_data_path",
-            side_effect=mock_get_internal_instrument_data_path,
-        ), patch(
-            "plugins.raw_file_wrapper_factory.get_internal_backup_path_for_instrument",
-            side_effect=mock_get_internal_backup_path_for_instrument,
-        ), patch.dict(INSTRUMENTS, {"instrument1": {"type": "bruker"}}):
+        with (
+            patch(
+                "plugins.raw_file_wrapper_factory.get_internal_instrument_data_path",
+                side_effect=mock_get_internal_instrument_data_path,
+            ),
+            patch(
+                "plugins.raw_file_wrapper_factory.get_internal_backup_path_for_instrument",
+                side_effect=mock_get_internal_backup_path_for_instrument,
+            ),
+            patch.dict(INSTRUMENTS, {"instrument1": {"type": "bruker"}}),
+        ):
             wrapper = BrukerRawFileWriteWrapper(
                 "instrument1", raw_file=mock_raw_file, path_provider=CopyPathProvider
             )

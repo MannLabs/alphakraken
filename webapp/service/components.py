@@ -94,7 +94,7 @@ def show_filter(
                     new_mask |= df.index.map(lambda x: _re_filter(x, filter_))
             except (re.error, ValueError, KeyError) as e:
                 errors.append(
-                    f"Could not parse filter {filter_ }: ignoring it. {type(e)}: '{e}'"
+                    f"Could not parse filter {filter_}: ignoring it. {type(e)}: '{e}'"
                 )
                 continue
 

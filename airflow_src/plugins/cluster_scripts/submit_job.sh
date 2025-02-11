@@ -84,7 +84,7 @@ echo Creating output path ..
 mkdir -p ${OUTPUT_PATH}
 cd ${OUTPUT_PATH}
 
-# output directory could already exists at this stage of overwrite flag it set
+# output directory could already exists at this stage if 'allow_output_overwrite' variable it set
 echo OUTPUT_PATH ">>>>>>"
 set +e
 du -s ${OUTPUT_PATH}/*
@@ -92,6 +92,41 @@ md5sum ${OUTPUT_PATH}/*
 stat ${OUTPUT_PATH}/*
 set -e
 echo "<<<<<<"
+
+##################### ZENO HACK pt. 1 ###############
+# Zeno files cannot be opened in read-only mode, so we create
+# a temporary directory in the output folder and copy the files there.
+# After quanting, this temporary directory is removed (see pt. 2)
+
+strip_all_extensions() {
+    # strip all extensions off a path, e.g. "/fs/pool/filename.ext1.ext2" -> "/fs/pool/filename"
+    local path="$1"
+    while [[ "$path" == *.* ]]; do
+        path="${path%.*}"
+    done
+    echo "$path"
+}
+
+if [[ ${RAW_FILE_PATH} == *.wiff ]]; then
+  echo copying over raw files to tmp_raw_data ..
+  mkdir -p "${OUTPUT_PATH}/tmp_raw_data"
+
+  stripped_path=$(strip_all_extensions "$RAW_FILE_PATH")
+  cp "${stripped_path}".wiff "${OUTPUT_PATH}/tmp_raw_data"
+  cp "${stripped_path}".wiff2 "${OUTPUT_PATH}/tmp_raw_data"
+  cp "${stripped_path}".wiff.scan "${OUTPUT_PATH}/tmp_raw_data"
+  echo .. copying done
+
+  raw_file_name_stem=$(basename $stripped_path)
+  RAW_FILE_PATH="${OUTPUT_PATH}/tmp_raw_data/${raw_file_name_stem}.wiff"
+  echo updated RAW_FILE_PATH=${RAW_FILE_PATH}
+
+  du -s "${OUTPUT_PATH}/tmp_raw_data/"*
+  md5sum "${OUTPUT_PATH}/tmp_raw_data/"*
+  stat "${OUTPUT_PATH}/tmp_raw_data/"*
+
+fi
+##################### ZENO HACK #####################
 
 echo "Running alphadia.."
 echo "Check the logs in ${OUTPUT_PATH}/log.txt"
@@ -118,6 +153,19 @@ echo "<<<<<<"
 echo ALPHADIA EXIT CODE ">>>>>>"
 echo $alphadia_exit_code
 echo "<<<<<<"
+
+
+##################### ZENO HACK pt. 2 ###############
+# remove very defensively (file by file, then empty dir)
+if [[ ${RAW_FILE_PATH} == *.wiff ]]; then
+  echo removing tmp_raw_data ..
+  ls -l "${OUTPUT_PATH}/tmp_raw_data/"*
+  rm "${OUTPUT_PATH}/tmp_raw_data/${raw_file_name_stem}.wiff"
+  rm "${OUTPUT_PATH}/tmp_raw_data/${raw_file_name_stem}.wiff2"
+  rm "${OUTPUT_PATH}/tmp_raw_data/${raw_file_name_stem}.wiff.scan"
+  echo .. done removing
+fi
+##################### ZENO HACK #####################
 
 if [ ! "$alphadia_exit_code" -eq 0 ]; then
     echo got nonzero exit code $alphadia_exit_code

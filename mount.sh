@@ -52,8 +52,8 @@ fi
 MOUNTS_PATH=$(get_data locations general mounts_path)
 USERNAME=$(get_data $ENTITY_TYPE $ENTITY username)
 PASSWORD=$(get_data $ENTITY_TYPE $ENTITY password) || echo Password not found, needs to be entered manually
-MOUNT_SRC=$(get_data $ENTITY_TYPE $ENTITY mount_src)
-MOUNT_TARGET=$(get_data $ENTITY_TYPE $ENTITY mount_target)
+MOUNT_SRC="$(get_data $ENTITY_TYPE $ENTITY mount_src)"
+MOUNT_TARGET="$(get_data $ENTITY_TYPE $ENTITY mount_target)"
 
 MOUNT_TARGET=$MOUNTS_PATH/$MOUNT_TARGET
 

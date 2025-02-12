@@ -7,7 +7,7 @@ instruments:
     mount_src: //0.0.0.0/test1/
     mount_target: instruments/test1
 locations:
-  # the following is required for mounting only (read by mount.sh):
+  # cf. also the PATHS section in .env/sandbox.env
   general:
     # cf. also the variable MOUNTS_PATH .env/production.env (sandbox.env)
     mounts_path: /home/user/alphakraken/mounts

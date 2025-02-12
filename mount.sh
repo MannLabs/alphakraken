@@ -39,7 +39,7 @@ get_data() {
   local entity_type=$1
   local entity=$2
   local key=$3
-  python -c 'import yaml, sys; print(yaml.safe_load(open(sys.argv[1]))[sys.argv[2]][sys.argv[3]][sys.argv[4]])' "$FILE_NAME" "$entity_type" "$entity" "$key"
+  python3 -c 'import yaml, sys; print(yaml.safe_load(open(sys.argv[1]))[sys.argv[2]][sys.argv[3]][sys.argv[4]])' "$FILE_NAME" "$entity_type" "$entity" "$key"
 }
 
 # a little hack to look up the correct information
@@ -71,7 +71,7 @@ if [ ! -e $MOUNT_TARGET ]; then
   echo Mounts directory does not exist. Check if it is correct: \'${MOUNT_TARGET}\'. Create it if desired.
   exit 1
 fi
-if [ -n "$MOUNT_TARGET" ]; then
+if [ -n "$(find $MOUNT_TARGET -mindepth 1 -maxdepth 1)" ]; then
   echo Mounts path is not empty: \'${MOUNT_TARGET}\'
   echo If you want to overwrite a mount, use the 'umount' option. Otherwise, check if data has been written to a local folder by accident.
   exit 1

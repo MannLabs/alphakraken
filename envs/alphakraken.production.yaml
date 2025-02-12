@@ -9,17 +9,16 @@ instruments:
 locations:
   # cf. also the PATHS section in .env/production.env
   general:
-    # cf. also the variable MOUNTS_PATH .env/production.env (sandbox.env)
-    mounts_path: /home/user/alphakraken/mounts
+    mounts_path: /home/kraken-user/alphakraken/production/mounts
   backup:
-    username: user
-    mount_src: //mount_src/backup
+    username: kraken-write
+    mount_src: //samba-pool-1/pool-1
     mount_target: backup
   output:
-    username: user
-    mount_src: //mount_src/output
+    username: kraken-write
+    mount_src: //samba-pool-2/pool-2/output
     mount_target: output
   logs:
-    username: user
-    mount_src: //mount_src/airflow_logs
+    username: kraken-write
+    mount_src: //samba-pool-2/pool-2/airflow_logs
     mount_target: airflow_logs

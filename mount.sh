@@ -19,8 +19,8 @@ if [ -z "${1:-}" ] ; then
   echo "<entity> can be an instrument name (e.g. test1, ..) or a special folder (logs, backup, or output)."
   echo "If 'unmount' is passed, the target folder will be unmounted first."
   echo
-  echo "Example 1: ./mountall.sh test1"
-  echo "Example 2: ./mountall.sh backup umount"
+  echo "Example 1: $0 test1"
+  echo "Example 2: $0 backup umount"
   exit 1
 fi
 

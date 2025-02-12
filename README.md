@@ -255,26 +255,21 @@ which should be lowercase and contain only letters and numbers but is otherwise 
 Note that some parts of the system rely on convention, so make sure to use exactly
 `<INSTRUMENT_ID>` (case-sensitive!) in the below steps.
 
-1. Create a folder named `Backup` in the folder where the acquired files are saved.
+1. On the instrument, create a folder named `Backup` (capital B!) in the folder where the acquired files are saved.
 
 2. Add the following block to the end of the `instruments` section in `envs/alphakraken.$ENV.yaml` (mind the correct indentation!):
 ```bash
    <INSTRUMENT_ID>:
     type: <INSTRUMENT_TYPE>
     username: <username for instrument>
-    mount_src: //<ip address of instrument>/<INSTRUMENT_ID>/$SUBFOLDER
+    mount_src: //<ip address of instrument>/<INSTRUMENT_ID>
     mount_target: instruments/<INSTRUMENT_ID>
 ```
 Here, `<INSTRUMENT_TYPE>` is one of the keys defined in the `InstrumentKeys` class (`thermo`, `bruker`, `zeno`) and determines
 what output is expected from the instrument:
 `thermo` -> one `.raw` file, `bruker` -> one `.d` folder, `zeno` -> one `.wiff` file plus more files with the same stem.
 
-3. Transfer this change to the AlphaKraken PC and execute
-```
-./mount.sh <INSTRUMENT_ID>
-```
-
-4. In `docker-compose.yaml`, add a new worker service, by copying an existing one and adapting it like:
+3. In `docker-compose.yaml`, add a new worker service, by copying an existing one and adapting it like:
 ```
   airflow-worker-<INSTRUMENT_ID>:
     <<: *airflow-worker
@@ -289,9 +284,15 @@ what output is expected from the instrument:
 Make sure to replace each instance of `<INSTRUMENT_ID>` with the correct instrument ID
 and to not accidentally drop the `ro` and `rw` flags as they limit file access rights.
 
-5. Start the new container `airflow-worker-<INSTRUMENT_ID>`  (cf. [above](#restart-of-pcvm-hosting-the-workers)).
+4. Transfer the changes in `2.` and `3.` to all AlphaKraken PCs/VMs.
 
-6. Restart all relevant containers (scheduler, file mover and remover) with the `--build` flag (cf. [above](#start-infrastructure)).
+5. On the PC hosting the workers execute
+```
+./mount.sh <INSTRUMENT_ID>
+```
+and then start the new container `airflow-worker-<INSTRUMENT_ID>`  (cf. [above](#restart-of-pcvm-hosting-the-workers)).
+
+6. Restart all relevant infrastructure containers (`scheduler`, `file_mover` and `file_remover`) with the `--build` flag (cf. [above](#start-infrastructure)).
 
 7. Open the airflow UI and unpause the new `*.<INSTRUMENT_ID>` DAGs. It might be wise to do this one after another,
 (`instrument_watcher` -> `acquisition_handler` -> `acquisition_processor`.) and to check the logs for errors before starting the next one.

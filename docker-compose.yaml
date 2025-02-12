@@ -51,7 +51,7 @@ x-airflow-common:
     # If you want to use it, outcomment it and replace airflow.cfg with the name of your config file
     # AIRFLOW_CONFIG: '/opt/airflow/config/airflow.cfg'
     #
-    # environmental variables to be taken from the *.env file and passed to the containers:
+    # environmental variables to be taken from the *.env file and passed to the containers at run time:
     ENV_NAME: ${ENV_NAME:?error}
     MONGO_HOST: ${MONGO_HOST:?error}
     MONGO_USER: ${MONGO_USER:?error}

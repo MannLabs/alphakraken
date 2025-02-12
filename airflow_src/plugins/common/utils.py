@@ -49,12 +49,17 @@ def get_airflow_variable(key: str, default: str | int = "__DEFAULT_NOT_SET") -> 
     return value
 
 
-def get_env_variable(key: str, default: str | None = None) -> str:
+def get_env_variable(
+    key: str, default: str | None = None, *, verbose: bool = True
+) -> str:
     """Get the value of an environment variable with `key` with an optional default."""
     if (value := os.getenv(key, default=default)) is None:
         raise KeyError(f"Environment variable '{key}' not set.")
 
-    logging.info(f"Got environment variable: '{key}'='{value}' (default: '{default}')")
+    if verbose:
+        logging.info(
+            f"Got environment variable: '{key}'='{value}' (default: '{default}')"
+        )
 
     return value
 

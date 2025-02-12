@@ -238,5 +238,7 @@ def _load_alphakraken_yaml(env_name: str) -> dict:
         return yaml.safe_load(file)
 
 
-_SETTINGS = _load_alphakraken_yaml(get_env_variable(EnvVars.ENV_NAME, "none"))
+_SETTINGS = _load_alphakraken_yaml(
+    get_env_variable(EnvVars.ENV_NAME, "none", verbose=False)
+)
 INSTRUMENTS = _SETTINGS["instruments"].copy()

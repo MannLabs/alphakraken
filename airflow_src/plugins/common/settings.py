@@ -1,21 +1,26 @@
 """Keys for accessing Dags, Tasks, etc.. and methods closely related."""
 
+import logging
 from pathlib import Path
 
+import yaml
 from common.keys import InstrumentKeys, InstrumentTypes
+from common.utils import get_env_variable
 
 from shared.db.models import RawFile, get_created_at_year_month
+from shared.keys import EnvVars
 
-# TODO: this needs to come from a DB yaml to be flexible
-INSTRUMENTS = {
-    # the toplevel keys determine the DAG name (e.g. 'instrument_watcher.test1')
-    "test1": {
-        InstrumentKeys.TYPE: InstrumentTypes.THERMO,
-    },
-    "test2": {
-        InstrumentKeys.TYPE: InstrumentTypes.THERMO,
-    },
-}
+
+def _load_alphakraken_yaml(env_name: str) -> dict:
+    """Load alphakraken settings from a YAML file."""
+    file_name = f"alphakraken.{env_name}.yaml"
+    with (Path(InternalPaths.ENVS_PATH) / file_name).open() as file:
+        logging.info(f"Loading settings from {file_name}")
+        return yaml.safe_load(file)
+
+
+SETTINGS = _load_alphakraken_yaml(get_env_variable(EnvVars.ENV_NAME))
+INSTRUMENTS = SETTINGS["instruments"].copy()
 
 # prefix for the queues the DAGs are assigned to (cf. docker-compose.yaml)
 AIRFLOW_QUEUE_PREFIX = "kraken_queue_"
@@ -82,6 +87,7 @@ class InternalPaths:
     """Paths to directories within the Docker containers."""
 
     MOUNTS_PATH = "/opt/airflow/mounts/"
+    ENVS_PATH = "/opt/airflow/envs/"
 
     INSTRUMENTS = "instruments"
     BACKUP = "backup"

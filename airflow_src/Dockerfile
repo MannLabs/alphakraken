@@ -21,6 +21,11 @@ RUN pip install --no-cache-dir "apache-airflow==${AIRFLOW_VERSION}" \
     -r /requirements_airflow.txt  \
     -r /requirements_shared.txt
 
+RUN mkdir /opt/airflow/envs
+COPY envs/alphakraken.*.yaml /opt/airflow/envs
+# avoid sensitive data in the container
+RUN sed -i '/\(username\|password\)/d'  /opt/airflow/envs/alphakraken.*.yaml
+
 # Note that in docker-compose.yaml you can choose to import DAGs and plugins via volume mounts,
 # which makes code changes active immediately
 COPY airflow_src/dags /opt/airflow/dags

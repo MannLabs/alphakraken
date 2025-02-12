@@ -262,7 +262,8 @@ def test_raw_file_wrapper_factory_unsupported_vendor() -> None:
     with (
         patch.dict(INSTRUMENTS, {"instrument1": {"type": "UNSUPPORTED"}}),
         pytest.raises(
-            ValueError, match="Unsupported vendor or handler type: UNSUPPORTED, monitor"
+            ValueError,
+            match="Unsupported vendor or handler type for instrument1: UNSUPPORTED, monitor",
         ),
     ):
         RawFileWrapperFactory.create_monitor_wrapper(

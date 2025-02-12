@@ -61,6 +61,7 @@ echo MOUNT_SRC=$MOUNT_SRC
 echo MOUNT_TARGET=$MOUNT_TARGET
 echo USERNAME=$USERNAME
 echo PASSWORD=$PASSWORD
+echo ENV=$ENV
 
 echo "Are you sure you want to continue? (ENTER to continue, CTRL-C to abort)"
 read IGNORE

@@ -24,9 +24,15 @@ def fixture_cluster_ssh_connection_uri() -> str:
 @pytest.fixture
 def dagbag(fixture_cluster_ssh_connection_uri: str) -> DagBag:
     """Fixture for a DagBag instance with the DAGs loaded."""
-    with patch.dict(
-        "os.environ",
-        AIRFLOW_CONN_CLUSTER_SSH_CONNECTION=fixture_cluster_ssh_connection_uri,
+    with (
+        patch.dict(
+            "os.environ",
+            AIRFLOW_CONN_CLUSTER_SSH_CONNECTION=fixture_cluster_ssh_connection_uri,
+        ),
+        patch.dict(
+            "plugins.common.settings.INSTRUMENTS",
+            {"test1": {"type": "thermo"}, "test2": {"type": "thermo"}},
+        ),
     ):
         return DagBag(dag_folder=DAG_FOLDER, include_examples=False)
 

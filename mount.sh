@@ -71,15 +71,22 @@ if [ ! -e $MOUNT_TARGET ]; then
   echo Mounts directory does not exist. Check if it is correct: \'${MOUNT_TARGET}\'. Create it if desired.
   exit 1
 fi
-if [ -n "$(find $MOUNT_TARGET -mindepth 1 -maxdepth 1)" ]; then
-  echo Mounts path is not empty: \'${MOUNT_TARGET}\'
-  echo If you want to overwrite a mount, use the 'umount' option. Otherwise, check if data has been written to a local folder by accident.
+
+isMounted() { findmnt "$1" > /dev/null && echo 1 || echo 0; }
+
+if [ -n "$(find $MOUNT_TARGET -mindepth 1 -maxdepth 1)" ] && [ $(isMounted $MOUNT_TARGET) == 0 ]; then
+  echo "Mount target path is not a mount and is not empty: '${MOUNT_TARGET}'"
+  echo "Check if data has been written to a local folder by accident and take care of it (e.g. move it away)."
   exit 1
 fi
 
 echo mounting "$MOUNT_SRC" to "$MOUNT_TARGET"
 
 if [ "${DO_UMOUNT}" == "umount" ]; then
+  if [ $(isMounted $MOUNT_TARGET) == 0 ]; then
+    echo "Nothing to unmount, $MOUNT_TARGET is not mounted."
+    exit
+  fi
   echo unmounting "$MOUNT_TARGET" ...
   sudo umount "$MOUNT_TARGET"
 fi

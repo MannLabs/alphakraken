@@ -115,6 +115,12 @@ For production: set strong passwords for `AIRFLOW_PASSWORD`, `MONGO_PASSWORD`, a
 in `./env/production.env` and `MONGO_INITDB_ROOT_PASSWORD` in `./env/.env-mongo`.
 Make sure they don't contain weird characters like '\' or '#' as they might interfere with name resolution in `docker-compose.yaml`.
 
+#### Required users
+Two different users are recommended for the deployment:
+one ("`kraken-write`") that has write access to the `backup` pool folder,
+and one  ("`kraken-read`") that has only _read_ access.
+Both users should be able to write to the `logs` and `output` directories, and to read from `settings`.
+
 #### On all machines
 1. Disable the automatic restart of the Docker service
 ([cf. here](https://docs.docker.com/engine/install/linux-postinstall/#configure-docker-to-start-on-boot-with-systemd))
@@ -144,7 +150,7 @@ for display in the Airflow UI.
 
 
 #### On the cluster
-1. Log into the cluster using the `kraken` user.
+1. Log into the cluster using the `kraken-write` user.
 2. Create this directory
 ```bash
 mkdir -p ~/slurm/jobs
@@ -172,7 +178,7 @@ For instruments, only the first type of view is required, as the cluster does no
 
 
 ### Set up pool bind mounts
-The workers need bind mounts set up to the pool filesystems for backup and reading alphaDIA output data.
+The workers need bind mounts set up to the pool filesystems for backup and reading AlphaDIA output data.
 All airflow components (webserver, scheduler and workers) need a bind mount to a pool folder to read and write airflow logs.
 Additionally, workers need one bind mount per instrument PC is needed (cf. section below).
 
@@ -194,7 +200,7 @@ Check also `MOUNTS_PATH`, `BACKUP_POOL_PATH` `QUANTING_POOL_PATH` in the `mounta
 ./mountall.sh $ENV logs
 ```
 
-Note: for now, user `kraken` should only have read access to the backup pool folder, but needs `read/write` on the `output`
+Note: for now, user `kraken-write` should only have read access to the backup pool folder, but needs `read/write` on the `output`
 folder. If you need to remount one of the folders, add the `umount` option, e.g.
 `./mountall.sh $ENV output umount`.
 
@@ -209,10 +215,11 @@ This connection is required to interact with the SLURM cluster.
     - Connection Id: `cluster_ssh_connection`
     - Conn Type: `SSH`
     - Host: `<cluster_head_node_ip>`  # the IP address of a cluster head node, in this case `<cluster_head_node>`
-    - Username: `<user name of kraken SLURM user>`
-    - Password: `<password of kraken SLURM user>`
+    - Username: `<user name of user kraken-read>`
+    - Password: `<password of user kraken-read>`
 3. (optional) Click "Test" to verify the connection.
 4. Click "Save".
+Note: make sure to use the `kraken-read` user with read-only access to the backup pool folder.
 
 ### Setup required pools
 Pools are used to limit the number of parallel tasks for certain operations. They are managed via the Airflow UI
@@ -220,22 +227,27 @@ and need to be created manually once.
 1. Open the Airflow UI, navigate to "Admin" -> "Pools".
 2. For each pool defined in `settings.py:Pools`, create a new pool with a sensible value (see suggestions in the `Pools` class).
 
-### Setup alphaDIA on the cluster
-For details on how to install alphaDIA on the SLURM cluster, follow the alphaDIA
+### Setup AlphaDIA on the cluster
+For details on how to install AlphaDIA on the SLURM cluster, follow the AlphaDIA
 [https://github.com/MannLabs/alphadia/blob/main/docs/installation.md#slurm-cluster-installation](Readme).
 
 In a nutshell, to install a certain version, e.g. `VERSION=1.7.0`:
+
+1. Log in (make sure to use the same user as configured in the [SSH connection](#setup-ssh-connection)!)
 ```bash
-conda create --name alphadia-${VERSION} python=3.11 -y
+ssh kraken-read@<cluster_head_node>
 ```
+2. create a new conda environment and activate it
 ```bash
-conda activate alphadia-${VERSION}
+conda create --name alphadia-${VERSION} python=3.11 -y && conda activate alphadia-${VERSION}
 ```
+3. Install desired version
 ```bash
 pip install "alphadia[stable]==${VERSION}"
 ```
-Make sure the environment is named `alphadia-${VERSION}`.
-Also, don't forget to install `mono` (cf. alphaDIA Readme).
+Make sure the environment is named `alphadia-${VERSION}`, as this is the scheme that is expected by the module starting
+the AlphaDIA jobs.
+Also, don't forget to install `mono` (cf. AlphaDIA Readme).
 
 ### Add a new instrument
 Each instrument is identified by a unique `<INSTRUMENT_ID>`,
@@ -320,7 +332,7 @@ avoided by using permanent mounts.
 sudo systemctl start docker
 ```
 
-2. Remount the `airflow_logs` folder:
+2. Remount the `airflow_logs` folder (using the `kraken-read` user):
 ```bash
 ./mountall.sh $ENV logs
 ```
@@ -342,13 +354,14 @@ Then, Airflow UI is accessible at http://hostname:8080/ and the Streamlit webapp
 sudo systemctl start docker
 ```
 
-2. Set up all mounts for all instruments (`test2`, ...) and the other folders:
+2. Set up all mounts for all instruments (`test2`, ..) and the other folders:
 ```bash
-for m in test2 backup output logs; do
+for m in test2 test3 backup output logs; do
   ./mountall.sh $ENV $m
 done
 ```
 You will be prompted for the password for each mount.
+When mounting `backup` you must use the `kraken-write` user with full write access (can also be used for `output` and `logs`).
 
 3. Run the worker containers (sandbox/production version)
 ```bash
@@ -433,7 +446,7 @@ touch airflow_test_folders/instruments/test1/$RAW_FILE_NAME/some_folder/some_fil
 It should trigger a `acquisition_handler` DAG, which in turn should trigger a `acquisition_processor` DAG.
 
 7. After the `compute_metrics` task failed because of missing output files,
-create those by copying fake alphaDIA result data to the expected output directory
+create those by copying fake AlphaDIA result data to the expected output directory
 (set `YEAR_MONTH=<current year>_<current month>`, e.g. `2024_08`)
 ```bash
 NEW_OUTPUT_FOLDER=airflow_test_folders/output/P1/$YEAR_MONTH/out_$RAW_FILE_NAME

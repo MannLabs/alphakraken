@@ -49,15 +49,17 @@ Please note that running and developing the alphakraken is only tested for MacOS
 The following steps are required for both the `local` and the `sandbox`/`production` deployments.
 For the latter, additional steps are required, see [here](#additional-steps-required-for-initial-sandboxproduction-deployment).
 
-1. Install [Docker](https://docs.docker.com/engine/install/ubuntu/), clone the repository into a folder and `cd` into it.
+1. Install [Docker](https://docs.docker.com/engine/install/ubuntu/).
 
-2. Set the current user as the user within the airflow containers and get the correct permissions on the "logs"
+2. Clone the repository into a folder and `cd` into it.
+
+3. Set the current user as the user within the airflow containers and get the correct permissions on the "logs"
 directory (otherwise, `root` would be used)
 ```bash
 echo -e "AIRFLOW_UID=$(id -u)" > envs/.env-airflow
 ```
 
-3. On the PC that will host the internal airflow database run
+4. On the PC that will host the internal airflow database (not the MongoDB!) run
 ```bash
 ./compose.sh --profile infrastructure up airflow-init
 ```
@@ -66,12 +68,12 @@ Note: depending on your operating system and configuration, you might need to ru
 Now run the containers (see below).
 The following initialization steps need to be done once the containers are up:
 
-4. In the Airflow UI, set up the SSH connection to the cluster (see [below](#setup-ssh-connection)).
+5. In the Airflow UI, set up the SSH connection to the cluster (see [below](#setup-ssh-connection)).
 If you don't want to connect to the cluster, just create the connection of type
 "ssh" and name "cluster_ssh_connection" with some dummy values for host, username, and password.
 In this case, make sure to set the Airflow variable `debug_no_cluster_ssh=True` (see below).
 
-5. In the Airflow UI, set up the required Pools (see [below](#setup-pools)).
+6. In the Airflow UI, set up the required Pools (see [below](#setup-required-pools)).
 
 #### Run the containers (local version)
 Start all docker containers required for local testing with
@@ -113,29 +115,33 @@ For production: set strong passwords for `AIRFLOW_PASSWORD`, `MONGO_PASSWORD`, a
 in `./env/production.env` and `MONGO_INITDB_ROOT_PASSWORD` in `./env/.env-mongo`.
 Make sure they don't contain weird characters like '\' or '#' as they might interfere with name resolution in `docker-compose.yaml`.
 
-#### On the PC (VM) hosting the airflow infrastructure [start-infrastructure]
-0. `ssh` into the PC/VM and set `export ENV=sandbox` (`production`).
+#### On all machines
+1. Disable the automatic restart of the Docker service
+([cf. here](https://docs.docker.com/engine/install/linux-postinstall/#configure-docker-to-start-on-boot-with-systemd))
+```bash
+sudo systemctl disable docker.service
+sudo systemctl disable docker.socket
+sudo systemctl disable containerd.service
+```
+This is currently required, as manual work is needed anyway after a machine reboot
+(see [below](#things-to-do-after-a-machine-reboot))
+and thus the automated start of containers is not desired.
+
+#### On the PC (VM) hosting the airflow infrastructure
+0. `ssh` into the PC/VM, `cd` to the alphakraken source directory, and set `export ENV=sandbox` (`production`).
 
 1. Set up the [pool bind mounts](#set-up-pool-bind-mounts) for `airflow_logs` only. Here, the logs of the individual task runs will be stored
 for display in the Airflow UI.
 
-2. Run the airflow infrastructure and MongoDB services
-```bash
-./compose.sh --profile infrastructure up --build -d
-```
-Then, access the Airflow UI at http://hostname:8080/ and the Streamlit webapp at http://hostname:8501/.
+2. Follow the steps for after a restart [below](#restart-of-pcvm-hosting-the-airflow-infrastructure).
 
-#### On the PC (VM) hosting the workers [start-worker]
-0. `ssh` into the PC/VM and set `export ENV=sandbox` (`production`).
+#### On the PC (VM) hosting the workers
+0. `ssh` into the PC/VM, `cd` to the alphakraken source directory, and set `export ENV=sandbox` (`production`).
 
-1. Set up the [pool bind mounts](#set-up-pool-bind-mounts)
-and mount all instruments using the `./mountall.sh` command described in [instruments](#add-a-new-instrument).
+1. Set up the [pool bind mounts](#set-up-pool-bind-mounts) for all instruments and `logs`, `backup` and `output`.
 
-2. Run the worker containers (sandbox/production version)
-```bash
-./compose.sh --profile workers up --build -d
-```
-which spins up on worker service for each instrument.
+2. Follow the steps for after a restart [below](#restart-of-pcvm-hosting-the-workers).
+
 
 #### On the cluster
 1. Log into the cluster using the `kraken` user.
@@ -279,7 +285,7 @@ Here, `<INSTRUMENT_TYPE>` is one of the keys defined in the `InstrumentKeys` cla
 Make sure to replace each instance of `<INSTRUMENT_ID>` with the correct instrument ID
 and to not accidentally drop the `ro` and `rw` flags as they limit file access rights.
 
-6. Start the new container `airflow-worker-<INSTRUMENT_ID>`  (cf. [above](#start-worker)).
+6. Start the new container `airflow-worker-<INSTRUMENT_ID>`  (cf. [above](#restart-of-pcvm-hosting-the-workers)).
 
 7. Restart all relevant containers (scheduler, file mover and remover) with the `--build` flag (cf. [above](#start-infrastructure)).
 
@@ -300,6 +306,57 @@ new mounts, new environment variables, manual database interventions, ..) and ap
 6. Set the size of `file_copy_pool` to the number it was before.
 7. Normal operation should be resumed after about 5 minutes. Depending on when they were shut down, some tasks
 could be in an `error` state though. Check after a few hours if some files are stuck and resolve the issues with the Airflow UI.
+
+
+### Things to do after a machine reboot
+Currently, there is some action needed after a reboot. This could be
+avoided by using permanent mounts.
+
+#### Restart of PC/VM hosting the airflow infrastructure
+0. `ssh` into the PC/VM, `cd` to the alphakraken source directory, and set `export ENV=sandbox` (`production`).
+
+1. Start the docker service
+```bash
+sudo systemctl start docker
+```
+
+2. Remount the `airflow_logs` folder:
+```bash
+./mountall.sh $ENV logs
+```
+
+3. Run the airflow infrastructure and MongoDB services
+```bash
+./compose.sh --profile infrastructure up --build -d
+```
+and check container health using `sudo docker ps`.
+
+Then, Airflow UI is accessible at http://hostname:8080/ and the Streamlit webapp at http://hostname:8501/.
+
+
+#### Restart of PC/VM hosting the workers
+0. `ssh` into the PC/VM, `cd` to the alphakraken source directory, and set `export ENV=sandbox` (`production`).
+
+1. Start the docker service
+```bash
+sudo systemctl start docker
+```
+
+2. Set up all mounts for all instruments (`test2`, ...) and the other folders:
+```bash
+for m in test2 backup output logs; do
+  ./mountall.sh $ENV $m
+done
+```
+You will be prompted for the password for each mount.
+
+3. Run the worker containers (sandbox/production version)
+```bash
+./compose.sh --profile workers up --build -d
+```
+which spins up on worker service for each instrument,
+and check container health using `sudo docker ps`.
+
 
 ## Local development
 

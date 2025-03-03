@@ -69,6 +69,7 @@ ERROR_CODE_TO_STRING = {
     "_FIRST_ARRAY_ELEMENT_EMPTY": "first array argument cannot be empty",
     "_ARGMAX_OF_EMPTY_SEQUENCE": "attempt to get argmax of an empty sequence",
     "_INTERNAL_ERROR_CANDIDATE_CONFIG": "'CandidateConfig' object has no attribute 'reporter'",
+    "_SINGULAR_MATRIX": "Matrix is singular to machine precision",
     # the following are deliberately not included as they require a manual check:
     # "_FILE_IS_NOT_A_DATABASE": "file is not a database", # corrupt file? -> check if something went wrong with copying
     # "_COULD_NOT_OPEN_FILE": "could not be opened, is the file accessible", # hints at nonexisting file -> manual intervention?

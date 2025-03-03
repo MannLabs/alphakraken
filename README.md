@@ -7,7 +7,6 @@ A fully automated data processing and analysis system for mass spectrometry expe
 
 <img src="docs/alphakraken.jpg" alt="alphakraken" style="max-width: 600px;"/>
 
-
 ## Important note for users
 
 To not interfere with the automated processing, please stick to the following simple rule:
@@ -18,7 +17,20 @@ To not interfere with the automated processing, please stick to the following si
 do not **delete**, **rename** or **open** files in these folders and do not **copy** or **move** files *from* or *to* these folders!
 
 Regular users should find all required documentation in the [AlphaKraken WebApp](http://<kraken_url>).
-The rest of this Readme is relevant only for developers and administrators.
+The rest of this documentation is relevant only for developers and administrators.
+
+
+## System Requirements
+
+The following architecture is required to run AlphaKraken: a local PC, a compute cluster, and a shared file system.
+
+**Local PC**: at least one local PC with a recent linux distribution, 16GB+ RAM and 4+ CPU cores,
+with network access to the acquisition PCs, to the shared file system and to the compute cluster.
+
+**Distributed compute environment**: compute cluster with SLURM workload manager that can be accessed via SSH.
+
+**Shared File System**: a file system that can be accessed from the local PC and the compute cluster.
+
 
 ## Quick start
 For the impatient:
@@ -35,6 +47,7 @@ After startup, the airflow webserver runs on http://localhost:8080/ (default cre
 
 See the [deployment.md](docs/deployment.md) for detailed instructions and [development.md](docs/development.md) for
 instructions on how to try the system locally.
+
 
 
 ## Documentation Structure

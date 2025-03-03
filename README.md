@@ -49,7 +49,7 @@ Please note that running and developing the alphakraken is only tested for MacOS
 The following steps are required for both the `local` and the `sandbox`/`production` deployments.
 For the latter, additional steps are required, see [here](#additional-steps-required-for-initial-sandboxproduction-deployment).
 
-1. Install [Docker](https://docs.docker.com/engine/install/ubuntu/).
+1. Install [Docker](https://docs.docker.com/engine/install/ubuntu/) and `python3`.
 
 2. Clone the repository into a folder and `cd` into it.
 
@@ -166,7 +166,7 @@ Each worker needs two 'views' on the pool backup and output data.
 
 The first view enables read/write access,
 by mounting on the Kraken host PC a specific (network) folder (e.g. `\\pool-backup\pool-backup` or `\\pool-output\pool-output`)
-using `cifs` mounts (wrapped by `mountall.sh`)
+using `cifs` mounts (wrapped by `mount.sh`)
 to a target folder and then mapping this target folder to a worker container
 in `docker-compose.yaml`.
 
@@ -191,20 +191,20 @@ sudo apt install cifs-utils
 1. Create folders `settings`, `output`, and `airflow_logs` in the desired pool location(s), e.g. under `/fs/pool/pool-alphakraken`.
 
 2. Make sure the variables `MOUNTS_PATH`, `BACKUP_POOL_FOLDER` `QUANTING_POOL_FOLDER` in the `envs/${ENV}.env` file are set correctly.
-Check also `MOUNTS_PATH`, `BACKUP_POOL_PATH` `QUANTING_POOL_PATH` in the `mountall.sh` script.
+Set them also in the `envs/alphakraken.$ENV.yaml` file (section: `locations`).
 
 3. Mount the backup, output and logs folder. You will be asked for passwords.
 ```bash
-./mountall.sh $ENV backup
-./mountall.sh $ENV output
-./mountall.sh $ENV logs
+./mount.sh backup
+./mount.sh output
+./mount.sh logs
 ```
 
 Note: for now, user `kraken-write` should only have read access to the backup pool folder, but needs `read/write` on the `output`
 folder. If you need to remount one of the folders, add the `umount` option, e.g.
-`./mountall.sh $ENV output umount`.
+`./mount.sh output umount`.
 
-IMPORTANT NOTE: it is absolutely crucial that the mounts are set correctly (as provided by the `mountall.sh` script)
+IMPORTANT NOTE: it is absolutely crucial that the mounts are set correctly (as provided by the `envs/alphakraken.$ENV.yaml` file)
 as the workers operate only on docker-internal paths and cannot verify the correctness of the mounts.
 
 ### Setup SSH connection
@@ -255,34 +255,21 @@ which should be lowercase and contain only letters and numbers but is otherwise 
 Note that some parts of the system rely on convention, so make sure to use exactly
 `<INSTRUMENT_ID>` (case-sensitive!) in the below steps.
 
-1. Create a folder named `Backup` in the folder where the acquired files are saved.
+1. On the instrument, create a folder named `Backup` (capital B!) in the folder where the acquired files are saved.
 
-2. Add the following block to the end of `mountall.sh`:
+2. Add the following block to the end of the `instruments` section in `envs/alphakraken.$ENV.yaml` (mind the correct indentation!):
 ```bash
-if [ "${ENTITY}" == "<INSTRUMENT_ID>" ]; then
-  USERNAME=<username for instrument>
-  MOUNT_SRC=//<ip address of instrument>/<INSTRUMENT_ID>/$SUBFOLDER
-  MOUNT_TARGET=${MOUNTS_PATH}/instruments/<INSTRUMENT_ID>
-fi
+   <INSTRUMENT_ID>:
+    type: <INSTRUMENT_TYPE>
+    username: <username for instrument>
+    mount_src: //<ip address of instrument>/<INSTRUMENT_ID>
+    mount_target: instruments/<INSTRUMENT_ID>
 ```
+Here, `<INSTRUMENT_TYPE>` is one of the keys defined in the `InstrumentKeys` class (`thermo`, `bruker`, `zeno`) and determines
+what output is expected from the instrument:
+`thermo` -> one `.raw` file, `bruker` -> one `.d` folder, `zeno` -> one `.wiff` file plus more files with the same stem.
 
-3. Transfer this change to the AlphaKraken PC and execute
-```
-./mountall.sh $ENV <INSTRUMENT_ID>
-```
-
-4. In the `settings.py:INSTRUMENTS` dictionary, add a new entry by copying an existing one and adapting it like
-```
-    "<INSTRUMENT_ID>": {
-        InstrumentKeys.TYPE: InstrumentTypes.<INSTRUMENT_TYPE>,
-        # (there might be some keys here, just copy them)
-    },
-```
-Here, `<INSTRUMENT_TYPE>` is one of the keys defined in the `InstrumentKeys` class and determines what output is expected from the instrument:
-`THERMO` -> 1 `.raw` file, `BRUKER` -> `.d` folder, `ZENO` -> `.wiff` file plus more files with the same stem.
-
-
-5. In `docker-compose.yaml`, add a new worker service, by copying an existing one and adapting it like:
+3. In `docker-compose.yaml`, add a new worker service, by copying an existing one and adapting it like:
 ```
   airflow-worker-<INSTRUMENT_ID>:
     <<: *airflow-worker
@@ -297,11 +284,17 @@ Here, `<INSTRUMENT_TYPE>` is one of the keys defined in the `InstrumentKeys` cla
 Make sure to replace each instance of `<INSTRUMENT_ID>` with the correct instrument ID
 and to not accidentally drop the `ro` and `rw` flags as they limit file access rights.
 
-6. Start the new container `airflow-worker-<INSTRUMENT_ID>`  (cf. [above](#restart-of-pcvm-hosting-the-workers)).
+4. Transfer the changes in `2.` and `3.` to all AlphaKraken PCs/VMs.
 
-7. Restart all relevant containers (scheduler, file mover and remover) with the `--build` flag (cf. [above](#start-infrastructure)).
+5. On the PC hosting the workers execute
+```
+./mount.sh <INSTRUMENT_ID>
+```
+and then start the new container `airflow-worker-<INSTRUMENT_ID>`  (cf. [above](#restart-of-pcvm-hosting-the-workers)).
 
-8. Open the airflow UI and unpause the new `*.<INSTRUMENT_ID>` DAGs. It might be wise to do this one after another,
+6. Restart all relevant infrastructure containers (`scheduler`, `file_mover` and `file_remover`) with the `--build` flag (cf. [above](#start-infrastructure)).
+
+7. Open the airflow UI and unpause the new `*.<INSTRUMENT_ID>` DAGs. It might be wise to do this one after another,
 (`instrument_watcher` -> `acquisition_handler` -> `acquisition_processor`.) and to check the logs for errors before starting the next one.
 
 
@@ -334,7 +327,7 @@ sudo systemctl start docker
 
 2. Remount the `airflow_logs` folder (using the `kraken-read` user):
 ```bash
-./mountall.sh $ENV logs
+./mount.sh logs
 ```
 
 3. Run the airflow infrastructure and MongoDB services
@@ -356,8 +349,8 @@ sudo systemctl start docker
 
 2. Set up all mounts for all instruments (`test2`, ..) and the other folders:
 ```bash
-for m in test2 test3 backup output logs; do
-  ./mountall.sh $ENV $m
+for entity in test2 test3 backup output logs; do
+  ./mount.sh $entity
 done
 ```
 You will be prompted for the password for each mount.

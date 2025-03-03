@@ -5,7 +5,6 @@ from unittest.mock import patch
 
 import pytest
 from airflow.models import Connection, DagBag
-from plugins.common.settings import INSTRUMENTS
 
 DAG_FOLDER = Path(__file__).parent / Path("../../dags")
 
@@ -25,9 +24,12 @@ def fixture_cluster_ssh_connection_uri() -> str:
 @pytest.fixture
 def dagbag(fixture_cluster_ssh_connection_uri: str) -> DagBag:
     """Fixture for a DagBag instance with the DAGs loaded."""
-    with patch.dict(
-        "os.environ",
-        AIRFLOW_CONN_CLUSTER_SSH_CONNECTION=fixture_cluster_ssh_connection_uri,
+    with (
+        patch.dict(
+            "os.environ",
+            AIRFLOW_CONN_CLUSTER_SSH_CONNECTION=fixture_cluster_ssh_connection_uri,
+            ENV_NAME="_test_",
+        ),
     ):
         return DagBag(dag_folder=DAG_FOLDER, include_examples=False)
 
@@ -35,7 +37,9 @@ def dagbag(fixture_cluster_ssh_connection_uri: str) -> DagBag:
 def test_dag_load_instrument_watcher(dagbag: DagBag) -> None:
     """Test that instrument_watcher loads correctly."""
     # when
-    for instrument in INSTRUMENTS:
+    for instrument in [
+        "_test1_",
+    ]:
         dag = dagbag.get_dag(dag_id=f"instrument_watcher.{instrument}")
 
         # then
@@ -47,7 +51,9 @@ def test_dag_load_instrument_watcher(dagbag: DagBag) -> None:
 def test_dag_load_acquisition_handler(dagbag: DagBag) -> None:
     """Test that acquisition_handler loads correctly."""
     # when
-    for instrument in INSTRUMENTS:
+    for instrument in [
+        "_test1_",
+    ]:
         dag = dagbag.get_dag(dag_id=f"acquisition_handler.{instrument}")
 
         # then
@@ -59,7 +65,9 @@ def test_dag_load_acquisition_handler(dagbag: DagBag) -> None:
 def test_dag_load_acquisition_processor(dagbag: DagBag) -> None:
     """Test that instrument_watcher loads correctly."""
     # when
-    for instrument in INSTRUMENTS:
+    for instrument in [
+        "_test1_",
+    ]:
         dag = dagbag.get_dag(dag_id=f"acquisition_processor.{instrument}")
 
         # then

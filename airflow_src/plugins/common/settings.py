@@ -1,21 +1,15 @@
 """Keys for accessing Dags, Tasks, etc.. and methods closely related."""
 
+import logging
 from pathlib import Path
+from typing import Any
 
+import yaml
 from common.keys import InstrumentKeys, InstrumentTypes
+from common.utils import get_env_variable
 
 from shared.db.models import RawFile, get_created_at_year_month
-
-# TODO: this needs to come from a DB yaml to be flexible
-INSTRUMENTS = {
-    # the toplevel keys determine the DAG name (e.g. 'instrument_watcher.test1')
-    "test1": {
-        InstrumentKeys.TYPE: InstrumentTypes.THERMO,
-    },
-    "test2": {
-        InstrumentKeys.TYPE: InstrumentTypes.THERMO,
-    },
-}
+from shared.keys import EnvVars
 
 # prefix for the queues the DAGs are assigned to (cf. docker-compose.yaml)
 AIRFLOW_QUEUE_PREFIX = "kraken_queue_"
@@ -82,6 +76,7 @@ class InternalPaths:
     """Paths to directories within the Docker containers."""
 
     MOUNTS_PATH = "/opt/airflow/mounts/"
+    ENVS_PATH = "/opt/airflow/envs/"
 
     INSTRUMENTS = "instruments"
     BACKUP = "backup"
@@ -228,3 +223,26 @@ def get_fallback_project_id(instrument_id: str) -> str:
         if INSTRUMENTS[instrument_id][InstrumentKeys.TYPE] == InstrumentTypes.BRUKER
         else FALLBACK_PROJECT_ID
     )
+
+
+def _load_alphakraken_yaml(env_name: str) -> dict[str, dict[str, Any]]:
+    """Load alphakraken settings from a YAML file."""
+    file_name = f"alphakraken.{env_name}.yaml"
+    file_path = Path(InternalPaths.ENVS_PATH) / file_name
+    if env_name == "_test_":
+        # TODO: this is to make the tests happy, but it should be handled differently
+        logging.warning("Using 'test' environment, this is an error in production!")
+        return {"instruments": {"_test1_": {"type": "thermo"}}}
+
+    if not file_path.exists():
+        raise FileNotFoundError(f"Settings file {file_name} not found at {file_path}")
+
+    with file_path.open() as file:
+        logging.info(f"Loading settings from {file_name}")
+        return yaml.safe_load(file)
+
+
+_SETTINGS = _load_alphakraken_yaml(
+    get_env_variable(EnvVars.ENV_NAME, "none", verbose=False)
+)
+INSTRUMENTS = _SETTINGS["instruments"].copy()

@@ -1,0 +1,25 @@
+# Configuration file for alphakraken: instruments and mounts (environment: sandbox)
+instruments:
+  test1:
+    type: thermo # Needs to match one of the values defined in common.keys.InstrumentTypes (thermo, bruker, zeno).
+    # the following is required for mounting only (read by mount.sh):
+    username: user
+    mount_src: //0.0.0.0/test1/
+    mount_target: instruments/test1
+locations:
+  # cf. also the PATHS section in .env/sandbox.env
+  general:
+    # cf. also the variable MOUNTS_PATH .env/production.env (sandbox.env)
+    mounts_path: /home/kraken-user/alphakraken/sandbox/mounts
+  backup:
+    username: kraken-write
+    mount_src: //samba-pool-0/pool-0/alphakraken_sandbox/backup
+    mount_target: backup
+  output:
+    username: kraken-write
+    mount_src: //samba-pool-0/pool-0/alphakraken_sandbox/output
+    mount_target: output
+  logs:
+    username: kraken-write
+    mount_src: //samba-pool-0/pool-0/alphakraken_sandbox/airflow_logs
+    mount_target: airflow_logs

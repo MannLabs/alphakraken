@@ -26,6 +26,7 @@ For the impatient:
 ```bash
 git clone https://github.com/MannLabs/alphakraken.git && cd alphakraken
 echo -e "AIRFLOW_UID=$(id -u)" > envs/.env-airflow
+ENV=local && export ENV=$ENV
 ./compose.sh --profile infrastructure up airflow-init
 ./compose.sh --profile local up --build -d
 ```

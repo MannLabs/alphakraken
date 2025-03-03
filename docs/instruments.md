@@ -39,9 +39,9 @@ and to not accidentally drop the `ro` and `rw` flags as they limit file access r
 ```
 ./mount.sh <INSTRUMENT_ID>
 ```
-and then start the new container `airflow-worker-<INSTRUMENT_ID>`  (cf. [above](#restart-of-pcvm-hosting-the-workers)).
+and then start the new container `airflow-worker-<INSTRUMENT_ID>`  (cf. [above](maintenance.md/#restart-of-pcvm-hosting-the-workers)).
 
-6. Restart all relevant infrastructure containers (`scheduler`, `file_mover` and `file_remover`) with the `--build` flag (cf. [above](#start-infrastructure)).
+6. Restart all relevant infrastructure containers (`scheduler`, `file_mover` and `file_remover`) with the `--build` flag (cf. [above](maintenance.md/#restart-of-pcvm-hosting-the-airflow-infrastructure)).
 
 7. Open the airflow UI and unpause the new `*.<INSTRUMENT_ID>` DAGs. It might be wise to do this one after another,
 (`instrument_watcher` -> `acquisition_handler` -> `acquisition_processor`.) and to check the logs for errors before starting the next one.

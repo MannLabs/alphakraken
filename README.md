@@ -7,14 +7,6 @@ A fully automated data processing and analysis system for mass spectrometry expe
 
 <img src="docs/alphakraken.jpg" alt="alphakraken" style="max-width: 600px;"/>
 
-## Documentation Structure
-
-For detailed information, please refer to the following documentation files:
-
-- [DEPLOYMENT.md](docs/deployment.md) - Setup and deployment instructions
-- [INSTRUMENT_MANAGEMENT.md](docs.instruments.md) - Adding and configuring instruments
-- [DEVELOPMENT.md](docs/development.md) - Development setup and testing procedures
-- [TROUBLESHOOTING.md](docs/troubleshooting.md) - Maintenance procedures and post-reboot instructions, common issues and solutions
 
 ## Important note for users
 
@@ -27,6 +19,31 @@ do not **delete**, **rename** or **open** files in these folders and do not **co
 
 Regular users should find all required documentation in the [AlphaKraken WebApp](http://<kraken_url>).
 The rest of this Readme is relevant only for developers and administrators.
+
+## Quick start
+For the impatient:
+
+```bash
+git clone https://github.com/MannLabs/alphakraken.git && cd alphakraken
+echo -e "AIRFLOW_UID=$(id -u)" > envs/.env-airflow
+./compose.sh --profile infrastructure up airflow-init
+./compose.sh --profile local up --build -d
+```
+
+After startup, the airflow webserver runs on http://localhost:8080/ (default credentials: airflow/airflow), the Streamlit webapp on http://localhost:8501/ .
+
+See the [deployment.md](docs/deployment.md) for detailed instructions and [development.md](docs/development.md) for
+instructions on how to try the system locally.
+
+
+## Documentation Structure
+
+For detailed information, please refer to the following documentation files:
+
+- [deployment.md](docs/deployment.md) - Setup and deployment instructions
+- [instruments.md](docs/instruments.md) - Adding and configuring instruments
+- [development.md](docs/development.md) - Development setup and testing procedures
+- [maintenance.md](docs/maintenance.md) - Maintenance procedures and post-reboot instructions, common issues and solutions
 
 ---
 

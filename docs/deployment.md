@@ -72,7 +72,7 @@ A more graceful 'warm shutdown' can be achieved by
 ./compose.sh --profile local stop
 ```
 
-See below for [some useful Docker commands](#some-useful-docker-commands).
+See below for [some useful Docker commands](maintenance.md/#some-useful-docker-commands).
 
 
 ### Additional steps required for initial sandbox/production deployment
@@ -111,7 +111,7 @@ sudo systemctl disable docker.socket
 sudo systemctl disable containerd.service
 ```
 This is currently required, as manual work is needed anyway after a machine reboot
-(see [below](#things-to-do-after-a-machine-reboot))
+(see [below](maintenance.md/#actions-to-take-after-a-machine-reboot))
 and thus the automated start of containers is not desired.
 
 #### On the PC (VM) hosting the airflow infrastructure
@@ -120,14 +120,14 @@ and thus the automated start of containers is not desired.
 1. Set up the [pool bind mounts](#set-up-pool-bind-mounts) for `airflow_logs` only. Here, the logs of the individual task runs will be stored
 for display in the Airflow UI.
 
-2. Follow the steps for after a restart [below](#restart-of-pcvm-hosting-the-airflow-infrastructure).
+2. Follow the steps for after a restart [below](maintenance.md/#restart-of-pcvm-hosting-the-airflow-infrastructure).
 
 #### On the PC (VM) hosting the workers
 0. `ssh` into the PC/VM, `cd` to the alphakraken source directory, and set `export ENV=sandbox` (`production`).
 
 1. Set up the [pool bind mounts](#set-up-pool-bind-mounts) for all instruments and `logs`, `backup` and `output`.
 
-2. Follow the steps for after a restart [below](#restart-of-pcvm-hosting-the-workers).
+2. Follow the steps for after a restart [below](maintenance.md/#restart-of-pcvm-hosting-the-workers).
 
 
 #### On the cluster
@@ -139,7 +139,7 @@ mkdir -p ~/slurm/jobs
 3. Copy the cluster run script `submit_job.sh` to `~/slurm`.
 Make sure to update also this file when deploying a new version of the AlphaKraken.
 
-4. Set up AlphaDIA  (see [below](#setup-alphadia)).
+4. Set up AlphaDIA  (see [below](#setup-alphadia-on-the-cluster)).
 
 ### General note on how Kraken gets to know the data
 
@@ -244,103 +244,3 @@ new mounts, new environment variables, manual database interventions, ..) and ap
 6. Set the size of `file_copy_pool` to the number it was before.
 7. Normal operation should be resumed after about 5 minutes. Depending on when they were shut down, some tasks
 could be in an `error` state though. Check after a few hours if some files are stuck and resolve the issues with the Airflow UI.
-
-
-### Things to do after a machine reboot
-Currently, there is some action needed after a reboot. This could be
-avoided by using permanent mounts.
-
-#### Restart of PC/VM hosting the airflow infrastructure
-0. `ssh` into the PC/VM, `cd` to the alphakraken source directory, and set `export ENV=sandbox` (`production`).
-
-1. Start the docker service
-```bash
-sudo systemctl start docker
-```
-
-2. Remount the `airflow_logs` folder (using the `kraken-read` user):
-```bash
-./mount.sh logs
-```
-
-3. Run the airflow infrastructure and MongoDB services
-```bash
-./compose.sh --profile infrastructure up --build -d
-```
-and check container health using `sudo docker ps`.
-
-Then, Airflow UI is accessible at http://hostname:8080/ and the Streamlit webapp at http://hostname:8501/.
-
-
-#### Restart of PC/VM hosting the workers
-0. `ssh` into the PC/VM, `cd` to the alphakraken source directory, and set `export ENV=sandbox` (`production`).
-
-1. Start the docker service
-```bash
-sudo systemctl start docker
-```
-
-2. Set up all mounts for all instruments (`test2`, ..) and the other folders:
-```bash
-for entity in test2 test3 backup output logs; do
-  ./mount.sh $entity
-done
-```
-You will be prompted for the password for each mount.
-When mounting `backup` you must use the `kraken-write` user with full write access (can also be used for `output` and `logs`).
-
-3. Run the worker containers (sandbox/production version)
-```bash
-./compose.sh --profile workers up --build -d
-```
-which spins up on worker service for each instrument,
-and check container health using `sudo docker ps`.
-
-
-
-
-## Airflow Variables
-These variables are set in the Airflow UI under "Admin" -> "Variables". They steer the behavior of the whole system,
-so be careful when changing them. If in doubt, pause all DAGs that are not part of the current problem before changing them.
-
-### min_free_space_gb (default: -1)
-If set to a positive number (unit: GB), the `file_remover` will remove files (oldest first) from the
-instrument backup folder until the free space is above this threshold.
-The value of `min_file_age_to_remove_in_days` (see below) is taken into account when
-selection files to remove.
-
-Recommended setting in production: `300` (big enough to avoid running out of space over a weekend
-(in the worst case scenario that the file_remover stops running on Friday).
-
-### min_file_age_to_remove_in_days (default: 14)
-The minimum file age in days for files to be removed by the file_remover.
-
-Recommended setting in production: `14` (default)
-
-### allow_output_overwrite (default: False)
-If set to `True`, the system will overwrite existing output files. Convenience switch to avoid manual deletion of output files
-in case something went wrong with the quanting.
-
-Recommended setting in production: False (default)
-
-### backup_overwrite_file_id (default: None)
-In case the `file_copy` task is interrupted (e.g. manually) while a file is being copied,
-simply restarting it will not help, as the partially copied file will not be overwritten
-due to a security mechanism.
-In this case, set the `backup_overwrite_file_id` variable to the file _id_ (not: file _name_), i.e. including
-potential collision flags, and restart the `file_copy` task. The overwrite protection
-will be deactivated just for this file id and the copying should succeed.
-
-
-### debug_no_cluster_ssh (default: False)
-`debug_no_cluster_ssh` If set to `True`, the system will not connect to the SLURM cluster. This is useful for
-testing, debugging and to avoid flooding the cluster at the initial setup.
-
-Recommended setting in production: False (default)
-
-### debug_max_file_age_in_hours (default: -1)
-If set, files that are older will not be processed by the acquisition handler, i.e. not be backed up nor quanted.
-They will nevertheless be added to the DB, with status="ignored".
-Needs to be a valid float, "-1" to deactivate.
-
-Recommended setting in production: -1 (default)

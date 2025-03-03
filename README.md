@@ -265,9 +265,9 @@ Note that some parts of the system rely on convention, so make sure to use exact
     mount_src: //<ip address of instrument>/<INSTRUMENT_ID>
     mount_target: instruments/<INSTRUMENT_ID>
 ```
-Here, `<INSTRUMENT_TYPE>` is one of the keys defined in the `InstrumentKeys` class (`thermo`, `bruker`, `zeno`) and determines
+Here, `<INSTRUMENT_TYPE>` is one of the keys defined in the `InstrumentKeys` class (`thermo`, `bruker`, `sciex`) and determines
 what output is expected from the instrument:
-`thermo` -> one `.raw` file, `bruker` -> one `.d` folder, `zeno` -> one `.wiff` file plus more files with the same stem.
+`thermo` -> one `.raw` file, `bruker` -> one `.d` folder, `sciex` -> one `.wiff` file plus more files with the same stem.
 
 3. In `docker-compose.yaml`, add a new worker service, by copying an existing one and adapting it like:
 ```
@@ -417,7 +417,7 @@ I=$((I+1)); RAW_FILE_NAME=test_file_SA_P123_${I}.raw; echo $RAW_FILE_NAME
 touch airflow_test_folders/instruments/test1/$RAW_FILE_NAME
 ```
 
-For type "Zeno":
+For type "Sciex":
 ```bash
 I=$((I+1)); RAW_FILE_STEM=test_file_SA_P123_${I}; RAW_FILE_NAME=$RAW_FILE_STEM.wiff; echo $RAW_FILE_NAME
 touch airflow_test_folders/instruments/test1/$RAW_FILE_NAME

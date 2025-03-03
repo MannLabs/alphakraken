@@ -2,7 +2,7 @@
 
 A general note on naming:
 Within this code base, the term "raw file" refers to the file (or folder) produced by the instrument.
-For thermo, it is the ".raw" file, for zeno, it is the ".wiff" file, and for bruker, it is the ".d" folder.
+For thermo, it is the ".raw" file, for sciex, it is the ".wiff" file, and for bruker, it is the ".d" folder.
 """
 
 import logging
@@ -108,8 +108,8 @@ class ThermoRawFileMonitorWrapper(RawFileMonitorWrapper):
         return self._instrument_path / self._raw_file_original_name
 
 
-class ZenoRawFileMonitorWrapper(RawFileMonitorWrapper):
-    """RawFileMonitorWrapper for Zeno instruments."""
+class SciexRawFileMonitorWrapper(RawFileMonitorWrapper):
+    """RawFileMonitorWrapper for Sciex instruments."""
 
     _raw_file_extension = ".wiff"
 
@@ -350,8 +350,8 @@ class ThermoRawFileWriteWrapper(RawFileWriteWrapper):
         return None
 
 
-class ZenoRawFileWriteWrapper(RawFileWriteWrapper):
-    """Class wrapping Zeno-specific logic."""
+class SciexRawFileWriteWrapper(RawFileWriteWrapper):
+    """Class wrapping Sciex-specific logic."""
 
     def _get_files_to_copy(self) -> dict[Path, Path]:
         """Get the mapping of source to destination paths (both absolute) for the raw file.
@@ -432,9 +432,9 @@ class RawFileWrapperFactory:
             MONITOR: ThermoRawFileMonitorWrapper,
             COPIER: ThermoRawFileWriteWrapper,
         },
-        InstrumentTypes.ZENO: {
-            MONITOR: ZenoRawFileMonitorWrapper,
-            COPIER: ZenoRawFileWriteWrapper,
+        InstrumentTypes.SCIEX: {
+            MONITOR: SciexRawFileMonitorWrapper,
+            COPIER: SciexRawFileWriteWrapper,
         },
         InstrumentTypes.BRUKER: {
             MONITOR: BrukerRawFileMonitorWrapper,

@@ -93,8 +93,8 @@ stat ${OUTPUT_PATH}/*
 set -e
 echo "<<<<<<"
 
-##################### ZENO HACK pt. 1 ###############
-# Zeno files cannot be opened in read-only mode, so we create
+##################### SCIEX HACK pt. 1 ###############
+# Sciex files cannot be opened in read-only mode, so we create
 # a temporary directory in the output folder and copy the files there.
 # After quanting, this temporary directory is removed (see pt. 2)
 
@@ -126,7 +126,7 @@ if [[ ${RAW_FILE_PATH} == *.wiff ]]; then
   stat "${OUTPUT_PATH}/tmp_raw_data/"*
 
 fi
-##################### ZENO HACK #####################
+##################### SCIEX HACK #####################
 
 echo "Running alphadia.."
 echo "Check the logs in ${OUTPUT_PATH}/log.txt"
@@ -155,7 +155,7 @@ echo $alphadia_exit_code
 echo "<<<<<<"
 
 
-##################### ZENO HACK pt. 2 ###############
+##################### SCIEX HACK pt. 2 ###############
 # remove very defensively (file by file, then empty dir)
 if [[ ${RAW_FILE_PATH} == *.wiff ]]; then
   echo removing tmp_raw_data ..
@@ -165,7 +165,7 @@ if [[ ${RAW_FILE_PATH} == *.wiff ]]; then
   rm "${OUTPUT_PATH}/tmp_raw_data/${raw_file_name_stem}.wiff.scan"
   echo .. done removing
 fi
-##################### ZENO HACK #####################
+##################### SCIEX HACK #####################
 
 if [ ! "$alphadia_exit_code" -eq 0 ]; then
     echo got nonzero exit code $alphadia_exit_code

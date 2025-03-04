@@ -17,11 +17,11 @@ from common.keys import (
 )
 from common.settings import (
     AIRFLOW_QUEUE_PREFIX,
-    INSTRUMENTS,
     Concurrency,
     Pools,
     Timings,
 )
+from common.yaml import INSTRUMENTS
 from impl.handler_impl import (
     copy_raw_file,
     decide_processing,

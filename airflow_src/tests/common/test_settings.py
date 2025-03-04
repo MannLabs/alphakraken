@@ -5,7 +5,7 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytz
-from common.settings import get_output_folder_rel_path
+from common.paths import get_output_folder_rel_path
 
 from shared.db.models import RawFile
 

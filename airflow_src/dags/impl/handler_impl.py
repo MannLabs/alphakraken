@@ -6,11 +6,20 @@ from pathlib import Path
 
 from airflow.exceptions import AirflowFailException
 from airflow.models import TaskInstance
-from common.keys import AirflowVars, DagContext, DagParams, Dags, OpArgs, XComKeys
+from common.keys import (
+    AirflowVars,
+    DagContext,
+    DagParams,
+    Dags,
+    OpArgs,
+    XComKeys,
+)
+from common.paths import (
+    get_internal_backup_path,
+)
 from common.settings import (
     DEFAULT_RAW_FILE_SIZE_IF_MAIN_FILE_MISSING,
     Timings,
-    get_internal_backup_path,
 )
 from common.utils import (
     get_airflow_variable,

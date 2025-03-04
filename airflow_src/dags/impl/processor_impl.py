@@ -23,13 +23,15 @@ from common.keys import (
     QuantingEnv,
     XComKeys,
 )
+from common.paths import (
+    get_fallback_project_id,
+    get_internal_output_path_for_raw_file,
+    get_output_folder_rel_path,
+)
 from common.settings import (
     CLUSTER_WORKING_DIR,
     ERROR_CODE_TO_STRING,
     AlphaDiaConstants,
-    get_fallback_project_id,
-    get_internal_output_path_for_raw_file,
-    get_output_folder_rel_path,
 )
 from common.utils import (
     get_airflow_variable,

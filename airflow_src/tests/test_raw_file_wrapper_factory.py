@@ -13,7 +13,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import pytz
 from common.keys import InstrumentTypes
-from common.settings import INSTRUMENTS
+from common.yaml import INSTRUMENTS
 from plugins.raw_file_wrapper_factory import (
     BrukerRawFileMonitorWrapper,
     BrukerRawFileWriteWrapper,

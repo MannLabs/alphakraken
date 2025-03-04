@@ -11,12 +11,12 @@ from callbacks import on_failure_callback
 from common.keys import DAG_DELIMITER, DagParams, Dags, OpArgs, Tasks
 from common.settings import (
     AIRFLOW_QUEUE_PREFIX,
-    INSTRUMENTS,
     Concurrency,
     Pools,
     Timings,
 )
 from common.utils import get_minutes_since_fixed_time_point
+from common.yaml import INSTRUMENTS
 from impl.processor_impl import (
     check_quanting_result,
     compute_metrics,

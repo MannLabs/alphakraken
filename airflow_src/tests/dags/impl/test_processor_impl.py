@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, call, mock_open, patch
 import pytest
 import pytz
 from airflow.exceptions import AirflowFailException
-from common.settings import INSTRUMENTS
+from common.yaml import INSTRUMENTS
 from dags.impl.processor_impl import (
     _get_project_id_or_fallback,
     check_quanting_result,

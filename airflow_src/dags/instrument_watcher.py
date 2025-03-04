@@ -14,7 +14,8 @@ from common.keys import (
     OpArgs,
     Tasks,
 )
-from common.settings import AIRFLOW_QUEUE_PREFIX, INSTRUMENTS, Timings
+from common.settings import AIRFLOW_QUEUE_PREFIX, Timings
+from common.yaml import INSTRUMENTS
 from impl.watcher_impl import (
     decide_raw_file_handling,
     get_unknown_raw_files,

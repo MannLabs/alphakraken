@@ -11,11 +11,13 @@ from pathlib import Path
 from typing import Union
 
 from common.keys import InstrumentTypes
-from common.settings import (
-    INSTRUMENT_BACKUP_FOLDER_NAME,
+from common.paths import (
     get_instrument_type,
     get_internal_backup_path_for_instrument,
     get_internal_instrument_data_path,
+)
+from common.settings import (
+    INSTRUMENT_BACKUP_FOLDER_NAME,
 )
 
 from shared.db.models import RawFile, get_created_at_year_month

@@ -115,4 +115,8 @@ def get_instrument_ids() -> list[str]:
 def get_instrument_settings(instrument_id: str, key: str) -> Any:  # noqa: ANN401
     """Get a certain setting for an instrument."""
     settings_with_defaults = INSTRUMENT_SETTINGS_DEFAULTS | _INSTRUMENTS[instrument_id]
+    if key not in settings_with_defaults:
+        raise KeyError(
+            f"Setting {key} not found for instrument {instrument_id}. {INSTRUMENT_SETTINGS_DEFAULTS=} {_INSTRUMENTS[instrument_id]=} "
+        )
     return settings_with_defaults[key]

@@ -12,7 +12,7 @@ from common.utils import get_env_variable
 from shared.keys import EnvVars
 
 INSTRUMENT_SETTINGS_DEFAULTS = {
-    # InstrumentKeys.SKIP_QUANTING: False,
+    InstrumentKeys.SKIP_QUANTING: False,
 }
 
 # local folder on the instruments to move files to after copying to pool-backup

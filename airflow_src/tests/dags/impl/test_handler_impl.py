@@ -154,7 +154,9 @@ def test_start_file_mover(mock_trigger_dag_run: MagicMock) -> None:
 
 @patch("dags.impl.handler_impl.get_xcom", return_value=None)
 @patch("dags.impl.handler_impl.get_raw_file_by_id", return_value=MagicMock())
+@patch("dags.impl.handler_impl.get_instrument_settings", return_value=False)
 def test_decide_processing_returns_true_if_no_errors(
+    mock_get_instrument_settings: MagicMock,  # noqa:ARG001
     mock_get_raw_file_by_id: MagicMock,  # noqa:ARG001
     mock_get_xcom: MagicMock,  # noqa:ARG001
 ) -> None:
@@ -171,7 +173,9 @@ def test_decide_processing_returns_true_if_no_errors(
 
 @patch("dags.impl.handler_impl.get_xcom", return_value=["error1"])
 @patch("dags.impl.handler_impl.update_raw_file")
+@patch("dags.impl.handler_impl.get_instrument_settings", return_value=False)
 def test_decide_processing_returns_false_if_acquisition_errors_present(
+    mock_get_instrument_settings: MagicMock,  # noqa:ARG001
     mock_update_raw_file: MagicMock,
     mock_get_xcom: MagicMock,  # noqa:ARG001
 ) -> None:
@@ -194,9 +198,11 @@ def test_decide_processing_returns_false_if_acquisition_errors_present(
 
 @patch("dags.impl.handler_impl.get_xcom", return_value=None)
 @patch("dags.impl.handler_impl.get_raw_file_by_id", return_value=MagicMock(size=0))
+@patch("dags.impl.handler_impl.get_instrument_settings", return_value=False)
 @patch("dags.impl.handler_impl.update_raw_file")
 def test_decide_processing_returns_false_if_file_size_zero(
     mock_update_raw_file: MagicMock,
+    mock_get_instrument_settings: MagicMock,  # noqa:ARG001
     mock_get_raw_file_by_id: MagicMock,  # noqa:ARG001
     mock_get_xcom: MagicMock,  # noqa:ARG001
 ) -> None:
@@ -217,9 +223,36 @@ def test_decide_processing_returns_false_if_file_size_zero(
 
 
 @patch("dags.impl.handler_impl.get_xcom", return_value=None)
+@patch("dags.impl.handler_impl.get_instrument_settings", return_value=True)
+@patch("dags.impl.handler_impl.update_raw_file")
+def test_decide_processing_returns_false_if_skip_quanting_is_set(
+    mock_update_raw_file: MagicMock,
+    mock_get_instrument_settings: MagicMock,
+    mock_get_xcom: MagicMock,  # noqa:ARG001
+) -> None:
+    """Test decide_processing returns False if instrument settings has skip_quanting set."""
+    ti = MagicMock()
+    kwargs = {
+        DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"},
+        OpArgs.INSTRUMENT_ID: "instrument1",
+    }
+
+    # when
+    assert decide_processing(ti, **kwargs) is False
+    mock_get_instrument_settings.assert_called_once_with("instrument1", "skip_quanting")
+    mock_update_raw_file.assert_called_once_with(
+        "some_file.raw",
+        new_status=RawFileStatus.DONE_NOT_QUANTED,
+        status_details="Quanting disabled by config.",
+    )
+
+
+@patch("dags.impl.handler_impl.get_xcom", return_value=None)
+@patch("dags.impl.handler_impl.get_instrument_settings", return_value=False)
 @patch("dags.impl.handler_impl.update_raw_file")
 def test_decide_processing_returns_false_if_dda(
     mock_update_raw_file: MagicMock,
+    mock_get_instrument_settings: MagicMock,  # noqa:ARG001
     mock_get_xcom: MagicMock,  # noqa:ARG001
 ) -> None:
     """Test decide_processing returns False if file name contains 'dda'."""
@@ -239,11 +272,13 @@ def test_decide_processing_returns_false_if_dda(
 
 
 @patch("dags.impl.handler_impl.get_xcom", return_value=None)
+@patch("dags.impl.handler_impl.get_instrument_settings", return_value=False)
 @patch("dags.impl.handler_impl._count_special_characters", return_value=1)
 @patch("dags.impl.handler_impl.update_raw_file")
 def test_decide_processing_returns_false_if_special_characters(
     mock_update_raw_file: MagicMock,
     mock_count_special_characters: MagicMock,  # noqa:ARG001
+    mock_get_instrument_settings: MagicMock,  # noqa:ARG001
     mock_get_xcom: MagicMock,  # noqa:ARG001
 ) -> None:
     """Test decide_processing returns False if file name contains special characters."""

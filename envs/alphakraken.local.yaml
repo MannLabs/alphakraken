@@ -6,6 +6,7 @@ instruments:
     username: user
     mount_src: //0.0.0.0/test1/
     mount_target: instruments/test1
+    # skip_quanting: true  # optional, default: false
 locations:
   # the following is required for mounting only (read by mount.sh):
   general:

@@ -14,6 +14,7 @@ from common.keys import (
     DagContext,
     DagParams,
     Dags,
+    InstrumentKeys,
     OpArgs,
     XComKeys,
 )
@@ -22,6 +23,7 @@ from common.paths import (
 )
 from common.settings import (
     Timings,
+    get_instrument_settings,
 )
 from common.utils import (
     get_airflow_variable,
@@ -146,10 +148,9 @@ def decide_processing(ti: TaskInstance, **kwargs) -> bool:
     ):
         new_status = RawFileStatus.ACQUISITION_FAILED
         status_details = ";".join(acquisition_monitor_errors)
-    elif instrument_id == "test12":
-        # TODO: this is a temporary solution to avoid processing of test12 files, this info needs to go to the "INSTRUMENT" dictionary
+    elif get_instrument_settings(instrument_id, InstrumentKeys.SKIP_QUANTING):
         new_status = RawFileStatus.DONE_NOT_QUANTED
-        status_details = "Test12 not supported for quanting."
+        status_details = "Quanting disabled by config."
     elif DDA_FLAG_IN_RAW_FILE_NAME in raw_file_id.lower():
         new_status = RawFileStatus.DONE_NOT_QUANTED
         status_details = "Filename contains 'dda'."

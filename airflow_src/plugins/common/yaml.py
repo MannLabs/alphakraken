@@ -31,7 +31,7 @@ def _load_alphakraken_yaml(env_name: str) -> dict[str, dict[str, Any]]:
 _SETTINGS = _load_alphakraken_yaml(
     get_env_variable(EnvVars.ENV_NAME, "none", verbose=False)
 )
-INSTRUMENTS = _SETTINGS["instruments"].copy()
+_INSTRUMENTS = _SETTINGS["instruments"].copy()
 
 _INSTRUMENT_SETTINGS_DEFAULTS = {
     InstrumentKeys.SKIP_QUANTING: False,
@@ -40,10 +40,10 @@ _INSTRUMENT_SETTINGS_DEFAULTS = {
 
 def get_instrument_ids() -> list[str]:
     """Get all IDs for all instruments."""
-    return list(INSTRUMENTS.keys())
+    return list(_INSTRUMENTS.keys())
 
 
 def get_instrument_settings(instrument_id: str, key: str) -> Any:  # noqa: ANN401
     """Get a certain setting for an instrument."""
-    settings_with_defaults = _INSTRUMENT_SETTINGS_DEFAULTS | INSTRUMENTS[instrument_id]
+    settings_with_defaults = _INSTRUMENT_SETTINGS_DEFAULTS | _INSTRUMENTS[instrument_id]
     return settings_with_defaults[key]

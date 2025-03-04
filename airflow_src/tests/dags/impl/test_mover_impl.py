@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, call, patch
 import pytest
 from airflow.exceptions import AirflowFailException
 from common.keys import DagContext, DagParams, XComKeys
-from common.yaml import INSTRUMENTS
+from common.yaml import _INSTRUMENTS
 from dags.impl.mover_impl import (
     _check_main_file_to_move,
     _get_files_to_move,
@@ -68,7 +68,7 @@ def test_get_files_to_move_correctly_puts_files_to_xcom(
     )
 
 
-@patch.dict(INSTRUMENTS, {"instrument1": {"type": "some_type"}})
+@patch.dict(_INSTRUMENTS, {"instrument1": {"type": "some_type"}})
 @patch("dags.impl.mover_impl.get_xcom")
 @patch("dags.impl.mover_impl.Path")
 @patch("dags.impl.mover_impl.get_raw_file_by_id")

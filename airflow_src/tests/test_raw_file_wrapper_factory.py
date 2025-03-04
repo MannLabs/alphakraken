@@ -13,7 +13,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import pytz
 from common.keys import InstrumentTypes
-from common.yaml import INSTRUMENTS
+from common.yaml import _INSTRUMENTS
 from plugins.raw_file_wrapper_factory import (
     BrukerRawFileMonitorWrapper,
     BrukerRawFileWriteWrapper,
@@ -62,7 +62,7 @@ def test_raw_file_wrapper_check_path_provider_copy(
     mock_raw_file_wrapper_factory: MagicMock,  # noqa: ARG001
 ) -> None:
     """Test that the path provider is correctly checked."""
-    with patch.dict(INSTRUMENTS, {"instrument1": {"type": "bruker"}}):
+    with patch.dict(_INSTRUMENTS, {"instrument1": {"type": "bruker"}}):
         wrapper = TestableRawFileWriteWrapper(
             "instrument1", raw_file=MagicMock(), path_provider=CopyPathProvider
         )
@@ -82,7 +82,7 @@ def test_raw_file_wrapper_check_path_provider_move(
     mock_raw_file_wrapper_factory: MagicMock,  # noqa: ARG001
 ) -> None:
     """Test that the path provider is correctly checked."""
-    with patch.dict(INSTRUMENTS, {"instrument1": {"type": "bruker"}}):
+    with patch.dict(_INSTRUMENTS, {"instrument1": {"type": "bruker"}}):
         wrapper = TestableRawFileWriteWrapper(
             "instrument1", raw_file=MagicMock(), path_provider=MovePathProvider
         )
@@ -102,7 +102,7 @@ def test_raw_file_wrapper_check_path_provider_remove(
     mock_raw_file_wrapper_factory: MagicMock,  # noqa: ARG001
 ) -> None:
     """Test that the path provider is correctly checked."""
-    with patch.dict(INSTRUMENTS, {"instrument1": {"type": "bruker"}}):
+    with patch.dict(_INSTRUMENTS, {"instrument1": {"type": "bruker"}}):
         wrapper = TestableRawFileWriteWrapper(
             "instrument1", raw_file=MagicMock(), path_provider=RemovePathProvider
         )
@@ -148,7 +148,7 @@ def test_raw_file_wrapper_factory_instantiation_monitors(
     instrument_type: str, extension: str, expected_class: type[RawFileWrapperFactory]
 ) -> None:
     """Test that the correct RawFileWrapperFactory subclass is instantiated."""
-    with patch.dict(INSTRUMENTS, {"instrument1": {"type": instrument_type}}):
+    with patch.dict(_INSTRUMENTS, {"instrument1": {"type": instrument_type}}):
         wrapper = RawFileWrapperFactory.create_monitor_wrapper(
             instrument_id="instrument1", raw_file_original_name=f"some_file{extension}"
         )
@@ -224,7 +224,7 @@ def test_raw_file_wrapper_factory_instantiation_copier(
     expected_class: type[RawFileWrapperFactory],
 ) -> None:
     """Test that the correct RawFileWrapperFactory subclass is instantiated."""
-    with patch.dict(INSTRUMENTS, {"instrument1": {"type": instrument_type}}):
+    with patch.dict(_INSTRUMENTS, {"instrument1": {"type": instrument_type}}):
         wrapper = RawFileWrapperFactory.create_write_wrapper(
             raw_file=mock_raw_file,
             path_provider=CopyPathProvider,
@@ -260,7 +260,7 @@ def mock_instrument_paths() -> Generator[Path, None, None]:
 def test_raw_file_wrapper_factory_unsupported_vendor() -> None:
     """Test that creating a wrapper for an unsupported vendor raises ValueError."""
     with (
-        patch.dict(INSTRUMENTS, {"instrument1": {"type": "UNSUPPORTED"}}),
+        patch.dict(_INSTRUMENTS, {"instrument1": {"type": "UNSUPPORTED"}}),
         pytest.raises(
             ValueError,
             match="Unsupported vendor or handler type for instrument1: UNSUPPORTED, monitor",
@@ -482,7 +482,7 @@ def test_bruker_get_files_to_copy() -> None:
                 "plugins.raw_file_wrapper_factory.get_internal_backup_path_for_instrument",
                 side_effect=mock_get_internal_backup_path_for_instrument,
             ),
-            patch.dict(INSTRUMENTS, {"instrument1": {"type": "bruker"}}),
+            patch.dict(_INSTRUMENTS, {"instrument1": {"type": "bruker"}}),
         ):
             wrapper = BrukerRawFileWriteWrapper(
                 "instrument1", raw_file=mock_raw_file, path_provider=CopyPathProvider

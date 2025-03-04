@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, mock_open, patch
 import pytest
 from _pytest._py.path import LocalPath
 from airflow.exceptions import AirflowFailException
-from common.yaml import INSTRUMENTS
+from common.yaml import _INSTRUMENTS
 from plugins.common.settings import BYTES_TO_GB
 from plugins.file_handling import (
     _identical_copy_exists,
@@ -19,7 +19,7 @@ from plugins.file_handling import (
 )
 
 
-@patch.dict(INSTRUMENTS, {"instrument1": {}})
+@patch.dict(_INSTRUMENTS, {"instrument1": {}})
 @patch("os.stat")
 def test_get_file_creation_timestamp(
     mock_stat: MagicMock,
@@ -33,7 +33,7 @@ def test_get_file_creation_timestamp(
     assert result == 42.0  # noqa: PLR2004
 
 
-@patch.dict(INSTRUMENTS, {"instrument1": {}})
+@patch.dict(_INSTRUMENTS, {"instrument1": {}})
 def test_get_file_size() -> None:
     """Test get_file_size returns the expected values."""
     mock_path = MagicMock()
@@ -45,7 +45,7 @@ def test_get_file_size() -> None:
     assert result == 42.0  # noqa: PLR2004
 
 
-@patch.dict(INSTRUMENTS, {"instrument1": {}})
+@patch.dict(_INSTRUMENTS, {"instrument1": {}})
 def test_get_file_size_default() -> None:
     """Test get_file_size returns the expected values."""
     mock_path = MagicMock()
@@ -57,7 +57,7 @@ def test_get_file_size_default() -> None:
     assert result == -1
 
 
-@patch.dict(INSTRUMENTS, {"instrument1": {}})
+@patch.dict(_INSTRUMENTS, {"instrument1": {}})
 def test_get_file_size_no_default_raises() -> None:
     """Test get_file_size returns the expected values."""
     mock_path = MagicMock()

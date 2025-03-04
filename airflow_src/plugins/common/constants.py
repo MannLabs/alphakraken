@@ -4,6 +4,8 @@
 AIRFLOW_QUEUE_PREFIX = "kraken_queue_"
 
 CLUSTER_SSH_CONNECTION_ID = "cluster_ssh_connection"
+CLUSTER_SSH_CONNECTION_TIMEOUT = 60
+CLUSTER_SSH_COMMAND_TIMEOUT = 60
 
 # TODO: make slurm script location depend on ENV_NAME or get dedicated user for sandbox
 CLUSTER_BASE_DIR = "~/slurm"

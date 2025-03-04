@@ -38,6 +38,11 @@ _INSTRUMENT_SETTINGS_DEFAULTS = {
 }
 
 
+def get_instrument_ids() -> list[str]:
+    """Get all IDs for all instruments."""
+    return list(INSTRUMENTS.keys())
+
+
 def get_instrument_settings(instrument_id: str, key: str) -> Any:  # noqa: ANN401
     """Get a certain setting for an instrument."""
     settings_with_defaults = _INSTRUMENT_SETTINGS_DEFAULTS | INSTRUMENTS[instrument_id]

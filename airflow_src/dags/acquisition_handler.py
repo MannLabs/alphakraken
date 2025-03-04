@@ -21,7 +21,7 @@ from common.settings import (
     Pools,
     Timings,
 )
-from common.yaml import INSTRUMENTS
+from common.yaml import get_instrument_ids
 from impl.handler_impl import (
     copy_raw_file,
     decide_processing,
@@ -96,5 +96,5 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
     )
 
 
-for instrument_id in INSTRUMENTS:
+for instrument_id in get_instrument_ids():
     create_acquisition_handler_dag(instrument_id)

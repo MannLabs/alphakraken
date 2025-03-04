@@ -15,7 +15,7 @@ from common.keys import (
     Tasks,
 )
 from common.settings import AIRFLOW_QUEUE_PREFIX, Timings
-from common.yaml import INSTRUMENTS
+from common.yaml import get_instrument_ids
 from impl.watcher_impl import (
     decide_raw_file_handling,
     get_unknown_raw_files,
@@ -90,5 +90,5 @@ def create_instrument_watcher_dag(instrument_id: str) -> None:
     )
 
 
-for instrument_id in INSTRUMENTS:
+for instrument_id in get_instrument_ids():
     create_instrument_watcher_dag(instrument_id)

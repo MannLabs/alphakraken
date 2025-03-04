@@ -16,7 +16,7 @@ from common.settings import (
     Timings,
 )
 from common.utils import get_minutes_since_fixed_time_point
-from common.yaml import INSTRUMENTS
+from common.yaml import get_instrument_ids
 from impl.processor_impl import (
     check_quanting_result,
     compute_metrics,
@@ -108,5 +108,5 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
     )
 
 
-for instrument_id in INSTRUMENTS:
+for instrument_id in get_instrument_ids():
     create_acquisition_processor_dag(instrument_id)

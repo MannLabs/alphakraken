@@ -9,7 +9,7 @@ from common.settings import (
     OUTPUT_FOLDER_PREFIX,
     InternalPaths,
 )
-from common.yaml import INSTRUMENTS
+from common.yaml import get_instrument_settings
 from db.models import RawFile, get_created_at_year_month
 
 
@@ -84,6 +84,7 @@ def get_fallback_project_id(instrument_id: str) -> str:
     # This is on the edge of being hacky, this information could also be included in the `INSTRUMENTS` dict.
     return (
         FALLBACK_PROJECT_ID_BRUKER
-        if INSTRUMENTS[instrument_id][InstrumentKeys.TYPE] == InstrumentTypes.BRUKER
+        if get_instrument_settings(instrument_id, InstrumentKeys.TYPE)
+        == InstrumentTypes.BRUKER
         else FALLBACK_PROJECT_ID
     )

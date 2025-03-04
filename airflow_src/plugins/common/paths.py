@@ -10,7 +10,8 @@ from common.settings import (
     InternalPaths,
 )
 from common.yaml_wrapper import get_instrument_settings
-from db.models import RawFile, get_created_at_year_month
+
+from shared.db.models import RawFile, get_created_at_year_month
 
 
 def get_internal_instrument_data_path(instrument_id: str) -> Path:

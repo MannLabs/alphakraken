@@ -6,6 +6,7 @@ from typing import Any
 
 import yaml
 from common.constants import InternalPaths
+from common.keys import InstrumentKeys, InstrumentTypes
 from common.utils import get_env_variable
 
 from shared.keys import EnvVars
@@ -61,6 +62,26 @@ class Concurrency:
     MAXNO_MONITOR_ACQUISITION_TASKS_PER_DAG = 10
 
     MAXNO_MOVE_RAW_FILE_TASKS_PER_DAG = 1
+
+
+# TODO: make this dynamic & symmetric
+FALLBACK_PROJECT_ID = "_FALLBACK"
+FALLBACK_PROJECT_ID_BRUKER = "_FALLBACK_BRUKER"
+
+
+def get_fallback_project_id(instrument_id: str) -> str:
+    """Get the fallback project id.
+
+    Fallback project IDs are used to get the respective settings and the output
+    folder in case no matching project ID is found.
+    """
+    # This is on the edge of being hacky, this information could also be included in the `INSTRUMENTS` dict.
+    return (
+        FALLBACK_PROJECT_ID_BRUKER
+        if get_instrument_settings(instrument_id, InstrumentKeys.TYPE)
+        == InstrumentTypes.BRUKER
+        else FALLBACK_PROJECT_ID
+    )
 
 
 def _load_alphakraken_yaml(env_name: str) -> dict[str, dict[str, Any]]:

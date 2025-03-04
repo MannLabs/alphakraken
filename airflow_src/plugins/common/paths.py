@@ -3,13 +3,9 @@
 from pathlib import Path
 
 from common.constants import (
-    FALLBACK_PROJECT_ID,
-    FALLBACK_PROJECT_ID_BRUKER,
     OUTPUT_FOLDER_PREFIX,
     InternalPaths,
 )
-from common.keys import InstrumentKeys, InstrumentTypes
-from common.settings import get_instrument_settings
 
 from shared.db.models import RawFile, get_created_at_year_month
 
@@ -72,20 +68,4 @@ def get_internal_output_path_for_raw_file(
     """Get absolute internal output path for the given raw file name."""
     return Path(InternalPaths.MOUNTS_PATH) / get_output_folder_rel_path(
         raw_file, project_id_or_fallback
-    )
-
-
-# TODO: move
-def get_fallback_project_id(instrument_id: str) -> str:
-    """Get the fallback project id.
-
-    Fallback project IDs are used to get the respective settings and the output
-    folder in case no matching project ID is found.
-    """
-    # This is on the edge of being hacky, this information could also be included in the `INSTRUMENTS` dict.
-    return (
-        FALLBACK_PROJECT_ID_BRUKER
-        if get_instrument_settings(instrument_id, InstrumentKeys.TYPE)
-        == InstrumentTypes.BRUKER
-        else FALLBACK_PROJECT_ID
     )

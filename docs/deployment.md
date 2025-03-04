@@ -1,6 +1,7 @@
 
 ## Deployment
 This guide is both valid for a local setup (without connection to pool or cluster), and for sandbox/production setups.
+
 Upfront, set an environment variable `ENV`, which is either `local`, `sandbox`, or `production`, e.g.
 ```bash
 ENV=local && export ENV=$ENV
@@ -15,11 +16,12 @@ There, depending on the scope of the feature, and of the likeliness of breaking 
 another test with real data might be necessary.
 
 Use common sense when deciding the scope of testing:
-For instance, if you correct a typo in the webapp, you might well skip the sandbox testing.
-In contrast, a new feature that changes the way data is processed should definitely be tested in the sandbox environment.
+- Cosmetic changes (e.g. webapp text/styling): test on local should suffice
+- Infrastructure changes (e.g. new DB fields) or data handling changes (e.g. file operations): test on local and sandbox
 
 Only a well-tested feature should be deployed to production. Make sure a pull request is always self-contained
-and 'shippable', i.e. deployment to production should be possible at any time.
+and 'shippable', i.e. deployment to production should be possible at any time. After a production deployment,
+it is good practise to check for errors in the Airflow UI.
 
 ### Initial deployment
 All commands in this Readme assume you are in the root folder of the repository.
@@ -94,7 +96,7 @@ Make sure that the time is in sync between all machines, e.g. by using the same 
 
 For production: set strong passwords for `AIRFLOW_PASSWORD`, `MONGO_PASSWORD`, and `POSTGRES_PASSWORD`
 in `./env/production.env` and `MONGO_INITDB_ROOT_PASSWORD` in `./env/.env-mongo`.
-Make sure they don't contain weird characters like '\' or '#' as they might interfere with name resolution in `docker-compose.yaml`.
+Make sure they don't contain special characters (e.g. '\', '#', '@', '$', ..) as they might interfere with name resolution in `docker-compose.yaml`.
 
 #### Required users
 Two different users are recommended for the deployment:

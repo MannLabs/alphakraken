@@ -14,6 +14,8 @@ from shared.keys import EnvVars
 # prefix for the queues the DAGs are assigned to (cf. docker-compose.yaml)
 AIRFLOW_QUEUE_PREFIX = "kraken_queue_"
 
+CLUSTER_SSH_CONNECTION_ID = "cluster_ssh_connection"
+
 # TODO: make slurm script location depend on ENV_NAME or get dedicated user for sandbox
 CLUSTER_BASE_DIR = "~/slurm"
 CLUSTER_JOB_SCRIPT_PATH = f"{CLUSTER_BASE_DIR}/submit_job.sh"
@@ -23,6 +25,7 @@ FALLBACK_PROJECT_ID = "_FALLBACK"
 FALLBACK_PROJECT_ID_BRUKER = "_FALLBACK_BRUKER"
 
 OUTPUT_FOLDER_PREFIX = "out_"
+
 
 # local folder on the instruments to move files to after copying to pool-backup
 INSTRUMENT_BACKUP_FOLDER_NAME = "Backup"  # TODO: rename this folder to "handled" or similar to avoid confusion with pool backup

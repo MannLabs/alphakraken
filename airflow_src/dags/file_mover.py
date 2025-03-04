@@ -9,13 +9,15 @@ from airflow.models.dag import DAG
 from airflow.operators.python import PythonOperator
 from common.constants import (
     AIRFLOW_QUEUE_PREFIX,
-    Concurrency,
-    Timings,
 )
 from common.keys import (
     DagParams,
     Dags,
     Tasks,
+)
+from common.settings import (
+    Concurrency,
+    Timings,
 )
 from impl.mover_impl import get_files_to_move, move_files
 

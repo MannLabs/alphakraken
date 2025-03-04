@@ -8,14 +8,14 @@ import pendulum
 from airflow.models.dag import DAG
 from airflow.operators.python import PythonOperator
 from callbacks import on_failure_callback
-from common.constants import AIRFLOW_QUEUE_PREFIX, Timings
+from common.constants import AIRFLOW_QUEUE_PREFIX
 from common.keys import (
     DAG_DELIMITER,
     Dags,
     OpArgs,
     Tasks,
 )
-from common.settings import get_instrument_ids
+from common.settings import Timings, get_instrument_ids
 from impl.watcher_impl import (
     decide_raw_file_handling,
     get_unknown_raw_files,

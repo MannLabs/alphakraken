@@ -1,4 +1,4 @@
-"""Keys for accessing Dags, Tasks, etc.. and methods closely related."""
+"""Constants."""
 
 # prefix for the queues the DAGs are assigned to (cf. docker-compose.yaml)
 AIRFLOW_QUEUE_PREFIX = "kraken_queue_"
@@ -16,19 +16,9 @@ FALLBACK_PROJECT_ID_BRUKER = "_FALLBACK_BRUKER"
 
 OUTPUT_FOLDER_PREFIX = "out_"
 
-INSTRUMENT_SETTINGS_DEFAULTS = {
-    # InstrumentKeys.SKIP_QUANTING: False,
-}
-
-# local folder on the instruments to move files to after copying to pool-backup
-INSTRUMENT_BACKUP_FOLDER_NAME = "Backup"  # TODO: rename this folder to "handled" or similar to avoid confusion with pool backup
-
 # separator between the timestamp and the raw file id in case of collisions
 COLLISION_FLAG_SEP = "-"
 
-DEFAULT_MIN_FILE_AGE_TO_REMOVE_D = 14  # days
-# this is to avoid getting a lot of removal candidates:
-DEFAULT_MAX_FILE_AGE_TO_REMOVE_D = 60  # days
 
 BYTES_TO_GB = 1 / 1024**3
 BYTES_TO_MB = 1 / 1024**2
@@ -77,47 +67,6 @@ class InternalPaths:
     INSTRUMENTS = "instruments"
     BACKUP = "backup"
     OUTPUT = "output"
-
-
-class Timings:
-    """Timing constants."""
-
-    # if you update this, you might also want to update the coloring in the webapp (components.py:_get_color())
-    FILE_SENSOR_POKE_INTERVAL_S = 60
-
-    ACQUISITION_MONITOR_POKE_INTERVAL_S = 30
-
-    QUANTING_MONITOR_POKE_INTERVAL_S = 60
-
-    RAW_DATA_COPY_TASK_TIMEOUT_M = 15  # large enough to not time out on big files, small enough to not block other tasks
-
-    # this timeout needs to be big compared to the time scales defined in AcquisitionMonitor
-    ACQUISITION_MONITOR_TIMEOUT_M = 180
-
-    MOVE_RAW_FILE_TASK_TIMEOUT_M = 5
-
-    REMOVE_RAW_FILE_TASK_TIMEOUT_M = 6 * 60  # runs long due to hashsum calculation
-
-    FILE_MOVE_DELAY_M = 5
-
-    FILE_MOVE_RETRY_DELAY_M = 30
-
-
-class Concurrency:
-    """Concurrency constants."""
-
-    # limit to a number smaller than maximum number of runs per DAG (default is 16) to have free slots for other tasks
-    # like starting quanting or metrics calculation
-    MAXNO_MONITOR_QUANTING_TASKS_PER_DAG = 14
-
-    # limit the number of concurrent copies to not over-stress the network.
-    # Note that this is a potential bottleneck, so a timeout is important here.
-    MAXNO_COPY_RAW_FILE_TASKS_PER_DAG = 2
-
-    # limit the number of concurrent monitors to not over-stress the network (relevant only during a catchup)
-    MAXNO_MONITOR_ACQUISITION_TASKS_PER_DAG = 10
-
-    MAXNO_MOVE_RAW_FILE_TASKS_PER_DAG = 1
 
 
 class Pools:

@@ -8,7 +8,6 @@ from airflow.exceptions import AirflowFailException
 from airflow.models import TaskInstance
 from common.constants import (
     DEFAULT_RAW_FILE_SIZE_IF_MAIN_FILE_MISSING,
-    Timings,
 )
 from common.keys import (
     AirflowVars,
@@ -20,6 +19,9 @@ from common.keys import (
 )
 from common.paths import (
     get_internal_backup_path,
+)
+from common.settings import (
+    Timings,
 )
 from common.utils import (
     get_airflow_variable,

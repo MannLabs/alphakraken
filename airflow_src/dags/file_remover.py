@@ -9,12 +9,14 @@ from airflow.models.dag import DAG
 from airflow.operators.python import PythonOperator
 from common.constants import (
     AIRFLOW_QUEUE_PREFIX,
-    Concurrency,
-    Timings,
 )
 from common.keys import (
     Dags,
     Tasks,
+)
+from common.settings import (
+    Concurrency,
+    Timings,
 )
 from impl.remover_impl import get_raw_files_to_remove, remove_raw_files
 

@@ -10,9 +10,7 @@ from airflow.operators.python import PythonOperator, ShortCircuitOperator
 from callbacks import on_failure_callback
 from common.constants import (
     AIRFLOW_QUEUE_PREFIX,
-    Concurrency,
     Pools,
-    Timings,
 )
 from common.keys import (
     DAG_DELIMITER,
@@ -21,7 +19,11 @@ from common.keys import (
     OpArgs,
     Tasks,
 )
-from common.settings import get_instrument_ids
+from common.settings import (
+    Concurrency,
+    Timings,
+    get_instrument_ids,
+)
 from impl.handler_impl import (
     copy_raw_file,
     decide_processing,

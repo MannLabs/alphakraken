@@ -1,14 +1,66 @@
-"""Module to access the alphakraken.yaml file."""
+"""Module to access constant and dynamic settings (given by the alphakraken.yaml file)."""
 
 import logging
 from pathlib import Path
 from typing import Any
 
 import yaml
-from common.constants import INSTRUMENT_SETTINGS_DEFAULTS, InternalPaths
+from common.constants import InternalPaths
 from common.utils import get_env_variable
 
 from shared.keys import EnvVars
+
+INSTRUMENT_SETTINGS_DEFAULTS = {
+    # InstrumentKeys.SKIP_QUANTING: False,
+}
+
+# local folder on the instruments to move files to after copying to pool-backup
+INSTRUMENT_BACKUP_FOLDER_NAME = "Backup"  # TODO: rename this folder to "handled" or similar to avoid confusion with pool backup
+
+DEFAULT_MIN_FILE_AGE_TO_REMOVE_D = 14  # days
+# this is to avoid getting a lot of removal candidates:
+DEFAULT_MAX_FILE_AGE_TO_REMOVE_D = 60  # days
+
+
+class Timings:
+    """Timing constants."""
+
+    # if you update this, you might also want to update the coloring in the webapp (components.py:_get_color())
+    FILE_SENSOR_POKE_INTERVAL_S = 60
+
+    ACQUISITION_MONITOR_POKE_INTERVAL_S = 30
+
+    QUANTING_MONITOR_POKE_INTERVAL_S = 60
+
+    RAW_DATA_COPY_TASK_TIMEOUT_M = 15  # large enough to not time out on big files, small enough to not block other tasks
+
+    # this timeout needs to be big compared to the time scales defined in AcquisitionMonitor
+    ACQUISITION_MONITOR_TIMEOUT_M = 180
+
+    MOVE_RAW_FILE_TASK_TIMEOUT_M = 5
+
+    REMOVE_RAW_FILE_TASK_TIMEOUT_M = 6 * 60  # runs long due to hashsum calculation
+
+    FILE_MOVE_DELAY_M = 5
+
+    FILE_MOVE_RETRY_DELAY_M = 30
+
+
+class Concurrency:
+    """Concurrency constants."""
+
+    # limit to a number smaller than maximum number of runs per DAG (default is 16) to have free slots for other tasks
+    # like starting quanting or metrics calculation
+    MAXNO_MONITOR_QUANTING_TASKS_PER_DAG = 14
+
+    # limit the number of concurrent copies to not over-stress the network.
+    # Note that this is a potential bottleneck, so a timeout is important here.
+    MAXNO_COPY_RAW_FILE_TASKS_PER_DAG = 2
+
+    # limit the number of concurrent monitors to not over-stress the network (relevant only during a catchup)
+    MAXNO_MONITOR_ACQUISITION_TASKS_PER_DAG = 10
+
+    MAXNO_MOVE_RAW_FILE_TASKS_PER_DAG = 1
 
 
 def _load_alphakraken_yaml(env_name: str) -> dict[str, dict[str, Any]]:

@@ -7,15 +7,15 @@ from pathlib import Path
 
 from airflow.exceptions import AirflowFailException
 from airflow.models import TaskInstance
+from common.constants import (
+    BYTES_TO_GB,
+    DEFAULT_MAX_FILE_AGE_TO_REMOVE_D,
+    DEFAULT_MIN_FILE_AGE_TO_REMOVE_D,
+)
 from common.keys import AirflowVars, Tasks, XComKeys
 from common.paths import (
     get_internal_backup_path,
     get_internal_instrument_data_path,
-)
-from common.settings import (
-    BYTES_TO_GB,
-    DEFAULT_MAX_FILE_AGE_TO_REMOVE_D,
-    DEFAULT_MIN_FILE_AGE_TO_REMOVE_D,
 )
 from common.utils import get_airflow_variable, get_env_variable, get_xcom, put_xcom
 from common.yaml_wrapper import get_instrument_ids

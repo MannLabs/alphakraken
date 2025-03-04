@@ -8,9 +8,9 @@ from pathlib import Path
 
 import pytz
 from airflow.exceptions import AirflowFailException
+from common.constants import BYTES_TO_GB, BYTES_TO_MB
 from common.keys import AirflowVars
 from common.paths import get_internal_instrument_data_path
-from common.settings import BYTES_TO_GB, BYTES_TO_MB
 
 
 def get_file_creation_timestamp(

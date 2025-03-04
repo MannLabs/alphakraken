@@ -11,7 +11,7 @@ from airflow.exceptions import AirflowNotFoundException
 from airflow.models import DagRun, TaskInstance, Variable
 from airflow.providers.ssh.hooks.ssh import SSHHook
 from airflow.utils.types import DagRunType
-from common.settings import CLUSTER_SSH_CONNECTION_ID
+from common.constants import CLUSTER_SSH_CONNECTION_ID
 
 _xcom_types = str | list[str] | dict[str, Any] | int
 

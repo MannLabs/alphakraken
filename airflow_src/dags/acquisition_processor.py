@@ -8,13 +8,13 @@ from airflow.models import Param
 from airflow.models.dag import DAG
 from airflow.operators.python import PythonOperator, ShortCircuitOperator
 from callbacks import on_failure_callback
-from common.keys import DAG_DELIMITER, DagParams, Dags, OpArgs, Tasks
-from common.settings import (
+from common.constants import (
     AIRFLOW_QUEUE_PREFIX,
     Concurrency,
     Pools,
     Timings,
 )
+from common.keys import DAG_DELIMITER, DagParams, Dags, OpArgs, Tasks
 from common.utils import get_minutes_since_fixed_time_point
 from common.yaml_wrapper import get_instrument_ids
 from impl.processor_impl import (

@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from common.settings import INSTRUMENT_SETTINGS_DEFAULTS, InternalPaths
+from common.constants import INSTRUMENT_SETTINGS_DEFAULTS, InternalPaths
 from common.utils import get_env_variable
 
 from shared.keys import EnvVars

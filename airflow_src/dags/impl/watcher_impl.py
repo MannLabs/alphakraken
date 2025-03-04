@@ -8,8 +8,8 @@ from pathlib import Path
 import pytz
 from airflow.exceptions import AirflowFailException, DagNotFound
 from airflow.models import TaskInstance
+from common.constants import COLLISION_FLAG_SEP
 from common.keys import AirflowVars, DagParams, Dags, OpArgs, XComKeys
-from common.settings import COLLISION_FLAG_SEP
 from common.utils import get_airflow_variable, get_xcom, put_xcom, trigger_dag_run
 from file_handling import get_file_creation_timestamp, get_file_size
 from impl.project_id_handler import get_unique_project_id

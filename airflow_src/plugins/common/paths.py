@@ -2,13 +2,13 @@
 
 from pathlib import Path
 
-from common.keys import InstrumentKeys, InstrumentTypes
-from common.settings import (
+from common.constants import (
     FALLBACK_PROJECT_ID,
     FALLBACK_PROJECT_ID_BRUKER,
     OUTPUT_FOLDER_PREFIX,
     InternalPaths,
 )
+from common.keys import InstrumentKeys, InstrumentTypes
 from common.yaml_wrapper import get_instrument_settings
 
 from shared.db.models import RawFile, get_created_at_year_month

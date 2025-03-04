@@ -10,13 +10,13 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Union
 
+from common.constants import (
+    INSTRUMENT_BACKUP_FOLDER_NAME,
+)
 from common.keys import InstrumentKeys, InstrumentTypes
 from common.paths import (
     get_internal_backup_path_for_instrument,
     get_internal_instrument_data_path,
-)
-from common.settings import (
-    INSTRUMENT_BACKUP_FOLDER_NAME,
 )
 from common.yaml_wrapper import get_instrument_settings
 

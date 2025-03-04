@@ -15,7 +15,7 @@ from common.keys import (
     Tasks,
 )
 from common.settings import AIRFLOW_QUEUE_PREFIX, Timings
-from common.yaml import get_instrument_ids
+from common.yaml_wrapper import get_instrument_ids
 from impl.watcher_impl import (
     decide_raw_file_handling,
     get_unknown_raw_files,

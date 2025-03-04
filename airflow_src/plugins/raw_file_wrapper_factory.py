@@ -18,7 +18,7 @@ from common.paths import (
 from common.settings import (
     INSTRUMENT_BACKUP_FOLDER_NAME,
 )
-from common.yaml import get_instrument_settings
+from common.yaml_wrapper import get_instrument_settings
 
 from shared.db.models import RawFile, get_created_at_year_month
 

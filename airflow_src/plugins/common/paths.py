@@ -9,7 +9,7 @@ from common.settings import (
     OUTPUT_FOLDER_PREFIX,
     InternalPaths,
 )
-from common.yaml import get_instrument_settings
+from common.yaml_wrapper import get_instrument_settings
 from db.models import RawFile, get_created_at_year_month
 
 

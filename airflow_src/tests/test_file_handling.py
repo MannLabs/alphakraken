@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, mock_open, patch
 import pytest
 from _pytest._py.path import LocalPath
 from airflow.exceptions import AirflowFailException
-from common.yaml import _INSTRUMENTS
+from common.yaml_wrapper import _INSTRUMENTS
 from plugins.common.settings import BYTES_TO_GB
 from plugins.file_handling import (
     _identical_copy_exists,

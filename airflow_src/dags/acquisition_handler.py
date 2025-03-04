@@ -21,7 +21,7 @@ from common.settings import (
     Pools,
     Timings,
 )
-from common.yaml import get_instrument_ids
+from common.yaml_wrapper import get_instrument_ids
 from impl.handler_impl import (
     copy_raw_file,
     decide_processing,

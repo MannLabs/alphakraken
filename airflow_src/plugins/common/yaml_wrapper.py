@@ -5,10 +5,10 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from common.keys import InstrumentKeys
-from common.settings import InternalPaths
+from common.settings import INSTRUMENT_SETTINGS_DEFAULTS, InternalPaths
 from common.utils import get_env_variable
-from keys import EnvVars
+
+from shared.keys import EnvVars
 
 
 def _load_alphakraken_yaml(env_name: str) -> dict[str, dict[str, Any]]:
@@ -33,10 +33,6 @@ _SETTINGS = _load_alphakraken_yaml(
 )
 _INSTRUMENTS = _SETTINGS["instruments"].copy()
 
-_INSTRUMENT_SETTINGS_DEFAULTS = {
-    InstrumentKeys.SKIP_QUANTING: False,
-}
-
 
 def get_instrument_ids() -> list[str]:
     """Get all IDs for all instruments."""
@@ -45,5 +41,5 @@ def get_instrument_ids() -> list[str]:
 
 def get_instrument_settings(instrument_id: str, key: str) -> Any:  # noqa: ANN401
     """Get a certain setting for an instrument."""
-    settings_with_defaults = _INSTRUMENT_SETTINGS_DEFAULTS | _INSTRUMENTS[instrument_id]
+    settings_with_defaults = INSTRUMENT_SETTINGS_DEFAULTS | _INSTRUMENTS[instrument_id]
     return settings_with_defaults[key]

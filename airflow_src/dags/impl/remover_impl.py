@@ -18,7 +18,7 @@ from common.settings import (
     DEFAULT_MIN_FILE_AGE_TO_REMOVE_D,
 )
 from common.utils import get_airflow_variable, get_env_variable, get_xcom, put_xcom
-from common.yaml import get_instrument_ids
+from common.yaml_wrapper import get_instrument_ids
 from file_handling import get_disk_usage, get_file_hash, get_file_size
 from raw_file_wrapper_factory import RawFileWrapperFactory, RemovePathProvider
 

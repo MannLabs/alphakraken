@@ -16,6 +16,9 @@ FALLBACK_PROJECT_ID_BRUKER = "_FALLBACK_BRUKER"
 
 OUTPUT_FOLDER_PREFIX = "out_"
 
+INSTRUMENT_SETTINGS_DEFAULTS = {
+    # InstrumentKeys.SKIP_QUANTING: False,
+}
 
 # local folder on the instruments to move files to after copying to pool-backup
 INSTRUMENT_BACKUP_FOLDER_NAME = "Backup"  # TODO: rename this folder to "handled" or similar to avoid confusion with pool backup

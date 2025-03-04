@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, call, patch
 import pytest
 from airflow.exceptions import AirflowFailException
 from common.keys import DagContext, DagParams, XComKeys
-from common.yaml import _INSTRUMENTS
+from common.yaml_wrapper import _INSTRUMENTS
 from dags.impl.mover_impl import (
     _check_main_file_to_move,
     _get_files_to_move,

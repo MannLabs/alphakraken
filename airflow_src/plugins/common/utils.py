@@ -43,12 +43,16 @@ def get_xcom(
     return value
 
 
-def get_airflow_variable(key: str, default: str | int = "__DEFAULT_NOT_SET") -> str:
-    """Get the value of an Airflow Variable with `key` with an optional default."""
+def get_airflow_variable(key: str, default: str | float = "__DEFAULT_NOT_SET") -> str:
+    """Get the value of an Airflow Variable with `key` with an optional default.
+
+    Will convert any non-string defaults to string.
+    """
+    default = str(default)
     if default == "__DEFAULT_NOT_SET":
         value = Variable.get(key)
     else:
-        value = Variable.get(key, default_var=default)
+        value = Variable.get(key, default_var=str(default))
 
     logging.info(f"Got airflow variable: '{key}'='{value}' (default: '{default}')")
 

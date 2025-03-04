@@ -48,7 +48,7 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
         },
         description="Process acquired files and add metrics to DB.",
         catchup=False,
-        tags=["acquisition_processor", instrument_id],
+        tags=["processor", instrument_id],
         params={DagParams.RAW_FILE_ID: Param(type="string", minimum=3)},
     ) as dag:
         dag.doc_md = __doc__

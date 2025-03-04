@@ -138,6 +138,14 @@ Most likely, this is because the file copying got interrupted, e.g. due to manua
 To resolve, move the file from the backup pool folder and restart the `copy_raw_file` task.
 
 
+### Problem: Tasks fail with "task instance .. finished with state failed"
+More specific, the Airflow logs show
+`ERROR - The executor reported that the task instance <TaskInstance: instrument_watcher.test3.wait_for_raw_file_creation ...> finished with state failed, but the task instance's state attribute is queued.`
+
+#### Solution
+Most likely, the code that the task should run is broken (e.g. due to an import or configuration error). Look at the
+respective worker's container logs to find out the root cause.
+
 
 ## Useful commands
 

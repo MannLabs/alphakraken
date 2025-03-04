@@ -21,7 +21,7 @@ from common.keys import (
     OpArgs,
     Tasks,
 )
-from common.yaml_wrapper import get_instrument_ids
+from common.settings import get_instrument_ids
 from impl.handler_impl import (
     copy_raw_file,
     decide_processing,

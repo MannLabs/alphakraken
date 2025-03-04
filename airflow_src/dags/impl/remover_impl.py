@@ -17,8 +17,8 @@ from common.paths import (
     get_internal_backup_path,
     get_internal_instrument_data_path,
 )
+from common.settings import get_instrument_ids
 from common.utils import get_airflow_variable, get_env_variable, get_xcom, put_xcom
-from common.yaml_wrapper import get_instrument_ids
 from file_handling import get_disk_usage, get_file_hash, get_file_size
 from raw_file_wrapper_factory import RawFileWrapperFactory, RemovePathProvider
 

@@ -18,7 +18,7 @@ from common.paths import (
     get_internal_backup_path_for_instrument,
     get_internal_instrument_data_path,
 )
-from common.yaml_wrapper import get_instrument_settings
+from common.settings import get_instrument_settings
 
 from shared.db.models import RawFile, get_created_at_year_month
 

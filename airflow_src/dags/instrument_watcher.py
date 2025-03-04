@@ -15,7 +15,7 @@ from common.keys import (
     OpArgs,
     Tasks,
 )
-from common.yaml_wrapper import get_instrument_ids
+from common.settings import get_instrument_ids
 from impl.watcher_impl import (
     decide_raw_file_handling,
     get_unknown_raw_files,

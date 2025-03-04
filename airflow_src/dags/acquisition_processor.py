@@ -15,8 +15,8 @@ from common.constants import (
     Timings,
 )
 from common.keys import DAG_DELIMITER, DagParams, Dags, OpArgs, Tasks
+from common.settings import get_instrument_ids
 from common.utils import get_minutes_since_fixed_time_point
-from common.yaml_wrapper import get_instrument_ids
 from impl.processor_impl import (
     check_quanting_result,
     compute_metrics,

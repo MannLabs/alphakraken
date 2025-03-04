@@ -9,7 +9,7 @@ from common.constants import (
     InternalPaths,
 )
 from common.keys import InstrumentKeys, InstrumentTypes
-from common.yaml_wrapper import get_instrument_settings
+from common.settings import get_instrument_settings
 
 from shared.db.models import RawFile, get_created_at_year_month
 

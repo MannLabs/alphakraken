@@ -10,15 +10,15 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Union
 
-from common.keys import InstrumentTypes
+from common.keys import InstrumentKeys, InstrumentTypes
 from common.paths import (
-    get_instrument_type,
     get_internal_backup_path_for_instrument,
     get_internal_instrument_data_path,
 )
 from common.settings import (
     INSTRUMENT_BACKUP_FOLDER_NAME,
 )
+from common.yaml import get_instrument_settings
 
 from shared.db.models import RawFile, get_created_at_year_month
 
@@ -455,7 +455,7 @@ class RawFileWrapperFactory:
         :param args: Additional arguments to pass to the handler constructor
         :raises ValueError: If the instrument type or handler type is not supported
         """
-        instrument_type = get_instrument_type(instrument_id)
+        instrument_type = get_instrument_settings(instrument_id, InstrumentKeys.TYPE)
         handler_class = cls._handlers.get(instrument_type, {}).get(handler_type)
 
         if handler_class is None:

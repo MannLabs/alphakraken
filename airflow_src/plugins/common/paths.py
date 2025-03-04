@@ -75,12 +75,6 @@ def get_internal_output_path_for_raw_file(
 
 
 # TODO: move
-def get_instrument_type(instrument_id: str) -> str:
-    """Get the type of the instrument with the given ID."""
-    return INSTRUMENTS[instrument_id][InstrumentKeys.TYPE]
-
-
-# TODO: move
 def get_fallback_project_id(instrument_id: str) -> str:
     """Get the fallback project id.
 

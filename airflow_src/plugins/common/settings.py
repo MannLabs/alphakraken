@@ -13,6 +13,7 @@ from shared.keys import EnvVars
 
 INSTRUMENT_SETTINGS_DEFAULTS = {
     InstrumentKeys.SKIP_QUANTING: False,
+    InstrumentKeys.MIN_FREE_SPACE_GB: None,  # None -> use value from Airflow variable MIN_FREE_SPACE_GB
 }
 
 # local folder on the instruments to move files to after copying to pool-backup

@@ -95,6 +95,7 @@ class InstrumentKeys:
 
     TYPE: str = "type"
     SKIP_QUANTING: str = "skip_quanting"
+    MIN_FREE_SPACE_GB: str = "min_free_space_gb"
 
 
 class InstrumentTypes:

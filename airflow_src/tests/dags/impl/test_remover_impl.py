@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, call, patch
 import pytest
 from airflow.exceptions import AirflowFailException
 from common.keys import XComKeys
+from common.settings import _INSTRUMENTS
 from dags.impl.remover_impl import (
     FileRemovalError,
     _change_folder_permissions,
@@ -23,17 +24,23 @@ from dags.impl.remover_impl import (
 from raw_file_wrapper_factory import RemovePathProvider
 
 
-@patch("dags.impl.remover_impl.get_airflow_variable")
-@patch(
-    "dags.impl.remover_impl.get_instrument_ids",
-    return_value=["instrument1", "instrument2"],
+@patch.dict(
+    _INSTRUMENTS,
+    {
+        "instrument1": {},
+        "instrument2": {
+            "min_free_space_gb": 123
+        },  # will override the default from airflow variable
+        "instrument3": {"min_free_space_gb": -1},  # this one will be skipped
+    },
+    clear=True,
 )
+@patch("dags.impl.remover_impl.get_airflow_variable")
 @patch("dags.impl.remover_impl._decide_on_raw_files_to_remove")
 @patch("dags.impl.remover_impl.put_xcom")
 def test_get_raw_files_to_remove(
     mock_put_xcom: MagicMock,
     mock_decide_on_raw_files_to_remove: MagicMock,
-    mock_get_instrument_ids: MagicMock,  # noqa: ARG001
     mock_get_airflow_variable: MagicMock,
 ) -> None:
     """Test that get_raw_files_to_remove calls the correct functions and puts the result in XCom."""
@@ -43,7 +50,10 @@ def test_get_raw_files_to_remove(
         ["file3", "file4"],
     ]
 
-    mock_get_airflow_variable.side_effect = [10, 42]
+    mock_get_airflow_variable.side_effect = [
+        10,  # min_file_age
+        42,  # min_free_gb
+    ]
 
     # when
     get_raw_files_to_remove(mock_ti)
@@ -53,13 +63,14 @@ def test_get_raw_files_to_remove(
             call(
                 "instrument1",
                 min_file_age=10,
-                min_free_gb=42,
+                min_free_gb=42,  # taken from airflow variable
             ),
             call(
                 "instrument2",
                 min_file_age=10,
-                min_free_gb=42,
+                min_free_gb=123,  # taken from instrument config
             ),
+            # instrument3 is skipped due to value of -1 in instrument config
         ]
     )
     mock_put_xcom.assert_has_calls(
@@ -80,17 +91,50 @@ def test_get_raw_files_to_remove(
     )
 
 
-@patch("dags.impl.remover_impl.get_airflow_variable")
-@patch(
-    "dags.impl.remover_impl.get_instrument_ids",
-    return_value=["instrument1", "instrument2"],
+@patch.dict(
+    _INSTRUMENTS,
+    {
+        "instrument1": {},
+        "instrument2": {},
+    },
+    clear=True,
 )
+@patch("dags.impl.remover_impl.get_airflow_variable")
+@patch("dags.impl.remover_impl.put_xcom")
+def test_get_raw_files_to_remove_switched_off(
+    mock_put_xcom: MagicMock,
+    mock_get_airflow_variable: MagicMock,
+) -> None:
+    """Test that get_raw_files_to_remove puts an emprt list in XCom if file size is not set via Airflow Variable."""
+    mock_ti = MagicMock()
+
+    mock_get_airflow_variable.side_effect = [
+        10,  # min_file_age
+        -1,  # min_free_gb
+    ]
+
+    # when
+    get_raw_files_to_remove(mock_ti)
+
+    mock_put_xcom.assert_has_calls(
+        [
+            call(
+                mock_ti,
+                XComKeys.FILES_TO_REMOVE,
+                {},
+            ),
+            call(mock_ti, XComKeys.INSTRUMENTS_WITH_ERRORS, []),
+        ]
+    )
+
+
+@patch.dict(_INSTRUMENTS, {"instrument1": {}, "instrument2": {}}, clear=True)
+@patch("dags.impl.remover_impl.get_airflow_variable")
 @patch("dags.impl.remover_impl._decide_on_raw_files_to_remove")
 @patch("dags.impl.remover_impl.put_xcom")
 def test_get_raw_files_to_remove_handle_error(
     mock_put_xcom: MagicMock,
     mock_decide_on_raw_files_to_remove: MagicMock,
-    mock_get_instrument_ids: MagicMock,  # noqa: ARG001
     mock_get_airflow_variable: MagicMock,
 ) -> None:
     """Test that get_raw_files_to_remove gracefully handles errors."""

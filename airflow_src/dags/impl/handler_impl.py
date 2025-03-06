@@ -116,7 +116,6 @@ def start_file_mover(ti: TaskInstance, **kwargs) -> None:
     raw_file_id = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID]
     instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
 
-    # start only after some time to detect upstream false positive errors in detecting finished acquisitions
     time_delay_minutes = get_instrument_settings(
         instrument_id, InstrumentKeys.FILE_MOVE_DELAY_M
     )

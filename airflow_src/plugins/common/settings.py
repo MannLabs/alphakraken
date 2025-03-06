@@ -16,24 +16,24 @@ class Timings:
     """Timing constants."""
 
     # if you update this, you might also want to update the coloring in the webapp (components.py:_get_color())
-    FILE_SENSOR_POKE_INTERVAL_S = 60
+    FILE_SENSOR_POKE_INTERVAL_S: int = 60
 
-    ACQUISITION_MONITOR_POKE_INTERVAL_S = 30
+    ACQUISITION_MONITOR_POKE_INTERVAL_S: int = 30
 
-    QUANTING_MONITOR_POKE_INTERVAL_S = 60
+    QUANTING_MONITOR_POKE_INTERVAL_S: int = 60
 
-    RAW_DATA_COPY_TASK_TIMEOUT_M = 15  # large enough to not time out on big files, small enough to not block other tasks
+    RAW_DATA_COPY_TASK_TIMEOUT_M: int = 15  # large enough to not time out on big files, small enough to not block other tasks
 
     # this timeout needs to be big compared to the time scales defined in AcquisitionMonitor
-    ACQUISITION_MONITOR_TIMEOUT_M = 180
+    ACQUISITION_MONITOR_TIMEOUT_M: int = 180
 
-    MOVE_RAW_FILE_TASK_TIMEOUT_M = 5
+    MOVE_RAW_FILE_TASK_TIMEOUT_M: int = 5
 
-    REMOVE_RAW_FILE_TASK_TIMEOUT_M = 6 * 60  # runs long due to hashsum calculation
+    REMOVE_RAW_FILE_TASK_TIMEOUT_M: int = 6 * 60  # runs long due to hashsum calculation
 
-    DEFAULT_FILE_MOVE_DELAY_M = 5
+    DEFAULT_FILE_MOVE_DELAY_M: int = 5
 
-    FILE_MOVE_RETRY_DELAY_M = 30
+    FILE_MOVE_RETRY_DELAY_M: int = 30
 
 
 class Concurrency:
@@ -41,16 +41,16 @@ class Concurrency:
 
     # limit to a number smaller than maximum number of runs per DAG (default is 16) to have free slots for other tasks
     # like starting quanting or metrics calculation
-    MAXNO_MONITOR_QUANTING_TASKS_PER_DAG = 14
+    MAXNO_MONITOR_QUANTING_TASKS_PER_DAG: int = 14
 
     # limit the number of concurrent copies to not over-stress the network.
     # Note that this is a potential bottleneck, so a timeout is important here.
-    MAXNO_COPY_RAW_FILE_TASKS_PER_DAG = 2
+    MAXNO_COPY_RAW_FILE_TASKS_PER_DAG: int = 2
 
     # limit the number of concurrent monitors to not over-stress the network (relevant only during a catchup)
-    MAXNO_MONITOR_ACQUISITION_TASKS_PER_DAG = 10
+    MAXNO_MONITOR_ACQUISITION_TASKS_PER_DAG: int = 10
 
-    MAXNO_MOVE_RAW_FILE_TASKS_PER_DAG = 1
+    MAXNO_MOVE_RAW_FILE_TASKS_PER_DAG: int = 1
 
 
 INSTRUMENT_SETTINGS_DEFAULTS = {

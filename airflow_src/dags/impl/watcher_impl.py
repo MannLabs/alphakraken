@@ -239,19 +239,19 @@ def _file_meets_age_criterion(
     try:
         max_file_age_in_hours_float = float(max_file_age_in_hours)
     except ValueError as e:
-        logging.exception(
+        raise ValueError(
             f"Could not convert max_file_age_in_hours to float: {max_file_age_in_hours}"
-        )
-        raise ValueError from e
+        ) from e
 
     file_creation_ts = get_file_creation_timestamp(raw_file_name, instrument_id)
     raw_file_creation_time = datetime.fromtimestamp(file_creation_ts, tz=pytz.utc)
 
-    now = datetime.now(tz=pytz.utc)  # TODO: check time zone on acquisition PCS
-    time_delta = timedelta(hours=max_file_age_in_hours_float)
-    logging.info(f"{now=} {raw_file_creation_time=} {time_delta=}")
-    if now - raw_file_creation_time > time_delta:
-        logging.info(f"File {raw_file_name} is too old.")
+    if (now := datetime.now(tz=pytz.utc)) - raw_file_creation_time > timedelta(
+        hours=max_file_age_in_hours_float
+    ):  # TODO: check time zone on acquisition PCS
+        logging.info(
+            f"File {raw_file_name} is too old: {now=} {raw_file_creation_time=}"
+        )
         return False
 
     return True

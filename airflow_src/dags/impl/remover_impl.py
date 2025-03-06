@@ -48,8 +48,8 @@ def get_raw_files_to_remove(ti: TaskInstance, **kwargs) -> None:
         get_airflow_variable(AirflowVars.MIN_FREE_SPACE_GB, "-1")
     )
 
-    raw_file_ids_to_remove = {}
-    instruments_with_errors = []
+    raw_file_ids_to_remove: dict[str, list[str]] = {}
+    instruments_with_errors: list[str] = []
 
     for instrument_id in get_instrument_ids():
         instrument_min_free_space_gb = get_instrument_settings(

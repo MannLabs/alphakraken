@@ -243,7 +243,7 @@ def test_decide_processing_returns_false_if_skip_quanting_is_set(
     mock_update_raw_file.assert_called_once_with(
         "some_file.raw",
         new_status=RawFileStatus.DONE_NOT_QUANTED,
-        status_details="Quanting disabled by config.",
+        status_details="Quanting disabled for this instrument.",
     )
 
 

@@ -150,7 +150,7 @@ def decide_processing(ti: TaskInstance, **kwargs) -> bool:
         status_details = ";".join(acquisition_monitor_errors)
     elif get_instrument_settings(instrument_id, InstrumentKeys.SKIP_QUANTING):
         new_status = RawFileStatus.DONE_NOT_QUANTED
-        status_details = "Quanting disabled by config."
+        status_details = "Quanting disabled for this instrument."
     elif DDA_FLAG_IN_RAW_FILE_NAME in raw_file_id.lower():
         new_status = RawFileStatus.DONE_NOT_QUANTED
         status_details = "Filename contains 'dda'."

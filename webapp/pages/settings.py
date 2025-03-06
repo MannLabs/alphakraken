@@ -148,14 +148,11 @@ form_items = {
         "placeholder": "e.g. very_fast_config.yaml",
         "help": "Name of the config file. If none is given, default will be used.",
     },
-    # TODO: make software selection options dynamic
     "software": {
         "label": "software",
-        "options": [
-            "alphadia-1.9.0",
-            "alphadia-1.8.2",
-            "alphadia-1.7.2",
-        ],
+        "max_chars": 64,
+        "placeholder": "e.g. alphadia-1.10.0",
+        "help": "Name of the conda environment that holds the AlphaDIA executable. Needs to be created manually.",
     },
 }
 

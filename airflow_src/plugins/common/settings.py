@@ -11,18 +11,6 @@ from common.utils import get_env_variable
 
 from shared.keys import EnvVars
 
-INSTRUMENT_SETTINGS_DEFAULTS = {
-    InstrumentKeys.SKIP_QUANTING: False,
-    InstrumentKeys.MIN_FREE_SPACE_GB: None,  # None -> use value from Airflow variable MIN_FREE_SPACE_GB
-}
-
-# local folder on the instruments to move files to after copying to pool-backup
-INSTRUMENT_BACKUP_FOLDER_NAME = "Backup"  # TODO: rename this folder to "handled" or similar to avoid confusion with pool backup
-
-DEFAULT_MIN_FILE_AGE_TO_REMOVE_D = 14  # days
-# this is to avoid getting a lot of removal candidates:
-DEFAULT_MAX_FILE_AGE_TO_REMOVE_D = 60  # days
-
 
 class Timings:
     """Timing constants."""
@@ -43,7 +31,7 @@ class Timings:
 
     REMOVE_RAW_FILE_TASK_TIMEOUT_M = 6 * 60  # runs long due to hashsum calculation
 
-    FILE_MOVE_DELAY_M = 5
+    DEFAULT_FILE_MOVE_DELAY_M = 5
 
     FILE_MOVE_RETRY_DELAY_M = 30
 
@@ -63,6 +51,20 @@ class Concurrency:
     MAXNO_MONITOR_ACQUISITION_TASKS_PER_DAG = 10
 
     MAXNO_MOVE_RAW_FILE_TASKS_PER_DAG = 1
+
+
+INSTRUMENT_SETTINGS_DEFAULTS = {
+    InstrumentKeys.SKIP_QUANTING: False,
+    InstrumentKeys.MIN_FREE_SPACE_GB: None,  # None -> use value from Airflow variable MIN_FREE_SPACE_GB
+    InstrumentKeys.FILE_MOVE_DELAY_M: Timings.DEFAULT_FILE_MOVE_DELAY_M,
+}
+
+# local folder on the instruments to move files to after copying to pool-backup
+INSTRUMENT_BACKUP_FOLDER_NAME = "Backup"  # TODO: rename this folder to "handled" or similar to avoid confusion with pool backup
+
+DEFAULT_MIN_FILE_AGE_TO_REMOVE_D = 14  # days
+# this is to avoid getting a lot of removal candidates:
+DEFAULT_MAX_FILE_AGE_TO_REMOVE_D = 60  # days
 
 
 # TODO: make this dynamic & symmetric

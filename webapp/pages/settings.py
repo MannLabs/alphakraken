@@ -170,7 +170,7 @@ if selected_project:
         fasta_file_name = st.text_input(**form_items["fasta_file_name"])
         speclib_file_name = st.text_input(**form_items["speclib_file_name"])
         config_file_name = st.text_input(**form_items["config_file_name"])
-        software = st.selectbox(**form_items["software"])
+        software = st.text_input(**form_items["software"])
 
         st.write(r"\* Required fields")
         st.write(r"\** At least one of the two must be given")

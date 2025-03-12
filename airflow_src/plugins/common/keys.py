@@ -88,9 +88,14 @@ class XComKeys:
 
 
 class InstrumentKeys:
-    """Keys for accessing instrument data."""
+    """Keys for accessing instrument data.
+
+    If defaults need to be set, use the INSTRUMENT_SETTINGS_DEFAULTS dictionary in settings.py.
+    """
 
     TYPE: str = "type"
+    SKIP_QUANTING: str = "skip_quanting"
+    MIN_FREE_SPACE_GB: str = "min_free_space_gb"
 
 
 class InstrumentTypes:

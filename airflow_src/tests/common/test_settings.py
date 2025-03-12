@@ -15,6 +15,8 @@ def test_loads_alphakraken_yaml_successfully(mock_path: MagicMock) -> None:
     instruments:
       instrument1:
         type: thermo
+        skip_quanting: true
+        min_free_space_gb: 123
     """
 
     mock_path.return_value.__truediv__.return_value.open = mock_open(
@@ -24,7 +26,15 @@ def test_loads_alphakraken_yaml_successfully(mock_path: MagicMock) -> None:
     # when
     settings = _load_alphakraken_yaml(env_name)
 
-    assert settings == {"instruments": {"instrument1": {"type": "thermo"}}}
+    assert settings == {
+        "instruments": {
+            "instrument1": {
+                "type": "thermo",
+                "skip_quanting": True,
+                "min_free_space_gb": 123,
+            }
+        }
+    }
 
 
 @patch("common.settings.Path")

@@ -10,7 +10,7 @@ from airflow.models import TaskInstance
 from common.constants import (
     BYTES_TO_GB,
 )
-from common.keys import AirflowVars, Tasks, XComKeys
+from common.keys import AirflowVars, InstrumentKeys, Tasks, XComKeys
 from common.paths import (
     get_internal_backup_path,
     get_internal_instrument_data_path,
@@ -19,6 +19,7 @@ from common.settings import (
     DEFAULT_MAX_FILE_AGE_TO_REMOVE_D,
     DEFAULT_MIN_FILE_AGE_TO_REMOVE_D,
     get_instrument_ids,
+    get_instrument_settings,
 )
 from common.utils import get_airflow_variable, get_env_variable, get_xcom, put_xcom
 from file_handling import get_disk_usage, get_file_hash, get_file_size
@@ -43,27 +44,41 @@ def get_raw_files_to_remove(ti: TaskInstance, **kwargs) -> None:
         )
     )
 
-    min_free_space_gb = int(get_airflow_variable(AirflowVars.MIN_FREE_SPACE_GB, "-1"))
+    global_min_free_space_gb = int(
+        get_airflow_variable(AirflowVars.MIN_FREE_SPACE_GB, "-1")
+    )
 
-    raw_file_ids_to_remove = {}
-    instruments_with_errors = []
-    if min_free_space_gb <= 0:
-        logging.warning(f"Skipping: {AirflowVars.MIN_FREE_SPACE_GB} not set.")
-    else:
-        for instrument_id in get_instrument_ids():
-            try:
-                raw_file_ids_to_remove[instrument_id] = _decide_on_raw_files_to_remove(
-                    instrument_id,
-                    min_free_gb=min_free_space_gb,
-                    min_file_age=min_file_age,
-                )
-                logging.info(
-                    f"Removing for {instrument_id} {len(raw_file_ids_to_remove[instrument_id])} files: {raw_file_ids_to_remove[instrument_id]}"
-                )
-            except Exception:  # noqa: PERF203
-                # catch all errors to avoid one instrument blocking all others
-                logging.exception(f"Error for {instrument_id}.")
-                instruments_with_errors.append(instrument_id)
+    raw_file_ids_to_remove: dict[str, list[str]] = {}
+    instruments_with_errors: list[str] = []
+
+    for instrument_id in get_instrument_ids():
+        instrument_min_free_space_gb = get_instrument_settings(
+            instrument_id, InstrumentKeys.MIN_FREE_SPACE_GB
+        )
+        min_free_space_gb = (
+            instrument_min_free_space_gb
+            if instrument_min_free_space_gb is not None
+            else global_min_free_space_gb
+        )
+        if min_free_space_gb <= 0:
+            logging.info(
+                f"Skipping: neither {AirflowVars.MIN_FREE_SPACE_GB} nor instrument-specific 'min_free_space_gb' set."
+            )
+            continue
+
+        try:
+            raw_file_ids_to_remove[instrument_id] = _decide_on_raw_files_to_remove(
+                instrument_id,
+                min_free_gb=min_free_space_gb,
+                min_file_age=min_file_age,
+            )
+            logging.info(
+                f"Removing for {instrument_id} {len(raw_file_ids_to_remove[instrument_id])} files: {raw_file_ids_to_remove[instrument_id]}"
+            )
+        except Exception:
+            # catch all errors to avoid one instrument blocking all others
+            logging.exception(f"Error for {instrument_id}.")
+            instruments_with_errors.append(instrument_id)
 
     put_xcom(
         ti,

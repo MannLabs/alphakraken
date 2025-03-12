@@ -60,6 +60,7 @@ If set to a positive number (unit: GB), the `file_remover` will remove files (ol
 instrument backup folder until the free space is above this threshold.
 The value of `min_file_age_to_remove_in_days` (see below) is taken into account when
 selection files to remove.
+Can be overruled per instrument by setting the `min_free_space_gb` variable in the `alphakraken.yaml` file.
 
 Recommended setting in production: `300` (big enough to avoid running out of space over a weekend
 (in the worst case scenario that the file_remover stops running on Friday).

@@ -8,13 +8,12 @@ from airflow.models import Param
 from airflow.models.dag import DAG
 from airflow.operators.python import PythonOperator, ShortCircuitOperator
 from callbacks import on_failure_callback
+from common.constants import AIRFLOW_QUEUE_PREFIX, Pools
 from common.keys import DAG_DELIMITER, DagParams, Dags, OpArgs, Tasks
 from common.settings import (
-    AIRFLOW_QUEUE_PREFIX,
-    INSTRUMENTS,
     Concurrency,
-    Pools,
     Timings,
+    get_instrument_ids,
 )
 from common.utils import get_minutes_since_fixed_time_point
 from impl.processor_impl import (
@@ -49,7 +48,7 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
         },
         description="Process acquired files and add metrics to DB.",
         catchup=False,
-        tags=["acquisition_processor", instrument_id],
+        tags=["processor", instrument_id],
         params={DagParams.RAW_FILE_ID: Param(type="string", minimum=3)},
     ) as dag:
         dag.doc_md = __doc__
@@ -108,5 +107,5 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
     )
 
 
-for instrument_id in INSTRUMENTS:
+for instrument_id in get_instrument_ids():
     create_acquisition_processor_dag(instrument_id)

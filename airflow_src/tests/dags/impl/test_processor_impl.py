@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, call, mock_open, patch
 import pytest
 import pytz
 from airflow.exceptions import AirflowFailException
-from common.settings import INSTRUMENTS
+from common.settings import _INSTRUMENTS
 from dags.impl.processor_impl import (
     _get_project_id_or_fallback,
     check_quanting_result,
@@ -38,7 +38,7 @@ def test_get_project_id_for_raw_file() -> None:
     assert project_id == "PID1"
 
 
-@patch.dict(INSTRUMENTS, {"instrument1": {"type": "some_type"}})
+@patch.dict(_INSTRUMENTS, {"instrument1": {"type": "some_type"}})
 def test_get_project_id_for_raw_file_fallback() -> None:
     """Test that _get_project_id_for_raw_file returns correct project id for non-bruker."""
     # when
@@ -47,7 +47,7 @@ def test_get_project_id_for_raw_file_fallback() -> None:
     assert project_id == "_FALLBACK"
 
 
-@patch.dict(INSTRUMENTS, {"instrument1": {"type": "bruker"}})
+@patch.dict(_INSTRUMENTS, {"instrument1": {"type": "bruker"}})
 def test_get_project_id_for_raw_file_fallback_bruker() -> None:
     """Test that _get_project_id_for_raw_file returns correct project id for bruker."""
     # when
@@ -56,7 +56,7 @@ def test_get_project_id_for_raw_file_fallback_bruker() -> None:
     assert project_id == "_FALLBACK_BRUKER"
 
 
-@patch.dict(INSTRUMENTS, {"instrument1": {}})
+@patch.dict(_INSTRUMENTS, {"instrument1": {}})
 @patch.dict(
     os.environ,
     {

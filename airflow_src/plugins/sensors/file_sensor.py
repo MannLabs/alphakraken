@@ -10,7 +10,7 @@ from typing import Any
 
 import pytz
 from airflow.sensors.base import BaseSensorOperator
-from common.settings import (
+from common.paths import (
     get_internal_backup_path_for_instrument,
     get_internal_instrument_data_path,
     get_internal_output_path,

@@ -24,11 +24,16 @@ from raw_file_wrapper_factory import RemovePathProvider
 
 
 @patch("dags.impl.remover_impl.get_airflow_variable")
+@patch(
+    "dags.impl.remover_impl.get_instrument_ids",
+    return_value=["instrument1", "instrument2"],
+)
 @patch("dags.impl.remover_impl._decide_on_raw_files_to_remove")
 @patch("dags.impl.remover_impl.put_xcom")
 def test_get_raw_files_to_remove(
     mock_put_xcom: MagicMock,
     mock_decide_on_raw_files_to_remove: MagicMock,
+    mock_get_instrument_ids: MagicMock,  # noqa: ARG001
     mock_get_airflow_variable: MagicMock,
 ) -> None:
     """Test that get_raw_files_to_remove calls the correct functions and puts the result in XCom."""
@@ -41,10 +46,7 @@ def test_get_raw_files_to_remove(
     mock_get_airflow_variable.side_effect = [10, 42]
 
     # when
-    with patch(
-        "dags.impl.remover_impl.INSTRUMENTS", {"instrument1": {}, "instrument2": {}}
-    ):
-        get_raw_files_to_remove(mock_ti)
+    get_raw_files_to_remove(mock_ti)
 
     mock_decide_on_raw_files_to_remove.assert_has_calls(
         [
@@ -79,11 +81,16 @@ def test_get_raw_files_to_remove(
 
 
 @patch("dags.impl.remover_impl.get_airflow_variable")
+@patch(
+    "dags.impl.remover_impl.get_instrument_ids",
+    return_value=["instrument1", "instrument2"],
+)
 @patch("dags.impl.remover_impl._decide_on_raw_files_to_remove")
 @patch("dags.impl.remover_impl.put_xcom")
 def test_get_raw_files_to_remove_handle_error(
     mock_put_xcom: MagicMock,
     mock_decide_on_raw_files_to_remove: MagicMock,
+    mock_get_instrument_ids: MagicMock,  # noqa: ARG001
     mock_get_airflow_variable: MagicMock,
 ) -> None:
     """Test that get_raw_files_to_remove gracefully handles errors."""
@@ -96,10 +103,7 @@ def test_get_raw_files_to_remove_handle_error(
     mock_get_airflow_variable.side_effect = [10, 42]
 
     # when
-    with patch(
-        "dags.impl.remover_impl.INSTRUMENTS", {"instrument1": {}, "instrument2": {}}
-    ):
-        get_raw_files_to_remove(mock_ti)
+    get_raw_files_to_remove(mock_ti)
 
     mock_put_xcom.assert_has_calls(
         [

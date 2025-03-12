@@ -18,7 +18,7 @@ from shared.db.engine import connect_db
 from shared.db.models import RawFile, RawFileStatus, get_created_at_year_month
 
 sys.path.insert(0, "/opt/airflow/plugins")
-from plugins.common.settings import (
+from plugins.common.paths import (
     get_internal_backup_path,
     get_internal_backup_path_for_instrument,
 )

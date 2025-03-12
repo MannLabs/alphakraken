@@ -7,13 +7,15 @@ from datetime import timedelta
 from airflow.models import Param
 from airflow.models.dag import DAG
 from airflow.operators.python import PythonOperator
+from common.constants import (
+    AIRFLOW_QUEUE_PREFIX,
+)
 from common.keys import (
     DagParams,
     Dags,
     Tasks,
 )
 from common.settings import (
-    AIRFLOW_QUEUE_PREFIX,
     Concurrency,
     Timings,
 )

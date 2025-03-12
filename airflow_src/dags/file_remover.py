@@ -7,12 +7,14 @@ from datetime import timedelta
 import pendulum
 from airflow.models.dag import DAG
 from airflow.operators.python import PythonOperator
+from common.constants import (
+    AIRFLOW_QUEUE_PREFIX,
+)
 from common.keys import (
     Dags,
     Tasks,
 )
 from common.settings import (
-    AIRFLOW_QUEUE_PREFIX,
     Concurrency,
     Timings,
 )

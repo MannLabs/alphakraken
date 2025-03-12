@@ -7,9 +7,15 @@ from typing import Any
 
 import pytz
 from airflow.api.common.trigger_dag import trigger_dag
+from airflow.exceptions import AirflowNotFoundException
 from airflow.models import DagRun, TaskInstance, Variable
 from airflow.providers.ssh.hooks.ssh import SSHHook
 from airflow.utils.types import DagRunType
+from common.constants import (
+    CLUSTER_SSH_COMMAND_TIMEOUT,
+    CLUSTER_SSH_CONNECTION_ID,
+    CLUSTER_SSH_CONNECTION_TIMEOUT,
+)
 
 _xcom_types = str | list[str] | dict[str, Any] | int
 
@@ -116,12 +122,24 @@ def get_minutes_since_fixed_time_point() -> int:
     return int((current_epoch_time - baseline) // 60)
 
 
-def get_cluster_ssh_hook() -> SSHHook:
+def get_cluster_ssh_hook(
+    ssh_conn_id: str = CLUSTER_SSH_CONNECTION_ID,
+    conn_timeout: int = CLUSTER_SSH_CONNECTION_TIMEOUT,
+    cmd_timeout: int = CLUSTER_SSH_COMMAND_TIMEOUT,
+) -> SSHHook:
     """Get the SSH hook for the cluster.
 
-    The connection 'cluster_ssh_connection' needs to be defined in Airflow UI.
+    The connection id needs to be defined in the Airflow UI.
     """
     logging.info("Getting cluster SSH hook..")
-    return SSHHook(
-        ssh_conn_id="cluster_ssh_connection", conn_timeout=60, cmd_timeout=60
-    )
+    try:
+        return SSHHook(
+            ssh_conn_id=ssh_conn_id, conn_timeout=conn_timeout, cmd_timeout=cmd_timeout
+        )
+    except AirflowNotFoundException as e:
+        msg = (
+            f"Could not find cluster SSH connection. Either set up the connection '{ssh_conn_id}' ('Admin -> Connections') "
+            f"or set the Airflow Variable 'debug_no_cluster_ssh=False'.\n"
+            f"Original message: {e}"
+        )
+        raise AirflowNotFoundException(msg) from e

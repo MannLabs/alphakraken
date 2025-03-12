@@ -3,7 +3,7 @@
 All the commands must be bash script that are executable on the cluster.
 """
 
-from common.settings import CLUSTER_JOB_SCRIPT_PATH, CLUSTER_WORKING_DIR
+from common.constants import CLUSTER_JOB_SCRIPT_PATH, CLUSTER_WORKING_DIR
 
 
 # TODO: how to bring 'submit_job.sh' to the cluster?

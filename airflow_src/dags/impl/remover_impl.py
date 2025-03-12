@@ -7,14 +7,18 @@ from pathlib import Path
 
 from airflow.exceptions import AirflowFailException
 from airflow.models import TaskInstance
-from common.keys import AirflowVars, Tasks, XComKeys
-from common.settings import (
+from common.constants import (
     BYTES_TO_GB,
-    DEFAULT_MAX_FILE_AGE_TO_REMOVE_D,
-    DEFAULT_MIN_FILE_AGE_TO_REMOVE_D,
-    INSTRUMENTS,
+)
+from common.keys import AirflowVars, Tasks, XComKeys
+from common.paths import (
     get_internal_backup_path,
     get_internal_instrument_data_path,
+)
+from common.settings import (
+    DEFAULT_MAX_FILE_AGE_TO_REMOVE_D,
+    DEFAULT_MIN_FILE_AGE_TO_REMOVE_D,
+    get_instrument_ids,
 )
 from common.utils import get_airflow_variable, get_env_variable, get_xcom, put_xcom
 from file_handling import get_disk_usage, get_file_hash, get_file_size
@@ -46,7 +50,7 @@ def get_raw_files_to_remove(ti: TaskInstance, **kwargs) -> None:
     if min_free_space_gb <= 0:
         logging.warning(f"Skipping: {AirflowVars.MIN_FREE_SPACE_GB} not set.")
     else:
-        for instrument_id in INSTRUMENTS:
+        for instrument_id in get_instrument_ids():
             try:
                 raw_file_ids_to_remove[instrument_id] = _decide_on_raw_files_to_remove(
                     instrument_id,

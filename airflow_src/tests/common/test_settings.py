@@ -1,40 +1,91 @@
 """Tests for the settings module."""
 
-from datetime import datetime
-from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, mock_open, patch
 
-import pytz
-from common.settings import get_output_folder_rel_path
-
-from shared.db.models import RawFile
+import pytest
+from common.settings import _load_alphakraken_yaml, get_instrument_settings
 
 
-def test_get_output_folder_rel_path_no_fallback() -> None:
-    """Test that correct output folder is returned if project_id is given."""
-    mock_raw_file = MagicMock(
-        wraps=RawFile,
-        id="some_file.raw",
-        created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
-        project_id="some_project_id",
+@patch("common.settings.Path")
+def test_loads_alphakraken_yaml_successfully(mock_path: MagicMock) -> None:
+    """Test that the settings are loaded successfully from a YAML file."""
+    env_name = "production"
+
+    yaml_content = """
+    instruments:
+      instrument1:
+        type: thermo
+    """
+
+    mock_path.return_value.__truediv__.return_value.open = mock_open(
+        read_data=yaml_content
     )
 
     # when
-    result = get_output_folder_rel_path(mock_raw_file, "some_project_id")
+    settings = _load_alphakraken_yaml(env_name)
 
-    assert result == Path("output/some_project_id/out_some_file.raw")
+    assert settings == {"instruments": {"instrument1": {"type": "thermo"}}}
 
 
-def test_get_output_folder_rel_path_fallback() -> None:
-    """Test that correct output folder is returned if no project_id is given."""
-    mock_raw_file = MagicMock(
-        wraps=RawFile,
-        id="some_file.raw",
-        created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
-        project_id=None,
-    )
+@patch("common.settings.Path")
+def test_raises_file_not_found_error_if_file_does_not_exist(
+    mock_path: MagicMock,
+) -> None:
+    """Test that a FileNotFoundError is raised if the settings file does not exist."""
+    env_name = "production"
 
     # when
-    result = get_output_folder_rel_path(mock_raw_file, "some_fallback_id")
+    mock_path.return_value.__truediv__.return_value.exists.return_value = False
 
-    assert result == Path("output/some_fallback_id/1970_01/out_some_file.raw")
+    with pytest.raises(FileNotFoundError):
+        _load_alphakraken_yaml(env_name)
+
+
+def test_returns_test_settings_for_test_environment() -> None:
+    """Test that test settings are returned when the environment is set to test."""
+    env_name = "_test_"
+
+    # when
+    settings = _load_alphakraken_yaml(env_name)
+
+    assert settings == {"instruments": {"_test1_": {"type": "thermo"}}}
+
+
+def returns_setting_for_existing_instrument_and_key() -> None:
+    """Test that a setting is returned for an existing instrument and key."""
+    with (
+        patch("common.settings._INSTRUMENTS", {"instrument1": {"key1": "value1"}}),
+        patch("common.settings.INSTRUMENT_SETTINGS_DEFAULTS", {}),
+    ):
+        assert get_instrument_settings("instrument1", "key1") == "value1"
+
+
+def raises_key_error_for_non_existing_key() -> None:
+    """Test that a KeyError is raised if the key does not exist in the instrument settings."""
+    with (
+        patch("common.settings._INSTRUMENTS", {"instrument1": {"key1": "value1"}}),
+        patch("common.settings.INSTRUMENT_SETTINGS_DEFAULTS", {}),
+        pytest.raises(KeyError),
+    ):
+        get_instrument_settings("instrument1", "key2")
+
+
+def raises_key_error_for_non_existing_instrument() -> None:
+    """Test that a KeyError is raised if the instrument does not exist in the instrument settings."""
+    with (
+        patch("common.settings._INSTRUMENTS", {"instrument1": {"key1": "value1"}}),
+        patch("common.settings.INSTRUMENT_SETTINGS_DEFAULTS", {}),
+        pytest.raises(KeyError),
+    ):
+        get_instrument_settings("instrument2", "key1")
+
+
+def returns_default_setting_if_key_not_in_instrument_settings() -> None:
+    """Test that a default setting is returned if the key is not in the instrument settings."""
+    with (
+        patch("common.settings._INSTRUMENTS", {"instrument1": {}}),
+        patch(
+            "common.settings.INSTRUMENT_SETTINGS_DEFAULTS", {"key1": "default_value"}
+        ),
+    ):
+        assert get_instrument_settings("instrument1", "key1") == "default_value"

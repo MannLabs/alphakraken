@@ -12,6 +12,11 @@ from cluster_scripts.slurm_commands import (
     get_job_state_cmd,
     get_run_quanting_cmd,
 )
+from common.constants import (
+    CLUSTER_WORKING_DIR,
+    ERROR_CODE_TO_STRING,
+    AlphaDiaConstants,
+)
 from common.keys import (
     QUANTING_TIME_ELAPSED_METRIC,
     AirflowVars,
@@ -23,14 +28,11 @@ from common.keys import (
     QuantingEnv,
     XComKeys,
 )
-from common.settings import (
-    CLUSTER_WORKING_DIR,
-    ERROR_CODE_TO_STRING,
-    AlphaDiaConstants,
-    get_fallback_project_id,
+from common.paths import (
     get_internal_output_path_for_raw_file,
     get_output_folder_rel_path,
 )
+from common.settings import get_fallback_project_id
 from common.utils import (
     get_airflow_variable,
     get_env_variable,

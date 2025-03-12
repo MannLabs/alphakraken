@@ -8,6 +8,10 @@ from airflow.models import Param
 from airflow.models.dag import DAG
 from airflow.operators.python import PythonOperator, ShortCircuitOperator
 from callbacks import on_failure_callback
+from common.constants import (
+    AIRFLOW_QUEUE_PREFIX,
+    Pools,
+)
 from common.keys import (
     DAG_DELIMITER,
     DagParams,
@@ -16,11 +20,9 @@ from common.keys import (
     Tasks,
 )
 from common.settings import (
-    AIRFLOW_QUEUE_PREFIX,
-    INSTRUMENTS,
     Concurrency,
-    Pools,
     Timings,
+    get_instrument_ids,
 )
 from impl.handler_impl import (
     copy_raw_file,
@@ -49,7 +51,7 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
         },
         description="Watch acquisition, handle raw files and trigger follow-up DAGs on demand.",
         catchup=False,
-        tags=["acquisition_handler", instrument_id],
+        tags=["handler", instrument_id],
         params={DagParams.RAW_FILE_ID: Param(type="string", minimum=3)},
     ) as dag:
         dag.doc_md = __doc__
@@ -96,5 +98,5 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
     )
 
 
-for instrument_id in INSTRUMENTS:
+for instrument_id in get_instrument_ids():
     create_acquisition_handler_dag(instrument_id)

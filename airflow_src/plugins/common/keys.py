@@ -98,7 +98,7 @@ class InstrumentTypes:
 
     THERMO: str = "thermo"
     BRUKER: str = "bruker"
-    ZENO: str = "zeno"
+    SCIEX: str = "sciex"
 
 
 class AirflowVars:

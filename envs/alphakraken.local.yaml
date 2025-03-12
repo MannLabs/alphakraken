@@ -1,7 +1,7 @@
 # Configuration file for alphakraken: instruments and mounts (environment: local)
 instruments:
   test1:
-    type: thermo # Needs to match one of the values defined in common.keys.InstrumentTypes (thermo, bruker, zeno).
+    type: thermo # Needs to match one of the values defined in common.keys.InstrumentTypes (thermo, bruker, sciex).
     # the following is required for mounting only (read by mount.sh):
     username: user
     mount_src: //0.0.0.0/test1/

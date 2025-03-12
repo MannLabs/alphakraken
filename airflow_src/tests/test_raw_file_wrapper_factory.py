@@ -23,10 +23,10 @@ from plugins.raw_file_wrapper_factory import (
     RawFileWrapperFactory,
     RawFileWriteWrapper,
     RemovePathProvider,
+    SciexRawFileMonitorWrapper,
+    SciexRawFileWriteWrapper,
     ThermoRawFileMonitorWrapper,
     ThermoRawFileWriteWrapper,
-    ZenoRawFileMonitorWrapper,
-    ZenoRawFileWriteWrapper,
 )
 
 from shared.db.models import RawFile
@@ -140,7 +140,7 @@ def test_get_dir_contents_returns_correct_set_of_paths(
     ("instrument_type", "extension", "expected_class"),
     [
         (InstrumentTypes.THERMO, ".raw", ThermoRawFileMonitorWrapper),
-        (InstrumentTypes.ZENO, ".wiff", ZenoRawFileMonitorWrapper),
+        (InstrumentTypes.SCIEX, ".wiff", SciexRawFileMonitorWrapper),
         (InstrumentTypes.BRUKER, ".d", BrukerRawFileMonitorWrapper),
     ],
 )
@@ -212,7 +212,7 @@ def test_remove_path_provider(mock_raw_file: RawFile) -> None:
     ("instrument_type", "expected_class"),
     [
         (InstrumentTypes.THERMO, ThermoRawFileWriteWrapper),
-        (InstrumentTypes.ZENO, ZenoRawFileWriteWrapper),
+        (InstrumentTypes.SCIEX, SciexRawFileWriteWrapper),
         (InstrumentTypes.BRUKER, BrukerRawFileWriteWrapper),
     ],
 )
@@ -275,7 +275,7 @@ def test_raw_file_wrapper_factory_unsupported_vendor() -> None:
     ("wrapper_class", "raw_file_name", "expected_extension"),
     [
         (ThermoRawFileMonitorWrapper, "sample.raw", ".raw"),
-        (ZenoRawFileMonitorWrapper, "sample.wiff", ".wiff"),
+        (SciexRawFileMonitorWrapper, "sample.wiff", ".wiff"),
         (BrukerRawFileMonitorWrapper, "sample.d", ".d"),
     ],
 )
@@ -317,7 +317,7 @@ def test_get_raw_files_on_instrument(mock_instrument_path: MagicMock) -> None:
             Path("/path/to/instrument/sample.raw"),
         ),
         (
-            ZenoRawFileMonitorWrapper,
+            SciexRawFileMonitorWrapper,
             "sample.wiff",
             Path("/path/to/instrument/sample.wiff"),
         ),
@@ -348,7 +348,7 @@ def test_file_path_to_monitor_acquisition_pass_raw_file_original_name(
             Path("/path/to/instrument/sample.raw"),
         ),
         (
-            ZenoRawFileMonitorWrapper,
+            SciexRawFileMonitorWrapper,
             MagicMock(wraps=RawFile, original_name="sample.wiff"),
             Path("/path/to/instrument/sample.wiff"),
         ),
@@ -410,11 +410,11 @@ def test_thermo_get_files_to_copy(
 
 @patch("plugins.raw_file_wrapper_factory.RawFileWrapperFactory.create_monitor_wrapper")
 @patch("plugins.raw_file_wrapper_factory.get_internal_instrument_data_path")
-def test_zeno_get_files_to_copy(
+def test_sciex_get_files_to_copy(
     mock_instrument_path: MagicMock,
     mock_create_monitor_wrapper: MagicMock,
 ) -> None:
-    """Test that get_files_to_copy returns the correct mapping for ZenoRawDataWrapper."""
+    """Test that get_files_to_copy returns the correct mapping for SciexRawDataWrapper."""
     mock_instrument_path.return_value.glob.return_value = [
         Path("/path/to/instrument/sample.wiff"),
         Path("/path/to/instrument/sample.wiff.scan"),
@@ -427,7 +427,7 @@ def test_zeno_get_files_to_copy(
         original_name="sample.wiff",
     )
 
-    wrapper = ZenoRawFileWriteWrapper(
+    wrapper = SciexRawFileWriteWrapper(
         "instrument1", raw_file=mock_raw_file, path_provider=CopyPathProvider
     )
     expected_mapping = {

@@ -228,29 +228,31 @@ def _file_meets_age_criterion(
     :param instrument_id: instrument id
     :return: True if the file is younger than the given max. file age or if no max. file age defined, False otherwise
     """
-    max_file_age_in_hours_not_active = "-1"
-    max_file_age_in_hours: str = get_airflow_variable(
-        AirflowVars.DEBUG_MAX_FILE_AGE_IN_HOURS, max_file_age_in_hours_not_active
-    )
+    try:
+        max_file_age_in_hours: str = get_airflow_variable(
+            AirflowVars.DEBUG_MAX_FILE_AGE_IN_HOURS
+        )
+    except KeyError:
+        # DEBUG_MAX_FILE_AGE_IN_HOURS not set
+        return True
 
     try:
         max_file_age_in_hours_float = float(max_file_age_in_hours)
     except ValueError as e:
-        logging.exception(
+        raise ValueError(
             f"Could not convert max_file_age_in_hours to float: {max_file_age_in_hours}"
+        ) from e
+
+    file_creation_ts = get_file_creation_timestamp(raw_file_name, instrument_id)
+    raw_file_creation_time = datetime.fromtimestamp(file_creation_ts, tz=pytz.utc)
+
+    if (now := datetime.now(tz=pytz.utc)) - raw_file_creation_time > timedelta(
+        hours=max_file_age_in_hours_float
+    ):  # TODO: check time zone on acquisition PCS
+        logging.info(
+            f"File {raw_file_name} is too old: {now=} {raw_file_creation_time=}"
         )
-        raise ValueError from e
-
-    if max_file_age_in_hours != max_file_age_in_hours_not_active:
-        file_creation_ts = get_file_creation_timestamp(raw_file_name, instrument_id)
-        raw_file_creation_time = datetime.fromtimestamp(file_creation_ts, tz=pytz.utc)
-
-        now = datetime.now(tz=pytz.utc)  # TODO: check time zone on acquisition PCS
-        time_delta = timedelta(hours=max_file_age_in_hours_float)
-        logging.info(f"{now=} {raw_file_creation_time=} {time_delta=}")
-        if now - raw_file_creation_time > time_delta:
-            logging.info(f"File {raw_file_name} is too old.")
-            return False
+        return False
 
     return True
 

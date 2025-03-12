@@ -25,6 +25,8 @@ BYTES_TO_MB = 1 / 1024**2
 # relevant for Bruker only
 DEFAULT_RAW_FILE_SIZE_IF_MAIN_FILE_MISSING = -1
 
+DEFAULT_MIN_FREE_SPACE_GB = -1  # will skip file removal
+
 # mapping AlphaDIA errors to human-readable short names
 ERROR_CODE_TO_STRING = {
     "_CANNOT_FIND_ITEM": "Cannot find item [Idx] within the current storage",

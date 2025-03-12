@@ -9,6 +9,7 @@ from airflow.exceptions import AirflowFailException
 from airflow.models import TaskInstance
 from common.constants import (
     BYTES_TO_GB,
+    DEFAULT_MIN_FREE_SPACE_GB,
 )
 from common.keys import AirflowVars, InstrumentKeys, Tasks, XComKeys
 from common.paths import (
@@ -45,7 +46,7 @@ def get_raw_files_to_remove(ti: TaskInstance, **kwargs) -> None:
     )
 
     global_min_free_space_gb = int(
-        get_airflow_variable(AirflowVars.MIN_FREE_SPACE_GB, "-1")
+        get_airflow_variable(AirflowVars.MIN_FREE_SPACE_GB, DEFAULT_MIN_FREE_SPACE_GB)
     )
 
     raw_file_ids_to_remove: dict[str, list[str]] = {}

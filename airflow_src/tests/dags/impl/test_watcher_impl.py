@@ -295,13 +295,11 @@ def test_file_meets_age_criterion_when_file_is_older(
     assert not _file_meets_age_criterion("file", "instrument")
 
 
-@patch("dags.impl.watcher_impl.get_airflow_variable")
 @patch("dags.impl.watcher_impl.get_file_creation_timestamp")
 def test_file_meets_age_criterion_when_no_max_age_defined(
-    mock_get_file_creation_timestamp: MagicMock, mock_get_var: MagicMock
+    mock_get_file_creation_timestamp: MagicMock,
 ) -> None:
     """Test _file_meets_age_criterion when no max. age is defined."""
-    mock_get_var.return_value = "-1"
     mock_get_file_creation_timestamp.return_value = (
         (datetime.now(tz=pytz.utc) - timedelta(hours=3)).timestamp(),
         "ignored",

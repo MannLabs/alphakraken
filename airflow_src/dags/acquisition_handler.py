@@ -75,6 +75,7 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
         start_file_mover_ = PythonOperator(
             task_id=Tasks.START_FILE_MOVER,
             python_callable=start_file_mover,
+            op_kwargs={OpArgs.INSTRUMENT_ID: instrument_id},
         )
 
         decide_processing_ = ShortCircuitOperator(

@@ -22,7 +22,6 @@ from common.paths import (
     get_internal_backup_path,
 )
 from common.settings import (
-    Timings,
     get_instrument_settings,
 )
 from common.utils import (
@@ -115,14 +114,22 @@ def start_file_mover(ti: TaskInstance, **kwargs) -> None:
     """Trigger the file_mover DAG for a specific raw file."""
     del ti  # unused
     raw_file_id = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID]
+    instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
+
+    time_delay_minutes = get_instrument_settings(
+        instrument_id, InstrumentKeys.FILE_MOVE_DELAY_M
+    )
+
+    if time_delay_minutes < 0:
+        logging.info(f"Skipping file mover for {raw_file_id=}: {time_delay_minutes=}")
+        return
 
     trigger_dag_run(
         Dags.FILE_MOVER,
         {
             DagParams.RAW_FILE_ID: raw_file_id,
         },
-        # start only after some time to detect upstream false positive errors in detecting finished acquisitions
-        time_delay_minutes=Timings.FILE_MOVE_DELAY_M,
+        time_delay_minutes=time_delay_minutes,
     )
 
 

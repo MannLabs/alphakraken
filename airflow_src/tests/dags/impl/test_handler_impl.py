@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, Mock, call, patch
 
 import pytest
 from common.keys import DagContext, DagParams, OpArgs
+from common.settings import _INSTRUMENTS
 from dags.impl.handler_impl import (
     _count_special_characters,
     copy_raw_file,
@@ -130,6 +131,7 @@ def test_copy_raw_file_calls_update_with_correct_args_overwrite(  # noqa: PLR091
     # not repeating the checks of test_copy_raw_file_calls_update_with_correct_args
 
 
+@patch.dict(_INSTRUMENTS, {"instrument1": {"file_move_delay_m": 1}})
 @patch("dags.impl.handler_impl.trigger_dag_run")
 def test_start_file_mover(mock_trigger_dag_run: MagicMock) -> None:
     """Test start_file_mover."""
@@ -139,8 +141,11 @@ def test_start_file_mover(mock_trigger_dag_run: MagicMock) -> None:
     start_file_mover(
         ti,
         **{
-            DagContext.PARAMS: {DagParams.RAW_FILE_ID: "file1.raw"},
+            DagContext.PARAMS: {
+                DagParams.RAW_FILE_ID: "file1.raw",
+            },
         },
+        **{OpArgs.INSTRUMENT_ID: "instrument1"},
     )
 
     mock_trigger_dag_run.assert_called_once_with(
@@ -148,8 +153,28 @@ def test_start_file_mover(mock_trigger_dag_run: MagicMock) -> None:
         {
             DagParams.RAW_FILE_ID: "file1.raw",
         },
-        time_delay_minutes=5,
+        time_delay_minutes=1,
     )
+
+
+@patch.dict(_INSTRUMENTS, {"instrument1": {"file_move_delay_m": -1}})
+@patch("dags.impl.handler_impl.trigger_dag_run")
+def test_start_file_mover_skipped(mock_trigger_dag_run: MagicMock) -> None:
+    """Test start_file_mover skips moving if time delay < 1."""
+    ti = Mock()
+
+    # when
+    start_file_mover(
+        ti,
+        **{
+            DagContext.PARAMS: {
+                DagParams.RAW_FILE_ID: "file1.raw",
+            },
+        },
+        **{OpArgs.INSTRUMENT_ID: "instrument1"},
+    )
+
+    mock_trigger_dag_run.assert_not_called()
 
 
 @patch("dags.impl.handler_impl.get_xcom", return_value=None)

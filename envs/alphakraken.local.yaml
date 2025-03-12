@@ -8,6 +8,7 @@ instruments:
     mount_target: instruments/test1
     # skip_quanting: true  # optional, default: false
     # min_free_space_gb: 100  # optional, default: taken from Airflow variable MIN_FREE_SPACE_GB. Set to -1 to exclude from file removing.
+    # file_move_delay_m: 60  # optional, default: 15. Set to -1 to disable file moving.
 locations:
   # the following is required for mounting only (read by mount.sh):
   general:

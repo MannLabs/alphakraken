@@ -8,6 +8,9 @@ ENV=local && export ENV=$ENV
 ```
 This will use the environment variables defined in `envs/${ENV}.env` and point shell scripts to the correct configuration.
 
+### Overview
+<img src="deployment.jpg" alt="deployment overview" style="max-width: 600px;"/>
+
 ### Deployment workflow: 'local' vs. 'sandbox' vs. 'production'
 All features should be tested on `local` before deploying them to the `sandbox` environment
 for further testing. `sandbox` is technically equivalent to `production`, but it does not contain any valuable

@@ -240,18 +240,10 @@ def check_quanting_result(ti: TaskInstance, **kwargs) -> bool:
     del kwargs  # unused
     job_id = get_xcom(ti, XComKeys.JOB_ID)
 
-    # the wildcard here is a bit of a hack to avoid retrieving the year_month
-    # subfolder here .. should be no problem if job_ids are unique
-    slurm_output_file = f"{CLUSTER_WORKING_DIR}/*/slurm-{job_id}.out"
-    cmd = check_quanting_result_cmd(job_id, slurm_output_file) + get_job_state_cmd(
-        job_id
-    )
-    ssh_return = SSHSensorOperator.ssh_execute(cmd)
+    job_status, time_elapsed = _ssh_slurm_get_job_result(job_id)
 
-    time_elapsed = _get_time_elapsed(ssh_return)
     put_xcom(ti, XComKeys.QUANTING_TIME_ELAPSED, time_elapsed)
 
-    job_status = ssh_return.split("\n")[-1]
     logging.info(f"Job {job_id} exited with status {job_status}.")
 
     if job_status == JobStates.COMPLETED:
@@ -292,6 +284,20 @@ def check_quanting_result(ti: TaskInstance, **kwargs) -> bool:
     # unknown state: fail the DAG without retry
     logging.info(f"Job {job_id} exited with status {job_status}.")
     raise AirflowFailException(f"Quanting failed: {job_status=}")
+
+
+def _ssh_slurm_get_job_result(job_id: str) -> tuple[str, int]:
+    """Get the job status and time elapsed from the SLURM cluster via SSH."""
+    # the wildcard here is a bit of a hack to avoid retrieving the year_month
+    # subfolder here .. should be no problem if job_ids are unique
+    slurm_output_file = f"{CLUSTER_WORKING_DIR}/*/slurm-{job_id}.out"
+    cmd = check_quanting_result_cmd(job_id, slurm_output_file) + get_job_state_cmd(
+        job_id
+    )
+    ssh_return = SSHSensorOperator.ssh_execute(cmd)
+    time_elapsed = _get_time_elapsed(ssh_return)
+    job_status = ssh_return.split("\n")[-1]
+    return job_status, time_elapsed
 
 
 def _get_time_elapsed(ssh_return: str) -> int:

@@ -150,11 +150,21 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
 
     year_month_folder = get_created_at_year_month(raw_file)
 
+    job_id = _ssh_slurm_start_job(quanting_env, year_month_folder)
+
+    update_raw_file(
+        quanting_env[QuantingEnv.RAW_FILE_ID], new_status=RawFileStatus.QUANTING
+    )
+
+    put_xcom(ti, XComKeys.JOB_ID, job_id)
+
+
+def _ssh_slurm_start_job(quanting_env: dict[str, str], year_month_folder: str) -> str:
+    """Start a quanting job on the SLURM cluster via SSH."""
     command = _create_export_command(quanting_env) + get_run_quanting_cmd(
         year_month_folder
     )
     logging.info(f"Running command: >>>>\n{command}\n<<<< end of command")
-
     ssh_return = SSHSensorOperator.ssh_execute(command)
 
     try:
@@ -163,11 +173,7 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
         logging.exception("Did not get a valid job id from the cluster.")
         raise AirflowFailException("Job submission failed.") from e
 
-    update_raw_file(
-        quanting_env[QuantingEnv.RAW_FILE_ID], new_status=RawFileStatus.QUANTING
-    )
-
-    put_xcom(ti, XComKeys.JOB_ID, job_id)
+    return job_id
 
 
 def _get_custom_error_codes(events_jsonl_file_path: Path) -> list[str]:

@@ -11,7 +11,7 @@ set -e -u
 
 INSTRUMENT=${1:-test1}
 
-BASE_FOLDER=airflow_test_folders
+BASE_FOLDER=local_test
 
 # one-time creation of folder structure
 mkdir -p ${BASE_FOLDER}/instruments/$INSTRUMENT/Backup

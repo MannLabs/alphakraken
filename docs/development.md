@@ -46,7 +46,7 @@ change this locally in `settings.py:INSTRUMENTS`.
 4. In the webapp, create a project with the name `P123`, and add some fake settings to it.
 5. Create a test raw file in the backup pool folder to fake the acquisition
 ```bash
-airflow_test_folders/create_test_run.sh test1
+local_test/create_test_run.sh test1
 ```
 here, `test1` is a "Thermo"-type instrument. For other instruments, use `test2` (Bruker) or `test3` (Sciex).
 

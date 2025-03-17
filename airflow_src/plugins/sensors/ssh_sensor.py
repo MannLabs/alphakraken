@@ -7,13 +7,12 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any
 
 from airflow.sensors.base import BaseSensorOperator
-from cluster_scripts.slurm_commands import SlurmSSHJobHandler
+from cluster_scripts.slurm_commands import get_job_handler
 from common.keys import JobStates, XComKeys
 from common.utils import (
     get_cluster_ssh_hook,
     get_xcom,
 )
-from sensors.ssh_utils import ssh_execute
 
 if TYPE_CHECKING:
     from airflow.providers.ssh.hooks.ssh import SSHHook
@@ -54,7 +53,7 @@ class SSHSensorOperator(QuantingSensorOperator, ABC):
         """Check the output of the ssh command."""
         del context  # unused
 
-        ssh_return = ssh_execute(self.command, self._ssh_hook)
+        ssh_return = self.command  # ssh_execute(self.command, self._ssh_hook)
         logging.info(f"ssh command returned: '{ssh_return}'")
 
         return ssh_return not in self.states
@@ -72,7 +71,7 @@ class WaitForJobStartSlurmSSHSensor(SSHSensorOperator):
         Must be a bash script that is executable on the cluster.
         Its only output to stdout must be the status of the queried job.
         """
-        return SlurmSSHJobHandler.get_job_state_cmd(self._job_id)
+        return get_job_handler().get_job_status(self._job_id)
 
     @property
     def states(self) -> list[str]:
@@ -90,7 +89,7 @@ class WaitForJobFinishSlurmSSHSensor(SSHSensorOperator):
         Must be a bash script that is executable on the cluster.
         Its only output to stdout must be the status of the queried job.
         """
-        return SlurmSSHJobHandler.get_job_state_cmd(self._job_id)
+        return get_job_handler().get_job_status(self._job_id)
 
     @property
     def states(self) -> list[str]:

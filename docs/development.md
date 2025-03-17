@@ -44,46 +44,16 @@ change this locally in `settings.py:INSTRUMENTS`.
 2. Unpause all `*.test1` DAGs. The "watcher" should start running.
 3. If you do not want to feed the cluster, set the Airflow variable `debug_no_cluster_ssh=True` (see above)
 4. In the webapp, create a project with the name `P123`, and add some fake settings to it.
-5. Create a test raw file in the backup pool folder to fake the acquisition.
-
-For type "Thermo":
+5. Create a test raw file in the backup pool folder to fake the acquisition
 ```bash
-I=$((I+1)); RAW_FILE_NAME=test_file_SA_P123_${I}.raw; echo $RAW_FILE_NAME
-touch airflow_test_folders/instruments/test1/$RAW_FILE_NAME
+airflow_test_folders/create_test_run.sh test1
 ```
+here, `test1` is a "Thermo"-type instrument. For other instruments, use `test2` (Bruker) or `test3` (Sciex).
 
-For type "Sciex":
-```bash
-I=$((I+1)); RAW_FILE_STEM=test_file_SA_P123_${I}; RAW_FILE_NAME=$RAW_FILE_STEM.wiff; echo $RAW_FILE_NAME
-touch airflow_test_folders/instruments/test1/$RAW_FILE_NAME
-touch airflow_test_folders/instruments/test1/${RAW_FILE_STEM}.wiff2
-touch airflow_test_folders/instruments/test1/${RAW_FILE_STEM}.wiff.scan
-touch airflow_test_folders/instruments/test1/${RAW_FILE_STEM}.timeseries.data
-```
+6. Wait until the `instrument_watcher` picks up the file (you may mark the `wait_for_new_files` task as "success" to speed up the process)
+and triggers an `acquisition_handler` DAG. Here again, you can mark the `monitor_acquisition` task as "success" to speed up the process.
 
-For type "Bruker":
-```bash
-I=$((I+1)); RAW_FILE_NAME=test_file_SA_P123_${I}.d; echo $RAW_FILE_NAME
-mkdir -p airflow_test_folders/instruments/test1/$RAW_FILE_NAME/some_folder
-touch airflow_test_folders/instruments/test1/$RAW_FILE_NAME/analysis.tdf_bin
-touch airflow_test_folders/instruments/test1/$RAW_FILE_NAME/analysis.tdf
-touch airflow_test_folders/instruments/test1/$RAW_FILE_NAME/some_folder/some_file.txt
-```
-
-6. Wait until the `instrument_watcher` picks up the file (you may mark the `wait_for_new_files` task as "success" to speed up the process).
-It should trigger a `acquisition_handler` DAG, which in turn should trigger a `acquisition_processor` DAG.
-
-7. After the `compute_metrics` task failed because of missing output files,
-create those by copying fake AlphaDIA result data to the expected output directory
-(set `YEAR_MONTH=<current year>_<current month>`, e.g. `2024_08`)
-```bash
-NEW_OUTPUT_FOLDER=airflow_test_folders/output/P1/$YEAR_MONTH/out_$RAW_FILE_NAME
-mkdir -p $NEW_OUTPUT_FOLDER
-cp airflow_test_folders/_data/* $NEW_OUTPUT_FOLDER
-```
-and clear the task state using the UI.
-
-8. Wait until DAG run finished and check results in the webapp.
+7. Wait until DAG run finished and check results in the webapp.
 
 ### Connect to the DB
 Use e.g. MongoDB Compass to connect to the MongoDB running in Docker using the url `<hostname>:27017` (e.g. `localhost:27017`),

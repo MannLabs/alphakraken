@@ -23,17 +23,13 @@ if TYPE_CHECKING:
     from airflow.providers.ssh.hooks.ssh import SSHHook
 
 
-class SSHSensorOperator(BaseSensorOperator, ABC):
-    """Wait for a ssh command to return a certain output."""
+class QuantingSensorOperator(BaseSensorOperator, ABC):
+    """Base class for sensor operators that watch over certain status of quanting."""
 
     @property
     @abstractmethod
     def command(self) -> str:
-        """The command to execute.
-
-        Must be a bash script that is executable on the cluster.
-        Its only output to stdout must be the status of the queried job.
-        """
+        """The command to execute."""
 
     @property
     @abstractmethod
@@ -43,12 +39,20 @@ class SSHSensorOperator(BaseSensorOperator, ABC):
     def __init__(self, *args, **kwargs) -> None:
         """Initialize the operator."""
         super().__init__(*args, **kwargs)
-        self._ssh_hook: SSHHook = get_cluster_ssh_hook()
         self._job_id: str | None = None
 
     def pre_execute(self, context: dict[str, Any]) -> None:
         """_job_id the job id from XCom."""
         self._job_id = str(get_xcom(context["ti"], XComKeys.JOB_ID))
+
+
+class SSHSensorOperator(QuantingSensorOperator, ABC):
+    """Wait for a ssh command to return a certain output."""
+
+    def __init__(self, *args, **kwargs) -> None:
+        """Initialize the operator."""
+        super().__init__(*args, **kwargs)
+        self._ssh_hook: SSHHook = get_cluster_ssh_hook()
 
     def poke(self, context: dict[str, Any]) -> bool:
         """Check the output of the ssh command."""
@@ -76,7 +80,9 @@ class SSHSensorOperator(BaseSensorOperator, ABC):
         # This is a hack to prevent jobs to be run on the cluster, useful for debugging and initial setup.
         # To get rid of this, e.g. set up a container with a fake ssh server
         if get_airflow_variable(AirflowVars.DEBUG_NO_CLUSTER_SSH, "False") == "True":
-            return SSHSensorOperator._get_fake_ssh_response(command)
+            return SSHSensorOperator._get_fake_ssh_response(
+                command
+            )  # TODO: move _get_fake_ssh_response out
 
         if ssh_hook is None:
             ssh_hook = get_cluster_ssh_hook()
@@ -145,7 +151,11 @@ class WaitForJobStartSSHSensor(SSHSensorOperator):
 
     @property
     def command(self) -> str:
-        """See docu of superclass."""
+        """The command to execute.
+
+        Must be a bash script that is executable on the cluster.
+        Its only output to stdout must be the status of the queried job.
+        """
         return get_job_state_cmd(self._job_id)
 
     @property
@@ -159,7 +169,11 @@ class QuantingSSHSensor(SSHSensorOperator):
 
     @property
     def command(self) -> str:
-        """See docu of superclass."""
+        """The command to execute.
+
+        Must be a bash script that is executable on the cluster.
+        Its only output to stdout must be the status of the queried job.
+        """
         return get_job_state_cmd(self._job_id)
 
     @property

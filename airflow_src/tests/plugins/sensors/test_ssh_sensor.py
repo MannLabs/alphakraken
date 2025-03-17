@@ -5,11 +5,12 @@ from unittest.mock import MagicMock, call, patch
 import pytest
 from airflow.exceptions import AirflowFailException
 from plugins.common.keys import JobStates
-from plugins.sensors.ssh_sensor import QuantingSSHSensor, SSHSensorOperator
+from plugins.sensors.ssh_sensor import QuantingSSHSensor
+from plugins.sensors.ssh_utils import ssh_execute
 
 
 @patch("plugins.sensors.ssh_sensor.get_cluster_ssh_hook")
-@patch.object(SSHSensorOperator, "ssh_execute")
+@patch("plugins.sensors.ssh_sensor.ssh_execute")
 @patch("plugins.sensors.ssh_sensor.get_xcom")
 def test_poke_executes_ssh_command_and_checks_returned_state(
     mock_get_xcom: MagicMock,
@@ -36,7 +37,7 @@ def test_poke_executes_ssh_command_and_checks_returned_state(
 
 
 @patch("plugins.sensors.ssh_sensor.get_cluster_ssh_hook")
-@patch.object(SSHSensorOperator, "ssh_execute")
+@patch("plugins.sensors.ssh_sensor.ssh_execute")
 @patch("plugins.sensors.ssh_sensor.get_xcom")
 def test_poke_returns_true_when_state_not_in_running_states(
     mock_get_xcom: MagicMock,
@@ -60,18 +61,15 @@ def test_poke_returns_true_when_state_not_in_running_states(
     mock_get_cluster_ssh_hook.assert_called_once()
 
 
-@patch("plugins.sensors.ssh_sensor.get_cluster_ssh_hook")
-def test_ssh_execute_returns_decoded_output_hook_not_provided(
-    mock_get_cluster_ssh_hook: MagicMock,
-) -> None:
-    """Test that the ssh_execute function returns the decoded output of the command when hook is provided."""
+# TODO: move test to test_ssh_utils.py
+def test_ssh_execute_returns_decoded_output() -> None:
+    """Test that the ssh_execute function returns the decoded output of the command."""
     # given
     ssh_hook = MagicMock()
     ssh_hook.exec_ssh_client_command.return_value = (0, b"command output", b"")
-    mock_get_cluster_ssh_hook.return_value = ssh_hook
 
     # when
-    result = SSHSensorOperator.ssh_execute("my_command")
+    result = ssh_execute("my_command", ssh_hook)
 
     # then
     assert result == "command output"
@@ -84,31 +82,8 @@ def test_ssh_execute_returns_decoded_output_hook_not_provided(
     )
 
 
-@patch("plugins.sensors.ssh_sensor.get_cluster_ssh_hook")
-def test_ssh_execute_returns_decoded_output_hook_provided(
-    mock_get_cluster_ssh_hook: MagicMock,
-) -> None:
-    """Test that the ssh_execute function returns the decoded output of the command when hook is not provided."""
-    # given
-    ssh_hook = MagicMock()
-    ssh_hook.exec_ssh_client_command.return_value = (0, b"command output", b"")
-
-    # when
-    result = SSHSensorOperator.ssh_execute("my_command", ssh_hook)
-
-    # then
-    assert result == "command output"
-    ssh_hook.exec_ssh_client_command.assert_called_once_with(
-        ssh_hook.get_conn.return_value,
-        "my_command",
-        timeout=60,
-        get_pty=False,
-        environment={},
-    )
-    mock_get_cluster_ssh_hook.assert_not_called()
-
-
-@patch("plugins.sensors.ssh_sensor.sleep")
+# TODO: move test to test_ssh_utils.py
+@patch("plugins.sensors.ssh_utils.sleep")
 def test_ssh_execute_multiple_tries(mock_sleep: MagicMock) -> None:
     """ssh_execute returns the decoded output of the command SSH command returns 254 for some time."""
     # given
@@ -121,7 +96,7 @@ def test_ssh_execute_multiple_tries(mock_sleep: MagicMock) -> None:
     )
 
     # when
-    result = SSHSensorOperator.ssh_execute("my_command", ssh_hook)
+    result = ssh_execute("my_command", ssh_hook)
 
     # then
     assert result == "command output"
@@ -140,7 +115,8 @@ def test_ssh_execute_multiple_tries(mock_sleep: MagicMock) -> None:
     )
 
 
-@patch("plugins.sensors.ssh_sensor.sleep")
+# TODO: move test to test_ssh_utils.py
+@patch("plugins.sensors.ssh_utils.sleep")
 def test_ssh_execute_too_many_tries(mock_sleep: MagicMock) -> None:
     """ssh_execute returns the decoded output of the command SSH command returns 254 for some time."""
     # given
@@ -150,7 +126,7 @@ def test_ssh_execute_too_many_tries(mock_sleep: MagicMock) -> None:
 
     # when
     with pytest.raises(AirflowFailException):
-        SSHSensorOperator.ssh_execute("my_command", ssh_hook)
+        ssh_execute("my_command", ssh_hook)
 
     assert mock_sleep.call_count == 10  # noqa: PLR2004
     assert ssh_hook.exec_ssh_client_command.call_count == 10  # noqa: PLR2004

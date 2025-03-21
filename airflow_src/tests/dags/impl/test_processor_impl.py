@@ -257,7 +257,7 @@ def test_run_quanting_output_folder_exists(
         run_quanting(ti)
 
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
-    mock_get_airflow_variable.assert_called_once_with("allow_output_overwrite", "False")
+    mock_get_airflow_variable.assert_called_once_with("output_exists_mode", "False")
 
 
 @patch("dags.impl.processor_impl.get_xcom")

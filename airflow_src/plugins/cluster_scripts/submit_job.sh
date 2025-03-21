@@ -84,7 +84,7 @@ echo Creating output path ..
 mkdir -p ${OUTPUT_PATH}
 cd ${OUTPUT_PATH}
 
-# output directory could already exists at this stage if 'allow_output_overwrite' variable it set
+# output directory could already exists at this stage if 'output_exists_mode' variable it set
 echo OUTPUT_PATH ">>>>>>"
 set +e
 du -s ${OUTPUT_PATH}/*

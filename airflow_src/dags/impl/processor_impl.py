@@ -158,11 +158,11 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
         msg = f"Output path {output_path} already exists."
         if (
             output_exists_mode := get_airflow_variable(
-                AirflowVars.ALLOW_OUTPUT_OVERWRITE, "False"
+                AirflowVars.OUTPUT_EXISTS_MODE, "raise"
             )
-        ) == "False":
+        ) == "overwrite":
             raise AirflowFailException(
-                f"{msg} Remove it before restarting the quanting or set ALLOW_OUTPUT_OVERWRITE."
+                f"{msg} Remove it before restarting the quanting or set OUTPUT_EXISTS_MODE='overwrite'."
             )
         if output_exists_mode == "recover":
             logging.warning(f"{msg} Trying to recover job.")
@@ -176,7 +176,7 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
             logging.warning(f"Assuming job id {extracted_job_id}...")
             return
 
-        logging.warning(f"{msg} Overwriting it because ALLOW_OUTPUT_OVERWRITE is set.")
+        logging.warning(f"{msg} Overwriting it because OUTPUT_EXISTS_MODE is set.")
 
     year_month_folder = get_created_at_year_month(raw_file)
 

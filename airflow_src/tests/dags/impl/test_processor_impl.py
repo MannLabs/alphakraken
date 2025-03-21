@@ -11,6 +11,7 @@ from airflow.exceptions import AirflowFailException
 from common.settings import _INSTRUMENTS
 from dags.impl.processor_impl import (
     _get_project_id_or_fallback,
+    _get_slurm_job_id_from_log,
     check_quanting_result,
     compute_metrics,
     get_business_errors,
@@ -132,6 +133,21 @@ def test_prepare_quanting(
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
 
 
+def test_returns_slurm_job_id_if_present_in_log() -> None:
+    """Test that _get_slurm_job_id_from_log returns the job ID if it is present in the log."""
+    log_content = "Some log content\nslurm_job_id: 12345\nMore log content"
+    with patch("pathlib.Path.open", mock_open(read_data=log_content)):
+        assert _get_slurm_job_id_from_log(Path("/mock/path")) == "12345"
+
+
+def test_returns_none_if_slurm_job_id_not_present_in_log() -> None:
+    """Test that _get_slurm_job_id_from_log returns None if the job ID is not present in the log."""
+    log_content = "Some log content\nNo job id here\nMore log content"
+    with patch("pathlib.Path.open", mock_open(read_data=log_content)):
+        # when
+        assert _get_slurm_job_id_from_log(Path("/mock/path")) is None
+
+
 @patch("dags.impl.processor_impl.get_xcom")
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.SSHSensorOperator.ssh_execute")
@@ -242,6 +258,83 @@ def test_run_quanting_output_folder_exists(
 
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
     mock_get_airflow_variable.assert_called_once_with("allow_output_overwrite", "False")
+
+
+@patch("dags.impl.processor_impl.get_xcom")
+@patch("dags.impl.processor_impl.get_raw_file_by_id")
+@patch("dags.impl.processor_impl.Path")
+@patch("dags.impl.processor_impl.get_airflow_variable")
+@patch("dags.impl.processor_impl._get_slurm_job_id_from_log")
+@patch("dags.impl.processor_impl.put_xcom")
+@patch("dags.impl.processor_impl.update_raw_file")
+def test_run_quanting_output_folder_exists_recover(  # noqa: PLR0913
+    mock_update: MagicMock,
+    mock_put_xcom: MagicMock,
+    mock_get_slurm_job_id_from_log: MagicMock,
+    mock_get_airflow_variable: MagicMock,
+    mock_path: MagicMock,
+    mock_get_raw_file_by_id: MagicMock,  # noqa: ARG001
+    mock_get_xcom: MagicMock,
+) -> None:
+    """run_quanting function correctly fills xcom if the output path already exists and mode is 'recover'."""
+    # given
+    mock_get_xcom.side_effect = [
+        {
+            QuantingEnv.RAW_FILE_ID: "test_file.raw",
+            QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID123",
+            # rest of quanting_env is left out here for brevity
+        },
+        -1,
+    ]
+    mock_path.return_value.exists.return_value = True
+    mock_get_airflow_variable.return_value = "recover"
+    mock_get_slurm_job_id_from_log.return_value = "54321"
+    ti = MagicMock()
+
+    # when
+    run_quanting(ti)
+
+    mock_put_xcom.assert_called_once_with(ti, XComKeys.JOB_ID, "54321")
+    mock_update.assert_not_called()
+
+
+@patch("dags.impl.processor_impl.get_xcom")
+@patch("dags.impl.processor_impl.get_raw_file_by_id")
+@patch("dags.impl.processor_impl.Path")
+@patch("dags.impl.processor_impl.get_airflow_variable")
+@patch("dags.impl.processor_impl._get_slurm_job_id_from_log")
+@patch("dags.impl.processor_impl.put_xcom")
+@patch("dags.impl.processor_impl.update_raw_file")
+def test_run_quanting_output_folder_exists_recover_raise(  # noqa: PLR0913
+    mock_update: MagicMock,
+    mock_put_xcom: MagicMock,
+    mock_get_slurm_job_id_from_log: MagicMock,
+    mock_get_airflow_variable: MagicMock,
+    mock_path: MagicMock,
+    mock_get_raw_file_by_id: MagicMock,  # noqa: ARG001
+    mock_get_xcom: MagicMock,
+) -> None:
+    """run_quanting function correctly raises if the output path already exists and mode is 'recover' and no job id."""
+    # given
+    mock_get_xcom.side_effect = [
+        {
+            QuantingEnv.RAW_FILE_ID: "test_file.raw",
+            QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID123",
+            # rest of quanting_env is left out here for brevity
+        },
+        -1,
+    ]
+    mock_path.return_value.exists.return_value = True
+    mock_get_airflow_variable.return_value = "recover"
+    mock_get_slurm_job_id_from_log.return_value = None
+    ti = MagicMock()
+
+    # when
+    with pytest.raises(AirflowFailException):
+        run_quanting(ti)
+
+    mock_put_xcom.assert_not_called()
+    mock_update.assert_not_called()
 
 
 @patch("dags.impl.processor_impl.get_xcom")

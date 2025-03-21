@@ -120,6 +120,20 @@ def _create_export_command(mapping: dict[str, str]) -> str:
     return "\n".join([f"export {k}={v}" for k, v in mapping.items()])
 
 
+def _get_slurm_job_id_from_log(output_path: Path) -> str | None:
+    """Extract the SLURM job id from the log file, return None if file or id not existing."""
+    log_file = output_path / AlphaDiaConstants.LOG_FILE_NAME
+    if not log_file.exists():
+        return None
+
+    with log_file.open() as file:
+        for line in file:
+            if "SLURM_JOB_ID:" in line or "slurm_job_id:" in line:
+                return str(int(line.split()[-1]))
+
+    return None
+
+
 def run_quanting(ti: TaskInstance, **kwargs) -> None:
     """Run the quanting job on the cluster."""
     del kwargs  # unused
@@ -142,10 +156,26 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
     )
     if Path(output_path).exists():
         msg = f"Output path {output_path} already exists."
-        if get_airflow_variable(AirflowVars.ALLOW_OUTPUT_OVERWRITE, "False") != "True":
+        if (
+            output_exists_mode := get_airflow_variable(
+                AirflowVars.ALLOW_OUTPUT_OVERWRITE, "False"
+            )
+        ) == "False":
             raise AirflowFailException(
                 f"{msg} Remove it before restarting the quanting or set ALLOW_OUTPUT_OVERWRITE."
             )
+        if output_exists_mode == "recover":
+            logging.warning(f"{msg} Trying to recover job.")
+
+            if (extracted_job_id := _get_slurm_job_id_from_log(output_path)) is None:
+                logging.exception("Could not read off job id from log file.")
+                raise AirflowFailException("Job submission failed.")
+
+            put_xcom(ti, XComKeys.JOB_ID, extracted_job_id)
+
+            logging.warning(f"Assuming job id {extracted_job_id}...")
+            return
+
         logging.warning(f"{msg} Overwriting it because ALLOW_OUTPUT_OVERWRITE is set.")
 
     year_month_folder = get_created_at_year_month(raw_file)

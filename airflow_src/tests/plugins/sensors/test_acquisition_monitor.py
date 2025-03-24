@@ -415,12 +415,11 @@ def test_is_older_than_threshold(
     """Test _is_older_than_threshold returns correctly for several cases."""
     mock_get_file_ctime.return_value = age
 
-    sensor = get_sensor()
-    sensor._youngest_file_age = youngest_age
     # when
     assert (
-        sensor._is_older_than_threshold(
+        AcquisitionMonitor._is_older_than_threshold(
             Path("file_name"),
+            youngest_age,
             threshold_h=5,
         )
         == expected

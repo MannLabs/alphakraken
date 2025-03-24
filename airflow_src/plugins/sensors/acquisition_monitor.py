@@ -55,15 +55,16 @@ class AcquisitionMonitor(BaseSensorOperator):
         self._raw_file: RawFile | None = None
         self._raw_file_monitor_wrapper: RawFileMonitorWrapper | None = None
         self._initial_dir_content: set | None = None
+        self._file_path_to_monitor: Path | None = None
 
         self._first_poke_timestamp: float | None = None
         self._latest_file_size_check_timestamp: float | None = None
         self._last_file_size = -1
 
         # to track whether the main file showed up (relevant for Bruker only)
-        self._main_file_exists = False
+        self._main_file_exists: bool = False
 
-        self._youngest_file_age: float | None = None
+        self._file_is_old: bool = False
 
     def pre_execute(self, context: dict[str, Any]) -> None:
         """_job_id the job id from XCom."""
@@ -78,6 +79,10 @@ class AcquisitionMonitor(BaseSensorOperator):
             self._raw_file_monitor_wrapper.get_raw_files_on_instrument()
         )
 
+        self._file_path_to_monitor = (
+            self._raw_file_monitor_wrapper.file_path_to_monitor_acquisition()
+        )
+
         self._first_poke_timestamp = get_timestamp()
         self._latest_file_size_check_timestamp = self._first_poke_timestamp
 
@@ -85,17 +90,19 @@ class AcquisitionMonitor(BaseSensorOperator):
             self._raw_file.id, new_status=RawFileStatus.MONITORING_ACQUISITION
         )
 
-        self._youngest_file_age = (
-            self._get_youngest_file_age(
+        if (
+            get_airflow_variable(AirflowVars.COMPARE_TO_YOUNGEST_FILE, "False")
+            == "True"
+        ):
+            youngest_file_age = self._get_youngest_file_age(
                 get_internal_instrument_data_path(self._instrument_id),
                 self._initial_dir_content,
             )
-            if (
-                get_airflow_variable(AirflowVars.COMPARE_TO_YOUNGEST_FILE, "False")
-                == "True"
-            )
-            else None
-        )
+
+            if self._is_older_than_threshold(
+                self._file_path_to_monitor, youngest_file_age
+            ):
+                self._file_is_old = True
 
         logging.info(
             f"Monitoring {self._raw_file_monitor_wrapper.file_path_to_monitor_acquisition()}"
@@ -124,12 +131,14 @@ class AcquisitionMonitor(BaseSensorOperator):
         """Return True if acquisition is done."""
         del context  # unused
 
-        file_path_to_monitor = (
-            self._raw_file_monitor_wrapper.file_path_to_monitor_acquisition()
-        )
+        if self._file_is_old:
+            logging.info(
+                "File is old compared to the youngest file in the directory. Considering acquisition to be done."
+            )
+            return True
 
         if not self._main_file_exists:
-            if file_path_to_monitor.exists():
+            if self._file_path_to_monitor.exists():
                 self._main_file_exists = True
             else:
                 return self._main_file_missing_for_too_long()
@@ -155,14 +164,6 @@ class AcquisitionMonitor(BaseSensorOperator):
             )
             self._initial_dir_content = current_dir_content
 
-        if self._youngest_file_age is not None and self._is_older_than_threshold(
-            file_path_to_monitor,
-        ):
-            logging.info(
-                f"Current file {file_path_to_monitor} is old compared to the youngest. Assuming acquisition is done."
-            )
-            return True
-
         return False
 
     @staticmethod
@@ -185,28 +186,29 @@ class AcquisitionMonitor(BaseSensorOperator):
             reverse=True,  # youngest first
         )[0]
 
+    @staticmethod
     def _is_older_than_threshold(
-        self,
         file_path_to_check: Path,
+        youngest_file_age: float,
         threshold_h: int = 5,
     ) -> bool:
         """Return true if the file age exceeds the youngest file in the directory by the threshold.
 
+        A relative age between files is used to decouple the time settings on the monitored instrument
+        from those of the monitoring system.
+
         :param file_path_to_check: The file to check
+        :param youngest_file_age: The age of the youngest file in the directory
         :param threshold_h: The threshold in hours. The default is picked conservatively.
 
         :return: True if the file is older than the youngest file in the directory by the threshold.
         """
-        # document "internal instrument time" concept
-
         logging.info(
-            f"Youngest file in directory: {datetime.fromtimestamp(self._youngest_file_age, tz=pytz.utc)}"
+            f"Youngest file in directory: {datetime.fromtimestamp(youngest_file_age, tz=pytz.utc)}"
         )
 
         age_file_path_to_check_age = get_file_ctime(file_path_to_check)
-        age_difference_in_h = (
-            self._youngest_file_age - age_file_path_to_check_age
-        ) / 3600
+        age_difference_in_h = (youngest_file_age - age_file_path_to_check_age) / 3600
         logging.info(
             f"Current file: {datetime.fromtimestamp(age_file_path_to_check_age, tz=pytz.utc)} ({age_difference_in_h} h)"
         )

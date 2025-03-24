@@ -55,6 +55,36 @@ and check container health using `sudo docker ps`.
 These variables are set in the Airflow UI under "Admin" -> "Variables". They steer the behavior of the whole system,
 so be careful when changing them. If in doubt, pause all DAGs that are not part of the current problem before changing them.
 
+### compare_to_youngest_file (default: False)
+If this is set to `True`, the acquisition monitor will use an additional check to decide whether acquisition is done:
+it will compare the creation date of the currently monitored file with that of the youngest file.
+If this is more than a certain threshold (currently 5 hours), the acquisition is considered done.
+This is useful to speed up the `acquisition_handler` DAG in case there a many 'old' files,
+e.g. when processing was halted for some time.
+
+### backup_overwrite_file_id (default: None)
+In case the `file_copy` task is interrupted (e.g. manually) while a file is being copied,
+simply restarting it will not help, as the partially copied file will not be overwritten
+due to a security mechanism.
+In this case, set the `backup_overwrite_file_id` variable to the file _id_ (not: file _name_), i.e. including
+potential collision flags, and restart the `file_copy` task. The overwrite protection
+will be deactivated just for this file id and the copying should succeed.
+
+
+### output_exists_mode (default: raise)
+Convenience switch to avoid manual handling of output files
+in case something went wrong with the quanting.
+
+If set to `raise`, processing of the file will stop in case the output folder exists.
+If set to `overwrite`, the system will start a new job, overwriting the existing output files.
+If set to `associate`, the system will try to read off the Slurm job id from the existing AlphaDIA `log.txt`
+(from the first line containing "slurm_job_id: ", taking the first word after that)
+and associate the current task to the slurm job with that id.
+
+Recommended setting in production: 'raise' (default)
+
+
+
 ### min_free_space_gb (default: -1)
 If set to a positive number (unit: GB), the `file_remover` will remove files (oldest first) from the
 instrument backup folder until the free space is above this threshold.
@@ -69,26 +99,6 @@ Recommended setting in production: `300` (big enough to avoid running out of spa
 The minimum file age in days for files to be removed by the file_remover.
 
 Recommended setting in production: `14` (default)
-
-### output_exists_mode (default: raise)
-Convenience switch to avoid manual handling of output files
-in case something went wrong with the quanting.
-
-If set to `raise`, processing of the file will stop in case the output folder exists.
-If set to `overwrite`, the system will start a new job, overwriting the existing output files.
-If set to `associate`, the system will try to read off the Slurm job id from the existing AlphaDIA `log.txt`
-(from the first line containing "slurm_job_id: ", taking the first word after that)
-and associate the current task to the slurm job with that id.
-
-Recommended setting in production: 'raise' (default)
-
-### backup_overwrite_file_id (default: None)
-In case the `file_copy` task is interrupted (e.g. manually) while a file is being copied,
-simply restarting it will not help, as the partially copied file will not be overwritten
-due to a security mechanism.
-In this case, set the `backup_overwrite_file_id` variable to the file _id_ (not: file _name_), i.e. including
-potential collision flags, and restart the `file_copy` task. The overwrite protection
-will be deactivated just for this file id and the copying should succeed.
 
 
 ### debug_no_cluster_ssh (default: False)

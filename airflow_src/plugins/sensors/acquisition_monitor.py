@@ -14,6 +14,7 @@ from typing import Any
 
 from airflow.sensors.base import BaseSensorOperator
 from common.keys import AcquisitionMonitorErrors, DagContext, DagParams, XComKeys
+from common.paths import get_internal_instrument_data_path
 from common.utils import get_timestamp, put_xcom
 from file_handling import get_file_ctime, get_file_size
 from raw_file_wrapper_factory import RawFileMonitorWrapper, RawFileWrapperFactory
@@ -114,9 +115,13 @@ class AcquisitionMonitor(BaseSensorOperator):
 
         current_dir_content, new_dir_content = self._get_dir_content()
 
-        if not self._is_older_than_threshold(file_path_to_monitor, current_dir_content):
+        if not self._is_older_than_threshold(
+            file_path_to_monitor,
+            current_dir_content,
+            get_internal_instrument_data_path(self._instrument_id),
+        ):
             logging.info(
-                "Current file is old compared to the youngest. Assuming acquisition is done."
+                f"Current file {file_path_to_monitor} is old compared to the youngest. Assuming acquisition is done."
             )
             # return True
 
@@ -139,7 +144,10 @@ class AcquisitionMonitor(BaseSensorOperator):
 
     @staticmethod
     def _is_older_than_threshold(
-        file_path_to_check: Path, current_dir_content: set[str], threshold_h: int = 5
+        file_path_to_check: Path,
+        current_dir_content: set[str],
+        instrument_data_path: Path,
+        threshold_h: int = 5,
     ) -> bool:
         """Return true if the file age exceeds the youngest file in the directory by the threshold.
 
@@ -153,8 +161,8 @@ class AcquisitionMonitor(BaseSensorOperator):
             return False
 
         files_with_ctime = [
-            (file_path, get_file_ctime(Path(file_path)))
-            for file_path in current_dir_content
+            (file_name, get_file_ctime(instrument_data_path / file_name))
+            for file_name in current_dir_content
         ]
 
         # st_ctime gives epoch timestamp ("age")
@@ -177,7 +185,7 @@ class AcquisitionMonitor(BaseSensorOperator):
             file_path for file_path, age in file_ages_h if age > threshold_h
         ]
 
-        logging.info(f"Checking if {file_path_to_check} in {files_youngest_first}")
+        logging.info(f"Checking if {file_path_to_check.name} in {files_youngest_first}")
 
         return file_path_to_check.name in files_older_than_threshold
 

@@ -133,7 +133,7 @@ def test_prepare_quanting(
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
 
 
-def test_returns_slurm_job_id_if_present_in_log() -> None:
+def test_get_slurm_job_id_from_log_returns_slurm_job_id_if_present_in_log() -> None:
     """Test that _get_slurm_job_id_from_log returns the job ID if it is present in the log."""
     log_content = "Some log content\nslurm_job_id: 12345\nMore log content"
 
@@ -144,7 +144,9 @@ def test_returns_slurm_job_id_if_present_in_log() -> None:
         assert _get_slurm_job_id_from_log(Path("/mock/path")) == "12345"
 
 
-def test_returns_none_if_slurm_job_id_not_present_in_log() -> None:
+def test_get_slurm_job_id_from_log_returns_none_if_slurm_job_id_not_present_in_log() -> (
+    None
+):
     """Test that _get_slurm_job_id_from_log returns None if the job ID is not present in the log."""
     log_content = "Some log content\nNo job id here\nMore log content"
     with patch("pathlib.Path.open", mock_open(read_data=log_content)):
@@ -152,7 +154,7 @@ def test_returns_none_if_slurm_job_id_not_present_in_log() -> None:
         assert _get_slurm_job_id_from_log(Path("/mock/path")) is None
 
 
-def test_returns_none_if_file_not_exists() -> None:
+def test_get_slurm_job_id_from_log_returns_none_if_file_not_exists() -> None:
     """Test that _get_slurm_job_id_from_log returns None if the job ID is not present in the log."""
     with patch("pathlib.Path.open") as mock_path:
         mock_path.exists.return_value = False

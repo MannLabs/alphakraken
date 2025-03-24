@@ -244,6 +244,50 @@ def test_poke_file_dir_contents_dont_change_but_file_is_unchanged(  # noqa: PLR0
     )
 
 
+@patch("plugins.sensors.acquisition_monitor.get_airflow_variable", return_value="True")
+@patch(
+    "plugins.sensors.acquisition_monitor.AcquisitionMonitor._is_older_than_threshold"
+)
+@patch("plugins.sensors.acquisition_monitor.RawFileWrapperFactory")
+@patch("plugins.sensors.acquisition_monitor.update_raw_file")
+@patch("plugins.sensors.acquisition_monitor.get_raw_file_by_id")
+def test_poke_file_file_is_old(
+    mock_get_raw_file_by_id: MagicMock,
+    mock_update_raw_file: MagicMock,
+    mock_raw_file_wrapper_factory: MagicMock,
+    mock_is_older_than_threshold: MagicMock,
+    mock_get_airflow_variable: MagicMock,  # noqa: ARG001
+) -> None:
+    """Test poke method correctly returns when file is old and this mode is used."""
+    mock_path = MagicMock()
+    mock_path.stat.return_value = MagicMock(st_size=1)
+
+    mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.file_path_to_monitor_acquisition.return_value = mock_path
+
+    mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.get_raw_files_on_instrument.side_effect = [
+        {"some_file.raw"},  # initial content (pre_execute)
+        {"some_file.raw"},  # first poke
+        {"some_file.raw"},  # second poke
+    ]
+    mock_is_older_than_threshold.side_effect = [
+        False,  # first poke
+        True,  # second poke
+    ]
+
+    sensor = get_sensor()
+    sensor.pre_execute({DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"}})
+
+    # when
+    result = sensor.poke({})
+    assert not result
+
+    assert sensor.poke({})
+
+    mock_update_raw_file.assert_called_once_with(
+        mock_get_raw_file_by_id.return_value.id, new_status="monitoring_acquisition"
+    )
+
+
 @patch("plugins.sensors.acquisition_monitor.RawFileWrapperFactory")
 @patch("plugins.sensors.acquisition_monitor.put_xcom")
 @patch("plugins.sensors.acquisition_monitor.update_raw_file")

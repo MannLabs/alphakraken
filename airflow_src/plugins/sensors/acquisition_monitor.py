@@ -6,6 +6,8 @@ An acquisition is considered "done" if either:
 - exactly one new file has been found
 - the main file has not appeared for a certain amount of time (relevant for Bruker only)
 - the file size has not changed for a certain amount of time
+- (only if variable 'compare_to_youngest_file' is set) when the file is "old" (default: > 5h) compared to the
+  youngest file. This should be used with caution, but can be handy in case a catchup is required.
 """
 
 import logging
@@ -15,9 +17,15 @@ from typing import Any
 
 import pytz
 from airflow.sensors.base import BaseSensorOperator
-from common.keys import AcquisitionMonitorErrors, DagContext, DagParams, XComKeys
+from common.keys import (
+    AcquisitionMonitorErrors,
+    AirflowVars,
+    DagContext,
+    DagParams,
+    XComKeys,
+)
 from common.paths import get_internal_instrument_data_path
-from common.utils import get_timestamp, put_xcom
+from common.utils import get_airflow_variable, get_timestamp, put_xcom
 from file_handling import get_file_ctime, get_file_size
 from raw_file_wrapper_factory import RawFileMonitorWrapper, RawFileWrapperFactory
 
@@ -54,6 +62,11 @@ class AcquisitionMonitor(BaseSensorOperator):
 
         # to track whether the main file showed up (relevant for Bruker only)
         self._main_file_exists = False
+
+        self._compare_to_youngest_file = (
+            get_airflow_variable(AirflowVars.COMPARE_TO_YOUNGEST_FILE, "False")
+            == "True"
+        )
 
     def pre_execute(self, context: dict[str, Any]) -> None:
         """_job_id the job id from XCom."""
@@ -117,7 +130,7 @@ class AcquisitionMonitor(BaseSensorOperator):
 
         current_dir_content, new_dir_content = self._get_dir_content()
 
-        if self._is_older_than_threshold(
+        if self._compare_to_youngest_file and self._is_older_than_threshold(
             file_path_to_monitor,
             current_dir_content,
             get_internal_instrument_data_path(self._instrument_id),
@@ -127,6 +140,7 @@ class AcquisitionMonitor(BaseSensorOperator):
             )
             return True
 
+        # this is the standard case
         if len(new_dir_content) > 0:
             logging.info(f"New file(s) found: {new_dir_content}.")
 
@@ -155,29 +169,24 @@ class AcquisitionMonitor(BaseSensorOperator):
 
         :param file_path_to_check: The file to check
         :param current_dir_content: The current directory content
-        :param threshold_h: The threshold in hours
+        :param threshold_h: The threshold in hours. The default is picked conservatively.
 
         :return: True if the file is older than the youngest file in the directory by the threshold.
         """
         if len(current_dir_content) == 0:
             return False
 
-        files_with_ctime = [
-            (file_name, get_file_ctime(instrument_data_path / file_name))
+        file_ages = [
+            get_file_ctime(instrument_data_path / file_name)
             for file_name in current_dir_content
         ]
 
-        # st_ctime gives epoch timestamp ("age")
-        files_youngest_first = [
-            (file_name, age)
-            for file_name, age in sorted(
-                files_with_ctime, key=lambda item: item[1], reverse=True
-            )
-        ]
-
-        logging.info(f"Files in directory: {files_youngest_first}")
-
-        _, youngest_age = files_youngest_first[0]
+        # st_ctime gives epoch timestamp ("age in seconds since 1970")
+        youngest_age = sorted(
+            file_ages,
+            key=lambda item: item,
+            reverse=True,  # youngest_first
+        )[0]
 
         logging.info(
             f"Youngest file in directory: {datetime.fromtimestamp(youngest_age, tz=pytz.utc)}"

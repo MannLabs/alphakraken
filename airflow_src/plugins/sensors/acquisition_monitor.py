@@ -186,7 +186,7 @@ class AcquisitionMonitor(BaseSensorOperator):
         age_file_path_to_check_age = get_file_ctime(file_path_to_check)
         age_difference_in_h = (youngest_age - age_file_path_to_check_age) / 3600
         logging.info(
-            f"Current file: {datetime.fromtimestamp(age_file_path_to_check_age, tz=pytz.utc)} {datetime.fromtimestamp(age_difference_in_h, tz=pytz.utc)}"
+            f"Current file: {datetime.fromtimestamp(age_file_path_to_check_age, tz=pytz.utc)} ({age_difference_in_h} h)"
         )
 
         return age_difference_in_h > threshold_h

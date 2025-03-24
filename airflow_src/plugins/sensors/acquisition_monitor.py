@@ -9,9 +9,11 @@ An acquisition is considered "done" if either:
 """
 
 import logging
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+import pytz
 from airflow.sensors.base import BaseSensorOperator
 from common.keys import AcquisitionMonitorErrors, DagContext, DagParams, XComKeys
 from common.paths import get_internal_instrument_data_path
@@ -115,15 +117,18 @@ class AcquisitionMonitor(BaseSensorOperator):
 
         current_dir_content, new_dir_content = self._get_dir_content()
 
-        if not self._is_older_than_threshold(
+        if self._is_older_than_threshold(
             file_path_to_monitor,
             current_dir_content,
             get_internal_instrument_data_path(self._instrument_id),
         ):
-            logging.info(
-                f"Current file {file_path_to_monitor} is old compared to the youngest. Assuming acquisition is done."
+            timestamp = datetime.fromtimestamp(
+                get_file_ctime(file_path_to_monitor), tz=pytz.utc
             )
-            # return True
+            logging.info(
+                f"Current file {file_path_to_monitor} is old ({timestamp}) compared to the youngest. Assuming acquisition is done."
+            )
+            return True
 
         if len(new_dir_content) > 0:
             logging.info(f"New file(s) found: {new_dir_content}.")

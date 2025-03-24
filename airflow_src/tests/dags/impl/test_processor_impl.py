@@ -148,6 +148,14 @@ def test_returns_none_if_slurm_job_id_not_present_in_log() -> None:
         assert _get_slurm_job_id_from_log(Path("/mock/path")) is None
 
 
+def test_returns_none_if_file_not_exists() -> None:
+    """Test that _get_slurm_job_id_from_log returns None if the job ID is not present in the log."""
+    with patch("pathlib.Path.open") as mock_path:
+        mock_path.exists.return_value = False
+        # when
+        assert _get_slurm_job_id_from_log(Path("/mock/path")) is None
+
+
 @patch("dags.impl.processor_impl.get_xcom")
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.SSHSensorOperator.ssh_execute")

@@ -71,12 +71,13 @@ The minimum file age in days for files to be removed by the file_remover.
 Recommended setting in production: `14` (default)
 
 ### output_exists_mode (default: raise)
-Convenience switch to avoid manual deletion of output files
+Convenience switch to avoid manual handling of output files
 in case something went wrong with the quanting.
 
 If set to `raise`, processing of the file will stop in case the output folder exists.
 If set to `overwrite`, the system will start a new job, overwriting the existing output files.
-If set to `recover`, the system will try to read off the slurm_job_id from the existing AlphaDIA `log.txt`
+If set to `recover`, the system will try to read off the Slurm job id from the existing AlphaDIA `log.txt`
+(from the first line containing "slurm_job_id: ", taking the first word after that)
 and proceed accordingly. This will connect the current task to an existing slurm job.
 
 Recommended setting in production: 'raise' (default)

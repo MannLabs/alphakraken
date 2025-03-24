@@ -136,7 +136,11 @@ def test_prepare_quanting(
 def test_returns_slurm_job_id_if_present_in_log() -> None:
     """Test that _get_slurm_job_id_from_log returns the job ID if it is present in the log."""
     log_content = "Some log content\nslurm_job_id: 12345\nMore log content"
-    with patch("pathlib.Path.open", mock_open(read_data=log_content)):
+
+    with (
+        patch("pathlib.Path.open", mock_open(read_data=log_content)),
+        patch("pathlib.Path.exists", return_value=True),
+    ):
         assert _get_slurm_job_id_from_log(Path("/mock/path")) == "12345"
 
 
@@ -256,7 +260,7 @@ def test_run_quanting_output_folder_exists(
         -1,
     ]
     mock_path.return_value.exists.return_value = True
-    mock_get_airflow_variable.return_value = "False"
+    mock_get_airflow_variable.return_value = "raise"
 
     ti = MagicMock()
 
@@ -265,7 +269,7 @@ def test_run_quanting_output_folder_exists(
         run_quanting(ti)
 
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
-    mock_get_airflow_variable.assert_called_once_with("output_exists_mode", "False")
+    mock_get_airflow_variable.assert_called_once_with("output_exists_mode", "raise")
 
 
 @patch("dags.impl.processor_impl.get_xcom")
@@ -275,7 +279,7 @@ def test_run_quanting_output_folder_exists(
 @patch("dags.impl.processor_impl._get_slurm_job_id_from_log")
 @patch("dags.impl.processor_impl.put_xcom")
 @patch("dags.impl.processor_impl.update_raw_file")
-def test_run_quanting_output_folder_exists_recover(  # noqa: PLR0913
+def test_run_quanting_output_folder_exists_associate(  # noqa: PLR0913
     mock_update: MagicMock,
     mock_put_xcom: MagicMock,
     mock_get_slurm_job_id_from_log: MagicMock,
@@ -284,7 +288,7 @@ def test_run_quanting_output_folder_exists_recover(  # noqa: PLR0913
     mock_get_raw_file_by_id: MagicMock,  # noqa: ARG001
     mock_get_xcom: MagicMock,
 ) -> None:
-    """run_quanting function correctly fills xcom if the output path already exists and mode is 'recover'."""
+    """run_quanting function correctly fills xcom if the output path already exists and mode is 'associate'."""
     # given
     mock_get_xcom.side_effect = [
         {
@@ -295,7 +299,7 @@ def test_run_quanting_output_folder_exists_recover(  # noqa: PLR0913
         -1,
     ]
     mock_path.return_value.exists.return_value = True
-    mock_get_airflow_variable.return_value = "recover"
+    mock_get_airflow_variable.return_value = "associate"
     mock_get_slurm_job_id_from_log.return_value = "54321"
     ti = MagicMock()
 
@@ -313,7 +317,7 @@ def test_run_quanting_output_folder_exists_recover(  # noqa: PLR0913
 @patch("dags.impl.processor_impl._get_slurm_job_id_from_log")
 @patch("dags.impl.processor_impl.put_xcom")
 @patch("dags.impl.processor_impl.update_raw_file")
-def test_run_quanting_output_folder_exists_recover_raise(  # noqa: PLR0913
+def test_run_quanting_output_folder_exists_associate_raise(  # noqa: PLR0913
     mock_update: MagicMock,
     mock_put_xcom: MagicMock,
     mock_get_slurm_job_id_from_log: MagicMock,
@@ -322,7 +326,7 @@ def test_run_quanting_output_folder_exists_recover_raise(  # noqa: PLR0913
     mock_get_raw_file_by_id: MagicMock,  # noqa: ARG001
     mock_get_xcom: MagicMock,
 ) -> None:
-    """run_quanting function correctly raises if the output path already exists and mode is 'recover' and no job id."""
+    """run_quanting function correctly raises if the output path already exists and mode is 'associate' and no job id."""
     # given
     mock_get_xcom.side_effect = [
         {
@@ -333,7 +337,7 @@ def test_run_quanting_output_folder_exists_recover_raise(  # noqa: PLR0913
         -1,
     ]
     mock_path.return_value.exists.return_value = True
-    mock_get_airflow_variable.return_value = "recover"
+    mock_get_airflow_variable.return_value = "associate"
     mock_get_slurm_job_id_from_log.return_value = None
     ti = MagicMock()
 

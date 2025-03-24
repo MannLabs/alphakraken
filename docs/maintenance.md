@@ -76,9 +76,9 @@ in case something went wrong with the quanting.
 
 If set to `raise`, processing of the file will stop in case the output folder exists.
 If set to `overwrite`, the system will start a new job, overwriting the existing output files.
-If set to `recover`, the system will try to read off the Slurm job id from the existing AlphaDIA `log.txt`
+If set to `associate`, the system will try to read off the Slurm job id from the existing AlphaDIA `log.txt`
 (from the first line containing "slurm_job_id: ", taking the first word after that)
-and proceed accordingly. This will connect the current task to an existing slurm job.
+and associate the current task to the slurm job with that id.
 
 Recommended setting in production: 'raise' (default)
 

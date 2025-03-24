@@ -156,16 +156,15 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
     )
     if Path(output_path).exists():
         msg = f"Output path {output_path} already exists."
-        if (
-            output_exists_mode := get_airflow_variable(
-                AirflowVars.OUTPUT_EXISTS_MODE, "raise"
+        output_exists_mode = get_airflow_variable(
+            AirflowVars.OUTPUT_EXISTS_MODE, "raise"
+        )
+        if output_exists_mode == "overwrite":
+            logging.warning(
+                f"{msg} Overwriting it because OUTPUT_EXISTS_MODE='overwrite' is set."
             )
-        ) == "overwrite":
-            raise AirflowFailException(
-                f"{msg} Remove it before restarting the quanting or set OUTPUT_EXISTS_MODE='overwrite'."
-            )
-        if output_exists_mode == "recover":
-            logging.warning(f"{msg} Trying to recover job.")
+        elif output_exists_mode == "associate":
+            logging.warning(f"{msg} Trying to associate job.")
 
             if (extracted_job_id := _get_slurm_job_id_from_log(output_path)) is None:
                 logging.exception("Could not read off job id from log file.")
@@ -175,8 +174,11 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
 
             logging.warning(f"Assuming job id {extracted_job_id}...")
             return
-
-        logging.warning(f"{msg} Overwriting it because OUTPUT_EXISTS_MODE is set.")
+        else:
+            raise AirflowFailException(
+                f"{msg} Remove it before restarting the quanting or set OUTPUT_EXISTS_MODE to 'overwrite' or 'associate' "
+                f"(got {output_exists_mode})"
+            )
 
     year_month_folder = get_created_at_year_month(raw_file)
 

@@ -244,10 +244,15 @@ def test_poke_file_dir_contents_dont_change_but_file_is_unchanged(  # noqa: PLR0
     )
 
 
+oldest_age = 2
+youngest_age = (
+    (5 * 3600) + oldest_age + 1.0
+)  # 5: default parameter for threshold_h in _is_older_than_threshold()
+intermediate_age = youngest_age // 2
+
+
 @patch("plugins.sensors.acquisition_monitor.get_airflow_variable", return_value="True")
-@patch(
-    "plugins.sensors.acquisition_monitor.AcquisitionMonitor._is_older_than_threshold"
-)
+@patch("plugins.sensors.acquisition_monitor.get_file_ctime")
 @patch("plugins.sensors.acquisition_monitor.RawFileWrapperFactory")
 @patch("plugins.sensors.acquisition_monitor.update_raw_file")
 @patch("plugins.sensors.acquisition_monitor.get_raw_file_by_id")
@@ -255,7 +260,7 @@ def test_poke_file_file_is_old(
     mock_get_raw_file_by_id: MagicMock,
     mock_update_raw_file: MagicMock,
     mock_raw_file_wrapper_factory: MagicMock,
-    mock_is_older_than_threshold: MagicMock,
+    mock_get_file_ctime: MagicMock,
     mock_get_airflow_variable: MagicMock,  # noqa: ARG001
 ) -> None:
     """Test poke method correctly returns when file is old and this mode is used."""
@@ -267,20 +272,16 @@ def test_poke_file_file_is_old(
     mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.get_raw_files_on_instrument.side_effect = [
         {"some_file.raw"},  # initial content (pre_execute)
         {"some_file.raw"},  # first poke
-        {"some_file.raw"},  # second poke
     ]
-    mock_is_older_than_threshold.side_effect = [
-        False,  # first poke
-        True,  # second poke
+    mock_get_file_ctime.side_effect = [
+        youngest_age,  # initial content (pre_execute) -> youngest file
+        oldest_age,  # first poke
     ]
 
     sensor = get_sensor()
     sensor.pre_execute({DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"}})
 
     # when
-    result = sensor.poke({})
-    assert not result
-
     assert sensor.poke({})
 
     mock_update_raw_file.assert_called_once_with(
@@ -377,52 +378,49 @@ def test_post_execute_acquisition_errors(
     )
 
 
-def test_is_older_than_threshold_returns_false_if_directory_is_empty() -> None:
-    """Test _is_older_than_threshold returns False if the directory is empty."""
-    assert not AcquisitionMonitor._is_older_than_threshold(
-        Path("file_to_check"), set(), Path("/instrument/data")
+def test_get_youngest_file_age_directory_empty() -> None:
+    """Test _get_youngest_file_age returns None when directory is empty."""
+    assert (
+        AcquisitionMonitor._get_youngest_file_age(Path("file_to_check"), set()) is None
     )
 
 
-oldest_age = 2
-youngest_age = (5 * 3600) + oldest_age + 1
-intermediate_age = youngest_age // 2
-age_of_unknown_file = youngest_age**2
+@patch("plugins.sensors.acquisition_monitor.get_file_ctime")
+def test_get_youngest_file_age(mock_get_file_ctime: MagicMock) -> None:
+    """Test _get_youngest_file_age returns correctly."""
+    mock_get_file_ctime.side_effect = [oldest_age, intermediate_age, youngest_age]
+    assert (
+        AcquisitionMonitor._get_youngest_file_age(
+            Path("file_to_check"), {"file1", "file2", "file3"}
+        )
+        == youngest_age
+    )
 
 
 @pytest.mark.parametrize(
-    ("file_name", "age", "expected"),
+    ("age", "expected"),
     [
-        ("some_youngest_file", youngest_age, False),
-        ("some_inbetween_file", intermediate_age, False),
-        ("some_oldest_file", oldest_age, True),
-        ("some_unknown_file", age_of_unknown_file, False),
+        (youngest_age, False),
+        (intermediate_age, False),
+        (oldest_age, True),
     ],
 )
 @patch("plugins.sensors.acquisition_monitor.get_file_ctime")
 def test_is_older_than_threshold(
     mock_get_file_ctime: MagicMock,
-    file_name: str,
     age: float,
     *,
     expected: bool,
 ) -> None:
     """Test _is_older_than_threshold returns correctly for several cases."""
-    # using a list instead of a set to be able to rely on the order ofg the side_effect of the mock
-    current_dir_content = [
-        "some_youngest_file",
-        "some_oldest_file",
-        "some_inbetween_file",
-    ]
-    # the last call to get_file_ctime is the file to check
-    mock_get_file_ctime.side_effect = [youngest_age, oldest_age, intermediate_age, age]
+    mock_get_file_ctime.return_value = age
 
+    sensor = get_sensor()
+    sensor._youngest_file_age = youngest_age
     # when
     assert (
-        AcquisitionMonitor._is_older_than_threshold(
-            Path(file_name),
-            current_dir_content,
-            Path("/instrument/data"),
+        sensor._is_older_than_threshold(
+            Path("file_name"),
             threshold_h=5,
         )
         == expected

@@ -183,12 +183,13 @@ class AcquisitionMonitor(BaseSensorOperator):
             f"Youngest file in directory: {datetime.fromtimestamp(youngest_age, tz=pytz.utc)}"
         )
 
-        file_path_to_check_age = get_file_ctime(file_path_to_check)
+        age_file_path_to_check_age = get_file_ctime(file_path_to_check)
+        age_difference_in_h = (youngest_age - age_file_path_to_check_age) / 3600
         logging.info(
-            f"Current file: {datetime.fromtimestamp(file_path_to_check_age, tz=pytz.utc)}"
+            f"Current file: {datetime.fromtimestamp(age_file_path_to_check_age, tz=pytz.utc)} {datetime.fromtimestamp(age_difference_in_h, tz=pytz.utc)}"
         )
 
-        return (youngest_age - file_path_to_check_age) / 3600 > threshold_h
+        return age_difference_in_h > threshold_h
 
     def _main_file_missing_for_too_long(self) -> bool:
         """Return true if the main file has not appeared for a certain amount of time."""

@@ -49,13 +49,42 @@ which spins up on worker service for each instrument,
 and check container health using `sudo docker ps`.
 
 
+## A note on 'state', fallback & catchup
+The system is designed to be robust against interruptions, and built to be distributed easily across several machines.
+One main design principle is that all relevant state of the system is stored in the MongoDB database.
+All other components can, in principle, be shut down, restarted and/or deleted any time without loss of information,
+in particular:
 
+- The Airflow scheduler and webserver, and the Webapp can be restarted at any point.
+
+- The Airflow workers can be restarted at any point, with a little caveat: if this happens while the `copy_file`
+task is being run, the file copy operation can be interrupted mid-way. Once the worker is restarted, the task will
+then report a hashsum mismatch, which needs to be resolved (e.g. using the `backup_overwrite_file_id` variable).
+
+- The Airflow DB can in principle be deleted and rebuilt from scratch, as all information is stored in the MongoDB database.
+Under certain circumstances, files will stay in non-final states, which can be detected easily in the Webapp.
+
+### Fallback & catchup
+Suppose a given AlphaKraken instance `A`, with a certain state in its `MongoDB`, becomes temporarily unavailable.
+To continue operation, one a completely independent new instance `B` can be set up (with the same configuration and mounts),
+which will take care of the file backup and processing tasks while `A` is down. As `B` would be starting from a completely
+clean MongoDB instance, the comparison to past data will of course be limited.
+Note that, in order to allow `A` to pick up from where it stopped, the `file_move` task should be disabled on `B`
+as the files in the acquisition folders are the entrypoint for the whole processing.
+
+Once `A` is available again, shut down `B` and restart `A` with the Airflow variables `output_exists_mode=associate`
+and `consider_old_files_acquired=True`. This will allow `A` to quickly recover by leveraging
+- that most of the files are already present on the backup and
+- that most of the quanting is already done.
+
+Note that during a catchup phase, it might be required to increase the number of scheduler instances and/or workers,
+and to monitor the system closely.
 
 ## Airflow Variables
 These variables are set in the Airflow UI under "Admin" -> "Variables". They steer the behavior of the whole system,
 so be careful when changing them. If in doubt, pause all DAGs that are not part of the current problem before changing them.
 
-### compare_to_youngest_file (default: False)
+### consider_old_files_acquired (default: False)
 If this is set to `True`, the acquisition monitor will use an additional check to decide whether acquisition is done:
 it will compare the creation date of the currently monitored file with that of the youngest file.
 If this is more than a certain threshold (currently 5 hours), the acquisition is considered done.
@@ -224,7 +253,7 @@ or the whole machine:
 sudo reboot now
 ```
 
-### Cluster load management
+## Cluster load management
 For each acquired file, a processing job on the SLURM cluster will be scheduled. If, for any reason, the number of
 concurrently submitted jobs should be limited, set the size of the `cluster_slots_pool`
 (in the Airflow UI under "Admin" -> "Pools") accordingly. Note that this setting does not affect

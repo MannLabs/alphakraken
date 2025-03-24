@@ -174,13 +174,18 @@ class AcquisitionMonitor(BaseSensorOperator):
         files_youngest_first = [
             (file_name, age)
             for file_name, age in sorted(
-                files_with_ctime, key=lambda item: item[1], reverse=False
+                files_with_ctime, key=lambda item: item[1], reverse=True
             )
         ]
 
         logging.info(f"Files in directory: {files_youngest_first}")
 
         _, youngest_age = files_youngest_first[0]
+
+        logging.info(
+            f"Youngest file in directory: {datetime.fromtimestamp(youngest_age, tz=pytz.utc)}"
+        )
+
         file_ages_h = [
             (file_name, abs(age - youngest_age) / 3600)
             for file_name, age in files_youngest_first

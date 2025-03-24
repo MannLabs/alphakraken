@@ -341,15 +341,15 @@ def test_is_older_than_threshold_returns_false_if_directory_is_empty() -> None:
 @pytest.mark.parametrize(
     ("file_name", "expected"),
     [
-        ("some_file", False),
-        ("some_older_file", False),
+        ("some_youngest_file", False),
+        ("some_inbetween_file", False),
         ("some_oldest_file", True),
         ("some_unknown_file", False),
     ],
 )
 @patch(
     "plugins.sensors.acquisition_monitor.get_file_ctime",
-    side_effect=[2, (5 * 3600) + 2 + 1, 1000],
+    side_effect=[(5 * 3600) + 2 + 1, 2, 1000],
 )
 def test_is_older_than_threshold(
     mock_get_file_ctime: MagicMock,  # noqa: ARG001
@@ -359,7 +359,11 @@ def test_is_older_than_threshold(
 ) -> None:
     """Test _is_older_than_threshold returns correctly for several cases."""
     # using a list instead of a set to be able to rely on the order ofg the side_effect of the mock
-    current_dir_content = ["some_file", "some_oldest_file", "some_older_file"]
+    current_dir_content = [
+        "some_youngest_file",
+        "some_oldest_file",
+        "some_inbetween_file",
+    ]
 
     # when
     assert (

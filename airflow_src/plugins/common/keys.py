@@ -114,8 +114,8 @@ class AirflowVars:
     # set to a specific file name to allow overwriting it on the pool backup
     BACKUP_OVERWRITE_FILE_ID = "backup_overwrite_file_id"
 
-    # whether to consider acquisition "done" if current file is "old" against youngest file
-    COMPARE_TO_YOUNGEST_FILE = "compare_to_youngest_file"
+    # whether to consider acquisition "done" if current file is "old" (> 5h) compared to youngest file
+    CONSIDER_OLD_FILES_ACQUIRED = "consider_old_files_acquired"
 
     # for special modes 'overwrite' or 'associated' (see docs)
     OUTPUT_EXISTS_MODE: str = "output_exists_mode"

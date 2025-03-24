@@ -6,7 +6,7 @@ An acquisition is considered "done" if either:
 - exactly one new file has been found
 - the main file has not appeared for a certain amount of time (relevant for Bruker only)
 - the file size has not changed for a certain amount of time
-- (only if variable 'compare_to_youngest_file' is set) when the file is "old" (default: > 5h) compared to the
+- (only if Airflow  variable 'consider_old_files_acquired' is set) when the file is "old" (default: > 5h) compared to the
   youngest file. This should be used with caution, but can be handy in case a catchup is required.
 """
 
@@ -91,7 +91,7 @@ class AcquisitionMonitor(BaseSensorOperator):
         )
 
         if (
-            get_airflow_variable(AirflowVars.COMPARE_TO_YOUNGEST_FILE, "False")
+            get_airflow_variable(AirflowVars.CONSIDER_OLD_FILES_ACQUIRED, "False")
             == "True"
         ):
             youngest_file_age = self._get_youngest_file_age(

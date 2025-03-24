@@ -167,8 +167,8 @@ class AcquisitionMonitor(BaseSensorOperator):
 
         # st_ctime gives epoch timestamp ("age")
         files_youngest_first = [
-            (file_path, age)
-            for file_path, age in sorted(
+            (file_name, age)
+            for file_name, age in sorted(
                 files_with_ctime, key=lambda item: item[1], reverse=False
             )
         ]
@@ -177,15 +177,17 @@ class AcquisitionMonitor(BaseSensorOperator):
 
         _, youngest_age = files_youngest_first[0]
         file_ages_h = [
-            (file_path, abs(age - youngest_age) / 3600)
-            for file_path, age in files_youngest_first
+            (file_name, abs(age - youngest_age) / 3600)
+            for file_name, age in files_youngest_first
         ]
 
         files_older_than_threshold = [
-            file_path for file_path, age in file_ages_h if age > threshold_h
+            file_name for file_name, age in file_ages_h if age > threshold_h
         ]
 
-        logging.info(f"Checking if {file_path_to_check.name} in {files_youngest_first}")
+        logging.info(
+            f"Checking if {file_path_to_check.name} in {files_older_than_threshold}"
+        )
 
         return file_path_to_check.name in files_older_than_threshold
 

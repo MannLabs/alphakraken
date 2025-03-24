@@ -99,7 +99,7 @@ class AcquisitionMonitor(BaseSensorOperator):
                 self._initial_dir_content,
             )
 
-            if self._is_older_than_threshold(
+            if youngest_file_age is not None and self._is_older_than_threshold(
                 self._file_path_to_monitor, youngest_file_age
             ):
                 self._file_is_old = True

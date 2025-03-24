@@ -9,12 +9,13 @@ An acquisition is considered "done" if either:
 """
 
 import logging
+from pathlib import Path
 from typing import Any
 
 from airflow.sensors.base import BaseSensorOperator
 from common.keys import AcquisitionMonitorErrors, DagContext, DagParams, XComKeys
 from common.utils import get_timestamp, put_xcom
-from file_handling import get_file_size
+from file_handling import get_file_ctime, get_file_size
 from raw_file_wrapper_factory import RawFileMonitorWrapper, RawFileWrapperFactory
 
 from shared.db.interface import get_raw_file_by_id, update_raw_file
@@ -125,6 +126,50 @@ class AcquisitionMonitor(BaseSensorOperator):
             self._initial_dir_contents = current_dir_content
 
         return False
+
+    @staticmethod
+    def _is_older_than_threshold(
+        file_path_to_check: Path, current_dir_content: set[str], threshold_h: int = 5
+    ) -> bool:
+        """Return true if the file age exceeds the youngest file in the directory by the threshold.
+
+        :param file_path_to_check: The file to check
+        :param current_dir_content: The current directory content
+        :param threshold_h: The threshold in hours
+
+        :return: True if the file is older than the youngest file in the directory by the threshold.
+        """
+        if len(current_dir_content) == 0:
+            return False
+
+        files_with_ctime = [
+            (file_path, get_file_ctime(Path(file_path)))
+            for file_path in current_dir_content
+        ]
+
+        # st_ctime gives epoch timestamp ("age")
+        files_youngest_first = [
+            (file_path, age)
+            for file_path, age in sorted(
+                files_with_ctime, key=lambda item: item[1], reverse=False
+            )
+        ]
+
+        logging.info(f"Files in directory: {files_youngest_first}")
+
+        _, youngest_age = files_youngest_first[0]
+        file_ages_h = [
+            (file_path, abs(age - youngest_age) / 3600)
+            for file_path, age in files_youngest_first
+        ]
+
+        files_older_than_threshold = [
+            file_path for file_path, age in file_ages_h if age > threshold_h
+        ]
+
+        logging.info(f"Checking if {file_path_to_check} in {files_youngest_first}")
+
+        return file_path_to_check.name in files_older_than_threshold
 
     def _main_file_missing_for_too_long(self) -> bool:
         """Return true if the main file has not appeared for a certain amount of time."""

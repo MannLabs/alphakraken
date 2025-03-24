@@ -1,7 +1,8 @@
 """Unit tests for the acquisition monitor plugin."""
 
-# ruff: noqa: SLF001
+from pathlib import Path
 
+# ruff: noqa: SLF001
 from unittest.mock import MagicMock, call, patch
 
 import pytest
@@ -329,4 +330,41 @@ def test_post_execute_acquisition_errors(
             ),
             call(mock_get_raw_file_by_id.return_value.id, new_status="monitoring_done"),
         ]
+    )
+
+
+def test_is_older_than_threshold_returns_false_if_directory_is_empty() -> None:
+    """Test _is_older_than_threshold returns False if the directory is empty."""
+    assert not AcquisitionMonitor._is_older_than_threshold(Path("file_to_check"), set())
+
+
+@pytest.mark.parametrize(
+    ("file_name", "expected"),
+    [
+        ("some_file", False),
+        ("some_older_file", False),
+        ("some_oldest_file", True),
+        ("some_unknown_file", False),
+    ],
+)
+@patch(
+    "plugins.sensors.acquisition_monitor.get_file_ctime",
+    side_effect=[2, (5 * 3600) + 2 + 1, 1000],
+)
+def test_is_older_than_threshold(
+    mock_get_file_ctime: MagicMock,  # noqa: ARG001
+    file_name: str,
+    *,
+    expected: bool,
+) -> None:
+    """Test _is_older_than_threshold returns correctly for several cases."""
+    # using a list instead of a set to be able to rely on the order ofg the side_effect of the mock
+    current_dir_content = ["some_file", "some_oldest_file", "some_older_file"]
+
+    # when
+    assert (
+        AcquisitionMonitor._is_older_than_threshold(
+            Path(file_name), current_dir_content, threshold_h=5
+        )
+        == expected
     )

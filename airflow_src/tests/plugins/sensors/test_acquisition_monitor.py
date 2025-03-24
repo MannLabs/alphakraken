@@ -335,25 +335,31 @@ def test_post_execute_acquisition_errors(
 
 def test_is_older_than_threshold_returns_false_if_directory_is_empty() -> None:
     """Test _is_older_than_threshold returns False if the directory is empty."""
-    assert not AcquisitionMonitor._is_older_than_threshold(Path("file_to_check"), set())
+    assert not AcquisitionMonitor._is_older_than_threshold(
+        Path("file_to_check"), set(), Path("/instrument/data")
+    )
+
+
+oldest_age = 2
+youngest_age = (5 * 3600) + oldest_age + 1
+intermediate_age = youngest_age // 2
+age_of_unknown_file = youngest_age**2
 
 
 @pytest.mark.parametrize(
-    ("file_name", "expected"),
+    ("file_name", "age", "expected"),
     [
-        ("some_youngest_file", False),
-        ("some_inbetween_file", False),
-        ("some_oldest_file", True),
-        ("some_unknown_file", False),
+        ("some_youngest_file", youngest_age, False),
+        ("some_inbetween_file", intermediate_age, False),
+        ("some_oldest_file", oldest_age, True),
+        ("some_unknown_file", age_of_unknown_file, False),
     ],
 )
-@patch(
-    "plugins.sensors.acquisition_monitor.get_file_ctime",
-    side_effect=[(5 * 3600) + 2 + 1, 2, 1000],
-)
+@patch("plugins.sensors.acquisition_monitor.get_file_ctime")
 def test_is_older_than_threshold(
-    mock_get_file_ctime: MagicMock,  # noqa: ARG001
+    mock_get_file_ctime: MagicMock,
     file_name: str,
+    age: float,
     *,
     expected: bool,
 ) -> None:
@@ -364,11 +370,16 @@ def test_is_older_than_threshold(
         "some_oldest_file",
         "some_inbetween_file",
     ]
+    # the last call to get_file_ctime is the file to check
+    mock_get_file_ctime.side_effect = [youngest_age, oldest_age, intermediate_age, age]
 
     # when
     assert (
         AcquisitionMonitor._is_older_than_threshold(
-            Path(file_name), current_dir_content, threshold_h=5
+            Path(file_name),
+            current_dir_content,
+            Path("/instrument/data"),
+            threshold_h=5,
         )
         == expected
     )

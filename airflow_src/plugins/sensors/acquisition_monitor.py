@@ -182,24 +182,13 @@ class AcquisitionMonitor(BaseSensorOperator):
         logging.info(
             f"Youngest file in directory: {datetime.fromtimestamp(youngest_age, tz=pytz.utc)}"
         )
+
+        file_path_to_check_age = get_file_ctime(file_path_to_check)
         logging.info(
-            f"Current file: {datetime.fromtimestamp(get_file_ctime(file_path_to_check), tz=pytz.utc)}"
+            f"Current file: {datetime.fromtimestamp(file_path_to_check_age, tz=pytz.utc)}"
         )
 
-        file_ages_h = [
-            (file_name, abs(age - youngest_age) / 3600)
-            for file_name, age in files_youngest_first
-        ]
-
-        files_older_than_threshold = [
-            file_name for file_name, age in file_ages_h if age > threshold_h
-        ]
-
-        logging.info(
-            f"Checking if {file_path_to_check.name} in {files_older_than_threshold}"
-        )
-
-        return file_path_to_check.name in files_older_than_threshold
+        return (youngest_age - file_path_to_check_age) / 3600 > threshold_h
 
     def _main_file_missing_for_too_long(self) -> bool:
         """Return true if the main file has not appeared for a certain amount of time."""

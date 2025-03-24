@@ -114,6 +114,12 @@ class AcquisitionMonitor(BaseSensorOperator):
 
         current_dir_content, new_dir_content = self._get_dir_content()
 
+        if not self._is_older_than_threshold(file_path_to_monitor, current_dir_content):
+            logging.info(
+                "Current file is old compared to the youngest. Assuming acquisition is done."
+            )
+            # return True
+
         if len(new_dir_content) > 0:
             logging.info(f"New file(s) found: {new_dir_content}.")
 

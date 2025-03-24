@@ -161,7 +161,7 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
         )
         if output_exists_mode == "overwrite":
             logging.warning(
-                f"{msg} Overwriting it because OUTPUT_EXISTS_MODE='overwrite' is set."
+                f"{msg} Overwriting it because Airflow variable output_exists_mode='overwrite' is set."
             )
         elif output_exists_mode == "associate":
             logging.warning(f"{msg} Trying to associate job.")
@@ -176,7 +176,7 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
             return
         else:
             raise AirflowFailException(
-                f"{msg} Remove it before restarting the quanting or set OUTPUT_EXISTS_MODE to 'overwrite' or 'associate' "
+                f"{msg} Remove it before restarting the quanting or set Airflow variable 'output_exists_mode' to 'overwrite' or 'associate' "
                 f"(got {output_exists_mode})"
             )
 

@@ -99,8 +99,12 @@ class AcquisitionMonitor(BaseSensorOperator):
         """Return True if acquisition is done."""
         del context  # unused
 
+        file_path_to_monitor = (
+            self._raw_file_monitor_wrapper.file_path_to_monitor_acquisition()
+        )
+
         if not self._main_file_exists:
-            if self._raw_file_monitor_wrapper.file_path_to_monitor_acquisition().exists():
+            if file_path_to_monitor.exists():
                 self._main_file_exists = True
             else:
                 return self._main_file_missing_for_too_long()

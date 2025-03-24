@@ -122,11 +122,8 @@ class AcquisitionMonitor(BaseSensorOperator):
             current_dir_content,
             get_internal_instrument_data_path(self._instrument_id),
         ):
-            timestamp = datetime.fromtimestamp(
-                get_file_ctime(file_path_to_monitor), tz=pytz.utc
-            )
             logging.info(
-                f"Current file {file_path_to_monitor} is old ({timestamp}) compared to the youngest. Assuming acquisition is done."
+                f"Current file {file_path_to_monitor} is old compared to the youngest. Assuming acquisition is done."
             )
             return True
 
@@ -184,6 +181,9 @@ class AcquisitionMonitor(BaseSensorOperator):
 
         logging.info(
             f"Youngest file in directory: {datetime.fromtimestamp(youngest_age, tz=pytz.utc)}"
+        )
+        logging.info(
+            f"Current file: {datetime.fromtimestamp(get_file_ctime(file_path_to_check), tz=pytz.utc)}"
         )
 
         file_ages_h = [

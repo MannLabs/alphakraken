@@ -50,8 +50,9 @@ and check container health using `sudo docker ps`.
 
 
 ## A note on 'state', fallback & catchup
-The system is designed to be robust against interruptions, and built to be distributed easily across several machines.
-One main design principle is that all relevant state of the system is stored in the MongoDB database.
+AlphaKraken is designed to be robust against interruptions, and built to be distributed easily across several machines.
+One main design principle is that all relevant state of AlphaKraken is stored in the MongoDB database.
+Together with the raw data on the instrument and in the backup, this defines the state of the system.
 All other components can, in principle, be shut down, restarted and/or deleted any time without loss of information,
 in particular:
 

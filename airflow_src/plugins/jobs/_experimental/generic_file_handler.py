@@ -11,8 +11,8 @@ class GenericJobHandler(JobHandler):
 
     def start_job(self, quanting_env: dict[str, str], year_month_folder: str) -> str:
         """Start a quanting job on the generic job engine."""
-        del quanting_env  # TODO: use
-        del year_month_folder  # TODO: use
+        del quanting_env
+        del year_month_folder
         command = "sleep 60"
         wrapped_command = f"{command} > /dev/null 2>&1 & echo $!"
 
@@ -29,4 +29,4 @@ class GenericJobHandler(JobHandler):
 
     def get_job_result(self, job_id: str) -> tuple[str, int]:
         """Get the job status and time elapsed from the generic job engine."""
-        return self.get_job_status(job_id), 0  # TODO: how to get the run time?
+        return self.get_job_status(job_id), 0  # how to get the run time?

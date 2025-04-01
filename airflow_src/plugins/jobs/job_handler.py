@@ -62,7 +62,6 @@ class JobHandler(abc.ABC):
         """
 
 
-# TODO: reorder unit tests
 class SlurmSSHJobHandler(JobHandler):
     """Implementation of JobHandler that executes commands on a SLURM cluster via SSH."""
 
@@ -78,6 +77,7 @@ class SlurmSSHJobHandler(JobHandler):
             job_id = str(int(ssh_return.split("\n")[-1]))
         except Exception as e:
             logging.exception("Did not get a valid job id from the cluster.")
+            # TODO: only DAG impl should raise AirflowFailException
             raise AirflowFailException("Job submission failed.") from e
 
         return job_id

@@ -195,21 +195,6 @@ def test_run_quanting_executes_ssh_command_and_stores_job_id(
     # when
     run_quanting(ti)
 
-    # then
-    # TODO: move to test of ssh_slurm_start_job
-    # expected_export_command = (
-    #     "export RAW_FILE_ID=test_file.raw\nexport PROJECT_ID_OR_FALLBACK=PID123\n"
-    #     # rest of quanting_env is left out here for brevity
-    # )
-
-    # TODO: move to test of ssh_slurm_start_job
-    # expected_command = expected_export_command + (
-    #     "mkdir -p ~/slurm/jobs/1970_01\n"
-    #     "cd ~/slurm/jobs/1970_01\n"
-    #     "cat ~/slurm/submit_job.sh\n"
-    #     "JID=$(sbatch ~/slurm/submit_job.sh)\n"
-    #     "echo ${JID##* }\n"
-    # )
     mock_start_job.assert_called_once_with(
         {"RAW_FILE_ID": "test_file.raw", "PROJECT_ID_OR_FALLBACK": "PID123"}, "1970_01"
     )
@@ -368,20 +353,11 @@ def test_check_quanting_result_happy_path(
     mock_get_xcom.return_value = "12345"
 
     mock_get_job_result.return_value = (JobStates.COMPLETED, 522)
-    # TODO: move to test of ssh_slurm_get_job_result
-    # mock_ssh_slurm_get_job_result.return_value = (
-    #     f"00:08:42\nsome\nother\nlines\n{JobStates.COMPLETED}"
-    # )
 
     # when
     continue_downstream_tasks = check_quanting_result(mock_ti)
 
     assert continue_downstream_tasks
-    # TODO: move to test of ssh_slurm_get_job_result
-    # mock_ssh_slurm_get_job_result.assert_called_once_with(
-    #     "TIME_ELAPSED=$(sacct --format=Elapsed -j 12345 | tail -n 1); echo $TIME_ELAPSED\nsacct -l -j 12345\n"
-    #     "cat ~/slurm/jobs/*/slurm-12345.out\n\nST=$(sacct -j 12345 -o State | awk 'FNR == 3 {print $1}')\necho $ST\n",
-    # )
 
     mock_put_xcom.assert_called_once_with(mock_ti, XComKeys.QUANTING_TIME_ELAPSED, 522)
 

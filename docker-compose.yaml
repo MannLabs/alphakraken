@@ -494,3 +494,14 @@ services:
       - ${MOUNTS_PATH:?error}/output:/opt/airflow/mounts/output:ro
       - ${MOUNTS_PATH:?error}/instruments/test9:/opt/airflow/mounts/instruments/test9:ro
       - ${MOUNTS_PATH:?error}/backup/test9:/opt/airflow/mounts/backup/test9:rw
+
+  nginx:
+    image: nginx:latest
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx_logs:/var/log/nginx/
+        # - ./certs:/etc/nginx/certs:ro  # Optional: for SSL certificates
+    restart: always

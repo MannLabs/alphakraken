@@ -36,6 +36,9 @@ class QueryParams:
     # whether page is accessed via mobile
     MOBILE = "mobile"
 
+    # super-dirty solution to prevent write access  # TODO: improve
+    ADMIN = "admin"
+
 
 DEFAULT_MAX_TABLE_LEN = 500
 DEFAULT_MAX_AGE_OVERVIEW = 30  # days
@@ -102,9 +105,9 @@ def display_info_message(st_display: st.delta_generator.DeltaGenerator = None) -
             st_display.info(content, icon="ℹ️")  # noqa: RUF001
 
 
-def is_mobile() -> bool:
+def is_true(key: str) -> bool:
     """Whether app is called with 'mobile' parameter."""
-    return st.query_params.get(QueryParams.MOBILE, "False").lower() in ["true", "1"]
+    return st.query_params.get(key, "False").lower() in ["true", "1"]
 
 
 def display_plotly_chart(
@@ -112,7 +115,7 @@ def display_plotly_chart(
 ) -> None:
     """Display a plotly chart in a streamlit app."""
     # currently, the mobile setup does not support plotly charts
-    if is_mobile():
+    if is_true(QueryParams.MOBILE):
         img_bytes = fig.to_image(format="png", engine="kaleido")
         img = Image.open(io.BytesIO(img_bytes))
 

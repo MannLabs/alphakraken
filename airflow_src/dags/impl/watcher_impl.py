@@ -230,7 +230,7 @@ def _file_meets_age_criterion(
     """
     try:
         max_file_age_in_hours: str = get_airflow_variable(
-            AirflowVars.DEBUG_MAX_FILE_AGE_IN_HOURS
+            AirflowVars.DEBUG_MAX_FILE_AGE_IN_HOURS  # pytype: disable=annotation-type-mismatch
         )
     except KeyError:
         # DEBUG_MAX_FILE_AGE_IN_HOURS not set

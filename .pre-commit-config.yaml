@@ -26,3 +26,9 @@ repos:
     - id: ruff-format
     - id: ruff
       args: [ '--fix' ]
+- repo: local
+  hooks:
+    - id: pytype
+      name: pytype
+      entry: uvx pytype
+      language: system

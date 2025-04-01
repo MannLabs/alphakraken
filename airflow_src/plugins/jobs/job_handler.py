@@ -7,7 +7,6 @@ with concrete implementations for SLURM.
 import abc
 import logging
 from datetime import datetime
-from typing import Literal
 
 from airflow.exceptions import AirflowFailException
 from common.constants import CLUSTER_JOB_SCRIPT_PATH, CLUSTER_WORKING_DIR
@@ -15,9 +14,7 @@ from common.settings import _SETTINGS
 from sensors.ssh_utils import ssh_execute
 
 # TODO: move to settings, introduce constants
-ENGINE: Literal["slurm", "generic"] = (
-    _SETTINGS.get("general", {}).get("job_engine", {}).get("type", "slurm")
-)
+ENGINE: str = _SETTINGS.get("general", {}).get("job_engine", {}).get("type", "slurm")
 
 
 def get_job_handler() -> "JobHandler":

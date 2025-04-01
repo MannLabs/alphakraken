@@ -17,7 +17,7 @@ from sensors.ssh_utils import ssh_execute
 ENGINE: str = _SETTINGS.get("general", {}).get("job_engine", {}).get("type", "slurm")
 
 
-def get_job_handler() -> "JobHandler":
+def _get_job_handler() -> "JobHandler":
     """Factory function to get the appropriate job handler based on the configured engine."""
     if ENGINE == "generic":
         from jobs._experimental.generic_file_handler import GenericJobHandler
@@ -155,15 +155,19 @@ class SlurmSSHJobHandler(JobHandler):
         return (t.hour * 3600) + (t.minute * 60) + t.second
 
 
-# TODO: use get_job_handler here
-# For backward compatibility, create functions that use the appropriate implementation
-def ssh_slurm_start_job(quanting_env: dict[str, str], year_month_folder: str) -> str:
+def start_job(quanting_env: dict[str, str], year_month_folder: str) -> str:
     """Start a quanting job using the configured job engine."""
-    handler = get_job_handler()
+    handler = _get_job_handler()
     return handler.start_job(quanting_env, year_month_folder)
 
 
-def ssh_slurm_get_job_result(job_id: str) -> tuple[str, int]:
+def get_job_status(job_id: str) -> str:
+    """Get the job status using the configured job engine."""
+    handler = _get_job_handler()
+    return handler.get_job_status(job_id)
+
+
+def get_job_result(job_id: str) -> tuple[str, int]:
     """Get the job status and time elapsed using the configured job engine."""
-    handler = get_job_handler()
+    handler = _get_job_handler()
     return handler.get_job_result(job_id)

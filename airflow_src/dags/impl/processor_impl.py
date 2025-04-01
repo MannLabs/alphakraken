@@ -33,8 +33,8 @@ from common.utils import (
     put_xcom,
 )
 from jobs.job_handler import (
-    ssh_slurm_get_job_result,
-    ssh_slurm_start_job,
+    get_job_result,
+    start_job,
 )
 from metrics.metrics_calculator import calc_metrics
 
@@ -173,7 +173,7 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
 
     year_month_folder = get_created_at_year_month(raw_file)
 
-    job_id = ssh_slurm_start_job(quanting_env, year_month_folder)
+    job_id = start_job(quanting_env, year_month_folder)
 
     update_raw_file(
         quanting_env[QuantingEnv.RAW_FILE_ID], new_status=RawFileStatus.QUANTING
@@ -246,7 +246,7 @@ def check_quanting_result(ti: TaskInstance, **kwargs) -> bool:
     del kwargs  # unused
     job_id = get_xcom(ti, XComKeys.JOB_ID)
 
-    job_status, time_elapsed = ssh_slurm_get_job_result(job_id)
+    job_status, time_elapsed = get_job_result(job_id)
 
     put_xcom(ti, XComKeys.QUANTING_TIME_ELAPSED, time_elapsed)
 

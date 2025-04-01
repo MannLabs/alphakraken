@@ -11,16 +11,11 @@ from common.keys import JobStates, XComKeys
 from common.utils import (
     get_xcom,
 )
-from jobs.job_handler import get_job_handler
+from jobs.job_handler import get_job_status
 
 
 class QuantingSensorOperator(BaseSensorOperator, ABC):
     """Base class for sensor operators that watch over certain status of quanting."""
-
-    @property
-    def job_status(self) -> str:
-        """The status of the quanting job."""
-        return get_job_handler().get_job_status(self._job_id)
 
     @property
     @abstractmethod
@@ -40,9 +35,10 @@ class QuantingSensorOperator(BaseSensorOperator, ABC):
         """Check the output of the ssh command."""
         del context  # unused
 
-        logging.info(f"job_status: '{self.job_status}'")
+        job_status = get_job_status(self._job_id)
+        logging.info(f"job_status: '{job_status}'")
 
-        return self.job_status not in self.states
+        return job_status not in self.states
 
     # show file size earlier
 

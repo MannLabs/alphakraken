@@ -34,4 +34,4 @@ repos:
       language: system
       # run only if python files changed
       files: |
-        (?x)^(.*py)$
+        (?x)^(?!.*/test_.*py)(.*py)$

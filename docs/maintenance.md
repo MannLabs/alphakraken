@@ -2,30 +2,23 @@
 Currently, there is some action needed after a reboot of the local worker PC. This could be
 avoided by using permanent mounts.
 
-#### Restart of PC/VM hosting the airflow infrastructure
-0. `ssh` into the PC/VM, `cd` to the alphakraken source directory, and set `export ENV=sandbox` (`production`).
+#### Restart of PC/VM hosting the DBs (MongoDB, Airflow Postgres DB, Redis)
+0. `ssh` into the PC/VM, `cd` to the alphakraken source directory, and set `export ENV=sandbox` (`export ENV=production`).
 
 1. Start the docker service
 ```bash
 sudo systemctl start docker
 ```
 
-2. Remount the `airflow_logs` folder (using the `kraken-read` user):
+2. Run the MongoDB, airflow db & redis services
 ```bash
-./mount.sh logs
-```
-
-3. Run the airflow infrastructure and MongoDB services
-```bash
-./compose.sh --profile infrastructure up --build -d
+./compose.sh --profile dbs up --build -d
 ```
 and check container health using `sudo docker ps`.
 
-Then, Airflow UI is accessible at http://hostname:8080/ and the Streamlit webapp at http://hostname:8501/.
 
-
-#### Restart of PC/VM hosting the workers
-0. `ssh` into the PC/VM, `cd` to the alphakraken source directory, and set `export ENV=sandbox` (`production`).
+#### Restart of PC/VM hosting the workers / infrastructure
+0. `ssh` into the PC/VM, `cd` to the alphakraken source directory, and set `export ENV=sandbox` (`export ENV=production`).
 
 1. Start the docker service
 ```bash
@@ -41,12 +34,21 @@ done
 You will be prompted for the password for each mount.
 When mounting `backup` you must use the `kraken-write` user with full write access (can also be used for `output` and `logs`).
 
-3. Run the worker containers (sandbox/production version)
+If infrastructure runs on a dedicated PC, only `logs` mount is required
+
+3. Run the worker and/or infrastructure containers
 ```bash
 ./compose.sh --profile workers up --build -d
 ```
 which spins up on worker service for each instrument,
 and check container health using `sudo docker ps`.
+
+4. Likewise, run the infrastructure containers
+```bash
+./compose.sh --profile infrastructure up --build -d
+```
+tpo make Airflow UI is accessible at http://hostname:8080/ and the Streamlit webapp at http://hostname:8501/.
+
 
 
 ## A note on 'state', fallback & catchup

@@ -119,6 +119,6 @@ def display_plotly_chart(
         img_bytes = fig.to_image(format="png", engine="kaleido")
         img = Image.open(io.BytesIO(img_bytes))
 
-        st.image(img)
+        display.image(img)
     else:
         display.plotly_chart(fig, **kwargs)

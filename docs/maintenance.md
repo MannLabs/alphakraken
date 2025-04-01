@@ -47,7 +47,7 @@ and check container health using `sudo docker ps`.
 ```bash
 ./compose.sh --profile infrastructure up --build -d
 ```
-tpo make Airflow UI is accessible at http://hostname:8080/ and the Streamlit webapp at http://hostname:8501/.
+to make Airflow UI is accessible at http://hostname:8080/ and the Streamlit webapp at http://hostname:8501/.
 
 
 

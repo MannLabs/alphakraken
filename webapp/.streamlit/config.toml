@@ -2,3 +2,6 @@
 base="light"
 primaryColor="#434c9e"
 secondaryBackgroundColor="#e5e5f1"
+
+[server]
+enableCORS = false  # needs to be off for browser VPN access

@@ -13,6 +13,11 @@ from common.keys import AirflowVars
 from common.paths import get_internal_instrument_data_path
 
 
+def get_file_ctime(path: Path) -> float:
+    """Get the creation timestamp (unix epoch, unit: seconds) of a file."""
+    return path.stat().st_ctime
+
+
 def get_file_creation_timestamp(
     raw_file_name: str, instrument_id: str, *, verbose: bool = True
 ) -> float:
@@ -22,7 +27,7 @@ def get_file_creation_timestamp(
     so make sure the results are file system independent.
     """
     raw_file_path = get_internal_instrument_data_path(instrument_id) / raw_file_name
-    file_creation_ts = raw_file_path.stat().st_ctime
+    file_creation_ts = get_file_ctime(raw_file_path)
     logging.info(
         f"File {raw_file_name} has {file_creation_ts=} {datetime.fromtimestamp(file_creation_ts, tz=pytz.UTC)}"
     ) if verbose else None

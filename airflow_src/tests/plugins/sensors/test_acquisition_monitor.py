@@ -1,7 +1,8 @@
 """Unit tests for the acquisition monitor plugin."""
 
-# ruff: noqa: SLF001
+from pathlib import Path
 
+# ruff: noqa: SLF001
 from unittest.mock import MagicMock, call, patch
 
 import pytest
@@ -243,6 +244,51 @@ def test_poke_file_dir_contents_dont_change_but_file_is_unchanged(  # noqa: PLR0
     )
 
 
+oldest_age = 2
+youngest_age = (
+    (5 * 3600) + oldest_age + 1.0
+)  # 5: default parameter for threshold_h in _is_older_than_threshold()
+intermediate_age = youngest_age // 2
+
+
+@patch("plugins.sensors.acquisition_monitor.get_airflow_variable", return_value="True")
+@patch("plugins.sensors.acquisition_monitor.get_file_ctime")
+@patch("plugins.sensors.acquisition_monitor.RawFileWrapperFactory")
+@patch("plugins.sensors.acquisition_monitor.update_raw_file")
+@patch("plugins.sensors.acquisition_monitor.get_raw_file_by_id")
+def test_poke_file_file_is_old(
+    mock_get_raw_file_by_id: MagicMock,
+    mock_update_raw_file: MagicMock,
+    mock_raw_file_wrapper_factory: MagicMock,
+    mock_get_file_ctime: MagicMock,
+    mock_get_airflow_variable: MagicMock,  # noqa: ARG001
+) -> None:
+    """Test poke method correctly returns when file is old and this mode is used."""
+    mock_path = MagicMock()
+    mock_path.stat.return_value = MagicMock(st_size=1)
+
+    mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.file_path_to_monitor_acquisition.return_value = mock_path
+
+    mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.get_raw_files_on_instrument.side_effect = [
+        {"some_file.raw"},  # initial content (pre_execute)
+        {"some_file.raw"},  # first poke
+    ]
+    mock_get_file_ctime.side_effect = [
+        youngest_age,  # initial content (pre_execute) -> youngest file
+        oldest_age,  # first poke
+    ]
+
+    sensor = get_sensor()
+    sensor.pre_execute({DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"}})
+
+    # when
+    assert sensor.poke({})
+
+    mock_update_raw_file.assert_called_once_with(
+        mock_get_raw_file_by_id.return_value.id, new_status="monitoring_acquisition"
+    )
+
+
 @patch("plugins.sensors.acquisition_monitor.RawFileWrapperFactory")
 @patch("plugins.sensors.acquisition_monitor.put_xcom")
 @patch("plugins.sensors.acquisition_monitor.update_raw_file")
@@ -329,4 +375,52 @@ def test_post_execute_acquisition_errors(
             ),
             call(mock_get_raw_file_by_id.return_value.id, new_status="monitoring_done"),
         ]
+    )
+
+
+def test_get_youngest_file_age_directory_empty() -> None:
+    """Test _get_youngest_file_age returns None when directory is empty."""
+    assert (
+        AcquisitionMonitor._get_youngest_file_age(Path("file_to_check"), set()) is None
+    )
+
+
+@patch("plugins.sensors.acquisition_monitor.get_file_ctime")
+def test_get_youngest_file_age(mock_get_file_ctime: MagicMock) -> None:
+    """Test _get_youngest_file_age returns correctly."""
+    mock_get_file_ctime.side_effect = [oldest_age, intermediate_age, youngest_age]
+    assert (
+        AcquisitionMonitor._get_youngest_file_age(
+            Path("file_to_check"), {"file1", "file2", "file3"}
+        )
+        == youngest_age
+    )
+
+
+@pytest.mark.parametrize(
+    ("age", "expected"),
+    [
+        (youngest_age, False),
+        (intermediate_age, False),
+        (oldest_age, True),
+    ],
+)
+@patch("plugins.sensors.acquisition_monitor.get_file_ctime")
+def test_is_older_than_threshold(
+    mock_get_file_ctime: MagicMock,
+    age: float,
+    *,
+    expected: bool,
+) -> None:
+    """Test _is_older_than_threshold returns correctly for several cases."""
+    mock_get_file_ctime.return_value = age
+
+    # when
+    assert (
+        AcquisitionMonitor._is_older_than_threshold(
+            Path("file_name"),
+            youngest_age,
+            threshold_h=5,
+        )
+        == expected
     )

@@ -5,7 +5,7 @@ A fully automated data processing and analysis system for mass spectrometry expe
 - copies raw data to a backup location
 - runs AlphaDIA on every sample and provides metrics in a web application
 
-<img src="docs/alphakraken.jpg" alt="alphakraken" style="max-width: 600px;"/>
+<img src="docs/overview.jpg" alt="overview" style="max-width: 600px;"/>
 
 ## Important note for users
 

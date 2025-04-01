@@ -5,25 +5,23 @@ from unittest.mock import MagicMock, call, patch
 import pytest
 from airflow.exceptions import AirflowFailException
 from plugins.common.keys import JobStates
-from plugins.sensors.ssh_sensor import WaitForJobFinishSlurmSSHSensor
+from plugins.sensors.ssh_sensor import WaitForJobFinishSensor
 from plugins.sensors.ssh_utils import ssh_execute
 
 
-@patch("plugins.sensors.ssh_sensor.get_cluster_ssh_hook")
-@patch("plugins.sensors.ssh_sensor.ssh_execute")
+@patch("plugins.sensors.ssh_sensor.get_job_handler")
 @patch("plugins.sensors.ssh_sensor.get_xcom")
 def test_poke_executes_ssh_command_and_checks_returned_state(
     mock_get_xcom: MagicMock,
-    mock_ssh_execute: MagicMock,
-    mock_get_cluster_ssh_hook: MagicMock,
+    mock_get_job_handler: MagicMock,
 ) -> None:
     """Test that the poke function returns False when the returned state is in the running states."""
     # given
     mock_get_xcom.return_value = "12345"
-    mock_ssh_execute.return_value = JobStates.RUNNING
+    mock_get_job_handler.return_value.get_job_status.return_value = JobStates.RUNNING
     context = {"ti": MagicMock()}
     # with patch.dict("os.environ", AIRFLOW_CONN_CLUSTER_SSH_CONNECTION=fixture_cluster_ssh_connection_uri):
-    operator = WaitForJobFinishSlurmSSHSensor(task_id="my_task")
+    operator = WaitForJobFinishSensor(task_id="my_task")
 
     operator.pre_execute(context)
 
@@ -33,32 +31,27 @@ def test_poke_executes_ssh_command_and_checks_returned_state(
     # then
     assert not result
 
-    mock_get_cluster_ssh_hook.assert_called_once()
 
-
-@patch("plugins.sensors.ssh_sensor.get_cluster_ssh_hook")
-@patch("plugins.sensors.ssh_sensor.ssh_execute")
+@patch("plugins.sensors.ssh_sensor.get_job_handler")
 @patch("plugins.sensors.ssh_sensor.get_xcom")
 def test_poke_returns_true_when_state_not_in_running_states(
     mock_get_xcom: MagicMock,
-    mock_ssh_execute: MagicMock,
-    mock_get_cluster_ssh_hook: MagicMock,
+    mock_get_job_handler: MagicMock,
 ) -> None:
     """Test that the poke function returns True when the returned state is not in the running states."""
     # given
     mock_get_xcom.return_value = "12345"
-    mock_ssh_execute.return_value = JobStates.COMPLETED
+
+    mock_get_job_handler.return_value.get_job_status.return_value = JobStates.COMPLETED
     context = {"ti": MagicMock()}
-    operator = WaitForJobFinishSlurmSSHSensor(task_id="my_task")
+    operator = WaitForJobFinishSensor(task_id="my_task")
 
     operator.pre_execute(context)
 
     # when
     result = operator.poke(context)
 
-    # then
     assert result
-    mock_get_cluster_ssh_hook.assert_called_once()
 
 
 # TODO: move test to test_ssh_utils.py

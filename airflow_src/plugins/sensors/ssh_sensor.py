@@ -7,12 +7,13 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any
 
 from airflow.sensors.base import BaseSensorOperator
-from cluster_scripts.slurm_commands import get_job_handler
 from common.keys import JobStates, XComKeys
 from common.utils import (
     get_cluster_ssh_hook,
     get_xcom,
 )
+from jobs.job_handler import get_job_handler
+from sensors.ssh_utils import ssh_execute
 
 if TYPE_CHECKING:
     from airflow.providers.ssh.hooks.ssh import SSHHook
@@ -53,7 +54,7 @@ class SSHSensorOperator(QuantingSensorOperator, ABC):
         """Check the output of the ssh command."""
         del context  # unused
 
-        ssh_return = self.command  # ssh_execute(self.command, self._ssh_hook)
+        ssh_return = ssh_execute(self.command, self._ssh_hook)
         logging.info(f"ssh command returned: '{ssh_return}'")
 
         return ssh_return not in self.states

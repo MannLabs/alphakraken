@@ -1,7 +1,7 @@
 """Module containing the commands to interact with job clusters.
 
 This module provides an abstract interface for job execution on different engines,
-with concrete implementations for SLURM and a more generic job engine.
+with concrete implementations for SLURM.
 """
 
 import abc
@@ -11,14 +11,25 @@ from typing import Literal
 
 from airflow.exceptions import AirflowFailException
 from common.constants import CLUSTER_JOB_SCRIPT_PATH, CLUSTER_WORKING_DIR
-from common.keys import JobStates
 from common.settings import _SETTINGS
 from sensors.ssh_utils import ssh_execute
 
-# TODO: move to settings
-ENGINE: Literal["SLURM", "GENERIC"] = (
-    _SETTINGS.get("general", {}).get("job_engine", {}).get("type", "GENERIC")
+# TODO: move to settings, introduce constants
+ENGINE: Literal["slurm", "generic"] = (
+    _SETTINGS.get("general", {}).get("job_engine", {}).get("type", "slurm")
 )
+
+
+def get_job_handler() -> "JobHandler":
+    """Factory function to get the appropriate job handler based on the configured engine."""
+    if ENGINE == "generic":
+        from jobs._experimental.generic_file_handler import GenericJobHandler
+
+        logging.info("Using GenericJobHandler")
+        return GenericJobHandler()
+    # Default to SLURM
+    logging.info("Using SlurmSSHJobHandler")
+    return SlurmSSHJobHandler()
 
 
 class JobHandler(abc.ABC):
@@ -52,33 +63,6 @@ class JobHandler(abc.ABC):
             Tuple of (job_status, time_elapsed_seconds)
 
         """
-
-
-# TODO: add unit tests
-class GenericJobHandler(JobHandler):
-    """Implementation of JobHandler that doesn't use Slurm but a more generic approach."""
-
-    def start_job(self, quanting_env: dict[str, str], year_month_folder: str) -> str:
-        """Start a quanting job on the generic job engine."""
-        del quanting_env  # TODO: use
-        del year_month_folder  # TODO: use
-        command = "sleep 60"
-        wrapped_command = f"{command} > /dev/null 2>&1 & echo $!"
-
-        return ssh_execute(wrapped_command)
-
-    def get_job_status(self, job_id: str) -> str:
-        """Get the status of a job on the generic job engine."""
-        command = f"ps -p {job_id} > /dev/null 2>&1; echo $?"
-
-        ssh_return = ssh_execute(command)
-
-        # here we can decide only on two states: running or not running
-        return JobStates.RUNNING if ssh_return == "0" else JobStates.COMPLETED
-
-    def get_job_result(self, job_id: str) -> tuple[str, int]:
-        """Get the job status and time elapsed from the generic job engine."""
-        return self.get_job_status(job_id), 0  # TODO: how to get the run time?
 
 
 # TODO: reorder unit tests
@@ -172,16 +156,6 @@ class SlurmSSHJobHandler(JobHandler):
         logging.info(f"extracted {time_stamp=}")
         t = datetime.strptime(time_stamp, "%H:%M:%S")  # noqa: DTZ007
         return (t.hour * 3600) + (t.minute * 60) + t.second
-
-
-def get_job_handler() -> JobHandler:
-    """Factory function to get the appropriate job handler based on the configured engine."""
-    if ENGINE == "GENERIC":
-        logging.info("Using GenericJobHandler")
-        return GenericJobHandler()
-    # Default to SLURM
-    logging.info("Using SlurmSSHJobHandler")
-    return SlurmSSHJobHandler()
 
 
 # TODO: use get_job_handler here

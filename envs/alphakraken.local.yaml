@@ -34,4 +34,4 @@ locations:
 
 general:
   job_engine:
-    type: GENERIC
+    type: slurm

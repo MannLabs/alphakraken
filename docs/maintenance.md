@@ -67,9 +67,12 @@ Under certain circumstances, files will stay in non-final states, which can be d
 
 ### Fallback & catchup
 Suppose a given AlphaKraken instance `A`, with a certain state in its `MongoDB`, becomes temporarily unavailable.
-To continue operation, one a completely independent new instance `B` can be set up (with the same configuration and mounts),
+To continue operation, one a completely independent new instance `B` can be set up
+(with the same configuration, mounts, quanting settings),
 which will take care of the file backup and processing tasks while `A` is down. As `B` would be starting from a completely
 clean MongoDB instance, the comparison to past data will of course be limited.
+Also, the `debug_max_file_age_in_hours` Airflow variable can be used to avoid re-processing older files
+in case the instrument acquisition folder contains many old files.
 Note that, in order to allow `A` to pick up from where it stopped, the `file_move` task should be disabled on `B`
 as the files in the acquisition folders are the entrypoint for the whole processing.
 

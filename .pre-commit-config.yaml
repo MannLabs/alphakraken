@@ -32,7 +32,6 @@ repos:
       name: pytype
       entry: uvx pytype
       language: system
+      # run only if python files changed
       files: |
-        (?x)^(
-              .*py
-          )$
+        (?x)^(.*py)$

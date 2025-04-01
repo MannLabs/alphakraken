@@ -111,6 +111,20 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
     put_xcom(ti, XComKeys.RAW_FILE_ID, raw_file_id)
 
 
+def _get_slurm_job_id_from_log(output_path: Path) -> str | None:
+    """Extract the SLURM job id from the log file, return None if file or id not existing."""
+    log_file = output_path / AlphaDiaConstants.LOG_FILE_NAME
+    if not log_file.exists():
+        return None
+
+    with log_file.open() as file:
+        for line in file:
+            if "SLURM_JOB_ID:" in line or "slurm_job_id:" in line:
+                return str(int(line.split()[-1]))
+
+    return None
+
+
 def run_quanting(ti: TaskInstance, **kwargs) -> None:
     """Run the quanting job on the cluster."""
     del kwargs  # unused
@@ -133,11 +147,29 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
     )
     if Path(output_path).exists():
         msg = f"Output path {output_path} already exists."
-        if get_airflow_variable(AirflowVars.ALLOW_OUTPUT_OVERWRITE, "False") != "True":
-            raise AirflowFailException(
-                f"{msg} Remove it before restarting the quanting or set ALLOW_OUTPUT_OVERWRITE."
+        output_exists_mode = get_airflow_variable(
+            AirflowVars.OUTPUT_EXISTS_MODE, "raise"
+        )
+        if output_exists_mode == "overwrite":
+            logging.warning(
+                f"{msg} Overwriting it because Airflow variable output_exists_mode='overwrite' is set."
             )
-        logging.warning(f"{msg} Overwriting it because ALLOW_OUTPUT_OVERWRITE is set.")
+        elif output_exists_mode == "associate":
+            logging.warning(f"{msg} Trying to associate job.")
+
+            if (extracted_job_id := _get_slurm_job_id_from_log(output_path)) is None:
+                logging.exception("Could not read off job id from log file.")
+                raise AirflowFailException("Job submission failed.")
+
+            put_xcom(ti, XComKeys.JOB_ID, extracted_job_id)
+
+            logging.warning(f"Assuming job id {extracted_job_id}...")
+            return
+        else:
+            raise AirflowFailException(
+                f"{msg} Remove it before restarting the quanting or set Airflow variable 'output_exists_mode' to 'overwrite' or 'associate' "
+                f"(got {output_exists_mode})"
+            )
 
     year_month_folder = get_created_at_year_month(raw_file)
 

@@ -34,56 +34,27 @@ python -m pytest
 ```
 If you encounter a `sqlite3.OperationalError: no such table: dag`, run `airflow db init` once.
 
-### Manual testing
+### Local testing
 This allows testing most of the functionality on your local machine. The SSH connection is cut off, and a
-special worker ("test1") is used that has the `airflow_test_folder` mounted (instead of the pool).
-Note: the instrument type for `test1` is set to `thermo`. In order to test other workflows,
-change this locally in `settings.py:INSTRUMENTS`.
+special worker ("test1") is used that has the `local_test` folder mounted (instead of the pool folders).
 
-1. Run the `docker compose` (`./compose.sh`) command for the local setup (cf. above) and log into the airflow UI.
-2. Unpause all `*.test1` DAGs. The "watcher" should start running.
-3. If you do not want to feed the cluster, set the Airflow variable `debug_no_cluster_ssh=True` (see above)
-4. In the webapp, create a project with the name `P123`, and add some fake settings to it.
-5. Create a test raw file in the backup pool folder to fake the acquisition.
+1. Run the `docker compose` (`./compose.sh`) command for the local setup (cf. above) and log into the Airflow UI.
+2. (one-time setup) To decouple from the Slurm cluster, set the Airflow variable `debug_no_cluster_ssh=True` (see above).
+Also, create the `cluster_slots_pool` and the `file_copy_pool` (cf. [here](#setup-required-pools)) in the Airflow UI.
+In the webapp, create a project with the name `P123`, and add some fake settings to it.
 
-For type "Thermo":
+3. Unpause all `*.test*` DAGs. The `instrument_watcher`s should start running.
+
+4. Create a test raw file in the backup pool folder to fake the acquisition and data processing
 ```bash
-I=$((I+1)); RAW_FILE_NAME=test_file_SA_P123_${I}.raw; echo $RAW_FILE_NAME
-touch airflow_test_folders/instruments/test1/$RAW_FILE_NAME
+local_test/create_test_run.sh test1
 ```
+here, `test1` is a "Thermo"-type instrument. For other instruments, use `test2` (Bruker) or `test3` (Sciex).
 
-For type "Sciex":
-```bash
-I=$((I+1)); RAW_FILE_STEM=test_file_SA_P123_${I}; RAW_FILE_NAME=$RAW_FILE_STEM.wiff; echo $RAW_FILE_NAME
-touch airflow_test_folders/instruments/test1/$RAW_FILE_NAME
-touch airflow_test_folders/instruments/test1/${RAW_FILE_STEM}.wiff2
-touch airflow_test_folders/instruments/test1/${RAW_FILE_STEM}.wiff.scan
-touch airflow_test_folders/instruments/test1/${RAW_FILE_STEM}.timeseries.data
-```
+5. Wait until the `instrument_watcher` picks up the file (you may mark the `wait_for_new_files` task as "success" to speed up the process)
+and triggers an `acquisition_handler` DAG. Here again, you can mark the `monitor_acquisition` task as "success" to speed up the process.
 
-For type "Bruker":
-```bash
-I=$((I+1)); RAW_FILE_NAME=test_file_SA_P123_${I}.d; echo $RAW_FILE_NAME
-mkdir -p airflow_test_folders/instruments/test1/$RAW_FILE_NAME/some_folder
-touch airflow_test_folders/instruments/test1/$RAW_FILE_NAME/analysis.tdf_bin
-touch airflow_test_folders/instruments/test1/$RAW_FILE_NAME/analysis.tdf
-touch airflow_test_folders/instruments/test1/$RAW_FILE_NAME/some_folder/some_file.txt
-```
-
-6. Wait until the `instrument_watcher` picks up the file (you may mark the `wait_for_new_files` task as "success" to speed up the process).
-It should trigger a `acquisition_handler` DAG, which in turn should trigger a `acquisition_processor` DAG.
-
-7. After the `compute_metrics` task failed because of missing output files,
-create those by copying fake AlphaDIA result data to the expected output directory
-(set `YEAR_MONTH=<current year>_<current month>`, e.g. `2024_08`)
-```bash
-NEW_OUTPUT_FOLDER=airflow_test_folders/output/P1/$YEAR_MONTH/out_$RAW_FILE_NAME
-mkdir -p $NEW_OUTPUT_FOLDER
-cp airflow_test_folders/_data/* $NEW_OUTPUT_FOLDER
-```
-and clear the task state using the UI.
-
-8. Wait until DAG run finished and check results in the webapp.
+6. Wait until DAG run finished and check results in the webapp.
 
 ### Connect to the DB
 Use e.g. MongoDB Compass to connect to the MongoDB running in Docker using the url `<hostname>:27017` (e.g. `localhost:27017`),

@@ -131,7 +131,7 @@ def get_cluster_ssh_hook(
     ssh_conn_id: str = CLUSTER_SSH_CONNECTION_ID,
     conn_timeout: int = CLUSTER_SSH_CONNECTION_TIMEOUT,
     cmd_timeout: int = CLUSTER_SSH_COMMAND_TIMEOUT,
-) -> SSHHook:
+) -> SSHHook | None:
     """Get the SSH hook for the cluster.
 
     The connection id needs to be defined in the Airflow UI.
@@ -144,7 +144,7 @@ def get_cluster_ssh_hook(
     except AirflowNotFoundException as e:
         msg = (
             f"Could not find cluster SSH connection. Either set up the connection '{ssh_conn_id}' ('Admin -> Connections') "
-            f"or set the Airflow Variable 'debug_no_cluster_ssh=False'.\n"
+            f"or set the Airflow Variable 'debug_no_cluster_ssh=True'.\n"
             f"Original message: {e}"
         )
-        raise AirflowNotFoundException(msg) from e
+        logging.warning(msg)

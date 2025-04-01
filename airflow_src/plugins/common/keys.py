@@ -112,7 +112,7 @@ class AirflowVars:
     """Keys for accessing Airflow Variables (set in the Airflow UI). Cf. also Readme."""
 
     # If set to True, quanting can be started even if the output folder already exists.
-    ALLOW_OUTPUT_OVERWRITE: str = "allow_output_overwrite"
+    OUTPUT_EXISTS_MODE: str = "output_exists_mode"
 
     # The minimum file age in days for files to be removed by the file_remover.
     MIN_FILE_AGE_TO_REMOVE_IN_DAYS: str = "min_file_age_to_remove_in_days"

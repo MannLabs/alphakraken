@@ -70,11 +70,17 @@ The minimum file age in days for files to be removed by the file_remover.
 
 Recommended setting in production: `14` (default)
 
-### allow_output_overwrite (default: False)
-If set to `True`, the system will overwrite existing output files. Convenience switch to avoid manual deletion of output files
+### output_exists_mode (default: raise)
+Convenience switch to avoid manual handling of output files
 in case something went wrong with the quanting.
 
-Recommended setting in production: False (default)
+If set to `raise`, processing of the file will stop in case the output folder exists.
+If set to `overwrite`, the system will start a new job, overwriting the existing output files.
+If set to `associate`, the system will try to read off the Slurm job id from the existing AlphaDIA `log.txt`
+(from the first line containing "slurm_job_id: ", taking the first word after that)
+and associate the current task to the slurm job with that id.
+
+Recommended setting in production: 'raise' (default)
 
 ### backup_overwrite_file_id (default: None)
 In case the `file_copy` task is interrupted (e.g. manually) while a file is being copied,

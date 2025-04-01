@@ -61,7 +61,9 @@ def test_returns_test_settings_for_test_environment() -> None:
     assert settings == {"instruments": {"_test1_": {"type": "thermo"}}}
 
 
-def returns_setting_for_existing_instrument_and_key() -> None:
+def test_get_instrument_settings_returns_setting_for_existing_instrument_and_key() -> (
+    None
+):
     """Test that a setting is returned for an existing instrument and key."""
     with (
         patch("common.settings._INSTRUMENTS", {"instrument1": {"key1": "value1"}}),
@@ -70,7 +72,7 @@ def returns_setting_for_existing_instrument_and_key() -> None:
         assert get_instrument_settings("instrument1", "key1") == "value1"
 
 
-def raises_key_error_for_non_existing_key() -> None:
+def test_get_instrument_settings_raises_key_error_for_non_existing_key() -> None:
     """Test that a KeyError is raised if the key does not exist in the instrument settings."""
     with (
         patch("common.settings._INSTRUMENTS", {"instrument1": {"key1": "value1"}}),
@@ -80,7 +82,7 @@ def raises_key_error_for_non_existing_key() -> None:
         get_instrument_settings("instrument1", "key2")
 
 
-def raises_key_error_for_non_existing_instrument() -> None:
+def test_get_instrument_settings_raises_key_error_for_non_existing_instrument() -> None:
     """Test that a KeyError is raised if the instrument does not exist in the instrument settings."""
     with (
         patch("common.settings._INSTRUMENTS", {"instrument1": {"key1": "value1"}}),
@@ -90,7 +92,9 @@ def raises_key_error_for_non_existing_instrument() -> None:
         get_instrument_settings("instrument2", "key1")
 
 
-def returns_default_setting_if_key_not_in_instrument_settings() -> None:
+def test_get_instrument_settings_returns_default_setting_if_key_not_in_instrument_settings() -> (
+    None
+):
     """Test that a default setting is returned if the key is not in the instrument settings."""
     with (
         patch("common.settings._INSTRUMENTS", {"instrument1": {}}),

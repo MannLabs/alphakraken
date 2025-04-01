@@ -111,17 +111,20 @@ class InstrumentTypes:
 class AirflowVars:
     """Keys for accessing Airflow Variables (set in the Airflow UI). Cf. also Readme."""
 
-    # If set to True, quanting can be started even if the output folder already exists.
-    ALLOW_OUTPUT_OVERWRITE: str = "allow_output_overwrite"
+    # set to a specific file name to allow overwriting it on the pool backup
+    BACKUP_OVERWRITE_FILE_ID = "backup_overwrite_file_id"
+
+    # whether to consider acquisition "done" if current file is "old" (> 5h) compared to youngest file
+    CONSIDER_OLD_FILES_ACQUIRED = "consider_old_files_acquired"
+
+    # for special modes 'overwrite' or 'associated' (see docs)
+    OUTPUT_EXISTS_MODE: str = "output_exists_mode"
 
     # The minimum file age in days for files to be removed by the file_remover.
     MIN_FILE_AGE_TO_REMOVE_IN_DAYS: str = "min_file_age_to_remove_in_days"
 
     # Minimum free space that should be left after file removal.
     MIN_FREE_SPACE_GB: str = "min_free_space_gb"
-
-    # set to a specific file name to allow overwriting it on the pool backup
-    BACKUP_OVERWRITE_FILE_ID = "backup_overwrite_file_id"
 
     # some flags that can be used for debugging and/or to simplify the local setup
     DEBUG_NO_CLUSTER_SSH = "debug_no_cluster_ssh"

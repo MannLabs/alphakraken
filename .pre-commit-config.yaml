@@ -32,3 +32,7 @@ repos:
       name: pytype
       entry: uvx pytype
       language: system
+      files: |
+        (?x)^(
+              .*py
+          )$

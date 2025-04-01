@@ -497,6 +497,7 @@ services:
 
   nginx:
     image: nginx:latest
+    profiles: ["nginx"]
     ports:
       - "80:80"
       - "443:443"

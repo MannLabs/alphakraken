@@ -10,7 +10,6 @@ from common.utils import get_airflow_variable, get_cluster_ssh_hook, truncate_st
 from paramiko.ssh_exception import SSHException
 
 
-@staticmethod
 def ssh_execute(
     command: str,
     ssh_hook: SSHHook | None = None,
@@ -64,13 +63,11 @@ def ssh_execute(
     return str_stdout
 
 
-@staticmethod
 def _byte_to_string(input_: bytes) -> str:
     """Convert the given `input_` to a string."""
     return input_.decode("utf-8").strip()
 
 
-@staticmethod
 def _get_fake_ssh_response(command: str) -> str:
     """Fake an ssh response for the given `command`.
 

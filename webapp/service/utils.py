@@ -105,8 +105,8 @@ def display_info_message(st_display: st.delta_generator.DeltaGenerator = None) -
             st_display.info(content, icon="ℹ️")  # noqa: RUF001
 
 
-def is_true(key: str) -> bool:
-    """Whether app is called with 'mobile' parameter."""
+def is_query_param_true(key: str) -> bool:
+    """Whether app is called with parameter `key` equal to 'True' (case-insensitive) or '1'."""
     return st.query_params.get(key, "False").lower() in ["true", "1"]
 
 
@@ -115,7 +115,7 @@ def display_plotly_chart(
 ) -> None:
     """Display a plotly chart in a streamlit app."""
     # currently, the mobile setup does not support plotly charts
-    if is_true(QueryParams.MOBILE):
+    if is_query_param_true(QueryParams.MOBILE):
         img_bytes = fig.to_image(format="png", engine="kaleido")
         img = Image.open(io.BytesIO(img_bytes))
 

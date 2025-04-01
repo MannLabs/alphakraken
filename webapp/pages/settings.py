@@ -16,7 +16,7 @@ from service.utils import (
     SessionStateKeys,
     _log,
     empty_to_none,
-    is_true,
+    is_query_param_true,
     show_feedback_in_sidebar,
 )
 
@@ -193,8 +193,10 @@ if selected_project:
 
         submit = st.form_submit_button(
             f"Add settings to project {selected_project.id}",
-            disabled=not is_true(QueryParams.ADMIN),
-            help="Temporarily disabled." if not is_true(QueryParams.ADMIN) else "",
+            disabled=not is_query_param_true(QueryParams.ADMIN),
+            help="Temporarily disabled."
+            if not is_query_param_true(QueryParams.ADMIN)
+            else "",
         )
 
 

@@ -8,11 +8,10 @@ import streamlit as st
 from service.components import show_filter, show_sandbox_message
 from service.db import df_from_db_data, get_project_data
 from service.utils import (
-    QueryParams,
+    DISABLE_WRITE,
     SessionStateKeys,
     _log,
     empty_to_none,
-    is_query_param_true,
     show_feedback_in_sidebar,
 )
 
@@ -118,10 +117,8 @@ with c1.form("create_project_form"):
     st.write(r"\* Required fields")
     form_submit = st.form_submit_button(
         "Create project",
-        disabled=not is_query_param_true(QueryParams.ADMIN),
-        help="Temporarily disabled."
-        if not is_query_param_true(QueryParams.ADMIN)
-        else "",
+        disabled=DISABLE_WRITE,
+        help="Temporarily disabled." if DISABLE_WRITE else "",
     )
 
 

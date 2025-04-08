@@ -29,7 +29,7 @@ COPY airflow_src/plugins /opt/airflow/plugins
 # COPY airflow_src/config /opt/airflow/config  # comment in once config folder is being used
 COPY shared /opt/airflow/shared
 
-# TODO: make this a volume mapping
+# TODO: make this a volume mapping to not bake this into the image
 RUN mkdir /opt/airflow/envs
 COPY envs/alphakraken.*.yaml /opt/airflow/envs
 # avoid sensitive data in the container

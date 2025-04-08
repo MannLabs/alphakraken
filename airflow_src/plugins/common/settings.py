@@ -48,7 +48,7 @@ class Concurrency:
     MAXNO_COPY_RAW_FILE_TASKS_PER_DAG: int = 2
 
     # limit the number of concurrent monitors to not over-stress the network (relevant only during a catchup)
-    MAXNO_MONITOR_ACQUISITION_TASKS_PER_DAG: int = 10
+    MAXNO_MONITOR_ACQUISITION_TASKS_PER_DAG: int = 14
 
     MAXNO_MOVE_RAW_FILE_TASKS_PER_DAG: int = 1
 

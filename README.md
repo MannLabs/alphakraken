@@ -39,7 +39,7 @@ For the impatient:
 git clone https://github.com/MannLabs/alphakraken.git && cd alphakraken
 echo -e "AIRFLOW_UID=$(id -u)" > envs/.env-airflow
 ENV=local && export ENV=$ENV
-./compose.sh --profile infrastructure up airflow-init
+./compose.sh --profile dbs up airflow-init
 ./compose.sh --profile local up --build -d
 ```
 After startup, the airflow webserver runs on http://localhost:8080/ (default credentials: airflow/airflow), the Streamlit webapp on http://localhost:8501/ .

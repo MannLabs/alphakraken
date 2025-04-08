@@ -45,9 +45,9 @@ directory (otherwise, `root` would be used)
 echo -e "AIRFLOW_UID=$(id -u)" > envs/.env-airflow
 ```
 
-4. On the PC that will host the internal airflow database (not the MongoDB!) run
+4. On the PC that will host the internal Airflow database (this is not the MongoDB!) run
 ```bash
-./compose.sh --profile infrastructure up airflow-init
+./compose.sh --profile dbs up airflow-init
 ```
 Note: depending on your operating system and configuration, you might need to run `docker compose` command with `sudo`.
 
@@ -89,7 +89,7 @@ whereas `sandbox`/`production` is per default distributed over two machines
 
 The different services can be distributed over several machines. The only important thing is that there
 it exactly one instance of each of the 'central components': `postgres-service`, `redis-service`, and `mongodb-service`.
-One reasonable setup is to have the airflow infrastructure and the MongoDB service on one machine,
+One reasonable setup is to have the Airflow infrastructure and the MongoDB service on one machine,
 and all workers on another. This is the current setup in the docker-compose, which is reflected by the
 profiles `infrastructure` and `workers`, respectively. If you move one of the central components
 to another machine, you might need to adjust the `*_HOST` variables in the
@@ -119,21 +119,33 @@ This is currently required, as manual work is needed anyway after a machine rebo
 (see [below](maintenance.md/#actions-to-take-after-a-machine-reboot))
 and thus the automated start of containers is not desired.
 
-#### On the PC (VM) hosting the airflow infrastructure
-0. `ssh` into the PC/VM, `cd` to the alphakraken source directory, and set `export ENV=sandbox` (`production`).
+#### On the PC (VM) hosting the dbs (MongoDB, Airflow Postgres, Redis)
+
+0. `ssh` into the PC/VM, `cd` to the alphakraken source directory, and set `export ENV=sandbox` (`export ENV=production`).
+
+2. Follow the steps for after a restart [below](maintenance.md/#restart-of-pcvm-hosting-the-dbs-mongodb-airflow-postgres-db-redis).
+
+
+#### On the PC (VM) hosting the airflow infrastructure (scheduler, webserver)
+
+0. `ssh` into the PC/VM, `cd` to the alphakraken source directory, and set `export ENV=sandbox` (`export ENV=production`).
 
 1. Set up the [pool bind mounts](#set-up-pool-bind-mounts) for `airflow_logs` only. Here, the logs of the individual task runs will be stored
 for display in the Airflow UI.
 
-2. Follow the steps for after a restart [below](maintenance.md/#restart-of-pcvm-hosting-the-airflow-infrastructure).
+2. Follow the steps for after a restart [below](maintenance.md/#restart-of-pcvm-hosting-the-workers--infrastructure).
 
 #### On the PC (VM) hosting the workers
-0. `ssh` into the PC/VM, `cd` to the alphakraken source directory, and set `export ENV=sandbox` (`production`).
+0. `ssh` into the PC/VM, `cd` to the alphakraken source directory, and set `export ENV=sandbox` (`export ENV=production`).
 
 1. Set up the [pool bind mounts](#set-up-pool-bind-mounts) for all instruments and `logs`, `backup` and `output`.
 
-2. Follow the steps for after a restart [below](maintenance.md/#restart-of-pcvm-hosting-the-workers).
+2. Follow the steps for after a restart [below](maintenance.md/#restart-of-pcvm-hosting-the-workers--infrastructure).
 
+#### URL redirect
+In case you want to set up a URL redirect from one PC to one or multiple others, do the following on the redirecting PC:
+1. Edit `nginx.conf`: substitute the placeholder IP adresses (e.g. `255.255.0.1`) with the correct ones.
+2. Start the respective container `./compose.sh up nginx --build --force-recreate -d`, see the folder `nginx_logs` for logs
 
 #### On the cluster
 1. Log into the cluster using the `kraken-write` user.

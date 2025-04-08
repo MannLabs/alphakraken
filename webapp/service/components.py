@@ -12,7 +12,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 from matplotlib import pyplot as plt
-from service.utils import DEFAULT_MAX_AGE_STATUS
+from service.utils import DEFAULT_MAX_AGE_STATUS, display_plotly_chart
 
 from shared.db.models import TERMINAL_STATUSES, RawFileStatus
 from shared.keys import EnvVars
@@ -170,7 +170,7 @@ def show_status_plot(
         height=500,
     )
 
-    display.plotly_chart(fig)
+    display_plotly_chart(fig, display)
 
 
 def show_time_in_status_table(

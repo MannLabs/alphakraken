@@ -26,6 +26,7 @@ from service.utils import (
     QueryParams,
     _log,
     display_info_message,
+    display_plotly_chart,
 )
 
 from shared.db.models import ERROR_STATUSES
@@ -470,7 +471,7 @@ def _draw_plot(  # noqa: PLR0913
         ]
         fig.update_traces(mode="lines+markers", marker={"symbol": symbol})
     fig.add_hline(y=median_, line_dash="dash", line={"color": "lightgrey"})
-    st.plotly_chart(fig)
+    display_plotly_chart(fig)
 
 
 def _get_yerror_column_name(y_column_name: str, df: pd.DataFrame) -> str | None:

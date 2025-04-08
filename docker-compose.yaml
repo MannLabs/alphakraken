@@ -94,7 +94,7 @@ x-airflow-worker:
 
 services:
   postgres-service:
-    profiles: ["local", "infrastructure"]
+    profiles: ["local", "dbs"]
     image: postgres:13
     # the default value of 100 connections yielded 'psycopg2.OperationalError: FATAL:  sorry, too many clients already'
     # and tasks sticking in 'scheduled' state for a long time
@@ -116,7 +116,7 @@ services:
     restart: always
 
   redis-service:
-    profiles: ["local", "infrastructure"]
+    profiles: ["local", "dbs"]
     # Redis is limited to 7.2-bookworm due to licencing change
     # https://redis.io/blog/redis-adopts-dual-source-available-licensing/
     image: redis:7.2-bookworm
@@ -270,7 +270,7 @@ services:
 #    restart: always
 
   mongodb-service:
-    profiles: ["local", "infrastructure"]
+    profiles: ["local", "dbs"]
     # cf. https://www.mongodb.com/resources/products/compatibilities/docker
     image: mongo:6-jammy
     ports:
@@ -322,7 +322,7 @@ services:
     build:
       context: .
       dockerfile: monitoring/Dockerfile
-    profiles: ["infrastructure", "workers"] # have monitoring running on all machines (downsides: potential alerts duplication)
+    profiles: ["infrastructure", "workers", "dbs"] # have monitoring running on all machines (downsides: potential alerts duplication)
     environment:
       <<: *airflow-common-env
       SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL}
@@ -494,3 +494,16 @@ services:
       - ${MOUNTS_PATH:?error}/output:/opt/airflow/mounts/output:ro
       - ${MOUNTS_PATH:?error}/instruments/test9:/opt/airflow/mounts/instruments/test9:ro
       - ${MOUNTS_PATH:?error}/backup/test9:/opt/airflow/mounts/backup/test9:rw
+
+  nginx:
+    image: nginx:latest
+    profiles: ["nginx"]
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"  # for serving Airflow webserver
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx_logs:/var/log/nginx/
+        # - ./certs:/etc/nginx/certs:ro  # Optional: for SSL certificates
+    restart: always

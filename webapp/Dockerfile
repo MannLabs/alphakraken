@@ -19,6 +19,7 @@ RUN  --mount=type=cache,target=/root/.cache/pip \
 
 COPY webapp webapp
 COPY shared webapp/shared
+COPY webapp/.streamlit .streamlit
 
 # cf. README.md:A note on importing
 ENV PYTHONPATH "${PYTHONPATH}:/app/webapp/"

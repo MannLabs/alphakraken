@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any
 
 from airflow.sensors.base import BaseSensorOperator
-from cluster_scripts.slurm_commands import get_job_state_cmd
+from cluster_scripts.slurm_commands import SlurmSSHJobHandler
 from common.keys import JobStates, XComKeys
 from common.utils import (
     get_cluster_ssh_hook,
@@ -62,7 +62,7 @@ class SSHSensorOperator(QuantingSensorOperator, ABC):
     # show file size earlier
 
 
-class WaitForJobStartSSHSensor(SSHSensorOperator):
+class WaitForJobStartSlurmSSHSensor(SSHSensorOperator):
     """Wait until a SLURM job leaves status 'PENDING'."""
 
     @property
@@ -72,7 +72,7 @@ class WaitForJobStartSSHSensor(SSHSensorOperator):
         Must be a bash script that is executable on the cluster.
         Its only output to stdout must be the status of the queried job.
         """
-        return get_job_state_cmd(self._job_id)
+        return SlurmSSHJobHandler.get_job_state_cmd(self._job_id)
 
     @property
     def states(self) -> list[str]:
@@ -80,7 +80,7 @@ class WaitForJobStartSSHSensor(SSHSensorOperator):
         return [JobStates.PENDING]
 
 
-class QuantingSSHSensor(SSHSensorOperator):
+class WaitForJobFinishSlurmSSHSensor(SSHSensorOperator):
     """Wait until a SLURM job leaves status 'RUNNING'."""
 
     @property
@@ -90,7 +90,7 @@ class QuantingSSHSensor(SSHSensorOperator):
         Must be a bash script that is executable on the cluster.
         Its only output to stdout must be the status of the queried job.
         """
-        return get_job_state_cmd(self._job_id)
+        return SlurmSSHJobHandler.get_job_state_cmd(self._job_id)
 
     @property
     def states(self) -> list[str]:

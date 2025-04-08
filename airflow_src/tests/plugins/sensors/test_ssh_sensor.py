@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, call, patch
 import pytest
 from airflow.exceptions import AirflowFailException
 from plugins.common.keys import JobStates
-from plugins.sensors.ssh_sensor import QuantingSSHSensor
+from plugins.sensors.ssh_sensor import WaitForJobFinishSlurmSSHSensor
 from plugins.sensors.ssh_utils import ssh_execute
 
 
@@ -23,7 +23,7 @@ def test_poke_executes_ssh_command_and_checks_returned_state(
     mock_ssh_execute.return_value = JobStates.RUNNING
     context = {"ti": MagicMock()}
     # with patch.dict("os.environ", AIRFLOW_CONN_CLUSTER_SSH_CONNECTION=fixture_cluster_ssh_connection_uri):
-    operator = QuantingSSHSensor(task_id="my_task")
+    operator = WaitForJobFinishSlurmSSHSensor(task_id="my_task")
 
     operator.pre_execute(context)
 
@@ -49,7 +49,7 @@ def test_poke_returns_true_when_state_not_in_running_states(
     mock_get_xcom.return_value = "12345"
     mock_ssh_execute.return_value = JobStates.COMPLETED
     context = {"ti": MagicMock()}
-    operator = QuantingSSHSensor(task_id="my_task")
+    operator = WaitForJobFinishSlurmSSHSensor(task_id="my_task")
 
     operator.pre_execute(context)
 

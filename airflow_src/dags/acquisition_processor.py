@@ -24,8 +24,8 @@ from impl.processor_impl import (
     upload_metrics,
 )
 from sensors.ssh_sensor import (
-    WaitForJobFinishSlurmSSHSensor,
-    WaitForJobStartSlurmSSHSensor,
+    WaitForJobFinishSensor,
+    WaitForJobStartSensor,
 )
 
 
@@ -70,14 +70,14 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
             pool=Pools.CLUSTER_SLOTS_POOL,
         )
 
-        wait_for_job_start_ = WaitForJobStartSlurmSSHSensor(
+        wait_for_job_start_ = WaitForJobStartSensor(
             task_id=Tasks.WAIT_FOR_JOB_START,
             poke_interval=Timings.QUANTING_MONITOR_POKE_INTERVAL_S,
             max_active_tis_per_dag=Concurrency.MAXNO_MONITOR_QUANTING_TASKS_PER_DAG,
             pool=Pools.CLUSTER_SLOTS_POOL,
         )
 
-        monitor_quanting_ = WaitForJobFinishSlurmSSHSensor(
+        monitor_quanting_ = WaitForJobFinishSensor(
             task_id=Tasks.MONITOR_QUANTING,
             poke_interval=Timings.QUANTING_MONITOR_POKE_INTERVAL_S,
             max_active_tis_per_dag=Concurrency.MAXNO_MONITOR_QUANTING_TASKS_PER_DAG,

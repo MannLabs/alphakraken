@@ -1,6 +1,7 @@
-"""Module containing the commands to interact with the SLURM cluster.
+"""Module containing the commands to interact with job clusters.
 
-All the commands must be bash script that are executable on the cluster.
+This module provides an abstract interface for job execution on different engines,
+with concrete implementations for SLURM.
 """
 
 import abc
@@ -9,7 +10,23 @@ from datetime import datetime
 
 from airflow.exceptions import AirflowFailException
 from common.constants import CLUSTER_JOB_SCRIPT_PATH, CLUSTER_WORKING_DIR
+from common.settings import _SETTINGS
 from sensors.ssh_utils import ssh_execute
+
+# TODO: move to settings, introduce constants
+ENGINE: str = _SETTINGS.get("general", {}).get("job_engine", {}).get("type", "slurm")
+
+
+def get_job_handler() -> "JobHandler":
+    """Factory function to get the appropriate job handler based on the configured engine."""
+    if ENGINE == "generic":
+        from jobs._experimental.generic_file_handler import GenericJobHandler
+
+        logging.info("Using GenericJobHandler")
+        return GenericJobHandler()
+    # Default to SLURM
+    logging.info("Using SlurmSSHJobHandler")
+    return SlurmSSHJobHandler()
 
 
 class JobHandler(abc.ABC):
@@ -29,6 +46,10 @@ class JobHandler(abc.ABC):
         """
 
     @abc.abstractmethod
+    def get_job_status(self, job_id: str) -> str:
+        """Get the status of a job."""
+
+    @abc.abstractmethod
     def get_job_result(self, job_id: str) -> tuple[str, int]:
         """Get the job status and execution time from a running or completed job.
 
@@ -43,7 +64,7 @@ class JobHandler(abc.ABC):
 
 # TODO: reorder unit tests
 class SlurmSSHJobHandler(JobHandler):
-    """Implementation of SlurmCommandHandler that executes commands via SSH."""
+    """Implementation of JobHandler that executes commands on a SLURM cluster via SSH."""
 
     def start_job(self, quanting_env: dict[str, str], year_month_folder: str) -> str:
         """Start a quanting job on the SLURM cluster via SSH."""
@@ -61,6 +82,11 @@ class SlurmSSHJobHandler(JobHandler):
 
         return job_id
 
+    def get_job_status(self, job_id: str) -> str:
+        """Get the status of a job on the SLURM cluster via SSH."""
+        cmd = self._get_job_state_cmd(job_id)
+        return ssh_execute(cmd)
+
     def get_job_result(self, job_id: str) -> tuple[str, int]:
         """Get the job status and time elapsed from the SLURM cluster via SSH."""
         # the wildcard here is a bit of a hack to avoid retrieving the year_month
@@ -68,7 +94,7 @@ class SlurmSSHJobHandler(JobHandler):
         slurm_output_file = f"{CLUSTER_WORKING_DIR}/*/slurm-{job_id}.out"
         cmd = self._check_quanting_result_cmd(
             job_id, slurm_output_file
-        ) + self.get_job_state_cmd(job_id)
+        ) + self._get_job_state_cmd(job_id)
         ssh_return = ssh_execute(cmd)
         time_elapsed = self._get_time_elapsed(ssh_return)
         job_status = ssh_return.split("\n")[-1]
@@ -105,7 +131,7 @@ class SlurmSSHJobHandler(JobHandler):
     """
 
     @staticmethod
-    def get_job_state_cmd(job_id: str) -> str:
+    def _get_job_state_cmd(job_id: str) -> str:
         """Get the state of a job with a given job id.
 
         Its only output must be the job status.
@@ -129,14 +155,15 @@ class SlurmSSHJobHandler(JobHandler):
         return (t.hour * 3600) + (t.minute * 60) + t.second
 
 
-# For backward compatibility, create functions that use the default implementation
+# TODO: use get_job_handler here
+# For backward compatibility, create functions that use the appropriate implementation
 def ssh_slurm_start_job(quanting_env: dict[str, str], year_month_folder: str) -> str:
-    """Start a quanting job on the SLURM cluster via SSH."""
-    handler = SlurmSSHJobHandler()
+    """Start a quanting job using the configured job engine."""
+    handler = get_job_handler()
     return handler.start_job(quanting_env, year_month_folder)
 
 
 def ssh_slurm_get_job_result(job_id: str) -> tuple[str, int]:
-    """Get the job status and time elapsed from the SLURM cluster via SSH."""
-    handler = SlurmSSHJobHandler()
+    """Get the job status and time elapsed using the configured job engine."""
+    handler = get_job_handler()
     return handler.get_job_result(job_id)

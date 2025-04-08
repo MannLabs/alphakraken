@@ -42,8 +42,9 @@ def move_files(ti: TaskInstance, **kwargs) -> None:
 
     files_to_move_str = get_xcom(ti, XComKeys.FILES_TO_MOVE)
     files_to_move = {
-        Path(k): Path(v) for k, v in files_to_move_str.items()
-    }  # pytype: disable=attribute-error
+        Path(k): Path(v)
+        for k, v in files_to_move_str.items()  # pytype: disable=attribute-error
+    }
 
     files_to_actually_move, files_to_actually_remove = _get_files_to_move(files_to_move)
 

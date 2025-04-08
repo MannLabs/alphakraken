@@ -4,33 +4,28 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from airflow.sensors.base import BaseSensorOperator
-from cluster_scripts.slurm_commands import SlurmSSHJobHandler
 from common.keys import JobStates, XComKeys
 from common.utils import (
-    get_cluster_ssh_hook,
     get_xcom,
 )
-from sensors.ssh_utils import ssh_execute
-
-if TYPE_CHECKING:
-    from airflow.providers.ssh.hooks.ssh import SSHHook
+from jobs.job_handler import get_job_handler
 
 
 class QuantingSensorOperator(BaseSensorOperator, ABC):
     """Base class for sensor operators that watch over certain status of quanting."""
 
     @property
-    @abstractmethod
-    def command(self) -> str:
-        """The command to execute."""
+    def job_status(self) -> str:
+        """The status of the quanting job."""
+        return get_job_handler().get_job_status(self._job_id)
 
     @property
     @abstractmethod
     def states(self) -> list[str]:
-        """Outputs of the command in `command_template` that are considered 'running'."""
+        """Quanting job states that are considered 'running'."""
 
     def __init__(self, *args, **kwargs) -> None:
         """Initialize the operator."""
@@ -38,41 +33,22 @@ class QuantingSensorOperator(BaseSensorOperator, ABC):
         self._job_id: str | None = None
 
     def pre_execute(self, context: dict[str, Any]) -> None:
-        """_job_id the job id from XCom."""
+        """Persist the job id from XCom."""
         self._job_id = str(get_xcom(context["ti"], XComKeys.JOB_ID))
-
-
-class SSHSensorOperator(QuantingSensorOperator, ABC):
-    """Wait for a ssh command to return a certain output."""
-
-    def __init__(self, *args, **kwargs) -> None:
-        """Initialize the operator."""
-        super().__init__(*args, **kwargs)
-        self._ssh_hook: SSHHook = get_cluster_ssh_hook()
 
     def poke(self, context: dict[str, Any]) -> bool:
         """Check the output of the ssh command."""
         del context  # unused
 
-        ssh_return = ssh_execute(self.command, self._ssh_hook)
-        logging.info(f"ssh command returned: '{ssh_return}'")
+        logging.info(f"job_status: '{self.job_status}'")
 
-        return ssh_return not in self.states
+        return self.job_status not in self.states
 
     # show file size earlier
 
 
-class WaitForJobStartSlurmSSHSensor(SSHSensorOperator):
-    """Wait until a SLURM job leaves status 'PENDING'."""
-
-    @property
-    def command(self) -> str:
-        """The command to execute.
-
-        Must be a bash script that is executable on the cluster.
-        Its only output to stdout must be the status of the queried job.
-        """
-        return SlurmSSHJobHandler.get_job_state_cmd(self._job_id)
+class WaitForJobStartSensor(QuantingSensorOperator):
+    """Wait until a job leaves status 'PENDING'."""
 
     @property
     def states(self) -> list[str]:
@@ -80,17 +56,8 @@ class WaitForJobStartSlurmSSHSensor(SSHSensorOperator):
         return [JobStates.PENDING]
 
 
-class WaitForJobFinishSlurmSSHSensor(SSHSensorOperator):
-    """Wait until a SLURM job leaves status 'RUNNING'."""
-
-    @property
-    def command(self) -> str:
-        """The command to execute.
-
-        Must be a bash script that is executable on the cluster.
-        Its only output to stdout must be the status of the queried job.
-        """
-        return SlurmSSHJobHandler.get_job_state_cmd(self._job_id)
+class WaitForJobFinishSensor(QuantingSensorOperator):
+    """Wait until a job leaves status 'RUNNING'."""
 
     @property
     def states(self) -> list[str]:

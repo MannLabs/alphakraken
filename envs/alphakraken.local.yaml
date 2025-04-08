@@ -31,3 +31,7 @@ locations:
     username: user
     mount_src: //mount_src/airflow_logs
     mount_target: airflow_logs
+
+general:
+  job_engine:
+    type: slurm

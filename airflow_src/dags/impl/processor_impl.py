@@ -6,10 +6,6 @@ from pathlib import Path
 
 from airflow.exceptions import AirflowFailException
 from airflow.models import TaskInstance
-from cluster_scripts.slurm_commands import (
-    ssh_slurm_get_job_result,
-    ssh_slurm_start_job,
-)
 from common.constants import (
     ERROR_CODE_TO_STRING,
     AlphaDiaConstants,
@@ -35,6 +31,10 @@ from common.utils import (
     get_env_variable,
     get_xcom,
     put_xcom,
+)
+from jobs.job_handler import (
+    ssh_slurm_get_job_result,
+    ssh_slurm_start_job,
 )
 from metrics.metrics_calculator import calc_metrics
 

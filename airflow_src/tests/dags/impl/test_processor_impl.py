@@ -3,7 +3,6 @@
 import os
 from datetime import datetime
 from pathlib import Path
-from unittest import skip
 from unittest.mock import MagicMock, call, mock_open, patch
 
 import pytest
@@ -165,13 +164,13 @@ def test_get_slurm_job_id_from_log_returns_none_if_file_not_exists() -> None:
 
 @patch("dags.impl.processor_impl.get_xcom")
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
-@patch("dags.impl.processor_impl.ssh_slurm_start_job")
+@patch("dags.impl.processor_impl.start_job")
 @patch("dags.impl.processor_impl.put_xcom")
 @patch("dags.impl.processor_impl.update_raw_file")
 def test_run_quanting_executes_ssh_command_and_stores_job_id(
     mock_update: MagicMock,
     mock_put_xcom: MagicMock,
-    mock_ssh_slurm_start_job: MagicMock,
+    mock_start_job: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
     mock_get_xcom: MagicMock,
 ) -> None:
@@ -185,7 +184,7 @@ def test_run_quanting_executes_ssh_command_and_stores_job_id(
         },
         -1,
     ]
-    mock_ssh_slurm_start_job.return_value = "12345"
+    mock_start_job.return_value = "12345"
     mock_raw_file = MagicMock(
         wraps=RawFile, created_at=datetime.fromtimestamp(0, tz=pytz.UTC)
     )
@@ -196,22 +195,7 @@ def test_run_quanting_executes_ssh_command_and_stores_job_id(
     # when
     run_quanting(ti)
 
-    # then
-    # TODO: move to test of ssh_slurm_start_job
-    # expected_export_command = (
-    #     "export RAW_FILE_ID=test_file.raw\nexport PROJECT_ID_OR_FALLBACK=PID123\n"
-    #     # rest of quanting_env is left out here for brevity
-    # )
-
-    # TODO: move to test of ssh_slurm_start_job
-    # expected_command = expected_export_command + (
-    #     "mkdir -p ~/slurm/jobs/1970_01\n"
-    #     "cd ~/slurm/jobs/1970_01\n"
-    #     "cat ~/slurm/submit_job.sh\n"
-    #     "JID=$(sbatch ~/slurm/submit_job.sh)\n"
-    #     "echo ${JID##* }\n"
-    # )
-    mock_ssh_slurm_start_job.assert_called_once_with(
+    mock_start_job.assert_called_once_with(
         {"RAW_FILE_ID": "test_file.raw", "PROJECT_ID_OR_FALLBACK": "PID123"}, "1970_01"
     )
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
@@ -222,9 +206,9 @@ def test_run_quanting_executes_ssh_command_and_stores_job_id(
 
 
 @patch("dags.impl.processor_impl.get_xcom")
-@patch("dags.impl.processor_impl.ssh_slurm_start_job")
+@patch("dags.impl.processor_impl.start_job")
 def test_run_quanting_job_id_exists(
-    mock_ssh_slurm_start_job: MagicMock,
+    mock_start_job: MagicMock,
     mock_get_xcom: MagicMock,
 ) -> None:
     """run_quanting function skips execution if the job ID already exists."""
@@ -243,7 +227,7 @@ def test_run_quanting_job_id_exists(
     run_quanting(ti)
 
     # then
-    mock_ssh_slurm_start_job.assert_not_called()
+    mock_start_job.assert_not_called()
 
 
 @patch("dags.impl.processor_impl.get_xcom")
@@ -356,71 +340,37 @@ def test_run_quanting_output_folder_exists_associate_raise(  # noqa: PLR0913
     mock_update.assert_not_called()
 
 
-@skip  # TODO: move to test of ssh_slurm_start_job
 @patch("dags.impl.processor_impl.get_xcom")
-@patch("dags.impl.processor_impl.get_raw_file_by_id")
-@patch("dags.impl.processor_impl.ssh_slurm_start_job")
-def test_run_quanting_executes_ssh_command_error_wrong_job_id(
-    mock_ssh_slurm_start_job: MagicMock,
-    mock_get_raw_file_by_id: MagicMock,  # noqa: ARG001
-    mock_get_xcom: MagicMock,
-) -> None:
-    """run_quanting function raises an exception if the job ID is not an integer."""
-    # given
-    mock_get_xcom.side_effect = [
-        {
-            QuantingEnv.RAW_FILE_ID: "test_file.raw",
-            QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID123",
-        },
-        -1,
-    ]
-    mock_ssh_slurm_start_job.return_value = "some_wrong_job_id"
-
-    # when
-    with pytest.raises(AirflowFailException):
-        run_quanting(MagicMock())
-
-
-@patch("dags.impl.processor_impl.get_xcom")
-@patch("dags.impl.processor_impl.ssh_slurm_get_job_result")
+@patch("dags.impl.processor_impl.get_job_result")
 @patch("dags.impl.processor_impl.put_xcom")
 def test_check_quanting_result_happy_path(
     mock_put_xcom: MagicMock,
-    mock_ssh_slurm_get_job_result: MagicMock,
+    mock_get_job_result: MagicMock,
     mock_get_xcom: MagicMock,
 ) -> None:
     """Test that check_quanting_result makes the expected calls."""
     mock_ti = MagicMock()
     mock_get_xcom.return_value = "12345"
 
-    mock_ssh_slurm_get_job_result.return_value = (JobStates.COMPLETED, 522)
-    # TODO: move to test of ssh_slurm_get_job_result
-    # mock_ssh_slurm_get_job_result.return_value = (
-    #     f"00:08:42\nsome\nother\nlines\n{JobStates.COMPLETED}"
-    # )
+    mock_get_job_result.return_value = (JobStates.COMPLETED, 522)
 
     # when
     continue_downstream_tasks = check_quanting_result(mock_ti)
 
     assert continue_downstream_tasks
-    # TODO: move to test of ssh_slurm_get_job_result
-    # mock_ssh_slurm_get_job_result.assert_called_once_with(
-    #     "TIME_ELAPSED=$(sacct --format=Elapsed -j 12345 | tail -n 1); echo $TIME_ELAPSED\nsacct -l -j 12345\n"
-    #     "cat ~/slurm/jobs/*/slurm-12345.out\n\nST=$(sacct -j 12345 -o State | awk 'FNR == 3 {print $1}')\necho $ST\n",
-    # )
 
     mock_put_xcom.assert_called_once_with(mock_ti, XComKeys.QUANTING_TIME_ELAPSED, 522)
 
 
 @patch("dags.impl.processor_impl.get_xcom")
-@patch("dags.impl.processor_impl.ssh_slurm_get_job_result")
+@patch("dags.impl.processor_impl.get_job_result")
 def test_check_quanting_result_unknown_job_status(
-    mock_ssh_slurm_get_job_result: MagicMock, mock_get_xcom: MagicMock
+    mock_get_job_result: MagicMock, mock_get_xcom: MagicMock
 ) -> None:
     """Test that check_quanting_result raises on unknown quanting job status."""
     mock_ti = MagicMock()
     mock_get_xcom.return_value = "12345"
-    mock_ssh_slurm_get_job_result.return_value = ("SOME_JOB_STATE", 522)
+    mock_get_job_result.return_value = ("SOME_JOB_STATE", 522)
 
     # when
     with pytest.raises(AirflowFailException):
@@ -429,7 +379,7 @@ def test_check_quanting_result_unknown_job_status(
 
 @patch("dags.impl.processor_impl.get_xcom")
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
-@patch("dags.impl.processor_impl.ssh_slurm_get_job_result")
+@patch("dags.impl.processor_impl.get_job_result")
 @patch("dags.impl.processor_impl.get_business_errors")
 @patch("dags.impl.processor_impl.update_raw_file")
 @patch("dags.impl.processor_impl.add_metrics_to_raw_file")
@@ -437,7 +387,7 @@ def test_check_quanting_result_business_error(  # noqa: PLR0913
     mock_add_metrics: MagicMock,
     mock_update_raw_file: MagicMock,
     mock_get_business_errors: MagicMock,
-    mock_ssh_slurm_get_job_result: MagicMock,
+    mock_get_job_result: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
     mock_get_xcom: MagicMock,
 ) -> None:
@@ -453,7 +403,7 @@ def test_check_quanting_result_business_error(  # noqa: PLR0913
     ]
     mock_raw_file = MagicMock(wraps=RawFile, id="test_file.raw")
     mock_get_raw_file_by_id.return_value = mock_raw_file
-    mock_ssh_slurm_get_job_result.return_value = ("FAILED", 522)
+    mock_get_job_result.return_value = ("FAILED", 522)
     mock_get_business_errors.return_value = ["error1", "error2"]
 
     # when
@@ -474,7 +424,7 @@ def test_check_quanting_result_business_error(  # noqa: PLR0913
 
 @patch("dags.impl.processor_impl.get_xcom")
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
-@patch("dags.impl.processor_impl.ssh_slurm_get_job_result")
+@patch("dags.impl.processor_impl.get_job_result")
 @patch("dags.impl.processor_impl.get_business_errors")
 @patch("dags.impl.processor_impl.update_raw_file")
 @patch("dags.impl.processor_impl.add_metrics_to_raw_file")
@@ -482,7 +432,7 @@ def test_check_quanting_result_business_error_raises(  # noqa: PLR0913
     mock_add_metrics: MagicMock,
     mock_update_raw_file: MagicMock,
     mock_get_business_errors: MagicMock,
-    mock_ssh_slurm_get_job_result: MagicMock,
+    mock_get_job_result: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
     mock_get_xcom: MagicMock,
 ) -> None:
@@ -498,7 +448,7 @@ def test_check_quanting_result_business_error_raises(  # noqa: PLR0913
     ]
     mock_raw_file = MagicMock(wraps=RawFile, id="test_file.raw")
     mock_get_raw_file_by_id.return_value = mock_raw_file
-    mock_ssh_slurm_get_job_result.return_value = "FAILED", 522
+    mock_get_job_result.return_value = "FAILED", 522
     mock_get_business_errors.return_value = ["error1", "__UNKNOWN_ERROR"]
 
     # when
@@ -519,13 +469,13 @@ def test_check_quanting_result_business_error_raises(  # noqa: PLR0913
 
 @patch("dags.impl.processor_impl.get_xcom")
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
-@patch("dags.impl.processor_impl.ssh_slurm_get_job_result")
+@patch("dags.impl.processor_impl.get_job_result")
 @patch("dags.impl.processor_impl.update_raw_file")
 @patch("dags.impl.processor_impl.add_metrics_to_raw_file")
 def test_check_quanting_result_timeout(
     mock_add_metrics: MagicMock,
     mock_update_raw_file: MagicMock,
-    mock_ssh_slurm_get_job_result: MagicMock,
+    mock_get_job_result: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
     mock_get_xcom: MagicMock,
 ) -> None:
@@ -541,7 +491,7 @@ def test_check_quanting_result_timeout(
     ]
     mock_raw_file = MagicMock(wraps=RawFile, id="test_file.raw")
     mock_get_raw_file_by_id.return_value = mock_raw_file
-    mock_ssh_slurm_get_job_result.return_value = "TIMEOUT", 522
+    mock_get_job_result.return_value = "TIMEOUT", 522
 
     # when
     continue_downstream_tasks = check_quanting_result(mock_ti)

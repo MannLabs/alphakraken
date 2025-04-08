@@ -7,6 +7,10 @@ A fully automated data processing and analysis system for mass spectrometry expe
 
 <img src="docs/overview.jpg" alt="overview" style="max-width: 600px;"/>
 
+Currently supported:
+- quanting software: AlphaDIA
+- compute environment: Slurm, generic SSH (experimental)
+
 ## Important note for users
 
 To not interfere with the automated processing, please stick to the following simple rule:
@@ -68,7 +72,7 @@ An open-source Python package of the AlphaX ecosystem from the [Mann Labs at the
 
 ## License
 
-AlphaDIA was developed by the [Mann Labs at the Max Planck Institute of Biochemistry](https://www.biochem.mpg.de/mann) and is freely available with an [Apache License](LICENSE.txt).
+AlphaKraken is developed by the [Mann Labs at the Max Planck Institute of Biochemistry](https://www.biochem.mpg.de/mann) and is freely available with an [Apache License](LICENSE.txt).
 External Python packages have their own licenses, which can be consulted on their respective websites.
 
 ---

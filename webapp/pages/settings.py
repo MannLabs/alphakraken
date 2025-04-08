@@ -62,7 +62,7 @@ def display_settings(
     filtered_df, *_ = show_filter(settings_df, st_display=st_display)
 
     # beautify
-    del filtered_df["_id"]
+    filtered_df = filtered_df.drop(columns=["_id"], errors="ignore")
     st_display.table(
         filtered_df.style.apply(
             lambda row: [
@@ -151,10 +151,10 @@ form_items = {
         "help": "Name of the config file. If none is given, default will be used.",
     },
     "software": {
-        "label": "software",
+        "label": "Software",
         "max_chars": 64,
         "placeholder": "e.g. alphadia-1.10.0",
-        "help": "Name of the conda environment that holds the AlphaDIA executable. Needs to be created manually.",
+        "help": "Name of the Conda environment that holds the AlphaDIA executable. Needs to be created manually.",
     },
 }
 

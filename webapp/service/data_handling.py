@@ -16,7 +16,7 @@ def get_combined_raw_files_and_metrics_df(max_age_in_days: float) -> pd.DataFram
     )
 
     if len(raw_files_df) == 0 or len(metrics_df) == 0:
-        st.write(f"No enough data yet: {len(raw_files_df)=} {len(metrics_df)=}.")
+        st.write(f"Not enough data yet: {len(raw_files_df)=} {len(metrics_df)=}.")
         st.dataframe(raw_files_df)
         st.dataframe(metrics_df)
         st.stop()

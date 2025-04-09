@@ -259,3 +259,15 @@ For each acquired file, a processing job on the SLURM cluster will be scheduled.
 concurrently submitted jobs should be limited, set the size of the `cluster_slots_pool`
 (in the Airflow UI under "Admin" -> "Pools") accordingly. Note that this setting does not affect
 jobs that have already been submitted and thus may take a while to take effect.
+
+
+## Upgrading Airflow
+Every once in a while, the Airflow version should be updated.
+
+1. Locate the current version in the Airflow Dockerfile, line `ARG AIRFLOW_VERSION=2.10.5`
+2. Check for breaking changes between the current and the new version [here](https://airflow.apache.org/docs/apache-airflow/stable/release_notes.html)
+and adapt if necessary.
+3. Replace the old version with the new version throughout the code.
+4. Shutdown all workers and infrastructure (up to the databases).
+5. Migrate the Airflow DB: `./compose.sh run airflow-cli db migrate`
+6. Spin up workers and infrastructure again.

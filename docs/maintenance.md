@@ -20,12 +20,7 @@ and check container health using `sudo docker ps`.
 #### Restart of PC/VM hosting the workers / infrastructure
 0. `ssh` into the PC/VM, `cd` to the alphakraken source directory, and set `export ENV=sandbox` (`export ENV=production`).
 
-1. Start the docker service
-```bash
-sudo systemctl start docker
-```
-
-2. Set up all mounts for all instruments (`test2`, ..) and the other folders:
+1. Set up all mounts for all instruments (`test2`, ..) and the other folders:
 ```bash
 for entity in test2 test3 backup output logs; do
   ./mount.sh $entity
@@ -34,21 +29,21 @@ done
 You will be prompted for the password for each mount.
 When mounting `backup` you must use the `kraken-write` user with full write access (can also be used for `output` and `logs`).
 
-If infrastructure runs on a dedicated PC, only `logs` mount is required
+If infrastructure runs on a dedicated PC, only `logs` mount is required, whereas workers need all instrument mounts plus
+`backup` and `output`.
+
+2. Start the docker service
+```bash
+sudo systemctl start docker
+```
+Usually, all container should be started automatically (check container health using `sudo docker ps`).
+If not, proceed with the following step.
 
 3. Run the worker and/or infrastructure containers
 ```bash
 ./compose.sh --profile workers up --build -d
-```
-which spins up on worker service for each instrument,
-and check container health using `sudo docker ps`.
-
-4. Likewise, run the infrastructure containers
-```bash
 ./compose.sh --profile infrastructure up --build -d
 ```
-to make Airflow UI is accessible at http://hostname:8080/ and the Streamlit webapp at http://hostname:8501/.
-
 
 
 ## A note on 'state', fallback & catchup

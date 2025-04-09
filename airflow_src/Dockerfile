@@ -1,5 +1,5 @@
 # https://airflow.apache.org/docs/docker-stack/build.html
-ARG AIRFLOW_VERSION=2.9.3
+ARG AIRFLOW_VERSION=2.10.5
 
 FROM apache/airflow:${AIRFLOW_VERSION}
 

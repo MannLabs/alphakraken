@@ -105,7 +105,7 @@ def test_get_raw_files_to_remove_switched_off(
     mock_put_xcom: MagicMock,
     mock_get_airflow_variable: MagicMock,
 ) -> None:
-    """Test that get_raw_files_to_remove puts an emprt list in XCom if file size is not set via Airflow Variable."""
+    """Test that get_raw_files_to_remove puts an empty list in XCom if file size is not set via Airflow Variable."""
     mock_ti = MagicMock()
 
     mock_get_airflow_variable.side_effect = [

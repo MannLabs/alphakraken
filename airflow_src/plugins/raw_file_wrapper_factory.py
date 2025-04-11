@@ -27,7 +27,7 @@ COPIER = "copier"
 
 
 class RawFileStemEmptyError(Exception):
-    """Raised in case the raw file name equals the file extension."""
+    """Raise in case the raw file name equals the file extension."""
 
     def __init__(self, raw_file_name: str):
         """Initialize the error."""

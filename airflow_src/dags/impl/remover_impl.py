@@ -344,11 +344,10 @@ def _check_file(
 
     logging.debug(f"Comparing {file_path_to_remove=} to {file_path_pool_backup=} ..")
 
-    # /opt/airflow/mounts/backup/test1/2024_08/test_file_SA_P123_2.raw => test1/2024_08/test_file_SA_P123_2.raw
+    # map e.g. '/opt/airflow/mounts/backup/test1/2024_08/test_file_SA_P123_2.raw' => 'test1/2024_08/test_file_SA_P123_2.raw'
     rel_file_path = str(file_path_pool_backup.relative_to(get_internal_backup_path()))
-    size_in_db, hash_in_db = file_info_in_db.get(
-        rel_file_path
-    )  # pytype: disable=attribute-error
+
+    size_in_db, hash_in_db = file_info_in_db[rel_file_path]
 
     logging.debug(f"Comparing {file_path_to_remove=} to DB ({rel_file_path}) ..")
 

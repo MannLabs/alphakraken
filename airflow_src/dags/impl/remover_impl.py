@@ -24,7 +24,11 @@ from common.settings import (
 )
 from common.utils import get_airflow_variable, get_env_variable, get_xcom, put_xcom
 from file_handling import get_disk_usage, get_file_hash, get_file_size
-from raw_file_wrapper_factory import RawFileWrapperFactory, RemovePathProvider
+from raw_file_wrapper_factory import (
+    RawFileStemEmptyError,
+    RawFileWrapperFactory,
+    RemovePathProvider,
+)
 
 from shared.db.interface import get_raw_file_by_id, get_raw_files_by_age
 from shared.db.models import RawFile
@@ -168,10 +172,15 @@ def _get_total_size(raw_file: RawFile) -> tuple[float, int]:
     This calculates the total size of all files associated with a raw file that are actually on the disk.
     This is important, as there could be cases where some files for a raw file have been already removed from the disk,
     which would overestimate the total size gain if this data was removed.
+
+    :raises: FileRemovalError if the file stem is empty or if one of the file checks fails.
     """
-    remove_wrapper = RawFileWrapperFactory.create_write_wrapper(
-        raw_file, path_provider=RemovePathProvider
-    )
+    try:
+        remove_wrapper = RawFileWrapperFactory.create_write_wrapper(
+            raw_file, path_provider=RemovePathProvider
+        )
+    except RawFileStemEmptyError as e:
+        raise FileRemovalError from e
 
     files_to_remove = remove_wrapper.get_files_to_remove()
 
@@ -337,7 +346,9 @@ def _check_file(
 
     # /opt/airflow/mounts/backup/test1/2024_08/test_file_SA_P123_2.raw => test1/2024_08/test_file_SA_P123_2.raw
     rel_file_path = str(file_path_pool_backup.relative_to(get_internal_backup_path()))
-    size_in_db, hash_in_db = file_info_in_db.get(rel_file_path)
+    size_in_db, hash_in_db = file_info_in_db.get(
+        rel_file_path
+    )  # pytype: disable=attribute-error
 
     logging.debug(f"Comparing {file_path_to_remove=} to DB ({rel_file_path}) ..")
 

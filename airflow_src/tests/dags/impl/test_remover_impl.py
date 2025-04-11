@@ -21,7 +21,7 @@ from dags.impl.remover_impl import (
     get_raw_files_to_remove,
     remove_raw_files,
 )
-from raw_file_wrapper_factory import RemovePathProvider
+from raw_file_wrapper_factory import RawFileStemEmptyError, RemovePathProvider
 
 
 @patch.dict(
@@ -253,6 +253,20 @@ def test_get_total_size_no_files_returned(
 
     # when
     assert _get_total_size(mock_raw_file) == (0, 0)
+
+
+@patch("dags.impl.remover_impl.RawFileWrapperFactory")
+def test_get_total_size_raises_correctly(
+    mock_raw_file_wrapper_factory: MagicMock,
+) -> None:
+    """Test that _get_total_size raises correctly in case of RawFileStemEmptyError."""
+    mock_raw_file_wrapper_factory.create_write_wrapper.side_effect = (
+        RawFileStemEmptyError("")
+    )
+
+    # when
+    with pytest.raises(FileRemovalError):
+        _get_total_size(MagicMock())
 
 
 @patch("dags.impl.remover_impl.get_file_size")

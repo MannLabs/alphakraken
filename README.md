@@ -1,3 +1,10 @@
+![License](https://img.shields.io/badge/License-Apache-brightgreen)
+[![unit tests](https://github.com/MannLabs/alphakraken/actions/workflows/branch-checks.yaml/badge.svg)](https://github.com/MannLabs/alphakraken/actions/workflows/branch-checks.yaml)
+![Coverage](https://github.com/MannLabs/alphakraken/blob/main/coverage.svg)
+![GitHub Release](https://img.shields.io/github/v/release/mannlabs/alphakraken?logoColor=green&color=brightgreen)
+![Versions](https://img.shields.io/badge/python-3.11-brightgreen)
+![Versions](https://img.shields.io/badge/Apache_Airflow-2.10.5-brightgreen)
+
 # AlphaKraken
 
 A fully automated data processing and analysis system for mass spectrometry experiments:

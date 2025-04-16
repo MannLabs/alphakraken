@@ -3,7 +3,7 @@ name: code-review
 
 on:
   pull_request:
-    types: [ labeled ]
+    types: [labeled]
 
 jobs:
   get-code-review:
@@ -21,4 +21,4 @@ jobs:
           CODE_REVIEW_PROMPT: ${{ secrets.CODE_REVIEW_PROMPT }}
           CODE_REVIEW_SYSTEM_MESSAGE: ${{ secrets.CODE_REVIEW_SYSTEM_MESSAGE }}
           GITHUB_EVENT_NUMBER: ${{ github.event.number }}
-          EXCLUDED_EXTENSIONS: "ipynb;js"  # optional
+          EXCLUDED_EXTENSIONS: "ipynb;js" # optional

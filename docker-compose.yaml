@@ -21,32 +21,30 @@
 # This configuration supports basic configuration using environment variables or an .env file
 ---
 name: alphakraken-${ENV_NAME:?error}
-x-airflow-common:
-  &airflow-common
+x-airflow-common: &airflow-common
   build:
-      context: .
-      dockerfile: airflow_src/Dockerfile
+    context: .
+    dockerfile: airflow_src/Dockerfile
   # User ID in Airflow containers
   user: "${AIRFLOW_UID:?error}:0"
-  environment:
-    &airflow-common-env
+  environment: &airflow-common-env
     AIRFLOW__CORE__EXECUTOR: CeleryExecutor
     # the next three lines define the connection to postgres & redis
     # make sure the passwords don't contain weird characters like '/' or '#'
     AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER:?error}:${POSTGRES_PASSWORD:?error}@${POSTGRES_HOST:?error}:${POSTGRES_PORT:?error}/${POSTGRES_DB:?error}
-    AIRFLOW__CELERY__RESULT_BACKEND:           db+postgresql://${POSTGRES_USER:?error}:${POSTGRES_PASSWORD:?error}@${POSTGRES_HOST:?error}:${POSTGRES_PORT:?error}/${POSTGRES_DB:?error}
+    AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://${POSTGRES_USER:?error}:${POSTGRES_PASSWORD:?error}@${POSTGRES_HOST:?error}:${POSTGRES_PORT:?error}/${POSTGRES_DB:?error}
     AIRFLOW__CELERY__BROKER_URL: redis://:@${REDIS_HOST:?error}:${REDIS_PORT:?error}/0
-    AIRFLOW__CORE__FERNET_KEY: ''
-    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
-    AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
-    AIRFLOW__API__AUTH_BACKENDS: 'airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session'
+    AIRFLOW__CORE__FERNET_KEY: ""
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__API__AUTH_BACKENDS: "airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session"
     AIRFLOW__SCHEDULER__MIN_FILE_PROCESS_INTERVAL: 300 # reduce this number locally to get DAG changes faster
-    AIRFLOW__CORE__TEST_CONNECTION: 'Enabled'  # to allow testing connections via UI
+    AIRFLOW__CORE__TEST_CONNECTION: "Enabled" # to allow testing connections via UI
     # yamllint disable rule:line-length
     # Use simple http server on scheduler for health checks
     # See https://airflow.apache.org/docs/apache-airflow/stable/administration-and-deployment/logging-monitoring/check-health.html#scheduler-health-check-server
     # yamllint enable rule:line-length
-    AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: 'true'
+    AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: "true"
     # The following line can be used to set a custom config file, stored in the local config folder
     # If you want to use it, outcomment it and replace airflow.cfg with the name of your config file
     # AIRFLOW_CONFIG: '/opt/airflow/config/airflow.cfg'
@@ -161,16 +159,16 @@ services:
 
   # only required if one wants to use 'deferrable operators'
   # cf. https://airflow.apache.org/docs/apache-airflow/stable/authoring-and-scheduling/deferring.html#using-deferrable-operators
-#  airflow-triggerer:
-#    <<: *airflow-common
-#    command: triggerer
-#    healthcheck:
-#      test: ["CMD-SHELL", 'airflow jobs check --job-type TriggererJob --hostname "$${HOSTNAME}"']
-#      interval: 30s
-#      timeout: 10s
-#      retries: 5
-#      start_period: 30s
-#    restart: always
+  #  airflow-triggerer:
+  #    <<: *airflow-common
+  #    command: triggerer
+  #    healthcheck:
+  #      test: ["CMD-SHELL", 'airflow jobs check --job-type TriggererJob --hostname "$${HOSTNAME}"']
+  #      interval: 30s
+  #      timeout: 10s
+  #      retries: 5
+  #      start_period: 30s
+  #    restart: always
 
   airflow-init:
     profiles: ["airflow-init"]
@@ -228,8 +226,8 @@ services:
     # yamllint enable rule:line-length
     environment:
       <<: *airflow-common-env
-      _AIRFLOW_DB_MIGRATE: 'true'
-      _AIRFLOW_WWW_USER_CREATE: 'true'
+      _AIRFLOW_DB_MIGRATE: "true"
+      _AIRFLOW_WWW_USER_CREATE: "true"
       _AIRFLOW_WWW_USER_USERNAME: ${AIRFLOW_USER:?error}
       _AIRFLOW_WWW_USER_PASSWORD: ${AIRFLOW_PASSWORD:?error}
     user: "0:0"
@@ -255,19 +253,19 @@ services:
   # You can enable flower by adding "--profile flower" option e.g. docker compose--profile flower up
   # or by explicitly targeted on the command line e.g. docker compose up flower.
   # See: https://docs.docker.com/compose/profiles/
-#  flower:
-#    <<: *airflow-common
-#    command: celery flower
-#    profiles: ["flower"]
-#    ports:
-#      - "5555:5555"
-#    healthcheck:
-#      test: ["CMD", "curl", "--fail", "http://localhost:5555/"]
-#      interval: 30s
-#      timeout: 10s
-#      retries: 5
-#      start_period: 30s
-#    restart: always
+  #  flower:
+  #    <<: *airflow-common
+  #    command: celery flower
+  #    profiles: ["flower"]
+  #    ports:
+  #      - "5555:5555"
+  #    healthcheck:
+  #      test: ["CMD", "curl", "--fail", "http://localhost:5555/"]
+  #      interval: 30s
+  #      timeout: 10s
+  #      retries: 5
+  #      start_period: 30s
+  #    restart: always
 
   mongodb-service:
     profiles: ["local", "dbs"]
@@ -285,7 +283,8 @@ services:
     env_file:
       - ./envs/.env-mongo
     healthcheck:
-      test: ["CMD", "mongosh", "--eval", "'db.runCommand(\"ping\").ok'", "--quiet"]
+      test:
+        ["CMD", "mongosh", "--eval", '''db.runCommand("ping").ok''', "--quiet"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -300,7 +299,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 4G  # assuming 8 GB total on the VM that is shared with the other non-worker services
+          memory: 4G # assuming 8 GB total on the VM that is shared with the other non-worker services
     ports:
       - ${WEBAPP_PORT:?error}:8501
       - 80:8501 # map webapp also to the standard port to access it directly via hostname
@@ -313,10 +312,10 @@ services:
       retries: 5
       start_period: 30s
     restart: always
-#    # Uncomment for local development so that changes to webapp are immediately active
-#    volumes:
-#      - ./webapp:/app/webapp
-#      - ./shared:/app/webapp/shared
+  #    # Uncomment for local development so that changes to webapp are immediately active
+  #    volumes:
+  #      - ./webapp:/app/webapp
+  #      - ./shared:/app/webapp/shared
 
   monitoring:
     build:
@@ -327,11 +326,11 @@ services:
       <<: *airflow-common-env
       SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL}
     restart: always
-#    healthcheck:
-#      test: ["CMD", "python", "-c", "..."]  # TODO add appropriate health check
-#      interval: 30s
-#      timeout: 10s
-#      retries: 3
+  #    healthcheck:
+  #      test: ["CMD", "python", "-c", "..."]  # TODO add appropriate health check
+  #      interval: 30s
+  #      timeout: 10s
+  #      retries: 3
 
   # test worker for local testing
   airflow-worker-test1:
@@ -356,7 +355,7 @@ services:
       - ./airflow_src/plugins:/opt/airflow/plugins
       - ./shared:/opt/airflow/shared
 
-########################################## FILE MOVER/REMOVER WORKERS ##########################################
+  ########################################## FILE MOVER/REMOVER WORKERS ##########################################
 
   # file mover: moves files from instrument to instrument Backup folder
   airflow-worker-file-mover:
@@ -370,7 +369,7 @@ services:
 
   # file remover: removes files from instrument Backup folder after comparing to pool Backup folder
   airflow-worker-file-remover:
-    profiles: [ "local", "workers" ]
+    profiles: ["local", "workers"]
     <<: *airflow-worker
     command: celery worker -q kraken_queue_file_remover
     volumes:
@@ -380,8 +379,8 @@ services:
       # to write (remove) from instrument Backup folder: (this could be limited to the 'Backup' folders but then requires one entry per instrument)
       - ${MOUNTS_PATH:?error}/instruments:/opt/airflow/mounts/instruments:rw
 
-########################################## INSTRUMENT WORKERS ##########################################
-# cf. comments in airflow-worker-test1
+  ########################################## INSTRUMENT WORKERS ##########################################
+  # cf. comments in airflow-worker-test1
 
   # INSTRUMENT: Test2
   airflow-worker-test2:
@@ -444,7 +443,6 @@ services:
       - ${MOUNTS_PATH:?error}/instruments/test12:/opt/airflow/mounts/instruments/test12:ro
       - ${MOUNTS_PATH:?error}/backup/test12:/opt/airflow/mounts/backup/test12:rw
 
-
   # INSTRUMENT: Test11
   airflow-worker-test11:
     <<: *airflow-worker
@@ -501,7 +499,7 @@ services:
     ports:
       - "80:80"
       - "443:443"
-      - "8080:8080"  # for serving Airflow webserver
+      - "8080:8080" # for serving Airflow webserver
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx_logs:/var/log/nginx/

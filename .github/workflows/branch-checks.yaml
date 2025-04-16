@@ -9,11 +9,13 @@ jobs:
     name: Run all pre-commit hooks
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-python@v5
-      python-version: '3.11'
-    - run: pip install uv
-    - uses: pre-commit/action@v3.0.1
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+      - run: pip install uv
+      - uses: pre-commit/action@v3.0.1
 
   get-code-review-input:
     runs-on: ubuntu-latest
@@ -28,34 +30,34 @@ jobs:
     name: Run unit tests
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
-        cache: 'pip'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
 
-    - name: Run shared unit tests
-      run: |
-        pip install -r requirements_development.txt
-        pip install -r shared/requirements_shared.txt
-        pip freeze
-        python -m pytest shared
+      - name: Run shared unit tests
+        run: |
+          pip install -r requirements_development.txt
+          pip install -r shared/requirements_shared.txt
+          pip freeze
+          python -m pytest shared
 
-    # strictly speaking, the webapp and airfloe test sets should be in separate python envs but should be fine for now
-    - name: Run webapp unit tests
-      run: |
-        pip install -r webapp/requirements_webapp.txt
-        pip freeze
-        python -m pytest webapp
+      # strictly speaking, the webapp and airfloe test sets should be in separate python envs but should be fine for now
+      - name: Run webapp unit tests
+        run: |
+          pip install -r webapp/requirements_webapp.txt
+          pip freeze
+          python -m pytest webapp
 
-    - name: Run Airflow unit tests
-      run: |
-        pip install apache-airflow==2.10.5 --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.10.5/constraints-3.11.txt"
-        airflow db init
-        pip install -r airflow_src/requirements_airflow.txt
-        pip freeze
-        python -m pytest airflow_src
+      - name: Run Airflow unit tests
+        run: |
+          pip install apache-airflow==2.10.5 --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.10.5/constraints-3.11.txt"
+          airflow db init
+          pip install -r airflow_src/requirements_airflow.txt
+          pip freeze
+          python -m pytest airflow_src
 
   docker-compose-test:
     runs-on: ubuntu-latest

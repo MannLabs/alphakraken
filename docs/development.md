@@ -111,21 +111,3 @@ Note: beware of name clashes when introducing new top-level packages in addition
 
 To have your IDE recognize the imports correctly, you might need to take some action.
 E.g. in PyCharm, you need to mark `dags`, `plugins`, `shared`, and `airflow_src` as "Sources Root".
-
-### Run Airflow standalone (not actively maintained)
-<details>
-  <summary>deprecated</summary>
-Alternatively, run airflow without Docker using
-```bash
-MONGO_USER=<mongo_user>
-```
-The login password to the UI is displayed in the logs below the line `Airflow is ready`.
-You need to point the `dags_folder` variable in ` ~/airflow/airflow.cfg` to the absolute path of the `dags` folder.
-
-Note that you will need to have a MongoDB running on the default port `27017`, e.g. by
-`docker compose --env-file=envs/local.env run --service-ports mongodb-service`
-Also, you will need to fire up the Streamlit webapp yourself by `docker compose --env-file=envs/local.env run -e MONGO_HOST=host.docker.internal --service-ports webapp`.
-
-Note that currently, the docker version is recommended as the standalone version is not part of regular testing and
-might not work as expected.
-</details>

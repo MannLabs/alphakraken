@@ -21,7 +21,7 @@ from dags.impl.remover_impl import (
     get_raw_files_to_remove,
     remove_raw_files,
 )
-from raw_file_wrapper_factory import RemovePathProvider
+from raw_file_wrapper_factory import RawFileStemEmptyError, RemovePathProvider
 
 
 @patch.dict(
@@ -105,7 +105,7 @@ def test_get_raw_files_to_remove_switched_off(
     mock_put_xcom: MagicMock,
     mock_get_airflow_variable: MagicMock,
 ) -> None:
-    """Test that get_raw_files_to_remove puts an emprt list in XCom if file size is not set via Airflow Variable."""
+    """Test that get_raw_files_to_remove puts an empty list in XCom if file size is not set via Airflow Variable."""
     mock_ti = MagicMock()
 
     mock_get_airflow_variable.side_effect = [
@@ -226,20 +226,54 @@ def test_decide_on_raw_files_to_remove_nothing_to_remove_ok(
 @patch("dags.impl.remover_impl.get_file_size")
 def test_get_total_size_ok(
     mock_get_file_size: MagicMock,
-    mock_check_file: MagicMock,  # noqa: ARG001
+    mock_check_file: MagicMock,
     mock_raw_file_wrapper_factory: MagicMock,
 ) -> None:
-    """Test that _get_total_size returns correctly in case file exists."""
+    """Test that _get_total_size makes correct calls returns correctly in case file exists."""
+    mock_to_remove_path_1, mock_backup_path_1 = MagicMock(), MagicMock()
+    mock_to_remove_path_2, mock_backup_path_2 = MagicMock(), MagicMock()
+    mock_to_remove_path_3, mock_backup_path_3 = MagicMock(), MagicMock()
+
+    mock_to_remove_path_2.exists.return_value = False
+
     mock_raw_file_wrapper_factory.create_write_wrapper.return_value.get_files_to_remove.return_value = {
-        MagicMock(): MagicMock(),
-        MagicMock(): MagicMock(),
+        mock_to_remove_path_1: mock_backup_path_1,
+        mock_to_remove_path_2: mock_backup_path_2,
+        mock_to_remove_path_3: mock_backup_path_3,
     }
 
     mock_get_file_size.side_effect = [100.0, 1.0]
     mock_raw_file = MagicMock()
 
     # when
-    assert _get_total_size(mock_raw_file) == (101.0, 2)
+    result = _get_total_size(mock_raw_file)
+
+    assert result == (101.0, 2)
+
+    mock_check_file.assert_has_calls(
+        [
+            call(
+                mock_to_remove_path_1,
+                mock_backup_path_1,
+                mock_raw_file.file_info,
+                hash_check=False,
+            ),
+            # 2 is skipped
+            call(
+                mock_to_remove_path_3,
+                mock_backup_path_3,
+                mock_raw_file.file_info,
+                hash_check=False,
+            ),
+        ]
+    )
+    mock_get_file_size.assert_has_calls(
+        [
+            call(mock_to_remove_path_1, verbose=False),
+            # 2 is skipped
+            call(mock_to_remove_path_3, verbose=False),
+        ]
+    )
 
 
 @patch("dags.impl.remover_impl.RawFileWrapperFactory")
@@ -253,6 +287,20 @@ def test_get_total_size_no_files_returned(
 
     # when
     assert _get_total_size(mock_raw_file) == (0, 0)
+
+
+@patch("dags.impl.remover_impl.RawFileWrapperFactory")
+def test_get_total_size_raises_correctly(
+    mock_raw_file_wrapper_factory: MagicMock,
+) -> None:
+    """Test that _get_total_size raises correctly in case of RawFileStemEmptyError."""
+    mock_raw_file_wrapper_factory.create_write_wrapper.side_effect = (
+        RawFileStemEmptyError("")
+    )
+
+    # when
+    with pytest.raises(FileRemovalError):
+        _get_total_size(MagicMock())
 
 
 @patch("dags.impl.remover_impl.get_file_size")

@@ -26,6 +26,18 @@ MONITOR = "monitor"
 COPIER = "copier"
 
 
+class RawFileStemEmptyError(Exception):
+    """Raise in case the raw file name equals the file extension."""
+
+    def __init__(self, raw_file_name: str):
+        """Initialize the error."""
+        super().__init__(
+            f"Raw file name equals the file extension: {raw_file_name}. "
+            f"This case is not handled by AlphaKraken. Please take care of this file manually.\n"
+            f"Important: think twice before renaming it on the acquisition folder (cf. Readme!)."
+        )
+
+
 class RawFileMonitorWrapper(ABC):
     """Abstract base class for wrapping raw files for monitoring acquisitions."""
 
@@ -59,6 +71,12 @@ class RawFileMonitorWrapper(ABC):
             original_name = raw_file_original_name
         elif raw_file is not None:
             original_name = raw_file.original_name
+
+        if original_name == self._raw_file_extension:
+            # The edge case when the file stem is "" (e.g. filename is ".raw") needs to be handled manually:
+            # there could be downstream consequences that are not worth thinking of given this is clearly a mistake
+            # and should happen very rarely.
+            raise RawFileStemEmptyError(original_name)
 
         if (
             original_name is not None

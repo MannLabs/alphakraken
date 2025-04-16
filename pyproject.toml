@@ -1,3 +1,10 @@
+authors = [
+    {name = "Mann Labs", email = "mschwoerer@biochem.mpg.de"}
+]
+description = "A fully automated data processing and analysis system for mass spectrometry experiments."
+readme = "README.md"
+license = {file = "LICENSE.txt"}
+
 [tool.ruff.lint]
 select =  [ "ALL" ]
 

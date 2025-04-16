@@ -147,8 +147,6 @@ Recommended setting in production: -1 (default)
 
 ## Troubleshooting
 
-See also  .
-
 ### Problem: worker does not start
 
 A worker fails to start up with the error

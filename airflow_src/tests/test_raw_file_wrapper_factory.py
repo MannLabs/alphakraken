@@ -20,6 +20,7 @@ from plugins.raw_file_wrapper_factory import (
     CopyPathProvider,
     MovePathProvider,
     RawFileMonitorWrapper,
+    RawFileStemEmptyError,
     RawFileWrapperFactory,
     RawFileWriteWrapper,
     RemovePathProvider,
@@ -287,6 +288,29 @@ def test_raw_file_wrapper_factory_file_extension_check(
     """Test that the file extension check works correctly."""
     wrapper = wrapper_class("instrument1", raw_file_original_name=raw_file_name)
     assert wrapper._raw_file_extension == expected_extension
+
+
+@pytest.mark.parametrize(
+    (
+        "wrapper_class",
+        "raw_file_name",
+    ),
+    [
+        (
+            ThermoRawFileMonitorWrapper,
+            ".raw",
+        ),
+        (SciexRawFileMonitorWrapper, ".wiff"),
+        (BrukerRawFileMonitorWrapper, ".d"),
+    ],
+)
+def test_raw_file_wrapper_factory_file_extension_check_no_stem(
+    wrapper_class: type[RawFileMonitorWrapper],
+    raw_file_name: str,
+) -> None:
+    """Test that the file extension check raises correctly in case file stem is empty."""
+    with pytest.raises(RawFileStemEmptyError):
+        wrapper_class("instrument1", raw_file_original_name=raw_file_name)
 
 
 def test_raw_file_wrapper_factory_invalid_file_extension() -> None:

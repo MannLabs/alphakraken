@@ -18,7 +18,7 @@ FILTER_MAPPING: dict[str, str] = {
 }
 
 # TODO: remove this hack once https://github.com/streamlit/streamlit/issues/8112 is available
-APP_URL = "http://<kraken_url>"
+APP_URL = os.getenv("WEBAPP_URL")
 
 DISABLE_WRITE = False
 

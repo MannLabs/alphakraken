@@ -59,6 +59,7 @@ x-airflow-common: &airflow-common
     BACKUP_POOL_FOLDER: ${BACKUP_POOL_FOLDER:?error}
     QUANTING_POOL_FOLDER: ${QUANTING_POOL_FOLDER:?error}
     SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL:?error}
+    WEBAPP_URL: ${WEBAPP_URL:?error}
   volumes:
     # all mounts (backup pool folders, results pool folders, instruments, logs) need to be available in $MOUNTS_PATH
     - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs:rw
@@ -384,6 +385,7 @@ services:
 
   # INSTRUMENT: Test2
   airflow-worker-test2:
+    profiles: ["local"]
     <<: *airflow-worker
     command: celery worker -q kraken_queue_test2
     volumes:
@@ -394,6 +396,7 @@ services:
 
   # INSTRUMENT: Test3
   airflow-worker-test3:
+    profiles: ["local"]
     <<: *airflow-worker
     command: celery worker -q kraken_queue_test3
     volumes:
@@ -401,97 +404,6 @@ services:
       - ${MOUNTS_PATH:?error}/output:/opt/airflow/mounts/output:ro
       - ${MOUNTS_PATH:?error}/instruments/test3:/opt/airflow/mounts/instruments/test3:ro
       - ${MOUNTS_PATH:?error}/backup/test3:/opt/airflow/mounts/backup/test3:rw
-
-  # INSTRUMENT: Test4
-  airflow-worker-test4:
-    <<: *airflow-worker
-    command: celery worker -q kraken_queue_test4
-    volumes:
-      - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs:rw
-      - ${MOUNTS_PATH:?error}/output:/opt/airflow/mounts/output:ro
-      - ${MOUNTS_PATH:?error}/instruments/test4:/opt/airflow/mounts/instruments/test4:ro
-      - ${MOUNTS_PATH:?error}/backup/test4:/opt/airflow/mounts/backup/test4:rw
-
-  # INSTRUMENT: Test5
-  airflow-worker-test5:
-    <<: *airflow-worker
-    command: celery worker -q kraken_queue_test5
-    volumes:
-      - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs:rw
-      - ${MOUNTS_PATH:?error}/output:/opt/airflow/mounts/output:ro
-      - ${MOUNTS_PATH:?error}/instruments/test5:/opt/airflow/mounts/instruments/test5:ro
-      - ${MOUNTS_PATH:?error}/backup/test5:/opt/airflow/mounts/backup/test5:rw
-
-  # INSTRUMENT: Test10
-  airflow-worker-test10:
-    <<: *airflow-worker
-    command: celery worker -q kraken_queue_test10
-    volumes:
-      - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs:rw
-      - ${MOUNTS_PATH:?error}/output:/opt/airflow/mounts/output:ro
-      - ${MOUNTS_PATH:?error}/instruments/test10:/opt/airflow/mounts/instruments/test10:ro
-      - ${MOUNTS_PATH:?error}/backup/test10:/opt/airflow/mounts/backup/test10:rw
-
-  # INSTRUMENT: Test12
-  airflow-worker-test12:
-    <<: *airflow-worker
-    command: celery worker -q kraken_queue_test12
-    # there might be additional keys here, just copy them
-    volumes:
-      - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs:rw
-      - ${MOUNTS_PATH:?error}/output:/opt/airflow/mounts/output:ro
-      - ${MOUNTS_PATH:?error}/instruments/test12:/opt/airflow/mounts/instruments/test12:ro
-      - ${MOUNTS_PATH:?error}/backup/test12:/opt/airflow/mounts/backup/test12:rw
-
-  # INSTRUMENT: Test11
-  airflow-worker-test11:
-    <<: *airflow-worker
-    command: celery worker -q kraken_queue_test11
-    volumes:
-      - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs:rw
-      - ${MOUNTS_PATH:?error}/output:/opt/airflow/mounts/output:ro
-      - ${MOUNTS_PATH:?error}/instruments/test11:/opt/airflow/mounts/instruments/test11:ro
-      - ${MOUNTS_PATH:?error}/backup/test11:/opt/airflow/mounts/backup/test11:rw
-
-  # INSTRUMENT: Test6
-  airflow-worker-test6:
-    <<: *airflow-worker
-    command: celery worker -q kraken_queue_test6
-    volumes:
-      - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs:rw
-      - ${MOUNTS_PATH:?error}/output:/opt/airflow/mounts/output:ro
-      - ${MOUNTS_PATH:?error}/instruments/test6:/opt/airflow/mounts/instruments/test6:ro
-      - ${MOUNTS_PATH:?error}/backup/test6:/opt/airflow/mounts/backup/test6:rw
-
-  # INSTRUMENT: Test7
-  airflow-worker-test7:
-    <<: *airflow-worker
-    command: celery worker -q kraken_queue_test7
-    volumes:
-      - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs:rw
-      - ${MOUNTS_PATH:?error}/output:/opt/airflow/mounts/output:ro
-      - ${MOUNTS_PATH:?error}/instruments/test7:/opt/airflow/mounts/instruments/test7:ro
-      - ${MOUNTS_PATH:?error}/backup/test7:/opt/airflow/mounts/backup/test7:rw
-
-  # INSTRUMENT: Test8
-  airflow-worker-test8:
-    <<: *airflow-worker
-    command: celery worker -q kraken_queue_test8
-    volumes:
-      - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs:rw
-      - ${MOUNTS_PATH:?error}/output:/opt/airflow/mounts/output:ro
-      - ${MOUNTS_PATH:?error}/instruments/test8:/opt/airflow/mounts/instruments/test8:ro
-      - ${MOUNTS_PATH:?error}/backup/test8:/opt/airflow/mounts/backup/test8:rw
-
-  # INSTRUMENT: Test9
-  airflow-worker-test9:
-    <<: *airflow-worker
-    command: celery worker -q kraken_queue_test9
-    volumes:
-      - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs:rw
-      - ${MOUNTS_PATH:?error}/output:/opt/airflow/mounts/output:ro
-      - ${MOUNTS_PATH:?error}/instruments/test9:/opt/airflow/mounts/instruments/test9:ro
-      - ${MOUNTS_PATH:?error}/backup/test9:/opt/airflow/mounts/backup/test9:rw
 
   nginx:
     image: nginx:latest

@@ -27,7 +27,7 @@ To not interfere with the automated processing, please stick to the following si
 *i.e. the folders where the acquisition software writes the raw files to. In particular,
 do not **delete**, **rename** or **open** files in these folders and do not **copy** or **move** files *from* or *to* these folders!
 
-Regular users should find all required documentation in the [AlphaKraken WebApp](http://<kraken_url>).
+Regular users should find all required documentation in the AlphaKraken WebApp.
 The rest of this documentation is relevant only for developers and administrators.
 
 

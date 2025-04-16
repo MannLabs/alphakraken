@@ -4,7 +4,7 @@ import os
 
 import streamlit as st
 from service.components import show_sandbox_message
-from service.utils import _log, display_info_message
+from service.utils import APP_URL, _log, display_info_message
 
 from shared.keys import ALLOWED_CHARACTERS_IN_RAW_FILE_NAME, EnvVars
 
@@ -18,15 +18,7 @@ quanting_pool_folder = os.environ.get(EnvVars.QUANTING_POOL_FOLDER)
 # Welcome to AlphaKraken!
 """
 
-if os.environ.get(EnvVars.ENV_NAME) == "production":
-    st.warning("""
-
-    Note: you are currently viewing a first version of the AlphaKraken.
-    Bear in mind that the project is far from complete in terms of features.
-
-    If you are missing something or have a cool idea or found a bug, please let us know: <support_email>
-    """)
-else:
+if os.environ.get(EnvVars.ENV_NAME) != "production":
     show_sandbox_message()
 
 c1, _ = st.columns([0.5, 0.5])
@@ -114,12 +106,12 @@ Combine with other parameters (like `max_age=`) like this: `?filter=value1_AND_v
 
 Q: I am missing a metric or a feature or found a bug or find the AlphaKraken unintuitive to use or want to contribute.
 
-A: Please get in touch: [<support_email>](<support_email>)
+A: Please get in touch with the developers!
 
 
 Q: I want to know more about the AlphaKraken.
 
 A: Have a look at the [github repo](https://github.com/MannLabs/alphakraken) or the underlying
-Airflow implementation [here](http://<kraken_url>:8080) (read-only, ask for credentials),
+Airflow implementation [here]({APP_URL}:8080) (read-only, ask for credentials),
 
 """)

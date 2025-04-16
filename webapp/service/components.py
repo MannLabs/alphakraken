@@ -12,7 +12,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 from matplotlib import pyplot as plt
-from service.utils import DEFAULT_MAX_AGE_STATUS, display_plotly_chart
+from service.utils import APP_URL, DEFAULT_MAX_AGE_STATUS, display_plotly_chart
 
 from shared.db.models import TERMINAL_STATUSES, RawFileStatus
 from shared.keys import EnvVars
@@ -351,13 +351,13 @@ def show_sandbox_message() -> None:
     """Show a warning message if the environment is sandbox."""
     if os.environ.get(EnvVars.ENV_NAME) == "sandbox":
         st.error(
-            """
+            f"""
         Note: you are currently viewing the 'sandbox' environment which
         should be used for testing by AlphaKraken admins only. Everything could
         change any minute, and data could be wrong or gone at any time.
 
         You probably rather want to visit the 'production' environment:
-        [http://<kraken_url>](http://<kraken_url>).
+        [{APP_URL}]({APP_URL}).
         """,
             icon="⚠️",
         )

@@ -59,6 +59,7 @@ x-airflow-common: &airflow-common
     BACKUP_POOL_FOLDER: ${BACKUP_POOL_FOLDER:?error}
     QUANTING_POOL_FOLDER: ${QUANTING_POOL_FOLDER:?error}
     SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL:?error}
+    WEBAPP_URL: ${WEBAPP_URL:?error}
   volumes:
     # all mounts (backup pool folders, results pool folders, instruments, logs) need to be available in $MOUNTS_PATH
     - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs:rw

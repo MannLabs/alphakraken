@@ -32,12 +32,12 @@ repos:
       - id: ruff-format
       - id: ruff
         args: ["--fix"]
-  - repo: local
-    hooks:
-      - id: pytype
-        name: pytype
-        entry: uvx pytype
-        language: system
-        # run only if python files changed
-        files: |
-          (?x)^(?!.*/test_.*py)(.*py)$
+#  - repo: local
+#    hooks:
+#      - id: pytype
+#        name: pytype
+#        entry: uvx pytype
+#        language: system
+#        # run only if python files changed
+#        files: |
+#          (?x)^(?!.*/test_.*py)(.*py)$

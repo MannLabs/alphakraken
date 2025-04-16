@@ -31,7 +31,7 @@ All commands in this Readme assume you are in the root folder of the repository.
 Please note that running and developing the alphakraken is only tested for MacOS and Linux
 (the UI can be accessed from any OS, of course).
 
-#### One-time initializations
+#### Setting up new AlphaKraken instance (workers and/or infrastructure)
 The following steps are required for both the `local` and the `sandbox`/`production` deployments.
 For the latter, additional steps are required, see [here](#additional-steps-required-for-initial-sandboxproduction-deployment).
 
@@ -45,21 +45,22 @@ directory (otherwise, `root` would be used)
 echo -e "AIRFLOW_UID=$(id -u)" > envs/.env-airflow
 ```
 
-4. On the PC that will host the internal Airflow database (this is not the MongoDB!) run
+#### One-time initialization of Airflow infrastructure
+This needs to be done only once for a brand-new installation. It is not required
+e.g. to spin up another instance hosting workers only.
+
+1. On the PC that will host the internal Airflow database (this is not the MongoDB!) run
 ```bash
 ./compose.sh --profile dbs up airflow-init
 ```
 Note: depending on your operating system and configuration, you might need to run `docker compose` command with `sudo`.
 
-Now run the containers (see below).
-The following initialization steps need to be done once the containers are up:
-
-5. In the Airflow UI, set up the SSH connection to the cluster (see [below](#setup-ssh-connection)).
+2. In the Airflow UI, set up the SSH connection to the cluster (see [below](#setup-ssh-connection)).
 If you don't want to connect to the cluster, just create the connection of type
 "ssh" and name "cluster_ssh_connection" with some dummy values for host, username, and password.
 In this case, make sure to set the Airflow variable `debug_no_cluster_ssh=True` (see below).
 
-6. In the Airflow UI, set up the required Pools (see [below](#setup-required-pools)).
+3. In the Airflow UI, set up the required Pools (see [below](#setup-required-pools)).
 
 #### Run the containers (local version)
 Start all docker containers required for local testing with
@@ -89,13 +90,13 @@ whereas `sandbox`/`production` is per default distributed over two machines
 
 The different services can be distributed over several machines. The only important thing is that there
 it exactly one instance of each of the 'central components': `postgres-service`, `redis-service`, and `mongodb-service`.
-One reasonable setup is to have the Airflow infrastructure and the MongoDB service on one machine,
-and all workers on another. This is the current setup in the docker-compose, which is reflected by the
-profiles `infrastructure` and `workers`, respectively. If you move one of the central components
+One reasonable setup is to have the central components on one machine,
+and Airflow infrastructure (scheduler & webserver) on another. This is the current setup in the docker-compose, which is reflected by the
+profiles `dbs`, `infrastructure` and `workers`, respectively. If you move one of the central components
 to another machine, you might need to adjust the `*_HOST` variables in the
 `./env/${ENV}.env` files (see comments there). Of course, one machine could also host them all.
 
-Make sure that the time is in sync between all machines, e.g. by using the same time server.
+Make sure that the time is in sync between all machines, e.g. by using the same NTP time server.
 
 For production: set strong passwords for `AIRFLOW_PASSWORD`, `MONGO_PASSWORD`, and `POSTGRES_PASSWORD`
 in `./env/production.env` and `MONGO_INITDB_ROOT_PASSWORD` in `./env/.env-mongo`.
@@ -181,7 +182,7 @@ All airflow components (webserver, scheduler and workers) need a bind mount to a
 Additionally, workers need one bind mount per instrument PC is needed (cf. section below).
 
 0. (on demand) Install the `cifs-utils` package (otherwise you might get errors like
-`CIFS: VFS: cifs_mount failed w/return code = -13`)
+`CIFS: VFS: cifs_mount failed w/return code = -13` or `mount(2)  system call failed: No route to host.`)
 ```bash
 sudo apt install cifs-utils
 ```

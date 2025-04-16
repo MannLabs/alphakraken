@@ -12,11 +12,10 @@ from service.db import (
     get_settings_data,
 )
 from service.utils import (
-    QueryParams,
+    DISABLE_WRITE,
     SessionStateKeys,
     _log,
     empty_to_none,
-    is_query_param_true,
     show_feedback_in_sidebar,
 )
 
@@ -62,7 +61,7 @@ def display_settings(
     filtered_df, *_ = show_filter(settings_df, st_display=st_display)
 
     # beautify
-    del filtered_df["_id"]
+    filtered_df = filtered_df.drop(columns=["_id"], errors="ignore")
     st_display.table(
         filtered_df.style.apply(
             lambda row: [
@@ -151,10 +150,10 @@ form_items = {
         "help": "Name of the config file. If none is given, default will be used.",
     },
     "software": {
-        "label": "software",
+        "label": "Software",
         "max_chars": 64,
         "placeholder": "e.g. alphadia-1.10.0",
-        "help": "Name of the conda environment that holds the AlphaDIA executable. Needs to be created manually.",
+        "help": "Name of the Conda environment that holds the AlphaDIA executable. Needs to be created manually.",
     },
 }
 
@@ -189,14 +188,14 @@ if selected_project:
         if "project" in settings_df.columns and len(
             settings_df[settings_df["project"] == selected_project.id]
         ):
-            st.info("The current settings for this project will be set to 'inactive'.")
+            st.info(
+                "When adding new settings, the current settings for this project will be set to 'inactive'."
+            )
 
         submit = st.form_submit_button(
             f"Add settings to project {selected_project.id}",
-            disabled=not is_query_param_true(QueryParams.ADMIN),
-            help="Temporarily disabled."
-            if not is_query_param_true(QueryParams.ADMIN)
-            else "",
+            disabled=DISABLE_WRITE,
+            help="Temporarily disabled." if DISABLE_WRITE else "",
         )
 
 

@@ -148,7 +148,7 @@ In case you want to set up a URL redirect from one PC to one or multiple others,
 2. Start the respective container `./compose.sh up nginx --build --force-recreate -d`, see the folder `nginx_logs` for logs
 
 #### On the cluster
-1. Log into the cluster using the `kraken-write` user.
+1. Log into the cluster using the `kraken-read` user.
 2. Create this directory
 ```bash
 mkdir -p ~/slurm/jobs
@@ -156,7 +156,7 @@ mkdir -p ~/slurm/jobs
 3. Copy the cluster run script `submit_job.sh` to `~/slurm`.
 Make sure to update also this file when deploying a new version of the AlphaKraken.
 
-4. Set up AlphaDIA  (see [below](#setup-alphadia-on-the-cluster)).
+4. Set up AlphaDIA (see [below](#setup-alphadia-on-the-cluster)).
 
 ### General note on how Kraken gets to know the data
 

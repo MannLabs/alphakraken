@@ -19,6 +19,7 @@ from dags.impl.processor_impl import (
     run_quanting,
     upload_metrics,
 )
+from mongoengine import DoesNotExist
 from plugins.common.keys import (
     DagContext,
     DagParams,
@@ -131,6 +132,72 @@ def test_prepare_quanting(
         ]
     )
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
+
+
+@patch("dags.impl.processor_impl.get_raw_file_by_id")
+@patch("dags.impl.processor_impl._get_project_id_or_fallback")
+@patch("dags.impl.processor_impl.get_settings_for_project")
+def test_prepare_quanting_no_project_raise(
+    mock_get_settings: MagicMock,
+    mock_get_project_id_for_raw_file: MagicMock,
+    mock_get_raw_file_by_id: MagicMock,
+) -> None:
+    """Test that prepare_quanting raises an exception if no project is found."""
+    mock_raw_file = MagicMock(
+        wraps=RawFile,
+        id="test_file.raw",
+        created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
+        project_id="some_project_id",
+    )
+    mock_get_raw_file_by_id.return_value = mock_raw_file
+
+    mock_get_project_id_for_raw_file.return_value = "some_project_id"
+
+    mock_get_settings.side_effect = DoesNotExist
+
+    kwargs = {
+        OpArgs.INSTRUMENT_ID: "instrument1",
+        DagContext.PARAMS: {
+            DagParams.RAW_FILE_ID: "test_file.raw",
+        },
+    }
+
+    # when
+    with pytest.raises(AirflowFailException):
+        prepare_quanting(MagicMock(), **kwargs)
+
+
+@patch("dags.impl.processor_impl.get_raw_file_by_id")
+@patch("dags.impl.processor_impl._get_project_id_or_fallback")
+@patch("dags.impl.processor_impl.get_settings_for_project")
+def test_prepare_quanting_no_settings_raise(
+    mock_get_settings: MagicMock,
+    mock_get_project_id_for_raw_file: MagicMock,
+    mock_get_raw_file_by_id: MagicMock,
+) -> None:
+    """Test that prepare_quanting raises an exception if no settings are found."""
+    mock_raw_file = MagicMock(
+        wraps=RawFile,
+        id="test_file.raw",
+        created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
+        project_id="some_project_id",
+    )
+    mock_get_raw_file_by_id.return_value = mock_raw_file
+
+    mock_get_project_id_for_raw_file.return_value = "some_project_id"
+
+    mock_get_settings.return_value = None
+
+    kwargs = {
+        OpArgs.INSTRUMENT_ID: "instrument1",
+        DagContext.PARAMS: {
+            DagParams.RAW_FILE_ID: "test_file.raw",
+        },
+    }
+
+    # when
+    with pytest.raises(AirflowFailException):
+        prepare_quanting(MagicMock(), **kwargs)
 
 
 def test_get_slurm_job_id_from_log_returns_slurm_job_id_if_present_in_log() -> None:

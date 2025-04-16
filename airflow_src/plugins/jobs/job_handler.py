@@ -100,7 +100,6 @@ class SlurmSSHJobHandler(JobHandler):
         job_status = ssh_return.split("\n")[-1]
         return job_status, time_elapsed
 
-    # TODO: how to bring 'submit_job.sh' to the cluster?
     @staticmethod
     def _get_run_quanting_cmd(year_month_folder: str) -> str:
         """Get the command to run the quanting job on the cluster.

@@ -37,6 +37,7 @@ from jobs.job_handler import (
     start_job,
 )
 from metrics.metrics_calculator import calc_metrics
+from mongoengine import DoesNotExist
 
 from shared.db.interface import (
     add_metrics_to_raw_file,
@@ -61,9 +62,25 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
     instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
 
     raw_file = get_raw_file_by_id(raw_file_id)
+
+    project_id_or_fallback = _get_project_id_or_fallback(
+        raw_file.project_id, instrument_id
+    )
+    try:
+        settings = get_settings_for_project(project_id_or_fallback)
+    except DoesNotExist as e:
+        raise AirflowFailException(
+            f"No project found with id '{project_id_or_fallback}'. Please add a project and settings in the WebApp."
+        ) from e
+    else:
+        if settings is None:
+            raise AirflowFailException(
+                f"No active settings found for project id '{project_id_or_fallback}'. Please add settings in the WebApp."
+            )
+
     pool_base_path = Path(get_env_variable(EnvVars.POOL_BASE_PATH))
 
-    # get raw_file_path
+    # get raw file path
     backup_pool_folder = get_env_variable(EnvVars.BACKUP_POOL_FOLDER)
     year_month_subfolder = get_created_at_year_month(raw_file)
     raw_file_path = (
@@ -76,9 +93,6 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
 
     # get settings and output_path
     quanting_pool_folder = get_env_variable(EnvVars.QUANTING_POOL_FOLDER)
-    project_id_or_fallback = _get_project_id_or_fallback(
-        raw_file.project_id, instrument_id
-    )
 
     settings_path = (
         pool_base_path / quanting_pool_folder / "settings" / project_id_or_fallback
@@ -89,8 +103,6 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
         / quanting_pool_folder
         / get_output_folder_rel_path(raw_file, project_id_or_fallback)
     )
-
-    settings = get_settings_for_project(project_id_or_fallback)
 
     quanting_env = {
         QuantingEnv.RAW_FILE_PATH: str(raw_file_path),

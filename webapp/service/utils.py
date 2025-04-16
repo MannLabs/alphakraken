@@ -20,6 +20,8 @@ FILTER_MAPPING: dict[str, str] = {
 # TODO: remove this hack once https://github.com/streamlit/streamlit/issues/8112 is available
 APP_URL = "http://<kraken_url>"
 
+DISABLE_WRITE = False
+
 
 class QueryParams:
     """Query parameters for streamlit pages."""
@@ -35,9 +37,6 @@ class QueryParams:
 
     # whether page is accessed via mobile
     MOBILE = "mobile"
-
-    # super-dirty solution to prevent write access  # TODO: improve
-    ADMIN = "admin"
 
 
 DEFAULT_MAX_TABLE_LEN = 500

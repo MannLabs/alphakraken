@@ -34,6 +34,12 @@ python -m pytest
 ```
 If you encounter a `sqlite3.OperationalError: no such table: dag`, run `airflow db init` once.
 
+#### Update coverage badge
+```bash
+pytest --cov .
+coverage-badge > coverage.svg
+```
+
 ### Local testing
 This allows testing most of the functionality on your local machine. The SSH connection is cut off, and a
 special worker ("test1") is used that has the `local_test` folder mounted (instead of the pool folders).

@@ -1,6 +1,9 @@
 # requirements for development and testing
 pre-commit==3.7.1
 pytest==8.2.1
+coverage-badge==1.1.2
+pytest-cov==6.1.1
+
 
 # the apache/airflow:2.10.5 image comes with that pandas version,
 # so we need to install it only for the unit tests

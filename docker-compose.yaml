@@ -278,7 +278,7 @@ services:
       - ./mongodb_data_${ENV_NAME:?error}:/data/db
       # init the DB: https://stackoverflow.com/a/53522699
       # Note that this could also be done via python, cf. https://github.com/MannLabs/alphakraken/pull/6#discussion_r1624957906
-      - ./init-mongo.sh:/docker-entrypoint-initdb.d/init-mongo.sh
+      - ./misc/init-mongo.sh:/docker-entrypoint-initdb.d/init-mongo.sh
     environment:
       <<: *airflow-common-env
     env_file:
@@ -326,7 +326,7 @@ services:
       - "443:443"
       - "8080:8080" # for serving Airflow webserver
     volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./misc/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx_logs:/var/log/nginx/
         # - ./certs:/etc/nginx/certs:ro  # Optional: for SSL certificates
     restart: always

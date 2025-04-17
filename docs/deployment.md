@@ -146,7 +146,7 @@ for display in the Airflow UI.
 
 #### URL redirect
 In case you want to set up a URL redirect from one PC to one or multiple others, do the following on the redirecting PC:
-1. Edit `nginx.conf`: substitute the placeholder IP adresses (e.g. `255.255.0.1`) with the correct ones.
+1. Edit `misc/nginx.conf`: substitute the placeholder IP adresses (e.g. `255.255.0.1`) with the correct ones.
 2. Start the respective container `./compose.sh up nginx --build --force-recreate -d`, see the folder `nginx_logs` for logs
 
 #### On the cluster

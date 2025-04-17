@@ -20,7 +20,7 @@ pip install apache-airflow==${AIRFLOW_VERSION} --constraint "https://raw.githubu
 pip install -r airflow_src/requirements_airflow.txt
 pip install -r shared/requirements_shared.txt
 pip install -r webapp/requirements_webapp.txt
-pip install -r requirements_development.txt
+pip install -r misc/requirements_development.txt
 ```
 
 3. (optional) Mount the code directly into the containers. This way, changes are reflected immediately, without having to
@@ -37,7 +37,7 @@ If you encounter a `sqlite3.OperationalError: no such table: dag`, run `airflow 
 #### Update coverage badge
 ```bash
 pytest --cov .
-coverage-badge > coverage.svg
+coverage-badge > misc/coverage.svg
 ```
 
 ### Local testing

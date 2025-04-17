@@ -91,8 +91,9 @@ whereas `sandbox`/`production` is per default distributed over two machines
 The different services can be distributed over several machines. The only important thing is that there
 it exactly one instance of each of the 'central components': `postgres-service`, `redis-service`, and `mongodb-service`.
 One reasonable setup is to have the central components on one machine,
-and Airflow infrastructure (scheduler & webserver) on another. This is the current setup in the docker-compose, which is reflected by the
-profiles `dbs`, `infrastructure` and `workers`, respectively. If you move one of the central components
+and Airflow infrastructure (scheduler & webserver), workers and WebApp on another.
+This is the current setup in the docker-compose, which is reflected by the
+profiles `dbs`, and `infrastructure`/`workers`/`wepapp`, respectively. If you move one of the central components
 to another machine, you might need to adjust the `*_HOST` variables in the
 `./env/${ENV}.env` files (see comments there). Of course, one machine could also host them all.
 

@@ -1,6 +1,6 @@
 ![License](https://img.shields.io/badge/License-Apache-brightgreen)
 [![unit tests](https://github.com/MannLabs/alphakraken/actions/workflows/branch-checks.yaml/badge.svg)](https://github.com/MannLabs/alphakraken/actions/workflows/branch-checks.yaml)
-![Coverage](https://github.com/MannLabs/alphakraken/blob/main/coverage.svg)
+![Coverage](https://github.com/MannLabs/alphakraken/blob/main/misc/coverage.svg)
 ![GitHub Release](https://img.shields.io/github/v/release/mannlabs/alphakraken?logoColor=green&color=brightgreen)
 ![Versions](https://img.shields.io/badge/python-3.11-brightgreen)
 ![Versions](https://img.shields.io/badge/Apache_Airflow-2.10.5-brightgreen)
@@ -15,8 +15,9 @@ A fully automated data processing and analysis system for mass spectrometry expe
 <img src="docs/overview.jpg" alt="overview" style="max-width: 600px;"/>
 
 Currently supported:
-- quanting software: AlphaDIA
-- compute environment: Slurm, generic SSH (experimental)
+- quanting software: [AlphaDIA](https://github.com/MannLabs/alphadia)
+- compute environment: [Slurm](https://slurm.schedmd.com/documentation.html), generic SSH (experimental)
+- vendors: Bruker, Sciex, Thermo
 
 ## Important note for users
 
@@ -38,7 +39,8 @@ The following architecture is required to run AlphaKraken: a local PC, a compute
 **Local PC**: at least one local PC with a recent linux distribution, 16GB+ RAM and 4+ CPU cores,
 with network access to the acquisition PCs, to the shared file system and to the compute cluster.
 
-**Distributed compute environment**: compute cluster with SLURM workload manager that can be accessed via SSH.
+**Distributed compute environment**: compute cluster with Slurm workload manager that can be accessed via SSH.
+Note: such a cluster can be set up quite easily, cf. [here](https://github.com/SergioMEV/slurm-for-dummies).
 
 **Shared File System**: a file system that can be accessed from the local PC and the compute cluster.
 

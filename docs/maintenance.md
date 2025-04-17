@@ -9,20 +9,21 @@ avoided by using permanent mounts.
 ```bash
 sudo systemctl start docker
 ```
+Usually, all container should be started automatically (check container health using `sudo docker ps`).
+If not, proceed with the next step:
 
 2. Run the MongoDB, airflow db & redis services
 ```bash
 ./compose.sh --profile dbs up --build -d
 ```
-and check container health using `sudo docker ps`.
 
 
 #### Restart of PC/VM hosting the workers / infrastructure
 0. `ssh` into the PC/VM, `cd` to the alphakraken source directory, and set `export ENV=sandbox` (`export ENV=production`).
 
-1. Set up all mounts for all instruments (`test2`, ..) and the other folders:
+1. Set up all mounts for all instruments (`test1`, ..) and the other folders:
 ```bash
-for entity in test2 test3 backup output logs; do
+for entity in test1 test2 test3 backup output logs; do
   ./mount.sh $entity
 done
 ```
@@ -147,8 +148,6 @@ Recommended setting in production: -1 (default)
 
 ## Troubleshooting
 
-See also  .
-
 ### Problem: worker does not start
 
 A worker fails to start up with the error
@@ -187,7 +186,7 @@ To resolve, move the file from the backup pool folder and restart the `copy_raw_
 
 ### Problem: Tasks fail with "task instance .. finished with state failed"
 More specific, the Airflow logs show
-`ERROR - The executor reported that the task instance <TaskInstance: instrument_watcher.test3.wait_for_raw_file_creation ...> finished with state failed, but the task instance's state attribute is queued.`
+`ERROR - The executor reported that the task instance <TaskInstance: instrument_watcher.test1.wait_for_raw_file_creation ...> finished with state failed, but the task instance's state attribute is queued.`
 
 #### Solution
 Most likely, the code that the task should run is broken (e.g. due to an import or configuration error). Look at the
@@ -199,20 +198,34 @@ respective worker's container logs to find out the root cause.
 ### Some useful MongoDB commands
 Find all files for a given instrument with a given status that are younger than a given date
 ```
-{ $and: [{status:"error"}, {instrument_id:"test2"}, {created_at_: {$gte: new ISODate("2024-06-27")}}]}
+{ $and: [{status:"error"}, {instrument_id:"test1"}, {created_at_: {$gte: new ISODate("2024-06-27")}}]}
 ```
 
 ### Some useful Docker commands
-Instead of interacting with multiple services (by using `--profile`), you can also interact only with individual services,
-e.g.
-```bash
-./compose.sh down airflow-worker-test2
-./compose.sh up airflow-worker-test2 --build -d
-```
 
 See state of containers
 ```bash
 docker ps
+```
+
+See state of mounts
+```bash
+df
+```
+
+Instead of interacting with multiple services (by using `--profile`), you can also interact only with individual services,
+e.g.
+```bash
+./compose.sh up airflow-worker-test1 --build -d
+./compose.sh down airflow-worker-test1
+```
+
+If you encounter problems with mounting or any sorts of caching issues, try to replace
+`--build` with `--build --force-recreate`.
+
+Bring down all containers
+```
+./compose.sh --profile "*" down
 ```
 
 Sometimes, a container would refuse to stop ("Error while Stopping"):
@@ -220,11 +233,6 @@ to force kill it, get its `ID` from the above command and kill it manually
 ```bash
 ID=<ID of container, e.g. 8fb6a5985>
 sudo kill -9 $(ps ax | grep $ID | grep -v grep | awk '{print $1}')
-```
-
-See state of mounts
-```bash
-df
 ```
 
 Watch logs for a given service (don't confuse with the Airflow logs)
@@ -241,9 +249,6 @@ Clean up all containers, volumes, and images
 ```bash
 ./compose.sh down --volumes  --remove-orphans --rmi
 ```
-
-If you encounter problems with mounting or any sorts of caching issues, try to replace
-`--build` with `--build --force-recreate`.
 
 As a last resort, try restarting Docker (this will kill all running containers!)
 ```

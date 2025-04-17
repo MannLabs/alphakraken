@@ -8,7 +8,7 @@
 # If you need to change this script, do so with caution and test it on a sandbox first!
 
 # This could be used to loop over all instruments:
-# for i in $(python -c "import yaml, sys; print(' '.join(yaml.safe_load(open(sys.argv[1]))[sys.argv[2]].keys()))" envs/alphakraken.$ENV.yaml instruments); do echo $i; done
+# for i in $(python -c "import yaml, sys; print(' '.join(yaml.safe_load(open(sys.argv[1]))[sys.argv[2]].keys()))" envs/alphakraken.${ENV}.yaml instruments); do echo $i; done
 
 if [ "$ENV" == "" ]; then
   echo "Please set the ENV variable, e.g. 'export ENV=local' (or 'export ENV=sandbox', 'export ENV=production')"
@@ -31,7 +31,7 @@ fi
 ENTITY=$1 # instrument name as defined in alphakraken.yaml, e.g. test1
 DO_UMOUNT=${2:-}  # set to "umount" for unmounting first
 
-FILE_NAME=envs/alphakraken.$ENV.yaml
+FILE_NAME=envs/alphakraken.${ENV}.yaml
 if [ ! -f $FILE_NAME ]; then
    echo Configuration file $FILE_NAME not found.
    exit 1

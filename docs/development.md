@@ -20,7 +20,7 @@ pip install apache-airflow==${AIRFLOW_VERSION} --constraint "https://raw.githubu
 pip install -r airflow_src/requirements_airflow.txt
 pip install -r shared/requirements_shared.txt
 pip install -r webapp/requirements_webapp.txt
-pip install -r requirements_development.txt
+pip install -r misc/requirements_development.txt
 ```
 
 3. (optional) Mount the code directly into the containers. This way, changes are reflected immediately, without having to
@@ -37,7 +37,7 @@ If you encounter a `sqlite3.OperationalError: no such table: dag`, run `airflow 
 #### Update coverage badge
 ```bash
 pytest --cov .
-coverage-badge > coverage.svg
+coverage-badge > misc/coverage.svg
 ```
 
 ### Local testing
@@ -64,12 +64,12 @@ and triggers an `acquisition_handler` DAG. Here again, you can mark the `monitor
 
 ### Connect to the DB
 Use e.g. MongoDB Compass to connect to the MongoDB running in Docker using the url `<hostname>:27017` (e.g. `localhost:27017`),
-the credentials (defined in `envs/$ENV.env`) and make sure the "Authentication Database" is "`krakendb`".
+the credentials (defined in `envs/${ENV}.env`) and make sure the "Authentication Database" is "`krakendb`".
 
 #### Changing the DB 'schema'
 Although MongoDB is schema-less in principle, the use of `mongoengine` enforces a schema-like structure.
 In order to modify this structure of the DB (e.g. rename a field), you need to
-1. Backup the DB by copying the `mongodb_data_$ENV` folder
+1. Backup the DB by copying the `mongodb_data_${ENV}` folder
 2. Pause all DAGs and other services that may write to the DB
 3. Connect to the DB using  MongoDB Compass and use the `update` button with a command like
 ```

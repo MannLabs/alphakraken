@@ -266,7 +266,7 @@ def _display_table_and_plots(
         text_to_display="Filter:",
         st_display=c1,
         default_value=filter_value,
-        example_text="test2 & !hela & AlKr(.*)5ng & status=done & proteins=[400,500] & settings_version=1",
+        example_text="astral1 & !hela & AlKr(.*)5ng & status=done & proteins=[400,500] & settings_version=1",
     )
     filtered_df = show_date_select(
         filtered_df,

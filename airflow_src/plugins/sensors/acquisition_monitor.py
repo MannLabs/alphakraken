@@ -102,7 +102,9 @@ class AcquisitionMonitor(BaseSensorOperator):
             if youngest_file_age is not None and self._is_older_than_threshold(
                 self._file_path_to_monitor, youngest_file_age
             ):
-                self._file_is_old = True
+                # only consider files 'old' if the main file exists
+                self._main_file_exists = self._file_path_to_monitor.exists()
+                self._file_is_old = self._main_file_exists
 
         logging.info(
             f"Monitoring {self._raw_file_monitor_wrapper.file_path_to_monitor_acquisition()}"

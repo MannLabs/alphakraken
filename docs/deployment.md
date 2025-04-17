@@ -31,7 +31,7 @@ All commands in this Readme assume you are in the root folder of the repository.
 Please note that running and developing the alphakraken is only tested for MacOS and Linux
 (the UI can be accessed from any OS, of course).
 
-#### One-time initializations
+#### Setting up new AlphaKraken instance (workers and/or infrastructure)
 The following steps are required for both the `local` and the `sandbox`/`production` deployments.
 For the latter, additional steps are required, see [here](#additional-steps-required-for-initial-sandboxproduction-deployment).
 
@@ -45,21 +45,22 @@ directory (otherwise, `root` would be used)
 echo -e "AIRFLOW_UID=$(id -u)" > envs/.env-airflow
 ```
 
-4. On the PC that will host the internal Airflow database (this is not the MongoDB!) run
+#### One-time initialization of Airflow infrastructure
+This needs to be done only once for a brand-new installation. It is not required
+e.g. to spin up another instance hosting workers only.
+
+1. On the PC that will host the internal Airflow database (this is not the MongoDB!) run
 ```bash
 ./compose.sh --profile dbs up airflow-init
 ```
 Note: depending on your operating system and configuration, you might need to run `docker compose` command with `sudo`.
 
-Now run the containers (see below).
-The following initialization steps need to be done once the containers are up:
-
-5. In the Airflow UI, set up the SSH connection to the cluster (see [below](#setup-ssh-connection)).
+2. In the Airflow UI, set up the SSH connection to the cluster (see [below](#setup-ssh-connection)).
 If you don't want to connect to the cluster, just create the connection of type
 "ssh" and name "cluster_ssh_connection" with some dummy values for host, username, and password.
 In this case, make sure to set the Airflow variable `debug_no_cluster_ssh=True` (see below).
 
-6. In the Airflow UI, set up the required Pools (see [below](#setup-required-pools)).
+3. In the Airflow UI, set up the required Pools (see [below](#setup-required-pools)).
 
 #### Run the containers (local version)
 Start all docker containers required for local testing with
@@ -89,13 +90,14 @@ whereas `sandbox`/`production` is per default distributed over two machines
 
 The different services can be distributed over several machines. The only important thing is that there
 it exactly one instance of each of the 'central components': `postgres-service`, `redis-service`, and `mongodb-service`.
-One reasonable setup is to have the Airflow infrastructure and the MongoDB service on one machine,
-and all workers on another. This is the current setup in the docker-compose, which is reflected by the
-profiles `infrastructure` and `workers`, respectively. If you move one of the central components
+One reasonable setup is to have the central components on one machine,
+and Airflow infrastructure (scheduler & webserver), workers and WebApp on another.
+This is the current setup in the docker-compose, which is reflected by the
+profiles `dbs`, and `infrastructure`/`workers`/`wepapp`, respectively. If you move one of the central components
 to another machine, you might need to adjust the `*_HOST` variables in the
 `./env/${ENV}.env` files (see comments there). Of course, one machine could also host them all.
 
-Make sure that the time is in sync between all machines, e.g. by using the same time server.
+Make sure that the time is in sync between all machines, e.g. by using the same NTP time server.
 
 For production: set strong passwords for `AIRFLOW_PASSWORD`, `MONGO_PASSWORD`, and `POSTGRES_PASSWORD`
 in `./env/production.env` and `MONGO_INITDB_ROOT_PASSWORD` in `./env/.env-mongo`.
@@ -144,7 +146,7 @@ for display in the Airflow UI.
 
 #### URL redirect
 In case you want to set up a URL redirect from one PC to one or multiple others, do the following on the redirecting PC:
-1. Edit `nginx.conf`: substitute the placeholder IP adresses (e.g. `255.255.0.1`) with the correct ones.
+1. Edit `misc/nginx.conf`: substitute the placeholder IP adresses (e.g. `255.255.0.1`) with the correct ones.
 2. Start the respective container `./compose.sh up nginx --build --force-recreate -d`, see the folder `nginx_logs` for logs
 
 #### On the cluster
@@ -153,7 +155,7 @@ In case you want to set up a URL redirect from one PC to one or multiple others,
 ```bash
 mkdir -p ~/slurm/jobs
 ```
-3. Copy the cluster run script `submit_job.sh` to `~/slurm`.
+3. Copy the cluster run script `submit_job.sh` to `~/slurm` and adapt the `partition` (and optionally `nodelist`) directives.
 Make sure to update also this file when deploying a new version of the AlphaKraken.
 
 4. Set up AlphaDIA (see [below](#setup-alphadia-on-the-cluster)).
@@ -181,7 +183,7 @@ All airflow components (webserver, scheduler and workers) need a bind mount to a
 Additionally, workers need one bind mount per instrument PC is needed (cf. section below).
 
 0. (on demand) Install the `cifs-utils` package (otherwise you might get errors like
-`CIFS: VFS: cifs_mount failed w/return code = -13`)
+`CIFS: VFS: cifs_mount failed w/return code = -13` or `mount(2)  system call failed: No route to host.`)
 ```bash
 sudo apt install cifs-utils
 ```
@@ -189,7 +191,7 @@ sudo apt install cifs-utils
 1. Create folders `settings`, `output`, and `airflow_logs` in the desired pool location(s), e.g. under `/fs/pool/pool-alphakraken`.
 
 2. Make sure the variables `MOUNTS_PATH`, `BACKUP_POOL_FOLDER` `QUANTING_POOL_FOLDER` in the `envs/${ENV}.env` file are set correctly.
-Set them also in the `envs/alphakraken.$ENV.yaml` file (section: `locations`).
+Set them also in the `envs/alphakraken.${ENV}.yaml` file (section: `locations`).
 
 3. Mount the backup, output and logs folder. You will be asked for passwords.
 ```bash
@@ -202,7 +204,7 @@ Note: for now, user `kraken-write` should only have read access to the backup po
 folder. If you need to remount one of the folders, add the `umount` option, e.g.
 `./mount.sh output umount`.
 
-IMPORTANT NOTE: it is absolutely crucial that the mounts are set correctly (as provided by the `envs/alphakraken.$ENV.yaml` file)
+IMPORTANT NOTE: it is absolutely crucial that the mounts are set correctly (as provided by the `envs/alphakraken.${ENV}.yaml` file)
 as the workers operate only on docker-internal paths and cannot verify the correctness of the mounts.
 
 ### Setup SSH connection
@@ -247,11 +249,19 @@ Make sure the environment is named `alphadia-${VERSION}`, as this is the scheme 
 the AlphaDIA jobs.
 Also, don't forget to install `mono` (cf. AlphaDIA Readme).
 
+### Summary
+The following files need to be edited to customize your deployment:
+- `envs/.env-airflow`: set the current user as the user within the airflow containers
+- `envs/.env-mongo`: set the MongoDB root password
+- `envs/${ENV}.env`: set the environment variables for the basic wiring of components
+- `envs/alphakraken.${ENV}.yaml`: add a configuration for each instrument
+- `docker-compose.yaml`: add a worker for each instrument
+- `airflow_src/plugins/cluster_scripts/submit_job.sh` (cluster-local copy): configure partition and nodelist
 
 ### Deploying new code versions
 These steps need to be done on all machines that run alphakraken services.
 Make sure the code is always consistent across all machines!
-0. If in doubt, create a  backup copy of the `mongodb_data_$ENV` and `airflowdb_data_$ENV` folders (on the machine that hosts the DBs).
+0. If in doubt, create a  backup copy of the `mongodb_data_${ENV}` and `airflowdb_data_${ENV}` folders (on the machine that hosts the DBs).
 1. On each machine, pull the most recent version of the code from the repository using `git pull` and a personal access token.
 2. Check if there are any special changes to be done (e.g. updating `submit_job.sh` on the cluster,
 new mounts, new environment variables, manual database interventions, ..) and apply them.
@@ -261,3 +271,13 @@ new mounts, new environment variables, manual database interventions, ..) and ap
 6. Set the size of `file_copy_pool` to the number it was before.
 7. Normal operation should be resumed after about 5 minutes. Depending on when they were shut down, some tasks
 could be in an `error` state though. Check after a few hours if some files are stuck and resolve the issues with the Airflow UI.
+
+## Monitoring & alerting
+There is a basic monitoring system in place that sends messages to a Slack channel in the following cases
+- MongoDB is not reachable
+- last heartbeat of a worker is older than 15 minutes
+- a pile up of non-terminal status (e.g. "quanting") is detected
+- the free disk space of an instrument is below 200 GB
+
+This component allows to detect issues early and to react before they become critical.
+See the `monitoring` folder for details.

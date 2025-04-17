@@ -155,7 +155,7 @@ In case you want to set up a URL redirect from one PC to one or multiple others,
 ```bash
 mkdir -p ~/slurm/jobs
 ```
-3. Copy the cluster run script `submit_job.sh` to `~/slurm`.
+3. Copy the cluster run script `submit_job.sh` to `~/slurm` and adapt the `partition` (and optionally `nodelist`) directives.
 Make sure to update also this file when deploying a new version of the AlphaKraken.
 
 4. Set up AlphaDIA (see [below](#setup-alphadia-on-the-cluster)).
@@ -191,7 +191,7 @@ sudo apt install cifs-utils
 1. Create folders `settings`, `output`, and `airflow_logs` in the desired pool location(s), e.g. under `/fs/pool/pool-alphakraken`.
 
 2. Make sure the variables `MOUNTS_PATH`, `BACKUP_POOL_FOLDER` `QUANTING_POOL_FOLDER` in the `envs/${ENV}.env` file are set correctly.
-Set them also in the `envs/alphakraken.$ENV.yaml` file (section: `locations`).
+Set them also in the `envs/alphakraken.${ENV}.yaml` file (section: `locations`).
 
 3. Mount the backup, output and logs folder. You will be asked for passwords.
 ```bash
@@ -204,7 +204,7 @@ Note: for now, user `kraken-write` should only have read access to the backup po
 folder. If you need to remount one of the folders, add the `umount` option, e.g.
 `./mount.sh output umount`.
 
-IMPORTANT NOTE: it is absolutely crucial that the mounts are set correctly (as provided by the `envs/alphakraken.$ENV.yaml` file)
+IMPORTANT NOTE: it is absolutely crucial that the mounts are set correctly (as provided by the `envs/alphakraken.${ENV}.yaml` file)
 as the workers operate only on docker-internal paths and cannot verify the correctness of the mounts.
 
 ### Setup SSH connection
@@ -249,11 +249,19 @@ Make sure the environment is named `alphadia-${VERSION}`, as this is the scheme 
 the AlphaDIA jobs.
 Also, don't forget to install `mono` (cf. AlphaDIA Readme).
 
+### Summary
+The following files need to be edited to customize your deployment:
+- `envs/.env-airflow`: set the current user as the user within the airflow containers
+- `envs/.env-mongo`: set the MongoDB root password
+- `envs/${ENV}.env`: set the environment variables for the basic wiring of components
+- `envs/alphakraken.${ENV}.yaml`: add a configuration for each instrument
+- `docker-compose.yaml`: add a worker for each instrument
+- `airflow_src/plugins/cluster_scripts/submit_job.sh` (cluster-local copy): configure partition and nodelist
 
 ### Deploying new code versions
 These steps need to be done on all machines that run alphakraken services.
 Make sure the code is always consistent across all machines!
-0. If in doubt, create a  backup copy of the `mongodb_data_$ENV` and `airflowdb_data_$ENV` folders (on the machine that hosts the DBs).
+0. If in doubt, create a  backup copy of the `mongodb_data_${ENV}` and `airflowdb_data_${ENV}` folders (on the machine that hosts the DBs).
 1. On each machine, pull the most recent version of the code from the repository using `git pull` and a personal access token.
 2. Check if there are any special changes to be done (e.g. updating `submit_job.sh` on the cluster,
 new mounts, new environment variables, manual database interventions, ..) and apply them.

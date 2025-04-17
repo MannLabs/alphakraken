@@ -64,12 +64,12 @@ and triggers an `acquisition_handler` DAG. Here again, you can mark the `monitor
 
 ### Connect to the DB
 Use e.g. MongoDB Compass to connect to the MongoDB running in Docker using the url `<hostname>:27017` (e.g. `localhost:27017`),
-the credentials (defined in `envs/$ENV.env`) and make sure the "Authentication Database" is "`krakendb`".
+the credentials (defined in `envs/${ENV}.env`) and make sure the "Authentication Database" is "`krakendb`".
 
 #### Changing the DB 'schema'
 Although MongoDB is schema-less in principle, the use of `mongoengine` enforces a schema-like structure.
 In order to modify this structure of the DB (e.g. rename a field), you need to
-1. Backup the DB by copying the `mongodb_data_$ENV` folder
+1. Backup the DB by copying the `mongodb_data_${ENV}` folder
 2. Pause all DAGs and other services that may write to the DB
 3. Connect to the DB using  MongoDB Compass and use the `update` button with a command like
 ```

@@ -6,7 +6,7 @@ Note that some parts of the system rely on convention, so make sure to use exact
 
 1. On the instrument, create a folder named `Backup` (capital B!) in the folder where the acquired files are saved.
 
-2. Add the following block to the end of the `instruments` section in `envs/alphakraken.$ENV.yaml` (mind the correct indentation!):
+2. Add the following block to the end of the `instruments` section in `envs/alphakraken.${ENV}.yaml` (mind the correct indentation!):
 ```bash
    <INSTRUMENT_ID>:
     type: <INSTRUMENT_TYPE>

@@ -263,3 +263,13 @@ new mounts, new environment variables, manual database interventions, ..) and ap
 6. Set the size of `file_copy_pool` to the number it was before.
 7. Normal operation should be resumed after about 5 minutes. Depending on when they were shut down, some tasks
 could be in an `error` state though. Check after a few hours if some files are stuck and resolve the issues with the Airflow UI.
+
+## Monitoring & alerting
+There is a basic monitoring system in place that sends messages to a Slack channel in the following cases
+- MongoDB is not reachable
+- last heartbeat of a worker is older than 15 minutes
+- a pile up of non-terminal status (e.g. "quanting") is detected
+- the free disk space of an instrument is below 200 GB
+
+This component allows to detect issues early and to react before they become critical.
+See the `monitoring` folder for details.

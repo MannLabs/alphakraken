@@ -9,12 +9,13 @@ avoided by using permanent mounts.
 ```bash
 sudo systemctl start docker
 ```
+Usually, all container should be started automatically (check container health using `sudo docker ps`).
+If not, proceed with the next step:
 
 2. Run the MongoDB, airflow db & redis services
 ```bash
 ./compose.sh --profile dbs up --build -d
 ```
-and check container health using `sudo docker ps`.
 
 
 #### Restart of PC/VM hosting the workers / infrastructure
@@ -201,16 +202,30 @@ Find all files for a given instrument with a given status that are younger than 
 ```
 
 ### Some useful Docker commands
-Instead of interacting with multiple services (by using `--profile`), you can also interact only with individual services,
-e.g.
-```bash
-./compose.sh down airflow-worker-test1
-./compose.sh up airflow-worker-test1 --build -d
-```
 
 See state of containers
 ```bash
 docker ps
+```
+
+See state of mounts
+```bash
+df
+```
+
+Instead of interacting with multiple services (by using `--profile`), you can also interact only with individual services,
+e.g.
+```bash
+./compose.sh up airflow-worker-test1 --build -d
+./compose.sh down airflow-worker-test1
+```
+
+If you encounter problems with mounting or any sorts of caching issues, try to replace
+`--build` with `--build --force-recreate`.
+
+Bring down all containers
+```
+./compose.sh --profile "*" down
 ```
 
 Sometimes, a container would refuse to stop ("Error while Stopping"):
@@ -218,11 +233,6 @@ to force kill it, get its `ID` from the above command and kill it manually
 ```bash
 ID=<ID of container, e.g. 8fb6a5985>
 sudo kill -9 $(ps ax | grep $ID | grep -v grep | awk '{print $1}')
-```
-
-See state of mounts
-```bash
-df
 ```
 
 Watch logs for a given service (don't confuse with the Airflow logs)
@@ -239,9 +249,6 @@ Clean up all containers, volumes, and images
 ```bash
 ./compose.sh down --volumes  --remove-orphans --rmi
 ```
-
-If you encounter problems with mounting or any sorts of caching issues, try to replace
-`--build` with `--build --force-recreate`.
 
 As a last resort, try restarting Docker (this will kill all running containers!)
 ```

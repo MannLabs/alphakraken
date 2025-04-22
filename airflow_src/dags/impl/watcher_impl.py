@@ -229,25 +229,23 @@ def _file_meets_age_criterion(
     :return: True if the file is younger than the given max. file age or if no max. file age defined, False otherwise
     """
     try:
-        max_file_age_in_hours: str = get_airflow_variable(
-            AirflowVars.DEBUG_MAX_FILE_AGE_IN_HOURS  # pytype: disable=annotation-type-mismatch
-        )
-    except KeyError:
-        # DEBUG_MAX_FILE_AGE_IN_HOURS not set
-        return True
-
-    try:
-        max_file_age_in_hours_float = float(max_file_age_in_hours)
+        if (
+            max_file_age_in_hours := float(
+                get_airflow_variable(
+                    AirflowVars.DEBUG_MAX_FILE_AGE_IN_HOURS,
+                    default="-1",  # pytype: disable=annotation-type-mismatch
+                )
+            )
+        ) == -1:
+            return True
     except ValueError as e:
-        raise ValueError(
-            f"Could not convert max_file_age_in_hours to float: {max_file_age_in_hours}"
-        ) from e
+        raise ValueError("Could not convert max_file_age_in_hours to float.") from e
 
     file_creation_ts = get_file_creation_timestamp(raw_file_name, instrument_id)
     raw_file_creation_time = datetime.fromtimestamp(file_creation_ts, tz=pytz.utc)
 
     if (now := datetime.now(tz=pytz.utc)) - raw_file_creation_time > timedelta(
-        hours=max_file_age_in_hours_float
+        hours=max_file_age_in_hours
     ):  # TODO: check time zone on acquisition PCS
         logging.info(
             f"File {raw_file_name} is too old: {now=} {raw_file_creation_time=}"

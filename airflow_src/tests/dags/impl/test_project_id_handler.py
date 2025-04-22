@@ -13,6 +13,15 @@ def test_get_unique_project_found() -> None:
     assert get_unique_project_id(raw_file_name, project_ids) == "A556"
 
 
+def test_get_unique_project_found_no_token() -> None:
+    """Test get_unique_project_id returns the correct project ID if no token is provided."""
+    raw_file_name = (
+        "20240524_OA2_Evo01_ViAl_SA_FAIMS40_IO17_A556_MOMI_APEM_P81_A11_R01.raw"
+    )
+    project_ids = ["A123", "A556"]
+    assert get_unique_project_id(raw_file_name, project_ids, initial_token="") == "A556"
+
+
 @pytest.mark.parametrize(
     "project_ids",
     [

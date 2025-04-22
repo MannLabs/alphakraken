@@ -444,12 +444,15 @@ def _draw_plot(  # noqa: PLR0913
     median_ = df[y].median() if y_is_numeric else 0
     title = f"{y} (median= {median_:.2f})" if y_is_numeric else y
 
-    hover_data = [
-        "file_created",
-        "size_gb",
-        "precursors",
-        "status",
-    ]
+    hover_data = _filter_valid_columns(
+        [
+            "file_created",
+            "size_gb",
+            "precursors",
+            "status",
+        ],
+        df,
+    )
 
     if y == "status" and "status_details" in df:
         df.loc[pd.isna(df["status_details"]), "status_details"] = ""

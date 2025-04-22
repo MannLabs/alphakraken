@@ -53,6 +53,8 @@ class Column:
     log_scale: bool = False
     # alternative names in the database
     alternative_names: list[str] | None = None
+    # optional plot
+    plot_optional: bool = False
 
 
 COLUMNS = (

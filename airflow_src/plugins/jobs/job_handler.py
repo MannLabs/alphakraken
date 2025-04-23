@@ -77,9 +77,11 @@ class SlurmSSHJobHandler(JobHandler):
 
     def start_job(self, quanting_env: dict[str, str], year_month_folder: str) -> str:
         """Start a quanting job on the Slurm cluster via SSH."""
-        command = self._create_export_command(
-            quanting_env
-        ) + self._get_run_quanting_cmd(year_month_folder)
+        command = (
+            self._create_export_command(quanting_env)
+            + "\n"
+            + self._get_run_quanting_cmd(year_month_folder)
+        )
         logging.info(f"Running command: >>>>\n{command}\n<<<< end of command")
         ssh_return = ssh_execute(command)
 
@@ -102,9 +104,11 @@ class SlurmSSHJobHandler(JobHandler):
         # Use a wildcard path to find the output file without needing to know the specific year_month subfolder
         # This works as long as job_ids are unique across all subfolders
         slurm_output_file = f"{self._cluster_working_dir_path}/*/slurm-{job_id}.out"
-        cmd = self._check_quanting_result_cmd(
-            job_id, slurm_output_file
-        ) + self._get_job_state_cmd(job_id)
+        cmd = (
+            self._check_quanting_result_cmd(job_id, slurm_output_file)
+            + "\n"
+            + self._get_job_state_cmd(job_id)
+        )
         ssh_return = ssh_execute(cmd)
         time_elapsed = self._get_time_elapsed(ssh_return)
         job_status = ssh_return.split("\n")[-1]
@@ -118,13 +122,15 @@ class SlurmSSHJobHandler(JobHandler):
 
         :param year_month_folder: the sub folder in which the slurm output script will be written to, e.g. "2024_07"
         """
-        return f"""
-    mkdir -p {self._cluster_working_dir_path}/{year_month_folder}
-    cd {self._cluster_working_dir_path}/{year_month_folder}
-    cat {self._cluster_job_script_path}
-    JID=$(sbatch {self._cluster_job_script_path})
-    echo ${{JID##* }}
-    """
+        return "\n".join(
+            [
+                f"mkdir -p {self._cluster_working_dir_path}/{year_month_folder}",
+                f"cd {self._cluster_working_dir_path}/{year_month_folder}",
+                f"cat {self._cluster_job_script_path}",
+                f"JID=$(sbatch {self._cluster_job_script_path})",
+                "echo ${JID##* }",
+            ]
+        )
 
     @staticmethod
     def _check_quanting_result_cmd(job_id: str, slurm_output_file: str) -> str:
@@ -133,10 +139,13 @@ class SlurmSSHJobHandler(JobHandler):
         To reduce the number of ssh calls, we combine multiple commands into one
         In order to be able to extract the run time, we expect the first line to contain only that, e.g. "00:08:42"
         """
-        return f"""TIME_ELAPSED=$(sacct --format=Elapsed -j {job_id} | tail -n 1); echo $TIME_ELAPSED
-    sacct -l -j {job_id}
-    cat {slurm_output_file}
-    """
+        return "\n".join(
+            [
+                f"TIME_ELAPSED=$(sacct --format=Elapsed -j {job_id} | tail -n 1); echo $TIME_ELAPSED",
+                f"sacct -l -j {job_id}",
+                f"cat {slurm_output_file}",
+            ]
+        )
 
     @staticmethod
     def _get_job_state_cmd(job_id: str) -> str:
@@ -144,10 +153,12 @@ class SlurmSSHJobHandler(JobHandler):
 
         Its only output must be the job status.
         """
-        return f"""
-    ST=$(sacct -j {job_id} -o State | awk 'FNR == 3 {{print $1}}')
-    echo $ST
-    """
+        return "\n".join(
+            [
+                f"ST=$(sacct -j {job_id} -o State | awk 'FNR == 3 {{print $1}}')",
+                "echo $ST",
+            ]
+        )
 
     @staticmethod
     def _create_export_command(mapping: dict[str, str]) -> str:

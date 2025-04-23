@@ -18,12 +18,11 @@ def test_start_job_returns_valid_job_id(mock_ssh_execute: MagicMock) -> None:
     assert job_id == "12345"
     expected_command = (
         "export ENV_VAR=value\n"
-        "    mkdir -p /path/to/slurm_base_dir/jobs/2024_07\n"
-        "    cd /path/to/slurm_base_dir/jobs/2024_07\n"
-        "    cat /path/to/slurm_base_dir/submit_job.sh\n"
-        "    JID=$(sbatch /path/to/slurm_base_dir/submit_job.sh)\n"
-        "    echo ${JID##* }\n"
-        "    "
+        "mkdir -p /path/to/slurm_base_dir/jobs/2024_07\n"
+        "cd /path/to/slurm_base_dir/jobs/2024_07\n"
+        "cat /path/to/slurm_base_dir/submit_job.sh\n"
+        "JID=$(sbatch /path/to/slurm_base_dir/submit_job.sh)\n"
+        "echo ${JID##* }"
     )
     mock_ssh_execute.assert_called_once_with(expected_command)
 
@@ -46,7 +45,9 @@ def test_get_job_status_returns_correctly(mock_ssh_execute: MagicMock) -> None:
 
     job_status = SlurmSSHJobHandler().get_job_status("12345")
     assert job_status == "COMPLETED"
-    expected_command = "\n    ST=$(sacct -j 12345 -o State | awk 'FNR == 3 {print $1}')\n    echo $ST\n    "
+    expected_command = (
+        "ST=$(sacct -j 12345 -o State | awk 'FNR == 3 {print $1}')\necho $ST"
+    )
     mock_ssh_execute.assert_called_once_with(expected_command)
 
 
@@ -64,11 +65,9 @@ def test_get_job_result_returns_correct_job_status_and_time_elapsed(
     assert time_elapsed == 8 * 60 + 42
     expected_command = (
         "TIME_ELAPSED=$(sacct --format=Elapsed -j 12345 | tail -n 1); echo $TIME_ELAPSED\n"
-        "    sacct -l -j 12345\n"
-        "    cat /path/to/slurm_base_dir/jobs/*/slurm-12345.out\n"
-        "    \n"
-        "    ST=$(sacct -j 12345 -o State | awk 'FNR == 3 {print $1}')\n"
-        "    echo $ST\n"
-        "    "
+        "sacct -l -j 12345\n"
+        "cat /path/to/slurm_base_dir/jobs/*/slurm-12345.out\n"
+        "ST=$(sacct -j 12345 -o State | awk 'FNR == 3 {print $1}')\n"
+        "echo $ST"
     )
     mock_ssh_execute.assert_called_once_with(expected_command)

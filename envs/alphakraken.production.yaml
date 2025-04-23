@@ -1,24 +1,29 @@
 # Configuration file for alphakraken: instruments and mounts (environment: production)
+# see `alphakraken.local.yaml` for a commented version
 instruments:
   test1:
-    type: thermo # Needs to match one of the values defined in common.keys.InstrumentTypes (thermo, bruker, sciex).
-    # the following is required for mounting only (read by mount.sh):
+    type: thermo
     username: user
     mount_src: //0.0.0.0/test1/
     mount_target: instruments/test1
 locations:
-  # cf. also the PATHS section in .env/production.env
   general:
     mounts_path: /home/kraken-user/alphakraken/production/mounts
+    slurm_base_path: //samba-pool-2/pool-2/slurm
   backup:
     username: kraken-write
     mount_src: //samba-pool-1/pool-1
     mount_target: backup
+    absolute_path: /fs/pool-1/backup
+  settings:
+    absolute_path: /fs/pool-2/settings
   output:
     username: kraken-write
     mount_src: //samba-pool-2/pool-2/output
     mount_target: output
+    absolute_path: /fs/pool-2/output
   logs:
     username: kraken-write
     mount_src: //samba-pool-2/pool-2/airflow_logs
     mount_target: airflow_logs
+    absolute_path: /fs/pool-2/airflow_logs

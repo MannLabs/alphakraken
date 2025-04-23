@@ -25,14 +25,14 @@ locations:
     mount_src: //mount_src/backup
     mount_target: backup # DO NOT CHANGE! relative to mounts_path -> InternalPaths.BACKUP
     absolute_path: /fs/pool/pool-0/alphakraken_sandbox/backup
+  settings:
+    # no need for mount information (yet)
+    absolute_path: /fs/pool/pool-0/alphakraken_sandbox/settings
   output:
     username: user
     mount_src: //mount_src/output
     mount_target: output # DO NOT CHANGE! relative to mounts_path -> InternalPaths.OUTPUT
     absolute_path: /fs/pool/pool-0/alphakraken_sandbox/output
-  settings:
-    # no need for mount information (yet)
-    absolute_path: /fs/pool/pool-0/alphakraken_sandbox/settings
   logs:
     username: user
     mount_src: //mount_src/airflow_logs

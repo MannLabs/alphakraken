@@ -55,7 +55,6 @@ x-airflow-common: &airflow-common
     MONGO_USER: ${MONGO_USER:?error}
     MONGO_PASSWORD: ${MONGO_PASSWORD:?error}
     MONGO_PORT: ${MONGO_PORT:?error}
-    POOL_BASE_PATH: ${POOL_BASE_PATH:?error}
     BACKUP_POOL_FOLDER: ${BACKUP_POOL_FOLDER:?error}
     QUANTING_POOL_FOLDER: ${QUANTING_POOL_FOLDER:?error}
     SLURM_BASE_DIR: ${SLURM_BASE_DIR:?error}

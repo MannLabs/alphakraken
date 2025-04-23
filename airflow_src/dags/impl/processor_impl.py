@@ -78,30 +78,20 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
                 f"No active settings found for project id '{project_id_or_fallback}'. Please add settings in the WebApp."
             )
 
-    pool_base_path = Path(get_env_variable(EnvVars.POOL_BASE_PATH))
-
     # get raw file path
-    backup_pool_folder = get_env_variable(EnvVars.BACKUP_POOL_FOLDER)
+    backup_pool_folder = Path(get_env_variable(EnvVars.BACKUP_POOL_FOLDER))
     year_month_subfolder = get_created_at_year_month(raw_file)
     raw_file_path = (
-        pool_base_path
-        / backup_pool_folder
-        / instrument_id
-        / year_month_subfolder
-        / raw_file_id
+        backup_pool_folder / instrument_id / year_month_subfolder / raw_file_id
     )
 
     # get settings and output_path
-    quanting_pool_folder = get_env_variable(EnvVars.QUANTING_POOL_FOLDER)
+    quanting_pool_folder = Path(get_env_variable(EnvVars.QUANTING_POOL_FOLDER))
 
-    settings_path = (
-        pool_base_path / quanting_pool_folder / "settings" / project_id_or_fallback
-    )
+    settings_path = quanting_pool_folder / "settings" / project_id_or_fallback
 
-    output_path = (
-        pool_base_path
-        / quanting_pool_folder
-        / get_output_folder_rel_path(raw_file, project_id_or_fallback)
+    output_path = quanting_pool_folder / get_output_folder_rel_path(
+        raw_file, project_id_or_fallback
     )
 
     quanting_env = {

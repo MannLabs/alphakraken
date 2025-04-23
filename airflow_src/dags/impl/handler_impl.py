@@ -70,9 +70,7 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
 
     file_info = _get_file_info(copied_files)
 
-    pool_base_path = Path(get_env_variable(EnvVars.POOL_BASE_PATH))
-    backup_pool_folder = get_env_variable(EnvVars.BACKUP_POOL_FOLDER)
-    backup_base_path = pool_base_path / backup_pool_folder
+    backup_base_path = get_env_variable(EnvVars.BACKUP_POOL_FOLDER)
 
     # a bit hacky to get the file size once again, but it's a cheap operation and avoids complicate logic
     # TODO: in rare cases (manual intervention) this could yield to inconsistencies, change this!
@@ -85,7 +83,7 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
         new_status=RawFileStatus.COPYING_DONE,
         size=file_size,
         file_info=file_info,
-        backup_base_path=str(backup_base_path),
+        backup_base_path=backup_base_path,
     )
 
     # to make this unusual situation transparent in UI:

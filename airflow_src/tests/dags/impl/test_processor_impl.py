@@ -62,9 +62,8 @@ def test_get_project_id_for_raw_file_fallback_bruker() -> None:
 @patch.dict(
     os.environ,
     {
-        "POOL_BASE_PATH": "/pool/path/to",
-        "QUANTING_POOL_FOLDER": "some_quanting_pool_folder",
-        "BACKUP_POOL_FOLDER": "some_backup_pool_folder",
+        "QUANTING_POOL_FOLDER": "/some_quanting_pool_folder",
+        "BACKUP_POOL_FOLDER": "/some_backup_pool_folder",
     },
 )
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
@@ -113,9 +112,9 @@ def test_prepare_quanting(
 
     # when you adapt something here, don't forget to adapt also the submit_job.sh script
     expected_quanting_env = {
-        "RAW_FILE_PATH": "/pool/path/to/some_backup_pool_folder/instrument1/1970_01/test_file.raw",
-        "SETTINGS_PATH": "/pool/path/to/some_quanting_pool_folder/settings/some_project_id",
-        "OUTPUT_PATH": "/pool/path/to/some_quanting_pool_folder/output/some_project_id/out_test_file.raw",
+        "RAW_FILE_PATH": "/some_backup_pool_folder/instrument1/1970_01/test_file.raw",
+        "SETTINGS_PATH": "/some_quanting_pool_folder/settings/some_project_id",
+        "OUTPUT_PATH": "/some_quanting_pool_folder/output/some_project_id/out_test_file.raw",
         "SPECLIB_FILE_NAME": "some_speclib_file_name",
         "FASTA_FILE_NAME": "some_fasta_file_name",
         "CONFIG_FILE_NAME": "some_config_file_name",

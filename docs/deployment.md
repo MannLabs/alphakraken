@@ -151,10 +151,11 @@ In case you want to set up a URL redirect from one PC to one or multiple others,
 
 #### On the cluster
 1. Log into the cluster using the `kraken-read` user.
-2. Create this directory
+2. Create a directory, e.g.
 ```bash
-mkdir -p ~/slurm/jobs
+mkdir ~/slurm
 ```
+and set the `SLURM_BASE_DIR` environmental variable in `envs/${ENV}.env` to this value.
 3. Copy the cluster run script `submit_job.sh` to `~/slurm` and adapt the `partition` (and optionally `nodelist`) directives.
 Make sure to update also this file when deploying a new version of the AlphaKraken.
 
@@ -190,7 +191,8 @@ sudo apt install cifs-utils
 
 1. Create folders `settings`, `output`, and `airflow_logs` in the desired pool location(s), e.g. under `/fs/pool/pool-alphakraken`.
 
-2. Make sure the variables `MOUNTS_PATH`, `BACKUP_POOL_FOLDER` `QUANTING_POOL_FOLDER` in the `envs/${ENV}.env` file are set correctly.
+2. Make sure the variables `MOUNTS_PATH`, `BACKUP_POOL_FOLDER` `QUANTING_POOL_FOLDER`,
+in the `envs/${ENV}.env` file are set to the desired values.
 Set them also in the `envs/alphakraken.${ENV}.yaml` file (section: `locations`).
 
 3. Mount the backup, output and logs folder. You will be asked for passwords.
@@ -208,7 +210,7 @@ IMPORTANT NOTE: it is absolutely crucial that the mounts are set correctly (as p
 as the workers operate only on docker-internal paths and cannot verify the correctness of the mounts.
 
 ### Setup SSH connection
-This connection is required to interact with the SLURM cluster.
+This connection is required to interact with the Slurm cluster.
 
 1. Open the Airflow UI, navigate to "Admin" -> "Connections" and click the "+" button.
 2. Fill in the following fields:
@@ -228,7 +230,7 @@ and need to be created manually once.
 2. For each pool defined in `settings.py:Pools`, create a new pool with a sensible value (see suggestions in the `Pools` class).
 
 ### Setup AlphaDIA on the cluster
-For details on how to install AlphaDIA on the SLURM cluster, follow the AlphaDIA
+For details on how to install AlphaDIA on the Slurm cluster, follow the AlphaDIA
 [https://github.com/MannLabs/alphadia/blob/main/docs/installation.md#slurm-cluster-installation](Readme).
 
 In a nutshell, to install a certain version, e.g. `VERSION=1.7.0`:

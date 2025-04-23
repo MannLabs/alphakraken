@@ -1,17 +1,21 @@
 """Module containing the commands to interact with job clusters.
 
 This module provides an abstract interface for job execution on different engines,
-with concrete implementations for SLURM.
+with concrete implementations for Slurm.
 """
 
 import abc
 import logging
 from datetime import datetime
+from pathlib import Path
 
 from airflow.exceptions import AirflowFailException
-from common.constants import CLUSTER_JOB_SCRIPT_PATH, CLUSTER_WORKING_DIR
+from common.constants import CLUSTER_JOB_SCRIPT_NAME, CLUSTER_WORKING_DIR_NAME
 from common.settings import _SETTINGS
+from common.utils import get_env_variable
 from sensors.ssh_utils import ssh_execute
+
+from shared.keys import EnvVars
 
 # TODO: move to settings, introduce constants
 ENGINE: str = _SETTINGS.get("general", {}).get("job_engine", {}).get("type", "slurm")
@@ -24,7 +28,7 @@ def _get_job_handler() -> "JobHandler":
 
         logging.info("Using GenericJobHandler")
         return GenericJobHandler()
-    # Default to SLURM
+    # Default to Slurm
     logging.info("Using SlurmSSHJobHandler")
     return SlurmSSHJobHandler()
 
@@ -63,13 +67,22 @@ class JobHandler(abc.ABC):
 
 
 class SlurmSSHJobHandler(JobHandler):
-    """Implementation of JobHandler that executes commands on a SLURM cluster via SSH."""
+    """Implementation of JobHandler that executes commands on a Slurm cluster via SSH."""
+
+    def __init__(self):
+        """Initialize the Slurm job handler."""
+        super().__init__()
+        cluster_base_dir = Path(get_env_variable(EnvVars.SLURM_BASE_DIR))
+        self._cluster_working_dir_path = cluster_base_dir / CLUSTER_WORKING_DIR_NAME
+        self._cluster_job_script_path = cluster_base_dir / CLUSTER_JOB_SCRIPT_NAME
 
     def start_job(self, quanting_env: dict[str, str], year_month_folder: str) -> str:
-        """Start a quanting job on the SLURM cluster via SSH."""
-        command = self._create_export_command(
-            quanting_env
-        ) + self._get_run_quanting_cmd(year_month_folder)
+        """Start a quanting job on the Slurm cluster via SSH."""
+        command = (
+            self._create_export_command(quanting_env)
+            + "\n"
+            + self._get_run_quanting_cmd(year_month_folder)
+        )
         logging.info(f"Running command: >>>>\n{command}\n<<<< end of command")
         ssh_return = ssh_execute(command)
 
@@ -83,25 +96,26 @@ class SlurmSSHJobHandler(JobHandler):
         return job_id
 
     def get_job_status(self, job_id: str) -> str:
-        """Get the status of a job on the SLURM cluster via SSH."""
+        """Get the status of a job on the Slurm cluster via SSH."""
         cmd = self._get_job_state_cmd(job_id)
         return ssh_execute(cmd)
 
     def get_job_result(self, job_id: str) -> tuple[str, int]:
-        """Get the job status and time elapsed from the SLURM cluster via SSH."""
-        # the wildcard here is a bit of a hack to avoid retrieving the year_month
-        # subfolder here .. should be no problem if job_ids are unique
-        slurm_output_file = f"{CLUSTER_WORKING_DIR}/*/slurm-{job_id}.out"
-        cmd = self._check_quanting_result_cmd(
-            job_id, slurm_output_file
-        ) + self._get_job_state_cmd(job_id)
+        """Get the job status and time elapsed from the Slurm cluster via SSH."""
+        # Use a wildcard path to find the output file without needing to know the specific year_month subfolder
+        # This works as long as job_ids are unique across all subfolders
+        slurm_output_file = f"{self._cluster_working_dir_path}/*/slurm-{job_id}.out"
+        cmd = (
+            self._check_quanting_result_cmd(job_id, slurm_output_file)
+            + "\n"
+            + self._get_job_state_cmd(job_id)
+        )
         ssh_return = ssh_execute(cmd)
         time_elapsed = self._get_time_elapsed(ssh_return)
         job_status = ssh_return.split("\n")[-1]
         return job_status, time_elapsed
 
-    @staticmethod
-    def _get_run_quanting_cmd(year_month_folder: str) -> str:
+    def _get_run_quanting_cmd(self, year_month_folder: str) -> str:
         """Get the command to run the quanting job on the cluster.
 
         Its last line of output to stdout must be the job id of the submitted job.
@@ -109,13 +123,15 @@ class SlurmSSHJobHandler(JobHandler):
 
         :param year_month_folder: the sub folder in which the slurm output script will be written to, e.g. "2024_07"
         """
-        return f"""
-    mkdir -p {CLUSTER_WORKING_DIR}/{year_month_folder}
-    cd {CLUSTER_WORKING_DIR}/{year_month_folder}
-    cat {CLUSTER_JOB_SCRIPT_PATH}
-    JID=$(sbatch {CLUSTER_JOB_SCRIPT_PATH})
-    echo ${{JID##* }}
-    """
+        return "\n".join(
+            [
+                f"mkdir -p {self._cluster_working_dir_path}/{year_month_folder}",
+                f"cd {self._cluster_working_dir_path}/{year_month_folder}",
+                f"cat {self._cluster_job_script_path}",
+                f"JID=$(sbatch {self._cluster_job_script_path})",
+                "echo ${JID##* }",
+            ]
+        )
 
     @staticmethod
     def _check_quanting_result_cmd(job_id: str, slurm_output_file: str) -> str:
@@ -124,10 +140,13 @@ class SlurmSSHJobHandler(JobHandler):
         To reduce the number of ssh calls, we combine multiple commands into one
         In order to be able to extract the run time, we expect the first line to contain only that, e.g. "00:08:42"
         """
-        return f"""TIME_ELAPSED=$(sacct --format=Elapsed -j {job_id} | tail -n 1); echo $TIME_ELAPSED
-    sacct -l -j {job_id}
-    cat {slurm_output_file}
-    """
+        return "\n".join(
+            [
+                f"TIME_ELAPSED=$(sacct --format=Elapsed -j {job_id} | tail -n 1); echo $TIME_ELAPSED",
+                f"sacct -l -j {job_id}",
+                f"cat {slurm_output_file}",
+            ]
+        )
 
     @staticmethod
     def _get_job_state_cmd(job_id: str) -> str:
@@ -135,10 +154,12 @@ class SlurmSSHJobHandler(JobHandler):
 
         Its only output must be the job status.
         """
-        return f"""
-    ST=$(sacct -j {job_id} -o State | awk 'FNR == 3 {{print $1}}')
-    echo $ST
-    """
+        return "\n".join(
+            [
+                f"ST=$(sacct -j {job_id} -o State | awk 'FNR == 3 {{print $1}}')",
+                "echo $ST",
+            ]
+        )
 
     @staticmethod
     def _create_export_command(mapping: dict[str, str]) -> str:

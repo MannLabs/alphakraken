@@ -7,10 +7,9 @@ CLUSTER_SSH_CONNECTION_ID = "cluster_ssh_connection"
 CLUSTER_SSH_CONNECTION_TIMEOUT = 60
 CLUSTER_SSH_COMMAND_TIMEOUT = 60
 
-# TODO: make slurm script location depend on ENV_NAME or get dedicated user for sandbox
-CLUSTER_BASE_DIR = "~/slurm"
-CLUSTER_JOB_SCRIPT_PATH = f"{CLUSTER_BASE_DIR}/submit_job.sh"
-CLUSTER_WORKING_DIR = f"{CLUSTER_BASE_DIR}/jobs"
+# these are relative to the SLURM_BASE_DIR environment variable
+CLUSTER_JOB_SCRIPT_NAME = "submit_job.sh"
+CLUSTER_WORKING_DIR_NAME = "jobs"
 
 
 OUTPUT_FOLDER_PREFIX = "out_"

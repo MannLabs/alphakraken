@@ -86,9 +86,7 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
     )
 
     # get settings and output_path
-    settings_path = (
-        Path(get_env_variable(EnvVars.QUANTING_SETTINGS_PATH)) / project_id_or_fallback
-    )
+    settings_path = get_path("quanting_settings") / project_id_or_fallback
 
     output_path = Path(
         get_env_variable(EnvVars.QUANTING_OUTPUT_PATH)

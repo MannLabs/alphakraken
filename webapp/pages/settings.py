@@ -1,7 +1,5 @@
 """Simple data overview."""
 
-import os
-
 # ruff: noqa: TRY301 # Abstract `raise` to an inner function
 import pandas as pd
 import streamlit as st
@@ -21,7 +19,6 @@ from service.utils import (
 
 from shared.db.interface import add_settings
 from shared.db.models import ProjectStatus
-from shared.keys import EnvVars
 
 _log(f"loading {__file__}")
 # ########################################### PAGE HEADER
@@ -43,7 +40,7 @@ settings_db = get_settings_data()
 projects_db = get_project_data()
 settings_df = df_from_db_data(settings_db)
 
-quanting_settings_path = os.environ.get(EnvVars.QUANTING_SETTINGS_PATH)
+quanting_settings_path = "n/a"  # TODOos.environ.get(EnvVars.QUANTING_SETTINGS_PATH)
 
 # ########################################### DISPLAY
 

@@ -28,6 +28,9 @@ locations:
     username: user
     mount_src: //mount_src/output
     mount_target: output
+  settings:
+    # no need for mount information (yet)
+    absolute_path: /fs/pool/pool-0/alphakraken_sandbox/settings
   logs:
     username: user
     mount_src: //mount_src/airflow_logs

@@ -13,8 +13,9 @@ from airflow.exceptions import AirflowFailException
 from common.constants import CLUSTER_JOB_SCRIPT_NAME, CLUSTER_WORKING_DIR_NAME
 from common.settings import _SETTINGS
 from common.utils import get_env_variable
-from keys import EnvVars
 from sensors.ssh_utils import ssh_execute
+
+from shared.keys import EnvVars
 
 # TODO: move to settings, introduce constants
 ENGINE: str = _SETTINGS.get("general", {}).get("job_engine", {}).get("type", "slurm")

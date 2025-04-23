@@ -22,7 +22,8 @@ locations:
   backup:
     username: user
     mount_src: //mount_src/backup
-    mount_target: backup
+    mount_target: backup # DO NOT CHANGE! relative to mounts_path -> InternalPaths.BACKUP
+    absolute_path: /fs/pool/pool-0/alphakraken_sandbox/backup
   output:
     username: user
     mount_src: //mount_src/output

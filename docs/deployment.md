@@ -191,9 +191,9 @@ sudo apt install cifs-utils
 
 1. Create folders `settings`, `output`, and `airflow_logs` in the desired pool location(s), e.g. under `/fs/pool/pool-alphakraken`.
 
-2. Make sure the variables `MOUNTS_PATH`, `BACKUP_BASE_PATH`, `QUANTING_SETTINGS_PATH`, `QUANTING_OUTPUT_PATH`,
+2. Make sure the variables `MOUNTS_PATH`, `QUANTING_SETTINGS_PATH`, `QUANTING_OUTPUT_PATH`,
 in the `envs/${ENV}.env` file are set to the desired values.
-Set them also in the `envs/alphakraken.${ENV}.yaml` file (section: `locations`).
+Set them also in the `envs/alphakraken.${ENV}.yaml` file (section: `locations`). TODO describe alphakraken.yaml
 
 3. Mount the backup, output and logs folder. You will be asked for passwords.
 ```bash

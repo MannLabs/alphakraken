@@ -25,7 +25,7 @@ from common.paths import (
     get_internal_output_path_for_raw_file,
     get_output_folder_rel_path,
 )
-from common.settings import get_fallback_project_id
+from common.settings import get_fallback_project_id, get_path
 from common.utils import (
     get_airflow_variable,
     get_env_variable,
@@ -79,7 +79,7 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
             )
 
     # get raw file path
-    backup_base_path = Path(get_env_variable(EnvVars.BACKUP_BASE_PATH))
+    backup_base_path = Path(get_path("backup"))
     year_month_subfolder = get_created_at_year_month(raw_file)
     raw_file_path = (
         backup_base_path / instrument_id / year_month_subfolder / raw_file_id

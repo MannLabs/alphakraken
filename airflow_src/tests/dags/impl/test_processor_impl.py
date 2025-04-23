@@ -64,10 +64,10 @@ def test_get_project_id_for_raw_file_fallback_bruker() -> None:
     {
         "QUANTING_SETTINGS_PATH": "/some_quanting_settings_path",
         "QUANTING_OUTPUT_PATH": "/some_quanting_output_path",
-        "BACKUP_BASE_PATH": "/some_backup_base_path",
     },
 )
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
+@patch("dags.impl.processor_impl.get_path")
 @patch("dags.impl.processor_impl.put_xcom")
 @patch("dags.impl.processor_impl._get_project_id_or_fallback")
 @patch("dags.impl.processor_impl.get_settings_for_project")
@@ -75,6 +75,7 @@ def test_prepare_quanting(
     mock_get_settings: MagicMock,
     mock_get_project_id_for_raw_file: MagicMock,
     mock_put_xcom: MagicMock,
+    mock_get_path: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
 ) -> None:
     """Test that prepare_quanting makes the expected calls."""
@@ -85,7 +86,7 @@ def test_prepare_quanting(
         project_id="some_project_id",
     )
     mock_get_raw_file_by_id.return_value = mock_raw_file
-
+    mock_get_path.return_value = "/some_backup_base_path"
     mock_get_project_id_for_raw_file.return_value = "some_project_id"
     mock_get_settings.return_value = MagicMock(
         speclib_file_name="some_speclib_file_name",
@@ -132,6 +133,7 @@ def test_prepare_quanting(
         ]
     )
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
+    mock_get_path.assert_has_calls([call("backup")])
 
 
 @patch("dags.impl.processor_impl.get_raw_file_by_id")

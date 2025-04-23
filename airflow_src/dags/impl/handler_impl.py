@@ -23,10 +23,10 @@ from common.paths import (
 )
 from common.settings import (
     get_instrument_settings,
+    get_path,
 )
 from common.utils import (
     get_airflow_variable,
-    get_env_variable,
     get_xcom,
     trigger_dag_run,
 )
@@ -38,7 +38,6 @@ from shared.db.models import RawFileStatus
 from shared.keys import (
     ALLOWED_CHARACTERS_IN_RAW_FILE_NAME,
     DDA_FLAG_IN_RAW_FILE_NAME,
-    EnvVars,
 )
 
 
@@ -70,7 +69,7 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
 
     file_info = _get_file_info(copied_files)
 
-    backup_base_path = get_env_variable(EnvVars.BACKUP_BASE_PATH)
+    backup_base_path = get_path("backup")
 
     # a bit hacky to get the file size once again, but it's a cheap operation and avoids complicate logic
     # TODO: in rare cases (manual intervention) this could yield to inconsistencies, change this!

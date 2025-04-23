@@ -110,6 +110,13 @@ _SETTINGS = _load_alphakraken_yaml(
 _INSTRUMENTS = _SETTINGS["instruments"].copy()
 
 
+def get_path(path_type: str) -> str:
+    """Get a certain path from the yaml settings."""
+    if path_type not in _SETTINGS["locations"]:
+        raise KeyError(f"Setting {path_type} not found in locations.")
+    return _SETTINGS["locations"][path_type]["absolute_path"]
+
+
 def get_instrument_ids() -> list[str]:
     """Get all IDs for all instruments."""
     return list(_INSTRUMENTS.keys())

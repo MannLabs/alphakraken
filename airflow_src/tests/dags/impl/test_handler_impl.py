@@ -1,6 +1,5 @@
 """Unit tests for handler_impl.py."""
 
-import os
 from pathlib import Path
 from unittest.mock import MagicMock, Mock, call, patch
 
@@ -18,20 +17,18 @@ from dags.impl.handler_impl import (
 from shared.db.models import RawFileStatus
 
 
-@patch.dict(
-    os.environ,
-    {"BACKUP_BASE_PATH": "some_backup_folder"},
-)
 @patch("dags.impl.handler_impl.get_raw_file_by_id")
+@patch("dags.impl.handler_impl.get_path")
 @patch("dags.impl.handler_impl.copy_file")
 @patch("dags.impl.handler_impl.RawFileWrapperFactory")
 @patch("dags.impl.handler_impl.get_file_size")
 @patch("dags.impl.handler_impl.update_raw_file")
-def test_copy_raw_file_calls_update_with_correct_args(
+def test_copy_raw_file_calls_update_with_correct_args(  # noqa: PLR0913
     mock_update_raw_file: MagicMock,
     mock_get_file_size: MagicMock,
     mock_raw_file_wrapper_factory: MagicMock,
     mock_copy_file: MagicMock,
+    mock_get_path_setting: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
 ) -> None:
     """Test copy_raw_file calls update with correct arguments."""
@@ -41,6 +38,8 @@ def test_copy_raw_file_calls_update_with_correct_args(
     }
     mock_raw_file = MagicMock()
     mock_get_raw_file_by_id.return_value = mock_raw_file
+
+    mock_get_path_setting.return_value = "some_backup_folder"
 
     mock_get_file_size.return_value = 1000
     mock_raw_file_wrapper_factory.create_write_wrapper.return_value.get_files_to_copy.return_value = {
@@ -80,13 +79,11 @@ def test_copy_raw_file_calls_update_with_correct_args(
         ]
     )
     mock_get_file_size.assert_called_once_with(mock_file_path_to_calculate_size, -1)
+    mock_get_path_setting.assert_called_once_with("backup")
 
 
-@patch.dict(
-    os.environ,
-    {"BACKUP_BASE_PATH": "some_backup_folder"},
-)
 @patch("dags.impl.handler_impl.get_raw_file_by_id")
+@patch("dags.impl.handler_impl.get_path")
 @patch("dags.impl.handler_impl.copy_file")
 @patch("dags.impl.handler_impl.RawFileWrapperFactory")
 @patch("dags.impl.handler_impl.get_airflow_variable", return_value="test_file.raw")
@@ -98,6 +95,7 @@ def test_copy_raw_file_calls_update_with_correct_args_overwrite(  # noqa: PLR091
     mock_get_airflow_variable: MagicMock,
     mock_raw_file_wrapper_factory: MagicMock,
     mock_copy_file: MagicMock,
+    mock_get_path: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
 ) -> None:
     """Test copy_raw_file calls update with correct arguments in case overwrite is requested."""
@@ -108,6 +106,8 @@ def test_copy_raw_file_calls_update_with_correct_args_overwrite(  # noqa: PLR091
     mock_raw_file = MagicMock()
     mock_raw_file.id = "test_file.raw"
     mock_get_raw_file_by_id.return_value = mock_raw_file
+
+    mock_get_path.return_value = "some_backup_folder"
 
     mock_raw_file_wrapper_factory.create_write_wrapper.return_value.get_files_to_copy.return_value = {
         Path("/path/to/instrument/test_file.raw"): Path(

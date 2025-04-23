@@ -9,7 +9,6 @@ instruments:
 locations:
   general:
     mounts_path: /home/kraken-user/alphakraken/production/mounts
-    slurm_base_path: //samba-pool-2/pool-2/slurm
   backup:
     username: kraken-write
     mount_src: //samba-pool-1/pool-1

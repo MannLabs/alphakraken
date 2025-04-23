@@ -17,6 +17,12 @@ instruments:
 locations:
   general:
     mounts_path: /home/kraken-user/alphakraken/mounts
+  # e.g.:
+  #  xxx:
+  #    username: user  # username for mounting
+  #    mount_src: //mount_src/xxx  # source path for mounting
+  #    mount_target: xxx # DO NOT CHANGE! this is related to the file structure within the containers -> cf. InternalPaths
+  #    absolute_path: /fs/pool/pool-0/alphakraken_sandbox/xxx  # this is the absolute path of this folder on the shared file system
   backup:
     username: user
     mount_src: //mount_src/backup

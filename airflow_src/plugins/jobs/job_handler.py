@@ -99,8 +99,8 @@ class SlurmSSHJobHandler(JobHandler):
 
     def get_job_result(self, job_id: str) -> tuple[str, int]:
         """Get the job status and time elapsed from the Slurm cluster via SSH."""
-        # the wildcard here is a bit of a hack to avoid retrieving the year_month
-        # subfolder here .. should be no problem if job_ids are unique
+        # Use a wildcard path to find the output file without needing to know the specific year_month subfolder
+        # This works as long as job_ids are unique across all subfolders
         slurm_output_file = f"{self._cluster_working_dir_path}/*/slurm-{job_id}.out"
         cmd = self._check_quanting_result_cmd(
             job_id, slurm_output_file

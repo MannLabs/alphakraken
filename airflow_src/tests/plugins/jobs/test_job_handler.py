@@ -8,7 +8,7 @@ from airflow.exceptions import AirflowFailException
 from jobs.job_handler import SlurmSSHJobHandler
 
 
-@patch.dict(os.environ, {"SLURM_BASE_DIR": "/path/to/slurm_base_dir"})
+@patch.dict(os.environ, {"SLURM_BASE_PATH": "/path/to/slurm_base_path"})
 @patch("jobs.job_handler.ssh_execute")
 def test_start_job_returns_valid_job_id(mock_ssh_execute: MagicMock) -> None:
     """Test that start_job returns a valid job ID."""
@@ -18,16 +18,16 @@ def test_start_job_returns_valid_job_id(mock_ssh_execute: MagicMock) -> None:
     assert job_id == "12345"
     expected_command = (
         "export ENV_VAR=value\n"
-        "mkdir -p /path/to/slurm_base_dir/jobs/2024_07\n"
-        "cd /path/to/slurm_base_dir/jobs/2024_07\n"
-        "cat /path/to/slurm_base_dir/submit_job.sh\n"
-        "JID=$(sbatch /path/to/slurm_base_dir/submit_job.sh)\n"
+        "mkdir -p /path/to/slurm_base_path/jobs/2024_07\n"
+        "cd /path/to/slurm_base_path/jobs/2024_07\n"
+        "cat /path/to/slurm_base_path/submit_job.sh\n"
+        "JID=$(sbatch /path/to/slurm_base_path/submit_job.sh)\n"
         "echo ${JID##* }"
     )
     mock_ssh_execute.assert_called_once_with(expected_command)
 
 
-@patch.dict(os.environ, {"SLURM_BASE_DIR": "/path/to/slurm_base_dir"})
+@patch.dict(os.environ, {"SLURM_BASE_PATH": "/path/to/slurm_base_path"})
 @patch("jobs.job_handler.ssh_execute")
 def test_start_job_handles_invalid_job_id(mock_ssh_execute: MagicMock) -> None:
     """Test that start_job raises an exception when the job ID is invalid."""
@@ -37,7 +37,7 @@ def test_start_job_handles_invalid_job_id(mock_ssh_execute: MagicMock) -> None:
         SlurmSSHJobHandler().start_job({"ENV_VAR": "value"}, "2024_07")
 
 
-@patch.dict(os.environ, {"SLURM_BASE_DIR": "/path/to/slurm_base_dir"})
+@patch.dict(os.environ, {"SLURM_BASE_PATH": "/path/to/slurm_base_path"})
 @patch("jobs.job_handler.ssh_execute")
 def test_get_job_status_returns_correctly(mock_ssh_execute: MagicMock) -> None:
     """Test that get_job_status returns the correct status."""
@@ -51,7 +51,7 @@ def test_get_job_status_returns_correctly(mock_ssh_execute: MagicMock) -> None:
     mock_ssh_execute.assert_called_once_with(expected_command)
 
 
-@patch.dict(os.environ, {"SLURM_BASE_DIR": "/path/to/slurm_base_dir"})
+@patch.dict(os.environ, {"SLURM_BASE_PATH": "/path/to/slurm_base_path"})
 @patch("jobs.job_handler.ssh_execute")
 def test_get_job_result_returns_correct_job_status_and_time_elapsed(
     mock_ssh_execute: MagicMock,
@@ -66,7 +66,7 @@ def test_get_job_result_returns_correct_job_status_and_time_elapsed(
     expected_command = (
         "TIME_ELAPSED=$(sacct --format=Elapsed -j 12345 | tail -n 1); echo $TIME_ELAPSED\n"
         "sacct -l -j 12345\n"
-        "cat /path/to/slurm_base_dir/jobs/*/slurm-12345.out\n"
+        "cat /path/to/slurm_base_path/jobs/*/slurm-12345.out\n"
         "ST=$(sacct -j 12345 -o State | awk 'FNR == 3 {print $1}')\n"
         "echo $ST"
     )

@@ -58,7 +58,7 @@ x-airflow-common: &airflow-common
     BACKUP_BASE_PATH: ${BACKUP_BASE_PATH:?error}
     QUANTING_SETTINGS_PATH: ${QUANTING_SETTINGS_PATH:?error}
     QUANTING_OUTPUT_PATH: ${QUANTING_OUTPUT_PATH:?error}
-    SLURM_BASE_DIR: ${SLURM_BASE_DIR:?error}
+    SLURM_BASE_PATH: ${SLURM_BASE_PATH:?error}
     SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL:?error}
     WEBAPP_URL: ${WEBAPP_URL:?error}
   volumes:

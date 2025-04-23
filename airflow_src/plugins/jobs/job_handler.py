@@ -72,7 +72,7 @@ class SlurmSSHJobHandler(JobHandler):
     def __init__(self):
         """Initialize the Slurm job handler."""
         super().__init__()
-        cluster_base_dir = Path(get_env_variable(EnvVars.SLURM_BASE_DIR))
+        cluster_base_dir = Path(get_env_variable(EnvVars.SLURM_BASE_PATH))
         self._cluster_working_dir_path = cluster_base_dir / CLUSTER_WORKING_DIR_NAME
         self._cluster_job_script_path = cluster_base_dir / CLUSTER_JOB_SCRIPT_NAME
 

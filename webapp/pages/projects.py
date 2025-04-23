@@ -1,6 +1,5 @@
 """Page allowing Project mgmt."""
 
-import os
 import re
 
 import pandas as pd
@@ -16,7 +15,6 @@ from service.utils import (
 )
 
 from shared.db.interface import add_project
-from shared.keys import EnvVars
 
 _log(f"loading {__file__}")
 
@@ -41,8 +39,6 @@ show_feedback_in_sidebar()
 projects_db = get_project_data()
 projects_df = df_from_db_data(projects_db)
 
-quanting_pool_folder = os.environ.get(EnvVars.QUANTING_POOL_FOLDER)
-
 # ########################################### DISPLAY
 
 st.warning("This page should be edited only by AlphaKraken admin users!", icon="⚠️")
@@ -56,7 +52,7 @@ def display_projects(
     filtered_df, *_ = show_filter(projects_df, st_display=st_display)
     st_display.table(filtered_df)
     st_display.markdown(
-        "Output files are stored at `/fs/pool/{quanting_pool_folder}/output/<project id>/out_<raw file name>/`"
+        "Output files are stored at `{os.environ.get(EnvVars.QUANTING_OUTPUT_PATH)}/<project id>/out_<raw file name>/`"
     )
 
 

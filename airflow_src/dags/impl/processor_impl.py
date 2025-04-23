@@ -86,13 +86,13 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
     )
 
     # get settings and output_path
-    quanting_pool_folder = Path(get_env_variable(EnvVars.QUANTING_POOL_FOLDER))
-
-    settings_path = quanting_pool_folder / "settings" / project_id_or_fallback
-
-    output_path = quanting_pool_folder / get_output_folder_rel_path(
-        raw_file, project_id_or_fallback
+    settings_path = (
+        Path(get_env_variable(EnvVars.QUANTING_SETTINGS_PATH)) / project_id_or_fallback
     )
+
+    output_path = Path(
+        get_env_variable(EnvVars.QUANTING_OUTPUT_PATH)
+    ) / get_output_folder_rel_path(raw_file, project_id_or_fallback)
 
     quanting_env = {
         QuantingEnv.RAW_FILE_PATH: str(raw_file_path),

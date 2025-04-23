@@ -12,8 +12,6 @@ _log(f"loading {__file__}")
 
 st.set_page_config(page_title="AlphaKraken: home", layout="wide")
 
-quanting_pool_folder = os.environ.get(EnvVars.QUANTING_POOL_FOLDER)
-
 """
 # Welcome to AlphaKraken!
 """
@@ -79,7 +77,7 @@ acquisition is considered "finished".
 Q: Where to I find the AlphaDIA output files?
 
 A:  The output files associated for a given raw file are stored at
-   `/fs/pool/{quanting_pool_folder}/output/<project id>/out_<raw file name>/`
+   `{os.environ.get(EnvVars.QUANTING_OUTPUT_PATH)}/<project id>/out_<raw file name>/`
 
 
 Q: A lot of jobs are stuck in status "quanting" or "queued_for_quanting".

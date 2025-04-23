@@ -20,9 +20,9 @@ locations:
   # e.g.:
   #  xxx:
   #    username: user  # username for mounting
-  #    mount_src: //mount_src/xxx  # source path for mounting
-  #    mount_target: xxx # DO NOT CHANGE! this is related to the file structure within the containers -> cf. InternalPaths
-  #    absolute_path: /fs/pool/pool-0/alphakraken_sandbox/xxx  # this is the absolute path of this folder on the shared file system
+  #    mount_src: //mount_src/xxx  # source path for mounting ("worker pc view" part 1)
+  #    mount_target: xxx # DO NOT CHANGE! this is related to the file structure within the containers -> cf. InternalPaths ("worker pc view" part 2)
+  #    absolute_path: /fs/pool/pool-0/alphakraken_sandbox/xxx  # this is the absolute path of this folder on the shared file system ("cluster view")
   backup:
     username: user
     mount_src: //mount_src/backup

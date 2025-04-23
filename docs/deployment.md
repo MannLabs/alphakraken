@@ -155,7 +155,7 @@ In case you want to set up a URL redirect from one PC to one or multiple others,
 ```bash
 mkdir ~/slurm
 ```
-and set the `locations.general.slurm_base_path`variable in `envs/alphakraken.${ENV}.yaml` to this value.
+and set the `locations.slurm.absolute_path` key in `envs/alphakraken.${ENV}.yaml` to this value.
 3. Copy the cluster run script `submit_job.sh` to `~/slurm` and adapt the `partition` (and optionally `nodelist`) directives.
 Make sure to update also this file when deploying a new version of the AlphaKraken.
 
@@ -163,20 +163,22 @@ Make sure to update also this file when deploying a new version of the AlphaKrak
 
 ### General note on how Kraken gets to know the data
 
-Each worker needs two 'views' on the pool backup and output data.
+Each worker needs two 'views' on the raw and output data.
 
-The first view enables read/write access,
+The first view ("worker PC view") enables read/write access,
 by mounting on the Kraken host PC a specific (network) folder (e.g. `\\pool-backup\pool-backup` or `\\pool-output\pool-output`)
 using `cifs` mounts (wrapped by `mount.sh`)
 to a target folder and then mapping this target folder to a worker container
-in `docker-compose.yaml`.
+in `docker-compose.yaml`, such that it can be accessed in a unified manner from within the containers (cf. `InternalPaths`).
 
-The second view is the location of the data as seen from the cluster
+The second view ("cluster view") is the location of the data on the shared filesystem as seen from the Slurm cluster
 (e.g. `/fs/pool/pool-backup` or `/fs/pool/pool-output`),
 which is required to set the paths for the cluster jobs correctly.
 
 For instruments, only the first type of view is required, as the cluster does not access the instruments directly.
 
+All paths are configured in the `locations` section of the `envs/alphakraken.${ENV}.yaml` file (see comments in `alphakraken.local.yaml`
+for details).
 
 ### Set up pool bind mounts
 The workers need bind mounts set up to the pool filesystems for backup and reading AlphaDIA output data.
@@ -192,7 +194,7 @@ sudo apt install cifs-utils
 1. Create folders `settings`, `output`, and `airflow_logs` in the desired pool location(s), e.g. under `/fs/pool/pool-alphakraken`.
 
 2. Make sure the variable `MOUNTS_PATH` in the `envs/${ENV}.env` file is set correctly.
-Set them also in the `envs/alphakraken.${ENV}.yaml` file (section: `locations`). TODO describe alphakraken.yaml
+Set them also in the `envs/alphakraken.${ENV}.yaml` file (`locations.general.mounts_path`).
 
 3. Mount the backup, output and logs folder. You will be asked for passwords.
 ```bash
@@ -255,7 +257,7 @@ The following files need to be edited to customize your deployment:
 - `envs/.env-airflow`: set the current user as the user within the airflow containers
 - `envs/.env-mongo`: set the MongoDB root password
 - `envs/${ENV}.env`: set the environment variables for the basic wiring of components
-- `envs/alphakraken.${ENV}.yaml`: add a configuration for each instrument
+- `envs/alphakraken.${ENV}.yaml`: set up the paths and add a configuration for each instrument
 - `docker-compose.yaml`: add a worker for each instrument
 - `airflow_src/plugins/cluster_scripts/submit_job.sh` (cluster-local copy): configure partition and nodelist
 

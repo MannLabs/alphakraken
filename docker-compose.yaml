@@ -55,7 +55,6 @@ x-airflow-common: &airflow-common
     MONGO_USER: ${MONGO_USER:?error}
     MONGO_PASSWORD: ${MONGO_PASSWORD:?error}
     MONGO_PORT: ${MONGO_PORT:?error}
-    SLURM_BASE_PATH: ${SLURM_BASE_PATH:?error}
     SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL:?error}
     WEBAPP_URL: ${WEBAPP_URL:?error}
   volumes:

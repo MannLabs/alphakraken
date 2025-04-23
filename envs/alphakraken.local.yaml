@@ -17,8 +17,9 @@ instruments:
 locations:
   # the following is required for mounting only (read by mount.sh):
   general:
-    # cf. also the variable MOUNTS_PATH .env/production.env (sandbox.env)
     mounts_path: /home/kraken-user/alphakraken/mounts
+    # location of slurm submit script and destination for slurm logs
+    slurm_base_path: /fs/pool/pool-0/alphakraken_local/slurm
   backup:
     username: user
     mount_src: //mount_src/backup
@@ -35,7 +36,7 @@ locations:
   logs:
     username: user
     mount_src: //mount_src/airflow_logs
-    mount_target: airflow_logs
+    mount_target: airflow_logs # DO NOT CHANGE! relative to mounts_path ->/opt/airflow/logs
 
 general:
   job_engine:

@@ -155,7 +155,7 @@ In case you want to set up a URL redirect from one PC to one or multiple others,
 ```bash
 mkdir ~/slurm
 ```
-and set the `SLURM_BASE_PATH` environmental variable in `envs/${ENV}.env` to this value.
+and set the `locations.general.slurm_base_path`variable in `envs/alphakraken.${ENV}.yaml` to this value.
 3. Copy the cluster run script `submit_job.sh` to `~/slurm` and adapt the `partition` (and optionally `nodelist`) directives.
 Make sure to update also this file when deploying a new version of the AlphaKraken.
 

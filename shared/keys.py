@@ -12,9 +12,7 @@ class EnvVars:
     MONGO_USER = "MONGO_USER"
     MONGO_PASSWORD = "MONGO_PASSWORD"  # noqa: S105  #Possible hardcoded password
 
-    SLURM_BASE_PATH = "SLURM_BASE_PATH"
-
-    SLACK_WEBHOOK_URL = "SLACK_WEBHOOK_URL"
+    SLACK_WEBHOOK_URL = "SLACK_WEBHOOK_URL"  # TODO: move to yaml
 
 
 ALLOWED_CHARACTERS_IN_RAW_FILE_NAME = r"[^a-zA-Z0-9\-_+.]"

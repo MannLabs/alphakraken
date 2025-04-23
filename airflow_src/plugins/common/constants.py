@@ -7,7 +7,7 @@ CLUSTER_SSH_CONNECTION_ID = "cluster_ssh_connection"
 CLUSTER_SSH_CONNECTION_TIMEOUT = 60
 CLUSTER_SSH_COMMAND_TIMEOUT = 60
 
-# these are relative to the SLURM_BASE_PATH environment variable
+# these are relative to the locations.general.slurm_base_path variable
 CLUSTER_JOB_SCRIPT_NAME = "submit_job.sh"
 CLUSTER_WORKING_DIR_NAME = "jobs"
 

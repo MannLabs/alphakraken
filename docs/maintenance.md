@@ -133,7 +133,7 @@ Recommended setting in production: `14` (default)
 
 
 ### debug_no_cluster_ssh (default: False)
-`debug_no_cluster_ssh` If set to `True`, the system will not connect to the SLURM cluster. This is useful for
+`debug_no_cluster_ssh` If set to `True`, the system will not connect to the Slurm cluster. This is useful for
 testing, debugging and to avoid flooding the cluster at the initial setup.
 
 Recommended setting in production: False (default)
@@ -260,7 +260,7 @@ sudo reboot now
 ```
 
 ## Cluster load management
-For each acquired file, a processing job on the SLURM cluster will be scheduled. If, for any reason, the number of
+For each acquired file, a processing job on the Slurm cluster will be scheduled. If, for any reason, the number of
 concurrently submitted jobs should be limited, set the size of the `cluster_slots_pool`
 (in the Airflow UI under "Admin" -> "Pools") accordingly. Note that this setting does not affect
 jobs that have already been submitted and thus may take a while to take effect.

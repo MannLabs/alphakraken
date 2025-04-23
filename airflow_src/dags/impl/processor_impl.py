@@ -124,7 +124,7 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
 
 
 def _get_slurm_job_id_from_log(output_path: Path) -> str | None:
-    """Extract the SLURM job id from the log file, return None if file or id not existing."""
+    """Extract the Slurm job id from the log file, return None if file or id not existing."""
     log_file = output_path / AlphaDiaConstants.LOG_FILE_NAME
     if not log_file.exists():
         return None

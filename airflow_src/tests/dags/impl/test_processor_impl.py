@@ -64,7 +64,7 @@ def test_get_project_id_for_raw_file_fallback_bruker() -> None:
     {
         "QUANTING_SETTINGS_PATH": "/some_quanting_settings_path",
         "QUANTING_OUTPUT_PATH": "/some_quanting_output_path",
-        "BACKUP_POOL_FOLDER": "/some_backup_pool_folder",
+        "BACKUP_BASE_PATH": "/some_backup_base_path",
     },
 )
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
@@ -113,7 +113,7 @@ def test_prepare_quanting(
 
     # when you adapt something here, don't forget to adapt also the submit_job.sh script
     expected_quanting_env = {
-        "RAW_FILE_PATH": "/some_backup_pool_folder/instrument1/1970_01/test_file.raw",
+        "RAW_FILE_PATH": "/some_backup_base_path/instrument1/1970_01/test_file.raw",
         "SETTINGS_PATH": "/some_quanting_settings_path/some_project_id",
         "OUTPUT_PATH": "/some_quanting_output_path/some_project_id/out_test_file.raw",
         "SPECLIB_FILE_NAME": "some_speclib_file_name",

@@ -70,7 +70,7 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
 
     file_info = _get_file_info(copied_files)
 
-    backup_base_path = get_env_variable(EnvVars.BACKUP_POOL_FOLDER)
+    backup_base_path = get_env_variable(EnvVars.BACKUP_BASE_PATH)
 
     # a bit hacky to get the file size once again, but it's a cheap operation and avoids complicate logic
     # TODO: in rare cases (manual intervention) this could yield to inconsistencies, change this!

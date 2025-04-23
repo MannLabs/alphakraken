@@ -79,10 +79,10 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
             )
 
     # get raw file path
-    backup_pool_folder = Path(get_env_variable(EnvVars.BACKUP_POOL_FOLDER))
+    backup_base_path = Path(get_env_variable(EnvVars.BACKUP_BASE_PATH))
     year_month_subfolder = get_created_at_year_month(raw_file)
     raw_file_path = (
-        backup_pool_folder / instrument_id / year_month_subfolder / raw_file_id
+        backup_base_path / instrument_id / year_month_subfolder / raw_file_id
     )
 
     # get settings and output_path

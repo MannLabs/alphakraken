@@ -20,7 +20,7 @@ from shared.db.models import RawFileStatus
 
 @patch.dict(
     os.environ,
-    {"BACKUP_POOL_FOLDER": "some_backup_folder"},
+    {"BACKUP_BASE_PATH": "some_backup_folder"},
 )
 @patch("dags.impl.handler_impl.get_raw_file_by_id")
 @patch("dags.impl.handler_impl.copy_file")
@@ -84,7 +84,7 @@ def test_copy_raw_file_calls_update_with_correct_args(
 
 @patch.dict(
     os.environ,
-    {"BACKUP_POOL_FOLDER": "some_backup_folder"},
+    {"BACKUP_BASE_PATH": "some_backup_folder"},
 )
 @patch("dags.impl.handler_impl.get_raw_file_by_id")
 @patch("dags.impl.handler_impl.copy_file")

@@ -32,10 +32,16 @@ def get_combined_raw_files_and_metrics_df(max_age_in_days: float) -> pd.DataFram
         "%Y-%m-%d %H:%M:%S"
     )
     combined_df["quanting_time_minutes"] = combined_df["quanting_time_elapsed"] / 60
-    combined_df["precursors"] = combined_df["precursors"].astype(
-        "Int64", errors="ignore"
-    )
-    combined_df["proteins"] = combined_df["proteins"].astype("Int64", errors="ignore")
+
+    # when all quantings failed, these columns could not be available
+    if "precursors" in combined_df.columns:
+        combined_df["precursors"] = combined_df["precursors"].astype(
+            "Int64", errors="ignore"
+        )
+        combined_df["proteins"] = combined_df["proteins"].astype(
+            "Int64", errors="ignore"
+        )
+
     combined_df["created_at"] = combined_df["created_at"].apply(
         lambda x: x.replace(microsecond=0)
     )

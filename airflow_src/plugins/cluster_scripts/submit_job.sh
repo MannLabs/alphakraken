@@ -7,15 +7,17 @@
 #SBATCH --time=02:00:00
 #SBATCH --partition=p.<node>
 ####SBATCH --nodelist=<node>02,<node>03
+####SBATCH --nice=9001
 
 NTHREADS=8
 
 set -u -e
 
-export TQDM_MININTERVAL=10  # avoid lots of tqdm outputs
-
+# cluster-specific code:
 module purge
 module load anaconda/3/2023.03
+
+export TQDM_MININTERVAL=10  # avoid lots of tqdm outputs
 
 # INPUT taken from environment variables:
 # RAW_FILE_PATH # e.g. "/fs/pool/pool-backup/Test2/2024_07/20240606_OA1_Evo12_16min_JBMR_ADIAMA_HeLa_5ng_F-40_01.raw"

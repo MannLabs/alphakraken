@@ -52,6 +52,11 @@ pythonpath = [
     "./webapp"
 ]
 
+[tool.coverage.run]
+omit = [
+    "**/test_*.py",
+    ]
+
 # NOTE: All relative paths are relative to the location of this file.
 
 [tool.pytype]

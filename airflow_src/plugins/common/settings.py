@@ -110,11 +110,16 @@ _SETTINGS = _load_alphakraken_yaml(
 _INSTRUMENTS = _SETTINGS["instruments"].copy()
 
 
-def get_path(path_type: str) -> Path:
+def get_path(path_key: str) -> Path:
     """Get a certain path from the yaml settings."""
-    if path_type not in _SETTINGS["locations"]:
-        raise KeyError(f"Setting {path_type} not found in locations.")
-    return Path(_SETTINGS["locations"][path_type]["absolute_path"])
+    path = _SETTINGS.get("locations", {}).get(path_key, {}).get("absolute_path")
+
+    if path is None:
+        raise KeyError(
+            f"Key `{path_key}` or `{path_key}.absolute_path` not found in alphakraken.yaml."
+        )
+
+    return Path(path)
 
 
 def get_instrument_ids() -> list[str]:

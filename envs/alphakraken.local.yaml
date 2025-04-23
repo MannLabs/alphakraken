@@ -15,11 +15,8 @@ instruments:
     type: sciex
 
 locations:
-  # the following is required for mounting only (read by mount.sh):
   general:
     mounts_path: /home/kraken-user/alphakraken/mounts
-    # location of slurm submit script and destination for slurm logs
-    slurm_base_path: /fs/pool/pool-0/alphakraken_local/slurm
   backup:
     username: user
     mount_src: //mount_src/backup
@@ -28,6 +25,10 @@ locations:
   settings:
     # no need for mount information (yet)
     absolute_path: /fs/pool/pool-0/alphakraken_sandbox/settings
+  slurm:
+    # location of slurm submit script and destination for slurm logs
+    # no need for mount information (yet)
+    absolute_path: /fs/pool/pool-0/alphakraken_local/slurm
   output:
     username: user
     mount_src: //mount_src/output

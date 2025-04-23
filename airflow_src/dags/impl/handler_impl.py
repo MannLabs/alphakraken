@@ -38,6 +38,7 @@ from shared.db.models import RawFileStatus
 from shared.keys import (
     ALLOWED_CHARACTERS_IN_RAW_FILE_NAME,
     DDA_FLAG_IN_RAW_FILE_NAME,
+    Locations,
 )
 
 
@@ -69,7 +70,7 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
 
     file_info = _get_file_info(copied_files)
 
-    backup_base_path = get_path("backup")
+    backup_base_path = get_path(Locations.BACKUP)
 
     # a bit hacky to get the file size once again, but it's a cheap operation and avoids complicate logic
     # TODO: in rare cases (manual intervention) this could yield to inconsistencies, change this!

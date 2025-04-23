@@ -129,9 +129,7 @@ def test_prepare_quanting(
         ]
     )
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
-    mock_get_path.assert_has_calls(
-        [call("backup"), call("quanting_settings"), call("quanting_output")]
-    )
+    mock_get_path.assert_has_calls([call("backup"), call("settings"), call("output")])
 
 
 @patch("dags.impl.processor_impl.get_raw_file_by_id")

@@ -13,6 +13,8 @@ from common.constants import CLUSTER_JOB_SCRIPT_NAME, CLUSTER_WORKING_DIR_NAME
 from common.settings import _SETTINGS, get_path
 from sensors.ssh_utils import ssh_execute
 
+from shared.keys import Locations
+
 # TODO: move to settings, introduce constants
 ENGINE: str = _SETTINGS.get("general", {}).get("job_engine", {}).get("type", "slurm")
 
@@ -68,7 +70,7 @@ class SlurmSSHJobHandler(JobHandler):
     def __init__(self):
         """Initialize the Slurm job handler."""
         super().__init__()
-        cluster_base_dir = get_path("slurm_base")
+        cluster_base_dir = get_path(Locations.SLURM)
         self._cluster_working_dir_path = cluster_base_dir / CLUSTER_WORKING_DIR_NAME
         self._cluster_job_script_path = cluster_base_dir / CLUSTER_JOB_SCRIPT_NAME
 

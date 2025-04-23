@@ -17,6 +17,8 @@ locations:
     absolute_path: /fs/pool-1/backup
   settings:
     absolute_path: /fs/pool-2/settings
+  slurm:
+    absolute_path: /fs/pool-2/slurm
   output:
     username: kraken-write
     mount_src: //samba-pool-2/pool-2/output

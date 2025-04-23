@@ -1,6 +1,5 @@
 """Tests for the processor_impl module."""
 
-import os
 from datetime import datetime
 from pathlib import Path
 from unittest.mock import MagicMock, call, mock_open, patch
@@ -59,12 +58,6 @@ def test_get_project_id_for_raw_file_fallback_bruker() -> None:
 
 
 @patch.dict(_INSTRUMENTS, {"instrument1": {}})
-@patch.dict(
-    os.environ,
-    {
-        "QUANTING_OUTPUT_PATH": "/some_quanting_output_path",
-    },
-)
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.get_path")
 @patch("dags.impl.processor_impl.put_xcom")
@@ -88,6 +81,7 @@ def test_prepare_quanting(
     mock_get_path.side_effect = [
         Path("/some_backup_base_path"),
         Path("/some_quanting_settings_path"),
+        Path("/some_quanting_output_path"),
     ]
     mock_get_project_id_for_raw_file.return_value = "some_project_id"
     mock_get_settings.return_value = MagicMock(
@@ -135,7 +129,9 @@ def test_prepare_quanting(
         ]
     )
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
-    mock_get_path.assert_has_calls([call("backup"), call("quanting_settings")])
+    mock_get_path.assert_has_calls(
+        [call("backup"), call("quanting_settings"), call("quanting_output")]
+    )
 
 
 @patch("dags.impl.processor_impl.get_raw_file_by_id")

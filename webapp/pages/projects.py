@@ -11,6 +11,7 @@ from service.utils import (
     SessionStateKeys,
     _log,
     empty_to_none,
+    quanting_output_path,
     show_feedback_in_sidebar,
 )
 
@@ -52,7 +53,7 @@ def display_projects(
     filtered_df, *_ = show_filter(projects_df, st_display=st_display)
     st_display.table(filtered_df)
     st_display.markdown(
-        "Output files are stored at `{os.environ.get(EnvVars.QUANTING_OUTPUT_PATH)}/<project id>/out_<raw file name>/`"
+        f"Output files are stored at `{quanting_output_path}/<project id>/out_<raw file name>/`"
     )
 
 

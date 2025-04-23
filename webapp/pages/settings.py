@@ -14,6 +14,7 @@ from service.utils import (
     SessionStateKeys,
     _log,
     empty_to_none,
+    quanting_settings_path,
     show_feedback_in_sidebar,
 )
 
@@ -40,7 +41,6 @@ settings_db = get_settings_data()
 projects_db = get_project_data()
 settings_df = df_from_db_data(settings_db)
 
-quanting_settings_path = "n/a"  # TODOos.environ.get(EnvVars.QUANTING_SETTINGS_PATH)
 
 # ########################################### DISPLAY
 

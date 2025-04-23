@@ -28,7 +28,6 @@ from common.paths import (
 from common.settings import get_fallback_project_id, get_path
 from common.utils import (
     get_airflow_variable,
-    get_env_variable,
     get_xcom,
     put_xcom,
 )
@@ -46,7 +45,6 @@ from shared.db.interface import (
     update_raw_file,
 )
 from shared.db.models import RawFile, RawFileStatus, get_created_at_year_month
-from shared.keys import EnvVars
 
 
 def _get_project_id_or_fallback(project_id: str | None, instrument_id: str) -> str:
@@ -79,7 +77,7 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
             )
 
     # get raw file path
-    backup_base_path = Path(get_path("backup"))
+    backup_base_path = get_path("backup")
     year_month_subfolder = get_created_at_year_month(raw_file)
     raw_file_path = (
         backup_base_path / instrument_id / year_month_subfolder / raw_file_id
@@ -88,9 +86,9 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
     # get settings and output_path
     settings_path = get_path("quanting_settings") / project_id_or_fallback
 
-    output_path = Path(
-        get_env_variable(EnvVars.QUANTING_OUTPUT_PATH)
-    ) / get_output_folder_rel_path(raw_file, project_id_or_fallback)
+    output_path = get_path("quanting_output") / get_output_folder_rel_path(
+        raw_file, project_id_or_fallback
+    )
 
     quanting_env = {
         QuantingEnv.RAW_FILE_PATH: str(raw_file_path),

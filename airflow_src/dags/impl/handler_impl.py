@@ -82,7 +82,7 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
         new_status=RawFileStatus.COPYING_DONE,
         size=file_size,
         file_info=file_info,
-        backup_base_path=backup_base_path,
+        backup_base_path=str(backup_base_path),
     )
 
     # to make this unusual situation transparent in UI:

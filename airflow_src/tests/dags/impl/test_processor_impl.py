@@ -1,6 +1,5 @@
 """Tests for the processor_impl module."""
 
-import os
 from datetime import datetime
 from pathlib import Path
 from unittest.mock import MagicMock, call, mock_open, patch
@@ -59,15 +58,8 @@ def test_get_project_id_for_raw_file_fallback_bruker() -> None:
 
 
 @patch.dict(_INSTRUMENTS, {"instrument1": {}})
-@patch.dict(
-    os.environ,
-    {
-        "POOL_BASE_PATH": "/pool/path/to",
-        "QUANTING_POOL_FOLDER": "some_quanting_pool_folder",
-        "BACKUP_POOL_FOLDER": "some_backup_pool_folder",
-    },
-)
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
+@patch("dags.impl.processor_impl.get_path")
 @patch("dags.impl.processor_impl.put_xcom")
 @patch("dags.impl.processor_impl._get_project_id_or_fallback")
 @patch("dags.impl.processor_impl.get_settings_for_project")
@@ -75,6 +67,7 @@ def test_prepare_quanting(
     mock_get_settings: MagicMock,
     mock_get_project_id_for_raw_file: MagicMock,
     mock_put_xcom: MagicMock,
+    mock_get_path: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
 ) -> None:
     """Test that prepare_quanting makes the expected calls."""
@@ -85,7 +78,11 @@ def test_prepare_quanting(
         project_id="some_project_id",
     )
     mock_get_raw_file_by_id.return_value = mock_raw_file
-
+    mock_get_path.side_effect = [
+        Path("/some_backup_base_path"),
+        Path("/some_quanting_settings_path"),
+        Path("/some_quanting_output_path"),
+    ]
     mock_get_project_id_for_raw_file.return_value = "some_project_id"
     mock_get_settings.return_value = MagicMock(
         speclib_file_name="some_speclib_file_name",
@@ -113,9 +110,9 @@ def test_prepare_quanting(
 
     # when you adapt something here, don't forget to adapt also the submit_job.sh script
     expected_quanting_env = {
-        "RAW_FILE_PATH": "/pool/path/to/some_backup_pool_folder/instrument1/1970_01/test_file.raw",
-        "SETTINGS_PATH": "/pool/path/to/some_quanting_pool_folder/settings/some_project_id",
-        "OUTPUT_PATH": "/pool/path/to/some_quanting_pool_folder/output/some_project_id/out_test_file.raw",
+        "RAW_FILE_PATH": "/some_backup_base_path/instrument1/1970_01/test_file.raw",
+        "SETTINGS_PATH": "/some_quanting_settings_path/some_project_id",
+        "OUTPUT_PATH": "/some_quanting_output_path/some_project_id/out_test_file.raw",
         "SPECLIB_FILE_NAME": "some_speclib_file_name",
         "FASTA_FILE_NAME": "some_fasta_file_name",
         "CONFIG_FILE_NAME": "some_config_file_name",
@@ -132,6 +129,7 @@ def test_prepare_quanting(
         ]
     )
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
+    mock_get_path.assert_has_calls([call("backup"), call("settings"), call("output")])
 
 
 @patch("dags.impl.processor_impl.get_raw_file_by_id")

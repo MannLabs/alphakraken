@@ -1,7 +1,5 @@
 """Simple data overview."""
 
-import os
-
 # ruff: noqa: TRY301 # Abstract `raise` to an inner function
 import pandas as pd
 import streamlit as st
@@ -16,12 +14,12 @@ from service.utils import (
     SessionStateKeys,
     _log,
     empty_to_none,
+    quanting_settings_path,
     show_feedback_in_sidebar,
 )
 
 from shared.db.interface import add_settings
 from shared.db.models import ProjectStatus
-from shared.keys import EnvVars
 
 _log(f"loading {__file__}")
 # ########################################### PAGE HEADER
@@ -43,7 +41,6 @@ settings_db = get_settings_data()
 projects_db = get_project_data()
 settings_df = df_from_db_data(settings_db)
 
-quanting_pool_folder = os.environ.get(EnvVars.QUANTING_POOL_FOLDER)
 
 # ########################################### DISPLAY
 
@@ -76,7 +73,7 @@ def display_settings(
 
     st_display.markdown(
         "The files associated with the settings of a given project are stored at "
-        f"`/fs/pool/{quanting_pool_folder}/settings/<project id>/`"
+        f"`{quanting_settings_path}/<project id>/`"
     )
 
 
@@ -179,7 +176,7 @@ if selected_project:
         st.markdown("### Step 3/3: Upload files to pool folder")
         st.markdown(
             "Make sure you have uploaded all the files correctly to "
-            f"`/fs/pool/{quanting_pool_folder}/settings/{project_id}/`"
+            f"`{quanting_settings_path}/{project_id}/`"
         )
         upload_checkbox = st.checkbox(
             "I have uploaded the above files to this folder.", value=False

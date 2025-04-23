@@ -23,6 +23,10 @@ APP_URL = os.getenv("WEBAPP_URL")
 DISABLE_WRITE = False
 
 
+quanting_settings_path = "n_a"  # TODO: os.environ.get(EnvVars.QUANTING_SETTINGS_PATH)
+quanting_output_path = "n_a"  # TODO: os.environ.get(EnvVars.QUANTING_OUTPUT_PATH)
+
+
 class QueryParams:
     """Query parameters for streamlit pages."""
 

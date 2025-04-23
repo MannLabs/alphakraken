@@ -22,7 +22,7 @@ def test_get_output_folder_rel_path_no_fallback() -> None:
     # when
     result = get_output_folder_rel_path(mock_raw_file, "some_project_id")
 
-    assert result == Path("output/some_project_id/out_some_file.raw")
+    assert result == Path("some_project_id/out_some_file.raw")
 
 
 def test_get_output_folder_rel_path_fallback() -> None:
@@ -37,4 +37,4 @@ def test_get_output_folder_rel_path_fallback() -> None:
     # when
     result = get_output_folder_rel_path(mock_raw_file, "some_fallback_id")
 
-    assert result == Path("output/some_fallback_id/1970_01/out_some_file.raw")
+    assert result == Path("some_fallback_id/1970_01/out_some_file.raw")

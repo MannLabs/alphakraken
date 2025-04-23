@@ -25,10 +25,9 @@ from common.paths import (
     get_internal_output_path_for_raw_file,
     get_output_folder_rel_path,
 )
-from common.settings import get_fallback_project_id
+from common.settings import get_fallback_project_id, get_path
 from common.utils import (
     get_airflow_variable,
-    get_env_variable,
     get_xcom,
     put_xcom,
 )
@@ -46,7 +45,7 @@ from shared.db.interface import (
     update_raw_file,
 )
 from shared.db.models import RawFile, RawFileStatus, get_created_at_year_month
-from shared.keys import EnvVars
+from shared.keys import Locations
 
 
 def _get_project_id_or_fallback(project_id: str | None, instrument_id: str) -> str:
@@ -78,30 +77,18 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
                 f"No active settings found for project id '{project_id_or_fallback}'. Please add settings in the WebApp."
             )
 
-    pool_base_path = Path(get_env_variable(EnvVars.POOL_BASE_PATH))
-
     # get raw file path
-    backup_pool_folder = get_env_variable(EnvVars.BACKUP_POOL_FOLDER)
+    backup_base_path = get_path(Locations.BACKUP)
     year_month_subfolder = get_created_at_year_month(raw_file)
     raw_file_path = (
-        pool_base_path
-        / backup_pool_folder
-        / instrument_id
-        / year_month_subfolder
-        / raw_file_id
+        backup_base_path / instrument_id / year_month_subfolder / raw_file_id
     )
 
     # get settings and output_path
-    quanting_pool_folder = get_env_variable(EnvVars.QUANTING_POOL_FOLDER)
+    settings_path = get_path(Locations.SETTINGS) / project_id_or_fallback
 
-    settings_path = (
-        pool_base_path / quanting_pool_folder / "settings" / project_id_or_fallback
-    )
-
-    output_path = (
-        pool_base_path
-        / quanting_pool_folder
-        / get_output_folder_rel_path(raw_file, project_id_or_fallback)
+    output_path = get_path(Locations.OUTPUT) / get_output_folder_rel_path(
+        raw_file, project_id_or_fallback
     )
 
     quanting_env = {

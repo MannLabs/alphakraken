@@ -5,7 +5,7 @@ instruments:
     # the following is required for mounting only (read by mount.sh):
     username: user
     mount_src: //0.0.0.0/test1/
-    mount_target: instruments/test1
+    mount_target: instruments/test1 # DO NOT CHANGE THE 'instruments' part -> InternalPaths.INSTRUMENTS
     # skip_quanting: true  # optional, default: false
     # min_free_space_gb: 100  # optional, default: taken from Airflow variable MIN_FREE_SPACE_GB. Set to -1 to exclude from file removing.
     # file_move_delay_m: 60  # optional, default: 15. Set to -1 to disable file moving.
@@ -15,22 +15,35 @@ instruments:
     type: sciex
 
 locations:
-  # the following is required for mounting only (read by mount.sh):
   general:
-    # cf. also the variable MOUNTS_PATH .env/production.env (sandbox.env)
     mounts_path: /home/kraken-user/alphakraken/mounts
+  # e.g.:
+  #  xxx:
+  #    username: user  # username for mounting
+  #    mount_src: //mount_src/xxx  # source path for mounting ("worker pc view" part 1)
+  #    mount_target: xxx # DO NOT CHANGE! this is related to the file structure within the containers -> cf. InternalPaths ("worker pc view" part 2)
+  #    absolute_path: /fs/pool/pool-0/alphakraken_sandbox/xxx  # this is the absolute path of this folder on the shared file system ("cluster view")
   backup:
     username: user
     mount_src: //mount_src/backup
-    mount_target: backup
+    mount_target: backup # DO NOT CHANGE! relative to mounts_path -> InternalPaths.BACKUP
+    absolute_path: /fs/pool/pool-0/alphakraken_sandbox/backup
+  settings:
+    # no need for mount information (yet)
+    absolute_path: /fs/pool/pool-0/alphakraken_sandbox/settings
+  slurm:
+    # location of slurm submit script and destination for slurm logs
+    # no need for mount information (yet)
+    absolute_path: /fs/pool/pool-0/alphakraken_local/slurm
   output:
     username: user
     mount_src: //mount_src/output
-    mount_target: output
+    mount_target: output # DO NOT CHANGE! relative to mounts_path -> InternalPaths.OUTPUT
+    absolute_path: /fs/pool/pool-0/alphakraken_sandbox/output
   logs:
     username: user
     mount_src: //mount_src/airflow_logs
-    mount_target: airflow_logs
+    mount_target: airflow_logs # DO NOT CHANGE! relative to mounts_path ->/opt/airflow/logs
 
 general:
   job_engine:

@@ -12,13 +12,16 @@ class EnvVars:
     MONGO_USER = "MONGO_USER"
     MONGO_PASSWORD = "MONGO_PASSWORD"  # noqa: S105  #Possible hardcoded password
 
-    POOL_BASE_PATH = "POOL_BASE_PATH"
-    BACKUP_POOL_FOLDER = "BACKUP_POOL_FOLDER"
-    QUANTING_POOL_FOLDER = "QUANTING_POOL_FOLDER"
+    SLACK_WEBHOOK_URL = "SLACK_WEBHOOK_URL"  # TODO: move to yaml
 
-    SLURM_BASE_DIR = "SLURM_BASE_DIR"
 
-    SLACK_WEBHOOK_URL = "SLACK_WEBHOOK_URL"
+class Locations:
+    """Keys for accessing paths in the yaml config."""
+
+    BACKUP = "backup"
+    SETTINGS = "settings"
+    OUTPUT = "output"
+    SLURM = "slurm"
 
 
 ALLOWED_CHARACTERS_IN_RAW_FILE_NAME = r"[^a-zA-Z0-9\-_+.]"

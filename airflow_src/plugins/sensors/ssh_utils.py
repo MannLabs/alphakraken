@@ -35,7 +35,8 @@ def ssh_execute(
     call_count = 0
     while exit_status != 0 or agg_stdout in [b"", b"\n"]:
         if call_count >= max_tries:
-            raise AirflowFailException(f"Too many calls to ssh_execute: {command=}")
+            logging.error(f"Execution of SSH command failed too often: {command=}")
+            raise AirflowFailException("Execution of SSH command failed too often.")
 
         sleep(30 * call_count)  # no sleep in the first iteration
         call_count += 1

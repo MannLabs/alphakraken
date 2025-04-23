@@ -4,15 +4,13 @@ import os
 
 import streamlit as st
 from service.components import show_sandbox_message
-from service.utils import APP_URL, _log, display_info_message
+from service.utils import APP_URL, _log, display_info_message, quanting_output_path
 
 from shared.keys import ALLOWED_CHARACTERS_IN_RAW_FILE_NAME, EnvVars
 
 _log(f"loading {__file__}")
 
 st.set_page_config(page_title="AlphaKraken: home", layout="wide")
-
-quanting_pool_folder = os.environ.get(EnvVars.QUANTING_POOL_FOLDER)
 
 """
 # Welcome to AlphaKraken!
@@ -79,7 +77,7 @@ acquisition is considered "finished".
 Q: Where to I find the AlphaDIA output files?
 
 A:  The output files associated for a given raw file are stored at
-   `/fs/pool/{quanting_pool_folder}/output/<project id>/out_<raw file name>/`
+   `{quanting_output_path}/<project id>/out_<raw file name>/`
 
 
 Q: A lot of jobs are stuck in status "quanting" or "queued_for_quanting".

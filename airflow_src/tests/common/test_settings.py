@@ -1,9 +1,10 @@
 """Tests for the settings module."""
 
+from pathlib import Path
 from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
-from common.settings import _load_alphakraken_yaml, get_instrument_settings
+from common.settings import _load_alphakraken_yaml, get_instrument_settings, get_path
 
 
 @patch("common.settings.Path")
@@ -80,6 +81,41 @@ def test_get_instrument_settings_raises_key_error_for_non_existing_key() -> None
         pytest.raises(KeyError),
     ):
         get_instrument_settings("instrument1", "key2")
+
+
+def test_get_path_returns_setting_for_existing_instrument_and_key() -> None:
+    """Test that correct path is returned."""
+    with (
+        patch(
+            "common.settings._SETTINGS",
+            {"locations": {"backup": {"absolute_path": "some_path"}}},
+        ),
+    ):
+        assert get_path("backup") == Path("some_path")
+
+
+def test_get_path_returns_setting_raises_key_error_for_non_exisiting_key_1() -> None:
+    """Test that a KeyError is raised if the key does not exist."""
+    with (
+        patch(
+            "common.settings._SETTINGS",
+            {"locations": {"backup": {"absolute_path": "some_path"}}},
+        ),
+        pytest.raises(KeyError),
+    ):
+        get_path("Xbackup")
+
+
+def test_get_path_returns_setting_raises_key_error_for_non_exisiting_key_2() -> None:
+    """Test that a KeyError is raised if the key does not exist."""
+    with (
+        patch(
+            "common.settings._SETTINGS",
+            {"locations": {"backup": {"Xabsolute_path": "some_path"}}},
+        ),
+        pytest.raises(KeyError),
+    ):
+        get_path("backup")
 
 
 def test_get_instrument_settings_raises_key_error_for_non_existing_instrument() -> None:

@@ -37,21 +37,20 @@ def get_internal_backup_path_for_instrument(
 
 
 def get_output_folder_rel_path(raw_file: RawFile, project_id_or_fallback: str) -> Path:
-    """Get the relative path of the output directory for given raw file name.
+    """Get the path of the output directory for given raw file name relative to the `output` folder.
 
     Only if the raw_file has no project defined, we use a month-specific subfolder
     This is to avoid having too many files in the fallback output folders.
 
     E.g.
-        output/<project_id_or_fallback>/2024_07/out_RAW-FILE-1.raw in case raw_file has no project ID
-        output/<project_id_or_fallback>/out_RAW-FILE-1.raw in case raw_file has a project ID
+        <project_id_or_fallback>/2024_07/out_RAW-FILE-1.raw in case raw_file has no project ID
+        <project_id_or_fallback>/out_RAW-FILE-1.raw in case raw_file has a project ID
     """
     optional_sub_folder = (
         get_created_at_year_month(raw_file) if raw_file.project_id is None else ""
     )
     return (
-        Path(InternalPaths.OUTPUT)
-        / project_id_or_fallback
+        Path(project_id_or_fallback)
         / optional_sub_folder
         / f"{OUTPUT_FOLDER_PREFIX}{raw_file.id}"
     )
@@ -66,6 +65,8 @@ def get_internal_output_path_for_raw_file(
     raw_file: RawFile, project_id_or_fallback: str
 ) -> Path:
     """Get absolute internal output path for the given raw file name."""
-    return Path(InternalPaths.MOUNTS_PATH) / get_output_folder_rel_path(
-        raw_file, project_id_or_fallback
+    return (
+        Path(InternalPaths.MOUNTS_PATH)
+        / InternalPaths.OUTPUT
+        / get_output_folder_rel_path(raw_file, project_id_or_fallback)
     )

@@ -91,7 +91,9 @@ class AcquisitionMonitor(BaseSensorOperator):
         )
 
         if (
-            get_airflow_variable(AirflowVars.CONSIDER_OLD_FILES_ACQUIRED, "False")
+            get_airflow_variable(
+                AirflowVars.CONSIDER_OLD_FILES_ACQUIRED, "False"
+            ).capitalize()
             == "True"
         ):
             youngest_file_age = self._get_youngest_file_age(
@@ -99,12 +101,10 @@ class AcquisitionMonitor(BaseSensorOperator):
                 self._initial_dir_content,
             )
 
-            if youngest_file_age is not None and self._is_older_than_threshold(
+            if self._file_path_to_monitor.exists() and self._is_older_than_threshold(
                 self._file_path_to_monitor, youngest_file_age
             ):
-                # only consider files 'old' if the main file exists
-                self._main_file_exists = self._file_path_to_monitor.exists()
-                self._file_is_old = self._main_file_exists
+                self._file_is_old = True
 
         logging.info(
             f"Monitoring {self._raw_file_monitor_wrapper.file_path_to_monitor_acquisition()}"
@@ -171,10 +171,10 @@ class AcquisitionMonitor(BaseSensorOperator):
     @staticmethod
     def _get_youngest_file_age(
         instrument_data_path: Path, dir_content: set[str]
-    ) -> float | None:
-        """Return the age (unix epoch) of the youngest file in the directory."""
+    ) -> float:
+        """Return the age (unix epoch) of the youngest file in the directory, 0 (= very old) if the directory is empty."""
         if not dir_content:
-            return None
+            return 0
 
         file_ages = [
             get_file_ctime(instrument_data_path / file_name)

@@ -380,9 +380,7 @@ def test_post_execute_acquisition_errors(
 
 def test_get_youngest_file_age_directory_empty() -> None:
     """Test _get_youngest_file_age returns None when directory is empty."""
-    assert (
-        AcquisitionMonitor._get_youngest_file_age(Path("file_to_check"), set()) is None
-    )
+    assert AcquisitionMonitor._get_youngest_file_age(Path("file_to_check"), set()) == 0
 
 
 @patch("plugins.sensors.acquisition_monitor.get_file_ctime")

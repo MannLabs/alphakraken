@@ -145,7 +145,7 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
         project_id_or_fallback=quanting_env[QuantingEnv.PROJECT_ID_OR_FALLBACK],
     )
     if Path(output_path).exists():
-        msg = f"Output path {output_path} already exists."
+        msg = f"Output path {output_path} already exists with different content."
         output_exists_mode = get_airflow_variable(
             AirflowVars.OUTPUT_EXISTS_MODE, "raise"
         )

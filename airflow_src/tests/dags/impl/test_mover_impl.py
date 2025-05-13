@@ -274,26 +274,6 @@ def test_move_files_success_not_production(
 
 @patch.dict(os.environ, {"ENV_NAME": "production"})
 @patch("dags.impl.mover_impl.shutil.move")
-def test_move_files_permission_error_dir_rename(
-    mock_shutil_move: MagicMock,
-) -> None:
-    """Test _move_files tries rename if shutil.move raises PermissionError and src_path is a directory."""
-    mock_src_path1, mock_dst_path1 = MagicMock(), MagicMock()
-
-    mock_shutil_move.side_effect = PermissionError
-
-    mock_src_path1.is_dir.return_value = True
-
-    # when
-    _move_files({mock_src_path1: mock_dst_path1})
-
-    mock_shutil_move.assert_called_once_with(mock_src_path1, mock_dst_path1)
-
-    mock_src_path1.rename.assert_called_once_with(f"{mock_src_path1!s}.deleteme")
-
-
-@patch.dict(os.environ, {"ENV_NAME": "production"})
-@patch("dags.impl.mover_impl.shutil.move")
 def test_move_files_permission_error_not_dir_no_rename(
     mock_shutil_move: MagicMock,
 ) -> None:

@@ -24,8 +24,8 @@ def ssh_execute(
     # This is a hack to prevent jobs to be run on the cluster, useful for debugging and initial setup.
     # To get rid of this, e.g. set up a container with a fake ssh server
     if (
-        get_airflow_variable(AirflowVars.DEBUG_NO_CLUSTER_SSH, "False").capitalize()
-        == "True"
+        get_airflow_variable(AirflowVars.DEBUG_NO_CLUSTER_SSH, "false").lower()
+        == "true"
     ):
         return _get_fake_ssh_response(command)
 

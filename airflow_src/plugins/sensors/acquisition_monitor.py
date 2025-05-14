@@ -83,6 +83,8 @@ class AcquisitionMonitor(BaseSensorOperator):
             self._raw_file_monitor_wrapper.file_path_to_monitor_acquisition()
         )
 
+        self._main_file_exists = self._file_path_to_monitor.exists()
+
         self._first_poke_timestamp = get_timestamp()
         self._latest_file_size_check_timestamp = self._first_poke_timestamp
 
@@ -92,19 +94,18 @@ class AcquisitionMonitor(BaseSensorOperator):
 
         if (
             get_airflow_variable(
-                AirflowVars.CONSIDER_OLD_FILES_ACQUIRED, "False"
-            ).capitalize()
-            == "True"
-        ):
+                AirflowVars.CONSIDER_OLD_FILES_ACQUIRED, "false"
+            ).lower()
+            == "true"
+        ) and self._main_file_exists:
             youngest_file_age = self._get_youngest_file_age(
                 get_internal_instrument_data_path(self._instrument_id),
                 self._initial_dir_content,
             )
 
-            if self._file_path_to_monitor.exists() and self._is_older_than_threshold(
+            self._file_is_old = self._is_older_than_threshold(
                 self._file_path_to_monitor, youngest_file_age
-            ):
-                self._file_is_old = True
+            )
 
         logging.info(
             f"Monitoring {self._raw_file_monitor_wrapper.file_path_to_monitor_acquisition()}"

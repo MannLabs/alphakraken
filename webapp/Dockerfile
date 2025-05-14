@@ -28,4 +28,10 @@ EXPOSE 8501
 
 HEALTHCHECK CMD curl --fail http://localhost:8501/_stcore/health
 
+# TODO: make this a volume mapping to not bake this into the image
+RUN mkdir -p /opt/airflow/envs
+COPY envs/alphakraken.*.yaml /opt/airflow/envs
+# avoid sensitive data in the container
+RUN sed -i '/\(username\|password\)/d'  /opt/airflow/envs/alphakraken.*.yaml
+
 ENTRYPOINT ["streamlit", "run", "webapp/webapp.py", "--server.port=8501", "--server.address=0.0.0.0"]

@@ -1,15 +1,15 @@
 """Module to access constant and dynamic settings (given by the alphakraken.yaml file)."""
 
-import logging
-from pathlib import Path
 from typing import Any
 
 import yaml
 from common.constants import InternalPaths
 from common.keys import InstrumentKeys
 from common.utils import get_env_variable
+from common.keys import InstrumentKeys, InstrumentTypes
 
 from shared.keys import EnvVars, InstrumentTypes
+from shared.yamlsettings import YAMLSETTINGS
 
 
 class Timings:
@@ -87,39 +87,8 @@ def get_fallback_project_id(instrument_id: str) -> str:
     )
 
 
-def _load_alphakraken_yaml(env_name: str) -> dict[str, dict[str, Any]]:
-    """Load alphakraken settings from a YAML file."""
-    file_name = f"alphakraken.{env_name}.yaml"
-    file_path = Path(InternalPaths.ENVS_PATH) / file_name
-    if env_name == "_test_":
-        # TODO: this is to make the tests happy, but it should be handled differently
-        logging.warning("Using 'test' environment, this is an error in production!")
-        return {"instruments": {"_test1_": {"type": "thermo"}}}
-
-    if not file_path.exists():
-        raise FileNotFoundError(f"Settings file {file_name} not found at {file_path}")
-
-    with file_path.open() as file:
-        logging.info(f"Loading settings from {file_name}")
-        return yaml.safe_load(file)
-
-
-_SETTINGS = _load_alphakraken_yaml(
-    get_env_variable(EnvVars.ENV_NAME, "none", verbose=False)
-)
-_INSTRUMENTS = _SETTINGS["instruments"].copy()
-
-
-def get_path(path_key: str) -> Path:
-    """Get a certain path from the yaml settings."""
-    path = _SETTINGS.get("locations", {}).get(path_key, {}).get("absolute_path")
-
-    if path is None:
-        raise KeyError(
-            f"Key `{path_key}` or `{path_key}.absolute_path` not found in alphakraken.yaml."
-        )
-
-    return Path(path)
+# TODO: move to shared?
+_INSTRUMENTS = YAMLSETTINGS["instruments"].copy()
 
 
 def get_instrument_ids() -> list[str]:

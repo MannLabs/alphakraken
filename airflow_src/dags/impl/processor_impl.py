@@ -26,7 +26,7 @@ from common.paths import (
     get_internal_output_path_for_raw_file,
     get_output_folder_rel_path,
 )
-from common.settings import get_fallback_project_id, get_path
+from common.settings import get_fallback_project_id
 from common.utils import (
     get_airflow_variable,
     get_xcom,
@@ -46,6 +46,8 @@ from shared.db.interface import (
     update_raw_file,
 )
 from shared.db.models import RawFile, RawFileStatus, get_created_at_year_month
+from shared.keys import Locations
+from shared.yamlsettings import get_path
 from shared.keys import Locations, MetricsTypes
 
 

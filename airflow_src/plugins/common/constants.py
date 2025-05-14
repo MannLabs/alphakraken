@@ -58,17 +58,6 @@ ERROR_CODE_TO_STRING = {
 }
 
 
-class InternalPaths:
-    """Paths to directories within the Docker containers."""
-
-    MOUNTS_PATH = "/opt/airflow/mounts/"
-    ENVS_PATH = "/opt/airflow/envs/"
-
-    INSTRUMENTS = "instruments"
-    BACKUP = "backup"
-    OUTPUT = "output"
-
-
 class Pools:
     """Pool names.
 

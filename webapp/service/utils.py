@@ -15,6 +15,9 @@ from service.session_state import (
     remove_session_state,
 )
 
+from shared.keys import Locations
+from shared.yamlsettings import get_path
+
 # mapping of filter strings to url query parameters
 FILTER_MAPPING: dict[str, str] = {
     "_AND_": " & ",
@@ -27,8 +30,8 @@ APP_URL = os.getenv("WEBAPP_URL")
 DISABLE_WRITE = False
 
 
-quanting_settings_path = "n_a"  # TODO: os.environ.get(EnvVars.QUANTING_SETTINGS_PATH)
-quanting_output_path = "n_a"  # TODO: os.environ.get(EnvVars.QUANTING_OUTPUT_PATH)
+quanting_settings_path = get_path(Locations.SETTINGS)
+quanting_output_path = get_path(Locations.OUTPUT)
 
 
 class QueryParams:

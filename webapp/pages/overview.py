@@ -382,6 +382,10 @@ def _display_table_and_plots(
 
     st.markdown("## Plots")
 
+    st.info(
+        "If you don't see any data points try reducing the number by filtering, and/or use Firefox!"
+    )
+
     c1, c2, c3, c4 = st.columns([0.25, 0.25, 0.25, 0.25])
     color_by_column = c1.selectbox(
         label="Color by:",

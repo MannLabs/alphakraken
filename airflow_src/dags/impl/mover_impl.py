@@ -121,32 +121,18 @@ def _move_files(files_to_move: dict[Path, Path], *, only_rename: bool = False) -
             logging.info(f"Creating directory {dst_path.parent}")
             dst_path.parent.mkdir(parents=True, exist_ok=True)
 
-        force_rename = False
         if not only_rename:
-            try:
-                logging.info(f"Moving raw file {src_path} to {dst_path}")
-                shutil.move(src_path, dst_path)
-            except PermissionError as e:
-                # sometimes for Bruker raw files the `unlink` operation that is done in the course of `move`
-                # fails on the `.m` subdirectory with a PermissionError.
-                # In this case, try to rename the source directory to facilitate manual cleanup.
-                if not src_path.is_dir():
-                    raise e from e
-                exception = e
-                force_rename = True
+            logging.info(f"Moving raw file {src_path} to {dst_path}")
+            shutil.move(src_path, dst_path)
+        # except OSError as e:
+        #     # sometimes for Thermo raw files the `unlink` operation that is done in the course of `move`
+        #     # fails due to "Device or resource busy".
+        #     # In this case, try to rename the source file to facilitate manual cleanup.
+        #     if not src_path.is_file():
+        #         raise e from e
+        #     force_rename = True
 
-                logging.warning(
-                    f"Failed to move directory {src_path} to {dst_path}: {exception}."
-                )
-            # except OSError as e:
-            #     # sometimes for Thermo raw files the `unlink` operation that is done in the course of `move`
-            #     # fails due to "Device or resource busy".
-            #     # In this case, try to rename the source file to facilitate manual cleanup.
-            #     if not src_path.is_file():
-            #         raise e from e
-            #     force_rename = True
-
-        if only_rename or force_rename:
+        else:
             # the new name _MUST_ have a different extension (than .d), otherwise
             # it will be picked up as a new file
             new_name = f"{src_path!s}.deleteme"

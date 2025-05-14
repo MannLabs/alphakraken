@@ -7,13 +7,15 @@ from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
-from service.components import (
-    _get_color,
-    display_status,
-    highlight_status_cell,
-    show_date_select,
-    show_filter,
-)
+
+with patch("shared.yamlsettings.get_path") as p:  # TODO: ugly!
+    from service.components import (
+        _get_color,
+        display_status,
+        highlight_status_cell,
+        show_date_select,
+        show_filter,
+    )
 
 
 @pytest.mark.parametrize(

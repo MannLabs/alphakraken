@@ -10,13 +10,13 @@ from datetime import datetime
 
 from airflow.exceptions import AirflowFailException
 from common.constants import CLUSTER_JOB_SCRIPT_NAME, CLUSTER_WORKING_DIR_NAME
-from common.settings import _SETTINGS, get_path
 from sensors.ssh_utils import ssh_execute
 
 from shared.keys import Locations
+from shared.yamlsettings import YAMLSETTINGS, get_path
 
 # TODO: move to settings, introduce constants
-ENGINE: str = _SETTINGS.get("general", {}).get("job_engine", {}).get("type", "slurm")
+ENGINE: str = YAMLSETTINGS.get("general", {}).get("job_engine", {}).get("type", "slurm")
 
 
 def _get_job_handler() -> "JobHandler":

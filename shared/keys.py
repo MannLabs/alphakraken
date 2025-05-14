@@ -24,5 +24,16 @@ class Locations:
     SLURM = "slurm"
 
 
+class InternalPaths:
+    """Paths to directories within the Docker containers."""
+
+    MOUNTS_PATH = "/opt/airflow/mounts/"
+    ENVS_PATH = "/opt/airflow/envs/"
+
+    INSTRUMENTS = "instruments"
+    BACKUP = "backup"
+    OUTPUT = "output"
+
+
 ALLOWED_CHARACTERS_IN_RAW_FILE_NAME = r"[^a-zA-Z0-9\-_+.]"
 DDA_FLAG_IN_RAW_FILE_NAME = "_dda_"

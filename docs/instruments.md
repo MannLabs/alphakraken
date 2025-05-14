@@ -39,12 +39,11 @@ and to not accidentally drop the `ro` and `rw` flags as they limit file access r
 ```
 ./mount.sh <INSTRUMENT_ID> mount
 ```
-
-Then  (in case you want to use persistent mounts),
+to mount the instrument folder. If you want to create a persistent mount, additionally use
 ```
 ./mount.sh <INSTRUMENT_ID> fstab
 ```
-copy the resulting entry to `/etc/fstab` and set the correct password.
+and copy the resulting entry to `/etc/fstab` and set the correct password.
 
 6. Start the new container
 ```

@@ -201,7 +201,7 @@ sudo apt install cifs-utils
 2. Make sure the variables `MOUNTS_PATH` in the `envs/${ENV}.env` file and `locations.general.mounts_path`
 in the `envs/alphakraken.${ENV}.yaml` file are set correctly.
 
-3. Examples how to mount the backup, output, and logs folders, and the `test1` instrument. You will be asked for passwords.
+3. Create `fstab` entries for the backup, output, and logs folders, and all  instruments (here: `test1`):
 ```bash
 ./mount.sh backup fstab
 ./mount.sh output fstab
@@ -209,7 +209,7 @@ in the `envs/alphakraken.${ENV}.yaml` file are set correctly.
 ./mount.sh test1 fstab
 ```
 
-4. Add the created entries to the `/etc/fstab` file and set the correct password.
+4. Add the created entries to the `/etc/fstab` file and set the correct password for each entry.
 
 
 Note: for now, user `kraken-write` should only have read access to the backup pool folder, but needs `read/write` on the `output`
@@ -229,7 +229,7 @@ sudo systemctl disable containerd.service
 ```
 This is required, as an automated restart without mounts would leave the system in an inconsitent state.
 
-2. Set up all mounts for all instruments (`test1`, ..) and the other folders:
+2. Set up all mounts for all instruments (`test1`, ..) and the other folders (you will be asked for passwords):
 ```bash
 for entity in test1 backup output logs; do
   ./mount.sh $entity mount

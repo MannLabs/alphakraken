@@ -60,7 +60,7 @@ def test_projects_display_table(mock_df: MagicMock, mock_get: MagicMock) -> None
     assert expected_data == at.table[0].value.to_dict()
 
 
-@skip  # TODO: fix this test
+@skip("")  # TODO: fix this test
 @patch("service.db.get_project_data")
 @patch("service.db.df_from_db_data")
 def test_add_new_project_form_submission(

@@ -480,7 +480,7 @@ def test_bruker_get_files_to_copy() -> None:
     )
 
     # using a tempdir here as the path manipulations are nontrivial and mocking them would reduce test scope
-    with tempfile.TemporaryDirectory() as tempdir:
+    with tempfile.TemporaryDirectory() as tempdir:  # ty: ignore[no-matching-overload]
         instrument_path = Path(tempdir) / "instrument1"
         raw_file_path = instrument_path / "sample.d"
         raw_file_path.mkdir(parents=True)

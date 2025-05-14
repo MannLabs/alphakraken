@@ -76,7 +76,7 @@ class RawFileMonitorWrapper(ABC):
             # The edge case when the file stem is "" (e.g. filename is ".raw") needs to be handled manually:
             # there could be downstream consequences that are not worth thinking of given this is clearly a mistake
             # and should happen very rarely.
-            raise RawFileStemEmptyError(original_name)
+            raise RawFileStemEmptyError(str(original_name))
 
         if (
             original_name is not None

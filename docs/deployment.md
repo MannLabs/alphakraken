@@ -53,7 +53,6 @@ e.g. to spin up another instance hosting workers only.
 ```bash
 ./compose.sh --profile dbs up airflow-init
 ```
-Note: depending on your operating system and configuration, you might need to run `docker compose` command with `sudo`.
 
 2. In the Airflow UI, set up the SSH connection to the cluster (see [below](#setup-ssh-connection)).
 If you don't want to connect to the cluster, just create the connection of type
@@ -109,40 +108,40 @@ one ("`kraken-write`") that has write access to the `backup` pool folder,
 and one  ("`kraken-read`") that has only _read_ access.
 Both users should be able to write to the `logs` and `output` directories, and to read from `settings`.
 
-#### On all machines
-1. Disable the automatic restart of the Docker service
-([cf. here](https://docs.docker.com/engine/install/linux-postinstall/#configure-docker-to-start-on-boot-with-systemd))
-```bash
-sudo systemctl disable docker.service
-sudo systemctl disable docker.socket
-sudo systemctl disable containerd.service
-```
-This is currently required, as manual work is needed anyway after a machine reboot
-(see [below](maintenance.md/#actions-to-take-after-a-machine-reboot))
-and thus the automated start of containers is not desired.
-
 #### On the PC (VM) hosting the dbs (MongoDB, Airflow Postgres, Redis)
 
-0. `ssh` into the PC/VM, `cd` to the alphakraken source directory, and set `export ENV=sandbox` (`export ENV=production`).
+1. `ssh` into the PC/VM, `cd` to the alphakraken source directory, and set `export ENV=sandbox` (`export ENV=production`).
 
-2. Follow the steps for after a restart [below](maintenance.md/#restart-of-pcvm-hosting-the-dbs-mongodb-airflow-postgres-db-redis).
-
+2. Run the MongoDB, airflow db & redis services
+```bash
+./compose.sh --profile dbs up --build -d
+```
 
 #### On the PC (VM) hosting the airflow infrastructure (scheduler, webserver)
 
-0. `ssh` into the PC/VM, `cd` to the alphakraken source directory, and set `export ENV=sandbox` (`export ENV=production`).
+1. `ssh` into the PC/VM, `cd` to the alphakraken source directory, and set `export ENV=sandbox` (`export ENV=production`).
 
 1. Set up the [pool bind mounts](#set-up-pool-bind-mounts) for `airflow_logs` only. Here, the logs of the individual task runs will be stored
 for display in the Airflow UI.
 
-2. Follow the steps for after a restart [below](maintenance.md/#restart-of-pcvm-hosting-the-workers--infrastructure).
+2. Run the worker and/or infrastructure containers
+```bash
+./compose.sh --profile infrastructure up --build -d
+```
+
+
+
 
 #### On the PC (VM) hosting the workers
-0. `ssh` into the PC/VM, `cd` to the alphakraken source directory, and set `export ENV=sandbox` (`export ENV=production`).
+1. `ssh` into the PC/VM, `cd` to the alphakraken source directory, and set `export ENV=sandbox` (`export ENV=production`).
 
-1. Set up the [pool bind mounts](#set-up-pool-bind-mounts) for all instruments and `logs`, `backup` and `output`.
+2. Set up the [pool bind mounts](#set-up-pool-bind-mounts) for all instruments and `logs`, `backup` and `output`.
 
-2. Follow the steps for after a restart [below](maintenance.md/#restart-of-pcvm-hosting-the-workers--infrastructure).
+3. Run the worker and/or infrastructure containers
+```bash
+./compose.sh --profile workers up --build -d
+```
+
 
 #### URL redirect
 In case you want to set up a URL redirect from one PC to one or multiple others, do the following on the redirecting PC:
@@ -151,12 +150,12 @@ In case you want to set up a URL redirect from one PC to one or multiple others,
 
 #### On the cluster
 1. Log into the cluster using the `kraken-read` user.
-2. Create a directory, e.g.
+2. Create a directory (to store the submit script and job logs), e.g.
 ```bash
-mkdir ~/slurm
+mkdir /fs/pool-2/slurm
 ```
 and set the `locations.slurm.absolute_path` key in `envs/alphakraken.${ENV}.yaml` to this value.
-3. Copy the cluster run script `submit_job.sh` to `~/slurm` and adapt the `partition` (and optionally `nodelist`) directives.
+3. Copy the cluster run script `submit_job.sh` to `/fs/pool-2/slurm` and adapt the `partition` (and optionally `nodelist`) directives.
 Make sure to update also this file when deploying a new version of the AlphaKraken.
 
 4. Set up AlphaDIA (see [below](#setup-alphadia-on-the-cluster)).
@@ -181,9 +180,15 @@ All paths are configured in the `locations` section of the `envs/alphakraken.${E
 for details).
 
 ### Set up pool bind mounts
-The workers need bind mounts set up to the pool filesystems for backup and reading AlphaDIA output data.
-All airflow components (webserver, scheduler and workers) need a bind mount to a pool folder to read and write airflow logs.
-Additionally, workers need one bind mount per instrument PC is needed (cf. section below).
+All airflow components (webserver, scheduler and workers) need a bind mount to a pool folder to read and write `airflow_logs`.
+The workers need in addition bind mounts set up to the pool filesystems for `backup` and reading AlphaDIA `output` data,
+and to the instrument PCs.
+
+This section describes the setup of the bind mounts via `/etc/fstab`, see [below](#alternative-non-persistent-mounts)
+for an alternative.
+
+IMPORTANT NOTE: it is absolutely crucial that the mounts are set correctly (as provided by the `envs/alphakraken.${ENV}.yaml` file)
+as the workers operate only on docker-internal paths and cannot verify the correctness of the mounts.
 
 0. (on demand) Install the `cifs-utils` package (otherwise you might get errors like
 `CIFS: VFS: cifs_mount failed w/return code = -13` or `mount(2)  system call failed: No route to host.`)
@@ -193,22 +198,52 @@ sudo apt install cifs-utils
 
 1. Create folders `settings`, `output`, and `airflow_logs` in the desired pool location(s), e.g. under `/fs/pool/pool-alphakraken`.
 
-2. Make sure the variable `MOUNTS_PATH` in the `envs/${ENV}.env` file is set correctly.
-Set them also in the `envs/alphakraken.${ENV}.yaml` file (`locations.general.mounts_path`).
+2. Make sure the variables `MOUNTS_PATH` in the `envs/${ENV}.env` file and `locations.general.mounts_path`
+in the `envs/alphakraken.${ENV}.yaml` file are set correctly.
 
-3. Mount the backup, output and logs folder. You will be asked for passwords.
+3. Create `fstab` entries for the backup, output, and logs folders, and all  instruments (here: `test1`):
 ```bash
-./mount.sh backup
-./mount.sh output
-./mount.sh logs
+./mount.sh backup fstab
+./mount.sh output fstab
+./mount.sh logs fstab
+./mount.sh test1 fstab
 ```
 
+4. Add the created entries to the `/etc/fstab` file and set the correct password for each entry.
+
+
 Note: for now, user `kraken-write` should only have read access to the backup pool folder, but needs `read/write` on the `output`
-folder. If you need to remount one of the folders, add the `umount` option, e.g.
+folder.
+
+
+#### Alternative: non-persistent mounts
+You can also mount the folder manually, at the disadvantage that it needs to be re-done after a reboot. However,
+this can be handy for debugging on initial setup.
+
+1. Disable the automatic restart of the Docker service
+([cf. here](https://docs.docker.com/engine/install/linux-postinstall/#configure-docker-to-start-on-boot-with-systemd))
+```bash
+sudo systemctl disable docker.service
+sudo systemctl disable docker.socket
+sudo systemctl disable containerd.service
+```
+This is required, as an automated restart without mounts would leave the system in an inconsitent state.
+
+2. Set up all mounts for all instruments (`test1`, ..) and the other folders (you will be asked for passwords):
+```bash
+for entity in test1 backup output logs; do
+  ./mount.sh $entity mount
+done
+```
+
+If you need to remount one of the folders, pass the `umount` flag, e.g.
 `./mount.sh output umount`.
 
-IMPORTANT NOTE: it is absolutely crucial that the mounts are set correctly (as provided by the `envs/alphakraken.${ENV}.yaml` file)
-as the workers operate only on docker-internal paths and cannot verify the correctness of the mounts.
+3. Start the docker service
+```bash
+sudo systemctl start docker
+```
+
 
 ### Setup SSH connection
 This connection is required to interact with the Slurm cluster.

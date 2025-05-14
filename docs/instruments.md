@@ -37,11 +37,20 @@ and to not accidentally drop the `ro` and `rw` flags as they limit file access r
 
 5. On the PC hosting the workers execute
 ```
-./mount.sh <INSTRUMENT_ID>
+./mount.sh <INSTRUMENT_ID> mount
 ```
-and then start the new container `airflow-worker-<INSTRUMENT_ID>`  (cf. [above](maintenance.md/#restart-of-pcvm-hosting-the-workers)).
+to mount the instrument folder. If you want to create a persistent mount, additionally use
+```
+./mount.sh <INSTRUMENT_ID> fstab
+```
+and copy the resulting entry to `/etc/fstab` and set the correct password.
 
-6. Restart all relevant infrastructure containers (`scheduler`, `file_mover` and `file_remover`) with the `--build` flag (cf. [above](maintenance.md/#restart-of-pcvm-hosting-the-airflow-infrastructure)).
+6. Start the new container
+```
+./compose.sh up airflow-worker-<INSTRUMENT_ID> -d
+```
 
-7. Open the airflow UI and unpause the new `*.<INSTRUMENT_ID>` DAGs. It might be wise to do this one after another,
+7. Restart all relevant infrastructure containers (`scheduler`, `file_mover` and `file_remover`) with the `--build` flag.
+
+8. Open the airflow UI and unpause the new `*.<INSTRUMENT_ID>` DAGs. It might be wise to do this one after another,
 (`instrument_watcher` -> `acquisition_handler` -> `acquisition_processor`.) and to check the logs for errors before starting the next one.

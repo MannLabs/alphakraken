@@ -37,7 +37,7 @@ repos:
       - id: ty
         name: ty
         # TODO: remove `--ignore unresolved-import` after https://github.com/astral-sh/ty/issues/265
-        entry: uvx ty check --ignore unresolved-import
+        entry: uvx ty==0.0.1-alpha.1 check --ignore unresolved-import
         language: system
 #  - repo: local
 #    hooks:

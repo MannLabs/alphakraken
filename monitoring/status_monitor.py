@@ -78,7 +78,7 @@ def _send_kraken_instrument_alert(
     if case == Cases.STALE:
         instruments_str = "\n".join(
             [
-                f"- `{instrument_id}`: {updated_at.strftime('%Y-%m-%d %H:%M:%S')} UTC ({(datetime.now(pytz.UTC) - updated_at).total_seconds() / 60 / 60:.1f} hours ago)"
+                f"- `{instrument_id}`: {updated_at.strftime('%Y-%m-%d %H:%M:%S')} UTC ({(datetime.now(pytz.UTC) - updated_at).total_seconds() / 60 / 60:.1f} hours ago)"  # ty: ignore[possibly-unbound-attribute]
                 for instrument_id, updated_at in instruments_with_data
             ]
         )

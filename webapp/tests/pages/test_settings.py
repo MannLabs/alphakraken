@@ -66,6 +66,8 @@ def test_settings(
     assert expected_data == at.table[0].value.to_dict()
 
 
-@skip  # TODO: fix this test once the issues with test_add_new_project_form_submission() are fixed
+@skip(
+    ""
+)  # TODO: fix this test once the issues with test_add_new_project_form_submission() are fixed
 def test_add_new_settings_form_submission() -> None:
     """A test for the form submission on the settings page."""

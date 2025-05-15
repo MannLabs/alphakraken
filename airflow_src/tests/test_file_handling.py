@@ -79,8 +79,12 @@ def test_get_disk_usage_returns_correct_values(mock_disk_usage: MagicMock) -> No
     assert free_gb == 400 * BYTES_TO_GB
 
 
+@patch("plugins.file_handling.get_file_size", return_value=123)
 @patch("plugins.file_handling.Path.open", new_callable=mock_open)
-def test_get_file_hash(mock_file_open: MagicMock) -> None:
+def test_get_file_hash(
+    mock_file_open: MagicMock,
+    mock_get_file_size: MagicMock,  # noqa: ARG001
+) -> None:
     """Test get_file_hash."""
     mock_file_open.return_value.read.side_effect = [b"some_file_content", None]
 
@@ -90,8 +94,12 @@ def test_get_file_hash(mock_file_open: MagicMock) -> None:
     assert return_value == "faff66b0fba39e3a4961b45dc5f9826c"
 
 
+@patch("plugins.file_handling.get_file_size", return_value=123)
 @patch("plugins.file_handling.Path.open", new_callable=mock_open)
-def test_get_file_hash_chunks(mock_file_open: MagicMock) -> None:
+def test_get_file_hash_chunks(
+    mock_file_open: MagicMock,
+    mock_get_file_size: MagicMock,  # noqa: ARG001
+) -> None:
     """Test get_file_hash with multiple chunks."""
     mock_file_open.return_value.read.side_effect = [
         b"some_",

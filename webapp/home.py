@@ -58,6 +58,12 @@ File name uniqueness is a prerequisite for all automated downstream processing t
 to tell those collision cases apart, a timestamp is added as a prefix.
 
 
+Q: My file seems to be corrupted on the backup?
+
+A: In very rare cases, the copying operation gets interrupted,
+which is reflected by the "overview" table showing the status "error" for the file. Contact the developers in this case.
+
+
 Q: Why do some files on the acquisition folder carry the extension `.deleteme`?
 
 A: This is because they could not be removed after copying it to the `Backup` subfolder on the instrument
@@ -68,9 +74,9 @@ Those files can be deleted safely.
 Q: Some of my files still have status "monitoring_acquisition" although acquisition is already finished.
 
 A: An acquisition is considered "finished" when either a new file is created in the acquisition folder or
-if the current file has been monitored for over 4 hours. As a consequence, the last file in a queue will be processed
-with this 4 hour delay (this could be remedied by adding a blank to the end of a queue).
-Note: if AlphaKraken processing is disrupted for a certain time, it might take up to 4 hours until their
+if the current file has not changed for 2 hours. As a consequence, the last file in a queue will be processed
+with this 2 hour delay (this could be remedied by adding a blank sample to the end of a queue).
+Note: if AlphaKraken processing is disrupted for a certain time, it might take up to 2 hours until their
 acquisition is considered "finished".
 
 

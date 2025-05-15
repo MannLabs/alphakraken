@@ -317,9 +317,7 @@ def upload_metrics(ti: TaskInstance, **kwargs) -> None:
 
     raw_file_id = get_xcom(ti, XComKeys.RAW_FILE_ID)
     quanting_env = get_xcom(ti, XComKeys.QUANTING_ENV)
-    metrics: dict = get_xcom(
-        ti, XComKeys.METRICS
-    )  # pytype: disable=annotation-type-mismatch
+    metrics: dict = get_xcom(ti, XComKeys.METRICS)
 
     metrics[QUANTING_TIME_ELAPSED_METRIC] = get_xcom(ti, XComKeys.QUANTING_TIME_ELAPSED)
 

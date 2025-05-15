@@ -484,7 +484,7 @@ class RawFileWrapperFactory:
         return handler_class(instrument_id, **kwargs)
 
     @classmethod
-    def create_monitor_wrapper(  # pytype: disable=bad-return-type
+    def create_monitor_wrapper(
         cls,
         instrument_id: str,
         raw_file: RawFile | None = None,
@@ -501,7 +501,7 @@ class RawFileWrapperFactory:
             instrument_id,
             raw_file=raw_file,
             raw_file_original_name=raw_file_original_name,
-        )  # pytype: disable=bad-return-type
+        )
 
     @classmethod
     def create_write_wrapper(
@@ -520,4 +520,4 @@ class RawFileWrapperFactory:
             instrument_id,
             raw_file=raw_file,
             path_provider=path_provider,
-        )  # pytype: disable=bad-return-type
+        )

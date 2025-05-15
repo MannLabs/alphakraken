@@ -15,6 +15,14 @@ class EnvVars:
     SLACK_WEBHOOK_URL = "SLACK_WEBHOOK_URL"  # TODO: move to yaml
 
 
+class InstrumentTypes:
+    """Types of instruments."""
+
+    THERMO: str = "thermo"
+    BRUKER: str = "bruker"
+    SCIEX: str = "sciex"
+
+
 class Locations:
     """Keys for accessing paths in the yaml config."""
 

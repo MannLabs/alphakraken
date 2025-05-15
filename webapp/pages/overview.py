@@ -11,6 +11,7 @@ import pytz
 import streamlit as st
 from matplotlib import pyplot as plt
 from service.components import (
+    get_full_backup_path,
     get_terminal_status_counts,
     highlight_status_cell,
     show_date_select,
@@ -18,6 +19,7 @@ from service.components import (
     show_sandbox_message,
 )
 from service.data_handling import get_combined_raw_files_and_metrics_df
+from service.db import get_full_raw_file_data
 from service.utils import (
     APP_URL,
     DEFAULT_MAX_AGE_OVERVIEW,
@@ -176,12 +178,12 @@ st.write(
 
 
 days = 60
-url = f"{APP_URL}/overview?max_age={days}"
+max_age_url = f"{APP_URL}/overview?max_age={days}"
 st.markdown(
     f"""
     Note: for performance reasons, by default only data for the last {DEFAULT_MAX_AGE_OVERVIEW} days are loaded.
     If you want to see more data, use the `?max_age=` query parameter in the url, e.g.
-    <a href="{url}" target="_self">{url}</a>
+    <a href="{max_age_url}" target="_self">{max_age_url}</a>
     """,
     unsafe_allow_html=True,
 )
@@ -252,7 +254,7 @@ def df_to_csv(df: pd.DataFrame) -> str:
 # using a fragment to avoid re-doing the above operations on every filter change
 # cf. https://docs.streamlit.io/develop/concepts/architecture/fragments
 @st.experimental_fragment
-def _display_table_and_plots(
+def _display_table_and_plots(  # noqa: PLR0915 (too many statements)
     df: pd.DataFrame, max_age_in_days: float, filter_value: str = ""
 ) -> None:
     """A fragment that displays a DataFrame with a filter."""
@@ -377,6 +379,22 @@ def _display_table_and_plots(
         file_name=f"{now.strftime('AlphaKraken_%Y%m%d-%H%M%S_all')}.csv",
         mime="text/csv",
     )
+
+    if st.button(
+        "Show file paths for selection (experimental)",
+        help="Show all files paths on the backup for conveniently copying them manually.",
+    ):
+        full_info_df = get_full_raw_file_data(list(filtered_df.index))
+
+        file_paths, is_multiple_types = get_full_backup_path(full_info_df)
+        st.write(f"Found {len(file_paths)} items:")
+        if is_multiple_types:
+            st.warning(
+                "Warning: more than one instrument type found, please check your selection!"
+            )
+        file_paths_pretty = "\n".join(file_paths)
+        c1, _ = st.columns([0.5, 0.5])
+        c1.code(f"{file_paths_pretty}")
 
     # ########################################### DISPLAY: plots
 

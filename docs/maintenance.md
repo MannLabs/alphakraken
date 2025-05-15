@@ -221,10 +221,11 @@ jobs that have already been submitted and thus may take a while to take effect.
 ## Upgrading Airflow
 Every once in a while, the Airflow version should be updated.
 
-1. Locate the current version in the Airflow Dockerfile, line `ARG AIRFLOW_VERSION=2.10.5`
-2. Check for breaking changes between the current and the new version [here](https://airflow.apache.org/docs/apache-airflow/stable/release_notes.html)
-and adapt if necessary.
-3. Replace the old version with the new version throughout the code.
-4. Shutdown all workers and infrastructure (up to the databases).
-5. Migrate the Airflow DB: `./compose.sh run airflow-cli db migrate`
-6. Spin up workers and infrastructure again.
+1. Create a backup copy of the `mongodb_data_${ENV}` and `airflowdb_data_${ENV}` folders (on the machine that hosts the DBs).
+2. Locate the current version in the Airflow Dockerfile, line `ARG AIRFLOW_VERSION=2.10.5`
+3. Check for breaking changes between the current and the new version [here](https://airflow.apache.org/docs/apache-airflow/stable/release_notes.html)
+and adapt the code if necessary.
+4. Search and replace the old version string (e.g. `2.10.5`) with the new version throughout the code.
+5. Shutdown all workers and infrastructure (up to the databases), generally following the instructions on how to deploy new code versions [here](deployment.md#deploying-new-code-versions).
+6. Migrate the Airflow DB: `./compose.sh run airflow-cli db migrate`
+7. Spin up workers and infrastructure again.

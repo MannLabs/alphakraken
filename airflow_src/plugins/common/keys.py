@@ -100,14 +100,6 @@ class InstrumentKeys:
     FILE_MOVE_DELAY_M: str = "file_move_delay_m"
 
 
-class InstrumentTypes:
-    """Types of instruments."""
-
-    THERMO: str = "thermo"
-    BRUKER: str = "bruker"
-    SCIEX: str = "sciex"
-
-
 class AirflowVars:
     """Keys for accessing Airflow Variables (set in the Airflow UI). Cf. also Readme."""
 

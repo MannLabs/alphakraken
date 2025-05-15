@@ -6,10 +6,10 @@ from typing import Any
 
 import yaml
 from common.constants import InternalPaths
-from common.keys import InstrumentKeys, InstrumentTypes
+from common.keys import InstrumentKeys
 from common.utils import get_env_variable
 
-from shared.keys import EnvVars
+from shared.keys import EnvVars, InstrumentTypes
 
 
 class Timings:

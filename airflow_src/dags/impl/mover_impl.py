@@ -121,6 +121,7 @@ def _move_files(files_to_move: dict[Path, Path], *, only_rename: bool = False) -
         if not only_rename:
             logging.info(f"Moving raw file {src_path} to {dst_path}")
             shutil.move(src_path, dst_path)
+            logging.info(".. done")
         # except OSError as e:
         #     # sometimes for Thermo raw files the `unlink` operation that is done in the course of `move`
         #     # fails due to "Device or resource busy".
@@ -135,6 +136,7 @@ def _move_files(files_to_move: dict[Path, Path], *, only_rename: bool = False) -
             new_name = f"{src_path!s}.deleteme"
             logging.info(f"Renaming {src_path} to {new_name} ..")
             src_path.rename(new_name)
+            logging.info(".. done")
 
 
 def _check_main_file_to_move(ti: TaskInstance, raw_file: RawFile) -> None:

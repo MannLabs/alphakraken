@@ -381,8 +381,8 @@ def _display_table_and_plots(  # noqa: PLR0915 (too many statements)
     )
 
     if st.button(
-        "Show file paths for selection (experimental)",
-        help="Show all files paths on the backup for conveniently copying them manually.",
+        "Show file paths for selection",
+        help="For the selection in the table, show all file paths on the backup for conveniently copying them manually to another location.",
     ):
         full_info_df = get_full_raw_file_data(list(filtered_df.index))
 
@@ -513,8 +513,8 @@ def _get_yerror_column_name(y_column_name: str, df: pd.DataFrame) -> str | None:
 
 
 filter_value = st.query_params.get(QueryParams.FILTER, "")
-for key, value in FILTER_MAPPING.items():
-    filter_value = filter_value.lower().replace(key.lower(), value)
+for key_, value_ in FILTER_MAPPING.items():
+    filter_value = filter_value.lower().replace(key_.lower(), value_)
 
 _display_table_and_plots(
     combined_df,

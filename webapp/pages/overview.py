@@ -393,7 +393,7 @@ def _display_table_and_plots(  # noqa: PLR0915 (too many statements)
                 "Warning: more than one instrument type found, please check your selection!"
             )
         file_paths_pretty = "\n".join(file_paths)
-        c1, _ = st.columns([0.5, 0.5])
+        c1, _ = st.columns([0.75, 0.25])
         c1.code(f"{file_paths_pretty}")
 
     # ########################################### DISPLAY: plots

@@ -113,7 +113,7 @@ def _identical_copy_exists(dst_path: Path, src_hash: str) -> bool:
         if (dst_hash := get_file_hash(dst_path)) == src_hash:
             logging.info(f"Hashes match {src_hash=}.")
             return True
-        raise HashMismatchError(f"Hashes do not match: {src_hash=} {dst_hash=}")
+        raise HashMismatchError(f"Hash mismatch: {src_hash=} {dst_hash=}")
     return False
 
 
@@ -193,19 +193,21 @@ def _decide_if_copy_required(
     except HashMismatchError as e:
         src_size = get_file_size(src_path, verbose=False)
         dst_size = get_file_size(dst_path, verbose=False)
-        logging.warning(
-            f"File {dst_path} exists in backup location with different hash. {src_size=} {dst_size=} {e}"
-        )
+        msg = f"File {dst_path} exists with different hash."
+        logging.warning(f"{msg} {e} {src_size=} {dst_size=}")
         if overwrite:
             logging.warning("Will overwrite file.")
             copy_required = True
         else:
-            raise AirflowFailException(
+            logging.exception(
+                f"{msg}\n"
                 "This might be due to a previous copy operation being interrupted. \n"
                 "To resolve this issue: \n"
                 "1. Check and remove the file from backup if necessary, then restart this task, or \n"
                 f"2. Set the Airflow Variable {AirflowVars.BACKUP_OVERWRITE_FILE_ID} to the ID of the raw file to force overwrite."
-            ) from e
+            )
+
+            raise AirflowFailException(msg) from e
     return copy_required, src_hash
 
 

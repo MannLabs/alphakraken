@@ -95,8 +95,7 @@ pre-commit run --all-files
 ### Type checking
 The code can be type-checked by
 ```bash
-pip install pytype==2024.10.11
-pytype .
+uvx ty==0.0.1-alpha.1 check
 ```
 
 ### A note on importing and PYTHONPATH

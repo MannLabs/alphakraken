@@ -92,7 +92,7 @@ it exactly one instance of each of the 'central components': `postgres-service`,
 One reasonable setup is to have the central components on one machine,
 and Airflow infrastructure (scheduler & webserver), workers and WebApp on another.
 This is the current setup in the docker-compose, which is reflected by the
-profiles `dbs`, and `infrastructure`/`workers`/`wepapp`, respectively. If you move one of the central components
+profiles `dbs`, and `infrastructure`/`workers`/`webapp`, respectively. If you move one of the central components
 to another machine, you might need to adjust the `*_HOST` variables in the
 `./env/${ENV}.env` files (see comments there). Of course, one machine could also host them all.
 
@@ -155,6 +155,7 @@ In case you want to set up a URL redirect from one PC to one or multiple others,
 mkdir /fs/pool-2/slurm
 ```
 and set the `locations.slurm.absolute_path` key in `envs/alphakraken.${ENV}.yaml` to this value.
+
 3. Copy the cluster run script `submit_job.sh` to `/fs/pool-2/slurm` and adapt the `partition` (and optionally `nodelist`) directives.
 Make sure to update also this file when deploying a new version of the AlphaKraken.
 
@@ -299,13 +300,14 @@ The following files need to be edited to customize your deployment:
 ### Deploying new code versions
 These steps need to be done on all machines that run alphakraken services.
 Make sure the code is always consistent across all machines!
-0. If in doubt, create a  backup copy of the `mongodb_data_${ENV}` and `airflowdb_data_${ENV}` folders (on the machine that hosts the DBs).
-1. On each machine, pull the most recent version of the code from the repository using `git pull` and a personal access token.
+0. If in doubt that something could break, create a backup copy of the `mongodb_data_${ENV}` and `airflowdb_data_${ENV}` folders (on the machine that hosts the DBs).
+1. On each machine, pull the most recent version of the code from the repository using `git pull`.
 2. Check if there are any special changes to be done (e.g. updating `submit_job.sh` on the cluster,
 new mounts, new environment variables, manual database interventions, ..) and apply them.
 3. (when deploying workers) To avoid copying processes being interrupted, in the Airflow UI set the size of the `file_copy_pool` to 0 and wait until all `copy_raw_file` tasks are finished.
-4. Stop all docker compose services that need to be updated across all machines using the `./compose.sh --profile <some profile> stop` command.
-5. Start all docker compose services again, first the `infrastructure` services, then the `workers` services.
+4. Stop all docker compose services that need to be updated across all machines using the `./compose.sh --profile $PROFILE stop` command, once with `$PROFILE` set to `workers`,
+and once to `infrastructure`.
+5. Restart all docker compose services again, first the `workers` services, then the `infrastructure` services (with the `--build` flag).
 6. Set the size of `file_copy_pool` to the number it was before.
 7. Normal operation should be resumed after about 5 minutes. Depending on when they were shut down, some tasks
 could be in an `error` state though. Check after a few hours if some files are stuck and resolve the issues with the Airflow UI.

@@ -75,13 +75,19 @@ def get_file_hash(
     file_path: Path, chunk_size: int = 8192, *, verbose: bool = True
 ) -> str:
     """Get the hash of a file."""
-    logging.info(f"Calculating hash of {file_path} ..") if verbose else None
+    if verbose:
+        file_size = get_file_size(file_path, verbose=False)
+        logging.info(f"Calculating hash of {file_path} ({file_size=})..")
 
     with file_path.open("rb") as f:
         file_hash = hashlib.md5()  # noqa: S324 hashlib-insecure-hash-function
         while chunk := f.read(chunk_size):
             file_hash.update(chunk)
-    logging.info(f".. hash is {file_hash.hexdigest()}") if verbose else None
+
+    if verbose:
+        file_size = get_file_size(file_path, verbose=False)
+        logging.info(f".. hash is {file_hash.hexdigest()} ({file_size=})")
+
     return file_hash.hexdigest()
 
 

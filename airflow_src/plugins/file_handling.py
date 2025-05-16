@@ -136,14 +136,11 @@ def copy_file(
     :raises AirflowFailException: If the hash of the copied file does not match the source hash or
         if the file already exists with a different hash in case overwrite=False.
     """
-    no_copy_required, src_hash = _decide_if_copy_required(
+    copy_required, src_hash = _decide_if_copy_required(
         src_path, dst_path, overwrite=overwrite
     )
 
-    if no_copy_required:
-        dst_hash = src_hash
-        dst_size = get_file_size(dst_path)
-    else:
+    if copy_required:
         if not dst_path.parent.exists():
             logging.info(f"Creating parent directories for {dst_path} ..")
             dst_path.parent.mkdir(parents=True, exist_ok=True)
@@ -165,6 +162,11 @@ def copy_file(
                 f"Hashes do not match ofter copy: {src_hash=} {dst_hash=} (sizes: {dst_size=} {src_size=})"
             )
         logging.info(".. done")
+    else:
+        dst_hash = (
+            src_hash  # as _decide_if_copy_required() returned False, these are equal
+        )
+        dst_size = get_file_size(dst_path)
 
     return dst_size, dst_hash
 
@@ -188,7 +190,7 @@ def _decide_if_copy_required(
     logging.info(f"Hash calculated. Time elapsed: {time_elapsed / 60:.1f} min")
 
     try:
-        no_copy_required = _identical_copy_exists(dst_path, src_hash)
+        copy_required = not _identical_copy_exists(dst_path, src_hash)
     except HashMismatchError as e:
         src_size = get_file_size(dst_path, verbose=False)
         dst_size = get_file_size(dst_path, verbose=False)
@@ -197,7 +199,7 @@ def _decide_if_copy_required(
         )
         if overwrite:
             logging.warning("Will overwrite file.")
-            no_copy_required = False
+            copy_required = True
         else:
             raise AirflowFailException(
                 "This might be due to a previous copy operation being interrupted. \n"
@@ -205,7 +207,7 @@ def _decide_if_copy_required(
                 "1. Check and remove the file from backup if necessary, then restart this task, or \n"
                 f"2. Set the Airflow Variable {AirflowVars.BACKUP_OVERWRITE_FILE_ID} to the ID of the raw file to force overwrite."
             ) from e
-    return no_copy_required, src_hash
+    return copy_required, src_hash
 
 
 def compare_paths(

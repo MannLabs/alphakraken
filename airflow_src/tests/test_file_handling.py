@@ -234,7 +234,7 @@ def test_copy_file_raises(
 
     # when
     with pytest.raises(AirflowFailException):
-        copy_file(src_path, dst_path)  ##5
+        copy_file(src_path, dst_path)
 
     mock_copy2.assert_not_called()
 

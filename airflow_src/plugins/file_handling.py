@@ -111,7 +111,7 @@ def _identical_copy_exists(dst_path: Path, src_hash: str) -> bool:
     if dst_path.exists():
         logging.info("File already exists in backup location. Checking hash ..")
         if (dst_hash := get_file_hash(dst_path)) == src_hash:
-            logging.info("Hashes match.")
+            logging.info(f"Hashes match {src_hash=}.")
             return True
         raise HashMismatchError(f"Hashes do not match: {src_hash=} {dst_hash=}")
     return False
@@ -125,7 +125,7 @@ def copy_file(
 ) -> tuple[float, str]:
     """Copy a single file from `src_path` to `dst_path` and check its hashsum.
 
-    If the an identical copy of the file already exists, no copy operation is performed.
+    If an identical copy of the file already exists, no copy operation is performed.
     If a non-identical copy exists, the behaviour depends on the `overwrite` parameter.
 
     :param src_path: Path to the source file.
@@ -159,7 +159,7 @@ def copy_file(
         if (dst_hash := get_file_hash(dst_path)) != src_hash:
             src_size = get_file_size(src_path)
             raise AirflowFailException(
-                f"Hashes do not match ofter copy: {src_hash=} {dst_hash=} (sizes: {dst_size=} {src_size=})"
+                f"Hashes do not match after copy: {src_hash=} {dst_hash=} (sizes: {dst_size=} {src_size=})"
             )
         logging.info(".. done")
     else:
@@ -181,8 +181,7 @@ def _decide_if_copy_required(
     :param overwrite: Whether to overwrite the file if it already exists with a different hash in the destination.
 
     :return: A tuple containing a boolean indicating whether a copy is required and the hash of the source file.
-    :raises HashMismatchError: If the hash of the copied file does not match the source hash or
-        if the file already exists with a different hash in case overwrite=False.
+    :raises AirflowFailException: If the file already exists with a different hash and `overwrite=False`
     """
     start = datetime.now()  # noqa: DTZ005
     src_hash = get_file_hash(src_path)
@@ -192,7 +191,7 @@ def _decide_if_copy_required(
     try:
         copy_required = not _identical_copy_exists(dst_path, src_hash)
     except HashMismatchError as e:
-        src_size = get_file_size(dst_path, verbose=False)
+        src_size = get_file_size(src_path, verbose=False)
         dst_size = get_file_size(dst_path, verbose=False)
         logging.warning(
             f"File {dst_path} exists in backup location with different hash. {src_size=} {dst_size=} {e}"

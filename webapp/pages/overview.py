@@ -392,9 +392,17 @@ def _display_table_and_plots(  # noqa: PLR0915 (too many statements)
             st.warning(
                 "Warning: more than one instrument type found, please check your selection!"
             )
-        file_paths_pretty = "\n".join(file_paths)
+
         c1, _ = st.columns([0.75, 0.25])
-        c1.code(f"{file_paths_pretty}")
+
+        c1.write("AlphaDIA config format:")
+        prefix = " - "
+        file_paths_pretty = f"\n{prefix}".join(file_paths)
+        c1.code(f"{prefix}{file_paths_pretty}")
+
+        c1.write("One line format:")
+        file_paths_pretty_one_line = " ".join(file_paths)
+        c1.code(f"{file_paths_pretty_one_line}")
 
     # ########################################### DISPLAY: plots
 

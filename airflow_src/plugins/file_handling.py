@@ -13,6 +13,10 @@ from common.keys import AirflowVars
 from common.paths import get_internal_instrument_data_path
 
 
+class HashMismatchError(Exception):
+    """Custom exception for hash mismatch errors."""
+
+
 def get_file_ctime(path: Path) -> float:
     """Get the creation timestamp (unix epoch, unit: seconds) of a file."""
     return path.stat().st_ctime
@@ -103,10 +107,10 @@ def _identical_copy_exists(dst_path: Path, src_hash: str) -> bool:
     logging.info(f"Checking if file already exists in {dst_path} ..")
     if dst_path.exists():
         logging.info("File already exists in backup location. Checking hash ..")
-        if get_file_hash(dst_path) == src_hash:
+        if (dst_hash := get_file_hash(dst_path)) == src_hash:
             logging.info("Hashes match.")
             return True
-        raise ValueError("Hashes do not match.")
+        raise HashMismatchError(f"Hashes do not match: {src_hash=} {dst_hash=}")
     return False
 
 
@@ -134,9 +138,11 @@ def copy_file(
     try:
         if _identical_copy_exists(dst_path, src_hash):
             return get_file_size(dst_path), src_hash
-    except ValueError as e:
+    except HashMismatchError as e:
+        src_size = get_file_size(dst_path, verbose=False)
+        dst_size = get_file_size(dst_path, verbose=False)
         logging.warning(
-            f"File {dst_path} exists in backup location with different hash. "
+            f"File {dst_path} exists in backup location with different hash. {src_size=} {dst_size=} {e}"
         )
         if overwrite:
             logging.warning("Will overwrite file.")

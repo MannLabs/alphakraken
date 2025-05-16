@@ -9,6 +9,7 @@ from airflow.exceptions import AirflowFailException
 from common.settings import _INSTRUMENTS
 from plugins.common.constants import BYTES_TO_GB
 from plugins.file_handling import (
+    HashMismatchError,
     _identical_copy_exists,
     compare_paths,
     copy_file,
@@ -219,17 +220,21 @@ def test_copy_file_no_copy_if_file_present_with_same_hash(
 
 @patch("plugins.file_handling.get_file_hash")
 @patch("plugins.file_handling._identical_copy_exists")
+@patch("plugins.file_handling.get_file_size")
 @patch("shutil.copy2")
 def test_copy_file_no_copy_if_file_present_with_different_hash_raises(
     mock_copy2: MagicMock,
+    mock_get_file_size: MagicMock,
     mock_identical_copy_exists: MagicMock,
     mock_get_file_hash: MagicMock,  # noqa: ARG001
 ) -> None:
     """Test copy_file does not copy and raises file if file with differnet hash is present."""
-    mock_identical_copy_exists.side_effect = ValueError
+    mock_identical_copy_exists.side_effect = HashMismatchError
 
     src_path = Path("/path/to/instrument/test_file.raw")
     dst_path = Path("/path/to/backup/test_file.raw")
+
+    mock_get_file_size.side_effect = [123, 456]
 
     # when
     with pytest.raises(AirflowFailException):
@@ -249,7 +254,7 @@ def test_copy_file_with_overwrite_when_variable_set(
     mock_get_file_hash: MagicMock,
 ) -> None:
     """Test copy_file overwrites existing file when backup_overwrite_file_id variable is set."""
-    mock_identical_copy_exists.side_effect = ValueError
+    mock_identical_copy_exists.side_effect = HashMismatchError
     mock_get_file_hash.side_effect = ["some_hash", "some_hash"]
     mock_get_file_size.return_value = 1000
 
@@ -311,7 +316,7 @@ def test_identical_copy_exists_hashes_dont_match(
     mock_get_file_hash.return_value = "some_hash"
 
     # when
-    with pytest.raises(ValueError):
+    with pytest.raises(HashMismatchError):
         _identical_copy_exists(Path("/backup/test_file.raw"), "some_other_hash")
 
     mock_exists.assert_called_once()

@@ -10,6 +10,7 @@ from common.settings import _INSTRUMENTS
 from plugins.common.constants import BYTES_TO_GB
 from plugins.file_handling import (
     HashMismatchError,
+    _decide_if_copy_required,
     _identical_copy_exists,
     compare_paths,
     copy_file,
@@ -127,7 +128,7 @@ def test_copy_file_copies_file_and_checks_hash(
 ) -> None:
     """Test copy_file copies file and checks hash."""
     mock_decide_if_copy_required.return_value = True, "some_hash"
-    mock_get_file_hash.side_effect = ["some_hash"]
+    mock_get_file_hash.return_value = "some_hash"
     mock_get_file_size.return_value = 1000
 
     src_path = Path("/path/to/instrument/test_file.raw")
@@ -135,35 +136,35 @@ def test_copy_file_copies_file_and_checks_hash(
     dst_path.parent.exists.return_value = True
 
     # when
-    copy_file(src_path, dst_path)
+    result = copy_file(src_path, dst_path)
 
+    assert result == (1000, "some_hash")
     mock_copy2.assert_called_once_with(src_path, dst_path)
     dst_path.parent.mkdir.assert_not_called()
 
 
-# @patch("plugins.file_handling.get_file_hash")
-# @patch("plugins.file_handling._identical_copy_exists")
-# @patch("shutil.copy2")
-# @patch("plugins.file_handling.get_file_size")
-# @skip
-# def test_copy_file_copies_file_and_checks_hash_hash_mismatch_raises(
-#     mock_get_file_size: MagicMock,
-#     mock_copy2: MagicMock,
-#     mock_identical_copy_exists: MagicMock,
-#     mock_get_file_hash: MagicMock,
-# ) -> None:
-#     """Test copy_file copies file and checks hash, raises on mismatch."""
-#     mock_identical_copy_exists.return_value = False
-#     mock_get_file_hash.side_effect = ["some_hash", "some_other_hash"]
-#     mock_get_file_size.return_value = 1000
-#
-#     src_path = Path("/path/to/instrument/test_file.raw")
-#     dst_path = MagicMock(wraps=Path("/path/to/backup/test_file.raw"))
-#     dst_path.parent.exists.return_value = True
-#
-#     # when
-#     with pytest.raises(AirflowFailException):
-#         copy_file(src_path, dst_path) ##2
+@patch("plugins.file_handling.get_file_hash")
+@patch("plugins.file_handling._decide_if_copy_required")
+@patch("shutil.copy2")
+@patch("plugins.file_handling.get_file_size")
+def test_copy_file_copies_file_and_checks_hash_hash_mismatch_raises(
+    mock_get_file_size: MagicMock,
+    mock_copy2: MagicMock,  # noqa: ARG001
+    mock_decide_if_copy_required: MagicMock,
+    mock_get_file_hash: MagicMock,
+) -> None:
+    """Test copy_file copies file and checks hash, raises on mismatch."""
+    mock_decide_if_copy_required.return_value = True, "some_hash"
+    mock_get_file_hash.return_value = "some_other_hash"
+    mock_get_file_size.return_value = 1000
+
+    src_path = Path("/path/to/instrument/test_file.raw")
+    dst_path = MagicMock(wraps=Path("/path/to/backup/test_file.raw"))
+    dst_path.parent.exists.return_value = True
+
+    # when
+    with pytest.raises(AirflowFailException):
+        copy_file(src_path, dst_path)
 
 
 @patch("plugins.file_handling.get_file_hash")
@@ -178,7 +179,7 @@ def test_copy_file_copies_file_and_creates_directory(
 ) -> None:
     """Test copy_file copies file and creates target directory."""
     mock_decide_if_copy_required.return_value = True, "some_hash"
-    mock_get_file_hash.side_effect = ["some_hash"]
+    mock_get_file_hash.return_value = "some_hash"
     mock_get_file_size.return_value = 1000
 
     src_path = Path("/path/to/instrument/test_file.raw")
@@ -187,7 +188,7 @@ def test_copy_file_copies_file_and_creates_directory(
     dst_path.parent.mkdir.return_value = None
 
     # when
-    result = copy_file(src_path, dst_path)  ##3
+    result = copy_file(src_path, dst_path)
 
     assert result == (1000, "some_hash")
     mock_copy2.assert_called_once_with(src_path, dst_path)
@@ -206,14 +207,14 @@ def test_copy_file_no_copy_if_file_present_with_same_hash(
 ) -> None:
     """Test copy_file does not copy file if file with same hash is present."""
     mock_decide_if_copy_required.return_value = False, "some_hash"
-    mock_get_file_hash.side_effect = ["some_hash"]
+    mock_get_file_hash.return_value = "some_hash"
     mock_get_file_size.return_value = 1000
 
     src_path = Path("/path/to/instrument/test_file.raw")
     dst_path = Path("/path/to/backup/test_file.raw")
 
     # when
-    result = copy_file(src_path, dst_path)  ##4
+    result = copy_file(src_path, dst_path)
     assert result == (1000, "some_hash")
 
     mock_copy2.assert_not_called()
@@ -221,11 +222,11 @@ def test_copy_file_no_copy_if_file_present_with_same_hash(
 
 @patch("plugins.file_handling._decide_if_copy_required")
 @patch("shutil.copy2")
-def test_copy_file_no_copy_if_file_present_with_different_hash_raises(
+def test_copy_file_raises(
     mock_copy2: MagicMock,
     mock_decide_if_copy_required: MagicMock,
 ) -> None:
-    """Test copy_file does not copy and raises file if file with differnet hash is present."""
+    """Test copy_file raises if _decide_if_copy_required raises."""
     mock_decide_if_copy_required.side_effect = AirflowFailException
 
     src_path = Path("/path/to/instrument/test_file.raw")
@@ -238,34 +239,85 @@ def test_copy_file_no_copy_if_file_present_with_different_hash_raises(
     mock_copy2.assert_not_called()
 
 
-# @patch("plugins.file_handling.get_file_hash")
-# @patch("plugins.file_handling._decide_if_copy_required")
-# @patch("shutil.copy2")
-# @patch("plugins.file_handling.get_file_size")
-# def test_copy_file_with_overwrite_when_variable_set(
-#     mock_get_file_size: MagicMock,
-#     mock_copy2: MagicMock,
-#     mock_decide_if_copy_required: MagicMock,
-#     mock_get_file_hash: MagicMock,
-# ) -> None:
-#     """Test copy_file overwrites existing file when backup_overwrite_file_id variable is set."""
-#     mock_decide_if_copy_required.side_effect = HashMismatchError
-#     mock_get_file_hash.side_effect = ["some_hash", "some_hash"]
-#     mock_get_file_size.return_value = 1000
-#
-#     src_path = Path("/path/to/instrument/test_file.raw")
-#     dst_path = MagicMock(wraps=Path("/path/to/backup/test_file.raw"))
-#
-#     dst_path.parent.exists.return_value = False
-#     dst_path.parent.mkdir.return_value = None
-#     dst_path.name = "test_file.raw"
-#
-#     # when
-#     result = copy_file(src_path, dst_path, overwrite=True) ##6
-#
-#     assert result == (1000, "some_hash")
-#     mock_copy2.assert_called_once_with(src_path, dst_path)
-#     dst_path.parent.mkdir.assert_called_once_with(parents=True, exist_ok=True)
+@patch("plugins.file_handling.get_file_hash")
+@patch("plugins.file_handling._identical_copy_exists")
+def test_decide_if_copy_required_yes(
+    mock_identical_copy_exists: MagicMock,
+    mock_get_file_hash: MagicMock,
+) -> None:
+    """Test decide_if_copy_required returns correctly if identical file exists."""
+    mock_get_file_hash.return_value = "some_hash"
+    mock_identical_copy_exists.return_value = False
+
+    src_path = Path("/path/to/instrument/test_file.raw")
+    dst_path = MagicMock(wraps=Path("/path/to/backup/test_file.raw"))
+
+    # when
+    result = _decide_if_copy_required(src_path, dst_path, overwrite=True)
+
+    assert result == (True, "some_hash")
+
+
+@patch("plugins.file_handling.get_file_hash")
+@patch("plugins.file_handling._identical_copy_exists")
+def test_decide_if_copy_required_no(
+    mock_identical_copy_exists: MagicMock,
+    mock_get_file_hash: MagicMock,
+) -> None:
+    """Test decide_if_copy_required returns correctly if no file exists."""
+    mock_get_file_hash.return_value = "some_hash"
+    mock_identical_copy_exists.return_value = True
+
+    src_path = Path("/path/to/instrument/test_file.raw")
+    dst_path = MagicMock(wraps=Path("/path/to/backup/test_file.raw"))
+
+    # when
+    result = _decide_if_copy_required(src_path, dst_path, overwrite=True)
+
+    assert result == (False, "some_hash")
+
+
+@patch("plugins.file_handling.get_file_hash")
+@patch("plugins.file_handling._identical_copy_exists")
+@patch("plugins.file_handling.get_file_size")
+def test_decide_if_copy_required_hash_mismatch_no_overwrite_file(
+    mock_get_file_size: MagicMock,
+    mock_identical_copy_exists: MagicMock,
+    mock_get_file_hash: MagicMock,
+) -> None:
+    """Test decide_if_copy_required raises in case file is existsing and overwrite is not set."""
+    mock_identical_copy_exists.side_effect = HashMismatchError
+    mock_get_file_hash.return_value = "some_hash"
+    mock_get_file_size.return_value = 1000
+
+    src_path = Path("/path/to/instrument/test_file.raw")
+    dst_path = MagicMock(wraps=Path("/path/to/backup/test_file.raw"))
+
+    # when
+    with pytest.raises(AirflowFailException):
+        _ = _decide_if_copy_required(src_path, dst_path, overwrite=False)
+
+
+@patch("plugins.file_handling.get_file_hash")
+@patch("plugins.file_handling._identical_copy_exists")
+@patch("plugins.file_handling.get_file_size")
+def test_decide_if_copy_required_hash_mismatch_overwrite_file(
+    mock_get_file_size: MagicMock,
+    mock_identical_copy_exists: MagicMock,
+    mock_get_file_hash: MagicMock,
+) -> None:
+    """Test decide_if_copy_required overwrites existing file overwrite is set."""
+    mock_identical_copy_exists.side_effect = HashMismatchError
+    mock_get_file_hash.return_value = "some_hash"
+    mock_get_file_size.return_value = 1000
+
+    src_path = Path("/path/to/instrument/test_file.raw")
+    dst_path = MagicMock(wraps=Path("/path/to/backup/test_file.raw"))
+
+    # when
+    result = _decide_if_copy_required(src_path, dst_path, overwrite=True)
+
+    assert result == (True, "some_hash")
 
 
 @patch("plugins.file_handling.get_file_hash")

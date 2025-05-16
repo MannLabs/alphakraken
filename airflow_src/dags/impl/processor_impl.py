@@ -254,15 +254,19 @@ def check_quanting_result(ti: TaskInstance, **kwargs) -> bool:
     if job_status == JobStates.COMPLETED:
         return True  # continue with downstream tasks
 
-    if job_status in [JobStates.FAILED, JobStates.TIMEOUT]:
+    if job_status in [JobStates.FAILED, JobStates.TIMEOUT] or job_status.startswith(
+        JobStates.OUT_OF_MEMORY
+    ):
         quanting_env = get_xcom(ti, XComKeys.QUANTING_ENV)
         project_id = quanting_env[QuantingEnv.PROJECT_ID_OR_FALLBACK]
         raw_file = get_raw_file_by_id(quanting_env[QuantingEnv.RAW_FILE_ID])
 
         if job_status == JobStates.FAILED:
             errors = get_business_errors(raw_file, project_id)
-        else:
+        elif job_status == JobStates.TIMEOUT:
             errors = ["TIMEOUT"]
+        else:
+            errors = ["OUT_OF_MEMORY"]
 
         update_raw_file(
             raw_file.id,

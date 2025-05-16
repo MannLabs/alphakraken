@@ -221,6 +221,21 @@ def test_copy_file_no_copy_if_file_present_with_same_hash(
 
 
 @patch("plugins.file_handling._decide_if_copy_required")
+def test_copy_file_raises_in_case_file_does_not_exist(
+    mock_decide_if_copy_required: MagicMock,
+) -> None:
+    """Test copy_file does not copy file if file with same hash is present."""
+    mock_decide_if_copy_required.side_effect = FileNotFoundError
+
+    src_path = Path("/path/to/instrument/test_file.raw")
+    dst_path = Path("/path/to/backup/test_file.raw")
+
+    # when
+    with pytest.raises(AirflowFailException):
+        _ = copy_file(src_path, dst_path)
+
+
+@patch("plugins.file_handling._decide_if_copy_required")
 @patch("shutil.copy2")
 def test_copy_file_raises(
     mock_copy2: MagicMock,

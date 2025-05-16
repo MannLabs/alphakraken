@@ -136,9 +136,16 @@ def copy_file(
     :raises AirflowFailException: If the hash of the copied file does not match the source hash or
         if the file already exists with a different hash in case overwrite=False.
     """
-    copy_required, src_hash = _decide_if_copy_required(
-        src_path, dst_path, overwrite=overwrite
-    )
+    try:
+        copy_required, src_hash = _decide_if_copy_required(
+            src_path, dst_path, overwrite=overwrite
+        )
+    except FileNotFoundError as e:
+        # this can happen if the source file is moved, fail in this case to make it show in Airflow UI
+        logging.exception(
+            f"Source file {src_path} not found. Was the file moved or deleted manually?"
+        )
+        raise AirflowFailException(e) from e
 
     if copy_required:
         if not dst_path.parent.exists():

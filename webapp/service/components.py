@@ -397,21 +397,17 @@ def get_terminal_status_counts(
 def get_full_backup_path(df: pd.DataFrame) -> tuple[list, bool]:  # noqa: C901 (too complex)
     """Construct full path to files by concatenating 'backup_base_path' with the relevant keys from the 'file_info' dictionary.
 
-    If 'file_info' is a dictionary and contains entries, its first key is extracted.
-    The 'backup_base_path' and this key are joined using os.path.join.
-    A new column 'concatenated_path' is added to the DataFrame.
-
     Args:
         df (pd.DataFrame): DataFrame containing the columns 'backup_base_path' and 'file_info'.
 
     Returns:
-        paths, is_multiple_types: A list of concatenated paths and a boolean indicating if multiple instrument types are present.
+        paths, is_multiple_types: A list of backup paths and a boolean indicating if multiple instrument types are present.
 
     """
 
     def _get_instrument_type(file_info: dict) -> str:
         """Get the instrument type from the file_info dictionary."""
-        # TODO: remove this! add this info to the raw_file entity -> requires migration
+        # TODO: remove this logic! add this info to the raw_file entity -> requires migration
         for key in file_info:
             if key.endswith(".raw"):
                 return InstrumentTypes.THERMO
@@ -438,21 +434,18 @@ def get_full_backup_path(df: pd.DataFrame) -> tuple[list, bool]:  # noqa: C901 (
             )
 
         backup_base_path = Path(backup_base_path_str)
-
-        paths = []
         instrument_type = _get_instrument_type(file_info)
 
+        paths = []
         if instrument_type == InstrumentTypes.THERMO:
-            first_file_path = next(iter(file_info))
-            paths.append(backup_base_path / first_file_path)
+            paths.append(backup_base_path / file_info[0])
         elif instrument_type == InstrumentTypes.SCIEX:
             for file_path in file_info:
                 paths.append(backup_base_path / file_path)  # noqa: PERF401
         elif instrument_type == InstrumentTypes.BRUKER:
-            first_file_path = next(iter(file_info))
             paths_ = []
             # extract everything up to the .d folder: /path/to/raw_file.d/analysis.tdf -> /path/to/raw_file.d
-            for k in first_file_path.split("/"):
+            for k in file_info[0].split("/"):
                 paths_.append(k)
                 if k.endswith(".d"):
                     paths.append(backup_base_path / "/".join(paths_))

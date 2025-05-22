@@ -126,7 +126,7 @@ def _send_kraken_instrument_alert(
 
 def _send_message(message: str) -> None:
     """Send message to Slack or MS Teams."""
-    # TOOD this could be more elegant
+    # TODO: this could be more elegant
     if MESSENGER_WEBHOOK_URL.startswith("https://hooks.slack.com"):
         _send_slack_message(message)
     else:

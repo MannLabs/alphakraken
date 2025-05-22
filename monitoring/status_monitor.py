@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
-"""Script to monitor AlphaKraken and send alerts to Slack."""
+"""Script to monitor AlphaKraken and send alerts to Slack or MS Teams."""
 
+import json
 import logging
 import os
 import sys
@@ -27,9 +28,9 @@ from shared.keys import EnvVars
 # TODO: report when error has resolved
 # TODO: add a "all is well" message once a day/week?
 
-SLACK_WEBHOOK_URL = os.environ.get(EnvVars.SLACK_WEBHOOK_URL)
-if not SLACK_WEBHOOK_URL:
-    logging.error(f"{EnvVars.SLACK_WEBHOOK_URL} environment variable must be set")
+MESSENGER_WEBHOOK_URL = os.environ.get(EnvVars.MESSENGER_WEBHOOK_URL)
+if not MESSENGER_WEBHOOK_URL:
+    logging.error(f"{EnvVars.MESSENGER_WEBHOOK_URL} environment variable must be set")
     sys.exit(1)
 
 # Constants
@@ -69,7 +70,7 @@ last_alerts = defaultdict(_default_value)
 def _send_kraken_instrument_alert(
     instruments_with_data: list[tuple[str, datetime | int | str]], case: str
 ) -> None:
-    """Send alert to Slack about stale status."""
+    """Send alert about stale status."""
     instruments = [instrument_id for instrument_id, _ in instruments_with_data]
 
     if not _should_send_alert(instruments, case):
@@ -115,12 +116,21 @@ def _send_kraken_instrument_alert(
         raise ValueError(f"Unknown case: {case}")
 
     try:
-        _send_slack_message(message)
+        _send_message(message)
     except RequestException:
-        logging.exception("Failed to send Slack alert.")
+        logging.exception("Failed to send message.")
     else:
         for instrument_id in instruments:
             last_alerts[f"{case}{instrument_id}"] = datetime.now(pytz.UTC)
+
+
+def _send_message(message: str) -> None:
+    """Send message to Slack or MS Teams."""
+    # TODO: this could be more elegant
+    if MESSENGER_WEBHOOK_URL.startswith("https://hooks.slack.com"):
+        _send_slack_message(message)
+    else:
+        _send_msteams_message(message)
 
 
 def _send_slack_message(message: str) -> None:
@@ -130,9 +140,36 @@ def _send_slack_message(message: str) -> None:
     payload = {
         "text": f"{prefix} [{env_name}] *Alert*: {message}",
     }
-    response = requests.post(SLACK_WEBHOOK_URL, json=payload, timeout=10)
+    response = requests.post(MESSENGER_WEBHOOK_URL, json=payload, timeout=10)
     response.raise_for_status()
-    logging.info("Successfully sent Slack alert.")
+    logging.info("Successfully sent Slack message.")
+
+
+def _send_msteams_message(message: str) -> None:
+    # Define the adaptive card JSON
+    adaptive_card_json = {
+        "type": "message",
+        "attachments": [
+            {
+                "contentType": "application/vnd.microsoft.card.adaptive",
+                "content": {
+                    "type": "AdaptiveCard",
+                    "body": [{"type": "TextBlock", "text": {message}}],
+                    "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                    "version": "1.0",
+                },
+            }
+        ],
+    }
+
+    response = requests.post(
+        MESSENGER_WEBHOOK_URL,
+        headers={"Content-Type": "application/json", "Accept": "application/json"},
+        data=json.dumps(adaptive_card_json),
+        timeout=10,
+    )
+    response.raise_for_status()
+    logging.info("Successfully sent MS Teams message.")
 
 
 def _should_send_alert(issue_types: list[str], case: str) -> bool:
@@ -226,14 +263,14 @@ def _append_status_pile_up_instruments(
 
 
 def _send_db_alert(error_type: str) -> None:
-    """Send alert to Slack about MongoDB connection error."""
+    """Send message about MongoDB connection error."""
     if not _should_send_alert([error_type], "db"):
         return
 
     logging.info("Error connecting to MongoDB")
 
     message = f"Error connecting to MongoDB: {error_type}"
-    _send_slack_message(message)
+    _send_message(message)
 
     last_alerts[error_type] = datetime.now(pytz.UTC)
 

@@ -26,13 +26,16 @@ columns:
     at_front: true
   - name: "status_details"
     at_front: true
-  - name: "ETA"
+  - name: "eta"
     at_front: true
   - name: "size_gb"
     at_front: true
     color_gradient: "green_is_high"
     plot: true
   - name: "file_created"
+    at_front: true
+  - name: "lag_time_minutes"
+    color_gradient: "red_is_high"
     at_front: true
   - name: "gradient_length"
     at_front: true

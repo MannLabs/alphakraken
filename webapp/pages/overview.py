@@ -63,28 +63,28 @@ class Column:
 
 def _load_columns_from_yaml() -> tuple[Column, ...]:
     """Load column configuration from YAML file."""
-    config_path = Path(__file__).parent / ".." / "columns_config.yaml"
+    columns_config_file_path = Path(__file__).parent / ".." / "columns_config.yaml"
 
-    with config_path.open() as f:
-        config = yaml.safe_load(f)
+    with columns_config_file_path.open() as f:
+        columns_config = yaml.safe_load(f)
 
-    columns = [
-        Column(
-            name=column["name"],
-            hide=column.get("hide"),
-            at_front=column.get("at_front"),
-            at_end=column.get("at_end"),
-            color_table=column.get("color_table"),
-            plot=column.get("plot"),
-            log_scale=column.get("log_scale"),
-            alternative_names=column.get("alternative_names"),
-            plot_optional=column.get("plot_optional"),
-            reverse_color_gradient=column.get("reverse_color_gradient"),
-        )
-        for column in config["columns"]
-    ]
-
-    return tuple(columns)
+    return tuple(
+        [
+            Column(
+                name=column["name"],
+                hide=column.get("hide"),
+                at_front=column.get("at_front"),
+                at_end=column.get("at_end"),
+                color_table=column.get("color_table"),
+                plot=column.get("plot"),
+                log_scale=column.get("log_scale"),
+                alternative_names=column.get("alternative_names"),
+                plot_optional=column.get("plot_optional"),
+                reverse_color_gradient=column.get("reverse_color_gradient"),
+            )
+            for column in columns_config["columns"]
+        ]
+    )
 
 
 COLUMNS = _load_columns_from_yaml()

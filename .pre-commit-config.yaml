@@ -26,6 +26,10 @@ repos:
       - id: python-no-eval # A quick check for the `eval()` built-in function
       - id: python-no-log-warn # A quick check for the deprecated `.warn()` method of python loggers
       - id: python-use-type-annotations # Enforce that python3.6+ type annotations are used instead of type comments
+  - repo: https://github.com/srstevenson/nb-clean
+    rev: 4.0.1
+    hooks:
+      - id: nb-clean
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.9.1
     hooks:
@@ -36,15 +40,8 @@ repos:
     hooks:
       - id: ty
         name: ty
-        # TODO: remove `--ignore unresolved-import` after https://github.com/astral-sh/ty/issues/265
-        entry: uvx ty==0.0.1-alpha.1 check --ignore unresolved-import
+        entry: uvx ty==0.0.1-alpha.1 check
         language: system
-#  - repo: local
-#    hooks:
-#      - id: pytype
-#        name: pytype
-#        entry: uvx pytype
-#        language: system
 #        # run only if python files changed
 #        files: |
 #          (?x)^(?!.*/test_.*py)(.*py)$

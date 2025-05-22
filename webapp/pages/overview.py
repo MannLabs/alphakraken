@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path
 
 import pandas as pd
 import plotly.express as px
@@ -9,6 +10,7 @@ import pytz
 
 # ruff: noqa: PD002 # `inplace=True` should be avoided; it has inconsistent behavior
 import streamlit as st
+import yaml
 from matplotlib import pyplot as plt
 from service.components import (
     get_full_backup_path,
@@ -47,8 +49,8 @@ class Column:
     at_front: bool = False
     # move column to end of table
     at_end: bool = False
-    # color in table
-    color_table: bool = False
+    # color gradient in table: None (no gradient), "green_is_high" (green=high, red=low), "red_is_high" (red=high, green=low)
+    color_gradient: str | None = None
     # show as plot
     plot: bool = False
     # use log scale for plot
@@ -59,110 +61,32 @@ class Column:
     plot_optional: bool = False
 
 
-COLUMNS = (
-    # hide
-    Column("created_at", hide=True),
-    Column("size", hide=True),
-    Column("quanting_time_elapsed", hide=True),
-    Column("raw_file", hide=True),
-    Column("file_info", hide=True),
-    Column("_id", hide=True),
-    Column("original_name", hide=True),
-    Column("collision_flag", hide=True),
-    # at front (order matters)
-    Column("instrument_id", at_front=True),
-    Column("status", at_front=True),
-    Column("status_details", at_front=True),
-    Column("size_gb", at_front=True, color_table=True, plot=True),
-    Column("file_created", at_front=True),
-    Column(
-        "gradient_length",
-        at_front=True,
-        color_table=True,
-        alternative_names=["raw:gradient_length_m"],
-    ),
-    # plots (order matters)
-    Column("precursors", at_front=True, color_table=True, plot=True),
-    Column("proteins", at_front=True, color_table=True, plot=True),
-    Column("weighted_ms1_intensity_sum", color_table=True, plot=True, log_scale=True),
-    Column("intensity_sum", color_table=True, plot=True, log_scale=True),
-    Column(
-        "ms1_median_accuracy",
-        color_table=True,
-        plot=True,
-        alternative_names=[
-            "ms1_accuracy",  # alphadia<=1.8.2
-            "calibration:ms1_median_accuracy",
-        ],
-    ),
-    Column(
-        "ms2_median_accuracy",
-        color_table=True,
-        plot=True,
-        alternative_names=[
-            "calibration:ms2_median_accuracy",
-        ],
-    ),
-    Column("fwhm_rt", color_table=True, plot=True),
-    Column("fwhm_mobility", color_table=True, plot=True),
-    Column(
-        "ms1_error",
-        color_table=True,
-        plot=True,
-        alternative_names=["optimization:ms1_error"],
-    ),
-    Column(
-        "ms2_error",
-        color_table=True,
-        plot=True,
-        alternative_names=["optimization:ms2_error"],
-    ),
-    Column(
-        "rt_error",
-        color_table=True,
-        plot=True,
-        alternative_names=["optimization:rt_error"],
-    ),
-    Column(
-        "mobility_error",
-        color_table=True,
-        plot=True,
-        alternative_names=["optimization:mobility_error"],
-    ),
-    Column(
-        "charge_mean",
-        at_front=True,
-        color_table=True,
-        plot=True,
-    ),
-    Column(
-        "proba_median",
-        at_front=True,
-        color_table=True,
-        plot=True,
-    ),
-    Column(
-        "precursor_intensity_median",  # do not confuse with "intensity_sum"
-        at_front=True,
-        color_table=True,
-        plot=True,
-    ),
-    Column(
-        "sequence_len_mean",
-        at_front=True,
-        color_table=True,
-        plot=True,
-    ),
-    # some technical plots:
-    Column("settings_version", at_end=True, plot=True),
-    Column("quanting_time_minutes", color_table=True, plot=True),
-    Column("duration_optimization", color_table=True, plot=True, at_end=True),
-    Column("duration_extraction", color_table=True, plot=True, at_end=True),
-    # at end (order matters)
-    Column("project_id", at_end=True),
-    Column("updated_at_", at_end=True),
-    Column("created_at_", at_end=True),
-)
+def _load_columns_from_yaml() -> tuple[Column, ...]:
+    """Load column configuration from YAML file."""
+    columns_config_file_path = Path(__file__).parent / ".." / "columns_config.yaml"
+
+    with columns_config_file_path.open() as f:
+        columns_config = yaml.safe_load(f)
+
+    return tuple(
+        [
+            Column(
+                name=column["name"],
+                hide=column.get("hide"),
+                at_front=column.get("at_front"),
+                at_end=column.get("at_end"),
+                color_gradient=column.get("color_gradient"),
+                plot=column.get("plot"),
+                log_scale=column.get("log_scale"),
+                alternative_names=column.get("alternative_names"),
+                plot_optional=column.get("plot_optional"),
+            )
+            for column in columns_config["columns"]
+        ]
+    )
+
+
+COLUMNS = _load_columns_from_yaml()
 
 # ########################################### PAGE HEADER
 
@@ -206,7 +130,7 @@ def _harmonize_df(df: pd.DataFrame) -> pd.DataFrame:
         alternative_name: column.name
         for column in COLUMNS
         if column.alternative_names
-        for alternative_name in column.alternative_names
+        for alternative_name in column.alternative_names  # type: ignore[not-iterable]
         if column.alternative_names is not None
     }
     df = df.rename(columns=names_mapping)
@@ -313,17 +237,39 @@ def _display_table_and_plots(  # noqa: PLR0915 (too many statements)
     df_to_show = filtered_df.head(max_table_len)
 
     cmap = plt.get_cmap("RdYlGn")
+    cmap_reversed = plt.get_cmap("RdYlGn_r")
     cmap.set_bad(color="white")
+    cmap_reversed.set_bad(color="white")
+
+    # Separate columns by gradient direction
+    green_is_high_columns = _filter_valid_columns(
+        [column.name for column in COLUMNS if column.color_gradient == "green_is_high"],
+        filtered_df,
+    )
+    red_is_high_columns = _filter_valid_columns(
+        [column.name for column in COLUMNS if column.color_gradient == "red_is_high"],
+        filtered_df,
+    )
+
     try:
-        st.dataframe(
-            df_to_show.style.background_gradient(
-                subset=_filter_valid_columns(
-                    [column.name for column in COLUMNS if column.color_table],
-                    filtered_df,
-                ),
+        style = df_to_show.style
+
+        # Apply green_is_high gradient (red=low, green=high)
+        if green_is_high_columns:
+            style = style.background_gradient(
+                subset=green_is_high_columns,
                 cmap=cmap,
             )
-            .apply(highlight_status_cell, axis=1)
+
+        # Apply red_is_high gradient (green=low, red=high)
+        if red_is_high_columns:
+            style = style.background_gradient(
+                subset=red_is_high_columns,
+                cmap=cmap_reversed,
+            )
+
+        st.dataframe(
+            style.apply(highlight_status_cell, axis=1)
             .format(
                 subset=list(filtered_df.select_dtypes(include=["float64"]).columns),
                 formatter="{:.3}",

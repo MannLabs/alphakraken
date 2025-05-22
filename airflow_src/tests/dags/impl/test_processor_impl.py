@@ -573,6 +573,47 @@ def test_check_quanting_result_timeout(
     )
 
 
+@patch("dags.impl.processor_impl.get_xcom")
+@patch("dags.impl.processor_impl.get_raw_file_by_id")
+@patch("dags.impl.processor_impl.get_job_result")
+@patch("dags.impl.processor_impl.update_raw_file")
+@patch("dags.impl.processor_impl.add_metrics_to_raw_file")
+def test_check_quanting_result_oom(
+    mock_add_metrics: MagicMock,
+    mock_update_raw_file: MagicMock,
+    mock_get_job_result: MagicMock,
+    mock_get_raw_file_by_id: MagicMock,
+    mock_get_xcom: MagicMock,
+) -> None:
+    """Test that check_quanting_result behaves correctly on out of memory."""
+    mock_ti = MagicMock()
+    mock_get_xcom.side_effect = [
+        "12345",
+        {
+            QuantingEnv.RAW_FILE_ID: "test_file.raw",
+            QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID1",
+            QuantingEnv.SETTINGS_VERSION: 1,
+        },
+    ]
+    mock_raw_file = MagicMock(wraps=RawFile, id="test_file.raw")
+    mock_get_raw_file_by_id.return_value = mock_raw_file
+    mock_get_job_result.return_value = "OUT_OF_ME+", 522
+
+    # when
+    continue_downstream_tasks = check_quanting_result(mock_ti)
+    assert not continue_downstream_tasks
+
+    mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
+    mock_update_raw_file.assert_called_once_with(
+        "test_file.raw",
+        new_status="quanting_failed",
+        status_details="OUT_OF_MEMORY",
+    )
+    mock_add_metrics.assert_called_once_with(
+        "test_file.raw", metrics={"quanting_time_elapsed": 522}, settings_version=1
+    )
+
+
 @patch("dags.impl.processor_impl.get_internal_output_path_for_raw_file")
 def test_get_business_errors_with_valid_errors(mock_path: MagicMock) -> None:
     """Test that get_business_errors returns the expected business errors."""

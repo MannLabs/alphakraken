@@ -151,6 +151,7 @@ class JobStates:
     COMPLETED: str = "COMPLETED"
     FAILED: str = "FAILED"
     TIMEOUT: str = "TIMEOUT"
+    OUT_OF_MEMORY: str = "OUT_OF_ME"  # it is displayed "OUT_OF_ME+", so only startwith() comparisons here
 
 
 class CustomAlphaDiaStates:

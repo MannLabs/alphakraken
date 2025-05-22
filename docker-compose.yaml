@@ -55,7 +55,6 @@ x-airflow-common: &airflow-common
     MONGO_USER: ${MONGO_USER:?error}
     MONGO_PASSWORD: ${MONGO_PASSWORD:?error}
     MONGO_PORT: ${MONGO_PORT:?error}
-    SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL:?error}
     WEBAPP_URL: ${WEBAPP_URL:?error}
   volumes:
     # all mounts (backup pool folders, results pool folders, instruments, logs) need to be available in $MOUNTS_PATH
@@ -321,6 +320,7 @@ services:
     profiles: ["nginx"]
     ports:
       - "80:80"
+      - "8501:8501" # for serving webapp on streamlit port
       - "443:443"
       - "8080:8080" # for serving Airflow webserver
     volumes:
@@ -336,7 +336,7 @@ services:
     profiles: ["infrastructure", "workers", "dbs"] # have monitoring running on all machines (downsides: potential alerts duplication)
     environment:
       <<: *airflow-common-env
-      SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL}
+      MESSENGER_WEBHOOK_URL: ${MESSENGER_WEBHOOK_URL}
     restart: always
   #    healthcheck:
   #      test: ["CMD", "python", "-c", "..."]  # TODO add appropriate health check

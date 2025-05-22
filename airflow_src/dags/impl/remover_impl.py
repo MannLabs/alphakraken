@@ -389,15 +389,13 @@ def remove_raw_files(ti: TaskInstance, **kwargs) -> None:
     """Remove files/folders from the instrument backup folder."""
     del kwargs  # unused
 
-    raw_file_ids_to_remove = get_xcom(
-        ti, XComKeys.FILES_TO_REMOVE
-    )  # pytype: disable=attribute-error
+    raw_file_ids_to_remove = get_xcom(ti, XComKeys.FILES_TO_REMOVE)
 
     errors = defaultdict(list)
     for (
         instrument_id,
         raw_file_ids,
-    ) in raw_file_ids_to_remove.items():  # pytype: disable=attribute-error
+    ) in raw_file_ids_to_remove.items():
         logging.info(
             f"Removing for {instrument_id} {len(raw_file_ids)} files: {raw_file_ids}"
         )

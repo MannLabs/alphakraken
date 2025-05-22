@@ -438,14 +438,16 @@ def get_full_backup_path(df: pd.DataFrame) -> tuple[list, bool]:  # noqa: C901 (
 
         paths = []
         if instrument_type == InstrumentTypes.THERMO:
-            paths.append(backup_base_path / file_info[0])
+            first_file_path = next(iter(file_info))
+            paths.append(backup_base_path / first_file_path)
         elif instrument_type == InstrumentTypes.SCIEX:
             for file_path in file_info:
                 paths.append(backup_base_path / file_path)  # noqa: PERF401
         elif instrument_type == InstrumentTypes.BRUKER:
             paths_ = []
+            first_file_path = next(iter(file_info))
             # extract everything up to the .d folder: /path/to/raw_file.d/analysis.tdf -> /path/to/raw_file.d
-            for k in file_info[0].split("/"):
+            for k in first_file_path.split("/"):
                 paths_.append(k)
                 if k.endswith(".d"):
                     paths.append(backup_base_path / "/".join(paths_))

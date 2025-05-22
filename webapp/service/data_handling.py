@@ -82,8 +82,8 @@ def get_lag_time(
         return None, None
 
     # Sort by created_at_ (most recent first) and take the latest N files
-    done_files = done_files.sort_values(by="created_at_", ascending=True).head(
-        max(num_files, len(done_files))
+    done_files = done_files.sort_values(by="created_at_", ascending=False).head(
+        min(num_files, len(done_files))
     )
 
     # Calculate lag time in minutes

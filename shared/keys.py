@@ -15,6 +15,14 @@ class EnvVars:
     MESSENGER_WEBHOOK_URL = "MESSENGER_WEBHOOK_URL"  # TODO: move to yaml
 
 
+class InstrumentTypes:
+    """Types of instruments."""
+
+    THERMO: str = "thermo"
+    BRUKER: str = "bruker"
+    SCIEX: str = "sciex"
+
+
 class Locations:
     """Keys for accessing paths in the yaml config."""
 

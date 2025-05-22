@@ -94,6 +94,16 @@ def get_raw_file_and_metrics_data(max_age_in_days: float) -> tuple[QuerySet, Que
     return raw_files_db, metrics_db
 
 
+def get_full_raw_file_data(raw_file_ids: list[str]) -> pd.DataFrame:
+    """Return from the database a dataframe derived from the QuerySet for RawFile for all `raw_file_ids`."""
+    _log("Connecting to the database")
+    connect_db()
+    _log(f"Retrieving all raw file data for {raw_file_ids}")
+    raw_files_db = RawFile.objects.filter(id__in=raw_file_ids)
+
+    return df_from_db_data(raw_files_db)
+
+
 def get_status_data() -> QuerySet:
     """Connect to the database and return the QuerySets for KrakenStatus."""
     _log("Connecting to the database")

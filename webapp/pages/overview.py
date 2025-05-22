@@ -13,6 +13,7 @@ import streamlit as st
 import yaml
 from matplotlib import pyplot as plt
 from service.components import (
+    get_full_backup_path,
     get_terminal_status_counts,
     highlight_status_cell,
     show_date_select,
@@ -20,6 +21,7 @@ from service.components import (
     show_sandbox_message,
 )
 from service.data_handling import get_combined_raw_files_and_metrics_df
+from service.db import get_full_raw_file_data
 from service.utils import (
     APP_URL,
     DEFAULT_MAX_AGE_OVERVIEW,
@@ -100,12 +102,12 @@ st.write(
 
 
 days = 60
-url = f"{APP_URL}/overview?max_age={days}"
+max_age_url = f"{APP_URL}/overview?max_age={days}"
 st.markdown(
     f"""
     Note: for performance reasons, by default only data for the last {DEFAULT_MAX_AGE_OVERVIEW} days are loaded.
     If you want to see more data, use the `?max_age=` query parameter in the url, e.g.
-    <a href="{url}" target="_self">{url}</a>
+    <a href="{max_age_url}" target="_self">{max_age_url}</a>
     """,
     unsafe_allow_html=True,
 )
@@ -176,7 +178,7 @@ def df_to_csv(df: pd.DataFrame) -> str:
 # using a fragment to avoid re-doing the above operations on every filter change
 # cf. https://docs.streamlit.io/develop/concepts/architecture/fragments
 @st.experimental_fragment
-def _display_table_and_plots(  # noqa: PLR0915
+def _display_table_and_plots(  # noqa: PLR0915,C901 (too many statements, too complex)
     df: pd.DataFrame, max_age_in_days: float, filter_value: str = ""
 ) -> None:
     """A fragment that displays a DataFrame with a filter."""
@@ -324,6 +326,30 @@ def _display_table_and_plots(  # noqa: PLR0915
         mime="text/csv",
     )
 
+    if st.button(
+        "Show file paths for selection",
+        help="For the selection in the table, show all file paths on the backup for conveniently copying them manually to another location.",
+    ):
+        full_info_df = get_full_raw_file_data(list(filtered_df.index))
+
+        file_paths, is_multiple_types = get_full_backup_path(full_info_df)
+        st.write(f"Found {len(file_paths)} items:")
+        if is_multiple_types:
+            st.warning(
+                "Warning: more than one instrument type found, please check your selection!"
+            )
+
+        c1, _ = st.columns([0.75, 0.25])
+
+        c1.write("AlphaDIA config format:")
+        prefix = " - "
+        file_paths_pretty = f"\n{prefix}".join(file_paths)
+        c1.code(f"{prefix}{file_paths_pretty}")
+
+        c1.write("One line format:")
+        file_paths_pretty_one_line = " ".join(file_paths)
+        c1.code(f"{file_paths_pretty_one_line}")
+
     # ########################################### DISPLAY: plots
 
     st.markdown("## Plots")
@@ -441,8 +467,8 @@ def _get_yerror_column_name(y_column_name: str, df: pd.DataFrame) -> str | None:
 
 
 filter_value = st.query_params.get(QueryParams.FILTER, "")
-for key, value in FILTER_MAPPING.items():
-    filter_value = filter_value.lower().replace(key.lower(), value)
+for key_, value_ in FILTER_MAPPING.items():
+    filter_value = filter_value.lower().replace(key_.lower(), value_)
 
 _display_table_and_plots(
     combined_df,

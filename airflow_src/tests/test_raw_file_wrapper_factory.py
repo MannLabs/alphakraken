@@ -12,7 +12,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import pytz
-from common.keys import InstrumentTypes
 from common.settings import _INSTRUMENTS
 from plugins.raw_file_wrapper_factory import (
     BrukerRawFileMonitorWrapper,
@@ -31,6 +30,7 @@ from plugins.raw_file_wrapper_factory import (
 )
 
 from shared.db.models import RawFile
+from shared.keys import InstrumentTypes
 
 
 class TestableRawFileMonitorWrapper(RawFileMonitorWrapper):

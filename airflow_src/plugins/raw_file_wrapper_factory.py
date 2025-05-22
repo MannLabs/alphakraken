@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Union
 
-from common.keys import InstrumentKeys, InstrumentTypes
+from common.keys import InstrumentKeys
 from common.paths import (
     get_internal_backup_path_for_instrument,
     get_internal_instrument_data_path,
@@ -21,6 +21,7 @@ from common.settings import (
 )
 
 from shared.db.models import RawFile, get_created_at_year_month
+from shared.keys import InstrumentTypes
 
 MONITOR = "monitor"
 COPIER = "copier"

@@ -7,9 +7,11 @@ from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
+from pandas import DataFrame
 from service.components import (
     _get_color,
     display_status,
+    get_full_backup_path,
     highlight_status_cell,
     show_date_select,
     show_filter,
@@ -252,3 +254,70 @@ def get_status_cell_style() -> None:
         # when
         style = highlight_status_cell(pd.Series({"status": status}))
         assert style == expected_style
+
+
+def test_get_full_backup_path_handles_thermo_files() -> None:
+    """Test that the function handles Thermo files correctly."""
+    df = DataFrame(
+        {
+            "backup_base_path": ["/backup/path"],
+            "file_info": [{"file1.raw": [1, "hash1"]}],
+        }
+    )
+    paths, is_multiple_types = get_full_backup_path(df)
+    assert paths == ["/backup/path/file1.raw"]
+    assert not is_multiple_types
+
+
+def test_get_full_backup_path_handles_sciex_files() -> None:
+    """Test that the function handles Sciex files correctly."""
+    df = DataFrame(
+        {
+            "backup_base_path": ["/backup/path"],
+            "file_info": [
+                {"file1.wiff": [1, "hash1"], "file2.wiff.scan": [2, "hash2"]}
+            ],
+        }
+    )
+    paths, is_multiple_types = get_full_backup_path(df)
+    assert paths == ["/backup/path/file1.wiff", "/backup/path/file2.wiff.scan"]
+    assert not is_multiple_types
+
+
+def test_get_full_backup_path_handles_bruker_files() -> None:
+    """Test that the function handles Bruker files correctly."""
+    df = DataFrame(
+        {
+            "backup_base_path": ["/backup/path"],
+            "file_info": [
+                {"folder.d/file1": [1, "hash1"], "folder.d/file2": [1, "hash2"]}
+            ],
+        }
+    )
+    paths, is_multiple_types = get_full_backup_path(df)
+    assert paths == ["/backup/path/folder.d"]
+    assert not is_multiple_types
+
+
+def test_get_full_backup_path_raises_on_missing_data() -> None:
+    """Test that the function raises an error when both backup_base_path and file_info are missing."""
+    df = DataFrame(
+        {"_id": ["some_file.raw"], "backup_base_path": [None], "file_info": [None]}
+    )
+    with pytest.raises(
+        ValueError,
+        match="Missing backup_base_path_str=None or file_info=None for file some_file.raw. Please exclude from selection.",
+    ):
+        get_full_backup_path(df)
+
+
+def test_get_full_backup_path_detects_multiple_instrument_types() -> None:
+    """Test that the function detects multiple instrument types."""
+    df = DataFrame(
+        {
+            "backup_base_path": ["/backup/path", "/backup/path"],
+            "file_info": [{"file1.raw": [1, "hash1"]}, {"file1.wiff": [1, "hash1"]}],
+        }
+    )
+    paths, is_multiple_types = get_full_backup_path(df)
+    assert is_multiple_types

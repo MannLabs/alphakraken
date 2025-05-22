@@ -321,6 +321,7 @@ services:
     profiles: ["nginx"]
     ports:
       - "80:80"
+      - "8501:8501" # for serving webapp on streamlit port
       - "443:443"
       - "8080:8080" # for serving Airflow webserver
     volumes:

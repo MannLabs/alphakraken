@@ -33,7 +33,7 @@ from service.utils import (
     display_plotly_chart,
 )
 
-from shared.db.models import ERROR_STATUSES
+from shared.db.models import ERROR_STATUSES, TERMINAL_STATUSES
 
 _log(f"loading {__file__}")
 
@@ -153,15 +153,18 @@ columns_at_end = [column.name for column in COLUMNS if column.at_end] + [
 ]
 columns_to_hide = [column.name for column in COLUMNS if column.hide]
 
-column_order = (
-    columns_at_front
-    + [
-        col
-        for col in combined_df.columns
-        if col not in columns_at_front + columns_at_end + columns_to_hide
-    ]
-    + columns_at_end
-)
+
+def _get_column_order(df: pd.DataFrame) -> list[str]:
+    """Get column order."""
+    return (
+        columns_at_front
+        + [
+            col
+            for col in df.columns
+            if col not in columns_at_front + columns_at_end + columns_to_hide
+        ]
+        + columns_at_end
+    )
 
 
 def _filter_valid_columns(columns: list[str], df: pd.DataFrame) -> list[str]:
@@ -234,6 +237,12 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
             f"⏱️ Average lag time for last 10 'done' files in selection: {lag_time:.1f} minutes"
         )
 
+        non_terminal_mask = ~filtered_df["status"].isin(TERMINAL_STATUSES)
+        filtered_df.loc[non_terminal_mask, "ETA"] = (
+            filtered_df.loc[non_terminal_mask, "updated_at_"]
+            + pd.Timedelta(minutes=lag_time)
+        ).dt.strftime("%Y-%m-%d %H:%M:%S")
+
     # hide the csv download button to not encourage downloading incomplete data
     st.markdown(
         "<style>[data-testid='stElementToolbarButton']:first-of-type { display: none; } </style>",
@@ -286,7 +295,7 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
                 ],
                 formatter="{:.0f}",
             ),
-            column_order=column_order,
+            column_order=_get_column_order(filtered_df),
         )
     except Exception as e:  # noqa: BLE001
         _log(e)
@@ -365,6 +374,7 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
     )
 
     c1, c2, c3, c4 = st.columns([0.25, 0.25, 0.25, 0.25])
+    column_order = _get_column_order(filtered_df)
     color_by_column = c1.selectbox(
         label="Color by:",
         options=["instrument_id"]

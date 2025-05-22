@@ -20,7 +20,7 @@ from service.components import (
     show_filter,
     show_sandbox_message,
 )
-from service.data_handling import get_combined_raw_files_and_metrics_df
+from service.data_handling import get_combined_raw_files_and_metrics_df, get_lag_time
 from service.db import get_full_raw_file_data
 from service.utils import (
     APP_URL,
@@ -178,7 +178,7 @@ def df_to_csv(df: pd.DataFrame) -> str:
 # using a fragment to avoid re-doing the above operations on every filter change
 # cf. https://docs.streamlit.io/develop/concepts/architecture/fragments
 @st.experimental_fragment
-def _display_table_and_plots(  # noqa: PLR0915,C901 (too many statements, too complex)
+def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements, too complex, too many branches)
     df: pd.DataFrame, max_age_in_days: float, filter_value: str = ""
 ) -> None:
     """A fragment that displays a DataFrame with a filter."""
@@ -227,6 +227,12 @@ def _display_table_and_plots(  # noqa: PLR0915,C901 (too many statements, too co
         f"Found {len(filtered_df)} / {len_whole_df} entries. Distribution of terminal statuses: {get_terminal_status_counts(filtered_df)} "
         f"Note: data is limited to last {max_age_in_days} days, table display is limited to first {max_table_len} entries. See FAQ how to change this.",
     )
+
+    # Display lag time for latest done files
+    if (lag_time := get_lag_time(filtered_df)) > 0:
+        st.write(
+            f"⏱️ Average lag time for last 10 'done' files in selection: {lag_time:.1f} minutes"
+        )
 
     # hide the csv download button to not encourage downloading incomplete data
     st.markdown(

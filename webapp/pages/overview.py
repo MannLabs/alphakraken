@@ -345,24 +345,23 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
         help="For the selection in the table, show all file paths on the backup for conveniently copying them manually to another location.",
     ):
         full_info_df = get_full_raw_file_data(list(filtered_df.index))
-
         file_paths, is_multiple_types = get_full_backup_path(full_info_df)
-        st.write(f"Found {len(file_paths)} items:")
-        if is_multiple_types:
-            st.warning(
-                "Warning: more than one instrument type found, please check your selection!"
-            )
 
-        c1, _ = st.columns([0.75, 0.25])
+        with st.expander(f"Found {len(file_paths)} items:", expanded=True):
+            if is_multiple_types:
+                st.warning(
+                    "Warning: more than one instrument type found, please check your selection!"
+                )
+            c1, _ = st.columns([0.75, 0.25])
 
-        c1.write("AlphaDIA config format:")
-        prefix = " - "
-        file_paths_pretty = f"\n{prefix}".join(file_paths)
-        c1.code(f"{prefix}{file_paths_pretty}")
+            c1.write("AlphaDIA config format:")
+            prefix = " - "
+            file_paths_pretty = f"\n{prefix}".join(file_paths)
+            c1.code(f"{prefix}{file_paths_pretty}")
 
-        c1.write("One line format:")
-        file_paths_pretty_one_line = " ".join(file_paths)
-        c1.code(f"{file_paths_pretty_one_line}")
+            c1.write("One line format:")
+            file_paths_pretty_one_line = " ".join(file_paths)
+            c1.code(f"{file_paths_pretty_one_line}")
 
     # ########################################### DISPLAY: plots
 

@@ -235,13 +235,11 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
     # Display lag time for latest done files
     lag_times, lag_time = get_lag_time(filtered_df)
     if lag_time:
-        st.write(
-            f"⏱️ Average lag time for last 10 'done' files in selection: {lag_time / 60:.1f} minutes",
-            help="Lag time is defined here as: time for acquisition + time for copying + time for quanting.",
+        st.markdown(
+            f"⏱️ Average lag time*: **{lag_time / 60:.1f} minutes** [*from start of acquisition to end of quanting, for last 10 'done' files in selection]"
         )
 
         filtered_df["lag_time_minutes"] = lag_times / 60
-
         filtered_df["eta"] = _add_eta(filtered_df, now, lag_time)
 
     # hide the csv download button to not encourage downloading incomplete data

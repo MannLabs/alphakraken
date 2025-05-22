@@ -1,0 +1,134 @@
+# This file is used to configure the columns displayed in the web application.
+# see the Column() class in overview.py for more information
+columns:
+  # Hidden columns
+  - name: "created_at"
+    hide: true
+  - name: "size"
+    hide: true
+  - name: "quanting_time_elapsed"
+    hide: true
+  - name: "raw_file"
+    hide: true
+  - name: "file_info"
+    hide: true
+  - name: "_id"
+    hide: true
+  - name: "original_name"
+    hide: true
+  - name: "collision_flag"
+    hide: true
+
+  # Front columns (order matters)
+  - name: "instrument_id"
+    at_front: true
+  - name: "status"
+    at_front: true
+  - name: "status_details"
+    at_front: true
+  - name: "size_gb"
+    at_front: true
+    color_table: true
+    plot: true
+  - name: "file_created"
+    at_front: true
+  - name: "gradient_length"
+    at_front: true
+    color_table: true
+    alternative_names:
+      - "raw:gradient_length_m"
+
+  # Plot columns (order matters)
+  - name: "precursors"
+    at_front: true
+    color_table: true
+    plot: true
+  - name: "proteins"
+    at_front: true
+    color_table: true
+    plot: true
+  - name: "weighted_ms1_intensity_sum"
+    color_table: true
+    plot: true
+    log_scale: true
+  - name: "intensity_sum"
+    color_table: true
+    plot: true
+    log_scale: true
+  - name: "ms1_median_accuracy"
+    color_table: true
+    plot: true
+    alternative_names:
+      - "ms1_accuracy" # alphadia<=1.8.2
+      - "calibration:ms1_median_accuracy"
+  - name: "ms2_median_accuracy"
+    color_table: true
+    plot: true
+    alternative_names:
+      - "calibration:ms2_median_accuracy"
+  - name: "fwhm_rt"
+    color_table: true
+    plot: true
+  - name: "fwhm_mobility"
+    color_table: true
+    plot: true
+  - name: "ms1_error"
+    color_table: true
+    plot: true
+    alternative_names:
+      - "optimization:ms1_error"
+  - name: "ms2_error"
+    color_table: true
+    plot: true
+    alternative_names:
+      - "optimization:ms2_error"
+  - name: "rt_error"
+    color_table: true
+    plot: true
+    alternative_names:
+      - "optimization:rt_error"
+  - name: "mobility_error"
+    color_table: true
+    plot: true
+    alternative_names:
+      - "optimization:mobility_error"
+  - name: "charge_mean"
+    at_front: true
+    color_table: true
+    plot: true
+  - name: "proba_median"
+    at_front: true
+    color_table: true
+    plot: true
+  - name: "precursor_intensity_median" # do not confuse with "intensity_sum"
+    at_front: true
+    color_table: true
+    plot: true
+  - name: "sequence_len_mean"
+    at_front: true
+    color_table: true
+    plot: true
+
+  # Technical plots
+  - name: "settings_version"
+    at_end: true
+    plot: true
+  - name: "quanting_time_minutes"
+    color_table: true
+    plot: true
+  - name: "duration_optimization"
+    color_table: true
+    plot: true
+    at_end: true
+  - name: "duration_extraction"
+    color_table: true
+    plot: true
+    at_end: true
+
+  # End columns (order matters)
+  - name: "project_id"
+    at_end: true
+  - name: "updated_at_"
+    at_end: true
+  - name: "created_at_"
+    at_end: true

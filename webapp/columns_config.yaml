@@ -28,91 +28,85 @@ columns:
     at_front: true
   - name: "size_gb"
     at_front: true
-    color_table: true
+    color_gradient: "green_is_high"
     plot: true
   - name: "file_created"
     at_front: true
   - name: "gradient_length"
     at_front: true
-    color_table: true
+    color_gradient: "green_is_high"
     alternative_names:
       - "raw:gradient_length_m"
 
   # Plot columns (order matters)
   - name: "precursors"
     at_front: true
-    color_table: true
+    color_gradient: "green_is_high"
     plot: true
   - name: "proteins"
     at_front: true
-    color_table: true
+    color_gradient: "green_is_high"
     plot: true
   - name: "weighted_ms1_intensity_sum"
-    color_table: true
+    color_gradient: "green_is_high"
     plot: true
     log_scale: true
   - name: "intensity_sum"
-    color_table: true
+    color_gradient: "green_is_high"
     plot: true
     log_scale: true
   - name: "ms1_median_accuracy"
-    color_table: true
+    color_gradient: "green_is_high"
     plot: true
     alternative_names:
       - "ms1_accuracy" # alphadia<=1.8.2
       - "calibration:ms1_median_accuracy"
   - name: "ms2_median_accuracy"
-    color_table: true
+    color_gradient: "green_is_high"
     plot: true
     alternative_names:
       - "calibration:ms2_median_accuracy"
   - name: "fwhm_rt"
-    color_table: true
+    color_gradient: "red_is_high"
     plot: true
-    reverse_color_gradient: true
   - name: "fwhm_mobility"
-    color_table: true
+    color_gradient: "red_is_high"
     plot: true
-    reverse_color_gradient: true
   - name: "ms1_error"
-    color_table: true
+    color_gradient: "red_is_high"
     plot: true
-    reverse_color_gradient: true
     alternative_names:
       - "optimization:ms1_error"
   - name: "ms2_error"
-    color_table: true
+    color_gradient: "red_is_high"
     plot: true
-    reverse_color_gradient: true
     alternative_names:
       - "optimization:ms2_error"
   - name: "rt_error"
-    color_table: true
+    color_gradient: "red_is_high"
     plot: true
-    reverse_color_gradient: true
     alternative_names:
       - "optimization:rt_error"
   - name: "mobility_error"
-    color_table: true
+    color_gradient: "red_is_high"
     plot: true
-    reverse_color_gradient: true
     alternative_names:
       - "optimization:mobility_error"
   - name: "charge_mean"
     at_front: true
-    color_table: true
+    color_gradient: "green_is_high"
     plot: true
   - name: "proba_median"
     at_front: true
-    color_table: true
+    color_gradient: "green_is_high"
     plot: true
   - name: "precursor_intensity_median" # do not confuse with "intensity_sum"
     at_front: true
-    color_table: true
+    color_gradient: "green_is_high"
     plot: true
   - name: "sequence_len_mean"
     at_front: true
-    color_table: true
+    color_gradient: "green_is_high"
     plot: true
 
   # Technical plots
@@ -120,19 +114,16 @@ columns:
     at_end: true
     plot: true
   - name: "quanting_time_minutes"
-    color_table: true
+    color_gradient: "red_is_high"
     plot: true
-    reverse_color_gradient: true
   - name: "duration_optimization"
-    color_table: true
+    color_gradient: "red_is_high"
     plot: true
     at_end: true
-    reverse_color_gradient: true
   - name: "duration_extraction"
-    color_table: true
+    color_gradient: "red_is_high"
     plot: true
     at_end: true
-    reverse_color_gradient: true
 
   # End columns (order matters)
   - name: "project_id"

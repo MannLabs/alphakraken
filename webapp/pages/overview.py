@@ -47,8 +47,8 @@ class Column:
     at_front: bool = False
     # move column to end of table
     at_end: bool = False
-    # color in table
-    color_table: bool = False
+    # color gradient in table: None (no gradient), "green_is_high" (green=high, red=low), "red_is_high" (red=high, green=low)
+    color_gradient: str | None = None
     # show as plot
     plot: bool = False
     # use log scale for plot
@@ -57,8 +57,6 @@ class Column:
     alternative_names: list[str] | None = None
     # optional plot
     plot_optional: bool = False
-    # reverse color gradient (low values=green, high values=red)
-    reverse_color_gradient: bool = False
 
 
 def _load_columns_from_yaml() -> tuple[Column, ...]:
@@ -75,12 +73,11 @@ def _load_columns_from_yaml() -> tuple[Column, ...]:
                 hide=column.get("hide"),
                 at_front=column.get("at_front"),
                 at_end=column.get("at_end"),
-                color_table=column.get("color_table"),
+                color_gradient=column.get("color_gradient"),
                 plot=column.get("plot"),
                 log_scale=column.get("log_scale"),
                 alternative_names=column.get("alternative_names"),
                 plot_optional=column.get("plot_optional"),
-                reverse_color_gradient=column.get("reverse_color_gradient"),
             )
             for column in columns_config["columns"]
         ]
@@ -243,37 +240,29 @@ def _display_table_and_plots(  # noqa: PLR0915
     cmap_reversed.set_bad(color="white")
 
     # Separate columns by gradient direction
-    normal_gradient_columns = _filter_valid_columns(
-        [
-            column.name
-            for column in COLUMNS
-            if column.color_table and not column.reverse_color_gradient
-        ],
+    green_is_high_columns = _filter_valid_columns(
+        [column.name for column in COLUMNS if column.color_gradient == "green_is_high"],
         filtered_df,
     )
-    reversed_gradient_columns = _filter_valid_columns(
-        [
-            column.name
-            for column in COLUMNS
-            if column.color_table and column.reverse_color_gradient
-        ],
+    red_is_high_columns = _filter_valid_columns(
+        [column.name for column in COLUMNS if column.color_gradient == "red_is_high"],
         filtered_df,
     )
 
     try:
         style = df_to_show.style
 
-        # Apply normal gradient (red=low, green=high)
-        if normal_gradient_columns:
+        # Apply green_is_high gradient (red=low, green=high)
+        if green_is_high_columns:
             style = style.background_gradient(
-                subset=normal_gradient_columns,
+                subset=green_is_high_columns,
                 cmap=cmap,
             )
 
-        # Apply reversed gradient (green=low, red=high)
-        if reversed_gradient_columns:
+        # Apply red_is_high gradient (green=low, red=high)
+        if red_is_high_columns:
             style = style.background_gradient(
-                subset=reversed_gradient_columns,
+                subset=red_is_high_columns,
                 cmap=cmap_reversed,
             )
 

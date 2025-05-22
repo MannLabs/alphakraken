@@ -72,11 +72,11 @@ def get_lag_time(
 
     :return: lag_times, and average lag time in seconds, or -1 if no done files found
     """
-    lag_times = (
-        raw_files_df["updated_at_"] - raw_files_df["created_at_"]
-    ).dt.total_seconds()
-
     done_files = raw_files_df[raw_files_df["status"] == RawFileStatus.DONE]
+
+    lag_times = (
+        done_files["updated_at_"] - done_files["created_at_"]
+    ).dt.total_seconds()
 
     if len(done_files) == 0:
         return None, None

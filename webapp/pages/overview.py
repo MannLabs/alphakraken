@@ -178,7 +178,7 @@ def df_to_csv(df: pd.DataFrame) -> str:
 # using a fragment to avoid re-doing the above operations on every filter change
 # cf. https://docs.streamlit.io/develop/concepts/architecture/fragments
 @st.experimental_fragment
-def _display_table_and_plots(  # noqa: PLR0915 (too many statements)
+def _display_table_and_plots(  # noqa: PLR0915,C901 (too many statements, too complex)
     df: pd.DataFrame, max_age_in_days: float, filter_value: str = ""
 ) -> None:
     """A fragment that displays a DataFrame with a filter."""

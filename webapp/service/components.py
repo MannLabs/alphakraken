@@ -233,21 +233,21 @@ def display_status(combined_df: pd.DataFrame, status_data_df: pd.DataFrame) -> N
         last_file_creation = tmp_df.iloc[0]["created_at"]
         status_data["last_file_creation"].append(last_file_creation)
         status_data["last_file_creation_text"].append(
-            _get_display_time(last_file_creation, now)
+            get_display_time(last_file_creation, now)
         )
 
         # last status update (e.g. 'quanting' -> 'done')
         last_update = sorted(tmp_df["updated_at_"].to_numpy())[::-1][0]
         status_data["last_status_update"].append(last_update)
         status_data["last_status_update_text"].append(
-            _get_display_time(last_update, now)
+            get_display_time(last_update, now)
         )
 
         # last file watcher poke
         last_health_check = status_df["updated_at_"].to_numpy()[0]
         status_data["last_health_check"].append(last_health_check)
         status_data["last_health_check_text"].append(
-            _get_display_time(last_health_check, now)
+            get_display_time(last_health_check, now)
         )
         status_data["status_details"].append(status_df["status_details"].to_numpy()[0])
 
@@ -258,7 +258,9 @@ def display_status(combined_df: pd.DataFrame, status_data_df: pd.DataFrame) -> N
     st.dataframe(status_df.style.apply(lambda row: _get_color(row), axis=1))
 
 
-def _get_display_time(past_time: datetime, now: datetime) -> str:
+def get_display_time(
+    past_time: datetime, now: datetime, prefix: str = "", suffix: str = " ago"
+) -> str:
     """Get a human readable display time for the last file creation."""
     display_time = humanize.precisedelta(
         now - pd.Timestamp(past_time), minimum_unit="seconds", format="%.0f"
@@ -272,7 +274,7 @@ def _get_display_time(past_time: datetime, now: datetime) -> str:
         " hour": "h",
     }.items():
         display_time = display_time.replace(full, abbrev)
-    return f"{display_time} ago"
+    return f"{prefix}{display_time}{suffix}"
 
 
 def _get_color(

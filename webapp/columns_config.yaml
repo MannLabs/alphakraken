@@ -26,6 +26,8 @@ columns:
     at_front: true
   - name: "status_details"
     at_front: true
+  - name: "ETA"
+    at_front: true
   - name: "size_gb"
     at_front: true
     color_gradient: "green_is_high"

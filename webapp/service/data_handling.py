@@ -68,7 +68,7 @@ def get_lag_time(raw_files_df: pd.DataFrame, num_files: int = 10) -> float:
         and created_at_ (= when the file was added to the DB).
     Deliberately not using the file_created column, as this depends on the instrument time.
 
-    :return: Average lag time in minutes, or -1 if no done files found
+    :return: Average lag time in seconds, or -1 if no done files found
     """
     # Filter for 'done' status files
     done_files = raw_files_df[raw_files_df["status"] == RawFileStatus.DONE]
@@ -82,8 +82,8 @@ def get_lag_time(raw_files_df: pd.DataFrame, num_files: int = 10) -> float:
     )
 
     # Calculate lag time in minutes
-    lag_times_minutes = (
+    lag_times_seconds = (
         done_files["updated_at_"] - done_files["created_at_"]
-    ).dt.total_seconds() / 60
+    ).dt.total_seconds()
 
-    return lag_times_minutes.mean()
+    return lag_times_seconds.mean()

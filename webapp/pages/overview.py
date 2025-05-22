@@ -13,6 +13,7 @@ import streamlit as st
 import yaml
 from matplotlib import pyplot as plt
 from service.components import (
+    get_display_time,
     get_full_backup_path,
     get_terminal_status_counts,
     highlight_status_cell,
@@ -186,7 +187,7 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
 ) -> None:
     """A fragment that displays a DataFrame with a filter."""
     st.markdown("## Data")
-    now = datetime.now(tz=pytz.UTC)
+    now = datetime.now(tz=pytz.UTC).replace(microsecond=0)
 
     # filter
     len_whole_df = len(df)
@@ -234,14 +235,10 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
     # Display lag time for latest done files
     if (lag_time := get_lag_time(filtered_df)) > 0:
         st.write(
-            f"⏱️ Average lag time for last 10 'done' files in selection: {lag_time:.1f} minutes"
+            f"⏱️ Average lag time for last 10 'done' files in selection: {lag_time / 60:.1f} minutes"
         )
 
-        non_terminal_mask = ~filtered_df["status"].isin(TERMINAL_STATUSES)
-        filtered_df.loc[non_terminal_mask, "ETA"] = (
-            filtered_df.loc[non_terminal_mask, "updated_at_"]
-            + pd.Timedelta(minutes=lag_time)
-        ).dt.strftime("%Y-%m-%d %H:%M:%S")
+        filtered_df["ETA"] = _add_eta(filtered_df, now, lag_time)
 
     # hide the csv download button to not encourage downloading incomplete data
     st.markdown(
@@ -417,6 +414,24 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
                 _log(e, f"Cannot draw plot for {column.name} vs {x}.")
             else:
                 st.write("n/a")
+
+
+def _add_eta(df: pd.DataFrame, now: datetime, lag_time: float) -> pd.Series:
+    """Return the "ETA" column for the dataframe."""
+    non_terminal_mask = ~df["status"].isin(TERMINAL_STATUSES)
+    eta_timestamps = (
+        df.loc[non_terminal_mask, "updated_at_"] + pd.Timedelta(seconds=lag_time)
+    ).dt.tz_localize("UTC")
+
+    # Convert ETA timestamps to human-readable format showing "in X time"
+    def _format_eta(eta_time: datetime) -> str:
+        """Format the eta time to a string."""
+        time_diff = eta_time.replace(microsecond=0) - now
+        if eta_time <= now:
+            return f"now ({time_diff})"
+        return get_display_time(now - time_diff, now, prefix="in ", suffix="")
+
+    return eta_timestamps.apply(_format_eta)
 
 
 def _draw_plot(  # noqa: PLR0913

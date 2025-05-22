@@ -57,6 +57,8 @@ class Column:
     alternative_names: list[str] | None = None
     # optional plot
     plot_optional: bool = False
+    # reverse color gradient (low values=green, high values=red)
+    reverse_color_gradient: bool = False
 
 
 def _load_columns_from_yaml() -> tuple[Column, ...]:
@@ -77,6 +79,7 @@ def _load_columns_from_yaml() -> tuple[Column, ...]:
             log_scale=column.get("log_scale"),
             alternative_names=column.get("alternative_names"),
             plot_optional=column.get("plot_optional"),
+            reverse_color_gradient=column.get("reverse_color_gradient"),
         )
         for column in config["columns"]
     ]
@@ -176,7 +179,7 @@ def df_to_csv(df: pd.DataFrame) -> str:
 # using a fragment to avoid re-doing the above operations on every filter change
 # cf. https://docs.streamlit.io/develop/concepts/architecture/fragments
 @st.experimental_fragment
-def _display_table_and_plots(
+def _display_table_and_plots(  # noqa: PLR0915
     df: pd.DataFrame, max_age_in_days: float, filter_value: str = ""
 ) -> None:
     """A fragment that displays a DataFrame with a filter."""
@@ -235,17 +238,47 @@ def _display_table_and_plots(
     df_to_show = filtered_df.head(max_table_len)
 
     cmap = plt.get_cmap("RdYlGn")
+    cmap_reversed = plt.get_cmap("RdYlGn_r")
     cmap.set_bad(color="white")
+    cmap_reversed.set_bad(color="white")
+
+    # Separate columns by gradient direction
+    normal_gradient_columns = _filter_valid_columns(
+        [
+            column.name
+            for column in COLUMNS
+            if column.color_table and not column.reverse_color_gradient
+        ],
+        filtered_df,
+    )
+    reversed_gradient_columns = _filter_valid_columns(
+        [
+            column.name
+            for column in COLUMNS
+            if column.color_table and column.reverse_color_gradient
+        ],
+        filtered_df,
+    )
+
     try:
-        st.dataframe(
-            df_to_show.style.background_gradient(
-                subset=_filter_valid_columns(
-                    [column.name for column in COLUMNS if column.color_table],
-                    filtered_df,
-                ),
+        style = df_to_show.style
+
+        # Apply normal gradient (red=low, green=high)
+        if normal_gradient_columns:
+            style = style.background_gradient(
+                subset=normal_gradient_columns,
                 cmap=cmap,
             )
-            .apply(highlight_status_cell, axis=1)
+
+        # Apply reversed gradient (green=low, red=high)
+        if reversed_gradient_columns:
+            style = style.background_gradient(
+                subset=reversed_gradient_columns,
+                cmap=cmap_reversed,
+            )
+
+        st.dataframe(
+            style.apply(highlight_status_cell, axis=1)
             .format(
                 subset=list(filtered_df.select_dtypes(include=["float64"]).columns),
                 formatter="{:.3}",

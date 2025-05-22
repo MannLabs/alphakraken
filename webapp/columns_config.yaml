@@ -69,27 +69,33 @@ columns:
   - name: "fwhm_rt"
     color_table: true
     plot: true
+    reverse_color_gradient: true
   - name: "fwhm_mobility"
     color_table: true
     plot: true
+    reverse_color_gradient: true
   - name: "ms1_error"
     color_table: true
     plot: true
+    reverse_color_gradient: true
     alternative_names:
       - "optimization:ms1_error"
   - name: "ms2_error"
     color_table: true
     plot: true
+    reverse_color_gradient: true
     alternative_names:
       - "optimization:ms2_error"
   - name: "rt_error"
     color_table: true
     plot: true
+    reverse_color_gradient: true
     alternative_names:
       - "optimization:rt_error"
   - name: "mobility_error"
     color_table: true
     plot: true
+    reverse_color_gradient: true
     alternative_names:
       - "optimization:mobility_error"
   - name: "charge_mean"
@@ -116,14 +122,17 @@ columns:
   - name: "quanting_time_minutes"
     color_table: true
     plot: true
+    reverse_color_gradient: true
   - name: "duration_optimization"
     color_table: true
     plot: true
     at_end: true
+    reverse_color_gradient: true
   - name: "duration_extraction"
     color_table: true
     plot: true
     at_end: true
+    reverse_color_gradient: true
 
   # End columns (order matters)
   - name: "project_id"

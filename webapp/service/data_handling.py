@@ -70,16 +70,16 @@ def get_lag_time(
         and created_at_ (= when the file was added to the DB).
     Deliberately not using the file_created column, as this depends on the instrument time.
 
-    :return: lag_times, and average lag time in seconds, or -1 if no done files found
+    :return: lag_times, and average lag time in seconds, or (None, None) if no done files found
     """
     done_files = raw_files_df[raw_files_df["status"] == RawFileStatus.DONE]
+
+    if len(done_files) == 0:
+        return None, None
 
     lag_times = (
         done_files["updated_at_"] - done_files["created_at_"]
     ).dt.total_seconds()
-
-    if len(done_files) == 0:
-        return None, None
 
     # Sort by created_at_ (most recent first) and take the latest N files
     done_files = done_files.sort_values(by="created_at_", ascending=False).head(
@@ -87,8 +87,10 @@ def get_lag_time(
     )
 
     # Calculate lag time in minutes
-    lag_time_seconds = (
-        done_files["updated_at_"] - done_files["created_at_"]
-    ).dt.total_seconds()
+    mean_last_10_lag_times = (
+        (done_files["updated_at_"] - done_files["created_at_"])
+        .dt.total_seconds()
+        .mean()
+    )
 
-    return lag_times, lag_time_seconds.mean()
+    return lag_times, mean_last_10_lag_times

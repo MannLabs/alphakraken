@@ -261,7 +261,14 @@ def display_status(combined_df: pd.DataFrame, status_data_df: pd.DataFrame) -> N
 def get_display_time(
     past_time: datetime, now: datetime, prefix: str = "", suffix: str = " ago"
 ) -> str:
-    """Get a human readable display time for the last file creation."""
+    """Get a human readable time display.
+
+    :param past_time: The past time to calculate the difference from.
+    :param now: The current time to calculate the difference to.
+    :param prefix: A string to prepend to the display time. Defaults to an empty string.
+    :param suffix: A string to append to the display time. Defaults to " ago".
+    :return:
+    """
     display_time = humanize.precisedelta(
         now - pd.Timestamp(past_time), minimum_unit="seconds", format="%.0f"
     )

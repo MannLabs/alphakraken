@@ -283,7 +283,7 @@ def check_quanting_result(ti: TaskInstance, **kwargs) -> bool:
         states_to_fail_task = [
             CustomAlphaDiaStates.UNKNOWN_ERROR,
             CustomAlphaDiaStates.NO_LOG_FILE,
-            CustomAlphaDiaStates.UNKNOWN_ERROR,
+            CustomAlphaDiaStates.COULD_NOT_DETERMINE_ERROR,
         ]
         if any(state in errors for state in states_to_fail_task):
             raise AirflowFailException(f"Quanting failed with new error: {errors=}")

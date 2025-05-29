@@ -7,6 +7,7 @@ from pathlib import Path
 from airflow.exceptions import AirflowFailException
 from airflow.models import TaskInstance
 from common.constants import (
+    DEFAULT_JOB_SCRIPT_NAME,
     ERROR_CODE_TO_STRING,
     AlphaDiaConstants,
 )
@@ -129,6 +130,7 @@ def run_quanting(
     *,
     new_status: str | None = RawFileStatus.QUANTING,
     output_path_check: bool = True,
+    job_script_name: str = DEFAULT_JOB_SCRIPT_NAME,
     xcom_key_job_id: str = XComKeys.JOB_ID,
     **kwargs,
 ) -> None:
@@ -141,6 +143,7 @@ def run_quanting(
         Set to None to not change the status.
     :param output_path_check: Whether to check if the output path already exists
         and handle it accordingly, default is True. Setting to false will overwrite contents of the output path.
+    :param job_script_name: The name of the job script to run, default is DEFAULT_JOB_SCRIPT_NAME.
     :param xcom_key_job_id: The key to use for storing the job ID in XCom, default is XComKeys.JOB_ID.
     """
     del kwargs  # unused
@@ -187,7 +190,7 @@ def run_quanting(
 
     year_month_folder = get_created_at_year_month(raw_file)
 
-    job_id = start_job(quanting_env, year_month_folder)
+    job_id = start_job(job_script_name, quanting_env, year_month_folder)
 
     if new_status is not None:
         update_raw_file(quanting_env[QuantingEnv.RAW_FILE_ID], new_status=new_status)

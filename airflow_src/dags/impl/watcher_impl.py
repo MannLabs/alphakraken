@@ -214,7 +214,7 @@ def decide_raw_file_handling(ti: TaskInstance, **kwargs) -> None:
         project_id = get_unique_project_id(raw_file_name, all_project_ids)
 
         if project_id is None:
-            logging.warning(
+            logging.info(
                 f"Raw file {raw_file_name} does not match exactly one project of {all_project_ids}."
             )
 

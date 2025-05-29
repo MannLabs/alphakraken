@@ -87,7 +87,7 @@ def test_get_unknown_raw_files_with_existing_files_in_db(
     file3 = MagicMock(wraps=RawFile, original_name="FILE3.raw", size=567)
     mock_get_unknown_raw_files_from_db.return_value = [file1, file2, file3]
 
-    mock_is_collision.side_effect = [False, True, True]
+    mock_is_collision.side_effect = [False, True]
 
     ti = Mock()
     mock_sort.return_value = ["file4.raw", "file3.raw", "file2.raw"]
@@ -98,7 +98,7 @@ def test_get_unknown_raw_files_with_existing_files_in_db(
     mock_put_xcom.assert_called_once_with(
         ti,
         XComKeys.RAW_FILE_NAMES_TO_PROCESS,
-        {"file4.raw": False, "file3.raw": True, "file2.raw": True},
+        {"file4.raw": False, "file3.raw": False, "file2.raw": True},
     )
     mock_sort.assert_called_once_with(
         ["file2.raw", "file3.raw", "file4.raw"], "some_instrument_id"
@@ -107,7 +107,6 @@ def test_get_unknown_raw_files_with_existing_files_in_db(
         [
             call(Path("/path/to/file1.raw"), [123]),
             call(Path("/path/to/file2.raw"), [234]),
-            call(Path("/path/to/file3.raw"), [567]),
         ]
     )
 

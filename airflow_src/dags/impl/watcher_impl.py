@@ -56,13 +56,20 @@ def _add_raw_file_to_db(
     )
 
 
-def get_unknown_raw_files(ti: TaskInstance, **kwargs) -> None:
+def get_unknown_raw_files(
+    ti: TaskInstance, *, case_insensitive: bool = False, **kwargs
+) -> None:
     """Get all raw files that should be considered for further processing and push to XCom.
 
     Due to potential file name collisions (i.e. a newly acquired file has the same name as one that is already processed),
     this is non-trivial, because the properties (size, hashsum) of a file in the DB could still change if the file
     is still being acquired.
     For each file on the instrument, we check if it is already in the database.
+
+    If the case_insensitive flag is set, the comparison is done by case-insensitive original file name,
+    i.e. the files TEST.raw and test.raw are considered the same.
+    This is important, in case the backup file system is case-insensitive, e.g. on Windows.
+
     If not, it is kept in the list of files to be processed that is eventually pushed to XCom.
     If yes, we first check all file sizes in the DB:
         If at least one is not set, we assume the acquisition is not done, we don't process the file in this DAG run.
@@ -79,6 +86,11 @@ def get_unknown_raw_files(ti: TaskInstance, **kwargs) -> None:
     Note there's a potential race condition with the "add to db" operation in the subsequent
     start_acquisition_handler(), task, However, as we allow only one of these DAGs to run at a time, this should not be an issue.
     """
+
+    def _cond_lower(raw_file_name: str) -> str:
+        """Return the lower case version of the file name if case-insensitive."""
+        return raw_file_name.lower() if case_insensitive else raw_file_name
+
     instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
 
     raw_file_names_on_instrument = sorted(
@@ -91,20 +103,22 @@ def get_unknown_raw_files(ti: TaskInstance, **kwargs) -> None:
         f"{len(raw_file_names_on_instrument)} raw files to be checked against DB: {raw_file_names_on_instrument}"
     )
 
-    raw_files_names_to_sizes_from_db: dict[str, list[int]] = defaultdict(list)
+    raw_files_names_lower_to_sizes_from_db: dict[str, list[int]] = defaultdict(list)
     for raw_file in get_raw_files_by_names(list(raw_file_names_on_instrument)):
         # due to collisions, there could be more than one raw file with the same original name
-        raw_files_names_to_sizes_from_db[raw_file.original_name.lower()].append(
-            raw_file.size
-        )
-    logging.info(f"got {raw_files_names_to_sizes_from_db=}")
+        raw_files_names_lower_to_sizes_from_db[
+            _cond_lower(raw_file.original_name)
+        ].append(raw_file.size)
+    logging.info(f"got {raw_files_names_lower_to_sizes_from_db=}")
 
     raw_file_names_to_process: dict[str, bool] = {}
     for raw_file_name_on_instrument in raw_file_names_on_instrument:
         is_collision = False
-        raw_file_name_on_instrument_lower = raw_file_name_on_instrument.lower()
 
-        if raw_file_name_on_instrument_lower in raw_files_names_to_sizes_from_db:
+        if (
+            _cond_lower(raw_file_name_on_instrument)
+            in raw_files_names_lower_to_sizes_from_db
+        ):
             logging.info(
                 f"File in DB: {raw_file_name_on_instrument}, checking for potential collision.."
             )
@@ -118,7 +132,9 @@ def get_unknown_raw_files(ti: TaskInstance, **kwargs) -> None:
 
             is_collision = _is_collision(
                 file_path_to_monitor_acquisition,
-                raw_files_names_to_sizes_from_db[raw_file_name_on_instrument_lower],
+                raw_files_names_lower_to_sizes_from_db[
+                    _cond_lower(raw_file_name_on_instrument)
+                ],
             )
             if not is_collision:
                 logging.info(

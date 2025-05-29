@@ -93,15 +93,18 @@ def get_unknown_raw_files(ti: TaskInstance, **kwargs) -> None:
 
     raw_files_names_to_sizes_from_db: dict[str, list[int]] = defaultdict(list)
     for raw_file in get_raw_files_by_names(list(raw_file_names_on_instrument)):
-        # due to collisions, there could be more than one raw file with the same name
-        raw_files_names_to_sizes_from_db[raw_file.original_name].append(raw_file.size)
+        # due to collisions, there could be more than one raw file with the same original name
+        raw_files_names_to_sizes_from_db[raw_file.original_name.lower()].append(
+            raw_file.size
+        )
     logging.info(f"got {raw_files_names_to_sizes_from_db=}")
 
     raw_file_names_to_process: dict[str, bool] = {}
     for raw_file_name_on_instrument in raw_file_names_on_instrument:
         is_collision = False
+        raw_file_name_on_instrument_lower = raw_file_name_on_instrument.lower()
 
-        if raw_file_name_on_instrument in raw_files_names_to_sizes_from_db:
+        if raw_file_name_on_instrument_lower in raw_files_names_to_sizes_from_db:
             logging.info(
                 f"File in DB: {raw_file_name_on_instrument}, checking for potential collision.."
             )
@@ -115,7 +118,7 @@ def get_unknown_raw_files(ti: TaskInstance, **kwargs) -> None:
 
             is_collision = _is_collision(
                 file_path_to_monitor_acquisition,
-                raw_files_names_to_sizes_from_db[raw_file_name_on_instrument],
+                raw_files_names_to_sizes_from_db[raw_file_name_on_instrument_lower],
             )
             if not is_collision:
                 logging.info(

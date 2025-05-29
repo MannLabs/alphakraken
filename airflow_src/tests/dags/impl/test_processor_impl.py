@@ -261,7 +261,9 @@ def test_run_quanting_executes_ssh_command_and_stores_job_id(
     run_quanting(ti)
 
     mock_start_job.assert_called_once_with(
-        {"RAW_FILE_ID": "test_file.raw", "PROJECT_ID_OR_FALLBACK": "PID123"}, "1970_01"
+        "submit_job.sh",
+        {"RAW_FILE_ID": "test_file.raw", "PROJECT_ID_OR_FALLBACK": "PID123"},
+        "1970_01",
     )
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
     mock_put_xcom.assert_called_once_with(ti, XComKeys.JOB_ID, "12345")

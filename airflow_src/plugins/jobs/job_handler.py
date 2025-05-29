@@ -36,13 +36,13 @@ class JobHandler(abc.ABC):
 
     @abc.abstractmethod
     def start_job(
-        self, job_script_name: str, quanting_env: dict[str, str], year_month_folder: str
+        self, job_script_name: str, environment: dict[str, str], year_month_folder: str
     ) -> str:
         """Start a job and return the job ID.
 
         Args:
             job_script_name: Name of the Slurm job script to run, e.g. "submit_job.sh"
-            quanting_env: Environment variables to set before job submission
+            environment: Environment variables to set before job submission
             year_month_folder: Folder to store job outputs, e.g. "2024_07"
 
         Returns:
@@ -81,14 +81,14 @@ class SlurmSSHJobHandler(JobHandler):
     def start_job(
         self,
         job_script_name: str,
-        quanting_env: dict[str, str],
+        environment: dict[str, str],
         year_month_folder: str,
     ) -> str:
-        """Start a quanting job on the Slurm cluster via SSH."""
+        """Start a job on the Slurm cluster via SSH."""
         command = (
-            self._create_export_command(quanting_env)
+            self._create_export_environment_cmd(environment)
             + "\n"
-            + self._get_run_quanting_cmd(job_script_name, year_month_folder)
+            + self._get_run_job_cmd(job_script_name, year_month_folder)
         )
         logging.info(f"Running command: >>>>\n{command}\n<<<< end of command")
         ssh_return = ssh_execute(command)
@@ -115,7 +115,7 @@ class SlurmSSHJobHandler(JobHandler):
             f"{self._cluster_base_working_dir_path}/*/slurm-{job_id}.out"
         )
         cmd = (
-            self._check_quanting_result_cmd(job_id, slurm_output_file)
+            self._check_job_result_cmd(job_id, slurm_output_file)
             + "\n"
             + self._get_job_state_cmd(job_id)
         )
@@ -124,10 +124,8 @@ class SlurmSSHJobHandler(JobHandler):
         job_status = ssh_return.split("\n")[-1]
         return job_status, time_elapsed
 
-    def _get_run_quanting_cmd(
-        self, job_script_name: str, year_month_folder: str
-    ) -> str:
-        """Get the command to run the quanting job on the cluster.
+    def _get_run_job_cmd(self, job_script_name: str, year_month_folder: str) -> str:
+        """Get the command to run the job on the cluster.
 
         Its last line of output to stdout must be the job id of the submitted job.
         ${JID##* } is removing everything up to the last space.
@@ -148,7 +146,7 @@ class SlurmSSHJobHandler(JobHandler):
         )
 
     @staticmethod
-    def _check_quanting_result_cmd(job_id: str, slurm_output_file: str) -> str:
+    def _check_job_result_cmd(job_id: str, slurm_output_file: str) -> str:
         """Get the job info for a given job id.
 
         To reduce the number of ssh calls, we combine multiple commands into one
@@ -176,7 +174,7 @@ class SlurmSSHJobHandler(JobHandler):
         )
 
     @staticmethod
-    def _create_export_command(mapping: dict[str, str]) -> str:
+    def _create_export_environment_cmd(mapping: dict[str, str]) -> str:
         """Create a bash command to export environment variables."""
         return "\n".join([f"export {k}={v}" for k, v in mapping.items()])
 
@@ -190,14 +188,14 @@ class SlurmSSHJobHandler(JobHandler):
 
 
 def start_job(
-    job_script_name: str, quanting_env: dict[str, str], year_month_folder: str
+    job_script_name: str, environment: dict[str, str], year_month_folder: str
 ) -> str:
-    """Start a quanting job using the configured job engine.
+    """Start a job using the configured job engine.
 
     Delegates to JobHandler.start_job(), see docs there.
     """
     handler = _get_job_handler()
-    return handler.start_job(job_script_name, quanting_env, year_month_folder)
+    return handler.start_job(job_script_name, environment, year_month_folder)
 
 
 def get_job_status(job_id: str) -> str:

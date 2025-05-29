@@ -151,7 +151,7 @@ def run_quanting(
     quanting_env = get_xcom(ti, XComKeys.QUANTING_ENV)
 
     # upfront check 1
-    if (job_id := get_xcom(ti, XComKeys.JOB_ID, -1)) != -1:
+    if (job_id := get_xcom(ti, xcom_key_job_id, -1)) != -1:
         logging.warning(f"Job already started with {job_id}, skipping.")
         return
 
@@ -178,7 +178,7 @@ def run_quanting(
                 logging.exception("Could not read off job id from log file.")
                 raise AirflowFailException("Job submission failed.")
 
-            put_xcom(ti, XComKeys.JOB_ID, extracted_job_id)
+            put_xcom(ti, xcom_key_job_id, extracted_job_id)
 
             logging.warning(f"Assuming job id {extracted_job_id}...")
             return

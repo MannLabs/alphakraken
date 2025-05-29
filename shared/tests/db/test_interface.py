@@ -171,7 +171,6 @@ def test_update_raw_file(
     mock_raw_file_from_db.update.assert_called_once_with(
         status=RawFileStatus.DONE,
         updated_at_=mock_datetime.now.return_value,
-        status_details=None,
         size=123,
     )
     mock_connect_db.assert_called_once()

@@ -758,4 +758,6 @@ def test_upload_metrics(
         },
         settings_version=1,
     )
-    mock_update.assert_called_once_with("some_file.raw", new_status=RawFileStatus.DONE)
+    mock_update.assert_called_once_with(
+        "some_file.raw", new_status=RawFileStatus.DONE, status_details=None
+    )

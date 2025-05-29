@@ -419,9 +419,10 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
 
 def _add_eta(df: pd.DataFrame, now: datetime, lag_time: float) -> pd.Series:
     """Return the "ETA" column for the dataframe."""
+    # TODO: this would become more precises if lag times would be calculated per instrument & project
     non_terminal_mask = ~df["status"].isin(TERMINAL_STATUSES)
     eta_timestamps = (
-        df.loc[non_terminal_mask, "updated_at_"] + pd.Timedelta(seconds=lag_time)
+        df.loc[non_terminal_mask, "created_at_"] + pd.Timedelta(seconds=lag_time)
     ).dt.tz_localize("UTC")
 
     # Convert ETA timestamps to human-readable format showing "in X time"

@@ -49,7 +49,6 @@ class OpArgs:
     """Keys for passing arguments to operators."""
 
     INSTRUMENT_ID: str = "instrument_id"
-    COMMAND: str = "command"
 
 
 class DagContext:

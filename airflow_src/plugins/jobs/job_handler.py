@@ -130,7 +130,7 @@ class SlurmSSHJobHandler(JobHandler):
         Its last line of output to stdout must be the job id of the submitted job.
         ${JID##* } is removing everything up to the last space.
 
-        :job_script_name: the name of the slurm job script, e.g. "submit_job.sh"
+        :param job_script_name: the name of the slurm job script, e.g. "submit_job.sh"
         :param year_month_folder: the sub folder in which the slurm output script will be written to, e.g. "2024_07"
         """
         cluster_job_script_path = self._cluster_base_dir / job_script_name

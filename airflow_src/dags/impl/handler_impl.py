@@ -10,6 +10,7 @@ from common.constants import (
     DEFAULT_RAW_FILE_SIZE_IF_MAIN_FILE_MISSING,
 )
 from common.keys import (
+    DAG_DELIMITER,
     AirflowVars,
     DagContext,
     DagParams,
@@ -190,7 +191,7 @@ def start_acquisition_processor(ti: TaskInstance, **kwargs) -> None:
     instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
     raw_file_id = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID]
 
-    dag_id_to_trigger = f"{Dags.ACQUISITION_PROCESSOR}.{instrument_id}"
+    dag_id_to_trigger = f"{Dags.ACQUISITION_PROCESSOR}{DAG_DELIMITER}{instrument_id}"
 
     update_raw_file(raw_file_id, new_status=RawFileStatus.QUEUED_FOR_QUANTING)
 

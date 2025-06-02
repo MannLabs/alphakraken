@@ -3,7 +3,7 @@
 import logging
 from typing import Any
 
-from common.keys import DagContext, DagParams, XComKeys
+from common.keys import DAG_DELIMITER, DagContext, DagParams, XComKeys
 from common.utils import get_xcom
 
 from shared.db.interface import update_raw_file
@@ -33,8 +33,9 @@ def on_failure_callback(context: dict[str, Any], **kwargs) -> None:
 
     ex = context["exception"]
 
+    cleaned_dag_id = ti.dag_id.split(DAG_DELIMITER)[0]
     update_raw_file(
         raw_file_id,
         new_status=RawFileStatus.ERROR,
-        status_details=f"[{ti.task_id}] {ex!s}",
+        status_details=f"[{cleaned_dag_id}.{ti.task_id}] {ex!s}",
     )

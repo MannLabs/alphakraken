@@ -48,7 +48,8 @@ FREE_SPACE_THRESHOLD_GB = (
     200  # regardless of the configuration in airflow: 200 GB is very low
 )
 
-STATUS_PILE_UP_THRESHOLD = 5
+STATUS_PILE_UP_THRESHOLDS = defaultdict(lambda: 5)
+STATUS_PILE_UP_THRESHOLDS["quanting"] = 10
 
 
 class Cases:
@@ -270,7 +271,7 @@ def _append_status_pile_up_instruments(
     if piled_up_statuses := [
         status
         for status, count in status_counts.items()
-        if count > STATUS_PILE_UP_THRESHOLD
+        if count > STATUS_PILE_UP_THRESHOLDS[status]
     ]:
         piled_up_statuses_str = "; ".join(
             [f"{status}: {status_counts[status]}" for status in piled_up_statuses]

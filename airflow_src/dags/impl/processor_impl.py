@@ -344,4 +344,6 @@ def upload_metrics(ti: TaskInstance, **kwargs) -> None:
         settings_version=quanting_env[QuantingEnv.SETTINGS_VERSION],
     )
 
-    update_raw_file(raw_file_id, new_status=RawFileStatus.DONE)
+    update_raw_file(
+        raw_file_id, new_status=RawFileStatus.DONE, status_details=None
+    )  # TODO: move to dedicated reusable status update task

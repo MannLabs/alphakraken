@@ -27,6 +27,7 @@ from shared.keys import EnvVars
 # TODO: add unit tests
 # TODO: report when error has resolved
 # TODO: add a "all is well" message once a day/week?
+# TODO: health check if webapp is reachable
 
 MESSENGER_WEBHOOK_URL = os.environ.get(EnvVars.MESSENGER_WEBHOOK_URL)
 if not MESSENGER_WEBHOOK_URL:

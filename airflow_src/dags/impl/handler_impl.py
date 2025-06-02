@@ -66,6 +66,7 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
 
     copied_files: dict[Path, tuple[float, str]] = {}
     for src_path, dst_path in copy_wrapper.get_files_to_copy().items():
+        # TODO: in case of multiple files, the first failure will stop copying all others -> maybe change this?
         dst_size, dst_hash = copy_file(src_path, dst_path, overwrite=overwrite)
         copied_files[dst_path] = (dst_size, dst_hash)
 

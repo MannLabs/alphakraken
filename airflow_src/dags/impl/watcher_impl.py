@@ -44,7 +44,6 @@ def _add_raw_file_to_db(
     raw_file_creation_timestamp = get_file_creation_timestamp(
         raw_file_name, instrument_id
     )
-    logging.info(f"Got  {raw_file_creation_timestamp}")
 
     return add_raw_file(
         raw_file_name,
@@ -336,7 +335,7 @@ def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
                 {DagParams.RAW_FILE_ID: raw_file_id},
             )
         except DagNotFound as e:
-            # this happens very rarely, but if not handled here, the file would need to be removed manually
+            # this happens very rarely, but if not handled here, the file would need to be removed from the DB manually
             logging.exception(
                 f"DAG {dag_id_to_trigger} not found. Removing file from DB again."
             )

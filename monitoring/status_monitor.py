@@ -21,6 +21,7 @@ from shared.db.models import (
     KrakenStatus,
     KrakenStatusValues,
     RawFile,
+    RawFileStatus,
 )
 from shared.keys import EnvVars
 
@@ -293,7 +294,7 @@ def _get_raw_files_in_error_status() -> list[tuple[str, str]]:
         )
     )
     recently_updated_raw_files = RawFile.objects.filter(
-        _updated_at__gt=youngest_updated_at
+        updated_at___gt=youngest_updated_at
     ).only("id", "status", "status_details")
 
     new_error_files = []
@@ -306,8 +307,8 @@ def _get_raw_files_in_error_status() -> list[tuple[str, str]]:
 
         # Check if this file has changed to ERROR status
         if (
-            current_status == "error"
-            and previous_raw_file_statuses.get(raw_file_id) != "error"
+            current_status == RawFileStatus.ERROR
+            and current_status != previous_raw_file_statuses.get(raw_file_id)
         ):
             status_details = raw_file.status_details or "None"
             logging.warning(

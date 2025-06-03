@@ -11,6 +11,8 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from shared.keys import MetricsTypes
+
 
 def _load_tsv(file_path: Path) -> pd.DataFrame:
     """Load a tsv file."""
@@ -194,10 +196,28 @@ class PrecursorStatsMeanLenSequence(Metrics):
         self._metrics[f"{column}_len_median"] = np.median(sequence_lengths)
 
 
-def calc_metrics(output_directory: Path) -> dict[str, Any]:
-    """Calculate metrics for the given output directory."""
+def calc_metrics(output_directory: Path, *, metrics_type: str) -> dict[str, Any]:
+    """Calculate metrics for the given output directory.
+
+    :param output_directory: Path to the output directory
+    :param metrics_type: Type of metrics to calculate ("alphadia" or "custom")
+    """
     data_store = DataStore(output_directory)
 
+    metrics = {
+        MetricsTypes.ALPHADIA: _calc_alphadia_metrics,
+        MetricsTypes.CUSTOM: _calc_custom_metrics,
+    }[metrics_type](data_store)
+
+    # MongoDB field names cannot contain dots (".") or null characters ("\0"), and they must not start with a dollar sign ("$").
+    metrics_cleaned = {k.replace(".", ":"): v for k, v in metrics.items()}
+
+    logging.info(f"Calculated {metrics_type} metrics: {metrics_cleaned}")
+    return metrics_cleaned
+
+
+def _calc_alphadia_metrics(data_store: DataStore) -> dict[str, str | int | float]:
+    """Calculate standard alphaDIA metrics."""
     metrics = BasicStats(data_store).get()
     metrics |= PrecursorStatsSum(data_store).get()
     metrics |= PrecursorStatsAgg(data_store).get()
@@ -205,8 +225,17 @@ def calc_metrics(output_directory: Path) -> dict[str, Any]:
     metrics |= PrecursorStatsMeanLenSequence(data_store).get()
     metrics |= InternalStats(data_store).get()
 
-    # MongoDB field names cannot contain dots (".") or null characters ("\0"), and they must not start with a dollar sign ("$").
-    metrics_cleaned = {k.replace(".", ":"): v for k, v in metrics.items()}
+    return metrics
 
-    logging.info(f"Calculated metrics: {metrics_cleaned}")
-    return metrics_cleaned
+
+def _calc_custom_metrics(data_store: DataStore) -> dict[str, str | int | float]:
+    """Calculate custom metrics."""
+    del data_store  # unused
+
+    metrics = {}
+
+    # Add any custom calculations here
+    # Example: metrics |= YourCustomMetricsClass(data_store).get()
+    metrics["murksi"] = 234
+
+    return metrics

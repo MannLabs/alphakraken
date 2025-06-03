@@ -13,6 +13,7 @@ import streamlit as st
 import yaml
 from matplotlib import pyplot as plt
 from service.components import (
+    get_display_time,
     get_full_backup_path,
     get_terminal_status_counts,
     highlight_status_cell,
@@ -20,7 +21,7 @@ from service.components import (
     show_filter,
     show_sandbox_message,
 )
-from service.data_handling import get_combined_raw_files_and_metrics_df
+from service.data_handling import get_combined_raw_files_and_metrics_df, get_lag_time
 from service.db import get_full_raw_file_data
 from service.utils import (
     APP_URL,
@@ -33,7 +34,7 @@ from service.utils import (
     display_plotly_chart,
 )
 
-from shared.db.models import ERROR_STATUSES
+from shared.db.models import ERROR_STATUSES, TERMINAL_STATUSES
 
 _log(f"loading {__file__}")
 
@@ -153,15 +154,18 @@ columns_at_end = [column.name for column in COLUMNS if column.at_end] + [
 ]
 columns_to_hide = [column.name for column in COLUMNS if column.hide]
 
-column_order = (
-    columns_at_front
-    + [
-        col
-        for col in combined_df.columns
-        if col not in columns_at_front + columns_at_end + columns_to_hide
-    ]
-    + columns_at_end
-)
+
+def _get_column_order(df: pd.DataFrame) -> list[str]:
+    """Get column order."""
+    return (
+        columns_at_front
+        + [
+            col
+            for col in df.columns
+            if col not in columns_at_front + columns_at_end + columns_to_hide
+        ]
+        + columns_at_end
+    )
 
 
 def _filter_valid_columns(columns: list[str], df: pd.DataFrame) -> list[str]:
@@ -178,12 +182,12 @@ def df_to_csv(df: pd.DataFrame) -> str:
 # using a fragment to avoid re-doing the above operations on every filter change
 # cf. https://docs.streamlit.io/develop/concepts/architecture/fragments
 @st.experimental_fragment
-def _display_table_and_plots(  # noqa: PLR0915,C901 (too many statements, too complex)
+def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements, too complex, too many branches)
     df: pd.DataFrame, max_age_in_days: float, filter_value: str = ""
 ) -> None:
     """A fragment that displays a DataFrame with a filter."""
     st.markdown("## Data")
-    now = datetime.now(tz=pytz.UTC)
+    now = datetime.now(tz=pytz.UTC).replace(microsecond=0)
 
     # filter
     len_whole_df = len(df)
@@ -227,6 +231,16 @@ def _display_table_and_plots(  # noqa: PLR0915,C901 (too many statements, too co
         f"Found {len(filtered_df)} / {len_whole_df} entries. Distribution of terminal statuses: {get_terminal_status_counts(filtered_df)} "
         f"Note: data is limited to last {max_age_in_days} days, table display is limited to first {max_table_len} entries. See FAQ how to change this.",
     )
+
+    # Display lag time for latest done files
+    lag_times, lag_time = get_lag_time(filtered_df)
+    if lag_time:
+        st.markdown(
+            f"⏱️ Average lag time*: **{lag_time / 60:.1f} minutes** [*from start of acquisition to end of quanting, for last 10 'done' files in selection]"
+        )
+
+        filtered_df["lag_time_minutes"] = lag_times / 60
+        filtered_df["eta"] = _add_eta(filtered_df, now, lag_time)
 
     # hide the csv download button to not encourage downloading incomplete data
     st.markdown(
@@ -280,7 +294,7 @@ def _display_table_and_plots(  # noqa: PLR0915,C901 (too many statements, too co
                 ],
                 formatter="{:.0f}",
             ),
-            column_order=column_order,
+            column_order=_get_column_order(filtered_df),
         )
     except Exception as e:  # noqa: BLE001
         _log(e)
@@ -331,24 +345,23 @@ def _display_table_and_plots(  # noqa: PLR0915,C901 (too many statements, too co
         help="For the selection in the table, show all file paths on the backup for conveniently copying them manually to another location.",
     ):
         full_info_df = get_full_raw_file_data(list(filtered_df.index))
-
         file_paths, is_multiple_types = get_full_backup_path(full_info_df)
-        st.write(f"Found {len(file_paths)} items:")
-        if is_multiple_types:
-            st.warning(
-                "Warning: more than one instrument type found, please check your selection!"
-            )
 
-        c1, _ = st.columns([0.75, 0.25])
+        with st.expander(f"Found {len(file_paths)} items:", expanded=True):
+            if is_multiple_types:
+                st.warning(
+                    "Warning: more than one instrument type found, please check your selection!"
+                )
+            c1, _ = st.columns([0.75, 0.25])
 
-        c1.write("AlphaDIA config format:")
-        prefix = " - "
-        file_paths_pretty = f"\n{prefix}".join(file_paths)
-        c1.code(f"{prefix}{file_paths_pretty}")
+            c1.write("AlphaDIA config format:")
+            prefix = " - "
+            file_paths_pretty = f"\n{prefix}".join(file_paths)
+            c1.code(f"{prefix}{file_paths_pretty}")
 
-        c1.write("One line format:")
-        file_paths_pretty_one_line = " ".join(file_paths)
-        c1.code(f"{file_paths_pretty_one_line}")
+            c1.write("One line format:")
+            file_paths_pretty_one_line = " ".join(file_paths)
+            c1.code(f"{file_paths_pretty_one_line}")
 
     # ########################################### DISPLAY: plots
 
@@ -359,6 +372,7 @@ def _display_table_and_plots(  # noqa: PLR0915,C901 (too many statements, too co
     )
 
     c1, c2, c3, c4 = st.columns([0.25, 0.25, 0.25, 0.25])
+    column_order = _get_column_order(filtered_df)
     color_by_column = c1.selectbox(
         label="Color by:",
         options=["instrument_id"]
@@ -401,6 +415,25 @@ def _display_table_and_plots(  # noqa: PLR0915,C901 (too many statements, too co
                 _log(e, f"Cannot draw plot for {column.name} vs {x}.")
             else:
                 st.write("n/a")
+
+
+def _add_eta(df: pd.DataFrame, now: datetime, lag_time: float) -> pd.Series:
+    """Return the "ETA" column for the dataframe."""
+    # TODO: this would become more precises if lag times would be calculated per instrument & project
+    non_terminal_mask = ~df["status"].isin(TERMINAL_STATUSES)
+    eta_timestamps = (
+        df.loc[non_terminal_mask, "created_at_"] + pd.Timedelta(seconds=lag_time)
+    ).dt.tz_localize("UTC")
+
+    # Convert ETA timestamps to human-readable format showing "in X time"
+    def _format_eta(eta_time: datetime) -> str:
+        """Format the eta time to a string."""
+        time_diff = eta_time.replace(microsecond=0) - now
+        if eta_time <= now:
+            return f"now ({time_diff})"
+        return get_display_time(now - time_diff, now, prefix="in ", suffix="")
+
+    return eta_timestamps.apply(_format_eta)
 
 
 def _draw_plot(  # noqa: PLR0913

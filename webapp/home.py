@@ -24,8 +24,7 @@ c1, _ = st.columns([0.5, 0.5])
 c1.markdown("""### What is AlphaKraken?
 
 This tool should help you keep track of your acquisitions and monitor their status and quality in (near) real-time.
-By default, every single acquisition is processed by AlphaDIA and the results are stored in a database.
-The processing is done on the cluster, which means that on rare occasions, it might be delayed due to high load.""")
+By default, every single acquisition is processed by AlphaDIA and the results are stored in a database.""")
 
 display_info_message(c1)
 
@@ -41,13 +40,21 @@ Currently they are meant to be used by AlphaKraken admin users only.""")
 
 c1.markdown(f"""### Rules
 
-To ensure a smooth automated processing, please follow these rules when acquiring files:
-- Do NOT do anything (!) on the acquisition folder (=the folder where the raw files are written to). In particular:
+#### Rule #1
+To not interfere with the automated processing, please stick to the following simple rule:
+
+**Do NOT do anything (!) on the acquisition folder (=the folder where the raw files are written to).**
+
+In particular:
 **Do not _create_, _move_, _rename_, or _delete_ any files there**! Avoid opening them in any software (wait until the file is moved to the
 "Backup" subfolder and open it there).
+
+#### More rules
+To ensure a smooth automated processing, please follow these rules when acquiring files:
 - Make sure to your raw filename does not contain any special characters. Only allowed: `{ALLOWED_CHARACTERS_IN_RAW_FILE_NAME}`
 (basic latin letters, numbers, and a few special characters like `-`, `_`, `+`). Otherwise, they will not be quanted.
 - If your file name contains `_dda_`, they will also not be quanted.""")
+
 
 c1.markdown(f"""### FAQ
 

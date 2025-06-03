@@ -78,6 +78,7 @@ class XComKeys:
     JOB_ID: str = "job_id"
 
     METRICS: str = "metrics"
+    METRICS_TYPE: str = "metrics_type"
     QUANTING_TIME_ELAPSED: str = "quanting_time_elapsed"
 
     FILES_TO_MOVE = "files_to_move"

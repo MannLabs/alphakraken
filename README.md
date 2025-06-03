@@ -19,18 +19,9 @@ Currently supported:
 - compute environment: [Slurm](https://slurm.schedmd.com/documentation.html), generic SSH (experimental)
 - vendors: Bruker, Sciex, Thermo
 
-## Important note for users
-
-To not interfere with the automated processing, please stick to the following simple rule:
-
-> Do not touch the acquisition folders*!
-
-*i.e. the folders where the acquisition software writes the raw files to. In particular,
-do not **delete**, **rename** or **open** files in these folders and do not **copy** or **move** files *from* or *to* these folders!
 
 Regular users should find all required documentation in the AlphaKraken WebApp.
-The rest of this documentation is relevant only for developers and administrators.
-
+This documentation is relevant only for developers and administrators.
 
 ## System Requirements
 
@@ -70,6 +61,15 @@ For detailed information, please refer to the following documentation files:
 - [instruments.md](docs/instruments.md) - Adding and configuring instruments
 - [development.md](docs/development.md) - Development setup and testing procedures
 - [maintenance.md](docs/maintenance.md) - Maintenance procedures and post-reboot instructions, common issues and solutions
+
+
+## Customization
+
+Currently, most customizations required changes to the source code.
+However, many components (e.g. quanting, metrics calculation) are designed to be easily customizable.
+
+The `alphakraken.yaml` file offers some options regarding the behavior of the system,
+and `webapp/columns_config.yaml` allows to customize the columns and plots shown in the web application.
 
 ---
 

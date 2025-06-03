@@ -192,7 +192,10 @@ def test_add_metrics_to_raw_file_happy_path(
 
     # when
     add_metrics_to_raw_file(
-        "test_file", metrics={"metric1": 1, "metric2": 2}, settings_version=1
+        "test_file",
+        metrics_type="alphadia",
+        metrics={"metric1": 1, "metric2": 2},
+        settings_version=1,
     )
 
     # then
@@ -200,7 +203,11 @@ def test_add_metrics_to_raw_file_happy_path(
     mock_connect_db.assert_called_once()
     mock_raw_file.objects.get.assert_called_once_with(id="test_file")
     mock_metrics.assert_called_once_with(
-        raw_file=mock_raw_file_from_db, metric1=1, metric2=2, settings_version=1
+        raw_file=mock_raw_file_from_db,
+        type="alphadia",
+        metric1=1,
+        metric2=2,
+        settings_version=1,
     )
 
 

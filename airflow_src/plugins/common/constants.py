@@ -8,8 +8,8 @@ CLUSTER_SSH_CONNECTION_TIMEOUT = 60
 CLUSTER_SSH_COMMAND_TIMEOUT = 60
 
 # these are relative to the locations.general.slurm_base_path variable
-CLUSTER_JOB_SCRIPT_NAME = "submit_job.sh"
-CLUSTER_WORKING_DIR_NAME = "jobs"
+DEFAULT_JOB_SCRIPT_NAME = "submit_job.sh"
+CLUSTER_BASE_WORKING_DIR_NAME = "jobs"
 
 
 OUTPUT_FOLDER_PREFIX = "out_"

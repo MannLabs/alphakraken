@@ -106,16 +106,20 @@ def delete_raw_file(raw_file_id: str) -> None:
     RawFile.objects(id=raw_file_id).delete()
 
 
+# sentinel value to indicate that a parameter should not be updated
+_NO_UPDATE = object()
+
+
 def update_raw_file(  # noqa: PLR0913
     raw_file_id: str,
     *,
     new_status: str,
-    status_details: str | None = None,
-    size: float | None = None,
-    file_info: dict[str, tuple[float, str]] | None = None,
-    backup_base_path: str | None = None,
+    status_details: str | None = _NO_UPDATE,  # type: ignore[invalid-parameter-default]
+    size: float = _NO_UPDATE,  # type: ignore[invalid-parameter-default]
+    file_info: dict[str, tuple[float, str]] = _NO_UPDATE,  # type: ignore[invalid-parameter-default]
+    backup_base_path: str = _NO_UPDATE,  # type: ignore[invalid-parameter-default]
 ) -> None:
-    """Set `status` and `size` of DB entity of raw file with `raw_file_id` to `new_status`."""
+    """Update parameters of DB entity of raw file with `raw_file_id`."""
     logging.info(
         f"Updating DB: {raw_file_id=} to {new_status=} with {status_details=} {size=} {file_info=}"
     )
@@ -124,20 +128,16 @@ def update_raw_file(  # noqa: PLR0913
     logging.info(f"Old DB state: {raw_file.status=} {raw_file.status_details=}")
 
     # prevent overwriting these fields with None if they are not given
-    optional_size_arg = {"size": size} if size is not None else {}
-    optional_file_info_arg = {"file_info": file_info} if file_info is not None else {}
-    optional_backup_base_path_arg = (
-        {"backup_base_path": backup_base_path} if backup_base_path is not None else {}
-    )
+    kwargs = {
+        "status": new_status,
+        "updated_at_": datetime.now(tz=pytz.utc),
+        "status_details": status_details,
+        "size": size,
+        "file_info": file_info,
+        "backup_base_path": backup_base_path,
+    }
 
-    raw_file.update(
-        status=new_status,
-        updated_at_=datetime.now(tz=pytz.utc),
-        status_details=status_details,
-        **optional_size_arg,
-        **optional_file_info_arg,
-        **optional_backup_base_path_arg,
-    )
+    raw_file.update(**{k: v for k, v in kwargs.items() if v != _NO_UPDATE})
 
 
 def add_metrics_to_raw_file(

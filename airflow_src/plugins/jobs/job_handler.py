@@ -9,7 +9,7 @@ import logging
 from datetime import datetime
 
 from airflow.exceptions import AirflowFailException
-from common.constants import CLUSTER_JOB_SCRIPT_NAME, CLUSTER_WORKING_DIR_NAME
+from common.constants import CLUSTER_BASE_WORKING_DIR_NAME
 from common.settings import _SETTINGS, get_path
 from sensors.ssh_utils import ssh_execute
 
@@ -35,11 +35,14 @@ class JobHandler(abc.ABC):
     """Abstract base class for job handling."""
 
     @abc.abstractmethod
-    def start_job(self, quanting_env: dict[str, str], year_month_folder: str) -> str:
+    def start_job(
+        self, job_script_name: str, environment: dict[str, str], year_month_folder: str
+    ) -> str:
         """Start a job and return the job ID.
 
         Args:
-            quanting_env: Environment variables to set before job submission
+            job_script_name: Name of the Slurm job script to run, e.g. "submit_job.sh"
+            environment: Environment variables to set before job submission
             year_month_folder: Folder to store job outputs, e.g. "2024_07"
 
         Returns:
@@ -70,16 +73,22 @@ class SlurmSSHJobHandler(JobHandler):
     def __init__(self):
         """Initialize the Slurm job handler."""
         super().__init__()
-        cluster_base_dir = get_path(Locations.SLURM)
-        self._cluster_working_dir_path = cluster_base_dir / CLUSTER_WORKING_DIR_NAME
-        self._cluster_job_script_path = cluster_base_dir / CLUSTER_JOB_SCRIPT_NAME
+        self._cluster_base_dir = get_path(Locations.SLURM)
+        self._cluster_base_working_dir_path = (
+            self._cluster_base_dir / CLUSTER_BASE_WORKING_DIR_NAME
+        )
 
-    def start_job(self, quanting_env: dict[str, str], year_month_folder: str) -> str:
-        """Start a quanting job on the Slurm cluster via SSH."""
+    def start_job(
+        self,
+        job_script_name: str,
+        environment: dict[str, str],
+        year_month_folder: str,
+    ) -> str:
+        """Start a job on the Slurm cluster via SSH."""
         command = (
-            self._create_export_command(quanting_env)
+            self._create_export_environment_cmd(environment)
             + "\n"
-            + self._get_run_quanting_cmd(year_month_folder)
+            + self._get_run_job_cmd(job_script_name, year_month_folder)
         )
         logging.info(f"Running command: >>>>\n{command}\n<<<< end of command")
         ssh_return = ssh_execute(command)
@@ -102,9 +111,11 @@ class SlurmSSHJobHandler(JobHandler):
         """Get the job status and time elapsed from the Slurm cluster via SSH."""
         # Use a wildcard path to find the output file without needing to know the specific year_month subfolder
         # This works as long as job_ids are unique across all subfolders
-        slurm_output_file = f"{self._cluster_working_dir_path}/*/slurm-{job_id}.out"
+        slurm_output_file = (
+            f"{self._cluster_base_working_dir_path}/*/slurm-{job_id}.out"
+        )
         cmd = (
-            self._check_quanting_result_cmd(job_id, slurm_output_file)
+            self._check_job_result_cmd(job_id, slurm_output_file)
             + "\n"
             + self._get_job_state_cmd(job_id)
         )
@@ -113,26 +124,29 @@ class SlurmSSHJobHandler(JobHandler):
         job_status = ssh_return.split("\n")[-1]
         return job_status, time_elapsed
 
-    def _get_run_quanting_cmd(self, year_month_folder: str) -> str:
-        """Get the command to run the quanting job on the cluster.
+    def _get_run_job_cmd(self, job_script_name: str, year_month_folder: str) -> str:
+        """Get the command to run the job on the cluster.
 
         Its last line of output to stdout must be the job id of the submitted job.
         ${JID##* } is removing everything up to the last space.
 
+        :param job_script_name: the name of the slurm job script, e.g. "submit_job.sh"
         :param year_month_folder: the sub folder in which the slurm output script will be written to, e.g. "2024_07"
         """
+        cluster_job_script_path = self._cluster_base_dir / job_script_name
+        cluster_working_dir = self._cluster_base_working_dir_path / year_month_folder
         return "\n".join(
             [
-                f"mkdir -p {self._cluster_working_dir_path}/{year_month_folder}",
-                f"cd {self._cluster_working_dir_path}/{year_month_folder}",
-                f"cat {self._cluster_job_script_path}",
-                f"JID=$(sbatch {self._cluster_job_script_path})",
+                f"mkdir -p {cluster_working_dir}",
+                f"cd {cluster_working_dir}",
+                f"cat {cluster_job_script_path}",
+                f"JID=$(sbatch {cluster_job_script_path})",
                 "echo ${JID##* }",
             ]
         )
 
     @staticmethod
-    def _check_quanting_result_cmd(job_id: str, slurm_output_file: str) -> str:
+    def _check_job_result_cmd(job_id: str, slurm_output_file: str) -> str:
         """Get the job info for a given job id.
 
         To reduce the number of ssh calls, we combine multiple commands into one
@@ -160,7 +174,7 @@ class SlurmSSHJobHandler(JobHandler):
         )
 
     @staticmethod
-    def _create_export_command(mapping: dict[str, str]) -> str:
+    def _create_export_environment_cmd(mapping: dict[str, str]) -> str:
         """Create a bash command to export environment variables."""
         return "\n".join([f"export {k}={v}" for k, v in mapping.items()])
 
@@ -173,14 +187,22 @@ class SlurmSSHJobHandler(JobHandler):
         return (t.hour * 3600) + (t.minute * 60) + t.second
 
 
-def start_job(quanting_env: dict[str, str], year_month_folder: str) -> str:
-    """Start a quanting job using the configured job engine."""
+def start_job(
+    job_script_name: str, environment: dict[str, str], year_month_folder: str
+) -> str:
+    """Start a job using the configured job engine.
+
+    Delegates to JobHandler.start_job(), see docs there.
+    """
     handler = _get_job_handler()
-    return handler.start_job(quanting_env, year_month_folder)
+    return handler.start_job(job_script_name, environment, year_month_folder)
 
 
 def get_job_status(job_id: str) -> str:
-    """Get the job status using the configured job engine."""
+    """Get the job status using the configured job engine.
+
+    Delegates to JobHandler.get_job_status(), see docs there.
+    """
     handler = _get_job_handler()
     return handler.get_job_status(job_id)
 

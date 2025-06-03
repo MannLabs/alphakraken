@@ -9,7 +9,7 @@ import pytz
 from airflow.exceptions import AirflowFailException, DagNotFound
 from airflow.models import TaskInstance
 from common.constants import COLLISION_FLAG_SEP
-from common.keys import AirflowVars, DagParams, Dags, OpArgs, XComKeys
+from common.keys import DAG_DELIMITER, AirflowVars, DagParams, Dags, OpArgs, XComKeys
 from common.utils import get_airflow_variable, get_xcom, put_xcom, trigger_dag_run
 from file_handling import get_file_creation_timestamp, get_file_size
 from impl.project_id_handler import get_unique_project_id
@@ -44,7 +44,6 @@ def _add_raw_file_to_db(
     raw_file_creation_timestamp = get_file_creation_timestamp(
         raw_file_name, instrument_id
     )
-    logging.info(f"Got  {raw_file_creation_timestamp}")
 
     return add_raw_file(
         raw_file_name,
@@ -294,7 +293,7 @@ def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
     raw_file_names_with_decisions = get_xcom(ti, XComKeys.RAW_FILE_NAMES_WITH_DECISIONS)
     logging.info(f"Got {len(raw_file_names_with_decisions)} raw files to handle.")
 
-    dag_id_to_trigger = f"{Dags.ACQUISITION_HANDLER}.{instrument_id}"
+    dag_id_to_trigger = f"{Dags.ACQUISITION_HANDLER}{DAG_DELIMITER}{instrument_id}"
 
     for raw_file_name, (
         project_id,
@@ -336,7 +335,7 @@ def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
                 {DagParams.RAW_FILE_ID: raw_file_id},
             )
         except DagNotFound as e:
-            # this happens very rarely, but if not handled here, the file would need to be removed manually
+            # this happens very rarely, but if not handled here, the file would need to be removed from the DB manually
             logging.exception(
                 f"DAG {dag_id_to_trigger} not found. Removing file from DB again."
             )

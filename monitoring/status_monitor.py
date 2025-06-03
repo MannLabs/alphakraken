@@ -21,12 +21,14 @@ from shared.db.models import (
     KrakenStatus,
     KrakenStatusValues,
     RawFile,
+    RawFileStatus,
 )
 from shared.keys import EnvVars
 
 # TODO: add unit tests
 # TODO: report when error has resolved
 # TODO: add a "all is well" message once a day/week?
+# TODO: health check if webapp is reachable
 
 MESSENGER_WEBHOOK_URL = os.environ.get(EnvVars.MESSENGER_WEBHOOK_URL)
 if not MESSENGER_WEBHOOK_URL:
@@ -46,7 +48,8 @@ FREE_SPACE_THRESHOLD_GB = (
     200  # regardless of the configuration in airflow: 200 GB is very low
 )
 
-STATUS_PILE_UP_THRESHOLD = 5
+STATUS_PILE_UP_THRESHOLDS = defaultdict(lambda: 5)
+STATUS_PILE_UP_THRESHOLDS["quanting"] = 10
 
 
 class Cases:
@@ -56,6 +59,7 @@ class Cases:
     LOW_DISK_SPACE = "low_disk_space"
     HEALTH_CHECK_FAILED = "health_check_failed"
     STATUS_PILE_UP = "status_pile_up"
+    RAW_FILE_ERROR = "raw_file_error"
 
 
 def _default_value() -> datetime:
@@ -65,6 +69,9 @@ def _default_value() -> datetime:
 
 # Track when we last alerted about each issue_type to implement cooldown
 last_alerts = defaultdict(_default_value)
+
+# Track previous raw file statuses to detect changes to ERROR
+previous_raw_file_statuses = {}
 
 
 def _send_kraken_instrument_alert(
@@ -112,6 +119,15 @@ def _send_kraken_instrument_alert(
         )
         message = f"Status pile up detected:\n{instruments_str}"
 
+    elif case == Cases.RAW_FILE_ERROR:
+        files_str = "\n".join(
+            [
+                f"- `{file_id}`: {status_details}"
+                for file_id, status_details in instruments_with_data
+            ]
+        )
+        message = f"Raw files changed to ERROR status:\n{files_str}"
+
     else:
         raise ValueError(f"Unknown case: {case}")
 
@@ -154,7 +170,7 @@ def _send_msteams_message(message: str) -> None:
                 "contentType": "application/vnd.microsoft.card.adaptive",
                 "content": {
                     "type": "AdaptiveCard",
-                    "body": [{"type": "TextBlock", "text": {message}}],
+                    "body": [{"type": "TextBlock", "text": message}],
                     "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
                     "version": "1.0",
                 },
@@ -238,6 +254,11 @@ def _check_kraken_update_status() -> None:
     if status_pile_up_instruments:
         _send_kraken_instrument_alert(status_pile_up_instruments, Cases.STATUS_PILE_UP)
 
+    # Check for raw files that have changed to ERROR status
+    new_error_files = _get_raw_files_in_error_status()
+    if new_error_files:
+        _send_kraken_instrument_alert(new_error_files, Cases.RAW_FILE_ERROR)  # type: ignore[possibly-unbound-attribute]
+
 
 def _append_status_pile_up_instruments(
     instrument_id: str, status_pile_up_instruments: list[tuple[str, str]]
@@ -250,7 +271,7 @@ def _append_status_pile_up_instruments(
     if piled_up_statuses := [
         status
         for status, count in status_counts.items()
-        if count > STATUS_PILE_UP_THRESHOLD
+        if count > STATUS_PILE_UP_THRESHOLDS[status]
     ]:
         piled_up_statuses_str = "; ".join(
             [f"{status}: {status_counts[status]}" for status in piled_up_statuses]
@@ -260,6 +281,46 @@ def _append_status_pile_up_instruments(
         )
 
         status_pile_up_instruments.append((instrument_id, piled_up_statuses_str))
+
+
+def _get_raw_files_in_error_status() -> list[tuple[str, str]]:
+    """Get raw files that have changed to ERROR status since last check."""
+    global previous_raw_file_statuses  # noqa: PLW0603
+
+    youngest_updated_at = (
+        datetime.now(pytz.UTC)
+        - timedelta(
+            seconds=CHECK_INTERVAL_SECONDS
+            * 5  # only considering files updated in the last 5 checks to avoid false alerts on monitor restarts
+        )
+    )
+    recently_updated_raw_files = RawFile.objects.filter(
+        updated_at___gt=youngest_updated_at
+    ).only("id", "status", "status_details")
+
+    new_error_files = []
+    current_statuses = {}
+
+    for raw_file in recently_updated_raw_files:
+        raw_file_id = raw_file.id
+        current_status = raw_file.status
+        current_statuses[raw_file_id] = current_status
+
+        # Check if this file has changed to ERROR status
+        if (
+            current_status == RawFileStatus.ERROR
+            and current_status != previous_raw_file_statuses.get(raw_file_id)
+        ):
+            status_details = raw_file.status_details or "None"
+            logging.warning(
+                f"Raw file {raw_file_id} changed to ERROR status. Details: {status_details}"
+            )
+            new_error_files.append((raw_file_id, status_details))
+
+    # Update the previous statuses for next check
+    previous_raw_file_statuses = current_statuses
+
+    return new_error_files
 
 
 def _send_db_alert(error_type: str) -> None:

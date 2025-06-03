@@ -100,7 +100,7 @@ def test_calc_metrics_happy_path(  # noqa: PLR0913
         getter.return_value.get.return_value = {key: value}
 
     # when
-    result = calc_metrics(Path("output_directory"))
+    result = calc_metrics(Path("output_directory"), metrics_type="alphadia")
 
     assert result == {
         key: value for key, (getter, value) in mock_metrics_and_getters.items()

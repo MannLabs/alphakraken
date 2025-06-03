@@ -485,7 +485,10 @@ def test_check_quanting_result_business_error(  # noqa: PLR0913
         status_details="error1;error2",
     )
     mock_add_metrics.assert_called_once_with(
-        "test_file.raw", metrics={"quanting_time_elapsed": 522}, settings_version=1
+        "test_file.raw",
+        metrics={"quanting_time_elapsed": 522},
+        settings_version=1,
+        metrics_type="alphadia",
     )
 
 
@@ -530,7 +533,10 @@ def test_check_quanting_result_business_error_raises(  # noqa: PLR0913
         status_details="error1;__UNKNOWN_ERROR",
     )
     mock_add_metrics.assert_called_once_with(
-        "test_file.raw", metrics={"quanting_time_elapsed": 522}, settings_version=1
+        "test_file.raw",
+        metrics={"quanting_time_elapsed": 522},
+        settings_version=1,
+        metrics_type="alphadia",
     )
 
 
@@ -571,7 +577,10 @@ def test_check_quanting_result_timeout(
         status_details="TIMEOUT",
     )
     mock_add_metrics.assert_called_once_with(
-        "test_file.raw", metrics={"quanting_time_elapsed": 522}, settings_version=1
+        "test_file.raw",
+        metrics={"quanting_time_elapsed": 522},
+        settings_version=1,
+        metrics_type="alphadia",
     )
 
 
@@ -612,7 +621,10 @@ def test_check_quanting_result_oom(
         status_details="OUT_OF_MEMORY",
     )
     mock_add_metrics.assert_called_once_with(
-        "test_file.raw", metrics={"quanting_time_elapsed": 522}, settings_version=1
+        "test_file.raw",
+        metrics={"quanting_time_elapsed": 522},
+        settings_version=1,
+        metrics_type="alphadia",
     )
 
 
@@ -706,10 +718,14 @@ def test_compute_metrics(
 ) -> None:
     """Test that compute_metrics makes the expected calls."""
     mock_ti = MagicMock()
-    mock_get_xcom.return_value = {
-        "RAW_FILE_ID": "test_file.raw",
-        "PROJECT_ID_OR_FALLBACK": "P1",
-    }
+
+    mock_get_xcom.side_effect = [
+        {
+            "RAW_FILE_ID": "test_file.raw",
+            "PROJECT_ID_OR_FALLBACK": "P1",
+        },
+        123,
+    ]
     mock_raw_file = MagicMock(
         wraps=RawFile,
         id="test_file.raw",
@@ -724,11 +740,13 @@ def test_compute_metrics(
 
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
     mock_calc_metrics.assert_called_once_with(
-        Path("/opt/airflow/mounts/output/P1/out_test_file.raw")
+        Path("/opt/airflow/mounts/output/P1/out_test_file.raw"), metrics_type="alphadia"
     )
-    mock_put_xcom.assert_called_once_with(
-        mock_ti, XComKeys.METRICS, {"metric1": "value1"}
+    assert mock_put_xcom.call_count == 2  # noqa: PLR2004
+    mock_put_xcom.assert_any_call(
+        mock_ti, XComKeys.METRICS, {"metric1": "value1", "quanting_time_elapsed": 123}
     )
+    mock_put_xcom.assert_any_call(mock_ti, XComKeys.METRICS_TYPE, "alphadia")
 
 
 @patch("dags.impl.processor_impl.get_xcom")
@@ -739,12 +757,14 @@ def test_upload_metrics(
     mock_add: MagicMock,
     mock_get_xcom: MagicMock,
 ) -> None:
-    """Test that compute_metrics makes the expected calls."""
+    """Test that upload_metrics makes the expected calls."""
     mock_get_xcom.side_effect = [
-        "some_file.raw",
-        {"SETTINGS_VERSION": 1},
-        {"metric1": "value1"},
-        123,
+        "some_file.raw",  # RAW_FILE_ID
+        {"SETTINGS_VERSION": 1},  # QUANTING_ENV
+        {
+            "metric1": "value1"
+        },  # METRICS (already includes quanting_time_elapsed from compute_metrics)
+        "alphadia",  # METRICS_TYPE
     ]
 
     # when
@@ -752,9 +772,9 @@ def test_upload_metrics(
 
     mock_add.assert_called_once_with(
         "some_file.raw",
+        metrics_type="alphadia",
         metrics={
             "metric1": "value1",
-            "quanting_time_elapsed": 123,
         },
         settings_version=1,
     )

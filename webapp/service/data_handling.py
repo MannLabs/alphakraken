@@ -31,7 +31,6 @@ def get_combined_raw_files_and_metrics_df(max_age_in_days: float) -> pd.DataFram
     combined_df = raw_files_df.merge(
         alphadia_metrics_df, left_on="_id", right_on="raw_file", how="left"
     )
-    st.dataframe(alphadia_metrics_df)
 
     if (
         len(
@@ -44,13 +43,17 @@ def get_combined_raw_files_and_metrics_df(max_age_in_days: float) -> pd.DataFram
         )
         > 0
     ):
-        st.dataframe(custom_metrics_df)
         combined_df = combined_df.merge(
             custom_metrics_df,
             left_on="_id",
             right_on="raw_file",
             how="left",
             suffixes=("", f"_{MetricsTypes.CUSTOM}"),
+        )
+        combined_df.drop(
+            columns=[f"raw_file_{MetricsTypes.CUSTOM}"],
+            inplace=True,  # noqa: PD002
+            errors="ignore",
         )
 
     # conversions

@@ -170,7 +170,7 @@ def _send_msteams_message(message: str) -> None:
                 "contentType": "application/vnd.microsoft.card.adaptive",
                 "content": {
                     "type": "AdaptiveCard",
-                    "body": [{"type": "TextBlock", "text": {message}}],
+                    "body": [{"type": "TextBlock", "text": message}],
                     "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
                     "version": "1.0",
                 },

@@ -71,35 +71,88 @@ def test_get_unknown_raw_files_with_existing_files_in_db(
 ) -> None:
     """Test get_unknown_raw_files with existing files in the database."""
     mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.get_raw_files_on_instrument.return_value = {
-        "file1.raw",
-        "file2.raw",
-        "file3.raw",
+        "file1.raw",  # no collision
+        "file2.raw",  # is_collision
+        "file3.raw",  # different case than DB-> not in DB
+        "file4.raw",  # not in DB
     }
     mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.file_path_to_monitor_acquisition.side_effect = [
         Path("/path/to/file1.raw"),
         Path("/path/to/file2.raw"),
+        Path("/path/to/file3.raw"),
     ]
 
     file1 = MagicMock(wraps=RawFile, original_name="file1.raw", size=123)
     file2 = MagicMock(wraps=RawFile, original_name="file2.raw", size=234)
-    mock_get_unknown_raw_files_from_db.return_value = [file1, file2]
+    file3 = MagicMock(wraps=RawFile, original_name="FILE3.raw", size=567)
+    mock_get_unknown_raw_files_from_db.return_value = [file1, file2, file3]
 
     mock_is_collision.side_effect = [False, True]
 
     ti = Mock()
-    mock_sort.return_value = ["file3.raw", "file2.raw"]
+    mock_sort.return_value = ["file4.raw", "file3.raw", "file2.raw"]
 
     # when
     get_unknown_raw_files(ti, **{OpArgs.INSTRUMENT_ID: SOME_INSTRUMENT_ID})
 
     mock_put_xcom.assert_called_once_with(
-        ti, XComKeys.RAW_FILE_NAMES_TO_PROCESS, {"file3.raw": False, "file2.raw": True}
+        ti,
+        XComKeys.RAW_FILE_NAMES_TO_PROCESS,
+        {"file4.raw": False, "file3.raw": False, "file2.raw": True},
     )
-    mock_sort.assert_called_once_with(["file2.raw", "file3.raw"], "some_instrument_id")
+    mock_sort.assert_called_once_with(
+        ["file2.raw", "file3.raw", "file4.raw"], "some_instrument_id"
+    )
     mock_is_collision.assert_has_calls(
         [
             call(Path("/path/to/file1.raw"), [123]),
             call(Path("/path/to/file2.raw"), [234]),
+        ]
+    )
+
+
+@patch("dags.impl.watcher_impl.RawFileWrapperFactory")
+@patch("dags.impl.watcher_impl.get_raw_files_by_names")
+@patch("dags.impl.watcher_impl._is_collision")
+@patch("dags.impl.watcher_impl._sort_by_creation_date")
+@patch("dags.impl.watcher_impl.put_xcom")
+def test_get_unknown_raw_files_with_existing_files_in_db_case_insensitive(
+    mock_put_xcom: MagicMock,
+    mock_sort: MagicMock,
+    mock_is_collision: MagicMock,
+    mock_get_unknown_raw_files_from_db: MagicMock,
+    mock_raw_file_wrapper_factory: MagicMock,
+) -> None:
+    """Test get_unknown_raw_files with existing files in th but different case in database."""
+    mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.get_raw_files_on_instrument.return_value = {
+        "file3.raw",
+    }
+    mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.file_path_to_monitor_acquisition.side_effect = [
+        Path("/path/to/file3.raw"),
+    ]
+
+    file3 = MagicMock(wraps=RawFile, original_name="FILE3.raw", size=123)
+    mock_get_unknown_raw_files_from_db.return_value = [file3]
+
+    mock_is_collision.side_effect = [True]
+
+    ti = Mock()
+    mock_sort.return_value = ["file3.raw"]
+
+    # when
+    get_unknown_raw_files(
+        ti, case_insensitive=True, **{OpArgs.INSTRUMENT_ID: SOME_INSTRUMENT_ID}
+    )
+
+    mock_put_xcom.assert_called_once_with(
+        ti,
+        XComKeys.RAW_FILE_NAMES_TO_PROCESS,
+        {"file3.raw": True},
+    )
+    mock_sort.assert_called_once_with(["file3.raw"], "some_instrument_id")
+    mock_is_collision.assert_has_calls(
+        [
+            call(Path("/path/to/file3.raw"), [123]),
         ]
     )
 

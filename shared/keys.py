@@ -32,5 +32,12 @@ class Locations:
     SLURM = "slurm"
 
 
+class MetricsTypes:
+    """Types of metrics that can be added to a raw file."""
+
+    ALPHADIA: str = "alphadia"
+    CUSTOM: str = "custom"
+
+
 ALLOWED_CHARACTERS_IN_RAW_FILE_NAME = r"[^a-zA-Z0-9\-_+.]"
 DDA_FLAG_IN_RAW_FILE_NAME = "_dda_"

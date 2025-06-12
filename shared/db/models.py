@@ -15,6 +15,8 @@ from mongoengine import (
     StringField,
 )
 
+from shared.keys import MetricsTypes
+
 
 class RawFileStatus:
     """Status of raw file.
@@ -108,6 +110,9 @@ class Metrics(DynamicDocument):
     raw_file = ReferenceField(RawFile)
 
     settings_version = IntField(min_value=1, default=1)
+
+    # Type of metrics: "alphadia" (default) or "custom"
+    type = StringField(max_length=32, default=MetricsTypes.ALPHADIA)
 
     # audit fields
     created_at_ = DateTimeField(default=datetime.now)

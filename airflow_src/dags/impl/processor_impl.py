@@ -7,6 +7,7 @@ from pathlib import Path
 from airflow.exceptions import AirflowFailException
 from airflow.models import TaskInstance
 from common.constants import (
+    DEFAULT_JOB_SCRIPT_NAME,
     ERROR_CODE_TO_STRING,
     AlphaDiaConstants,
 )
@@ -124,16 +125,33 @@ def _get_slurm_job_id_from_log(output_path: Path) -> str | None:
     return None
 
 
-def run_quanting(ti: TaskInstance, **kwargs) -> None:
-    """Run the quanting job on the cluster."""
+def run_quanting(
+    ti: TaskInstance,
+    *,
+    new_status: str | None = RawFileStatus.QUANTING,
+    output_path_check: bool = True,
+    job_script_name: str = DEFAULT_JOB_SCRIPT_NAME,
+    xcom_key_job_id: str = XComKeys.JOB_ID,
+    **kwargs,
+) -> None:
+    """Run a job on the cluster.
+
+    Use functools.partial to pass additional arguments to this task.
+
+    :param ti: TaskInstance object to interact with Airflow's XCom.
+    :param new_status: The status to set for the raw file after starting the job, default is RawFileStatus.QUANTING'.
+        Set to None to not change the status.
+    :param output_path_check: Whether to check if the output path already exists
+        and handle it accordingly, default is True. Setting to false will overwrite contents of the output path.
+    :param job_script_name: The name of the job script to run, default is DEFAULT_JOB_SCRIPT_NAME.
+    :param xcom_key_job_id: The key to use for storing the job ID in XCom, default is XComKeys.JOB_ID.
+    """
     del kwargs  # unused
-    # IMPLEMENT:
-    # wait for the cluster to be ready (20% idling) -> dedicated (sensor) task, mind race condition! (have pool = 1 for that)
 
     quanting_env = get_xcom(ti, XComKeys.QUANTING_ENV)
 
     # upfront check 1
-    if (job_id := get_xcom(ti, XComKeys.JOB_ID, -1)) != -1:
+    if (job_id := get_xcom(ti, xcom_key_job_id, -1)) != -1:
         logging.warning(f"Job already started with {job_id}, skipping.")
         return
 
@@ -144,7 +162,7 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
         raw_file,
         project_id_or_fallback=quanting_env[QuantingEnv.PROJECT_ID_OR_FALLBACK],
     )
-    if Path(output_path).exists():
+    if output_path_check and Path(output_path).exists():
         msg = f"Output path {output_path} already exists with different content."
         output_exists_mode = get_airflow_variable(
             AirflowVars.OUTPUT_EXISTS_MODE, "raise"
@@ -160,7 +178,7 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
                 logging.exception("Could not read off job id from log file.")
                 raise AirflowFailException("Job submission failed.")
 
-            put_xcom(ti, XComKeys.JOB_ID, extracted_job_id)
+            put_xcom(ti, xcom_key_job_id, extracted_job_id)
 
             logging.warning(f"Assuming job id {extracted_job_id}...")
             return
@@ -172,13 +190,12 @@ def run_quanting(ti: TaskInstance, **kwargs) -> None:
 
     year_month_folder = get_created_at_year_month(raw_file)
 
-    job_id = start_job(quanting_env, year_month_folder)
+    job_id = start_job(job_script_name, quanting_env, year_month_folder)
 
-    update_raw_file(
-        quanting_env[QuantingEnv.RAW_FILE_ID], new_status=RawFileStatus.QUANTING
-    )
+    if new_status is not None:
+        update_raw_file(quanting_env[QuantingEnv.RAW_FILE_ID], new_status=new_status)
 
-    put_xcom(ti, XComKeys.JOB_ID, job_id)
+    put_xcom(ti, xcom_key_job_id, job_id)
 
 
 def _get_custom_error_codes(events_jsonl_file_path: Path) -> list[str]:
@@ -327,4 +344,6 @@ def upload_metrics(ti: TaskInstance, **kwargs) -> None:
         settings_version=quanting_env[QuantingEnv.SETTINGS_VERSION],
     )
 
-    update_raw_file(raw_file_id, new_status=RawFileStatus.DONE)
+    update_raw_file(
+        raw_file_id, new_status=RawFileStatus.DONE, status_details=None
+    )  # TODO: move to dedicated reusable status update task

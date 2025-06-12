@@ -165,13 +165,15 @@ def test_update_raw_file(
     mock_raw_file.objects.with_id.return_value = mock_raw_file_from_db
 
     # when
-    update_raw_file("test_file", new_status=RawFileStatus.DONE, size=123)
+    update_raw_file(
+        "test_file", new_status=RawFileStatus.DONE, status_details=None, size=123
+    )
 
     # then
     mock_raw_file_from_db.update.assert_called_once_with(
+        status_details=None,
         status=RawFileStatus.DONE,
         updated_at_=mock_datetime.now.return_value,
-        status_details=None,
         size=123,
     )
     mock_connect_db.assert_called_once()

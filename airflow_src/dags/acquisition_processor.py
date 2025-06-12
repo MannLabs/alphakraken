@@ -72,15 +72,15 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
 
         wait_for_job_start_ = WaitForJobStartSensor(
             task_id=Tasks.WAIT_FOR_JOB_START,
-            poke_interval=Timings.QUANTING_MONITOR_POKE_INTERVAL_S,
-            max_active_tis_per_dag=Concurrency.MAXNO_MONITOR_QUANTING_TASKS_PER_DAG,
+            poke_interval=Timings.JOB_MONITOR_POKE_INTERVAL_S,
+            max_active_tis_per_dag=Concurrency.MAXNO_JOB_MONITOR_TASKS_PER_DAG,
             pool=Pools.CLUSTER_SLOTS_POOL,
         )
 
         monitor_quanting_ = WaitForJobFinishSensor(
             task_id=Tasks.MONITOR_QUANTING,
-            poke_interval=Timings.QUANTING_MONITOR_POKE_INTERVAL_S,
-            max_active_tis_per_dag=Concurrency.MAXNO_MONITOR_QUANTING_TASKS_PER_DAG,
+            poke_interval=Timings.JOB_MONITOR_POKE_INTERVAL_S,
+            max_active_tis_per_dag=Concurrency.MAXNO_JOB_MONITOR_TASKS_PER_DAG,
             # Note: if we decouple this task from cluster_slots_pool, then this setting would steer only the
             #  number of 'pending' jobs, which might be more desirable in some cases.
             pool=Pools.CLUSTER_SLOTS_POOL,

@@ -9,11 +9,14 @@ from sensors.ssh_utils import ssh_execute
 class GenericJobHandler(JobHandler):
     """Implementation of JobHandler that doesn't use Slurm but a more generic approach."""
 
-    def start_job(self, quanting_env: dict[str, str], year_month_folder: str) -> str:
+    def start_job(
+        self, job_script_name: str, environment: dict[str, str], year_month_folder: str
+    ) -> str:
         """Start a quanting job on the generic job engine."""
-        del quanting_env
+        del job_script_name
+        del environment
         del year_month_folder
-        command = "sleep 60"
+        command = "sleep 60"  # TODO: replace with path + job_script_name
         wrapped_command = f"{command} > /dev/null 2>&1 & echo $!"
 
         return ssh_execute(wrapped_command)

@@ -50,7 +50,9 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[
-        logging.FileHandler("/app/logs/webapp.log"),
+        logging.FileHandler("/app/logs/webapp.log")
+        if os.getenv("IS_PYTEST_RUN") is None
+        else None,
         logging.StreamHandler(),  # Keep console output for debugging
     ],
 )

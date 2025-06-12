@@ -3,6 +3,7 @@
 import io
 import logging
 import os
+import traceback
 from pathlib import Path
 
 import plotly.graph_objects as go
@@ -51,7 +52,7 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[
         logging.FileHandler("/app/logs/webapp.log")
-        if os.getenv("IS_PYTEST_RUN") is None
+        if os.getenv("IS_PYTEST_RUN", "0") != "1"
         else None,
         logging.StreamHandler(),  # Keep console output for debugging
     ],
@@ -65,7 +66,7 @@ def _log(item_to_log: str | Exception, extra_msg: str = "") -> None:
         if extra_msg:
             st.write(extra_msg)
             st.write(item_to_log)
-        msg = f"{extra_msg}{item_to_log}"
+        msg = f"{extra_msg}{item_to_log}\n{traceback.format_exc()}"
         logger.error(msg, exc_info=True)
     else:
         logger.info(item_to_log)

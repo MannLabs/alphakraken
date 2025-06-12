@@ -278,6 +278,13 @@ services:
       - ./misc/init-mongo.sh:/docker-entrypoint-initdb.d/init-mongo.sh
     environment:
       <<: *airflow-common-env
+      # these env vars are required for the init scrip to work
+      MONGO_USER_READ: ${MONGO_USER_READ:?error}
+      MONGO_PASSWORD_READ: ${MONGO_PASSWORD_READ:?error}
+      MONGO_USER_READWRITE: ${MONGO_USER_READWRITE:?error}
+      MONGO_PASSWORD_READWRITE: ${MONGO_PASSWORD_READWRITE:?error}
+      MONGO_USER_WEBAPP: ${MONGO_USER_WEBAPP:?error}
+      MONGO_PASSWORD_WEBAPP: ${MONGO_PASSWORD_WEBAPP:?error}
     env_file:
       - ./envs/.env-mongo
     healthcheck:

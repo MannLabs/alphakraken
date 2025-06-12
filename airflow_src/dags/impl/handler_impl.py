@@ -10,6 +10,7 @@ from common.constants import (
     DEFAULT_RAW_FILE_SIZE_IF_MAIN_FILE_MISSING,
 )
 from common.keys import (
+    DAG_DELIMITER,
     AirflowVars,
     DagContext,
     DagParams,
@@ -65,6 +66,7 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
 
     copied_files: dict[Path, tuple[float, str]] = {}
     for src_path, dst_path in copy_wrapper.get_files_to_copy().items():
+        # TODO: in case of multiple files, the first failure will stop copying all others -> maybe change this?
         dst_size, dst_hash = copy_file(src_path, dst_path, overwrite=overwrite)
         copied_files[dst_path] = (dst_size, dst_hash)
 
@@ -190,7 +192,7 @@ def start_acquisition_processor(ti: TaskInstance, **kwargs) -> None:
     instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
     raw_file_id = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID]
 
-    dag_id_to_trigger = f"{Dags.ACQUISITION_PROCESSOR}.{instrument_id}"
+    dag_id_to_trigger = f"{Dags.ACQUISITION_PROCESSOR}{DAG_DELIMITER}{instrument_id}"
 
     update_raw_file(raw_file_id, new_status=RawFileStatus.QUEUED_FOR_QUANTING)
 

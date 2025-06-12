@@ -11,6 +11,10 @@ class EnvVars:
     MONGO_PORT = "MONGO_PORT"
     MONGO_USER = "MONGO_USER"
     MONGO_PASSWORD = "MONGO_PASSWORD"  # noqa: S105  #Possible hardcoded password
+    MONGO_USER_READ = "MONGO_USER_READ"
+    MONGO_PASSWORD_READ = "MONGO_PASSWORD_READ"  # noqa: S105  #Possible hardcoded password
+    MONGO_USER_WEBAPP = "MONGO_USER_WEBAPP"
+    MONGO_PASSWORD_WEBAPP = "MONGO_PASSWORD_WEBAPP"  # noqa: S105  #Possible hardcoded password
 
     MESSENGER_WEBHOOK_URL = "MESSENGER_WEBHOOK_URL"  # TODO: move to yaml
 

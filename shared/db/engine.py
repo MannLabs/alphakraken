@@ -18,29 +18,52 @@ DB_NAME: str = "krakendb"
 # nonsensical default values are used by tests only
 DB_HOST = os.environ.get(EnvVars.MONGO_HOST, "some_host")
 DB_PORT = int(os.environ.get(EnvVars.MONGO_PORT, 12345))
-DB_USER = os.environ.get(EnvVars.MONGO_USER, "pika")
-DB_PASSWORD = os.environ.get(EnvVars.MONGO_PASSWORD, "chu")
 
 
-def connect_db(*, raise_on_error: bool = False) -> None:
-    """Connect to the database."""
+class UserTypes:
+    """Types of user credentials for database connection, see init-mongo.sh for their privileges."""
+
+    READONLY: str = "readonly"
+    WEBAPP: str = "webapp"
+    READWRITE: str = "readwrite"
+
+
+def connect_db(
+    user_type: str = UserTypes.READONLY, *, raise_on_error: bool = False
+) -> None:
+    """Connect to the database.
+
+    :param user_type: Type of user credentials to use for the connection.
+        Options are "readonly", "webapp", or "default".
+    :param raise_on_error: If True, raise an exception on connection failure.
+        If False, log the error and continue.
+    """
+    # Select user credentials based on user_type
+
+    user_env, password_env = {
+        "readonly": (EnvVars.MONGO_USER_READ, EnvVars.MONGO_PASSWORD_READ),
+        "webapp": (EnvVars.MONGO_USER_WEBAPP, EnvVars.MONGO_PASSWORD_WEBAPP),
+        "default": (EnvVars.MONGO_USER, EnvVars.MONGO_PASSWORD),
+    }[user_type]
+
+    username = os.environ.get(user_env, "pika")
+    password = os.environ.get(password_env, "chu")
+
     try:
-        # seems like this is not necessary:
-        # disconnect()
         # TODO: think about putting DB connection to an Airflow connection
-        logging.info(f"Connecting to db: {DB_HOST=} {DB_NAME=} {DB_PORT=} {DB_USER=}")
+        logging.info(f"Connecting to db: {DB_HOST=} {DB_NAME=} {DB_PORT=} {username=}")
 
         connect(
             DB_NAME,
             host=DB_HOST,
             port=DB_PORT,
-            username=DB_USER,
-            password=DB_PASSWORD,
+            username=username,
+            password=password,
             authentication_source=DB_NAME,
         )
     except ConnectionFailure as e:
         if raise_on_error:
             raise e  # noqa: TRY201
-        logging.info(f"DB connection: {DB_HOST=} {DB_PORT=} {DB_USER=}")
+        logging.info(f"DB connection: {DB_HOST=} {DB_PORT=} {username=}")
         logging.warning(f"Failed to connect to db: {e}")
         # A different connection with alias `default` was already registered.

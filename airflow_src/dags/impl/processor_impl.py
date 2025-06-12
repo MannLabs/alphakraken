@@ -294,7 +294,7 @@ def check_quanting_result(ti: TaskInstance, **kwargs) -> bool:
             raw_file.id,
             metrics={QUANTING_TIME_ELAPSED_METRIC: time_elapsed},
             settings_version=quanting_env[QuantingEnv.SETTINGS_VERSION],
-            metrics_type="alphadia",
+            metrics_type=MetricsTypes.ALPHADIA,
         )
 
         # fail the DAG without retry on new errors to make them transparent in Airflow UI

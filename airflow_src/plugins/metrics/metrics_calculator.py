@@ -229,13 +229,16 @@ def _calc_alphadia_metrics(data_store: DataStore) -> dict[str, str | int | float
 
 
 def _calc_custom_metrics(data_store: DataStore) -> dict[str, str | int | float]:
-    """Calculate custom metrics."""
+    """Calculate custom metrics.
+
+    This method can be extended to add custom metrics calculation logic.
+    Return a dictionary of metrics where keys are metric names and values are the metric values.
+    """
     del data_store  # unused
 
     metrics = {}
 
     # Add any custom calculations here
     # Example: metrics |= YourCustomMetricsClass(data_store).get()
-    metrics["murksi"] = 234
 
-    return metrics
+    return metrics  # noqa: RET504

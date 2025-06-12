@@ -64,12 +64,11 @@ For detailed information, please refer to the following documentation files:
 
 
 ## Customization
-
-Currently, most customizations required changes to the source code.
-However, many components (e.g. quanting, metrics calculation) are designed to be easily customizable.
-
 The `alphakraken.yaml` file offers some options regarding the behavior of the system,
 and `webapp/columns_config.yaml` allows to customize the columns and plots shown in the web application.
+
+Currently, other customizations require changes to the source code.
+However, many components (e.g. around quanting, metrics calculation) are already designed to be easily customizable.
 
 ---
 

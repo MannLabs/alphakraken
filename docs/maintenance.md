@@ -148,7 +148,14 @@ respective worker's container logs to find out the root cause.
 ## Useful commands
 
 ### Some useful MongoDB commands
-Find all files for a given instrument with a given status that are younger than a given date
+Log into the DB as admin user:
+```
+./compose.sh exec mongodb-service mongosh -u <MONGO_INITDB_ROOT_USERNAME> -p <MONGO_INITDB_ROOT_PASSWORD>
+```
+using the credentials from `envs/.env-mongo`. Then one can execute e.g. the commands in `init-mongo.sh`.
+
+
+Query to find all files for a given instrument with a given status that are younger than a given date
 ```
 { $and: [{status:"error"}, {instrument_id:"test1"}, {created_at_: {$gte: new ISODate("2024-06-27")}}]}
 ```
@@ -162,7 +169,7 @@ docker ps
 
 See state of mounts
 ```bash
-df
+df -h
 ```
 
 Instead of interacting with multiple services (by using `--profile`), you can also interact only with individual services,

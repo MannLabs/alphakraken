@@ -52,8 +52,6 @@ x-airflow-common: &airflow-common
     # environmental variables to be taken from the *.env file and passed to the containers at run time:
     ENV_NAME: ${ENV_NAME:?error}
     MONGO_HOST: ${MONGO_HOST:?error}
-    MONGO_USER: ${MONGO_USER:?error}
-    MONGO_PASSWORD: ${MONGO_PASSWORD:?error}
     MONGO_PORT: ${MONGO_PORT:?error}
     WEBAPP_URL: ${WEBAPP_URL:?error}
   volumes:
@@ -85,6 +83,8 @@ x-airflow-worker:
     # Required to handle warm shutdown of the celery workers properly
     # See https://airflow.apache.org/docs/docker-stack/entrypoint.html#signal-propagation
     DUMB_INIT_SETSID: "0"
+    MONGO_USER: ${MONGO_USER_READWRITE:?error}
+    MONGO_PASSWORD: ${MONGO_PASSWORD_READWRITE:?error}
   restart: always
 
 services:
@@ -303,6 +303,8 @@ services:
       - 80:8501 # map webapp also to the standard port to access it directly via hostname
     environment:
       <<: *airflow-common-env
+      MONGO_USER: ${MONGO_USER_WEBAPP:?error}
+      MONGO_PASSWORD: ${MONGO_PASSWORD_WEBAPP:?error}
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8501/healthz"]
       interval: 30s
@@ -337,6 +339,8 @@ services:
     environment:
       <<: *airflow-common-env
       MESSENGER_WEBHOOK_URL: ${MESSENGER_WEBHOOK_URL}
+      MONGO_USER: ${MONGO_USER_READ:?error}
+      MONGO_PASSWORD: ${MONGO_PASSWORD_READ:?error}
     restart: always
   #    healthcheck:
   #      test: ["CMD", "python", "-c", "..."]  # TODO add appropriate health check

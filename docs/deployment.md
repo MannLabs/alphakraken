@@ -321,3 +321,25 @@ There is a basic monitoring system in place that sends messages to a Slack chann
 
 This component allows to detect issues early and to react before they become critical.
 See the `monitoring` folder for details.
+
+## MCP Server
+All relevant state is stored in the MongoDB, so the only relevant MCP server currently is
+```
+{
+  "mcpServers": {
+    "AlphaKraken": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "-e",
+        "MDB_MCP_CONNECTION_STRING=mongodb://<MONGO_USER_READ>:<MONGO_PASSWORD_READ>@<MONGO_HOST>:<MONGO_PORT>/?authSource=krakendb",
+        "mongodb/mongodb-mcp-server:latest"
+      ]
+    }
+  }
+}
+```
+where the variables need to be set according to the `envs/${ENV}.env` file.
+See the [MongoDB MCP Server documentation](https://github.com/mongodb-js/mongodb-mcp-server) for more details.

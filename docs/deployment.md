@@ -322,6 +322,16 @@ There is a basic monitoring system in place that sends messages to a Slack chann
 This component allows to detect issues early and to react before they become critical.
 See the `monitoring` folder for details.
 
+## MongoDB User Management
+AlphaKraken implements a role-based access control system for MongoDB with three user types:
+
+1. `MONGO_USER_READWRITE`: Full read-write access to the database, used by Airflow workers that need to update file status
+2. `MONGO_USER_READ`: Read-only access to all collections, used by monitoring service
+3. `MONGO_USER_WEBAPP`: Custom role with read access to all collections, but write access only to project and settings collections
+
+This separation follows the principle of least privilege, ensuring each component has only the permissions it needs.
+
+
 ## MCP Server
 All relevant state is stored in the MongoDB, so the only relevant MCP server currently is
 ```

@@ -14,7 +14,7 @@ def ssh_execute(
     command: str,
     ssh_hook: SSHHook | None = None,
     *,
-    max_tries: int = 10,
+    max_tries: int = 30,
 ) -> str:
     """Execute the given `command` via the `ssh_hook`.
 
@@ -41,7 +41,7 @@ def ssh_execute(
             logging.error(f"Execution of SSH command failed too often: {command=}")
             raise AirflowFailException("Execution of SSH command failed too often.")
 
-        sleep(30 * call_count)  # no sleep in the first iteration
+        sleep(60 * call_count)  # no sleep in the first iteration
         call_count += 1
 
         try:

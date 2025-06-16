@@ -15,8 +15,8 @@ APP_FOLDER = Path(__file__).parent / Path("../../")
 @patch("service.db.get_status_data")
 def test_overview(
     mock_get_status_data: MagicMock,  # noqa: ARG001
-    mock_df: MagicMock,
-    mock_get: MagicMock,
+    mock_df_from_db_data: MagicMock,
+    mock_get_raw_file_and_metrics_data: MagicMock,
 ) -> None:
     """Test that overview page renders successfully."""
     mock_raw_files_db, mock_metrics_db, mock_status_db = (
@@ -24,7 +24,10 @@ def test_overview(
         MagicMock(),
         MagicMock(),
     )
-    mock_get.side_effect = [(mock_raw_files_db, mock_metrics_db), mock_status_db]
+    mock_get_raw_file_and_metrics_data.side_effect = [
+        (mock_raw_files_db, mock_metrics_db),
+        mock_status_db,
+    ]
 
     ts1 = pd.to_datetime(datetime.now())  # noqa: DTZ005
     ts2 = pd.to_datetime(datetime.fromtimestamp(5e9 + 0.5))  # noqa: DTZ006
@@ -64,6 +67,14 @@ def test_overview(
         }
     )
 
+    custom_metrics_df = pd.DataFrame(
+        {
+            "raw_file": [1, 2],
+            "proteins": [1, 2],
+            "some_custom_metric": [1, 2],
+        }
+    )
+
     status_df = pd.DataFrame(
         {
             "_id": ["i1", "i1"],
@@ -76,7 +87,12 @@ def test_overview(
         }
     )
 
-    mock_df.side_effect = [raw_files_df, metrics_df, status_df]
+    mock_df_from_db_data.side_effect = [
+        raw_files_df,
+        metrics_df,
+        custom_metrics_df,
+        status_df,
+    ]
 
     # when
     at = AppTest.from_file(f"{APP_FOLDER}/pages/overview.py").run()
@@ -108,6 +124,8 @@ def test_overview(
         "weighted_ms1_intensity_sum": {1: 1.0, 2: 2.0},
         "intensity_sum": {1: 1.0, 2: 2.0},
         "settings_version": {1: 1, 2: 2},
+        "proteins_custom": {1: 1, 2: 2},
+        "some_custom_metric": {1: 1, 2: 2},
     }
 
     assert not at.exception

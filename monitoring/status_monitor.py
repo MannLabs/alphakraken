@@ -30,7 +30,7 @@ from shared.keys import EnvVars
 # TODO: add a "all is well" message once a day/week?
 # TODO: health check if webapp is reachable
 
-MESSENGER_WEBHOOK_URL = os.environ.get(EnvVars.MESSENGER_WEBHOOK_URL)
+MESSENGER_WEBHOOK_URL: str = os.environ.get(EnvVars.MESSENGER_WEBHOOK_URL, "")
 if not MESSENGER_WEBHOOK_URL:
     logging.error(f"{EnvVars.MESSENGER_WEBHOOK_URL} environment variable must be set")
     sys.exit(1)

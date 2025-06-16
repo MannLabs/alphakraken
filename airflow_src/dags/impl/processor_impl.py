@@ -46,7 +46,7 @@ from shared.db.interface import (
     update_raw_file,
 )
 from shared.db.models import RawFile, RawFileStatus, get_created_at_year_month
-from shared.keys import Locations
+from shared.keys import Locations, MetricsTypes
 
 
 def _get_project_id_or_fallback(project_id: str | None, instrument_id: str) -> str:
@@ -294,6 +294,7 @@ def check_quanting_result(ti: TaskInstance, **kwargs) -> bool:
             raw_file.id,
             metrics={QUANTING_TIME_ELAPSED_METRIC: time_elapsed},
             settings_version=quanting_env[QuantingEnv.SETTINGS_VERSION],
+            metrics_type=MetricsTypes.ALPHADIA,
         )
 
         # fail the DAG without retry on new errors to make them transparent in Airflow UI
@@ -312,7 +313,9 @@ def check_quanting_result(ti: TaskInstance, **kwargs) -> bool:
     raise AirflowFailException(f"Quanting failed: {job_status=}")
 
 
-def compute_metrics(ti: TaskInstance, **kwargs) -> None:
+def compute_metrics(
+    ti: TaskInstance, *, metrics_type: str = MetricsTypes.ALPHADIA, **kwargs
+) -> None:
     """Compute metrics from the quanting results."""
     del kwargs
 
@@ -323,9 +326,17 @@ def compute_metrics(ti: TaskInstance, **kwargs) -> None:
     output_path = get_internal_output_path_for_raw_file(
         raw_file, quanting_env[QuantingEnv.PROJECT_ID_OR_FALLBACK]
     )
-    metrics = calc_metrics(output_path)
+
+    metrics = calc_metrics(output_path, metrics_type=metrics_type)
+
+    if metrics_type == MetricsTypes.ALPHADIA:
+        # TODO: the time measurement also needs to be generified
+        metrics[QUANTING_TIME_ELAPSED_METRIC] = get_xcom(
+            ti, XComKeys.QUANTING_TIME_ELAPSED
+        )
 
     put_xcom(ti, XComKeys.METRICS, metrics)
+    put_xcom(ti, XComKeys.METRICS_TYPE, metrics_type)
 
 
 def upload_metrics(ti: TaskInstance, **kwargs) -> None:
@@ -335,11 +346,11 @@ def upload_metrics(ti: TaskInstance, **kwargs) -> None:
     raw_file_id = get_xcom(ti, XComKeys.RAW_FILE_ID)
     quanting_env = get_xcom(ti, XComKeys.QUANTING_ENV)
     metrics: dict = get_xcom(ti, XComKeys.METRICS)
-
-    metrics[QUANTING_TIME_ELAPSED_METRIC] = get_xcom(ti, XComKeys.QUANTING_TIME_ELAPSED)
+    metrics_type = get_xcom(ti, XComKeys.METRICS_TYPE)
 
     add_metrics_to_raw_file(
         raw_file_id,
+        metrics_type=metrics_type,
         metrics=metrics,
         settings_version=quanting_env[QuantingEnv.SETTINGS_VERSION],
     )

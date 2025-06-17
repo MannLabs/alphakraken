@@ -54,6 +54,7 @@ def get_raw_files(
     instrument_id: str,
     name_search_string: str = "",
     max_age_in_days: int = 7,
+    gradient_length_filter: float | None = None,
     *,
     only_basic_metrics: bool = True,
 ) -> list[dict[str, Any]]:
@@ -63,6 +64,9 @@ def get_raw_files(
         instrument_id (str): The ID of the instrument to filter raw files.
         name_search_string (str): A substring to search for in raw file IDs, case insensitive. Default is an empty string.
         max_age_in_days (int): The maximum age of raw files in days. Default is 7.
+        gradient_length_filter (float | None): If not None, filters raw_files by gradient length (minutes).
+            Raw files without metrics or outside this range are excluded. Filter has a tolerance of 5% around the provided value.
+            Default is None.
         only_basic_metrics (bool): If True, only basic metrics (gradient_length, number of proteins) are returned, for a quick overview.
             Default is True.
 
@@ -102,9 +106,18 @@ def get_raw_files(
         )
 
         for raw_file in raw_files:
-            latest_metrics = (
-                Metrics.objects(raw_file=raw_file).order_by("-created_at_").first()
-            )
+            latest_metrics = Metrics.objects(raw_file=raw_file).order_by("-created_at_")
+            if gradient_length_filter:
+                latest_metrics = latest_metrics.filter(
+                    **{
+                        "raw:gradient_length_m__gte": gradient_length_filter * 0.95,
+                        "raw:gradient_length_m__lte": gradient_length_filter * 1.05,
+                    }
+                )
+                if not latest_metrics.first():
+                    continue
+
+            latest_metrics = latest_metrics.first()
 
             metrics_dict = (
                 {
@@ -138,5 +151,5 @@ def get_raw_files(
     return results
 
 
-# get_raw_files("astral2")
+get_raw_files("astral2", gradient_length_filter=21)
 mcp.run()

@@ -1,42 +1,127 @@
 """A MCP server for accessing data in the AlphaKraken database."""
+
+import math
+
 # ruff: noqa: T201  # `print` found
 # ruff: noqa: BLE001  # Do not catch blind exception
-
+# ruff: noqa: ANN401  #  Dynamically typed expressions (typing.Any) are disallowed
 import sys
+from datetime import datetime, timedelta
 from typing import Any
+
+import pytz
 
 try:
     from mcp.server.fastmcp import FastMCP
 
     from shared.db.engine import connect_db
-    from shared.db.interface import get_raw_files_by_age
+    from shared.db.models import Metrics, RawFile
 except Exception as e:
     print(f"Failed to connect to the database: {e}", file=sys.stderr)
 
 mcp = FastMCP("AlphaKraken")
 
 
+def _format(x: Any, n_digits: int = 5) -> Any:
+    """Reduce information content of numbers and date fields for LLMs.
+
+    Round a number to a specified number of digits, handling edge cases.
+    Format datetime objects to a string representation.
+    Leave strings and other types unchanged.
+    """
+    if isinstance(x, str):
+        return x
+    if isinstance(x, datetime):
+        return x.strftime("%Y-%m-%d_%H:%M:%S")
+    if not isinstance(x, (int, float)):
+        return x
+
+    if x == 0:
+        return 0
+    try:
+        ret_val = round(x, n_digits - int(math.floor(math.log10(abs(x)))) - 1)
+    except Exception:
+        ret_val = x
+    return int(ret_val) if isinstance(ret_val, int) else ret_val
+
+
 @mcp.tool()
 def get_raw_files(
-    instrument_id: str, max_age_in_days: int = 30, min_age_in_days: int = 0
+    instrument_id: str, name_search_string: str = "", max_age_in_days: int = 7
 ) -> list[dict[str, Any]]:
-    """Fetch raw files from the database for a given instrument within a specified age range."""
-    print("enter get_raw_files", file=sys.stderr)
+    """Retrieve raw files and their latest metrics from the database.
+
+    Args:
+        instrument_id (str): The ID of the instrument to filter raw files.
+        name_search_string (str): A substring to search for in raw file IDs, case insensitive. Default is an empty string.
+        max_age_in_days (int): The maximum age of raw files in days. Default is 7.
+
+    Returns:
+        list[dict[str, Any]]: A list of dictionaries containing raw file information and their latest metrics.
+                              Each dictionary has the keys:
+                              - "raw_file": A dictionary with raw file details.
+                              - "metrics": A dictionary with the latest metrics or an empty dictionary if none exist.
+                              If an error occurs, a dictionary with an "error" key is returned.
+
+    """
+    # Note: the docstring is used by the MCP server to generate the API documentation for the LLM!
+
+    raw_file_keys = [
+        "status",
+        "status_details",
+        "size",
+        "created_at",
+    ]
+
     try:
         connect_db()
     except Exception as e:
-        print(f"Failed connect_db(): {e}", file=sys.stderr)
+        msg = f"Failed connect_db(): {e}"
+        print(msg, file=sys.stderr)
+        return [{"error": msg}]
 
+    cutoff = datetime.now(tz=pytz.utc) - timedelta(days=max_age_in_days)
+    results = []
     try:
-        raw_files_by_age = get_raw_files_by_age(
-            instrument_id,
-            max_age_in_days=max_age_in_days,
-            min_age_in_days=min_age_in_days,
+        raw_files = RawFile.objects(
+            instrument_id=instrument_id,
+            id__icontains=name_search_string,
+            created_at__gte=cutoff,
         )
+
+        for raw_file in raw_files:
+            latest_metrics = (
+                Metrics.objects(raw_file=raw_file).order_by("-created_at_").first()
+            )
+            metrics = (
+                {
+                    k: _format(v)
+                    for k, v in dict(latest_metrics.to_mongo()).items()
+                    if k not in ["_id", "raw_file", "created_at_"]
+                }
+                if latest_metrics
+                else {}
+            )
+            raw_file_dict = dict(raw_file.to_mongo())
+            results.append(
+                {
+                    "raw_file": {
+                        k: _format(v)
+                        for k, v in raw_file_dict.items()
+                        if k in raw_file_keys
+                    }
+                    | {"name": raw_file_dict["_id"]},
+                    "metrics": metrics,
+                }
+            )
+
     except Exception as e:
-        print(f"Failed get_raw_files_by_age: {e}", file=sys.stderr)
+        msg = f"Failed get_raw_files_by_age: {e}"
+        print(msg, file=sys.stderr)
+        results.append({"error": msg})
 
-    return [raw_file.to_mongo() for raw_file in raw_files_by_age]
+    return results
 
 
+# get_raw_files("astral2")
 mcp.run()

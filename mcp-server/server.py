@@ -10,14 +10,10 @@ from datetime import datetime, timedelta
 from typing import Any
 
 import pytz
+from mcp.server.fastmcp import FastMCP
 
-try:
-    from mcp.server.fastmcp import FastMCP
-
-    from shared.db.engine import connect_db
-    from shared.db.models import Metrics, RawFile
-except Exception as e:
-    print(f"Failed to connect to the database: {e}", file=sys.stderr)
+from shared.db.engine import connect_db
+from shared.db.models import Metrics, RawFile
 
 mcp = FastMCP("AlphaKraken")
 
@@ -47,7 +43,11 @@ def _format(x: Any, n_digits: int = 5) -> Any:
 
 @mcp.tool()
 def get_raw_files(
-    instrument_id: str, name_search_string: str = "", max_age_in_days: int = 7
+    instrument_id: str,
+    name_search_string: str = "",
+    max_age_in_days: int = 7,
+    *,
+    only_basic_metrics: bool = True,
 ) -> list[dict[str, Any]]:
     """Retrieve raw files and their latest metrics from the database.
 
@@ -55,6 +55,8 @@ def get_raw_files(
         instrument_id (str): The ID of the instrument to filter raw files.
         name_search_string (str): A substring to search for in raw file IDs, case insensitive. Default is an empty string.
         max_age_in_days (int): The maximum age of raw files in days. Default is 7.
+        only_basic_metrics (bool): If True, only basic metrics (gradient_length, number of proteins) are returned, for a quick overview.
+            Default is True.
 
     Returns:
         list[dict[str, Any]]: A list of dictionaries containing raw file information and their latest metrics.
@@ -66,12 +68,14 @@ def get_raw_files(
     """
     # Note: the docstring is used by the MCP server to generate the API documentation for the LLM!
 
-    raw_file_keys = [
+    raw_file_keys_whitelist = [
         "status",
         "status_details",
         "size",
         "created_at",
     ]
+    metrics_keys_blacklist = ["_id", "raw_file", "created_at_"]
+    basic_metrics_keys = ["proteins", "raw:gradient_length_m"]
 
     try:
         connect_db()
@@ -93,25 +97,28 @@ def get_raw_files(
             latest_metrics = (
                 Metrics.objects(raw_file=raw_file).order_by("-created_at_").first()
             )
-            metrics = (
+
+            metrics_dict = (
                 {
                     k: _format(v)
                     for k, v in dict(latest_metrics.to_mongo()).items()
-                    if k not in ["_id", "raw_file", "created_at_"]
+                    if k not in metrics_keys_blacklist
+                    and (k in basic_metrics_keys or not only_basic_metrics)
                 }
                 if latest_metrics
                 else {}
             )
+
             raw_file_dict = dict(raw_file.to_mongo())
             results.append(
                 {
                     "raw_file": {
                         k: _format(v)
                         for k, v in raw_file_dict.items()
-                        if k in raw_file_keys
+                        if k in raw_file_keys_whitelist
                     }
                     | {"name": raw_file_dict["_id"]},
-                    "metrics": metrics,
+                    "metrics": metrics_dict,
                 }
             )
 

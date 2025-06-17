@@ -41,6 +41,14 @@ def _format(x: Any, n_digits: int = 5) -> Any:
     return int(ret_val) if isinstance(ret_val, int) else ret_val
 
 
+# some thoughts for future improvements:
+# TODO: offer combined queries, like multiple instruments etc
+# TODO: offer a dict of metrics with its description, plus a filter to retrieve only certain metrics
+# TODO: offer multiple names, regexps
+# TODO: think about pagination, if the number of files is large
+# TODO: make this a rest API?
+
+
 @mcp.tool()
 def get_raw_files(
     instrument_id: str,

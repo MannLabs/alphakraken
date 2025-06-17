@@ -151,5 +151,5 @@ def get_raw_files(
     return results
 
 
-get_raw_files("astral2", gradient_length_filter=21)
+# get_raw_files("astral2", gradient_length_filter=21)  # only for debugging
 mcp.run()

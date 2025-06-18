@@ -187,7 +187,9 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
 ) -> None:
     """A fragment that displays a DataFrame with a filter."""
     st.markdown("## Data")
+
     now = datetime.now(tz=pytz.UTC).replace(microsecond=0)
+    st.text(f"Last fetched {now.strftime('%Y-%m-%d %H:%M:%S')}")
 
     # filter
     len_whole_df = len(df)

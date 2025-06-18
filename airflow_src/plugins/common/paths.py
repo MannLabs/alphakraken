@@ -4,10 +4,10 @@ from pathlib import Path
 
 from common.constants import (
     OUTPUT_FOLDER_PREFIX,
-    InternalPaths,
 )
 
 from shared.db.models import RawFile, get_created_at_year_month
+from shared.keys import InternalPaths
 
 
 def get_internal_instrument_data_path(instrument_id: str) -> Path:

@@ -24,7 +24,6 @@ from common.paths import (
 )
 from common.settings import (
     get_instrument_settings,
-    get_path,
 )
 from common.utils import (
     get_airflow_variable,
@@ -41,6 +40,7 @@ from shared.keys import (
     DDA_FLAG_IN_RAW_FILE_NAME,
     Locations,
 )
+from shared.yamlsettings import get_path
 
 
 def copy_raw_file(ti: TaskInstance, **kwargs) -> None:

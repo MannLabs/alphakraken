@@ -104,41 +104,42 @@ def get_raw_files(
             id__icontains=name_search_string,
             created_at__gte=cutoff,
         )
+        raw_files_dict: dict = { dict(raw_file.to_mongo())["_id"] : dict(raw_file.to_mongo()) for raw_file in raw_files }
 
-        for raw_file in raw_files:
-            latest_metrics = Metrics.objects(raw_file=raw_file).order_by("-created_at_")
-            if gradient_length_filter:
-                latest_metrics = latest_metrics.filter(
-                    **{
-                        "raw:gradient_length_m__gte": gradient_length_filter * 0.95,
-                        "raw:gradient_length_m__lte": gradient_length_filter * 1.05,
-                    }
-                )
-                if not latest_metrics.first():
-                    continue
+        # querying all metrics at once to avoid load on DB
+        for m in Metrics.objects.filter(raw_file__in=list(raw_files_dict.keys())).order_by("-created_at_"):
+            mm = dict(m.to_mongo())
+            raw_files_dict[mm["raw_file"]]["metrics"] = mm  # here we overwrite older metrics for a raw file if any
 
-            latest_metrics = latest_metrics.first()
 
+        for raw_file in raw_files_dict.values():
+            metrics = raw_file.get("metrics")
+
+            if gradient_length_filter and (not metrics or not metrics["raw:gradient_length_m"]*0.95 <= gradient_length_filter <= metrics["raw:gradient_length_m"]*1.05):
+                continue
+
+            # TODO this needs to be combined with the above step
             metrics_dict = (
                 {
                     k: _format(v)
-                    for k, v in dict(latest_metrics.to_mongo()).items()
+                    for k, v in metrics.items()
                     if k not in metrics_keys_blacklist
                     and (k in basic_metrics_keys or not only_basic_metrics)
                 }
-                if latest_metrics
+                if metrics
                 else {}
             )
 
-            raw_file_dict = dict(raw_file.to_mongo())
             results.append(
                 {
+
+                    # TODO this needs to be combined with the above step
                     "raw_file": {
                         k: _format(v)
-                        for k, v in raw_file_dict.items()
+                        for k, v in raw_file.items()
                         if k in raw_file_keys_whitelist
                     }
-                    | {"name": raw_file_dict["_id"]},
+                    | {"name": raw_file["_id"]},
                     "metrics": metrics_dict,
                 }
             )
@@ -151,5 +152,5 @@ def get_raw_files(
     return results
 
 
-# get_raw_files("astral2", gradient_length_filter=21)  # only for debugging
+#get_raw_files("astral2", max_age_in_days=30)  # only for debugging
 mcp.run()

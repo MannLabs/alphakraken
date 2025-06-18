@@ -65,11 +65,11 @@ def test_ssh_execute_too_many_tries(mock_sleep: MagicMock) -> None:
     # given
     ssh_hook = MagicMock()
     bad_return = (254, b"command output", b"")
-    ssh_hook.exec_ssh_client_command.side_effect = [bad_return] * 11
+    ssh_hook.exec_ssh_client_command.side_effect = [bad_return] * 31
 
     # when
     with pytest.raises(AirflowFailException):
         ssh_execute("my_command", ssh_hook)
 
-    assert mock_sleep.call_count == 10  # noqa: PLR2004
-    assert ssh_hook.exec_ssh_client_command.call_count == 10  # noqa: PLR2004
+    assert mock_sleep.call_count == 30  # noqa: PLR2004
+    assert ssh_hook.exec_ssh_client_command.call_count == 30  # noqa: PLR2004

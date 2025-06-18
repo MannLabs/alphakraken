@@ -1,13 +1,12 @@
 """Utilities for the streamlit app."""
 
 import io
+import logging
 import os
 import traceback
-from datetime import datetime
 from pathlib import Path
 
 import plotly.graph_objects as go
-import pytz
 import streamlit as st
 from PIL import Image
 
@@ -47,20 +46,30 @@ DEFAULT_MAX_TABLE_LEN = 500
 DEFAULT_MAX_AGE_OVERVIEW = 30  # days
 DEFAULT_MAX_AGE_STATUS = 90  # days
 
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[
+        logging.FileHandler("/app/logs/webapp.log")
+        if os.getenv("IS_PYTEST_RUN", "0") != "1"
+        else None,
+        logging.StreamHandler(),  # Keep console output for debugging
+    ],
+)
+logger = logging.getLogger(__name__)
+
 
 def _log(item_to_log: str | Exception, extra_msg: str = "") -> None:
     """Write a log message and show it if it's an exception."""
-    now = datetime.now(tz=pytz.UTC).strftime("%Y-%m-%d %H:%M:%S.%f")
-
     if isinstance(item_to_log, Exception):
         if extra_msg:
             st.write(extra_msg)
             st.write(item_to_log)
         msg = f"{extra_msg}{item_to_log}\n{traceback.format_exc()}"
+        logger.error(msg, exc_info=True)
     else:
-        msg = f"{now}: {item_to_log}"
-
-    os.write(1, f"{msg}\n".encode())
+        logger.info(item_to_log)
 
 
 def empty_to_none(value: str) -> str | None:

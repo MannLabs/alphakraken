@@ -2,13 +2,11 @@
 
 from typing import Any
 
-import yaml
-from common.constants import InternalPaths
-from common.keys import InstrumentKeys, InstrumentTypes
-from common.utils import get_env_variable
+from common.keys import InstrumentKeys
 
-from shared.keys import EnvVars, InstrumentTypes
+from shared.keys import InstrumentTypes
 from shared.yamlsettings import YAMLSETTINGS
+
 
 class Timings:
     """Timing constants."""

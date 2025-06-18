@@ -260,7 +260,7 @@ def get_status_cell_style() -> None:
 
 def test_get_full_backup_path_handles_thermo_files() -> None:
     """Test that the function handles Thermo files correctly."""
-    df = DataFrame(
+    df = pd.DataFrame(
         {
             "backup_base_path": ["/backup/path"],
             "file_info": [{"file1.raw": [1, "hash1"]}],
@@ -273,7 +273,7 @@ def test_get_full_backup_path_handles_thermo_files() -> None:
 
 def test_get_full_backup_path_handles_sciex_files() -> None:
     """Test that the function handles Sciex files correctly."""
-    df = DataFrame(
+    df = pd.DataFrame(
         {
             "backup_base_path": ["/backup/path"],
             "file_info": [
@@ -288,7 +288,7 @@ def test_get_full_backup_path_handles_sciex_files() -> None:
 
 def test_get_full_backup_path_handles_bruker_files() -> None:
     """Test that the function handles Bruker files correctly."""
-    df = DataFrame(
+    df = pd.DataFrame(
         {
             "backup_base_path": ["/backup/path"],
             "file_info": [
@@ -303,7 +303,7 @@ def test_get_full_backup_path_handles_bruker_files() -> None:
 
 def test_get_full_backup_path_raises_on_missing_data() -> None:
     """Test that the function raises an error when both backup_base_path and file_info are missing."""
-    df = DataFrame(
+    df = pd.DataFrame(
         {"_id": ["some_file.raw"], "backup_base_path": [None], "file_info": [None]}
     )
     with pytest.raises(
@@ -315,7 +315,7 @@ def test_get_full_backup_path_raises_on_missing_data() -> None:
 
 def test_get_full_backup_path_detects_multiple_instrument_types() -> None:
     """Test that the function detects multiple instrument types."""
-    df = DataFrame(
+    df = pd.DataFrame(
         {
             "backup_base_path": ["/backup/path", "/backup/path"],
             "file_info": [{"file1.raw": [1, "hash1"]}, {"file1.wiff": [1, "hash1"]}],

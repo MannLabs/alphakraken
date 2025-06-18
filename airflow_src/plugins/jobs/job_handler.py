@@ -10,7 +10,6 @@ from datetime import datetime
 
 from airflow.exceptions import AirflowFailException
 from common.constants import CLUSTER_BASE_WORKING_DIR_NAME
-from common.settings import _SETTINGS, get_path
 from sensors.ssh_utils import ssh_execute
 
 from shared.keys import Locations

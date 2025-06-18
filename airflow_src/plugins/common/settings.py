@@ -11,7 +11,6 @@ from common.keys import InstrumentKeys, InstrumentTypes
 from shared.keys import EnvVars, InstrumentTypes
 from shared.yamlsettings import YAMLSETTINGS
 
-
 class Timings:
     """Timing constants."""
 

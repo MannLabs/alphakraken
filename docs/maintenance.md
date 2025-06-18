@@ -1,51 +1,3 @@
-## Actions to take after a machine reboot
-Currently, there is some action needed after a reboot of the local worker PC. This could be
-avoided by using permanent mounts.
-
-#### Restart of PC/VM hosting the DBs (MongoDB, Airflow Postgres DB, Redis)
-0. `ssh` into the PC/VM, `cd` to the alphakraken source directory, and set `export ENV=sandbox` (`export ENV=production`).
-
-1. Start the docker service
-```bash
-sudo systemctl start docker
-```
-Usually, all container should be started automatically (check container health using `sudo docker ps`).
-If not, proceed with the next step:
-
-2. Run the MongoDB, airflow db & redis services
-```bash
-./compose.sh --profile dbs up --build -d
-```
-
-
-#### Restart of PC/VM hosting the workers / infrastructure
-0. `ssh` into the PC/VM, `cd` to the alphakraken source directory, and set `export ENV=sandbox` (`export ENV=production`).
-
-1. Set up all mounts for all instruments (`test1`, ..) and the other folders:
-```bash
-for entity in test1 test2 test3 backup output logs; do
-  ./mount.sh $entity
-done
-```
-You will be prompted for the password for each mount.
-When mounting `backup` you must use the `kraken-write` user with full write access (can also be used for `output` and `logs`).
-
-If infrastructure runs on a dedicated PC, only `logs` mount is required, whereas workers need all instrument mounts plus
-`backup` and `output`.
-
-2. Start the docker service
-```bash
-sudo systemctl start docker
-```
-Usually, all container should be started automatically (check container health using `sudo docker ps`).
-If not, proceed with the following step.
-
-3. Run the worker and/or infrastructure containers
-```bash
-./compose.sh --profile workers up --build -d
-./compose.sh --profile infrastructure up --build -d
-```
-
 
 ## A note on 'state', fallback & catchup
 AlphaKraken is designed to be robust against interruptions, and built to be distributed easily across several machines.
@@ -196,7 +148,19 @@ respective worker's container logs to find out the root cause.
 ## Useful commands
 
 ### Some useful MongoDB commands
-Find all files for a given instrument with a given status that are younger than a given date
+Update the MongoDB on change of the `init-mongo.sh` script
+```bash
+./compose.sh exec mongodb-service bash /docker-entrypoint-initdb.d/init-mongo.sh
+```
+
+Log into the DB as admin user:
+```
+./compose.sh exec mongodb-service mongosh -u <MONGO_INITDB_ROOT_USERNAME> -p <MONGO_INITDB_ROOT_PASSWORD>
+```
+using the credentials from `envs/.env-mongo`.
+
+
+Query to find all files for a given instrument with a given status that are younger than a given date
 ```
 { $and: [{status:"error"}, {instrument_id:"test1"}, {created_at_: {$gte: new ISODate("2024-06-27")}}]}
 ```
@@ -210,7 +174,7 @@ docker ps
 
 See state of mounts
 ```bash
-df
+df -h
 ```
 
 Instead of interacting with multiple services (by using `--profile`), you can also interact only with individual services,
@@ -269,10 +233,11 @@ jobs that have already been submitted and thus may take a while to take effect.
 ## Upgrading Airflow
 Every once in a while, the Airflow version should be updated.
 
-1. Locate the current version in the Airflow Dockerfile, line `ARG AIRFLOW_VERSION=2.10.5`
-2. Check for breaking changes between the current and the new version [here](https://airflow.apache.org/docs/apache-airflow/stable/release_notes.html)
-and adapt if necessary.
-3. Replace the old version with the new version throughout the code.
-4. Shutdown all workers and infrastructure (up to the databases).
-5. Migrate the Airflow DB: `./compose.sh run airflow-cli db migrate`
-6. Spin up workers and infrastructure again.
+1. Create a backup copy of the `mongodb_data_${ENV}` and `airflowdb_data_${ENV}` folders (on the machine that hosts the DBs).
+2. Locate the current version in the Airflow Dockerfile, line `ARG AIRFLOW_VERSION=2.10.5`
+3. Check for breaking changes between the current and the new version [here](https://airflow.apache.org/docs/apache-airflow/stable/release_notes.html)
+and adapt the code if necessary.
+4. Search and replace the old version string (e.g. `2.10.5`) with the new version throughout the code.
+5. Shutdown all workers and infrastructure (up to the databases), generally following the instructions on how to deploy new code versions [here](deployment.md#deploying-new-code-versions).
+6. Migrate the Airflow DB: `./compose.sh run airflow-cli db migrate`
+7. Spin up workers and infrastructure again.

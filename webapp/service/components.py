@@ -4,6 +4,7 @@ import os
 import re
 from collections import defaultdict
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 import humanize
@@ -15,7 +16,7 @@ from matplotlib import pyplot as plt
 from service.utils import APP_URL, DEFAULT_MAX_AGE_STATUS, display_plotly_chart
 
 from shared.db.models import TERMINAL_STATUSES, RawFileStatus
-from shared.keys import EnvVars
+from shared.keys import EnvVars, InstrumentTypes
 
 
 def _re_filter(text: Any, filter_: str) -> bool:  # noqa: ANN401
@@ -232,21 +233,21 @@ def display_status(combined_df: pd.DataFrame, status_data_df: pd.DataFrame) -> N
         last_file_creation = tmp_df.iloc[0]["created_at"]
         status_data["last_file_creation"].append(last_file_creation)
         status_data["last_file_creation_text"].append(
-            _get_display_time(last_file_creation, now)
+            get_display_time(last_file_creation, now)
         )
 
         # last status update (e.g. 'quanting' -> 'done')
         last_update = sorted(tmp_df["updated_at_"].to_numpy())[::-1][0]
         status_data["last_status_update"].append(last_update)
         status_data["last_status_update_text"].append(
-            _get_display_time(last_update, now)
+            get_display_time(last_update, now)
         )
 
         # last file watcher poke
         last_health_check = status_df["updated_at_"].to_numpy()[0]
         status_data["last_health_check"].append(last_health_check)
         status_data["last_health_check_text"].append(
-            _get_display_time(last_health_check, now)
+            get_display_time(last_health_check, now)
         )
         status_data["status_details"].append(status_df["status_details"].to_numpy()[0])
 
@@ -257,8 +258,17 @@ def display_status(combined_df: pd.DataFrame, status_data_df: pd.DataFrame) -> N
     st.dataframe(status_df.style.apply(lambda row: _get_color(row), axis=1))
 
 
-def _get_display_time(past_time: datetime, now: datetime) -> str:
-    """Get a human readable display time for the last file creation."""
+def get_display_time(
+    past_time: datetime, now: datetime, prefix: str = "", suffix: str = " ago"
+) -> str:
+    """Get a human readable time display.
+
+    :param past_time: The past time to calculate the difference from.
+    :param now: The current time to calculate the difference to.
+    :param prefix: A string to prepend to the display time. Defaults to an empty string.
+    :param suffix: A string to append to the display time. Defaults to " ago".
+    :return:
+    """
     display_time = humanize.precisedelta(
         now - pd.Timestamp(past_time), minimum_unit="seconds", format="%.0f"
     )
@@ -271,7 +281,7 @@ def _get_display_time(past_time: datetime, now: datetime) -> str:
         " hour": "h",
     }.items():
         display_time = display_time.replace(full, abbrev)
-    return f"{display_time} ago"
+    return f"{prefix}{display_time}{suffix}"
 
 
 def _get_color(
@@ -391,3 +401,74 @@ def get_terminal_status_counts(
         result.append(f"{status}: {int(count)} ({percentage:.1f}%)")
 
     return "; ".join(result)
+
+
+def get_full_backup_path(df: pd.DataFrame) -> tuple[list, bool]:  # noqa: C901 (too complex)
+    """Construct full path to files by concatenating 'backup_base_path' with the relevant keys from the 'file_info' dictionary.
+
+    Args:
+        df (pd.DataFrame): DataFrame containing the columns 'backup_base_path' and 'file_info'.
+
+    Returns:
+        paths, is_multiple_types: A list of backup paths and a boolean indicating if multiple instrument types are present.
+
+    """
+
+    def _get_instrument_type(file_info: dict) -> str:
+        """Get the instrument type from the file_info dictionary."""
+        # TODO: remove this logic! add this info to the raw_file entity -> requires migration
+        for key in file_info:
+            if key.endswith(".raw"):
+                return InstrumentTypes.THERMO
+            if key.endswith(".wiff"):
+                return InstrumentTypes.SCIEX
+            if key.split("/")[-2].endswith(".d"):
+                return InstrumentTypes.BRUKER
+
+        raise ValueError(f"Unknown file type in {file_info=}")
+
+    def _get_concatenated_path(raw_file_row: pd.Series) -> tuple[list[str], str]:
+        """Get the concatenated path(s) for a raw file.
+
+        - one .raw file for Thermo
+        - one .d folder for Brujker
+        - multiple .wiff* files for Sciex
+        """
+        backup_base_path_str = raw_file_row.get("backup_base_path", "")
+        file_info = raw_file_row.get("file_info", {})
+
+        if not backup_base_path_str or not file_info:
+            raise ValueError(
+                f"Missing {backup_base_path_str=} or {file_info=} for file {raw_file_row['_id']}. Please exclude from selection."
+            )
+
+        backup_base_path = Path(backup_base_path_str)
+        instrument_type = _get_instrument_type(file_info)
+
+        paths = []
+        if instrument_type == InstrumentTypes.THERMO:
+            first_file_path = next(iter(file_info))
+            paths.append(backup_base_path / first_file_path)
+        elif instrument_type == InstrumentTypes.SCIEX:
+            for file_path in file_info:
+                paths.append(backup_base_path / file_path)  # noqa: PERF401
+        elif instrument_type == InstrumentTypes.BRUKER:
+            paths_ = []
+            first_file_path = next(iter(file_info))
+            # extract everything up to the .d folder: /path/to/raw_file.d/analysis.tdf -> /path/to/raw_file.d
+            for k in first_file_path.split("/"):
+                paths_.append(k)
+                if k.endswith(".d"):
+                    paths.append(backup_base_path / "/".join(paths_))
+                    break
+
+        return paths, instrument_type
+
+    result = [
+        r for r in df.apply(_get_concatenated_path, axis=1).tolist() if r is not None
+    ]
+
+    unique_instrument_types = {sublist[1] for sublist in result}
+    return [str(path) for sublist in result for path in sublist[0]], len(
+        unique_instrument_types
+    ) > 1

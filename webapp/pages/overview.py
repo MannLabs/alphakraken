@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path
 
 import pandas as pd
 import plotly.express as px
@@ -9,15 +10,19 @@ import pytz
 
 # ruff: noqa: PD002 # `inplace=True` should be avoided; it has inconsistent behavior
 import streamlit as st
+import yaml
 from matplotlib import pyplot as plt
 from service.components import (
+    get_display_time,
+    get_full_backup_path,
     get_terminal_status_counts,
     highlight_status_cell,
     show_date_select,
     show_filter,
     show_sandbox_message,
 )
-from service.data_handling import get_combined_raw_files_and_metrics_df
+from service.data_handling import get_combined_raw_files_and_metrics_df, get_lag_time
+from service.db import get_full_raw_file_data
 from service.utils import (
     APP_URL,
     DEFAULT_MAX_AGE_OVERVIEW,
@@ -29,7 +34,7 @@ from service.utils import (
     display_plotly_chart,
 )
 
-from shared.db.models import ERROR_STATUSES
+from shared.db.models import ERROR_STATUSES, TERMINAL_STATUSES
 
 _log(f"loading {__file__}")
 
@@ -45,8 +50,8 @@ class Column:
     at_front: bool = False
     # move column to end of table
     at_end: bool = False
-    # color in table
-    color_table: bool = False
+    # color gradient in table: None (no gradient), "green_is_high" (green=high, red=low), "red_is_high" (red=high, green=low)
+    color_gradient: str | None = None
     # show as plot
     plot: bool = False
     # use log scale for plot
@@ -57,110 +62,32 @@ class Column:
     plot_optional: bool = False
 
 
-COLUMNS = (
-    # hide
-    Column("created_at", hide=True),
-    Column("size", hide=True),
-    Column("quanting_time_elapsed", hide=True),
-    Column("raw_file", hide=True),
-    Column("file_info", hide=True),
-    Column("_id", hide=True),
-    Column("original_name", hide=True),
-    Column("collision_flag", hide=True),
-    # at front (order matters)
-    Column("instrument_id", at_front=True),
-    Column("status", at_front=True),
-    Column("status_details", at_front=True),
-    Column("size_gb", at_front=True, color_table=True, plot=True),
-    Column("file_created", at_front=True),
-    Column(
-        "gradient_length",
-        at_front=True,
-        color_table=True,
-        alternative_names=["raw:gradient_length_m"],
-    ),
-    # plots (order matters)
-    Column("precursors", at_front=True, color_table=True, plot=True),
-    Column("proteins", at_front=True, color_table=True, plot=True),
-    Column("weighted_ms1_intensity_sum", color_table=True, plot=True, log_scale=True),
-    Column("intensity_sum", color_table=True, plot=True, log_scale=True),
-    Column(
-        "ms1_median_accuracy",
-        color_table=True,
-        plot=True,
-        alternative_names=[
-            "ms1_accuracy",  # alphadia<=1.8.2
-            "calibration:ms1_median_accuracy",
-        ],
-    ),
-    Column(
-        "ms2_median_accuracy",
-        color_table=True,
-        plot=True,
-        alternative_names=[
-            "calibration:ms2_median_accuracy",
-        ],
-    ),
-    Column("fwhm_rt", color_table=True, plot=True),
-    Column("fwhm_mobility", color_table=True, plot=True),
-    Column(
-        "ms1_error",
-        color_table=True,
-        plot=True,
-        alternative_names=["optimization:ms1_error"],
-    ),
-    Column(
-        "ms2_error",
-        color_table=True,
-        plot=True,
-        alternative_names=["optimization:ms2_error"],
-    ),
-    Column(
-        "rt_error",
-        color_table=True,
-        plot=True,
-        alternative_names=["optimization:rt_error"],
-    ),
-    Column(
-        "mobility_error",
-        color_table=True,
-        plot=True,
-        alternative_names=["optimization:mobility_error"],
-    ),
-    Column(
-        "charge_mean",
-        at_front=True,
-        color_table=True,
-        plot=True,
-    ),
-    Column(
-        "proba_median",
-        at_front=True,
-        color_table=True,
-        plot=True,
-    ),
-    Column(
-        "precursor_intensity_median",  # do not confuse with "intensity_sum"
-        at_front=True,
-        color_table=True,
-        plot=True,
-    ),
-    Column(
-        "sequence_len_mean",
-        at_front=True,
-        color_table=True,
-        plot=True,
-    ),
-    # some technical plots:
-    Column("settings_version", at_end=True, plot=True),
-    Column("quanting_time_minutes", color_table=True, plot=True),
-    Column("duration_optimization", color_table=True, plot=True, at_end=True),
-    Column("duration_extraction", color_table=True, plot=True, at_end=True),
-    # at end (order matters)
-    Column("project_id", at_end=True),
-    Column("updated_at_", at_end=True),
-    Column("created_at_", at_end=True),
-)
+def _load_columns_from_yaml() -> tuple[Column, ...]:
+    """Load column configuration from YAML file."""
+    columns_config_file_path = Path(__file__).parent / ".." / "columns_config.yaml"
+
+    with columns_config_file_path.open() as f:
+        columns_config = yaml.safe_load(f)
+
+    return tuple(
+        [
+            Column(
+                name=column["name"],
+                hide=column.get("hide"),
+                at_front=column.get("at_front"),
+                at_end=column.get("at_end"),
+                color_gradient=column.get("color_gradient"),
+                plot=column.get("plot"),
+                log_scale=column.get("log_scale"),
+                alternative_names=column.get("alternative_names"),
+                plot_optional=column.get("plot_optional"),
+            )
+            for column in columns_config["columns"]
+        ]
+    )
+
+
+COLUMNS = _load_columns_from_yaml()
 
 # ########################################### PAGE HEADER
 
@@ -176,12 +103,12 @@ st.write(
 
 
 days = 60
-url = f"{APP_URL}/overview?max_age={days}"
+max_age_url = f"{APP_URL}/overview?max_age={days}"
 st.markdown(
     f"""
     Note: for performance reasons, by default only data for the last {DEFAULT_MAX_AGE_OVERVIEW} days are loaded.
     If you want to see more data, use the `?max_age=` query parameter in the url, e.g.
-    <a href="{url}" target="_self">{url}</a>
+    <a href="{max_age_url}" target="_self">{max_age_url}</a>
     """,
     unsafe_allow_html=True,
 )
@@ -204,7 +131,7 @@ def _harmonize_df(df: pd.DataFrame) -> pd.DataFrame:
         alternative_name: column.name
         for column in COLUMNS
         if column.alternative_names
-        for alternative_name in column.alternative_names
+        for alternative_name in column.alternative_names  # type: ignore[not-iterable]
         if column.alternative_names is not None
     }
     df = df.rename(columns=names_mapping)
@@ -227,15 +154,18 @@ columns_at_end = [column.name for column in COLUMNS if column.at_end] + [
 ]
 columns_to_hide = [column.name for column in COLUMNS if column.hide]
 
-column_order = (
-    columns_at_front
-    + [
-        col
-        for col in combined_df.columns
-        if col not in columns_at_front + columns_at_end + columns_to_hide
-    ]
-    + columns_at_end
-)
+
+def _get_column_order(df: pd.DataFrame) -> list[str]:
+    """Get column order."""
+    return (
+        columns_at_front
+        + [
+            col
+            for col in df.columns
+            if col not in columns_at_front + columns_at_end + columns_to_hide
+        ]
+        + columns_at_end
+    )
 
 
 def _filter_valid_columns(columns: list[str], df: pd.DataFrame) -> list[str]:
@@ -252,12 +182,12 @@ def df_to_csv(df: pd.DataFrame) -> str:
 # using a fragment to avoid re-doing the above operations on every filter change
 # cf. https://docs.streamlit.io/develop/concepts/architecture/fragments
 @st.experimental_fragment
-def _display_table_and_plots(
+def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements, too complex, too many branches)
     df: pd.DataFrame, max_age_in_days: float, filter_value: str = ""
 ) -> None:
     """A fragment that displays a DataFrame with a filter."""
     st.markdown("## Data")
-    now = datetime.now(tz=pytz.UTC)
+    now = datetime.now(tz=pytz.UTC).replace(microsecond=0)
 
     # filter
     len_whole_df = len(df)
@@ -302,6 +232,16 @@ def _display_table_and_plots(
         f"Note: data is limited to last {max_age_in_days} days, table display is limited to first {max_table_len} entries. See FAQ how to change this.",
     )
 
+    # Display lag time for latest done files
+    lag_times, lag_time = get_lag_time(filtered_df)
+    if lag_time:
+        st.markdown(
+            f"⏱️ Average lag time*: **{lag_time / 60:.1f} minutes** [*from start of acquisition to end of quanting, for last 10 'done' files in selection]"
+        )
+
+        filtered_df["lag_time_minutes"] = lag_times / 60
+        filtered_df["eta"] = _add_eta(filtered_df, now, lag_time)
+
     # hide the csv download button to not encourage downloading incomplete data
     st.markdown(
         "<style>[data-testid='stElementToolbarButton']:first-of-type { display: none; } </style>",
@@ -311,17 +251,39 @@ def _display_table_and_plots(
     df_to_show = filtered_df.head(max_table_len)
 
     cmap = plt.get_cmap("RdYlGn")
+    cmap_reversed = plt.get_cmap("RdYlGn_r")
     cmap.set_bad(color="white")
+    cmap_reversed.set_bad(color="white")
+
+    # Separate columns by gradient direction
+    green_is_high_columns = _filter_valid_columns(
+        [column.name for column in COLUMNS if column.color_gradient == "green_is_high"],
+        filtered_df,
+    )
+    red_is_high_columns = _filter_valid_columns(
+        [column.name for column in COLUMNS if column.color_gradient == "red_is_high"],
+        filtered_df,
+    )
+
     try:
-        st.dataframe(
-            df_to_show.style.background_gradient(
-                subset=_filter_valid_columns(
-                    [column.name for column in COLUMNS if column.color_table],
-                    filtered_df,
-                ),
+        style = df_to_show.style
+
+        # Apply green_is_high gradient (red=low, green=high)
+        if green_is_high_columns:
+            style = style.background_gradient(
+                subset=green_is_high_columns,
                 cmap=cmap,
             )
-            .apply(highlight_status_cell, axis=1)
+
+        # Apply red_is_high gradient (green=low, red=high)
+        if red_is_high_columns:
+            style = style.background_gradient(
+                subset=red_is_high_columns,
+                cmap=cmap_reversed,
+            )
+
+        st.dataframe(
+            style.apply(highlight_status_cell, axis=1)
             .format(
                 subset=list(filtered_df.select_dtypes(include=["float64"]).columns),
                 formatter="{:.3}",
@@ -332,7 +294,7 @@ def _display_table_and_plots(
                 ],
                 formatter="{:.0f}",
             ),
-            column_order=column_order,
+            column_order=_get_column_order(filtered_df),
         )
     except Exception as e:  # noqa: BLE001
         _log(e)
@@ -378,6 +340,29 @@ def _display_table_and_plots(
         mime="text/csv",
     )
 
+    if st.button(
+        "Show file paths for selection",
+        help="For the selection in the table, show all file paths on the backup for conveniently copying them manually to another location.",
+    ):
+        full_info_df = get_full_raw_file_data(list(filtered_df.index))
+        file_paths, is_multiple_types = get_full_backup_path(full_info_df)
+
+        with st.expander(f"Found {len(file_paths)} items:", expanded=True):
+            if is_multiple_types:
+                st.warning(
+                    "Warning: more than one instrument type found, please check your selection!"
+                )
+            c1, _ = st.columns([0.75, 0.25])
+
+            c1.write("AlphaDIA config format:")
+            prefix = " - "
+            file_paths_pretty = f"\n{prefix}".join(file_paths)
+            c1.code(f"{prefix}{file_paths_pretty}")
+
+            c1.write("One line format:")
+            file_paths_pretty_one_line = " ".join(file_paths)
+            c1.code(f"{file_paths_pretty_one_line}")
+
     # ########################################### DISPLAY: plots
 
     st.markdown("## Plots")
@@ -387,6 +372,7 @@ def _display_table_and_plots(
     )
 
     c1, c2, c3, c4 = st.columns([0.25, 0.25, 0.25, 0.25])
+    column_order = _get_column_order(filtered_df)
     color_by_column = c1.selectbox(
         label="Color by:",
         options=["instrument_id"]
@@ -429,6 +415,25 @@ def _display_table_and_plots(
                 _log(e, f"Cannot draw plot for {column.name} vs {x}.")
             else:
                 st.write("n/a")
+
+
+def _add_eta(df: pd.DataFrame, now: datetime, lag_time: float) -> pd.Series:
+    """Return the "ETA" column for the dataframe."""
+    # TODO: this would become more precises if lag times would be calculated per instrument & project
+    non_terminal_mask = ~df["status"].isin(TERMINAL_STATUSES)
+    eta_timestamps = (
+        df.loc[non_terminal_mask, "created_at_"] + pd.Timedelta(seconds=lag_time)
+    ).dt.tz_localize("UTC")
+
+    # Convert ETA timestamps to human-readable format showing "in X time"
+    def _format_eta(eta_time: datetime) -> str:
+        """Format the eta time to a string."""
+        time_diff = eta_time.replace(microsecond=0) - now
+        if eta_time <= now:
+            return f"now ({time_diff})"
+        return get_display_time(now - time_diff, now, prefix="in ", suffix="")
+
+    return eta_timestamps.apply(_format_eta)
 
 
 def _draw_plot(  # noqa: PLR0913
@@ -495,8 +500,8 @@ def _get_yerror_column_name(y_column_name: str, df: pd.DataFrame) -> str | None:
 
 
 filter_value = st.query_params.get(QueryParams.FILTER, "")
-for key, value in FILTER_MAPPING.items():
-    filter_value = filter_value.lower().replace(key.lower(), value)
+for key_, value_ in FILTER_MAPPING.items():
+    filter_value = filter_value.lower().replace(key_.lower(), value_)
 
 _display_table_and_plots(
     combined_df,

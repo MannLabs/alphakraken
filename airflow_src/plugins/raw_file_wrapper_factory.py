@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Union
 
-from common.keys import InstrumentKeys, InstrumentTypes
+from common.keys import InstrumentKeys
 from common.paths import (
     get_internal_backup_path_for_instrument,
     get_internal_instrument_data_path,
@@ -21,6 +21,7 @@ from common.settings import (
 )
 
 from shared.db.models import RawFile, get_created_at_year_month
+from shared.keys import InstrumentTypes
 
 MONITOR = "monitor"
 COPIER = "copier"
@@ -484,7 +485,7 @@ class RawFileWrapperFactory:
         return handler_class(instrument_id, **kwargs)
 
     @classmethod
-    def create_monitor_wrapper(  # pytype: disable=bad-return-type
+    def create_monitor_wrapper(
         cls,
         instrument_id: str,
         raw_file: RawFile | None = None,
@@ -501,7 +502,7 @@ class RawFileWrapperFactory:
             instrument_id,
             raw_file=raw_file,
             raw_file_original_name=raw_file_original_name,
-        )  # pytype: disable=bad-return-type
+        )
 
     @classmethod
     def create_write_wrapper(
@@ -520,4 +521,4 @@ class RawFileWrapperFactory:
             instrument_id,
             raw_file=raw_file,
             path_provider=path_provider,
-        )  # pytype: disable=bad-return-type
+        )

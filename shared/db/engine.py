@@ -21,8 +21,6 @@ DB_PORT = int(os.environ.get(EnvVars.MONGO_PORT, 12345))
 DB_USER = os.environ.get(EnvVars.MONGO_USER, "pika")
 DB_PASSWORD = os.environ.get(EnvVars.MONGO_PASSWORD, "chu")
 
-logging.info(f"DB connection: {DB_HOST=} {DB_PORT=} {DB_USER=}")
-
 
 def connect_db(*, raise_on_error: bool = False) -> None:
     """Connect to the database."""
@@ -43,5 +41,6 @@ def connect_db(*, raise_on_error: bool = False) -> None:
     except ConnectionFailure as e:
         if raise_on_error:
             raise e  # noqa: TRY201
+        logging.info(f"DB connection: {DB_HOST=} {DB_PORT=} {DB_USER=}")
         logging.warning(f"Failed to connect to db: {e}")
         # A different connection with alias `default` was already registered.

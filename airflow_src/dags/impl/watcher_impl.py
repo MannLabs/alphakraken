@@ -9,7 +9,7 @@ import pytz
 from airflow.exceptions import AirflowFailException, DagNotFound
 from airflow.models import TaskInstance
 from common.constants import COLLISION_FLAG_SEP
-from common.keys import AirflowVars, DagParams, Dags, OpArgs, XComKeys
+from common.keys import DAG_DELIMITER, AirflowVars, DagParams, Dags, OpArgs, XComKeys
 from common.utils import get_airflow_variable, get_xcom, put_xcom, trigger_dag_run
 from file_handling import get_file_creation_timestamp, get_file_size
 from impl.project_id_handler import get_unique_project_id
@@ -44,7 +44,6 @@ def _add_raw_file_to_db(
     raw_file_creation_timestamp = get_file_creation_timestamp(
         raw_file_name, instrument_id
     )
-    logging.info(f"Got  {raw_file_creation_timestamp}")
 
     return add_raw_file(
         raw_file_name,
@@ -56,13 +55,20 @@ def _add_raw_file_to_db(
     )
 
 
-def get_unknown_raw_files(ti: TaskInstance, **kwargs) -> None:
+def get_unknown_raw_files(
+    ti: TaskInstance, *, case_insensitive: bool = False, **kwargs
+) -> None:
     """Get all raw files that should be considered for further processing and push to XCom.
 
     Due to potential file name collisions (i.e. a newly acquired file has the same name as one that is already processed),
     this is non-trivial, because the properties (size, hashsum) of a file in the DB could still change if the file
     is still being acquired.
     For each file on the instrument, we check if it is already in the database.
+
+    If the case_insensitive flag is set, the comparison is done by case-insensitive original file name,
+    i.e. the files TEST.raw and test.raw are considered the same.
+    This is important, in case the backup file system is case-insensitive, e.g. on Windows.
+
     If not, it is kept in the list of files to be processed that is eventually pushed to XCom.
     If yes, we first check all file sizes in the DB:
         If at least one is not set, we assume the acquisition is not done, we don't process the file in this DAG run.
@@ -79,6 +85,11 @@ def get_unknown_raw_files(ti: TaskInstance, **kwargs) -> None:
     Note there's a potential race condition with the "add to db" operation in the subsequent
     start_acquisition_handler(), task, However, as we allow only one of these DAGs to run at a time, this should not be an issue.
     """
+
+    def _cond_lower(raw_file_name: str) -> str:
+        """Return the lower case version of the file name if case-insensitive."""
+        return raw_file_name.lower() if case_insensitive else raw_file_name
+
     instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
 
     raw_file_names_on_instrument = sorted(
@@ -91,17 +102,22 @@ def get_unknown_raw_files(ti: TaskInstance, **kwargs) -> None:
         f"{len(raw_file_names_on_instrument)} raw files to be checked against DB: {raw_file_names_on_instrument}"
     )
 
-    raw_files_names_to_sizes_from_db: dict[str, list[int]] = defaultdict(list)
+    raw_files_names_lower_to_sizes_from_db: dict[str, list[int]] = defaultdict(list)
     for raw_file in get_raw_files_by_names(list(raw_file_names_on_instrument)):
-        # due to collisions, there could be more than one raw file with the same name
-        raw_files_names_to_sizes_from_db[raw_file.original_name].append(raw_file.size)
-    logging.info(f"got {raw_files_names_to_sizes_from_db=}")
+        # due to collisions, there could be more than one raw file with the same original name
+        raw_files_names_lower_to_sizes_from_db[
+            _cond_lower(raw_file.original_name)
+        ].append(raw_file.size)
+    logging.info(f"got {raw_files_names_lower_to_sizes_from_db=}")
 
     raw_file_names_to_process: dict[str, bool] = {}
     for raw_file_name_on_instrument in raw_file_names_on_instrument:
         is_collision = False
 
-        if raw_file_name_on_instrument in raw_files_names_to_sizes_from_db:
+        if (
+            _cond_lower(raw_file_name_on_instrument)
+            in raw_files_names_lower_to_sizes_from_db
+        ):
             logging.info(
                 f"File in DB: {raw_file_name_on_instrument}, checking for potential collision.."
             )
@@ -115,7 +131,9 @@ def get_unknown_raw_files(ti: TaskInstance, **kwargs) -> None:
 
             is_collision = _is_collision(
                 file_path_to_monitor_acquisition,
-                raw_files_names_to_sizes_from_db[raw_file_name_on_instrument],
+                raw_files_names_lower_to_sizes_from_db[
+                    _cond_lower(raw_file_name_on_instrument)
+                ],
             )
             if not is_collision:
                 logging.info(
@@ -182,7 +200,7 @@ def decide_raw_file_handling(ti: TaskInstance, **kwargs) -> None:
     instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
     raw_file_names_to_process: dict[str, bool] = get_xcom(
         ti, XComKeys.RAW_FILE_NAMES_TO_PROCESS
-    )  # pytype: disable=annotation-type-mismatch
+    )
 
     logging.info(
         f"{len(raw_file_names_to_process)} raw files to be checked on project id: {raw_file_names_to_process}"
@@ -195,7 +213,7 @@ def decide_raw_file_handling(ti: TaskInstance, **kwargs) -> None:
         project_id = get_unique_project_id(raw_file_name, all_project_ids)
 
         if project_id is None:
-            logging.warning(
+            logging.info(
                 f"Raw file {raw_file_name} does not match exactly one project of {all_project_ids}."
             )
 
@@ -233,7 +251,7 @@ def _file_meets_age_criterion(
             max_file_age_in_hours := float(
                 get_airflow_variable(
                     AirflowVars.DEBUG_MAX_FILE_AGE_IN_HOURS,
-                    default="-1",  # pytype: disable=annotation-type-mismatch
+                    default="-1",
                 )
             )
         ) == -1:
@@ -272,18 +290,16 @@ def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
     Only for raw files that carry a project id, the acquisition_handler DAG is triggered.
     """
     instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
-    raw_file_names_with_decisions = get_xcom(
-        ti, XComKeys.RAW_FILE_NAMES_WITH_DECISIONS
-    )  # pytype: disable=annotation-type-mismatch
+    raw_file_names_with_decisions = get_xcom(ti, XComKeys.RAW_FILE_NAMES_WITH_DECISIONS)
     logging.info(f"Got {len(raw_file_names_with_decisions)} raw files to handle.")
 
-    dag_id_to_trigger = f"{Dags.ACQUISITION_HANDLER}.{instrument_id}"
+    dag_id_to_trigger = f"{Dags.ACQUISITION_HANDLER}{DAG_DELIMITER}{instrument_id}"
 
     for raw_file_name, (
         project_id,
         file_needs_handling,
         is_collision,
-    ) in raw_file_names_with_decisions.items():  # pytype: disable=attribute-error
+    ) in raw_file_names_with_decisions.items():
         status = (
             RawFileStatus.QUEUED_FOR_MONITORING
             if file_needs_handling
@@ -296,7 +312,7 @@ def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
         # Beware: if `is_collision` is `True`, and this task is re-run, it will be successfully saved and processed
         # as a collision. So avoid manual restarts of this task.
         # To prevent automatic task restarting, retries need to be set to 0.
-        raw_file_id = _add_raw_file_to_db(  # pytype: disable=wrong-arg-types
+        raw_file_id = _add_raw_file_to_db(
             raw_file_name,
             is_collision=is_collision,
             project_id=project_id,
@@ -319,7 +335,7 @@ def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
                 {DagParams.RAW_FILE_ID: raw_file_id},
             )
         except DagNotFound as e:
-            # this happens very rarely, but if not handled here, the file would need to be removed manually
+            # this happens very rarely, but if not handled here, the file would need to be removed from the DB manually
             logging.exception(
                 f"DAG {dag_id_to_trigger} not found. Removing file from DB again."
             )

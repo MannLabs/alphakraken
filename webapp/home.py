@@ -24,8 +24,7 @@ c1, _ = st.columns([0.5, 0.5])
 c1.markdown("""### What is AlphaKraken?
 
 This tool should help you keep track of your acquisitions and monitor their status and quality in (near) real-time.
-By default, every single acquisition is processed by AlphaDIA and the results are stored in a database.
-The processing is done on the cluster, which means that on rare occasions, it might be delayed due to high load.""")
+By default, every single acquisition is processed by AlphaDIA and the results are stored in a database.""")
 
 display_info_message(c1)
 
@@ -41,13 +40,21 @@ Currently they are meant to be used by AlphaKraken admin users only.""")
 
 c1.markdown(f"""### Rules
 
-To ensure a smooth automated processing, please follow these rules when acquiring files:
-- Do NOT do anything (!) on the acquisition folder (=the folder where the raw files are written to). In particular:
+#### Rule #1
+To not interfere with the automated processing, please stick to the following simple rule:
+
+**Do NOT do anything (!) on the acquisition folder (=the folder where the raw files are written to).**
+
+In particular:
 **Do not _create_, _move_, _rename_, or _delete_ any files there**! Avoid opening them in any software (wait until the file is moved to the
 "Backup" subfolder and open it there).
+
+#### More rules
+To ensure a smooth automated processing, please follow these rules when acquiring files:
 - Make sure to your raw filename does not contain any special characters. Only allowed: `{ALLOWED_CHARACTERS_IN_RAW_FILE_NAME}`
 (basic latin letters, numbers, and a few special characters like `-`, `_`, `+`). Otherwise, they will not be quanted.
 - If your file name contains `_dda_`, they will also not be quanted.""")
+
 
 c1.markdown(f"""### FAQ
 
@@ -56,6 +63,12 @@ Q: Why is there a strange prefix (like "20241029-162042-876912-") in front of my
 A: This is because a file with the same name was already processed.
 File name uniqueness is a prerequisite for all automated downstream processing to work correctly,
 to tell those collision cases apart, a timestamp is added as a prefix.
+
+
+Q: My file seems to be corrupted on the backup?
+
+A: In very rare cases, the copying operation gets interrupted,
+which is reflected by the "overview" table showing the status "error" for the file. Contact the developers in this case.
 
 
 Q: Why do some files on the acquisition folder carry the extension `.deleteme`?
@@ -68,9 +81,9 @@ Those files can be deleted safely.
 Q: Some of my files still have status "monitoring_acquisition" although acquisition is already finished.
 
 A: An acquisition is considered "finished" when either a new file is created in the acquisition folder or
-if the current file has been monitored for over 4 hours. As a consequence, the last file in a queue will be processed
-with this 4 hour delay (this could be remedied by adding a blank to the end of a queue).
-Note: if AlphaKraken processing is disrupted for a certain time, it might take up to 4 hours until their
+if the current file has not changed for 2 hours. As a consequence, the last file in a queue will be processed
+with this 2 hour delay (this could be remedied by adding a blank sample to the end of a queue).
+Note: if AlphaKraken processing is disrupted for a certain time, it might take up to 2 hours until their
 acquisition is considered "finished".
 
 

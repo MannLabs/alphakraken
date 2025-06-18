@@ -12,7 +12,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import pytz
-from common.keys import InstrumentTypes
 from common.settings import _INSTRUMENTS
 from plugins.raw_file_wrapper_factory import (
     BrukerRawFileMonitorWrapper,
@@ -31,6 +30,7 @@ from plugins.raw_file_wrapper_factory import (
 )
 
 from shared.db.models import RawFile
+from shared.keys import InstrumentTypes
 
 
 class TestableRawFileMonitorWrapper(RawFileMonitorWrapper):
@@ -480,7 +480,7 @@ def test_bruker_get_files_to_copy() -> None:
     )
 
     # using a tempdir here as the path manipulations are nontrivial and mocking them would reduce test scope
-    with tempfile.TemporaryDirectory() as tempdir:
+    with tempfile.TemporaryDirectory() as tempdir:  # ty: ignore[no-matching-overload]
         instrument_path = Path(tempdir) / "instrument1"
         raw_file_path = instrument_path / "sample.d"
         raw_file_path.mkdir(parents=True)

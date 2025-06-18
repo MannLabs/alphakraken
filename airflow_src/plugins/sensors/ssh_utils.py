@@ -14,7 +14,7 @@ def ssh_execute(
     command: str,
     ssh_hook: SSHHook | None = None,
     *,
-    max_tries: int = 10,
+    max_tries: int = 30,
 ) -> str:
     """Execute the given `command` via the `ssh_hook`.
 
@@ -24,8 +24,8 @@ def ssh_execute(
     # This is a hack to prevent jobs to be run on the cluster, useful for debugging and initial setup.
     # To get rid of this, e.g. set up a container with a fake ssh server
     if (
-        get_airflow_variable(AirflowVars.DEBUG_NO_CLUSTER_SSH, "False").capitalize()
-        == "True"
+        get_airflow_variable(AirflowVars.DEBUG_NO_CLUSTER_SSH, "false").lower()
+        == "true"
     ):
         return _get_fake_ssh_response(command)
 
@@ -41,7 +41,7 @@ def ssh_execute(
             logging.error(f"Execution of SSH command failed too often: {command=}")
             raise AirflowFailException("Execution of SSH command failed too often.")
 
-        sleep(30 * call_count)  # no sleep in the first iteration
+        sleep(60 * call_count)  # no sleep in the first iteration
         call_count += 1
 
         try:

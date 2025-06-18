@@ -12,7 +12,15 @@ class EnvVars:
     MONGO_USER = "MONGO_USER"
     MONGO_PASSWORD = "MONGO_PASSWORD"  # noqa: S105  #Possible hardcoded password
 
-    SLACK_WEBHOOK_URL = "SLACK_WEBHOOK_URL"  # TODO: move to yaml
+    MESSENGER_WEBHOOK_URL = "MESSENGER_WEBHOOK_URL"  # TODO: move to yaml
+
+
+class InstrumentTypes:
+    """Types of instruments."""
+
+    THERMO: str = "thermo"
+    BRUKER: str = "bruker"
+    SCIEX: str = "sciex"
 
 
 class Locations:
@@ -33,6 +41,13 @@ class InternalPaths:
     INSTRUMENTS = "instruments"
     BACKUP = "backup"
     OUTPUT = "output"
+
+
+class MetricsTypes:
+    """Types of metrics that can be added to a raw file."""
+
+    ALPHADIA: str = "alphadia"
+    CUSTOM: str = "custom"
 
 
 ALLOWED_CHARACTERS_IN_RAW_FILE_NAME = r"[^a-zA-Z0-9\-_+.]"

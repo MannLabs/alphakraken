@@ -94,6 +94,16 @@ def get_raw_file_and_metrics_data(max_age_in_days: float) -> tuple[QuerySet, Que
     return raw_files_db, metrics_db
 
 
+def get_full_raw_file_data(raw_file_ids: list[str]) -> pd.DataFrame:
+    """Return from the database a dataframe derived from the QuerySet for RawFile for all `raw_file_ids`."""
+    _log("Connecting to the database")
+    connect_db()
+    _log(f"Retrieving all raw file data for {raw_file_ids}")
+    raw_files_db = RawFile.objects.filter(id__in=raw_file_ids)
+
+    return df_from_db_data(raw_files_db)
+
+
 def get_status_data() -> QuerySet:
     """Connect to the database and return the QuerySets for KrakenStatus."""
     _log("Connecting to the database")
@@ -121,18 +131,28 @@ def get_settings_data() -> QuerySet:
 def df_from_db_data(
     query_set: QuerySet,
     *,
+    filter_dict: dict | None = None,
     drop_duplicates: list[str] | None = None,
     drop_columns: list[str] | None = None,
+    drop_none_columns: bool = False,
 ) -> pd.DataFrame:
     """Create a DataFrame from a database QuerySet.
 
     :param query_set: the MongoDB QuerySet to convert to a DataFrame
-    :param drop_duplicates: optional list of columns to drop duplicates on
+    :param filter_dict: optional dictionary to filter the DataFrame, e.g {"status": "done"}
+    :param drop_duplicates: optional list of columns to drop duplicates on after applying the filter
+        (youngest created_at_ will be kept)
     :param drop_columns: optional list of columns to drop
+    :param drop_none_columns: if True, drop columns that contain only None values
     :return: dataframe containing the data from the QuerySet
     """
     query_set_as_dicts = [r.to_mongo() for r in query_set]
     query_set_df = pd.DataFrame(query_set_as_dicts)
+
+    if filter_dict:
+        for key, value in filter_dict.items():
+            query_set_df = query_set_df[query_set_df[key] == value]
+
     if len(query_set_df) == 0:
         return query_set_df
 
@@ -148,6 +168,18 @@ def df_from_db_data(
             inplace=True,
             errors="ignore",
         )
+
+    if drop_none_columns:
+        # this is required for the Metrics, as e.g. custom metrics may not have all columns
+        none_columns = [
+            col for col in query_set_df.columns if query_set_df[col].isna().all()
+        ]
+        if none_columns:
+            query_set_df.drop(
+                columns=none_columns,
+                inplace=True,
+                errors="ignore",
+            )
 
     query_set_df.reset_index(drop=True, inplace=True)
 

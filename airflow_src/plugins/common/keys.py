@@ -49,7 +49,6 @@ class OpArgs:
     """Keys for passing arguments to operators."""
 
     INSTRUMENT_ID: str = "instrument_id"
-    COMMAND: str = "command"
 
 
 class DagContext:
@@ -79,6 +78,7 @@ class XComKeys:
     JOB_ID: str = "job_id"
 
     METRICS: str = "metrics"
+    METRICS_TYPE: str = "metrics_type"
     QUANTING_TIME_ELAPSED: str = "quanting_time_elapsed"
 
     FILES_TO_MOVE = "files_to_move"
@@ -98,14 +98,6 @@ class InstrumentKeys:
     SKIP_QUANTING: str = "skip_quanting"
     MIN_FREE_SPACE_GB: str = "min_free_space_gb"
     FILE_MOVE_DELAY_M: str = "file_move_delay_m"
-
-
-class InstrumentTypes:
-    """Types of instruments."""
-
-    THERMO: str = "thermo"
-    BRUKER: str = "bruker"
-    SCIEX: str = "sciex"
 
 
 class AirflowVars:
@@ -159,6 +151,7 @@ class JobStates:
     COMPLETED: str = "COMPLETED"
     FAILED: str = "FAILED"
     TIMEOUT: str = "TIMEOUT"
+    OUT_OF_MEMORY: str = "OUT_OF_ME"  # it is displayed "OUT_OF_ME+", so only startwith() comparisons here
 
 
 class CustomAlphaDiaStates:

@@ -41,10 +41,7 @@ def move_files(ti: TaskInstance, **kwargs) -> None:
     raw_file = get_raw_file_by_id(raw_file_id)
 
     files_to_move_str = get_xcom(ti, XComKeys.FILES_TO_MOVE)
-    files_to_move = {
-        Path(k): Path(v)
-        for k, v in files_to_move_str.items()  # pytype: disable=attribute-error
-    }
+    files_to_move = {Path(k): Path(v) for k, v in files_to_move_str.items()}
 
     files_to_actually_move, files_to_actually_remove = _get_files_to_move(files_to_move)
 
@@ -124,6 +121,7 @@ def _move_files(files_to_move: dict[Path, Path], *, only_rename: bool = False) -
         if not only_rename:
             logging.info(f"Moving raw file {src_path} to {dst_path}")
             shutil.move(src_path, dst_path)
+            logging.info(".. done")
         # except OSError as e:
         #     # sometimes for Thermo raw files the `unlink` operation that is done in the course of `move`
         #     # fails due to "Device or resource busy".
@@ -138,6 +136,7 @@ def _move_files(files_to_move: dict[Path, Path], *, only_rename: bool = False) -
             new_name = f"{src_path!s}.deleteme"
             logging.info(f"Renaming {src_path} to {new_name} ..")
             src_path.rename(new_name)
+            logging.info(".. done")
 
 
 def _check_main_file_to_move(ti: TaskInstance, raw_file: RawFile) -> None:

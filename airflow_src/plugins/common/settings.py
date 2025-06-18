@@ -2,10 +2,13 @@
 
 from typing import Any
 
+import yaml
+from common.constants import InternalPaths
 from common.keys import InstrumentKeys, InstrumentTypes
+from common.utils import get_env_variable
 
+from shared.keys import EnvVars, InstrumentTypes
 from shared.yamlsettings import YAMLSETTINGS
-
 
 class Timings:
     """Timing constants."""
@@ -15,7 +18,7 @@ class Timings:
 
     ACQUISITION_MONITOR_POKE_INTERVAL_S: int = 30
 
-    QUANTING_MONITOR_POKE_INTERVAL_S: int = 60
+    JOB_MONITOR_POKE_INTERVAL_S: int = 60
 
     RAW_DATA_COPY_TASK_TIMEOUT_M: int = 15  # large enough to not time out on big files, small enough to not block other tasks
 
@@ -36,7 +39,7 @@ class Concurrency:
 
     # limit to a number smaller than maximum number of runs per DAG (default is 16) to have free slots for other tasks
     # like starting quanting or metrics calculation
-    MAXNO_MONITOR_QUANTING_TASKS_PER_DAG: int = 14
+    MAXNO_JOB_MONITOR_TASKS_PER_DAG: int = 14
 
     # limit the number of concurrent copies to not over-stress the network.
     # Note that this is a potential bottleneck, so a timeout is important here.

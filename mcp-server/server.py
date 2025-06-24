@@ -45,7 +45,7 @@ def _format(x: Any, n_digits: int = 5) -> Any:
 # some thoughts for future improvements:
 # TODO: offer combined queries, like multiple instruments etc
 # TODO: offer a dict of metrics with its description, plus a filter to retrieve only certain metrics
-# TODO: offer multiple names, regexps
+# TODO: offer regexps
 # TODO: think about pagination, if the number of files is large
 # TODO: make this a rest API?
 # TODO: add raw file location -> to allow other tools to pick up the raw files
@@ -60,17 +60,48 @@ raw_file_keys_whitelist = [
 metrics_keys_blacklist = ["_id", "raw_file", "created_at_"]
 basic_metrics_keys = ["proteins", "raw:gradient_length_m"]
 
+@mcp.tool()
+def get_raw_files_by_names(
+    raw_file_names: list[str],
+) -> list[dict[str, Any]]:
+    """Retrieve raw files by their names and their latest metrics from the database.
+    Args:
+        raw_file_names (list[str]): A list of raw file names to search for in the database. Case sensitive, needs to match exactly.
+
+    Returns:
+        list[dict[str, Any]]: A list of dictionaries containing raw file information and their latest metrics.
+                              Each dictionary has the keys:
+                              - "raw_file": A dictionary with raw file details.
+                              - "metrics": A dictionary with the latest metrics or an empty dictionary if none exist.
+                              If an error occurs, the list contains one dictionary with an "error" key.
+    """
+
+
+    try:
+        connect_db()
+        raw_files = RawFile.objects.filter(id__in=raw_file_names)
+
+        results = augment_raw_files_with_metrics(raw_files, gradient_length_filter=False, only_basic_metrics=False)
+
+    except Exception as e:
+        msg = f"Failed to retrieve raw file data: {e}"
+        print(msg, file=sys.stderr)
+        results = [{"error": msg}]
+
+    return results
+
+
 
 @mcp.tool()
-def get_raw_files(
+def get_raw_files_for_instrument(
     instrument_id: str,
     name_search_string: str = "",
-    max_age_in_days: int = 7,
+    max_age_in_days: int = 30,
     gradient_length_filter: float | None = None,
     *,
     only_basic_metrics: bool = True,
 ) -> list[dict[str, Any]]:
-    """Retrieve raw files and their latest metrics from the database.
+    """Retrieve raw files for a specific instrument and their latest metrics from the database.
 
     Args:
         instrument_id (str): The ID of the instrument to filter raw files.
@@ -100,7 +131,7 @@ def get_raw_files(
             id__icontains=name_search_string,
             created_at__gte=cutoff,
         )
-        results = augment_raw_files_with_metrics(raw_files, gradient_length_filter, only_basic_metrics)
+        results = augment_raw_files_with_metrics(raw_files, gradient_length_filter=gradient_length_filter, only_basic_metrics=only_basic_metrics)
 
     except Exception as e:
         msg = f"Failed to retrieve raw file data: {e}"
@@ -110,7 +141,7 @@ def get_raw_files(
     return results
 
 
-def augment_raw_files_with_metrics(raw_files: QuerySet, gradient_length_filter: float | None, only_basic_metrics : bool) ->  list[dict[str, Any]]                              :
+def augment_raw_files_with_metrics(raw_files: QuerySet, *, gradient_length_filter: float | None, only_basic_metrics : bool) ->  list[dict[str, Any]]                              :
 
     raw_files_dict: dict = {dict(raw_file.to_mongo())["_id"]: dict(raw_file.to_mongo()) for raw_file in raw_files}
 

@@ -1,3 +1,4 @@
 # shared between airflow and the Streamlit webapp
 pymongo==4.7.2
 mongoengine==0.28.2
+pytz==2025.2

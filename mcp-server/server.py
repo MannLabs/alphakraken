@@ -11,6 +11,7 @@ from typing import Any
 
 import pytz
 from mcp.server.fastmcp import FastMCP
+from mongoengine import QuerySet
 
 from shared.db.engine import connect_db
 from shared.db.models import Metrics, RawFile
@@ -28,7 +29,7 @@ def _format(x: Any, n_digits: int = 5) -> Any:
     if isinstance(x, str):
         return x
     if isinstance(x, datetime):
-        return x.strftime("%Y-%m-%d_%H:%M:%S")
+        return x.replace(microsecond=0).replace(second=0).isoformat()
     if not isinstance(x, (int, float)):
         return x
 
@@ -47,6 +48,17 @@ def _format(x: Any, n_digits: int = 5) -> Any:
 # TODO: offer multiple names, regexps
 # TODO: think about pagination, if the number of files is large
 # TODO: make this a rest API?
+# TODO: add raw file location -> to allow other tools to pick up the raw files
+
+
+raw_file_keys_whitelist = [
+    "status",
+    "status_details",
+    "size",
+    "created_at",
+]
+metrics_keys_blacklist = ["_id", "raw_file", "created_at_"]
+basic_metrics_keys = ["proteins", "raw:gradient_length_m"]
 
 
 @mcp.tool()
@@ -75,82 +87,73 @@ def get_raw_files(
                               Each dictionary has the keys:
                               - "raw_file": A dictionary with raw file details.
                               - "metrics": A dictionary with the latest metrics or an empty dictionary if none exist.
-                              If an error occurs, a dictionary with an "error" key is returned.
+                              If an error occurs, the list contains one dictionary with an "error" key.
 
     """
     # Note: the docstring is used by the MCP server to generate the API documentation for the LLM!
 
-    raw_file_keys_whitelist = [
-        "status",
-        "status_details",
-        "size",
-        "created_at",
-    ]
-    metrics_keys_blacklist = ["_id", "raw_file", "created_at_"]
-    basic_metrics_keys = ["proteins", "raw:gradient_length_m"]
-
+    cutoff = datetime.now(tz=pytz.utc) - timedelta(days=max_age_in_days)
     try:
         connect_db()
-    except Exception as e:
-        msg = f"Failed connect_db(): {e}"
-        print(msg, file=sys.stderr)
-        return [{"error": msg}]
-
-    cutoff = datetime.now(tz=pytz.utc) - timedelta(days=max_age_in_days)
-    results = []
-    try:
         raw_files = RawFile.objects(
             instrument_id=instrument_id,
             id__icontains=name_search_string,
             created_at__gte=cutoff,
         )
-        raw_files_dict: dict = { dict(raw_file.to_mongo())["_id"] : dict(raw_file.to_mongo()) for raw_file in raw_files }
-
-        # querying all metrics at once to avoid load on DB
-        for m in Metrics.objects.filter(raw_file__in=list(raw_files_dict.keys())).order_by("-created_at_"):
-            mm = dict(m.to_mongo())
-            raw_files_dict[mm["raw_file"]]["metrics"] = mm  # here we overwrite older metrics for a raw file if any
-
-
-        for raw_file in raw_files_dict.values():
-            metrics = raw_file.get("metrics")
-
-            if gradient_length_filter and (not metrics or not metrics["raw:gradient_length_m"]*0.95 <= gradient_length_filter <= metrics["raw:gradient_length_m"]*1.05):
-                continue
-
-            # TODO this needs to be combined with the above step
-            metrics_dict = (
-                {
-                    k: _format(v)
-                    for k, v in metrics.items()
-                    if k not in metrics_keys_blacklist
-                    and (k in basic_metrics_keys or not only_basic_metrics)
-                }
-                if metrics
-                else {}
-            )
-
-            results.append(
-                {
-
-                    # TODO this needs to be combined with the above step
-                    "raw_file": {
-                        k: _format(v)
-                        for k, v in raw_file.items()
-                        if k in raw_file_keys_whitelist
-                    }
-                    | {"name": raw_file["_id"]},
-                    "metrics": metrics_dict,
-                }
-            )
+        results = augment_raw_files_with_metrics(raw_files, gradient_length_filter, only_basic_metrics)
 
     except Exception as e:
-        msg = f"Failed get_raw_files_by_age: {e}"
+        msg = f"Failed to retrieve raw file data: {e}"
         print(msg, file=sys.stderr)
-        results.append({"error": msg})
+        results = [{"error": msg}]
 
     return results
 
+
+def augment_raw_files_with_metrics(raw_files: QuerySet, gradient_length_filter: float | None, only_basic_metrics : bool) ->  list[dict[str, Any]]                              :
+
+    raw_files_dict: dict = {dict(raw_file.to_mongo())["_id"]: dict(raw_file.to_mongo()) for raw_file in raw_files}
+
+    # querying all metrics at once to avoid load on DB
+    for m in Metrics.objects.filter(raw_file__in=list(raw_files_dict.keys())).order_by("-created_at_"):
+        mm = dict(m.to_mongo())
+        raw_files_dict[mm["raw_file"]]["metrics"] = mm  # here we overwrite older metrics for a raw file if any
+
+    results = []
+    for raw_file in raw_files_dict.values():
+        metrics = raw_file.get("metrics")
+
+        if gradient_length_filter and (
+                not metrics or not metrics["raw:gradient_length_m"] * 0.95 <= gradient_length_filter <= metrics[
+            "raw:gradient_length_m"] * 1.05):
+            continue
+
+        # TODO this needs to be combined with the above step
+        metrics_dict = (
+            {
+                k: _format(v)
+                for k, v in metrics.items()
+                if k not in metrics_keys_blacklist
+                   and (k in basic_metrics_keys or not only_basic_metrics)
+            }
+            if metrics
+            else {}
+        )
+
+        results.append(
+            {
+
+                # TODO this needs to be combined with the above step
+                "raw_file": {
+                                k: _format(v)
+                                for k, v in raw_file.items()
+                                if k in raw_file_keys_whitelist
+                            }
+                            | {"name": raw_file["_id"]},
+                "metrics": metrics_dict,
+            }
+        )
+    return results
 
 #get_raw_files("astral2", max_age_in_days=30)  # only for debugging
 mcp.run()

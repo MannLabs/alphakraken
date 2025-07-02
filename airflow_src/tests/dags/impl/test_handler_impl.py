@@ -140,7 +140,7 @@ def test_copy_raw_file_file_got_renamed(
     mock_update_raw_file: MagicMock,
     mock_get_xcom: MagicMock,
 ) -> None:
-    """Test copy_raw_file calls update with correct arguments in case overwrite is requested."""
+    """Test copy_raw_file correctly handles the case when file got renamed."""
     ti = MagicMock()
     kwargs = {
         "params": {"raw_file_id": "test_file.raw"},
@@ -360,6 +360,40 @@ def test_decide_processing_returns_false_if_special_characters(
         "some_file.raw",
         new_status=RawFileStatus.DONE_NOT_QUANTED,
         status_details="Filename contains special characters.",
+    )
+
+
+@patch("dags.impl.handler_impl.get_xcom", return_value=[])
+@patch("dags.impl.handler_impl.get_raw_file_by_id", return_value=MagicMock())
+@patch("dags.impl.handler_impl.get_instrument_settings", return_value=False)
+@patch("dags.impl.handler_impl._count_special_characters", return_value=0)
+@patch("dags.impl.handler_impl.RawFileMonitorWrapper", return_value=MagicMock())
+@patch("dags.impl.handler_impl.update_raw_file")
+def test_decide_processing_returns_false_if_corrupted_file(  # noqa: PLR0913
+    mock_update_raw_file: MagicMock,
+    mock_raw_file_monitor_wrapper: MagicMock,
+    mock_count_special_characters: MagicMock,  # noqa:ARG001
+    mock_get_instrument_settings: MagicMock,  # noqa:ARG001
+    mock_get_raw_file_by_id: MagicMock,  # noqa:ARG001
+    mock_get_xcom: MagicMock,  # noqa:ARG001
+) -> None:
+    """Test decide_processing returns False if the raw file name indicates a failed acquisition."""
+    ti = MagicMock()
+    kwargs = {
+        DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"},
+        OpArgs.INSTRUMENT_ID: "instrument1",
+    }
+
+    mock_raw_file_monitor_wrapper.return_value.is_corrupted_file_name.return_value = (
+        True
+    )
+
+    # when
+    assert decide_processing(ti, **kwargs) is False
+    mock_update_raw_file.assert_called_once_with(
+        "some_file.raw",
+        new_status=RawFileStatus.DONE_NOT_QUANTED,
+        status_details="File name indicates failed acquisition.",
     )
 
 

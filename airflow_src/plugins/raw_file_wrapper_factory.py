@@ -113,20 +113,33 @@ class RawFileMonitorWrapper(ABC):
     def _file_path_to_monitor_acquisition(self) -> Path:
         """Get the path to the file to watch for changes."""
 
-    def get_corrupted_file_name(self) -> str | None:
-        """Get the name of the file that the raw file is renamed to in case the acquisition failed."""
-        return None
-
     @property
     def instrument_path(self) -> Path:
         """Get the path to the instrument data directory."""
         return self._instrument_path
+
+    def get_corrupted_file_name(self) -> str | None:
+        """Get the name of the file that the raw file is renamed to in case the acquisition failed.
+
+        Defaults to None -> handling of corrupted files turned off.
+        """
+        return None
+
+    @classmethod
+    def is_corrupted_file_name(cls, file_name: str) -> bool:
+        """Check if the given file name is a corrupted file.
+
+        Defaults to False -> handling of corrupted files turned off.
+        """
+        del file_name  # unused
+        return False
 
 
 class ThermoRawFileMonitorWrapper(RawFileMonitorWrapper):
     """RawFileMonitorWrapper for Thermo instruments."""
 
     _raw_file_extension = ".raw"
+    _corrupted_file_suffix = f"_CORRUPTED{_raw_file_extension}"
 
     def _file_path_to_monitor_acquisition(self) -> Path:
         """Get the (absolute) path to the raw file to monitor."""
@@ -137,7 +150,12 @@ class ThermoRawFileMonitorWrapper(RawFileMonitorWrapper):
 
         Only the Thermo acquisition software does these renamings on certain acquisition failures.
         """
-        return f"{Path(self._raw_file_original_name).stem}_CORRUPTED{self._raw_file_extension}"
+        return f"{Path(self._raw_file_original_name).stem}{self._corrupted_file_suffix}"
+
+    @classmethod
+    def is_corrupted_file_name(cls, file_name: str) -> bool:
+        """Check if the given file name is a corrupted file."""
+        return file_name.endswith(cls._corrupted_file_suffix)
 
 
 class SciexRawFileMonitorWrapper(RawFileMonitorWrapper):

@@ -5,9 +5,11 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 import pytz
+from airflow.exceptions import AirflowFailException, AirflowNotFoundException
 from airflow.models import Variable
 from plugins.common.utils import (
     get_airflow_variable,
+    get_cluster_ssh_hook,
     get_env_variable,
     get_xcom,
     put_xcom,
@@ -179,3 +181,72 @@ def test_truncate_string_handles_edge_case_of_exactly_n_characters() -> None:
     """Test that truncate_string handles the edge case of exactly n characters."""
     input_string = "a" * 200
     assert truncate_string(input_string, 200) == input_string
+
+
+@patch(
+    "plugins.common.utils._get_cluster_ssh_connections",
+    return_value=["conn_1", "conn_2"],
+)
+@patch("plugins.common.utils.SSHHook")
+def test_get_cluster_ssh_hook_returns_valid_ssh_hook(
+    mock_ssh_hook: MagicMock,
+    mock_get_cluster_ssh_connections: MagicMock,  # noqa:ARG001
+) -> None:
+    """Test that get_cluster_ssh_hook returns a valid SSHHook instance."""
+    hook = get_cluster_ssh_hook(attempt_no=0)
+
+    assert hook == mock_ssh_hook.return_value
+    mock_ssh_hook.assert_called_once_with(
+        ssh_conn_id="conn_1", conn_timeout=60, cmd_timeout=60
+    )
+
+
+@patch("plugins.common.utils._get_cluster_ssh_connections", return_value=[])
+def test_get_cluster_ssh_hook_raises_exception_when_no_connections_found(
+    mock_get_cluster_ssh_connections: MagicMock,  # noqa:ARG001
+) -> None:
+    """Test that get_cluster_ssh_hook raises an exception when no SSH connections are found."""
+    with pytest.raises(AirflowFailException, match="No SSH connections found"):
+        get_cluster_ssh_hook(attempt_no=0)
+
+
+@patch(
+    "plugins.common.utils._get_cluster_ssh_connections",
+    return_value=["conn_1", "conn_2"],
+)
+@patch(
+    "airflow.providers.ssh.hooks.ssh.SSHHook.__init__",
+    side_effect=AirflowNotFoundException("Not found"),
+)
+def test_get_cluster_ssh_hook_raises_exception_when_connection_not_found(
+    mock_ssh_hook: MagicMock,  # noqa:ARG001
+    mock_get_cluster_ssh_connections: MagicMock,  # noqa:ARG001
+) -> None:
+    """Test that get_cluster_ssh_hook raises an exception when the connection is not found."""
+    with pytest.raises(
+        AirflowFailException, match="Could not find cluster SSH connection"
+    ):
+        get_cluster_ssh_hook(attempt_no=0)
+
+
+@patch(
+    "plugins.common.utils._get_cluster_ssh_connections",
+    return_value=["conn_1", "conn_2"],
+)
+@patch("plugins.common.utils.SSHHook")
+def test_get_cluster_ssh_hook_cycles_through_connections_on_multiple_attempts(
+    mock_ssh_hook: MagicMock,
+    mock_get_cluster_ssh_connections: MagicMock,  # noqa:ARG001
+) -> None:
+    """Test that get_cluster_ssh_hook cycles through available connections on multiple attempts."""
+    mock_ssh_hook.side_effect = [
+        MagicMock(ssh_conn_id="conn_1"),
+        MagicMock(ssh_conn_id="conn_2"),
+        MagicMock(ssh_conn_id="conn_1"),
+    ]
+    hook_1 = get_cluster_ssh_hook(attempt_no=0)
+    hook_2 = get_cluster_ssh_hook(attempt_no=1)
+    hook_3 = get_cluster_ssh_hook(attempt_no=2)
+    assert hook_1.ssh_conn_id == "conn_1"
+    assert hook_2.ssh_conn_id == "conn_2"
+    assert hook_3.ssh_conn_id == "conn_1"

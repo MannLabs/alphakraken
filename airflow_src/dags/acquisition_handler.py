@@ -49,6 +49,9 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
             "queue": f"{AIRFLOW_QUEUE_PREFIX}{instrument_id}",
             # this callback is executed when tasks fail
             "on_failure_callback": on_failure_callback,
+            # finish tasks before tackling new ones, otherwise on catch up all hashsums would be calculated first before any copying
+            # cf. https://airflow.apache.org/docs/apache-airflow/2.10.5/administration-and-deployment/priority-weight.html
+            "weight_rule": "upstream",
         },
         description="Watch acquisition, handle raw files and trigger follow-up DAGs on demand.",
         catchup=False,

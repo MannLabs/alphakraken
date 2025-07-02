@@ -66,7 +66,7 @@ def test_poke_file_dir_contents_change_corrupt_file_is_added(
     mock_update_raw_file: MagicMock,
     mock_raw_file_wrapper_factory: MagicMock,
 ) -> None:
-    """Test poke and post_execute methods correctly return when dir contents change (corruoted file is added)."""
+    """Test poke and post_execute methods correctly return when dir contents change (corrupted file is added)."""
     mock_path = MagicMock()
     mock_path.stat.return_value = MagicMock(st_size=1)
 

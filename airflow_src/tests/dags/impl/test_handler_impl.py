@@ -392,7 +392,7 @@ def test_decide_processing_returns_false_if_corrupted_file(  # noqa: PLR0913
     assert decide_processing(ti, **kwargs) is False
     mock_update_raw_file.assert_called_once_with(
         "some_file.raw",
-        new_status=RawFileStatus.DONE_NOT_QUANTED,
+        new_status=RawFileStatus.ACQUISITION_FAILED,
         status_details="File name indicates failed acquisition.",
     )
 

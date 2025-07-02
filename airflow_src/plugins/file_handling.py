@@ -83,6 +83,7 @@ def get_file_hash(
     This operation is expensive for large files and/or if transferred over a network.
     """
     if verbose:
+        start = datetime.now()  # noqa: DTZ005
         file_size = get_file_size(file_path, verbose=False)
         logging.info(f"Calculating hash of {file_path} ({file_size=})..")
 
@@ -93,7 +94,10 @@ def get_file_hash(
 
     if verbose:
         file_size = get_file_size(file_path, verbose=False)
-        logging.info(f".. hash is {file_hash.hexdigest()} ({file_size=})")
+        time_elapsed = (datetime.now() - start).total_seconds()  # noqa: DTZ005
+        logging.info(
+            f".. hash is {file_hash.hexdigest()} ({file_size=}) Time elapsed: {time_elapsed / 60:.1f} min"
+        )
 
     return file_hash.hexdigest()
 
@@ -190,10 +194,7 @@ def _decide_if_copy_required(
     :return: A tuple containing a boolean indicating whether a copy is required and the hash of the source file.
     :raises AirflowFailException: If the file already exists with a different hash and `overwrite=False`
     """
-    start = datetime.now()  # noqa: DTZ005
     src_hash = get_file_hash(src_path)
-    time_elapsed = (datetime.now() - start).total_seconds()  # noqa: DTZ005
-    logging.info(f"Hash calculated. Time elapsed: {time_elapsed / 60:.1f} min")
 
     try:
         copy_required = not _identical_copy_exists(dst_path, src_hash)

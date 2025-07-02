@@ -8,8 +8,9 @@ from typing import Any
 import pytz
 from airflow.api.common.trigger_dag import trigger_dag
 from airflow.exceptions import AirflowNotFoundException
-from airflow.models import DagRun, TaskInstance, Variable
+from airflow.models import Connection, DagRun, TaskInstance, Variable
 from airflow.providers.ssh.hooks.ssh import SSHHook
+from airflow.utils.db import provide_session
 from airflow.utils.types import DagRunType
 from common.constants import (
     CLUSTER_SSH_COMMAND_TIMEOUT,
@@ -127,16 +128,45 @@ def get_minutes_since_fixed_time_point() -> int:
     return int((current_epoch_time - baseline) // 60)
 
 
+@provide_session
+def get_cluster_ssh_connections(
+    prefix: str = CLUSTER_SSH_CONNECTION_ID, session=None
+) -> list[str]:
+    """Get all SSH connection IDs that start with the given prefix.
+    
+    :param prefix: The connection ID prefix to search for
+    :param session: Database session (provided by decorator)
+
+    :return: List of connection IDs matching the prefix, sorted by ID
+    """
+    connections = (
+        session.query(Connection)
+        .filter(Connection.conn_id.startswith(prefix))
+        .all()
+    )
+    conn_ids = [conn.conn_id for conn in connections]
+    logging.info(f"Found {len(conn_ids)} SSH connections with prefix '{prefix}': {conn_ids}")
+    return sorted(conn_ids)
+
+cluster_ssh_connections_ids = get_cluster_ssh_connections()
+
 def get_cluster_ssh_hook(
-    ssh_conn_id: str = CLUSTER_SSH_CONNECTION_ID,
+    attempt_no: int,
     conn_timeout: int = CLUSTER_SSH_CONNECTION_TIMEOUT,
     cmd_timeout: int = CLUSTER_SSH_COMMAND_TIMEOUT,
 ) -> SSHHook | None:
-    """Get the SSH hook for the cluster.
+    """Get an SSH hook for the compute cluster.
 
-    The connection id needs to be defined in the Airflow UI.
+    :param attempt_no: The attempt number to select the SSH connection ID. Will return a different connection ID on each attempt.
+    :param conn_timeout: Connection timeout in seconds.
+    :param cmd_timeout: Command execution timeout in seconds.
+
+    The connection id needs to be defined in the Airflow UI and is obtained from get_cluster_ssh_connections().
     """
-    logging.info("Getting cluster SSH hook..")
+
+    ssh_conn_id = cluster_ssh_connections_ids[attempt_no % len(cluster_ssh_connections_ids)]
+
+    logging.info(f"Using {ssh_conn_id=} for SSH connection (attempt {attempt_no})")
     try:
         return SSHHook(
             ssh_conn_id=ssh_conn_id, conn_timeout=conn_timeout, cmd_timeout=cmd_timeout

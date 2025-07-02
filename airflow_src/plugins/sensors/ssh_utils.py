@@ -12,11 +12,10 @@ from paramiko.ssh_exception import SSHException
 
 def ssh_execute(
     command: str,
-    ssh_hook: SSHHook | None = None,
     *,
     max_tries: int = 30,
 ) -> str:
-    """Execute the given `command` via the `ssh_hook`.
+    """Execute the given `command`.
 
     Sometimes the SSH command returns a nonzero exit status '254' or empty byte string,
     in this case it is retried until it is 200 and nonempty until `max_tries` is reached.
@@ -28,9 +27,6 @@ def ssh_execute(
         == "true"
     ):
         return _get_fake_ssh_response(command)
-
-    if ssh_hook is None:
-        ssh_hook = get_cluster_ssh_hook()
 
     str_stdout = ""
     exit_status = None
@@ -45,6 +41,7 @@ def ssh_execute(
         call_count += 1
 
         try:
+            ssh_hook = get_cluster_ssh_hook(attempt_no=call_count-1)
             exit_status, agg_stdout, agg_stderr = ssh_hook.exec_ssh_client_command(
                 ssh_hook.get_conn(),
                 command,

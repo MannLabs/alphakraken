@@ -70,7 +70,7 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
             python_callable=compute_checksum,
             max_active_tis_per_dag=Concurrency.MAXNO_COPY_RAW_FILE_TASKS_PER_DAG,
             execution_timeout=timedelta(minutes=Timings.RAW_DATA_COPY_TASK_TIMEOUT_M),
-            pool=Pools.FILE_COPY_POOL,
+            pool=Pools.FILE_COPY_POOL,  # uses file_copy_pool as hash computation required file transfer
         )
 
         copy_raw_file_ = ShortCircuitOperator(

@@ -93,7 +93,9 @@ def get_file_hash(
             file_hash.update(chunk)
 
     if verbose:
-        file_size = get_file_size(file_path, verbose=False)
+        file_size = get_file_size(
+            file_path, verbose=False
+        )  # deliberately calling a second time in case the file was modified during the hash calculation
         time_elapsed = (datetime.now() - start).total_seconds()  # noqa: DTZ005
         logging.info(
             f".. hash is {file_hash.hexdigest()} ({file_size=}) Time elapsed: {time_elapsed / 60:.1f} min"
@@ -168,7 +170,7 @@ def copy_file(
             raise AirflowFailException(
                 f"Hashes do not match after copy: {src_hash=} {dst_hash=} (sizes: {dst_size=} {src_size=})"
             )
-        logging.info(".. verifyng done")
+        logging.info(".. verifying done")
     else:
         dst_hash = (
             src_hash  # as _decide_if_copy_required() returned False, these are equal

@@ -176,7 +176,7 @@ def _verify_copied_files(
             )
     if len(copied_files) != len(files_size_and_hashsum):
         errors.append(
-            "Length mismatch: {len(copied_files)=} {}= {len(files_size_and_hashsum)=}"
+            f"Length mismatch: {len(copied_files)=} != {len(files_size_and_hashsum)=}"
         )
     if errors:
         raise AirflowFailException(f"File copy failed with errors: {errors}")

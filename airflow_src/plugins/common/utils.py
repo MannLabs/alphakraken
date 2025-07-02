@@ -14,7 +14,7 @@ from airflow.utils.db import provide_session
 from airflow.utils.types import DagRunType
 from common.constants import (
     CLUSTER_SSH_COMMAND_TIMEOUT,
-    CLUSTER_SSH_CONNECTION_ID,
+    CLUSTER_SSH_CONNECTION_ID_PREFIX,
     CLUSTER_SSH_CONNECTION_TIMEOUT,
 )
 
@@ -130,23 +130,23 @@ def get_minutes_since_fixed_time_point() -> int:
 
 @provide_session
 def get_cluster_ssh_connections(
-    prefix: str = CLUSTER_SSH_CONNECTION_ID,
     session: Any = None,  # noqa: ANN401
 ) -> list[str]:
     """Get all SSH connection IDs that start with the given prefix.
 
-    :param prefix: The connection ID prefix to search for
     :param session: Database session (provided by decorator)
 
     :return: List of connection IDs matching the prefix, sorted by ID
     """
     connections = (
-        session.query(Connection).filter(Connection.conn_id.startswith(prefix)).all()
+        session.query(Connection)
+        .filter(Connection.conn_id.startswith(CLUSTER_SSH_CONNECTION_ID_PREFIX))
+        .all()
     )
     conn_ids = [conn.conn_id for conn in connections]
 
     logging.info(
-        f"Found {len(conn_ids)} SSH connections with prefix '{prefix}': {conn_ids}"
+        f"Found {len(conn_ids)} SSH connections with prefix '{CLUSTER_SSH_CONNECTION_ID_PREFIX}': {conn_ids}"
     )
     return sorted(conn_ids)
 
@@ -167,12 +167,13 @@ def get_cluster_ssh_hook(
 
     The connection id needs to be defined in the Airflow UI and is obtained from get_cluster_ssh_connections().
     """
+    error_details = (
+        f"Please set up a connection starting with {CLUSTER_SSH_CONNECTION_ID_PREFIX} in the Airflow UI ('Admin -> Connections') "
+        "or set the Airflow Variable 'debug_no_cluster_ssh=True'."
+    )
     if not cluster_ssh_connections_ids:
-        raise AirflowNotFoundException(
-            "No SSH connections found. "
-            "Please set up a connection in the Airflow UI ('Admin -> Connections') "
-            "or set the Airflow Variable 'debug_no_cluster_ssh=True'."
-        )
+        logging.warning(f"No SSH connections found.\n{error_details}")
+        return None
 
     ssh_conn_id = cluster_ssh_connections_ids[
         attempt_no % len(cluster_ssh_connections_ids)
@@ -185,8 +186,8 @@ def get_cluster_ssh_hook(
         )
     except AirflowNotFoundException as e:
         msg = (
-            f"Could not find cluster SSH connection. Either set up the connection '{ssh_conn_id}' ('Admin -> Connections') "
-            f"or set the Airflow Variable 'debug_no_cluster_ssh=True'.\n"
+            f"Could not find cluster SSH connection.\n"
+            f"{error_details}\n"
             f"Original message: {e}"
         )
         logging.warning(msg)

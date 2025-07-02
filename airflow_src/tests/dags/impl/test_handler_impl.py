@@ -20,6 +20,13 @@ from dags.impl.handler_impl import (
 from shared.db.models import RawFileStatus
 
 
+@pytest.mark.parametrize(
+    "file_info",
+    [
+        {"test_file.raw": (1000, "some_hash")},
+        {},
+    ],
+)
 @patch("dags.impl.handler_impl.get_raw_file_by_id")
 @patch("dags.impl.handler_impl.RawFileWrapperFactory")
 @patch("dags.impl.handler_impl.get_file_size")
@@ -33,6 +40,7 @@ def test_compute_checksum(  # noqa: PLR0913
     mock_get_file_size: MagicMock,
     mock_raw_file_wrapper_factory: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
+    file_info: dict[str, tuple[float, str]],
 ) -> None:
     """Test compute_checksum calls update with correct arguments."""
     ti = MagicMock()
@@ -40,6 +48,7 @@ def test_compute_checksum(  # noqa: PLR0913
         "params": {"raw_file_id": "test_file.raw"},
     }
     mock_raw_file = MagicMock()
+    mock_raw_file.file_info = file_info
     mock_get_raw_file_by_id.return_value = mock_raw_file
 
     mock_get_file_size.return_value = 1000
@@ -92,6 +101,48 @@ def test_compute_checksum(  # noqa: PLR0913
             ),
         ]
     )
+
+
+@patch("dags.impl.handler_impl.get_raw_file_by_id")
+@patch("dags.impl.handler_impl.RawFileWrapperFactory")
+@patch("dags.impl.handler_impl.get_file_size")
+@patch("dags.impl.handler_impl.get_file_hash")
+@patch("dags.impl.handler_impl.update_raw_file")
+def test_compute_checksum_different_file_info(
+    mock_update_raw_file: MagicMock,  # noqa: ARG001
+    mock_get_file_hash: MagicMock,
+    mock_get_file_size: MagicMock,
+    mock_raw_file_wrapper_factory: MagicMock,
+    mock_get_raw_file_by_id: MagicMock,
+) -> None:
+    """Test compute_checksum raises if file_info mismatch."""
+    ti = MagicMock()
+    kwargs = {
+        "params": {"raw_file_id": "test_file.raw"},
+    }
+    mock_raw_file = MagicMock()
+    mock_raw_file.file_info = {"test_file.raw": (1001, "some_other_hash")}
+    mock_get_raw_file_by_id.return_value = mock_raw_file
+
+    mock_get_file_size.return_value = 1000
+    mock_get_file_hash.return_value = "some_hash"
+    mock_raw_file_wrapper_factory.create_write_wrapper.return_value.get_files_to_copy.return_value = {
+        Path("/path/to/instrument/test_file.raw"): Path(
+            "/opt/airflow/mounts/backup/test_file.raw"
+        )
+    }
+    mock_raw_file_wrapper_factory.create_write_wrapper.return_value.source_folder_path = Path(
+        "/path/to/instrument/"
+    )
+
+    mock_main_file_path = MagicMock()
+    mock_raw_file_wrapper_factory.create_write_wrapper.return_value.main_file_path.return_value = mock_main_file_path
+
+    # when
+    with pytest.raises(
+        AirflowFailException, match="File info mismatch for raw file test_file.raw."
+    ):
+        compute_checksum(ti, **kwargs)
 
 
 @patch("dags.impl.handler_impl.get_xcom")

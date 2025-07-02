@@ -63,7 +63,7 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> bool:
         )
 
         update_raw_file(raw_file_id, new_status=RawFileStatus.ACQUISITION_FAILED)
-        return False
+        return False  # skip downstream tasks
 
     raw_file = get_raw_file_by_id(raw_file_id)
 
@@ -109,7 +109,7 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> bool:
     if not copied_files:
         raise AirflowFailException("No files were copied!")
 
-    return True
+    return True  # continue with downstream tasks
 
 
 def _get_file_info(

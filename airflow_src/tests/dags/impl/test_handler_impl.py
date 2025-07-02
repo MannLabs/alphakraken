@@ -10,6 +10,7 @@ from common.settings import _INSTRUMENTS
 from dags.impl.handler_impl import (
     _count_special_characters,
     _verify_copied_files,
+    compute_checksum,
     copy_raw_file,
     decide_processing,
     start_acquisition_processor,
@@ -17,6 +18,80 @@ from dags.impl.handler_impl import (
 )
 
 from shared.db.models import RawFileStatus
+
+
+@patch("dags.impl.handler_impl.get_raw_file_by_id")
+@patch("dags.impl.handler_impl.RawFileWrapperFactory")
+@patch("dags.impl.handler_impl.get_file_size")
+@patch("dags.impl.handler_impl.get_file_hash")
+@patch("dags.impl.handler_impl.update_raw_file")
+@patch("dags.impl.handler_impl.put_xcom")
+def test_compute_checksum(  # noqa: PLR0913
+    mock_put_xcom: MagicMock,
+    mock_update_raw_file: MagicMock,
+    mock_get_file_hash: MagicMock,
+    mock_get_file_size: MagicMock,
+    mock_raw_file_wrapper_factory: MagicMock,
+    mock_get_raw_file_by_id: MagicMock,
+) -> None:
+    """Test compute_checksum calls update with correct arguments."""
+    ti = MagicMock()
+    kwargs = {
+        "params": {"raw_file_id": "test_file.raw"},
+    }
+    mock_raw_file = MagicMock()
+    mock_get_raw_file_by_id.return_value = mock_raw_file
+
+    mock_get_file_size.return_value = 1000
+    mock_get_file_hash.return_value = "some_hash"
+    mock_raw_file_wrapper_factory.create_write_wrapper.return_value.get_files_to_copy.return_value = {
+        Path("/path/to/instrument/test_file.raw"): Path(
+            "/opt/airflow/mounts/backup/test_file.raw"
+        )
+    }
+    mock_raw_file_wrapper_factory.create_write_wrapper.return_value.source_folder_path = Path(
+        "/path/to/instrument/"
+    )
+
+    mock_file_path_to_calculate_size = MagicMock()
+    mock_raw_file_wrapper_factory.create_write_wrapper.return_value.file_path_to_calculate_size.return_value = mock_file_path_to_calculate_size
+
+    # when
+    compute_checksum(ti, **kwargs)
+
+    # then
+    mock_update_raw_file.assert_has_calls(
+        [
+            call("test_file.raw", new_status=RawFileStatus.CHECKSUMMING),
+            call(
+                "test_file.raw",
+                new_status=RawFileStatus.CHECKSUMMING_DONE,
+                size=1000,
+                file_info={
+                    "test_file.raw": (
+                        1000,
+                        "some_hash",
+                    )
+                },
+            ),
+        ]
+    )
+    mock_put_xcom.assert_has_calls(
+        [
+            call(
+                ti,
+                "files_size_and_hashsum",
+                {"/path/to/instrument/test_file.raw": (1000, "some_hash")},
+            ),
+            call(
+                ti,
+                "files_dst_paths",
+                {
+                    "/path/to/instrument/test_file.raw": "/opt/airflow/mounts/backup/test_file.raw"
+                },
+            ),
+        ]
+    )
 
 
 @patch("dags.impl.handler_impl.get_xcom")
@@ -43,11 +118,9 @@ def test_copy_raw_file_calls_update_with_correct_args(
     mock_get_xcom.side_effect = [
         [],
         {
-            Path("/path/to/instrument/test_file.raw"): Path(
-                "/opt/airflow/mounts/backup/test_file.raw"
-            )
+            "/path/to/instrument/test_file.raw": "/opt/airflow/mounts/backup/test_file.raw"
         },
-        {Path("/path/to/instrument/test_file.raw"): (1000, "some_hash")},
+        {"/path/to/instrument/test_file.raw": (1000, "some_hash")},
     ]
 
     mock_raw_file = MagicMock()
@@ -107,11 +180,9 @@ def test_copy_raw_file_calls_update_with_correct_args_overwrite(  # noqa: PLR091
     mock_get_xcom.side_effect = [
         [],
         {
-            Path("/path/to/instrument/test_file.raw"): Path(
-                "/opt/airflow/mounts/backup/test_file.raw"
-            )
+            "/path/to/instrument/test_file.raw": "/opt/airflow/mounts/backup/test_file.raw"
         },
-        {Path("/path/to/instrument/test_file.raw"): (1000, "some_hash")},
+        {"/path/to/instrument/test_file.raw": (1000, "some_hash")},
     ]
 
     mock_raw_file = MagicMock()

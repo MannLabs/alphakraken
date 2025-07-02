@@ -25,6 +25,7 @@ class Tasks:
     START_ACQUISITION_HANDLER: str = "start_acquisition_handler"
 
     MONITOR_ACQUISITION: str = "monitor_acquisition"
+    COMPUTE_CHECKSUM: str = "compute_checksum"
     COPY_RAW_FILE: str = "copy_raw_file"
     START_FILE_MOVER: str = "start_file_mover"
     DECIDE_PROCESSING: str = "decide_processing"
@@ -72,6 +73,9 @@ class XComKeys:
     RAW_FILE_NAMES_WITH_DECISIONS: str = "raw_file_names_with_decisions"
 
     ACQUISITION_MONITOR_ERRORS: str = "acquisition_monitor_errors"
+
+    FILES_SIZE_AND_HASHSUM: str = "files_size_and_hashsum"
+    FILES_DST_PATHS: str = "files_dst_paths"
 
     QUANTING_ENV: str = "quanting_env"
 

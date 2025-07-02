@@ -11,6 +11,7 @@ from common.constants import (
 )
 from common.keys import (
     DAG_DELIMITER,
+    AcquisitionMonitorErrors,
     AirflowVars,
     DagContext,
     DagParams,
@@ -43,10 +44,22 @@ from shared.keys import (
 )
 
 
-def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
+def copy_raw_file(ti: TaskInstance, **kwargs) -> bool:
     """Copy a raw file to the target location."""
-    del ti  # unused
     raw_file_id = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID]
+
+    # TODO: this could be moved to an upfront task
+    acquisition_monitor_errors = get_xcom(ti, XComKeys.ACQUISITION_MONITOR_ERRORS, [])
+    if any(
+        AcquisitionMonitorErrors.FILE_GOT_RENAMED in error
+        for error in acquisition_monitor_errors
+    ):
+        logging.warning(
+            f"Skipping copy for raw file {raw_file_id}: {acquisition_monitor_errors}"
+        )
+
+        update_raw_file(raw_file_id, new_status=RawFileStatus.ACQUISITION_FAILED)
+        return False
 
     raw_file = get_raw_file_by_id(raw_file_id)
 
@@ -91,6 +104,8 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
     # to make this unusual situation transparent in UI:
     if not copied_files:
         raise AirflowFailException("No files were copied!")
+
+    return True
 
 
 def _get_file_info(

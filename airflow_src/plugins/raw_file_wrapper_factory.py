@@ -113,6 +113,10 @@ class RawFileMonitorWrapper(ABC):
     def _file_path_to_monitor_acquisition(self) -> Path:
         """Get the path to the file to watch for changes."""
 
+    def get_corrupted_file_name(self) -> str | None:
+        """Get the name of the file that the raw file is renamed to in case the acquisition failed."""
+        return None
+
     @property
     def instrument_path(self) -> Path:
         """Get the path to the instrument data directory."""
@@ -127,6 +131,13 @@ class ThermoRawFileMonitorWrapper(RawFileMonitorWrapper):
     def _file_path_to_monitor_acquisition(self) -> Path:
         """Get the (absolute) path to the raw file to monitor."""
         return self._instrument_path / self._raw_file_original_name
+
+    def get_corrupted_file_name(self) -> str | None:
+        """Get the name of the file that the raw file is renamed to in case the acquisition failed.
+
+        Only the Thermo acquisition software does these renamings on certain acquisition failures.
+        """
+        return f"{Path(self._raw_file_original_name).stem}_CORRUPTED{self._raw_file_extension}"
 
 
 class SciexRawFileMonitorWrapper(RawFileMonitorWrapper):

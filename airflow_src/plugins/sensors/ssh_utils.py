@@ -3,7 +3,7 @@
 import logging
 from time import sleep
 
-from airflow.exceptions import AirflowFailException
+from airflow.exceptions import AirflowFailException, AirflowException
 from airflow.providers.ssh.hooks.ssh import SSHHook
 from common.keys import AirflowVars, JobStates
 from common.utils import get_airflow_variable, get_cluster_ssh_hook, truncate_string
@@ -52,9 +52,10 @@ def ssh_execute(
                 get_pty=False,
                 environment={},
             )
-        except SSHException as e:
-            # catch "Timeout opening channel."
-            logging.warning(f"SSHException: {e}")
+        except (SSHException, # "Timeout opening channel."
+                AirflowException # "SSH command timed out"
+                ) as e:
+            logging.warning(f"Exception while executing SSH command: {e}")
             continue
 
         str_stdout = _byte_to_string(agg_stdout)

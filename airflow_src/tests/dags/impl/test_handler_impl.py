@@ -4,10 +4,12 @@ from pathlib import Path
 from unittest.mock import MagicMock, Mock, call, patch
 
 import pytest
+from airflow.exceptions import AirflowFailException
 from common.keys import AcquisitionMonitorErrors, DagContext, DagParams, OpArgs
 from common.settings import _INSTRUMENTS
 from dags.impl.handler_impl import (
     _count_special_characters,
+    _verify_copied_files,
     copy_raw_file,
     decide_processing,
     start_acquisition_processor,
@@ -160,6 +162,52 @@ def test_copy_raw_file_file_got_renamed(
     mock_update_raw_file.assert_called_once_with(
         "test_file.raw", new_status=RawFileStatus.ACQUISITION_FAILED
     )
+
+
+def test_verify_copied_files_raises_exception_on_size_mismatch() -> None:
+    """Test _verify_copied_files raises exception on size mismatch."""
+    copied_files = {Path("file1"): (100, "hash1")}
+    files_dst_paths = {Path("file1"): Path("dest1")}
+    files_size_and_hashsum = {Path("file1"): (200, "hash1")}
+    with pytest.raises(AirflowFailException, match="File copy failed with errors"):
+        # when
+        _verify_copied_files(copied_files, files_dst_paths, files_size_and_hashsum)
+
+
+def test_verify_copied_files_raises_exception_on_hash_mismatch() -> None:
+    """Test _verify_copied_files raises exception on hash mismatch."""
+    copied_files = {Path("file1"): (100, "hash1")}
+    files_dst_paths = {Path("file1"): Path("dest1")}
+    files_size_and_hashsum = {Path("file1"): (100, "hash2")}
+    with pytest.raises(AirflowFailException, match="File copy failed with errors"):
+        # when
+        _verify_copied_files(copied_files, files_dst_paths, files_size_and_hashsum)
+
+
+def test_verify_copied_files_raises_exception_on_length_mismatch() -> None:
+    """Test _verify_copied_files raises exception on length mismatch."""
+    copied_files = {Path("file1"): (100, "hash1")}
+    files_dst_paths = {Path("file1"): Path("dest1")}
+    files_size_and_hashsum = {
+        Path("file1"): (100, "hash1"),
+        Path("file2"): (200, "hash2"),
+    }
+    with pytest.raises(AirflowFailException, match="File copy failed with errors"):
+        # when
+        _verify_copied_files(copied_files, files_dst_paths, files_size_and_hashsum)
+
+
+def test_verify_copied_files_succeeds_when_all_files_match() -> None:
+    """Test _verify_copied_files succeeds when all files match."""
+    copied_files = {Path("file1"): (100, "hash1"), Path("file2"): (200, "hash2")}
+    files_dst_paths = {Path("file1"): Path("dest1"), Path("file2"): Path("dest2")}
+    files_size_and_hashsum = {
+        Path("file1"): (100, "hash1"),
+        Path("file2"): (200, "hash2"),
+    }
+    # when
+    _verify_copied_files(copied_files, files_dst_paths, files_size_and_hashsum)
+    # no exception => ok
 
 
 @patch.dict(_INSTRUMENTS, {"instrument1": {"file_move_delay_m": 1}})

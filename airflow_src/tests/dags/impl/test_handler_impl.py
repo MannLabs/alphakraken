@@ -140,7 +140,7 @@ def test_compute_checksum_different_file_info(
 
     # when
     with pytest.raises(
-        AirflowFailException, match="File info mismatch for raw file test_file.raw."
+        AirflowFailException, match="File info mismatch for test_file.raw."
     ):
         compute_checksum(ti, **kwargs)
 

@@ -217,8 +217,8 @@ def _verify_copied_files(
     """Verify that the copied files match the original files in size and hash."""
     errors = []
     for src_path, (dst_size, dst_hash) in copied_files.items():
-        src_size, src_hash = files_size_and_hashsum[src_path]
-        dst_path = files_dst_paths[src_path]
+        src_size, src_hash = files_size_and_hashsum.get(src_path, (None, None))
+        dst_path = files_dst_paths.get(src_path)
         if dst_size != src_size or dst_hash != src_hash:
             errors.append(
                 f"Mismatch after copy: {src_path} {dst_path} {src_size} {dst_size} {src_hash} {dst_hash}"

@@ -44,14 +44,12 @@ def test_get_files_to_move_correctly_puts_files_to_xcom(
     mock_get_raw_file_by_id.return_value = mock_raw_file
 
     files_to_move = {Path("/src/file1"): Path("/dst/file1")}
-    file_path_to_calculate_size = Path("/src/file1")
+    main_file_path = Path("/src/file1")
 
     mock_create_write_wrapper.return_value.get_files_to_move.return_value = (
         files_to_move
     )
-    mock_create_write_wrapper.return_value.file_path_to_calculate_size.return_value = (
-        file_path_to_calculate_size
-    )
+    mock_create_write_wrapper.return_value.main_file_path.return_value = main_file_path
 
     # when
     get_files_to_move(ti, **kwargs)
@@ -63,7 +61,7 @@ def test_get_files_to_move_correctly_puts_files_to_xcom(
     mock_put_xcom.assert_has_calls(
         [
             call(ti, XComKeys.FILES_TO_MOVE, {"/src/file1": "/dst/file1"}),
-            call(ti, XComKeys.MAIN_FILE_TO_MOVE, str(file_path_to_calculate_size)),
+            call(ti, XComKeys.MAIN_FILE_TO_MOVE, str(main_file_path)),
         ]
     )
 

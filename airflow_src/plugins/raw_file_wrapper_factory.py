@@ -381,8 +381,8 @@ class RawFileWriteWrapper(ABC):
         logging.info(f"{files=}")
         return files
 
-    def file_path_to_calculate_size(self) -> Path:
-        """Get the absolute path to the file to calculate size."""
+    def main_file_path(self) -> Path:
+        """Get the absolute path to the main file (i.e. the one to monitor)."""
         return self._acquisition_monitor.file_path_to_monitor_acquisition()
 
 

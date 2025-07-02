@@ -59,7 +59,7 @@ class RawFileMonitorWrapper(ABC):
         :param raw_file_original_name: The original name of the raw file.
 
         raw_file and raw_file_original_name are mutually exclusive, one of them
-        needs to be set to allow calling file_path_to_monitor_acquisition().
+        needs to be set to allow calling main_file_path().
         """
         self._instrument_path = get_internal_instrument_data_path(instrument_id)
 
@@ -100,18 +100,18 @@ class RawFileMonitorWrapper(ABC):
         )
         return file_names
 
-    def file_path_to_monitor_acquisition(self) -> Path:
-        """Get the path to the file to watch for changes."""
+    def main_file_path(self) -> Path:
+        """Get the (absolute) path to the main file, i.e. the one to monitor."""
         if self._raw_file_original_name is None:
             raise ValueError("Raw file name not set.")
 
-        file_path_to_monitor_acquisition = self._file_path_to_monitor_acquisition()
-        logging.info(f"{file_path_to_monitor_acquisition=}")
-        return file_path_to_monitor_acquisition
+        main_file_path = self._main_file_path()
+        logging.info(f"{main_file_path=}")
+        return main_file_path
 
     @abstractmethod
-    def _file_path_to_monitor_acquisition(self) -> Path:
-        """Get the path to the file to watch for changes."""
+    def _main_file_path(self) -> Path:
+        """Get the (absolute) path to the raw file to monitor."""
 
     @property
     def instrument_path(self) -> Path:
@@ -141,7 +141,7 @@ class ThermoRawFileMonitorWrapper(RawFileMonitorWrapper):
     _raw_file_extension = ".raw"
     _corrupted_file_suffix = f"_CORRUPTED{_raw_file_extension}"
 
-    def _file_path_to_monitor_acquisition(self) -> Path:
+    def _main_file_path(self) -> Path:
         """Get the (absolute) path to the raw file to monitor."""
         return self._instrument_path / self._raw_file_original_name
 
@@ -163,7 +163,7 @@ class SciexRawFileMonitorWrapper(RawFileMonitorWrapper):
 
     _raw_file_extension = ".wiff"
 
-    def _file_path_to_monitor_acquisition(self) -> Path:
+    def _main_file_path(self) -> Path:
         """Get the (absolute) path to the raw file to monitor."""
         return self._instrument_path / self._raw_file_original_name
 
@@ -174,7 +174,7 @@ class BrukerRawFileMonitorWrapper(RawFileMonitorWrapper):
     _raw_file_extension = ".d"
     main_file_name = "analysis.tdf_bin"
 
-    def _file_path_to_monitor_acquisition(self) -> Path:
+    def _main_file_path(self) -> Path:
         """Get the (absolute) path to the main raw data file to monitor."""
         return (
             self._instrument_path / self._raw_file_original_name / self.main_file_name
@@ -383,7 +383,7 @@ class RawFileWriteWrapper(ABC):
 
     def main_file_path(self) -> Path:
         """Get the absolute path to the main file (i.e. the one to monitor)."""
-        return self._acquisition_monitor.file_path_to_monitor_acquisition()
+        return self._acquisition_monitor.main_file_path()
 
 
 class ThermoRawFileWriteWrapper(RawFileWriteWrapper):

@@ -38,7 +38,7 @@ class TestableRawFileMonitorWrapper(RawFileMonitorWrapper):
 
     _raw_file_extension = "test_ext"
 
-    def _file_path_to_monitor_acquisition(self) -> Any:  # noqa: ANN401
+    def _main_file_path(self) -> Any:  # noqa: ANN401
         """Dummy implementation."""
 
     def _get_files_to_copy(self) -> Any:  # noqa: ANN401
@@ -352,15 +352,15 @@ def test_get_raw_files_on_instrument(mock_instrument_path: MagicMock) -> None:
         ),
     ],
 )
-def test_file_path_to_monitor_acquisition_pass_raw_file_original_name(
+def test_main_file_path_pass_raw_file_original_name(
     wrapper_class: type[RawFileMonitorWrapper],
     raw_file_name: str,
     expected_watch_path: Path,
     mock_instrument_paths: MagicMock,  # noqa: ARG001
 ) -> None:
-    """Test that file_path_to_monitor_acquisition returns the correct path for each wrapper type."""
+    """Test that main_file_path returns the correct path for each wrapper type."""
     wrapper = wrapper_class("instrument1", raw_file_original_name=raw_file_name)
-    assert wrapper.file_path_to_monitor_acquisition() == expected_watch_path
+    assert wrapper.main_file_path() == expected_watch_path
 
 
 @pytest.mark.parametrize(
@@ -383,19 +383,19 @@ def test_file_path_to_monitor_acquisition_pass_raw_file_original_name(
         ),
     ],
 )
-def test_file_path_to_monitor_acquisition_pass_raw_file(
+def test_main_file_path_pass_raw_file(
     wrapper_class: type[RawFileMonitorWrapper],
     raw_file: RawFile,
     expected_watch_path: Path,
     mock_instrument_paths: MagicMock,  # noqa: ARG001
 ) -> None:
-    """Test that file_path_to_monitor_acquisition returns the correct path for each wrapper type."""
+    """Test that main_file_path returns the correct path for each wrapper type."""
     wrapper = wrapper_class("instrument1", raw_file=raw_file)
-    assert wrapper.file_path_to_monitor_acquisition() == expected_watch_path
+    assert wrapper.main_file_path() == expected_watch_path
 
 
-def test_file_path_to_monitor_acquisition_pass_both_raises() -> None:
-    """Test that file_path_to_monitor_acquisition raises if it get both raw_file arguments."""
+def test_main_file_path_pass_both_raises() -> None:
+    """Test that main_file_path raises if it get both raw_file arguments."""
     raw_file = MagicMock(wraps=RawFile, original_name="sample.raw")
 
     with pytest.raises(

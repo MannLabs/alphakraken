@@ -122,15 +122,13 @@ def get_unknown_raw_files(
                 f"File in DB: {raw_file_name_on_instrument}, checking for potential collision.."
             )
 
-            file_path_to_monitor_acquisition = (
-                RawFileWrapperFactory.create_monitor_wrapper(
-                    instrument_id=instrument_id,
-                    raw_file_original_name=raw_file_name_on_instrument,
-                ).file_path_to_monitor_acquisition()
-            )
+            main_file_path = RawFileWrapperFactory.create_monitor_wrapper(
+                instrument_id=instrument_id,
+                raw_file_original_name=raw_file_name_on_instrument,
+            ).main_file_path()
 
             is_collision = _is_collision(
-                file_path_to_monitor_acquisition,
+                main_file_path,
                 raw_files_names_lower_to_sizes_from_db[
                     _cond_lower(raw_file_name_on_instrument)
                 ],
@@ -157,7 +155,7 @@ def get_unknown_raw_files(
     put_xcom(ti, XComKeys.RAW_FILE_NAMES_TO_PROCESS, raw_files_to_process_sorted)
 
 
-def _is_collision(file_path_to_monitor_acquisition: Path, sizes: list[int]) -> bool:
+def _is_collision(main_file_path: Path, sizes: list[int]) -> bool:
     """Detect a collision between a raw file and a file in the database.
 
     Returns False if there's no collision or decision not possible, otherwise True.
@@ -170,11 +168,11 @@ def _is_collision(file_path_to_monitor_acquisition: Path, sizes: list[int]) -> b
 
     logging.info(f"All files in DB are fixed, checking size against {sizes=}")
 
-    if not file_path_to_monitor_acquisition.exists():
+    if not main_file_path.exists():
         logging.info("Main file does not exist yet.")
         return False
 
-    current_size = get_file_size(file_path_to_monitor_acquisition)
+    current_size = get_file_size(main_file_path)
     if any(current_size == size for size in sizes):
         logging.info(
             f"At least one file size match: {current_size=} {sizes=}. Assuming it's the same file, no collision."

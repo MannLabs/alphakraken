@@ -130,25 +130,29 @@ def get_minutes_since_fixed_time_point() -> int:
 
 @provide_session
 def get_cluster_ssh_connections(
-    prefix: str = CLUSTER_SSH_CONNECTION_ID, session=None
+    prefix: str = CLUSTER_SSH_CONNECTION_ID,
+    session: Any = None,  # noqa: ANN401
 ) -> list[str]:
     """Get all SSH connection IDs that start with the given prefix.
-    
+
     :param prefix: The connection ID prefix to search for
     :param session: Database session (provided by decorator)
 
     :return: List of connection IDs matching the prefix, sorted by ID
     """
     connections = (
-        session.query(Connection)
-        .filter(Connection.conn_id.startswith(prefix))
-        .all()
+        session.query(Connection).filter(Connection.conn_id.startswith(prefix)).all()
     )
     conn_ids = [conn.conn_id for conn in connections]
-    logging.info(f"Found {len(conn_ids)} SSH connections with prefix '{prefix}': {conn_ids}")
+
+    logging.info(
+        f"Found {len(conn_ids)} SSH connections with prefix '{prefix}': {conn_ids}"
+    )
     return sorted(conn_ids)
 
+
 cluster_ssh_connections_ids = get_cluster_ssh_connections()
+
 
 def get_cluster_ssh_hook(
     attempt_no: int,
@@ -163,8 +167,16 @@ def get_cluster_ssh_hook(
 
     The connection id needs to be defined in the Airflow UI and is obtained from get_cluster_ssh_connections().
     """
+    if not cluster_ssh_connections_ids:
+        raise AirflowNotFoundException(
+            "No SSH connections found. "
+            "Please set up a connection in the Airflow UI ('Admin -> Connections') "
+            "or set the Airflow Variable 'debug_no_cluster_ssh=True'."
+        )
 
-    ssh_conn_id = cluster_ssh_connections_ids[attempt_no % len(cluster_ssh_connections_ids)]
+    ssh_conn_id = cluster_ssh_connections_ids[
+        attempt_no % len(cluster_ssh_connections_ids)
+    ]
 
     logging.info(f"Using {ssh_conn_id=} for SSH connection (attempt {attempt_no})")
     try:

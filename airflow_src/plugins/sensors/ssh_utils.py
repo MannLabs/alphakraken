@@ -3,8 +3,7 @@
 import logging
 from time import sleep
 
-from airflow.exceptions import AirflowFailException, AirflowException
-from airflow.providers.ssh.hooks.ssh import SSHHook
+from airflow.exceptions import AirflowException, AirflowFailException
 from common.keys import AirflowVars, JobStates
 from common.utils import get_airflow_variable, get_cluster_ssh_hook, truncate_string
 from paramiko.ssh_exception import SSHException
@@ -41,7 +40,7 @@ def ssh_execute(
         call_count += 1
 
         try:
-            ssh_hook = get_cluster_ssh_hook(attempt_no=call_count-1)
+            ssh_hook = get_cluster_ssh_hook(attempt_no=call_count - 1)
             exit_status, agg_stdout, agg_stderr = ssh_hook.exec_ssh_client_command(
                 ssh_hook.get_conn(),
                 command,
@@ -49,9 +48,10 @@ def ssh_execute(
                 get_pty=False,
                 environment={},
             )
-        except (SSHException, # "Timeout opening channel."
-                AirflowException # "SSH command timed out"
-                ) as e:
+        except (
+            SSHException,  # "Timeout opening channel."
+            AirflowException,  # "SSH command timed out"
+        ) as e:
             logging.warning(f"Exception while executing SSH command: {e}")
             continue
 

@@ -7,7 +7,7 @@ from typing import Any
 
 import pytz
 from airflow.api.common.trigger_dag import trigger_dag
-from airflow.exceptions import AirflowNotFoundException
+from airflow.exceptions import AirflowFailException, AirflowNotFoundException
 from airflow.models import Connection, DagRun, TaskInstance, Variable
 from airflow.providers.ssh.hooks.ssh import SSHHook
 from airflow.utils.db import provide_session
@@ -129,7 +129,7 @@ def get_minutes_since_fixed_time_point() -> int:
 
 
 @provide_session
-def get_cluster_ssh_connections(
+def _get_cluster_ssh_connections(
     session: Any = None,  # noqa: ANN401
 ) -> list[str]:
     """Get all SSH connection IDs that start with the given prefix.
@@ -151,9 +151,6 @@ def get_cluster_ssh_connections(
     return sorted(conn_ids)
 
 
-cluster_ssh_connections_ids = get_cluster_ssh_connections()
-
-
 def get_cluster_ssh_hook(
     attempt_no: int,
     conn_timeout: int = CLUSTER_SSH_CONNECTION_TIMEOUT,
@@ -171,9 +168,9 @@ def get_cluster_ssh_hook(
         f"Please set up a connection starting with {CLUSTER_SSH_CONNECTION_ID_PREFIX} in the Airflow UI ('Admin -> Connections') "
         "or set the Airflow Variable 'debug_no_cluster_ssh=True'."
     )
+    cluster_ssh_connections_ids = _get_cluster_ssh_connections()
     if not cluster_ssh_connections_ids:
-        logging.warning(f"No SSH connections found.\n{error_details}")
-        return None
+        raise AirflowFailException(f"No SSH connections found.\n{error_details}")
 
     ssh_conn_id = cluster_ssh_connections_ids[
         attempt_no % len(cluster_ssh_connections_ids)
@@ -190,4 +187,4 @@ def get_cluster_ssh_hook(
             f"{error_details}\n"
             f"Original message: {e}"
         )
-        logging.warning(msg)
+        raise AirflowFailException(msg) from e

@@ -21,7 +21,7 @@ from plugins.common.keys import OpArgs, XComKeys
 
 from shared.db.models import RawFile
 
-SOME_INSTRUMENT_ID = "some_instrument_id"
+SOME_INSTRUMENT_ID = "_test1_"
 
 
 @patch("dags.impl.watcher_impl.get_file_creation_timestamp")
@@ -59,13 +59,15 @@ def test_add_raw_file_to_db(
 
 @patch("dags.impl.watcher_impl.RawFileWrapperFactory")
 @patch("dags.impl.watcher_impl.get_raw_files_by_names")
+@patch("dags.impl.watcher_impl.get_main_file_size_from_db")
 @patch("dags.impl.watcher_impl._is_collision")
 @patch("dags.impl.watcher_impl._sort_by_creation_date")
 @patch("dags.impl.watcher_impl.put_xcom")
-def test_get_unknown_raw_files_with_existing_files_in_db(
+def test_get_unknown_raw_files_with_existing_files_in_db(  # noqa: PLR0913
     mock_put_xcom: MagicMock,
     mock_sort: MagicMock,
     mock_is_collision: MagicMock,
+    mock_get_main_file_size_from_db: MagicMock,
     mock_get_unknown_raw_files_from_db: MagicMock,
     mock_raw_file_wrapper_factory: MagicMock,
 ) -> None:
@@ -82,10 +84,18 @@ def test_get_unknown_raw_files_with_existing_files_in_db(
         Path("/path/to/file3.raw"),
     ]
 
-    file1 = MagicMock(wraps=RawFile, original_name="file1.raw", size=123)
-    file2 = MagicMock(wraps=RawFile, original_name="file2.raw", size=234)
-    file3 = MagicMock(wraps=RawFile, original_name="FILE3.raw", size=567)
+    file1 = MagicMock(
+        wraps=RawFile, instrument_id=SOME_INSTRUMENT_ID, original_name="file1.raw"
+    )
+    file2 = MagicMock(
+        wraps=RawFile, instrument_id=SOME_INSTRUMENT_ID, original_name="file2.raw"
+    )
+    file3 = MagicMock(
+        wraps=RawFile, instrument_id=SOME_INSTRUMENT_ID, original_name="FILE3.raw"
+    )
     mock_get_unknown_raw_files_from_db.return_value = [file1, file2, file3]
+
+    mock_get_main_file_size_from_db.side_effect = [123, 234, 567]
 
     mock_is_collision.side_effect = [False, True]
 
@@ -101,7 +111,7 @@ def test_get_unknown_raw_files_with_existing_files_in_db(
         {"file4.raw": False, "file3.raw": False, "file2.raw": True},
     )
     mock_sort.assert_called_once_with(
-        ["file2.raw", "file3.raw", "file4.raw"], "some_instrument_id"
+        ["file2.raw", "file3.raw", "file4.raw"], SOME_INSTRUMENT_ID
     )
     mock_is_collision.assert_has_calls(
         [
@@ -113,13 +123,15 @@ def test_get_unknown_raw_files_with_existing_files_in_db(
 
 @patch("dags.impl.watcher_impl.RawFileWrapperFactory")
 @patch("dags.impl.watcher_impl.get_raw_files_by_names")
+@patch("dags.impl.watcher_impl.get_main_file_size_from_db")
 @patch("dags.impl.watcher_impl._is_collision")
 @patch("dags.impl.watcher_impl._sort_by_creation_date")
 @patch("dags.impl.watcher_impl.put_xcom")
-def test_get_unknown_raw_files_with_existing_files_in_db_case_insensitive(
+def test_get_unknown_raw_files_with_existing_files_in_db_case_insensitive(  # noqa: PLR0913
     mock_put_xcom: MagicMock,
     mock_sort: MagicMock,
     mock_is_collision: MagicMock,
+    mock_get_main_file_size_from_db: MagicMock,
     mock_get_unknown_raw_files_from_db: MagicMock,
     mock_raw_file_wrapper_factory: MagicMock,
 ) -> None:
@@ -131,8 +143,12 @@ def test_get_unknown_raw_files_with_existing_files_in_db_case_insensitive(
         Path("/path/to/file3.raw"),
     ]
 
-    file3 = MagicMock(wraps=RawFile, original_name="FILE3.raw", size=123)
+    file3 = MagicMock(
+        wraps=RawFile, instrument_id=SOME_INSTRUMENT_ID, original_name="FILE3.raw"
+    )
     mock_get_unknown_raw_files_from_db.return_value = [file3]
+
+    mock_get_main_file_size_from_db.return_value = 123
 
     mock_is_collision.side_effect = [True]
 
@@ -149,7 +165,7 @@ def test_get_unknown_raw_files_with_existing_files_in_db_case_insensitive(
         XComKeys.RAW_FILE_NAMES_TO_PROCESS,
         {"file3.raw": True},
     )
-    mock_sort.assert_called_once_with(["file3.raw"], "some_instrument_id")
+    mock_sort.assert_called_once_with(["file3.raw"], SOME_INSTRUMENT_ID)
     mock_is_collision.assert_has_calls(
         [
             call(Path("/path/to/file3.raw"), [123]),
@@ -250,7 +266,7 @@ def test_get_unknown_raw_files_with_no_existing_files_in_db(
         {"file3.raw": False, "file2.raw": False, "file1.raw": False},
     )
     mock_sort.assert_called_once_with(
-        ["file1.raw", "file2.raw", "file3.raw"], "some_instrument_id"
+        ["file1.raw", "file2.raw", "file3.raw"], SOME_INSTRUMENT_ID
     )
 
 

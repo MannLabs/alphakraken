@@ -146,7 +146,7 @@ def copy_file(
     """
     copy_required = _decide_if_copy_required(
         src_path, dst_path, src_hash, overwrite=overwrite
-    )
+    )  # TODO: could be moved out to reduce responsibility of this function
 
     if copy_required:
         if not dst_path.parent.exists():

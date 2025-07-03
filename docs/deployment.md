@@ -247,7 +247,7 @@ sudo systemctl start docker
 
 
 ### Setup SSH connection
-This connection is required to interact with the Slurm cluster.
+At least one connection is required to interact with the Slurm cluster.
 
 1. Open the Airflow UI, navigate to "Admin" -> "Connections" and click the "+" button.
 2. Fill in the following fields:
@@ -259,6 +259,8 @@ This connection is required to interact with the Slurm cluster.
 3. (optional) Click "Test" to verify the connection.
 4. Click "Save".
 Note: make sure to use the `kraken-read` user with read-only access to the backup pool folder.
+
+You can define multiple connections (name needs to start with `cluster_ssh_connection`) to increase robustness, e.g. in case one head node is down.
 
 ### Setup required pools
 Pools are used to limit the number of parallel tasks for certain operations. They are managed via the Airflow UI

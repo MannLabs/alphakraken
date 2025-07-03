@@ -7,13 +7,14 @@ from typing import Any
 
 import pytz
 from airflow.api.common.trigger_dag import trigger_dag
-from airflow.exceptions import AirflowNotFoundException
-from airflow.models import DagRun, TaskInstance, Variable
+from airflow.exceptions import AirflowFailException, AirflowNotFoundException
+from airflow.models import Connection, DagRun, TaskInstance, Variable
 from airflow.providers.ssh.hooks.ssh import SSHHook
+from airflow.utils.db import provide_session
 from airflow.utils.types import DagRunType
 from common.constants import (
     CLUSTER_SSH_COMMAND_TIMEOUT,
-    CLUSTER_SSH_CONNECTION_ID,
+    CLUSTER_SSH_CONNECTION_ID_PREFIX,
     CLUSTER_SSH_CONNECTION_TIMEOUT,
 )
 
@@ -127,24 +128,63 @@ def get_minutes_since_fixed_time_point() -> int:
     return int((current_epoch_time - baseline) // 60)
 
 
+@provide_session
+def _get_cluster_ssh_connections(
+    session: Any = None,  # noqa: ANN401
+) -> list[str]:
+    """Get all SSH connection IDs that start with the given prefix.
+
+    :param session: Database session (provided by decorator)
+
+    :return: List of connection IDs matching the prefix, sorted by ID
+    """
+    connections = (
+        session.query(Connection)
+        .filter(Connection.conn_id.startswith(CLUSTER_SSH_CONNECTION_ID_PREFIX))
+        .all()
+    )
+    conn_ids = [conn.conn_id for conn in connections]
+
+    logging.info(
+        f"Found {len(conn_ids)} SSH connections with prefix '{CLUSTER_SSH_CONNECTION_ID_PREFIX}': {conn_ids}"
+    )
+    return sorted(conn_ids)
+
+
 def get_cluster_ssh_hook(
-    ssh_conn_id: str = CLUSTER_SSH_CONNECTION_ID,
+    attempt_no: int,
     conn_timeout: int = CLUSTER_SSH_CONNECTION_TIMEOUT,
     cmd_timeout: int = CLUSTER_SSH_COMMAND_TIMEOUT,
 ) -> SSHHook | None:
-    """Get the SSH hook for the cluster.
+    """Get an SSH hook for the compute cluster.
 
-    The connection id needs to be defined in the Airflow UI.
+    :param attempt_no: The attempt number to select the SSH connection ID. Will return a different connection ID on each attempt.
+    :param conn_timeout: Connection timeout in seconds.
+    :param cmd_timeout: Command execution timeout in seconds.
+
+    The connection id needs to be defined in the Airflow UI and is obtained from get_cluster_ssh_connections().
     """
-    logging.info("Getting cluster SSH hook..")
+    error_details = (
+        f"Please set up a connection starting with {CLUSTER_SSH_CONNECTION_ID_PREFIX} in the Airflow UI ('Admin -> Connections') "
+        "or set the Airflow Variable 'debug_no_cluster_ssh=True'."
+    )
+    cluster_ssh_connections_ids = _get_cluster_ssh_connections()
+    if not cluster_ssh_connections_ids:
+        raise AirflowFailException(f"No SSH connections found.\n{error_details}")
+
+    ssh_conn_id = cluster_ssh_connections_ids[
+        attempt_no % len(cluster_ssh_connections_ids)
+    ]
+
+    logging.info(f"Using {ssh_conn_id=} for SSH connection (attempt {attempt_no})")
     try:
         return SSHHook(
             ssh_conn_id=ssh_conn_id, conn_timeout=conn_timeout, cmd_timeout=cmd_timeout
         )
     except AirflowNotFoundException as e:
         msg = (
-            f"Could not find cluster SSH connection. Either set up the connection '{ssh_conn_id}' ('Admin -> Connections') "
-            f"or set the Airflow Variable 'debug_no_cluster_ssh=True'.\n"
+            f"Could not find cluster SSH connection.\n"
+            f"{error_details}\n"
             f"Original message: {e}"
         )
-        logging.warning(msg)
+        raise AirflowFailException(msg) from e

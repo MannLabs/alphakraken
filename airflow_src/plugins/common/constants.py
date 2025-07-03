@@ -3,7 +3,7 @@
 # prefix for the queues the DAGs are assigned to (cf. docker-compose.yaml)
 AIRFLOW_QUEUE_PREFIX = "kraken_queue_"
 
-CLUSTER_SSH_CONNECTION_ID = "cluster_ssh_connection"
+CLUSTER_SSH_CONNECTION_ID_PREFIX = "cluster_ssh_connection"
 CLUSTER_SSH_CONNECTION_TIMEOUT = 60
 CLUSTER_SSH_COMMAND_TIMEOUT = 60
 

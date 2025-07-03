@@ -135,9 +135,7 @@ def get_unknown_raw_files(
                 ],
             )
             if not is_collision:
-                logging.info(
-                    "File in DB is the same, not considering for further processing."
-                )
+                logging.info("Not considering file for further processing in this run.")
                 continue
 
         raw_file_names_to_process[raw_file_name_on_instrument] = is_collision

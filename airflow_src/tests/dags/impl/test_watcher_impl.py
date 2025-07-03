@@ -68,7 +68,7 @@ def test_get_unknown_raw_files_with_existing_files_in_db(  # noqa: PLR0913
     mock_sort: MagicMock,
     mock_is_collision: MagicMock,
     mock_get_main_file_size_from_db: MagicMock,
-    mock_get_unknown_raw_files_from_db: MagicMock,
+    mock_get_raw_files_by_names: MagicMock,
     mock_raw_file_wrapper_factory: MagicMock,
 ) -> None:
     """Test get_unknown_raw_files with existing files in the database."""
@@ -93,7 +93,7 @@ def test_get_unknown_raw_files_with_existing_files_in_db(  # noqa: PLR0913
     file3 = MagicMock(
         wraps=RawFile, instrument_id=SOME_INSTRUMENT_ID, original_name="FILE3.raw"
     )
-    mock_get_unknown_raw_files_from_db.return_value = [file1, file2, file3]
+    mock_get_raw_files_by_names.return_value = [file1, file2, file3]
 
     mock_get_main_file_size_from_db.side_effect = [123, 234, 567]
 
@@ -132,7 +132,7 @@ def test_get_unknown_raw_files_with_existing_files_in_db_case_insensitive(  # no
     mock_sort: MagicMock,
     mock_is_collision: MagicMock,
     mock_get_main_file_size_from_db: MagicMock,
-    mock_get_unknown_raw_files_from_db: MagicMock,
+    mock_get_raw_files_by_names: MagicMock,
     mock_raw_file_wrapper_factory: MagicMock,
 ) -> None:
     """Test get_unknown_raw_files with existing files in th but different case in database."""
@@ -146,7 +146,7 @@ def test_get_unknown_raw_files_with_existing_files_in_db_case_insensitive(  # no
     file3 = MagicMock(
         wraps=RawFile, instrument_id=SOME_INSTRUMENT_ID, original_name="FILE3.raw"
     )
-    mock_get_unknown_raw_files_from_db.return_value = [file3]
+    mock_get_raw_files_by_names.return_value = [file3]
 
     mock_get_main_file_size_from_db.return_value = 123
 
@@ -243,7 +243,7 @@ def test_sort_by_creation_date_multiple_files(
 def test_get_unknown_raw_files_with_no_existing_files_in_db(
     mock_put_xcom: MagicMock,
     mock_sort: MagicMock,
-    mock_get_unknown_raw_files_from_db: MagicMock,
+    mock_get_raw_files_by_names: MagicMock,
     mock_raw_file_wrapper_factory: MagicMock,
 ) -> None:
     """Test get_unknown_raw_files with no existing files in the database."""
@@ -253,7 +253,7 @@ def test_get_unknown_raw_files_with_no_existing_files_in_db(
         "file3.raw",
     }
 
-    mock_get_unknown_raw_files_from_db.return_value = []
+    mock_get_raw_files_by_names.return_value = []
     ti = Mock()
     mock_sort.return_value = ["file3.raw", "file2.raw", "file1.raw"]
 
@@ -275,7 +275,7 @@ def test_get_unknown_raw_files_with_no_existing_files_in_db(
 @patch("dags.impl.watcher_impl.put_xcom")
 def test_get_unknown_raw_files_with_empty_directory(
     mock_put_xcom: MagicMock,
-    mock_get_unknown_raw_files_from_db: MagicMock,
+    mock_get_raw_files_by_names: MagicMock,
     mock_raw_file_wrapper_factory: MagicMock,
 ) -> None:
     """Test get_unknown_raw_files with an empty directory."""
@@ -285,7 +285,7 @@ def test_get_unknown_raw_files_with_empty_directory(
     # when
     get_unknown_raw_files(ti, **{OpArgs.INSTRUMENT_ID: SOME_INSTRUMENT_ID})
 
-    mock_get_unknown_raw_files_from_db.assert_called_once_with([])
+    mock_get_raw_files_by_names.assert_called_once_with([])
     mock_put_xcom.assert_called_once_with(ti, XComKeys.RAW_FILE_NAMES_TO_PROCESS, {})
 
 

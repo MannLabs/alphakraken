@@ -160,9 +160,9 @@ def _check_main_file_to_move(ti: TaskInstance, raw_file: RawFile) -> None:
     """
     main_file_to_move = Path(get_xcom(ti, XComKeys.MAIN_FILE_TO_MOVE))
 
-    if (current_size := get_file_size(main_file_to_move)) != (
-        actual_size := get_main_file_size_from_db(raw_file)
+    if (size_current := get_file_size(main_file_to_move)) != (
+        size_db := get_main_file_size_from_db(raw_file)
     ):
         raise AirflowFailException(
-            f"File size mismatch for {main_file_to_move}. Current: {current_size}, DB: {actual_size}. "
+            f"File size mismatch for {main_file_to_move}: {size_current=} {size_db=}. "
         )

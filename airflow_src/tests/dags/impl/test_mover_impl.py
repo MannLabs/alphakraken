@@ -316,7 +316,7 @@ def test_check_main_file_to_move_file_size_matches_database_record(
 @patch("dags.impl.mover_impl.get_xcom")
 @patch("dags.impl.mover_impl.get_file_size")
 @patch("dags.impl.mover_impl.get_main_file_size_from_db")
-def test_check_main_file_to_movefile_size_does_not_match_database_record_raises_exception(
+def test_check_main_file_to_move_file_size_does_not_match_database_record_raises_exception(
     mock_get_main_file_size_from_db: MagicMock,
     mock_get_file_size: MagicMock,
     mock_get_xcom: MagicMock,

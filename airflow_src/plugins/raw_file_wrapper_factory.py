@@ -5,7 +5,7 @@ Within this code base, the term "raw file" refers to the file (or folder) produc
 For Thermo, it is the ".raw" file, for Sciex, it is the ".wiff" file, and for Bruker, it is the ".d" folder.
 
 The term "main file" refers to one physical file that is monitored for changes during acquisition, and used for
-decisions that involve size comparisons. For thermo, it is the ".raw" file itself., for Sciex, it is the ".wiff" file,
+decisions that involve size comparisons. For Thermo, it is the ".raw" file itself, for Sciex, it is the ".wiff" file,
 for Bruker, it is the "analysis.tdf_bin" file within the ".d" folder.
 """
 
@@ -570,7 +570,9 @@ def get_main_file_size_from_db(raw_file: RawFile) -> int:
     )
     main_file_name = monitor_wrapper.main_file_path().name
     file_sizes = [
-        v[0] for k, v in raw_file.file_info.items() if Path(k).name == main_file_name
+        size
+        for path, (size, *_hashes) in raw_file.file_info.items()
+        if Path(path).name == main_file_name
     ]
 
     if len(file_sizes) != 1:

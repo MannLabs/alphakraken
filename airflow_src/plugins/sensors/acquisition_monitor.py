@@ -111,7 +111,7 @@ class AcquisitionMonitor(BaseSensorOperator):
                 self._main_file_path, youngest_file_age
             )
 
-        logging.info(f"Monitoring {self._raw_file_monitor_wrapper.main_file_path()}")
+        logging.info(f"Monitoring {self._main_file_path}")
 
     def post_execute(self, context: dict[str, Any], result: Any = None) -> None:  # noqa: ANN401
         """Update the status of the raw file in the database."""
@@ -263,9 +263,7 @@ class AcquisitionMonitor(BaseSensorOperator):
         ) / 60
 
         if time_since_last_check_m >= SIZE_CHECK_INTERVAL_M:
-            size = get_file_size(
-                self._raw_file_monitor_wrapper.main_file_path()  # TODO: use self._main_file_path here?
-            )
+            size = get_file_size(self._main_file_path)
 
             if size == self._last_file_size:
                 logging.info(

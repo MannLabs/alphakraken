@@ -21,11 +21,9 @@ from shared.db.models import RawFileStatus
 @patch("dags.impl.handler_impl.get_path")
 @patch("dags.impl.handler_impl.copy_file")
 @patch("dags.impl.handler_impl.RawFileWrapperFactory")
-@patch("dags.impl.handler_impl.get_file_size")
 @patch("dags.impl.handler_impl.update_raw_file")
-def test_copy_raw_file_calls_update_with_correct_args(  # noqa: PLR0913
+def test_copy_raw_file_calls_update_with_correct_args(
     mock_update_raw_file: MagicMock,
-    mock_get_file_size: MagicMock,
     mock_raw_file_wrapper_factory: MagicMock,
     mock_copy_file: MagicMock,
     mock_get_path_setting: MagicMock,
@@ -41,7 +39,6 @@ def test_copy_raw_file_calls_update_with_correct_args(  # noqa: PLR0913
 
     mock_get_path_setting.return_value = "some_backup_folder"
 
-    mock_get_file_size.return_value = 1000
     mock_raw_file_wrapper_factory.create_write_wrapper.return_value.get_files_to_copy.return_value = {
         Path("/path/to/instrument/test_file.raw"): Path(
             "/opt/airflow/mounts/backup/test_file.raw"
@@ -68,7 +65,7 @@ def test_copy_raw_file_calls_update_with_correct_args(  # noqa: PLR0913
             call(
                 "test_file.raw",
                 new_status=RawFileStatus.COPYING_DONE,
-                size=1000,
+                size=1001,
                 file_info={
                     "test_file.raw": (
                         1001,
@@ -79,7 +76,6 @@ def test_copy_raw_file_calls_update_with_correct_args(  # noqa: PLR0913
             ),
         ]
     )
-    mock_get_file_size.assert_called_once_with(mock_file_path_to_calculate_size, -1)
     mock_get_path_setting.assert_called_once_with("backup")
 
 

@@ -6,9 +6,6 @@ from pathlib import Path
 
 from airflow.exceptions import AirflowFailException
 from airflow.models import TaskInstance
-from common.constants import (
-    DEFAULT_RAW_FILE_SIZE_IF_MAIN_FILE_MISSING,
-)
 from common.keys import (
     DAG_DELIMITER,
     AcquisitionMonitorErrors,
@@ -32,7 +29,7 @@ from common.utils import (
     get_xcom,
     trigger_dag_run,
 )
-from file_handling import copy_file, get_file_size
+from file_handling import copy_file
 from raw_file_wrapper_factory import (
     CopyPathProvider,
     RawFileMonitorWrapper,
@@ -81,26 +78,22 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> bool:
             f"Will overwrite files as requested by Airflow variable {AirflowVars.BACKUP_OVERWRITE_FILE_ID}."
         )
 
+    total_file_size = 0
     copied_files: dict[Path, tuple[float, str]] = {}
     for src_path, dst_path in copy_wrapper.get_files_to_copy().items():
         # TODO: in case of multiple files, the first failure will stop copying all others -> maybe change this?
         dst_size, dst_hash = copy_file(src_path, dst_path, overwrite=overwrite)
+        total_file_size += dst_size
         copied_files[dst_path] = (dst_size, dst_hash)
 
     file_info = _get_file_info(copied_files)
 
     backup_base_path = get_path(Locations.BACKUP)
 
-    # a bit hacky to get the file size once again, but it's a cheap operation and avoids complicate logic
-    # TODO: in rare cases (manual intervention) this could yield to inconsistencies, change this!
-    file_size = get_file_size(
-        copy_wrapper.file_path_to_calculate_size(),
-        DEFAULT_RAW_FILE_SIZE_IF_MAIN_FILE_MISSING,
-    )
     update_raw_file(
         raw_file_id,
         new_status=RawFileStatus.COPYING_DONE,
-        size=file_size,
+        size=total_file_size,
         file_info=file_info,
         backup_base_path=str(backup_base_path),
     )

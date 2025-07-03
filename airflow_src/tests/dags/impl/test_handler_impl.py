@@ -33,7 +33,7 @@ from shared.db.models import RawFileStatus
 @patch("dags.impl.handler_impl.get_file_hash")
 @patch("dags.impl.handler_impl.update_raw_file")
 @patch("dags.impl.handler_impl.put_xcom")
-def test_compute_checksum(  # noqa: PLR0913
+def test_compute_checksum_one_file(  # noqa: PLR0913
     mock_put_xcom: MagicMock,
     mock_update_raw_file: MagicMock,
     mock_get_file_hash: MagicMock,
@@ -42,7 +42,7 @@ def test_compute_checksum(  # noqa: PLR0913
     mock_get_raw_file_by_id: MagicMock,
     file_info: dict[str, tuple[float, str]],
 ) -> None:
-    """Test compute_checksum calls update with correct arguments."""
+    """Test compute_checksum calls update with correct arguments for one file (e.g. Thermo)."""
     ti = MagicMock()
     kwargs = {
         "params": {"raw_file_id": "test_file.raw"},
@@ -97,6 +97,106 @@ def test_compute_checksum(  # noqa: PLR0913
                 "files_dst_paths",
                 {
                     "/path/to/instrument/test_file.raw": "/opt/airflow/mounts/backup/test_file.raw"
+                },
+            ),
+        ]
+    )
+
+
+@pytest.mark.parametrize(
+    "file_info",
+    [
+        {
+            "test_file.wiff": (1000, "some_hash"),
+            "test_file.wiff2": (
+                2000,
+                "some_other_hash",
+            ),
+        },
+        {},
+    ],
+)
+@patch("dags.impl.handler_impl.get_raw_file_by_id")
+@patch("dags.impl.handler_impl.RawFileWrapperFactory")
+@patch("dags.impl.handler_impl.get_file_size")
+@patch("dags.impl.handler_impl.get_file_hash")
+@patch("dags.impl.handler_impl.update_raw_file")
+@patch("dags.impl.handler_impl.put_xcom")
+def test_compute_checksum_multiple_files(  # noqa: PLR0913
+    mock_put_xcom: MagicMock,
+    mock_update_raw_file: MagicMock,
+    mock_get_file_hash: MagicMock,
+    mock_get_file_size: MagicMock,
+    mock_raw_file_wrapper_factory: MagicMock,
+    mock_get_raw_file_by_id: MagicMock,
+    file_info: dict[str, tuple[float, str]],
+) -> None:
+    """Test compute_checksum calls update with correct arguments for multiple files (e.g. Sciex)."""
+    ti = MagicMock()
+    kwargs = {
+        "params": {"raw_file_id": "test_file.wiff"},
+    }
+    mock_raw_file = MagicMock()
+    mock_raw_file.file_info = file_info
+    mock_get_raw_file_by_id.return_value = mock_raw_file
+
+    mock_get_file_size.side_effect = [1000, 2000]
+    mock_get_file_hash.side_effect = ["some_hash", "some_other_hash"]
+    mock_raw_file_wrapper_factory.create_write_wrapper.return_value.get_files_to_copy.return_value = {
+        Path("/path/to/instrument/test_file.wiff"): Path(
+            "/opt/airflow/mounts/backup/test_file.wiff"
+        ),
+        Path("/path/to/instrument/test_file.wiff2"): Path(
+            "/opt/airflow/mounts/backup/test_file.wiff2"
+        ),
+    }
+    mock_raw_file_wrapper_factory.create_write_wrapper.return_value.source_folder_path = Path(
+        "/path/to/instrument/"
+    )
+
+    mock_main_file_path = MagicMock()
+    mock_raw_file_wrapper_factory.create_write_wrapper.return_value.main_file_path.return_value = mock_main_file_path
+
+    # when
+    compute_checksum(ti, **kwargs)
+
+    # then
+    mock_update_raw_file.assert_has_calls(
+        [
+            call("test_file.wiff", new_status=RawFileStatus.CHECKSUMMING),
+            call(
+                "test_file.wiff",
+                new_status=RawFileStatus.CHECKSUMMING_DONE,
+                size=3000,
+                file_info={
+                    "test_file.wiff": (
+                        1000,
+                        "some_hash",
+                    ),
+                    "test_file.wiff2": (
+                        2000,
+                        "some_other_hash",
+                    ),
+                },
+            ),
+        ]
+    )
+    mock_put_xcom.assert_has_calls(
+        [
+            call(
+                ti,
+                "files_size_and_hashsum",
+                {
+                    "/path/to/instrument/test_file.wiff": (1000, "some_hash"),
+                    "/path/to/instrument/test_file.wiff2": (2000, "some_other_hash"),
+                },
+            ),
+            call(
+                ti,
+                "files_dst_paths",
+                {
+                    "/path/to/instrument/test_file.wiff": "/opt/airflow/mounts/backup/test_file.wiff",
+                    "/path/to/instrument/test_file.wiff2": "/opt/airflow/mounts/backup/test_file.wiff2",
                 },
             ),
         ]

@@ -187,7 +187,9 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
 ) -> None:
     """A fragment that displays a DataFrame with a filter."""
     st.markdown("## Data")
+
     now = datetime.now(tz=pytz.UTC).replace(microsecond=0)
+    st.text(f"Last fetched {now.strftime('%Y-%m-%d %H:%M:%S')}")
 
     # filter
     len_whole_df = len(df)
@@ -340,7 +342,19 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
         mime="text/csv",
     )
 
-    if st.button(
+    # ########################################### DISPLAY: Files
+
+    st.markdown("## Files")
+    c1, c2, _ = st.columns([0.10, 0.10, 0.5])
+    prefix = (
+        " - "
+        if c2.checkbox(
+            "AlphaDIA-compatible prefix",
+            help="Whether the Multi-line format should carry a hyphen as prefix",
+        )
+        else ""
+    )
+    if c1.button(
         "Show file paths for selection",
         help="For the selection in the table, show all file paths on the backup for conveniently copying them manually to another location.",
     ):
@@ -352,16 +366,14 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
                 st.warning(
                     "Warning: more than one instrument type found, please check your selection!"
                 )
-            c1, _ = st.columns([0.75, 0.25])
 
-            c1.write("AlphaDIA config format:")
-            prefix = " - "
-            file_paths_pretty = f"\n{prefix}".join(file_paths)
-            c1.code(f"{prefix}{file_paths_pretty}")
-
-            c1.write("One line format:")
+            st.write("One-line format:")
             file_paths_pretty_one_line = " ".join(file_paths)
-            c1.code(f"{file_paths_pretty_one_line}")
+            st.code(f"{file_paths_pretty_one_line}")
+
+            st.write("Multi-line format:")
+            file_paths_pretty = f"\n{prefix}".join(file_paths)
+            st.code(f"{prefix}{file_paths_pretty}")
 
     # ########################################### DISPLAY: plots
 

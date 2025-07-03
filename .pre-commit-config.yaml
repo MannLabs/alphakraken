@@ -15,11 +15,6 @@ repos:
       - id: detect-private-key # detects the presence of private keys.
       - id: no-commit-to-branch
         args: ["--branch", "main"]
-  - repo: https://github.com/pre-commit/mirrors-prettier
-    rev: v4.0.0-alpha.8
-    hooks:
-      - id: prettier
-        exclude: '.*md|pyproject\.toml'
   - repo: https://github.com/pre-commit/pygrep-hooks
     rev: v1.10.0
     hooks:
@@ -42,6 +37,11 @@ repos:
         name: ty
         entry: uvx ty==0.0.1-alpha.6 check
         language: system
-#        # run only if python files changed
-#        files: |
-#          (?x)^(?!.*/test_.*py)(.*py)$
+  #        # run only if python files changed
+  #        files: |
+  #          (?x)^(?!.*/test_.*py)(.*py)$
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v4.0.0-alpha.8
+    hooks:
+      - id: prettier
+        exclude: '.*md|pyproject\.toml'

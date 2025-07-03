@@ -563,8 +563,11 @@ class RawFileWrapperFactory:
         )
 
 
-def get_main_file_size_from_db(raw_file: RawFile) -> int:
-    """Get the size in bytes of the main file from the `raw_file` object in the database."""
+def get_main_file_size_from_db(raw_file: RawFile) -> int | None:
+    """Get the size in bytes of the main file from the `raw_file` object in the database.
+
+    Returns None if the main file is not found in the `raw_file.file_info` dictionary.
+    """
     monitor_wrapper = RawFileWrapperFactory.create_monitor_wrapper(
         instrument_id=raw_file.instrument_id, raw_file=raw_file
     )
@@ -575,8 +578,12 @@ def get_main_file_size_from_db(raw_file: RawFile) -> int:
         if Path(path).name == main_file_name
     ]
 
-    if len(file_sizes) != 1:
+    if len(file_sizes) > 1:
         raise AirflowFailException(
-            f"Found not exactly one item for {main_file_name}: got {file_sizes=} from {raw_file.file_info}"
+            f"Found more than one item for {main_file_name}: got {file_sizes=} from {raw_file.file_info}"
         )
-    return file_sizes[0]
+
+    if len(file_sizes) == 1:
+        return file_sizes[0]
+
+    return None

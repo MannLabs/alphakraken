@@ -12,7 +12,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import pytz
-from airflow.exceptions import AirflowFailException
 from common.settings import _INSTRUMENTS
 from plugins.raw_file_wrapper_factory import (
     BrukerRawFileMonitorWrapper,
@@ -545,13 +544,14 @@ def test_get_main_file_size_from_db(mock_create_monitor_wrapper: MagicMock) -> N
         "/path/to/instrument/sample.raw"
     )
 
+    # when
     size = get_main_file_size_from_db(raw_file)
 
     assert size == 1024  # noqa: PLR2004
 
 
 @patch("plugins.raw_file_wrapper_factory.RawFileWrapperFactory.create_monitor_wrapper")
-def test_get_main_file_size_from_db_file_missing_raises(
+def test_get_main_file_size_from_db_file_missing(
     mock_create_monitor_wrapper: MagicMock,
 ) -> None:
     """Test that get_main_file_size_from_db raises if file is not in file_info."""
@@ -566,8 +566,7 @@ def test_get_main_file_size_from_db_file_missing_raises(
         "/path/to/instrument/sample.raw"
     )
 
-    with pytest.raises(
-        AirflowFailException,
-        match="Found not exactly one item for",
-    ):
-        get_main_file_size_from_db(raw_file)
+    # when
+    size = get_main_file_size_from_db(raw_file)
+
+    assert size is None

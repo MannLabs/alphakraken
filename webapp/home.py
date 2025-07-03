@@ -8,7 +8,7 @@ from service.utils import APP_URL, _log, display_info_message, quanting_output_p
 
 from shared.keys import ALLOWED_CHARACTERS_IN_RAW_FILE_NAME, EnvVars
 
-_log(f"loading {__file__}")
+_log(f"loading {__file__} { {st.query_params} }")
 
 st.set_page_config(page_title="AlphaKraken: home", layout="wide")
 

@@ -119,7 +119,7 @@ class RawFileMonitorWrapper(ABC):
         return self._instrument_path
 
     def get_corrupted_file_name(self) -> str | None:
-        """Get the name of the file that the raw file is renamed to in case the acquisition failed.
+        """Get the name of the file that the raw file is renamed to by the acquisition software in certain failure cases.
 
         Defaults to None -> handling of corrupted files turned off.
         """
@@ -127,7 +127,7 @@ class RawFileMonitorWrapper(ABC):
 
     @classmethod
     def is_corrupted_file_name(cls, file_name: str) -> bool:
-        """Check if the given file name is a corrupted file.
+        """Check if the given file name is a corrupted file (i.e. renamed by acquisition software).
 
         Defaults to False -> handling of corrupted files turned off.
         """
@@ -146,7 +146,7 @@ class ThermoRawFileMonitorWrapper(RawFileMonitorWrapper):
         return self._instrument_path / self._raw_file_original_name
 
     def get_corrupted_file_name(self) -> str | None:
-        """Get the name of the file that the raw file is renamed to in case the acquisition failed.
+        """Get the name of the file that the raw file is renamed to by the acquisition software in certain failure cases.
 
         Only the Thermo acquisition software does these renamings on certain acquisition failures.
         """
@@ -154,7 +154,7 @@ class ThermoRawFileMonitorWrapper(RawFileMonitorWrapper):
 
     @classmethod
     def is_corrupted_file_name(cls, file_name: str) -> bool:
-        """Check if the given file name is a corrupted file."""
+        """Check if the given file name is a corrupted file (i.e. renamed by acquisition software)."""
         return file_name.endswith(cls._corrupted_file_suffix)
 
 

@@ -64,7 +64,7 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
             execution_timeout=timedelta(minutes=Timings.ACQUISITION_MONITOR_TIMEOUT_M),
         )
 
-        copy_raw_file_ = PythonOperator(
+        copy_raw_file_ = ShortCircuitOperator(
             task_id=Tasks.COPY_RAW_FILE,
             python_callable=copy_raw_file,
             max_active_tis_per_dag=Concurrency.MAXNO_COPY_RAW_FILE_TASKS_PER_DAG,

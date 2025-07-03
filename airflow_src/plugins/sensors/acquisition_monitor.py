@@ -56,6 +56,8 @@ class AcquisitionMonitor(BaseSensorOperator):
         self._raw_file_monitor_wrapper: RawFileMonitorWrapper | None = None
         self._initial_dir_content: set | None = None
         self._file_path_to_monitor: Path | None = None
+        self._corrupted_file_name: str | None = None
+        self._file_got_renamed: bool = False
 
         self._first_poke_timestamp: float | None = None
         self._latest_file_size_check_timestamp: float | None = None
@@ -73,6 +75,10 @@ class AcquisitionMonitor(BaseSensorOperator):
 
         self._raw_file_monitor_wrapper = RawFileWrapperFactory.create_monitor_wrapper(
             instrument_id=self._instrument_id, raw_file=self._raw_file
+        )
+
+        self._corrupted_file_name = (
+            self._raw_file_monitor_wrapper.get_corrupted_file_name()
         )
 
         self._initial_dir_content = (
@@ -115,13 +121,16 @@ class AcquisitionMonitor(BaseSensorOperator):
         """Update the status of the raw file in the database."""
         del result  # unused
 
-        acquisition_monitor_errors = (
-            []
-            if self._main_file_exists
-            else [
+        acquisition_monitor_errors = []
+        if not self._main_file_exists:
+            acquisition_monitor_errors += [
                 f"{AcquisitionMonitorErrors.MAIN_FILE_MISSING}{self._raw_file_monitor_wrapper.main_file_name}"
             ]
-        )
+        if self._file_got_renamed:
+            acquisition_monitor_errors += [
+                f"{AcquisitionMonitorErrors.FILE_GOT_RENAMED}{self._corrupted_file_name}"
+            ]
+
         put_xcom(
             context["ti"],
             XComKeys.ACQUISITION_MONITOR_ERRORS,
@@ -159,6 +168,16 @@ class AcquisitionMonitor(BaseSensorOperator):
                 # potential additional check: is the new file "small enough" to be considered a freshly started acquisition
                 # but: to adjust the threshold the poke frequency and the data output of the instrument need to be considered
                 logging.info("Considering previous acquisition to be done.")
+
+                # Handling the case where the file got renamed by the acquisition software.
+                # Deliberately limited to the case of a single new file to avoid false positives on race conditions
+                if (
+                    self._corrupted_file_name is not None
+                    and self._corrupted_file_name in new_dir_content
+                ):
+                    logging.warning(f"File got renamed to {self._corrupted_file_name}.")
+                    self._file_got_renamed = True
+
                 return True
 
             logging.warning(

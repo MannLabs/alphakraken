@@ -59,6 +59,49 @@ def test_poke_file_dir_contents_change_file_is_added(
 @patch("plugins.sensors.acquisition_monitor.RawFileWrapperFactory")
 @patch("plugins.sensors.acquisition_monitor.update_raw_file")
 @patch("plugins.sensors.acquisition_monitor.get_raw_file_by_id")
+@patch("plugins.sensors.acquisition_monitor.put_xcom")
+def test_poke_file_dir_contents_change_corrupt_file_is_added(
+    mock_put_xcom: MagicMock,
+    mock_get_raw_file_by_id: MagicMock,
+    mock_update_raw_file: MagicMock,
+    mock_raw_file_wrapper_factory: MagicMock,
+) -> None:
+    """Test poke and post_execute methods correctly return when dir contents change (corrupted file is added)."""
+    mock_path = MagicMock()
+    mock_path.stat.return_value = MagicMock(st_size=1)
+
+    mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.file_path_to_monitor_acquisition.return_value = mock_path
+    mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.get_corrupted_file_name.return_value = "some_file_CORRUPTED.raw"
+
+    mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.get_raw_files_on_instrument.side_effect = [
+        {"some_file.raw"},  # initial content (pre_execute)
+        {"some_file.raw", "some_file_CORRUPTED.raw"},  # first poke
+    ]
+
+    sensor = get_sensor()
+    sensor.pre_execute({DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"}})
+
+    # when
+    result = sensor.poke({})
+    assert result
+
+    mock_update_raw_file.assert_called_once_with(
+        mock_get_raw_file_by_id.return_value.id, new_status="monitoring_acquisition"
+    )
+    assert sensor._file_got_renamed
+
+    ti = MagicMock()
+    # when 2
+    sensor.post_execute({"ti": ti}, result=True)
+
+    mock_put_xcom.assert_called_once_with(
+        ti, "acquisition_monitor_errors", ["File got renamed: some_file_CORRUPTED.raw"]
+    )
+
+
+@patch("plugins.sensors.acquisition_monitor.RawFileWrapperFactory")
+@patch("plugins.sensors.acquisition_monitor.update_raw_file")
+@patch("plugins.sensors.acquisition_monitor.get_raw_file_by_id")
 def test_poke_file_dir_contents_change_two_files_are_added(
     mock_get_raw_file_by_id: MagicMock,
     mock_update_raw_file: MagicMock,

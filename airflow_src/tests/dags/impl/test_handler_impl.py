@@ -4,7 +4,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, Mock, call, patch
 
 import pytest
-from common.keys import DagContext, DagParams, OpArgs
+from common.keys import AcquisitionMonitorErrors, DagContext, DagParams, OpArgs
 from common.settings import _INSTRUMENTS
 from dags.impl.handler_impl import (
     _count_special_characters,
@@ -53,9 +53,10 @@ def test_copy_raw_file_calls_update_with_correct_args(  # noqa: PLR0913
     mock_raw_file_wrapper_factory.create_write_wrapper.return_value.file_path_to_calculate_size.return_value = mock_file_path_to_calculate_size
 
     # when
-    copy_raw_file(ti, **kwargs)
+    continue_downstream_tasks = copy_raw_file(ti, **kwargs)
 
     # then
+    assert continue_downstream_tasks
     mock_copy_file.assert_called_once_with(
         Path("/path/to/instrument/test_file.raw"),
         Path("/opt/airflow/mounts/backup/test_file.raw"),
@@ -117,9 +118,11 @@ def test_copy_raw_file_calls_update_with_correct_args_overwrite(  # noqa: PLR091
     mock_copy_file.return_value = (1001, "some_hash")
 
     # when
-    copy_raw_file(ti, **kwargs)
+    continue_downstream_tasks = copy_raw_file(ti, **kwargs)
 
     # then
+    assert continue_downstream_tasks
+
     mock_copy_file.assert_called_once_with(
         Path("/path/to/instrument/test_file.raw"),
         Path("/opt/airflow/mounts/backup/test_file.raw"),
@@ -129,6 +132,33 @@ def test_copy_raw_file_calls_update_with_correct_args_overwrite(  # noqa: PLR091
     mock_get_airflow_variable.assert_called_once_with("backup_overwrite_file_id", "")
 
     # not repeating the checks of test_copy_raw_file_calls_update_with_correct_args
+
+
+@patch("dags.impl.handler_impl.get_xcom")
+@patch("dags.impl.handler_impl.update_raw_file")
+def test_copy_raw_file_file_got_renamed(
+    mock_update_raw_file: MagicMock,
+    mock_get_xcom: MagicMock,
+) -> None:
+    """Test copy_raw_file correctly handles the case when file got renamed."""
+    ti = MagicMock()
+    kwargs = {
+        "params": {"raw_file_id": "test_file.raw"},
+    }
+    mock_raw_file = MagicMock()
+    mock_raw_file.id = "test_file.raw"
+
+    mock_get_xcom.return_value = [AcquisitionMonitorErrors.FILE_GOT_RENAMED]
+
+    # when
+    continue_downstream_tasks = copy_raw_file(ti, **kwargs)
+
+    # then
+    assert not continue_downstream_tasks
+
+    mock_update_raw_file.assert_called_once_with(
+        "test_file.raw", new_status=RawFileStatus.ACQUISITION_FAILED
+    )
 
 
 @patch.dict(_INSTRUMENTS, {"instrument1": {"file_move_delay_m": 1}})
@@ -177,7 +207,7 @@ def test_start_file_mover_skipped(mock_trigger_dag_run: MagicMock) -> None:
     mock_trigger_dag_run.assert_not_called()
 
 
-@patch("dags.impl.handler_impl.get_xcom", return_value=None)
+@patch("dags.impl.handler_impl.get_xcom", return_value=[])
 @patch("dags.impl.handler_impl.get_raw_file_by_id", return_value=MagicMock())
 @patch("dags.impl.handler_impl.get_instrument_settings", return_value=False)
 def test_decide_processing_returns_true_if_no_errors(
@@ -196,12 +226,17 @@ def test_decide_processing_returns_true_if_no_errors(
     assert decide_processing(ti, **kwargs) is True
 
 
-@patch("dags.impl.handler_impl.get_xcom", return_value=["error1"])
+@patch(
+    "dags.impl.handler_impl.get_xcom",
+    return_value=[AcquisitionMonitorErrors.MAIN_FILE_MISSING],
+)
+@patch("dags.impl.handler_impl.get_raw_file_by_id", return_value=MagicMock())
 @patch("dags.impl.handler_impl.update_raw_file")
 @patch("dags.impl.handler_impl.get_instrument_settings", return_value=False)
 def test_decide_processing_returns_false_if_acquisition_errors_present(
     mock_get_instrument_settings: MagicMock,  # noqa:ARG001
     mock_update_raw_file: MagicMock,
+    mock_get_raw_file_by_id: MagicMock,  # noqa:ARG001
     mock_get_xcom: MagicMock,  # noqa:ARG001
 ) -> None:
     """Test decide_processing returns False if acquisition errors are present."""
@@ -217,11 +252,11 @@ def test_decide_processing_returns_false_if_acquisition_errors_present(
     mock_update_raw_file.assert_called_once_with(
         "some_file.raw",
         new_status=RawFileStatus.ACQUISITION_FAILED,
-        status_details="error1",
+        status_details=AcquisitionMonitorErrors.MAIN_FILE_MISSING,
     )
 
 
-@patch("dags.impl.handler_impl.get_xcom", return_value=None)
+@patch("dags.impl.handler_impl.get_xcom", return_value=[])
 @patch("dags.impl.handler_impl.get_raw_file_by_id", return_value=MagicMock(size=0))
 @patch("dags.impl.handler_impl.get_instrument_settings", return_value=False)
 @patch("dags.impl.handler_impl.update_raw_file")
@@ -247,12 +282,14 @@ def test_decide_processing_returns_false_if_file_size_zero(
     )
 
 
-@patch("dags.impl.handler_impl.get_xcom", return_value=None)
+@patch("dags.impl.handler_impl.get_xcom", return_value=[])
+@patch("dags.impl.handler_impl.get_raw_file_by_id", return_value=[])
 @patch("dags.impl.handler_impl.get_instrument_settings", return_value=True)
 @patch("dags.impl.handler_impl.update_raw_file")
 def test_decide_processing_returns_false_if_skip_quanting_is_set(
     mock_update_raw_file: MagicMock,
     mock_get_instrument_settings: MagicMock,
+    mock_get_raw_file_by_id: MagicMock,  # noqa:ARG001
     mock_get_xcom: MagicMock,  # noqa:ARG001
 ) -> None:
     """Test decide_processing returns False if instrument settings has skip_quanting set."""
@@ -272,12 +309,14 @@ def test_decide_processing_returns_false_if_skip_quanting_is_set(
     )
 
 
-@patch("dags.impl.handler_impl.get_xcom", return_value=None)
+@patch("dags.impl.handler_impl.get_xcom", return_value=[])
+@patch("dags.impl.handler_impl.get_raw_file_by_id", return_value=[])
 @patch("dags.impl.handler_impl.get_instrument_settings", return_value=False)
 @patch("dags.impl.handler_impl.update_raw_file")
 def test_decide_processing_returns_false_if_dda(
     mock_update_raw_file: MagicMock,
     mock_get_instrument_settings: MagicMock,  # noqa:ARG001
+    mock_get_raw_file_by_id: MagicMock,  # noqa:ARG001
     mock_get_xcom: MagicMock,  # noqa:ARG001
 ) -> None:
     """Test decide_processing returns False if file name contains 'dda'."""
@@ -296,7 +335,8 @@ def test_decide_processing_returns_false_if_dda(
     )
 
 
-@patch("dags.impl.handler_impl.get_xcom", return_value=None)
+@patch("dags.impl.handler_impl.get_xcom", return_value=[])
+@patch("dags.impl.handler_impl.get_raw_file_by_id", return_value=[])
 @patch("dags.impl.handler_impl.get_instrument_settings", return_value=False)
 @patch("dags.impl.handler_impl._count_special_characters", return_value=1)
 @patch("dags.impl.handler_impl.update_raw_file")
@@ -304,6 +344,7 @@ def test_decide_processing_returns_false_if_special_characters(
     mock_update_raw_file: MagicMock,
     mock_count_special_characters: MagicMock,  # noqa:ARG001
     mock_get_instrument_settings: MagicMock,  # noqa:ARG001
+    mock_get_raw_file_by_id: MagicMock,  # noqa:ARG001
     mock_get_xcom: MagicMock,  # noqa:ARG001
 ) -> None:
     """Test decide_processing returns False if file name contains special characters."""
@@ -319,6 +360,40 @@ def test_decide_processing_returns_false_if_special_characters(
         "some_file.raw",
         new_status=RawFileStatus.DONE_NOT_QUANTED,
         status_details="Filename contains special characters.",
+    )
+
+
+@patch("dags.impl.handler_impl.get_xcom", return_value=[])
+@patch("dags.impl.handler_impl.get_raw_file_by_id", return_value=MagicMock())
+@patch("dags.impl.handler_impl.get_instrument_settings", return_value=False)
+@patch("dags.impl.handler_impl._count_special_characters", return_value=0)
+@patch("dags.impl.handler_impl.RawFileMonitorWrapper", return_value=MagicMock())
+@patch("dags.impl.handler_impl.update_raw_file")
+def test_decide_processing_returns_false_if_corrupted_file(  # noqa: PLR0913
+    mock_update_raw_file: MagicMock,
+    mock_raw_file_monitor_wrapper: MagicMock,
+    mock_count_special_characters: MagicMock,  # noqa:ARG001
+    mock_get_instrument_settings: MagicMock,  # noqa:ARG001
+    mock_get_raw_file_by_id: MagicMock,  # noqa:ARG001
+    mock_get_xcom: MagicMock,  # noqa:ARG001
+) -> None:
+    """Test decide_processing returns False if the raw file name indicates a failed acquisition."""
+    ti = MagicMock()
+    kwargs = {
+        DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"},
+        OpArgs.INSTRUMENT_ID: "instrument1",
+    }
+
+    mock_raw_file_monitor_wrapper.return_value.is_corrupted_file_name.return_value = (
+        True
+    )
+
+    # when
+    assert decide_processing(ti, **kwargs) is False
+    mock_update_raw_file.assert_called_once_with(
+        "some_file.raw",
+        new_status=RawFileStatus.ACQUISITION_FAILED,
+        status_details="File name indicates failed acquisition.",
     )
 
 

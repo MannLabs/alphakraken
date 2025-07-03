@@ -11,6 +11,7 @@ from common.constants import (
 )
 from common.keys import (
     DAG_DELIMITER,
+    AcquisitionMonitorErrors,
     AirflowVars,
     DagContext,
     DagParams,
@@ -32,7 +33,11 @@ from common.utils import (
     trigger_dag_run,
 )
 from file_handling import copy_file, get_file_size
-from raw_file_wrapper_factory import CopyPathProvider, RawFileWrapperFactory
+from raw_file_wrapper_factory import (
+    CopyPathProvider,
+    RawFileMonitorWrapper,
+    RawFileWrapperFactory,
+)
 
 from shared.db.interface import get_raw_file_by_id, update_raw_file
 from shared.db.models import RawFileStatus
@@ -43,10 +48,22 @@ from shared.keys import (
 )
 
 
-def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
+def copy_raw_file(ti: TaskInstance, **kwargs) -> bool:
     """Copy a raw file to the target location."""
-    del ti  # unused
     raw_file_id = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID]
+
+    # TODO: this could be moved to an upfront task
+    acquisition_monitor_errors = get_xcom(ti, XComKeys.ACQUISITION_MONITOR_ERRORS, [])
+    if any(
+        AcquisitionMonitorErrors.FILE_GOT_RENAMED in error
+        for error in acquisition_monitor_errors
+    ):
+        logging.warning(
+            f"Skipping copy for raw file {raw_file_id}: {acquisition_monitor_errors}"
+        )
+
+        update_raw_file(raw_file_id, new_status=RawFileStatus.ACQUISITION_FAILED)
+        return False  # skip downstream tasks
 
     raw_file = get_raw_file_by_id(raw_file_id)
 
@@ -91,6 +108,8 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
     # to make this unusual situation transparent in UI:
     if not copied_files:
         raise AirflowFailException("No files were copied!")
+
+    return True  # continue with downstream tasks
 
 
 def _get_file_info(
@@ -149,9 +168,12 @@ def decide_processing(ti: TaskInstance, **kwargs) -> bool:
     """
     raw_file_id = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID]
     instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
+    acquisition_monitor_errors = get_xcom(ti, XComKeys.ACQUISITION_MONITOR_ERRORS, [])
+    raw_file = get_raw_file_by_id(raw_file_id)
 
-    if acquisition_monitor_errors := get_xcom(
-        ti, XComKeys.ACQUISITION_MONITOR_ERRORS, []
+    if any(
+        AcquisitionMonitorErrors.MAIN_FILE_MISSING in err
+        for err in acquisition_monitor_errors
     ):
         new_status = RawFileStatus.ACQUISITION_FAILED
         status_details = ";".join(acquisition_monitor_errors)
@@ -164,9 +186,12 @@ def decide_processing(ti: TaskInstance, **kwargs) -> bool:
     elif _count_special_characters(raw_file_id):
         new_status = RawFileStatus.DONE_NOT_QUANTED
         status_details = "Filename contains special characters."
-    elif get_raw_file_by_id(raw_file_id).size == 0:
+    elif raw_file.size == 0:
         new_status = RawFileStatus.ACQUISITION_FAILED
         status_details = "File size is zero."
+    elif RawFileMonitorWrapper.is_corrupted_file_name(raw_file.original_name):
+        new_status = RawFileStatus.ACQUISITION_FAILED
+        status_details = "File name indicates failed acquisition."
     else:
         return True  # continue with downstream tasks
 

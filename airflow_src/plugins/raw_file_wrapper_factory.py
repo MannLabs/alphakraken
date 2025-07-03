@@ -118,15 +118,44 @@ class RawFileMonitorWrapper(ABC):
         """Get the path to the instrument data directory."""
         return self._instrument_path
 
+    def get_corrupted_file_name(self) -> str | None:
+        """Get the name of the file that the raw file is renamed to by the acquisition software in certain failure cases.
+
+        Defaults to None -> handling of corrupted files turned off.
+        """
+        return None
+
+    @classmethod
+    def is_corrupted_file_name(cls, file_name: str) -> bool:
+        """Check if the given file name is a corrupted file (i.e. renamed by acquisition software).
+
+        Defaults to False -> handling of corrupted files turned off.
+        """
+        del file_name  # unused
+        return False
+
 
 class ThermoRawFileMonitorWrapper(RawFileMonitorWrapper):
     """RawFileMonitorWrapper for Thermo instruments."""
 
     _raw_file_extension = ".raw"
+    _corrupted_file_suffix = f"_CORRUPTED{_raw_file_extension}"
 
     def _file_path_to_monitor_acquisition(self) -> Path:
         """Get the (absolute) path to the raw file to monitor."""
         return self._instrument_path / self._raw_file_original_name
+
+    def get_corrupted_file_name(self) -> str | None:
+        """Get the name of the file that the raw file is renamed to by the acquisition software in certain failure cases.
+
+        Only the Thermo acquisition software does these renamings on certain acquisition failures.
+        """
+        return f"{Path(self._raw_file_original_name).stem}{self._corrupted_file_suffix}"
+
+    @classmethod
+    def is_corrupted_file_name(cls, file_name: str) -> bool:
+        """Check if the given file name is a corrupted file (i.e. renamed by acquisition software)."""
+        return file_name.endswith(cls._corrupted_file_suffix)
 
 
 class SciexRawFileMonitorWrapper(RawFileMonitorWrapper):

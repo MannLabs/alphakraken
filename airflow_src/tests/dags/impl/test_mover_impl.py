@@ -293,7 +293,9 @@ def test_move_files_permission_error_not_dir_no_rename(
 
 @patch("dags.impl.mover_impl.get_xcom")
 @patch("dags.impl.mover_impl.get_file_size")
-def test_check_main_file_to_movefile_size_matches_database_record(
+@patch("dags.impl.mover_impl.get_main_file_size_from_db")
+def test_check_main_file_to_move_file_size_matches_database_record(
+    mock_get_main_file_size_from_db: MagicMock,
     mock_get_file_size: MagicMock,
     mock_get_xcom: MagicMock,
 ) -> None:
@@ -302,7 +304,7 @@ def test_check_main_file_to_movefile_size_matches_database_record(
     mock_get_xcom.return_value = "path/to/file"
 
     raw_file = MagicMock()
-    raw_file.size = 100
+    mock_get_main_file_size_from_db.return_value = 100
 
     # when
     _check_main_file_to_move(MagicMock(), raw_file)
@@ -313,7 +315,9 @@ def test_check_main_file_to_movefile_size_matches_database_record(
 
 @patch("dags.impl.mover_impl.get_xcom")
 @patch("dags.impl.mover_impl.get_file_size")
-def test_check_main_file_to_movefile_size_does_not_match_database_record_raises_exception(
+@patch("dags.impl.mover_impl.get_main_file_size_from_db")
+def test_check_main_file_to_move_file_size_does_not_match_database_record_raises_exception(
+    mock_get_main_file_size_from_db: MagicMock,
     mock_get_file_size: MagicMock,
     mock_get_xcom: MagicMock,
 ) -> None:
@@ -322,7 +326,7 @@ def test_check_main_file_to_movefile_size_does_not_match_database_record_raises_
     mock_get_xcom.return_value = "path/to/file"
 
     raw_file = MagicMock()
-    raw_file.size = 100
+    mock_get_main_file_size_from_db.return_value = 100
 
     # when
     with pytest.raises(AirflowFailException):

@@ -99,7 +99,8 @@ class RawFile(Document):
 
     backup_status = StringField(max_length=32, default=None)
 
-    file_info = DictField()  # mapping of relative path on backup to tuples (size, hash)
+    file_info = DictField()  # mapping of file paths (relative to backup_base_path) to tuples (size: int, hash: str).
+    # When read from DB, the tuples are converted to lists.
 
     created_at = DateTimeField()  # when file was created
 

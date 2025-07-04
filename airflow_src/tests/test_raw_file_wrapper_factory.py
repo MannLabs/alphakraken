@@ -27,6 +27,7 @@ from plugins.raw_file_wrapper_factory import (
     SciexRawFileWriteWrapper,
     ThermoRawFileMonitorWrapper,
     ThermoRawFileWriteWrapper,
+    get_main_file_size_from_db,
 )
 
 from shared.db.models import RawFile
@@ -526,3 +527,46 @@ def test_bruker_get_files_to_copy() -> None:
             }
 
             assert files_to_copy == expected_mapping
+
+
+@patch("plugins.raw_file_wrapper_factory.RawFileWrapperFactory.create_monitor_wrapper")
+def test_get_main_file_size_from_db(mock_create_monitor_wrapper: MagicMock) -> None:
+    """Test that get_main_file_size_from_db returns the correct file size."""
+    raw_file = RawFile(
+        instrument_id="instrument1",
+        file_info={
+            "sample.raw": (1024, "hash_value"),
+            "other_file.txt": (2048, "other_hash_value"),
+        },
+    )
+
+    mock_create_monitor_wrapper.return_value.main_file_path.return_value = Path(
+        "/path/to/instrument/sample.raw"
+    )
+
+    # when
+    size = get_main_file_size_from_db(raw_file)
+
+    assert size == 1024  # noqa: PLR2004
+
+
+@patch("plugins.raw_file_wrapper_factory.RawFileWrapperFactory.create_monitor_wrapper")
+def test_get_main_file_size_from_db_file_missing(
+    mock_create_monitor_wrapper: MagicMock,
+) -> None:
+    """Test that get_main_file_size_from_db raises if file is not in file_info."""
+    raw_file = RawFile(
+        instrument_id="instrument1",
+        file_info={
+            "other_file.txt": (2048, "other_hash_value"),
+        },
+    )
+
+    mock_create_monitor_wrapper.return_value.main_file_path.return_value = Path(
+        "/path/to/instrument/sample.raw"
+    )
+
+    # when
+    size = get_main_file_size_from_db(raw_file)
+
+    assert size is None

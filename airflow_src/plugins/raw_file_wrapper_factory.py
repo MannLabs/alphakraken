@@ -2,7 +2,11 @@
 
 A general note on naming:
 Within this code base, the term "raw file" refers to the file (or folder) produced by the instrument.
-For thermo, it is the ".raw" file, for sciex, it is the ".wiff" file, and for bruker, it is the ".d" folder.
+For Thermo, it is the ".raw" file, for Sciex, it is the ".wiff" file, and for Bruker, it is the ".d" folder.
+
+The term "main file" refers to one physical file that is monitored for changes during acquisition, and used for
+decisions that involve size comparisons. For Thermo, it is the ".raw" file itself, for Sciex, it is the ".wiff" file,
+for Bruker, it is the "analysis.tdf_bin" file within the ".d" folder.
 """
 
 import logging
@@ -10,6 +14,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Union
 
+from airflow.exceptions import AirflowFailException
 from common.keys import InstrumentKeys
 from common.paths import (
     get_internal_backup_path_for_instrument,
@@ -556,3 +561,29 @@ class RawFileWrapperFactory:
             raw_file=raw_file,
             path_provider=path_provider,
         )
+
+
+def get_main_file_size_from_db(raw_file: RawFile) -> int | None:
+    """Get the size in bytes of the main file from the `raw_file` object in the database.
+
+    Returns None if the main file is not found in the `raw_file.file_info` dictionary.
+    """
+    monitor_wrapper = RawFileWrapperFactory.create_monitor_wrapper(
+        instrument_id=raw_file.instrument_id, raw_file=raw_file
+    )
+    main_file_name = monitor_wrapper.main_file_path().name
+    file_sizes = [
+        size
+        for path, (size, *_hashes) in raw_file.file_info.items()
+        if Path(path).name == main_file_name
+    ]
+
+    if len(file_sizes) > 1:
+        raise AirflowFailException(
+            f"Found more than one item for {main_file_name}: got {file_sizes=} from {raw_file.file_info}"
+        )
+
+    if len(file_sizes) == 1:
+        return file_sizes[0]
+
+    return None

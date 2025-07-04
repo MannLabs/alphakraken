@@ -13,7 +13,7 @@ from common.keys import DAG_DELIMITER, AirflowVars, DagParams, Dags, OpArgs, XCo
 from common.utils import get_airflow_variable, get_xcom, put_xcom, trigger_dag_run
 from file_handling import get_file_creation_timestamp, get_file_size
 from impl.project_id_handler import get_unique_project_id
-from raw_file_wrapper_factory import RawFileWrapperFactory
+from raw_file_wrapper_factory import RawFileWrapperFactory, get_main_file_size_from_db
 
 from shared.db.interface import (
     add_raw_file,
@@ -105,9 +105,10 @@ def get_unknown_raw_files(
     raw_files_names_lower_to_sizes_from_db: dict[str, list[int]] = defaultdict(list)
     for raw_file in get_raw_files_by_names(list(raw_file_names_on_instrument)):
         # due to collisions, there could be more than one raw file with the same original name
+        raw_file_size = get_main_file_size_from_db(raw_file)
         raw_files_names_lower_to_sizes_from_db[
             _cond_lower(raw_file.original_name)
-        ].append(raw_file.size)
+        ].append(raw_file_size)
     logging.info(f"got {raw_files_names_lower_to_sizes_from_db=}")
 
     raw_file_names_to_process: dict[str, bool] = {}
@@ -134,9 +135,7 @@ def get_unknown_raw_files(
                 ],
             )
             if not is_collision:
-                logging.info(
-                    "File in DB is the same, not considering for further processing."
-                )
+                logging.info("Not considering file for further processing in this run.")
                 continue
 
         raw_file_names_to_process[raw_file_name_on_instrument] = is_collision

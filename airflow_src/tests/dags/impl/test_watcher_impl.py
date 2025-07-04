@@ -76,7 +76,7 @@ def test_get_unknown_raw_files_with_existing_files_in_db(
         "file3.raw",  # different case than DB-> not in DB
         "file4.raw",  # not in DB
     }
-    mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.file_path_to_monitor_acquisition.side_effect = [
+    mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.main_file_path.side_effect = [
         Path("/path/to/file1.raw"),
         Path("/path/to/file2.raw"),
         Path("/path/to/file3.raw"),
@@ -127,7 +127,7 @@ def test_get_unknown_raw_files_with_existing_files_in_db_case_insensitive(
     mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.get_raw_files_on_instrument.return_value = {
         "file3.raw",
     }
-    mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.file_path_to_monitor_acquisition.side_effect = [
+    mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.main_file_path.side_effect = [
         Path("/path/to/file3.raw"),
     ]
 

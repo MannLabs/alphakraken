@@ -55,7 +55,7 @@ class AcquisitionMonitor(BaseSensorOperator):
         self._raw_file: RawFile | None = None
         self._raw_file_monitor_wrapper: RawFileMonitorWrapper | None = None
         self._initial_dir_content: set | None = None
-        self._file_path_to_monitor: Path | None = None
+        self._main_file_path: Path | None = None
         self._corrupted_file_name: str | None = None
         self._file_got_renamed: bool = False
 
@@ -85,11 +85,9 @@ class AcquisitionMonitor(BaseSensorOperator):
             self._raw_file_monitor_wrapper.get_raw_files_on_instrument()
         )
 
-        self._file_path_to_monitor = (
-            self._raw_file_monitor_wrapper.file_path_to_monitor_acquisition()
-        )
+        self._main_file_path = self._raw_file_monitor_wrapper.main_file_path()
 
-        self._main_file_exists = self._file_path_to_monitor.exists()
+        self._main_file_exists = self._main_file_path.exists()
 
         self._first_poke_timestamp = get_timestamp()
         self._latest_file_size_check_timestamp = self._first_poke_timestamp
@@ -110,12 +108,10 @@ class AcquisitionMonitor(BaseSensorOperator):
             )
 
             self._file_is_old = self._is_older_than_threshold(
-                self._file_path_to_monitor, youngest_file_age
+                self._main_file_path, youngest_file_age
             )
 
-        logging.info(
-            f"Monitoring {self._raw_file_monitor_wrapper.file_path_to_monitor_acquisition()}"
-        )
+        logging.info(f"Monitoring {self._main_file_path}")
 
     def post_execute(self, context: dict[str, Any], result: Any = None) -> None:  # noqa: ANN401
         """Update the status of the raw file in the database."""
@@ -150,7 +146,7 @@ class AcquisitionMonitor(BaseSensorOperator):
             return True
 
         if not self._main_file_exists:
-            if self._file_path_to_monitor.exists():
+            if self._main_file_path.exists():
                 self._main_file_exists = True
             else:
                 return self._main_file_missing_for_too_long()
@@ -269,9 +265,7 @@ class AcquisitionMonitor(BaseSensorOperator):
         ) / 60
 
         if time_since_last_check_m >= SIZE_CHECK_INTERVAL_M:
-            size = get_file_size(
-                self._raw_file_monitor_wrapper.file_path_to_monitor_acquisition()
-            )
+            size = get_file_size(self._main_file_path)
 
             if size == self._last_file_size:
                 logging.info(

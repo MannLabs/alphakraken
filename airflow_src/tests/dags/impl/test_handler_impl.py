@@ -53,8 +53,8 @@ def test_compute_checksum(  # noqa: PLR0913
         "/path/to/instrument/"
     )
 
-    mock_file_path_to_calculate_size = MagicMock()
-    mock_raw_file_wrapper_factory.create_write_wrapper.return_value.file_path_to_calculate_size.return_value = mock_file_path_to_calculate_size
+    mock_main_file_path = MagicMock()
+    mock_raw_file_wrapper_factory.create_write_wrapper.return_value.main_file_path.return_value = mock_main_file_path
 
     # when
     compute_checksum(ti, **kwargs)

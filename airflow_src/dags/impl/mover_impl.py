@@ -27,12 +27,12 @@ def get_files_to_move(ti: TaskInstance, **kwargs) -> None:
     )
 
     files_to_move = move_wrapper.get_files_to_move()
-    file_path_to_calculate_size = move_wrapper.file_path_to_calculate_size()
+    main_file_to_move = move_wrapper.main_file_path()
 
     put_xcom(
         ti, XComKeys.FILES_TO_MOVE, {str(k): str(v) for k, v in files_to_move.items()}
     )
-    put_xcom(ti, XComKeys.MAIN_FILE_TO_MOVE, str(file_path_to_calculate_size))
+    put_xcom(ti, XComKeys.MAIN_FILE_TO_MOVE, str(main_file_to_move))
 
 
 def move_files(ti: TaskInstance, **kwargs) -> None:
@@ -154,10 +154,9 @@ def _check_main_file_to_move(ti: TaskInstance, raw_file: RawFile) -> None:
 
     :raises: AirflowFailException if the file size does not match the database record.
     """
-    file_path_to_calculate_size_str = get_xcom(ti, XComKeys.MAIN_FILE_TO_MOVE)
-    file_path_to_calculate_size = Path(file_path_to_calculate_size_str)
+    main_file_to_move = Path(get_xcom(ti, XComKeys.MAIN_FILE_TO_MOVE))
 
-    if (current_size := get_file_size(file_path_to_calculate_size)) != raw_file.size:
+    if (current_size := get_file_size(main_file_to_move)) != raw_file.size:
         raise AirflowFailException(
-            f"File size mismatch for {file_path_to_calculate_size}. Current: {current_size}, DB: {raw_file.size}. "
+            f"File size mismatch for {main_file_to_move}. Current: {current_size}, DB: {raw_file.size}. "
         )

@@ -204,8 +204,9 @@ def augment_raw_files_with_metrics(
 
     """
     raw_files_dict: dict = {
-        dict(raw_file.to_mongo())["_id"]: dict(raw_file.to_mongo())
+        raw_file_mongo["_id"]: raw_file_mongo
         for raw_file in raw_files
+        if (raw_file_mongo := dict(raw_file.to_mongo()))
     }
 
     # querying all metrics at once to avoid load on DB

@@ -80,6 +80,17 @@ def compute_checksum(ti: TaskInstance, **kwargs) -> None:
     if not files_size_and_hashsum:
         raise AirflowFailException("No files were found!")
 
+    if existing_file_info := raw_file.file_info:
+        logging.warning(
+            f"Raw file {raw_file_id} already has file_info, checking for equality."
+        )
+
+        errors = _compare_file_info(existing_file_info, file_info)
+        if errors:
+            raise AirflowFailException(
+                f"File info mismatch for {raw_file_id}: {', '.join(errors)}"
+            )
+
     update_raw_file(
         raw_file_id,
         new_status=RawFileStatus.CHECKSUMMING_DONE,
@@ -97,6 +108,26 @@ def compute_checksum(ti: TaskInstance, **kwargs) -> None:
         XComKeys.FILES_DST_PATHS,
         {str(k): str(v) for k, v in files_dst_paths.items()},
     )
+
+
+def _compare_file_info(
+    existing_file_info: dict[str, tuple[float, str]],
+    file_info: dict[str, tuple[float, str]],
+) -> list[str]:
+    """Compare existing file info with new file info and return a list of errors."""
+    errors = []
+    for file_name, size_and_hash in existing_file_info.items():
+        if list(file_info.get(file_name, [])) != list(
+            size_and_hash
+        ):  # the existing file_info gets stored as a list
+            errors.append(
+                f"File info mismatch for {file_name}: existing {size_and_hash}, new {file_info.get(file_name)}"
+            )
+    if len(file_info) != len(existing_file_info):
+        errors.append(
+            f"File info length mismatch: existing {len(existing_file_info)}, new {len(file_info)}"
+        )
+    return errors
 
 
 def copy_raw_file(ti: TaskInstance, **kwargs) -> bool:
@@ -186,8 +217,8 @@ def _verify_copied_files(
     """Verify that the copied files match the original files in size and hash."""
     errors = []
     for src_path, (dst_size, dst_hash) in copied_files.items():
-        src_size, src_hash = files_size_and_hashsum[src_path]
-        dst_path = files_dst_paths[src_path]
+        src_size, src_hash = files_size_and_hashsum.get(src_path, (None, None))
+        dst_path = files_dst_paths.get(src_path)
         if dst_size != src_size or dst_hash != src_hash:
             errors.append(
                 f"Mismatch after copy: {src_path} {dst_path} {src_size} {dst_size} {src_hash} {dst_hash}"

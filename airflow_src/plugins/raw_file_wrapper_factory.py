@@ -328,6 +328,11 @@ class RawFileWriteWrapper(ABC):
         logging.info(f"{files=}")
         return files
 
+    @property
+    def source_folder_path(self) -> Path:
+        """The source folder path for the raw file operation, e.g. /opt/airflow/mounts/instruments/test2 ."""
+        return self._source_folder_path
+
     @abstractmethod
     def _get_files_to_copy(self) -> dict[Path, Path]:
         """Actual implementation."""

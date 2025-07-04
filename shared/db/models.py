@@ -33,6 +33,8 @@ class RawFileStatus:
     MONITORING_ACQUISITION = "monitoring_acquisition"
     MONITORING_DONE = "monitoring_done"
 
+    CHECKSUMMING = "checksumming"
+    CHECKSUMMING_DONE = "checksumming_done"
     COPYING = "copying"
     COPYING_DONE = "copying_done"
     ACQUISITION_FAILED = "acquisition_failed"

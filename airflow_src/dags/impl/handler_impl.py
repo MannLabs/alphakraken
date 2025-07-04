@@ -6,9 +6,6 @@ from pathlib import Path
 
 from airflow.exceptions import AirflowFailException
 from airflow.models import TaskInstance
-from common.constants import (
-    DEFAULT_RAW_FILE_SIZE_IF_MAIN_FILE_MISSING,
-)
 from common.keys import (
     DAG_DELIMITER,
     AcquisitionMonitorErrors,
@@ -20,9 +17,6 @@ from common.keys import (
     OpArgs,
     XComKeys,
 )
-from common.paths import (
-    get_internal_backup_path,
-)
 from common.settings import (
     get_instrument_settings,
     get_path,
@@ -30,9 +24,10 @@ from common.settings import (
 from common.utils import (
     get_airflow_variable,
     get_xcom,
+    put_xcom,
     trigger_dag_run,
 )
-from file_handling import copy_file, get_file_size
+from file_handling import copy_file, get_file_hash, get_file_size
 from raw_file_wrapper_factory import (
     CopyPathProvider,
     RawFileMonitorWrapper,
@@ -40,7 +35,7 @@ from raw_file_wrapper_factory import (
 )
 
 from shared.db.interface import get_raw_file_by_id, update_raw_file
-from shared.db.models import RawFileStatus
+from shared.db.models import RawFile, RawFileStatus, get_created_at_year_month
 from shared.keys import (
     ALLOWED_CHARACTERS_IN_RAW_FILE_NAME,
     DDA_FLAG_IN_RAW_FILE_NAME,
@@ -48,9 +43,61 @@ from shared.keys import (
 )
 
 
-def copy_raw_file(ti: TaskInstance, **kwargs) -> bool:
-    """Copy a raw file to the target location."""
+def compute_checksum(ti: TaskInstance, **kwargs) -> None:
+    """Compute checksums for files in a raw file and store them in DB and XCom."""
     raw_file_id = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID]
+
+    raw_file = get_raw_file_by_id(raw_file_id)
+
+    update_raw_file(raw_file_id, new_status=RawFileStatus.CHECKSUMMING)
+
+    copy_wrapper = RawFileWrapperFactory.create_write_wrapper(
+        raw_file=raw_file,
+        path_provider=CopyPathProvider,
+    )
+
+    files_size_and_hashsum: dict[Path, tuple[float, str]] = {}
+    files_dst_paths: dict[Path, Path] = {}
+    file_info: dict[str, tuple[float, str]] = {}
+    total_file_size = 0
+    for src_path, dst_path in copy_wrapper.get_files_to_copy().items():
+        file_size = get_file_size(src_path)
+        total_file_size += file_size
+        size_and_hashsum = (file_size, get_file_hash(src_path))
+
+        files_size_and_hashsum[src_path] = size_and_hashsum
+        file_info[str(src_path.relative_to(copy_wrapper.source_folder_path))] = (
+            size_and_hashsum
+        )
+        files_dst_paths[src_path] = dst_path
+
+    # to make this unusual situation transparent in UI:
+    if not files_size_and_hashsum:
+        raise AirflowFailException("No files were found!")
+
+    update_raw_file(
+        raw_file_id,
+        new_status=RawFileStatus.CHECKSUMMING_DONE,
+        size=total_file_size,
+        file_info=file_info,
+    )
+
+    put_xcom(
+        ti,
+        XComKeys.FILES_SIZE_AND_HASHSUM,
+        {str(k): v for k, v in files_size_and_hashsum.items()},
+    )
+    put_xcom(
+        ti,
+        XComKeys.FILES_DST_PATHS,
+        {str(k): str(v) for k, v in files_dst_paths.items()},
+    )
+
+
+def copy_raw_file(ti: TaskInstance, **kwargs) -> bool:
+    """Copy all data associated with a raw file to the target location."""
+    raw_file_id = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID]
+    instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
 
     # TODO: this could be moved to an upfront task
     acquisition_monitor_errors = get_xcom(ti, XComKeys.ACQUISITION_MONITOR_ERRORS, [])
@@ -65,13 +112,20 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> bool:
         update_raw_file(raw_file_id, new_status=RawFileStatus.ACQUISITION_FAILED)
         return False  # skip downstream tasks
 
+    files_dst_paths = {
+        Path(k): Path(v) for k, v in get_xcom(ti, XComKeys.FILES_DST_PATHS).items()
+    }
+    files_size_and_hashsum = {
+        Path(k): v for k, v in get_xcom(ti, XComKeys.FILES_SIZE_AND_HASHSUM).items()
+    }
+
     raw_file = get_raw_file_by_id(raw_file_id)
+    backup_base_path = get_backup_base_path(instrument_id, raw_file)
 
-    update_raw_file(raw_file_id, new_status=RawFileStatus.COPYING)
-
-    copy_wrapper = RawFileWrapperFactory.create_write_wrapper(
-        raw_file=raw_file,
-        path_provider=CopyPathProvider,
+    update_raw_file(
+        raw_file_id,
+        new_status=RawFileStatus.COPYING,
+        backup_base_path=str(backup_base_path),
     )
 
     if overwrite := (
@@ -82,51 +136,50 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> bool:
         )
 
     copied_files: dict[Path, tuple[float, str]] = {}
-    for src_path, dst_path in copy_wrapper.get_files_to_copy().items():
-        # TODO: in case of multiple files, the first failure will stop copying all others -> maybe change this?
-        dst_size, dst_hash = copy_file(src_path, dst_path, overwrite=overwrite)
-        copied_files[dst_path] = (dst_size, dst_hash)
+    for src_path, dst_path in files_dst_paths.items():
+        src_size, src_hash = files_size_and_hashsum[src_path]
+        dst_size, dst_hash = copy_file(
+            src_path, dst_path, src_hash, overwrite=overwrite
+        )
+        copied_files[src_path] = (dst_size, dst_hash)
 
-    file_info = _get_file_info(copied_files)
+    _verify_copied_files(copied_files, files_dst_paths, files_size_and_hashsum)
 
-    backup_base_path = get_path(Locations.BACKUP)
-
-    # a bit hacky to get the file size once again, but it's a cheap operation and avoids complicate logic
-    # TODO: in rare cases (manual intervention) this could yield to inconsistencies, change this!
-    file_size = get_file_size(
-        copy_wrapper.file_path_to_calculate_size(),
-        DEFAULT_RAW_FILE_SIZE_IF_MAIN_FILE_MISSING,
-    )
     update_raw_file(
         raw_file_id,
         new_status=RawFileStatus.COPYING_DONE,
-        size=file_size,
-        file_info=file_info,
-        backup_base_path=str(backup_base_path),
     )
-
-    # to make this unusual situation transparent in UI:
-    if not copied_files:
-        raise AirflowFailException("No files were copied!")
 
     return True  # continue with downstream tasks
 
 
-def _get_file_info(
+def get_backup_base_path(instrument_id: str, raw_file: RawFile) -> Path:
+    """Get the backup base path for the given instrument and raw file, e.g. /fs/pool/backup/test2/2025_07 ."""
+    return (
+        get_path(Locations.BACKUP) / instrument_id / get_created_at_year_month(raw_file)
+    )
+
+
+def _verify_copied_files(
     copied_files: dict[Path, tuple[float, str]],
-) -> dict[str, tuple[float, str]]:
-    """Map the paths of the copied files from the internal to their actual locations.
-
-    e.g. from `/opt/airflow/mounts/backup/test1/2024_08/test_file_SA_P123_1.raw` -> `test1/2024_08/test_file_SA_P123_1.raw`
-    """
-    internal_backup_path = get_internal_backup_path()
-
-    file_info: dict[str, tuple[float, str]] = {}
-    for dst_path, file_size_and_hash in copied_files.items():
-        rel_dst_path = dst_path.relative_to(internal_backup_path)
-        file_info[str(rel_dst_path)] = file_size_and_hash
-
-    return file_info
+    files_dst_paths: dict[Path, Path],
+    files_size_and_hashsum: dict[Path, tuple[float, str]],
+) -> None:
+    """Verify that the copied files match the original files in size and hash."""
+    errors = []
+    for src_path, (dst_size, dst_hash) in copied_files.items():
+        src_size, src_hash = files_size_and_hashsum[src_path]
+        dst_path = files_dst_paths[src_path]
+        if dst_size != src_size or dst_hash != src_hash:
+            errors.append(
+                f"Mismatch after copy: {src_path} {dst_path} {src_size} {dst_size} {src_hash} {dst_hash}"
+            )
+    if len(copied_files) != len(files_size_and_hashsum):
+        errors.append(
+            f"Length mismatch: {len(copied_files)=} != {len(files_size_and_hashsum)=}"
+        )
+    if errors:
+        raise AirflowFailException(f"File copy failed with errors: {errors}")
 
 
 def start_file_mover(ti: TaskInstance, **kwargs) -> None:

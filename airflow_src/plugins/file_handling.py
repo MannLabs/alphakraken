@@ -83,6 +83,7 @@ def get_file_hash(
     This operation is expensive for large files and/or if transferred over a network.
     """
     if verbose:
+        start = datetime.now()  # noqa: DTZ005
         file_size = get_file_size(file_path, verbose=False)
         logging.info(f"Calculating hash of {file_path} ({file_size=})..")
 
@@ -92,8 +93,13 @@ def get_file_hash(
             file_hash.update(chunk)
 
     if verbose:
-        file_size = get_file_size(file_path, verbose=False)
-        logging.info(f".. hash is {file_hash.hexdigest()} ({file_size=})")
+        file_size = get_file_size(
+            file_path, verbose=False
+        )  # deliberately calling a second time in case the file was modified during the hash calculation
+        time_elapsed = (datetime.now() - start).total_seconds()  # noqa: DTZ005
+        logging.info(
+            f".. hash is {file_hash.hexdigest()} ({file_size=}) Time elapsed: {time_elapsed / 60:.1f} min"
+        )
 
     return file_hash.hexdigest()
 
@@ -120,6 +126,7 @@ def _identical_copy_exists(dst_path: Path, src_hash: str) -> bool:
 def copy_file(
     src_path: Path,
     dst_path: Path,
+    src_hash: str,
     *,
     overwrite: bool = False,
 ) -> tuple[float, str]:
@@ -130,22 +137,16 @@ def copy_file(
 
     :param src_path: Path to the source file.
     :param dst_path: Path to the destination file.
+    :param src_hash: Hash of the source file.
     :param overwrite: Whether to overwrite the file if it already exists with a different hash in the destination.
         Defaults to False, which will raise an AirflowFailException if the file already exists with a different hash.
     :return: A tuple containing the size and hash of the copied file.
     :raises AirflowFailException: If the hash of the copied file does not match the source hash or
         if the file already exists with a different hash in case overwrite=False.
     """
-    try:
-        copy_required, src_hash = _decide_if_copy_required(
-            src_path, dst_path, overwrite=overwrite
-        )
-    except FileNotFoundError as e:
-        # this can happen if the source file is moved, fail in this case to make it show in Airflow UI
-        logging.exception(
-            f"Source file {src_path} not found. Was the file moved or deleted manually?"
-        )
-        raise AirflowFailException(e) from e
+    copy_required = _decide_if_copy_required(
+        src_path, dst_path, src_hash, overwrite=overwrite
+    )  # TODO: could be moved out to reduce responsibility of this function
 
     if copy_required:
         if not dst_path.parent.exists():
@@ -158,8 +159,9 @@ def copy_file(
         time_elapsed = (datetime.now() - start).total_seconds()  # noqa: DTZ005
 
         dst_size = get_file_size(dst_path)
+        logging.info(".. copying done.")
         logging.info(
-            f".. done. Time elapsed: {time_elapsed / 60:.1f} min at {dst_size * BYTES_TO_MB / max(time_elapsed, 0.00001):.1f} MB/s"
+            f"Time elapsed: {time_elapsed / 60:.1f} min at {dst_size * BYTES_TO_MB / max(time_elapsed, 0.00001):.1f} MB/s"
         )
 
         logging.info("Verifying hash ..")
@@ -168,7 +170,7 @@ def copy_file(
             raise AirflowFailException(
                 f"Hashes do not match after copy: {src_hash=} {dst_hash=} (sizes: {dst_size=} {src_size=})"
             )
-        logging.info(".. done")
+        logging.info(".. verifying done")
     else:
         dst_hash = (
             src_hash  # as _decide_if_copy_required() returned False, these are equal
@@ -179,22 +181,18 @@ def copy_file(
 
 
 def _decide_if_copy_required(
-    src_path: Path, dst_path: Path, *, overwrite: bool
-) -> tuple[bool, str]:
+    src_path: Path, dst_path: Path, src_hash: str, *, overwrite: bool
+) -> bool:
     """Decide if a copy operation is required.
 
     :param src_path: Path to the source file.
     :param dst_path: Path to the destination file.
+    :param src_hash: Hash of the source file.
     :param overwrite: Whether to overwrite the file if it already exists with a different hash in the destination.
 
-    :return: A tuple containing a boolean indicating whether a copy is required and the hash of the source file.
+    :return: a boolean indicating whether a copy is required
     :raises AirflowFailException: If the file already exists with a different hash and `overwrite=False`
     """
-    start = datetime.now()  # noqa: DTZ005
-    src_hash = get_file_hash(src_path)
-    time_elapsed = (datetime.now() - start).total_seconds()  # noqa: DTZ005
-    logging.info(f"Hash calculated. Time elapsed: {time_elapsed / 60:.1f} min")
-
     try:
         copy_required = not _identical_copy_exists(dst_path, src_hash)
     except HashMismatchError as e:
@@ -215,7 +213,7 @@ def _decide_if_copy_required(
             )
 
             raise AirflowFailException(msg) from e
-    return copy_required, src_hash
+    return copy_required
 
 
 def compare_paths(

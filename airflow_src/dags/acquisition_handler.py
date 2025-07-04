@@ -25,6 +25,7 @@ from common.settings import (
     get_instrument_ids,
 )
 from impl.handler_impl import (
+    compute_checksum,
     copy_raw_file,
     decide_processing,
     start_acquisition_processor,
@@ -48,6 +49,9 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
             "queue": f"{AIRFLOW_QUEUE_PREFIX}{instrument_id}",
             # this callback is executed when tasks fail
             "on_failure_callback": on_failure_callback,
+            # finish tasks before tackling new ones, otherwise on catch up all hashsums would be calculated first before any copying
+            # cf. https://airflow.apache.org/docs/apache-airflow/2.10.5/administration-and-deployment/priority-weight.html
+            "weight_rule": "upstream",
         },
         description="Watch acquisition, handle raw files and trigger follow-up DAGs on demand.",
         catchup=False,
@@ -64,9 +68,18 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
             execution_timeout=timedelta(minutes=Timings.ACQUISITION_MONITOR_TIMEOUT_M),
         )
 
+        compute_checksum_ = PythonOperator(
+            task_id=Tasks.COMPUTE_CHECKSUM,
+            python_callable=compute_checksum,
+            max_active_tis_per_dag=Concurrency.MAXNO_COPY_RAW_FILE_TASKS_PER_DAG,
+            execution_timeout=timedelta(minutes=Timings.RAW_DATA_COPY_TASK_TIMEOUT_M),
+            pool=Pools.FILE_COPY_POOL,  # uses file_copy_pool because hash computation also requires file transfer over network
+        )
+
         copy_raw_file_ = ShortCircuitOperator(
             task_id=Tasks.COPY_RAW_FILE,
             python_callable=copy_raw_file,
+            op_kwargs={OpArgs.INSTRUMENT_ID: instrument_id},
             max_active_tis_per_dag=Concurrency.MAXNO_COPY_RAW_FILE_TASKS_PER_DAG,
             execution_timeout=timedelta(minutes=Timings.RAW_DATA_COPY_TASK_TIMEOUT_M),
             pool=Pools.FILE_COPY_POOL,
@@ -92,6 +105,7 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
 
     (
         monitor_acquisition_
+        >> compute_checksum_
         >> copy_raw_file_
         >> start_file_mover_
         >> decide_processing_

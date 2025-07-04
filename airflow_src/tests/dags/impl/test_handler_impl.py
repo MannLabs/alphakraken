@@ -101,9 +101,11 @@ def test_compute_checksum(  # noqa: PLR0913
     return_value=Path("some_backup_folder"),
 )
 @patch("dags.impl.handler_impl.copy_file")
+@patch("dags.impl.handler_impl._verify_copied_files")
 @patch("dags.impl.handler_impl.update_raw_file")
-def test_copy_raw_file_calls_update_with_correct_args(
+def test_copy_raw_file_calls_update_with_correct_args(  # noqa: PLR0913
     mock_update_raw_file: MagicMock,
+    mock_verify_copied_files: MagicMock,
     mock_copy_file: MagicMock,
     mock_get_backup_base_path: MagicMock,  # noqa: ARG001
     mock_get_raw_file_by_id: MagicMock,
@@ -145,12 +147,91 @@ def test_copy_raw_file_calls_update_with_correct_args(
                 "test_file.raw",
                 new_status=RawFileStatus.COPYING,
                 backup_base_path="some_backup_folder",
+                backup_status="in_progress",
             ),
             call(
                 "test_file.raw",
                 new_status=RawFileStatus.COPYING_DONE,
+                backup_status="done",
             ),
         ]
+    )
+    mock_verify_copied_files.assert_called_once_with(
+        {Path("/path/to/instrument/test_file.raw"): (1000, "some_hash")},
+        {
+            Path("/path/to/instrument/test_file.raw"): Path(
+                "/opt/airflow/mounts/backup/test_file.raw"
+            )
+        },
+        {Path("/path/to/instrument/test_file.raw"): (1000, "some_hash")},
+    )
+
+
+@patch("dags.impl.handler_impl.get_xcom")
+@patch("dags.impl.handler_impl.get_raw_file_by_id")
+@patch(
+    "dags.impl.handler_impl.get_backup_base_path",
+    return_value=Path("some_backup_folder"),
+)
+@patch("dags.impl.handler_impl.copy_file")
+@patch("dags.impl.handler_impl._verify_copied_files")
+@patch("dags.impl.handler_impl.update_raw_file")
+def test_copy_raw_file_verify_fails(  # noqa: PLR0913
+    mock_update_raw_file: MagicMock,
+    mock_verify_copied_files: MagicMock,
+    mock_copy_file: MagicMock,
+    mock_get_backup_base_path: MagicMock,  # noqa: ARG001
+    mock_get_raw_file_by_id: MagicMock,
+    mock_get_xcom: MagicMock,
+) -> None:
+    """Test copy_raw_file calls update with correct arguments in case verification fails."""
+    ti = MagicMock()
+    kwargs = {
+        "params": {"raw_file_id": "test_file.raw"},
+        "instrument_id": "instrument1",
+    }
+    mock_get_xcom.side_effect = [
+        [],
+        {
+            "/path/to/instrument/test_file.raw": "/opt/airflow/mounts/backup/test_file.raw"
+        },
+        {"/path/to/instrument/test_file.raw": (1000, "some_hash")},
+    ]
+
+    mock_raw_file = MagicMock()
+    mock_get_raw_file_by_id.return_value = mock_raw_file
+
+    mock_copy_file.return_value = (1000, "some_hash")
+
+    mock_verify_copied_files.side_effect = ValueError("File copy failed with errors")
+
+    # when
+    with pytest.raises(AirflowFailException, match="File copy failed with errors"):
+        copy_raw_file(ti, **kwargs)
+
+    # then
+    mock_update_raw_file.assert_has_calls(
+        [
+            call(
+                "test_file.raw",
+                new_status=RawFileStatus.COPYING,
+                backup_base_path="some_backup_folder",
+                backup_status="in_progress",
+            ),
+            call(
+                "test_file.raw",
+                backup_status="failed",
+            ),
+        ]
+    )
+    mock_verify_copied_files.assert_called_once_with(
+        {Path("/path/to/instrument/test_file.raw"): (1000, "some_hash")},
+        {
+            Path("/path/to/instrument/test_file.raw"): Path(
+                "/opt/airflow/mounts/backup/test_file.raw"
+            )
+        },
+        {Path("/path/to/instrument/test_file.raw"): (1000, "some_hash")},
     )
 
 
@@ -231,7 +312,9 @@ def test_copy_raw_file_file_got_renamed(
     assert not continue_downstream_tasks
 
     mock_update_raw_file.assert_called_once_with(
-        "test_file.raw", new_status=RawFileStatus.ACQUISITION_FAILED
+        "test_file.raw",
+        new_status=RawFileStatus.ACQUISITION_FAILED,
+        backup_status="skipped",
     )
 
 
@@ -240,7 +323,7 @@ def test_verify_copied_files_raises_exception_on_size_mismatch() -> None:
     copied_files = {Path("file1"): (100, "hash1")}
     files_dst_paths = {Path("file1"): Path("dest1")}
     files_size_and_hashsum = {Path("file1"): (200, "hash1")}
-    with pytest.raises(AirflowFailException, match="File copy failed with errors"):
+    with pytest.raises(ValueError, match="File copy failed with errors"):
         # when
         _verify_copied_files(copied_files, files_dst_paths, files_size_and_hashsum)
 
@@ -250,7 +333,7 @@ def test_verify_copied_files_raises_exception_on_hash_mismatch() -> None:
     copied_files = {Path("file1"): (100, "hash1")}
     files_dst_paths = {Path("file1"): Path("dest1")}
     files_size_and_hashsum = {Path("file1"): (100, "hash2")}
-    with pytest.raises(AirflowFailException, match="File copy failed with errors"):
+    with pytest.raises(ValueError, match="File copy failed with errors"):
         # when
         _verify_copied_files(copied_files, files_dst_paths, files_size_and_hashsum)
 
@@ -263,7 +346,7 @@ def test_verify_copied_files_raises_exception_on_length_mismatch() -> None:
         Path("file1"): (100, "hash1"),
         Path("file2"): (200, "hash2"),
     }
-    with pytest.raises(AirflowFailException, match="File copy failed with errors"):
+    with pytest.raises(ValueError, match="File copy failed with errors"):
         # when
         _verify_copied_files(copied_files, files_dst_paths, files_size_and_hashsum)
 

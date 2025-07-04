@@ -35,7 +35,12 @@ from raw_file_wrapper_factory import (
 )
 
 from shared.db.interface import get_raw_file_by_id, update_raw_file
-from shared.db.models import RawFile, RawFileStatus, get_created_at_year_month
+from shared.db.models import (
+    BackupStatus,
+    RawFile,
+    RawFileStatus,
+    get_created_at_year_month,
+)
 from shared.keys import (
     ALLOWED_CHARACTERS_IN_RAW_FILE_NAME,
     DDA_FLAG_IN_RAW_FILE_NAME,
@@ -109,7 +114,11 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> bool:
             f"Skipping copy for raw file {raw_file_id}: {acquisition_monitor_errors}"
         )
 
-        update_raw_file(raw_file_id, new_status=RawFileStatus.ACQUISITION_FAILED)
+        update_raw_file(
+            raw_file_id,
+            new_status=RawFileStatus.ACQUISITION_FAILED,
+            backup_status=BackupStatus.SKIPPED,
+        )
         return False  # skip downstream tasks
 
     files_dst_paths = {
@@ -126,6 +135,7 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> bool:
         raw_file_id,
         new_status=RawFileStatus.COPYING,
         backup_base_path=str(backup_base_path),
+        backup_status=BackupStatus.IN_PROGRESS,
     )
 
     if overwrite := (
@@ -143,11 +153,19 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> bool:
         )
         copied_files[src_path] = (dst_size, dst_hash)
 
-    _verify_copied_files(copied_files, files_dst_paths, files_size_and_hashsum)
+    try:
+        _verify_copied_files(copied_files, files_dst_paths, files_size_and_hashsum)
+    except ValueError as e:
+        update_raw_file(
+            raw_file_id,
+            backup_status=BackupStatus.FAILED,
+        )
+        raise AirflowFailException(e) from e
 
     update_raw_file(
         raw_file_id,
         new_status=RawFileStatus.COPYING_DONE,
+        backup_status=BackupStatus.DONE,
     )
 
     return True  # continue with downstream tasks
@@ -179,7 +197,7 @@ def _verify_copied_files(
             f"Length mismatch: {len(copied_files)=} != {len(files_size_and_hashsum)=}"
         )
     if errors:
-        raise AirflowFailException(f"File copy failed with errors: {errors}")
+        raise ValueError(f"File copy failed with errors: {','.join(errors)}")
 
 
 def start_file_mover(ti: TaskInstance, **kwargs) -> None:

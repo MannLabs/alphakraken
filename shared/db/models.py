@@ -48,6 +48,15 @@ class RawFileStatus:
     DONE_NOT_QUANTED = "done_not_quanted"
 
 
+class BackupStatus:
+    """Status of backup."""
+
+    IN_PROGRESS = "in_progress"
+    DONE = "done"
+    SKIPPED = "skipped"
+    FAILED = "failed"
+
+
 ERROR_STATUSES = [
     RawFileStatus.ERROR,
     RawFileStatus.QUANTING_FAILED,
@@ -87,6 +96,9 @@ class RawFile(Document):
     backup_base_path = StringField(
         max_length=128
     )  # absolute path to pool backup location
+
+    backup_status = StringField(max_length=32, default=None)
+
     file_info = DictField()  # mapping of relative path on backup to tuples (size, hash)
 
     created_at = DateTimeField()  # when file was created

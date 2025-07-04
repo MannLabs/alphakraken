@@ -113,15 +113,16 @@ _NO_UPDATE = object()
 def update_raw_file(  # noqa: PLR0913
     raw_file_id: str,
     *,
-    new_status: str,
+    new_status: str = _NO_UPDATE,  # type: ignore[invalid-parameter-default]
     status_details: str | None = _NO_UPDATE,  # type: ignore[invalid-parameter-default]
     size: float = _NO_UPDATE,  # type: ignore[invalid-parameter-default]
     file_info: dict[str, tuple[float, str]] = _NO_UPDATE,  # type: ignore[invalid-parameter-default]
     backup_base_path: str = _NO_UPDATE,  # type: ignore[invalid-parameter-default]
+    backup_status: str = _NO_UPDATE,  # type: ignore[invalid-parameter-default]
 ) -> None:
     """Update parameters of DB entity of raw file with `raw_file_id`."""
     logging.info(
-        f"Updating DB: {raw_file_id=} to {new_status=} with {status_details=} {size=} {file_info=}"
+        f"Updating DB: {raw_file_id=} to {new_status=} {status_details=} {size=} {file_info=} {backup_base_path=} {backup_status=}"
     )
     connect_db()
     raw_file = RawFile.objects.with_id(raw_file_id)
@@ -135,6 +136,7 @@ def update_raw_file(  # noqa: PLR0913
         "size": size,
         "file_info": file_info,
         "backup_base_path": backup_base_path,
+        "backup_status": backup_status,
     }
 
     raw_file.update(**{k: v for k, v in kwargs.items() if v != _NO_UPDATE})

@@ -334,8 +334,17 @@ AlphaKraken implements a role-based access control system for MongoDB with three
 This separation follows the principle of least privilege, ensuring each component has only the permissions it needs.
 
 
-## MCP Server
-All relevant state is stored in the MongoDB, so the only relevant MCP server currently is
+## MCP Servers
+To use the custom AlphaKraken MCP server, you first need to build the `mcpserver` container:
+```
+docker build -t mcpserver -f mcp-server/Dockerfile .
+```
+Check if it start without errors:
+```bash
+docker run -t mcpserver
+```
+
+Then, you can run the MCP server using the following configuration files.
 ```
 {
   "mcpServers": {
@@ -345,13 +354,34 @@ All relevant state is stored in the MongoDB, so the only relevant MCP server cur
         "run",
         "--rm",
         "-i",
-        "-e",
-        "MDB_MCP_CONNECTION_STRING=mongodb://<MONGO_USER_READ>:<MONGO_PASSWORD_READ>@<MONGO_HOST>:<MONGO_PORT>/?authSource=krakendb",
-        "mongodb/mongodb-mcp-server:latest"
+        "--network", "host",
+        "-e", "MONGO_PORT=<MONGO_PORT>",
+        "-e", "MONGO_HOST=<MONGO_HOST>",
+        "-e", "MONGO_USER=<MONGO_USER_READ>",
+        "-e", "MONGO_PASSWORD=<MONGO_PASSWORD_READ>",
+        "mcpserver"
       ]
     }
   }
 }
 ```
 where the variables need to be set according to the `envs/${ENV}.env` file.
+
+Alternatively, use the MongoDB MCP server, which offers a "bare" view on the MongoDB collections.
+```
+{
+  "mcpServers": {
+    "AlphaKrakenMongoDB": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "-e", "MDB_MCP_CONNECTION_STRING=mongodb://<MONGO_USER_READ>:<MONGO_PASSWORD_READ>@<MONGO_HOST>:<MONGO_PORT>/?authSource=krakendb",
+        "mongodb/mongodb-mcp-server:latest"
+      ]
+    }
+  }
+}
+```
 See the [MongoDB MCP Server documentation](https://github.com/mongodb-js/mongodb-mcp-server) for more details.

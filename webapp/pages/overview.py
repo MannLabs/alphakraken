@@ -234,6 +234,8 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
             )
 
         url = f"{APP_URL}/overview?{QueryParams.FILTER}={encoded_user_input}"
+        if max_age_in_days != DEFAULT_MAX_AGE_OVERVIEW:
+            url += f"&{QueryParams.MAX_AGE}={max_age_in_days}"
         st.markdown(
             f"""Hint: save this filter by bookmarking <a href="{url}" target="_self">{url}</a>""",
             unsafe_allow_html=True,

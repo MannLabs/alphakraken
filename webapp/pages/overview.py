@@ -93,6 +93,10 @@ COLUMNS = _load_columns_from_yaml()
 
 st.set_page_config(page_title="AlphaKraken: overview", layout="wide")
 
+if "k" in st.session_state:
+    st.write("k")
+else:
+    st.session_state["k"] = 1
 show_sandbox_message()
 
 st.markdown("# Overview")
@@ -549,7 +553,7 @@ def _draw_plot(  # noqa: PLR0913
             fig.add_hline(
                 y=baseline_mean,
                 line_dash="dash",
-                line={"color": "red"},
+                line={"color": "green"},
                 annotation_text=f"Baseline Mean: {baseline_mean:.2f} ± {baseline_std:.2f}",
                 annotation_position="bottom right",
             )
@@ -558,7 +562,7 @@ def _draw_plot(  # noqa: PLR0913
                     fig.add_hline(
                         y=baseline_mean + err,
                         line_dash="dot",
-                        line={"color": "red"},
+                        line={"color": "green"},
                     )
 
     display_plotly_chart(fig)

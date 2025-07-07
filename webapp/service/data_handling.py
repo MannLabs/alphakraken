@@ -74,12 +74,6 @@ def get_combined_raw_files_and_metrics_df(
         "%Y-%m-%d %H:%M:%S"
     )
 
-    for col in ["precursors", "proteins"]:
-        if (
-            col in combined_df.columns
-        ):  # in case all quantings have failed, these columns are not available
-            combined_df[col] = combined_df[col].astype("Int64", errors="ignore")
-
     combined_df["created_at"] = combined_df["created_at"].apply(
         lambda x: x.replace(microsecond=0)
     )
@@ -94,10 +88,18 @@ def get_combined_raw_files_and_metrics_df(
     combined_df.reset_index(drop=True, inplace=True)  # noqa: PD002
     combined_df.index = combined_df["_id"]
 
-    # conversion of metrics columns (could be not present)
+    # conversion of metrics columns: in case all quantings have failed, these columns are not available
     if "quanting_time_elapsed" in combined_df.columns:
         combined_df["quanting_time_minutes"] = combined_df["quanting_time_elapsed"] / 60
         del combined_df["quanting_time_elapsed"]
+
+    for col in ["precursors", "proteins"]:
+        if col in combined_df.columns:
+            combined_df[col] = combined_df[col].astype("Int64", errors="ignore")
+
+    if "gradient_length" in combined_df.columns:
+        # round to 1 decimal place
+        combined_df["gradient_length"] = combined_df["gradient_length"].round(1)
 
     return combined_df
 

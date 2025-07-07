@@ -160,6 +160,7 @@ with st.spinner("Loading data ..."):
 
         baseline_df[Cols.IS_BASELINE] = True
         baseline_df = _harmonize_df(baseline_df)
+        baseline_df.index = ["BASELINE_" + str(idx) for idx in baseline_df.index]
         combined_df = pd.concat([combined_df, baseline_df], ignore_index=False)
 
 # ########################################### DISPLAY: table

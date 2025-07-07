@@ -70,11 +70,13 @@ def compute_checksum(ti: TaskInstance, **kwargs) -> None:
         total_file_size += file_size
         size_and_hashsum = (file_size, get_file_hash(src_path))
 
+        files_dst_paths[src_path] = dst_path
         files_size_and_hashsum[src_path] = size_and_hashsum
-        file_info[str(src_path.relative_to(copy_wrapper.source_folder_path))] = (
+
+        # file_info needs dst_path-related keys to correctly account for collisions
+        file_info[str(dst_path.relative_to(copy_wrapper.target_folder_path))] = (
             size_and_hashsum
         )
-        files_dst_paths[src_path] = dst_path
 
     # to make this unusual situation transparent in UI:
     if not files_size_and_hashsum:

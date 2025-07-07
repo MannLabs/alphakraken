@@ -104,8 +104,6 @@ def test_overview(
 
     expected_data = {
         "_id": {1: 1, 2: 2},
-        "size": {1: 1073741824, 2: 2147483648},
-        "quanting_time_elapsed": {1: 60.0, 2: 120.0},
         "raw_file": {1: 1, 2: 2},
         "proteins": {1: 1, 2: 2},
         "precursors": {1: 1, 2: 2},

@@ -37,6 +37,8 @@ from service.utils import (
 
 from shared.db.models import ERROR_STATUSES, TERMINAL_STATUSES
 
+BASELINE_PREFIX = "BASELINE_"
+
 _log(f"loading {__file__}")
 
 
@@ -160,7 +162,8 @@ with st.spinner("Loading data ..."):
 
         baseline_df[Cols.IS_BASELINE] = True
         baseline_df = _harmonize_df(baseline_df)
-        baseline_df.index = ["BASELINE_" + str(idx) for idx in baseline_df.index]
+        # this is a hack to prevent index clashing
+        baseline_df.index = [BASELINE_PREFIX + str(idx) for idx in baseline_df.index]
         combined_df = pd.concat([combined_df, baseline_df], ignore_index=False)
 
 # ########################################### DISPLAY: table
@@ -410,6 +413,15 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
     st.info(
         "If you don't see any data points try reducing the number by filtering, and/or use Firefox!"
     )
+
+    if filtered_df[Cols.IS_BASELINE].any():
+        baseline_samples = filtered_df[filtered_df[Cols.IS_BASELINE]].index.to_list()
+        baseline_samples_str = ", ".join(
+            [s[len(BASELINE_PREFIX) :] for s in baseline_samples]
+        )
+        st.info(
+            f"Showing baseline data (mean and std) in red for {len(baseline_samples)} samples:\n{baseline_samples_str} "
+        )
 
     c1, c2, c3, c4 = st.columns([0.25, 0.25, 0.25, 0.25])
     column_order = _get_column_order(filtered_df)

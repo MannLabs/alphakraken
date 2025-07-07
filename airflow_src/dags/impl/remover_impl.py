@@ -353,6 +353,10 @@ def _check_file(
         # strips off astral4/2025_07 from astral4/2025_07/20250702_OA4_Evo11_Whisper120_DeOl_sfPhospho_Bulk_Phosphoproteome_Plate1_F9.raw
         rel_file_path = Path(*rel_file_path.parts[2:])
 
+        # TODO: this is the second hack to support collisions
+        if str(rel_file_path) not in file_info_in_db:
+            rel_file_path = str(rel_file_path)[len("20250703-130351-613789-") :]
+
     size_in_db, hash_in_db = file_info_in_db[str(rel_file_path)]
 
     logging.debug(f"Comparing {file_path_to_remove=} to DB ({rel_file_path}) ..")

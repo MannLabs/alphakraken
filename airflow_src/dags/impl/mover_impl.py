@@ -8,6 +8,7 @@ from airflow.exceptions import AirflowFailException
 from airflow.models import TaskInstance
 from common.keys import DagContext, DagParams, XComKeys
 from common.utils import get_env_variable, get_xcom, put_xcom
+from dags.impl.remover_impl import _change_folder_permissions
 from file_handling import compare_paths, get_file_size
 from raw_file_wrapper_factory import (
     MovePathProvider,
@@ -124,6 +125,9 @@ def _move_files(files_to_move: dict[Path, Path], *, only_rename: bool = False) -
 
         if not only_rename:
             logging.info(f"Moving raw file {src_path} to {dst_path}")
+            if src_path.is_dir():
+                _change_folder_permissions(src_path)
+
             shutil.move(src_path, dst_path)
             logging.info(".. done")
         # except OSError as e:

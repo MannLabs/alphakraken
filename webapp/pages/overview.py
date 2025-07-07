@@ -28,6 +28,7 @@ from service.utils import (
     DEFAULT_MAX_AGE_OVERVIEW,
     DEFAULT_MAX_TABLE_LEN,
     FILTER_MAPPING,
+    Cols,
     QueryParams,
     _log,
     display_info_message,
@@ -138,9 +139,23 @@ def _harmonize_df(df: pd.DataFrame) -> pd.DataFrame:
 
 
 with st.spinner("Loading data ..."):
-    combined_df = get_combined_raw_files_and_metrics_df(max_age_in_days)
+    combined_df = get_combined_raw_files_and_metrics_df(
+        max_age_in_days=max_age_in_days, stop_at_no_data=True
+    )
     combined_df = _harmonize_df(combined_df)
+    combined_df[Cols.IS_BASELINE] = False
 
+    # Load and merge baseline data if specified
+    baseline_raw_files = st.query_params.get(QueryParams.BASELINE, "")
+    if baseline_raw_files:
+        baseline_file_names = [name.strip() for name in baseline_raw_files.split(",")]
+        baseline_df = get_combined_raw_files_and_metrics_df(
+            raw_file_ids=baseline_file_names
+        )
+
+        baseline_df[Cols.IS_BASELINE] = True
+        baseline_df = _harmonize_df(baseline_df)
+        combined_df = pd.concat([combined_df, baseline_df], ignore_index=False)
 
 # ########################################### DISPLAY: table
 

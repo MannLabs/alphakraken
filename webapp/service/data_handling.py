@@ -1,5 +1,7 @@
 """Module handling the merging of raw files and metrics data."""
 
+from datetime import datetime
+
 import pandas as pd
 import streamlit as st
 from service.db import df_from_db_data, get_raw_file_and_metrics_data
@@ -13,9 +15,9 @@ def get_combined_raw_files_and_metrics_df(
     max_age_in_days: float | None = None,
     raw_file_ids: list[str] | None = None,
     stop_at_no_data: bool = False,
-) -> pd.DataFrame:
+) -> tuple[pd.DataFrame, datetime]:
     """Get the combined DataFrame of raw files and metrics."""
-    raw_files_db, metrics_db = get_raw_file_and_metrics_data(
+    raw_files_db, metrics_db, data_timestamp = get_raw_file_and_metrics_data(
         max_age_in_days, raw_file_ids
     )
     raw_files_df = df_from_db_data(raw_files_db)
@@ -101,7 +103,7 @@ def get_combined_raw_files_and_metrics_df(
         # round to 1 decimal place
         combined_df["gradient_length"] = combined_df["gradient_length"].round(1)
 
-    return combined_df
+    return combined_df, data_timestamp
 
 
 def get_lag_time(

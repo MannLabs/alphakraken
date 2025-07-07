@@ -22,7 +22,7 @@ from service.components import (
     show_sandbox_message,
 )
 from service.data_handling import get_combined_raw_files_and_metrics_df, get_lag_time
-from service.db import get_full_raw_file_data
+from service.db import get_full_raw_file_data, get_raw_file_and_metrics_data
 from service.utils import (
     APP_URL,
     DEFAULT_MAX_AGE_OVERVIEW,
@@ -139,7 +139,7 @@ def _harmonize_df(df: pd.DataFrame) -> pd.DataFrame:
 
 
 with st.spinner("Loading data ..."):
-    combined_df = get_combined_raw_files_and_metrics_df(
+    combined_df, data_timestamp = get_combined_raw_files_and_metrics_df(
         max_age_in_days=max_age_in_days, stop_at_no_data=True
     )
     combined_df = _harmonize_df(combined_df)
@@ -149,7 +149,7 @@ with st.spinner("Loading data ..."):
     baseline_raw_files = st.query_params.get(QueryParams.BASELINE, "")
     if baseline_raw_files:
         baseline_file_names = [name.strip() for name in baseline_raw_files.split(",")]
-        baseline_df = get_combined_raw_files_and_metrics_df(
+        baseline_df, _ = get_combined_raw_files_and_metrics_df(
             raw_file_ids=baseline_file_names
         )
 
@@ -196,13 +196,18 @@ def df_to_csv(df: pd.DataFrame) -> str:
 # cf. https://docs.streamlit.io/develop/concepts/architecture/fragments
 @st.experimental_fragment
 def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements, too complex, too many branches)
-    df: pd.DataFrame, max_age_in_days: float, filter_value: str = ""
+    df: pd.DataFrame,
+    max_age_in_days: float,
+    filter_value: str,
+    data_timestamp: datetime,
 ) -> None:
     """A fragment that displays a DataFrame with a filter."""
     st.markdown("## Data")
 
-    now = datetime.now(tz=pytz.UTC).replace(microsecond=0)
-    st.text(f"Last fetched {now.strftime('%Y-%m-%d %H:%M:%S')}")
+    st.text(f"Last fetched {data_timestamp.strftime('%Y-%m-%d %H:%M:%S')}")
+    if st.button("🔄 Refresh"):
+        get_raw_file_and_metrics_data.clear()
+        st.rerun()
 
     # filter
     len_whole_df = len(df)
@@ -257,7 +262,9 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
         )
 
         filtered_df["lag_time_minutes"] = lag_times / 60
-        filtered_df["eta"] = _add_eta(filtered_df, now, lag_time)
+        filtered_df["eta"] = _add_eta(
+            filtered_df, datetime.now(tz=pytz.UTC).replace(microsecond=0), lag_time
+        )
 
     # hide the csv download button to not encourage downloading incomplete data
     st.markdown(
@@ -346,14 +353,14 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
     c1.download_button(
         label=f"⬇️ Download filtered table ({len(filtered_df)} entries)",
         data=df_to_csv(filtered_df),
-        file_name=f"{now.strftime('AlphaKraken_%Y%m%d-%H%M%S_filtered')}.csv",
+        file_name=f"{data_timestamp.strftime('AlphaKraken_%Y%m%d-%H%M%S_filtered')}.csv",
         mime="text/csv",
     )
 
     c2.download_button(
         label=f"⬇️ Download all data ({len(df)} entries)",
         data=df_to_csv(df),
-        file_name=f"{now.strftime('AlphaKraken_%Y%m%d-%H%M%S_all')}.csv",
+        file_name=f"{data_timestamp.strftime('AlphaKraken_%Y%m%d-%H%M%S_all')}.csv",
         mime="text/csv",
     )
 
@@ -554,8 +561,4 @@ filter_value = st.query_params.get(QueryParams.FILTER, "")
 for key_, value_ in FILTER_MAPPING.items():
     filter_value = filter_value.lower().replace(key_.lower(), value_)
 
-_display_table_and_plots(
-    combined_df,
-    max_age_in_days,
-    filter_value,
-)
+_display_table_and_plots(combined_df, max_age_in_days, filter_value, data_timestamp)

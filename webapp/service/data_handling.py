@@ -58,10 +58,14 @@ def get_combined_raw_files_and_metrics_df(max_age_in_days: float) -> pd.DataFram
 
     # conversions
     combined_df["size_gb"] = combined_df["size"] / 1024**3
+    del combined_df["size"]
+
     combined_df["file_created"] = combined_df["created_at"].dt.strftime(
         "%Y-%m-%d %H:%M:%S"
     )
+
     combined_df["quanting_time_minutes"] = combined_df["quanting_time_elapsed"] / 60
+    del combined_df["quanting_time_elapsed"]
 
     for col in ["precursors", "proteins"]:
         if (

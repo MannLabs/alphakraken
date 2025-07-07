@@ -462,7 +462,7 @@ def _add_eta(df: pd.DataFrame, now: datetime, lag_time: float) -> pd.Series:
 
 
 def _draw_plot(  # noqa: PLR0913
-    df: pd.DataFrame,
+    df_with_baseline: pd.DataFrame,
     *,
     x: str,
     column: Column,
@@ -471,8 +471,9 @@ def _draw_plot(  # noqa: PLR0913
     show_std: bool,
 ) -> None:
     """Draw a plot of a DataFrame."""
-    df = df.sort_values(by=x)
+    df_with_baseline = df_with_baseline.sort_values(by=x)
 
+    df = df_with_baseline[~df_with_baseline[Cols.IS_BASELINE]]
     y = column.name
     y_is_numeric = pd.api.types.is_numeric_dtype(df[y])
     median_ = df[y].median() if y_is_numeric else 0
@@ -510,6 +511,29 @@ def _draw_plot(  # noqa: PLR0913
         ]
         fig.update_traces(mode="lines+markers", marker={"symbol": symbol})
     fig.add_hline(y=median_, line_dash="dash", line={"color": "lightgrey"})
+
+    # Add baseline red dashed line if baseline data is available
+    if y_is_numeric:
+        baseline_df = df_with_baseline[df_with_baseline[Cols.IS_BASELINE]]
+        if len(baseline_df) > 0 and y in baseline_df.columns:
+            baseline_mean = baseline_df[y].mean()
+            baseline_std = baseline_df[y].std()
+
+            fig.add_hline(
+                y=baseline_mean,
+                line_dash="dash",
+                line={"color": "red"},
+                annotation_text=f"Baseline Mean: {baseline_mean:.2f} ± {baseline_std:.2f}",
+                annotation_position="bottom right",
+            )
+            if not pd.isna(baseline_std):
+                for err in [-baseline_std, baseline_std]:
+                    fig.add_hline(
+                        y=baseline_mean + err,
+                        line_dash="dot",
+                        line={"color": "red"},
+                    )
+
     display_plotly_chart(fig)
 
 

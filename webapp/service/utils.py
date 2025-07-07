@@ -41,8 +41,8 @@ class QueryParams:
     # whether page is accessed via mobile
     MOBILE = "mobile"
 
-    # whether page is accessed via mobile
-    BASELINE = "mobile"
+    # comma-separated list of baseline runs
+    BASELINE = "baseline"
 
 
 DEFAULT_MAX_TABLE_LEN = 500

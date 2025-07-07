@@ -206,16 +206,18 @@ def augment_raw_files_with_metrics(
     raw_files_dict: dict = {
         raw_file_mongo["_id"]: raw_file_mongo
         for raw_file in raw_files
-        if (raw_file_mongo := dict(raw_file.to_mongo()))
+        if (
+            raw_file_mongo := dict(raw_file.to_mongo())
+        )  # if condition is always true, but avoids double-calling to_mongo((
     }
 
     # querying all metrics at once to avoid load on DB
-    for m in Metrics.objects.filter(raw_file__in=list(raw_files_dict.keys())).order_by(
-        "-created_at_"
-    ):
-        mm = dict(m.to_mongo())
-        raw_files_dict[mm["raw_file"]]["metrics"] = (
-            mm  # here we overwrite older metrics for a raw file if any
+    for metrics_ in Metrics.objects.filter(
+        raw_file__in=list(raw_files_dict.keys())
+    ).order_by("-created_at_"):
+        metrics = dict(metrics_.to_mongo())
+        raw_files_dict[metrics["raw_file"]]["metrics"] = (
+            metrics  # here we overwrite older metrics for a raw file if any #TODO: this won't work for different metrics types
         )
 
     results = []

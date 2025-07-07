@@ -2,21 +2,7 @@
 # see the Column() class in overview.py for more information
 # The order of the entries in this file determines the order of the columns in the table and the plots.
 columns:
-  # Hidden columns
-  - name: "created_at"
-    hide: true
-  - name: "raw_file"
-    hide: true
-  - name: "file_info"
-    hide: true
-  - name: "_id"
-    hide: true
-  - name: "original_name"
-    hide: true
-  - name: "collision_flag"
-    hide: true
-
-  # Front columns (order matters)
+  # Front columns
   - name: "instrument_id"
   - name: "status"
   - name: "status_details"
@@ -116,6 +102,20 @@ columns:
     color_gradient: "red_is_high"
     plot: true
     at_end: true
+
+  # Hidden columns
+  - name: "created_at"
+    hide: true
+  - name: "raw_file"
+    hide: true
+  - name: "file_info"
+    hide: true
+  - name: "_id"
+    hide: true
+  - name: "original_name"
+    hide: true
+  - name: "collision_flag"
+    hide: true
 
   # columns that are not explicity hidden will be shown here
 

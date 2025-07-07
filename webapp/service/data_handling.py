@@ -99,11 +99,6 @@ def get_combined_raw_files_and_metrics_df(
         if col in combined_df.columns:
             combined_df[col] = combined_df[col].astype("Int64", errors="ignore")
 
-    if "gradient_length" in combined_df.columns:
-        combined_df["gradient_length"] = combined_df["gradient_length"].apply(
-            lambda x: round(x, 1)
-        )
-
     return combined_df, data_timestamp
 
 

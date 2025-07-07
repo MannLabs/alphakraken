@@ -134,6 +134,11 @@ def _harmonize_df(df: pd.DataFrame) -> pd.DataFrame:
     }
     df = df.rename(columns=names_mapping)
 
+    if "gradient_length" in combined_df.columns:
+        combined_df["gradient_length"] = combined_df["gradient_length"].apply(
+            lambda x: round(x, 1)
+        )
+
     # map all columns of the same name to the first one, assuming that not more than one of the values are filled
     return df.groupby(axis=1, level=0).first()
 

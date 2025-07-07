@@ -36,7 +36,7 @@ from service.utils import (
 
 from shared.db.models import ERROR_STATUSES, TERMINAL_STATUSES
 
-_log(f"loading {__file__} { {st.query_params} }")
+_log(f"loading {__file__} {st.query_params}")
 
 
 @dataclass

@@ -16,7 +16,6 @@ columns:
     alternative_names:
       - "raw:gradient_length_m"
   - name: "precursors"
-    at_front: true
     color_gradient: "green_is_high"
     plot: true
   - name: "proteins"
@@ -68,19 +67,15 @@ columns:
     alternative_names:
       - "optimization:mobility_error"
   - name: "charge_mean"
-    at_front: true
     color_gradient: "green_is_high"
     plot: true
   - name: "proba_median"
-    at_front: true
     color_gradient: "green_is_high"
     plot: true
   - name: "precursor_intensity_median" # do not confuse with "intensity_sum"
-    at_front: true
     color_gradient: "green_is_high"
     plot: true
   - name: "sequence_len_mean"
-    at_front: true
     color_gradient: "green_is_high"
     plot: true
 

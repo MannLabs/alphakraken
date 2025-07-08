@@ -426,7 +426,7 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
             [s[len(BASELINE_PREFIX) :] for s in baseline_samples]
         )
         st.info(
-            f"Showing baseline data (mean and std) in red for {len(baseline_samples)} samples:\n{baseline_samples_str} "
+            f"Showing baseline data (mean ± std as green lines) for {len(baseline_samples)} samples:\n{baseline_samples_str} "
         )
 
     c1, c2, c3, c4 = st.columns([0.25, 0.25, 0.25, 0.25])

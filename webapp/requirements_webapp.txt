@@ -1,7 +1,7 @@
 # extra requirements for the webapp container
 humanize==4.9.0
 pandas==2.2.2
-streamlit==1.35.0
+streamlit==1.46.1
 matplotlib==3.9.0
 plotly-express==0.4.1
 pyyaml==6.0.2

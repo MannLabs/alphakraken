@@ -449,16 +449,10 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
         value=False,
         help="Show standard deviations for mean values.",
     )
-    plots_per_row = c5.selectbox(
+    plots_per_row = c5.number_input(
         label="Plots per row:",
-        options=[
-            1,
-            2,
-            3,
-            4,
-            5,
-        ],
-        index=0,
+        min_value=1,
+        step=1,
         help="Number of plots to display per row.",
     )
 

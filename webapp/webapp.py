@@ -19,7 +19,7 @@ pages = [
     st.Page("pages_/overview.py", title="Overview", icon="📊"),
     st.Page("pages_/status.py", title="Status", icon="🚦"),
     st.Page("pages_/projects.py", title="Projects", icon="📁"),
-    st.Page("pages_/settings.py", title="Settings", icon="📋"),
+    st.Page("pages_/settings.py", title="Project settings", icon="📋"),
 ]
 
 # Create navigation

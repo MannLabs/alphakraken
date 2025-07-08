@@ -17,7 +17,7 @@ from service.utils import (
 
 from shared.db.interface import add_project
 
-_log(f"loading {__file__}")
+_log(f"loading {__file__} {st.query_params}")
 
 # ########################################### PAGE HEADER
 

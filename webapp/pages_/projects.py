@@ -45,7 +45,7 @@ projects_df = df_from_db_data(projects_db)
 st.warning("This page should be edited only by AlphaKraken admin users!", icon="⚠️")
 
 
-@st.experimental_fragment
+@st.fragment
 def display_projects(
     projects_df: pd.DataFrame, st_display: st.delta_generator.DeltaGenerator = st
 ) -> None:

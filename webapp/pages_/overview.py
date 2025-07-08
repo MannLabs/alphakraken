@@ -449,12 +449,15 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
         value=False,
         help="Show standard deviations for mean values.",
     )
+
     plots_per_row = c5.number_input(
         label="Plots per row:",
         min_value=1,
+        value=st.session_state.get("plots_per_row", 1),
         step=1,
         help="Number of plots to display per row.",
     )
+    st.session_state["plots_per_row"] = plots_per_row
 
     columns_to_plot = [
         column

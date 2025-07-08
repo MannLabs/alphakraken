@@ -10,7 +10,7 @@ import pytz
 from pandas import Timestamp
 from streamlit.testing.v1 import AppTest
 
-APP_FOLDER = Path(__file__).parent / Path("../../")
+PAGES_FOLDER = Path(__file__).parent / Path("../../pages_")
 
 
 @patch("service.db.get_project_data")
@@ -39,7 +39,7 @@ def test_projects_display_table(mock_df: MagicMock, mock_get: MagicMock) -> None
 
     mock_df.return_value = projects_df
 
-    at = AppTest.from_file(f"{APP_FOLDER}/pages/projects.py").run()
+    at = AppTest.from_file(f"{PAGES_FOLDER}/projects.py").run()
 
     expected_data = {
         "_id": {0: 1, 1: 2},
@@ -76,7 +76,7 @@ def test_add_new_project_form_submission(
     # when
     # Problem 1: this patching seems to interfere with the form
     #    with patch("pages.projects.add_project") as mock_add_project:
-    at = AppTest.from_file(f"{APP_FOLDER}/pages/projects.py").run()
+    at = AppTest.from_file(f"{PAGES_FOLDER}/projects.py").run()
 
     # Problem 2: this does not do anything on the form:
     at.text_input[1].set_value("123")

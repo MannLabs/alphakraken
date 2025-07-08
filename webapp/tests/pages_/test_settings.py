@@ -10,7 +10,7 @@ import pytz
 from pandas import Timestamp
 from streamlit.testing.v1 import AppTest
 
-APP_FOLDER = Path(__file__).parent / Path("../../")
+PAGES_FOLDER = Path(__file__).parent / Path("../../pages_")
 
 
 @patch("service.db.get_project_data")
@@ -45,7 +45,7 @@ def test_settings(
 
     mock_df.return_value = settings_df
 
-    at = AppTest.from_file(f"{APP_FOLDER}/pages/settings.py").run()
+    at = AppTest.from_file(f"{PAGES_FOLDER}/settings.py").run()
 
     expected_data = {
         "config_file_name": {0: "config_file1", 1: "config_file2"},

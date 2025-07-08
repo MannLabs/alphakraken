@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 from streamlit.testing.v1 import AppTest
 
-APP_FOLDER = Path(__file__).parent / Path("../../")
+PAGES_FOLDER = Path(__file__).parent / Path("../../pages_")
 
 
 @patch("service.db.get_raw_files_for_status_df")
@@ -65,7 +65,7 @@ def test_status(
     mock_df_from_db_data.side_effect = [status_df]
 
     # when
-    at = AppTest.from_file(f"{APP_FOLDER}/pages/status.py").run()
+    at = AppTest.from_file(f"{PAGES_FOLDER}/status.py").run()
 
     ts1noms = ts1.replace(microsecond=0)
     assert not at.exception

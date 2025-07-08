@@ -107,7 +107,7 @@ max_age_url = f"{APP_URL}/overview?max_age={days}"
 st.markdown(
     f"""
     Note: for performance reasons, by default only data for the last {DEFAULT_MAX_AGE_OVERVIEW} days are loaded.
-    If you want to see more data, use the `?max_age=` query parameter in the url, e.g.
+    If you want to see more data, use the "?max_age=" query parameter in the url, e.g.
     <a href="{max_age_url}" target="_self">{max_age_url}</a>
     """,
     unsafe_allow_html=True,

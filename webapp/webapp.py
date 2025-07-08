@@ -9,7 +9,6 @@ _log(f"loading {__file__}")
 # Set page config
 st.set_page_config(
     page_title="AlphaKraken",
-    page_icon="🦑",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -20,7 +19,7 @@ pages = [
     st.Page("pages_/overview.py", title="Overview", icon="📊"),
     st.Page("pages_/status.py", title="Status", icon="🚦"),
     st.Page("pages_/projects.py", title="Projects", icon="📁"),
-    st.Page("pages_/settings.py", title="Settings", icon="⚙️"),
+    st.Page("pages_/settings.py", title="Settings", icon="📋"),
 ]
 
 # Create navigation

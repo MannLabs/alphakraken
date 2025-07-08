@@ -16,8 +16,8 @@ st.set_page_config(
 # Define pages
 pages = [
     st.Page("pages_/home.py", title="🏠 Home"),
-    st.Page("pages_/overview.py", title="📊 Overview"),
-    st.Page("pages_/status.py", title="🚦 Status"),
+    st.Page("pages_/overview.py", title="📈  Overview"),
+    st.Page("pages_/status.py", title="📊 Status"),
     st.Page("pages_/projects.py", title="📁 Projects"),
     st.Page("pages_/settings.py", title="📋 Project settings"),
 ]

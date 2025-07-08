@@ -457,14 +457,11 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
         help="Show linear regression trendlines for numeric data.",
     )
 
-    plots_per_row = c6.number_input(
+    plots_per_row = c6.selectbox(
         label="Plots per row:",
-        min_value=1,
-        value=st.session_state.get("plots_per_row", 1),
-        step=1,
+        options=[r + 1 for r in range(9)],
         help="Number of plots to display per row.",
     )
-    st.session_state["plots_per_row"] = plots_per_row
 
     columns_to_plot = [
         column
@@ -600,7 +597,7 @@ def _draw_plot(  # noqa: PLR0913 # TODO: too complex
                 y=y_trend,
                 mode="lines",
                 name="Trendline",
-                line={"color": "blue", "dash": "dash"},
+                line={"color": "black"},
                 showlegend=True,
             )
 

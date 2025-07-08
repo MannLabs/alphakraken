@@ -426,7 +426,7 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
             f"Showing baseline data (mean ± std as green lines) for {len(baseline_samples)} samples:\n{baseline_samples_str} "
         )
 
-    c1, c2, c3, c4, c5 = st.columns([0.2, 0.2, 0.2, 0.2, 0.2])
+    c1, c2, c3, c4, c5, c6 = st.columns([0.16, 0.16, 0.16, 0.16, 0.16, 0.16])
     column_order = _get_column_order(filtered_df)
     color_by_column = c1.selectbox(
         label="Color by:",
@@ -457,8 +457,7 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
         help="Show linear regression trendlines for numeric data.",
     )
 
-    c1, c2, c3, c4, c5 = st.columns([0.2, 0.2, 0.2, 0.2, 0.2])
-    plots_per_row = c1.number_input(
+    plots_per_row = c6.number_input(
         label="Plots per row:",
         min_value=1,
         value=st.session_state.get("plots_per_row", 1),

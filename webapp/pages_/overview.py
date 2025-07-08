@@ -425,7 +425,7 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
             f"Showing baseline data (mean ± std as green lines) for {len(baseline_samples)} samples:\n{baseline_samples_str} "
         )
 
-    c1, c2, c3, c4 = st.columns([0.25, 0.25, 0.25, 0.25])
+    c1, c2, c3, c4, c5 = st.columns([0.2, 0.2, 0.2, 0.2, 0.2])
     column_order = _get_column_order(filtered_df)
     color_by_column = c1.selectbox(
         label="Color by:",
@@ -449,26 +449,47 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
         value=False,
         help="Show standard deviations for mean values.",
     )
+    plots_per_row = c5.selectbox(
+        label="Plots per row:",
+        options=[
+            1,
+            2,
+            3,
+            4,
+            5,
+        ],
+        index=0,
+        help="Number of plots to display per row.",
+    )
 
-    for column in [
+    columns_to_plot = [
         column
         for column in COLUMNS
         if (column.plot and column.name in filtered_df.columns)
-    ]:
-        try:
-            _draw_plot(
-                filtered_df,
-                x=x,
-                column=column,
-                color_by_column=color_by_column,
-                show_traces=show_traces,
-                show_std=show_std,
-            )
-        except Exception as e:  # noqa: BLE001, PERF203
-            if not column.plot_optional:
-                _log(e, f"Cannot draw plot for {column.name} vs {x}.")
-            else:
-                st.write("n/a")
+    ]
+
+    # Group plots by rows based on plots_per_row setting
+    for row_idx in range(0, len(columns_to_plot), plots_per_row):
+        row_columns = columns_to_plot[row_idx : row_idx + plots_per_row]
+        st_columns = st.columns(len(row_columns))
+
+        for col_idx, column in enumerate(row_columns):
+            try:
+                with st_columns[col_idx]:
+                    _draw_plot(
+                        filtered_df,
+                        x=x,
+                        column=column,
+                        color_by_column=color_by_column,
+                        show_traces=show_traces,
+                        show_std=show_std,
+                    )
+            except Exception as e:  # noqa: BLE001, PERF203
+                if not column.plot_optional:
+                    _log(e, f"Cannot draw plot for {column.name} vs {x}.")
+                else:
+                    with st_columns[col_idx]:
+                        st.write("n/a")
 
 
 def _add_eta(df: pd.DataFrame, now: datetime, lag_time: float) -> pd.Series:

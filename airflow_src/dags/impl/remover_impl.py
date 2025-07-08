@@ -346,11 +346,12 @@ def _check_file(
 
     # map e.g. '/opt/airflow/mounts/backup/test1/2024_08/test_file_SA_P123_2.raw' => 'test1/2024_08/test_file_SA_P123_2.raw'
 
-    # old file_info keyformat: astral4/2024_07/20240731_OA4_ThNo_blank.raw
+    # old file_info key format: 'instrument1/2024_07/file.raw'
     rel_file_path = file_path_pool_backup.relative_to(get_internal_backup_path())
     if str(rel_file_path) not in file_info_in_db:
-        # TODO: this is a hack to support the new format
-        # strips off astral4/2025_07 from astral4/2025_07/20250702_OA4_Evo11_Whisper120_DeOl_sfPhospho_Bulk_Phosphoproteome_Plate1_F9.raw
+        # TODO: this is a hack to support the new format. Remove it once the older DB entries have been migrated.
+        # new file_info key format: 'file.raw'
+        # => strip off instrument1/2025_07 from instrument1/2025_07/file.raw
         rel_file_path = Path(*rel_file_path.parts[2:])
 
     size_in_db, hash_in_db = file_info_in_db[str(rel_file_path)]

@@ -417,12 +417,13 @@ def get_full_backup_path(df: pd.DataFrame) -> tuple[list, bool]:  # noqa: C901 (
     def _get_instrument_type(file_info: dict) -> str:
         """Get the instrument type from the file_info dictionary."""
         # TODO: remove this logic! add this info to the raw_file entity -> requires migration
+
         for key in file_info:
             if key.endswith(".raw"):
                 return InstrumentTypes.THERMO
             if key.endswith(".wiff"):
                 return InstrumentTypes.SCIEX
-            if key.split("/")[-2].endswith(".d"):
+            if any(part.endswith(".d") for part in key.split("/")):
                 return InstrumentTypes.BRUKER
 
         raise ValueError(f"Unknown file type in {file_info=}")

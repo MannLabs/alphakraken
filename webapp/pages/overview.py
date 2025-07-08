@@ -93,10 +93,6 @@ COLUMNS = _load_columns_from_yaml()
 
 st.set_page_config(page_title="AlphaKraken: overview", layout="wide")
 
-if "k" in st.session_state:
-    st.write("k")
-else:
-    st.session_state["k"] = 1
 show_sandbox_message()
 
 st.markdown("# Overview")
@@ -545,7 +541,7 @@ def _draw_plot(  # noqa: PLR0913
         fig.update_traces(mode="lines+markers", marker={"symbol": symbol})
     fig.add_hline(y=median_, line_dash="dash", line={"color": "lightgrey"})
 
-    # Add baseline red dashed line if baseline data is available
+    # Add baseline if baseline data is available
     if y_is_numeric:
         baseline_df = df_with_baseline[df_with_baseline[Cols.IS_BASELINE]]
         if len(baseline_df) > 0 and y in baseline_df.columns:

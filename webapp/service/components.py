@@ -249,13 +249,20 @@ def display_status(combined_df: pd.DataFrame, status_data_df: pd.DataFrame) -> N
         status_data["last_health_check_text"].append(
             get_display_time(last_health_check, now)
         )
+
+        status_data["status"].append(status_df["status"].to_numpy()[0])
+
         status_data["status_details"].append(status_df["status_details"].to_numpy()[0])
 
         status_data["free_space_gb"].append(status_df["free_space_gb"].to_numpy()[0])
 
     status_df = pd.DataFrame(status_data)
 
-    st.dataframe(status_df.style.apply(lambda row: _get_color(row), axis=1))
+    st.dataframe(
+        status_df.style.apply(lambda row: _get_color(row), axis=1)
+        # here we misuse highlight_status_cell (for 'error' and 'ok')
+        .apply(highlight_status_cell, axis=1)
+    )
 
 
 def get_display_time(
@@ -340,7 +347,7 @@ def _get_color(
 
 def highlight_status_cell(row: pd.Series) -> list[str | None]:
     """Highlight a single cell based on its value."""
-    status = row["status"]
+    status = row["status"].lower()
 
     if status == RawFileStatus.ERROR:
         style = "background-color: darkred"

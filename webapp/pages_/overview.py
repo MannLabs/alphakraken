@@ -517,7 +517,7 @@ def _add_eta(df: pd.DataFrame, now: datetime, lag_time: float) -> pd.Series:
     return eta_timestamps.apply(_format_eta)
 
 
-def _draw_plot(  # noqa: PLR0913, C901 # TODO: too complex
+def _draw_plot(  # noqa: PLR0913 # TODO: too complex
     df_with_baseline: pd.DataFrame,
     *,
     x: str,
@@ -593,22 +593,17 @@ def _draw_plot(  # noqa: PLR0913, C901 # TODO: too complex
 
     # Add trendline if requested and data is numeric
     if show_trendline and y_is_numeric:
-        st.write(df[x], df[y].dtype)
-        try:
-            trendline_data = _calculate_trendline(df[x], df[y])
-        except Exception as e:  # noqa: BLE001
-            _log(e)
-        else:
-            if trendline_data is not None:
-                x_trend, y_trend = trendline_data
-                fig.add_scatter(
-                    x=x_trend,
-                    y=y_trend,
-                    mode="lines",
-                    name="Trendline",
-                    line={"color": "red", "dash": "dash"},
-                    showlegend=True,
-                )
+        trendline_data = _calculate_trendline(df[x], df[y])
+        if trendline_data is not None:
+            x_trend, y_trend = trendline_data
+            fig.add_scatter(
+                x=x_trend,
+                y=y_trend,
+                mode="lines",
+                name="Trendline",
+                line={"color": "blue", "dash": "dash"},
+                showlegend=True,
+            )
 
     display_plotly_chart(fig)
 
@@ -636,14 +631,28 @@ def _calculate_trendline(
     if len(x_clean) < 2:  # noqa: PLR2004
         return None
 
-    # Convert datetime to numeric if needed
-    if pd.api.types.is_datetime64_any_dtype(x_clean):
+    # Check if y_data is numeric, if not return None
+    if not pd.api.types.is_numeric_dtype(y_clean):
+        return None
+
+    # Convert x data to numeric
+    if pd.api.types.is_numeric_dtype(x_clean):
+        x_numeric = x_clean
+    elif pd.api.types.is_datetime64_any_dtype(x_clean):
         x_numeric = pd.to_numeric(x_clean)
     else:
-        x_numeric = x_clean
+        # Try to convert to datetime first, then to numeric
+        try:
+            x_datetime = pd.to_datetime(x_clean)
+            x_numeric = pd.to_numeric(x_datetime)
+        except (ValueError, TypeError):
+            # If that fails, try direct numeric conversion
+            try:
+                x_numeric = pd.to_numeric(x_clean)
+            except (ValueError, TypeError):
+                return None
 
     # Perform linear regression
-    st.write(x_numeric, y_clean, y_data)
     coeffs = np.polyfit(x_numeric, y_clean, 1)
 
     # Generate trendline points
@@ -651,7 +660,11 @@ def _calculate_trendline(
     y_trend = coeffs[0] * x_trend + coeffs[1]
 
     # Convert back to datetime if needed
-    if pd.api.types.is_datetime64_any_dtype(x_clean):
+    if pd.api.types.is_datetime64_any_dtype(x_clean) or (
+        not pd.api.types.is_numeric_dtype(x_clean)
+        and not pd.api.types.is_datetime64_any_dtype(x_clean)
+    ):
+        # Convert back to datetime for plotting
         x_trend = pd.to_datetime(x_trend)
 
     return x_trend, y_trend

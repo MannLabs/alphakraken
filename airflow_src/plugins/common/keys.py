@@ -169,5 +169,5 @@ class CustomAlphaDiaStates:
 class AcquisitionMonitorErrors:
     """Errors that can occur during acquisition monitoring."""
 
-    MAIN_FILE_MISSING: str = "Main file was not created: "
-    FILE_GOT_RENAMED: str = "File got renamed: "
+    MAIN_FILE_MISSING: str = "Main file was not created"
+    FILE_GOT_RENAMED: str = "File got renamed"

@@ -120,11 +120,11 @@ class AcquisitionMonitor(BaseSensorOperator):
         acquisition_monitor_errors = []
         if not self._main_file_exists:
             acquisition_monitor_errors += [
-                f"{AcquisitionMonitorErrors.MAIN_FILE_MISSING}{self._raw_file_monitor_wrapper.main_file_name}"
+                f"{AcquisitionMonitorErrors.MAIN_FILE_MISSING}: {self._raw_file_monitor_wrapper.main_file_name}"
             ]
         if self._file_got_renamed:
             acquisition_monitor_errors += [
-                f"{AcquisitionMonitorErrors.FILE_GOT_RENAMED}{self._corrupted_file_name}"
+                f"{AcquisitionMonitorErrors.FILE_GOT_RENAMED}: {self._corrupted_file_name}"
             ]
 
         put_xcom(

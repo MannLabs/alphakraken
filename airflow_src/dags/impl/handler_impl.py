@@ -67,6 +67,7 @@ def compute_checksum(ti: TaskInstance, **kwargs) -> bool:
         update_raw_file(
             raw_file_id,
             new_status=RawFileStatus.ACQUISITION_FAILED,
+            status_details=AcquisitionMonitorErrors.FILE_GOT_RENAMED,
             backup_status=BackupStatus.SKIPPED,
         )
         return False  # skip downstream tasks

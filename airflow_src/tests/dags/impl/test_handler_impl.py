@@ -267,6 +267,7 @@ def test_compute_checksum_file_got_renamed(
             call(
                 "test_file.raw",
                 new_status=RawFileStatus.ACQUISITION_FAILED,
+                status_details=AcquisitionMonitorErrors.FILE_GOT_RENAMED,
                 backup_status="skipped",
             )
         ]

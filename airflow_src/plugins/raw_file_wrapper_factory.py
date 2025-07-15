@@ -571,10 +571,17 @@ def get_main_file_size_from_db(raw_file: RawFile) -> int | None:
     monitor_wrapper = RawFileWrapperFactory.create_monitor_wrapper(
         instrument_id=raw_file.instrument_id, raw_file=raw_file
     )
-    main_file_name = monitor_wrapper.main_file_path().name
+
+    # in order to handle collisions correctly, we need to replace the original name with the raw file id to
+    # enable size lookup in file_info
+    main_file_name = monitor_wrapper.main_file_path().name.replace(
+        raw_file.original_name, raw_file.id
+    )
+
     file_sizes = [
         size
         for path, (size, *_hashes) in raw_file.file_info.items()
+        # this compares only file names, could be made more robust by comparing relative paths
         if Path(path).name == main_file_name
     ]
 

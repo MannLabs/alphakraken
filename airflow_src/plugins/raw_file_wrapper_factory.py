@@ -563,10 +563,10 @@ class RawFileWrapperFactory:
         )
 
 
-def get_main_file_size_from_db(raw_file: RawFile) -> int | None:
+def get_main_file_size_from_db(raw_file: RawFile) -> int:
     """Get the size in bytes of the main file from the `raw_file` object in the database.
 
-    Returns None if the main file is not found in the `raw_file.file_info` dictionary.
+    Returns -1 if the main file is not found in the `raw_file.file_info` dictionary.
     """
     monitor_wrapper = RawFileWrapperFactory.create_monitor_wrapper(
         instrument_id=raw_file.instrument_id, raw_file=raw_file
@@ -593,4 +593,4 @@ def get_main_file_size_from_db(raw_file: RawFile) -> int | None:
     if len(file_sizes) == 1:
         return file_sizes[0]
 
-    return None
+    return -1

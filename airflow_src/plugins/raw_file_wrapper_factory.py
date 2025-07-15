@@ -563,17 +563,19 @@ class RawFileWrapperFactory:
         )
 
 
-def get_main_file_size_from_db(raw_file: RawFile) -> int:
+def get_main_file_size_from_db(raw_file: RawFile) -> int | None:
     """Get the size in bytes of the main file from the `raw_file` object in the database.
 
-    Returns -1 if the main file is not found in the `raw_file.file_info` dictionary.
+    Returns None if the main file is not found in the `raw_file.file_info` dictionary.
     """
+    if raw_file.file_info == {}:
+        return None
+
     monitor_wrapper = RawFileWrapperFactory.create_monitor_wrapper(
         instrument_id=raw_file.instrument_id, raw_file=raw_file
     )
 
-    # in order to handle collisions correctly, we need to replace the original name with the raw file id to
-    # enable size lookup in file_info
+    # to enable size lookup in file_info in case of collisions, we need to replace the original name with the raw file id to
     main_file_name = monitor_wrapper.main_file_path().name.replace(
         raw_file.original_name, raw_file.id
     )
@@ -593,4 +595,8 @@ def get_main_file_size_from_db(raw_file: RawFile) -> int:
     if len(file_sizes) == 1:
         return file_sizes[0]
 
-    return -1
+    logging.warning(
+        f"Main file {main_file_name} not found in raw file {raw_file.file_info}, returning None."
+    )
+
+    return None

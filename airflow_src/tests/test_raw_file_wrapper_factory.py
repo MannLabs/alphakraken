@@ -587,4 +587,4 @@ def test_get_main_file_size_from_db_file_missing(
     # when
     size = get_main_file_size_from_db(raw_file)
 
-    assert size == -1
+    assert size is None

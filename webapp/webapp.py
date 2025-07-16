@@ -1,16 +1,27 @@
 """Main AlphaKraken webapp with navigation."""
 
+import os
+
 import streamlit as st
 from service.utils import _log
 
+from shared.keys import EnvVars
+
 _log(f"loading {__file__}")
 
+
+page_icon = (
+    "webapp/resources/alphakraken.png"
+    if os.environ.get(EnvVars.ENV_NAME) == "production"
+    else "🦑"
+)
 
 # Set page config
 st.set_page_config(
     page_title="AlphaKraken",
     layout="wide",
     initial_sidebar_state="expanded",
+    page_icon=page_icon,
 )
 
 # Define pages

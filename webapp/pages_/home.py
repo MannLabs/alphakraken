@@ -12,6 +12,8 @@ _log(f"loading {__file__} {st.query_params}")
 
 st.set_page_config(page_title="AlphaKraken: home", layout="wide")
 
+st.image("webapp/resources/alphakraken.png", width=100)
+
 """
 # Welcome to AlphaKraken!
 """

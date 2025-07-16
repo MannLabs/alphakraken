@@ -9,6 +9,11 @@ from pathlib import Path
 import plotly.graph_objects as go
 import streamlit as st
 from PIL import Image
+from service.session_state import (
+    SessionStateKeys,
+    get_session_state,
+    remove_session_state,
+)
 
 # mapping of filter strings to url query parameters
 FILTER_MAPPING: dict[str, str] = {
@@ -84,13 +89,6 @@ def empty_to_none(value: str) -> str | None:
     return None if value is None or value.strip() == "" else value
 
 
-class SessionStateKeys:
-    """Keys for the session state."""
-
-    SUCCESS_MSG = "success_msg"
-    ERROR_MSG = "error_msg"
-
-
 class Cols:
     """Internal column names."""
 
@@ -100,14 +98,14 @@ class Cols:
 def show_feedback_in_sidebar() -> None:
     """Show any success or error messages in the sidebar."""
     for key in [SessionStateKeys.SUCCESS_MSG, SessionStateKeys.ERROR_MSG]:
-        if msg := st.session_state.get(key, False):
+        if msg := get_session_state(key):
             if key == SessionStateKeys.SUCCESS_MSG:
                 msg_to_show = f"Success! {msg}"
                 st.sidebar.success(msg_to_show)
             else:
                 msg_to_show = f"Error! If you feel this is a bug, send a screenshot to the AlphaKraken team!\n\n{msg}"
                 st.sidebar.error(msg_to_show)
-            del st.session_state[key]
+            remove_session_state(key)
 
 
 def display_info_message(st_display: st.delta_generator.DeltaGenerator = None) -> None:

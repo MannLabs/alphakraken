@@ -19,15 +19,15 @@ def test_overview(
     mock_get_raw_file_and_metrics_data: MagicMock,
 ) -> None:
     """Test that overview page renders successfully."""
-    mock_raw_files_db, mock_metrics_db, mock_status_db = (
-        MagicMock(),
+    mock_raw_files_db, mock_metrics_db = (
         MagicMock(),
         MagicMock(),
     )
-    mock_get_raw_file_and_metrics_data.side_effect = [
-        (mock_raw_files_db, mock_metrics_db),
-        mock_status_db,
-    ]
+    mock_get_raw_file_and_metrics_data.return_value = (
+        mock_raw_files_db,
+        mock_metrics_db,
+        datetime.now(),  # noqa: DTZ005
+    )
 
     ts1 = pd.to_datetime(datetime.now())  # noqa: DTZ005
     ts2 = pd.to_datetime(datetime.fromtimestamp(5e9 + 0.5))  # noqa: DTZ006

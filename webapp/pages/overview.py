@@ -22,7 +22,7 @@ from service.components import (
     show_sandbox_message,
 )
 from service.data_handling import get_combined_raw_files_and_metrics_df, get_lag_time
-from service.db import get_full_raw_file_data
+from service.db import get_full_raw_file_data, get_raw_file_and_metrics_data
 from service.utils import (
     APP_URL,
     DEFAULT_MAX_AGE_OVERVIEW,
@@ -36,6 +36,8 @@ from service.utils import (
 )
 
 from shared.db.models import ERROR_STATUSES, TERMINAL_STATUSES
+
+BASELINE_PREFIX = "BASELINE_"
 
 _log(f"loading {__file__} {st.query_params}")
 
@@ -134,12 +136,17 @@ def _harmonize_df(df: pd.DataFrame) -> pd.DataFrame:
     }
     df = df.rename(columns=names_mapping)
 
+    if "gradient_length" in combined_df.columns:
+        combined_df["gradient_length"] = combined_df["gradient_length"].apply(
+            lambda x: round(x, 1)
+        )
+
     # map all columns of the same name to the first one, assuming that not more than one of the values are filled
     return df.groupby(axis=1, level=0).first()
 
 
 with st.spinner("Loading data ..."):
-    combined_df = get_combined_raw_files_and_metrics_df(
+    combined_df, data_timestamp = get_combined_raw_files_and_metrics_df(
         max_age_in_days=max_age_in_days, stop_at_no_data=True
     )
     combined_df = _harmonize_df(combined_df)
@@ -149,12 +156,14 @@ with st.spinner("Loading data ..."):
     baseline_raw_files = st.query_params.get(QueryParams.BASELINE, "")
     if baseline_raw_files:
         baseline_file_names = [name.strip() for name in baseline_raw_files.split(",")]
-        baseline_df = get_combined_raw_files_and_metrics_df(
+        baseline_df, _ = get_combined_raw_files_and_metrics_df(
             raw_file_ids=baseline_file_names
         )
 
         baseline_df[Cols.IS_BASELINE] = True
         baseline_df = _harmonize_df(baseline_df)
+        # this is a hack to prevent index clashing
+        baseline_df.index = [BASELINE_PREFIX + str(idx) for idx in baseline_df.index]
         combined_df = pd.concat([combined_df, baseline_df], ignore_index=False)
 
 # ########################################### DISPLAY: table
@@ -196,13 +205,18 @@ def df_to_csv(df: pd.DataFrame) -> str:
 # cf. https://docs.streamlit.io/develop/concepts/architecture/fragments
 @st.experimental_fragment
 def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements, too complex, too many branches)
-    df: pd.DataFrame, max_age_in_days: float, filter_value: str = ""
+    df: pd.DataFrame,
+    max_age_in_days: float,
+    filter_value: str,
+    data_timestamp: datetime,
 ) -> None:
     """A fragment that displays a DataFrame with a filter."""
     st.markdown("## Data")
 
-    now = datetime.now(tz=pytz.UTC).replace(microsecond=0)
-    st.text(f"Last fetched {now.strftime('%Y-%m-%d %H:%M:%S')}")
+    st.text(f"Last fetched {data_timestamp.strftime('%Y-%m-%d %H:%M:%S')}")
+    if st.button("🔄 Refresh"):
+        get_raw_file_and_metrics_data.clear()
+        st.rerun()
 
     # filter
     len_whole_df = len(df)
@@ -234,6 +248,10 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
             )
 
         url = f"{APP_URL}/overview?{QueryParams.FILTER}={encoded_user_input}"
+        for param in [QueryParams.MOBILE, QueryParams.MAX_AGE, QueryParams.BASELINE]:
+            if param in st.query_params:
+                url += f"&{param}={st.query_params[param]}"
+
         st.markdown(
             f"""Hint: save this filter by bookmarking <a href="{url}" target="_self">{url}</a>""",
             unsafe_allow_html=True,
@@ -255,7 +273,9 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
         )
 
         filtered_df["lag_time_minutes"] = lag_times / 60
-        filtered_df["eta"] = _add_eta(filtered_df, now, lag_time)
+        filtered_df["eta"] = _add_eta(
+            filtered_df, datetime.now(tz=pytz.UTC).replace(microsecond=0), lag_time
+        )
 
     # hide the csv download button to not encourage downloading incomplete data
     st.markdown(
@@ -344,14 +364,14 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
     c1.download_button(
         label=f"⬇️ Download filtered table ({len(filtered_df)} entries)",
         data=df_to_csv(filtered_df),
-        file_name=f"{now.strftime('AlphaKraken_%Y%m%d-%H%M%S_filtered')}.csv",
+        file_name=f"{data_timestamp.strftime('AlphaKraken_%Y%m%d-%H%M%S_filtered')}.csv",
         mime="text/csv",
     )
 
     c2.download_button(
         label=f"⬇️ Download all data ({len(df)} entries)",
         data=df_to_csv(df),
-        file_name=f"{now.strftime('AlphaKraken_%Y%m%d-%H%M%S_all')}.csv",
+        file_name=f"{data_timestamp.strftime('AlphaKraken_%Y%m%d-%H%M%S_all')}.csv",
         mime="text/csv",
     )
 
@@ -395,6 +415,15 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
     st.info(
         "If you don't see any data points try reducing the number by filtering, and/or use Firefox!"
     )
+
+    if filtered_df[Cols.IS_BASELINE].any():
+        baseline_samples = filtered_df[filtered_df[Cols.IS_BASELINE]].index.to_list()
+        baseline_samples_str = ", ".join(
+            [s[len(BASELINE_PREFIX) :] for s in baseline_samples]
+        )
+        st.info(
+            f"Showing baseline data (mean ± std as green lines) for {len(baseline_samples)} samples:\n{baseline_samples_str} "
+        )
 
     c1, c2, c3, c4 = st.columns([0.25, 0.25, 0.25, 0.25])
     column_order = _get_column_order(filtered_df)
@@ -512,7 +541,7 @@ def _draw_plot(  # noqa: PLR0913
         fig.update_traces(mode="lines+markers", marker={"symbol": symbol})
     fig.add_hline(y=median_, line_dash="dash", line={"color": "lightgrey"})
 
-    # Add baseline red dashed line if baseline data is available
+    # Add baseline if baseline data is available
     if y_is_numeric:
         baseline_df = df_with_baseline[df_with_baseline[Cols.IS_BASELINE]]
         if len(baseline_df) > 0 and y in baseline_df.columns:
@@ -522,7 +551,7 @@ def _draw_plot(  # noqa: PLR0913
             fig.add_hline(
                 y=baseline_mean,
                 line_dash="dash",
-                line={"color": "red"},
+                line={"color": "green"},
                 annotation_text=f"Baseline Mean: {baseline_mean:.2f} ± {baseline_std:.2f}",
                 annotation_position="bottom right",
             )
@@ -531,7 +560,7 @@ def _draw_plot(  # noqa: PLR0913
                     fig.add_hline(
                         y=baseline_mean + err,
                         line_dash="dot",
-                        line={"color": "red"},
+                        line={"color": "green"},
                     )
 
     display_plotly_chart(fig)
@@ -552,8 +581,4 @@ filter_value = st.query_params.get(QueryParams.FILTER, "")
 for key_, value_ in FILTER_MAPPING.items():
     filter_value = filter_value.lower().replace(key_.lower(), value_)
 
-_display_table_and_plots(
-    combined_df,
-    max_age_in_days,
-    filter_value,
-)
+_display_table_and_plots(combined_df, max_age_in_days, filter_value, data_timestamp)

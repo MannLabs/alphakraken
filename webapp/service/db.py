@@ -72,7 +72,7 @@ def get_raw_files_for_status_df(
 @st.cache_data(ttl=120)
 def get_raw_file_and_metrics_data(
     max_age_in_days: float | None, raw_file_ids: list[str] | None
-) -> tuple[QuerySet, QuerySet]:
+) -> tuple[QuerySet, QuerySet, datetime]:
     """Return from the database the QuerySets for RawFile and Metrics for files younger than max_age_in_days or for given list of raw file ids."""
     _log("Connecting to the database")
     connect_db()
@@ -99,7 +99,9 @@ def get_raw_file_and_metrics_data(
 
     metrics_db = Metrics.objects(raw_file__in=raw_files_db)
 
-    return raw_files_db, metrics_db
+    now = datetime.now(tz=pytz.UTC).replace(microsecond=0)
+
+    return raw_files_db, metrics_db, now
 
 
 def get_full_raw_file_data(raw_file_ids: list[str]) -> pd.DataFrame:

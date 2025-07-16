@@ -1,5 +1,7 @@
 """Module handling the merging of raw files and metrics data."""
 
+from datetime import datetime
+
 import pandas as pd
 import streamlit as st
 from service.db import df_from_db_data, get_raw_file_and_metrics_data
@@ -13,9 +15,9 @@ def get_combined_raw_files_and_metrics_df(
     max_age_in_days: float | None = None,
     raw_file_ids: list[str] | None = None,
     stop_at_no_data: bool = False,
-) -> pd.DataFrame:
+) -> tuple[pd.DataFrame, datetime]:
     """Get the combined DataFrame of raw files and metrics."""
-    raw_files_db, metrics_db = get_raw_file_and_metrics_data(
+    raw_files_db, metrics_db, data_timestamp = get_raw_file_and_metrics_data(
         max_age_in_days, raw_file_ids
     )
     raw_files_df = df_from_db_data(raw_files_db)
@@ -74,12 +76,6 @@ def get_combined_raw_files_and_metrics_df(
         "%Y-%m-%d %H:%M:%S"
     )
 
-    for col in ["precursors", "proteins"]:
-        if (
-            col in combined_df.columns
-        ):  # in case all quantings have failed, these columns are not available
-            combined_df[col] = combined_df[col].astype("Int64", errors="ignore")
-
     combined_df["created_at"] = combined_df["created_at"].apply(
         lambda x: x.replace(microsecond=0)
     )
@@ -94,12 +90,16 @@ def get_combined_raw_files_and_metrics_df(
     combined_df.reset_index(drop=True, inplace=True)  # noqa: PD002
     combined_df.index = combined_df["_id"]
 
-    # conversion of metrics columns (could be not present)
+    # conversion of metrics columns: in case all quantings have failed, these columns are not available
     if "quanting_time_elapsed" in combined_df.columns:
         combined_df["quanting_time_minutes"] = combined_df["quanting_time_elapsed"] / 60
         del combined_df["quanting_time_elapsed"]
 
-    return combined_df
+    for col in ["precursors", "proteins"]:
+        if col in combined_df.columns:
+            combined_df[col] = combined_df[col].astype("Int64", errors="ignore")
+
+    return combined_df, data_timestamp
 
 
 def get_lag_time(

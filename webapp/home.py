@@ -115,6 +115,17 @@ likewise for "=" which needs to be masked as "_IS_".
 Combine with other parameters (like `max_age=`) like this: `?filter=value1_AND_value2&max_age=60&max_table_len=9999`.
 
 
+Q: How can I have more meaningful QC comparisons?
+
+A: Setting the `baseline` query parameter to a list of comma-separated raw file ids will add a baseline (mean ± standard deviation)
+to each of the plots, e.g. `?baseline=raw_file_id1,raw_file_id2`.
+
+
+Q: No plots are shown if I access the page via mobile.
+
+A: Set the `mobile=1` query parameter to render the plots as static images.
+
+
 Q: I am missing a metric or a feature or found a bug or find the AlphaKraken unintuitive to use or want to contribute.
 
 A: Please get in touch with the developers!

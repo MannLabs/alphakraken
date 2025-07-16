@@ -154,7 +154,7 @@ def get_unknown_raw_files(
     put_xcom(ti, XComKeys.RAW_FILE_NAMES_TO_PROCESS, raw_files_to_process_sorted)
 
 
-def _is_collision(main_file_path: Path, sizes: list[int]) -> bool:
+def _is_collision(main_file_path: Path, sizes: list[int | None]) -> bool:
     """Detect a collision between a raw file and a file in the database.
 
     Returns False if there's no collision or decision not possible, otherwise True.

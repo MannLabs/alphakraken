@@ -54,21 +54,20 @@ def test_compute_checksum_one_file(  # noqa: PLR0913
     mock_get_file_size.return_value = 1000
     mock_get_file_hash.return_value = "some_hash"
     mock_raw_file_wrapper_factory.create_write_wrapper.return_value.get_files_to_copy.return_value = {
-        Path("/path/to/instrument/test_file.raw"): Path(
-            "/opt/airflow/mounts/backup/test_file.raw"
-        )
+        Path("/path/to/instrument/test_file.raw"): Path("/path/to/backup/test_file.raw")
     }
-    mock_raw_file_wrapper_factory.create_write_wrapper.return_value.source_folder_path = Path(
-        "/path/to/instrument/"
+    mock_raw_file_wrapper_factory.create_write_wrapper.return_value.target_folder_path = Path(
+        "/path/to/backup/"
     )
 
     mock_main_file_path = MagicMock()
     mock_raw_file_wrapper_factory.create_write_wrapper.return_value.main_file_path.return_value = mock_main_file_path
 
     # when
-    compute_checksum(ti, **kwargs)
+    continue_downstream_tasks = compute_checksum(ti, **kwargs)
 
     # then
+    assert continue_downstream_tasks
     mock_update_raw_file.assert_has_calls(
         [
             call("test_file.raw", new_status=RawFileStatus.CHECKSUMMING),
@@ -95,9 +94,7 @@ def test_compute_checksum_one_file(  # noqa: PLR0913
             call(
                 ti,
                 "files_dst_paths",
-                {
-                    "/path/to/instrument/test_file.raw": "/opt/airflow/mounts/backup/test_file.raw"
-                },
+                {"/path/to/instrument/test_file.raw": "/path/to/backup/test_file.raw"},
             ),
         ]
     )
@@ -144,23 +141,24 @@ def test_compute_checksum_multiple_files(  # noqa: PLR0913
     mock_get_file_hash.side_effect = ["some_hash", "some_other_hash"]
     mock_raw_file_wrapper_factory.create_write_wrapper.return_value.get_files_to_copy.return_value = {
         Path("/path/to/instrument/test_file.wiff"): Path(
-            "/opt/airflow/mounts/backup/test_file.wiff"
+            "/path/to/backup/test_file.wiff"
         ),
         Path("/path/to/instrument/test_file.wiff2"): Path(
-            "/opt/airflow/mounts/backup/test_file.wiff2"
+            "/path/to/backup/test_file.wiff2"
         ),
     }
-    mock_raw_file_wrapper_factory.create_write_wrapper.return_value.source_folder_path = Path(
-        "/path/to/instrument/"
+    mock_raw_file_wrapper_factory.create_write_wrapper.return_value.target_folder_path = Path(
+        "/path/to/backup/"
     )
 
     mock_main_file_path = MagicMock()
     mock_raw_file_wrapper_factory.create_write_wrapper.return_value.main_file_path.return_value = mock_main_file_path
 
     # when
-    compute_checksum(ti, **kwargs)
+    continue_downstream_tasks = compute_checksum(ti, **kwargs)
 
     # then
+    assert continue_downstream_tasks
     mock_update_raw_file.assert_has_calls(
         [
             call("test_file.wiff", new_status=RawFileStatus.CHECKSUMMING),
@@ -195,8 +193,8 @@ def test_compute_checksum_multiple_files(  # noqa: PLR0913
                 ti,
                 "files_dst_paths",
                 {
-                    "/path/to/instrument/test_file.wiff": "/opt/airflow/mounts/backup/test_file.wiff",
-                    "/path/to/instrument/test_file.wiff2": "/opt/airflow/mounts/backup/test_file.wiff2",
+                    "/path/to/instrument/test_file.wiff": "/path/to/backup/test_file.wiff",
+                    "/path/to/instrument/test_file.wiff2": "/path/to/backup/test_file.wiff2",
                 },
             ),
         ]
@@ -227,12 +225,10 @@ def test_compute_checksum_different_file_info(
     mock_get_file_size.return_value = 1000
     mock_get_file_hash.return_value = "some_hash"
     mock_raw_file_wrapper_factory.create_write_wrapper.return_value.get_files_to_copy.return_value = {
-        Path("/path/to/instrument/test_file.raw"): Path(
-            "/opt/airflow/mounts/backup/test_file.raw"
-        )
+        Path("/path/to/instrument/test_file.raw"): Path("/path/to/backup/test_file.raw")
     }
-    mock_raw_file_wrapper_factory.create_write_wrapper.return_value.source_folder_path = Path(
-        "/path/to/instrument/"
+    mock_raw_file_wrapper_factory.create_write_wrapper.return_value.target_folder_path = Path(
+        "/path/to/backup/"
     )
 
     mock_main_file_path = MagicMock()
@@ -243,6 +239,39 @@ def test_compute_checksum_different_file_info(
         AirflowFailException, match="File info mismatch for test_file.raw."
     ):
         compute_checksum(ti, **kwargs)
+
+
+@patch("dags.impl.handler_impl.get_xcom")
+@patch("dags.impl.handler_impl.get_raw_file_by_id")
+@patch("dags.impl.handler_impl.update_raw_file")
+def test_compute_checksum_file_got_renamed(
+    mock_update_raw_file: MagicMock,
+    mock_get_raw_file_by_id: MagicMock,  # noqa: ARG001
+    mock_get_xcom: MagicMock,
+) -> None:
+    """Test compute_checksum calls correctly handles failed acquisitions due to file renaming."""
+    ti = MagicMock()
+    kwargs = {
+        "params": {"raw_file_id": "test_file.raw"},
+    }
+
+    mock_get_xcom.return_value = [AcquisitionMonitorErrors.FILE_GOT_RENAMED]
+
+    # when
+    continue_downstream_tasks = compute_checksum(ti, **kwargs)
+
+    # then
+    assert not continue_downstream_tasks
+    mock_update_raw_file.assert_has_calls(
+        [
+            call(
+                "test_file.raw",
+                new_status=RawFileStatus.ACQUISITION_FAILED,
+                status_details=AcquisitionMonitorErrors.FILE_GOT_RENAMED,
+                backup_status="skipped",
+            )
+        ]
+    )
 
 
 @patch("dags.impl.handler_impl.get_xcom")
@@ -269,7 +298,6 @@ def test_copy_raw_file_calls_update_with_correct_args(  # noqa: PLR0913
         "instrument_id": "instrument1",
     }
     mock_get_xcom.side_effect = [
-        [],
         {
             "/path/to/instrument/test_file.raw": "/opt/airflow/mounts/backup/test_file.raw"
         },
@@ -282,10 +310,9 @@ def test_copy_raw_file_calls_update_with_correct_args(  # noqa: PLR0913
     mock_copy_file.return_value = (1000, "some_hash")
 
     # when
-    continue_downstream_tasks = copy_raw_file(ti, **kwargs)
+    copy_raw_file(ti, **kwargs)
 
     # then
-    assert continue_downstream_tasks
     mock_copy_file.assert_called_once_with(
         Path("/path/to/instrument/test_file.raw"),
         Path("/opt/airflow/mounts/backup/test_file.raw"),
@@ -342,7 +369,6 @@ def test_copy_raw_file_verify_fails(  # noqa: PLR0913
         "instrument_id": "instrument1",
     }
     mock_get_xcom.side_effect = [
-        [],
         {
             "/path/to/instrument/test_file.raw": "/opt/airflow/mounts/backup/test_file.raw"
         },
@@ -410,7 +436,6 @@ def test_copy_raw_file_calls_update_with_correct_args_overwrite(  # noqa: PLR091
         "instrument_id": "instrument1",
     }
     mock_get_xcom.side_effect = [
-        [],
         {
             "/path/to/instrument/test_file.raw": "/opt/airflow/mounts/backup/test_file.raw"
         },
@@ -424,10 +449,9 @@ def test_copy_raw_file_calls_update_with_correct_args_overwrite(  # noqa: PLR091
     mock_copy_file.return_value = (1000, "some_hash")
 
     # when
-    continue_downstream_tasks = copy_raw_file(ti, **kwargs)
+    copy_raw_file(ti, **kwargs)
 
     # then
-    assert continue_downstream_tasks
     mock_copy_file.assert_called_once_with(
         Path("/path/to/instrument/test_file.raw"),
         Path("/opt/airflow/mounts/backup/test_file.raw"),
@@ -437,36 +461,6 @@ def test_copy_raw_file_calls_update_with_correct_args_overwrite(  # noqa: PLR091
     mock_get_airflow_variable.assert_called_once_with("backup_overwrite_file_id", "")
 
     # not repeating the checks of test_copy_raw_file_calls_update_with_correct_args
-
-
-@patch("dags.impl.handler_impl.get_xcom")
-@patch("dags.impl.handler_impl.update_raw_file")
-def test_copy_raw_file_file_got_renamed(
-    mock_update_raw_file: MagicMock,
-    mock_get_xcom: MagicMock,
-) -> None:
-    """Test copy_raw_file correctly handles the case when file got renamed."""
-    ti = MagicMock()
-    kwargs = {
-        "params": {"raw_file_id": "test_file.raw"},
-        "instrument_id": "instrument1",
-    }
-    mock_raw_file = MagicMock()
-    mock_raw_file.id = "test_file.raw"
-
-    mock_get_xcom.return_value = [AcquisitionMonitorErrors.FILE_GOT_RENAMED]
-
-    # when
-    continue_downstream_tasks = copy_raw_file(ti, **kwargs)
-
-    # then
-    assert not continue_downstream_tasks
-
-    mock_update_raw_file.assert_called_once_with(
-        "test_file.raw",
-        new_status=RawFileStatus.ACQUISITION_FAILED,
-        backup_status="skipped",
-    )
 
 
 def test_verify_copied_files_raises_exception_on_size_mismatch() -> None:

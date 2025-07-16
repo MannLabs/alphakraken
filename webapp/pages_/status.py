@@ -13,7 +13,7 @@ from service.components import (
 from service.db import df_from_db_data, get_raw_files_for_status_df, get_status_data
 from service.utils import DEFAULT_MAX_AGE_STATUS, QueryParams, _log
 
-_log(f"loading {__file__}")
+_log(f"loading {__file__} {st.query_params}")
 
 # ########################################### PAGE HEADER
 

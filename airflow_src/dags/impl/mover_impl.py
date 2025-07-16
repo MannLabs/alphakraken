@@ -124,6 +124,7 @@ def _move_files(files_to_move: dict[Path, Path], *, only_rename: bool = False) -
 
         if not only_rename:
             logging.info(f"Moving raw file {src_path} to {dst_path}")
+
             shutil.move(src_path, dst_path)
             logging.info(".. done")
         # except OSError as e:

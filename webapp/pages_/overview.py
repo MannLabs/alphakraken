@@ -107,7 +107,7 @@ max_age_url = f"{APP_URL}/overview?max_age={days}"
 st.markdown(
     f"""
     Note: for performance reasons, by default only data for the last {DEFAULT_MAX_AGE_OVERVIEW} days are loaded.
-    If you want to see more data, use the `?max_age=` query parameter in the url, e.g.
+    If you want to see more data, use the "?max_age=" query parameter in the url, e.g.
     <a href="{max_age_url}" target="_self">{max_age_url}</a>
     """,
     unsafe_allow_html=True,
@@ -203,7 +203,7 @@ def df_to_csv(df: pd.DataFrame) -> str:
 
 # using a fragment to avoid re-doing the above operations on every filter change
 # cf. https://docs.streamlit.io/develop/concepts/architecture/fragments
-@st.experimental_fragment
+@st.fragment
 def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements, too complex, too many branches)
     df: pd.DataFrame,
     max_age_in_days: float,

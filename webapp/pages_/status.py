@@ -27,7 +27,7 @@ st.markdown("# Status")
 # ########################################### DISPLAY: table & plot
 
 
-@st.experimental_fragment
+@st.fragment
 def _display_status(combined_df: pd.DataFrame) -> None:
     """A fragment that displays the status information."""
     try:

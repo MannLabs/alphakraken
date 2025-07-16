@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 from streamlit.testing.v1 import AppTest
 
-APP_FOLDER = Path(__file__).parent / Path("../../")
+PAGES_FOLDER = Path(__file__).parent / Path("../../pages_")
 
 
 @patch("service.db.get_raw_file_and_metrics_data")
@@ -95,7 +95,7 @@ def test_overview(
     ]
 
     # when
-    at = AppTest.from_file(f"{APP_FOLDER}/pages/overview.py").run()
+    at = AppTest.from_file(f"{PAGES_FOLDER}/overview.py").run()
 
     ts1str = ts1.strftime("%Y-%m-%d %H:%M:%S")
     ts2str = ts2.strftime("%Y-%m-%d %H:%M:%S")

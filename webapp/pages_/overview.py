@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import plotly.express as px
 import pytz
@@ -425,7 +426,7 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
             f"Showing baseline data (mean ± std as green lines) for {len(baseline_samples)} samples:\n{baseline_samples_str} "
         )
 
-    c1, c2, c3, c4, c5 = st.columns([0.2, 0.2, 0.2, 0.2, 0.2])
+    c1, c2, c3, c4, c5, c6 = st.columns([0.16, 0.16, 0.16, 0.16, 0.16, 0.16])
     column_order = _get_column_order(filtered_df)
     color_by_column = c1.selectbox(
         label="Color by:",
@@ -450,14 +451,17 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
         help="Show standard deviations for mean values.",
     )
 
-    plots_per_row = c5.number_input(
+    show_trendline = c5.checkbox(
+        label="Show trendlines",
+        value=False,
+        help="Show linear regression trendlines for numeric data.",
+    )
+
+    plots_per_row = c6.selectbox(
         label="Plots per row:",
-        min_value=1,
-        value=st.session_state.get("plots_per_row", 1),
-        step=1,
+        options=[r + 1 for r in range(9)],
         help="Number of plots to display per row.",
     )
-    st.session_state["plots_per_row"] = plots_per_row
 
     columns_to_plot = [
         column
@@ -480,6 +484,7 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
                         color_by_column=color_by_column,
                         show_traces=show_traces,
                         show_std=show_std,
+                        show_trendline=show_trendline,
                     )
             except Exception as e:  # noqa: BLE001, PERF203
                 if not column.plot_optional:
@@ -508,7 +513,7 @@ def _add_eta(df: pd.DataFrame, now: datetime, lag_time: float) -> pd.Series:
     return eta_timestamps.apply(_format_eta)
 
 
-def _draw_plot(  # noqa: PLR0913
+def _draw_plot(  # noqa: PLR0913 # TODO: too complex
     df_with_baseline: pd.DataFrame,
     *,
     x: str,
@@ -516,6 +521,7 @@ def _draw_plot(  # noqa: PLR0913
     color_by_column: str,
     show_traces: bool,
     show_std: bool,
+    show_trendline: bool,
 ) -> None:
     """Draw a plot of a DataFrame."""
     df_with_baseline = df_with_baseline.sort_values(by=x)
@@ -581,6 +587,20 @@ def _draw_plot(  # noqa: PLR0913
                         line={"color": "green"},
                     )
 
+    # Add trendline if requested and data is numeric
+    if show_trendline and y_is_numeric:
+        trendline_data = _calculate_trendline(df[x], df[y])
+        if trendline_data is not None:
+            x_trend, y_trend = trendline_data
+            fig.add_scatter(
+                x=x_trend,
+                y=y_trend,
+                mode="lines",
+                name="Trendline",
+                line={"color": "black"},
+                showlegend=True,
+            )
+
     display_plotly_chart(fig)
 
 
@@ -593,6 +613,57 @@ def _get_yerror_column_name(y_column_name: str, df: pd.DataFrame) -> str | None:
         return None
 
     return yerror_column_name
+
+
+def _calculate_trendline(
+    x_data: pd.Series, y_data: pd.Series
+) -> tuple[np.ndarray, np.ndarray] | None:
+    """Calculate linear regression trendline for the given x and y data."""
+    # Remove NaN values
+    mask = ~(pd.isna(x_data) | pd.isna(y_data))
+    x_clean = x_data[mask]
+    y_clean = y_data[mask]
+
+    if len(x_clean) < 2:  # noqa: PLR2004
+        return None
+
+    # Check if y_data is numeric, if not return None
+    if not pd.api.types.is_numeric_dtype(y_clean):
+        return None
+
+    # Convert x data to numeric
+    if pd.api.types.is_numeric_dtype(x_clean):
+        x_numeric = x_clean
+    elif pd.api.types.is_datetime64_any_dtype(x_clean):
+        x_numeric = pd.to_numeric(x_clean)
+    else:
+        # Try to convert to datetime first, then to numeric
+        try:
+            x_datetime = pd.to_datetime(x_clean)
+            x_numeric = pd.to_numeric(x_datetime)
+        except (ValueError, TypeError):
+            # If that fails, try direct numeric conversion
+            try:
+                x_numeric = pd.to_numeric(x_clean)
+            except (ValueError, TypeError):
+                return None
+
+    # Perform linear regression
+    coeffs = np.polyfit(x_numeric, y_clean, 1)
+
+    # Generate trendline points
+    x_trend = np.linspace(x_numeric.min(), x_numeric.max(), 100)
+    y_trend = coeffs[0] * x_trend + coeffs[1]
+
+    # Convert back to datetime if needed
+    if pd.api.types.is_datetime64_any_dtype(x_clean) or (
+        not pd.api.types.is_numeric_dtype(x_clean)
+        and not pd.api.types.is_datetime64_any_dtype(x_clean)
+    ):
+        # Convert back to datetime for plotting
+        x_trend = pd.to_datetime(x_trend)
+
+    return x_trend, y_trend
 
 
 filter_value = st.query_params.get(QueryParams.FILTER, "")

@@ -9,7 +9,7 @@ from service.db import (
     get_project_data,
     get_settings_data,
 )
-from service.session_state import SessionStateKeys
+from service.session_state import SessionStateKeys, set_session_state
 from service.utils import (
     DISABLE_WRITE,
     _log,
@@ -221,9 +221,10 @@ if selected_project and submit:
         )
     except Exception as e:  # noqa: BLE001
         st.error(f"Error: {e}")
-        st.session_state[SessionStateKeys.ERROR_MSG] = f"{e}"
+        set_session_state(SessionStateKeys.ERROR_MSG, f"{e}")
     else:
-        st.session_state[SessionStateKeys.SUCCESS_MSG] = (
-            f"Added new settings '{name}' to project {selected_project.id}."
+        set_session_state(
+            SessionStateKeys.SUCCESS_MSG,
+            f"Added new settings '{name}' to project {selected_project.id}.",
         )
     st.rerun()

@@ -27,3 +27,8 @@ def set_session_state(key: str, value: Any, *, overwrite: bool = True) -> None: 
 def get_session_state(key: str, *, default: Any | None = None) -> Any:  # noqa: ANN401
     """Get a value from the session state, returning a default value if the key does not exist."""
     return st.session_state.get(key, default)
+
+
+def remove_session_state(key: str) -> None:
+    """Remove a key from the session state."""
+    del st.session_state[key]

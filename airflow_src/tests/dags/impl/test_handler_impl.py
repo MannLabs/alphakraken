@@ -249,7 +249,7 @@ def test_compute_checksum_file_got_renamed(
     mock_get_raw_file_by_id: MagicMock,  # noqa: ARG001
     mock_get_xcom: MagicMock,
 ) -> None:
-    """Test compute_checksum calls correctly handles failed acquisitions due to file renaminf."""
+    """Test compute_checksum calls correctly handles failed acquisitions due to file renaming."""
     ti = MagicMock()
     kwargs = {
         "params": {"raw_file_id": "test_file.raw"},

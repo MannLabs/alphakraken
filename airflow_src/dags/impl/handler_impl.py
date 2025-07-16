@@ -48,11 +48,29 @@ from shared.keys import (
 )
 
 
-def compute_checksum(ti: TaskInstance, **kwargs) -> None:
+def compute_checksum(ti: TaskInstance, **kwargs) -> bool:
     """Compute checksums for files in a raw file and store them in DB and XCom."""
     raw_file_id = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID]
 
     raw_file = get_raw_file_by_id(raw_file_id)
+
+    # TODO: this could be moved to an upfront task
+    acquisition_monitor_errors = get_xcom(ti, XComKeys.ACQUISITION_MONITOR_ERRORS, [])
+    if any(
+        AcquisitionMonitorErrors.FILE_GOT_RENAMED in error
+        for error in acquisition_monitor_errors
+    ):
+        logging.warning(
+            f"Skipping copy for raw file {raw_file_id}: {acquisition_monitor_errors}"
+        )
+
+        update_raw_file(
+            raw_file_id,
+            new_status=RawFileStatus.ACQUISITION_FAILED,
+            status_details=AcquisitionMonitorErrors.FILE_GOT_RENAMED,
+            backup_status=BackupStatus.SKIPPED,
+        )
+        return False  # skip downstream tasks
 
     update_raw_file(raw_file_id, new_status=RawFileStatus.CHECKSUMMING)
 
@@ -111,6 +129,8 @@ def compute_checksum(ti: TaskInstance, **kwargs) -> None:
         {str(k): str(v) for k, v in files_dst_paths.items()},
     )
 
+    return True  # continue with downstream tasks
+
 
 def _compare_file_info(
     existing_file_info: dict[str, tuple[float, str]],
@@ -132,27 +152,10 @@ def _compare_file_info(
     return errors
 
 
-def copy_raw_file(ti: TaskInstance, **kwargs) -> bool:
+def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
     """Copy all data associated with a raw file to the target location."""
     raw_file_id = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID]
     instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
-
-    # TODO: this could be moved to an upfront task
-    acquisition_monitor_errors = get_xcom(ti, XComKeys.ACQUISITION_MONITOR_ERRORS, [])
-    if any(
-        AcquisitionMonitorErrors.FILE_GOT_RENAMED in error
-        for error in acquisition_monitor_errors
-    ):
-        logging.warning(
-            f"Skipping copy for raw file {raw_file_id}: {acquisition_monitor_errors}"
-        )
-
-        update_raw_file(
-            raw_file_id,
-            new_status=RawFileStatus.ACQUISITION_FAILED,
-            backup_status=BackupStatus.SKIPPED,
-        )
-        return False  # skip downstream tasks
 
     files_dst_paths = {
         Path(k): Path(v) for k, v in get_xcom(ti, XComKeys.FILES_DST_PATHS).items()
@@ -200,8 +203,6 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> bool:
         new_status=RawFileStatus.COPYING_DONE,
         backup_status=BackupStatus.DONE,
     )
-
-    return True  # continue with downstream tasks
 
 
 def get_backup_base_path(instrument_id: str, raw_file: RawFile) -> Path:

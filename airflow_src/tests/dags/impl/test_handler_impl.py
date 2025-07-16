@@ -54,12 +54,10 @@ def test_compute_checksum_one_file(  # noqa: PLR0913
     mock_get_file_size.return_value = 1000
     mock_get_file_hash.return_value = "some_hash"
     mock_raw_file_wrapper_factory.create_write_wrapper.return_value.get_files_to_copy.return_value = {
-        Path("/path/to/instrument/test_file.raw"): Path(
-            "/opt/airflow/mounts/backup/test_file.raw"
-        )
+        Path("/path/to/instrument/test_file.raw"): Path("/path/to/backup/test_file.raw")
     }
-    mock_raw_file_wrapper_factory.create_write_wrapper.return_value.source_folder_path = Path(
-        "/path/to/instrument/"
+    mock_raw_file_wrapper_factory.create_write_wrapper.return_value.target_folder_path = Path(
+        "/path/to/backup/"
     )
 
     mock_main_file_path = MagicMock()
@@ -95,9 +93,7 @@ def test_compute_checksum_one_file(  # noqa: PLR0913
             call(
                 ti,
                 "files_dst_paths",
-                {
-                    "/path/to/instrument/test_file.raw": "/opt/airflow/mounts/backup/test_file.raw"
-                },
+                {"/path/to/instrument/test_file.raw": "/path/to/backup/test_file.raw"},
             ),
         ]
     )
@@ -144,14 +140,14 @@ def test_compute_checksum_multiple_files(  # noqa: PLR0913
     mock_get_file_hash.side_effect = ["some_hash", "some_other_hash"]
     mock_raw_file_wrapper_factory.create_write_wrapper.return_value.get_files_to_copy.return_value = {
         Path("/path/to/instrument/test_file.wiff"): Path(
-            "/opt/airflow/mounts/backup/test_file.wiff"
+            "/path/to/backup/test_file.wiff"
         ),
         Path("/path/to/instrument/test_file.wiff2"): Path(
-            "/opt/airflow/mounts/backup/test_file.wiff2"
+            "/path/to/backup/test_file.wiff2"
         ),
     }
-    mock_raw_file_wrapper_factory.create_write_wrapper.return_value.source_folder_path = Path(
-        "/path/to/instrument/"
+    mock_raw_file_wrapper_factory.create_write_wrapper.return_value.target_folder_path = Path(
+        "/path/to/backup/"
     )
 
     mock_main_file_path = MagicMock()
@@ -195,8 +191,8 @@ def test_compute_checksum_multiple_files(  # noqa: PLR0913
                 ti,
                 "files_dst_paths",
                 {
-                    "/path/to/instrument/test_file.wiff": "/opt/airflow/mounts/backup/test_file.wiff",
-                    "/path/to/instrument/test_file.wiff2": "/opt/airflow/mounts/backup/test_file.wiff2",
+                    "/path/to/instrument/test_file.wiff": "/path/to/backup/test_file.wiff",
+                    "/path/to/instrument/test_file.wiff2": "/path/to/backup/test_file.wiff2",
                 },
             ),
         ]
@@ -227,12 +223,10 @@ def test_compute_checksum_different_file_info(
     mock_get_file_size.return_value = 1000
     mock_get_file_hash.return_value = "some_hash"
     mock_raw_file_wrapper_factory.create_write_wrapper.return_value.get_files_to_copy.return_value = {
-        Path("/path/to/instrument/test_file.raw"): Path(
-            "/opt/airflow/mounts/backup/test_file.raw"
-        )
+        Path("/path/to/instrument/test_file.raw"): Path("/path/to/backup/test_file.raw")
     }
-    mock_raw_file_wrapper_factory.create_write_wrapper.return_value.source_folder_path = Path(
-        "/path/to/instrument/"
+    mock_raw_file_wrapper_factory.create_write_wrapper.return_value.target_folder_path = Path(
+        "/path/to/backup/"
     )
 
     mock_main_file_path = MagicMock()

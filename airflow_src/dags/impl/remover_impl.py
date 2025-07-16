@@ -345,9 +345,16 @@ def _check_file(
     logging.debug(f"Comparing {file_path_to_remove=} to {file_path_pool_backup=} ..")
 
     # map e.g. '/opt/airflow/mounts/backup/test1/2024_08/test_file_SA_P123_2.raw' => 'test1/2024_08/test_file_SA_P123_2.raw'
-    rel_file_path = str(file_path_pool_backup.relative_to(get_internal_backup_path()))
 
-    size_in_db, hash_in_db = file_info_in_db[rel_file_path]
+    # old file_info key format: 'instrument1/2024_07/file.raw'
+    rel_file_path = file_path_pool_backup.relative_to(get_internal_backup_path())
+    if str(rel_file_path) not in file_info_in_db:
+        # TODO: this is a hack to support the new format. Remove it once the older DB entries have been migrated.
+        # new file_info key format: 'file.raw'
+        # => strip off instrument1/2025_07 from instrument1/2025_07/file.raw
+        rel_file_path = Path(*rel_file_path.parts[2:])
+
+    size_in_db, hash_in_db = file_info_in_db[str(rel_file_path)]
 
     logging.debug(f"Comparing {file_path_to_remove=} to DB ({rel_file_path}) ..")
 

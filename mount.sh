@@ -63,7 +63,8 @@ MOUNT_TARGET="$(get_data $ENTITY_TYPE $ENTITY mount_target)"
 MOUNT_TARGET=$MOUNTS_PATH/$MOUNT_TARGET
 
 if [ "${ACTION}" == "fstab" ]; then
-  echo "${MOUNT_SRC// /\\040}" "${MOUNT_TARGET// /\\040}" cifs username=$USERNAME,password=SET_PASSWORD,uid=$(id -u),gid=$(id -g) 0 0
+  # file_mode & dir_mode sometime required to prevent a read-only mount
+  echo "${MOUNT_SRC// /\\040}" "${MOUNT_TARGET// /\\040}" cifs username=$USERNAME,password=SET_PASSWORD,uid=$(id -u),gid=$(id -g),file_mode=0755,dir_mode=0755 0 0
   exit 0
 fi
 

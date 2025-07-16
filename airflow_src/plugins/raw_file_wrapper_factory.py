@@ -334,9 +334,9 @@ class RawFileWriteWrapper(ABC):
         return files
 
     @property
-    def source_folder_path(self) -> Path:
-        """The source folder path for the raw file operation, e.g. /opt/airflow/mounts/instruments/test2 ."""
-        return self._source_folder_path
+    def target_folder_path(self) -> Path:
+        """The target folder path for the raw file operation, e.g. '/opt/airflow/mounts/backup/test2/2025_07'."""
+        return self._target_folder_path
 
     @abstractmethod
     def _get_files_to_copy(self) -> dict[Path, Path]:

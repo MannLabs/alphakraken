@@ -529,13 +529,29 @@ def test_bruker_get_files_to_copy() -> None:
             assert files_to_copy == expected_mapping
 
 
+@pytest.mark.parametrize(
+    (
+        "raw_file_id",
+        "raw_file_original_name",
+    ),
+    [
+        ("sample.raw", "sample.raw"),  # no collsion
+        ("123-sample.raw", "sample.raw"),  # collsion
+    ],
+)
 @patch("plugins.raw_file_wrapper_factory.RawFileWrapperFactory.create_monitor_wrapper")
-def test_get_main_file_size_from_db(mock_create_monitor_wrapper: MagicMock) -> None:
+def test_get_main_file_size_from_db(
+    mock_create_monitor_wrapper: MagicMock,
+    raw_file_id: str,
+    raw_file_original_name: str,
+) -> None:
     """Test that get_main_file_size_from_db returns the correct file size."""
     raw_file = RawFile(
+        id=raw_file_id,
+        original_name=raw_file_original_name,
         instrument_id="instrument1",
         file_info={
-            "sample.raw": (1024, "hash_value"),
+            raw_file_id: (1024, "hash_value"),
             "other_file.txt": (2048, "other_hash_value"),
         },
     )
@@ -556,6 +572,8 @@ def test_get_main_file_size_from_db_file_missing(
 ) -> None:
     """Test that get_main_file_size_from_db raises if file is not in file_info."""
     raw_file = RawFile(
+        id="123-sample.raw",
+        original_name="sample.raw",
         instrument_id="instrument1",
         file_info={
             "other_file.txt": (2048, "other_hash_value"),

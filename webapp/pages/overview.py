@@ -39,7 +39,7 @@ from shared.db.models import ERROR_STATUSES, TERMINAL_STATUSES
 
 BASELINE_PREFIX = "BASELINE_"
 
-_log(f"loading {__file__}")
+_log(f"loading {__file__} {st.query_params}")
 
 
 @dataclass

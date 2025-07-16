@@ -21,7 +21,7 @@ from service.utils import (
 from shared.db.interface import add_settings
 from shared.db.models import ProjectStatus
 
-_log(f"loading {__file__}")
+_log(f"loading {__file__} {st.query_params}")
 # ########################################### PAGE HEADER
 
 st.set_page_config(page_title="AlphaKraken: settings", layout="wide")

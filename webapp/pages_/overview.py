@@ -253,6 +253,8 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
             if param in st.query_params:
                 url += f"&{param}={st.query_params[param]}"
 
+        url = url.replace(" ", "")
+
         st.markdown(
             f"""Hint: save this filter by bookmarking <a href="{url}" target="_self">{url}</a>""",
             unsafe_allow_html=True,

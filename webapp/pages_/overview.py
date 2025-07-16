@@ -25,6 +25,7 @@ from service.components import (
 from service.data_handling import get_combined_raw_files_and_metrics_df, get_lag_time
 from service.db import get_full_raw_file_data, get_raw_file_and_metrics_data
 from service.session_state import SessionStateKeys, get_session_state, set_session_state
+from service.status import show_status_warning
 from service.utils import (
     APP_URL,
     DEFAULT_MAX_AGE_OVERVIEW,
@@ -120,6 +121,10 @@ st.write(
 )
 
 display_info_message()
+
+
+show_status_warning()
+
 
 # ########################################### LOGIC
 max_age_in_days = float(

@@ -46,8 +46,6 @@ class Column:
     name: str
     # hide column in table
     hide: bool = False
-    # move column to front of table
-    at_front: bool = False
     # move column to end of table
     at_end: bool = False
     # color gradient in table: None (no gradient), "green_is_high" (green=high, red=low), "red_is_high" (red=high, green=low)
@@ -74,7 +72,6 @@ def _load_columns_from_yaml() -> tuple[Column, ...]:
             Column(
                 name=column["name"],
                 hide=column.get("hide"),
-                at_front=column.get("at_front"),
                 at_end=column.get("at_end"),
                 color_gradient=column.get("color_gradient"),
                 plot=column.get("plot"),
@@ -147,8 +144,9 @@ with st.spinner("Loading data ..."):
 
 # ########################################### DISPLAY: table
 
-
-columns_at_front = [column.name for column in COLUMNS if column.at_front]
+known_columns = [
+    column.name for column in COLUMNS if column.name in combined_df.columns
+]
 columns_at_end = [column.name for column in COLUMNS if column.at_end] + [
     col for col in combined_df.columns if col.endswith("_std")
 ]
@@ -158,11 +156,11 @@ columns_to_hide = [column.name for column in COLUMNS if column.hide]
 def _get_column_order(df: pd.DataFrame) -> list[str]:
     """Get column order."""
     return (
-        columns_at_front
+        [col for col in known_columns if col not in columns_at_end + columns_to_hide]
         + [
             col
             for col in df.columns
-            if col not in columns_at_front + columns_at_end + columns_to_hide
+            if col not in known_columns + columns_at_end + columns_to_hide
         ]
         + columns_at_end
     )

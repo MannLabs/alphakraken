@@ -1,73 +1,34 @@
 # This file is used to configure the columns displayed in the web application.
 # see the Column() class in overview.py for more information
+# The order of the entries in this file determines the order of the columns in the table and the plots.
 columns:
-  # Hidden columns
-  - name: "created_at"
-    hide: true
-  - name: "size"
-    hide: true
-  - name: "quanting_time_elapsed"
-    hide: true
-  - name: "raw_file"
-    hide: true
-  - name: "file_info"
-    hide: true
-  - name: "_id"
-    hide: true
-  - name: "original_name"
-    hide: true
-  - name: "collision_flag"
-    hide: true
-
-  # Front columns (order matters)
+  # Front columns
   - name: "instrument_id"
-    at_front: true
   - name: "status"
-    at_front: true
   - name: "status_details"
-    at_front: true
   - name: "eta"
-    at_front: true
   - name: "size_gb"
-    at_front: true
     color_gradient: "green_is_high"
     plot: true
   - name: "file_created"
-    at_front: true
-  - name: "lag_time_minutes"
-    color_gradient: "red_is_high"
-    at_front: true
   - name: "gradient_length"
-    at_front: true
-    color_gradient: "green_is_high"
+    color_gradient: "red_is_high"
     alternative_names:
       - "raw:gradient_length_m"
-
-  # Plot columns (order matters)
   - name: "precursors"
-    at_front: true
     color_gradient: "green_is_high"
     plot: true
   - name: "proteins"
-    at_front: true
     color_gradient: "green_is_high"
     plot: true
-  - name: "weighted_ms1_intensity_sum"
-    color_gradient: "green_is_high"
-    plot: true
-    log_scale: true
-  - name: "intensity_sum"
-    color_gradient: "green_is_high"
-    plot: true
-    log_scale: true
   - name: "ms1_median_accuracy"
-    color_gradient: "green_is_high"
+    color_gradient: "red_is_high"
     plot: true
     alternative_names:
       - "ms1_accuracy" # alphadia<=1.8.2
       - "calibration:ms1_median_accuracy"
   - name: "ms2_median_accuracy"
-    color_gradient: "green_is_high"
+    color_gradient: "red_is_high"
     plot: true
     alternative_names:
       - "calibration:ms2_median_accuracy"
@@ -77,6 +38,14 @@ columns:
   - name: "fwhm_mobility"
     color_gradient: "red_is_high"
     plot: true
+  - name: "weighted_ms1_intensity_sum"
+    color_gradient: "green_is_high"
+    plot: true
+    log_scale: true
+  - name: "intensity_sum"
+    color_gradient: "green_is_high"
+    plot: true
+    log_scale: true
   - name: "ms1_error"
     color_gradient: "red_is_high"
     plot: true
@@ -98,23 +67,22 @@ columns:
     alternative_names:
       - "optimization:mobility_error"
   - name: "charge_mean"
-    at_front: true
     color_gradient: "green_is_high"
     plot: true
   - name: "proba_median"
-    at_front: true
     color_gradient: "green_is_high"
     plot: true
   - name: "precursor_intensity_median" # do not confuse with "intensity_sum"
-    at_front: true
     color_gradient: "green_is_high"
     plot: true
   - name: "sequence_len_mean"
-    at_front: true
     color_gradient: "green_is_high"
     plot: true
 
   # Technical plots
+  - name: "lag_time_minutes"
+    color_gradient: "red_is_high"
+    at_end: true
   - name: "settings_version"
     at_end: true
     plot: true
@@ -130,7 +98,23 @@ columns:
     plot: true
     at_end: true
 
-  # End columns (order matters)
+  # Hidden columns
+  - name: "created_at"
+    hide: true
+  - name: "raw_file"
+    hide: true
+  - name: "file_info"
+    hide: true
+  - name: "_id"
+    hide: true
+  - name: "original_name"
+    hide: true
+  - name: "collision_flag"
+    hide: true
+
+  # columns that are not explicity hidden will be shown here
+
+  # End columns
   - name: "project_id"
     at_end: true
   - name: "updated_at_"

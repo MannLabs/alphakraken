@@ -9,9 +9,9 @@ from service.db import (
     get_project_data,
     get_settings_data,
 )
+from service.session_state import SessionStateKeys
 from service.utils import (
     DISABLE_WRITE,
-    SessionStateKeys,
     _log,
     empty_to_none,
     quanting_settings_path,

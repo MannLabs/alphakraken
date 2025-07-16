@@ -9,6 +9,7 @@ from pathlib import Path
 import plotly.graph_objects as go
 import streamlit as st
 from PIL import Image
+from service.session_state import SessionStateKeys
 
 # mapping of filter strings to url query parameters
 FILTER_MAPPING: dict[str, str] = {
@@ -82,13 +83,6 @@ def empty_to_none(value: str) -> str | None:
     to have the db schema to the validation of "required" fields correctly.
     """
     return None if value is None or value.strip() == "" else value
-
-
-class SessionStateKeys:
-    """Keys for the session state."""
-
-    SUCCESS_MSG = "success_msg"
-    ERROR_MSG = "error_msg"
 
 
 class Cols:

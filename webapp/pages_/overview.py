@@ -24,6 +24,7 @@ from service.components import (
 )
 from service.data_handling import get_combined_raw_files_and_metrics_df, get_lag_time
 from service.db import get_full_raw_file_data, get_raw_file_and_metrics_data
+from service.session_state import SessionStateKeys, get_session_state, set_session_state
 from service.utils import (
     APP_URL,
     DEFAULT_MAX_AGE_OVERVIEW,
@@ -227,9 +228,13 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
         df,
         text_to_display="Filter:",
         st_display=c1,
-        default_value=filter_value,
+        default_value=previous_filter
+        if (previous_filter := get_session_state(SessionStateKeys.CURRENT_FILER))
+        else filter_value,
         example_text="astral1 & !hela & AlKr(.*)5ng & status=done & proteins=[400,500] & settings_version=1",
     )
+    set_session_state(SessionStateKeys.CURRENT_FILER, user_input)
+
     filtered_df = show_date_select(
         filtered_df,
         st_display=c2,
@@ -444,26 +449,35 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
     )
     show_traces = c3.checkbox(
         label="Show traces",
-        value=True,
+        value=get_session_state(SessionStateKeys.SHOW_TRACES, default=True),
         help="Show traces for each data point.",
     )
+    set_session_state(SessionStateKeys.SHOW_TRACES, show_traces)
+
     show_std = c4.checkbox(
         label="Show standard deviations",
-        value=False,
+        value=get_session_state(SessionStateKeys.SHOW_STD, default=False),
         help="Show standard deviations for mean values.",
     )
+    set_session_state(SessionStateKeys.SHOW_STD, show_std)
 
     show_trendline = c5.checkbox(
         label="Show trendlines",
-        value=False,
+        value=get_session_state(SessionStateKeys.SHOW_TRENDLINE, default=False),
         help="Show linear regression trendlines for numeric data.",
     )
+    set_session_state(SessionStateKeys.SHOW_TRENDLINE, show_trendline)
 
     plots_per_row = c6.selectbox(
         label="Plots per row:",
         options=[r + 1 for r in range(9)],
         help="Number of plots to display per row.",
+        index=plots_per_row - 1
+        if (plots_per_row := get_session_state(SessionStateKeys.PLOTS_PER_ROW))
+        is not None
+        else 0,
     )
+    set_session_state(SessionStateKeys.PLOTS_PER_ROW, plots_per_row)
 
     columns_to_plot = [
         column

@@ -31,7 +31,7 @@ def show_filter(
     text_to_display: str = "Filter:",
     example_text: str = "P123",
     st_display: st.delta_generator.DeltaGenerator = st,
-) -> tuple[pd.DataFrame, str, list[str]]:
+) -> tuple[pd.DataFrame, str | None, list[str]]:
     """Filter the DataFrame on user input by case-insensitive textual comparison in all columns.
 
     :param df: The DataFrame to filter.

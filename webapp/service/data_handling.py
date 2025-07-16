@@ -8,9 +8,16 @@ from shared.db.models import RawFileStatus
 from shared.keys import MetricsTypes
 
 
-def get_combined_raw_files_and_metrics_df(max_age_in_days: float) -> pd.DataFrame:
+def get_combined_raw_files_and_metrics_df(
+    *,
+    max_age_in_days: float | None = None,
+    raw_file_ids: list[str] | None = None,
+    stop_at_no_data: bool = False,
+) -> pd.DataFrame:
     """Get the combined DataFrame of raw files and metrics."""
-    raw_files_db, metrics_db = get_raw_file_and_metrics_data(max_age_in_days)
+    raw_files_db, metrics_db = get_raw_file_and_metrics_data(
+        max_age_in_days, raw_file_ids
+    )
     raw_files_df = df_from_db_data(raw_files_db)
     alphadia_metrics_df = df_from_db_data(
         metrics_db,
@@ -19,7 +26,7 @@ def get_combined_raw_files_and_metrics_df(max_age_in_days: float) -> pd.DataFram
         drop_columns=["_id", "created_at_"],
     )
 
-    if len(raw_files_df) == 0 or len(alphadia_metrics_df) == 0:
+    if stop_at_no_data and (len(raw_files_df) == 0 or len(alphadia_metrics_df) == 0):
         st.write(
             f"Not enough data yet: {len(raw_files_df)=} {len(alphadia_metrics_df)=}."
         )
@@ -28,9 +35,12 @@ def get_combined_raw_files_and_metrics_df(max_age_in_days: float) -> pd.DataFram
         st.stop()
 
     # the joining could also be done on DB level
-    combined_df = raw_files_df.merge(
-        alphadia_metrics_df, left_on="_id", right_on="raw_file", how="left"
-    )
+    if len(alphadia_metrics_df) > 0:
+        combined_df = raw_files_df.merge(
+            alphadia_metrics_df, left_on="_id", right_on="raw_file", how="left"
+        )
+    else:
+        combined_df = raw_files_df
 
     if (
         len(
@@ -64,9 +74,6 @@ def get_combined_raw_files_and_metrics_df(max_age_in_days: float) -> pd.DataFram
         "%Y-%m-%d %H:%M:%S"
     )
 
-    combined_df["quanting_time_minutes"] = combined_df["quanting_time_elapsed"] / 60
-    del combined_df["quanting_time_elapsed"]
-
     for col in ["precursors", "proteins"]:
         if (
             col in combined_df.columns
@@ -86,6 +93,11 @@ def get_combined_raw_files_and_metrics_df(max_age_in_days: float) -> pd.DataFram
     combined_df.sort_values(by="created_at", ascending=False, inplace=True)  # noqa: PD002
     combined_df.reset_index(drop=True, inplace=True)  # noqa: PD002
     combined_df.index = combined_df["_id"]
+
+    # conversion of metrics columns (could be not present)
+    if "quanting_time_elapsed" in combined_df.columns:
+        combined_df["quanting_time_minutes"] = combined_df["quanting_time_elapsed"] / 60
+        del combined_df["quanting_time_elapsed"]
 
     return combined_df
 

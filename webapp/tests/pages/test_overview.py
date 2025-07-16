@@ -121,6 +121,7 @@ def test_overview(
         "instrument_id": {1: "i1", 2: "i1"},
         "weighted_ms1_intensity_sum": {1: 1.0, 2: 2.0},
         "intensity_sum": {1: 1.0, 2: 2.0},
+        "is_baseline": {1: False, 2: False},
         "settings_version": {1: 1, 2: 2},
         "proteins_custom": {1: 1, 2: 2},
         "some_custom_metric": {1: 1, 2: 2},

@@ -41,6 +41,9 @@ class QueryParams:
     # whether page is accessed via mobile
     MOBILE = "mobile"
 
+    # comma-separated list of baseline runs
+    BASELINE = "baseline"
+
 
 DEFAULT_MAX_TABLE_LEN = 500
 DEFAULT_MAX_AGE_OVERVIEW = 30  # days
@@ -86,6 +89,12 @@ class SessionStateKeys:
 
     SUCCESS_MSG = "success_msg"
     ERROR_MSG = "error_msg"
+
+
+class Cols:
+    """Internal column names."""
+
+    IS_BASELINE = "is_baseline"
 
 
 def show_feedback_in_sidebar() -> None:

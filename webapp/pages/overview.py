@@ -28,6 +28,7 @@ from service.utils import (
     DEFAULT_MAX_AGE_OVERVIEW,
     DEFAULT_MAX_TABLE_LEN,
     FILTER_MAPPING,
+    Cols,
     QueryParams,
     _log,
     display_info_message,
@@ -138,9 +139,23 @@ def _harmonize_df(df: pd.DataFrame) -> pd.DataFrame:
 
 
 with st.spinner("Loading data ..."):
-    combined_df = get_combined_raw_files_and_metrics_df(max_age_in_days)
+    combined_df = get_combined_raw_files_and_metrics_df(
+        max_age_in_days=max_age_in_days, stop_at_no_data=True
+    )
     combined_df = _harmonize_df(combined_df)
+    combined_df[Cols.IS_BASELINE] = False
 
+    # Load and merge baseline data if specified
+    baseline_raw_files = st.query_params.get(QueryParams.BASELINE, "")
+    if baseline_raw_files:
+        baseline_file_names = [name.strip() for name in baseline_raw_files.split(",")]
+        baseline_df = get_combined_raw_files_and_metrics_df(
+            raw_file_ids=baseline_file_names
+        )
+
+        baseline_df[Cols.IS_BASELINE] = True
+        baseline_df = _harmonize_df(baseline_df)
+        combined_df = pd.concat([combined_df, baseline_df], ignore_index=False)
 
 # ########################################### DISPLAY: table
 
@@ -447,7 +462,7 @@ def _add_eta(df: pd.DataFrame, now: datetime, lag_time: float) -> pd.Series:
 
 
 def _draw_plot(  # noqa: PLR0913
-    df: pd.DataFrame,
+    df_with_baseline: pd.DataFrame,
     *,
     x: str,
     column: Column,
@@ -456,8 +471,9 @@ def _draw_plot(  # noqa: PLR0913
     show_std: bool,
 ) -> None:
     """Draw a plot of a DataFrame."""
-    df = df.sort_values(by=x)
+    df_with_baseline = df_with_baseline.sort_values(by=x)
 
+    df = df_with_baseline[~df_with_baseline[Cols.IS_BASELINE]]
     y = column.name
     y_is_numeric = pd.api.types.is_numeric_dtype(df[y])
     median_ = df[y].median() if y_is_numeric else 0
@@ -495,6 +511,29 @@ def _draw_plot(  # noqa: PLR0913
         ]
         fig.update_traces(mode="lines+markers", marker={"symbol": symbol})
     fig.add_hline(y=median_, line_dash="dash", line={"color": "lightgrey"})
+
+    # Add baseline red dashed line if baseline data is available
+    if y_is_numeric:
+        baseline_df = df_with_baseline[df_with_baseline[Cols.IS_BASELINE]]
+        if len(baseline_df) > 0 and y in baseline_df.columns:
+            baseline_mean = baseline_df[y].mean()
+            baseline_std = baseline_df[y].std()
+
+            fig.add_hline(
+                y=baseline_mean,
+                line_dash="dash",
+                line={"color": "red"},
+                annotation_text=f"Baseline Mean: {baseline_mean:.2f} ± {baseline_std:.2f}",
+                annotation_position="bottom right",
+            )
+            if not pd.isna(baseline_std):
+                for err in [-baseline_std, baseline_std]:
+                    fig.add_hline(
+                        y=baseline_mean + err,
+                        line_dash="dot",
+                        line={"color": "red"},
+                    )
+
     display_plotly_chart(fig)
 
 

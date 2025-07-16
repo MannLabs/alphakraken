@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 import pandas as pd
 import pytz
 import streamlit as st
-from mongoengine import QuerySet
+from mongoengine import Q, QuerySet
 from service.utils import _log
 
 from shared.db.engine import connect_db
@@ -70,26 +70,34 @@ def get_raw_files_for_status_df(
 # Considering memory it should currently be fine to have all data cached.
 # Command for clearing the cache:  get_all_data.clear()
 @st.cache_data(ttl=120)
-def get_raw_file_and_metrics_data(max_age_in_days: float) -> tuple[QuerySet, QuerySet]:
-    """Return from the database the QuerySets for RawFile and Metrics for files younger than max_age_in_days."""
+def get_raw_file_and_metrics_data(
+    max_age_in_days: float | None, raw_file_ids: list[str] | None
+) -> tuple[QuerySet, QuerySet]:
+    """Return from the database the QuerySets for RawFile and Metrics for files younger than max_age_in_days or for given list of raw file ids."""
     _log("Connecting to the database")
     connect_db()
     _log("Retrieving all raw file and metrics data")
-    min_created_at = pd.Timestamp(
-        datetime.now(tz=pytz.UTC) - timedelta(days=max_age_in_days)
-    )
+
+    if max_age_in_days is not None:
+        min_created_at = pd.Timestamp(
+            datetime.now(tz=pytz.UTC) - timedelta(days=max_age_in_days)
+        )
+        q = Q(
+            created_at__gt=min_created_at
+        )  # query on file creation date ('created_at')
+    elif raw_file_ids is not None:
+        q = Q(id__in=raw_file_ids)
+    else:
+        raise ValueError("Either max_age_in_days or raw_file_ids must be provided.")
 
     raw_files_db = (
-        RawFile.objects(
-            created_at__gte=min_created_at  # query on file creation date ('created_at')
-        )
+        RawFile.objects(q)
+        # exclude some not-needed fields
         .exclude("file_info")
         .exclude("backup_base_path")
-    )  # exclude some not-needed fields
+    )
 
-    metrics_db = Metrics.objects(
-        created_at___gte=min_created_at
-    )  # query on db entry creation date ('created_at_')
+    metrics_db = Metrics.objects(raw_file__in=raw_files_db)
 
     return raw_files_db, metrics_db
 
@@ -151,6 +159,11 @@ def df_from_db_data(
 
     if filter_dict:
         for key, value in filter_dict.items():
+            if key not in query_set_df.columns:
+                _log(
+                    f"Warning: Key '{key}' not found in DataFrame columns '{query_set_df.columns}'."
+                )
+                continue
             query_set_df = query_set_df[query_set_df[key] == value]
 
     if len(query_set_df) == 0:

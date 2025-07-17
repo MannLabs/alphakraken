@@ -15,10 +15,11 @@ def get_combined_raw_files_and_metrics_df(
     max_age_in_days: float | None = None,
     raw_file_ids: list[str] | None = None,
     stop_at_no_data: bool = False,
+    instruments_prefilter: str | None = None,
 ) -> tuple[pd.DataFrame, datetime]:
     """Get the combined DataFrame of raw files and metrics."""
     raw_files_db, metrics_db, data_timestamp = get_raw_file_and_metrics_data(
-        max_age_in_days, raw_file_ids
+        max_age_in_days, raw_file_ids, instruments_prefilter
     )
     raw_files_df = df_from_db_data(raw_files_db)
     alphadia_metrics_df = df_from_db_data(

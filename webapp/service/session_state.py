@@ -32,3 +32,8 @@ def get_session_state(key: str, *, default: Any | None = None) -> Any:  # noqa: 
 def remove_session_state(key: str) -> None:
     """Remove a key from the session state."""
     del st.session_state[key]
+
+
+def copy_session_state(target_key: str, source_key: str) -> None:
+    """Copy a value from one key to another in the session state."""
+    st.session_state[target_key] = st.session_state[source_key]

@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from datetime import datetime
+from functools import partial
 from pathlib import Path
 
 import numpy as np
@@ -24,7 +25,11 @@ from service.components import (
 )
 from service.data_handling import get_combined_raw_files_and_metrics_df, get_lag_time
 from service.db import get_full_raw_file_data, get_raw_file_and_metrics_data
-from service.session_state import SessionStateKeys, get_session_state, set_session_state
+from service.session_state import (
+    SessionStateKeys,
+    copy_session_state,
+    get_session_state,
+)
 from service.status import show_status_warning
 from service.utils import (
     APP_URL,
@@ -231,12 +236,9 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
         df,
         text_to_display="Filter:",
         st_display=c1,
-        default_value=previous_filter
-        if (previous_filter := get_session_state(SessionStateKeys.CURRENT_FILER))
-        else filter_value,
+        default_value=None if filter_value.strip() == "" else filter_value,
         example_text="astral1 & !hela & AlKr(.*)5ng & status=done & proteins=[400,500] & settings_version=1",
     )
-    set_session_state(SessionStateKeys.CURRENT_FILER, user_input)
 
     filtered_df = show_date_select(
         filtered_df,
@@ -438,38 +440,52 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
 
     c1, c2, c3, c4, c5, c6 = st.columns([0.16, 0.16, 0.16, 0.16, 0.16, 0.16])
     column_order = _get_column_order(filtered_df)
+
     color_by_column = c1.selectbox(
         label="Color by:",
         options=["instrument_id"]
         + [col for col in column_order if col != "instrument_id"],
         help="Choose the column to color by.",
-    )
+    )  # TODO: state not persisted on 'refresh'
+
     x = c2.selectbox(
         label="Choose x-axis:",
         options=["file_created"]
         + [col for col in column_order if col != "file_created"],
         help="Set the x-axis. The default 'file_created' is suitable for most cases.",
-    )
+    )  # TODO: state not persisted on 'refresh'
+
     show_traces = c3.checkbox(
         label="Show traces",
         value=get_session_state(SessionStateKeys.SHOW_TRACES, default=True),
         help="Show traces for each data point.",
+        key="show_traces_widget_key",
+        on_change=partial(
+            copy_session_state, SessionStateKeys.SHOW_TRACES, "show_traces_widget_key"
+        ),
     )
-    set_session_state(SessionStateKeys.SHOW_TRACES, show_traces)
 
     show_std = c4.checkbox(
         label="Show standard deviations",
         value=get_session_state(SessionStateKeys.SHOW_STD, default=False),
         help="Show standard deviations for mean values.",
+        key="show_std_widget_key",
+        on_change=partial(
+            copy_session_state, SessionStateKeys.SHOW_TRACES, "show_std_widget_key"
+        ),
     )
-    set_session_state(SessionStateKeys.SHOW_STD, show_std)
 
     show_trendline = c5.checkbox(
         label="Show trendlines",
         value=get_session_state(SessionStateKeys.SHOW_TRENDLINE, default=False),
         help="Show linear regression trendlines for numeric data.",
+        key="show_trendline_widget_key",
+        on_change=partial(
+            copy_session_state,
+            SessionStateKeys.SHOW_TRACES,
+            "show_trendline_widget_key",
+        ),
     )
-    set_session_state(SessionStateKeys.SHOW_TRENDLINE, show_trendline)
 
     plots_per_row = c6.selectbox(
         label="Plots per row:",
@@ -479,8 +495,13 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
         if (plots_per_row := get_session_state(SessionStateKeys.PLOTS_PER_ROW))
         is not None
         else 0,
+        key="plots_per_row_widget_key",
+        on_change=partial(
+            copy_session_state,
+            SessionStateKeys.PLOTS_PER_ROW,
+            "plots_per_row_widget_key",
+        ),
     )
-    set_session_state(SessionStateKeys.PLOTS_PER_ROW, plots_per_row)
 
     columns_to_plot = [
         column
@@ -688,5 +709,6 @@ def _calculate_trendline(
 filter_value = st.query_params.get(QueryParams.FILTER, "")
 for key_, value_ in FILTER_MAPPING.items():
     filter_value = filter_value.lower().replace(key_.lower(), value_)
+
 
 _display_table_and_plots(combined_df, max_age_in_days, filter_value, data_timestamp)

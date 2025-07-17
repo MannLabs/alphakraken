@@ -51,7 +51,7 @@ class QueryParams:
 
 
 DEFAULT_MAX_TABLE_LEN = 500
-DEFAULT_MAX_AGE_OVERVIEW = 30  # days
+DEFAULT_MAX_AGE_OVERVIEW = 7  # days
 DEFAULT_MAX_AGE_STATUS = 90  # days
 
 # Configure logging

@@ -29,6 +29,7 @@ from service.session_state import (
     SessionStateKeys,
     copy_session_state,
     get_session_state,
+    set_session_state,
 )
 from service.status import show_status_warning
 from service.utils import (
@@ -190,11 +191,19 @@ max_age_in_days = c2.number_input(
     "Max age (days)", min_value=1.0, step=1.0, value=float(max_age_in_days_default)
 )
 
-if max_age_in_days_query_param is None and not st.button("get"):
+is_first_run = get_session_state("SessionStateKeys.IS_FIRST_RUN", default=True)
+
+if (
+    not is_first_run
+    and (max_age_in_days_query_param is None and instruments_query_param is None)
+    and not st.button("Load data")
+):
     st.write(
         "Tipp: create a bookmark with the `?max_age=` query parameter to quickly access the data for a certain time range."
     )
+
     st.stop()
+set_session_state("SessionStateKeys.IS_FIRST_RUN", value=False)
 
 with st.spinner("Loading data ..."):
     combined_df, data_timestamp = get_combined_raw_files_and_metrics_df(
@@ -268,6 +277,7 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
     st.text(f"Last fetched {data_timestamp.strftime('%Y-%m-%d %H:%M:%S')}")
     if st.button("🔄 Refresh"):
         get_raw_file_and_metrics_data.clear()
+        set_session_state("SessionStateKeys.IS_FIRST_RUN", value=True)
         st.rerun()
 
     # filter

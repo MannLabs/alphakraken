@@ -104,16 +104,6 @@ with st.spinner("Loading data ..."):
         baseline_df = get_baseline_df(baseline_query_param, COLUMNS)
         combined_df = pd.concat([combined_df, baseline_df], ignore_index=False)
 
-# ########################################### DISPLAY: table
-
-known_columns = [
-    column.name for column in COLUMNS if column.name in combined_df.columns
-]
-columns_at_end = [column.name for column in COLUMNS if column.at_end] + [
-    col for col in combined_df.columns if col.endswith("_std")
-]
-columns_to_hide = [column.name for column in COLUMNS if column.hide]
-
 
 filter_value = st.query_params.get(QueryParams.FILTER, "")
 for key_, value_ in FILTER_MAPPING.items():

@@ -4,6 +4,7 @@ import os
 import re
 from collections import defaultdict
 from datetime import datetime, timedelta
+from functools import partial
 from pathlib import Path
 from typing import Any
 
@@ -13,6 +14,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 from matplotlib import pyplot as plt
+from service.session_state import SessionStateKeys, copy_session_state
 from service.utils import DEFAULT_MAX_AGE_STATUS, display_plotly_chart
 
 from shared.db.models import TERMINAL_STATUSES, RawFileStatus
@@ -27,7 +29,7 @@ def _re_filter(text: Any, filter_: str) -> bool:  # noqa: ANN401
 def show_filter(
     df: pd.DataFrame,
     *,
-    default_value: str = "",
+    default_value: str | None = None,
     text_to_display: str = "Filter:",
     example_text: str = "P123",
     st_display: st.delta_generator.DeltaGenerator = st,
@@ -43,13 +45,19 @@ def show_filter(
     """
     user_input = st_display.text_input(
         text_to_display,
-        default_value,
+        st.session_state.get(SessionStateKeys.CURRENT_FILTER, default_value),
         placeholder=f"example: {example_text}",
         help="Case insensitive filter. Chain multiple conditions with `&`, negate with `!`. "
         "Append a column name followed by `=` to filter a specific column, otherwise each column of the table is considered. "
         "When searching a column, range search is done by `column=[lower, upper]`. "
         f"Supports regular expressions. "
         f"Example: `{example_text}`",
+        key="current_filter_widget_key",
+        on_change=partial(
+            copy_session_state,
+            SessionStateKeys.CURRENT_FILTER,
+            "current_filter_widget_key",
+        ),
     )
 
     mask = [True] * len(df)

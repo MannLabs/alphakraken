@@ -1,21 +1,24 @@
 """Simple data overview."""
 
-from dataclasses import dataclass
 from datetime import datetime
 from functools import partial
-from pathlib import Path
 
-import numpy as np
 import pandas as pd
-import plotly.express as px
 import pytz
 
 # ruff: noqa: PD002 # `inplace=True` should be avoided; it has inconsistent behavior
 import streamlit as st
-import yaml
 from matplotlib import pyplot as plt
+from pages_.overview_plotting import _draw_plot
+from pages_.overview_utils import (
+    _add_eta,
+    _filter_valid_columns,
+    _get_column_order,
+    _harmonize_df,
+    _load_columns_from_yaml,
+    df_to_csv,
+)
 from service.components import (
-    get_display_time,
     get_full_backup_path,
     get_terminal_status_counts,
     highlight_status_cell,
@@ -40,59 +43,11 @@ from service.utils import (
     QueryParams,
     _log,
     display_info_message,
-    display_plotly_chart,
 )
-
-from shared.db.models import ERROR_STATUSES, TERMINAL_STATUSES
 
 BASELINE_PREFIX = "BASELINE_"
 
 _log(f"loading {__file__} {st.query_params}")
-
-
-@dataclass
-class Column:
-    """Data class for information on how to display a column information."""
-
-    name: str
-    # hide column in table
-    hide: bool = False
-    # move column to end of table
-    at_end: bool = False
-    # color gradient in table: None (no gradient), "green_is_high" (green=high, red=low), "red_is_high" (red=high, green=low)
-    color_gradient: str | None = None
-    # show as plot
-    plot: bool = False
-    # use log scale for plot
-    log_scale: bool = False
-    # alternative names in the database
-    alternative_names: list[str] | None = None
-    # optional plot
-    plot_optional: bool = False
-
-
-def _load_columns_from_yaml() -> tuple[Column, ...]:
-    """Load column configuration from YAML file."""
-    columns_config_file_path = Path(__file__).parent / ".." / "columns_config.yaml"
-
-    with columns_config_file_path.open() as f:
-        columns_config = yaml.safe_load(f)
-
-    return tuple(
-        [
-            Column(
-                name=column["name"],
-                hide=column.get("hide"),
-                at_end=column.get("at_end"),
-                color_gradient=column.get("color_gradient"),
-                plot=column.get("plot"),
-                log_scale=column.get("log_scale"),
-                alternative_names=column.get("alternative_names"),
-                plot_optional=column.get("plot_optional"),
-            )
-            for column in columns_config["columns"]
-        ]
-    )
 
 
 COLUMNS = _load_columns_from_yaml()
@@ -137,29 +92,11 @@ max_age_in_days = float(
 )
 
 
-def _harmonize_df(df: pd.DataFrame) -> pd.DataFrame:
-    """Harmonize the DataFrame by mapping all alternative names to their current ones."""
-    names_mapping = {
-        alternative_name: column.name
-        for column in COLUMNS
-        if column.alternative_names
-        for alternative_name in column.alternative_names  # type: ignore[not-iterable]
-        if column.alternative_names is not None
-    }
-    df = df.rename(columns=names_mapping)
-
-    if "gradient_length" in df.columns:
-        df["gradient_length"] = df["gradient_length"].apply(lambda x: round(x, 1))
-
-    # map all columns of the same name to the first one, assuming that not more than one of the values are filled
-    return df.groupby(axis=1, level=0).first()
-
-
 with st.spinner("Loading data ..."):
     combined_df, data_timestamp = get_combined_raw_files_and_metrics_df(
         max_age_in_days=max_age_in_days, stop_at_no_data=True
     )
-    combined_df = _harmonize_df(combined_df)
+    combined_df = _harmonize_df(combined_df, COLUMNS)
     combined_df[Cols.IS_BASELINE] = False
 
     # Load and merge baseline data if specified
@@ -171,7 +108,7 @@ with st.spinner("Loading data ..."):
         )
 
         baseline_df[Cols.IS_BASELINE] = True
-        baseline_df = _harmonize_df(baseline_df)
+        baseline_df = _harmonize_df(baseline_df, COLUMNS)
         # this is a hack to prevent index clashing
         baseline_df.index = [BASELINE_PREFIX + str(idx) for idx in baseline_df.index]
         combined_df = pd.concat([combined_df, baseline_df], ignore_index=False)
@@ -185,30 +122,6 @@ columns_at_end = [column.name for column in COLUMNS if column.at_end] + [
     col for col in combined_df.columns if col.endswith("_std")
 ]
 columns_to_hide = [column.name for column in COLUMNS if column.hide]
-
-
-def _get_column_order(df: pd.DataFrame) -> list[str]:
-    """Get column order."""
-    return (
-        [col for col in known_columns if col not in columns_at_end + columns_to_hide]
-        + [
-            col
-            for col in df.columns
-            if col not in known_columns + columns_at_end + columns_to_hide
-        ]
-        + columns_at_end
-    )
-
-
-def _filter_valid_columns(columns: list[str], df: pd.DataFrame) -> list[str]:
-    """Filter out `columns` that are not in the `df`."""
-    return [col for col in columns if col in df.columns]
-
-
-@st.cache_data
-def df_to_csv(df: pd.DataFrame) -> str:
-    """Convert a DataFrame to a CSV string."""
-    return df.to_csv().encode("utf-8")
 
 
 # using a fragment to avoid re-doing the above operations on every filter change
@@ -342,7 +255,7 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
                 ],
                 formatter="{:.0f}",
             ),
-            column_order=_get_column_order(filtered_df),
+            column_order=_get_column_order(filtered_df, COLUMNS),
         )
     except Exception as e:  # noqa: BLE001
         _log(e)
@@ -439,7 +352,7 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
         )
 
     c1, c2, c3, c4, c5, c6 = st.columns([0.16, 0.16, 0.16, 0.16, 0.16, 0.16])
-    column_order = _get_column_order(filtered_df)
+    column_order = _get_column_order(filtered_df, COLUMNS)
 
     color_by_column = c1.selectbox(
         label="Color by:",
@@ -532,178 +445,6 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
                 else:
                     with st_columns[col_idx]:
                         st.write("n/a")
-
-
-def _add_eta(df: pd.DataFrame, now: datetime, lag_time: float) -> pd.Series:
-    """Return the "ETA" column for the dataframe."""
-    # TODO: this would become more precises if lag times would be calculated per instrument & project
-    non_terminal_mask = ~df["status"].isin(TERMINAL_STATUSES)
-    eta_timestamps = (
-        df.loc[non_terminal_mask, "created_at_"] + pd.Timedelta(seconds=lag_time)
-    ).dt.tz_localize("UTC")
-
-    # Convert ETA timestamps to human-readable format showing "in X time"
-    def _format_eta(eta_time: datetime) -> str:
-        """Format the eta time to a string."""
-        time_diff = eta_time.replace(microsecond=0) - now
-        if eta_time <= now:
-            return f"now ({time_diff})"
-        return get_display_time(now - time_diff, now, prefix="in ", suffix="")
-
-    return eta_timestamps.apply(_format_eta)
-
-
-def _draw_plot(  # noqa: PLR0913 # TODO: too complex
-    df_with_baseline: pd.DataFrame,
-    *,
-    x: str,
-    column: Column,
-    color_by_column: str,
-    show_traces: bool,
-    show_std: bool,
-    show_trendline: bool,
-) -> None:
-    """Draw a plot of a DataFrame."""
-    df_with_baseline = df_with_baseline.sort_values(by=x)
-
-    df = df_with_baseline[~df_with_baseline[Cols.IS_BASELINE]]
-    y = column.name
-    y_is_numeric = pd.api.types.is_numeric_dtype(df[y])
-    median_ = df[y].median() if y_is_numeric else 0
-    title = f"{y} (median= {median_:.2f})" if y_is_numeric else y
-
-    hover_data = _filter_valid_columns(
-        [
-            "file_created",
-            "size_gb",
-            "precursors",
-            "status",
-        ],
-        df,
-    )
-
-    if y == "status" and "status_details" in df:
-        df.loc[pd.isna(df["status_details"]), "status_details"] = ""
-        hover_data.append("status_details")
-
-    fig = px.scatter(
-        df,
-        x=x,
-        y=y,
-        color=color_by_column,
-        hover_name="_id",
-        hover_data=hover_data,
-        title=title,
-        height=400,
-        error_y=_get_yerror_column_name(y, df) if show_std else None,
-        log_y=column.log_scale,
-    )
-    if y_is_numeric and show_traces:
-        symbol = [
-            "x" if x in ERROR_STATUSES else "circle" for x in df["status"].to_numpy()
-        ]
-        fig.update_traces(mode="lines+markers", marker={"symbol": symbol})
-    fig.add_hline(y=median_, line_dash="dash", line={"color": "lightgrey"})
-
-    # Add baseline if baseline data is available
-    if y_is_numeric:
-        baseline_df = df_with_baseline[df_with_baseline[Cols.IS_BASELINE]]
-        if len(baseline_df) > 0 and y in baseline_df.columns:
-            baseline_mean = baseline_df[y].mean()
-            baseline_std = baseline_df[y].std()
-
-            fig.add_hline(
-                y=baseline_mean,
-                line_dash="dash",
-                line={"color": "green"},
-                annotation_text=f"Baseline Mean: {baseline_mean:.2f} ± {baseline_std:.2f}",
-                annotation_position="bottom right",
-            )
-            if not pd.isna(baseline_std):
-                for err in [-baseline_std, baseline_std]:
-                    fig.add_hline(
-                        y=baseline_mean + err,
-                        line_dash="dot",
-                        line={"color": "green"},
-                    )
-
-    # Add trendline if requested and data is numeric
-    if show_trendline and y_is_numeric:
-        trendline_data = _calculate_trendline(df[x], df[y])
-        if trendline_data is not None:
-            x_trend, y_trend = trendline_data
-            fig.add_scatter(
-                x=x_trend,
-                y=y_trend,
-                mode="lines",
-                name="Trendline",
-                line={"color": "black"},
-                showlegend=True,
-            )
-
-    display_plotly_chart(fig)
-
-
-def _get_yerror_column_name(y_column_name: str, df: pd.DataFrame) -> str | None:
-    """Get the name of the error column for `y_column_name`, if it endwith '_mean' and is available in the `df`."""
-    if not y_column_name.endswith("_mean"):
-        return None
-
-    if (yerror_column_name := y_column_name.replace("_mean", "_std")) not in df.columns:
-        return None
-
-    return yerror_column_name
-
-
-def _calculate_trendline(
-    x_data: pd.Series, y_data: pd.Series
-) -> tuple[np.ndarray, np.ndarray] | None:
-    """Calculate linear regression trendline for the given x and y data."""
-    # Remove NaN values
-    mask = ~(pd.isna(x_data) | pd.isna(y_data))
-    x_clean = x_data[mask]
-    y_clean = y_data[mask]
-
-    if len(x_clean) < 2:  # noqa: PLR2004
-        return None
-
-    # Check if y_data is numeric, if not return None
-    if not pd.api.types.is_numeric_dtype(y_clean):
-        return None
-
-    # Convert x data to numeric
-    if pd.api.types.is_numeric_dtype(x_clean):
-        x_numeric = x_clean
-    elif pd.api.types.is_datetime64_any_dtype(x_clean):
-        x_numeric = pd.to_numeric(x_clean)
-    else:
-        # Try to convert to datetime first, then to numeric
-        try:
-            x_datetime = pd.to_datetime(x_clean)
-            x_numeric = pd.to_numeric(x_datetime)
-        except (ValueError, TypeError):
-            # If that fails, try direct numeric conversion
-            try:
-                x_numeric = pd.to_numeric(x_clean)
-            except (ValueError, TypeError):
-                return None
-
-    # Perform linear regression
-    coeffs = np.polyfit(x_numeric, y_clean, 1)
-
-    # Generate trendline points
-    x_trend = np.linspace(x_numeric.min(), x_numeric.max(), 100)
-    y_trend = coeffs[0] * x_trend + coeffs[1]
-
-    # Convert back to datetime if needed
-    if pd.api.types.is_datetime64_any_dtype(x_clean) or (
-        not pd.api.types.is_numeric_dtype(x_clean)
-        and not pd.api.types.is_datetime64_any_dtype(x_clean)
-    ):
-        # Convert back to datetime for plotting
-        x_trend = pd.to_datetime(x_trend)
-
-    return x_trend, y_trend
 
 
 filter_value = st.query_params.get(QueryParams.FILTER, "")

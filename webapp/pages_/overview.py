@@ -12,6 +12,7 @@ from matplotlib import pyplot as plt
 from pages_.impl.overview_plotting import _draw_plot
 from pages_.impl.overview_utils import (
     BASELINE_PREFIX,
+    EXPLANATION_STATUS,
     add_eta,
     df_to_csv,
     filter_valid_columns,
@@ -136,7 +137,7 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
         get_raw_file_and_metrics_data.clear()
         st.rerun()
 
-    # filter
+    # ########################################### DISPLAY: Filter
     len_whole_df = len(df)
     c1, c2, _ = st.columns([0.5, 0.25, 0.25])
 
@@ -159,6 +160,7 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
     if filter_errors:
         st.warning("\n".join(filter_errors))
 
+    # ########################################### DISPLAY: Url to bookmark
     if user_input:
         url = get_url_with_query_string(user_input)
 
@@ -167,6 +169,7 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
             unsafe_allow_html=True,
         )
 
+    # ########################################### DISPLAY: Summary statistics on statuses
     max_table_len = int(
         st.query_params.get(QueryParams.MAX_TABLE_LEN, DEFAULT_MAX_TABLE_LEN)
     )
@@ -175,7 +178,8 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
         f"Note: data is limited to last {max_age_in_days} days, table display is limited to first {max_table_len} entries. See FAQ how to change this.",
     )
 
-    # Display lag time for latest done files
+    # ########################################### DISPLAY: Lag time
+
     lag_times, lag_time = get_lag_time(filtered_df)
     if lag_time:
         st.markdown(
@@ -187,7 +191,9 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
             filtered_df, datetime.now(tz=pytz.UTC).replace(microsecond=0), lag_time
         )
 
-    # hide the csv download button to not encourage downloading incomplete data
+    # ########################################### DISPLAY: Data table
+
+    # hide the csv download button provided by the st.dataframe widget to not encourage downloading incomplete data
     st.markdown(
         "<style>[data-testid='stElementToolbarButton']:first-of-type { display: none; } </style>",
         unsafe_allow_html=True,
@@ -248,23 +254,7 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
     c1, _ = st.columns([0.5, 0.5])
     with c1.expander("Click here for help ..."):
         st.info(
-            """
-            #### Explanation of 'status' information
-            - `done`: The file has been fully processed successfully.
-            - `done_not_quanted`: The file has been handled successfully, but was not quanted (check the "status_details" column).
-            - `acquisition_failed`: the acquisition of the file failed (check the "status_details" column).
-            - `quanting_failed`: something went wrong with the quanting, check the "status_details" column for more information:
-              - `NO_RECALIBRATION_TARGET`: alphaDIA did not find enough precursors to calibrate the data.
-              - `NOT_DIA_DATA`: the file is not DIA data.
-              - `TIMEOUT`: the quanting job took too long and was stopped
-              - `_*`: a underscore as prefix indicates a known error, whose root cause has not been investigated yet.
-              - `__*`: a double underscore as prefix indicates that there was an error while investigating the error.
-            - `error`: an unknown error happened during processing, check the "status_details" column for more information
-                and report it to the developers if unsure.
-
-            All other states are transient and should be self-explanatory. If you feel a file stays in a certain status
-            for too long, please report it to the developers.
-        """,
+            EXPLANATION_STATUS,
             icon="ℹ️",  # noqa: RUF001
         )
 
@@ -318,7 +308,7 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
             file_paths_pretty = f"\n{prefix}".join(file_paths)
             st.code(f"{prefix}{file_paths_pretty}")
 
-    # ########################################### DISPLAY: plots
+    # ########################################### DISPLAY: Plots section
 
     st.markdown("## Plots")
 
@@ -338,6 +328,7 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
     c1, c2, c3, c4, c5, c6 = st.columns([0.16, 0.16, 0.16, 0.16, 0.16, 0.16])
     column_order = get_column_order(filtered_df, COLUMNS)
 
+    # ########################################### DISPLAY: Plots: settings
     color_by_column = c1.selectbox(
         label="Color by:",
         options=["instrument_id"]
@@ -400,6 +391,8 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
         ),
     )
 
+    # ########################################### DISPLAY: Plots
+
     columns_to_plot = [
         column
         for column in COLUMNS
@@ -431,5 +424,5 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
                         st.write("n/a")
 
 
-# no logic between definition of fragment and its usage!
+# don't put any code between definition of fragment and its usage
 _display_table_and_plots(combined_df, max_age_in_days, filter_value, data_timestamp)

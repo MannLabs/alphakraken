@@ -16,6 +16,25 @@ from shared.db.models import TERMINAL_STATUSES
 BASELINE_PREFIX = "BASELINE_"
 
 
+EXPLANATION_STATUS = """
+            #### Explanation of 'status' information
+            - `done`: The file has been fully processed successfully.
+            - `done_not_quanted`: The file has been handled successfully, but was not quanted (check the "status_details" column).
+            - `acquisition_failed`: the acquisition of the file failed (check the "status_details" column).
+            - `quanting_failed`: something went wrong with the quanting, check the "status_details" column for more information:
+              - `NO_RECALIBRATION_TARGET`: alphaDIA did not find enough precursors to calibrate the data.
+              - `NOT_DIA_DATA`: the file is not DIA data.
+              - `TIMEOUT`: the quanting job took too long and was stopped
+              - `_*`: a underscore as prefix indicates a known error, whose root cause has not been investigated yet.
+              - `__*`: a double underscore as prefix indicates that there was an error while investigating the error.
+            - `error`: an unknown error happened during processing, check the "status_details" column for more information
+                and report it to the developers if unsure.
+
+            All other states are transient and should be self-explanatory. If you feel a file stays in a certain status
+            for too long, please report it to the developers.
+        """
+
+
 @dataclass
 class Column:
     """Data class for information on how to display a column information."""

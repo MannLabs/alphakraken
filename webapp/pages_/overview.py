@@ -51,7 +51,7 @@ from service.utils import (
 
 _log(f"loading {__file__} {st.query_params}")
 
-st.write(get_session_state("SessionStateKeys.IS_FIRST_RUN", default=None))
+st.write(get_session_state(SessionStateKeys.IS_FIRST_RUN, default=None))
 
 
 @st.cache_data
@@ -96,7 +96,8 @@ display_status_warning()
 st.markdown("## Data")
 
 
-# ########################################### LOGIC
+# ########################################### Query parameters
+
 max_age_in_days = float(
     st.query_params.get(QueryParams.MAX_AGE, DEFAULT_MAX_AGE_OVERVIEW)
 )
@@ -105,21 +106,6 @@ instruments_query_param = st.query_params.get("instruments", None)
 options = ["All", "test1", "test2"]
 if instruments_query_param:
     options = [instruments_query_param, *options]
-
-c1, c2, _ = st.columns([0.2, 0.2, 0.6])
-instruments_input = c1.selectbox(
-    "Instruments:",
-    options,
-    index=0,
-    help="Select an instrument to filter the data",
-    accept_new_options=True,
-)
-
-
-instruments_prefilter = (
-    None if instruments_input == "All" else instruments_input.split(",")
-)
-
 
 max_age_in_days_query_param = st.query_params.get(QueryParams.MAX_AGE, None)
 
@@ -130,45 +116,52 @@ max_age_in_days_default = (
     else DEFAULT_MAX_AGE_OVERVIEW
 )
 
+# ########################################### Load
+
+st.markdown("#### Load from database")
+
+c1, c2, _ = st.columns([0.2, 0.2, 0.6])
+instruments_input = c1.selectbox(
+    "Instruments:",
+    options,
+    index=0,
+    help="Select an instrument to filter the data",
+    accept_new_options=True,
+)
+
+instruments_prefilter = (
+    None if instruments_input == "All" else instruments_input.split(",")
+)
+
 max_age_in_days = c2.number_input(
     "Max age (days)", min_value=1.0, step=1.0, value=float(max_age_in_days_default)
 )
 
-is_first_run = get_session_state("SessionStateKeys.IS_FIRST_RUN", default=True)
-
-disabled = is_first_run or (
+is_first_run = get_session_state(SessionStateKeys.IS_FIRST_RUN, default=True)
+both_query_params_set = (
     max_age_in_days_query_param is not None and instruments_query_param is not None
 )
 
 
-c1, c2, _ = st.columns([0.1, 0.1, 0.6])
-if (
-    not c1.button(
-        "Load data",
-        disabled=disabled,
-        on_click=partial(
-            set_session_state, "SessionStateKeys.IS_FIRST_RUN", value=True
-        ),
-    )
-    and not disabled
-):
-    # st.write(
-    #     "Tipp: create a bookmark with the `?max_age=` query parameter to quickly access the data for a certain time range."
-    # )
+c1, c2, _ = st.columns([0.1, 0.2, 0.6])
 
-    # set_session_state("SessionStateKeys.IS_FIRST_RUN", value=True)
-    st.stop()
+reload_button_clicked = c1.button(
+    "🔄 Reload",
+    #     on_click=partial(set_session_state, SessionStateKeys.IS_FIRST_RUN, value=True),
+)
 
-if c2.button(
-    "🔄 Refresh",
-    on_click=partial(set_session_state, "SessionStateKeys.IS_FIRST_RUN", value=True),
-):
+if reload_button_clicked:
     get_raw_file_and_metrics_data.clear()
-    set_session_state("SessionStateKeys.IS_FIRST_RUN", value=True)
+    set_session_state(SessionStateKeys.IS_FIRST_RUN, value=True)
     st.rerun()
+if not reload_button_clicked and not is_first_run and not both_query_params_set:
+    st.stop()
+#     # st.write(
+#     #     "Tipp: create a bookmark with the `?max_age=` query parameter to quickly access the data for a certain time range."
+#     # )
 
 
-set_session_state("SessionStateKeys.IS_FIRST_RUN", value=False)
+set_session_state(SessionStateKeys.IS_FIRST_RUN, value=False)
 
 
 with st.spinner("Loading data ..."):
@@ -177,7 +170,7 @@ with st.spinner("Loading data ..."):
         stop_at_no_data=True,
         instruments_prefilter=instruments_prefilter,
     )
-    c2.text(f"Last fetched {data_timestamp.strftime('%Y-%m-%d %H:%M:%S')}")
+    c2.text(f"Last loaded: {data_timestamp.strftime('%Y-%m-%d %H:%M:%S')}")
     combined_df = harmonize_df(combined_df, COLUMNS)
 
     # Load and merge baseline data if specified
@@ -190,6 +183,9 @@ with st.spinner("Loading data ..."):
 filter_value = st.query_params.get(QueryParams.FILTER, "")
 for key_, value_ in FILTER_MAPPING.items():
     filter_value = filter_value.lower().replace(key_.lower(), value_)
+
+
+st.markdown("#### Filter current data")
 
 
 # using a fragment to avoid re-doing the above operations on every filter change

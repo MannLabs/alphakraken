@@ -11,9 +11,11 @@ import streamlit as st
 from matplotlib import pyplot as plt
 from pages_.impl.overview_plotting import _draw_plot
 from pages_.impl.overview_utils import (
+    BASELINE_PREFIX,
     add_eta,
     df_to_csv,
     filter_valid_columns,
+    get_baseline_df,
     get_column_order,
     harmonize_df,
     load_columns_from_yaml,
@@ -33,7 +35,7 @@ from service.session_state import (
     copy_session_state,
     get_session_state,
 )
-from service.status import show_status_warning
+from service.status import display_status_warning
 from service.utils import (
     APP_URL,
     DEFAULT_MAX_AGE_OVERVIEW,
@@ -44,8 +46,6 @@ from service.utils import (
     _log,
     display_info_message,
 )
-
-BASELINE_PREFIX = "BASELINE_"
 
 _log(f"loading {__file__} {st.query_params}")
 
@@ -65,8 +65,7 @@ st.write(
 )
 
 
-days = 60
-max_age_url = f"{APP_URL}/overview?max_age={days}"
+max_age_url = f"{APP_URL}/overview?max_age=60"
 st.markdown(
     f"""
     Note: for performance reasons, by default only data for the last {DEFAULT_MAX_AGE_OVERVIEW} days are loaded.
@@ -82,8 +81,7 @@ st.write(
 
 display_info_message()
 
-
-show_status_warning()
+display_status_warning()
 
 
 # ########################################### LOGIC
@@ -97,20 +95,11 @@ with st.spinner("Loading data ..."):
         max_age_in_days=max_age_in_days, stop_at_no_data=True
     )
     combined_df = harmonize_df(combined_df, COLUMNS)
-    combined_df[Cols.IS_BASELINE] = False
 
     # Load and merge baseline data if specified
-    baseline_raw_files = st.query_params.get(QueryParams.BASELINE, "")
-    if baseline_raw_files:
-        baseline_file_names = [name.strip() for name in baseline_raw_files.split(",")]
-        baseline_df, _ = get_combined_raw_files_and_metrics_df(
-            raw_file_ids=baseline_file_names
-        )
-
-        baseline_df[Cols.IS_BASELINE] = True
-        baseline_df = harmonize_df(baseline_df, COLUMNS)
-        # this is a hack to prevent index clashing
-        baseline_df.index = [BASELINE_PREFIX + str(idx) for idx in baseline_df.index]
+    baseline_query_param = st.query_params.get(QueryParams.BASELINE, "")
+    if baseline_query_param:
+        baseline_df = get_baseline_df(baseline_query_param, COLUMNS)
         combined_df = pd.concat([combined_df, baseline_df], ignore_index=False)
 
 # ########################################### DISPLAY: table

@@ -8,8 +8,12 @@ import pandas as pd
 import streamlit as st
 import yaml
 from service.components import get_display_time
+from service.data_handling import get_combined_raw_files_and_metrics_df
+from service.utils import Cols
 
 from shared.db.models import TERMINAL_STATUSES
+
+BASELINE_PREFIX = "BASELINE_"
 
 
 @dataclass
@@ -73,6 +77,8 @@ def harmonize_df(df: pd.DataFrame, columns: tuple[Column, ...]) -> pd.DataFrame:
     if "gradient_length" in df.columns:
         df["gradient_length"] = df["gradient_length"].apply(lambda x: round(x, 1))
 
+    df[Cols.IS_BASELINE] = False
+
     # map all columns of the same name to the first one, assuming that not more than one of the values are filled
     return df.groupby(axis=1, level=0).first()
 
@@ -99,6 +105,23 @@ def get_column_order(df: pd.DataFrame, columns: tuple[Column, ...]) -> list[str]
 def filter_valid_columns(columns: list[str], df: pd.DataFrame) -> list[str]:
     """Filter out `columns` that are not in the `df`."""
     return [col for col in columns if col in df.columns]
+
+
+def get_baseline_df(
+    baseline_query_param: str, columns: tuple[Column, ...]
+) -> pd.DataFrame:
+    """Get the baseline DataFrame based on the query parameter."""
+    baseline_file_names = [name.strip() for name in baseline_query_param.split(",")]
+    baseline_df, _ = get_combined_raw_files_and_metrics_df(
+        raw_file_ids=baseline_file_names
+    )
+    baseline_df = harmonize_df(baseline_df, columns)
+    baseline_df[Cols.IS_BASELINE] = True
+
+    # this is a hack to prevent index clashing, but also helps to identify the baseline data in the table
+    baseline_df.index = [BASELINE_PREFIX + str(idx) for idx in baseline_df.index]
+
+    return baseline_df
 
 
 @st.cache_data

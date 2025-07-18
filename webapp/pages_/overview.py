@@ -35,6 +35,7 @@ from service.session_state import (
     SessionStateKeys,
     copy_session_state,
     get_session_state,
+    set_session_state,
 )
 from service.status import display_status_warning
 from service.utils import (
@@ -49,6 +50,8 @@ from service.utils import (
 )
 
 _log(f"loading {__file__} {st.query_params}")
+
+st.write(get_session_state("SessionStateKeys.IS_FIRST_RUN", default=None))
 
 
 @st.cache_data
@@ -90,17 +93,91 @@ display_info_message()
 
 display_status_warning()
 
+st.markdown("## Data")
+
 
 # ########################################### LOGIC
 max_age_in_days = float(
     st.query_params.get(QueryParams.MAX_AGE, DEFAULT_MAX_AGE_OVERVIEW)
 )
+instruments_query_param = st.query_params.get("instruments", None)
+
+options = ["All", "test1", "test2"]
+if instruments_query_param:
+    options = [instruments_query_param, *options]
+
+c1, c2, _ = st.columns([0.2, 0.2, 0.6])
+instruments_input = c1.selectbox(
+    "Instruments:",
+    options,
+    index=0,
+    help="Select an instrument to filter the data",
+    accept_new_options=True,
+)
+
+
+instruments_prefilter = (
+    None if instruments_input == "All" else instruments_input.split(",")
+)
+
+
+max_age_in_days_query_param = st.query_params.get(QueryParams.MAX_AGE, None)
+
+
+max_age_in_days_default = (
+    max_age_in_days_query_param
+    if max_age_in_days_query_param is not None
+    else DEFAULT_MAX_AGE_OVERVIEW
+)
+
+max_age_in_days = c2.number_input(
+    "Max age (days)", min_value=1.0, step=1.0, value=float(max_age_in_days_default)
+)
+
+is_first_run = get_session_state("SessionStateKeys.IS_FIRST_RUN", default=True)
+
+disabled = is_first_run or (
+    max_age_in_days_query_param is not None and instruments_query_param is not None
+)
+
+
+c1, c2, _ = st.columns([0.1, 0.1, 0.6])
+if (
+    not c1.button(
+        "Load data",
+        disabled=disabled,
+        on_click=partial(
+            set_session_state, "SessionStateKeys.IS_FIRST_RUN", value=True
+        ),
+    )
+    and not disabled
+):
+    # st.write(
+    #     "Tipp: create a bookmark with the `?max_age=` query parameter to quickly access the data for a certain time range."
+    # )
+
+    # set_session_state("SessionStateKeys.IS_FIRST_RUN", value=True)
+    st.stop()
+
+if c2.button(
+    "🔄 Refresh",
+    on_click=partial(set_session_state, "SessionStateKeys.IS_FIRST_RUN", value=True),
+):
+    get_raw_file_and_metrics_data.clear()
+    set_session_state("SessionStateKeys.IS_FIRST_RUN", value=True)
+    st.rerun()
+
+
+set_session_state("SessionStateKeys.IS_FIRST_RUN", value=False)
 
 
 with st.spinner("Loading data ..."):
     combined_df, data_timestamp = get_combined_raw_files_and_metrics_df(
-        max_age_in_days=max_age_in_days, stop_at_no_data=True
+        max_age_in_days=max_age_in_days,
+        stop_at_no_data=True,
+        instruments_prefilter=instruments_prefilter,
     )
+    c2.text(f"Last fetched {data_timestamp.strftime('%Y-%m-%d %H:%M:%S')}")
     combined_df = harmonize_df(combined_df, COLUMNS)
 
     # Load and merge baseline data if specified
@@ -125,13 +202,6 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
     data_timestamp: datetime,
 ) -> None:
     """A fragment that displays a DataFrame with a filter."""
-    st.markdown("## Data")
-
-    st.text(f"Last fetched {data_timestamp.strftime('%Y-%m-%d %H:%M:%S')}")
-    if st.button("🔄 Refresh"):
-        get_raw_file_and_metrics_data.clear()
-        st.rerun()
-
     # ########################################### DISPLAY: Filter
     len_whole_df = len(df)
     c1, c2, _ = st.columns([0.5, 0.25, 0.25])

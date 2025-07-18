@@ -5,7 +5,6 @@ from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
-import streamlit as st
 import yaml
 from service.components import get_display_time
 from service.data_handling import get_combined_raw_files_and_metrics_df
@@ -143,13 +142,7 @@ def get_baseline_df(
     return baseline_df
 
 
-@st.cache_data
-def df_to_csv(df: pd.DataFrame) -> str:
-    """Convert a DataFrame to a CSV string."""
-    return df.to_csv().encode("utf-8")
-
-
-def get_url_with_query_string(user_input: str) -> str:
+def get_url_with_query_string(user_input: str, query_params: dict) -> str:
     """Return the URL with the query string based on the user input."""
     encoded_user_input = user_input
     for key, value in FILTER_MAPPING.items():
@@ -165,8 +158,8 @@ def get_url_with_query_string(user_input: str) -> str:
         QueryParams.MAX_TABLE_LEN,
         QueryParams.BASELINE,
     ]:
-        if param in st.query_params:
-            url += f"&{param}={st.query_params[param]}"
+        if param in query_params:
+            url += f"&{param}={query_params[param]}"
 
     return url.replace(" ", "")
 

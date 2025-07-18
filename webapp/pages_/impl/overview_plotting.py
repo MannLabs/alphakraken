@@ -1,4 +1,4 @@
-"""Plotting functionality for the overview page."""
+"""Plotting and data-related functionality for the overview page."""
 
 import numpy as np
 import pandas as pd

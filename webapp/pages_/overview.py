@@ -14,7 +14,6 @@ from pages_.impl.overview_utils import (
     BASELINE_PREFIX,
     EXPLANATION_STATUS,
     add_eta,
-    df_to_csv,
     filter_valid_columns,
     get_baseline_df,
     get_column_order,
@@ -50,6 +49,12 @@ from service.utils import (
 )
 
 _log(f"loading {__file__} {st.query_params}")
+
+
+@st.cache_data
+def df_to_csv(df: pd.DataFrame) -> str:
+    """Convert a DataFrame to a CSV string."""
+    return df.to_csv().encode("utf-8")
 
 
 COLUMNS = load_columns_from_yaml()
@@ -152,7 +157,7 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
 
     # ########################################### DISPLAY: Url to bookmark
     if user_input:
-        url = get_url_with_query_string(user_input)
+        url = get_url_with_query_string(user_input, st.query_params)
 
         st.markdown(
             f"""Hint: save this filter by bookmarking <a href="{url}" target="_self">{url}</a>""",

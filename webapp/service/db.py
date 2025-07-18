@@ -73,7 +73,7 @@ def get_raw_files_for_status_df(
 def get_raw_file_and_metrics_data(
     max_age_in_days: float | None,
     raw_file_ids: list[str] | None,
-    instruments_prefilter: list[str] | None = None,
+    instruments: list[str] | None = None,
 ) -> tuple[QuerySet, QuerySet, datetime]:
     """Return from the database the QuerySets for RawFile and Metrics for files younger than max_age_in_days or for given list of raw file ids."""
     _log("Connecting to the database")
@@ -92,8 +92,8 @@ def get_raw_file_and_metrics_data(
     else:
         raise ValueError("Either max_age_in_days or raw_file_ids must be provided.")
 
-    if instruments_prefilter is not None:
-        q = q & Q(instrument_id__in=instruments_prefilter)
+    if instruments is not None:
+        q = q & Q(instrument_id__in=instruments)
 
     raw_files_db = (
         RawFile.objects(q)

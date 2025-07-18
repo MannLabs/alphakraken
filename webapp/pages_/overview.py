@@ -97,6 +97,8 @@ st.markdown("#### Load from database")
 st.write(
     f"For performance reasons, by default only data for the last {DEFAULT_MAX_AGE_OVERVIEW} days are loaded. ",
     "If you need a longer time range, you need to narrow down the data loading to a specific instrument.",
+)
+st.write(
     "Hint: create a bookmark of the current page to quickly access the data for a certain instrument and time range later.",
 )
 st.write(
@@ -311,6 +313,7 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
                 formatter="{:.0f}",
             ),
             column_order=get_column_order(filtered_df, COLUMNS),
+            column_config={"_index": {"label": "raw_file_id", "alignment": "right"}},
         )
     except Exception as e:  # noqa: BLE001
         _log(e)

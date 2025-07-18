@@ -35,7 +35,6 @@ from service.session_state import (
     SessionStateKeys,
     copy_session_state,
     get_session_state,
-    set_session_state,
 )
 from service.status import display_status_warning
 from service.utils import (
@@ -129,7 +128,8 @@ instruments_input = c1.selectbox(
         _clear_query_param, "instruments_widget_key", QueryParams.INSTRUMENTS
     ),
 )
-if instruments_input != ALL:
+instrument_is_default = instruments_input == ALL
+if not instrument_is_default:
     st.query_params[QueryParams.INSTRUMENTS] = instruments_input
 
 
@@ -141,7 +141,8 @@ max_age = c2.number_input(
     key="max_age_widget_key",
     on_change=partial(_clear_query_param, "max_age_widget_key", QueryParams.MAX_AGE),
 )
-if max_age != max_age_default:
+max_age_is_default = max_age == max_age_default
+if not max_age_is_default:
     st.query_params[QueryParams.MAX_AGE] = max_age
 
 
@@ -149,7 +150,6 @@ if max_age != max_age_default:
 
 c1, c2, _ = st.columns([0.1, 0.2, 0.6])
 
-is_first_run = get_session_state(SessionStateKeys.IS_FIRST_RUN, default=True)
 both_query_params_set = (
     max_age_query_param is not None and instruments_query_param is not None
 )
@@ -159,17 +159,18 @@ reload_button_clicked = c1.button(
 )
 if reload_button_clicked:
     get_raw_file_and_metrics_data.clear()
-    set_session_state(SessionStateKeys.IS_FIRST_RUN, value=True)
     st.rerun()
-if not reload_button_clicked and not is_first_run and not both_query_params_set:
+if (
+    not reload_button_clicked
+    and not both_query_params_set
+    and not (instrument_is_default and max_age_is_default)
+):
     st.stop()
 
 
 display_status_warning()
 
 with st.spinner("Loading data ..."):
-    set_session_state(SessionStateKeys.IS_FIRST_RUN, value=False)
-
     combined_df, data_timestamp = get_combined_raw_files_and_metrics_df(
         max_age_in_days=max_age,
         stop_at_no_data=True,

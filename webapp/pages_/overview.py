@@ -54,6 +54,9 @@ _log(f"loading {__file__} {st.query_params}")
 st.write(get_session_state(SessionStateKeys.IS_FIRST_RUN, default=None))
 
 
+ALL = "all"
+
+
 @st.cache_data
 def df_to_csv(df: pd.DataFrame) -> bytes:
     """Convert a DataFrame to a CSV string."""
@@ -103,12 +106,11 @@ max_age_in_days = float(
 )
 instruments_query_param = st.query_params.get("instruments", None)
 
-options = ["All", "test1", "test2"]
-if instruments_query_param:
-    options = [instruments_query_param, *options]
+options = [ALL, "test1", "test2"]
+# if instruments_query_param:
+#     options = [instruments_query_param, *options]
 
 max_age_in_days_query_param = st.query_params.get(QueryParams.MAX_AGE, None)
-
 
 max_age_in_days_default = (
     max_age_in_days_query_param
@@ -120,6 +122,16 @@ max_age_in_days_default = (
 
 st.markdown("#### Load from database")
 
+
+def clear_query_param(key: str, query_param: str) -> None:
+    """Clear the query parameter if it does not match the session state."""
+    if (
+        st.session_state.get(key) != st.query_params.get(query_param, None)
+        and query_param in st.query_params
+    ):
+        del st.query_params[query_param]
+
+
 c1, c2, _ = st.columns([0.2, 0.2, 0.6])
 instruments_input = c1.selectbox(
     "Instruments:",
@@ -127,29 +139,38 @@ instruments_input = c1.selectbox(
     index=0,
     help="Select an instrument to filter the data",
     accept_new_options=True,
+    key="instruments_input",
+    on_change=partial(clear_query_param, "instruments_input", "instruments"),
 )
 
+if instruments_input != ALL:
+    st.query_params["instruments"] = instruments_input
+
 instruments_prefilter = (
-    None if instruments_input == "All" else instruments_input.split(",")
+    None if instruments_input == ALL else instruments_input.split(",")
 )
 
 max_age_in_days = c2.number_input(
-    "Max age (days)", min_value=1.0, step=1.0, value=float(max_age_in_days_default)
+    "Max age (days)",
+    min_value=1.0,
+    step=1.0,
+    value=float(st.session_state.get("max_age_input", max_age_in_days_default)),
+    key="max_age_input",
+    on_change=partial(clear_query_param, "max_age_input", "max_age"),
 )
+if max_age_in_days != max_age_in_days_default:
+    st.query_params["max_age"] = st.session_state.get("max_age_input")
+
 
 is_first_run = get_session_state(SessionStateKeys.IS_FIRST_RUN, default=True)
 both_query_params_set = (
     max_age_in_days_query_param is not None and instruments_query_param is not None
 )
 
-
 c1, c2, _ = st.columns([0.1, 0.2, 0.6])
-
 reload_button_clicked = c1.button(
     "🔄 Reload",
-    #     on_click=partial(set_session_state, SessionStateKeys.IS_FIRST_RUN, value=True),
 )
-
 if reload_button_clicked:
     get_raw_file_and_metrics_data.clear()
     set_session_state(SessionStateKeys.IS_FIRST_RUN, value=True)

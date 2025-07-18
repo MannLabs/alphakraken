@@ -11,12 +11,12 @@ import streamlit as st
 from matplotlib import pyplot as plt
 from pages_.impl.overview_plotting import _draw_plot
 from pages_.impl.overview_utils import (
-    _add_eta,
-    _filter_valid_columns,
-    _get_column_order,
-    _harmonize_df,
-    _load_columns_from_yaml,
+    add_eta,
     df_to_csv,
+    filter_valid_columns,
+    get_column_order,
+    harmonize_df,
+    load_columns_from_yaml,
 )
 from service.components import (
     get_full_backup_path,
@@ -50,7 +50,7 @@ BASELINE_PREFIX = "BASELINE_"
 _log(f"loading {__file__} {st.query_params}")
 
 
-COLUMNS = _load_columns_from_yaml()
+COLUMNS = load_columns_from_yaml()
 
 # ########################################### PAGE HEADER
 
@@ -96,7 +96,7 @@ with st.spinner("Loading data ..."):
     combined_df, data_timestamp = get_combined_raw_files_and_metrics_df(
         max_age_in_days=max_age_in_days, stop_at_no_data=True
     )
-    combined_df = _harmonize_df(combined_df, COLUMNS)
+    combined_df = harmonize_df(combined_df, COLUMNS)
     combined_df[Cols.IS_BASELINE] = False
 
     # Load and merge baseline data if specified
@@ -108,7 +108,7 @@ with st.spinner("Loading data ..."):
         )
 
         baseline_df[Cols.IS_BASELINE] = True
-        baseline_df = _harmonize_df(baseline_df, COLUMNS)
+        baseline_df = harmonize_df(baseline_df, COLUMNS)
         # this is a hack to prevent index clashing
         baseline_df.index = [BASELINE_PREFIX + str(idx) for idx in baseline_df.index]
         combined_df = pd.concat([combined_df, baseline_df], ignore_index=False)
@@ -199,7 +199,7 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
         )
 
         filtered_df["lag_time_minutes"] = lag_times / 60
-        filtered_df["eta"] = _add_eta(
+        filtered_df["eta"] = add_eta(
             filtered_df, datetime.now(tz=pytz.UTC).replace(microsecond=0), lag_time
         )
 
@@ -217,11 +217,11 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
     cmap_reversed.set_bad(color="white")
 
     # Separate columns by gradient direction
-    green_is_high_columns = _filter_valid_columns(
+    green_is_high_columns = filter_valid_columns(
         [column.name for column in COLUMNS if column.color_gradient == "green_is_high"],
         filtered_df,
     )
-    red_is_high_columns = _filter_valid_columns(
+    red_is_high_columns = filter_valid_columns(
         [column.name for column in COLUMNS if column.color_gradient == "red_is_high"],
         filtered_df,
     )
@@ -255,7 +255,7 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
                 ],
                 formatter="{:.0f}",
             ),
-            column_order=_get_column_order(filtered_df, COLUMNS),
+            column_order=get_column_order(filtered_df, COLUMNS),
         )
     except Exception as e:  # noqa: BLE001
         _log(e)
@@ -352,7 +352,7 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
         )
 
     c1, c2, c3, c4, c5, c6 = st.columns([0.16, 0.16, 0.16, 0.16, 0.16, 0.16])
-    column_order = _get_column_order(filtered_df, COLUMNS)
+    column_order = get_column_order(filtered_df, COLUMNS)
 
     color_by_column = c1.selectbox(
         label="Color by:",

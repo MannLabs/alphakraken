@@ -5,7 +5,7 @@ import pandas as pd
 import plotly.express as px
 from pages_.impl.overview_utils import (
     Column,
-    _filter_valid_columns,
+    filter_valid_columns,
 )
 from service.utils import Cols, display_plotly_chart
 
@@ -93,7 +93,7 @@ def _draw_plot(  # noqa: PLR0913
     median_ = df[y].median() if y_is_numeric else 0
     title = f"{y} (median= {median_:.2f})" if y_is_numeric else y
 
-    hover_data = _filter_valid_columns(
+    hover_data = filter_valid_columns(
         [
             "file_created",
             "size_gb",

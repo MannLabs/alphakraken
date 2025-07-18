@@ -33,7 +33,7 @@ class Column:
     plot_optional: bool = False
 
 
-def _load_columns_from_yaml() -> tuple[Column, ...]:
+def load_columns_from_yaml() -> tuple[Column, ...]:
     """Load column configuration from YAML file."""
     columns_config_file_path = Path(__file__).parent / ".." / "columns_config.yaml"
 
@@ -57,7 +57,7 @@ def _load_columns_from_yaml() -> tuple[Column, ...]:
     )
 
 
-def _harmonize_df(df: pd.DataFrame, columns: tuple[Column, ...]) -> pd.DataFrame:
+def harmonize_df(df: pd.DataFrame, columns: tuple[Column, ...]) -> pd.DataFrame:
     """Harmonize the DataFrame by mapping all alternative names to their current ones."""
     names_mapping = {
         alternative_name: column.name
@@ -75,7 +75,7 @@ def _harmonize_df(df: pd.DataFrame, columns: tuple[Column, ...]) -> pd.DataFrame
     return df.groupby(axis=1, level=0).first()
 
 
-def _get_column_order(df: pd.DataFrame, columns: tuple[Column, ...]) -> list[str]:
+def get_column_order(df: pd.DataFrame, columns: tuple[Column, ...]) -> list[str]:
     """Get column order."""
     known_columns = [column.name for column in columns if column.name in df.columns]
     columns_at_end = [column.name for column in columns if column.at_end] + [
@@ -94,7 +94,7 @@ def _get_column_order(df: pd.DataFrame, columns: tuple[Column, ...]) -> list[str
     )
 
 
-def _filter_valid_columns(columns: list[str], df: pd.DataFrame) -> list[str]:
+def filter_valid_columns(columns: list[str], df: pd.DataFrame) -> list[str]:
     """Filter out `columns` that are not in the `df`."""
     return [col for col in columns if col in df.columns]
 
@@ -105,7 +105,7 @@ def df_to_csv(df: pd.DataFrame) -> str:
     return df.to_csv().encode("utf-8")
 
 
-def _add_eta(df: pd.DataFrame, now: datetime, lag_time: float) -> pd.Series:
+def add_eta(df: pd.DataFrame, now: datetime, lag_time: float) -> pd.Series:
     """Return the "ETA" column for the dataframe."""
     # TODO: this would become more precises if lag times would be calculated per instrument & project
     non_terminal_mask = ~df["status"].isin(TERMINAL_STATUSES)

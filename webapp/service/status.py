@@ -6,7 +6,6 @@ from service.db import df_from_db_data, get_status_data
 from shared.db.models import KrakenStatusValues
 
 
-# from service.db import df_from_db_data, get_status_data
 def show_status_warning() -> None:
     """Display a warning if there are instruments with issues."""
     status_data_df = df_from_db_data(get_status_data())

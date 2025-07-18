@@ -52,7 +52,7 @@ _log(f"loading {__file__} {st.query_params}")
 
 
 @st.cache_data
-def df_to_csv(df: pd.DataFrame) -> str:
+def df_to_csv(df: pd.DataFrame) -> bytes:
     """Convert a DataFrame to a CSV string."""
     return df.to_csv().encode("utf-8")
 

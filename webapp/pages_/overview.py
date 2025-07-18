@@ -75,7 +75,6 @@ st.write(
 
 display_info_message()
 
-display_status_warning()
 
 # ########################################### Query parameters
 
@@ -166,6 +165,8 @@ if not reload_button_clicked and not is_first_run and not both_query_params_set:
     st.stop()
 
 
+display_status_warning()
+
 with st.spinner("Loading data ..."):
     set_session_state(SessionStateKeys.IS_FIRST_RUN, value=False)
 
@@ -219,9 +220,6 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
     filtered_df = show_date_select(
         filtered_df,
         st_display=c2,
-        max_age_days=99999,
-        # if user_input
-        # else None,  # hacky way to always display all data if filter is set
     )
 
     if filter_errors:

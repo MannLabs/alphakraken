@@ -37,6 +37,9 @@ class QueryParams:
     # max age of data to load from the DB
     MAX_AGE = "max_age"
 
+    # instruments to load from the DB
+    INSTRUMENTS = "instruments"
+
     # max length of table to display
     MAX_TABLE_LEN = "max_table_len"
 

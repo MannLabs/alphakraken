@@ -73,25 +73,20 @@ st.write(
     f"Current Kraken time: {datetime.now(tz=pytz.UTC).replace(microsecond=0)} [all time stamps are given in UTC!]"
 )
 
-
 display_info_message()
 
 display_status_warning()
 
-st.markdown("## Data")
-
-
 # ########################################### Query parameters
 
-max_age = float(st.query_params.get(QueryParams.MAX_AGE, DEFAULT_MAX_AGE_OVERVIEW))
-instruments_query_param = st.query_params.get(QueryParams.INSTRUMENTS, None)
+st.markdown("## Data")
 
+instruments_query_param = st.query_params.get(QueryParams.INSTRUMENTS, None)
 instrument_options = [ALL, "test1", "test2"]
 if instruments_query_param and instruments_query_param not in instrument_options:
     instrument_options = [instruments_query_param, *instrument_options]
 
 max_age_query_param = st.query_params.get(QueryParams.MAX_AGE, None)
-
 max_age_default = (
     max_age_query_param if max_age_query_param is not None else DEFAULT_MAX_AGE_OVERVIEW
 )
@@ -101,16 +96,16 @@ max_age_default = (
 st.markdown("#### Load from database")
 
 st.write(
-    f"Note: for performance reasons, by default only data for the last {DEFAULT_MAX_AGE_OVERVIEW} days are loaded. ",
+    f"For performance reasons, by default only data for the last {DEFAULT_MAX_AGE_OVERVIEW} days are loaded. ",
     "If you need a longer time range, you need to narrow down the data loading to a specific instrument.",
-    "Tipp: create a bookmark of the current page to quickly access the data for a certain instrument and time range later.",
+    "Hint: create a bookmark of the current page to quickly access the data for a certain instrument and time range later.",
 )
 st.write(
     "Then, use the filter and date select below to narrow down results both in the table and the plots below."
 )
 
 
-def clear_query_param(key: str, query_param: str) -> None:
+def _clear_query_param(key: str, query_param: str) -> None:
     """Clear the query parameter if it does not match the session state."""
     if (
         st.session_state.get(key) != st.query_params.get(query_param, None)
@@ -118,6 +113,8 @@ def clear_query_param(key: str, query_param: str) -> None:
     ):
         del st.query_params[query_param]
 
+
+# ########################################### Load: selection
 
 c1, c2, _ = st.columns([0.2, 0.2, 0.6])
 instruments_input = c1.selectbox(
@@ -130,11 +127,12 @@ instruments_input = c1.selectbox(
     accept_new_options=True,
     key="instruments_widget_key",
     on_change=partial(
-        clear_query_param, "instruments_widget_key", QueryParams.INSTRUMENTS
+        _clear_query_param, "instruments_widget_key", QueryParams.INSTRUMENTS
     ),
 )
 if instruments_input != ALL:
     st.query_params[QueryParams.INSTRUMENTS] = instruments_input
+
 
 max_age = c2.number_input(
     "Max age (days)",
@@ -142,18 +140,21 @@ max_age = c2.number_input(
     step=1.0,
     value=float(st.session_state.get("max_age_widget_key", max_age_default)),
     key="max_age_widget_key",
-    on_change=partial(clear_query_param, "max_age_widget_key", QueryParams.MAX_AGE),
+    on_change=partial(_clear_query_param, "max_age_widget_key", QueryParams.MAX_AGE),
 )
 if max_age != max_age_default:
     st.query_params[QueryParams.MAX_AGE] = max_age
 
+
+# ########################################### Load: button
+
+c1, c2, _ = st.columns([0.1, 0.2, 0.6])
 
 is_first_run = get_session_state(SessionStateKeys.IS_FIRST_RUN, default=True)
 both_query_params_set = (
     max_age_query_param is not None and instruments_query_param is not None
 )
 
-c1, c2, _ = st.columns([0.1, 0.2, 0.6])
 reload_button_clicked = c1.button(
     "🔄 Reload",
 )
@@ -165,10 +166,9 @@ if not reload_button_clicked and not is_first_run and not both_query_params_set:
     st.stop()
 
 
-set_session_state(SessionStateKeys.IS_FIRST_RUN, value=False)
-
-
 with st.spinner("Loading data ..."):
+    set_session_state(SessionStateKeys.IS_FIRST_RUN, value=False)
+
     combined_df, data_timestamp = get_combined_raw_files_and_metrics_df(
         max_age_in_days=max_age,
         stop_at_no_data=True,

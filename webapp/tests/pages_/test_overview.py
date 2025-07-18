@@ -82,12 +82,13 @@ def test_overview(
                 ts1,
                 ts2,
             ],
-            "status": ["ok", "error"],
+            "status": ["ok", "ok"],
             "status_details": ["", ""],
         }
     )
 
     mock_df_from_db_data.side_effect = [
+        status_df,  # this is for show_status_warning
         raw_files_df,
         metrics_df,
         custom_metrics_df,

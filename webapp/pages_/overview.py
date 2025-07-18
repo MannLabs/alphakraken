@@ -17,6 +17,7 @@ from pages_.impl.overview_utils import (
     filter_valid_columns,
     get_baseline_df,
     get_column_order,
+    get_url_with_query_string,
     harmonize_df,
     load_columns_from_yaml,
 )
@@ -113,6 +114,11 @@ columns_at_end = [column.name for column in COLUMNS if column.at_end] + [
 columns_to_hide = [column.name for column in COLUMNS if column.hide]
 
 
+filter_value = st.query_params.get(QueryParams.FILTER, "")
+for key_, value_ in FILTER_MAPPING.items():
+    filter_value = filter_value.lower().replace(key_.lower(), value_)
+
+
 # using a fragment to avoid re-doing the above operations on every filter change
 # cf. https://docs.streamlit.io/develop/concepts/architecture/fragments
 @st.fragment
@@ -154,18 +160,7 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
         st.warning("\n".join(filter_errors))
 
     if user_input:
-        encoded_user_input = user_input
-        for key, value in FILTER_MAPPING.items():
-            encoded_user_input = encoded_user_input.replace(" ", "").replace(
-                value.strip(), key
-            )
-
-        url = f"{APP_URL}/overview?{QueryParams.FILTER}={encoded_user_input}"
-        for param in [QueryParams.MOBILE, QueryParams.MAX_AGE, QueryParams.BASELINE]:
-            if param in st.query_params:
-                url += f"&{param}={st.query_params[param]}"
-
-        url = url.replace(" ", "")
+        url = get_url_with_query_string(user_input)
 
         st.markdown(
             f"""Hint: save this filter by bookmarking <a href="{url}" target="_self">{url}</a>""",
@@ -436,9 +431,5 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
                         st.write("n/a")
 
 
-filter_value = st.query_params.get(QueryParams.FILTER, "")
-for key_, value_ in FILTER_MAPPING.items():
-    filter_value = filter_value.lower().replace(key_.lower(), value_)
-
-
+# no logic between definition of fragment and its usage!
 _display_table_and_plots(combined_df, max_age_in_days, filter_value, data_timestamp)

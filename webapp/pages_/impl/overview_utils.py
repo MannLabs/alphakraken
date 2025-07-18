@@ -9,7 +9,7 @@ import streamlit as st
 import yaml
 from service.components import get_display_time
 from service.data_handling import get_combined_raw_files_and_metrics_df
-from service.utils import Cols
+from service.utils import APP_URL, FILTER_MAPPING, Cols, QueryParams
 
 from shared.db.models import TERMINAL_STATUSES
 
@@ -128,6 +128,28 @@ def get_baseline_df(
 def df_to_csv(df: pd.DataFrame) -> str:
     """Convert a DataFrame to a CSV string."""
     return df.to_csv().encode("utf-8")
+
+
+def get_url_with_query_string(user_input: str) -> str:
+    """Return the URL with the query string based on the user input."""
+    encoded_user_input = user_input
+    for key, value in FILTER_MAPPING.items():
+        encoded_user_input = encoded_user_input.replace(" ", "").replace(
+            value.strip(), key
+        )
+
+    url = f"{APP_URL}/overview?{QueryParams.FILTER}={encoded_user_input}"
+
+    for param in [
+        QueryParams.MOBILE,
+        QueryParams.MAX_AGE,
+        QueryParams.MAX_TABLE_LEN,
+        QueryParams.BASELINE,
+    ]:
+        if param in st.query_params:
+            url += f"&{param}={st.query_params[param]}"
+
+    return url.replace(" ", "")
 
 
 def add_eta(df: pd.DataFrame, now: datetime, lag_time: float) -> pd.Series:

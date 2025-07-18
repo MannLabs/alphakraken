@@ -35,7 +35,9 @@ class Column:
 
 def load_columns_from_yaml() -> tuple[Column, ...]:
     """Load column configuration from YAML file."""
-    columns_config_file_path = Path(__file__).parent / ".." / "columns_config.yaml"
+    columns_config_file_path = (
+        Path(__file__).parent / ".." / ".." / "columns_config.yaml"
+    )
 
     with columns_config_file_path.open() as f:
         columns_config = yaml.safe_load(f)

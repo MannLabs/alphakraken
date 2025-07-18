@@ -1,0 +1,183 @@
+"""Utility functions for the overview page with no Streamlit dependencies."""
+
+from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
+
+import pandas as pd
+import yaml
+from service.components import get_display_time
+from service.data_handling import get_combined_raw_files_and_metrics_df
+from service.utils import APP_URL, FILTER_MAPPING, Cols, QueryParams
+
+from shared.db.models import TERMINAL_STATUSES
+
+BASELINE_PREFIX = "BASELINE_"
+
+
+EXPLANATION_STATUS = """
+            #### Explanation of 'status' information
+            - `done`: The file has been fully processed successfully.
+            - `done_not_quanted`: The file has been handled successfully, but was not quanted (check the "status_details" column).
+            - `acquisition_failed`: the acquisition of the file failed (check the "status_details" column).
+            - `quanting_failed`: something went wrong with the quanting, check the "status_details" column for more information:
+              - `NO_RECALIBRATION_TARGET`: alphaDIA did not find enough precursors to calibrate the data.
+              - `NOT_DIA_DATA`: the file is not DIA data.
+              - `TIMEOUT`: the quanting job took too long and was stopped
+              - `_*`: a underscore as prefix indicates a known error, whose root cause has not been investigated yet.
+              - `__*`: a double underscore as prefix indicates that there was an error while investigating the error.
+            - `error`: an unknown error happened during processing, check the "status_details" column for more information
+                and report it to the developers if unsure.
+
+            All other states are transient and should be self-explanatory. If you feel a file stays in a certain status
+            for too long, please report it to the developers.
+        """
+
+
+@dataclass
+class Column:
+    """Data class for information on how to display a column information."""
+
+    name: str
+    # hide column in table
+    hide: bool = False
+    # move column to end of table
+    at_end: bool = False
+    # color gradient in table: None (no gradient), "green_is_high" (green=high, red=low), "red_is_high" (red=high, green=low)
+    color_gradient: str | None = None
+    # show as plot
+    plot: bool = False
+    # use log scale for plot
+    log_scale: bool = False
+    # alternative names in the database
+    alternative_names: list[str] | None = None
+    # optional plot
+    plot_optional: bool = False
+
+
+def load_columns_from_yaml() -> tuple[Column, ...]:
+    """Load column configuration from YAML file."""
+    columns_config_file_path = (
+        Path(__file__).parent / ".." / ".." / "columns_config.yaml"
+    )
+
+    with columns_config_file_path.open() as f:
+        columns_config = yaml.safe_load(f)
+
+    return tuple(
+        [
+            Column(
+                name=column["name"],
+                hide=column.get("hide"),
+                at_end=column.get("at_end"),
+                color_gradient=column.get("color_gradient"),
+                plot=column.get("plot"),
+                log_scale=column.get("log_scale"),
+                alternative_names=column.get("alternative_names"),
+                plot_optional=column.get("plot_optional"),
+            )
+            for column in columns_config["columns"]
+        ]
+    )
+
+
+def harmonize_df(df: pd.DataFrame, columns: tuple[Column, ...]) -> pd.DataFrame:
+    """Harmonize the DataFrame by mapping all alternative names to their current ones."""
+    names_mapping = {
+        alternative_name: column.name
+        for column in columns
+        if column.alternative_names
+        for alternative_name in column.alternative_names  # type: ignore[not-iterable]
+        if column.alternative_names is not None
+    }
+    df = df.rename(columns=names_mapping)
+
+    if "gradient_length" in df.columns:
+        df["gradient_length"] = df["gradient_length"].apply(lambda x: round(x, 1))
+
+    df[Cols.IS_BASELINE] = False
+
+    # map all columns of the same name to the first one, assuming that not more than one of the values are filled
+    return df.groupby(axis=1, level=0).first()
+
+
+def get_column_order(df: pd.DataFrame, columns: tuple[Column, ...]) -> list[str]:
+    """Get column order."""
+    known_columns = [column.name for column in columns if column.name in df.columns]
+    columns_at_end = [column.name for column in columns if column.at_end] + [
+        col for col in df.columns if col.endswith("_std")
+    ]
+    columns_to_hide = [column.name for column in columns if column.hide]
+
+    return (
+        [col for col in known_columns if col not in columns_at_end + columns_to_hide]
+        + [
+            col
+            for col in df.columns
+            if col not in known_columns + columns_at_end + columns_to_hide
+        ]
+        + columns_at_end
+    )
+
+
+def filter_valid_columns(columns: list[str], df: pd.DataFrame) -> list[str]:
+    """Filter out `columns` that are not in the `df`."""
+    return [col for col in columns if col in df.columns]
+
+
+def get_baseline_df(
+    baseline_query_param: str, columns: tuple[Column, ...]
+) -> pd.DataFrame:
+    """Get the baseline DataFrame based on the query parameter."""
+    baseline_file_names = [name.strip() for name in baseline_query_param.split(",")]
+    baseline_df, _ = get_combined_raw_files_and_metrics_df(
+        raw_file_ids=baseline_file_names
+    )
+    baseline_df = harmonize_df(baseline_df, columns)
+    baseline_df[Cols.IS_BASELINE] = True
+
+    # this is a hack to prevent index clashing, but also helps to identify the baseline data in the table
+    baseline_df.index = [BASELINE_PREFIX + str(idx) for idx in baseline_df.index]
+
+    return baseline_df
+
+
+def get_url_with_query_string(user_input: str, query_params: dict) -> str:
+    """Return the URL with the query string based on the user input."""
+    encoded_user_input = user_input
+    for key, value in FILTER_MAPPING.items():
+        encoded_user_input = encoded_user_input.replace(" ", "").replace(
+            value.strip(), key
+        )
+
+    url = f"{APP_URL}/overview?{QueryParams.FILTER}={encoded_user_input}"
+
+    for param in [
+        QueryParams.MOBILE,
+        QueryParams.MAX_AGE,
+        QueryParams.MAX_TABLE_LEN,
+        QueryParams.BASELINE,
+    ]:
+        if param in query_params:
+            url += f"&{param}={query_params[param]}"
+
+    return url.replace(" ", "")
+
+
+def add_eta(df: pd.DataFrame, now: datetime, lag_time: float) -> pd.Series:
+    """Return the "ETA" column for the dataframe."""
+    # TODO: this would become more precises if lag times would be calculated per instrument & project
+    non_terminal_mask = ~df["status"].isin(TERMINAL_STATUSES)
+    eta_timestamps = (
+        df.loc[non_terminal_mask, "created_at_"] + pd.Timedelta(seconds=lag_time)
+    ).dt.tz_localize("UTC")
+
+    # Convert ETA timestamps to human-readable format showing "in X time"
+    def _format_eta(eta_time: datetime) -> str:
+        """Format the eta time to a string."""
+        time_diff = eta_time.replace(microsecond=0) - now
+        if eta_time <= now:
+            return f"now ({time_diff})"
+        return get_display_time(now - time_diff, now, prefix="in ", suffix="")
+
+    return eta_timestamps.apply(_format_eta)

@@ -9,8 +9,8 @@ import pytz
 # ruff: noqa: PD002 # `inplace=True` should be avoided; it has inconsistent behavior
 import streamlit as st
 from matplotlib import pyplot as plt
-from pages_.overview_plotting import _draw_plot
-from pages_.overview_utils import (
+from pages_.impl.overview_plotting import _draw_plot
+from pages_.impl.overview_utils import (
     _add_eta,
     _filter_valid_columns,
     _get_column_order,

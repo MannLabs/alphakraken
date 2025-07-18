@@ -471,7 +471,7 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
         help="Show standard deviations for mean values.",
         key="show_std_widget_key",
         on_change=partial(
-            copy_session_state, SessionStateKeys.SHOW_TRACES, "show_std_widget_key"
+            copy_session_state, SessionStateKeys.SHOW_STD, "show_std_widget_key"
         ),
     )
 
@@ -482,7 +482,7 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
         key="show_trendline_widget_key",
         on_change=partial(
             copy_session_state,
-            SessionStateKeys.SHOW_TRACES,
+            SessionStateKeys.SHOW_TRENDLINE,
             "show_trendline_widget_key",
         ),
     )

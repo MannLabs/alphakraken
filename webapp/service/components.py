@@ -45,7 +45,7 @@ def show_filter(
     """
     user_input = st_display.text_input(
         text_to_display,
-        st.session_state.get(SessionStateKeys.CURRENT_FILER, default_value),
+        st.session_state.get(SessionStateKeys.CURRENT_FILTER, default_value),
         placeholder=f"example: {example_text}",
         help="Case insensitive filter. Chain multiple conditions with `&`, negate with `!`. "
         "Append a column name followed by `=` to filter a specific column, otherwise each column of the table is considered. "
@@ -55,7 +55,7 @@ def show_filter(
         key="current_filter_widget_key",
         on_change=partial(
             copy_session_state,
-            SessionStateKeys.CURRENT_FILER,
+            SessionStateKeys.CURRENT_FILTER,
             "current_filter_widget_key",
         ),
     )

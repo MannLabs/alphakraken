@@ -108,7 +108,7 @@ st.write(
 # TODO: move
 def _set_query_param(key: str, query_param: str, default: str) -> None:
     """Clear or set a query parameter from session state."""
-    value = st.session_state[key]
+    value = get_session_state(key)
     if value == default:
         if query_param in st.query_params:
             del st.query_params[query_param]
@@ -123,9 +123,11 @@ instruments_input = c1.selectbox(
     "Instruments:",
     instrument_options,
     index=instrument_options.index(
-        st.session_state.get(
+        get_session_state(
             "instruments_widget_key",
-            instruments_query_param if instruments_query_param is not None else ALL,
+            default=instruments_query_param
+            if instruments_query_param is not None
+            else ALL,
         )
     ),
     accept_new_options=True,
@@ -142,9 +144,9 @@ max_age = c2.number_input(
     min_value=1.0,
     step=1.0,
     value=float(
-        st.session_state.get(
+        get_session_state(
             "max_age_widget_key",
-            max_age_query_param
+            default=max_age_query_param
             if max_age_query_param is not None
             else DEFAULT_MAX_AGE_OVERVIEW,
         )

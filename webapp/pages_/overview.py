@@ -168,8 +168,10 @@ too_much_data = max_age > DEFAULT_MAX_AGE_OVERVIEW and instruments_input == ALL
 reload_button_clicked = c1.button("🔄 Reload", disabled=too_much_data)
 if too_much_data:
     st.info(
-        f"Loading all instruments' data for more than {DEFAULT_MAX_AGE_OVERVIEW} days is not recommended. "
-        f"If you want to compare multiple instruments over a longer time, use the '{FORCE_ALL}' option.",
+        f"Loading all instruments' data for more than {DEFAULT_MAX_AGE_OVERVIEW} days is not recommended due to performance reasons. "
+        f"If you really want to compare multiple instruments over a longer time, "
+        f"provide a comma-separated list of instruments in the input field above or "
+        f"use the '{FORCE_ALL}' option.",
     )
     st.stop()
 

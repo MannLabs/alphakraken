@@ -50,7 +50,9 @@ from service.utils import (
 
 _log(f"loading {__file__} {st.query_params}")
 
-ALL = "all"
+# instruments default
+ALL = "(all)"
+FORCE_ALL = "(force_all)"
 
 COLUMNS = load_columns_from_yaml()
 
@@ -81,7 +83,7 @@ display_info_message()
 st.markdown("## Data")
 
 instruments_query_param = st.query_params.get(QueryParams.INSTRUMENTS, None)
-instrument_options = [ALL, "test1", "test2"]
+instrument_options = [ALL, "test1", "test2", FORCE_ALL]
 if instruments_query_param and instruments_query_param not in instrument_options:
     instrument_options = [instruments_query_param, *instrument_options]
 
@@ -162,9 +164,14 @@ max_age = c2.number_input(
 
 c1, c2, _ = st.columns([0.1, 0.2, 0.6])
 
-reload_button_clicked = c1.button(
-    "🔄 Reload",
-)
+too_much_data = max_age > DEFAULT_MAX_AGE_OVERVIEW and instruments_input == ALL
+reload_button_clicked = c1.button("🔄 Reload", disabled=too_much_data)
+if too_much_data:
+    st.info(
+        f"Loading all instruments' data for more than {DEFAULT_MAX_AGE_OVERVIEW} days is not recommended. "
+        f"If you want to compare multiple instruments over a longer time, use the '{FORCE_ALL}' option.",
+    )
+    st.stop()
 
 if reload_button_clicked:
     get_raw_file_and_metrics_data.clear()
@@ -185,7 +192,9 @@ with st.spinner("Loading data ..."):
         max_age_in_days=max_age,
         stop_at_no_data=True,
         instruments=(
-            None if instruments_input == ALL else instruments_input.split(",")
+            None
+            if instruments_input in [ALL, FORCE_ALL]
+            else instruments_input.split(",")
         ),
     )
     c2.text(f"Last loaded: {data_timestamp.strftime('%Y-%m-%d %H:%M:%S')}")

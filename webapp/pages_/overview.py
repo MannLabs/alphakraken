@@ -86,9 +86,6 @@ if instruments_query_param and instruments_query_param not in instrument_options
     instrument_options = [instruments_query_param, *instrument_options]
 
 max_age_query_param = st.query_params.get(QueryParams.MAX_AGE, None)
-max_age_default = (
-    max_age_query_param if max_age_query_param is not None else DEFAULT_MAX_AGE_OVERVIEW
-)
 
 # ########################################### Load
 
@@ -106,13 +103,15 @@ st.write(
 )
 
 
-def _clear_query_param(key: str, query_param: str) -> None:
-    """Clear the query parameter if it does not match the session state."""
-    if (
-        st.session_state.get(key) != st.query_params.get(query_param, None)
-        and query_param in st.query_params
-    ):
-        del st.query_params[query_param]
+# TODO: move
+def _set_query_param(key: str, query_param: str, default: str) -> None:
+    """Clear or set a query parameter from session state."""
+    value = st.session_state[key]
+    if value == default:
+        if query_param in st.query_params:
+            del st.query_params[query_param]
+    else:
+        st.query_params[query_param] = value
 
 
 # ########################################### Load: selection
@@ -122,48 +121,58 @@ instruments_input = c1.selectbox(
     "Instruments:",
     instrument_options,
     index=instrument_options.index(
-        st.query_params.get(QueryParams.INSTRUMENTS, ALL)
-    ),  # asym to max_age?
-    help="Select an instrument to filter the data",
+        st.session_state.get(
+            "instruments_widget_key",
+            instruments_query_param if instruments_query_param is not None else ALL,
+        )
+    ),
     accept_new_options=True,
     key="instruments_widget_key",
     on_change=partial(
-        _clear_query_param, "instruments_widget_key", QueryParams.INSTRUMENTS
+        _set_query_param, "instruments_widget_key", QueryParams.INSTRUMENTS, ALL
     ),
+    help="Select an instrument to filter the data",  # TODO: improve help text
 )
-if instruments_input != ALL:
-    st.query_params[QueryParams.INSTRUMENTS] = instruments_input
 
 
 max_age = c2.number_input(
     "Max age (days)",
     min_value=1.0,
     step=1.0,
-    value=float(st.session_state.get("max_age_widget_key", max_age_default)),
+    value=float(
+        st.session_state.get(
+            "max_age_widget_key",
+            max_age_query_param
+            if max_age_query_param is not None
+            else DEFAULT_MAX_AGE_OVERVIEW,
+        )
+    ),
     key="max_age_widget_key",
-    on_change=partial(_clear_query_param, "max_age_widget_key", QueryParams.MAX_AGE),
+    on_change=partial(
+        _set_query_param,
+        "max_age_widget_key",
+        QueryParams.MAX_AGE,
+        DEFAULT_MAX_AGE_OVERVIEW,
+    ),
+    help="Select an instrument to filter the data",  # TODO: improve help text
 )
-if max_age != max_age_default:
-    st.query_params[QueryParams.MAX_AGE] = max_age
 
 
 # ########################################### Load: button
 
 c1, c2, _ = st.columns([0.1, 0.2, 0.6])
 
-is_first_run = get_session_state(SessionStateKeys.IS_FIRST_RUN, default=True)
-both_query_params_set = (
-    max_age_query_param is not None and instruments_query_param is not None
-)
-
 reload_button_clicked = c1.button(
     "🔄 Reload",
 )
+
 if reload_button_clicked:
     get_raw_file_and_metrics_data.clear()
     set_session_state(SessionStateKeys.IS_FIRST_RUN, value=True)
     st.rerun()
-if not reload_button_clicked and not is_first_run and not both_query_params_set:
+if not reload_button_clicked and not get_session_state(
+    SessionStateKeys.IS_FIRST_RUN, default=True
+):
     st.stop()
 
 

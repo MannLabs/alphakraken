@@ -1,5 +1,6 @@
 """Database service for the web application."""
 
+import re
 from datetime import datetime, timedelta
 
 # ruff: noqa: PD002 # `inplace=True` should be avoided; it has inconsistent behavior
@@ -66,6 +67,18 @@ def get_raw_files_for_status_df(
     return df
 
 
+def _validate_alphanumeric(values: list[str] | None, param_name: str) -> None:
+    """Validate that all values in the list contain only letters and numbers."""
+    if not values:
+        return
+
+    for value in values:
+        if not re.match(r"^[a-zA-Z0-9]+$", value):
+            raise ValueError(
+                f"Invalid parameter '{param_name}': '{value}' contains non-alphanumeric characters"
+            )
+
+
 # Cached values are accessible to all users across all sessions.
 # Considering memory it should currently be fine to have all data cached.
 # Command for clearing the cache:  get_all_data.clear()
@@ -76,6 +89,10 @@ def get_raw_file_and_metrics_data(
     instruments: list[str] | None = None,
 ) -> tuple[QuerySet, QuerySet, datetime]:
     """Return from the database the QuerySets for RawFile and Metrics for files younger than max_age_in_days or for given list of raw file ids."""
+    _validate_alphanumeric(raw_file_ids, "raw_file_ids")
+    _validate_alphanumeric(instruments, "instruments")
+    # max_age_in_days is implicitly validated to be numeric by converting it to timedelta
+
     _log("Connecting to the database")
     connect_db()
     _log(

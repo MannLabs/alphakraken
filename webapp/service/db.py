@@ -12,6 +12,7 @@ from service.utils import _log
 
 from shared.db.engine import connect_db
 from shared.db.models import KrakenStatus, Metrics, Project, RawFile, Settings
+from shared.keys import ALLOWED_CHARACTERS_IN_RAW_FILE_NAME
 
 
 def get_raw_files_for_status_df(
@@ -67,15 +68,16 @@ def get_raw_files_for_status_df(
     return df
 
 
-def _validate_alphanumeric(values: list[str] | None, param_name: str) -> None:
+def _validate_input(values: list[str] | None, param_name: str) -> None:
     """Validate that all values in the list contain only letters and numbers."""
     if not values:
         return
 
     for value in values:
-        if not re.match(r"^[a-zA-Z0-9]+$", value):
+        # ALLOWED_CHARACTERS_IN_RAW_FILE_NAME serves well here
+        if not re.match(ALLOWED_CHARACTERS_IN_RAW_FILE_NAME, value):
             raise ValueError(
-                f"Invalid parameter '{param_name}': '{value}' contains non-alphanumeric characters"
+                f"Invalid parameter '{param_name}': '{value}' contains forbidden characters. Allowed {ALLOWED_CHARACTERS_IN_RAW_FILE_NAME}"
             )
 
 
@@ -89,8 +91,8 @@ def get_raw_file_and_metrics_data(
     instruments: list[str] | None = None,
 ) -> tuple[QuerySet, QuerySet, datetime]:
     """Return from the database the QuerySets for RawFile and Metrics for files younger than max_age_in_days or for given list of raw file ids."""
-    _validate_alphanumeric(raw_file_ids, "raw_file_ids")
-    _validate_alphanumeric(instruments, "instruments")
+    _validate_input(raw_file_ids, "raw_file_ids")
+    _validate_input(instruments, "instruments")
     # max_age_in_days is implicitly validated to be numeric by converting it to timedelta
 
     _log("Connecting to the database")

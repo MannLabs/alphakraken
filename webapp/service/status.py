@@ -6,7 +6,7 @@ from service.db import df_from_db_data, get_status_data
 from shared.db.models import KrakenStatusValues
 
 
-def show_status_warning() -> None:
+def display_status_warning() -> None:
     """Display a warning if there are instruments with issues."""
     status_data_df = df_from_db_data(get_status_data())
     nok_status_df = status_data_df[status_data_df["status"] != KrakenStatusValues.OK]

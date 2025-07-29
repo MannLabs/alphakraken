@@ -491,6 +491,7 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
 
     n_plots = 0
     n_plots_to_load_at_beginning = 3
+    max_len_df = 0
     # Group plots by rows based on plots_per_row setting
     for row_idx in range(0, len(columns_to_plot), plots_per_row):
         row_columns = columns_to_plot[row_idx : row_idx + plots_per_row]
@@ -500,17 +501,23 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
             n_plots += 1
             try:
                 if (
-                    n_plots == n_plots_to_load_at_beginning + 1
+                    len(filtered_df) > max_len_df
+                    and n_plots == n_plots_to_load_at_beginning + 1
                     and not get_session_state(
                         SessionStateKeys.SHOW_ALL_PLOTS, default=False
                     )
                 ):
+                    st.info(
+                        "To avoid loading too many plots at once, only the first 3 plots are shown by default. "
+                        "Click the button below to show all plots.",
+                        icon="ℹ️",  # noqa: RUF001
+                    )
                     if not st.button(
                         "🔽 Show all plots .. ",
                         on_click=partial(
                             set_session_state,
                             SessionStateKeys.SHOW_ALL_PLOTS,
-                            default=True,
+                            value=True,
                         ),
                     ):
                         st.stop()

@@ -18,6 +18,7 @@ class SessionStateKeys:
     SHOW_STD = "show_std"
     SHOW_TRENDLINE = "show_trendline"
     PLOTS_PER_ROW = "plots_per_row"
+    SHOW_ALL_PLOTS = "show_all_plots"
 
 
 def set_session_state(key: str, value: Any, *, overwrite: bool = True) -> None:  # noqa: ANN401

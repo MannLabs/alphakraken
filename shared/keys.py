@@ -39,5 +39,5 @@ class MetricsTypes:
     CUSTOM: str = "custom"
 
 
-ALLOWED_CHARACTERS_IN_RAW_FILE_NAME = r"[^a-zA-Z0-9\-_+.]"
+FORBIDDEN_CHARACTERS_IN_RAW_FILE_NAME = r"[^a-zA-Z0-9\-_+.]"
 DDA_FLAG_IN_RAW_FILE_NAME = "_dda_"

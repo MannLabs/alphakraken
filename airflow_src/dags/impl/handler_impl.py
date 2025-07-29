@@ -42,8 +42,8 @@ from shared.db.models import (
     get_created_at_year_month,
 )
 from shared.keys import (
-    ALLOWED_CHARACTERS_IN_RAW_FILE_NAME,
     DDA_FLAG_IN_RAW_FILE_NAME,
+    FORBIDDEN_CHARACTERS_IN_RAW_FILE_NAME,
     Locations,
 )
 
@@ -259,7 +259,7 @@ def start_file_mover(ti: TaskInstance, **kwargs) -> None:
 
 def _count_special_characters(raw_file_id: str) -> int:
     """Check if the raw file name contains special characters."""
-    pattern = re.compile(ALLOWED_CHARACTERS_IN_RAW_FILE_NAME)
+    pattern = re.compile(FORBIDDEN_CHARACTERS_IN_RAW_FILE_NAME)
     return len(pattern.findall(raw_file_id))
 
 

@@ -12,7 +12,7 @@ from service.utils import _log
 
 from shared.db.engine import connect_db
 from shared.db.models import KrakenStatus, Metrics, Project, RawFile, Settings
-from shared.keys import ALLOWED_CHARACTERS_IN_RAW_FILE_NAME
+from shared.keys import FORBIDDEN_CHARACTERS_IN_RAW_FILE_NAME
 
 
 def get_raw_files_for_status_df(
@@ -74,10 +74,10 @@ def _validate_input(values: list[str] | None, param_name: str) -> None:
         return
 
     for value in values:
-        # ALLOWED_CHARACTERS_IN_RAW_FILE_NAME serves well here
-        if not re.match(ALLOWED_CHARACTERS_IN_RAW_FILE_NAME, value):
+        # FORBIDDEN_CHARACTERS_IN_RAW_FILE_NAME serves well here
+        if re.match(FORBIDDEN_CHARACTERS_IN_RAW_FILE_NAME, value):
             raise ValueError(
-                f"Invalid parameter '{param_name}': '{value}' contains forbidden characters. Allowed {ALLOWED_CHARACTERS_IN_RAW_FILE_NAME}"
+                f"Invalid parameter '{param_name}': '{value}' contains forbidden characters. Allowed: `{FORBIDDEN_CHARACTERS_IN_RAW_FILE_NAME}`"
             )
 
 

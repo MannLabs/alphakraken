@@ -250,13 +250,13 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
         st.warning("\n".join(filter_errors))
 
     # ########################################### DISPLAY: Url to bookmark
-    if user_input:
-        url = get_url_with_query_string(user_input, st.query_params)
 
-        st.markdown(
-            f"""Hint: save this filter by bookmarking <a href="{url}" target="_self">{url}</a>""",
-            unsafe_allow_html=True,
-        )
+    url = get_url_with_query_string(user_input, st.query_params)
+
+    st.markdown(
+        f"""Hint: save the current filter by bookmarking <a href="{url}" target="_self">{url}</a>""",
+        unsafe_allow_html=True,
+    )
 
     # ########################################### DISPLAY: Summary statistics on statuses
     max_table_len = int(

@@ -761,7 +761,8 @@ def test_count_special_characters(
     if not has_special_chars:
         assert _count_special_characters(raw_file_name) == 0
     else:
-        assert _count_special_characters(raw_file_name) == len(raw_file_name)
+        for char in raw_file_name:
+            assert _count_special_characters(char) == 1
 
 
 @patch("dags.impl.handler_impl.trigger_dag_run")

@@ -30,9 +30,8 @@ def get_combined_raw_files_and_metrics_df(
     )
 
     if stop_at_no_data and (len(raw_files_df) == 0 or len(alphadia_metrics_df) == 0):
-        st.write(
-            f"Not enough data yet: {len(raw_files_df)=} {len(alphadia_metrics_df)=}."
-        )
+        st.warning("Not enough data yet. Please broaden your selection.")
+        st.write(f"[{len(raw_files_df)=} {len(alphadia_metrics_df)=}]")
         st.dataframe(raw_files_df)
         st.dataframe(alphadia_metrics_df)
         st.stop()

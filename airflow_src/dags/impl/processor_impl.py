@@ -46,9 +46,8 @@ from shared.db.interface import (
     update_raw_file,
 )
 from shared.db.models import RawFile, RawFileStatus, get_created_at_year_month
-from shared.keys import Locations
-from shared.yamlsettings import get_path
 from shared.keys import Locations, MetricsTypes
+from shared.yamlsettings import get_path
 
 
 def _get_project_id_or_fallback(project_id: str | None, instrument_id: str) -> str:

@@ -35,10 +35,10 @@ c1.markdown("""### How to use it?
 The "overview" tab shows all results, allows for filtering and sorting, and provides plots showing quality metrics.
 
 The "status" tab shows the current status of the acquisition pipeline and the status of the last processed files.
-It is mostly relevant for AlphaKraken admin users.
+It is mostly relevant for administrators.
 
 The "project" and "settings" tabs allow to manage specific AlphaDIA settings for certain raw files.
-Currently they are meant to be used by AlphaKraken admin users only.""")
+Currently they are meant to be used by administrators only.""")
 
 c1.markdown(f"""### Rules
 
@@ -128,12 +128,12 @@ Q: No plots are shown if I access the page via mobile.
 A: Set the `mobile=1` query parameter to render the plots as static images.
 
 
-Q: I am missing a metric or a feature or found a bug or find the AlphaKraken unintuitive to use or want to contribute.
+Q: I am missing a metric or a feature or found a bug or find this app unintuitive to use or want to contribute.
 
 A: Please get in touch with the developers!
 
 
-Q: I want to know more about the AlphaKraken.
+Q: I want to know more...
 
 A: Have a look at the [github repo](https://github.com/MannLabs/alphakraken) or the underlying
 Airflow implementation [here]({APP_URL}:8080) (read-only, ask for credentials),

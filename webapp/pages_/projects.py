@@ -42,7 +42,7 @@ projects_df = df_from_db_data(projects_db)
 
 # ########################################### DISPLAY
 
-st.warning("This page should be edited only by AlphaKraken admin users!", icon="⚠️")
+st.warning("This page should be edited only by administrators!", icon="⚠️")
 
 
 @st.fragment

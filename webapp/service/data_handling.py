@@ -15,7 +15,7 @@ def get_combined_raw_files_and_metrics_df(
     max_age_in_days: float | None = None,
     raw_file_ids: list[str] | None = None,
     stop_at_no_data: bool = False,
-    instruments: str | None = None,
+    instruments: list[str] | None = None,
 ) -> tuple[pd.DataFrame, datetime]:
     """Get the combined DataFrame of raw files and metrics."""
     raw_files_db, metrics_db, data_timestamp = get_raw_file_and_metrics_data(

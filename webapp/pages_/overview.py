@@ -59,7 +59,7 @@ COLUMNS = load_columns_from_yaml()
 
 @st.cache_data
 def df_to_csv(df: pd.DataFrame) -> bytes:
-    """Convert a DataFrame to a CSV string."""
+    """Convert a DataFrame to a CSV-encoded bytes object."""
     return df.to_csv().encode("utf-8")
 
 
@@ -135,7 +135,7 @@ instruments_input = c1.selectbox(
     on_change=partial(
         _set_query_param, "instruments_widget_key", QueryParams.INSTRUMENTS, ALL
     ),
-    help="Select an instrument to filter the data",  # TODO: improve help text
+    help=f"Select an instrument to filter the data. You may enter a custom (comma-separated) list or use the '{FORCE_ALL}' option to load all instruments overriding the time range constraint. ",
 )
 
 
@@ -158,7 +158,7 @@ max_age = c2.number_input(
         QueryParams.MAX_AGE,
         DEFAULT_MAX_AGE_OVERVIEW,
     ),
-    help="Select an instrument to filter the data",  # TODO: improve help text
+    help="Select how much data to fetch.",
 )
 
 

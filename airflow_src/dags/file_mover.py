@@ -40,7 +40,7 @@ def create_file_mover_dag(instrument_id: str | None) -> None:
                 "retry_delay": timedelta(minutes=5),
                 # this maps the DAG to the worker that is responsible for that queue, cf. docker-compose.yaml
                 # and https://airflow.apache.org/docs/apache-airflow-providers-celery/stable/celery_executor.html#queues
-                "queue": f"{AIRFLOW_QUEUE_PREFIX}file_mover",  # no instrument-specific queue for file mover, the all share the same worker(s)
+                "queue": f"{AIRFLOW_QUEUE_PREFIX}file_mover",  # no instrument-specific queue for file mover, they all share the same worker(s)
             },
             description="Move file from acquisition folder to backup folder on instrument.",
             tags=["file_mover", instrument_id]

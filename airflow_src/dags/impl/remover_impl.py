@@ -151,9 +151,7 @@ def _decide_on_raw_files_to_remove(
             continue
         except Exception:
             # prevent one foul file from blocking all others
-            logging.exception(
-                f"Unknown Error getting size for {raw_file.id}: {traceback.format_exc()}"
-            )
+            logging.exception(f"Unknown Error getting size for {raw_file.id}.")
             continue
 
         if not num_files:
@@ -180,7 +178,7 @@ def _get_total_size(raw_file: RawFile) -> tuple[float, int]:
     which would overestimate the total size gain if this data was removed.
 
     :raises: FileRemovalError if the file stem is empty
-    :raises: FileRemovalError, Exception if one of the checks or _check_file() itself failes
+    :raises: FileRemovalError, Exception if one of the checks or _check_file() itself fails
     """
     try:
         remove_wrapper = RawFileWrapperFactory.create_write_wrapper(
@@ -439,7 +437,8 @@ def remove_raw_files(ti: TaskInstance, **kwargs) -> None:
             )
 
         raise AirflowFailException("Errors removing files.")
-    logging.warning("File removal finished successfully!")
+
+    logging.info("File removal finished successfully!")
 
     # Fail in case raw file selection failed in the upstream task to make these errors transparent in Airflow UI:
     if instruments_with_errors := get_xcom(ti, XComKeys.INSTRUMENTS_WITH_ERRORS):

@@ -249,7 +249,7 @@ def start_file_mover(ti: TaskInstance, **kwargs) -> None:
         return
 
     trigger_dag_run(
-        Dags.FILE_MOVER,
+        f"{Dags.FILE_MOVER}{DAG_DELIMITER}{instrument_id}",
         {
             DagParams.RAW_FILE_ID: raw_file_id,
         },

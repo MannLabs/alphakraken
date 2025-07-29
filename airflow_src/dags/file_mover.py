@@ -24,7 +24,7 @@ from common.settings import (
 from impl.mover_impl import get_files_to_move, move_files
 
 
-def create_file_mover_dag(instrument_id: str) -> None:
+def create_file_mover_dag(instrument_id: str | None) -> None:
     """Create file_mover dag."""
     with (
         DAG(
@@ -68,5 +68,5 @@ def create_file_mover_dag(instrument_id: str) -> None:
     get_files_to_move_ >> move_raw_files_
 
 
-for instrument_id in get_instrument_ids():
+for instrument_id in [*get_instrument_ids(), None]:  # TODO: remove the legacy DAG name
     create_file_mover_dag(instrument_id)

@@ -77,7 +77,7 @@ def _validate_input(values: list[str] | None, param_name: str) -> None:
         # FORBIDDEN_CHARACTERS_IN_RAW_FILE_NAME serves well here
         if re.match(FORBIDDEN_CHARACTERS_IN_RAW_FILE_NAME, value):
             raise ValueError(
-                f"Invalid parameter '{param_name}': '{value}' contains forbidden characters. Allowed: `{FORBIDDEN_CHARACTERS_IN_RAW_FILE_NAME}`"
+                f"Invalid parameter '{param_name}': '{value}' contains forbidden characters. Allowed: `!{FORBIDDEN_CHARACTERS_IN_RAW_FILE_NAME}`"
             )
 
 

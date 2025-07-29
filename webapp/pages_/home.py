@@ -53,7 +53,7 @@ In particular:
 
 #### More rules
 To ensure a smooth automated processing, please follow these rules when acquiring files:
-- Make sure to your raw filename does not contain any special characters. Only allowed: `{FORBIDDEN_CHARACTERS_IN_RAW_FILE_NAME}`
+- Make sure your raw filename does not contain any special characters. Only allowed: `!{FORBIDDEN_CHARACTERS_IN_RAW_FILE_NAME}`
 (basic latin letters, numbers, and a few special characters like `-`, `_`, `+`). Otherwise, they will not be quanted.
 - If your file name contains `_dda_`, they will also not be quanted.""")
 

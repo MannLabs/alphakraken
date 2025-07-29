@@ -149,6 +149,12 @@ def _decide_on_raw_files_to_remove(
         except FileRemovalError as e:
             logging.warning(f"Skipping {raw_file.id}: {e}")
             continue
+        except Exception:
+            # prevent one foul file from blocking all others
+            logging.exception(
+                f"Unknown Error getting size for {raw_file.id}: {traceback.format_exc()}"
+            )
+            continue
 
         if not num_files:
             logging.info(f"Skipping {raw_file.id}: no files found to remove")
@@ -173,7 +179,8 @@ def _get_total_size(raw_file: RawFile) -> tuple[float, int]:
     This is important, as there could be cases where some files for a raw file have been already removed from the disk,
     which would overestimate the total size gain if this data was removed.
 
-    :raises: FileRemovalError if the file stem is empty or if one of the file checks fails.
+    :raises: FileRemovalError if the file stem is empty
+    :raises: FileRemovalError, Exception if one of the checks or _check_file() itself failes
     """
     try:
         remove_wrapper = RawFileWrapperFactory.create_write_wrapper(
@@ -337,6 +344,7 @@ def _check_file(
     :param hash_check: whether to check the hash of the file
 
     :raises: FileRemovalError if one of the checks fails or if file is not present on the pool backup.
+    :raises: KeyError if one of the files does not exist in the DB.
     """
     # Check 1: the single file to delete is present on the pool-backup
     if not file_path_pool_backup.exists():
@@ -421,6 +429,9 @@ def remove_raw_files(ti: TaskInstance, **kwargs) -> None:
                     logging.error(error)
 
     if errors:
+        logging.info(
+            "There were errors in the `remove_raw_files` task, i.e. while actually removing them:"
+        )
         for instrument_id, error_list in errors.items():
             errors_pretty = "\n  - ".join(error_list)
             logging.error(
@@ -428,9 +439,13 @@ def remove_raw_files(ti: TaskInstance, **kwargs) -> None:
             )
 
         raise AirflowFailException("Errors removing files.")
+    logging.warning("File removal finished successfully!")
 
     # Fail in case raw file selection failed in the upstream task to make these errors transparent in Airflow UI:
     if instruments_with_errors := get_xcom(ti, XComKeys.INSTRUMENTS_WITH_ERRORS):
+        logging.info(
+            "There were errors in the `get_raw_files_to_remove` task, i.e. while gathering the files to remove:"
+        )
         raise AirflowFailException(
             f"Error in previous task {Tasks.GET_RAW_FILES_TO_REMOVE} for {instruments_with_errors=}. Check the logs there."
         )

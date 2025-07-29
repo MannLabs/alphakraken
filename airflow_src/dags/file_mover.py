@@ -43,9 +43,9 @@ def create_file_mover_dag(instrument_id: str | None) -> None:
                 "queue": f"{AIRFLOW_QUEUE_PREFIX}file_mover",  # no instrument-specific queue for file mover, they all share the same worker(s)
             },
             description="Move file from acquisition folder to backup folder on instrument.",
-            tags=["file_mover", instrument_id]
+            tags=["mover", instrument_id]
             if instrument_id is not None
-            else ["file_mover"],  # TODO: remove with legacy DAG name
+            else ["mover"],  # TODO: remove with legacy DAG name
             params={DagParams.RAW_FILE_ID: Param(type="string", minimum=3)},
         ) as dag
     ):

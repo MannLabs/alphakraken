@@ -79,12 +79,15 @@ def test_dag_load_acquisition_processor(dagbag: DagBag) -> None:
 def test_dag_load_file_mover(dagbag: DagBag) -> None:
     """Test that file_mover loads correctly."""
     # when
-    dag = dagbag.get_dag(dag_id="file_mover")
+    for instrument in [
+        "_test1_",
+    ]:
+        dag = dagbag.get_dag(dag_id=f"file_mover.{instrument}")
 
-    # then
-    assert dagbag.import_errors == {}
-    assert dag is not None
-    assert len(dag.tasks) == 2  # noqa: PLR2004 no magic numbers
+        # then
+        assert dagbag.import_errors == {}
+        assert dag is not None
+        assert len(dag.tasks) == 2  # noqa: PLR2004 no magic numbers
 
 
 def test_dag_load_file_remover(dagbag: DagBag) -> None:

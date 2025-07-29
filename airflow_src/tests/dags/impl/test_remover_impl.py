@@ -179,6 +179,7 @@ def test_decide_on_raw_files_to_remove_ok(
         (70 * 1024**3, 1),
         (30 * 1024**3, 1),
         (30 * 1024**3, 1),
+        KeyError,
     ]
 
     mock_get_raw_files_by_age.return_value = [
@@ -186,6 +187,7 @@ def test_decide_on_raw_files_to_remove_ok(
         MagicMock(id="file1"),
         MagicMock(id="file2"),
         MagicMock(id="file3"),  # deletion not necessary
+        MagicMock(id="file4"),  # skipped to due to KeyError
     ]
     mock_get_internal_instrument_data_path.return_value = MagicMock()
 

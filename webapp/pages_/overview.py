@@ -25,6 +25,7 @@ from service.components import (
 from service.data_handling import get_combined_raw_files_and_metrics_df, get_lag_time
 from service.db import get_full_raw_file_data, get_raw_file_and_metrics_data
 from service.session_state import SessionStateKeys, get_session_state, set_session_state
+from service.status import show_status_warning
 from service.utils import (
     APP_URL,
     DEFAULT_MAX_AGE_OVERVIEW,
@@ -121,6 +122,10 @@ st.write(
 
 display_info_message()
 
+
+show_status_warning()
+
+
 # ########################################### LOGIC
 max_age_in_days = float(
     st.query_params.get(QueryParams.MAX_AGE, DEFAULT_MAX_AGE_OVERVIEW)
@@ -138,10 +143,8 @@ def _harmonize_df(df: pd.DataFrame) -> pd.DataFrame:
     }
     df = df.rename(columns=names_mapping)
 
-    if "gradient_length" in combined_df.columns:
-        combined_df["gradient_length"] = combined_df["gradient_length"].apply(
-            lambda x: round(x, 1)
-        )
+    if "gradient_length" in df.columns:
+        df["gradient_length"] = df["gradient_length"].apply(lambda x: round(x, 1))
 
     # map all columns of the same name to the first one, assuming that not more than one of the values are filled
     return df.groupby(axis=1, level=0).first()

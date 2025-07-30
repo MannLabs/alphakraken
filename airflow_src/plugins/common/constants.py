@@ -28,6 +28,12 @@ DEFAULT_MIN_FREE_SPACE_GB = -1  # will skip file removal
 
 # mapping AlphaDIA errors to human-readable short names
 ERROR_CODE_TO_STRING = {
+    # TODO: these are all BusinessErrors, figure out why it is not handled
+    "NO_PSM_FOUND": "TOO_FEW_PROTEINS",
+    "TOO_FEW_PSM": "TOO_FEW_PSM",
+    "TOO_FEW_PROTEINS": "TOO_FEW_PROTEINS",
+    "NO_OPTIMIZATION_LOCK_TARGET": "NO_OPTIMIZATION_LOCK_TARGET",
+    "NOT_VALID_DIA_DATA": "NOT_VALID_DIA_DATA",
     "_CANNOT_FIND_ITEM": "Cannot find item [Idx] within the current storage",
     "_FAILED_TO_DETERMINE_DIA_CYCLE": "Failed to determine start of DIA cycle",
     "_RUN_HEADER_EX": "RunHeaderEx",

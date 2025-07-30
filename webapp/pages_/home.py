@@ -3,10 +3,11 @@
 import os
 
 import streamlit as st
+from keys import ALLOWED_CHARACTERS_PRETTY
 from service.components import show_sandbox_message
 from service.utils import APP_URL, _log, display_info_message, quanting_output_path
 
-from shared.keys import FORBIDDEN_CHARACTERS_IN_RAW_FILE_NAME, EnvVars
+from shared.keys import EnvVars
 
 _log(f"loading {__file__} {st.query_params}")
 
@@ -53,7 +54,7 @@ In particular:
 
 #### More rules
 To ensure a smooth automated processing, please follow these rules when acquiring files:
-- Make sure your raw filename does not contain any special characters. Only allowed: `!{FORBIDDEN_CHARACTERS_IN_RAW_FILE_NAME}`
+- Make sure your raw filename does not contain any special characters. Only allowed: `{ALLOWED_CHARACTERS_PRETTY}`
 (basic latin letters, numbers, and a few special characters like `-`, `_`, `+`). Otherwise, they will not be quanted.
 - If your file name contains `_dda_`, they will also not be quanted.""")
 

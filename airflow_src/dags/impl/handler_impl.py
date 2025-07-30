@@ -42,7 +42,7 @@ from shared.db.models import (
 )
 from shared.keys import (
     DDA_FLAG_IN_RAW_FILE_NAME,
-    FORBIDDEN_CHARACTERS_IN_RAW_FILE_NAME,
+    FORBIDDEN_CHARACTERS_REGEXP,
 )
 from shared.yamlsettings import YamlKeys, get_path
 
@@ -250,7 +250,7 @@ def start_file_mover(ti: TaskInstance, **kwargs) -> None:
         return
 
     trigger_dag_run(
-        Dags.FILE_MOVER,
+        f"{Dags.FILE_MOVER}{DAG_DELIMITER}{instrument_id}",
         {
             DagParams.RAW_FILE_ID: raw_file_id,
         },
@@ -260,7 +260,7 @@ def start_file_mover(ti: TaskInstance, **kwargs) -> None:
 
 def _count_special_characters(raw_file_id: str) -> int:
     """Check if the raw file name contains special characters."""
-    pattern = re.compile(FORBIDDEN_CHARACTERS_IN_RAW_FILE_NAME)
+    pattern = re.compile(FORBIDDEN_CHARACTERS_REGEXP)
     return len(pattern.findall(raw_file_id))
 
 

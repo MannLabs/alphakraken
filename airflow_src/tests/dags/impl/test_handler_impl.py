@@ -527,7 +527,7 @@ def test_start_file_mover(mock_trigger_dag_run: MagicMock) -> None:
     )
 
     mock_trigger_dag_run.assert_called_once_with(
-        "file_mover",
+        "file_mover.instrument1",
         {
             DagParams.RAW_FILE_ID: "file1.raw",
         },

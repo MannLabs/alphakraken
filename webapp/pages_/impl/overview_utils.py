@@ -142,9 +142,9 @@ def get_baseline_df(
     return baseline_df
 
 
-def get_url_with_query_string(user_input: str, query_params: dict) -> str:
+def get_url_with_query_string(user_input: str | None, query_params: dict) -> str:
     """Return the URL with the query string based on the user input."""
-    encoded_user_input = user_input
+    encoded_user_input = user_input or ""
     for key, value in FILTER_MAPPING.items():
         encoded_user_input = encoded_user_input.replace(" ", "").replace(
             value.strip(), key

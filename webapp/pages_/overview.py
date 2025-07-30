@@ -213,6 +213,7 @@ with st.spinner("Loading data ..."):
 
     # Load and merge baseline data if specified
     baseline_query_param = st.query_params.get(QueryParams.BASELINE, "")
+    st.write(baseline_query_param)
     if baseline_query_param:
         baseline_df = get_baseline_df(baseline_query_param, COLUMNS)
         combined_df = pd.concat([combined_df, baseline_df], ignore_index=False)

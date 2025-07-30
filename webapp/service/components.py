@@ -15,7 +15,7 @@ import plotly.graph_objects as go
 import streamlit as st
 from matplotlib import pyplot as plt
 from service.session_state import SessionStateKeys, copy_session_state
-from service.utils import DEFAULT_MAX_AGE_STATUS, display_plotly_chart
+from service.utils import BASELINE_PREFIX, DEFAULT_MAX_AGE_STATUS, display_plotly_chart
 
 from shared.db.models import TERMINAL_STATUSES, RawFileStatus
 from shared.keys import EnvVars, InstrumentTypes
@@ -111,6 +111,9 @@ def show_filter(
                 new_mask = ~new_mask
 
             mask &= new_mask
+
+        # always show baseline data
+        mask |= df.index.map(lambda x: x.startswith(BASELINE_PREFIX)).any()
 
     return df[mask], user_input, errors
 

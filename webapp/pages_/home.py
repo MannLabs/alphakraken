@@ -5,11 +5,12 @@ import os
 import streamlit as st
 from keys import ALLOWED_CHARACTERS_PRETTY
 from service.components import show_sandbox_message
+from service.query_params import get_all_query_params
 from service.utils import APP_URL, _log, display_info_message, quanting_output_path
 
 from shared.keys import EnvVars
 
-_log(f"loading {__file__} {st.query_params}")
+_log(f"loading {__file__} {get_all_query_params()}")
 
 st.set_page_config(page_title="AlphaKraken: home", layout="wide")
 

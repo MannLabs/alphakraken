@@ -6,6 +6,7 @@ import pandas as pd
 import streamlit as st
 from service.components import show_filter, show_sandbox_message
 from service.db import df_from_db_data, get_project_data
+from service.query_params import get_all_query_params
 from service.session_state import SessionStateKeys, set_session_state
 from service.utils import (
     DISABLE_WRITE,
@@ -17,7 +18,7 @@ from service.utils import (
 
 from shared.db.interface import add_project
 
-_log(f"loading {__file__} {st.query_params}")
+_log(f"loading {__file__} {get_all_query_params()}")
 
 # ########################################### PAGE HEADER
 

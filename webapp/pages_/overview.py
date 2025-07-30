@@ -30,6 +30,12 @@ from service.components import (
 )
 from service.data_handling import get_combined_raw_files_and_metrics_df, get_lag_time
 from service.db import get_full_raw_file_data, get_raw_file_and_metrics_data
+from service.query_params import (
+    QueryParams,
+    get_all_query_params,
+    get_query_param,
+    set_query_param_from_session_state,
+)
 from service.session_state import (
     SessionStateKeys,
     copy_session_state,
@@ -43,14 +49,13 @@ from service.utils import (
     DEFAULT_MAX_TABLE_LEN,
     FILTER_MAPPING,
     Cols,
-    QueryParams,
     _log,
     display_info_message,
 )
 
 from shared.yamlsettings import YAMLSETTINGS, YamlKeys
 
-_log(f"loading {__file__} {st.query_params}")
+_log(f"loading {__file__} {get_all_query_params()}")
 
 # instruments default
 ALL = "(all)"
@@ -84,13 +89,13 @@ display_info_message()
 
 st.markdown("## Data")
 
-instruments_query_param = st.query_params.get(QueryParams.INSTRUMENTS, None)
+instruments_query_param = get_query_param(QueryParams.INSTRUMENTS)
 instrument_names = list(YAMLSETTINGS.get(YamlKeys.INSTRUMENTS, {}).keys())
 instrument_options = [ALL, *instrument_names, FORCE_ALL]
 if instruments_query_param and instruments_query_param not in instrument_options:
     instrument_options = [instruments_query_param, *instrument_options]
 
-max_age_query_param = st.query_params.get(QueryParams.MAX_AGE, None)
+max_age_query_param = get_query_param(QueryParams.MAX_AGE)
 
 # ########################################### Load
 
@@ -106,17 +111,6 @@ st.write(
 st.write(
     "Then, use the filter and date select below to narrow down results both in the table and the plots below."
 )
-
-
-# TODO: move
-def _set_query_param(key: str, query_param: str, default: str) -> None:
-    """Clear or set a query parameter from session state."""
-    value = get_session_state(key)
-    if value == default:
-        if query_param in st.query_params:
-            del st.query_params[query_param]
-    else:
-        st.query_params[query_param] = value
 
 
 # ########################################### Load: selection
@@ -136,7 +130,10 @@ instruments_input = c1.selectbox(
     accept_new_options=True,
     key="instruments_widget_key",
     on_change=partial(
-        _set_query_param, "instruments_widget_key", QueryParams.INSTRUMENTS, ALL
+        set_query_param_from_session_state,
+        "instruments_widget_key",
+        QueryParams.INSTRUMENTS,
+        ALL,
     ),
     help=f"Select an instrument to filter the data. You may enter a custom (comma-separated) list or use the '{FORCE_ALL}' option to load all instruments overriding the time range constraint. ",
 )
@@ -156,7 +153,7 @@ max_age = c2.number_input(
     ),
     key="max_age_widget_key",
     on_change=partial(
-        _set_query_param,
+        set_query_param_from_session_state,
         "max_age_widget_key",
         QueryParams.MAX_AGE,
         DEFAULT_MAX_AGE_OVERVIEW,
@@ -212,7 +209,7 @@ with st.spinner("Loading data ..."):
     combined_df = harmonize_df(combined_df, COLUMNS)
 
     # Load and merge baseline data if specified
-    baseline_query_param = st.query_params.get(QueryParams.BASELINE, "")
+    baseline_query_param = get_query_param(QueryParams.BASELINE, default="")
     if baseline_query_param:
         baseline_df, num_desired_files = get_baseline_df(baseline_query_param, COLUMNS)
         if len(baseline_df) != num_desired_files:
@@ -225,7 +222,7 @@ with st.spinner("Loading data ..."):
             combined_df = pd.concat([combined_df, baseline_df], ignore_index=False)
 
 
-filter_value = st.query_params.get(QueryParams.FILTER, "")
+filter_value = get_query_param(QueryParams.FILTER, default="")
 for key_, value_ in FILTER_MAPPING.items():
     filter_value = filter_value.lower().replace(key_.lower(), value_)
 
@@ -265,7 +262,7 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
 
     # ########################################### DISPLAY: Url to bookmark
 
-    url = get_url_with_query_string(user_input, st.query_params)
+    url = get_url_with_query_string(user_input, get_all_query_params())
 
     st.markdown(
         f"""Hint: save the current filter by bookmarking <a href="{url}" target="_self">{url}</a>""",
@@ -274,7 +271,7 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
 
     # ########################################### DISPLAY: Summary statistics on statuses
     max_table_len = int(
-        st.query_params.get(QueryParams.MAX_TABLE_LEN, DEFAULT_MAX_TABLE_LEN)
+        get_query_param(QueryParams.MAX_TABLE_LEN, default=DEFAULT_MAX_TABLE_LEN)
     )
     st.write(
         f"Displaying {len(filtered_df)} / {len_whole_df} entries. Distribution of terminal statuses: {get_terminal_status_counts(filtered_df)} "

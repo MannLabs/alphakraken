@@ -8,7 +8,8 @@ import pandas as pd
 import yaml
 from service.components import get_display_time
 from service.data_handling import get_combined_raw_files_and_metrics_df
-from service.utils import APP_URL, BASELINE_PREFIX, FILTER_MAPPING, Cols, QueryParams
+from service.query_params import QueryParams
+from service.utils import APP_URL, BASELINE_PREFIX, FILTER_MAPPING, Cols
 
 from shared.db.models import TERMINAL_STATUSES
 

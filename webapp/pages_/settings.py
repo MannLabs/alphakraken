@@ -9,6 +9,7 @@ from service.db import (
     get_project_data,
     get_settings_data,
 )
+from service.query_params import get_all_query_params
 from service.session_state import SessionStateKeys, set_session_state
 from service.utils import (
     DISABLE_WRITE,
@@ -21,7 +22,7 @@ from service.utils import (
 from shared.db.interface import add_settings
 from shared.db.models import ProjectStatus
 
-_log(f"loading {__file__} {st.query_params}")
+_log(f"loading {__file__} {get_all_query_params()}")
 # ########################################### PAGE HEADER
 
 st.set_page_config(page_title="AlphaKraken: settings", layout="wide")

@@ -23,13 +23,15 @@ class InstrumentTypes:
     SCIEX: str = "sciex"
 
 
-class Locations:
-    """Keys for accessing paths in the yaml config."""
+class InternalPaths:
+    """Paths to directories within the Docker containers."""
 
+    MOUNTS_PATH = "/opt/airflow/mounts/"
+    ENVS_PATH = "/opt/airflow/envs/"
+
+    INSTRUMENTS = "instruments"
     BACKUP = "backup"
-    SETTINGS = "settings"
     OUTPUT = "output"
-    SLURM = "slurm"
 
 
 class MetricsTypes:

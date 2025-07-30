@@ -28,6 +28,12 @@ DEFAULT_MIN_FREE_SPACE_GB = -1  # will skip file removal
 
 # mapping AlphaDIA errors to human-readable short names
 ERROR_CODE_TO_STRING = {
+    # TODO: these are all BusinessErrors, figure out why it is not handled
+    "NO_PSM_FOUND": "TOO_FEW_PROTEINS",
+    "TOO_FEW_PSM": "TOO_FEW_PSM",
+    "TOO_FEW_PROTEINS": "TOO_FEW_PROTEINS",
+    "NO_OPTIMIZATION_LOCK_TARGET": "NO_OPTIMIZATION_LOCK_TARGET",
+    "NOT_VALID_DIA_DATA": "NOT_VALID_DIA_DATA",
     "_CANNOT_FIND_ITEM": "Cannot find item [Idx] within the current storage",
     "_FAILED_TO_DETERMINE_DIA_CYCLE": "Failed to determine start of DIA cycle",
     "_RUN_HEADER_EX": "RunHeaderEx",
@@ -56,17 +62,6 @@ ERROR_CODE_TO_STRING = {
     # "_OBJECT_REFERENCE_NOT_SET": "Object reference not set to an instance of an object", # corrupt file? -> check if something went wrong with copying
     # deliberately not including "DivisionByZero" here as it is too generic
 }
-
-
-class InternalPaths:
-    """Paths to directories within the Docker containers."""
-
-    MOUNTS_PATH = "/opt/airflow/mounts/"
-    ENVS_PATH = "/opt/airflow/envs/"
-
-    INSTRUMENTS = "instruments"
-    BACKUP = "backup"
-    OUTPUT = "output"
 
 
 class Pools:

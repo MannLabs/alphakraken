@@ -26,7 +26,7 @@ from common.paths import (
     get_internal_output_path_for_raw_file,
     get_output_folder_rel_path,
 )
-from common.settings import get_fallback_project_id, get_path
+from common.settings import get_fallback_project_id
 from common.utils import (
     get_airflow_variable,
     get_xcom,
@@ -46,7 +46,8 @@ from shared.db.interface import (
     update_raw_file,
 )
 from shared.db.models import RawFile, RawFileStatus, get_created_at_year_month
-from shared.keys import Locations, MetricsTypes
+from shared.keys import MetricsTypes
+from shared.yamlsettings import YamlKeys, get_path
 
 
 def _get_project_id_or_fallback(project_id: str | None, instrument_id: str) -> str:
@@ -79,16 +80,16 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
             )
 
     # get raw file path
-    backup_base_path = get_path(Locations.BACKUP)
+    backup_base_path = get_path(YamlKeys.Locations.BACKUP)
     year_month_subfolder = get_created_at_year_month(raw_file)
     raw_file_path = (
         backup_base_path / instrument_id / year_month_subfolder / raw_file_id
     )
 
     # get settings and output_path
-    settings_path = get_path(Locations.SETTINGS) / project_id_or_fallback
+    settings_path = get_path(YamlKeys.Locations.SETTINGS) / project_id_or_fallback
 
-    output_path = get_path(Locations.OUTPUT) / get_output_folder_rel_path(
+    output_path = get_path(YamlKeys.Locations.OUTPUT) / get_output_folder_rel_path(
         raw_file, project_id_or_fallback
     )
 

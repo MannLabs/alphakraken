@@ -10,13 +10,16 @@ from datetime import datetime
 
 from airflow.exceptions import AirflowFailException
 from common.constants import CLUSTER_BASE_WORKING_DIR_NAME
-from common.settings import _SETTINGS, get_path
 from sensors.ssh_utils import ssh_execute
 
-from shared.keys import Locations
+from shared.yamlsettings import YAMLSETTINGS, YamlKeys, get_path
 
-# TODO: move to settings, introduce constants
-ENGINE: str = _SETTINGS.get("general", {}).get("job_engine", {}).get("type", "slurm")
+# TODO: move to settings
+ENGINE: str = (
+    YAMLSETTINGS.get(YamlKeys.GENERAL, {})
+    .get(YamlKeys.JOB_ENGINE, {})
+    .get(YamlKeys.TYPE, "slurm")
+)
 
 
 def _get_job_handler() -> "JobHandler":
@@ -73,7 +76,7 @@ class SlurmSSHJobHandler(JobHandler):
     def __init__(self):
         """Initialize the Slurm job handler."""
         super().__init__()
-        self._cluster_base_dir = get_path(Locations.SLURM)
+        self._cluster_base_dir = get_path(YamlKeys.Locations.SLURM)
         self._cluster_base_working_dir_path = (
             self._cluster_base_dir / CLUSTER_BASE_WORKING_DIR_NAME
         )

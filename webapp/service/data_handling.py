@@ -14,7 +14,7 @@ def get_combined_raw_files_and_metrics_df(
     *,
     max_age_in_days: float | None = None,
     raw_file_ids: list[str] | None = None,
-    stop_at_no_data: bool = False,
+    print_at_no_data: bool = False,
     instruments: list[str] | None = None,
 ) -> tuple[pd.DataFrame, datetime]:
     """Get the combined DataFrame of raw files and metrics."""
@@ -29,12 +29,14 @@ def get_combined_raw_files_and_metrics_df(
         drop_columns=["_id", "created_at_"],
     )
 
-    if stop_at_no_data and (len(raw_files_df) == 0 or len(alphadia_metrics_df) == 0):
-        st.warning("Not enough data yet. Please broaden your selection.")
-        st.write(f"[{len(raw_files_df)=} {len(alphadia_metrics_df)=}]")
-        st.dataframe(raw_files_df)
-        st.dataframe(alphadia_metrics_df)
-        st.stop()
+    if len(raw_files_df) == 0 or len(alphadia_metrics_df) == 0:
+        # TODO: improve -> move st dependency ouy
+        if print_at_no_data:
+            # just for debugging
+            st.write(f"[{len(raw_files_df)=} {len(alphadia_metrics_df)=}]")
+            st.dataframe(raw_files_df)
+            st.dataframe(alphadia_metrics_df)
+        return pd.DataFrame(), data_timestamp
 
     # the joining could also be done on DB level
     if len(alphadia_metrics_df) > 0:

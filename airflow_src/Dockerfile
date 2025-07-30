@@ -30,7 +30,7 @@ COPY airflow_src/plugins /opt/airflow/plugins
 COPY shared /opt/airflow/shared
 
 # TODO: make this a volume mapping to not bake this into the image
-RUN mkdir /opt/airflow/envs
+RUN mkdir -p /opt/airflow/envs
 COPY envs/alphakraken.*.yaml /opt/airflow/envs
 # avoid sensitive data in the container
 RUN sed -i '/\(username\|password\)/d'  /opt/airflow/envs/alphakraken.*.yaml

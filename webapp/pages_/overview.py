@@ -48,6 +48,8 @@ from service.utils import (
     display_info_message,
 )
 
+from shared.yamlsettings import YAMLSETTINGS
+
 _log(f"loading {__file__} {st.query_params}")
 
 # instruments default
@@ -83,7 +85,8 @@ display_info_message()
 st.markdown("## Data")
 
 instruments_query_param = st.query_params.get(QueryParams.INSTRUMENTS, None)
-instrument_options = [ALL, "test1", "test2", FORCE_ALL]
+instrument_names = list(YAMLSETTINGS.get("instruments", {}).keys())
+instrument_options = [ALL, *instrument_names, FORCE_ALL]
 if instruments_query_param and instruments_query_param not in instrument_options:
     instrument_options = [instruments_query_param, *instrument_options]
 

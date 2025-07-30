@@ -95,26 +95,29 @@ def get_raw_file_and_metrics_data(
     _validate_input(instruments, "instruments")  # TODO: use query params accessor
     # max_age_in_days is implicitly validated to be numeric by converting it to timedelta
 
+    if max_age_in_days is None and raw_file_ids is None:
+        raise ValueError("Either max_age_in_days or raw_file_ids must be provided.")
+
     _log("Connecting to the database")
     connect_db()
     _log(
         f"Retrieving raw file and metrics {max_age_in_days=} {raw_file_ids=} {instruments=}"
     )
 
-    if max_age_in_days is not None:
-        min_created_at = pd.Timestamp(
-            datetime.now(tz=pytz.UTC) - timedelta(days=max_age_in_days)
-        )
-        q = Q(
-            created_at__gt=min_created_at
-        )  # query on file creation date ('created_at')
-    elif raw_file_ids is not None:
+    if raw_file_ids is not None:
+        # selection by raw file ids takes precedence over max_age_in_days and instruments
         q = Q(id__in=raw_file_ids)
     else:
-        raise ValueError("Either max_age_in_days or raw_file_ids must be provided.")
-
-    if instruments is not None:
-        q = q & Q(instrument_id__in=instruments)
+        q = Q()
+        if max_age_in_days is not None:
+            min_created_at = pd.Timestamp(
+                datetime.now(tz=pytz.UTC) - timedelta(days=max_age_in_days)
+            )
+            q &= Q(
+                created_at__gt=min_created_at
+            )  # query on file creation date ('created_at')
+        if instruments is not None:
+            q &= Q(instrument_id__in=instruments)
 
     raw_files_db = (
         RawFile.objects(q)

@@ -59,6 +59,8 @@ DEFAULT_MAX_TABLE_LEN = 500
 DEFAULT_MAX_AGE_OVERVIEW = 2  # days
 DEFAULT_MAX_AGE_STATUS = 90  # days
 
+BASELINE_PREFIX = "BASELINE_"
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,

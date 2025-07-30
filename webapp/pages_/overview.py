@@ -262,7 +262,7 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
 
     # ########################################### DISPLAY: Url to bookmark
 
-    url = get_url_with_query_string(user_input, dict(st.query_params))
+    url = get_url_with_query_string(user_input, get_all_query_params())
 
     st.markdown(
         f"""Hint: save the current filter by bookmarking <a href="{url}" target="_self">{url}</a>""",

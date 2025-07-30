@@ -197,13 +197,17 @@ with st.spinner("Loading data ..."):
 
     combined_df, data_timestamp = get_combined_raw_files_and_metrics_df(
         max_age_in_days=max_age,
-        stop_at_no_data=True,
+        print_at_no_data=True,
         instruments=(
             None
             if instruments_input in [ALL, FORCE_ALL]
             else instruments_input.split(",")
         ),
     )
+    if len(combined_df) == 0:
+        st.warning("Not enough data yet. Please broaden your selection.")
+        st.stop()
+
     c2.text(f"Last loaded: {data_timestamp.strftime('%Y-%m-%d %H:%M:%S')}")
     combined_df = harmonize_df(combined_df, COLUMNS)
 

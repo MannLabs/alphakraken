@@ -39,7 +39,7 @@ class YamlSettings:
     def __new__(cls) -> dict[str, dict[str, Any]]:
         """Get a new or existing instance of the YamlSettings class."""
         if cls._instance is None:
-            cls._instance: dict[str, dict[str, Any]] = cls.load_alphakraken_yaml()
+            cls._instance = cls.load_alphakraken_yaml()
         return cls._instance.copy()
 
     @classmethod

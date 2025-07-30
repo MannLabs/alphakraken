@@ -45,7 +45,7 @@ def test_get_path_returns_setting_raises_key_error_for_non_exisiting_key_1() -> 
     """Test that a KeyError is raised if the key does not exist."""
     with (
         patch(
-            "common.settings.YAMLSETTINGS",
+            "shared.yamlsettings.YAMLSETTINGS",
             {"locations": {"backup": {"absolute_path": "some_path"}}},
         ),
         pytest.raises(KeyError),
@@ -57,7 +57,7 @@ def test_get_path_returns_setting_raises_key_error_for_non_exisiting_key_2() -> 
     """Test that a KeyError is raised if the key does not exist."""
     with (
         patch(
-            "common.settings.YAMLSETTINGS",
+            "shared.yamlsettings.YAMLSETTINGS",
             {"locations": {"backup": {"Xabsolute_path": "some_path"}}},
         ),
         pytest.raises(KeyError),

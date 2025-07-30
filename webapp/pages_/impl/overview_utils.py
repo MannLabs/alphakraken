@@ -8,12 +8,9 @@ import pandas as pd
 import yaml
 from service.components import get_display_time
 from service.data_handling import get_combined_raw_files_and_metrics_df
-from service.utils import APP_URL, FILTER_MAPPING, Cols, QueryParams
+from service.utils import APP_URL, BASELINE_PREFIX, FILTER_MAPPING, Cols, QueryParams
 
 from shared.db.models import TERMINAL_STATUSES
-
-BASELINE_PREFIX = "BASELINE_"
-
 
 EXPLANATION_STATUS = """
             #### Explanation of 'status' information
@@ -127,19 +124,22 @@ def filter_valid_columns(columns: list[str], df: pd.DataFrame) -> list[str]:
 
 def get_baseline_df(
     baseline_query_param: str, columns: tuple[Column, ...]
-) -> pd.DataFrame:
-    """Get the baseline DataFrame based on the query parameter."""
+) -> tuple[pd.DataFrame, int]:
+    """Get the baseline DataFrame and the number of desired files based on the query parameter."""
     baseline_file_names = [name.strip() for name in baseline_query_param.split(",")]
     baseline_df, _ = get_combined_raw_files_and_metrics_df(
         raw_file_ids=baseline_file_names
     )
+    if len(baseline_df) == 0:
+        return baseline_df, len(baseline_file_names)
+
     baseline_df = harmonize_df(baseline_df, columns)
     baseline_df[Cols.IS_BASELINE] = True
 
     # this is a hack to prevent index clashing, but also helps to identify the baseline data in the table
     baseline_df.index = [BASELINE_PREFIX + str(idx) for idx in baseline_df.index]
 
-    return baseline_df
+    return baseline_df, len(baseline_file_names)
 
 
 def get_url_with_query_string(user_input: str | None, query_params: dict) -> str:

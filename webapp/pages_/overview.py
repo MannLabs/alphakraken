@@ -11,7 +11,6 @@ import streamlit as st
 from matplotlib import pyplot as plt
 from pages_.impl.overview_plotting import _draw_plot
 from pages_.impl.overview_utils import (
-    BASELINE_PREFIX,
     EXPLANATION_STATUS,
     add_eta,
     filter_valid_columns,
@@ -39,6 +38,7 @@ from service.session_state import (
 )
 from service.status import display_status_warning
 from service.utils import (
+    BASELINE_PREFIX,
     DEFAULT_MAX_AGE_OVERVIEW,
     DEFAULT_MAX_TABLE_LEN,
     FILTER_MAPPING,
@@ -197,21 +197,32 @@ with st.spinner("Loading data ..."):
 
     combined_df, data_timestamp = get_combined_raw_files_and_metrics_df(
         max_age_in_days=max_age,
-        stop_at_no_data=True,
+        print_at_no_data=True,
         instruments=(
             None
             if instruments_input in [ALL, FORCE_ALL]
             else instruments_input.split(",")
         ),
     )
+    if len(combined_df) == 0:
+        st.warning("Not enough data yet. Please broaden your selection.")
+        st.stop()
+
     c2.text(f"Last loaded: {data_timestamp.strftime('%Y-%m-%d %H:%M:%S')}")
     combined_df = harmonize_df(combined_df, COLUMNS)
 
     # Load and merge baseline data if specified
     baseline_query_param = st.query_params.get(QueryParams.BASELINE, "")
     if baseline_query_param:
-        baseline_df = get_baseline_df(baseline_query_param, COLUMNS)
-        combined_df = pd.concat([combined_df, baseline_df], ignore_index=False)
+        baseline_df, num_desired_files = get_baseline_df(baseline_query_param, COLUMNS)
+        if len(baseline_df) != num_desired_files:
+            st.warning(
+                f"Incomplete baseline data found for `{QueryParams.BASELINE}={baseline_query_param}` . Please select valid baseline file(s) with metrics."
+                f"\nDesired file count: {num_desired_files}, found: {len(baseline_df)}.",
+                icon="⚠️",
+            )
+        else:
+            combined_df = pd.concat([combined_df, baseline_df], ignore_index=False)
 
 
 filter_value = st.query_params.get(QueryParams.FILTER, "")

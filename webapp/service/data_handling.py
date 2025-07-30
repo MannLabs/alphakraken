@@ -30,7 +30,7 @@ def get_combined_raw_files_and_metrics_df(
     )
 
     if len(raw_files_df) == 0 or len(alphadia_metrics_df) == 0:
-        # TODO: improve -> move st dependency ouy
+        # TODO: improve -> move st dependency out
         if print_at_no_data:
             # just for debugging
             st.write(f"[{len(raw_files_df)=} {len(alphadia_metrics_df)=}]")

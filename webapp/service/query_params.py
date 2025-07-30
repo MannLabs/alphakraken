@@ -41,8 +41,8 @@ def set_query_param_from_session_state(
 
 
 def get_all_query_params() -> dict[str, Any]:
-    """Get all query parameters as a dictionary."""
-    return st.query_params
+    """Get a copy of all query parameters as a dictionary."""
+    return dict(st.query_params)
 
 
 def get_query_param(key: str, *, default: Any | None = None) -> Any:  # noqa: ANN401

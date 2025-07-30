@@ -113,9 +113,7 @@ def show_filter(
             mask &= new_mask
 
         # always show baseline data
-        mask |= df.index.map(
-            lambda x: isinstance(x, str) and x.startswith(BASELINE_PREFIX)
-        ).any()
+        mask |= df.index.str.startswith(BASELINE_PREFIX)
 
     return df[mask], user_input, errors
 

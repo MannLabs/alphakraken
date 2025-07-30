@@ -9,6 +9,7 @@ from pathlib import Path
 import plotly.graph_objects as go
 import streamlit as st
 from PIL import Image
+from service.query_params import QueryParams, is_query_param_true
 from service.session_state import (
     SessionStateKeys,
     get_session_state,
@@ -32,28 +33,6 @@ DISABLE_WRITE = False
 
 quanting_settings_path = get_path(Locations.SETTINGS)
 quanting_output_path = get_path(Locations.OUTPUT)
-
-
-class QueryParams:
-    """Query parameters for streamlit pages."""
-
-    # max age of data to load from the DB
-    MAX_AGE = "max_age"
-
-    # instruments to load from the DB
-    INSTRUMENTS = "instruments"
-
-    # max length of table to display
-    MAX_TABLE_LEN = "max_table_len"
-
-    # prefilled filter string
-    FILTER = "filter"
-
-    # whether page is accessed via mobile
-    MOBILE = "mobile"
-
-    # comma-separated list of baseline runs
-    BASELINE = "baseline"
 
 
 DEFAULT_MAX_TABLE_LEN = 500
@@ -130,11 +109,6 @@ def display_info_message(st_display: st.delta_generator.DeltaGenerator = None) -
             c1.info(content, icon="ℹ️")  # noqa: RUF001
         else:
             st_display.info(content, icon="ℹ️")  # noqa: RUF001
-
-
-def is_query_param_true(key: str) -> bool:
-    """Whether app is called with parameter `key` equal to 'True' (case-insensitive) or '1'."""
-    return st.query_params.get(key, "False").lower() in ["true", "1"]
 
 
 def display_plotly_chart(

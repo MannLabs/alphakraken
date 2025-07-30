@@ -3,18 +3,46 @@
 from typing import Any
 
 import streamlit as st
+from service.session_state import get_session_state
 
 
-class QueryParamKeys:
+class QueryParams:
     """Keys for accessing query parameters."""
 
-    # Add common query parameter keys here as needed
+    # max age of data to load from the DB
+    MAX_AGE = "max_age"
+
+    # instruments to load from the DB
+    INSTRUMENTS = "instruments"
+
+    # max length of table to display
+    MAX_TABLE_LEN = "max_table_len"
+
+    # prefilled filter string
+    FILTER = "filter"
+
+    # whether page is accessed via mobile
+    MOBILE = "mobile"
+
+    # comma-separated list of baseline runs
+    BASELINE = "baseline"
 
 
-def set_query_param(key: str, value: Any, *, overwrite: bool = True) -> None:  # noqa: ANN401
-    """Set a value in the query params, optionally overwriting it if it already exists."""
-    if overwrite or key not in st.query_params:
-        st.query_params[key] = value
+def set_query_param_from_session_state(
+    key: str, query_param: str, default: str
+) -> None:
+    """Clear or set a query parameter from session state."""
+    value = get_session_state(key)
+    if value == default:
+        if query_param in st.query_params:
+            del st.query_params[query_param]
+    else:
+        st.query_params[query_param] = value
+
+
+def get_all_query_params() -> dict[str, Any]:
+    """Get all query parameters as a dictionary."""
+    return st.query_params
 
 
 def get_query_param(key: str, *, default: Any | None = None) -> Any:  # noqa: ANN401
@@ -22,14 +50,6 @@ def get_query_param(key: str, *, default: Any | None = None) -> Any:  # noqa: AN
     return st.query_params.get(key, default)
 
 
-def remove_query_param(key: str) -> None:
-    """Remove a key from the query params."""
-    del st.query_params[key]
-
-
-def copy_query_param(target_key: str, source_key: str) -> None:
-    """Copy a value from one key to another in the query params.
-
-    Raises KeyError if the source key does not exist.
-    """
-    st.query_params[target_key] = st.query_params[source_key]
+def is_query_param_true(key: str) -> bool:
+    """Whether app is called with parameter `key` equal to 'True' (case-insensitive) or '1'."""
+    return get_query_param(key, default="False").lower() in ["true", "1"]

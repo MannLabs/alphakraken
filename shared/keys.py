@@ -23,15 +23,6 @@ class InstrumentTypes:
     SCIEX: str = "sciex"
 
 
-class Locations:
-    """Keys for accessing paths in the yaml config."""
-
-    BACKUP = "backup"
-    SETTINGS = "settings"
-    OUTPUT = "output"
-    SLURM = "slurm"
-
-
 class InternalPaths:
     """Paths to directories within the Docker containers."""
 
@@ -50,5 +41,8 @@ class MetricsTypes:
     CUSTOM: str = "custom"
 
 
-FORBIDDEN_CHARACTERS_IN_RAW_FILE_NAME = r"[^a-zA-Z0-9\-_+.]"
+_ALLOWED_CHARACTERS = r"a-zA-Z0-9\-_+\."
+ALLOWED_CHARACTERS_PRETTY = _ALLOWED_CHARACTERS.replace("\\", "")
+FORBIDDEN_CHARACTERS_REGEXP = rf"[^{_ALLOWED_CHARACTERS}]"
+
 DDA_FLAG_IN_RAW_FILE_NAME = "_dda_"

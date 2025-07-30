@@ -12,7 +12,7 @@ from service.utils import _log
 
 from shared.db.engine import connect_db
 from shared.db.models import KrakenStatus, Metrics, Project, RawFile, Settings
-from shared.keys import FORBIDDEN_CHARACTERS_IN_RAW_FILE_NAME
+from shared.keys import ALLOWED_CHARACTERS_PRETTY, FORBIDDEN_CHARACTERS_REGEXP
 
 
 def get_raw_files_for_status_df(
@@ -75,9 +75,9 @@ def _validate_input(values: list[str] | None, param_name: str) -> None:
 
     for value in values:
         # FORBIDDEN_CHARACTERS_IN_RAW_FILE_NAME serves well here
-        if re.match(FORBIDDEN_CHARACTERS_IN_RAW_FILE_NAME, value):
+        if re.match(FORBIDDEN_CHARACTERS_REGEXP, value):
             raise ValueError(
-                f"Invalid parameter '{param_name}': '{value}' contains forbidden characters. Allowed: `!{FORBIDDEN_CHARACTERS_IN_RAW_FILE_NAME}`"
+                f"Invalid parameter '{param_name}': '{value}' contains forbidden characters. Allowed: `!{ALLOWED_CHARACTERS_PRETTY}`"
             )
 
 
@@ -92,7 +92,7 @@ def get_raw_file_and_metrics_data(
 ) -> tuple[QuerySet, QuerySet, datetime]:
     """Return from the database the QuerySets for RawFile and Metrics for files younger than max_age_in_days or for given list of raw file ids."""
     _validate_input(raw_file_ids, "raw_file_ids")
-    _validate_input(instruments, "instruments")
+    _validate_input(instruments, "instruments")  # TODO: use query params accessor
     # max_age_in_days is implicitly validated to be numeric by converting it to timedelta
 
     if max_age_in_days is None and raw_file_ids is None:

@@ -88,7 +88,7 @@ def test_overview(
     )
 
     mock_df_from_db_data.side_effect = [
-        status_df,  # this is for show_status_warning
+        status_df,  # this is for display_status_warning
         raw_files_df,
         metrics_df,
         custom_metrics_df,

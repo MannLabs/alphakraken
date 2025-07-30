@@ -16,8 +16,7 @@ from service.session_state import (
     remove_session_state,
 )
 
-from shared.keys import Locations
-from shared.yamlsettings import get_path
+from shared.yamlsettings import YamlKeys, get_path
 
 # mapping of filter strings to url query parameters
 FILTER_MAPPING: dict[str, str] = {
@@ -31,8 +30,8 @@ APP_URL = os.getenv("WEBAPP_URL")
 DISABLE_WRITE = False
 
 
-quanting_settings_path = get_path(Locations.SETTINGS)
-quanting_output_path = get_path(Locations.OUTPUT)
+quanting_settings_path = get_path(YamlKeys.Locations.SETTINGS)
+quanting_output_path = get_path(YamlKeys.Locations.OUTPUT)
 
 
 DEFAULT_MAX_TABLE_LEN = 500

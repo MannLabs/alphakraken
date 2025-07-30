@@ -5,7 +5,19 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
-from streamlit.testing.v1 import AppTest
+
+import shared.yamlsettings
+
+
+def mock_get_path(path_key: str) -> Path:
+    """Mock get_path to return dummy paths for testing."""
+    del path_key  # Unused parameter
+    return Path("/some/path")
+
+
+shared.yamlsettings.get_path = mock_get_path  # type: ignore[invalid-assignment]
+
+from streamlit.testing.v1 import AppTest  # noqa: E402]
 
 PAGES_FOLDER = Path(__file__).parent / Path("../../pages_")
 

@@ -47,7 +47,10 @@ def get_all_query_params() -> dict[str, Any]:
 
 def get_query_param(key: str, *, default: Any | None = None) -> Any:  # noqa: ANN401
     """Get a value from the query params, returning a default value if the key does not exist."""
-    return st.query_params.get(key, default)
+    for k, v in st.query_params.items():
+        if k.lower() == key.lower():
+            return v
+    return default
 
 
 def is_query_param_true(key: str) -> bool:

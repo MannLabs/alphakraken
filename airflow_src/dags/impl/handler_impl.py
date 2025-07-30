@@ -43,9 +43,8 @@ from shared.db.models import (
 from shared.keys import (
     DDA_FLAG_IN_RAW_FILE_NAME,
     FORBIDDEN_CHARACTERS_IN_RAW_FILE_NAME,
-    Locations,
 )
-from shared.yamlsettings import get_path
+from shared.yamlsettings import YamlKeys, get_path
 
 
 def compute_checksum(ti: TaskInstance, **kwargs) -> bool:
@@ -208,7 +207,9 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
 def get_backup_base_path(instrument_id: str, raw_file: RawFile) -> Path:
     """Get the backup base path for the given instrument and raw file, e.g. /fs/pool/backup/test2/2025_07 ."""
     return (
-        get_path(Locations.BACKUP) / instrument_id / get_created_at_year_month(raw_file)
+        get_path(YamlKeys.Locations.BACKUP)
+        / instrument_id
+        / get_created_at_year_month(raw_file)
     )
 
 

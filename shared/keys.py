@@ -23,15 +23,6 @@ class InstrumentTypes:
     SCIEX: str = "sciex"
 
 
-class Locations:
-    """Keys for accessing paths in the yaml config."""
-
-    BACKUP = "backup"
-    SETTINGS = "settings"
-    OUTPUT = "output"
-    SLURM = "slurm"
-
-
 class InternalPaths:
     """Paths to directories within the Docker containers."""
 

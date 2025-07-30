@@ -92,7 +92,7 @@ def get_raw_file_and_metrics_data(
 ) -> tuple[QuerySet, QuerySet, datetime]:
     """Return from the database the QuerySets for RawFile and Metrics for files younger than max_age_in_days or for given list of raw file ids."""
     _validate_input(raw_file_ids, "raw_file_ids")
-    _validate_input(instruments, "instruments")
+    _validate_input(instruments, "instruments")  # TODO: use query params accessor
     # max_age_in_days is implicitly validated to be numeric by converting it to timedelta
 
     _log("Connecting to the database")

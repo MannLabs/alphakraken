@@ -5,7 +5,7 @@ from typing import Any
 from common.keys import InstrumentKeys
 
 from shared.keys import InstrumentTypes
-from shared.yamlsettings import YAMLSETTINGS
+from shared.yamlsettings import YAMLSETTINGS, YamlKeys
 
 
 class Timings:
@@ -84,7 +84,7 @@ def get_fallback_project_id(instrument_id: str) -> str:
 
 
 # TODO: move to shared?
-_INSTRUMENTS = YAMLSETTINGS["instruments"].copy()
+_INSTRUMENTS = YAMLSETTINGS[YamlKeys.INSTRUMENTS].copy()
 
 
 def get_instrument_ids() -> list[str]:

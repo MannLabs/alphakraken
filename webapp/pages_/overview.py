@@ -35,10 +35,10 @@ from service.session_state import (
     SessionStateKeys,
     copy_session_state,
     get_session_state,
+    set_session_state,
 )
 from service.status import display_status_warning
 from service.utils import (
-    APP_URL,
     DEFAULT_MAX_AGE_OVERVIEW,
     DEFAULT_MAX_TABLE_LEN,
     FILTER_MAPPING,
@@ -50,14 +50,18 @@ from service.utils import (
 
 _log(f"loading {__file__} {st.query_params}")
 
-
-@st.cache_data
-def df_to_csv(df: pd.DataFrame) -> str:
-    """Convert a DataFrame to a CSV string."""
-    return df.to_csv().encode("utf-8")
-
+# instruments default
+ALL = "(all)"
+FORCE_ALL = "(force_all)"
 
 COLUMNS = load_columns_from_yaml()
+
+
+@st.cache_data
+def df_to_csv(df: pd.DataFrame) -> bytes:
+    """Convert a DataFrame to a CSV-encoded bytes object."""
+    return df.to_csv().encode("utf-8")
+
 
 # ########################################### PAGE HEADER
 
@@ -71,36 +75,133 @@ st.write(
     f"Current Kraken time: {datetime.now(tz=pytz.UTC).replace(microsecond=0)} [all time stamps are given in UTC!]"
 )
 
+display_info_message()
 
-max_age_url = f"{APP_URL}/overview?max_age=60"
-st.markdown(
-    f"""
-    Note: for performance reasons, by default only data for the last {DEFAULT_MAX_AGE_OVERVIEW} days are loaded.
-    If you want to see more data, use the "?max_age=" query parameter in the url, e.g.
-    <a href="{max_age_url}" target="_self">{max_age_url}</a>
-    """,
-    unsafe_allow_html=True,
-)
+
+# ########################################### Query parameters
+
+st.markdown("## Data")
+
+instruments_query_param = st.query_params.get(QueryParams.INSTRUMENTS, None)
+instrument_options = [ALL, "test1", "test2", FORCE_ALL]
+if instruments_query_param and instruments_query_param not in instrument_options:
+    instrument_options = [instruments_query_param, *instrument_options]
+
+max_age_query_param = st.query_params.get(QueryParams.MAX_AGE, None)
+
+# ########################################### Load
+
+st.markdown("#### Load from database")
 
 st.write(
-    "Use the filter and date select to narrow down results both in the table and the plots below."
+    f"For performance reasons, by default only data for the last {DEFAULT_MAX_AGE_OVERVIEW} days are loaded. ",
+    "If you need a longer time range, you need to narrow down the data loading to a specific instrument.",
+)
+st.write(
+    "Hint: create a bookmark of the current page to quickly access the data for a certain instrument and time range later.",
+)
+st.write(
+    "Then, use the filter and date select below to narrow down results both in the table and the plots below."
 )
 
-display_info_message()
+
+# TODO: move
+def _set_query_param(key: str, query_param: str, default: str) -> None:
+    """Clear or set a query parameter from session state."""
+    value = get_session_state(key)
+    if value == default:
+        if query_param in st.query_params:
+            del st.query_params[query_param]
+    else:
+        st.query_params[query_param] = value
+
+
+# ########################################### Load: selection
+
+c1, c2, _ = st.columns([0.2, 0.2, 0.6])
+instruments_input = c1.selectbox(
+    "Instruments:",
+    instrument_options,
+    index=instrument_options.index(
+        get_session_state(
+            "instruments_widget_key",
+            default=instruments_query_param
+            if instruments_query_param is not None
+            else ALL,
+        )
+    ),
+    accept_new_options=True,
+    key="instruments_widget_key",
+    on_change=partial(
+        _set_query_param, "instruments_widget_key", QueryParams.INSTRUMENTS, ALL
+    ),
+    help=f"Select an instrument to filter the data. You may enter a custom (comma-separated) list or use the '{FORCE_ALL}' option to load all instruments overriding the time range constraint. ",
+)
+
+
+max_age = c2.number_input(
+    "Max age (days)",
+    min_value=1.0,
+    step=1.0,
+    value=float(
+        get_session_state(
+            "max_age_widget_key",
+            default=max_age_query_param
+            if max_age_query_param is not None
+            else DEFAULT_MAX_AGE_OVERVIEW,
+        )
+    ),
+    key="max_age_widget_key",
+    on_change=partial(
+        _set_query_param,
+        "max_age_widget_key",
+        QueryParams.MAX_AGE,
+        DEFAULT_MAX_AGE_OVERVIEW,
+    ),
+    help="Select how much data to fetch.",
+)
+
+
+# ########################################### Load: button
+
+c1, c2, _ = st.columns([0.1, 0.2, 0.6])
+
+too_much_data = max_age > DEFAULT_MAX_AGE_OVERVIEW and instruments_input == ALL
+reload_button_clicked = c1.button("🔄 Reload", disabled=too_much_data)
+if too_much_data:
+    st.info(
+        f"Loading all instruments' data for more than {DEFAULT_MAX_AGE_OVERVIEW} days is not recommended due to performance reasons. "
+        f"If you really want to compare multiple instruments over a longer time, "
+        f"provide a comma-separated list of instruments in the input field above or "
+        f"use the '{FORCE_ALL}' option.",
+    )
+    st.stop()
+
+if reload_button_clicked:
+    get_raw_file_and_metrics_data.clear()
+    set_session_state(SessionStateKeys.IS_FIRST_RUN, value=True)
+    st.rerun()
+if not reload_button_clicked and not get_session_state(
+    SessionStateKeys.IS_FIRST_RUN, default=True
+):
+    st.stop()
+
 
 display_status_warning()
 
-
-# ########################################### LOGIC
-max_age_in_days = float(
-    st.query_params.get(QueryParams.MAX_AGE, DEFAULT_MAX_AGE_OVERVIEW)
-)
-
-
 with st.spinner("Loading data ..."):
+    set_session_state(SessionStateKeys.IS_FIRST_RUN, value=False)
+
     combined_df, data_timestamp = get_combined_raw_files_and_metrics_df(
-        max_age_in_days=max_age_in_days, stop_at_no_data=True
+        max_age_in_days=max_age,
+        stop_at_no_data=True,
+        instruments=(
+            None
+            if instruments_input in [ALL, FORCE_ALL]
+            else instruments_input.split(",")
+        ),
     )
+    c2.text(f"Last loaded: {data_timestamp.strftime('%Y-%m-%d %H:%M:%S')}")
     combined_df = harmonize_df(combined_df, COLUMNS)
 
     # Load and merge baseline data if specified
@@ -115,6 +216,9 @@ for key_, value_ in FILTER_MAPPING.items():
     filter_value = filter_value.lower().replace(key_.lower(), value_)
 
 
+st.markdown("#### Filter data")
+
+
 # using a fragment to avoid re-doing the above operations on every filter change
 # cf. https://docs.streamlit.io/develop/concepts/architecture/fragments
 @st.fragment
@@ -125,13 +229,6 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
     data_timestamp: datetime,
 ) -> None:
     """A fragment that displays a DataFrame with a filter."""
-    st.markdown("## Data")
-
-    st.text(f"Last fetched {data_timestamp.strftime('%Y-%m-%d %H:%M:%S')}")
-    if st.button("🔄 Refresh"):
-        get_raw_file_and_metrics_data.clear()
-        st.rerun()
-
     # ########################################### DISPLAY: Filter
     len_whole_df = len(df)
     c1, c2, _ = st.columns([0.5, 0.25, 0.25])
@@ -147,9 +244,6 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
     filtered_df = show_date_select(
         filtered_df,
         st_display=c2,
-        max_age_days=9999
-        if user_input
-        else None,  # hacky way to always display all data if filter is set
     )
 
     if filter_errors:
@@ -169,7 +263,7 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
         st.query_params.get(QueryParams.MAX_TABLE_LEN, DEFAULT_MAX_TABLE_LEN)
     )
     st.write(
-        f"Found {len(filtered_df)} / {len_whole_df} entries. Distribution of terminal statuses: {get_terminal_status_counts(filtered_df)} "
+        f"Displaying {len(filtered_df)} / {len_whole_df} entries. Distribution of terminal statuses: {get_terminal_status_counts(filtered_df)} "
         f"Note: data is limited to last {max_age_in_days} days, table display is limited to first {max_table_len} entries. See FAQ how to change this.",
     )
 
@@ -241,6 +335,7 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
                 formatter="{:.0f}",
             ),
             column_order=get_column_order(filtered_df, COLUMNS),
+            column_config={"_index": {"label": "raw_file_id", "alignment": "right"}},
         )
     except Exception as e:  # noqa: BLE001
         _log(e)
@@ -420,4 +515,4 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
 
 
 # don't put any code between definition of fragment and its usage
-_display_table_and_plots(combined_df, max_age_in_days, filter_value, data_timestamp)
+_display_table_and_plots(combined_df, max_age, filter_value, data_timestamp)

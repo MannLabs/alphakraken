@@ -11,6 +11,8 @@ class SessionStateKeys:
     SUCCESS_MSG = "success_msg"
     ERROR_MSG = "error_msg"
 
+    IS_FIRST_RUN = "is_first_run"
+
     CURRENT_FILTER = "current_filter"
     SHOW_TRACES = "show_traces"
     SHOW_STD = "show_std"

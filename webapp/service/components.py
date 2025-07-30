@@ -125,12 +125,12 @@ def show_date_select(
     """Filter the DataFrame on user input by date."""
     if len(df) == 0:
         return df
-    if max_age_days is None:
-        max_age_days = 7
 
     oldest_file = df["created_at"].min()
     youngest_file = df["created_at"].max()
-    max_age = datetime.now() - timedelta(days=max_age_days)  # noqa:  DTZ005 no tz argument
+    max_age = (
+        datetime.now() - timedelta(days=max_age_days) if max_age_days else oldest_file  # noqa: DTZ005
+    )
     last_selectable_date = min(youngest_file, max(oldest_file, max_age))
     min_date = st_display.date_input(
         text_to_display,

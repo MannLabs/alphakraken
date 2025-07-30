@@ -13,8 +13,9 @@ def display_status_warning() -> None:
     if len(nok_status_df):
         instruments_with_issues = nok_status_df["_id"].unique()
         st.warning(
-            f"AlphaKraken currently has issues with the following instrument(s): **{', '.join(instruments_with_issues)}** . "
+            f"AlphaKraken currently has issues monitoring the following instrument(s): **{', '.join(instruments_with_issues)}** . "
             "Please check the status page for more information.",
+            "Don't worry: the instrument is quite likely working fine.",
             icon="⚠️",
         )
         st.page_link("pages_/status.py", label="➔ Go to status page")

@@ -154,8 +154,9 @@ def get_url_with_query_string(user_input: str, query_params: dict) -> str:
 
     for param in [
         QueryParams.MOBILE,
-        QueryParams.MAX_AGE,
         QueryParams.MAX_TABLE_LEN,
+        QueryParams.MAX_AGE,
+        QueryParams.INSTRUMENTS,
         QueryParams.BASELINE,
     ]:
         if param in query_params:

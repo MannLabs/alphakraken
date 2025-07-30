@@ -1,5 +1,6 @@
 """Database service for the web application."""
 
+import re
 from datetime import datetime, timedelta
 
 # ruff: noqa: PD002 # `inplace=True` should be avoided; it has inconsistent behavior
@@ -11,6 +12,7 @@ from service.utils import _log
 
 from shared.db.engine import connect_db
 from shared.db.models import KrakenStatus, Metrics, Project, RawFile, Settings
+from shared.keys import ALLOWED_CHARACTERS_IN_RAW_FILE_NAME
 
 
 def get_raw_files_for_status_df(
@@ -66,17 +68,38 @@ def get_raw_files_for_status_df(
     return df
 
 
+def _validate_input(values: list[str] | None, param_name: str) -> None:
+    """Validate that all values in the list contain only letters and numbers."""
+    if not values:
+        return
+
+    for value in values:
+        # ALLOWED_CHARACTERS_IN_RAW_FILE_NAME serves well here
+        if not re.match(ALLOWED_CHARACTERS_IN_RAW_FILE_NAME, value):
+            raise ValueError(
+                f"Invalid parameter '{param_name}': '{value}' contains forbidden characters. Allowed {ALLOWED_CHARACTERS_IN_RAW_FILE_NAME}"
+            )
+
+
 # Cached values are accessible to all users across all sessions.
 # Considering memory it should currently be fine to have all data cached.
 # Command for clearing the cache:  get_all_data.clear()
 @st.cache_data(ttl=120)
 def get_raw_file_and_metrics_data(
-    max_age_in_days: float | None, raw_file_ids: list[str] | None
+    max_age_in_days: float | None,
+    raw_file_ids: list[str] | None,
+    instruments: list[str] | None = None,
 ) -> tuple[QuerySet, QuerySet, datetime]:
     """Return from the database the QuerySets for RawFile and Metrics for files younger than max_age_in_days or for given list of raw file ids."""
+    _validate_input(raw_file_ids, "raw_file_ids")
+    _validate_input(instruments, "instruments")
+    # max_age_in_days is implicitly validated to be numeric by converting it to timedelta
+
     _log("Connecting to the database")
     connect_db()
-    _log("Retrieving all raw file and metrics data")
+    _log(
+        f"Retrieving raw file and metrics {max_age_in_days=} {raw_file_ids=} {instruments=}"
+    )
 
     if max_age_in_days is not None:
         min_created_at = pd.Timestamp(
@@ -90,6 +113,9 @@ def get_raw_file_and_metrics_data(
     else:
         raise ValueError("Either max_age_in_days or raw_file_ids must be provided.")
 
+    if instruments is not None:
+        q = q & Q(instrument_id__in=instruments)
+
     raw_files_db = (
         RawFile.objects(q)
         # exclude some not-needed fields
@@ -101,6 +127,10 @@ def get_raw_file_and_metrics_data(
 
     now = datetime.now(tz=pytz.UTC).replace(microsecond=0)
 
+    _log(
+        f"Done retrieving raw file and metrics {max_age_in_days=} {raw_file_ids=} {instruments=}"
+    )
+
     return raw_files_db, metrics_db, now
 
 
@@ -109,7 +139,10 @@ def get_full_raw_file_data(raw_file_ids: list[str]) -> pd.DataFrame:
     _log("Connecting to the database")
     connect_db()
     _log(f"Retrieving all raw file data for {raw_file_ids}")
+
     raw_files_db = RawFile.objects.filter(id__in=raw_file_ids)
+
+    _log(f"Done retrieving all raw file data for {raw_file_ids}")
 
     return df_from_db_data(raw_files_db)
 
@@ -119,7 +152,10 @@ def get_status_data() -> QuerySet:
     _log("Connecting to the database")
     connect_db()
     _log("Retrieving all status data")
-    return KrakenStatus.objects
+    objects = KrakenStatus.objects
+    _log("Done retrieving all status data")
+
+    return objects
 
 
 def get_project_data() -> QuerySet:

@@ -120,40 +120,6 @@ if project_id:
 # ########################################### FORM
 
 
-form_items = {
-    "name": {
-        "label": "Name*",
-        "max_chars": 64,
-        "placeholder": "e.g. very fast plasma settings.",
-        "help": "Human readable short name for your settings.",
-    },
-    "fasta_file_name": {
-        "label": "Fasta file name*",
-        "max_chars": 64,
-        "placeholder": "e.g. human.fasta",
-        "help": "Name of the fasta file.",
-    },
-    "speclib_file_name": {
-        "label": "Speclib file name*",
-        "max_chars": 64,
-        "placeholder": "e.g. human_plasma.speclib",
-        "help": "Name of the speclib file.",
-    },
-    "config_file_name": {
-        "label": "Config file name",
-        "max_chars": 64,
-        "placeholder": "e.g. very_fast_config.yaml",
-        "help": "Name of the config file. If none is given, default will be used.",
-    },
-    "software": {
-        "label": "Software",
-        "max_chars": 64,
-        "placeholder": "e.g. alphadia-1.10.0",
-        "help": "Name of the Conda environment that holds the AlphaDIA executable. Needs to be created manually.",
-    },
-}
-
-
 if selected_project:
     c1.markdown("### Step 2/3: Define settings")
 
@@ -162,11 +128,79 @@ if selected_project:
         f"Settings will be added to the following project: `{selected_project.name}`{desc}"
     )
 
+    software_type = c1.selectbox(label="software", options=["AlphaDIA", "custom"])
+
+    form_items = {
+        "name": {
+            "label": "Name*",
+            "max_chars": 64,
+            "placeholder": "e.g. very fast plasma settings.",
+            "help": "Human readable short name for your settings.",
+        },
+        "fasta_file_name": {
+            "label": "Fasta file name*",
+            "max_chars": 64,
+            "placeholder": "e.g. human.fasta",
+            "help": "Name of the fasta file.",
+        },
+        "speclib_file_name": {
+            "label": "Speclib file name*",
+            "max_chars": 64,
+            "placeholder": "e.g. human_plasma.speclib",
+            "help": "Name of the speclib file.",
+        },
+    }
+
+    if software_type == "AlphaDIA":
+        form_items |= {
+            "config_file_name": {
+                "label": "Config file name",
+                "max_chars": 64,
+                "placeholder": "e.g. very_fast_config.yaml",
+                "help": "Name of the config file. If none is given, default will be used.",
+            },
+            "software": {
+                "label": "Software",
+                "max_chars": 64,
+                "placeholder": "e.g. alphadia-1.10.0",
+                "help": "Name of the Conda environment that holds the AlphaDIA executable. Needs to be created manually by the user running the AlphaKraken jobs.",
+            },
+        }
+
+    else:  # custom
+        form_items |= {
+            "config_params": {
+                "label": "Configuration parameters",
+                "max_chars": 512,
+                "placeholder": "e.g. '--qvalue 0.01 --matrices --relaxed-prot-inf --f FILE_PATH --lib LIB_PATH --out OUT_PATH --fasta FASTA_PATH --temp OUT_PATH'",
+                "help": "Configuration options.",
+            },
+            # TODO: NEXT_SLICE explain the placeholders
+            "software": {
+                "label": "Executable",
+                "max_chars": 64,
+                "placeholder": "diann1.8.1",
+                "help": "Executable must be available in `/fs/home/alphakraken/software/`.",
+                # TODO: NEXT_SLICE make path dynamic, explain
+            },
+        }
+
     with c1.form("add_settings_to_project"):
         name = st.text_input(**form_items["name"])
         fasta_file_name = st.text_input(**form_items["fasta_file_name"])
         speclib_file_name = st.text_input(**form_items["speclib_file_name"])
-        config_file_name = st.text_input(**form_items["config_file_name"])
+
+        config_file_name = (
+            st.text_input(**form_items["config_file_name"])
+            if "config_file_name" in form_items
+            else None
+        )
+        config_params = (
+            st.text_area(**form_items["config_params"])
+            if "config_params" in form_items
+            else None
+        )
+
         software = st.text_input(**form_items["software"])
 
         st.write(r"\* Required fields")
@@ -177,6 +211,7 @@ if selected_project:
             "Make sure you have uploaded all the files correctly to "
             f"`{quanting_settings_path}/{project_id}/`"
         )
+        # TODO: NEXT_SLICE add list of files to upload here
         upload_checkbox = st.checkbox(
             "I have uploaded the above files to this folder.", value=False
         )
@@ -216,6 +251,7 @@ if selected_project and submit:
             fasta_file_name=fasta_file_name,
             speclib_file_name=speclib_file_name,
             config_file_name=config_file_name,
+            config_params=config_params,
             software=software,
         )
     except Exception as e:  # noqa: BLE001

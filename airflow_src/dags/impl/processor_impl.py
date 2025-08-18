@@ -47,6 +47,7 @@ from shared.db.interface import (
 )
 from shared.db.models import RawFile, RawFileStatus, Settings, get_created_at_year_month
 from shared.keys import MetricsTypes, SoftwareTypes
+from shared.validation import validate_config_params, validate_name
 from shared.yamlsettings import YamlKeys, get_path
 
 
@@ -116,6 +117,16 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
         QuantingEnv.PROJECT_ID_OR_FALLBACK: project_id_or_fallback,
         QuantingEnv.SETTINGS_VERSION: settings.version,
     }
+
+    errors = []
+    for to_validate in quanting_env.values():
+        if to_validate:
+            errors.extend(validate_name(to_validate))
+    errors.extend(validate_config_params(settings.config_params))
+    if errors:
+        raise AirflowFailException(
+            f"Validation errors in quanting environment: {errors}"
+        )
 
     put_xcom(ti, XComKeys.QUANTING_ENV, quanting_env)
     # this is redundant to the entry in QUANTING_ENV, but makes downstream access a bit more convenient

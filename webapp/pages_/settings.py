@@ -22,6 +22,7 @@ from service.utils import (
 from shared.db.interface import add_settings
 from shared.db.models import ProjectStatus
 from shared.keys import SoftwareTypes
+from shared.validation import validate_config_params, validate_name
 from shared.yamlsettings import YamlKeys, get_path
 
 _log(f"loading {__file__} {get_all_query_params()}")
@@ -194,18 +195,34 @@ if selected_project:
         fasta_file_name = st.text_input(**form_items["fasta_file_name"])
         speclib_file_name = st.text_input(**form_items["speclib_file_name"])
 
+        software = st.text_input(**form_items["software"])
+
         config_file_name = (
             st.text_input(**form_items["config_file_name"])
             if "config_file_name" in form_items
             else None
         )
+
         config_params = (
             st.text_area(**form_items["config_params"])
             if "config_params" in form_items
             else None
         )
 
-        software = st.text_input(**form_items["software"])
+        # Validate inputs and show errors
+        validation_errors = []
+        for to_validate in [
+            fasta_file_name,
+            speclib_file_name,
+            software,
+            software,
+            config_file_name,
+            config_params,
+        ]:
+            if to_validate:
+                validation_errors.extend(validate_name(to_validate))
+        if config_params:
+            validation_errors.extend(validate_config_params(config_params))
 
         st.write(r"\* Required fields")
         st.write(r"\** At least one of the two must be given")
@@ -243,6 +260,9 @@ if selected_project and submit:
             raise ValueError(
                 "At least one of the fasta and speclib file names must be given."
             )  # Abstract `raise` to an inner function
+
+        if validation_errors:
+            raise ValueError(f"Input validation error: {validation_errors}")
 
         if not upload_checkbox:
             raise ValueError(

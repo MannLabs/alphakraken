@@ -117,47 +117,7 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
         QuantingEnv.SETTINGS_VERSION: settings.version,
     }
 
-    errors = []
-    for key, to_validate in quanting_env.items():
-        if (
-            to_validate
-            and key
-            not in [
-                QuantingEnv.CUSTOM_COMMAND,
-                QuantingEnv.SOFTWARE,
-                QuantingEnv.RAW_FILE_PATH,
-                QuantingEnv.SETTINGS_PATH,
-                QuantingEnv.OUTPUT_PATH,
-            ]
-            and isinstance(to_validate, str)
-            and (errors_ := validate_name(to_validate))
-        ):
-            errors.append(f"Validation error in '{to_validate}': {errors_}")
-    errors.extend(
-        validate_name(
-            quanting_env[QuantingEnv.CUSTOM_COMMAND],
-            allow_spaces=True,
-            allow_absolute_paths=True,
-        )
-    )
-    if settings.software_type == SoftwareTypes.CUSTOM:
-        errors.extend(
-            validate_name(
-                quanting_env[QuantingEnv.RAW_FILE_PATH], allow_absolute_paths=True
-            )
-        )
-        errors.extend(
-            validate_name(quanting_env[QuantingEnv.SOFTWARE], allow_absolute_paths=True)
-        )
-    errors.extend(
-        validate_name(
-            quanting_env[QuantingEnv.SETTINGS_PATH], allow_absolute_paths=True
-        )
-    )
-    errors.extend(
-        validate_name(quanting_env[QuantingEnv.OUTPUT_PATH], allow_absolute_paths=True)
-    )
-    errors.extend(validate_config_params(settings.config_params))
+    errors = _validate_fields(quanting_env, settings)
 
     if errors:
         raise AirflowFailException(
@@ -167,6 +127,48 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
     put_xcom(ti, XComKeys.QUANTING_ENV, quanting_env)
     # this is redundant to the entry in QUANTING_ENV, but makes downstream access a bit more convenient
     put_xcom(ti, XComKeys.RAW_FILE_ID, raw_file_id)
+
+
+def _validate_fields(quanting_env: dict[str, str], settings: Settings) -> list[str]:
+    """Validate the fields in the quanting environment don't contain malicious content."""
+    errors = []
+    for key, value in quanting_env.items():
+        if (
+            value
+            and key
+            not in [
+                QuantingEnv.CUSTOM_COMMAND,
+                QuantingEnv.SOFTWARE,
+                QuantingEnv.RAW_FILE_PATH,
+                QuantingEnv.SETTINGS_PATH,
+                QuantingEnv.OUTPUT_PATH,
+            ]
+            and isinstance(value, str)
+            and (errors_ := validate_name(value))
+        ):
+            errors.append(f"Validation error in '{value}': {errors_}")
+
+    for key in [
+        QuantingEnv.RAW_FILE_PATH,
+        QuantingEnv.SETTINGS_PATH,
+        QuantingEnv.OUTPUT_PATH,
+    ]:
+        errors.extend(validate_name(quanting_env[key], allow_absolute_paths=True))
+
+    if settings.software_type == SoftwareTypes.CUSTOM:
+        errors.extend(
+            validate_name(
+                quanting_env[QuantingEnv.CUSTOM_COMMAND],
+                allow_spaces=True,
+                allow_absolute_paths=True,
+            )
+        )
+        errors.extend(
+            validate_name(quanting_env[QuantingEnv.SOFTWARE], allow_absolute_paths=True)
+        )
+        errors.extend(validate_config_params(settings.config_params))
+
+    return errors
 
 
 def _prepare_custom_command(

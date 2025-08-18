@@ -46,7 +46,7 @@ from shared.db.interface import (
     update_raw_file,
 )
 from shared.db.models import RawFile, RawFileStatus, Settings, get_created_at_year_month
-from shared.keys import MetricsTypes
+from shared.keys import MetricsTypes, SoftwareTypes
 from shared.yamlsettings import YamlKeys, get_path
 
 
@@ -93,7 +93,7 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
         raw_file, project_id_or_fallback
     )
 
-    if settings.software_type == "custom":
+    if settings.software_type == SoftwareTypes.CUSTOM:
         custom_command = _prepare_custom_command(
             output_path, raw_file_path, settings, settings_path
         )

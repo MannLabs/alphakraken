@@ -21,6 +21,7 @@ from service.utils import (
 
 from shared.db.interface import add_settings
 from shared.db.models import ProjectStatus
+from shared.keys import SoftwareTypes
 from shared.yamlsettings import YamlKeys, get_path
 
 _log(f"loading {__file__} {get_all_query_params()}")
@@ -129,7 +130,9 @@ if selected_project:
         f"Settings will be added to the following project: `{selected_project.name}`{desc}"
     )
 
-    software_type = c1.selectbox(label="Type", options=["alphadia", "custom"])
+    software_type = c1.selectbox(
+        label="Type", options=[SoftwareTypes.ALPHADIA, SoftwareTypes.CUSTOM]
+    )
 
     form_items = {
         "name": {
@@ -152,7 +155,7 @@ if selected_project:
         },
     }
 
-    if software_type == "alphadia":
+    if software_type == SoftwareTypes.ALPHADIA:
         form_items |= {
             "config_file_name": {
                 "label": "Config file name",

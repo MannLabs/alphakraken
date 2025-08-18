@@ -27,6 +27,8 @@ export TQDM_MININTERVAL=10  # avoid lots of tqdm outputs
 # FASTA_FILE_NAME # e.g. 2024_01_12_human.fasta
 # CONFIG_FILE_NAME #e.g. "config.yaml"
 # SOFTWARE # e.g. alphadia-1.6.2
+# SOFTWARE_TYPE # e.g. "alphadia" or "custom"
+# CUSTOM_COMMAND # e.g. "/fs/home/alphakraken/software/custom1.2.3 --qvalue 0.01 --f /path/to/file.raw ..."
 
 # these are determined by convention:
 CONDA_ENV=$SOFTWARE
@@ -37,8 +39,10 @@ CONFIG_FILE_PATH="${SETTINGS_PATH}/${CONFIG_FILE_NAME}"
 echo RAW_FILE_PATH=${RAW_FILE_PATH}
 echo SETTINGS_PATH=${SETTINGS_PATH}
 echo OUTPUT_PATH=${OUTPUT_PATH}
+echo SOFTWARE_TYPE=${SOFTWARE_TYPE}
 echo CONFIG_FILE_PATH=${CONFIG_FILE_PATH}
 echo CONDA_ENV=${CONDA_ENV}
+echo CUSTOM_COMMAND=${CUSTOM_COMMAND}
 
 echo INPUT INFORMATION ">>>>>>"
 if [ -d "$RAW_FILE_PATH" ]; then
@@ -52,35 +56,9 @@ else
   md5sum ${RAW_FILE_PATH}
   stat ${RAW_FILE_PATH}
 fi
-echo CONFIG_FILE:
-echo size and md5sum: $(du -s ${CONFIG_FILE_PATH}) $(md5sum ${CONFIG_FILE_PATH})
-cat ${CONFIG_FILE_PATH}
+
 echo "<<<<<<"
 
-# here we assume that at least one of these is set
-SPECLIB_COMMAND=""
-FASTA_COMMAND=""
-if [ -n "$FASTA_FILE_NAME" ]; then
-  FASTA_FILE_PATH="${SETTINGS_PATH}/${FASTA_FILE_NAME}"
-  echo FASTA_FILE_PATH=${FASTA_FILE_PATH}
-  echo FASTA_FILE size and md5sum: $(du -s ${FASTA_FILE_PATH}) $(md5sum ${FASTA_FILE_PATH})
-  FASTA_COMMAND="--fasta ${FASTA_FILE_PATH}"
-fi
-if [ -n "$SPECLIB_FILE_NAME" ]; then
-  SPECLIB_FILE_PATH="${SETTINGS_PATH}/${SPECLIB_FILE_NAME}"
-  echo SPECLIB_FILE_PATH=${SPECLIB_FILE_PATH}
-  echo SPECLIB size and md5sum: $(du -s ${SPECLIB_FILE_PATH}) $(md5sum ${SPECLIB_FILE_PATH})
-  SPECLIB_COMMAND="--library ${SPECLIB_FILE_PATH}"
-fi
-
-echo CONDA_ENV ">>>>>>"
-conda info
-conda run -n $CONDA_ENV pip freeze
-echo "<<<<<<"
-
-echo MONO_VERSION ">>>>>>"
-conda run -n $CONDA_ENV mono --version
-echo "<<<<<<"
 
 echo Creating output path ..
 mkdir -p ${OUTPUT_PATH}
@@ -128,21 +106,62 @@ if [[ ${RAW_FILE_PATH} == *.wiff ]]; then
   stat "${OUTPUT_PATH}/tmp_raw_data/"*
 
 fi
-##################### SCIEX HACK #####################
+##################### SCIEX HACK END #####################
 
-echo "Running alphadia.."
-echo "Check the logs in ${OUTPUT_PATH}/log.txt"
+if [ "$SOFTWARE_TYPE" = "alphadia" ]; then
 
-set +e
-conda run -n $CONDA_ENV alphadia \
-    --file "${RAW_FILE_PATH}" \
-    ${SPECLIB_COMMAND} \
-    ${FASTA_COMMAND} \
-    --config "${CONFIG_FILE_PATH}" \
-    --output "${OUTPUT_PATH}" \
-    --config-dict "{\"general\": {\"thread_count\": $NTHREADS}}"
-alphadia_exit_code=$?  # this line must immediately follow the `conda run ..` command
-set -e
+    echo CONFIG_FILE:
+    echo size and md5sum: $(du -s ${CONFIG_FILE_PATH}) $(md5sum ${CONFIG_FILE_PATH})
+    cat ${CONFIG_FILE_PATH}
+
+    # here we assume that at least one of these is set
+    SPECLIB_COMMAND=""
+    FASTA_COMMAND=""
+    if [ -n "$FASTA_FILE_NAME" ]; then
+      FASTA_FILE_PATH="${SETTINGS_PATH}/${FASTA_FILE_NAME}"
+      echo FASTA_FILE_PATH=${FASTA_FILE_PATH}
+      echo FASTA_FILE size and md5sum: $(du -s ${FASTA_FILE_PATH}) $(md5sum ${FASTA_FILE_PATH})
+      FASTA_COMMAND="--fasta ${FASTA_FILE_PATH}"
+    fi
+    if [ -n "$SPECLIB_FILE_NAME" ]; then
+      SPECLIB_FILE_PATH="${SETTINGS_PATH}/${SPECLIB_FILE_NAME}"
+      echo SPECLIB_FILE_PATH=${SPECLIB_FILE_PATH}
+      echo SPECLIB size and md5sum: $(du -s ${SPECLIB_FILE_PATH}) $(md5sum ${SPECLIB_FILE_PATH})
+      SPECLIB_COMMAND="--library ${SPECLIB_FILE_PATH}"
+    fi
+
+    echo CONDA_ENV ">>>>>>"
+    conda info
+    conda run -n $CONDA_ENV pip freeze
+    echo "<<<<<<"
+
+    echo MONO_VERSION ">>>>>>"
+    conda run -n $CONDA_ENV mono --version
+    echo "<<<<<<"
+
+    echo "Running alphadia.."
+    echo "Check the logs in ${OUTPUT_PATH}/log.txt"
+
+    set +e
+    conda run -n $CONDA_ENV alphadia \
+        --file "${RAW_FILE_PATH}" \
+        ${SPECLIB_COMMAND} \
+        ${FASTA_COMMAND} \
+        --config "${CONFIG_FILE_PATH}" \
+        --output "${OUTPUT_PATH}" \
+        --config-dict "{\"general\": {\"thread_count\": $NTHREADS}}"
+    software_exit_code=$?  # this line must immediately follow the `conda run ..` command
+    set -e
+else
+    echo "Running custom software.."
+    echo "Command: ${CUSTOM_COMMAND}"
+    echo "Check the logs in ${OUTPUT_PATH}/log.txt"
+
+    set +e
+    ${CUSTOM_COMMAND} > ${OUTPUT_PATH}/log.txt 2>&1
+    software_exit_code=$?  # this line must immediately follow the command
+    set -e
+fi
 
 echo OUTPUT_PATH ">>>>>>"
 set +e
@@ -152,8 +171,8 @@ stat ${OUTPUT_PATH}/*
 set -e
 echo "<<<<<<"
 
-echo ALPHADIA EXIT CODE ">>>>>>"
-echo $alphadia_exit_code
+echo SOFTWARE EXIT CODE ">>>>>>"
+echo $software_exit_code
 echo "<<<<<<"
 
 
@@ -167,9 +186,9 @@ if [[ ${RAW_FILE_PATH} == *.wiff ]]; then
   rm "${OUTPUT_PATH}/tmp_raw_data/${raw_file_name_stem}.wiff.scan"
   echo .. done removing
 fi
-##################### SCIEX HACK #####################
+##################### SCIEX HACK END #####################
 
-if [ ! "$alphadia_exit_code" -eq 0 ]; then
-    echo got nonzero exit code $alphadia_exit_code
-    exit $alphadia_exit_code
+if [ ! "$software_exit_code" -eq 0 ]; then
+    echo got nonzero exit code $software_exit_code
+    exit $software_exit_code
 fi

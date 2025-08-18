@@ -31,6 +31,10 @@ locations:
   settings:
     # no need for mount information (yet)
     absolute_path: /fs/pool/pool-0/alphakraken_sandbox/settings
+  software:
+    # location of custom executables for quanting software
+    # no need for mount information (yet)
+    absolute_path: /fs/home/kraken-read/software
   slurm:
     # location of slurm submit script and destination for slurm logs
     # no need for mount information (yet)

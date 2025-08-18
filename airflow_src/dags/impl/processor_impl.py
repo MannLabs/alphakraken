@@ -38,6 +38,7 @@ from jobs.job_handler import (
 )
 from metrics.metrics_calculator import calc_metrics
 from mongoengine import DoesNotExist
+from validation import check_for_malicious_content
 
 from shared.db.interface import (
     add_metrics_to_raw_file,
@@ -45,8 +46,8 @@ from shared.db.interface import (
     get_settings_for_project,
     update_raw_file,
 )
-from shared.db.models import RawFile, RawFileStatus, get_created_at_year_month
-from shared.keys import MetricsTypes
+from shared.db.models import RawFile, RawFileStatus, Settings, get_created_at_year_month
+from shared.keys import MetricsTypes, SoftwareTypes
 from shared.yamlsettings import YamlKeys, get_path
 
 
@@ -93,23 +94,112 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
         raw_file, project_id_or_fallback
     )
 
+    if settings.software_type == SoftwareTypes.CUSTOM:
+        custom_command = _prepare_custom_command(
+            output_path, raw_file_path, settings, settings_path
+        )
+    else:
+        custom_command = ""
+
     quanting_env = {
         QuantingEnv.RAW_FILE_PATH: str(raw_file_path),
         QuantingEnv.SETTINGS_PATH: str(settings_path),
         QuantingEnv.OUTPUT_PATH: str(output_path),
-        QuantingEnv.SPECLIB_FILE_NAME: settings.speclib_file_name,
-        QuantingEnv.FASTA_FILE_NAME: settings.fasta_file_name,
-        QuantingEnv.CONFIG_FILE_NAME: settings.config_file_name,
+        QuantingEnv.SPECLIB_FILE_NAME: settings.speclib_file_name,  # TODO: construct path here
+        QuantingEnv.FASTA_FILE_NAME: settings.fasta_file_name,  # TODO: construct path here
+        QuantingEnv.CONFIG_FILE_NAME: settings.config_file_name,  # TODO: construct path here
         QuantingEnv.SOFTWARE: settings.software,
+        QuantingEnv.SOFTWARE_TYPE: settings.software_type,
+        QuantingEnv.CUSTOM_COMMAND: custom_command,
         # not required for slurm script:
         QuantingEnv.RAW_FILE_ID: raw_file_id,
         QuantingEnv.PROJECT_ID_OR_FALLBACK: project_id_or_fallback,
         QuantingEnv.SETTINGS_VERSION: settings.version,
     }
 
+    if errors := _check_content(quanting_env, settings):
+        raise AirflowFailException(
+            f"Validation errors in quanting environment: {errors}"
+        )
+
     put_xcom(ti, XComKeys.QUANTING_ENV, quanting_env)
     # this is redundant to the entry in QUANTING_ENV, but makes downstream access a bit more convenient
     put_xcom(ti, XComKeys.RAW_FILE_ID, raw_file_id)
+
+
+def _prepare_custom_command(
+    output_path: Path, raw_file_path: Path, settings: Settings, settings_path: Path
+) -> str:
+    """Prepare the custom command for the quanting job."""
+    speclib_file_path = (
+        str(settings_path / settings.speclib_file_name)
+        if settings.speclib_file_name
+        else ""
+    )
+    fasta_file_path = (
+        str(settings_path / settings.fasta_file_name)
+        if settings.fasta_file_name
+        else ""
+    )
+    substituted_params = settings.config_params
+    substituted_params = substituted_params.replace("RAW_FILE_PATH", str(raw_file_path))
+    substituted_params = substituted_params.replace("LIBRARY_PATH", speclib_file_path)
+    substituted_params = substituted_params.replace("OUTPUT_PATH", str(output_path))
+    substituted_params = substituted_params.replace("FASTA_PATH", fasta_file_path)
+
+    software_base_path = get_path(YamlKeys.Locations.SOFTWARE)
+    software_path = str(software_base_path / settings.software)
+    custom_command = f"{software_path} {substituted_params}"
+    logging.info(f"Custom command for quanting: {custom_command}")
+    return custom_command
+
+
+def _check_content(quanting_env: dict[str, str], settings: Settings) -> list[str]:
+    """Validate the fields in the quanting environment don't contain malicious content."""
+    errors = []
+    for key, value in quanting_env.items():
+        if (
+            value
+            and key
+            not in [
+                QuantingEnv.CUSTOM_COMMAND,
+                QuantingEnv.SOFTWARE,
+                QuantingEnv.RAW_FILE_PATH,
+                QuantingEnv.SETTINGS_PATH,
+                QuantingEnv.OUTPUT_PATH,
+            ]
+            and isinstance(value, str)
+            and (errors_ := check_for_malicious_content(value))
+        ):
+            errors.append(f"Validation error in '{value}': {errors_}")
+
+    for key in [
+        QuantingEnv.RAW_FILE_PATH,
+        QuantingEnv.SETTINGS_PATH,
+        QuantingEnv.OUTPUT_PATH,
+    ]:
+        errors.extend(
+            check_for_malicious_content(quanting_env[key], allow_absolute_paths=True)
+        )
+
+    if settings.software_type == SoftwareTypes.CUSTOM:
+        errors.extend(
+            check_for_malicious_content(
+                quanting_env[QuantingEnv.CUSTOM_COMMAND],
+                allow_spaces=True,
+                allow_absolute_paths=True,
+            )
+        )
+        errors.extend(
+            check_for_malicious_content(
+                quanting_env[QuantingEnv.SOFTWARE], allow_absolute_paths=True
+            )
+        )
+        errors.extend(
+            check_for_malicious_content(settings.config_params, allow_spaces=True)
+        )
+
+    return errors
 
 
 def _get_slurm_job_id_from_log(output_path: Path) -> str | None:

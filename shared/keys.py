@@ -41,6 +41,13 @@ class MetricsTypes:
     CUSTOM: str = "custom"
 
 
+class SoftwareTypes:
+    """Types of software that can be used for quanting."""
+
+    ALPHADIA: str = "alphadia"
+    CUSTOM: str = "custom"
+
+
 _ALLOWED_CHARACTERS = r"a-zA-Z0-9\-_+\."
 ALLOWED_CHARACTERS_PRETTY = _ALLOWED_CHARACTERS.replace("\\", "")
 FORBIDDEN_CHARACTERS_REGEXP = rf"[^{_ALLOWED_CHARACTERS}]"

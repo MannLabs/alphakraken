@@ -29,6 +29,7 @@ class YamlKeys:
         SETTINGS = "settings"
         OUTPUT = "output"
         SLURM = "slurm"
+        SOFTWARE = "software"
 
 
 class YamlSettings:

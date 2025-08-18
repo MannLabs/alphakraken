@@ -179,7 +179,7 @@ class SlurmSSHJobHandler(JobHandler):
     @staticmethod
     def _create_export_environment_cmd(mapping: dict[str, str]) -> str:
         """Create a bash command to export environment variables."""
-        return "\n".join([f"export {k}={v}" for k, v in mapping.items()])
+        return "\n".join([f'export {k}="{v}"' for k, v in mapping.items()])
 
     @staticmethod
     def _get_time_elapsed(ssh_return: str) -> int:

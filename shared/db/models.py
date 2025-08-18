@@ -170,7 +170,14 @@ class Settings(Document):
     fasta_file_name = StringField(required=True, max_length=128)
     speclib_file_name = StringField(required=True, max_length=128)
 
-    config_file_name = StringField(required=True, max_length=128)
+    config_file_name = StringField(required=False, max_length=128)
+    config_params = StringField(required=False, max_length=512)
+
+    software_type = StringField(
+        required=True,
+        max_length=128,
+        default="alphadia",  # TODO: remove, default is just for backwards compatibility
+    )
     software = StringField(required=True, max_length=128)
 
     status = StringField(max_length=64, default=ProjectStatus.ACTIVE)

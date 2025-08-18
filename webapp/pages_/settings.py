@@ -172,7 +172,7 @@ if selected_project:
             "config_params": {
                 "label": "Configuration parameters",
                 "max_chars": 512,
-                "placeholder": "e.g. '--qvalue 0.01 --matrices --relaxed-prot-inf --f FILE_PATH --lib LIB_PATH --out OUT_PATH --fasta FASTA_PATH --temp OUT_PATH'",
+                "placeholder": "e.g. '--qvalue 0.01 --f RAW_FILE_PATH --out OUTPUT_PATH --temp OUTPUT_PATH --lib LIB_PATH --fasta FASTA_PATH'",
                 "help": "Configuration options.",
             },
             # TODO: NEXT_SLICE explain the placeholders

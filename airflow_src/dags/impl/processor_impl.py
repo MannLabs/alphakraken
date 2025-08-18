@@ -45,7 +45,7 @@ from shared.db.interface import (
     get_settings_for_project,
     update_raw_file,
 )
-from shared.db.models import RawFile, RawFileStatus, get_created_at_year_month
+from shared.db.models import RawFile, RawFileStatus, Settings, get_created_at_year_month
 from shared.keys import MetricsTypes
 from shared.yamlsettings import YamlKeys, get_path
 
@@ -93,30 +93,12 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
         raw_file, project_id_or_fallback
     )
 
-    custom_command = ""
     if settings.software_type == "custom":
-        speclib_file_path = (
-            str(settings_path / settings.speclib_file_name)
-            if settings.speclib_file_name
-            else ""
+        custom_command = _prepare_custom_command(
+            output_path, raw_file_path, settings, settings_path
         )
-        fasta_file_path = (
-            str(settings_path / settings.fasta_file_name)
-            if settings.fasta_file_name
-            else ""
-        )
-        substituted_params = settings.config_params
-        substituted_params = substituted_params.replace("FILE_PATH", str(raw_file_path))
-        substituted_params = substituted_params.replace("LIB_PATH", speclib_file_path)
-        substituted_params = substituted_params.replace("OUT_PATH", str(output_path))
-        substituted_params = substituted_params.replace("FASTA_PATH", fasta_file_path)
-        # TODO: fail here if  FILE_PATH, OUT_PATH are not replaced, and if fasta_file_path,speclib_file_path are given but not replaced
-
-        # Construct the full command
-        executable_path = (
-            f"/fs/home/alphakraken/software/{settings.software}"  # TODO: make dynamic
-        )
-        custom_command = f"{executable_path} {substituted_params}"
+    else:
+        custom_command = ""
 
     quanting_env = {
         QuantingEnv.RAW_FILE_PATH: str(raw_file_path),
@@ -138,6 +120,36 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
     put_xcom(ti, XComKeys.QUANTING_ENV, quanting_env)
     # this is redundant to the entry in QUANTING_ENV, but makes downstream access a bit more convenient
     put_xcom(ti, XComKeys.RAW_FILE_ID, raw_file_id)
+
+
+def _prepare_custom_command(
+    output_path: Path, raw_file_path: Path, settings: Settings, settings_path: Path
+) -> str:
+    """Prepare the custom command for the quanting job."""
+    speclib_file_path = (
+        str(settings_path / settings.speclib_file_name)
+        if settings.speclib_file_name
+        else ""
+    )
+    fasta_file_path = (
+        str(settings_path / settings.fasta_file_name)
+        if settings.fasta_file_name
+        else ""
+    )
+    substituted_params = settings.config_params
+    substituted_params = substituted_params.replace("RAW_FILE_PATH", str(raw_file_path))
+    substituted_params = substituted_params.replace("LIB_PATH", speclib_file_path)
+    substituted_params = substituted_params.replace("OUTPUT_PATH", str(output_path))
+    substituted_params = substituted_params.replace("FASTA_PATH", fasta_file_path)
+
+    # TODO: fail here if RAW_FILE_PATH, OUT_PATH are not replaced, and if fasta_file_path,speclib_file_path are given but not replaced, also in frontend
+    # TODO: fail here if something looks wrong with the command, also in frontend
+    executable_path = (
+        f"/fs/home/alphakraken/software/{settings.software}"  # TODO: make dynamic
+    )
+    custom_command = f"{executable_path} {substituted_params}"
+    logging.info(f"Custom command for quanting: {custom_command}")
+    return custom_command
 
 
 def _get_slurm_job_id_from_log(output_path: Path) -> str | None:

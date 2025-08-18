@@ -118,7 +118,6 @@ def test_prepare_quanting(
         "SPECLIB_FILE_NAME": "some_speclib_file_name",
         "FASTA_FILE_NAME": "some_fasta_file_name",
         "CONFIG_FILE_NAME": "some_config_file_name",
-        "CONFIG_PARAMS": "",
         "SOFTWARE": "some_software",
         "SOFTWARE_TYPE": "alphadia",
         "CUSTOM_COMMAND": "",
@@ -195,7 +194,6 @@ def test_prepare_quanting_custom_software(
         "SPECLIB_FILE_NAME": "some_speclib_file_name",
         "FASTA_FILE_NAME": "some_fasta_file_name",
         "CONFIG_FILE_NAME": "",
-        "CONFIG_PARAMS": "--qvalue 0.01 --f RAW_FILE_PATH --lib LIBRARY_PATH --out OUTPUT_PATH --fasta FASTA_PATH",
         "SOFTWARE": "custom1.2.3",
         "SOFTWARE_TYPE": "custom",
         "CUSTOM_COMMAND": expected_custom_command,
@@ -210,6 +208,54 @@ def test_prepare_quanting_custom_software(
             call(ti, "raw_file_id", "test_file.raw"),
         ]
     )
+
+
+@patch.dict(_INSTRUMENTS, {"instrument1": {}})
+@patch("dags.impl.processor_impl.get_raw_file_by_id")
+@patch("dags.impl.processor_impl.get_path")
+@patch("dags.impl.processor_impl._get_project_id_or_fallback")
+@patch("dags.impl.processor_impl.get_settings_for_project")
+def test_prepare_quanting_validation_error_raises(
+    mock_get_settings: MagicMock,
+    mock_get_project_id_for_raw_file: MagicMock,
+    mock_get_path: MagicMock,
+    mock_get_raw_file_by_id: MagicMock,
+) -> None:
+    """Test that prepare_quanting raises on validation errors."""
+    mock_raw_file = MagicMock(
+        wraps=RawFile,
+        id="test_file.raw",
+        created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
+        project_id="some_project_id",
+    )
+    mock_get_raw_file_by_id.return_value = mock_raw_file
+    mock_get_path.side_effect = [
+        Path("some_backup_base_path"),
+        Path("some_quanting_settings_path"),
+        Path("some_quanting_output_path"),
+        Path("some_software_base_path"),
+    ]
+    mock_get_project_id_for_raw_file.return_value = "some_project_id"
+    mock_get_settings.return_value = MagicMock(
+        speclib_file_name="some_speclib_file_name",
+        fasta_file_name="some_fasta_file_name",
+        config_file_name="",
+        config_params="--qvalue 0.01 --f RAW_FILE_PATH --lib LIBRARY_PATH --out OUTPUT_PATH --fasta FASTA_PATH",
+        software="custom1.2.3",  # this will raise
+        software_type="custom",
+        version=1,
+    )
+    ti = MagicMock()
+
+    kwargs = {
+        OpArgs.INSTRUMENT_ID: "instrument1",
+        DagContext.PARAMS: {
+            DagParams.RAW_FILE_ID: "test_file.raw",
+        },
+    }
+
+    # when
+    prepare_quanting(ti, **kwargs)
 
 
 @patch("dags.impl.processor_impl.get_raw_file_by_id")

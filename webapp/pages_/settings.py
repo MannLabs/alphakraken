@@ -220,12 +220,11 @@ if selected_project:
             fasta_file_name,
             speclib_file_name,
             software,
-            software,
             config_file_name,
             config_params,
         ]:
             if to_validate:
-                validation_errors.extend(validate_name(to_validate))
+                validation_errors.extend(validate_name(to_validate, allow_spaces=True))
         if config_params:
             validation_errors.extend(validate_config_params(config_params))
 

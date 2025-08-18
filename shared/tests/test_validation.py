@@ -16,7 +16,7 @@ class TestValidateName:
 
     def test_valid_executable_names(self) -> None:
         """Test that valid executable names pass validation."""
-        valid_names = [
+        valid_names_no_spaces = [
             "valid-executable",
             "executable.1.2.3",
             "sub/folder/executable",
@@ -29,9 +29,21 @@ class TestValidateName:
             "a/b",
         ]
 
-        for name in valid_names:
+        for name in valid_names_no_spaces:
             errors = validate_name(name)
             assert not errors, f"Expected '{name}' to be valid, got errors: {errors}"
+
+    def test_valid_executable_names_with_spaces(self) -> None:
+        """Test that valid executable names with spaces pass validation when allow_spaces=True."""
+        valid_names_with_spaces = [
+            "exe with spaces",
+        ]
+
+        for name in valid_names_with_spaces:
+            errors = validate_name(name, allow_spaces=True)
+            assert not errors, (
+                f"Expected '{name}' to be valid with spaces allowed, got errors: {errors}"
+            )
 
     def test_empty_executable_name(self) -> None:
         """Test that empty executable name fails validation."""
@@ -88,7 +100,6 @@ class TestValidateName:
             "exe\\backslash",
             'exe"quote',
             "exe'quote",
-            "exe with spaces",
             "exe\ttab",
             "exe\nnewline",
         ]

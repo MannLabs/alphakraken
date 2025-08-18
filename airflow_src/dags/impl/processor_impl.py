@@ -108,7 +108,6 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
         QuantingEnv.SPECLIB_FILE_NAME: settings.speclib_file_name,  # TODO: construct path here
         QuantingEnv.FASTA_FILE_NAME: settings.fasta_file_name,  # TODO: construct path here
         QuantingEnv.CONFIG_FILE_NAME: settings.config_file_name,  # TODO: construct path here
-        QuantingEnv.CONFIG_PARAMS: settings.config_params,
         QuantingEnv.SOFTWARE: settings.software,
         QuantingEnv.SOFTWARE_TYPE: settings.software_type,
         QuantingEnv.CUSTOM_COMMAND: custom_command,
@@ -119,14 +118,47 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
     }
 
     errors = []
-    for to_validate in quanting_env.values():
+    for key, to_validate in quanting_env.items():
         if (
             to_validate
+            and key
+            not in [
+                QuantingEnv.CUSTOM_COMMAND,
+                QuantingEnv.SOFTWARE,
+                QuantingEnv.RAW_FILE_PATH,
+                QuantingEnv.SETTINGS_PATH,
+                QuantingEnv.OUTPUT_PATH,
+            ]
             and isinstance(to_validate, str)
-            and (errors := validate_name(to_validate))
+            and (errors_ := validate_name(to_validate))
         ):
-            errors.append(f"Validation error in '{to_validate}': {errors}")
+            errors.append(f"Validation error in '{to_validate}': {errors_}")
+    errors.extend(
+        validate_name(
+            quanting_env[QuantingEnv.CUSTOM_COMMAND],
+            allow_spaces=True,
+            allow_absolute_paths=True,
+        )
+    )
+    if settings.software_type == SoftwareTypes.CUSTOM:
+        errors.extend(
+            validate_name(
+                quanting_env[QuantingEnv.RAW_FILE_PATH], allow_absolute_paths=True
+            )
+        )
+        errors.extend(
+            validate_name(quanting_env[QuantingEnv.SOFTWARE], allow_absolute_paths=True)
+        )
+    errors.extend(
+        validate_name(
+            quanting_env[QuantingEnv.SETTINGS_PATH], allow_absolute_paths=True
+        )
+    )
+    errors.extend(
+        validate_name(quanting_env[QuantingEnv.OUTPUT_PATH], allow_absolute_paths=True)
+    )
     errors.extend(validate_config_params(settings.config_params))
+
     if errors:
         raise AirflowFailException(
             f"Validation errors in quanting environment: {errors}"
@@ -157,8 +189,6 @@ def _prepare_custom_command(
     substituted_params = substituted_params.replace("OUTPUT_PATH", str(output_path))
     substituted_params = substituted_params.replace("FASTA_PATH", fasta_file_path)
 
-    # TODO: fail here if RAW_FILE_PATH, OUT_PATH are not replaced, and if fasta_file_path,speclib_file_path are given but not replaced, also in frontend
-    # TODO: fail here if something looks wrong with the command, also in frontend
     software_base_path = get_path(YamlKeys.Locations.SOFTWARE)
     software_path = str(software_base_path / settings.software)
     custom_command = f"{software_path} {substituted_params}"

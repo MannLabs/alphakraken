@@ -175,6 +175,7 @@ class Settings(Document):
         required=False, max_length=512
     )  # TODO: NEXT_SLICE frontend validation for mutual exclusivity
 
+    software_type = StringField(required=True, max_length=128)
     software = StringField(required=True, max_length=128)
 
     status = StringField(max_length=64, default=ProjectStatus.ACTIVE)

@@ -100,6 +100,7 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
         QuantingEnv.SPECLIB_FILE_NAME: settings.speclib_file_name,
         QuantingEnv.FASTA_FILE_NAME: settings.fasta_file_name,
         QuantingEnv.CONFIG_FILE_NAME: settings.config_file_name,
+        QuantingEnv.CONFIG_PARAMS: settings.config_params,
         QuantingEnv.SOFTWARE: settings.software,
         # not required for slurm script:
         QuantingEnv.RAW_FILE_ID: raw_file_id,

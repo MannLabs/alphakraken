@@ -88,6 +88,7 @@ def test_prepare_quanting(
         speclib_file_name="some_speclib_file_name",
         fasta_file_name="some_fasta_file_name",
         config_file_name="some_config_file_name",
+        config_params="",
         software="some_software",
         version=1,
     )
@@ -116,6 +117,7 @@ def test_prepare_quanting(
         "SPECLIB_FILE_NAME": "some_speclib_file_name",
         "FASTA_FILE_NAME": "some_fasta_file_name",
         "CONFIG_FILE_NAME": "some_config_file_name",
+        "CONFIG_PARAMS": "",
         "SOFTWARE": "some_software",
         "RAW_FILE_ID": "test_file.raw",
         "PROJECT_ID_OR_FALLBACK": "some_project_id",
@@ -245,6 +247,7 @@ def test_run_quanting_executes_ssh_command_and_stores_job_id(
         {
             QuantingEnv.RAW_FILE_ID: "test_file.raw",
             QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID123",
+            QuantingEnv.CONFIG_PARAMS: "",
             # rest of quanting_env is left out here for brevity
         },
         -1,
@@ -262,7 +265,11 @@ def test_run_quanting_executes_ssh_command_and_stores_job_id(
 
     mock_start_job.assert_called_once_with(
         "submit_job.sh",
-        {"RAW_FILE_ID": "test_file.raw", "PROJECT_ID_OR_FALLBACK": "PID123"},
+        {
+            "RAW_FILE_ID": "test_file.raw",
+            "PROJECT_ID_OR_FALLBACK": "PID123",
+            "CONFIG_PARAMS": "",
+        },
         "1970_01",
     )
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
@@ -284,6 +291,7 @@ def test_run_quanting_job_id_exists(
         {
             QuantingEnv.RAW_FILE_ID: "test_file.raw",
             QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID123",
+            QuantingEnv.CONFIG_PARAMS: "",
             # rest of quanting_env is left out here for brevity
         },
         12345,
@@ -313,6 +321,7 @@ def test_run_quanting_output_folder_exists(
         {
             QuantingEnv.RAW_FILE_ID: "test_file.raw",
             QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID123",
+            QuantingEnv.CONFIG_PARAMS: "",
             # rest of quanting_env is left out here for brevity
         },
         -1,
@@ -352,6 +361,7 @@ def test_run_quanting_output_folder_exists_associate(  # noqa: PLR0913
         {
             QuantingEnv.RAW_FILE_ID: "test_file.raw",
             QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID123",
+            QuantingEnv.CONFIG_PARAMS: "",
             # rest of quanting_env is left out here for brevity
         },
         -1,
@@ -390,6 +400,7 @@ def test_run_quanting_output_folder_exists_associate_raise(  # noqa: PLR0913
         {
             QuantingEnv.RAW_FILE_ID: "test_file.raw",
             QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID123",
+            QuantingEnv.CONFIG_PARAMS: "",
             # rest of quanting_env is left out here for brevity
         },
         -1,

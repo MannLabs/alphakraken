@@ -128,7 +128,7 @@ if selected_project:
         f"Settings will be added to the following project: `{selected_project.name}`{desc}"
     )
 
-    software_type = c1.selectbox(label="software", options=["AlphaDIA", "custom"])
+    software_type = c1.selectbox(label="Type", options=["AlphaDIA", "custom"])
 
     form_items = {
         "name": {
@@ -252,6 +252,7 @@ if selected_project and submit:
             speclib_file_name=speclib_file_name,
             config_file_name=config_file_name,
             config_params=config_params,
+            software_type=software_type,
             software=software,
         )
     except Exception as e:  # noqa: BLE001

@@ -18,7 +18,7 @@ INVALID_CHARS_ERROR_WITH_SPACES = "Contains invalid characters. Only letters, nu
 def check_for_malicious_content(
     value: str, *, allow_spaces: bool = False, allow_absolute_paths: bool = False
 ) -> list[str]:
-    """Validate name for security (prevent command injection).
+    """Validate a value for security (prevent command injection).
 
     Args:
         value: The value to validate
@@ -31,7 +31,7 @@ def check_for_malicious_content(
     """
     errors = []
     if not value:
-        return [EMPTY_ERROR]
+        return errors
 
     # Check for parent directory references
     if ".." in value:

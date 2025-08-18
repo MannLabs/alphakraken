@@ -215,21 +215,6 @@ if selected_project:
         else:
             config_params = None
 
-        # Validate inputs and show errors
-        validation_errors = []
-        for to_validate in [
-            fasta_file_name,
-            speclib_file_name,
-            software,
-            config_file_name,
-        ]:
-            if to_validate:
-                validation_errors.extend(
-                    check_for_malicious_content(to_validate, allow_spaces=True)
-                )
-        if config_params:
-            validation_errors.extend(check_for_malicious_content(to_validate))
-
         st.write(r"\* Required fields")
         st.write(r"\** At least one of the two must be given")
 
@@ -258,18 +243,35 @@ if selected_project:
 
 
 if selected_project and submit:
-    try:
-        if (
-            empty_to_none(fasta_file_name) is None
-            and empty_to_none(speclib_file_name) is None
-        ):
-            raise ValueError(
-                "At least one of the fasta and speclib file names must be given."
-            )  # Abstract `raise` to an inner function
+    # Validate inputs
+    validation_errors = []
+    for to_validate in [
+        fasta_file_name,
+        speclib_file_name,
+        software,
+        config_file_name,
+    ]:
+        if to_validate:
+            validation_errors.extend(
+                check_for_malicious_content(to_validate, allow_spaces=True)
+            )
+    if config_params:
+        validation_errors.extend(check_for_malicious_content(to_validate))
 
+    if (
+        empty_to_none(fasta_file_name) is None
+        and empty_to_none(speclib_file_name) is None
+    ):
+        validation_errors.append(
+            "At least one of the fasta and speclib file names must be given."
+        )
+
+    try:
         if validation_errors:
             errors_str = "\n- ".join(validation_errors)
-            raise ValueError(f"Input validation error:\n- {errors_str}")
+            raise ValueError(
+                f"Found {len(validation_errors)} Input validation error:\n- {errors_str}"
+            )
 
         if not upload_checkbox:
             raise ValueError(
@@ -283,8 +285,8 @@ if selected_project and submit:
             speclib_file_name=speclib_file_name,
             config_file_name=config_file_name,
             config_params=config_params,
-            software_type=software_type,
-            software=software,
+            software_type=empty_to_none(software_type),
+            software=empty_to_none(software),
         )
     except Exception as e:  # noqa: BLE001
         st.error(f"Error: {e}")

@@ -60,6 +60,10 @@ def _get_project_id_or_fallback(project_id: str | None, instrument_id: str) -> s
 
 def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
     """Prepare the environmental variables for the quanting job."""
+    # TODO: make these configurable
+    cpus_per_task = 8
+    num_threads = 8
+
     raw_file_id = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID]
     instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
 
@@ -96,7 +100,7 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
 
     if settings.software_type == SoftwareTypes.CUSTOM:
         custom_command = _prepare_custom_command(
-            output_path, raw_file_path, settings, settings_path
+            output_path, raw_file_path, settings, settings_path, num_threads
         )
     else:
         custom_command = ""
@@ -111,6 +115,9 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
         QuantingEnv.SOFTWARE: settings.software,
         QuantingEnv.SOFTWARE_TYPE: settings.software_type,
         QuantingEnv.CUSTOM_COMMAND: custom_command,
+        # job parameters
+        QuantingEnv.SLURM_CPUS_PER_TASK: cpus_per_task,
+        QuantingEnv.NUM_THREADS: num_threads,
         # not required for slurm script:
         QuantingEnv.RAW_FILE_ID: raw_file_id,
         QuantingEnv.PROJECT_ID_OR_FALLBACK: project_id_or_fallback,
@@ -128,7 +135,11 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
 
 
 def _prepare_custom_command(
-    output_path: Path, raw_file_path: Path, settings: Settings, settings_path: Path
+    output_path: Path,
+    raw_file_path: Path,
+    settings: Settings,
+    settings_path: Path,
+    num_threads: int,
 ) -> str:
     """Prepare the custom command for the quanting job."""
     speclib_file_path = (
@@ -146,6 +157,7 @@ def _prepare_custom_command(
     substituted_params = substituted_params.replace("LIBRARY_PATH", speclib_file_path)
     substituted_params = substituted_params.replace("OUTPUT_PATH", str(output_path))
     substituted_params = substituted_params.replace("FASTA_PATH", fasta_file_path)
+    substituted_params = substituted_params.replace("NUM_THREADS", str(num_threads))
 
     software_base_path = get_path(YamlKeys.Locations.SOFTWARE)
     software_path = str(software_base_path / settings.software)

@@ -16,17 +16,18 @@ def test_start_job_returns_valid_job_id(
     """Test that start_job returns a valid job ID."""
     mock_get_path.return_value = Path("/path/to/slurm_base_path")
     mock_ssh_execute.return_value = "12345"
+
+    environment = {"ENV_VAR": "value", "_SLURM_CPUS_PER_TASK": 8}
+
     # when
-    job_id = SlurmSSHJobHandler().start_job(
-        "submit_job.sh", {"ENV_VAR": "value"}, "2024_07"
-    )
+    job_id = SlurmSSHJobHandler().start_job("submit_job.sh", environment, "2024_07")
     assert job_id == "12345"
     expected_command = (
         'export ENV_VAR="value"\n'
         "mkdir -p /path/to/slurm_base_path/jobs/2024_07\n"
         "cd /path/to/slurm_base_path/jobs/2024_07\n"
         "cat /path/to/slurm_base_path/submit_job.sh\n"
-        "JID=$(sbatch /path/to/slurm_base_path/submit_job.sh)\n"
+        "JID=$(sbatch --cpus-per-task=8 /path/to/slurm_base_path/submit_job.sh)\n"
         "echo ${JID##* }"
     )
     mock_ssh_execute.assert_called_once_with(expected_command)
@@ -41,8 +42,10 @@ def test_start_job_handles_invalid_job_id(
     mock_get_path.return_value = Path("/path/to/slurm_base_path")
     mock_ssh_execute.return_value = "invalid_id"
 
+    environment = {"ENV_VAR": "value", "_SLURM_CPUS_PER_TASK": 8}
+
     with pytest.raises(AirflowFailException, match="Job submission failed."):
-        SlurmSSHJobHandler().start_job("submit_job.sh", {"ENV_VAR": "value"}, "2024_07")
+        SlurmSSHJobHandler().start_job("submit_job.sh", environment, "2024_07")
 
 
 @patch("jobs.job_handler.get_path")

@@ -183,7 +183,7 @@ if selected_project:
             "config_params": {
                 "label": "Configuration parameters",
                 "max_chars": 512,
-                "placeholder": "e.g. '--qvalue 0.01 --f RAW_FILE_PATH --out OUTPUT_PATH --temp OUTPUT_PATH --lib LIBRARY_PATH --fasta FASTA_PATH'",
+                "placeholder": "e.g. '--qvalue 0.01 --f RAW_FILE_PATH --out OUTPUT_PATH --temp OUTPUT_PATH --lib LIBRARY_PATH --fasta FASTA_PATH --threads NUM_THREADS'",
                 "help": "Configuration options. Provide either this OR config file name above, not both.",
             },
         }
@@ -210,6 +210,7 @@ if selected_project:
                 "- `OUTPUT_PATH`: Will evaluate to the path of the output directory.\n"
                 "- `LIBRARY_PATH`: Will evaluate to the path of the library file.\n"
                 "- `FASTA_PATH`: Will evaluate to the path of the fasta file.\n"
+                "- `NUM_THREADS`: Will evaluate to the number of threads.\n"
             )
         else:
             config_params = None

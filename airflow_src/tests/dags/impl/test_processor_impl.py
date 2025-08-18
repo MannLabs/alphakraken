@@ -121,6 +121,8 @@ def test_prepare_quanting(
         "SOFTWARE": "some_software",
         "SOFTWARE_TYPE": "alphadia",
         "CUSTOM_COMMAND": "",
+        "_SLURM_CPUS_PER_TASK": 8,
+        "NUM_THREADS": 8,
         "RAW_FILE_ID": "test_file.raw",
         "PROJECT_ID_OR_FALLBACK": "some_project_id",
         "SETTINGS_VERSION": 1,
@@ -168,7 +170,7 @@ def test_prepare_quanting_custom_software(
         speclib_file_name="some_speclib_file_name",
         fasta_file_name="some_fasta_file_name",
         config_file_name="",
-        config_params="--qvalue 0.01 --f RAW_FILE_PATH --lib LIBRARY_PATH --out OUTPUT_PATH --fasta FASTA_PATH",
+        config_params="--qvalue 0.01 --f RAW_FILE_PATH --lib LIBRARY_PATH --out OUTPUT_PATH --fasta FASTA_PATH --threads NUM_THREADS",
         software="custom1.2.3",
         software_type="custom",
         version=1,
@@ -185,7 +187,7 @@ def test_prepare_quanting_custom_software(
     # when
     prepare_quanting(ti, **kwargs)
 
-    expected_custom_command = "/some_software_base_path/custom1.2.3 --qvalue 0.01 --f /some_backup_base_path/instrument1/1970_01/test_file.raw --lib /some_quanting_settings_path/some_project_id/some_speclib_file_name --out /some_quanting_output_path/some_project_id/out_test_file.raw --fasta /some_quanting_settings_path/some_project_id/some_fasta_file_name"
+    expected_custom_command = "/some_software_base_path/custom1.2.3 --qvalue 0.01 --f /some_backup_base_path/instrument1/1970_01/test_file.raw --lib /some_quanting_settings_path/some_project_id/some_speclib_file_name --out /some_quanting_output_path/some_project_id/out_test_file.raw --fasta /some_quanting_settings_path/some_project_id/some_fasta_file_name --threads 8"
 
     expected_quanting_env = {
         "RAW_FILE_PATH": "/some_backup_base_path/instrument1/1970_01/test_file.raw",
@@ -197,6 +199,8 @@ def test_prepare_quanting_custom_software(
         "SOFTWARE": "custom1.2.3",
         "SOFTWARE_TYPE": "custom",
         "CUSTOM_COMMAND": expected_custom_command,
+        "_SLURM_CPUS_PER_TASK": 8,
+        "NUM_THREADS": 8,
         "RAW_FILE_ID": "test_file.raw",
         "PROJECT_ID_OR_FALLBACK": "some_project_id",
         "SETTINGS_VERSION": 1,

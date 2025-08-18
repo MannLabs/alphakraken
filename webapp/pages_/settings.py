@@ -179,7 +179,7 @@ if selected_project:
             "software": {
                 "label": "Executable",
                 "max_chars": 64,
-                "placeholder": "diann1.8.1",
+                "placeholder": "custom-executable1.2.3",
                 "help": "Executable must be available in `/fs/home/alphakraken/software/`.",
                 # TODO: NEXT_SLICE make path dynamic, explain
             },

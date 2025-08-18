@@ -93,15 +93,42 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
         raw_file, project_id_or_fallback
     )
 
+    custom_command = ""
+    if settings.software_type == "custom":
+        speclib_file_path = (
+            str(settings_path / settings.speclib_file_name)
+            if settings.speclib_file_name
+            else ""
+        )
+        fasta_file_path = (
+            str(settings_path / settings.fasta_file_name)
+            if settings.fasta_file_name
+            else ""
+        )
+        substituted_params = settings.config_params
+        substituted_params = substituted_params.replace("FILE_PATH", str(raw_file_path))
+        substituted_params = substituted_params.replace("LIB_PATH", speclib_file_path)
+        substituted_params = substituted_params.replace("OUT_PATH", str(output_path))
+        substituted_params = substituted_params.replace("FASTA_PATH", fasta_file_path)
+        # TODO: fail here if  FILE_PATH, OUT_PATH are not replaced, and if fasta_file_path,speclib_file_path are given but not replaced
+
+        # Construct the full command
+        executable_path = (
+            f"/fs/home/alphakraken/software/{settings.software}"  # TODO: make dynamic
+        )
+        custom_command = f"{executable_path} {substituted_params}"
+
     quanting_env = {
         QuantingEnv.RAW_FILE_PATH: str(raw_file_path),
         QuantingEnv.SETTINGS_PATH: str(settings_path),
         QuantingEnv.OUTPUT_PATH: str(output_path),
-        QuantingEnv.SPECLIB_FILE_NAME: settings.speclib_file_name,
-        QuantingEnv.FASTA_FILE_NAME: settings.fasta_file_name,
-        QuantingEnv.CONFIG_FILE_NAME: settings.config_file_name,
+        QuantingEnv.SPECLIB_FILE_NAME: settings.speclib_file_name,  # TODO: construct path here
+        QuantingEnv.FASTA_FILE_NAME: settings.fasta_file_name,  # TODO: construct path here
+        QuantingEnv.CONFIG_FILE_NAME: settings.config_file_name,  # TODO: construct path here
         QuantingEnv.CONFIG_PARAMS: settings.config_params,
         QuantingEnv.SOFTWARE: settings.software,
+        QuantingEnv.SOFTWARE_TYPE: settings.software_type,
+        QuantingEnv.CUSTOM_COMMAND: custom_command,
         # not required for slurm script:
         QuantingEnv.RAW_FILE_ID: raw_file_id,
         QuantingEnv.PROJECT_ID_OR_FALLBACK: project_id_or_fallback,

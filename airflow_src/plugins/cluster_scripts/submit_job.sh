@@ -28,7 +28,7 @@ export TQDM_MININTERVAL=10  # avoid lots of tqdm outputs
 # CONFIG_FILE_NAME #e.g. "config.yaml"
 # SOFTWARE # e.g. alphadia-1.6.2
 # SOFTWARE_TYPE # e.g. "alphadia" or "custom"
-# CUSTOM_COMMAND # e.g. "/fs/home/alphakraken/software/diann1.8.1 --qvalue 0.01 --f /path/to/file.raw ..."
+# CUSTOM_COMMAND # e.g. "/fs/home/alphakraken/software/custom1.2.3 --qvalue 0.01 --f /path/to/file.raw ..."
 
 # these are determined by convention:
 CONDA_ENV=$SOFTWARE

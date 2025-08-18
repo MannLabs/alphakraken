@@ -405,7 +405,7 @@ def check_quanting_result(ti: TaskInstance, **kwargs) -> bool:
 
 
 def compute_metrics(
-    ti: TaskInstance, *, metrics_type: str = MetricsTypes.ALPHADIA, **kwargs
+    ti: TaskInstance, *, metrics_type: str | None = None, **kwargs
 ) -> None:
     """Compute metrics from the quanting results."""
     del kwargs
@@ -418,13 +418,16 @@ def compute_metrics(
         raw_file, quanting_env[QuantingEnv.PROJECT_ID_OR_FALLBACK]
     )
 
+    if metrics_type is None:
+        # TOOD: currently 1:1 mapping between custom workflow & metrics
+        metrics_type = {
+            SoftwareTypes.ALPHADIA: MetricsTypes.ALPHADIA,
+            SoftwareTypes.CUSTOM: MetricsTypes.CUSTOM,
+        }[quanting_env[QuantingEnv.SOFTWARE_TYPE]]
+
     metrics = calc_metrics(output_path, metrics_type=metrics_type)
 
-    if metrics_type == MetricsTypes.ALPHADIA:
-        # TODO: the time measurement also needs to be generified
-        metrics[QUANTING_TIME_ELAPSED_METRIC] = get_xcom(
-            ti, XComKeys.QUANTING_TIME_ELAPSED
-        )
+    metrics[QUANTING_TIME_ELAPSED_METRIC] = get_xcom(ti, XComKeys.QUANTING_TIME_ELAPSED)
 
     put_xcom(ti, XComKeys.METRICS, metrics)
     put_xcom(ti, XComKeys.METRICS_TYPE, metrics_type)

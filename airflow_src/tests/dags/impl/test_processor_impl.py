@@ -865,6 +865,7 @@ def test_compute_metrics(
         {
             "RAW_FILE_ID": "test_file.raw",
             "PROJECT_ID_OR_FALLBACK": "P1",
+            "SOFTWARE_TYPE": "alphadia",
         },
         123,
     ]

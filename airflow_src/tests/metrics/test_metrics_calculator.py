@@ -5,28 +5,25 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
-from metrics.metrics_calculator import (
+from plugins.metrics.metrics.alphadia import (
+    BasicStats,
+    PrecursorStatsAgg,
     PrecursorStatsIntensity,
     PrecursorStatsMeanLenSequence,
-)
-from plugins.metrics.metrics_calculator import (
-    BasicStats,
-    DataStore,
-    PrecursorStatsAgg,
     PrecursorStatsSum,
-    calc_metrics,
+    _calc_alphadia_metrics,
 )
+from plugins.metrics.metrics.base import DataStore
 
 
 @patch("os.path.join")
-@patch("plugins.metrics.metrics_calculator.file_name_to_read_method_mapping")
+@patch("plugins.metrics.metrics.alphadia.file_name_to_read_method_mapping")
 def test_datastore_getitem_loads_data_when_key_not_in_data(
-    mock_mapping: MagicMock, mock_join: MagicMock
+    mock_join: MagicMock,
 ) -> None:
     """Test that __getitem__ loads data when key not in data store."""
     mock_join.return_value = "file_path"
-    mock_mapping.__getitem__.return_value = lambda _: "data"
-    datastore = DataStore(Path("data_dir"))
+    datastore = DataStore(Path("data_dir"), {"key": lambda _: "data"})
 
     # when
     result = datastore["key"]
@@ -35,14 +32,11 @@ def test_datastore_getitem_loads_data_when_key_not_in_data(
 
 
 @patch("os.path.join")
-@patch("plugins.metrics.metrics_calculator.file_name_to_read_method_mapping")
-def test_datastore_getitem_returns_data_when_key_in_data(
-    mock_mapping: MagicMock, mock_join: MagicMock
-) -> None:
+@patch("plugins.metrics.metrics.alphadia.file_name_to_read_method_mapping")
+def test_datastore_getitem_returns_data_when_key_in_data(mock_join: MagicMock) -> None:
     """Test that __getitem__ returns data when key in data store."""
     mock_join.return_value = "file_path"
-    mock_mapping.__getitem__.return_value = lambda _: "data"
-    datastore = DataStore(Path("data_dir"))
+    datastore = DataStore(Path("data_dir"), {"key": lambda _: "data"})
     datastore._data["key"] = "existing_data"  # noqa: SLF001
 
     # when
@@ -51,12 +45,12 @@ def test_datastore_getitem_returns_data_when_key_in_data(
     assert result == "existing_data"
 
 
-@patch("plugins.metrics.metrics_calculator.BasicStats")
-@patch("plugins.metrics.metrics_calculator.PrecursorStatsSum")
-@patch("plugins.metrics.metrics_calculator.PrecursorStatsAgg")
-@patch("plugins.metrics.metrics_calculator.PrecursorStatsIntensity")
-@patch("plugins.metrics.metrics_calculator.PrecursorStatsMeanLenSequence")
-@patch("plugins.metrics.metrics_calculator.InternalStats")
+@patch("plugins.metrics.metrics.alphadia.BasicStats")
+@patch("plugins.metrics.metrics.alphadia.PrecursorStatsSum")
+@patch("plugins.metrics.metrics.alphadia.PrecursorStatsAgg")
+@patch("plugins.metrics.metrics.alphadia.PrecursorStatsIntensity")
+@patch("plugins.metrics.metrics.alphadia.PrecursorStatsMeanLenSequence")
+@patch("plugins.metrics.metrics.alphadia.InternalStats")
 def test_calc_metrics_happy_path(  # noqa: PLR0913
     mock_internal_stats: MagicMock,
     mock_precursor_stats_mean_len_sequence: MagicMock,
@@ -100,7 +94,7 @@ def test_calc_metrics_happy_path(  # noqa: PLR0913
         getter.return_value.get.return_value = {key: value}
 
     # when
-    result = calc_metrics(Path("output_directory"), metrics_type="alphadia")
+    result = _calc_alphadia_metrics(Path("output_directory"))
 
     assert result == {
         key: value for key, (getter, value) in mock_metrics_and_getters.items()
@@ -119,7 +113,7 @@ def test_calc_metrics_happy_path(  # noqa: PLR0913
 #     print(result)
 
 
-@patch("plugins.metrics.metrics_calculator.DataStore")
+@patch("plugins.metrics.metrics.alphadia.DataStore")
 def test_basic_stats_calculation(mock_datastore: MagicMock) -> None:
     """Test basic stats calculation."""
     data = {col: [i] for i, col in enumerate(BasicStats._columns)}  # noqa: SLF001
@@ -134,7 +128,7 @@ def test_basic_stats_calculation(mock_datastore: MagicMock) -> None:
     assert metrics == expected_metrics
 
 
-@patch("plugins.metrics.metrics_calculator.DataStore")
+@patch("plugins.metrics.metrics.alphadia.DataStore")
 def test_precursor_stats_calculation(mock_datastore: MagicMock) -> None:
     """Test precursor stats calculation."""
     mock_df = pd.DataFrame(
@@ -153,7 +147,7 @@ def test_precursor_stats_calculation(mock_datastore: MagicMock) -> None:
     assert metrics["intensity_sum"] == 30.0
 
 
-@patch("plugins.metrics.metrics_calculator.DataStore")
+@patch("plugins.metrics.metrics.alphadia.DataStore")
 def test_precursor_stats_calculation_column_missing(mock_datastore: MagicMock) -> None:
     """Test precursor stats calculation os gracefully handling a missing column."""
     mock_df = pd.DataFrame(
@@ -171,7 +165,7 @@ def test_precursor_stats_calculation_column_missing(mock_datastore: MagicMock) -
     assert "intensity_sum" not in metrics
 
 
-@patch("plugins.metrics.metrics_calculator.DataStore")
+@patch("plugins.metrics.metrics.alphadia.DataStore")
 def test_precursor_stats_mean_calculation(mock_datastore: MagicMock) -> None:
     """Test precursor stats mean calculation."""
     mock_df = pd.DataFrame(
@@ -190,7 +184,7 @@ def test_precursor_stats_mean_calculation(mock_datastore: MagicMock) -> None:
     assert metrics["charge_median"] == 1.5
 
 
-@patch("plugins.metrics.metrics_calculator.DataStore")
+@patch("plugins.metrics.metrics.alphadia.DataStore")
 def test_precursor_stats_sequence_len_mean_calculation(
     mock_datastore: MagicMock,
 ) -> None:
@@ -211,7 +205,7 @@ def test_precursor_stats_sequence_len_mean_calculation(
     assert metrics["sequence_len_median"] == 1.5
 
 
-@patch("plugins.metrics.metrics_calculator.DataStore")
+@patch("plugins.metrics.metrics.alphadia.DataStore")
 def test_precursor_stats_intensity_median_calculation(
     mock_datastore: MagicMock,
 ) -> None:

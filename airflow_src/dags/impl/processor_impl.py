@@ -117,9 +117,7 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
         QuantingEnv.SETTINGS_VERSION: settings.version,
     }
 
-    errors = _validate_fields(quanting_env, settings)
-
-    if errors:
+    if errors := _check_content(quanting_env, settings):
         raise AirflowFailException(
             f"Validation errors in quanting environment: {errors}"
         )
@@ -129,7 +127,34 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
     put_xcom(ti, XComKeys.RAW_FILE_ID, raw_file_id)
 
 
-def _validate_fields(quanting_env: dict[str, str], settings: Settings) -> list[str]:
+def _prepare_custom_command(
+    output_path: Path, raw_file_path: Path, settings: Settings, settings_path: Path
+) -> str:
+    """Prepare the custom command for the quanting job."""
+    speclib_file_path = (
+        str(settings_path / settings.speclib_file_name)
+        if settings.speclib_file_name
+        else ""
+    )
+    fasta_file_path = (
+        str(settings_path / settings.fasta_file_name)
+        if settings.fasta_file_name
+        else ""
+    )
+    substituted_params = settings.config_params
+    substituted_params = substituted_params.replace("RAW_FILE_PATH", str(raw_file_path))
+    substituted_params = substituted_params.replace("LIBRARY_PATH", speclib_file_path)
+    substituted_params = substituted_params.replace("OUTPUT_PATH", str(output_path))
+    substituted_params = substituted_params.replace("FASTA_PATH", fasta_file_path)
+
+    software_base_path = get_path(YamlKeys.Locations.SOFTWARE)
+    software_path = str(software_base_path / settings.software)
+    custom_command = f"{software_path} {substituted_params}"
+    logging.info(f"Custom command for quanting: {custom_command}")
+    return custom_command
+
+
+def _check_content(quanting_env: dict[str, str], settings: Settings) -> list[str]:
     """Validate the fields in the quanting environment don't contain malicious content."""
     errors = []
     for key, value in quanting_env.items():
@@ -175,33 +200,6 @@ def _validate_fields(quanting_env: dict[str, str], settings: Settings) -> list[s
         )
 
     return errors
-
-
-def _prepare_custom_command(
-    output_path: Path, raw_file_path: Path, settings: Settings, settings_path: Path
-) -> str:
-    """Prepare the custom command for the quanting job."""
-    speclib_file_path = (
-        str(settings_path / settings.speclib_file_name)
-        if settings.speclib_file_name
-        else ""
-    )
-    fasta_file_path = (
-        str(settings_path / settings.fasta_file_name)
-        if settings.fasta_file_name
-        else ""
-    )
-    substituted_params = settings.config_params
-    substituted_params = substituted_params.replace("RAW_FILE_PATH", str(raw_file_path))
-    substituted_params = substituted_params.replace("LIBRARY_PATH", speclib_file_path)
-    substituted_params = substituted_params.replace("OUTPUT_PATH", str(output_path))
-    substituted_params = substituted_params.replace("FASTA_PATH", fasta_file_path)
-
-    software_base_path = get_path(YamlKeys.Locations.SOFTWARE)
-    software_path = str(software_base_path / settings.software)
-    custom_command = f"{software_path} {substituted_params}"
-    logging.info(f"Custom command for quanting: {custom_command}")
-    return custom_command
 
 
 def _get_slurm_job_id_from_log(output_path: Path) -> str | None:

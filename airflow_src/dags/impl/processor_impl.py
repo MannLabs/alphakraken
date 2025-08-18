@@ -144,10 +144,9 @@ def _prepare_custom_command(
 
     # TODO: fail here if RAW_FILE_PATH, OUT_PATH are not replaced, and if fasta_file_path,speclib_file_path are given but not replaced, also in frontend
     # TODO: fail here if something looks wrong with the command, also in frontend
-    executable_path = (
-        f"/fs/home/alphakraken/software/{settings.software}"  # TODO: make dynamic
-    )
-    custom_command = f"{executable_path} {substituted_params}"
+    software_base_path = get_path(YamlKeys.Locations.SOFTWARE)
+    software_path = str(software_base_path / settings.software)
+    custom_command = f"{software_path} {substituted_params}"
     logging.info(f"Custom command for quanting: {custom_command}")
     return custom_command
 

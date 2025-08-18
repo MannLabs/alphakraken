@@ -162,6 +162,7 @@ def test_prepare_quanting_custom_software(
         Path("/some_backup_base_path"),
         Path("/some_quanting_settings_path"),
         Path("/some_quanting_output_path"),
+        Path("/some_software_base_path"),
     ]
     mock_get_project_id_for_raw_file.return_value = "some_project_id"
     mock_get_settings.return_value = MagicMock(
@@ -185,7 +186,7 @@ def test_prepare_quanting_custom_software(
     # when
     prepare_quanting(ti, **kwargs)
 
-    expected_custom_command = "/fs/home/alphakraken/software/custom1.2.3 --qvalue 0.01 --f /some_backup_base_path/instrument1/1970_01/test_file.raw --lib /some_quanting_settings_path/some_project_id/some_speclib_file_name --out /some_quanting_output_path/some_project_id/out_test_file.raw --fasta /some_quanting_settings_path/some_project_id/some_fasta_file_name"
+    expected_custom_command = "/some_software_base_path/custom1.2.3 --qvalue 0.01 --f /some_backup_base_path/instrument1/1970_01/test_file.raw --lib /some_quanting_settings_path/some_project_id/some_speclib_file_name --out /some_quanting_output_path/some_project_id/out_test_file.raw --fasta /some_quanting_settings_path/some_project_id/some_fasta_file_name"
 
     expected_quanting_env = {
         "RAW_FILE_PATH": "/some_backup_base_path/instrument1/1970_01/test_file.raw",

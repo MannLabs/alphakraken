@@ -18,6 +18,8 @@ locations:
     absolute_path: /fs/pool-0/alphakraken_sandbox/settings
   slurm:
     absolute_path: /fs/pool-0/alphakraken_sandbox/slurm
+  software:
+    absolute_path: /fs/home/kraken-read/software
   output:
     username: kraken-write
     mount_src: //samba-pool-0/pool-0/alphakraken_sandbox/output

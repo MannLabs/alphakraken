@@ -59,10 +59,13 @@ def display_settings(
     settings_df: pd.DataFrame, st_display: st.delta_generator.DeltaGenerator = st
 ) -> None:
     """Fragment to display settings in a table."""
-    filtered_df, *_ = show_filter(settings_df, st_display=st_display)
+    filtered_df, *_ = show_filter(
+        settings_df, st_display=st_display, default_value="status=^active"
+    )
 
     # beautify
-    filtered_df = filtered_df.drop(columns=["_id"], errors="ignore")
+    filtered_df = filtered_df.drop(columns=["_id"], errors="ignore").fillna("")
+
     st_display.table(
         filtered_df.style.apply(
             lambda row: [
@@ -265,6 +268,7 @@ if selected_project and submit:
         validation_errors.append(
             "At least one of the fasta and speclib file names must be given."
         )
+    # non-empty constraints are being handled on DB level
 
     try:
         if validation_errors:

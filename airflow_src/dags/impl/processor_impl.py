@@ -38,7 +38,6 @@ from jobs.job_handler import (
 )
 from metrics.metrics_calculator import calc_metrics
 from mongoengine import DoesNotExist
-from validation import check_for_malicious_content
 
 from shared.db.interface import (
     add_metrics_to_raw_file,
@@ -48,6 +47,7 @@ from shared.db.interface import (
 )
 from shared.db.models import RawFile, RawFileStatus, Settings, get_created_at_year_month
 from shared.keys import MetricsTypes, SoftwareTypes
+from shared.validation import check_for_malicious_content
 from shared.yamlsettings import YamlKeys, get_path
 
 

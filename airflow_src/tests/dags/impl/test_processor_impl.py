@@ -238,10 +238,10 @@ def test_prepare_quanting_validation_error_raises(
     mock_get_project_id_for_raw_file.return_value = "some_project_id"
     mock_get_settings.return_value = MagicMock(
         speclib_file_name="some_speclib_file_name",
-        fasta_file_name="some_fasta_file_name",
+        fasta_file_name="../some_fasta_file_name",  # .. -> this will raise
         config_file_name="",
         config_params="--qvalue 0.01 --f RAW_FILE_PATH --lib LIBRARY_PATH --out OUTPUT_PATH --fasta FASTA_PATH",
-        software="custom1.2.3",  # this will raise
+        software="custom1.2.3",
         software_type="custom",
         version=1,
     )
@@ -255,7 +255,8 @@ def test_prepare_quanting_validation_error_raises(
     }
 
     # when
-    prepare_quanting(ti, **kwargs)
+    with pytest.raises(AirflowFailException):
+        prepare_quanting(ti, **kwargs)
 
 
 @patch("dags.impl.processor_impl.get_raw_file_by_id")

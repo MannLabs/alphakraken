@@ -47,7 +47,7 @@ from shared.db.interface import (
 )
 from shared.db.models import RawFile, RawFileStatus, Settings, get_created_at_year_month
 from shared.keys import MetricsTypes, SoftwareTypes
-from shared.validation import validate_config_params, validate_name
+from shared.validation import validate_name
 from shared.yamlsettings import YamlKeys, get_path
 
 
@@ -166,7 +166,7 @@ def _validate_fields(quanting_env: dict[str, str], settings: Settings) -> list[s
         errors.extend(
             validate_name(quanting_env[QuantingEnv.SOFTWARE], allow_absolute_paths=True)
         )
-        errors.extend(validate_config_params(settings.config_params))
+        errors.extend(validate_name(settings.config_params, allow_spaces=True))
 
     return errors
 

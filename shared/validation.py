@@ -8,20 +8,20 @@ EXECUTABLE_NAME_PATTERN_WITH_SPACES = r"^[a-zA-Z0-9._/\- ]+$"
 
 
 # Error messages
-EXECUTABLE_EMPTY_ERROR = "Cannot be empty"
-EXECUTABLE_PARENT_DIR_ERROR = "Cannot contain '..'"
-EXECUTABLE_ABSOLUTE_PATH_ERROR = "Cannot be an absolute path"
-EXECUTABLE_INVALID_CHARS_ERROR = "Contains invalid characters. Only letters, numbers, dots, hyphens, underscores, and forward slashes are allowed"
-EXECUTABLE_INVALID_CHARS_ERROR_WITH_SPACES = "Contains invalid characters. Only letters, numbers, dots, hyphens, underscores, forward slashes, and spaces are allowed"
+EMPTY_ERROR = "Cannot be empty"
+PARENT_DIR_ERROR = "Cannot contain '..'"
+ABSOLUTE_PATH_ERROR = "Cannot be an absolute path"
+INVALID_CHARS_ERROR = "Contains invalid characters. Only letters, numbers, dots, hyphens, underscores, and forward slashes are allowed"
+INVALID_CHARS_ERROR_WITH_SPACES = "Contains invalid characters. Only letters, numbers, dots, hyphens, underscores, forward slashes, and spaces are allowed"
 
 
-def validate_name(
-    executable: str, *, allow_spaces: bool = False, allow_absolute_paths: bool = False
+def check_for_malicious_content(
+    value: str, *, allow_spaces: bool = False, allow_absolute_paths: bool = False
 ) -> list[str]:
-    """Validate name for security (prevent path traversal).
+    """Validate name for security (prevent command injection).
 
     Args:
-        executable: The executable name/path to validate
+        value: The value to validate
         allow_spaces: Whether to allow spaces in the name (default: False)
         allow_absolute_paths: Whether to allow absolute paths (default: False)
 
@@ -30,26 +30,26 @@ def validate_name(
 
     """
     errors = []
-    if not executable:
-        return [EXECUTABLE_EMPTY_ERROR]
+    if not value:
+        return [EMPTY_ERROR]
 
     # Check for parent directory references
-    if ".." in executable:
-        errors.append(EXECUTABLE_PARENT_DIR_ERROR)
+    if ".." in value:
+        errors.append(PARENT_DIR_ERROR)
 
     # Check for absolute paths
-    if executable.startswith("/") and not allow_absolute_paths:
-        errors.append(EXECUTABLE_ABSOLUTE_PATH_ERROR)
+    if value.startswith("/") and not allow_absolute_paths:
+        errors.append(ABSOLUTE_PATH_ERROR)
 
     # Validate allowed characters
     if allow_spaces:
         pattern = EXECUTABLE_NAME_PATTERN_WITH_SPACES
-        error_msg = EXECUTABLE_INVALID_CHARS_ERROR_WITH_SPACES
+        error_msg = INVALID_CHARS_ERROR_WITH_SPACES
     else:
         pattern = EXECUTABLE_NAME_PATTERN
-        error_msg = EXECUTABLE_INVALID_CHARS_ERROR
+        error_msg = INVALID_CHARS_ERROR
 
-    if not re.match(pattern, executable):
+    if not re.match(pattern, value):
         errors.append(error_msg)
 
     return errors

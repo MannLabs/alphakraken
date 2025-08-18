@@ -22,7 +22,7 @@ from service.utils import (
 from shared.db.interface import add_settings
 from shared.db.models import ProjectStatus
 from shared.keys import SoftwareTypes
-from shared.validation import validate_name
+from shared.validation import check_for_malicious_content
 from shared.yamlsettings import YamlKeys, get_path
 
 _log(f"loading {__file__} {get_all_query_params()}")
@@ -221,10 +221,13 @@ if selected_project:
             speclib_file_name,
             software,
             config_file_name,
-            config_params,
         ]:
             if to_validate:
-                validation_errors.extend(validate_name(to_validate, allow_spaces=True))
+                validation_errors.extend(
+                    check_for_malicious_content(to_validate, allow_spaces=True)
+                )
+        if config_params:
+            validation_errors.extend(check_for_malicious_content(to_validate))
 
         st.write(r"\* Required fields")
         st.write(r"\** At least one of the two must be given")

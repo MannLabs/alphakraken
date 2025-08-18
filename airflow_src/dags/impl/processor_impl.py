@@ -38,6 +38,7 @@ from jobs.job_handler import (
 )
 from metrics.metrics_calculator import calc_metrics
 from mongoengine import DoesNotExist
+from validation import check_for_malicious_content
 
 from shared.db.interface import (
     add_metrics_to_raw_file,
@@ -47,7 +48,6 @@ from shared.db.interface import (
 )
 from shared.db.models import RawFile, RawFileStatus, Settings, get_created_at_year_month
 from shared.keys import MetricsTypes, SoftwareTypes
-from shared.validation import validate_name
 from shared.yamlsettings import YamlKeys, get_path
 
 
@@ -144,7 +144,7 @@ def _validate_fields(quanting_env: dict[str, str], settings: Settings) -> list[s
                 QuantingEnv.OUTPUT_PATH,
             ]
             and isinstance(value, str)
-            and (errors_ := validate_name(value))
+            and (errors_ := check_for_malicious_content(value))
         ):
             errors.append(f"Validation error in '{value}': {errors_}")
 
@@ -153,20 +153,26 @@ def _validate_fields(quanting_env: dict[str, str], settings: Settings) -> list[s
         QuantingEnv.SETTINGS_PATH,
         QuantingEnv.OUTPUT_PATH,
     ]:
-        errors.extend(validate_name(quanting_env[key], allow_absolute_paths=True))
+        errors.extend(
+            check_for_malicious_content(quanting_env[key], allow_absolute_paths=True)
+        )
 
     if settings.software_type == SoftwareTypes.CUSTOM:
         errors.extend(
-            validate_name(
+            check_for_malicious_content(
                 quanting_env[QuantingEnv.CUSTOM_COMMAND],
                 allow_spaces=True,
                 allow_absolute_paths=True,
             )
         )
         errors.extend(
-            validate_name(quanting_env[QuantingEnv.SOFTWARE], allow_absolute_paths=True)
+            check_for_malicious_content(
+                quanting_env[QuantingEnv.SOFTWARE], allow_absolute_paths=True
+            )
         )
-        errors.extend(validate_name(settings.config_params, allow_spaces=True))
+        errors.extend(
+            check_for_malicious_content(settings.config_params, allow_spaces=True)
+        )
 
     return errors
 

@@ -1,18 +1,18 @@
 """Unit tests for shared validation functions."""
 
 from shared.validation import (
-    EXECUTABLE_ABSOLUTE_PATH_ERROR,
-    EXECUTABLE_EMPTY_ERROR,
-    EXECUTABLE_INVALID_CHARS_ERROR,
-    EXECUTABLE_PARENT_DIR_ERROR,
-    validate_name,
+    ABSOLUTE_PATH_ERROR,
+    EMPTY_ERROR,
+    INVALID_CHARS_ERROR,
+    PARENT_DIR_ERROR,
+    check_for_malicious_content,
 )
 
 
 class TestValidateName:
     """Test cases for validate_name function."""
 
-    def test_valid_executable_names(self) -> None:
+    def test_check_for_malicious_content_valid_executable_names(self) -> None:
         """Test that valid executable names pass validation."""
         valid_names_no_spaces = [
             "valid-executable",
@@ -28,27 +28,29 @@ class TestValidateName:
         ]
 
         for name in valid_names_no_spaces:
-            errors = validate_name(name)
+            errors = check_for_malicious_content(name)
             assert not errors, f"Expected '{name}' to be valid, got errors: {errors}"
 
-    def test_valid_executable_names_with_spaces(self) -> None:
+    def test_check_for_malicious_content_valid_executable_names_with_spaces(
+        self,
+    ) -> None:
         """Test that valid executable names with spaces pass validation when allow_spaces=True."""
         valid_names_with_spaces = [
             "exe with spaces",
         ]
 
         for name in valid_names_with_spaces:
-            errors = validate_name(name, allow_spaces=True)
+            errors = check_for_malicious_content(name, allow_spaces=True)
             assert not errors, (
                 f"Expected '{name}' to be valid with spaces allowed, got errors: {errors}"
             )
 
-    def test_empty_executable_name(self) -> None:
+    def test_check_for_malicious_content_empty_executable_name(self) -> None:
         """Test that empty executable name fails validation."""
-        errors = validate_name("")
-        assert errors == [EXECUTABLE_EMPTY_ERROR]
+        errors = check_for_malicious_content("")
+        assert errors == [EMPTY_ERROR]
 
-    def test_parent_directory_references(self) -> None:
+    def test_check_for_malicious_content_parent_directory_references(self) -> None:
         """Test that parent directory references fail validation."""
         invalid_names = [
             "../executable",
@@ -60,11 +62,11 @@ class TestValidateName:
         ]
 
         for name in invalid_names:
-            errors = validate_name(name)
+            errors = check_for_malicious_content(name)
             assert errors, f"Expected '{name}' to be invalid"
-            assert EXECUTABLE_PARENT_DIR_ERROR in errors
+            assert PARENT_DIR_ERROR in errors
 
-    def test_absolute_paths(self) -> None:
+    def test_check_for_malicious_content_absolute_paths(self) -> None:
         """Test that absolute paths fail validation."""
         invalid_names = [
             "/usr/bin/bash",
@@ -74,11 +76,11 @@ class TestValidateName:
         ]
 
         for name in invalid_names:
-            errors = validate_name(name)
+            errors = check_for_malicious_content(name)
             assert errors, f"Expected '{name}' to be invalid"
-            assert EXECUTABLE_ABSOLUTE_PATH_ERROR in errors
+            assert ABSOLUTE_PATH_ERROR in errors
 
-    def test_invalid_characters(self) -> None:
+    def test_check_for_malicious_content_invalid_characters(self) -> None:
         """Test that invalid characters fail validation."""
         invalid_names = [
             "exe;rm",
@@ -103,6 +105,6 @@ class TestValidateName:
         ]
 
         for name in invalid_names:
-            errors = validate_name(name)
+            errors = check_for_malicious_content(name)
             assert errors, f"Expected '{name}' to be invalid"
-            assert EXECUTABLE_INVALID_CHARS_ERROR in errors
+            assert INVALID_CHARS_ERROR in errors

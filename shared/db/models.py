@@ -171,9 +171,7 @@ class Settings(Document):
     speclib_file_name = StringField(required=True, max_length=128)
 
     config_file_name = StringField(required=False, max_length=128)
-    config_params = StringField(
-        required=False, max_length=512
-    )  # TODO: NEXT_SLICE frontend validation for mutual exclusivity
+    config_params = StringField(required=False, max_length=512)
 
     software_type = StringField(
         required=True,

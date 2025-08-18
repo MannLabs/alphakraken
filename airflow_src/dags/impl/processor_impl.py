@@ -153,7 +153,7 @@ def _prepare_custom_command(
     )
     substituted_params = settings.config_params
     substituted_params = substituted_params.replace("RAW_FILE_PATH", str(raw_file_path))
-    substituted_params = substituted_params.replace("LIB_PATH", speclib_file_path)
+    substituted_params = substituted_params.replace("LIBRARY_PATH", speclib_file_path)
     substituted_params = substituted_params.replace("OUTPUT_PATH", str(output_path))
     substituted_params = substituted_params.replace("FASTA_PATH", fasta_file_path)
 

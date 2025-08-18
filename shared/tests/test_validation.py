@@ -107,7 +107,7 @@ class TestValidateConfigParams:
         valid_params = [
             "--input file.raw --output dir",
             "--qvalue 0.01 --f RAW_FILE_PATH --out OUTPUT_PATH",
-            "--lib LIB_PATH --fasta FASTA_PATH",
+            "--lib LIBRARY_PATH --fasta FASTA_PATH",
             "--verbose --threads 8",
             "/path/to/file.raw",
             "--param=value",

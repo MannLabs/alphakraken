@@ -168,24 +168,22 @@ if selected_project:
                 "label": "Software",
                 "max_chars": 64,
                 "placeholder": "e.g. alphadia-1.10.0",
-                "help": "Name of the Conda environment that holds the AlphaDIA executable. Needs to be created manually by the user running the AlphaKraken jobs.",
+                "help": "Name of the Conda environment that holds the AlphaDIA executable. Ask an administrator to created this environment..",
             },
         }
 
-    else:  # custom
+    elif software_type == SoftwareTypes.CUSTOM:
         form_items |= {
-            # TODO: NEXT_SLICE explain the placeholders
             "software": {
                 "label": "Executable",
                 "max_chars": 64,
-                "placeholder": "custom-executable1.2.3",
-                "help": f"Executable must be available in `{get_path(YamlKeys.Locations.SOFTWARE)}/`.",
-                # TODO: NEXT_SLICE make path dynamic, explain, show example
+                "placeholder": "custom-software/custom-executable1.2.3",
+                "help": f"Path to executable, relative to `{get_path(YamlKeys.Locations.SOFTWARE)}/`. Ask an administrator to add the executable to the software folder.",
             },
             "config_params": {
                 "label": "Configuration parameters",
                 "max_chars": 512,
-                "placeholder": "e.g. '--qvalue 0.01 --f RAW_FILE_PATH --out OUTPUT_PATH --temp OUTPUT_PATH --lib LIB_PATH --fasta FASTA_PATH'",
+                "placeholder": "e.g. '--qvalue 0.01 --f RAW_FILE_PATH --out OUTPUT_PATH --temp OUTPUT_PATH --lib LIBRARY_PATH --fasta FASTA_PATH'",
                 "help": "Configuration options.",
             },
         }
@@ -203,11 +201,15 @@ if selected_project:
             else None
         )
 
-        config_params = (
-            st.text_area(**form_items["config_params"])
-            if "config_params" in form_items
-            else None
-        )
+        if "config_params" in form_items:
+            config_params = st.text_area(**form_items["config_params"])
+            st.info(
+                "The following placeholders can be used in the config parameters:\n\n"
+                "- `RAW_FILE_PATH`: Will evaluate to the path of the raw file.\n"
+                "- `OUTPUT_PATH`: Will evaluate to the path of the output directory.\n"
+                "- `LIBRARY_PATH`: Will evaluate to the path of the library file.\n"
+                "- `FASTA_PATH`: Will evaluate to the path of the fasta file.\n"
+            )
 
         # Validate inputs and show errors
         validation_errors = []

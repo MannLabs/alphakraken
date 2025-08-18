@@ -139,19 +139,19 @@ if selected_project:
         "name": {
             "label": "Name*",
             "max_chars": 64,
-            "placeholder": "e.g. very fast plasma settings.",
+            "placeholder": "e.g. 'very fast plasma settings'",
             "help": "Human readable short name for your settings.",
         },
         "fasta_file_name": {
-            "label": "Fasta file name*",
+            "label": "Fasta file name**",
             "max_chars": 64,
-            "placeholder": "e.g. human.fasta",
+            "placeholder": "e.g. 'human.fasta'",
             "help": "Name of the fasta file.",
         },
         "speclib_file_name": {
-            "label": "Speclib file name*",
+            "label": "Speclib file name**",
             "max_chars": 64,
-            "placeholder": "e.g. human_plasma.speclib",
+            "placeholder": "e.g. 'human_plasma.speclib'",
             "help": "Name of the speclib file.",
         },
     }
@@ -159,15 +159,15 @@ if selected_project:
     if software_type == SoftwareTypes.ALPHADIA:
         form_items |= {
             "config_file_name": {
-                "label": "Config file name",
+                "label": "Config file name*",
                 "max_chars": 64,
-                "placeholder": "e.g. very_fast_config.yaml",
+                "placeholder": "e.g. 'very_fast_config.yaml'",
                 "help": "Name of the config file. If none is given, default will be used.",
             },
             "software": {
-                "label": "Software",
+                "label": "Software*",
                 "max_chars": 64,
-                "placeholder": "e.g. alphadia-1.10.0",
+                "placeholder": "e.g. 'alphadia-1.10.0'",
                 "help": "Name of the Conda environment that holds the AlphaDIA executable. Ask an administrator to created this environment..",
             },
         }
@@ -175,25 +175,26 @@ if selected_project:
     elif software_type == SoftwareTypes.CUSTOM:
         form_items |= {
             "software": {
-                "label": "Executable",
+                "label": "Executable*",
                 "max_chars": 64,
-                "placeholder": "custom-software/custom-executable1.2.3",
+                "placeholder": "e.g. 'custom-software/custom-executable1.2.3'",
                 "help": f"Path to executable, relative to `{get_path(YamlKeys.Locations.SOFTWARE)}/`. Ask an administrator to add the executable to the software folder.",
             },
             "config_params": {
                 "label": "Configuration parameters",
                 "max_chars": 512,
                 "placeholder": "e.g. '--qvalue 0.01 --f RAW_FILE_PATH --out OUTPUT_PATH --temp OUTPUT_PATH --lib LIBRARY_PATH --fasta FASTA_PATH'",
-                "help": "Configuration options.",
+                "help": "Configuration options. Provide either this OR config file name above, not both.",
             },
         }
 
     with c1.form("add_settings_to_project"):
         name = st.text_input(**form_items["name"])
-        fasta_file_name = st.text_input(**form_items["fasta_file_name"])
-        speclib_file_name = st.text_input(**form_items["speclib_file_name"])
 
         software = st.text_input(**form_items["software"])
+
+        fasta_file_name = st.text_input(**form_items["fasta_file_name"])
+        speclib_file_name = st.text_input(**form_items["speclib_file_name"])
 
         config_file_name = (
             st.text_input(**form_items["config_file_name"])
@@ -210,6 +211,8 @@ if selected_project:
                 "- `LIBRARY_PATH`: Will evaluate to the path of the library file.\n"
                 "- `FASTA_PATH`: Will evaluate to the path of the fasta file.\n"
             )
+        else:
+            config_params = None
 
         # Validate inputs and show errors
         validation_errors = []
@@ -264,7 +267,8 @@ if selected_project and submit:
             )  # Abstract `raise` to an inner function
 
         if validation_errors:
-            raise ValueError(f"Input validation error: {validation_errors}")
+            errors_str = "\n- ".join(validation_errors)
+            raise ValueError(f"Input validation error:\n- {errors_str}")
 
         if not upload_checkbox:
             raise ValueError(

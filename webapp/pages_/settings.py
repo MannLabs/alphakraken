@@ -21,6 +21,7 @@ from service.utils import (
 
 from shared.db.interface import add_settings
 from shared.db.models import ProjectStatus
+from shared.yamlsettings import YamlKeys, get_path
 
 _log(f"loading {__file__} {get_all_query_params()}")
 # ########################################### PAGE HEADER
@@ -174,7 +175,7 @@ if selected_project:
                 "label": "Executable",
                 "max_chars": 64,
                 "placeholder": "custom-executable1.2.3",
-                "help": "Executable must be available in `/fs/home/alphakraken/software/`.",
+                "help": f"Executable must be available in `{get_path(YamlKeys.Locations.SOFTWARE)}/`.",
                 # TODO: NEXT_SLICE make path dynamic, explain, show example
             },
             "config_params": {

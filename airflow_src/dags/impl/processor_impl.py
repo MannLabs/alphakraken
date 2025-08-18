@@ -120,8 +120,12 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
 
     errors = []
     for to_validate in quanting_env.values():
-        if to_validate and isinstance(to_validate, str):
-            errors.extend(validate_name(to_validate))
+        if (
+            to_validate
+            and isinstance(to_validate, str)
+            and (errors := validate_name(to_validate))
+        ):
+            errors.append(f"Validation error in '{to_validate}': {errors}")
     errors.extend(validate_config_params(settings.config_params))
     if errors:
         raise AirflowFailException(

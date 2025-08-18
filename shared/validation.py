@@ -4,34 +4,16 @@ import re
 
 # Security validation constants
 EXECUTABLE_NAME_PATTERN = r"^[a-zA-Z0-9._/-]+$"
-SHELL_METACHARACTERS = {
-    ";",
-    "&",
-    "|",
-    "$",
-    "`",
-    "(",
-    ")",
-    "<",
-    ">",
-    "*",
-    "?",
-    "[",
-    "]",
-    "{",
-    "}",
-    "~",
-    "!",
-    "\\",
-    '"',
-    "'",
-}
+
+# fmt: off
+SHELL_METACHARACTERS = {    ";", "&", "|", "$", "`", "(", ")", "<", ">", "*", "?", "[", "]", "{", "}", "~", "!", "\\", '"', "'" }
+# fmt: on
 
 # Error messages
-EXECUTABLE_EMPTY_ERROR = "Name cannot be empty"
-EXECUTABLE_PARENT_DIR_ERROR = "Name cannot contain '..'"
-EXECUTABLE_ABSOLUTE_PATH_ERROR = "Name cannot be an absolute path"
-EXECUTABLE_INVALID_CHARS_ERROR = "Name contains invalid characters. Only letters, numbers, dots, hyphens, underscores, and forward slashes are allowed"
+EXECUTABLE_EMPTY_ERROR = "Cannot be empty"
+EXECUTABLE_PARENT_DIR_ERROR = "Cannot contain '..'"
+EXECUTABLE_ABSOLUTE_PATH_ERROR = "Cannot be an absolute path"
+EXECUTABLE_INVALID_CHARS_ERROR = "Contains invalid characters. Only letters, numbers, dots, hyphens, underscores, and forward slashes are allowed"
 
 
 def validate_name(executable: str) -> list[str]:

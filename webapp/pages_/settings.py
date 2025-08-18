@@ -128,7 +128,7 @@ if selected_project:
         f"Settings will be added to the following project: `{selected_project.name}`{desc}"
     )
 
-    software_type = c1.selectbox(label="Type", options=["AlphaDIA", "custom"])
+    software_type = c1.selectbox(label="Type", options=["alphadia", "custom"])
 
     form_items = {
         "name": {
@@ -151,7 +151,7 @@ if selected_project:
         },
     }
 
-    if software_type == "AlphaDIA":
+    if software_type == "alphadia":
         form_items |= {
             "config_file_name": {
                 "label": "Config file name",
@@ -169,19 +169,19 @@ if selected_project:
 
     else:  # custom
         form_items |= {
-            "config_params": {
-                "label": "Configuration parameters",
-                "max_chars": 512,
-                "placeholder": "e.g. '--qvalue 0.01 --f RAW_FILE_PATH --out OUTPUT_PATH --temp OUTPUT_PATH --lib LIB_PATH --fasta FASTA_PATH'",
-                "help": "Configuration options.",
-            },
             # TODO: NEXT_SLICE explain the placeholders
             "software": {
                 "label": "Executable",
                 "max_chars": 64,
                 "placeholder": "custom-executable1.2.3",
                 "help": "Executable must be available in `/fs/home/alphakraken/software/`.",
-                # TODO: NEXT_SLICE make path dynamic, explain
+                # TODO: NEXT_SLICE make path dynamic, explain, show example
+            },
+            "config_params": {
+                "label": "Configuration parameters",
+                "max_chars": 512,
+                "placeholder": "e.g. '--qvalue 0.01 --f RAW_FILE_PATH --out OUTPUT_PATH --temp OUTPUT_PATH --lib LIB_PATH --fasta FASTA_PATH'",
+                "help": "Configuration options.",
             },
         }
 

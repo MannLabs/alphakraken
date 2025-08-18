@@ -4,196 +4,15 @@ To extend the metrics, create a new class that inherits from Metrics and impleme
 """
 
 import logging
-from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
 
-import numpy as np
-import pandas as pd
+from metrics.metrics.alphadia import (
+    _calc_alphadia_metrics,
+)
+from metrics.metrics.custom import _calc_custom_metrics
 
 from shared.keys import MetricsTypes
-
-
-def _load_tsv(file_path: Path) -> pd.DataFrame:
-    """Load a tsv file."""
-    return pd.read_csv(file_path, sep="\t")
-
-
-class OutputFiles:
-    """String constants for the output file names."""
-
-    PG_MATRIX = "pg.matrix.tsv"
-    PRECURSORS = "precursors.tsv"
-    STAT = "stat.tsv"
-    INTERNAL = "internal.tsv"
-    LOG = "log.txt"
-
-
-file_name_to_read_method_mapping = {
-    OutputFiles.PG_MATRIX: _load_tsv,
-    OutputFiles.PRECURSORS: _load_tsv,
-    OutputFiles.STAT: _load_tsv,
-    OutputFiles.INTERNAL: _load_tsv,
-}
-
-
-class DataStore:
-    """Data store to read and cache data."""
-
-    def __init__(self, data_path: Path):
-        """Initialize the data store.
-
-         Output files defined in `file_name_to_read_method_mapping` can be accessed as attributes, e.g.
-            `stat_df = DataStore('/home/output')["stat.tsv"]`
-
-        :param data_path: Absolute path to the directory containing alphaDIA output data.
-        """
-        self._data_path = data_path
-        self._data = {}
-
-    def __getitem__(self, key: str) -> pd.DataFrame:
-        """Get data from the data store."""
-        if key not in self._data:
-            file_path = self._data_path / key
-            logging.info(f"loading {file_path}")
-            self._data[key] = file_name_to_read_method_mapping[key](file_path)
-        return self._data[key]
-
-
-class Metrics(ABC):
-    """Abstract class for metrics."""
-
-    _file: str
-    _columns: list[str]
-    _tolerate_missing: bool = False
-
-    def __init__(self, data_store: DataStore):
-        """Initialize Metrics.
-
-        :param data_store: Data store to get the data from.
-        """
-        self._data_store = data_store
-        self._metrics = {}
-        self._name = self.__class__.__name__
-
-    def get(self) -> dict[str, Any]:
-        """Get the metrics."""
-        if not self._metrics:
-            self._calc_metrics()
-
-        return self._metrics
-
-    def _calc_metrics(self) -> None:
-        """Calculate all the metrics."""
-        df = self._data_store[self._file]
-
-        for col in self._columns:
-            try:
-                self._calc(df, col)
-            except KeyError as e:  # noqa: PERF203
-                if not self._tolerate_missing:
-                    raise e from e
-                logging.warning(f"Column {col} not found in {df.columns}. Error: {e}")
-
-    @abstractmethod
-    def _calc(self, df: pd.DataFrame, column: str) -> None:
-        """Calculate a single metrics."""
-        raise NotImplementedError
-
-
-class BasicStats(Metrics):
-    """Basic statistics."""
-
-    _file = OutputFiles.STAT
-    _tolerate_missing = True
-
-    _columns = (
-        "proteins",
-        "precursors",
-        "fwhm_rt",
-        "fwhm_mobility",
-        "optimization.ms1_error",
-        "optimization.ms2_error",
-        "optimization.rt_error",
-        "optimization.mobility_error",
-        "calibration.ms1_median_accuracy",
-        "calibration.ms2_median_accuracy",
-        "raw.gradient_length_m",
-    )
-
-    def _calc(self, df: pd.DataFrame, column: str) -> None:
-        """Calculate metrics."""
-        self._metrics[f"{column}"] = df[column].mean()
-
-
-class InternalStats(Metrics):
-    """Internal statistics."""
-
-    _file = OutputFiles.INTERNAL
-    _columns = ("duration_optimization", "duration_extraction")
-    _tolerate_missing = True
-
-    def _calc(self, df: pd.DataFrame, column: str) -> None:
-        """Calculate metrics."""
-        self._metrics[f"{column}"] = df[column].mean()
-
-
-class PrecursorStatsSum(Metrics):
-    """Precursor statistics (sum)."""
-
-    _file = OutputFiles.PRECURSORS
-    _columns = ("weighted_ms1_intensity", "intensity")
-    _tolerate_missing = True
-
-    def _calc(self, df: pd.DataFrame, column: str) -> None:
-        """Calculate metrics."""
-        self._metrics[f"{column}_sum"] = df[column].sum()
-
-
-class PrecursorStatsAgg(Metrics):
-    """Precursor statistics (aggregates)."""
-
-    _file = OutputFiles.PRECURSORS
-    _columns = ("charge", "proba")
-    _tolerate_missing = True
-
-    def _calc(self, df: pd.DataFrame, column: str) -> None:
-        """Calculate metrics."""
-        self._metrics[f"{column}_mean"] = df[column].mean()
-        self._metrics[f"{column}_std"] = df[column].std()
-        self._metrics[f"{column}_median"] = df[column].median()
-
-
-class PrecursorStatsIntensity(Metrics):
-    """Precursor statistics (intensity)."""
-
-    _file = OutputFiles.PRECURSORS
-
-    def _calc_metrics(self) -> None:
-        """Calculate all the metrics."""
-        df = self._data_store[self._file]
-        self._metrics["precursor_intensity_median"] = (
-            df["sum_b_ion_intensity"] + df["sum_y_ion_intensity"]
-        ).median()
-
-    def _calc(self, df: pd.DataFrame, column: str) -> None:
-        pass
-
-
-class PrecursorStatsMeanLenSequence(Metrics):
-    """Precursor statistics (mean length sequence)."""
-
-    _file = OutputFiles.PRECURSORS
-    _columns = ("sequence",)
-    _tolerate_missing = True
-
-    def _calc(self, df: pd.DataFrame, column: str) -> None:
-        """Calculate metrics."""
-        sequence_lengths = np.array([len(x) for x in df[column]])
-
-        self._metrics[f"{column}_len_mean"] = sequence_lengths.mean()
-        self._metrics[f"{column}_len_std"] = sequence_lengths.std(ddof=1)
-        self._metrics[f"{column}_len_median"] = np.median(sequence_lengths)
 
 
 def calc_metrics(output_directory: Path, *, metrics_type: str) -> dict[str, Any]:
@@ -202,43 +21,13 @@ def calc_metrics(output_directory: Path, *, metrics_type: str) -> dict[str, Any]
     :param output_directory: Path to the output directory
     :param metrics_type: Type of metrics to calculate ("alphadia" or "custom")
     """
-    data_store = DataStore(output_directory)
-
     metrics = {
         MetricsTypes.ALPHADIA: _calc_alphadia_metrics,
         MetricsTypes.CUSTOM: _calc_custom_metrics,
-    }[metrics_type](data_store)
+    }[metrics_type](output_directory)
 
     # MongoDB field names cannot contain dots (".") or null characters ("\0"), and they must not start with a dollar sign ("$").
     metrics_cleaned = {k.replace(".", ":"): v for k, v in metrics.items()}
 
     logging.info(f"Calculated {metrics_type} metrics: {metrics_cleaned}")
     return metrics_cleaned
-
-
-def _calc_alphadia_metrics(data_store: DataStore) -> dict[str, str | int | float]:
-    """Calculate standard alphaDIA metrics."""
-    metrics = BasicStats(data_store).get()
-    metrics |= PrecursorStatsSum(data_store).get()
-    metrics |= PrecursorStatsAgg(data_store).get()
-    metrics |= PrecursorStatsIntensity(data_store).get()
-    metrics |= PrecursorStatsMeanLenSequence(data_store).get()
-    metrics |= InternalStats(data_store).get()
-
-    return metrics
-
-
-def _calc_custom_metrics(data_store: DataStore) -> dict[str, str | int | float]:
-    """Calculate custom metrics.
-
-    This method can be extended to add custom metrics calculation logic.
-    Return a dictionary of metrics where keys are metric names and values are the metric values.
-    """
-    del data_store  # unused
-
-    metrics = {}
-
-    # Add any custom calculations here
-    # Example: metrics |= YourCustomMetricsClass(data_store).get()
-
-    return metrics  # noqa: RET504

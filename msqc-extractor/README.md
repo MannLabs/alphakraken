@@ -10,8 +10,8 @@ python main.py <raw_file_path> <output_path>
 
 ## Outputs
 
-- `metrics.tsv`: Performance metrics (median injection times, scan counts, median TIC values)
-- `tic.tsv`: Total Ion Current data per spectrum
+- `msqc_results.tsv`: Performance metrics (median injection times, scan counts, median TIC values)
+- `msqc_tic.tsv`: Total Ion Current data per spectrum
 
 ## Supported Formats
 

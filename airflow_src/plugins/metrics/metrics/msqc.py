@@ -9,7 +9,7 @@ from metrics.metrics.base import DataStore, Metrics, read_tsv
 class OutputFiles:
     """String constants for the output file names."""
 
-    RESULTS = "results.tsv"
+    RESULTS = "msqc_results.tsv"
 
 
 file_name_to_read_method_mapping = {

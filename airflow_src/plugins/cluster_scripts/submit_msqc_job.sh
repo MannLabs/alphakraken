@@ -30,7 +30,7 @@ SOFTWARE_DIR=/fs/home/kraken-read/software
 
 set +e
 conda run -n $CONDA_ENV python $SOFTWARE_DIR/msqc-extractor/main.py \
-    "${RAW_FILE_PATH}" "${OUTPUT_PATH}"
+    "${RAW_FILE_PATH}" "${OUTPUT_PATH}" $NUM_THREADS
 software_exit_code=$?  # this line must immediately follow the `conda run ..` command
 set -e
 

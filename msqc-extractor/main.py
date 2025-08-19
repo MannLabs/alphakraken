@@ -153,12 +153,15 @@ def calculate_bruker_metrics(
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:  # noqa: PLR2004
-        print("Usage: python main.py <raw_file_path> <output_path>")  # noqa: T201
+    if len(sys.argv) != 4:  # noqa: PLR2004
+        print("Usage: python main.py <raw_file_path> <output_path> <num_threads>")  # noqa: T201
         sys.exit(0)
 
     raw_file_path = sys.argv[1]
     output_path = sys.argv[2]
+    num_threads = int(sys.argv[3])
+
+    print(f"Starting MSQC extraction {raw_file_path} {output_path} {num_threads=}")  #  noqa: T201
 
     if raw_file_path.endswith(".raw"):
         auxiliary_items = ["injection_time", "faims_cv"]
@@ -167,7 +170,7 @@ if __name__ == "__main__":
         ms_metrics, combined_tic_df = calculate_thermo_metrics(raw_file)
 
     elif raw_file_path.endswith(".d"):
-        alphatims.utils.set_threads(4)
+        alphatims.utils.set_threads(num_threads)
 
         data = alphatims.bruker.TimsTOF(raw_file_path)
         ms_metrics, combined_tic_df = calculate_bruker_metrics(data)
@@ -175,5 +178,9 @@ if __name__ == "__main__":
         print("Unsupported file format. Please provide a .raw or .d file.")  #  noqa: T201
         sys.exit(0)
 
-    combined_tic_df.to_csv(f"{output_path}/tic.tsv", sep="\t")
-    pd.DataFrame(ms_metrics, index=[0]).to_csv(f"{output_path}/metrics.tsv", sep="\t")
+    combined_tic_df.to_csv(f"{output_path}/msqc_tic.tsv", sep="\t")
+    pd.DataFrame(ms_metrics, index=[0]).to_csv(
+        f"{output_path}/msqc_results.tsv", sep="\t"
+    )
+
+    print("Finished MSQC extraction!")  #  noqa: T201

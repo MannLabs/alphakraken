@@ -11,7 +11,7 @@ from plugins.metrics.metrics.alphadia import (
     PrecursorStatsIntensity,
     PrecursorStatsMeanLenSequence,
     PrecursorStatsSum,
-    _calc_alphadia_metrics,
+    calc_alphadia_metrics,
 )
 
 
@@ -64,7 +64,7 @@ def test_calc_alphadia_metrics_happy_path(  # noqa: PLR0913
         getter.return_value.get.return_value = {key: value}
 
     # when
-    result = _calc_alphadia_metrics(Path("output_directory"))
+    result = calc_alphadia_metrics(Path("output_directory"))
 
     assert result == {
         key: value for key, (getter, value) in mock_metrics_and_getters.items()

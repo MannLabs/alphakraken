@@ -145,8 +145,8 @@ class SlurmSSHJobHandler(JobHandler):
         params = " ".join(
             [
                 f"--cpus-per-task={environment[QuantingEnv.SLURM_CPUS_PER_TASK]}",
-                f"--mem={environment[QuantingEnv.SLURM_TIME]}",
-                f"--time={environment[QuantingEnv.SLURM_MEM]}",
+                f"--mem={environment[QuantingEnv.SLURM_MEM]}",
+                f"--time={environment[QuantingEnv.SLURM_TIME]}",
             ]
         )
 

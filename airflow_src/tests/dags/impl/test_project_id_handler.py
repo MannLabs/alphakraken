@@ -54,4 +54,6 @@ def test_get_unique_project_id_not_found(project_ids: list[str]) -> None:
     raw_file_name = (
         "20240524_OA2_Evo01_ViAl_SA_FAIMS40_IO17_A556_MOMI_APEM_P81_A11_R01.raw"
     )
-    assert get_unique_project_id(raw_file_name, project_ids) is None
+    assert (
+        get_unique_project_id(raw_file_name, project_ids, initial_token="_SA_") is None  # noqa: S106
+    )

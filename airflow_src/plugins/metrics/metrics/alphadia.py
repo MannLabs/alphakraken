@@ -4,12 +4,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from metrics.metrics.base import DataStore, Metrics
-
-
-def _load_tsv(file_path: Path) -> pd.DataFrame:
-    """Load a tsv file."""
-    return pd.read_csv(file_path, sep="\t")
+from metrics.metrics.base import DataStore, Metrics, read_tsv
 
 
 class OutputFiles:
@@ -23,10 +18,10 @@ class OutputFiles:
 
 
 file_name_to_read_method_mapping = {
-    OutputFiles.PG_MATRIX: _load_tsv,
-    OutputFiles.PRECURSORS: _load_tsv,
-    OutputFiles.STAT: _load_tsv,
-    OutputFiles.INTERNAL: _load_tsv,
+    OutputFiles.PG_MATRIX: read_tsv,
+    OutputFiles.PRECURSORS: read_tsv,
+    OutputFiles.STAT: read_tsv,
+    OutputFiles.INTERNAL: read_tsv,
 }
 
 

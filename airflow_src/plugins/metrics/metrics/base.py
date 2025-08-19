@@ -8,6 +8,11 @@ from typing import Any
 import pandas as pd
 
 
+def read_tsv(file_path: Path) -> pd.DataFrame:
+    """Read a tsv file."""
+    return pd.read_csv(file_path, sep="\t")
+
+
 class DataStore:
     """Data store to read and cache data."""
 

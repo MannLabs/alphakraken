@@ -167,7 +167,11 @@ max_age = c2.number_input(
 c1, c2, _ = st.columns([0.1, 0.2, 0.6])
 
 too_much_data = max_age > DEFAULT_MAX_AGE_OVERVIEW and instruments_input == ALL
-reload_button_clicked = c1.button("🔄 Reload", disabled=too_much_data)
+reload_button_clicked = c1.button(
+    "🔄 Reload",
+    disabled=too_much_data,
+    help="Load or refresh data for current selection. ",
+)
 if too_much_data:
     st.info(
         f"Loading all instruments' data for more than {DEFAULT_MAX_AGE_OVERVIEW} days is not recommended due to performance reasons. "

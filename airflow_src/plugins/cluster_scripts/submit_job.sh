@@ -150,7 +150,7 @@ if [ "$SOFTWARE_TYPE" = "alphadia" ]; then
         --config-dict "{\"general\": {\"thread_count\": $NUM_THREADS}}"
     software_exit_code=$?  # this line must immediately follow the `conda run ..` command
     set -e
-else
+elif [ "$SOFTWARE_TYPE" = "custom" ]; then
     echo "Running custom software.."
     echo "Command: ${CUSTOM_COMMAND}"
     echo "Check the logs in ${OUTPUT_PATH}/log.txt"
@@ -159,6 +159,9 @@ else
     ${CUSTOM_COMMAND} > ${OUTPUT_PATH}/log.txt 2>&1
     software_exit_code=$?  # this line must immediately follow the command
     set -e
+else:
+    echo "Unknown SOFTWARE_TYPE: $SOFTWARE_TYPE"
+    exit 1
 fi
 
 echo OUTPUT_PATH ">>>>>>"

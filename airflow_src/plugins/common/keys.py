@@ -32,6 +32,11 @@ class Tasks:
     START_ACQUISITION_PROCESSOR: str = "start_acquisition_processor"
 
     PREPARE_QUANTING: str = "prepare_quanting"
+    RUN_MSQC: str = "run_msqc"
+    MONITOR_MSQC: str = "monitor_msqc"
+    COMPUTE_MSQC_METRICS: str = "compute_msqc_metrics"
+    UPLOAD_MSQC_METRICS: str = "upload_msqc_metrics"
+
     RUN_QUANTING: str = "run_quanting"
     WAIT_FOR_JOB_START: str = "wait_for_job_start"
     MONITOR_QUANTING: str = "monitor_quanting"
@@ -80,6 +85,7 @@ class XComKeys:
     QUANTING_ENV: str = "quanting_env"
 
     JOB_ID: str = "job_id"
+    MSQC_JOB_ID: str = "msqc_job_id"
 
     METRICS: str = "metrics"
     METRICS_TYPE: str = "metrics_type"

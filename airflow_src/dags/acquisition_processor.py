@@ -93,7 +93,9 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
             compute_msqc_metrics_ = PythonOperator(
                 task_id=Tasks.COMPUTE_MSQC_METRICS,
                 python_callable=partial(
-                    compute_metrics, metrics_type=MetricsTypes.MSQC
+                    compute_metrics,
+                    metrics_type=MetricsTypes.MSQC,
+                    add_quanting_time_elapsed=False,
                 ),
             )
             upload_msqc_metrics_ = PythonOperator(
@@ -137,19 +139,19 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
         )
 
     if DO_MSQC:
+        (prepare_quanting_ >> [run_msqc_, run_quanting_])
+
+        (run_msqc_ >> monitor_msqc_ >> compute_msqc_metrics_ >> upload_msqc_metrics_)
+
         (
-            prepare_quanting_
-            >> run_msqc_
-            >> monitor_msqc_
-            >> compute_msqc_metrics_
-            >> upload_msqc_metrics_
-            >> run_quanting_
+            run_quanting_
             >> wait_for_job_start_
             >> monitor_quanting_
             >> check_quanting_result_
             >> compute_metrics_
             >> upload_metrics_
         )
+
     else:
         (
             prepare_quanting_

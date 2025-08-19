@@ -419,7 +419,11 @@ def check_quanting_result(ti: TaskInstance, **kwargs) -> bool:
 
 
 def compute_metrics(
-    ti: TaskInstance, *, metrics_type: str | None = None, **kwargs
+    ti: TaskInstance,
+    *,
+    metrics_type: str | None = None,
+    add_quanting_time_elapsed: bool = True,
+    **kwargs,
 ) -> None:
     """Compute metrics from the quanting results."""
     del kwargs
@@ -441,7 +445,12 @@ def compute_metrics(
 
     metrics = calc_metrics(output_path, metrics_type=metrics_type)
 
-    metrics[QUANTING_TIME_ELAPSED_METRIC] = get_xcom(ti, XComKeys.QUANTING_TIME_ELAPSED)
+    if (
+        add_quanting_time_elapsed
+    ):  # TODO: find a better way to handle this also for msqc
+        metrics[QUANTING_TIME_ELAPSED_METRIC] = get_xcom(
+            ti, XComKeys.QUANTING_TIME_ELAPSED
+        )
 
     put_xcom(ti, XComKeys.METRICS, metrics)
     put_xcom(ti, XComKeys.METRICS_TYPE, metrics_type)

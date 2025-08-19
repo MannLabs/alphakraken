@@ -24,13 +24,13 @@ from impl.processor_impl import (
     run_quanting,
     upload_metrics,
 )
-from keys import MetricsTypes
 from sensors.ssh_sensor import (
     WaitForJobFinishSensor,
     WaitForJobStartSensor,
 )
 
 from shared.db.models import RawFileStatus
+from shared.keys import MetricsTypes
 
 DO_MSQC = False
 

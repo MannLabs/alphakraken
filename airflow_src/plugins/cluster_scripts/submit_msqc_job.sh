@@ -27,7 +27,7 @@ CONDA_ENV=msqc-extractor
 SOFTWARE_DIR=/fs/home/kraken-read/software
 
 set +e
-conda run -n $CONDA_ENV python SOFTWARE_DIR/msqc-extractor/main.py \
+conda run -n $CONDA_ENV python $SOFTWARE_DIR/msqc-extractor/main.py \
     "${RAW_FILE_PATH}" "${OUTPUT_PATH}"
 software_exit_code=$?  # this line must immediately follow the `conda run ..` command
 set -e

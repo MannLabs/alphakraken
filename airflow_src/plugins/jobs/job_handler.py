@@ -143,7 +143,11 @@ class SlurmSSHJobHandler(JobHandler):
         cluster_working_dir = self._cluster_base_working_dir_path / year_month_folder
 
         params = " ".join(
-            [f"--cpus-per-task={environment[QuantingEnv.SLURM_CPUS_PER_TASK]}"]
+            [
+                f"--cpus-per-task={environment[QuantingEnv.SLURM_CPUS_PER_TASK]}",
+                f"--mem={environment[QuantingEnv.SLURM_TIME]}",
+                f"--time={environment[QuantingEnv.SLURM_MEM]}",
+            ]
         )
 
         return "\n".join(

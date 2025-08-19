@@ -2,18 +2,20 @@
 #SBATCH --job-name=msqc-alphakraken
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --mem=16G
-#SBATCH --time=00:10:00
 #SBATCH --partition=p.<node>
 ####SBATCH --nodelist=<node>02,<node>03
 ####SBATCH --nice=9001
 ####SBATCH --cpus-per-task=8  # set by calling command
+####SBATCH --mem=8G # set by calling command
+####SBATCH --time=00:10:00 # set by calling command
 
 set -u -e
 
 # cluster-specific code:
 module purge
 module load anaconda/3/2023.03
+
+export TQDM_MININTERVAL=10  # avoid lots of tqdm outputs
 
 echo RAW_FILE_PATH=${RAW_FILE_PATH}
 echo OUTPUT_PATH=${OUTPUT_PATH}

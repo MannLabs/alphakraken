@@ -2,12 +2,12 @@
 #SBATCH --job-name=alphakraken
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --mem=62G
-#SBATCH --time=02:00:00
 #SBATCH --partition=p.<node>
 ####SBATCH --nodelist=<node>02,<node>03
 ####SBATCH --nice=9001
 ####SBATCH --cpus-per-task=8  # set by calling command
+####SBATCH --mem=62G  # set by calling command
+####SBATCH --time=02:00:00  # set by calling command
 
 set -u -e
 

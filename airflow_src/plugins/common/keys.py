@@ -158,6 +158,8 @@ class QuantingEnv:
 
     # those will not be exported as environment variables due to the leading underscore
     SLURM_CPUS_PER_TASK: str = "_SLURM_CPUS_PER_TASK"
+    SLURM_MEM: str = "_SLURM_MEM"
+    SLURM_TIME: str = "_SLURM_TIME"
 
 
 class JobStates:

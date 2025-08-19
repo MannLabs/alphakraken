@@ -187,7 +187,7 @@ if selected_project:
                 "label": "Configuration parameters",
                 "max_chars": 512,
                 "placeholder": "e.g. '--qvalue 0.01 --f RAW_FILE_PATH --out OUTPUT_PATH --temp OUTPUT_PATH --lib LIBRARY_PATH --fasta FASTA_PATH --threads NUM_THREADS'",
-                "help": "Configuration options. Provide either this OR config file name above, not both.",
+                "help": "Configuration options for the custom software. Certain placeholders will be substituted.",
             },
         }
 
@@ -208,12 +208,13 @@ if selected_project:
         if "config_params" in form_items:
             config_params = st.text_area(**form_items["config_params"])
             st.info(
-                "The following placeholders can be used in the config parameters:\n\n"
-                "- `RAW_FILE_PATH`: Will evaluate to the path of the raw file.\n"
-                "- `OUTPUT_PATH`: Will evaluate to the path of the output directory.\n"
-                "- `LIBRARY_PATH`: Will evaluate to the path of the library file.\n"
-                "- `FASTA_PATH`: Will evaluate to the path of the fasta file.\n"
-                "- `NUM_THREADS`: Will evaluate to the number of threads.\n"
+                "The following placeholders can be used in the config parameters, and will be replaced by the specified values:\n\n"
+                "- `RAW_FILE_PATH`: absolute path of the raw file\n"
+                "- `OUTPUT_PATH`: absolute path of the output directory\n"
+                "- `LIBRARY_PATH`: absolute path of the library file\n"
+                "- `FASTA_PATH`: absolute path of the fasta file\n"
+                "- `NUM_THREADS`: number of threads\n"
+                "- `PROJECT_ID`: project id\n"
             )
         else:
             config_params = None
@@ -255,11 +256,11 @@ if selected_project and submit:
         config_file_name,
     ]:
         if to_validate:
-            validation_errors.extend(
-                check_for_malicious_content(to_validate, allow_spaces=True)
-            )
+            validation_errors.extend(check_for_malicious_content(to_validate))
     if config_params:
-        validation_errors.extend(check_for_malicious_content(to_validate))
+        validation_errors.extend(
+            check_for_malicious_content(config_params, allow_spaces=True)
+        )
 
     if (
         empty_to_none(fasta_file_name) is None

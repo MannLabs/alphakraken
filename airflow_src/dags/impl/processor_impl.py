@@ -98,12 +98,18 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
         raw_file, project_id_or_fallback
     )
 
-    if settings.software_type == SoftwareTypes.CUSTOM:
-        custom_command = _prepare_custom_command(
-            output_path, raw_file_path, settings, settings_path, num_threads
+    custom_command = (
+        _prepare_custom_command(
+            output_path,
+            raw_file_path,
+            settings,
+            settings_path,
+            num_threads,
+            project_id_or_fallback,
         )
-    else:
-        custom_command = ""
+        if settings.software_type == SoftwareTypes.CUSTOM
+        else ""
+    )
 
     quanting_env = {
         QuantingEnv.RAW_FILE_PATH: str(raw_file_path),
@@ -134,12 +140,13 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
     put_xcom(ti, XComKeys.RAW_FILE_ID, raw_file_id)
 
 
-def _prepare_custom_command(
+def _prepare_custom_command(  # noqa: PLR0913 Too many arguments
     output_path: Path,
     raw_file_path: Path,
     settings: Settings,
     settings_path: Path,
     num_threads: int,
+    project_id: str,
 ) -> str:
     """Prepare the custom command for the quanting job."""
     speclib_file_path = (
@@ -158,9 +165,11 @@ def _prepare_custom_command(
     substituted_params = substituted_params.replace("OUTPUT_PATH", str(output_path))
     substituted_params = substituted_params.replace("FASTA_PATH", fasta_file_path)
     substituted_params = substituted_params.replace("NUM_THREADS", str(num_threads))
+    substituted_params = substituted_params.replace("PROJECT_ID", project_id)
 
     software_base_path = get_path(YamlKeys.Locations.SOFTWARE)
     software_path = str(software_base_path / settings.software)
+
     custom_command = f"{software_path} {substituted_params}"
     logging.info(f"Custom command for quanting: {custom_command}")
     return custom_command
@@ -168,6 +177,13 @@ def _prepare_custom_command(
 
 def _check_content(quanting_env: dict[str, str], settings: Settings) -> list[str]:
     """Validate the fields in the quanting environment don't contain malicious content."""
+    absolute_path_allowed_keys = [
+        QuantingEnv.RAW_FILE_PATH,
+        QuantingEnv.SETTINGS_PATH,
+        QuantingEnv.OUTPUT_PATH,
+        QuantingEnv.SOFTWARE,
+    ]
+
     errors = []
     for key, value in quanting_env.items():
         if (
@@ -175,24 +191,15 @@ def _check_content(quanting_env: dict[str, str], settings: Settings) -> list[str
             and key
             not in [
                 QuantingEnv.CUSTOM_COMMAND,
-                QuantingEnv.SOFTWARE,
-                QuantingEnv.RAW_FILE_PATH,
-                QuantingEnv.SETTINGS_PATH,
-                QuantingEnv.OUTPUT_PATH,
             ]
             and isinstance(value, str)
-            and (errors_ := check_for_malicious_content(value))
+            and (
+                errors_ := check_for_malicious_content(
+                    value, allow_absolute_paths=key in absolute_path_allowed_keys
+                )
+            )
         ):
             errors.append(f"Validation error in '{value}': {errors_}")
-
-    for key in [
-        QuantingEnv.RAW_FILE_PATH,
-        QuantingEnv.SETTINGS_PATH,
-        QuantingEnv.OUTPUT_PATH,
-    ]:
-        errors.extend(
-            check_for_malicious_content(quanting_env[key], allow_absolute_paths=True)
-        )
 
     if settings.software_type == SoftwareTypes.CUSTOM:
         errors.extend(
@@ -200,11 +207,6 @@ def _check_content(quanting_env: dict[str, str], settings: Settings) -> list[str
                 quanting_env[QuantingEnv.CUSTOM_COMMAND],
                 allow_spaces=True,
                 allow_absolute_paths=True,
-            )
-        )
-        errors.extend(
-            check_for_malicious_content(
-                quanting_env[QuantingEnv.SOFTWARE], allow_absolute_paths=True
             )
         )
         errors.extend(
@@ -431,7 +433,7 @@ def compute_metrics(
     )
 
     if metrics_type is None:
-        # TOOD: currently 1:1 mapping between custom workflow & metrics
+        # TODO: currently 1:1 mapping between custom workflow & metrics
         metrics_type = {
             SoftwareTypes.ALPHADIA: MetricsTypes.ALPHADIA,
             SoftwareTypes.CUSTOM: MetricsTypes.CUSTOM,

@@ -186,7 +186,7 @@ if selected_project:
             "config_params": {
                 "label": "Configuration parameters",
                 "max_chars": 512,
-                "placeholder": "e.g. '--qvalue 0.01 --f RAW_FILE_PATH --out OUTPUT_PATH --temp OUTPUT_PATH --lib LIBRARY_PATH --fasta FASTA_PATH --threads NUM_THREADS'",
+                "placeholder": "e.g. '--qvalue 0.01 --f RAW_FILE_PATH --lib LIBRARY_PATH --fasta FASTA_PATH --threads NUM_THREADS'",
                 "help": "Configuration options for the custom software. Certain placeholders will be substituted.",
             },
         }
@@ -215,6 +215,7 @@ if selected_project:
                 "- `FASTA_PATH`: absolute path of the fasta file\n"
                 "- `NUM_THREADS`: number of threads\n"
                 "- `PROJECT_ID`: project id\n"
+                "Note: The working directory of the custom software is `OUTPUT_PATH`."
             )
         else:
             config_params = None

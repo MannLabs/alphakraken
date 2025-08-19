@@ -195,6 +195,7 @@ def _check_content(quanting_env: dict[str, str], settings: Settings) -> list[str
             and key
             not in [
                 QuantingEnv.CUSTOM_COMMAND,
+                QuantingEnv.SLURM_TIME,  # TODO: contains ":", but set internally at the moment
             ]
             and isinstance(value, str)
             and (

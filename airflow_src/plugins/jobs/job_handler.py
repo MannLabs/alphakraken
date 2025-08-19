@@ -10,6 +10,7 @@ from datetime import datetime
 
 from airflow.exceptions import AirflowFailException
 from common.constants import CLUSTER_BASE_WORKING_DIR_NAME
+from common.keys import QuantingEnv
 from sensors.ssh_utils import ssh_execute
 
 from shared.yamlsettings import YAMLSETTINGS, YamlKeys, get_path
@@ -91,7 +92,7 @@ class SlurmSSHJobHandler(JobHandler):
         command = (
             self._create_export_environment_cmd(environment)
             + "\n"
-            + self._get_run_job_cmd(job_script_name, year_month_folder)
+            + self._get_run_job_cmd(job_script_name, environment, year_month_folder)
         )
         logging.info(f"Running command: >>>>\n{command}\n<<<< end of command")
         ssh_return = ssh_execute(command)
@@ -127,7 +128,9 @@ class SlurmSSHJobHandler(JobHandler):
         job_status = ssh_return.split("\n")[-1]
         return job_status, time_elapsed
 
-    def _get_run_job_cmd(self, job_script_name: str, year_month_folder: str) -> str:
+    def _get_run_job_cmd(
+        self, job_script_name: str, environment: dict[str, str], year_month_folder: str
+    ) -> str:
         """Get the command to run the job on the cluster.
 
         Its last line of output to stdout must be the job id of the submitted job.
@@ -138,12 +141,17 @@ class SlurmSSHJobHandler(JobHandler):
         """
         cluster_job_script_path = self._cluster_base_dir / job_script_name
         cluster_working_dir = self._cluster_base_working_dir_path / year_month_folder
+
+        params = " ".join(
+            [f"--cpus-per-task={environment[QuantingEnv.SLURM_CPUS_PER_TASK]}"]
+        )
+
         return "\n".join(
             [
                 f"mkdir -p {cluster_working_dir}",
                 f"cd {cluster_working_dir}",
                 f"cat {cluster_job_script_path}",
-                f"JID=$(sbatch {cluster_job_script_path})",
+                f"JID=$(sbatch {params} {cluster_job_script_path})",
                 "echo ${JID##* }",
             ]
         )
@@ -178,8 +186,10 @@ class SlurmSSHJobHandler(JobHandler):
 
     @staticmethod
     def _create_export_environment_cmd(mapping: dict[str, str]) -> str:
-        """Create a bash command to export environment variables."""
-        return "\n".join([f'export {k}="{v}"' for k, v in mapping.items()])
+        """Create a bash command to export environment variables, ignoring keys with leading underscore."""
+        return "\n".join(
+            [f'export {k}="{v}"' for k, v in mapping.items() if not k.startswith("_")]
+        )
 
     @staticmethod
     def _get_time_elapsed(ssh_return: str) -> int:

@@ -3,7 +3,7 @@
 from pathlib import Path
 
 
-def _calc_custom_metrics(output_directory: Path) -> dict[str, str | int | float]:
+def calc_custom_metrics(output_directory: Path) -> dict[str, str | int | float]:
     """Calculate custom metrics.
 
     This method can be extended to add custom metrics calculation logic.

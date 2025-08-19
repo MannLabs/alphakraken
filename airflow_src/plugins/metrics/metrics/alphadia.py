@@ -125,7 +125,7 @@ class PrecursorStatsMeanLenSequence(Metrics):
         self._metrics[f"{column}_len_median"] = np.median(sequence_lengths)
 
 
-def _calc_alphadia_metrics(output_directory: Path) -> dict[str, str | int | float]:
+def calc_alphadia_metrics(output_directory: Path) -> dict[str, str | int | float]:
     """Calculate standard alphaDIA metrics."""
     data_store = DataStore(output_directory, file_name_to_read_method_mapping)
 

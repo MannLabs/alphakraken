@@ -39,7 +39,7 @@ def test_settings(
             "speclib_file_name": ["speclib_file1", "speclib_file2"],
             "config_file_name": ["config_file1", "config_file2"],
             "software": ["software1", "software2"],
-            "status": ["active", "inactive"],
+            "status": ["active", "active"],
         },
     )
 
@@ -59,7 +59,7 @@ def test_settings(
         "project_id": {0: "P1234", 1: "P5678"},
         "software": {0: "software1", 1: "software2"},
         "speclib_file_name": {0: "speclib_file1", 1: "speclib_file2"},
-        "status": {0: "active", 1: "inactive"},
+        "status": {0: "active", 1: "active"},
     }
 
     assert not at.exception

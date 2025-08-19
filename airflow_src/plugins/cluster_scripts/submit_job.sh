@@ -2,14 +2,12 @@
 #SBATCH --job-name=alphakraken
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=8
 #SBATCH --mem=62G
 #SBATCH --time=02:00:00
 #SBATCH --partition=p.<node>
 ####SBATCH --nodelist=<node>02,<node>03
 ####SBATCH --nice=9001
-
-NTHREADS=8
+####SBATCH --cpus-per-task=8  # set by calling command
 
 set -u -e
 
@@ -149,7 +147,7 @@ if [ "$SOFTWARE_TYPE" = "alphadia" ]; then
         ${FASTA_COMMAND} \
         --config "${CONFIG_FILE_PATH}" \
         --output "${OUTPUT_PATH}" \
-        --config-dict "{\"general\": {\"thread_count\": $NTHREADS}}"
+        --config-dict "{\"general\": {\"thread_count\": $NUM_THREADS}}"
     software_exit_code=$?  # this line must immediately follow the `conda run ..` command
     set -e
 else

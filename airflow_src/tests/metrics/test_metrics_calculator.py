@@ -9,7 +9,7 @@ from plugins.metrics.metrics_calculator import calc_metrics
 from shared.keys import MetricsTypes
 
 
-@patch("plugins.metrics.metrics_calculator._calc_alphadia_metrics")
+@patch("plugins.metrics.metrics_calculator.calc_alphadia_metrics")
 def test_calc_metrics_alphadia(mock_alphadia: MagicMock) -> None:
     """Test calc_metrics with alphadia metrics type."""
     output_dir = Path("/test/output")
@@ -22,7 +22,7 @@ def test_calc_metrics_alphadia(mock_alphadia: MagicMock) -> None:
     assert result == {"test_metric": 1.0, "another:metric": 2.5}
 
 
-@patch("plugins.metrics.metrics_calculator._calc_custom_metrics")
+@patch("plugins.metrics.metrics_calculator.calc_custom_metrics")
 def test_calc_metrics_custom(mock_custom: MagicMock) -> None:
     """Test calc_metrics with custom metrics type."""
     output_dir = Path("/test/output")

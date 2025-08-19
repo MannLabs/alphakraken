@@ -148,6 +148,11 @@ class QuantingEnv:
     RAW_FILE_ID: str = "RAW_FILE_ID"
     SETTINGS_VERSION: str = "SETTINGS_VERSION"
 
+    NUM_THREADS: str = "NUM_THREADS"
+
+    # those will not be exported as environment variables due to the leading underscore
+    SLURM_CPUS_PER_TASK: str = "_SLURM_CPUS_PER_TASK"
+
 
 class JobStates:
     """States of a slurm job as returned by the sacct command, cf slurm_commands.py:get_job_state_cmd()."""

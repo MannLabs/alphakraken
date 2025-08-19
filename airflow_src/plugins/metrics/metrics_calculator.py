@@ -7,10 +7,8 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from metrics.metrics.alphadia import (
-    _calc_alphadia_metrics,
-)
-from metrics.metrics.custom import _calc_custom_metrics
+from metrics.metrics.alphadia import calc_alphadia_metrics
+from metrics.metrics.custom import calc_custom_metrics
 
 from shared.keys import MetricsTypes
 
@@ -22,8 +20,8 @@ def calc_metrics(output_directory: Path, *, metrics_type: str) -> dict[str, Any]
     :param metrics_type: Type of metrics to calculate ("alphadia" or "custom")
     """
     metrics = {
-        MetricsTypes.ALPHADIA: _calc_alphadia_metrics,
-        MetricsTypes.CUSTOM: _calc_custom_metrics,
+        MetricsTypes.ALPHADIA: calc_alphadia_metrics,
+        MetricsTypes.CUSTOM: calc_custom_metrics,
     }[metrics_type](output_directory)
 
     # MongoDB field names cannot contain dots (".") or null characters ("\0"), and they must not start with a dollar sign ("$").

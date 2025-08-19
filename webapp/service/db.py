@@ -207,9 +207,6 @@ def df_from_db_data(
                 continue
             query_set_df = query_set_df[query_set_df[key] == value]
 
-    if len(query_set_df) == 0:
-        return query_set_df
-
     if "created_at_" in query_set_df.columns:
         query_set_df.sort_values(by="created_at_", inplace=True, ascending=False)
 

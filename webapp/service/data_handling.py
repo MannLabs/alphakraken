@@ -29,20 +29,27 @@ def get_combined_raw_files_and_metrics_df(
         filter_dict={"type": MetricsTypes.ALPHADIA},
         drop_duplicates=["raw_file"],
         drop_columns=["_id", "created_at_"],
+        drop_none_columns=True,
     )
     custom_metrics_df = df_from_db_data(
         metrics_db,
         filter_dict={"type": MetricsTypes.CUSTOM},
         drop_duplicates=["raw_file"],
         drop_columns=["_id", "created_at_"],
+        drop_none_columns=True,
     )
 
-    metrics_df = alphadia_metrics_df.merge(
-        how="outer",
-        right=custom_metrics_df,
-        on="raw_file",
-        suffixes=("", f"_{MetricsTypes.CUSTOM}"),
-    )
+    if len(alphadia_metrics_df) and len(custom_metrics_df):
+        metrics_df = alphadia_metrics_df.merge(
+            how="outer",
+            right=custom_metrics_df,
+            on="raw_file",
+            suffixes=("", f"_{MetricsTypes.CUSTOM}"),
+        )
+    elif len(alphadia_metrics_df):
+        metrics_df = alphadia_metrics_df
+    else:
+        metrics_df = custom_metrics_df
 
     if len(raw_files_df) == 0 or len(metrics_df) == 0:
         # TODO: improve -> move st dependency out

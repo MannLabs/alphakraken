@@ -181,7 +181,8 @@ if selected_project:
                 "label": "Executable*",
                 "max_chars": 64,
                 "placeholder": "e.g. 'custom-software/custom-executable1.2.3'",
-                "help": f"Path to executable, relative to `{get_path(YamlKeys.Locations.SOFTWARE)}/`. Ask an administrator to add the executable to the software folder.",
+                "help": f"Path to executable, relative to `{get_path(YamlKeys.Locations.SOFTWARE)}/`. Ask an administrator to add the executable to the software folder. "
+                f"If something that is in the `$PATH` should be executed, an administrator needs to create a small wrapper script in the software folder that calls it.",
             },
             "config_params": {
                 "label": "Configuration parameters",

@@ -92,6 +92,13 @@ def get_instrument_ids() -> list[str]:
     return list(_INSTRUMENTS.keys())
 
 
+def get_instrument_ids_with_value(key: str) -> list[tuple[str, str]]:
+    """Get all IDs for all instruments together with an additional value."""
+    instrument_ids = get_instrument_ids()
+
+    return [(id_, _INSTRUMENTS[id_][key]) for id_ in instrument_ids]
+
+
 def get_instrument_settings(instrument_id: str, key: str) -> Any:  # noqa: ANN401
     """Get a certain setting for an instrument."""
     settings_with_defaults = INSTRUMENT_SETTINGS_DEFAULTS | _INSTRUMENTS[instrument_id]

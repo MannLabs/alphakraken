@@ -14,7 +14,7 @@ from common.keys import DAG_DELIMITER, DagParams, Dags, OpArgs, Tasks, XComKeys
 from common.settings import (
     Concurrency,
     Timings,
-    get_instrument_ids,
+    get_instrument_ids_with_value,
 )
 from common.utils import get_minutes_since_fixed_time_point
 from impl.processor_impl import (
@@ -30,12 +30,13 @@ from sensors.ssh_sensor import (
 )
 
 from shared.db.models import RawFileStatus
-from shared.keys import MetricsTypes
+from shared.keys import InstrumentTypes, MetricsTypes
+from shared.yamlsettings import YamlKeys
 
-DO_MSQC = False
+ACTIVATE_MSQC = False  # TODO: temporary flag
 
 
-def create_acquisition_processor_dag(instrument_id: str) -> None:
+def create_acquisition_processor_dag(instrument_id: str, instrument_type: str) -> None:
     """Create acquisition_processor dag for instrument with `instrument_id`."""
     with DAG(
         f"{Dags.ACQUISITION_PROCESSOR}{DAG_DELIMITER}{instrument_id}",
@@ -70,7 +71,10 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
             priority_weight=get_minutes_since_fixed_time_point(),
         )
 
-        if DO_MSQC:
+        do_msqc = (
+            ACTIVATE_MSQC and instrument_type != InstrumentTypes.SCIEX
+        )  # TODO: hack to prevent msqc running for sciex. Remedy: vendor-specific fallbacks
+        if do_msqc:
             run_msqc_ = PythonOperator(
                 task_id=Tasks.RUN_MSQC,
                 python_callable=partial(
@@ -105,7 +109,7 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
 
         run_quanting_ = PythonOperator(
             task_id=Tasks.RUN_QUANTING,
-            python_callable=partial(run_quanting, output_path_check=not DO_MSQC),
+            python_callable=partial(run_quanting, output_path_check=not do_msqc),
             pool=Pools.CLUSTER_SLOTS_POOL,
         )
 
@@ -138,7 +142,7 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
             task_id=Tasks.UPLOAD_METRICS, python_callable=upload_metrics
         )
 
-    if DO_MSQC:
+    if ACTIVATE_MSQC:
         (prepare_quanting_ >> [run_msqc_, run_quanting_])
 
         (run_msqc_ >> monitor_msqc_ >> compute_msqc_metrics_ >> upload_msqc_metrics_)
@@ -164,5 +168,5 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
         )
 
 
-for instrument_id in get_instrument_ids():
-    create_acquisition_processor_dag(instrument_id)
+for instrument_id, instrument_type in get_instrument_ids_with_value(YamlKeys.TYPE):
+    create_acquisition_processor_dag(instrument_id, instrument_type)

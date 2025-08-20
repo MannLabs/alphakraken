@@ -159,7 +159,7 @@ elif [ "$SOFTWARE_TYPE" = "custom" ]; then
     ${CUSTOM_COMMAND} > ${OUTPUT_PATH}/log.txt 2>&1
     software_exit_code=$?  # this line must immediately follow the command
     set -e
-else:
+else
     echo "Unknown SOFTWARE_TYPE: $SOFTWARE_TYPE"
     exit 1
 fi

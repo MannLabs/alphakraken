@@ -172,11 +172,13 @@ if __name__ == "__main__":
 
         try:
             df = pd.DataFrame(
-                RawFileReader(raw_file_path).GetEvoSdepData("PumpHP_pressure")
+                RawFileReader(raw_file_path).GetEvoSepData("PumpHP_pressure")
             )
             ms_metrics["evosep_pump_hp_pressure_max"] = df["VALUE"].max()
-        except AttributeError:  # TODO: remove once new alpharaw version is released
-            print("No EvoSep pump HP pressure data found.")  #  noqa: T201
+        except (
+            AttributeError
+        ) as e:  # TODO: remove once new alpharaw version is released
+            print(e)  #  noqa: T201
 
     elif raw_file_path.endswith(".d"):
         alphatims.utils.set_threads(num_threads)

@@ -30,6 +30,7 @@ class BasicStats(Metrics):
         "ms2_median_injection_time",
         "ms2_scans",
         "ms2_median_tic",
+        "evosep_pump_hp_pressure_max",
     )
 
     def _calc(self, df: pd.DataFrame, column: str) -> None:

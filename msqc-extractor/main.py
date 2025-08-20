@@ -7,6 +7,7 @@ import alphatims.utils
 import numpy as np
 import pandas as pd
 from alpharaw import thermo
+from alpharaw.raw_access.pythermorawfilereader import RawFileReader
 
 # Based on https://github.com/MannLabs/alpharaw/blob/main/docs/tutorials/ms_methods.ipynb
 
@@ -168,6 +169,14 @@ if __name__ == "__main__":
         raw_file = thermo.ThermoRawData(auxiliary_items=auxiliary_items)
         raw_file.load_raw(raw_file_path)
         ms_metrics, combined_tic_df = calculate_thermo_metrics(raw_file)
+
+        try:
+            df = pd.DataFrame(
+                RawFileReader(raw_file_path).GetEvoSdepData("PumpHP_pressure")
+            )
+            ms_metrics["evosep_pump_hp_pressure_max"] = df["VALUE"].max()
+        except AttributeError:  # TODO: remove once new alpharaw version is released
+            print("No EvoSep pump HP pressure data found.")  #  noqa: T201
 
     elif raw_file_path.endswith(".d"):
         alphatims.utils.set_threads(num_threads)

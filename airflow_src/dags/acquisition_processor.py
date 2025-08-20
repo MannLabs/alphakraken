@@ -142,7 +142,7 @@ def create_acquisition_processor_dag(instrument_id: str, instrument_type: str) -
             task_id=Tasks.UPLOAD_METRICS, python_callable=upload_metrics
         )
 
-    if ACTIVATE_MSQC:
+    if do_msqc:
         (prepare_quanting_ >> [run_msqc_, run_quanting_])
 
         (run_msqc_ >> monitor_msqc_ >> compute_msqc_metrics_ >> upload_msqc_metrics_)

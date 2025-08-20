@@ -182,12 +182,12 @@ if selected_project:
                 "max_chars": 64,
                 "placeholder": "e.g. 'custom-software/custom-executable1.2.3'",
                 "help": f"Path to executable, relative to `{get_path(YamlKeys.Locations.SOFTWARE)}/`. Ask an administrator to add the executable to the software folder. "
-                f"If something that is in the `$PATH` should be executed, an administrator needs to create a small wrapper script in the software folder that calls it.",
+                f"If something that is in the `$PATH` should be executed, it needs to be wrapped by a shell script located in the software folder.",
             },
             "config_params": {
                 "label": "Configuration parameters",
                 "max_chars": 512,
-                "placeholder": "e.g. '--qvalue 0.01 --f RAW_FILE_PATH --lib LIBRARY_PATH --fasta FASTA_PATH --threads NUM_THREADS'",
+                "placeholder": "e.g. '--qvalue 0.01 --f RAW_FILE_PATH --lib LIBRARY_PATH --fasta FASTA_PATH --temp OUTPUT_PATH --threads NUM_THREADS'",
                 "help": "Configuration options for the custom software. Certain placeholders will be substituted.",
             },
         }
@@ -215,9 +215,21 @@ if selected_project:
                 "- `LIBRARY_PATH`: absolute path of the library file\n"
                 "- `FASTA_PATH`: absolute path of the fasta file\n"
                 "- `NUM_THREADS`: number of threads\n"
-                "- `PROJECT_ID`: project id\n"
-                "Note: The working directory of the custom software is `OUTPUT_PATH`."
+                "- `PROJECT_ID`: project id\n\n"
+                "Notes:\n"
+                "- The working directory of the custom software is `OUTPUT_PATH`.\n"
+                "- If you require more than the provided files, reference them directly by their absolute path.\n"
+                "- If something that is in the `$PATH` should be executed, wrap it in a shell script and place it in the software folder.\n"
             )
+            with st.expander("Example parameters for DIANN..."):
+                st.code(
+                    "--f RAW_FILE_PATH --lib LIBRARY_PATH --fasta FASTA_PATH --temp OUTPUT_PATH --threads NUM_THREADS --qvalue 0.01"
+                )
+            with st.expander("Example parameters for Spectronaut..."):
+                st.code(
+                    "direct -n alphakraken -r RAW_FILE_PATH -fasta FASTA_PATH -o OUTPUT_PATH -s /path/to/settings/alphakraken.prop"
+                )
+
         else:
             config_params = None
 
@@ -226,12 +238,12 @@ if selected_project:
 
         st.markdown("### Step 3/3: Upload files to pool folder")
         st.markdown(
-            "Make sure you have uploaded all the files correctly to "
+            "Make sure you have uploaded all referenced files correctly to "
             f"`{quanting_settings_path}/{project_id}/`"
         )
         # TODO: NEXT_SLICE add list of files to upload here
         upload_checkbox = st.checkbox(
-            "I have uploaded the above files to this folder.", value=False
+            "I have uploaded all referenced files to this folder.", value=False
         )
 
         if "project" in settings_df.columns and len(

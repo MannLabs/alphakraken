@@ -57,4 +57,7 @@ class WaitForJobFinishSensor(JobStatusSensorOperator):
     @property
     def states(self) -> list[str]:
         """List of states that keep the sensor waiting."""
-        return [JobStates.RUNNING]
+        return [
+            JobStates.PENDING,  # on the edge of hacky: in case we don't use a WaitForJobStartSensor, we need to wait for the job to start here
+            JobStates.RUNNING,
+        ]

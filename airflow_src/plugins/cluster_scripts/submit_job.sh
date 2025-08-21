@@ -2,12 +2,12 @@
 #SBATCH --job-name=alphakraken
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --mem=62G
-#SBATCH --time=02:00:00
 #SBATCH --partition=p.<node>
 ####SBATCH --nodelist=<node>02,<node>03
 ####SBATCH --nice=9001
 ####SBATCH --cpus-per-task=8  # set by calling command
+####SBATCH --mem=62G  # set by calling command
+####SBATCH --time=02:00:00  # set by calling command
 
 set -u -e
 
@@ -150,7 +150,7 @@ if [ "$SOFTWARE_TYPE" = "alphadia" ]; then
         --config-dict "{\"general\": {\"thread_count\": $NUM_THREADS}}"
     software_exit_code=$?  # this line must immediately follow the `conda run ..` command
     set -e
-else
+elif [ "$SOFTWARE_TYPE" = "custom" ]; then
     echo "Running custom software.."
     echo "Command: ${CUSTOM_COMMAND}"
     echo "Check the logs in ${OUTPUT_PATH}/log.txt"
@@ -159,6 +159,9 @@ else
     ${CUSTOM_COMMAND} > ${OUTPUT_PATH}/log.txt 2>&1
     software_exit_code=$?  # this line must immediately follow the command
     set -e
+else
+    echo "Unknown SOFTWARE_TYPE: $SOFTWARE_TYPE"
+    exit 1
 fi
 
 echo OUTPUT_PATH ">>>>>>"

@@ -1,0 +1,4 @@
+alphatims==1.0.9
+alpharaw==0.4.8
+numpy==2.2.6
+pandas==2.3.1

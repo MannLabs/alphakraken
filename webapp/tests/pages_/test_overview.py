@@ -104,6 +104,7 @@ def test_overview(
         raw_files_df,
         metrics_df,
         custom_metrics_df,
+        pd.DataFrame(),  # empty msqc metrics
         status_df,
     ]
 

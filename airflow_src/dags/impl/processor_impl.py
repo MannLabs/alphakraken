@@ -63,6 +63,8 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
     # TODO: make these configurable
     cpus_per_task = 8
     num_threads = 8
+    mem = "62G"
+    time = "02:00:00"
 
     raw_file_id = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID]
     instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
@@ -123,6 +125,8 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
         QuantingEnv.CUSTOM_COMMAND: custom_command,
         # job parameters
         QuantingEnv.SLURM_CPUS_PER_TASK: cpus_per_task,
+        QuantingEnv.SLURM_MEM: mem,
+        QuantingEnv.SLURM_TIME: time,
         QuantingEnv.NUM_THREADS: num_threads,
         # not required for slurm script:
         QuantingEnv.RAW_FILE_ID: raw_file_id,
@@ -191,6 +195,7 @@ def _check_content(quanting_env: dict[str, str], settings: Settings) -> list[str
             and key
             not in [
                 QuantingEnv.CUSTOM_COMMAND,
+                QuantingEnv.SLURM_TIME,  # TODO: contains ":", but set internally at the moment
             ]
             and isinstance(value, str)
             and (
@@ -294,6 +299,14 @@ def run_quanting(
             )
 
     year_month_folder = get_created_at_year_month(raw_file)
+
+    # TODO: very dirty hack for msqc!
+    if job_script_name == "submit_msqc_job.sh":
+        quanting_env = quanting_env.copy()
+        quanting_env[QuantingEnv.SLURM_CPUS_PER_TASK] = 2
+        quanting_env[QuantingEnv.SLURM_MEM] = "16G"
+        quanting_env[QuantingEnv.SLURM_TIME] = "00:10:00"
+        quanting_env[QuantingEnv.NUM_THREADS] = 2
 
     job_id = start_job(job_script_name, quanting_env, year_month_folder)
 
@@ -419,7 +432,11 @@ def check_quanting_result(ti: TaskInstance, **kwargs) -> bool:
 
 
 def compute_metrics(
-    ti: TaskInstance, *, metrics_type: str | None = None, **kwargs
+    ti: TaskInstance,
+    *,
+    metrics_type: str | None = None,
+    add_quanting_time_elapsed: bool = True,
+    **kwargs,
 ) -> None:
     """Compute metrics from the quanting results."""
     del kwargs
@@ -441,7 +458,12 @@ def compute_metrics(
 
     metrics = calc_metrics(output_path, metrics_type=metrics_type)
 
-    metrics[QUANTING_TIME_ELAPSED_METRIC] = get_xcom(ti, XComKeys.QUANTING_TIME_ELAPSED)
+    if (
+        add_quanting_time_elapsed
+    ):  # TODO: find a better way to handle this also for msqc
+        metrics[QUANTING_TIME_ELAPSED_METRIC] = get_xcom(
+            ti, XComKeys.QUANTING_TIME_ELAPSED
+        )
 
     put_xcom(ti, XComKeys.METRICS, metrics)
     put_xcom(ti, XComKeys.METRICS_TYPE, metrics_type)

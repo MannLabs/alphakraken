@@ -39,6 +39,7 @@ class RawFileStatus:
     COPYING_DONE = "copying_done"
     ACQUISITION_FAILED = "acquisition_failed"
 
+    COMPUTING_MSQC = "computing_msqc"
     QUEUED_FOR_QUANTING = "queued_for_quanting"
     QUANTING = "quanting"
     QUANTING_FAILED = "quanting_failed"

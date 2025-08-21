@@ -38,6 +38,7 @@ class MetricsTypes:
     """Types of metrics that can be added to a raw file."""
 
     ALPHADIA: str = "alphadia"
+    MSQC: str = "msqc"
     CUSTOM: str = "custom"
 
 

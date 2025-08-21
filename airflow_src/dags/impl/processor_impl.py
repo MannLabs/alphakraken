@@ -304,7 +304,7 @@ def run_quanting(
     if job_script_name == "submit_msqc_job.sh":
         quanting_env = quanting_env.copy()
         quanting_env[QuantingEnv.SLURM_CPUS_PER_TASK] = 2
-        quanting_env[QuantingEnv.SLURM_MEM] = "8G"
+        quanting_env[QuantingEnv.SLURM_MEM] = "16G"
         quanting_env[QuantingEnv.SLURM_TIME] = "00:10:00"
         quanting_env[QuantingEnv.NUM_THREADS] = 2
 

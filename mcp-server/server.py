@@ -16,7 +16,8 @@ from mongoengine import QuerySet
 from shared.db.engine import connect_db
 from shared.db.models import KrakenStatus, Metrics, RawFile
 
-mcp = FastMCP("AlphaKraken")
+# mcp = FastMCP("AlphaKraken")
+mcp = FastMCP(name="AlphaKraken", stateless_http=True)
 
 
 def _format(x: Any, n_digits: int = 5) -> Any:
@@ -259,5 +260,8 @@ def augment_raw_files_with_metrics(
     return results
 
 
-# get_raw_files("astral2", max_age_in_days=30)  # only for debugging
-mcp.run()
+# https://github.com/jlowin/fastmcp/issues/873#issuecomment-2997928922
+#  Intentionally binding to all interfaces for container deployment
+mcp.settings.host = "0.0.0.0"  # noqa: S104
+mcp.settings.port = 8089
+mcp.run(transport="streamable-http")

@@ -1,2 +1,2 @@
 # requirements for the MCP server
-mcp==1.9.4
+mcp==1.13.0

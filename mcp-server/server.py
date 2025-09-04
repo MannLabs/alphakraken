@@ -1,6 +1,8 @@
 """A MCP server for accessing data in the AlphaKraken database."""
 
+import logging
 import math
+import os
 
 # ruff: noqa: T201  # `print` found
 # ruff: noqa: BLE001  # Do not catch blind exception
@@ -16,8 +18,8 @@ from mongoengine import QuerySet
 from shared.db.engine import connect_db
 from shared.db.models import KrakenStatus, Metrics, RawFile
 
-# mcp = FastMCP("AlphaKraken")
-mcp = FastMCP(name="AlphaKraken", stateless_http=True)
+mcp = FastMCP(name="AlphaKraken")
+logger = logging.getLogger(__name__)
 
 
 def _format(x: Any, n_digits: int = 5) -> Any:
@@ -260,8 +262,17 @@ def augment_raw_files_with_metrics(
     return results
 
 
-# https://github.com/jlowin/fastmcp/issues/873#issuecomment-2997928922
-#  Intentionally binding to all interfaces for container deployment
-mcp.settings.host = "0.0.0.0"  # noqa: S104
-mcp.settings.port = 8089
-mcp.run(transport="streamable-http")
+mcp_transport = os.getenv("MCP_TRANSPORT", "stdio")
+
+if mcp_transport == "stdio":
+    mcp.run()
+elif mcp_transport == "streamable-http":
+    # https://github.com/jlowin/fastmcp/issues/873#issuecomment-2997928922
+    # Intentionally binding to all interfaces for container deployment
+    mcp.settings.host = "0.0.0.0"  # noqa: S104
+    mcp.settings.port = int(os.getenv("MCP_PORT", "8089"))
+    mcp.run(transport="streamable-http")
+else:
+    logging.info(
+        "Please select a supported MCP transport type such as stdio or streamable-http"
+    )

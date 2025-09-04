@@ -55,6 +55,7 @@ def _format(x: Any, n_digits: int = 5) -> Any:
 
 
 raw_file_keys_whitelist = [
+    "instrument_id",
     "status",
     "status_details",
     "size",

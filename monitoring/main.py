@@ -14,6 +14,8 @@ from pymongo.errors import ServerSelectionTimeoutError
 
 from shared.db.engine import connect_db
 
+logging.basicConfig(level=logging.INFO)
+
 # TODO: add unit tests
 # TODO: report when error has resolved
 # TODO: add a "all is well" message once a day/week?

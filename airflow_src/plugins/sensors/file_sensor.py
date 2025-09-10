@@ -21,7 +21,7 @@ from file_handling import get_disk_usage
 from raw_file_wrapper_factory import RawFileWrapperFactory
 
 from shared.db.interface import update_kraken_status
-from shared.db.models import KrakenStatusValues
+from shared.db.models import KrakenStatusEntities, KrakenStatusValues
 
 # to reduce network traffic, do the health check only every few minutes. If changed, adapt also webapp color code.
 HEALTH_CHECK_INTERVAL_M: int = 5
@@ -62,7 +62,7 @@ def _check_health(instrument_id: str) -> None:
         status=KrakenStatusValues.OK,
         status_details="",
         free_space_gb=int(backup_free_space_gb),
-        type_="file_system",
+        type_=KrakenStatusEntities.FILE_SYSTEM,
     )
 
     # Update output filesystem status
@@ -72,7 +72,7 @@ def _check_health(instrument_id: str) -> None:
         status=KrakenStatusValues.OK,
         status_details="",
         free_space_gb=int(output_free_space_gb),
-        type_="file_system",
+        type_=KrakenStatusEntities.FILE_SYSTEM,
     )
 
 

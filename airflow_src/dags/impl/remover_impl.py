@@ -30,13 +30,28 @@ from raw_file_wrapper_factory import (
     RemovePathProvider,
 )
 
-from shared.db.interface import get_raw_file_by_id, get_raw_files_by_age
-from shared.db.models import RawFile
+from shared.db.interface import (
+    get_raw_file_by_id,
+    get_raw_files_by_age,
+    update_kraken_status,
+)
+from shared.db.models import KrakenStatusEntities, KrakenStatusValues, RawFile
 from shared.keys import EnvVars
 
 
 class FileRemovalError(Exception):
     """Custom exception for file check and removal errors."""
+
+
+def _update_file_remover_status(status: str, status_details: str = "") -> None:
+    """Update the status of the file_remover job."""
+    update_kraken_status(
+        "file_remover",
+        status=status,
+        status_details=status_details,
+        free_space_gb=-1,  # Not applicable for job status
+        type_=KrakenStatusEntities.JOB,
+    )
 
 
 def get_raw_files_to_remove(ti: TaskInstance, **kwargs) -> None:
@@ -430,12 +445,16 @@ def remove_raw_files(ti: TaskInstance, **kwargs) -> None:
         logging.info(
             "There were errors in the `remove_raw_files` task, i.e. while actually removing them:"
         )
+        all_errors = []
         for instrument_id, error_list in errors.items():
             errors_pretty = "\n  - ".join(error_list)
             logging.error(
                 f"Errors removing files for {instrument_id}:\n{errors_pretty}\n\n"
             )
+            all_errors.extend(error_list)
 
+        error_details = "; ".join(all_errors)
+        _update_file_remover_status(KrakenStatusValues.ERROR, error_details)
         raise AirflowFailException("Errors removing files.")
 
     logging.info("File removal finished successfully!")
@@ -445,6 +464,10 @@ def remove_raw_files(ti: TaskInstance, **kwargs) -> None:
         logging.info(
             "There were errors in the `get_raw_files_to_remove` task, i.e. while gathering the files to remove:"
         )
+        error_details = f"Error in previous task {Tasks.GET_RAW_FILES_TO_REMOVE} for {instruments_with_errors}"
+        _update_file_remover_status(KrakenStatusValues.ERROR, error_details)
         raise AirflowFailException(
             f"Error in previous task {Tasks.GET_RAW_FILES_TO_REMOVE} for {instruments_with_errors=}. Check the logs there."
         )
+
+    _update_file_remover_status(KrakenStatusValues.OK)

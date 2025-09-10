@@ -23,6 +23,8 @@ from dags.impl.remover_impl import (
 )
 from raw_file_wrapper_factory import RawFileStemEmptyError, RemovePathProvider
 
+from shared.db.models import KrakenStatusValues
+
 
 @patch.dict(
     _INSTRUMENTS,
@@ -668,10 +670,11 @@ def test_change_folder_permissions() -> None:
     sub_path_2.chmod.assert_not_called()
 
 
+@patch("dags.impl.remover_impl._update_file_remover_status")
 @patch("dags.impl.remover_impl.get_xcom")
 @patch("dags.impl.remover_impl._safe_remove_files")
 def test_remove_raw_files_success(
-    mock_safe_remove: MagicMock, mock_get_xcom: MagicMock
+    mock_safe_remove: MagicMock, mock_get_xcom: MagicMock, mock_update_status: MagicMock
 ) -> None:
     """Test that remove_raw_files successfully removes files."""
     mock_ti = MagicMock()
@@ -682,12 +685,14 @@ def test_remove_raw_files_success(
 
     # then
     assert mock_safe_remove.call_count == 2
+    mock_update_status.assert_called_once_with(KrakenStatusValues.OK)
 
 
+@patch("dags.impl.remover_impl._update_file_remover_status")
 @patch("dags.impl.remover_impl.get_xcom")
 @patch("dags.impl.remover_impl._safe_remove_files")
 def test_remove_raw_files_upstream_task_failed(
-    mock_safe_remove: MagicMock, mock_get_xcom: MagicMock
+    mock_safe_remove: MagicMock, mock_get_xcom: MagicMock, mock_update_status: MagicMock
 ) -> None:
     """Test that remove_raw_files successfully raises if an upstream operation failed."""
     mock_ti = MagicMock()
@@ -699,19 +704,29 @@ def test_remove_raw_files_upstream_task_failed(
 
     # then
     assert mock_safe_remove.call_count == 2
+    mock_update_status.assert_called_once_with(
+        KrakenStatusValues.ERROR,
+        "Error in previous task get_raw_files_to_remove for ['instrument2']",
+    )
 
 
+@patch("dags.impl.remover_impl._update_file_remover_status")
 @patch("dags.impl.remover_impl.get_xcom")
 @patch("dags.impl.remover_impl._safe_remove_files")
 def test_remove_raw_files_error(
-    mock_safe_remove: MagicMock, mock_get_xcom: MagicMock
+    mock_safe_remove: MagicMock, mock_get_xcom: MagicMock, mock_update_status: MagicMock
 ) -> None:
     """Test that remove_raw_files raises ValueError when errors occur."""
     mock_ti = MagicMock()
 
-    mock_get_xcom.return_value = {"instrument1": ["file1", "file2"]}
+    mock_get_xcom.side_effect = [{"instrument1": ["file1", "file2"]}, []]
     mock_safe_remove.side_effect = [None, FileRemovalError("Removal failed")]
 
     # when
     with pytest.raises(AirflowFailException):
         remove_raw_files(mock_ti)
+
+    # then
+    mock_update_status.assert_called_once_with(
+        KrakenStatusValues.ERROR, "Error for file2: Error: Removal failed"
+    )

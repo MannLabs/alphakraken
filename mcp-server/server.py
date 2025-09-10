@@ -16,7 +16,7 @@ from mcp.server.fastmcp import FastMCP
 from mongoengine import QuerySet
 
 from shared.db.engine import connect_db
-from shared.db.models import KrakenStatus, Metrics, RawFile
+from shared.db.models import KrakenStatus, KrakenStatusEntities, Metrics, RawFile
 
 mcp = FastMCP(name="AlphaKraken")
 logger = logging.getLogger(__name__)
@@ -81,16 +81,17 @@ def get_available_instruments() -> list[dict[str, Any]]:
     try:
         connect_db()
 
-        instruments = KrakenStatus.objects()
+        kraken_status_objects = KrakenStatus.objects()
         results = []
 
-        for instrument in instruments:
-            instrument_dict = dict(instrument.to_mongo())
-            results.append(
-                {
-                    "instrument_id": instrument_dict["_id"],
-                }
-            )
+        for id_ in kraken_status_objects:
+            data_dict = dict(id_.to_mongo())
+            if data_dict["entity_type"] == KrakenStatusEntities.INSTRUMENT:
+                results.append(
+                    {
+                        "instrument_id": data_dict["_id"],
+                    }
+                )
 
     except Exception as e:
         msg = f"Failed to retrieve instrument data: {e}"

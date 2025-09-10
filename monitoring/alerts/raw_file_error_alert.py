@@ -23,7 +23,7 @@ class RawFileErrorAlert(BaseAlert):
         """Return the case name for this alert type."""
         return Cases.RAW_FILE_ERROR
 
-    def check(self, status_objects: list[KrakenStatus]) -> list[tuple[str, str]]:
+    def get_issues(self, status_objects: list[KrakenStatus]) -> list[tuple[str, str]]:
         """Check for raw files that have changed to ERROR status."""
         del status_objects
 

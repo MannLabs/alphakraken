@@ -16,7 +16,7 @@ class DiskSpaceAlert(BaseAlert):
         """Return the case name for this alert type."""
         return Cases.LOW_DISK_SPACE
 
-    def check(self, status_objects: list[KrakenStatus]) -> list[tuple[str, int]]:
+    def get_issues(self, status_objects: list[KrakenStatus]) -> list[tuple[str, int]]:
         """Check for low disk space."""
         low_disk_space_instruments = []
 

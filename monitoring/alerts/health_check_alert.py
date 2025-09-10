@@ -15,7 +15,7 @@ class HealthCheckAlert(BaseAlert):
         """Return the case name for this alert type."""
         return Cases.HEALTH_CHECK_FAILED
 
-    def check(self, status_objects: list[KrakenStatus]) -> list[tuple[str, str]]:
+    def get_issues(self, status_objects: list[KrakenStatus]) -> list[tuple[str, str]]:
         """Check for health check failures."""
         health_check_failed_instruments = []
 

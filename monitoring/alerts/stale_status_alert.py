@@ -19,7 +19,9 @@ class StaleStatusAlert(BaseAlert):
         """Return the case name for this alert type."""
         return Cases.STALE
 
-    def check(self, status_objects: list[KrakenStatus]) -> list[tuple[str, datetime]]:
+    def get_issues(
+        self, status_objects: list[KrakenStatus]
+    ) -> list[tuple[str, datetime]]:
         """Check for stale statuses."""
         now = datetime.now(pytz.UTC)
         stale_threshold = now - timedelta(minutes=config.STALE_STATUS_THRESHOLD_MINUTES)

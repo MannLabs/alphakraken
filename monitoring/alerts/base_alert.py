@@ -9,7 +9,7 @@ class BaseAlert(ABC):
     """Base class for all alert checkers."""
 
     @abstractmethod
-    def check(self, status_objects: list[KrakenStatus]) -> list[tuple]:
+    def get_issues(self, status_objects: list[KrakenStatus]) -> list[tuple]:
         """Check for issues and return list of (identifier, details) tuples.
 
         Returns empty list if no issues found.

@@ -22,7 +22,7 @@ from shared.db.models import KrakenStatus
 
 
 def _default_value() -> datetime:
-    """Default value for defaultdict to have an alert on the first occurrence."""
+    """Special default value for defaultdict to have an alert on the first occurrence."""
     return datetime.now(pytz.UTC) - timedelta(minutes=config.ALERT_COOLDOWN_MINUTES + 1)
 
 
@@ -32,7 +32,7 @@ class AlertManager:
     def __init__(self):
         """Initialize the AlertManager with checkers and last alert times."""
         self.last_alerts = defaultdict(_default_value)
-        self.checkers: list[BaseAlert] = [
+        self.alerts: list[BaseAlert] = [
             StaleStatusAlert(),
             DiskSpaceAlert(),
             HealthCheckAlert(),
@@ -41,23 +41,23 @@ class AlertManager:
             RawFileErrorAlert(),
         ]
 
-    def check_all(self) -> None:
+    def check_for_issues(self) -> None:
         """Run all alert checks."""
         logging.info("Checking kraken update status...")
         status_objects = list(KrakenStatus.objects)
 
-        for checker in self.checkers:
-            issues = checker.check(status_objects)
+        for alert in self.alerts:
+            issues = alert.get_issues(status_objects)
             if issues:
-                self._handle_alert(checker, issues)
+                self._handle_issues(alert, issues)
 
-    def _handle_alert(self, checker: BaseAlert, issues: list[tuple]) -> None:
+    def _handle_issues(self, alert: BaseAlert, issues: list[tuple]) -> None:
         """Handle sending an alert if cooldown has passed."""
-        case = checker.case_name
-        identifiers = [item[0] for item in issues]
+        case = alert.case_name
+        identifiers = [issue[0] for issue in issues]
 
         if self.should_send_alert(identifiers, case):
-            message = checker.format_message(issues)
+            message = alert.format_message(issues)
             try:
                 send_message(message)
                 for identifier in identifiers:
@@ -86,6 +86,7 @@ def send_db_alert(error_type: str, alert_manager: AlertManager) -> None:
     message = f"Error connecting to MongoDB: {error_type}"
     try:
         send_message(message)
-        alert_manager.last_alerts[f"db{error_type}"] = datetime.now(pytz.UTC)
     except RequestException:
         logging.exception("Failed to send DB alert message.")
+    else:
+        alert_manager.last_alerts[f"db{error_type}"] = datetime.now(pytz.UTC)

@@ -190,18 +190,17 @@ def test_display_status_with_multiple_instruments(mock_st_dataframe: MagicMock) 
     )
 
     status_data_df = pd.DataFrame(
-        pd.DataFrame(
-            {
-                "_id": ["inst1", "inst2"],
-                "updated_at_": [
-                    ts1,
-                    ts2,
-                ],
-                "status": ["ok", "error"],
-                "free_space_gb": [100, 200],
-                "status_details": ["", ""],
-            }
-        )
+        {
+            "_id": ["inst1", "inst2"],
+            "updated_at_": [
+                ts1,
+                ts2,
+            ],
+            "status": ["ok", "error"],
+            "free_space_gb": [100, 200],
+            "status_details": ["", ""],
+            "type": ["instrument", "instrument"],
+        }
     )
 
     # when

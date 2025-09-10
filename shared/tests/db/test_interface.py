@@ -354,5 +354,6 @@ def test_update_kraken_status(
         updated_at_=mock_datetime.now.return_value,
         status_details="some details",
         free_space_gb=123,
+        type="instrument",
     )
     mock_connect_db.assert_called_once()

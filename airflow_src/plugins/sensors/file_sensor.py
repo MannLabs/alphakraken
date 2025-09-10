@@ -11,6 +11,7 @@ from typing import Any
 import pytz
 from airflow.sensors.base import BaseSensorOperator
 from common.paths import (
+    get_internal_backup_path,
     get_internal_backup_path_for_instrument,
     get_internal_instrument_data_path,
     get_internal_output_path,
@@ -52,6 +53,26 @@ def _check_health(instrument_id: str) -> None:
         status=KrakenStatusValues.ERROR if status_details else KrakenStatusValues.OK,
         status_details="; ".join(status_details),
         free_space_gb=int(free_space_gb),
+    )
+
+    # Update backup filesystem status
+    *_, backup_free_space_gb = get_disk_usage(get_internal_backup_path())
+    update_kraken_status(
+        "backup",
+        status="",
+        status_details="",
+        free_space_gb=int(backup_free_space_gb),
+        type_="file_system",
+    )
+
+    # Update output filesystem status
+    *_, output_free_space_gb = get_disk_usage(output_path)
+    update_kraken_status(
+        "output",
+        status="",
+        status_details="",
+        free_space_gb=int(output_free_space_gb),
+        type_="file_system",
     )
 
 

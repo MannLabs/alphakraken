@@ -47,6 +47,8 @@ STALE_STATUS_THRESHOLD_MINUTES = (
 FREE_SPACE_THRESHOLD_GB = (
     200  # regardless of the configuration in airflow: 200 GB is very low
 )
+BACKUP_FREE_SPACE_THRESHOLD_GB = 500  # Backup filesystem threshold
+OUTPUT_FREE_SPACE_THRESHOLD_GB = 300  # Output filesystem threshold
 
 STATUS_PILE_UP_THRESHOLDS = defaultdict(lambda: 5)
 STATUS_PILE_UP_THRESHOLDS["quanting"] = 10
@@ -200,7 +202,7 @@ def _should_send_alert(issue_types: list[str], case: str) -> bool:
     return send_alert
 
 
-def _check_kraken_update_status() -> None:
+def _check_kraken_update_status() -> None:  # noqa: PLR0912, C901 Too many branches,  too complex
     """Check KrakenStatus collection for stale entries."""
     now = datetime.now(pytz.UTC)
     stale_threshold = now - timedelta(minutes=STALE_STATUS_THRESHOLD_MINUTES)
@@ -223,10 +225,21 @@ def _check_kraken_update_status() -> None:
             )
             stale_instruments.append((instrument_id, last_updated_at))
 
-        if (free_space_gb := kraken_status.free_space_gb) < FREE_SPACE_THRESHOLD_GB:
+        # Determine threshold based on entry type
+        if kraken_status.type == "file_system":
+            if instrument_id == "backup":
+                threshold = BACKUP_FREE_SPACE_THRESHOLD_GB
+            elif instrument_id == "output":
+                threshold = OUTPUT_FREE_SPACE_THRESHOLD_GB
+            else:
+                threshold = FREE_SPACE_THRESHOLD_GB  # Default for unknown filesystem
+        else:
+            threshold = FREE_SPACE_THRESHOLD_GB  # For instruments
+
+        if (free_space_gb := kraken_status.free_space_gb) < threshold:
             logging.warning(
-                f"Low disk space detected for {instrument_id}, "
-                f"free space: {free_space_gb} GB"
+                f"Low disk space detected for {instrument_id} ({kraken_status.type}), "
+                f"free space: {free_space_gb} GB, threshold: {threshold} GB"
             )
             low_disk_space_instruments.append((instrument_id, free_space_gb))
 

@@ -11,7 +11,7 @@ RUN  --mount=type=cache,target=/root/.cache/pip \
      && pip install -r requirements_monitoring.txt
 
 
-COPY monitoring/status_monitor.py .
+COPY monitoring/ .
 COPY shared ./shared
 
-CMD ["python", "status_monitor.py"]
+CMD ["python", "main.py"]

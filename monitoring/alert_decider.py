@@ -1,81 +1,34 @@
-#!/usr/bin/env python3
-
-"""Script to monitor AlphaKraken and send alerts to Slack or MS Teams."""
-
-import json
+"""Decide when to send alerts based on monitoring checks."""
 import logging
-import os
-import sys
 from collections import defaultdict
 from datetime import datetime, timedelta
-from time import sleep
 
 import pytz
-import requests
-from pymongo.errors import ServerSelectionTimeoutError
+from config import (
+    ALERT_COOLDOWN_MINUTES,
+    BACKUP_FREE_SPACE_THRESHOLD_GB,
+    CHECK_INTERVAL_SECONDS,
+    FILE_REMOVER_STALE_THRESHOLD_HOURS,
+    FREE_SPACE_THRESHOLD_GB,
+    INSTRUMENT_FILE_MIN_AGE_HOURS,
+    INSTRUMENT_FILE_PILE_UP_THRESHOLDS,
+    OUTPUT_FREE_SPACE_THRESHOLD_GB,
+    STALE_STATUS_THRESHOLD_MINUTES,
+    STATUS_PILE_UP_THRESHOLDS,
+    Cases,
+)
+from messenger_clients import send_message
 from requests.exceptions import RequestException
 
-from shared.db.engine import connect_db
 from shared.db.interface import get_raw_files_by_instrument_file_status
 from shared.db.models import (
     TERMINAL_STATUSES,
-    InstrumentFileStatus,
     KrakenStatus,
     KrakenStatusEntities,
     KrakenStatusValues,
     RawFile,
     RawFileStatus,
 )
-from shared.keys import EnvVars
-
-# TODO: add unit tests
-# TODO: report when error has resolved
-# TODO: add a "all is well" message once a day/week?
-# TODO: health check if webapp is reachable
-
-MESSENGER_WEBHOOK_URL: str = os.environ.get(EnvVars.MESSENGER_WEBHOOK_URL, "")
-if not MESSENGER_WEBHOOK_URL:
-    logging.error(f"{EnvVars.MESSENGER_WEBHOOK_URL} environment variable must be set")
-    sys.exit(1)
-
-# Constants
-CHECK_INTERVAL_SECONDS = 60
-ALERT_COOLDOWN_MINUTES = (
-    120  # Minimum time between repeated alerts for the same issue_type
-)
-
-STALE_STATUS_THRESHOLD_MINUTES = (
-    15  # How old a kraken status can be before considered stale
-)
-FILE_REMOVER_STALE_THRESHOLD_HOURS = (
-    24  # How long file_remover job can go without running
-)
-FREE_SPACE_THRESHOLD_GB = (
-    200  # regardless of the configuration in airflow: 200 GB is very low
-)
-BACKUP_FREE_SPACE_THRESHOLD_GB = 500  # Backup filesystem threshold
-OUTPUT_FREE_SPACE_THRESHOLD_GB = 300  # Output filesystem threshold
-
-STATUS_PILE_UP_THRESHOLDS = defaultdict(lambda: 5)
-STATUS_PILE_UP_THRESHOLDS["quanting"] = 10
-
-# Instrument file pile-up thresholds
-INSTRUMENT_FILE_PILE_UP_THRESHOLDS = {
-    InstrumentFileStatus.NEW: 20,  # Alert if more than 20 files haven't been moved
-    InstrumentFileStatus.MOVED: 50,  # Alert if more than 50 files haven't been purged
-}
-INSTRUMENT_FILE_MIN_AGE_HOURS = 6  # Only consider files older than 6 hours
-
-
-class Cases:
-    """Cases for which to send alerts."""
-
-    STALE = "stale"
-    LOW_DISK_SPACE = "low_disk_space"
-    HEALTH_CHECK_FAILED = "health_check_failed"
-    STATUS_PILE_UP = "status_pile_up"
-    INSTRUMENT_FILE_PILE_UP = "instrument_file_pile_up"
-    RAW_FILE_ERROR = "raw_file_error"
 
 
 def _default_value() -> datetime:
@@ -157,60 +110,12 @@ def _send_kraken_instrument_alert(  # noqa: C901 # too complex
         raise ValueError(f"Unknown case: {case}")
 
     try:
-        _send_message(message)
+        send_message(message)
     except RequestException:
         logging.exception("Failed to send message.")
     else:
         for instrument_id in instruments:
             last_alerts[f"{case}{instrument_id}"] = datetime.now(pytz.UTC)
-
-
-def _send_message(message: str) -> None:
-    """Send message to Slack or MS Teams."""
-    # TODO: this could be more elegant
-    if MESSENGER_WEBHOOK_URL.startswith("https://hooks.slack.com"):
-        _send_slack_message(message)
-    else:
-        _send_msteams_message(message)
-
-
-def _send_slack_message(message: str) -> None:
-    env_name = os.environ.get(EnvVars.ENV_NAME)
-
-    prefix = "🚨 <!channel> " if env_name == "production" else ""
-    payload = {
-        "text": f"{prefix} [{env_name}] *Alert*: {message}",
-    }
-    response = requests.post(MESSENGER_WEBHOOK_URL, json=payload, timeout=10)
-    response.raise_for_status()
-    logging.info("Successfully sent Slack message.")
-
-
-def _send_msteams_message(message: str) -> None:
-    # Define the adaptive card JSON
-    adaptive_card_json = {
-        "type": "message",
-        "attachments": [
-            {
-                "contentType": "application/vnd.microsoft.card.adaptive",
-                "content": {
-                    "type": "AdaptiveCard",
-                    "body": [{"type": "TextBlock", "text": message}],
-                    "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
-                    "version": "1.0",
-                },
-            }
-        ],
-    }
-
-    response = requests.post(
-        MESSENGER_WEBHOOK_URL,
-        headers={"Content-Type": "application/json", "Accept": "application/json"},
-        data=json.dumps(adaptive_card_json),
-        timeout=10,
-    )
-    response.raise_for_status()
-    logging.info("Successfully sent MS Teams message.")
 
 
 def _should_send_alert(issue_types: list[str], case: str) -> bool:
@@ -225,7 +130,7 @@ def _should_send_alert(issue_types: list[str], case: str) -> bool:
     return send_alert
 
 
-def _check_kraken_update_status() -> None:  # noqa: PLR0912, PLR0915, C901 Too many branches, too many statement, too complex
+def check_kraken_update_status() -> None:  # noqa: PLR0912, PLR0915, C901 Too many branches, too many statement, too complex
     """Check KrakenStatus collection for stale entries."""
     now = datetime.now(pytz.UTC)
     stale_threshold = now - timedelta(minutes=STALE_STATUS_THRESHOLD_MINUTES)
@@ -409,7 +314,7 @@ def _get_raw_files_in_error_status() -> list[tuple[str, str]]:
     return new_error_files
 
 
-def _send_db_alert(error_type: str) -> None:
+def send_db_alert(error_type: str) -> None:
     """Send message about MongoDB connection error."""
     if not _should_send_alert([error_type], "db"):
         return
@@ -417,34 +322,6 @@ def _send_db_alert(error_type: str) -> None:
     logging.info("Error connecting to MongoDB")
 
     message = f"Error connecting to MongoDB: {error_type}"
-    _send_message(message)
+    send_message(message)
 
     last_alerts[error_type] = datetime.now(pytz.UTC)
-
-
-def main() -> None:
-    """Main monitoring loop."""
-    logging.info(
-        f"Starting KrakenStatus monitor (check interval: {CHECK_INTERVAL_SECONDS}s, "
-        f"stale threshold: {STALE_STATUS_THRESHOLD_MINUTES}m)"
-    )
-
-    while True:
-        try:
-            connect_db(raise_on_error=True)
-        except Exception:  # noqa: BLE001
-            _send_db_alert("db_connection")
-
-        try:
-            _check_kraken_update_status()
-        except ServerSelectionTimeoutError:
-            _send_db_alert("db_timeout")
-
-        except Exception:
-            logging.exception("Error checking KrakenStatus")
-
-        sleep(CHECK_INTERVAL_SECONDS)
-
-
-if __name__ == "__main__":
-    main()

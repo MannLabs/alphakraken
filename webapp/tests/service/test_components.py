@@ -181,6 +181,7 @@ def test_display_status_with_multiple_instruments(mock_st_dataframe: MagicMock) 
     """Test that the display_status function works correctly."""
     ts1 = datetime(2022, 1, 1, 11, 0, 0)  # noqa: DTZ001
     ts2 = datetime(2022, 1, 1, 10, 0, 0)  # noqa: DTZ001
+    ts3 = datetime(2022, 1, 1, 9, 0, 0)  # noqa: DTZ001
     df = pd.DataFrame(
         {
             "instrument_id": ["inst1", "inst1", "inst2", "inst2"],
@@ -191,15 +192,16 @@ def test_display_status_with_multiple_instruments(mock_st_dataframe: MagicMock) 
 
     status_data_df = pd.DataFrame(
         {
-            "_id": ["inst1", "inst2"],
+            "_id": ["inst1", "inst2", "backup"],
             "updated_at_": [
                 ts1,
                 ts2,
+                ts3,
             ],
-            "status": ["ok", "error"],
-            "free_space_gb": [100, 200],
-            "status_details": ["", ""],
-            "type": ["instrument", "instrument"],
+            "status": ["ok", "error", ""],
+            "free_space_gb": [100, 200, 500],
+            "status_details": ["", "", ""],
+            "type": ["instrument", "instrument", "file_system"],
         }
     )
 
@@ -209,11 +211,22 @@ def test_display_status_with_multiple_instruments(mock_st_dataframe: MagicMock) 
     mock_st_dataframe.assert_called_once()
     result_df = mock_st_dataframe.call_args_list[0].args[0].data
 
-    assert result_df["instrument_id"].tolist() == ["inst1", "inst2"]
-    assert result_df["last_file_creation"].tolist() == [ts1, ts1]
-    assert result_df["last_status_update"].tolist() == [ts1, ts1]
-    assert result_df["last_health_check"].tolist() == [ts1, ts2]
-    assert result_df["free_space_gb"].tolist() == [100, 200]
+    # Check that we have both instruments and the filesystem entry
+    assert result_df["instrument_id"].tolist() == [
+        "inst1",
+        "inst2",
+        "backup (filesystem)",
+    ]
+    # Instruments have file creation/update times, filesystem has "-"
+    assert result_df["last_file_creation"].tolist() == [ts1, ts1, "-"]
+    assert result_df["last_status_update"].tolist() == [ts1, ts1, "-"]
+    assert result_df["last_health_check"].tolist() == [
+        pd.to_datetime(ts1),
+        pd.to_datetime(ts2),
+        pd.to_datetime(ts3),
+    ]
+
+    assert result_df["free_space_gb"].tolist() == [100, 200, 500]
     assert "last_file_creation_text" in result_df.columns
     assert "last_status_update_text" in result_df.columns
     assert "last_health_check_text" in result_df.columns

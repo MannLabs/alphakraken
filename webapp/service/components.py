@@ -268,7 +268,9 @@ def display_status(combined_df: pd.DataFrame, status_data_df: pd.DataFrame) -> N
             )
 
             # last status update (e.g. 'quanting' -> 'done')
-            last_update = sorted(raw_files_df["updated_at_"].to_numpy())[::-1][0]
+            last_update = pd.to_datetime(
+                sorted(raw_files_df["updated_at_"].to_numpy())[::-1][0]
+            )
             status_data["last_status_update"].append(last_update)
             status_data["last_status_update_text"].append(
                 get_display_time(last_update, now)

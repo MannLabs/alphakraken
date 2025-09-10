@@ -16,8 +16,10 @@ from pymongo.errors import ServerSelectionTimeoutError
 from requests.exceptions import RequestException
 
 from shared.db.engine import connect_db
+from shared.db.interface import get_raw_files_by_instrument_file_status
 from shared.db.models import (
     TERMINAL_STATUSES,
+    InstrumentFileStatus,
     KrakenStatus,
     KrakenStatusEntities,
     KrakenStatusValues,
@@ -57,6 +59,13 @@ OUTPUT_FREE_SPACE_THRESHOLD_GB = 300  # Output filesystem threshold
 STATUS_PILE_UP_THRESHOLDS = defaultdict(lambda: 5)
 STATUS_PILE_UP_THRESHOLDS["quanting"] = 10
 
+# Instrument file pile-up thresholds
+INSTRUMENT_FILE_PILE_UP_THRESHOLDS = {
+    InstrumentFileStatus.NEW: 20,  # Alert if more than 20 files haven't been moved
+    InstrumentFileStatus.MOVED: 50,  # Alert if more than 50 files haven't been purged
+}
+INSTRUMENT_FILE_MIN_AGE_HOURS = 6  # Only consider files older than 6 hours
+
 
 class Cases:
     """Cases for which to send alerts."""
@@ -65,6 +74,7 @@ class Cases:
     LOW_DISK_SPACE = "low_disk_space"
     HEALTH_CHECK_FAILED = "health_check_failed"
     STATUS_PILE_UP = "status_pile_up"
+    INSTRUMENT_FILE_PILE_UP = "instrument_file_pile_up"
     RAW_FILE_ERROR = "raw_file_error"
 
 
@@ -80,7 +90,7 @@ last_alerts = defaultdict(_default_value)
 previous_raw_file_statuses = {}
 
 
-def _send_kraken_instrument_alert(
+def _send_kraken_instrument_alert(  # noqa: C901 # too complex
     instruments_with_data: list[tuple[str, datetime | int | str]], case: str
 ) -> None:
     """Send alert about stale status."""
@@ -124,6 +134,15 @@ def _send_kraken_instrument_alert(
             ]
         )
         message = f"Status pile up detected:\n{instruments_str}"
+
+    elif case == Cases.INSTRUMENT_FILE_PILE_UP:
+        instruments_str = "\n".join(
+            [
+                f"- `{instrument_id}`: {file_info}"
+                for instrument_id, file_info in instruments_with_data
+            ]
+        )
+        message = f"Instrument file pile up detected (files not moved/purged):\n{instruments_str}"
 
     elif case == Cases.RAW_FILE_ERROR:
         files_str = "\n".join(
@@ -206,7 +225,7 @@ def _should_send_alert(issue_types: list[str], case: str) -> bool:
     return send_alert
 
 
-def _check_kraken_update_status() -> None:  # noqa: PLR0912, C901 Too many branches,  too complex
+def _check_kraken_update_status() -> None:  # noqa: PLR0912, PLR0915, C901 Too many branches, too many statement, too complex
     """Check KrakenStatus collection for stale entries."""
     now = datetime.now(pytz.UTC)
     stale_threshold = now - timedelta(minutes=STALE_STATUS_THRESHOLD_MINUTES)
@@ -220,6 +239,7 @@ def _check_kraken_update_status() -> None:  # noqa: PLR0912, C901 Too many branc
     low_disk_space_instruments = []
     health_check_failed_instruments = []
     status_pile_up_instruments = []
+    instrument_file_pile_up_instruments = []
 
     kraken_statuses = KrakenStatus.objects
     for kraken_status in kraken_statuses:
@@ -273,6 +293,9 @@ def _check_kraken_update_status() -> None:  # noqa: PLR0912, C901 Too many branc
         # Only check for status pile-up on instruments (not job or file_system types)
         if kraken_status.entity_type == KrakenStatusEntities.INSTRUMENT:
             _append_status_pile_up_instruments(id_, status_pile_up_instruments)
+            _append_instrument_file_pile_up_instruments(
+                id_, instrument_file_pile_up_instruments
+            )
 
     if stale_instruments:
         _send_kraken_instrument_alert(stale_instruments, Cases.STALE)
@@ -286,6 +309,11 @@ def _check_kraken_update_status() -> None:  # noqa: PLR0912, C901 Too many branc
         )
     if status_pile_up_instruments:
         _send_kraken_instrument_alert(status_pile_up_instruments, Cases.STATUS_PILE_UP)
+
+    if instrument_file_pile_up_instruments:
+        _send_kraken_instrument_alert(
+            instrument_file_pile_up_instruments, Cases.INSTRUMENT_FILE_PILE_UP
+        )
 
     # Check for raw files that have changed to ERROR status
     new_error_files = _get_raw_files_in_error_status()
@@ -314,6 +342,31 @@ def _append_status_pile_up_instruments(
         )
 
         status_pile_up_instruments.append((instrument_id, piled_up_statuses_str))
+
+
+def _append_instrument_file_pile_up_instruments(
+    instrument_id: str, instrument_file_pile_up_instruments: list[tuple[str, str]]
+) -> None:
+    """Add instruments with too many files stuck in instrument file statuses to instrument_file_pile_up_instruments."""
+    pile_up_detected = []
+
+    for instrument_file_status, threshold in INSTRUMENT_FILE_PILE_UP_THRESHOLDS.items():
+        files = get_raw_files_by_instrument_file_status(
+            instrument_file_status,
+            instrument_id=instrument_id,
+            min_age_hours=INSTRUMENT_FILE_MIN_AGE_HOURS,
+        )
+        count = len(files)
+
+        if count > threshold:
+            pile_up_detected.append(f"{instrument_file_status}: {count}")
+            logging.warning(
+                f"Instrument file pile up detected for {instrument_id}, {instrument_file_status}: {count} files (threshold: {threshold})"
+            )
+
+    if pile_up_detected:
+        pile_up_str = "; ".join(pile_up_detected)
+        instrument_file_pile_up_instruments.append((instrument_id, pile_up_str))
 
 
 def _get_raw_files_in_error_status() -> list[tuple[str, str]]:

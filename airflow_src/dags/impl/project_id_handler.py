@@ -52,7 +52,7 @@ def _get_unique_overlap(list1: list[str], list2: list[str]) -> str | None:
 def get_unique_project_id(
     raw_file_name: str,
     project_ids: list[str],
-    initial_token: str = "_SA_",  # noqa: S107 # Possible hardcoded password
+    initial_token: str = "",  # TODO: make configurable? or drop altogether?
 ) -> str | None:
     """Extract the project ID from the raw file name and return it if it is unique."""
     tokens = _get_after_token(raw_file_name, initial_token)

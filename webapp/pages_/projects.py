@@ -54,7 +54,7 @@ def display_projects(
     filtered_df, *_ = show_filter(projects_df, st_display=st_display)
     st_display.table(filtered_df)
     st_display.markdown(
-        f"Output files are stored at `{quanting_output_path}/<project id>/out_<raw file name>/`"
+        f"Output files are stored at `{quanting_output_path}/<project id>/out_<raw file name>/`. In case you don't know your project ID, it's most likely `_FALLBACK`."
     )
 
 

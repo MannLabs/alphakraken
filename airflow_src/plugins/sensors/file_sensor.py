@@ -59,7 +59,7 @@ def _check_health(instrument_id: str) -> None:
     *_, backup_free_space_gb = get_disk_usage(get_internal_backup_path())
     update_kraken_status(
         "backup",
-        status="",
+        status=KrakenStatusValues.OK,
         status_details="",
         free_space_gb=int(backup_free_space_gb),
         type_="file_system",
@@ -69,7 +69,7 @@ def _check_health(instrument_id: str) -> None:
     *_, output_free_space_gb = get_disk_usage(output_path)
     update_kraken_status(
         "output",
-        status="",
+        status=KrakenStatusValues.OK,
         status_details="",
         free_space_gb=int(output_free_space_gb),
         type_="file_system",

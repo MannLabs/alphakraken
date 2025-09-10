@@ -1,5 +1,6 @@
 """Metrics for AlphaDIA."""
 
+import logging
 from pathlib import Path
 
 import numpy as np
@@ -96,9 +97,12 @@ class PrecursorStatsIntensity(Metrics):
     def _calc_metrics(self) -> None:
         """Calculate all the metrics."""
         df = self._data_store[self._file]
-        self._metrics["precursor_intensity_median"] = (
-            df["sum_b_ion_intensity"] + df["sum_y_ion_intensity"]
-        ).median()
+        try:
+            self._metrics["precursor_intensity_median"] = (
+                df["sum_b_ion_intensity"] + df["sum_y_ion_intensity"]
+            ).median()
+        except KeyError as e:
+            logging.warning(f"Error calculating precursor_intensity_median: {e}")
 
     def _calc(self, df: pd.DataFrame, column: str) -> None:
         pass

@@ -2,7 +2,6 @@
 
 from shared.validation import (
     ABSOLUTE_PATH_ERROR,
-    EMPTY_ERROR,
     INVALID_CHARS_ERROR,
     PARENT_DIR_ERROR,
     check_for_malicious_content,
@@ -44,11 +43,6 @@ class TestValidateName:
             assert not errors, (
                 f"Expected '{name}' to be valid with spaces allowed, got errors: {errors}"
             )
-
-    def test_check_for_malicious_content_empty_executable_name(self) -> None:
-        """Test that empty executable name fails validation."""
-        errors = check_for_malicious_content("")
-        assert errors == [EMPTY_ERROR]
 
     def test_check_for_malicious_content_parent_directory_references(self) -> None:
         """Test that parent directory references fail validation."""

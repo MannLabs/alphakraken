@@ -59,10 +59,13 @@ def display_settings(
     settings_df: pd.DataFrame, st_display: st.delta_generator.DeltaGenerator = st
 ) -> None:
     """Fragment to display settings in a table."""
-    filtered_df, *_ = show_filter(settings_df, st_display=st_display)
+    filtered_df, *_ = show_filter(
+        settings_df, st_display=st_display, default_value="status=^active"
+    )
 
     # beautify
-    filtered_df = filtered_df.drop(columns=["_id"], errors="ignore")
+    filtered_df = filtered_df.drop(columns=["_id"], errors="ignore").fillna("")
+
     st_display.table(
         filtered_df.style.apply(
             lambda row: [
@@ -183,8 +186,8 @@ if selected_project:
             "config_params": {
                 "label": "Configuration parameters",
                 "max_chars": 512,
-                "placeholder": "e.g. '--qvalue 0.01 --f RAW_FILE_PATH --out OUTPUT_PATH --temp OUTPUT_PATH --lib LIBRARY_PATH --fasta FASTA_PATH'",
-                "help": "Configuration options. Provide either this OR config file name above, not both.",
+                "placeholder": "e.g. '--qvalue 0.01 --f RAW_FILE_PATH --out OUTPUT_PATH --temp OUTPUT_PATH --lib LIBRARY_PATH --fasta FASTA_PATH --threads NUM_THREADS'",
+                "help": "Configuration options for the custom software. Certain placeholders will be substituted.",
             },
         }
 
@@ -205,29 +208,16 @@ if selected_project:
         if "config_params" in form_items:
             config_params = st.text_area(**form_items["config_params"])
             st.info(
-                "The following placeholders can be used in the config parameters:\n\n"
-                "- `RAW_FILE_PATH`: Will evaluate to the path of the raw file.\n"
-                "- `OUTPUT_PATH`: Will evaluate to the path of the output directory.\n"
-                "- `LIBRARY_PATH`: Will evaluate to the path of the library file.\n"
-                "- `FASTA_PATH`: Will evaluate to the path of the fasta file.\n"
+                "The following placeholders can be used in the config parameters, and will be replaced by the specified values:\n\n"
+                "- `RAW_FILE_PATH`: absolute path of the raw file\n"
+                "- `OUTPUT_PATH`: absolute path of the output directory\n"
+                "- `LIBRARY_PATH`: absolute path of the library file\n"
+                "- `FASTA_PATH`: absolute path of the fasta file\n"
+                "- `NUM_THREADS`: number of threads\n"
+                "- `PROJECT_ID`: project id\n"
             )
         else:
             config_params = None
-
-        # Validate inputs and show errors
-        validation_errors = []
-        for to_validate in [
-            fasta_file_name,
-            speclib_file_name,
-            software,
-            config_file_name,
-        ]:
-            if to_validate:
-                validation_errors.extend(
-                    check_for_malicious_content(to_validate, allow_spaces=True)
-                )
-        if config_params:
-            validation_errors.extend(check_for_malicious_content(to_validate))
 
         st.write(r"\* Required fields")
         st.write(r"\** At least one of the two must be given")
@@ -257,18 +247,36 @@ if selected_project:
 
 
 if selected_project and submit:
-    try:
-        if (
-            empty_to_none(fasta_file_name) is None
-            and empty_to_none(speclib_file_name) is None
-        ):
-            raise ValueError(
-                "At least one of the fasta and speclib file names must be given."
-            )  # Abstract `raise` to an inner function
+    # Validate inputs
+    validation_errors = []
+    for to_validate in [
+        fasta_file_name,
+        speclib_file_name,
+        software,
+        config_file_name,
+    ]:
+        if to_validate:
+            validation_errors.extend(check_for_malicious_content(to_validate))
+    if config_params:
+        validation_errors.extend(
+            check_for_malicious_content(config_params, allow_spaces=True)
+        )
 
+    if (
+        empty_to_none(fasta_file_name) is None
+        and empty_to_none(speclib_file_name) is None
+    ):
+        validation_errors.append(
+            "At least one of the fasta and speclib file names must be given."
+        )
+    # non-empty constraints are being handled on DB level
+
+    try:
         if validation_errors:
             errors_str = "\n- ".join(validation_errors)
-            raise ValueError(f"Input validation error:\n- {errors_str}")
+            raise ValueError(
+                f"Found {len(validation_errors)} Input validation error:\n- {errors_str}"
+            )
 
         if not upload_checkbox:
             raise ValueError(
@@ -282,8 +290,8 @@ if selected_project and submit:
             speclib_file_name=speclib_file_name,
             config_file_name=config_file_name,
             config_params=config_params,
-            software_type=software_type,
-            software=software,
+            software_type=empty_to_none(software_type),
+            software=empty_to_none(software),
         )
     except Exception as e:  # noqa: BLE001
         st.error(f"Error: {e}")

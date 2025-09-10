@@ -6,7 +6,7 @@ from .base_alert import BaseAlert
 from .config import Cases
 
 
-class HealthCheckAlert(BaseAlert):
+class HealthCheckFailedAlert(BaseAlert):
     """Check for failed health checks."""
 
     @property

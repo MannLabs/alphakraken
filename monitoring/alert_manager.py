@@ -8,7 +8,7 @@ import pytz
 from alerts import (
     BaseAlert,
     DiskSpaceAlert,
-    HealthCheckAlert,
+    HealthCheckFailedAlert,
     InstrumentFilePileUpAlert,
     RawFileErrorAlert,
     StaleStatusAlert,
@@ -35,7 +35,7 @@ class AlertManager:
         self.alerts: list[BaseAlert] = [
             StaleStatusAlert(),
             DiskSpaceAlert(),
-            HealthCheckAlert(),
+            HealthCheckFailedAlert(),
             StatusPileUpAlert(),
             InstrumentFilePileUpAlert(),
             RawFileErrorAlert(),

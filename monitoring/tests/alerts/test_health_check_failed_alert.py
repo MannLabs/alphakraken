@@ -1,19 +1,19 @@
-"""Unit tests for HealthCheckAlert class."""
+"""Unit tests for  HealthCheckFailedAlert class."""
 
 from unittest.mock import Mock
 
 from monitoring.alerts.config import Cases
-from monitoring.alerts.health_check_alert import HealthCheckAlert
+from monitoring.alerts.health_check_failed_alert import HealthCheckFailedAlert
 from shared.db.models import KrakenStatusValues
 
 
-class TestHealthCheckAlert:
-    """Test suite for HealthCheckAlert class."""
+class TestHealthCheckFailedAlert:
+    """Test suite for  HealthCheckFailedAlert class."""
 
     def test_name_should_return_health_check_failed_case(self) -> None:
         """Test that name property returns correct value."""
         # given
-        alert = HealthCheckAlert()
+        alert = HealthCheckFailedAlert()
 
         # when
         result = alert.name
@@ -24,7 +24,7 @@ class TestHealthCheckAlert:
     def test_get_issues_should_return_empty_list_when_all_status_ok(self) -> None:
         """Test that get_issues returns empty list when all health checks are OK."""
         # given
-        alert = HealthCheckAlert()
+        alert = HealthCheckFailedAlert()
         mock_status1 = Mock()
         mock_status1.id = "instrument1"
         mock_status1.status = KrakenStatusValues.OK
@@ -43,7 +43,7 @@ class TestHealthCheckAlert:
     ) -> None:
         """Test that get_issues returns multiple issues when multiple health checks fail."""
         # given
-        alert = HealthCheckAlert()
+        alert = HealthCheckFailedAlert()
         mock_status1 = Mock()
         mock_status1.id = "instrument1"
         mock_status1.status = KrakenStatusValues.ERROR
@@ -73,7 +73,7 @@ class TestHealthCheckAlert:
     def test_format_message_should_format_multiple_issues_correctly(self) -> None:
         """Test that format_message formats multiple issues correctly."""
         # given
-        alert = HealthCheckAlert()
+        alert = HealthCheckFailedAlert()
         issues = [
             ("instrument1", "Disk full"),
             ("instrument2", "Connection timeout"),
@@ -95,7 +95,7 @@ class TestHealthCheckAlert:
     def test_format_message_should_handle_none_status_details_in_issues(self) -> None:
         """Test that format_message handles None status details in issues."""
         # given
-        alert = HealthCheckAlert()
+        alert = HealthCheckFailedAlert()
         issues = [("instrument1", None), ("instrument2", "Connection timeout")]
 
         # when

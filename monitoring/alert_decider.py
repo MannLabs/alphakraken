@@ -4,34 +4,18 @@ import logging
 from collections import defaultdict
 from datetime import datetime, timedelta
 
+import config
 import pytz
-
-try:
-    # Try relative imports when used as part of the monitoring package
-    from . import config
-    from .alert_checkers import (
-        BaseAlert,
-        DiskSpaceAlert,
-        HealthCheckAlert,
-        InstrumentFilePileUpAlert,
-        RawFileErrorAlert,
-        StaleStatusAlert,
-        StatusPileUpAlert,
-    )
-    from .messenger_clients import send_message
-except ImportError:
-    # Fallback to direct imports when run from within the monitoring directory
-    import config
-    from alert_checkers import (
-        BaseAlert,
-        DiskSpaceAlert,
-        HealthCheckAlert,
-        InstrumentFilePileUpAlert,
-        RawFileErrorAlert,
-        StaleStatusAlert,
-        StatusPileUpAlert,
-    )
-    from messenger_clients import send_message
+from alert_checkers import (
+    BaseAlert,
+    DiskSpaceAlert,
+    HealthCheckAlert,
+    InstrumentFilePileUpAlert,
+    RawFileErrorAlert,
+    StaleStatusAlert,
+    StatusPileUpAlert,
+)
+from messenger_clients import send_message
 from requests.exceptions import RequestException
 
 from shared.db.models import KrakenStatus

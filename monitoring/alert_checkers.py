@@ -4,17 +4,11 @@ import logging
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
 
+import config
 import pytz
 from mongoengine import QuerySet
 
 from shared.db.interface import get_raw_files_by_instrument_file_status
-
-try:
-    # Try relative import when used as part of the monitoring package
-    from . import config
-except ImportError:
-    # Fallback to direct import when run from within the monitoring directory
-    import config
 from shared.db.models import (
     TERMINAL_STATUSES,
     KrakenStatusEntities,

@@ -55,7 +55,16 @@ def ssh_execute(
             logging.warning(f"Exception while executing SSH command: {e}")
             continue
 
+        # in rare cases, exit_status=0 but agg_stderr contains an error message
+        error_messages = ["Batch job submission failed"]
+        if (str_stderr := _byte_to_string(agg_stdout)) and any(
+            e in str_stderr for e in error_messages
+        ):
+            logging.warning(f"SSH command returned error: {str_stderr}")
+            continue
+
         str_stdout = _byte_to_string(agg_stdout)
+        assert str_stdout is not None
         str_stdout_trunc = truncate_string(str_stdout)
 
         logging.info(
@@ -65,8 +74,11 @@ def ssh_execute(
     return str_stdout
 
 
-def _byte_to_string(input_: bytes) -> str:
-    """Convert the given `input_` to a string."""
+def _byte_to_string(input_: bytes | None) -> str | None:
+    """Convert the given `input_` to a string, return None if None is passed."""
+    if input_ is None:
+        return None
+
     return input_.decode("utf-8").strip()
 
 

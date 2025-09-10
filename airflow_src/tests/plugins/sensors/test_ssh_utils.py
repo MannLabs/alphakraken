@@ -42,8 +42,10 @@ def test_ssh_execute_multiple_tries(
 
     bad_return1 = (254, b"command output", b"")
     bad_return2 = (0, b"", b"")
+    bad_return3 = (0, b"", b"Batch job submission failed")
+    ok_return = (0, b"command output", b"")
     ssh_hook.exec_ssh_client_command.side_effect = (
-        [bad_return1] * 2 + [bad_return2] * 2 + [(0, b"command output", b"")]
+        [bad_return1] * 2 + [bad_return2] * 2 + [bad_return3] * 2 + [ok_return]
     )
     mock_get_cluster_ssh_hook.return_value = ssh_hook
 
@@ -52,8 +54,8 @@ def test_ssh_execute_multiple_tries(
 
     # then
     assert result == "command output"
-    assert mock_sleep.call_count == 5  # noqa: PLR2004
-    assert ssh_hook.exec_ssh_client_command.call_count == 5  # noqa: PLR2004
+    assert mock_sleep.call_count == 7  # noqa: PLR2004
+    assert ssh_hook.exec_ssh_client_command.call_count == 7  # noqa: PLR2004
 
     expected_call = call(
         ssh_hook.get_conn.return_value,

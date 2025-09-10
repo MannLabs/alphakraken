@@ -5,7 +5,7 @@
 import logging
 from time import sleep
 
-from alert_decider import check_kraken_update_status, send_db_alert
+from alert_decider import AlertManager, send_db_alert
 from config import (
     CHECK_INTERVAL_SECONDS,
     STALE_STATUS_THRESHOLD_MINUTES,
@@ -27,16 +27,17 @@ def main() -> None:
         f"stale threshold: {STALE_STATUS_THRESHOLD_MINUTES}m)"
     )
 
+    manager = AlertManager()
     while True:
         try:
             connect_db(raise_on_error=True)
         except Exception:  # noqa: BLE001
-            send_db_alert("db_connection")
+            send_db_alert("db_connection", manager)
 
         try:
-            check_kraken_update_status()
+            manager.check_all()
         except ServerSelectionTimeoutError:
-            send_db_alert("db_timeout")
+            send_db_alert("db_timeout", manager)
 
         except Exception:
             logging.exception("Error checking KrakenStatus")

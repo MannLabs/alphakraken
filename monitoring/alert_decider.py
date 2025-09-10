@@ -49,12 +49,12 @@ class AlertManager:
         """Initialize the AlertManager with checkers and last alert times."""
         self.last_alerts = defaultdict(_default_value)
         self.checkers: list[BaseAlert] = [
-            StaleStatusAlert(config),
-            DiskSpaceAlert(config),
-            HealthCheckAlert(config),
-            StatusPileUpAlert(config),
-            InstrumentFilePileUpAlert(config),
-            RawFileErrorAlert(config),
+            StaleStatusAlert(),
+            DiskSpaceAlert(),
+            HealthCheckAlert(),
+            StatusPileUpAlert(),
+            InstrumentFilePileUpAlert(),
+            RawFileErrorAlert(),
         ]
 
     def check_all(self) -> None:
@@ -92,28 +92,9 @@ class AlertManager:
         return send_alert
 
 
-def check_kraken_update_status() -> None:
-    """Check KrakenStatus collection for stale entries."""
-    manager = AlertManager()
-    manager.check_all()
-
-
-# Global alert manager instance for DB alerts
-_global_alert_manager = None
-
-
-def _get_alert_manager() -> AlertManager:
-    """Get or create global alert manager instance."""
-    global _global_alert_manager  # noqa: PLW0603
-    if _global_alert_manager is None:
-        _global_alert_manager = AlertManager()
-    return _global_alert_manager
-
-
-def send_db_alert(error_type: str) -> None:
+def send_db_alert(error_type: str, alert_manager: AlertManager) -> None:
     """Send message about MongoDB connection error."""
-    manager = _get_alert_manager()
-    if not manager.should_send_alert([error_type], "db"):
+    if not alert_manager.should_send_alert([error_type], "db"):
         return
 
     logging.info("Error connecting to MongoDB")
@@ -121,6 +102,6 @@ def send_db_alert(error_type: str) -> None:
     message = f"Error connecting to MongoDB: {error_type}"
     try:
         send_message(message)
-        manager.last_alerts[f"db{error_type}"] = datetime.now(pytz.UTC)
+        alert_manager.last_alerts[f"db{error_type}"] = datetime.now(pytz.UTC)
     except RequestException:
         logging.exception("Failed to send DB alert message.")

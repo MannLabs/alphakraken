@@ -8,6 +8,13 @@ import pytz
 from mongoengine import QuerySet
 
 from shared.db.interface import get_raw_files_by_instrument_file_status
+
+try:
+    # Try relative import when used as part of the monitoring package
+    from . import config
+except ImportError:
+    # Fallback to direct import when run from within the monitoring directory
+    import config
 from shared.db.models import (
     TERMINAL_STATUSES,
     KrakenStatusEntities,
@@ -19,10 +26,6 @@ from shared.db.models import (
 
 class BaseAlert(ABC):
     """Base class for all alert checkers."""
-
-    def __init__(self, config):
-        """Initialize with configuration (thresholds, etc)."""
-        self.config = config
 
     @abstractmethod
     def check(self, kraken_statuses: QuerySet) -> list[tuple]:
@@ -47,16 +50,14 @@ class StaleStatusAlert(BaseAlert):
     @property
     def case_name(self) -> str:
         """Return the case name for this alert type."""
-        return self.config.Cases.STALE
+        return config.Cases.STALE
 
     def check(self, kraken_statuses: QuerySet) -> list[tuple[str, datetime]]:
         """Check for stale statuses."""
         now = datetime.now(pytz.UTC)
-        stale_threshold = now - timedelta(
-            minutes=self.config.STALE_STATUS_THRESHOLD_MINUTES
-        )
+        stale_threshold = now - timedelta(minutes=config.STALE_STATUS_THRESHOLD_MINUTES)
         file_remover_stale_threshold = now - timedelta(
-            hours=self.config.FILE_REMOVER_STALE_THRESHOLD_HOURS
+            hours=config.FILE_REMOVER_STALE_THRESHOLD_HOURS
         )
 
         stale_instruments = []
@@ -99,7 +100,7 @@ class DiskSpaceAlert(BaseAlert):
     @property
     def case_name(self) -> str:
         """Return the case name for this alert type."""
-        return self.config.Cases.LOW_DISK_SPACE
+        return config.Cases.LOW_DISK_SPACE
 
     def check(self, kraken_statuses: QuerySet) -> list[tuple[str, int]]:
         """Check for low disk space."""
@@ -114,13 +115,13 @@ class DiskSpaceAlert(BaseAlert):
             id_ = kraken_status.id
             if kraken_status.entity_type == KrakenStatusEntities.FILE_SYSTEM:
                 if id_ == "backup":
-                    threshold = self.config.BACKUP_FREE_SPACE_THRESHOLD_GB
+                    threshold = config.BACKUP_FREE_SPACE_THRESHOLD_GB
                 elif id_ == "output":
-                    threshold = self.config.OUTPUT_FREE_SPACE_THRESHOLD_GB
+                    threshold = config.OUTPUT_FREE_SPACE_THRESHOLD_GB
                 else:
-                    threshold = self.config.FREE_SPACE_THRESHOLD_GB
+                    threshold = config.FREE_SPACE_THRESHOLD_GB
             else:
-                threshold = self.config.FREE_SPACE_THRESHOLD_GB
+                threshold = config.FREE_SPACE_THRESHOLD_GB
 
             if (free_space_gb := kraken_status.free_space_gb) < threshold:
                 logging.warning(
@@ -148,7 +149,7 @@ class HealthCheckAlert(BaseAlert):
     @property
     def case_name(self) -> str:
         """Return the case name for this alert type."""
-        return self.config.Cases.HEALTH_CHECK_FAILED
+        return config.Cases.HEALTH_CHECK_FAILED
 
     def check(self, kraken_statuses: QuerySet) -> list[tuple[str, str]]:
         """Check for health check failures."""
@@ -182,7 +183,7 @@ class StatusPileUpAlert(BaseAlert):
     @property
     def case_name(self) -> str:
         """Return the case name for this alert type."""
-        return self.config.Cases.STATUS_PILE_UP
+        return config.Cases.STATUS_PILE_UP
 
     def check(self, kraken_statuses: QuerySet) -> list[tuple[str, str]]:
         """Check for status pile-ups on instruments."""
@@ -201,7 +202,7 @@ class StatusPileUpAlert(BaseAlert):
             piled_up_statuses = [
                 status
                 for status, count in status_counts.items()
-                if count > self.config.STATUS_PILE_UP_THRESHOLDS[status]
+                if count > config.STATUS_PILE_UP_THRESHOLDS[status]
             ]
 
             if piled_up_statuses:
@@ -237,7 +238,7 @@ class InstrumentFilePileUpAlert(BaseAlert):
     @property
     def case_name(self) -> str:
         """Return the case name for this alert type."""
-        return self.config.Cases.INSTRUMENT_FILE_PILE_UP
+        return config.Cases.INSTRUMENT_FILE_PILE_UP
 
     def check(self, kraken_statuses: QuerySet) -> list[tuple[str, str]]:
         """Check for instrument file pile-ups."""
@@ -254,11 +255,11 @@ class InstrumentFilePileUpAlert(BaseAlert):
             for (
                 instrument_file_status,
                 threshold,
-            ) in self.config.INSTRUMENT_FILE_PILE_UP_THRESHOLDS.items():
+            ) in config.INSTRUMENT_FILE_PILE_UP_THRESHOLDS.items():
                 files = get_raw_files_by_instrument_file_status(
                     instrument_file_status,
                     instrument_id=instrument_id,
-                    min_age_hours=self.config.INSTRUMENT_FILE_MIN_AGE_HOURS,
+                    min_age_hours=config.INSTRUMENT_FILE_MIN_AGE_HOURS,
                 )
                 count = len(files)
 
@@ -286,22 +287,21 @@ class InstrumentFilePileUpAlert(BaseAlert):
 class RawFileErrorAlert(BaseAlert):
     """Check for raw files that have changed to ERROR status."""
 
-    def __init__(self, config):
-        """Initialize with configuration and previous statuses."""
-        super().__init__(config)
+    def __init__(self):
+        """Initialize with previous statuses."""
         self.previous_raw_file_statuses = {}
 
     @property
     def case_name(self) -> str:
         """Return the case name for this alert type."""
-        return self.config.Cases.RAW_FILE_ERROR
+        return config.Cases.RAW_FILE_ERROR
 
     def check(self, kraken_statuses: QuerySet) -> list[tuple[str, str]]:
         """Check for raw files that have changed to ERROR status."""
         del kraken_statuses
 
         youngest_updated_at = datetime.now(pytz.UTC) - timedelta(
-            seconds=self.config.CHECK_INTERVAL_SECONDS * 5
+            seconds=config.CHECK_INTERVAL_SECONDS * 5
         )
         recently_updated_raw_files = RawFile.objects.filter(
             updated_at___gt=youngest_updated_at

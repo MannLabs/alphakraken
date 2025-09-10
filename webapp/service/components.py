@@ -249,7 +249,7 @@ def display_status(combined_df: pd.DataFrame, status_data_df: pd.DataFrame) -> N
 
     # Add filesystem entries (without raw files)
     filesystem_entries = status_data_df[
-        status_data_df["type"] == KrakenStatusEntities.FILE_SYSTEM
+        status_data_df["entity_type"] == KrakenStatusEntities.FILE_SYSTEM
     ]
     for _, filesystem_row in filesystem_entries.iterrows():
         all_entries.append(("filesystem", filesystem_row["_id"], None, filesystem_row))

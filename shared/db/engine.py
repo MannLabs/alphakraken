@@ -22,21 +22,30 @@ DB_USER = os.environ.get(EnvVars.MONGO_USER, "pika")
 DB_PASSWORD = os.environ.get(EnvVars.MONGO_PASSWORD, "chu")
 
 
-def connect_db(*, raise_on_error: bool = False) -> None:
+def connect_db(
+    *, connection_data: dict | None = None, raise_on_error: bool = False
+) -> None:
     """Connect to the database."""
+    if connection_data is None:
+        connection_data = {}
+
     try:
-        # seems like this is not necessary:
-        # disconnect()
         # TODO: think about putting DB connection to an Airflow connection
-        logging.info(f"Connecting to db: {DB_HOST=} {DB_NAME=} {DB_PORT=} {DB_USER=}")
+        db_name = connection_data.get("DB_NAME", DB_NAME)
+        host = connection_data.get("DB_HOST", DB_HOST)
+        port = connection_data.get("DB_PORT", DB_PORT)
+        username = connection_data.get("DB_USER", DB_USER)
+        password = connection_data.get("DB_PASSWORD", DB_PASSWORD)
+
+        logging.info(f"Connecting to db: {db_name=} {host=} {port=} {username=}")
 
         connect(
-            DB_NAME,
-            host=DB_HOST,
-            port=DB_PORT,
-            username=DB_USER,
-            password=DB_PASSWORD,
-            authentication_source=DB_NAME,
+            db_name,
+            host=host,
+            port=port,
+            username=username,
+            password=password,
+            authentication_source=db_name,
         )
     except ConnectionFailure as e:
         if raise_on_error:

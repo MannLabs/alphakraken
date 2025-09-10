@@ -5,9 +5,15 @@ import logging
 import os
 
 import requests
-from config import MESSENGER_WEBHOOK_URL
 
 from shared.keys import EnvVars
+
+try:
+    # Try relative import when used as part of the monitoring package
+    from .config import MESSENGER_WEBHOOK_URL
+except ImportError:
+    # Fallback to direct import when run from within the monitoring directory
+    from config import MESSENGER_WEBHOOK_URL
 
 
 def send_message(message: str) -> None:

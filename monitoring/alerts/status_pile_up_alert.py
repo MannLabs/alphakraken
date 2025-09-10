@@ -25,11 +25,11 @@ class StatusPileUpAlert(BaseAlert):
         """Check for status pile-ups on instruments."""
         status_pile_up_instruments = []
 
-        for kraken_status in status_objects:
-            # Only check instruments
-            if kraken_status.entity_type != KrakenStatusEntities.INSTRUMENT:
-                continue
-
+        for kraken_status in [
+            o
+            for o in status_objects
+            if o.entity_type == KrakenStatusEntities.INSTRUMENT
+        ]:
             instrument_id = kraken_status.id
             status_counts = RawFile.objects(
                 instrument_id=instrument_id, status__nin=TERMINAL_STATUSES

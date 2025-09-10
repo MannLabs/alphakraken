@@ -80,7 +80,9 @@ class AlertManager:
 
 def send_db_alert(alert_name: str, alert_manager: AlertManager) -> None:
     """Send message about MongoDB error."""
-    if not alert_manager.should_send_alert(["db"], alert_name):
+    identifier = "db"
+
+    if not alert_manager.should_send_alert([identifier], alert_name):
         return
 
     logging.info(f"Error connecting to MongoDB: {alert_name}")
@@ -91,4 +93,4 @@ def send_db_alert(alert_name: str, alert_manager: AlertManager) -> None:
     except RequestException:
         logging.exception("Failed to send DB alert message.")
     else:
-        alert_manager.last_alerts[f"{alert_name}_db"] = datetime.now(pytz.UTC)
+        alert_manager.last_alerts[f"{alert_name}_{identifier}"] = datetime.now(pytz.UTC)

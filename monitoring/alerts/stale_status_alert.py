@@ -24,10 +24,6 @@ class StaleStatusAlert(BaseAlert):
     ) -> list[tuple[str, datetime]]:
         """Check for stale statuses."""
         now = datetime.now(pytz.UTC)
-        stale_threshold = now - timedelta(minutes=config.STALE_STATUS_THRESHOLD_MINUTES)
-        file_remover_stale_threshold = now - timedelta(
-            hours=config.FILE_REMOVER_STALE_THRESHOLD_HOURS
-        )
 
         stale_instruments = []
         for kraken_status in status_objects:
@@ -39,11 +35,12 @@ class StaleStatusAlert(BaseAlert):
                 kraken_status.entity_type == KrakenStatusEntities.JOB
                 and id_ == "file_remover"
             ):
-                threshold_to_use = file_remover_stale_threshold
+                time_delta = timedelta(hours=config.FILE_REMOVER_STALE_THRESHOLD_HOURS)
             else:
-                threshold_to_use = stale_threshold
+                time_delta = timedelta(minutes=config.STALE_STATUS_THRESHOLD_MINUTES)
 
-            if last_updated_at < threshold_to_use:
+            threshold = now - time_delta
+            if last_updated_at < threshold:
                 stale_instruments.append((id_, last_updated_at))
 
         return stale_instruments

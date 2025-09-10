@@ -12,6 +12,8 @@ class BaseAlert(ABC):
     def get_issues(self, status_objects: list[KrakenStatus]) -> list[tuple]:
         """Check for issues and return list of (identifier, details) tuples.
 
+        e.g. [('instrument1', "low disk space: 123 GB"), ...]
+
         Returns empty list if no issues found.
         """
 
@@ -21,5 +23,5 @@ class BaseAlert(ABC):
 
     @property
     @abstractmethod
-    def case_name(self) -> str:
-        """Return the case name for this alert type."""
+    def name(self) -> str:
+        """Return the name for this alert type."""

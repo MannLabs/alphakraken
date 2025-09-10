@@ -13,7 +13,7 @@ class InstrumentFilePileUpAlert(BaseAlert):
     """Check for instrument file pile-ups (files not moved/purged)."""
 
     @property
-    def case_name(self) -> str:
+    def name(self) -> str:
         """Return the case name for this alert type."""
         return Cases.INSTRUMENT_FILE_PILE_UP
 

@@ -12,7 +12,7 @@ class DiskSpaceAlert(BaseAlert):
     """Check for low disk space."""
 
     @property
-    def case_name(self) -> str:
+    def name(self) -> str:
         """Return the case name for this alert type."""
         return Cases.LOW_DISK_SPACE
 

@@ -19,7 +19,7 @@ class RawFileErrorAlert(BaseAlert):
         self.previous_raw_file_statuses = {}
 
     @property
-    def case_name(self) -> str:
+    def name(self) -> str:
         """Return the case name for this alert type."""
         return Cases.RAW_FILE_ERROR
 

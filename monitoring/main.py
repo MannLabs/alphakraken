@@ -34,7 +34,7 @@ def main() -> None:
         try:
             connect_db(raise_on_error=True)
         except Exception:  # noqa: BLE001
-            send_db_alert("db_connection", alert_manager)
+            send_db_alert("db_connection_error", alert_manager)
 
         try:
             alert_manager.check_for_issues()

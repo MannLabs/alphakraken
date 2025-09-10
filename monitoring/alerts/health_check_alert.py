@@ -11,7 +11,7 @@ class HealthCheckAlert(BaseAlert):
     """Check for failed health checks."""
 
     @property
-    def case_name(self) -> str:
+    def name(self) -> str:
         """Return the case name for this alert type."""
         return Cases.HEALTH_CHECK_FAILED
 

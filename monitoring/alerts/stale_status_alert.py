@@ -15,7 +15,7 @@ class StaleStatusAlert(BaseAlert):
     """Check for stale status updates."""
 
     @property
-    def case_name(self) -> str:
+    def name(self) -> str:
         """Return the case name for this alert type."""
         return Cases.STALE
 

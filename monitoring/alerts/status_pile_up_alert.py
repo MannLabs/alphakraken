@@ -17,7 +17,7 @@ class StatusPileUpAlert(BaseAlert):
     """Check for status pile-ups (too many files in non-terminal statuses)."""
 
     @property
-    def case_name(self) -> str:
+    def name(self) -> str:
         """Return the case name for this alert type."""
         return Cases.STATUS_PILE_UP
 

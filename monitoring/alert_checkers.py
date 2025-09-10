@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 
 import config
 import pytz
+from config import Cases
 from mongoengine import QuerySet
 
 from shared.db.interface import get_raw_files_by_instrument_file_status
@@ -43,7 +44,7 @@ class StaleStatusAlert(BaseAlert):
     @property
     def case_name(self) -> str:
         """Return the case name for this alert type."""
-        return config.Cases.STALE
+        return Cases.STALE
 
     def check(self, kraken_statuses: QuerySet) -> list[tuple[str, datetime]]:
         """Check for stale statuses."""
@@ -90,7 +91,7 @@ class DiskSpaceAlert(BaseAlert):
     @property
     def case_name(self) -> str:
         """Return the case name for this alert type."""
-        return config.Cases.LOW_DISK_SPACE
+        return Cases.LOW_DISK_SPACE
 
     def check(self, kraken_statuses: QuerySet) -> list[tuple[str, int]]:
         """Check for low disk space."""
@@ -135,7 +136,7 @@ class HealthCheckAlert(BaseAlert):
     @property
     def case_name(self) -> str:
         """Return the case name for this alert type."""
-        return config.Cases.HEALTH_CHECK_FAILED
+        return Cases.HEALTH_CHECK_FAILED
 
     def check(self, kraken_statuses: QuerySet) -> list[tuple[str, str]]:
         """Check for health check failures."""
@@ -166,7 +167,7 @@ class StatusPileUpAlert(BaseAlert):
     @property
     def case_name(self) -> str:
         """Return the case name for this alert type."""
-        return config.Cases.STATUS_PILE_UP
+        return Cases.STATUS_PILE_UP
 
     def check(self, kraken_statuses: QuerySet) -> list[tuple[str, str]]:
         """Check for status pile-ups on instruments."""
@@ -218,7 +219,7 @@ class InstrumentFilePileUpAlert(BaseAlert):
     @property
     def case_name(self) -> str:
         """Return the case name for this alert type."""
-        return config.Cases.INSTRUMENT_FILE_PILE_UP
+        return Cases.INSTRUMENT_FILE_PILE_UP
 
     def check(self, kraken_statuses: QuerySet) -> list[tuple[str, str]]:
         """Check for instrument file pile-ups."""
@@ -270,7 +271,7 @@ class RawFileErrorAlert(BaseAlert):
     @property
     def case_name(self) -> str:
         """Return the case name for this alert type."""
-        return config.Cases.RAW_FILE_ERROR
+        return Cases.RAW_FILE_ERROR
 
     def check(self, kraken_statuses: QuerySet) -> list[tuple[str, str]]:
         """Check for raw files that have changed to ERROR status."""

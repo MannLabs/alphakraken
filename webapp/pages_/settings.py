@@ -21,6 +21,9 @@ from service.utils import (
 
 from shared.db.interface import add_settings
 from shared.db.models import ProjectStatus
+from shared.keys import SoftwareTypes
+from shared.validation import check_for_malicious_content
+from shared.yamlsettings import YamlKeys, get_path
 
 _log(f"loading {__file__} {get_all_query_params()}")
 # ########################################### PAGE HEADER
@@ -120,40 +123,6 @@ if project_id:
 # ########################################### FORM
 
 
-form_items = {
-    "name": {
-        "label": "Name*",
-        "max_chars": 64,
-        "placeholder": "e.g. very fast plasma settings.",
-        "help": "Human readable short name for your settings.",
-    },
-    "fasta_file_name": {
-        "label": "Fasta file name*",
-        "max_chars": 64,
-        "placeholder": "e.g. human.fasta",
-        "help": "Name of the fasta file.",
-    },
-    "speclib_file_name": {
-        "label": "Speclib file name*",
-        "max_chars": 64,
-        "placeholder": "e.g. human_plasma.speclib",
-        "help": "Name of the speclib file.",
-    },
-    "config_file_name": {
-        "label": "Config file name",
-        "max_chars": 64,
-        "placeholder": "e.g. very_fast_config.yaml",
-        "help": "Name of the config file. If none is given, default will be used.",
-    },
-    "software": {
-        "label": "Software",
-        "max_chars": 64,
-        "placeholder": "e.g. alphadia-1.10.0",
-        "help": "Name of the Conda environment that holds the AlphaDIA executable. Needs to be created manually.",
-    },
-}
-
-
 if selected_project:
     c1.markdown("### Step 2/3: Define settings")
 
@@ -162,12 +131,103 @@ if selected_project:
         f"Settings will be added to the following project: `{selected_project.name}`{desc}"
     )
 
+    software_type = c1.selectbox(
+        label="Type", options=[SoftwareTypes.ALPHADIA, SoftwareTypes.CUSTOM]
+    )
+
+    form_items = {
+        "name": {
+            "label": "Name*",
+            "max_chars": 64,
+            "placeholder": "e.g. 'very fast plasma settings'",
+            "help": "Human readable short name for your settings.",
+        },
+        "fasta_file_name": {
+            "label": "Fasta file name**",
+            "max_chars": 64,
+            "placeholder": "e.g. 'human.fasta'",
+            "help": "Name of the fasta file.",
+        },
+        "speclib_file_name": {
+            "label": "Speclib file name**",
+            "max_chars": 64,
+            "placeholder": "e.g. 'human_plasma.speclib'",
+            "help": "Name of the speclib file.",
+        },
+    }
+
+    if software_type == SoftwareTypes.ALPHADIA:
+        form_items |= {
+            "config_file_name": {
+                "label": "Config file name*",
+                "max_chars": 64,
+                "placeholder": "e.g. 'very_fast_config.yaml'",
+                "help": "Name of the config file. If none is given, default will be used.",
+            },
+            "software": {
+                "label": "Software*",
+                "max_chars": 64,
+                "placeholder": "e.g. 'alphadia-1.10.0'",
+                "help": "Name of the Conda environment that holds the AlphaDIA executable. Ask an administrator to created this environment..",
+            },
+        }
+
+    elif software_type == SoftwareTypes.CUSTOM:
+        form_items |= {
+            "software": {
+                "label": "Executable*",
+                "max_chars": 64,
+                "placeholder": "e.g. 'custom-software/custom-executable1.2.3'",
+                "help": f"Path to executable, relative to `{get_path(YamlKeys.Locations.SOFTWARE)}/`. Ask an administrator to add the executable to the software folder.",
+            },
+            "config_params": {
+                "label": "Configuration parameters",
+                "max_chars": 512,
+                "placeholder": "e.g. '--qvalue 0.01 --f RAW_FILE_PATH --out OUTPUT_PATH --temp OUTPUT_PATH --lib LIBRARY_PATH --fasta FASTA_PATH'",
+                "help": "Configuration options. Provide either this OR config file name above, not both.",
+            },
+        }
+
     with c1.form("add_settings_to_project"):
         name = st.text_input(**form_items["name"])
+
+        software = st.text_input(**form_items["software"])
+
         fasta_file_name = st.text_input(**form_items["fasta_file_name"])
         speclib_file_name = st.text_input(**form_items["speclib_file_name"])
-        config_file_name = st.text_input(**form_items["config_file_name"])
-        software = st.text_input(**form_items["software"])
+
+        config_file_name = (
+            st.text_input(**form_items["config_file_name"])
+            if "config_file_name" in form_items
+            else None
+        )
+
+        if "config_params" in form_items:
+            config_params = st.text_area(**form_items["config_params"])
+            st.info(
+                "The following placeholders can be used in the config parameters:\n\n"
+                "- `RAW_FILE_PATH`: Will evaluate to the path of the raw file.\n"
+                "- `OUTPUT_PATH`: Will evaluate to the path of the output directory.\n"
+                "- `LIBRARY_PATH`: Will evaluate to the path of the library file.\n"
+                "- `FASTA_PATH`: Will evaluate to the path of the fasta file.\n"
+            )
+        else:
+            config_params = None
+
+        # Validate inputs and show errors
+        validation_errors = []
+        for to_validate in [
+            fasta_file_name,
+            speclib_file_name,
+            software,
+            config_file_name,
+        ]:
+            if to_validate:
+                validation_errors.extend(
+                    check_for_malicious_content(to_validate, allow_spaces=True)
+                )
+        if config_params:
+            validation_errors.extend(check_for_malicious_content(to_validate))
 
         st.write(r"\* Required fields")
         st.write(r"\** At least one of the two must be given")
@@ -177,6 +237,7 @@ if selected_project:
             "Make sure you have uploaded all the files correctly to "
             f"`{quanting_settings_path}/{project_id}/`"
         )
+        # TODO: NEXT_SLICE add list of files to upload here
         upload_checkbox = st.checkbox(
             "I have uploaded the above files to this folder.", value=False
         )
@@ -205,6 +266,10 @@ if selected_project and submit:
                 "At least one of the fasta and speclib file names must be given."
             )  # Abstract `raise` to an inner function
 
+        if validation_errors:
+            errors_str = "\n- ".join(validation_errors)
+            raise ValueError(f"Input validation error:\n- {errors_str}")
+
         if not upload_checkbox:
             raise ValueError(
                 "Please upload the files to the respective folders on the pool file system and check the respective box."
@@ -216,6 +281,8 @@ if selected_project and submit:
             fasta_file_name=fasta_file_name,
             speclib_file_name=speclib_file_name,
             config_file_name=config_file_name,
+            config_params=config_params,
+            software_type=software_type,
             software=software,
         )
     except Exception as e:  # noqa: BLE001

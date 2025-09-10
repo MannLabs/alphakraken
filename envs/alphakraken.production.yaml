@@ -16,6 +16,8 @@ locations:
     absolute_path: /fs/pool-1/backup
   settings:
     absolute_path: /fs/pool-2/settings
+  software:
+    absolute_path: /fs/home/kraken-read/software
   slurm:
     absolute_path: /fs/pool-2/slurm
   output:

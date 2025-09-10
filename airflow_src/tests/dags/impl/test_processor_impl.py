@@ -88,7 +88,9 @@ def test_prepare_quanting(
         speclib_file_name="some_speclib_file_name",
         fasta_file_name="some_fasta_file_name",
         config_file_name="some_config_file_name",
+        config_params="",
         software="some_software",
+        software_type="alphadia",
         version=1,
     )
     ti = MagicMock()
@@ -117,6 +119,8 @@ def test_prepare_quanting(
         "FASTA_FILE_NAME": "some_fasta_file_name",
         "CONFIG_FILE_NAME": "some_config_file_name",
         "SOFTWARE": "some_software",
+        "SOFTWARE_TYPE": "alphadia",
+        "CUSTOM_COMMAND": "",
         "RAW_FILE_ID": "test_file.raw",
         "PROJECT_ID_OR_FALLBACK": "some_project_id",
         "SETTINGS_VERSION": 1,
@@ -130,6 +134,129 @@ def test_prepare_quanting(
     )
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
     mock_get_path.assert_has_calls([call("backup"), call("settings"), call("output")])
+
+
+@patch.dict(_INSTRUMENTS, {"instrument1": {}})
+@patch("dags.impl.processor_impl.get_raw_file_by_id")
+@patch("dags.impl.processor_impl.get_path")
+@patch("dags.impl.processor_impl.put_xcom")
+@patch("dags.impl.processor_impl._get_project_id_or_fallback")
+@patch("dags.impl.processor_impl.get_settings_for_project")
+def test_prepare_quanting_custom_software(
+    mock_get_settings: MagicMock,
+    mock_get_project_id_for_raw_file: MagicMock,
+    mock_put_xcom: MagicMock,
+    mock_get_path: MagicMock,
+    mock_get_raw_file_by_id: MagicMock,
+) -> None:
+    """Test that prepare_quanting handles custom software settings with parameter substitution."""
+    mock_raw_file = MagicMock(
+        wraps=RawFile,
+        id="test_file.raw",
+        created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
+        project_id="some_project_id",
+    )
+    mock_get_raw_file_by_id.return_value = mock_raw_file
+    mock_get_path.side_effect = [
+        Path("/some_backup_base_path"),
+        Path("/some_quanting_settings_path"),
+        Path("/some_quanting_output_path"),
+        Path("/some_software_base_path"),
+    ]
+    mock_get_project_id_for_raw_file.return_value = "some_project_id"
+    mock_get_settings.return_value = MagicMock(
+        speclib_file_name="some_speclib_file_name",
+        fasta_file_name="some_fasta_file_name",
+        config_file_name="",
+        config_params="--qvalue 0.01 --f RAW_FILE_PATH --lib LIBRARY_PATH --out OUTPUT_PATH --fasta FASTA_PATH",
+        software="custom1.2.3",
+        software_type="custom",
+        version=1,
+    )
+    ti = MagicMock()
+
+    kwargs = {
+        OpArgs.INSTRUMENT_ID: "instrument1",
+        DagContext.PARAMS: {
+            DagParams.RAW_FILE_ID: "test_file.raw",
+        },
+    }
+
+    # when
+    prepare_quanting(ti, **kwargs)
+
+    expected_custom_command = "/some_software_base_path/custom1.2.3 --qvalue 0.01 --f /some_backup_base_path/instrument1/1970_01/test_file.raw --lib /some_quanting_settings_path/some_project_id/some_speclib_file_name --out /some_quanting_output_path/some_project_id/out_test_file.raw --fasta /some_quanting_settings_path/some_project_id/some_fasta_file_name"
+
+    expected_quanting_env = {
+        "RAW_FILE_PATH": "/some_backup_base_path/instrument1/1970_01/test_file.raw",
+        "SETTINGS_PATH": "/some_quanting_settings_path/some_project_id",
+        "OUTPUT_PATH": "/some_quanting_output_path/some_project_id/out_test_file.raw",
+        "SPECLIB_FILE_NAME": "some_speclib_file_name",
+        "FASTA_FILE_NAME": "some_fasta_file_name",
+        "CONFIG_FILE_NAME": "",
+        "SOFTWARE": "custom1.2.3",
+        "SOFTWARE_TYPE": "custom",
+        "CUSTOM_COMMAND": expected_custom_command,
+        "RAW_FILE_ID": "test_file.raw",
+        "PROJECT_ID_OR_FALLBACK": "some_project_id",
+        "SETTINGS_VERSION": 1,
+    }
+
+    mock_put_xcom.assert_has_calls(
+        [
+            call(ti, "quanting_env", expected_quanting_env),
+            call(ti, "raw_file_id", "test_file.raw"),
+        ]
+    )
+
+
+@patch.dict(_INSTRUMENTS, {"instrument1": {}})
+@patch("dags.impl.processor_impl.get_raw_file_by_id")
+@patch("dags.impl.processor_impl.get_path")
+@patch("dags.impl.processor_impl._get_project_id_or_fallback")
+@patch("dags.impl.processor_impl.get_settings_for_project")
+def test_prepare_quanting_validation_error_raises(
+    mock_get_settings: MagicMock,
+    mock_get_project_id_for_raw_file: MagicMock,
+    mock_get_path: MagicMock,
+    mock_get_raw_file_by_id: MagicMock,
+) -> None:
+    """Test that prepare_quanting raises on validation errors."""
+    mock_raw_file = MagicMock(
+        wraps=RawFile,
+        id="test_file.raw",
+        created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
+        project_id="some_project_id",
+    )
+    mock_get_raw_file_by_id.return_value = mock_raw_file
+    mock_get_path.side_effect = [
+        Path("some_backup_base_path"),
+        Path("some_quanting_settings_path"),
+        Path("some_quanting_output_path"),
+        Path("some_software_base_path"),
+    ]
+    mock_get_project_id_for_raw_file.return_value = "some_project_id"
+    mock_get_settings.return_value = MagicMock(
+        speclib_file_name="some_speclib_file_name",
+        fasta_file_name="../some_fasta_file_name",  # .. -> this will raise
+        config_file_name="",
+        config_params="--qvalue 0.01 --f RAW_FILE_PATH --lib LIBRARY_PATH --out OUTPUT_PATH --fasta FASTA_PATH",
+        software="custom1.2.3",
+        software_type="custom",
+        version=1,
+    )
+    ti = MagicMock()
+
+    kwargs = {
+        OpArgs.INSTRUMENT_ID: "instrument1",
+        DagContext.PARAMS: {
+            DagParams.RAW_FILE_ID: "test_file.raw",
+        },
+    }
+
+    # when
+    with pytest.raises(AirflowFailException):
+        prepare_quanting(ti, **kwargs)
 
 
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
@@ -245,6 +372,8 @@ def test_run_quanting_executes_ssh_command_and_stores_job_id(
         {
             QuantingEnv.RAW_FILE_ID: "test_file.raw",
             QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID123",
+            QuantingEnv.SOFTWARE_TYPE: "alphadia",
+            QuantingEnv.CUSTOM_COMMAND: "",
             # rest of quanting_env is left out here for brevity
         },
         -1,
@@ -262,7 +391,12 @@ def test_run_quanting_executes_ssh_command_and_stores_job_id(
 
     mock_start_job.assert_called_once_with(
         "submit_job.sh",
-        {"RAW_FILE_ID": "test_file.raw", "PROJECT_ID_OR_FALLBACK": "PID123"},
+        {
+            "RAW_FILE_ID": "test_file.raw",
+            "PROJECT_ID_OR_FALLBACK": "PID123",
+            "SOFTWARE_TYPE": "alphadia",
+            "CUSTOM_COMMAND": "",
+        },
         "1970_01",
     )
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
@@ -284,6 +418,8 @@ def test_run_quanting_job_id_exists(
         {
             QuantingEnv.RAW_FILE_ID: "test_file.raw",
             QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID123",
+            QuantingEnv.SOFTWARE_TYPE: "alphadia",
+            QuantingEnv.CUSTOM_COMMAND: "",
             # rest of quanting_env is left out here for brevity
         },
         12345,
@@ -313,6 +449,8 @@ def test_run_quanting_output_folder_exists(
         {
             QuantingEnv.RAW_FILE_ID: "test_file.raw",
             QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID123",
+            QuantingEnv.SOFTWARE_TYPE: "alphadia",
+            QuantingEnv.CUSTOM_COMMAND: "",
             # rest of quanting_env is left out here for brevity
         },
         -1,
@@ -352,6 +490,8 @@ def test_run_quanting_output_folder_exists_associate(  # noqa: PLR0913
         {
             QuantingEnv.RAW_FILE_ID: "test_file.raw",
             QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID123",
+            QuantingEnv.SOFTWARE_TYPE: "alphadia",
+            QuantingEnv.CUSTOM_COMMAND: "",
             # rest of quanting_env is left out here for brevity
         },
         -1,
@@ -390,6 +530,8 @@ def test_run_quanting_output_folder_exists_associate_raise(  # noqa: PLR0913
         {
             QuantingEnv.RAW_FILE_ID: "test_file.raw",
             QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID123",
+            QuantingEnv.SOFTWARE_TYPE: "alphadia",
+            QuantingEnv.CUSTOM_COMMAND: "",
             # rest of quanting_env is left out here for brevity
         },
         -1,

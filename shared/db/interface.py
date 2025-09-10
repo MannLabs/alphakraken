@@ -187,7 +187,9 @@ def add_settings(  # noqa: PLR0913 many arguments in function definition
     name: str,
     fasta_file_name: str,
     speclib_file_name: str,
-    config_file_name: str,
+    config_file_name: str | None,
+    config_params: str | None,
+    software_type: str,
     software: str,
 ) -> None:
     """Add new settings to a project."""
@@ -215,6 +217,8 @@ def add_settings(  # noqa: PLR0913 many arguments in function definition
         fasta_file_name=fasta_file_name,
         speclib_file_name=speclib_file_name,
         config_file_name=config_file_name,
+        config_params=config_params,
+        software_type=software_type,
         software=software,
         version=num_existing_settings + 1,
     )

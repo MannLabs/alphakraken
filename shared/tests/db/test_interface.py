@@ -271,6 +271,8 @@ def test_add_settings_first(
         fasta_file_name="fasta_file",
         speclib_file_name="speclib_file",
         config_file_name="config_file",
+        config_params="config_params",
+        software_type="software_type",
         software="software",
     )
 
@@ -281,6 +283,8 @@ def test_add_settings_first(
         fasta_file_name="fasta_file",
         speclib_file_name="speclib_file",
         config_file_name="config_file",
+        config_params="config_params",
+        software_type="software_type",
         software="software",
         version=1,
     )
@@ -308,6 +312,8 @@ def test_add_settings_not_first(
         fasta_file_name="fasta_file",
         speclib_file_name="speclib_file",
         config_file_name="config_file",
+        config_params="config_params",
+        software_type="software_type",
         software="software",
     )
 
@@ -318,6 +324,8 @@ def test_add_settings_not_first(
         fasta_file_name="fasta_file",
         speclib_file_name="speclib_file",
         config_file_name="config_file",
+        config_params="config_params",
+        software_type="software_type",
         software="software",
         version=42,
     )

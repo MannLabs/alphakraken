@@ -22,7 +22,7 @@ def test_start_job_returns_valid_job_id(
     )
     assert job_id == "12345"
     expected_command = (
-        "export ENV_VAR=value\n"
+        'export ENV_VAR="value"\n'
         "mkdir -p /path/to/slurm_base_path/jobs/2024_07\n"
         "cd /path/to/slurm_base_path/jobs/2024_07\n"
         "cat /path/to/slurm_base_path/submit_job.sh\n"

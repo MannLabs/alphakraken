@@ -1,6 +1,5 @@
 """Alert checker classes for different types of monitoring alerts."""
 
-import logging
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
 
@@ -69,9 +68,6 @@ class StaleStatusAlert(BaseAlert):
                 threshold_to_use = stale_threshold
 
             if last_updated_at < threshold_to_use:
-                logging.warning(
-                    f"Stale status detected for {id_}, last update: {last_updated_at}"
-                )
                 stale_instruments.append((id_, last_updated_at))
 
         return stale_instruments
@@ -118,10 +114,6 @@ class DiskSpaceAlert(BaseAlert):
                 threshold = config.FREE_SPACE_THRESHOLD_GB
 
             if (free_space_gb := kraken_status.free_space_gb) < threshold:
-                logging.warning(
-                    f"Low disk space detected for {id_} ({kraken_status.entity_type}), "
-                    f"free space: {free_space_gb} GB, threshold: {threshold} GB"
-                )
                 low_disk_space_instruments.append((id_, free_space_gb))
 
         return low_disk_space_instruments
@@ -153,9 +145,6 @@ class HealthCheckAlert(BaseAlert):
             if kraken_status.status != KrakenStatusValues.OK:
                 id_ = kraken_status.id
                 status_details = kraken_status.status_details
-                logging.warning(
-                    f"Error detected for {id_}, status details: {status_details}"
-                )
                 health_check_failed_instruments.append((id_, status_details))
 
         return health_check_failed_instruments
@@ -205,9 +194,6 @@ class StatusPileUpAlert(BaseAlert):
                         f"{status}: {status_counts[status]}"
                         for status in piled_up_statuses
                     ]
-                )
-                logging.warning(
-                    f"Pile up detected for {instrument_id}, {piled_up_statuses_str}"
                 )
                 status_pile_up_instruments.append(
                     (instrument_id, piled_up_statuses_str)
@@ -259,10 +245,6 @@ class InstrumentFilePileUpAlert(BaseAlert):
 
                 if count > threshold:
                     pile_up_detected.append(f"{instrument_file_status}: {count}")
-                    logging.warning(
-                        f"Instrument file pile up detected for {instrument_id}, "
-                        f"{instrument_file_status}: {count} files (threshold: {threshold})"
-                    )
 
             if pile_up_detected:
                 pile_up_str = "; ".join(pile_up_detected)
@@ -315,9 +297,6 @@ class RawFileErrorAlert(BaseAlert):
                 and current_status != self.previous_raw_file_statuses.get(raw_file_id)
             ):
                 status_details = raw_file.status_details or "None"
-                logging.warning(
-                    f"Raw file {raw_file_id} changed to ERROR status. Details: {status_details}"
-                )
                 new_error_files.append((raw_file_id, status_details))
 
         # Update the previous statuses for next check

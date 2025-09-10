@@ -227,7 +227,7 @@ def add_settings(  # noqa: PLR0913 many arguments in function definition
 
 
 def update_kraken_status(
-    instrument_id: str,
+    id_: str,
     *,
     status: str,
     status_details: str,
@@ -236,12 +236,12 @@ def update_kraken_status(
 ) -> None:
     """Update the status of an instrument connected to kraken."""
     logging.info(
-        f"Updating DB: {instrument_id=} to {status=} with {status_details=} {free_space_gb=} {entity_type=}"
+        f"Updating DB: {id_=} to {status=} with {status_details=} {free_space_gb=} {entity_type=}"
     )
     connect_db()
 
     KrakenStatus(
-        instrument_id=instrument_id,
+        id=id_,
         status=status,
         updated_at_=datetime.now(tz=pytz.utc),
         free_space_gb=free_space_gb,

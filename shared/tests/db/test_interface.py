@@ -341,7 +341,7 @@ def test_update_kraken_status(
     """Test that update_kraken_status updates the status correctly."""
     # when
     update_kraken_status(
-        instrument_id="instrument1",
+        id_="instrument1",
         status="error",
         status_details="some details",
         free_space_gb=123,

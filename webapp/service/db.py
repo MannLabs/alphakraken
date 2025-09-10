@@ -46,7 +46,7 @@ def get_raw_files_for_status_df(
     df = pd.DataFrame(
         [
             {
-                "instrument_id": r.instrument_id,
+                "instrument_id": r.id,
                 "created_at": r.created_at,
                 "updated_at_": r.updated_at_,
                 "status": r.status,

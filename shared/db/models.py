@@ -204,8 +204,7 @@ class KrakenStatusEntities:
 class KrakenStatus(Document):
     """Schema for a project."""
 
-    # TODO: rename to id
-    instrument_id = StringField(max_length=64, required=True, primary_key=True)
+    id = StringField(max_length=64, required=True, primary_key=True)
 
     status = StringField(max_length=64, default="n/a")
     status_details = StringField(max_length=256)

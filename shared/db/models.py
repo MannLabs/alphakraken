@@ -210,6 +210,6 @@ class KrakenStatus(Document):
     status_details = StringField(max_length=256)
 
     free_space_gb = IntField(min_value=-1, default=-1)
-    type = StringField(max_length=16, default=KrakenStatusEntities.INSTRUMENT)
+    entity_type = StringField(max_length=16, default=KrakenStatusEntities.INSTRUMENT)
 
     updated_at_ = DateTimeField(default=datetime.now)

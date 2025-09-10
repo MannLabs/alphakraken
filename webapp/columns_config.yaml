@@ -32,6 +32,22 @@ columns:
     plot: true
     alternative_names:
       - "calibration:ms2_median_accuracy"
+
+  - name: "msqc_evosep_pump_hp_pressure_max"
+    plot: true
+  - name: "msqc_ms1_median_injection_time"
+    plot: true
+  - name: "msqc_ms1_scans"
+    plot: true
+  - name: "msqc_ms1_median_tic"
+    plot: true
+  - name: "msqc_ms2_median_injection_time"
+    plot: true
+  - name: "msqc_ms2_scans"
+    plot: true
+  - name: "msqc_ms2_median_tic"
+    plot: true
+
   - name: "fwhm_rt"
     color_gradient: "red_is_high"
     plot: true

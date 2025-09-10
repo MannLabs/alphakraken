@@ -349,11 +349,11 @@ def test_update_kraken_status(
 
     # then
     mock_krakenstatus.assert_called_once_with(
-        id_="instrument1",
+        id="instrument1",
         status="error",
         updated_at_=mock_datetime.now.return_value,
         status_details="some details",
         free_space_gb=123,
-        type="instrument",
+        entity_type="instrument",
     )
     mock_connect_db.assert_called_once()

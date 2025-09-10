@@ -201,7 +201,7 @@ def test_display_status_with_multiple_instruments(mock_st_dataframe: MagicMock) 
             "status": ["ok", "error", ""],
             "free_space_gb": [100, 200, 500],
             "status_details": ["", "", ""],
-            "type": ["instrument", "instrument", "file_system"],
+            "entity_type": ["instrument", "instrument", "file_system"],
         }
     )
 
@@ -215,7 +215,7 @@ def test_display_status_with_multiple_instruments(mock_st_dataframe: MagicMock) 
     assert result_df["instrument_id"].tolist() == [
         "inst1",
         "inst2",
-        "backup (filesystem)",
+        "backup (file system)",
     ]
     # Instruments have file creation/update times, filesystem has "-"
     assert result_df["last_file_creation"].tolist() == [ts1, ts1, "-"]

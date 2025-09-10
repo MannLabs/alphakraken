@@ -1,10 +1,9 @@
 """Health check alert checker."""
 
-from config import Cases
-
 from shared.db.models import KrakenStatus, KrakenStatusValues
 
 from .base_alert import BaseAlert
+from .config import Cases
 
 
 class HealthCheckAlert(BaseAlert):

@@ -2,13 +2,12 @@
 
 from datetime import datetime, timedelta
 
-import config
 import pytz
-from config import Cases
 
 from shared.db.models import KrakenStatus, RawFile, RawFileStatus
 
 from .base_alert import BaseAlert
+from .config import CHECK_INTERVAL_SECONDS, Cases
 
 
 class RawFileErrorAlert(BaseAlert):
@@ -28,7 +27,7 @@ class RawFileErrorAlert(BaseAlert):
         del status_objects
 
         youngest_updated_at = datetime.now(pytz.UTC) - timedelta(
-            seconds=config.CHECK_INTERVAL_SECONDS * 5
+            seconds=CHECK_INTERVAL_SECONDS * 5
         )
         recently_updated_raw_files = RawFile.objects.filter(
             updated_at___gt=youngest_updated_at

@@ -4,7 +4,6 @@ import logging
 from collections import defaultdict
 from datetime import datetime, timedelta
 
-import config
 import pytz
 from alerts import (
     BaseAlert,
@@ -14,6 +13,7 @@ from alerts import (
     RawFileErrorAlert,
     StaleStatusAlert,
     StatusPileUpAlert,
+    config,
 )
 from messenger_clients import send_message
 from requests.exceptions import RequestException

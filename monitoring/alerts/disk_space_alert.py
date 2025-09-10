@@ -1,11 +1,10 @@
 """Disk space alert checker."""
 
-import config
-from config import Cases
-
 from shared.db.models import KrakenStatus, KrakenStatusEntities
 
+from . import config
 from .base_alert import BaseAlert
+from .config import Cases
 
 
 class DiskSpaceAlert(BaseAlert):

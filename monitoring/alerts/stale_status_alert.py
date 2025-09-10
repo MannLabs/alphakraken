@@ -2,13 +2,16 @@
 
 from datetime import datetime, timedelta
 
-import config
 import pytz
-from config import Cases
 
 from shared.db.models import KrakenStatus, KrakenStatusEntities
 
 from .base_alert import BaseAlert
+from .config import (
+    FILE_REMOVER_STALE_THRESHOLD_HOURS,
+    STALE_STATUS_THRESHOLD_MINUTES,
+    Cases,
+)
 
 
 class StaleStatusAlert(BaseAlert):
@@ -35,9 +38,9 @@ class StaleStatusAlert(BaseAlert):
                 kraken_status.entity_type == KrakenStatusEntities.JOB
                 and id_ == "file_remover"
             ):
-                time_delta = timedelta(hours=config.FILE_REMOVER_STALE_THRESHOLD_HOURS)
+                time_delta = timedelta(hours=FILE_REMOVER_STALE_THRESHOLD_HOURS)
             else:
-                time_delta = timedelta(minutes=config.STALE_STATUS_THRESHOLD_MINUTES)
+                time_delta = timedelta(minutes=STALE_STATUS_THRESHOLD_MINUTES)
 
             threshold = now - time_delta
             if last_updated_at < threshold:

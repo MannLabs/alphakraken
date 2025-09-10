@@ -1,8 +1,5 @@
 """Status pile-up alert checker."""
 
-import config
-from config import Cases
-
 from shared.db.models import (
     TERMINAL_STATUSES,
     KrakenStatus,
@@ -11,6 +8,7 @@ from shared.db.models import (
 )
 
 from .base_alert import BaseAlert
+from .config import STATUS_PILE_UP_THRESHOLDS, Cases
 
 
 class StatusPileUpAlert(BaseAlert):
@@ -38,7 +36,7 @@ class StatusPileUpAlert(BaseAlert):
             piled_up_statuses = [
                 status
                 for status, count in status_counts.items()
-                if count > config.STATUS_PILE_UP_THRESHOLDS[status]
+                if count > STATUS_PILE_UP_THRESHOLDS[status]
             ]
 
             if piled_up_statuses:

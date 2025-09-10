@@ -5,7 +5,7 @@ import logging
 import os
 
 import requests
-from config import MESSENGER_WEBHOOK_URL
+from alerts.config import MESSENGER_WEBHOOK_URL
 
 from shared.keys import EnvVars
 

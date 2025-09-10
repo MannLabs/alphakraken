@@ -1,12 +1,14 @@
 """Instrument file pile-up alert checker."""
 
-import config
-from config import Cases
-
 from shared.db.interface import get_raw_files_by_instrument_file_status
 from shared.db.models import KrakenStatus, KrakenStatusEntities
 
 from .base_alert import BaseAlert
+from .config import (
+    INSTRUMENT_FILE_MIN_AGE_HOURS,
+    INSTRUMENT_FILE_PILE_UP_THRESHOLDS,
+    Cases,
+)
 
 
 class InstrumentFilePileUpAlert(BaseAlert):
@@ -32,11 +34,11 @@ class InstrumentFilePileUpAlert(BaseAlert):
             for (
                 instrument_file_status,
                 threshold,
-            ) in config.INSTRUMENT_FILE_PILE_UP_THRESHOLDS.items():
+            ) in INSTRUMENT_FILE_PILE_UP_THRESHOLDS.items():
                 files = get_raw_files_by_instrument_file_status(
                     instrument_file_status,
                     instrument_id=instrument_id,
-                    min_age_hours=config.INSTRUMENT_FILE_MIN_AGE_HOURS,
+                    min_age_hours=INSTRUMENT_FILE_MIN_AGE_HOURS,
                 )
                 count = len(files)
 

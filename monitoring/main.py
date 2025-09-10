@@ -6,7 +6,7 @@ import logging
 from time import sleep
 
 from alert_manager import AlertManager, send_db_alert
-from config import (
+from alerts.config import (
     CHECK_INTERVAL_SECONDS,
     STALE_STATUS_THRESHOLD_MINUTES,
 )

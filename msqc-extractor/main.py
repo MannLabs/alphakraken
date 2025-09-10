@@ -175,9 +175,7 @@ if __name__ == "__main__":
                 RawFileReader(raw_file_path).GetEvoSepData("PumpHP_pressure")
             )
             ms_metrics["evosep_pump_hp_pressure_max"] = df["VALUE"].max()
-        except (
-            AttributeError
-        ) as e:  # TODO: remove once new alpharaw version is released
+        except Exception as e:  # noqa: BLE001
             print(e)  #  noqa: T201
 
     elif raw_file_path.endswith(".d"):

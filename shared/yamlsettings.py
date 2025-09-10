@@ -61,7 +61,7 @@ class YamlSettings:
             )
 
         with file_path.open() as file:
-            logging.info(f"Loading settings from {file_name}")
+            logging.info(f"Loading settings from {file_path}")
             return yaml.safe_load(file)
 
 

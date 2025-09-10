@@ -128,22 +128,20 @@ def test_check_health_when_all_paths_exist(
         free_space_gb=789,
     )
 
-    # Check backup filesystem call
     mock_update_status.assert_any_call(
         "backup",
         status=KrakenStatusValues.OK,
         status_details="",
         free_space_gb=789,
-        type="file_system",
+        type_="file_system",
     )
 
-    # Check output filesystem call
     mock_update_status.assert_any_call(
         "output",
         status=KrakenStatusValues.OK,
         status_details="",
         free_space_gb=789,
-        type="file_system",
+        type_="file_system",
     )
 
 
@@ -183,20 +181,18 @@ def test_check_health_when_no_paths_exist(
         free_space_gb=789,
     )
 
-    # Check backup filesystem call
     mock_update_status.assert_any_call(
         "backup",
-        status="",
+        status="ok",
         status_details="",
         free_space_gb=789,
-        type="file_system",
+        type_="file_system",
     )
 
-    # Check output filesystem call
     mock_update_status.assert_any_call(
         "output",
-        status="",
+        status="ok",
         status_details="",
         free_space_gb=789,
-        type="file_system",
+        type_="file_system",
     )

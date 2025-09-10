@@ -362,7 +362,7 @@ def _get_color(
     for column, green_age_m, red_age_m, colormap in zip(
         columns, green_ages_m, red_ages_m, colormaps, strict=True
     ):
-        if column not in row or pd.isna(row[column]):
+        if column not in row or pd.isna(row[column]) or row[column] == "-":
             continue
 
         time_delta = now - row[column]

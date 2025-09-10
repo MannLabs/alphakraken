@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 
 import config
 import pytz
-from alert_checkers import (
+from alerts import (
     BaseAlert,
     DiskSpaceAlert,
     HealthCheckAlert,

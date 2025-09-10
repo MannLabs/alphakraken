@@ -257,7 +257,7 @@ def display_status(combined_df: pd.DataFrame, status_data_df: pd.DataFrame) -> N
     # Process all entries uniformly
     for entry_type, entry_id, raw_files_df, status_row in all_entries:
         display_name = (
-            f"{entry_id} (filesystem)" if entry_type == "filesystem" else entry_id
+            f"{entry_id} (file system)" if entry_type == "filesystem" else entry_id
         )
         status_data["instrument_id"].append(display_name)
 

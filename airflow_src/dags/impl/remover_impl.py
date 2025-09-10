@@ -50,7 +50,7 @@ def _update_file_remover_status(status: str, status_details: str = "") -> None:
         status=status,
         status_details=status_details,
         free_space_gb=-1,  # Not applicable for job status
-        type_=KrakenStatusEntities.JOB,
+        entity_type=KrakenStatusEntities.JOB,
     )
 
 

@@ -62,7 +62,7 @@ def _check_health(instrument_id: str) -> None:
         status=KrakenStatusValues.OK,
         status_details="",
         free_space_gb=int(backup_free_space_gb),
-        type_=KrakenStatusEntities.FILE_SYSTEM,
+        entity_type=KrakenStatusEntities.FILE_SYSTEM,
     )
 
     # Update output filesystem status
@@ -72,7 +72,7 @@ def _check_health(instrument_id: str) -> None:
         status=KrakenStatusValues.OK,
         status_details="",
         free_space_gb=int(output_free_space_gb),
-        type_=KrakenStatusEntities.FILE_SYSTEM,
+        entity_type=KrakenStatusEntities.FILE_SYSTEM,
     )
 
 

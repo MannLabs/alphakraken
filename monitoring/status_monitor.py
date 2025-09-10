@@ -228,7 +228,7 @@ def _check_kraken_update_status() -> None:  # noqa: PLR0912, C901 Too many branc
 
         # Use different stale thresholds based on entry type
         if (
-            kraken_status.type == KrakenStatusEntities.JOB
+            kraken_status.entity_type == KrakenStatusEntities.JOB
             and instrument_id == "file_remover"
         ):
             threshold_to_use = file_remover_stale_threshold
@@ -243,9 +243,9 @@ def _check_kraken_update_status() -> None:  # noqa: PLR0912, C901 Too many branc
             stale_instruments.append((instrument_id, last_updated_at))
 
         # Check disk space only for file systems and instruments (not for job-type entries)
-        if kraken_status.type != KrakenStatusEntities.JOB:
+        if kraken_status.entity_type != KrakenStatusEntities.JOB:
             # Determine threshold based on entry type
-            if kraken_status.type == KrakenStatusEntities.FILE_SYSTEM:
+            if kraken_status.entity_type == KrakenStatusEntities.FILE_SYSTEM:
                 if instrument_id == "backup":
                     threshold = BACKUP_FREE_SPACE_THRESHOLD_GB
                 elif instrument_id == "output":
@@ -259,7 +259,7 @@ def _check_kraken_update_status() -> None:  # noqa: PLR0912, C901 Too many branc
 
             if (free_space_gb := kraken_status.free_space_gb) < threshold:
                 logging.warning(
-                    f"Low disk space detected for {instrument_id} ({kraken_status.type}), "
+                    f"Low disk space detected for {instrument_id} ({kraken_status.entity_type}), "
                     f"free space: {free_space_gb} GB, threshold: {threshold} GB"
                 )
                 low_disk_space_instruments.append((instrument_id, free_space_gb))
@@ -274,7 +274,7 @@ def _check_kraken_update_status() -> None:  # noqa: PLR0912, C901 Too many branc
             )
 
         # Only check for status pile-up on instruments (not job or file_system types)
-        if kraken_status.type == "instrument":
+        if kraken_status.entity_type == KrakenStatusEntities.INSTRUMENT:
             _append_status_pile_up_instruments(
                 instrument_id, status_pile_up_instruments
             )

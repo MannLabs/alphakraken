@@ -42,7 +42,7 @@ def test_ssh_execute_multiple_tries(
 
     bad_return1 = (254, b"command output", b"")
     bad_return2 = (0, b"", b"")
-    bad_return3 = (0, b"", b"Batch job submission failed")
+    bad_return3 = (0, b"command output", b"Batch job submission failed")
     ok_return = (0, b"command output", b"")
     ssh_hook.exec_ssh_client_command.side_effect = (
         [bad_return1] * 2 + [bad_return2] * 2 + [bad_return3] * 2 + [ok_return]

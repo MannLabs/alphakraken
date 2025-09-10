@@ -6,11 +6,11 @@ from datetime import datetime, timedelta
 import config
 import pytz
 from config import Cases
-from mongoengine import QuerySet
 
 from shared.db.interface import get_raw_files_by_instrument_file_status
 from shared.db.models import (
     TERMINAL_STATUSES,
+    KrakenStatus,
     KrakenStatusEntities,
     KrakenStatusValues,
     RawFile,
@@ -22,7 +22,7 @@ class BaseAlert(ABC):
     """Base class for all alert checkers."""
 
     @abstractmethod
-    def check(self, kraken_statuses: QuerySet) -> list[tuple]:
+    def check(self, status_objects: list[KrakenStatus]) -> list[tuple]:
         """Check for issues and return list of (identifier, details) tuples.
 
         Returns empty list if no issues found.
@@ -46,7 +46,7 @@ class StaleStatusAlert(BaseAlert):
         """Return the case name for this alert type."""
         return Cases.STALE
 
-    def check(self, kraken_statuses: QuerySet) -> list[tuple[str, datetime]]:
+    def check(self, status_objects: list[KrakenStatus]) -> list[tuple[str, datetime]]:
         """Check for stale statuses."""
         now = datetime.now(pytz.UTC)
         stale_threshold = now - timedelta(minutes=config.STALE_STATUS_THRESHOLD_MINUTES)
@@ -55,7 +55,7 @@ class StaleStatusAlert(BaseAlert):
         )
 
         stale_instruments = []
-        for kraken_status in kraken_statuses:
+        for kraken_status in status_objects:
             last_updated_at = pytz.utc.localize(kraken_status.updated_at_)
             id_ = kraken_status.id
 
@@ -93,11 +93,11 @@ class DiskSpaceAlert(BaseAlert):
         """Return the case name for this alert type."""
         return Cases.LOW_DISK_SPACE
 
-    def check(self, kraken_statuses: QuerySet) -> list[tuple[str, int]]:
+    def check(self, status_objects: list[KrakenStatus]) -> list[tuple[str, int]]:
         """Check for low disk space."""
         low_disk_space_instruments = []
 
-        for kraken_status in kraken_statuses:
+        for kraken_status in status_objects:
             # Skip job-type entries
             if kraken_status.entity_type == KrakenStatusEntities.JOB:
                 continue
@@ -138,11 +138,11 @@ class HealthCheckAlert(BaseAlert):
         """Return the case name for this alert type."""
         return Cases.HEALTH_CHECK_FAILED
 
-    def check(self, kraken_statuses: QuerySet) -> list[tuple[str, str]]:
+    def check(self, status_objects: list[KrakenStatus]) -> list[tuple[str, str]]:
         """Check for health check failures."""
         health_check_failed_instruments = []
 
-        for kraken_status in kraken_statuses:
+        for kraken_status in status_objects:
             if kraken_status.status != KrakenStatusValues.OK:
                 id_ = kraken_status.id
                 status_details = kraken_status.status_details
@@ -169,11 +169,11 @@ class StatusPileUpAlert(BaseAlert):
         """Return the case name for this alert type."""
         return Cases.STATUS_PILE_UP
 
-    def check(self, kraken_statuses: QuerySet) -> list[tuple[str, str]]:
+    def check(self, status_objects: list[KrakenStatus]) -> list[tuple[str, str]]:
         """Check for status pile-ups on instruments."""
         status_pile_up_instruments = []
 
-        for kraken_status in kraken_statuses:
+        for kraken_status in status_objects:
             # Only check instruments
             if kraken_status.entity_type != KrakenStatusEntities.INSTRUMENT:
                 continue
@@ -221,11 +221,11 @@ class InstrumentFilePileUpAlert(BaseAlert):
         """Return the case name for this alert type."""
         return Cases.INSTRUMENT_FILE_PILE_UP
 
-    def check(self, kraken_statuses: QuerySet) -> list[tuple[str, str]]:
+    def check(self, status_objects: list[KrakenStatus]) -> list[tuple[str, str]]:
         """Check for instrument file pile-ups."""
         instrument_file_pile_up_instruments = []
 
-        for kraken_status in kraken_statuses:
+        for kraken_status in status_objects:
             # Only check instruments
             if kraken_status.entity_type != KrakenStatusEntities.INSTRUMENT:
                 continue
@@ -273,9 +273,9 @@ class RawFileErrorAlert(BaseAlert):
         """Return the case name for this alert type."""
         return Cases.RAW_FILE_ERROR
 
-    def check(self, kraken_statuses: QuerySet) -> list[tuple[str, str]]:
+    def check(self, status_objects: list[KrakenStatus]) -> list[tuple[str, str]]:
         """Check for raw files that have changed to ERROR status."""
-        del kraken_statuses
+        del status_objects
 
         youngest_updated_at = datetime.now(pytz.UTC) - timedelta(
             seconds=config.CHECK_INTERVAL_SECONDS * 5

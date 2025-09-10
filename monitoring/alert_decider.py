@@ -44,10 +44,10 @@ class AlertManager:
     def check_all(self) -> None:
         """Run all alert checks."""
         logging.info("Checking kraken update status...")
-        kraken_statuses = KrakenStatus.objects
+        status_objects = list(KrakenStatus.objects)
 
         for checker in self.checkers:
-            issues = checker.check(kraken_statuses)
+            issues = checker.check(status_objects)
             if issues:
                 self._handle_alert(checker, issues)
 

@@ -25,7 +25,7 @@ def _send_slack_message(message: str) -> None:
 
     prefix = "🚨 <!channel> " if env_name == "production" else ""
     payload = {
-        "text": f"{prefix} [{env_name}] *Alert*: {message}",
+        "text": f"NEW {prefix} [{env_name}] *Alert*: {message}",
     }
     response = requests.post(MESSENGER_WEBHOOK_URL, json=payload, timeout=10)
     response.raise_for_status()

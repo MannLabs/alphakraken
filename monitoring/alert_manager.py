@@ -60,7 +60,7 @@ class AlertManager:
             message = alert.format_message(issues)
             send_message(message)
             for identifier in identifiers:
-                self.last_alerts[f"{alert_name}_{identifier}"] = datetime.now(pytz.UTC)
+                self.set_last_alert_time(alert_name, identifier)
 
     def should_send_alert(
         self,
@@ -71,13 +71,30 @@ class AlertManager:
         """Check if we should send an alert based on cooldown period."""
         send_alert = False
         for identifier in identifiers:
-            cooldown_time = self.last_alerts[f"{alert_name}_{identifier}"] + timedelta(
+            cooldown_time = self._get_last_alert_time(
+                alert_name, identifier
+            ) + timedelta(
                 minutes=config.ALERT_COOLDOWN_MINUTES
                 if cooldown_minutes is None
                 else cooldown_minutes
             )
             send_alert |= datetime.now(pytz.UTC) > cooldown_time
         return send_alert
+
+    def set_last_alert_time(self, alert_name: str, identifier: str) -> None:
+        """Get the alert ID for tracking last sent time."""
+        alert_id = self._get_alert_id(alert_name, identifier)
+        self.last_alerts[alert_id] = datetime.now(pytz.UTC)
+
+    def _get_last_alert_time(self, alert_name: str, identifier: str) -> datetime:
+        """Get the alert ID for tracking last sent time."""
+        alert_id = self._get_alert_id(alert_name, identifier)
+        return self.last_alerts.get(alert_id)
+
+    @staticmethod
+    def _get_alert_id(alert_name: str, identifier: str) -> str:
+        """Get the alert ID for tracking last sent time."""
+        return f"{alert_name}_{identifier}"
 
 
 def send_special_alert(
@@ -95,4 +112,4 @@ def send_special_alert(
     except RequestException:
         logging.exception("Failed to send special alert message.")
     else:
-        alert_manager.last_alerts[f"{alert_name}_{identifier}"] = datetime.now(pytz.UTC)
+        alert_manager.set_last_alert_time(alert_name, identifier)

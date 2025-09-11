@@ -18,6 +18,7 @@ from plugins.file_handling import (
     get_file_creation_timestamp,
     get_file_hash,
     get_file_size,
+    move_existing_file,
 )
 
 
@@ -481,3 +482,68 @@ def test_compare_paths_raises_exception_if_source_is_dir_and_target_is_not() -> 
 
     with pytest.raises(AirflowFailException):
         compare_paths(source_path, target_path)
+
+
+def test_move_existing_file_when_file_does_not_exist() -> None:
+    """Test move_existing_file returns original path when file doesn't exist."""
+    # given
+    mock_path = MagicMock(spec=Path)
+    mock_path.exists.return_value = False
+
+    # when
+    result = move_existing_file(mock_path)
+
+    # then
+    assert result == str(mock_path)
+    mock_path.rename.assert_not_called()
+
+
+def test_move_existing_file_when_file_exists_single_backup() -> None:
+    """Test move_existing_file moves file to .0.alphakraken.bkp when file exists."""
+    # given
+    mock_path = MagicMock(spec=Path)
+    mock_path.exists.side_effect = [True, False]  # original exists, backup doesn't
+    mock_path.parent = MagicMock(spec=Path)
+    mock_path.stem = "testfile"
+    mock_path.suffix = ".raw"
+
+    expected_backup_path = mock_path.parent / "testfile.raw.0.alphakraken.bkp"
+
+    # when
+    result = move_existing_file(mock_path)
+
+    # then
+    assert result == str(expected_backup_path)
+    mock_path.rename.assert_called_once_with(expected_backup_path)
+
+
+def test_move_existing_file_when_multiple_backups_exist(
+    mock_logging: MagicMock,
+) -> None:
+    """Test move_existing_file increments backup number when previous backups exist."""
+    # given
+    mock_path = MagicMock(spec=Path)
+    mock_path.exists.return_value = True
+    mock_path.parent = MagicMock(spec=Path)
+    mock_path.stem = "testfile"
+    mock_path.suffix = ".raw"
+
+    # Mock that .0 and .1 backups exist, but .2 doesn't
+    backup_paths = []
+    for i in range(3):
+        backup_path = MagicMock(spec=Path)
+        backup_path.exists.return_value = (
+            i < 2  # noqa: PLR2004
+        )  # .0 and .1 exist, .2 doesn't
+        backup_paths.append(backup_path)
+        mock_path.parent.__truediv__.return_value = backup_path
+
+    expected_backup_path = backup_paths[2]
+
+    # when
+    result = move_existing_file(mock_path)
+
+    # then
+    assert result == str(expected_backup_path)
+    mock_path.rename.assert_called_once_with(expected_backup_path)
+    mock_logging.warning.assert_called_once()

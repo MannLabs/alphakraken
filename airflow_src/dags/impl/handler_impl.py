@@ -26,7 +26,7 @@ from common.utils import (
     put_xcom,
     trigger_dag_run,
 )
-from file_handling import copy_file, get_file_hash, get_file_size
+from file_handling import copy_file, get_file_hash, get_file_size, move_existing_file
 from plugins.file_handling import _decide_if_copy_required
 from raw_file_wrapper_factory import (
     CopyPathProvider,
@@ -233,10 +233,14 @@ def _handle_file_copying(
     :param files_dst_paths: A dictionary mapping source file paths to destination file paths.
     :param files_size_and_hashsum: A dictionary mapping source file paths to a tuple of (file size, file hash).
 
-    :param overwrite: Whether to overwrite the file if it already exists with a different hash in the destination.
+    :param overwrite: Whether to move the current file if it already exists with a different hash in the destination.
         Defaults to False, which will raise an AirflowFailException if the file already exists with a different hash.
 
-    return: A dictionary mapping source file paths to a tuple of (destination file size, destination file hash).
+    :raises:
+        - AirflowFailException: If the hash of the copied file does not match the source hash
+        - AirflowFailException: If a file already exists at the destination with a different hash and `overwrite` is False.
+
+    :return: A dictionary mapping source file paths to a tuple of (destination file size, destination file hash).
     """
     copied_files: dict[Path, tuple[float, str]] = {}
     for src_path, dst_path in files_dst_paths.items():
@@ -247,6 +251,9 @@ def _handle_file_copying(
         )
 
         if copy_required:
+            if dst_path.exists() and overwrite:
+                move_existing_file(dst_path)
+
             dst_size, dst_hash = copy_file(src_path, dst_path, src_hash)
         else:
             # as _decide_if_copy_required() returned False, these are equal:

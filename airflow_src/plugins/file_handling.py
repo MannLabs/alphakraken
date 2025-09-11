@@ -134,9 +134,9 @@ def copy_file(
     :param dst_path: Path to the destination file.
     :param src_hash: Hash of the source file.
 
+    :raises AirflowFailException: If the hash of the copied file does not match the source hash
+
     :return: A tuple containing the size and hash of the copied file.
-    :raises AirflowFailException: If the hash of the copied file does not match the source hash or
-        if the file already exists with a different hash in case overwrite=False.
     """
     if not dst_path.parent.exists():
         logging.info(f"Creating parent directories for {dst_path} ..")
@@ -258,3 +258,35 @@ def compare_paths(
 def _get_relative_paths(dir_path: Path) -> set[Path]:
     """Get relative paths of all files in a directory."""
     return {file_path.relative_to(dir_path) for file_path in dir_path.rglob("*")}
+
+
+def move_existing_file(file_path: Path, suffix: str = ".alphakraken.bkp") -> str:
+    """Move existing file to a new name with an incrementing number.
+
+    Parameters
+    ----------
+    file_path : Path
+        Path to the file that needs to be backed up
+    suffix : str, default '.alphakraken.bkp'
+        Suffix to add to the backup file name before the incrementing number
+
+    Returns
+    -------
+    str
+        Path of the moved file if it was moved, path to the original file otherwise
+
+    """
+    old_path = Path(file_path)
+    new_path = old_path
+
+    n = -1
+    while new_path.exists():
+        n += 1
+        new_path = old_path.parent / f"{old_path.stem}{old_path.suffix}.{n}{suffix}"
+
+    if n != -1:
+        Path(file_path).rename(new_path)
+        logging.warning(f"Moved existing file {old_path} to {new_path}")
+        return str(new_path)
+
+    return str(old_path)

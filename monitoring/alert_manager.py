@@ -58,39 +58,41 @@ class AlertManager:
 
         if self.should_send_alert(identifiers, alert_name):
             message = alert.format_message(issues)
-            try:
-                send_message(message)
-                for identifier in identifiers:
-                    self.last_alerts[f"{alert_name}_{identifier}"] = datetime.now(
-                        pytz.UTC
-                    )
-            except RequestException:
-                logging.exception("Failed to send message.")
+            send_message(message)
+            for identifier in identifiers:
+                self.last_alerts[f"{alert_name}_{identifier}"] = datetime.now(pytz.UTC)
 
-    def should_send_alert(self, identifiers: list[str], alert_name: str) -> bool:
+    def should_send_alert(
+        self,
+        identifiers: list[str],
+        alert_name: str,
+        cooldown_minutes: int | None = None,
+    ) -> bool:
         """Check if we should send an alert based on cooldown period."""
         send_alert = False
         for identifier in identifiers:
             cooldown_time = self.last_alerts[f"{alert_name}_{identifier}"] + timedelta(
                 minutes=config.ALERT_COOLDOWN_MINUTES
+                if cooldown_minutes is None
+                else cooldown_minutes
             )
             send_alert |= datetime.now(pytz.UTC) > cooldown_time
         return send_alert
 
 
-def send_db_alert(alert_name: str, alert_manager: AlertManager) -> None:
-    """Send message about MongoDB error."""
-    identifier = "db"
-
-    if not alert_manager.should_send_alert([identifier], alert_name):
+def send_special_alert(
+    identifier: str, alert_name: str, message: str, alert_manager: AlertManager
+) -> None:
+    """Send simple alerts."""
+    if not alert_manager.should_send_alert(
+        [identifier], alert_name, cooldown_minutes=10
+    ):
         return
 
-    logging.info(f"Error connecting to MongoDB: {alert_name}")
-
-    message = f"Error connecting to MongoDB: {alert_name}"
+    message = f"{message} [{alert_name} {identifier}]"
     try:
         send_message(message)
     except RequestException:
-        logging.exception("Failed to send DB alert message.")
+        logging.exception("Failed to send special alert message.")
     else:
         alert_manager.last_alerts[f"{alert_name}_{identifier}"] = datetime.now(pytz.UTC)

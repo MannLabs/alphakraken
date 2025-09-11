@@ -286,7 +286,7 @@ def test_compute_checksum_different_file_info_overwrite(  # noqa: PLR0913
     # then
     assert continue_downstream_tasks
 
-    mock_get_airflow_variable.assert_called_once_with("backup_overwrite_file_id", "")
+    mock_get_airflow_variable.assert_called_once_with("checksum_overwrite_file_id", "")
 
     mock_update_raw_file.assert_has_calls(
         [

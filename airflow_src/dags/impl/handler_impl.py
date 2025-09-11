@@ -114,17 +114,17 @@ def compute_checksum(ti: TaskInstance, **kwargs) -> bool:
             )
 
             if (
-                get_airflow_variable(AirflowVars.BACKUP_OVERWRITE_FILE_ID, "")
+                get_airflow_variable(AirflowVars.CHECKSUM_OVERWRITE_FILE_ID, "")
                 == raw_file.id
             ):
                 logging.warning(
-                    f"Will overwrite existing file_info as requested by Airflow variable {AirflowVars.BACKUP_OVERWRITE_FILE_ID}."
+                    f"Will overwrite existing file_info as requested by Airflow variable {AirflowVars.CHECKSUM_OVERWRITE_FILE_ID}."
                 )
             else:
                 logging.warning(
                     "This might be due to a previous checksumming operation being interrupted. \n"
                     "To resolve this issue: \n"
-                    f"Set the Airflow Variable {AirflowVars.BACKUP_OVERWRITE_FILE_ID} to the ID of the raw file to force overwrite."
+                    f"Set the Airflow Variable {AirflowVars.CHECKSUM_OVERWRITE_FILE_ID} to the ID of the raw file to force overwrite."
                 )
 
                 raise AirflowFailException(f"File info mismatch for {raw_file_id}")

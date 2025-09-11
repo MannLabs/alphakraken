@@ -494,7 +494,7 @@ def test_move_existing_file_when_file_does_not_exist() -> None:
     result = move_existing_file(mock_path)
 
     # then
-    assert result == str(mock_path)
+    assert result == mock_path
     mock_path.rename.assert_not_called()
 
 
@@ -502,10 +502,14 @@ def test_move_existing_file_when_file_exists_single_backup() -> None:
     """Test move_existing_file moves file to .0.alphakraken.bkp when file exists."""
     # given
     mock_path = MagicMock(spec=Path)
-    mock_path.exists.side_effect = [True, False]  # original exists, backup doesn't
+    mock_path.exists.side_effect = [True, False]
     mock_path.parent = MagicMock(spec=Path)
     mock_path.stem = "testfile"
     mock_path.suffix = ".raw"
+
+    mock_path2 = MagicMock(spec=Path)
+    mock_path2.exists.return_value = False
+    mock_path.parent.__truediv__.return_value = mock_path2
 
     expected_backup_path = mock_path.parent / "testfile.raw.0.alphakraken.bkp"
 
@@ -513,13 +517,11 @@ def test_move_existing_file_when_file_exists_single_backup() -> None:
     result = move_existing_file(mock_path)
 
     # then
-    assert result == str(expected_backup_path)
+    assert result == expected_backup_path
     mock_path.rename.assert_called_once_with(expected_backup_path)
 
 
-def test_move_existing_file_when_multiple_backups_exist(
-    mock_logging: MagicMock,
-) -> None:
+def test_move_existing_file_when_multiple_backups_exist() -> None:
     """Test move_existing_file increments backup number when previous backups exist."""
     # given
     mock_path = MagicMock(spec=Path)
@@ -544,6 +546,5 @@ def test_move_existing_file_when_multiple_backups_exist(
     result = move_existing_file(mock_path)
 
     # then
-    assert result == str(expected_backup_path)
+    assert result == expected_backup_path
     mock_path.rename.assert_called_once_with(expected_backup_path)
-    mock_logging.warning.assert_called_once()

@@ -223,7 +223,7 @@ def _handle_file_copying(
     files_dst_paths: dict[Path, Path],
     files_size_and_hashsum: dict[Path, tuple[float, str]],
     *,
-    overwrite: bool,
+    overwrite: bool,  # TODO: rename to move_if_existing ?
 ) -> dict[Path, tuple[float, str]]:
     """Copy one or more files from source to destination paths, deciding for each file if copying is required.
 

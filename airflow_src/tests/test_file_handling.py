@@ -195,50 +195,6 @@ def test_copy_file_copies_file_and_creates_directory(
     dst_path.parent.mkdir.assert_called_once_with(parents=True, exist_ok=True)
 
 
-@patch("plugins.file_handling.get_file_hash")
-@patch("plugins.file_handling._decide_if_copy_required")
-@patch("plugins.file_handling.get_file_size")
-@patch("shutil.copy2")
-def test_copy_file_no_copy_if_file_present_with_same_hash(
-    mock_copy2: MagicMock,
-    mock_get_file_size: MagicMock,
-    mock_decide_if_copy_required: MagicMock,
-    mock_get_file_hash: MagicMock,
-) -> None:
-    """Test copy_file does not copy file if file with same hash is present."""
-    mock_decide_if_copy_required.return_value = False
-    mock_get_file_hash.return_value = "some_hash"
-    mock_get_file_size.return_value = 1000
-
-    src_path = Path("/path/to/instrument/test_file.raw")
-    dst_path = Path("/path/to/backup/test_file.raw")
-
-    # when
-    result = copy_file(src_path, dst_path, "some_hash")
-    assert result == (1000, "some_hash")
-
-    mock_copy2.assert_not_called()
-
-
-@patch("plugins.file_handling._decide_if_copy_required")
-@patch("shutil.copy2")
-def test_copy_file_raises(
-    mock_copy2: MagicMock,
-    mock_decide_if_copy_required: MagicMock,
-) -> None:
-    """Test copy_file raises if _decide_if_copy_required raises."""
-    mock_decide_if_copy_required.side_effect = AirflowFailException
-
-    src_path = Path("/path/to/instrument/test_file.raw")
-    dst_path = Path("/path/to/backup/test_file.raw")
-
-    # when
-    with pytest.raises(AirflowFailException):
-        copy_file(src_path, dst_path, "some_hash")
-
-    mock_copy2.assert_not_called()
-
-
 @patch("plugins.file_handling._identical_copy_exists")
 def test_decide_if_copy_required_yes(
     mock_identical_copy_exists: MagicMock,

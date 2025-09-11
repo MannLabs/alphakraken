@@ -127,55 +127,39 @@ def copy_file(
     src_path: Path,
     dst_path: Path,
     src_hash: str,
-    *,
-    overwrite: bool = False,
 ) -> tuple[float, str]:
     """Copy a single file from `src_path` to `dst_path` and check its hashsum.
-
-    If an identical copy of the file already exists, no copy operation is performed.
-    If a non-identical copy exists, the behaviour depends on the `overwrite` parameter.
 
     :param src_path: Path to the source file.
     :param dst_path: Path to the destination file.
     :param src_hash: Hash of the source file.
-    :param overwrite: Whether to overwrite the file if it already exists with a different hash in the destination.
-        Defaults to False, which will raise an AirflowFailException if the file already exists with a different hash.
+
     :return: A tuple containing the size and hash of the copied file.
     :raises AirflowFailException: If the hash of the copied file does not match the source hash or
         if the file already exists with a different hash in case overwrite=False.
     """
-    copy_required = _decide_if_copy_required(
-        src_path, dst_path, src_hash, overwrite=overwrite
-    )  # TODO: could be moved out to reduce responsibility of this function
+    if not dst_path.parent.exists():
+        logging.info(f"Creating parent directories for {dst_path} ..")
+        dst_path.parent.mkdir(parents=True, exist_ok=True)
 
-    if copy_required:
-        if not dst_path.parent.exists():
-            logging.info(f"Creating parent directories for {dst_path} ..")
-            dst_path.parent.mkdir(parents=True, exist_ok=True)
+    logging.info(f"Copying {src_path} to {dst_path} ..")
+    start = datetime.now()  # noqa: DTZ005
+    shutil.copy2(src_path, dst_path)
+    time_elapsed = (datetime.now() - start).total_seconds()  # noqa: DTZ005
 
-        logging.info(f"Copying {src_path} to {dst_path} ..")
-        start = datetime.now()  # noqa: DTZ005
-        shutil.copy2(src_path, dst_path)
-        time_elapsed = (datetime.now() - start).total_seconds()  # noqa: DTZ005
+    dst_size = get_file_size(dst_path)
+    logging.info(".. copying done.")
+    logging.info(
+        f"Time elapsed: {time_elapsed / 60:.1f} min at {dst_size * BYTES_TO_MB / max(time_elapsed, 0.00001):.1f} MB/s"
+    )
 
-        dst_size = get_file_size(dst_path)
-        logging.info(".. copying done.")
-        logging.info(
-            f"Time elapsed: {time_elapsed / 60:.1f} min at {dst_size * BYTES_TO_MB / max(time_elapsed, 0.00001):.1f} MB/s"
+    logging.info("Verifying hash ..")
+    if (dst_hash := get_file_hash(dst_path)) != src_hash:
+        src_size = get_file_size(src_path)
+        raise AirflowFailException(
+            f"Hashes do not match after copy: {src_hash=} {dst_hash=} (sizes: {dst_size=} {src_size=})"
         )
-
-        logging.info("Verifying hash ..")
-        if (dst_hash := get_file_hash(dst_path)) != src_hash:
-            src_size = get_file_size(src_path)
-            raise AirflowFailException(
-                f"Hashes do not match after copy: {src_hash=} {dst_hash=} (sizes: {dst_size=} {src_size=})"
-            )
-        logging.info(".. verifying done")
-    else:
-        dst_hash = (
-            src_hash  # as _decide_if_copy_required() returned False, these are equal
-        )
-        dst_size = get_file_size(dst_path)
+    logging.info(".. verifying done")
 
     return dst_size, dst_hash
 

@@ -358,13 +358,13 @@ def test_compute_checksum_file_got_renamed(
     "dags.impl.handler_impl.get_backup_base_path",
     return_value=Path("some_backup_folder"),
 )
-@patch("dags.impl.handler_impl.copy_file")
+@patch("dags.impl.handler_impl._handle_file_copying")
 @patch("dags.impl.handler_impl._verify_copied_files")
 @patch("dags.impl.handler_impl.update_raw_file")
 def test_copy_raw_file_calls_update_with_correct_args(  # noqa: PLR0913
     mock_update_raw_file: MagicMock,
     mock_verify_copied_files: MagicMock,
-    mock_copy_file: MagicMock,
+    mock_handle_file_copying: MagicMock,
     mock_get_backup_base_path: MagicMock,  # noqa: ARG001
     mock_get_raw_file_by_id: MagicMock,
     mock_get_xcom: MagicMock,
@@ -375,26 +375,26 @@ def test_copy_raw_file_calls_update_with_correct_args(  # noqa: PLR0913
         "params": {"raw_file_id": "test_file.raw"},
         "instrument_id": "instrument1",
     }
+    src_path = "/path/to/instrument/test_file.raw"
+    dst_path = "/opt/airflow/mounts/backup/test_file.raw"
+
     mock_get_xcom.side_effect = [
-        {
-            "/path/to/instrument/test_file.raw": "/opt/airflow/mounts/backup/test_file.raw"
-        },
-        {"/path/to/instrument/test_file.raw": (1000, "some_hash")},
+        {src_path: dst_path},
+        {src_path: (1000, "some_hash")},
     ]
 
     mock_raw_file = MagicMock()
     mock_get_raw_file_by_id.return_value = mock_raw_file
 
-    mock_copy_file.return_value = (1000, "some_hash")
+    mock_handle_file_copying.return_value = {Path(src_path): (1000, "some_hash")}
 
     # when
     copy_raw_file(ti, **kwargs)
 
     # then
-    mock_copy_file.assert_called_once_with(
-        Path("/path/to/instrument/test_file.raw"),
-        Path("/opt/airflow/mounts/backup/test_file.raw"),
-        "some_hash",
+    mock_handle_file_copying.assert_called_once_with(
+        {Path(src_path): Path(dst_path)},
+        {Path(src_path): (1000, "some_hash")},
         overwrite=False,
     )
     mock_update_raw_file.assert_has_calls(
@@ -413,13 +413,9 @@ def test_copy_raw_file_calls_update_with_correct_args(  # noqa: PLR0913
         ]
     )
     mock_verify_copied_files.assert_called_once_with(
-        {Path("/path/to/instrument/test_file.raw"): (1000, "some_hash")},
-        {
-            Path("/path/to/instrument/test_file.raw"): Path(
-                "/opt/airflow/mounts/backup/test_file.raw"
-            )
-        },
-        {Path("/path/to/instrument/test_file.raw"): (1000, "some_hash")},
+        {Path(src_path): (1000, "some_hash")},
+        {Path(src_path): Path(dst_path)},
+        {Path(src_path): (1000, "some_hash")},
     )
 
 
@@ -429,13 +425,13 @@ def test_copy_raw_file_calls_update_with_correct_args(  # noqa: PLR0913
     "dags.impl.handler_impl.get_backup_base_path",
     return_value=Path("some_backup_folder"),
 )
-@patch("dags.impl.handler_impl.copy_file")
+@patch("dags.impl.handler_impl._handle_file_copying")
 @patch("dags.impl.handler_impl._verify_copied_files")
 @patch("dags.impl.handler_impl.update_raw_file")
 def test_copy_raw_file_verify_fails(  # noqa: PLR0913
     mock_update_raw_file: MagicMock,
     mock_verify_copied_files: MagicMock,
-    mock_copy_file: MagicMock,
+    mock_handle_file_copying: MagicMock,  # noqa: ARG001
     mock_get_backup_base_path: MagicMock,  # noqa: ARG001
     mock_get_raw_file_by_id: MagicMock,
     mock_get_xcom: MagicMock,
@@ -446,17 +442,16 @@ def test_copy_raw_file_verify_fails(  # noqa: PLR0913
         "params": {"raw_file_id": "test_file.raw"},
         "instrument_id": "instrument1",
     }
+    src_path = "/path/to/instrument/test_file.raw"
+    dst_path = "/opt/airflow/mounts/backup/test_file.raw"
+
     mock_get_xcom.side_effect = [
-        {
-            "/path/to/instrument/test_file.raw": "/opt/airflow/mounts/backup/test_file.raw"
-        },
-        {"/path/to/instrument/test_file.raw": (1000, "some_hash")},
+        {src_path: dst_path},
+        {src_path: (1000, "some_hash")},
     ]
 
     mock_raw_file = MagicMock()
     mock_get_raw_file_by_id.return_value = mock_raw_file
-
-    mock_copy_file.return_value = (1000, "some_hash")
 
     mock_verify_copied_files.side_effect = ValueError("File copy failed with errors")
 
@@ -479,15 +474,6 @@ def test_copy_raw_file_verify_fails(  # noqa: PLR0913
             ),
         ]
     )
-    mock_verify_copied_files.assert_called_once_with(
-        {Path("/path/to/instrument/test_file.raw"): (1000, "some_hash")},
-        {
-            Path("/path/to/instrument/test_file.raw"): Path(
-                "/opt/airflow/mounts/backup/test_file.raw"
-            )
-        },
-        {Path("/path/to/instrument/test_file.raw"): (1000, "some_hash")},
-    )
 
 
 @patch("dags.impl.handler_impl.get_xcom")
@@ -497,11 +483,11 @@ def test_copy_raw_file_verify_fails(  # noqa: PLR0913
     "dags.impl.handler_impl.get_backup_base_path",
     return_value=Path("some_backup_folder"),
 )
-@patch("dags.impl.handler_impl.copy_file")
+@patch("dags.impl.handler_impl._handle_file_copying")
 @patch("dags.impl.handler_impl.update_raw_file")
 def test_copy_raw_file_calls_update_with_correct_args_overwrite(  # noqa: PLR0913
     mock_update_raw_file: MagicMock,  # noqa: ARG001
-    mock_copy_file: MagicMock,
+    mock_handle_file_copying: MagicMock,
     mock_get_backup_base_path: MagicMock,  # noqa: ARG001
     mock_get_airflow_variable: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
@@ -524,16 +510,21 @@ def test_copy_raw_file_calls_update_with_correct_args_overwrite(  # noqa: PLR091
     mock_raw_file.id = "test_file.raw"
     mock_get_raw_file_by_id.return_value = mock_raw_file
 
-    mock_copy_file.return_value = (1000, "some_hash")
+    mock_handle_file_copying.return_value = {
+        Path("/path/to/instrument/test_file.raw"): (1000, "some_hash")
+    }
 
     # when
     copy_raw_file(ti, **kwargs)
 
     # then
-    mock_copy_file.assert_called_once_with(
-        Path("/path/to/instrument/test_file.raw"),
-        Path("/opt/airflow/mounts/backup/test_file.raw"),
-        "some_hash",
+    mock_handle_file_copying.assert_called_once_with(
+        {
+            Path("/path/to/instrument/test_file.raw"): Path(
+                "/opt/airflow/mounts/backup/test_file.raw"
+            )
+        },
+        {Path("/path/to/instrument/test_file.raw"): (1000, "some_hash")},
         overwrite=True,
     )
     mock_get_airflow_variable.assert_called_once_with("backup_overwrite_file_id", "")

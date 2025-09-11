@@ -19,7 +19,7 @@ class InstrumentFilePileUpAlert(BaseAlert):
         """Return the case name for this alert type."""
         return Cases.INSTRUMENT_FILE_PILE_UP
 
-    def get_issues(self, status_objects: list[KrakenStatus]) -> list[tuple[str, str]]:
+    def _get_issues(self, status_objects: list[KrakenStatus]) -> list[tuple[str, str]]:
         """Check for instrument file pile-ups."""
         instrument_file_pile_up_instruments = []
 

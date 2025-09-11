@@ -19,7 +19,7 @@ class StatusPileUpAlert(BaseAlert):
         """Return the case name for this alert type."""
         return Cases.STATUS_PILE_UP
 
-    def get_issues(self, status_objects: list[KrakenStatus]) -> list[tuple[str, str]]:
+    def _get_issues(self, status_objects: list[KrakenStatus]) -> list[tuple[str, str]]:
         """Check for status pile-ups on instruments."""
         status_pile_up_instruments = []
 

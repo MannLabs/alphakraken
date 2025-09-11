@@ -22,7 +22,7 @@ class StaleStatusAlert(BaseAlert):
         """Return the case name for this alert type."""
         return Cases.STALE
 
-    def get_issues(
+    def _get_issues(
         self, status_objects: list[KrakenStatus]
     ) -> list[tuple[str, datetime]]:
         """Check for stale statuses."""

@@ -125,7 +125,7 @@ class TestStaleStatusAlert:
         ]
 
         # when
-        result = alert.get_issues(status_objects)
+        result = alert._get_issues(status_objects)
 
         # then
         # Should return only stale entities, with proper timezone handling
@@ -242,7 +242,7 @@ class TestStaleStatusAlert:
             status_objects.append(mock_status)
 
         # when
-        result = alert.get_issues(status_objects)
+        result = alert._get_issues(status_objects)
 
         # then
         assert result == []
@@ -274,7 +274,7 @@ class TestStaleStatusAlert:
         status_objects = [mock_file_remover_boundary, mock_regular_job]
 
         # when
-        result = alert.get_issues(status_objects)
+        result = alert._get_issues(status_objects)
 
         # then
         # Only regular job should be stale

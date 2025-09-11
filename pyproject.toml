@@ -39,6 +39,10 @@ ignore = [
 "*.ipynb" = [
     "T201" # use of 'print' detected
 ]
+"**/tests/**/test_*.py" = [
+    "SLF001", # Private member accessed
+    "PLR2004" # magic number used
+]
 
 [tool.pytest.ini_options]
 pythonpath = [

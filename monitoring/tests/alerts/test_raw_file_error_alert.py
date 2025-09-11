@@ -98,7 +98,7 @@ class TestRawFileErrorAlert:
         ]
 
         # when
-        result = alert.get_issues([])
+        result = alert._get_issues([])
 
         # then
         # Should only return files that changed TO error status (not already in error)
@@ -211,7 +211,7 @@ class TestRawFileErrorAlert:
         ]
 
         # when
-        result = alert.get_issues([])
+        result = alert._get_issues([])
 
         # then
         assert result == []
@@ -253,7 +253,7 @@ class TestRawFileErrorAlert:
         ]
 
         # when - first check
-        result1 = alert.get_issues([])
+        result1 = alert._get_issues([])
 
         # then - first check should detect new error
         assert result1 == [("first_error", "First time error")]
@@ -280,7 +280,7 @@ class TestRawFileErrorAlert:
         ]
 
         # when - second check
-        result2 = alert.get_issues([])
+        result2 = alert._get_issues([])
 
         # then - second check should find no new errors
         assert result2 == []

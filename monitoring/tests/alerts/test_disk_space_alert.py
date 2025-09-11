@@ -43,7 +43,7 @@ class TestDiskSpaceAlert:
         status_objects = [mock_status1, mock_status2]
 
         # when
-        result = alert.get_issues(status_objects)
+        result = alert._get_issues(status_objects)
 
         # then
         assert result == []
@@ -91,7 +91,7 @@ class TestDiskSpaceAlert:
         ]
 
         # when
-        result = alert.get_issues(status_objects)
+        result = alert._get_issues(status_objects)
 
         # then
         assert result == [("instrument1", 150), ("backup", 180), ("instrument2", 100)]
@@ -128,7 +128,7 @@ class TestDiskSpaceAlert:
         status_objects = [mock_status1, mock_status2, mock_status3, mock_status4]
 
         # when
-        result = alert.get_issues(status_objects)
+        result = alert._get_issues(status_objects)
 
         # then
         assert result == [("backup", 150), ("output", 180)]

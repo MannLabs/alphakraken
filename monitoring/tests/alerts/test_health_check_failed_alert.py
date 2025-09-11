@@ -33,7 +33,7 @@ class TestHealthCheckFailedAlert:
         status_objects = [mock_status1]
 
         # when
-        result = alert.get_issues(status_objects)
+        result = alert._get_issues(status_objects)
 
         # then
         assert result == []
@@ -62,7 +62,7 @@ class TestHealthCheckFailedAlert:
         status_objects = [mock_status1, mock_status2, mock_status3]
 
         # when
-        result = alert.get_issues(status_objects)
+        result = alert._get_issues(status_objects)
 
         # then
         assert result == [

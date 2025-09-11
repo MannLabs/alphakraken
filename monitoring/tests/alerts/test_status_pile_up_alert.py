@@ -121,7 +121,7 @@ class TestStatusPileUpAlert:
         mock_rawfile.objects.side_effect = mock_rawfile_side_effect
 
         # when
-        result = alert.get_issues(status_objects)
+        result = alert._get_issues(status_objects)
 
         # then
         # Should only check instruments and return those with pile-ups
@@ -223,7 +223,7 @@ class TestStatusPileUpAlert:
         mock_rawfile.objects.side_effect = mock_rawfile_side_effect
 
         # when
-        result = alert.get_issues(status_objects)
+        result = alert._get_issues(status_objects)
 
         # then
         assert result == []
@@ -264,7 +264,7 @@ class TestStatusPileUpAlert:
         mock_rawfile.objects.return_value = mock_query
 
         # when
-        result = alert.get_issues(status_objects)
+        result = alert._get_issues(status_objects)
 
         # then
         # Should only call RawFile.objects once for the instrument

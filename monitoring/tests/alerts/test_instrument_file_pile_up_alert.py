@@ -88,7 +88,7 @@ class TestInstrumentFilePileUpAlert:
             status: InstrumentFileStatus, instrument_id: str, min_age_hours: int
         ) -> list[Mock]:
             # Verify correct min_age_hours is passed
-            assert min_age_hours == 6  # noqa: PLR2004
+            assert min_age_hours == 6
 
             # Define file counts for each scenario
             scenarios = {
@@ -125,7 +125,7 @@ class TestInstrumentFilePileUpAlert:
         mock_get_files.side_effect = mock_get_files_side_effect
 
         # when
-        result = alert.get_issues(status_objects)
+        result = alert._get_issues(status_objects)
 
         # then
         # Should only check instruments and return those with pile-ups
@@ -210,7 +210,7 @@ class TestInstrumentFilePileUpAlert:
             status: InstrumentFileStatus, instrument_id: str, min_age_hours: int
         ) -> list[Mock]:
             # Verify correct min_age_hours is passed
-            assert min_age_hours == 12  # noqa: PLR2004
+            assert min_age_hours == 12
 
             scenarios = {
                 "instrument1": {
@@ -230,7 +230,7 @@ class TestInstrumentFilePileUpAlert:
         mock_get_files.side_effect = mock_get_files_side_effect
 
         # when
-        result = alert.get_issues(status_objects)
+        result = alert._get_issues(status_objects)
 
         # then
         assert result == []
@@ -277,7 +277,7 @@ class TestInstrumentFilePileUpAlert:
             assert (
                 instrument_id == "test_instrument"
             )  # Should only be called for instrument
-            assert min_age_hours == 8  # noqa: PLR2004
+            assert min_age_hours == 8
 
             counts = {
                 InstrumentFileStatus.NEW: 20,  # Above 15
@@ -290,7 +290,7 @@ class TestInstrumentFilePileUpAlert:
         mock_get_files.side_effect = mock_get_files_side_effect
 
         # when
-        result = alert.get_issues(status_objects)
+        result = alert._get_issues(status_objects)
 
         # then
         # Should only be called for each status type for the instrument
@@ -301,6 +301,6 @@ class TestInstrumentFilePileUpAlert:
         for call in mock_get_files.call_args_list:
             args, kwargs = call
             assert kwargs["instrument_id"] == "test_instrument"
-            assert kwargs["min_age_hours"] == 8  # noqa: PLR2004
+            assert kwargs["min_age_hours"] == 8
 
         assert result == [("test_instrument", "new: 20; moved: 35")]

@@ -8,6 +8,7 @@ import os
 # ruff: noqa: BLE001  # Do not catch blind exception
 # ruff: noqa: ANN401  #  Dynamically typed expressions (typing.Any) are disallowed
 import sys
+from collections import defaultdict
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -187,6 +188,34 @@ def get_raw_files_for_instrument(
     return results
 
 
+def _flatten_metrics(
+    nested_dict: dict[str, dict[str, Any]],
+) -> dict[str, float | int | str]:
+    """Flatten metrics from different types into a single dict with type prefixes for conflicts.
+
+    On key collisions, only the new key will carry a prefix.
+    The assumption is that collisions are rare and only happen for very generic keys like "proteins".
+    """
+    flattened = {}
+
+    for metrics_type, metrics_data in nested_dict.items():
+        for key, value in metrics_data.items():
+            if key == "type":
+                continue
+
+            # Check if key already exists from another type
+            if key not in flattened:
+                flattened[key] = value
+            else:
+                logger.warning(
+                    f"Key collision for metric '{key}', prefixing with type '{metrics_type}'"
+                )
+                prefixed_key = f"{metrics_type}_{key}"
+                flattened[prefixed_key] = value
+
+    return flattened
+
+
 def augment_raw_files_with_metrics(
     raw_files: QuerySet,
     *,
@@ -221,13 +250,18 @@ def augment_raw_files_with_metrics(
         raw_file__in=list(raw_files_dict.keys())
     ).order_by("-created_at_"):
         metrics = dict(metrics_.to_mongo())
-        raw_files_dict[metrics["raw_file"]]["metrics"] = (
-            metrics  # here we overwrite older metrics for a raw file if any #TODO: this won't work for different metrics types
-        )
+        raw_file_id = metrics["raw_file"]
+        if "metrics" not in raw_files_dict[raw_file_id]:
+            raw_files_dict[raw_file_id]["metrics"] = defaultdict(dict)
+
+        metrics_type = metrics.get("type", "default")
+
+        if metrics_type not in raw_files_dict[raw_file_id]["metrics"]:
+            raw_files_dict[raw_file_id]["metrics"][metrics_type] = metrics
 
     results = []
     for raw_file in raw_files_dict.values():
-        metrics = raw_file.get("metrics")
+        metrics = _flatten_metrics(raw_file.get("metrics"))
 
         if gradient_length_filter and (
             not metrics

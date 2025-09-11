@@ -260,7 +260,7 @@ def _get_relative_paths(dir_path: Path) -> set[Path]:
     return {file_path.relative_to(dir_path) for file_path in dir_path.rglob("*")}
 
 
-def move_existing_file(file_path: Path, suffix: str = ".alphakraken.bkp") -> str:
+def move_existing_file(file_path: Path, suffix: str = ".alphakraken.bkp") -> Path:
     """Move existing file to a new name with an incrementing number.
 
     Parameters
@@ -276,7 +276,7 @@ def move_existing_file(file_path: Path, suffix: str = ".alphakraken.bkp") -> str
         Path of the moved file if it was moved, path to the original file otherwise
 
     """
-    old_path = Path(file_path)
+    old_path = file_path
     new_path = old_path
 
     n = -1
@@ -285,8 +285,8 @@ def move_existing_file(file_path: Path, suffix: str = ".alphakraken.bkp") -> str
         new_path = old_path.parent / f"{old_path.stem}{old_path.suffix}.{n}{suffix}"
 
     if n != -1:
-        Path(file_path).rename(new_path)
+        file_path.rename(new_path)
         logging.warning(f"Moved existing file {old_path} to {new_path}")
-        return str(new_path)
+        return new_path
 
-    return str(old_path)
+    return old_path

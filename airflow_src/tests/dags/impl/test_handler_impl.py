@@ -899,6 +899,41 @@ def test_handle_file_copying_copy_not_required(
 
 
 @patch("dags.impl.handler_impl._decide_if_copy_required")
+@patch("dags.impl.handler_impl.move_existing_file")
+@patch("dags.impl.handler_impl.copy_file")
+def test_handle_file_copying_overwrite_move(
+    mock_copy_file: MagicMock,
+    mock_move_existing_file: MagicMock,
+    mock_decide_if_copy_required: MagicMock,
+) -> None:
+    """Test _handle_file_copying moves file before overwriting."""
+    # given
+    src_path = Path("/src/file1.raw")
+    dst_path = MagicMock()
+    dst_path.exists.return_value = True
+
+    files_dst_paths = {src_path: dst_path}
+    files_size_and_hashsum = {src_path: (1000.0, "src_hash")}
+
+    mock_decide_if_copy_required.return_value = True
+    mock_copy_file.return_value = (1000.0, "dst_hash")
+
+    # when
+    result = _handle_file_copying(
+        files_dst_paths, files_size_and_hashsum, overwrite=True
+    )
+
+    # then
+    assert result == {src_path: (1000.0, "dst_hash")}
+
+    mock_decide_if_copy_required.assert_called_once_with(
+        src_path, dst_path, "src_hash", overwrite=True
+    )
+
+    mock_move_existing_file.assert_called_once_with(dst_path)
+
+
+@patch("dags.impl.handler_impl._decide_if_copy_required")
 @patch("dags.impl.handler_impl.copy_file")
 @patch("dags.impl.handler_impl.get_file_size")
 def test_handle_file_copying_multiple_files(

@@ -32,7 +32,8 @@ class DiskSpaceAlert(BaseAlert):
 
         return low_disk_space_instruments
 
-    def _get_threshold(self, kraken_status: KrakenStatus) -> int:
+    @staticmethod
+    def _get_threshold(kraken_status: KrakenStatus) -> int:
         """Get the appropriate threshold based on entity type and ID."""
         id_ = kraken_status.id
 

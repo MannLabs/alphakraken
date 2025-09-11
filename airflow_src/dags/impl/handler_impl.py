@@ -104,11 +104,29 @@ def compute_checksum(ti: TaskInstance, **kwargs) -> bool:
             f"Raw file {raw_file_id} already has file_info, checking for equality."
         )
 
-        errors = _compare_file_info(existing_file_info, file_info)
-        if errors:
-            raise AirflowFailException(
-                f"File info mismatch for {raw_file_id}: {', '.join(errors)}"
+        if errors := _compare_file_info(existing_file_info, file_info):
+            logging.warning(
+                "File info mismatch detected:\n"
+                f"{', '.join(errors)}\n"
+                f"{existing_file_info=}\n"
+                f"{file_info=}\n"
             )
+
+            if (
+                get_airflow_variable(AirflowVars.BACKUP_OVERWRITE_FILE_ID, "")
+                == raw_file.id
+            ):
+                logging.warning(
+                    f"Will overwrite existing file_info as requested by Airflow variable {AirflowVars.BACKUP_OVERWRITE_FILE_ID}."
+                )
+            else:
+                logging.warning(
+                    "This might be due to a previous checksumming operation being interrupted. \n"
+                    "To resolve this issue: \n"
+                    f"Set the Airflow Variable {AirflowVars.BACKUP_OVERWRITE_FILE_ID} to the ID of the raw file to force overwrite."
+                )
+
+                raise AirflowFailException(f"File info mismatch for {raw_file_id}")
 
     update_raw_file(
         raw_file_id,

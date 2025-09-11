@@ -236,9 +236,87 @@ def test_compute_checksum_different_file_info(
 
     # when
     with pytest.raises(
-        AirflowFailException, match="File info mismatch for test_file.raw."
+        AirflowFailException, match="File info mismatch for test_file.raw"
     ):
         compute_checksum(ti, **kwargs)
+
+
+@patch("dags.impl.handler_impl.get_raw_file_by_id")
+@patch("dags.impl.handler_impl.RawFileWrapperFactory")
+@patch("dags.impl.handler_impl.get_file_size")
+@patch("dags.impl.handler_impl.get_file_hash")
+@patch("dags.impl.handler_impl.update_raw_file")
+@patch("dags.impl.handler_impl.get_airflow_variable", return_value="test_file.raw")
+@patch("dags.impl.handler_impl.put_xcom")
+def test_compute_checksum_different_file_info_overwrite(  # noqa: PLR0913
+    mock_put_xcom: MagicMock,
+    mock_get_airflow_variable: MagicMock,
+    mock_update_raw_file: MagicMock,
+    mock_get_file_hash: MagicMock,
+    mock_get_file_size: MagicMock,
+    mock_raw_file_wrapper_factory: MagicMock,
+    mock_get_raw_file_by_id: MagicMock,
+) -> None:
+    """Test compute_checksum continues on file_info mismatch if airflow variable is set."""
+    ti = MagicMock()
+    kwargs = {
+        "params": {"raw_file_id": "test_file.raw"},
+    }
+    mock_raw_file = MagicMock()
+    mock_raw_file.id = "test_file.raw"
+    mock_raw_file.file_info = {"test_file.raw": (1000, "some_other_hash")}
+    mock_get_raw_file_by_id.return_value = mock_raw_file
+
+    mock_get_file_size.return_value = 1000
+    mock_get_file_hash.return_value = "some_hash"
+    mock_raw_file_wrapper_factory.create_write_wrapper.return_value.get_files_to_copy.return_value = {
+        Path("/path/to/instrument/test_file.raw"): Path("/path/to/backup/test_file.raw")
+    }
+    mock_raw_file_wrapper_factory.create_write_wrapper.return_value.target_folder_path = Path(
+        "/path/to/backup/"
+    )
+
+    mock_main_file_path = MagicMock()
+    mock_raw_file_wrapper_factory.create_write_wrapper.return_value.main_file_path.return_value = mock_main_file_path
+
+    # when
+    continue_downstream_tasks = compute_checksum(ti, **kwargs)
+
+    # then
+    assert continue_downstream_tasks
+
+    mock_get_airflow_variable.assert_called_once_with("backup_overwrite_file_id", "")
+
+    mock_update_raw_file.assert_has_calls(
+        [
+            call("test_file.raw", new_status=RawFileStatus.CHECKSUMMING),
+            call(
+                "test_file.raw",
+                new_status=RawFileStatus.CHECKSUMMING_DONE,
+                size=1000,
+                file_info={
+                    "test_file.raw": (
+                        1000,
+                        "some_hash",
+                    )
+                },
+            ),
+        ]
+    )
+    mock_put_xcom.assert_has_calls(
+        [
+            call(
+                ti,
+                "files_size_and_hashsum",
+                {"/path/to/instrument/test_file.raw": (1000, "some_hash")},
+            ),
+            call(
+                ti,
+                "files_dst_paths",
+                {"/path/to/instrument/test_file.raw": "/path/to/backup/test_file.raw"},
+            ),
+        ]
+    )
 
 
 @patch("dags.impl.handler_impl.get_xcom")

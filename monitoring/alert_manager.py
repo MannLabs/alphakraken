@@ -89,7 +89,7 @@ class AlertManager:
     def _get_last_alert_time(self, alert_name: str, identifier: str) -> datetime:
         """Get the alert ID for tracking last sent time."""
         alert_id = self._get_alert_id(alert_name, identifier)
-        return self.last_alerts.get(alert_id)
+        return self.last_alerts[alert_id]
 
     @staticmethod
     def _get_alert_id(alert_name: str, identifier: str) -> str:

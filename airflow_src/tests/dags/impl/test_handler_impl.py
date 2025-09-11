@@ -9,6 +9,7 @@ from common.keys import AcquisitionMonitorErrors, DagContext, DagParams, OpArgs
 from common.settings import _INSTRUMENTS
 from dags.impl.handler_impl import (
     _count_special_characters,
+    _handle_file_copying,
     _verify_copied_files,
     compute_checksum,
     copy_raw_file,
@@ -831,6 +832,113 @@ def test_count_special_characters(
         assert _count_special_characters(raw_file_name) == 0
     else:
         assert _count_special_characters(raw_file_name) == len(raw_file_name)
+
+
+@patch("dags.impl.handler_impl._decide_if_copy_required")
+@patch("dags.impl.handler_impl.copy_file")
+@patch("dags.impl.handler_impl.get_file_size")
+def test_handle_file_copying_success(
+    mock_get_file_size: MagicMock,
+    mock_copy_file: MagicMock,
+    mock_decide_if_copy_required: MagicMock,
+) -> None:
+    """Test _handle_file_copying successfully copies files when copy is required."""
+    # given
+    src_path = Path("/src/file1.raw")
+    dst_path = Path("/dst/file1.raw")
+    files_dst_paths = {src_path: dst_path}
+    files_size_and_hashsum = {src_path: (1000.0, "src_hash")}
+
+    mock_decide_if_copy_required.return_value = True
+    mock_copy_file.return_value = (1000.0, "dst_hash")
+
+    # when
+    result = _handle_file_copying(
+        files_dst_paths, files_size_and_hashsum, overwrite=False
+    )
+
+    # then
+    assert result == {src_path: (1000.0, "dst_hash")}
+    mock_decide_if_copy_required.assert_called_once_with(
+        src_path, dst_path, "src_hash", overwrite=False
+    )
+    mock_copy_file.assert_called_once_with(src_path, dst_path, "src_hash")
+    mock_get_file_size.assert_not_called()
+
+
+@patch("dags.impl.handler_impl._decide_if_copy_required")
+@patch("dags.impl.handler_impl.copy_file")
+@patch("dags.impl.handler_impl.get_file_size")
+def test_handle_file_copying_copy_not_required(
+    mock_get_file_size: MagicMock,
+    mock_copy_file: MagicMock,
+    mock_decide_if_copy_required: MagicMock,
+) -> None:
+    """Test _handle_file_copying when copy is not required (file already exists and is identical)."""
+    # given
+    src_path = Path("/src/file1.raw")
+    dst_path = Path("/dst/file1.raw")
+    files_dst_paths = {src_path: dst_path}
+    files_size_and_hashsum = {src_path: (1000.0, "src_hash")}
+
+    mock_decide_if_copy_required.return_value = False
+    mock_get_file_size.return_value = 1000.0
+
+    # when
+    result = _handle_file_copying(
+        files_dst_paths, files_size_and_hashsum, overwrite=False
+    )
+
+    # then
+    assert result == {src_path: (1000.0, "src_hash")}
+    mock_decide_if_copy_required.assert_called_once_with(
+        src_path, dst_path, "src_hash", overwrite=False
+    )
+    mock_copy_file.assert_not_called()
+    mock_get_file_size.assert_called_once_with(dst_path)
+
+
+@patch("dags.impl.handler_impl._decide_if_copy_required")
+@patch("dags.impl.handler_impl.copy_file")
+@patch("dags.impl.handler_impl.get_file_size")
+def test_handle_file_copying_multiple_files(
+    mock_get_file_size: MagicMock,
+    mock_copy_file: MagicMock,
+    mock_decide_if_copy_required: MagicMock,
+) -> None:
+    """Test _handle_file_copying with multiple files having different copy requirements."""
+    # given
+    src_path1 = Path("/src/file1.raw")
+    dst_path1 = Path("/dst/file1.raw")
+    src_path2 = Path("/src/file2.wiff")
+    dst_path2 = Path("/dst/file2.wiff")
+
+    files_dst_paths = {src_path1: dst_path1, src_path2: dst_path2}
+    files_size_and_hashsum = {
+        src_path1: (1000.0, "hash1"),
+        src_path2: (2000.0, "hash2"),
+    }
+
+    # file1 needs copying, file2 doesn't
+    mock_decide_if_copy_required.side_effect = [True, False]
+    mock_copy_file.return_value = (1000.0, "copied_hash1")
+    mock_get_file_size.return_value = 2000.0
+
+    # when
+    result = _handle_file_copying(
+        files_dst_paths, files_size_and_hashsum, overwrite=False
+    )
+
+    # then
+    assert result == {src_path1: (1000.0, "copied_hash1"), src_path2: (2000.0, "hash2")}
+    mock_decide_if_copy_required.assert_has_calls(
+        [
+            call(src_path1, dst_path1, "hash1", overwrite=False),
+            call(src_path2, dst_path2, "hash2", overwrite=False),
+        ]
+    )
+    mock_copy_file.assert_called_once_with(src_path1, dst_path1, "hash1")
+    mock_get_file_size.assert_called_once_with(dst_path2)
 
 
 @patch("dags.impl.handler_impl.trigger_dag_run")

@@ -308,7 +308,9 @@ elif mcp_transport == "streamable-http":
     mcp.settings.host = "0.0.0.0"  # noqa: S104
     mcp.settings.port = int(os.getenv("MCP_PORT", "8089"))
     mcp.run(transport="streamable-http")
+elif mcp_transport == "disabled":
+    logging.info("MCP server disabled, not starting.")
 else:
-    logging.info(
-        "Please select a supported MCP transport type such as stdio or streamable-http"
+    raise ValueError(
+        "Please select a supported MCP transport type: stdio,streamable-http,disabled"
     )

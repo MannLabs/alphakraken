@@ -475,6 +475,8 @@ def test_remove_folder_non_production(mock_get_env: MagicMock) -> None:
     folder_path.rmdir.assert_not_called()
 
 
+@patch("shared.db.interface.connect_db")
+@patch("dags.impl.remover_impl.update_raw_file")
 @patch("dags.impl.remover_impl.get_raw_file_by_id")
 @patch("dags.impl.remover_impl.RawFileWrapperFactory")
 @patch("dags.impl.remover_impl._check_file")
@@ -488,6 +490,8 @@ def test_safe_remove_files_success(  # noqa: PLR0913
     mock_check_file: MagicMock,
     mock_wrapper_factory: MagicMock,
     mock_get_raw_file: MagicMock,
+    mock_update_raw_file: MagicMock,
+    mock_connect_db: MagicMock,  # noqa: ARG001
 ) -> None:
     """Test that _safe_remove_files successfully removes files when all checks pass."""
     mock_raw_file = MagicMock()
@@ -518,8 +522,13 @@ def test_safe_remove_files_success(  # noqa: PLR0913
     mock_wrapper_factory.create_write_wrapper.assert_called_once_with(
         mock_raw_file, path_provider=RemovePathProvider
     )
+    mock_update_raw_file.assert_called_once_with(
+        "raw_file_id", instrument_file_status="purged"
+    )
 
 
+@patch("shared.db.interface.connect_db")
+@patch("dags.impl.remover_impl.update_raw_file")
 @patch("dags.impl.remover_impl.get_raw_file_by_id")
 @patch("dags.impl.remover_impl.RawFileWrapperFactory")
 @patch("dags.impl.remover_impl._check_file")
@@ -533,6 +542,8 @@ def test_safe_remove_files_folder_success(  # noqa: PLR0913
     mock_check_file: MagicMock,
     mock_wrapper_factory: MagicMock,
     mock_get_raw_file: MagicMock,
+    mock_update_raw_file: MagicMock,
+    mock_connect_db: MagicMock,  # noqa: ARG001
 ) -> None:
     """Test that _safe_remove_files successfully removes files and the containing folders when all checks pass."""
     mock_raw_file = MagicMock()
@@ -566,19 +577,26 @@ def test_safe_remove_files_folder_success(  # noqa: PLR0913
     mock_wrapper_factory.create_write_wrapper.assert_called_once_with(
         mock_raw_file, path_provider=RemovePathProvider
     )
+    mock_update_raw_file.assert_called_once_with(
+        "raw_file_id", instrument_file_status="purged"
+    )
 
 
+@patch("shared.db.interface.connect_db")
+@patch("dags.impl.remover_impl.update_raw_file")
 @patch("dags.impl.remover_impl.get_raw_file_by_id")
 @patch("dags.impl.remover_impl.RawFileWrapperFactory")
 @patch("dags.impl.remover_impl._check_file")
 @patch("dags.impl.remover_impl._remove_files")
 @patch("dags.impl.remover_impl._remove_folder")
-def test_safe_remove_files_file_not_existing(
+def test_safe_remove_files_file_not_existing(  # noqa: PLR0913 # too many args
     mock_remove_folder: MagicMock,
     mock_remove_files: MagicMock,
     mock_check_file: MagicMock,
     mock_wrapper_factory: MagicMock,
     mock_get_raw_file: MagicMock,
+    mock_update_raw_file: MagicMock,
+    mock_connect_db: MagicMock,  # noqa: ARG001
 ) -> None:
     """Test that _safe_remove_files gracefully handles nonexisting file to delete."""
     mock_raw_file = MagicMock()
@@ -605,6 +623,9 @@ def test_safe_remove_files_file_not_existing(
     mock_remove_folder.assert_not_called()  # because get_folder_to_remove returned None
     mock_wrapper_factory.create_write_wrapper.assert_called_once_with(
         mock_raw_file, path_provider=RemovePathProvider
+    )
+    mock_update_raw_file.assert_called_once_with(
+        "raw_file_id", instrument_file_status="purged"
     )
 
 

@@ -14,11 +14,12 @@ from shared.db.interface import (
     get_all_project_ids,
     get_raw_file_by_id,
     get_raw_files_by_age,
+    get_raw_files_by_instrument_file_status,
     get_raw_files_by_names,
     update_kraken_status,
     update_raw_file,
 )
-from shared.db.models import RawFileStatus
+from shared.db.models import InstrumentFileStatus, RawFileStatus
 
 
 @patch("shared.db.interface.connect_db")
@@ -357,3 +358,90 @@ def test_update_kraken_status(
         entity_type="instrument",
     )
     mock_connect_db.assert_called_once()
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.RawFile")
+def test_get_raw_files_by_instrument_file_status_basic_query(
+    mock_raw_file: MagicMock,
+    mock_connect_db: MagicMock,  # noqa: ARG001
+) -> None:
+    """Test that get_raw_files_by_instrument_file_status queries correctly with basic parameters."""
+    # given
+    mock_query = MagicMock()
+    mock_raw_file.objects.filter.return_value = mock_query
+    mock_query.order_by.return_value = [MagicMock(), MagicMock()]
+
+    # when
+    result = get_raw_files_by_instrument_file_status(InstrumentFileStatus.NEW)
+
+    # then
+    mock_raw_file.objects.filter.assert_called_once_with(
+        instrument_file_status=InstrumentFileStatus.NEW
+    )
+    mock_query.order_by.assert_called_once_with("created_at")
+    assert len(result) == 2  # noqa: PLR2004
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.RawFile")
+@patch("shared.db.interface.datetime")
+def test_get_raw_files_by_instrument_file_status_with_filters(
+    mock_datetime: MagicMock,
+    mock_raw_file: MagicMock,
+    mock_connect_db: MagicMock,  # noqa: ARG001
+) -> None:
+    """Test that get_raw_files_by_instrument_file_status applies filters correctly."""
+    # given
+    mock_now = datetime(2023, 1, 1, 12, 0, 0, tzinfo=pytz.UTC)
+    mock_datetime.now.return_value = mock_now
+
+    # Create a chain of mock queries
+    mock_query1 = MagicMock()
+    mock_query2 = MagicMock()
+    mock_query3 = MagicMock()
+    mock_final_result = [MagicMock()]
+
+    mock_raw_file.objects.filter.return_value = mock_query1
+    mock_query1.filter.return_value = mock_query2
+    mock_query2.filter.return_value = mock_query3
+    mock_query3.order_by.return_value = mock_final_result
+
+    # when
+    result = get_raw_files_by_instrument_file_status(
+        InstrumentFileStatus.MOVED, instrument_id="test_instrument", min_age_hours=6
+    )
+
+    # then
+    mock_raw_file.objects.filter.assert_called_once_with(
+        instrument_file_status=InstrumentFileStatus.MOVED
+    )
+    expected_cutoff = mock_now - timedelta(hours=6)
+    mock_query1.filter.assert_called_once_with(instrument_id="test_instrument")
+    mock_query2.filter.assert_called_once_with(created_at__lt=expected_cutoff)
+    mock_query3.order_by.assert_called_once_with("created_at")
+    assert result == mock_final_result
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.RawFile")
+def test_update_raw_file_with_instrument_file_status(
+    mock_raw_file: MagicMock,
+    mock_connect_db: MagicMock,  # noqa: ARG001
+) -> None:
+    """Test that update_raw_file can update instrument_file_status field."""
+    # given
+    mock_raw_file_instance = MagicMock()
+    mock_raw_file_instance.status = "copying_done"
+    mock_raw_file_instance.status_details = "details"
+    mock_raw_file.objects.with_id.return_value = mock_raw_file_instance
+
+    # when
+    update_raw_file("test_id", instrument_file_status=InstrumentFileStatus.MOVED)
+
+    # then
+    mock_raw_file.objects.with_id.assert_called_once_with("test_id")
+    mock_raw_file_instance.update.assert_called_once()
+    update_call_args = mock_raw_file_instance.update.call_args[1]
+    assert "instrument_file_status" in update_call_args
+    assert update_call_args["instrument_file_status"] == InstrumentFileStatus.MOVED

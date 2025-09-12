@@ -34,8 +34,14 @@ from shared.db.interface import (
     get_raw_file_by_id,
     get_raw_files_by_age,
     update_kraken_status,
+    update_raw_file,
 )
-from shared.db.models import KrakenStatusEntities, KrakenStatusValues, RawFile
+from shared.db.models import (
+    InstrumentFileStatus,
+    KrakenStatusEntities,
+    KrakenStatusValues,
+    RawFile,
+)
 from shared.keys import EnvVars
 
 
@@ -279,6 +285,8 @@ def _safe_remove_files(raw_file_id: str) -> None:
 
     if base_raw_file_path_to_remove is not None:  # Bruker case
         _remove_folder(base_raw_file_path_to_remove)
+
+    update_raw_file(raw_file_id, instrument_file_status=InstrumentFileStatus.PURGED)
 
 
 def _change_folder_permissions(base_raw_file_path_to_remove: Path) -> None:

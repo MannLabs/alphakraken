@@ -27,6 +27,7 @@ def mock_raw_file() -> MagicMock:
     return mock
 
 
+@patch("shared.db.interface.connect_db")
 @patch("dags.impl.mover_impl.get_raw_file_by_id")
 @patch("dags.impl.mover_impl.RawFileWrapperFactory.create_write_wrapper")
 @patch("dags.impl.mover_impl.put_xcom")
@@ -34,6 +35,7 @@ def test_get_files_to_move_correctly_puts_files_to_xcom(
     mock_put_xcom: MagicMock,
     mock_create_write_wrapper: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
+    mock_connect_db: MagicMock,  # noqa: ARG001
     mock_raw_file: MagicMock,
 ) -> None:
     """Test get_files_to_move correctly puts files to xcom."""
@@ -67,6 +69,8 @@ def test_get_files_to_move_correctly_puts_files_to_xcom(
 
 
 @patch.dict(_INSTRUMENTS, {"instrument1": {"type": "some_type"}})
+@patch("shared.db.interface.connect_db")
+@patch("dags.impl.mover_impl.update_raw_file")
 @patch("dags.impl.mover_impl.get_xcom")
 @patch("dags.impl.mover_impl.Path")
 @patch("dags.impl.mover_impl.get_raw_file_by_id")
@@ -80,6 +84,8 @@ def test_move_file_success(  # noqa: PLR0913
     mock_get_raw_file_by_id: MagicMock,
     mock_path: MagicMock,
     mock_get_xcom: MagicMock,
+    mock_update_raw_file: MagicMock,
+    mock_connect_db: MagicMock,  # noqa: ARG001
 ) -> None:
     """Test move_raw_file makes correct calls."""
     mock_src_path1 = MagicMock()
@@ -125,6 +131,7 @@ def test_move_file_success(  # noqa: PLR0913
         ]
     )
     mock_get_raw_file_by_id.assert_called_once_with("123")
+    mock_update_raw_file.assert_called_once_with("123", instrument_file_status="moved")
 
 
 def test_get_files_to_move_success() -> None:

@@ -26,7 +26,8 @@ from common.utils import (
     put_xcom,
     trigger_dag_run,
 )
-from file_handling import copy_file, get_file_hash, get_file_size
+from file_handling import copy_file, get_file_hash, get_file_size, move_existing_file
+from plugins.file_handling import _decide_if_copy_required
 from raw_file_wrapper_factory import (
     CopyPathProvider,
     RawFileMonitorWrapper,
@@ -104,11 +105,29 @@ def compute_checksum(ti: TaskInstance, **kwargs) -> bool:
             f"Raw file {raw_file_id} already has file_info, checking for equality."
         )
 
-        errors = _compare_file_info(existing_file_info, file_info)
-        if errors:
-            raise AirflowFailException(
-                f"File info mismatch for {raw_file_id}: {', '.join(errors)}"
+        if errors := _compare_file_info(existing_file_info, file_info):
+            logging.warning(
+                "File info mismatch detected:\n"
+                f"{', '.join(errors)}\n"
+                f"{existing_file_info=}\n"
+                f"{file_info=}\n"
             )
+
+            if (
+                get_airflow_variable(AirflowVars.CHECKSUM_OVERWRITE_FILE_ID, "")
+                == raw_file.id
+            ):
+                logging.warning(
+                    f"Will overwrite existing file_info as requested by Airflow variable {AirflowVars.CHECKSUM_OVERWRITE_FILE_ID}."
+                )
+            else:
+                logging.warning(
+                    "This might be due to a previous checksumming operation being interrupted. \n"
+                    "To resolve this issue: \n"
+                    f"Set the Airflow Variable {AirflowVars.CHECKSUM_OVERWRITE_FILE_ID} to the ID of the raw file to force overwrite."
+                )
+
+                raise AirflowFailException(f"File info mismatch for {raw_file_id}")
 
     update_raw_file(
         raw_file_id,
@@ -180,13 +199,9 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
             f"Will overwrite files as requested by Airflow variable {AirflowVars.BACKUP_OVERWRITE_FILE_ID}."
         )
 
-    copied_files: dict[Path, tuple[float, str]] = {}
-    for src_path, dst_path in files_dst_paths.items():
-        src_size, src_hash = files_size_and_hashsum[src_path]
-        dst_size, dst_hash = copy_file(
-            src_path, dst_path, src_hash, overwrite=overwrite
-        )
-        copied_files[src_path] = (dst_size, dst_hash)
+    copied_files = _handle_file_copying(
+        files_dst_paths, files_size_and_hashsum, overwrite=overwrite
+    )
 
     try:
         _verify_copied_files(copied_files, files_dst_paths, files_size_and_hashsum)
@@ -202,6 +217,51 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
         new_status=RawFileStatus.COPYING_DONE,
         backup_status=BackupStatus.DONE,
     )
+
+
+def _handle_file_copying(
+    files_dst_paths: dict[Path, Path],
+    files_size_and_hashsum: dict[Path, tuple[float, str]],
+    *,
+    overwrite: bool,  # TODO: rename to move_if_existing ?
+) -> dict[Path, tuple[float, str]]:
+    """Copy one or more files from source to destination paths, deciding for each file if copying is required.
+
+    If an identical copy of the file already exists, no copy operation is performed.
+    If a non-identical copy exists, the behaviour depends on the `overwrite` parameter.
+
+    :param files_dst_paths: A dictionary mapping source file paths to destination file paths.
+    :param files_size_and_hashsum: A dictionary mapping source file paths to a tuple of (file size, file hash).
+
+    :param overwrite: Whether to move the current file if it already exists with a different hash in the destination.
+        Defaults to False, which will raise an AirflowFailException if the file already exists with a different hash.
+
+    :raises:
+        - AirflowFailException: If the hash of the copied file does not match the source hash
+        - AirflowFailException: If a file already exists at the destination with a different hash and `overwrite` is False.
+
+    :return: A dictionary mapping source file paths to a tuple of (destination file size, destination file hash).
+    """
+    copied_files: dict[Path, tuple[float, str]] = {}
+    for src_path, dst_path in files_dst_paths.items():
+        src_size, src_hash = files_size_and_hashsum[src_path]
+
+        copy_required = _decide_if_copy_required(
+            src_path, dst_path, src_hash, overwrite=overwrite
+        )
+
+        if copy_required:
+            if dst_path.exists() and overwrite:
+                move_existing_file(dst_path)
+
+            dst_size, dst_hash = copy_file(src_path, dst_path, src_hash)
+        else:
+            # as _decide_if_copy_required() returned False, these are equal:
+            dst_hash = src_hash
+            dst_size = get_file_size(dst_path)
+
+        copied_files[src_path] = (dst_size, dst_hash)
+    return copied_files
 
 
 def get_backup_base_path(instrument_id: str, raw_file: RawFile) -> Path:

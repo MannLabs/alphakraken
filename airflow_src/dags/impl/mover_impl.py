@@ -15,8 +15,8 @@ from raw_file_wrapper_factory import (
     get_main_file_size_from_db,
 )
 
-from shared.db.interface import get_raw_file_by_id
-from shared.db.models import RawFile
+from shared.db.interface import get_raw_file_by_id, update_raw_file
+from shared.db.models import InstrumentFileStatus, RawFile
 from shared.keys import EnvVars
 
 
@@ -56,6 +56,8 @@ def move_files(ti: TaskInstance, **kwargs) -> None:
             logging.warning(f"File not found: {e}")
         _move_files(files_to_actually_move)
         _move_files(files_to_actually_remove, only_rename=True)
+
+        update_raw_file(raw_file_id, instrument_file_status=InstrumentFileStatus.MOVED)
 
 
 def _get_files_to_move(

@@ -18,6 +18,7 @@ from plugins.file_handling import (
     get_file_creation_timestamp,
     get_file_hash,
     get_file_size,
+    move_existing_file,
 )
 
 
@@ -193,50 +194,6 @@ def test_copy_file_copies_file_and_creates_directory(
     assert result == (1000, "some_hash")
     mock_copy2.assert_called_once_with(src_path, dst_path)
     dst_path.parent.mkdir.assert_called_once_with(parents=True, exist_ok=True)
-
-
-@patch("plugins.file_handling.get_file_hash")
-@patch("plugins.file_handling._decide_if_copy_required")
-@patch("plugins.file_handling.get_file_size")
-@patch("shutil.copy2")
-def test_copy_file_no_copy_if_file_present_with_same_hash(
-    mock_copy2: MagicMock,
-    mock_get_file_size: MagicMock,
-    mock_decide_if_copy_required: MagicMock,
-    mock_get_file_hash: MagicMock,
-) -> None:
-    """Test copy_file does not copy file if file with same hash is present."""
-    mock_decide_if_copy_required.return_value = False
-    mock_get_file_hash.return_value = "some_hash"
-    mock_get_file_size.return_value = 1000
-
-    src_path = Path("/path/to/instrument/test_file.raw")
-    dst_path = Path("/path/to/backup/test_file.raw")
-
-    # when
-    result = copy_file(src_path, dst_path, "some_hash")
-    assert result == (1000, "some_hash")
-
-    mock_copy2.assert_not_called()
-
-
-@patch("plugins.file_handling._decide_if_copy_required")
-@patch("shutil.copy2")
-def test_copy_file_raises(
-    mock_copy2: MagicMock,
-    mock_decide_if_copy_required: MagicMock,
-) -> None:
-    """Test copy_file raises if _decide_if_copy_required raises."""
-    mock_decide_if_copy_required.side_effect = AirflowFailException
-
-    src_path = Path("/path/to/instrument/test_file.raw")
-    dst_path = Path("/path/to/backup/test_file.raw")
-
-    # when
-    with pytest.raises(AirflowFailException):
-        copy_file(src_path, dst_path, "some_hash")
-
-    mock_copy2.assert_not_called()
 
 
 @patch("plugins.file_handling._identical_copy_exists")
@@ -525,3 +482,69 @@ def test_compare_paths_raises_exception_if_source_is_dir_and_target_is_not() -> 
 
     with pytest.raises(AirflowFailException):
         compare_paths(source_path, target_path)
+
+
+def test_move_existing_file_when_file_does_not_exist() -> None:
+    """Test move_existing_file returns original path when file doesn't exist."""
+    # given
+    mock_path = MagicMock(spec=Path)
+    mock_path.exists.return_value = False
+
+    # when
+    result = move_existing_file(mock_path)
+
+    # then
+    assert result == mock_path
+    mock_path.rename.assert_not_called()
+
+
+def test_move_existing_file_when_file_exists_single_backup() -> None:
+    """Test move_existing_file moves file to .0.alphakraken.bkp when file exists."""
+    # given
+    mock_path = MagicMock(spec=Path)
+    mock_path.exists.side_effect = [True, False]
+    mock_path.parent = MagicMock(spec=Path)
+    mock_path.stem = "testfile"
+    mock_path.suffix = ".raw"
+
+    mock_path2 = MagicMock(spec=Path)
+    mock_path2.exists.return_value = False
+    mock_path.parent.__truediv__.return_value = mock_path2
+
+    expected_backup_path = mock_path.parent / "testfile.raw.0.alphakraken.bkp"
+
+    # when
+    result = move_existing_file(mock_path)
+
+    # then
+    assert result == expected_backup_path
+    mock_path.rename.assert_called_once_with(expected_backup_path)
+
+
+def test_move_existing_file_when_multiple_backups_exist() -> None:
+    """Test move_existing_file increments backup number when previous backups exist."""
+    # given
+    mock_path = MagicMock(spec=Path)
+    mock_path.exists.return_value = True
+    mock_path.parent = MagicMock(spec=Path)
+    mock_path.stem = "testfile"
+    mock_path.suffix = ".raw"
+
+    # Mock that .0 and .1 backups exist, but .2 doesn't
+    backup_paths = []
+    for i in range(3):
+        backup_path = MagicMock(spec=Path)
+        backup_path.exists.return_value = (
+            i < 2  # noqa: PLR2004
+        )  # .0 and .1 exist, .2 doesn't
+        backup_paths.append(backup_path)
+        mock_path.parent.__truediv__.return_value = backup_path
+
+    expected_backup_path = backup_paths[2]
+
+    # when
+    result = move_existing_file(mock_path)
+
+    # then
+    assert result == expected_backup_path
+    mock_path.rename.assert_called_once_with(expected_backup_path)

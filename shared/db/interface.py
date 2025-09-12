@@ -34,6 +34,36 @@ def get_raw_file_by_id(raw_file_id: str) -> RawFile:
     return RawFile.objects(id=raw_file_id).first()
 
 
+def get_raw_files_by_instrument_file_status(
+    instrument_file_status: str,
+    *,
+    instrument_id: str | None = None,
+    min_age_hours: int | None = None,
+) -> list[RawFile]:
+    """Get raw files by instrument file status, optionally filtered by instrument and minimum age.
+
+    Args:
+        instrument_file_status: InstrumentFileStatus value to filter by
+        instrument_id: Optional instrument ID to filter by
+        min_age_hours: Optional minimum age in hours (files older than this)
+
+    Returns:
+        List of RawFile objects matching the criteria, sorted oldest first
+
+    """
+    connect_db()
+    query = RawFile.objects.filter(instrument_file_status=instrument_file_status)
+
+    if instrument_id:
+        query = query.filter(instrument_id=instrument_id)
+
+    if min_age_hours:
+        cutoff_time = datetime.now(tz=pytz.UTC) - timedelta(hours=min_age_hours)
+        query = query.filter(created_at__lt=cutoff_time)
+
+    return list(query.order_by("created_at"))
+
+
 def get_raw_files_by_age(
     instrument_id: str,
     *,
@@ -120,10 +150,11 @@ def update_raw_file(  # noqa: PLR0913
     file_info: dict[str, tuple[float, str]] = _NO_UPDATE,  # type: ignore[invalid-parameter-default]
     backup_base_path: str = _NO_UPDATE,  # type: ignore[invalid-parameter-default]
     backup_status: str = _NO_UPDATE,  # type: ignore[invalid-parameter-default]
+    instrument_file_status: str = _NO_UPDATE,  # type: ignore[invalid-parameter-default]
 ) -> None:
     """Update parameters of DB entity of raw file with `raw_file_id`."""
     logging.info(
-        f"Updating DB: {raw_file_id=} to {new_status=} {status_details=} {size=} {file_info=} {backup_base_path=} {backup_status=}"
+        f"Updating DB: {raw_file_id=} to {new_status=} {status_details=} {size=} {file_info=} {backup_base_path=} {backup_status=} {instrument_file_status=}"
     )
     connect_db()
     raw_file = RawFile.objects.with_id(raw_file_id)
@@ -138,6 +169,7 @@ def update_raw_file(  # noqa: PLR0913
         "file_info": file_info,
         "backup_base_path": backup_base_path,
         "backup_status": backup_status,
+        "instrument_file_status": instrument_file_status,
     }
 
     raw_file.update(**{k: v for k, v in kwargs.items() if v != _NO_UPDATE})

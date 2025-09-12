@@ -113,6 +113,9 @@ class InstrumentKeys:
 class AirflowVars:
     """Keys for accessing Airflow Variables (set in the Airflow UI). Cf. also Readme."""
 
+    # set to a specific file name to allow overwriting it on the checksum computation
+    CHECKSUM_OVERWRITE_FILE_ID = "checksum_overwrite_file_id"
+
     # set to a specific file name to allow overwriting it on the pool backup
     BACKUP_OVERWRITE_FILE_ID = "backup_overwrite_file_id"
 

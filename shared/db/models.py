@@ -71,6 +71,15 @@ TERMINAL_STATUSES = [
 ]
 
 
+class InstrumentFileStatus:
+    """Status of files on instrument and their lifecycle."""
+
+    NA = "n/a"  # for backwards compatibility
+    NEW = "new"  # File exists on instrument, not yet moved
+    MOVED = "moved"  # File moved from instrument to instrument backup folder
+    PURGED = "purged"  # File removed from instrument backup folder
+
+
 class RawFile(Document):
     """Schema for a raw file."""
 
@@ -99,6 +108,8 @@ class RawFile(Document):
     )  # absolute path to pool backup location
 
     backup_status = StringField(max_length=32, default=None)
+
+    instrument_file_status = StringField(max_length=16, default=InstrumentFileStatus.NA)
 
     file_info = DictField()  # mapping of file paths (relative to backup_base_path) to tuples (size: int, hash: str).
     # When read from DB, the tuples are converted to lists.

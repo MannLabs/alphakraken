@@ -45,6 +45,15 @@ If this is more than a certain threshold (currently 5 hours), the acquisition is
 This is useful to speed up the `acquisition_handler` DAG in case there a many 'old' files,
 e.g. when processing was halted for some time.
 
+### checksum_overwrite_file_id (default: None)
+In case the `compute_checksum` task is interrupted (e.g. manually) while a file is being checksummed,
+simply restarting it will not help, as the partially computed checksum will not be overwritten
+due to a security mechanism.
+In this case, set the `checksum_overwrite_file_id` variable to the file _id_ (not: file _name_), i.e. including
+potential collision flags, and restart the `compute_checksum` task. The overwrite protection
+will be deactivated just for this file id and the copying should succeed.
+
+
 ### backup_overwrite_file_id (default: None)
 In case the `file_copy` task is interrupted (e.g. manually) while a file is being copied,
 simply restarting it will not help, as the partially copied file will not be overwritten

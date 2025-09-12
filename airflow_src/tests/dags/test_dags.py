@@ -45,7 +45,7 @@ def test_dag_load_instrument_watcher(dagbag: DagBag) -> None:
         # then
         assert dagbag.import_errors == {}
         assert dag is not None
-        assert len(dag.tasks) == 4  # noqa: PLR2004 no magic numbers
+        assert len(dag.tasks) == 4
 
 
 def test_dag_load_acquisition_handler(dagbag: DagBag) -> None:
@@ -59,7 +59,7 @@ def test_dag_load_acquisition_handler(dagbag: DagBag) -> None:
         # then
         assert dagbag.import_errors == {}
         assert dag is not None
-        assert len(dag.tasks) == 6  # noqa: PLR2004 no magic numbers
+        assert len(dag.tasks) == 6
 
 
 def test_dag_load_acquisition_processor(dagbag: DagBag) -> None:
@@ -73,7 +73,7 @@ def test_dag_load_acquisition_processor(dagbag: DagBag) -> None:
         # then
         assert dagbag.import_errors == {}
         assert dag is not None
-        assert len(dag.tasks) == 7  # noqa: PLR2004 no magic numbers
+        assert len(dag.tasks) == 7
 
 
 def test_dag_load_file_mover(dagbag: DagBag) -> None:
@@ -87,7 +87,7 @@ def test_dag_load_file_mover(dagbag: DagBag) -> None:
         # then
         assert dagbag.import_errors == {}
         assert dag is not None
-        assert len(dag.tasks) == 2  # noqa: PLR2004 no magic numbers
+        assert len(dag.tasks) == 2
 
 
 def test_dag_load_file_remover(dagbag: DagBag) -> None:
@@ -98,4 +98,4 @@ def test_dag_load_file_remover(dagbag: DagBag) -> None:
     # then
     assert dagbag.import_errors == {}
     assert dag is not None
-    assert len(dag.tasks) == 2  # noqa: PLR2004 no magic numbers
+    assert len(dag.tasks) == 2

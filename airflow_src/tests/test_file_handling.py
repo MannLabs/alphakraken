@@ -33,7 +33,7 @@ def test_get_file_creation_timestamp(
     # when
     result = get_file_creation_timestamp("test_file.raw", "instrument1")
 
-    assert result == 42.0  # noqa: PLR2004
+    assert result == 42.0
 
 
 @patch.dict(_INSTRUMENTS, {"instrument1": {}})
@@ -45,7 +45,7 @@ def test_get_file_size() -> None:
     # when
     result = get_file_size(mock_path)
 
-    assert result == 42.0  # noqa: PLR2004
+    assert result == 42.0
 
 
 @patch.dict(_INSTRUMENTS, {"instrument1": {}})
@@ -534,9 +534,7 @@ def test_move_existing_file_when_multiple_backups_exist() -> None:
     backup_paths = []
     for i in range(3):
         backup_path = MagicMock(spec=Path)
-        backup_path.exists.return_value = (
-            i < 2  # noqa: PLR2004
-        )  # .0 and .1 exist, .2 doesn't
+        backup_path.exists.return_value = i < 2  # .0 and .1 exist, .2 doesn't
         backup_paths.append(backup_path)
         mock_path.parent.__truediv__.return_value = backup_path
 

@@ -86,7 +86,7 @@ def test_calc_alphadia_metrics_happy_path(  # noqa: PLR0913
 @patch("plugins.metrics.metrics.alphadia.DataStore")
 def test_basic_stats_calculation(mock_datastore: MagicMock) -> None:
     """Test basic stats calculation."""
-    data = {col: [i] for i, col in enumerate(BasicStats._columns)}  # noqa: SLF001
+    data = {col: [i] for i, col in enumerate(BasicStats._columns)}
     mock_df = pd.DataFrame(data)
 
     mock_datastore.__getitem__.return_value = mock_df
@@ -94,7 +94,7 @@ def test_basic_stats_calculation(mock_datastore: MagicMock) -> None:
     # when
     metrics = BasicStats(mock_datastore).get()
 
-    expected_metrics = {col: i for i, col in enumerate(BasicStats._columns)}  # noqa: SLF001
+    expected_metrics = {col: i for i, col in enumerate(BasicStats._columns)}
     assert metrics == expected_metrics
 
 

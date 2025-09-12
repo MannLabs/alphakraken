@@ -893,7 +893,7 @@ def test_compute_metrics(
     mock_calc_metrics.assert_called_once_with(
         Path("/opt/airflow/mounts/output/P1/out_test_file.raw"), metrics_type="alphadia"
     )
-    assert mock_put_xcom.call_count == 2  # noqa: PLR2004
+    assert mock_put_xcom.call_count == 2
     mock_put_xcom.assert_any_call(
         mock_ti, XComKeys.METRICS, {"metric1": "value1", "quanting_time_elapsed": 123}
     )

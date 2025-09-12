@@ -27,11 +27,9 @@ def ssh_execute(
     ):
         return _get_fake_ssh_response(command)
 
-    str_stdout = ""
-    exit_status = None
-    agg_stdout = None
     call_count = 0
-    while exit_status != 0 or agg_stdout in [b"", b"\n"]:
+    str_stdout = None
+    while True:
         if call_count >= max_tries:
             logging.error(f"Execution of SSH command failed too often: {command=}")
             raise AirflowFailException("Execution of SSH command failed too often.")
@@ -62,11 +60,27 @@ def ssh_execute(
             f"ssh command call #{call_count} returned: {exit_status=} {str_stdout_trunc=} {agg_stderr=}"
         )
 
+        # in rare cases, exit_status=0 but agg_stderr contains an error message
+        error_messages = ["Batch job submission failed"]
+        if (str_stderr := _byte_to_string(agg_stderr)) and any(
+            e in str_stderr for e in error_messages
+        ):
+            logging.warning(f"SSH command returned error: {str_stderr}")
+            continue
+
+        if exit_status == 0 and agg_stdout not in [b"", b"\n"]:
+            break
+
+    assert str_stdout is not None  # for type checker
+
     return str_stdout
 
 
-def _byte_to_string(input_: bytes) -> str:
-    """Convert the given `input_` to a string."""
+def _byte_to_string(input_: bytes | None) -> str | None:
+    """Convert the given `input_` to a string, return None if None is passed."""
+    if input_ is None:
+        return None
+
     return input_.decode("utf-8").strip()
 
 

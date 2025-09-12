@@ -59,7 +59,7 @@ def test_status(
             "status": ["ok", "error"],
             "status_details": ["", ""],
             "free_space_gb": [100, 200],
-            "type": ["instrument", "instrument"],
+            "entity_type": ["instrument", "instrument"],
         }
     )
 

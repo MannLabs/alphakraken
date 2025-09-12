@@ -19,6 +19,7 @@ from shared.db.engine import connect_db
 from shared.db.models import (
     TERMINAL_STATUSES,
     KrakenStatus,
+    KrakenStatusEntities,
     KrakenStatusValues,
     RawFile,
     RawFileStatus,
@@ -43,6 +44,9 @@ ALERT_COOLDOWN_MINUTES = (
 
 STALE_STATUS_THRESHOLD_MINUTES = (
     15  # How old a kraken status can be before considered stale
+)
+FILE_REMOVER_STALE_THRESHOLD_HOURS = (
+    24  # How long file_remover job can go without running
 )
 FREE_SPACE_THRESHOLD_GB = (
     200  # regardless of the configuration in airflow: 200 GB is very low
@@ -206,6 +210,9 @@ def _check_kraken_update_status() -> None:  # noqa: PLR0912, C901 Too many branc
     """Check KrakenStatus collection for stale entries."""
     now = datetime.now(pytz.UTC)
     stale_threshold = now - timedelta(minutes=STALE_STATUS_THRESHOLD_MINUTES)
+    file_remover_stale_threshold = now - timedelta(
+        hours=FILE_REMOVER_STALE_THRESHOLD_HOURS
+    )
 
     logging.info("Checking kraken update status...")
 
@@ -217,42 +224,55 @@ def _check_kraken_update_status() -> None:  # noqa: PLR0912, C901 Too many branc
     kraken_statuses = KrakenStatus.objects
     for kraken_status in kraken_statuses:
         last_updated_at = pytz.utc.localize(kraken_status.updated_at_)
-        instrument_id = kraken_status.instrument_id
-        if last_updated_at < stale_threshold:
-            logging.warning(
-                f"Stale status detected for {instrument_id}, "
-                f"last update: {last_updated_at}"
-            )
-            stale_instruments.append((instrument_id, last_updated_at))
+        id_ = kraken_status.id
 
-        # Determine threshold based on entry type
-        if kraken_status.type == "file_system":
-            if instrument_id == "backup":
-                threshold = BACKUP_FREE_SPACE_THRESHOLD_GB
-            elif instrument_id == "output":
-                threshold = OUTPUT_FREE_SPACE_THRESHOLD_GB
-            else:
-                threshold = FREE_SPACE_THRESHOLD_GB  # Default for unknown filesystem
+        # Use different stale thresholds based on entry type
+        if (
+            kraken_status.entity_type == KrakenStatusEntities.JOB
+            and id_ == "file_remover"
+        ):
+            threshold_to_use = file_remover_stale_threshold
         else:
-            threshold = FREE_SPACE_THRESHOLD_GB  # For instruments
+            threshold_to_use = stale_threshold
 
-        if (free_space_gb := kraken_status.free_space_gb) < threshold:
+        if last_updated_at < threshold_to_use:
             logging.warning(
-                f"Low disk space detected for {instrument_id} ({kraken_status.type}), "
-                f"free space: {free_space_gb} GB, threshold: {threshold} GB"
+                f"Stale status detected for {id_}, last update: {last_updated_at}"
             )
-            low_disk_space_instruments.append((instrument_id, free_space_gb))
+            stale_instruments.append((id_, last_updated_at))
+
+        # Check disk space only for file systems and instruments (not for job-type entries)
+        if kraken_status.entity_type != KrakenStatusEntities.JOB:
+            # Determine threshold based on entry type
+            if kraken_status.entity_type == KrakenStatusEntities.FILE_SYSTEM:
+                if id_ == "backup":
+                    threshold = BACKUP_FREE_SPACE_THRESHOLD_GB
+                elif id_ == "output":
+                    threshold = OUTPUT_FREE_SPACE_THRESHOLD_GB
+                else:
+                    threshold = (
+                        FREE_SPACE_THRESHOLD_GB  # Default for unknown filesystem
+                    )
+            else:
+                threshold = FREE_SPACE_THRESHOLD_GB  # For instruments
+
+            if (free_space_gb := kraken_status.free_space_gb) < threshold:
+                logging.warning(
+                    f"Low disk space detected for {id_} ({kraken_status.entity_type}), "
+                    f"free space: {free_space_gb} GB, threshold: {threshold} GB"
+                )
+                low_disk_space_instruments.append((id_, free_space_gb))
 
         if kraken_status.status != KrakenStatusValues.OK:
             logging.warning(
-                f"Error detected for {instrument_id}, "
+                f"Error detected for {id_}, "
                 f"status details: {kraken_status.status_details}"
             )
-            health_check_failed_instruments.append(
-                (instrument_id, kraken_status.status_details)
-            )
+            health_check_failed_instruments.append((id_, kraken_status.status_details))
 
-        _append_status_pile_up_instruments(instrument_id, status_pile_up_instruments)
+        # Only check for status pile-up on instruments (not job or file_system types)
+        if kraken_status.entity_type == KrakenStatusEntities.INSTRUMENT:
+            _append_status_pile_up_instruments(id_, status_pile_up_instruments)
 
     if stale_instruments:
         _send_kraken_instrument_alert(stale_instruments, Cases.STALE)

@@ -193,15 +193,23 @@ class KrakenStatusValues:
     ERROR = "error"
 
 
+class KrakenStatusEntities:
+    """Entities for Kraken status updates."""
+
+    INSTRUMENT = "instrument"
+    FILE_SYSTEM = "file_system"
+    JOB = "job"
+
+
 class KrakenStatus(Document):
     """Schema for a project."""
 
-    instrument_id = StringField(max_length=64, required=True, primary_key=True)
+    id = StringField(max_length=64, required=True, primary_key=True)
 
     status = StringField(max_length=64, default="n/a")
     status_details = StringField(max_length=256)
 
     free_space_gb = IntField(min_value=-1, default=-1)
-    type = StringField(max_length=16, default="instrument")
+    entity_type = StringField(max_length=16, default=KrakenStatusEntities.INSTRUMENT)
 
     updated_at_ = DateTimeField(default=datetime.now)

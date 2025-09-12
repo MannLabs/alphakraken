@@ -11,7 +11,6 @@ from typing import Any
 import pytz
 from airflow.sensors.base import BaseSensorOperator
 from common.paths import (
-    get_internal_backup_path,
     get_internal_backup_path_for_instrument,
     get_internal_instrument_data_path,
     get_internal_output_path,
@@ -21,7 +20,7 @@ from file_handling import get_disk_usage
 from raw_file_wrapper_factory import RawFileWrapperFactory
 
 from shared.db.interface import update_kraken_status
-from shared.db.models import KrakenStatusValues
+from shared.db.models import KrakenStatusEntities, KrakenStatusValues
 
 # to reduce network traffic, do the health check only every few minutes. If changed, adapt also webapp color code.
 HEALTH_CHECK_INTERVAL_M: int = 5
@@ -56,13 +55,13 @@ def _check_health(instrument_id: str) -> None:
     )
 
     # Update backup filesystem status
-    *_, backup_free_space_gb = get_disk_usage(get_internal_backup_path())
+    *_, backup_free_space_gb = get_disk_usage(backup_path)
     update_kraken_status(
         "backup",
         status=KrakenStatusValues.OK,
         status_details="",
         free_space_gb=int(backup_free_space_gb),
-        type_="file_system",
+        entity_type=KrakenStatusEntities.FILE_SYSTEM,
     )
 
     # Update output filesystem status
@@ -72,7 +71,7 @@ def _check_health(instrument_id: str) -> None:
         status=KrakenStatusValues.OK,
         status_details="",
         free_space_gb=int(output_free_space_gb),
-        type_="file_system",
+        entity_type=KrakenStatusEntities.FILE_SYSTEM,
     )
 
 

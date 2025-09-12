@@ -17,7 +17,7 @@ from matplotlib import pyplot as plt
 from service.session_state import SessionStateKeys, copy_session_state
 from service.utils import BASELINE_PREFIX, DEFAULT_MAX_AGE_STATUS, display_plotly_chart
 
-from shared.db.models import TERMINAL_STATUSES, RawFileStatus
+from shared.db.models import TERMINAL_STATUSES, KrakenStatusEntities, RawFileStatus
 from shared.keys import EnvVars, InstrumentTypes
 
 
@@ -248,14 +248,16 @@ def display_status(combined_df: pd.DataFrame, status_data_df: pd.DataFrame) -> N
             all_entries.append(("instrument", instrument_id, tmp_df, status_df.iloc[0]))
 
     # Add filesystem entries (without raw files)
-    filesystem_entries = status_data_df[status_data_df["type"] == "file_system"]
+    filesystem_entries = status_data_df[
+        status_data_df["entity_type"] == KrakenStatusEntities.FILE_SYSTEM
+    ]
     for _, filesystem_row in filesystem_entries.iterrows():
         all_entries.append(("filesystem", filesystem_row["_id"], None, filesystem_row))
 
     # Process all entries uniformly
     for entry_type, entry_id, raw_files_df, status_row in all_entries:
         display_name = (
-            f"{entry_id} (filesystem)" if entry_type == "filesystem" else entry_id
+            f"{entry_id} (file system)" if entry_type == "filesystem" else entry_id
         )
         status_data["instrument_id"].append(display_name)
 

@@ -276,7 +276,9 @@ def augment_raw_files_with_metrics(
             {
                 k: _format(v)
                 for k, v in metrics.items()
-                if k not in metrics_keys_blacklist
+                if not any(
+                    k.endswith(blk) for blk in metrics_keys_blacklist
+                )  # using endswith to also consider prefix keys (hacky!)
                 and (k in basic_metrics_keys or not only_basic_metrics)
             }
             if metrics

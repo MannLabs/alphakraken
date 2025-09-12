@@ -236,38 +236,62 @@ def display_status(combined_df: pd.DataFrame, status_data_df: pd.DataFrame) -> N
         f"which means that mass specs that have been idling for longer than this period are not shown here."
     )
     status_data = defaultdict(list)
+
+    # Get all entries to display (instruments + filesystems)
+    all_entries = []
+
+    # Add instrument entries (with raw files)
     for instrument_id in sorted(combined_df["instrument_id"].unique()):
         tmp_df = combined_df[combined_df["instrument_id"] == instrument_id]
         status_df = status_data_df[status_data_df["_id"] == instrument_id]
+        if len(status_df) > 0:
+            all_entries.append(("instrument", instrument_id, tmp_df, status_df.iloc[0]))
 
-        status_data["instrument_id"].append(instrument_id)
+    # Add filesystem entries (without raw files)
+    filesystem_entries = status_data_df[status_data_df["type"] == "file_system"]
+    for _, filesystem_row in filesystem_entries.iterrows():
+        all_entries.append(("filesystem", filesystem_row["_id"], None, filesystem_row))
 
-        # timestamp of youngest file
-        last_file_creation = tmp_df.iloc[0]["created_at"]
-        status_data["last_file_creation"].append(last_file_creation)
-        status_data["last_file_creation_text"].append(
-            get_display_time(last_file_creation, now)
+    # Process all entries uniformly
+    for entry_type, entry_id, raw_files_df, status_row in all_entries:
+        display_name = (
+            f"{entry_id} (filesystem)" if entry_type == "filesystem" else entry_id
         )
+        status_data["instrument_id"].append(display_name)
 
-        # last status update (e.g. 'quanting' -> 'done')
-        last_update = sorted(tmp_df["updated_at_"].to_numpy())[::-1][0]
-        status_data["last_status_update"].append(last_update)
-        status_data["last_status_update_text"].append(
-            get_display_time(last_update, now)
-        )
+        if entry_type == "instrument" and raw_files_df is not None:
+            # timestamp of youngest file
+            last_file_creation = raw_files_df.iloc[0]["created_at"]
+            status_data["last_file_creation"].append(last_file_creation)
+            status_data["last_file_creation_text"].append(
+                get_display_time(last_file_creation, now)
+            )
 
-        # last file watcher poke
-        last_health_check = status_df["updated_at_"].to_numpy()[0]
+            # last status update (e.g. 'quanting' -> 'done')
+            last_update = pd.to_datetime(
+                sorted(raw_files_df["updated_at_"].to_numpy())[::-1][0]
+            )
+            status_data["last_status_update"].append(last_update)
+            status_data["last_status_update_text"].append(
+                get_display_time(last_update, now)
+            )
+        else:
+            # Filesystem entries don't have file creation/update times
+            status_data["last_file_creation"].append("-")
+            status_data["last_file_creation_text"].append("-")
+            status_data["last_status_update"].append("-")
+            status_data["last_status_update_text"].append("-")
+
+        # Health check, status, and disk space (common to both types)
+        last_health_check = status_row["updated_at_"]
         status_data["last_health_check"].append(last_health_check)
         status_data["last_health_check_text"].append(
             get_display_time(last_health_check, now)
         )
 
-        status_data["status"].append(status_df["status"].to_numpy()[0])
-
-        status_data["status_details"].append(status_df["status_details"].to_numpy()[0])
-
-        status_data["free_space_gb"].append(status_df["free_space_gb"].to_numpy()[0])
+        status_data["status"].append(status_row["status"])
+        status_data["status_details"].append(status_row["status_details"])
+        status_data["free_space_gb"].append(status_row["free_space_gb"])
 
     status_df = pd.DataFrame(status_data)
 
@@ -340,7 +364,7 @@ def _get_color(
     for column, green_age_m, red_age_m, colormap in zip(
         columns, green_ages_m, red_ages_m, colormaps, strict=True
     ):
-        if column not in row or pd.isna(row[column]):
+        if column not in row or pd.isna(row[column]) or row[column] == "-":
             continue
 
         time_delta = now - row[column]

@@ -117,11 +117,31 @@ def test_check_health_when_all_paths_exist(
     # when
     _check_health("instrument_id")
 
-    mock_update_status.assert_called_once_with(
+    # Check that three calls were made: instrument, backup filesystem, output filesystem
+    assert mock_update_status.call_count == 3  # noqa: PLR2004
+
+    # Check instrument status call
+    mock_update_status.assert_any_call(
         "instrument_id",
         status=KrakenStatusValues.OK,
         status_details="",
         free_space_gb=789,
+    )
+
+    mock_update_status.assert_any_call(
+        "backup",
+        status=KrakenStatusValues.OK,
+        status_details="",
+        free_space_gb=789,
+        type_="file_system",
+    )
+
+    mock_update_status.assert_any_call(
+        "output",
+        status=KrakenStatusValues.OK,
+        status_details="",
+        free_space_gb=789,
+        type_="file_system",
     )
 
 
@@ -150,9 +170,29 @@ def test_check_health_when_no_paths_exist(
         "instrument_id"
     )  # TODO: this could be tested separately, is_mount & has_files cases are missing
 
-    mock_update_status.assert_called_once_with(
+    # Check that three calls were made: instrument, backup filesystem, output filesystem
+    assert mock_update_status.call_count == 3  # noqa: PLR2004
+
+    # Check instrument status call
+    mock_update_status.assert_any_call(
         "instrument_id",
         status="error",
         status_details="data path not healthy (exists=False is_mount=None has_files=None); backup path not healthy (exists=False is_mount=None has_files=None); output path not healthy (exists=False is_mount=None has_files=None)",
         free_space_gb=789,
+    )
+
+    mock_update_status.assert_any_call(
+        "backup",
+        status="ok",
+        status_details="",
+        free_space_gb=789,
+        type_="file_system",
+    )
+
+    mock_update_status.assert_any_call(
+        "output",
+        status="ok",
+        status_details="",
+        free_space_gb=789,
+        type_="file_system",
     )

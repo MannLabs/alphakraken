@@ -385,3 +385,23 @@ Alternatively, use the MongoDB MCP server, which offers a "bare" view on the Mon
 }
 ```
 See the [MongoDB MCP Server documentation](https://github.com/mongodb-js/mongodb-mcp-server) for more details.
+
+## Automated MongoDB Database Backups
+
+Optionally, you can set up automated backups of the MongoDB database using the provided backup script:
+
+1. **Configure the backup mount**: Add an additional mount for backup storage to your docker-compose setup. The script expects backup storage at `/home/kraken-user/alphakraken/production/mounts/db_backups`.
+
+2. **Configure the backup script**: Edit `misc/backup_db.sh` and set the correct path for `MONGODB_FOLDER` to point to your MongoDB data directory (typically `mongodb_data_production` or similar).
+
+3. **Set up automated backups** using cron:
+   ```bash
+   # Add to crontab (sudo crontab -e)
+   0 0 * * * /path/to/alphakraken/misc/backup_db.sh nightly    # Daily backup
+   0 * * * * /path/to/alphakraken/misc/backup_db.sh hourly     # Hourly backup
+   ```
+
+The script creates rotating daily backups (named by weekday) and maintains an hourly backup. All backup operations are logged to the backup directory.
+
+### Restore a backup
+To restore a backup, stop the MongoDB service and replace the contents of the MongoDB data directory with the contents of the desired backup folder. Then restart the MongoDB service.

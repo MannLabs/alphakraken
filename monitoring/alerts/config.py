@@ -33,8 +33,8 @@ STATUS_PILE_UP_THRESHOLDS["quanting"] = 10
 
 # Instrument file pile-up thresholds
 INSTRUMENT_FILE_PILE_UP_THRESHOLDS = {
-    InstrumentFileStatus.NEW: 20,  # Alert if more than 20 files haven't been moved
-    InstrumentFileStatus.MOVED: 50,  # Alert if more than 50 files haven't been purged
+    InstrumentFileStatus.NEW: 30,  # => indicates something is wrong with file moving
+    # InstrumentFileStatus.MOVED: 50,  # doesn't make sense as the number depends on configured free disk space
 }
 INSTRUMENT_FILE_MIN_AGE_HOURS = 6  # Only consider files older than 6 hours
 

@@ -118,7 +118,7 @@ def test_check_health_when_all_paths_exist(
     _check_health("instrument_id")
 
     # Check that three calls were made: instrument, backup filesystem, output filesystem
-    assert mock_update_status.call_count == 3  # noqa: PLR2004
+    assert mock_update_status.call_count == 3
 
     # Check instrument status call
     mock_update_status.assert_any_call(
@@ -171,7 +171,7 @@ def test_check_health_when_no_paths_exist(
     )  # TODO: this could be tested separately, is_mount & has_files cases are missing
 
     # Check that three calls were made: instrument, backup filesystem, output filesystem
-    assert mock_update_status.call_count == 3  # noqa: PLR2004
+    assert mock_update_status.call_count == 3
 
     # Check instrument status call
     mock_update_status.assert_any_call(

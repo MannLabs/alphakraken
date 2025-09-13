@@ -26,7 +26,7 @@ def test_datastore_getitem_returns_data_when_key_in_data(mock_join: MagicMock) -
     """Test that __getitem__ returns data when key in data store."""
     mock_join.return_value = "file_path"
     datastore = DataStore(Path("data_dir"), {"key": lambda _: "data"})
-    datastore._data["key"] = "existing_data"  # noqa: SLF001
+    datastore._data["key"] = "existing_data"
 
     # when
     result = datastore["key"]

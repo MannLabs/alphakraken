@@ -380,7 +380,7 @@ def test_get_raw_files_by_instrument_file_status_basic_query(
         instrument_file_status=InstrumentFileStatus.NEW
     )
     mock_query.order_by.assert_called_once_with("created_at")
-    assert len(result) == 2  # noqa: PLR2004
+    assert len(result) == 2
 
 
 @patch("shared.db.interface.connect_db")

@@ -12,7 +12,7 @@ from shared.db.models import KrakenStatus
 
 def _load_suppressions() -> list[dict[str, Any]]:
     """Load suppressions from YAML file."""
-    suppressions_file = Path(__file__).parent / ".." / "suppressions.yaml"
+    suppressions_file = Path(__file__).parent / "suppressions.yaml"
 
     try:
         with Path(suppressions_file).open() as f:

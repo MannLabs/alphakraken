@@ -5,10 +5,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 
 import pytz
-from messenger_clients import send_message
-from requests.exceptions import RequestException
-
-from monitoring.alerts import (
+from alerts import (
     BaseAlert,
     DiskSpaceAlert,
     HealthCheckFailedAlert,
@@ -18,6 +15,9 @@ from monitoring.alerts import (
     StatusPileUpAlert,
     config,
 )
+from messenger_clients import send_message
+from requests.exceptions import RequestException
+
 from shared.db.models import KrakenStatus
 
 

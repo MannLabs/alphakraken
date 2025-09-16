@@ -54,3 +54,4 @@ class Cases:
     STATUS_PILE_UP = "status_pile_up"
     INSTRUMENT_FILE_PILE_UP = "instrument_file_pile_up"
     RAW_FILE_ERROR = "raw_file_error"
+    WEBAPP_HEALTH = "webapp_health"

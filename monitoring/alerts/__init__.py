@@ -7,6 +7,7 @@ from .instrument_file_pile_up_alert import InstrumentFilePileUpAlert
 from .raw_file_error_alert import RawFileErrorAlert
 from .stale_status_alert import StaleStatusAlert
 from .status_pile_up_alert import StatusPileUpAlert
+from .webapp_health_alert import WebAppHealthAlert
 
 __all__ = [
     "BaseAlert",
@@ -16,4 +17,5 @@ __all__ = [
     "RawFileErrorAlert",
     "StaleStatusAlert",
     "StatusPileUpAlert",
+    "WebAppHealthAlert",
 ]

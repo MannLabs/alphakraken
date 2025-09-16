@@ -1,0 +1,17 @@
+# Alert suppression configuration
+# Suppress specific alerts based on error class, context, and message patterns
+#
+# Rules:
+# - context: "*" matches any context
+# - message: "*" matches any message
+# - Substring matching is used for both context and message
+
+suppressions:
+  # Example suppressions - remove or modify as needed
+  # - error_class: InstrumentFilePileUpAlert
+  #   context: "instrument1"
+  #   message: "copy failed"
+  #
+  # - error_class: RawFileErrorAlert
+  #   context: "*"
+  #   message: "temporary network error"

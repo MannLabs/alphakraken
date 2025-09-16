@@ -280,7 +280,7 @@ def test_poke_file_dir_contents_dont_change_but_file_is_unchanged(  # noqa: PLR0
     result = sensor.poke({})
     assert result == expected_sensor_result
 
-    assert mock_path.stat.call_count == 2  # noqa: PLR2004
+    assert mock_path.stat.call_count == 2
 
     mock_update_raw_file.assert_called_once_with(
         mock_get_raw_file_by_id.return_value.id, new_status="monitoring_acquisition"

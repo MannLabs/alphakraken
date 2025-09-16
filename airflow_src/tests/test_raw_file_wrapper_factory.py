@@ -563,7 +563,7 @@ def test_get_main_file_size_from_db(
     # when
     size = get_main_file_size_from_db(raw_file)
 
-    assert size == 1024  # noqa: PLR2004
+    assert size == 1024
 
 
 @patch("plugins.raw_file_wrapper_factory.RawFileWrapperFactory.create_monitor_wrapper")

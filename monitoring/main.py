@@ -1,8 +1,17 @@
 #!/usr/bin/env python3
 
 """Script to monitor AlphaKraken and send alerts to Slack or MS Teams."""
+# ruff: noqa: E402
 
 import logging
+
+# needs to be here:
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+
 from time import sleep
 
 from alert_manager import AlertManager, send_special_alert
@@ -14,13 +23,6 @@ from pymongo.errors import ServerSelectionTimeoutError
 
 from shared.db.engine import connect_db
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
-
-# TODO: add unit tests
 # TODO: report when error has resolved
 # TODO: add a "all is well" message once a day/week?
 # TODO: health check if webapp is reachable

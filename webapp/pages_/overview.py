@@ -397,12 +397,17 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
         help="For the selection in the table, show all file paths on the backup for conveniently copying them manually to another location.",
     ):
         full_info_df = get_full_raw_file_data(list(filtered_df.index))
-        file_paths, is_multiple_types = get_full_backup_path(full_info_df)
+        file_paths, is_multiple_types, errors = get_full_backup_path(full_info_df)
 
         with st.expander(f"Found {len(file_paths)} items:", expanded=True):
             if is_multiple_types:
                 st.warning(
                     "Warning: more than one instrument type found, please check your selection!"
+                )
+            if errors:
+                errors_str = "\n- ".join(errors)
+                st.warning(
+                    f"The following {len(errors)} files have been excluded from the selection:\n- {errors_str}"
                 )
 
             st.write("One-line format:")

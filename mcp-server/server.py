@@ -197,6 +197,8 @@ def _flatten_metrics(
     The assumption is that collisions are rare and only happen for very generic keys like "proteins".
     """
     flattened = {}
+    if not nested_dict:
+        return flattened
 
     for metrics_type, metrics_data in nested_dict.items():
         for key, value in metrics_data.items():
@@ -207,9 +209,6 @@ def _flatten_metrics(
             if key not in flattened:
                 flattened[key] = value
             else:
-                logger.warning(
-                    f"Key collision for metric '{key}', prefixing with type '{metrics_type}'"
-                )
                 prefixed_key = f"{metrics_type}_{key}"
                 flattened[prefixed_key] = value
 

@@ -30,8 +30,8 @@ from file_handling import copy_file, get_file_hash, get_file_size, move_existing
 from plugins.file_handling import _decide_if_copy_required
 from raw_file_wrapper_factory import (
     CopyPathProvider,
-    RawFileMonitorWrapper,
     RawFileWrapperFactory,
+    ThermoRawFileMonitorWrapper,
 )
 
 from shared.db.interface import get_raw_file_by_id, update_raw_file
@@ -355,7 +355,7 @@ def decide_processing(ti: TaskInstance, **kwargs) -> bool:
     elif raw_file.size == 0:
         new_status = RawFileStatus.ACQUISITION_FAILED
         status_details = "File size is zero."
-    elif RawFileMonitorWrapper.is_corrupted_file_name(raw_file.original_name):
+    elif ThermoRawFileMonitorWrapper.is_corrupted_file_name(raw_file.original_name):
         new_status = RawFileStatus.ACQUISITION_FAILED
         status_details = "File name indicates failed acquisition."
     else:

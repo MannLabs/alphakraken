@@ -626,7 +626,10 @@ def test_start_file_mover_skipped(mock_trigger_dag_run: MagicMock) -> None:
 
 
 @patch("dags.impl.handler_impl.get_xcom", return_value=[])
-@patch("dags.impl.handler_impl.get_raw_file_by_id", return_value=MagicMock())
+@patch(
+    "dags.impl.handler_impl.get_raw_file_by_id",
+    return_value=MagicMock(original_name="some_file.raw"),
+)
 @patch("dags.impl.handler_impl.get_instrument_settings", return_value=False)
 def test_decide_processing_returns_true_if_no_errors(
     mock_get_instrument_settings: MagicMock,  # noqa:ARG001

@@ -19,7 +19,7 @@ import argparse
 import logging
 import subprocess
 import sys
-import time
+import tempfile
 from datetime import datetime
 from pathlib import Path
 
@@ -98,14 +98,18 @@ def execute_job_process(environment: dict[str, str], output_path: Path) -> None:
             use_shell = False
             creation_flags = 0
 
-        # Prepare command string with proper quoting to prevent shell splitting
-        # Escape any existing quotes in the parameters
-        escaped_command = custom_command.replace('"', "'")
-        escaped_output_path = str(output_path).replace('"', "'")
-        escaped_raw_file_id = raw_file_id.replace('"', "'")
+        # For Windows batch files, we need to handle quotes very carefully
+        # Use a simple approach: write parameters to a temp file instead of command line
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".tmp", delete=False
+        ) as tmp_file:
+            tmp_file.write(f"{custom_command}\n")
+            tmp_file.write(f"{output_path}\n")
+            tmp_file.write(f"{raw_file_id}\n")
+            temp_file_path = tmp_file.name
 
-        # Construct single command string with quoted parameters
-        script_command = f'"{script_path}" "{escaped_command}" "{escaped_output_path}" "{escaped_raw_file_id}"'
+        # Pass only the temp file path to avoid command line parsing issues
+        script_command = f'"{script_path}" "{temp_file_path}"'
 
         logging.info(f"Executing batch command: {script_command}")
 
@@ -183,31 +187,19 @@ def watch_directory(watch_dir: Path) -> None:
         logging.error(f"Watch directory does not exist: {watch_dir}")
         return
 
-    processed_files = set()
+    logging.info("Checking for new .job files...")
 
-    try:
-        while True:
-            logging.info("Checking for new .job files...")
+    job_files = list(watch_dir.glob("*.job"))
 
-            job_files = list(watch_dir.glob("*.job"))
-
-            for job_file in job_files:
-                if job_file not in processed_files:
-                    try:
-                        process_job_file(job_file)
-                        processed_files.add(job_file)
-                    except KeyboardInterrupt:
-                        raise
-                    except Exception:
-                        logging.exception("Error processing job files.")
-                        processed_file = job_file.with_suffix(".job.error.processed")
-                        job_file.rename(processed_file)
-
-            # Sleep before next check
-            time.sleep(30)
-
-    except KeyboardInterrupt:
-        logging.info("File watcher stopped by user")
+    for job_file in job_files:
+        try:
+            process_job_file(job_file)
+        except KeyboardInterrupt:  # noqa: PERF203
+            raise
+        except Exception:
+            logging.exception("Error processing job files.")
+            processed_file = job_file.with_suffix(".job.error.processed")
+            job_file.rename(processed_file)
 
 
 def main() -> int:

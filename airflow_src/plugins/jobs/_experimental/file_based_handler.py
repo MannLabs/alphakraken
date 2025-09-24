@@ -75,7 +75,12 @@ class FileBasedJobHandler(JobHandler):
 
         with job_file_path.open("w") as f:
             for key, value in environment.items():
-                if key in [QuantingEnv.OUTPUT_PATH, QuantingEnv.CUSTOM_COMMAND]:
+                if key in [
+                    QuantingEnv.RAW_FILE_ID,
+                    QuantingEnv.OUTPUT_PATH,
+                    QuantingEnv.RELATIVE_OUTPUT_PATH,
+                    QuantingEnv.CUSTOM_COMMAND,
+                ]:
                     f.write(f"{key}={value}\n")
 
         logging.info(f"Job file created for raw_file_id: {raw_file_id}")

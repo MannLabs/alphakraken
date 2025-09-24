@@ -89,20 +89,20 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
     # get raw file path
     backup_base_path = get_path(YamlKeys.Locations.BACKUP)
     year_month_subfolder = get_created_at_year_month(raw_file)
-    raw_file_path = (
-        backup_base_path / instrument_id / year_month_subfolder / raw_file_id
-    )
+    relative_raw_file_path = Path(instrument_id) / year_month_subfolder / raw_file_id
+    raw_file_path = backup_base_path / relative_raw_file_path
 
     # get settings and output_path
     settings_path = get_path(YamlKeys.Locations.SETTINGS) / project_id_or_fallback
 
-    output_path = get_path(YamlKeys.Locations.OUTPUT) / get_output_folder_rel_path(
-        raw_file, project_id_or_fallback
-    )
+    relative_output_path = get_output_folder_rel_path(raw_file, project_id_or_fallback)
+    output_path = get_path(YamlKeys.Locations.OUTPUT) / relative_output_path
 
     custom_command = (
         _prepare_custom_command(
+            relative_output_path,
             output_path,
+            relative_raw_file_path,
             raw_file_path,
             settings,
             settings_path,
@@ -117,6 +117,7 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
         QuantingEnv.RAW_FILE_PATH: str(raw_file_path),
         QuantingEnv.SETTINGS_PATH: str(settings_path),
         QuantingEnv.OUTPUT_PATH: str(output_path),
+        QuantingEnv.RELATIVE_OUTPUT_PATH: str(relative_output_path),
         QuantingEnv.SPECLIB_FILE_NAME: settings.speclib_file_name,  # TODO: construct path here
         QuantingEnv.FASTA_FILE_NAME: settings.fasta_file_name,  # TODO: construct path here
         QuantingEnv.CONFIG_FILE_NAME: settings.config_file_name,  # TODO: construct path here
@@ -145,7 +146,9 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
 
 
 def _prepare_custom_command(  # noqa: PLR0913 Too many arguments
+    relative_output_path: Path,
     output_path: Path,
+    relative_raw_file_path: Path,
     raw_file_path: Path,
     settings: Settings,
     settings_path: Path,
@@ -164,8 +167,14 @@ def _prepare_custom_command(  # noqa: PLR0913 Too many arguments
         else ""
     )
     substituted_params = settings.config_params
+    substituted_params = substituted_params.replace(
+        "RELATIVE_RAW_FILE_PATH", str(relative_raw_file_path)
+    )
     substituted_params = substituted_params.replace("RAW_FILE_PATH", str(raw_file_path))
     substituted_params = substituted_params.replace("LIBRARY_PATH", speclib_file_path)
+    substituted_params = substituted_params.replace(
+        "RELATIVE_OUTPUT_PATH", str(relative_output_path)
+    )
     substituted_params = substituted_params.replace("OUTPUT_PATH", str(output_path))
     substituted_params = substituted_params.replace("FASTA_PATH", fasta_file_path)
     substituted_params = substituted_params.replace("NUM_THREADS", str(num_threads))

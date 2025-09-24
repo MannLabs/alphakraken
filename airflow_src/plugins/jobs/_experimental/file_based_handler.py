@@ -49,7 +49,7 @@ class FileBasedJobHandler(JobHandler):
             year_month_folder: Folder for job outputs (ignored for file-based handler)
 
         Returns:
-            Job ID (raw_file_id from the environment)
+            Job ID (dummy value)
 
         """
         del job_script_name  # unused
@@ -84,7 +84,7 @@ class FileBasedJobHandler(JobHandler):
                     f.write(f"{key}={value}\n")
 
         logging.info(f"Job file created for raw_file_id: {raw_file_id}")
-        return raw_file_id
+        return "0"
 
     def get_job_status(self, job_id: str) -> str:
         """Get the status of a job by checking the job_status.log file.

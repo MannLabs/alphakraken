@@ -91,7 +91,7 @@ def execute_job_process(environment: dict[str, str], output_path: Path) -> None:
             process = subprocess.Popen(  # noqa: S602 # `subprocess` call with `shell=True` identified, security issue
                 custom_command,
                 shell=True,  # Required for Windows compatibility and complex commands
-                cwd=str(output_path),  # Set working directory to output path
+                # cwd=str(output_path),  # Set working directory to output path
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,  # Merge stderr with stdout
                 text=True,
@@ -199,17 +199,21 @@ def watch_directory(watch_dir: Path) -> None:
 
     try:
         while True:
+            logging.info("Checking for new .job files...")
+
             job_files = list(watch_dir.glob("*.job"))
 
-            try:
-                for job_file in job_files:
-                    if job_file not in processed_files:
+            for job_file in job_files:
+                if job_file not in processed_files:
+                    try:
                         process_job_file(job_file)
                         processed_files.add(job_file)
-            except KeyboardInterrupt:
-                raise
-            except Exception:
-                logging.exception("Error processing job files.")
+                    except KeyboardInterrupt:
+                        raise
+                    except Exception:
+                        logging.exception("Error processing job files.")
+                        processed_file = job_file.with_suffix(".job.error.processed")
+                        job_file.rename(processed_file)
 
             # Sleep before next check
             time.sleep(30)

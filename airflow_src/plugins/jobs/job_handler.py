@@ -23,13 +23,20 @@ ENGINE: str = (
 )
 
 
-def _get_job_handler() -> "JobHandler":
+def _get_job_handler(engine: str | None = None) -> "JobHandler":
     """Factory function to get the appropriate job handler based on the configured engine."""
-    if ENGINE == "generic":
+    engine = engine or ENGINE
+
+    if engine == "generic":
         from jobs._experimental.generic_file_handler import GenericJobHandler
 
         logging.info("Using GenericJobHandler")
         return GenericJobHandler()
+    if engine == "file_based":
+        from jobs._experimental.file_based_handler import FileBasedJobHandler
+
+        logging.info("Using FileBasedJobHandler")
+        return FileBasedJobHandler()
     # Default to Slurm
     logging.info("Using SlurmSSHJobHandler")
     return SlurmSSHJobHandler()

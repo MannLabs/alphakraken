@@ -24,7 +24,10 @@ from datetime import datetime
 from pathlib import Path
 
 # if not none, the output path will constructed as OUTPUT_PATH_BASE / RELATIVE_OUTPUT_PATH
-OUTPUT_PATH_BASE: str | None = None  # "//192.168.0.1"
+OUTPUT_PATH_BASE: str | None = None  # r"\\192.168.0.2\sharedfs$\alphakraken\output"
+DEFAULT_JOB_QUEUE_FOLDER: str | None = (
+    None  # r"\\192.168.0.2\sharedfs$\alphakraken\output\job_queue"
+)
 
 
 def setup_logging() -> None:
@@ -60,7 +63,7 @@ def parse_job_file(job_file_path: Path) -> dict[str, str]:
 
 
 def execute_job_process(environment: dict[str, str], output_path: Path) -> None:
-    """Execute a real job process and write status to job_status.log.
+    """Execute a job process using Windows batch script (non-blocking).
 
     Args:
         environment: Environment variables from the .job file
@@ -77,67 +80,52 @@ def execute_job_process(environment: dict[str, str], output_path: Path) -> None:
         # Determine the command to execute
         custom_command = environment.get("CUSTOM_COMMAND", "").strip()
 
-        logging.info(f"Executing command for {raw_file_id}: {custom_command}")
+        logging.info(f"Launching job for {raw_file_id}: {custom_command}")
 
-        with status_file.open("w", buffering=1) as f:  # Line buffered
+        # Write initial status to log file
+        with status_file.open("w") as f:
             start_time = datetime.now()  # noqa: DTZ005
             f.write(f"Starting at {start_time.strftime('%Y-%m-%d %H:%M:%S')}\n")
-            f.write(
-                f"[{datetime.now().strftime('%H:%M:%S')}] Executing: {custom_command}\n"  # noqa: DTZ005
-            )
-            f.flush()
 
-            # Execute the command with cross-platform compatibility
-            process = subprocess.Popen(  # noqa: S602 # `subprocess` call with `shell=True` identified, security issue
-                custom_command,
-                shell=True,  # Required for Windows compatibility and complex commands
-                # cwd=str(output_path),  # Set working directory to output path
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,  # Merge stderr with stdout
-                text=True,
-                bufsize=1,  # Line buffered
-                universal_newlines=True,
-            )
+        # Get path to appropriate script (Windows batch or Unix shell)
+        script_dir = Path(__file__).parent
+        if sys.platform == "win32":
+            script_path = script_dir / "execute_job.bat"
+            use_shell = True
+            creation_flags = subprocess.CREATE_NEW_PROCESS_GROUP
+        else:
+            script_path = script_dir / "execute_job.sh"
+            use_shell = False
+            creation_flags = 0
 
-            # Stream output in real-time
-            while True:
-                output = process.stdout.readline()
-                if output == "" and process.poll() is not None:
-                    break
-                if output:
-                    timestamp = datetime.now().strftime("%H:%M:%S")  # noqa: DTZ005
-                    f.write(f"[{timestamp}] {output}")
-                    f.flush()
+        # Prepare command string with proper quoting to prevent shell splitting
+        # Escape any existing quotes in the parameters
+        escaped_command = custom_command.replace('"', "'")
+        escaped_output_path = str(output_path).replace('"', "'")
+        escaped_raw_file_id = raw_file_id.replace('"', "'")
 
-            # Wait for process to complete and get return code
-            return_code = process.wait()
+        # Construct single command string with quoted parameters
+        script_command = f'"{script_path}" "{escaped_command}" "{escaped_output_path}" "{escaped_raw_file_id}"'
 
-            # Write final status based on return code
-            timestamp = datetime.now().strftime("%H:%M:%S")  # noqa: DTZ005
-            if return_code == 0:
-                f.write(
-                    f"[{timestamp}] Process completed successfully (exit code: {return_code})\n"
-                )
-                f.write("COMPLETED\n")
-                logging.info(f"Job completed successfully for {raw_file_id}")
-            else:
-                f.write(f"[{timestamp}] Process failed with exit code: {return_code}\n")
-                f.write("FAILED\n")
-                logging.info(
-                    f"Job failed for {raw_file_id} with exit code: {return_code}"
-                )
+        logging.info(f"Executing batch command: {script_command}")
 
-    except subprocess.SubprocessError as e:
-        logging.exception(f"Subprocess error during job execution for {raw_file_id}")
-        with status_file.open("w") as f:
-            f.write(f"Starting at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")  # noqa: DTZ005
-            f.write(f"Subprocess error: {e}\n")
-            f.write("FAILED\n")
+        # Launch script asynchronously (non-blocking)
+        process = subprocess.Popen(  # noqa: S603 # `subprocess` call: check for execution of untrusted input
+            script_command,
+            shell=use_shell,
+            creationflags=creation_flags,
+            # Don't capture stdout/stderr - let script handle logging
+            stdout=None,
+            stderr=None,
+        )
+
+        logging.info(f"Job launched for {raw_file_id} with PID {process.pid}")
+
     except Exception as e:
-        logging.exception(f"Failed to execute job process for {raw_file_id}")
+        logging.exception(f"Failed to launch job process for {raw_file_id}")
         with status_file.open("w") as f:
             f.write(f"Starting at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")  # noqa: DTZ005
-            f.write(f"Error during job execution: {e}\n")
+            f.write(f"Error launching job: {e}\n")
             f.write("FAILED\n")
 
 
@@ -163,8 +151,8 @@ def process_job_file(job_file_path: Path) -> None:
 
     # Get output path from environment
     if OUTPUT_PATH_BASE:
-        relative_output_path = environment["OUTPUT_PATH"]
-        output_path_str = f"{OUTPUT_PATH_BASE}\\{relative_output_path})"
+        relative_output_path = environment["RELATIVE_OUTPUT_PATH"]
+        output_path_str = f"{OUTPUT_PATH_BASE}\\{relative_output_path}"
     else:
         output_path_str = environment["OUTPUT_PATH"]
 
@@ -228,7 +216,10 @@ def main() -> int:
 
     parser = argparse.ArgumentParser(description="Simple file watcher for .job files")
     parser.add_argument(
-        "watch_dir", nargs="?", help="Directory to watch for .job files"
+        "watch_dir",
+        nargs="?",
+        help="Directory to watch for .job files",
+        default=DEFAULT_JOB_QUEUE_FOLDER,
     )
 
     args = parser.parse_args()

@@ -17,10 +17,14 @@ IMPORTANT NOTE: Make sure as few as possible external libraries are used to ensu
 
 import argparse
 import logging
+import subprocess
 import sys
 import time
 from datetime import datetime
 from pathlib import Path
+
+# if not none, the output path will constructed as OUTPUT_PATH_BASE / RELATIVE_OUTPUT_PATH
+OUTPUT_PATH_BASE: str | None = None  # "//192.168.0.1"
 
 
 def setup_logging() -> None:
@@ -55,8 +59,8 @@ def parse_job_file(job_file_path: Path) -> dict[str, str]:
     return environment
 
 
-def simulate_job_execution(environment: dict[str, str], output_path: Path) -> None:
-    """Simulate job execution and write status to job_status.log.
+def execute_job_process(environment: dict[str, str], output_path: Path) -> None:
+    """Execute a real job process and write status to job_status.log.
 
     Args:
         environment: Environment variables from the .job file
@@ -64,57 +68,73 @@ def simulate_job_execution(environment: dict[str, str], output_path: Path) -> No
 
     """
     status_file = output_path / "job_status.log"
+    raw_file_id = environment.get("RAW_FILE_ID", "unknown")
 
     try:
         # Ensure output directory exists
         output_path.mkdir(parents=True, exist_ok=True)
 
-        with status_file.open("w") as f:
+        # Determine the command to execute
+        custom_command = environment.get("CUSTOM_COMMAND", "").strip()
+
+        logging.info(f"Executing command for {raw_file_id}: {custom_command}")
+
+        with status_file.open("w", buffering=1) as f:  # Line buffered
             start_time = datetime.now()  # noqa: DTZ005
             f.write(f"Starting at {start_time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write(
+                f"[{datetime.now().strftime('%H:%M:%S')}] Executing: {custom_command}\n"  # noqa: DTZ005
+            )
             f.flush()
 
-            # Simulate job steps
-            job_steps = [
-                "Initializing job environment...",
-                f"Loading raw file: {environment.get('RAW_FILE_PATH', 'N/A')}",
-                f"Using settings from: {environment.get('SETTINGS_PATH', 'N/A')}",
-                f"Software: {environment.get('SOFTWARE', 'N/A')}",
-                "Processing data...",
-                "Running analysis...",
-                "Generating outputs...",
-            ]
+            # Execute the command with cross-platform compatibility
+            process = subprocess.Popen(  # noqa: S602 # `subprocess` call with `shell=True` identified, security issue
+                custom_command,
+                shell=True,  # Required for Windows compatibility and complex commands
+                cwd=str(output_path),  # Set working directory to output path
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,  # Merge stderr with stdout
+                text=True,
+                bufsize=1,  # Line buffered
+                universal_newlines=True,
+            )
 
-            for _, step in enumerate(job_steps):
-                f.write(f"[{datetime.now().strftime('%H:%M:%S')}] {step}\n")  # noqa: DTZ005
-                f.flush()
-                time.sleep(0.5)  # Simulate processing time
+            # Stream output in real-time
+            while True:
+                output = process.stdout.readline()
+                if output == "" and process.poll() is not None:
+                    break
+                if output:
+                    timestamp = datetime.now().strftime("%H:%M:%S")  # noqa: DTZ005
+                    f.write(f"[{timestamp}] {output}")
+                    f.flush()
 
-            # Simulate success/failure (90% success rate for testing)
-            import random
+            # Wait for process to complete and get return code
+            return_code = process.wait()
 
-            success = random.random() < 0.9  # noqa: PLR2004, S311
-
-            if success:
+            # Write final status based on return code
+            timestamp = datetime.now().strftime("%H:%M:%S")  # noqa: DTZ005
+            if return_code == 0:
                 f.write(
-                    f"[{datetime.now().strftime('%H:%M:%S')}] Job completed successfully\n"  # noqa: DTZ005
+                    f"[{timestamp}] Process completed successfully (exit code: {return_code})\n"
                 )
                 f.write("COMPLETED\n")
-                logging.info(
-                    f"Job completed successfully for {environment.get('RAW_FILE_ID', 'unknown')}"
-                )
+                logging.info(f"Job completed successfully for {raw_file_id}")
             else:
-                f.write(
-                    f"[{datetime.now().strftime('%H:%M:%S')}] Job failed with error\n"  # noqa: DTZ005
-                )
+                f.write(f"[{timestamp}] Process failed with exit code: {return_code}\n")
                 f.write("FAILED\n")
                 logging.info(
-                    f"Job failed for {environment.get('RAW_FILE_ID', 'unknown')}"
+                    f"Job failed for {raw_file_id} with exit code: {return_code}"
                 )
 
+    except subprocess.SubprocessError as e:
+        logging.exception(f"Subprocess error during job execution for {raw_file_id}")
+        with status_file.open("w") as f:
+            f.write(f"Starting at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")  # noqa: DTZ005
+            f.write(f"Subprocess error: {e}\n")
+            f.write("FAILED\n")
     except Exception as e:
-        logging.exception("Failed to simulate job execution.")
-        # Write failure status if we can
+        logging.exception(f"Failed to execute job process for {raw_file_id}")
         with status_file.open("w") as f:
             f.write(f"Starting at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")  # noqa: DTZ005
             f.write(f"Error during job execution: {e}\n")
@@ -142,15 +162,16 @@ def process_job_file(job_file_path: Path) -> None:
         logging.info(f"  {key}={value}")
 
     # Get output path from environment
-    output_path_str = environment.get("OUTPUT_PATH")
-    if not output_path_str:
-        logging.error(f"No OUTPUT_PATH found in {job_file_path}")
-        return
+    if OUTPUT_PATH_BASE:
+        relative_output_path = environment["OUTPUT_PATH"]
+        output_path_str = f"{OUTPUT_PATH_BASE}\\{relative_output_path})"
+    else:
+        output_path_str = environment["OUTPUT_PATH"]
 
     output_path = Path(output_path_str)
 
-    # Simulate job execution
-    simulate_job_execution(environment, output_path)
+    # Execute real job process
+    execute_job_process(environment, output_path)
 
     # Move the job file to indicate it's been processed
     processed_file = job_file_path.with_suffix(".job.processed")
@@ -178,13 +199,17 @@ def watch_directory(watch_dir: Path) -> None:
 
     try:
         while True:
-            # Find all .job files
             job_files = list(watch_dir.glob("*.job"))
 
-            for job_file in job_files:
-                if job_file not in processed_files:
-                    process_job_file(job_file)
-                    processed_files.add(job_file)
+            try:
+                for job_file in job_files:
+                    if job_file not in processed_files:
+                        process_job_file(job_file)
+                        processed_files.add(job_file)
+            except KeyboardInterrupt:
+                raise
+            except Exception:
+                logging.exception("Error processing job files.")
 
             # Sleep before next check
             time.sleep(30)
@@ -201,9 +226,6 @@ def main() -> int:
     parser.add_argument(
         "watch_dir", nargs="?", help="Directory to watch for .job files"
     )
-    parser.add_argument(
-        "--once", action="store_true", help="Process existing files once and exit"
-    )
 
     args = parser.parse_args()
 
@@ -212,18 +234,8 @@ def main() -> int:
 
     logging.info(f"Using watch directory: {watch_dir}")
 
-    if args.once:
-        # Process existing files once and exit
-        job_files = list(watch_dir.glob("*.job"))
-        if not job_files:
-            logging.info("No .job files found")
-        else:
-            for job_file in job_files:
-                process_job_file(job_file)
-            logging.info(f"Processed {len(job_files)} job files")
-    else:
-        # Continuous watching
-        watch_directory(watch_dir)
+    # Continuous watching
+    watch_directory(watch_dir)
 
     return 0
 

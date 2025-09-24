@@ -23,17 +23,33 @@ import tempfile
 from datetime import datetime
 from pathlib import Path
 
-# if not none, the output path will constructed as OUTPUT_PATH_BASE / RELATIVE_OUTPUT_PATH
+# non-standard library imports
+import psutil
+
+# if not None, the output path will constructed as OUTPUT_PATH_BASE / RELATIVE_OUTPUT_PATH
 OUTPUT_PATH_BASE: str | None = None  # r"\\192.168.0.2\sharedfs$\alphakraken\output"
 DEFAULT_JOB_QUEUE_FOLDER: str | None = (
     None  # r"\\192.168.0.2\sharedfs$\alphakraken\output\job_queue"
 )
 
+PROGRAM_NAME: str | None = None  # e.g. "spectronaut.dll"
+MAX_INSTANCES = 1  # maximum number of simultaneous instances of PROGRAM_NAME
+
 
 def setup_logging() -> None:
-    """Setup basic logging configuration."""
+    """Setup basic logging configuration to log to file in parent directory."""
+    # Get log file path in parent directory of this script
+    script_dir = Path(__file__).parent
+    log_file = script_dir / "job_queue_watcher.log"
+
+    # Configure logging to write to file with rotation
     logging.basicConfig(
-        level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+        level=logging.INFO,
+        format="%(asctime)s - %(levelname)s - %(message)s",
+        handlers=[
+            logging.FileHandler(log_file, mode="a"),  # Append to log file
+            logging.StreamHandler(),  # Also keep console output
+        ],
     )
 
 
@@ -70,7 +86,7 @@ def execute_job_process(environment: dict[str, str], output_path: Path) -> None:
         output_path: Path where job_status.log should be written
 
     """
-    status_file = output_path / "job_status.log"
+    status_log_file = output_path / "job_status.log"
     raw_file_id = environment.get("RAW_FILE_ID", "unknown")
 
     try:
@@ -83,7 +99,7 @@ def execute_job_process(environment: dict[str, str], output_path: Path) -> None:
         logging.info(f"Launching job for {raw_file_id}: {custom_command}")
 
         # Write initial status to log file
-        with status_file.open("w") as f:
+        with status_log_file.open("w") as f:
             start_time = datetime.now()  # noqa: DTZ005
             f.write(f"Starting at {start_time.strftime('%Y-%m-%d %H:%M:%S')}\n")
 
@@ -94,6 +110,7 @@ def execute_job_process(environment: dict[str, str], output_path: Path) -> None:
             use_shell = True
             creation_flags = subprocess.CREATE_NEW_PROCESS_GROUP
         else:
+            raise NotImplementedError("This script currently supports only Windows.")  # noqa: TRY301
             script_path = script_dir / "execute_job.sh"
             use_shell = False
             creation_flags = 0
@@ -123,11 +140,14 @@ def execute_job_process(environment: dict[str, str], output_path: Path) -> None:
             stderr=None,
         )
 
+        with status_log_file.open("w") as f:
+            f.write(f"PID {process.pid}\n")
+
         logging.info(f"Job launched for {raw_file_id} with PID {process.pid}")
 
     except Exception as e:
         logging.exception(f"Failed to launch job process for {raw_file_id}")
-        with status_file.open("w") as f:
+        with status_log_file.open("w") as f:
             f.write(f"Starting at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")  # noqa: DTZ005
             f.write(f"Error launching job: {e}\n")
             f.write("FAILED\n")
@@ -192,14 +212,38 @@ def watch_directory(watch_dir: Path) -> None:
     job_files = list(watch_dir.glob("*.job"))
 
     for job_file in job_files:
+        if PROGRAM_NAME and len(find_processes_matching(PROGRAM_NAME)) >= MAX_INSTANCES:
+            logging.info(
+                f"Maximum number of instances ({MAX_INSTANCES}) reached. Exiting.."
+            )
+            break
         try:
             process_job_file(job_file)
-        except KeyboardInterrupt:  # noqa: PERF203
+        except KeyboardInterrupt:
             raise
         except Exception:
             logging.exception("Error processing job files.")
             processed_file = job_file.with_suffix(".job.error.processed")
             job_file.rename(processed_file)
+
+
+def find_processes_matching(pattern: str) -> list[str]:
+    """Find processes matching a given pattern in their command line."""
+    matching_processes = []
+    for proc in psutil.process_iter(["pid", "name", "cmdline"]):
+        try:
+            cmdline = " ".join(proc.info["cmdline"]) if proc.info["cmdline"] else ""
+            if pattern.lower() in cmdline.lower():
+                matching_processes.append(
+                    {
+                        "pid": proc.info["pid"],
+                        "name": proc.info["name"],
+                        "cmdline": cmdline,
+                    }
+                )
+        except (psutil.NoSuchProcess, psutil.AccessDenied):  # noqa: PERF203
+            pass
+    return matching_processes
 
 
 def main() -> int:
@@ -216,12 +260,9 @@ def main() -> int:
 
     args = parser.parse_args()
 
-    # Determine watch directory
     watch_dir = Path(args.watch_dir)
-
     logging.info(f"Using watch directory: {watch_dir}")
 
-    # Continuous watching
     watch_directory(watch_dir)
 
     return 0

@@ -30,9 +30,9 @@ if not exist "!OUTPUT_PATH!" mkdir "!OUTPUT_PATH!"
 REM Create log file path - use delayed expansion to handle special characters like $ and \
 set "LOG_FILE=!OUTPUT_PATH!\job_status.log"
 
-REM Get current timestamp
+REM Get current timestamp with date
 for /f "tokens=2 delims==" %%I in ('wmic os get localdatetime /value') do set datetime=%%I
-set "timestamp=%datetime:~8,2%:%datetime:~10,2%:%datetime:~12,2%"
+set "timestamp=%datetime:~0,4%-%datetime:~4,2%-%datetime:~6,2% %datetime:~8,2%:%datetime:~10,2%:%datetime:~12,2%"
 
 REM Write execution start to log - use delayed expansion to avoid issues with quotes
 echo [%timestamp%] Executing: !CUSTOM_COMMAND! >> "%LOG_FILE%"
@@ -46,7 +46,7 @@ set "EXIT_CODE=%ERRORLEVEL%"
 
 REM Get timestamp again for completion message
 for /f "tokens=2 delims==" %%I in ('wmic os get localdatetime /value') do set datetime=%%I
-set "timestamp=%datetime:~8,2%:%datetime:~10,2%:%datetime:~12,2%"
+set "timestamp=%datetime:~0,4%-%datetime:~4,2%-%datetime:~6,2% %datetime:~8,2%:%datetime:~10,2%:%datetime:~12,2%"
 
 REM Write completion status based on exit code
 if %EXIT_CODE% == 0 (

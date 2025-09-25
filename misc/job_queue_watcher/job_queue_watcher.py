@@ -201,27 +201,32 @@ def watch_directory(watch_dir: Path) -> None:
         watch_dir: Directory to watch for .job files
 
     """
-    logging.info(f"Watching directory: {watch_dir}")
+    logging.info(f"Checking for new .job files in {watch_dir}...")
 
     if not watch_dir.exists():
         logging.error(f"Watch directory does not exist: {watch_dir}")
         return
 
-    logging.info("Checking for new .job files...")
+    job_files = sorted(
+        watch_dir.glob("*.job"), key=lambda f: f.stat().st_mtime, reverse=True
+    )
+    logging.info(f"Found {len(job_files)} new jobs...")
 
-    job_files = list(watch_dir.glob("*.job"))
-
-    for job_file in job_files:
-        if PROGRAM_NAME and len(find_processes_matching(PROGRAM_NAME)) >= MAX_INSTANCES:
+    if PROGRAM_NAME:
+        n_instances_running = len(find_processes_matching(PROGRAM_NAME))
+        n_jobs_to_start = max(0, MAX_INSTANCES - n_instances_running)
+        if n_instances_running >= MAX_INSTANCES:
             logging.info(
-                f"Maximum number of instances ({MAX_INSTANCES}) reached. Exiting.."
+                f"Maximum number of instances ({n_instances_running}/{MAX_INSTANCES}) reached. Exiting.."
             )
-            break
+            return
+    else:
+        n_jobs_to_start = len(job_files)
+
+    for job_file in job_files[:n_jobs_to_start]:
         try:
             process_job_file(job_file)
-        except KeyboardInterrupt:
-            raise
-        except Exception:
+        except Exception:  # noqa: PERF203
             logging.exception("Error processing job files.")
             processed_file = job_file.with_suffix(".job.error.processed")
             job_file.rename(processed_file)
@@ -261,7 +266,6 @@ def main() -> int:
     args = parser.parse_args()
 
     watch_dir = Path(args.watch_dir)
-    logging.info(f"Using watch directory: {watch_dir}")
 
     watch_directory(watch_dir)
 

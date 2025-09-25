@@ -28,12 +28,12 @@ def _get_job_handler(engine: str | None = None) -> "JobHandler":
     engine = engine or ENGINE
 
     if engine == "generic":
-        from jobs._experimental.generic_file_handler import GenericJobHandler
+        from jobs._experimental.generic_job_handler import GenericJobHandler
 
         logging.info("Using GenericJobHandler")
         return GenericJobHandler()
     if engine == "file_based":
-        from jobs._experimental.file_based_handler import FileBasedJobHandler
+        from jobs._experimental.file_based_job_handler import FileBasedJobHandler
 
         logging.info("Using FileBasedJobHandler")
         return FileBasedJobHandler()

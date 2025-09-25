@@ -129,27 +129,32 @@ class TestFileBasedJobHandler:
         # then
         assert status == JobStates.PENDING
 
+    @pytest.mark.parametrize(
+        ("read_data", "expected_status"),
+        [
+            ("", JobStates.RUNNING),
+            ("Starting job\nCOMPLETED\n", JobStates.COMPLETED),
+            ("Starting job\nFAILED\n", JobStates.FAILED),
+            ("Starting job\nSome log output\n\n", JobStates.RUNNING),
+        ],
+    )
     @patch("jobs._experimental.file_based_job_handler.get_raw_file_by_id")
     @patch("jobs._experimental.file_based_job_handler._get_project_id_or_fallback")
     @patch(
         "jobs._experimental.file_based_job_handler.get_internal_output_path_for_raw_file"
     )
     @patch("jobs._experimental.file_based_job_handler.Path.exists")
-    @patch(
-        "jobs._experimental.file_based_job_handler.Path.open",
-        new_callable=mock_open,
-        read_data="",
-    )
-    def test_get_job_status_should_return_running_when_status_file_is_empty(  # noqa: PLR0913
+    def test_get_job_status_should_return_correct_status_based_on_file_content(  # noqa: PLR0913
         self,
-        mock_file_open: MagicMock,  # noqa: ARG002
         mock_exists: MagicMock,
         mock_get_path: MagicMock,
         mock_get_project: MagicMock,
         mock_get_raw_file: MagicMock,
         mock_raw_file: MagicMock,
+        read_data: str,
+        expected_status: str,
     ) -> None:
-        """Test that get_job_status returns RUNNING when status file is empty."""
+        """Test that get_job_status returns correct status based on file content."""
         # given
         handler = FileBasedJobHandler()
         mock_get_raw_file.return_value = mock_raw_file
@@ -158,109 +163,11 @@ class TestFileBasedJobHandler:
         mock_exists.return_value = True
 
         # when
-        status = handler.get_job_status("test_raw_file_123")
+        with patch(
+            "jobs._experimental.file_based_job_handler.Path.open",
+            mock_open(read_data=read_data),
+        ):
+            status = handler.get_job_status("test_raw_file_123")
 
         # then
-        assert status == JobStates.RUNNING
-
-    @patch("jobs._experimental.file_based_job_handler.get_raw_file_by_id")
-    @patch("jobs._experimental.file_based_job_handler._get_project_id_or_fallback")
-    @patch(
-        "jobs._experimental.file_based_job_handler.get_internal_output_path_for_raw_file"
-    )
-    @patch("jobs._experimental.file_based_job_handler.Path.exists")
-    @patch(
-        "jobs._experimental.file_based_job_handler.Path.open",
-        new_callable=mock_open,
-        read_data="Starting job\nCOMPLETED\n",
-    )
-    def test_get_job_status_should_return_completed_when_last_line_is_completed(  # noqa: PLR0913
-        self,
-        mock_file_open: MagicMock,  # noqa: ARG002
-        mock_exists: MagicMock,
-        mock_get_path: MagicMock,
-        mock_get_project: MagicMock,
-        mock_get_raw_file: MagicMock,
-        mock_raw_file: MagicMock,
-    ) -> None:
-        """Test that get_job_status returns COMPLETED when last non-empty line is COMPLETED."""
-        # given
-        handler = FileBasedJobHandler()
-        mock_get_raw_file.return_value = mock_raw_file
-        mock_get_project.return_value = "test_project"
-        mock_get_path.return_value = Path("/test/output")
-        mock_exists.return_value = True
-
-        # when
-        status = handler.get_job_status("test_raw_file_123")
-
-        # then
-        assert status == JobStates.COMPLETED
-
-    @patch("jobs._experimental.file_based_job_handler.get_raw_file_by_id")
-    @patch("jobs._experimental.file_based_job_handler._get_project_id_or_fallback")
-    @patch(
-        "jobs._experimental.file_based_job_handler.get_internal_output_path_for_raw_file"
-    )
-    @patch("jobs._experimental.file_based_job_handler.Path.exists")
-    @patch(
-        "jobs._experimental.file_based_job_handler.Path.open",
-        new_callable=mock_open,
-        read_data="Starting job\nFAILED\n",
-    )
-    def test_get_job_status_should_return_failed_when_last_line_is_failed(  # noqa: PLR0913
-        self,
-        mock_file_open: MagicMock,  # noqa: ARG002
-        mock_exists: MagicMock,
-        mock_get_path: MagicMock,
-        mock_get_project: MagicMock,
-        mock_get_raw_file: MagicMock,
-        mock_raw_file: MagicMock,
-    ) -> None:
-        """Test that get_job_status returns FAILED when last non-empty line is FAILED."""
-        # given
-        handler = FileBasedJobHandler()
-        mock_get_raw_file.return_value = mock_raw_file
-        mock_get_project.return_value = "test_project"
-        mock_get_path.return_value = Path("/test/output")
-        mock_exists.return_value = True
-
-        # when
-        status = handler.get_job_status("test_raw_file_123")
-
-        # then
-        assert status == JobStates.FAILED
-
-    @patch("jobs._experimental.file_based_job_handler.get_raw_file_by_id")
-    @patch("jobs._experimental.file_based_job_handler._get_project_id_or_fallback")
-    @patch(
-        "jobs._experimental.file_based_job_handler.get_internal_output_path_for_raw_file"
-    )
-    @patch("jobs._experimental.file_based_job_handler.Path.exists")
-    @patch(
-        "jobs._experimental.file_based_job_handler.Path.open",
-        new_callable=mock_open,
-        read_data="Starting job\nSome log output\n\n",
-    )
-    def test_get_job_status_should_return_running_when_last_line_is_not_status(  # noqa: PLR0913
-        self,
-        mock_file_open: MagicMock,  # noqa: ARG002
-        mock_exists: MagicMock,
-        mock_get_path: MagicMock,
-        mock_get_project: MagicMock,
-        mock_get_raw_file: MagicMock,
-        mock_raw_file: MagicMock,
-    ) -> None:
-        """Test that get_job_status returns RUNNING when last non-empty line is not a status."""
-        # given
-        handler = FileBasedJobHandler()
-        mock_get_raw_file.return_value = mock_raw_file
-        mock_get_project.return_value = "test_project"
-        mock_get_path.return_value = Path("/test/output")
-        mock_exists.return_value = True
-
-        # when
-        status = handler.get_job_status("test_raw_file_123")
-
-        # then
-        assert status == JobStates.RUNNING
+        assert status == expected_status

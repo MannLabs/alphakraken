@@ -58,14 +58,6 @@ class FileBasedJobHandler(JobHandler):
         del year_month_folder  # unused
 
         raw_file_id = environment[QuantingEnv.RAW_FILE_ID]
-        try:
-            self._job_submit_dir.mkdir(exist_ok=True)
-        except OSError:
-            logging.info(
-                "For this job handler, you need to change the bind mount of the output folder in docker-compose.yml to type 'rw' (read-write)."
-            )
-            logging.exception("Failed to create job submit directory.")
-
         job_file_path = self._job_submit_dir / f"{raw_file_id}.job"
 
         if job_file_path.exists():
@@ -75,15 +67,24 @@ class FileBasedJobHandler(JobHandler):
 
         logging.info(f"Creating job file at {job_file_path}")
 
-        with job_file_path.open("w") as f:
-            for key, value in environment.items():
-                if key in [
-                    QuantingEnv.RAW_FILE_ID,
-                    QuantingEnv.OUTPUT_PATH,
-                    QuantingEnv.RELATIVE_OUTPUT_PATH,
-                    QuantingEnv.CUSTOM_COMMAND,
-                ]:
-                    f.write(f"{key}={value}\n")
+        try:
+            self._job_submit_dir.mkdir(exist_ok=True)
+
+            with job_file_path.open("w") as f:
+                for key, value in environment.items():
+                    if key in [
+                        QuantingEnv.RAW_FILE_ID,
+                        QuantingEnv.OUTPUT_PATH,
+                        QuantingEnv.RELATIVE_OUTPUT_PATH,
+                        QuantingEnv.CUSTOM_COMMAND,
+                    ]:
+                        f.write(f"{key}={value}\n")
+        except OSError as e:
+            logging.info(
+                "For this job handler, you need to change the bind mount of the output folder in docker-compose.yml to type 'rw' (read-write)."
+            )
+            logging.exception("Failed to create job submit directory.")
+            raise AirflowFailException from e
 
         logging.info(f"Job file created for raw_file_id: {raw_file_id}")
         return raw_file_id

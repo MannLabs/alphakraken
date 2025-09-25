@@ -65,6 +65,10 @@ def display_settings(
 
     # beautify
     filtered_df = filtered_df.drop(columns=["_id"], errors="ignore").fillna("")
+    if "config_params" in filtered_df.columns:
+        filtered_df["config_params"] = filtered_df["config_params"].apply(
+            lambda x: f"`{x}`" if x else x
+        )
 
     st_display.table(
         filtered_df.style.apply(

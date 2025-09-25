@@ -5,7 +5,9 @@
 
 Notes:
     - requires an external process to monitor the `job_queue` directory, execute jobs accordingly, and update the `job_status.log` file.
+        See the `misc/job_queue_watcher/job_queue_watcher.py` script for an example implementation.
     - requires the bind mount of the output folder in docker-compose.yml to be of type "rw" (read-write), not "ro" (read-only).
+    - requires key 'locations.software.absolute_path: ""' in alphakraken.{env}.yaml
 
 """
 
@@ -49,7 +51,7 @@ class FileBasedJobHandler(JobHandler):
             year_month_folder: Folder for job outputs (ignored for file-based handler)
 
         Returns:
-            Job ID (dummy value)
+            Job ID (in the case of this handler, it's the raw file id)
 
         """
         del job_script_name  # unused
@@ -84,7 +86,7 @@ class FileBasedJobHandler(JobHandler):
                     f.write(f"{key}={value}\n")
 
         logging.info(f"Job file created for raw_file_id: {raw_file_id}")
-        return "0"
+        return raw_file_id
 
     def get_job_status(self, job_id: str) -> str:
         """Get the status of a job by checking the job_status.log file.

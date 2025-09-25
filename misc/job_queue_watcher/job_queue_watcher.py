@@ -213,11 +213,11 @@ def watch_directory(watch_dir: Path) -> None:
     logging.info(f"Found {len(job_files)} new jobs...")
 
     if PROGRAM_NAME:
-        n_instances_running = len(find_processes_matching(PROGRAM_NAME))
-        n_jobs_to_start = max(0, MAX_INSTANCES - n_instances_running)
-        if n_instances_running >= MAX_INSTANCES:
+        instances_running = find_processes_matching(PROGRAM_NAME)
+        n_jobs_to_start = max(0, MAX_INSTANCES - len(instances_running))
+        if len(instances_running) >= MAX_INSTANCES:
             logging.info(
-                f"Maximum number of instances ({n_instances_running}/{MAX_INSTANCES}) reached. Exiting.."
+                f"Maximum number of instances ({len(instances_running)}/{MAX_INSTANCES}) reached. Exiting..\n{instances_running}"
             )
             return
     else:

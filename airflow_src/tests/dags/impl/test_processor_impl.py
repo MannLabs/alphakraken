@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, call, mock_open, patch
 
 import pytest
 import pytz
-from airflow.exceptions import AirflowFailException
+from airflow.exceptions import AirflowFailException, AirflowSkipException
 from common.settings import _INSTRUMENTS
 from dags.impl.processor_impl import (
     _get_project_id_or_fallback,
@@ -898,6 +898,42 @@ def test_compute_metrics(
         mock_ti, XComKeys.METRICS, {"metric1": "value1", "quanting_time_elapsed": 123}
     )
     mock_put_xcom.assert_any_call(mock_ti, XComKeys.METRICS_TYPE, "alphadia")
+
+
+@patch("dags.impl.processor_impl.get_xcom")
+@patch("dags.impl.processor_impl.get_raw_file_by_id")
+@patch("dags.impl.processor_impl.calc_metrics")
+def test_compute_metrics_msqc_file_not_found_raises_skip_exception(
+    mock_calc_metrics: MagicMock,
+    mock_get_raw_file_by_id: MagicMock,
+    mock_get_xcom: MagicMock,
+) -> None:
+    """Test that compute_metrics raises AirflowSkipException when calc_metrics fails with FileNotFoundError for MSQC."""
+    mock_ti = MagicMock()
+
+    mock_get_xcom.return_value = {
+        "RAW_FILE_ID": "test_file.raw",
+        "PROJECT_ID_OR_FALLBACK": "P1",
+        "SOFTWARE_TYPE": "alphadia",
+    }
+    mock_raw_file = MagicMock(
+        wraps=RawFile,
+        id="test_file.raw",
+        created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
+    )
+    mock_get_raw_file_by_id.return_value = mock_raw_file
+
+    # Simulate FileNotFoundError from calc_metrics for MSQC metrics type
+    mock_calc_metrics.side_effect = FileNotFoundError("Metrics file not found")
+
+    # when & then
+    with pytest.raises(AirflowSkipException):
+        compute_metrics(mock_ti, metrics_type="msqc")
+
+    mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
+    mock_calc_metrics.assert_called_once_with(
+        Path("/opt/airflow/mounts/output/P1/out_test_file.raw"), metrics_type="msqc"
+    )
 
 
 @patch("dags.impl.processor_impl.get_xcom")

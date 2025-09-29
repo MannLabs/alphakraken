@@ -4,7 +4,7 @@ import json
 import logging
 from pathlib import Path
 
-from airflow.exceptions import AirflowFailException
+from airflow.exceptions import AirflowFailException, AirflowSkipException
 from airflow.models import TaskInstance
 from common.constants import (
     DEFAULT_JOB_SCRIPT_NAME,
@@ -456,7 +456,17 @@ def compute_metrics(
             SoftwareTypes.CUSTOM: MetricsTypes.CUSTOM,
         }[quanting_env[QuantingEnv.SOFTWARE_TYPE]]
 
-    metrics = calc_metrics(output_path, metrics_type=metrics_type)
+    try:
+        metrics = calc_metrics(output_path, metrics_type=metrics_type)
+    except FileNotFoundError as e:
+        if metrics_type == MetricsTypes.MSQC:
+            # currently, ignore failed MSQC metrics calculation, these runs will usually also fail AlphaDIA
+            # TODO: find a better way to handle msqc errors
+            logging.warning(
+                f"Could not calculate metrics of type {metrics_type}, skipping metrics calculation."
+            )
+            raise AirflowSkipException from e
+        raise
 
     if (
         add_quanting_time_elapsed

@@ -14,9 +14,9 @@ echo Starting backup: $START_DATE
 
 TARGET="${TARGET_FOLDER}/$(date +\%A | tr '[:upper:]' '[:lower:]')"
 if [ "$TYPE_OF_BACKUP" == "hourly" ]; then
-    rsync -rltvz --delete $MONGODB_FOLDER    $TARGET_FOLDER/hourly >> $TARGET_FOLDER/dbbackups_hourly.log  2>&1
+    rsync -rltvz --delete "$MONGODB_FOLDER" "$TARGET_FOLDER"/hourly >> "$TARGET_FOLDER"/dbbackups_hourly.log  2>&1
 else
-    rsync -rltvz --delete $MONGODB_FOLDER   "$TARGET/" >> $TARGET_FOLDER/dbbackups.log  2>&1
+    rsync -rltvz --delete "$MONGODB_FOLDER" "$TARGET/" >> "$TARGET_FOLDER"/dbbackups.log  2>&1
 fi
 
 

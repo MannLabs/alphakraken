@@ -96,6 +96,7 @@ def test_overview(
             ],
             "status": ["ok", "ok"],
             "status_details": ["", ""],
+            "entity_type": ["instrument", "instrument"],
         }
     )
 

@@ -254,6 +254,12 @@ def display_status(combined_df: pd.DataFrame, status_data_df: pd.DataFrame) -> N
     for _, filesystem_row in filesystem_entries.iterrows():
         all_entries.append(("filesystem", filesystem_row["_id"], None, filesystem_row))
 
+    job_entries = status_data_df[
+        status_data_df["entity_type"] == KrakenStatusEntities.JOB
+    ]
+    for _, job_row in job_entries.iterrows():
+        all_entries.append(("job", job_row["_id"], None, job_row))
+
     # Process all entries uniformly
     for entry_type, entry_id, raw_files_df, status_row in all_entries:
         display_name = (

@@ -448,14 +448,17 @@ def get_terminal_status_counts(
     return "; ".join(result)
 
 
-def get_full_backup_path(df: pd.DataFrame) -> tuple[list, bool]:  # noqa: C901 (too complex)
+def get_full_backup_path(df: pd.DataFrame) -> tuple[list, bool, list]:  # noqa: C901 (too complex)
     """Construct full path to files by concatenating 'backup_base_path' with the relevant keys from the 'file_info' dictionary.
 
     Args:
         df (pd.DataFrame): DataFrame containing the columns 'backup_base_path' and 'file_info'.
 
     Returns:
-        paths, is_multiple_types: A list of backup paths and a boolean indicating if multiple instrument types are present.
+        paths, is_multiple_types, errors:
+        A list of backup paths,
+        a boolean indicating if multiple instrument types are present,
+        a list of errors (if any)
 
     """
 
@@ -473,25 +476,29 @@ def get_full_backup_path(df: pd.DataFrame) -> tuple[list, bool]:  # noqa: C901 (
 
         raise ValueError(f"Unknown file type in {file_info=}")
 
-    def _get_concatenated_path(raw_file_row: pd.Series) -> tuple[list[str], str]:
+    def _get_concatenated_path(
+        raw_file_row: pd.Series,
+    ) -> tuple[list[str], str | None, str | None]:
         """Get the concatenated path(s) for a raw file.
 
         - one .raw file for Thermo
         - one .d folder for Brujker
         - multiple .wiff* files for Sciex
+
+        :return: list of paths, instrument type (None if not found), error (None if no error)
         """
         backup_base_path_str = raw_file_row.get("backup_base_path", "")
         file_info = raw_file_row.get("file_info", {})
 
         if not backup_base_path_str or not file_info:
-            raise ValueError(
-                f"Missing {backup_base_path_str=} or {file_info=} for file {raw_file_row['_id']}. Please exclude from selection."
-            )
+            error = f"{raw_file_row['_id']}: missing {backup_base_path_str=} or {file_info=}."
+            return [], None, error
 
         backup_base_path = Path(backup_base_path_str)
-        instrument_type = _get_instrument_type(file_info)
 
+        instrument_type = _get_instrument_type(file_info)
         paths = []
+
         if instrument_type == InstrumentTypes.THERMO:
             first_file_path = next(iter(file_info))
             paths.append(backup_base_path / first_file_path)
@@ -508,13 +515,14 @@ def get_full_backup_path(df: pd.DataFrame) -> tuple[list, bool]:  # noqa: C901 (
                     paths.append(backup_base_path / "/".join(paths_))
                     break
 
-        return paths, instrument_type
+        return paths, instrument_type, None
 
     result = [
         r for r in df.apply(_get_concatenated_path, axis=1).tolist() if r is not None
     ]
 
-    unique_instrument_types = {sublist[1] for sublist in result}
-    return [str(path) for sublist in result for path in sublist[0]], len(
-        unique_instrument_types
-    ) > 1
+    paths = [str(path) for row_result in result for path in row_result[0]]
+    unique_instrument_types = {row_result[1] for row_result in result} - {None}
+    error = [row_result[2] for row_result in result if row_result[2] is not None]
+
+    return paths, len(unique_instrument_types) > 1, error

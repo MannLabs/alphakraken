@@ -461,6 +461,7 @@ def compute_metrics(
     except FileNotFoundError as e:
         if metrics_type == MetricsTypes.MSQC:
             # currently, ignore failed MSQC metrics calculation, these runs will usually also fail AlphaDIA
+            # TODO: find a better way to handle msqc errors
             logging.warning(
                 f"Could not calculate metrics of type {metrics_type}, skipping metrics calculation."
             )

@@ -13,6 +13,7 @@ from alerts import (
     RawFileErrorAlert,
     StaleStatusAlert,
     StatusPileUpAlert,
+    WebAppHealthAlert,
     config,
 )
 from messenger_clients import send_message
@@ -39,6 +40,7 @@ class AlertManager:
             StatusPileUpAlert(),
             InstrumentFilePileUpAlert(),
             RawFileErrorAlert(),
+            WebAppHealthAlert(),
         ]
 
     def check_for_issues(self) -> None:

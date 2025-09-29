@@ -13,6 +13,7 @@ class EnvVars:
     MONGO_PASSWORD = "MONGO_PASSWORD"  # noqa: S105  #Possible hardcoded password
 
     MESSENGER_WEBHOOK_URL = "MESSENGER_WEBHOOK_URL"  # TODO: move to yaml
+    WEBAPP_URL = "WEBAPP_URL"
 
 
 class InstrumentTypes:

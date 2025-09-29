@@ -490,11 +490,11 @@ def get_full_backup_path(df: pd.DataFrame) -> tuple[list, bool, list]:  # noqa: 
         backup_base_path_str = raw_file_row.get("backup_base_path", "")
         file_info = raw_file_row.get("file_info", {})
 
-        backup_base_path = Path(backup_base_path_str)
-
         if not backup_base_path_str or not file_info:
             error = f"{raw_file_row['_id']}: missing {backup_base_path_str=} or {file_info=}."
             return [], None, error
+
+        backup_base_path = Path(backup_base_path_str)
 
         instrument_type = _get_instrument_type(file_info)
         paths = []

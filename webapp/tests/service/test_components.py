@@ -277,9 +277,10 @@ def test_get_full_backup_path_handles_thermo_files() -> None:
             "file_info": [{"file1.raw": [1, "hash1"]}],
         }
     )
-    paths, is_multiple_types = get_full_backup_path(df)
+    paths, is_multiple_types, errors = get_full_backup_path(df)
     assert paths == ["/backup/path/file1.raw"]
     assert not is_multiple_types
+    assert errors == []
 
 
 def test_get_full_backup_path_handles_sciex_files() -> None:
@@ -292,9 +293,10 @@ def test_get_full_backup_path_handles_sciex_files() -> None:
             ],
         }
     )
-    paths, is_multiple_types = get_full_backup_path(df)
+    paths, is_multiple_types, errors = get_full_backup_path(df)
     assert paths == ["/backup/path/file1.wiff", "/backup/path/file2.wiff.scan"]
     assert not is_multiple_types
+    assert errors == []
 
 
 def test_get_full_backup_path_handles_bruker_files() -> None:
@@ -307,21 +309,34 @@ def test_get_full_backup_path_handles_bruker_files() -> None:
             ],
         }
     )
-    paths, is_multiple_types = get_full_backup_path(df)
+    paths, is_multiple_types, errors = get_full_backup_path(df)
     assert paths == ["/backup/path/folder.d"]
     assert not is_multiple_types
+    assert errors == []
 
 
-def test_get_full_backup_path_raises_on_missing_data() -> None:
-    """Test that the function raises an error when both backup_base_path and file_info are missing."""
+def test_get_full_backup_path_returns_errors_on_missing_data() -> None:
+    """Test that the function handles errors correctly."""
     df = pd.DataFrame(
-        {"_id": ["some_file.raw"], "backup_base_path": [None], "file_info": [None]}
+        {
+            "_id": ["file1.raw", "file2.raw", "file3.raw", "file4.raw"],
+            "backup_base_path": ["/backup/path", None, "/backup/path", "/backup/path"],
+            "file_info": [
+                {"file1.raw": [1, "hash1"]},
+                {"file2.raw": [1, "hash1"]},
+                {},
+                None,
+            ],
+        }
     )
-    with pytest.raises(
-        ValueError,
-        match="Missing backup_base_path_str=None or file_info=None for file some_file.raw. Please exclude from selection.",
-    ):
-        get_full_backup_path(df)
+    paths, is_multiple_types, errors = get_full_backup_path(df)
+    assert paths == ["/backup/path/file1.raw"]
+    assert not is_multiple_types
+    assert errors == [
+        "file2.raw: missing backup_base_path_str=None or file_info={'file2.raw': [1, 'hash1']}.",
+        "file3.raw: missing backup_base_path_str='/backup/path' or file_info={}.",
+        "file4.raw: missing backup_base_path_str='/backup/path' or file_info=None.",
+    ]
 
 
 def test_get_full_backup_path_detects_multiple_instrument_types() -> None:
@@ -332,5 +347,6 @@ def test_get_full_backup_path_detects_multiple_instrument_types() -> None:
             "file_info": [{"file1.raw": [1, "hash1"]}, {"file1.wiff": [1, "hash1"]}],
         }
     )
-    paths, is_multiple_types = get_full_backup_path(df)
+    paths, is_multiple_types, errors = get_full_backup_path(df)
     assert is_multiple_types
+    assert errors == []

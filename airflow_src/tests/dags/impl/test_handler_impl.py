@@ -788,7 +788,7 @@ def test_decide_processing_returns_false_if_special_characters(
 @patch("dags.impl.handler_impl.get_raw_file_by_id", return_value=MagicMock())
 @patch("dags.impl.handler_impl.get_instrument_settings", return_value=False)
 @patch("dags.impl.handler_impl._count_special_characters", return_value=0)
-@patch("dags.impl.handler_impl.RawFileMonitorWrapper", return_value=MagicMock())
+@patch("dags.impl.handler_impl.ThermoRawFileMonitorWrapper", return_value=MagicMock())
 @patch("dags.impl.handler_impl.update_raw_file")
 def test_decide_processing_returns_false_if_corrupted_file(  # noqa: PLR0913
     mock_update_raw_file: MagicMock,

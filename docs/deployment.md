@@ -359,6 +359,7 @@ Then, you can run the MCP server using the following configuration files.
         "-e", "MONGO_HOST=<MONGO_HOST>",
         "-e", "MONGO_USER=<MONGO_USER_READ>",
         "-e", "MONGO_PASSWORD=<MONGO_PASSWORD_READ>",
+        "-e", "MCP_TRANSPORT=stdio",
         "mcpserver"
       ]
     }
@@ -366,6 +367,7 @@ Then, you can run the MCP server using the following configuration files.
 }
 ```
 where the variables need to be set according to the `envs/${ENV}.env` file.
+`MCP_TRANSPORT` can also be set to `streamable-http` to run the server in http mode (default port: 8089, override by `MCP_PORT`).
 
 Alternatively, use the MongoDB MCP server, which offers a "bare" view on the MongoDB collections.
 ```

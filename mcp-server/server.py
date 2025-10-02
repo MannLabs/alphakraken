@@ -1,11 +1,14 @@
 """A MCP server for accessing data in the AlphaKraken database."""
 
+import logging
 import math
+import os
 
 # ruff: noqa: T201  # `print` found
 # ruff: noqa: BLE001  # Do not catch blind exception
 # ruff: noqa: ANN401  #  Dynamically typed expressions (typing.Any) are disallowed
 import sys
+from collections import defaultdict
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -14,9 +17,10 @@ from mcp.server.fastmcp import FastMCP
 from mongoengine import QuerySet
 
 from shared.db.engine import connect_db
-from shared.db.models import KrakenStatus, Metrics, RawFile
+from shared.db.models import KrakenStatus, KrakenStatusEntities, Metrics, RawFile
 
-mcp = FastMCP("AlphaKraken")
+mcp = FastMCP(name="AlphaKraken")
+logger = logging.getLogger(__name__)
 
 
 def _format(x: Any, n_digits: int = 5) -> Any:
@@ -52,6 +56,7 @@ def _format(x: Any, n_digits: int = 5) -> Any:
 
 
 raw_file_keys_whitelist = [
+    "instrument_id",
     "status",
     "status_details",
     "size",
@@ -77,16 +82,17 @@ def get_available_instruments() -> list[dict[str, Any]]:
     try:
         connect_db()
 
-        instruments = KrakenStatus.objects()
+        kraken_status_objects = KrakenStatus.objects()
         results = []
 
-        for instrument in instruments:
-            instrument_dict = dict(instrument.to_mongo())
-            results.append(
-                {
-                    "instrument_id": instrument_dict["_id"],
-                }
-            )
+        for id_ in kraken_status_objects:
+            data_dict = dict(id_.to_mongo())
+            if data_dict["entity_type"] == KrakenStatusEntities.INSTRUMENT:
+                results.append(
+                    {
+                        "instrument_id": data_dict["_id"],
+                    }
+                )
 
     except Exception as e:
         msg = f"Failed to retrieve instrument data: {e}"
@@ -182,6 +188,33 @@ def get_raw_files_for_instrument(
     return results
 
 
+def _flatten_metrics(
+    nested_dict: dict[str, dict[str, Any]],
+) -> dict[str, float | int | str]:
+    """Flatten metrics from different types into a single dict with type prefixes for conflicts.
+
+    On key collisions, only the new key will carry a prefix.
+    The assumption is that collisions are rare and only happen for very generic keys like "proteins".
+    """
+    flattened = {}
+    if not nested_dict:
+        return flattened
+
+    for metrics_type, metrics_data in nested_dict.items():
+        for key, value in metrics_data.items():
+            if key == "type":
+                continue
+
+            # Check if key already exists from another type
+            if key not in flattened:
+                flattened[key] = value
+            else:
+                prefixed_key = f"{metrics_type}_{key}"
+                flattened[prefixed_key] = value
+
+    return flattened
+
+
 def augment_raw_files_with_metrics(
     raw_files: QuerySet,
     *,
@@ -216,13 +249,18 @@ def augment_raw_files_with_metrics(
         raw_file__in=list(raw_files_dict.keys())
     ).order_by("-created_at_"):
         metrics = dict(metrics_.to_mongo())
-        raw_files_dict[metrics["raw_file"]]["metrics"] = (
-            metrics  # here we overwrite older metrics for a raw file if any #TODO: this won't work for different metrics types
-        )
+        raw_file_id = metrics["raw_file"]
+        if "metrics" not in raw_files_dict[raw_file_id]:
+            raw_files_dict[raw_file_id]["metrics"] = defaultdict(dict)
+
+        metrics_type = metrics.get("type", "default")
+
+        if metrics_type not in raw_files_dict[raw_file_id]["metrics"]:
+            raw_files_dict[raw_file_id]["metrics"][metrics_type] = metrics
 
     results = []
     for raw_file in raw_files_dict.values():
-        metrics = raw_file.get("metrics")
+        metrics = _flatten_metrics(raw_file.get("metrics"))
 
         if gradient_length_filter and (
             not metrics
@@ -237,7 +275,9 @@ def augment_raw_files_with_metrics(
             {
                 k: _format(v)
                 for k, v in metrics.items()
-                if k not in metrics_keys_blacklist
+                if not any(
+                    k.endswith(blk) for blk in metrics_keys_blacklist
+                )  # using endswith to also consider prefix keys (hacky!)
                 and (k in basic_metrics_keys or not only_basic_metrics)
             }
             if metrics
@@ -259,5 +299,19 @@ def augment_raw_files_with_metrics(
     return results
 
 
-# get_raw_files("astral2", max_age_in_days=30)  # only for debugging
-mcp.run()
+mcp_transport = os.getenv("MCP_TRANSPORT", "stdio")
+
+if mcp_transport == "stdio":
+    mcp.run()
+elif mcp_transport == "streamable-http":
+    # https://github.com/jlowin/fastmcp/issues/873#issuecomment-2997928922
+    # Intentionally binding to all interfaces for container deployment
+    mcp.settings.host = "0.0.0.0"  # noqa: S104
+    mcp.settings.port = int(os.getenv("MCP_PORT", None))
+    mcp.run(transport="streamable-http")
+elif mcp_transport == "disabled":
+    logging.info("MCP server disabled, not starting.")
+else:
+    raise ValueError(
+        "Please select a supported MCP transport type: stdio,streamable-http,disabled"
+    )

@@ -335,16 +335,7 @@ This separation follows the principle of least privilege, ensuring each componen
 
 
 ## MCP Servers
-To use the custom AlphaKraken MCP server, you first need to build the `mcpserver` container:
-```
-docker build -t mcpserver -f mcp-server/Dockerfile .
-```
-Check if it start without errors:
-```bash
-docker run -t mcpserver
-```
-
-Then, you can run the MCP server using the following configuration files.
+Set up the MCP server using the following configuration:
 ```
 {
   "mcpServers": {
@@ -360,7 +351,7 @@ Then, you can run the MCP server using the following configuration files.
         "-e", "MONGO_USER=<MONGO_USER_READ>",
         "-e", "MONGO_PASSWORD=<MONGO_PASSWORD_READ>",
         "-e", "MCP_TRANSPORT=stdio",
-        "mcpserver"
+        "mannlabs/alphakraken-mcp-server:latest"
       ]
     }
   }
@@ -369,24 +360,16 @@ Then, you can run the MCP server using the following configuration files.
 where the variables need to be set according to the `envs/${ENV}.env` file.
 `MCP_TRANSPORT` can also be set to `streamable-http` to run the server in http mode (default port: 8089, override by `MCP_PORT`).
 
-Alternatively, use the MongoDB MCP server, which offers a "bare" view on the MongoDB collections.
+Alternatively, create the image yourself. First build the `alphakraken-mcp-server` container
 ```
-{
-  "mcpServers": {
-    "AlphaKrakenMongoDB": {
-      "command": "docker",
-      "args": [
-        "run",
-        "--rm",
-        "-i",
-        "-e", "MDB_MCP_CONNECTION_STRING=mongodb://<MONGO_USER_READ>:<MONGO_PASSWORD_READ>@<MONGO_HOST>:<MONGO_PORT>/?authSource=krakendb",
-        "mongodb/mongodb-mcp-server:latest"
-      ]
-    }
-  }
-}
+docker build -t alphakraken-mcp-server -f mcp-server/Dockerfile .
 ```
-See the [MongoDB MCP Server documentation](https://github.com/mongodb-js/mongodb-mcp-server) for more details.
+and check if it start without errors
+```bash
+docker run -t alphakraken-mcp-server
+```
+Finally, substitute `mannlabs/alphakraken-mcp-server:latest` -> `alphakraken-mcp-server` in the above configuration.
+
 
 ## Automated MongoDB Database Backups
 

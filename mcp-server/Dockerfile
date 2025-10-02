@@ -14,11 +14,9 @@ RUN pip install --upgrade pip && pip install -r requirements_mcp.txt && pip inst
 COPY mcp-server/server.py .
 COPY shared shared
 
-# Set default environment variables for container
-ENV MCP_TRANSPORT=streamable-http
+# only required for streamable-http
 ENV MCP_PORT=8089
-
-EXPOSE 8089
+EXPOSE $MCP_PORT
 
 CMD ["python", "/app/server.py"]
 

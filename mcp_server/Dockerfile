@@ -7,11 +7,11 @@ ENV PYTHONUNBUFFERED=1
 WORKDIR /app
 
 # Install Python dependencies
-COPY mcp-server/requirements_mcp.txt .
+COPY mcp_server/requirements_mcp.txt .
 COPY shared/requirements_shared.txt .
 RUN pip install --upgrade pip && pip install -r requirements_mcp.txt && pip install -r requirements_shared.txt
 
-COPY mcp-server/server.py .
+COPY mcp_server/server.py .
 COPY shared shared
 
 # only required for streamable-http

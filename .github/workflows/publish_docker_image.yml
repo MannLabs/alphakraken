@@ -17,6 +17,6 @@ jobs:
       docker_username: ${{ secrets.DOCKER_USERNAME }}
     with:
       package_name: alphakraken-mcp-server
-      src_folder: mcp-server
-      dockerfile_path: ./mcp-server/Dockerfile
+      src_folder: mcp_server
+      dockerfile_path: ./mcp_server/Dockerfile
       tag_to_release: ${{ inputs.tag_to_release }}

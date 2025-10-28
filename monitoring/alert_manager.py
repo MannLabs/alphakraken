@@ -10,6 +10,7 @@ from alerts import (
     DiskSpaceAlert,
     HealthCheckFailedAlert,
     InstrumentFilePileUpAlert,
+    PumpPressureAlert,
     RawFileErrorAlert,
     StaleStatusAlert,
     StatusPileUpAlert,
@@ -41,6 +42,7 @@ class AlertManager:
             InstrumentFilePileUpAlert(),
             RawFileErrorAlert(),
             WebAppHealthAlert(),
+            PumpPressureAlert(),
         ]
 
     def check_for_issues(self) -> None:

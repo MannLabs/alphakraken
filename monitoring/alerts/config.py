@@ -55,3 +55,4 @@ class Cases:
     INSTRUMENT_FILE_PILE_UP = "instrument_file_pile_up"
     RAW_FILE_ERROR = "raw_file_error"
     WEBAPP_HEALTH = "webapp_health"
+    PUMP_PRESSURE_INCREASE = "pump_pressure_increase"

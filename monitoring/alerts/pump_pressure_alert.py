@@ -70,15 +70,15 @@ class PumpPressureAlert(BaseAlert):
             #     )
             #     continue
 
-            is_alert, pressures, pressure_changes = self._detect_pressure_increase(
+            is_alert, pressure_changes = self._detect_pressure_increase(
                 pressure_data, PUMP_PRESSURE_WINDOW_SIZE, PUMP_PRESSURE_THRESHOLD_BAR
             )
 
-            if False and is_alert:  # noqa: SIM223
+            if is_alert:
                 issues.append(
                     (
                         instrument_id,
-                        f"Pressure data: {pressures}; Pressure changes: {pressure_changes}",
+                        f"Pressure changes: {pressure_changes}",
                     )
                 )
 
@@ -105,7 +105,7 @@ class PumpPressureAlert(BaseAlert):
         pressure_data: list[tuple[float, float, datetime]],
         window_size: int,
         threshold: float,
-    ) -> tuple[bool, list[float], list[float]]:
+    ) -> tuple[bool, list[float]]:
         """Detect if pressure increases by more than threshold over the last window_size samples.
 
         Args:
@@ -114,16 +114,13 @@ class PumpPressureAlert(BaseAlert):
             threshold: pressure increase threshold to trigger alert
 
         Returns:
-            alerts: boolean array indicating where alerts would be triggered
-            pressure_changes: array of pressure changes over the window
+            is_alert: boolean flag indicating if alerts were detected
+            pressure_changes: list of pressure changes over the window
 
         """
-        alerts = []
-        pressure_changes = []
-        pressures = []
         latest_gradient_length = pressure_data[0][1]
 
-        logging.info(f"pressure_data: {pressure_data}")
+        # logging.info(f"pressure_data: {pressure_data}")
 
         pressure_data = sorted(
             pressure_data, reverse=False, key=lambda x: x[2]
@@ -134,6 +131,9 @@ class PumpPressureAlert(BaseAlert):
         ) -> bool:
             """Check if value is within relative tolerance of target."""
             return (1 - tolerance) < (value / target) < (1 + tolerance)
+
+        alerts = []
+        pressure_changes = []
 
         for i in range(len(pressure_data)):
             if not _within_pressure_tolerance(
@@ -147,7 +147,6 @@ class PumpPressureAlert(BaseAlert):
             ):
                 continue
 
-            pressures.append(pressure_data[i][0])
             if i >= window_size:
                 # Calculate pressure change over the window
                 current_pressure = pressure_data[i][0]
@@ -157,7 +156,7 @@ class PumpPressureAlert(BaseAlert):
                 pressure_changes.append(pressure_change)
                 alerts.append(pressure_change > threshold)
 
-        return any(alerts), pressures, pressure_changes
+        return any(alerts), pressure_changes
 
     def format_message(self, issues: list[tuple[str, str]]) -> str:
         """Format pump pressure alert message."""

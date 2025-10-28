@@ -132,7 +132,7 @@ class PumpPressureAlert(BaseAlert):
             """Check if value is within relative tolerance of target."""
             return (1 - tolerance) < (value / target) < (1 + tolerance)
 
-        alerts = []
+        is_alert = False
         pressure_changes = []
 
         for i in range(len(pressure_data)):
@@ -153,10 +153,11 @@ class PumpPressureAlert(BaseAlert):
                 past_pressure = pressure_data[i - window_size][0]
                 pressure_change = current_pressure - past_pressure
 
-                pressure_changes.append(pressure_change)
-                alerts.append(pressure_change > threshold)
+                if pressure_change > threshold:
+                    pressure_changes.append(pressure_change)
+                    is_alert = True
 
-        return any(alerts), pressure_changes
+        return is_alert, pressure_changes
 
     def format_message(self, issues: list[tuple[str, str]]) -> str:
         """Format pump pressure alert message."""

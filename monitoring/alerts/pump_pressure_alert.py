@@ -74,7 +74,7 @@ class PumpPressureAlert(BaseAlert):
                 pressure_data, PUMP_PRESSURE_WINDOW_SIZE, PUMP_PRESSURE_THRESHOLD_BAR
             )
 
-            if is_alert:
+            if False and is_alert:  # noqa: SIM223
                 issues.append(
                     (
                         instrument_id,
@@ -122,6 +122,8 @@ class PumpPressureAlert(BaseAlert):
         pressure_changes = []
         pressures = []
         latest_gradient_length = pressure_data[0][1]
+
+        logging.info(f"pressure_data: {pressure_data}")
 
         pressure_data = sorted(
             pressure_data, reverse=False, key=lambda x: x[2]

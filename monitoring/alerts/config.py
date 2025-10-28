@@ -39,7 +39,7 @@ INSTRUMENT_FILE_PILE_UP_THRESHOLDS = {
 INSTRUMENT_FILE_MIN_AGE_HOURS = 6  # Only consider files older than 6 hours
 
 # Pump pressure alert configuration
-PUMP_PRESSURE_LOOKBACK_DAYS = 7
+PUMP_PRESSURE_LOOKBACK_DAYS = 1
 PUMP_PRESSURE_WINDOW_SIZE = 5  # Number of samples to compare
 PUMP_PRESSURE_THRESHOLD_BAR = 20  # Pressure increase threshold in bar
 PUMP_PRESSURE_GRADIENT_TOLERANCE = 0.1

@@ -12,7 +12,9 @@ from shared.db.models import KrakenStatus, RawFile
 
 from .base_alert import BaseAlert
 from .config import (
+    PUMP_PRESSURE_GRADIENT_TOLERANCE,
     PUMP_PRESSURE_LOOKBACK_DAYS,
+    PUMP_PRESSURE_THRESHOLD_BAR,
     PUMP_PRESSURE_WINDOW_SIZE,
     Cases,
 )
@@ -71,7 +73,7 @@ class PumpPressureAlert(BaseAlert):
                 continue
 
             is_alert, pressures, pressure_changes = self._detect_pressure_increase(
-                pressure_data, 5, 20
+                pressure_data, PUMP_PRESSURE_WINDOW_SIZE, PUMP_PRESSURE_THRESHOLD_BAR
             )
 
             if is_alert:
@@ -127,9 +129,9 @@ class PumpPressureAlert(BaseAlert):
 
         for i in range(len(pressure_data)):
             if (
-                not 0.9  # noqa: PLR2004
+                not (1 - PUMP_PRESSURE_GRADIENT_TOLERANCE)
                 < (pressure_data[i - window_size][1] / latest_gradient_length)
-                < 1.1  # noqa: PLR2004
+                < (1 + PUMP_PRESSURE_GRADIENT_TOLERANCE)
             ):
                 continue
 

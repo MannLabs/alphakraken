@@ -59,18 +59,16 @@ class PumpPressureAlert(BaseAlert):
             raw_files, ["raw:gradient_length_m", "msqc_evosep_pump_hp_pressure_max"]
         )
 
-        # Group metrics by instrument
-        instrument_data = self._group_metrics_by_instrument(raw_files_with_metrics)
+        instrument_data = self._get_pressure_data_by_instrument(raw_files_with_metrics)
 
-        # Check each instrument separately
         issues = []
         for instrument_id, pressure_data in instrument_data.items():
-            if len(pressure_data) < PUMP_PRESSURE_WINDOW_SIZE + 1:
-                logging.debug(
-                    f"Not enough data points for {instrument_id}: "
-                    f"{len(pressure_data)} < {PUMP_PRESSURE_WINDOW_SIZE + 1}"
-                )
-                continue
+            # if len(pressure_data) < PUMP_PRESSURE_WINDOW_SIZE + 1:
+            #     logging.debug(
+            #         f"Not enough data points for {instrument_id}: "
+            #         f"{len(pressure_data)} < {PUMP_PRESSURE_WINDOW_SIZE + 1}"
+            #     )
+            #     continue
 
             is_alert, pressures, pressure_changes = self._detect_pressure_increase(
                 pressure_data, PUMP_PRESSURE_WINDOW_SIZE, PUMP_PRESSURE_THRESHOLD_BAR
@@ -86,19 +84,21 @@ class PumpPressureAlert(BaseAlert):
 
         return issues
 
-    def _group_metrics_by_instrument(
+    def _get_pressure_data_by_instrument(
         self, raw_files_with_metrics: dict[str, Any]
     ) -> dict[str, list[tuple[float, float, datetime]]]:
         """Group metrics by instrument, flatten to a tuple (pump_pressure, gradient_length, created_at,)."""
-        ii = defaultdict(list)
+        pressure_data = defaultdict(list)
         for v in raw_files_with_metrics.values():
-            gl = v.get("metrics_alphadia", {}).get("raw:gradient_length_m")
-            pp = v.get("metrics_msqc", {}).get("msqc_evosep_pump_hp_pressure_max")
+            gradient_length = v.get("metrics_alphadia", {}).get("raw:gradient_length_m")
+            pressure = v.get("metrics_msqc", {}).get("msqc_evosep_pump_hp_pressure_max")
 
-            if gl is not None and pp is not None:
-                ii[v["instrument_id"]].append((pp, gl, v["created_at"]))
+            if gradient_length is not None and pressure is not None:
+                pressure_data[v["instrument_id"]].append(
+                    (pressure, gradient_length, v["created_at"])
+                )
 
-        return ii
+        return pressure_data
 
     def _detect_pressure_increase(
         self,
@@ -127,11 +127,21 @@ class PumpPressureAlert(BaseAlert):
             pressure_data, reverse=False, key=lambda x: x[2]
         )  # sort 'oldest first'
 
+        def _within_pressure_tolerance(
+            value: float, target: float, tolerance: float
+        ) -> bool:
+            """Check if value is within relative tolerance of target."""
+            return (1 - tolerance) < (value / target) < (1 + tolerance)
+
         for i in range(len(pressure_data)):
-            if (
-                not (1 - PUMP_PRESSURE_GRADIENT_TOLERANCE)
-                < (pressure_data[i - window_size][1] / latest_gradient_length)
-                < (1 + PUMP_PRESSURE_GRADIENT_TOLERANCE)
+            if not _within_pressure_tolerance(
+                pressure_data[i - window_size][1],
+                latest_gradient_length,
+                PUMP_PRESSURE_GRADIENT_TOLERANCE,
+            ) or not _within_pressure_tolerance(
+                pressure_data[i][1],
+                latest_gradient_length,
+                PUMP_PRESSURE_GRADIENT_TOLERANCE,
             ):
                 continue
 

@@ -6,8 +6,8 @@ from datetime import datetime, timedelta
 from typing import Any
 
 import pytz
-from db.interface import augment_raw_files_with_metrics
 
+from shared.db.interface import augment_raw_files_with_metrics
 from shared.db.models import KrakenStatus, RawFile
 
 from .base_alert import BaseAlert

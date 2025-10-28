@@ -23,6 +23,12 @@ from .config import (
 class PumpPressureAlert(BaseAlert):
     """Check for pump pressure increases across instruments."""
 
+    def __init__(self) -> None:
+        """Initialize the alert with memory for tracking reported issues."""
+        super().__init__()
+        # Memory: set of (instrument_id, tuple of pressure_changes) to track reported issues
+        self._reported_issues: set[tuple[str, tuple[float, ...]]] = set()
+
     @property
     def name(self) -> str:
         """Return the case name for this alert type."""
@@ -75,12 +81,23 @@ class PumpPressureAlert(BaseAlert):
             )
 
             if is_alert:
-                issues.append(
-                    (
-                        instrument_id,
-                        f"Pressure changes: {pressure_changes}",
+                # Create memory key from instrument_id and pressure changes
+                memory_key = (instrument_id, tuple(pressure_changes))
+
+                # Only report if not already reported
+                if memory_key not in self._reported_issues:
+                    self._reported_issues.add(memory_key)
+                    issues.append(
+                        (
+                            instrument_id,
+                            f"Pressure changes: {pressure_changes}",
+                        )
                     )
-                )
+                else:
+                    logging.debug(
+                        f"Suppressing duplicate alert for {instrument_id} "
+                        f"with pressure changes: {pressure_changes}"
+                    )
 
         return issues
 

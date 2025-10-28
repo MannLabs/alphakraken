@@ -466,3 +466,95 @@ class TestPumpPressureAlert:
             "- `instrument3`: Pressure changes: [30.2, 31.5, 32.8]"
         )
         assert result == expected
+
+    @patch("monitoring.alerts.pump_pressure_alert.augment_raw_files_with_metrics")
+    @patch("monitoring.alerts.pump_pressure_alert.RawFile")
+    @patch("monitoring.alerts.pump_pressure_alert.PUMP_PRESSURE_LOOKBACK_DAYS", 7)
+    @patch("monitoring.alerts.pump_pressure_alert.PUMP_PRESSURE_WINDOW_SIZE", 5)
+    @patch("monitoring.alerts.pump_pressure_alert.PUMP_PRESSURE_THRESHOLD_BAR", 20)
+    @patch(
+        "monitoring.alerts.pump_pressure_alert.PUMP_PRESSURE_GRADIENT_TOLERANCE", 0.1
+    )
+    def test_memory_should_suppress_duplicate_issues(
+        self,
+        mock_rawfile: Mock,
+        mock_augment: Mock,
+    ) -> None:
+        """Test that memory suppresses duplicate issues with same instrument_id and pressure changes."""
+        # given
+        alert = PumpPressureAlert()
+        now = datetime.now(tz=pytz.utc)
+
+        mock_instrument = Mock()
+        mock_instrument.id = "instrument1"
+        mock_instrument.entity_type = KrakenStatusEntities.INSTRUMENT
+        status_objects = [mock_instrument]
+
+        mock_raw_file = Mock()
+        mock_raw_file.id = "file1"
+        mock_raw_file.instrument_id = "instrument1"
+        mock_raw_file.created_at = now
+
+        mock_query = Mock()
+        mock_query.only.return_value.order_by.return_value = [mock_raw_file]
+        mock_rawfile.objects.filter.return_value = mock_query
+
+        # Mock augment to return pressure data that triggers an alert
+        mock_augment.return_value = {
+            "file1": {
+                "instrument_id": "instrument1",
+                "created_at": now,
+                "metrics_alphadia": {"raw:gradient_length_m": 0.5},
+                "metrics_msqc": {"msqc_evosep_pump_hp_pressure_max": 125.0},
+            },
+            "file2": {
+                "instrument_id": "instrument1",
+                "created_at": now - timedelta(hours=1),
+                "metrics_alphadia": {"raw:gradient_length_m": 0.5},
+                "metrics_msqc": {"msqc_evosep_pump_hp_pressure_max": 124.0},
+            },
+            "file3": {
+                "instrument_id": "instrument1",
+                "created_at": now - timedelta(hours=2),
+                "metrics_alphadia": {"raw:gradient_length_m": 0.5},
+                "metrics_msqc": {"msqc_evosep_pump_hp_pressure_max": 123.0},
+            },
+            "file4": {
+                "instrument_id": "instrument1",
+                "created_at": now - timedelta(hours=3),
+                "metrics_alphadia": {"raw:gradient_length_m": 0.5},
+                "metrics_msqc": {"msqc_evosep_pump_hp_pressure_max": 122.0},
+            },
+            "file5": {
+                "instrument_id": "instrument1",
+                "created_at": now - timedelta(hours=4),
+                "metrics_alphadia": {"raw:gradient_length_m": 0.5},
+                "metrics_msqc": {"msqc_evosep_pump_hp_pressure_max": 121.0},
+            },
+            "file6": {
+                "instrument_id": "instrument1",
+                "created_at": now - timedelta(hours=5),
+                "metrics_alphadia": {"raw:gradient_length_m": 0.5},
+                "metrics_msqc": {"msqc_evosep_pump_hp_pressure_max": 120.0},
+            },
+            "file7": {
+                "instrument_id": "instrument1",
+                "created_at": now - timedelta(hours=6),
+                "metrics_alphadia": {"raw:gradient_length_m": 0.5},
+                "metrics_msqc": {"msqc_evosep_pump_hp_pressure_max": 100.0},
+            },
+        }
+
+        # when - first call should return the issue
+        result_first = alert._get_issues(status_objects)
+
+        # then - first call returns the issue
+        assert len(result_first) == 1
+        assert result_first[0][0] == "instrument1"
+        assert "Pressure changes:" in result_first[0][1]
+
+        # when - second call with same data should suppress the issue
+        result_second = alert._get_issues(status_objects)
+
+        # then - second call suppresses the duplicate
+        assert result_second == []

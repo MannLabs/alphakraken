@@ -44,16 +44,24 @@ Based on the design document and codebase research, here's the step-by-step impl
 
 ### 2.1 Create S3 Helper Module
 - Create `airflow_src/dags/impl/s3_utils.py` with:
-  - `normalize_bucket_name(project_id)` - Lowercase, sanitize special chars
-  - `build_s3_key(file_id, relative_path)` - Construct S3 object keys
+  - `build_s3_key(project_id, instrument_id, relative_path)` - Construct S3 object keys with prefix pattern `project-{id}/instrument-{id}/path`
   - `calculate_s3_etag(file_path, chunk_size_mb)` - Multipart ETag calculation
-  - `get_s3_client(region)` - Boto3 client with credentials from env vars
+  - `get_s3_client(region)` - Boto3 client
+
+The implementation should rely on Airflow AWS connections, which holds credentials. E.g.
+```python
+        from airflow.providers.amazon.aws.hooks.base_aws import AwsBaseHook
+
+        hook = AwsBaseHook(aws_conn_id='aws_default', client_type='s3')
+        s3_client = hook.get_conn()
+
+        response = s3_client.list_buckets()
+```
 
 ### 2.2 Write Unit Tests
-- Test `normalize_bucket_name()` with various project ID formats
-- Test `build_s3_key()` path construction
+- Test `build_s3_key()` path construction with various project/instrument IDs
 - Test `calculate_s3_etag()` against known values
-- Mock boto3 client initialization
+- Mock boto3 client
 
 ### 2.3 Run Tests
 - `pytest airflow_src/tests/dags/impl/test_s3_backup.py::test_s3_utils -v`
@@ -125,12 +133,19 @@ Based on the design document and codebase research, here's the step-by-step impl
         retries=3,
         retry_delay=timedelta(minutes=5),
         pool=Pools.FILE_COPY_POOL,
+        queue="kraken_queue_s3_uploader",  # Dedicated queue for S3 operations
     )
     ```
   - Update chain: `copy_raw_file_ >> [upload_to_s3_, start_file_mover_] >> start_file_mover_`
     - (Parallel execution: S3 upload + file_mover run simultaneously)
 
-### 4.3 Test DAG Structure
+### 4.3 Worker Configuration
+- Add to `docker-compose.yaml` or worker deployment config:
+  - New worker service/container listening to `kraken_queue_s3_uploader` queue
+  - Worker needs AWS credentials via environment variables
+  - Consider separate scaling configuration for S3 workers vs. processing workers
+
+### 4.4 Test DAG Structure
 - Validate DAG loads: `python airflow_src/dags/acquisition_handler.py`
 - Check task dependencies are correct
 
@@ -198,24 +213,43 @@ Based on the design document and codebase research, here's the step-by-step impl
 
 Based on clarifying questions answered during planning:
 
-### 1. Task Dependencies (Parallel Non-blocking)
+### 1. Execution Mode: Asynchronous Queue
+**Decision**: Use dedicated Celery queue for S3 uploads (similar to file_mover/file_remover pattern)
+- **Rationale**: Faster overall pipeline by running uploads in parallel with other tasks
+- **Implementation**: Create `kraken_queue_s3_uploader` worker queue
+- **Trade-off**: More complex than synchronous, but significantly better throughput
 - S3 upload task runs **in parallel** with `start_file_mover_`
 - Processing continues immediately after local copy completes
 - S3 upload failures do not block downstream tasks
 - DAG chain: `copy_raw_file_ >> [upload_to_s3_, start_file_mover_] >> start_file_mover_`
 
-### 2. Multi-file Handling (Strict All-or-Nothing)
+### 2. AWS Authentication: Access Key/Secret
+**Decision**: Use explicit AWS credentials stored Airflow connection
+- **Rationale**: More portable for testing across environments (local/sandbox/production)
+- **Configuration**: Credentials Airflow connection by boto3
+
+### 3. Failure Handling: Mark Failed, Continue
+**Decision**: On S3 upload failure, set `backup_status = FAILED` but don't block processing pipeline
+- **Rationale**: Processing pipeline should continue even if backup fails
+- **Implementation**: Catch all exceptions, log error, update status, don't raise
+- **Recovery**: Manual intervention or automated retry job can process FAILED backups later
+- **Monitoring**: Failed backups visible in database queries and monitoring dashboards
+
+### 4. Bucket Strategy: project-specific buckets with fixed Prefixes
+**Decision**: project-specific buckets with fixed Prefixes
+
+### 5. Multi-file Handling (Strict All-or-Nothing)
 - If any file in a multi-file set fails to upload, mark entire backup as FAILED
 - Stop immediately on first failure, don't continue with remaining files
 - Leave partial uploads in S3 (S3 lifecycle policy will clean up incomplete multiparts)
 - Simpler than atomic rollback, relies on retry mechanism for full re-upload
 
-### 3. Bucket Validation (Pre-validate)
+### 6. Bucket Validation (Pre-validate)
 - Check bucket existence with `head_bucket()` before starting upload
 - Fail fast with clear error message if bucket missing
 - Better user experience than letting upload fail with cryptic boto3 error
 
-### 4. Re-run Handling (Check and Skip)
+### 7. Re-run Handling (Check and Skip)
 - Before uploading, check if S3 object already exists
 - If exists with matching ETag, skip upload and update status to DONE
 - Prevents redundant uploads on task retries

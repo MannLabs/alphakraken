@@ -30,3 +30,13 @@ locations:
     mount_src: //samba-pool-0/pool-0/alphakraken_sandbox/airflow_logs
     mount_target: airflow_logs
     absolute_path: /fs/pool-0/alphakraken_sandbox/airflow_logs
+
+general:
+  job_engine:
+    type: slurm
+
+backup:
+  backup_type: local # or 's3'
+  s3:
+    region: eu-central-1
+    bucket_prefix: alphakraken

@@ -31,6 +31,13 @@ class YamlKeys:
         SLURM = "slurm"
         SOFTWARE = "software"
 
+    class Backup:
+        """Keys for accessing backup configuration in the yaml config."""
+
+        TYPE = "backup.backup_type"
+        S3_REGION = "backup.s3.region"
+        S3_BUCKET_PREFIX = "backup.s3.bucket_prefix"
+
 
 class YamlSettings:
     """Class to load and access the alphakraken.yaml settings as a singleton."""

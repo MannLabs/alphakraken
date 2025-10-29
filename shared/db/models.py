@@ -112,6 +112,9 @@ class RawFile(Document):
 
     backup_status = StringField(max_length=32, default=None)
 
+    s3_backup_key = StringField(max_length=1024, default=None)
+    s3_etag = StringField(max_length=128, default=None)
+
     instrument_file_status = StringField(max_length=16, default=InstrumentFileStatus.NA)
 
     file_info = DictField()  # mapping of file paths (relative to backup_base_path) to tuples (size: int, hash: str).

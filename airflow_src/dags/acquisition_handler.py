@@ -31,6 +31,7 @@ from impl.handler_impl import (
     start_acquisition_processor,
     start_file_mover,
 )
+from impl.s3_backup import upload_raw_file_to_s3
 from sensors.acquisition_monitor import AcquisitionMonitor
 
 
@@ -85,6 +86,16 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
             pool=Pools.FILE_COPY_POOL,
         )
 
+        upload_to_s3_ = PythonOperator(
+            task_id=Tasks.UPLOAD_TO_S3,
+            python_callable=upload_raw_file_to_s3,
+            op_kwargs={OpArgs.INSTRUMENT_ID: instrument_id},
+            execution_timeout=timedelta(hours=6),  # Large files need time
+            retries=3,
+            retry_delay=timedelta(minutes=5),
+            pool=Pools.FILE_COPY_POOL,  # Uses same pool as file copying
+        )
+
         start_file_mover_ = PythonOperator(
             task_id=Tasks.START_FILE_MOVER,
             python_callable=start_file_mover,
@@ -107,7 +118,7 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
         monitor_acquisition_
         >> compute_checksum_
         >> copy_raw_file_
-        >> start_file_mover_
+        >> [upload_to_s3_, start_file_mover_]
         >> decide_processing_
         >> start_acquisition_processor_
     )

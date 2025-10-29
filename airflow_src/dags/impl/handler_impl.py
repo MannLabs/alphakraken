@@ -45,7 +45,7 @@ from shared.keys import (
     DDA_FLAG_IN_RAW_FILE_NAME,
     FORBIDDEN_CHARACTERS_REGEXP,
 )
-from shared.yamlsettings import YamlKeys, get_path
+from shared.yamlsettings import YAMLSETTINGS, YamlKeys, get_path
 
 
 def compute_checksum(ti: TaskInstance, **kwargs) -> bool:
@@ -185,12 +185,20 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
     raw_file = get_raw_file_by_id(raw_file_id)
     backup_base_path = get_backup_base_path(instrument_id, raw_file)
 
-    update_raw_file(
-        raw_file_id,
-        new_status=RawFileStatus.COPYING,
-        backup_base_path=str(backup_base_path),
-        backup_status=BackupStatus.IN_PROGRESS,
-    )
+    # Check backup type to determine if we should set backup_status here
+    backup_type = YAMLSETTINGS.get("backup", {}).get("backup_type", "local")
+    is_s3_backup = backup_type == "s3"
+
+    # For S3 backup, don't set backup_status here (it will be set by upload_to_s3 task)
+    # For local backup, set backup_status to IN_PROGRESS
+    update_kwargs = {
+        "new_status": RawFileStatus.COPYING,
+        "backup_base_path": str(backup_base_path),
+    }
+    if not is_s3_backup:
+        update_kwargs["backup_status"] = BackupStatus.IN_PROGRESS
+
+    update_raw_file(raw_file_id, **update_kwargs)
 
     if overwrite := (
         get_airflow_variable(AirflowVars.BACKUP_OVERWRITE_FILE_ID, "") == raw_file.id
@@ -206,17 +214,21 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
     try:
         _verify_copied_files(copied_files, files_dst_paths, files_size_and_hashsum)
     except ValueError as e:
-        update_raw_file(
-            raw_file_id,
-            backup_status=BackupStatus.FAILED,
-        )
+        # Only set backup_status=FAILED for local backup (S3 handles its own failures)
+        if not is_s3_backup:
+            update_raw_file(
+                raw_file_id,
+                backup_status=BackupStatus.FAILED,
+            )
         raise AirflowFailException(e) from e
 
-    update_raw_file(
-        raw_file_id,
-        new_status=RawFileStatus.COPYING_DONE,
-        backup_status=BackupStatus.DONE,
-    )
+    # For local backup, set backup_status to DONE
+    # For S3 backup, leave backup_status for the upload_to_s3 task
+    final_update_kwargs = {"new_status": RawFileStatus.COPYING_DONE}
+    if not is_s3_backup:
+        final_update_kwargs["backup_status"] = BackupStatus.DONE
+
+    update_raw_file(raw_file_id, **final_update_kwargs)
 
 
 def _handle_file_copying(

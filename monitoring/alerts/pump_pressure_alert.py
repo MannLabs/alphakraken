@@ -144,7 +144,9 @@ class PumpPressureAlert(BaseAlert):
         )  # sort 'oldest first'
 
         def _within_pressure_tolerance(
-            value: float, target: float, tolerance: float
+            value: float,
+            target: float,
+            tolerance: float = PUMP_PRESSURE_GRADIENT_TOLERANCE,
         ) -> bool:
             """Check if value is within relative tolerance of target."""
             return (1 - tolerance) < (value / target) < (1 + tolerance)
@@ -153,26 +155,27 @@ class PumpPressureAlert(BaseAlert):
         pressure_changes = []
 
         for i in range(len(pressure_data)):
+            if i < window_size:
+                continue
+
+            data_older = pressure_data[i - window_size]
+            data_younger = pressure_data[i]
+
             if not _within_pressure_tolerance(
-                pressure_data[i - window_size][1],
-                latest_gradient_length,
-                PUMP_PRESSURE_GRADIENT_TOLERANCE,
+                data_older[1], latest_gradient_length
             ) or not _within_pressure_tolerance(
-                pressure_data[i][1],
-                latest_gradient_length,
-                PUMP_PRESSURE_GRADIENT_TOLERANCE,
+                data_younger[1], latest_gradient_length
             ):
                 continue
 
-            if i >= window_size:
-                # Calculate pressure change over the window
-                current_pressure = pressure_data[i][0]
-                past_pressure = pressure_data[i - window_size][0]
-                pressure_change = current_pressure - past_pressure
+            # Calculate pressure change over the window
+            current_pressure = data_younger[0]
+            past_pressure = data_older[0]
+            pressure_change = current_pressure - past_pressure
 
-                if pressure_change > threshold:
-                    pressure_changes.append(pressure_change)
-                    is_alert = True
+            if pressure_change > threshold:
+                pressure_changes.append(pressure_change)
+                is_alert = True
 
         return is_alert, pressure_changes
 

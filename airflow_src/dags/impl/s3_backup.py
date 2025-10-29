@@ -91,11 +91,11 @@ def upload_raw_file_to_s3(ti: TaskInstance, **kwargs) -> None:  # noqa: C901, PL
             else:
                 msg = f"Cannot access bucket {bucket_name}: {error_code} - {e}"
             logging.exception(msg)
-            update_raw_file(raw_file_id, backup_status=BackupStatus.FAILED)
+            update_raw_file(raw_file_id, backup_status=BackupStatus.UPLOAD_FAILED)
             return
 
         # Set status to IN_PROGRESS
-        update_raw_file(raw_file_id, backup_status=BackupStatus.IN_PROGRESS)
+        update_raw_file(raw_file_id, backup_status=BackupStatus.UPLOAD_IN_PROGRESS)
 
         # Upload each file
         uploaded_files: dict[str, str] = {}  # relative_path -> etag
@@ -158,7 +158,7 @@ def upload_raw_file_to_s3(ti: TaskInstance, **kwargs) -> None:  # noqa: C901, PL
             if local_etag != remote_etag:
                 msg = f"ETag mismatch for {s3_key}: local {local_etag} != remote {remote_etag}"
                 logging.error(msg)
-                update_raw_file(raw_file_id, backup_status=BackupStatus.FAILED)
+                update_raw_file(raw_file_id, backup_status=BackupStatus.UPLOAD_FAILED)
                 return
 
             logging.info(
@@ -175,7 +175,7 @@ def upload_raw_file_to_s3(ti: TaskInstance, **kwargs) -> None:  # noqa: C901, PL
 
         update_raw_file(
             raw_file_id,
-            backup_status=BackupStatus.DONE,
+            backup_status=BackupStatus.UPLOAD_DONE,
             s3_backup_key=s3_key_prefix,
             s3_etag=representative_etag,
         )
@@ -187,12 +187,12 @@ def upload_raw_file_to_s3(ti: TaskInstance, **kwargs) -> None:  # noqa: C901, PL
     except (BotoCoreError, ClientError) as e:
         msg = f"S3 upload failed for {raw_file_id}: {type(e).__name__} - {e}"
         logging.exception(msg)
-        update_raw_file(raw_file_id, backup_status=BackupStatus.FAILED)
+        update_raw_file(raw_file_id, backup_status=BackupStatus.UPLOAD_FAILED)
         # Don't raise - non-blocking failure
     except Exception as e:
         msg = f"Unexpected error during S3 upload for {raw_file_id}: {type(e).__name__} - {e}"
         logging.exception(msg)
-        update_raw_file(raw_file_id, backup_status=BackupStatus.FAILED)
+        update_raw_file(raw_file_id, backup_status=BackupStatus.UPLOAD_FAILED)
         # Don't raise - non-blocking failure
 
 

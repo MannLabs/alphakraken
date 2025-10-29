@@ -120,7 +120,7 @@ class TestUploadRawFileToS3:
 
         # Should set backup status to FAILED
         mock_update_raw_file.assert_called_with(
-            "test_file_123", backup_status=BackupStatus.FAILED
+            "test_file_123", backup_status=BackupStatus.UPLOAD_FAILED
         )
 
     @patch("shared.db.interface.connect_db")
@@ -171,7 +171,7 @@ class TestUploadRawFileToS3:
 
         # Should set backup status to DONE
         assert any(
-            call[1].get("backup_status") == BackupStatus.DONE
+            call[1].get("backup_status") == BackupStatus.UPLOAD_DONE
             for call in mock_update_raw_file.call_args_list
         )
 
@@ -236,7 +236,7 @@ class TestUploadRawFileToS3:
 
         # Should set backup status to DONE
         assert any(
-            call[1].get("backup_status") == BackupStatus.DONE
+            call[1].get("backup_status") == BackupStatus.UPLOAD_DONE
             for call in mock_update_raw_file.call_args_list
         )
 
@@ -293,7 +293,7 @@ class TestUploadRawFileToS3:
 
         # Should set backup status to FAILED
         assert any(
-            call[1].get("backup_status") == BackupStatus.FAILED
+            call[1].get("backup_status") == BackupStatus.UPLOAD_FAILED
             for call in mock_update_raw_file.call_args_list
         )
 
@@ -345,7 +345,7 @@ class TestUploadRawFileToS3:
 
         # Should set backup status to DONE
         assert any(
-            call[1].get("backup_status") == BackupStatus.DONE
+            call[1].get("backup_status") == BackupStatus.UPLOAD_DONE
             for call in mock_update_raw_file.call_args_list
         )
 

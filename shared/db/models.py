@@ -51,12 +51,20 @@ class RawFileStatus:
 
 
 class BackupStatus:
-    """Status of backup."""
+    """Status of backup.
 
-    IN_PROGRESS = "in_progress"
-    DONE = "done"
+    "copying" refers to copying to local backup location, "upload" to uploading to S3.
+    """
+
+    COPYING_IN_PROGRESS = "copying_in_progress"
+    COPYING_DONE = "copying_done"
+    COPYING_FAILED = "copying_failed"
+
+    UPLOAD_IN_PROGRESS = "upload_in_progress"
+    UPLOAD_DONE = "upload_done"
+    UPLOAD_FAILED = "upload_failed"
+
     SKIPPED = "skipped"
-    FAILED = "failed"
 
 
 ERROR_STATUSES = [

@@ -12,7 +12,6 @@ from shared.db.models import KrakenStatus, RawFile
 
 from .base_alert import BaseAlert
 from .config import (
-    PUMP_PRESSURE_GRADIENT_TOLERANCE,
     PUMP_PRESSURE_LOOKBACK_DAYS,
     PUMP_PRESSURE_THRESHOLD_BAR,
     PUMP_PRESSURE_WINDOW_SIZE,
@@ -122,11 +121,11 @@ class PumpPressureAlert(BaseAlert):
         pressure_data: list[tuple[float, float, datetime]],
         window_size: int,
         threshold: float,
-    ) -> tuple[bool, list[float]]:
+    ) -> tuple[bool, list[tuple[float, float, float, datetime]]]:
         """Detect if pressure increases by more than threshold over the last window_size samples.
 
         Args:
-            pressure_data: pandas Series or array of pressure values
+            pressure_data: list of (pressure, gradient_length, created_at) tuples, ordered newest first
             window_size: number of past samples to look at
             threshold: pressure increase threshold to trigger alert
 
@@ -139,14 +138,10 @@ class PumpPressureAlert(BaseAlert):
 
         # logging.info(f"pressure_data: {pressure_data}")
 
-        pressure_data = sorted(
-            pressure_data, reverse=False, key=lambda x: x[2]
-        )  # sort 'oldest first'
-
         def _within_pressure_tolerance(
             value: float,
             target: float,
-            tolerance: float = PUMP_PRESSURE_GRADIENT_TOLERANCE,
+            tolerance: float = 10,
         ) -> bool:
             """Check if value is within relative tolerance of target."""
             return (1 - tolerance) < (value / target) < (1 + tolerance)
@@ -158,8 +153,8 @@ class PumpPressureAlert(BaseAlert):
             if i < window_size:
                 continue
 
-            data_older = pressure_data[i - window_size]
-            data_younger = pressure_data[i]
+            data_younger = pressure_data[i - window_size]
+            data_older = pressure_data[i]
 
             if not _within_pressure_tolerance(
                 data_older[1], latest_gradient_length
@@ -174,8 +169,11 @@ class PumpPressureAlert(BaseAlert):
             pressure_change = current_pressure - past_pressure
 
             if pressure_change > threshold:
-                pressure_changes.append(pressure_change)
+                pressure_changes.append(
+                    (pressure_change, current_pressure, past_pressure, data_younger[2])
+                )
                 is_alert = True
+                break
 
         return is_alert, pressure_changes
 

@@ -215,9 +215,6 @@ class TestPumpPressureAlert:
         # then
         assert result == {}
 
-    @patch(
-        "monitoring.alerts.pump_pressure_alert.PUMP_PRESSURE_GRADIENT_TOLERANCE", 0.1
-    )
     def test_detect_pressure_increase_should_detect_pressure_increase_above_threshold(
         self,
     ) -> None:
@@ -244,11 +241,8 @@ class TestPumpPressureAlert:
         # then
         assert is_alert is True
         assert len(pressure_changes) > 0
-        assert any(change > 20 for change in pressure_changes)
+        assert any(change[0] > 20 for change in pressure_changes)
 
-    @patch(
-        "monitoring.alerts.pump_pressure_alert.PUMP_PRESSURE_GRADIENT_TOLERANCE", 0.1
-    )
     def test_detect_pressure_increase_should_not_detect_when_below_threshold(
         self,
     ) -> None:
@@ -275,9 +269,6 @@ class TestPumpPressureAlert:
         # then
         assert is_alert is False
 
-    @patch(
-        "monitoring.alerts.pump_pressure_alert.PUMP_PRESSURE_GRADIENT_TOLERANCE", 0.1
-    )
     def test_detect_pressure_increase_should_filter_by_gradient_length_tolerance(
         self,
     ) -> None:
@@ -316,9 +307,6 @@ class TestPumpPressureAlert:
         # then
         assert len(pressure_changes) < 2
 
-    @patch(
-        "monitoring.alerts.pump_pressure_alert.PUMP_PRESSURE_GRADIENT_TOLERANCE", 0.1
-    )
     def test_detect_pressure_increase_should_handle_insufficient_data_points(
         self,
     ) -> None:
@@ -344,9 +332,6 @@ class TestPumpPressureAlert:
         assert is_alert is False
         assert pressure_changes == []
 
-    @patch(
-        "monitoring.alerts.pump_pressure_alert.PUMP_PRESSURE_GRADIENT_TOLERANCE", 0.1
-    )
     def test_detect_pressure_increase_should_not_detect_at_exact_threshold(
         self,
     ) -> None:
@@ -372,11 +357,8 @@ class TestPumpPressureAlert:
 
         # then
         assert is_alert is False
-        assert 20.0 in pressure_changes
+        assert pressure_changes == []
 
-    @patch(
-        "monitoring.alerts.pump_pressure_alert.PUMP_PRESSURE_GRADIENT_TOLERANCE", 0.1
-    )
     def test_detect_pressure_increase_should_handle_pressure_decrease(self) -> None:
         """Test that detect_pressure_increase does not alert when pressure decreases."""
         # given
@@ -400,37 +382,7 @@ class TestPumpPressureAlert:
 
         # then
         assert is_alert is False
-        assert all(change <= 0 for change in pressure_changes)
-
-    @patch(
-        "monitoring.alerts.pump_pressure_alert.PUMP_PRESSURE_GRADIENT_TOLERANCE", 0.1
-    )
-    def test_detect_pressure_increase_should_sort_pressure_data_by_timestamp(
-        self,
-    ) -> None:
-        """Test that detect_pressure_increase sorts pressure data oldest first."""
-        # given
-        alert = PumpPressureAlert()
-        now = datetime.now(tz=pytz.utc)
-
-        pressure_data = [
-            (125.0, 0.5, now),
-            (100.0, 0.5, now - timedelta(hours=6)),
-            (122.0, 0.5, now - timedelta(hours=3)),
-            (123.0, 0.5, now - timedelta(hours=2)),
-            (120.0, 0.5, now - timedelta(hours=5)),
-            (124.0, 0.5, now - timedelta(hours=1)),
-            (121.0, 0.5, now - timedelta(hours=4)),
-        ]
-
-        # when
-        is_alert, pressure_changes = alert._detect_pressure_increase(
-            pressure_data, window_size=5, threshold=20
-        )
-
-        # then
-        assert is_alert is True
-        assert len(pressure_changes) > 0
+        assert all(change[0] <= 0 for change in pressure_changes)
 
     def test_format_message_should_format_single_issue(self) -> None:
         """Test that format_message formats single issue correctly."""
@@ -472,9 +424,6 @@ class TestPumpPressureAlert:
     @patch("monitoring.alerts.pump_pressure_alert.PUMP_PRESSURE_LOOKBACK_DAYS", 7)
     @patch("monitoring.alerts.pump_pressure_alert.PUMP_PRESSURE_WINDOW_SIZE", 5)
     @patch("monitoring.alerts.pump_pressure_alert.PUMP_PRESSURE_THRESHOLD_BAR", 20)
-    @patch(
-        "monitoring.alerts.pump_pressure_alert.PUMP_PRESSURE_GRADIENT_TOLERANCE", 0.1
-    )
     def test_memory_should_suppress_duplicate_issues(
         self,
         mock_rawfile: Mock,

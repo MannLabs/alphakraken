@@ -17,6 +17,13 @@ Add S3 backup capability as an alternative to local backup, configurable via YAM
 - Downstream tasks (file_mover, processing) continue regardless
 - Failed S3 uploads: backup_status=FAILED, logged, require manual intervention
 
+### 2.3 Task Dependencies - CLARIFIED
+**Decision**: S3 upload runs **in parallel** with `start_file_mover_` (non-blocking)
+- DAG chain: `copy_raw_file_ >> [upload_to_s3_, start_file_mover_] >> start_file_mover_`
+- Processing continues immediately after local copy completes
+- S3 upload happens independently in background
+- Failures do not block downstream processing tasks
+
 ### 2.3 S3 Organization
 - **One bucket per project**: `{bucket_prefix}-{project_id}` (e.g., `mpg-mpi-mann-alphakraken-PRID001`), with bucket_prefix taken from .yaml config
 - **Key structure**:
@@ -49,7 +56,7 @@ backup:
 
   # S3-specific config (only used when backup_type: s3)
   s3:
-    region: us-east-1
+    region: eu-central-1
     bucket_prefix: alphakraken  # Results in alphakraken-{project_id}
 ```
 
@@ -138,35 +145,47 @@ upload_to_s3_ = PythonOperator(
 
 ### 6.2 Edge Cases to Handle
 
-#### 6.2.1 Multiple Files in `.d` Folder
+#### 6.2.1 Multiple Files in `.d` Folder - CLARIFIED
 - Iterate over `raw_file.file_info` dict (all files already inventoried)
 - Upload each file maintaining directory structure
-- **Failure strategy**: All-or-nothing? Or partial upload tracking?
-  - **Decision needed**: For v1, treat as atomic (all files or FAILED status)
+- **Failure strategy**: **STRICT ALL-OR-NOTHING** (v1 implementation)
+  - If any file in the set fails to upload, stop immediately
+  - Set entire backup status to FAILED
+  - Leave partial uploads in S3 (S3 lifecycle policy cleans up incomplete multiparts after 7 days)
+  - Retry mechanism will re-upload entire file set from scratch
   - **Future**: Add per-file status tracking if needed
 
-#### 6.2.1 Multiple Files `.wiff*` Folder
+#### 6.2.2 Multiple Files `.wiff*` Folder - CLARIFIED
 - Iterate over `raw_file.file_info` dict (all files already inventoried)
 - Upload each file to a single S3 key prefix, e.g. `raw_file_id/raw_file_id.wiff`, `raw_file_id/raw_file_id.wiff2`
-- **Failure strategy**: All-or-nothing? Or partial upload tracking?
-  - **Decision needed**: For v1, treat as atomic (all files or FAILED status)
-  - **Future**: Add per-file status tracking if needed
-  -
+- **Failure strategy**: **STRICT ALL-OR-NOTHING** (same as .d folders)
+  - Stop on first failure, mark FAILED, rely on retry for full re-upload
+
 #### 6.2.3 Partial Upload Cleanup
 - If upload fails mid-way, orphaned parts remain in S3
 - **Solution**: Use `abort_multipart_upload()` in exception handler
 - **S3 Lifecycle**: Set bucket policy to auto-delete incomplete multiparts after 7 days
 
-#### 6.2.4 Duplicate Uploads (Re-runs)
+#### 6.2.4 Duplicate Uploads (Re-runs) - CLARIFIED
 - If task is retried after partial success
-- **Check**: Before upload, check if S3 object exists with correct ETag
-- **Behavior**: If exists and verified → skip upload, set status=DONE
+- **CHECK AND SKIP** strategy (v1 implementation):
+  - Before upload, check if S3 object exists using `head_object()`
+  - If exists, verify ETag matches expected value
+  - If verified → skip upload, just update status to DONE
+  - If ETag mismatch → re-upload (data corruption detected)
 - Similar to `_identical_copy_exists()` pattern in local backup
 
 #### 6.2.5 Bucket Name Collisions
 - Project IDs might conflict (e.g., `PRJ-001` vs `prj.001`)
 - **Solution**: Normalize bucket names: lowercase, replace special chars with hyphens
 - **Validation**: Add function `normalize_bucket_name(project_id)`
+
+#### 6.2.6 Bucket Validation - CLARIFIED
+- **PRE-VALIDATE** strategy (v1 implementation):
+  - At start of upload task, check bucket exists using `head_bucket()`
+  - Fail fast with clear error message if bucket missing
+  - Better user experience than cryptic boto3 ClientError
+  - Log bucket name and region for debugging
 
 
 ### 6.3 Monitoring & Observability

@@ -1,10 +1,10 @@
 """Utility functions for S3 operations."""
 
 import hashlib
-import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from airflow.exceptions import AirflowFailException
 from airflow.providers.amazon.aws.hooks.base_aws import AwsBaseHook
 
 if TYPE_CHECKING:
@@ -12,31 +12,6 @@ if TYPE_CHECKING:
 
 # S3 bucket name length limits
 S3_MAX_BUCKET_NAME_LENGTH = 63
-
-
-def build_s3_key(
-    project_id: str, instrument_id: str, file_id: str, relative_path: str
-) -> str:
-    """Build S3 object key for a raw file.
-
-    Args:
-        project_id: Project identifier
-        instrument_id: Instrument identifier
-        file_id: Raw file identifier (unique file ID)
-        relative_path: Path relative to file_id (e.g., "" for main file, or subdirectory/file.ext for .d folders)
-
-    Returns:
-        S3 object key in format: project-{project_id}/instrument-{instrument_id}/{file_id}/{relative_path}
-
-    """
-    # Normalize IDs to be S3-safe (lowercase, no special chars)
-    safe_project_id = _normalize_for_s3(project_id)
-    safe_instrument_id = _normalize_for_s3(instrument_id)
-
-    # Build key with consistent prefix structure
-    if relative_path:
-        return f"project-{safe_project_id}/instrument-{safe_instrument_id}/{file_id}/{relative_path}"
-    return f"project-{safe_project_id}/instrument-{safe_instrument_id}/{file_id}"
 
 
 def _normalize_for_s3(identifier: str) -> str:
@@ -47,7 +22,7 @@ def _normalize_for_s3(identifier: str) -> str:
     return identifier.lower().replace("_", "-").replace(".", "-").replace(" ", "-")
 
 
-def calculate_s3_etag(file_path: Path, chunk_size_mb: int = 500) -> str:
+def calculate_s3_etag(file_path: Path, chunk_size_mb: int) -> str:
     """Calculate ETag for a file matching S3 multipart upload format.
 
     For files uploaded with multipart upload, S3 calculates the ETag as:
@@ -99,6 +74,7 @@ def get_s3_client(region: str, aws_conn_id: str = "aws_default") -> "S3Client":
     return hook.get_conn()
 
 
+# TODO: -> shared
 def normalize_bucket_name(project_id: str, bucket_prefix: str) -> str:
     """Normalize bucket name to be S3-compatible.
 
@@ -116,17 +92,12 @@ def normalize_bucket_name(project_id: str, bucket_prefix: str) -> str:
 
     """
     safe_project_id = _normalize_for_s3(project_id)
-    bucket_name = f"{bucket_prefix}-{safe_project_id}"
+    bucket_name = f"{bucket_prefix}-{safe_project_id}".lower()
 
     # Ensure bucket name is valid length
     if len(bucket_name) > S3_MAX_BUCKET_NAME_LENGTH:
-        logging.warning(
-            f"Bucket name '{bucket_name}' exceeds {S3_MAX_BUCKET_NAME_LENGTH} characters, truncating project_id"
+        raise AirflowFailException(
+            f"Bucket name '{bucket_name}' exceeds {S3_MAX_BUCKET_NAME_LENGTH} characters."
         )
-        max_project_len = (
-            S3_MAX_BUCKET_NAME_LENGTH - len(bucket_prefix) - 1
-        )  # -1 for hyphen
-        safe_project_id = safe_project_id[:max_project_len]
-        bucket_name = f"{bucket_prefix}-{safe_project_id}"
 
-    return bucket_name.lower()
+    return bucket_name

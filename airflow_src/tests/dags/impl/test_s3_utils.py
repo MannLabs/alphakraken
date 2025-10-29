@@ -6,45 +6,10 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from dags.impl.s3_utils import (
-    build_s3_key,
     calculate_s3_etag,
     get_s3_client,
     normalize_bucket_name,
 )
-
-
-class TestBuildS3Key:
-    """Tests for build_s3_key function."""
-
-    def test_build_s3_key_simple_ids(self) -> None:
-        """Test S3 key construction with simple identifiers."""
-        key = build_s3_key("PRJ001", "instr1", "file123", "data.raw")
-        assert key == "project-prj001/instrument-instr1/file123/data.raw"
-
-    def test_build_s3_key_with_special_chars(self) -> None:
-        """Test S3 key construction normalizes special characters."""
-        key = build_s3_key("PRJ_001", "instr.1", "file123", "sub/data.raw")
-        assert key == "project-prj-001/instrument-instr-1/file123/sub/data.raw"
-
-    def test_build_s3_key_with_spaces(self) -> None:
-        """Test S3 key construction normalizes spaces."""
-        key = build_s3_key("PRJ 001", "instr 1", "file123", "data.raw")
-        assert key == "project-prj-001/instrument-instr-1/file123/data.raw"
-
-    def test_build_s3_key_without_relative_path(self) -> None:
-        """Test S3 key construction without relative path."""
-        key = build_s3_key("PRJ001", "instr1", "file123", "")
-        assert key == "project-prj001/instrument-instr1/file123"
-
-    def test_build_s3_key_with_nested_path(self) -> None:
-        """Test S3 key construction with nested directory structure."""
-        key = build_s3_key("PRJ001", "instr1", "file123.d", "Analysis.tdf")
-        assert key == "project-prj001/instrument-instr1/file123.d/Analysis.tdf"
-
-    def test_build_s3_key_uppercases_are_lowercased(self) -> None:
-        """Test that uppercase letters are converted to lowercase."""
-        key = build_s3_key("PROJECT001", "INSTRUMENT1", "FILE123", "DATA.RAW")
-        assert key == "project-project001/instrument-instrument1/FILE123/DATA.RAW"
 
 
 class TestCalculateS3Etag:

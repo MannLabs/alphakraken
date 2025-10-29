@@ -150,11 +150,13 @@ def update_raw_file(  # noqa: PLR0913
     file_info: dict[str, tuple[float, str]] = _NO_UPDATE,  # type: ignore[invalid-parameter-default]
     backup_base_path: str = _NO_UPDATE,  # type: ignore[invalid-parameter-default]
     backup_status: str = _NO_UPDATE,  # type: ignore[invalid-parameter-default]
+    s3_backup_key: str = _NO_UPDATE,  # type: ignore[invalid-parameter-default]
+    s3_etag: str = _NO_UPDATE,  # type: ignore[invalid-parameter-default]
     instrument_file_status: str = _NO_UPDATE,  # type: ignore[invalid-parameter-default]
 ) -> None:
     """Update parameters of DB entity of raw file with `raw_file_id`."""
     logging.info(
-        f"Updating DB: {raw_file_id=} to {new_status=} {status_details=} {size=} {file_info=} {backup_base_path=} {backup_status=} {instrument_file_status=}"
+        f"Updating DB: {raw_file_id=} to {new_status=} {status_details=} {size=} {file_info=} {backup_base_path=} {backup_status=} {s3_backup_key=} {s3_etag=} {instrument_file_status=}"
     )
     connect_db()
     raw_file = RawFile.objects.with_id(raw_file_id)
@@ -169,6 +171,8 @@ def update_raw_file(  # noqa: PLR0913
         "file_info": file_info,
         "backup_base_path": backup_base_path,
         "backup_status": backup_status,
+        "s3_backup_key": s3_backup_key,
+        "s3_etag": s3_etag,
         "instrument_file_status": instrument_file_status,
     }
 

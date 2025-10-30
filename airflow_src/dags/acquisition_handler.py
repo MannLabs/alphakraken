@@ -91,7 +91,6 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
         upload_to_s3_ = PythonOperator(
             task_id=Tasks.UPLOAD_TO_S3,
             python_callable=upload_raw_file_to_s3,
-            op_kwargs={OpArgs.INSTRUMENT_ID: instrument_id},
             execution_timeout=timedelta(hours=6),  # Large files need time
             retries=3,
             retry_delay=timedelta(minutes=5),

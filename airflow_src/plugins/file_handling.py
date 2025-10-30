@@ -147,6 +147,9 @@ def get_file_hash_with_etag(
     return md5sum, etag
 
 
+ETAG_SEPARATOR = "__"
+
+
 def _md5hashes_to_etag(md5_hashes: list[bytes], chunk_size_mb: int) -> str:
     """Convert a list of MD5 hashes to an S3 ETag format.
 
@@ -163,7 +166,7 @@ def _md5hashes_to_etag(md5_hashes: list[bytes], chunk_size_mb: int) -> str:
         combined_hash = hashlib.md5(b"".join(md5_hashes)).hexdigest()  # noqa: S324
         value = f"{combined_hash}-{len(md5_hashes)}"
 
-    return f"{value}__{chunk_size_mb!s}"
+    return f"{value}{ETAG_SEPARATOR}{chunk_size_mb!s}"
 
 
 def _identical_copy_exists(dst_path: Path, src_hash: str) -> bool:

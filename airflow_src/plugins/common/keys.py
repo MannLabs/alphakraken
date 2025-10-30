@@ -82,6 +82,7 @@ class XComKeys:
 
     FILES_SIZE_AND_HASHSUM: str = "files_size_and_hashsum"
     FILES_DST_PATHS: str = "files_dst_paths"
+    TARGET_FOLDER_PATH: str = "target_folder_path"
 
     QUANTING_ENV: str = "quanting_env"
 

@@ -2,9 +2,12 @@
 
 import logging
 from pathlib import Path
+from typing import Any
 
 from airflow.exceptions import AirflowFailException
 from airflow.models import TaskInstance
+from airflow.providers.amazon.aws.hooks.base_aws import BaseAwsConnection
+from boto3.s3.transfer import TransferConfig
 from botocore.exceptions import BotoCoreError, ClientError
 from common.keys import DagContext, DagParams, XComKeys
 from common.utils import get_xcom
@@ -19,6 +22,7 @@ from dags.impl.s3_utils import (
     normalize_bucket_name,
     upload_file_to_s3,
 )
+from plugins.file_handling import ETAG_SEPARATOR
 
 from shared.db.interface import get_raw_file_by_id, update_raw_file
 from shared.db.models import BackupStatus, RawFile
@@ -30,7 +34,7 @@ S3_UPLOAD_CHUNK_SIZE_MB = 500
 class S3UploadFailedException(AirflowFailException):
     """Exception raised when S3 upload fails.
 
-    Enables on_failure_callback to set specific backup_status.
+    Enables on_failure_callback to take special action.
     """
 
 
@@ -58,7 +62,7 @@ def upload_raw_file_to_s3(ti: TaskInstance, **kwargs) -> None:
     region = s3_config.get("region")
     bucket_prefix = s3_config.get("bucket_prefix")
     if not region or not bucket_prefix:
-        raise AirflowFailException(
+        raise S3UploadFailedException(
             "S3 backup enabled but region or bucket_prefix not configured in yaml"
         )
 
@@ -68,7 +72,7 @@ def upload_raw_file_to_s3(ti: TaskInstance, **kwargs) -> None:
     files_dst_paths = {
         Path(k): Path(v) for k, v in get_xcom(ti, XComKeys.FILES_DST_PATHS).items()
     }
-    tfp = get_xcom(ti, "tfp")
+    target_folder_path = get_xcom(ti, XComKeys.TARGET_FOLDER_PATH)
 
     # TODO: TBD organize fallback bucket by instrument & year_month?
     bucket_name = normalize_bucket_name(
@@ -88,33 +92,14 @@ def upload_raw_file_to_s3(ti: TaskInstance, **kwargs) -> None:
         if not bucket_exists_:
             raise S3UploadFailedException(error_msg)  # noqa: TRY301
 
-        for local_file_path in files_dst_paths.values():
-            logging.info(f"Processing file for upload: {local_file_path=} {tfp=}")
-            s3_key = str(local_file_path.relative_to(tfp))
-
-            local_etag = _extract_etag_from_file_info(s3_key, raw_file)
-
-            logging.info(f"Uploading {local_file_path} to s3://{bucket_name}/{s3_key}")
-
-            try:
-                if not is_upload_needed(bucket_name, s3_key, local_etag, s3_client):
-                    continue
-            except ValueError as e:
-                raise S3UploadFailedException(e) from e
-
-            upload_file_to_s3(
-                local_file_path, bucket_name, s3_key, transfer_config, s3_client
-            )
-
-            remote_etag = get_etag(bucket_name, s3_key, s3_client)
-
-            if local_etag != remote_etag or remote_etag is _FILE_NOT_FOUND:
-                msg = f"ETag mismatch for {s3_key}: local {local_etag} != remote {remote_etag}"
-                raise S3UploadFailedException(msg)  # noqa: TRY301
-
-            logging.info(
-                f"Successfully uploaded {s3_key}, ETag verified: {remote_etag}"
-            )
+        _upload_all_files(
+            files_dst_paths,
+            target_folder_path,
+            raw_file,
+            bucket_name,
+            transfer_config,
+            s3_client,
+        )
 
         update_raw_file(
             raw_file_id,
@@ -129,9 +114,47 @@ def upload_raw_file_to_s3(ti: TaskInstance, **kwargs) -> None:
         raise S3UploadFailedException(msg) from e
 
 
+def _upload_all_files(  # noqa: PLR0913
+    files_dst_paths: dict[Path, Path],
+    target_folder_path: str | list[str] | dict[str, Any] | int,
+    raw_file: RawFile,
+    bucket_name: str,
+    transfer_config: TransferConfig,
+    s3_client: BaseAwsConnection,
+) -> None:
+    """Upload all files to S3 with ETag verification."""
+    for local_file_path in files_dst_paths.values():
+        logging.info(
+            f"Processing file for upload: {local_file_path=} {target_folder_path=}"
+        )
+        s3_key = str(local_file_path.relative_to(target_folder_path))
+
+        local_etag = _extract_etag_from_file_info(s3_key, raw_file)
+
+        logging.info(f"Uploading {local_file_path} to s3://{bucket_name}/{s3_key}")
+
+        try:
+            if not is_upload_needed(bucket_name, s3_key, local_etag, s3_client):
+                continue
+        except ValueError as e:
+            raise S3UploadFailedException(e) from e
+
+        upload_file_to_s3(
+            local_file_path, bucket_name, s3_key, transfer_config, s3_client
+        )
+
+        remote_etag = get_etag(bucket_name, s3_key, s3_client)
+
+        if local_etag != remote_etag or remote_etag is _FILE_NOT_FOUND:
+            msg = f"ETag mismatch for {s3_key}: local {local_etag} != remote {remote_etag}"
+            raise S3UploadFailedException(msg)
+
+        logging.info(f"Successfully uploaded {s3_key}, ETag verified: {remote_etag}")
+
+
 def _extract_etag_from_file_info(local_file_path: str, raw_file: RawFile) -> str:
     """Extract ETag from raw_file.file_info for a given local file path."""
     size_and_hashsum = raw_file.file_info[local_file_path]
 
     etag_and_chunk_size = size_and_hashsum[2]
-    return etag_and_chunk_size.split("__")[0]
+    return etag_and_chunk_size.split(ETAG_SEPARATOR)[0]

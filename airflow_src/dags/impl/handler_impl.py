@@ -151,7 +151,7 @@ def compute_checksum(ti: TaskInstance, **kwargs) -> bool:
         size=total_file_size,
         file_info=file_info,
     )
-    put_xcom(ti, "tfp", str(copy_wrapper.target_folder_path))
+    put_xcom(ti, XComKeys.TARGET_FOLDER_PATH, str(copy_wrapper.target_folder_path))
     put_xcom(
         ti,
         XComKeys.FILES_SIZE_AND_HASHSUM,

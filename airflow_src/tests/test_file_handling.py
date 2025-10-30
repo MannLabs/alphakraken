@@ -18,6 +18,7 @@ from plugins.file_handling import (
     get_disk_usage,
     get_file_creation_timestamp,
     get_file_hash,
+    get_file_hash_with_etag,
     get_file_size,
     move_existing_file,
 )
@@ -95,7 +96,7 @@ def test_get_file_hash(
     # when
     return_value = get_file_hash(Path("/test/file/path"))
 
-    assert return_value == ("faff66b0fba39e3a4961b45dc5f9826c", "")
+    assert return_value == "faff66b0fba39e3a4961b45dc5f9826c"
 
 
 @patch("plugins.file_handling.get_file_size", return_value=123)
@@ -113,7 +114,45 @@ def test_get_file_hash_chunks(
     ]
 
     # when
-    return_value = get_file_hash(Path("/test/file/path"), calculate_etag=True)
+    return_value = get_file_hash(Path("/test/file/path"))
+
+    assert return_value == "faff66b0fba39e3a4961b45dc5f9826c"
+
+
+@patch("plugins.file_handling.get_file_size", return_value=123)
+@patch("plugins.file_handling.Path.open", new_callable=mock_open)
+def test_get_file_hash_with_etag(
+    mock_file_open: MagicMock,
+    mock_get_file_size: MagicMock,  # noqa: ARG001
+) -> None:
+    """Test get_file_hash."""
+    mock_file_open.return_value.read.side_effect = [b"some_file_content", None]
+
+    # when
+    return_value = get_file_hash_with_etag(Path("/test/file/path"), calculate_etag=True)
+
+    assert return_value == (
+        "faff66b0fba39e3a4961b45dc5f9826c",
+        "faff66b0fba39e3a4961b45dc5f9826c",
+    )
+
+
+@patch("plugins.file_handling.get_file_size", return_value=123)
+@patch("plugins.file_handling.Path.open", new_callable=mock_open)
+def test_get_file_hash_with_etag_chunks(
+    mock_file_open: MagicMock,
+    mock_get_file_size: MagicMock,  # noqa: ARG001
+) -> None:
+    """Test get_file_hash with multiple chunks."""
+    mock_file_open.return_value.read.side_effect = [
+        b"some_",
+        b"file_",
+        b"content",
+        b"",
+    ]
+
+    # when
+    return_value = get_file_hash_with_etag(Path("/test/file/path"), calculate_etag=True)
 
     assert return_value == (
         "faff66b0fba39e3a4961b45dc5f9826c",

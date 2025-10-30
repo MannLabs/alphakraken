@@ -79,10 +79,35 @@ def get_file_hash(
     file_path: Path,
     chunk_size: int = 8192,
     *,
+    verbose: bool = True,
+) -> str:
+    """Get the hash of a file.
+
+    Wrapper for get_file_hash_with_etag()
+
+    This operation is expensive for large files and/or if transferred over a network.
+    :param file_path: Path to the file.
+    :param chunk_size: Size of chunks to read the file in bytes.
+    :param verbose: Whether to log progress information.
+
+    :return: A tuple containing the MD5 hash and the ETag of the file. The latter is empty if calculate_etag is False
+    """
+    return get_file_hash_with_etag(
+        file_path,
+        chunk_size,
+        calculate_etag=False,
+        verbose=verbose,
+    )[0]
+
+
+def get_file_hash_with_etag(
+    file_path: Path,
+    chunk_size: int = 8192,
+    *,
     calculate_etag: bool = False,
     verbose: bool = True,
 ) -> tuple[str, str]:
-    """Get the hash of a file.
+    """Get the hash of a file with optional etag.
 
     This operation is expensive for large files and/or if transferred over a network.
     :param file_path: Path to the file.

@@ -54,7 +54,7 @@ general:
     type: slurm
 
 backup:
-  backup_type: local # or 's3'
+  backup_type: s3 # or 's3'
   s3:
     region: eu-central-1
     bucket_prefix: alphakraken

@@ -40,7 +40,7 @@ Add S3 backup capability as an alternative to local backup, configurable via YAM
 ### 3.1 New Fields in RawFile Model
 ```python
 # In shared/db/models.py
-s3_backup_key = StringField(max_length=1024, default=None)  # S3 object key prefix
+s3_upload_path = StringField(max_length=1024, default=None)  # S3 object key prefix
 s3_etag = StringField(max_length=128, default=None)         # For verification
 ```
 
@@ -83,7 +83,7 @@ AWS_SECRET_ACCESS_KEY=...
    - Construct S3 key: `{file_id}/{relative_path}`
    - Upload using boto3 multipart (500 MB chunks)
    - Verify: compare local ETag with S3 response ETag
-4. On success: set `backup_status = BackupStatus.DONE`, save `s3_backup_key` prefix
+4. On success: set `backup_status = BackupStatus.DONE`, save `s3_upload_path` prefix
 5. On failure: set `backup_status = BackupStatus.FAILED`, log error, **don't raise** (non-blocking)
 
 ### 5.2 Modified Task: `copy_raw_file_`
@@ -225,7 +225,7 @@ upload_to_s3_ = PythonOperator(
 ### 8.2 Rollback Strategy
 - Configuration-based: set `backup_type: local` to revert
 - No data loss: local backups still available
-- Database: `s3_backup_key` and `s3_etag` fields can remain null (no migration needed to roll back)
+- Database: `s3_upload_path` and `s3_etag` fields can remain null (no migration needed to roll back)
 
 ### 8.3 Prerequisites
 - [ ] Create S3 buckets for all existing projects (manual/Terraform)

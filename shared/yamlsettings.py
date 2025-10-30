@@ -93,11 +93,11 @@ def get_path(path_key: str) -> Path:
     return Path(path)
 
 
-def is_s3_backup_enabled() -> bool:
+def is_s3_upload_enabled() -> bool:
     """Return whether S3 backup is enabled in the yaml settings."""
     return YAMLSETTINGS.get("backup", {}).get("backup_type", "local") == "s3"  # type: ignore[possibly-unbound-attribute]
 
 
-def get_s3_backup_config() -> dict[str, Any]:
+def get_s3_upload_config() -> dict[str, Any]:
     """Get the S3 backup configuration from the yaml settings."""
     return YAMLSETTINGS.get("backup", {}).get("s3", {})  # type: ignore[possibly-unbound-attribute]

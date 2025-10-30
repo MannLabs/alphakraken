@@ -26,7 +26,7 @@ from common.utils import (
     put_xcom,
     trigger_dag_run,
 )
-from dags.impl.s3_backup import S3_UPLOAD_CHUNK_SIZE_MB
+from dags.impl.s3_upload import S3_UPLOAD_CHUNK_SIZE_MB
 from plugins.file_handling import (
     _decide_if_copy_required,
     copy_file,
@@ -53,7 +53,7 @@ from shared.keys import (
     DDA_FLAG_IN_RAW_FILE_NAME,
     FORBIDDEN_CHARACTERS_REGEXP,
 )
-from shared.yamlsettings import YamlKeys, get_path, is_s3_backup_enabled
+from shared.yamlsettings import YamlKeys, get_path, is_s3_upload_enabled
 
 
 def compute_checksum(ti: TaskInstance, **kwargs) -> bool:
@@ -95,7 +95,7 @@ def compute_checksum(ti: TaskInstance, **kwargs) -> bool:
         file_size = get_file_size(src_path)
         total_file_size += file_size
 
-        if is_s3_backup_enabled():
+        if is_s3_upload_enabled():
             md5sum, etag = get_file_hash_with_etag(
                 src_path, chunk_size_mb=S3_UPLOAD_CHUNK_SIZE_MB, calculate_etag=True
             )

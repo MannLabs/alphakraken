@@ -120,7 +120,8 @@ class RawFile(Document):
 
     backup_status = StringField(max_length=32, default=None)
 
-    s3_backup_key = StringField(max_length=1024, default=None)
+    # bucket_name or bucket_name/sub_path/ -> file_info paths are always relative to that
+    s3_upload_path = StringField(max_length=1024, default=None)
 
     instrument_file_status = StringField(max_length=16, default=InstrumentFileStatus.NA)
 

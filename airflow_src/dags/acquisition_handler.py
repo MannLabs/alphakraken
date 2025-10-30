@@ -31,10 +31,10 @@ from impl.handler_impl import (
     start_acquisition_processor,
     start_file_mover,
 )
-from impl.s3_backup import upload_raw_file_to_s3
+from impl.s3_upload import upload_raw_file_to_s3
 from sensors.acquisition_monitor import AcquisitionMonitor
 
-from shared.yamlsettings import is_s3_backup_enabled
+from shared.yamlsettings import is_s3_upload_enabled
 
 
 def create_acquisition_handler_dag(instrument_id: str) -> None:
@@ -120,7 +120,7 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
         start_file_mover_ >> decide_processing_ >> start_acquisition_processor_
     )
 
-    if not is_s3_backup_enabled():
+    if not is_s3_upload_enabled():
         (first_part >> second_part)
     else:
         (first_part >> [upload_to_s3_, start_file_mover_])

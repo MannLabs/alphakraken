@@ -10,7 +10,7 @@ Based on the design document and codebase research, here's the step-by-step impl
 
 ### 1.1 Add Database Fields
 - Modify `shared/db/models.py` → RawFile model
-- Add `s3_backup_key = StringField(max_length=1024, default=None)`
+- Add `s3_upload_path = StringField(max_length=1024, default=None)`
 - Add `s3_etag = StringField(max_length=128, default=None)`
 
 ### 1.2 Add Configuration Structure
@@ -32,7 +32,7 @@ Based on the design document and codebase research, here's the step-by-step impl
 - Add task constant in `airflow_src/plugins/common/keys.py` → `UPLOAD_TO_S3 = "upload_to_s3"`
 
 ### 1.4 Write Tests (Foundation)
-- Create test file structure in `airflow_src/tests/dags/impl/test_s3_backup.py`
+- Create test file structure in `airflow_src/tests/dags/impl/test_s3_upload.py`
 
 ---
 
@@ -64,7 +64,7 @@ The implementation should rely on Airflow AWS connections, which holds credentia
 - Mock boto3 client
 
 ### 2.3 Run Tests
-- `pytest airflow_src/tests/dags/impl/test_s3_backup.py::test_s3_utils -v`
+- `pytest airflow_src/tests/dags/impl/test_s3_upload.py::test_s3_utils -v`
 
 ---
 
@@ -75,7 +75,7 @@ The implementation should rely on Airflow AWS connections, which holds credentia
 **Status**: ✅ Complete (Commit: 22e935f)
 
 ### 3.1 Implement Upload Function
-- Create `upload_raw_file_to_s3()` in `airflow_src/dags/impl/s3_backup.py`:
+- Create `upload_raw_file_to_s3()` in `airflow_src/dags/impl/s3_upload.py`:
   1. Check config: short-circuit if `backup_type != 's3'`
   2. Get file_info from XCom
   3. Pre-validate bucket exists with `head_bucket()`
@@ -85,7 +85,7 @@ The implementation should rely on Airflow AWS connections, which holds credentia
      - Calculate local ETag
      - Upload with `upload_file()` (boto3 handles multipart automatically)
      - Verify remote ETag matches
-  7. On success: set `backup_status = DONE`, save `s3_backup_key` and `s3_etag`
+  7. On success: set `backup_status = DONE`, save `s3_upload_path` and `s3_etag`
   8. On ANY failure: set `backup_status = FAILED`, log error, don't raise (non-blocking)
 
 ### 3.2 Error Handling
@@ -104,7 +104,7 @@ The implementation should rely on Airflow AWS connections, which holds credentia
 - Mock boto3 S3 client for all tests
 
 ### 3.4 Run Tests
-- `pytest airflow_src/tests/dags/impl/test_s3_backup.py -v`
+- `pytest airflow_src/tests/dags/impl/test_s3_upload.py -v`
 
 ---
 
@@ -160,7 +160,7 @@ The implementation should rely on Airflow AWS connections, which holds credentia
 ### 5.1 Run Full Test Suite
 - `python -m pytest airflow_src/tests/ -v`
 - Ensure all tests pass
-- Check coverage: `pytest --cov=airflow_src/dags/impl/s3_backup --cov=airflow_src/dags/impl/s3_utils`
+- Check coverage: `pytest --cov=airflow_src/dags/impl/s3_upload --cov=airflow_src/dags/impl/s3_utils`
 
 ### 5.2 Pre-commit Checks
 - `pre-commit run --all-files`
@@ -272,5 +272,5 @@ Based on clarifying questions answered during planning:
 
 **Created:**
 8. `airflow_src/dags/impl/s3_utils.py` - S3 helper functions
-9. `airflow_src/dags/impl/s3_backup.py` - Main upload logic
-10. `airflow_src/tests/dags/impl/test_s3_backup.py` - Tests
+9. `airflow_src/dags/impl/s3_upload.py` - Main upload logic
+10. `airflow_src/tests/dags/impl/test_s3_upload.py` - Tests

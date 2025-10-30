@@ -26,7 +26,7 @@ from plugins.file_handling import ETAG_SEPARATOR
 
 from shared.db.interface import get_raw_file_by_id, update_raw_file
 from shared.db.models import BackupStatus, RawFile
-from shared.yamlsettings import get_s3_backup_config
+from shared.yamlsettings import get_s3_upload_config
 
 S3_UPLOAD_CHUNK_SIZE_MB = 500
 
@@ -50,7 +50,7 @@ def upload_raw_file_to_s3(ti: TaskInstance, **kwargs) -> None:
        - Skip if already uploaded with matching ETag
        - Upload to S3 using multipart upload
        - Verify remote ETag matches
-    6. On success: set backup_status = DONE, save s3_backup_key and s3_etag
+    6. On success: set backup_status = DONE, save s3_upload_path and s3_etag
     7. On failure: set backup_status = FAILED, log error (non-blocking)
 
     Args:
@@ -58,7 +58,7 @@ def upload_raw_file_to_s3(ti: TaskInstance, **kwargs) -> None:
         **kwargs: Contains raw_file_id in params
 
     """
-    s3_config = get_s3_backup_config()
+    s3_config = get_s3_upload_config()
     region = s3_config.get("region")
     bucket_prefix = s3_config.get("bucket_prefix")
     if not region or not bucket_prefix:
@@ -106,7 +106,7 @@ def upload_raw_file_to_s3(ti: TaskInstance, **kwargs) -> None:
         update_raw_file(
             raw_file_id,
             backup_status=BackupStatus.UPLOAD_DONE,
-            s3_backup_key=bucket_name,
+            s3_upload_path=bucket_name,
         )
 
         logging.info(f"S3 backup completed for {raw_file_id}")

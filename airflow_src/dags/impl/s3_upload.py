@@ -25,7 +25,7 @@ from dags.impl.s3_utils import (
 from plugins.file_handling import ETAG_SEPARATOR
 
 from shared.db.interface import get_raw_file_by_id, update_raw_file
-from shared.db.models import BackupStatus, RawFile
+from shared.db.models import BackupStatus, RawFile, get_created_at_year_month
 from shared.yamlsettings import get_s3_upload_config
 
 S3_UPLOAD_CHUNK_SIZE_MB = 500
@@ -74,7 +74,6 @@ def upload_raw_file_to_s3(ti: TaskInstance, **kwargs) -> None:
     }
     target_folder_path = get_xcom(ti, XComKeys.TARGET_FOLDER_PATH)
 
-    # TODO: TBD organize fallback bucket by instrument & year_month?
     bucket_name = normalize_bucket_name(
         _get_project_id_or_fallback(raw_file.project_id, raw_file.instrument_id),
         bucket_prefix,
@@ -92,7 +91,7 @@ def upload_raw_file_to_s3(ti: TaskInstance, **kwargs) -> None:
         if not bucket_exists_:
             raise S3UploadFailedException(error_msg)  # noqa: TRY301
 
-        file_path_to_target_path_and_etag = _prepare_upload(
+        file_path_to_target_path_and_etag, key_prefix = _prepare_upload(
             files_dst_paths, raw_file, target_folder_path
         )
 
@@ -106,7 +105,9 @@ def upload_raw_file_to_s3(ti: TaskInstance, **kwargs) -> None:
         update_raw_file(
             raw_file_id,
             backup_status=BackupStatus.UPLOAD_DONE,
-            s3_upload_path=bucket_name,
+            s3_upload_path=f"s3://{bucket_name}"
+            if not key_prefix
+            else f"s3://{bucket_name}/{key_prefix}",
         )
 
         logging.info(f"S3 backup completed for {raw_file_id}")
@@ -120,18 +121,45 @@ def _prepare_upload(
     files_dst_paths: dict[Path, Path],
     raw_file: RawFile,
     target_folder_path: str | list[str] | dict[str, Any] | int,
-) -> dict[Path, tuple[str, str]]:
+) -> tuple[dict[Path, tuple[str, str]], str]:
     """Prepare mapping of local file paths to S3 keys and local ETags."""
     file_path_to_target_path_and_etag: dict[Path, tuple[str, str]] = {}
+
+    key_prefix = _get_key_prefix(raw_file)
+
     for local_file_path in files_dst_paths.values():
         logging.info(
             f"Preparing file info for upload: {local_file_path=} {target_folder_path=}"
         )
-        s3_key = str(local_file_path.relative_to(target_folder_path))
-        local_etag = _extract_etag_from_file_info(s3_key, raw_file)
+        local_file_path_relative = str(local_file_path.relative_to(target_folder_path))
+        local_etag = _extract_etag_from_file_info(local_file_path_relative, raw_file)
+        s3_key = key_prefix + local_file_path_relative
         file_path_to_target_path_and_etag[local_file_path] = (s3_key, local_etag)
 
-    return file_path_to_target_path_and_etag
+    return file_path_to_target_path_and_etag, key_prefix
+
+
+def _get_key_prefix(raw_file: RawFile) -> str:
+    """Get S3 key prefix based on raw file metadata.
+
+    If raw file is not part of a project, use instrument ID and creation date.
+    If raw file is a .wiff file, use the raw file ID as prefix.
+
+    """
+    key_prefixes = []
+    if raw_file.project_id is None:
+        # fallback buckets get organized by instrument and date
+        key_prefixes.append(
+            f"{raw_file.instrument_id}/{get_created_at_year_month(raw_file)}"
+        )
+
+    if raw_file.id.endswith(".wiff"):  # TODO: use instrument_type here
+        key_prefixes.append(raw_file.id)
+
+    if key_prefixes:
+        key_prefixes.append("")
+
+    return "/".join(key_prefixes)
 
 
 def _upload_all_files(

@@ -47,6 +47,7 @@ from shared.db.models import (
     RawFile,
     RawFileStatus,
     get_created_at_year_month,
+    parse_file_info_item,
 )
 from shared.keys import (
     DDA_FLAG_IN_RAW_FILE_NAME,
@@ -86,9 +87,9 @@ def compute_checksum(ti: TaskInstance, **kwargs) -> bool:
         path_provider=CopyPathProvider,
     )
 
-    files_size_and_hashsum: dict[Path, tuple[float, str]] = {}
+    files_size_and_hashsum: dict[Path, tuple[float, str] | tuple[float, str, str]] = {}
     files_dst_paths: dict[Path, Path] = {}
-    file_info: dict[str, tuple[float, str]] = {}
+    file_info: dict[str, tuple[float, str] | tuple[float, str, str]] = {}
     total_file_size = 0
     for src_path, dst_path in copy_wrapper.get_files_to_copy().items():
         file_size = get_file_size(src_path)
@@ -259,7 +260,7 @@ def _handle_file_copying(
     """
     copied_files: dict[Path, tuple[float, str]] = {}
     for src_path, dst_path in files_dst_paths.items():
-        src_size, src_hash, *_ = files_size_and_hashsum[src_path]
+        src_size, src_hash = parse_file_info_item(files_size_and_hashsum[src_path])
 
         copy_required = _decide_if_copy_required(
             src_path, dst_path, src_hash, overwrite=overwrite
@@ -296,7 +297,9 @@ def _verify_copied_files(
     """Verify that the copied files match the original files in size and hash."""
     errors = []
     for src_path, (dst_size, dst_hash) in copied_files.items():
-        src_size, src_hash, *_ = files_size_and_hashsum.get(src_path, (None, None))
+        src_size, src_hash = parse_file_info_item(
+            files_size_and_hashsum.get(src_path, (None, None))
+        )
         dst_path = files_dst_paths.get(src_path)
         if dst_size != src_size or dst_hash != src_hash:
             errors.append(

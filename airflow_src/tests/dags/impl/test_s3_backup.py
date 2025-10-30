@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from botocore.exceptions import ClientError
 from common.keys import DagContext, DagParams, OpArgs
-from dags.impl.s3_backup import _get_transfer_config, upload_raw_file_to_s3
+from dags.impl.s3_backup import upload_raw_file_to_s3
 
 from shared.db.models import BackupStatus
 
@@ -348,17 +348,3 @@ class TestUploadRawFileToS3:
             call[1].get("backup_status") == BackupStatus.UPLOAD_DONE
             for call in mock_update_raw_file.call_args_list
         )
-
-
-class TestGetTransferConfig:
-    """Tests for _get_transfer_config function."""
-
-    def test_returns_valid_transfer_config(self) -> None:
-        """Test that transfer config is properly configured."""
-        config = _get_transfer_config()
-
-        # Check multipart settings (500MB)
-        assert config.multipart_threshold == 500 * 1024 * 1024
-        assert config.multipart_chunksize == 500 * 1024 * 1024
-        assert config.use_threads is True
-        assert config.max_concurrency == 10

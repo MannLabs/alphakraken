@@ -22,7 +22,7 @@ from dags.impl.s3_utils import (
 
 from shared.db.interface import get_raw_file_by_id, update_raw_file
 from shared.db.models import BackupStatus, RawFile
-from shared.yamlsettings import YAMLSETTINGS
+from shared.yamlsettings import get_s3_backup_config
 
 S3_UPLOAD_CHUNK_SIZE_MB = 500
 
@@ -54,7 +54,7 @@ def upload_raw_file_to_s3(ti: TaskInstance, **kwargs) -> None:
         **kwargs: Contains raw_file_id in params
 
     """
-    s3_config = YAMLSETTINGS.get("backup", {}).get("s3", {})
+    s3_config = get_s3_backup_config()
     region = s3_config.get("region")
     bucket_prefix = s3_config.get("bucket_prefix")
     if not region or not bucket_prefix:

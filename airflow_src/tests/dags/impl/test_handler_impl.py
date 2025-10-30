@@ -404,12 +404,12 @@ def test_copy_raw_file_calls_update_with_correct_args(  # noqa: PLR0913
                 "test_file.raw",
                 new_status=RawFileStatus.COPYING,
                 backup_base_path="some_backup_folder",
-                backup_status="in_progress",
+                backup_status="copying_in_progress",
             ),
             call(
                 "test_file.raw",
                 new_status=RawFileStatus.COPYING_DONE,
-                backup_status="done",
+                backup_status="copying_done",
             ),
         ]
     )
@@ -467,11 +467,11 @@ def test_copy_raw_file_verify_fails(  # noqa: PLR0913
                 "test_file.raw",
                 new_status=RawFileStatus.COPYING,
                 backup_base_path="some_backup_folder",
-                backup_status="in_progress",
+                backup_status="copying_in_progress",
             ),
             call(
                 "test_file.raw",
-                backup_status="failed",
+                backup_status="copying_failed",
             ),
         ]
     )

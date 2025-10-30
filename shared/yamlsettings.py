@@ -80,7 +80,7 @@ YAMLSETTINGS = YamlSettings()
 def get_path(path_key: str) -> Path:
     """Get a certain path from the yaml settings."""
     path = (
-        YAMLSETTINGS.get(YamlKeys.LOCATIONS, {})
+        YAMLSETTINGS.get(YamlKeys.LOCATIONS, {})  # type: ignore[possibly-unbound-attribute]
         .get(path_key, {})
         .get(YamlKeys.ABSOLUTE_PATH)
     )
@@ -95,4 +95,9 @@ def get_path(path_key: str) -> Path:
 
 def is_s3_backup_enabled() -> bool:
     """Return whether S3 backup is enabled in the yaml settings."""
-    return YAMLSETTINGS.get("backup", {}).get("backup_type", "local") == "s3"
+    return YAMLSETTINGS.get("backup", {}).get("backup_type", "local") == "s3"  # type: ignore[possibly-unbound-attribute]
+
+
+def get_s3_backup_config() -> dict[str, Any]:
+    """Get the S3 backup configuration from the yaml settings."""
+    return YAMLSETTINGS.get("backup", {}).get("s3", {})  # type: ignore[possibly-unbound-attribute]

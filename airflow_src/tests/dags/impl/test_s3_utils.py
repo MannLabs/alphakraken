@@ -1,96 +1,12 @@
 """Tests for the s3_utils module."""
 
-import hashlib
-import tempfile
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from dags.impl.s3_utils import (
-    calculate_s3_etag,
     get_s3_client,
+    get_transfer_config,
     normalize_bucket_name,
 )
-
-
-class TestCalculateS3Etag:
-    """Tests for calculate_s3_etag function."""
-
-    def test_calculate_etag_empty_file(self) -> None:
-        """Test ETag calculation for empty file."""
-        with tempfile.NamedTemporaryFile(delete=False) as f:
-            file_path = Path(f.name)
-
-        try:
-            etag = calculate_s3_etag(file_path, chunk_size_mb=1)
-            # Empty file MD5
-            assert etag == hashlib.md5(b"").hexdigest()  # noqa: S324
-        finally:
-            file_path.unlink()
-
-    def test_calculate_etag_small_file(self) -> None:
-        """Test ETag calculation for file smaller than chunk size."""
-        content = b"test content for small file"
-        with tempfile.NamedTemporaryFile(delete=False) as f:
-            f.write(content)
-            file_path = Path(f.name)
-
-        try:
-            etag = calculate_s3_etag(file_path, chunk_size_mb=1)
-            # Single part - just MD5
-            expected = hashlib.md5(content).hexdigest()  # noqa: S324
-            assert etag == expected
-        finally:
-            file_path.unlink()
-
-    def test_calculate_etag_multipart_file(self) -> None:
-        """Test ETag calculation for file requiring multipart upload."""
-        # Create file larger than 1MB chunk size (use 2MB)
-        chunk_size_mb = 1
-        chunk_size_bytes = chunk_size_mb * 1024 * 1024
-
-        # Create content slightly larger than 2 chunks
-        part1 = b"a" * chunk_size_bytes
-        part2 = b"b" * chunk_size_bytes
-        part3 = b"c" * 100  # Small third part
-
-        with tempfile.NamedTemporaryFile(delete=False) as f:
-            f.write(part1 + part2 + part3)
-            file_path = Path(f.name)
-
-        try:
-            etag = calculate_s3_etag(file_path, chunk_size_mb=chunk_size_mb)
-
-            # Calculate expected multipart ETag
-            md5_1 = hashlib.md5(part1).digest()  # noqa: S324
-            md5_2 = hashlib.md5(part2).digest()  # noqa: S324
-            md5_3 = hashlib.md5(part3).digest()  # noqa: S324
-            combined_hash = hashlib.md5(md5_1 + md5_2 + md5_3).hexdigest()  # noqa: S324
-            expected = f"{combined_hash}-3"
-
-            assert etag == expected
-            assert "-" in etag  # Verify multipart format
-            assert etag.endswith("-3")  # Verify 3 parts
-        finally:
-            file_path.unlink()
-
-    def test_calculate_etag_exactly_one_chunk(self) -> None:
-        """Test ETag calculation for file exactly one chunk size."""
-        chunk_size_mb = 1
-        chunk_size_bytes = chunk_size_mb * 1024 * 1024
-        content = b"x" * chunk_size_bytes
-
-        with tempfile.NamedTemporaryFile(delete=False) as f:
-            f.write(content)
-            file_path = Path(f.name)
-
-        try:
-            etag = calculate_s3_etag(file_path, chunk_size_mb=chunk_size_mb)
-            # Exactly one chunk - just MD5 without part count
-            expected = hashlib.md5(content).hexdigest()  # noqa: S324
-            assert etag == expected
-            assert "-" not in etag  # Single part format
-        finally:
-            file_path.unlink()
 
 
 class TestGetS3Client:
@@ -172,3 +88,17 @@ class TestNormalizeBucketName:
         bucket = normalize_bucket_name("PRJ001", "alphakraken")
         assert len(bucket) >= 3  # Minimum S3 bucket name length
         assert len(bucket) <= 63  # Maximum S3 bucket name length
+
+
+class TestGetTransferConfig:
+    """Tests for _get_transfer_config function."""
+
+    def test_returns_valid_transfer_config(self) -> None:
+        """Test that transfer config is properly configured."""
+        config = get_transfer_config()
+
+        # Check multipart settings (500MB)
+        assert config.multipart_threshold == 500 * 1024 * 1024
+        assert config.multipart_chunksize == 500 * 1024 * 1024
+        assert config.use_threads is True
+        assert config.max_concurrency == 10

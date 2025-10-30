@@ -129,11 +129,13 @@ def test_get_file_hash_with_etag(
     mock_file_open.return_value.read.side_effect = [b"some_file_content", None]
 
     # when
-    return_value = get_file_hash_with_etag(Path("/test/file/path"), calculate_etag=True)
+    return_value = get_file_hash_with_etag(
+        Path("/test/file/path"), calculate_etag=True, chunk_size_mb=42
+    )
 
     assert return_value == (
         "faff66b0fba39e3a4961b45dc5f9826c",
-        "faff66b0fba39e3a4961b45dc5f9826c",
+        "faff66b0fba39e3a4961b45dc5f9826c__42",
     )
 
 
@@ -152,20 +154,22 @@ def test_get_file_hash_with_etag_chunks(
     ]
 
     # when
-    return_value = get_file_hash_with_etag(Path("/test/file/path"), calculate_etag=True)
+    return_value = get_file_hash_with_etag(
+        Path("/test/file/path"), calculate_etag=True, chunk_size_mb=42
+    )
 
     assert return_value == (
         "faff66b0fba39e3a4961b45dc5f9826c",
-        "6de5b63da956997419b0f495fa7f265a-3",
+        "6de5b63da956997419b0f495fa7f265a-3__42",
     )
 
 
 def test_md5hashes_to_etag_empty_file() -> None:
     """Test _md5hashes_to_etag returns MD5 of empty bytes for empty file."""
-    result = _md5hashes_to_etag([])
+    result = _md5hashes_to_etag([], chunk_size_mb=42)
 
     # MD5 hash of empty bytes
-    assert result == "d41d8cd98f00b204e9800998ecf8427e"
+    assert result == "d41d8cd98f00b204e9800998ecf8427e__42"
 
 
 def test_md5hashes_to_etag_single_part() -> None:
@@ -174,10 +178,10 @@ def test_md5hashes_to_etag_single_part() -> None:
 
     single_hash = hashlib.md5(b"test_data_1").digest()  # noqa: S324
 
-    result = _md5hashes_to_etag([single_hash])
+    result = _md5hashes_to_etag([single_hash], chunk_size_mb=42)
 
     # Should return hex representation without part count
-    assert result == "6bd1fc852555783416536b7af9172d22"
+    assert result == "6bd1fc852555783416536b7af9172d22__42"
 
 
 def test_md5hashes_to_etag_multipart_two_parts() -> None:
@@ -187,10 +191,10 @@ def test_md5hashes_to_etag_multipart_two_parts() -> None:
     hash1 = hashlib.md5(b"test_data_1").digest()  # noqa: S324
     hash2 = hashlib.md5(b"test_data_2").digest()  # noqa: S324
 
-    result = _md5hashes_to_etag([hash1, hash2])
+    result = _md5hashes_to_etag([hash1, hash2], chunk_size_mb=42)
 
     # Should be MD5 of concatenated hashes with "-2" suffix
-    assert result == "6abb33a475f0a19b502a691a155200d5-2"
+    assert result == "6abb33a475f0a19b502a691a155200d5-2__42"
 
 
 def test_md5hashes_to_etag_multipart_three_parts() -> None:
@@ -201,10 +205,10 @@ def test_md5hashes_to_etag_multipart_three_parts() -> None:
     hash2 = hashlib.md5(b"test_data_2").digest()  # noqa: S324
     hash3 = hashlib.md5(b"test_data_3").digest()  # noqa: S324
 
-    result = _md5hashes_to_etag([hash1, hash2, hash3])
+    result = _md5hashes_to_etag([hash1, hash2, hash3], chunk_size_mb=42)
 
     # Should be MD5 of concatenated hashes with "-3" suffix
-    assert result == "c0f39841d0a3da5a047629eacf7e6270-3"
+    assert result == "c0f39841d0a3da5a047629eacf7e6270-3__42"
 
 
 def test_md5hashes_to_etag_multipart_many_parts() -> None:
@@ -212,11 +216,9 @@ def test_md5hashes_to_etag_multipart_many_parts() -> None:
     # Simulate 42 parts (e.g., 21 GB file with 500 MB chunks)
     hashes = [b"\x00" * 16 for _ in range(42)]
 
-    result = _md5hashes_to_etag(hashes)
+    result = _md5hashes_to_etag(hashes, chunk_size_mb=43)
 
-    # Should have "-42" suffix
-    assert result.endswith("-42")
-    assert len(result.split("-")) == 2
+    assert result == "d493286dbbb40d11add825ca2181a83b-42__43"
 
 
 @patch("plugins.file_handling.get_file_hash")

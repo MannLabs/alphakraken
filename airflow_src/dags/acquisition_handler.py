@@ -94,7 +94,7 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
             execution_timeout=timedelta(hours=6),  # Large files need time
             retries=3,
             retry_delay=timedelta(minutes=5),
-            pool=Pools.FILE_COPY_POOL,  # Uses same pool as file copying
+            pool=Pools.S3_UPLOAD_POOL,
         )
 
         start_file_mover_ = PythonOperator(

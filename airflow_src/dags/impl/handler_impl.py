@@ -26,8 +26,15 @@ from common.utils import (
     put_xcom,
     trigger_dag_run,
 )
-from file_handling import copy_file, get_file_hash, get_file_size, move_existing_file
-from plugins.file_handling import _decide_if_copy_required
+from dags.impl.s3_backup import S3_UPLOAD_CHUNK_SIZE_MB
+from plugins.file_handling import (
+    _decide_if_copy_required,
+    copy_file,
+    get_file_hash,
+    get_file_hash_with_etag,
+    get_file_size,
+    move_existing_file,
+)
 from raw_file_wrapper_factory import (
     CopyPathProvider,
     RawFileWrapperFactory,
@@ -45,7 +52,7 @@ from shared.keys import (
     DDA_FLAG_IN_RAW_FILE_NAME,
     FORBIDDEN_CHARACTERS_REGEXP,
 )
-from shared.yamlsettings import YamlKeys, get_path
+from shared.yamlsettings import YamlKeys, get_path, is_s3_backup_enabled
 
 
 def compute_checksum(ti: TaskInstance, **kwargs) -> bool:
@@ -86,7 +93,15 @@ def compute_checksum(ti: TaskInstance, **kwargs) -> bool:
     for src_path, dst_path in copy_wrapper.get_files_to_copy().items():
         file_size = get_file_size(src_path)
         total_file_size += file_size
-        size_and_hashsum = (file_size, get_file_hash(src_path))
+
+        if is_s3_backup_enabled():
+            md5sum, etag = get_file_hash_with_etag(
+                src_path, chunk_size_mb=S3_UPLOAD_CHUNK_SIZE_MB, calculate_etag=True
+            )
+            size_and_hashsum = (file_size, md5sum, etag)
+        else:
+            md5sum = get_file_hash(src_path)
+            size_and_hashsum = (file_size, md5sum)
 
         files_dst_paths[src_path] = dst_path
         files_size_and_hashsum[src_path] = size_and_hashsum
@@ -244,7 +259,7 @@ def _handle_file_copying(
     """
     copied_files: dict[Path, tuple[float, str]] = {}
     for src_path, dst_path in files_dst_paths.items():
-        src_size, src_hash = files_size_and_hashsum[src_path]
+        src_size, src_hash, *_ = files_size_and_hashsum[src_path]
 
         copy_required = _decide_if_copy_required(
             src_path, dst_path, src_hash, overwrite=overwrite
@@ -281,7 +296,7 @@ def _verify_copied_files(
     """Verify that the copied files match the original files in size and hash."""
     errors = []
     for src_path, (dst_size, dst_hash) in copied_files.items():
-        src_size, src_hash = files_size_and_hashsum.get(src_path, (None, None))
+        src_size, src_hash, *_ = files_size_and_hashsum.get(src_path, (None, None))
         dst_path = files_dst_paths.get(src_path)
         if dst_size != src_size or dst_hash != src_hash:
             errors.append(

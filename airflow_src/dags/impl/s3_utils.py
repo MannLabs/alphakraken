@@ -1,6 +1,5 @@
 """Utility functions for S3 operations."""
 
-import hashlib
 import logging
 from pathlib import Path
 
@@ -173,43 +172,6 @@ def get_etag(
         existing_etag = _FILE_NOT_FOUND
 
     return existing_etag
-
-
-def calculate_s3_etag(file_path: Path, chunk_size_mb: int) -> str:
-    """Calculate ETag for a file matching S3 multipart upload format.
-
-    For files uploaded with multipart upload, S3 calculates the ETag as:
-    - MD5 of each part
-    - MD5 of concatenated MD5 hashes
-    - Format: "{hash}-{part_count}"
-
-    Args:
-        file_path: Path to the file
-        chunk_size_mb: Chunk size in MB (default 500MB to match upload chunk size)
-
-    Returns:
-        ETag string in format matching S3 multipart upload
-
-    """
-    chunk_size_bytes = chunk_size_mb * 1024 * 1024
-    md5_hashes = []
-
-    with file_path.open("rb") as f:
-        while True:
-            chunk = f.read(chunk_size_bytes)
-            if not chunk:
-                break
-            md5_hashes.append(hashlib.md5(chunk).digest())  # noqa: S324
-
-    if len(md5_hashes) == 0:
-        # Empty file
-        return hashlib.md5(b"").hexdigest()  # noqa: S324
-    if len(md5_hashes) == 1:
-        # Single part - just MD5 without part count
-        return md5_hashes[0].hex()
-    # Multipart - MD5 of concatenated hashes with part count
-    combined_hash = hashlib.md5(b"".join(md5_hashes)).hexdigest()  # noqa: S324
-    return f"{combined_hash}-{len(md5_hashes)}"
 
 
 def upload_file_to_s3(

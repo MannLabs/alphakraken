@@ -34,7 +34,7 @@ from impl.handler_impl import (
 from impl.s3_backup import upload_raw_file_to_s3
 from sensors.acquisition_monitor import AcquisitionMonitor
 
-from shared.yamlsettings import YAMLSETTINGS
+from shared.yamlsettings import is_s3_backup_enabled
 
 
 def create_acquisition_handler_dag(instrument_id: str) -> None:
@@ -116,14 +116,12 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
             op_kwargs={OpArgs.INSTRUMENT_ID: instrument_id},
         )
 
-    backup_type = YAMLSETTINGS.get("backup", {}).get("backup_type", "local")
-
     first_part = monitor_acquisition_ >> compute_checksum_ >> copy_raw_file_
     second_part = (
         start_file_mover_ >> decide_processing_ >> start_acquisition_processor_
     )
 
-    if backup_type == "local":
+    if not is_s3_backup_enabled():
         (first_part >> second_part)
     else:
         (first_part >> [upload_to_s3_, start_file_mover_])

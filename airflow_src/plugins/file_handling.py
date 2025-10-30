@@ -77,7 +77,7 @@ def get_disk_usage(path: Path) -> tuple[float, float, float]:
 
 def get_file_hash(
     file_path: Path,
-    chunk_size: int = 8192,
+    chunk_size_mb: int = 8,
     *,
     verbose: bool = True,
 ) -> str:
@@ -87,14 +87,14 @@ def get_file_hash(
 
     This operation is expensive for large files and/or if transferred over a network.
     :param file_path: Path to the file.
-    :param chunk_size: Size of chunks to read the file in bytes.
+    :param chunk_size_mb: Size of chunks to read the file in Megabytes.
     :param verbose: Whether to log progress information.
 
     :return: A tuple containing the MD5 hash and the ETag of the file. The latter is empty if calculate_etag is False
     """
     return get_file_hash_with_etag(
         file_path,
-        chunk_size,
+        chunk_size_mb,
         calculate_etag=False,
         verbose=verbose,
     )[0]
@@ -102,7 +102,7 @@ def get_file_hash(
 
 def get_file_hash_with_etag(
     file_path: Path,
-    chunk_size: int = 8192,
+    chunk_size_mb: int,
     *,
     calculate_etag: bool = False,
     verbose: bool = True,
@@ -111,7 +111,7 @@ def get_file_hash_with_etag(
 
     This operation is expensive for large files and/or if transferred over a network.
     :param file_path: Path to the file.
-    :param chunk_size: Size of chunks to read the file in bytes.
+    :param chunk_size_mb: Size of chunks to read the file in Megabytes.
     :param calculate_etag: Whether to calculate the etag (for multipart uploads).
     :param verbose: Whether to log progress information.
 
@@ -122,17 +122,18 @@ def get_file_hash_with_etag(
         file_size = get_file_size(file_path, verbose=False)
         logging.info(f"Calculating hash of {file_path} ({file_size=})..")
 
+    chunk_size_bytes = chunk_size_mb * 1024 * 1024
     md5_hashes = []
     with file_path.open("rb") as f:
         file_hash = hashlib.md5()  # noqa: S324 hashlib-insecure-hash-function
-        while chunk := f.read(chunk_size):
+        while chunk := f.read(chunk_size_bytes):
             file_hash.update(chunk)
 
             if calculate_etag:
                 md5_hashes.append(hashlib.md5(chunk).digest())  # noqa: S324
 
     md5sum = file_hash.hexdigest()
-    etag = _md5hashes_to_etag(md5_hashes) if calculate_etag else ""
+    etag = _md5hashes_to_etag(md5_hashes, chunk_size_mb) if calculate_etag else ""
 
     if verbose:
         file_size = get_file_size(
@@ -146,19 +147,23 @@ def get_file_hash_with_etag(
     return md5sum, etag
 
 
-def _md5hashes_to_etag(md5_hashes: list[bytes]) -> str:
-    """Convert a list of MD5 hashes to an S3 ETag format."""
+def _md5hashes_to_etag(md5_hashes: list[bytes], chunk_size_mb: int) -> str:
+    """Convert a list of MD5 hashes to an S3 ETag format.
+
+    The chunk size is appended as a prefix with a '__' separator.
+    """
     if len(md5_hashes) == 0:
         # Empty file
-        return hashlib.md5(b"").hexdigest()  # noqa: S324  # this is d41d8cd98f00b204e9800998ecf8427e
-    if len(md5_hashes) == 1:
+        value = hashlib.md5(b"").hexdigest()  # noqa: S324  # this is d41d8cd98f00b204e9800998ecf8427e
+    elif len(md5_hashes) == 1:
         # Single part - just MD5 without part count
-        return md5_hashes[0].hex()
+        value = md5_hashes[0].hex()
+    else:
+        # Multipart - MD5 of concatenated hashes with part count
+        combined_hash = hashlib.md5(b"".join(md5_hashes)).hexdigest()  # noqa: S324
+        value = f"{combined_hash}-{len(md5_hashes)}"
 
-    # Multipart - MD5 of concatenated hashes with part count
-    combined_hash = hashlib.md5(b"".join(md5_hashes)).hexdigest()  # noqa: S324
-
-    return f"{combined_hash}-{len(md5_hashes)}"
+    return f"{value}__{chunk_size_mb!s}"
 
 
 def _identical_copy_exists(dst_path: Path, src_hash: str) -> bool:

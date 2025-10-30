@@ -12,7 +12,6 @@ from dags.impl.processor_impl import _get_project_id_or_fallback
 from dags.impl.s3_utils import (
     _FILE_NOT_FOUND,
     bucket_exists,
-    calculate_s3_etag,
     get_etag,
     get_s3_client,
     get_transfer_config,
@@ -22,10 +21,10 @@ from dags.impl.s3_utils import (
 )
 
 from shared.db.interface import get_raw_file_by_id, update_raw_file
-from shared.db.models import BackupStatus
+from shared.db.models import BackupStatus, RawFile
 from shared.yamlsettings import YAMLSETTINGS
 
-CHUNK_SIZE_MB = 500
+S3_UPLOAD_CHUNK_SIZE_MB = 500
 
 
 class S3UploadFailedException(AirflowFailException):
@@ -76,7 +75,7 @@ def upload_raw_file_to_s3(ti: TaskInstance, **kwargs) -> None:
         _get_project_id_or_fallback(raw_file.project_id, raw_file.instrument_id),
         bucket_prefix,
     )
-    transfer_config = get_transfer_config(CHUNK_SIZE_MB)
+    transfer_config = get_transfer_config(S3_UPLOAD_CHUNK_SIZE_MB)
 
     logging.info(f"Starting S3 upload for {raw_file_id} to {bucket_name=} {region=}")
 
@@ -93,11 +92,9 @@ def upload_raw_file_to_s3(ti: TaskInstance, **kwargs) -> None:
             logging.info(f"Processing file for upload: {local_file_path=} {tfp=}")
             s3_key = str(local_file_path.relative_to(tfp))
 
-            logging.info(f"Uploading {local_file_path} to s3://{bucket_name}/{s3_key}")
+            local_etag = _extract_etag_from_file_info(s3_key, raw_file)
 
-            # keep etag calculation close to upload as chunk size could change but add to file_info
-            # TODO: need to store chunk size used for upload in DB, to be able to verify later then it can be done during file_info creation
-            local_etag = calculate_s3_etag(local_file_path, chunk_size_mb=CHUNK_SIZE_MB)
+            logging.info(f"Uploading {local_file_path} to s3://{bucket_name}/{s3_key}")
 
             try:
                 if not is_upload_needed(bucket_name, s3_key, local_etag, s3_client):
@@ -130,3 +127,11 @@ def upload_raw_file_to_s3(ti: TaskInstance, **kwargs) -> None:
     except (BotoCoreError, ClientError, Exception) as e:
         msg = f"S3 upload failed for {raw_file_id}: {type(e).__name__} - {e}"
         raise S3UploadFailedException(msg) from e
+
+
+def _extract_etag_from_file_info(local_file_path: str, raw_file: RawFile) -> str:
+    """Extract ETag from raw_file.file_info for a given local file path."""
+    size_and_hashsum = raw_file.file_info[local_file_path]
+
+    etag_and_chunk_size = size_and_hashsum[2]
+    return etag_and_chunk_size.split("__")[0]

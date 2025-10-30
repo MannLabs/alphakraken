@@ -87,10 +87,89 @@ def test_compute_checksum_one_file(  # noqa: PLR0913
     )
     mock_put_xcom.assert_has_calls(
         [
+            call(ti, "target_folder_path", "/path/to/backup"),
             call(
                 ti,
                 "files_size_and_hashsum",
                 {"/path/to/instrument/test_file.raw": (1000, "some_hash")},
+            ),
+            call(
+                ti,
+                "files_dst_paths",
+                {"/path/to/instrument/test_file.raw": "/path/to/backup/test_file.raw"},
+            ),
+        ]
+    )
+
+
+@pytest.mark.parametrize(
+    "file_info",
+    [
+        {"test_file.raw": (1000, "some_hash", "some_etag")},
+        {},
+    ],
+)
+@patch("dags.impl.handler_impl.get_raw_file_by_id")
+@patch("dags.impl.handler_impl.RawFileWrapperFactory")
+@patch("dags.impl.handler_impl.get_file_size")
+@patch("dags.impl.handler_impl.is_s3_upload_enabled")
+@patch("dags.impl.handler_impl.get_file_hash_with_etag")
+@patch("dags.impl.handler_impl.update_raw_file")
+@patch("dags.impl.handler_impl.put_xcom")
+def test_compute_checksum_one_file_s3_upload(  # noqa: PLR0913
+    mock_put_xcom: MagicMock,
+    mock_update_raw_file: MagicMock,
+    mock_get_file_hash_with_etag: MagicMock,
+    mock_is_s3_upload_enabled: MagicMock,  # noqa: ARG001
+    mock_get_file_size: MagicMock,
+    mock_raw_file_wrapper_factory: MagicMock,
+    mock_get_raw_file_by_id: MagicMock,
+    file_info: dict[str, tuple[float, str]],
+) -> None:
+    """Test compute_checksum calls update with correct arguments for one file (e.g. Thermo)."""
+    ti = MagicMock()
+    kwargs = {
+        "params": {"raw_file_id": "test_file.raw"},
+    }
+    mock_raw_file = MagicMock()
+    mock_raw_file.file_info = file_info
+    mock_get_raw_file_by_id.return_value = mock_raw_file
+
+    mock_get_file_size.return_value = 1000
+    mock_get_file_hash_with_etag.return_value = ("some_hash", "some_etag")
+    mock_raw_file_wrapper_factory.create_write_wrapper.return_value.get_files_to_copy.return_value = {
+        Path("/path/to/instrument/test_file.raw"): Path("/path/to/backup/test_file.raw")
+    }
+    mock_raw_file_wrapper_factory.create_write_wrapper.return_value.target_folder_path = Path(
+        "/path/to/backup/"
+    )
+
+    mock_main_file_path = MagicMock()
+    mock_raw_file_wrapper_factory.create_write_wrapper.return_value.main_file_path.return_value = mock_main_file_path
+
+    # when
+    continue_downstream_tasks = compute_checksum(ti, **kwargs)
+
+    # then
+    assert continue_downstream_tasks
+    mock_update_raw_file.assert_has_calls(
+        [
+            call("test_file.raw", new_status=RawFileStatus.CHECKSUMMING),
+            call(
+                "test_file.raw",
+                new_status=RawFileStatus.CHECKSUMMING_DONE,
+                size=1000,
+                file_info={"test_file.raw": (1000, "some_hash", "some_etag")},
+            ),
+        ]
+    )
+    mock_put_xcom.assert_has_calls(
+        [
+            call(ti, "target_folder_path", "/path/to/backup"),
+            call(
+                ti,
+                "files_size_and_hashsum",
+                {"/path/to/instrument/test_file.raw": (1000, "some_hash", "some_etag")},
             ),
             call(
                 ti,

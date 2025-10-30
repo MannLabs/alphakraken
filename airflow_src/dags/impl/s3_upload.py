@@ -147,7 +147,7 @@ def _get_key_prefix(raw_file: RawFile) -> str:
 
     """
     key_prefixes = []
-    if raw_file.project_id is None:
+    if raw_file.project_id is None:  # TODO: centralize "no project given" logic
         # fallback buckets get organized by instrument and date
         key_prefixes.append(
             f"{raw_file.instrument_id}/{get_created_at_year_month(raw_file)}"

@@ -147,13 +147,15 @@ def get_file_hash_with_etag(
     return md5sum, etag
 
 
+# separator between ETag and chunk size
 ETAG_SEPARATOR = "__"
 
 
 def _md5hashes_to_etag(md5_hashes: list[bytes], chunk_size_mb: int) -> str:
     """Convert a list of MD5 hashes to an S3 ETag format.
 
-    The chunk size is appended as a prefix with a '__' separator.
+    The chunk size is appended as a prefix with a '__' separator. This is because the ETag depends
+    on the chunk size used during multipart upload, so we need to keep track of the chunk size.
     """
     if len(md5_hashes) == 0:
         # Empty file

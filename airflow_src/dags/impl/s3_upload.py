@@ -92,10 +92,12 @@ def upload_raw_file_to_s3(ti: TaskInstance, **kwargs) -> None:
         if not bucket_exists_:
             raise S3UploadFailedException(error_msg)  # noqa: TRY301
 
+        file_path_to_target_path_and_etag = _prepare_upload(
+            files_dst_paths, raw_file, target_folder_path
+        )
+
         _upload_all_files(
-            files_dst_paths,
-            target_folder_path,
-            raw_file,
+            file_path_to_target_path_and_etag,
             bucket_name,
             transfer_config,
             s3_client,
@@ -114,23 +116,35 @@ def upload_raw_file_to_s3(ti: TaskInstance, **kwargs) -> None:
         raise S3UploadFailedException(msg) from e
 
 
-def _upload_all_files(  # noqa: PLR0913
+def _prepare_upload(
     files_dst_paths: dict[Path, Path],
-    target_folder_path: str | list[str] | dict[str, Any] | int,
     raw_file: RawFile,
+    target_folder_path: str | list[str] | dict[str, Any] | int,
+) -> dict[Path, tuple[str, str]]:
+    """Prepare mapping of local file paths to S3 keys and local ETags."""
+    file_path_to_target_path_and_etag: dict[Path, tuple[str, str]] = {}
+    for local_file_path in files_dst_paths.values():
+        logging.info(
+            f"Preparing file info for upload: {local_file_path=} {target_folder_path=}"
+        )
+        s3_key = str(local_file_path.relative_to(target_folder_path))
+        local_etag = _extract_etag_from_file_info(s3_key, raw_file)
+        file_path_to_target_path_and_etag[local_file_path] = (s3_key, local_etag)
+
+    return file_path_to_target_path_and_etag
+
+
+def _upload_all_files(
+    file_path_to_target_path_and_etag: dict[Path, tuple[str, str]],
     bucket_name: str,
     transfer_config: TransferConfig,
     s3_client: BaseAwsConnection,
 ) -> None:
     """Upload all files to S3 with ETag verification."""
-    for local_file_path in files_dst_paths.values():
-        logging.info(
-            f"Processing file for upload: {local_file_path=} {target_folder_path=}"
-        )
-        s3_key = str(local_file_path.relative_to(target_folder_path))
-
-        local_etag = _extract_etag_from_file_info(s3_key, raw_file)
-
+    for local_file_path, (
+        s3_key,
+        local_etag,
+    ) in file_path_to_target_path_and_etag.items():
         logging.info(f"Uploading {local_file_path} to s3://{bucket_name}/{s3_key}")
 
         try:

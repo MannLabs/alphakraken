@@ -1,4 +1,4 @@
-"""Tests for the s3_backup module."""
+"""Tests for the s3_upload module."""
 
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from botocore.exceptions import ClientError
 from common.keys import DagContext, DagParams, OpArgs
-from dags.impl.s3_backup import upload_raw_file_to_s3
+from dags.impl.s3_upload import upload_raw_file_to_s3
 
 from shared.db.models import BackupStatus
 
@@ -41,7 +41,7 @@ class TestUploadRawFileToS3:
     """Tests for upload_raw_file_to_s3 function."""
 
     @patch("shared.db.interface.connect_db")
-    @patch("dags.impl.s3_backup.YAMLSETTINGS")
+    @patch("dags.impl.s3_upload.YAMLSETTINGS")
     def test_skips_upload_when_backup_type_is_local(
         self,
         mock_settings: MagicMock,
@@ -58,10 +58,10 @@ class TestUploadRawFileToS3:
         mock_task_instance.xcom_pull.assert_not_called()
 
     @patch("shared.db.interface.connect_db")
-    @patch("dags.impl.s3_backup.get_raw_file_by_id")
-    @patch("dags.impl.s3_backup.update_raw_file")
-    @patch("dags.impl.s3_backup.get_xcom")
-    @patch("dags.impl.s3_backup.YAMLSETTINGS")
+    @patch("dags.impl.s3_upload.get_raw_file_by_id")
+    @patch("dags.impl.s3_upload.update_raw_file")
+    @patch("dags.impl.s3_upload.get_xcom")
+    @patch("dags.impl.s3_upload.YAMLSETTINGS")
     def test_returns_early_when_s3_config_missing(  # noqa: PLR0913
         self,
         mock_settings: MagicMock,
@@ -84,11 +84,11 @@ class TestUploadRawFileToS3:
         mock_get_raw_file_by_id.assert_not_called()
 
     @patch("shared.db.interface.connect_db")
-    @patch("dags.impl.s3_backup.get_raw_file_by_id")
-    @patch("dags.impl.s3_backup.update_raw_file")
-    @patch("dags.impl.s3_backup.get_xcom")
-    @patch("dags.impl.s3_backup.get_s3_client")
-    @patch("dags.impl.s3_backup.YAMLSETTINGS")
+    @patch("dags.impl.s3_upload.get_raw_file_by_id")
+    @patch("dags.impl.s3_upload.update_raw_file")
+    @patch("dags.impl.s3_upload.get_xcom")
+    @patch("dags.impl.s3_upload.get_s3_client")
+    @patch("dags.impl.s3_upload.YAMLSETTINGS")
     def test_fails_gracefully_when_bucket_does_not_exist(  # noqa: PLR0913
         self,
         mock_settings: MagicMock,
@@ -124,12 +124,12 @@ class TestUploadRawFileToS3:
         )
 
     @patch("shared.db.interface.connect_db")
-    @patch("dags.impl.s3_backup.get_raw_file_by_id")
-    @patch("dags.impl.s3_backup.update_raw_file")
-    @patch("dags.impl.s3_backup.get_xcom")
-    @patch("dags.impl.s3_backup.get_s3_client")
-    @patch("dags.impl.s3_backup.calculate_s3_etag")
-    @patch("dags.impl.s3_backup.YAMLSETTINGS")
+    @patch("dags.impl.s3_upload.get_raw_file_by_id")
+    @patch("dags.impl.s3_upload.update_raw_file")
+    @patch("dags.impl.s3_upload.get_xcom")
+    @patch("dags.impl.s3_upload.get_s3_client")
+    @patch("dags.impl.s3_upload.calculate_s3_etag")
+    @patch("dags.impl.s3_upload.YAMLSETTINGS")
     def test_skips_upload_when_file_already_exists_with_matching_etag(  # noqa: PLR0913
         self,
         mock_settings: MagicMock,
@@ -176,12 +176,12 @@ class TestUploadRawFileToS3:
         )
 
     @patch("shared.db.interface.connect_db")
-    @patch("dags.impl.s3_backup.get_raw_file_by_id")
-    @patch("dags.impl.s3_backup.update_raw_file")
-    @patch("dags.impl.s3_backup.get_xcom")
-    @patch("dags.impl.s3_backup.get_s3_client")
-    @patch("dags.impl.s3_backup.calculate_s3_etag")
-    @patch("dags.impl.s3_backup.YAMLSETTINGS")
+    @patch("dags.impl.s3_upload.get_raw_file_by_id")
+    @patch("dags.impl.s3_upload.update_raw_file")
+    @patch("dags.impl.s3_upload.get_xcom")
+    @patch("dags.impl.s3_upload.get_s3_client")
+    @patch("dags.impl.s3_upload.calculate_s3_etag")
+    @patch("dags.impl.s3_upload.YAMLSETTINGS")
     def test_uploads_file_successfully(  # noqa: PLR0913
         self,
         mock_settings: MagicMock,
@@ -241,12 +241,12 @@ class TestUploadRawFileToS3:
         )
 
     @patch("shared.db.interface.connect_db")
-    @patch("dags.impl.s3_backup.get_raw_file_by_id")
-    @patch("dags.impl.s3_backup.update_raw_file")
-    @patch("dags.impl.s3_backup.get_xcom")
-    @patch("dags.impl.s3_backup.get_s3_client")
-    @patch("dags.impl.s3_backup.calculate_s3_etag")
-    @patch("dags.impl.s3_backup.YAMLSETTINGS")
+    @patch("dags.impl.s3_upload.get_raw_file_by_id")
+    @patch("dags.impl.s3_upload.update_raw_file")
+    @patch("dags.impl.s3_upload.get_xcom")
+    @patch("dags.impl.s3_upload.get_s3_client")
+    @patch("dags.impl.s3_upload.calculate_s3_etag")
+    @patch("dags.impl.s3_upload.YAMLSETTINGS")
     def test_fails_gracefully_on_etag_mismatch(  # noqa: PLR0913
         self,
         mock_settings: MagicMock,
@@ -298,11 +298,11 @@ class TestUploadRawFileToS3:
         )
 
     @patch("shared.db.interface.connect_db")
-    @patch("dags.impl.s3_backup.get_raw_file_by_id")
-    @patch("dags.impl.s3_backup.update_raw_file")
-    @patch("dags.impl.s3_backup.get_xcom")
-    @patch("dags.impl.s3_backup.get_s3_client")
-    @patch("dags.impl.s3_backup.YAMLSETTINGS")
+    @patch("dags.impl.s3_upload.get_raw_file_by_id")
+    @patch("dags.impl.s3_upload.update_raw_file")
+    @patch("dags.impl.s3_upload.get_xcom")
+    @patch("dags.impl.s3_upload.get_s3_client")
+    @patch("dags.impl.s3_upload.YAMLSETTINGS")
     def test_handles_multifile_upload(  # noqa: PLR0913
         self,
         mock_settings: MagicMock,
@@ -337,7 +337,7 @@ class TestUploadRawFileToS3:
         mock_get_s3_client.return_value = mock_s3
 
         # Mock calculate_s3_etag to always return matching ETag
-        with patch("dags.impl.s3_backup.calculate_s3_etag", return_value="abc123"):
+        with patch("dags.impl.s3_upload.calculate_s3_etag", return_value="abc123"):
             upload_raw_file_to_s3(mock_task_instance, **mock_kwargs)
 
         # Should check both files

@@ -5,8 +5,10 @@ Note: this module must not have any dependencies on the rest of the codebase.
 
 import logging
 from datetime import datetime, timedelta
+from typing import Any
 
 import pytz
+from mongoengine import QuerySet
 
 from shared.db.engine import connect_db
 from shared.db.models import (
@@ -280,3 +282,43 @@ def update_kraken_status(
         status_details=status_details,
         entity_type=entity_type,
     ).save()
+
+
+def augment_raw_files_with_metrics(
+    raw_files: QuerySet,
+    fields: list[str] | None = None,
+) -> dict[str, Any]:
+    """Augment raw files with their latest metrics.
+
+    Args:
+        raw_files (QuerySet): A mongoengine QuerySet of RawFile objects to augment with metrics.
+        fields (list[str] | None): Optional list of specific metric fields to retrieve, None means 'all'.
+
+    Returns:
+        dict[str, Any]: A dictionary containing raw file information and their latest metrics.
+                              Each dictionary has the keys:
+                              - "raw_file": A dictionary with raw file details.
+                              - "metrics_{type}": A dictionary with the latest metrics of type "type" or an empty dictionary if none exist.
+
+    """
+    raw_files_dict: dict = {
+        raw_file_mongo["_id"]: raw_file_mongo
+        for raw_file in raw_files
+        if (
+            raw_file_mongo := dict(raw_file.to_mongo())
+        )  # if condition is always true, but avoids double-calling to_mongo((
+    }
+
+    # querying all metrics at once to avoid load on DB
+    if fields is not None:
+        metrics_query = Metrics.objects.only(*["raw_file", "type", *fields])
+    else:
+        metrics_query = Metrics.objects
+
+    for metrics_ in metrics_query.filter(
+        raw_file__in=list(raw_files_dict.keys())
+    ).order_by("-created_at_"):
+        metrics = dict(metrics_.to_mongo())
+        raw_files_dict[metrics["raw_file"]][f"metrics_{metrics['type']}"] = metrics
+
+    return raw_files_dict

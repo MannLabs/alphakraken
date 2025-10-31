@@ -4,6 +4,7 @@ Note: this module must not have any dependencies on the rest of the codebase.
 """
 
 from datetime import datetime
+from typing import ClassVar
 
 from mongoengine import (
     DateTimeField,
@@ -80,7 +81,16 @@ class InstrumentFileStatus:
     PURGED = "purged"  # File removed from instrument backup folder
 
 
-class RawFile(Document):
+class NonStrictDocument(Document):
+    """A Document class with no enforced schema.
+
+    This is to avoid 'mongoengine.errors.FieldDoesNotExist' when adding new fields to the DB.
+    """
+
+    meta: ClassVar = {"strict": False}
+
+
+class RawFile(NonStrictDocument):
     """Schema for a raw file."""
 
     # Unique identifier of the file. Either the raw file name or, in case of a collision,
@@ -153,7 +163,7 @@ class ProjectStatus:
     DELETED = "deleted"
 
 
-class Project(Document):
+class Project(NonStrictDocument):
     """Schema for a project."""
 
     id = StringField(required=True, primary_key=True, min_length=3, max_length=16)
@@ -166,7 +176,7 @@ class Project(Document):
     created_at_ = DateTimeField(default=datetime.now)
 
 
-class Settings(Document):
+class Settings(NonStrictDocument):
     """Schema for quanting settings."""
 
     project = ReferenceField(
@@ -212,7 +222,7 @@ class KrakenStatusEntities:
     JOB = "job"
 
 
-class KrakenStatus(Document):
+class KrakenStatus(NonStrictDocument):
     """Schema for a project."""
 
     id = StringField(max_length=64, required=True, primary_key=True)

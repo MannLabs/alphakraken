@@ -81,17 +81,10 @@ class InstrumentFileStatus:
     PURGED = "purged"  # File removed from instrument backup folder
 
 
-class NonStrictDocument(Document):
-    """A Document class with no enforced schema.
-
-    This is to avoid 'mongoengine.errors.FieldDoesNotExist' when adding new fields to the DB.
-    """
-
-    meta: ClassVar = {"strict": False, "allow_inheritance": True}
-
-
-class RawFile(NonStrictDocument):
+class RawFile(Document):
     """Schema for a raw file."""
+
+    meta: ClassVar = {"strict": False}
 
     # Unique identifier of the file. Either the raw file name or, in case of a collision,
     # the raw file name with a unique prefix.
@@ -163,8 +156,10 @@ class ProjectStatus:
     DELETED = "deleted"
 
 
-class Project(NonStrictDocument):
+class Project(Document):
     """Schema for a project."""
+
+    meta: ClassVar = {"strict": False}
 
     id = StringField(required=True, primary_key=True, min_length=3, max_length=16)
     name = StringField(required=True, max_length=64)
@@ -176,8 +171,10 @@ class Project(NonStrictDocument):
     created_at_ = DateTimeField(default=datetime.now)
 
 
-class Settings(NonStrictDocument):
+class Settings(Document):
     """Schema for quanting settings."""
+
+    meta: ClassVar = {"strict": False}
 
     project = ReferenceField(
         Project,
@@ -222,8 +219,10 @@ class KrakenStatusEntities:
     JOB = "job"
 
 
-class KrakenStatus(NonStrictDocument):
+class KrakenStatus(Document):
     """Schema for a project."""
+
+    meta: ClassVar = {"strict": False}
 
     id = StringField(max_length=64, required=True, primary_key=True)
 

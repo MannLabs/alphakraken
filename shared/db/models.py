@@ -87,7 +87,7 @@ class NonStrictDocument(Document):
     This is to avoid 'mongoengine.errors.FieldDoesNotExist' when adding new fields to the DB.
     """
 
-    meta: ClassVar = {"strict": False}
+    meta: ClassVar = {"strict": False, "allow_inheritance": True}
 
 
 class RawFile(NonStrictDocument):

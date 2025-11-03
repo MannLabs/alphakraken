@@ -33,6 +33,7 @@ from raw_file_wrapper_factory import (
     RawFileWrapperFactory,
     ThermoRawFileMonitorWrapper,
 )
+from validation import FORBIDDEN_RAW_FILE_NAME_CHARACTERS_PATTERN
 
 from shared.db.interface import get_raw_file_by_id, update_raw_file
 from shared.db.models import (
@@ -43,7 +44,6 @@ from shared.db.models import (
 )
 from shared.keys import (
     DDA_FLAG_IN_RAW_FILE_NAME,
-    FORBIDDEN_CHARACTERS_REGEXP,
 )
 from shared.yamlsettings import YamlKeys, get_path
 
@@ -320,7 +320,7 @@ def start_file_mover(ti: TaskInstance, **kwargs) -> None:
 
 def _count_special_characters(raw_file_id: str) -> int:
     """Check if the raw file name contains special characters."""
-    pattern = re.compile(FORBIDDEN_CHARACTERS_REGEXP)
+    pattern = re.compile(FORBIDDEN_RAW_FILE_NAME_CHARACTERS_PATTERN)
     return len(pattern.findall(raw_file_id))
 
 

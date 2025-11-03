@@ -50,8 +50,4 @@ class SoftwareTypes:
     CUSTOM: str = "custom"
 
 
-_ALLOWED_CHARACTERS = r"a-zA-Z0-9\-_+\."
-ALLOWED_CHARACTERS_PRETTY = _ALLOWED_CHARACTERS.replace("\\", "")
-FORBIDDEN_CHARACTERS_REGEXP = rf"[^{_ALLOWED_CHARACTERS}]"
-
 DDA_FLAG_IN_RAW_FILE_NAME = "_dda_"

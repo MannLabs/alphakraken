@@ -2,12 +2,17 @@
 
 import re
 
-from shared.keys import _ALLOWED_CHARACTERS
+_ALLOWED_RAW_FILE_NAME_CHARACTERS = r"a-zA-Z0-9\-_+\."
+ALLOWED_RAW_FILE_NAME_CHARACTERS_PRETTY = _ALLOWED_RAW_FILE_NAME_CHARACTERS.replace(
+    "\\", ""
+)
+FORBIDDEN_RAW_FILE_NAME_CHARACTERS_PATTERN = rf"[^{_ALLOWED_RAW_FILE_NAME_CHARACTERS}]"
+
 
 # Security validation constants
 # Base pattern allows filenames with safe characters, path pattern adds forward slash
-EXECUTABLE_NAME_PATTERN = rf"^[{_ALLOWED_CHARACTERS}/]+$"
-EXECUTABLE_NAME_PATTERN_WITH_SPACES = rf"^[{_ALLOWED_CHARACTERS}/ ]+$"
+EXECUTABLE_NAME_PATTERN = rf"^[{_ALLOWED_RAW_FILE_NAME_CHARACTERS}/]+$"
+EXECUTABLE_NAME_PATTERN_WITH_SPACES = rf"^[{_ALLOWED_RAW_FILE_NAME_CHARACTERS}/ ]+$"
 
 
 # Error messages

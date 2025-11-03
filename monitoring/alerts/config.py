@@ -44,12 +44,12 @@ PUMP_PRESSURE_WINDOW_SIZE = 5  # Number of samples to compare
 PUMP_PRESSURE_THRESHOLD_BAR = 20  # Pressure increase threshold in bar
 PUMP_PRESSURE_GRADIENT_TOLERANCE = 0.1
 
-MESSENGER_WEBHOOK_URL: str = os.environ.get(EnvVars.MESSENGER_WEBHOOK_URL, "")
-if not MESSENGER_WEBHOOK_URL:
-    logging.error(f"{EnvVars.MESSENGER_WEBHOOK_URL} environment variable must be set")
+OPS_ALERTS_WEBHOOK_URL: str = os.environ.get(EnvVars.OPS_ALERTS_WEBHOOK_URL, "")
+if not OPS_ALERTS_WEBHOOK_URL:
+    logging.error(f"{EnvVars.OPS_ALERTS_WEBHOOK_URL} environment variable must be set")
     sys.exit(1)
 BUSINESS_ALERTS_WEBHOOK_URL: str = os.environ.get(
-    EnvVars.BUSINESS_ALERTS_WEBHOOK_URL, MESSENGER_WEBHOOK_URL
+    EnvVars.BUSINESS_ALERTS_WEBHOOK_URL, OPS_ALERTS_WEBHOOK_URL
 )
 
 

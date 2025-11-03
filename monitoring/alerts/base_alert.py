@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from alerts.config import MESSENGER_WEBHOOK_URL
+from alerts.config import OPS_ALERTS_WEBHOOK_URL
 
 from shared.db.models import KrakenStatus
 
@@ -106,6 +106,6 @@ class BaseAlert(ABC):
         """Return webhook URL for this alert.
 
         Override this method in subclasses to route alerts to different channels.
-        Default implementation returns the global MESSENGER_WEBHOOK_URL.
+        Default implementation returns the global OPS_ALERTS_WEBHOOK_URL.
         """
-        return MESSENGER_WEBHOOK_URL
+        return OPS_ALERTS_WEBHOOK_URL

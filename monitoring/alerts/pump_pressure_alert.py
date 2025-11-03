@@ -38,7 +38,7 @@ class PumpPressureAlert(BaseAlert):
         """Return webhook URL for pump pressure alerts.
 
         Uses dedicated BUSINESS_ALERTS_WEBHOOK_URL if configured,
-        otherwise falls back to default MESSENGER_WEBHOOK_URL.
+        otherwise falls back to default OPS_ALERTS_WEBHOOK_URL.
         """
         return BUSINESS_ALERTS_WEBHOOK_URL
 

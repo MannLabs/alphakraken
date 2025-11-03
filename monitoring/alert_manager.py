@@ -114,7 +114,7 @@ def send_special_alert(
 
     message = f"{message} [{alert_name} {identifier}]"
     try:
-        send_message(message, config.MESSENGER_WEBHOOK_URL)
+        send_message(message, config.OPS_ALERTS_WEBHOOK_URL)
     except RequestException:
         logging.exception("Failed to send special alert message.")
     else:

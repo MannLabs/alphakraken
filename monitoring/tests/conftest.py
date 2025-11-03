@@ -3,4 +3,4 @@
 import os
 
 # Set required environment variables for testing
-os.environ["MESSENGER_WEBHOOK_URL"] = "http://test-webhook.example.com"
+os.environ["OPS_ALERTS_WEBHOOK_URL"] = "http://test-webhook.example.com"

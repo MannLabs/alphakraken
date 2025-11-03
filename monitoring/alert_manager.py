@@ -56,6 +56,8 @@ class AlertManager:
             if issues:
                 self._handle_issues(alert, issues, suppress_alerts=self.is_first_check)
 
+        self.is_first_check = False
+
     def _handle_issues(
         self, alert: BaseAlert, issues: list[tuple], *, suppress_alerts: bool = False
     ) -> None:

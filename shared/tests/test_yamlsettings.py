@@ -81,4 +81,12 @@ def test_returns_test_settings_for_test_environment(
     # when
     settings = YamlSettings.load_alphakraken_yaml()
 
-    assert settings == {"instruments": {"_test1_": {"type": "thermo"}}}
+    assert settings == {
+        "instruments": {"_test1_": {"type": "thermo"}},
+        "general": {
+            "webhook_urls": {
+                "ops_alerts": "http://test-webhook.example.com",
+                "business_alerts": "http://test-webhook.example.com",
+            }
+        },
+    }

@@ -33,7 +33,6 @@ from raw_file_wrapper_factory import (
     RawFileWrapperFactory,
     ThermoRawFileMonitorWrapper,
 )
-from validation import FORBIDDEN_RAW_FILE_NAME_CHARACTERS_PATTERN
 
 from shared.db.interface import get_raw_file_by_id, update_raw_file
 from shared.db.models import (
@@ -45,6 +44,7 @@ from shared.db.models import (
 from shared.keys import (
     DDA_FLAG_IN_RAW_FILE_NAME,
 )
+from shared.validation import FORBIDDEN_RAW_FILE_NAME_CHARACTERS_PATTERN
 from shared.yamlsettings import YamlKeys, get_path
 
 

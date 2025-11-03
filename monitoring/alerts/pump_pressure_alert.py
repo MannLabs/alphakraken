@@ -12,6 +12,7 @@ from shared.db.models import KrakenStatus, RawFile
 
 from .base_alert import BaseAlert
 from .config import (
+    BUSINESS_ALERTS_WEBHOOK_URL,
     PUMP_PRESSURE_LOOKBACK_DAYS,
     PUMP_PRESSURE_THRESHOLD_BAR,
     PUMP_PRESSURE_WINDOW_SIZE,
@@ -32,6 +33,10 @@ class PumpPressureAlert(BaseAlert):
     def name(self) -> str:
         """Return the case name for this alert type."""
         return Cases.PUMP_PRESSURE_INCREASE
+
+    def get_webhook_url(self) -> str:
+        """Return the configured BUSINESS_ALERTS_WEBHOOK_URL for pump pressure alerts."""
+        return BUSINESS_ALERTS_WEBHOOK_URL
 
     def _get_issues(self, status_objects: list[KrakenStatus]) -> list[tuple[str, str]]:
         """Check for pump pressure increases per instrument."""

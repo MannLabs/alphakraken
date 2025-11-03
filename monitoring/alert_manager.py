@@ -62,7 +62,9 @@ class AlertManager:
 
         if self.should_send_alert(identifiers, alert_name):
             message = alert.format_message(issues)
-            send_message(message)
+
+            webhook_url = alert.get_webhook_url()
+            send_message(message, webhook_url)
             for identifier in identifiers:
                 self.set_last_alert_time(alert_name, identifier)
 
@@ -112,7 +114,7 @@ def send_special_alert(
 
     message = f"{message} [{alert_name} {identifier}]"
     try:
-        send_message(message)
+        send_message(message, config.OPS_ALERTS_WEBHOOK_URL)
     except RequestException:
         logging.exception("Failed to send special alert message.")
     else:

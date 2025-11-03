@@ -507,3 +507,33 @@ class TestPumpPressureAlert:
 
         # then - second call suppresses the duplicate
         assert result_second == []
+
+    @patch(
+        "monitoring.alerts.pump_pressure_alert.BUSINESS_ALERTS_WEBHOOK_URL",
+        "https://hooks.slack.com/custom",
+    )
+    def test_get_webhook_url_should_return_custom_url_when_configured(self) -> None:
+        """Test that get_webhook_url returns custom URL when env var is set."""
+        # given
+        alert = PumpPressureAlert()
+
+        # when
+        result = alert.get_webhook_url()
+
+        # then
+        assert result == "https://hooks.slack.com/custom"
+
+    @patch(
+        "monitoring.alerts.pump_pressure_alert.BUSINESS_ALERTS_WEBHOOK_URL",
+        "http://test-webhook.example.com",
+    )
+    def test_get_webhook_url_should_return_default_when_not_configured(self) -> None:
+        """Test that get_webhook_url returns default webhook when env var is not set."""
+        # given
+        alert = PumpPressureAlert()
+
+        # when
+        result = alert.get_webhook_url()
+
+        # then
+        assert result == "http://test-webhook.example.com"

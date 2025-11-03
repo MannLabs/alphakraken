@@ -5,36 +5,41 @@ import logging
 import os
 
 import requests
-from alerts.config import MESSENGER_WEBHOOK_URL
 
 from shared.keys import EnvVars
 
 
-def send_message(message: str) -> None:
-    """Send message to Slack or MS Teams."""
+def send_message(message: str, webhook_url: str) -> None:
+    """Send message to Slack or MS Teams.
+
+    Args:
+        message: The message to send
+        webhook_url: Webhook URL to send to.
+
+    """
     # TODO: this could be more elegant
     logging.info(f"Sending message: {message}")
     hostname = os.getenv("HOSTNAME", "")
 
-    if MESSENGER_WEBHOOK_URL.startswith("https://hooks.slack.com"):
-        _send_slack_message(message, hostname)
+    if webhook_url.startswith("https://hooks.slack.com"):
+        _send_slack_message(message, hostname, webhook_url)
     else:
-        _send_msteams_message(message, hostname)
+        _send_msteams_message(message, hostname, webhook_url)
 
 
-def _send_slack_message(message: str, hostname: str) -> None:
+def _send_slack_message(message: str, hostname: str, webhook_url: str) -> None:
     env_name = os.environ.get(EnvVars.ENV_NAME)
 
     prefix = "🚨 <!channel> " if env_name == "production" else ""
     payload = {
         "text": f"NEW {prefix} [{env_name}] *Alert*: {message} (sent from {hostname})",
     }
-    response = requests.post(MESSENGER_WEBHOOK_URL, json=payload, timeout=10)
+    response = requests.post(webhook_url, json=payload, timeout=10)
     response.raise_for_status()
     logging.info("Successfully sent Slack message.")
 
 
-def _send_msteams_message(message: str, hostname: str) -> None:
+def _send_msteams_message(message: str, hostname: str, webhook_url: str) -> None:
     # Define the adaptive card JSON
     message = f"{message} (sent from {hostname})"
     adaptive_card_json = {
@@ -53,7 +58,7 @@ def _send_msteams_message(message: str, hostname: str) -> None:
     }
 
     response = requests.post(
-        MESSENGER_WEBHOOK_URL,
+        webhook_url,
         headers={"Content-Type": "application/json", "Accept": "application/json"},
         data=json.dumps(adaptive_card_json),
         timeout=10,

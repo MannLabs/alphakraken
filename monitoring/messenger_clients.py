@@ -14,7 +14,7 @@ def send_message(message: str, webhook_url: str) -> None:
 
     Args:
         message: The message to send
-        webhook_url: Webhook URL to send to. Defaults to OPS_ALERTS_WEBHOOK_URL
+        webhook_url: Webhook URL to send to.
 
     """
     # TODO: this could be more elegant

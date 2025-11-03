@@ -35,11 +35,7 @@ class PumpPressureAlert(BaseAlert):
         return Cases.PUMP_PRESSURE_INCREASE
 
     def get_webhook_url(self) -> str:
-        """Return webhook URL for pump pressure alerts.
-
-        Uses dedicated BUSINESS_ALERTS_WEBHOOK_URL if configured,
-        otherwise falls back to default OPS_ALERTS_WEBHOOK_URL.
-        """
+        """Return the configured BUSINESS_ALERTS_WEBHOOK_URL for pump pressure alerts."""
         return BUSINESS_ALERTS_WEBHOOK_URL
 
     def _get_issues(self, status_objects: list[KrakenStatus]) -> list[tuple[str, str]]:

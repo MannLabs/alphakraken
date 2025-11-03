@@ -22,6 +22,10 @@ class YamlKeys:
     LOCATIONS = "locations"
     ABSOLUTE_PATH = "absolute_path"
 
+    WEBHOOK_URLS = "webhook_urls"
+    OPS_ALERTS = "ops_alerts"
+    BUSINESS_ALERTS = "business_alerts"
+
     class Locations:
         """Keys for accessing paths in the yaml config."""
 
@@ -53,7 +57,15 @@ class YamlSettings:
         if env_name == "_test_":
             # TODO: this is to make the tests happy, but it should be handled differently
             logging.warning("Using 'test' environment, this is an error in production!")
-            return {"instruments": {"_test1_": {"type": "thermo"}}}
+            return {
+                "instruments": {"_test1_": {"type": "thermo"}},
+                "general": {
+                    "webhook_urls": {
+                        "ops_alerts": "http://test-webhook.example.com",
+                        "business_alerts": "http://test-webhook.example.com",
+                    }
+                },
+            }
 
         if not file_path.exists():
             raise FileNotFoundError(
@@ -82,3 +94,19 @@ def get_path(path_key: str) -> Path:
         )
 
     return Path(path)
+
+
+def get_webhook_url(webhook_key: str) -> str:
+    """Get a webhook URL from the yaml settings."""
+    webhook_url = (
+        YAMLSETTINGS.get(YamlKeys.GENERAL, {})
+        .get(YamlKeys.WEBHOOK_URLS, {})
+        .get(webhook_key)
+    )
+
+    if webhook_url is None:
+        raise KeyError(
+            f"Key `{YamlKeys.GENERAL}.{YamlKeys.WEBHOOK_URLS}.{webhook_key}` not found in alphakraken.yaml."
+        )
+
+    return webhook_url

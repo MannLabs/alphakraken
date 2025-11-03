@@ -30,3 +30,8 @@ locations:
     mount_src: //samba-pool-0/pool-0/alphakraken_sandbox/airflow_logs
     mount_target: airflow_logs
     absolute_path: /fs/pool-0/alphakraken_sandbox/airflow_logs
+
+general:
+  webhook_urls:
+    ops_alerts: "https://hooks.slack.com/services/<something> or https://...api.powerplatform.com:443/powerautomate/automations/<something>"
+    business_alerts: "https://hooks.slack.com/services/<something> or https://...api.powerplatform.com:443/powerautomate/automations/<something>"

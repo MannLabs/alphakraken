@@ -1,14 +1,13 @@
 """Configuration for the monitoring service."""
 
 import logging
-import os
 import sys
 from collections import defaultdict
 
 from shared.db.models import (
     InstrumentFileStatus,
 )
-from shared.keys import EnvVars
+from shared.yamlsettings import YamlKeys, get_webhook_url
 
 # Constants
 CHECK_INTERVAL_SECONDS = 60
@@ -44,13 +43,19 @@ PUMP_PRESSURE_WINDOW_SIZE = 5  # Number of samples to compare
 PUMP_PRESSURE_THRESHOLD_BAR = 20  # Pressure increase threshold in bar
 PUMP_PRESSURE_GRADIENT_TOLERANCE = 0.1
 
-OPS_ALERTS_WEBHOOK_URL: str = os.environ.get(EnvVars.OPS_ALERTS_WEBHOOK_URL, "")
-if not OPS_ALERTS_WEBHOOK_URL:
-    logging.error(f"{EnvVars.OPS_ALERTS_WEBHOOK_URL} environment variable must be set")
+try:
+    OPS_ALERTS_WEBHOOK_URL: str = get_webhook_url(YamlKeys.OPS_ALERTS)
+except KeyError:
+    logging.exception("Failed to load ops alerts webhook URL from config.")
     sys.exit(1)
-BUSINESS_ALERTS_WEBHOOK_URL: str = os.environ.get(
-    EnvVars.BUSINESS_ALERTS_WEBHOOK_URL, OPS_ALERTS_WEBHOOK_URL
-)
+
+try:
+    BUSINESS_ALERTS_WEBHOOK_URL: str = get_webhook_url(YamlKeys.BUSINESS_ALERTS)
+except KeyError:
+    logging.warning(
+        "Business alerts webhook URL not found in config, using ops alerts webhook URL"
+    )
+    BUSINESS_ALERTS_WEBHOOK_URL = OPS_ALERTS_WEBHOOK_URL
 
 
 class Cases:

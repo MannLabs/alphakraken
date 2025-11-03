@@ -346,7 +346,6 @@ services:
     profiles: ["infrastructure", "workers", "dbs"] # have monitoring running on all machines (downsides: potential alerts duplication)
     environment:
       <<: *airflow-common-env
-      OPS_ALERTS_WEBHOOK_URL: ${OPS_ALERTS_WEBHOOK_URL}
       MONGO_USER: ${MONGO_USER_READ:?error}
       MONGO_PASSWORD: ${MONGO_PASSWORD_READ:?error}
       HOSTNAME: "${HOSTNAME:?error}"

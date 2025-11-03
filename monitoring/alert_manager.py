@@ -62,7 +62,9 @@ class AlertManager:
 
         if self.should_send_alert(identifiers, alert_name):
             message = alert.format_message(issues)
-            send_message(message)
+
+            webhook_url = alert.get_webhook_url()
+            send_message(message, webhook_url)
             for identifier in identifiers:
                 self.set_last_alert_time(alert_name, identifier)
 

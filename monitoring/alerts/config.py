@@ -48,6 +48,9 @@ MESSENGER_WEBHOOK_URL: str = os.environ.get(EnvVars.MESSENGER_WEBHOOK_URL, "")
 if not MESSENGER_WEBHOOK_URL:
     logging.error(f"{EnvVars.MESSENGER_WEBHOOK_URL} environment variable must be set")
     sys.exit(1)
+BUSINESS_ALERTS_WEBHOOK_URL: str = os.environ.get(
+    EnvVars.BUSINESS_ALERTS_WEBHOOK_URL, MESSENGER_WEBHOOK_URL
+)
 
 
 class Cases:

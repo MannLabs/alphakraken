@@ -2,17 +2,21 @@
 
 import re
 
+from shared.keys import _ALLOWED_CHARACTERS
+
 # Security validation constants
-EXECUTABLE_NAME_PATTERN = r"^[a-zA-Z0-9._/\-+]+$"
-EXECUTABLE_NAME_PATTERN_WITH_SPACES = r"^[a-zA-Z0-9._/\-+ ]+$"
+# Base pattern allows filenames with safe characters, path pattern adds forward slash
+EXECUTABLE_NAME_PATTERN = rf"^[{_ALLOWED_CHARACTERS}/]+$"
+EXECUTABLE_NAME_PATTERN_WITH_SPACES = rf"^[{_ALLOWED_CHARACTERS}/ ]+$"
 
 
 # Error messages
 EMPTY_ERROR = "Cannot be empty"
 PARENT_DIR_ERROR = "Cannot contain '..'"
 ABSOLUTE_PATH_ERROR = "Cannot be an absolute path"
-INVALID_CHARS_ERROR = "Contains invalid characters. Only letters, numbers, dots, hyphens, underscores, plus signs, and forward slashes are allowed"
-INVALID_CHARS_ERROR_WITH_SPACES = "Contains invalid characters. Only letters, numbers, dots, hyphens, underscores, plus signs, forward slashes, and spaces are allowed"
+# Error messages derive from _ALLOWED_CHARACTERS to maintain single source of truth
+INVALID_CHARS_ERROR = "Contains invalid characters. Only alphanumeric characters, dots, hyphens, underscores, plus signs, and forward slashes are allowed"
+INVALID_CHARS_ERROR_WITH_SPACES = "Contains invalid characters. Only alphanumeric characters, dots, hyphens, underscores, plus signs, forward slashes, and spaces are allowed"
 
 
 def check_for_malicious_content(

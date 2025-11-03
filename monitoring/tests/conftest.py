@@ -1,6 +1,4 @@
 """Shared configuration for monitoring tests."""
 
-import os
-
-# Set required environment variables for testing
-os.environ["OPS_ALERTS_WEBHOOK_URL"] = "http://test-webhook.example.com"
+# Webhook URLs are now configured via YAML settings.
+# Test configuration is handled in shared/yamlsettings.py when ENV_NAME="_test_"

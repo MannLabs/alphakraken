@@ -7,6 +7,7 @@ import os
 import requests
 
 from shared.keys import EnvVars
+from shared.yamlsettings import YamlKeys, get_notification_setting
 
 
 def send_message(message: str, webhook_url: str) -> None:
@@ -19,7 +20,11 @@ def send_message(message: str, webhook_url: str) -> None:
     """
     # TODO: this could be more elegant
     logging.info(f"Sending message: {message}")
-    hostname = os.getenv("HOSTNAME", "")
+    try:
+        hostname = get_notification_setting(YamlKeys.HOSTNAME)
+    except KeyError:
+        logging.warning("HOSTNAME not found in config, using empty string")
+        hostname = ""
 
     if webhook_url.startswith("https://hooks.slack.com"):
         _send_slack_message(message, hostname, webhook_url)

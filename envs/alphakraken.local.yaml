@@ -52,6 +52,8 @@ locations:
 general:
   job_engine:
     type: slurm
-  webhook_urls:
-    ops_alerts: "https://hooks.slack.com/services/<something> or https://...api.powerplatform.com:443/powerautomate/automations/<something>"
-    business_alerts: "https://hooks.slack.com/services/<something> or https://...api.powerplatform.com:443/powerautomate/automations/<something>"
+  notifications:
+    ops_alerts_webhook_url: "https://hooks.slack.com/services/<something> or https://...api.powerplatform.com:443/powerautomate/automations/<something>"
+    business_alerts_webhook_url: "https://hooks.slack.com/services/<something> or https://...api.powerplatform.com:443/powerautomate/automations/<something>"
+    hostname: "localhost"
+    webapp_url: "http://localhost:8501"

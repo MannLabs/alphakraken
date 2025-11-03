@@ -12,8 +12,6 @@ class EnvVars:
     MONGO_USER = "MONGO_USER"
     MONGO_PASSWORD = "MONGO_PASSWORD"  # noqa: S105  #Possible hardcoded password
 
-    WEBAPP_URL = "WEBAPP_URL"
-
 
 class InstrumentTypes:
     """Types of instruments."""

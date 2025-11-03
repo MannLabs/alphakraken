@@ -16,7 +16,7 @@ from service.session_state import (
     remove_session_state,
 )
 
-from shared.yamlsettings import YamlKeys, get_path
+from shared.yamlsettings import YamlKeys, get_notification_setting, get_path
 
 # mapping of filter strings to url query parameters
 FILTER_MAPPING: dict[str, str] = {
@@ -25,7 +25,12 @@ FILTER_MAPPING: dict[str, str] = {
 }
 
 # TODO: remove this hack once https://github.com/streamlit/streamlit/issues/8112 is available
-APP_URL = os.getenv("WEBAPP_URL")
+try:
+    # TODO: this is misusing notification settings
+    APP_URL = get_notification_setting(YamlKeys.WEBAPP_URL)
+except KeyError:
+    logging.warning("WEBAPP_URL not found in config")
+    APP_URL = None
 
 DISABLE_WRITE = False
 

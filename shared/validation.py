@@ -3,16 +3,16 @@
 import re
 
 # Security validation constants
-EXECUTABLE_NAME_PATTERN = r"^[a-zA-Z0-9._/\-]+$"
-EXECUTABLE_NAME_PATTERN_WITH_SPACES = r"^[a-zA-Z0-9._/\- ]+$"
+EXECUTABLE_NAME_PATTERN = r"^[a-zA-Z0-9._/\-+]+$"
+EXECUTABLE_NAME_PATTERN_WITH_SPACES = r"^[a-zA-Z0-9._/\-+ ]+$"
 
 
 # Error messages
 EMPTY_ERROR = "Cannot be empty"
 PARENT_DIR_ERROR = "Cannot contain '..'"
 ABSOLUTE_PATH_ERROR = "Cannot be an absolute path"
-INVALID_CHARS_ERROR = "Contains invalid characters. Only letters, numbers, dots, hyphens, underscores, and forward slashes are allowed"
-INVALID_CHARS_ERROR_WITH_SPACES = "Contains invalid characters. Only letters, numbers, dots, hyphens, underscores, forward slashes, and spaces are allowed"
+INVALID_CHARS_ERROR = "Contains invalid characters. Only letters, numbers, dots, hyphens, underscores, plus signs, and forward slashes are allowed"
+INVALID_CHARS_ERROR_WITH_SPACES = "Contains invalid characters. Only letters, numbers, dots, hyphens, underscores, plus signs, forward slashes, and spaces are allowed"
 
 
 def check_for_malicious_content(

@@ -2,525 +2,535 @@
 
 ## 1. Overview
 
-Add S3 download capability to restore raw files from S3 to local filesystem. Downloads to `{locations.output}/{project_id}/` with self-healing and txt-based status reporting.
+Add S3 download capability to restore raw files from S3 to local filesystem. Downloads to output location based on project ID with self-healing and txt-based status reporting.
 
 ### Key Requirements
 - **Trigger**: Manual operation (CLI/UI trigger)
-- **Destination**: Auto-calculated from YAML `locations.output` + RawFile `project_id`
+- **Destination**: Auto-calculated from YAML locations.output + RawFile project_id
 - **Self-healing**: Automatically overwrite corrupted local files (mismatched hashes)
-- **Status tracking**: Write `.txt` file with OK/FAILURE for each file
+- **Status tracking**: Write .txt file with OK/FAILURE for each file
 - **Database access**: Read-only (NO writes to backup_status or any field)
 - **Integration**: New standalone DAG
 
 ## 2. Architecture Overview
 
 ### 2.1 High-Level Flow
-```
-Manual Trigger (raw_file_id only)
+
+Manual Trigger (comma-separated list of raw_file_ids)
     ↓
-Validate (RawFile exists, has S3 backup, has project_id, output location writable)
+Parse raw_file_ids (split by comma, trim whitespace)
     ↓
-Calculate Destination (get_path(YamlKeys.Locations.OUTPUT) / project_id)
+For each raw_file_id (sequential, best-effort):
     ↓
-Download Each File:
-    - If exists with correct hash → Skip (record OK)
-    - If exists with wrong hash → Delete & re-download (self-healing)
-    - If doesn't exist → Download
+    Fetch RawFile from DB (if fails: record error, continue to next)
     ↓
-Write Status Report (.txt file)
+    Validate (has S3 backup, has project_id, output location writable)
+    (if fails: record error, continue to next)
     ↓
-Raise exception if any failures
-```
+    Calculate Destination (from YAML output location / project_id)
+    ↓
+    Download Each File in file_info:
+        - Get S3 etag → Compare to DB etag (MANDATORY pre-check)
+          - If S3 mismatch → Record FAILURE, skip to next file
+        - If local file exists with correct hash → Skip (record OK)
+        - If local file exists with wrong hash → Delete & re-download (self-healing)
+        - If doesn't exist → Download from S3
+        - Calculate local etag → Compare to DB etag (verify download)
+          - If mismatch → Delete file, record FAILURE
+    ↓
+    Record all results for this raw_file
+    ↓
+Group Results by Destination Directory
+    ↓
+Write Status Report per Destination (.txt file for each destination)
+    ↓
+Raise exception if ANY raw_files had failures
 
 ### 2.2 Destination Path Construction
 
 **Calculation**:
-```python
-destination_base = get_path(YamlKeys.Locations.OUTPUT) / raw_file.project_id
-# Example: /fs/pool/pool-0/alphakraken_sandbox/output/PRID001
-```
+- Use YAML locations.output path combined with RawFile project_id
+- Example result: /fs/pool/pool-0/alphakraken_sandbox/output/PRID001
 
 **File paths**:
-```python
-for relative_path in file_info.keys():
-    local_path = destination_base / relative_path
-    # Example: /fs/pool/.../output/PRID001/file.raw
-```
+- Each file from file_info is placed relative to destination base
+- Maintains directory structure from S3
 
 ### 2.3 S3 Key Reconstruction
 
-```python
-bucket, prefix = parse_s3_upload_path(raw_file.s3_upload_path)
-# s3_upload_path examples: "bucket", "bucket/", "bucket/prefix/"
+- Parse s3_upload_path from RawFile (formats: "bucket", "bucket/", "bucket/prefix/")
+- For each relative path in file_info: construct full S3 key
+- Download from S3 bucket/key to local destination/relative_path
 
-for relative_path in file_info.keys():
-    s3_key = f"{prefix}/{relative_path}" if prefix else relative_path
-    # Download from: s3://bucket/s3_key
-    # To: {destination_base}/{relative_path}
-```
+### 2.4 Self-Healing Logic & Verification
 
-### 2.4 Self-Healing Logic
+**Per-File Processing**:
 
-```python
-if local_file.exists():
-    local_hash = get_file_hash(local_file)
-    expected_hash = file_info[relative_path][1]  # etag from file_info
+For each file in file_info:
 
-    if local_hash == expected_hash:
-        → Skip download
-        → Record: "OK - Skipped (already exists)"
-    else:
-        → Delete corrupted file
-        → Download from S3
-        → Verify hash
-        → Record: "OK - Self-healed" or "FAILURE - {error}"
-else:
-    → Download from S3
-    → Verify hash
-    → Record: "OK - Downloaded" or "FAILURE - {error}"
-```
+1. **Pre-Download S3 Verification** (see Section 2.6):
+   - Get S3 etag using `get_etag(bucket, key, s3_client)`
+   - Parse expected etag from DB (file_info[path][2])
+   - **If S3 etag ≠ DB etag**: Record FAILURE ("S3 corruption"), skip to next file
+   - **Purpose**: Detect S3 corruption before downloading
 
-**Key principle**: Never leave corrupted files. Always overwrite.
+2. **Local File Check**:
+   - If local file exists:
+     - Calculate local etag using `get_file_hash_with_etag()` with correct chunk_size
+     - Extract expected etag from file_info
+     - If etags match → Skip download, record "OK - Skipped (already exists)"
+     - If etags mismatch → Delete corrupted file, proceed to download
+   - If local file doesn't exist → Proceed to download
+
+3. **Download**:
+   - Use `download_file_from_s3()` with chunk_size from etag string
+   - Log file size, duration, transfer rate
+
+4. **Post-Download Verification** (see Section 2.6):
+   - Calculate local etag immediately after download
+   - Compare to expected etag from DB
+   - **If mismatch**: Delete corrupted file, record FAILURE ("Download verification failed")
+   - **If match**: Record "OK - Downloaded" or "OK - Self-healed"
+
+**Key principles**:
+- Never leave corrupted files. Always delete on verification failure.
+- Never skip verification. Always check S3 etag before download and local etag after.
+- Use exact same chunk_size_mb as was used during upload (extracted from stored etag).
 
 ### 2.5 Status Report File
 
-**Location**: `{destination_base}/_download_status_{raw_file_id}_{timestamp}.txt`
+**Batch Mode Behavior**:
+- When processing multiple raw_file_ids, they may belong to different projects
+- Each project downloads to its own destination: output/{project_id}/
+- **One combined report per destination directory** covering all raw_files in that directory
+- If batch includes raw_files from 3 different projects → 3 separate status reports
 
-**Example path**: `/fs/pool/output/PRID001/_download_status_20250115_sample_20250204_143022.txt`
+**Location**: `{destination_base}/_download_status_batch_{timestamp}.txt`
+
+**Example path**: `/fs/pool/output/PRID001/_download_status_batch_20250204_143022.txt`
 
 **Format**:
+- Header with: Batch summary, Timestamp, Destination
+- Per-RawFile sections with: Raw File ID, Project ID, S3 Bucket, file results
+- Overall summary section with: Total raw_files, total files, success/failure counts
+
+**Example content** (batch with 2 raw_files in same project):
 ```
-S3 Download Status Report
-=========================
-Raw File ID: 20250115_sample
+S3 Download Batch Status Report
+================================
+Destination: /fs/pool/pool-0/alphakraken_sandbox/output/PRID001
+Timestamp: 2025-02-04 14:30:22 UTC
+Raw Files Processed: 2
+
+Overall Summary:
+----------------
+Total raw files: 2
+Total files: 7
+Successful files: 6
+Failed files: 1
+Status: PARTIAL FAILURE
+
+================================================================================
+Raw File: 20250115_sample
 Project ID: PRID001
 S3 Bucket: alphakraken-PRID001
-Timestamp: 2025-02-04 14:30:22 UTC
-Destination: /fs/pool/pool-0/alphakraken_sandbox/output/PRID001
+Files: 4
 
 Files:
 ------
 sample.raw: OK - Downloaded and verified (1234.5 MB in 45.2s)
 sample.raw/subfile1.bin: OK - Skipped (already exists)
 sample.raw/subfile2.bin: OK - Self-healed (hash mismatch detected, re-downloaded)
-sample.raw/subfile3.bin: FAILURE - Network error: Connection timeout
+sample.raw/subfile3.bin: FAILURE - S3 corruption detected (etag mismatch)
 
-Summary:
---------
-Total files: 4
-Successful: 3
-Failed: 1
-Status: PARTIAL FAILURE
+================================================================================
+Raw File: 20250116_sample
+Project ID: PRID001
+S3 Bucket: alphakraken-PRID001
+Files: 3
+
+Files:
+------
+sample2.raw: OK - Downloaded and verified (2048.0 MB in 67.3s)
+sample2.raw/subfile1.bin: OK - Downloaded and verified (512.0 MB in 15.1s)
+sample2.raw/subfile2.bin: OK - Skipped (already exists)
+
 ```
 
+**Cleanup Policy**:
+- No automatic cleanup of status files
+- Operators manually clean up old reports if needed
+- All reports are preserved for audit trail
+
 **This is the ONLY status tracking** - no database writes.
+
+### 2.6 ETag Format & Verification
+
+**Background**: The codebase stores ETags in a specific format that includes both the hash value and the chunk size used during upload.
+
+**Storage Format** (in RawFile.file_info):
+- Each file in file_info is a tuple: `(size, md5_hash, etag_with_chunk)`
+- ETag format: `{etag_value}{ETAG_SEPARATOR}{chunk_size_mb}`
+- ETAG_SEPARATOR constant: `"__"` (defined in plugins/file_handling.py:151)
+- Example: `"d8e8fca2dc0f896fd7cb4cb0031ba249-5__500"`
+  - ETag value: `d8e8fca2dc0f896fd7cb4cb0031ba249-5`
+  - Chunk size: `500` MB
+
+**ETag Value Interpretation**:
+- **Single-part file**: Simple MD5 hex digest (e.g., `"d8e8fca2dc0f896fd7cb4cb0031ba249"`)
+- **Multipart file**: `{MD5(concatenated_chunk_hashes)}-{num_parts}` (e.g., `"abc123...-5"` means 5 parts)
+- **Empty file**: MD5 of empty string = `"d41d8cd98f00b204e9800998ecf8427e"`
+
+**Three-Step Verification Process**:
+
+1. **Pre-Download S3 Verification** (MANDATORY):
+   - Call `get_etag(bucket_name, s3_key, s3_client)` to get current S3 ETag
+   - Parse stored etag from file_info (split on ETAG_SEPARATOR, take first part)
+   - Compare S3 ETag with stored ETag value
+   - **If mismatch**: Record FAILURE ("S3 corruption detected"), skip file
+   - **Purpose**: Detect S3-side corruption or wrong file before wasting bandwidth
+
+2. **Download**:
+   - Use `download_file_from_s3()` with same chunk_size_mb as stored in etag
+
+3. **Post-Download Local Verification** (MANDATORY):
+   - Call `get_file_hash_with_etag(local_path, chunk_size_mb, calculate_etag=True)`
+   - Parse stored etag from file_info (extract etag value and chunk_size)
+   - Compare calculated local ETag with stored ETag value
+   - **If mismatch**: Delete corrupted file, record FAILURE ("Download verification failed")
+   - **Purpose**: Detect download corruption or transmission errors
+
+**Existing Utilities**:
+- `get_file_hash_with_etag()` - plugins/file_handling.py:103
+- `_md5hashes_to_etag()` - plugins/file_handling.py:154
+- `get_etag()` - airflow_src/dags/impl/s3_utils.py:149
+- `parse_file_info_item()` - shared/db/models.py:138 (extracts size and hash)
+
+**Implementation Notes**:
+- Must use the SAME chunk_size_mb during verification as was used during upload
+- The chunk size is stored in the etag string after the separator
+- S3's native ETag format matches this for multipart uploads
+- The upload code uses S3_UPLOAD_CHUNK_SIZE_MB = 500
 
 ## 3. Implementation Stages
 
 ### Stage 1: Core S3 Download Utilities (~3 hours)
 
-**File**: `airflow_src/dags/impl/s3_utils.py`
+**File**: airflow_src/dags/impl/s3_utils.py
 
-#### Function 1: `download_file_from_s3()`
+**Existing Utilities to Reuse**:
+- `get_s3_client(region, aws_conn_id)` - line 15
+- `get_transfer_config(chunk_size_mb)` - line 30
+- `get_etag(bucket_name, s3_key, s3_client)` - line 149 (for S3 pre-check)
+- `normalize_bucket_name(project_id, bucket_prefix)` - line 53 (if needed)
 
-```python
-def download_file_from_s3(
-    bucket_name: str,
-    s3_key: str,
-    local_path: Path,
-    region: str,
-    chunk_size_mb: int = 500,
-    aws_conn_id: str = "aws_default",
-) -> None:
-    """Download a single file from S3 using multipart download.
+**File**: plugins/file_handling.py
 
-    Args:
-        bucket_name: S3 bucket name
-        s3_key: S3 object key
-        local_path: Local filesystem destination path
-        region: AWS region
-        chunk_size_mb: Chunk size for multipart download
-        aws_conn_id: Airflow connection ID for AWS credentials
+**Existing Utilities to Reuse**:
+- `get_file_hash_with_etag(file_path, chunk_size_mb, calculate_etag=True)` - line 103
+- `ETAG_SEPARATOR` constant - line 151
 
-    Raises:
-        ClientError: If S3 operation fails
-        IOError: If local filesystem operation fails
-    """
-```
+#### New Function 1: download_file_from_s3()
 
-**Implementation**:
-- Get S3 client: `get_s3_client(region, aws_conn_id)`
-- Get transfer config: `get_transfer_config(chunk_size_mb)`
-- Create parent dirs: `local_path.parent.mkdir(parents=True, exist_ok=True)`
-- Download: `s3_client.download_file(bucket, s3_key, str(local_path), Config=config)`
+**Purpose**: Download a single file from S3 using multipart download
+
+**Parameters**:
+- bucket_name: S3 bucket name
+- s3_key: S3 object key
+- local_path: Local filesystem destination path
+- region: AWS region
+- chunk_size_mb: Chunk size for multipart download (default 500)
+- aws_conn_id: Airflow connection ID for AWS credentials (default "aws_default")
+
+**Returns**: None
+
+**Raises**:
+- ClientError: If S3 operation fails
+- IOError: If local filesystem operation fails
+
+**Implementation steps**:
+- Get S3 client using `get_s3_client(region, aws_conn_id)`
+- Get transfer config using `get_transfer_config(chunk_size_mb)`
+- Create parent directories if they don't exist (pathlib.Path.mkdir(parents=True, exist_ok=True))
+- Download using `s3_client.download_fileobj()` with binary write mode
 - Log: file size, duration, transfer rate
 
-**Pattern**: Mirror existing `upload_file_to_s3()` function
+**Pattern**: Mirror existing `upload_file_to_s3()` function (line 177) but for download
 
-#### Function 2: `reconstruct_s3_paths()`
+#### New Function 2: reconstruct_s3_paths()
 
-```python
-def reconstruct_s3_paths(
-    s3_upload_path: str,
-    file_info: dict[str, list]
-) -> dict[str, tuple[str, str]]:
-    """Reconstruct S3 bucket and key for each file in file_info.
+**Purpose**: Reconstruct S3 bucket and key for each file in file_info
 
-    Args:
-        s3_upload_path: From RawFile.s3_upload_path
-                       (e.g., "bucket", "bucket/", "bucket/prefix/")
-        file_info: RawFile.file_info dict with relative paths as keys
+**Parameters**:
+- s3_upload_path: From RawFile.s3_upload_path (e.g., "bucket", "bucket/", "bucket/prefix/")
+- file_info: RawFile.file_info dict with relative paths as keys
 
-    Returns:
-        Dict mapping relative_path -> (bucket_name, s3_key)
-        Example: {"file.raw": ("alphakraken-PRID001", "file.raw")}
-    """
-```
+**Returns**:
+- Dict mapping relative_path -> (bucket_name, s3_key)
+- Example: {"file.raw": ("alphakraken-PRID001", "file.raw")}
 
-**Implementation**:
+**Implementation steps**:
 - Parse s3_upload_path to extract bucket and optional prefix
 - Handle formats: "bucket", "bucket/", "bucket/prefix/"
-- For each key in file_info: construct full S3 key
+- Strip trailing slashes from prefix
+- For each key in file_info: construct full S3 key = prefix + "/" + key (if prefix exists)
+
+#### New Function 3: parse_etag_from_file_info()
+
+**Purpose**: Extract etag value and chunk_size from file_info tuple
+
+**Parameters**:
+- file_info_tuple: The 3-tuple from file_info dict (size, md5_hash, etag_with_chunk)
+
+**Returns**:
+- Tuple of (etag_value: str, chunk_size_mb: int)
+- Example: ("d8e8fca2dc0f896fd7cb4cb0031ba249-5", 500)
+
+**Implementation steps**:
+- Access file_info_tuple[2] to get etag_with_chunk string
+- Split on ETAG_SEPARATOR ("__")
+- Return (parts[0], int(parts[1]))
 
 **Tests**:
-- `test_download_file_from_s3()` - mock boto3
-- `test_reconstruct_s3_paths_bucket_only()` - "bucket"
-- `test_reconstruct_s3_paths_with_prefix()` - "bucket/prefix/"
-- `test_reconstruct_s3_paths_trailing_slash()` - edge cases
+- test_download_file_from_s3() - mock boto3
+- test_reconstruct_s3_paths_bucket_only() - "bucket"
+- test_reconstruct_s3_paths_with_prefix() - "bucket/prefix/"
+- test_reconstruct_s3_paths_trailing_slash() - edge cases
+- test_parse_etag_from_file_info() - verify etag and chunk_size extraction
+- test_parse_etag_from_file_info_single_part() - no dash in etag
 
 ---
 
 ### Stage 2: Constants Updates (~30 min)
 
-**File**: `airflow_src/plugins/common/constants.py`
+**File**: airflow_src/plugins/common/constants.py
 
-**Add to `class Dags`**:
-```python
-S3_DOWNLOADER = "s3_downloader"
-```
+**Add to class Dags**:
+- S3_DOWNLOADER = "s3_downloader"
 
-**Add to `class Pools`**:
-```python
-S3_DOWNLOAD_POOL = "s3_download_pool"  # Default: 2 slots
-```
+**Add to class Pools**:
+- S3_DOWNLOAD_POOL = "s3_download_pool"  (Default: 2 slots)
 
 **Tests**:
 - Import test to verify constants accessible
 
 ---
 
-### Stage 3: Download Implementation Logic (~6 hours)
+### Stage 3: Download Implementation Logic (~8 hours)
 
-**File**: `airflow_src/dags/impl/handler_impl.py`
+**File**: airflow_src/dags/impl/handler_impl.py
 
-#### Function 1: `validate_s3_download_parameters()`
+**IMPORTANT IMPLEMENTATION NOTE**:
+Separate the construction of WHAT should be done from the actual DOING. The implementation should follow a two-phase approach:
 
-```python
-def validate_s3_download_parameters(ti: TaskInstance, **kwargs) -> None:
-    """Validate prerequisites for S3 download operation.
+1. **Planning Phase**: Construct a complete data structure describing all downloads
+   - Dictionary with keys: `raw_file_id`
+   - Values: dict containing all information needed for download:
+     - `project_id`: str
+     - `destination_base`: Path (absolute)
+     - `bucket_name`: str
+     - `files`: list of dicts, each containing:
+       - `relative_path`: str (key from file_info)
+       - `s3_key`: str (full S3 key)
+       - `expected_etag`: str (parsed etag value)
+       - `chunk_size_mb`: int (parsed from etag)
+       - `expected_size`: int (bytes)
+       - `absolute_dest_path`: Path (destination_base / relative_path)
 
-    Checks:
-    - S3 upload feature enabled in config
-    - RawFile exists in database
-    - RawFile has s3_upload_path (not None)
-    - RawFile has project_id (not None/empty)
-    - RawFile has non-empty file_info
-    - Output location exists and is writable
+2. **Execution Phase**: Iterate the constructed dictionary and perform downloads
+   - All path calculations done
+   - All etag parsing done
+   - All S3 keys constructed
+   - Just execute downloads and verifications
 
-    Raises:
-        AirflowFailException: If any check fails
-    """
-    raw_file_id = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID]
+**Benefits**:
+- Clear separation of concerns
+- Easier to test (can test planning separately)
+- Easier to debug (inspect planned structure before execution)
+- Simpler execution loop (just follow the plan)
+- Better error messages (can reference the plan)
 
-    # Check S3 feature enabled
-    if not is_s3_upload_enabled():
-        raise AirflowFailException("S3 not enabled in config")
+#### Function 1: download_raw_files_from_s3()
 
-    # Check RawFile exists
-    raw_file = get_raw_file(raw_file_id)
-    if not raw_file:
-        raise AirflowFailException(f"RawFile not found: {raw_file_id}")
+**Purpose**: Download multiple raw files from S3 to output locations with self-healing (BATCH MODE)
 
-    # Check has S3 backup
-    if not raw_file.s3_upload_path:
-        raise AirflowFailException(f"No S3 backup for {raw_file_id}")
+**Destination**: output_location/project_id/ (per raw_file)
 
-    # Check has project_id
-    if not raw_file.project_id:
-        raise AirflowFailException(f"No project_id for {raw_file_id}")
+**Features**:
+- Batch processing: Handles comma-separated list of raw_file_ids
+- Self-healing: Overwrites corrupted local files
+- Idempotent: Skips files with correct hashes
+- Best-effort: Attempts all files even if some fail
+- S3 verification: Checks S3 etag before downloading
+- Status reporting: Writes batch .txt file per destination
 
-    # Check has file_info
-    if not raw_file.file_info:
-        raise AirflowFailException(f"Empty file_info for {raw_file_id}")
+**Parameters**:
+- ti: TaskInstance (not used, Airflow signature requirement)
+- kwargs: Must contain params with raw_file_ids (comma-separated string)
 
-    # Check output location exists and writable
-    output_path = get_path(YamlKeys.Locations.OUTPUT)
-    if not output_path.exists():
-        raise AirflowFailException(f"Output location missing: {output_path}")
-    if not os.access(output_path, os.W_OK):
-        raise AirflowFailException(f"Output location not writable: {output_path}")
+**Raises**: AirflowFailException if any files failed
 
-    logging.info(f"Validation passed: {raw_file_id} -> {output_path}/{raw_file.project_id}")
-```
+**Side effects**:
+- Creates/overwrites files in output/project_id/
+- Creates batch status report .txt file(s) per destination
+- NO database writes
 
-#### Function 2: `download_raw_file_from_s3()`
+**Implementation steps**:
 
-```python
-def download_raw_file_from_s3(ti: TaskInstance, **kwargs) -> None:
-    """Download raw file from S3 to output location with self-healing.
+**PHASE 1: Planning - Construct Download Plan**
 
-    Destination: {output_location}/{project_id}/
+1. Extract raw_file_ids from parameters (comma-separated string)
+2. Parse into list (split, strip whitespace)
+3. Get S3 config (region, aws_conn_id)
+4. **Build download_plan dictionary** (keys: raw_file_id):
+   - **For each raw_file_id**:
+     - Try to fetch RawFile from DB
+       - If fails: record error in plan, mark as skipped, continue
+     - Validate raw_file (has s3_upload_path, project_id, file_info)
+       - If fails: record error in plan, mark as skipped, continue
+     - Calculate destination_base from YAML config + project_id
+     - Parse bucket_name from s3_upload_path
+     - **For each file in file_info**:
+       - Parse relative_path (key)
+       - Parse expected_size, md5_hash, etag_with_chunk from tuple
+       - Split etag to get expected_etag and chunk_size_mb
+       - Construct s3_key using reconstruct_s3_paths()
+       - Calculate absolute_dest_path = destination_base / relative_path
+       - Add to files list with all parsed data
+     - Store in download_plan[raw_file_id] = {
+         "project_id": ...,
+         "destination_base": ...,
+         "bucket_name": ...,
+         "files": [...],
+         "error": None or error_message,
+         "skipped": True/False
+       }
+5. Log download plan summary (total raw_files, total files, destinations)
 
-    Features:
-    - Self-healing: Overwrites corrupted local files
-    - Idempotent: Skips files with correct hashes
-    - Best-effort: Attempts all files even if some fail
-    - Status reporting: Writes .txt file with results
+**PHASE 2: Execution - Execute Download Plan**
 
-    Args:
-        ti: TaskInstance (not used, Airflow signature requirement)
-        **kwargs: Must contain params with raw_file_id
+6. Initialize results tracking: dict[destination] -> list[raw_file_results]
+7. Get S3 client once (reuse for all operations)
+8. **For each raw_file_id in download_plan** (sequential, best-effort):
+   - Get plan for this raw_file
+   - If skipped: record error in results, continue to next
+   - Initialize file_results for this raw_file
+   - **For each file in plan["files"]** (sequential):
+     a. **S3 Verification** (mandatory pre-check):
+        - Call get_etag(bucket_name, s3_key, s3_client) using values from plan
+        - Compare with expected_etag from plan
+        - If mismatch: record FAILURE ("S3 corruption"), skip to next file
+     b. **Local file check**:
+        - Check if file exists at absolute_dest_path (from plan)
+        - If exists: calculate etag with get_file_hash_with_etag(chunk_size_mb from plan)
+        - If matches expected_etag: skip, record "OK - Skipped"
+        - If mismatch: delete file, proceed to download
+     c. **Download**:
+        - Call download_file_from_s3(bucket_name, s3_key, absolute_dest_path, chunk_size_mb)
+        - All parameters from plan
+        - Log size, duration, rate
+     d. **Post-download verification**:
+        - Calculate etag with get_file_hash_with_etag(chunk_size_mb from plan)
+        - Compare with expected_etag from plan
+        - If mismatch: delete file, record FAILURE ("Verification failed")
+        - If match: record "OK - Downloaded" or "OK - Self-healed"
+     e. Continue to next file (best-effort)
+   - Store all file_results for this raw_file
+9. **Group results by destination directory**
+10. **For each destination**: Write batch status report
+    - Format: see Section 2.5
+    - Include all raw_files for this destination
+    - Overall summary with counts
+11. Count total failures across all destinations
+12. If any failures: raise AirflowFailException with paths to status files
+13. Log success message
 
-    Raises:
-        AirflowFailException: If any files failed
+#### Helper Function: _build_download_plan()
 
-    Side effects:
-        - Creates/overwrites files in {output}/{project_id}/
-        - Creates status report .txt file
-        - NO database writes
-    """
-    raw_file_id = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID]
+**Purpose**: Construct the complete download plan dictionary (PHASE 1)
 
-    # Fetch RawFile from DB (READ ONLY)
-    raw_file = get_raw_file(raw_file_id)
+**Parameters**:
+- raw_file_ids: List of raw_file_id strings
+- kwargs: Contains YAML config access
 
-    # Calculate destination from YAML + project_id
-    destination_base = get_path(YamlKeys.Locations.OUTPUT) / raw_file.project_id
-    destination_base.mkdir(parents=True, exist_ok=True)
+**Returns**: Dict[raw_file_id, download_plan_entry] where each entry contains:
+- project_id, destination_base, bucket_name, files list, error, skipped
 
-    logging.info(f"Download destination: {destination_base}")
+**Implementation**: Follows step 4 from PHASE 1 above
 
-    # Get S3 config
-    s3_config = get_s3_upload_config()
-    region = s3_config.get("region", "eu-central-1")
+**Benefits**:
+- Testable separately from execution
+- Can be logged/inspected before execution
+- All parsing and path construction in one place
 
-    # Reconstruct S3 paths
-    s3_paths = reconstruct_s3_paths(raw_file.s3_upload_path, raw_file.file_info)
+#### Helper Function: _write_batch_status_report()
 
-    logging.info(f"Starting download: {len(s3_paths)} files from S3")
+**Purpose**: Write batch status report for a destination
 
-    # Track status for each file
-    file_statuses = {}  # {relative_path: (status, message)}
+**Parameters**:
+- destination_path: Path to output directory
+- raw_file_results: List of (raw_file_id, project_id, bucket, file_results) tuples
+- timestamp: Report timestamp
 
-    # Download each file with self-healing
-    for relative_path, (bucket, s3_key) in s3_paths.items():
-        local_path = destination_base / relative_path
-        expected_size, expected_etag = parse_file_info_item(raw_file.file_info[relative_path])
+**Returns**: Path to written status file
 
-        try:
-            # Self-healing check
-            if local_path.exists():
-                logging.info(f"File exists: {relative_path}, checking hash...")
-                local_hash = get_file_hash(local_path)
-
-                if local_hash == expected_etag:
-                    logging.info(f"Hash correct - skipping {relative_path}")
-                    file_statuses[relative_path] = ("OK", "Skipped (already exists)")
-                    continue
-                else:
-                    logging.warning(
-                        f"Hash mismatch for {relative_path}: "
-                        f"expected={expected_etag}, got={local_hash}. "
-                        f"Deleting and re-downloading (self-healing)"
-                    )
-                    local_path.unlink()  # Delete corrupted file
-                    status_suffix = "Self-healed (hash mismatch fixed)"
-            else:
-                status_suffix = "Downloaded"
-
-            # Download file
-            logging.info(f"Downloading {s3_key} from {bucket}...")
-            start_time = datetime.now(tz=pytz.utc)
-
-            download_file_from_s3(
-                bucket_name=bucket,
-                s3_key=s3_key,
-                local_path=local_path,
-                region=region,
-                chunk_size_mb=500,
-            )
-
-            duration = (datetime.now(tz=pytz.utc) - start_time).total_seconds()
-
-            # Verify hash after download
-            actual_hash = get_file_hash(local_path)
-            if actual_hash != expected_etag:
-                local_path.unlink()  # Delete bad download
-                raise ValueError(
-                    f"Hash verification failed: expected={expected_etag}, got={actual_hash}"
-                )
-
-            # Optionally verify size
-            actual_size = local_path.stat().st_size
-            size_mb = actual_size / 1024**2
-
-            file_statuses[relative_path] = (
-                "OK",
-                f"{status_suffix} ({size_mb:.1f} MB in {duration:.1f}s)"
-            )
-            logging.info(f"Success: {relative_path}")
-
-        except Exception as e:
-            logging.error(f"Failed: {relative_path}: {e}")
-            file_statuses[relative_path] = ("FAILURE", str(e))
-            # Continue with other files (best-effort)
-
-    # Write status report
-    timestamp = datetime.now(tz=pytz.utc).strftime("%Y%m%d_%H%M%S")
-    status_file = destination_base / f"_download_status_{raw_file_id}_{timestamp}.txt"
-
-    success_count = sum(1 for s, _ in file_statuses.values() if s == "OK")
-    failure_count = sum(1 for s, _ in file_statuses.values() if s == "FAILURE")
-
-    with open(status_file, 'w') as f:
-        f.write("S3 Download Status Report\n")
-        f.write("=========================\n")
-        f.write(f"Raw File ID: {raw_file_id}\n")
-        f.write(f"Project ID: {raw_file.project_id}\n")
-        f.write(f"S3 Bucket: {raw_file.s3_upload_path}\n")
-        f.write(f"Timestamp: {datetime.now(tz=pytz.utc).isoformat()}\n")
-        f.write(f"Destination: {destination_base}\n\n")
-
-        f.write("Files:\n")
-        f.write("------\n")
-        for rel_path in sorted(file_statuses.keys()):
-            status, msg = file_statuses[rel_path]
-            f.write(f"{rel_path}: {status}")
-            if msg:
-                f.write(f" - {msg}")
-            f.write("\n")
-
-        f.write("\nSummary:\n")
-        f.write("--------\n")
-        f.write(f"Total files: {len(file_statuses)}\n")
-        f.write(f"Successful: {success_count}\n")
-        f.write(f"Failed: {failure_count}\n")
-
-        if failure_count == 0:
-            f.write("Status: SUCCESS\n")
-        elif success_count == 0:
-            f.write("Status: COMPLETE FAILURE\n")
-        else:
-            f.write("Status: PARTIAL FAILURE\n")
-
-    logging.info(f"Status report: {status_file}")
-
-    # Fail task if any failures (operator must review txt)
-    if failure_count > 0:
-        raise AirflowFailException(
-            f"{failure_count}/{len(file_statuses)} files failed. "
-            f"See: {status_file}"
-        )
-
-    logging.info(f"All {success_count} files downloaded successfully")
-```
+**Implementation**: See Section 2.5 for format
 
 **Tests**:
-- `test_validate_s3_download_parameters_success()`
-- `test_validate_s3_download_parameters_no_project_id()`
-- `test_validate_s3_download_parameters_no_s3_backup()`
-- `test_download_raw_file_from_s3_new_file()` - fresh download
-- `test_download_raw_file_from_s3_skip_existing()` - correct hash
-- `test_download_raw_file_from_s3_self_healing()` - wrong hash, overwrite
-- `test_download_raw_file_from_s3_multi_file()` - .d folder
-- `test_download_raw_file_from_s3_partial_failure()` - some fail
-- `test_status_report_format()` - verify txt content
+- test_build_download_plan_single() - single raw_file, verify structure
+- test_build_download_plan_batch() - multiple raw_files, verify all parsed
+- test_build_download_plan_invalid_raw_file() - marks as skipped with error
+- test_build_download_plan_etag_parsing() - verify etag and chunk_size extracted
+- test_build_download_plan_paths() - verify absolute paths constructed correctly
+- test_download_raw_files_batch_single_project() - 2 raw_files, same project
+- test_download_raw_files_batch_multiple_projects() - different destinations
+- test_download_raw_files_s3_etag_mismatch() - S3 corruption detected
+- test_download_raw_files_new_file() - fresh download
+- test_download_raw_files_skip_existing() - correct hash
+- test_download_raw_files_self_healing() - wrong hash, overwrite
+- test_download_raw_files_multi_file() - .d folder
+- test_download_raw_files_partial_failure() - some files fail
+- test_download_raw_files_raw_file_not_found() - skip invalid raw_file
+- test_batch_status_report_format() - verify txt content
+- test_batch_status_report_per_destination() - multiple reports
 
 ---
 
 ### Stage 4: S3 Downloader DAG (~3 hours)
 
-**File**: `airflow_src/dags/s3_downloader.py` (new file)
+**File**: airflow_src/dags/s3_downloader.py (new file)
 
-```python
-"""S3 Downloader DAG - Restore raw files from S3 to output location."""
+**Purpose**: S3 Downloader DAG - Restore raw files from S3 to output location (BATCH MODE)
 
-from datetime import timedelta
-from airflow import DAG
-from airflow.operators.python import PythonOperator
-from airflow.models.param import Param
-from airflow.utils.dates import days_ago
+**DAG Configuration**:
+- Name: From Dags.S3_DOWNLOADER constant
+- Schedule: None (manual trigger only)
+- Tags: ["s3", "download", "manual", "restoration", "batch"]
+- Queue: kraken_queue_s3_download
+- Retries: 2
+- Retry delay: 5 minutes
+- Execution timeout: 12 hours (for large batches or files)
 
-from common.constants import Dags, DagParams, Pools, AIRFLOW_QUEUE_PREFIX
-from common.callbacks import on_failure_callback
-from impl.handler_impl import (
-    download_raw_file_from_s3,
-    validate_s3_download_parameters
-)
+**DAG Parameters**:
+- raw_file_ids: String parameter (minimum 3 characters)
+  - Description: Comma-separated list of RawFile IDs to download from S3 (e.g., "file1,file2,file3"). Files downloaded to output_location/project_id/ per raw_file. Multiple projects supported in single batch.
+  - Examples:
+    - Single: "20250115_sample"
+    - Batch: "20250115_sample,20250116_sample,20250117_sample"
 
-S3_DOWNLOAD_QUEUE = f"{AIRFLOW_QUEUE_PREFIX}s3_download"
+**Tasks**:
+1. download_files: Runs download_raw_files_from_s3()
+   - Uses pool: S3_DOWNLOAD_POOL
+   - Processes each raw_file sequentially
+   - Best-effort: continues on per-file errors
+   - Timeout: 12 hours
 
-
-def create_s3_downloader_dag() -> DAG:
-    """Create S3 downloader DAG for manual file restoration.
-
-    Downloads to: {output_location}/{project_id}/
-    - Self-healing: Overwrites corrupted files
-    - Idempotent: Safe to re-run
-    - Status reporting: Creates .txt file
-    """
-    with DAG(
-        Dags.S3_DOWNLOADER,
-        schedule=None,  # Manual trigger only
-        start_date=days_ago(1),
-        default_args={
-            "depends_on_past": False,
-            "retries": 2,
-            "retry_delay": timedelta(minutes=5),
-            "queue": S3_DOWNLOAD_QUEUE,
-            "on_failure_callback": on_failure_callback,
-        },
-        description="Download raw files from S3 to output location (self-healing)",
-        catchup=False,
-        tags=["s3", "download", "manual", "restoration"],
-        params={
-            DagParams.RAW_FILE_ID: Param(
-                type="string",
-                minLength=3,
-                description=(
-                    "ID of the RawFile to download from S3. "
-                    "Files downloaded to: {output_location}/{project_id}/"
-                )
-            ),
-        },
-    ) as dag:
-
-        validate_parameters_ = PythonOperator(
-            task_id="validate_parameters",
-            python_callable=validate_s3_download_parameters,
-            provide_context=True,
-        )
-
-        download_files_ = PythonOperator(
-            task_id="download_files",
-            python_callable=download_raw_file_from_s3,
-            provide_context=True,
-            execution_timeout=timedelta(hours=8),
-            pool=Pools.S3_DOWNLOAD_POOL,
-        )
-
-        validate_parameters_ >> download_files_
-
-    return dag
-
-
-dag = create_s3_downloader_dag()
-```
+**Task Dependencies**: None (single task)
 
 **Tests**:
-- `test_s3_downloader_dag_exists()`
-- `test_s3_downloader_dag_structure()`
-- `test_s3_downloader_dag_params()` - only raw_file_id
+- test_s3_downloader_dag_exists()
+- test_s3_downloader_dag_structure() - single task
+- test_s3_downloader_dag_params() - raw_file_ids (plural)
 
 ---
 
@@ -529,108 +539,141 @@ dag = create_s3_downloader_dag()
 #### 5.1 Create Airflow Pool
 
 In Airflow UI (Admin → Pools):
-- **Name**: `s3_download_pool`
-- **Slots**: `2`
+- **Name**: s3_download_pool
+- **Slots**: 2
 - **Description**: "Limit concurrent S3 downloads"
 
 #### 5.2 Update CLAUDE.md
 
 Add after S3 backup section:
 
-```markdown
-### S3 Download Operations
+**Section: S3 Download Operations**
 
 **Trigger Download**:
-```bash
-# Download raw file from S3 to {output_location}/{project_id}/
-airflow dags trigger s3_downloader --conf '{"raw_file_id": "20250115_sample"}'
-```
+- Single file: `airflow dags trigger s3_downloader --conf '{"raw_file_ids": "20250115_sample"}'`
+- Batch: `airflow dags trigger s3_downloader --conf '{"raw_file_ids": "file1,file2,file3"}'`
+- Downloads raw files from S3 to output_location/project_id/ (per raw_file)
 
 **Behavior**:
-- **Destination**: Automatically calculated as `{locations.output}/{project_id}/`
+- **Batch Mode**: Supports comma-separated list of raw_file_ids
+- **Destination**: Automatically calculated as locations.output/project_id/ (per raw_file)
+- **S3 Verification**: Checks S3 etag before downloading (detects S3 corruption)
 - **Self-healing**: Corrupted local files automatically overwritten
-- **Idempotent**: Safe to re-run (skips correct files)
-- **Status**: Creates `_download_status_{raw_file_id}_{timestamp}.txt`
+- **Idempotent**: Safe to re-run (skips files with correct etags)
+- **Best-effort**: Continues processing all raw_files even if some fail
+- **Status**: Creates _download_status_batch_{timestamp}.txt per destination
 - **Database**: Read-only (no backup_status updates)
 
 **Check Results**:
-```bash
-# View status report
-cat /fs/pool/output/{PROJECT_ID}/_download_status_*.txt
-```
+- View status report: `cat /fs/pool/output/{PROJECT_ID}/_download_status_batch_*.txt`
+- Multiple projects in batch → multiple status reports (one per destination)
 
 **Status Report Format**:
-```
-S3 Download Status Report
-=========================
-Raw File ID: {id}
-Project ID: {project_id}
-...
-
-
-Summary:
---------
-Total files: 3
-Successful: 2
-Failed: 1
-Status: PARTIAL FAILURE
-
-
-Files:
-------
-file.raw: OK - Downloaded
-subfolder/data.bin: OK - Skipped (already exists)
-subfolder/index.dat: FAILURE - Network timeout
-
-```
-```
+- Header with batch metadata
+- Per-RawFile sections with file results
+- Overall summary with counts and status
 
 #### 5.3 Update S3_BACKUP_DESIGN.md
 
 Add before "Future Enhancements":
 
-```markdown
-## 12. S3 Download Feature
+**Section: S3 Download Feature**
 
-### Overview
-Manual restoration of raw files from S3 to output location.
+**Overview**:
+- Manual restoration of raw files from S3 to output location
+- Supports batch mode (multiple raw_files in one operation)
+- See design_docs/S3_DOWNLOAD_FEATURE.md for full details
 
-See `design_docs/S3_DOWNLOAD_FEATURE.md` for full details.
-
-### Key Features
-- **Destination**: `{output_location}/{project_id}/` (auto-calculated)
+**Key Features**:
+- **Batch Mode**: Comma-separated list of raw_file_ids
+- **Destination**: output_location/project_id/ (auto-calculated per raw_file)
+- **S3 Verification**: Checks S3 etag before download (detects corruption)
 - **Self-healing**: Overwrites corrupted files automatically
-- **Idempotent**: Safe to re-run
-- **Status**: `.txt` report file (no DB updates)
-- **Best-effort**: Tries all files even if some fail
+- **Idempotent**: Safe to re-run (skips files with correct etags)
+- **Status**: Batch .txt report per destination (no DB updates)
+- **Best-effort**: Continues processing all raw_files even if some fail
 
-### Usage
-```bash
-airflow dags trigger s3_downloader --conf '{"raw_file_id": "FILE_ID"}'
-```
-
-Check results: `/fs/pool/output/{PROJECT_ID}/_download_status_*.txt`
-```
+**Usage**:
+- Single: `airflow dags trigger s3_downloader --conf '{"raw_file_ids": "FILE_ID"}'`
+- Batch: `airflow dags trigger s3_downloader --conf '{"raw_file_ids": "ID1,ID2,ID3"}'`
+- Check results: `/fs/pool/output/{PROJECT_ID}/_download_status_batch_*.txt`
 
 #### 5.4 Testing Checklist
 
-**Unit Tests** (~3 hours):
-- [ ] s3_utils functions (mock boto3)
-- [ ] validate_s3_download_parameters()
-- [ ] download_raw_file_from_s3() (mock S3, filesystem)
-- [ ] Status txt writing
-- [ ] Self-healing logic
-- [ ] DAG structure
+**Unit Tests** (~5 hours):
+
+**S3 Utilities**:
+- [ ] test_download_file_from_s3() - mock boto3, verify download_fileobj called
+- [ ] test_reconstruct_s3_paths_bucket_only() - "bucket"
+- [ ] test_reconstruct_s3_paths_with_prefix() - "bucket/prefix/"
+
+**ETag Verification**:
+- [ ] test_s3_etag_verification_match() - S3 etag matches DB
+- [ ] test_s3_etag_verification_mismatch() - S3 corruption detected
+- [ ] test_local_etag_verification_match() - post-download success
+- [ ] test_local_etag_verification_mismatch() - delete corrupted file
+
+**Download Plan Construction** (PHASE 1 - Planning):
+- [ ] test_build_download_plan_single() - single raw_file, verify structure
+- [ ] test_build_download_plan_batch() - multiple raw_files, all fields populated
+- [ ] test_build_download_plan_invalid_raw_file() - marks as skipped with error
+
+**Download Execution** (PHASE 2 - Doing):
+- [ ] test_download_raw_files_single() - single raw_file
+- [ ] test_download_raw_files_new_file() - fresh download with verification
+- [ ] test_download_raw_files_skip_existing() - correct etag, no download
+- [ ] test_download_raw_files_partial_failure() - some files fail, continue
+- [ ] test_download_raw_files_raw_file_not_found() - skip invalid, continue
+- [ ] test_download_raw_files_missing_project_id() - record error, continue
+- [ ] test_download_raw_files_s3_corruption() - S3 etag mismatch, skip file
+- [ ] test_download_raw_files_uses_plan() - verify execution uses plan values
+
+**Status Reporting**:
+- [ ] test_batch_status_report_format() - verify txt content structure
+- [ ] test_batch_status_report_per_destination() - multiple reports created
+- [ ] test_batch_status_report_single_destination() - one report for batch
+
+**DAG Structure**:
+- [ ] test_s3_downloader_dag_exists()
 
 **Integration Tests** (manual):
-- [ ] Fresh download from S3
-- [ ] Idempotent: re-run, files skipped
-- [ ] Self-healing: corrupt file, gets overwritten
-- [ ] Multi-file: .d folder (10+ files)
-- [ ] Partial failure: mix of success/failure
+
+**Single RawFile Tests**:
+- [ ] Fresh download from S3 (new file)
+- [ ] Idempotent: re-run, files skipped (correct etags)
+- [ ] Self-healing: corrupt local file, gets overwritten
+- [ ] Multi-file: .d folder with 10+ files
 - [ ] Large file: >10 GB
-- [ ] Status txt format correct
-- [ ] **Verify NO DB writes** (check backup_status unchanged)
+- [ ] S3 etag verification: tamper with S3 file, detect mismatch
+
+**Batch Mode Tests**:
+- [ ] Batch: 3 raw_files, same project (one report)
+- [ ] Batch: 5 raw_files, 3 different projects (three reports)
+- [ ] Batch: mix of existing and new files
+- [ ] Batch: one raw_file fails validation, others succeed
+- [ ] Batch: partial failures across multiple raw_files
+- [ ] Batch: re-run failed batch (idempotent)
+
+**Error Handling Tests**:
+- [ ] Invalid raw_file_id: logs error, continues
+- [ ] Missing project_id: logs error, continues
+- [ ] Network error during download: records failure, continues
+- [ ] S3 bucket doesn't exist: records failures
+- [ ] Post-download verification failure: deletes file
+- [ ] Disk full during download: handles gracefully (OS error)
+
+**Status Report Tests**:
+- [ ] Status txt format correct (all sections present)
+- [ ] Multiple status reports created (different destinations)
+- [ ] Status report includes all raw_files for destination
+- [ ] Status report shows correct success/failure counts
+- [ ] No automatic cleanup (old reports preserved)
+
+**Critical Verification**:
+- [ ] **Verify NO DB writes** (check backup_status unchanged after downloads)
+- [ ] **Verify etag chunk_size used** (same as upload: 500 MB)
+- [ ] **Verify S3 pre-check happens** (check logs for S3 etag retrieval)
+- [ ] **Verify post-download check happens** (check logs for local etag calc)
 
 ---
 
@@ -640,37 +683,63 @@ Check results: `/fs/pool/output/{PROJECT_ID}/_download_status_*.txt`
 
 | Condition | Behavior |
 |-----------|----------|
-| RawFile not found | Validation fails |
-| Missing project_id | Validation fails (can't determine destination) |
-| No S3 backup | Validation fails |
-| Output location not writable | Validation fails |
-| S3 bucket doesn't exist | Record FAILURE for all files |
-| Network error during download | Record FAILURE for that file, continue |
-| Hash mismatch after download | Delete file, record FAILURE |
-| Local file corrupted | Delete & re-download (self-healing) |
-| Some files fail | Write status txt, task fails |
-| All succeed | Write status txt, task succeeds |
+| **Pre-Processing Errors** | |
+| No raw_file_ids provided | Fail DAG (parameter validation) |
+| **Per-RawFile Errors (Best-Effort)** | |
+| RawFile not found in DB | Log error for this raw_file, record in status, continue to next |
+| Missing project_id | Log error for this raw_file, record in status, continue to next |
+| No S3 backup (s3_upload_path null) | Log error for this raw_file, record in status, continue to next |
+| Empty file_info | Log error for this raw_file, record in status, continue to next |
+| Output location not writable | Log error for this raw_file, record in status, continue to next |
+| **Per-File Errors (Best-Effort)** | |
+| S3 etag mismatch (pre-check) | Record FAILURE ("S3 corruption"), skip file, continue to next |
+| S3 bucket doesn't exist | Record FAILURE for all files in this raw_file, continue to next raw_file |
+| S3 key not found (404) | Record FAILURE for that file, continue to next |
+| Network error during download | Record FAILURE for that file, continue to next |
+| Download timeout | Record FAILURE for that file, continue to next |
+| Post-download etag mismatch | Delete corrupted file, record FAILURE ("Verification failed"), continue |
+| Local file corrupted (exists) | Delete & re-download (self-healing) |
+| Disk full during download | Record FAILURE, may affect remaining files (OS error) |
+| **Final Status** | |
+| Some raw_files/files fail | Write status txt per destination, DAG task fails |
+| All succeed | Write status txt per destination, DAG task succeeds |
+| Multiple projects in batch | Each destination gets separate status report |
 
 ### 4.2 Edge Cases
 
-#### 4.2.1 Multi-File Downloads (.d folders)
+#### 4.2.1 Batch Mode with Multiple Projects
+- Parse comma-separated raw_file_ids correctly (trim whitespace)
+- Each raw_file may have different project_id → different destinations
+- Group status reports by destination directory
+- Example: 5 raw_files across 3 projects → 3 separate status reports
+
+#### 4.2.2 Multi-File Downloads (.d folders)
 - Iterate all files in file_info
 - Best-effort: continue even if some fail
 - Record all outcomes in status txt
 - Task fails if any failures (operator reviews txt)
 
-#### 4.2.2 Idempotency
-- Safe to re-run multiple times
-- Skips files with correct hashes
-- Re-downloads files with wrong hashes
+#### 4.2.3 Idempotency
+- Safe to re-run multiple times (batch or single)
+- Skips files with correct etags (verified with S3 and locally)
+- Re-downloads files with wrong etags
+- Can re-run partial batches or full batches
 
-#### 4.2.3 S3 Path Parsing
+#### 4.2.4 S3 Path Parsing
 - Formats: "bucket", "bucket/", "bucket/prefix/"
 - Handle trailing slashes, multiple slashes, empty prefixes
 
-#### 4.2.4 Missing Project ID
-- Validation fails immediately
-- Cannot calculate destination without project_id
+#### 4.2.5 Missing Project ID in Batch
+- Log error for that raw_file
+- Record in status report
+- Continue to other raw_files (best-effort)
+- Task still fails at end if any errors
+
+#### 4.2.6 ETag Format Variations
+- Single-part files: simple MD5 (e.g., "abc123__500")
+- Multipart files: MD5-partcount (e.g., "abc123-5__500")
+- Empty files: known MD5 of empty string
+- Must parse chunk_size from stored etag string
 
 ### 4.3 Monitoring
 
@@ -693,12 +762,12 @@ Check results: `/fs/pool/output/{PROJECT_ID}/_download_status_*.txt`
 
 ### 5.1 Access Control
 - Reuse existing AWS credentials
-- IAM permissions: `s3:GetObject`, `s3:ListBucket`
+- IAM permissions: s3:GetObject, s3:ListBucket
 
 ### 5.2 Path Safety
 - Destination always calculated from trusted sources
 - No user-provided paths
-- All file_info paths are relative (no `..`)
+- All file_info paths are relative (no ..)
 
 ### 5.3 Data Integrity
 - Verify etag after download
@@ -752,55 +821,85 @@ Check results: `/fs/pool/output/{PROJECT_ID}/_download_status_*.txt`
 
 ## 9. Future Enhancements
 
+- **Disk space pre-check**: Upfront validation of available disk space before starting downloads
+  - Calculate total size needed from all raw_files
+  - Group by destination directory (different project_ids)
+  - Fail fast if insufficient space (with 10% buffer)
+  - Would require additional task in DAG or integration into planning phase
 - Automatic fallback during processing
 - Parallel file downloads
 - Resume capability
 - Progress reporting
-- Batch operations
-- Selective downloads
+- Selective downloads (specific files from file_info)
 - Compression support
-- Notifications
+- Notifications (email/webhook on completion)
 
 ---
 
 ## 10. Estimated Effort
 
-| Stage | Time |
-|-------|------|
-| S3 Utilities | 3 hours |
-| Constants | 30 min |
-| Download Logic | 6 hours |
-| DAG Creation | 3 hours |
-| Documentation | 2 hours |
-| **Total** | **~14.5 hours (~2 days)** |
+| Stage | Time | Notes |
+|-------|------|-------|
+| S3 Utilities | 3.5 hours | 3 new functions, reference existing utilities |
+| Constants | 30 min | 2 constants |
+| Download Logic | 9 hours | 3 functions: build plan, execute downloads, write status |
+| DAG Creation | 2 hours | Single task DAG |
+| Documentation | 2 hours | CLAUDE.md, S3_BACKUP_DESIGN.md updates |
+| Unit Tests | 5 hours | Comprehensive coverage including plan construction tests |
+| **Total** | **~22 hours (~3 days)** | |
 
-With contingency: **~18 hours (~2-3 days)**
+With contingency: **~27 hours (~3-4 days)**
+
+**Increased from original estimate due to**:
+- Batch mode support (comma-separated raw_file_ids)
+- Two-phase architecture (planning + execution separation)
+- Mandatory S3 etag verification before download
+- Grouped status reports per destination
+- Additional error handling for best-effort processing
+- Separate download plan construction and testing
 
 ---
 
 ## 11. Summary
 
-Clean, reliable S3 download implementation:
-- ✅ Single parameter (raw_file_id)
-- ✅ Auto-destination (YAML + project_id)
-- ✅ Self-healing (overwrites corrupted files)
-- ✅ Idempotent (safe to re-run)
-- ✅ Status tracking via txt (NO DB writes)
-- ✅ Best-effort (tries all files)
-- ✅ Clear operator feedback
-- ✅ Multi-file support
-- ✅ Hash verification
+Clean, reliable S3 download implementation with batch support:
+- ✅ Batch mode (comma-separated raw_file_ids)
+- ✅ Auto-destination (YAML + project_id per raw_file)
+- ✅ S3 etag verification (detect S3 corruption before downloading)
+- ✅ Self-healing (overwrites corrupted local files)
+- ✅ Idempotent (safe to re-run batches)
+- ✅ Status tracking via batch txt per destination (NO DB writes)
+- ✅ Best-effort (continues on errors, tries all raw_files)
+- ✅ Clear operator feedback (grouped status reports)
+- ✅ Multi-file support (.d folders)
+- ✅ Hash verification (pre-download S3 check + post-download local check)
+- ✅ Multi-project batches (different destinations supported)
+
+**Architecture**:
+- Two-phase design: Planning phase (construct download plan) + Execution phase (execute plan)
+- Planning phase: Parse all DB data, calculate all paths, extract all etags
+- Execution phase: Simply iterate plan and download with verification
+- Benefits: Easier testing, debugging, clearer code, better error messages
 
 **Files to create/modify**:
-1. `dags/impl/s3_utils.py` - 2 functions
-2. `dags/impl/handler_impl.py` - 2 functions
-3. `dags/s3_downloader.py` - New DAG
-4. `plugins/common/constants.py` - 2 constants
-5. `CLAUDE.md` - Usage docs
-6. Tests
+1. dags/impl/s3_utils.py - 3 new functions (download, reconstruct paths, parse etag)
+2. dags/impl/handler_impl.py - 3 functions (build plan, download batch, write status)
+3. dags/s3_downloader.py - New DAG with single task
+4. plugins/common/constants.py - 2 constants
+5. CLAUDE.md - Usage docs (batch mode)
+6. S3_BACKUP_DESIGN.md - Reference to download feature
+7. Tests - Comprehensive unit + integration tests (including plan construction tests)
+
+**Existing utilities to reuse**:
+- `get_s3_client()`, `get_transfer_config()`, `get_etag()` - s3_utils.py
+- `get_file_hash_with_etag()` - file_handling.py
+- `ETAG_SEPARATOR` constant - file_handling.py
+- RawFile model with file_info structure
 
 **Critical principles**:
 - Read-only DB access (NO writes to backup_status)
 - Self-healing over error handling
-- Status txt is single source of truth
+- Batch status txt is single source of truth (one per destination)
 - Destination always derived from config
+- Mandatory etag verification (S3 pre-check + local post-check)
+- Best-effort processing (continue on per-file/per-raw_file errors)

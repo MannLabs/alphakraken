@@ -1,5 +1,6 @@
 """Tests for the file_handling module."""
 
+import hashlib
 from pathlib import Path
 from unittest.mock import MagicMock, mock_open, patch
 
@@ -12,11 +13,13 @@ from plugins.file_handling import (
     HashMismatchError,
     _decide_if_copy_required,
     _identical_copy_exists,
+    _md5hashes_to_etag,
     compare_paths,
     copy_file,
     get_disk_usage,
     get_file_creation_timestamp,
     get_file_hash,
+    get_file_hash_with_etag,
     get_file_size,
     move_existing_file,
 )
@@ -108,13 +111,107 @@ def test_get_file_hash_chunks(
         b"some_",
         b"file_",
         b"content",
-        None,
+        b"",
     ]
 
     # when
     return_value = get_file_hash(Path("/test/file/path"))
 
     assert return_value == "faff66b0fba39e3a4961b45dc5f9826c"
+
+
+@patch("plugins.file_handling.get_file_size", return_value=123)
+@patch("plugins.file_handling.Path.open", new_callable=mock_open)
+def test_get_file_hash_with_etag(
+    mock_file_open: MagicMock,
+    mock_get_file_size: MagicMock,  # noqa: ARG001
+) -> None:
+    """Test get_file_hash_with_etag."""
+    mock_file_open.return_value.read.side_effect = [b"some_file_content", None]
+
+    # when
+    return_value = get_file_hash_with_etag(Path("/test/file/path"), calculate_etag=True)
+
+    assert return_value == (
+        "faff66b0fba39e3a4961b45dc5f9826c",
+        "faff66b0fba39e3a4961b45dc5f9826c",
+    )
+
+
+@patch("plugins.file_handling.get_file_size", return_value=123)
+@patch("plugins.file_handling.Path.open", new_callable=mock_open)
+def test_get_file_hash_with_etag_chunks(
+    mock_file_open: MagicMock,
+    mock_get_file_size: MagicMock,  # noqa: ARG001
+) -> None:
+    """Test get_file_hash_with_etag with multiple chunks."""
+    mock_file_open.return_value.read.side_effect = [
+        b"some_",
+        b"file_",
+        b"content",
+        b"",
+    ]
+
+    # when
+    return_value = get_file_hash_with_etag(Path("/test/file/path"), calculate_etag=True)
+
+    assert return_value == (
+        "faff66b0fba39e3a4961b45dc5f9826c",
+        "6de5b63da956997419b0f495fa7f265a-3",
+    )
+
+
+def test_md5hashes_to_etag_empty_file() -> None:
+    """Test _md5hashes_to_etag returns MD5 of empty bytes for empty file."""
+    result = _md5hashes_to_etag([])
+
+    # MD5 hash of empty bytes
+    assert result == "d41d8cd98f00b204e9800998ecf8427e"
+
+
+def test_md5hashes_to_etag_single_part() -> None:
+    """Test _md5hashes_to_etag returns plain MD5 hex for single part upload."""
+    single_hash = hashlib.md5(b"test_data_1").digest()  # noqa: S324
+
+    result = _md5hashes_to_etag([single_hash])
+
+    # Should return hex representation without part count
+    assert result == "6bd1fc852555783416536b7af9172d22"
+
+
+def test_md5hashes_to_etag_multipart_two_parts() -> None:
+    """Test _md5hashes_to_etag returns correct format for two-part upload."""
+    hash1 = hashlib.md5(b"test_data_1").digest()  # noqa: S324
+    hash2 = hashlib.md5(b"test_data_2").digest()  # noqa: S324
+
+    result = _md5hashes_to_etag([hash1, hash2])
+
+    # Should be MD5 of concatenated hashes with "-2" suffix
+    assert result == "6abb33a475f0a19b502a691a155200d5-2"
+
+
+def test_md5hashes_to_etag_multipart_three_parts() -> None:
+    """Test _md5hashes_to_etag returns correct format for three-part upload."""
+    hash1 = hashlib.md5(b"test_data_1").digest()  # noqa: S324
+    hash2 = hashlib.md5(b"test_data_2").digest()  # noqa: S324
+    hash3 = hashlib.md5(b"test_data_3").digest()  # noqa: S324
+
+    result = _md5hashes_to_etag([hash1, hash2, hash3])
+
+    # Should be MD5 of concatenated hashes with "-3" suffix
+    assert result == "c0f39841d0a3da5a047629eacf7e6270-3"
+
+
+def test_md5hashes_to_etag_multipart_many_parts() -> None:
+    """Test _md5hashes_to_etag handles large part count correctly."""
+    # Simulate 42 parts (e.g., 21 GB file with 500 MB chunks)
+    hashes = [b"\x00" * 16 for _ in range(42)]
+
+    result = _md5hashes_to_etag(hashes)
+
+    # Should have "-42" suffix
+    assert result.endswith("-42")
+    assert len(result.split("-")) == 2
 
 
 @patch("plugins.file_handling.get_file_hash")

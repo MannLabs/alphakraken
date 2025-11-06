@@ -65,6 +65,10 @@ def display_settings(
 
     # beautify
     filtered_df = filtered_df.drop(columns=["_id"], errors="ignore").fillna("")
+    if "config_params" in filtered_df.columns:
+        filtered_df["config_params"] = filtered_df["config_params"].apply(
+            lambda x: f"`{x}`" if x else x
+        )
 
     st_display.table(
         filtered_df.style.apply(
@@ -211,7 +215,9 @@ if selected_project:
             st.info(
                 "The following placeholders can be used in the config parameters, and will be replaced by the specified values:\n\n"
                 "- `RAW_FILE_PATH`: absolute path of the raw file\n"
+                "- `RELATIVE_RAW_FILE_PATH`: path of the raw file relative to `locations.backup.absolute_path` in alphakraken.yaml\n"
                 "- `OUTPUT_PATH`: absolute path of the output directory\n"
+                "- `RELATIVE_OUTPUT_PATH`: path of the output directory relative to `locations.output.absolute_path` in alphakraken.yaml\n"
                 "- `LIBRARY_PATH`: absolute path of the library file\n"
                 "- `FASTA_PATH`: absolute path of the fasta file\n"
                 "- `NUM_THREADS`: number of threads\n"

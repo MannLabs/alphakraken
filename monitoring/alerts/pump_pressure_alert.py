@@ -2,6 +2,7 @@
 
 import logging
 from collections import defaultdict
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -20,6 +21,16 @@ from .config import (
 )
 
 
+@dataclass(frozen=True)
+class PressureDataPoint:
+    """Represents a single pressure measurement with associated metadata."""
+
+    pressure: float
+    gradient_length: float
+    created_at: datetime
+    raw_file_id: str
+
+
 class PumpPressureAlert(BaseAlert):
     """Check for pump pressure increases across instruments."""
 
@@ -27,7 +38,7 @@ class PumpPressureAlert(BaseAlert):
         """Initialize the alert with memory for tracking reported issues."""
         super().__init__()
         # Memory: set of (instrument_id, tuple of pressure_changes) to track reported issues
-        self._reported_issues: set[tuple[str, tuple[float, ...]]] = set()
+        self._reported_issues: set[tuple[str, tuple[Any]]] = set()
 
     @property
     def name(self) -> str:
@@ -73,13 +84,6 @@ class PumpPressureAlert(BaseAlert):
 
         issues = []
         for instrument_id, pressure_data in instrument_data.items():
-            # if len(pressure_data) < PUMP_PRESSURE_WINDOW_SIZE + 1:
-            #     logging.debug(
-            #         f"Not enough data points for {instrument_id}: "
-            #         f"{len(pressure_data)} < {PUMP_PRESSURE_WINDOW_SIZE + 1}"
-            #     )
-            #     continue
-
             is_alert, pressure_changes = self._detect_pressure_increase(
                 pressure_data, PUMP_PRESSURE_WINDOW_SIZE, PUMP_PRESSURE_THRESHOLD_BAR
             )
@@ -106,54 +110,57 @@ class PumpPressureAlert(BaseAlert):
         return issues
 
     @staticmethod
-    def _format(changes: list[tuple[float, float, float, datetime]]) -> str:
+    def _format(changes: list[tuple[float, float, float, datetime, str, str]]) -> str:
         """Format pressure changes for alert message."""
         return "; ".join(
             [
-                f"+{change[0]:.1f} bar (from {change[2]:.1f} to {change[1]:.1f} bar at {change[3].strftime('%Y-%m-%d %H:%M:%S')})"
+                f"+{change[0]:.1f} bar (from {change[2]:.1f} bar in `{change[5]}` to {change[1]:.1f} bar in `{change[4]}` at {change[3].strftime('%Y-%m-%d %H:%M:%S')})"
                 for change in changes
             ]
         )
 
     def _get_pressure_data_by_instrument(
         self, raw_files_with_metrics: dict[str, Any]
-    ) -> dict[str, list[tuple[float, float, datetime]]]:
-        """Group metrics by instrument, flatten to a tuple (pump_pressure, gradient_length, created_at,)."""
+    ) -> dict[str, list[PressureDataPoint]]:
+        """Group metrics by instrument, returning PressureDataPoint instances."""
         pressure_data = defaultdict(list)
-        for v in raw_files_with_metrics.values():
+        for raw_file_id, v in raw_files_with_metrics.items():
             gradient_length = v.get("metrics_alphadia", {}).get("raw:gradient_length_m")
             pressure = v.get("metrics_msqc", {}).get("msqc_evosep_pump_hp_pressure_max")
 
             if gradient_length is not None and pressure is not None:
                 pressure_data[v["instrument_id"]].append(
-                    (pressure, gradient_length, v["created_at"])
+                    PressureDataPoint(
+                        pressure, gradient_length, v["created_at"], raw_file_id
+                    )
                 )
 
         return pressure_data
 
     def _detect_pressure_increase(
         self,
-        pressure_data: list[tuple[float, float, datetime]],
+        pressure_data: list[PressureDataPoint],
         window_size: int,
         threshold: float,
-    ) -> tuple[bool, list[tuple[float, float, float, datetime]]]:
+    ) -> tuple[bool, list[tuple[float, float, float, datetime, str, str]]]:
         """Detect if pressure increases by more than threshold over the last window_size samples.
 
         Args:
-            pressure_data: list of (pressure, gradient_length, created_at) tuples, ordered newest first
+            pressure_data: list of PressureDataPoint instances, ordered newest first
             window_size: number of past samples to look at
             threshold: pressure increase threshold to trigger alert
 
         Returns:
             is_alert: boolean flag indicating if alerts were detected
-            pressure_changes: list of pressure changes over the window
+            pressure_changes: list of tuples (pressure_change, current_pressure, past_pressure,
+                             timestamp, younger_file_name, older_file_name)
 
         """
-        latest_gradient_length = pressure_data[0][1]
+        latest_gradient_length = pressure_data[0].gradient_length
 
         # logging.info(f"pressure_data: {pressure_data}")
 
-        def _within_pressure_tolerance(
+        def _is_within_tolerance(
             value: float,
             target: float,
             tolerance: float = 10,
@@ -171,21 +178,32 @@ class PumpPressureAlert(BaseAlert):
             data_younger = pressure_data[i - window_size]
             data_older = pressure_data[i]
 
-            if not _within_pressure_tolerance(
-                data_older[1], latest_gradient_length
-            ) or not _within_pressure_tolerance(
-                data_younger[1], latest_gradient_length
+            if not _is_within_tolerance(
+                data_older.gradient_length, latest_gradient_length
+            ) or not _is_within_tolerance(
+                data_younger.gradient_length, latest_gradient_length
             ):
                 continue
 
             # Calculate pressure change over the window
-            current_pressure = data_younger[0]
-            past_pressure = data_older[0]
+            current_pressure = data_younger.pressure
+            past_pressure = data_older.pressure
             pressure_change = current_pressure - past_pressure
+
+            # temporary hack to bypass bug in pump pressure extraction
+            if past_pressure > 1000 or current_pressure > 1000:  # noqa: PLR2004
+                continue
 
             if pressure_change > threshold:
                 pressure_changes.append(
-                    (pressure_change, current_pressure, past_pressure, data_younger[2])
+                    (
+                        pressure_change,
+                        current_pressure,
+                        past_pressure,
+                        data_younger.created_at,
+                        data_younger.raw_file_id,
+                        data_older.raw_file_id,
+                    )
                 )
                 is_alert = True
                 break

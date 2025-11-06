@@ -6,7 +6,7 @@ from unittest.mock import Mock, patch
 import pytz
 
 from monitoring.alerts.config import Cases
-from monitoring.alerts.pump_pressure_alert import PumpPressureAlert
+from monitoring.alerts.pump_pressure_alert import PressureDataPoint, PumpPressureAlert
 from shared.db.models import KrakenStatusEntities
 
 
@@ -115,11 +115,11 @@ class TestPumpPressureAlert:
         # then
         expected = {
             "instrument1": [
-                (100.0, 0.5, now),
-                (110.0, 0.5, now - timedelta(hours=1)),
+                PressureDataPoint(100.0, 0.5, now, "file1"),
+                PressureDataPoint(110.0, 0.5, now - timedelta(hours=1), "file2"),
             ],
             "instrument2": [
-                (95.0, 0.6, now - timedelta(hours=2)),
+                PressureDataPoint(95.0, 0.6, now - timedelta(hours=2), "file3"),
             ],
         }
         assert result == expected
@@ -153,7 +153,7 @@ class TestPumpPressureAlert:
         # then
         expected = {
             "instrument1": [
-                (110.0, 0.5, now - timedelta(hours=1)),
+                PressureDataPoint(110.0, 0.5, now - timedelta(hours=1), "file2"),
             ],
         }
         assert result == expected
@@ -187,7 +187,7 @@ class TestPumpPressureAlert:
         # then
         expected = {
             "instrument1": [
-                (110.0, 0.5, now - timedelta(hours=1)),
+                PressureDataPoint(110.0, 0.5, now - timedelta(hours=1), "file2"),
             ],
         }
         assert result == expected
@@ -224,13 +224,13 @@ class TestPumpPressureAlert:
         now = datetime.now(tz=pytz.utc)
 
         pressure_data = [
-            (125.0, 0.5, now),
-            (124.0, 0.5, now - timedelta(hours=1)),
-            (123.0, 0.5, now - timedelta(hours=2)),
-            (122.0, 0.5, now - timedelta(hours=3)),
-            (121.0, 0.5, now - timedelta(hours=4)),
-            (120.0, 0.5, now - timedelta(hours=5)),
-            (100.0, 0.5, now - timedelta(hours=6)),
+            PressureDataPoint(125.0, 0.5, now, "file1"),
+            PressureDataPoint(124.0, 0.5, now - timedelta(hours=1), "file2"),
+            PressureDataPoint(123.0, 0.5, now - timedelta(hours=2), "file3"),
+            PressureDataPoint(122.0, 0.5, now - timedelta(hours=3), "file4"),
+            PressureDataPoint(121.0, 0.5, now - timedelta(hours=4), "file5"),
+            PressureDataPoint(120.0, 0.5, now - timedelta(hours=5), "file6"),
+            PressureDataPoint(100.0, 0.5, now - timedelta(hours=6), "file7"),
         ]
 
         # when
@@ -252,13 +252,13 @@ class TestPumpPressureAlert:
         now = datetime.now(tz=pytz.utc)
 
         pressure_data = [
-            (110.0, 0.5, now),
-            (109.0, 0.5, now - timedelta(hours=1)),
-            (108.0, 0.5, now - timedelta(hours=2)),
-            (107.0, 0.5, now - timedelta(hours=3)),
-            (106.0, 0.5, now - timedelta(hours=4)),
-            (105.0, 0.5, now - timedelta(hours=5)),
-            (100.0, 0.5, now - timedelta(hours=6)),
+            PressureDataPoint(110.0, 0.5, now, "file1"),
+            PressureDataPoint(109.0, 0.5, now - timedelta(hours=1), "file2"),
+            PressureDataPoint(108.0, 0.5, now - timedelta(hours=2), "file3"),
+            PressureDataPoint(107.0, 0.5, now - timedelta(hours=3), "file4"),
+            PressureDataPoint(106.0, 0.5, now - timedelta(hours=4), "file5"),
+            PressureDataPoint(105.0, 0.5, now - timedelta(hours=5), "file6"),
+            PressureDataPoint(100.0, 0.5, now - timedelta(hours=6), "file7"),
         ]
 
         # when
@@ -278,25 +278,13 @@ class TestPumpPressureAlert:
         now = datetime.now(tz=pytz.utc)
 
         pressure_data = [
-            (
-                125.0,
-                0.5,
-                now,
-            ),
-            (
-                124.0,
-                0.7,
-                now - timedelta(hours=1),
-            ),
-            (
-                123.0,
-                0.5,
-                now - timedelta(hours=2),
-            ),
-            (122.0, 0.5, now - timedelta(hours=3)),
-            (121.0, 0.5, now - timedelta(hours=4)),
-            (120.0, 0.5, now - timedelta(hours=5)),
-            (100.0, 0.5, now - timedelta(hours=6)),
+            PressureDataPoint(125.0, 0.5, now, "file1"),
+            PressureDataPoint(124.0, 0.7, now - timedelta(hours=1), "file2"),
+            PressureDataPoint(123.0, 0.5, now - timedelta(hours=2), "file3"),
+            PressureDataPoint(122.0, 0.5, now - timedelta(hours=3), "file4"),
+            PressureDataPoint(121.0, 0.5, now - timedelta(hours=4), "file5"),
+            PressureDataPoint(120.0, 0.5, now - timedelta(hours=5), "file6"),
+            PressureDataPoint(100.0, 0.5, now - timedelta(hours=6), "file7"),
         ]
 
         # when
@@ -316,11 +304,11 @@ class TestPumpPressureAlert:
         now = datetime.now(tz=pytz.utc)
 
         pressure_data = [
-            (125.0, 0.5, now),
-            (124.0, 0.5, now - timedelta(hours=1)),
-            (123.0, 0.5, now - timedelta(hours=2)),
-            (122.0, 0.5, now - timedelta(hours=3)),
-            (121.0, 0.5, now - timedelta(hours=4)),
+            PressureDataPoint(125.0, 0.5, now, "file1"),
+            PressureDataPoint(124.0, 0.5, now - timedelta(hours=1), "file2"),
+            PressureDataPoint(123.0, 0.5, now - timedelta(hours=2), "file3"),
+            PressureDataPoint(122.0, 0.5, now - timedelta(hours=3), "file4"),
+            PressureDataPoint(121.0, 0.5, now - timedelta(hours=4), "file5"),
         ]
 
         # when
@@ -341,13 +329,13 @@ class TestPumpPressureAlert:
         now = datetime.now(tz=pytz.utc)
 
         pressure_data = [
-            (120.0, 0.5, now),
-            (115.0, 0.5, now - timedelta(hours=1)),
-            (110.0, 0.5, now - timedelta(hours=2)),
-            (105.0, 0.5, now - timedelta(hours=3)),
-            (100.0, 0.5, now - timedelta(hours=4)),
-            (100.0, 0.5, now - timedelta(hours=5)),
-            (100.0, 0.5, now - timedelta(hours=6)),
+            PressureDataPoint(120.0, 0.5, now, "file1"),
+            PressureDataPoint(115.0, 0.5, now - timedelta(hours=1), "file2"),
+            PressureDataPoint(110.0, 0.5, now - timedelta(hours=2), "file3"),
+            PressureDataPoint(105.0, 0.5, now - timedelta(hours=3), "file4"),
+            PressureDataPoint(100.0, 0.5, now - timedelta(hours=4), "file5"),
+            PressureDataPoint(100.0, 0.5, now - timedelta(hours=5), "file6"),
+            PressureDataPoint(100.0, 0.5, now - timedelta(hours=6), "file7"),
         ]
 
         # when
@@ -366,13 +354,13 @@ class TestPumpPressureAlert:
         now = datetime.now(tz=pytz.utc)
 
         pressure_data = [
-            (80.0, 0.5, now),
-            (85.0, 0.5, now - timedelta(hours=1)),
-            (90.0, 0.5, now - timedelta(hours=2)),
-            (95.0, 0.5, now - timedelta(hours=3)),
-            (100.0, 0.5, now - timedelta(hours=4)),
-            (105.0, 0.5, now - timedelta(hours=5)),
-            (110.0, 0.5, now - timedelta(hours=6)),
+            PressureDataPoint(80.0, 0.5, now, "file1"),
+            PressureDataPoint(85.0, 0.5, now - timedelta(hours=1), "file2"),
+            PressureDataPoint(90.0, 0.5, now - timedelta(hours=2), "file3"),
+            PressureDataPoint(95.0, 0.5, now - timedelta(hours=3), "file4"),
+            PressureDataPoint(100.0, 0.5, now - timedelta(hours=4), "file5"),
+            PressureDataPoint(105.0, 0.5, now - timedelta(hours=5), "file6"),
+            PressureDataPoint(110.0, 0.5, now - timedelta(hours=6), "file7"),
         ]
 
         # when

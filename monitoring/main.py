@@ -5,6 +5,7 @@
 
 import logging
 
+from messenger_clients import AlertTypes
 from utils import extract_error_line
 
 # needs to be here:
@@ -43,6 +44,7 @@ def main() -> None:
         "startup",
         "Monitoring started. ",
         alert_manager,
+        AlertTypes.INFO,
     )
 
     while True:

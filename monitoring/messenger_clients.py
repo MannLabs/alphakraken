@@ -54,10 +54,10 @@ def _send_slack_message(
     else:  # alert
         emoji = "🚨"
         label = "Alert"
-        prefix = "<!channel> " if env_name == "production" else ""
+        prefix = "<!channel> " if env_name == "production" else f"[{env_name}] "
 
     payload = {
-        "text": f"{emoji} {prefix}[{env_name}] *{label}*: {message} (sent from {hostname})",
+        "text": f"{emoji} {prefix}*{label}*: {message} (sent from {hostname})",
     }
     response = requests.post(webhook_url, json=payload, timeout=10)
     response.raise_for_status()

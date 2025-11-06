@@ -4,6 +4,7 @@ Note: this module must not have any dependencies on the rest of the codebase.
 """
 
 from datetime import datetime
+from typing import ClassVar
 
 from mongoengine import (
     DateTimeField,
@@ -83,6 +84,8 @@ class InstrumentFileStatus:
 class RawFile(Document):
     """Schema for a raw file."""
 
+    meta: ClassVar = {"strict": False}
+
     # Unique identifier of the file. Either the raw file name or, in case of a collision,
     # the raw file name with a unique prefix.
     id = StringField(
@@ -156,6 +159,8 @@ class ProjectStatus:
 class Project(Document):
     """Schema for a project."""
 
+    meta: ClassVar = {"strict": False}
+
     id = StringField(required=True, primary_key=True, min_length=3, max_length=16)
     name = StringField(required=True, max_length=64)
     description = StringField(max_length=512)
@@ -168,6 +173,8 @@ class Project(Document):
 
 class Settings(Document):
     """Schema for quanting settings."""
+
+    meta: ClassVar = {"strict": False}
 
     project = ReferenceField(
         Project,
@@ -213,7 +220,9 @@ class KrakenStatusEntities:
 
 
 class KrakenStatus(Document):
-    """Schema for a project."""
+    """Schema for the Kraken status, representing health, status details, free space, entity type, and last update time."""
+
+    meta: ClassVar = {"strict": False}
 
     id = StringField(max_length=64, required=True, primary_key=True)
 

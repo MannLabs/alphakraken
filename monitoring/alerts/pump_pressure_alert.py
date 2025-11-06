@@ -28,6 +28,7 @@ class PressureDataPoint:
     pressure: float
     gradient_length: float
     created_at: datetime
+    raw_file_id: str
 
 
 class PumpPressureAlert(BaseAlert):
@@ -116,11 +117,11 @@ class PumpPressureAlert(BaseAlert):
         return issues
 
     @staticmethod
-    def _format(changes: list[tuple[float, float, float, datetime]]) -> str:
+    def _format(changes: list[tuple[float, float, float, datetime, str, str]]) -> str:
         """Format pressure changes for alert message."""
         return "; ".join(
             [
-                f"+{change[0]:.1f} bar (from {change[2]:.1f} to {change[1]:.1f} bar at {change[3].strftime('%Y-%m-%d %H:%M:%S')})"
+                f"+{change[0]:.1f} bar (from {change[2]:.1f} bar in `{change[5]}` to {change[1]:.1f} bar in `{change[4]}` at {change[3].strftime('%Y-%m-%d %H:%M:%S')})"
                 for change in changes
             ]
         )
@@ -130,13 +131,15 @@ class PumpPressureAlert(BaseAlert):
     ) -> dict[str, list[PressureDataPoint]]:
         """Group metrics by instrument, returning PressureDataPoint instances."""
         pressure_data = defaultdict(list)
-        for v in raw_files_with_metrics.values():
+        for raw_file_id, v in raw_files_with_metrics.items():
             gradient_length = v.get("metrics_alphadia", {}).get("raw:gradient_length_m")
             pressure = v.get("metrics_msqc", {}).get("msqc_evosep_pump_hp_pressure_max")
 
             if gradient_length is not None and pressure is not None:
                 pressure_data[v["instrument_id"]].append(
-                    PressureDataPoint(pressure, gradient_length, v["created_at"])
+                    PressureDataPoint(
+                        pressure, gradient_length, v["created_at"], raw_file_id
+                    )
                 )
 
         return pressure_data
@@ -146,7 +149,7 @@ class PumpPressureAlert(BaseAlert):
         pressure_data: list[PressureDataPoint],
         window_size: int,
         threshold: float,
-    ) -> tuple[bool, list[tuple[float, float, float, datetime]]]:
+    ) -> tuple[bool, list[tuple[float, float, float, datetime, str, str]]]:
         """Detect if pressure increases by more than threshold over the last window_size samples.
 
         Args:
@@ -156,7 +159,8 @@ class PumpPressureAlert(BaseAlert):
 
         Returns:
             is_alert: boolean flag indicating if alerts were detected
-            pressure_changes: list of pressure changes over the window
+            pressure_changes: list of tuples (pressure_change, current_pressure, past_pressure,
+                             timestamp, younger_file_name, older_file_name)
 
         """
         latest_gradient_length = pressure_data[0].gradient_length
@@ -200,6 +204,8 @@ class PumpPressureAlert(BaseAlert):
                         current_pressure,
                         past_pressure,
                         data_younger.created_at,
+                        data_younger.raw_file_id,
+                        data_older.raw_file_id,
                     )
                 )
                 is_alert = True

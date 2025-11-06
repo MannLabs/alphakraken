@@ -153,7 +153,7 @@ class PumpPressureAlert(BaseAlert):
 
         # logging.info(f"pressure_data: {pressure_data}")
 
-        def _within_pressure_tolerance(
+        def _is_within_tolerance(
             value: float,
             target: float,
             tolerance: float = 10,
@@ -171,11 +171,9 @@ class PumpPressureAlert(BaseAlert):
             data_younger = pressure_data[i - window_size]
             data_older = pressure_data[i]
 
-            if not _within_pressure_tolerance(
+            if not _is_within_tolerance(
                 data_older[1], latest_gradient_length
-            ) or not _within_pressure_tolerance(
-                data_younger[1], latest_gradient_length
-            ):
+            ) or not _is_within_tolerance(data_younger[1], latest_gradient_length):
                 continue
 
             # Calculate pressure change over the window

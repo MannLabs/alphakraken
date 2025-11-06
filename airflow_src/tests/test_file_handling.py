@@ -1,5 +1,6 @@
 """Tests for the file_handling module."""
 
+import hashlib
 from pathlib import Path
 from unittest.mock import MagicMock, mock_open, patch
 
@@ -125,7 +126,7 @@ def test_get_file_hash_with_etag(
     mock_file_open: MagicMock,
     mock_get_file_size: MagicMock,  # noqa: ARG001
 ) -> None:
-    """Test get_file_hash."""
+    """Test get_file_hash_with_etag."""
     mock_file_open.return_value.read.side_effect = [b"some_file_content", None]
 
     # when
@@ -143,7 +144,7 @@ def test_get_file_hash_with_etag_chunks(
     mock_file_open: MagicMock,
     mock_get_file_size: MagicMock,  # noqa: ARG001
 ) -> None:
-    """Test get_file_hash with multiple chunks."""
+    """Test get_file_hash_with_etag with multiple chunks."""
     mock_file_open.return_value.read.side_effect = [
         b"some_",
         b"file_",
@@ -170,8 +171,6 @@ def test_md5hashes_to_etag_empty_file() -> None:
 
 def test_md5hashes_to_etag_single_part() -> None:
     """Test _md5hashes_to_etag returns plain MD5 hex for single part upload."""
-    import hashlib
-
     single_hash = hashlib.md5(b"test_data_1").digest()  # noqa: S324
 
     result = _md5hashes_to_etag([single_hash])
@@ -182,8 +181,6 @@ def test_md5hashes_to_etag_single_part() -> None:
 
 def test_md5hashes_to_etag_multipart_two_parts() -> None:
     """Test _md5hashes_to_etag returns correct format for two-part upload."""
-    import hashlib
-
     hash1 = hashlib.md5(b"test_data_1").digest()  # noqa: S324
     hash2 = hashlib.md5(b"test_data_2").digest()  # noqa: S324
 
@@ -195,8 +192,6 @@ def test_md5hashes_to_etag_multipart_two_parts() -> None:
 
 def test_md5hashes_to_etag_multipart_three_parts() -> None:
     """Test _md5hashes_to_etag returns correct format for three-part upload."""
-    import hashlib
-
     hash1 = hashlib.md5(b"test_data_1").digest()  # noqa: S324
     hash2 = hashlib.md5(b"test_data_2").digest()  # noqa: S324
     hash3 = hashlib.md5(b"test_data_3").digest()  # noqa: S324

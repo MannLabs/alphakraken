@@ -165,7 +165,7 @@ class PumpPressureAlert(BaseAlert):
             target: float,
             tolerance: float = 0.1,
         ) -> bool:
-            """Check if value is within relative tolerance of target (default 10%)."""
+            """Check if value is within relative tolerance of target (default +-10%)."""
             return (1 - tolerance) < (value / target) < (1 + tolerance)
 
         is_alert = False

@@ -90,7 +90,7 @@ def get_file_hash(
     :param chunk_size_mb: Size of chunks to read the file in Megabytes.
     :param verbose: Whether to log progress information.
 
-    :return: A tuple containing the MD5 hash and the ETag of the file. The latter is empty if calculate_etag is False
+    :return: the MD5 hash
     """
     return get_file_hash_with_etag(
         file_path,

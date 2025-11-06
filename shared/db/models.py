@@ -257,7 +257,7 @@ class KrakenStatusEntities:
 
 
 class KrakenStatus(Document):
-    """Schema for a project."""
+    """Schema for the Kraken status, representing health, status details, free space, entity type, and last update time."""
 
     meta: ClassVar = {"strict": False}
 

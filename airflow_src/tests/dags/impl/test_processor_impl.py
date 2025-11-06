@@ -115,6 +115,7 @@ def test_prepare_quanting(
         "RAW_FILE_PATH": "/some_backup_base_path/instrument1/1970_01/test_file.raw",
         "SETTINGS_PATH": "/some_quanting_settings_path/some_project_id",
         "OUTPUT_PATH": "/some_quanting_output_path/some_project_id/out_test_file.raw",
+        "RELATIVE_OUTPUT_PATH": "some_project_id/out_test_file.raw",
         "SPECLIB_FILE_NAME": "some_speclib_file_name",
         "FASTA_FILE_NAME": "some_fasta_file_name",
         "CONFIG_FILE_NAME": "some_config_file_name",
@@ -172,7 +173,7 @@ def test_prepare_quanting_custom_software(
         speclib_file_name="some_speclib_file_name",
         fasta_file_name="some_fasta_file_name",
         config_file_name="",
-        config_params="--qvalue 0.01 --f RAW_FILE_PATH --lib LIBRARY_PATH --out OUTPUT_PATH --fasta FASTA_PATH --threads NUM_THREADS",
+        config_params="--qvalue 0.01 --f RAW_FILE_PATH --lib LIBRARY_PATH --out OUTPUT_PATH --fasta FASTA_PATH --threads NUM_THREADS --some_param RELATIVE_RAW_FILE_PATH --some_param2 RELATIVE_OUTPUT_PATH",
         software="custom1.2.3",
         software_type="custom",
         version=1,
@@ -189,12 +190,19 @@ def test_prepare_quanting_custom_software(
     # when
     prepare_quanting(ti, **kwargs)
 
-    expected_custom_command = "/some_software_base_path/custom1.2.3 --qvalue 0.01 --f /some_backup_base_path/instrument1/1970_01/test_file.raw --lib /some_quanting_settings_path/some_project_id/some_speclib_file_name --out /some_quanting_output_path/some_project_id/out_test_file.raw --fasta /some_quanting_settings_path/some_project_id/some_fasta_file_name --threads 8"
+    expected_custom_command = (
+        "/some_software_base_path/custom1.2.3 --qvalue 0.01 --f /some_backup_base_path/instrument1/1970_01/test_file.raw "
+        "--lib /some_quanting_settings_path/some_project_id/some_speclib_file_name "
+        "--out /some_quanting_output_path/some_project_id/out_test_file.raw "
+        "--fasta /some_quanting_settings_path/some_project_id/some_fasta_file_name --threads 8 "
+        "--some_param instrument1/1970_01/test_file.raw --some_param2 some_project_id/out_test_file.raw"
+    )
 
     expected_quanting_env = {
         "RAW_FILE_PATH": "/some_backup_base_path/instrument1/1970_01/test_file.raw",
         "SETTINGS_PATH": "/some_quanting_settings_path/some_project_id",
         "OUTPUT_PATH": "/some_quanting_output_path/some_project_id/out_test_file.raw",
+        "RELATIVE_OUTPUT_PATH": "some_project_id/out_test_file.raw",
         "SPECLIB_FILE_NAME": "some_speclib_file_name",
         "FASTA_FILE_NAME": "some_fasta_file_name",
         "CONFIG_FILE_NAME": "",

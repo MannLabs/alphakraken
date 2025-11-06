@@ -10,13 +10,14 @@ from alerts import (
     DiskSpaceAlert,
     HealthCheckFailedAlert,
     InstrumentFilePileUpAlert,
+    PumpPressureAlert,
     RawFileErrorAlert,
     StaleStatusAlert,
     StatusPileUpAlert,
     WebAppHealthAlert,
     config,
 )
-from messenger_clients import send_message
+from messenger_clients import AlertTypes, send_message
 from requests.exceptions import RequestException
 
 from shared.db.models import KrakenStatus
@@ -33,6 +34,7 @@ class AlertManager:
     def __init__(self):
         """Initialize the AlertManager with checkers and last alert times."""
         self.last_alerts = defaultdict(_default_value)
+        self.is_first_check = True
         self.alerts: list[BaseAlert] = [
             StaleStatusAlert(),
             DiskSpaceAlert(),
@@ -41,6 +43,7 @@ class AlertManager:
             InstrumentFilePileUpAlert(),
             RawFileErrorAlert(),
             WebAppHealthAlert(),
+            PumpPressureAlert(),
         ]
 
     def check_for_issues(self) -> None:
@@ -51,16 +54,26 @@ class AlertManager:
         for alert in self.alerts:
             issues = alert.get_issues(status_objects)
             if issues:
-                self._handle_issues(alert, issues)
+                self._handle_issues(alert, issues, suppress_alerts=self.is_first_check)
 
-    def _handle_issues(self, alert: BaseAlert, issues: list[tuple]) -> None:
+        self.is_first_check = False
+
+    def _handle_issues(
+        self, alert: BaseAlert, issues: list[tuple], *, suppress_alerts: bool = False
+    ) -> None:
         """Handle sending an alert if cooldown has passed."""
         alert_name = alert.name
         identifiers = [issue[0] for issue in issues]
 
         if self.should_send_alert(identifiers, alert_name):
             message = alert.format_message(issues)
-            send_message(message)
+
+            webhook_url = alert.get_webhook_url()
+            if not suppress_alerts:
+                send_message(message, webhook_url)
+            else:
+                logging.info(f"Suppressed alert for {alert_name}: {message}")
+
             for identifier in identifiers:
                 self.set_last_alert_time(alert_name, identifier)
 
@@ -100,7 +113,11 @@ class AlertManager:
 
 
 def send_special_alert(
-    identifier: str, alert_name: str, message: str, alert_manager: AlertManager
+    identifier: str,
+    alert_name: str,
+    message: str,
+    alert_manager: AlertManager,
+    alert_type: str = AlertTypes.ALERT,
 ) -> None:
     """Send simple alerts."""
     if not alert_manager.should_send_alert(
@@ -110,7 +127,7 @@ def send_special_alert(
 
     message = f"{message} [{alert_name} {identifier}]"
     try:
-        send_message(message)
+        send_message(message, config.OPS_ALERTS_WEBHOOK_URL, alert_type)
     except RequestException:
         logging.exception("Failed to send special alert message.")
     else:

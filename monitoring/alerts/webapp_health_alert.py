@@ -1,11 +1,11 @@
 """Webapp health alert checker."""
 
 import logging
-import os
 
 import requests
 
 from shared.db.models import KrakenStatus
+from shared.yamlsettings import YamlKeys, get_notification_setting
 
 from .base_alert import BaseAlert
 from .config import Cases
@@ -17,7 +17,11 @@ class WebAppHealthAlert(BaseAlert):
     def __init__(self, timeout: int = 10):
         """Initialize with optional timeout for HTTP requests."""
         self.timeout = timeout
-        self.webapp_url = os.environ.get("WEBAPP_URL", "")
+        try:
+            self.webapp_url = get_notification_setting(YamlKeys.WEBAPP_URL)
+        except KeyError:
+            logging.warning("WEBAPP_URL not found in config, health check disabled")
+            self.webapp_url = ""
 
     @property
     def name(self) -> str:
@@ -29,9 +33,7 @@ class WebAppHealthAlert(BaseAlert):
         del status_objects  # unused
 
         if not self.webapp_url:
-            logging.warning(
-                "WEBAPP_URL environment variable not set, skipping webapp health check"
-            )
+            logging.warning("WEBAPP_URL not configured, skipping webapp health check")
             return []
 
         issues = []

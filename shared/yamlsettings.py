@@ -22,6 +22,12 @@ class YamlKeys:
     LOCATIONS = "locations"
     ABSOLUTE_PATH = "absolute_path"
 
+    NOTIFICATIONS = "notifications"
+    OPS_ALERTS_WEBHOOK_URL = "ops_alerts_webhook_url"
+    BUSINESS_ALERTS_WEBHOOK_URL = "business_alerts_webhook_url"
+    HOSTNAME = "hostname"
+    WEBAPP_URL = "webapp_url"
+
     class Locations:
         """Keys for accessing paths in the yaml config."""
 
@@ -62,7 +68,17 @@ class YamlSettings:
         if env_name == "_test_":
             # TODO: this is to make the tests happy, but it should be handled differently
             logging.warning("Using 'test' environment, this is an error in production!")
-            return {"instruments": {"_test1_": {"type": "thermo"}}}
+            return {
+                "instruments": {"_test1_": {"type": "thermo"}},
+                "general": {
+                    "notifications": {
+                        "ops_alerts_webhook_url": "http://test-webhook.example.com",
+                        "business_alerts_webhook_url": "http://test-webhook.example.com",
+                        "hostname": "localhost",
+                        "webapp_url": "http://localhost:8501",
+                    }
+                },
+            }
 
         if not file_path.exists():
             raise FileNotFoundError(
@@ -91,6 +107,22 @@ def get_path(path_key: str) -> Path:
         )
 
     return Path(path)
+
+
+def get_notification_setting(setting_key: str) -> str:
+    """Get a notification setting from the yaml settings."""
+    setting_value = (
+        YAMLSETTINGS.get(YamlKeys.GENERAL, {})
+        .get(YamlKeys.NOTIFICATIONS, {})
+        .get(setting_key)
+    )
+
+    if setting_value is None:
+        raise KeyError(
+            f"Key `{YamlKeys.GENERAL}.{YamlKeys.NOTIFICATIONS}.{setting_key}` not found in alphakraken.yaml."
+        )
+
+    return setting_value
 
 
 def is_s3_upload_enabled() -> bool:

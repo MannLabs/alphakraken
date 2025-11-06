@@ -54,7 +54,6 @@ x-airflow-common: &airflow-common
     ENV_NAME: ${ENV_NAME:?error}
     MONGO_HOST: ${MONGO_HOST:?error}
     MONGO_PORT: ${MONGO_PORT:?error}
-    WEBAPP_URL: ${WEBAPP_URL:?error}
   volumes:
     # all mounts (backup pool folders, results pool folders, instruments, logs) need to be available in $MOUNTS_PATH
     - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs:rw
@@ -347,11 +346,8 @@ services:
     profiles: ["infrastructure", "workers", "dbs"] # have monitoring running on all machines (downsides: potential alerts duplication)
     environment:
       <<: *airflow-common-env
-      MESSENGER_WEBHOOK_URL: ${MESSENGER_WEBHOOK_URL}
       MONGO_USER: ${MONGO_USER_READ:?error}
       MONGO_PASSWORD: ${MONGO_PASSWORD_READ:?error}
-      HOSTNAME: "${HOSTNAME:?error}"
-      WEBAPP_URL: ${WEBAPP_URL:?error}
     restart: always
   #    healthcheck:
   #      test: ["CMD", "python", "-c", "..."]  # TODO add appropriate health check

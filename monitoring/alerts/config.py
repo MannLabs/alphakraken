@@ -1,14 +1,13 @@
 """Configuration for the monitoring service."""
 
 import logging
-import os
 import sys
 from collections import defaultdict
 
 from shared.db.models import (
     InstrumentFileStatus,
 )
-from shared.keys import EnvVars
+from shared.yamlsettings import YamlKeys, get_notification_setting
 
 # Constants
 CHECK_INTERVAL_SECONDS = 60
@@ -38,11 +37,29 @@ INSTRUMENT_FILE_PILE_UP_THRESHOLDS = {
 }
 INSTRUMENT_FILE_MIN_AGE_HOURS = 6  # Only consider files older than 6 hours
 
+# Pump pressure alert configuration
+PUMP_PRESSURE_LOOKBACK_DAYS = 1
+PUMP_PRESSURE_WINDOW_SIZE = 5  # Number of samples to compare
+PUMP_PRESSURE_THRESHOLD_BAR = 20  # Pressure increase threshold in bar
+PUMP_PRESSURE_GRADIENT_TOLERANCE = 0.1
 
-MESSENGER_WEBHOOK_URL: str = os.environ.get(EnvVars.MESSENGER_WEBHOOK_URL, "")
-if not MESSENGER_WEBHOOK_URL:
-    logging.error(f"{EnvVars.MESSENGER_WEBHOOK_URL} environment variable must be set")
+try:
+    OPS_ALERTS_WEBHOOK_URL: str = get_notification_setting(
+        YamlKeys.OPS_ALERTS_WEBHOOK_URL
+    )
+except KeyError:
+    logging.exception("Failed to load ops alerts webhook URL from config.")
     sys.exit(1)
+
+try:
+    BUSINESS_ALERTS_WEBHOOK_URL: str = get_notification_setting(
+        YamlKeys.BUSINESS_ALERTS_WEBHOOK_URL
+    )
+except KeyError:
+    logging.warning(
+        "Business alerts webhook URL not found in config, using ops alerts webhook URL"
+    )
+    BUSINESS_ALERTS_WEBHOOK_URL = OPS_ALERTS_WEBHOOK_URL
 
 
 class Cases:
@@ -55,3 +72,4 @@ class Cases:
     INSTRUMENT_FILE_PILE_UP = "instrument_file_pile_up"
     RAW_FILE_ERROR = "raw_file_error"
     WEBAPP_HEALTH = "webapp_health"
+    PUMP_PRESSURE_INCREASE = "pump_pressure_increase"

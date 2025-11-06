@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from alerts.config import OPS_ALERTS_WEBHOOK_URL
 
 from shared.db.models import KrakenStatus
 
@@ -100,3 +101,11 @@ class BaseAlert(ABC):
     @abstractmethod
     def name(self) -> str:
         """Return the name for this alert type."""
+
+    def get_webhook_url(self) -> str:
+        """Return webhook URL for this alert.
+
+        Override this method in subclasses to route alerts to different channels.
+        Default implementation returns the global OPS_ALERTS_WEBHOOK_URL.
+        """
+        return OPS_ALERTS_WEBHOOK_URL

@@ -12,7 +12,10 @@ from service.utils import _log
 
 from shared.db.engine import connect_db
 from shared.db.models import KrakenStatus, Metrics, Project, RawFile, Settings
-from shared.keys import ALLOWED_CHARACTERS_PRETTY, FORBIDDEN_CHARACTERS_REGEXP
+from shared.validation import (
+    ALLOWED_RAW_FILE_NAME_CHARACTERS_PRETTY,
+    FORBIDDEN_RAW_FILE_NAME_CHARACTERS_PATTERN,
+)
 
 
 def get_raw_files_for_status_df(
@@ -75,9 +78,9 @@ def _validate_input(values: list[str] | None, param_name: str) -> None:
 
     for value in values:
         # FORBIDDEN_CHARACTERS_IN_RAW_FILE_NAME serves well here
-        if re.match(FORBIDDEN_CHARACTERS_REGEXP, value):
+        if re.match(FORBIDDEN_RAW_FILE_NAME_CHARACTERS_PATTERN, value):
             raise ValueError(
-                f"Invalid parameter '{param_name}': '{value}' contains forbidden characters. Allowed: `!{ALLOWED_CHARACTERS_PRETTY}`"
+                f"Invalid parameter '{param_name}': '{value}' contains forbidden characters. Allowed: `!{ALLOWED_RAW_FILE_NAME_CHARACTERS_PRETTY}`"
             )
 
 
@@ -91,6 +94,7 @@ def get_raw_file_and_metrics_data(
     instruments: list[str] | None = None,
 ) -> tuple[QuerySet, QuerySet, datetime]:
     """Return from the database the QuerySets for RawFile and Metrics for files younger than max_age_in_days or for given list of raw file ids."""
+    # need to validate inputs as these values can be set by users
     _validate_input(raw_file_ids, "raw_file_ids")
     _validate_input(instruments, "instruments")  # TODO: use query params accessor
     # max_age_in_days is implicitly validated to be numeric by converting it to timedelta

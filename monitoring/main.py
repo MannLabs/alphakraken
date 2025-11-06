@@ -5,6 +5,9 @@
 
 import logging
 
+from messenger_clients import AlertTypes
+from utils import extract_error_line
+
 # needs to be here:
 logging.basicConfig(
     level=logging.INFO,
@@ -36,6 +39,14 @@ def main() -> None:
     )
 
     alert_manager = AlertManager()
+    send_special_alert(
+        "general",
+        "startup",
+        "Monitoring started. ",
+        alert_manager,
+        AlertTypes.INFO,
+    )
+
     while True:
         try:
             connect_db(raise_on_error=True)
@@ -56,10 +67,11 @@ def main() -> None:
 
         except Exception as e:
             logging.exception("Error checking KrakenStatus")
+            error_line = extract_error_line(e)
             send_special_alert(
                 "general",
                 "exception",
-                f"Exception during checking alerts: {e}",
+                f"{type(e).__name__} during checking alerts: {e} at: {error_line}",
                 alert_manager,
             )
 

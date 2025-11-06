@@ -32,6 +32,8 @@ locations:
     absolute_path: /fs/pool-2/airflow_logs
 
 general:
-  webhook_urls:
-    ops_alerts: "https://hooks.slack.com/services/<something> or https://...api.powerplatform.com:443/powerautomate/automations/<something>"
-    business_alerts: "https://hooks.slack.com/services/<something> or https://...api.powerplatform.com:443/powerautomate/automations/<something>"
+  notifications:
+    ops_alerts_webhook_url: "https://hooks.slack.com/services/<something> or https://...api.powerplatform.com:443/powerautomate/automations/<something>"
+    business_alerts_webhook_url: "https://hooks.slack.com/services/<something> or https://...api.powerplatform.com:443/powerautomate/automations/<something>"
+    hostname: "<hostname>"
+    webapp_url: "<webapp_url>"

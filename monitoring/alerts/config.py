@@ -7,7 +7,7 @@ from collections import defaultdict
 from shared.db.models import (
     InstrumentFileStatus,
 )
-from shared.yamlsettings import YamlKeys, get_webhook_url
+from shared.yamlsettings import YamlKeys, get_notification_setting
 
 # Constants
 CHECK_INTERVAL_SECONDS = 60
@@ -44,13 +44,17 @@ PUMP_PRESSURE_THRESHOLD_BAR = 20  # Pressure increase threshold in bar
 PUMP_PRESSURE_GRADIENT_TOLERANCE = 0.1
 
 try:
-    OPS_ALERTS_WEBHOOK_URL: str = get_webhook_url(YamlKeys.OPS_ALERTS)
+    OPS_ALERTS_WEBHOOK_URL: str = get_notification_setting(
+        YamlKeys.OPS_ALERTS_WEBHOOK_URL
+    )
 except KeyError:
     logging.exception("Failed to load ops alerts webhook URL from config.")
     sys.exit(1)
 
 try:
-    BUSINESS_ALERTS_WEBHOOK_URL: str = get_webhook_url(YamlKeys.BUSINESS_ALERTS)
+    BUSINESS_ALERTS_WEBHOOK_URL: str = get_notification_setting(
+        YamlKeys.BUSINESS_ALERTS_WEBHOOK_URL
+    )
 except KeyError:
     logging.warning(
         "Business alerts webhook URL not found in config, using ops alerts webhook URL"

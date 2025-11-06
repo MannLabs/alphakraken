@@ -7,7 +7,8 @@ from service.components import show_sandbox_message
 from service.query_params import get_all_query_params
 from service.utils import APP_URL, _log, display_info_message, quanting_output_path
 
-from shared.keys import ALLOWED_CHARACTERS_PRETTY, EnvVars
+from shared.keys import EnvVars
+from shared.validation import ALLOWED_RAW_FILE_NAME_CHARACTERS_PRETTY
 
 _log(f"loading {__file__} {get_all_query_params()}")
 
@@ -54,7 +55,7 @@ In particular:
 
 #### More rules
 To ensure a smooth automated processing, please follow these rules when acquiring files:
-- Make sure your raw filename does not contain any special characters. Only allowed: `{ALLOWED_CHARACTERS_PRETTY}`
+- Make sure your raw filename does not contain any special characters. Only allowed: `{ALLOWED_RAW_FILE_NAME_CHARACTERS_PRETTY}`
 (basic latin letters, numbers, and a few special characters like `-`, `_`, `+`). Otherwise, they will not be quanted.
 - If your file name contains `_dda_`, they will also not be quanted.""")
 

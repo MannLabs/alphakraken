@@ -22,9 +22,11 @@ class YamlKeys:
     LOCATIONS = "locations"
     ABSOLUTE_PATH = "absolute_path"
 
-    WEBHOOK_URLS = "webhook_urls"
-    OPS_ALERTS = "ops_alerts"
-    BUSINESS_ALERTS = "business_alerts"
+    NOTIFICATIONS = "notifications"
+    OPS_ALERTS_WEBHOOK_URL = "ops_alerts_webhook_url"
+    BUSINESS_ALERTS_WEBHOOK_URL = "business_alerts_webhook_url"
+    HOSTNAME = "hostname"
+    WEBAPP_URL = "webapp_url"
 
     class Locations:
         """Keys for accessing paths in the yaml config."""
@@ -60,9 +62,11 @@ class YamlSettings:
             return {
                 "instruments": {"_test1_": {"type": "thermo"}},
                 "general": {
-                    "webhook_urls": {
-                        "ops_alerts": "http://test-webhook.example.com",
-                        "business_alerts": "http://test-webhook.example.com",
+                    "notifications": {
+                        "ops_alerts_webhook_url": "http://test-webhook.example.com",
+                        "business_alerts_webhook_url": "http://test-webhook.example.com",
+                        "hostname": "localhost",
+                        "webapp_url": "http://localhost:8501",
                     }
                 },
             }
@@ -96,17 +100,17 @@ def get_path(path_key: str) -> Path:
     return Path(path)
 
 
-def get_webhook_url(webhook_key: str) -> str:
-    """Get a webhook URL from the yaml settings."""
-    webhook_url = (
+def get_notification_setting(setting_key: str) -> str:
+    """Get a notification setting from the yaml settings."""
+    setting_value = (
         YAMLSETTINGS.get(YamlKeys.GENERAL, {})
-        .get(YamlKeys.WEBHOOK_URLS, {})
-        .get(webhook_key)
+        .get(YamlKeys.NOTIFICATIONS, {})
+        .get(setting_key)
     )
 
-    if webhook_url is None:
+    if setting_value is None:
         raise KeyError(
-            f"Key `{YamlKeys.GENERAL}.{YamlKeys.WEBHOOK_URLS}.{webhook_key}` not found in alphakraken.yaml."
+            f"Key `{YamlKeys.GENERAL}.{YamlKeys.NOTIFICATIONS}.{setting_key}` not found in alphakraken.yaml."
         )
 
-    return webhook_url
+    return setting_value

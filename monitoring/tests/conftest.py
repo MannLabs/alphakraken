@@ -1,5 +1,6 @@
 """Shared configuration for monitoring tests."""
 
+import os
 import sys
 from pathlib import Path
 
@@ -11,3 +12,6 @@ if str(monitoring_dir) not in sys.path:
 
 # Webhook URLs are now configured via YAML settings.
 # Test configuration is handled in shared/yamlsettings.py when ENV_NAME="_test_"
+
+
+os.environ["ENV_NAME"] = "_test_"

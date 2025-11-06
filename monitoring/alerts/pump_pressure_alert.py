@@ -191,8 +191,7 @@ class PumpPressureAlert(BaseAlert):
             pressure_change = current_pressure - past_pressure
 
             # temporary hack to bypass bug in pump pressure extraction
-            threshold = 1000
-            if past_pressure > threshold or current_pressure > threshold:
+            if past_pressure > 1000 or current_pressure > 1000:  # noqa: PLR2004
                 continue
 
             if pressure_change > threshold:

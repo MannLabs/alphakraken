@@ -17,7 +17,7 @@ from alerts import (
     WebAppHealthAlert,
     config,
 )
-from messenger_clients import send_message
+from messenger_clients import AlertTypes, send_message
 from requests.exceptions import RequestException
 
 from shared.db.models import KrakenStatus
@@ -113,7 +113,11 @@ class AlertManager:
 
 
 def send_special_alert(
-    identifier: str, alert_name: str, message: str, alert_manager: AlertManager
+    identifier: str,
+    alert_name: str,
+    message: str,
+    alert_manager: AlertManager,
+    alert_type: str = AlertTypes.ALERT,
 ) -> None:
     """Send simple alerts."""
     if not alert_manager.should_send_alert(
@@ -123,7 +127,7 @@ def send_special_alert(
 
     message = f"{message} [{alert_name} {identifier}]"
     try:
-        send_message(message, config.OPS_ALERTS_WEBHOOK_URL)
+        send_message(message, config.OPS_ALERTS_WEBHOOK_URL, alert_type)
     except RequestException:
         logging.exception("Failed to send special alert message.")
     else:

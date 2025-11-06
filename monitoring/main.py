@@ -38,6 +38,13 @@ def main() -> None:
     )
 
     alert_manager = AlertManager()
+    send_special_alert(
+        "general",
+        "startup",
+        "Monitoring started. ",
+        alert_manager,
+    )
+
     while True:
         try:
             connect_db(raise_on_error=True)

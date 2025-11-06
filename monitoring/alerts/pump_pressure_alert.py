@@ -94,7 +94,7 @@ class PumpPressureAlert(BaseAlert):
                     issues.append(
                         (
                             instrument_id,
-                            f"Pressure changes: {pressure_changes}",
+                            f"Pressure changes: {self._format(pressure_changes)}",
                         )
                     )
                 else:
@@ -104,6 +104,16 @@ class PumpPressureAlert(BaseAlert):
                     )
 
         return issues
+
+    @staticmethod
+    def _format(changes: list[tuple[float, float, float, datetime]]) -> str:
+        """Format pressure changes for alert message."""
+        return "; ".join(
+            [
+                f"+{change[0]:.1f} bar (from {change[2]:.1f} to {change[1]:.1f} bar at {change[3].strftime('%Y-%m-%d %H:%M:%S')})"
+                for change in changes
+            ]
+        )
 
     def _get_pressure_data_by_instrument(
         self, raw_files_with_metrics: dict[str, Any]

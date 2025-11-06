@@ -34,6 +34,7 @@ class AlertManager:
     def __init__(self):
         """Initialize the AlertManager with checkers and last alert times."""
         self.last_alerts = defaultdict(_default_value)
+        self.is_first_check = True
         self.alerts: list[BaseAlert] = [
             StaleStatusAlert(),
             DiskSpaceAlert(),
@@ -53,9 +54,13 @@ class AlertManager:
         for alert in self.alerts:
             issues = alert.get_issues(status_objects)
             if issues:
-                self._handle_issues(alert, issues)
+                self._handle_issues(alert, issues, suppress_alerts=self.is_first_check)
 
-    def _handle_issues(self, alert: BaseAlert, issues: list[tuple]) -> None:
+        self.is_first_check = False
+
+    def _handle_issues(
+        self, alert: BaseAlert, issues: list[tuple], *, suppress_alerts: bool = False
+    ) -> None:
         """Handle sending an alert if cooldown has passed."""
         alert_name = alert.name
         identifiers = [issue[0] for issue in issues]
@@ -64,7 +69,11 @@ class AlertManager:
             message = alert.format_message(issues)
 
             webhook_url = alert.get_webhook_url()
-            send_message(message, webhook_url)
+            if not suppress_alerts:
+                send_message(message, webhook_url)
+            else:
+                logging.info(f"Suppressed alert for {alert_name}: {message}")
+
             for identifier in identifiers:
                 self.set_last_alert_time(alert_name, identifier)
 

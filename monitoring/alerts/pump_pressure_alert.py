@@ -38,7 +38,7 @@ class PumpPressureAlert(BaseAlert):
         """Initialize the alert with memory for tracking reported issues."""
         super().__init__()
         # Memory: set of (instrument_id, tuple of pressure_changes) to track reported issues
-        self._reported_issues: set[tuple[str, tuple[float, ...]]] = set()
+        self._reported_issues: set[tuple[str, tuple[Any]]] = set()
 
     @property
     def name(self) -> str:
@@ -189,6 +189,11 @@ class PumpPressureAlert(BaseAlert):
             current_pressure = data_younger.pressure
             past_pressure = data_older.pressure
             pressure_change = current_pressure - past_pressure
+
+            # temporary hack to bypass bug in pump pressure extraction
+            threshold = 1000
+            if past_pressure > threshold or current_pressure > threshold:
+                continue
 
             if pressure_change > threshold:
                 pressure_changes.append(

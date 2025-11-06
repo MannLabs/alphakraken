@@ -167,18 +167,20 @@ def _prepare_custom_command(  # noqa: PLR0913 Too many arguments
         else ""
     )
     substituted_params = settings.config_params
-    substituted_params = substituted_params.replace(
-        "RELATIVE_RAW_FILE_PATH", str(relative_raw_file_path)
-    )
-    substituted_params = substituted_params.replace("RAW_FILE_PATH", str(raw_file_path))
-    substituted_params = substituted_params.replace("LIBRARY_PATH", speclib_file_path)
-    substituted_params = substituted_params.replace(
-        "RELATIVE_OUTPUT_PATH", str(relative_output_path)
-    )
-    substituted_params = substituted_params.replace("OUTPUT_PATH", str(output_path))
-    substituted_params = substituted_params.replace("FASTA_PATH", fasta_file_path)
-    substituted_params = substituted_params.replace("NUM_THREADS", str(num_threads))
-    substituted_params = substituted_params.replace("PROJECT_ID", project_id)
+
+    replacements = {
+        # mind the order of replacements here (LONGER placeholders first, e.g. RAW_FILE_PATH before RELATIVE_RAW_FILE_PATH)
+        "RELATIVE_RAW_FILE_PATH": str(relative_raw_file_path),
+        "RAW_FILE_PATH": str(raw_file_path),
+        "LIBRARY_PATH": speclib_file_path,
+        "RELATIVE_OUTPUT_PATH": str(relative_output_path),
+        "OUTPUT_PATH": str(output_path),
+        "FASTA_PATH": fasta_file_path,
+        "NUM_THREADS": str(num_threads),
+        "PROJECT_ID": project_id,
+    }
+    for placeholder, new_value in replacements.items():
+        substituted_params = substituted_params.replace(placeholder, new_value)
 
     software_base_path = get_path(YamlKeys.Locations.SOFTWARE)
     software_path = str(software_base_path / settings.software)

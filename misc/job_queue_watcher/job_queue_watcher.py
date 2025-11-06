@@ -10,7 +10,7 @@ This script watches for .job files in a specified directory and processes them b
 4. Moving the .job file to processed state
 
 Usage:
-    python simple_file_watcher.py [watch_directory]
+    python job_queue_watcher.py [watch_directory]
 
 IMPORTANT NOTE: Make sure as few as possible external libraries are used to ensure portability.
 """
@@ -176,6 +176,7 @@ def process_job_file(job_file_path: Path) -> None:
     # Get output path from environment
     if OUTPUT_PATH_BASE:
         relative_output_path = environment["RELATIVE_OUTPUT_PATH"]
+        # TODO: use Path also here?
         output_path_str = f"{OUTPUT_PATH_BASE}\\{relative_output_path}"
     else:
         output_path_str = environment["OUTPUT_PATH"]

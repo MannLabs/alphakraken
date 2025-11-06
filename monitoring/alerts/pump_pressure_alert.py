@@ -84,13 +84,6 @@ class PumpPressureAlert(BaseAlert):
 
         issues = []
         for instrument_id, pressure_data in instrument_data.items():
-            # if len(pressure_data) < PUMP_PRESSURE_WINDOW_SIZE + 1:
-            #     logging.debug(
-            #         f"Not enough data points for {instrument_id}: "
-            #         f"{len(pressure_data)} < {PUMP_PRESSURE_WINDOW_SIZE + 1}"
-            #     )
-            #     continue
-
             is_alert, pressure_changes = self._detect_pressure_increase(
                 pressure_data, PUMP_PRESSURE_WINDOW_SIZE, PUMP_PRESSURE_THRESHOLD_BAR
             )

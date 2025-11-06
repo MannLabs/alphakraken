@@ -320,6 +320,51 @@ class TestPumpPressureAlert:
         assert is_alert is False
         assert pressure_changes == []
 
+    def test_detect_pressure_increase_should_not_compare_significantly_different_gradient_lengths(
+        self,
+    ) -> None:
+        """Test that detect_pressure_increase does not compare files with significantly different gradient lengths (e.g., 2 min vs 16 min)."""
+        # given
+        alert = PumpPressureAlert()
+        now = datetime.now(tz=pytz.utc)
+
+        # Files with very different gradient lengths (2 min vs 16 min)
+        # Even though there's a large pressure increase between different gradient files, they should not be compared
+        pressure_data = [
+            PressureDataPoint(150.0, 16.0, now, "file1"),  # 16 min, high pressure
+            PressureDataPoint(
+                148.0, 16.0, now - timedelta(hours=1), "file2"
+            ),  # 16 min, small change
+            PressureDataPoint(
+                146.0, 16.0, now - timedelta(hours=2), "file3"
+            ),  # 16 min, small change
+            PressureDataPoint(
+                144.0, 16.0, now - timedelta(hours=3), "file4"
+            ),  # 16 min, small change
+            PressureDataPoint(
+                142.0, 16.0, now - timedelta(hours=4), "file5"
+            ),  # 16 min, small change
+            PressureDataPoint(
+                140.0, 16.0, now - timedelta(hours=5), "file6"
+            ),  # 16 min, small change
+            PressureDataPoint(
+                110.0, 2.0, now - timedelta(hours=6), "file7"
+            ),  # 2 min, low pressure
+        ]
+
+        # when
+        is_alert, pressure_changes = alert._detect_pressure_increase(
+            pressure_data, window_size=5, threshold=20
+        )
+
+        # then
+        # Should not detect alert because:
+        # - file1 (150 bar, 16 min) vs file6 (140 bar, 16 min) = 10 bar change (below threshold)
+        # - file2 (148 bar, 16 min) vs file7 (110 bar, 2 min) = 38 bar change but should be filtered out
+        #   because gradient lengths differ by 8x (2 min vs 16 min), which is > 10% tolerance
+        assert is_alert is False
+        assert pressure_changes == []
+
     def test_detect_pressure_increase_should_not_detect_at_exact_threshold(
         self,
     ) -> None:

@@ -8,7 +8,7 @@ from typing import Any
 import yaml
 from alerts.config import OPS_ALERTS_WEBHOOK_URL
 
-from monitoring.alerts.config import DEFAULT_ALERT_COOLDOWN_MINUTES
+from monitoring.alerts.config import DEFAULT_ALERT_COOLDOWN_TIME_MINUTES
 from shared.db.models import KrakenStatus
 
 
@@ -111,7 +111,7 @@ class BaseAlert(ABC):
         """
         return OPS_ALERTS_WEBHOOK_URL
 
-    def get_cooldown_minutes(self, identifier: str) -> int:
+    def get_cooldown_time_minutes(self, identifier: str) -> int:
         """Return cooldown in minutes for this alert and identifier.
 
         Override this method in subclasses to specify custom cooldowns for specific identifiers.
@@ -125,16 +125,16 @@ class BaseAlert(ABC):
 
         """
         del identifier  # unused
-        return DEFAULT_ALERT_COOLDOWN_MINUTES
+        return DEFAULT_ALERT_COOLDOWN_TIME_MINUTES
 
 
 class CustomAlert(BaseAlert):
     """Simple alert wrapper for special alerts."""
 
-    def __init__(self, alert_name: str, cooldown_minutes: int | None = None):
+    def __init__(self, alert_name: str, cooldown_time_minutes: int | None = None):
         """Initialize with alert name."""
         self._name = alert_name
-        self._cooldown_minutes = cooldown_minutes
+        self._cooldown_time_minutes = cooldown_time_minutes
 
     @property
     def name(self) -> str:
@@ -151,8 +151,8 @@ class CustomAlert(BaseAlert):
         del issues  # unused
         return ""
 
-    def get_cooldown_minutes(self, identifier: str) -> int:
+    def get_cooldown_time_minutes(self, identifier: str) -> int:
         """Return cooldown in minutes for this alert."""
-        if self._cooldown_minutes is not None:
-            return self._cooldown_minutes
-        return super().get_cooldown_minutes(identifier)
+        if self._cooldown_time_minutes is not None:
+            return self._cooldown_time_minutes
+        return super().get_cooldown_time_minutes(identifier)

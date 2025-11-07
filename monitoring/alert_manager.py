@@ -27,7 +27,7 @@ from shared.db.models import KrakenStatus
 def _default_value() -> datetime:
     """Special default value for defaultdict to have an alert on the first occurrence."""
     return datetime.now(pytz.UTC) - timedelta(
-        minutes=config.DEFAULT_ALERT_COOLDOWN_MINUTES + 1
+        minutes=config.DEFAULT_ALERT_COOLDOWN_TIME_MINUTES + 1
     )
 
 
@@ -84,20 +84,22 @@ class AlertManager:
         self,
         identifiers: list[str],
         alert: BaseAlert,
-        cooldown_minutes: int | None = None,
+        cooldown_time_minutes: int | None = None,
     ) -> bool:
         """Check if we should send an alert based on cooldown period."""
         send_alert = False
         for identifier in identifiers:
-            if cooldown_minutes is not None:
-                effective_cooldown_minutes = cooldown_minutes
+            if cooldown_time_minutes is not None:
+                effective_cooldown_time_minutes = cooldown_time_minutes
             else:
-                effective_cooldown_minutes = alert.get_cooldown_minutes(identifier)
+                effective_cooldown_time_minutes = alert.get_cooldown_time_minutes(
+                    identifier
+                )
 
-            cooldown_time = self._get_last_alert_time(
+            cooldown_time_minutes = self._get_last_alert_time(
                 alert.name, identifier
-            ) + timedelta(minutes=effective_cooldown_minutes)
-            send_alert |= datetime.now(pytz.UTC) > cooldown_time
+            ) + timedelta(minutes=effective_cooldown_time_minutes)
+            send_alert |= datetime.now(pytz.UTC) > cooldown_time_minutes
         return send_alert
 
     def set_last_alert_time(self, alert_name: str, identifier: str) -> None:

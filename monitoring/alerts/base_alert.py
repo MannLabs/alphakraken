@@ -8,6 +8,7 @@ from typing import Any
 import yaml
 from alerts.config import OPS_ALERTS_WEBHOOK_URL
 
+from monitoring.alerts.config import DEFAULT_ALERT_COOLDOWN_MINUTES
 from shared.db.models import KrakenStatus
 
 
@@ -109,3 +110,19 @@ class BaseAlert(ABC):
         Default implementation returns the global OPS_ALERTS_WEBHOOK_URL.
         """
         return OPS_ALERTS_WEBHOOK_URL
+
+    def get_cooldown_minutes(self, identifier: str) -> int:
+        """Return cooldown in minutes for this alert and identifier.
+
+        Override this method in subclasses to specify custom cooldowns for specific identifiers.
+        Return None to use the default cooldown.
+
+        Args:
+            identifier: The identifier (e.g., instrument_id) for this alert instance
+
+        Returns:
+            Cooldown in minutes
+
+        """
+        del identifier  # unused
+        return DEFAULT_ALERT_COOLDOWN_MINUTES

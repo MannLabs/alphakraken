@@ -35,3 +35,9 @@ class HealthCheckFailedAlert(BaseAlert):
             ]
         )
         return f"Health check failed:\n{instruments_str}"
+
+    def get_cooldown_minutes(self, identifier: str) -> int | None:
+        """Return custom cooldown for specific instruments."""
+        if identifier == "file_remover":
+            return 720  # 12 hours
+        return super().get_cooldown_minutes(identifier)

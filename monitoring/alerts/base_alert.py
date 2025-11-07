@@ -6,9 +6,8 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from alerts.config import OPS_ALERTS_WEBHOOK_URL
+from alerts.config import DEFAULT_ALERT_COOLDOWN_TIME_MINUTES, OPS_ALERTS_WEBHOOK_URL
 
-from monitoring.alerts.config import DEFAULT_ALERT_COOLDOWN_TIME_MINUTES
 from shared.db.models import KrakenStatus
 
 

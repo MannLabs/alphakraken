@@ -96,10 +96,10 @@ class AlertManager:
                     identifier
                 )
 
-            cooldown_time_minutes = self._get_last_alert_time(
+            earliest_next_alert_time = self._get_last_alert_time(
                 alert.name, identifier
             ) + timedelta(minutes=effective_cooldown_time_minutes)
-            send_alert |= datetime.now(pytz.UTC) > cooldown_time_minutes
+            send_alert |= datetime.now(pytz.UTC) > earliest_next_alert_time
         return send_alert
 
     def set_last_alert_time(self, alert_name: str, identifier: str) -> None:

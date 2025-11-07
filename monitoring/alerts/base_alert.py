@@ -115,7 +115,6 @@ class BaseAlert(ABC):
         """Return cooldown in minutes for this alert and identifier.
 
         Override this method in subclasses to specify custom cooldowns for specific identifiers.
-        Return None to use the default cooldown.
 
         Args:
             identifier: The identifier (e.g., instrument_id) for this alert instance

@@ -126,3 +126,33 @@ class BaseAlert(ABC):
         """
         del identifier  # unused
         return DEFAULT_ALERT_COOLDOWN_MINUTES
+
+
+class CustomAlert(BaseAlert):
+    """Simple alert wrapper for special alerts."""
+
+    def __init__(self, alert_name: str, cooldown_minutes: int | None = None):
+        """Initialize with alert name."""
+        self._name = alert_name
+        self._cooldown_minutes = cooldown_minutes
+
+    @property
+    def name(self) -> str:
+        """Return the alert name."""
+        return self._name
+
+    def _get_issues(self, status_objects: list[KrakenStatus]) -> list[tuple]:
+        """Not used for custom alerts."""
+        del status_objects  # unused
+        return []
+
+    def format_message(self, issues: list[tuple]) -> str:
+        """Not used for custom alerts."""
+        del issues  # unused
+        return ""
+
+    def get_cooldown_minutes(self, identifier: str) -> int:
+        """Return cooldown in minutes for this alert."""
+        if self._cooldown_minutes is not None:
+            return self._cooldown_minutes
+        return super().get_cooldown_minutes(identifier)

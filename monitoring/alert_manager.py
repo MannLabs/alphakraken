@@ -20,6 +20,7 @@ from alerts import (
 from messenger_clients import AlertTypes, send_message
 from requests.exceptions import RequestException
 
+from monitoring.alerts.base_alert import CustomAlert
 from shared.db.models import KrakenStatus
 
 
@@ -123,9 +124,9 @@ def send_special_alert(
     alert_type: str = AlertTypes.ALERT,
 ) -> None:
     """Send simple alerts."""
-    if not alert_manager.should_send_alert(
-        [identifier], alert_name, cooldown_minutes=10
-    ):
+    # alert is only used for determining cooldown here
+    alert = CustomAlert(alert_name, 10)
+    if not alert_manager.should_send_alert([identifier], alert):
         return
 
     message = f"{message} [{alert_name} {identifier}]"

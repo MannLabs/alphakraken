@@ -17,10 +17,10 @@ from alerts import (
     WebAppHealthAlert,
     config,
 )
+from alerts.base_alert import CustomAlert
 from messenger_clients import AlertTypes, send_message
 from requests.exceptions import RequestException
 
-from monitoring.alerts.base_alert import CustomAlert
 from shared.db.models import KrakenStatus
 
 

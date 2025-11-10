@@ -56,7 +56,7 @@ logging.basicConfig(
         if os.getenv("IS_PYTEST_RUN", "0") != "1"
         else None,
         logging.StreamHandler(),  # Keep console output for debugging
-    ],
+    ],  # type: ignore[invalid-argument-type]
 )
 logger = logging.getLogger(__name__)
 

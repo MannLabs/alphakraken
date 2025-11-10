@@ -38,7 +38,7 @@ class PumpPressureAlert(BaseAlert):
         """Initialize the alert with memory for tracking reported issues."""
         super().__init__()
         # Memory: set of (instrument_id, tuple of pressure_changes) to track reported issues
-        self._reported_issues: set[tuple[str, tuple[Any]]] = set()
+        self._reported_issues: set[tuple[str, tuple[Any, ...]]] = set()
 
     @property
     def name(self) -> str:
@@ -210,7 +210,7 @@ class PumpPressureAlert(BaseAlert):
 
         return is_alert, pressure_changes
 
-    def format_message(self, issues: list[tuple[str, str]]) -> str:
+    def format_message(self, issues: list[tuple[str, str | None]]) -> str:
         """Format pump pressure alert message."""
         instruments_str = "\n".join(
             [f"- `{instrument_id}`: {details}" for instrument_id, details in issues]

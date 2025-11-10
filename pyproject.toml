@@ -64,3 +64,6 @@ omit = [
 
 [tool.ty.rules]
 unresolved-import = "ignore"  #         # TODO: remove after https://github.com/astral-sh/ty/issues/265
+
+[tool.ty.src]
+exclude = ["**/*ipynb"]

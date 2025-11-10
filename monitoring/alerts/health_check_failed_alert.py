@@ -26,7 +26,7 @@ class HealthCheckFailedAlert(BaseAlert):
 
         return health_check_failed_instruments
 
-    def format_message(self, issues: list[tuple[str, str]]) -> str:
+    def format_message(self, issues: list[tuple[str, str | None]]) -> str:
         """Format health check failure message."""
         instruments_str = "\n".join(
             [

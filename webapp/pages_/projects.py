@@ -1,11 +1,10 @@
 """Page allowing Project mgmt."""
 
 import re
-from typing import cast
+from typing import Any
 
 import pandas as pd
 import streamlit as st
-import streamlit.delta_generator
 from service.components import show_filter, show_sandbox_message
 from service.db import df_from_db_data, get_project_data
 from service.query_params import get_all_query_params
@@ -51,11 +50,11 @@ st.warning("This page should be edited only by administrators!", icon="⚠️")
 @st.fragment
 def display_projects(
     projects_df: pd.DataFrame,
-    st_display: st.delta_generator.DeltaGenerator | None = None,
+    st_display: st.delta_generator.DeltaGenerator | Any = None,
 ) -> None:
     """A Fragment to display projects in a table."""
     if st_display is None:
-        st_display = cast(st.delta_generator.DeltaGenerator, st)
+        st_display = st
     filtered_df, *_ = show_filter(projects_df, st_display=st_display)
     st_display.table(filtered_df)
     st_display.markdown(

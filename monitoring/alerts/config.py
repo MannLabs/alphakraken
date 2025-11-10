@@ -11,7 +11,7 @@ from shared.yamlsettings import YamlKeys, get_notification_setting
 
 # Constants
 CHECK_INTERVAL_SECONDS = 60
-ALERT_COOLDOWN_MINUTES = (
+DEFAULT_ALERT_COOLDOWN_TIME_MINUTES = (
     120  # Minimum time between repeated alerts for the same issue_type
 )
 

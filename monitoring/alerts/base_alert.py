@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from alerts.config import OPS_ALERTS_WEBHOOK_URL
+from alerts.config import DEFAULT_ALERT_COOLDOWN_TIME_MINUTES, OPS_ALERTS_WEBHOOK_URL
 
 from shared.db.models import KrakenStatus
 
@@ -109,3 +109,48 @@ class BaseAlert(ABC):
         Default implementation returns the global OPS_ALERTS_WEBHOOK_URL.
         """
         return OPS_ALERTS_WEBHOOK_URL
+
+    def get_cooldown_time_minutes(self, identifier: str) -> int:
+        """Return cooldown in minutes for this alert and identifier.
+
+        Override this method in subclasses to specify custom cooldowns for specific identifiers.
+
+        Args:
+            identifier: The identifier (e.g., instrument_id) for this alert instance
+
+        Returns:
+            Cooldown in minutes
+
+        """
+        del identifier  # unused
+        return DEFAULT_ALERT_COOLDOWN_TIME_MINUTES
+
+
+class CustomAlert(BaseAlert):
+    """Simple alert wrapper for special alerts."""
+
+    def __init__(self, alert_name: str, cooldown_time_minutes: int | None = None):
+        """Initialize with alert name."""
+        self._name = alert_name
+        self._cooldown_time_minutes = cooldown_time_minutes
+
+    @property
+    def name(self) -> str:
+        """Return the alert name."""
+        return self._name
+
+    def _get_issues(self, status_objects: list[KrakenStatus]) -> list[tuple]:
+        """Not used for custom alerts."""
+        del status_objects  # unused
+        return []
+
+    def format_message(self, issues: list[tuple]) -> str:
+        """Not used for custom alerts."""
+        del issues  # unused
+        return ""
+
+    def get_cooldown_time_minutes(self, identifier: str) -> int:
+        """Return cooldown in minutes for this alert."""
+        if self._cooldown_time_minutes is not None:
+            return self._cooldown_time_minutes
+        return super().get_cooldown_time_minutes(identifier)

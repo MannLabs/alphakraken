@@ -17,6 +17,7 @@ from alerts import (
     WebAppHealthAlert,
     config,
 )
+from alerts.base_alert import CustomAlert
 from messenger_clients import AlertTypes, send_message
 from requests.exceptions import RequestException
 
@@ -25,7 +26,9 @@ from shared.db.models import KrakenStatus
 
 def _default_value() -> datetime:
     """Special default value for defaultdict to have an alert on the first occurrence."""
-    return datetime.now(pytz.UTC) - timedelta(minutes=config.ALERT_COOLDOWN_MINUTES + 1)
+    return datetime.now(pytz.UTC) - timedelta(
+        minutes=config.DEFAULT_ALERT_COOLDOWN_TIME_MINUTES + 1
+    )
 
 
 class AlertManager:
@@ -65,7 +68,7 @@ class AlertManager:
         alert_name = alert.name
         identifiers = [issue[0] for issue in issues]
 
-        if self.should_send_alert(identifiers, alert_name):
+        if self.should_send_alert(identifiers, alert):
             message = alert.format_message(issues)
 
             webhook_url = alert.get_webhook_url()
@@ -80,20 +83,23 @@ class AlertManager:
     def should_send_alert(
         self,
         identifiers: list[str],
-        alert_name: str,
-        cooldown_minutes: int | None = None,
+        alert: BaseAlert,
+        cooldown_time_minutes: int | None = None,
     ) -> bool:
         """Check if we should send an alert based on cooldown period."""
         send_alert = False
         for identifier in identifiers:
-            cooldown_time = self._get_last_alert_time(
-                alert_name, identifier
-            ) + timedelta(
-                minutes=config.ALERT_COOLDOWN_MINUTES
-                if cooldown_minutes is None
-                else cooldown_minutes
-            )
-            send_alert |= datetime.now(pytz.UTC) > cooldown_time
+            if cooldown_time_minutes is not None:
+                effective_cooldown_time_minutes = cooldown_time_minutes
+            else:
+                effective_cooldown_time_minutes = alert.get_cooldown_time_minutes(
+                    identifier
+                )
+
+            earliest_next_alert_time = self._get_last_alert_time(
+                alert.name, identifier
+            ) + timedelta(minutes=effective_cooldown_time_minutes)
+            send_alert |= datetime.now(pytz.UTC) > earliest_next_alert_time
         return send_alert
 
     def set_last_alert_time(self, alert_name: str, identifier: str) -> None:
@@ -120,9 +126,9 @@ def send_special_alert(
     alert_type: str = AlertTypes.ALERT,
 ) -> None:
     """Send simple alerts."""
-    if not alert_manager.should_send_alert(
-        [identifier], alert_name, cooldown_minutes=10
-    ):
+    # alert is only used for determining cooldown here
+    alert = CustomAlert(alert_name, 10)
+    if not alert_manager.should_send_alert([identifier], alert):
         return
 
     message = f"{message} [{alert_name} {identifier}]"

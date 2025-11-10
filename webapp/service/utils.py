@@ -5,6 +5,7 @@ import logging
 import os
 import traceback
 from pathlib import Path
+from typing import cast
 
 import plotly.graph_objects as go
 import streamlit as st
@@ -100,7 +101,9 @@ def show_feedback_in_sidebar() -> None:
             remove_session_state(key)
 
 
-def display_info_message(st_display: st.delta_generator.DeltaGenerator = None) -> None:
+def display_info_message(
+    st_display: st.delta_generator.DeltaGenerator | None = None,
+) -> None:
     """Read an info message from a file and display it as a streamlit info message."""
     file_path = Path("/app/webapp/info_message.txt")
     if not file_path.exists():
@@ -117,9 +120,11 @@ def display_info_message(st_display: st.delta_generator.DeltaGenerator = None) -
 
 
 def display_plotly_chart(
-    fig: go.Figure, display: st.delta_generator.DeltaGenerator = st, **kwargs
+    fig: go.Figure, display: st.delta_generator.DeltaGenerator | None = None, **kwargs
 ) -> None:
     """Display a plotly chart in a streamlit app."""
+    if display is None:
+        display = cast(st.delta_generator.DeltaGenerator, st)
     # currently, the mobile setup does not support plotly charts
     if is_query_param_true(QueryParams.MOBILE):
         img_bytes = fig.to_image(format="png", engine="kaleido")

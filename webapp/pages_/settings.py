@@ -3,6 +3,7 @@
 # ruff: noqa: TRY301 # Abstract `raise` to an inner function
 import pandas as pd
 import streamlit as st
+import streamlit.delta_generator
 from service.components import show_filter, show_sandbox_message
 from service.db import (
     df_from_db_data,

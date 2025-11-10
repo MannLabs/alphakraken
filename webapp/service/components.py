@@ -10,9 +10,11 @@ from typing import Any
 
 import humanize
 import matplotlib as mpl
+import matplotlib.colors
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+import streamlit.delta_generator
 from matplotlib import pyplot as plt
 from service.session_state import SessionStateKeys, copy_session_state
 from service.utils import BASELINE_PREFIX, DEFAULT_MAX_AGE_STATUS, display_plotly_chart

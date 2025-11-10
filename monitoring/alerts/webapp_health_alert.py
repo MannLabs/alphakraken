@@ -3,6 +3,7 @@
 import logging
 
 import requests
+import requests.exceptions
 
 from shared.db.models import KrakenStatus
 from shared.yamlsettings import YamlKeys, get_notification_setting

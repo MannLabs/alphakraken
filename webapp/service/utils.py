@@ -8,6 +8,7 @@ from pathlib import Path
 
 import plotly.graph_objects as go
 import streamlit as st
+import streamlit.delta_generator
 from PIL import Image
 from service.query_params import QueryParams, is_query_param_true
 from service.session_state import (

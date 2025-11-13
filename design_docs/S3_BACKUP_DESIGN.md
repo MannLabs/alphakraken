@@ -235,63 +235,101 @@ upload_to_s3_ = PythonOperator(
 - [ ] Add boto3 to `requirements_airflow.txt`
 - [ ] Set S3 lifecycle policy to clean incomplete multipart uploads
 
-## 9. Future Enhancements
+## 9. S3 Download Feature (Implemented)
 
-### 9.1 Not in Scope for v1 (Document for Later)
+Manual restoration of raw files from S3 to output location. See `design_docs/S3_DOWNLOAD_FEATURE.md` for full implementation details.
+
+### 9.1 Overview
+- **Manual Operation**: Triggered via Airflow UI or CLI
+- **Batch Mode**: Supports comma-separated list of raw_file_ids
+- **Destination**: Automatically calculated as `output_location/project_id/` (per raw_file)
+- **Self-Healing**: Corrupted local files automatically renamed to `.corrupted`
+- **Idempotent**: Safe to re-run (skips files with correct etags)
+- **Read-only**: No database writes, status tracked in text files
+
+### 9.2 Key Features
+- **S3 Verification**: Checks S3 etag before download (detects S3 corruption)
+- **Best-effort**: Continues processing all raw_files even if some fail
+- **Status Reporting**: Batch `.txt` report per destination directory
+- **Multi-project**: Single batch can include raw_files from different projects
+
+### 9.3 Usage
+
+```bash
+# Single file
+airflow dags trigger s3_downloader --conf '{"raw_file_ids": "file_id"}'
+
+# Batch mode
+airflow dags trigger s3_downloader --conf '{"raw_file_ids": "id1,id2,id3"}'
+
+# Check results
+cat /fs/pool/output/{PROJECT_ID}/_download_status_batch_*.txt
+```
+
+### 9.4 Components
+- **DAG**: `dags/s3_downloader.py`
+- **Implementation**: `dags/impl/s3_download.py`
+- **Utilities**: `dags/impl/s3_utils.py` (download functions)
+- **Pool**: `s3_download_pool` (default: 3 concurrent downloads)
+
+## 10. Future Enhancements
+
+### 10.1 Not in Scope for v1 (Document for Later)
 - **Resume interrupted uploads**: Track part numbers, resume from last successful part
 - **Parallel uploads**: Upload multiple files concurrently
 - **Compression**: Compress before upload (may not be beneficial for .d files)
 - **Storage class optimization**: Immediate Archive → Glacier after processing
 - **Cross-region replication**: Disaster recovery
-- **S3 → local restore**: Download from S3 if local backup lost
 - **Encryption**: Server-side encryption (SSE-S3 or SSE-KMS)
 - **Presigned URLs**: Generate URLs for direct download
 - **Cost monitoring**: Track S3 storage and transfer costs per project
 - **Intelligent-Tiering**: Auto-move to cheaper storage classes
+- **Download progress reporting**: Show progress bar in Airflow UI
+- **Selective file downloads**: Download specific files from file_info instead of all
 
-### 9.2 Known Limitations
+### 10.2 Known Limitations
 - No resume capability for failed uploads (retry from scratch)
 - No validation that project bucket exists before upload
 - No automatic bucket creation (requires manual setup)
 - Single-threaded upload per file (no parallelization)
 - No progress bar/percentage in Airflow UI
 
-### 9.3 Performance Considerations
+### 10.3 Performance Considerations
 - 500 MB chunks = ~2 minutes per chunk on 100 Mbps connection
 - 50 GB file = ~100 parts = ~3.3 hours upload time
 - **Bottleneck**: Network bandwidth, not CPU/disk
 - **Future**: Use S3 Transfer Manager for auto-optimization
 
-## 10. Security Considerations
+## 11. Security Considerations
 
-### 10.1 Access Control
+### 11.1 Access Control
 - IAM user has minimal permissions (no DeleteObject initially)
 - Buckets are private by default
 - No public access policies
 - Consider bucket policies to restrict access by project
 
-### 10.2 Credentials Management
+### 11.2 Credentials Management
 - Store AWS credentials in Airflow Variables (encrypted at rest)
 - Rotate credentials periodically (every 90 days)
 - Audit: Monitor CloudTrail for S3 API calls
 
-### 10.3 Data Integrity
+### 11.3 Data Integrity
 - ETag verification ensures upload integrity
 - Consider enabling S3 Object Lock for compliance (immutable storage)
 
-## 11. Documentation Updates Needed
+## 12. Documentation Updates Needed
 
-### 11.1 User-Facing
+### 12.1 User-Facing
 - Update README with S3 backup configuration
 - Document bucket naming convention
 - Provide setup guide for new projects (bucket creation)
 
-### 11.2 Developer-Facing
+### 12.2 Developer-Facing
 - Document `s3_utils.py` module
 - Update architecture diagram with S3 backup flow
 - Add troubleshooting guide for common S3 errors
 
-### 11.3 Operations
+### 12.3 Operations
 - Runbook for S3 backup failures
 - Monitoring dashboard setup
 - Cost estimation per project

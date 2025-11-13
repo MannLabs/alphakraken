@@ -58,6 +58,13 @@ class PumpPressureAlert(BaseAlert):
         """Return the configured BUSINESS_ALERTS_WEBHOOK_URL for pump pressure alerts."""
         return BUSINESS_ALERTS_WEBHOOK_URL
 
+    def get_cooldown_time_minutes(self, identifier: str) -> int:
+        """Return cooldown in minutes for this alert and identifier."""
+        del identifier  # unused
+
+        # no cooldown here: we want to alert on every new issue, this class is taking care of duplicates through self._reported_issues anyway
+        return 0
+
     def _get_issues(self, status_objects: list[KrakenStatus]) -> list[tuple[str, str]]:
         """Check for pump pressure increases per instrument."""
         # Get all instrument IDs

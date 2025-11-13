@@ -570,3 +570,160 @@ class TestPumpPressureAlert:
 
         # then
         assert result == "http://test-webhook.example.com"
+
+    def test_detect_high_absolute_pressure_should_detect_pressure_above_threshold(
+        self,
+    ) -> None:
+        """Test that detect_high_absolute_pressure detects pressure >= 480 bar."""
+        # given
+        alert = PumpPressureAlert()
+        now = datetime.now(tz=pytz.utc)
+
+        pressure_data = [
+            PressureDataPoint(485.0, 0.5, now, "file1"),
+            PressureDataPoint(480.0, 0.5, now - timedelta(hours=1), "file2"),
+            PressureDataPoint(475.0, 0.5, now - timedelta(hours=2), "file3"),
+        ]
+
+        # when
+        result = alert._detect_high_absolute_pressure(pressure_data, threshold=480)
+
+        # then
+        assert len(result) == 2
+        assert result[0] == (485.0, "file1", now)
+        assert result[1] == (480.0, "file2", now - timedelta(hours=1))
+
+    def test_detect_high_absolute_pressure_should_not_detect_pressure_below_threshold(
+        self,
+    ) -> None:
+        """Test that detect_high_absolute_pressure does not detect pressure below 480 bar."""
+        # given
+        alert = PumpPressureAlert()
+        now = datetime.now(tz=pytz.utc)
+
+        pressure_data = [
+            PressureDataPoint(479.0, 0.5, now, "file1"),
+            PressureDataPoint(450.0, 0.5, now - timedelta(hours=1), "file2"),
+            PressureDataPoint(400.0, 0.5, now - timedelta(hours=2), "file3"),
+        ]
+
+        # when
+        result = alert._detect_high_absolute_pressure(pressure_data, threshold=480)
+
+        # then
+        assert result == []
+
+    def test_detect_high_absolute_pressure_should_filter_out_bug_values(self) -> None:
+        """Test that detect_high_absolute_pressure filters out pressure > 1000 bar (bug workaround)."""
+        # given
+        alert = PumpPressureAlert()
+        now = datetime.now(tz=pytz.utc)
+
+        pressure_data = [
+            PressureDataPoint(1500.0, 0.5, now, "file1"),  # Bug value
+            PressureDataPoint(485.0, 0.5, now - timedelta(hours=1), "file2"),  # Valid
+            PressureDataPoint(
+                2000.0, 0.5, now - timedelta(hours=2), "file3"
+            ),  # Bug value
+        ]
+
+        # when
+        result = alert._detect_high_absolute_pressure(pressure_data, threshold=480)
+
+        # then
+        assert len(result) == 1
+        assert result[0] == (485.0, "file2", now - timedelta(hours=1))
+
+    @patch("monitoring.alerts.pump_pressure_alert.augment_raw_files_with_metrics")
+    @patch("monitoring.alerts.pump_pressure_alert.RawFile")
+    @patch("monitoring.alerts.pump_pressure_alert.PUMP_PRESSURE_LOOKBACK_DAYS", 1)
+    @patch("monitoring.alerts.pump_pressure_alert.PUMP_PRESSURE_WINDOW_SIZE", 5)
+    @patch("monitoring.alerts.pump_pressure_alert.PUMP_PRESSURE_THRESHOLD_BAR", 20)
+    @patch(
+        "monitoring.alerts.pump_pressure_alert.PUMP_PRESSURE_ABSOLUTE_THRESHOLD_BAR",
+        480,
+    )
+    def test_get_issues_should_detect_both_increase_and_absolute_threshold(
+        self,
+        mock_rawfile: Mock,
+        mock_augment: Mock,
+    ) -> None:
+        """Test that get_issues can detect both pressure increase and absolute threshold violations."""
+        # given
+        alert = PumpPressureAlert()
+        now = datetime.now(tz=pytz.utc)
+
+        mock_instrument = Mock()
+        mock_instrument.id = "instrument1"
+        mock_instrument.entity_type = KrakenStatusEntities.INSTRUMENT
+        status_objects = [mock_instrument]
+
+        mock_raw_file = Mock()
+        mock_raw_file.id = "file1"
+        mock_raw_file.instrument_id = "instrument1"
+        mock_raw_file.created_at = now
+
+        mock_query = Mock()
+        mock_query.only.return_value.order_by.return_value = [mock_raw_file]
+        mock_rawfile.objects.filter.return_value = mock_query
+
+        # Mock data with both high absolute pressure AND pressure increase
+        mock_augment.return_value = {
+            "file1": {
+                "instrument_id": "instrument1",
+                "created_at": now,
+                "metrics_alphadia": {"raw:gradient_length_m": 0.5},
+                "metrics_msqc": {"msqc_evosep_pump_hp_pressure_max": 485.0},
+            },
+            "file2": {
+                "instrument_id": "instrument1",
+                "created_at": now - timedelta(hours=1),
+                "metrics_alphadia": {"raw:gradient_length_m": 0.5},
+                "metrics_msqc": {"msqc_evosep_pump_hp_pressure_max": 484.0},
+            },
+            "file3": {
+                "instrument_id": "instrument1",
+                "created_at": now - timedelta(hours=2),
+                "metrics_alphadia": {"raw:gradient_length_m": 0.5},
+                "metrics_msqc": {"msqc_evosep_pump_hp_pressure_max": 483.0},
+            },
+            "file4": {
+                "instrument_id": "instrument1",
+                "created_at": now - timedelta(hours=3),
+                "metrics_alphadia": {"raw:gradient_length_m": 0.5},
+                "metrics_msqc": {"msqc_evosep_pump_hp_pressure_max": 482.0},
+            },
+            "file5": {
+                "instrument_id": "instrument1",
+                "created_at": now - timedelta(hours=4),
+                "metrics_alphadia": {"raw:gradient_length_m": 0.5},
+                "metrics_msqc": {"msqc_evosep_pump_hp_pressure_max": 481.0},
+            },
+            "file6": {
+                "instrument_id": "instrument1",
+                "created_at": now - timedelta(hours=5),
+                "metrics_alphadia": {"raw:gradient_length_m": 0.5},
+                "metrics_msqc": {"msqc_evosep_pump_hp_pressure_max": 480.0},
+            },
+            "file7": {
+                "instrument_id": "instrument1",
+                "created_at": now - timedelta(hours=6),
+                "metrics_alphadia": {"raw:gradient_length_m": 0.5},
+                "metrics_msqc": {"msqc_evosep_pump_hp_pressure_max": 460.0},
+            },
+        }
+
+        # when
+        result = alert._get_issues(status_objects)
+
+        # then
+        # Should detect BOTH:
+        # 1. Pressure increase (485 - 460 = 25 bar over window of 5)
+        # 2. Multiple absolute threshold violations (485, 484, 483, 482, 481, 480 all >= 480)
+        assert len(result) > 1
+        instrument_ids = [issue[0] for issue in result]
+        details = [issue[1] for issue in result]
+
+        assert all(inst_id == "instrument1" for inst_id in instrument_ids)
+        assert any("Pressure changes:" in detail for detail in details)
+        assert any("High pressure:" in detail for detail in details)

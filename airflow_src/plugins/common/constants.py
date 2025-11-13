@@ -79,6 +79,9 @@ class Pools:
     # pool to limit S3 uploads across all instruments
     S3_UPLOAD_POOL = "s3_upload_pool"  # suggested default: 2
 
+    # pool to limit S3 downloads across all instruments
+    S3_DOWNLOAD_POOL = "s3_download_pool"  # suggested default: 3
+
 
 class AlphaDiaConstants:
     """Constants for accessing AlphaDia output."""

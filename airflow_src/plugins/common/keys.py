@@ -15,6 +15,7 @@ class Dags:
     FILE_MOVER: str = "file_mover"
     FILE_REMOVER: str = "file_remover"
     S3_UPLOADER: str = "s3_uploader"
+    S3_DOWNLOADER: str = "s3_downloader"
 
 
 class Tasks:
@@ -71,6 +72,7 @@ class DagParams:
 
     # "params" level
     RAW_FILE_ID: str = "raw_file_id"
+    RAW_FILE_IDS: str = "raw_file_ids"  # for batch operations
 
     # s3 uploader
     INTERNAL_TARGET_FOLDER_PATH: str = "internal_target_folder_path"

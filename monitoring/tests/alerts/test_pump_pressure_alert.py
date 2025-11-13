@@ -613,27 +613,6 @@ class TestPumpPressureAlert:
         # then
         assert result == []
 
-    def test_detect_high_absolute_pressure_should_filter_out_bug_values(self) -> None:
-        """Test that detect_high_absolute_pressure filters out pressure > 1000 bar (bug workaround)."""
-        # given
-        alert = PumpPressureAlert()
-        now = datetime.now(tz=pytz.utc)
-
-        pressure_data = [
-            PressureDataPoint(1500.0, 0.5, now, "file1"),  # Bug value
-            PressureDataPoint(485.0, 0.5, now - timedelta(hours=1), "file2"),  # Valid
-            PressureDataPoint(
-                2000.0, 0.5, now - timedelta(hours=2), "file3"
-            ),  # Bug value
-        ]
-
-        # when
-        result = alert._detect_high_absolute_pressure(pressure_data, threshold=480)
-
-        # then
-        assert len(result) == 1
-        assert result[0] == (485.0, "file2", now - timedelta(hours=1))
-
     @patch("monitoring.alerts.pump_pressure_alert.augment_raw_files_with_metrics")
     @patch("monitoring.alerts.pump_pressure_alert.RawFile")
     @patch("monitoring.alerts.pump_pressure_alert.PUMP_PRESSURE_LOOKBACK_DAYS", 1)

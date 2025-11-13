@@ -46,8 +46,11 @@ class PumpPressureAlert(BaseAlert):
     def __init__(self) -> None:
         """Initialize the alert with memory for tracking reported issues."""
         super().__init__()
-        # Memory: set of (instrument_id, tuple of pressure_changes) to track reported issues
-        self._reported_issues: set[tuple[str, tuple[Any]]] = set()
+        # Memory: set of (instrument_id, issue_identifier) to track reported issues
+        # issue_identifier can be:
+        # - tuple of pressure_changes for relative increase alerts
+        # - string f"absolute_{raw_file_id}" for absolute threshold alerts
+        self._reported_issues: set[tuple[str, tuple[Any] | str]] = set()
 
     @property
     def name(self) -> str:

@@ -1,4 +1,9 @@
-"""Pump pressure increase alert checker."""
+"""Pump pressure increase alert checker.
+
+Alerts when
+- pump pressure increases significantly over a short period.
+- pump pressure exceeds an absolute threshold (PUMP_PRESSURE_ABSOLUTE_THRESHOLD_BAR).
+"""
 
 import logging
 from collections import defaultdict
@@ -14,11 +19,15 @@ from shared.db.models import KrakenStatus, RawFile
 from .base_alert import BaseAlert
 from .config import (
     BUSINESS_ALERTS_WEBHOOK_URL,
+    PUMP_PRESSURE_ABSOLUTE_THRESHOLD_BAR,
     PUMP_PRESSURE_LOOKBACK_DAYS,
     PUMP_PRESSURE_THRESHOLD_BAR,
     PUMP_PRESSURE_WINDOW_SIZE,
     Cases,
 )
+
+# temporary hack to bypass bug in pump pressure extraction
+MAX_PRESSURE_TO_CONSIDER = 1000
 
 
 @dataclass(frozen=True)
@@ -37,8 +46,11 @@ class PumpPressureAlert(BaseAlert):
     def __init__(self) -> None:
         """Initialize the alert with memory for tracking reported issues."""
         super().__init__()
-        # Memory: set of (instrument_id, tuple of pressure_changes) to track reported issues
-        self._reported_issues: set[tuple[str, tuple[Any]]] = set()
+        # Memory: set of (instrument_id, issue_identifier) to track reported issues
+        # issue_identifier can be:
+        # - tuple of pressure_changes for relative increase alerts
+        # - string f"absolute_{raw_file_id}" for absolute threshold alerts
+        self._reported_issues: set[tuple[str, tuple[Any] | str]] = set()
 
     @property
     def name(self) -> str:
@@ -48,6 +60,13 @@ class PumpPressureAlert(BaseAlert):
     def get_webhook_url(self) -> str:
         """Return the configured BUSINESS_ALERTS_WEBHOOK_URL for pump pressure alerts."""
         return BUSINESS_ALERTS_WEBHOOK_URL
+
+    def get_cooldown_time_minutes(self, identifier: str) -> int:
+        """Return cooldown in minutes for this alert and identifier."""
+        del identifier  # unused
+
+        # no cooldown here: we want to alert on every new issue, this class is taking care of duplicates through self._reported_issues anyway
+        return 0
 
     def _get_issues(self, status_objects: list[KrakenStatus]) -> list[tuple[str, str]]:
         """Check for pump pressure increases per instrument."""
@@ -84,6 +103,7 @@ class PumpPressureAlert(BaseAlert):
 
         issues = []
         for instrument_id, pressure_data in instrument_data.items():
+            # Check for pressure increase (relative threshold)
             is_alert, pressure_changes = self._detect_pressure_increase(
                 pressure_data, PUMP_PRESSURE_WINDOW_SIZE, PUMP_PRESSURE_THRESHOLD_BAR
             )
@@ -105,6 +125,27 @@ class PumpPressureAlert(BaseAlert):
                     logging.debug(
                         f"Suppressing duplicate alert for {instrument_id} "
                         f"with pressure changes: {pressure_changes}"
+                    )
+
+            # Check for high absolute pressure
+            high_pressure_alerts = self._detect_high_absolute_pressure(
+                pressure_data, PUMP_PRESSURE_ABSOLUTE_THRESHOLD_BAR
+            )
+            for pressure, raw_file_id, timestamp in high_pressure_alerts:
+                memory_key = (instrument_id, f"absolute_{raw_file_id}")
+
+                if memory_key not in self._reported_issues:
+                    self._reported_issues.add(memory_key)
+                    issues.append(
+                        (
+                            instrument_id,
+                            f"High pressure: {pressure:.1f} bar (≥{PUMP_PRESSURE_ABSOLUTE_THRESHOLD_BAR} bar) in `{raw_file_id}` at {timestamp.strftime('%Y-%m-%d %H:%M:%S')}",
+                        )
+                    )
+                else:
+                    logging.debug(
+                        f"Suppressing duplicate absolute pressure alert for {instrument_id} "
+                        f"with raw_file_id: {raw_file_id}"
                     )
 
         return issues
@@ -190,8 +231,10 @@ class PumpPressureAlert(BaseAlert):
             past_pressure = data_older.pressure
             pressure_change = current_pressure - past_pressure
 
-            # temporary hack to bypass bug in pump pressure extraction
-            if past_pressure > 1000 or current_pressure > 1000:  # noqa: PLR2004
+            if (
+                past_pressure > MAX_PRESSURE_TO_CONSIDER
+                or current_pressure > MAX_PRESSURE_TO_CONSIDER
+            ):
                 continue
 
             if pressure_change > threshold:
@@ -209,6 +252,34 @@ class PumpPressureAlert(BaseAlert):
                 break
 
         return is_alert, pressure_changes
+
+    def _detect_high_absolute_pressure(
+        self,
+        pressure_data: list[PressureDataPoint],
+        threshold: float,
+    ) -> list[tuple[float, str, datetime]]:
+        """Detect if any pressure measurements exceed the absolute threshold.
+
+        Args:
+            pressure_data: list of PressureDataPoint instances
+            threshold: absolute pressure threshold to trigger alert
+
+        Returns:
+            List of tuples (pressure, raw_file_id, timestamp) for measurements >= threshold
+
+        """
+        high_pressure_measurements = []
+
+        for data_point in pressure_data:
+            if data_point.pressure > MAX_PRESSURE_TO_CONSIDER:
+                continue
+
+            if data_point.pressure >= threshold:
+                high_pressure_measurements.append(
+                    (data_point.pressure, data_point.raw_file_id, data_point.created_at)
+                )
+
+        return high_pressure_measurements
 
     def format_message(self, issues: list[tuple[str, str]]) -> str:
         """Format pump pressure alert message."""

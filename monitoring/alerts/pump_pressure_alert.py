@@ -21,6 +21,9 @@ from .config import (
     Cases,
 )
 
+# temporary hack to bypass bug in pump pressure extraction
+MAX_PRESSURE_TO_CONSIDER = 1000
+
 
 @dataclass(frozen=True)
 class PressureDataPoint:
@@ -213,8 +216,10 @@ class PumpPressureAlert(BaseAlert):
             past_pressure = data_older.pressure
             pressure_change = current_pressure - past_pressure
 
-            # temporary hack to bypass bug in pump pressure extraction
-            if past_pressure > 1000 or current_pressure > 1000:  # noqa: PLR2004
+            if (
+                past_pressure > MAX_PRESSURE_TO_CONSIDER
+                or current_pressure > MAX_PRESSURE_TO_CONSIDER
+            ):
                 continue
 
             if pressure_change > threshold:
@@ -251,8 +256,7 @@ class PumpPressureAlert(BaseAlert):
         high_pressure_measurements = []
 
         for data_point in pressure_data:
-            # Skip obvious bugs (same as increase detection)
-            if data_point.pressure > 1000:  # noqa: PLR2004
+            if data_point.pressure > MAX_PRESSURE_TO_CONSIDER:
                 continue
 
             if data_point.pressure >= threshold:

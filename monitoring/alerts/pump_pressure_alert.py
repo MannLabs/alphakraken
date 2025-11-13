@@ -1,4 +1,9 @@
-"""Pump pressure increase alert checker."""
+"""Pump pressure increase alert checker.
+
+Alerts when
+- pump pressure increases significantly over a short period.
+- pump pressure exceeds an absolute threshold (PUMP_PRESSURE_ABSOLUTE_THRESHOLD_BAR).
+"""
 
 import logging
 from collections import defaultdict

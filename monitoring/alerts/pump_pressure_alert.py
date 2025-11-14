@@ -172,7 +172,7 @@ class PumpPressureAlert(BaseAlert):
         """Group metrics by instrument, returning PressureDataPoint instances."""
         pressure_data = defaultdict(list)
         for raw_file_id, v in raw_files_with_metrics.items():
-            gradient_length = v.get("metrics_alphadia", {}).get("raw:gradient_length_m")
+            gradient_length = v.get("metrics_alphadia", {}).get("raw:gradient_length")
             pressure = v.get("metrics_msqc", {}).get("msqc_evosep_pump_hp_pressure_max")
 
             if gradient_length is not None and pressure is not None:

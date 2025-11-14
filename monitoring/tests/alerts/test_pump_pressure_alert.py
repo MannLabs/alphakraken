@@ -92,19 +92,19 @@ class TestPumpPressureAlert:
             "file1": {
                 "instrument_id": "instrument1",
                 "created_at": now,
-                "metrics_alphadia": {"raw:gradient_length_m": 0.5},
+                "metrics_alphadia": {"raw:gradient_length": 180},
                 "metrics_msqc": {"msqc_evosep_pump_hp_pressure_max": 100.0},
             },
             "file2": {
                 "instrument_id": "instrument1",
                 "created_at": now - timedelta(hours=1),
-                "metrics_alphadia": {"raw:gradient_length_m": 0.5},
+                "metrics_alphadia": {"raw:gradient_length": 180},
                 "metrics_msqc": {"msqc_evosep_pump_hp_pressure_max": 110.0},
             },
             "file3": {
                 "instrument_id": "instrument2",
                 "created_at": now - timedelta(hours=2),
-                "metrics_alphadia": {"raw:gradient_length_m": 0.6},
+                "metrics_alphadia": {"raw:gradient_length": 198},
                 "metrics_msqc": {"msqc_evosep_pump_hp_pressure_max": 95.0},
             },
         }
@@ -115,11 +115,11 @@ class TestPumpPressureAlert:
         # then
         expected = {
             "instrument1": [
-                PressureDataPoint(100.0, 0.5, now, "file1"),
-                PressureDataPoint(110.0, 0.5, now - timedelta(hours=1), "file2"),
+                PressureDataPoint(100.0, 180, now, "file1"),
+                PressureDataPoint(110.0, 180, now - timedelta(hours=1), "file2"),
             ],
             "instrument2": [
-                PressureDataPoint(95.0, 0.6, now - timedelta(hours=2), "file3"),
+                PressureDataPoint(95.0, 198, now - timedelta(hours=2), "file3"),
             ],
         }
         assert result == expected
@@ -132,7 +132,6 @@ class TestPumpPressureAlert:
         alert = PumpPressureAlert()
         now = datetime.now(tz=pytz.utc)
 
-        # TODO: check
         raw_files_with_metrics = {
             "file1": {
                 "instrument_id": "instrument1",
@@ -143,7 +142,7 @@ class TestPumpPressureAlert:
             "file2": {
                 "instrument_id": "instrument1",
                 "created_at": now - timedelta(hours=1),
-                "metrics_alphadia": {"raw:gradient_length_m": 0.5},
+                "metrics_alphadia": {"raw:gradient_length": 180},
                 "metrics_msqc": {"msqc_evosep_pump_hp_pressure_max": 110.0},
             },
         }
@@ -154,7 +153,7 @@ class TestPumpPressureAlert:
         # then
         expected = {
             "instrument1": [
-                PressureDataPoint(110.0, 0.5, now - timedelta(hours=1), "file2"),
+                PressureDataPoint(110.0, 180, now - timedelta(hours=1), "file2"),
             ],
         }
         assert result == expected
@@ -167,18 +166,17 @@ class TestPumpPressureAlert:
         alert = PumpPressureAlert()
         now = datetime.now(tz=pytz.utc)
 
-        # TODO: check
         raw_files_with_metrics = {
             "file1": {
                 "instrument_id": "instrument1",
                 "created_at": now,
-                "metrics_alphadia": {"raw:gradient_length_m": 0.5},
+                "metrics_alphadia": {"raw:gradient_length": 180},
                 "metrics_msqc": {},
             },
             "file2": {
                 "instrument_id": "instrument1",
                 "created_at": now - timedelta(hours=1),
-                "metrics_alphadia": {"raw:gradient_length_m": 0.5},
+                "metrics_alphadia": {"raw:gradient_length": 180},
                 "metrics_msqc": {"msqc_evosep_pump_hp_pressure_max": 110.0},
             },
         }
@@ -189,7 +187,7 @@ class TestPumpPressureAlert:
         # then
         expected = {
             "instrument1": [
-                PressureDataPoint(110.0, 0.5, now - timedelta(hours=1), "file2"),
+                PressureDataPoint(110.0, 180, now - timedelta(hours=1), "file2"),
             ],
         }
         assert result == expected
@@ -483,49 +481,48 @@ class TestPumpPressureAlert:
         mock_query.only.return_value.order_by.return_value = [mock_raw_file]
         mock_rawfile.objects.filter.return_value = mock_query
 
-        # TODO: check
         # Mock augment to return pressure data that triggers an alert
         mock_augment.return_value = {
             "file1": {
                 "instrument_id": "instrument1",
                 "created_at": now,
-                "metrics_alphadia": {"raw:gradient_length_m": 0.5},
+                "metrics_alphadia": {"raw:gradient_length": 180},
                 "metrics_msqc": {"msqc_evosep_pump_hp_pressure_max": 125.0},
             },
             "file2": {
                 "instrument_id": "instrument1",
                 "created_at": now - timedelta(hours=1),
-                "metrics_alphadia": {"raw:gradient_length_m": 0.5},
+                "metrics_alphadia": {"raw:gradient_length": 180},
                 "metrics_msqc": {"msqc_evosep_pump_hp_pressure_max": 124.0},
             },
             "file3": {
                 "instrument_id": "instrument1",
                 "created_at": now - timedelta(hours=2),
-                "metrics_alphadia": {"raw:gradient_length_m": 0.5},
+                "metrics_alphadia": {"raw:gradient_length": 180},
                 "metrics_msqc": {"msqc_evosep_pump_hp_pressure_max": 123.0},
             },
             "file4": {
                 "instrument_id": "instrument1",
                 "created_at": now - timedelta(hours=3),
-                "metrics_alphadia": {"raw:gradient_length_m": 0.5},
+                "metrics_alphadia": {"raw:gradient_length": 180},
                 "metrics_msqc": {"msqc_evosep_pump_hp_pressure_max": 122.0},
             },
             "file5": {
                 "instrument_id": "instrument1",
                 "created_at": now - timedelta(hours=4),
-                "metrics_alphadia": {"raw:gradient_length_m": 0.5},
+                "metrics_alphadia": {"raw:gradient_length": 180},
                 "metrics_msqc": {"msqc_evosep_pump_hp_pressure_max": 121.0},
             },
             "file6": {
                 "instrument_id": "instrument1",
                 "created_at": now - timedelta(hours=5),
-                "metrics_alphadia": {"raw:gradient_length_m": 0.5},
+                "metrics_alphadia": {"raw:gradient_length": 180},
                 "metrics_msqc": {"msqc_evosep_pump_hp_pressure_max": 120.0},
             },
             "file7": {
                 "instrument_id": "instrument1",
                 "created_at": now - timedelta(hours=6),
-                "metrics_alphadia": {"raw:gradient_length_m": 0.5},
+                "metrics_alphadia": {"raw:gradient_length": 180},
                 "metrics_msqc": {"msqc_evosep_pump_hp_pressure_max": 100.0},
             },
         }
@@ -649,49 +646,48 @@ class TestPumpPressureAlert:
         mock_query.only.return_value.order_by.return_value = [mock_raw_file]
         mock_rawfile.objects.filter.return_value = mock_query
 
-        # TODO: check
         # Mock data with both high absolute pressure AND pressure increase
         mock_augment.return_value = {
             "file1": {
                 "instrument_id": "instrument1",
                 "created_at": now,
-                "metrics_alphadia": {"raw:gradient_length_m": 0.5},
+                "metrics_alphadia": {"raw:gradient_length": 180},
                 "metrics_msqc": {"msqc_evosep_pump_hp_pressure_max": 485.0},
             },
             "file2": {
                 "instrument_id": "instrument1",
                 "created_at": now - timedelta(hours=1),
-                "metrics_alphadia": {"raw:gradient_length_m": 0.5},
+                "metrics_alphadia": {"raw:gradient_length": 180},
                 "metrics_msqc": {"msqc_evosep_pump_hp_pressure_max": 484.0},
             },
             "file3": {
                 "instrument_id": "instrument1",
                 "created_at": now - timedelta(hours=2),
-                "metrics_alphadia": {"raw:gradient_length_m": 0.5},
+                "metrics_alphadia": {"raw:gradient_length": 180},
                 "metrics_msqc": {"msqc_evosep_pump_hp_pressure_max": 483.0},
             },
             "file4": {
                 "instrument_id": "instrument1",
                 "created_at": now - timedelta(hours=3),
-                "metrics_alphadia": {"raw:gradient_length_m": 0.5},
+                "metrics_alphadia": {"raw:gradient_length": 180},
                 "metrics_msqc": {"msqc_evosep_pump_hp_pressure_max": 482.0},
             },
             "file5": {
                 "instrument_id": "instrument1",
                 "created_at": now - timedelta(hours=4),
-                "metrics_alphadia": {"raw:gradient_length_m": 0.5},
+                "metrics_alphadia": {"raw:gradient_length": 180},
                 "metrics_msqc": {"msqc_evosep_pump_hp_pressure_max": 481.0},
             },
             "file6": {
                 "instrument_id": "instrument1",
                 "created_at": now - timedelta(hours=5),
-                "metrics_alphadia": {"raw:gradient_length_m": 0.5},
+                "metrics_alphadia": {"raw:gradient_length": 180},
                 "metrics_msqc": {"msqc_evosep_pump_hp_pressure_max": 480.0},
             },
             "file7": {
                 "instrument_id": "instrument1",
                 "created_at": now - timedelta(hours=6),
-                "metrics_alphadia": {"raw:gradient_length_m": 0.5},
+                "metrics_alphadia": {"raw:gradient_length": 180},
                 "metrics_msqc": {"msqc_evosep_pump_hp_pressure_max": 460.0},
             },
         }

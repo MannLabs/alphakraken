@@ -7,16 +7,16 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 from plugins.metrics.metrics.alphadia import (
     BasicStats,
+    IntensityStatsSum,
     PrecursorStatsAgg,
     PrecursorStatsIntensity,
     PrecursorStatsMeanLenSequence,
-    PrecursorStatsSum,
     calc_alphadia_metrics,
 )
 
 
 @patch("plugins.metrics.metrics.alphadia.BasicStats")
-@patch("plugins.metrics.metrics.alphadia.PrecursorStatsSum")
+@patch("plugins.metrics.metrics.alphadia.IntensityStatsSum")
 @patch("plugins.metrics.metrics.alphadia.PrecursorStatsAgg")
 @patch("plugins.metrics.metrics.alphadia.PrecursorStatsIntensity")
 @patch("plugins.metrics.metrics.alphadia.PrecursorStatsMeanLenSequence")
@@ -26,7 +26,7 @@ def test_calc_alphadia_metrics_happy_path(  # noqa: PLR0913
     mock_precursor_stats_mean_len_sequence: MagicMock,
     mock_precursor_stats_intensity: MagicMock,
     mock_precursor_stats_mean: MagicMock,
-    mock_precursor_stats_sum: MagicMock,
+    mock_intensity_stats_sum: MagicMock,
     mock_basic_stats: MagicMock,
 ) -> None:
     """Test the happy path of calc_metrics with mock metrics."""
@@ -36,8 +36,8 @@ def test_calc_alphadia_metrics_happy_path(  # noqa: PLR0913
             mock_basic_stats,
             "value1",
         ),
-        "precursor_sum_metric": (
-            mock_precursor_stats_sum,
+        "intensity_sum_metric": (
+            mock_intensity_stats_sum,
             "value2",
         ),
         "precursor_mean_metric": (
@@ -99,27 +99,31 @@ def test_basic_stats_calculation(mock_datastore: MagicMock) -> None:
 
 
 @patch("plugins.metrics.metrics.alphadia.DataStore")
-def test_precursor_stats_calculation(mock_datastore: MagicMock) -> None:
-    """Test precursor stats calculation."""
+def test_intensity_stats_calculation(mock_datastore: MagicMock) -> None:
+    """Test intensity stats calculation."""
     mock_df = pd.DataFrame(
         {
             "weighted_ms1_intensity": [1.0, 2.0],
-            "intensity": [10.0, 20.0],
+            "pg.intensity": [10.0, 20.0],
+            "precursor.intensity": [5.0, 15.0],
+            "peptide.intensity": [7.0, 13.0],
         }
     )
 
     mock_datastore.__getitem__.return_value = mock_df
 
     # when
-    metrics = PrecursorStatsSum(mock_datastore).get()
+    metrics = IntensityStatsSum(mock_datastore).get()
 
     assert metrics["weighted_ms1_intensity_sum"] == 3.0
-    assert metrics["intensity_sum"] == 30.0
+    assert metrics["pg.intensity_sum"] == 30.0
+    assert metrics["precursor.intensity_sum"] == 20.0
+    assert metrics["peptide.intensity_sum"] == 20.0
 
 
 @patch("plugins.metrics.metrics.alphadia.DataStore")
-def test_precursor_stats_calculation_column_missing(mock_datastore: MagicMock) -> None:
-    """Test precursor stats calculation os gracefully handling a missing column."""
+def test_intensity_stats_calculation_column_missing(mock_datastore: MagicMock) -> None:
+    """Test intensity stats calculation gracefully handling missing columns."""
     mock_df = pd.DataFrame(
         {
             "weighted_ms1_intensity": [1.0, 2.0],
@@ -129,10 +133,12 @@ def test_precursor_stats_calculation_column_missing(mock_datastore: MagicMock) -
     mock_datastore.__getitem__.return_value = mock_df
 
     # when
-    metrics = PrecursorStatsSum(mock_datastore).get()
+    metrics = IntensityStatsSum(mock_datastore).get()
 
     assert metrics["weighted_ms1_intensity_sum"] == 3.0
-    assert "intensity_sum" not in metrics
+    assert "pg.intensity_sum" not in metrics
+    assert "precursor.intensity_sum" not in metrics
+    assert "peptide.intensity_sum" not in metrics
 
 
 @patch("plugins.metrics.metrics.alphadia.DataStore")
@@ -140,7 +146,7 @@ def test_precursor_stats_mean_calculation(mock_datastore: MagicMock) -> None:
     """Test precursor stats mean calculation."""
     mock_df = pd.DataFrame(
         {
-            "charge": [1.0, 2.0],
+            "precursor.charge": [1.0, 2.0],
         }
     )
 
@@ -149,9 +155,9 @@ def test_precursor_stats_mean_calculation(mock_datastore: MagicMock) -> None:
     # when
     metrics = PrecursorStatsAgg(mock_datastore).get()
 
-    assert metrics["charge_mean"] == 1.5
-    assert metrics["charge_std"] == 0.7071067811865476
-    assert metrics["charge_median"] == 1.5
+    assert metrics["precursor.charge_mean"] == 1.5
+    assert metrics["precursor.charge_std"] == 0.7071067811865476
+    assert metrics["precursor.charge_median"] == 1.5
 
 
 @patch("plugins.metrics.metrics.alphadia.DataStore")
@@ -161,7 +167,7 @@ def test_precursor_stats_sequence_len_mean_calculation(
     """Test precursor stats sequence length mean calculation."""
     mock_df = pd.DataFrame(
         {
-            "sequence": ["A", "AB"],
+            "precursor.sequence": ["A", "AB"],
         }
     )
 
@@ -170,9 +176,9 @@ def test_precursor_stats_sequence_len_mean_calculation(
     # when
     metrics = PrecursorStatsMeanLenSequence(mock_datastore).get()
 
-    assert metrics["sequence_len_mean"] == 1.5
-    assert metrics["sequence_len_std"] == 0.7071067811865476
-    assert metrics["sequence_len_median"] == 1.5
+    assert metrics["precursor.sequence_len_mean"] == 1.5
+    assert metrics["precursor.sequence_len_std"] == 0.7071067811865476
+    assert metrics["precursor.sequence_len_median"] == 1.5
 
 
 @patch("plugins.metrics.metrics.alphadia.DataStore")

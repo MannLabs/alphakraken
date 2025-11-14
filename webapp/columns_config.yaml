@@ -14,24 +14,31 @@ columns:
   - name: "gradient_length"
     color_gradient: "red_is_high"
     alternative_names:
-      - "raw:gradient_length_m"
+      - "raw:gradient_length_m" # alphadia v1.x
+      - "raw:gradient_length" # alphadia v2.0.0
   - name: "precursors"
     color_gradient: "green_is_high"
     plot: true
+    alternative_names:
+      - "search:precursors" # alphadia v2.0.0
   - name: "proteins"
     color_gradient: "green_is_high"
     plot: true
-  - name: "ms1_median_accuracy"
+    alternative_names:
+      - "search:proteins" # alphadia v2.0.0
+  - name: "ms1_bias"
     color_gradient: "red_is_high"
     plot: true
     alternative_names:
       - "ms1_accuracy" # alphadia<=1.8.2
-      - "calibration:ms1_median_accuracy"
-  - name: "ms2_median_accuracy"
+      - "calibration:ms1_median_accuracy" # alphadia v1.x
+      - "calibration:ms1_bias" # alphadia v2.0.0
+  - name: "ms2_bias"
     color_gradient: "red_is_high"
     plot: true
     alternative_names:
-      - "calibration:ms2_median_accuracy"
+      - "calibration:ms2_median_accuracy" # alphadia v1.x
+      - "calibration:ms2_bias" # alphadia v2.0.0
 
   - name: "msqc_evosep_pump_hp_pressure_max"
     plot: true
@@ -51,17 +58,36 @@ columns:
   - name: "fwhm_rt"
     color_gradient: "red_is_high"
     plot: true
+    alternative_names:
+      - "search:fwhm_rt" # alphadia v2.0.0
   - name: "fwhm_mobility"
     color_gradient: "red_is_high"
     plot: true
+    alternative_names:
+      - "search:fwhm_mobility" # alphadia v2.0.0
   - name: "weighted_ms1_intensity_sum"
     color_gradient: "green_is_high"
     plot: true
     log_scale: true
-  - name: "intensity_sum"
+  - name: "pg.intensity_sum"
     color_gradient: "green_is_high"
     plot: true
     log_scale: true
+    alternative_names:
+      - "intensity_sum" # alphadia v1.x
+      - "pg:intensity_sum" # alphadia v2.0.0
+  - name: "precursor.intensity_sum"
+    color_gradient: "green_is_high"
+    plot: true
+    log_scale: true
+    alternative_names:
+      - "precursor:intensity_sum" # alphadia v2.0.0
+  - name: "peptide.intensity_sum"
+    color_gradient: "green_is_high"
+    plot: true
+    log_scale: true
+    alternative_names:
+      - "peptide:intensity_sum" # alphadia v2.0.0
   - name: "ms1_error"
     color_gradient: "red_is_high"
     plot: true
@@ -82,18 +108,27 @@ columns:
     plot: true
     alternative_names:
       - "optimization:mobility_error"
-  - name: "charge_mean"
+  - name: "precursor.charge_mean"
     color_gradient: "green_is_high"
     plot: true
-  - name: "proba_median"
+    alternative_names:
+      - "charge_mean" # alphadia v1.x
+      - "precursor:charge_mean" # alphadia v2.0.0
+  - name: "precursor.proba_median"
     color_gradient: "green_is_high"
     plot: true
+    alternative_names:
+      - "proba_median" # alphadia v1.x
+      - "precursor:proba_median" # alphadia v2.0.0
   - name: "precursor_intensity_median" # do not confuse with "intensity_sum"
     color_gradient: "green_is_high"
     plot: true
-  - name: "sequence_len_mean"
+  - name: "precursor.sequence_len_mean"
     color_gradient: "green_is_high"
     plot: true
+    alternative_names:
+      - "sequence_len_mean" # alphadia v1.x
+      - "precursor:sequence_len_mean" # alphadia v2.0.0
 
   # Technical plots
   - name: "lag_time_minutes"

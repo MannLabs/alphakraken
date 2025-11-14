@@ -33,17 +33,17 @@ class BasicStats(Metrics):
     _tolerate_missing = True
 
     _columns = (
-        "proteins",
-        "precursors",
-        "fwhm_rt",
-        "fwhm_mobility",
+        "search.proteins",
+        "search.precursors",
+        "search.fwhm_rt",
+        "search.fwhm_mobility",
         "optimization.ms1_error",
         "optimization.ms2_error",
         "optimization.rt_error",
         "optimization.mobility_error",
-        "calibration.ms1_median_accuracy",
-        "calibration.ms2_median_accuracy",
-        "raw.gradient_length_m",
+        "calibration.ms1_bias",
+        "calibration.ms2_bias",
+        "raw.gradient_length",
     )
 
     def _calc(self, df: pd.DataFrame, column: str) -> None:
@@ -63,11 +63,16 @@ class InternalStats(Metrics):
         self._metrics[f"{column}"] = df[column].mean()
 
 
-class PrecursorStatsSum(Metrics):
+class IntensityStatsSum(Metrics):
     """Precursor statistics (sum)."""
 
     _file = OutputFiles.PRECURSORS
-    _columns = ("weighted_ms1_intensity", "intensity")
+    _columns = (
+        "weighted_ms1_intensity",
+        "pg.intensity",
+        "precursor.intensity",
+        "peptide.intensity",
+    )
     _tolerate_missing = True
 
     def _calc(self, df: pd.DataFrame, column: str) -> None:
@@ -79,7 +84,7 @@ class PrecursorStatsAgg(Metrics):
     """Precursor statistics (aggregates)."""
 
     _file = OutputFiles.PRECURSORS
-    _columns = ("charge", "proba")
+    _columns = ("precursor.charge", "precursor.proba")
     _tolerate_missing = True
 
     def _calc(self, df: pd.DataFrame, column: str) -> None:
@@ -112,7 +117,7 @@ class PrecursorStatsMeanLenSequence(Metrics):
     """Precursor statistics (mean length sequence)."""
 
     _file = OutputFiles.PRECURSORS
-    _columns = ("sequence",)
+    _columns = ("precursor.sequence",)
     _tolerate_missing = True
 
     def _calc(self, df: pd.DataFrame, column: str) -> None:
@@ -129,7 +134,7 @@ def calc_alphadia_metrics(output_directory: Path) -> dict[str, str | int | float
     data_store = DataStore(output_directory, file_name_to_read_method_mapping)
 
     metrics = BasicStats(data_store).get()
-    metrics |= PrecursorStatsSum(data_store).get()
+    metrics |= IntensityStatsSum(data_store).get()
     metrics |= PrecursorStatsAgg(data_store).get()
     metrics |= PrecursorStatsIntensity(data_store).get()
     metrics |= PrecursorStatsMeanLenSequence(data_store).get()

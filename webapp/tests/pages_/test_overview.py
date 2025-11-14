@@ -68,13 +68,13 @@ def test_overview(
     metrics_df = pd.DataFrame(
         {
             "raw_file": [1, 2],
-            "proteins": [1, 2],
-            "precursors": [1, 2],
-            "ms1_accuracy": [1.0, 2.0],
-            "fwhm_rt": [1.0, 2.0],
+            "search:proteins": [1, 2],
+            "search:precursors": [1, 2],
+            "calibration:ms1_bias": [1.0, 2.0],
+            "search:fwhm_rt": [1.0, 2.0],
             "quanting_time_elapsed": [60.0, 120.0],
             "weighted_ms1_intensity_sum": [1.0, 2.0],
-            "intensity_sum": [1.0, 2.0],
+            "pg:intensity_sum": [1.0, 2.0],
             "settings_version": [1, 2],
         }
     )
@@ -82,7 +82,7 @@ def test_overview(
     custom_metrics_df = pd.DataFrame(
         {
             "raw_file": [1, 2],
-            "proteins": [1, 2],
+            "search:proteins": [1, 2],
             "some_custom_metric": [1, 2],
         }
     )
@@ -122,7 +122,7 @@ def test_overview(
         "raw_file": {1: 1, 2: 2},
         "proteins": {1: 1, 2: 2},
         "precursors": {1: 1, 2: 2},
-        "ms1_median_accuracy": {1: 1.0, 2: 2.0},
+        "ms1_bias": {1: 1.0, 2: 2.0},
         "fwhm_rt": {1: 1.0, 2: 2.0},
         "created_at": {1: ts1noms, 2: ts2noms},
         "created_at_": {1: ts1noms, 2: ts2noms},
@@ -135,10 +135,10 @@ def test_overview(
         "status_details": {1: "", 2: ""},
         "instrument_id": {1: "i1", 2: "i1"},
         "weighted_ms1_intensity_sum": {1: 1.0, 2: 2.0},
-        "intensity_sum": {1: 1.0, 2: 2.0},
+        "pg.intensity_sum": {1: 1.0, 2: 2.0},
         "is_baseline": {1: False, 2: False},
         "settings_version": {1: 1, 2: 2},
-        "proteins_custom": {1: 1, 2: 2},
+        "search:proteins_custom": {1: 1, 2: 2},
         "some_custom_metric": {1: 1, 2: 2},
     }
 

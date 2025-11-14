@@ -10,9 +10,11 @@ from typing import Any
 
 import humanize
 import matplotlib as mpl
+import matplotlib.colors
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+import streamlit.delta_generator
 from matplotlib import pyplot as plt
 from service.session_state import SessionStateKeys, copy_session_state
 from service.utils import BASELINE_PREFIX, DEFAULT_MAX_AGE_STATUS, display_plotly_chart
@@ -21,18 +23,18 @@ from shared.db.models import TERMINAL_STATUSES, KrakenStatusEntities, RawFileSta
 from shared.keys import EnvVars, InstrumentTypes
 
 
-def _re_filter(text: Any, filter_: str) -> bool:  # noqa: ANN401
+def _re_filter(text: Any, filter_: str) -> bool:
     """Filter a value `x` with a `filter_` string."""
     return bool(re.search(filter_, str(text), re.IGNORECASE))
 
 
-def show_filter(
+def show_filter(  # noqa: C901
     df: pd.DataFrame,
     *,
     default_value: str | None = None,
     text_to_display: str = "Filter:",
     example_text: str = "P123",
-    st_display: st.delta_generator.DeltaGenerator = st,
+    st_display: st.delta_generator.DeltaGenerator | Any = None,
 ) -> tuple[pd.DataFrame, str | None, list[str]]:
     """Filter the DataFrame on user input by case-insensitive textual comparison in all columns.
 
@@ -43,6 +45,8 @@ def show_filter(
 
     :return: The filtered DataFrame.
     """
+    if st_display is None:
+        st_display = st
     user_input = st_display.text_input(
         text_to_display,
         st.session_state.get(SessionStateKeys.CURRENT_FILTER, default_value),
@@ -124,10 +128,12 @@ def show_date_select(
     df: pd.DataFrame,
     text_to_display: str = "Earliest file creation date:",
     help_to_display: str = "Selects the earliest file creation date to display in table and plots.",
-    st_display: st.delta_generator.DeltaGenerator = st,
+    st_display: st.delta_generator.DeltaGenerator | Any = None,
     max_age_days: int | None = None,
 ) -> pd.DataFrame:
     """Filter the DataFrame on user input by date."""
+    if st_display is None:
+        st_display = st
     if len(df) == 0:
         return df
 

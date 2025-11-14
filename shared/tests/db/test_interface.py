@@ -1,3 +1,5 @@
+# type: ignore[invalid-argument-type]
+
 """Tests for the db.interface module."""
 
 from datetime import datetime, timedelta

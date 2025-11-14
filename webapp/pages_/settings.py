@@ -1,8 +1,11 @@
 """Simple data overview."""
 
 # ruff: noqa: TRY301 # Abstract `raise` to an inner function
+from typing import Any
+
 import pandas as pd
 import streamlit as st
+import streamlit.delta_generator
 from service.components import show_filter, show_sandbox_message
 from service.db import (
     df_from_db_data,
@@ -56,9 +59,12 @@ st.warning("This page should be edited only by administrators!", icon="⚠️")
 
 @st.fragment
 def display_settings(
-    settings_df: pd.DataFrame, st_display: st.delta_generator.DeltaGenerator = st
+    settings_df: pd.DataFrame,
+    st_display: st.delta_generator.DeltaGenerator | Any = None,
 ) -> None:
     """Fragment to display settings in a table."""
+    if st_display is None:
+        st_display = st
     filtered_df, *_ = show_filter(
         settings_df, st_display=st_display, default_value="status=^active"
     )

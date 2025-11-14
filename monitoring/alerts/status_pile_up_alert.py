@@ -52,7 +52,7 @@ class StatusPileUpAlert(BaseAlert):
 
         return status_pile_up_instruments
 
-    def format_message(self, issues: list[tuple[str, str]]) -> str:
+    def format_message(self, issues: list[tuple[str, str | None]]) -> str:
         """Format status pile-up message."""
         instruments_str = "\n".join(
             [

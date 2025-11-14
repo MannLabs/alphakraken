@@ -95,7 +95,7 @@ pre-commit run --all-files
 ### Type checking
 The code can be type-checked by
 ```bash
-uvx ty==0.0.1-alpha.6 check
+uvx ty==0.0.1-alpha.25 check
 ```
 
 ### A note on importing and PYTHONPATH

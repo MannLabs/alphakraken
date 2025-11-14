@@ -39,23 +39,23 @@ class TestableRawFileMonitorWrapper(RawFileMonitorWrapper):
 
     _raw_file_extension = "test_ext"
 
-    def _main_file_path(self) -> Any:  # noqa: ANN401
+    def _main_file_path(self) -> Any:
         """Dummy implementation."""
 
-    def _get_files_to_copy(self) -> Any:  # noqa: ANN401
+    def _get_files_to_copy(self) -> Any:
         """Dummy implementation."""
 
 
 class TestableRawFileWriteWrapper(RawFileWriteWrapper):
     """A testable subclass of RawFileWriteWrapper to test the methods provided by the abstract class."""
 
-    def _get_files_to_copy(self) -> Any:  # noqa: ANN401
+    def _get_files_to_copy(self) -> Any:
         """Dummy implementation."""
 
-    def _get_files_to_move(self) -> Any:  # noqa: ANN401
+    def _get_files_to_move(self) -> Any:
         """Dummy implementation."""
 
-    def _get_folder_to_remove(self) -> Any:  # noqa: ANN401
+    def _get_folder_to_remove(self) -> Any:
         """Dummy implementation."""
 
 

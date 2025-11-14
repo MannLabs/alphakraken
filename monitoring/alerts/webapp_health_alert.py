@@ -3,6 +3,7 @@
 import logging
 
 import requests
+import requests.exceptions
 
 from shared.db.models import KrakenStatus
 from shared.yamlsettings import YamlKeys, get_notification_setting
@@ -56,7 +57,7 @@ class WebAppHealthAlert(BaseAlert):
 
         return issues
 
-    def format_message(self, issues: list[tuple[str, str]]) -> str:
+    def format_message(self, issues: list[tuple[str, str | None]]) -> str:
         """Format webapp health failure message."""
         error_details = issues[0][1] if issues else "Unknown error"
         return f"Webapp health check failed: {error_details} (URL: {self.webapp_url})"

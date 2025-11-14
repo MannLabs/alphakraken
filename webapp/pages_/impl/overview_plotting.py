@@ -71,7 +71,7 @@ def _calculate_trendline(
         # Convert back to datetime for plotting
         x_trend = pd.to_datetime(x_trend)
 
-    return x_trend, y_trend
+    return x_trend, y_trend  # type: ignore[invalid-return-type]
 
 
 def _draw_plot(  # noqa: PLR0913

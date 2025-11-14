@@ -51,7 +51,7 @@ class InstrumentFilePileUpAlert(BaseAlert):
 
         return instrument_file_pile_up_instruments
 
-    def format_message(self, issues: list[tuple[str, str]]) -> str:
+    def format_message(self, issues: list[tuple[str, str | None]]) -> str:
         """Format instrument file pile-up message."""
         instruments_str = "\n".join(
             [f"- `{instrument_id}`: {file_info}" for instrument_id, file_info in issues]

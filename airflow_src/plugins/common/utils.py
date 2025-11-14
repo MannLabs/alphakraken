@@ -138,6 +138,7 @@ def _get_cluster_ssh_connections(
 
     :return: List of connection IDs matching the prefix, sorted by ID
     """
+    assert session is not None
     connections = (
         session.query(Connection)
         .filter(Connection.conn_id.startswith(CLUSTER_SSH_CONNECTION_ID_PREFIX))

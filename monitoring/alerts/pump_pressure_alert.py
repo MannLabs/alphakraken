@@ -50,7 +50,7 @@ class PumpPressureAlert(BaseAlert):
         # issue_identifier can be:
         # - tuple of pressure_changes for relative increase alerts
         # - string f"absolute_{raw_file_id}" for absolute threshold alerts
-        self._reported_issues: set[tuple[str, tuple[Any] | str]] = set()
+        self._reported_issues: set[tuple[str, tuple[Any, ...] | str]] = set()
 
     @property
     def name(self) -> str:

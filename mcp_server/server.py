@@ -63,6 +63,8 @@ raw_file_keys_whitelist = [
     "created_at",
 ]
 metrics_keys_blacklist = ["_id", "raw_file", "created_at_"]
+# TODO: adapt MCP server to alphadia 2.0.0
+
 basic_metrics_keys = ["proteins", "raw:gradient_length_m"]
 
 
@@ -262,6 +264,8 @@ def augment_raw_files_with_metrics(
     for raw_file in raw_files_dict.values():
         metrics = _flatten_metrics(raw_file.get("metrics"))
 
+        # TODO: check
+        # TODO: conversion!
         if gradient_length_filter and (
             not metrics
             or not metrics["raw:gradient_length_m"] * 0.95

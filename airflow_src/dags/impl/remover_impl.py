@@ -41,6 +41,7 @@ from shared.db.models import (
     KrakenStatusEntities,
     KrakenStatusValues,
     RawFile,
+    parse_file_info_item,
 )
 from shared.keys import EnvVars
 
@@ -383,7 +384,7 @@ def _check_file(
         # => strip off instrument1/2025_07 from instrument1/2025_07/file.raw
         rel_file_path = Path(*rel_file_path.parts[2:])
 
-    size_in_db, hash_in_db = file_info_in_db[str(rel_file_path)]
+    size_in_db, hash_in_db = parse_file_info_item(file_info_in_db[str(rel_file_path)])
 
     logging.debug(f"Comparing {file_path_to_remove=} to DB ({rel_file_path}) ..")
 

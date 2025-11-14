@@ -31,7 +31,10 @@ from impl.handler_impl import (
     start_acquisition_processor,
     start_file_mover,
 )
+from impl.s3_upload import upload_raw_file_to_s3
 from sensors.acquisition_monitor import AcquisitionMonitor
+
+from shared.yamlsettings import is_s3_upload_enabled
 
 
 def create_acquisition_handler_dag(instrument_id: str) -> None:
@@ -85,6 +88,15 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
             pool=Pools.FILE_COPY_POOL,
         )
 
+        upload_to_s3_ = PythonOperator(
+            task_id=Tasks.UPLOAD_TO_S3,
+            python_callable=upload_raw_file_to_s3,
+            execution_timeout=timedelta(hours=6),  # Large files need time
+            retries=3,
+            retry_delay=timedelta(minutes=5),
+            pool=Pools.S3_UPLOAD_POOL,
+        )
+
         start_file_mover_ = PythonOperator(
             task_id=Tasks.START_FILE_MOVER,
             python_callable=start_file_mover,
@@ -103,14 +115,19 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
             op_kwargs={OpArgs.INSTRUMENT_ID: instrument_id},
         )
 
-    (
-        monitor_acquisition_
-        >> compute_checksum_
-        >> copy_raw_file_
-        >> start_file_mover_
-        >> decide_processing_
-        >> start_acquisition_processor_
+    first_part = monitor_acquisition_ >> compute_checksum_ >> copy_raw_file_
+    second_part = (
+        start_file_mover_ >> decide_processing_ >> start_acquisition_processor_
     )
+
+    if not is_s3_upload_enabled():
+        (first_part >> second_part)
+    else:
+        (first_part >> [upload_to_s3_, start_file_mover_])
+
+        upload_to_s3_  # noqa: B018
+
+        second_part  # noqa: B018
 
 
 for instrument_id in get_instrument_ids():

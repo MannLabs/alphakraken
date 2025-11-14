@@ -117,7 +117,9 @@ def get_combined_raw_files_and_metrics_df(
         combined_df["quanting_time_minutes"] = combined_df["quanting_time_elapsed"] / 60
         del combined_df["quanting_time_elapsed"]
 
-    for col in ["precursors", "proteins"]:
+    # TODO: centralize harmonization of column names
+    # precursors, proteins: alphadia < 2.0.0
+    for col in ["precursors", "proteins", "search:precursors", "search:proteins"]:
         if col in combined_df.columns:
             combined_df[col] = combined_df[col].astype("Int64", errors="ignore")
 

@@ -14,8 +14,11 @@ columns:
   - name: "gradient_length"
     color_gradient: "red_is_high"
     alternative_names:
-      - "raw:gradient_length_m" # alphadia v1.x
       - "raw:gradient_length" # alphadia v2.0.0
+  - name: "gradient_length_" # TODO: remove, only for backwards compatibility
+    color_gradient: "red_is_high"
+    alternative_names:
+      - "raw:gradient_length_m" # alphadia v1.x
   - name: "precursors"
     color_gradient: "green_is_high"
     plot: true

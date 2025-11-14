@@ -90,8 +90,16 @@ def harmonize_df(df: pd.DataFrame, columns: tuple[Column, ...]) -> pd.DataFrame:
     }
     df = df.rename(columns=names_mapping)
 
+    # TODO: centralize column names
     if "gradient_length" in df.columns:
-        df["gradient_length"] = df["gradient_length"].apply(lambda x: round(x, 1))
+        df["gradient_length"] = df["gradient_length"].apply(lambda x: round(x / 60, 1))
+
+    # TODO: remove, only for backwards compatibility
+    if "gradient_length_" in df.columns:  # alphadia < 2.0.0
+        df["gradient_length_"] = df["gradient_length_"].apply(lambda x: round(x, 1))
+    # fill missing `gradient_length` values from `gradient_length_`
+    if "gradient_length" in df.columns and "gradient_length_" in df.columns:
+        df["gradient_length"] = df["gradient_length"].fillna(df["gradient_length_"])
 
     df[Cols.IS_BASELINE] = False
 

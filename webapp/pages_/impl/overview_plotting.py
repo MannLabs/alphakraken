@@ -93,12 +93,13 @@ def _draw_plot(  # noqa: PLR0913
     median_ = df[y].median() if y_is_numeric else 0
     title = f"{y} (median= {median_:.2f})" if y_is_numeric else y
 
+    # TODO: centralize column names
     hover_data = filter_valid_columns(
         [
             "file_created",
             "size_gb",
-            "precursors",
-            "status",
+            "precursors",  # alphadia < 2.0.0
+            "search:precursorsstatus",
         ],
         df,
     )

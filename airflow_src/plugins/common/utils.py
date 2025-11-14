@@ -130,7 +130,7 @@ def get_minutes_since_fixed_time_point() -> int:
 
 @provide_session
 def _get_cluster_ssh_connections(
-    session: Any = None,  # noqa: ANN401
+    session: Any = None,
 ) -> list[str]:
     """Get all SSH connection IDs that start with the given prefix.
 

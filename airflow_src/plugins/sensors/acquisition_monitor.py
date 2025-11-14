@@ -113,7 +113,7 @@ class AcquisitionMonitor(BaseSensorOperator):
 
         logging.info(f"Monitoring {self._main_file_path}")
 
-    def post_execute(self, context: dict[str, Any], result: Any = None) -> None:  # noqa: ANN401
+    def post_execute(self, context: dict[str, Any], result: Any = None) -> None:
         """Update the status of the raw file in the database."""
         del result  # unused
 

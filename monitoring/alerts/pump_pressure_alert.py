@@ -95,8 +95,14 @@ class PumpPressureAlert(BaseAlert):
             logging.debug("No raw files found in lookback window")
             return []
 
+        # TODO: centralize column names and harmonization
         raw_files_with_metrics = augment_raw_files_with_metrics(
-            raw_files, ["raw:gradient_length_m", "msqc_evosep_pump_hp_pressure_max"]
+            raw_files,
+            [
+                "raw:gradient_length_m",
+                "raw:gradient_length",
+                "msqc_evosep_pump_hp_pressure_max",
+            ],
         )
 
         instrument_data = self._get_pressure_data_by_instrument(raw_files_with_metrics)

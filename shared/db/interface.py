@@ -319,6 +319,15 @@ def augment_raw_files_with_metrics(
         raw_file__in=list(raw_files_dict.keys())
     ).order_by("-created_at_"):
         metrics = dict(metrics_.to_mongo())
+
+        # Convert gradient_length from seconds to minutes if needed
+        # TODO: centralize column names and harmonization
+        if "raw:gradient_length" in metrics:
+            metrics["raw:gradient_length"] = metrics["raw:gradient_length"] / 60
+        elif "raw:gradient_length_m" in metrics:
+            metrics["raw:gradient_length"] = metrics["raw:gradient_length_m"]
+            del metrics["raw:gradient_length_m"]
+
         raw_files_dict[metrics["raw_file"]][f"metrics_{metrics['type']}"] = metrics
 
     return raw_files_dict

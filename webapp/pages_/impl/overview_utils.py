@@ -90,7 +90,7 @@ def harmonize_df(df: pd.DataFrame, columns: tuple[Column, ...]) -> pd.DataFrame:
     }
     df = df.rename(columns=names_mapping)
 
-    # TODO: centralize column names
+    # TODO: centralize column names and harmonization
     if "gradient_length" in df.columns:
         df["gradient_length"] = df["gradient_length"].apply(lambda x: round(x / 60, 1))
 

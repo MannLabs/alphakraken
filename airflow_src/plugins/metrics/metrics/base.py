@@ -13,6 +13,11 @@ def read_tsv(file_path: Path) -> pd.DataFrame:
     return pd.read_csv(file_path, sep="\t")
 
 
+def read_parquet(file_path: Path) -> pd.DataFrame:
+    """Read a parquet file."""
+    return pd.read_parquet(file_path)
+
+
 class DataStore:
     """Data store to read and cache data."""
 

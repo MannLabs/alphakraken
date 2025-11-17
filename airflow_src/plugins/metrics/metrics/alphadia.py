@@ -5,22 +5,22 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from metrics.metrics.base import DataStore, Metrics, read_tsv
+from metrics.metrics.base import DataStore, Metrics, read_parquet, read_tsv
 
 
 class OutputFiles:
     """String constants for the output file names."""
 
-    PG_MATRIX = "pg.matrix.tsv"
-    PRECURSORS = "precursors.tsv"
+    PG_MATRIX = "pg.matrix.parquet"
+    PRECURSORS = "precursors.parquet"
     STAT = "stat.tsv"
     INTERNAL = "internal.tsv"
     LOG = "log.txt"
 
 
 file_name_to_read_method_mapping = {
-    OutputFiles.PG_MATRIX: read_tsv,
-    OutputFiles.PRECURSORS: read_tsv,
+    OutputFiles.PG_MATRIX: read_parquet,
+    OutputFiles.PRECURSORS: read_parquet,
     OutputFiles.STAT: read_tsv,
     OutputFiles.INTERNAL: read_tsv,
 }

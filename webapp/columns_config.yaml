@@ -15,23 +15,26 @@ columns:
     color_gradient: "red_is_high"
     alternative_names:
       - "raw:gradient_length_m"
+      - "gradient_length" # alphadia >= 2
   - name: "precursors"
     color_gradient: "green_is_high"
     plot: true
   - name: "proteins"
     color_gradient: "green_is_high"
     plot: true
-  - name: "ms1_median_accuracy"
+  - name: "calibration_ms1_bias"
     color_gradient: "red_is_high"
     plot: true
     alternative_names:
       - "ms1_accuracy" # alphadia<=1.8.2
       - "calibration:ms1_median_accuracy"
-  - name: "ms2_median_accuracy"
+      - "calibration:ms1_bias" # alphadia >= 2
+  - name: "calibration_ms2_bias"
     color_gradient: "red_is_high"
     plot: true
     alternative_names:
       - "calibration:ms2_median_accuracy"
+      - "calibration:ms2_bias" # alphadia >= 2
 
   - name: "msqc_evosep_pump_hp_pressure_max"
     plot: true
@@ -58,10 +61,13 @@ columns:
     color_gradient: "green_is_high"
     plot: true
     log_scale: true
-  - name: "intensity_sum"
+  - name: "pg_intensity_sum"
     color_gradient: "green_is_high"
     plot: true
     log_scale: true
+    alternative_names:
+      - "intensity_sum"
+      - "pg:intensity_sum" # alphadia >= 2
   - name: "ms1_error"
     color_gradient: "red_is_high"
     plot: true
@@ -82,19 +88,27 @@ columns:
     plot: true
     alternative_names:
       - "optimization:mobility_error"
-  - name: "charge_mean"
+  - name: "precursor_charge_mean"
     color_gradient: "green_is_high"
     plot: true
-  - name: "proba_median"
+    alternative_names:
+      - "charge_mean"
+      - "precursor:charge_mean" # alphadia >= 2
+  - name: "precursor_proba_median"
     color_gradient: "green_is_high"
     plot: true
+    alternative_names:
+      - "proba_median"
+      - "precursor:proba_median" # alphadia >= 2
   - name: "precursor_intensity_median" # do not confuse with "intensity_sum"
     color_gradient: "green_is_high"
     plot: true
-  - name: "sequence_len_mean"
+  - name: "precursor_sequence_len_mean"
     color_gradient: "green_is_high"
     plot: true
-
+    alternative_names:
+      - "sequence_len_mean"
+      - "precursor:sequence_len_mean" # alphadia >= 2
   # Technical plots
   - name: "lag_time_minutes"
     color_gradient: "red_is_high"

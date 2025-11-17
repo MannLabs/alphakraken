@@ -2,6 +2,7 @@
 
 import logging
 import time
+from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -31,7 +32,7 @@ class S3DownloadFailedException(AirflowFailException):
     """
 
 
-def download_raw_files_from_s3(_ti: TaskInstance, **kwargs) -> None:  # noqa: C901, PLR0912
+def download_raw_files_from_s3(_ti: TaskInstance, **kwargs) -> None:  # noqa: C901
     """Download multiple raw files from S3 to output locations with self-healing (BATCH MODE).
 
     Destination: output_location/project_id/ (per raw_file)
@@ -39,11 +40,9 @@ def download_raw_files_from_s3(_ti: TaskInstance, **kwargs) -> None:  # noqa: C9
     Features:
     - Batch processing: Handles comma-separated list of raw_file_ids
     - Self-healing: Renames corrupted local files to .corrupted
-    - Idempotent: Skips files with correct hashes
+    - Idempotent: Skips files with correct hashes (S3 etag)
     - Best-effort: Attempts all files even if some fail
-    - S3 verification: Checks S3 etag before downloading
     - Status reporting: Writes batch .txt file per destination
-    - Read-only database access
 
     Args:
         ti: TaskInstance (not used, Airflow signature requirement)
@@ -54,42 +53,35 @@ def download_raw_files_from_s3(_ti: TaskInstance, **kwargs) -> None:  # noqa: C9
 
     """
     # Get S3 config
-    s3_config = get_s3_upload_config()
+    s3_config = get_s3_upload_config()  # TODO: HERE: "upload" <-> "access"
     region = s3_config.get("region")
     if not region:
         raise S3DownloadFailedException(
             "S3 download requires region configured in yaml under backup.s3.region"
         )
 
-    # Get output path from YAML
-    output_path = get_path(YamlKeys.Locations.OUTPUT)
-
     # Extract and parse raw_file_ids
     raw_file_ids_str = kwargs[DagContext.PARAMS].get(DagParams.RAW_FILE_IDS, "")
-    if not raw_file_ids_str:
-        raise S3DownloadFailedException("Parameter raw_file_ids is required")
-
     raw_file_ids = [rid.strip() for rid in raw_file_ids_str.split(",") if rid.strip()]
     if not raw_file_ids:
-        raise S3DownloadFailedException("No valid raw_file_ids provided")
+        raise S3DownloadFailedException(
+            f"No valid raw_file_ids provided: '{raw_file_ids_str}'"
+        )
 
     logging.info(
         f"Starting S3 download for {len(raw_file_ids)} raw file(s): {raw_file_ids}"
     )
 
-    # PHASE 1: Build download plan
+    output_path = get_path(YamlKeys.Locations.OUTPUT)
     download_plan = _build_download_plan(raw_file_ids, output_path)
 
-    # PHASE 2: Execute download plan
-    results_by_destination = {}
+    results_by_destination = defaultdict(list)
     s3_client = get_s3_client(region)
 
     for raw_file_id, plan in download_plan.items():
         if plan["skipped"]:
             # Add error to results
             destination = plan.get("destination_base", "UNKNOWN")
-            if destination not in results_by_destination:
-                results_by_destination[destination] = []
             results_by_destination[destination].append(
                 {
                     "raw_file_id": raw_file_id,
@@ -112,9 +104,6 @@ def download_raw_files_from_s3(_ti: TaskInstance, **kwargs) -> None:  # noqa: C9
 
         # Group by destination
         destination = plan["destination_base"]
-        if destination not in results_by_destination:
-            results_by_destination[destination] = []
-
         results_by_destination[destination].append(
             {
                 "raw_file_id": raw_file_id,
@@ -188,7 +177,7 @@ def _build_download_plan(raw_file_ids: list[str], output_path: Path) -> dict:
                 logging.warning(f"Skipping {raw_file_id}: No S3 backup path")
                 continue
 
-            if not raw_file.project_id:
+            if not raw_file.project_id:  # TODO: HERE: fallback?
                 download_plan[raw_file_id] = {
                     "skipped": True,
                     "error": "No project_id",
@@ -213,7 +202,7 @@ def _build_download_plan(raw_file_ids: list[str], output_path: Path) -> dict:
             # Extract bucket name (all files use same bucket)
             bucket_name = next(iter(s3_paths.values()))[0]
 
-            # Build file list with all needed info
+            # Build file list with all needed info (this is single files!)
             files = []
             for relative_path, (_bucket, s3_key) in s3_paths.items():
                 file_info_tuple = raw_file.file_info[relative_path]

@@ -9,37 +9,37 @@ from airflow.models.dag import DAG
 from airflow.operators.python import PythonOperator
 from common.constants import AIRFLOW_QUEUE_PREFIX, Pools
 from common.keys import DagParams, Dags
-from common.settings import Timings
 from impl.s3_download import download_raw_files_from_s3
 
 # S3 Download DAG - Manual restoration of raw files from S3 to output location
-with DAG(
-    Dags.S3_DOWNLOADER,
-    schedule=None,  # Manual trigger only
-    catchup=False,
-    # Default arguments for each task
-    default_args={
-        "depends_on_past": False,
-        "retries": 2,
-        "retry_delay": timedelta(minutes=5),
-        "queue": f"{AIRFLOW_QUEUE_PREFIX}s3_download",
-    },
-    description="Download raw files from S3 to output location (batch mode supported)",
-    tags=["s3", "download", "manual", "restoration", "batch"],
-    params={
-        DagParams.RAW_FILE_IDS: Param(
-            type="string",
-            minimum=3,
-            description=(
-                "Comma-separated list of RawFile IDs to download from S3 "
-                "(e.g., 'file1,file2,file3'). Files downloaded to "
-                "output_location/project_id/ per raw_file. "
-                "Multiple projects supported in single batch."
-            ),
-            title="Raw File IDs",
-        )
-    },
-) as dag:
+with (
+    DAG(
+        Dags.S3_DOWNLOADER,
+        schedule=None,  # Manual trigger only
+        catchup=False,
+        # Default arguments for each task
+        default_args={
+            "depends_on_past": False,
+            "retries": 0,
+            "retry_delay": timedelta(minutes=5),
+            "queue": f"{AIRFLOW_QUEUE_PREFIX}s3_download",  # TODO: HERE: need dedicated worker
+        },
+        description="Download raw files from S3 to output location (batch mode supported)",
+        tags=["manual"],
+        params={
+            DagParams.RAW_FILE_IDS: Param(
+                type="string",
+                minimum=3,
+                description=(
+                    "Comma-separated list of RawFile IDs to download from S3 "
+                    "(e.g., 'file1,file2,file3'). Files downloaded to "
+                    "output_location/project_id/ per raw_file. "
+                ),
+                title="Raw File IDs",
+            )
+        },
+    ) as dag
+):
     dag.doc_md = __doc__
 
     download_files = PythonOperator(
@@ -47,5 +47,4 @@ with DAG(
         python_callable=download_raw_files_from_s3,
         pool=Pools.S3_DOWNLOAD_POOL,
         execution_timeout=timedelta(hours=12),  # For large batches/files
-        retry_delay=timedelta(minutes=Timings.S3_UPLOAD_RETRY_DELAY_M),
     )

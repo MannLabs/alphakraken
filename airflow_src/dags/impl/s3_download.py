@@ -32,7 +32,7 @@ class S3DownloadFailedException(AirflowFailException):
     """
 
 
-def download_raw_files_from_s3(_ti: TaskInstance, **kwargs) -> None:  # noqa: C901
+def download_raw_files_from_s3(_ti: TaskInstance, **kwargs) -> None:
     """Download multiple raw files from S3 to output locations with self-healing (BATCH MODE).
 
     Destination: output_location/project_id/ (per raw_file)
@@ -75,6 +75,45 @@ def download_raw_files_from_s3(_ti: TaskInstance, **kwargs) -> None:  # noqa: C9
     output_path = get_path(YamlKeys.Locations.OUTPUT)
     download_plan = _build_download_plan(raw_file_ids, output_path)
 
+    results_by_destination = _execute_download_plan(download_plan, region)
+
+    total_failures = _write_results(results_by_destination)
+
+    # Raise exception if any failures
+    if total_failures > 0:
+        raise S3DownloadFailedException(
+            f"S3 download completed with {total_failures} failure(s). "
+        )
+
+    logging.info(
+        f"S3 download completed successfully for all {len(raw_file_ids)} raw file(s)"
+    )
+
+
+def _write_results(results_by_destination: dict[str, list]) -> int:
+    """Write batch status reports and count total failures."""
+    # Write batch status reports per destination
+    timestamp = datetime.now(timezone.utc)
+    total_failures = 0
+
+    for destination, raw_file_results in results_by_destination.items():
+        status_file = _write_batch_status_report(
+            Path(destination), raw_file_results, timestamp
+        )
+        logging.info(f"Wrote status report: {status_file}")
+
+        # Count failures in this destination
+        for raw_file_result in raw_file_results:
+            if raw_file_result["error"]:
+                total_failures += 1
+            for file_result in raw_file_result.get("file_results", []):
+                if file_result["status"].startswith("FAILURE"):
+                    total_failures += 1
+    return total_failures
+
+
+def _execute_download_plan(download_plan: dict, region: str) -> dict[str, list]:
+    """Execute the download plan."""
     results_by_destination = defaultdict(list)
     s3_client = get_s3_client(region)
 
@@ -113,40 +152,7 @@ def download_raw_files_from_s3(_ti: TaskInstance, **kwargs) -> None:  # noqa: C9
                 "file_results": file_results,
             }
         )
-
-    # Write batch status reports per destination
-    timestamp = datetime.now(timezone.utc)
-    total_failures = 0
-
-    for destination, raw_file_results in results_by_destination.items():
-        status_file = _write_batch_status_report(
-            Path(destination), raw_file_results, timestamp
-        )
-        logging.info(f"Wrote status report: {status_file}")
-
-        # Count failures in this destination
-        for raw_file_result in raw_file_results:
-            if raw_file_result["error"]:
-                total_failures += 1
-            for file_result in raw_file_result.get("file_results", []):
-                if file_result["status"].startswith("FAILURE"):
-                    total_failures += 1
-
-    # Raise exception if any failures
-    if total_failures > 0:
-        status_files = [
-            Path(dest)
-            / f"_download_status_batch_{timestamp.strftime('%Y%m%d_%H%M%S')}.txt"
-            for dest in results_by_destination
-        ]
-        raise S3DownloadFailedException(
-            f"S3 download completed with {total_failures} failure(s). "
-            f"Check status reports: {', '.join(str(f) for f in status_files)}"
-        )
-
-    logging.info(
-        f"S3 download completed successfully for all {len(raw_file_ids)} raw file(s)"
-    )
+    return dict(results_by_destination)
 
 
 def _build_download_plan(raw_file_ids: list[str], output_path: Path) -> dict:

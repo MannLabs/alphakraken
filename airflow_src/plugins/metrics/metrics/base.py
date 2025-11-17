@@ -84,9 +84,9 @@ class Metrics(ABC):
                 except KeyError as e:
                     if not self._tolerate_missing:
                         raise e from e
-                    logging.warning(
-                        f"Column {source_col} not found in {df.columns}. {e}"
-                    )
+                    # logging.warning(
+                    #     f"Column {source_col} not found in {df.columns}. {e}"
+                    # )
         else:
             for col in self._columns:
                 try:
@@ -94,7 +94,7 @@ class Metrics(ABC):
                 except KeyError as e:  # noqa: PERF203
                     if not self._tolerate_missing:
                         raise e from e
-                    logging.warning(f"Column {col} not found in {df.columns}. {e}")
+                    # logging.warning(f"Column {col} not found in {df.columns}. {e}")
 
     @abstractmethod
     def _calc(self, df: pd.DataFrame, source_column: str, target_column: str) -> None:

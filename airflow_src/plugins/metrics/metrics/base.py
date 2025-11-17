@@ -47,6 +47,7 @@ class Metrics(ABC):
     """Abstract class for metrics."""
 
     _file: str
+    # mapping of source column names to target column names (or None to use source name)
     _columns: ClassVar[dict[str, str | None]]
     _tolerate_missing: bool = False
 

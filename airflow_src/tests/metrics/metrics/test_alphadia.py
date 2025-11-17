@@ -120,6 +120,38 @@ def test_basic_stats_calculation(mock_datastore: MagicMock) -> None:
 
 
 @patch("plugins.metrics.metrics.alphadia.DataStore")
+def test_basic_stats_calculation_v1(mock_datastore: MagicMock) -> None:
+    """Test basic stats calculation with alphadia v1 column names (backward compatibility)."""
+    data = {
+        "proteins": [100.0],
+        "precursors": [1000.0],
+        "optimization.ms1_error": [0.1],
+        "optimization.ms2_error": [0.15],
+        "optimization.rt_error": [0.05],
+        "optimization.mobility_error": [0.01],
+        "calibration.ms1_median_accuracy": [5.0],
+        "calibration.ms2_median_accuracy": [7.0],
+        "raw.gradient_length_m": [60.0],
+    }
+    mock_df = pd.DataFrame(data)
+    mock_datastore.__getitem__.return_value = mock_df
+
+    # when
+    metrics = BasicStats(mock_datastore).get()
+
+    # then - v1 columns are mapped to their target names
+    assert metrics["proteins"] == 100.0
+    assert metrics["precursors"] == 1000.0
+    assert metrics["optimization.ms1_error"] == 0.1
+    assert metrics["optimization.ms2_error"] == 0.15
+    assert metrics["optimization.rt_error"] == 0.05
+    assert metrics["optimization.mobility_error"] == 0.01
+    assert metrics["calibration.ms1_bias"] == 5.0
+    assert metrics["calibration.ms2_bias"] == 7.0
+    assert metrics["gradient_length"] == 60.0
+
+
+@patch("plugins.metrics.metrics.alphadia.DataStore")
 def test_precursor_stats_calculation(mock_datastore: MagicMock) -> None:
     """Test precursor stats calculation with alphadia v2 column names."""
     mock_df = pd.DataFrame(

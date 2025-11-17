@@ -54,7 +54,10 @@ class BasicStats(Metrics):
 
     def _calc(self, df: pd.DataFrame, source_column: str, target_column: str) -> None:
         """Calculate metrics."""
-        self._metrics[f"{target_column}"] = df[source_column].mean()
+        # gradient_length conversion for alphadia > 2  # TODO: this is a hack!
+        factor = 1 / 60 if source_column == "raw.gradient_length" else 1
+
+        self._metrics[f"{target_column}"] = df[source_column].mean() * factor
 
 
 class InternalStats(Metrics):

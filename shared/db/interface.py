@@ -319,6 +319,12 @@ def augment_raw_files_with_metrics(
         raw_file__in=list(raw_files_dict.keys())
     ).order_by("-created_at_"):
         metrics = dict(metrics_.to_mongo())
+
+        # TODO: centralize column names and harmonization
+        if "raw:gradient_length_m" in metrics:  # alphadia < 2
+            metrics["gradient_length"] = metrics["raw:gradient_length_m"]
+            del metrics["raw:gradient_length_m"]
+
         raw_files_dict[metrics["raw_file"]][f"metrics_{metrics['type']}"] = metrics
 
     return raw_files_dict

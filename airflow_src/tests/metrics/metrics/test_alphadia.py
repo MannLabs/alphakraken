@@ -97,7 +97,7 @@ def test_basic_stats_calculation(mock_datastore: MagicMock) -> None:
         "optimization.mobility_error": [0.01],
         "calibration.ms1_bias": [5.0],
         "calibration.ms2_bias": [7.0],
-        "raw.gradient_length": [60.0],
+        "raw.gradient_length": [3600.0],
     }
     mock_df = pd.DataFrame(data)
     mock_datastore.__getitem__.return_value = mock_df

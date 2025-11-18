@@ -433,6 +433,16 @@ services:
       # to read files to upload
       - ${MOUNTS_PATH:?error}/backup:/opt/airflow/mounts/backup:ro
 
+  # s3 downloader: downloads files from s3
+  airflow-worker-s3-downloader:
+    profiles: ["s3"]
+    <<: *airflow-worker
+    command: celery worker -q kraken_queue_s3_downloader
+    volumes:
+      - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs:rw
+      # to write downloaded files to file system
+      - ${MOUNTS_PATH:?error}/output:/opt/airflow/mounts/output:rw # TODO: HERE: dedicated mounting
+
   ########################################## INSTRUMENT WORKERS ##########################################
   # cf. comments in airflow-worker-test1
 

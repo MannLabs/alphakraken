@@ -21,10 +21,9 @@ with (
         default_args={
             "depends_on_past": False,
             "retries": 0,
-            "retry_delay": timedelta(minutes=5),
-            "queue": f"{AIRFLOW_QUEUE_PREFIX}s3_download",  # TODO: HERE: need dedicated worker
+            "queue": f"{AIRFLOW_QUEUE_PREFIX}s3_downloader",  # TODO: HERE: need dedicated worker
         },
-        description="Download raw files from S3 to output location (batch mode supported)",
+        description="Download raw files from S3 to output location.",
         tags=["manual"],
         params={
             DagParams.RAW_FILE_IDS: Param(

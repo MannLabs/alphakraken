@@ -11,6 +11,7 @@ from airflow.models import TaskInstance
 from airflow.providers.amazon.aws.hooks.base_aws import BaseAwsConnection
 from botocore.exceptions import BotoCoreError, ClientError
 from common.keys import DagContext, DagParams
+from common.paths import get_internal_output_path
 from dags.impl.s3_utils import (
     _FILE_NOT_FOUND,
     download_file_from_s3,
@@ -22,7 +23,7 @@ from dags.impl.s3_utils import (
 from plugins.file_handling import get_file_hash_with_etag
 
 from shared.db.interface import get_raw_file_by_id
-from shared.yamlsettings import YamlKeys, get_path, get_s3_upload_config
+from shared.yamlsettings import get_s3_upload_config
 
 
 class S3DownloadFailedException(AirflowFailException):
@@ -32,7 +33,7 @@ class S3DownloadFailedException(AirflowFailException):
     """
 
 
-def download_raw_files_from_s3(_ti: TaskInstance, **kwargs) -> None:
+def download_raw_files_from_s3(ti: TaskInstance, **kwargs) -> None:
     """Download multiple raw files from S3 to output locations with self-healing (BATCH MODE).
 
     Destination: output_location/project_id/ (per raw_file)
@@ -52,6 +53,7 @@ def download_raw_files_from_s3(_ti: TaskInstance, **kwargs) -> None:
         S3DownloadFailedException: If any files failed
 
     """
+    del ti  # Unused
     # Get S3 config
     s3_config = get_s3_upload_config()  # TODO: HERE: "upload" <-> "access"
     region = s3_config.get("region")
@@ -69,11 +71,13 @@ def download_raw_files_from_s3(_ti: TaskInstance, **kwargs) -> None:
         )
 
     logging.info(
-        f"Starting S3 download for {len(raw_file_ids)} raw file(s): {raw_file_ids}"
+        f"Creating download plan for {len(raw_file_ids)} raw file(s): {raw_file_ids}"
     )
 
-    output_path = get_path(YamlKeys.Locations.OUTPUT)
+    output_path = get_internal_output_path()
     download_plan = _build_download_plan(raw_file_ids, output_path)
+
+    logging.info(f"Starting S3 download:\n{download_plan}")
 
     results_by_destination = _execute_download_plan(download_plan, region)
 
@@ -82,7 +86,7 @@ def download_raw_files_from_s3(_ti: TaskInstance, **kwargs) -> None:
     # Raise exception if any failures
     if total_failures > 0:
         raise S3DownloadFailedException(
-            f"S3 download completed with {total_failures} failure(s). "
+            f"S3 download completed with {total_failures} failure(s).\n{results_by_destination}"
         )
 
     logging.info(
@@ -273,7 +277,9 @@ def _download_and_verify_file(
     """
     relative_path = file_info["relative_path"]
     s3_key = file_info["s3_key"]
-    expected_etag = file_info["expected_etag"]
+    expected_etag = file_info[
+        "expected_etag"
+    ]  # TODO: HERE: here we need both, never recalculate the etag here? (memory, have md5sum as ground truth)
     chunk_size_mb = file_info["chunk_size_mb"]
     absolute_dest_path = Path(file_info["absolute_dest_path"])
 
@@ -297,7 +303,7 @@ def _download_and_verify_file(
             }
 
         # Local file check
-        if absolute_dest_path.exists():
+        if absolute_dest_path.exists():  # TODO: HERE: should this be part of the plan?
             logging.info(f"Local file exists, calculating hash: {absolute_dest_path}")
             local_hash, local_etag = get_file_hash_with_etag(
                 absolute_dest_path, chunk_size_mb, calculate_etag=True
@@ -335,8 +341,11 @@ def _download_and_verify_file(
             absolute_dest_path, chunk_size_mb, calculate_etag=True
         )
 
+        local_etag = local_etag.split("__")[0]  # Remove multipart suffix if present
+
         if local_etag != expected_etag:
             # Download verification failed - rename to .corrupted
+            # TODO: HERE what if ".corrupted" file exists already? (same when other files are renamed)
             corrupted_path = Path(str(absolute_dest_path) + ".corrupted")
             logging.error(
                 f"Download verification failed, renaming: {absolute_dest_path} -> {corrupted_path}"
@@ -352,7 +361,7 @@ def _download_and_verify_file(
         # Success
         was_healed = absolute_dest_path.with_suffix(
             absolute_dest_path.suffix + ".corrupted"
-        ).exists()
+        ).exists()  #  TODO: HERE ???
         status = "OK - Self-healed" if was_healed else "OK - Downloaded and verified"
 
         return {  # noqa: TRY300

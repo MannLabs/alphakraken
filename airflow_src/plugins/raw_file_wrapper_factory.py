@@ -215,7 +215,9 @@ class PathProvider(ABC):
         """Get the target file name for a raw file operation."""
 
 
-class CopyPathProvider(PathProvider):
+class CopyPathProvider(
+    PathProvider
+):  # TODO: rename to InstrumentToPoolCopyPathProvider
     """PathProvider for copying raw files from the instrument (original name) to the pool backup (raw file id)."""
 
     def get_source_folder_path(self) -> Path:
@@ -261,7 +263,7 @@ class MovePathProvider(PathProvider):
 
 
 class RemovePathProvider(PathProvider):
-    """PathProvider for comparing raw files from instrument backup (raw file id) to the pool backup (raw file id)."""
+    """PathProvider for comparing raw files from instrument backup (raw file id) to keys in file info (raw file id)."""
 
     def get_source_folder_path(self) -> Path:
         """See docu of superclass."""
@@ -272,9 +274,8 @@ class RemovePathProvider(PathProvider):
 
     def get_target_folder_path(self) -> Path:
         """See docu of superclass."""
-        return get_internal_backup_path_for_instrument(
-            self._instrument_id
-        ) / get_created_at_year_month(self._raw_file)
+        # empty Path as the target is file info, which is a relative path
+        return Path()
 
     def get_source_file_name(self) -> str:
         """See docu of superclass."""

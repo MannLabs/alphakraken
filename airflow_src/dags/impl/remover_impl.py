@@ -23,7 +23,7 @@ from common.settings import (
 )
 from common.utils import get_airflow_variable, get_env_variable, get_xcom, put_xcom
 from file_handling import get_disk_usage, get_file_size
-from plugins.file_checks import FileRemovalError, check_file
+from plugins.file_checks import FileIdentifier, FileRemovalError
 from raw_file_wrapper_factory import (
     RawFileStemEmptyError,
     RawFileWrapperFactory,
@@ -216,10 +216,9 @@ def _get_total_size(raw_file: RawFile) -> tuple[float, int]:
         if not file_path_to_remove.exists():
             continue  # file was already removed
 
-        check_file(
+        FileIdentifier(raw_file).check_file(
             file_path_to_remove,
             file_path_pool_backup,
-            raw_file.file_info,
             hash_check=False,  # we only want to check the sizes here
         )
 
@@ -261,10 +260,9 @@ def _safe_remove_files(raw_file_id: str) -> None:
             )
             continue
 
-        check_file(
+        FileIdentifier(raw_file).check_file(
             file_path_to_remove,
             file_path_pool_backup,
-            raw_file.file_info,
         )
 
         logging.info(f"Marking file {file_path_to_remove} for removal .. ")

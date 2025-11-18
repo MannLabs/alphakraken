@@ -225,11 +225,11 @@ def test_decide_on_raw_files_to_remove_nothing_to_remove_ok(
 
 
 @patch("dags.impl.remover_impl.RawFileWrapperFactory")
-@patch("dags.impl.remover_impl.check_file")
+@patch("dags.impl.remover_impl.FileIdentifier")
 @patch("dags.impl.remover_impl.get_file_size")
 def test_get_total_size_ok(
     mock_get_file_size: MagicMock,
-    mock_check_file: MagicMock,
+    mock_file_identifier: MagicMock,
     mock_raw_file_wrapper_factory: MagicMock,
 ) -> None:
     """Test that _get_total_size makes correct calls returns correctly in case file exists."""
@@ -253,19 +253,19 @@ def test_get_total_size_ok(
 
     assert result == (101.0, 2)
 
-    mock_check_file.assert_has_calls(
+    mock_file_identifier.assert_has_calls(
         [
-            call(
+            call(mock_raw_file),
+            call().check_file(
                 mock_to_remove_path_1,
                 mock_backup_path_1,
-                mock_raw_file.file_info,
                 hash_check=False,
             ),
             # 2 is skipped
-            call(
+            call(mock_raw_file),
+            call().check_file(
                 mock_to_remove_path_3,
                 mock_backup_path_3,
-                mock_raw_file.file_info,
                 hash_check=False,
             ),
         ]
@@ -368,7 +368,7 @@ def test_remove_folder_non_production(mock_get_env: MagicMock) -> None:
 @patch("dags.impl.remover_impl.update_raw_file")
 @patch("dags.impl.remover_impl.get_raw_file_by_id")
 @patch("dags.impl.remover_impl.RawFileWrapperFactory")
-@patch("dags.impl.remover_impl.check_file")
+@patch("dags.impl.remover_impl.FileIdentifier")
 @patch("dags.impl.remover_impl._change_folder_permissions")
 @patch("dags.impl.remover_impl._remove_files")
 @patch("dags.impl.remover_impl._remove_folder")
@@ -376,7 +376,7 @@ def test_safe_remove_files_success(  # noqa: PLR0913
     mock_remove_folder: MagicMock,
     mock_remove_files: MagicMock,
     mock_change_folder_permissions: MagicMock,
-    mock_check_file: MagicMock,
+    mock_file_identifier: MagicMock,
     mock_wrapper_factory: MagicMock,
     mock_get_raw_file: MagicMock,
     mock_update_raw_file: MagicMock,
@@ -392,9 +392,7 @@ def test_safe_remove_files_success(  # noqa: PLR0913
     mock_path_to_delete.exists.return_value = True
 
     mock_wrapper = MagicMock()
-    mock_wrapper.get_files_to_remove.return_value = {
-        mock_path_to_delete: Path("/backup/file1")
-    }
+    mock_wrapper.get_files_to_remove.return_value = {mock_path_to_delete: Path("file1")}
     mock_wrapper.get_folder_to_remove.return_value = None
     mock_wrapper_factory.create_write_wrapper.return_value = mock_wrapper
 
@@ -402,8 +400,8 @@ def test_safe_remove_files_success(  # noqa: PLR0913
     _safe_remove_files("raw_file_id")
 
     # then
-    mock_check_file.assert_called_once_with(
-        mock_path_to_delete, Path("/backup/file1"), mock_raw_file.file_info
+    mock_file_identifier.return_value.check_file.assert_called_once_with(
+        mock_path_to_delete, Path("file1")
     )
     mock_change_folder_permissions.assert_not_called()  # because get_folder_to_remove returned None
     mock_remove_files.assert_called_once_with([mock_path_to_delete])
@@ -420,7 +418,7 @@ def test_safe_remove_files_success(  # noqa: PLR0913
 @patch("dags.impl.remover_impl.update_raw_file")
 @patch("dags.impl.remover_impl.get_raw_file_by_id")
 @patch("dags.impl.remover_impl.RawFileWrapperFactory")
-@patch("dags.impl.remover_impl.check_file")
+@patch("dags.impl.remover_impl.FileIdentifier")
 @patch("dags.impl.remover_impl._change_folder_permissions")
 @patch("dags.impl.remover_impl._remove_files")
 @patch("dags.impl.remover_impl._remove_folder")
@@ -428,7 +426,7 @@ def test_safe_remove_files_folder_success(  # noqa: PLR0913
     mock_remove_folder: MagicMock,
     mock_remove_files: MagicMock,
     mock_change_folder_permissions: MagicMock,
-    mock_check_file: MagicMock,
+    mock_file_identifier: MagicMock,
     mock_wrapper_factory: MagicMock,
     mock_get_raw_file: MagicMock,
     mock_update_raw_file: MagicMock,
@@ -444,9 +442,7 @@ def test_safe_remove_files_folder_success(  # noqa: PLR0913
     mock_path_to_delete.exists.return_value = True
 
     mock_wrapper = MagicMock()
-    mock_wrapper.get_files_to_remove.return_value = {
-        mock_path_to_delete: Path("/backup/file1")
-    }
+    mock_wrapper.get_files_to_remove.return_value = {mock_path_to_delete: Path("file1")}
     mock_wrapper.get_folder_to_remove.return_value = Path("/instrument/Backup/file1")
     mock_wrapper_factory.create_write_wrapper.return_value = mock_wrapper
 
@@ -454,8 +450,8 @@ def test_safe_remove_files_folder_success(  # noqa: PLR0913
     _safe_remove_files("raw_file_id")
 
     # then
-    mock_check_file.assert_called_once_with(
-        mock_path_to_delete, Path("/backup/file1"), mock_raw_file.file_info
+    mock_file_identifier.return_value.check_file.assert_called_once_with(
+        mock_path_to_delete, Path("file1")
     )
     mock_change_folder_permissions.assert_called_once_with(
         Path("/instrument/Backup/file1")
@@ -475,13 +471,13 @@ def test_safe_remove_files_folder_success(  # noqa: PLR0913
 @patch("dags.impl.remover_impl.update_raw_file")
 @patch("dags.impl.remover_impl.get_raw_file_by_id")
 @patch("dags.impl.remover_impl.RawFileWrapperFactory")
-@patch("dags.impl.remover_impl.check_file")
+@patch("dags.impl.remover_impl.FileIdentifier")
 @patch("dags.impl.remover_impl._remove_files")
 @patch("dags.impl.remover_impl._remove_folder")
 def test_safe_remove_files_file_not_existing(  # noqa: PLR0913 # too many args
     mock_remove_folder: MagicMock,
     mock_remove_files: MagicMock,
-    mock_check_file: MagicMock,
+    mock_file_identifier: MagicMock,
     mock_wrapper_factory: MagicMock,
     mock_get_raw_file: MagicMock,
     mock_update_raw_file: MagicMock,
@@ -507,7 +503,7 @@ def test_safe_remove_files_file_not_existing(  # noqa: PLR0913 # too many args
     _safe_remove_files("raw_file_id")
 
     # then
-    mock_check_file.assert_not_called()
+    mock_file_identifier.assert_not_called()
     mock_remove_files.assert_not_called()
     mock_remove_folder.assert_not_called()  # because get_folder_to_remove returned None
     mock_wrapper_factory.create_write_wrapper.assert_called_once_with(
@@ -520,9 +516,9 @@ def test_safe_remove_files_file_not_existing(  # noqa: PLR0913 # too many args
 
 @patch("dags.impl.remover_impl.get_raw_file_by_id")
 @patch("dags.impl.remover_impl.RawFileWrapperFactory")
-@patch("dags.impl.remover_impl.check_file")
+@patch("dags.impl.remover_impl.FileIdentifier")
 def test_safe_remove_files_check_error(
-    mock_check_file: MagicMock,
+    mock_file_identifier: MagicMock,
     mock_wrapper_factory: MagicMock,
     mock_get_raw_file: MagicMock,
 ) -> None:
@@ -541,7 +537,9 @@ def test_safe_remove_files_check_error(
     }
     mock_wrapper_factory.create_write_wrapper.return_value = mock_wrapper
 
-    mock_check_file.side_effect = FileRemovalError("Check failed")
+    mock_file_identifier.return_value.check_file.side_effect = FileRemovalError(
+        "Check failed"
+    )
 
     # when
     with pytest.raises(FileRemovalError):

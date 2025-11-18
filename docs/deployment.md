@@ -391,8 +391,8 @@ The script creates rotating daily backups (named by weekday) and maintains an ho
 ### Restore a backup
 To restore a backup, stop the MongoDB service and replace the contents of the MongoDB data directory with the contents of the desired backup folder. Then restart the MongoDB service.
 
-## S3 Upload Configuration (Optional)
-AlphaKraken supports uploading raw files to S3-compatible object storage as an alternative to local backup. When enabled, files are uploaded in parallel to the local copy process.
+## S3 Configuration (Optional)
+AlphaKraken supports uploading raw files to S3-compatible object storage as an alternative to local backup. When enabled, files are uploaded in a separate DAG after the file is available on the pool backup.
 
 ### Configuration
 
@@ -411,11 +411,10 @@ backup:
    - Connection Type: `Amazon Web Services`
    - AWS Access Key ID: `<your_access_key>`
    - AWS Secret Access Key: `<your_secret_key>`
-   - Extra: `{"region_name": "eu-central-1"}` (optional, overrides YAML config)
    - Click "Save"
 
    For S3-compatible services (e.g., custom endpoints):
-   - Extra: `{"endpoint_url": "https://your-s3-endpoint.com"}`
+   - Extra: `{"endpoint_url": "https://your-s3-endpoint.com"}`, e.g. `https://objectstore.hpccloud.mpcdf.mpg.de`
 
 3. **Create S3 upload pool in Airflow UI**:
    - Navigate to "Admin" -> "Pools" -> "+" button
@@ -424,22 +423,15 @@ backup:
    - Click "Save"
 
 4. **Deploy S3 uploader worker**:
-   The S3 uploader runs as a dedicated Celery worker. Start it using:
+   The S3 jobs run as a dedicated Celery workers. Start it using:
    ```bash
-   ./compose.sh --profile workers up airflow-worker-s3-uploader --build -d
+   ./compose.sh --profile s3 up --build -d
    ```
 
 ### How it works
 
-- Files are organized in S3 by project and instrument: `{bucket_prefix}-{project_id}/{instrument_id}/{file_path}`
-- Upload happens in 500MB chunks with automatic multipart upload
+- Files are organized in S3 by project and instrument: `{bucket_prefix}-{project_id}/{file_path}` or `{bucket_prefix}-{fallback_project_id}/{instrument_id}/{year_month}/{file_path}` (the latter if no project is defined)
+- Upload happens in chunks with automatic multipart upload
 - Upload integrity is verified using ETag comparison
 - Upload status is tracked in the database (`backup_status` field: `UPLOAD_IN_PROGRESS`, `UPLOAD_DONE`, `UPLOAD_FAILED`)
 - Failed uploads do not block file processing and can be retried manually
-
-### Monitoring
-
-Check S3 upload status:
-- **Airflow UI**: Monitor the `s3_uploader` DAG runs
-- **Database**: Query the `s3_upload_path` and `backup_status` fields in the `file_raw` collection
-- **Logs**: Check worker logs for upload progress and errors

@@ -122,7 +122,6 @@ def test_upload_raw_file_to_s3_should_complete_successfully(  # noqa: PLR0913
 
 @patch("dags.impl.s3_upload.get_s3_upload_config")
 @patch("dags.impl.s3_upload.get_raw_file_by_id")
-@patch("dags.impl.s3_upload.get_xcom")
 @patch("dags.impl.s3_upload._get_project_id_or_fallback")
 @patch("dags.impl.s3_upload.normalize_bucket_name")
 @patch("dags.impl.s3_upload.get_transfer_config")
@@ -140,7 +139,6 @@ def test_upload_raw_file_to_s3_should_include_key_prefix_in_s3_path(  # noqa: PL
     mock_get_transfer_config: MagicMock,
     mock_normalize_bucket: MagicMock,
     mock_get_project_id: MagicMock,
-    mock_get_xcom: MagicMock,
     mock_get_raw_file: MagicMock,
     mock_get_s3_config: MagicMock,
 ) -> None:
@@ -151,10 +149,6 @@ def test_upload_raw_file_to_s3_should_include_key_prefix_in_s3_path(  # noqa: PL
     }
     mock_raw_file = MagicMock(project_id=None, instrument_id="instrument1")
     mock_get_raw_file.return_value = mock_raw_file
-    mock_get_xcom.side_effect = [
-        {"/src/file.raw": "/dst/file.raw"},
-        "/dst",
-    ]
     mock_get_project_id.return_value = "_FALLBACK"
     mock_normalize_bucket.return_value = "test-prefix-fallback"
     mock_bucket_exists.return_value = (True, "")
@@ -164,7 +158,13 @@ def test_upload_raw_file_to_s3_should_include_key_prefix_in_s3_path(  # noqa: PL
     )
 
     ti = MagicMock()
-    kwargs = {DagContext.PARAMS: {DagParams.RAW_FILE_ID: "test.raw"}}
+    kwargs = {
+        DagContext.PARAMS: {
+            DagParams.RAW_FILE_ID: "test.raw",
+            DagParams.FILES_DST_PATHS: {"/src/file.raw": "/dst/file.raw"},
+            DagParams.TARGET_FOLDER_PATH: "/dst",
+        }
+    }
 
     upload_raw_file_to_s3(ti, **kwargs)
 
@@ -177,7 +177,6 @@ def test_upload_raw_file_to_s3_should_include_key_prefix_in_s3_path(  # noqa: PL
 
 @patch("dags.impl.s3_upload.get_s3_upload_config")
 @patch("dags.impl.s3_upload.get_raw_file_by_id")
-@patch("dags.impl.s3_upload.get_xcom")
 @patch("dags.impl.s3_upload._get_project_id_or_fallback")
 @patch("dags.impl.s3_upload.normalize_bucket_name")
 @patch("dags.impl.s3_upload.get_transfer_config")
@@ -191,7 +190,6 @@ def test_upload_raw_file_to_s3_should_raise_when_bucket_does_not_exist(  # noqa:
     mock_get_transfer_config: MagicMock,
     mock_normalize_bucket: MagicMock,
     mock_get_project_id: MagicMock,
-    mock_get_xcom: MagicMock,
     mock_get_raw_file: MagicMock,
     mock_get_s3_config: MagicMock,
 ) -> None:
@@ -202,16 +200,18 @@ def test_upload_raw_file_to_s3_should_raise_when_bucket_does_not_exist(  # noqa:
     }
     mock_raw_file = MagicMock(project_id="PID1", instrument_id="instrument1")
     mock_get_raw_file.return_value = mock_raw_file
-    mock_get_xcom.side_effect = [
-        {"/src/file.raw": "/dst/file.raw"},
-        "/dst",
-    ]
     mock_get_project_id.return_value = "PID1"
     mock_normalize_bucket.return_value = "test-prefix-pid1"
     mock_bucket_exists.return_value = (False, "Bucket does not exist")
 
     ti = MagicMock()
-    kwargs = {DagContext.PARAMS: {DagParams.RAW_FILE_ID: "test.raw"}}
+    kwargs = {
+        DagContext.PARAMS: {
+            DagParams.RAW_FILE_ID: "test.raw",
+            DagParams.FILES_DST_PATHS: {"/src/file.raw": "/dst/file.raw"},
+            DagParams.TARGET_FOLDER_PATH: "/dst",
+        }
+    }
 
     with pytest.raises(S3UploadFailedException, match="Bucket does not exist"):
         upload_raw_file_to_s3(ti, **kwargs)
@@ -223,7 +223,6 @@ def test_upload_raw_file_to_s3_should_raise_when_bucket_does_not_exist(  # noqa:
 
 @patch("dags.impl.s3_upload.get_s3_upload_config")
 @patch("dags.impl.s3_upload.get_raw_file_by_id")
-@patch("dags.impl.s3_upload.get_xcom")
 @patch("dags.impl.s3_upload._get_project_id_or_fallback")
 @patch("dags.impl.s3_upload.normalize_bucket_name")
 @patch("dags.impl.s3_upload.get_transfer_config")
@@ -241,7 +240,6 @@ def test_upload_raw_file_to_s3_should_raise_on_boto_error(  # noqa: PLR0913
     mock_get_transfer_config: MagicMock,
     mock_normalize_bucket: MagicMock,
     mock_get_project_id: MagicMock,
-    mock_get_xcom: MagicMock,
     mock_get_raw_file: MagicMock,
     mock_get_s3_config: MagicMock,
 ) -> None:
@@ -252,10 +250,6 @@ def test_upload_raw_file_to_s3_should_raise_on_boto_error(  # noqa: PLR0913
     }
     mock_raw_file = MagicMock(project_id="PID1", instrument_id="instrument1")
     mock_get_raw_file.return_value = mock_raw_file
-    mock_get_xcom.side_effect = [
-        {"/src/file.raw": "/dst/file.raw"},
-        "/dst",
-    ]
     mock_get_project_id.return_value = "PID1"
     mock_normalize_bucket.return_value = "test-prefix-pid1"
     mock_bucket_exists.return_value = (True, "")
@@ -266,7 +260,13 @@ def test_upload_raw_file_to_s3_should_raise_on_boto_error(  # noqa: PLR0913
     mock_upload_all.side_effect = BotoCoreError()
 
     ti = MagicMock()
-    kwargs = {DagContext.PARAMS: {DagParams.RAW_FILE_ID: "test.raw"}}
+    kwargs = {
+        DagContext.PARAMS: {
+            DagParams.RAW_FILE_ID: "test.raw",
+            DagParams.FILES_DST_PATHS: {"/src/file.raw": "/dst/file.raw"},
+            DagParams.TARGET_FOLDER_PATH: "/dst",
+        }
+    }
 
     with pytest.raises(
         S3UploadFailedException, match="S3 upload failed for test.raw: BotoCoreError"
@@ -276,7 +276,6 @@ def test_upload_raw_file_to_s3_should_raise_on_boto_error(  # noqa: PLR0913
 
 @patch("dags.impl.s3_upload.get_s3_upload_config")
 @patch("dags.impl.s3_upload.get_raw_file_by_id")
-@patch("dags.impl.s3_upload.get_xcom")
 @patch("dags.impl.s3_upload._get_project_id_or_fallback")
 @patch("dags.impl.s3_upload.normalize_bucket_name")
 @patch("dags.impl.s3_upload.get_transfer_config")
@@ -294,7 +293,6 @@ def test_upload_raw_file_to_s3_should_raise_on_client_error(  # noqa: PLR0913
     mock_get_transfer_config: MagicMock,
     mock_normalize_bucket: MagicMock,
     mock_get_project_id: MagicMock,
-    mock_get_xcom: MagicMock,
     mock_get_raw_file: MagicMock,
     mock_get_s3_config: MagicMock,
 ) -> None:
@@ -305,10 +303,6 @@ def test_upload_raw_file_to_s3_should_raise_on_client_error(  # noqa: PLR0913
     }
     mock_raw_file = MagicMock(project_id="PID1", instrument_id="instrument1")
     mock_get_raw_file.return_value = mock_raw_file
-    mock_get_xcom.side_effect = [
-        {"/src/file.raw": "/dst/file.raw"},
-        "/dst",
-    ]
     mock_get_project_id.return_value = "PID1"
     mock_normalize_bucket.return_value = "test-prefix-pid1"
     mock_bucket_exists.return_value = (True, "")
@@ -321,7 +315,13 @@ def test_upload_raw_file_to_s3_should_raise_on_client_error(  # noqa: PLR0913
     )
 
     ti = MagicMock()
-    kwargs = {DagContext.PARAMS: {DagParams.RAW_FILE_ID: "test.raw"}}
+    kwargs = {
+        DagContext.PARAMS: {
+            DagParams.RAW_FILE_ID: "test.raw",
+            DagParams.FILES_DST_PATHS: {"/src/file.raw": "/dst/file.raw"},
+            DagParams.TARGET_FOLDER_PATH: "/dst",
+        }
+    }
 
     with pytest.raises(
         S3UploadFailedException, match="S3 upload failed for test.raw: ClientError"
@@ -542,7 +542,6 @@ def test_extract_etag_from_file_info_should_handle_etag_without_separator() -> N
 
 @patch("dags.impl.s3_upload.get_s3_upload_config")
 @patch("dags.impl.s3_upload.get_raw_file_by_id")
-@patch("dags.impl.s3_upload.get_xcom")
 @patch("dags.impl.s3_upload._get_project_id_or_fallback")
 @patch("dags.impl.s3_upload.normalize_bucket_name")
 @patch("dags.impl.s3_upload.get_transfer_config")
@@ -560,7 +559,6 @@ def test_upload_raw_file_to_s3_should_handle_multiple_files(  # noqa: PLR0913
     mock_get_transfer_config: MagicMock,
     mock_normalize_bucket: MagicMock,
     mock_get_project_id: MagicMock,
-    mock_get_xcom: MagicMock,
     mock_get_raw_file: MagicMock,
     mock_get_s3_config: MagicMock,
 ) -> None:
@@ -571,14 +569,6 @@ def test_upload_raw_file_to_s3_should_handle_multiple_files(  # noqa: PLR0913
     }
     mock_raw_file = MagicMock(project_id="PID1", instrument_id="instrument1")
     mock_get_raw_file.return_value = mock_raw_file
-    mock_get_xcom.side_effect = [
-        {
-            "/src/file1.raw": "/dst/file1.raw",
-            "/src/file2.wiff": "/dst/file2.wiff",
-            "/src/file3.wiff.scan": "/dst/file3.wiff.scan",
-        },
-        "/dst",
-    ]
     mock_get_project_id.return_value = "PID1"
     mock_normalize_bucket.return_value = "test-prefix-pid1"
     mock_bucket_exists.return_value = (True, "")
@@ -592,7 +582,17 @@ def test_upload_raw_file_to_s3_should_handle_multiple_files(  # noqa: PLR0913
     )
 
     ti = MagicMock()
-    kwargs = {DagContext.PARAMS: {DagParams.RAW_FILE_ID: "test.raw"}}
+    kwargs = {
+        DagContext.PARAMS: {
+            DagParams.RAW_FILE_ID: "test.raw",
+            DagParams.FILES_DST_PATHS: {
+                "/src/file1.raw": "/dst/file1.raw",
+                "/src/file2.wiff": "/dst/file2.wiff",
+                "/src/file3.wiff.scan": "/dst/file3.wiff.scan",
+            },
+            DagParams.TARGET_FOLDER_PATH: "/dst",
+        }
+    }
 
     upload_raw_file_to_s3(ti, **kwargs)
 

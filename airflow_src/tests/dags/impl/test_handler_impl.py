@@ -16,6 +16,7 @@ from dags.impl.handler_impl import (
     decide_processing,
     start_acquisition_processor,
     start_file_mover,
+    start_s3_uploader,
 )
 
 from shared.db.models import RawFileStatus
@@ -702,6 +703,40 @@ def test_start_file_mover_skipped(mock_trigger_dag_run: MagicMock) -> None:
     )
 
     mock_trigger_dag_run.assert_not_called()
+
+
+@patch("dags.impl.handler_impl.get_xcom")
+@patch("dags.impl.handler_impl.trigger_dag_run")
+def test_start_s3_uploader(
+    mock_trigger_dag_run: MagicMock, mock_get_xcom: MagicMock
+) -> None:
+    """Test start_s3_uploader triggers s3_uploader DAG with correct parameters."""
+    ti = Mock()
+    mock_get_xcom.side_effect = [
+        "/path/to/backup",
+        {"/src/file1.raw": "/dst/file1.raw"},
+    ]
+
+    # when
+    start_s3_uploader(
+        ti,
+        **{
+            DagContext.PARAMS: {
+                DagParams.RAW_FILE_ID: "file1.raw",
+            },
+        },
+    )
+
+    # then
+    mock_trigger_dag_run.assert_called_once_with(
+        "s3_uploader",
+        {
+            DagParams.RAW_FILE_ID: "file1.raw",
+            DagParams.TARGET_FOLDER_PATH: "/path/to/backup",
+            DagParams.FILES_DST_PATHS: {"/src/file1.raw": "/dst/file1.raw"},
+        },
+    )
+    assert mock_get_xcom.call_count == 2
 
 
 @patch("dags.impl.handler_impl.get_xcom", return_value=[])

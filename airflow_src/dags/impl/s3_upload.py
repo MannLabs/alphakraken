@@ -13,15 +13,17 @@ from common.keys import DagContext, DagParams, XComKeys
 from common.utils import get_xcom
 from dags.impl.processor_impl import _get_project_id_or_fallback
 from plugins.file_handling import ETAG_SEPARATOR
-from plugins.s3.s3_utils import (
-    _FILE_NOT_FOUND,
+from plugins.s3.client import (
+    S3_FILE_NOT_FOUND_ETAG,
     bucket_exists,
     get_etag,
     get_s3_client,
     get_transfer_config,
+    upload_file_to_s3,
+)
+from plugins.s3.s3_utils import (
     is_upload_needed,
     normalize_bucket_name,
-    upload_file_to_s3,
 )
 
 from shared.db.interface import get_raw_file_by_id, update_raw_file
@@ -190,7 +192,7 @@ def _upload_all_files(
 
         remote_etag = get_etag(bucket_name, s3_key, s3_client)
 
-        if local_etag != remote_etag or remote_etag is _FILE_NOT_FOUND:
+        if local_etag != remote_etag or remote_etag is S3_FILE_NOT_FOUND_ETAG:
             msg = f"ETag mismatch for {s3_key}: local {local_etag} != remote {remote_etag}"
             raise S3UploadFailedException(msg)
 

@@ -505,7 +505,7 @@ def test_upload_all_files_should_raise_on_etag_mismatch(
 @patch("dags.impl.s3_upload.is_upload_needed")
 @patch("dags.impl.s3_upload.upload_file_to_s3")
 @patch("dags.impl.s3_upload.get_etag")
-@patch("dags.impl.s3_upload._FILE_NOT_FOUND")
+@patch("dags.impl.s3_upload.S3_FILE_NOT_FOUND_ETAG")
 def test_upload_all_files_should_raise_when_file_not_found_after_upload(
     mock_file_not_found: MagicMock,
     mock_get_etag: MagicMock,

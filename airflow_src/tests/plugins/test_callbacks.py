@@ -2,7 +2,7 @@
 
 from unittest.mock import MagicMock, patch
 
-from dags.impl.s3_upload import S3UploadFailedException
+from dags.impl.s3_uploader_impl import S3UploadFailedException
 from plugins.callbacks import on_failure_callback
 
 from shared.db.models import BackupStatus, RawFileStatus

@@ -7,7 +7,7 @@ import pytest
 from airflow.exceptions import AirflowFailException
 from botocore.exceptions import BotoCoreError, ClientError
 from common.keys import DagContext, DagParams
-from dags.impl.s3_upload import (
+from dags.impl.s3_uploader_impl import (
     S3UploadFailedException,
     _get_key_prefix,
     _prepare_upload,
@@ -25,7 +25,7 @@ def test_s3_upload_failed_exception_is_airflow_fail_exception() -> None:
     assert isinstance(exception, AirflowFailException)
 
 
-@patch("dags.impl.s3_upload.get_s3_upload_config")
+@patch("dags.impl.s3_uploader_impl.get_s3_upload_config")
 def test_upload_raw_file_to_s3_should_raise_when_region_not_configured(
     mock_get_s3_config: MagicMock,
 ) -> None:
@@ -41,7 +41,7 @@ def test_upload_raw_file_to_s3_should_raise_when_region_not_configured(
         upload_raw_file_to_s3(ti, **kwargs)
 
 
-@patch("dags.impl.s3_upload.get_s3_upload_config")
+@patch("dags.impl.s3_uploader_impl.get_s3_upload_config")
 def test_upload_raw_file_to_s3_should_raise_when_bucket_prefix_not_configured(
     mock_get_s3_config: MagicMock,
 ) -> None:
@@ -57,16 +57,16 @@ def test_upload_raw_file_to_s3_should_raise_when_bucket_prefix_not_configured(
         upload_raw_file_to_s3(ti, **kwargs)
 
 
-@patch("dags.impl.s3_upload.get_s3_upload_config")
-@patch("dags.impl.s3_upload.get_raw_file_by_id")
-@patch("dags.impl.s3_upload._get_project_id_or_fallback")
-@patch("dags.impl.s3_upload.normalize_bucket_name")
-@patch("dags.impl.s3_upload.get_transfer_config")
-@patch("dags.impl.s3_upload.update_raw_file")
-@patch("dags.impl.s3_upload.get_s3_client")
-@patch("dags.impl.s3_upload.bucket_exists")
-@patch("dags.impl.s3_upload._prepare_upload")
-@patch("dags.impl.s3_upload._upload_files")
+@patch("dags.impl.s3_uploader_impl.get_s3_upload_config")
+@patch("dags.impl.s3_uploader_impl.get_raw_file_by_id")
+@patch("dags.impl.s3_uploader_impl._get_project_id_or_fallback")
+@patch("dags.impl.s3_uploader_impl.normalize_bucket_name")
+@patch("dags.impl.s3_uploader_impl.get_transfer_config")
+@patch("dags.impl.s3_uploader_impl.update_raw_file")
+@patch("dags.impl.s3_uploader_impl.get_s3_client")
+@patch("dags.impl.s3_uploader_impl.bucket_exists")
+@patch("dags.impl.s3_uploader_impl._prepare_upload")
+@patch("dags.impl.s3_uploader_impl._upload_files")
 def test_upload_raw_file_to_s3_should_complete_successfully(  # noqa: PLR0913
     mock_upload_all: MagicMock,
     mock_prepare: MagicMock,
@@ -115,16 +115,16 @@ def test_upload_raw_file_to_s3_should_complete_successfully(  # noqa: PLR0913
     mock_upload_all.assert_called_once()
 
 
-@patch("dags.impl.s3_upload.get_s3_upload_config")
-@patch("dags.impl.s3_upload.get_raw_file_by_id")
-@patch("dags.impl.s3_upload._get_project_id_or_fallback")
-@patch("dags.impl.s3_upload.normalize_bucket_name")
-@patch("dags.impl.s3_upload.get_transfer_config")
-@patch("dags.impl.s3_upload.update_raw_file")
-@patch("dags.impl.s3_upload.get_s3_client")
-@patch("dags.impl.s3_upload.bucket_exists")
-@patch("dags.impl.s3_upload._prepare_upload")
-@patch("dags.impl.s3_upload._upload_files")
+@patch("dags.impl.s3_uploader_impl.get_s3_upload_config")
+@patch("dags.impl.s3_uploader_impl.get_raw_file_by_id")
+@patch("dags.impl.s3_uploader_impl._get_project_id_or_fallback")
+@patch("dags.impl.s3_uploader_impl.normalize_bucket_name")
+@patch("dags.impl.s3_uploader_impl.get_transfer_config")
+@patch("dags.impl.s3_uploader_impl.update_raw_file")
+@patch("dags.impl.s3_uploader_impl.get_s3_client")
+@patch("dags.impl.s3_uploader_impl.bucket_exists")
+@patch("dags.impl.s3_uploader_impl._prepare_upload")
+@patch("dags.impl.s3_uploader_impl._upload_files")
 def test_upload_raw_file_to_s3_should_include_key_prefix_in_s3_path(  # noqa: PLR0913
     _mock_upload_all: MagicMock,  # noqa: PT019
     mock_prepare: MagicMock,
@@ -169,14 +169,14 @@ def test_upload_raw_file_to_s3_should_include_key_prefix_in_s3_path(  # noqa: PL
     )
 
 
-@patch("dags.impl.s3_upload.get_s3_upload_config")
-@patch("dags.impl.s3_upload.get_raw_file_by_id")
-@patch("dags.impl.s3_upload._get_project_id_or_fallback")
-@patch("dags.impl.s3_upload.normalize_bucket_name")
-@patch("dags.impl.s3_upload.get_transfer_config")
-@patch("dags.impl.s3_upload.update_raw_file")
-@patch("dags.impl.s3_upload.get_s3_client")
-@patch("dags.impl.s3_upload.bucket_exists")
+@patch("dags.impl.s3_uploader_impl.get_s3_upload_config")
+@patch("dags.impl.s3_uploader_impl.get_raw_file_by_id")
+@patch("dags.impl.s3_uploader_impl._get_project_id_or_fallback")
+@patch("dags.impl.s3_uploader_impl.normalize_bucket_name")
+@patch("dags.impl.s3_uploader_impl.get_transfer_config")
+@patch("dags.impl.s3_uploader_impl.update_raw_file")
+@patch("dags.impl.s3_uploader_impl.get_s3_client")
+@patch("dags.impl.s3_uploader_impl.bucket_exists")
 def test_upload_raw_file_to_s3_should_raise_when_bucket_does_not_exist(  # noqa: PLR0913
     mock_bucket_exists: MagicMock,
     _mock_get_s3_client: MagicMock,  # noqa: PT019
@@ -214,16 +214,16 @@ def test_upload_raw_file_to_s3_should_raise_when_bucket_does_not_exist(  # noqa:
     )
 
 
-@patch("dags.impl.s3_upload.get_s3_upload_config")
-@patch("dags.impl.s3_upload.get_raw_file_by_id")
-@patch("dags.impl.s3_upload._get_project_id_or_fallback")
-@patch("dags.impl.s3_upload.normalize_bucket_name")
-@patch("dags.impl.s3_upload.get_transfer_config")
-@patch("dags.impl.s3_upload.update_raw_file")
-@patch("dags.impl.s3_upload.get_s3_client")
-@patch("dags.impl.s3_upload.bucket_exists")
-@patch("dags.impl.s3_upload._prepare_upload")
-@patch("dags.impl.s3_upload._upload_files")
+@patch("dags.impl.s3_uploader_impl.get_s3_upload_config")
+@patch("dags.impl.s3_uploader_impl.get_raw_file_by_id")
+@patch("dags.impl.s3_uploader_impl._get_project_id_or_fallback")
+@patch("dags.impl.s3_uploader_impl.normalize_bucket_name")
+@patch("dags.impl.s3_uploader_impl.get_transfer_config")
+@patch("dags.impl.s3_uploader_impl.update_raw_file")
+@patch("dags.impl.s3_uploader_impl.get_s3_client")
+@patch("dags.impl.s3_uploader_impl.bucket_exists")
+@patch("dags.impl.s3_uploader_impl._prepare_upload")
+@patch("dags.impl.s3_uploader_impl._upload_files")
 def test_upload_raw_file_to_s3_should_raise_on_boto_error(  # noqa: PLR0913
     mock_upload_all: MagicMock,
     mock_prepare: MagicMock,
@@ -266,16 +266,16 @@ def test_upload_raw_file_to_s3_should_raise_on_boto_error(  # noqa: PLR0913
         upload_raw_file_to_s3(ti, **kwargs)
 
 
-@patch("dags.impl.s3_upload.get_s3_upload_config")
-@patch("dags.impl.s3_upload.get_raw_file_by_id")
-@patch("dags.impl.s3_upload._get_project_id_or_fallback")
-@patch("dags.impl.s3_upload.normalize_bucket_name")
-@patch("dags.impl.s3_upload.get_transfer_config")
-@patch("dags.impl.s3_upload.update_raw_file")
-@patch("dags.impl.s3_upload.get_s3_client")
-@patch("dags.impl.s3_upload.bucket_exists")
-@patch("dags.impl.s3_upload._prepare_upload")
-@patch("dags.impl.s3_upload._upload_files")
+@patch("dags.impl.s3_uploader_impl.get_s3_upload_config")
+@patch("dags.impl.s3_uploader_impl.get_raw_file_by_id")
+@patch("dags.impl.s3_uploader_impl._get_project_id_or_fallback")
+@patch("dags.impl.s3_uploader_impl.normalize_bucket_name")
+@patch("dags.impl.s3_uploader_impl.get_transfer_config")
+@patch("dags.impl.s3_uploader_impl.update_raw_file")
+@patch("dags.impl.s3_uploader_impl.get_s3_client")
+@patch("dags.impl.s3_uploader_impl.bucket_exists")
+@patch("dags.impl.s3_uploader_impl._prepare_upload")
+@patch("dags.impl.s3_uploader_impl._upload_files")
 def test_upload_raw_file_to_s3_should_raise_on_client_error(  # noqa: PLR0913
     mock_upload_all: MagicMock,
     mock_prepare: MagicMock,
@@ -320,7 +320,7 @@ def test_upload_raw_file_to_s3_should_raise_on_client_error(  # noqa: PLR0913
         upload_raw_file_to_s3(ti, **kwargs)
 
 
-@patch("dags.impl.s3_upload._get_key_prefix")
+@patch("dags.impl.s3_uploader_impl._get_key_prefix")
 def test_prepare_upload_should_create_correct_mapping(
     mock_get_key_prefix: MagicMock,
 ) -> None:
@@ -361,7 +361,7 @@ def test_get_key_prefix_should_return_empty_for_project_file() -> None:
     assert result == ""
 
 
-@patch("dags.impl.s3_upload.get_created_at_year_month")
+@patch("dags.impl.s3_uploader_impl.get_created_at_year_month")
 def test_get_key_prefix_should_include_instrument_and_date_for_fallback(
     mock_get_year_month: MagicMock,
 ) -> None:
@@ -377,7 +377,7 @@ def test_get_key_prefix_should_include_instrument_and_date_for_fallback(
     assert result == "instrument1/2025_01/"
 
 
-@patch("dags.impl.s3_upload.get_created_at_year_month")
+@patch("dags.impl.s3_uploader_impl.get_created_at_year_month")
 def test_get_key_prefix_should_include_file_id_for_wiff_file(
     mock_get_year_month: MagicMock,
 ) -> None:
@@ -405,9 +405,9 @@ def test_get_key_prefix_should_include_file_id_for_wiff_with_project() -> None:
     assert result == "test.wiff/"
 
 
-@patch("dags.impl.s3_upload.is_upload_needed")
-@patch("dags.impl.s3_upload.upload_file_to_s3")
-@patch("dags.impl.s3_upload.get_etag")
+@patch("dags.impl.s3_uploader_impl.is_upload_needed")
+@patch("dags.impl.s3_uploader_impl.upload_file_to_s3")
+@patch("dags.impl.s3_uploader_impl.get_etag")
 def test_upload_files_should_upload_files(
     mock_get_etag: MagicMock,
     mock_upload_file: MagicMock,
@@ -431,9 +431,9 @@ def test_upload_files_should_upload_files(
     assert mock_upload_file.call_count == 2
 
 
-@patch("dags.impl.s3_upload.is_upload_needed")
-@patch("dags.impl.s3_upload.upload_file_to_s3")
-@patch("dags.impl.s3_upload.get_etag")
+@patch("dags.impl.s3_uploader_impl.is_upload_needed")
+@patch("dags.impl.s3_uploader_impl.upload_file_to_s3")
+@patch("dags.impl.s3_uploader_impl.get_etag")
 def test_upload_files_should_skip_when_upload_not_needed(
     mock_get_etag: MagicMock,
     mock_upload_file: MagicMock,
@@ -452,7 +452,7 @@ def test_upload_files_should_skip_when_upload_not_needed(
     mock_get_etag.assert_not_called()
 
 
-@patch("dags.impl.s3_upload.is_upload_needed")
+@patch("dags.impl.s3_uploader_impl.is_upload_needed")
 def test_upload_files_should_raise_on_is_upload_needed_error(
     mock_is_upload_needed: MagicMock,
 ) -> None:
@@ -467,9 +467,9 @@ def test_upload_files_should_raise_on_is_upload_needed_error(
         _upload_files(file_mapping, "test-bucket", mock_transfer_config, mock_s3_client)
 
 
-@patch("dags.impl.s3_upload.is_upload_needed")
-@patch("dags.impl.s3_upload.upload_file_to_s3")
-@patch("dags.impl.s3_upload.get_etag")
+@patch("dags.impl.s3_uploader_impl.is_upload_needed")
+@patch("dags.impl.s3_uploader_impl.upload_file_to_s3")
+@patch("dags.impl.s3_uploader_impl.get_etag")
 def test_upload_files_should_raise_on_etag_mismatch(
     mock_get_etag: MagicMock,
     _mock_upload_file: MagicMock,  # noqa: PT019
@@ -490,10 +490,10 @@ def test_upload_files_should_raise_on_etag_mismatch(
         _upload_files(file_mapping, "test-bucket", mock_transfer_config, mock_s3_client)
 
 
-@patch("dags.impl.s3_upload.is_upload_needed")
-@patch("dags.impl.s3_upload.upload_file_to_s3")
-@patch("dags.impl.s3_upload.get_etag")
-@patch("dags.impl.s3_upload.S3_FILE_NOT_FOUND_ETAG")
+@patch("dags.impl.s3_uploader_impl.is_upload_needed")
+@patch("dags.impl.s3_uploader_impl.upload_file_to_s3")
+@patch("dags.impl.s3_uploader_impl.get_etag")
+@patch("dags.impl.s3_uploader_impl.S3_FILE_NOT_FOUND_ETAG")
 def test_upload_files_should_raise_when_file_not_found_after_upload(
     mock_file_not_found: MagicMock,
     mock_get_etag: MagicMock,
@@ -512,16 +512,16 @@ def test_upload_files_should_raise_when_file_not_found_after_upload(
         _upload_files(file_mapping, "test-bucket", mock_transfer_config, mock_s3_client)
 
 
-@patch("dags.impl.s3_upload.get_s3_upload_config")
-@patch("dags.impl.s3_upload.get_raw_file_by_id")
-@patch("dags.impl.s3_upload._get_project_id_or_fallback")
-@patch("dags.impl.s3_upload.normalize_bucket_name")
-@patch("dags.impl.s3_upload.get_transfer_config")
-@patch("dags.impl.s3_upload.update_raw_file")
-@patch("dags.impl.s3_upload.get_s3_client")
-@patch("dags.impl.s3_upload.bucket_exists")
-@patch("dags.impl.s3_upload._prepare_upload")
-@patch("dags.impl.s3_upload._upload_files")
+@patch("dags.impl.s3_uploader_impl.get_s3_upload_config")
+@patch("dags.impl.s3_uploader_impl.get_raw_file_by_id")
+@patch("dags.impl.s3_uploader_impl._get_project_id_or_fallback")
+@patch("dags.impl.s3_uploader_impl.normalize_bucket_name")
+@patch("dags.impl.s3_uploader_impl.get_transfer_config")
+@patch("dags.impl.s3_uploader_impl.update_raw_file")
+@patch("dags.impl.s3_uploader_impl.get_s3_client")
+@patch("dags.impl.s3_uploader_impl.bucket_exists")
+@patch("dags.impl.s3_uploader_impl._prepare_upload")
+@patch("dags.impl.s3_uploader_impl._upload_files")
 def test_upload_raw_file_to_s3_should_handle_multiple_files(  # noqa: PLR0913
     mock_upload_all: MagicMock,
     mock_prepare: MagicMock,
@@ -568,9 +568,9 @@ def test_upload_raw_file_to_s3_should_handle_multiple_files(  # noqa: PLR0913
     assert len(call_args[0]) == 3
 
 
-@patch("dags.impl.s3_upload.is_upload_needed")
-@patch("dags.impl.s3_upload.upload_file_to_s3")
-@patch("dags.impl.s3_upload.get_etag")
+@patch("dags.impl.s3_uploader_impl.is_upload_needed")
+@patch("dags.impl.s3_uploader_impl.upload_file_to_s3")
+@patch("dags.impl.s3_uploader_impl.get_etag")
 def test_upload_files_should_handle_mixed_upload_needs(
     mock_get_etag: MagicMock,
     mock_upload_file: MagicMock,

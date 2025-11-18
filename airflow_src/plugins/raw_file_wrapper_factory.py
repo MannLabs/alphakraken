@@ -239,7 +239,7 @@ class CopyPathProvider(
         return self._raw_file.id
 
 
-class MovePathProvider(PathProvider):
+class MovePathProvider(PathProvider):  # TODO: rename to MoveOnInstrumentPathProvider
     """PathProvider for moving raw files from the instrument (original name) to the instrument backup (raw file id)."""
 
     def get_source_folder_path(self) -> Path:
@@ -262,7 +262,9 @@ class MovePathProvider(PathProvider):
         return self._raw_file.id
 
 
-class RemovePathProvider(PathProvider):
+class RemovePathProvider(
+    PathProvider
+):  # TODO: rename to RemoveFromInstrumentPathProvider
     """PathProvider for comparing raw files from instrument backup (raw file id) to keys in file info (raw file id)."""
 
     def get_source_folder_path(self) -> Path:
@@ -274,7 +276,7 @@ class RemovePathProvider(PathProvider):
 
     def get_target_folder_path(self) -> Path:
         """See docu of superclass."""
-        # empty Path as the target is file info, which is a relative path
+        # the desired target is a relative path (to access file_info), so we return an empty Path here
         return Path()
 
     def get_source_file_name(self) -> str:

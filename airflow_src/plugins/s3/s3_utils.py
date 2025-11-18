@@ -21,7 +21,7 @@ class S3UploadFailedException(AirflowFailException):
     """
 
 
-# TODO: -> shared
+# TODO: move to shared to enable bucket name preview
 def normalize_bucket_name(project_id: str, bucket_prefix: str) -> str:
     """Normalize bucket name to be S3-compatible.
 

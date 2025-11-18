@@ -90,19 +90,11 @@ def upload_raw_file_to_s3(ti: TaskInstance, **kwargs) -> None:
             files_dst_paths, raw_file, target_folder_path
         )
 
-        _upload_all_files(
+        _upload_files(
             file_path_to_target_path_and_etag,
             bucket_name,
             transfer_config,
             s3_client,
-        )
-
-        update_raw_file(
-            raw_file_id,
-            backup_status=BackupStatus.UPLOAD_DONE,
-            s3_upload_path=f"s3://{bucket_name}"
-            if not key_prefix
-            else f"s3://{bucket_name}/{key_prefix}",
         )
 
         logging.info(f"S3 backup completed for {raw_file_id}")
@@ -110,6 +102,14 @@ def upload_raw_file_to_s3(ti: TaskInstance, **kwargs) -> None:
     except (BotoCoreError, ClientError, Exception) as e:
         msg = f"S3 upload failed for {raw_file_id}: {type(e).__name__} - {e}"
         raise S3UploadFailedException(msg) from e
+    else:
+        update_raw_file(
+            raw_file_id,
+            backup_status=BackupStatus.UPLOAD_DONE,
+            s3_upload_path=f"s3://{bucket_name}"
+            if not key_prefix
+            else f"s3://{bucket_name}/{key_prefix}",
+        )
 
 
 def _prepare_upload(
@@ -165,13 +165,13 @@ def _get_key_prefix(raw_file: RawFile) -> str:
     return S3_KEY_SEPARATOR.join(key_prefixes)
 
 
-def _upload_all_files(
+def _upload_files(
     file_path_to_target_path_and_etag: dict[Path, tuple[str, str]],
     bucket_name: str,
     transfer_config: TransferConfig,
     s3_client: BaseAwsConnection,
 ) -> None:
-    """Upload all files to S3 with ETag verification."""
+    """Upload all files belonging to a raw file to S3 with ETag verification."""
     for local_file_path, (
         s3_key,
         local_etag,

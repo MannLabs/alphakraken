@@ -12,7 +12,7 @@ from dags.impl.s3_upload import (
     _extract_etag_from_file_info,
     _get_key_prefix,
     _prepare_upload,
-    _upload_all_files,
+    _upload_files,
     upload_raw_file_to_s3,
 )
 
@@ -71,7 +71,7 @@ def test_upload_raw_file_to_s3_should_raise_when_bucket_prefix_not_configured(
 @patch("dags.impl.s3_upload.get_s3_client")
 @patch("dags.impl.s3_upload.bucket_exists")
 @patch("dags.impl.s3_upload._prepare_upload")
-@patch("dags.impl.s3_upload._upload_all_files")
+@patch("dags.impl.s3_upload._upload_files")
 def test_upload_raw_file_to_s3_should_complete_successfully(  # noqa: PLR0913
     mock_upload_all: MagicMock,
     mock_prepare: MagicMock,
@@ -130,7 +130,7 @@ def test_upload_raw_file_to_s3_should_complete_successfully(  # noqa: PLR0913
 @patch("dags.impl.s3_upload.get_s3_client")
 @patch("dags.impl.s3_upload.bucket_exists")
 @patch("dags.impl.s3_upload._prepare_upload")
-@patch("dags.impl.s3_upload._upload_all_files")
+@patch("dags.impl.s3_upload._upload_files")
 def test_upload_raw_file_to_s3_should_include_key_prefix_in_s3_path(  # noqa: PLR0913
     mock_upload_all: MagicMock,
     mock_prepare: MagicMock,
@@ -231,7 +231,7 @@ def test_upload_raw_file_to_s3_should_raise_when_bucket_does_not_exist(  # noqa:
 @patch("dags.impl.s3_upload.get_s3_client")
 @patch("dags.impl.s3_upload.bucket_exists")
 @patch("dags.impl.s3_upload._prepare_upload")
-@patch("dags.impl.s3_upload._upload_all_files")
+@patch("dags.impl.s3_upload._upload_files")
 def test_upload_raw_file_to_s3_should_raise_on_boto_error(  # noqa: PLR0913
     mock_upload_all: MagicMock,
     mock_prepare: MagicMock,
@@ -284,7 +284,7 @@ def test_upload_raw_file_to_s3_should_raise_on_boto_error(  # noqa: PLR0913
 @patch("dags.impl.s3_upload.get_s3_client")
 @patch("dags.impl.s3_upload.bucket_exists")
 @patch("dags.impl.s3_upload._prepare_upload")
-@patch("dags.impl.s3_upload._upload_all_files")
+@patch("dags.impl.s3_upload._upload_files")
 def test_upload_raw_file_to_s3_should_raise_on_client_error(  # noqa: PLR0913
     mock_upload_all: MagicMock,
     mock_prepare: MagicMock,
@@ -416,12 +416,12 @@ def test_get_key_prefix_should_include_file_id_for_wiff_with_project() -> None:
 @patch("dags.impl.s3_upload.is_upload_needed")
 @patch("dags.impl.s3_upload.upload_file_to_s3")
 @patch("dags.impl.s3_upload.get_etag")
-def test_upload_all_files_should_upload_all_files(
+def test_upload_files_should_upload_files(
     mock_get_etag: MagicMock,
     mock_upload_file: MagicMock,
     mock_is_upload_needed: MagicMock,
 ) -> None:
-    """Test _upload_all_files uploads all files with ETag verification."""
+    """Test _upload_files uploads all files with ETag verification."""
     mock_is_upload_needed.return_value = True
     mock_get_etag.return_value = "etag123"
     mock_s3_client = MagicMock()
@@ -434,7 +434,7 @@ def test_upload_all_files_should_upload_all_files(
 
     mock_get_etag.side_effect = ["etag123", "etag456"]
 
-    _upload_all_files(file_mapping, "test-bucket", mock_transfer_config, mock_s3_client)
+    _upload_files(file_mapping, "test-bucket", mock_transfer_config, mock_s3_client)
 
     assert mock_upload_file.call_count == 2
 
@@ -442,29 +442,29 @@ def test_upload_all_files_should_upload_all_files(
 @patch("dags.impl.s3_upload.is_upload_needed")
 @patch("dags.impl.s3_upload.upload_file_to_s3")
 @patch("dags.impl.s3_upload.get_etag")
-def test_upload_all_files_should_skip_when_upload_not_needed(
+def test_upload_files_should_skip_when_upload_not_needed(
     mock_get_etag: MagicMock,
     mock_upload_file: MagicMock,
     mock_is_upload_needed: MagicMock,
 ) -> None:
-    """Test _upload_all_files skips upload when file already exists with matching ETag."""
+    """Test _upload_files skips upload when file already exists with matching ETag."""
     mock_is_upload_needed.return_value = False
     mock_s3_client = MagicMock()
     mock_transfer_config = MagicMock()
 
     file_mapping = {Path("/dst/file1.raw"): ("key1.raw", "etag123")}
 
-    _upload_all_files(file_mapping, "test-bucket", mock_transfer_config, mock_s3_client)
+    _upload_files(file_mapping, "test-bucket", mock_transfer_config, mock_s3_client)
 
     mock_upload_file.assert_not_called()
     mock_get_etag.assert_not_called()
 
 
 @patch("dags.impl.s3_upload.is_upload_needed")
-def test_upload_all_files_should_raise_on_is_upload_needed_error(
+def test_upload_files_should_raise_on_is_upload_needed_error(
     mock_is_upload_needed: MagicMock,
 ) -> None:
-    """Test _upload_all_files raises S3UploadFailedException when is_upload_needed raises ValueError."""
+    """Test _upload_files raises S3UploadFailedException when is_upload_needed raises ValueError."""
     mock_is_upload_needed.side_effect = ValueError("ETag mismatch")
     mock_s3_client = MagicMock()
     mock_transfer_config = MagicMock()
@@ -472,20 +472,18 @@ def test_upload_all_files_should_raise_on_is_upload_needed_error(
     file_mapping = {Path("/dst/file1.raw"): ("key1.raw", "etag123")}
 
     with pytest.raises(S3UploadFailedException, match="ETag mismatch"):
-        _upload_all_files(
-            file_mapping, "test-bucket", mock_transfer_config, mock_s3_client
-        )
+        _upload_files(file_mapping, "test-bucket", mock_transfer_config, mock_s3_client)
 
 
 @patch("dags.impl.s3_upload.is_upload_needed")
 @patch("dags.impl.s3_upload.upload_file_to_s3")
 @patch("dags.impl.s3_upload.get_etag")
-def test_upload_all_files_should_raise_on_etag_mismatch(
+def test_upload_files_should_raise_on_etag_mismatch(
     mock_get_etag: MagicMock,
     mock_upload_file: MagicMock,
     mock_is_upload_needed: MagicMock,
 ) -> None:
-    """Test _upload_all_files raises S3UploadFailedException on ETag mismatch after upload."""
+    """Test _upload_files raises S3UploadFailedException on ETag mismatch after upload."""
     mock_is_upload_needed.return_value = True
     mock_get_etag.return_value = "different_etag"
     mock_s3_client = MagicMock()
@@ -497,22 +495,20 @@ def test_upload_all_files_should_raise_on_etag_mismatch(
         S3UploadFailedException,
         match="ETag mismatch for key1.raw: local etag123 != remote different_etag",
     ):
-        _upload_all_files(
-            file_mapping, "test-bucket", mock_transfer_config, mock_s3_client
-        )
+        _upload_files(file_mapping, "test-bucket", mock_transfer_config, mock_s3_client)
 
 
 @patch("dags.impl.s3_upload.is_upload_needed")
 @patch("dags.impl.s3_upload.upload_file_to_s3")
 @patch("dags.impl.s3_upload.get_etag")
 @patch("dags.impl.s3_upload.S3_FILE_NOT_FOUND_ETAG")
-def test_upload_all_files_should_raise_when_file_not_found_after_upload(
+def test_upload_files_should_raise_when_file_not_found_after_upload(
     mock_file_not_found: MagicMock,
     mock_get_etag: MagicMock,
     mock_upload_file: MagicMock,
     mock_is_upload_needed: MagicMock,
 ) -> None:
-    """Test _upload_all_files raises when file not found on S3 after upload."""
+    """Test _upload_files raises when file not found on S3 after upload."""
     mock_is_upload_needed.return_value = True
     mock_get_etag.return_value = mock_file_not_found
     mock_s3_client = MagicMock()
@@ -521,9 +517,7 @@ def test_upload_all_files_should_raise_when_file_not_found_after_upload(
     file_mapping = {Path("/dst/file1.raw"): ("key1.raw", "etag123")}
 
     with pytest.raises(S3UploadFailedException, match="ETag mismatch for key1.raw"):
-        _upload_all_files(
-            file_mapping, "test-bucket", mock_transfer_config, mock_s3_client
-        )
+        _upload_files(file_mapping, "test-bucket", mock_transfer_config, mock_s3_client)
 
 
 def test_extract_etag_from_file_info_should_return_etag() -> None:
@@ -556,7 +550,7 @@ def test_extract_etag_from_file_info_should_handle_etag_without_separator() -> N
 @patch("dags.impl.s3_upload.get_s3_client")
 @patch("dags.impl.s3_upload.bucket_exists")
 @patch("dags.impl.s3_upload._prepare_upload")
-@patch("dags.impl.s3_upload._upload_all_files")
+@patch("dags.impl.s3_upload._upload_files")
 def test_upload_raw_file_to_s3_should_handle_multiple_files(  # noqa: PLR0913
     mock_upload_all: MagicMock,
     mock_prepare: MagicMock,
@@ -639,12 +633,12 @@ def test_prepare_upload_should_handle_nested_directory_structure(
 @patch("dags.impl.s3_upload.is_upload_needed")
 @patch("dags.impl.s3_upload.upload_file_to_s3")
 @patch("dags.impl.s3_upload.get_etag")
-def test_upload_all_files_should_handle_mixed_upload_needs(
+def test_upload_files_should_handle_mixed_upload_needs(
     mock_get_etag: MagicMock,
     mock_upload_file: MagicMock,
     mock_is_upload_needed: MagicMock,
 ) -> None:
-    """Test _upload_all_files handles mix of files that need/don't need upload."""
+    """Test _upload_files handles mix of files that need/don't need upload."""
     mock_is_upload_needed.side_effect = [True, False, True]
     mock_get_etag.side_effect = ["etag123", "etag789"]
     mock_s3_client = MagicMock()
@@ -656,7 +650,7 @@ def test_upload_all_files_should_handle_mixed_upload_needs(
         Path("/dst/file3.raw"): ("key3.raw", "etag789"),
     }
 
-    _upload_all_files(file_mapping, "test-bucket", mock_transfer_config, mock_s3_client)
+    _upload_files(file_mapping, "test-bucket", mock_transfer_config, mock_s3_client)
 
     assert mock_upload_file.call_count == 2
     assert mock_get_etag.call_count == 2

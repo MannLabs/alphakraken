@@ -336,6 +336,18 @@ def start_file_mover(ti: TaskInstance, **kwargs) -> None:
     )
 
 
+def start_s3_uploader(ti: TaskInstance, **kwargs) -> None:
+    """Trigger the s3_uploader DAG for a specific raw file."""
+    trigger_dag_run(
+        Dags.S3_UPLOADER,
+        {
+            DagParams.RAW_FILE_ID: kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID],
+            DagParams.TARGET_FOLDER_PATH: get_xcom(ti, XComKeys.TARGET_FOLDER_PATH),
+            DagParams.FILES_DST_PATHS: get_xcom(ti, XComKeys.FILES_DST_PATHS),
+        },
+    )
+
+
 def _count_special_characters(raw_file_id: str) -> int:
     """Check if the raw file name contains special characters."""
     pattern = re.compile(FORBIDDEN_RAW_FILE_NAME_CHARACTERS_PATTERN)

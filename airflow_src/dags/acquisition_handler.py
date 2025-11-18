@@ -24,13 +24,13 @@ from common.settings import (
     Timings,
     get_instrument_ids,
 )
-from dags.impl.s3_upload import upload_raw_file_to_s3
 from impl.handler_impl import (
     compute_checksum,
     copy_raw_file,
     decide_processing,
     start_acquisition_processor,
     start_file_mover,
+    start_s3_uploader,
 )
 from sensors.acquisition_monitor import AcquisitionMonitor
 
@@ -88,13 +88,9 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
             pool=Pools.FILE_COPY_POOL,
         )
 
-        upload_to_s3_ = PythonOperator(
-            task_id=Tasks.UPLOAD_TO_S3,
-            python_callable=upload_raw_file_to_s3,
-            execution_timeout=timedelta(hours=6),  # Large files need time
-            retries=3,
-            retry_delay=timedelta(minutes=5),
-            pool=Pools.S3_UPLOAD_POOL,
+        start_s3_uploader_ = PythonOperator(
+            task_id=Tasks.START_S3_UPLOADER,
+            python_callable=start_s3_uploader,
         )
 
         start_file_mover_ = PythonOperator(
@@ -123,11 +119,7 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
     if not is_s3_upload_enabled():
         (first_part >> second_part)
     else:
-        (first_part >> [upload_to_s3_, start_file_mover_])
-
-        upload_to_s3_  # noqa: B018
-
-        second_part  # noqa: B018
+        (first_part >> start_s3_uploader_ >> second_part)
 
 
 for instrument_id in get_instrument_ids():

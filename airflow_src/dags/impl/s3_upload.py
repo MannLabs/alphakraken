@@ -8,8 +8,7 @@ from airflow.models import TaskInstance
 from airflow.providers.amazon.aws.hooks.base_aws import BaseAwsConnection
 from boto3.s3.transfer import TransferConfig
 from botocore.exceptions import BotoCoreError, ClientError
-from common.keys import DagContext, DagParams, XComKeys
-from common.utils import get_xcom
+from common.keys import DagContext, DagParams
 from dags.impl.processor_impl import _get_project_id_or_fallback
 from plugins.file_handling import ETAG_SEPARATOR
 from plugins.s3.client import (
@@ -53,6 +52,7 @@ def upload_raw_file_to_s3(ti: TaskInstance, **kwargs) -> None:
         **kwargs: Contains raw_file_id in params
 
     """
+    del ti  #    unused
     s3_config = get_s3_upload_config()
     region = s3_config.get("region")
     bucket_prefix = s3_config.get("bucket_prefix")
@@ -65,9 +65,10 @@ def upload_raw_file_to_s3(ti: TaskInstance, **kwargs) -> None:
     raw_file = get_raw_file_by_id(raw_file_id)
 
     files_dst_paths = {
-        Path(k): Path(v) for k, v in get_xcom(ti, XComKeys.FILES_DST_PATHS).items()
+        Path(k): Path(v)
+        for k, v in kwargs[DagContext.PARAMS][DagParams.FILES_DST_PATHS].items()
     }
-    target_folder_path = get_xcom(ti, XComKeys.TARGET_FOLDER_PATH)
+    target_folder_path = kwargs[DagContext.PARAMS][DagParams.TARGET_FOLDER_PATH]
 
     bucket_name = normalize_bucket_name(
         _get_project_id_or_fallback(raw_file.project_id, raw_file.instrument_id),

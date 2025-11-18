@@ -1,23 +1,16 @@
 """Unit tests for s3_utils.py."""
 
-from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from airflow.exceptions import AirflowFailException
-from boto3.s3.transfer import TransferConfig
-from botocore.exceptions import ClientError
+from plugins.s3.client import S3_FILE_NOT_FOUND_ETAG
 from plugins.s3.s3_utils import (
     S3_MAX_BUCKET_NAME_LENGTH,
     _normalize_for_s3,
     is_upload_needed,
     normalize_bucket_name,
 )
-from plugins.s3.client import S3_FILE_NOT_FOUND_ETAG
-
-
-# TODO: fix
-# ruff: noqa
 
 
 def test_normalize_for_s3_should_convert_to_lowercase() -> None:

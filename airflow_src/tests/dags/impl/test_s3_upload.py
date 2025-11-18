@@ -17,9 +17,6 @@ from dags.impl.s3_upload import (
 
 from shared.db.models import BackupStatus
 
-# TODO: fix
-# ruff: noqa
-
 
 def test_s3_upload_failed_exception_is_airflow_fail_exception() -> None:
     """Test S3UploadFailedException inherits from AirflowFailException."""
@@ -74,9 +71,9 @@ def test_upload_raw_file_to_s3_should_complete_successfully(  # noqa: PLR0913
     mock_upload_all: MagicMock,
     mock_prepare: MagicMock,
     mock_bucket_exists: MagicMock,
-    mock_get_s3_client: MagicMock,
+    _mock_get_s3_client: MagicMock,  # noqa: PT019
     mock_update: MagicMock,
-    mock_get_transfer_config: MagicMock,
+    _mock_get_transfer_config: MagicMock,  # noqa: PT019
     mock_normalize_bucket: MagicMock,
     mock_get_project_id: MagicMock,
     mock_get_raw_file: MagicMock,
@@ -129,12 +126,12 @@ def test_upload_raw_file_to_s3_should_complete_successfully(  # noqa: PLR0913
 @patch("dags.impl.s3_upload._prepare_upload")
 @patch("dags.impl.s3_upload._upload_files")
 def test_upload_raw_file_to_s3_should_include_key_prefix_in_s3_path(  # noqa: PLR0913
-    mock_upload_all: MagicMock,
+    _mock_upload_all: MagicMock,  # noqa: PT019
     mock_prepare: MagicMock,
     mock_bucket_exists: MagicMock,
-    mock_get_s3_client: MagicMock,
+    _mock_get_s3_client: MagicMock,  # noqa: PT019
     mock_update: MagicMock,
-    mock_get_transfer_config: MagicMock,
+    _mock_get_transfer_config: MagicMock,  # noqa: PT019
     mock_normalize_bucket: MagicMock,
     mock_get_project_id: MagicMock,
     mock_get_raw_file: MagicMock,
@@ -182,9 +179,9 @@ def test_upload_raw_file_to_s3_should_include_key_prefix_in_s3_path(  # noqa: PL
 @patch("dags.impl.s3_upload.bucket_exists")
 def test_upload_raw_file_to_s3_should_raise_when_bucket_does_not_exist(  # noqa: PLR0913
     mock_bucket_exists: MagicMock,
-    mock_get_s3_client: MagicMock,
+    _mock_get_s3_client: MagicMock,  # noqa: PT019
     mock_update: MagicMock,
-    mock_get_transfer_config: MagicMock,
+    _mock_get_transfer_config: MagicMock,  # noqa: PT019
     mock_normalize_bucket: MagicMock,
     mock_get_project_id: MagicMock,
     mock_get_raw_file: MagicMock,
@@ -231,9 +228,9 @@ def test_upload_raw_file_to_s3_should_raise_on_boto_error(  # noqa: PLR0913
     mock_upload_all: MagicMock,
     mock_prepare: MagicMock,
     mock_bucket_exists: MagicMock,
-    mock_get_s3_client: MagicMock,
-    mock_update: MagicMock,
-    mock_get_transfer_config: MagicMock,
+    _mock_get_s3_client: MagicMock,  # noqa: PT019
+    _mock_update: MagicMock,  # noqa: PT019
+    _mock_get_transfer_config: MagicMock,  # noqa: PT019
     mock_normalize_bucket: MagicMock,
     mock_get_project_id: MagicMock,
     mock_get_raw_file: MagicMock,
@@ -283,9 +280,9 @@ def test_upload_raw_file_to_s3_should_raise_on_client_error(  # noqa: PLR0913
     mock_upload_all: MagicMock,
     mock_prepare: MagicMock,
     mock_bucket_exists: MagicMock,
-    mock_get_s3_client: MagicMock,
-    mock_update: MagicMock,
-    mock_get_transfer_config: MagicMock,
+    _mock_get_s3_client: MagicMock,  # noqa: PT019
+    _mock_update: MagicMock,  # noqa: PT019
+    _mock_get_transfer_config: MagicMock,  # noqa: PT019
     mock_normalize_bucket: MagicMock,
     mock_get_project_id: MagicMock,
     mock_get_raw_file: MagicMock,
@@ -328,7 +325,6 @@ def test_prepare_upload_should_create_correct_mapping(
     mock_get_key_prefix: MagicMock,
 ) -> None:
     """Test _prepare_upload creates correct file paths to S3 key mapping."""
-
     mock_get_key_prefix.return_value = "prefix/"
 
     mock_raw_file = MagicMock()
@@ -476,7 +472,7 @@ def test_upload_files_should_raise_on_is_upload_needed_error(
 @patch("dags.impl.s3_upload.get_etag")
 def test_upload_files_should_raise_on_etag_mismatch(
     mock_get_etag: MagicMock,
-    mock_upload_file: MagicMock,
+    _mock_upload_file: MagicMock,  # noqa: PT019
     mock_is_upload_needed: MagicMock,
 ) -> None:
     """Test _upload_files raises S3UploadFailedException on ETag mismatch after upload."""
@@ -501,7 +497,7 @@ def test_upload_files_should_raise_on_etag_mismatch(
 def test_upload_files_should_raise_when_file_not_found_after_upload(
     mock_file_not_found: MagicMock,
     mock_get_etag: MagicMock,
-    mock_upload_file: MagicMock,
+    _mock_upload_file: MagicMock,  # noqa: PT019
     mock_is_upload_needed: MagicMock,
 ) -> None:
     """Test _upload_files raises when file not found on S3 after upload."""
@@ -530,9 +526,9 @@ def test_upload_raw_file_to_s3_should_handle_multiple_files(  # noqa: PLR0913
     mock_upload_all: MagicMock,
     mock_prepare: MagicMock,
     mock_bucket_exists: MagicMock,
-    mock_get_s3_client: MagicMock,
-    mock_update: MagicMock,
-    mock_get_transfer_config: MagicMock,
+    _mock_get_s3_client: MagicMock,  # noqa: PT019
+    _mock_update: MagicMock,  # noqa: PT019
+    _mock_get_transfer_config: MagicMock,  # noqa: PT019
     mock_normalize_bucket: MagicMock,
     mock_get_project_id: MagicMock,
     mock_get_raw_file: MagicMock,

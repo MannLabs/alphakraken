@@ -73,8 +73,7 @@ class DagParams:
     RAW_FILE_ID: str = "raw_file_id"
 
     # s3 uploader
-    FILES_DST_PATHS: str = "files_dst_paths"
-    TARGET_FOLDER_PATH: str = "target_folder_path"
+    INTERNAL_TARGET_FOLDER_PATH: str = "internal_target_folder_path"
 
 
 class XComKeys:

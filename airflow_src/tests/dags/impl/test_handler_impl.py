@@ -732,8 +732,7 @@ def test_start_s3_uploader(
         "s3_uploader",
         {
             DagParams.RAW_FILE_ID: "file1.raw",
-            DagParams.TARGET_FOLDER_PATH: "/path/to/backup",
-            DagParams.FILES_DST_PATHS: {"/src/file1.raw": "/dst/file1.raw"},
+            DagParams.INTERNAL_TARGET_FOLDER_PATH: "/path/to/backup",
         },
     )
     assert mock_get_xcom.call_count == 2

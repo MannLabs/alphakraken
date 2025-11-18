@@ -102,8 +102,7 @@ def test_upload_raw_file_to_s3_should_complete_successfully(  # noqa: PLR0913
     kwargs = {
         DagContext.PARAMS: {
             DagParams.RAW_FILE_ID: "test.raw",
-            DagParams.TARGET_FOLDER_PATH: "/dst",
-            DagParams.FILES_DST_PATHS: {"/src/file.raw": "/dst/file.raw"},
+            DagParams.INTERNAL_TARGET_FOLDER_PATH: "/dst",
         }
     }
 
@@ -161,8 +160,7 @@ def test_upload_raw_file_to_s3_should_include_key_prefix_in_s3_path(  # noqa: PL
     kwargs = {
         DagContext.PARAMS: {
             DagParams.RAW_FILE_ID: "test.raw",
-            DagParams.FILES_DST_PATHS: {"/src/file.raw": "/dst/file.raw"},
-            DagParams.TARGET_FOLDER_PATH: "/dst",
+            DagParams.INTERNAL_TARGET_FOLDER_PATH: "/dst",
         }
     }
 
@@ -208,8 +206,7 @@ def test_upload_raw_file_to_s3_should_raise_when_bucket_does_not_exist(  # noqa:
     kwargs = {
         DagContext.PARAMS: {
             DagParams.RAW_FILE_ID: "test.raw",
-            DagParams.FILES_DST_PATHS: {"/src/file.raw": "/dst/file.raw"},
-            DagParams.TARGET_FOLDER_PATH: "/dst",
+            DagParams.INTERNAL_TARGET_FOLDER_PATH: "/dst",
         }
     }
 
@@ -263,8 +260,7 @@ def test_upload_raw_file_to_s3_should_raise_on_boto_error(  # noqa: PLR0913
     kwargs = {
         DagContext.PARAMS: {
             DagParams.RAW_FILE_ID: "test.raw",
-            DagParams.FILES_DST_PATHS: {"/src/file.raw": "/dst/file.raw"},
-            DagParams.TARGET_FOLDER_PATH: "/dst",
+            DagParams.INTERNAL_TARGET_FOLDER_PATH: "/dst",
         }
     }
 
@@ -318,8 +314,7 @@ def test_upload_raw_file_to_s3_should_raise_on_client_error(  # noqa: PLR0913
     kwargs = {
         DagContext.PARAMS: {
             DagParams.RAW_FILE_ID: "test.raw",
-            DagParams.FILES_DST_PATHS: {"/src/file.raw": "/dst/file.raw"},
-            DagParams.TARGET_FOLDER_PATH: "/dst",
+            DagParams.INTERNAL_TARGET_FOLDER_PATH: "/dst",
         }
     }
 
@@ -520,26 +515,6 @@ def test_upload_files_should_raise_when_file_not_found_after_upload(
         _upload_files(file_mapping, "test-bucket", mock_transfer_config, mock_s3_client)
 
 
-def test_extract_etag_from_file_info_should_return_etag() -> None:
-    """Test _extract_etag_from_file_info extracts ETag from file_info."""
-    mock_raw_file = MagicMock()
-    mock_raw_file.file_info = {"file.raw": (1000, "hash123", "etag123__500")}
-
-    result = _extract_etag_from_file_info("file.raw", mock_raw_file)
-
-    assert result == "etag123"
-
-
-def test_extract_etag_from_file_info_should_handle_etag_without_separator() -> None:
-    """Test _extract_etag_from_file_info handles ETag without separator."""
-    mock_raw_file = MagicMock()
-    mock_raw_file.file_info = {"file.raw": (1000, "hash123", "etag123")}
-
-    result = _extract_etag_from_file_info("file.raw", mock_raw_file)
-
-    assert result == "etag123"
-
-
 @patch("dags.impl.s3_upload.get_s3_upload_config")
 @patch("dags.impl.s3_upload.get_raw_file_by_id")
 @patch("dags.impl.s3_upload._get_project_id_or_fallback")
@@ -585,12 +560,7 @@ def test_upload_raw_file_to_s3_should_handle_multiple_files(  # noqa: PLR0913
     kwargs = {
         DagContext.PARAMS: {
             DagParams.RAW_FILE_ID: "test.raw",
-            DagParams.FILES_DST_PATHS: {
-                "/src/file1.raw": "/dst/file1.raw",
-                "/src/file2.wiff": "/dst/file2.wiff",
-                "/src/file3.wiff.scan": "/dst/file3.wiff.scan",
-            },
-            DagParams.TARGET_FOLDER_PATH: "/dst",
+            DagParams.INTERNAL_TARGET_FOLDER_PATH: "/dst",
         }
     }
 
@@ -654,21 +624,3 @@ def test_upload_files_should_handle_mixed_upload_needs(
 
     assert mock_upload_file.call_count == 2
     assert mock_get_etag.call_count == 2
-
-
-def test_extract_etag_from_file_info_should_raise_on_missing_file() -> None:
-    """Test _extract_etag_from_file_info raises KeyError when file not in file_info."""
-    mock_raw_file = MagicMock()
-    mock_raw_file.file_info = {"other_file.raw": (1000, "hash123", "etag123__500")}
-
-    with pytest.raises(KeyError):
-        _extract_etag_from_file_info("missing_file.raw", mock_raw_file)
-
-
-def test_extract_etag_from_file_info_should_raise_on_invalid_format() -> None:
-    """Test _extract_etag_from_file_info raises IndexError when file_info has wrong format."""
-    mock_raw_file = MagicMock()
-    mock_raw_file.file_info = {"file.raw": (1000, "hash123")}
-
-    with pytest.raises(IndexError):
-        _extract_etag_from_file_info("file.raw", mock_raw_file)

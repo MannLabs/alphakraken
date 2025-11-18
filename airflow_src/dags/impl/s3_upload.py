@@ -2,7 +2,6 @@
 
 import logging
 from pathlib import Path
-from typing import Any
 
 from airflow.models import TaskInstance
 from airflow.providers.amazon.aws.hooks.base_aws import BaseAwsConnection
@@ -64,11 +63,9 @@ def upload_raw_file_to_s3(ti: TaskInstance, **kwargs) -> None:
     raw_file_id = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID]
     raw_file = get_raw_file_by_id(raw_file_id)
 
-    files_dst_paths = {
-        Path(k): Path(v)
-        for k, v in kwargs[DagContext.PARAMS][DagParams.FILES_DST_PATHS].items()
-    }
-    target_folder_path = kwargs[DagContext.PARAMS][DagParams.TARGET_FOLDER_PATH]
+    internal_target_folder_path = Path(
+        kwargs[DagContext.PARAMS][DagParams.INTERNAL_TARGET_FOLDER_PATH]
+    )
 
     bucket_name = normalize_bucket_name(
         _get_project_id_or_fallback(raw_file.project_id, raw_file.instrument_id),
@@ -88,7 +85,7 @@ def upload_raw_file_to_s3(ti: TaskInstance, **kwargs) -> None:
             raise S3UploadFailedException(error_msg)  # noqa: TRY301
 
         file_path_to_target_path_and_etag, key_prefix = _prepare_upload(
-            files_dst_paths, raw_file, target_folder_path
+            raw_file, internal_target_folder_path
         )
 
         _upload_files(
@@ -114,33 +111,28 @@ def upload_raw_file_to_s3(ti: TaskInstance, **kwargs) -> None:
 
 
 def _prepare_upload(
-    files_dst_paths: dict[Path, Path],
     raw_file: RawFile,
-    target_folder_path: str | list[str] | dict[str, Any] | int,
+    target_folder_path: Path,
 ) -> tuple[dict[Path, tuple[str, str]], str]:
     """Prepare mapping of local file paths to S3 keys and local ETags."""
     file_path_to_target_path_and_etag: dict[Path, tuple[str, str]] = {}
 
     key_prefix = _get_key_prefix(raw_file)
 
-    for local_file_path in files_dst_paths.values():
+    for rel_file_path, size_and_hashes in raw_file.file_info.items():
         logging.info(
-            f"Preparing file info for upload: {local_file_path=} {target_folder_path=}"
+            f"Preparing file info for upload: {rel_file_path=} {size_and_hashes=}"
         )
-        local_file_path_relative = str(local_file_path.relative_to(target_folder_path))
-        local_etag = _extract_etag_from_file_info(local_file_path_relative, raw_file)
-        s3_key = key_prefix + local_file_path_relative
-        file_path_to_target_path_and_etag[local_file_path] = (s3_key, local_etag)
+
+        local_etag = size_and_hashes[2].split(ETAG_SEPARATOR)[0]
+
+        s3_key = key_prefix + rel_file_path
+        file_path_to_target_path_and_etag[target_folder_path / rel_file_path] = (
+            s3_key,
+            local_etag,
+        )
 
     return file_path_to_target_path_and_etag, key_prefix
-
-
-def _extract_etag_from_file_info(local_file_path: str, raw_file: RawFile) -> str:
-    """Extract ETag from raw_file.file_info for a given local file path."""
-    size_and_hashsum = raw_file.file_info[local_file_path]
-
-    etag_and_chunk_size = size_and_hashsum[2]
-    return etag_and_chunk_size.split(ETAG_SEPARATOR)[0]
 
 
 def _get_key_prefix(raw_file: RawFile) -> str:

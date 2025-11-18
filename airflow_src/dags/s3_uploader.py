@@ -32,8 +32,8 @@ with DAG(
     tags=["s3"],
     params={
         DagParams.RAW_FILE_ID: Param(type="string", minimum=3),
-        DagParams.TARGET_FOLDER_PATH: Param(type="string", minimum=3),
-        DagParams.FILES_DST_PATHS: Param(type="object", minimum=3),
+        # TODO: this can in principle be also re-constructed from the RawFile
+        DagParams.INTERNAL_TARGET_FOLDER_PATH: Param(type="string", minimum=3),
     },
 ) as dag:
     dag.doc_md = __doc__

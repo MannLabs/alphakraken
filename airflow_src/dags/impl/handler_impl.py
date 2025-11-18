@@ -342,8 +342,9 @@ def start_s3_uploader(ti: TaskInstance, **kwargs) -> None:
         Dags.S3_UPLOADER,
         {
             DagParams.RAW_FILE_ID: kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID],
-            DagParams.TARGET_FOLDER_PATH: get_xcom(ti, XComKeys.TARGET_FOLDER_PATH),
-            DagParams.FILES_DST_PATHS: get_xcom(ti, XComKeys.FILES_DST_PATHS),
+            DagParams.INTERNAL_TARGET_FOLDER_PATH: get_xcom(
+                ti, XComKeys.TARGET_FOLDER_PATH
+            ),
         },
     )
 

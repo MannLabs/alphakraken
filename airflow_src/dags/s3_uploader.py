@@ -16,7 +16,7 @@ from common.keys import (
     Dags,
     Tasks,
 )
-from impl.s3_upload import upload_raw_file_to_s3
+from dags.impl.s3_uploader_impl import upload_raw_file_to_s3
 
 with DAG(
     Dags.S3_UPLOADER,

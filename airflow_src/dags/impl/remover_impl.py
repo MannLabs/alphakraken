@@ -13,7 +13,6 @@ from common.constants import (
 )
 from common.keys import AirflowVars, InstrumentKeys, Tasks, XComKeys
 from common.paths import (
-    get_internal_backup_path,
     get_internal_instrument_data_path,
 )
 from common.settings import (
@@ -23,7 +22,8 @@ from common.settings import (
     get_instrument_settings,
 )
 from common.utils import get_airflow_variable, get_env_variable, get_xcom, put_xcom
-from file_handling import get_disk_usage, get_file_hash, get_file_size
+from file_handling import get_disk_usage, get_file_size
+from plugins.file_checks import FileRemovalError, check_file
 from raw_file_wrapper_factory import (
     RawFileStemEmptyError,
     RawFileWrapperFactory,
@@ -41,13 +41,8 @@ from shared.db.models import (
     KrakenStatusEntities,
     KrakenStatusValues,
     RawFile,
-    parse_file_info_item,
 )
 from shared.keys import EnvVars
-
-
-class FileRemovalError(Exception):
-    """Custom exception for file check and removal errors."""
 
 
 def _update_file_remover_status(status: str, status_details: str = "") -> None:
@@ -200,7 +195,7 @@ def _get_total_size(raw_file: RawFile) -> tuple[float, int]:
     which would overestimate the total size gain if this data was removed.
 
     :raises: FileRemovalError if the file stem is empty
-    :raises: FileRemovalError, Exception if one of the checks or _check_file() itself fails
+    :raises: FileRemovalError, Exception if one of the checks or check_file() itself fails
     """
     try:
         remove_wrapper = RawFileWrapperFactory.create_write_wrapper(
@@ -221,7 +216,7 @@ def _get_total_size(raw_file: RawFile) -> tuple[float, int]:
         if not file_path_to_remove.exists():
             continue  # file was already removed
 
-        _check_file(
+        check_file(
             file_path_to_remove,
             file_path_pool_backup,
             raw_file.file_info,
@@ -266,7 +261,7 @@ def _safe_remove_files(raw_file_id: str) -> None:
             )
             continue
 
-        _check_file(
+        check_file(
             file_path_to_remove,
             file_path_pool_backup,
             raw_file.file_info,
@@ -343,74 +338,6 @@ def _remove_folder(folder_path_to_remove: Path) -> None:
             raise FileRemovalError(
                 f"Error removing {folder_path_to_remove}: {e}"
             ) from e
-
-
-def _check_file(
-    file_path_to_remove: Path,
-    file_path_pool_backup: Path,
-    file_info_in_db: dict[str, tuple[float, str]],
-    *,
-    hash_check: bool = True,
-) -> None:
-    """Check that the file to remove is present in the pool backup and has the same size and hash as in the DB.
-
-    Here, "file" means every single file that is part of a raw file.
-
-    We first compare sizes, then hashes, to prevent unnecessary network traffic.
-    Calculating hashes is the costly part: the file needs to be transferred over the network.
-    Unfortunately, the check only for file size is not sufficient to unambiguously identify a file.
-
-    :param file_path_to_remove: absolute path to file to remove
-    :param file_path_pool_backup: absolute path to location of file in pool backup
-    :param file_info_in_db: dict with file info from DB
-    :param hash_check: whether to check the hash of the file
-
-    :raises: FileRemovalError if one of the checks fails or if file is not present on the pool backup.
-    :raises: KeyError if one of the files does not exist in the DB.
-    """
-    # Check 1: the single file to delete is present on the pool-backup
-    if not file_path_pool_backup.exists():
-        raise FileRemovalError(f"File {file_path_pool_backup} does not exist.")
-
-    logging.debug(f"Comparing {file_path_to_remove=} to {file_path_pool_backup=} ..")
-
-    # map e.g. '/opt/airflow/mounts/backup/test1/2024_08/test_file_SA_P123_2.raw' => 'test1/2024_08/test_file_SA_P123_2.raw'
-
-    # old file_info key format: 'instrument1/2024_07/file.raw'
-    rel_file_path = file_path_pool_backup.relative_to(get_internal_backup_path())
-    if str(rel_file_path) not in file_info_in_db:
-        # TODO: this is a hack to support the new format. Remove it once the older DB entries have been migrated.
-        # new file_info key format: 'file.raw'
-        # => strip off instrument1/2025_07 from instrument1/2025_07/file.raw
-        rel_file_path = Path(*rel_file_path.parts[2:])
-
-    size_in_db, hash_in_db = parse_file_info_item(file_info_in_db[str(rel_file_path)])
-
-    logging.debug(f"Comparing {file_path_to_remove=} to DB ({rel_file_path}) ..")
-
-    # Check 2: compare the single file to delete with the DB (hash)
-    # this checks that the fingerprints of the file to remove match those in the db (prevents deleting the wrong file)
-    size_to_remove = get_file_size(file_path_to_remove, verbose=False)
-    hash_to_remove = None
-    if size_to_remove != size_in_db or (
-        hash_check
-        and (hash_to_remove := get_file_hash(file_path_to_remove)) != hash_in_db
-    ):
-        raise FileRemovalError(
-            f"File {rel_file_path} mismatch with instrument backup: {size_to_remove=} vs {size_in_db=}, {hash_to_remove=} vs {hash_in_db=}"
-        )
-
-    # Check 3: compare the single file to delete with the pool backup (hash)
-    # this essentially re-checks the fingerprints that have been calculated right after file copying, would fail if pool backup was corrupted
-    size_on_pool_backup = get_file_size(file_path_pool_backup, verbose=False)
-    hash_on_pool_backup = None
-    if size_on_pool_backup != size_in_db or (
-        hash_check
-        and (hash_on_pool_backup := get_file_hash(file_path_pool_backup)) != hash_in_db
-    ):
-        raise FileRemovalError(
-            f"File {rel_file_path} mismatch with pool backup: {size_on_pool_backup=} vs {size_in_db=}, {hash_on_pool_backup=} vs {hash_in_db=}"
-        )
 
 
 def _delete_empty_directory(directory_path: Path) -> None:

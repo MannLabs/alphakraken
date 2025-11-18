@@ -111,15 +111,25 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
             op_kwargs={OpArgs.INSTRUMENT_ID: instrument_id},
         )
 
-    first_part = monitor_acquisition_ >> compute_checksum_ >> copy_raw_file_
-    second_part = (
-        start_file_mover_ >> decide_processing_ >> start_acquisition_processor_
-    )
-
     if not is_s3_upload_enabled():
-        (first_part >> second_part)
+        (
+            monitor_acquisition_
+            >> compute_checksum_
+            >> copy_raw_file_
+            >> start_file_mover_
+            >> decide_processing_
+            >> start_acquisition_processor_
+        )
     else:
-        (first_part >> start_s3_uploader_ >> second_part)
+        (
+            monitor_acquisition_
+            >> compute_checksum_
+            >> copy_raw_file_
+            >> start_s3_uploader_
+            >> start_file_mover_
+            >> decide_processing_
+            >> start_acquisition_processor_
+        )
 
 
 for instrument_id in get_instrument_ids():

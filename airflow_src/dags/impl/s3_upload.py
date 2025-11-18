@@ -4,7 +4,6 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from airflow.exceptions import AirflowFailException
 from airflow.models import TaskInstance
 from airflow.providers.amazon.aws.hooks.base_aws import BaseAwsConnection
 from boto3.s3.transfer import TransferConfig
@@ -14,7 +13,6 @@ from common.utils import get_xcom
 from dags.impl.processor_impl import _get_project_id_or_fallback
 from plugins.file_handling import ETAG_SEPARATOR
 from plugins.s3.client import (
-    S3_FILE_NOT_FOUND_ETAG,
     bucket_exists,
     get_etag,
     get_s3_client,
@@ -22,6 +20,10 @@ from plugins.s3.client import (
     upload_file_to_s3,
 )
 from plugins.s3.s3_utils import (
+    S3_FILE_NOT_FOUND_ETAG,
+    S3_KEY_SEPARATOR,
+    S3_UPLOAD_CHUNK_SIZE_MB,
+    S3UploadFailedException,
     is_upload_needed,
     normalize_bucket_name,
 )
@@ -29,15 +31,6 @@ from plugins.s3.s3_utils import (
 from shared.db.interface import get_raw_file_by_id, update_raw_file
 from shared.db.models import BackupStatus, RawFile, get_created_at_year_month
 from shared.yamlsettings import get_s3_upload_config
-
-S3_UPLOAD_CHUNK_SIZE_MB = 500
-
-
-class S3UploadFailedException(AirflowFailException):
-    """Exception raised when S3 upload fails.
-
-    Enables on_failure_callback to take special action.
-    """
 
 
 def upload_raw_file_to_s3(ti: TaskInstance, **kwargs) -> None:
@@ -141,7 +134,12 @@ def _prepare_upload(
     return file_path_to_target_path_and_etag, key_prefix
 
 
-S3_KEY_SEPARATOR = "/"
+def _extract_etag_from_file_info(local_file_path: str, raw_file: RawFile) -> str:
+    """Extract ETag from raw_file.file_info for a given local file path."""
+    size_and_hashsum = raw_file.file_info[local_file_path]
+
+    etag_and_chunk_size = size_and_hashsum[2]
+    return etag_and_chunk_size.split(ETAG_SEPARATOR)[0]
 
 
 def _get_key_prefix(raw_file: RawFile) -> str:
@@ -197,11 +195,3 @@ def _upload_all_files(
             raise S3UploadFailedException(msg)
 
         logging.info(f"Successfully uploaded {s3_key}, ETag verified: {remote_etag}")
-
-
-def _extract_etag_from_file_info(local_file_path: str, raw_file: RawFile) -> str:
-    """Extract ETag from raw_file.file_info for a given local file path."""
-    size_and_hashsum = raw_file.file_info[local_file_path]
-
-    etag_and_chunk_size = size_and_hashsum[2]
-    return etag_and_chunk_size.split(ETAG_SEPARATOR)[0]

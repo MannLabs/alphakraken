@@ -4,10 +4,21 @@ import logging
 
 from airflow.exceptions import AirflowFailException
 from airflow.providers.amazon.aws.hooks.base_aws import BaseAwsConnection
-from s3.client import S3_FILE_NOT_FOUND_ETAG, get_etag
+from plugins.s3.client import S3_FILE_NOT_FOUND_ETAG, get_etag
 
 # S3 bucket name length limits
 S3_MAX_BUCKET_NAME_LENGTH = 63
+
+S3_UPLOAD_CHUNK_SIZE_MB = 500
+
+S3_KEY_SEPARATOR = "/"
+
+
+class S3UploadFailedException(AirflowFailException):
+    """Exception raised when S3 upload fails.
+
+    Enables on_failure_callback to take special action.
+    """
 
 
 # TODO: -> shared

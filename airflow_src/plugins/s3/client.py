@@ -7,6 +7,9 @@ from airflow.providers.amazon.aws.hooks.base_aws import AwsBaseHook, BaseAwsConn
 from boto3.s3.transfer import TransferConfig
 from botocore.exceptions import ClientError
 
+# sentinel value to indicate that a file was not found on s3
+S3_FILE_NOT_FOUND_ETAG = object()
+
 
 def get_s3_client(region: str, aws_conn_id: str = "aws_default") -> BaseAwsConnection:
     """Get boto3 S3 client using Airflow AWS connection.
@@ -68,10 +71,6 @@ def bucket_exists(bucket_name: str, s3_client: BaseAwsConnection) -> tuple[bool,
         return False, msg
     else:
         return True, ""
-
-
-# sentinel value to indicate that a file was not found on s3
-S3_FILE_NOT_FOUND_ETAG = object()
 
 
 def get_etag(

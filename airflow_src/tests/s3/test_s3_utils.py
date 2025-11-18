@@ -13,7 +13,7 @@ from plugins.s3.s3_utils import (
     is_upload_needed,
     normalize_bucket_name,
 )
-from s3.client import S3_FILE_NOT_FOUND_ETAG
+from plugins.s3.client import S3_FILE_NOT_FOUND_ETAG
 
 
 # TODO: fix

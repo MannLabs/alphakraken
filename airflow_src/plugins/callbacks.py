@@ -5,7 +5,7 @@ from typing import Any
 
 from common.keys import DAG_DELIMITER, DagContext, DagParams, XComKeys
 from common.utils import get_xcom
-from dags.impl.s3_upload import S3UploadFailedException
+from plugins.s3.s3_utils import S3UploadFailedException
 
 from shared.db.interface import update_raw_file
 from shared.db.models import BackupStatus, RawFileStatus

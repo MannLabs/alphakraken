@@ -26,7 +26,6 @@ from common.utils import (
     put_xcom,
     trigger_dag_run,
 )
-from dags.impl.s3_upload import S3_UPLOAD_CHUNK_SIZE_MB
 from plugins.file_handling import (
     _decide_if_copy_required,
     copy_file,
@@ -35,6 +34,7 @@ from plugins.file_handling import (
     get_file_size,
     move_existing_file,
 )
+from plugins.s3.s3_utils import S3_UPLOAD_CHUNK_SIZE_MB
 from raw_file_wrapper_factory import (
     CopyPathProvider,
     RawFileWrapperFactory,

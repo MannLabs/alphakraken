@@ -24,6 +24,7 @@ from common.settings import (
     Timings,
     get_instrument_ids,
 )
+from dags.impl.s3_upload import upload_raw_file_to_s3
 from impl.handler_impl import (
     compute_checksum,
     copy_raw_file,
@@ -31,7 +32,6 @@ from impl.handler_impl import (
     start_acquisition_processor,
     start_file_mover,
 )
-from impl.s3_upload import upload_raw_file_to_s3
 from sensors.acquisition_monitor import AcquisitionMonitor
 
 from shared.yamlsettings import is_s3_upload_enabled

@@ -7,7 +7,7 @@ import pytest
 from airflow.exceptions import AirflowFailException
 from boto3.s3.transfer import TransferConfig
 from botocore.exceptions import ClientError
-from dags.impl.s3_utils import (
+from plugins.s3.s3_utils import (
     _FILE_NOT_FOUND,
     S3_MAX_BUCKET_NAME_LENGTH,
     _normalize_for_s3,
@@ -30,7 +30,7 @@ def test_get_s3_client_should_return_client_with_default_connection() -> None:
     region = "us-east-1"
     mock_client = MagicMock()
 
-    with patch("dags.impl.s3_utils.AwsBaseHook") as mock_hook:
+    with patch("plugins.s3.s3_utils.AwsBaseHook") as mock_hook:
         mock_hook.return_value.get_conn.return_value = mock_client
 
         # when
@@ -51,7 +51,7 @@ def test_get_s3_client_should_return_client_with_custom_connection() -> None:
     aws_conn_id = "my_custom_connection"
     mock_client = MagicMock()
 
-    with patch("dags.impl.s3_utils.AwsBaseHook") as mock_hook:
+    with patch("plugins.s3.s3_utils.AwsBaseHook") as mock_hook:
         mock_hook.return_value.get_conn.return_value = mock_client
 
         # when
@@ -379,7 +379,7 @@ def test_is_upload_needed_should_return_true_when_file_not_found() -> None:
     local_etag = "abc123"
     mock_s3_client = MagicMock()
 
-    with patch("dags.impl.s3_utils.get_etag") as mock_get_etag:
+    with patch("plugins.s3.s3_utils.get_etag") as mock_get_etag:
         mock_get_etag.return_value = _FILE_NOT_FOUND
 
         # when
@@ -398,7 +398,7 @@ def test_is_upload_needed_should_return_false_when_etag_matches() -> None:
     local_etag = "abc123"
     mock_s3_client = MagicMock()
 
-    with patch("dags.impl.s3_utils.get_etag") as mock_get_etag:
+    with patch("plugins.s3.s3_utils.get_etag") as mock_get_etag:
         mock_get_etag.return_value = "abc123"
 
         # when
@@ -416,7 +416,7 @@ def test_is_upload_needed_should_raise_error_when_etag_mismatch() -> None:
     local_etag = "abc123"
     mock_s3_client = MagicMock()
 
-    with patch("dags.impl.s3_utils.get_etag") as mock_get_etag:
+    with patch("plugins.s3.s3_utils.get_etag") as mock_get_etag:
         mock_get_etag.return_value = "different_etag"
 
         # when / then

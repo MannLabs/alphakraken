@@ -12,7 +12,8 @@ from botocore.exceptions import BotoCoreError, ClientError
 from common.keys import DagContext, DagParams, XComKeys
 from common.utils import get_xcom
 from dags.impl.processor_impl import _get_project_id_or_fallback
-from dags.impl.s3_utils import (
+from plugins.file_handling import ETAG_SEPARATOR
+from plugins.s3.s3_utils import (
     _FILE_NOT_FOUND,
     bucket_exists,
     get_etag,
@@ -22,7 +23,6 @@ from dags.impl.s3_utils import (
     normalize_bucket_name,
     upload_file_to_s3,
 )
-from plugins.file_handling import ETAG_SEPARATOR
 
 from shared.db.interface import get_raw_file_by_id, update_raw_file
 from shared.db.models import BackupStatus, RawFile, get_created_at_year_month
@@ -139,6 +139,9 @@ def _prepare_upload(
     return file_path_to_target_path_and_etag, key_prefix
 
 
+S3_KEY_SEPARATOR = "/"
+
+
 def _get_key_prefix(raw_file: RawFile) -> str:
     """Get S3 key prefix based on raw file metadata.
 
@@ -150,7 +153,7 @@ def _get_key_prefix(raw_file: RawFile) -> str:
     if raw_file.project_id is None:  # TODO: centralize "no project given" logic
         # fallback buckets get organized by instrument and date
         key_prefixes.append(
-            f"{raw_file.instrument_id}/{get_created_at_year_month(raw_file)}"
+            f"{raw_file.instrument_id}{S3_KEY_SEPARATOR}{get_created_at_year_month(raw_file)}"
         )
 
     if raw_file.id.endswith(".wiff"):  # TODO: use instrument_type here
@@ -159,7 +162,7 @@ def _get_key_prefix(raw_file: RawFile) -> str:
     if key_prefixes:
         key_prefixes.append("")
 
-    return "/".join(key_prefixes)
+    return S3_KEY_SEPARATOR.join(key_prefixes)
 
 
 def _upload_all_files(

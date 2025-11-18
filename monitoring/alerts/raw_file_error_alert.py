@@ -54,7 +54,7 @@ class RawFileErrorAlert(BaseAlert):
 
         return new_error_files
 
-    def format_message(self, issues: list[tuple[str, str]]) -> str:
+    def format_message(self, issues: list[tuple[str, str | None]]) -> str:
         """Format raw file error message."""
         files_str = "\n".join(
             [f"- `{file_id}`: {status_details}" for file_id, status_details in issues]

@@ -113,7 +113,7 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
         else ""
     )
 
-    quanting_env = {
+    quanting_env: dict[str, str | int] = {
         QuantingEnv.RAW_FILE_PATH: str(raw_file_path),
         QuantingEnv.SETTINGS_PATH: str(settings_path),
         QuantingEnv.OUTPUT_PATH: str(output_path),
@@ -190,7 +190,7 @@ def _prepare_custom_command(  # noqa: PLR0913 Too many arguments
     return custom_command
 
 
-def _check_content(quanting_env: dict[str, str], settings: Settings) -> list[str]:
+def _check_content(quanting_env: dict[str, str | int], settings: Settings) -> list[str]:
     """Validate the fields in the quanting environment don't contain malicious content."""
     absolute_path_allowed_keys = [
         QuantingEnv.RAW_FILE_PATH,
@@ -220,7 +220,7 @@ def _check_content(quanting_env: dict[str, str], settings: Settings) -> list[str
     if settings.software_type == SoftwareTypes.CUSTOM:
         errors.extend(
             check_for_malicious_content(
-                quanting_env[QuantingEnv.CUSTOM_COMMAND],
+                str(quanting_env[QuantingEnv.CUSTOM_COMMAND]),
                 allow_spaces=True,
                 allow_absolute_paths=True,
             )

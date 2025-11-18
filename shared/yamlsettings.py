@@ -3,7 +3,7 @@
 import logging
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import yaml
 
@@ -81,7 +81,9 @@ class YamlSettings:
             return yaml.safe_load(file)
 
 
-YAMLSETTINGS = YamlSettings()
+YAMLSETTINGS: dict[str, dict[str, Any]] = cast(
+    dict[str, dict[str, Any]], YamlSettings()
+)
 
 
 def get_path(path_key: str) -> Path:

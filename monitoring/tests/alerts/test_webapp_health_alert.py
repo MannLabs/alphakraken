@@ -3,6 +3,7 @@
 from unittest.mock import Mock, patch
 
 import requests
+import requests.exceptions
 
 from monitoring.alerts.config import Cases
 from monitoring.alerts.webapp_health_alert import WebAppHealthAlert

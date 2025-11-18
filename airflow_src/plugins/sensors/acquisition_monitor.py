@@ -113,9 +113,12 @@ class AcquisitionMonitor(BaseSensorOperator):
 
         logging.info(f"Monitoring {self._main_file_path}")
 
-    def post_execute(self, context: dict[str, Any], result: Any = None) -> None:  # noqa: ANN401
+    def post_execute(self, context: dict[str, Any], result: Any = None) -> None:
         """Update the status of the raw file in the database."""
         del result  # unused
+
+        assert self._raw_file_monitor_wrapper is not None
+        assert self._raw_file is not None
 
         acquisition_monitor_errors = []
         if not self._main_file_exists:
@@ -138,6 +141,8 @@ class AcquisitionMonitor(BaseSensorOperator):
     def poke(self, context: dict[str, Any]) -> bool:
         """Return True if acquisition is done."""
         del context  # unused
+
+        assert self._main_file_path is not None
 
         if self._file_is_old:
             logging.info(
@@ -249,6 +254,9 @@ class AcquisitionMonitor(BaseSensorOperator):
 
     def _get_dir_content(self) -> tuple[set[str], set[str]]:
         """Return current and new directory content."""
+        assert self._raw_file_monitor_wrapper is not None
+        assert self._initial_dir_content is not None
+
         current_dir_content = (
             self._raw_file_monitor_wrapper.get_raw_files_on_instrument()
         )

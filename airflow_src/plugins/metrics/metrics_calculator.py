@@ -60,6 +60,6 @@ def _convert_numpy_types(data: Any) -> Any:
         return data.item()
     if isinstance(data, np.ndarray):
         return data.tolist()
-    if isinstance(data, list | set):
+    if isinstance(data, tuple | set):
         raise NotImplementedError("Tuples and sets are not supported in serialization.")
     return data

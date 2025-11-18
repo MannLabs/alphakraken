@@ -735,7 +735,7 @@ def test_start_s3_uploader(
             DagParams.INTERNAL_TARGET_FOLDER_PATH: "/path/to/backup",
         },
     )
-    assert mock_get_xcom.call_count == 2
+    assert mock_get_xcom.call_count == 1
 
 
 @patch("dags.impl.handler_impl.get_xcom", return_value=[])

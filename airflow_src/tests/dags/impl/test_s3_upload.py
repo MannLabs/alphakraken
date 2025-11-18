@@ -9,7 +9,6 @@ from botocore.exceptions import BotoCoreError, ClientError
 from common.keys import DagContext, DagParams
 from dags.impl.s3_upload import (
     S3UploadFailedException,
-    _extract_etag_from_file_info,
     _get_key_prefix,
     _prepare_upload,
     _upload_files,
@@ -325,30 +324,32 @@ def test_upload_raw_file_to_s3_should_raise_on_client_error(  # noqa: PLR0913
 
 
 @patch("dags.impl.s3_upload._get_key_prefix")
-@patch("dags.impl.s3_upload._extract_etag_from_file_info")
 def test_prepare_upload_should_create_correct_mapping(
-    mock_extract_etag: MagicMock,
     mock_get_key_prefix: MagicMock,
 ) -> None:
-    """Test _prepare_upload creates correct file path to S3 key mapping."""
-    mock_raw_file = MagicMock()
+    """Test _prepare_upload creates correct file paths to S3 key mapping."""
+
     mock_get_key_prefix.return_value = "prefix/"
-    mock_extract_etag.return_value = "etag123"
 
-    files_dst_paths = {
-        Path("/src/file1.raw"): Path("/dst/backup/file1.raw"),
-        Path("/src/file2.raw"): Path("/dst/backup/file2.raw"),
+    mock_raw_file = MagicMock()
+    mock_raw_file.file_info = {
+        "file1.d/analysis.tdf": ("hash1", 123, "etag1"),
+        "file1.d/1234.m/file.txt": ("hash2", 1234, "etag2"),
     }
-    target_folder_path = "/dst/backup"
+    target_folder_path = Path("/dst/backup")
 
-    result, key_prefix = _prepare_upload(
-        files_dst_paths, mock_raw_file, target_folder_path
-    )
+    result, key_prefix = _prepare_upload(mock_raw_file, target_folder_path)
 
     assert key_prefix == "prefix/"
     assert result == {
-        Path("/dst/backup/file1.raw"): ("prefix/file1.raw", "etag123"),
-        Path("/dst/backup/file2.raw"): ("prefix/file2.raw", "etag123"),
+        Path("/dst/backup/file1.d/analysis.tdf"): (
+            "prefix/file1.d/analysis.tdf",
+            "etag1",
+        ),
+        Path("/dst/backup/file1.d/1234.m/file.txt"): (
+            "prefix/file1.d/1234.m/file.txt",
+            "etag2",
+        ),
     }
 
 
@@ -569,35 +570,6 @@ def test_upload_raw_file_to_s3_should_handle_multiple_files(  # noqa: PLR0913
     mock_upload_all.assert_called_once()
     call_args = mock_upload_all.call_args[0]
     assert len(call_args[0]) == 3
-
-
-@patch("dags.impl.s3_upload._get_key_prefix")
-@patch("dags.impl.s3_upload._extract_etag_from_file_info")
-def test_prepare_upload_should_handle_nested_directory_structure(
-    mock_extract_etag: MagicMock,
-    mock_get_key_prefix: MagicMock,
-) -> None:
-    """Test _prepare_upload handles nested directory structures correctly."""
-    mock_raw_file = MagicMock()
-    mock_get_key_prefix.return_value = "prefix/"
-    mock_extract_etag.return_value = "etag123"
-
-    files_dst_paths = {
-        Path("/src/file.raw"): Path("/dst/backup/subdir/nested/file.raw"),
-    }
-    target_folder_path = "/dst/backup"
-
-    result, key_prefix = _prepare_upload(
-        files_dst_paths, mock_raw_file, target_folder_path
-    )
-
-    assert key_prefix == "prefix/"
-    assert result == {
-        Path("/dst/backup/subdir/nested/file.raw"): (
-            "prefix/subdir/nested/file.raw",
-            "etag123",
-        ),
-    }
 
 
 @patch("dags.impl.s3_upload.is_upload_needed")

@@ -11,7 +11,6 @@ from common.settings import _INSTRUMENTS
 from dags.impl.remover_impl import (
     FileRemovalError,
     _change_folder_permissions,
-    _check_file,
     _decide_on_raw_files_to_remove,
     _delete_empty_directory,
     _get_total_size,
@@ -226,11 +225,11 @@ def test_decide_on_raw_files_to_remove_nothing_to_remove_ok(
 
 
 @patch("dags.impl.remover_impl.RawFileWrapperFactory")
-@patch("dags.impl.remover_impl._check_file")
+@patch("dags.impl.remover_impl.FileIdentifier")
 @patch("dags.impl.remover_impl.get_file_size")
 def test_get_total_size_ok(
     mock_get_file_size: MagicMock,
-    mock_check_file: MagicMock,
+    mock_file_identifier: MagicMock,
     mock_raw_file_wrapper_factory: MagicMock,
 ) -> None:
     """Test that _get_total_size makes correct calls returns correctly in case file exists."""
@@ -254,21 +253,23 @@ def test_get_total_size_ok(
 
     assert result == (101.0, 2)
 
-    mock_check_file.assert_has_calls(
+    mock_file_identifier.assert_has_calls(
         [
-            call(
+            call(mock_raw_file),
+            call().check_file(
                 mock_to_remove_path_1,
                 mock_backup_path_1,
-                mock_raw_file.file_info,
                 hash_check=False,
             ),
+            call().check_file().__bool__(),
             # 2 is skipped
-            call(
+            call(mock_raw_file),
+            call().check_file(
                 mock_to_remove_path_3,
                 mock_backup_path_3,
-                mock_raw_file.file_info,
                 hash_check=False,
             ),
+            call().check_file().__bool__(),
         ]
     )
     mock_get_file_size.assert_has_calls(
@@ -305,116 +306,6 @@ def test_get_total_size_raises_correctly(
     # when
     with pytest.raises(FileRemovalError):
         _get_total_size(MagicMock())
-
-
-@patch("dags.impl.remover_impl.get_file_size")
-@patch("dags.impl.remover_impl.get_internal_backup_path")
-@patch("dags.impl.remover_impl.get_file_hash")
-def test_check_file_success(
-    mock_get_file_hash: MagicMock,
-    mock_backup_path: MagicMock,
-    mock_get_file_size: MagicMock,
-) -> None:
-    """Test that _check_file succeeds when file sizes match."""
-    mock_backup_path.return_value = Path("/backup")
-    mock_get_file_size.side_effect = [100, 100]  # Same size for both files
-    mock_get_file_hash.side_effect = [
-        "some_hash",
-        "some_hash",
-    ]  # Same hash for both files
-    file_path_to_remove = MagicMock(wraps=Path("/instrument/file.raw"))
-    file_path_to_remove.exists.return_value = True
-    file_path_pool_backup = MagicMock(wraps=Path("/backup/instrument/file.raw"))
-    file_path_pool_backup.exists.return_value = True
-    file_info_in_db = {"instrument/file.raw": (100, "some_hash")}
-
-    # when
-    _check_file(file_path_to_remove, file_path_pool_backup, file_info_in_db)
-
-    # then
-    assert mock_get_file_size.call_count == 2
-
-
-@patch("dags.impl.remover_impl.get_file_size")
-def test_check_file_not_existing_on_pool_backup(
-    mock_get_file_size: MagicMock,  # noqa: ARG001
-) -> None:
-    """Test that _check_file raises correctly when file_path_pool_backup does not exist."""
-    file_path_to_remove = Path("/instrument/file.raw")
-    file_path_pool_backup = MagicMock(wraps=Path("/backup/instrument/file.raw"))
-    file_path_pool_backup.exists.return_value = False
-    file_path_pool_backup.__str__.return_value = "some_file"
-
-    # when
-    with pytest.raises(FileRemovalError, match="File some_file does not exist."):
-        _check_file(file_path_to_remove, file_path_pool_backup, MagicMock())
-
-
-@pytest.mark.parametrize(
-    ("file_size", "file_hash"), [(200, "some_hash"), (100, "some_other_hash")]
-)
-@patch("dags.impl.remover_impl.get_file_size")
-@patch("dags.impl.remover_impl.get_internal_backup_path")
-@patch("dags.impl.remover_impl.get_file_hash")
-def test_check_file_mismatch_instrument(
-    mock_get_file_hash: MagicMock,
-    mock_backup_path: MagicMock,
-    mock_get_file_size: MagicMock,
-    file_size: int,
-    file_hash: str,
-) -> None:
-    """Test that _check_file raises FileRemovalError when pool backup size or hash doesn't match."""
-    # ground truth:
-    file_info_in_db = {"instrument/file.raw": (100, "some_hash")}
-
-    mock_backup_path.return_value = Path("/backup")
-    mock_get_file_size.return_value = file_size
-    mock_get_file_hash.return_value = file_hash
-    file_path_to_remove = Path("/instrument/file.raw")
-    file_path_pool_backup = MagicMock(wraps=Path("/backup/instrument/file.raw"))
-    file_path_pool_backup.exists.return_value = True
-
-    expected_hash = None if file_size != 100 else f"'{file_hash}'"
-    # when
-    with pytest.raises(
-        FileRemovalError,
-        match=f"File instrument/file.raw mismatch with instrument backup: size_to_remove={file_size} vs size_in_db=100, hash_to_remove={expected_hash} vs hash_in_db='some_hash'",
-    ):
-        _check_file(file_path_to_remove, file_path_pool_backup, file_info_in_db)
-
-
-@pytest.mark.parametrize(
-    ("file_size", "file_hash"), [(200, "some_hash"), (100, "some_other_hash")]
-)
-@patch("dags.impl.remover_impl.get_file_size")
-@patch("dags.impl.remover_impl.get_internal_backup_path")
-@patch("dags.impl.remover_impl.get_file_hash")
-def test_check_file_mismatch_pool(
-    mock_get_file_hash: MagicMock,
-    mock_backup_path: MagicMock,
-    mock_get_file_size: MagicMock,
-    file_size: int,
-    file_hash: str,
-) -> None:
-    """Test that _check_file raises FileRemovalError when pool backup size or hash doesn't match."""
-    # ground truth:
-    file_info_in_db = {"instrument/file.raw": (100, "some_hash")}
-
-    mock_backup_path.return_value = Path("/backup")
-    mock_get_file_size.side_effect = [100, file_size]
-    mock_get_file_hash.side_effect = ["some_hash", file_hash]
-    file_path_to_remove = MagicMock(wraps=Path("/instrument/file.raw"))
-    file_path_to_remove.exists.return_value = True
-    file_path_pool_backup = MagicMock(wraps=Path("/backup/instrument/file.raw"))
-    file_path_pool_backup.exists.return_value = True
-
-    expected_hash = None if file_size != 100 else f"'{file_hash}'"
-    # when
-    with pytest.raises(
-        FileRemovalError,
-        match=f"File instrument/file.raw mismatch with pool backup: size_on_pool_backup={file_size} vs size_in_db=100, hash_on_pool_backup={expected_hash} vs hash_in_db='some_hash'",
-    ):
-        _check_file(file_path_to_remove, file_path_pool_backup, file_info_in_db)
 
 
 @patch("dags.impl.remover_impl.get_env_variable")
@@ -479,7 +370,7 @@ def test_remove_folder_non_production(mock_get_env: MagicMock) -> None:
 @patch("dags.impl.remover_impl.update_raw_file")
 @patch("dags.impl.remover_impl.get_raw_file_by_id")
 @patch("dags.impl.remover_impl.RawFileWrapperFactory")
-@patch("dags.impl.remover_impl._check_file")
+@patch("dags.impl.remover_impl.FileIdentifier")
 @patch("dags.impl.remover_impl._change_folder_permissions")
 @patch("dags.impl.remover_impl._remove_files")
 @patch("dags.impl.remover_impl._remove_folder")
@@ -487,7 +378,7 @@ def test_safe_remove_files_success(  # noqa: PLR0913
     mock_remove_folder: MagicMock,
     mock_remove_files: MagicMock,
     mock_change_folder_permissions: MagicMock,
-    mock_check_file: MagicMock,
+    mock_file_identifier: MagicMock,
     mock_wrapper_factory: MagicMock,
     mock_get_raw_file: MagicMock,
     mock_update_raw_file: MagicMock,
@@ -503,9 +394,7 @@ def test_safe_remove_files_success(  # noqa: PLR0913
     mock_path_to_delete.exists.return_value = True
 
     mock_wrapper = MagicMock()
-    mock_wrapper.get_files_to_remove.return_value = {
-        mock_path_to_delete: Path("/backup/file1")
-    }
+    mock_wrapper.get_files_to_remove.return_value = {mock_path_to_delete: Path("file1")}
     mock_wrapper.get_folder_to_remove.return_value = None
     mock_wrapper_factory.create_write_wrapper.return_value = mock_wrapper
 
@@ -513,8 +402,8 @@ def test_safe_remove_files_success(  # noqa: PLR0913
     _safe_remove_files("raw_file_id")
 
     # then
-    mock_check_file.assert_called_once_with(
-        mock_path_to_delete, Path("/backup/file1"), mock_raw_file.file_info
+    mock_file_identifier.return_value.check_file.assert_called_once_with(
+        mock_path_to_delete, Path("file1")
     )
     mock_change_folder_permissions.assert_not_called()  # because get_folder_to_remove returned None
     mock_remove_files.assert_called_once_with([mock_path_to_delete])
@@ -531,7 +420,7 @@ def test_safe_remove_files_success(  # noqa: PLR0913
 @patch("dags.impl.remover_impl.update_raw_file")
 @patch("dags.impl.remover_impl.get_raw_file_by_id")
 @patch("dags.impl.remover_impl.RawFileWrapperFactory")
-@patch("dags.impl.remover_impl._check_file")
+@patch("dags.impl.remover_impl.FileIdentifier")
 @patch("dags.impl.remover_impl._change_folder_permissions")
 @patch("dags.impl.remover_impl._remove_files")
 @patch("dags.impl.remover_impl._remove_folder")
@@ -539,7 +428,7 @@ def test_safe_remove_files_folder_success(  # noqa: PLR0913
     mock_remove_folder: MagicMock,
     mock_remove_files: MagicMock,
     mock_change_folder_permissions: MagicMock,
-    mock_check_file: MagicMock,
+    mock_file_identifier: MagicMock,
     mock_wrapper_factory: MagicMock,
     mock_get_raw_file: MagicMock,
     mock_update_raw_file: MagicMock,
@@ -555,9 +444,7 @@ def test_safe_remove_files_folder_success(  # noqa: PLR0913
     mock_path_to_delete.exists.return_value = True
 
     mock_wrapper = MagicMock()
-    mock_wrapper.get_files_to_remove.return_value = {
-        mock_path_to_delete: Path("/backup/file1")
-    }
+    mock_wrapper.get_files_to_remove.return_value = {mock_path_to_delete: Path("file1")}
     mock_wrapper.get_folder_to_remove.return_value = Path("/instrument/Backup/file1")
     mock_wrapper_factory.create_write_wrapper.return_value = mock_wrapper
 
@@ -565,8 +452,8 @@ def test_safe_remove_files_folder_success(  # noqa: PLR0913
     _safe_remove_files("raw_file_id")
 
     # then
-    mock_check_file.assert_called_once_with(
-        mock_path_to_delete, Path("/backup/file1"), mock_raw_file.file_info
+    mock_file_identifier.return_value.check_file.assert_called_once_with(
+        mock_path_to_delete, Path("file1")
     )
     mock_change_folder_permissions.assert_called_once_with(
         Path("/instrument/Backup/file1")
@@ -586,13 +473,13 @@ def test_safe_remove_files_folder_success(  # noqa: PLR0913
 @patch("dags.impl.remover_impl.update_raw_file")
 @patch("dags.impl.remover_impl.get_raw_file_by_id")
 @patch("dags.impl.remover_impl.RawFileWrapperFactory")
-@patch("dags.impl.remover_impl._check_file")
+@patch("dags.impl.remover_impl.FileIdentifier")
 @patch("dags.impl.remover_impl._remove_files")
 @patch("dags.impl.remover_impl._remove_folder")
 def test_safe_remove_files_file_not_existing(  # noqa: PLR0913 # too many args
     mock_remove_folder: MagicMock,
     mock_remove_files: MagicMock,
-    mock_check_file: MagicMock,
+    mock_file_identifier: MagicMock,
     mock_wrapper_factory: MagicMock,
     mock_get_raw_file: MagicMock,
     mock_update_raw_file: MagicMock,
@@ -618,7 +505,7 @@ def test_safe_remove_files_file_not_existing(  # noqa: PLR0913 # too many args
     _safe_remove_files("raw_file_id")
 
     # then
-    mock_check_file.assert_not_called()
+    mock_file_identifier.assert_not_called()
     mock_remove_files.assert_not_called()
     mock_remove_folder.assert_not_called()  # because get_folder_to_remove returned None
     mock_wrapper_factory.create_write_wrapper.assert_called_once_with(
@@ -631,9 +518,9 @@ def test_safe_remove_files_file_not_existing(  # noqa: PLR0913 # too many args
 
 @patch("dags.impl.remover_impl.get_raw_file_by_id")
 @patch("dags.impl.remover_impl.RawFileWrapperFactory")
-@patch("dags.impl.remover_impl._check_file")
+@patch("dags.impl.remover_impl.FileIdentifier")
 def test_safe_remove_files_check_error(
-    mock_check_file: MagicMock,
+    mock_file_identifier: MagicMock,
     mock_wrapper_factory: MagicMock,
     mock_get_raw_file: MagicMock,
 ) -> None:
@@ -652,7 +539,9 @@ def test_safe_remove_files_check_error(
     }
     mock_wrapper_factory.create_write_wrapper.return_value = mock_wrapper
 
-    mock_check_file.side_effect = FileRemovalError("Check failed")
+    mock_file_identifier.return_value.check_file.side_effect = FileRemovalError(
+        "Check failed"
+    )
 
     # when
     with pytest.raises(FileRemovalError):

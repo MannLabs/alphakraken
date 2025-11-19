@@ -149,3 +149,90 @@ def test_check_file_mismatch_pool(  # noqa: PLR0913
 
     # when
     assert not FileIdentifier(raw_file).check_file(file_path_to_check, rel_file_path)
+
+
+@patch("plugins.file_checks.CopyPathProvider")
+@patch("plugins.file_checks.get_file_size")
+@patch("plugins.file_checks.get_internal_backup_path")
+@patch("plugins.file_checks.get_file_hash")
+@patch("pathlib.Path.exists")
+def test_check_file_old_format_fallback(
+    mock_path_exists: MagicMock,
+    mock_get_file_hash: MagicMock,
+    mock_backup_path: MagicMock,
+    mock_get_file_size: MagicMock,
+    mock_copy_path_provider: MagicMock,
+) -> None:
+    """Test that check_file handles old file_info format with full path as key."""
+    mock_copy_path_provider.return_value.get_target_folder_path.return_value = Path(
+        "/backup/instrument1/2024_08"
+    )
+    mock_backup_path.return_value = Path("/backup")
+    mock_path_exists.return_value = True
+
+    mock_get_file_size.side_effect = [100, 100]
+    mock_get_file_hash.side_effect = ["some_hash", "some_hash"]
+    file_path_to_check = Path("/instrument1/file.raw")
+
+    rel_file_path = Path("file.raw")
+
+    file_info_in_db = {"instrument1/2024_08/file.raw": (100, "some_hash")}
+
+    raw_file = MagicMock()
+    raw_file.file_info = file_info_in_db
+
+    assert FileIdentifier(raw_file).check_file(file_path_to_check, rel_file_path)
+
+
+@patch("plugins.file_checks.CopyPathProvider")
+@patch("plugins.file_checks.get_internal_backup_path")
+@patch("pathlib.Path.exists")
+def test_check_file_raises_when_size_is_none(
+    mock_path_exists: MagicMock,
+    mock_backup_path: MagicMock,
+    mock_copy_path_provider: MagicMock,
+) -> None:
+    """Test that check_file raises KeyError when size_in_db is None."""
+    mock_copy_path_provider.return_value.get_target_folder_path.return_value = Path(
+        "/backup/instrument1/2024_08"
+    )
+    mock_backup_path.return_value = Path("/backup")
+    mock_path_exists.return_value = True
+
+    file_path_to_check = Path("/instrument1/file.raw")
+    rel_file_path = Path("file.raw")
+
+    file_info_in_db = {"file.raw": (None, "some_hash")}
+
+    raw_file = MagicMock()
+    raw_file.file_info = file_info_in_db
+
+    with pytest.raises(KeyError, match="has no size or hash information"):
+        FileIdentifier(raw_file).check_file(file_path_to_check, rel_file_path)
+
+
+@patch("plugins.file_checks.CopyPathProvider")
+@patch("plugins.file_checks.get_internal_backup_path")
+@patch("pathlib.Path.exists")
+def test_check_file_raises_when_hash_is_none(
+    mock_path_exists: MagicMock,
+    mock_backup_path: MagicMock,
+    mock_copy_path_provider: MagicMock,
+) -> None:
+    """Test that check_file raises KeyError when hash_in_db is None."""
+    mock_copy_path_provider.return_value.get_target_folder_path.return_value = Path(
+        "/backup/instrument1/2024_08"
+    )
+    mock_backup_path.return_value = Path("/backup")
+    mock_path_exists.return_value = True
+
+    file_path_to_check = Path("/instrument1/file.raw")
+    rel_file_path = Path("file.raw")
+
+    file_info_in_db = {"file.raw": (100, None)}
+
+    raw_file = MagicMock()
+    raw_file.file_info = file_info_in_db
+
+    with pytest.raises(KeyError, match="has no size or hash information"):
+        FileIdentifier(raw_file).check_file(file_path_to_check, rel_file_path)

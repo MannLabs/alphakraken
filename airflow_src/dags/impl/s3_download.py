@@ -65,6 +65,7 @@ def download_raw_files_from_s3(ti: TaskInstance, **kwargs) -> None:
     # Extract and parse raw_file_ids
     raw_file_ids_str = kwargs[DagContext.PARAMS].get(DagParams.RAW_FILE_IDS, "")
     raw_file_ids = [rid.strip() for rid in raw_file_ids_str.split(",") if rid.strip()]
+    raw_file_ids = [r.split("/")[-1] for r in raw_file_ids]  # TODO: TEMPORARY HACK
     if not raw_file_ids:
         raise S3DownloadFailedException(
             f"No valid raw_file_ids provided: '{raw_file_ids_str}'"

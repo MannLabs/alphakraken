@@ -441,7 +441,7 @@ services:
     volumes:
       - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs:rw
       # to write downloaded files to file system
-      - ${MOUNTS_PATH:?error}/output:/opt/airflow/mounts/output:rw # TODO: HERE: dedicated mounting
+      - ${MOUNTS_PATH:?error}/output/s3_downloads:/opt/airflow/mounts/output/s3_downloads:rw # TODO: HERE: dedicated mounting
 
   ########################################## INSTRUMENT WORKERS ##########################################
   # cf. comments in airflow-worker-test1

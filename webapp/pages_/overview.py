@@ -414,6 +414,10 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
             file_paths_pretty_one_line = " ".join(file_paths)
             st.code(f"{file_paths_pretty_one_line}")
 
+            st.write("One-line format (comma-separated):")
+            file_paths_pretty_one_line = ",".join(file_paths)
+            st.code(f"{file_paths_pretty_one_line}")
+
             st.write("Multi-line format:")
             file_paths_pretty = f"\n{prefix}".join(file_paths)
             st.code(f"{prefix}{file_paths_pretty}")

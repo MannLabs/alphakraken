@@ -74,7 +74,7 @@ def download_raw_files_from_s3(ti: TaskInstance, **kwargs) -> None:
         f"Creating download plan for {len(raw_file_ids)} raw file(s): {raw_file_ids}"
     )
 
-    output_path = get_internal_output_path()
+    output_path = get_internal_output_path() / "s3_downloads"
     download_plan = _build_download_plan(raw_file_ids, output_path)
 
     logging.info(f"Starting S3 download:\n{download_plan}")
@@ -333,9 +333,6 @@ def _download_and_verify_file(
             bucket_name, s3_key, absolute_dest_path, region, chunk_size_mb
         )
 
-        duration = time.time() - start_time
-        rate_mbps = (file_size_mb / duration) if duration > 0 else 0
-
         # Post-download verification
         logging.info(f"Verifying downloaded file: {absolute_dest_path}")
         local_hash, local_etag = get_file_hash_with_etag(
@@ -356,7 +353,7 @@ def _download_and_verify_file(
             return {
                 "relative_path": relative_path,
                 "status": f"FAILURE - Download verification failed (etag mismatch: local={local_etag}, expected={expected_etag})",
-                "details": f"{file_size_mb:.1f} MB in {duration:.1f}s",
+                "details": f"{file_size_mb:.1f} MB",
             }
 
         # Success
@@ -364,6 +361,9 @@ def _download_and_verify_file(
             absolute_dest_path.suffix + ".corrupted"
         ).exists()  #  TODO: HERE ???
         status = "OK - Self-healed" if was_healed else "OK - Downloaded and verified"
+
+        duration = time.time() - start_time
+        rate_mbps = (file_size_mb / duration) if duration > 0 else 0
 
         return {  # noqa: TRY300
             "relative_path": relative_path,

@@ -37,6 +37,15 @@ class YamlKeys:
         SLURM = "slurm"
         SOFTWARE = "software"
 
+    class Backup:
+        """Keys for accessing backup configuration in the yaml config."""
+
+        # TODO: incorporate
+
+        TYPE = "backup.backup_type"
+        S3_REGION = "backup.s3.region"
+        S3_BUCKET_PREFIX = "backup.s3.bucket_prefix"
+
 
 class YamlSettings:
     """Class to load and access the alphakraken.yaml settings as a singleton."""
@@ -89,7 +98,7 @@ YAMLSETTINGS: dict[str, dict[str, Any]] = cast(
 def get_path(path_key: str) -> Path:
     """Get a certain path from the yaml settings."""
     path = (
-        YAMLSETTINGS.get(YamlKeys.LOCATIONS, {})
+        YAMLSETTINGS.get(YamlKeys.LOCATIONS, {})  # type: ignore[possibly-unbound-attribute]
         .get(path_key, {})
         .get(YamlKeys.ABSOLUTE_PATH)
     )
@@ -116,3 +125,13 @@ def get_notification_setting(setting_key: str) -> str:
         )
 
     return setting_value
+
+
+def is_s3_upload_enabled() -> bool:
+    """Return whether S3 backup is enabled in the yaml settings."""
+    return YAMLSETTINGS.get("backup", {}).get("backup_type", "local") == "s3"  # type: ignore[possibly-unbound-attribute]
+
+
+def get_s3_upload_config() -> dict[str, Any]:
+    """Get the S3 backup configuration from the yaml settings."""
+    return YAMLSETTINGS.get("backup", {}).get("s3", {})  # type: ignore[possibly-unbound-attribute]

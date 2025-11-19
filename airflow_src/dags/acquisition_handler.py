@@ -30,8 +30,11 @@ from impl.handler_impl import (
     decide_processing,
     start_acquisition_processor,
     start_file_mover,
+    start_s3_uploader,
 )
 from sensors.acquisition_monitor import AcquisitionMonitor
+
+from shared.yamlsettings import is_s3_upload_enabled
 
 
 def create_acquisition_handler_dag(instrument_id: str) -> None:
@@ -85,6 +88,11 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
             pool=Pools.FILE_COPY_POOL,
         )
 
+        start_s3_uploader_ = PythonOperator(
+            task_id=Tasks.START_S3_UPLOADER,
+            python_callable=start_s3_uploader,
+        )
+
         start_file_mover_ = PythonOperator(
             task_id=Tasks.START_FILE_MOVER,
             python_callable=start_file_mover,
@@ -103,14 +111,25 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
             op_kwargs={OpArgs.INSTRUMENT_ID: instrument_id},
         )
 
-    (
-        monitor_acquisition_
-        >> compute_checksum_
-        >> copy_raw_file_
-        >> start_file_mover_
-        >> decide_processing_
-        >> start_acquisition_processor_
-    )
+    if not is_s3_upload_enabled():
+        (
+            monitor_acquisition_
+            >> compute_checksum_
+            >> copy_raw_file_
+            >> start_file_mover_
+            >> decide_processing_
+            >> start_acquisition_processor_
+        )
+    else:
+        (
+            monitor_acquisition_
+            >> compute_checksum_
+            >> copy_raw_file_
+            >> start_s3_uploader_
+            >> start_file_mover_
+            >> decide_processing_
+            >> start_acquisition_processor_
+        )
 
 
 for instrument_id in get_instrument_ids():

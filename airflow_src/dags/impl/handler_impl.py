@@ -26,8 +26,15 @@ from common.utils import (
     put_xcom,
     trigger_dag_run,
 )
-from file_handling import copy_file, get_file_hash, get_file_size, move_existing_file
-from plugins.file_handling import _decide_if_copy_required
+from plugins.file_handling import (
+    _decide_if_copy_required,
+    copy_file,
+    get_file_hash,
+    get_file_hash_with_etag,
+    get_file_size,
+    move_existing_file,
+)
+from plugins.s3.s3_utils import S3_UPLOAD_CHUNK_SIZE_MB
 from raw_file_wrapper_factory import (
     CopyPathProvider,
     RawFileWrapperFactory,
@@ -37,15 +44,17 @@ from raw_file_wrapper_factory import (
 from shared.db.interface import get_raw_file_by_id, update_raw_file
 from shared.db.models import (
     BackupStatus,
+    FileInfoItem,
     RawFile,
     RawFileStatus,
     get_created_at_year_month,
+    parse_file_info_item,
 )
 from shared.keys import (
     DDA_FLAG_IN_RAW_FILE_NAME,
 )
 from shared.validation import FORBIDDEN_RAW_FILE_NAME_CHARACTERS_PATTERN
-from shared.yamlsettings import YamlKeys, get_path
+from shared.yamlsettings import YamlKeys, get_path, is_s3_upload_enabled
 
 
 def compute_checksum(ti: TaskInstance, **kwargs) -> bool:
@@ -79,14 +88,22 @@ def compute_checksum(ti: TaskInstance, **kwargs) -> bool:
         path_provider=CopyPathProvider,
     )
 
-    files_size_and_hashsum: dict[Path, tuple[float, str]] = {}
+    files_size_and_hashsum: dict[Path, tuple[float, str] | tuple[float, str, str]] = {}
     files_dst_paths: dict[Path, Path] = {}
-    file_info: dict[str, tuple[float, str]] = {}
+    file_info: dict[str, FileInfoItem] = {}
     total_file_size = 0
     for src_path, dst_path in copy_wrapper.get_files_to_copy().items():
         file_size = get_file_size(src_path)
         total_file_size += file_size
-        size_and_hashsum = (file_size, get_file_hash(src_path))
+
+        if is_s3_upload_enabled():
+            md5sum, etag = get_file_hash_with_etag(
+                src_path, chunk_size_mb=S3_UPLOAD_CHUNK_SIZE_MB, calculate_etag=True
+            )
+            size_and_hashsum = (file_size, md5sum, etag)
+        else:
+            md5sum = get_file_hash(src_path)
+            size_and_hashsum = (file_size, md5sum)
 
         files_dst_paths[src_path] = dst_path
         files_size_and_hashsum[src_path] = size_and_hashsum
@@ -135,7 +152,7 @@ def compute_checksum(ti: TaskInstance, **kwargs) -> bool:
         size=total_file_size,
         file_info=file_info,
     )
-
+    put_xcom(ti, XComKeys.TARGET_FOLDER_PATH, str(copy_wrapper.target_folder_path))
     put_xcom(
         ti,
         XComKeys.FILES_SIZE_AND_HASHSUM,
@@ -151,7 +168,7 @@ def compute_checksum(ti: TaskInstance, **kwargs) -> bool:
 
 
 def _compare_file_info(
-    existing_file_info: dict[str, tuple[float, str]],
+    existing_file_info: dict[str, FileInfoItem],
     file_info: dict[str, tuple[float, str]],
 ) -> list[str]:
     """Compare existing file info with new file info and return a list of errors."""
@@ -189,7 +206,7 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
         raw_file_id,
         new_status=RawFileStatus.COPYING,
         backup_base_path=str(backup_base_path),
-        backup_status=BackupStatus.IN_PROGRESS,
+        backup_status=BackupStatus.COPYING_IN_PROGRESS,
     )
 
     if overwrite := (
@@ -208,14 +225,14 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
     except ValueError as e:
         update_raw_file(
             raw_file_id,
-            backup_status=BackupStatus.FAILED,
+            backup_status=BackupStatus.COPYING_FAILED,
         )
         raise AirflowFailException(e) from e
 
     update_raw_file(
         raw_file_id,
         new_status=RawFileStatus.COPYING_DONE,
-        backup_status=BackupStatus.DONE,
+        backup_status=BackupStatus.COPYING_DONE,
     )
 
 
@@ -244,7 +261,7 @@ def _handle_file_copying(
     """
     copied_files: dict[Path, tuple[float, str]] = {}
     for src_path, dst_path in files_dst_paths.items():
-        src_size, src_hash = files_size_and_hashsum[src_path]
+        src_size, src_hash = parse_file_info_item(files_size_and_hashsum[src_path])
 
         copy_required = _decide_if_copy_required(
             src_path, dst_path, src_hash, overwrite=overwrite
@@ -260,7 +277,7 @@ def _handle_file_copying(
             dst_hash = src_hash
             dst_size = get_file_size(dst_path)
 
-        copied_files[src_path] = (dst_size, dst_hash)
+        copied_files[src_path] = (dst_size, dst_hash)  # type:  ignore[invalid-assignment]
     return copied_files
 
 
@@ -281,7 +298,9 @@ def _verify_copied_files(
     """Verify that the copied files match the original files in size and hash."""
     errors = []
     for src_path, (dst_size, dst_hash) in copied_files.items():
-        src_size, src_hash = files_size_and_hashsum.get(src_path, (None, None))
+        src_size, src_hash = parse_file_info_item(
+            files_size_and_hashsum.get(src_path, (None, None))
+        )
         dst_path = files_dst_paths.get(src_path)
         if dst_size != src_size or dst_hash != src_hash:
             errors.append(
@@ -315,6 +334,19 @@ def start_file_mover(ti: TaskInstance, **kwargs) -> None:
             DagParams.RAW_FILE_ID: raw_file_id,
         },
         time_delay_minutes=time_delay_minutes,
+    )
+
+
+def start_s3_uploader(ti: TaskInstance, **kwargs) -> None:
+    """Trigger the s3_uploader DAG for a specific raw file."""
+    trigger_dag_run(
+        Dags.S3_UPLOADER,
+        {
+            DagParams.RAW_FILE_ID: kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID],
+            DagParams.INTERNAL_TARGET_FOLDER_PATH: get_xcom(
+                ti, XComKeys.TARGET_FOLDER_PATH
+            ),
+        },
     )
 
 

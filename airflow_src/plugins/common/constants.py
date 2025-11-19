@@ -76,6 +76,9 @@ class Pools:
     # pool to limit the number of concurrent jobs on the cluster
     CLUSTER_SLOTS_POOL = "cluster_slots_pool"  #  suggested default: 30
 
+    # pool to limit S3 uploads across all instruments
+    S3_UPLOAD_POOL = "s3_upload_pool"  # suggested default: 2
+
 
 class AlphaDiaConstants:
     """Constants for accessing AlphaDia output."""

@@ -14,6 +14,7 @@ class Dags:
     ACQUISITION_PROCESSOR: str = "acquisition_processor"
     FILE_MOVER: str = "file_mover"
     FILE_REMOVER: str = "file_remover"
+    S3_UPLOADER: str = "s3_uploader"
 
 
 class Tasks:
@@ -27,6 +28,8 @@ class Tasks:
     MONITOR_ACQUISITION: str = "monitor_acquisition"
     COMPUTE_CHECKSUM: str = "compute_checksum"
     COPY_RAW_FILE: str = "copy_raw_file"
+    UPLOAD_TO_S3: str = "upload_to_s3"
+    START_S3_UPLOADER: str = "start_s3_uploader"
     START_FILE_MOVER: str = "start_file_mover"
     DECIDE_PROCESSING: str = "decide_processing"
     START_ACQUISITION_PROCESSOR: str = "start_acquisition_processor"
@@ -69,6 +72,9 @@ class DagParams:
     # "params" level
     RAW_FILE_ID: str = "raw_file_id"
 
+    # s3 uploader
+    INTERNAL_TARGET_FOLDER_PATH: str = "internal_target_folder_path"
+
 
 class XComKeys:
     """Keys for accessing XCom."""
@@ -81,6 +87,7 @@ class XComKeys:
 
     FILES_SIZE_AND_HASHSUM: str = "files_size_and_hashsum"
     FILES_DST_PATHS: str = "files_dst_paths"
+    TARGET_FOLDER_PATH: str = "target_folder_path"
 
     QUANTING_ENV: str = "quanting_env"
 

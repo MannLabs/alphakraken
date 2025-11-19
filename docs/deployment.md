@@ -390,3 +390,48 @@ The script creates rotating daily backups (named by weekday) and maintains an ho
 
 ### Restore a backup
 To restore a backup, stop the MongoDB service and replace the contents of the MongoDB data directory with the contents of the desired backup folder. Then restart the MongoDB service.
+
+## S3 Configuration (Optional)
+AlphaKraken supports uploading raw files to S3-compatible object storage as an alternative to local backup. When enabled, files are uploaded in a separate DAG after the file is available on the pool backup.
+
+### Configuration
+
+1. **Enable S3 in YAML config** (`envs/alphakraken.${ENV}.yaml`):
+```yaml
+backup:
+  backup_type: s3  # Change from 'local' to 's3'
+  s3:
+    region: eu-central-1
+    bucket_prefix: alphakraken
+```
+
+2. **Configure AWS connection in Airflow UI**:
+   - Navigate to "Admin" -> "Connections" -> "+" button
+   - Connection Id: `aws_default`
+   - Connection Type: `Amazon Web Services`
+   - AWS Access Key ID: `<your_access_key>`
+   - AWS Secret Access Key: `<your_secret_key>`
+   - Click "Save"
+
+   For S3-compatible services (e.g., custom endpoints):
+   - Extra: `{"endpoint_url": "https://your-s3-endpoint.com"}`, e.g. `https://objectstore.hpccloud.mpcdf.mpg.de`
+
+3. **Create S3 upload pool in Airflow UI**:
+   - Navigate to "Admin" -> "Pools" -> "+" button
+   - Pool Name: `s3_upload_pool`
+   - Slots: `2` (max concurrent S3 uploads)
+   - Click "Save"
+
+4. **Deploy S3 uploader worker**:
+   The S3 jobs run as a dedicated Celery workers. Start it using:
+   ```bash
+   ./compose.sh --profile s3 up --build -d
+   ```
+
+### How it works
+
+- Files are organized in S3 by project and instrument: `{bucket_prefix}-{project_id}/{file_path}` or `{bucket_prefix}-{fallback_project_id}/{instrument_id}/{year_month}/{file_path}` (the latter if no project is defined)
+- Upload happens in chunks with automatic multipart upload
+- Upload integrity is verified using ETag comparison
+- Upload status is tracked in the database (`backup_status` field: `UPLOAD_IN_PROGRESS`, `UPLOAD_DONE`, `UPLOAD_FAILED`)
+- Failed uploads do not block file processing and can be retried manually

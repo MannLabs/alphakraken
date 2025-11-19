@@ -40,6 +40,7 @@ x-airflow-common: &airflow-common
     AIRFLOW__API__AUTH_BACKENDS: "airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session"
     AIRFLOW__SCHEDULER__MIN_FILE_PROCESS_INTERVAL: 300 # reduce this number locally to get DAG changes faster
     AIRFLOW__CORE__TEST_CONNECTION: "Enabled" # to allow testing connections via UI
+    #    AIRFLOW_CONN_AWS_DEFAULT: "aws://?endpoint_url=https://objectstore.hpccloud.mpcdf.mpg.de"
     # yamllint disable rule:line-length
     # Use simple http server on scheduler for health checks
     # See https://airflow.apache.org/docs/apache-airflow/stable/administration-and-deployment/logging-monitoring/check-health.html#scheduler-health-check-server
@@ -56,12 +57,12 @@ x-airflow-common: &airflow-common
   volumes:
     # all mounts (backup pool folders, results pool folders, instruments, logs) need to be available in $MOUNTS_PATH
     - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs:rw
-#    # Uncomment for local development so that changes to DAGs and Tasks are immediately active
-#    # Note that this part is defined another time for the airflow-worker-test1
-#    - ./airflow_src/dags:/opt/airflow/dags
-#    - ./airflow_src/config:/opt/airflow/config
-#    - ./airflow_src/plugins:/opt/airflow/plugins
-#    - ./shared:/opt/airflow/shared
+    #    # Uncomment for local development so that changes to DAGs and Tasks are immediately active
+    #    # Note that this part is defined another time for the airflow-worker-test1
+    - ./airflow_src/dags:/opt/airflow/dags
+    - ./airflow_src/config:/opt/airflow/config
+    - ./airflow_src/plugins:/opt/airflow/plugins
+    - ./shared:/opt/airflow/shared
 
 x-airflow-worker:
   # This is the configuration for the production workers. For the test worker, the volume mapping is overwritten.
@@ -400,6 +401,16 @@ services:
       - ${MOUNTS_PATH:?error}/backup:/opt/airflow/mounts/backup:ro
       # to write (remove) from instrument Backup folder: (this could be limited to the 'Backup' folders but then requires one entry per instrument)
       - ${MOUNTS_PATH:?error}/instruments:/opt/airflow/mounts/instruments:rw
+
+  # s3 downloader: uploads files to s3
+  airflow-worker-s3-uploader:
+    profiles: ["s3"]
+    <<: *airflow-worker
+    command: celery worker -q kraken_queue_s3_uploader
+    volumes:
+      - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs:rw
+      # to read files to upload
+      - ${MOUNTS_PATH:?error}/backup:/opt/airflow/mounts/backup:ro
 
   ########################################## INSTRUMENT WORKERS ##########################################
   # cf. comments in airflow-worker-test1

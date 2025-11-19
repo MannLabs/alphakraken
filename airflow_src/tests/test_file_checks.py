@@ -48,11 +48,14 @@ def test_check_file_success(
     mock_get_file_size.assert_has_calls(
         [
             call(Path("/instrument1/file.raw"), verbose=False),
-            call(Path("/instrument1/file.raw"), verbose=False),
+            call(Path("/backup/instrument1/2024_08/file.raw"), verbose=False),
         ]
     )
     mock_get_file_hash.assert_has_calls(
-        [call(Path("/instrument1/file.raw")), call(Path("/instrument1/file.raw"))]
+        [
+            call(Path("/instrument1/file.raw")),
+            call(Path("/backup/instrument1/2024_08/file.raw")),
+        ]
     )
 
 

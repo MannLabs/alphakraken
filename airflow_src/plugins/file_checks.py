@@ -62,14 +62,14 @@ class FileIdentifier:
             return False
 
         if not self._check_against_reference(  # noqa: SIM103
-            abs_file_path_to_check, size_in_db, hash_in_db, hash_check=hash_check
+            rel_file_path, size_in_db, hash_in_db, hash_check=hash_check
         ):
             return False
 
         return True
 
     def _check_reference_exists(self, rel_file_path: Path) -> bool:
-        """Check that the file to remove is present in the pool backup, raises FileRemovalError if not."""
+        """Check that the file to remove is present in the pool backup."""
         if not (self._internal_backup_path / rel_file_path).exists():
             logging.warning(f"File {rel_file_path} does not exist.")
             return False

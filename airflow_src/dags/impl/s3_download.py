@@ -310,6 +310,7 @@ def _download_and_verify_file(
                 absolute_dest_path, chunk_size_mb, calculate_etag=True
             )
 
+            local_etag = local_etag.split("__")[0]  # Remove multipart suffix if present
             if local_etag == expected_etag:
                 return {
                     "relative_path": relative_path,
@@ -334,6 +335,7 @@ def _download_and_verify_file(
         )
 
         # Post-download verification
+        # TODO: download file to .unverified, then move
         logging.info(f"Verifying downloaded file: {absolute_dest_path}")
         local_hash, local_etag = get_file_hash_with_etag(
             absolute_dest_path, chunk_size_mb, calculate_etag=True

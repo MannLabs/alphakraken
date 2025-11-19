@@ -9,6 +9,7 @@ from airflow.exceptions import AirflowFailException
 from common.keys import XComKeys
 from common.settings import _INSTRUMENTS
 from dags.impl.remover_impl import (
+    FileRemovalError,
     _change_folder_permissions,
     _decide_on_raw_files_to_remove,
     _delete_empty_directory,
@@ -19,7 +20,6 @@ from dags.impl.remover_impl import (
     get_raw_files_to_remove,
     remove_raw_files,
 )
-from plugins.file_checks import FileRemovalError
 from raw_file_wrapper_factory import RawFileStemEmptyError, RemovePathProvider
 
 from shared.db.models import KrakenStatusValues

@@ -23,7 +23,7 @@ from common.settings import (
 )
 from common.utils import get_airflow_variable, get_env_variable, get_xcom, put_xcom
 from file_handling import get_disk_usage, get_file_size
-from plugins.file_checks import FileIdentifier, FileRemovalError
+from plugins.file_checks import FileIdentifier
 from raw_file_wrapper_factory import (
     RawFileStemEmptyError,
     RawFileWrapperFactory,
@@ -43,6 +43,10 @@ from shared.db.models import (
     RawFile,
 )
 from shared.keys import EnvVars
+
+
+class FileRemovalError(Exception):
+    """Custom exception for file check and removal errors."""
 
 
 def _update_file_remover_status(status: str, status_details: str = "") -> None:
@@ -216,10 +220,12 @@ def _get_total_size(raw_file: RawFile) -> tuple[float, int]:
         if not file_path_to_remove.exists():
             continue  # file was already removed
 
-        if not FileIdentifier(raw_file).check_file(
+        if not FileIdentifier(
+            raw_file
+        ).check_file(
             file_path_to_remove,
             rel_file_path,
-            hash_check=False,  # we only want to check the sizes here
+            hash_check=False,  # we only use this to calculate the sizes, so we can tolerate possible hash mismatches here
         ):
             raise FileRemovalError(
                 f"File {file_path_to_remove} failed check_file() during size calculation."

@@ -12,10 +12,6 @@ from raw_file_wrapper_factory import CopyPathProvider
 from shared.db.models import RawFile, parse_file_info_item
 
 
-class FileRemovalError(Exception):
-    """Custom exception for file check and removal errors."""
-
-
 class FileIdentifier:
     """Class to identify and verify files before removal."""
 

@@ -95,8 +95,14 @@ class PumpPressureAlert(BaseAlert):
             logging.debug("No raw files found in lookback window")
             return []
 
+        # TODO: centralize column names and harmonization
         raw_files_with_metrics = augment_raw_files_with_metrics(
-            raw_files, ["raw:gradient_length_m", "msqc_evosep_pump_hp_pressure_max"]
+            raw_files,
+            [
+                "raw:gradient_length_m",  # alphadia < 2
+                "gradient_length",
+                "msqc_evosep_pump_hp_pressure_max",
+            ],
         )
 
         instrument_data = self._get_pressure_data_by_instrument(raw_files_with_metrics)
@@ -166,7 +172,7 @@ class PumpPressureAlert(BaseAlert):
         """Group metrics by instrument, returning PressureDataPoint instances."""
         pressure_data = defaultdict(list)
         for raw_file_id, v in raw_files_with_metrics.items():
-            gradient_length = v.get("metrics_alphadia", {}).get("raw:gradient_length_m")
+            gradient_length = v.get("metrics_alphadia", {}).get("gradient_length")
             pressure = v.get("metrics_msqc", {}).get("msqc_evosep_pump_hp_pressure_max")
 
             if gradient_length is not None and pressure is not None:

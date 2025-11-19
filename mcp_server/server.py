@@ -19,7 +19,7 @@ from mongoengine import QuerySet
 from shared.db.engine import connect_db
 from shared.db.models import KrakenStatus, KrakenStatusEntities, Metrics, RawFile
 
-mcp = FastMCP(name="AlphaKraken")
+mcp = FastMCP(name="AlphaKraken", instructions="Get information about acquired files.")
 logger = logging.getLogger(__name__)
 
 
@@ -63,7 +63,7 @@ raw_file_keys_whitelist = [
     "created_at",
 ]
 metrics_keys_blacklist = ["_id", "raw_file", "created_at_"]
-basic_metrics_keys = ["proteins", "raw:gradient_length_m"]
+basic_metrics_keys = ["proteins", "gradient_length"]
 
 
 @mcp.tool()
@@ -226,7 +226,7 @@ def augment_raw_files_with_metrics(
     Args:
         raw_files (QuerySet): A mongoengine QuerySet of RawFile objects to augment with metrics.
         gradient_length_filter (float | None): If not None, filters raw_files by gradient length (minutes).
-            Raw files without metrics or outside this range are excluded. Filter has a tolerance of 5% around the provided value.
+            Raw files without metrics or outside this range are excluded. Filter has a tolerance of +/- 5% around the provided value.
         only_basic_metrics (bool): If True, only basic metrics (gradient_length, number of proteins) are returned, for a quick overview.
 
     Returns:
@@ -262,11 +262,15 @@ def augment_raw_files_with_metrics(
     for raw_file in raw_files_dict.values():
         metrics = _flatten_metrics(raw_file.get("metrics"))
 
+        if "raw:gradient_length_m" in metrics:  # alphadia < 2
+            metrics["gradient_length"] = metrics["raw:gradient_length_m"]
+            del metrics["raw:gradient_length_m"]
+
         if gradient_length_filter and (
             not metrics
-            or not metrics["raw:gradient_length_m"] * 0.95
+            or not float(metrics["gradient_length"]) * 0.95
             <= gradient_length_filter
-            <= metrics["raw:gradient_length_m"] * 1.05
+            <= float(metrics["gradient_length"]) * 1.05
         ):
             continue
 

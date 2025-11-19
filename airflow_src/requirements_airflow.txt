@@ -1,2 +1,3 @@
 # requirements for the airflow tasks
 apache-airflow-providers-ssh --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.10.5/constraints-3.11.txt"
+pyarrow>=19.0.1 # fixes https://github.com/apache/arrow/issues/45283

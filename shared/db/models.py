@@ -3,6 +3,8 @@
 Note: this module must not have any dependencies on the rest of the codebase.
 """
 
+from __future__ import annotations
+
 from datetime import datetime
 from typing import ClassVar
 
@@ -12,11 +14,16 @@ from mongoengine import (
     Document,
     DynamicDocument,
     IntField,
+    QuerySet,
     ReferenceField,
     StringField,
 )
 
 from shared.keys import MetricsTypes
+
+FileInfoItem = (
+    tuple[float | None, str | None] | tuple[float | None, str | None, str | None]
+)
 
 
 class RawFileStatus:
@@ -93,6 +100,7 @@ class RawFile(Document):
     """Schema for a raw file."""
 
     meta: ClassVar = {"strict": False}
+    objects: ClassVar[QuerySet[RawFile]]
 
     # Unique identifier of the file. Either the raw file name or, in case of a collision,
     # the raw file name with a unique prefix.
@@ -136,7 +144,7 @@ class RawFile(Document):
 
 
 def parse_file_info_item(
-    item: tuple[float | None, str | None] | tuple[float | None, str | None, str | None],
+    item: FileInfoItem | None,
 ) -> tuple[float | None, str | None]:
     """Parse a file_info item tuple.
 
@@ -146,10 +154,10 @@ def parse_file_info_item(
         item: The file_info item tuple to parse.
 
     Returns:
-        A tuple containing the size and hash
+        A tuple containing the size and hash.
 
     Raises:
-        ValueError: If the item length is invalid or if an ETag is requested but not present.
+        ValueError: If the item length is invalid.
 
     """
     if not item:
@@ -172,6 +180,8 @@ class Metrics(DynamicDocument):
     Inheriting from `DynamicDocument` means that any parameter passed to the model will be added to the DB.
     cf. https://docs.mongoengine.org/guide/defining-documents.html#dynamic-document-schemas
     """
+
+    objects: ClassVar[QuerySet[Metrics]]
 
     # https://docs.mongoengine.org/guide/defining-documents.html#reference-fields
     raw_file = ReferenceField(RawFile)
@@ -197,6 +207,7 @@ class Project(Document):
     """Schema for a project."""
 
     meta: ClassVar = {"strict": False}
+    objects: ClassVar[QuerySet[Project]]
 
     id = StringField(required=True, primary_key=True, min_length=3, max_length=16)
     name = StringField(required=True, max_length=64)
@@ -212,6 +223,7 @@ class Settings(Document):
     """Schema for quanting settings."""
 
     meta: ClassVar = {"strict": False}
+    objects: ClassVar[QuerySet[Settings]]
 
     project = ReferenceField(
         Project,
@@ -260,6 +272,7 @@ class KrakenStatus(Document):
     """Schema for the Kraken status, representing health, status details, free space, entity type, and last update time."""
 
     meta: ClassVar = {"strict": False}
+    objects: ClassVar[QuerySet[KrakenStatus]]
 
     id = StringField(max_length=64, required=True, primary_key=True)
 

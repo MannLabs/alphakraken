@@ -71,7 +71,7 @@ def _calculate_trendline(
         # Convert back to datetime for plotting
         x_trend = pd.to_datetime(x_trend)
 
-    return x_trend, y_trend
+    return x_trend, y_trend  # type: ignore[invalid-return-type]
 
 
 def _draw_plot(  # noqa: PLR0913
@@ -93,6 +93,7 @@ def _draw_plot(  # noqa: PLR0913
     median_ = df[y].median() if y_is_numeric else 0
     title = f"{y} (median= {median_:.2f})" if y_is_numeric else y
 
+    # TODO: centralize column names and harmonization
     hover_data = filter_valid_columns(
         [
             "file_created",

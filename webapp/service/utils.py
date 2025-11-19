@@ -5,9 +5,11 @@ import logging
 import os
 import traceback
 from pathlib import Path
+from typing import Any
 
 import plotly.graph_objects as go
 import streamlit as st
+import streamlit.delta_generator
 from PIL import Image
 from service.query_params import QueryParams, is_query_param_true
 from service.session_state import (
@@ -54,7 +56,7 @@ logging.basicConfig(
         if os.getenv("IS_PYTEST_RUN", "0") != "1"
         else None,
         logging.StreamHandler(),  # Keep console output for debugging
-    ],
+    ],  # type: ignore[invalid-argument-type]
 )
 logger = logging.getLogger(__name__)
 
@@ -99,7 +101,9 @@ def show_feedback_in_sidebar() -> None:
             remove_session_state(key)
 
 
-def display_info_message(st_display: st.delta_generator.DeltaGenerator = None) -> None:
+def display_info_message(
+    st_display: st.delta_generator.DeltaGenerator | Any = None,
+) -> None:
     """Read an info message from a file and display it as a streamlit info message."""
     file_path = Path("/app/webapp/info_message.txt")
     if not file_path.exists():
@@ -116,14 +120,16 @@ def display_info_message(st_display: st.delta_generator.DeltaGenerator = None) -
 
 
 def display_plotly_chart(
-    fig: go.Figure, display: st.delta_generator.DeltaGenerator = st, **kwargs
+    fig: go.Figure, st_display: st.delta_generator.DeltaGenerator | Any = None, **kwargs
 ) -> None:
     """Display a plotly chart in a streamlit app."""
+    if st_display is None:
+        st_display = st
     # currently, the mobile setup does not support plotly charts
     if is_query_param_true(QueryParams.MOBILE):
         img_bytes = fig.to_image(format="png", engine="kaleido")
         img = Image.open(io.BytesIO(img_bytes))
 
-        display.image(img)
+        st_display.image(img)
     else:
-        display.plotly_chart(fig, **kwargs)
+        st_display.plotly_chart(fig, **kwargs)

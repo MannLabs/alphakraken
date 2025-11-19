@@ -1,14 +1,9 @@
-#!/usr/bin/env python3
-
 """Script to monitor AlphaKraken and send alerts to Slack or MS Teams."""
 # ruff: noqa: E402
 
 import logging
 
-from messenger_clients import AlertTypes
-from utils import extract_error_line
-
-# needs to be here:
+# needs to be before other imports to setup logging:
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -22,7 +17,9 @@ from alerts.config import (
     CHECK_INTERVAL_SECONDS,
     STALE_STATUS_THRESHOLD_MINUTES,
 )
+from messenger_clients import AlertTypes
 from pymongo.errors import ServerSelectionTimeoutError
+from utils import extract_error_line
 
 from shared.db.engine import connect_db
 

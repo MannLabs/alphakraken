@@ -261,6 +261,7 @@ def test_get_total_size_ok(
                 mock_backup_path_1,
                 hash_check=False,
             ),
+            call().check_file().__bool__(),
             # 2 is skipped
             call(mock_raw_file),
             call().check_file(
@@ -268,6 +269,7 @@ def test_get_total_size_ok(
                 mock_backup_path_3,
                 hash_check=False,
             ),
+            call().check_file().__bool__(),
         ]
     )
     mock_get_file_size.assert_has_calls(

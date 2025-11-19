@@ -216,11 +216,14 @@ def _get_total_size(raw_file: RawFile) -> tuple[float, int]:
         if not file_path_to_remove.exists():
             continue  # file was already removed
 
-        FileIdentifier(raw_file).check_file(
+        if not FileIdentifier(raw_file).check_file(
             file_path_to_remove,
             rel_file_path,
             hash_check=False,  # we only want to check the sizes here
-        )
+        ):
+            raise FileRemovalError(
+                f"File {file_path_to_remove} failed check_file() during size calculation."
+            )
 
         total_size_bytes += get_file_size(file_path_to_remove, verbose=False)
         num_files += 1
@@ -260,10 +263,13 @@ def _safe_remove_files(raw_file_id: str) -> None:
             )
             continue
 
-        FileIdentifier(raw_file).check_file(
+        if not FileIdentifier(raw_file).check_file(
             file_path_to_remove,
             rel_file_path,
-        )
+        ):
+            raise FileRemovalError(
+                f"File {file_path_to_remove} failed check_file() before removal."
+            )
 
         logging.info(f"Marking file {file_path_to_remove} for removal .. ")
 

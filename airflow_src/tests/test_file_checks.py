@@ -5,7 +5,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-from plugins.file_checks import FileIdentifier, FileRemovalError
+from plugins.file_checks import FileIdentifier
 
 
 @patch("plugins.file_checks.CopyPathProvider")
@@ -42,7 +42,7 @@ def test_check_file_success(
     raw_file.file_info = file_info_in_db
 
     # when
-    FileIdentifier(raw_file).check_file(file_path_to_check, rel_file_path)
+    assert FileIdentifier(raw_file).check_file(file_path_to_check, rel_file_path)
 
     # then
     assert mock_get_file_size.call_count == 2
@@ -67,8 +67,7 @@ def test_check_file_not_existing_on_pool_backup(
     raw_file.file_info = {}
 
     # when
-    with pytest.raises(FileRemovalError, match="File file.raw does not exist."):
-        FileIdentifier(raw_file).check_file(file_path_to_check, rel_file_path)
+    assert not FileIdentifier(raw_file).check_file(file_path_to_check, rel_file_path)
 
 
 @pytest.mark.parametrize(
@@ -103,14 +102,8 @@ def test_check_file_mismatch_instrument(  # noqa: PLR0913
     file_path_to_check = Path("/instrument/file.raw")
     rel_file_path = Path("file.raw")
 
-    expected_hash = None if file_size != 100 else f"'{file_hash}'"
-
     # when
-    with pytest.raises(
-        FileRemovalError,
-        match=f"File file.raw mismatch with instrument backup: size_to_remove={file_size} vs size_in_db=100, hash_to_remove={expected_hash} vs hash_in_db='some_hash'",
-    ):
-        FileIdentifier(raw_file).check_file(file_path_to_check, rel_file_path)
+    assert not FileIdentifier(raw_file).check_file(file_path_to_check, rel_file_path)
 
 
 @pytest.mark.parametrize(
@@ -146,10 +139,5 @@ def test_check_file_mismatch_pool(  # noqa: PLR0913
 
     rel_file_path = Path("file.raw")
 
-    expected_hash = None if file_size != 100 else f"'{file_hash}'"
     # when
-    with pytest.raises(
-        FileRemovalError,
-        match=f"File file.raw mismatch with pool backup: size_on_pool_backup={file_size} vs size_in_db=100, hash_on_pool_backup={expected_hash} vs hash_in_db='some_hash'",
-    ):
-        FileIdentifier(raw_file).check_file(file_path_to_check, rel_file_path)
+    assert not FileIdentifier(raw_file).check_file(file_path_to_check, rel_file_path)

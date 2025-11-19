@@ -137,7 +137,7 @@ class RawFile(Document):
 
 def parse_file_info_item(
     item: tuple[float | None, str | None] | tuple[float | None, str | None, str | None],
-) -> tuple[float | None, str | None]:
+) -> tuple[float, str] | None:
     """Parse a file_info item tuple.
 
     This is to hide the details of the file_info storage format from the rest of the codebase.
@@ -146,10 +146,10 @@ def parse_file_info_item(
         item: The file_info item tuple to parse.
 
     Returns:
-        A tuple containing the size and hash
+        A tuple containing the size and hash.
 
     Raises:
-        ValueError: If the item length is invalid or if an ETag is requested but not present.
+        ValueError: If the item length is invalid.
 
     """
     if not item:

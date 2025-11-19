@@ -404,7 +404,7 @@ services:
 
   # s3 downloader: uploads files to s3
   airflow-worker-s3-uploader:
-    profiles: ["local", "workers"]
+    profiles: ["s3"]
     <<: *airflow-worker
     command: celery worker -q kraken_queue_s3_uploader
     volumes:

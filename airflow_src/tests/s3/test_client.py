@@ -312,8 +312,8 @@ def test_download_file_from_s3_should_download_file() -> None:
     mock_file = MagicMock()
 
     with (
-        patch("dags.impl.s3_utils.get_s3_client") as mock_get_client,
-        patch("dags.impl.s3_utils.get_transfer_config") as mock_get_config,
+        patch("plugins.s3.client.get_s3_client") as mock_get_client,
+        patch("plugins.s3.client.get_transfer_config") as mock_get_config,
         patch.object(Path, "open", return_value=mock_file),
         patch.object(Path, "mkdir"),
     ):
@@ -345,8 +345,8 @@ def test_download_file_from_s3_should_create_parent_directories() -> None:
     mock_file = MagicMock()
 
     with (
-        patch("dags.impl.s3_utils.get_s3_client") as mock_get_client,
-        patch("dags.impl.s3_utils.get_transfer_config"),
+        patch("plugins.s3.client.get_s3_client") as mock_get_client,
+        patch("plugins.s3.client.get_transfer_config"),
         patch.object(Path, "open", return_value=mock_file),
         patch.object(Path, "mkdir") as mock_mkdir,
     ):
@@ -372,8 +372,8 @@ def test_download_file_from_s3_should_open_file_in_binary_write_mode() -> None:
     mock_file = MagicMock()
 
     with (
-        patch("dags.impl.s3_utils.get_s3_client") as mock_get_client,
-        patch("dags.impl.s3_utils.get_transfer_config"),
+        patch("plugins.s3.client.get_s3_client") as mock_get_client,
+        patch("plugins.s3.client.get_transfer_config"),
         patch.object(Path, "open", return_value=mock_file) as mock_open,
         patch.object(Path, "mkdir"),
     ):
@@ -400,8 +400,8 @@ def test_download_file_from_s3_should_use_custom_aws_connection() -> None:
     mock_file = MagicMock()
 
     with (
-        patch("dags.impl.s3_utils.get_s3_client") as mock_get_client,
-        patch("dags.impl.s3_utils.get_transfer_config"),
+        patch("plugins.s3.client.get_s3_client") as mock_get_client,
+        patch("plugins.s3.client.get_transfer_config"),
         patch.object(Path, "open", return_value=mock_file),
         patch.object(Path, "mkdir"),
     ):

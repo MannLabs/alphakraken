@@ -46,5 +46,5 @@ def on_failure_callback(context: dict[str, Any], **kwargs) -> None:
         raw_file_id,
         new_status=RawFileStatus.ERROR,
         status_details=f"[{cleaned_dag_id}.{ti.task_id}] {ex!s}",
-        **extra_args,
+        **extra_args,  # type: ignore[invalid-argument-type]
     )

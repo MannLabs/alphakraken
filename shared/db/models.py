@@ -21,6 +21,10 @@ from mongoengine import (
 
 from shared.keys import MetricsTypes
 
+FileInfoItem = (
+    tuple[float | None, str | None] | tuple[float | None, str | None, str | None]
+)
+
 
 class RawFileStatus:
     """Status of raw file.
@@ -140,8 +144,8 @@ class RawFile(Document):
 
 
 def parse_file_info_item(
-    item: tuple[float | None, str | None] | tuple[float | None, str | None, str | None],
-) -> tuple[float, str] | None:
+    item: FileInfoItem | None,
+) -> tuple[float | None, str | None]:
     """Parse a file_info item tuple.
 
     This is to hide the details of the file_info storage format from the rest of the codebase.

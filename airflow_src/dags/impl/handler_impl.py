@@ -44,6 +44,7 @@ from raw_file_wrapper_factory import (
 from shared.db.interface import get_raw_file_by_id, update_raw_file
 from shared.db.models import (
     BackupStatus,
+    FileInfoItem,
     RawFile,
     RawFileStatus,
     get_created_at_year_month,
@@ -89,7 +90,7 @@ def compute_checksum(ti: TaskInstance, **kwargs) -> bool:
 
     files_size_and_hashsum: dict[Path, tuple[float, str] | tuple[float, str, str]] = {}
     files_dst_paths: dict[Path, Path] = {}
-    file_info: dict[str, tuple[float, str] | tuple[float, str, str]] = {}
+    file_info: dict[str, FileInfoItem] = {}
     total_file_size = 0
     for src_path, dst_path in copy_wrapper.get_files_to_copy().items():
         file_size = get_file_size(src_path)
@@ -167,7 +168,7 @@ def compute_checksum(ti: TaskInstance, **kwargs) -> bool:
 
 
 def _compare_file_info(
-    existing_file_info: dict[str, tuple[float, str]],
+    existing_file_info: dict[str, FileInfoItem],
     file_info: dict[str, tuple[float, str]],
 ) -> list[str]:
     """Compare existing file info with new file info and return a list of errors."""
@@ -276,7 +277,7 @@ def _handle_file_copying(
             dst_hash = src_hash
             dst_size = get_file_size(dst_path)
 
-        copied_files[src_path] = (dst_size, dst_hash)
+        copied_files[src_path] = (dst_size, dst_hash)  # type:  ignore[invalid-assignment]
     return copied_files
 
 

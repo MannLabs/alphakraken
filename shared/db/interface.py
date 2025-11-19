@@ -12,6 +12,7 @@ from mongoengine import QuerySet
 
 from shared.db.engine import connect_db
 from shared.db.models import (
+    FileInfoItem,
     KrakenStatus,
     KrakenStatusEntities,
     Metrics,
@@ -149,7 +150,7 @@ def update_raw_file(  # noqa: PLR0913
     new_status: str = _NO_UPDATE,  # type: ignore[invalid-parameter-default]
     status_details: str | None = _NO_UPDATE,  # type: ignore[invalid-parameter-default]
     size: float = _NO_UPDATE,  # type: ignore[invalid-parameter-default]
-    file_info: dict[str, tuple[float, str]] = _NO_UPDATE,  # type: ignore[invalid-parameter-default]
+    file_info: dict[str, FileInfoItem] = _NO_UPDATE,  # type: ignore[invalid-parameter-default]
     backup_base_path: str = _NO_UPDATE,  # type: ignore[invalid-parameter-default]
     backup_status: str = _NO_UPDATE,  # type: ignore[invalid-parameter-default]
     s3_upload_path: str = _NO_UPDATE,  # type: ignore[invalid-parameter-default]

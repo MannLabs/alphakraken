@@ -13,6 +13,8 @@ from plugins.s3.client import (
     get_etag,
     get_s3_client,
     get_transfer_config,
+    parse_etag_from_file_info,
+    reconstruct_s3_paths,
     upload_file_to_s3,
 )
 
@@ -303,7 +305,7 @@ def test_download_file_from_s3_should_download_file() -> None:
     # given
     bucket_name = "test-bucket"
     s3_key = "test-file.txt"
-    local_path = Path("/tmp/test-file.txt")
+    local_path = Path("/tmp/test-file.txt")  # noqa: S108
     region = "us-east-1"
     chunk_size_mb = 500
     mock_s3_client = MagicMock()
@@ -337,7 +339,7 @@ def test_download_file_from_s3_should_create_parent_directories() -> None:
     # given
     bucket_name = "test-bucket"
     s3_key = "test-file.txt"
-    local_path = Path("/tmp/subdir/test-file.txt")
+    local_path = Path("/tmp/subdir/test-file.txt")  # noqa: S108
     region = "us-east-1"
     mock_s3_client = MagicMock()
     mock_file = MagicMock()
@@ -364,7 +366,7 @@ def test_download_file_from_s3_should_open_file_in_binary_write_mode() -> None:
     # given
     bucket_name = "test-bucket"
     s3_key = "test-file.txt"
-    local_path = Path("/tmp/test-file.txt")
+    local_path = Path("/tmp/test-file.txt")  # noqa: S108
     region = "us-east-1"
     mock_s3_client = MagicMock()
     mock_file = MagicMock()
@@ -391,7 +393,7 @@ def test_download_file_from_s3_should_use_custom_aws_connection() -> None:
     # given
     bucket_name = "test-bucket"
     s3_key = "test-file.txt"
-    local_path = Path("/tmp/test-file.txt")
+    local_path = Path("/tmp/test-file.txt")  # noqa: S108
     region = "eu-west-1"
     aws_conn_id = "my_custom_connection"
     mock_s3_client = MagicMock()

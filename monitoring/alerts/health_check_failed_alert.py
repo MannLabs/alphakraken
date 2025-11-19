@@ -26,7 +26,7 @@ class HealthCheckFailedAlert(BaseAlert):
 
         return health_check_failed_instruments
 
-    def format_message(self, issues: list[tuple[str, str]]) -> str:
+    def format_message(self, issues: list[tuple[str, str | None]]) -> str:
         """Format health check failure message."""
         instruments_str = "\n".join(
             [
@@ -35,3 +35,9 @@ class HealthCheckFailedAlert(BaseAlert):
             ]
         )
         return f"Health check failed:\n{instruments_str}"
+
+    def get_cooldown_time_minutes(self, identifier: str) -> int | None:
+        """Return custom cooldown for specific instruments."""
+        if identifier == "file_remover":
+            return 720  # 12 hours
+        return super().get_cooldown_time_minutes(identifier)

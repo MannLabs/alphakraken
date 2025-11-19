@@ -3,6 +3,8 @@
 Note: this module must not have any dependencies on the rest of the codebase.
 """
 
+from __future__ import annotations
+
 from datetime import datetime
 from typing import ClassVar
 
@@ -12,6 +14,7 @@ from mongoengine import (
     Document,
     DynamicDocument,
     IntField,
+    QuerySet,
     ReferenceField,
     StringField,
 )
@@ -93,6 +96,7 @@ class RawFile(Document):
     """Schema for a raw file."""
 
     meta: ClassVar = {"strict": False}
+    objects: ClassVar[QuerySet[RawFile]]
 
     # Unique identifier of the file. Either the raw file name or, in case of a collision,
     # the raw file name with a unique prefix.
@@ -173,6 +177,8 @@ class Metrics(DynamicDocument):
     cf. https://docs.mongoengine.org/guide/defining-documents.html#dynamic-document-schemas
     """
 
+    objects: ClassVar[QuerySet[Metrics]]
+
     # https://docs.mongoengine.org/guide/defining-documents.html#reference-fields
     raw_file = ReferenceField(RawFile)
 
@@ -197,6 +203,7 @@ class Project(Document):
     """Schema for a project."""
 
     meta: ClassVar = {"strict": False}
+    objects: ClassVar[QuerySet[Project]]
 
     id = StringField(required=True, primary_key=True, min_length=3, max_length=16)
     name = StringField(required=True, max_length=64)
@@ -212,6 +219,7 @@ class Settings(Document):
     """Schema for quanting settings."""
 
     meta: ClassVar = {"strict": False}
+    objects: ClassVar[QuerySet[Settings]]
 
     project = ReferenceField(
         Project,
@@ -260,6 +268,7 @@ class KrakenStatus(Document):
     """Schema for the Kraken status, representing health, status details, free space, entity type, and last update time."""
 
     meta: ClassVar = {"strict": False}
+    objects: ClassVar[QuerySet[KrakenStatus]]
 
     id = StringField(max_length=64, required=True, primary_key=True)
 

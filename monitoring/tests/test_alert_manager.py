@@ -164,6 +164,36 @@ class TestAlertManager:
             assert alert_id_2 in alert_manager.last_alerts
             assert alert_id_3 in alert_manager.last_alerts
 
+    def test_should_send_alert_uses_alert_specific_cooldown(self) -> None:
+        """Test that alert-specific cooldown overrides are used when configured."""
+        # given
+        from datetime import datetime, timedelta
+
+        import pytz
+
+        from monitoring.alerts.health_check_failed_alert import HealthCheckFailedAlert
+
+        alert_manager = AlertManager()
+        alert = HealthCheckFailedAlert()
+
+        # Set last alert time to 3 hours ago for both identifiers
+        three_hours_ago = datetime.now(pytz.UTC) - timedelta(hours=3)
+        alert_manager.last_alerts["health_check_failed_file_remover"] = three_hours_ago
+        alert_manager.last_alerts["health_check_failed_other_instrument"] = (
+            three_hours_ago
+        )
+
+        # when & then
+        # file_remover should NOT send alert (needs 12 hours, only 3 passed)
+        should_send_file_remover = alert_manager.should_send_alert(
+            ["file_remover"], alert
+        )
+        assert should_send_file_remover is False
+
+        # other_instrument should send alert (needs 2 hours, 3 passed)
+        should_send_other = alert_manager.should_send_alert(["other_instrument"], alert)
+        assert should_send_other is True
+
 
 class TestSendSpecialAlert:
     """Test suite for send_special_alert function."""

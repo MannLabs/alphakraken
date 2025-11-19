@@ -49,34 +49,61 @@ class FileIdentifier:
         :raises: FileRemovalError if one of the checks fails or if file is not present on the pool backup.
         :raises: KeyError if one of the files does not exist in the DB.
         """
-        # Check 1: the single file to delete is present on the pool-backup
-        # Check 1b: the single file to delete is present on present in the s3 bucket
-        if not (self._internal_backup_path / rel_file_path).exists():
-            raise FileRemovalError(f"File {rel_file_path} does not exist.")
+        self._check_reference_exists(rel_file_path)
 
         logging.debug(f"Comparing {abs_file_path_to_check=} to {rel_file_path=} ..")
 
-        # map e.g. '/opt/airflow/mounts/backup/test1/2024_08/test_file_SA_P123_2.raw' => 'test1/2024_08/test_file_SA_P123_2.raw'
+        size_in_db, hash_in_db = self._get_hashes(rel_file_path)
 
-        # old file_info key format: 'instrument1/2024_07/file.raw'
-        rel_file_path_ = (self._internal_backup_path / rel_file_path).relative_to(
-            get_internal_backup_path()
+        self._check_against_db(
+            abs_file_path_to_check,
+            rel_file_path,
+            size_in_db,
+            hash_in_db,
+            hash_check=hash_check,
         )
-        if str(rel_file_path_) not in self._raw_file.file_info:
-            # TODO: this is a hack to support the new format. Remove it once the older DB entries have been migrated.
-            # new file_info key format: 'file.raw'
-            # => strip off instrument1/2025_07 from instrument1/2025_07/file.raw
-            rel_file_path_ = Path(*rel_file_path_.parts[2:])
+
+        self._check_against_reference(
+            rel_file_path, size_in_db, hash_in_db, hash_check=hash_check
+        )
+
+    def _check_reference_exists(self, rel_file_path: Path) -> None:
+        """Check that the file to remove is present in the pool backup, raises FileRemovalError if not."""
+        if not (self._internal_backup_path / rel_file_path).exists():
+            raise FileRemovalError(f"File {rel_file_path} does not exist.")
+
+    def _get_hashes(self, rel_file_path: Path) -> tuple[float, str]:
+        """Get size and hash from DB for given relative file path."""
+        # TODO: this is a hack to support the old format. Remove it once the older DB entries have been migrated.
+        # old file_info key format: 'instrument1/2024_07/file.raw', new: 'file.raw'
+        if str(rel_file_path) not in self._raw_file.file_info:
+            # map e.g. '/opt/airflow/mounts/backup/test1/2024_08/test_file_SA_P123_2.raw' => 'test1/2024_08/test_file_SA_P123_2.raw'
+            rel_file_path = (self._internal_backup_path / rel_file_path).relative_to(
+                get_internal_backup_path()
+            )
 
         size_in_db, hash_in_db = parse_file_info_item(
-            self._raw_file.file_info[str(rel_file_path_)]
+            self._raw_file.file_info[str(rel_file_path)]
         )
+        if size_in_db is None or hash_in_db is None:
+            raise FileRemovalError(
+                f"File {rel_file_path} has no size or hash information in DB."
+            )
 
+        return size_in_db, hash_in_db
+
+    @staticmethod
+    def _check_against_db(
+        abs_file_path_to_check: Path,
+        rel_file_path: Path,
+        size_in_db: float,
+        hash_in_db: str,
+        *,
+        hash_check: bool,
+    ) -> None:
+        """Check that the file to remove matches the size and hash in the DB."""
         logging.debug(f"Comparing {abs_file_path_to_check=} to DB ({rel_file_path}) ..")
 
-        # Check 2: compare the single file to delete with the DB (hash)
-        # this checks that the fingerprints of the file to remove match those in the db (prevents deleting the wrong file)
-        # Check 2b: compare the single file to delete with the DB (hash)
         size_to_remove = get_file_size(abs_file_path_to_check, verbose=False)
         hash_to_remove = None
         if size_to_remove != size_in_db or (
@@ -87,9 +114,16 @@ class FileIdentifier:
                 f"File {rel_file_path} mismatch with instrument backup: {size_to_remove=} vs {size_in_db=}, {hash_to_remove=} vs {hash_in_db=}"
             )
 
-        # Check 3: compare the single file to delete with the pool backup (hash)
-        # this essentially re-checks the fingerprints that have been calculated right after file copying, would fail if pool backup was corrupted
-        # Check 3b: compare the single file to delete with s3 backup (etag)
+    @staticmethod
+    def _check_against_reference(
+        rel_file_path: Path,
+        size_in_db: float,
+        hash_in_db: str,
+        *,
+        hash_check: bool,
+    ) -> None:
+        """Check that the file to remove matches the size and hash on the pool backup."""
+        # this essentially re-checks the checksums that have been calculated right before file copying, would fail if pool backup was corrupted
         size_on_pool_backup = get_file_size(rel_file_path, verbose=False)
         hash_on_pool_backup = None
         if size_on_pool_backup != size_in_db or (

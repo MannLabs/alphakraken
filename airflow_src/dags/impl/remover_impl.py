@@ -211,14 +211,14 @@ def _get_total_size(raw_file: RawFile) -> tuple[float, int]:
 
     for (
         file_path_to_remove,
-        file_path_pool_backup,
+        rel_file_path,
     ) in files_to_remove.items():
         if not file_path_to_remove.exists():
             continue  # file was already removed
 
         FileIdentifier(raw_file).check_file(
             file_path_to_remove,
-            file_path_pool_backup,
+            rel_file_path,
             hash_check=False,  # we only want to check the sizes here
         )
 
@@ -252,7 +252,7 @@ def _safe_remove_files(raw_file_id: str) -> None:
     file_paths_to_remove: list[Path] = []
     for (
         file_path_to_remove,
-        file_path_pool_backup,
+        rel_file_path,
     ) in remove_wrapper.get_files_to_remove().items():
         if not file_path_to_remove.exists():
             logging.info(
@@ -262,7 +262,7 @@ def _safe_remove_files(raw_file_id: str) -> None:
 
         FileIdentifier(raw_file).check_file(
             file_path_to_remove,
-            file_path_pool_backup,
+            rel_file_path,
         )
 
         logging.info(f"Marking file {file_path_to_remove} for removal .. ")

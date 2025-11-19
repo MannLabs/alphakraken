@@ -2,7 +2,7 @@
 # ruff: noqa:  PLR2004  # Magic value used in comparison
 
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 from plugins.file_checks import FileIdentifier
@@ -45,7 +45,15 @@ def test_check_file_success(
     assert FileIdentifier(raw_file).check_file(file_path_to_check, rel_file_path)
 
     # then
-    assert mock_get_file_size.call_count == 2
+    mock_get_file_size.assert_has_calls(
+        [
+            call(Path("/instrument1/file.raw"), verbose=False),
+            call(Path("/instrument1/file.raw"), verbose=False),
+        ]
+    )
+    mock_get_file_hash.assert_has_calls(
+        [call(Path("/instrument1/file.raw")), call(Path("/instrument1/file.raw"))]
+    )
 
 
 @patch("plugins.file_checks.CopyPathProvider")

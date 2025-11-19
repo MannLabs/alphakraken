@@ -53,13 +53,12 @@ class FileIdentifier:
         if not self._check_reference_exists(rel_file_path):
             return False
 
-        logging.debug(f"Comparing {abs_file_path_to_check=} to {rel_file_path=} ..")
-
         size_in_db, hash_in_db = self._get_hashes(rel_file_path)
+
+        logging.debug(f"Comparing {abs_file_path_to_check=} to {rel_file_path} ..")
 
         if not self._check_against_db(
             abs_file_path_to_check,
-            rel_file_path,
             size_in_db,
             hash_in_db,
             hash_check=hash_check,
@@ -67,7 +66,7 @@ class FileIdentifier:
             return False
 
         if not self._check_against_reference(  # noqa: SIM103
-            rel_file_path, size_in_db, hash_in_db, hash_check=hash_check
+            abs_file_path_to_check, size_in_db, hash_in_db, hash_check=hash_check
         ):
             return False
 
@@ -103,15 +102,12 @@ class FileIdentifier:
     @staticmethod
     def _check_against_db(
         abs_file_path_to_check: Path,
-        rel_file_path: Path,
         size_in_db: float,
         hash_in_db: str,
         *,
         hash_check: bool,
     ) -> bool:
         """Check that the file to remove matches the size and hash in the DB."""
-        logging.debug(f"Comparing {abs_file_path_to_check=} to DB ({rel_file_path}) ..")
-
         size_to_remove = get_file_size(abs_file_path_to_check, verbose=False)
         hash_to_remove = None
         if size_to_remove != size_in_db or (
@@ -119,29 +115,58 @@ class FileIdentifier:
             and (hash_to_remove := get_file_hash(abs_file_path_to_check)) != hash_in_db
         ):
             logging.warning(
-                f"File {rel_file_path} mismatch with instrument backup: {size_to_remove=} vs {size_in_db=}, {hash_to_remove=} vs {hash_in_db=}"
+                f"File mismatch with DB: {size_to_remove=} vs {size_in_db=}, {hash_to_remove=} vs {hash_in_db=}"
             )
             return False
         return True
 
-    @staticmethod
     def _check_against_reference(
+        self,
         rel_file_path: Path,
         size_in_db: float,
         hash_in_db: str,
         *,
         hash_check: bool,
     ) -> bool:
-        """Check that the file to remove matches the size and hash on the pool backup."""
+        """Check that the file to remove matches the size and hash on the reference (pool backup)."""
         # this essentially re-checks the checksums that have been calculated right before file copying, would fail if pool backup was corrupted
-        size_on_pool_backup = get_file_size(rel_file_path, verbose=False)
+
+        reference_file_path = self._internal_backup_path / rel_file_path
+
+        size_on_pool_backup = get_file_size(reference_file_path, verbose=False)
         hash_on_pool_backup = None
         if size_on_pool_backup != size_in_db or (
             hash_check
-            and (hash_on_pool_backup := get_file_hash(rel_file_path)) != hash_in_db
+            and (hash_on_pool_backup := get_file_hash(reference_file_path))
+            != hash_in_db
         ):
             logging.warning(
-                f"File {rel_file_path} mismatch with pool backup: {size_on_pool_backup=} vs {size_in_db=}, {hash_on_pool_backup=} vs {hash_in_db=}"
+                f"File mismatch with reference (pool backup): {size_on_pool_backup=} vs {size_in_db=}, {hash_on_pool_backup=} vs {hash_in_db=}"
             )
             return False
         return True
+
+
+# example implementation for S3-based backups
+# class S3FileIdentifier(FileIdentifier):
+#
+#     def __init__(self, raw_file: RawFile, s3_client = None) -> None:
+#         """Initialize the S3FileIdentifier with a RawFile instance."""
+#         super().__init__(raw_file)
+#         self._s3_client = s3_client
+#
+#     def _check_reference_exists(self, rel_file_path: Path) -> None:
+#         # Check 1b: the single file to delete is present on present in the s3 bucket
+#         pass
+#
+#
+#     @staticmethod
+#     def _check_against_reference(
+#         rel_file_path: Path,
+#         size_in_db: float,
+#         hash_in_db: str,
+#         *,
+#         hash_check: bool,
+#     ) -> None:
+#         # Check 3b: compare the single file to delete with s3 backup (etag)
+#         pass

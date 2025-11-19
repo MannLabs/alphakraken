@@ -12,15 +12,15 @@ from airflow.providers.amazon.aws.hooks.base_aws import BaseAwsConnection
 from botocore.exceptions import BotoCoreError, ClientError
 from common.keys import DagContext, DagParams
 from common.paths import get_internal_output_path
-from dags.impl.s3_utils import (
-    _FILE_NOT_FOUND,
+from plugins.file_handling import get_file_hash_with_etag
+from plugins.s3.client import (
+    S3_FILE_NOT_FOUND_ETAG,
     download_file_from_s3,
     get_etag,
     get_s3_client,
     parse_etag_from_file_info,
     reconstruct_s3_paths,
 )
-from plugins.file_handling import get_file_hash_with_etag
 
 from shared.db.interface import get_raw_file_by_id
 from shared.yamlsettings import get_s3_upload_config
@@ -288,7 +288,7 @@ def _download_and_verify_file(
         logging.info(f"Verifying S3 etag for {s3_key}")
         s3_etag = get_etag(bucket_name, s3_key, s3_client)
 
-        if s3_etag is _FILE_NOT_FOUND:
+        if s3_etag is S3_FILE_NOT_FOUND_ETAG:
             return {
                 "relative_path": relative_path,
                 "status": "FAILURE - S3 file not found",

@@ -120,7 +120,9 @@ def get_file_hash_with_etag(
     if verbose:
         start = datetime.now()  # noqa: DTZ005
         file_size = get_file_size(file_path, verbose=False)
-        logging.info(f"Calculating hash of {file_path} ({file_size=})..")
+        logging.info(
+            f"Calculating hash of {file_path} ({file_size=}, {chunk_size_mb=}).."
+        )
 
     chunk_size_bytes = chunk_size_mb * 1024 * 1024
     md5_hashes = []

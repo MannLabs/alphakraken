@@ -188,12 +188,13 @@ def _build_download_plan(raw_file_ids: list[str], output_path: Path) -> dict:
                 continue
 
             if not raw_file.project_id:  # TODO: HERE: fallback?
-                download_plan[raw_file_id] = {
-                    "skipped": True,
-                    "error": "No project_id",
-                }
-                logging.warning(f"Skipping {raw_file_id}: No project_id")
-                continue
+                project_id = "_FALLBACK"
+            #     download_plan[raw_file_id] = {
+            #         "skipped": True,
+            #         "error": "No project_id",
+            #     }
+            #     logging.warning(f"Skipping {raw_file_id}: No project_id")
+            #     continue
 
             if not raw_file.file_info:
                 download_plan[raw_file_id] = {
@@ -204,7 +205,7 @@ def _build_download_plan(raw_file_ids: list[str], output_path: Path) -> dict:
                 continue
 
             # Calculate destination
-            destination_base = output_path / raw_file.project_id
+            destination_base = output_path / project_id
 
             # Reconstruct S3 paths
             s3_paths = reconstruct_s3_paths(raw_file.s3_upload_path, raw_file.file_info)

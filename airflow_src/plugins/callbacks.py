@@ -42,9 +42,16 @@ def on_failure_callback(context: dict[str, Any], **kwargs) -> None:
     )
 
     cleaned_dag_id = ti.dag_id.split(DAG_DELIMITER)[0]
+    status_details = f"[{cleaned_dag_id}.{ti.task_id}] {ex!s}"
+
+    # Truncate to fit database field max_length of 512
+    max_status_length = 512
+    if len(status_details) > max_status_length:
+        status_details = status_details[: max_status_length - 3] + "..."
+
     update_raw_file(
         raw_file_id,
         new_status=RawFileStatus.ERROR,
-        status_details=f"[{cleaned_dag_id}.{ti.task_id}] {ex!s}",
+        status_details=status_details,
         **extra_args,  # type: ignore[invalid-argument-type]
     )

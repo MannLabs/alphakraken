@@ -129,6 +129,7 @@ def test_prepare_quanting(
         "NUM_THREADS": 8,
         "RAW_FILE_ID": "test_file.raw",
         "PROJECT_ID_OR_FALLBACK": "some_project_id",
+        "SETTINGS_NAME": "test_settings",
         "SETTINGS_VERSION": 1,
     }
 
@@ -217,6 +218,7 @@ def test_prepare_quanting_custom_software(
         "NUM_THREADS": 8,
         "RAW_FILE_ID": "test_file.raw",
         "PROJECT_ID_OR_FALLBACK": "some_project_id",
+        "SETTINGS_NAME": "test_custom_settings",
         "SETTINGS_VERSION": 1,
     }
 
@@ -625,6 +627,7 @@ def test_check_quanting_result_business_error(  # noqa: PLR0913
         {
             QuantingEnv.RAW_FILE_ID: "test_file.raw",
             QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID1",
+            QuantingEnv.SETTINGS_NAME: "test_settings",
             QuantingEnv.SETTINGS_VERSION: 1,
         },
     ]
@@ -647,6 +650,7 @@ def test_check_quanting_result_business_error(  # noqa: PLR0913
     mock_add_metrics.assert_called_once_with(
         "test_file.raw",
         metrics={"quanting_time_elapsed": 522},
+        settings_name="test_settings",
         settings_version=1,
         metrics_type="alphadia",
     )
@@ -673,6 +677,7 @@ def test_check_quanting_result_business_error_raises(  # noqa: PLR0913
         {
             QuantingEnv.RAW_FILE_ID: "test_file.raw",
             QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID1",
+            QuantingEnv.SETTINGS_NAME: "test_settings",
             QuantingEnv.SETTINGS_VERSION: 1,
         },
     ]
@@ -695,6 +700,7 @@ def test_check_quanting_result_business_error_raises(  # noqa: PLR0913
     mock_add_metrics.assert_called_once_with(
         "test_file.raw",
         metrics={"quanting_time_elapsed": 522},
+        settings_name="test_settings",
         settings_version=1,
         metrics_type="alphadia",
     )
@@ -719,6 +725,7 @@ def test_check_quanting_result_timeout(
         {
             QuantingEnv.RAW_FILE_ID: "test_file.raw",
             QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID1",
+            QuantingEnv.SETTINGS_NAME: "test_settings",
             QuantingEnv.SETTINGS_VERSION: 1,
         },
     ]
@@ -739,6 +746,7 @@ def test_check_quanting_result_timeout(
     mock_add_metrics.assert_called_once_with(
         "test_file.raw",
         metrics={"quanting_time_elapsed": 522},
+        settings_name="test_settings",
         settings_version=1,
         metrics_type="alphadia",
     )
@@ -763,6 +771,7 @@ def test_check_quanting_result_oom(
         {
             QuantingEnv.RAW_FILE_ID: "test_file.raw",
             QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID1",
+            QuantingEnv.SETTINGS_NAME: "test_settings",
             QuantingEnv.SETTINGS_VERSION: 1,
         },
     ]
@@ -783,6 +792,7 @@ def test_check_quanting_result_oom(
     mock_add_metrics.assert_called_once_with(
         "test_file.raw",
         metrics={"quanting_time_elapsed": 522},
+        settings_name="test_settings",
         settings_version=1,
         metrics_type="alphadia",
     )
@@ -957,7 +967,7 @@ def test_upload_metrics(
     """Test that upload_metrics makes the expected calls."""
     mock_get_xcom.side_effect = [
         "some_file.raw",  # RAW_FILE_ID
-        {"SETTINGS_VERSION": 1},  # QUANTING_ENV
+        {"SETTINGS_NAME": "test_settings", "SETTINGS_VERSION": 1},  # QUANTING_ENV
         {
             "metric1": "value1"
         },  # METRICS (already includes quanting_time_elapsed from compute_metrics)
@@ -973,6 +983,7 @@ def test_upload_metrics(
         metrics={
             "metric1": "value1",
         },
+        settings_name="test_settings",
         settings_version=1,
     )
     mock_update.assert_called_once_with(

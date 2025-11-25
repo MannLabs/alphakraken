@@ -97,8 +97,6 @@ st.markdown("## Assign settings to project")
 c_assign1, c_assign2 = st.columns([0.5, 0.5])
 
 with c_assign1:
-    st.markdown("### Select project and settings")
-
     project_options = [""] + [p.id for p in projects_db]
     selected_project_id = st.selectbox(
         "Select project", options=project_options, key="assign_project_select"
@@ -111,16 +109,18 @@ with c_assign1:
             current_settings_text = (
                 f"{selected_project.settings.name} v{selected_project.settings.version}"
             )
-            st.info(f"Current settings: **{current_settings_text}**")
+            settings_options_map = {f"(unassign {current_settings_text})": None}
         else:
-            st.info("No settings currently assigned to this project.")
+            current_settings_text = "(None)"
+            settings_options_map = {}
 
+        st.info(f"Current settings: **{current_settings_text}**")
         all_settings = get_all_settings(include_archived=False)
 
         if not all_settings:
             st.warning("No active settings available. Create settings first.")
         else:
-            settings_options_map = {"(remove assignment)": None} | {
+            settings_options_map = settings_options_map | {
                 f"{s.name} v{s.version} [{s.fasta_file_name}, {s.config_file_name}, {s.software}, {s.description}]": str(
                     s.id  # type: ignore[unresolved-attribute]
                 )

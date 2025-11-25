@@ -202,6 +202,7 @@ def test_add_metrics_to_raw_file_happy_path(
         "test_file",
         metrics_type="alphadia",
         metrics={"metric1": 1, "metric2": 2},
+        settings_name="test_settings",
         settings_version=1,
     )
 
@@ -212,9 +213,10 @@ def test_add_metrics_to_raw_file_happy_path(
     mock_metrics.assert_called_once_with(
         raw_file=mock_raw_file_from_db,
         type="alphadia",
+        settings_name="test_settings",
+        settings_version=1,
         metric1=1,
         metric2=2,
-        settings_version=1,
     )
 
 

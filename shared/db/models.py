@@ -203,6 +203,13 @@ class ProjectStatus:
     DELETED = "deleted"
 
 
+class SettingsStatus:
+    """Status of settings."""
+
+    ACTIVE = "active"
+    ARCHIVED = "archived"
+
+
 class Project(Document):
     """Schema for a project."""
 
@@ -213,25 +220,29 @@ class Project(Document):
     name = StringField(required=True, max_length=64)
     description = StringField(max_length=512)
 
+    settings = ReferenceField("Settings", required=False)
+
     status = StringField(max_length=32, default=ProjectStatus.ACTIVE)
 
     # missing: created by
     created_at_ = DateTimeField(default=datetime.now)
 
 
+SETTINGS_NAME_REGEX = r"^[a-zA-Z0-9_]+$"
+
+
 class Settings(Document):
     """Schema for quanting settings."""
 
-    meta: ClassVar = {"strict": False}
+    meta: ClassVar = {
+        "strict": False,
+        "indexes": [{"fields": ["name", "version"], "unique": True}],
+    }
     objects: ClassVar[QuerySet[Settings]]
 
-    project = ReferenceField(
-        Project,
-    )
-
-    name = StringField(required=True, max_length=64)
+    name = StringField(required=True, max_length=64, regex=SETTINGS_NAME_REGEX)
     version = IntField(min_value=1, default=1)
-    # TODO: add description = StringField(max_length=512)
+    description = StringField(max_length=512)
 
     # although only one of (speclib, fasta) is required by alphaDIA,
     # on DB level, we want both filled (empty string is alright)
@@ -248,7 +259,7 @@ class Settings(Document):
     )
     software = StringField(required=True, max_length=128)
 
-    status = StringField(max_length=64, default=ProjectStatus.ACTIVE)
+    status = StringField(max_length=64, default=SettingsStatus.ACTIVE)
 
     created_at_ = DateTimeField(default=datetime.now)
 

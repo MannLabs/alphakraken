@@ -84,15 +84,16 @@ def test_prepare_quanting(
         Path("/some_quanting_output_path"),
     ]
     mock_get_project_id_for_raw_file.return_value = "some_project_id"
-    mock_get_settings.return_value = MagicMock(
-        speclib_file_name="some_speclib_file_name",
-        fasta_file_name="some_fasta_file_name",
-        config_file_name="some_config_file_name",
-        config_params="",
-        software="some_software",
-        software_type="alphadia",
-        version=1,
-    )
+    mock_settings = MagicMock()
+    mock_settings.name = "test_settings"
+    mock_settings.speclib_file_name = "some_speclib_file_name"
+    mock_settings.fasta_file_name = "some_fasta_file_name"
+    mock_settings.config_file_name = "some_config_file_name"
+    mock_settings.config_params = ""
+    mock_settings.software = "some_software"
+    mock_settings.software_type = "alphadia"
+    mock_settings.version = 1
+    mock_get_settings.return_value = mock_settings
     ti = MagicMock()
 
     kwargs = {
@@ -113,7 +114,7 @@ def test_prepare_quanting(
     # when you adapt something here, don't forget to adapt also the submit_job.sh script
     expected_quanting_env = {
         "RAW_FILE_PATH": "/some_backup_base_path/instrument1/1970_01/test_file.raw",
-        "SETTINGS_PATH": "/some_quanting_settings_path/some_project_id",
+        "SETTINGS_PATH": "/some_quanting_settings_path/test_settings",
         "OUTPUT_PATH": "/some_quanting_output_path/some_project_id/out_test_file.raw",
         "RELATIVE_OUTPUT_PATH": "some_project_id/out_test_file.raw",
         "SPECLIB_FILE_NAME": "some_speclib_file_name",
@@ -169,15 +170,16 @@ def test_prepare_quanting_custom_software(
         Path("/some_software_base_path"),
     ]
     mock_get_project_id_for_raw_file.return_value = "some_project_id"
-    mock_get_settings.return_value = MagicMock(
-        speclib_file_name="some_speclib_file_name",
-        fasta_file_name="some_fasta_file_name",
-        config_file_name="",
-        config_params="--qvalue 0.01 --f RAW_FILE_PATH --lib LIBRARY_PATH --out OUTPUT_PATH --fasta FASTA_PATH --threads NUM_THREADS --some_param RELATIVE_RAW_FILE_PATH --some_param2 RELATIVE_OUTPUT_PATH",
-        software="custom1.2.3",
-        software_type="custom",
-        version=1,
-    )
+    mock_settings = MagicMock()
+    mock_settings.name = "test_custom_settings"
+    mock_settings.speclib_file_name = "some_speclib_file_name"
+    mock_settings.fasta_file_name = "some_fasta_file_name"
+    mock_settings.config_file_name = ""
+    mock_settings.config_params = "--qvalue 0.01 --f RAW_FILE_PATH --lib LIBRARY_PATH --out OUTPUT_PATH --fasta FASTA_PATH --threads NUM_THREADS --some_param RELATIVE_RAW_FILE_PATH --some_param2 RELATIVE_OUTPUT_PATH"
+    mock_settings.software = "custom1.2.3"
+    mock_settings.software_type = "custom"
+    mock_settings.version = 1
+    mock_get_settings.return_value = mock_settings
     ti = MagicMock()
 
     kwargs = {
@@ -192,15 +194,15 @@ def test_prepare_quanting_custom_software(
 
     expected_custom_command = (
         "/some_software_base_path/custom1.2.3 --qvalue 0.01 --f /some_backup_base_path/instrument1/1970_01/test_file.raw "
-        "--lib /some_quanting_settings_path/some_project_id/some_speclib_file_name "
+        "--lib /some_quanting_settings_path/test_custom_settings/some_speclib_file_name "
         "--out /some_quanting_output_path/some_project_id/out_test_file.raw "
-        "--fasta /some_quanting_settings_path/some_project_id/some_fasta_file_name --threads 8 "
+        "--fasta /some_quanting_settings_path/test_custom_settings/some_fasta_file_name --threads 8 "
         "--some_param instrument1/1970_01/test_file.raw --some_param2 some_project_id/out_test_file.raw"
     )
 
     expected_quanting_env = {
         "RAW_FILE_PATH": "/some_backup_base_path/instrument1/1970_01/test_file.raw",
-        "SETTINGS_PATH": "/some_quanting_settings_path/some_project_id",
+        "SETTINGS_PATH": "/some_quanting_settings_path/test_custom_settings",
         "OUTPUT_PATH": "/some_quanting_output_path/some_project_id/out_test_file.raw",
         "RELATIVE_OUTPUT_PATH": "some_project_id/out_test_file.raw",
         "SPECLIB_FILE_NAME": "some_speclib_file_name",

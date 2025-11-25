@@ -7,7 +7,12 @@ import pandas as pd
 import streamlit as st
 import streamlit.delta_generator
 from service.components import show_filter, show_sandbox_message
-from service.db import df_from_db_data, get_project_data
+from service.db import (
+    assign_settings_to_project_service,
+    df_from_db_data,
+    get_all_settings_list,
+    get_project_data,
+)
 from service.query_params import get_all_query_params
 from service.session_state import SessionStateKeys, set_session_state
 from service.utils import (
@@ -65,6 +70,94 @@ def display_projects(
 
 display_projects(projects_df)
 
+# ########################################### ASSIGN SETTINGS
+
+st.markdown("## Assign settings to project")
+
+c_assign1, c_assign2 = st.columns([0.5, 0.5])
+
+with c_assign1:
+    st.markdown("### Select project and settings")
+
+    project_options = [""] + [p.id for p in projects_db]
+    selected_project_id = st.selectbox(
+        "Select project", options=project_options, key="assign_project_select"
+    )
+
+    if selected_project_id:
+        selected_project = projects_db(id=selected_project_id).first()
+
+        if selected_project.settings:
+            current_settings_text = (
+                f"{selected_project.settings.name} v{selected_project.settings.version}"
+            )
+            st.info(f"Current settings: **{current_settings_text}**")
+        else:
+            st.info("No settings currently assigned to this project.")
+
+        all_settings = get_all_settings_list(include_archived=False)
+
+        if not all_settings:
+            st.warning("No active settings available. Create settings first.")
+        else:
+            settings_options_map = {
+                f"{s.name} v{s.version}": str(s.id) for s in all_settings
+            }
+            settings_options_list = [
+                "(Remove assignment)",
+                *list(settings_options_map.keys()),
+            ]
+
+            selected_settings_display = st.selectbox(
+                "Select settings to assign (or remove)",
+                options=settings_options_list,
+                key="assign_settings_select",
+            )
+
+            if st.button(
+                "Update settings assignment",
+                disabled=DISABLE_WRITE,
+                help="Temporarily disabled." if DISABLE_WRITE else "",
+            ):
+                try:
+                    if selected_settings_display == "(Remove assignment)":
+                        assign_settings_to_project_service(selected_project_id, None)
+                        set_session_state(
+                            SessionStateKeys.SUCCESS_MSG,
+                            f"Removed settings assignment from project {selected_project_id}.",
+                        )
+                    else:
+                        new_settings_id = settings_options_map[
+                            selected_settings_display
+                        ]
+                        assign_settings_to_project_service(
+                            selected_project_id, new_settings_id
+                        )
+                        set_session_state(
+                            SessionStateKeys.SUCCESS_MSG,
+                            f"Assigned settings '{selected_settings_display}' to project {selected_project_id}.",
+                        )
+                    st.rerun()
+                except Exception as e:  # noqa: BLE001
+                    st.error(f"Error: {e}")
+                    set_session_state(SessionStateKeys.ERROR_MSG, f"{e}")
+
+with c_assign2:
+    st.markdown("### Help")
+    st.info(
+        """
+        Use this section to assign settings to projects or change the settings assignment.
+
+        - Projects can have zero or one settings assigned
+        - Multiple projects can share the same settings
+        - You can remove a settings assignment by selecting "(Remove assignment)"
+        - Only active (non-archived) settings can be assigned
+        """,
+        icon="ℹ️",  # noqa: RUF001
+    )
+
+# display_projects(projects_df)
+
 # ########################################### FORM
 
 form_items = {
@@ -94,7 +187,7 @@ with c1.expander("Click here for help ..."):
     st.info(
         """
         ### Explanation
-        A 'project' is a lightweight container for a tuple of quanting settings (=config, speclib, fasta).
+        A 'project' is a lightweight container that can reference quanting settings (=config, speclib, fasta).
         The connection of samples to a project is done via the file name: all files containing a project-specific token (e.g. `A123`) surrounded by `_`
         are associated with project `A123`.
         Currently, only projects ids that follow after the pattern 'SA' are picked up, e.g. `20240801_something_SA_A123_my-sample.raw`.
@@ -104,7 +197,8 @@ with c1.expander("Click here for help ..."):
 
         ### Workflow
         1. Create a project with a unique project id.
-        2. Use the 'settings' tab to associate quanting settings with the project.
+        2. Create settings on the 'Settings' page if needed.
+        3. Use the 'Assign settings to project' section above to link settings to your project.
         """,
         icon="ℹ️",  # noqa: RUF001
     )

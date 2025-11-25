@@ -32,6 +32,10 @@ Change the relationship between Projects and Settings from 1:1 (Settings owns Pr
 | **No settings behavior** | `get_settings_for_project()` returns `None` |
 | **Reactivation** | Archive is final (no unarchive) |
 | **PR strategy** | Single PR for all phases |
+| **Primary key** | Keep MongoDB ObjectId (_id), (name, version) as unique index only |
+| **Archived references** | Should not occur - always one active setting per project |
+| **Description required** | Optional (not required) |
+| **Version parameter** | Remove from `create_settings()`, always auto-increment |
 
 ---
 
@@ -134,7 +138,6 @@ def get_settings_for_project(project_id: str) -> Settings | None:
 def create_settings(
     *,
     name: str,
-    version: int | None = None,
     description: str | None = None,
     fasta_file_name: str,
     speclib_file_name: str,
@@ -145,13 +148,12 @@ def create_settings(
 ) -> Settings:
     """Create a new standalone settings entry.
 
-    If version is None, auto-increment based on existing settings with same name.
+    Version is automatically incremented based on existing settings with same name.
     """
     connect_db()
 
-    if version is None:
-        existing = Settings.objects(name=name).order_by("-version").first()
-        version = (existing.version + 1) if existing else 1
+    existing = Settings.objects(name=name).order_by("-version").first()
+    version = (existing.version + 1) if existing else 1
 
     settings = Settings(
         name=name,

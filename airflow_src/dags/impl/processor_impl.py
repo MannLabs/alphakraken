@@ -83,7 +83,8 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
     else:
         if settings is None:
             raise AirflowFailException(
-                f"No active settings found for project id '{project_id_or_fallback}'. Please add settings in the WebApp."
+                f"No settings assigned to project '{project_id_or_fallback}'. "
+                "Please assign settings to this project in the WebApp."
             )
 
     # get raw file path
@@ -93,7 +94,7 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
     raw_file_path = backup_base_path / relative_raw_file_path
 
     # get settings and output_path
-    settings_path = get_path(YamlKeys.Locations.SETTINGS) / project_id_or_fallback
+    settings_path = get_path(YamlKeys.Locations.SETTINGS) / settings.name
 
     relative_output_path = get_output_folder_rel_path(raw_file, project_id_or_fallback)
     output_path = get_path(YamlKeys.Locations.OUTPUT) / relative_output_path

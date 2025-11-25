@@ -181,6 +181,69 @@ def get_settings_data() -> QuerySet:
     return Settings.objects
 
 
+def get_all_settings_list(*, include_archived: bool = False) -> list[Settings]:
+    """Get all settings as a list."""
+    from shared.db.interface import get_all_settings
+
+    return get_all_settings(include_archived=include_archived)
+
+
+def get_settings_by_id_service(settings_id: str) -> Settings | None:
+    """Get a settings entry by its ID."""
+    from shared.db.interface import get_settings_by_id
+
+    return get_settings_by_id(settings_id)
+
+
+def create_settings_service(  # noqa: PLR0913
+    *,
+    name: str,
+    description: str | None,
+    fasta_file_name: str,
+    speclib_file_name: str,
+    config_file_name: str | None,
+    config_params: str | None,
+    software_type: str,
+    software: str,
+) -> Settings:
+    """Create new settings."""
+    from shared.db.interface import create_settings
+
+    return create_settings(
+        name=name,
+        description=description,
+        fasta_file_name=fasta_file_name,
+        speclib_file_name=speclib_file_name,
+        config_file_name=config_file_name,
+        config_params=config_params,
+        software_type=software_type,
+        software=software,
+    )
+
+
+def archive_settings_service(settings_id: str) -> None:
+    """Archive a settings entry."""
+    from shared.db.interface import archive_settings
+
+    archive_settings(settings_id)
+
+
+def assign_settings_to_project_service(
+    project_id: str, settings_id: str | None
+) -> None:
+    """Assign settings to a project."""
+    from shared.db.interface import assign_settings_to_project
+
+    assign_settings_to_project(project_id, settings_id)
+
+
+def get_projects_using_settings_service(settings_id: str) -> list[Project]:
+    """Get all projects using a specific settings entry."""
+    from shared.db.interface import get_projects_using_settings
+
+    return get_projects_using_settings(settings_id)
+
+
 def df_from_db_data(
     query_set: QuerySet,
     *,

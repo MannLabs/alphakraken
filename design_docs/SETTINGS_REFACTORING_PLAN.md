@@ -16,6 +16,23 @@ Change the relationship between Projects and Settings from 1:1 (Settings owns Pr
 - Settings files stored at `<settings_path>/<settings_name>/`
 - Add **description** field to Settings
 
+## Clarified Decisions
+
+| Topic | Decision |
+|-------|----------|
+| **Name format** | Alphanumeric + underscore only (regex: `^[a-zA-Z0-9_]+$`) |
+| **Version auto-increment** | Consider ALL versions regardless of status |
+| **Migration naming** | Always generate `{project_id}_v{version}` format (overwrite existing names) |
+| **File conflicts** | Fail and report for manual resolution |
+| **Validation layer** | Model level (mongoengine regex validation) |
+| **Deletion policy** | No delete allowed, archive only |
+| **Duplicate feature** | Not implemented, manual entry only |
+| **Migration safety** | Idempotent (safe to run multiple times) |
+| **API compatibility** | Remove `add_settings()` entirely (no deprecated alias) |
+| **No settings behavior** | `get_settings_for_project()` returns `None` |
+| **Reactivation** | Archive is final (no unarchive) |
+| **PR strategy** | Single PR for all phases |
+
 ---
 
 ## Phase 1: Model Changes
@@ -39,6 +56,9 @@ class SettingsStatus:
 - **Add**: unique index on `(name, version)` in `meta`
 
 ```python
+SETTINGS_NAME_REGEX = r"^[a-zA-Z0-9_]+$"
+
+
 class Settings(Document):
     """Schema for quanting settings."""
 
@@ -50,7 +70,7 @@ class Settings(Document):
     }
     objects: ClassVar[QuerySet[Settings]]
 
-    name = StringField(required=True, max_length=64)
+    name = StringField(required=True, max_length=64, regex=SETTINGS_NAME_REGEX)
     version = IntField(min_value=1, default=1)
     description = StringField(max_length=512)
 
@@ -281,35 +301,46 @@ Add new service functions to expose the new interface functions to the webapp.
 ### New file: `shared/migrations/migrate_settings_to_standalone.py`
 
 ```python
-"""Migration: Convert Settings from project-owned to standalone."""
+"""Migration: Convert Settings from project-owned to standalone.
 
-def migrate_settings_to_standalone(*, dry_run: bool = True) -> dict:
+This migration is IDEMPOTENT - safe to run multiple times.
+It tracks migration state via a 'migrated_at_' field on Settings documents.
+"""
+
+def migrate_settings_to_standalone(*, dry_run: bool = True, settings_base_path: Path | None = None) -> dict:
     """
     Migration steps:
-    1. For each existing Settings with project reference:
-       a. Generate name as "{project_id}_v{version}" (e.g., "P1234_v1")
-       b. Store the generated name in Settings.name (if not already set meaningfully)
+    1. For each existing Settings with project reference (not yet migrated):
+       a. ALWAYS generate name as "{project_id}_v{version}" (e.g., "P1234_v1")
+       b. Check for file path conflicts - FAIL if destination folder exists
        c. Record the project_id for step 2
+       d. Mark as migrated (set migrated_at_ timestamp)
     2. For each Project that had Settings:
        a. Set Project.settings = reference to the Settings
-    3. Remove project field from all Settings documents
+    3. Remove project field from all Settings documents (via $unset)
     4. Move files from <settings>/<project_id>/ to <settings>/<settings_name>/
+       - FAIL and report if destination exists (manual resolution required)
     5. Convert INACTIVE status to ARCHIVED
 
-    Returns dict with counts and any errors.
+    Returns dict with:
+        - 'migrated': count of successfully migrated settings
+        - 'skipped': count of already-migrated settings
+        - 'errors': list of error messages (file conflicts, etc.)
+        - 'file_moves': list of (source, dest) tuples for file operations
     """
 ```
 
 **Execution order:**
 1. Create MongoDB backup
-2. Run with `--dry-run` to preview changes
-3. Run with `--execute` to apply
-4. Run with `--verify` to check integrity
-5. Move settings files on filesystem
+2. Run with `--dry-run` to preview changes and detect file conflicts
+3. Resolve any file conflicts manually
+4. Run with `--execute` to apply database changes
+5. Run with `--execute` again to move settings files (idempotent)
+6. Run with `--verify` to check integrity
 
 ---
 
-## Phase 6: Test Updates
+## Test Updates
 
 ### File: `shared/tests/db/test_interface.py`
 
@@ -338,12 +369,12 @@ def migrate_settings_to_standalone(*, dry_run: bool = True) -> dict:
 
 1. **Phase 1**: Model changes (`shared/db/models.py`)
 2. **Phase 2**: Interface functions (`shared/db/interface.py`)
-3. **Phase 6 (partial)**: Update tests to match new interface
-4. **Phase 5**: Write and test migration script
-5. **Phase 3**: Processing pipeline changes (`processor_impl.py`)
-6. **Phase 4**: Webapp UI changes
-7. **Phase 6 (remaining)**: Update remaining tests
-8. Run pre-commit and full test suite
+3. **Phase 3**: Processing pipeline changes (`processor_impl.py`)
+4. **Phase 4**: Webapp UI changes
+5. **Phase 5**: Write and test migration script
+
+After each phase:
+    Run pre-commit and full test suite, fix any issues
 
 ---
 

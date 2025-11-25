@@ -231,6 +231,49 @@ def show_time_in_status_table(
     )
 
 
+def show_samples_per_day_plot(
+    samples_per_day_df: pd.DataFrame,
+    display: st.delta_generator.DeltaGenerator,
+) -> None:
+    """Show a stacked bar plot of samples per day for each instrument over the last 14 days.
+
+    :param samples_per_day_df: DataFrame with columns: date, instrument_id, count
+    :param display: The streamlit display object
+    """
+    if len(samples_per_day_df) == 0:
+        display.warning("No data available for samples per day plot.")
+        return
+
+    pivot_df = samples_per_day_df.pivot_table(
+        index="date", columns="instrument_id", values="count"
+    ).fillna(0)
+
+    fig = go.Figure()
+
+    for instrument_id in pivot_df.columns:
+        fig.add_trace(
+            go.Bar(
+                x=pivot_df.index,
+                y=pivot_df[instrument_id],
+                name=instrument_id,
+                text=pivot_df[instrument_id].astype(int),
+                textposition="inside",
+            )
+        )
+
+    fig.update_layout(
+        barmode="stack",
+        xaxis_title="Date",
+        yaxis_title="Samples",
+        legend_title="Instrument",
+        width=700,
+        height=500,
+        xaxis={"type": "category"},
+    )
+
+    display_plotly_chart(fig, display)
+
+
 def display_status(combined_df: pd.DataFrame, status_data_df: pd.DataFrame) -> None:
     """Display the status of the kraken."""
     now = datetime.now()  # noqa:  DTZ005 no tz argument

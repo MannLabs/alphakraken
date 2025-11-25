@@ -238,7 +238,7 @@ def create_settings(  # noqa: PLR0913
     software_type: str,
     software: str,
 ) -> Settings:
-    """Create a new standalone settings entry.
+    """Create a new settings entry.
 
     Version is automatically incremented based on existing settings with same name.
     """

@@ -26,6 +26,7 @@ from common.utils import (
     put_xcom,
     trigger_dag_run,
 )
+from impl.processor_impl import _get_project_id_or_fallback
 from plugins.file_handling import (
     _decide_if_copy_required,
     copy_file,
@@ -41,7 +42,11 @@ from raw_file_wrapper_factory import (
     ThermoRawFileMonitorWrapper,
 )
 
-from shared.db.interface import get_raw_file_by_id, update_raw_file
+from shared.db.interface import (
+    get_raw_file_by_id,
+    get_settings_for_project,
+    update_raw_file,
+)
 from shared.db.models import (
     BackupStatus,
     FileInfoItem,
@@ -356,6 +361,15 @@ def _count_special_characters(raw_file_id: str) -> int:
     return len(pattern.findall(raw_file_id))
 
 
+def _is_settings_configured(raw_file: RawFile) -> bool:
+    """Return True if settings are configured for the project associated with the raw file."""
+    project_id_or_fallback = _get_project_id_or_fallback(
+        raw_file.project_id, raw_file.instrument_id
+    )
+    settings = get_settings_for_project(project_id_or_fallback)
+    return settings is not None
+
+
 def decide_processing(ti: TaskInstance, **kwargs) -> bool:
     """Decide whether to start the acquisition_processor DAG.
 
@@ -390,6 +404,9 @@ def decide_processing(ti: TaskInstance, **kwargs) -> bool:
     elif ThermoRawFileMonitorWrapper.is_corrupted_file_name(raw_file.original_name):
         new_status = RawFileStatus.ACQUISITION_FAILED
         status_details = "File name indicates failed acquisition."
+    elif not _is_settings_configured(raw_file):
+        new_status = RawFileStatus.DONE_NOT_QUANTED
+        status_details = "No settings configured."
     else:
         return True  # continue with downstream tasks
 

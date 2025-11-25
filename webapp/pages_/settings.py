@@ -101,7 +101,7 @@ with c1.expander("Click here for help ..."):
         """
         ### Explanation
         Settings are a defined tuple of input to the quanting software: config file, speclib file and/or fasta file.
-        Settings are now standalone entities that can be shared across multiple projects.
+        Settings are standalone entities that can be shared across multiple projects.
 
         ### Workflow
         1. Fill in required information (name, file names, etc.).

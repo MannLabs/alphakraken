@@ -284,7 +284,7 @@ def show_samples_per_day_plot(
     ).fillna(0)
 
     daily_totals = pivot_df.sum(axis=1)
-    median_samples = daily_totals.median()
+    mean_samples = daily_totals.mean()
 
     fig = go.Figure()
 
@@ -302,10 +302,10 @@ def show_samples_per_day_plot(
         )
 
     fig.add_hline(
-        y=median_samples,
+        y=mean_samples,
         line_dash="dash",
         line_color="red",
-        annotation_text=f"<b>Median: {median_samples:.1f}</b>",
+        annotation_text=f"<b>Mean: {mean_samples:.1f}</b>",
         annotation_position="top right",
     )
 

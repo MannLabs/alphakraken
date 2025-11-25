@@ -17,7 +17,6 @@ from shared.db.interface import (
     create_settings,
     get_all_project_ids,
     get_all_settings,
-    get_projects_using_settings,
     get_raw_file_by_id,
     get_raw_files_by_age,
     get_raw_files_by_instrument_file_status,
@@ -358,22 +357,6 @@ def test_assign_settings_to_project(
 
     assert mock_project_instance.settings == mock_settings_instance
     mock_project_instance.save.assert_called_once()
-    mock_connect_db.assert_called_once()
-
-
-@patch("shared.db.interface.connect_db")
-@patch("shared.db.interface.Settings")
-@patch("shared.db.interface.Project")
-def test_get_projects_using_settings(
-    mock_project: MagicMock, mock_settings: MagicMock, mock_connect_db: MagicMock
-) -> None:
-    """Test that get_projects_using_settings returns correct projects."""
-    mock_settings_instance = MagicMock()
-    mock_settings.objects.get.return_value = mock_settings_instance
-
-    get_projects_using_settings("settings_id")
-
-    mock_project.objects.assert_called_once_with(settings=mock_settings_instance)
     mock_connect_db.assert_called_once()
 
 

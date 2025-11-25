@@ -186,6 +186,7 @@ class Metrics(DynamicDocument):
     # https://docs.mongoengine.org/guide/defining-documents.html#reference-fields
     raw_file = ReferenceField(RawFile)
 
+    settings_name = StringField(max_length=64, default="n/a")
     settings_version = IntField(min_value=1, default=1)
 
     # Type of metrics: "alphadia" (default) or "custom"
@@ -200,7 +201,6 @@ class ProjectStatus:
 
     ACTIVE = "active"
     INACTIVE = "inactive"
-    DELETED = "deleted"
 
 
 class SettingsStatus:

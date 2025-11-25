@@ -133,6 +133,7 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
         # not required for slurm script:
         QuantingEnv.RAW_FILE_ID: raw_file_id,
         QuantingEnv.PROJECT_ID_OR_FALLBACK: project_id_or_fallback,
+        QuantingEnv.SETTINGS_NAME: settings.name,
         QuantingEnv.SETTINGS_VERSION: settings.version,
     }
 
@@ -423,6 +424,7 @@ def check_quanting_result(ti: TaskInstance, **kwargs) -> bool:
         add_metrics_to_raw_file(
             raw_file.id,
             metrics={QUANTING_TIME_ELAPSED_METRIC: time_elapsed},
+            settings_name=quanting_env[QuantingEnv.SETTINGS_NAME],
             settings_version=quanting_env[QuantingEnv.SETTINGS_VERSION],
             metrics_type=MetricsTypes.ALPHADIA,
         )
@@ -504,6 +506,7 @@ def upload_metrics(ti: TaskInstance, **kwargs) -> None:
         raw_file_id,
         metrics_type=metrics_type,
         metrics=metrics,
+        settings_name=quanting_env[QuantingEnv.SETTINGS_NAME],
         settings_version=quanting_env[QuantingEnv.SETTINGS_VERSION],
     )
 

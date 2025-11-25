@@ -74,9 +74,9 @@ def _display_status(combined_df: pd.DataFrame) -> None:
 
         st.markdown("## Sample throughput")
 
-        samples_per_day_df = get_raw_files_for_samples_per_day(days=14)
-        st.markdown("### Samples per day (last 14 days)")
-        show_samples_per_day_plot(samples_per_day_df, st)
+        samples_per_day_df = get_raw_files_for_samples_per_day(days=90)
+        st.markdown("### Samples per day")
+        show_samples_per_day_plot(samples_per_day_df, st, default_days=14)
 
     except Exception as e:  # noqa: BLE001
         _log(e, "Cannot not display status information.")

@@ -256,7 +256,7 @@ def show_samples_per_day_plot(
         (datetime.now() - timedelta(days=default_days)).date(),  # noqa: DTZ005
     )
 
-    c1, c2 = display.columns(2)
+    c1, c2 = display.columns([1, 1, 1, 1])
     start_date = c1.date_input(
         "Start date:",
         min_value=min_date_in_data,
@@ -303,8 +303,8 @@ def show_samples_per_day_plot(
         y=median_samples,
         line_dash="dash",
         line_color="red",
-        annotation_text=f"Median: {median_samples:.1f}",
-        annotation_position="right",
+        annotation_text=f"<b>Median: {median_samples:.1f}</b>",
+        annotation_position="top right",
     )
 
     fig.update_layout(

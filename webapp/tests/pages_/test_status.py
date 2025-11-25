@@ -5,11 +5,24 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
-from streamlit.testing.v1 import AppTest
+
+import shared.yamlsettings
+
+
+def mock_get_path(path_key: str) -> Path:
+    """Mock get_path to return dummy paths for testing."""
+    del path_key  # Unused parameter
+    return Path("/some/path")
+
+
+shared.yamlsettings.get_path = mock_get_path  # type: ignore[invalid-assignment]
+
+from streamlit.testing.v1 import AppTest  # noqa: E402
 
 PAGES_FOLDER = Path(__file__).parent / Path("../../pages_")
 
 
+@patch("service.db.get_raw_files_for_samples_per_day")
 @patch("service.db.get_raw_files_for_status_df")
 @patch("service.db.df_from_db_data")
 @patch("service.db.get_status_data")
@@ -17,6 +30,7 @@ def test_status(
     mock_get_status_data: MagicMock,
     mock_df_from_db_data: MagicMock,
     mock_get_raw_files_for_status_df: MagicMock,
+    mock_get_raw_files_for_samples_per_day: MagicMock,
 ) -> None:
     """Test that status page renders successfully."""
     mock_status_db = MagicMock()
@@ -64,6 +78,14 @@ def test_status(
     )
 
     mock_df_from_db_data.side_effect = [status_df]
+
+    samples_per_day_df = pd.DataFrame(
+        {
+            "date": [pd.to_datetime("2025-01-01"), pd.to_datetime("2025-01-02")],
+            "count": [5, 10],
+        }
+    )
+    mock_get_raw_files_for_samples_per_day.return_value = samples_per_day_df
 
     # when
     at = AppTest.from_file(f"{PAGES_FOLDER}/status.py").run()

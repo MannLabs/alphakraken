@@ -288,10 +288,12 @@ def show_samples_per_day_plot(
 
     fig = go.Figure()
 
+    x_labels = [date.strftime("%Y-%m-%d") for date in pivot_df.index]
+
     for instrument_id in pivot_df.columns:
         fig.add_trace(
             go.Bar(
-                x=pivot_df.index,
+                x=x_labels,
                 y=pivot_df[instrument_id],
                 name=instrument_id,
                 text=pivot_df[instrument_id].astype(int),

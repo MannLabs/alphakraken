@@ -203,9 +203,7 @@ def test_remove_path_provider(mock_raw_file: RawFile) -> None:
     assert provider.get_source_folder_path() == Path(
         "/opt/airflow/mounts/instruments/instrument1/Backup"
     )
-    assert provider.get_target_folder_path() == Path(
-        "/opt/airflow/mounts/backup/instrument1/2023_01"
-    )
+    assert provider.get_target_folder_path() == Path()
     assert provider.get_source_file_name() == "123-original_file.raw"
     assert provider.get_target_file_name() == "123-original_file.raw"
 

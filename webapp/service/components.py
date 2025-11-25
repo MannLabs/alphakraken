@@ -256,7 +256,7 @@ def show_samples_per_day_plot(
         (datetime.now() - timedelta(days=default_days)).date(),  # noqa: DTZ005
     )
 
-    c1, c2 = display.columns([1, 1, 1, 1])
+    c1, c2, *_ = display.columns([1, 1, 1, 1])
     start_date = c1.date_input(
         "Start date:",
         min_value=min_date_in_data,

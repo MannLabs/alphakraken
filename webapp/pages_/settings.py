@@ -6,7 +6,6 @@ from typing import Any
 import pandas as pd
 import streamlit as st
 import streamlit.delta_generator
-from db.interface import create_settings
 from service.components import show_filter, show_sandbox_message
 from service.db import (
     df_from_db_data,
@@ -23,6 +22,7 @@ from service.utils import (
     show_feedback_in_sidebar,
 )
 
+from shared.db.interface import create_settings
 from shared.db.models import SettingsStatus
 from shared.keys import SoftwareTypes
 from shared.validation import check_for_malicious_content

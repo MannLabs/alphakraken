@@ -10,6 +10,7 @@ from service.components import show_filter, show_sandbox_message
 from service.db import (
     df_from_db_data,
     get_project_data,
+    get_settings_data,
 )
 from service.query_params import get_all_query_params
 from service.session_state import SessionStateKeys, set_session_state
@@ -48,7 +49,24 @@ show_feedback_in_sidebar()
 # ########################################### LOGIC
 
 projects_db = get_project_data()
+settings_db = get_settings_data()
 projects_df = df_from_db_data(projects_db)
+settings_df = df_from_db_data(settings_db)
+
+# merge & beautify
+projects_df = projects_df.merge(
+    settings_df[["_id", "name", "version"]],
+    how="left",
+    left_on="settings",
+    right_on="_id",
+    suffixes=("", "_settings"),
+)
+projects_df = projects_df.drop(columns=["settings", "_id_settings"])
+projects_df["version"] = projects_df["version"].astype("Int64", errors="ignore")
+projects_df = projects_df.rename(
+    columns={"name_settings": "settings_name", "version": "settings_version"},
+)
+
 
 # ########################################### DISPLAY
 
@@ -99,13 +117,13 @@ with c_assign1:
 
         all_settings = get_all_settings(include_archived=False)
 
-        REMOVE_ASSIGNMENT_ = "(Remove assignment)"
-
         if not all_settings:
             st.warning("No active settings available. Create settings first.")
         else:
-            settings_options_map = {REMOVE_ASSIGNMENT_: None} | {
-                f"{s.name} v{s.version}": str(s.id)  # type: ignore[unresolved-attribute]
+            settings_options_map = {"(remove assignment)": None} | {
+                f"{s.name} v{s.version} [{s.fasta_file_name}, {s.config_file_name}, {s.software}, {s.description}]": str(
+                    s.id  # type: ignore[unresolved-attribute]
+                )
                 for s in all_settings
             }
 
@@ -151,18 +169,18 @@ with c_assign2:
 # ########################################### FORM
 
 form_items = {
-    "project_name": {
-        "label": "Project Name*",
-        "max_chars": 64,
-        "placeholder": "e.g. Plasma project 42",
-        "help": "Human-readable name of the project.",
-    },
     "project_id": {
         "label": "Project Id*",
         "max_chars": 16,
         "placeholder": "e.g. P1234",
         "help": "Unique identifier of the project. This needs to be put in every file name in order to have it associated with this project. "
         "Exception: the special project id '_FALLBACK' will be used for files that do not belong to any project.",
+    },
+    "project_name": {
+        "label": "Project Name*",
+        "max_chars": 64,
+        "placeholder": "e.g. Plasma project 42",
+        "help": "Human-readable name of the project.",
     },
     "project_description": {
         "label": "Project Description",

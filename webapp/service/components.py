@@ -243,7 +243,7 @@ def show_samples_per_day_plot(
     :param default_days: Default number of days to look back (default: 14)
     """
     if len(samples_per_day_df) == 0:
-        display.warning("No data available for samples per day plot.")
+        display.warning("No data available.")
         return
 
     samples_per_day_df["date"] = pd.to_datetime(samples_per_day_df["date"])

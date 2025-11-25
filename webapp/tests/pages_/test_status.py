@@ -79,10 +79,18 @@ def test_status(
 
     mock_df_from_db_data.side_effect = [status_df]
 
+    # Use dates that include today to avoid date_input validation errors
+    today = pd.to_datetime(datetime.now())  # noqa: DTZ005
     samples_per_day_df = pd.DataFrame(
         {
-            "date": [pd.to_datetime("2025-01-01"), pd.to_datetime("2025-01-02")],
-            "count": [5, 10],
+            "date": [
+                today - pd.Timedelta(days=30),
+                today - pd.Timedelta(days=30),
+                today,
+                today,
+            ],
+            "instrument_id": ["i1", "i2", "i1", "i2"],
+            "count": [5, 3, 10, 8],
         }
     )
     mock_get_raw_files_for_samples_per_day.return_value = samples_per_day_df

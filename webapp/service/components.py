@@ -248,6 +248,9 @@ def show_samples_per_day_plot(
         index="date", columns="instrument_id", values="count"
     ).fillna(0)
 
+    daily_totals = pivot_df.sum(axis=1)
+    median_samples = daily_totals.median()
+
     fig = go.Figure()
 
     for instrument_id in pivot_df.columns:
@@ -260,6 +263,14 @@ def show_samples_per_day_plot(
                 textposition="inside",
             )
         )
+
+    fig.add_hline(
+        y=median_samples,
+        line_dash="dash",
+        line_color="red",
+        annotation_text=f"Median: {median_samples:.1f}",
+        annotation_position="right",
+    )
 
     fig.update_layout(
         barmode="stack",

@@ -12,7 +12,6 @@ from shared.db.interface import (
     add_metrics_to_raw_file,
     add_project,
     add_raw_file,
-    archive_settings,
     assign_settings_to_project,
     augment_raw_files_with_metrics,
     create_settings,
@@ -338,48 +337,6 @@ def test_get_all_settings_includes_archived(
     get_all_settings(include_archived=True)
 
     mock_settings.objects.all.assert_called_once()
-    mock_connect_db.assert_called_once()
-
-
-@patch("shared.db.interface.connect_db")
-@patch("shared.db.interface.Settings")
-@patch("shared.db.interface.Project")
-def test_archive_settings_success(
-    mock_project: MagicMock, mock_settings: MagicMock, mock_connect_db: MagicMock
-) -> None:
-    """Test that archive_settings succeeds when no projects reference it."""
-    mock_setting = MagicMock()
-    mock_settings.objects.get.return_value = mock_setting
-    mock_project.objects.return_value.count.return_value = 0
-
-    archive_settings("settings_id")
-
-    assert mock_setting.status == "archived"
-    mock_setting.save.assert_called_once()
-    mock_connect_db.assert_called_once()
-
-
-@patch("shared.db.interface.connect_db")
-@patch("shared.db.interface.Settings")
-@patch("shared.db.interface.Project")
-def test_archive_settings_fails_when_referenced(
-    mock_project: MagicMock, mock_settings: MagicMock, mock_connect_db: MagicMock
-) -> None:
-    """Test that archive_settings fails when projects reference it."""
-    mock_setting = MagicMock()
-    mock_setting.name = "test_settings"
-    mock_setting.version = 1
-    mock_settings.objects.get.return_value = mock_setting
-
-    mock_project_instance = MagicMock()
-    mock_project_instance.id = "P1234"
-    mock_query_set = MagicMock()
-    mock_query_set.count.return_value = 1
-    mock_project.objects.return_value = mock_query_set
-
-    with pytest.raises(ValueError, match="Cannot archive settings"):
-        archive_settings("settings_id")
-
     mock_connect_db.assert_called_once()
 
 

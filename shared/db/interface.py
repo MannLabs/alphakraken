@@ -263,30 +263,6 @@ def get_all_settings(*, include_archived: bool = False) -> list[Settings]:
     return list(Settings.objects(status=SettingsStatus.ACTIVE).order_by("-created_at_"))
 
 
-def get_settings_by_id(settings_id: str) -> Settings | None:
-    """Get a settings entry by its MongoDB ObjectId."""
-    connect_db()
-    return Settings.objects(id=settings_id).first()
-
-
-def archive_settings(settings_id: str) -> None:
-    """Archive a settings entry. Raises ValueError if referenced by any project."""
-    connect_db()
-    settings = Settings.objects.get(id=settings_id)
-
-    referencing_projects = Project.objects(settings=settings)
-    if referencing_projects.count() > 0:
-        project_ids = [p.id for p in referencing_projects]
-        raise ValueError(
-            f"Cannot archive settings '{settings.name}' v{settings.version}: "
-            f"referenced by projects {project_ids}"
-        )
-
-    settings.status = SettingsStatus.ARCHIVED
-    settings.save()
-    logging.info(f"Archived settings: {settings.name} v{settings.version}")
-
-
 def assign_settings_to_project(project_id: str, settings_id: str | None) -> None:
     """Assign settings to a project, or remove assignment if settings_id is None."""
     connect_db()
@@ -296,7 +272,7 @@ def assign_settings_to_project(project_id: str, settings_id: str | None) -> None
         project.settings = None
     else:
         settings = Settings.objects.get(id=settings_id)
-        if settings.status == SettingsStatus.ARCHIVED:
+        if settings.status == SettingsStatus.INACTIVE:
             raise ValueError(
                 f"Cannot assign archived settings '{settings.name}' v{settings.version}"
             )
@@ -304,13 +280,6 @@ def assign_settings_to_project(project_id: str, settings_id: str | None) -> None
 
     project.save()
     logging.info(f"Assigned settings {settings_id} to project {project_id}")
-
-
-def get_projects_using_settings(settings_id: str) -> list[Project]:
-    """Get all projects that reference a specific settings entry."""
-    connect_db()
-    settings = Settings.objects.get(id=settings_id)
-    return list(Project.objects(settings=settings))
 
 
 def update_kraken_status(

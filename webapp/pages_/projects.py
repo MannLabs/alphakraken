@@ -8,9 +8,7 @@ import streamlit as st
 import streamlit.delta_generator
 from service.components import show_filter, show_sandbox_message
 from service.db import (
-    assign_settings_to_project_service,
     df_from_db_data,
-    get_all_settings_list,
     get_project_data,
 )
 from service.query_params import get_all_query_params
@@ -23,7 +21,11 @@ from service.utils import (
     show_feedback_in_sidebar,
 )
 
-from shared.db.interface import add_project
+from shared.db.interface import (
+    add_project,
+    assign_settings_to_project,
+    get_all_settings,
+)
 
 _log(f"loading {__file__} {get_all_query_params()}")
 
@@ -95,22 +97,21 @@ with c_assign1:
         else:
             st.info("No settings currently assigned to this project.")
 
-        all_settings = get_all_settings_list(include_archived=False)
+        all_settings = get_all_settings(include_archived=False)
+
+        REMOVE_ASSIGNMENT_ = "(Remove assignment)"
 
         if not all_settings:
             st.warning("No active settings available. Create settings first.")
         else:
-            settings_options_map = {
-                f"{s.name} v{s.version}": str(s.id) for s in all_settings
+            settings_options_map = {REMOVE_ASSIGNMENT_: None} | {
+                f"{s.name} v{s.version}": str(s.id)  # type: ignore[unresolved-attribute]
+                for s in all_settings
             }
-            settings_options_list = [
-                "(Remove assignment)",
-                *list(settings_options_map.keys()),
-            ]
 
             selected_settings_display = st.selectbox(
                 "Select settings to assign (or remove)",
-                options=settings_options_list,
+                options=settings_options_map.keys(),
                 key="assign_settings_select",
             )
 
@@ -120,23 +121,12 @@ with c_assign1:
                 help="Temporarily disabled." if DISABLE_WRITE else "",
             ):
                 try:
-                    if selected_settings_display == "(Remove assignment)":
-                        assign_settings_to_project_service(selected_project_id, None)
-                        set_session_state(
-                            SessionStateKeys.SUCCESS_MSG,
-                            f"Removed settings assignment from project {selected_project_id}.",
-                        )
-                    else:
-                        new_settings_id = settings_options_map[
-                            selected_settings_display
-                        ]
-                        assign_settings_to_project_service(
-                            selected_project_id, new_settings_id
-                        )
-                        set_session_state(
-                            SessionStateKeys.SUCCESS_MSG,
-                            f"Assigned settings '{selected_settings_display}' to project {selected_project_id}.",
-                        )
+                    new_settings_id = settings_options_map[selected_settings_display]
+                    assign_settings_to_project(selected_project_id, new_settings_id)
+                    set_session_state(
+                        SessionStateKeys.SUCCESS_MSG,
+                        f"Assigned settings '{selected_settings_display}' to project {selected_project_id}.",
+                    )
                     st.rerun()
                 except Exception as e:  # noqa: BLE001
                     st.error(f"Error: {e}")

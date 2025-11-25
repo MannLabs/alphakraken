@@ -207,7 +207,7 @@ class SettingsStatus:
     """Status of settings."""
 
     ACTIVE = "active"
-    ARCHIVED = "archived"
+    INACTIVE = "inactive"
 
 
 class Project(Document):

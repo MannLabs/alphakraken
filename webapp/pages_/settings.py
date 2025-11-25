@@ -6,14 +6,11 @@ from typing import Any
 import pandas as pd
 import streamlit as st
 import streamlit.delta_generator
+from db.interface import create_settings
 from service.components import show_filter, show_sandbox_message
 from service.db import (
-    archive_settings_service,
-    create_settings_service,
     df_from_db_data,
-    get_all_settings_list,
     get_project_data,
-    get_projects_using_settings_service,
     get_settings_data,
 )
 from service.query_params import get_all_query_params
@@ -82,7 +79,7 @@ def display_settings(
         filtered_df.style.apply(
             lambda row: [
                 "color: lightgray"
-                if row["status"] == SettingsStatus.ARCHIVED
+                if row["status"] == SettingsStatus.INACTIVE
                 else "background-color: white"
             ]
             * len(row),
@@ -117,51 +114,6 @@ with c1.expander("Click here for help ..."):
         """,
         icon="ℹ️",  # noqa: RUF001
     )
-
-# ########################################### MANAGE SETTINGS
-
-with c2.expander("Manage existing settings"):
-    st.markdown("### Archive settings")
-
-    all_settings = get_all_settings_list(include_archived=False)
-    if not all_settings:
-        st.info("No active settings available.")
-    else:
-        settings_options = {f"{s.name} v{s.version}": str(s.id) for s in all_settings}
-        selected_setting_display = st.selectbox(
-            "Select settings to view/archive",
-            options=["", *list(settings_options.keys())],
-        )
-
-        if selected_setting_display:
-            selected_setting_id = settings_options[selected_setting_display]
-            using_projects = get_projects_using_settings_service(selected_setting_id)
-
-            if using_projects:
-                project_ids = [p.id for p in using_projects]
-                st.warning(
-                    f"Settings used by projects: {', '.join(project_ids)}. "
-                    "Cannot archive while in use."
-                )
-            else:
-                st.info("No projects are using these settings.")
-
-            if st.button(
-                "Archive selected settings",
-                disabled=DISABLE_WRITE or len(using_projects) > 0,
-                help="Archive settings (cannot be undone)"
-                if not using_projects
-                else "Cannot archive while projects are using these settings",
-            ):
-                try:
-                    archive_settings_service(selected_setting_id)
-                    set_session_state(
-                        SessionStateKeys.SUCCESS_MSG,
-                        f"Archived settings: {selected_setting_display}",
-                    )
-                    st.rerun()
-                except Exception as e:  # noqa: BLE001
-                    st.error(f"Error archiving settings: {e}")
 
 # ########################################### CREATE NEW SETTINGS
 
@@ -337,7 +289,7 @@ if submit:
                 "Please upload the files to the respective folders on the pool file system and check the respective box."
             )
 
-        create_settings_service(
+        create_settings(
             name=empty_to_none(name),
             description=empty_to_none(description),
             fasta_file_name=fasta_file_name,

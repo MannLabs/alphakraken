@@ -234,17 +234,52 @@ def show_time_in_status_table(
 def show_samples_per_day_plot(
     samples_per_day_df: pd.DataFrame,
     display: st.delta_generator.DeltaGenerator,
+    default_days: int = 14,
 ) -> None:
-    """Show a stacked bar plot of samples per day for each instrument over the last 14 days.
+    """Show a stacked bar plot of samples per day for each instrument over a selected date range.
 
     :param samples_per_day_df: DataFrame with columns: date, instrument_id, count
     :param display: The streamlit display object
+    :param default_days: Default number of days to look back (default: 14)
     """
     if len(samples_per_day_df) == 0:
         display.warning("No data available for samples per day plot.")
         return
 
-    pivot_df = samples_per_day_df.pivot_table(
+    samples_per_day_df["date"] = pd.to_datetime(samples_per_day_df["date"])
+
+    min_date_in_data = samples_per_day_df["date"].min().date()
+    max_date_in_data = samples_per_day_df["date"].max().date()
+
+    default_start_date = max(
+        min_date_in_data,
+        (datetime.now() - timedelta(days=default_days)).date(),  # noqa: DTZ005
+    )
+
+    c1, c2 = display.columns(2)
+    start_date = c1.date_input(
+        "Start date:",
+        min_value=min_date_in_data,
+        max_value=max_date_in_data,
+        value=default_start_date,
+    )
+    end_date = c2.date_input(
+        "End date:",
+        min_value=min_date_in_data,
+        max_value=max_date_in_data,
+        value=max_date_in_data,
+    )
+
+    filtered_df = samples_per_day_df[
+        (samples_per_day_df["date"].dt.date >= start_date)
+        & (samples_per_day_df["date"].dt.date <= end_date)
+    ]
+
+    if len(filtered_df) == 0:
+        display.warning("No data available for the selected date range.")
+        return
+
+    pivot_df = filtered_df.pivot_table(
         index="date", columns="instrument_id", values="count"
     ).fillna(0)
 

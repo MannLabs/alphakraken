@@ -198,11 +198,11 @@ with c1.expander("Click here for help ..."):
         ### Explanation
         A 'project' is a lightweight container that can reference quanting settings (=config, speclib, fasta).
         The connection of samples to a project is done via the file name: all files containing a project-specific token (e.g. `A123`) surrounded by `_`
-        are associated with project `A123`.
+        are associated with project `A1234`.
         Currently, only projects ids that follow after the pattern 'SA' are picked up, e.g. `20240801_something_SA_A123_my-sample.raw`.
         If no matching project can be found for a file, then fallback settings are used.
         Please make sure your project identifier is 'unique enough' ("DDA" might be a bad pick), otherwise it might cause false positives.
-        Needs to be between 3 and 8 characters, contain only uppercase letters and numbers, and at least one letter.
+        Needs to be between 5 and 16 characters, contain only uppercase letters and numbers, and at least one letter.
 
         ### Workflow
         1. Create a project with a unique project id.
@@ -237,8 +237,8 @@ def _check_project_id(project_id: str) -> None:
     """Check if the project id is valid, raise ValueError if not."""
     if (
         project_id is None
-        or len(project_id) < 3  # noqa: PLR2004
-        or len(project_id) > 8  # noqa: PLR2004
+        or len(project_id) < 5  # noqa: PLR2004
+        or len(project_id) > 16  # noqa: PLR2004
         or project_id.isdigit()
         or re.findall(ALLOWED_CHARACTERS_IN_PROJECT_ID, project_id)
         or project_id.lower() in FORBIDDEN_PROJECT_IDS

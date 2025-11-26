@@ -50,7 +50,7 @@ def sanitize_name(name: str) -> str:
     # Keep only alphanumeric, hyphens, and dots
     sanitized = re.sub(r"[^a-zA-Z0-9.-]", "", sanitized)
     # Remove leading/trailing hyphens and dots
-    sanitized = sanitized.strip("-.")
+    sanitized = sanitized.strip("-.").lower()
     return sanitized
 
 
@@ -170,9 +170,9 @@ def migrate_settings(dry_run: bool) -> MigrationResult:
             continue
 
         has_project_field = "project" in raw_doc
-        has_migrated_field = "migrated_at_" in raw_doc
+        is_migrated = "description" in raw_doc
 
-        if has_migrated_field:
+        if is_migrated:
             logger.debug(f"Skipping Settings {settings.id} (already migrated)")
             result.settings_skipped += 1
             continue
@@ -197,15 +197,15 @@ def migrate_settings(dry_run: bool) -> MigrationResult:
     logger.info(f"Found {len(settings_to_migrate)} Settings to migrate")
 
     for settings, project_ref in settings_to_migrate:
-        try:
-            project = Project.objects.get(id=project_ref)
-        except DoesNotExist:
-            result.add_error(
-                f"Settings {settings.id} references non-existent Project {project_ref}"
-            )
-            continue
+        # try:
+        #     project = Project.objects.get(id=project_ref)
+        # except DoesNotExist:
+        #     result.add_error(
+        #         f"Settings {settings.id} references non-existent Project {project_ref}"
+        #     )
+        #     continue
 
-        project_id = project.id
+        project_id = project_ref  # project.id
         old_settings_name = settings.name
         old_settings_description = settings.description or ""
 
@@ -229,7 +229,7 @@ def migrate_settings(dry_run: bool) -> MigrationResult:
                         "$set": {
                             "name": new_name,
                             "description": new_description,
-                            "migrated_at_": datetime.now(),
+                            # "migrated_at_": datetime.now(),
                         },
                         "$unset": {"project": ""},
                     },

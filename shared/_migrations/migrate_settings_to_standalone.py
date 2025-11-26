@@ -26,6 +26,7 @@ import argparse
 import logging
 from datetime import datetime
 
+from mongoengine import get_db
 from mongoengine.errors import DoesNotExist, NotUniqueError
 
 from shared.db.engine import connect_db
@@ -112,6 +113,31 @@ def migrate_settings(dry_run: bool) -> MigrationResult:
     """Migrate Settings from project-owned to standalone."""
     result = MigrationResult()
     connect_db()
+
+    logger.info("\n" + "=" * 60)
+    logger.info("Phase 0: Preparing database (dropping old unique index if exists)")
+    logger.info("=" * 60)
+
+    db = get_db()
+    collection = db["settings"]
+    existing_indexes = collection.index_information()
+
+    index_exists = any(
+        idx_info.get("key") == [("name", 1), ("version", 1)]
+        and idx_info.get("unique", False)
+        for idx_info in existing_indexes.values()
+    )
+
+    if index_exists:
+        logger.info("Found existing unique index on (name, version)")
+        if not dry_run:
+            logger.info("Dropping index to allow migration...")
+            collection.drop_index([("name", 1), ("version", 1)])
+            logger.info("✓ Index dropped")
+        else:
+            logger.info("Would drop index (dry-run mode)")
+    else:
+        logger.info("No existing unique index found")
 
     logger.info("\n" + "=" * 60)
     logger.info("Phase 1: Migrating Settings documents")
@@ -244,22 +270,6 @@ def migrate_settings(dry_run: bool) -> MigrationResult:
                 continue
 
         result.projects_cleared += 1
-
-    logger.info("\n" + "=" * 60)
-    logger.info("Phase 3: Converting status INACTIVE → ARCHIVED")
-    logger.info("=" * 60)
-
-    settings_with_inactive = Settings.objects(status=ProjectStatus.INACTIVE)
-    count = settings_with_inactive.count()
-
-    if count > 0:
-        logger.info(f"Found {count} Settings with INACTIVE status")
-        if not dry_run:
-            settings_with_inactive.update(status=SettingsStatus.INACTIVE)
-            logger.info(f"✓ Converted {count} Settings to ARCHIVED status")
-        result.status_converted = count
-    else:
-        logger.info("No Settings with INACTIVE status found")
 
     logger.info("\n" + "=" * 60)
     logger.info("Phase 4: Creating unique index on (name, version)")

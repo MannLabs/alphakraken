@@ -82,7 +82,11 @@ class MigrationResult:
 
 
 def ensure_unique_index() -> None:
-    """Verify and create the unique index on (name, version) if missing."""
+    """Create the unique index on (name, version) after migration.
+
+    This should only be called after all Settings have been migrated to the new naming format.
+    Creating the index before migration would fail due to duplicate (name, version) pairs.
+    """
     logger.info("Checking for unique index on (name, version)...")
     connect_db()
 
@@ -108,9 +112,6 @@ def migrate_settings(dry_run: bool) -> MigrationResult:
     """Migrate Settings from project-owned to standalone."""
     result = MigrationResult()
     connect_db()
-
-    logger.info("Ensuring unique index on Settings (name, version)...")
-    ensure_unique_index()
 
     logger.info("\n" + "=" * 60)
     logger.info("Phase 1: Migrating Settings documents")
@@ -259,6 +260,15 @@ def migrate_settings(dry_run: bool) -> MigrationResult:
         result.status_converted = count
     else:
         logger.info("No Settings with INACTIVE status found")
+
+    logger.info("\n" + "=" * 60)
+    logger.info("Phase 4: Creating unique index on (name, version)")
+    logger.info("=" * 60)
+
+    if not dry_run:
+        ensure_unique_index()
+    else:
+        logger.info("Skipping index creation in dry-run mode")
 
     return result
 

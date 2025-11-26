@@ -54,18 +54,19 @@ projects_df = df_from_db_data(projects_db)
 settings_df = df_from_db_data(settings_db)
 
 # merge & beautify
-projects_df = projects_df.merge(
-    settings_df[["_id", "name", "version"]],
-    how="left",
-    left_on="settings",
-    right_on="_id",
-    suffixes=("", "_settings"),
-)
-projects_df = projects_df.drop(columns=["settings", "_id_settings"])
-projects_df["version"] = projects_df["version"].astype("Int64", errors="ignore")
-projects_df = projects_df.rename(
-    columns={"name_settings": "settings_name", "version": "settings_version"},
-)
+if "settings" in projects_df.columns:
+    projects_df = projects_df.merge(
+        settings_df[["_id", "name", "version"]],
+        how="left",
+        left_on="settings",
+        right_on="_id",
+        suffixes=("", "_settings"),
+    )
+    projects_df = projects_df.drop(columns=["settings", "_id_settings"])
+    projects_df["version"] = projects_df["version"].astype("Int64", errors="ignore")
+    projects_df = projects_df.rename(
+        columns={"name_settings": "settings_name", "version": "settings_version"},
+    )
 
 
 # ########################################### DISPLAY

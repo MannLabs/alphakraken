@@ -17,6 +17,7 @@ Usage:
     python -m shared.migrations.migrate_settings_to_standalone --dry-run
     python -m shared.migrations.migrate_settings_to_standalone --execute
     python -m shared.migrations.migrate_settings_to_standalone --verify
+    set -a; source envs/sandbox.env ; set +a; python shared/_migrations/migrate_settings_to_standalone.py --dry-run
 """
 
 # ruff: noqa
@@ -436,6 +437,10 @@ def main() -> None:
     if not args.dry_run and not result.errors:
         logger.info("Running verification...")
         verify_migration()
+
+    logger.info("Dont forget to:")
+    logger.info("- manually rename config folders")
+    logger.info("- manually re-assign configs to projects")
 
 
 if __name__ == "__main__":

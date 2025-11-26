@@ -1,5 +1,7 @@
 """Settings management page."""
 
+from collections import defaultdict
+
 # ruff: noqa: TRY301 # Abstract `raise` to an inner function
 from typing import Any
 
@@ -202,17 +204,33 @@ selected_name_option = c1.selectbox(
     format_func=lambda x: x if x == CREATE_NEW_OPTION else f"🔄 Update {x}",
 )
 
-# Show info banner if existing settings selected
+# Show info banner if existing settings selected and get latest version data for prefilling
+prefill_data = defaultdict(lambda: "")
 if selected_name_option != CREATE_NEW_OPTION:
-    current_version = settings_df[settings_df["name"] == selected_name_option][
-        "version"
-    ].max()
+    # Get the latest version of the selected settings
+    latest_settings = (
+        settings_df[settings_df["name"] == selected_name_option]
+        .sort_values("version", ascending=False)
+        .iloc[0]
+    )
+    current_version = int(latest_settings["version"])
+
     c1.info(
-        f"Creating a new version of existing settings '{selected_name_option}'. "
-        f"Current version: {current_version}. New version will be: {current_version + 1}. "
-        f"Projects always reference a specific version of settings, so existing projects using '{selected_name_option}' v{current_version} will not be affected.",
+        f"This will create a new version ({current_version + 1}) of the existing settings '{selected_name_option}'. "
+        f"Projects always reference a specific version of settings, so existing projects using '{selected_name_option}' v{current_version} will not be affected. "
+        "Make sure to updated (all or selected) projects to use the new version after creating it.",
         icon="ℹ️",  # noqa: RUF001
     )
+
+    # Prepare prefill data from latest version
+    prefill_data = {
+        "description": str(latest_settings.get("description", "")),
+        "software": str(latest_settings.get("software", "")),
+        "fasta_file_name": str(latest_settings.get("fasta_file_name", "")),
+        "speclib_file_name": str(latest_settings.get("speclib_file_name", "")),
+        "config_file_name": str(latest_settings.get("config_file_name", "")),
+        "config_params": str(latest_settings.get("config_params", "")),
+    }
 
 with c1.form("create_settings"):
     # Show input field for new name or use selected name
@@ -227,21 +245,32 @@ with c1.form("create_settings"):
         name = selected_name_option
         st.text(f"Settings name: {name}")
 
-    description = st.text_area(**form_items["description"])
+    description = st.text_area(
+        **form_items["description"], value=prefill_data["description"]
+    )
 
-    software = st.text_input(**form_items["software"])
+    software = st.text_input(**form_items["software"], value=prefill_data["software"])
 
-    fasta_file_name = st.text_input(**form_items["fasta_file_name"])
-    speclib_file_name = st.text_input(**form_items["speclib_file_name"])
+    fasta_file_name = st.text_input(
+        **form_items["fasta_file_name"], value=prefill_data["fasta_file_name"]
+    )
+    speclib_file_name = st.text_input(
+        **form_items["speclib_file_name"], value=prefill_data["speclib_file_name"]
+    )
 
     config_file_name = (
-        st.text_input(**form_items["config_file_name"])
+        st.text_input(
+            **form_items["config_file_name"], value=prefill_data["config_file_name"]
+        )
         if "config_file_name" in form_items
         else None
     )
 
     if "config_params" in form_items:
-        config_params = st.text_area(**form_items["config_params"])
+        config_params = st.text_area(
+            **form_items["config_params"],
+            value=prefill_data.get("config_params", ""),
+        )
         st.info(
             "The following placeholders can be used in the config parameters, and will be replaced by the specified values:\n\n"
             "- `RAW_FILE_PATH`: absolute path of the raw file\n"

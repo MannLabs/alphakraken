@@ -236,7 +236,7 @@ class Settings(Document):
 
     meta: ClassVar = {
         "strict": False,
-        # "indexes": [{"fields": ["name", "version"], "unique": True}], # TODO: reactivate!
+        "indexes": [{"fields": ["name", "version"], "unique": True}],
     }
     objects: ClassVar[QuerySet[Settings]]
 

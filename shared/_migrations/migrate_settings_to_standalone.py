@@ -206,13 +206,18 @@ def migrate_settings(dry_run: bool) -> MigrationResult:
             continue
 
         project_id = project.id
-        existing_name = settings.name
-        sanitized_name = sanitize_name(existing_name)
+        old_settings_name = settings.name
+        old_settings_description = settings.description or ""
 
-        new_name = f"{project_id}_{sanitized_name}"
+        new_name = project_id
+        new_description = (
+            f"Original name: {old_settings_name}"
+            if old_settings_description == ""
+            else f"{old_settings_description} | Original name: {old_settings_name}"
+        )
 
         logger.info(
-            f"Migrating Settings {settings.id}: '{existing_name}' → '{new_name}' for project={project_id}"
+            f"Migrating Settings {settings.id}: name='{old_settings_name}' → '{new_name}' for project={project_id}"
         )
 
         if not dry_run:
@@ -223,6 +228,7 @@ def migrate_settings(dry_run: bool) -> MigrationResult:
                     {
                         "$set": {
                             "name": new_name,
+                            "description": new_description,
                             "migrated_at_": datetime.now(),
                         },
                         "$unset": {"project": ""},

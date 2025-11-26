@@ -34,15 +34,21 @@ def _get_after_token(
 
 
 def _get_unique_overlap(list1: list[str], list2: list[str]) -> str | None:
-    """Compare two lists and return the intersection if it is exactly one element.
+    """Compare two lists case-insensitively and return the intersection if it is exactly one element.
 
-    :param list1: first list
-    :param list2: second list
-    :return: the unique element if the intersection is exactly one element, otherwise None
+    :param list1: first list (project_ids from database)
+    :param list2: second list (tokens from filename)
+    :return: the unique element from list1 if the intersection is exactly one element, otherwise None
     """
-    intersection = set(list1).intersection(list2)
+    # Create mapping of lowercase -> original for list1
+    lower_to_original = {item.lower(): item for item in list1}
+    # Convert list2 to lowercase for comparison
+    list2_lower = {item.lower() for item in list2}
+    # Find intersection using lowercase versions
+    intersection = set(lower_to_original.keys()).intersection(list2_lower)
     if len(intersection) == 1:
-        return list(intersection)[0]  # noqa: RUF015
+        # Return the original casing from list1
+        return lower_to_original[list(intersection)[0]]  # noqa: RUF015
     if len(intersection) > 1:
         logging.warning("found more than 1 match")
         return None

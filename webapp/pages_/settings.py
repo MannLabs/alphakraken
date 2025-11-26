@@ -187,8 +187,46 @@ elif software_type == SoftwareTypes.CUSTOM:
         },
     }
 
+# Get existing settings names for selectbox (outside form so it can trigger reruns)
+existing_settings_names = (
+    sorted(set(settings_df["name"].tolist()))
+    if not settings_df.empty and "name" in settings_df.columns
+    else []
+)
+CREATE_NEW_OPTION = "➕ Create new settings..."  # noqa: RUF001
+
+settings_name_options = [CREATE_NEW_OPTION, *existing_settings_names]
+selected_name_option = c1.selectbox(
+    label="Action",
+    options=settings_name_options,
+    format_func=lambda x: x if x == CREATE_NEW_OPTION else f"🔄 Update {x}",
+)
+
+# Show info banner if existing settings selected
+if selected_name_option != CREATE_NEW_OPTION:
+    current_version = settings_df[settings_df["name"] == selected_name_option][
+        "version"
+    ].max()
+    c1.info(
+        f"Creating a new version of existing settings '{selected_name_option}'. "
+        f"Current version: {current_version}. New version will be: {current_version + 1}. "
+        f"Projects always reference a specific version of settings, so existing projects using '{selected_name_option}' v{current_version} will not be affected.",
+        icon="ℹ️",  # noqa: RUF001
+    )
+
 with c1.form("create_settings"):
-    name = st.text_input(**form_items["name"])
+    # Show input field for new name or use selected name
+    if selected_name_option == CREATE_NEW_OPTION:
+        name = st.text_input(
+            label=form_items["name"]["label"],
+            max_chars=form_items["name"]["max_chars"],
+            placeholder=form_items["name"]["placeholder"],
+            help=form_items["name"]["help"],
+        )
+    else:
+        name = selected_name_option
+        st.text(f"Settings name: {name}")
+
     description = st.text_area(**form_items["description"])
 
     software = st.text_input(**form_items["software"])

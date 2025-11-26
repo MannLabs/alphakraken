@@ -24,7 +24,6 @@ from __future__ import annotations
 
 import argparse
 import logging
-from collections import defaultdict
 from datetime import datetime
 
 from mongoengine.errors import DoesNotExist, NotUniqueError
@@ -152,8 +151,6 @@ def migrate_settings(dry_run: bool) -> MigrationResult:
 
     logger.info(f"Found {len(settings_to_migrate)} Settings to migrate")
 
-    version_counters: dict[str, int] = defaultdict(int)
-
     for settings, project_ref in settings_to_migrate:
         try:
             project = Project.objects.get(id=project_ref)
@@ -164,10 +161,10 @@ def migrate_settings(dry_run: bool) -> MigrationResult:
             continue
 
         project_id = project.id
-        version_counters[project_id] += 1
-        version = version_counters[project_id]
+        existing_name = settings.name
+        existing_version = settings.version
 
-        new_name = f"{project_id}_v{version}"
+        new_name = f"{project_id}_{existing_name}_{existing_version}"
 
         logger.info(
             f"Migrating Settings {settings.id}: name={new_name} for project={project_id}"

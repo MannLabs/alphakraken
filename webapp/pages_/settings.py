@@ -104,13 +104,17 @@ with c1.expander("Click here for help ..."):
         Settings are standalone entities that can be shared across multiple projects.
 
         ### Workflow
-        1. Fill in required information (name, file names, etc.).
-        2. Upload the files to the designated location: `<settings_path>/<settings name>/`
-        3. Assign the settings to projects on the Projects page.
+        1. Select an existing settings name to create a new version, or choose "Create new settings..." to define a brand new settings configuration.
+        2. Fill in required information (file names, software, etc.).
+        3. Upload the files to the designated location: `<settings_path>/<settings_name>/`
+        4. Assign the settings to projects on the Projects page.
 
         ### Versioning
-        If you create settings with the same name, the version number will automatically increment.
-        This allows you to update settings (e.g., use a newer AlphaDIA version) while keeping the old version available.
+        Settings use name + version as a unique identifier. If you create settings with an existing name, the version number will automatically increment.
+        This allows you to update settings (e.g., use a newer AlphaDIA version) while keeping old versions available.
+
+        **Important:** Projects always reference a specific version of settings (e.g., 'fast_plasma' v2).
+        Creating a new version does not affect existing projects - they continue using their assigned version until explicitly updated.
         """,
         icon="ℹ️",  # noqa: RUF001
     )

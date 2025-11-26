@@ -123,71 +123,7 @@ with c1.expander("Click here for help ..."):
 
 # ########################################### CREATE NEW SETTINGS
 
-c1.markdown("## Create new settings")
-
-software_type = c1.selectbox(
-    label="Type", options=[SoftwareTypes.ALPHADIA, SoftwareTypes.CUSTOM]
-)
-
-form_items = {
-    "name": {
-        "label": "Settings Name*",
-        "max_chars": 64,
-        "placeholder": "e.g. 'fast_plasma' or 'standard_tissue'",
-        "help": "Alphanumeric + underscore only. Used as folder name and for versioning.",
-    },
-    "description": {
-        "label": "Description",
-        "max_chars": 512,
-        "placeholder": "(optional) e.g. 'Fast plasma settings for routine analysis'",
-        "help": "Human readable description of these settings.",
-    },
-    "fasta_file_name": {
-        "label": "Fasta file name**",
-        "max_chars": 64,
-        "placeholder": "e.g. 'human.fasta'",
-        "help": "Name of the fasta file.",
-    },
-    "speclib_file_name": {
-        "label": "Speclib file name**",
-        "max_chars": 64,
-        "placeholder": "e.g. 'human_plasma.speclib'",
-        "help": "Name of the speclib file.",
-    },
-}
-
-if software_type == SoftwareTypes.ALPHADIA:
-    form_items |= {
-        "config_file_name": {
-            "label": "Config file name*",
-            "max_chars": 64,
-            "placeholder": "e.g. 'very_fast_config.yaml'",
-            "help": "Name of the config file. If none is given, default will be used.",
-        },
-        "software": {
-            "label": "Software*",
-            "max_chars": 64,
-            "placeholder": "e.g. 'alphadia-1.10.0'",
-            "help": "Name of the Conda environment that holds the AlphaDIA executable. Ask an administrator to create this environment.",
-        },
-    }
-
-elif software_type == SoftwareTypes.CUSTOM:
-    form_items |= {
-        "software": {
-            "label": "Executable*",
-            "max_chars": 64,
-            "placeholder": "e.g. 'custom-software/custom-executable1.2.3'",
-            "help": f"Path to executable, relative to `{get_path(YamlKeys.Locations.SOFTWARE)}/`. Ask an administrator to add the executable to the software folder. "
-            f"If something that is in the `$PATH` should be executed, it needs to be wrapped by a shell script located in the software folder.",
-        },
-        "config_params": {
-            "label": "Configuration parameters",
-            "max_chars": 512,
-            "placeholder": "e.g. '--qvalue 0.01 --f RAW_FILE_PATH --lib LIBRARY_PATH --fasta FASTA_PATH --temp OUTPUT_PATH --threads NUM_THREADS'",
-            "help": "Configuration options for the custom software. Certain placeholders will be substituted.",
-        },
-    }
+c1.markdown("## Create / update settings")
 
 # Get existing settings names for selectbox (outside form so it can trigger reruns)
 existing_settings_names = (
@@ -230,6 +166,72 @@ if selected_name_option != CREATE_NEW_OPTION:
         "speclib_file_name": str(latest_settings.get("speclib_file_name", "")),
         "config_file_name": str(latest_settings.get("config_file_name", "")),
         "config_params": str(latest_settings.get("config_params", "")),
+    }
+
+
+software_type = c1.selectbox(
+    label="Type", options=[SoftwareTypes.ALPHADIA, SoftwareTypes.CUSTOM]
+)
+
+form_items = {
+    "name": {
+        "label": "Settings Name*",
+        "max_chars": 64,
+        "placeholder": "e.g. 'fast_plasma' or 'standard_tissue'",
+        "help": "Alphanumeric + underscore only. Used as folder name and for versioning.",
+    },
+    "description": {
+        "label": "Description",
+        "max_chars": 512,
+        "placeholder": "(optional) e.g. 'Fast plasma settings for routine analysis'",
+        "help": "Human readable description of these settings.",
+    },
+    "fasta_file_name": {
+        "label": "Fasta file name**",
+        "max_chars": 64,
+        "placeholder": "e.g. 'human.fasta'",
+        "help": "Name of the fasta file.",
+    },
+    "speclib_file_name": {
+        "label": "Speclib file name**",
+        "max_chars": 64,
+        "placeholder": "e.g. 'human_plasma.speclib'",
+        "help": "Name of the speclib file.",
+    },
+}
+
+
+if software_type == SoftwareTypes.ALPHADIA:
+    form_items |= {
+        "config_file_name": {
+            "label": "Config file name*",
+            "max_chars": 64,
+            "placeholder": "e.g. 'very_fast_config.yaml'",
+            "help": "Name of the config file. If none is given, default will be used.",
+        },
+        "software": {
+            "label": "Software*",
+            "max_chars": 64,
+            "placeholder": "e.g. 'alphadia-1.10.0'",
+            "help": "Name of the Conda environment that holds the AlphaDIA executable. Ask an administrator to create this environment.",
+        },
+    }
+
+elif software_type == SoftwareTypes.CUSTOM:
+    form_items |= {
+        "software": {
+            "label": "Executable*",
+            "max_chars": 64,
+            "placeholder": "e.g. 'custom-software/custom-executable1.2.3'",
+            "help": f"Path to executable, relative to `{get_path(YamlKeys.Locations.SOFTWARE)}/`. Ask an administrator to add the executable to the software folder. "
+            f"If something that is in the `$PATH` should be executed, it needs to be wrapped by a shell script located in the software folder.",
+        },
+        "config_params": {
+            "label": "Configuration parameters",
+            "max_chars": 512,
+            "placeholder": "e.g. '--qvalue 0.01 --f RAW_FILE_PATH --lib LIBRARY_PATH --fasta FASTA_PATH --temp OUTPUT_PATH --threads NUM_THREADS'",
+            "help": "Configuration options for the custom software. Certain placeholders will be substituted.",
+        },
     }
 
 with c1.form("create_settings"):

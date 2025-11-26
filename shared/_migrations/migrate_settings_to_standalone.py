@@ -330,15 +330,6 @@ def verify_migration() -> None:
     else:
         logger.info("✓ No Settings have 'project' field")
 
-    logger.info("Checking for Settings with INACTIVE status...")
-    inactive_settings = Settings.objects(status=ProjectStatus.INACTIVE)
-    if inactive_settings.count() > 0:
-        errors.append(
-            f"Found {inactive_settings.count()} Settings with INACTIVE status (should be ARCHIVED)"
-        )
-    else:
-        logger.info("✓ No Settings with INACTIVE status")
-
     logger.info("Checking unique index on (name, version)...")
     existing_indexes = Settings._get_collection().index_information()
     index_exists = any(

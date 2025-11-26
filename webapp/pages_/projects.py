@@ -237,7 +237,7 @@ def _check_project_id(project_id: str) -> None:
     """Check if the project id is valid, raise ValueError if not."""
     if (
         project_id is None
-        or len(project_id) < 5  # noqa: PLR2004
+        or len(project_id) < 4  # noqa: PLR2004 # TODO: set min_length to 5
         or len(project_id) > 16  # noqa: PLR2004
         or project_id.isdigit()
         or re.findall(ALLOWED_CHARACTERS_IN_PROJECT_ID, project_id)

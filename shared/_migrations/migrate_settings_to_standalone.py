@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import re
 from datetime import datetime
 
 from mongoengine import get_db
@@ -34,6 +35,23 @@ from shared.db.models import Project, ProjectStatus, Settings, SettingsStatus
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
+
+
+def sanitize_name(name: str) -> str:
+    """Sanitize settings name for migration.
+
+    Rules:
+    - Replace spaces with hyphens
+    - Remove all non-alphanumeric characters except hyphens and dots
+    - Remove any leading/trailing hyphens or dots
+    """
+    # Replace spaces with hyphens
+    sanitized = name.replace(" ", "-")
+    # Keep only alphanumeric, hyphens, and dots
+    sanitized = re.sub(r"[^a-zA-Z0-9.-]", "", sanitized)
+    # Remove leading/trailing hyphens and dots
+    sanitized = sanitized.strip("-.")
+    return sanitized
 
 
 class MigrationResult:
@@ -47,8 +65,8 @@ class MigrationResult:
         self.status_converted = 0
         self.errors: list[str] = []
         self.migrated_settings: list[
-            tuple[str, str, int]
-        ] = []  # (project_id, settings_name, settings_version)
+            tuple[str, str]
+        ] = []  # (project_id, new_settings_name)
 
     def add_error(self, error: str) -> None:
         """Add an error message."""
@@ -69,8 +87,8 @@ class MigrationResult:
 
         if self.migrated_settings:
             logger.info("\nMigrated Settings (generated names):")
-            for project_id, settings_name, version in self.migrated_settings:
-                logger.info(f"  {settings_name} v{version} (from project {project_id})")
+            for project_id, settings_name in self.migrated_settings:
+                logger.info(f"  {settings_name} (from project {project_id})")
 
         if self.errors:
             logger.error(f"\nErrors encountered: {len(self.errors)}")
@@ -189,12 +207,12 @@ def migrate_settings(dry_run: bool) -> MigrationResult:
 
         project_id = project.id
         existing_name = settings.name
-        existing_version = settings.version
+        sanitized_name = sanitize_name(existing_name)
 
-        new_name = f"{project_id}_{existing_name}_{existing_version}"
+        new_name = f"{project_id}_{sanitized_name}"
 
         logger.info(
-            f"Migrating Settings {settings.id}: name={new_name} for project={project_id}"
+            f"Migrating Settings {settings.id}: '{existing_name}' → '{new_name}' for project={project_id}"
         )
 
         if not dry_run:
@@ -224,7 +242,7 @@ def migrate_settings(dry_run: bool) -> MigrationResult:
                 continue
 
         result.settings_migrated += 1
-        result.migrated_settings.append((project_id, new_name, settings.version))
+        result.migrated_settings.append((project_id, new_name))
 
     logger.info("\n" + "=" * 60)
     logger.info("Phase 2: Removing settings references from Projects")

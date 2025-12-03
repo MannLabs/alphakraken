@@ -57,3 +57,10 @@ def test_get_unique_project_id_not_found(project_ids: list[str]) -> None:
     assert (
         get_unique_project_id(raw_file_name, project_ids, initial_token="_SA_") is None  # noqa: S106
     )
+
+
+def test_get_unique_project_case_insensitive_mixed_case() -> None:
+    """Test that mixed-case token in filename matches different mixed-case project ID."""
+    raw_file_name = "20240524_OA2_Evo01_ViAl_SA_FAIMS40_IO17_ProJ123_MOMI_APEM.raw"
+    project_ids = ["TEST999", "PROJ123"]
+    assert get_unique_project_id(raw_file_name, project_ids) == "PROJ123"

@@ -7,7 +7,11 @@ import pandas as pd
 import streamlit as st
 import streamlit.delta_generator
 from service.components import show_filter, show_sandbox_message
-from service.db import df_from_db_data, get_project_data
+from service.db import (
+    df_from_db_data,
+    get_project_data,
+    get_settings_data,
+)
 from service.query_params import get_all_query_params
 from service.session_state import SessionStateKeys, set_session_state
 from service.utils import (
@@ -18,7 +22,11 @@ from service.utils import (
     show_feedback_in_sidebar,
 )
 
-from shared.db.interface import add_project
+from shared.db.interface import (
+    add_project,
+    assign_settings_to_project,
+    get_all_settings,
+)
 
 _log(f"loading {__file__} {get_all_query_params()}")
 
@@ -41,7 +49,25 @@ show_feedback_in_sidebar()
 # ########################################### LOGIC
 
 projects_db = get_project_data()
+settings_db = get_settings_data()
 projects_df = df_from_db_data(projects_db)
+settings_df = df_from_db_data(settings_db)
+
+# merge & beautify
+if "settings" in projects_df.columns:
+    projects_df = projects_df.merge(
+        settings_df[["_id", "name", "version"]],
+        how="left",
+        left_on="settings",
+        right_on="_id",
+        suffixes=("", "_settings"),
+    )
+    projects_df = projects_df.drop(columns=["settings", "_id_settings"])
+    projects_df["version"] = projects_df["version"].astype("Int64", errors="ignore")
+    projects_df = projects_df.rename(
+        columns={"name_settings": "settings_name", "version": "settings_version"},
+    )
+
 
 # ########################################### DISPLAY
 
@@ -65,21 +91,97 @@ def display_projects(
 
 display_projects(projects_df)
 
+# ########################################### ASSIGN SETTINGS
+
+st.markdown("## Assign settings to project")
+
+c_assign1, c_assign2 = st.columns([0.5, 0.5])
+
+with c_assign1:
+    project_options = [""] + [p.id for p in projects_db]
+    selected_project_id = st.selectbox(
+        "Select project", options=project_options, key="assign_project_select"
+    )
+
+    if selected_project_id:
+        selected_project = projects_db(id=selected_project_id).first()
+
+        if selected_project.settings:
+            current_settings_text = (
+                f"{selected_project.settings.name} v{selected_project.settings.version}"
+            )
+            settings_options_map = {f"(unassign {current_settings_text})": None}
+        else:
+            current_settings_text = "(None)"
+            settings_options_map = {}
+
+        st.info(f"Current settings: **{current_settings_text}**")
+        all_settings = get_all_settings(include_archived=False)
+
+        if not all_settings:
+            st.warning("No active settings available. Create settings first.")
+        else:
+            settings_options_map = settings_options_map | {
+                f"{s.name} v{s.version} [{s.fasta_file_name}, {s.config_file_name}, {s.software}, {s.description}]": str(
+                    s.id  # type: ignore[unresolved-attribute]
+                )
+                for s in all_settings
+            }
+
+            selected_settings_display = st.selectbox(
+                "Select settings to assign (or remove)",
+                options=settings_options_map.keys(),
+                key="assign_settings_select",
+            )
+
+            if st.button(
+                "Update settings assignment",
+                disabled=DISABLE_WRITE,
+                help="Temporarily disabled." if DISABLE_WRITE else "",
+            ):
+                try:
+                    new_settings_id = settings_options_map[selected_settings_display]
+                    assign_settings_to_project(selected_project_id, new_settings_id)
+                    set_session_state(
+                        SessionStateKeys.SUCCESS_MSG,
+                        f"Assigned settings '{selected_settings_display}' to project {selected_project_id}.",
+                    )
+                    st.rerun()
+                except Exception as e:  # noqa: BLE001
+                    st.error(f"Error: {e}")
+                    set_session_state(SessionStateKeys.ERROR_MSG, f"{e}")
+
+with c_assign2:
+    st.markdown("### Help")
+    st.info(
+        """
+        Use this section to assign settings to projects or change the settings assignment.
+
+        - Projects can have zero or one settings assigned
+        - Multiple projects can share the same settings
+        - You can remove a settings assignment by selecting "(Remove assignment)"
+        - Only active (non-archived) settings can be assigned
+        """,
+        icon="ℹ️",  # noqa: RUF001
+    )
+
+# display_projects(projects_df)
+
 # ########################################### FORM
 
 form_items = {
-    "project_name": {
-        "label": "Project Name*",
-        "max_chars": 64,
-        "placeholder": "e.g. Plasma project 42",
-        "help": "Human-readable name of the project.",
-    },
     "project_id": {
         "label": "Project Id*",
         "max_chars": 16,
         "placeholder": "e.g. P1234",
         "help": "Unique identifier of the project. This needs to be put in every file name in order to have it associated with this project. "
         "Exception: the special project id '_FALLBACK' will be used for files that do not belong to any project.",
+    },
+    "project_name": {
+        "label": "Project Name*",
+        "max_chars": 64,
+        "placeholder": "e.g. Plasma project 42",
+        "help": "Human-readable name of the project.",
     },
     "project_description": {
         "label": "Project Description",
@@ -94,17 +196,18 @@ with c1.expander("Click here for help ..."):
     st.info(
         """
         ### Explanation
-        A 'project' is a lightweight container for a tuple of quanting settings (=config, speclib, fasta).
+        A 'project' is a lightweight container that can reference quanting settings (=config, speclib, fasta).
         The connection of samples to a project is done via the file name: all files containing a project-specific token (e.g. `A123`) surrounded by `_`
-        are associated with project `A123`.
+        are associated with project `A1234`.
         Currently, only projects ids that follow after the pattern 'SA' are picked up, e.g. `20240801_something_SA_A123_my-sample.raw`.
         If no matching project can be found for a file, then fallback settings are used.
         Please make sure your project identifier is 'unique enough' ("DDA" might be a bad pick), otherwise it might cause false positives.
-        Needs to be between 3 and 8 characters, contain only uppercase letters and numbers, and at least one letter.
+        Needs to be between 5 and 16 characters, contain only uppercase letters and numbers, and at least one letter.
 
         ### Workflow
         1. Create a project with a unique project id.
-        2. Use the 'settings' tab to associate quanting settings with the project.
+        2. Create settings on the 'Settings' page if needed.
+        3. Use the 'Assign settings to project' section above to link settings to your project.
         """,
         icon="ℹ️",  # noqa: RUF001
     )
@@ -134,8 +237,8 @@ def _check_project_id(project_id: str) -> None:
     """Check if the project id is valid, raise ValueError if not."""
     if (
         project_id is None
-        or len(project_id) < 3  # noqa: PLR2004
-        or len(project_id) > 8  # noqa: PLR2004
+        or len(project_id) < 4  # noqa: PLR2004 # TODO: set min_length to 5
+        or len(project_id) > 16  # noqa: PLR2004
         or project_id.isdigit()
         or re.findall(ALLOWED_CHARACTERS_IN_PROJECT_ID, project_id)
         or project_id.lower() in FORBIDDEN_PROJECT_IDS

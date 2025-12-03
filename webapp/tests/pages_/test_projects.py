@@ -13,12 +13,18 @@ from streamlit.testing.v1 import AppTest
 PAGES_FOLDER = Path(__file__).parent / Path("../../pages_")
 
 
+@patch("service.db.get_settings_data")
 @patch("service.db.get_project_data")
 @patch("service.db.df_from_db_data")
-def test_projects_display_table(mock_df: MagicMock, mock_get: MagicMock) -> None:
+def test_projects_display_table(
+    mock_df: MagicMock, mock_get_project: MagicMock, mock_get_settings: MagicMock
+) -> None:
     """Test that the table shows correctly on the projects page."""
     mock_projects_db = MagicMock()
-    mock_get.return_value = mock_projects_db
+    mock_get_project.return_value = mock_projects_db
+
+    mock_settings_db = MagicMock()
+    mock_get_settings.return_value = mock_settings_db
 
     projects_df = pd.DataFrame(
         {
@@ -34,26 +40,44 @@ def test_projects_display_table(mock_df: MagicMock, mock_get: MagicMock) -> None
                 "some new project description",
                 "another project description",
             ],
+            "settings": ["id1", "id2"],
         },
     )
 
-    mock_df.return_value = projects_df
+    settings_df = pd.DataFrame(
+        {
+            "_id": ["id1", "id2"],
+            "name": ["settings1", "settings2"],
+            "version": [1, 2],
+        },
+    )
+
+    def df_from_db_data_side_effect(query_set: MagicMock) -> pd.DataFrame:
+        if query_set == mock_projects_db:
+            return projects_df
+        if query_set == mock_settings_db:
+            return settings_df
+        return pd.DataFrame()
+
+    mock_df.side_effect = df_from_db_data_side_effect
 
     at = AppTest.from_file(f"{PAGES_FOLDER}/projects.py").run()
 
     expected_data = {
         "_id": {0: 1, 1: 2},
+        "created_at_": {0: "2021-01-01", 1: "2021-01-02"},
         "created_at": {
             0: Timestamp("1970-01-01 00:00:00+0000", tz="UTC"),
             1: Timestamp("1970-01-01 00:00:01+0000", tz="UTC"),
         },
-        "created_at_": {0: "2021-01-01", 1: "2021-01-02"},
+        "project_id": {0: "P1234", 1: "P5678"},
+        "name": {0: "new project", 1: "another project"},
         "description": {
             0: "some new project description",
             1: "another project description",
         },
-        "name": {0: "new project", 1: "another project"},
-        "project_id": {0: "P1234", 1: "P5678"},
+        "settings_name": {0: "settings1", 1: "settings2"},
+        "settings_version": {0: 1, 1: 2},
     }
 
     assert not at.exception

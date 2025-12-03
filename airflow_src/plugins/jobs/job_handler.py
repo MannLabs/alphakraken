@@ -149,13 +149,15 @@ class SlurmSSHJobHandler(JobHandler):
         cluster_job_script_path = self._cluster_base_dir / job_script_name
         cluster_working_dir = self._cluster_base_working_dir_path / year_month_folder
 
-        params = " ".join(
-            [
-                f"--cpus-per-task={environment[QuantingEnv.SLURM_CPUS_PER_TASK]}",
-                f"--mem={environment[QuantingEnv.SLURM_MEM]}",
-                f"--time={environment[QuantingEnv.SLURM_TIME]}",
-            ]
-        )
+        # if those parameters are not passed, the value defined in the submit script are taken
+        param_list = []
+        if (cpus := environment.get(QuantingEnv.SLURM_CPUS_PER_TASK)) is not None:
+            param_list.append(f"--cpus-per-task={cpus}")
+        if (mem := environment.get(QuantingEnv.SLURM_MEM)) is not None:
+            param_list.append(f"--mem={mem}")
+        if (time := environment.get(QuantingEnv.SLURM_TIME)) is not None:
+            param_list.append(f"--time={time}")
+        params = " ".join(param_list)
 
         return "\n".join(
             [

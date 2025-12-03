@@ -10,6 +10,7 @@ from common.settings import _INSTRUMENTS
 from dags.impl.handler_impl import (
     _count_special_characters,
     _handle_file_copying,
+    _is_settings_configured,
     _verify_copied_files,
     compute_checksum,
     copy_raw_file,
@@ -741,10 +742,12 @@ def test_start_s3_uploader(
 @patch("dags.impl.handler_impl.get_xcom", return_value=[])
 @patch(
     "dags.impl.handler_impl.get_raw_file_by_id",
-    return_value=MagicMock(original_name="some_file.raw"),
+    return_value=MagicMock(original_name="some_file.raw", size=1000),
 )
 @patch("dags.impl.handler_impl.get_instrument_settings", return_value=False)
+@patch("dags.impl.handler_impl._is_settings_configured", return_value=True)
 def test_decide_processing_returns_true_if_no_errors(
+    mock_is_settings_configured: MagicMock,  # noqa:ARG001
     mock_get_instrument_settings: MagicMock,  # noqa:ARG001
     mock_get_raw_file_by_id: MagicMock,  # noqa:ARG001
     mock_get_xcom: MagicMock,  # noqa:ARG001
@@ -928,6 +931,43 @@ def test_decide_processing_returns_false_if_corrupted_file(  # noqa: PLR0913
         "some_file.raw",
         new_status=RawFileStatus.ACQUISITION_FAILED,
         status_details="File name indicates failed acquisition.",
+    )
+
+
+@patch("dags.impl.handler_impl.get_xcom", return_value=[])
+@patch(
+    "dags.impl.handler_impl.get_raw_file_by_id",
+    return_value=MagicMock(original_name="some_file.raw", size=1000),
+)
+@patch("dags.impl.handler_impl.get_instrument_settings", return_value=False)
+@patch("dags.impl.handler_impl._count_special_characters", return_value=0)
+@patch("dags.impl.handler_impl.ThermoRawFileMonitorWrapper")
+@patch("dags.impl.handler_impl._is_settings_configured", return_value=False)
+@patch("dags.impl.handler_impl.update_raw_file")
+def test_decide_processing_returns_false_if_settings_not_configured(  # noqa: PLR0913
+    mock_update_raw_file: MagicMock,
+    mock_is_settings_configured: MagicMock,  # noqa:ARG001
+    mock_raw_file_monitor_wrapper: MagicMock,
+    mock_count_special_characters: MagicMock,  # noqa:ARG001
+    mock_get_instrument_settings: MagicMock,  # noqa:ARG001
+    mock_get_raw_file_by_id: MagicMock,  # noqa:ARG001
+    mock_get_xcom: MagicMock,  # noqa:ARG001
+) -> None:
+    """Test decide_processing returns False if settings are not configured for the project."""
+    ti = MagicMock()
+    kwargs = {
+        DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"},
+        OpArgs.INSTRUMENT_ID: "instrument1",
+    }
+
+    mock_raw_file_monitor_wrapper.is_corrupted_file_name.return_value = False
+
+    # when
+    assert decide_processing(ti, **kwargs) is False
+    mock_update_raw_file.assert_called_once_with(
+        "some_file.raw",
+        new_status=RawFileStatus.DONE_NOT_QUANTED,
+        status_details="No settings configured.",
     )
 
 
@@ -1122,3 +1162,45 @@ def test_start_acquisition_processor_with_single_file(
     mock_update_raw_file.assert_called_once_with(
         "file1.raw", new_status=RawFileStatus.QUEUED_FOR_QUANTING
     )
+
+
+@patch("dags.impl.handler_impl._get_project_id_or_fallback", return_value="project1")
+@patch("dags.impl.handler_impl.get_settings_for_project", return_value=MagicMock())
+def test_is_settings_configured_returns_true_when_settings_exist(
+    mock_get_settings_for_project: MagicMock,
+    mock_get_project_id_or_fallback: MagicMock,
+) -> None:
+    """Test _is_settings_configured returns True when settings exist for the project."""
+    # given
+    raw_file = MagicMock()
+    raw_file.project_id = "project1"
+    raw_file.instrument_id = "instrument1"
+
+    # when
+    result = _is_settings_configured(raw_file)
+
+    # then
+    assert result is True
+    mock_get_project_id_or_fallback.assert_called_once_with("project1", "instrument1")
+    mock_get_settings_for_project.assert_called_once_with("project1")
+
+
+@patch("dags.impl.handler_impl._get_project_id_or_fallback", return_value="project1")
+@patch("dags.impl.handler_impl.get_settings_for_project", return_value=None)
+def test_is_settings_configured_returns_false_when_settings_do_not_exist(
+    mock_get_settings_for_project: MagicMock,
+    mock_get_project_id_or_fallback: MagicMock,
+) -> None:
+    """Test _is_settings_configured returns False when settings do not exist for the project."""
+    # given
+    raw_file = MagicMock()
+    raw_file.project_id = "project1"
+    raw_file.instrument_id = "instrument1"
+
+    # when
+    result = _is_settings_configured(raw_file)
+
+    # then
+    assert result is False
+    mock_get_project_id_or_fallback.assert_called_once_with("project1", "instrument1")
+    mock_get_settings_for_project.assert_called_once_with("project1")

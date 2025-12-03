@@ -12,9 +12,11 @@ from shared.db.interface import (
     add_metrics_to_raw_file,
     add_project,
     add_raw_file,
-    add_settings,
+    assign_settings_to_project,
     augment_raw_files_with_metrics,
+    create_settings,
     get_all_project_ids,
+    get_all_settings,
     get_raw_file_by_id,
     get_raw_files_by_age,
     get_raw_files_by_instrument_file_status,
@@ -200,6 +202,7 @@ def test_add_metrics_to_raw_file_happy_path(
         "test_file",
         metrics_type="alphadia",
         metrics={"metric1": 1, "metric2": 2},
+        settings_name="test_settings",
         settings_version=1,
     )
 
@@ -210,9 +213,10 @@ def test_add_metrics_to_raw_file_happy_path(
     mock_metrics.assert_called_once_with(
         raw_file=mock_raw_file_from_db,
         type="alphadia",
+        settings_name="test_settings",
+        settings_version=1,
         metric1=1,
         metric2=2,
-        settings_version=1,
     )
 
 
@@ -258,82 +262,103 @@ def test_get_all_project_ids(
 
 @patch("shared.db.interface.connect_db")
 @patch("shared.db.interface.Settings")
-@patch("shared.db.interface.Project")
-def test_add_settings_first(
-    mock_project: MagicMock, mock_settings: MagicMock, mock_connect_db: MagicMock
+def test_create_settings_first_version(
+    mock_settings: MagicMock, mock_connect_db: MagicMock
 ) -> None:
-    """Test that add_settings adds new settings to the database (first setting)."""
-    # given
-    mock_project_from_db = MagicMock()
-    mock_project.objects.get.return_value = mock_project_from_db
+    """Test that create_settings creates first version of settings."""
+    mock_settings.objects.return_value.order_by.return_value.first.return_value = None
 
-    mock_settings.objects.return_value.first.return_value = None
-
-    # when
-    add_settings(
-        project_id="P1234",
-        name="new settings",
-        fasta_file_name="fasta_file",
-        speclib_file_name="speclib_file",
-        config_file_name="config_file",
-        config_params="config_params",
-        software_type="software_type",
-        software="software",
+    create_settings(
+        name="plasma_settings",
+        description="Fast plasma settings",
+        fasta_file_name="human.fasta",
+        speclib_file_name="plasma.speclib",
+        config_file_name="fast.yaml",
+        config_params=None,
+        software_type="alphadia",
+        software="alphadia-1.10.0",
     )
 
-    # then
-    mock_settings.assert_called_once_with(
-        project=mock_project_from_db,
-        name="new settings",
-        fasta_file_name="fasta_file",
-        speclib_file_name="speclib_file",
-        config_file_name="config_file",
-        config_params="config_params",
-        software_type="software_type",
-        software="software",
-        version=1,
+    mock_settings.assert_called_once()
+    call_kwargs = mock_settings.call_args.kwargs
+    assert call_kwargs["name"] == "plasma_settings"
+    assert call_kwargs["version"] == 1
+    assert call_kwargs["description"] == "Fast plasma settings"
+    mock_connect_db.assert_called_once()
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.Settings")
+def test_create_settings_auto_increment_version(
+    mock_settings: MagicMock, mock_connect_db: MagicMock
+) -> None:
+    """Test that create_settings auto-increments version."""
+    existing_setting = MagicMock()
+    existing_setting.version = 3
+    mock_settings.objects.return_value.order_by.return_value.first.return_value = (
+        existing_setting
     )
+
+    create_settings(
+        name="plasma_settings",
+        description=None,
+        fasta_file_name="human.fasta",
+        speclib_file_name="plasma.speclib",
+        config_file_name="fast.yaml",
+        config_params=None,
+        software_type="alphadia",
+        software="alphadia-1.10.0",
+    )
+
+    mock_settings.assert_called_once()
+    call_kwargs = mock_settings.call_args.kwargs
+    assert call_kwargs["name"] == "plasma_settings"
+    assert call_kwargs["version"] == 4
+    mock_connect_db.assert_called_once()
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.Settings")
+def test_get_all_settings_excludes_archived(
+    mock_settings: MagicMock, mock_connect_db: MagicMock
+) -> None:
+    """Test that get_all_settings excludes archived by default."""
+    get_all_settings(include_archived=False)
+
+    mock_settings.objects.assert_called_once()
+    mock_connect_db.assert_called_once()
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.Settings")
+def test_get_all_settings_includes_archived(
+    mock_settings: MagicMock, mock_connect_db: MagicMock
+) -> None:
+    """Test that get_all_settings includes archived when requested."""
+    get_all_settings(include_archived=True)
+
+    mock_settings.objects.all.assert_called_once()
     mock_connect_db.assert_called_once()
 
 
 @patch("shared.db.interface.connect_db")
 @patch("shared.db.interface.Settings")
 @patch("shared.db.interface.Project")
-def test_add_settings_not_first(
+def test_assign_settings_to_project(
     mock_project: MagicMock, mock_settings: MagicMock, mock_connect_db: MagicMock
 ) -> None:
-    """Test that add_settings adds new settings to the database (not the first setting)."""
-    # given
-    mock_project_from_db = MagicMock()
-    mock_project.objects.get.return_value = mock_project_from_db
+    """Test that assign_settings_to_project works correctly."""
+    mock_project_instance = MagicMock()
+    mock_project.objects.get.return_value = mock_project_instance
 
-    mock_settings.objects.return_value.first.return_value = MagicMock()
-    mock_settings.objects.return_value.all.return_value.count.return_value = 41
+    mock_settings_instance = MagicMock()
+    mock_settings_instance.status = "active"
+    mock_settings.objects.get.return_value = mock_settings_instance
 
-    # when
-    add_settings(
-        project_id="P1234",
-        name="new settings",
-        fasta_file_name="fasta_file",
-        speclib_file_name="speclib_file",
-        config_file_name="config_file",
-        config_params="config_params",
-        software_type="software_type",
-        software="software",
-    )
+    assign_settings_to_project("P1234", "settings_id")
 
-    # then
-    mock_settings.assert_called_once_with(
-        project=mock_project_from_db,
-        name="new settings",
-        fasta_file_name="fasta_file",
-        speclib_file_name="speclib_file",
-        config_file_name="config_file",
-        config_params="config_params",
-        software_type="software_type",
-        software="software",
-        version=42,
-    )
+    assert mock_project_instance.settings == mock_settings_instance
+    mock_project_instance.save.assert_called_once()
     mock_connect_db.assert_called_once()
 
 

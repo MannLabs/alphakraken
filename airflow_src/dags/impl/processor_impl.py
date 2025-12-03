@@ -83,7 +83,8 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
     else:
         if settings is None:
             raise AirflowFailException(
-                f"No active settings found for project id '{project_id_or_fallback}'. Please add settings in the WebApp."
+                f"No settings assigned to project '{project_id_or_fallback}'. "
+                "Please assign settings to this project in the WebApp."
             )
 
     # get raw file path
@@ -93,7 +94,7 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
     raw_file_path = backup_base_path / relative_raw_file_path
 
     # get settings and output_path
-    settings_path = get_path(YamlKeys.Locations.SETTINGS) / project_id_or_fallback
+    settings_path = get_path(YamlKeys.Locations.SETTINGS) / settings.name
 
     relative_output_path = get_output_folder_rel_path(raw_file, project_id_or_fallback)
     output_path = get_path(YamlKeys.Locations.OUTPUT) / relative_output_path
@@ -132,6 +133,7 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
         # not required for slurm script:
         QuantingEnv.RAW_FILE_ID: raw_file_id,
         QuantingEnv.PROJECT_ID_OR_FALLBACK: project_id_or_fallback,
+        QuantingEnv.SETTINGS_NAME: settings.name,
         QuantingEnv.SETTINGS_VERSION: settings.version,
     }
 
@@ -422,6 +424,7 @@ def check_quanting_result(ti: TaskInstance, **kwargs) -> bool:
         add_metrics_to_raw_file(
             raw_file.id,
             metrics={QUANTING_TIME_ELAPSED_METRIC: time_elapsed},
+            settings_name=quanting_env[QuantingEnv.SETTINGS_NAME],
             settings_version=quanting_env[QuantingEnv.SETTINGS_VERSION],
             metrics_type=MetricsTypes.ALPHADIA,
         )
@@ -503,6 +506,7 @@ def upload_metrics(ti: TaskInstance, **kwargs) -> None:
         raw_file_id,
         metrics_type=metrics_type,
         metrics=metrics,
+        settings_name=quanting_env[QuantingEnv.SETTINGS_NAME],
         settings_version=quanting_env[QuantingEnv.SETTINGS_VERSION],
     )
 

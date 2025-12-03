@@ -1,4 +1,6 @@
-"""Simple data overview."""
+"""Settings management page."""
+
+from collections import defaultdict
 
 # ruff: noqa: TRY301 # Abstract `raise` to an inner function
 from typing import Any
@@ -22,8 +24,8 @@ from service.utils import (
     show_feedback_in_sidebar,
 )
 
-from shared.db.interface import add_settings
-from shared.db.models import ProjectStatus
+from shared.db.interface import create_settings
+from shared.db.models import SettingsStatus
 from shared.keys import SoftwareTypes
 from shared.validation import check_for_malicious_content
 from shared.yamlsettings import YamlKeys, get_path
@@ -69,7 +71,6 @@ def display_settings(
         settings_df, st_display=st_display, default_value="status=^active"
     )
 
-    # beautify
     filtered_df = filtered_df.drop(columns=["_id"], errors="ignore").fillna("")
     if "config_params" in filtered_df.columns:
         filtered_df["config_params"] = filtered_df["config_params"].apply(
@@ -80,7 +81,7 @@ def display_settings(
         filtered_df.style.apply(
             lambda row: [
                 "color: lightgray"
-                if row["status"] == ProjectStatus.INACTIVE
+                if row["status"] == SettingsStatus.INACTIVE
                 else "background-color: white"
             ]
             * len(row),
@@ -89,191 +90,244 @@ def display_settings(
     )
 
     st_display.markdown(
-        "The files associated with the settings of a given project are stored at "
-        f"`{quanting_settings_path}/<project id>/`"
+        "The files associated with settings are stored at "
+        f"`{quanting_settings_path}/<settings name>/`"
     )
 
 
 display_settings(settings_df)
 
-c1, _ = st.columns([0.5, 0.5])
+c1, c2 = st.columns([0.5, 0.5])
 with c1.expander("Click here for help ..."):
     st.info(
         """
         ### Explanation
-        Settings are a defined tuple of input to the quanting software: config file, speclib file and/or fasta file
-        which will be used to process all files associated to the parent project.
-        Before creating the settings on this page, make sure you copied the corresponding files to the project-specific pool folder.
-
-        If you want to update settings (e.g. use a newer AlphaDIA version or a different config file), just create a new settings entry
-        for the corresponding project. The current settings will be set to 'inactive', and the version number will be increased.
-        This version number is shown with each results metrics entry to keep track of the settings used for the analysis.
+        Settings are a defined tuple of input to the quanting software: config file, speclib file and/or fasta file.
+        Settings are standalone entities that can be shared across multiple projects.
 
         ### Workflow
-        1. Select a project to associate the new settings with.
-        2. Fill in required information (file names, etc.).
-        3. Upload the files to the designated location.
+        1. Select an existing settings name to create a new version, or choose "Create new settings..." to define a brand new settings configuration.
+        2. Fill in required information (file names, software, etc.).
+        3. Upload the files to the designated location: `<settings_path>/<settings_name>/`
+        4. Assign the settings to projects on the Projects page.
+
+        ### Versioning
+        Settings use name + version as a unique identifier. If you create settings with an existing name, the version number will automatically increment.
+        This allows you to update settings (e.g., use a newer AlphaDIA version) while keeping old versions available.
+
+        **Important:** Projects always reference a specific version of settings (e.g., 'fast_plasma' v2).
+        Creating a new version does not affect existing projects - they continue using their assigned version until explicitly updated.
         """,
         icon="ℹ️",  # noqa: RUF001
     )
 
-# ########################################### SELECT PROJECT
+# ########################################### CREATE NEW SETTINGS
 
-c1.markdown("## Add new settings for project")
-c1.markdown("### Step 1/3: Select project")
+c1.markdown("## Create / update settings")
 
-project_info = [""] + [p.id for p in projects_db]
-
-project_id = c1.selectbox(
-    label="Select project to add your settings to", options=project_info
+# Get existing settings names for selectbox (outside form so it can trigger reruns)
+existing_settings_names = (
+    sorted(set(settings_df["name"].tolist()))
+    if not settings_df.empty and "name" in settings_df.columns
+    else []
 )
-project_id = empty_to_none(project_id)
+CREATE_NEW_OPTION = "➕ Create new settings..."  # noqa: RUF001
 
-selected_project = None
-if project_id:
-    selected_project = projects_db(id=project_id).first()
+settings_name_options = [CREATE_NEW_OPTION, *existing_settings_names]
+selected_name_option = c1.selectbox(
+    label="Action",
+    options=settings_name_options,
+    format_func=lambda x: x if x == CREATE_NEW_OPTION else f"🔄 Update {x}",
+)
 
-# ########################################### FORM
+# Show info banner if existing settings selected and get latest version data for prefilling
+prefill_data = defaultdict(lambda: "")
+if selected_name_option != CREATE_NEW_OPTION:
+    # Get the latest version of the selected settings
+    latest_settings = (
+        settings_df[settings_df["name"] == selected_name_option]
+        .sort_values("version", ascending=False)
+        .iloc[0]
+    )
+    current_version = int(latest_settings["version"])
 
-
-if selected_project:
-    c1.markdown("### Step 2/3: Define settings")
-
-    desc = f"('{selected_project.description}')" if selected_project.description else ""
-    c1.write(
-        f"Settings will be added to the following project: `{selected_project.name}`{desc}"
+    c1.info(
+        f"This will create a new version ({current_version + 1}) of the existing settings '{selected_name_option}'. "
+        f"Projects always reference a specific version of settings, so existing projects using '{selected_name_option}' v{current_version} will not be affected. "
+        "Make sure to updated (all or selected) projects to use the new version after creating it.",
+        icon="ℹ️",  # noqa: RUF001
     )
 
-    software_type = c1.selectbox(
-        label="Type", options=[SoftwareTypes.ALPHADIA, SoftwareTypes.CUSTOM]
-    )
+    # Prepare prefill data from latest version
+    prefill_data = {
+        "description": str(latest_settings.get("description", "")),
+        "software": str(latest_settings.get("software", "")),
+        "fasta_file_name": str(latest_settings.get("fasta_file_name", "")),
+        "speclib_file_name": str(latest_settings.get("speclib_file_name", "")),
+        "config_file_name": str(latest_settings.get("config_file_name", "")),
+        "config_params": str(latest_settings.get("config_params", "")),
+    }
 
-    form_items = {
-        "name": {
-            "label": "Name*",
+
+software_type = c1.selectbox(
+    label="Type", options=[SoftwareTypes.ALPHADIA, SoftwareTypes.CUSTOM]
+)
+
+form_items = {
+    "name": {
+        "label": "Settings Name*",
+        "max_chars": 64,
+        "placeholder": "e.g. 'fast_plasma' or 'standard_tissue'",
+        "help": "Alphanumeric + underscore only. Used as folder name and for versioning.",
+    },
+    "description": {
+        "label": "Description",
+        "max_chars": 512,
+        "placeholder": "(optional) e.g. 'Fast plasma settings for routine analysis'",
+        "help": "Human readable description of these settings.",
+    },
+    "fasta_file_name": {
+        "label": "Fasta file name**",
+        "max_chars": 64,
+        "placeholder": "e.g. 'human.fasta'",
+        "help": "Name of the fasta file.",
+    },
+    "speclib_file_name": {
+        "label": "Speclib file name**",
+        "max_chars": 64,
+        "placeholder": "e.g. 'human_plasma.speclib'",
+        "help": "Name of the speclib file.",
+    },
+}
+
+
+if software_type == SoftwareTypes.ALPHADIA:
+    form_items |= {
+        "config_file_name": {
+            "label": "Config file name*",
             "max_chars": 64,
-            "placeholder": "e.g. 'very fast plasma settings'",
-            "help": "Human readable short name for your settings.",
+            "placeholder": "e.g. 'very_fast_config.yaml'",
+            "help": "Name of the config file. If none is given, default will be used.",
         },
-        "fasta_file_name": {
-            "label": "Fasta file name**",
+        "software": {
+            "label": "Software*",
             "max_chars": 64,
-            "placeholder": "e.g. 'human.fasta'",
-            "help": "Name of the fasta file.",
-        },
-        "speclib_file_name": {
-            "label": "Speclib file name**",
-            "max_chars": 64,
-            "placeholder": "e.g. 'human_plasma.speclib'",
-            "help": "Name of the speclib file.",
+            "placeholder": "e.g. 'alphadia-1.10.0'",
+            "help": "Name of the Conda environment that holds the AlphaDIA executable. Ask an administrator to create this environment.",
         },
     }
 
-    if software_type == SoftwareTypes.ALPHADIA:
-        form_items |= {
-            "config_file_name": {
-                "label": "Config file name*",
-                "max_chars": 64,
-                "placeholder": "e.g. 'very_fast_config.yaml'",
-                "help": "Name of the config file. If none is given, default will be used.",
-            },
-            "software": {
-                "label": "Software*",
-                "max_chars": 64,
-                "placeholder": "e.g. 'alphadia-1.10.0'",
-                "help": "Name of the Conda environment that holds the AlphaDIA executable. Ask an administrator to created this environment..",
-            },
-        }
+elif software_type == SoftwareTypes.CUSTOM:
+    form_items |= {
+        "software": {
+            "label": "Executable*",
+            "max_chars": 64,
+            "placeholder": "e.g. 'custom-software/custom-executable1.2.3'",
+            "help": f"Path to executable, relative to `{get_path(YamlKeys.Locations.SOFTWARE)}/`. Ask an administrator to add the executable to the software folder. "
+            f"If something that is in the `$PATH` should be executed, it needs to be wrapped by a shell script located in the software folder.",
+        },
+        "config_params": {
+            "label": "Configuration parameters",
+            "max_chars": 512,
+            "placeholder": "e.g. '--qvalue 0.01 --f RAW_FILE_PATH --lib LIBRARY_PATH --fasta FASTA_PATH --temp OUTPUT_PATH --threads NUM_THREADS'",
+            "help": "Configuration options for the custom software. Certain placeholders will be substituted.",
+        },
+    }
 
-    elif software_type == SoftwareTypes.CUSTOM:
-        form_items |= {
-            "software": {
-                "label": "Executable*",
-                "max_chars": 64,
-                "placeholder": "e.g. 'custom-software/custom-executable1.2.3'",
-                "help": f"Path to executable, relative to `{get_path(YamlKeys.Locations.SOFTWARE)}/`. Ask an administrator to add the executable to the software folder. "
-                f"If something that is in the `$PATH` should be executed, it needs to be wrapped by a shell script located in the software folder.",
-            },
-            "config_params": {
-                "label": "Configuration parameters",
-                "max_chars": 512,
-                "placeholder": "e.g. '--qvalue 0.01 --f RAW_FILE_PATH --lib LIBRARY_PATH --fasta FASTA_PATH --temp OUTPUT_PATH --threads NUM_THREADS'",
-                "help": "Configuration options for the custom software. Certain placeholders will be substituted.",
-            },
-        }
-
-    with c1.form("add_settings_to_project"):
-        name = st.text_input(**form_items["name"])
-
-        software = st.text_input(**form_items["software"])
-
-        fasta_file_name = st.text_input(**form_items["fasta_file_name"])
-        speclib_file_name = st.text_input(**form_items["speclib_file_name"])
-
-        config_file_name = (
-            st.text_input(**form_items["config_file_name"])
-            if "config_file_name" in form_items
-            else None
+with c1.form("create_settings"):
+    # Show input field for new name or use selected name
+    if selected_name_option == CREATE_NEW_OPTION:
+        name = st.text_input(
+            label=form_items["name"]["label"],
+            max_chars=form_items["name"]["max_chars"],
+            placeholder=form_items["name"]["placeholder"],
+            help=form_items["name"]["help"],
         )
+    else:
+        name = selected_name_option
+        st.text(f"Settings name: {name}")
 
-        if "config_params" in form_items:
-            config_params = st.text_area(**form_items["config_params"])
-            st.info(
-                "The following placeholders can be used in the config parameters, and will be replaced by the specified values:\n\n"
-                "- `RAW_FILE_PATH`: absolute path of the raw file\n"
-                "- `RELATIVE_RAW_FILE_PATH`: path of the raw file relative to `locations.backup.absolute_path` in alphakraken.yaml\n"
-                "- `OUTPUT_PATH`: absolute path of the output directory\n"
-                "- `RELATIVE_OUTPUT_PATH`: path of the output directory relative to `locations.output.absolute_path` in alphakraken.yaml\n"
-                "- `LIBRARY_PATH`: absolute path of the library file\n"
-                "- `FASTA_PATH`: absolute path of the fasta file\n"
-                "- `NUM_THREADS`: number of threads\n"
-                "- `PROJECT_ID`: project id\n\n"
-                "Notes:\n"
-                "- The working directory of the custom software is `OUTPUT_PATH`.\n"
-                "- If you require more than the provided files, reference them directly by their absolute path.\n"
-                "- If something that is in the `$PATH` should be executed, wrap it in a shell script and place it in the software folder.\n"
+    description = st.text_area(
+        **form_items["description"], value=prefill_data["description"]
+    )
+
+    software = st.text_input(**form_items["software"], value=prefill_data["software"])
+
+    fasta_file_name = st.text_input(
+        **form_items["fasta_file_name"], value=prefill_data["fasta_file_name"]
+    )
+    speclib_file_name = st.text_input(
+        **form_items["speclib_file_name"], value=prefill_data["speclib_file_name"]
+    )
+
+    config_file_name = (
+        st.text_input(
+            **form_items["config_file_name"], value=prefill_data["config_file_name"]
+        )
+        if "config_file_name" in form_items
+        else None
+    )
+
+    if "config_params" in form_items:
+        config_params = st.text_area(
+            **form_items["config_params"],
+            value=prefill_data.get("config_params", ""),
+        )
+        st.info(
+            "The following placeholders can be used in the config parameters, and will be replaced by the specified values:\n\n"
+            "- `RAW_FILE_PATH`: absolute path of the raw file\n"
+            "- `RELATIVE_RAW_FILE_PATH`: path of the raw file relative to `locations.backup.absolute_path` in alphakraken.yaml\n"
+            "- `OUTPUT_PATH`: absolute path of the output directory\n"
+            "- `RELATIVE_OUTPUT_PATH`: path of the output directory relative to `locations.output.absolute_path` in alphakraken.yaml\n"
+            "- `LIBRARY_PATH`: absolute path of the library file\n"
+            "- `FASTA_PATH`: absolute path of the fasta file\n"
+            "- `NUM_THREADS`: number of threads\n"
+            "- `PROJECT_ID`: project id\n\n"
+            "Notes:\n"
+            "- The working directory of the custom software is `OUTPUT_PATH`.\n"
+            "- If you require more than the provided files, reference them directly by their absolute path.\n"
+            "- If something that is in the `$PATH` should be executed, wrap it in a shell script and place it in the software folder.\n"
+        )
+        with st.expander("Example parameters for DIANN..."):
+            st.code(
+                "--f RAW_FILE_PATH --lib LIBRARY_PATH --fasta FASTA_PATH --temp OUTPUT_PATH --threads NUM_THREADS --qvalue 0.01"
             )
-            with st.expander("Example parameters for DIANN..."):
-                st.code(
-                    "--f RAW_FILE_PATH --lib LIBRARY_PATH --fasta FASTA_PATH --temp OUTPUT_PATH --threads NUM_THREADS --qvalue 0.01"
-                )
-            with st.expander("Example parameters for Spectronaut..."):
-                st.code(
-                    "direct -n alphakraken -r RAW_FILE_PATH -fasta FASTA_PATH -o OUTPUT_PATH -s /path/to/settings/alphakraken.prop"
-                )
+        with st.expander("Example parameters for Spectronaut..."):
+            st.code(
+                "direct -n alphakraken -r RAW_FILE_PATH -fasta FASTA_PATH -o OUTPUT_PATH -s /path/to/settings/alphakraken.prop"
+            )
 
-        else:
-            config_params = None
+    else:
+        config_params = None
 
-        st.write(r"\* Required fields")
-        st.write(r"\** At least one of the two must be given")
+    st.write(r"\* Required fields")
+    st.write(r"\** At least one of the two must be given")
 
-        st.markdown("### Step 3/3: Upload files to pool folder")
+    st.markdown("### Upload files to settings folder")
+    settings_name_clean = empty_to_none(name)
+    if settings_name_clean:
         st.markdown(
-            "Make sure you have uploaded all referenced files correctly to "
-            f"`{quanting_settings_path}/{project_id}/`"
+            f"Make sure you have uploaded all referenced files to "
+            f"`{quanting_settings_path}/{settings_name_clean}/`"
         )
-        # TODO: NEXT_SLICE add list of files to upload here
-        upload_checkbox = st.checkbox(
-            "I have uploaded all referenced files to this folder.", value=False
-        )
-
-        if "project" in settings_df.columns and len(
-            settings_df[settings_df["project"] == selected_project.id]
-        ):
-            st.info(
-                "When adding new settings, the current settings for this project will be set to 'inactive'."
-            )
-
-        submit = st.form_submit_button(
-            f"Add settings to project {selected_project.id}",
-            disabled=DISABLE_WRITE,
-            help="Temporarily disabled." if DISABLE_WRITE else "",
+    else:
+        st.markdown(
+            f"After entering a settings name above, upload files to "
+            f"`{quanting_settings_path}/<settings_name>/`"
         )
 
+    upload_checkbox = st.checkbox(
+        "I have uploaded all referenced files to this folder.", value=False
+    )
 
-if selected_project and submit:
-    # Validate inputs
+    submit = st.form_submit_button(
+        "Create settings",
+        disabled=DISABLE_WRITE,
+        help="Temporarily disabled." if DISABLE_WRITE else "",
+    )
+
+
+if submit:
     validation_errors = []
     for to_validate in [
         fasta_file_name,
@@ -295,7 +349,6 @@ if selected_project and submit:
         validation_errors.append(
             "At least one of the fasta and speclib file names must be given."
         )
-    # non-empty constraints are being handled on DB level
 
     try:
         if validation_errors:
@@ -309,9 +362,9 @@ if selected_project and submit:
                 "Please upload the files to the respective folders on the pool file system and check the respective box."
             )
 
-        add_settings(
-            project_id=selected_project.id,
+        create_settings(
             name=empty_to_none(name),
+            description=empty_to_none(description),
             fasta_file_name=fasta_file_name,
             speclib_file_name=speclib_file_name,
             config_file_name=config_file_name,
@@ -325,6 +378,6 @@ if selected_project and submit:
     else:
         set_session_state(
             SessionStateKeys.SUCCESS_MSG,
-            f"Added new settings '{name}' to project {selected_project.id}.",
+            f"Created new settings '{name}'. Assign it to projects on the Projects page.",
         )
     st.rerun()

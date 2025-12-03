@@ -186,6 +186,7 @@ class Metrics(DynamicDocument):
     # https://docs.mongoengine.org/guide/defining-documents.html#reference-fields
     raw_file = ReferenceField(RawFile)
 
+    settings_name = StringField(max_length=64, default="n/a")
     settings_version = IntField(min_value=1, default=1)
 
     # Type of metrics: "alphadia" (default) or "custom"
@@ -200,7 +201,13 @@ class ProjectStatus:
 
     ACTIVE = "active"
     INACTIVE = "inactive"
-    DELETED = "deleted"
+
+
+class SettingsStatus:
+    """Status of settings."""
+
+    ACTIVE = "active"
+    INACTIVE = "inactive"
 
 
 class Project(Document):
@@ -209,9 +216,13 @@ class Project(Document):
     meta: ClassVar = {"strict": False}
     objects: ClassVar[QuerySet[Project]]
 
-    id = StringField(required=True, primary_key=True, min_length=3, max_length=16)
+    id = StringField(
+        required=True, primary_key=True, min_length=3, max_length=16
+    )  # TODO: set min_length to 5
     name = StringField(required=True, max_length=64)
     description = StringField(max_length=512)
+
+    settings = ReferenceField("Settings", required=False)
 
     status = StringField(max_length=32, default=ProjectStatus.ACTIVE)
 
@@ -219,19 +230,21 @@ class Project(Document):
     created_at_ = DateTimeField(default=datetime.now)
 
 
+SETTINGS_NAME_REGEX = r"^[a-zA-Z0-9_]+$"
+
+
 class Settings(Document):
     """Schema for quanting settings."""
 
-    meta: ClassVar = {"strict": False}
+    meta: ClassVar = {
+        "strict": False,
+        "indexes": [{"fields": ["name", "version"], "unique": True}],
+    }
     objects: ClassVar[QuerySet[Settings]]
 
-    project = ReferenceField(
-        Project,
-    )
-
-    name = StringField(required=True, max_length=64)
+    name = StringField(required=True, max_length=64, regex=SETTINGS_NAME_REGEX)
     version = IntField(min_value=1, default=1)
-    # TODO: add description = StringField(max_length=512)
+    description = StringField(max_length=512)
 
     # although only one of (speclib, fasta) is required by alphaDIA,
     # on DB level, we want both filled (empty string is alright)
@@ -248,7 +261,7 @@ class Settings(Document):
     )
     software = StringField(required=True, max_length=128)
 
-    status = StringField(max_length=64, default=ProjectStatus.ACTIVE)
+    status = StringField(max_length=64, default=SettingsStatus.ACTIVE)
 
     created_at_ = DateTimeField(default=datetime.now)
 

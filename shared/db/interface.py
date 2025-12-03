@@ -17,9 +17,9 @@ from shared.db.models import (
     KrakenStatusEntities,
     Metrics,
     Project,
-    ProjectStatus,
     RawFile,
     Settings,
+    SettingsStatus,
 )
 
 
@@ -181,16 +181,24 @@ def update_raw_file(  # noqa: PLR0913
 
 
 def add_metrics_to_raw_file(
-    raw_file_id: str, *, metrics_type: str, metrics: dict, settings_version: int
+    raw_file_id: str,
+    *,
+    metrics_type: str,
+    metrics: dict,
+    settings_name: str,
+    settings_version: int,
 ) -> None:
     """Add `metrics` to DB entry of `raw_file_id`."""
-    logging.info(f"Adding to DB: {raw_file_id=} <- {metrics=} type={metrics_type}")
+    logging.info(
+        f"Adding to DB: {raw_file_id=} <- {metrics=} type={metrics_type} {settings_name=} {settings_version=}"
+    )
     connect_db()
     raw_file = RawFile.objects.get(id=raw_file_id)
 
     Metrics(
         raw_file=raw_file,
         type=metrics_type,
+        settings_name=settings_name,
         settings_version=settings_version,
         **metrics,
     ).save()
@@ -211,56 +219,75 @@ def get_all_project_ids() -> list[str]:
     return [p.id for p in Project.objects.all()]
 
 
-def get_settings_for_project(project_id: str) -> Settings:
-    """Get a project by its id."""
-    logging.info(f"Getting from DB: {project_id=}")
+def get_settings_for_project(project_id: str) -> Settings | None:
+    """Get the settings assigned to a project."""
+    logging.info(f"Getting settings from DB for: {project_id=}")
     connect_db()
     project = Project.objects.get(id=project_id)
-    return Settings.objects(project=project, status=ProjectStatus.ACTIVE).first()
+    return project.settings
 
 
-def add_settings(  # noqa: PLR0913 many arguments in function definition
+def create_settings(  # noqa: PLR0913
     *,
-    project_id: str,
     name: str,
+    description: str | None = None,
     fasta_file_name: str,
     speclib_file_name: str,
     config_file_name: str | None,
     config_params: str | None,
     software_type: str,
     software: str,
-) -> None:
-    """Add new settings to a project."""
+) -> Settings:
+    """Create a new settings entry.
+
+    Version is automatically incremented based on existing settings with same name.
+    """
     connect_db()
-    project = Project.objects.get(id=project_id)
 
-    if (
-        current_active_setting := Settings.objects(
-            project=project, status=ProjectStatus.ACTIVE
-        ).first()
-    ) is not None:
-        logging.info(
-            f"Setting existing setting to INACTIVE: {current_active_setting.id}"
-        )
-        current_active_setting.status = ProjectStatus.INACTIVE
-        current_active_setting.save()
-
-        num_existing_settings = Settings.objects(project=project).all().count()
-    else:
-        num_existing_settings = 0
+    existing = Settings.objects(name=name).order_by("-version").first()
+    version = (existing.version + 1) if existing else 1
 
     settings = Settings(
-        project=project,
         name=name,
+        version=version,
+        description=description,
         fasta_file_name=fasta_file_name,
         speclib_file_name=speclib_file_name,
         config_file_name=config_file_name,
         config_params=config_params,
         software_type=software_type,
         software=software,
-        version=num_existing_settings + 1,
     )
     settings.save(force_insert=True)
+    logging.info(f"Created settings: {name=} {version=}")
+    return settings
+
+
+def get_all_settings(*, include_archived: bool = False) -> list[Settings]:
+    """Get all settings from the database."""
+    connect_db()
+    if include_archived:
+        return list(Settings.objects.all().order_by("-created_at_"))
+    return list(Settings.objects(status=SettingsStatus.ACTIVE).order_by("-created_at_"))
+
+
+def assign_settings_to_project(project_id: str, settings_id: str | None) -> None:
+    """Assign settings to a project, or remove assignment if settings_id is None."""
+    connect_db()
+    project = Project.objects.get(id=project_id)
+
+    if settings_id is None:
+        project.settings = None
+    else:
+        settings = Settings.objects.get(id=settings_id)
+        if settings.status == SettingsStatus.INACTIVE:
+            raise ValueError(
+                f"Cannot assign archived settings '{settings.name}' v{settings.version}"
+            )
+        project.settings = settings
+
+    project.save()
+    logging.info(f"Assigned settings {settings_id} to project {project_id}")
 
 
 def update_kraken_status(

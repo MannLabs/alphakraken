@@ -154,6 +154,44 @@ def get_full_raw_file_data(raw_file_ids: list[str]) -> pd.DataFrame:
     return df_from_db_data(raw_files_db)
 
 
+def get_raw_files_for_samples_per_day(days: int = 14) -> pd.DataFrame:
+    """Get a DataFrame with samples per day for the last N days, grouped by instrument.
+
+    :param days: Number of days to look back (default: 14)
+    :return: DataFrame with columns: date, instrument_id, count
+    """
+    from shared.db.models import TERMINAL_STATUSES
+
+    connect_db()
+    min_created_at = pd.Timestamp(datetime.now(tz=pytz.UTC) - timedelta(days=days))
+
+    raw_files_db = (
+        RawFile.objects(
+            created_at__gte=min_created_at,
+            status__in=TERMINAL_STATUSES,
+        )
+        .only("created_at", "instrument_id")
+        .order_by("created_at")
+    )
+
+    if not raw_files_db:
+        return pd.DataFrame(columns=["date", "instrument_id", "count"])
+
+    df = pd.DataFrame(
+        [
+            {
+                "instrument_id": r.instrument_id,
+                "created_at": r.created_at,
+            }
+            for r in raw_files_db
+        ]
+    )
+
+    df["date"] = df["created_at"].dt.date
+
+    return df.groupby(["date", "instrument_id"]).size().reset_index(name="count")  # type: ignore[call-overload]
+
+
 def get_status_data() -> QuerySet:
     """Connect to the database and return the QuerySets for KrakenStatus."""
     _log("Connecting to the database")

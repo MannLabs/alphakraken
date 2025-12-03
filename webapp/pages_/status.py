@@ -6,11 +6,17 @@ import pandas as pd
 import streamlit as st
 from service.components import (
     display_status,
+    show_samples_per_day_plot,
     show_sandbox_message,
     show_status_plot,
     show_time_in_status_table,
 )
-from service.db import df_from_db_data, get_raw_files_for_status_df, get_status_data
+from service.db import (
+    df_from_db_data,
+    get_raw_files_for_samples_per_day,
+    get_raw_files_for_status_df,
+    get_status_data,
+)
 from service.query_params import QueryParams, get_all_query_params, get_query_param
 from service.utils import DEFAULT_MAX_AGE_STATUS, _log
 
@@ -65,6 +71,12 @@ def _display_status(combined_df: pd.DataFrame) -> None:
 
         c2.markdown("### Oldest transition to status")
         show_time_in_status_table(combined_df, c2)
+
+        st.markdown("## Sample throughput")
+
+        samples_per_day_df = get_raw_files_for_samples_per_day(days=90)
+        st.markdown("### Samples per day")
+        show_samples_per_day_plot(samples_per_day_df, st, default_days=14)
 
     except Exception as e:  # noqa: BLE001
         _log(e, "Cannot not display status information.")

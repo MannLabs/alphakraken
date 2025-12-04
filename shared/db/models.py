@@ -239,6 +239,7 @@ class Settings(Document):
     meta: ClassVar = {
         "strict": False,
         "indexes": [{"fields": ["name", "version"], "unique": True}],
+        "auto_create_index": False,  # to avoid adding write rights to read-only connections
     }
     objects: ClassVar[QuerySet[Settings]]
 

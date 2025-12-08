@@ -4,7 +4,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, Mock, call, patch
 
 import pytest
-from airflow.exceptions import AirflowFailException
+from airflow.exceptions import AirflowFailException, AirflowSkipException
 from common.keys import AcquisitionMonitorErrors, DagContext, DagParams, OpArgs
 from common.settings import _INSTRUMENTS
 from dags.impl.handler_impl import (
@@ -430,6 +430,47 @@ def test_compute_checksum_file_got_renamed(
                 status_details=AcquisitionMonitorErrors.FILE_GOT_RENAMED,
                 backup_status="skipped",
             )
+        ]
+    )
+
+
+@patch("dags.impl.handler_impl.get_raw_file_by_id")
+@patch("dags.impl.handler_impl.RawFileWrapperFactory")
+@patch("dags.impl.handler_impl.update_raw_file")
+def test_compute_checksum_no_files_found(
+    mock_update_raw_file: MagicMock,
+    mock_raw_file_wrapper_factory: MagicMock,
+    mock_get_raw_file_by_id: MagicMock,
+) -> None:
+    """Test compute_checksum raises AirflowSkipException and updates status when no files are found."""
+    ti = MagicMock()
+    kwargs = {
+        "params": {"raw_file_id": "test_file.raw"},
+    }
+    mock_raw_file = MagicMock()
+    mock_raw_file.file_info = None
+    mock_get_raw_file_by_id.return_value = mock_raw_file
+
+    mock_raw_file_wrapper_factory.create_write_wrapper.return_value.get_files_to_copy.return_value = {}
+    mock_raw_file_wrapper_factory.create_write_wrapper.return_value.target_folder_path = Path(
+        "/path/to/backup/"
+    )
+
+    # when
+    with pytest.raises(AirflowSkipException, match="No files were found!"):
+        compute_checksum(ti, **kwargs)
+
+    # then
+    mock_update_raw_file.assert_has_calls(
+        [
+            call("test_file.raw", new_status=RawFileStatus.CHECKSUMMING),
+            call(
+                "test_file.raw",
+                new_status=RawFileStatus.ACQUISITION_FAILED,
+                size=0,
+                file_info={},
+                status_details="No files were found during checksumming.",
+            ),
         ]
     )
 

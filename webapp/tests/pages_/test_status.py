@@ -22,7 +22,7 @@ from streamlit.testing.v1 import AppTest  # noqa: E402
 PAGES_FOLDER = Path(__file__).parent / Path("../../pages_")
 
 
-@patch("service.db.get_raw_files_for_samples_per_day")
+@patch("service.db.get_raw_files_for_throughput_per_day")
 @patch("service.db.get_raw_files_for_status_df")
 @patch("service.db.df_from_db_data")
 @patch("service.db.get_status_data")
@@ -30,7 +30,7 @@ def test_status(
     mock_get_status_data: MagicMock,
     mock_df_from_db_data: MagicMock,
     mock_get_raw_files_for_status_df: MagicMock,
-    mock_get_raw_files_for_samples_per_day: MagicMock,
+    mock_get_raw_files_for_throughput_per_day: MagicMock,
 ) -> None:
     """Test that status page renders successfully."""
     mock_status_db = MagicMock()
@@ -81,7 +81,7 @@ def test_status(
 
     # Use dates that include today to avoid date_input validation errors
     today = pd.to_datetime(datetime.now())  # noqa: DTZ005
-    samples_per_day_df = pd.DataFrame(
+    throughput_df = pd.DataFrame(
         {
             "date": [
                 today - pd.Timedelta(days=30),
@@ -91,9 +91,10 @@ def test_status(
             ],
             "instrument_id": ["i1", "i2", "i1", "i2"],
             "count": [5, 3, 10, 8],
+            "size_gb": [10.5, 8.2, 15.3, 12.1],
         }
     )
-    mock_get_raw_files_for_samples_per_day.return_value = samples_per_day_df
+    mock_get_raw_files_for_throughput_per_day.return_value = throughput_df
 
     # when
     at = AppTest.from_file(f"{PAGES_FOLDER}/status.py").run()

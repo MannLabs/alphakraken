@@ -10,6 +10,7 @@
 ####SBATCH --time=02:00:00  # set by calling command
 
 set -u -e
+echo HOSTNAME=$HOSTNAME
 
 # cluster-specific code:
 module purge

@@ -333,16 +333,33 @@ def move_existing_file(file_path: Path, suffix: str = ".alphakraken.bkp") -> Pat
     Parameters
     ----------
     file_path : Path
-        Path to the file that needs to be backed up
+        Path to the file that needs to be moved
     suffix : str, default '.alphakraken.bkp'
         Suffix to add to the backup file name before the incrementing number
 
+    Example
+    -------
+        If file_path is '/data/file.txt' and file '/data/file.txt.0.alphakraken.bkp' already exists,
+        the file will be moved to '/data/file.txt.1.alphakraken.bkp'.
+
     Returns
     -------
-    str
+    Path
         Path of the moved file if it was moved, path to the original file otherwise
 
     """
+    new_path = get_alternative_file_path(file_path, suffix)
+
+    if new_path != file_path:
+        file_path.rename(new_path)
+        logging.warning(f"Moved existing file {file_path} to {new_path}")
+        return new_path
+
+    return file_path
+
+
+def get_alternative_file_path(file_path: Path, suffix: str = "") -> Path:
+    """Get an alternative file path by appending an incrementing number and suffix."""
     old_path = file_path
     new_path = old_path
 
@@ -351,9 +368,4 @@ def move_existing_file(file_path: Path, suffix: str = ".alphakraken.bkp") -> Pat
         n += 1
         new_path = old_path.parent / f"{old_path.stem}{old_path.suffix}.{n}{suffix}"
 
-    if n != -1:
-        file_path.rename(new_path)
-        logging.warning(f"Moved existing file {old_path} to {new_path}")
-        return new_path
-
-    return old_path
+    return new_path

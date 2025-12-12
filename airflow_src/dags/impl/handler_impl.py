@@ -4,7 +4,7 @@ import logging
 import re
 from pathlib import Path
 
-from airflow.exceptions import AirflowFailException
+from airflow.exceptions import AirflowFailException, AirflowSkipException
 from airflow.models import TaskInstance
 from common.keys import (
     DAG_DELIMITER,
@@ -118,9 +118,15 @@ def compute_checksum(ti: TaskInstance, **kwargs) -> bool:
             size_and_hashsum
         )
 
-    # to make this unusual situation transparent in UI:
     if not files_size_and_hashsum:
-        raise AirflowFailException("No files were found!")
+        update_raw_file(
+            raw_file_id,
+            new_status=RawFileStatus.ACQUISITION_FAILED,
+            size=total_file_size,
+            file_info=file_info,
+            status_details="No files were found.",
+        )
+        raise AirflowSkipException("No files were found!")
 
     if existing_file_info := raw_file.file_info:
         logging.warning(

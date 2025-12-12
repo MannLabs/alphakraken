@@ -1,5 +1,6 @@
 """Settings management page."""
 
+import textwrap
 from collections import defaultdict
 
 # ruff: noqa: TRY301 # Abstract `raise` to an inner function
@@ -59,6 +60,11 @@ st.markdown("## Current settings")
 st.warning("This page should be edited only by administrators!", icon="⚠️")
 
 
+def _wrap(x: str, width: int = 50) -> str:
+    """Wrap text for display in table cell."""
+    return "\n".join(textwrap.wrap(x, width=width))
+
+
 @st.fragment
 def display_settings(
     settings_df: pd.DataFrame,
@@ -72,9 +78,11 @@ def display_settings(
     )
 
     filtered_df = filtered_df.drop(columns=["_id"], errors="ignore").fillna("")
+
+    filtered_df = filtered_df.drop(columns=["_id"], errors="ignore").fillna("")
     if "config_params" in filtered_df.columns:
         filtered_df["config_params"] = filtered_df["config_params"].apply(
-            lambda x: f"`{x}`" if x else x
+            lambda x: f"`{_wrap(x)}`" if x else x
         )
 
     st_display.table(
@@ -162,6 +170,7 @@ if selected_name_option != CREATE_NEW_OPTION:
     prefill_data = {
         "description": str(latest_settings.get("description", "")),
         "software": str(latest_settings.get("software", "")),
+        "software_type": str(latest_settings.get("software_type", "")),
         "fasta_file_name": str(latest_settings.get("fasta_file_name", "")),
         "speclib_file_name": str(latest_settings.get("speclib_file_name", "")),
         "config_file_name": str(latest_settings.get("config_file_name", "")),
@@ -169,8 +178,14 @@ if selected_name_option != CREATE_NEW_OPTION:
     }
 
 
+software_type_options = [SoftwareTypes.ALPHADIA, SoftwareTypes.CUSTOM]
+software_type_index = (
+    software_type_options.index(prefill_data["software_type"])
+    if prefill_data["software_type"] in software_type_options
+    else 0
+)
 software_type = c1.selectbox(
-    label="Type", options=[SoftwareTypes.ALPHADIA, SoftwareTypes.CUSTOM]
+    label="Type", options=software_type_options, index=software_type_index
 )
 
 form_items = {

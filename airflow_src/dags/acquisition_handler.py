@@ -88,10 +88,11 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
             pool=Pools.FILE_COPY_POOL,
         )
 
-        start_s3_uploader_ = PythonOperator(
-            task_id=Tasks.START_S3_UPLOADER,
-            python_callable=start_s3_uploader,
-        )
+        if is_s3_upload_enabled():
+            start_s3_uploader_ = PythonOperator(
+                task_id=Tasks.START_S3_UPLOADER,
+                python_callable=start_s3_uploader,
+            )
 
         start_file_mover_ = PythonOperator(
             task_id=Tasks.START_FILE_MOVER,

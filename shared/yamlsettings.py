@@ -78,6 +78,13 @@ class YamlSettings:
                         "webapp_url": "http://localhost:8501",
                     }
                 },
+                "locations": {
+                    "settings": {"absolute_path": "./tmp/test/settings"},
+                    "output": {"absolute_path": "./tmp/test/output"},
+                    "backup": {"absolute_path": "./tmp/test/backup"},
+                    "slurm": {"absolute_path": "./tmp/test/slurm"},
+                    "software": {"absolute_path": "./tmp/test/software"},
+                },
             }
 
         if not file_path.exists():

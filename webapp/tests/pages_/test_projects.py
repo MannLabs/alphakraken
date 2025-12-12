@@ -76,6 +76,7 @@ def test_projects_display_table(
             0: "some new project description",
             1: "another project description",
         },
+        "settings": {0: "☑", 1: "☑"},
         "settings_name": {0: "settings1", 1: "settings2"},
         "settings_version": {0: 1, 1: 2},
     }

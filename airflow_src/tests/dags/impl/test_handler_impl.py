@@ -469,7 +469,7 @@ def test_compute_checksum_no_files_found(
                 new_status=RawFileStatus.ACQUISITION_FAILED,
                 size=0,
                 file_info={},
-                status_details="No files were found during checksumming.",
+                status_details="No files were found.",
             ),
         ]
     )

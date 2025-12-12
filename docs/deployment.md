@@ -335,8 +335,24 @@ This separation follows the principle of least privilege, ensuring each componen
 
 
 ## MCP Servers
-Set up the MCP server using the following configuration:
+
+### Use the hosted MCP server
+To access the server that is spun up with the infrastructure, use the following configuration:
+```json
+  {
+    "mcpServers": {
+      "alphakraken": {
+        "command": "npx",
+        "args": ["mcp-remote", "http://<alphakraken_ip_address>:8089/mcp",  "--allow-http" ]
+      }
+    }
+  }
 ```
+where `<alphakraken_ip_address>` is the IP address of the PC hosting the airflow infrastructure (webserver, scheduler).
+
+### Run it locally
+Set up a local MCP server using the following configuration:
+```json
 {
   "mcpServers": {
     "AlphaKraken": {

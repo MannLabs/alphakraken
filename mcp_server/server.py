@@ -19,7 +19,10 @@ from mongoengine import QuerySet
 from shared.db.engine import connect_db
 from shared.db.models import KrakenStatus, KrakenStatusEntities, Metrics, RawFile
 
-mcp = FastMCP(name="AlphaKraken", instructions="Get information about acquired files.")
+mcp = FastMCP(
+    name="AlphaKraken",
+    instructions="Get information about acquired files on mass spectrometer instruments.",
+)
 logger = logging.getLogger(__name__)
 
 

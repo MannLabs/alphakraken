@@ -5,3 +5,4 @@ apache-airflow-providers-amazon==9.17.0 --constraint "https://raw.githubusercont
 boto3>=1.28.0
 pyarrow>=19.0.1 # fixes https://github.com/apache/arrow/issues/45283
 yarl==1.18.3 # pin to avoid pip resolution-too-deep error
+aiohttp==3.11.11 # pin to avoid pip resolution-too-deep error

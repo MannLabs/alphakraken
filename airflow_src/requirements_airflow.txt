@@ -2,7 +2,7 @@
 apache-airflow-providers-ssh==4.1.6 --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.10.5/constraints-3.11.txt"
 
 apache-airflow-providers-amazon==9.17.0 --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.10.5/constraints-3.11.txt"
-boto3>=1.28.0
+boto3==1.41.4 # pin to avoid pip resolution-too-deep error
 pyarrow>=19.0.1 # fixes https://github.com/apache/arrow/issues/45283
 yarl==1.18.3 # pin to avoid pip resolution-too-deep error
 aiohttp==3.11.11 # pin to avoid pip resolution-too-deep error

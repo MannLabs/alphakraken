@@ -126,6 +126,10 @@ class RawFile(Document):
         max_length=128
     )  # absolute path to pool backup location
 
+    output_path = StringField(
+        max_length=256, default=None
+    )  # absolute path to the output directory for processed results
+
     backup_status = StringField(max_length=32, default=None)
 
     # bucket_name or bucket_name/sub_path/ -> file_info paths are always relative to that

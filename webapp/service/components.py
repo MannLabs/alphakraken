@@ -231,25 +231,33 @@ def show_time_in_status_table(
     )
 
 
-def show_samples_per_day_plot(
-    samples_per_day_df: pd.DataFrame,
+def show_throughput_per_day_plot(  # noqa: PLR0913
+    throughput_df: pd.DataFrame,
     display: st.delta_generator.DeltaGenerator,
+    value_column: str,
+    y_label: str,
+    mean_unit: str = "",
     default_days: int = 14,
+    key_prefix: str = "",
 ) -> None:
-    """Show a stacked bar plot of samples per day for each instrument over a selected date range.
+    """Show a stacked bar plot of a metric per day for each instrument over a selected date range.
 
-    :param samples_per_day_df: DataFrame with columns: date, instrument_id, count
+    :param throughput_df: DataFrame with columns: date, instrument_id, and the value_column
     :param display: The streamlit display object
+    :param value_column: The column name containing the values to plot
+    :param y_label: Label for the y-axis
+    :param mean_unit: Unit to append to mean annotation (e.g., " GB")
     :param default_days: Default number of days to look back (default: 14)
+    :param key_prefix: Prefix for streamlit widget keys to avoid duplicates
     """
-    if len(samples_per_day_df) == 0:
+    if len(throughput_df) == 0:
         display.warning("No data available.")
         return
 
-    samples_per_day_df["date"] = pd.to_datetime(samples_per_day_df["date"])
+    throughput_df["date"] = pd.to_datetime(throughput_df["date"])
 
-    min_date_in_data = samples_per_day_df["date"].min().date()
-    max_date_in_data = samples_per_day_df["date"].max().date()
+    min_date_in_data = throughput_df["date"].min().date()
+    max_date_in_data = throughput_df["date"].max().date()
 
     default_start_date = max(
         min_date_in_data,
@@ -262,17 +270,19 @@ def show_samples_per_day_plot(
         min_value=min_date_in_data,
         max_value=max_date_in_data,
         value=default_start_date,
+        key=f"{key_prefix}start_date" if key_prefix else None,
     )
     end_date = c2.date_input(
         "End date:",
         min_value=min_date_in_data,
         max_value=max_date_in_data,
         value=max_date_in_data,
+        key=f"{key_prefix}end_date" if key_prefix else None,
     )
 
-    filtered_df = samples_per_day_df[
-        (samples_per_day_df["date"].dt.date >= start_date)
-        & (samples_per_day_df["date"].dt.date <= end_date)
+    filtered_df = throughput_df[
+        (throughput_df["date"].dt.date >= start_date)
+        & (throughput_df["date"].dt.date <= end_date)
     ]
 
     if len(filtered_df) == 0:
@@ -280,39 +290,43 @@ def show_samples_per_day_plot(
         return
 
     pivot_df = filtered_df.pivot_table(
-        index="date", columns="instrument_id", values="count"
+        index="date", columns="instrument_id", values=value_column
     ).fillna(0)
 
     daily_totals = pivot_df.sum(axis=1)
-    mean_samples = daily_totals.mean()
+    mean_value = daily_totals.mean()
 
     fig = go.Figure()
 
     x_labels = [date.strftime("%Y-%m-%d") for date in pivot_df.index]
+    use_int_format = value_column == "count"
 
     for instrument_id in pivot_df.columns:
+        values = pivot_df[instrument_id]
+        text = values.astype(int) if use_int_format else [f"{v:.1f}" for v in values]
+
         fig.add_trace(
             go.Bar(
                 x=x_labels,
-                y=pivot_df[instrument_id],
+                y=values,
                 name=instrument_id,
-                text=pivot_df[instrument_id].astype(int),
+                text=text,
                 textposition="inside",
             )
         )
 
     fig.add_hline(
-        y=mean_samples,
+        y=mean_value,
         line_dash="dash",
         line_color="red",
-        annotation_text=f"<b>Mean: {mean_samples:.1f}</b>",
+        annotation_text=f"<b>Mean: {mean_value:.1f}{mean_unit}</b>",
         annotation_position="top right",
     )
 
     fig.update_layout(
         barmode="stack",
         xaxis_title="Date",
-        yaxis_title="Samples",
+        yaxis_title=y_label,
         legend_title="Instrument",
         width=700,
         height=500,

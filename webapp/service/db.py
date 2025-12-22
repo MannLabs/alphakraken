@@ -154,11 +154,11 @@ def get_full_raw_file_data(raw_file_ids: list[str]) -> pd.DataFrame:
     return df_from_db_data(raw_files_db)
 
 
-def get_raw_files_for_samples_per_day(days: int = 14) -> pd.DataFrame:
-    """Get a DataFrame with samples per day for the last N days, grouped by instrument.
+def get_raw_files_for_throughput_per_day(days: int = 14) -> pd.DataFrame:
+    """Get a DataFrame with sample count and data volume per day, grouped by instrument.
 
     :param days: Number of days to look back (default: 14)
-    :return: DataFrame with columns: date, instrument_id, count
+    :return: DataFrame with columns: date, instrument_id, count, size_gb
     """
     from shared.db.models import TERMINAL_STATUSES
 
@@ -170,18 +170,19 @@ def get_raw_files_for_samples_per_day(days: int = 14) -> pd.DataFrame:
             created_at__gte=min_created_at,
             status__in=TERMINAL_STATUSES,
         )
-        .only("created_at", "instrument_id")
+        .only("created_at", "instrument_id", "size")
         .order_by("created_at")
     )
 
     if not raw_files_db:
-        return pd.DataFrame(columns=["date", "instrument_id", "count"])
+        return pd.DataFrame(columns=["date", "instrument_id", "count", "size_gb"])
 
     df = pd.DataFrame(
         [
             {
                 "instrument_id": r.instrument_id,
                 "created_at": r.created_at,
+                "size": r.size if r.size and r.size > 0 else 0,
             }
             for r in raw_files_db
         ]
@@ -189,7 +190,16 @@ def get_raw_files_for_samples_per_day(days: int = 14) -> pd.DataFrame:
 
     df["date"] = df["created_at"].dt.date
 
-    return df.groupby(["date", "instrument_id"]).size().reset_index(name="count")  # type: ignore[call-overload]
+    result = (
+        df.groupby(["date", "instrument_id"])
+        .agg(
+            count=("instrument_id", "size"),
+            size=("size", "sum"),
+        )
+        .reset_index()
+    )
+    result["size_gb"] = result["size"] / (1024**3)
+    return result[["date", "instrument_id", "count", "size_gb"]]
 
 
 def get_status_data() -> QuerySet:

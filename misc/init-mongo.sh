@@ -42,4 +42,6 @@ mongosh -u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" admin 
         pwd: $q_MONGO_PASSWORD_WEBAPP,
         roles: ["webappRole"]
     });
+
+    db.settings.createIndex({name: 1, version: 1}, {unique: true});
 EOF

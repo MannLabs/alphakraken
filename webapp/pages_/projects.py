@@ -83,6 +83,14 @@ def display_projects(
     if st_display is None:
         st_display = st
     filtered_df, *_ = show_filter(projects_df, st_display=st_display)
+
+    if "settings_name" in filtered_df.columns:
+        filtered_df.insert(
+            filtered_df.columns.get_loc("settings_name"),
+            "settings",
+            filtered_df["settings_name"].apply(lambda x: "☑" if pd.notna(x) else "☐"),
+        )
+
     st_display.table(filtered_df)
     st_display.markdown(
         f"Output files are stored at `{quanting_output_path}/<project id>/out_<raw file name>/`. In case you don't know your project ID, it's most likely `_FALLBACK`."

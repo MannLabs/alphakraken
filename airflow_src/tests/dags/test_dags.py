@@ -59,7 +59,7 @@ def test_dag_load_acquisition_handler(dagbag: DagBag) -> None:
         # then
         assert dagbag.import_errors == {}
         assert dag is not None
-        assert len(dag.tasks) == 7  # Added upload_to_s3 task
+        assert len(dag.tasks) == 6
 
 
 def test_dag_load_acquisition_processor(dagbag: DagBag) -> None:

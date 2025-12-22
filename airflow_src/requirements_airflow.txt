@@ -1,6 +1,8 @@
 # requirements for the airflow tasks
-apache-airflow-providers-ssh --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.10.5/constraints-3.11.txt"
+apache-airflow==2.10.5 --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.10.5/constraints-3.11.txt" # pin to avoid pip resolving to airflow 3
+apache-airflow-providers-ssh==4.1.6 --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.10.5/constraints-3.11.txt"
 
-apache-airflow-providers-amazon --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.10.5/constraints-3.11.txt"
-boto3>=1.28.0
-pyarrow>=19.0.1 # fixes https://github.com/apache/arrow/issues/45283
+apache-airflow-providers-amazon==9.17.0 --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.10.5/constraints-3.11.txt"
+boto3==1.41.4 --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.10.5/constraints-3.11.txt" # pin to avoid pip resolution-too-deep error
+pyarrow>=19.0.1 --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.10.5/constraints-3.11.txt" # fixes https://github.com/apache/arrow/issues/45283
+sagemaker-studio==1.0.23 --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.10.5/constraints-3.11.txt" # pin to avoid pip resolution-too-deep error (1.1.x has heavy deps)

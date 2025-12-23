@@ -144,11 +144,18 @@ class AcquisitionMonitor(BaseSensorOperator):
 
         assert self._main_file_path is not None
 
+        # heuristics: for Zeno ZT scan mode, .wiff.scan is very small until the conversion is done
+        is_not_zeno_or_zeno_ready = (
+            not self._raw_file.original_name.endswith(".wiff")
+            or get_file_size(Path(f"{self._main_file_path}.scan"), -1)
+            > 50 * 1024 * 1024
+        )
+
         if self._file_is_old:
             logging.info(
                 "File is old compared to the youngest file in the directory. Considering acquisition to be done."
             )
-            return True
+            return is_not_zeno_or_zeno_ready
 
         if not self._main_file_exists:
             if self._main_file_path.exists():
@@ -157,7 +164,7 @@ class AcquisitionMonitor(BaseSensorOperator):
                 return self._main_file_missing_for_too_long()
 
         if self._file_size_unchanged_for_some_time():
-            return True
+            return is_not_zeno_or_zeno_ready
 
         current_dir_content, new_dir_content = self._get_dir_content()
 
@@ -179,7 +186,7 @@ class AcquisitionMonitor(BaseSensorOperator):
                     logging.warning(f"File got renamed to {self._corrupted_file_name}.")
                     self._file_got_renamed = True
 
-                return True
+                return is_not_zeno_or_zeno_ready
 
             logging.warning(
                 f"More than one new file found: {new_dir_content}. "

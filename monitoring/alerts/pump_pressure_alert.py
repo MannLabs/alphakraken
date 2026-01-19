@@ -19,6 +19,7 @@ from shared.db.models import KrakenStatus, RawFile
 from .base_alert import BaseAlert
 from .config import (
     BUSINESS_ALERTS_WEBHOOK_URL,
+    DEFAULT_ALERT_COOLDOWN_TIME_MINUTES,
     PUMP_PRESSURE_ABSOLUTE_THRESHOLD_BAR,
     PUMP_PRESSURE_LOOKBACK_DAYS,
     PUMP_PRESSURE_THRESHOLD_BAR,
@@ -28,6 +29,8 @@ from .config import (
 
 # temporary hack to bypass bug in pump pressure extraction
 MAX_PRESSURE_TO_CONSIDER = 1000
+
+ABSOLUTE_IDENTIFIER_PREFIX = "absolute_"
 
 
 @dataclass(frozen=True)
@@ -63,9 +66,8 @@ class PumpPressureAlert(BaseAlert):
 
     def get_cooldown_time_minutes(self, identifier: str) -> int:
         """Return cooldown in minutes for this alert and identifier."""
-        del identifier  # unused
-
-        # no cooldown here: we want to alert on every new issue, this class is taking care of duplicates through self._reported_issues anyway
+        if identifier.startswith(ABSOLUTE_IDENTIFIER_PREFIX):
+            return DEFAULT_ALERT_COOLDOWN_TIME_MINUTES
         return 0
 
     def _get_issues(self, status_objects: list[KrakenStatus]) -> list[tuple[str, str]]:
@@ -144,7 +146,7 @@ class PumpPressureAlert(BaseAlert):
                     self._reported_issues.add(memory_key)
                     issues.append(
                         (
-                            instrument_id,
+                            f"{ABSOLUTE_IDENTIFIER_PREFIX}{instrument_id}",
                             f"High pressure: {pressure:.1f} bar (≥{PUMP_PRESSURE_ABSOLUTE_THRESHOLD_BAR} bar) in `{raw_file_id}` at {timestamp.strftime('%Y-%m-%d %H:%M:%S')}",
                         )
                     )

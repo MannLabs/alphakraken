@@ -703,6 +703,9 @@ class TestPumpPressureAlert:
         instrument_ids = [issue[0] for issue in result]
         details = [issue[1] for issue in result]
 
-        assert all(inst_id == "instrument1" for inst_id in instrument_ids)
+        assert all(
+            inst_id in ("instrument1", "absolute_instrument1")
+            for inst_id in instrument_ids
+        )
         assert any("Pressure changes:" in detail for detail in details)
         assert any("High pressure:" in detail for detail in details)

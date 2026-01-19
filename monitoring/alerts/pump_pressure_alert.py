@@ -140,7 +140,10 @@ class PumpPressureAlert(BaseAlert):
                 pressure_data, PUMP_PRESSURE_ABSOLUTE_THRESHOLD_BAR
             )
             for pressure, raw_file_id, timestamp in high_pressure_alerts:
-                memory_key = (instrument_id, f"absolute_{raw_file_id}")
+                memory_key = (
+                    instrument_id,
+                    f"{ABSOLUTE_IDENTIFIER_PREFIX}{raw_file_id}",
+                )
 
                 if memory_key not in self._reported_issues:
                     self._reported_issues.add(memory_key)

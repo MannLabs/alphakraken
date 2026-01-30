@@ -5,6 +5,6 @@ coverage-badge==1.1.2
 pytest-cov==6.1.1
 
 
-# the apache/airflow:2.10.5 image comes with that pandas version,
+# the apache/airflow:2.11.0 image comes with that pandas version,
 # so we need to install it only for the unit tests
 pandas==2.1.4

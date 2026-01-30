@@ -44,7 +44,7 @@ jobs:
 
       - name: Run Airflow unit tests
         run: |
-          pip install apache-airflow==2.10.5 --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.10.5/constraints-3.11.txt"
+          pip install apache-airflow==2.11.0 --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.11.0/constraints-3.11.txt"
           airflow db init
           pip install -r airflow_src/requirements_airflow.txt
           pip freeze

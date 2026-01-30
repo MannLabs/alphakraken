@@ -86,8 +86,18 @@ def execute_job_process(environment: dict[str, str], output_path: Path) -> None:
         output_path: Path where job_status.log should be written
 
     """
-    status_log_file = output_path / "job_status.log"
+    status_log_file = (
+        output_path / "job_status.log"
+    )  # Note: this must match the file name in execute_job.bat/execute_job.sh
     raw_file_id = environment.get("RAW_FILE_ID", "unknown")
+
+    # Archive existing log file if present (happens on job retry)
+    if status_log_file.exists():
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")  # noqa: DTZ005
+        archived_name = f"job_status_{timestamp}.log"
+        archived_path = output_path / archived_name
+        status_log_file.rename(archived_path)
+        logging.info(f"Archived previous log to {archived_name}")
 
     try:
         # Ensure output directory exists

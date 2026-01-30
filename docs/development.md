@@ -7,7 +7,7 @@ dereference all dependencies and to run the tests.
 1. Set up your environment for developing locally with
 ```bash
 PYTHON_VERSION=3.11
-AIRFLOW_VERSION=2.10.5
+AIRFLOW_VERSION=2.11.0
 git clone git@github.com:MannLabs/alphakraken.git
 cd alphakraken
 conda create --name alphakraken python=${PYTHON_VERSION} -y

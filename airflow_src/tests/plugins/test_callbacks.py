@@ -49,9 +49,7 @@ def test_on_failure_callback_with_s3_exception(mock_update: MagicMock) -> None:
 
     mock_update.assert_called_once_with(
         "some_file.raw",
-        new_status=RawFileStatus.ERROR,
         backup_status=BackupStatus.UPLOAD_FAILED,
-        status_details="[dag1.task1] Some error",
     )
 
 

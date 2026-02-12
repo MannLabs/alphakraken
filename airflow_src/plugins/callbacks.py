@@ -37,6 +37,7 @@ def on_failure_callback(context: dict[str, Any], **kwargs) -> None:
     # TODO: introduce generic exceptions that tell the callback what to set in terms of fields (e.g. ex.field_updates = {..})
 
     if isinstance(ex, S3UploadFailedException):
+        # failed s3 uploads should not change the overall raw file state as it is currently hard to recover
         update_args = {"backup_status": BackupStatus.UPLOAD_FAILED}
 
     else:

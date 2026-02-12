@@ -12,6 +12,7 @@ from alerts import (
     InstrumentFilePileUpAlert,
     PumpPressureAlert,
     RawFileErrorAlert,
+    S3UploadFailureAlert,
     StaleStatusAlert,
     StatusPileUpAlert,
     WebAppHealthAlert,
@@ -45,6 +46,7 @@ class AlertManager:
             StatusPileUpAlert(),
             InstrumentFilePileUpAlert(),
             RawFileErrorAlert(),
+            S3UploadFailureAlert(),
             WebAppHealthAlert(),
             PumpPressureAlert(),
         ]

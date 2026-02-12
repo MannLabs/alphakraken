@@ -6,6 +6,7 @@ from .health_check_failed_alert import HealthCheckFailedAlert
 from .instrument_file_pile_up_alert import InstrumentFilePileUpAlert
 from .pump_pressure_alert import PumpPressureAlert
 from .raw_file_error_alert import RawFileErrorAlert
+from .s3_upload_failure_alert import S3UploadFailureAlert
 from .stale_status_alert import StaleStatusAlert
 from .status_pile_up_alert import StatusPileUpAlert
 from .webapp_health_alert import WebAppHealthAlert
@@ -17,6 +18,7 @@ __all__ = [
     "InstrumentFilePileUpAlert",
     "PumpPressureAlert",
     "RawFileErrorAlert",
+    "S3UploadFailureAlert",
     "StaleStatusAlert",
     "StatusPileUpAlert",
     "WebAppHealthAlert",

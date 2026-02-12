@@ -45,6 +45,9 @@ SIZE_CHECK_INTERVAL_M: int = 60
 # heuristics: for Zeno ZT scan mode, conversion takes < 24h
 ZENO_ZT_SIZE_CHECK_INTERVAL_M: int = 24 * 60
 
+# Zeno ZT scan files remain < 50MB until conversion completes
+ZENO_ZT_SCAN_FILE_THRESHOLD_BYTES: int = 50 * 1024 * 1024
+
 
 class AcquisitionMonitor(BaseSensorOperator):
     """Sensor to check for file creation."""
@@ -152,7 +155,7 @@ class AcquisitionMonitor(BaseSensorOperator):
         is_not_zeno_or_zeno_ready = (
             not self._raw_file.original_name.endswith(".wiff")
             or get_file_size(Path(f"{self._main_file_path}.scan"), -1)
-            > 50 * 1024 * 1024
+            > ZENO_ZT_SCAN_FILE_THRESHOLD_BYTES
         )
 
         if self._file_is_old:

@@ -1,6 +1,5 @@
 """Settings management page."""
 
-import textwrap
 from collections import defaultdict
 
 # ruff: noqa: TRY301 # Abstract `raise` to an inner function
@@ -60,11 +59,6 @@ st.markdown("## Current settings")
 st.warning("This page should be edited only by administrators!", icon="⚠️")
 
 
-def _wrap(x: str, width: int = 50) -> str:
-    """Wrap text for display in table cell."""
-    return "\n".join(textwrap.wrap(x, width=width))
-
-
 @st.fragment
 def display_settings(
     settings_df: pd.DataFrame,
@@ -82,7 +76,7 @@ def display_settings(
     filtered_df = filtered_df.drop(columns=["_id"], errors="ignore").fillna("")
     if "config_params" in filtered_df.columns:
         filtered_df["config_params"] = filtered_df["config_params"].apply(
-            lambda x: f"`{_wrap(x)}`" if x else x
+            lambda x: f"`{x}`" if x else x
         )
 
     st_display.table(
@@ -243,7 +237,7 @@ elif software_type == SoftwareTypes.CUSTOM:
         },
         "config_params": {
             "label": "Configuration parameters",
-            "max_chars": 512,
+            "max_chars": 2048,
             "placeholder": "e.g. '--qvalue 0.01 --f RAW_FILE_PATH --lib LIBRARY_PATH --fasta FASTA_PATH --temp OUTPUT_PATH --threads NUM_THREADS'",
             "help": "Configuration options for the custom software. Certain placeholders will be substituted.",
         },

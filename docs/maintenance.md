@@ -232,6 +232,20 @@ or the whole machine:
 sudo reboot now
 ```
 
+#### Drain a worker
+This will stop the worker from taking up new tasks, but will not kill the currently running ones.
+This is useful to give a worker a fresh start without interrupting ongoing processing.
+```bash
+docker update --restart=no $ID
+docker kill --signal=SIGTERM $ID
+```
+(cf, above for how to get the container ID). In the Airflow logs, you should see a message like
+`worker: Warm shutdown (MainProcess)`.
+
+Once all tasks are finished (hint: find them with e.g. `ps aux | grep airflow-worker-test1 |  grep task`), it will stop.
+To start it again, simply restart the container with the usual `./compose.sh ..` command.
+
+
 ## Cluster load management
 For each acquired file, a processing job on the Slurm cluster will be scheduled. If, for any reason, the number of
 concurrently submitted jobs should be limited, set the size of the `cluster_slots_pool`

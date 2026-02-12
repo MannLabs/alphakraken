@@ -253,7 +253,7 @@ class Settings(Document):
     speclib_file_name = StringField(required=True, max_length=128)
 
     config_file_name = StringField(required=False, max_length=128)
-    config_params = StringField(required=False, max_length=512)
+    config_params = StringField(required=False, max_length=2048)
 
     software_type = StringField(
         required=True,

@@ -35,23 +35,25 @@ def on_failure_callback(context: dict[str, Any], **kwargs) -> None:
     ex = context["exception"]
 
     # TODO: introduce generic exceptions that tell the callback what to set in terms of fields (e.g. ex.field_updates = {..})
-    extra_args = (
-        {"backup_status": BackupStatus.UPLOAD_FAILED}
-        if isinstance(ex, S3UploadFailedException)
-        else {}
-    )
 
-    cleaned_dag_id = ti.dag_id.split(DAG_DELIMITER)[0]
-    status_details = f"[{cleaned_dag_id}.{ti.task_id}] {ex!s}"
+    if isinstance(ex, S3UploadFailedException):
+        update_args = {"backup_status": BackupStatus.UPLOAD_FAILED}
 
-    # Truncate to fit database field max_length of 512
-    max_status_length = 512
-    if len(status_details) > max_status_length:
-        status_details = status_details[: max_status_length - 3] + "..."
+    else:
+        cleaned_dag_id = ti.dag_id.split(DAG_DELIMITER)[0]
+        status_details = f"[{cleaned_dag_id}.{ti.task_id}] {ex!s}"
+
+        # Truncate to fit database field max_length of 512
+        max_status_length = 512
+        if len(status_details) > max_status_length:
+            status_details = status_details[: max_status_length - 3] + "..."
+
+        update_args = {
+            "new_status": RawFileStatus.ERROR,
+            "status_details": status_details,
+        }
 
     update_raw_file(
         raw_file_id,
-        new_status=RawFileStatus.ERROR,
-        status_details=status_details,
-        **extra_args,  # type: ignore[invalid-argument-type]
+        **update_args,  # type: ignore[invalid-argument-type]
     )

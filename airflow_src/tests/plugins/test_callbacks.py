@@ -2,8 +2,8 @@
 
 from unittest.mock import MagicMock, patch
 
-from dags.impl.s3_uploader_impl import S3UploadFailedException
 from plugins.callbacks import on_failure_callback
+from plugins.s3.s3_utils import S3UploadFailedException
 
 from shared.db.models import BackupStatus, RawFileStatus
 
@@ -49,9 +49,7 @@ def test_on_failure_callback_with_s3_exception(mock_update: MagicMock) -> None:
 
     mock_update.assert_called_once_with(
         "some_file.raw",
-        new_status=RawFileStatus.ERROR,
         backup_status=BackupStatus.UPLOAD_FAILED,
-        status_details="[dag1.task1] Some error",
     )
 
 

@@ -243,7 +243,7 @@ elif software_type == SoftwareTypes.CUSTOM:
         },
         "config_params": {
             "label": "Configuration parameters",
-            "max_chars": 512,
+            "max_chars": 2048,
             "placeholder": "e.g. '--qvalue 0.01 --f RAW_FILE_PATH --lib LIBRARY_PATH --fasta FASTA_PATH --temp OUTPUT_PATH --threads NUM_THREADS'",
             "help": "Configuration options for the custom software. Certain placeholders will be substituted.",
         },

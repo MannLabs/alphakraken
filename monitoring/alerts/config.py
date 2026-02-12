@@ -72,5 +72,6 @@ class Cases:
     STATUS_PILE_UP = "status_pile_up"
     INSTRUMENT_FILE_PILE_UP = "instrument_file_pile_up"
     RAW_FILE_ERROR = "raw_file_error"
+    BACKUP_FAILURE = "backup_failure"
     WEBAPP_HEALTH = "webapp_health"
     PUMP_PRESSURE_INCREASE = "pump_pressure_increase"

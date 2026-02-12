@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 
 import pytz
 from alerts import (
+    BackupFailureAlert,
     BaseAlert,
     DiskSpaceAlert,
     HealthCheckFailedAlert,
@@ -45,6 +46,7 @@ class AlertManager:
             StatusPileUpAlert(),
             InstrumentFilePileUpAlert(),
             RawFileErrorAlert(),
+            BackupFailureAlert(),
             WebAppHealthAlert(),
             PumpPressureAlert(),
         ]

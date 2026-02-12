@@ -36,7 +36,7 @@ _suppressions: list[dict[str, Any]] = _load_suppressions()
 class BaseAlert(ABC):
     """Base class for all alert checkers."""
 
-    def get_issues(self, status_objects: list[KrakenStatus]) -> list[tuple]:
+    def get_issues(self, status_objects: list[KrakenStatus]) -> list[tuple[str, Any]]:
         """Check for issues and return list of (identifier, details) tuples.
 
         e.g. [('instrument1', "low disk space: 123 GB"), ...]
@@ -56,7 +56,9 @@ class BaseAlert(ABC):
         logging.info(f"Found {len(issues)} issues after suppression: {self.name}.")
         return issues
 
-    def _apply_suppressions(self, issues: list[tuple]) -> list[tuple]:
+    def _apply_suppressions(
+        self, issues: list[tuple[str, Any]]
+    ) -> list[tuple[str, Any]]:
         """Apply suppression rules to filter out suppressed issues."""
         if not _suppressions:
             return issues
@@ -72,10 +74,14 @@ class BaseAlert(ABC):
             for suppression in _suppressions:
                 if suppression.get("error_class") == alert_class:
                     supp_context = suppression.get("context", "*")
-                    context_matches = supp_context == "*" or supp_context in context
+                    context_matches = supp_context == "*" or supp_context in str(
+                        context
+                    )
 
                     supp_message = suppression.get("message", "*")
-                    message_matches = supp_message == "*" or supp_message in message
+                    message_matches = supp_message == "*" or supp_message in str(
+                        message
+                    )
 
                     if context_matches and message_matches:
                         suppressed = True
@@ -90,11 +96,11 @@ class BaseAlert(ABC):
         return filtered_issues
 
     @abstractmethod
-    def _get_issues(self, status_objects: list[KrakenStatus]) -> list[tuple]:
+    def _get_issues(self, status_objects: list[KrakenStatus]) -> list[tuple[str, Any]]:
         """Check for issues and return list of (identifier, details) tuples."""
 
     @abstractmethod
-    def format_message(self, issues: list[tuple]) -> str:
+    def format_message(self, issues: list[tuple[str, Any]]) -> str:
         """Format the alert message for the issues found."""
 
     @property
@@ -139,12 +145,12 @@ class CustomAlert(BaseAlert):
         """Return the alert name."""
         return self._name
 
-    def _get_issues(self, status_objects: list[KrakenStatus]) -> list[tuple]:
+    def _get_issues(self, status_objects: list[KrakenStatus]) -> list[tuple[str, Any]]:
         """Not used for custom alerts."""
         del status_objects  # unused
         return []
 
-    def format_message(self, issues: list[tuple]) -> str:
+    def format_message(self, issues: list[tuple[str, Any]]) -> str:
         """Not used for custom alerts."""
         del issues  # unused
         return ""

@@ -148,6 +148,7 @@ class AcquisitionMonitor(BaseSensorOperator):
         assert self._main_file_path is not None
 
         # heuristics: for Zeno ZT scan mode, .wiff.scan is very small until the conversion is done
+        # This is very rough, and has some downsides, one being that on failed acquisitions the .wiff.scan file can remain small, which then clogs the pipeline
         is_not_zeno_or_zeno_ready = (
             not self._raw_file.original_name.endswith(".wiff")
             or get_file_size(Path(f"{self._main_file_path}.scan"), -1)

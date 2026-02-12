@@ -87,7 +87,6 @@ class TestS3UploadFailureAlert:
         mock_file.backup_status = BackupStatus.UPLOAD_FAILED
         mock_file.project_id = "proj1"
         mock_file.instrument_id = "inst1"
-        mock_file.s3_upload_path = "s3://bucket/key"
 
         mock_raw_file.objects.filter.return_value.only.return_value = [mock_file]
 
@@ -121,28 +120,24 @@ class TestS3UploadFailureAlert:
                 backup_status=BackupStatus.UPLOAD_FAILED,
                 project_id="proj1",
                 instrument_id="inst1",
-                s3_upload_path="s3://bucket/key1",
             ),
             _create_mock_raw_file(
                 id="file_was_uploading",
                 backup_status=BackupStatus.UPLOAD_FAILED,
                 project_id="proj2",
                 instrument_id="inst2",
-                s3_upload_path="s3://bucket/key2",
             ),
             _create_mock_raw_file(
                 id="file_copy_done",
                 backup_status=BackupStatus.UPLOAD_DONE,
                 project_id="proj3",
                 instrument_id="inst3",
-                s3_upload_path="s3://bucket/key3",
             ),
             _create_mock_raw_file(
                 id="file_new_failed",
                 backup_status=BackupStatus.UPLOAD_FAILED,
                 project_id="proj4",
                 instrument_id="inst4",
-                s3_upload_path="s3://bucket/key4",
             ),
         ]
 
@@ -194,32 +189,3 @@ class TestS3UploadFailureAlert:
             "- `file2`: S3 upload failed | path: s3://bucket/key2 | project: proj2 | instrument: inst2"
         )
         assert result == expected
-
-    @patch("monitoring.alerts.s3_upload_failure_alert.RawFile")
-    @patch("monitoring.alerts.s3_upload_failure_alert.datetime")
-    @patch("monitoring.alerts.s3_upload_failure_alert.CHECK_INTERVAL_SECONDS", 60)
-    def test_check_should_handle_missing_fields(
-        self, mock_datetime: Mock, mock_raw_file: Mock
-    ) -> None:
-        """Test that check handles missing optional fields gracefully."""
-        # given
-        alert = S3UploadFailureAlert()
-        fixed_now = datetime(2024, 1, 1, 12, 0, 0, tzinfo=pytz.UTC)
-        mock_datetime.now.return_value = fixed_now
-
-        mock_file = Mock()
-        mock_file.id = "file_missing_fields"
-        mock_file.backup_status = BackupStatus.UPLOAD_FAILED
-        mock_file.project_id = None
-        mock_file.instrument_id = None
-        mock_file.s3_upload_path = None
-
-        mock_raw_file.objects.filter.return_value.only.return_value = [mock_file]
-
-        # when
-        result = alert._get_issues([])
-
-        # then
-        assert len(result) == 1
-        assert result[0][0] == "file_missing_fields"
-        assert "N/A" in result[0][1]

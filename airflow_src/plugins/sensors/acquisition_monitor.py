@@ -42,6 +42,12 @@ SOFT_TIMEOUT_ON_MISSING_MAIN_FILE_M: int = 120
 # Note that it takes at least 2*SIZE_CHECK_INTERVAL_M minutes to detect that the acquisition is done that way.
 SIZE_CHECK_INTERVAL_M: int = 60
 
+# heuristics: for Zeno ZT scan mode, conversion takes < 24h
+ZENO_ZT_SIZE_CHECK_INTERVAL_M: int = 24 * 60
+
+# Zeno ZT scan files remain < 50MB until conversion completes
+ZENO_ZT_SCAN_FILE_THRESHOLD_BYTES: int = 50 * 1024 * 1024
+
 
 class AcquisitionMonitor(BaseSensorOperator):
     """Sensor to check for file creation."""
@@ -144,11 +150,19 @@ class AcquisitionMonitor(BaseSensorOperator):
 
         assert self._main_file_path is not None
 
+        # heuristics: for Zeno ZT scan mode, .wiff.scan is very small until the conversion is done
+        # This is very rough, and has some downsides, one being that on failed acquisitions the .wiff.scan file can remain small, which then clogs the pipeline
+        is_not_zeno_or_zeno_ready = (
+            not self._raw_file.original_name.endswith(".wiff")
+            or get_file_size(Path(f"{self._main_file_path}.scan"), -1)
+            > ZENO_ZT_SCAN_FILE_THRESHOLD_BYTES
+        )
+
         if self._file_is_old:
             logging.info(
                 "File is old compared to the youngest file in the directory. Considering acquisition to be done."
             )
-            return True
+            return is_not_zeno_or_zeno_ready
 
         if not self._main_file_exists:
             if self._main_file_path.exists():
@@ -156,8 +170,10 @@ class AcquisitionMonitor(BaseSensorOperator):
             else:
                 return self._main_file_missing_for_too_long()
 
-        if self._file_size_unchanged_for_some_time():
-            return True
+        if self._file_size_unchanged_for_time():
+            return is_not_zeno_or_zeno_ready or self._file_size_unchanged_for_time(
+                ZENO_ZT_SIZE_CHECK_INTERVAL_M
+            )
 
         current_dir_content, new_dir_content = self._get_dir_content()
 
@@ -179,7 +195,7 @@ class AcquisitionMonitor(BaseSensorOperator):
                     logging.warning(f"File got renamed to {self._corrupted_file_name}.")
                     self._file_got_renamed = True
 
-                return True
+                return is_not_zeno_or_zeno_ready
 
             logging.warning(
                 f"More than one new file found: {new_dir_content}. "
@@ -265,19 +281,21 @@ class AcquisitionMonitor(BaseSensorOperator):
 
         return current_dir_content, new_dir_content
 
-    def _file_size_unchanged_for_some_time(self) -> bool:
+    def _file_size_unchanged_for_time(
+        self, size_check_interval_m: int = SIZE_CHECK_INTERVAL_M
+    ) -> bool:
         """Return true if the file size has not changed for a certain amount of time."""
         time_since_last_check_m = (
             (current_timestamp := get_timestamp())
             - self._latest_file_size_check_timestamp
         ) / 60
 
-        if time_since_last_check_m >= SIZE_CHECK_INTERVAL_M:
+        if time_since_last_check_m >= size_check_interval_m:
             size = get_file_size(self._main_file_path)
 
             if size == self._last_file_size:
                 logging.info(
-                    f"File size {size} has not changed for {time_since_last_check_m} >= {SIZE_CHECK_INTERVAL_M} min. "
+                    f"File size {size} has not changed for {time_since_last_check_m} >= {size_check_interval_m} min. "
                 )
 
                 if size == 0:

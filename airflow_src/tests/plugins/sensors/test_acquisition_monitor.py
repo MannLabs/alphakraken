@@ -32,6 +32,7 @@ def test_poke_file_dir_contents_change_file_is_added(
     """Test poke method correctly return when dir contents change (file is added)."""
     mock_path = MagicMock()
     mock_path.stat.return_value = MagicMock(st_size=1)
+    mock_get_raw_file_by_id.return_value.original_name = "some_file.raw"
 
     mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.main_file_path.return_value = mock_path
 
@@ -69,6 +70,7 @@ def test_poke_file_dir_contents_change_corrupt_file_is_added(
     """Test poke and post_execute methods correctly return when dir contents change (corrupted file is added)."""
     mock_path = MagicMock()
     mock_path.stat.return_value = MagicMock(st_size=1)
+    mock_get_raw_file_by_id.return_value.original_name = "some_file.raw"
 
     mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.main_file_path.return_value = mock_path
     mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.get_corrupted_file_name.return_value = "some_file_CORRUPTED.raw"
@@ -110,6 +112,7 @@ def test_poke_file_dir_contents_change_two_files_are_added(
     """Test poke method correctly returns when dir contents change (two files are added)."""
     mock_path = MagicMock()
     mock_path.stat.return_value = MagicMock(st_size=1)
+    mock_get_raw_file_by_id.return_value.original_name = "some_file.raw"
 
     mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.main_file_path.return_value = mock_path
 
@@ -260,6 +263,7 @@ def test_poke_file_dir_contents_dont_change_but_file_is_unchanged(  # noqa: PLR0
     """Test poke method correctly return file status when dir contents do not change and file also does not (for cases file size = 0 and != 0)."""
     mock_path = MagicMock()
     mock_path.stat.return_value.st_size = file_size
+    mock_get_raw_file_by_id.return_value.original_name = "some_file.raw"
     mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.main_file_path.return_value = mock_path
     mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.get_raw_files_on_instrument.return_value = set()  # this stays constant
 
@@ -309,6 +313,7 @@ def test_poke_file_file_is_old(
     """Test poke method correctly returns when file is old and this mode is used."""
     mock_path = MagicMock()
     mock_path.stat.return_value = MagicMock(st_size=1)
+    mock_get_raw_file_by_id.return_value.original_name = "some_file.raw"
 
     mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.main_file_path.return_value = mock_path
 

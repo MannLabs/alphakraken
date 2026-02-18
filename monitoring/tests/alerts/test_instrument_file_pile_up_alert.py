@@ -38,7 +38,7 @@ class TestInstrumentFilePileUpAlert:
         # given
         alert = InstrumentFilePileUpAlert()
         mock_thresholds.items.return_value = [
-            (InstrumentFileStatus.NEW, 20),
+            (InstrumentFileStatus.INITIAL, 20),
             (InstrumentFileStatus.MOVED, 50),
             (InstrumentFileStatus.PURGED, 5),
         ]
@@ -93,27 +93,27 @@ class TestInstrumentFilePileUpAlert:
             # Define file counts for each scenario
             scenarios = {
                 "instrument_healthy": {
-                    InstrumentFileStatus.NEW: 15,  # Below 20
+                    InstrumentFileStatus.INITIAL: 15,  # Below 20
                     InstrumentFileStatus.MOVED: 30,  # Below 50
                     InstrumentFileStatus.PURGED: 3,  # Below 5
                 },
                 "instrument_new_files_issue": {
-                    InstrumentFileStatus.NEW: 25,  # Above 20
+                    InstrumentFileStatus.INITIAL: 25,  # Above 20
                     InstrumentFileStatus.MOVED: 20,  # Below 50
                     InstrumentFileStatus.PURGED: 2,  # Below 5
                 },
                 "instrument_multiple_issues": {
-                    InstrumentFileStatus.NEW: 35,  # Above 20
+                    InstrumentFileStatus.INITIAL: 35,  # Above 20
                     InstrumentFileStatus.MOVED: 75,  # Above 50
                     InstrumentFileStatus.PURGED: 8,  # Above 5
                 },
                 "instrument_boundary_case": {
-                    InstrumentFileStatus.NEW: 20,  # Exactly 20 (should not trigger)
+                    InstrumentFileStatus.INITIAL: 20,  # Exactly 20 (should not trigger)
                     InstrumentFileStatus.MOVED: 55,  # Above 50
                     InstrumentFileStatus.PURGED: 5,  # Exactly 5 (should not trigger)
                 },
                 "instrument_mixed_status": {
-                    InstrumentFileStatus.NEW: 25,  # Above 20
+                    InstrumentFileStatus.INITIAL: 25,  # Above 20
                     InstrumentFileStatus.MOVED: 40,  # Below 50
                     InstrumentFileStatus.PURGED: 7,  # Above 5
                 },
@@ -182,7 +182,7 @@ class TestInstrumentFilePileUpAlert:
         # given
         alert = InstrumentFilePileUpAlert()
         mock_thresholds.items.return_value = [
-            (InstrumentFileStatus.NEW, 25),
+            (InstrumentFileStatus.INITIAL, 25),
             (InstrumentFileStatus.MOVED, 60),
         ]
 
@@ -214,11 +214,11 @@ class TestInstrumentFilePileUpAlert:
 
             scenarios = {
                 "instrument1": {
-                    InstrumentFileStatus.NEW: 15,  # Below 25
+                    InstrumentFileStatus.INITIAL: 15,  # Below 25
                     InstrumentFileStatus.MOVED: 45,  # Below 60
                 },
                 "instrument2": {
-                    InstrumentFileStatus.NEW: 10,  # Below 25
+                    InstrumentFileStatus.INITIAL: 10,  # Below 25
                     InstrumentFileStatus.MOVED: 20,  # Below 60
                 },
                 "instrument3": {},  # No files
@@ -252,7 +252,7 @@ class TestInstrumentFilePileUpAlert:
         # given
         alert = InstrumentFilePileUpAlert()
         mock_thresholds.items.return_value = [
-            (InstrumentFileStatus.NEW, 15),
+            (InstrumentFileStatus.INITIAL, 15),
             (InstrumentFileStatus.MOVED, 30),
         ]
 
@@ -280,7 +280,7 @@ class TestInstrumentFilePileUpAlert:
             assert min_age_hours == 8
 
             counts = {
-                InstrumentFileStatus.NEW: 20,  # Above 15
+                InstrumentFileStatus.INITIAL: 20,  # Above 15
                 InstrumentFileStatus.MOVED: 35,  # Above 30
             }
 

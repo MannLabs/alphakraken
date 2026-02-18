@@ -91,7 +91,7 @@ class InstrumentFileStatus:
     """Status of files on instrument and their lifecycle."""
 
     NA = "n/a"  # for backwards compatibility
-    NEW = "new"  # File exists on instrument, not yet moved
+    INITIAL = "initial"  # File exists on instrument, not yet moved
     RENAMED = "renamed"  # File was renamed on instrument (read as "file does no longer exist under its name as it was renamed")
     MOVED = "moved"  # File moved from instrument to instrument backup folder
     PURGED = "purged"  # File removed from instrument backup folder

@@ -402,11 +402,11 @@ def test_get_raw_files_by_instrument_file_status_basic_query(
     mock_query.order_by.return_value = [MagicMock(), MagicMock()]
 
     # when
-    result = get_raw_files_by_instrument_file_status(InstrumentFileStatus.NEW)
+    result = get_raw_files_by_instrument_file_status(InstrumentFileStatus.INITIAL)
 
     # then
     mock_raw_file.objects.filter.assert_called_once_with(
-        instrument_file_status=InstrumentFileStatus.NEW
+        instrument_file_status=InstrumentFileStatus.INITIAL
     )
     mock_query.order_by.assert_called_once_with("created_at")
     assert len(result) == 2

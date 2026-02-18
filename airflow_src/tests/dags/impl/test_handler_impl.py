@@ -20,7 +20,7 @@ from dags.impl.handler_impl import (
     start_s3_uploader,
 )
 
-from shared.db.models import RawFileStatus
+from shared.db.models import InstrumentFileStatus, RawFileStatus
 
 
 @pytest.mark.parametrize(
@@ -429,6 +429,7 @@ def test_compute_checksum_file_got_renamed(
                 new_status=RawFileStatus.ACQUISITION_FAILED,
                 status_details=AcquisitionMonitorErrors.FILE_GOT_RENAMED,
                 backup_status="skipped",
+                instrument_file_status=InstrumentFileStatus.RENAMED,
             )
         ]
     )

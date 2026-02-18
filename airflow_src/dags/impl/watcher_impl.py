@@ -24,13 +24,14 @@ from shared.db.interface import (
 from shared.db.models import InstrumentFileStatus, RawFileStatus
 
 
-def _add_raw_file_to_db(
+def _add_raw_file_to_db(  # noqa: PLR0913
     raw_file_name: str,
     *,
     is_collision: bool,
     project_id: str,
     instrument_id: str,
-    status: str = RawFileStatus.QUEUED_FOR_MONITORING,
+    instrument_file_status: str,
+    status: str,
 ) -> str:
     """Add the file to the database with initial status and basic information.
 
@@ -39,6 +40,7 @@ def _add_raw_file_to_db(
     :param project_id: project id
     :param instrument_id: instrument id
     :param status: status of the file
+    :param instrument_file_status: status of the physical file on the instrument, see InstrumentFileStatus for possible values
     :return: the raw file id
     """
     raw_file_creation_timestamp = get_file_creation_timestamp(
@@ -51,6 +53,7 @@ def _add_raw_file_to_db(
         project_id=project_id,
         instrument_id=instrument_id,
         status=status,
+        instrument_file_status=instrument_file_status,
         creation_ts=raw_file_creation_timestamp,
     )
 
@@ -320,6 +323,7 @@ def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
             project_id=project_id,
             instrument_id=instrument_id,
             status=status,
+            instrument_file_status=InstrumentFileStatus.INITIAL,
         )
 
         if not file_needs_handling:

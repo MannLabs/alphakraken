@@ -130,10 +130,10 @@ class TestInstrumentFilePileUpAlert:
         # then
         # Should only check instruments and return those with pile-ups
         expected = [
-            ("instrument_new_files_issue", "new: 25"),
-            ("instrument_multiple_issues", "new: 35; moved: 75; purged: 8"),
+            ("instrument_new_files_issue", "initial: 25"),
+            ("instrument_multiple_issues", "initial: 35; moved: 75; purged: 8"),
             ("instrument_boundary_case", "moved: 55"),
-            ("instrument_mixed_status", "new: 25; purged: 7"),
+            ("instrument_mixed_status", "initial: 25; purged: 7"),
         ]
         assert result == expected
 
@@ -144,9 +144,9 @@ class TestInstrumentFilePileUpAlert:
 
         # Complex mix of issues with different pile-up patterns
         issues = [
-            ("instrument_critical", "new: 45; moved: 120"),
-            ("instrument_single_new", "new: 30"),
-            ("instrument_complex", "new: 25; moved: 80; purged: 15"),
+            ("instrument_critical", "initial: 45; moved: 120"),
+            ("instrument_single_new", "initial: 30"),
+            ("instrument_complex", "initial: 25; moved: 80; purged: 15"),
             ("instrument_minor", "purged: 8"),
             ("instrument_moved_only", "moved: 200"),
         ]
@@ -157,9 +157,9 @@ class TestInstrumentFilePileUpAlert:
         # then
         expected = (
             "Instrument file pile up detected (files not moved/purged):\n"
-            "- `instrument_critical`: new: 45; moved: 120\n"
-            "- `instrument_single_new`: new: 30\n"
-            "- `instrument_complex`: new: 25; moved: 80; purged: 15\n"
+            "- `instrument_critical`: initial: 45; moved: 120\n"
+            "- `instrument_single_new`: initial: 30\n"
+            "- `instrument_complex`: initial: 25; moved: 80; purged: 15\n"
             "- `instrument_minor`: purged: 8\n"
             "- `instrument_moved_only`: moved: 200"
         )
@@ -303,4 +303,4 @@ class TestInstrumentFilePileUpAlert:
             assert kwargs["instrument_id"] == "test_instrument"
             assert kwargs["min_age_hours"] == 8
 
-        assert result == [("test_instrument", "new: 20; moved: 35")]
+        assert result == [("test_instrument", "initial: 20; moved: 35")]

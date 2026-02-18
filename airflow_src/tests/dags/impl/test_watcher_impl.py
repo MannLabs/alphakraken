@@ -19,7 +19,7 @@ from dags.impl.watcher_impl import (
 )
 from plugins.common.keys import OpArgs, XComKeys
 
-from shared.db.models import InstrumentFileStatus, RawFile
+from shared.db.models import InstrumentFileStatus, RawFile, RawFileStatus
 
 SOME_INSTRUMENT_ID = "_test1_"
 
@@ -42,6 +42,8 @@ def test_add_raw_file_to_db(
         is_collision=True,
         project_id="PID1",
         instrument_id="instrument1",
+        status=RawFileStatus.QUEUED_FOR_MONITORING,
+        instrument_file_status=InstrumentFileStatus.INITIAL,
     )
 
     mock_get_file_creation_timestamp.assert_called_once_with(
@@ -53,6 +55,7 @@ def test_add_raw_file_to_db(
         project_id="PID1",
         instrument_id="instrument1",
         status="queued_for_monitoring",
+        instrument_file_status=InstrumentFileStatus.INITIAL,
         creation_ts=42.0,
     )
 
@@ -447,6 +450,7 @@ def test_start_acquisition_handler_with_single_file(
         project_id="PID1",
         instrument_id="instrument1",
         status="queued_for_monitoring",
+        instrument_file_status=InstrumentFileStatus.INITIAL,
     )
     mock_delete_raw_file.assert_not_called()
 
@@ -490,6 +494,7 @@ def test_start_acquisition_handler_with_multiple_files(  # Too many arguments
                 project_id="project1",
                 instrument_id="instrument1",
                 status="queued_for_monitoring",
+                instrument_file_status=InstrumentFileStatus.INITIAL,
             ),
             call(
                 "file2.raw",
@@ -497,6 +502,7 @@ def test_start_acquisition_handler_with_multiple_files(  # Too many arguments
                 project_id=None,
                 instrument_id="instrument1",
                 status="queued_for_monitoring",
+                instrument_file_status=InstrumentFileStatus.INITIAL,
             ),
             call(
                 "file3.raw",
@@ -504,6 +510,7 @@ def test_start_acquisition_handler_with_multiple_files(  # Too many arguments
                 project_id="project2",
                 instrument_id="instrument1",
                 status="ignored",
+                instrument_file_status=InstrumentFileStatus.INITIAL,
             ),
         ]
     )
@@ -547,6 +554,7 @@ def test_start_acquisition_handler_dagnotfound(
         project_id="PID1",
         instrument_id="instrument1",
         status="queued_for_monitoring",
+        instrument_file_status=InstrumentFileStatus.INITIAL,
     )
 
     mock_delete_raw_file.assert_called_once_with("123-file1.raw")

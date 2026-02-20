@@ -64,7 +64,7 @@ def get_raw_files_to_remove(ti: TaskInstance, **kwargs) -> None:
     """Get files to remove from the instrument backup folder."""
     del kwargs  # unused
 
-    min_file_age = int(
+    min_file_age = float(
         get_airflow_variable(
             AirflowVars.MIN_FILE_AGE_TO_REMOVE_IN_DAYS, DEFAULT_MIN_FILE_AGE_TO_REMOVE_D
         )
@@ -123,7 +123,7 @@ def _decide_on_raw_files_to_remove(
     instrument_id: str,
     *,
     min_free_gb: int,
-    min_file_age: int,
+    min_file_age: float,
 ) -> list[str]:
     """Get from the DB the raw files to remove from the instrument backup folder and select as many as needed.
 

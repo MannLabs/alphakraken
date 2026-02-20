@@ -71,14 +71,14 @@ def get_raw_files_by_age(
     instrument_id: str,
     *,
     max_age_in_days: int,
-    min_age_in_days: int,
+    min_age_in_days: float,
 ) -> list[RawFile]:
     """Get raw file ids older than the given age window in days for a given instrument sorted 'oldest first'."""
     connect_db()
     now = datetime.now(tz=pytz.UTC)
 
     oldest_created_at = now - timedelta(days=max_age_in_days)
-    youngest_created_at = now - timedelta(days=min_age_in_days)
+    youngest_created_at = now - timedelta(hours=int(min_age_in_days * 24))
     logging.info(
         f"Getting from DB: {instrument_id=} {oldest_created_at=} {youngest_created_at=}"
     )

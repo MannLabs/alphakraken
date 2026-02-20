@@ -64,7 +64,7 @@ def get_raw_files_to_remove(ti: TaskInstance, **kwargs) -> None:
     """Get files to remove from the instrument backup folder."""
     del kwargs  # unused
 
-    global_min_file_age = float(
+    global_min_file_age_days = float(
         get_airflow_variable(
             AirflowVars.MIN_FILE_AGE_TO_REMOVE_IN_DAYS, DEFAULT_MIN_FILE_AGE_TO_REMOVE_D
         )
@@ -86,7 +86,7 @@ def get_raw_files_to_remove(ti: TaskInstance, **kwargs) -> None:
             if instrument_min_free_space_gb is not None
             else global_min_free_space_gb
         )
-        if min_free_space_gb == DEFAULT_MIN_FREE_SPACE_GB:
+        if min_free_space_gb <= 0:
             logging.info(
                 f"Skipping: neither {AirflowVars.MIN_FREE_SPACE_GB} nor instrument-specific 'min_free_space_gb' set."
             )
@@ -98,7 +98,7 @@ def get_raw_files_to_remove(ti: TaskInstance, **kwargs) -> None:
         min_file_age_days = (
             instrument_min_file_age_days
             if instrument_min_file_age_days is not None
-            else global_min_file_age
+            else global_min_file_age_days
         )
 
         try:

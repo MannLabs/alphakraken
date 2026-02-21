@@ -35,9 +35,9 @@ class Timings:
 class Concurrency:
     """Concurrency constants."""
 
-    # limit to a number smaller than maximum number of runs per DAG (32) to have free slots for other tasks
+    # limit to a number smaller than maximum number of runs per DAG (16) to have free slots for other tasks
     # like starting quanting or metrics calculation
-    MAXNO_JOB_MONITOR_TASKS_PER_DAG: int = 30
+    MAXNO_JOB_MONITOR_TASKS_PER_DAG: int = 14
 
     # limit the number of concurrent copies to not over-stress the network.
     # Note that this is a potential bottleneck, so a timeout is important here.

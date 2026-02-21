@@ -42,7 +42,8 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
     with DAG(
         f"{Dags.ACQUISITION_HANDLER}{DAG_DELIMITER}{instrument_id}",
         schedule=None,
-        max_active_runs=32,  # workaround for zeno async conversion
+        max_active_runs=32,
+        max_active_tasks=32,
         # these are the default arguments for each TASK
         default_args={
             "depends_on_past": False,

@@ -281,8 +281,11 @@ def run_quanting(
 
     raw_file = get_raw_file_by_id(quanting_env[QuantingEnv.RAW_FILE_ID])
 
-    # TODO: this is a bit of hack, needs to go with refactoring of projects/settings
-    if get_instrument_settings(raw_file.instrument_id, InstrumentKeys.SKIP_QUANTING):
+    # TODO: this is a bit of hack, needs to go with refactoring of projects/settings  edit: now it's a terrible hack
+    if (
+        get_instrument_settings(raw_file.instrument_id, InstrumentKeys.SKIP_QUANTING)
+        and job_script_name != "submit_msqc_job.sh"
+    ):
         logging.info(
             f"Skipping quanting for raw file {raw_file.id} because instrument settings have skip_quanting=True."
         )

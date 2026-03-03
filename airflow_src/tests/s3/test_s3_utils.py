@@ -10,6 +10,7 @@ from plugins.s3.s3_utils import (
     _normalize_for_s3,
     is_upload_needed,
     normalize_bucket_name,
+    parse_s3_upload_path,
 )
 
 
@@ -136,7 +137,7 @@ def test_is_upload_needed_should_return_true_when_file_not_found() -> None:
     mock_s3_client = MagicMock()
 
     with patch("plugins.s3.s3_utils.get_etag") as mock_get_etag:
-        mock_get_etag.return_value = S3_FILE_NOT_FOUND_ETAG
+        mock_get_etag.return_value = (S3_FILE_NOT_FOUND_ETAG, -1)
 
         # when
         result = is_upload_needed(bucket_name, s3_key, local_etag, mock_s3_client)
@@ -155,7 +156,7 @@ def test_is_upload_needed_should_return_false_when_etag_matches() -> None:
     mock_s3_client = MagicMock()
 
     with patch("plugins.s3.s3_utils.get_etag") as mock_get_etag:
-        mock_get_etag.return_value = "abc123"
+        mock_get_etag.return_value = ("abc123", 1024)
 
         # when
         result = is_upload_needed(bucket_name, s3_key, local_etag, mock_s3_client)
@@ -173,7 +174,7 @@ def test_is_upload_needed_should_raise_error_when_etag_mismatch() -> None:
     mock_s3_client = MagicMock()
 
     with patch("plugins.s3.s3_utils.get_etag") as mock_get_etag:
-        mock_get_etag.return_value = "different_etag"
+        mock_get_etag.return_value = ("different_etag", 1024)
 
         # when / then
         with pytest.raises(ValueError) as exc_info:
@@ -182,6 +183,45 @@ def test_is_upload_needed_should_raise_error_when_etag_mismatch() -> None:
         assert "ETag mismatch" in str(exc_info.value)
         assert "abc123" in str(exc_info.value)
         assert "different_etag" in str(exc_info.value)
+
+
+def test_parse_s3_upload_path_bucket_only() -> None:
+    """Test parse_s3_upload_path returns empty key prefix for bucket-only path."""
+    # given
+    s3_upload_path = "s3://my-bucket"
+
+    # when
+    bucket_name, key_prefix = parse_s3_upload_path(s3_upload_path)
+
+    # then
+    assert bucket_name == "my-bucket"
+    assert key_prefix == ""
+
+
+def test_parse_s3_upload_path_with_prefix() -> None:
+    """Test parse_s3_upload_path extracts bucket and key prefix."""
+    # given
+    s3_upload_path = "s3://my-bucket/some/prefix/"
+
+    # when
+    bucket_name, key_prefix = parse_s3_upload_path(s3_upload_path)
+
+    # then
+    assert bucket_name == "my-bucket"
+    assert key_prefix == "some/prefix/"
+
+
+def test_parse_s3_upload_path_with_trailing_slash() -> None:
+    """Test parse_s3_upload_path returns empty key prefix for bucket with trailing slash."""
+    # given
+    s3_upload_path = "s3://my-bucket/"
+
+    # when
+    bucket_name, key_prefix = parse_s3_upload_path(s3_upload_path)
+
+    # then
+    assert bucket_name == "my-bucket"
+    assert key_prefix == ""
 
 
 # List of additional test cases to implement:

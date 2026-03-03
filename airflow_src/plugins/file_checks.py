@@ -3,13 +3,16 @@
 import logging
 from pathlib import Path
 
+from airflow.providers.amazon.aws.hooks.base_aws import BaseAwsConnection
 from common.paths import (
     get_internal_backup_path,
 )
-from file_handling import get_file_hash, get_file_size
+from file_handling import ETAG_SEPARATOR, get_file_hash, get_file_size
+from plugins.s3.client import S3_FILE_NOT_FOUND_ETAG, get_etag
+from plugins.s3.s3_utils import parse_s3_upload_path
 from raw_file_wrapper_factory import CopyPathProvider
 
-from shared.db.models import RawFile, parse_file_info_item
+from shared.db.models import BackupStatus, RawFile, parse_file_info_item
 
 
 class FileIdentifier:
@@ -143,26 +146,132 @@ class FileIdentifier:
         return True
 
 
-# example implementation for S3-based backups
-# class S3FileIdentifier(FileIdentifier):
-#
-#     def __init__(self, raw_file: RawFile, s3_client = None) -> None:
-#         """Initialize the S3FileIdentifier with a RawFile instance."""
-#         super().__init__(raw_file)
-#         self._s3_client = s3_client
-#
-#     def _check_reference_exists(self, rel_file_path: Path) -> None:
-#         # Check 1b: the single file to delete is present on present in the s3 bucket
-#         pass
-#
-#
-#     @staticmethod
-#     def _check_against_reference(
-#         rel_file_path: Path,
-#         size_in_db: float,
-#         hash_in_db: str,
-#         *,
-#         hash_check: bool,
-#     ) -> None:
-#         # Check 3b: compare the single file to delete with s3 backup (etag)
-#         pass
+class S3FileIdentifier(FileIdentifier):
+    """File identifier that verifies files against S3 backup instead of local pool backup."""
+
+    def __init__(self, raw_file: RawFile, s3_client: BaseAwsConnection) -> None:
+        """Initialize the S3FileIdentifier with a RawFile instance and S3 client."""
+        super().__init__(raw_file)
+        self._s3_client = s3_client
+        self._cached_head_responses: dict[str, tuple[str | object, int]] = {}
+
+        if raw_file.s3_upload_path:
+            self._bucket_name, self._key_prefix = parse_s3_upload_path(
+                raw_file.s3_upload_path
+            )
+        else:
+            self._bucket_name, self._key_prefix = "", ""
+
+    def _get_hashes(self, rel_file_path: Path) -> tuple[float, str, str]:
+        """Get size, md5, and etag from DB for given relative file path."""
+        size_in_db, md5_in_db = super()._get_hashes(rel_file_path)
+
+        file_info_key = str(rel_file_path)
+        if file_info_key not in self._raw_file.file_info:
+            file_info_key = str(
+                (self._internal_backup_path / rel_file_path).relative_to(
+                    get_internal_backup_path()
+                )
+            )
+
+        file_info = self._raw_file.file_info[file_info_key]
+        if len(file_info) < 3:  # noqa: PLR2004
+            raise KeyError(
+                f"File {rel_file_path} has no ETag information in DB (file_info has {len(file_info)} elements)."
+            )
+
+        etag_in_db = file_info[2].split(ETAG_SEPARATOR)[0]
+        return size_in_db, md5_in_db, etag_in_db
+
+    def check_file(
+        self,
+        abs_file_path_to_check: Path,
+        rel_file_path: Path,
+        *,
+        hash_check: bool = True,
+    ) -> bool:
+        """Check that the file is present on S3 and matches the DB records."""
+        if not self._check_reference_exists(rel_file_path):
+            return False
+
+        size_in_db, md5_in_db, etag_in_db = self._get_hashes(rel_file_path)
+
+        logging.debug(f"Comparing {abs_file_path_to_check=} to {rel_file_path} ..")
+
+        if not self._check_against_db(
+            abs_file_path_to_check,
+            size_in_db,
+            md5_in_db,
+            hash_check=hash_check,
+        ):
+            return False
+
+        if not self._check_against_reference(  # noqa: SIM103
+            rel_file_path, size_in_db, etag_in_db, hash_check=hash_check
+        ):
+            return False
+
+        return True
+
+    def _check_reference_exists(self, rel_file_path: Path) -> bool:
+        """Check that the file exists on S3."""
+        if not self._raw_file.s3_upload_path:
+            logging.warning(f"File {rel_file_path}: s3_upload_path not set, skipping.")
+            return False
+
+        if self._raw_file.backup_status != BackupStatus.UPLOAD_DONE:
+            logging.warning(
+                f"File {rel_file_path}: backup_status is {self._raw_file.backup_status}, not UPLOAD_DONE, skipping."
+            )
+            return False
+
+        s3_key = self._key_prefix + str(rel_file_path)
+
+        try:
+            etag, content_length = get_etag(self._bucket_name, s3_key, self._s3_client)
+        except ValueError:
+            logging.warning(
+                f"S3 error checking {rel_file_path} in {self._bucket_name}/{s3_key}, skipping."
+            )
+            return False
+
+        if etag is S3_FILE_NOT_FOUND_ETAG:
+            logging.warning(
+                f"File {rel_file_path} not found on S3 at {self._bucket_name}/{s3_key}."
+            )
+            return False
+
+        self._cached_head_responses[str(rel_file_path)] = (etag, content_length)
+        return True
+
+    def _check_against_reference(
+        self,
+        rel_file_path: Path,
+        size_in_db: float,
+        hash_in_db: str,
+        *,
+        hash_check: bool,  # noqa: ARG002
+    ) -> bool:
+        """Check that the file matches the S3 backup (etag and size)."""
+        s3_etag, s3_content_length = self._cached_head_responses[str(rel_file_path)]
+
+        if s3_content_length != int(size_in_db):
+            logging.warning(
+                f"File mismatch with S3: {s3_content_length=} vs {size_in_db=}"
+            )
+            return False
+
+        if s3_etag != hash_in_db:
+            logging.warning(f"File mismatch with S3: {s3_etag=} vs {hash_in_db=}")
+            return False
+
+        return True
+
+
+def create_file_identifier(
+    raw_file: RawFile, s3_client: BaseAwsConnection | None = None
+) -> FileIdentifier:
+    """Create the appropriate file identifier based on whether S3 client is provided."""
+    if s3_client is None:
+        return FileIdentifier(raw_file)
+    return S3FileIdentifier(raw_file, s3_client)

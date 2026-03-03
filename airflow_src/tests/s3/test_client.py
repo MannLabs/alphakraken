@@ -177,13 +177,16 @@ def test_get_etag_should_return_etag_when_object_exists() -> None:
     bucket_name = "test-bucket"
     s3_key = "test-file.txt"
     mock_s3_client = MagicMock()
-    mock_s3_client.head_object.return_value = {"ETag": '"abc123"'}
+    mock_s3_client.head_object.return_value = {
+        "ETag": '"abc123"',
+        "ContentLength": 1024,
+    }
 
     # when
     result = get_etag(bucket_name, s3_key, mock_s3_client)
 
     # then
-    assert result == "abc123"
+    assert result == ("abc123", 1024)
     mock_s3_client.head_object.assert_called_once_with(Bucket=bucket_name, Key=s3_key)
 
 
@@ -193,13 +196,16 @@ def test_get_etag_should_strip_quotes_from_etag() -> None:
     bucket_name = "test-bucket"
     s3_key = "test-file.txt"
     mock_s3_client = MagicMock()
-    mock_s3_client.head_object.return_value = {"ETag": '"def456"'}
+    mock_s3_client.head_object.return_value = {
+        "ETag": '"def456"',
+        "ContentLength": 2048,
+    }
 
     # when
     result = get_etag(bucket_name, s3_key, mock_s3_client)
 
     # then
-    assert result == "def456"
+    assert result == ("def456", 2048)
 
 
 def test_get_etag_should_return_sentinel_when_object_not_found() -> None:
@@ -216,7 +222,7 @@ def test_get_etag_should_return_sentinel_when_object_not_found() -> None:
     result = get_etag(bucket_name, s3_key, mock_s3_client)
 
     # then
-    assert result is S3_FILE_NOT_FOUND_ETAG
+    assert result == (S3_FILE_NOT_FOUND_ETAG, -1)
 
 
 def test_get_etag_should_raise_error_for_non_404_error() -> None:
@@ -246,7 +252,7 @@ def test_get_etag_should_handle_empty_etag() -> None:
     result = get_etag(bucket_name, s3_key, mock_s3_client)
 
     # then
-    assert result == ""
+    assert result == ("", -1)
 
 
 def test_upload_file_to_s3_should_upload_file() -> None:

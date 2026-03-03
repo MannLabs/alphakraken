@@ -415,7 +415,7 @@ def test_upload_files_should_upload_files(
 ) -> None:
     """Test _upload_files uploads all files with ETag verification."""
     mock_is_upload_needed.return_value = True
-    mock_get_etag.return_value = "etag123"
+    mock_get_etag.return_value = ("etag123", 1024)
     mock_s3_client = MagicMock()
     mock_transfer_config = MagicMock()
 
@@ -424,7 +424,7 @@ def test_upload_files_should_upload_files(
         Path("/dst/file2.raw"): ("key2.raw", "etag456"),
     }
 
-    mock_get_etag.side_effect = ["etag123", "etag456"]
+    mock_get_etag.side_effect = [("etag123", 1024), ("etag456", 2048)]
 
     _upload_files(file_mapping, "test-bucket", mock_transfer_config, mock_s3_client)
 
@@ -477,7 +477,7 @@ def test_upload_files_should_raise_on_etag_mismatch(
 ) -> None:
     """Test _upload_files raises S3UploadFailedException on ETag mismatch after upload."""
     mock_is_upload_needed.return_value = True
-    mock_get_etag.return_value = "different_etag"
+    mock_get_etag.return_value = ("different_etag", 1024)
     mock_s3_client = MagicMock()
     mock_transfer_config = MagicMock()
 
@@ -502,7 +502,7 @@ def test_upload_files_should_raise_when_file_not_found_after_upload(
 ) -> None:
     """Test _upload_files raises when file not found on S3 after upload."""
     mock_is_upload_needed.return_value = True
-    mock_get_etag.return_value = mock_file_not_found
+    mock_get_etag.return_value = (mock_file_not_found, -1)
     mock_s3_client = MagicMock()
     mock_transfer_config = MagicMock()
 
@@ -578,7 +578,7 @@ def test_upload_files_should_handle_mixed_upload_needs(
 ) -> None:
     """Test _upload_files handles mix of files that need/don't need upload."""
     mock_is_upload_needed.side_effect = [True, False, True]
-    mock_get_etag.side_effect = ["etag123", "etag789"]
+    mock_get_etag.side_effect = [("etag123", 1024), ("etag789", 2048)]
     mock_s3_client = MagicMock()
     mock_transfer_config = MagicMock()
 

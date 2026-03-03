@@ -181,7 +181,7 @@ def _upload_files(
             local_file_path, bucket_name, s3_key, transfer_config, s3_client
         )
 
-        remote_etag = get_etag(bucket_name, s3_key, s3_client)
+        remote_etag, _ = get_etag(bucket_name, s3_key, s3_client)
 
         if local_etag != remote_etag or remote_etag is S3_FILE_NOT_FOUND_ETAG:
             msg = f"ETag mismatch for {s3_key}: local {local_etag} != remote {remote_etag}"

@@ -865,13 +865,13 @@ def test_decide_processing_returns_false_if_file_size_zero(
 @patch("dags.impl.handler_impl.get_raw_file_by_id", return_value=[])
 @patch("dags.impl.handler_impl.get_instrument_settings", return_value=True)
 @patch("dags.impl.handler_impl.update_raw_file")
-def test_decide_processing_returns_false_if_skip_quanting_is_set(
+def test_decide_processing_returns_false_if_skip_processing_is_set(
     mock_update_raw_file: MagicMock,
     mock_get_instrument_settings: MagicMock,
     mock_get_raw_file_by_id: MagicMock,  # noqa:ARG001
     mock_get_xcom: MagicMock,  # noqa:ARG001
 ) -> None:
-    """Test decide_processing returns False if instrument settings has skip_quanting set."""
+    """Test decide_processing returns False if instrument settings has skip_processing set."""
     ti = MagicMock()
     kwargs = {
         DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"},
@@ -880,11 +880,13 @@ def test_decide_processing_returns_false_if_skip_quanting_is_set(
 
     # when
     assert decide_processing(ti, **kwargs) is False
-    mock_get_instrument_settings.assert_called_once_with("instrument1", "skip_quanting")
+    mock_get_instrument_settings.assert_called_once_with(
+        "instrument1", "skip_processing"
+    )
     mock_update_raw_file.assert_called_once_with(
         "some_file.raw",
         new_status=RawFileStatus.DONE_NOT_QUANTED,
-        status_details="Quanting disabled for this instrument.",
+        status_details="Processing disabled for this instrument.",
     )
 
 

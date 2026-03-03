@@ -17,6 +17,7 @@ Parse `raw_file.s3_upload_path` (e.g. `s3://bucket-name/prefix/`) into `(bucket_
 ### 2. `airflow_src/plugins/s3/client.py` — Add `head_object()` wrapper
 
 Returns `{"ContentLength": int, "ETag": str}` or `None` (if 404). This avoids the double HEAD request problem — one call gets both size and ETag for caching.
+CHANGE: use get_etag(), make it return ContentLength as second value.
 
 ### 3. `airflow_src/plugins/file_checks.py` — Implement `S3FileIdentifier` + factory
 
@@ -24,13 +25,15 @@ Returns `{"ContentLength": int, "ETag": str}` or `None` (if 404). This avoids th
 - `__init__(raw_file, s3_client)` — calls `super().__init__()`, parses `s3_upload_path` for bucket/prefix
 - `_check_reference_exists(rel_file_path)` — HEAD request to S3, caches response (size + ETag)
 - `_check_against_reference(rel_file_path, size_in_db, hash_in_db, hash_check)` — compares cached S3 size with `size_in_db`, and if `hash_check=True`, compares S3 ETag with stored ETag from `file_info[2]`
+CHANGE: as the hash check is cheap in the s3 case, always do it, regardless of hash_check
+
 - `_check_against_db()` stays inherited — still compares local instrument file against DB (unchanged)
 - `_get_hashes()` stays inherited — still reads `(size, md5)` from DB
+CHANGE: The case `backup_status != UPLOAD_DONE` OR `s3_upload_path` is not set should be gracefully handled (check_reference_exists() returns False)
 
 **`create_file_identifier(raw_file, s3_client=None)` factory:**
 - If `s3_client` is `None` (local mode): returns `FileIdentifier(raw_file)`
-- If `s3_client` provided (S3 mode) AND `backup_status == UPLOAD_DONE` AND `s3_upload_path` is set: returns `S3FileIdentifier`
-- If `s3_client` provided but file not on S3: returns `None` (file should be skipped, not removed)
+- If `s3_client` provided (S3 mode) returns `S3FileIdentifier`
 
 ### 4. `airflow_src/dags/impl/remover_impl.py` — Use factory, thread S3 client
 

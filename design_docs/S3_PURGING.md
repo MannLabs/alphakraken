@@ -14,22 +14,18 @@ Implement `S3FileIdentifier` as a subclass of `FileIdentifier` (following the co
 
 Parse `raw_file.s3_upload_path` (e.g. `s3://bucket-name/prefix/`) into `(bucket_name, key_prefix)`. Add `S3_PROTOCOL_PREFIX = "s3://"` constant.
 
-### 2. `airflow_src/plugins/s3/client.py` — Add `head_object()` wrapper
+### 2. `airflow_src/plugins/s3/client.py` — Extend `get_etag()` to also return `ContentLength`
 
-Returns `{"ContentLength": int, "ETag": str}` or `None` (if 404). This avoids the double HEAD request problem — one call gets both size and ETag for caching.
-CHANGE: use get_etag(), make it return ContentLength as second value.
+Change `get_etag()` to return `tuple[str | object, int] `: on success, return `(etag, content_length)` from the existing `head_object` call. On 404, return (`S3_FILE_NOT_FOUND_ETAG`, -1). Update callers (`is_upload_needed` in `s3_utils.py`, `_upload_all_files_to_s3` in `s3_uploader_impl.py`) to unpack the tuple.
 
 ### 3. `airflow_src/plugins/file_checks.py` — Implement `S3FileIdentifier` + factory
 
 **`S3FileIdentifier(FileIdentifier)`:**
 - `__init__(raw_file, s3_client)` — calls `super().__init__()`, parses `s3_upload_path` for bucket/prefix
-- `_check_reference_exists(rel_file_path)` — HEAD request to S3, caches response (size + ETag)
-- `_check_against_reference(rel_file_path, size_in_db, hash_in_db, hash_check)` — compares cached S3 size with `size_in_db`, and if `hash_check=True`, compares S3 ETag with stored ETag from `file_info[2]`
-CHANGE: as the hash check is cheap in the s3 case, always do it, regardless of hash_check
-
+- `_check_reference_exists(rel_file_path)` — if `s3_upload_path` is not set, returns `False` (graceful skip). Otherwise, HEAD request to S3 via `get_etag()`, caches response (size + ETag)
+- `_check_against_reference(rel_file_path, size_in_db, hash_in_db, hash_check)` — compares cached S3 size with `size_in_db`, and always compares S3 ETag with stored ETag from `file_info[2]` (ignores `hash_check`, as the ETag check is cheap in the S3 case)
 - `_check_against_db()` stays inherited — still compares local instrument file against DB (unchanged)
 - `_get_hashes()` stays inherited — still reads `(size, md5)` from DB
-CHANGE: The case `backup_status != UPLOAD_DONE` OR `s3_upload_path` is not set should be gracefully handled (check_reference_exists() returns False)
 
 **`create_file_identifier(raw_file, s3_client=None)` factory:**
 - If `s3_client` is `None` (local mode): returns `FileIdentifier(raw_file)`
@@ -40,16 +36,16 @@ CHANGE: The case `backup_status != UPLOAD_DONE` OR `s3_upload_path` is not set s
 - Add `_create_s3_client_if_needed()` — returns S3 client if `is_s3_upload_enabled()`, else `None`
 - `get_raw_files_to_remove()` — create S3 client once, pass to `_decide_on_raw_files_to_remove()`
 - `_decide_on_raw_files_to_remove()` — accept `s3_client` param, pass to `_get_total_size()`
-- `_get_total_size()` — accept `s3_client` param, use `create_file_identifier(raw_file, s3_client)`. If factory returns `None`, raise `FileRemovalError` (file gets skipped by caller)
+- `_get_total_size()` — accept `s3_client` param, use `create_file_identifier(raw_file, s3_client)` instead of `FileIdentifier(raw_file)`
 - `remove_raw_files()` — create S3 client once, pass to `_safe_remove_files()`
-- `_safe_remove_files()` — accept `s3_client` param, use `create_file_identifier(raw_file, s3_client)`. If factory returns `None`, skip file (log warning, don't remove, don't mark as PURGED)
+- `_safe_remove_files()` — accept `s3_client` param, use `create_file_identifier(raw_file, s3_client)` instead of `FileIdentifier(raw_file)`
 
 ### 5. Tests
 
 | File | Tests |
 |------|-------|
-| `tests/test_file_checks.py` | S3FileIdentifier: success, not found on S3, size mismatch, ETag mismatch, no ETag in file_info, hash_check=False. Factory: returns S3 when conditions met, falls back in 3 cases. |
-| `tests/s3/test_client.py` | `head_object`: success, 404, non-404 error |
+| `tests/test_file_checks.py` | S3FileIdentifier: success, not found on S3, size mismatch, ETag mismatch, no ETag in file_info, backup_status not UPLOAD_DONE, s3_upload_path not set. Factory: returns S3FileIdentifier when s3_client provided, FileIdentifier when None. |
+| `tests/s3/test_client.py` | Update existing `get_etag` tests for `(etag, content_length)` return type. |
 | `tests/s3/test_s3_utils.py` | `parse_s3_upload_path`: bucket-only, with prefix |
 | `tests/dags/impl/test_remover_impl.py` | Update existing mocks from `FileIdentifier` to `create_file_identifier`. Add S3 client threading tests. |
 
@@ -57,7 +53,7 @@ CHANGE: The case `backup_status != UPLOAD_DONE` OR `s3_upload_path` is not set s
 
 - **ETag comparison**: S3 ETag is compared against stored ETag in `file_info[2]` (not the MD5 hash at index [1]). Split on `ETAG_SEPARATOR` (`"__"`) to strip chunk size suffix.
 - **Older file_info entries** without ETag (only 2 elements): file is skipped (not removed). S3FileIdentifier's `_check_against_reference` returns `False` with a warning log if any file in the raw file lacks a stored ETag.
-- **No fallback**: In S3 mode, files not yet uploaded to S3 (`backup_status != UPLOAD_DONE`) are skipped (not removed). The factory returns `None` and callers skip the file.
+- **No fallback**: In S3 mode, files not yet uploaded to S3 (`s3_upload_path` not set) are skipped (not removed). `_check_reference_exists()` returns `False`, so `check_file()` returns `False` and callers skip the file via existing error handling.
 - **Single HEAD request**: `_check_reference_exists` caches the HEAD response for reuse in `_check_against_reference`.
 
 ## Verification

@@ -51,7 +51,7 @@ def get_combined_raw_files_and_metrics_df(
     else:
         metrics_df = custom_metrics_df
 
-    if len(raw_files_df) == 0 or len(metrics_df) == 0:
+    if len(raw_files_df) == 0:
         # TODO: improve -> move st dependency out
         if print_at_no_data:
             # just for debugging

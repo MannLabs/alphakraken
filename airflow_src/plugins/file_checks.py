@@ -52,7 +52,7 @@ class FileIdentifier:
         if not self._check_reference_exists(rel_file_path):
             return False
 
-        size_in_db, hash_in_db = self._get_hashes(rel_file_path)
+        size_in_db, hash_in_db, _ = self._get_hashes(rel_file_path)
 
         logging.debug(f"Comparing {abs_file_path_to_check=} to {rel_file_path} ..")
 
@@ -78,7 +78,7 @@ class FileIdentifier:
             return False
         return True
 
-    def _get_hashes(self, rel_file_path: Path) -> tuple[float, str]:
+    def _get_hashes(self, rel_file_path: Path) -> tuple[float, str, int]:
         """Get size and hash from DB for given relative file path."""
         # TODO: this is a hack to support the old format. Remove it once the older DB entries have been migrated.
         # old file_info key format: 'instrument1/2024_07/file.raw', new: 'file.raw'
@@ -96,7 +96,8 @@ class FileIdentifier:
                 f"File {rel_file_path} has no size or hash information in DB."
             )
 
-        return size_in_db, hash_in_db
+        # returning -1 to have same interface in s3 case
+        return size_in_db, hash_in_db, -1
 
     @staticmethod
     def _check_against_db(
@@ -164,7 +165,7 @@ class S3FileIdentifier(FileIdentifier):
 
     def _get_hashes(self, rel_file_path: Path) -> tuple[float, str, str]:
         """Get size, md5, and etag from DB for given relative file path."""
-        size_in_db, md5_in_db = super()._get_hashes(rel_file_path)
+        size_in_db, md5_in_db, _ = super()._get_hashes(rel_file_path)
 
         file_info_key = str(rel_file_path)
         if file_info_key not in self._raw_file.file_info:

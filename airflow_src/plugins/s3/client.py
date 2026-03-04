@@ -90,16 +90,16 @@ def get_etag(
         response = s3_client.head_object(  # ty: ignore[unresolved-attribute]
             Bucket=bucket_name, Key=s3_key
         )
-        existing_etag = response.get("ETag", "").strip('"')
+        etag = response.get("ETag", "").strip('"')
         content_length = response.get("ContentLength", -1)
     except ClientError as e:
         error_code = e.response.get("Error", {}).get("Code")
         if error_code != "404":
             raise ValueError from e
-        existing_etag = S3_FILE_NOT_FOUND_ETAG
+        etag = S3_FILE_NOT_FOUND_ETAG
         content_length = -1
 
-    return existing_etag, content_length
+    return etag, content_length
 
 
 def upload_file_to_s3(

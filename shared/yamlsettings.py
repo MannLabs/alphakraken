@@ -141,7 +141,17 @@ def is_s3_upload_enabled() -> bool:
 
 def get_purging_verification_type() -> str:
     """Return the purging verification type from the yaml settings."""
-    return YAMLSETTINGS.get("backup", {})["purging_verification_type"]  # type: ignore[possibly-unbound-attribute]
+    backup_config = YAMLSETTINGS.get("backup", {})  # type: ignore[possibly-unbound-attribute]
+    purging_type = backup_config["purging_verification_type"]
+    backup_type = backup_config.get("backup_type", "local")
+
+    if purging_type == "local" and backup_type == "s3":
+        raise ValueError(
+            "purging_verification_type='local' is not allowed when backup_type='s3'. "
+            "Use 'force_local' to explicitly verify against local backup, or 's3' to verify against S3."
+        )
+
+    return purging_type
 
 
 def get_s3_upload_config() -> dict[str, Any]:

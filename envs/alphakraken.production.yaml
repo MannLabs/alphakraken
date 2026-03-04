@@ -42,7 +42,7 @@ general:
 
 backup:
   backup_type: local # or 's3'
-  purging_verification_type: local # 'local' or 's3'
+  purging_verification_type: local # 'local', 's3', or 'force_local'
   s3:
     region: eu-central-1
     bucket_prefix: alphakraken

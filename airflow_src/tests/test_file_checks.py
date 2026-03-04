@@ -379,6 +379,8 @@ def test_s3_check_file_etag_mismatch(
     assert result is False
 
 
+@patch("plugins.file_checks.get_file_size")
+@patch("plugins.file_checks.get_file_hash")
 @patch("plugins.file_checks.CopyPathProvider")
 @patch("plugins.file_checks.get_internal_backup_path")
 @patch("plugins.file_checks.get_etag")
@@ -386,23 +388,28 @@ def test_s3_check_file_no_etag_in_file_info(
     mock_get_etag: MagicMock,
     mock_backup_path: MagicMock,
     mock_copy_path_provider: MagicMock,
+    mock_get_file_hash: MagicMock,
+    mock_get_file_size: MagicMock,
 ) -> None:
-    """Test that S3FileIdentifier.check_file raises KeyError when file_info has no ETag."""
+    """Test that S3FileIdentifier.check_file returns False when file_info has no ETag."""
     mock_copy_path_provider.return_value.get_target_folder_path.return_value = Path(
         "/backup/instrument1/2024_08"
     )
     mock_backup_path.return_value = Path("/backup")
     mock_get_etag.return_value = ("abc123", 100)
+    mock_get_file_size.return_value = 100
+    mock_get_file_hash.return_value = "some_hash"
 
     raw_file = MagicMock()
     raw_file.s3_upload_path = "s3://my-bucket"
     raw_file.backup_status = BackupStatus.UPLOAD_DONE
     raw_file.file_info = {"file.raw": (100, "some_hash")}  # only 2 elements
 
-    with pytest.raises(KeyError, match="has no ETag information"):
-        S3FileIdentifier(raw_file, MagicMock()).check_file(
-            Path("/instrument1/file.raw"), Path("file.raw")
-        )
+    result = S3FileIdentifier(raw_file, MagicMock()).check_file(
+        Path("/instrument1/file.raw"), Path("file.raw")
+    )
+
+    assert result is False
 
 
 @patch("plugins.file_checks.CopyPathProvider")

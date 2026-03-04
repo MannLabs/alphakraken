@@ -269,9 +269,14 @@ class S3FileIdentifier(FileIdentifier):
 
 
 def create_file_identifier(
-    raw_file: RawFile, s3_client: BaseAwsConnection | None = None
+    raw_file: RawFile,
+    *,
+    verify_against_s3: bool,
+    s3_client: BaseAwsConnection | None = None,
 ) -> FileIdentifier:
-    """Create the appropriate file identifier based on whether S3 client is provided."""
-    if s3_client is None:
-        return FileIdentifier(raw_file)
-    return S3FileIdentifier(raw_file, s3_client)
+    """Create the appropriate file identifier based on the verification mode."""
+    if verify_against_s3:
+        if s3_client is None:
+            raise ValueError("verify_against_s3=True requires an s3_client")
+        return S3FileIdentifier(raw_file, s3_client)
+    return FileIdentifier(raw_file)

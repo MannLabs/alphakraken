@@ -484,7 +484,7 @@ def test_create_file_identifier_returns_file_identifier_when_no_s3_client(
     )
     raw_file = MagicMock()
 
-    result = create_file_identifier(raw_file)
+    result = create_file_identifier(raw_file, verify_against_s3=False)
 
     assert isinstance(result, FileIdentifier)
     assert not isinstance(result, S3FileIdentifier)
@@ -501,6 +501,8 @@ def test_create_file_identifier_returns_s3_file_identifier_when_s3_client_provid
     raw_file = MagicMock()
     raw_file.s3_upload_path = "s3://my-bucket"
 
-    result = create_file_identifier(raw_file, s3_client=MagicMock())
+    result = create_file_identifier(
+        raw_file, verify_against_s3=True, s3_client=MagicMock()
+    )
 
     assert isinstance(result, S3FileIdentifier)

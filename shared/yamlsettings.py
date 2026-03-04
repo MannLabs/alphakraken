@@ -139,6 +139,11 @@ def is_s3_upload_enabled() -> bool:
     return YAMLSETTINGS.get("backup", {}).get("backup_type", "local") == "s3"  # type: ignore[possibly-unbound-attribute]
 
 
+def get_purging_verification_type() -> str:
+    """Return the purging verification type from the yaml settings."""
+    return YAMLSETTINGS.get("backup", {})["purging_verification_type"]  # type: ignore[possibly-unbound-attribute]
+
+
 def get_s3_upload_config() -> dict[str, Any]:
     """Get the S3 backup configuration from the yaml settings."""
     return YAMLSETTINGS.get("backup", {}).get("s3", {})  # type: ignore[possibly-unbound-attribute]

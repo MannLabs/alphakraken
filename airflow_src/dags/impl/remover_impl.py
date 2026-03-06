@@ -147,7 +147,7 @@ def _decide_on_raw_files_to_remove(
     :param min_free_gb: minimum free space in GB to keep on the instrument
     :param min_file_age: minimum age of files to remove in days
 
-    :return: dict with instrument_id as key and list of raw file ids to remove as value
+    :return: list with instrument_id as key and list of raw file ids to remove as value
 
     For the given instrument, get as many files (oldest first) as are required to free up the desired disk space.
     """
@@ -322,6 +322,7 @@ def _safe_remove_files(
     if base_raw_file_path_to_remove is not None:  # Bruker case
         _remove_folder(base_raw_file_path_to_remove)
 
+    # TODO: add a InstrumentFileStatus.REMOVED_EXTERNALLY to track manual deletions?
     update_raw_file(raw_file_id, instrument_file_status=InstrumentFileStatus.PURGED)
 
 
@@ -425,7 +426,7 @@ def remove_raw_files(ti: TaskInstance, **kwargs) -> None:
                     logging.error(error)
 
     if errors:
-        logging.info(
+        logging.warning(
             "There were errors in the `remove_raw_files` task, i.e. while actually removing them:"
         )
         all_errors = []
@@ -444,7 +445,7 @@ def remove_raw_files(ti: TaskInstance, **kwargs) -> None:
 
     # Fail in case raw file selection failed in the upstream task to make these errors transparent in Airflow UI:
     if instruments_with_errors := get_xcom(ti, XComKeys.INSTRUMENTS_WITH_ERRORS):
-        logging.info(
+        logging.warning(
             "There were errors in the `get_raw_files_to_remove` task, i.e. while gathering the files to remove:"
         )
         error_details = f"Error in previous task {Tasks.GET_RAW_FILES_TO_REMOVE} for {instruments_with_errors}"

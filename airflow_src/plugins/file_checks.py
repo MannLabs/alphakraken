@@ -223,6 +223,10 @@ class S3FileIdentifier(AbstractFileIdentifier):
             )
             return False
 
+        logging.info(
+            f"File {rel_file_path} found on S3 at {self._bucket_name}/{s3_key} with {etag=} {content_length=}"
+        )
+
         self._cached_head_responses[str(rel_file_path)] = (etag, content_length)
         return True
 
@@ -250,6 +254,10 @@ class S3FileIdentifier(AbstractFileIdentifier):
             logging.warning(f"File mismatch with S3: {etag=} vs {etag_in_db=}")
             return False
 
+        logging.info(
+            f"File {rel_file_path} matches S3 reference {etag=} and {content_length=}."
+        )
+
         return True
 
 
@@ -263,5 +271,7 @@ def create_file_identifier(
     if verify_against_s3:
         if s3_client is None:
             raise ValueError("verify_against_s3=True requires an s3_client")
+        logging.info("Using S3FileIdentifier for file verification.")
         return S3FileIdentifier(raw_file, s3_client)
+    logging.info("Using FileIdentifier for file verification.")
     return FileIdentifier(raw_file)

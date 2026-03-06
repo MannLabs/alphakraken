@@ -95,7 +95,7 @@ def is_upload_needed(
     """
     existing_etag, _ = get_etag(bucket_name, s3_key, s3_client)
     if existing_etag is S3_FILE_NOT_FOUND_ETAG:
-        logging.info(f"File {s3_key} does not exist in bucket, proceeding with upload")
+        # logging.info(f"File {s3_key} does not exist in bucket, proceeding with upload")
         return True
     if local_etag == existing_etag:
         logging.info(

@@ -119,6 +119,8 @@ def upload_file_to_s3(
         s3_client: Boto3 S3 client
 
     """
+    logging.info(f"Uploading {file_path} to s3://{bucket_name}/{s3_key}")
+
     with file_path.open("rb") as f:
         s3_client.upload_fileobj(  # ty: ignore[unresolved-attribute]
             f,

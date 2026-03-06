@@ -46,6 +46,7 @@ def create_file_remover_dag() -> None:
         get_files_to_remove_ = PythonOperator(
             task_id=Tasks.GET_RAW_FILES_TO_REMOVE,
             python_callable=get_raw_files_to_remove,
+            execution_timeout=timedelta(minutes=Timings.GET_FILES_TO_REMOVE_TIMEOUT_M),
         )
 
         remove_raw_files_ = PythonOperator(

@@ -45,7 +45,11 @@ from shared.db.models import (
     RawFile,
 )
 from shared.keys import EnvVars
-from shared.yamlsettings import get_purging_verification_type, get_s3_upload_config
+from shared.yamlsettings import (
+    S3_SWITCH,
+    get_purging_verification_type,
+    get_s3_upload_config,
+)
 
 
 class FileRemovalError(Exception):
@@ -83,7 +87,7 @@ def get_raw_files_to_remove(ti: TaskInstance, **kwargs) -> None:
         get_airflow_variable(AirflowVars.MIN_FREE_SPACE_GB, DEFAULT_MIN_FREE_SPACE_GB)
     )
 
-    verify_against_s3 = get_purging_verification_type() == "s3"
+    verify_against_s3 = get_purging_verification_type() == S3_SWITCH
     s3_client = _create_s3_client() if verify_against_s3 else None
 
     raw_file_ids_to_remove: dict[str, list[str]] = {}
@@ -394,7 +398,7 @@ def remove_raw_files(ti: TaskInstance, **kwargs) -> None:
     """Remove files/folders from the instrument backup folder."""
     del kwargs  # unused
 
-    verify_against_s3 = get_purging_verification_type() == "s3"
+    verify_against_s3 = get_purging_verification_type() == S3_SWITCH
     s3_client = _create_s3_client() if verify_against_s3 else None
 
     raw_file_ids_to_remove = get_xcom(ti, XComKeys.FILES_TO_REMOVE)

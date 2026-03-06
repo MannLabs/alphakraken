@@ -134,9 +134,12 @@ def get_notification_setting(setting_key: str) -> str:
     return setting_value
 
 
+S3_SWITCH = "s3"
+
+
 def is_s3_upload_enabled() -> bool:
     """Return whether S3 backup is enabled in the yaml settings."""
-    return YAMLSETTINGS.get("backup", {}).get("backup_type", "local") == "s3"  # type: ignore[possibly-unbound-attribute]
+    return YAMLSETTINGS.get("backup", {}).get("backup_type", "local") == S3_SWITCH  # type: ignore[possibly-unbound-attribute]
 
 
 def get_purging_verification_type() -> str:
@@ -145,7 +148,7 @@ def get_purging_verification_type() -> str:
     purging_type = backup_config["purging_verification_type"]
     backup_type = backup_config.get("backup_type", "local")
 
-    if purging_type == "local" and backup_type == "s3":
+    if purging_type == "local" and backup_type == S3_SWITCH:
         raise ValueError(
             "purging_verification_type='local' is not allowed when backup_type='s3'. "
             "Use 'force_local' to explicitly verify against local backup, or 's3' to verify against S3."

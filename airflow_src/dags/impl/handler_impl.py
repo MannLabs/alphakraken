@@ -50,6 +50,7 @@ from shared.db.interface import (
 from shared.db.models import (
     BackupStatus,
     FileInfoItem,
+    InstrumentFileStatus,
     RawFile,
     RawFileStatus,
     get_created_at_year_month,
@@ -78,11 +79,13 @@ def compute_checksum(ti: TaskInstance, **kwargs) -> bool:
             f"Skipping copy for raw file {raw_file_id}: {acquisition_monitor_errors}"
         )
 
+        # Note: the "new" file `x_CORRUPTED.raw` will be treated as any other raw file.
         update_raw_file(
             raw_file_id,
             new_status=RawFileStatus.ACQUISITION_FAILED,
             status_details=AcquisitionMonitorErrors.FILE_GOT_RENAMED,
             backup_status=BackupStatus.SKIPPED,
+            instrument_file_status=InstrumentFileStatus.RENAMED,
         )
         return False  # skip downstream tasks
 

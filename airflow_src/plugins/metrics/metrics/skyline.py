@@ -35,8 +35,8 @@ class RetentionTimeStats(Metrics):
             df_heavy["PredictedRetentionTime"]
             - df_heavy["AverageMeasuredRetentionTime"]
         )
-        self._metrics["irt_delta_rt_mean"] = delta_rt.nanmean()
-        self._metrics["irt_delta_rt_max"] = delta_rt.nanmax()
+        self._metrics["irt_delta_rt_mean"] = delta_rt.mean()
+        self._metrics["irt_delta_rt_max"] = delta_rt.max()
 
     def _calc(self, df: pd.DataFrame, source_column: str, target_column: str) -> None:
         pass
@@ -52,11 +52,9 @@ class AreaStats(Metrics):
         """Calculate peak area metrics from Skyline iRT report."""
         df = self._data_store[self._file]
         df_heavy = df[df["IsotopeLabelType"] == "heavy"]
-        self._metrics["irt_mean_total_area_median"] = df_heavy[
-            "MeanTotalArea"
-        ].nanmedian()
-        self._metrics["irt_cv_total_area_mean"] = df_heavy["CvTotalArea"].nanmean()
-        self._metrics["irt_cv_total_area_max"] = df_heavy["CvTotalArea"].nanmax()
+        self._metrics["irt_mean_total_area_median"] = df_heavy["MeanTotalArea"].median()
+        self._metrics["irt_cv_total_area_mean"] = df_heavy["CvTotalArea"].mean()
+        self._metrics["irt_cv_total_area_max"] = df_heavy["CvTotalArea"].max()
 
     def _calc(self, df: pd.DataFrame, source_column: str, target_column: str) -> None:
         pass

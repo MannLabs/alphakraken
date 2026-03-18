@@ -112,14 +112,19 @@ columns:
   # skyline
   - name: "irt_delta_rt_mean"
     color_gradient: "red_is_high"
+    plot: true
   - name: "irt_delta_rt_max"
     color_gradient: "red_is_high"
+    plot: true
   - name: "irt_mean_total_area_median"
-    color_gradient: "red_is_high"
+    color_gradient: "green_is_high"
+    plot: true
   - name: "irt_cv_total_area_mean"
     color_gradient: "red_is_high"
+    plot: true
   - name: "irt_cv_total_area_max"
     color_gradient: "red_is_high"
+    plot: true
 
   # Technical plots
   - name: "lag_time_minutes"

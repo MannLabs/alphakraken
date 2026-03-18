@@ -304,13 +304,15 @@ with c1.form("create_settings"):
             st.code(
                 "--f RAW_FILE_PATH --lib LIBRARY_PATH --fasta FASTA_PATH --temp OUTPUT_PATH --threads NUM_THREADS --qvalue 0.01"
             )
-        with st.expander("Example parameters for Spectronaut..."):
-            st.write("spectronaut`")
+        with st.expander("Example for Spectronaut..."):
+            st.write("Executable: `run_spectronaut.sh` (cf. folder `misc/software`)")
             st.code(
                 "direct -n alphakraken -r RAW_FILE_PATH -fasta FASTA_PATH -o OUTPUT_PATH -s /path/to/settings/alphakraken.prop"
             )
-        with st.expander("Example parameters for Skyline..."):
-            st.write("Executable: `skyline/run_skyline.sh` (cf. `misc/software` folder")
+        with st.expander("Example for Skyline..."):
+            st.write(
+                "Executable: `skyline/run_skyline.sh` (cf. folder `misc/software`)"
+            )
             st.code(
                 "--in iRT_windows.sky --irt-database-path irt_c18_official.irtdb --report-add custom_iRT_report.skyr"
             )

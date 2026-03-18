@@ -35,7 +35,7 @@ class Timings:
 class Concurrency:
     """Concurrency constants."""
 
-    # limit to a number smaller than maximum number of runs per DAG (default is 16) to have free slots for other tasks
+    # limit to a number smaller than maximum number of runs per DAG (16) to have free slots for other tasks
     # like starting quanting or metrics calculation
     MAXNO_JOB_MONITOR_TASKS_PER_DAG: int = 14
 
@@ -44,7 +44,7 @@ class Concurrency:
     MAXNO_COPY_RAW_FILE_TASKS_PER_DAG: int = 2
 
     # limit the number of concurrent monitors to not over-stress the network (relevant only during a catchup)
-    MAXNO_MONITOR_ACQUISITION_TASKS_PER_DAG: int = 14
+    MAXNO_MONITOR_ACQUISITION_TASKS_PER_DAG: int = 30
 
     MAXNO_MOVE_RAW_FILE_TASKS_PER_DAG: int = 1
 
@@ -52,6 +52,7 @@ class Concurrency:
 INSTRUMENT_SETTINGS_DEFAULTS = {
     InstrumentKeys.SKIP_QUANTING: False,
     InstrumentKeys.MIN_FREE_SPACE_GB: None,  # None -> use value from Airflow variable MIN_FREE_SPACE_GB
+    InstrumentKeys.MIN_FILE_AGE_DAYS: None,  # None -> use value from Airflow variable MIN_FILE_AGE_TO_REMOVE_IN_DAYS
     InstrumentKeys.FILE_MOVE_DELAY_M: Timings.DEFAULT_FILE_MOVE_DELAY_M,
 }
 

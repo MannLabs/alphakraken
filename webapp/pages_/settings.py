@@ -196,13 +196,17 @@ form_items = {
         "help": "Human readable description of these settings.",
     },
     "fasta_file_name": {
-        "label": "Fasta file name**",
+        "label": "Fasta file name**"
+        if software_type == SoftwareTypes.ALPHADIA
+        else "Fasta file name",
         "max_chars": 64,
         "placeholder": "e.g. 'human.fasta'",
         "help": "Name of the fasta file.",
     },
     "speclib_file_name": {
-        "label": "Speclib file name**",
+        "label": "Speclib file name**"
+        if software_type == SoftwareTypes.ALPHADIA
+        else "Speclib file name",
         "max_chars": 64,
         "placeholder": "e.g. 'human_plasma.speclib'",
         "help": "Name of the speclib file.",
@@ -320,7 +324,8 @@ with c1.form("create_settings"):
         config_params = None
 
     st.write(r"\* Required fields")
-    st.write(r"\** At least one of the two must be given")
+    if software_type == SoftwareTypes.ALPHADIA:
+        st.write(r"\** At least one of the two must be given")
 
     st.markdown("### Upload files to settings folder")
     settings_name_clean = empty_to_none(name)
@@ -361,7 +366,7 @@ if submit:
             check_for_malicious_content(config_params, allow_spaces=True)
         )
 
-    if (
+    if software_type == SoftwareTypes.ALPHADIA and (
         empty_to_none(fasta_file_name) is None
         and empty_to_none(speclib_file_name) is None
     ):

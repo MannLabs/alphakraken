@@ -284,28 +284,36 @@ with c1.form("create_settings"):
         )
         st.info(
             "The following placeholders can be used in the config parameters, and will be replaced by the specified values:\n\n"
+            "- `RAW_FILE_ID`: name of the raw file\n"
             "- `RAW_FILE_PATH`: absolute path of the raw file\n"
             "- `RELATIVE_RAW_FILE_PATH`: path of the raw file relative to `locations.backup.absolute_path` in alphakraken.yaml\n"
             "- `OUTPUT_PATH`: absolute path of the output directory\n"
             "- `RELATIVE_OUTPUT_PATH`: path of the output directory relative to `locations.output.absolute_path` in alphakraken.yaml\n"
+            "- `SETTINGS_PATH`: absolute path of the settings directory\n"
             "- `LIBRARY_PATH`: absolute path of the library file\n"
             "- `FASTA_PATH`: absolute path of the fasta file\n"
             "- `NUM_THREADS`: number of threads\n"
             "- `PROJECT_ID`: project id\n\n"
             "Notes:\n"
             "- The working directory of the custom software is `OUTPUT_PATH`.\n"
-            "- If you require more than the provided files, reference them directly by their absolute path.\n"
-            "- If something that is in the `$PATH` should be executed, wrap it in a shell script and place it in the software folder.\n"
+            "- If you require more than the provided placeholders, reference them directly by their absolute path.\n"
+            "- If something that is in the `$PATH` should be executed (e.g. `apptainer`), wrap it in a shell script and place it in the software folder.\n"
         )
-        with st.expander("Example parameters for DIANN..."):
+        with st.expander("Example for DIANN..."):
+            st.write("Executable: `diann-2.2.0/diann-linux`")
             st.code(
                 "--f RAW_FILE_PATH --lib LIBRARY_PATH --fasta FASTA_PATH --temp OUTPUT_PATH --threads NUM_THREADS --qvalue 0.01"
             )
         with st.expander("Example parameters for Spectronaut..."):
+            st.write("spectronaut`")
             st.code(
                 "direct -n alphakraken -r RAW_FILE_PATH -fasta FASTA_PATH -o OUTPUT_PATH -s /path/to/settings/alphakraken.prop"
             )
-
+        with st.expander("Example parameters for Skyline..."):
+            st.write("Executable: `skyline/run_skyline.sh` (cf. `misc/software` folder")
+            st.code(
+                "--in iRT_windows.sky --irt-database-path irt_c18_official.irtdb --report-add custom_iRT_report.skyr"
+            )
     else:
         config_params = None
 

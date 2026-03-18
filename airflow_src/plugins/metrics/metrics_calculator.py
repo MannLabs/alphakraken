@@ -9,6 +9,7 @@ from typing import Any
 
 import numpy as np
 from metrics.metrics.alphadia import calc_alphadia_metrics
+from metrics.metrics.custom import calc_custom_metrics
 from metrics.metrics.msqc import calc_msqc_metrics
 from metrics.metrics.skyline import calc_skyline_metrics
 
@@ -24,7 +25,8 @@ def calc_metrics(output_directory: Path, *, metrics_type: str) -> dict[str, Any]
     metrics = {
         MetricsTypes.ALPHADIA: calc_alphadia_metrics,
         MetricsTypes.MSQC: calc_msqc_metrics,
-        MetricsTypes.CUSTOM: calc_skyline_metrics,  # TODO: hack!
+        MetricsTypes.SKYLINE: calc_skyline_metrics,  # TODO: this needs to be settable via UI
+        MetricsTypes.CUSTOM: calc_custom_metrics,
     }[metrics_type](output_directory)
 
     # MongoDB field names cannot contain dots (".") or null characters ("\0"), and they must not start with a dollar sign ("$").

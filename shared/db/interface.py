@@ -78,7 +78,7 @@ def get_raw_files_by_age(
     now = datetime.now(tz=pytz.UTC)
 
     oldest_created_at = now - timedelta(days=max_age_in_days)
-    youngest_created_at = now - timedelta(hours=int(min_age_in_days * 24))
+    youngest_created_at = now - timedelta(hours=min_age_in_days * 24)
     logging.info(
         f"Getting from DB: {instrument_id=} {oldest_created_at=} {youngest_created_at=}"
     )

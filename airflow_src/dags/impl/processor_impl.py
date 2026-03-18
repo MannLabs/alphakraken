@@ -99,6 +99,8 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
     relative_output_path = get_output_folder_rel_path(raw_file, project_id_or_fallback)
     output_path = get_path(YamlKeys.Locations.OUTPUT) / relative_output_path
 
+    update_raw_file(raw_file_id, output_path=str(output_path))
+
     custom_command = (
         _prepare_custom_command(
             relative_output_path,

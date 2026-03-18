@@ -398,9 +398,9 @@ def decide_processing(ti: TaskInstance, **kwargs) -> bool:
     ):
         new_status = RawFileStatus.ACQUISITION_FAILED
         status_details = ";".join(acquisition_monitor_errors)
-    elif get_instrument_settings(instrument_id, InstrumentKeys.SKIP_QUANTING):
+    elif get_instrument_settings(instrument_id, InstrumentKeys.SKIP_PROCESSING):
         new_status = RawFileStatus.DONE_NOT_QUANTED
-        status_details = "Quanting disabled for this instrument."
+        status_details = "Processing disabled for this instrument."
     elif DDA_FLAG_IN_RAW_FILE_NAME in raw_file_id.lower():
         new_status = RawFileStatus.DONE_NOT_QUANTED
         status_details = "Filename contains 'dda'."

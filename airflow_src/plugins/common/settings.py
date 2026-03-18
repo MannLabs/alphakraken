@@ -50,6 +50,7 @@ class Concurrency:
 
 
 INSTRUMENT_SETTINGS_DEFAULTS = {
+    InstrumentKeys.SKIP_PROCESSING: False,
     InstrumentKeys.SKIP_QUANTING: False,
     InstrumentKeys.MIN_FREE_SPACE_GB: None,  # None -> use value from Airflow variable MIN_FREE_SPACE_GB
     InstrumentKeys.MIN_FILE_AGE_DAYS: None,  # None -> use value from Airflow variable MIN_FILE_AGE_TO_REMOVE_IN_DAYS

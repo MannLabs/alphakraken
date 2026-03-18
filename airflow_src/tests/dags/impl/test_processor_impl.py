@@ -398,11 +398,14 @@ def test_run_quanting_executes_ssh_command_and_stores_job_id(
         },
         -1,
     ]
-    mock_start_job.return_value = "12345"
     mock_raw_file = MagicMock(
-        wraps=RawFile, created_at=datetime.fromtimestamp(0, tz=pytz.UTC)
+        wraps=RawFile,
+        created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
+        instrument_id="_test1_",
     )
     mock_get_raw_file_by_id.return_value = mock_raw_file
+
+    mock_start_job.return_value = "12345"
 
     ti = MagicMock()
 
@@ -475,6 +478,13 @@ def test_run_quanting_output_folder_exists(
         },
         -1,
     ]
+    mock_raw_file = MagicMock(
+        wraps=RawFile,
+        created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
+        instrument_id="_test1_",
+    )
+    mock_get_raw_file_by_id.return_value = mock_raw_file
+
     mock_path.return_value.exists.return_value = True
     mock_get_airflow_variable.return_value = "raise"
 
@@ -501,7 +511,7 @@ def test_run_quanting_output_folder_exists_associate(  # noqa: PLR0913
     mock_get_slurm_job_id_from_log: MagicMock,
     mock_get_airflow_variable: MagicMock,
     mock_path: MagicMock,
-    mock_get_raw_file_by_id: MagicMock,  # noqa: ARG001
+    mock_get_raw_file_by_id: MagicMock,
     mock_get_xcom: MagicMock,
 ) -> None:
     """run_quanting function correctly fills xcom if the output path already exists and mode is 'associate'."""
@@ -516,9 +526,17 @@ def test_run_quanting_output_folder_exists_associate(  # noqa: PLR0913
         },
         -1,
     ]
+    mock_raw_file = MagicMock(
+        wraps=RawFile,
+        created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
+        instrument_id="_test1_",
+    )
+    mock_get_raw_file_by_id.return_value = mock_raw_file
+
     mock_path.return_value.exists.return_value = True
     mock_get_airflow_variable.return_value = "associate"
     mock_get_slurm_job_id_from_log.return_value = "54321"
+
     ti = MagicMock()
 
     # when
@@ -541,7 +559,7 @@ def test_run_quanting_output_folder_exists_associate_raise(  # noqa: PLR0913
     mock_get_slurm_job_id_from_log: MagicMock,
     mock_get_airflow_variable: MagicMock,
     mock_path: MagicMock,
-    mock_get_raw_file_by_id: MagicMock,  # noqa: ARG001
+    mock_get_raw_file_by_id: MagicMock,
     mock_get_xcom: MagicMock,
 ) -> None:
     """run_quanting function correctly raises if the output path already exists and mode is 'associate' and no job id."""
@@ -556,9 +574,18 @@ def test_run_quanting_output_folder_exists_associate_raise(  # noqa: PLR0913
         },
         -1,
     ]
+
+    mock_raw_file = MagicMock(
+        wraps=RawFile,
+        created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
+        instrument_id="_test1_",
+    )
+    mock_get_raw_file_by_id.return_value = mock_raw_file
+
     mock_path.return_value.exists.return_value = True
     mock_get_airflow_variable.return_value = "associate"
     mock_get_slurm_job_id_from_log.return_value = None
+
     ti = MagicMock()
 
     # when

@@ -47,6 +47,13 @@ from shared.keys import MetricsTypes, SoftwareTypes
 from shared.validation import check_for_malicious_content
 from shared.yamlsettings import YamlKeys, get_path
 
+# TODO: only temporarily until set via UI
+SOFTWARE_TYPE_TO_METRICS_TYPE = {
+    SoftwareTypes.ALPHADIA: MetricsTypes.ALPHADIA,
+    SoftwareTypes.CUSTOM: MetricsTypes.CUSTOM,
+    SoftwareTypes.MSQC: MetricsTypes.MSQC,
+}
+
 
 def _get_project_id_or_fallback(project_id: str | None, instrument_id: str) -> str:
     """Get the project id for a raw file or the fallback ID if not present."""
@@ -120,6 +127,7 @@ def prepare_quanting(
         QuantingEnv.CONFIG_FILE_NAME: settings.config_file_name,  # TODO: construct path here
         QuantingEnv.SOFTWARE: settings.software,
         QuantingEnv.SOFTWARE_TYPE: settings.software_type,
+        QuantingEnv.METRICS_TYPE: SOFTWARE_TYPE_TO_METRICS_TYPE[settings.software_type],
         QuantingEnv.CUSTOM_COMMAND: custom_command,
         # job parameters
         QuantingEnv.SLURM_CPUS_PER_TASK: cpus_per_task,
@@ -424,27 +432,19 @@ def compute_metrics(
     *,
     quanting_env: dict,
     quanting_time_elapsed: int | None = None,
-    metrics_type: str | None = None,
 ) -> dict:
     """Compute metrics from the quanting results.
 
     :param quanting_env: The quanting environment variables dict.
     :param quanting_time_elapsed: Elapsed time from the quanting job, added to metrics if provided.
-    :param metrics_type: Override the metrics type. If None, derived from the software type.
     :return: Dict with ``metrics`` and ``metrics_type``.
     """
     raw_file = get_raw_file_by_id(quanting_env[QuantingEnv.RAW_FILE_ID])
+    metrics_type = quanting_env[QuantingEnv.METRICS_TYPE]
 
     output_path = get_internal_output_path_for_raw_file(
         raw_file, quanting_env[QuantingEnv.PROJECT_ID_OR_FALLBACK]
     )
-
-    if metrics_type is None:
-        metrics_type = {
-            SoftwareTypes.ALPHADIA: MetricsTypes.ALPHADIA,
-            SoftwareTypes.CUSTOM: MetricsTypes.CUSTOM,
-            SoftwareTypes.MSQC: MetricsTypes.MSQC,
-        }[quanting_env[QuantingEnv.SOFTWARE_TYPE]]
 
     metrics = calc_metrics(output_path, metrics_type=metrics_type)
 

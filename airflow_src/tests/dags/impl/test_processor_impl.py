@@ -110,6 +110,7 @@ def test_prepare_quanting(
         "CONFIG_FILE_NAME": "some_config_file_name",
         "SOFTWARE": "some_software",
         "SOFTWARE_TYPE": "alphadia",
+        "METRICS_TYPE": "alphadia",
         "CUSTOM_COMMAND": "",
         "_SLURM_CPUS_PER_TASK": 8,
         "_SLURM_MEM": "62G",
@@ -184,6 +185,7 @@ def test_prepare_quanting_custom_software(
         "CONFIG_FILE_NAME": "",
         "SOFTWARE": "custom1.2.3",
         "SOFTWARE_TYPE": "custom",
+        "METRICS_TYPE": "custom",
         "CUSTOM_COMMAND": expected_custom_command,
         "_SLURM_CPUS_PER_TASK": 8,
         "_SLURM_MEM": "62G",
@@ -758,6 +760,7 @@ def test_compute_metrics(
         "RAW_FILE_ID": "test_file.raw",
         "PROJECT_ID_OR_FALLBACK": "P1",
         "SOFTWARE_TYPE": "alphadia",
+        "METRICS_TYPE": "alphadia",
     }
     mock_raw_file = MagicMock(
         wraps=RawFile,
@@ -792,6 +795,7 @@ def test_compute_metrics_msqc_software_type(
         "RAW_FILE_ID": "test_file.raw",
         "PROJECT_ID_OR_FALLBACK": "P1",
         "SOFTWARE_TYPE": "msqc",
+        "METRICS_TYPE": "msqc",
     }
     mock_raw_file = MagicMock(
         wraps=RawFile,

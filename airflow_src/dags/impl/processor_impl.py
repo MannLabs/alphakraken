@@ -251,13 +251,13 @@ def run_quanting(
 ) -> str:
     """Run a job on the cluster.
 
-    Use functools.partial to pass additional arguments to this task.
-
-    :param new_status: The status to set for the raw file after starting the job, default is RawFileStatus.QUANTING'.
+    :param quanting_env: The quanting environment variables dict.
+    :param new_status: The status to set for the raw file after starting the job, default is RawFileStatus.QUANTING.
         Set to None to not change the status.
     :param output_path_check: Whether to check if the output path already exists
         and handle it accordingly, default is True. Setting to false will overwrite contents of the output path.
     :param job_script_name: The name of the job script to run, default is DEFAULT_JOB_SCRIPT_NAME.
+    :return: The Slurm job ID as a string.
     """
     raw_file = get_raw_file_by_id(quanting_env[QuantingEnv.RAW_FILE_ID])
 
@@ -367,7 +367,14 @@ def get_business_errors(raw_file: RawFile, project_id: str) -> list[str]:
 
 
 def check_quanting_result(*, quanting_env: dict, job_id: str) -> dict:
-    """Get info (slurm log, alphaDIA log) about a job from the cluster."""
+    """Get info (slurm log, alphaDIA log) about a job from the cluster.
+
+    :param quanting_env: The quanting environment variables dict.
+    :param job_id: The Slurm job ID to check.
+    :return: Dict with ``quanting_time_elapsed`` on success.
+    :raises AirflowSkipException: On known job failures (skips downstream tasks).
+    :raises AirflowFailException: On unknown job failures.
+    """
     job_status, time_elapsed = get_job_result(job_id)
 
     logging.info(f"Job {job_id} exited with status {job_status}.")
@@ -423,7 +430,13 @@ def compute_metrics(
     quanting_time_elapsed: int | None = None,
     metrics_type: str | None = None,
 ) -> dict:
-    """Compute metrics from the quanting results."""
+    """Compute metrics from the quanting results.
+
+    :param quanting_env: The quanting environment variables dict.
+    :param quanting_time_elapsed: Elapsed time from the quanting job, added to metrics if provided.
+    :param metrics_type: Override the metrics type. If None, derived from the software type.
+    :return: Dict with ``metrics`` and ``metrics_type``.
+    """
     raw_file = get_raw_file_by_id(quanting_env[QuantingEnv.RAW_FILE_ID])
 
     output_path = get_internal_output_path_for_raw_file(
@@ -458,7 +471,12 @@ def compute_metrics(
 
 
 def upload_metrics(*, quanting_env: dict, metrics: dict, metrics_type: str) -> None:
-    """Upload the metrics to the database."""
+    """Upload the metrics to the database.
+
+    :param quanting_env: The quanting environment variables dict.
+    :param metrics: The computed metrics dictionary.
+    :param metrics_type: The type of metrics (e.g. alphadia, custom).
+    """
     raw_file_id = quanting_env[QuantingEnv.RAW_FILE_ID]
 
     add_metrics_to_raw_file(

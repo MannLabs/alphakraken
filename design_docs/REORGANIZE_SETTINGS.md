@@ -66,7 +66,7 @@ mapped >> finalize_status()
 
 Add `finalize_raw_file_status()`:
 - Inspect all upload_metrics task instances in DAG run (pattern from `toy_mapped_taskgroup_classic.py:91-111`)
-- All succeeded -> DONE; all failed -> QUANTING_FAILED; mixed -> DONE (partial success)
+- All succeeded -> DONE; one failed -> QUANTING_FAILED
 
 **`airflow_src/plugins/common/keys.py`**
 - Add `Tasks.FINALIZE_STATUS`

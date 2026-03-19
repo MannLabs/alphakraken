@@ -24,7 +24,6 @@ from mongoengine import DoesNotExist
 from plugins.common.keys import (
     JobStates,
     QuantingEnv,
-    XComKeys,
 )
 
 from shared.db.models import RawFile, RawFileStatus
@@ -321,17 +320,13 @@ def test_get_slurm_job_id_from_log_returns_none_if_file_not_exists() -> None:
         assert _get_slurm_job_id_from_log(Path("/mock/path")) is None
 
 
-@patch("dags.impl.processor_impl.get_xcom")
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.start_job")
-@patch("dags.impl.processor_impl.put_xcom")
 @patch("dags.impl.processor_impl.update_raw_file")
 def test_run_quanting_executes_ssh_command_and_stores_job_id(
     mock_update: MagicMock,
-    mock_put_xcom: MagicMock,
     mock_start_job: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
-    mock_get_xcom: MagicMock,
 ) -> None:
     """Test that the run_quanting function executes the SSH command and stores the job ID."""
     # given
@@ -341,7 +336,6 @@ def test_run_quanting_executes_ssh_command_and_stores_job_id(
         QuantingEnv.SOFTWARE_TYPE: "alphadia",
         QuantingEnv.CUSTOM_COMMAND: "",
     }
-    mock_get_xcom.return_value = -1
     mock_raw_file = MagicMock(
         wraps=RawFile,
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
@@ -351,10 +345,8 @@ def test_run_quanting_executes_ssh_command_and_stores_job_id(
 
     mock_start_job.return_value = "12345"
 
-    ti = MagicMock()
-
     # when
-    result = run_quanting(ti, quanting_env=quanting_env)
+    result = run_quanting(quanting_env=quanting_env)
 
     assert result == "12345"
     mock_start_job.assert_called_once_with(
@@ -363,37 +355,11 @@ def test_run_quanting_executes_ssh_command_and_stores_job_id(
         "1970_01",
     )
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
-    mock_put_xcom.assert_called_once_with(ti, XComKeys.JOB_ID, "12345")
     mock_update.assert_called_once_with(
         "test_file.raw", new_status=RawFileStatus.QUANTING
     )
 
 
-@patch("dags.impl.processor_impl.get_xcom")
-@patch("dags.impl.processor_impl.start_job")
-def test_run_quanting_job_id_exists(
-    mock_start_job: MagicMock,
-    mock_get_xcom: MagicMock,
-) -> None:
-    """run_quanting function skips execution if the job ID already exists."""
-    # given
-    quanting_env = {
-        QuantingEnv.RAW_FILE_ID: "test_file.raw",
-        QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID123",
-        QuantingEnv.SOFTWARE_TYPE: "alphadia",
-        QuantingEnv.CUSTOM_COMMAND: "",
-    }
-    mock_get_xcom.return_value = 12345
-    ti = MagicMock()
-
-    # when
-    run_quanting(ti, quanting_env=quanting_env)
-
-    # then
-    mock_start_job.assert_not_called()
-
-
-@patch("dags.impl.processor_impl.get_xcom")
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.Path")
 @patch("dags.impl.processor_impl.get_airflow_variable")
@@ -401,7 +367,6 @@ def test_run_quanting_output_folder_exists(
     mock_get_airflow_variable: MagicMock,
     mock_path: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
-    mock_get_xcom: MagicMock,
 ) -> None:
     """run_quanting function raises an exception if the output path already exists."""
     # given
@@ -411,7 +376,6 @@ def test_run_quanting_output_folder_exists(
         QuantingEnv.SOFTWARE_TYPE: "alphadia",
         QuantingEnv.CUSTOM_COMMAND: "",
     }
-    mock_get_xcom.return_value = -1
     mock_raw_file = MagicMock(
         wraps=RawFile,
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
@@ -422,33 +386,25 @@ def test_run_quanting_output_folder_exists(
     mock_path.return_value.exists.return_value = True
     mock_get_airflow_variable.return_value = "raise"
 
-    ti = MagicMock()
-
     # when
     with pytest.raises(AirflowFailException):
-        run_quanting(ti, quanting_env=quanting_env)
+        run_quanting(quanting_env=quanting_env)
 
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
     mock_get_airflow_variable.assert_called_once_with("output_exists_mode", "raise")
 
 
-@patch("dags.impl.processor_impl.get_xcom")
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.Path")
 @patch("dags.impl.processor_impl.get_airflow_variable")
 @patch("dags.impl.processor_impl._get_slurm_job_id_from_log")
-@patch("dags.impl.processor_impl.put_xcom")
-@patch("dags.impl.processor_impl.update_raw_file")
-def test_run_quanting_output_folder_exists_associate(  # noqa: PLR0913
-    mock_update: MagicMock,
-    mock_put_xcom: MagicMock,
+def test_run_quanting_output_folder_exists_associate(
     mock_get_slurm_job_id_from_log: MagicMock,
     mock_get_airflow_variable: MagicMock,
     mock_path: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
-    mock_get_xcom: MagicMock,
 ) -> None:
-    """run_quanting function correctly fills xcom if the output path already exists and mode is 'associate'."""
+    """run_quanting function returns extracted job_id if the output path already exists and mode is 'associate'."""
     # given
     quanting_env = {
         QuantingEnv.RAW_FILE_ID: "test_file.raw",
@@ -456,7 +412,6 @@ def test_run_quanting_output_folder_exists_associate(  # noqa: PLR0913
         QuantingEnv.SOFTWARE_TYPE: "alphadia",
         QuantingEnv.CUSTOM_COMMAND: "",
     }
-    mock_get_xcom.return_value = -1
     mock_raw_file = MagicMock(
         wraps=RawFile,
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
@@ -468,30 +423,21 @@ def test_run_quanting_output_folder_exists_associate(  # noqa: PLR0913
     mock_get_airflow_variable.return_value = "associate"
     mock_get_slurm_job_id_from_log.return_value = "54321"
 
-    ti = MagicMock()
-
     # when
-    run_quanting(ti, quanting_env=quanting_env)
+    result = run_quanting(quanting_env=quanting_env)
 
-    mock_put_xcom.assert_called_once_with(ti, XComKeys.JOB_ID, "54321")
-    mock_update.assert_not_called()
+    assert result == "54321"
 
 
-@patch("dags.impl.processor_impl.get_xcom")
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.Path")
 @patch("dags.impl.processor_impl.get_airflow_variable")
 @patch("dags.impl.processor_impl._get_slurm_job_id_from_log")
-@patch("dags.impl.processor_impl.put_xcom")
-@patch("dags.impl.processor_impl.update_raw_file")
-def test_run_quanting_output_folder_exists_associate_raise(  # noqa: PLR0913
-    mock_update: MagicMock,
-    mock_put_xcom: MagicMock,
+def test_run_quanting_output_folder_exists_associate_raise(
     mock_get_slurm_job_id_from_log: MagicMock,
     mock_get_airflow_variable: MagicMock,
     mock_path: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
-    mock_get_xcom: MagicMock,
 ) -> None:
     """run_quanting function correctly raises if the output path already exists and mode is 'associate' and no job id."""
     # given
@@ -501,8 +447,6 @@ def test_run_quanting_output_folder_exists_associate_raise(  # noqa: PLR0913
         QuantingEnv.SOFTWARE_TYPE: "alphadia",
         QuantingEnv.CUSTOM_COMMAND: "",
     }
-    mock_get_xcom.return_value = -1
-
     mock_raw_file = MagicMock(
         wraps=RawFile,
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
@@ -514,14 +458,9 @@ def test_run_quanting_output_folder_exists_associate_raise(  # noqa: PLR0913
     mock_get_airflow_variable.return_value = "associate"
     mock_get_slurm_job_id_from_log.return_value = None
 
-    ti = MagicMock()
-
     # when
     with pytest.raises(AirflowFailException):
-        run_quanting(ti, quanting_env=quanting_env)
-
-    mock_put_xcom.assert_not_called()
-    mock_update.assert_not_called()
+        run_quanting(quanting_env=quanting_env)
 
 
 @patch("dags.impl.processor_impl.get_job_result")

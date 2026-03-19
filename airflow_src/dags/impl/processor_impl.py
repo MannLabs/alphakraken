@@ -20,7 +20,6 @@ from common.keys import (
     QuantingEnv,
     TaskGroups,
     Tasks,
-    XComKeys,
 )
 from common.paths import (
     get_internal_output_path_for_raw_file,
@@ -29,8 +28,6 @@ from common.paths import (
 from common.settings import get_fallback_project_id, get_instrument_settings
 from common.utils import (
     get_airflow_variable,
-    get_xcom,
-    put_xcom,
 )
 from jobs.job_handler import (
     get_job_result,
@@ -245,32 +242,23 @@ def _get_slurm_job_id_from_log(output_path: Path) -> str | None:
     return None
 
 
-def run_quanting(  # noqa: PLR0913
-    ti: TaskInstance,
+def run_quanting(
     *,
     quanting_env: dict,
     new_status: str | None = RawFileStatus.QUANTING,
     output_path_check: bool = True,
     job_script_name: str = DEFAULT_JOB_SCRIPT_NAME,
-    xcom_key_job_id: str = XComKeys.JOB_ID,
 ) -> str:
     """Run a job on the cluster.
 
     Use functools.partial to pass additional arguments to this task.
 
-    :param ti: TaskInstance object to interact with Airflow's XCom.
     :param new_status: The status to set for the raw file after starting the job, default is RawFileStatus.QUANTING'.
         Set to None to not change the status.
     :param output_path_check: Whether to check if the output path already exists
         and handle it accordingly, default is True. Setting to false will overwrite contents of the output path.
     :param job_script_name: The name of the job script to run, default is DEFAULT_JOB_SCRIPT_NAME.
-    :param xcom_key_job_id: The key to use for storing the job ID in XCom, default is XComKeys.JOB_ID.
     """
-    # upfront check 1
-    if (job_id := get_xcom(ti, xcom_key_job_id, -1)) != -1:
-        logging.warning(f"Job already started with {job_id}, skipping.")
-        return str(job_id)
-
     raw_file = get_raw_file_by_id(quanting_env[QuantingEnv.RAW_FILE_ID])
 
     # TODO: this is a bit of hack, needs to go with refactoring of projects/settings  edit: now it's a terrible hack
@@ -304,8 +292,6 @@ def run_quanting(  # noqa: PLR0913
                 logging.exception("Could not read off job id from log file.")
                 raise AirflowFailException("Job submission failed.")
 
-            put_xcom(ti, xcom_key_job_id, extracted_job_id)
-
             logging.warning(f"Assuming job id {extracted_job_id}...")
             return str(extracted_job_id)
         else:
@@ -320,8 +306,6 @@ def run_quanting(  # noqa: PLR0913
 
     if new_status is not None:
         update_raw_file(quanting_env[QuantingEnv.RAW_FILE_ID], new_status=new_status)
-
-    put_xcom(ti, xcom_key_job_id, job_id)
 
     return str(job_id)
 

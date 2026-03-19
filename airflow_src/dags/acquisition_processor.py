@@ -85,7 +85,7 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
                 quanting_env: dict, ti: TaskInstance | None = None
             ) -> str:
                 assert ti is not None
-                return run_quanting(ti=ti, quanting_env=quanting_env)
+                return run_quanting(quanting_env=quanting_env)
 
             wait_ = WaitForJobStartSensor(
                 task_id=Tasks.WAIT_FOR_JOB_START,

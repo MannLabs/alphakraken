@@ -47,6 +47,9 @@ class Tasks:
     COMPUTE_METRICS: str = "compute_metrics"
     UPLOAD_METRICS: str = "upload_metrics"
 
+    QUANTING_PIPELINE: str = "quanting_pipeline"
+    FINALIZE_STATUS: str = "finalize_status"
+
     MOVE_RAW_FILES: str = "move_raw_file"
     GET_FILES_TO_MOVE: str = "get_files_to_move"
 

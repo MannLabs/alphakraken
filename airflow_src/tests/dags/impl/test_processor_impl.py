@@ -13,6 +13,7 @@ from dags.impl.processor_impl import (
     _get_slurm_job_id_from_log,
     check_quanting_result,
     compute_metrics,
+    finalize_raw_file_status,
     get_business_errors,
     prepare_quanting,
     run_quanting,
@@ -20,10 +21,7 @@ from dags.impl.processor_impl import (
 )
 from mongoengine import DoesNotExist
 from plugins.common.keys import (
-    DagContext,
-    DagParams,
     JobStates,
-    OpArgs,
     QuantingEnv,
     XComKeys,
 )
@@ -60,13 +58,11 @@ def test_get_project_id_for_raw_file_fallback_bruker() -> None:
 @patch.dict(_INSTRUMENTS, {"instrument1": {}})
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.get_path")
-@patch("dags.impl.processor_impl.put_xcom")
 @patch("dags.impl.processor_impl._get_project_id_or_fallback")
 @patch("dags.impl.processor_impl.get_settings_for_project")
 def test_prepare_quanting(
     mock_get_settings: MagicMock,
     mock_get_project_id_for_raw_file: MagicMock,
-    mock_put_xcom: MagicMock,
     mock_get_path: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
 ) -> None:
@@ -94,17 +90,9 @@ def test_prepare_quanting(
     mock_settings.software_type = "alphadia"
     mock_settings.version = 1
     mock_get_settings.return_value = mock_settings
-    ti = MagicMock()
-
-    kwargs = {
-        OpArgs.INSTRUMENT_ID: "instrument1",
-        DagContext.PARAMS: {
-            DagParams.RAW_FILE_ID: "test_file.raw",
-        },
-    }
 
     # when
-    prepare_quanting(ti, **kwargs)
+    result = prepare_quanting(raw_file_id="test_file.raw", instrument_id="instrument1")
 
     mock_get_project_id_for_raw_file.assert_called_once_with(
         "some_project_id", "instrument1"
@@ -133,12 +121,7 @@ def test_prepare_quanting(
         "SETTINGS_VERSION": 1,
     }
 
-    mock_put_xcom.assert_has_calls(
-        [
-            call(ti, "quanting_env", expected_quanting_env),
-            call(ti, "raw_file_id", "test_file.raw"),
-        ]
-    )
+    assert result == [expected_quanting_env]
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
     mock_get_path.assert_has_calls([call("backup"), call("settings"), call("output")])
 
@@ -146,13 +129,11 @@ def test_prepare_quanting(
 @patch.dict(_INSTRUMENTS, {"instrument1": {}})
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.get_path")
-@patch("dags.impl.processor_impl.put_xcom")
 @patch("dags.impl.processor_impl._get_project_id_or_fallback")
 @patch("dags.impl.processor_impl.get_settings_for_project")
 def test_prepare_quanting_custom_software(
     mock_get_settings: MagicMock,
     mock_get_project_id_for_raw_file: MagicMock,
-    mock_put_xcom: MagicMock,
     mock_get_path: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
 ) -> None:
@@ -181,17 +162,9 @@ def test_prepare_quanting_custom_software(
     mock_settings.software_type = "custom"
     mock_settings.version = 1
     mock_get_settings.return_value = mock_settings
-    ti = MagicMock()
-
-    kwargs = {
-        OpArgs.INSTRUMENT_ID: "instrument1",
-        DagContext.PARAMS: {
-            DagParams.RAW_FILE_ID: "test_file.raw",
-        },
-    }
 
     # when
-    prepare_quanting(ti, **kwargs)
+    result = prepare_quanting(raw_file_id="test_file.raw", instrument_id="instrument1")
 
     expected_custom_command = (
         "/some_software_base_path/custom1.2.3 --qvalue 0.01 --f /some_backup_base_path/instrument1/1970_01/test_file.raw "
@@ -222,12 +195,7 @@ def test_prepare_quanting_custom_software(
         "SETTINGS_VERSION": 1,
     }
 
-    mock_put_xcom.assert_has_calls(
-        [
-            call(ti, "quanting_env", expected_quanting_env),
-            call(ti, "raw_file_id", "test_file.raw"),
-        ]
-    )
+    assert result == [expected_quanting_env]
 
 
 @patch.dict(_INSTRUMENTS, {"instrument1": {}})
@@ -265,18 +233,10 @@ def test_prepare_quanting_validation_error_raises(
         software_type="custom",
         version=1,
     )
-    ti = MagicMock()
-
-    kwargs = {
-        OpArgs.INSTRUMENT_ID: "instrument1",
-        DagContext.PARAMS: {
-            DagParams.RAW_FILE_ID: "test_file.raw",
-        },
-    }
 
     # when
     with pytest.raises(AirflowFailException):
-        prepare_quanting(ti, **kwargs)
+        prepare_quanting(raw_file_id="test_file.raw", instrument_id="instrument1")
 
 
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
@@ -300,16 +260,9 @@ def test_prepare_quanting_no_project_raise(
 
     mock_get_settings.side_effect = DoesNotExist
 
-    kwargs = {
-        OpArgs.INSTRUMENT_ID: "instrument1",
-        DagContext.PARAMS: {
-            DagParams.RAW_FILE_ID: "test_file.raw",
-        },
-    }
-
     # when
     with pytest.raises(AirflowFailException):
-        prepare_quanting(MagicMock(), **kwargs)
+        prepare_quanting(raw_file_id="test_file.raw", instrument_id="instrument1")
 
 
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
@@ -333,16 +286,9 @@ def test_prepare_quanting_no_settings_raise(
 
     mock_get_settings.return_value = None
 
-    kwargs = {
-        OpArgs.INSTRUMENT_ID: "instrument1",
-        DagContext.PARAMS: {
-            DagParams.RAW_FILE_ID: "test_file.raw",
-        },
-    }
-
     # when
     with pytest.raises(AirflowFailException):
-        prepare_quanting(MagicMock(), **kwargs)
+        prepare_quanting(raw_file_id="test_file.raw", instrument_id="instrument1")
 
 
 def test_get_slurm_job_id_from_log_returns_slurm_job_id_if_present_in_log() -> None:
@@ -985,9 +931,7 @@ def test_compute_metrics_msqc_file_not_found_raises_skip_exception(
 
 @patch("dags.impl.processor_impl.get_xcom")
 @patch("dags.impl.processor_impl.add_metrics_to_raw_file")
-@patch("dags.impl.processor_impl.update_raw_file")
 def test_upload_metrics(
-    mock_update: MagicMock,
     mock_add: MagicMock,
     mock_get_xcom: MagicMock,
 ) -> None:
@@ -1013,6 +957,67 @@ def test_upload_metrics(
         settings_name="test_settings",
         settings_version=1,
     )
+
+
+@patch("dags.impl.processor_impl.update_raw_file")
+def test_finalize_raw_file_status_all_succeeded(mock_update: MagicMock) -> None:
+    """Test that finalize_raw_file_status sets DONE when all branches succeed."""
+    ti = MagicMock()
+    upload_ti = MagicMock(task_id="quanting_pipeline.upload_metrics", state="success")
+    other_ti = MagicMock(task_id="quanting_pipeline.compute_metrics", state="success")
+    ti.get_dagrun.return_value.get_task_instances.return_value = [upload_ti, other_ti]
+
+    finalize_raw_file_status(ti=ti, raw_file_id="test.raw")
+
     mock_update.assert_called_once_with(
-        "some_file.raw", new_status=RawFileStatus.DONE, status_details=None
+        "test.raw", new_status=RawFileStatus.DONE, status_details=None
     )
+
+
+@patch("dags.impl.processor_impl.update_raw_file")
+def test_finalize_raw_file_status_branch_failed(mock_update: MagicMock) -> None:
+    """Test that finalize_raw_file_status sets QUANTING_FAILED when a branch fails."""
+    ti = MagicMock()
+    upload_ti_ok = MagicMock(
+        task_id="quanting_pipeline.upload_metrics", state="success"
+    )
+    upload_ti_fail = MagicMock(
+        task_id="quanting_pipeline.upload_metrics", state="skipped"
+    )
+    ti.get_dagrun.return_value.get_task_instances.return_value = [
+        upload_ti_ok,
+        upload_ti_fail,
+    ]
+
+    finalize_raw_file_status(ti=ti, raw_file_id="test.raw")
+
+    mock_update.assert_called_once_with(
+        "test.raw", new_status=RawFileStatus.QUANTING_FAILED
+    )
+
+
+@patch("dags.impl.processor_impl.update_raw_file")
+def test_finalize_raw_file_status_upstream_failed(mock_update: MagicMock) -> None:
+    """Test that finalize_raw_file_status treats upstream_failed as failure."""
+    ti = MagicMock()
+    upload_ti = MagicMock(
+        task_id="quanting_pipeline.upload_metrics", state="upstream_failed"
+    )
+    ti.get_dagrun.return_value.get_task_instances.return_value = [upload_ti]
+
+    finalize_raw_file_status(ti=ti, raw_file_id="test.raw")
+
+    mock_update.assert_called_once_with(
+        "test.raw", new_status=RawFileStatus.QUANTING_FAILED
+    )
+
+
+def test_finalize_raw_file_status_no_upload_tasks() -> None:
+    """Test that finalize_raw_file_status raises when no upload_metrics tasks found."""
+    ti = MagicMock()
+    ti.get_dagrun.return_value.get_task_instances.return_value = [
+        MagicMock(task_id="some_other_task", state="success")
+    ]
+
+    with pytest.raises(AirflowFailException):
+        finalize_raw_file_status(ti=ti, raw_file_id="test.raw")

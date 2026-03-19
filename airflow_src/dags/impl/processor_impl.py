@@ -15,12 +15,10 @@ from common.keys import (
     QUANTING_TIME_ELAPSED_METRIC,
     AirflowVars,
     CustomAlphaDiaStates,
-    DagContext,
-    DagParams,
     InstrumentKeys,
     JobStates,
-    OpArgs,
     QuantingEnv,
+    Tasks,
     XComKeys,
 )
 from common.paths import (
@@ -59,16 +57,15 @@ def _get_project_id_or_fallback(project_id: str | None, instrument_id: str) -> s
     )
 
 
-def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
+def prepare_quanting(
+    raw_file_id: str, instrument_id: str
+) -> list[dict[str, str | int]]:
     """Prepare the environmental variables for the quanting job."""
     # TODO: make these configurable
     cpus_per_task = 8
     num_threads = 8
     mem = "62G"
     time = "02:00:00"
-
-    raw_file_id = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID]
-    instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
 
     raw_file = get_raw_file_by_id(raw_file_id)
 
@@ -143,9 +140,7 @@ def prepare_quanting(ti: TaskInstance, **kwargs) -> None:
             f"Validation errors in quanting environment: {errors}"
         )
 
-    put_xcom(ti, XComKeys.QUANTING_ENV, quanting_env)
-    # this is redundant to the entry in QUANTING_ENV, but makes downstream access a bit more convenient
-    put_xcom(ti, XComKeys.RAW_FILE_ID, raw_file_id)
+    return [quanting_env]
 
 
 def _prepare_custom_command(  # noqa: PLR0913 Too many arguments
@@ -323,14 +318,6 @@ def run_quanting(
             )
 
     year_month_folder = get_created_at_year_month(raw_file)
-
-    # TODO: very dirty hack for msqc!
-    if job_script_name == "submit_msqc_job.sh":
-        quanting_env = quanting_env.copy()
-        quanting_env[QuantingEnv.SLURM_CPUS_PER_TASK] = 2
-        quanting_env[QuantingEnv.SLURM_MEM] = "31G"
-        quanting_env[QuantingEnv.SLURM_TIME] = "00:10:00"
-        quanting_env[QuantingEnv.NUM_THREADS] = 2
 
     job_id = start_job(job_script_name, quanting_env, year_month_folder)
 
@@ -521,6 +508,27 @@ def upload_metrics(ti: TaskInstance, **kwargs) -> None:
         settings_version=quanting_env[QuantingEnv.SETTINGS_VERSION],
     )
 
-    update_raw_file(
-        raw_file_id, new_status=RawFileStatus.DONE, status_details=None
-    )  # TODO: move to dedicated reusable status update task
+
+FAILED_STATES = {"failed", "skipped", "upstream_failed"}
+_UPLOAD_METRICS_TASK_ID = f"{Tasks.QUANTING_PIPELINE}.{Tasks.UPLOAD_METRICS}"
+
+
+def finalize_raw_file_status(ti: TaskInstance, raw_file_id: str) -> None:
+    """Set the final status for the raw file based on all pipeline branch outcomes."""
+    dag_run = ti.get_dagrun()
+    tis = dag_run.get_task_instances()
+
+    upload_tis = [t for t in tis if t.task_id == _UPLOAD_METRICS_TASK_ID]
+
+    if not upload_tis:
+        raise AirflowFailException("No upload_metrics task instances found in DAG run.")
+
+    failed = [t for t in upload_tis if t.state in FAILED_STATES]
+
+    if failed:
+        logging.info(
+            f"{len(failed)} of {len(upload_tis)} branches failed for raw file {raw_file_id}."
+        )
+        update_raw_file(raw_file_id, new_status=RawFileStatus.QUANTING_FAILED)
+    else:
+        update_raw_file(raw_file_id, new_status=RawFileStatus.DONE, status_details=None)

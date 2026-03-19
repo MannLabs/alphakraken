@@ -11,7 +11,15 @@ from airflow.operators.python import PythonOperator, ShortCircuitOperator
 from airflow.utils.trigger_rule import TriggerRule
 from callbacks import on_failure_callback
 from common.constants import AIRFLOW_QUEUE_PREFIX, Pools
-from common.keys import DAG_DELIMITER, DagParams, Dags, QuantingEnv, Tasks, XComKeys
+from common.keys import (
+    DAG_DELIMITER,
+    DagParams,
+    Dags,
+    QuantingEnv,
+    TaskGroups,
+    Tasks,
+    XComKeys,
+)
 from common.settings import (
     Concurrency,
     Timings,
@@ -73,7 +81,7 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
                 instrument_id=instrument_id,
             )
 
-        @task_group(group_id=Tasks.QUANTING_PIPELINE)
+        @task_group(group_id=TaskGroups.QUANTING_PIPELINE)
         def quanting_pipeline(quanting_env: dict) -> None:
             @task
             def push_quanting_env(

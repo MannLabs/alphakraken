@@ -17,6 +17,12 @@ class Dags:
     S3_UPLOADER: str = "s3_uploader"
 
 
+class TaskGroups:
+    """Task Group Names."""
+
+    QUANTING_PIPELINE: str = "quanting_pipeline"
+
+
 class Tasks:
     """Task Names."""
 
@@ -47,7 +53,6 @@ class Tasks:
     COMPUTE_METRICS: str = "compute_metrics"
     UPLOAD_METRICS: str = "upload_metrics"
 
-    QUANTING_PIPELINE: str = "quanting_pipeline"
     FINALIZE_STATUS: str = "finalize_status"
 
     MOVE_RAW_FILES: str = "move_raw_file"

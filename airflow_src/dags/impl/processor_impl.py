@@ -18,6 +18,7 @@ from common.keys import (
     InstrumentKeys,
     JobStates,
     QuantingEnv,
+    TaskGroups,
     Tasks,
     XComKeys,
 )
@@ -509,8 +510,8 @@ def upload_metrics(ti: TaskInstance, **kwargs) -> None:
     )
 
 
-FAILED_STATES = {"failed", "skipped", "upstream_failed"}
-_UPLOAD_METRICS_TASK_ID = f"{Tasks.QUANTING_PIPELINE}.{Tasks.UPLOAD_METRICS}"
+FAILED_STATES = {"failed", "upstream_failed"}
+_UPLOAD_METRICS_TASK_ID = f"{TaskGroups.QUANTING_PIPELINE}.{Tasks.UPLOAD_METRICS}"
 
 
 def finalize_raw_file_status(ti: TaskInstance, raw_file_id: str) -> None:
@@ -529,6 +530,8 @@ def finalize_raw_file_status(ti: TaskInstance, raw_file_id: str) -> None:
         logging.info(
             f"{len(failed)} of {len(upload_tis)} branches failed for raw file {raw_file_id}."
         )
-        update_raw_file(raw_file_id, new_status=RawFileStatus.QUANTING_FAILED)
-    else:
-        update_raw_file(raw_file_id, new_status=RawFileStatus.DONE, status_details=None)
+        update_raw_file(raw_file_id, new_status=RawFileStatus.ERROR)
+        raise AirflowFailException("At least on task has failed.")
+        # TODO: how to handle status_details? accumulate during the DAG run and reset here in case of success?
+
+    update_raw_file(raw_file_id, new_status=RawFileStatus.DONE, status_details=None)

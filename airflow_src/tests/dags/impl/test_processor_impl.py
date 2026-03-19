@@ -783,15 +783,15 @@ def test_compute_metrics(
 
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.calc_metrics")
-def test_compute_metrics_msqc_file_not_found_raises_skip_exception(
+def test_compute_metrics_msqc_software_type(
     mock_calc_metrics: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
 ) -> None:
-    """Test that compute_metrics raises AirflowSkipException when calc_metrics fails with FileNotFoundError for MSQC."""
+    """Test that compute_metrics correctly maps MSQC software type to MSQC metrics type."""
     quanting_env = {
         "RAW_FILE_ID": "test_file.raw",
         "PROJECT_ID_OR_FALLBACK": "P1",
-        "SOFTWARE_TYPE": "alphadia",
+        "SOFTWARE_TYPE": "msqc",
     }
     mock_raw_file = MagicMock(
         wraps=RawFile,
@@ -799,18 +799,17 @@ def test_compute_metrics_msqc_file_not_found_raises_skip_exception(
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
     )
     mock_get_raw_file_by_id.return_value = mock_raw_file
+    mock_calc_metrics.return_value = {"qc_metric": 42}
 
-    # Simulate FileNotFoundError from calc_metrics for MSQC metrics type
-    mock_calc_metrics.side_effect = FileNotFoundError("Metrics file not found")
+    result = compute_metrics(quanting_env=quanting_env)
 
-    # when & then
-    with pytest.raises(AirflowSkipException):
-        compute_metrics(quanting_env=quanting_env, metrics_type="msqc")
-
-    mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
     mock_calc_metrics.assert_called_once_with(
         Path("/opt/airflow/mounts/output/P1/out_test_file.raw"), metrics_type="msqc"
     )
+    assert result == {
+        "metrics": {"qc_metric": 42},
+        "metrics_type": "msqc",
+    }
 
 
 @patch("dags.impl.processor_impl.add_metrics_to_raw_file")

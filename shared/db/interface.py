@@ -21,6 +21,10 @@ from shared.db.models import (
     Settings,
     SettingsStatus,
 )
+from shared.keys import SoftwareTypes
+
+# Software types that require fasta and speclib files
+SOFTWARE_TYPES_REQUIRING_LIBRARY_FILES = {SoftwareTypes.ALPHADIA, SoftwareTypes.CUSTOM}
 
 
 def get_raw_files_by_names(raw_file_names: list[str]) -> list[RawFile]:
@@ -234,10 +238,10 @@ def create_settings(  # noqa: PLR0913
     *,
     name: str,
     description: str | None = None,
-    fasta_file_name: str,
-    speclib_file_name: str,
-    config_file_name: str | None,
-    config_params: str | None,
+    fasta_file_name: str | None = None,
+    speclib_file_name: str | None = None,
+    config_file_name: str | None = None,
+    config_params: str | None = None,
     software_type: str,
     software: str,
 ) -> Settings:
@@ -245,6 +249,13 @@ def create_settings(  # noqa: PLR0913
 
     Version is automatically incremented based on existing settings with same name.
     """
+    if software_type in SOFTWARE_TYPES_REQUIRING_LIBRARY_FILES and (
+        not fasta_file_name or not speclib_file_name
+    ):
+        raise ValueError(
+            f"Software type '{software_type}' requires both fasta_file_name and speclib_file_name."
+        )
+
     connect_db()
 
     existing = Settings.objects(name=name).order_by("-version").first()

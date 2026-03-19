@@ -261,11 +261,7 @@ def run_quanting(
     """
     raw_file = get_raw_file_by_id(quanting_env[QuantingEnv.RAW_FILE_ID])
 
-    # TODO: this is a bit of hack, needs to go with refactoring of projects/settings  edit: now it's a terrible hack
-    if (
-        get_instrument_settings(raw_file.instrument_id, InstrumentKeys.SKIP_QUANTING)
-        and job_script_name != "submit_msqc_job.sh"
-    ):
+    if get_instrument_settings(raw_file.instrument_id, InstrumentKeys.SKIP_QUANTING):
         logging.info(
             f"Skipping quanting for raw file {raw_file.id} because instrument settings have skip_quanting=True."
         )
@@ -444,23 +440,13 @@ def compute_metrics(
     )
 
     if metrics_type is None:
-        # TODO: currently 1:1 mapping between custom workflow & metrics
         metrics_type = {
             SoftwareTypes.ALPHADIA: MetricsTypes.ALPHADIA,
             SoftwareTypes.CUSTOM: MetricsTypes.CUSTOM,
+            SoftwareTypes.MSQC: MetricsTypes.MSQC,
         }[quanting_env[QuantingEnv.SOFTWARE_TYPE]]
 
-    try:
-        metrics = calc_metrics(output_path, metrics_type=metrics_type)
-    except FileNotFoundError as e:
-        if metrics_type == MetricsTypes.MSQC:
-            # currently, ignore failed MSQC metrics calculation, these runs will usually also fail AlphaDIA
-            # TODO: find a better way to handle msqc errors
-            logging.warning(
-                f"Could not calculate metrics of type {metrics_type}, skipping metrics calculation."
-            )
-            raise AirflowSkipException from e
-        raise
+    metrics = calc_metrics(output_path, metrics_type=metrics_type)
 
     if (
         quanting_time_elapsed is not None
@@ -512,4 +498,5 @@ def finalize_raw_file_status(ti: TaskInstance, raw_file_id: str) -> None:
         raise AirflowFailException("At least on task has failed.")
         # TODO: how to handle status_details? accumulate during the DAG run and reset here in case of success?
 
+    # TODO: currently, if a task is skipped (due to a business error), the raw file will be marked as done.
     update_raw_file(raw_file_id, new_status=RawFileStatus.DONE, status_details=None)

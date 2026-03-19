@@ -172,7 +172,11 @@ if selected_name_option != CREATE_NEW_OPTION:
     }
 
 
-software_type_options = [SoftwareTypes.ALPHADIA, SoftwareTypes.CUSTOM]
+software_type_options = [
+    SoftwareTypes.ALPHADIA,
+    SoftwareTypes.CUSTOM,
+    SoftwareTypes.MSQC,
+]
 software_type_index = (
     software_type_options.index(prefill_data["software_type"])
     if prefill_data["software_type"] in software_type_options
@@ -195,27 +199,23 @@ form_items = {
         "placeholder": "(optional) e.g. 'Fast plasma settings for routine analysis'",
         "help": "Human readable description of these settings.",
     },
-    "fasta_file_name": {
-        "label": "Fasta file name**"
-        if software_type == SoftwareTypes.ALPHADIA
-        else "Fasta file name",
-        "max_chars": 64,
-        "placeholder": "e.g. 'human.fasta'",
-        "help": "Name of the fasta file.",
-    },
-    "speclib_file_name": {
-        "label": "Speclib file name**"
-        if software_type == SoftwareTypes.ALPHADIA
-        else "Speclib file name",
-        "max_chars": 64,
-        "placeholder": "e.g. 'human_plasma.speclib'",
-        "help": "Name of the speclib file.",
-    },
 }
 
 
 if software_type == SoftwareTypes.ALPHADIA:
     form_items |= {
+        "fasta_file_name": {
+            "label": "Fasta file name**",
+            "max_chars": 64,
+            "placeholder": "e.g. 'human.fasta'",
+            "help": "Name of the fasta file.",
+        },
+        "speclib_file_name": {
+            "label": "Speclib file name**",
+            "max_chars": 64,
+            "placeholder": "e.g. 'human_plasma.speclib'",
+            "help": "Name of the speclib file.",
+        },
         "config_file_name": {
             "label": "Config file name*",
             "max_chars": 64,
@@ -232,6 +232,18 @@ if software_type == SoftwareTypes.ALPHADIA:
 
 elif software_type == SoftwareTypes.CUSTOM:
     form_items |= {
+        "fasta_file_name": {
+            "label": "Fasta file name",
+            "max_chars": 64,
+            "placeholder": "e.g. 'human.fasta'",
+            "help": "Name of the fasta file.",
+        },
+        "speclib_file_name": {
+            "label": "Speclib file name",
+            "max_chars": 64,
+            "placeholder": "e.g. 'human_plasma.speclib'",
+            "help": "Name of the speclib file.",
+        },
         "software": {
             "label": "Executable*",
             "max_chars": 64,
@@ -244,6 +256,16 @@ elif software_type == SoftwareTypes.CUSTOM:
             "max_chars": 2048,
             "placeholder": "e.g. '--qvalue 0.01 --f RAW_FILE_PATH --lib LIBRARY_PATH --fasta FASTA_PATH --temp OUTPUT_PATH --threads NUM_THREADS'",
             "help": "Configuration options for the custom software. Certain placeholders will be substituted.",
+        },
+    }
+
+elif software_type == SoftwareTypes.MSQC:
+    form_items |= {
+        "software": {
+            "label": "Software*",
+            "max_chars": 64,
+            "placeholder": "e.g. 'msqc-1.0.0'",
+            "help": "Name of the Conda environment that holds the MSQC executable.",
         },
     }
 
@@ -266,11 +288,19 @@ with c1.form("create_settings"):
 
     software = st.text_input(**form_items["software"], value=prefill_data["software"])
 
-    fasta_file_name = st.text_input(
-        **form_items["fasta_file_name"], value=prefill_data["fasta_file_name"]
+    fasta_file_name = (
+        st.text_input(
+            **form_items["fasta_file_name"], value=prefill_data["fasta_file_name"]
+        )
+        if "fasta_file_name" in form_items
+        else None
     )
-    speclib_file_name = st.text_input(
-        **form_items["speclib_file_name"], value=prefill_data["speclib_file_name"]
+    speclib_file_name = (
+        st.text_input(
+            **form_items["speclib_file_name"], value=prefill_data["speclib_file_name"]
+        )
+        if "speclib_file_name" in form_items
+        else None
     )
 
     config_file_name = (

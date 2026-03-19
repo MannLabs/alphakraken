@@ -319,6 +319,44 @@ def test_create_settings_auto_increment_version(
     mock_connect_db.assert_called_once()
 
 
+def test_create_settings_alphadia_without_fasta_raises() -> None:
+    """Test that create_settings raises ValueError when alphadia is missing fasta and speclib."""
+    with pytest.raises(
+        ValueError, match="requires both fasta_file_name and speclib_file_name"
+    ):
+        create_settings(
+            name="test",
+            software_type="alphadia",
+            software="alphadia-1.10.0",
+            fasta_file_name=None,
+            speclib_file_name=None,
+        )
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.Settings")
+def test_create_settings_msqc_without_fasta_ok(
+    mock_settings: MagicMock,
+    mock_connect_db: MagicMock,  # noqa: ARG001
+) -> None:
+    """Test that create_settings allows msqc without fasta and speclib."""
+    mock_settings.objects.return_value.order_by.return_value.first.return_value = None
+
+    create_settings(
+        name="msqc_settings",
+        software_type="msqc",
+        software="msqc-1.0.0",
+        fasta_file_name=None,
+        speclib_file_name=None,
+    )
+
+    mock_settings.assert_called_once()
+    call_kwargs = mock_settings.call_args.kwargs
+    assert call_kwargs["software_type"] == "msqc"
+    assert call_kwargs["fasta_file_name"] is None
+    assert call_kwargs["speclib_file_name"] is None
+
+
 @patch("shared.db.interface.connect_db")
 @patch("shared.db.interface.Settings")
 def test_get_all_settings_excludes_archived(

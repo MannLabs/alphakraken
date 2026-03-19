@@ -14,16 +14,8 @@
 
 # WP2: MSQC Software Type
 
-## Changes made
-
-- **`SoftwareTypes.MSQC`** added to `shared/keys.py`
-- **`fasta_file_name` / `speclib_file_name`** made optional in `Settings` model — MSQC and future Skyline don't need these
-- **`create_settings()` validation** — alphadia/custom require both fasta and speclib; msqc does not
-- **`compute_metrics()` mapping** — MSQC software type maps to MSQC metrics type
-- **Removed MSQC `AirflowSkipException` hack** in `compute_metrics()` — MSQC branch failures now propagate normally
-- **Removed `submit_msqc_job.sh` hack** in `run_quanting()` — SKIP_QUANTING now applies uniformly
-- **Removed dead MSQC keys** from `common/keys.py` (`Tasks.RUN_MSQC`, `Tasks.MONITOR_MSQC`, `Tasks.COMPUTE_MSQC_METRICS`, `Tasks.UPLOAD_MSQC_METRICS`, `XComKeys.MSQC_JOB_ID`)
-- **Webapp** — MSQC added to software type dropdown; fasta/speclib fields hidden for MSQC
+## Removed (intentionally, per design doc)
+- **`fasta_file_name` / `speclib_file_name`** made optional in `Settings` model — removed validation
 
 ## Known issues (deferred)
 

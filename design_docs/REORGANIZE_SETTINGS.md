@@ -23,6 +23,9 @@ The goal is M:N project-settings relationships with scope-based resolution, dyna
 ## WP1: Extend Types + Add Slurm Params to Settings Model
 
 **Goal**: Unify type system, make Slurm params configurable per settings.
+EDIT: move Slurm params into a dedicated WP, towards the end
+
+EDIT: move also the scope WP towards the end
 
 ### Files to modify
 
@@ -149,6 +152,8 @@ Add `finalize_raw_file_status()`:
 ## WP4: DAG Refactor with Mapped Task Groups
 
 **Goal**: Replace linear DAG with dynamic mapped task groups (following `toy_mapped_taskgroup_classic.py`).
+EDIT: use the "classic operator API" wherever possible
+EDIT: move this up to WP1, preparing for the extension to multiple software types
 
 ### Files to modify
 
@@ -195,6 +200,7 @@ The sensors read job_id via `get_xcom(context["ti"], self.xcom_key_job_id)` in `
 ## WP5: Webapp Updates (can run in parallel with WP3/WP4)
 
 **Goal**: Multi-settings assignment UI with scope, Slurm params in settings form.
+EDIT: merge the respective webapp parts into the respective other WPs
 
 ### Files to modify
 

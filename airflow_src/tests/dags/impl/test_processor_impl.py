@@ -9,6 +9,7 @@ import pytz
 from airflow.exceptions import AirflowFailException, AirflowSkipException
 from common.settings import _INSTRUMENTS
 from dags.impl.processor_impl import (
+    _UPLOAD_METRICS_TASK_ID,
     _get_project_id_or_fallback,
     _get_slurm_job_id_from_log,
     check_quanting_result,
@@ -963,7 +964,7 @@ def test_upload_metrics(
 def test_finalize_raw_file_status_all_succeeded(mock_update: MagicMock) -> None:
     """Test that finalize_raw_file_status sets DONE when all branches succeed."""
     ti = MagicMock()
-    upload_ti = MagicMock(task_id="quanting_pipeline.upload_metrics", state="success")
+    upload_ti = MagicMock(task_id=_UPLOAD_METRICS_TASK_ID, state="success")
     other_ti = MagicMock(task_id="quanting_pipeline.compute_metrics", state="success")
     ti.get_dagrun.return_value.get_task_instances.return_value = [upload_ti, other_ti]
 
@@ -976,40 +977,32 @@ def test_finalize_raw_file_status_all_succeeded(mock_update: MagicMock) -> None:
 
 @patch("dags.impl.processor_impl.update_raw_file")
 def test_finalize_raw_file_status_branch_failed(mock_update: MagicMock) -> None:
-    """Test that finalize_raw_file_status sets QUANTING_FAILED when a branch fails."""
+    """Test that finalize_raw_file_status sets ERROR and raises when a branch fails."""
     ti = MagicMock()
-    upload_ti_ok = MagicMock(
-        task_id="quanting_pipeline.upload_metrics", state="success"
-    )
-    upload_ti_fail = MagicMock(
-        task_id="quanting_pipeline.upload_metrics", state="skipped"
-    )
+    upload_ti_ok = MagicMock(task_id=_UPLOAD_METRICS_TASK_ID, state="success")
+    upload_ti_fail = MagicMock(task_id=_UPLOAD_METRICS_TASK_ID, state="failed")
     ti.get_dagrun.return_value.get_task_instances.return_value = [
         upload_ti_ok,
         upload_ti_fail,
     ]
 
-    finalize_raw_file_status(ti=ti, raw_file_id="test.raw")
+    with pytest.raises(AirflowFailException):
+        finalize_raw_file_status(ti=ti, raw_file_id="test.raw")
 
-    mock_update.assert_called_once_with(
-        "test.raw", new_status=RawFileStatus.QUANTING_FAILED
-    )
+    mock_update.assert_called_once_with("test.raw", new_status=RawFileStatus.ERROR)
 
 
 @patch("dags.impl.processor_impl.update_raw_file")
 def test_finalize_raw_file_status_upstream_failed(mock_update: MagicMock) -> None:
     """Test that finalize_raw_file_status treats upstream_failed as failure."""
     ti = MagicMock()
-    upload_ti = MagicMock(
-        task_id="quanting_pipeline.upload_metrics", state="upstream_failed"
-    )
+    upload_ti = MagicMock(task_id=_UPLOAD_METRICS_TASK_ID, state="upstream_failed")
     ti.get_dagrun.return_value.get_task_instances.return_value = [upload_ti]
 
-    finalize_raw_file_status(ti=ti, raw_file_id="test.raw")
+    with pytest.raises(AirflowFailException):
+        finalize_raw_file_status(ti=ti, raw_file_id="test.raw")
 
-    mock_update.assert_called_once_with(
-        "test.raw", new_status=RawFileStatus.QUANTING_FAILED
-    )
+    mock_update.assert_called_once_with("test.raw", new_status=RawFileStatus.ERROR)
 
 
 def test_finalize_raw_file_status_no_upload_tasks() -> None:

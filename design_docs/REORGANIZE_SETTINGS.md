@@ -81,25 +81,25 @@ The sensors read job_id via `get_xcom(context["ti"], self.xcom_key_job_id)` in `
 
 ---
 
-## WP2: Extend Software Types (MSQC + Skyline)
+## WP2: Add MSQC Software Type
 
-**Goal**: Add MSQC and SKYLINE as software types so they can be used as regular settings.
+**Goal**: Add MSQC as a software type so it can be used as a regular settings entry, removing all MSQC special-casing.
 
 ### Files to modify
 
 **`shared/keys.py`**
-- Add `MSQC = "msqc"` and `SKYLINE = "skyline"` to `SoftwareTypes` (aligning with `MetricsTypes`)
+- Add `MSQC = "msqc"` to `SoftwareTypes`
 
 **`airflow_src/dags/impl/processor_impl.py`**
-- `compute_metrics()` (line ~459): add MSQC and SKYLINE to `software_type -> metrics_type` mapping (identity mapping since types are now aligned)
+- `compute_metrics()` (line ~459): add MSQC to `software_type -> metrics_type` mapping
 - `run_quanting()`: add `SOFTWARE_TYPE_TO_JOB_SCRIPT` mapping for job script selection
 
 **`airflow_src/plugins/common/keys.py`**
-- Add `SOFTWARE_TYPE_TO_JOB_SCRIPT` constant: `{alphadia: "submit_job.sh", custom: "submit_job.sh", msqc: "submit_msqc_job.sh", skyline: "submit_job.sh"}`
+- Add `SOFTWARE_TYPE_TO_JOB_SCRIPT` constant: `{alphadia: "submit_job.sh", custom: "submit_job.sh", msqc: "submit_msqc_job.sh"}`
 - Remove MSQC-specific task/XCom keys: `Tasks.RUN_MSQC`, `Tasks.MONITOR_MSQC`, `Tasks.COMPUTE_MSQC_METRICS`, `Tasks.UPLOAD_MSQC_METRICS`, `XComKeys.MSQC_JOB_ID`
 
 **`webapp/pages_/settings.py`** (line 175)
-- Add `SoftwareTypes.MSQC` and `SoftwareTypes.SKYLINE` to `software_type_options`
+- Add `SoftwareTypes.MSQC` to `software_type_options`
 
 **`webapp/service/data_handling.py`** (lines 26-91)
 - Generalize metrics merge: replace hardcoded alphadia/custom/msqc handling with a loop over all `MetricsTypes` values, each merged with appropriate suffix
@@ -192,7 +192,31 @@ Keep `get_settings_for_project()` and `assign_settings_to_project()` working dur
 
 ---
 
-## WP5: Scope Resolution
+## WP5: Add Skyline Software Type
+
+**Goal**: Add SKYLINE as a software type so Skyline-based settings can be created and assigned to projects.
+
+### Files to modify
+
+**`shared/keys.py`**
+- Add `SKYLINE = "skyline"` to `SoftwareTypes` (aligning with existing `MetricsTypes.SKYLINE`)
+
+**`airflow_src/dags/impl/processor_impl.py`**
+- `compute_metrics()`: add SKYLINE to `software_type -> metrics_type` mapping
+
+**`airflow_src/plugins/common/keys.py`**
+- Add `skyline: "submit_job.sh"` to `SOFTWARE_TYPE_TO_JOB_SCRIPT`
+
+**`webapp/pages_/settings.py`** (line 175)
+- Add `SoftwareTypes.SKYLINE` to `software_type_options`
+
+### Testing
+- Verify Skyline settings can be created and assigned
+- `pytest`
+
+---
+
+## WP6: Scope Resolution
 
 **Goal**: Enable scoped settings assignments — vendor-specific and instrument-specific overrides.
 
@@ -227,7 +251,7 @@ Keep `get_settings_for_project()` and `assign_settings_to_project()` working dur
 
 ---
 
-## WP6: Cleanup + Legacy Removal
+## WP7: Cleanup + Legacy Removal
 
 **Goal**: Remove backward-compat code once everything works.
 
@@ -259,17 +283,19 @@ Keep `get_settings_for_project()` and `assign_settings_to_project()` working dur
 WP1 (DAG mapped task groups)
  |
  v
-WP2 (software types: MSQC + Skyline)
+WP2 (MSQC software type + generalized metrics merge)
  |
  v
 WP3 (ProjectSettings M:N + webapp assignment)
  |
  ├──> WP4 (Slurm params in Settings + webapp form)
  |
- └──> WP5 (Scope resolution + webapp scope selector)
+ ├──> WP5 (Skyline software type)
+ |
+ └──> WP6 (Scope resolution + webapp scope selector)
        |
        v
-      WP6 (cleanup, after all)
+      WP7 (cleanup, after all)
 ```
 
 ## Verification (end-to-end)

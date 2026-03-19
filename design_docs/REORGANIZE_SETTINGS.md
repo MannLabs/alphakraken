@@ -9,160 +9,28 @@ The current settings system has three problems:
 
 The goal is M:N project-settings relationships with scope-based resolution, dynamic task mapping (multiple parallel pipelines per raw file), and MSQC/Skyline as regular settings entries.
 
-### Design Decisions (from user input)
+### Design Decisions
 - **Scope resolution**: Accumulate all matching scopes, deduplicate by `software_type` (most specific wins per type). Specificity: instrument > vendor > `*`
 - **MSQC**: Becomes a regular `Settings` entry (new software type), eliminates all special-casing
 - **Skyline**: Also added as a software type
 - **Slurm params**: Move into `Settings` model (each settings controls its own resources)
 - **Data model**: `ProjectSettings` intermediate model (not ListField)
 - **Scope format**: Convention-based single string — `*` = default, known vendor names = vendor, anything else = instrument
-- **Webapp**: Included in this plan
 
 ---
 
-## WP1: Extend Types + Add Slurm Params to Settings Model
+## WP1: DAG Refactor with Mapped Task Groups
 
-**Goal**: Unify type system, make Slurm params configurable per settings.
-EDIT: move Slurm params into a dedicated WP, towards the end
-
-EDIT: move also the scope WP towards the end
-
-### Files to modify
-
-**`shared/keys.py`**
-- Add `MSQC = "msqc"` and `SKYLINE = "skyline"` to `SoftwareTypes`
-- Add constants: `DEFAULT_SCOPE = "*"`, `KNOWN_VENDOR_NAMES = ("bruker", "thermo", "sciex")`
-
-**`shared/db/models.py`** (Settings class, line 237)
-- Add fields to `Settings`:
-  - `slurm_cpus_per_task = IntField(min_value=1, default=8)`
-  - `slurm_mem = StringField(max_length=16, default="62G")`
-  - `slurm_time = StringField(max_length=16, default="02:00:00")`
-  - `slurm_num_threads = IntField(min_value=1, default=8)`
-
-**`shared/db/interface.py`** (create_settings, line 233)
-- Add optional slurm_* params to `create_settings()` signature (defaults match model defaults)
-
-**`webapp/pages_/settings.py`**
-- Add `MSQC` and `SKYLINE` to `software_type_options` (line 175)
-- Add Slurm param fields to form (collapsible "Advanced" section with defaults pre-filled)
-- Wire new fields to `create_settings()` call
-
-### Migration
-- No breaking changes (`strict: False` handles missing fields on old documents)
-- Migration script: set explicit Slurm defaults on all existing Settings documents
-
-### Testing
-- Existing tests in `shared/tests/db/` — update `test_create_settings` for new params
-- Verify old Settings documents load without errors
-
----
-
-## WP2: ProjectSettings Model + Resolution Logic
-
-**Goal**: M:N relationship with scope-based resolution.
-
-### Files to modify
-
-**`shared/db/models.py`** — Add new model:
-```python
-class ProjectSettings(Document):
-    meta = {"strict": False, "indexes": [
-        {"fields": ["project", "settings"], "unique": True}
-    ], "auto_create_index": False}
-
-    project = ReferenceField(Project, required=True)
-    settings = ReferenceField(Settings, required=True)
-    scope = StringField(max_length=64, default=DEFAULT_SCOPE)  # "*", vendor name, or instrument id
-    created_at_ = DateTimeField(default=datetime.now)
-```
-
-**`shared/db/interface.py`** — Add new functions:
-- `create_project_settings(project_id, settings_id, scope)` — create assignment
-- `remove_project_settings(project_id, settings_id)` — remove assignment
-- `get_project_settings(project_id) -> list[ProjectSettings]` — list all assignments for a project
-- `resolve_settings_for_raw_file(project_id, instrument_id, instrument_type) -> list[Settings]` — **core resolution**:
-  1. Load all `ProjectSettings` for `project_id`
-  2. Filter to matching scopes: `*` always matches, scope == `instrument_type` matches vendor, scope == `instrument_id` matches instrument
-  3. Group by `settings.software_type`
-  4. Per group, keep highest specificity (instrument > vendor > default)
-  5. Return list of winning `Settings` objects
-
-Keep `get_settings_for_project()` and `assign_settings_to_project()` working during transition (removed in WP6).
-
-### Migration
-- Script: for each Project with non-null `settings` field, create `ProjectSettings(project=project, settings=project.settings, scope="*")`
-
-### Testing
-- Test `resolve_settings_for_raw_file` with:
-  - Single default-scope settings
-  - Two different software_types at default scope -> returns both
-  - Same software_type at default + vendor scope -> vendor wins
-  - Same software_type at default + vendor + instrument scope -> instrument wins
-  - No matching settings -> empty list
-
----
-
-## WP3: Refactor processor_impl for Multi-Settings
-
-**Goal**: `prepare_quanting` returns a list of envs. Remove MSQC hardcoding and Slurm hardcoding.
-
-### Files to modify
-
-**`airflow_src/dags/impl/processor_impl.py`**
-
-`prepare_quanting()` (line 62):
-- Replace `get_settings_for_project()` with `resolve_settings_for_raw_file(project_id, instrument_id, instrument_type)`
-- Get `instrument_type` via existing `get_instrument_settings(instrument_id, YamlKeys.TYPE)`
-- Build a `list[dict]` of quanting_envs (one per resolved Settings)
-- Each env gets Slurm params from Settings fields (delete hardcoded `cpus_per_task = 8` etc.)
-- Push list to XCom (for mapped task group consumption)
-- Raise `AirflowFailException` if resolution returns empty list
-
-`run_quanting()` (line ~260):
-- Remove MSQC Slurm hack (lines 327-333) — params now come from Settings
-- Job script name: add constant `SOFTWARE_TYPE_TO_JOB_SCRIPT` mapping in `plugins/common/keys.py`
-
-`compute_metrics()` (line ~459):
-- Add MSQC and SKYLINE to the `software_type -> metrics_type` mapping (identity mapping since types are now aligned)
-
-`upload_metrics()`:
-- Remove `update_raw_file(...DONE...)` — status update moves to new `finalize_status` task
-
-Add `finalize_raw_file_status()`:
-- Inspect all upload_metrics task instances in DAG run (follows pattern from `toy_mapped_taskgroup_classic.py:91-111`)
-- All succeeded -> DONE; all failed -> QUANTING_FAILED; mixed -> DONE (partial success)
-
-**`airflow_src/plugins/common/keys.py`**
-- Add `SOFTWARE_TYPE_TO_JOB_SCRIPT` mapping
-- Add `Tasks.FINALIZE_STATUS`
-- Remove MSQC-specific task/XCom keys after WP4 is done
-
-**`airflow_src/dags/impl/handler_impl.py`** (line 373)
-- `_is_settings_configured()`: replace `get_settings_for_project()` with `resolve_settings_for_raw_file()`, return `len(result) > 0`
-- Needs instrument_type — get from yaml settings like processor_impl does
-
-### Testing
-- Update existing processor_impl tests for list return type
-- Test prepare_quanting with multiple resolved settings
-- Test finalize_raw_file_status with various succeed/fail combos
-
----
-
-## WP4: DAG Refactor with Mapped Task Groups
-
-**Goal**: Replace linear DAG with dynamic mapped task groups (following `toy_mapped_taskgroup_classic.py`).
-EDIT: use the "classic operator API" wherever possible
-EDIT: move this up to WP1, preparing for the extension to multiple software types
+**Goal**: Convert the linear DAG to the mapped task group pattern (classic operator API), preparing the structure for multiple settings per raw file. Initially wraps the current single-settings flow.
 
 ### Files to modify
 
 **`airflow_src/dags/acquisition_processor.py`** — Rewrite `create_acquisition_processor_dag()`:
 
-```
+```python
 @task
-def prepare_quanting(params, instrument_id, instrument_type):
-    return prepare_quanting_impl(...)  # returns list[dict]
+def prepare_quanting(params, instrument_id):
+    return prepare_quanting_impl(...)  # returns list[dict] (single-element for now)
 
 @task_group
 def quanting_pipeline(quanting_env: dict):
@@ -183,47 +51,179 @@ mapped = quanting_pipeline.expand(quanting_env=envs)
 mapped >> finalize_status()
 ```
 
-- Remove `ACTIVATE_MSQC` flag entirely
-- Remove all MSQC-specific task definitions and wiring
-- Sensors: XCom works per map_index inside mapped task groups — no sensor changes needed (`get_xcom(context["ti"], ...)` reads from correct map_index)
+- Use classic operators (`PythonOperator`, `ShortCircuitOperator`, sensors) inside `@task_group` — only `prepare_quanting` and `finalize_status` use `@task` (required for `.expand()` return and `TriggerRule`)
+- Remove `ACTIVATE_MSQC` flag and all MSQC-specific task definitions/wiring
+- Remove MSQC Slurm hack from `run_quanting()` (processor_impl.py:327-333)
 
-### Key insight from sensors (ssh_sensor.py:31-33)
-The sensors read job_id via `get_xcom(context["ti"], self.xcom_key_job_id)` in `pre_execute`. Airflow's mapped task instances scope XCom per map_index automatically, so each branch reads its own job_id.
+**`airflow_src/dags/impl/processor_impl.py`**
+
+`prepare_quanting()` (line 62):
+- Wrap current single `quanting_env` dict into a `list[dict]` return
+- Still uses `get_settings_for_project()` (M:N comes in WP3)
+
+`upload_metrics()`:
+- Remove `update_raw_file(...DONE...)` — status update moves to `finalize_status`
+
+Add `finalize_raw_file_status()`:
+- Inspect all upload_metrics task instances in DAG run (pattern from `toy_mapped_taskgroup_classic.py:91-111`)
+- All succeeded -> DONE; all failed -> QUANTING_FAILED; mixed -> DONE (partial success)
+
+**`airflow_src/plugins/common/keys.py`**
+- Add `Tasks.FINALIZE_STATUS`
+
+### Key insight: sensors work unchanged
+The sensors read job_id via `get_xcom(context["ti"], self.xcom_key_job_id)` in `pre_execute` (ssh_sensor.py:31-33). Airflow scopes XCom per map_index inside mapped task groups, so each branch reads its own job_id.
 
 ### Testing
-- Unit test `finalize_raw_file_status`
-- Integration: run toy DAG locally first to validate mapped task group + sensor behavior
-- Run `pre-commit run --all-files` and `pytest`
+- Unit test `finalize_raw_file_status` with various succeed/fail combos
+- Integration: run toy DAG locally to validate mapped task group + sensor behavior
+- `pre-commit run --all-files` and `pytest`
 
 ---
 
-## WP5: Webapp Updates (can run in parallel with WP3/WP4)
+## WP2: Extend Software Types (MSQC + Skyline)
 
-**Goal**: Multi-settings assignment UI with scope, Slurm params in settings form.
-EDIT: merge the respective webapp parts into the respective other WPs
+**Goal**: Add MSQC and SKYLINE as software types so they can be used as regular settings.
 
 ### Files to modify
 
-**`webapp/pages_/projects.py`** — Replace "Assign settings to project" section (lines 102-174):
-- Show table of current `ProjectSettings` for selected project (settings name, version, software_type, scope)
-- Add form: settings dropdown + scope text input (help text: `*` = all, vendor name = vendor-specific, instrument id = instrument-specific)
-- Add remove button per assignment
-- Update projects display table: show comma-separated `settings_name (scope)` list instead of single settings column
+**`shared/keys.py`**
+- Add `MSQC = "msqc"` and `SKYLINE = "skyline"` to `SoftwareTypes` (aligning with `MetricsTypes`)
 
-**`webapp/service/db.py`**
-- Add `get_project_settings_data(project_id=None)` function
+**`airflow_src/dags/impl/processor_impl.py`**
+- `compute_metrics()` (line ~459): add MSQC and SKYLINE to `software_type -> metrics_type` mapping (identity mapping since types are now aligned)
+- `run_quanting()`: add `SOFTWARE_TYPE_TO_JOB_SCRIPT` mapping for job script selection
 
-**`webapp/service/data_handling.py`** (lines 26-91) — Generalize metrics merge:
-- Replace hardcoded alphadia/custom/msqc handling with a loop over all `MetricsTypes` values
-- Each metrics type that has data gets merged with appropriate suffix
-- This handles any future metrics types automatically
+**`airflow_src/plugins/common/keys.py`**
+- Add `SOFTWARE_TYPE_TO_JOB_SCRIPT` constant: `{alphadia: "submit_job.sh", custom: "submit_job.sh", msqc: "submit_msqc_job.sh", skyline: "submit_job.sh"}`
+- Remove MSQC-specific task/XCom keys: `Tasks.RUN_MSQC`, `Tasks.MONITOR_MSQC`, `Tasks.COMPUTE_MSQC_METRICS`, `Tasks.UPLOAD_MSQC_METRICS`, `XComKeys.MSQC_JOB_ID`
 
-**`webapp/pages_/projects.py`** — Update imports:
-- Import `create_project_settings`, `remove_project_settings`, `get_project_settings` from `shared.db.interface`
+**`webapp/pages_/settings.py`** (line 175)
+- Add `SoftwareTypes.MSQC` and `SoftwareTypes.SKYLINE` to `software_type_options`
+
+**`webapp/service/data_handling.py`** (lines 26-91)
+- Generalize metrics merge: replace hardcoded alphadia/custom/msqc handling with a loop over all `MetricsTypes` values, each merged with appropriate suffix
 
 ### Testing
-- Manual webapp testing
-- Unit test generalized metrics merge in data_handling.py
+- Update existing tests that reference MSQC-specific keys
+- Test generalized metrics merge in data_handling.py
+
+---
+
+## WP3: ProjectSettings Model + M:N Assignment
+
+**Goal**: Replace 1:1 `Project.settings` with M:N via `ProjectSettings`. No scope filtering yet — all assignments use scope `*`.
+
+### Files to modify
+
+**`shared/db/models.py`** — Add new model:
+```python
+class ProjectSettings(Document):
+    meta = {"strict": False, "indexes": [
+        {"fields": ["project", "settings"], "unique": True}
+    ], "auto_create_index": False}
+
+    project = ReferenceField(Project, required=True)
+    settings = ReferenceField(Settings, required=True)
+    scope = StringField(max_length=64, default="*")
+    created_at_ = DateTimeField(default=datetime.now)
+```
+
+**`shared/db/interface.py`** — Add new functions:
+- `create_project_settings(project_id, settings_id, scope)` — create assignment
+- `remove_project_settings(project_id, settings_id)` — remove assignment
+- `get_project_settings(project_id) -> list[ProjectSettings]` — list all assignments
+- `resolve_settings_for_raw_file(project_id) -> list[Settings]` — return all assigned settings (no scope filtering yet)
+
+Keep `get_settings_for_project()` and `assign_settings_to_project()` working during transition.
+
+**`airflow_src/dags/impl/processor_impl.py`**
+- `prepare_quanting()`: replace `get_settings_for_project()` with `resolve_settings_for_raw_file()`, build list of quanting_envs (one per resolved Settings)
+
+**`airflow_src/dags/impl/handler_impl.py`** (line 373)
+- `_is_settings_configured()`: replace `get_settings_for_project()` with `resolve_settings_for_raw_file()`, return `len(result) > 0`
+
+**`webapp/pages_/projects.py`** — Replace "Assign settings to project" section (lines 102-174):
+- Show table of current `ProjectSettings` for selected project
+- Add form: settings dropdown (scope defaults to `*`, not editable yet)
+- Add remove button per assignment
+- Update projects display table to show multiple settings
+
+### Migration
+- Script: for each Project with non-null `settings` field, create `ProjectSettings(project=project, settings=project.settings, scope="*")`
+
+### Testing
+- Test `resolve_settings_for_raw_file` with: single settings, multiple software_types, no settings
+- Update processor_impl tests for list return type
+- `pytest`
+
+---
+
+## WP4: Slurm Params in Settings
+
+**Goal**: Make Slurm resource parameters configurable per settings instead of hardcoded.
+
+### Files to modify
+
+**`shared/db/models.py`** (Settings class, line 237)
+- Add fields:
+  - `slurm_cpus_per_task = IntField(min_value=1, default=8)`
+  - `slurm_mem = StringField(max_length=16, default="62G")`
+  - `slurm_time = StringField(max_length=16, default="02:00:00")`
+  - `slurm_num_threads = IntField(min_value=1, default=8)`
+
+**`shared/db/interface.py`** (create_settings, line 233)
+- Add optional slurm_* params to `create_settings()` signature
+
+**`airflow_src/dags/impl/processor_impl.py`**
+- `prepare_quanting()`: read Slurm params from Settings fields instead of hardcoded values (delete `cpus_per_task = 8` etc. at line 65-68)
+
+**`webapp/pages_/settings.py`**
+- Add Slurm param fields to settings form (collapsible "Advanced" section with defaults pre-filled)
+- Wire new fields to `create_settings()` call
+
+### Migration
+- No breaking changes (`strict: False` handles missing fields)
+- Migration script: set explicit Slurm defaults on all existing Settings documents
+
+### Testing
+- Update `test_create_settings` for new params
+- Test prepare_quanting reads Slurm params from Settings
+
+---
+
+## WP5: Scope Resolution
+
+**Goal**: Enable scoped settings assignments — vendor-specific and instrument-specific overrides.
+
+### Files to modify
+
+**`shared/keys.py`**
+- Add constants: `DEFAULT_SCOPE = "*"`, `KNOWN_VENDOR_NAMES = ("bruker", "thermo", "sciex")`
+
+**`shared/db/interface.py`**
+- Extend `resolve_settings_for_raw_file(project_id, instrument_id, instrument_type)` with scope filtering:
+  1. Load all `ProjectSettings` for `project_id`
+  2. Filter to matching scopes: `*` always matches, scope == `instrument_type` matches vendor, scope == `instrument_id` matches instrument
+  3. Group by `settings.software_type`
+  4. Per group, keep highest specificity (instrument > vendor > default)
+  5. Return list of winning `Settings` objects
+
+**`airflow_src/dags/impl/processor_impl.py`**
+- `prepare_quanting()`: pass `instrument_id` and `instrument_type` to `resolve_settings_for_raw_file()`
+- Get `instrument_type` via existing `get_instrument_settings(instrument_id, YamlKeys.TYPE)`
+
+**`airflow_src/dags/impl/handler_impl.py`**
+- `_is_settings_configured()`: pass instrument_id and instrument_type to resolution
+
+**`webapp/pages_/projects.py`**
+- Add scope selector (text input with help: `*` = all, vendor name = vendor-specific, instrument id = instrument-specific) to the project-settings assignment form
+
+### Testing
+- Test `resolve_settings_for_raw_file` with scope scenarios:
+  - Same software_type at default + vendor scope -> vendor wins
+  - Same software_type at default + vendor + instrument scope -> instrument wins
+  - Mixed software_types with mixed scopes -> correct per-type resolution
 
 ---
 
@@ -241,10 +241,6 @@ EDIT: merge the respective webapp parts into the respective other WPs
 - Remove old `assign_settings_to_project()`
 - Update all callers
 
-**`airflow_src/plugins/common/keys.py`**
-- Remove `Tasks.RUN_MSQC`, `Tasks.MONITOR_MSQC`, `Tasks.COMPUTE_MSQC_METRICS`, `Tasks.UPLOAD_MSQC_METRICS`
-- Remove `XComKeys.MSQC_JOB_ID`
-
 **All test files** — Remove references to removed functions, verify no regressions.
 
 ### Migration
@@ -260,16 +256,20 @@ EDIT: merge the respective webapp parts into the respective other WPs
 ## Dependency Graph
 
 ```
-WP1 (types + slurm params)
+WP1 (DAG mapped task groups)
  |
  v
-WP2 (ProjectSettings + resolution)
+WP2 (software types: MSQC + Skyline)
  |
- ├──> WP3 (processor_impl) ──> WP4 (DAG refactor)
- |                                      |
- └──> WP5 (webapp, parallel to WP3/4)   |
-                                         v
-                              WP6 (cleanup, after all)
+ v
+WP3 (ProjectSettings M:N + webapp assignment)
+ |
+ ├──> WP4 (Slurm params in Settings + webapp form)
+ |
+ └──> WP5 (Scope resolution + webapp scope selector)
+       |
+       v
+      WP6 (cleanup, after all)
 ```
 
 ## Verification (end-to-end)

@@ -7,7 +7,6 @@ from datetime import timedelta
 from airflow.decorators import task, task_group
 from airflow.models import Param, TaskInstance
 from airflow.models.dag import DAG
-from airflow.operators.python import PythonOperator, ShortCircuitOperator
 from airflow.utils.trigger_rule import TriggerRule
 from callbacks import on_failure_callback
 from common.constants import AIRFLOW_QUEUE_PREFIX, Pools
@@ -15,17 +14,15 @@ from common.keys import (
     DAG_DELIMITER,
     DagParams,
     Dags,
-    QuantingEnv,
     TaskGroups,
     Tasks,
-    XComKeys,
 )
 from common.settings import (
     Concurrency,
     Timings,
     get_instrument_ids_with_value,
 )
-from common.utils import get_minutes_since_fixed_time_point, put_xcom
+from common.utils import get_minutes_since_fixed_time_point
 from impl.processor_impl import (
     check_quanting_result,
     compute_metrics,
@@ -83,23 +80,12 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
 
         @task_group(group_id=TaskGroups.QUANTING_PIPELINE)
         def quanting_pipeline(quanting_env: dict) -> None:
-            @task
-            def push_quanting_env(
+            @task(task_id=Tasks.RUN_QUANTING, pool=Pools.CLUSTER_SLOTS_POOL)
+            def run_quanting_task(
                 quanting_env: dict, ti: TaskInstance | None = None
-            ) -> None:
-                """Bridge task: push the mapped quanting_env parameter to XCom for downstream classic operators."""
-                put_xcom(ti, XComKeys.QUANTING_ENV, quanting_env)
-                put_xcom(
-                    ti, XComKeys.RAW_FILE_ID, quanting_env[QuantingEnv.RAW_FILE_ID]
-                )
-
-            push_ = push_quanting_env(quanting_env)
-
-            run_ = PythonOperator(
-                task_id=Tasks.RUN_QUANTING,
-                python_callable=run_quanting,
-                pool=Pools.CLUSTER_SLOTS_POOL,
-            )
+            ) -> str:
+                assert ti is not None
+                return run_quanting(ti=ti, quanting_env=quanting_env)
 
             wait_ = WaitForJobStartSensor(
                 task_id=Tasks.WAIT_FOR_JOB_START,
@@ -117,22 +103,40 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
                 pool=Pools.CLUSTER_SLOTS_POOL,
             )
 
-            check_ = ShortCircuitOperator(
-                task_id=Tasks.CHECK_QUANTING_RESULT,
-                python_callable=check_quanting_result,
+            @task(task_id=Tasks.CHECK_QUANTING_RESULT)
+            def check_result_task(quanting_env: dict, job_id: str) -> dict:
+                return check_quanting_result(quanting_env=quanting_env, job_id=job_id)
+
+            @task(task_id=Tasks.COMPUTE_METRICS)
+            def compute_metrics_task(
+                quanting_env: dict, quanting_time_elapsed: int
+            ) -> dict:
+                return compute_metrics(
+                    quanting_env=quanting_env,
+                    quanting_time_elapsed=quanting_time_elapsed,
+                )
+
+            @task(task_id=Tasks.UPLOAD_METRICS)
+            def upload_metrics_task(quanting_env: dict, metrics_result: dict) -> None:
+                upload_metrics(
+                    quanting_env=quanting_env,
+                    metrics=metrics_result["metrics"],
+                    metrics_type=metrics_result["metrics_type"],
+                )
+
+            job_id = run_quanting_task(quanting_env)
+
+            job_id >> wait_ >> monitor_
+
+            check_result = check_result_task(quanting_env, job_id)
+
+            monitor_ >> check_result
+
+            metrics_result = compute_metrics_task(
+                quanting_env, check_result["quanting_time_elapsed"]
             )
 
-            compute_ = PythonOperator(
-                task_id=Tasks.COMPUTE_METRICS,
-                python_callable=compute_metrics,
-            )
-
-            upload_ = PythonOperator(
-                task_id=Tasks.UPLOAD_METRICS,
-                python_callable=upload_metrics,
-            )
-
-            push_ >> run_ >> wait_ >> monitor_ >> check_ >> compute_ >> upload_
+            upload_metrics_task(quanting_env, metrics_result)
 
         @task(
             task_id=Tasks.FINALIZE_STATUS,

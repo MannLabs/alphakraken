@@ -245,15 +245,15 @@ def _get_slurm_job_id_from_log(output_path: Path) -> str | None:
     return None
 
 
-def run_quanting(
+def run_quanting(  # noqa: PLR0913
     ti: TaskInstance,
     *,
+    quanting_env: dict,
     new_status: str | None = RawFileStatus.QUANTING,
     output_path_check: bool = True,
     job_script_name: str = DEFAULT_JOB_SCRIPT_NAME,
     xcom_key_job_id: str = XComKeys.JOB_ID,
-    **kwargs,
-) -> None:
+) -> str:
     """Run a job on the cluster.
 
     Use functools.partial to pass additional arguments to this task.
@@ -266,14 +266,10 @@ def run_quanting(
     :param job_script_name: The name of the job script to run, default is DEFAULT_JOB_SCRIPT_NAME.
     :param xcom_key_job_id: The key to use for storing the job ID in XCom, default is XComKeys.JOB_ID.
     """
-    del kwargs  # unused
-
-    quanting_env = get_xcom(ti, XComKeys.QUANTING_ENV)
-
     # upfront check 1
     if (job_id := get_xcom(ti, xcom_key_job_id, -1)) != -1:
         logging.warning(f"Job already started with {job_id}, skipping.")
-        return
+        return str(job_id)
 
     raw_file = get_raw_file_by_id(quanting_env[QuantingEnv.RAW_FILE_ID])
 
@@ -311,7 +307,7 @@ def run_quanting(
             put_xcom(ti, xcom_key_job_id, extracted_job_id)
 
             logging.warning(f"Assuming job id {extracted_job_id}...")
-            return
+            return str(extracted_job_id)
         else:
             raise AirflowFailException(
                 f"{msg} Remove it before restarting the quanting or set Airflow variable 'output_exists_mode' to 'overwrite' or 'associate' "
@@ -326,6 +322,8 @@ def run_quanting(
         update_raw_file(quanting_env[QuantingEnv.RAW_FILE_ID], new_status=new_status)
 
     put_xcom(ti, xcom_key_job_id, job_id)
+
+    return str(job_id)
 
 
 def _get_custom_error_codes(events_jsonl_file_path: Path) -> list[str]:
@@ -384,27 +382,18 @@ def get_business_errors(raw_file: RawFile, project_id: str) -> list[str]:
     return error_codes
 
 
-def check_quanting_result(ti: TaskInstance, **kwargs) -> bool:
-    """Get info (slurm log, alphaDIA log) about a job from the cluster.
-
-    Return False in case downstream tasks should be skipped, True otherwise.
-    """
-    del kwargs  # unused
-    job_id = get_xcom(ti, XComKeys.JOB_ID)
-
+def check_quanting_result(*, quanting_env: dict, job_id: str) -> dict:
+    """Get info (slurm log, alphaDIA log) about a job from the cluster."""
     job_status, time_elapsed = get_job_result(job_id)
-
-    put_xcom(ti, XComKeys.QUANTING_TIME_ELAPSED, time_elapsed)
 
     logging.info(f"Job {job_id} exited with status {job_status}.")
 
     if job_status == JobStates.COMPLETED:
-        return True  # continue with downstream tasks
+        return {"quanting_time_elapsed": time_elapsed}
 
     if job_status in [JobStates.FAILED, JobStates.TIMEOUT] or job_status.startswith(
         JobStates.OUT_OF_MEMORY
     ):
-        quanting_env = get_xcom(ti, XComKeys.QUANTING_ENV)
         project_id = quanting_env[QuantingEnv.PROJECT_ID_OR_FALLBACK]
         raw_file = get_raw_file_by_id(quanting_env[QuantingEnv.RAW_FILE_ID])
 
@@ -437,7 +426,7 @@ def check_quanting_result(ti: TaskInstance, **kwargs) -> bool:
         if any(state in errors for state in states_to_fail_task):
             raise AirflowFailException(f"Quanting failed with new error: {errors=}")
 
-        return False  # skip downstream tasks
+        raise AirflowSkipException("Job failed, skipping downstream tasks.")
 
     # unknown state: fail the DAG without retry
     logging.info(f"Job {job_id} exited with status {job_status}.")
@@ -445,17 +434,12 @@ def check_quanting_result(ti: TaskInstance, **kwargs) -> bool:
 
 
 def compute_metrics(
-    ti: TaskInstance,
     *,
+    quanting_env: dict,
+    quanting_time_elapsed: int | None = None,
     metrics_type: str | None = None,
-    add_quanting_time_elapsed: bool = True,
-    **kwargs,
-) -> None:
+) -> dict:
     """Compute metrics from the quanting results."""
-    del kwargs
-
-    quanting_env = get_xcom(ti, XComKeys.QUANTING_ENV)
-
     raw_file = get_raw_file_by_id(quanting_env[QuantingEnv.RAW_FILE_ID])
 
     output_path = get_internal_output_path_for_raw_file(
@@ -482,24 +466,16 @@ def compute_metrics(
         raise
 
     if (
-        add_quanting_time_elapsed
+        quanting_time_elapsed is not None
     ):  # TODO: find a better way to handle this also for msqc
-        metrics[QUANTING_TIME_ELAPSED_METRIC] = get_xcom(
-            ti, XComKeys.QUANTING_TIME_ELAPSED
-        )
+        metrics[QUANTING_TIME_ELAPSED_METRIC] = quanting_time_elapsed
 
-    put_xcom(ti, XComKeys.METRICS, metrics)
-    put_xcom(ti, XComKeys.METRICS_TYPE, metrics_type)
+    return {"metrics": metrics, "metrics_type": metrics_type}
 
 
-def upload_metrics(ti: TaskInstance, **kwargs) -> None:
+def upload_metrics(*, quanting_env: dict, metrics: dict, metrics_type: str) -> None:
     """Upload the metrics to the database."""
-    del kwargs
-
-    raw_file_id = get_xcom(ti, XComKeys.RAW_FILE_ID)
-    quanting_env = get_xcom(ti, XComKeys.QUANTING_ENV)
-    metrics: dict = get_xcom(ti, XComKeys.METRICS)
-    metrics_type = get_xcom(ti, XComKeys.METRICS_TYPE)
+    raw_file_id = quanting_env[QuantingEnv.RAW_FILE_ID]
 
     add_metrics_to_raw_file(
         raw_file_id,

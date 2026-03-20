@@ -20,3 +20,4 @@
 ## Known issues (deferred)
 
 - **`finalize_raw_file_status` skipped-state bug**: When a job fails, `check_quanting_result` raises `AirflowSkipException`, marking `upload_metrics` as "skipped". But `finalize_raw_file_status` only checks for "failed"/"upstream_failed" — not "skipped". A failed branch may be treated as successful. Deferred per decision.
+- string constants for "alphadia", "custom", etc

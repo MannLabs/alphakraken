@@ -103,8 +103,8 @@ def test_prepare_quanting(
     expected_quanting_env = {
         "RAW_FILE_PATH": "/some_backup_base_path/instrument1/1970_01/test_file.raw",
         "SETTINGS_PATH": "/some_quanting_settings_path/test_settings",
-        "OUTPUT_PATH": "/some_quanting_output_path/some_project_id/out_test_file.raw/test_settings",
-        "RELATIVE_OUTPUT_PATH": "some_project_id/out_test_file.raw/test_settings",
+        "OUTPUT_PATH": "/some_quanting_output_path/some_project_id/out_test_file.raw/alphadia",
+        "RELATIVE_OUTPUT_PATH": "some_project_id/out_test_file.raw/alphadia",
         "SPECLIB_FILE_NAME": "some_speclib_file_name",
         "FASTA_FILE_NAME": "some_fasta_file_name",
         "CONFIG_FILE_NAME": "some_config_file_name",
@@ -170,16 +170,16 @@ def test_prepare_quanting_custom_software(
     expected_custom_command = (
         "/some_software_base_path/custom1.2.3 --qvalue 0.01 --f /some_backup_base_path/instrument1/1970_01/test_file.raw "
         "--lib /some_quanting_settings_path/test_custom_settings/some_speclib_file_name "
-        "--out /some_quanting_output_path/some_project_id/out_test_file.raw/test_custom_settings "
+        "--out /some_quanting_output_path/some_project_id/out_test_file.raw/custom "
         "--fasta /some_quanting_settings_path/test_custom_settings/some_fasta_file_name --threads 8 "
-        "--some_param instrument1/1970_01/test_file.raw --some_param2 some_project_id/out_test_file.raw/test_custom_settings"
+        "--some_param instrument1/1970_01/test_file.raw --some_param2 some_project_id/out_test_file.raw/custom"
     )
 
     expected_quanting_env = {
         "RAW_FILE_PATH": "/some_backup_base_path/instrument1/1970_01/test_file.raw",
         "SETTINGS_PATH": "/some_quanting_settings_path/test_custom_settings",
-        "OUTPUT_PATH": "/some_quanting_output_path/some_project_id/out_test_file.raw/test_custom_settings",
-        "RELATIVE_OUTPUT_PATH": "some_project_id/out_test_file.raw/test_custom_settings",
+        "OUTPUT_PATH": "/some_quanting_output_path/some_project_id/out_test_file.raw/custom",
+        "RELATIVE_OUTPUT_PATH": "some_project_id/out_test_file.raw/custom",
         "SPECLIB_FILE_NAME": "some_speclib_file_name",
         "FASTA_FILE_NAME": "some_fasta_file_name",
         "CONFIG_FILE_NAME": "",
@@ -339,7 +339,7 @@ def test_run_quanting_executes_ssh_command_and_stores_job_id(
         QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID123",
         QuantingEnv.SOFTWARE_TYPE: "alphadia",
         QuantingEnv.CUSTOM_COMMAND: "",
-        QuantingEnv.OUTPUT_PATH: "/mock/output/PID123/out_test_file.raw/test_settings",
+        QuantingEnv.OUTPUT_PATH: "/mock/output/PID123/out_test_file.raw/alphadia",
     }
     mock_raw_file = MagicMock(
         wraps=RawFile,
@@ -543,7 +543,7 @@ def test_check_quanting_result_business_error(
 
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
     mock_get_business_errors.assert_called_once_with(
-        mock_raw_file, Path("/mock/output/PID1/out_test_file.raw/test_settings")
+        mock_raw_file, Path("/mock/output/PID1/out_test_file.raw/alphadia")
     )
     mock_update_raw_file.assert_called_once_with(
         "test_file.raw",
@@ -591,7 +591,7 @@ def test_check_quanting_result_business_error_raises(
 
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
     mock_get_business_errors.assert_called_once_with(
-        mock_raw_file, Path("/mock/output/PID1/out_test_file.raw/test_settings")
+        mock_raw_file, Path("/mock/output/PID1/out_test_file.raw/alphadia")
     )
     mock_update_raw_file.assert_called_once_with(
         "test_file.raw",
@@ -768,7 +768,7 @@ def test_compute_metrics(
         "PROJECT_ID_OR_FALLBACK": "P1",
         "SOFTWARE_TYPE": "alphadia",
         "METRICS_TYPE": "alphadia",
-        "OUTPUT_PATH": "/opt/airflow/mounts/output/P1/out_test_file.raw/test_settings",
+        "OUTPUT_PATH": "/opt/airflow/mounts/output/P1/out_test_file.raw/alphadia",
     }
 
     mock_calc_metrics.return_value = {"metric1": "value1"}
@@ -777,7 +777,7 @@ def test_compute_metrics(
     result = compute_metrics(quanting_env=quanting_env, quanting_time_elapsed=123)
 
     mock_calc_metrics.assert_called_once_with(
-        Path("/opt/airflow/mounts/output/P1/out_test_file.raw/test_settings"),
+        Path("/opt/airflow/mounts/output/P1/out_test_file.raw/alphadia"),
         metrics_type="alphadia",
     )
     assert result == {
@@ -796,14 +796,14 @@ def test_compute_metrics_msqc_software_type(
         "PROJECT_ID_OR_FALLBACK": "P1",
         "SOFTWARE_TYPE": "msqc",
         "METRICS_TYPE": "msqc",
-        "OUTPUT_PATH": "/opt/airflow/mounts/output/P1/out_test_file.raw/msqc_settings",
+        "OUTPUT_PATH": "/opt/airflow/mounts/output/P1/out_test_file.raw/msqc",
     }
     mock_calc_metrics.return_value = {"qc_metric": 42}
 
     result = compute_metrics(quanting_env=quanting_env)
 
     mock_calc_metrics.assert_called_once_with(
-        Path("/opt/airflow/mounts/output/P1/out_test_file.raw/msqc_settings"),
+        Path("/opt/airflow/mounts/output/P1/out_test_file.raw/msqc"),
         metrics_type="msqc",
     )
     assert result == {

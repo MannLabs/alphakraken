@@ -98,7 +98,7 @@ def prepare_quanting(
         settings_path = get_path(YamlKeys.Locations.SETTINGS) / settings.name
 
         relative_output_path = get_output_folder_rel_path(
-            raw_file, project_id_or_fallback, settings_name=settings.name
+            raw_file, project_id_or_fallback, settings_type=settings.software_type
         )
         output_path = get_path(YamlKeys.Locations.OUTPUT) / relative_output_path
 

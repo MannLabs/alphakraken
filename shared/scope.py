@@ -25,6 +25,8 @@ def resolve_scoped_settings(
     """
     classified: list[tuple[int, ProjectSettings]] = []
     for ps in project_settings:
+        if instrument_id in (ps.excluded or []):
+            continue
         level = _classify_scope(ps.scope, instrument_id, instrument_type)
         if level is not None:
             classified.append((level, ps))

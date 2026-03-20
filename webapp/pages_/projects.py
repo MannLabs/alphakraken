@@ -114,8 +114,11 @@ with c_assign1:
             st.markdown("**Current settings assignments:**")
             for ps in current_ps_list:
                 col_info, col_btn = st.columns([0.7, 0.3])
+                excluded_str = (
+                    f" [excluded: {', '.join(ps.excluded)}]" if ps.excluded else ""
+                )
                 col_info.write(
-                    f"[scope: {ps.scope}] '{ps.settings.name}' version {ps.settings.version} (type: {ps.settings.software_type})"
+                    f"[scope: {ps.scope}] '{ps.settings.name}' version {ps.settings.version} (type: {ps.settings.software_type}){excluded_str}"
                 )
                 ps_id = str(ps.id)  # type: ignore[unresolved-attribute]
                 if col_btn.button(
@@ -162,6 +165,13 @@ with c_assign1:
                 help="'*' = all instruments, vendor name = vendor-specific, instrument ID = instrument-specific",
             )
 
+            selected_excluded = st.multiselect(
+                "Exclude instruments (optional)",
+                options=_INSTRUMENT_IDS,
+                key="assign_excluded_select",
+                help="Instruments to exclude from this scope assignment.",
+            )
+
             if st.button(
                 "Assign settings",
                 disabled=DISABLE_WRITE,
@@ -170,7 +180,10 @@ with c_assign1:
                 try:
                     new_settings_id = settings_options_map[selected_settings_display]
                     create_project_settings(
-                        selected_project_id, new_settings_id, scope=selected_scope
+                        selected_project_id,
+                        new_settings_id,
+                        scope=selected_scope,
+                        excluded=selected_excluded,
                     )
                     set_session_state(
                         SessionStateKeys.SUCCESS_MSG,

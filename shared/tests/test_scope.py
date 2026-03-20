@@ -11,10 +11,16 @@ from shared.scope import (
 )
 
 
-def _make_ps(scope: str, software_type: str, settings_name: str = "s") -> MagicMock:
+def _make_ps(
+    scope: str,
+    software_type: str,
+    settings_name: str = "s",
+    excluded: list[str] | None = None,
+) -> MagicMock:
     """Create a mock ProjectSettings with given scope and software_type."""
     ps = MagicMock()
     ps.scope = scope
+    ps.excluded = excluded or []
     ps.settings = MagicMock()
     ps.settings.software_type = software_type
     ps.settings.name = settings_name
@@ -128,3 +134,47 @@ def test_resolve_mixed_software_types_resolved_independently() -> None:
         INSTRUMENT_TYPE,
     )
     assert set(result) == {ps_alphadia_vendor.settings, ps_msqc_default.settings}
+
+
+# === exclusions ===
+
+
+def test_resolve_excluded_instrument_skipped_on_default_scope() -> None:
+    """Test that an excluded instrument is skipped even when default scope matches."""
+    ps = _make_ps("*", "alphadia", "settings1", excluded=["instrument_1"])
+    result = resolve_scoped_settings([ps], INSTRUMENT_ID, INSTRUMENT_TYPE)
+    assert result == []
+
+
+def test_resolve_non_excluded_instrument_still_matches() -> None:
+    """Test that a non-excluded instrument still matches normally."""
+    ps = _make_ps("*", "alphadia", "settings1", excluded=["other_instrument"])
+    result = resolve_scoped_settings([ps], INSTRUMENT_ID, INSTRUMENT_TYPE)
+    assert result == [ps.settings]
+
+
+def test_resolve_excluded_instrument_skipped_on_vendor_scope() -> None:
+    """Test that an excluded instrument is skipped even with vendor scope match."""
+    ps = _make_ps("bruker", "alphadia", "settings1", excluded=["instrument_1"])
+    result = resolve_scoped_settings([ps], INSTRUMENT_ID, INSTRUMENT_TYPE)
+    assert result == []
+
+
+def test_resolve_excluded_does_not_fall_through_to_lower_level() -> None:
+    """Test that excluding at a higher level does not fall through to a lower-level entry."""
+    ps_default = _make_ps("*", "alphadia", "default_settings")
+    ps_vendor = _make_ps(
+        "bruker", "alphadia", "bruker_settings", excluded=["instrument_1"]
+    )
+
+    result = resolve_scoped_settings(
+        [ps_default, ps_vendor], INSTRUMENT_ID, INSTRUMENT_TYPE
+    )
+    assert result == [ps_default.settings]
+
+
+def test_resolve_empty_excluded_list_behaves_like_no_exclusion() -> None:
+    """Test that an empty excluded list has no effect."""
+    ps = _make_ps("*", "alphadia", "settings1", excluded=[])
+    result = resolve_scoped_settings([ps], INSTRUMENT_ID, INSTRUMENT_TYPE)
+    assert result == [ps.settings]

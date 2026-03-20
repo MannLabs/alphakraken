@@ -26,3 +26,4 @@
 - get rid of "project_id_or_fallback"
 - disallow to edit fallback
 - clean up the results table, considering multiple settings
+- "*" should be "all"

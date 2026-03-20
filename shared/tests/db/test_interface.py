@@ -371,6 +371,7 @@ def test_create_project_settings(
         project=mock_project_instance,
         settings=mock_settings_instance,
         scope="*",
+        excluded=[],
     )
     mock_project_settings.return_value.save.assert_called_once()
     mock_connect_db.assert_called_once()

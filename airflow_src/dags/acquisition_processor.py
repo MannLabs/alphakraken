@@ -72,6 +72,7 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
             priority_weight=get_minutes_since_fixed_time_point(),
         )
         def prepare_quanting_task(params: dict | None = None) -> list[dict]:
+            """Collect settings and return list of quanting_env dicts, one per settings entry."""
             assert params is not None
             return prepare_quanting(
                 raw_file_id=params[DagParams.RAW_FILE_ID],
@@ -84,6 +85,7 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
             def run_quanting_task(
                 quanting_env: dict, ti: TaskInstance | None = None
             ) -> str:
+                """Run quantina and return the Slurm job ID."""
                 assert ti is not None
                 return run_quanting(quanting_env=quanting_env)
 
@@ -107,12 +109,14 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
 
             @task(task_id=Tasks.CHECK_QUANTING_RESULT)
             def check_result_task(quanting_env: dict, job_id: str) -> dict:
+                """Check quanting result and return dict with quanting_time_elapsed."""
                 return check_quanting_result(quanting_env=quanting_env, job_id=job_id)
 
             @task(task_id=Tasks.COMPUTE_METRICS)
             def compute_metrics_task(
                 quanting_env: dict, quanting_time_elapsed: int
             ) -> dict:
+                """Compute metrics and return dict with metrics and metrics_type."""
                 return compute_metrics(
                     quanting_env=quanting_env,
                     quanting_time_elapsed=quanting_time_elapsed,
@@ -120,6 +124,7 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
 
             @task(task_id=Tasks.UPLOAD_METRICS)
             def upload_metrics_task(quanting_env: dict, metrics_result: dict) -> None:
+                """Upload metrics to the database."""
                 upload_metrics(
                     quanting_env=quanting_env,
                     metrics=metrics_result["metrics"],
@@ -147,6 +152,7 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
         def finalize_status(
             params: dict | None = None, ti: TaskInstance | None = None
         ) -> None:
+            """Set final raw file status based on all branch outcomes."""
             assert params is not None
             finalize_raw_file_status(
                 ti=ti,

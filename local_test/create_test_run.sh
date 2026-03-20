@@ -72,7 +72,7 @@ else
 fi
 
 echo Faking acquistion of $RAW_FILE_NAME .. done.
-echo To speed up things, use the Airflow UI to mark the "monitor_acquistion" task in the "acquistion_handler" DAG as "success".
+echo To speed up things, use the Airflow UI to mark the "monitor_acquisition" task in the "acquisition_handler" DAG as "success".
 
 
 echo Faking metrics generation of $RAW_FILE_NAME ..
@@ -80,7 +80,7 @@ echo Faking metrics generation of $RAW_FILE_NAME ..
 #YEAR_MONTH=$(date +%Y_%m)
 NEW_OUTPUT_FOLDER=${BASE_FOLDER}/output/P123/out_$RAW_FILE_NAME
 mkdir -p $NEW_OUTPUT_FOLDER
-cp ${BASE_FOLDER}/_data/* $NEW_OUTPUT_FOLDER
+cp -r ${BASE_FOLDER}/_data/* $NEW_OUTPUT_FOLDER
 
 
 echo .. done

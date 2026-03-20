@@ -28,6 +28,11 @@ from shared.db.interface import (
     get_project_settings,
     remove_project_settings,
 )
+from shared.keys import DEFAULT_SCOPE, KNOWN_VENDOR_NAMES
+from shared.yamlsettings import YAMLSETTINGS, YamlKeys
+
+_INSTRUMENT_IDS = list(YAMLSETTINGS.get(YamlKeys.INSTRUMENTS, {}).keys())
+SCOPE_OPTIONS = [DEFAULT_SCOPE, *KNOWN_VENDOR_NAMES, *_INSTRUMENT_IDS]
 
 _log(f"loading {__file__} {get_all_query_params()}")
 
@@ -110,7 +115,7 @@ with c_assign1:
             for ps in current_ps_list:
                 col_info, col_btn = st.columns([0.7, 0.3])
                 col_info.write(
-                    f"{ps.settings.name} v{ps.settings.version} ({ps.settings.software_type})"
+                    f"[scope: {ps.scope}] '{ps.settings.name}' version {ps.settings.version} (type: {ps.settings.software_type})"
                 )
                 ps_id = str(ps.id)  # type: ignore[unresolved-attribute]
                 if col_btn.button(
@@ -150,6 +155,13 @@ with c_assign1:
                 key="assign_settings_select",
             )
 
+            selected_scope = st.selectbox(
+                "Select scope",
+                options=SCOPE_OPTIONS,
+                key="assign_scope_select",
+                help="'*' = all instruments, vendor name = vendor-specific, instrument ID = instrument-specific",
+            )
+
             if st.button(
                 "Assign settings",
                 disabled=DISABLE_WRITE,
@@ -157,7 +169,9 @@ with c_assign1:
             ):
                 try:
                     new_settings_id = settings_options_map[selected_settings_display]
-                    create_project_settings(selected_project_id, new_settings_id)
+                    create_project_settings(
+                        selected_project_id, new_settings_id, scope=selected_scope
+                    )
                     set_session_state(
                         SessionStateKeys.SUCCESS_MSG,
                         f"Assigned settings '{selected_settings_display}' to project {selected_project_id}.",

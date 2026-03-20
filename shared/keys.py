@@ -21,6 +21,14 @@ class InstrumentTypes:
     SCIEX: str = "sciex"
 
 
+# TODO: remove
+KNOWN_VENDOR_NAMES: tuple[str, ...] = (
+    InstrumentTypes.BRUKER,
+    InstrumentTypes.THERMO,
+    InstrumentTypes.SCIEX,
+)
+
+
 class InternalPaths:
     """Paths to directories within the Docker containers."""
 

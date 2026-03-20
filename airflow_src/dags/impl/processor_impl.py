@@ -40,11 +40,12 @@ from mongoengine import DoesNotExist
 from shared.db.interface import (
     add_metrics_to_raw_file,
     get_raw_file_by_id,
-    resolve_settings_for_raw_file,
+    get_settings_for_raw_file,
     update_raw_file,
 )
 from shared.db.models import RawFile, RawFileStatus, Settings, get_created_at_year_month
 from shared.keys import MetricsTypes, SoftwareTypes
+from shared.scope import resolve_scoped_settings
 from shared.validation import check_for_malicious_content
 from shared.yamlsettings import YamlKeys, get_path
 
@@ -73,8 +74,12 @@ def prepare_quanting(
     project_id_or_fallback = _get_project_id_or_fallback(
         raw_file.project_id, instrument_id
     )
+    instrument_type = get_instrument_settings(instrument_id, InstrumentKeys.TYPE)
     try:
-        settings_list = resolve_settings_for_raw_file(project_id_or_fallback)
+        project_settings = get_settings_for_raw_file(project_id_or_fallback)
+        settings_list = resolve_scoped_settings(
+            project_settings, instrument_id, instrument_type
+        )
     except DoesNotExist as e:
         raise AirflowFailException(
             f"No project found with id '{project_id_or_fallback}'. Please add a project and settings in the WebApp."

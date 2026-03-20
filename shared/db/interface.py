@@ -257,11 +257,10 @@ def get_project_settings(project_id: str) -> list[ProjectSettings]:
     return list(ProjectSettings.objects(project=project_id).order_by("created_at_"))
 
 
-def resolve_settings_for_raw_file(project_id: str) -> list[Settings]:
-    """Resolve which settings apply to a raw file based on project assignments."""
+def get_settings_for_raw_file(project_id: str) -> list[ProjectSettings]:
+    """Get all project-settings assignments for a raw file's project."""
     connect_db()
-    project_settings = ProjectSettings.objects(project=project_id)
-    return [ps.settings for ps in project_settings]
+    return list(ProjectSettings.objects(project=project_id))
 
 
 def create_settings(  # noqa: PLR0913

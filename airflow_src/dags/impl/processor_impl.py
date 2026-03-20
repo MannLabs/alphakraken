@@ -21,7 +21,10 @@ from common.keys import (
     TaskGroups,
     Tasks,
 )
-from common.paths import get_output_folder_rel_path
+from common.paths import (
+    get_internal_output_path_for_raw_file,
+    get_output_folder_rel_path,
+)
 from common.settings import get_fallback_project_id, get_instrument_settings
 from common.utils import (
     get_airflow_variable,
@@ -102,6 +105,10 @@ def prepare_quanting(
         )
         output_path = get_path(YamlKeys.Locations.OUTPUT) / relative_output_path
 
+        internal_output_path = get_internal_output_path_for_raw_file(
+            raw_file, project_id_or_fallback, settings_type=settings.software_type
+        )
+
         custom_command = (
             _prepare_custom_command(
                 relative_output_path,
@@ -141,6 +148,7 @@ def prepare_quanting(
             QuantingEnv.PROJECT_ID_OR_FALLBACK: project_id_or_fallback,
             QuantingEnv.SETTINGS_NAME: settings.name,
             QuantingEnv.SETTINGS_VERSION: settings.version,
+            QuantingEnv.INTERNAL_OUTPUT_PATH: str(internal_output_path),
         }
 
         if errors := _check_content(quanting_env, settings):
@@ -204,6 +212,7 @@ def _check_content(quanting_env: dict[str, str | int], settings: Settings) -> li
         QuantingEnv.RAW_FILE_PATH,
         QuantingEnv.SETTINGS_PATH,
         QuantingEnv.OUTPUT_PATH,
+        QuantingEnv.INTERNAL_OUTPUT_PATH,
         QuantingEnv.SOFTWARE,
     ]
 
@@ -280,7 +289,7 @@ def run_quanting(
         raise AirflowSkipException("Skipping quanting due to instrument settings.")
 
     # upfront check 2
-    output_path = Path(quanting_env[QuantingEnv.OUTPUT_PATH])
+    output_path = Path(quanting_env[QuantingEnv.INTERNAL_OUTPUT_PATH])
     if output_path_check and output_path.exists():
         msg = f"Output path {output_path} already exists with different content."
         output_exists_mode = get_airflow_variable(
@@ -389,7 +398,7 @@ def check_quanting_result(*, quanting_env: dict, job_id: str) -> dict:
         JobStates.OUT_OF_MEMORY
     ):
         raw_file = get_raw_file_by_id(quanting_env[QuantingEnv.RAW_FILE_ID])
-        output_path = Path(quanting_env[QuantingEnv.OUTPUT_PATH])
+        output_path = Path(quanting_env[QuantingEnv.INTERNAL_OUTPUT_PATH])
 
         if job_status == JobStates.FAILED:
             errors = get_business_errors(raw_file, output_path)
@@ -439,7 +448,7 @@ def compute_metrics(
     :return: Dict with ``metrics`` and ``metrics_type``.
     """
     metrics_type = quanting_env[QuantingEnv.METRICS_TYPE]
-    output_path = Path(quanting_env[QuantingEnv.OUTPUT_PATH])
+    output_path = Path(quanting_env[QuantingEnv.INTERNAL_OUTPUT_PATH])
 
     metrics = calc_metrics(output_path, metrics_type=metrics_type)
 

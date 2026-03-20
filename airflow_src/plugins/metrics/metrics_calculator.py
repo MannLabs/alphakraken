@@ -38,7 +38,7 @@ def calc_metrics(output_directory: Path, *, metrics_type: str) -> dict[str, Any]
     return _convert_numpy_types(metrics_cleaned)
 
 
-def _convert_numpy_types(data: Any) -> Any:
+def _convert_numpy_types(data: Any) -> Any:  # noqa: PLR0911 (Too many return statements)
     """Recursively convert numpy types to native Python types for JSON serialization.
 
     Note: no need to handle tuples or sets since JSON doesn't have native tuple/set types.
@@ -58,8 +58,13 @@ def _convert_numpy_types(data: Any) -> Any:
         return {key: _convert_numpy_types(value) for key, value in data.items()}
     if isinstance(data, list):
         return [_convert_numpy_types(item) for item in data]
+    if isinstance(data, float) and np.isnan(data):
+        return None
     if isinstance(data, np.generic):
-        return data.item()
+        value = data.item()
+        if isinstance(value, float) and np.isnan(value):
+            return None
+        return value
     if isinstance(data, np.ndarray):
         return data.tolist()
     if isinstance(data, tuple | set):

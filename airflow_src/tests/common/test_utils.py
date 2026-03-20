@@ -43,7 +43,7 @@ def test_xcom_pull_successful() -> None:
     result = get_xcom(ti, "key1")
     assert result == "value1"
 
-    ti.xcom_pull.assert_called_once_with(key="key1", default=None)
+    ti.xcom_pull.assert_called_once_with(key="key1", default=None, task_ids=None)
 
 
 def test_xcom_pull_with_missing_key_raises_error() -> None:
@@ -62,7 +62,9 @@ def test_xcom_pull_with_missing_key_gives_default() -> None:
     # when
     assert get_xcom(ti, "missing_key", "some_default") == "some_default"
 
-    ti.xcom_pull.assert_called_once_with(key="missing_key", default="some_default")
+    ti.xcom_pull.assert_called_once_with(
+        key="missing_key", default="some_default", task_ids=None
+    )
 
 
 @patch.object(Variable, "get")

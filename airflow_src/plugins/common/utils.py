@@ -2,6 +2,7 @@
 
 import logging
 import os
+from collections.abc import Iterable
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -31,10 +32,17 @@ def put_xcom(ti: TaskInstance, key: str, value: _xcom_types) -> None:
 
 
 def get_xcom(
-    ti: TaskInstance, key: str, default: _xcom_types | None = None
+    ti: TaskInstance,
+    key: str,
+    default: _xcom_types | None = None,
+    task_ids: str | Iterable[str] | None = None,
 ) -> _xcom_types:
-    """Get the value of an XCom with `key`."""
-    value = ti.xcom_pull(key=key, default=default)
+    """Get the value of an XCom with `key`.
+
+    :param task_ids: Pull from a specific task. Required inside mapped task groups
+        to avoid getting a LazySelectSequence instead of the actual value.
+    """
+    value = ti.xcom_pull(key=key, default=default, task_ids=task_ids)
 
     if value is None:
         raise KeyError(f"No value found for XCOM key {key}")

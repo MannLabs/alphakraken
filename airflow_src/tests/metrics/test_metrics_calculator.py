@@ -110,6 +110,40 @@ def test_convert_numpy_types_comprehensive() -> None:
     assert isinstance(result["nested_dict"]["inner_numpy_int"], int)
 
 
+def test_convert_numpy_types_nan_python_float() -> None:
+    """Test that Python float NaN is converted to None."""
+    result = _convert_numpy_types({"val": float("nan")})
+
+    assert result == {"val": None}
+
+
+def test_convert_numpy_types_nan_numpy_float() -> None:
+    """Test that numpy float NaN is converted to None."""
+    result = _convert_numpy_types(
+        {
+            "f32": np.float32("nan"),
+            "f64": np.float64("nan"),
+        }
+    )
+
+    assert result == {"f32": None, "f64": None}
+
+
+def test_convert_numpy_types_nan_in_nested_structure() -> None:
+    """Test that NaN is converted to None in nested dicts and lists."""
+    result = _convert_numpy_types(
+        {
+            "nested": {"a": float("nan"), "b": 1.0},
+            "list": [np.float32("nan"), 2.0, float("nan")],
+        }
+    )
+
+    assert result == {
+        "nested": {"a": None, "b": 1.0},
+        "list": [None, 2.0, None],
+    }
+
+
 def test_convert_numpy_types_raises_not_implemented_for_set() -> None:
     """Test _convert_numpy_types raises NotImplementedError for sets."""
     input_data = {"some_set": {1, 2, 3}}

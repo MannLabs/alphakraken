@@ -120,6 +120,7 @@ def test_prepare_quanting(
         "PROJECT_ID_OR_FALLBACK": "some_project_id",
         "SETTINGS_NAME": "test_settings",
         "SETTINGS_VERSION": 1,
+        "_INTERNAL_OUTPUT_PATH": "/opt/airflow/mounts/output/some_project_id/out_test_file.raw/alphadia",
     }
 
     assert result == [expected_quanting_env]
@@ -195,6 +196,7 @@ def test_prepare_quanting_custom_software(
         "PROJECT_ID_OR_FALLBACK": "some_project_id",
         "SETTINGS_NAME": "test_custom_settings",
         "SETTINGS_VERSION": 1,
+        "_INTERNAL_OUTPUT_PATH": "/opt/airflow/mounts/output/some_project_id/out_test_file.raw/custom",
     }
 
     assert result == [expected_quanting_env]
@@ -339,7 +341,7 @@ def test_run_quanting_executes_ssh_command_and_stores_job_id(
         QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID123",
         QuantingEnv.SOFTWARE_TYPE: "alphadia",
         QuantingEnv.CUSTOM_COMMAND: "",
-        QuantingEnv.OUTPUT_PATH: "/mock/output/PID123/out_test_file.raw/alphadia",
+        QuantingEnv.INTERNAL_OUTPUT_PATH: "/opt/airflow/mounts/output/PID123/out_test_file.raw/alphadia",
     }
     mock_raw_file = MagicMock(
         wraps=RawFile,
@@ -381,7 +383,7 @@ def test_run_quanting_output_folder_exists(
         QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID123",
         QuantingEnv.SOFTWARE_TYPE: "alphadia",
         QuantingEnv.CUSTOM_COMMAND: "",
-        QuantingEnv.OUTPUT_PATH: str(output_dir),
+        QuantingEnv.INTERNAL_OUTPUT_PATH: str(output_dir),
     }
     mock_raw_file = MagicMock(
         wraps=RawFile,
@@ -418,7 +420,7 @@ def test_run_quanting_output_folder_exists_associate(
         QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID123",
         QuantingEnv.SOFTWARE_TYPE: "alphadia",
         QuantingEnv.CUSTOM_COMMAND: "",
-        QuantingEnv.OUTPUT_PATH: str(output_dir),
+        QuantingEnv.INTERNAL_OUTPUT_PATH: str(output_dir),
     }
     mock_raw_file = MagicMock(
         wraps=RawFile,
@@ -454,7 +456,7 @@ def test_run_quanting_output_folder_exists_associate_raise(
         QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID123",
         QuantingEnv.SOFTWARE_TYPE: "alphadia",
         QuantingEnv.CUSTOM_COMMAND: "",
-        QuantingEnv.OUTPUT_PATH: str(output_dir),
+        QuantingEnv.INTERNAL_OUTPUT_PATH: str(output_dir),
     }
     mock_raw_file = MagicMock(
         wraps=RawFile,
@@ -543,7 +545,8 @@ def test_check_quanting_result_business_error(
 
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
     mock_get_business_errors.assert_called_once_with(
-        mock_raw_file, Path("/mock/output/PID1/out_test_file.raw/alphadia")
+        mock_raw_file,
+        Path("/opt/airflow/mounts/output/PID1/out_test_file.raw/alphadia"),
     )
     mock_update_raw_file.assert_called_once_with(
         "test_file.raw",
@@ -591,7 +594,8 @@ def test_check_quanting_result_business_error_raises(
 
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
     mock_get_business_errors.assert_called_once_with(
-        mock_raw_file, Path("/mock/output/PID1/out_test_file.raw/alphadia")
+        mock_raw_file,
+        Path("/opt/airflow/mounts/output/PID1/out_test_file.raw/alphadia"),
     )
     mock_update_raw_file.assert_called_once_with(
         "test_file.raw",
@@ -768,7 +772,7 @@ def test_compute_metrics(
         "PROJECT_ID_OR_FALLBACK": "P1",
         "SOFTWARE_TYPE": "alphadia",
         "METRICS_TYPE": "alphadia",
-        "OUTPUT_PATH": "/opt/airflow/mounts/output/P1/out_test_file.raw/alphadia",
+        "_INTERNAL_OUTPUT_PATH": "/opt/airflow/mounts/output/P1/out_test_file.raw/alphadia",
     }
 
     mock_calc_metrics.return_value = {"metric1": "value1"}
@@ -796,7 +800,7 @@ def test_compute_metrics_msqc_software_type(
         "PROJECT_ID_OR_FALLBACK": "P1",
         "SOFTWARE_TYPE": "msqc",
         "METRICS_TYPE": "msqc",
-        "OUTPUT_PATH": "/opt/airflow/mounts/output/P1/out_test_file.raw/msqc",
+        "_INTERNAL_OUTPUT_PATH": "/opt/airflow/mounts/output/P1/out_test_file.raw/msqc",
     }
     mock_calc_metrics.return_value = {"qc_metric": 42}
 

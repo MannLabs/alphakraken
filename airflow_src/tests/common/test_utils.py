@@ -67,6 +67,19 @@ def test_xcom_pull_with_missing_key_gives_default() -> None:
     )
 
 
+def test_xcom_pull_with_task_ids() -> None:
+    """Test that get_xcom passes task_ids to xcom_pull."""
+    ti = Mock()
+    ti.xcom_pull = Mock(return_value="job_123")
+
+    result = get_xcom(ti, "return_value", task_ids="quanting_pipeline.run_quanting")
+
+    assert result == "job_123"
+    ti.xcom_pull.assert_called_once_with(
+        key="return_value", default=None, task_ids="quanting_pipeline.run_quanting"
+    )
+
+
 @patch.object(Variable, "get")
 def test_get_airflow_variable_returns_value_when_default_not_set(
     mock_get: MagicMock,

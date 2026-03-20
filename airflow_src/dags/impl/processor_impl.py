@@ -499,7 +499,7 @@ def finalize_raw_file_status(ti: TaskInstance, raw_file_id: str) -> None:
             f"{len(failed)} of {len(upload_tis)} branches failed for raw file {raw_file_id}."
         )
         update_raw_file(raw_file_id, new_status=RawFileStatus.ERROR)
-        raise AirflowFailException("At least on task has failed.")
+        raise AirflowFailException("At least one task has failed.")
         # TODO: how to handle status_details? accumulate during the DAG run and reset here in case of success?
 
     # TODO: currently, if a task is skipped (due to a business error), the raw file will be marked as done.

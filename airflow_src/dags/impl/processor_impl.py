@@ -409,7 +409,7 @@ def check_quanting_result(*, quanting_env: dict, job_id: str) -> dict:
             metrics={QUANTING_TIME_ELAPSED_METRIC: time_elapsed},
             settings_name=quanting_env[QuantingEnv.SETTINGS_NAME],
             settings_version=quanting_env[QuantingEnv.SETTINGS_VERSION],
-            metrics_type=MetricsTypes.ALPHADIA,
+            metrics_type=quanting_env[QuantingEnv.METRICS_TYPE],
         )
 
         # fail the DAG without retry on new errors to make them transparent in Airflow UI

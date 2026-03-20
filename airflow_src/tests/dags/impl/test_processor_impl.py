@@ -475,6 +475,7 @@ def test_check_quanting_result_happy_path(
         QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID1",
         QuantingEnv.SETTINGS_NAME: "test_settings",
         QuantingEnv.SETTINGS_VERSION: 1,
+        QuantingEnv.METRICS_TYPE: "alphadia",
     }
 
     mock_get_job_result.return_value = (JobStates.COMPLETED, 522)
@@ -495,6 +496,7 @@ def test_check_quanting_result_unknown_job_status(
         QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID1",
         QuantingEnv.SETTINGS_NAME: "test_settings",
         QuantingEnv.SETTINGS_VERSION: 1,
+        QuantingEnv.METRICS_TYPE: "alphadia",
     }
     mock_get_job_result.return_value = ("SOME_JOB_STATE", 522)
 
@@ -521,6 +523,7 @@ def test_check_quanting_result_business_error(
         QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID1",
         QuantingEnv.SETTINGS_NAME: "test_settings",
         QuantingEnv.SETTINGS_VERSION: 1,
+        QuantingEnv.METRICS_TYPE: "alphadia",
     }
     mock_raw_file = MagicMock(wraps=RawFile, id="test_file.raw")
     mock_get_raw_file_by_id.return_value = mock_raw_file
@@ -565,6 +568,7 @@ def test_check_quanting_result_business_error_raises(
         QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID1",
         QuantingEnv.SETTINGS_NAME: "test_settings",
         QuantingEnv.SETTINGS_VERSION: 1,
+        QuantingEnv.METRICS_TYPE: "alphadia",
     }
     mock_raw_file = MagicMock(wraps=RawFile, id="test_file.raw")
     mock_get_raw_file_by_id.return_value = mock_raw_file
@@ -607,6 +611,7 @@ def test_check_quanting_result_timeout(
         QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID1",
         QuantingEnv.SETTINGS_NAME: "test_settings",
         QuantingEnv.SETTINGS_VERSION: 1,
+        QuantingEnv.METRICS_TYPE: "alphadia",
     }
     mock_raw_file = MagicMock(wraps=RawFile, id="test_file.raw")
     mock_get_raw_file_by_id.return_value = mock_raw_file
@@ -647,6 +652,7 @@ def test_check_quanting_result_oom(
         QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID1",
         QuantingEnv.SETTINGS_NAME: "test_settings",
         QuantingEnv.SETTINGS_VERSION: 1,
+        QuantingEnv.METRICS_TYPE: "alphadia",
     }
     mock_raw_file = MagicMock(wraps=RawFile, id="test_file.raw")
     mock_get_raw_file_by_id.return_value = mock_raw_file

@@ -207,6 +207,67 @@ def test_prepare_quanting_custom_software(
 @patch("dags.impl.processor_impl.get_path")
 @patch("dags.impl.processor_impl._get_project_id_or_fallback")
 @patch("dags.impl.processor_impl.resolve_settings_for_raw_file")
+def test_prepare_quanting_multiple_settings(
+    mock_get_settings: MagicMock,
+    mock_get_project_id_for_raw_file: MagicMock,
+    mock_get_path: MagicMock,
+    mock_get_raw_file_by_id: MagicMock,
+) -> None:
+    """Test that prepare_quanting returns one quanting_env per assigned settings."""
+    mock_raw_file = MagicMock(
+        wraps=RawFile,
+        id="test_file.raw",
+        created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
+        project_id="some_project_id",
+    )
+    mock_get_raw_file_by_id.return_value = mock_raw_file
+    mock_get_path.side_effect = [
+        Path("/backup"),
+        # settings 1
+        Path("/settings"),
+        Path("/output"),
+        # settings 2
+        Path("/settings"),
+        Path("/output"),
+    ]
+    mock_get_project_id_for_raw_file.return_value = "P1"
+
+    mock_settings_alphadia = MagicMock(
+        name="alphadia_default",
+        speclib_file_name="lib.speclib",
+        fasta_file_name="human.fasta",
+        config_file_name="config.yaml",
+        config_params="",
+        software="alphadia-1.0",
+        software_type="alphadia",
+        version=1,
+    )
+    mock_settings_msqc = MagicMock(
+        name="msqc_default",
+        speclib_file_name="lib.speclib",
+        fasta_file_name="human.fasta",
+        config_file_name="config.yaml",
+        config_params="",
+        software="msqc-1.0",
+        software_type="msqc",
+        version=1,
+    )
+    mock_get_settings.return_value = [mock_settings_alphadia, mock_settings_msqc]
+
+    result = prepare_quanting(raw_file_id="test_file.raw", instrument_id="instrument1")
+
+    assert len(result) == 2
+    assert result[0][QuantingEnv.SOFTWARE_TYPE] == "alphadia"
+    assert result[1][QuantingEnv.SOFTWARE_TYPE] == "msqc"
+    assert "alphadia" in result[0][QuantingEnv.OUTPUT_PATH]
+    assert "msqc" in result[1][QuantingEnv.OUTPUT_PATH]
+
+
+@patch.dict(_INSTRUMENTS, {"instrument1": {}})
+@patch("dags.impl.processor_impl.get_raw_file_by_id")
+@patch("dags.impl.processor_impl.get_path")
+@patch("dags.impl.processor_impl._get_project_id_or_fallback")
+@patch("dags.impl.processor_impl.resolve_settings_for_raw_file")
 def test_prepare_quanting_validation_error_raises(
     mock_get_settings: MagicMock,
     mock_get_project_id_for_raw_file: MagicMock,
@@ -531,7 +592,7 @@ def test_check_quanting_result_business_error(
         QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID1",
         QuantingEnv.SETTINGS_NAME: "test_settings",
         QuantingEnv.SETTINGS_VERSION: 1,
-        QuantingEnv.OUTPUT_PATH: "/mock/output/PID1/out_test_file.raw/test_settings",
+        QuantingEnv.INTERNAL_OUTPUT_PATH: "/opt/airflow/mounts/output/PID1/out_test_file.raw/alphadia",
         QuantingEnv.METRICS_TYPE: "alphadia",
     }
     mock_raw_file = MagicMock(wraps=RawFile, id="test_file.raw")
@@ -580,7 +641,7 @@ def test_check_quanting_result_business_error_raises(
         QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID1",
         QuantingEnv.SETTINGS_NAME: "test_settings",
         QuantingEnv.SETTINGS_VERSION: 1,
-        QuantingEnv.OUTPUT_PATH: "/mock/output/PID1/out_test_file.raw/test_settings",
+        QuantingEnv.INTERNAL_OUTPUT_PATH: "/opt/airflow/mounts/output/PID1/out_test_file.raw/alphadia",
         QuantingEnv.METRICS_TYPE: "alphadia",
     }
     mock_raw_file = MagicMock(wraps=RawFile, id="test_file.raw")
@@ -627,7 +688,7 @@ def test_check_quanting_result_timeout(
         QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID1",
         QuantingEnv.SETTINGS_NAME: "test_settings",
         QuantingEnv.SETTINGS_VERSION: 1,
-        QuantingEnv.OUTPUT_PATH: "/mock/output/PID1/out_test_file.raw/test_settings",
+        QuantingEnv.INTERNAL_OUTPUT_PATH: "/opt/airflow/mounts/output/PID1/out_test_file.raw/alphadia",
         QuantingEnv.METRICS_TYPE: "alphadia",
     }
     mock_raw_file = MagicMock(wraps=RawFile, id="test_file.raw")
@@ -669,7 +730,7 @@ def test_check_quanting_result_oom(
         QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID1",
         QuantingEnv.SETTINGS_NAME: "test_settings",
         QuantingEnv.SETTINGS_VERSION: 1,
-        QuantingEnv.OUTPUT_PATH: "/mock/output/PID1/out_test_file.raw/test_settings",
+        QuantingEnv.INTERNAL_OUTPUT_PATH: "/opt/airflow/mounts/output/PID1/out_test_file.raw/alphadia",
         QuantingEnv.METRICS_TYPE: "alphadia",
     }
     mock_raw_file = MagicMock(wraps=RawFile, id="test_file.raw")

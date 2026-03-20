@@ -9,9 +9,6 @@ from typing import Any
 from airflow.sensors.base import BaseSensorOperator
 from airflow.utils.xcom import XCOM_RETURN_KEY
 from common.keys import JobStates
-from common.utils import (
-    get_xcom,
-)
 from jobs.job_handler import get_job_status
 
 
@@ -39,8 +36,13 @@ class JobStatusSensorOperator(BaseSensorOperator, ABC):
 
     def pre_execute(self, context: dict[str, Any]) -> None:
         """Persist the job id from XCom."""
+        ti = context["ti"]
         self._job_id = str(
-            get_xcom(context["ti"], XCOM_RETURN_KEY, task_ids=self.xcom_source_task_id)
+            ti.xcom_pull(
+                key=XCOM_RETURN_KEY,
+                task_ids=self.xcom_source_task_id,
+                map_indexes=ti.map_index,
+            )
         )
 
     def poke(self, context: dict[str, Any]) -> bool:

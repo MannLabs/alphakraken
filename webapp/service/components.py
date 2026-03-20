@@ -64,7 +64,7 @@ def show_filter(  # noqa: C901
         ),
     )
 
-    mask = [True] * len(df)
+    mask = pd.Series(data=True, index=df.index)
     errors = []
     if user_input is not None and user_input != "":
         filters = [f.strip() for f in user_input.lower().split("&")]
@@ -119,7 +119,7 @@ def show_filter(  # noqa: C901
         # always show baseline data
         mask |= df.index.map(
             lambda x: isinstance(x, str) and x.startswith(BASELINE_PREFIX)
-        ).any()
+        )
 
     return df[mask], user_input, errors
 

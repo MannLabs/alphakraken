@@ -121,7 +121,9 @@ def prepare_quanting(
                 num_threads,
                 project_id_or_fallback,
             )
-            if settings.software_type == SoftwareTypes.CUSTOM
+            # MSQC and skyline are treated as a 'custom command'
+            if settings.software_type
+            in [SoftwareTypes.CUSTOM, SoftwareTypes.SKYLINE, SoftwareTypes.MSQC]
             else ""
         )
 
@@ -281,6 +283,8 @@ def run_quanting(
     :param job_script_name: The name of the job script to run, default is DEFAULT_JOB_SCRIPT_NAME.
     :return: The Slurm job ID as a string.
     """
+    logging.info(f"Starting quanting with environment: {quanting_env}")
+
     raw_file = get_raw_file_by_id(quanting_env[QuantingEnv.RAW_FILE_ID])
 
     if get_instrument_settings(raw_file.instrument_id, InstrumentKeys.SKIP_QUANTING):
@@ -402,7 +406,10 @@ def check_quanting_result(*, quanting_env: dict, job_id: str) -> dict:
         output_path = Path(quanting_env[QuantingEnv.INTERNAL_OUTPUT_PATH])
 
         if job_status == JobStates.FAILED:
-            errors = get_business_errors(raw_file, output_path)
+            if quanting_env[QuantingEnv.SOFTWARE_TYPE] == SoftwareTypes.ALPHADIA:
+                errors = get_business_errors(raw_file, output_path)
+            else:
+                errors = ["FAILED"]
         elif job_status == JobStates.TIMEOUT:
             errors = ["TIMEOUT"]
         else:

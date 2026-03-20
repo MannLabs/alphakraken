@@ -223,12 +223,13 @@ def test_prepare_quanting_multiple_settings(
     mock_get_raw_file_by_id.return_value = mock_raw_file
     mock_get_path.side_effect = [
         Path("/backup"),
-        # settings 1
+        # settings 1 (alphadia)
         Path("/settings"),
         Path("/output"),
-        # settings 2
+        # settings 2 (msqc — also needs software path for custom command)
         Path("/settings"),
         Path("/output"),
+        Path("/software"),
     ]
     mock_get_project_id_for_raw_file.return_value = "P1"
 
@@ -261,6 +262,16 @@ def test_prepare_quanting_multiple_settings(
     assert result[1][QuantingEnv.SOFTWARE_TYPE] == "msqc"
     assert "alphadia" in result[0][QuantingEnv.OUTPUT_PATH]
     assert "msqc" in result[1][QuantingEnv.OUTPUT_PATH]
+
+    assert result[0][QuantingEnv.SLURM_CPUS_PER_TASK] == 8
+    assert result[0][QuantingEnv.SLURM_MEM] == "62G"
+    assert result[0][QuantingEnv.SLURM_TIME] == "02:00:00"
+    assert result[0][QuantingEnv.NUM_THREADS] == 8
+
+    assert result[1][QuantingEnv.SLURM_CPUS_PER_TASK] == 2
+    assert result[1][QuantingEnv.SLURM_MEM] == "31G"
+    assert result[1][QuantingEnv.SLURM_TIME] == "00:10:00"
+    assert result[1][QuantingEnv.NUM_THREADS] == 2
 
 
 @patch.dict(_INSTRUMENTS, {"instrument1": {}})
@@ -594,6 +605,7 @@ def test_check_quanting_result_business_error(
         QuantingEnv.SETTINGS_VERSION: 1,
         QuantingEnv.INTERNAL_OUTPUT_PATH: "/opt/airflow/mounts/output/PID1/out_test_file.raw/alphadia",
         QuantingEnv.METRICS_TYPE: "alphadia",
+        QuantingEnv.SOFTWARE_TYPE: "alphadia",
     }
     mock_raw_file = MagicMock(wraps=RawFile, id="test_file.raw")
     mock_get_raw_file_by_id.return_value = mock_raw_file
@@ -643,6 +655,7 @@ def test_check_quanting_result_business_error_raises(
         QuantingEnv.SETTINGS_VERSION: 1,
         QuantingEnv.INTERNAL_OUTPUT_PATH: "/opt/airflow/mounts/output/PID1/out_test_file.raw/alphadia",
         QuantingEnv.METRICS_TYPE: "alphadia",
+        QuantingEnv.SOFTWARE_TYPE: "alphadia",
     }
     mock_raw_file = MagicMock(wraps=RawFile, id="test_file.raw")
     mock_get_raw_file_by_id.return_value = mock_raw_file

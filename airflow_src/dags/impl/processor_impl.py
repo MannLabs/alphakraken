@@ -9,6 +9,7 @@ from airflow.models import TaskInstance
 from common.constants import (
     DEFAULT_JOB_SCRIPT_NAME,
     ERROR_CODE_TO_STRING,
+    SOFTWARE_TYPE_TO_SLURM_PARAMS,
     AlphaDiaConstants,
 )
 from common.keys import (
@@ -67,12 +68,6 @@ def prepare_quanting(
     raw_file_id: str, instrument_id: str
 ) -> list[dict[str, str | int]]:
     """Prepare the environmental variables for the quanting job."""
-    # TODO: make these configurable
-    cpus_per_task = 8
-    num_threads = 8
-    mem = "62G"
-    time = "02:00:00"
-
     raw_file = get_raw_file_by_id(raw_file_id)
 
     project_id_or_fallback = _get_project_id_or_fallback(
@@ -109,6 +104,7 @@ def prepare_quanting(
         internal_output_path = get_internal_output_path_for_raw_file(
             raw_file, project_id_or_fallback, settings_type=settings.software_type
         )
+        slurm_params = SOFTWARE_TYPE_TO_SLURM_PARAMS[settings.software_type]
 
         custom_command = (
             _prepare_custom_command(
@@ -118,7 +114,7 @@ def prepare_quanting(
                 raw_file_path,
                 settings,
                 settings_path,
-                num_threads,
+                slurm_params.num_threads,
                 project_id_or_fallback,
             )
             # MSQC and skyline are treated as a 'custom command'
@@ -142,10 +138,10 @@ def prepare_quanting(
             ],
             QuantingEnv.CUSTOM_COMMAND: custom_command,
             # job parameters
-            QuantingEnv.SLURM_CPUS_PER_TASK: cpus_per_task,
-            QuantingEnv.SLURM_MEM: mem,
-            QuantingEnv.SLURM_TIME: time,
-            QuantingEnv.NUM_THREADS: num_threads,
+            QuantingEnv.SLURM_CPUS_PER_TASK: slurm_params.cpus_per_task,
+            QuantingEnv.SLURM_MEM: slurm_params.mem,
+            QuantingEnv.SLURM_TIME: slurm_params.time,
+            QuantingEnv.NUM_THREADS: slurm_params.num_threads,
             # not required for slurm script:
             QuantingEnv.RAW_FILE_ID: raw_file_id,
             QuantingEnv.PROJECT_ID_OR_FALLBACK: project_id_or_fallback,

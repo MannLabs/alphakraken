@@ -52,6 +52,7 @@ SOFTWARE_TYPE_TO_METRICS_TYPE = {
     SoftwareTypes.ALPHADIA: MetricsTypes.ALPHADIA,
     SoftwareTypes.CUSTOM: MetricsTypes.CUSTOM,
     SoftwareTypes.MSQC: MetricsTypes.MSQC,
+    SoftwareTypes.SKYLINE: MetricsTypes.SKYLINE,
 }
 
 

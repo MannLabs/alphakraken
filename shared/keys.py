@@ -47,6 +47,7 @@ class SoftwareTypes:
     ALPHADIA: str = "alphadia"
     CUSTOM: str = "custom"
     MSQC: str = "msqc"
+    SKYLINE: str = "skyline"
 
 
 DEFAULT_SCOPE = "*"

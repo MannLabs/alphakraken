@@ -176,6 +176,7 @@ software_type_options = [
     SoftwareTypes.ALPHADIA,
     SoftwareTypes.CUSTOM,
     SoftwareTypes.MSQC,
+    SoftwareTypes.SKYLINE,
 ]
 software_type_index = (
     software_type_options.index(prefill_data["software_type"])
@@ -266,6 +267,22 @@ elif software_type == SoftwareTypes.MSQC:
             "max_chars": 64,
             "placeholder": "e.g. 'msqc-1.0.0'",
             "help": "Name of the Conda environment that holds the MSQC executable.",
+        },
+    }
+
+elif software_type == SoftwareTypes.SKYLINE:
+    form_items |= {
+        "software": {
+            "label": "Software*",
+            "max_chars": 64,
+            "placeholder": "e.g. 'skyline/run_skyline.sh'",
+            "help": f"Path to executable, relative to `{get_path(YamlKeys.Locations.SOFTWARE)}/`. Ask an administrator to add the executable to the software folder.",
+        },
+        "config_params": {
+            "label": "Configuration parameters",
+            "max_chars": 2048,
+            "placeholder": "e.g. '--in iRT_windows.sky --irt-database-path irt_c18_official.irtdb --report-add custom_iRT_report.skyr'",
+            "help": "Configuration options for the Skyline software. Certain placeholders will be substituted.",
         },
     }
 

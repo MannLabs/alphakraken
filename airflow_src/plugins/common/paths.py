@@ -36,24 +36,32 @@ def get_internal_backup_path_for_instrument(
     return get_internal_backup_path() / instrument_id
 
 
-def get_output_folder_rel_path(raw_file: RawFile, project_id_or_fallback: str) -> Path:
+def get_output_folder_rel_path(
+    raw_file: RawFile,
+    project_id_or_fallback: str,
+    settings_name: str | None = None,
+) -> Path:
     """Get the path of the output directory for given raw file name relative to the `output` folder.
 
     Only if the raw_file has no project defined, we use a month-specific subfolder
     This is to avoid having too many files in the fallback output folders.
 
     E.g.
-        <project_id_or_fallback>/2024_07/out_RAW-FILE-1.raw in case raw_file has no project ID
-        <project_id_or_fallback>/out_RAW-FILE-1.raw in case raw_file has a project ID
+        <project_id_or_fallback>/2024_07/out_RAW-FILE-1.raw/<settings_name> in case raw_file has no project ID
+        <project_id_or_fallback>/out_RAW-FILE-1.raw/<settings_name> in case raw_file has a project ID
     """
     optional_sub_folder = (
         get_created_at_year_month(raw_file) if raw_file.project_id is None else ""
     )
-    return (
+    path = (
         Path(project_id_or_fallback)
         / optional_sub_folder
         / f"{OUTPUT_FOLDER_PREFIX}{raw_file.id}"
     )
+    if settings_name is not None:
+        # TODO: this should rather be settings_type
+        path = path / settings_name
+    return path
 
 
 def get_internal_output_path() -> Path:
@@ -62,11 +70,13 @@ def get_internal_output_path() -> Path:
 
 
 def get_internal_output_path_for_raw_file(
-    raw_file: RawFile, project_id_or_fallback: str
+    raw_file: RawFile,
+    project_id_or_fallback: str,  # TODO: always assign "_FALLBACK" as project_id, simplify logic
+    settings_name: str | None = None,  # TODO: this should rather be settings_type
 ) -> Path:
     """Get absolute internal output path for the given raw file name."""
     return (
         Path(InternalPaths.MOUNTS_PATH)
         / InternalPaths.OUTPUT
-        / get_output_folder_rel_path(raw_file, project_id_or_fallback)
+        / get_output_folder_rel_path(raw_file, project_id_or_fallback, settings_name)
     )

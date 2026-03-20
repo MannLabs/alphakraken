@@ -49,4 +49,6 @@ class SoftwareTypes:
     MSQC: str = "msqc"
 
 
+DEFAULT_SCOPE = "*"
+
 DDA_FLAG_IN_RAW_FILE_NAME = "_dda_"

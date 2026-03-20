@@ -17,10 +17,12 @@ from shared.db.models import (
     KrakenStatusEntities,
     Metrics,
     Project,
+    ProjectSettings,
     RawFile,
     Settings,
     SettingsStatus,
 )
+from shared.keys import DEFAULT_SCOPE
 
 
 def get_raw_files_by_names(raw_file_names: list[str]) -> list[RawFile]:
@@ -222,12 +224,44 @@ def get_all_project_ids() -> list[str]:
     return [p.id for p in Project.objects.all()]
 
 
-def get_settings_for_project(project_id: str) -> Settings | None:
-    """Get the settings assigned to a project."""
-    logging.info(f"Getting settings from DB for: {project_id=}")
+# TODO: rename to assign_settings_to_project ?
+def create_project_settings(
+    project_id: str, settings_id: str, scope: str = DEFAULT_SCOPE
+) -> ProjectSettings:
+    """Create a new project-settings assignment."""
     connect_db()
     project = Project.objects.get(id=project_id)
-    return project.settings
+    settings = Settings.objects.get(id=settings_id)
+    if settings.status == SettingsStatus.INACTIVE:
+        raise ValueError(
+            f"Cannot assign archived settings '{settings.name}' v{settings.version}"
+        )
+    ps = ProjectSettings(project=project, settings=settings, scope=scope)
+    ps.save()
+    logging.info(
+        f"Created project-settings assignment: {project_id=} {settings.name=} {scope=}"
+    )
+    return ps
+
+
+def remove_project_settings(project_settings_id: str) -> None:
+    """Remove a project-settings assignment by its ID."""
+    connect_db()
+    ProjectSettings.objects.get(id=project_settings_id).delete()
+    logging.info(f"Removed project-settings assignment: {project_settings_id=}")
+
+
+def get_project_settings(project_id: str) -> list[ProjectSettings]:
+    """Get all project-settings assignments for a project."""
+    connect_db()
+    return list(ProjectSettings.objects(project=project_id).order_by("created_at_"))
+
+
+def resolve_settings_for_raw_file(project_id: str) -> list[Settings]:
+    """Resolve which settings apply to a raw file based on project assignments."""
+    connect_db()
+    project_settings = ProjectSettings.objects(project=project_id)
+    return [ps.settings for ps in project_settings]
 
 
 def create_settings(  # noqa: PLR0913
@@ -272,25 +306,6 @@ def get_all_settings(*, include_archived: bool = False) -> list[Settings]:
     if include_archived:
         return list(Settings.objects.all().order_by("-created_at_"))
     return list(Settings.objects(status=SettingsStatus.ACTIVE).order_by("-created_at_"))
-
-
-def assign_settings_to_project(project_id: str, settings_id: str | None) -> None:
-    """Assign settings to a project, or remove assignment if settings_id is None."""
-    connect_db()
-    project = Project.objects.get(id=project_id)
-
-    if settings_id is None:
-        project.settings = None
-    else:
-        settings = Settings.objects.get(id=settings_id)
-        if settings.status == SettingsStatus.INACTIVE:
-            raise ValueError(
-                f"Cannot assign archived settings '{settings.name}' v{settings.version}"
-            )
-        project.settings = settings
-
-    project.save()
-    logging.info(f"Assigned settings {settings_id} to project {project_id}")
 
 
 def update_kraken_status(

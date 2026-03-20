@@ -10,7 +10,6 @@ from service.components import show_filter, show_sandbox_message
 from service.db import (
     df_from_db_data,
     get_project_data,
-    get_settings_data,
 )
 from service.query_params import get_all_query_params
 from service.session_state import SessionStateKeys, set_session_state
@@ -24,8 +23,10 @@ from service.utils import (
 
 from shared.db.interface import (
     add_project,
-    assign_settings_to_project,
+    create_project_settings,
     get_all_settings,
+    get_project_settings,
+    remove_project_settings,
 )
 
 _log(f"loading {__file__} {get_all_query_params()}")
@@ -49,23 +50,20 @@ show_feedback_in_sidebar()
 # ########################################### LOGIC
 
 projects_db = get_project_data()
-settings_db = get_settings_data()
 projects_df = df_from_db_data(projects_db)
-settings_df = df_from_db_data(settings_db)
 
-# merge & beautify
-if "settings" in projects_df.columns:
-    projects_df = projects_df.merge(
-        settings_df[["_id", "name", "version"]],
-        how="left",
-        left_on="settings",
-        right_on="_id",
-        suffixes=("", "_settings"),
-    )
-    projects_df = projects_df.drop(columns=["settings", "_id_settings"])
-    projects_df["version"] = projects_df["version"].astype("Int64", errors="ignore")
-    projects_df = projects_df.rename(
-        columns={"name_settings": "settings_name", "version": "settings_version"},
+# build settings names column via ProjectSettings M:N relationship
+_project_to_settings: dict[str, list[str]] = {}
+for p in projects_db:
+    ps_list = get_project_settings(p.id)
+    if ps_list:
+        _project_to_settings[p.id] = [
+            f"{ps.settings.name} v{ps.settings.version}" for ps in ps_list
+        ]
+
+if not projects_df.empty:
+    projects_df["settings"] = projects_df["_id"].map(
+        lambda pid: ", ".join(_project_to_settings.get(pid, []))
     )
 
 
@@ -84,16 +82,9 @@ def display_projects(
         st_display = st
     filtered_df, *_ = show_filter(projects_df, st_display=st_display)
 
-    if "settings_name" in filtered_df.columns:
-        filtered_df.insert(
-            filtered_df.columns.get_loc("settings_name"),
-            "settings",
-            filtered_df["settings_name"].apply(lambda x: "☑" if pd.notna(x) else "☐"),
-        )
-
     st_display.table(filtered_df)
     st_display.markdown(
-        f"Output files are stored at `{quanting_output_path}/<project id>/out_<raw file name>/`. In case you don't know your project ID, it's most likely `_FALLBACK`."
+        f"Output files are stored at `{quanting_output_path}/<project id>/out_<raw file name>/<settings_name>/`. In case you don't know your project ID, it's most likely `_FALLBACK`."
     )
 
 
@@ -112,44 +103,61 @@ with c_assign1:
     )
 
     if selected_project_id:
-        selected_project = projects_db(id=selected_project_id).first()
+        current_ps_list = get_project_settings(selected_project_id)
 
-        if selected_project.settings:
-            current_settings_text = (
-                f"{selected_project.settings.name} v{selected_project.settings.version}"
-            )
-            settings_options_map = {f"(unassign {current_settings_text})": None}
+        if current_ps_list:
+            st.markdown("**Current settings assignments:**")
+            for ps in current_ps_list:
+                col_info, col_btn = st.columns([0.7, 0.3])
+                col_info.write(
+                    f"{ps.settings.name} v{ps.settings.version} ({ps.settings.software_type})"
+                )
+                ps_id = str(ps.id)  # type: ignore[unresolved-attribute]
+                if col_btn.button(
+                    "Remove",
+                    key=f"remove_ps_{ps_id}",
+                    disabled=DISABLE_WRITE,
+                    help="Temporarily disabled." if DISABLE_WRITE else "",
+                ):
+                    try:
+                        remove_project_settings(ps_id)  # type: ignore[unresolved-attribute]
+                        set_session_state(
+                            SessionStateKeys.SUCCESS_MSG,
+                            f"Removed settings assignment from project {selected_project_id}.",
+                        )
+                        st.rerun()
+                    except Exception as e:  # noqa: BLE001
+                        st.error(f"Error: {e}")
+                        set_session_state(SessionStateKeys.ERROR_MSG, f"{e}")
         else:
-            current_settings_text = "(None)"
-            settings_options_map = {}
+            st.info("No settings assigned to this project.")
 
-        st.info(f"Current settings: **{current_settings_text}**")
         all_settings = get_all_settings(include_archived=False)
 
         if not all_settings:
             st.warning("No active settings available. Create settings first.")
         else:
-            settings_options_map = settings_options_map | {
-                f"{s.name} v{s.version} [{s.fasta_file_name}, {s.config_file_name}, {s.software}, {s.description}]": str(
+            settings_options_map = {
+                f"{s.name} v{s.version} [{s.software_type}, {s.software}]": str(
                     s.id  # type: ignore[unresolved-attribute]
                 )
                 for s in all_settings
             }
 
             selected_settings_display = st.selectbox(
-                "Select settings to assign (or remove)",
+                "Select settings to assign",
                 options=settings_options_map.keys(),
                 key="assign_settings_select",
             )
 
             if st.button(
-                "Update settings assignment",
+                "Assign settings",
                 disabled=DISABLE_WRITE,
                 help="Temporarily disabled." if DISABLE_WRITE else "",
             ):
                 try:
                     new_settings_id = settings_options_map[selected_settings_display]
-                    assign_settings_to_project(selected_project_id, new_settings_id)
+                    create_project_settings(selected_project_id, new_settings_id)
                     set_session_state(
                         SessionStateKeys.SUCCESS_MSG,
                         f"Assigned settings '{selected_settings_display}' to project {selected_project_id}.",
@@ -163,11 +171,11 @@ with c_assign2:
     st.markdown("### Help")
     st.info(
         """
-        Use this section to assign settings to projects or change the settings assignment.
+        Use this section to assign settings to projects or change settings assignments.
 
-        - Projects can have zero or one settings assigned
+        - Projects can have multiple settings assigned
         - Multiple projects can share the same settings
-        - You can remove a settings assignment by selecting "(Remove assignment)"
+        - You can remove individual settings assignments using the "Remove" button
         - Only active (non-archived) settings can be assigned
         """,
         icon="ℹ️",  # noqa: RUF001

@@ -59,7 +59,7 @@ def test_get_project_id_for_raw_file_fallback_bruker() -> None:
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.get_path")
 @patch("dags.impl.processor_impl._get_project_id_or_fallback")
-@patch("dags.impl.processor_impl.get_settings_for_project")
+@patch("dags.impl.processor_impl.resolve_settings_for_raw_file")
 def test_prepare_quanting(
     mock_get_settings: MagicMock,
     mock_get_project_id_for_raw_file: MagicMock,
@@ -89,7 +89,7 @@ def test_prepare_quanting(
     mock_settings.software = "some_software"
     mock_settings.software_type = "alphadia"
     mock_settings.version = 1
-    mock_get_settings.return_value = mock_settings
+    mock_get_settings.return_value = [mock_settings]
 
     # when
     result = prepare_quanting(raw_file_id="test_file.raw", instrument_id="instrument1")
@@ -103,8 +103,8 @@ def test_prepare_quanting(
     expected_quanting_env = {
         "RAW_FILE_PATH": "/some_backup_base_path/instrument1/1970_01/test_file.raw",
         "SETTINGS_PATH": "/some_quanting_settings_path/test_settings",
-        "OUTPUT_PATH": "/some_quanting_output_path/some_project_id/out_test_file.raw",
-        "RELATIVE_OUTPUT_PATH": "some_project_id/out_test_file.raw",
+        "OUTPUT_PATH": "/some_quanting_output_path/some_project_id/out_test_file.raw/test_settings",
+        "RELATIVE_OUTPUT_PATH": "some_project_id/out_test_file.raw/test_settings",
         "SPECLIB_FILE_NAME": "some_speclib_file_name",
         "FASTA_FILE_NAME": "some_fasta_file_name",
         "CONFIG_FILE_NAME": "some_config_file_name",
@@ -131,7 +131,7 @@ def test_prepare_quanting(
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.get_path")
 @patch("dags.impl.processor_impl._get_project_id_or_fallback")
-@patch("dags.impl.processor_impl.get_settings_for_project")
+@patch("dags.impl.processor_impl.resolve_settings_for_raw_file")
 def test_prepare_quanting_custom_software(
     mock_get_settings: MagicMock,
     mock_get_project_id_for_raw_file: MagicMock,
@@ -162,7 +162,7 @@ def test_prepare_quanting_custom_software(
     mock_settings.software = "custom1.2.3"
     mock_settings.software_type = "custom"
     mock_settings.version = 1
-    mock_get_settings.return_value = mock_settings
+    mock_get_settings.return_value = [mock_settings]
 
     # when
     result = prepare_quanting(raw_file_id="test_file.raw", instrument_id="instrument1")
@@ -170,16 +170,16 @@ def test_prepare_quanting_custom_software(
     expected_custom_command = (
         "/some_software_base_path/custom1.2.3 --qvalue 0.01 --f /some_backup_base_path/instrument1/1970_01/test_file.raw "
         "--lib /some_quanting_settings_path/test_custom_settings/some_speclib_file_name "
-        "--out /some_quanting_output_path/some_project_id/out_test_file.raw "
+        "--out /some_quanting_output_path/some_project_id/out_test_file.raw/test_custom_settings "
         "--fasta /some_quanting_settings_path/test_custom_settings/some_fasta_file_name --threads 8 "
-        "--some_param instrument1/1970_01/test_file.raw --some_param2 some_project_id/out_test_file.raw"
+        "--some_param instrument1/1970_01/test_file.raw --some_param2 some_project_id/out_test_file.raw/test_custom_settings"
     )
 
     expected_quanting_env = {
         "RAW_FILE_PATH": "/some_backup_base_path/instrument1/1970_01/test_file.raw",
         "SETTINGS_PATH": "/some_quanting_settings_path/test_custom_settings",
-        "OUTPUT_PATH": "/some_quanting_output_path/some_project_id/out_test_file.raw",
-        "RELATIVE_OUTPUT_PATH": "some_project_id/out_test_file.raw",
+        "OUTPUT_PATH": "/some_quanting_output_path/some_project_id/out_test_file.raw/test_custom_settings",
+        "RELATIVE_OUTPUT_PATH": "some_project_id/out_test_file.raw/test_custom_settings",
         "SPECLIB_FILE_NAME": "some_speclib_file_name",
         "FASTA_FILE_NAME": "some_fasta_file_name",
         "CONFIG_FILE_NAME": "",
@@ -204,7 +204,7 @@ def test_prepare_quanting_custom_software(
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.get_path")
 @patch("dags.impl.processor_impl._get_project_id_or_fallback")
-@patch("dags.impl.processor_impl.get_settings_for_project")
+@patch("dags.impl.processor_impl.resolve_settings_for_raw_file")
 def test_prepare_quanting_validation_error_raises(
     mock_get_settings: MagicMock,
     mock_get_project_id_for_raw_file: MagicMock,
@@ -226,15 +226,17 @@ def test_prepare_quanting_validation_error_raises(
         Path("some_software_base_path"),
     ]
     mock_get_project_id_for_raw_file.return_value = "some_project_id"
-    mock_get_settings.return_value = MagicMock(
-        speclib_file_name="some_speclib_file_name",
-        fasta_file_name="../some_fasta_file_name",  # .. -> this will raise
-        config_file_name="",
-        config_params="--qvalue 0.01 --f RAW_FILE_PATH --lib LIBRARY_PATH --out OUTPUT_PATH --fasta FASTA_PATH",
-        software="custom1.2.3",
-        software_type="custom",
-        version=1,
-    )
+    mock_get_settings.return_value = [
+        MagicMock(
+            speclib_file_name="some_speclib_file_name",
+            fasta_file_name="../some_fasta_file_name",  # .. -> this will raise
+            config_file_name="",
+            config_params="--qvalue 0.01 --f RAW_FILE_PATH --lib LIBRARY_PATH --out OUTPUT_PATH --fasta FASTA_PATH",
+            software="custom1.2.3",
+            software_type="custom",
+            version=1,
+        )
+    ]
 
     # when
     with pytest.raises(AirflowFailException):
@@ -243,7 +245,7 @@ def test_prepare_quanting_validation_error_raises(
 
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl._get_project_id_or_fallback")
-@patch("dags.impl.processor_impl.get_settings_for_project")
+@patch("dags.impl.processor_impl.resolve_settings_for_raw_file")
 def test_prepare_quanting_no_project_raise(
     mock_get_settings: MagicMock,
     mock_get_project_id_for_raw_file: MagicMock,
@@ -269,7 +271,7 @@ def test_prepare_quanting_no_project_raise(
 
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl._get_project_id_or_fallback")
-@patch("dags.impl.processor_impl.get_settings_for_project")
+@patch("dags.impl.processor_impl.resolve_settings_for_raw_file")
 def test_prepare_quanting_no_settings_raise(
     mock_get_settings: MagicMock,
     mock_get_project_id_for_raw_file: MagicMock,
@@ -286,7 +288,7 @@ def test_prepare_quanting_no_settings_raise(
 
     mock_get_project_id_for_raw_file.return_value = "some_project_id"
 
-    mock_get_settings.return_value = None
+    mock_get_settings.return_value = []
 
     # when
     with pytest.raises(AirflowFailException):
@@ -337,6 +339,7 @@ def test_run_quanting_executes_ssh_command_and_stores_job_id(
         QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID123",
         QuantingEnv.SOFTWARE_TYPE: "alphadia",
         QuantingEnv.CUSTOM_COMMAND: "",
+        QuantingEnv.OUTPUT_PATH: "/mock/output/PID123/out_test_file.raw/test_settings",
     }
     mock_raw_file = MagicMock(
         wraps=RawFile,
@@ -363,20 +366,22 @@ def test_run_quanting_executes_ssh_command_and_stores_job_id(
 
 
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
-@patch("dags.impl.processor_impl.Path")
 @patch("dags.impl.processor_impl.get_airflow_variable")
 def test_run_quanting_output_folder_exists(
     mock_get_airflow_variable: MagicMock,
-    mock_path: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
+    tmp_path: Path,
 ) -> None:
     """run_quanting function raises an exception if the output path already exists."""
     # given
+    output_dir = tmp_path / "output"
+    output_dir.mkdir()
     quanting_env = {
         QuantingEnv.RAW_FILE_ID: "test_file.raw",
         QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID123",
         QuantingEnv.SOFTWARE_TYPE: "alphadia",
         QuantingEnv.CUSTOM_COMMAND: "",
+        QuantingEnv.OUTPUT_PATH: str(output_dir),
     }
     mock_raw_file = MagicMock(
         wraps=RawFile,
@@ -385,7 +390,6 @@ def test_run_quanting_output_folder_exists(
     )
     mock_get_raw_file_by_id.return_value = mock_raw_file
 
-    mock_path.return_value.exists.return_value = True
     mock_get_airflow_variable.return_value = "raise"
 
     # when
@@ -397,22 +401,24 @@ def test_run_quanting_output_folder_exists(
 
 
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
-@patch("dags.impl.processor_impl.Path")
 @patch("dags.impl.processor_impl.get_airflow_variable")
 @patch("dags.impl.processor_impl._get_slurm_job_id_from_log")
 def test_run_quanting_output_folder_exists_associate(
     mock_get_slurm_job_id_from_log: MagicMock,
     mock_get_airflow_variable: MagicMock,
-    mock_path: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
+    tmp_path: Path,
 ) -> None:
     """run_quanting function returns extracted job_id if the output path already exists and mode is 'associate'."""
     # given
+    output_dir = tmp_path / "output"
+    output_dir.mkdir()
     quanting_env = {
         QuantingEnv.RAW_FILE_ID: "test_file.raw",
         QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID123",
         QuantingEnv.SOFTWARE_TYPE: "alphadia",
         QuantingEnv.CUSTOM_COMMAND: "",
+        QuantingEnv.OUTPUT_PATH: str(output_dir),
     }
     mock_raw_file = MagicMock(
         wraps=RawFile,
@@ -421,7 +427,6 @@ def test_run_quanting_output_folder_exists_associate(
     )
     mock_get_raw_file_by_id.return_value = mock_raw_file
 
-    mock_path.return_value.exists.return_value = True
     mock_get_airflow_variable.return_value = "associate"
     mock_get_slurm_job_id_from_log.return_value = "54321"
 
@@ -432,22 +437,24 @@ def test_run_quanting_output_folder_exists_associate(
 
 
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
-@patch("dags.impl.processor_impl.Path")
 @patch("dags.impl.processor_impl.get_airflow_variable")
 @patch("dags.impl.processor_impl._get_slurm_job_id_from_log")
 def test_run_quanting_output_folder_exists_associate_raise(
     mock_get_slurm_job_id_from_log: MagicMock,
     mock_get_airflow_variable: MagicMock,
-    mock_path: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
+    tmp_path: Path,
 ) -> None:
     """run_quanting function correctly raises if the output path already exists and mode is 'associate' and no job id."""
     # given
+    output_dir = tmp_path / "output"
+    output_dir.mkdir()
     quanting_env = {
         QuantingEnv.RAW_FILE_ID: "test_file.raw",
         QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID123",
         QuantingEnv.SOFTWARE_TYPE: "alphadia",
         QuantingEnv.CUSTOM_COMMAND: "",
+        QuantingEnv.OUTPUT_PATH: str(output_dir),
     }
     mock_raw_file = MagicMock(
         wraps=RawFile,
@@ -456,7 +463,6 @@ def test_run_quanting_output_folder_exists_associate_raise(
     )
     mock_get_raw_file_by_id.return_value = mock_raw_file
 
-    mock_path.return_value.exists.return_value = True
     mock_get_airflow_variable.return_value = "associate"
     mock_get_slurm_job_id_from_log.return_value = None
 
@@ -523,6 +529,7 @@ def test_check_quanting_result_business_error(
         QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID1",
         QuantingEnv.SETTINGS_NAME: "test_settings",
         QuantingEnv.SETTINGS_VERSION: 1,
+        QuantingEnv.OUTPUT_PATH: "/mock/output/PID1/out_test_file.raw/test_settings",
         QuantingEnv.METRICS_TYPE: "alphadia",
     }
     mock_raw_file = MagicMock(wraps=RawFile, id="test_file.raw")
@@ -535,7 +542,9 @@ def test_check_quanting_result_business_error(
         check_quanting_result(quanting_env=quanting_env, job_id="12345")
 
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
-    mock_get_business_errors.assert_called_once_with(mock_raw_file, "PID1")
+    mock_get_business_errors.assert_called_once_with(
+        mock_raw_file, Path("/mock/output/PID1/out_test_file.raw/test_settings")
+    )
     mock_update_raw_file.assert_called_once_with(
         "test_file.raw",
         new_status="quanting_failed",
@@ -568,6 +577,7 @@ def test_check_quanting_result_business_error_raises(
         QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID1",
         QuantingEnv.SETTINGS_NAME: "test_settings",
         QuantingEnv.SETTINGS_VERSION: 1,
+        QuantingEnv.OUTPUT_PATH: "/mock/output/PID1/out_test_file.raw/test_settings",
         QuantingEnv.METRICS_TYPE: "alphadia",
     }
     mock_raw_file = MagicMock(wraps=RawFile, id="test_file.raw")
@@ -580,7 +590,9 @@ def test_check_quanting_result_business_error_raises(
         check_quanting_result(quanting_env=quanting_env, job_id="12345")
 
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
-    mock_get_business_errors.assert_called_once_with(mock_raw_file, "PID1")
+    mock_get_business_errors.assert_called_once_with(
+        mock_raw_file, Path("/mock/output/PID1/out_test_file.raw/test_settings")
+    )
     mock_update_raw_file.assert_called_once_with(
         "test_file.raw",
         new_status="quanting_failed",
@@ -611,6 +623,7 @@ def test_check_quanting_result_timeout(
         QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID1",
         QuantingEnv.SETTINGS_NAME: "test_settings",
         QuantingEnv.SETTINGS_VERSION: 1,
+        QuantingEnv.OUTPUT_PATH: "/mock/output/PID1/out_test_file.raw/test_settings",
         QuantingEnv.METRICS_TYPE: "alphadia",
     }
     mock_raw_file = MagicMock(wraps=RawFile, id="test_file.raw")
@@ -652,6 +665,7 @@ def test_check_quanting_result_oom(
         QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID1",
         QuantingEnv.SETTINGS_NAME: "test_settings",
         QuantingEnv.SETTINGS_VERSION: 1,
+        QuantingEnv.OUTPUT_PATH: "/mock/output/PID1/out_test_file.raw/test_settings",
         QuantingEnv.METRICS_TYPE: "alphadia",
     }
     mock_raw_file = MagicMock(wraps=RawFile, id="test_file.raw")
@@ -677,89 +691,76 @@ def test_check_quanting_result_oom(
     )
 
 
-@patch("dags.impl.processor_impl.get_internal_output_path_for_raw_file")
-def test_get_business_errors_with_valid_errors(mock_path: MagicMock) -> None:
+def test_get_business_errors_with_valid_errors(tmp_path: Path) -> None:
     """Test that get_business_errors returns the expected business errors."""
-    mock_content = [
-        '{"name": "exception", "error_code": "ERROR1"}',
-        '{"name": "exception", "error_code": "ERROR2"}',
-        '{"name": "other", "error_code": "ERROR3"}',
-    ]
-    mock_open_file = mock_open(read_data="\n".join(mock_content))
-    mock_path.return_value.__truediv__.return_value.__truediv__.return_value.__truediv__.return_value.open.return_value = mock_open_file()
-
-    mock_raw_file = MagicMock()
-
-    # when
-    result = get_business_errors(mock_raw_file, "project_id")
-
-    assert result == ["ERROR1", "ERROR2"]
-    mock_path.assert_called_once_with(mock_raw_file, "project_id")
-
-
-@patch("dags.impl.processor_impl.get_internal_output_path_for_raw_file")
-def test_get_business_errors_with_no_errors(mock_path: MagicMock) -> None:
-    """Test that get_business_errors returns an empty list when there are no (valid) errors."""
-    mock_content = [
-        '{"name": "other", "error_code": "ERROR3"}',  # not an exception
-        '{"name": "exception", "error_code": ""}',  # error code empty
-        "invalid json",  # not a json
-        '{"name": "exception"}',  # no error code
-    ]
-    mock_open_file = mock_open(read_data="\n".join(mock_content))
-    mock_path.return_value.__truediv__.return_value.__truediv__.return_value.__truediv__.return_value.open.return_value = mock_open_file()
-
     raw_file = MagicMock()
+    raw_file.id = "test_file.raw"
 
-    # when
-    result = get_business_errors(raw_file, "project_id")
-
-    assert result == ["__COULD_NOT_DETERMINE_ERROR"]
-
-
-@patch("dags.impl.processor_impl.get_internal_output_path_for_raw_file")
-def test_get_business_errors_file_not_found(mock_path: MagicMock) -> None:
-    """Test that get_business_errors returns an empty list when the file is not found."""
-    mock_path.return_value.__truediv__.return_value.__truediv__.return_value.__truediv__.return_value.open.side_effect = FileNotFoundError
-
-    raw_file = MagicMock()
-
-    # when
-    result = get_business_errors(raw_file, "project_id")
-
-    assert result == ["__COULD_NOT_DETERMINE_ERROR"]
-
-
-@patch("dags.impl.processor_impl.get_internal_output_path_for_raw_file")
-def test_get_business_errors_with_unknown_error(mock_path: MagicMock) -> None:
-    """Test that get_business_errors returns an empty list when there are no (valid) errors."""
-    mock_events_content = [
-        '{"name": "other", "error_code": "ERROR3"}',  # not an exception
-    ]
-    mock_open_events_file = mock_open(read_data="\n".join(mock_events_content))
-    mock_path.return_value.__truediv__.return_value.__truediv__.return_value.__truediv__.return_value.open.return_value = mock_open_events_file()
-
-    mock_log_content = [
-        "ERROR: bla"  # -> unknown error
-    ]
-    mock_open_log_file = mock_open(read_data="\n".join(mock_log_content))
-    mock_path.return_value.__truediv__.return_value.open.return_value = (
-        mock_open_log_file()
+    progress_dir = tmp_path / "quant" / "test_file"
+    progress_dir.mkdir(parents=True)
+    events_file = progress_dir / "events.jsonl"
+    events_file.write_text(
+        '{"name": "exception", "error_code": "ERROR1"}\n'
+        '{"name": "exception", "error_code": "ERROR2"}\n'
+        '{"name": "other", "error_code": "ERROR3"}\n'
     )
 
-    raw_file = MagicMock()
+    result = get_business_errors(raw_file, tmp_path)
 
-    # when
-    result = get_business_errors(raw_file, "project_id")
+    assert result == ["ERROR1", "ERROR2"]
+
+
+def test_get_business_errors_with_no_errors(tmp_path: Path) -> None:
+    """Test that get_business_errors returns no-log-file error when events have no valid errors."""
+    raw_file = MagicMock()
+    raw_file.id = "test_file.raw"
+
+    progress_dir = tmp_path / "quant" / "test_file"
+    progress_dir.mkdir(parents=True)
+    events_file = progress_dir / "events.jsonl"
+    events_file.write_text(
+        '{"name": "other", "error_code": "ERROR3"}\n'
+        '{"name": "exception", "error_code": ""}\n'
+        "invalid json\n"
+        '{"name": "exception"}\n'
+    )
+
+    result = get_business_errors(raw_file, tmp_path)
+
+    assert result == ["__NO_LOG_FILE"]
+
+
+def test_get_business_errors_file_not_found(tmp_path: Path) -> None:
+    """Test that get_business_errors returns no-log-file error when events file is not found."""
+    raw_file = MagicMock()
+    raw_file.id = "test_file.raw"
+
+    result = get_business_errors(raw_file, tmp_path)
+
+    assert result == ["__NO_LOG_FILE"]
+
+
+def test_get_business_errors_with_unknown_error(tmp_path: Path) -> None:
+    """Test that get_business_errors returns unknown error from log file."""
+    raw_file = MagicMock()
+    raw_file.id = "test_file.raw"
+
+    progress_dir = tmp_path / "quant" / "test_file"
+    progress_dir.mkdir(parents=True)
+    events_file = progress_dir / "events.jsonl"
+    events_file.write_text('{"name": "other", "error_code": "ERROR3"}\n')
+
+    log_file = tmp_path / "log.txt"
+    log_file.write_text("ERROR: bla\n")
+
+    result = get_business_errors(raw_file, tmp_path)
 
     assert result == ["__UNKNOWN_ERROR"]
 
 
-@patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.calc_metrics")
 def test_compute_metrics(
     mock_calc_metrics: MagicMock,
-    mock_get_raw_file_by_id: MagicMock,
 ) -> None:
     """Test that compute_metrics makes the expected calls."""
     quanting_env = {
@@ -767,22 +768,17 @@ def test_compute_metrics(
         "PROJECT_ID_OR_FALLBACK": "P1",
         "SOFTWARE_TYPE": "alphadia",
         "METRICS_TYPE": "alphadia",
+        "OUTPUT_PATH": "/opt/airflow/mounts/output/P1/out_test_file.raw/test_settings",
     }
-    mock_raw_file = MagicMock(
-        wraps=RawFile,
-        id="test_file.raw",
-        created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
-    )
-    mock_get_raw_file_by_id.return_value = mock_raw_file
 
     mock_calc_metrics.return_value = {"metric1": "value1"}
 
     # when
     result = compute_metrics(quanting_env=quanting_env, quanting_time_elapsed=123)
 
-    mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
     mock_calc_metrics.assert_called_once_with(
-        Path("/opt/airflow/mounts/output/P1/out_test_file.raw"), metrics_type="alphadia"
+        Path("/opt/airflow/mounts/output/P1/out_test_file.raw/test_settings"),
+        metrics_type="alphadia",
     )
     assert result == {
         "metrics": {"metric1": "value1", "quanting_time_elapsed": 123},
@@ -790,11 +786,9 @@ def test_compute_metrics(
     }
 
 
-@patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.calc_metrics")
 def test_compute_metrics_msqc_software_type(
     mock_calc_metrics: MagicMock,
-    mock_get_raw_file_by_id: MagicMock,
 ) -> None:
     """Test that compute_metrics correctly maps MSQC software type to MSQC metrics type."""
     quanting_env = {
@@ -802,19 +796,15 @@ def test_compute_metrics_msqc_software_type(
         "PROJECT_ID_OR_FALLBACK": "P1",
         "SOFTWARE_TYPE": "msqc",
         "METRICS_TYPE": "msqc",
+        "OUTPUT_PATH": "/opt/airflow/mounts/output/P1/out_test_file.raw/msqc_settings",
     }
-    mock_raw_file = MagicMock(
-        wraps=RawFile,
-        id="test_file.raw",
-        created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
-    )
-    mock_get_raw_file_by_id.return_value = mock_raw_file
     mock_calc_metrics.return_value = {"qc_metric": 42}
 
     result = compute_metrics(quanting_env=quanting_env)
 
     mock_calc_metrics.assert_called_once_with(
-        Path("/opt/airflow/mounts/output/P1/out_test_file.raw"), metrics_type="msqc"
+        Path("/opt/airflow/mounts/output/P1/out_test_file.raw/msqc_settings"),
+        metrics_type="msqc",
     )
     assert result == {
         "metrics": {"qc_metric": 42},

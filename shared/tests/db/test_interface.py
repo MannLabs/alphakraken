@@ -12,15 +12,18 @@ from shared.db.interface import (
     add_metrics_to_raw_file,
     add_project,
     add_raw_file,
-    assign_settings_to_project,
     augment_raw_files_with_metrics,
+    create_project_settings,
     create_settings,
     get_all_project_ids,
     get_all_settings,
+    get_project_settings,
     get_raw_file_by_id,
     get_raw_files_by_age,
     get_raw_files_by_instrument_file_status,
     get_raw_files_by_names,
+    remove_project_settings,
+    resolve_settings_for_raw_file,
     update_kraken_status,
     update_raw_file,
 )
@@ -344,23 +347,96 @@ def test_get_all_settings_includes_archived(
 
 
 @patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.ProjectSettings")
 @patch("shared.db.interface.Settings")
 @patch("shared.db.interface.Project")
-def test_assign_settings_to_project(
-    mock_project: MagicMock, mock_settings: MagicMock, mock_connect_db: MagicMock
+def test_create_project_settings(
+    mock_project: MagicMock,
+    mock_settings: MagicMock,
+    mock_project_settings: MagicMock,
+    mock_connect_db: MagicMock,
 ) -> None:
-    """Test that assign_settings_to_project works correctly."""
+    """Test that create_project_settings creates a new assignment."""
     mock_project_instance = MagicMock()
     mock_project.objects.get.return_value = mock_project_instance
 
     mock_settings_instance = MagicMock()
     mock_settings_instance.status = "active"
+    mock_settings_instance.name = "test_settings"
     mock_settings.objects.get.return_value = mock_settings_instance
 
-    assign_settings_to_project("P1234", "settings_id")
+    create_project_settings("P1234", "settings_id")
 
-    assert mock_project_instance.settings == mock_settings_instance
-    mock_project_instance.save.assert_called_once()
+    mock_project_settings.assert_called_once_with(
+        project=mock_project_instance,
+        settings=mock_settings_instance,
+        scope="*",
+    )
+    mock_project_settings.return_value.save.assert_called_once()
+    mock_connect_db.assert_called_once()
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.ProjectSettings")
+def test_remove_project_settings(
+    mock_project_settings: MagicMock, mock_connect_db: MagicMock
+) -> None:
+    """Test that remove_project_settings deletes the assignment."""
+    remove_project_settings("ps_id_123")
+
+    mock_project_settings.objects.get.assert_called_once_with(id="ps_id_123")
+    mock_project_settings.objects.get.return_value.delete.assert_called_once()
+    mock_connect_db.assert_called_once()
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.ProjectSettings")
+def test_get_project_settings(
+    mock_project_settings: MagicMock, mock_connect_db: MagicMock
+) -> None:
+    """Test that get_project_settings returns all assignments for a project."""
+    mock_ps1 = MagicMock()
+    mock_ps2 = MagicMock()
+    mock_project_settings.objects.return_value.order_by.return_value = [
+        mock_ps1,
+        mock_ps2,
+    ]
+
+    result = get_project_settings("P1234")
+
+    assert result == [mock_ps1, mock_ps2]
+    mock_connect_db.assert_called_once()
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.ProjectSettings")
+def test_resolve_settings_for_raw_file(
+    mock_project_settings: MagicMock, mock_connect_db: MagicMock
+) -> None:
+    """Test that resolve_settings_for_raw_file returns settings from all assignments."""
+    mock_ps1 = MagicMock()
+    mock_ps1.settings = MagicMock(name="settings_a")
+    mock_ps2 = MagicMock()
+    mock_ps2.settings = MagicMock(name="settings_b")
+    mock_project_settings.objects.return_value = [mock_ps1, mock_ps2]
+
+    result = resolve_settings_for_raw_file("P1234")
+
+    assert result == [mock_ps1.settings, mock_ps2.settings]
+    mock_connect_db.assert_called_once()
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.ProjectSettings")
+def test_resolve_settings_for_raw_file_empty(
+    mock_project_settings: MagicMock, mock_connect_db: MagicMock
+) -> None:
+    """Test that resolve_settings_for_raw_file returns empty list when no assignments."""
+    mock_project_settings.objects.return_value = []
+
+    result = resolve_settings_for_raw_file("P1234")
+
+    assert result == []
     mock_connect_db.assert_called_once()
 
 

@@ -263,6 +263,8 @@ class Settings(Document):
     )
     software = StringField(required=True, max_length=128)
 
+    metrics_type = StringField(required=True, max_length=128)
+
     status = StringField(max_length=64, default=SettingsStatus.ACTIVE)
 
     created_at_ = DateTimeField(default=datetime.now)

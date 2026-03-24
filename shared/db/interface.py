@@ -273,6 +273,7 @@ def create_settings(  # noqa: PLR0913
     config_params: str | None = None,
     software_type: str,
     software: str,
+    metrics_type: str,
 ) -> Settings:
     """Create a new settings entry.
 
@@ -293,6 +294,7 @@ def create_settings(  # noqa: PLR0913
         config_params=config_params,
         software_type=software_type,
         software=software,
+        metrics_type=metrics_type,
     )
     settings.save(force_insert=True)
     logging.info(f"Created settings: {name=} {version=}")

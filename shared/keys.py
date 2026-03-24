@@ -73,4 +73,6 @@ DEFAULT_SCOPE = "*"
 
 DDA_FLAG_IN_RAW_FILE_NAME = "_dda_"
 
+# This a catch-all project ID assigned to raw files that can't be matched to any real project. It ensures every file has some project assignment so it can be stored
+# and processed with default settings, rather than being rejected.
 FALLBACK_PROJECT_ID = "_FALLBACK"

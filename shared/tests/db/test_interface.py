@@ -281,6 +281,7 @@ def test_create_settings_first_version(
         config_params=None,
         software_type="alphadia",
         software="alphadia-1.10.0",
+        metrics_type="alphadia",
     )
 
     mock_settings.assert_called_once()
@@ -312,6 +313,7 @@ def test_create_settings_auto_increment_version(
         config_params=None,
         software_type="alphadia",
         software="alphadia-1.10.0",
+        metrics_type="alphadia",
     )
 
     mock_settings.assert_called_once()

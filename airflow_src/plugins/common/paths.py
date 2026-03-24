@@ -38,7 +38,6 @@ def get_internal_backup_path_for_instrument(
 
 def get_output_folder_rel_path(
     raw_file: RawFile,
-    project_id_or_fallback: str,  # TODO: remove
     settings_type: str | None = None,
 ) -> Path:
     """Get the path of the output directory for given raw file name relative to the `output` folder.
@@ -54,7 +53,7 @@ def get_output_folder_rel_path(
         get_created_at_year_month(raw_file) if not raw_file.has_project else ""
     )
     path = (
-        Path(project_id_or_fallback)
+        Path(raw_file.project_id)
         / optional_sub_folder
         / f"{OUTPUT_FOLDER_PREFIX}{raw_file.id}"
     )
@@ -70,12 +69,11 @@ def get_internal_output_path() -> Path:
 
 def get_internal_output_path_for_raw_file(
     raw_file: RawFile,
-    project_id_or_fallback: str,  # TODO: always assign "_FALLBACK" as project_id, simplify logic
     settings_type: str | None = None,
 ) -> Path:
     """Get absolute internal output path for the given raw file name."""
     return (
         Path(InternalPaths.MOUNTS_PATH)
         / InternalPaths.OUTPUT
-        / get_output_folder_rel_path(raw_file, project_id_or_fallback, settings_type)
+        / get_output_folder_rel_path(raw_file, settings_type)
     )

@@ -93,12 +93,12 @@ def prepare_quanting(
         settings_path = get_path(YamlKeys.Locations.SETTINGS) / settings.name
 
         relative_output_path = get_output_folder_rel_path(
-            raw_file, raw_file.project_id, settings_type=settings.software_type
+            raw_file, settings_type=settings.software_type
         )
         output_path = get_path(YamlKeys.Locations.OUTPUT) / relative_output_path
 
         internal_output_path = get_internal_output_path_for_raw_file(
-            raw_file, raw_file.project_id, settings_type=settings.software_type
+            raw_file, settings_type=settings.software_type
         )
         slurm_params = SOFTWARE_TYPE_TO_SLURM_PARAMS[settings.software_type]
 

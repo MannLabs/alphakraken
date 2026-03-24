@@ -8,7 +8,6 @@ import pytz
 from common.paths import get_output_folder_rel_path
 
 from shared.db.models import RawFile
-from shared.keys import FALLBACK_PROJECT_ID
 
 
 def test_get_output_folder_rel_path_no_fallback() -> None:
@@ -21,7 +20,7 @@ def test_get_output_folder_rel_path_no_fallback() -> None:
     )
 
     # when
-    result = get_output_folder_rel_path(mock_raw_file, "some_project_id")
+    result = get_output_folder_rel_path(mock_raw_file)
 
     assert result == Path("some_project_id/out_some_file.raw")
 
@@ -32,12 +31,12 @@ def test_get_output_folder_rel_path_fallback() -> None:
         wraps=RawFile,
         id="some_file.raw",
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
-        project_id=FALLBACK_PROJECT_ID,
+        project_id="_FALLBACK",
         has_project=False,
     )
 
     # when
-    result = get_output_folder_rel_path(mock_raw_file, FALLBACK_PROJECT_ID)
+    result = get_output_folder_rel_path(mock_raw_file)
 
     assert result == Path("_FALLBACK/1970_01/out_some_file.raw")
 
@@ -51,8 +50,6 @@ def test_get_output_folder_rel_path_with_settings_type() -> None:
         project_id="some_project_id",
     )
 
-    result = get_output_folder_rel_path(
-        mock_raw_file, "some_project_id", settings_type="alphadia"
-    )
+    result = get_output_folder_rel_path(mock_raw_file, settings_type="alphadia")
 
     assert result == Path("some_project_id/out_some_file.raw/alphadia")

@@ -233,18 +233,6 @@ if software_type == SoftwareTypes.ALPHADIA:
 
 elif software_type == SoftwareTypes.CUSTOM:
     form_items |= {
-        "fasta_file_name": {
-            "label": "Fasta file name",
-            "max_chars": 64,
-            "placeholder": "e.g. 'human.fasta'",
-            "help": "Name of the fasta file.",
-        },
-        "speclib_file_name": {
-            "label": "Speclib file name",
-            "max_chars": 64,
-            "placeholder": "e.g. 'human_plasma.speclib'",
-            "help": "Name of the speclib file.",
-        },
         "software": {
             "label": "Executable*",
             "max_chars": 64,
@@ -335,16 +323,14 @@ with c1.form("create_settings"):
         )
         st.info(
             "The following placeholders can be used in the config parameters, and will be replaced by the specified values:\n\n"
+            "- `PROJECT_ID`: project id\n\n"
             "- `RAW_FILE_ID`: name of the raw file\n"
             "- `RAW_FILE_PATH`: absolute path of the raw file\n"
             "- `RELATIVE_RAW_FILE_PATH`: path of the raw file relative to `locations.backup.absolute_path` in alphakraken.yaml\n"
+            "- `SETTINGS_PATH`: absolute path of the settings directory\n"
             "- `OUTPUT_PATH`: absolute path of the output directory\n"
             "- `RELATIVE_OUTPUT_PATH`: path of the output directory relative to `locations.output.absolute_path` in alphakraken.yaml\n"
-            "- `SETTINGS_PATH`: absolute path of the settings directory\n"
-            "- `LIBRARY_PATH`: absolute path of the library file\n"
-            "- `FASTA_PATH`: absolute path of the fasta file\n"
             "- `NUM_THREADS`: number of threads\n"
-            "- `PROJECT_ID`: project id\n\n"
             "Notes:\n"
             "- The working directory of the custom software is `OUTPUT_PATH`.\n"
             "- If you require more than the provided placeholders, reference them directly by their absolute path.\n"
@@ -353,12 +339,12 @@ with c1.form("create_settings"):
         with st.expander("Example for DIANN..."):
             st.write("Executable: `diann-2.2.0/diann-linux`")
             st.code(
-                "--f RAW_FILE_PATH --lib LIBRARY_PATH --fasta FASTA_PATH --temp OUTPUT_PATH --threads NUM_THREADS --qvalue 0.01"
+                "--f RAW_FILE_PATH --lib SETTINGS_PATH/library.speclib --fasta SETTINGS_PATH/human.fasta --temp OUTPUT_PATH --threads NUM_THREADS --qvalue 0.01"
             )
         with st.expander("Example for Spectronaut..."):
             st.write("Executable: `run_spectronaut.sh` (cf. folder `misc/software`)")
             st.code(
-                "direct -n alphakraken -r RAW_FILE_PATH -fasta FASTA_PATH -o OUTPUT_PATH -s /path/to/settings/alphakraken.prop"
+                "direct -n alphakraken -r RAW_FILE_PATH -fasta SETTINGS_PATH/human.fasta -o OUTPUT_PATH -s /path/to/settings/alphakraken.prop"
             )
         with st.expander("Example for Skyline..."):
             st.write(

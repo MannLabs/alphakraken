@@ -114,6 +114,7 @@ def prepare_quanting(
 
         custom_command = (
             _prepare_custom_command(
+                raw_file_id,
                 relative_output_path,
                 output_path,
                 relative_raw_file_path,
@@ -167,6 +168,7 @@ def prepare_quanting(
 
 
 def _prepare_custom_command(  # noqa: PLR0913 Too many arguments
+    raw_file_id: str,
     relative_output_path: Path,
     output_path: Path,
     relative_raw_file_path: Path,
@@ -177,33 +179,23 @@ def _prepare_custom_command(  # noqa: PLR0913 Too many arguments
     project_id: str,
 ) -> str:
     """Prepare the custom command for the quanting job."""
-    speclib_file_path = (
-        str(settings_path / settings.speclib_file_name)
-        if settings.speclib_file_name
-        else ""
-    )
-    fasta_file_path = (
-        str(settings_path / settings.fasta_file_name)
-        if settings.fasta_file_name
-        else ""
-    )
     if settings.config_params is None:
         substituted_params = ""
     else:
         substituted_params = settings.config_params
         replacements = {
             # mind the order of replacements here (LONGER placeholders first, e.g. RAW_FILE_PATH before RELATIVE_RAW_FILE_PATH)
-            "RELATIVE_RAW_FILE_PATH": str(relative_raw_file_path),
-            "RAW_FILE_PATH": str(raw_file_path),
-            "LIBRARY_PATH": speclib_file_path,
-            "RELATIVE_OUTPUT_PATH": str(relative_output_path),
-            "OUTPUT_PATH": str(output_path),
-            "FASTA_PATH": fasta_file_path,
-            "NUM_THREADS": str(num_threads),
+            "RELATIVE_RAW_FILE_PATH": relative_raw_file_path,
+            "RAW_FILE_PATH": raw_file_path,
+            "RAW_FILE_ID": raw_file_id,
+            "SETTINGS_PATH": settings_path,
+            "RELATIVE_OUTPUT_PATH": relative_output_path,
+            "OUTPUT_PATH": output_path,
+            "NUM_THREADS": num_threads,
             "PROJECT_ID": project_id,
         }
         for placeholder, new_value in replacements.items():
-            substituted_params = substituted_params.replace(placeholder, new_value)
+            substituted_params = substituted_params.replace(placeholder, str(new_value))
 
     software_base_path = get_path(YamlKeys.Locations.SOFTWARE)
     software_path = str(software_base_path / settings.software)

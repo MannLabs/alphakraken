@@ -189,8 +189,8 @@ software_type = c1.selectbox(
 
 metrics_type_options = MetricsTypes.get_values()
 # For non-custom software types, metrics_type is locked to match software_type
-disable_metrics_type_selection = software_type != SoftwareTypes.CUSTOM
-if disable_metrics_type_selection:
+is_custom_software = software_type == SoftwareTypes.CUSTOM
+if not is_custom_software:
     metrics_type_default = software_type
 else:
     metrics_type_default = prefill_data.get("metrics_type", "") or software_type
@@ -203,8 +203,12 @@ metrics_type = c1.selectbox(
     label="Metrics type",
     options=metrics_type_options,
     index=metrics_type_index,
-    disabled=disable_metrics_type_selection,
+    disabled=not is_custom_software,
 )
+if is_custom_software:
+    c1.info(
+        "Currently, custom metrics need to be added to the codebase (`metrics/custom.py`)."
+    )
 
 form_items = {
     "name": {

@@ -20,7 +20,7 @@ from mongoengine import (
     StringField,
 )
 
-from shared.keys import MetricsTypes
+from shared.keys import FALLBACK_PROJECT_ID, MetricsTypes
 
 FileInfoItem = (
     tuple[float | None, str | None] | tuple[float | None, str | None, str | None]
@@ -117,7 +117,7 @@ class RawFile(Document):
     original_name = StringField(max_length=255, required=True)
 
     instrument_id = StringField(max_length=32)
-    project_id = StringField(max_length=32)
+    project_id = StringField(max_length=32, default=FALLBACK_PROJECT_ID)
 
     status = StringField(max_length=32)
     status_details = StringField(max_length=512)
@@ -218,9 +218,7 @@ class Project(Document):
     meta: ClassVar = {"strict": False}
     objects: ClassVar[QuerySet[Project]]
 
-    id = StringField(
-        required=True, primary_key=True, min_length=3, max_length=16
-    )  # TODO: set min_length to 5
+    id = StringField(required=True, primary_key=True, min_length=5, max_length=16)
     name = StringField(required=True, max_length=64)
     description = StringField(max_length=512)
 

@@ -263,6 +263,7 @@ def get_project_settings(project_id: str) -> list[ProjectSettings]:
     return list(ProjectSettings.objects(project=project_id).order_by("created_at_"))
 
 
+# TODO: duplicate!
 def get_settings_for_raw_file(project_id: str) -> list[ProjectSettings]:
     """Get all project-settings assignments for a raw file's project."""
     connect_db()

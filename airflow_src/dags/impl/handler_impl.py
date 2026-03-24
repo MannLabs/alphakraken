@@ -26,7 +26,6 @@ from common.utils import (
     put_xcom,
     trigger_dag_run,
 )
-from impl.processor_impl import _get_project_id_or_fallback
 from plugins.file_handling import (
     _decide_if_copy_required,
     copy_file,
@@ -373,17 +372,14 @@ def _count_special_characters(raw_file_id: str) -> int:
 
 def _is_settings_configured(raw_file: RawFile) -> bool:
     """Return True if settings are configured for the project associated with the raw file."""
-    project_id_or_fallback = _get_project_id_or_fallback(
-        raw_file.project_id, raw_file.instrument_id
-    )
     instrument_type = get_instrument_settings(
         raw_file.instrument_id, InstrumentKeys.TYPE
     )
-    project_settings = get_settings_for_raw_file(project_id_or_fallback)
-    settings_list = resolve_scoped_settings(
+    project_settings = get_settings_for_raw_file(raw_file.project_id)
+    resolved_settings = resolve_scoped_settings(
         project_settings, raw_file.instrument_id, instrument_type
     )
-    return len(settings_list) > 0
+    return len(resolved_settings) > 0
 
 
 def decide_processing(ti: TaskInstance, **kwargs) -> bool:

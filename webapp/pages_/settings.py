@@ -265,8 +265,8 @@ elif software_type == SoftwareTypes.MSQC:
         "software": {
             "label": "Software*",
             "max_chars": 64,
-            "placeholder": "e.g. 'msqc-1.0.0'",
-            "help": "Name of the Conda environment that holds the MSQC executable.",
+            "placeholder": "e.g. 'msqc/run_msqc.sh'",
+            "help": f"Path to executable, relative to `{get_path(YamlKeys.Locations.SOFTWARE)}/`. Ask an administrator to add the executable to the software folder.",
         },
     }
 

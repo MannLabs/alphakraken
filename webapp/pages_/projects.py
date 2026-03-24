@@ -29,9 +29,11 @@ from shared.db.interface import (
     remove_project_settings,
 )
 from shared.keys import DEFAULT_SCOPE, KNOWN_VENDOR_NAMES
+from shared.scope import resolve_scoped_settings
 from shared.yamlsettings import YAMLSETTINGS, YamlKeys
 
-_INSTRUMENT_IDS = list(YAMLSETTINGS.get(YamlKeys.INSTRUMENTS, {}).keys())
+_INSTRUMENTS_CONFIG = YAMLSETTINGS.get(YamlKeys.INSTRUMENTS, {})
+_INSTRUMENT_IDS = list(_INSTRUMENTS_CONFIG.keys())
 SCOPE_OPTIONS = [DEFAULT_SCOPE, *KNOWN_VENDOR_NAMES, *_INSTRUMENT_IDS]
 
 _log(f"loading {__file__} {get_all_query_params()}")
@@ -95,6 +97,29 @@ def display_projects(
 
 display_projects(projects_df)
 
+
+c1, _ = st.columns([0.5, 0.5])
+with c1.expander("Click here for help ..."):
+    st.info(
+        """
+        ### Explanation
+        A 'project' is a lightweight container that can reference quanting settings (=config, speclib, fasta).
+        The connection of samples to a project is done via the file name: all files containing a project-specific token (e.g. `A123`) surrounded by `_`
+        are associated with project `A1234`.
+        Currently, only projects ids that follow after the pattern 'SA' are picked up, e.g. `20240801_something_SA_A123_my-sample.raw`.
+        If no matching project can be found for a file, then fallback settings are used.
+        Please make sure your project identifier is 'unique enough' ("DDA" might be a bad pick), otherwise it might cause false positives.
+        Needs to be between 5 and 16 characters, contain only uppercase letters and numbers, and at least one letter.
+
+        ### Workflow
+        1. Create a project with a unique project id.
+        2. Create settings on the 'Settings' page if needed.
+        3. Use the 'Assign settings to project' section above to link settings to your project.
+        """,
+        icon="ℹ️",  # noqa: RUF001
+    )
+
+
 # ########################################### ASSIGN SETTINGS
 
 st.markdown("## Assign settings to project")
@@ -126,6 +151,7 @@ with c_assign1:
                     key=f"remove_ps_{ps_id}",
                     disabled=DISABLE_WRITE,
                     help="Temporarily disabled." if DISABLE_WRITE else "",
+                    icon="🗑️",
                 ):
                     try:
                         remove_project_settings(ps_id)  # type: ignore[unresolved-attribute]
@@ -196,18 +222,72 @@ with c_assign1:
                     set_session_state(SessionStateKeys.ERROR_MSG, f"{e}")
 
 with c_assign2:
-    st.markdown("### Help")
-    st.info(
-        """
-        Use this section to assign settings to projects or change settings assignments.
-
-        - Projects can have multiple settings assigned
-        - Multiple projects can share the same settings
-        - You can remove individual settings assignments using the "Remove" button
-        - Only active (non-archived) settings can be assigned
-        """,
-        icon="ℹ️",  # noqa: RUF001
-    )
+    if selected_project_id:
+        st.markdown(
+            "### Resolved settings per instrument",
+            help="This table shows the settings that would be applied for each instrument based on the current settings assignments and their scopes.",
+        )
+        current_ps_for_table = get_project_settings(selected_project_id)
+        if current_ps_for_table:
+            rows = []
+            for instr_id in _INSTRUMENT_IDS:
+                instr_type = _INSTRUMENTS_CONFIG.get(instr_id, {}).get(
+                    YamlKeys.TYPE, ""
+                )
+                resolved = resolve_scoped_settings(
+                    current_ps_for_table, instr_id, instr_type
+                )
+                if resolved:
+                    for s in resolved:
+                        detail_parts = [
+                            f"description: {s.description}" if s.description else None,
+                            f"config_file: {s.config_file_name}"
+                            if s.config_file_name
+                            else None,
+                            f"fasta: {s.fasta_file_name}"
+                            if s.fasta_file_name
+                            else None,
+                            f"speclib: {s.speclib_file_name}"
+                            if s.speclib_file_name
+                            else None,
+                            f"config_params: {s.config_params}"
+                            if s.config_params
+                            else None,
+                        ]
+                        rows.append(
+                            {
+                                "instrument": instr_id,
+                                "settings": f"{s.name} v{s.version} ({s.software_type})",
+                                "software": s.software,
+                                "details": "\n".join(p for p in detail_parts if p),
+                            }
+                        )
+                else:
+                    rows.append(
+                        {
+                            "instrument": instr_id,
+                            "settings": "--",
+                            "software": "--",
+                            "details": "",
+                        }
+                    )
+            st.dataframe(
+                pd.DataFrame(rows),
+                hide_index=True,
+                use_container_width=True,
+            )
+            st.page_link(
+                "pages_/settings.py",
+                label="➔ Go to settings page to edit/add settings",
+                icon="📋",
+            )
+        else:
+            st.info("No settings assigned to this project.")
+    else:
+        st.info(
+            "Select a project on the left to see resolved settings per instrument.",
+            icon="ℹ️",  # noqa: RUF001
+        )
 
 # display_projects(projects_df)
 
@@ -239,19 +319,13 @@ c1, _ = st.columns([0.5, 0.5])
 with c1.expander("Click here for help ..."):
     st.info(
         """
-        ### Explanation
-        A 'project' is a lightweight container that can reference quanting settings (=config, speclib, fasta).
-        The connection of samples to a project is done via the file name: all files containing a project-specific token (e.g. `A123`) surrounded by `_`
-        are associated with project `A1234`.
-        Currently, only projects ids that follow after the pattern 'SA' are picked up, e.g. `20240801_something_SA_A123_my-sample.raw`.
-        If no matching project can be found for a file, then fallback settings are used.
-        Please make sure your project identifier is 'unique enough' ("DDA" might be a bad pick), otherwise it might cause false positives.
-        Needs to be between 5 and 16 characters, contain only uppercase letters and numbers, and at least one letter.
+        Use this section to assign settings to projects or change settings assignments.
 
-        ### Workflow
-        1. Create a project with a unique project id.
-        2. Create settings on the 'Settings' page if needed.
-        3. Use the 'Assign settings to project' section above to link settings to your project.
+        - Projects can have multiple settings assigned
+        - Multiple projects can share the same settings
+        - You can remove individual settings assignments using the "Remove" button
+        - Only active (non-archived) settings can be assigned
+        - The "scope" defines for which instruments the settings should be applied. `*` means all instruments, otherwise you can choose a specific vendor or instrument id. If multiple settings match for a given instrument, then the most specific one gets picked (e.g. instrument-specific over vendor-specific over '*').
         """,
         icon="ℹ️",  # noqa: RUF001
     )

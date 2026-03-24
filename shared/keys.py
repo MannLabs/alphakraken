@@ -1,7 +1,23 @@
 """Keys for accessing environmental variables."""
 
 
-class EnvVars:
+class ConstantsClass(type):
+    """A metaclass for classes that should only contain string constants."""
+
+    def __setattr__(cls, name: str, value: str) -> None:
+        """Prevent modification of class attributes after they are set."""
+        raise TypeError("Constants class cannot be modified")
+
+    def get_values(cls) -> list[str]:
+        """Get all user-defined string values of the class."""
+        return [
+            value
+            for key, value in cls.__dict__.items()
+            if not key.startswith("__") and isinstance(value, str)
+        ]
+
+
+class EnvVars(metaclass=ConstantsClass):
     """Keys for accessing docker environmental variables."""
 
     # the logic that depends on the environment should be as little as possible
@@ -13,7 +29,7 @@ class EnvVars:
     MONGO_PASSWORD = "MONGO_PASSWORD"  # noqa: S105  #Possible hardcoded password
 
 
-class InstrumentTypes:
+class InstrumentTypes(metaclass=ConstantsClass):
     """Types of instruments."""
 
     THERMO: str = "thermo"
@@ -21,15 +37,10 @@ class InstrumentTypes:
     SCIEX: str = "sciex"
 
 
-# TODO: remove
-KNOWN_VENDOR_NAMES: tuple[str, ...] = (
-    InstrumentTypes.BRUKER,
-    InstrumentTypes.THERMO,
-    InstrumentTypes.SCIEX,
-)
+KNOWN_VENDOR_NAMES: tuple[str, ...] = tuple(InstrumentTypes.get_values())
 
 
-class InternalPaths:
+class InternalPaths(metaclass=ConstantsClass):
     """Paths to directories within the Docker containers."""
 
     MOUNTS_PATH = "/opt/airflow/mounts/"
@@ -40,7 +51,7 @@ class InternalPaths:
     OUTPUT = "output"
 
 
-class MetricsTypes:
+class MetricsTypes(metaclass=ConstantsClass):
     """Types of metrics that can be added to a raw file."""
 
     ALPHADIA: str = "alphadia"
@@ -49,7 +60,7 @@ class MetricsTypes:
     CUSTOM: str = "custom"
 
 
-class SoftwareTypes:
+class SoftwareTypes(metaclass=ConstantsClass):
     """Types of software that can be used for quanting."""
 
     ALPHADIA: str = "alphadia"

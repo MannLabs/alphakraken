@@ -6,9 +6,21 @@ from pathlib import Path
 from airflow.providers.amazon.aws.hooks.base_aws import AwsBaseHook, BaseAwsConnection
 from boto3.s3.transfer import TransferConfig
 from botocore.exceptions import ClientError
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 # sentinel value to indicate that a file was not found on s3
 S3_FILE_NOT_FOUND_ETAG = object()
+
+S3_BUCKET_NOT_FOUND_ERROR_CODE = "404"
+SSE_ALGORITHM_AES256 = "AES256"
+BUCKET_TAG_MANAGED_BY_KEY = "ManagedBy"
+BUCKET_TAG_MANAGED_BY_VALUE = "monitor-app"
+BUCKET_CONFIG_MAX_RETRIES = 3
 
 
 def get_s3_client(region: str, aws_conn_id: str = "aws_default") -> BaseAwsConnection:
@@ -48,14 +60,16 @@ def get_transfer_config(chunk_size_mb: int) -> TransferConfig:
     )
 
 
-def bucket_exists(bucket_name: str, s3_client: BaseAwsConnection) -> tuple[bool, str]:
+def bucket_exists(
+    bucket_name: str, s3_client: BaseAwsConnection
+) -> tuple[bool, str, str]:
     """Check if S3 bucket exists and is accessible.
 
     Args:
         bucket_name: Name of the S3 bucket
         s3_client: Boto3 S3 client
     Returns:
-        Tuple of (exists: bool, error_message: str)
+        Tuple of (exists, error_message, error_code)
 
     """
     try:
@@ -63,14 +77,127 @@ def bucket_exists(bucket_name: str, s3_client: BaseAwsConnection) -> tuple[bool,
         logging.info(f"Bucket {bucket_name} exists and is accessible")
     except ClientError as e:
         error_code = e.response.get("Error", {}).get("Code", "n/a")
-        if error_code == "404":
-            msg = f"Bucket {bucket_name} does not exist. Please create it before uploading."
+        if error_code == S3_BUCKET_NOT_FOUND_ERROR_CODE:
+            msg = f"Bucket {bucket_name} does not exist."
         else:
             msg = f"Cannot access bucket {bucket_name}: {error_code} - {e}"
 
-        return False, msg
+        return False, msg, error_code
     else:
-        return True, ""
+        return True, "", ""
+
+
+def create_bucket(bucket_name: str, region: str, s3_client: BaseAwsConnection) -> None:
+    """Create an S3 bucket with versioning, encryption, and public access block.
+
+    Note: if one of the request fail, the bucket may be left in a partially configured state.
+    This is not ideal but simplifies the code. In such cases, manually add the desired properties to the bucket.
+
+    Args:
+        bucket_name: Name of the S3 bucket to create
+        region: AWS region for the bucket
+        s3_client: Boto3 S3 client
+
+    """
+    create_kwargs: dict = {
+        "Bucket": bucket_name,
+        "CreateBucketConfiguration": {"LocationConstraint": region},
+    }
+
+    try:
+        s3_client.create_bucket(**create_kwargs)  # ty: ignore[unresolved-attribute]
+    except ClientError as e:
+        error_code = e.response.get("Error", {}).get("Code", "")
+        if error_code == "BucketAlreadyOwnedByYou":
+            logging.warning(
+                f"Bucket {bucket_name} was already created by a concurrent process"
+            )
+            return
+        raise
+
+    logging.info(f"Created bucket {bucket_name} in {region}")
+
+    _configure_bucket(bucket_name, s3_client)
+
+
+class BucketConfigurationError(Exception):
+    """Raised when bucket configuration fails, with per-step status detail."""
+
+
+@retry(
+    stop=stop_after_attempt(BUCKET_CONFIG_MAX_RETRIES),
+    wait=wait_exponential(multiplier=1, max=10),
+    retry=retry_if_exception_type(BucketConfigurationError),
+    reraise=True,
+)
+def _configure_bucket(bucket_name: str, s3_client: BaseAwsConnection) -> None:
+    """Apply versioning, encryption, public access block, and tags to a bucket.
+
+    All steps are idempotent, so the entire block is safe to retry.
+
+    """
+    status = {
+        "put_bucket_versioning": "FAILED or SKIPPED",
+        "put_bucket_encryption": "FAILED or SKIPPED",
+        "put_public_access_block": "FAILED or SKIPPED",
+        "put_bucket_tagging": "FAILED or SKIPPED",
+    }
+    try:
+        s3_client.put_bucket_versioning(  # ty: ignore[unresolved-attribute]
+            Bucket=bucket_name,
+            VersioningConfiguration={"Status": "Enabled"},
+        )
+        status["put_bucket_versioning"] = "OK"
+
+        s3_client.put_bucket_encryption(  # ty: ignore[unresolved-attribute]
+            Bucket=bucket_name,
+            ServerSideEncryptionConfiguration={
+                "Rules": [
+                    {
+                        "ApplyServerSideEncryptionByDefault": {
+                            "SSEAlgorithm": SSE_ALGORITHM_AES256,
+                        }
+                    }
+                ]
+            },
+        )
+        status["put_bucket_encryption"] = "OK"
+
+        s3_client.put_public_access_block(  # ty: ignore[unresolved-attribute]
+            Bucket=bucket_name,
+            PublicAccessBlockConfiguration={
+                "BlockPublicAcls": True,
+                "IgnorePublicAcls": True,
+                "BlockPublicPolicy": True,
+                "RestrictPublicBuckets": True,
+            },
+        )
+        status["put_public_access_block"] = "OK"
+
+        s3_client.put_bucket_tagging(  # ty: ignore[unresolved-attribute]
+            Bucket=bucket_name,
+            Tagging={
+                "TagSet": [
+                    {
+                        "Key": BUCKET_TAG_MANAGED_BY_KEY,
+                        "Value": BUCKET_TAG_MANAGED_BY_VALUE,
+                    },
+                ]
+            },
+        )
+        status["put_bucket_tagging"] = "OK"
+    except ClientError as e:
+        status_report = ", ".join(f"{k}: {v}" for k, v in status.items())
+        logging.warning(
+            "Please add the required bucket properties manually and ensure the bucket is properly configured."
+        )
+        raise BucketConfigurationError(
+            f"Bucket {bucket_name} configuration failed: {status_report}"
+        ) from e
+
+    logging.info(
+        f"Configured bucket {bucket_name} with versioning, encryption, public access block, and tags"
+    )
 
 
 def get_etag(

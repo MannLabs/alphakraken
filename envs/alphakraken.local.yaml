@@ -64,3 +64,4 @@ backup:
   s3:
     region: eu-central-1
     bucket_prefix: alphakraken
+    auto_create_buckets: false

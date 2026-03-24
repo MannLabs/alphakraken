@@ -88,7 +88,7 @@ def test_upload_raw_file_to_s3_should_complete_successfully(  # noqa: PLR0913
     mock_get_raw_file.return_value = mock_raw_file
     mock_get_project_id.return_value = "PID1"
     mock_normalize_bucket.return_value = "test-prefix-pid1"
-    mock_bucket_exists.return_value = (True, "")
+    mock_bucket_exists.return_value = (True, "", "")
     mock_prepare.return_value = (
         {Path("/dst/file.raw"): ("file.raw", "etag123")},
         "",
@@ -146,7 +146,7 @@ def test_upload_raw_file_to_s3_should_include_key_prefix_in_s3_path(  # noqa: PL
     mock_get_raw_file.return_value = mock_raw_file
     mock_get_project_id.return_value = "_FALLBACK"
     mock_normalize_bucket.return_value = "test-prefix-fallback"
-    mock_bucket_exists.return_value = (True, "")
+    mock_bucket_exists.return_value = (True, "", "")
     mock_prepare.return_value = (
         {Path("/dst/file.raw"): ("instrument1/2025_01/file.raw", "etag123")},
         "instrument1/2025_01/",
@@ -177,7 +177,7 @@ def test_upload_raw_file_to_s3_should_include_key_prefix_in_s3_path(  # noqa: PL
 @patch("dags.impl.s3_uploader_impl.update_raw_file")
 @patch("dags.impl.s3_uploader_impl.get_s3_client")
 @patch("dags.impl.s3_uploader_impl.bucket_exists")
-def test_upload_raw_file_to_s3_should_raise_when_bucket_does_not_exist(  # noqa: PLR0913
+def test_upload_raw_file_to_s3_should_raise_when_bucket_not_accessible(  # noqa: PLR0913
     mock_bucket_exists: MagicMock,
     _mock_get_s3_client: MagicMock,  # noqa: PT019
     mock_update: MagicMock,
@@ -187,16 +187,17 @@ def test_upload_raw_file_to_s3_should_raise_when_bucket_does_not_exist(  # noqa:
     mock_get_raw_file: MagicMock,
     mock_get_s3_config: MagicMock,
 ) -> None:
-    """Test upload_raw_file_to_s3 raises when bucket does not exist."""
+    """Test upload_raw_file_to_s3 raises when bucket is not accessible (non-404 error)."""
     mock_get_s3_config.return_value = {
         "region": "us-west-2",
         "bucket_prefix": "test-prefix",
+        "auto_create_buckets": True,
     }
     mock_raw_file = MagicMock(project_id="PID1", instrument_id="instrument1")
     mock_get_raw_file.return_value = mock_raw_file
     mock_get_project_id.return_value = "PID1"
     mock_normalize_bucket.return_value = "test-prefix-pid1"
-    mock_bucket_exists.return_value = (False, "Bucket does not exist")
+    mock_bucket_exists.return_value = (False, "Cannot access bucket", "403")
 
     ti = MagicMock()
     kwargs = {
@@ -206,7 +207,7 @@ def test_upload_raw_file_to_s3_should_raise_when_bucket_does_not_exist(  # noqa:
         }
     }
 
-    with pytest.raises(S3UploadFailedException, match="Bucket does not exist"):
+    with pytest.raises(S3UploadFailedException, match="Cannot access bucket"):
         upload_raw_file_to_s3(ti, **kwargs)
 
     mock_update.assert_called_once_with(
@@ -245,7 +246,7 @@ def test_upload_raw_file_to_s3_should_raise_on_boto_error(  # noqa: PLR0913
     mock_get_raw_file.return_value = mock_raw_file
     mock_get_project_id.return_value = "PID1"
     mock_normalize_bucket.return_value = "test-prefix-pid1"
-    mock_bucket_exists.return_value = (True, "")
+    mock_bucket_exists.return_value = (True, "", "")
     mock_prepare.return_value = (
         {Path("/dst/file.raw"): ("file.raw", "etag123")},
         "",
@@ -297,7 +298,7 @@ def test_upload_raw_file_to_s3_should_raise_on_client_error(  # noqa: PLR0913
     mock_get_raw_file.return_value = mock_raw_file
     mock_get_project_id.return_value = "PID1"
     mock_normalize_bucket.return_value = "test-prefix-pid1"
-    mock_bucket_exists.return_value = (True, "")
+    mock_bucket_exists.return_value = (True, "", "")
     mock_prepare.return_value = (
         {Path("/dst/file.raw"): ("file.raw", "etag123")},
         "",
@@ -543,7 +544,7 @@ def test_upload_raw_file_to_s3_should_handle_multiple_files(  # noqa: PLR0913
     mock_get_raw_file.return_value = mock_raw_file
     mock_get_project_id.return_value = "PID1"
     mock_normalize_bucket.return_value = "test-prefix-pid1"
-    mock_bucket_exists.return_value = (True, "")
+    mock_bucket_exists.return_value = (True, "", "")
     mock_prepare.return_value = (
         {
             Path("/dst/file1.raw"): ("file1.raw", "etag1"),
@@ -592,3 +593,112 @@ def test_upload_files_should_handle_mixed_upload_needs(
 
     assert mock_upload_file.call_count == 2
     assert mock_get_etag.call_count == 2
+
+
+@patch("dags.impl.s3_uploader_impl.get_s3_upload_config")
+@patch("dags.impl.s3_uploader_impl.get_raw_file_by_id")
+@patch("dags.impl.s3_uploader_impl._get_project_id_or_fallback")
+@patch("dags.impl.s3_uploader_impl.normalize_bucket_name")
+@patch("dags.impl.s3_uploader_impl.get_transfer_config")
+@patch("dags.impl.s3_uploader_impl.update_raw_file")
+@patch("dags.impl.s3_uploader_impl.get_s3_client")
+@patch("dags.impl.s3_uploader_impl.bucket_exists")
+@patch("dags.impl.s3_uploader_impl.create_bucket")
+@patch("dags.impl.s3_uploader_impl._prepare_upload")
+@patch("dags.impl.s3_uploader_impl._upload_files")
+def test_upload_raw_file_to_s3_should_create_bucket_when_not_found_and_auto_create_enabled(  # noqa: PLR0913
+    mock_upload_all: MagicMock,
+    mock_prepare: MagicMock,
+    mock_create_bucket: MagicMock,
+    mock_bucket_exists: MagicMock,
+    mock_get_s3_client: MagicMock,
+    mock_update: MagicMock,
+    _mock_get_transfer_config: MagicMock,  # noqa: PT019
+    mock_normalize_bucket: MagicMock,
+    mock_get_project_id: MagicMock,
+    mock_get_raw_file: MagicMock,
+    mock_get_s3_config: MagicMock,
+) -> None:
+    """Test upload creates bucket when not found and auto_create_buckets is enabled."""
+    mock_get_s3_config.return_value = {
+        "region": "eu-central-1",
+        "bucket_prefix": "test-prefix",
+        "auto_create_buckets": True,
+    }
+    mock_raw_file = MagicMock(project_id="PID1", instrument_id="instrument1")
+    mock_get_raw_file.return_value = mock_raw_file
+    mock_get_project_id.return_value = "PID1"
+    mock_normalize_bucket.return_value = "test-prefix-pid1"
+    mock_bucket_exists.return_value = (False, "Bucket does not exist.", "404")
+    mock_s3_client = MagicMock()
+    mock_get_s3_client.return_value = mock_s3_client
+    mock_prepare.return_value = (
+        {Path("/dst/file.raw"): ("file.raw", "etag123")},
+        "",
+    )
+
+    ti = MagicMock()
+    kwargs = {
+        DagContext.PARAMS: {
+            DagParams.RAW_FILE_ID: "test.raw",
+            DagParams.INTERNAL_TARGET_FOLDER_PATH: "/dst",
+        }
+    }
+
+    upload_raw_file_to_s3(ti, **kwargs)
+
+    mock_create_bucket.assert_called_once_with(
+        "test-prefix-pid1", "eu-central-1", mock_s3_client
+    )
+    mock_upload_all.assert_called_once()
+    mock_update.assert_any_call(
+        "test.raw",
+        backup_status=BackupStatus.UPLOAD_DONE,
+        s3_upload_path="s3://test-prefix-pid1",
+    )
+
+
+@patch("dags.impl.s3_uploader_impl.get_s3_upload_config")
+@patch("dags.impl.s3_uploader_impl.get_raw_file_by_id")
+@patch("dags.impl.s3_uploader_impl._get_project_id_or_fallback")
+@patch("dags.impl.s3_uploader_impl.normalize_bucket_name")
+@patch("dags.impl.s3_uploader_impl.get_transfer_config")
+@patch("dags.impl.s3_uploader_impl.update_raw_file")
+@patch("dags.impl.s3_uploader_impl.get_s3_client")
+@patch("dags.impl.s3_uploader_impl.bucket_exists")
+def test_upload_raw_file_to_s3_should_raise_when_bucket_not_found_and_auto_create_disabled(  # noqa: PLR0913
+    mock_bucket_exists: MagicMock,
+    _mock_get_s3_client: MagicMock,  # noqa: PT019
+    mock_update: MagicMock,
+    _mock_get_transfer_config: MagicMock,  # noqa: PT019
+    mock_normalize_bucket: MagicMock,
+    mock_get_project_id: MagicMock,
+    mock_get_raw_file: MagicMock,
+    mock_get_s3_config: MagicMock,
+) -> None:
+    """Test upload raises when bucket not found and auto_create_buckets is disabled."""
+    mock_get_s3_config.return_value = {
+        "region": "us-west-2",
+        "bucket_prefix": "test-prefix",
+        "auto_create_buckets": False,
+    }
+    mock_raw_file = MagicMock(project_id="PID1", instrument_id="instrument1")
+    mock_get_raw_file.return_value = mock_raw_file
+    mock_get_project_id.return_value = "PID1"
+    mock_normalize_bucket.return_value = "test-prefix-pid1"
+    mock_bucket_exists.return_value = (False, "Bucket does not exist.", "404")
+
+    ti = MagicMock()
+    kwargs = {
+        DagContext.PARAMS: {
+            DagParams.RAW_FILE_ID: "test.raw",
+            DagParams.INTERNAL_TARGET_FOLDER_PATH: "/dst",
+        }
+    }
+
+    with pytest.raises(S3UploadFailedException, match="Bucket does not exist"):
+        upload_raw_file_to_s3(ti, **kwargs)
+
+    mock_update.assert_called_once_with(
+        "test.raw", backup_status=BackupStatus.UPLOAD_IN_PROGRESS
+    )

@@ -1208,7 +1208,6 @@ def test_start_acquisition_processor_with_single_file(
     )
 
 
-@patch("dags.impl.handler_impl._get_project_id_or_fallback", return_value="project1")
 @patch("dags.impl.handler_impl.resolve_scoped_settings", return_value=[MagicMock()])
 @patch("dags.impl.handler_impl.get_settings_for_raw_file", return_value=[MagicMock()])
 @patch("dags.impl.handler_impl.get_instrument_settings", return_value="thermo")

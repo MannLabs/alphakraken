@@ -135,7 +135,7 @@ class RawFile(Document):
 
     instrument_file_status = StringField(max_length=16, default=InstrumentFileStatus.NA)
 
-    file_info = DictField()  # mapping of file paths (relative to backup_base_path) to tuples (size: int, hash: str).
+    file_info = DictField()  # mapping of file paths (relative to backup_base_path) to tuples (size: int, hash: str) or (size: int, hash: str, etag: str).
     # When read from DB, the tuples are converted to lists.
 
     created_at = DateTimeField()  # when file was created
@@ -143,6 +143,11 @@ class RawFile(Document):
     # audit fields
     created_at_ = DateTimeField(default=datetime.now)
     updated_at_ = DateTimeField(default=datetime.now)
+
+    @property
+    def has_project(self) -> bool:
+        """Return whether the raw file has a project assigned or belongs to the fallback project."""
+        return self.project_id != FALLBACK_PROJECT_ID
 
 
 def parse_file_info_item(

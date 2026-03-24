@@ -51,7 +51,7 @@ def get_output_folder_rel_path(
         <project_id_or_fallback>/out_RAW-FILE-1.raw/<settings_type> in case raw_file has a project ID
     """
     optional_sub_folder = (
-        get_created_at_year_month(raw_file) if raw_file.project_id is None else ""
+        get_created_at_year_month(raw_file) if not raw_file.has_project else ""
     )
     path = (
         Path(project_id_or_fallback)

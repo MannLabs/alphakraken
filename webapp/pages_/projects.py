@@ -63,7 +63,7 @@ for p in projects_db:
     ps_list = get_project_settings(p.id)
     if ps_list:
         _project_to_settings[p.id] = [
-            f"{ps.settings.name} v{ps.settings.version}" for ps in ps_list
+            f"{ps.settings.name} version {ps.settings.version}" for ps in ps_list
         ]
 
 if not projects_df.empty:
@@ -118,7 +118,7 @@ with c_assign1:
                     f" [excluded: {', '.join(ps.excluded)}]" if ps.excluded else ""
                 )
                 col_info.write(
-                    f"[scope: {ps.scope}] '{ps.settings.name}' version {ps.settings.version} (type: {ps.settings.software_type}){excluded_str}"
+                    f"`[scope: {ps.scope}]` '{ps.settings.name}' version {ps.settings.version} (type: `{ps.settings.software_type}`, executable: `{ps.settings.software}`){excluded_str}"
                 )
                 ps_id = str(ps.id)  # type: ignore[unresolved-attribute]
                 if col_btn.button(
@@ -146,34 +146,35 @@ with c_assign1:
             st.warning("No active settings available. Create settings first.")
         else:
             settings_options_map = {
-                f"{s.name} v{s.version} [{s.software_type}, {s.software}]": str(
+                f"{s.name} version {s.version} (type: {s.software_type}, executable: {s.software}]": str(
                     s.id  # type: ignore[unresolved-attribute]
                 )
                 for s in all_settings
             }
 
-            selected_settings_display = st.selectbox(
+            c1, c2, c3 = st.columns([0.5, 0.25, 0.25])
+            selected_settings_display = c1.selectbox(
                 "Select settings to assign",
                 options=settings_options_map.keys(),
                 key="assign_settings_select",
             )
 
-            selected_scope = st.selectbox(
-                "Select scope",
+            selected_scope = c2.selectbox(
+                "Select instrument or vendor scope",
                 options=SCOPE_OPTIONS,
                 key="assign_scope_select",
                 help="'*' = all instruments, vendor name = vendor-specific, instrument ID = instrument-specific",
             )
 
-            selected_excluded = st.multiselect(
-                "Exclude instruments (optional)",
+            selected_excluded = c3.multiselect(
+                "Exclude instruments from scope (optional)",
                 options=_INSTRUMENT_IDS,
                 key="assign_excluded_select",
                 help="Instruments to exclude from this scope assignment.",
             )
 
             if st.button(
-                "Assign settings",
+                f"Assign selected settings to project {selected_project_id}",
                 disabled=DISABLE_WRITE,
                 help="Temporarily disabled." if DISABLE_WRITE else "",
             ):

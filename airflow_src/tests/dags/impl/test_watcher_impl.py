@@ -19,7 +19,7 @@ from dags.impl.watcher_impl import (
 )
 from plugins.common.keys import OpArgs, XComKeys
 
-from shared.db.models import RawFile
+from shared.db.models import InstrumentFileStatus, RawFile, RawFileStatus
 
 SOME_INSTRUMENT_ID = "_test1_"
 
@@ -42,6 +42,8 @@ def test_add_raw_file_to_db(
         is_collision=True,
         project_id="PID1",
         instrument_id="instrument1",
+        status=RawFileStatus.QUEUED_FOR_MONITORING,
+        instrument_file_status=InstrumentFileStatus.INITIAL,
     )
 
     mock_get_file_creation_timestamp.assert_called_once_with(
@@ -53,6 +55,7 @@ def test_add_raw_file_to_db(
         project_id="PID1",
         instrument_id="instrument1",
         status="queued_for_monitoring",
+        instrument_file_status=InstrumentFileStatus.INITIAL,
         creation_ts=42.0,
     )
 
@@ -447,6 +450,7 @@ def test_start_acquisition_handler_with_single_file(
         project_id="PID1",
         instrument_id="instrument1",
         status="queued_for_monitoring",
+        instrument_file_status=InstrumentFileStatus.INITIAL,
     )
     mock_delete_raw_file.assert_not_called()
 
@@ -490,6 +494,7 @@ def test_start_acquisition_handler_with_multiple_files(  # Too many arguments
                 project_id="project1",
                 instrument_id="instrument1",
                 status="queued_for_monitoring",
+                instrument_file_status=InstrumentFileStatus.INITIAL,
             ),
             call(
                 "file2.raw",
@@ -497,6 +502,7 @@ def test_start_acquisition_handler_with_multiple_files(  # Too many arguments
                 project_id=None,
                 instrument_id="instrument1",
                 status="queued_for_monitoring",
+                instrument_file_status=InstrumentFileStatus.INITIAL,
             ),
             call(
                 "file3.raw",
@@ -504,6 +510,7 @@ def test_start_acquisition_handler_with_multiple_files(  # Too many arguments
                 project_id="project2",
                 instrument_id="instrument1",
                 status="ignored",
+                instrument_file_status=InstrumentFileStatus.INITIAL,
             ),
         ]
     )
@@ -547,6 +554,60 @@ def test_start_acquisition_handler_dagnotfound(
         project_id="PID1",
         instrument_id="instrument1",
         status="queued_for_monitoring",
+        instrument_file_status=InstrumentFileStatus.INITIAL,
     )
 
     mock_delete_raw_file.assert_called_once_with("123-file1.raw")
+
+
+@patch("dags.impl.watcher_impl.RawFileWrapperFactory")
+@patch("dags.impl.watcher_impl.get_raw_files_by_names")
+@patch("dags.impl.watcher_impl.get_main_file_size_from_db")
+@patch("dags.impl.watcher_impl._is_collision")
+@patch("dags.impl.watcher_impl._sort_by_creation_date")
+@patch("dags.impl.watcher_impl.put_xcom")
+def test_get_unknown_raw_files_treats_renamed_db_entry_as_collision(  # noqa: PLR0913
+    mock_put_xcom: MagicMock,
+    mock_sort: MagicMock,
+    mock_is_collision: MagicMock,
+    mock_get_main_file_size_from_db: MagicMock,
+    mock_get_raw_files_by_names: MagicMock,
+    mock_raw_file_wrapper_factory: MagicMock,
+) -> None:
+    """Test that a new file on the instrument is treated as a collision with a renamed DB entry.
+
+    When a Thermo instrument renames x.raw to x_CORRUPTED.raw, the handler marks the DB entry
+    as ACQUISITION_FAILED with instrument_file_status=RENAMED. Later, when a new x.raw appears,
+    it should be detected as a collision (not blocked, not treated as brand new).
+    """
+    mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.get_raw_files_on_instrument.return_value = {
+        "x.raw",
+    }
+    mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.main_file_path.return_value = Path(
+        "/path/to/x.raw"
+    )
+
+    renamed_entry = MagicMock(
+        wraps=RawFile,
+        instrument_id=SOME_INSTRUMENT_ID,
+        original_name="x.raw",
+        instrument_file_status=InstrumentFileStatus.RENAMED,
+    )
+    mock_get_raw_files_by_names.return_value = [renamed_entry]
+
+    mock_is_collision.return_value = True
+
+    ti = Mock()
+    mock_sort.return_value = ["x.raw"]
+
+    # when
+    get_unknown_raw_files(ti, **{OpArgs.INSTRUMENT_ID: SOME_INSTRUMENT_ID})
+
+    # then
+    mock_get_main_file_size_from_db.assert_not_called()
+    mock_is_collision.assert_called_once_with(Path("/path/to/x.raw"), [-1])
+    mock_put_xcom.assert_called_once_with(
+        ti,
+        XComKeys.RAW_FILE_NAMES_TO_PROCESS,
+        {"x.raw": True},
+    )

@@ -50,6 +50,7 @@ from shared.db.interface import (
 from shared.db.models import (
     BackupStatus,
     FileInfoItem,
+    InstrumentFileStatus,
     RawFile,
     RawFileStatus,
     get_created_at_year_month,
@@ -78,11 +79,13 @@ def compute_checksum(ti: TaskInstance, **kwargs) -> bool:
             f"Skipping copy for raw file {raw_file_id}: {acquisition_monitor_errors}"
         )
 
+        # Note: the "new" file `x_CORRUPTED.raw` will be treated as any other raw file.
         update_raw_file(
             raw_file_id,
             new_status=RawFileStatus.ACQUISITION_FAILED,
             status_details=AcquisitionMonitorErrors.FILE_GOT_RENAMED,
             backup_status=BackupStatus.SKIPPED,
+            instrument_file_status=InstrumentFileStatus.RENAMED,
         )
         return False  # skip downstream tasks
 
@@ -395,9 +398,9 @@ def decide_processing(ti: TaskInstance, **kwargs) -> bool:
     ):
         new_status = RawFileStatus.ACQUISITION_FAILED
         status_details = ";".join(acquisition_monitor_errors)
-    elif get_instrument_settings(instrument_id, InstrumentKeys.SKIP_QUANTING):
+    elif get_instrument_settings(instrument_id, InstrumentKeys.SKIP_PROCESSING):
         new_status = RawFileStatus.DONE_NOT_QUANTED
-        status_details = "Quanting disabled for this instrument."
+        status_details = "Processing disabled for this instrument."
     elif DDA_FLAG_IN_RAW_FILE_NAME in raw_file_id.lower():
         new_status = RawFileStatus.DONE_NOT_QUANTED
         status_details = "Filename contains 'dda'."

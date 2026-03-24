@@ -49,6 +49,7 @@ def test_add_raw_file_creates_new_file_when_file_does_not_exist_with_collision_f
         project_id="PID1",
         instrument_id="instrument1",
         status=RawFileStatus.QUEUED_FOR_MONITORING,
+        instrument_file_status=InstrumentFileStatus.INITIAL,
         creation_ts=43.0,
     )
 
@@ -60,6 +61,7 @@ def test_add_raw_file_creates_new_file_when_file_does_not_exist_with_collision_f
         project_id="PID1",
         instrument_id="instrument1",
         status=RawFileStatus.QUEUED_FOR_MONITORING,
+        instrument_file_status=InstrumentFileStatus.INITIAL,
         created_at=datetime(1970, 1, 1, 0, 0, 43, tzinfo=pytz.utc),
     )
     mock_connect_db.assert_called_once()
@@ -402,11 +404,11 @@ def test_get_raw_files_by_instrument_file_status_basic_query(
     mock_query.order_by.return_value = [MagicMock(), MagicMock()]
 
     # when
-    result = get_raw_files_by_instrument_file_status(InstrumentFileStatus.NEW)
+    result = get_raw_files_by_instrument_file_status(InstrumentFileStatus.INITIAL)
 
     # then
     mock_raw_file.objects.filter.assert_called_once_with(
-        instrument_file_status=InstrumentFileStatus.NEW
+        instrument_file_status=InstrumentFileStatus.INITIAL
     )
     mock_query.order_by.assert_called_once_with("created_at")
     assert len(result) == 2

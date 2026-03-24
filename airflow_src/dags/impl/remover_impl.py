@@ -77,7 +77,7 @@ def get_raw_files_to_remove(ti: TaskInstance, **kwargs) -> None:
     """Get files to remove from the instrument backup folder."""
     del kwargs  # unused
 
-    min_file_age = int(
+    global_min_file_age_days = float(
         get_airflow_variable(
             AirflowVars.MIN_FILE_AGE_TO_REMOVE_IN_DAYS, DEFAULT_MIN_FILE_AGE_TO_REMOVE_D
         )
@@ -108,11 +108,20 @@ def get_raw_files_to_remove(ti: TaskInstance, **kwargs) -> None:
             )
             continue
 
+        instrument_min_file_age_days = get_instrument_settings(
+            instrument_id, InstrumentKeys.MIN_FILE_AGE_DAYS
+        )
+        min_file_age_days = (
+            instrument_min_file_age_days
+            if instrument_min_file_age_days is not None
+            else global_min_file_age_days
+        )
+
         try:
             raw_file_ids_to_remove[instrument_id] = _decide_on_raw_files_to_remove(
                 instrument_id,
                 min_free_gb=min_free_space_gb,
-                min_file_age=min_file_age,
+                min_file_age=min_file_age_days,
                 verify_against_s3=verify_against_s3,
                 s3_client=s3_client,
             )
@@ -141,7 +150,7 @@ def _decide_on_raw_files_to_remove(
     instrument_id: str,
     *,
     min_free_gb: int,
-    min_file_age: int,
+    min_file_age: float,
     verify_against_s3: bool,
     s3_client: BaseAwsConnection | None = None,
 ) -> list[str]:

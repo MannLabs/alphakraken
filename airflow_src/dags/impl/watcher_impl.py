@@ -21,16 +21,17 @@ from shared.db.interface import (
     get_all_project_ids,
     get_raw_files_by_names,
 )
-from shared.db.models import RawFileStatus
+from shared.db.models import InstrumentFileStatus, RawFileStatus
 
 
-def _add_raw_file_to_db(
+def _add_raw_file_to_db(  # noqa: PLR0913
     raw_file_name: str,
     *,
     is_collision: bool,
     project_id: str,
     instrument_id: str,
-    status: str = RawFileStatus.QUEUED_FOR_MONITORING,
+    instrument_file_status: str,
+    status: str,
 ) -> str:
     """Add the file to the database with initial status and basic information.
 
@@ -39,6 +40,7 @@ def _add_raw_file_to_db(
     :param project_id: project id
     :param instrument_id: instrument id
     :param status: status of the file
+    :param instrument_file_status: status of the physical file on the instrument, see InstrumentFileStatus for possible values
     :return: the raw file id
     """
     raw_file_creation_timestamp = get_file_creation_timestamp(
@@ -51,6 +53,7 @@ def _add_raw_file_to_db(
         project_id=project_id,
         instrument_id=instrument_id,
         status=status,
+        instrument_file_status=instrument_file_status,
         creation_ts=raw_file_creation_timestamp,
     )
 
@@ -104,8 +107,13 @@ def get_unknown_raw_files(
 
     raw_files_names_lower_to_sizes_from_db: dict[str, list[int]] = defaultdict(list)
     for raw_file in get_raw_files_by_names(list(raw_file_names_on_instrument)):
-        # due to collisions, there could be more than one raw file with the same original name
-        raw_file_size = get_main_file_size_from_db(raw_file)
+        if raw_file.instrument_file_status == InstrumentFileStatus.RENAMED:
+            # renamed files don't have a file size in the DB, but we want to consider them for collision checking, so we set a dummy size that will always trigger the collision logic
+            raw_file_size = -1
+        else:
+            raw_file_size = get_main_file_size_from_db(raw_file)
+
+        # due to collisions, there could be more than one raw file with the same original name, therefore keep a list of sizes for each original name
         raw_files_names_lower_to_sizes_from_db[
             _cond_lower(raw_file.original_name)
         ].append(raw_file_size)
@@ -315,6 +323,7 @@ def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
             project_id=project_id,
             instrument_id=instrument_id,
             status=status,
+            instrument_file_status=InstrumentFileStatus.INITIAL,
         )
 
         if not file_needs_handling:

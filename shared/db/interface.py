@@ -71,14 +71,14 @@ def get_raw_files_by_age(
     instrument_id: str,
     *,
     max_age_in_days: int,
-    min_age_in_days: int,
+    min_age_in_days: float,
 ) -> list[RawFile]:
     """Get raw file ids older than the given age window in days for a given instrument sorted 'oldest first'."""
     connect_db()
     now = datetime.now(tz=pytz.UTC)
 
     oldest_created_at = now - timedelta(days=max_age_in_days)
-    youngest_created_at = now - timedelta(days=min_age_in_days)
+    youngest_created_at = now - timedelta(hours=min_age_in_days * 24)
     logging.info(
         f"Getting from DB: {instrument_id=} {oldest_created_at=} {youngest_created_at=}"
     )
@@ -98,6 +98,7 @@ def add_raw_file(  # noqa: PLR0913 too many arguments
     *,
     project_id: str,
     status: str,
+    instrument_file_status: str,
     instrument_id: str,
     creation_ts: float,
 ) -> str:
@@ -105,11 +106,12 @@ def add_raw_file(  # noqa: PLR0913 too many arguments
 
     :param file_name: name of the file
     :param collision_flag: optional flag to indicate a collision
-    :param project_id: project id_
+    :param project_id: project id
     :param status: status of the file
-    :param instrument_id: id_ of the acquiring instrument
+    :param instrument_file_status: status of the physical file on the instrument, see InstrumentFileStatus for possible values
+    :param instrument_id: id of the acquiring instrument
     :param creation_ts: creation timestamp (unix)
-    :return: the raw file id_. This is either equal to the raw_file_name or has a collision flag prefixed
+    :return: the raw file id. This is either equal to the raw_file_name or has a collision flag prefixed
     """
     logging.info(
         f"Adding to DB: {file_name=} {collision_flag=} {project_id=} {status=} {instrument_id=} {creation_ts=}"
@@ -125,6 +127,7 @@ def add_raw_file(  # noqa: PLR0913 too many arguments
         project_id=project_id,
         instrument_id=instrument_id,
         status=status,
+        instrument_file_status=instrument_file_status,
         created_at=datetime.fromtimestamp(creation_ts, pytz.utc),
     )
     # this will fail if the file already exists

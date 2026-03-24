@@ -106,6 +106,58 @@ def test_get_raw_files_to_remove(
 @patch.dict(
     _INSTRUMENTS,
     {
+        "instrument1": {
+            "min_free_space_gb": 200,
+            "min_file_age_days": 7,
+        },
+        "instrument2": {
+            "min_free_space_gb": 300,
+        },
+    },
+    clear=True,
+)
+@patch("dags.impl.remover_impl.get_airflow_variable")
+@patch("dags.impl.remover_impl._decide_on_raw_files_to_remove")
+@patch("dags.impl.remover_impl.put_xcom")
+def test_get_raw_files_to_remove_with_instrument_overrides(
+    mock_put_xcom: MagicMock,  # noqa: ARG001
+    mock_decide_on_raw_files_to_remove: MagicMock,
+    mock_get_airflow_variable: MagicMock,
+) -> None:
+    """Test that instrument-specific min_file_age_days and min_free_space_gb override the global defaults."""
+    mock_ti = MagicMock()
+    mock_decide_on_raw_files_to_remove.side_effect = [
+        ["file1"],
+        ["file2"],
+    ]
+
+    mock_get_airflow_variable.side_effect = [
+        10,  # global min_file_age
+        42,  # global min_free_gb
+    ]
+
+    # when
+    get_raw_files_to_remove(mock_ti)
+
+    mock_decide_on_raw_files_to_remove.assert_has_calls(
+        [
+            call(
+                "instrument1",
+                min_file_age=7,  # taken from instrument config
+                min_free_gb=200,  # taken from instrument config
+            ),
+            call(
+                "instrument2",
+                min_file_age=10,  # falls back to global airflow variable
+                min_free_gb=300,  # taken from instrument config
+            ),
+        ]
+    )
+
+
+@patch.dict(
+    _INSTRUMENTS,
+    {
         "instrument1": {},
         "instrument2": {},
     },

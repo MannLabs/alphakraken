@@ -17,6 +17,7 @@ from common.keys import (
     CustomAlphaDiaStates,
     DagContext,
     DagParams,
+    InstrumentKeys,
     JobStates,
     OpArgs,
     QuantingEnv,
@@ -26,7 +27,7 @@ from common.paths import (
     get_internal_output_path_for_raw_file,
     get_output_folder_rel_path,
 )
-from common.settings import get_fallback_project_id
+from common.settings import get_fallback_project_id, get_instrument_settings
 from common.utils import (
     get_airflow_variable,
     get_xcom,
@@ -279,6 +280,16 @@ def run_quanting(
         return
 
     raw_file = get_raw_file_by_id(quanting_env[QuantingEnv.RAW_FILE_ID])
+
+    # TODO: this is a bit of hack, needs to go with refactoring of projects/settings  edit: now it's a terrible hack
+    if (
+        get_instrument_settings(raw_file.instrument_id, InstrumentKeys.SKIP_QUANTING)
+        and job_script_name != "submit_msqc_job.sh"
+    ):
+        logging.info(
+            f"Skipping quanting for raw file {raw_file.id} because instrument settings have skip_quanting=True."
+        )
+        raise AirflowSkipException("Skipping quanting due to instrument settings.")
 
     # upfront check 2
     output_path = get_internal_output_path_for_raw_file(

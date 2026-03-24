@@ -112,8 +112,10 @@ class InstrumentKeys:
 
     TYPE: str = "type"
     # instrument-specific settings
+    SKIP_PROCESSING: str = "skip_processing"
     SKIP_QUANTING: str = "skip_quanting"
     MIN_FREE_SPACE_GB: str = "min_free_space_gb"
+    MIN_FILE_AGE_DAYS: str = "min_file_age_days"
     FILE_MOVE_DELAY_M: str = "file_move_delay_m"
 
 

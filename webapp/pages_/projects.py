@@ -114,7 +114,7 @@ with c1.expander("Click here for help ..."):
         ### Workflow
         1. Create a project with a unique project id.
         2. Create settings on the 'Settings' page if needed.
-        3. Use the 'Assign settings to project' section above to link settings to your project.
+        3. Use the 'Manage project settings' section above to link settings to your project.
         """,
         icon="ℹ️",  # noqa: RUF001
     )
@@ -122,7 +122,7 @@ with c1.expander("Click here for help ..."):
 
 # ########################################### ASSIGN SETTINGS
 
-st.markdown("## Assign settings to project")
+st.markdown("## Manage project settings")
 
 c_assign1, c_assign2 = st.columns([0.5, 0.5])
 
@@ -255,7 +255,7 @@ with c_assign2:
                             "instrument": instr_id,
                             "settings": f"{s.name} v{s.version} ({s.software_type})",
                             "software": s.software,
-                            "details": "\n".join(p for p in detail_parts if p),
+                            "details": " | ".join(p for p in detail_parts if p),
                         }
                     )
             else:
@@ -267,14 +267,27 @@ with c_assign2:
                         "details": "",
                     }
                 )
-        st.dataframe(
-            pd.DataFrame(rows),
-            hide_index=True,
-            use_container_width=True,
+        resolved_df = pd.DataFrame(rows)
+        instrument_color_map = {
+            instr: idx % 2
+            for idx, instr in enumerate(resolved_df["instrument"].unique())
+        }
+        RESOLVED_TABLE_COLORS = [
+            "#f0f0f0",
+            "white",
+        ]
+        st.table(
+            resolved_df.style.apply(
+                lambda row: [
+                    f"background-color: {RESOLVED_TABLE_COLORS[instrument_color_map[row['instrument']]]}"
+                ]
+                * len(row),
+                axis=1,
+            )
         )
         st.page_link(
             "pages_/settings.py",
-            label="➔ Go to settings page to edit/add settings",
+            label="➔ Go to settings page to create/edit settings",
             icon="📋",
         )
     else:
@@ -313,7 +326,7 @@ c1, _ = st.columns([0.5, 0.5])
 with c1.expander("Click here for help ..."):
     st.info(
         """
-        Use this section to assign settings to projects or change settings assignments.
+        Use this section to add/remove assignements of settings to projects.
 
         - Projects can have multiple settings assigned
         - Multiple projects can share the same settings

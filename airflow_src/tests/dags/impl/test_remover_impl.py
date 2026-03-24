@@ -116,6 +116,7 @@ def test_get_raw_files_to_remove(
     },
     clear=True,
 )
+@patch("dags.impl.remover_impl.get_purging_verification_type", return_value="local")
 @patch("dags.impl.remover_impl.get_airflow_variable")
 @patch("dags.impl.remover_impl._decide_on_raw_files_to_remove")
 @patch("dags.impl.remover_impl.put_xcom")
@@ -123,6 +124,7 @@ def test_get_raw_files_to_remove_with_instrument_overrides(
     mock_put_xcom: MagicMock,  # noqa: ARG001
     mock_decide_on_raw_files_to_remove: MagicMock,
     mock_get_airflow_variable: MagicMock,
+    mock_get_purging_verification_type: MagicMock,  # noqa: ARG001
 ) -> None:
     """Test that instrument-specific min_file_age_days and min_free_space_gb override the global defaults."""
     mock_ti = MagicMock()
@@ -145,11 +147,15 @@ def test_get_raw_files_to_remove_with_instrument_overrides(
                 "instrument1",
                 min_file_age=7,  # taken from instrument config
                 min_free_gb=200,  # taken from instrument config
+                verify_against_s3=False,
+                s3_client=None,
             ),
             call(
                 "instrument2",
                 min_file_age=10,  # falls back to global airflow variable
                 min_free_gb=300,  # taken from instrument config
+                verify_against_s3=False,
+                s3_client=None,
             ),
         ]
     )

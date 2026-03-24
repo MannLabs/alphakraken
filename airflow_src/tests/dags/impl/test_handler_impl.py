@@ -798,7 +798,6 @@ def test_decide_processing_returns_true_if_no_errors(
     ti = MagicMock()
     kwargs = {
         DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"},
-        OpArgs.INSTRUMENT_ID: "instrument1",
     }
 
     # when
@@ -822,7 +821,6 @@ def test_decide_processing_returns_false_if_acquisition_errors_present(
     ti = MagicMock()
     kwargs = {
         DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"},
-        OpArgs.INSTRUMENT_ID: "instrument1",
     }
 
     # when
@@ -849,7 +847,6 @@ def test_decide_processing_returns_false_if_file_size_zero(
     ti = MagicMock()
     kwargs = {
         DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"},
-        OpArgs.INSTRUMENT_ID: "instrument1",
     }
 
     # when
@@ -862,7 +859,10 @@ def test_decide_processing_returns_false_if_file_size_zero(
 
 
 @patch("dags.impl.handler_impl.get_xcom", return_value=[])
-@patch("dags.impl.handler_impl.get_raw_file_by_id", return_value=[])
+@patch(
+    "dags.impl.handler_impl.get_raw_file_by_id",
+    return_value=MagicMock(instrument_id="instrument1"),
+)
 @patch("dags.impl.handler_impl.get_instrument_settings", return_value=True)
 @patch("dags.impl.handler_impl.update_raw_file")
 def test_decide_processing_returns_false_if_skip_processing_is_set(
@@ -875,7 +875,6 @@ def test_decide_processing_returns_false_if_skip_processing_is_set(
     ti = MagicMock()
     kwargs = {
         DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"},
-        OpArgs.INSTRUMENT_ID: "instrument1",
     }
 
     # when
@@ -891,7 +890,10 @@ def test_decide_processing_returns_false_if_skip_processing_is_set(
 
 
 @patch("dags.impl.handler_impl.get_xcom", return_value=[])
-@patch("dags.impl.handler_impl.get_raw_file_by_id", return_value=[])
+@patch(
+    "dags.impl.handler_impl.get_raw_file_by_id",
+    return_value=MagicMock(instrument_id="instrument1"),
+)
 @patch("dags.impl.handler_impl.get_instrument_settings", return_value=False)
 @patch("dags.impl.handler_impl.update_raw_file")
 def test_decide_processing_returns_false_if_dda(
@@ -904,7 +906,6 @@ def test_decide_processing_returns_false_if_dda(
     ti = MagicMock()
     kwargs = {
         DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_dda_file.raw"},
-        OpArgs.INSTRUMENT_ID: "instrument1",
     }
 
     # when
@@ -917,7 +918,10 @@ def test_decide_processing_returns_false_if_dda(
 
 
 @patch("dags.impl.handler_impl.get_xcom", return_value=[])
-@patch("dags.impl.handler_impl.get_raw_file_by_id", return_value=[])
+@patch(
+    "dags.impl.handler_impl.get_raw_file_by_id",
+    return_value=MagicMock(instrument_id="instrument1"),
+)
 @patch("dags.impl.handler_impl.get_instrument_settings", return_value=False)
 @patch("dags.impl.handler_impl._count_special_characters", return_value=1)
 @patch("dags.impl.handler_impl.update_raw_file")
@@ -932,7 +936,6 @@ def test_decide_processing_returns_false_if_special_characters(
     ti = MagicMock()
     kwargs = {
         DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"},
-        OpArgs.INSTRUMENT_ID: "instrument1",
     }
 
     # when
@@ -962,7 +965,6 @@ def test_decide_processing_returns_false_if_corrupted_file(  # noqa: PLR0913
     ti = MagicMock()
     kwargs = {
         DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"},
-        OpArgs.INSTRUMENT_ID: "instrument1",
     }
 
     mock_raw_file_monitor_wrapper.return_value.is_corrupted_file_name.return_value = (
@@ -1001,7 +1003,6 @@ def test_decide_processing_returns_false_if_settings_not_configured(  # noqa: PL
     ti = MagicMock()
     kwargs = {
         DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"},
-        OpArgs.INSTRUMENT_ID: "instrument1",
     }
 
     mock_raw_file_monitor_wrapper.is_corrupted_file_name.return_value = False

@@ -105,7 +105,6 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
         decide_processing_ = ShortCircuitOperator(
             task_id=Tasks.DECIDE_PROCESSING,
             python_callable=decide_processing,
-            op_kwargs={OpArgs.INSTRUMENT_ID: instrument_id},
         )
 
         start_acquisition_processor_ = PythonOperator(

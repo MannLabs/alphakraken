@@ -391,7 +391,6 @@ def decide_processing(ti: TaskInstance, **kwargs) -> bool:
         - if the raw file name contains special characters
     """
     raw_file_id = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID]
-    instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
     acquisition_monitor_errors = get_xcom(ti, XComKeys.ACQUISITION_MONITOR_ERRORS, [])
     raw_file = get_raw_file_by_id(raw_file_id)
 
@@ -401,7 +400,9 @@ def decide_processing(ti: TaskInstance, **kwargs) -> bool:
     ):
         new_status = RawFileStatus.ACQUISITION_FAILED
         status_details = ";".join(acquisition_monitor_errors)
-    elif get_instrument_settings(instrument_id, InstrumentKeys.SKIP_PROCESSING):
+    elif get_instrument_settings(
+        raw_file.instrument_id, InstrumentKeys.SKIP_PROCESSING
+    ):
         new_status = RawFileStatus.DONE_NOT_QUANTED
         status_details = "Processing disabled for this instrument."
     elif DDA_FLAG_IN_RAW_FILE_NAME in raw_file_id.lower():

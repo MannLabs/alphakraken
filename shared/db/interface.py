@@ -237,7 +237,7 @@ def create_project_settings(
     settings = Settings.objects.get(id=settings_id)
     if settings.status == SettingsStatus.INACTIVE:
         raise ValueError(
-            f"Cannot assign archived settings '{settings.name}' v{settings.version}"
+            f"Cannot assign archived settings '{settings.name}' version {settings.version}"
         )
     ps = ProjectSettings(
         project=project, settings=settings, scope=scope, excluded=excluded or []

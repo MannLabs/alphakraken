@@ -253,7 +253,7 @@ with c_assign2:
                     rows.append(
                         {
                             "instrument": instr_id,
-                            "settings": f"{s.name} v{s.version} ({s.software_type})",
+                            "settings": f"{s.name} version {s.version} ({s.software_type})",
                             "software": s.software,
                             "details": " | ".join(p for p in detail_parts if p),
                         }

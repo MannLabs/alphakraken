@@ -102,7 +102,6 @@ class TestFileBasedJobHandler:
             handler.start_job("ignored_script", sample_environment, "ignored_folder")
 
     @patch("jobs._experimental.file_based_job_handler.get_raw_file_by_id")
-    @patch("jobs._experimental.file_based_job_handler._get_project_id_or_fallback")
     @patch(
         "jobs._experimental.file_based_job_handler.get_internal_output_path_for_raw_file"
     )
@@ -111,7 +110,6 @@ class TestFileBasedJobHandler:
         self,
         mock_exists: MagicMock,
         mock_get_path: MagicMock,
-        mock_get_project: MagicMock,
         mock_get_raw_file: MagicMock,
         mock_raw_file: MagicMock,
     ) -> None:
@@ -119,7 +117,6 @@ class TestFileBasedJobHandler:
         # given
         handler = FileBasedJobHandler()
         mock_get_raw_file.return_value = mock_raw_file
-        mock_get_project.return_value = "test_project"
         mock_get_path.return_value = Path("/test/output")
         mock_exists.return_value = False
 
@@ -139,7 +136,6 @@ class TestFileBasedJobHandler:
         ],
     )
     @patch("jobs._experimental.file_based_job_handler.get_raw_file_by_id")
-    @patch("jobs._experimental.file_based_job_handler._get_project_id_or_fallback")
     @patch(
         "jobs._experimental.file_based_job_handler.get_internal_output_path_for_raw_file"
     )
@@ -148,7 +144,6 @@ class TestFileBasedJobHandler:
         self,
         mock_exists: MagicMock,
         mock_get_path: MagicMock,
-        mock_get_project: MagicMock,
         mock_get_raw_file: MagicMock,
         mock_raw_file: MagicMock,
         read_data: str,
@@ -158,7 +153,6 @@ class TestFileBasedJobHandler:
         # given
         handler = FileBasedJobHandler()
         mock_get_raw_file.return_value = mock_raw_file
-        mock_get_project.return_value = "test_project"
         mock_get_path.return_value = Path("/test/output")
         mock_exists.return_value = True
 

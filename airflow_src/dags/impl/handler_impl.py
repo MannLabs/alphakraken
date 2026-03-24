@@ -204,7 +204,6 @@ def _compare_file_info(
 def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
     """Copy all data associated with a raw file to the target location."""
     raw_file_id = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID]
-    instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
 
     files_dst_paths = {
         Path(k): Path(v) for k, v in get_xcom(ti, XComKeys.FILES_DST_PATHS).items()
@@ -214,7 +213,7 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
     }
 
     raw_file = get_raw_file_by_id(raw_file_id)
-    backup_base_path = get_backup_base_path(instrument_id, raw_file)
+    backup_base_path = get_backup_base_path(raw_file)
 
     update_raw_file(
         raw_file_id,
@@ -295,11 +294,11 @@ def _handle_file_copying(
     return copied_files
 
 
-def get_backup_base_path(instrument_id: str, raw_file: RawFile) -> Path:
-    """Get the backup base path for the given instrument and raw file, e.g. /fs/pool/backup/test2/2025_07 ."""
+def get_backup_base_path(raw_file: RawFile) -> Path:
+    """Get the backup base path for the given raw file, e.g. /fs/pool/backup/test2/2025_07 ."""
     return (
         get_path(YamlKeys.Locations.BACKUP)
-        / instrument_id
+        / raw_file.instrument_id
         / get_created_at_year_month(raw_file)
     )
 

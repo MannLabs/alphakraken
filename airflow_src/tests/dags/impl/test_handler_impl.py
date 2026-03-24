@@ -497,7 +497,6 @@ def test_copy_raw_file_calls_update_with_correct_args(  # noqa: PLR0913
     ti = MagicMock()
     kwargs = {
         "params": {"raw_file_id": "test_file.raw"},
-        "instrument_id": "instrument1",
     }
     src_path = "/path/to/instrument/test_file.raw"
     dst_path = "/opt/airflow/mounts/backup/test_file.raw"
@@ -564,7 +563,6 @@ def test_copy_raw_file_verify_fails(  # noqa: PLR0913
     ti = MagicMock()
     kwargs = {
         "params": {"raw_file_id": "test_file.raw"},
-        "instrument_id": "instrument1",
     }
     src_path = "/path/to/instrument/test_file.raw"
     dst_path = "/opt/airflow/mounts/backup/test_file.raw"
@@ -621,7 +619,6 @@ def test_copy_raw_file_calls_update_with_correct_args_overwrite(  # noqa: PLR091
     ti = MagicMock()
     kwargs = {
         "params": {"raw_file_id": "test_file.raw"},
-        "instrument_id": "instrument1",
     }
     mock_get_xcom.side_effect = [
         {

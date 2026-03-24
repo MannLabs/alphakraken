@@ -172,7 +172,7 @@ with c_assign1:
             st.warning("No active settings available. Create settings first.")
         else:
             settings_options_map = {
-                f"{s.name} version {s.version} (type: {s.software_type}, executable: {s.software}]": str(
+                f"{s.name} version {s.version} (type: {s.software_type}, executable: {s.software})": str(
                     s.id  # type: ignore[unresolved-attribute]
                 )
                 for s in all_settings

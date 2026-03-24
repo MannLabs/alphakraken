@@ -174,12 +174,7 @@ if selected_name_option != CREATE_NEW_OPTION:
 
 
 disable_software_type_selection = "software_type" in prefill_data
-software_type_options = [
-    SoftwareTypes.ALPHADIA,
-    SoftwareTypes.CUSTOM,
-    SoftwareTypes.MSQC,
-    SoftwareTypes.SKYLINE,
-]
+software_type_options = SoftwareTypes.get_values()
 software_type_index = (
     software_type_options.index(prefill_data["software_type"])
     if prefill_data["software_type"] in software_type_options
@@ -192,14 +187,13 @@ software_type = c1.selectbox(
     disabled=disable_software_type_selection,
 )
 
-metrics_type_options = [
-    MetricsTypes.ALPHADIA,
-    MetricsTypes.CUSTOM,
-    MetricsTypes.MSQC,
-    MetricsTypes.SKYLINE,
-]
-# Default to prefill value when updating, otherwise match software_type
-metrics_type_default = prefill_data.get("metrics_type", "") or software_type
+metrics_type_options = MetricsTypes.get_values()
+# For non-custom software types, metrics_type is locked to match software_type
+disable_metrics_type_selection = software_type != SoftwareTypes.CUSTOM
+if disable_metrics_type_selection:
+    metrics_type_default = software_type
+else:
+    metrics_type_default = prefill_data.get("metrics_type", "") or software_type
 metrics_type_index = (
     metrics_type_options.index(metrics_type_default)
     if metrics_type_default in metrics_type_options
@@ -209,6 +203,7 @@ metrics_type = c1.selectbox(
     label="Metrics type",
     options=metrics_type_options,
     index=metrics_type_index,
+    disabled=disable_metrics_type_selection,
 )
 
 form_items = {

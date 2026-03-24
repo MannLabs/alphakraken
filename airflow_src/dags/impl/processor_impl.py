@@ -45,18 +45,10 @@ from shared.db.interface import (
     update_raw_file,
 )
 from shared.db.models import RawFile, RawFileStatus, Settings, get_created_at_year_month
-from shared.keys import MetricsTypes, SoftwareTypes
+from shared.keys import SoftwareTypes
 from shared.scope import resolve_scoped_settings
 from shared.validation import check_for_malicious_content
 from shared.yamlsettings import YamlKeys, get_path
-
-# TODO: only temporarily until set via UI
-SOFTWARE_TYPE_TO_METRICS_TYPE = {
-    SoftwareTypes.ALPHADIA: MetricsTypes.ALPHADIA,
-    SoftwareTypes.CUSTOM: MetricsTypes.CUSTOM,
-    SoftwareTypes.MSQC: MetricsTypes.MSQC,
-    SoftwareTypes.SKYLINE: MetricsTypes.SKYLINE,
-}
 
 
 def prepare_quanting(
@@ -130,9 +122,7 @@ def prepare_quanting(
             QuantingEnv.CONFIG_FILE_NAME: settings.config_file_name,  # TODO: construct path here
             QuantingEnv.SOFTWARE: settings.software,
             QuantingEnv.SOFTWARE_TYPE: settings.software_type,
-            QuantingEnv.METRICS_TYPE: SOFTWARE_TYPE_TO_METRICS_TYPE[
-                settings.software_type
-            ],
+            QuantingEnv.METRICS_TYPE: settings.metrics_type,
             QuantingEnv.CUSTOM_COMMAND: custom_command,
             # job parameters
             QuantingEnv.SLURM_CPUS_PER_TASK: slurm_params.cpus_per_task,

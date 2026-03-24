@@ -51,22 +51,22 @@ class InternalPaths(metaclass=ConstantsClass):
     OUTPUT = "output"
 
 
-class MetricsTypes(metaclass=ConstantsClass):
-    """Types of metrics that can be added to a raw file."""
-
-    ALPHADIA: str = "alphadia"
-    MSQC: str = "msqc"
-    SKYLINE: str = "skyline"
-    CUSTOM: str = "custom"
-
-
 class SoftwareTypes(metaclass=ConstantsClass):
     """Types of software that can be used for quanting."""
 
     ALPHADIA: str = "alphadia"
-    CUSTOM: str = "custom"
     MSQC: str = "msqc"
     SKYLINE: str = "skyline"
+    CUSTOM: str = "custom"
+
+
+class MetricsTypes(metaclass=ConstantsClass):
+    """Types of metrics that can be calculated from quanting results."""
+
+    ALPHADIA: str = "alphadia"
+    MSQC: str = "msqc"
+    SKYLINE: str = "skyline"
+    CUSTOM: str = "custom"
 
 
 DEFAULT_SCOPE = "*"

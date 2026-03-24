@@ -60,6 +60,7 @@ def test_prepare_quanting(
     mock_settings.config_params = ""
     mock_settings.software = "some_software"
     mock_settings.software_type = "alphadia"
+    mock_settings.metrics_type = "alphadia"
     mock_settings.version = 1
     mock_get_settings.return_value = [MagicMock()]
     mock_resolve_scoped.return_value = [mock_settings]
@@ -132,6 +133,7 @@ def test_prepare_quanting_custom_software(
     mock_settings.config_params = "--qvalue 0.01 --f RAW_FILE_PATH --lib SETTINGS_PATH/some_speclib_file_name --out OUTPUT_PATH --fasta SETTINGS_PATH/some_fasta_file_name --threads NUM_THREADS --some_param RELATIVE_RAW_FILE_PATH --some_param2 RELATIVE_OUTPUT_PATH"
     mock_settings.software = "custom1.2.3"
     mock_settings.software_type = "custom"
+    mock_settings.metrics_type = "custom"
     mock_settings.version = 1
     mock_get_settings.return_value = [MagicMock()]
     mock_resolve_scoped.return_value = [mock_settings]

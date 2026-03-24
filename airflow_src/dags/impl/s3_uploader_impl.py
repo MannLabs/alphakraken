@@ -86,9 +86,10 @@ def upload_raw_file_to_s3(ti: TaskInstance, **kwargs) -> None:
 
         bucket_exists_, error_msg, error_code = bucket_exists(bucket_name, s3_client)
         if not bucket_exists_:
-            if not auto_create_buckets or error_code != S3_BUCKET_NOT_FOUND_ERROR_CODE:
+            if error_code == S3_BUCKET_NOT_FOUND_ERROR_CODE and auto_create_buckets:
+                create_bucket(bucket_name, region, s3_client)
+            else:
                 raise S3UploadFailedException(error_msg)  # noqa: TRY301
-            create_bucket(bucket_name, region, s3_client)
 
         file_path_to_target_path_and_etag, key_prefix = _prepare_upload(
             raw_file, internal_target_folder_path

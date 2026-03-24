@@ -42,8 +42,8 @@ from raw_file_wrapper_factory import (
 )
 
 from shared.db.interface import (
+    get_project_settings,
     get_raw_file_by_id,
-    get_settings_for_raw_file,
     update_raw_file,
 )
 from shared.db.models import (
@@ -374,7 +374,7 @@ def _is_settings_configured(raw_file: RawFile) -> bool:
     instrument_type = get_instrument_settings(
         raw_file.instrument_id, InstrumentKeys.TYPE
     )
-    project_settings = get_settings_for_raw_file(raw_file.project_id)
+    project_settings = get_project_settings(raw_file.project_id)
     resolved_settings = resolve_scoped_settings(
         project_settings, raw_file.instrument_id, instrument_type
     )

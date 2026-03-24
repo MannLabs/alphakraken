@@ -40,8 +40,8 @@ from mongoengine import DoesNotExist
 
 from shared.db.interface import (
     add_metrics_to_raw_file,
+    get_project_settings,
     get_raw_file_by_id,
-    get_settings_for_raw_file,
     update_raw_file,
 )
 from shared.db.models import RawFile, RawFileStatus, Settings, get_created_at_year_month
@@ -67,7 +67,7 @@ def prepare_quanting(
 
     instrument_type = get_instrument_settings(instrument_id, InstrumentKeys.TYPE)
     try:
-        project_settings = get_settings_for_raw_file(raw_file.project_id)
+        project_settings = get_project_settings(raw_file.project_id)
         settings_list = resolve_scoped_settings(
             project_settings, instrument_id, instrument_type
         )

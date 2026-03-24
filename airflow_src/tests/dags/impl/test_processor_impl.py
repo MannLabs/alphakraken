@@ -31,7 +31,7 @@ from shared.db.models import RawFile, RawFileStatus
 @patch.dict(_INSTRUMENTS, {"instrument1": {"type": "thermo"}})
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.get_path")
-@patch("dags.impl.processor_impl.get_settings_for_raw_file")
+@patch("dags.impl.processor_impl.get_project_settings")
 @patch("dags.impl.processor_impl.resolve_scoped_settings")
 def test_prepare_quanting(
     mock_resolve_scoped: MagicMock,
@@ -102,7 +102,7 @@ def test_prepare_quanting(
 @patch.dict(_INSTRUMENTS, {"instrument1": {"type": "thermo"}})
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.get_path")
-@patch("dags.impl.processor_impl.get_settings_for_raw_file")
+@patch("dags.impl.processor_impl.get_project_settings")
 @patch("dags.impl.processor_impl.resolve_scoped_settings")
 def test_prepare_quanting_custom_software(
     mock_resolve_scoped: MagicMock,
@@ -176,7 +176,7 @@ def test_prepare_quanting_custom_software(
 @patch.dict(_INSTRUMENTS, {"instrument1": {"type": "thermo"}})
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.get_path")
-@patch("dags.impl.processor_impl.get_settings_for_raw_file")
+@patch("dags.impl.processor_impl.get_project_settings")
 @patch("dags.impl.processor_impl.resolve_scoped_settings")
 def test_prepare_quanting_multiple_settings(
     mock_resolve_scoped: MagicMock,
@@ -247,7 +247,7 @@ def test_prepare_quanting_multiple_settings(
 @patch.dict(_INSTRUMENTS, {"instrument1": {"type": "thermo"}})
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.get_path")
-@patch("dags.impl.processor_impl.get_settings_for_raw_file")
+@patch("dags.impl.processor_impl.get_project_settings")
 @patch("dags.impl.processor_impl.resolve_scoped_settings")
 def test_prepare_quanting_validation_error_raises(
     mock_resolve_scoped: MagicMock,
@@ -288,7 +288,7 @@ def test_prepare_quanting_validation_error_raises(
 
 
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
-@patch("dags.impl.processor_impl.get_settings_for_raw_file")
+@patch("dags.impl.processor_impl.get_project_settings")
 @patch("dags.impl.processor_impl.get_instrument_settings")
 def test_prepare_quanting_no_project_raise(
     mock_get_instrument_settings: MagicMock,
@@ -314,7 +314,7 @@ def test_prepare_quanting_no_project_raise(
 
 
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
-@patch("dags.impl.processor_impl.get_settings_for_raw_file")
+@patch("dags.impl.processor_impl.get_project_settings")
 @patch("dags.impl.processor_impl.resolve_scoped_settings")
 @patch("dags.impl.processor_impl.get_instrument_settings")
 def test_prepare_quanting_no_settings_raise(

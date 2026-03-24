@@ -22,7 +22,6 @@ from shared.db.interface import (
     get_raw_files_by_age,
     get_raw_files_by_instrument_file_status,
     get_raw_files_by_names,
-    get_settings_for_raw_file,
     remove_project_settings,
     update_kraken_status,
     update_raw_file,
@@ -406,38 +405,6 @@ def test_get_project_settings(
     result = get_project_settings("P1234")
 
     assert result == [mock_ps1, mock_ps2]
-    mock_connect_db.assert_called_once()
-
-
-@patch("shared.db.interface.connect_db")
-@patch("shared.db.interface.ProjectSettings")
-def test_get_settings_for_raw_file(
-    mock_project_settings: MagicMock, mock_connect_db: MagicMock
-) -> None:
-    """Test that get_settings_for_raw_file returns settings from all assignments."""
-    mock_ps1 = MagicMock()
-    mock_ps1.settings = MagicMock(name="settings_a")
-    mock_ps2 = MagicMock()
-    mock_ps2.settings = MagicMock(name="settings_b")
-    mock_project_settings.objects.return_value = [mock_ps1, mock_ps2]
-
-    result = get_settings_for_raw_file("P1234")
-
-    assert result == [mock_ps1, mock_ps2]
-    mock_connect_db.assert_called_once()
-
-
-@patch("shared.db.interface.connect_db")
-@patch("shared.db.interface.ProjectSettings")
-def test_get_settings_for_raw_file_empty(
-    mock_project_settings: MagicMock, mock_connect_db: MagicMock
-) -> None:
-    """Test that get_settings_for_raw_file returns empty list when no assignments."""
-    mock_project_settings.objects.return_value = []
-
-    result = get_settings_for_raw_file("P1234")
-
-    assert result == []
     mock_connect_db.assert_called_once()
 
 

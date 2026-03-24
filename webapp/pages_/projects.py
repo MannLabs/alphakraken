@@ -147,11 +147,11 @@ with c_assign1:
                 )
                 ps_id = str(ps.id)  # type: ignore[unresolved-attribute]
                 if col_btn.button(
-                    "Remove",
+                    "unassign",
                     key=f"remove_ps_{ps_id}",
                     disabled=DISABLE_WRITE,
-                    help="Temporarily disabled." if DISABLE_WRITE else "",
-                    icon="🗑️",
+                    help=f"Remove the assignment of this settings to the project. {'Temporarily disabled.' if DISABLE_WRITE else ''}",
+                    icon=":material/link_off:",
                 ):
                     try:
                         remove_project_settings(ps_id)  # type: ignore[unresolved-attribute]
@@ -202,7 +202,8 @@ with c_assign1:
             if st.button(
                 f"Assign selected settings to project {selected_project_id}",
                 disabled=DISABLE_WRITE,
-                help="Temporarily disabled." if DISABLE_WRITE else "",
+                help=f"Assign of the selected settings to the project with the specified scope. {'Temporarily disabled.' if DISABLE_WRITE else ''}",
+                icon=":material/link:",
             ):
                 try:
                     new_settings_id = settings_options_map[selected_settings_display]
@@ -225,7 +226,7 @@ with c_assign2:
     if selected_project_id:
         st.markdown(
             "### Resolved settings per instrument",
-            help="This table shows the settings that would be applied for each instrument based on the current settings assignments and their scopes.",
+            help="This table shows the settings that are applied for each instrument based on the current settings assignments and their scopes.",
         )
         current_ps_for_table = get_project_settings(selected_project_id)
         if current_ps_for_table:

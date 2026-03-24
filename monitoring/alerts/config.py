@@ -37,6 +37,10 @@ INSTRUMENT_FILE_PILE_UP_THRESHOLDS = {
 }
 INSTRUMENT_FILE_MIN_AGE_HOURS = 6  # Only consider files older than 6 hours
 
+# Instrument stall alert configuration
+INSTRUMENT_STALL_THRESHOLD_HOURS = 2  # How long without a new file before alerting
+INSTRUMENT_STALL_INSTRUMENT_IDS: set[str] = set()  # Instruments to monitor
+
 # Pump pressure alert configuration
 PUMP_PRESSURE_LOOKBACK_DAYS = 1
 PUMP_PRESSURE_WINDOW_SIZE = 5  # Number of samples to compare
@@ -75,3 +79,4 @@ class Cases:
     S3_UPLOAD_FAILURE = "s3_upload_failure"
     WEBAPP_HEALTH = "webapp_health"
     PUMP_PRESSURE_INCREASE = "pump_pressure_increase"
+    INSTRUMENT_STALL = "instrument_stall"

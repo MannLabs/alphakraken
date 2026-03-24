@@ -20,7 +20,7 @@ from mongoengine import (
     StringField,
 )
 
-from shared.keys import FALLBACK_PROJECT_ID, MetricsTypes
+from shared.keys import FALLBACK_PROJECT_ID, MetricsTypes, SoftwareTypes
 
 FileInfoItem = (
     tuple[float | None, str | None] | tuple[float | None, str | None, str | None]
@@ -196,7 +196,7 @@ class Metrics(DynamicDocument):
     settings_name = StringField(max_length=64, default="n/a")
     settings_version = IntField(min_value=1, default=1)
 
-    # Type of metrics: "alphadia" (default) or "custom"
+    # Type of metrics: e.g. "alphadia" (default), "custom", ..
     type = StringField(max_length=32, default=MetricsTypes.ALPHADIA)
 
     # audit fields
@@ -259,7 +259,7 @@ class Settings(Document):
     software_type = StringField(
         required=True,
         max_length=128,
-        default="alphadia",  # TODO: remove, default is just for backwards compatibility
+        default=SoftwareTypes.ALPHADIA,  # TODO: remove, default is just for backwards compatibility
     )
     software = StringField(required=True, max_length=128)
 

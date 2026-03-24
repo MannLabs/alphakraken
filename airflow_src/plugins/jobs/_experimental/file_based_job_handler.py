@@ -21,7 +21,7 @@ from common.paths import get_internal_output_path_for_raw_file
 from jobs.job_handler import JobHandler
 
 from shared.db.interface import get_raw_file_by_id
-from shared.keys import InternalPaths
+from shared.keys import InternalPaths, SoftwareTypes
 
 
 class FileBasedJobHandler(JobHandler):
@@ -102,8 +102,7 @@ class FileBasedJobHandler(JobHandler):
 
         output_path = get_internal_output_path_for_raw_file(
             raw_file,
-            raw_file.project_id,
-            settings_type="custom",  # this assumption makes life much easier, and should not limit flexibility too much
+            settings_type=SoftwareTypes.CUSTOM,  # this assumption makes life much easier, and should not limit flexibility too much
         )
         status_file = output_path / "job_status.log"
 

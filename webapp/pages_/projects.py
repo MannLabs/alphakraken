@@ -138,7 +138,7 @@ with c_assign1:
         if current_ps_list:
             st.markdown("**Current settings assignments:**")
             for ps in current_ps_list:
-                col_info, col_btn = st.columns([0.7, 0.3])
+                col_info, col_btn = st.columns([0.9, 0.1])
                 excluded_str = (
                     f" [excluded: {', '.join(ps.excluded)}]" if ps.excluded else ""
                 )
@@ -147,10 +147,10 @@ with c_assign1:
                 )
                 ps_id = str(ps.id)  # type: ignore[unresolved-attribute]
                 if col_btn.button(
-                    "unassign",
+                    "",
                     key=f"remove_ps_{ps_id}",
                     disabled=DISABLE_WRITE,
-                    help=f"Remove the assignment of this settings to the project. {'Temporarily disabled.' if DISABLE_WRITE else ''}",
+                    help=f"Unassign '{ps.settings.name}' from this project. {'Temporarily disabled.' if DISABLE_WRITE else ''}",
                     icon=":material/link_off:",
                 ):
                     try:
@@ -229,61 +229,54 @@ with c_assign2:
             help="This table shows the settings that are applied for each instrument based on the current settings assignments and their scopes.",
         )
         current_ps_for_table = get_project_settings(selected_project_id)
-        if current_ps_for_table:
-            rows = []
-            for instr_id in _INSTRUMENT_IDS:
-                instr_type = _INSTRUMENTS_CONFIG.get(instr_id, {}).get(
-                    YamlKeys.TYPE, ""
-                )
-                resolved = resolve_scoped_settings(
-                    current_ps_for_table, instr_id, instr_type
-                )
-                if resolved:
-                    for s in resolved:
-                        detail_parts = [
-                            f"description: {s.description}" if s.description else None,
-                            f"config_file: {s.config_file_name}"
-                            if s.config_file_name
-                            else None,
-                            f"fasta: {s.fasta_file_name}"
-                            if s.fasta_file_name
-                            else None,
-                            f"speclib: {s.speclib_file_name}"
-                            if s.speclib_file_name
-                            else None,
-                            f"config_params: {s.config_params}"
-                            if s.config_params
-                            else None,
-                        ]
-                        rows.append(
-                            {
-                                "instrument": instr_id,
-                                "settings": f"{s.name} v{s.version} ({s.software_type})",
-                                "software": s.software,
-                                "details": "\n".join(p for p in detail_parts if p),
-                            }
-                        )
-                else:
+        rows = []
+        for instr_id in _INSTRUMENT_IDS:
+            instr_type = _INSTRUMENTS_CONFIG.get(instr_id, {}).get(YamlKeys.TYPE, "")
+            resolved = resolve_scoped_settings(
+                current_ps_for_table, instr_id, instr_type
+            )
+            if resolved:
+                for s in resolved:
+                    detail_parts = [
+                        f"description: {s.description}" if s.description else None,
+                        f"config_file: {s.config_file_name}"
+                        if s.config_file_name
+                        else None,
+                        f"fasta: {s.fasta_file_name}" if s.fasta_file_name else None,
+                        f"speclib: {s.speclib_file_name}"
+                        if s.speclib_file_name
+                        else None,
+                        f"config_params: {s.config_params}"
+                        if s.config_params
+                        else None,
+                    ]
                     rows.append(
                         {
                             "instrument": instr_id,
-                            "settings": "--",
-                            "software": "--",
-                            "details": "",
+                            "settings": f"{s.name} v{s.version} ({s.software_type})",
+                            "software": s.software,
+                            "details": "\n".join(p for p in detail_parts if p),
                         }
                     )
-            st.dataframe(
-                pd.DataFrame(rows),
-                hide_index=True,
-                use_container_width=True,
-            )
-            st.page_link(
-                "pages_/settings.py",
-                label="➔ Go to settings page to edit/add settings",
-                icon="📋",
-            )
-        else:
-            st.info("No settings assigned to this project.")
+            else:
+                rows.append(
+                    {
+                        "instrument": instr_id,
+                        "settings": "--",
+                        "software": "--",
+                        "details": "",
+                    }
+                )
+        st.dataframe(
+            pd.DataFrame(rows),
+            hide_index=True,
+            use_container_width=True,
+        )
+        st.page_link(
+            "pages_/settings.py",
+            label="➔ Go to settings page to edit/add settings",
+            icon="📋",
+        )
     else:
         st.info(
             "Select a project on the left to see resolved settings per instrument.",

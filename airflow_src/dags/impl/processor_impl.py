@@ -27,7 +27,7 @@ from common.paths import (
     get_internal_output_path_for_raw_file,
     get_output_folder_rel_path,
 )
-from common.settings import get_fallback_project_id, get_instrument_settings
+from common.settings import FALLBACK_PROJECT_ID, get_instrument_settings
 from common.utils import (
     get_airflow_variable,
 )
@@ -59,11 +59,9 @@ SOFTWARE_TYPE_TO_METRICS_TYPE = {
 }
 
 
-def _get_project_id_or_fallback(project_id: str | None, instrument_id: str) -> str:
+def _get_project_id_or_fallback(project_id: str | None, instrument_id: str) -> str:  # noqa: ARG001
     """Get the project id for a raw file or the fallback ID if not present."""
-    return (
-        project_id if project_id is not None else get_fallback_project_id(instrument_id)
-    )
+    return project_id if project_id is not None else FALLBACK_PROJECT_ID
 
 
 def prepare_quanting(

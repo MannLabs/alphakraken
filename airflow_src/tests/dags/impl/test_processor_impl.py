@@ -37,22 +37,12 @@ def test_get_project_id_for_raw_file() -> None:
     assert project_id == "PID1"
 
 
-@patch.dict(_INSTRUMENTS, {"instrument1": {"type": "some_type"}})
 def test_get_project_id_for_raw_file_fallback() -> None:
     """Test that _get_project_id_for_raw_file returns correct project id for non-bruker."""
     # when
     project_id = _get_project_id_or_fallback(None, "instrument1")
 
     assert project_id == "_FALLBACK"
-
-
-@patch.dict(_INSTRUMENTS, {"instrument1": {"type": "bruker"}})
-def test_get_project_id_for_raw_file_fallback_bruker() -> None:
-    """Test that _get_project_id_for_raw_file returns correct project id for bruker."""
-    # when
-    project_id = _get_project_id_or_fallback(None, "instrument1")
-
-    assert project_id == "_FALLBACK_BRUKER"
 
 
 @patch.dict(_INSTRUMENTS, {"instrument1": {"type": "thermo"}})

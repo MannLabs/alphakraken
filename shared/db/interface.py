@@ -249,6 +249,7 @@ def create_project_settings(
     return ps
 
 
+# TODO: rename to unassign_settings_from_project ?
 def remove_project_settings(project_settings_id: str) -> None:
     """Remove a project-settings assignment by its ID."""
     connect_db()

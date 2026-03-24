@@ -6,6 +6,7 @@ from pathlib import Path
 
 from airflow.exceptions import AirflowFailException, AirflowSkipException
 from airflow.models import TaskInstance
+from airflow.utils.state import TaskInstanceState
 from common.constants import (
     DEFAULT_JOB_SCRIPT_NAME,
     ERROR_CODE_TO_STRING,
@@ -86,9 +87,9 @@ def prepare_quanting(
         ) from e
 
     if not settings_list:
+        # this should not happen as this DAG should not be triggered if there are no settings
         raise AirflowFailException(
             f"No settings assigned to project '{project_id_or_fallback}'. "
-            "Please assign settings to this project in the WebApp."
         )
 
     # get raw file path
@@ -416,6 +417,7 @@ def check_quanting_result(*, quanting_env: dict, job_id: str) -> dict:
         elif job_status == JobStates.TIMEOUT:
             errors = ["TIMEOUT"]
         else:
+            # TODO: this seems not quite right
             errors = ["OUT_OF_MEMORY"]
 
         update_raw_file(
@@ -443,7 +445,6 @@ def check_quanting_result(*, quanting_env: dict, job_id: str) -> dict:
         raise AirflowSkipException("Job failed, skipping downstream tasks.")
 
     # unknown state: fail the DAG without retry
-    logging.info(f"Job {job_id} exited with status {job_status}.")
     raise AirflowFailException(f"Quanting failed: {job_status=}")
 
 
@@ -489,7 +490,7 @@ def upload_metrics(*, quanting_env: dict, metrics: dict, metrics_type: str) -> N
     )
 
 
-FAILED_STATES = {"failed", "upstream_failed"}
+FAILED_STATES = {TaskInstanceState.FAILED, TaskInstanceState.UPSTREAM_FAILED}
 _UPLOAD_METRICS_TASK_ID = f"{TaskGroups.QUANTING_PIPELINE}.{Tasks.UPLOAD_METRICS}"
 
 

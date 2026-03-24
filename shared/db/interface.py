@@ -98,7 +98,7 @@ def add_raw_file(  # noqa: PLR0913 too many arguments
     file_name: str,
     collision_flag: str | None = None,
     *,
-    project_id: str,
+    project_id: str | None,
     status: str,
     instrument_file_status: str,
     instrument_id: str,

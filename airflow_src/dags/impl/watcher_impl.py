@@ -28,7 +28,7 @@ def _add_raw_file_to_db(  # noqa: PLR0913
     raw_file_name: str,
     *,
     is_collision: bool,
-    project_id: str,
+    project_id: str | None,
     instrument_id: str,
     instrument_file_status: str,
     status: str,

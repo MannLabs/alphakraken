@@ -3,6 +3,7 @@
 import numpy as np
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 from pages_.impl.overview_utils import (
     Column,
     filter_valid_columns,
@@ -163,4 +164,34 @@ def _draw_plot(  # noqa: PLR0913
                 showlegend=True,
             )
 
+    display_plotly_chart(fig)
+
+
+def _draw_overlay_plot(
+    df: pd.DataFrame,
+    *,
+    x: str,
+    column: Column,
+) -> None:
+    """Draw a single plot with multiple columns overlaid as separate traces."""
+    df = df.sort_values(by=x)
+
+    fig = go.Figure()
+    for col_name in column.matched_columns:
+        if col_name not in df.columns:
+            continue
+        fig.add_trace(
+            go.Scatter(
+                x=df[x],
+                y=df[col_name],
+                mode="lines+markers",
+                name=col_name,
+            )
+        )
+
+    fig.update_layout(
+        title=column.name,
+        height=400,
+        yaxis_type="log" if column.log_scale else None,
+    )
     display_plotly_chart(fig)

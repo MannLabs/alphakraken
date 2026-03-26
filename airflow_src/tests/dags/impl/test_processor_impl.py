@@ -10,6 +10,7 @@ from airflow.exceptions import AirflowFailException, AirflowSkipException
 from common.settings import _INSTRUMENTS
 from dags.impl.processor_impl import (
     _UPLOAD_METRICS_TASK_ID,
+    _create_quanting_env,
     _get_slurm_job_id_from_log,
     check_quanting_result,
     compute_metrics,
@@ -28,37 +29,36 @@ from plugins.common.keys import (
 from shared.db.models import RawFile, RawFileStatus
 
 
-@patch.dict(_INSTRUMENTS, {"instrument1": {"type": "thermo"}})
-@patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.get_path")
-@patch("dags.impl.processor_impl.get_project_settings")
-@patch("dags.impl.processor_impl.resolve_scoped_settings")
-def test_prepare_quanting(
-    mock_resolve_scoped: MagicMock,
-    mock_get_settings: MagicMock,
+@patch("dags.impl.processor_impl.get_output_folder_rel_path")
+@patch("dags.impl.processor_impl.get_internal_output_path_for_raw_file")
+def test_create_quanting_env(
+    mock_internal_output_path: MagicMock,
+    mock_output_rel_path: MagicMock,
     mock_get_path: MagicMock,
-    mock_get_raw_file_by_id: MagicMock,
 ) -> None:
-    """Test that prepare_quanting makes the expected calls."""
-    mock_raw_file = MagicMock(
-        wraps=RawFile,
-        id="test_file.raw",
-        created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
-        project_id="some_project_id",
-        instrument_id="instrument1",
-    )
-    mock_get_raw_file_by_id.return_value = mock_raw_file
+    """Test that _create_quanting_env builds the expected environment dict."""
     mock_get_path.side_effect = [
-        Path("/some_backup_base_path"),
         Path("/some_quanting_settings_path"),
         Path("/some_quanting_output_path"),
     ]
+    mock_output_rel_path.return_value = Path(
+        "some_project_id/out_test_file.raw/alphadia"
+    )
+    mock_internal_output_path.return_value = Path(
+        "/opt/airflow/mounts/output/some_project_id/out_test_file.raw/alphadia"
+    )
+
+    mock_raw_file = MagicMock(
+        wraps=RawFile,
+        id="test_file.raw",
+        project_id="some_project_id",
+    )
     mock_settings = MagicMock()
     mock_settings.name = "test_settings"
     mock_settings.speclib_file_name = "some_speclib_file_name"
     mock_settings.fasta_file_name = "some_fasta_file_name"
     mock_settings.config_file_name = "some_config_file_name"
-    mock_settings.config_params = ""
     mock_settings.software = "some_software"
     mock_settings.software_type = "alphadia"
     mock_settings.metrics_type = "alphadia"
@@ -67,17 +67,16 @@ def test_prepare_quanting(
     mock_settings.slurm_mem = "62G"
     mock_settings.slurm_time = "02:00:00"
     mock_settings.num_threads = 8
-    mock_get_settings.return_value = [MagicMock()]
-    mock_resolve_scoped.return_value = [mock_settings]
 
-    # when
-    result = prepare_quanting(raw_file_id="test_file.raw")
-
-    mock_get_settings.assert_called_once_with("some_project_id")
-    mock_resolve_scoped.assert_called_once()
+    result = _create_quanting_env(
+        settings=mock_settings,
+        raw_file=mock_raw_file,
+        raw_file_path=Path("/some_backup_base_path/instrument1/1970_01/test_file.raw"),
+        relative_raw_file_path=Path("instrument1/1970_01/test_file.raw"),
+    )
 
     # when you adapt something here, don't forget to adapt also the submit_job.sh script
-    expected_quanting_env = {
+    expected = {
         "RAW_FILE_PATH": "/some_backup_base_path/instrument1/1970_01/test_file.raw",
         "SETTINGS_PATH": "/some_quanting_settings_path/test_settings",
         "OUTPUT_PATH": "/some_quanting_output_path/some_project_id/out_test_file.raw/alphadia",
@@ -99,38 +98,33 @@ def test_prepare_quanting(
         "SETTINGS_VERSION": 1,
         "_INTERNAL_OUTPUT_PATH": "/opt/airflow/mounts/output/some_project_id/out_test_file.raw/alphadia",
     }
-
-    assert result == [expected_quanting_env]
-    mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
-    mock_get_path.assert_has_calls([call("backup"), call("settings"), call("output")])
+    assert result == expected
 
 
-@patch.dict(_INSTRUMENTS, {"instrument1": {"type": "thermo"}})
-@patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.get_path")
-@patch("dags.impl.processor_impl.get_project_settings")
-@patch("dags.impl.processor_impl.resolve_scoped_settings")
-def test_prepare_quanting_custom_software(
-    mock_resolve_scoped: MagicMock,
-    mock_get_settings: MagicMock,
+@patch("dags.impl.processor_impl.get_output_folder_rel_path")
+@patch("dags.impl.processor_impl.get_internal_output_path_for_raw_file")
+def test_create_quanting_env_custom_software(
+    mock_internal_output_path: MagicMock,
+    mock_output_rel_path: MagicMock,
     mock_get_path: MagicMock,
-    mock_get_raw_file_by_id: MagicMock,
 ) -> None:
-    """Test that prepare_quanting handles custom software settings with parameter substitution."""
-    mock_raw_file = MagicMock(
-        wraps=RawFile,
-        id="test_file.raw",
-        created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
-        project_id="some_project_id",
-        instrument_id="instrument1",
-    )
-    mock_get_raw_file_by_id.return_value = mock_raw_file
+    """Test that _create_quanting_env handles custom software settings with parameter substitution."""
     mock_get_path.side_effect = [
-        Path("/some_backup_base_path"),
         Path("/some_quanting_settings_path"),
         Path("/some_quanting_output_path"),
         Path("/some_software_base_path"),
     ]
+    mock_output_rel_path.return_value = Path("some_project_id/out_test_file.raw/custom")
+    mock_internal_output_path.return_value = Path(
+        "/opt/airflow/mounts/output/some_project_id/out_test_file.raw/custom"
+    )
+
+    mock_raw_file = MagicMock(
+        wraps=RawFile,
+        id="test_file.raw",
+        project_id="some_project_id",
+    )
     mock_settings = MagicMock()
     mock_settings.name = "test_custom_settings"
     mock_settings.speclib_file_name = "some_speclib_file_name"
@@ -145,11 +139,13 @@ def test_prepare_quanting_custom_software(
     mock_settings.slurm_mem = "62G"
     mock_settings.slurm_time = "02:00:00"
     mock_settings.num_threads = 8
-    mock_get_settings.return_value = [MagicMock()]
-    mock_resolve_scoped.return_value = [mock_settings]
 
-    # when
-    result = prepare_quanting(raw_file_id="test_file.raw")
+    result = _create_quanting_env(
+        settings=mock_settings,
+        raw_file=mock_raw_file,
+        raw_file_path=Path("/some_backup_base_path/instrument1/1970_01/test_file.raw"),
+        relative_raw_file_path=Path("instrument1/1970_01/test_file.raw"),
+    )
 
     expected_custom_command = (
         "/some_software_base_path/custom1.2.3 --qvalue 0.01 --f /some_backup_base_path/instrument1/1970_01/test_file.raw "
@@ -159,7 +155,7 @@ def test_prepare_quanting_custom_software(
         "--some_param instrument1/1970_01/test_file.raw --some_param2 some_project_id/out_test_file.raw/custom"
     )
 
-    expected_quanting_env = {
+    expected = {
         "RAW_FILE_PATH": "/some_backup_base_path/instrument1/1970_01/test_file.raw",
         "SETTINGS_PATH": "/some_quanting_settings_path/test_custom_settings",
         "OUTPUT_PATH": "/some_quanting_output_path/some_project_id/out_test_file.raw/custom",
@@ -181,11 +177,54 @@ def test_prepare_quanting_custom_software(
         "SETTINGS_VERSION": 1,
         "_INTERNAL_OUTPUT_PATH": "/opt/airflow/mounts/output/some_project_id/out_test_file.raw/custom",
     }
-
-    assert result == [expected_quanting_env]
+    assert result == expected
 
 
 @patch.dict(_INSTRUMENTS, {"instrument1": {"type": "thermo"}})
+@patch("dags.impl.processor_impl._create_quanting_env")
+@patch("dags.impl.processor_impl.get_raw_file_by_id")
+@patch("dags.impl.processor_impl.get_path")
+@patch("dags.impl.processor_impl.get_project_settings")
+@patch("dags.impl.processor_impl.resolve_scoped_settings")
+def test_prepare_quanting(
+    mock_resolve_scoped: MagicMock,
+    mock_get_settings: MagicMock,
+    mock_get_path: MagicMock,
+    mock_get_raw_file_by_id: MagicMock,
+    mock_create_env: MagicMock,
+) -> None:
+    """Test that prepare_quanting orchestrates the expected calls."""
+    mock_raw_file = MagicMock(
+        wraps=RawFile,
+        id="test_file.raw",
+        created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
+        project_id="some_project_id",
+        instrument_id="instrument1",
+    )
+    mock_get_raw_file_by_id.return_value = mock_raw_file
+    mock_get_path.return_value = Path("/some_backup_base_path")
+    mock_settings = MagicMock()
+    mock_get_settings.return_value = [MagicMock()]
+    mock_resolve_scoped.return_value = [mock_settings]
+    mock_env = {"SOFTWARE_TYPE": "alphadia"}
+    mock_create_env.return_value = mock_env
+
+    result = prepare_quanting(raw_file_id="test_file.raw")
+
+    mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
+    mock_get_settings.assert_called_once_with("some_project_id")
+    mock_resolve_scoped.assert_called_once()
+    mock_create_env.assert_called_once_with(
+        mock_settings,
+        mock_raw_file,
+        Path("/some_backup_base_path/instrument1/1970_01/test_file.raw"),
+        Path("instrument1/1970_01/test_file.raw"),
+    )
+    assert result == [mock_env]
+
+
+@patch.dict(_INSTRUMENTS, {"instrument1": {"type": "thermo"}})
+@patch("dags.impl.processor_impl._create_quanting_env")
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.get_path")
 @patch("dags.impl.processor_impl.get_project_settings")
@@ -195,6 +234,7 @@ def test_prepare_quanting_multiple_settings(
     mock_get_settings: MagicMock,
     mock_get_path: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
+    mock_create_env: MagicMock,
 ) -> None:
     """Test that prepare_quanting returns one quanting_env per assigned settings."""
     mock_raw_file = MagicMock(
@@ -205,126 +245,50 @@ def test_prepare_quanting_multiple_settings(
         instrument_id="instrument1",
     )
     mock_get_raw_file_by_id.return_value = mock_raw_file
-    mock_get_path.side_effect = [
-        Path("/backup"),
-        # settings 1 (alphadia)
-        Path("/settings"),
-        Path("/output"),
-        # settings 2 (msqc — also needs software path for custom command)
-        Path("/settings"),
-        Path("/output"),
-        Path("/software"),
-    ]
-    mock_settings_alphadia = MagicMock(
-        name="alphadia_default",
-        speclib_file_name="lib.speclib",
-        fasta_file_name="human.fasta",
-        config_file_name="config.yaml",
-        config_params="",
-        software="alphadia-1.0",
-        software_type="alphadia",
-        version=1,
-        slurm_cpus_per_task=8,
-        slurm_mem="62G",
-        slurm_time="02:00:00",
-        num_threads=8,
-    )
-    mock_settings_msqc = MagicMock(
-        name="msqc_default",
-        speclib_file_name="lib.speclib",
-        fasta_file_name="human.fasta",
-        config_file_name="config.yaml",
-        config_params="",
-        software="msqc-1.0",
-        software_type="msqc",
-        version=1,
-        slurm_cpus_per_task=2,
-        slurm_mem="31G",
-        slurm_time="00:10:00",
-        num_threads=2,
-    )
+    mock_get_path.return_value = Path("/backup")
     mock_get_settings.return_value = [MagicMock(), MagicMock()]
-    mock_resolve_scoped.return_value = [mock_settings_alphadia, mock_settings_msqc]
+    mock_settings_1 = MagicMock()
+    mock_settings_2 = MagicMock()
+    mock_resolve_scoped.return_value = [mock_settings_1, mock_settings_2]
+    mock_env_1 = {"SOFTWARE_TYPE": "alphadia"}
+    mock_env_2 = {"SOFTWARE_TYPE": "msqc"}
+    mock_create_env.side_effect = [mock_env_1, mock_env_2]
 
     result = prepare_quanting(raw_file_id="test_file.raw")
 
-    assert len(result) == 2
-    assert result[0][QuantingEnv.SOFTWARE_TYPE] == "alphadia"
-    assert result[1][QuantingEnv.SOFTWARE_TYPE] == "msqc"
-    assert "alphadia" in result[0][QuantingEnv.OUTPUT_PATH]
-    assert "msqc" in result[1][QuantingEnv.OUTPUT_PATH]
-
-    assert result[0][QuantingEnv.SLURM_CPUS_PER_TASK] == 8
-    assert result[0][QuantingEnv.SLURM_MEM] == "62G"
-    assert result[0][QuantingEnv.SLURM_TIME] == "02:00:00"
-    assert result[0][QuantingEnv.NUM_THREADS] == 8
-
-    assert result[1][QuantingEnv.SLURM_CPUS_PER_TASK] == 2
-    assert result[1][QuantingEnv.SLURM_MEM] == "31G"
-    assert result[1][QuantingEnv.SLURM_TIME] == "00:10:00"
-    assert result[1][QuantingEnv.NUM_THREADS] == 2
-
-
-@patch.dict(_INSTRUMENTS, {"instrument1": {"type": "thermo"}})
-@patch("dags.impl.processor_impl.get_raw_file_by_id")
-@patch("dags.impl.processor_impl.get_path")
-@patch("dags.impl.processor_impl.get_project_settings")
-@patch("dags.impl.processor_impl.resolve_scoped_settings")
-def test_prepare_quanting_custom_slurm_params(
-    mock_resolve_scoped: MagicMock,
-    mock_get_settings: MagicMock,
-    mock_get_path: MagicMock,
-    mock_get_raw_file_by_id: MagicMock,
-) -> None:
-    """Test that custom SLURM params from settings take precedence over defaults."""
-    mock_raw_file = MagicMock(
-        wraps=RawFile,
-        id="test_file.raw",
-        created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
-        project_id="some_project_id",
-        instrument_id="instrument1",
-    )
-    mock_get_raw_file_by_id.return_value = mock_raw_file
-    mock_get_path.side_effect = [
-        Path("/some_backup_base_path"),
-        Path("/some_quanting_settings_path"),
-        Path("/some_quanting_output_path"),
+    expected_raw_file_path = Path("/backup/instrument1/1970_01/test_file.raw")
+    expected_relative_path = Path("instrument1/1970_01/test_file.raw")
+    assert mock_create_env.call_args_list == [
+        call(
+            mock_settings_1,
+            mock_raw_file,
+            expected_raw_file_path,
+            expected_relative_path,
+        ),
+        call(
+            mock_settings_2,
+            mock_raw_file,
+            expected_raw_file_path,
+            expected_relative_path,
+        ),
     ]
-    mock_settings = MagicMock()
-    mock_settings.name = "test_settings"
-    mock_settings.speclib_file_name = "some_speclib_file_name"
-    mock_settings.fasta_file_name = "some_fasta_file_name"
-    mock_settings.config_file_name = "some_config_file_name"
-    mock_settings.config_params = ""
-    mock_settings.software = "some_software"
-    mock_settings.software_type = "alphadia"
-    mock_settings.metrics_type = "alphadia"
-    mock_settings.version = 1
-    mock_settings.slurm_cpus_per_task = 16
-    mock_settings.slurm_mem = "128G"
-    mock_settings.slurm_time = "04:00:00"
-    mock_settings.num_threads = 16
-    mock_get_settings.return_value = [MagicMock()]
-    mock_resolve_scoped.return_value = [mock_settings]
-
-    result = prepare_quanting(raw_file_id="test_file.raw")
-
-    assert result[0][QuantingEnv.SLURM_CPUS_PER_TASK] == 16
-    assert result[0][QuantingEnv.SLURM_MEM] == "128G"
-    assert result[0][QuantingEnv.SLURM_TIME] == "04:00:00"
-    assert result[0][QuantingEnv.NUM_THREADS] == 16
+    assert result == [mock_env_1, mock_env_2]
 
 
 @patch.dict(_INSTRUMENTS, {"instrument1": {"type": "thermo"}})
+@patch("dags.impl.processor_impl._check_content")
+@patch("dags.impl.processor_impl._create_quanting_env")
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.get_path")
 @patch("dags.impl.processor_impl.get_project_settings")
 @patch("dags.impl.processor_impl.resolve_scoped_settings")
-def test_prepare_quanting_validation_error_raises(
+def test_prepare_quanting_validation_error_raises(  # noqa: PLR0913
     mock_resolve_scoped: MagicMock,
     mock_get_settings: MagicMock,
     mock_get_path: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
+    mock_create_env: MagicMock,
+    mock_check_content: MagicMock,
 ) -> None:
     """Test that prepare_quanting raises on validation errors."""
     mock_raw_file = MagicMock(
@@ -335,30 +299,12 @@ def test_prepare_quanting_validation_error_raises(
         instrument_id="instrument1",
     )
     mock_get_raw_file_by_id.return_value = mock_raw_file
-    mock_get_path.side_effect = [
-        Path("some_backup_base_path"),
-        Path("some_quanting_settings_path"),
-        Path("some_quanting_output_path"),
-        Path("some_software_base_path"),
-    ]
+    mock_get_path.return_value = Path("/some_backup_base_path")
     mock_get_settings.return_value = [MagicMock()]
-    mock_resolve_scoped.return_value = [
-        MagicMock(
-            speclib_file_name="some_speclib_file_name",
-            fasta_file_name="../some_fasta_file_name",  # .. -> this will raise
-            config_file_name="",
-            config_params="--qvalue 0.01 --f RAW_FILE_PATH --lib LIBRARY_PATH --out OUTPUT_PATH --fasta FASTA_PATH",
-            software="custom1.2.3",
-            software_type="custom",
-            version=1,
-            slurm_cpus_per_task=None,
-            slurm_mem=None,
-            slurm_time=None,
-            num_threads=None,
-        )
-    ]
+    mock_resolve_scoped.return_value = [MagicMock()]
+    mock_create_env.return_value = {"SOFTWARE_TYPE": "custom"}
+    mock_check_content.return_value = ["path traversal in fasta_file_name"]
 
-    # when
     with pytest.raises(AirflowFailException):
         prepare_quanting(raw_file_id="test_file.raw")
 

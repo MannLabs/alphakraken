@@ -16,13 +16,13 @@ def _make_ps(
     software_type: str,
     settings_name: str = "s",
     excluded: list[str] | None = None,
-    raw_file_id_filter: list[str] | None = None,
+    raw_file_id_filter: str = "",
 ) -> MagicMock:
     """Create a mock ProjectSettings with given scope and software_type."""
     ps = MagicMock()
     ps.scope = scope
     ps.excluded = excluded or []
-    ps.raw_file_id_filter = raw_file_id_filter or []
+    ps.raw_file_id_filter = raw_file_id_filter
     ps.settings = MagicMock()
     ps.settings.software_type = software_type
     ps.settings.name = settings_name
@@ -189,7 +189,7 @@ RAW_FILE_ID = "20240101_plasma_sample.raw"
 
 def test_raw_file_id_filter_matches() -> None:
     """Test that settings apply when raw_file_id contains the filter string."""
-    ps = _make_ps("*", "alphadia", raw_file_id_filter=["plasma"])
+    ps = _make_ps("*", "alphadia", raw_file_id_filter="plasma")
     result = resolve_scoped_settings(
         [ps], INSTRUMENT_ID, INSTRUMENT_TYPE, raw_file_id=RAW_FILE_ID
     )
@@ -198,25 +198,16 @@ def test_raw_file_id_filter_matches() -> None:
 
 def test_raw_file_id_filter_no_match() -> None:
     """Test that settings are skipped when raw_file_id doesn't contain the filter string."""
-    ps = _make_ps("*", "alphadia", raw_file_id_filter=["serum"])
+    ps = _make_ps("*", "alphadia", raw_file_id_filter="serum")
     result = resolve_scoped_settings(
         [ps], INSTRUMENT_ID, INSTRUMENT_TYPE, raw_file_id=RAW_FILE_ID
     )
     assert result == []
 
 
-def test_raw_file_id_filter_any_of_matches() -> None:
-    """Test OR semantics: settings apply if any filter string matches."""
-    ps = _make_ps("*", "alphadia", raw_file_id_filter=["serum", "plasma"])
-    result = resolve_scoped_settings(
-        [ps], INSTRUMENT_ID, INSTRUMENT_TYPE, raw_file_id=RAW_FILE_ID
-    )
-    assert result == [ps.settings]
-
-
 def test_raw_file_id_filter_empty_applies_to_all() -> None:
-    """Test that an empty filter list applies to all files."""
-    ps = _make_ps("*", "alphadia", raw_file_id_filter=[])
+    """Test that an empty filter applies to all files."""
+    ps = _make_ps("*", "alphadia", raw_file_id_filter="")
     result = resolve_scoped_settings(
         [ps], INSTRUMENT_ID, INSTRUMENT_TYPE, raw_file_id=RAW_FILE_ID
     )
@@ -225,14 +216,14 @@ def test_raw_file_id_filter_empty_applies_to_all() -> None:
 
 def test_raw_file_id_filter_none_raw_file_id_skips_filter() -> None:
     """Test that when raw_file_id is None, the filter is not applied."""
-    ps = _make_ps("*", "alphadia", raw_file_id_filter=["nonexistent"])
+    ps = _make_ps("*", "alphadia", raw_file_id_filter="nonexistent")
     result = resolve_scoped_settings([ps], INSTRUMENT_ID, INSTRUMENT_TYPE)
     assert result == [ps.settings]
 
 
 def test_raw_file_id_filter_is_case_sensitive() -> None:
     """Test that matching is case-sensitive."""
-    ps = _make_ps("*", "alphadia", raw_file_id_filter=["Plasma"])
+    ps = _make_ps("*", "alphadia", raw_file_id_filter="Plasma")
     result = resolve_scoped_settings(
         [ps], INSTRUMENT_ID, INSTRUMENT_TYPE, raw_file_id=RAW_FILE_ID
     )
@@ -243,7 +234,7 @@ def test_raw_file_id_filter_fallback_to_lower_scope() -> None:
     """Test that when a higher-scope entry is filtered out, lower-scope entries win."""
     ps_default = _make_ps("*", "alphadia", "default_settings")
     ps_vendor = _make_ps(
-        "bruker", "alphadia", "bruker_settings", raw_file_id_filter=["serum"]
+        "bruker", "alphadia", "bruker_settings", raw_file_id_filter="serum"
     )
     result = resolve_scoped_settings(
         [ps_default, ps_vendor],
@@ -258,7 +249,7 @@ def test_raw_file_id_filter_match_beats_unfiltered_at_same_scope() -> None:
     """Test that a matching filter entry wins over an unfiltered entry at the same scope level."""
     ps_unfiltered = _make_ps("*", "alphadia", "unfiltered_settings")
     ps_filtered = _make_ps(
-        "*", "alphadia", "filtered_settings", raw_file_id_filter=["plasma"]
+        "*", "alphadia", "filtered_settings", raw_file_id_filter="plasma"
     )
     result = resolve_scoped_settings(
         [ps_unfiltered, ps_filtered],
@@ -273,7 +264,7 @@ def test_raw_file_id_filter_no_priority_when_raw_file_id_is_none() -> None:
     """Test that filter does not give priority when raw_file_id is None (webapp preview)."""
     ps_unfiltered = _make_ps("*", "alphadia", "unfiltered_settings")
     ps_filtered = _make_ps(
-        "*", "alphadia", "filtered_settings", raw_file_id_filter=["plasma"]
+        "*", "alphadia", "filtered_settings", raw_file_id_filter="plasma"
     )
     result = resolve_scoped_settings(
         [ps_unfiltered, ps_filtered], INSTRUMENT_ID, INSTRUMENT_TYPE

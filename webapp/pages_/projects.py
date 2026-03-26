@@ -143,8 +143,8 @@ with c_assign1:
                     f" [excluded: {', '.join(ps.excluded)}]" if ps.excluded else ""
                 )
                 filter_str = (
-                    f" [file name contains: {', '.join(ps.raw_file_id_filter)}]"
-                    if (ps.raw_file_id_filter or [])
+                    f" [file name contains: {ps.raw_file_id_filter}]"
+                    if ps.raw_file_id_filter
                     else ""
                 )
                 col_info.write(
@@ -204,10 +204,10 @@ with c_assign1:
                 help="Instruments to exclude from this scope assignment.",
             )
 
-            raw_file_name_filter_input = st.text_input(
-                "Raw file name contains (optional, comma-separated)",
+            raw_file_id_filter_input = st.text_input(
+                "Raw file name contains (optional)",
                 key="assign_raw_file_id_filter",
-                help="Comma-separated list of strings. Settings apply only if the raw file ID contains any of these strings. Leave empty to apply to all files.",
+                help="Settings apply only if the raw file ID contains this string. Leave empty to apply to all files.",
             )
 
             if st.button(
@@ -218,21 +218,12 @@ with c_assign1:
             ):
                 try:
                     new_settings_id = settings_options_map[selected_settings_display]
-                    raw_file_id_filter = (
-                        [
-                            s.strip()
-                            for s in raw_file_name_filter_input.split(",")
-                            if s.strip()
-                        ]
-                        if raw_file_name_filter_input
-                        else []
-                    )
                     create_project_settings(
                         selected_project_id,
                         new_settings_id,
                         scope=selected_scope,
                         excluded=selected_excluded,
-                        raw_file_id_filter=raw_file_id_filter,
+                        raw_file_id_filter=raw_file_id_filter_input.strip() or None,
                     )
                     set_session_state(
                         SessionStateKeys.SUCCESS_MSG,
@@ -250,10 +241,10 @@ with c_assign2:
             help="This table shows the settings that are applied for each instrument based on the current settings assignments and their scopes.",
         )
         current_ps_for_table = get_project_settings(selected_project_id)
-        settings_id_to_filter: dict[str, list[str]] = {}
+        settings_id_to_filter: dict[str, str] = {}
         for ps in current_ps_for_table:
-            if ps.raw_file_id_filter or []:
-                settings_id_to_filter[str(ps.settings.id)] = list(ps.raw_file_id_filter)
+            if ps.raw_file_id_filter:
+                settings_id_to_filter[str(ps.settings.id)] = str(ps.raw_file_id_filter)
         rows = []
         for instr_id in _INSTRUMENT_IDS:
             instr_type = _INSTRUMENTS_CONFIG.get(instr_id, {}).get(YamlKeys.TYPE, "")
@@ -275,10 +266,10 @@ with c_assign2:
                         if s.config_params
                         else None,
                     ]
-                    filter_values = settings_id_to_filter.get(str(s.id), [])  # type: ignore[unresolved-attribute]
+                    filter_value = settings_id_to_filter.get(str(s.id), "")  # type: ignore[unresolved-attribute]
                     annotation = (
-                        f" (only for files containing: {', '.join(filter_values)})"
-                        if filter_values
+                        f" (only for files containing: {filter_value})"
+                        if filter_value
                         else ""
                     )
                     rows.append(

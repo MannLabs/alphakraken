@@ -374,7 +374,7 @@ def test_create_project_settings(
         settings=mock_settings_instance,
         scope="*",
         excluded=[],
-        raw_file_id_filter=[],
+        raw_file_id_filter="",
     )
     mock_project_settings.return_value.save.assert_called_once()
     mock_connect_db.assert_called_once()
@@ -401,8 +401,8 @@ def test_create_project_settings_duplicate_software_type_scope(
 
     existing_ps = MagicMock()
     existing_ps.settings.software_type = "alphadia"
-    existing_ps.raw_file_id_filter = []
-    mock_project_settings.objects.return_value = [existing_ps]
+    existing_ps.raw_file_id_filter = ""
+    mock_project_settings.objects.side_effect = [[], [existing_ps]]
 
     with pytest.raises(ValueError, match="software_type 'alphadia' already assigned"):
         create_project_settings("P1234", "settings_id", scope="bruker")
@@ -431,8 +431,8 @@ def test_create_project_settings_same_scope_different_software_type(
 
     existing_ps = MagicMock()
     existing_ps.settings.software_type = "msqc"
-    existing_ps.raw_file_id_filter = []
-    mock_project_settings.objects.return_value = [existing_ps]
+    existing_ps.raw_file_id_filter = ""
+    mock_project_settings.objects.side_effect = [[], [existing_ps]]
 
     create_project_settings("P1234", "settings_id", scope="*")
 
@@ -443,44 +443,13 @@ def test_create_project_settings_same_scope_different_software_type(
 @patch("shared.db.interface.ProjectSettings")
 @patch("shared.db.interface.Settings")
 @patch("shared.db.interface.Project")
-def test_create_project_settings_overlapping_raw_file_id_filter_raises(
+def test_create_project_settings_with_filter_same_software_type_no_filter_succeeds(
     mock_project: MagicMock,
     mock_settings: MagicMock,
     mock_project_settings: MagicMock,
     mock_connect_db: MagicMock,  # noqa: ARG001
 ) -> None:
-    """Test that overlapping raw_file_id_filter with same software_type and scope raises."""
-    mock_project.objects.get.return_value = MagicMock()
-
-    mock_settings_instance = MagicMock()
-    mock_settings_instance.status = "active"
-    mock_settings_instance.software_type = "alphadia"
-    mock_settings.objects.get.return_value = mock_settings_instance
-
-    existing_ps = MagicMock()
-    existing_ps.settings.software_type = "alphadia"
-    existing_ps.raw_file_id_filter = ["plasma", "serum"]
-    mock_project_settings.objects.return_value = [existing_ps]
-
-    with pytest.raises(ValueError, match="software_type 'alphadia' already assigned"):
-        create_project_settings(
-            "P1234", "settings_id", scope="*", raw_file_id_filter=["serum", "csf"]
-        )
-
-    mock_project_settings.return_value.save.assert_not_called()
-
-
-@patch("shared.db.interface.connect_db")
-@patch("shared.db.interface.ProjectSettings")
-@patch("shared.db.interface.Settings")
-@patch("shared.db.interface.Project")
-def test_create_project_settings_non_overlapping_raw_file_id_filter_succeeds(
-    mock_project: MagicMock,
-    mock_settings: MagicMock,
-    mock_project_settings: MagicMock,
-    mock_connect_db: MagicMock,  # noqa: ARG001
-) -> None:
-    """Test that non-overlapping raw_file_id_filter with same software_type and scope succeeds."""
+    """Test that adding a filtered entry when existing has no filter succeeds."""
     mock_project_instance = MagicMock()
     mock_project.objects.get.return_value = mock_project_instance
 
@@ -491,42 +460,11 @@ def test_create_project_settings_non_overlapping_raw_file_id_filter_succeeds(
 
     existing_ps = MagicMock()
     existing_ps.settings.software_type = "alphadia"
-    existing_ps.raw_file_id_filter = ["plasma"]
-    mock_project_settings.objects.return_value = [existing_ps]
+    existing_ps.raw_file_id_filter = ""
+    mock_project_settings.objects.side_effect = [[], [existing_ps]]
 
     create_project_settings(
-        "P1234", "settings_id", scope="*", raw_file_id_filter=["serum"]
-    )
-
-    mock_project_settings.return_value.save.assert_called_once()
-
-
-@patch("shared.db.interface.connect_db")
-@patch("shared.db.interface.ProjectSettings")
-@patch("shared.db.interface.Settings")
-@patch("shared.db.interface.Project")
-def test_create_project_settings_new_filter_existing_no_filter_succeeds(
-    mock_project: MagicMock,
-    mock_settings: MagicMock,
-    mock_project_settings: MagicMock,
-    mock_connect_db: MagicMock,  # noqa: ARG001
-) -> None:
-    """Test that adding a filter when existing has none succeeds (no overlap)."""
-    mock_project_instance = MagicMock()
-    mock_project.objects.get.return_value = mock_project_instance
-
-    mock_settings_instance = MagicMock()
-    mock_settings_instance.status = "active"
-    mock_settings_instance.software_type = "alphadia"
-    mock_settings.objects.get.return_value = mock_settings_instance
-
-    existing_ps = MagicMock()
-    existing_ps.settings.software_type = "alphadia"
-    existing_ps.raw_file_id_filter = []
-    mock_project_settings.objects.return_value = [existing_ps]
-
-    create_project_settings(
-        "P1234", "settings_id", scope="*", raw_file_id_filter=["plasma"]
+        "P1234", "settings_id", scope="*", raw_file_id_filter="plasma"
     )
 
     mock_project_settings.return_value.save.assert_called_once()

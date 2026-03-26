@@ -25,7 +25,7 @@ from service.utils import (
     show_feedback_in_sidebar,
 )
 
-from shared.db.interface import create_settings
+from shared.db.interface import archive_settings, create_settings
 from shared.db.models import SettingsStatus
 from shared.keys import (
     SOFTWARE_TYPE_TO_DEFAULT_RESOURCE_PARAMS,
@@ -146,6 +146,7 @@ selected_name_option = c1.selectbox(
 
 # Show info banner if existing settings selected and get latest version data for prefilling
 prefill_data = defaultdict(lambda: "")
+current_version = None
 if selected_name_option != CREATE_NEW_OPTION:
     # Get the latest version of the selected settings
     latest_settings = (
@@ -155,12 +156,21 @@ if selected_name_option != CREATE_NEW_OPTION:
     )
     current_version = int(latest_settings["version"])
 
-    c1.info(
-        f"This will create a new version ({current_version + 1}) of the existing settings '{selected_name_option}'. "
-        f"Projects always reference a specific version of settings, so existing projects using '{selected_name_option}' version {current_version} will not be affected. "
-        "Make sure to updated (all or selected) projects to use the new version after creating it.",
-        icon="ℹ️",  # noqa: RUF001
-    )
+    if latest_settings.get("status") == SettingsStatus.ACTIVE and c1.button(
+        f"Archive '{selected_name_option}' version {current_version}",
+        disabled=DISABLE_WRITE,
+        icon=":material/archive:",
+    ):
+        try:
+            archive_settings(latest_settings["_id"])
+            set_session_state(
+                SessionStateKeys.SUCCESS_MSG,
+                f"Archived settings '{selected_name_option}' version {current_version}.",
+            )
+            st.rerun()
+        except Exception as e:  # noqa: BLE001
+            st.error(f"Error: {e}")
+            set_session_state(SessionStateKeys.ERROR_MSG, f"{e}")
 
     # Prepare prefill data from latest version
     prefill_data = {

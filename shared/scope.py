@@ -44,11 +44,11 @@ def resolve_scoped_settings(
 
     scored_settings.sort(key=lambda x: x[0], reverse=True)
 
-    best: dict[str, Settings] = {}
+    best_scoring_settings_per_software_type: dict[str, Settings] = {}
     for _, settings in scored_settings:
-        if settings.software_type not in best:
-            best[settings.software_type] = settings
-    return list(best.values())
+        if settings.software_type not in best_scoring_settings_per_software_type:
+            best_scoring_settings_per_software_type[settings.software_type] = settings
+    return list(best_scoring_settings_per_software_type.values())
 
 
 def _classify_scope(scope: str, instrument_id: str, instrument_type: str) -> int | None:

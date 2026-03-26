@@ -38,17 +38,17 @@ if [[ -n "$REPORT_TEMPLATE" ]]; then
 	REPORT_ADD_FLAG="--report-add=$REPORT_TEMPLATE"
 fi
 
-apptainer exec  --bind $SETTINGS_PATH:/data \
-		--bind $RAW_FILE_PATH:/input/$RAW_FILE_ID \
-		--bind $OUTPUT_PATH:/output \
+apptainer exec  --bind "$SETTINGS_PATH":/data \
+		--bind "$RAW_FILE_PATH":/input/"$RAW_FILE_ID" \
+		--bind "$OUTPUT_PATH":/output \
 		--pwd /output \
-		$IMAGE_PATH wine SkylineCmd \
+		"$IMAGE_PATH" wine SkylineCmd \
 		--dir=/data/ \
-		--import-file=/input/$RAW_FILE_ID \
-		--in=$SKY_FILE \
+		--import-file=/input/"$RAW_FILE_ID" \
+		--in="$SKY_FILE" \
 		--remove-all  \
 		--report-name=custom_iRT_report \
 		--report-file=/output/custom_iRT_report.csv \
 		--report-invariant \
-		--irt-database-path=$IRT_DATABASE \
+		--irt-database-path="$IRT_DATABASE" \
 		$REPORT_ADD_FLAG

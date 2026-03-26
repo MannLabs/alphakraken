@@ -142,8 +142,13 @@ with c_assign1:
                 excluded_str = (
                     f" [excluded: {', '.join(ps.excluded)}]" if ps.excluded else ""
                 )
+                filter_str = (
+                    f" [file name contains: {', '.join(ps.raw_file_id_filter)}]"
+                    if (ps.raw_file_id_filter or [])
+                    else ""
+                )
                 col_info.write(
-                    f"`[scope: {ps.scope}]` '{ps.settings.name}' version {ps.settings.version} (type: `{ps.settings.software_type}`, executable: `{ps.settings.software}`){excluded_str}"
+                    f"`[scope: {ps.scope}]` '{ps.settings.name}' version {ps.settings.version} (type: `{ps.settings.software_type}`, executable: `{ps.settings.software}`){excluded_str}{filter_str}"
                 )
                 ps_id = str(ps.id)  # type: ignore[unresolved-attribute]
                 if col_btn.button(
@@ -199,6 +204,12 @@ with c_assign1:
                 help="Instruments to exclude from this scope assignment.",
             )
 
+            raw_file_name_filter_input = st.text_input(
+                "Raw file name contains (optional, comma-separated)",
+                key="assign_raw_file_id_filter",
+                help="Comma-separated list of strings. Settings apply only if the raw file ID contains any of these strings. Leave empty to apply to all files.",
+            )
+
             if st.button(
                 f"Assign selected settings to project {selected_project_id}",
                 disabled=DISABLE_WRITE,
@@ -207,11 +218,21 @@ with c_assign1:
             ):
                 try:
                     new_settings_id = settings_options_map[selected_settings_display]
+                    raw_file_id_filter = (
+                        [
+                            s.strip()
+                            for s in raw_file_name_filter_input.split(",")
+                            if s.strip()
+                        ]
+                        if raw_file_name_filter_input
+                        else []
+                    )
                     create_project_settings(
                         selected_project_id,
                         new_settings_id,
                         scope=selected_scope,
                         excluded=selected_excluded,
+                        raw_file_id_filter=raw_file_id_filter,
                     )
                     set_session_state(
                         SessionStateKeys.SUCCESS_MSG,
@@ -229,6 +250,10 @@ with c_assign2:
             help="This table shows the settings that are applied for each instrument based on the current settings assignments and their scopes.",
         )
         current_ps_for_table = get_project_settings(selected_project_id)
+        settings_id_to_filter: dict[str, list[str]] = {}
+        for ps in current_ps_for_table:
+            if ps.raw_file_id_filter or []:
+                settings_id_to_filter[str(ps.settings.id)] = list(ps.raw_file_id_filter)
         rows = []
         for instr_id in _INSTRUMENT_IDS:
             instr_type = _INSTRUMENTS_CONFIG.get(instr_id, {}).get(YamlKeys.TYPE, "")
@@ -250,10 +275,16 @@ with c_assign2:
                         if s.config_params
                         else None,
                     ]
+                    filter_values = settings_id_to_filter.get(str(s.id), [])  # type: ignore[unresolved-attribute]
+                    annotation = (
+                        f" (only for files containing: {', '.join(filter_values)})"
+                        if filter_values
+                        else ""
+                    )
                     rows.append(
                         {
                             "instrument": instr_id,
-                            "settings": f"{s.name} version {s.version} ({s.software_type})",
+                            "settings": f"{s.name} version {s.version} ({s.software_type}){annotation}",
                             "software": s.software,
                             "details": " | ".join(p for p in detail_parts if p),
                         }

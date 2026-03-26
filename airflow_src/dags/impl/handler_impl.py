@@ -376,7 +376,10 @@ def _is_settings_configured(raw_file: RawFile) -> bool:
     )
     project_settings = get_project_settings(raw_file.project_id)
     resolved_settings = resolve_scoped_settings(
-        project_settings, raw_file.instrument_id, instrument_type
+        project_settings,
+        raw_file.instrument_id,
+        instrument_type,
+        raw_file_id=raw_file.id,
     )
     return len(resolved_settings) > 0
 

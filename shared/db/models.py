@@ -285,6 +285,7 @@ class ProjectSettings(Document):
     settings = ReferenceField(Settings, required=True)
     scope = StringField(max_length=64, default="*")
     excluded = ListField(StringField(max_length=64), default=list)
+    raw_file_id_filter = ListField(StringField(max_length=128), default=list)
     created_at_ = DateTimeField(default=datetime.now)
 
 

@@ -16,16 +16,26 @@ def resolve_scoped_settings(
     project_settings: list[ProjectSettings],
     instrument_id: str,
     instrument_type: str,
+    raw_file_id: str | None = None,
 ) -> list[Settings]:
     """Filter project-settings by scope, keeping most-specific per software_type.
 
     Scope levels: "*" (default) < vendor name < instrument ID.
     Per software_type, only the highest-level entries are kept.
     At the same level, all matching entries are returned.
+
+    If raw_file_id is provided, entries with non-empty raw_file_id_filter
+    are only included if the raw_file_id contains at least one of the strings.
     """
     classified: list[tuple[int, ProjectSettings]] = []
     for ps in project_settings:
         if instrument_id in (ps.excluded or []):
+            continue
+        if (
+            raw_file_id is not None
+            and (ps.raw_file_id_filter or [])
+            and not any(s in raw_file_id for s in ps.raw_file_id_filter)
+        ):
             continue
         level = _classify_scope(ps.scope, instrument_id, instrument_type)
         if level is not None:

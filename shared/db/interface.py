@@ -230,6 +230,7 @@ def create_project_settings(
     settings_id: str,
     scope: str = DEFAULT_SCOPE,
     excluded: list[str] | None = None,
+    raw_file_id_filter: list[str] | None = None,
 ) -> ProjectSettings:
     """Create a new project-settings assignment."""
     connect_db()
@@ -239,19 +240,28 @@ def create_project_settings(
         raise ValueError(
             f"Cannot assign archived settings '{settings.name}' version {settings.version}"
         )
+    new_filter = sorted(raw_file_id_filter or [])
     existing = ProjectSettings.objects(project=project, scope=scope)
     for ps_existing in existing:
         if ps_existing.settings.software_type == settings.software_type:
-            raise ValueError(
-                f"Settings with software_type '{settings.software_type}' already assigned "
-                f"to project '{project_id}' with scope '{scope}'"
-            )
+            existing_filter = sorted(ps_existing.raw_file_id_filter or [])
+            if (not existing_filter and not new_filter) or set(
+                existing_filter
+            ).intersection(new_filter):
+                raise ValueError(
+                    f"Settings with software_type '{settings.software_type}' already assigned "
+                    f"to project '{project_id}' with scope '{scope}' and raw_file_id_filter '{raw_file_id_filter}'"
+                )
     ps = ProjectSettings(
-        project=project, settings=settings, scope=scope, excluded=excluded or []
+        project=project,
+        settings=settings,
+        scope=scope,
+        excluded=excluded or [],
+        raw_file_id_filter=raw_file_id_filter or [],
     )
     ps.save()
     logging.info(
-        f"Created project-settings assignment: {project_id=} {settings.name=} {scope=} {excluded=}"
+        f"Created project-settings assignment: {project_id=} {settings.name=} {scope=} {excluded=} {raw_file_id_filter=}"
     )
     return ps
 

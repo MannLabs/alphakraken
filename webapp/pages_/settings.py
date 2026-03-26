@@ -26,7 +26,7 @@ from service.utils import (
 )
 
 from shared.db.interface import archive_settings, create_settings
-from shared.db.models import SettingsStatus
+from shared.db.models import ProjectSettings, ProjectStatus, SettingsStatus
 from shared.keys import (
     SOFTWARE_TYPE_TO_DEFAULT_RESOURCE_PARAMS,
     MetricsTypes,
@@ -549,10 +549,23 @@ else:
             "Archived settings can no longer be assigned to projects or updated."
         )
 
+        # Map settings ID -> list of active project IDs
+        all_ps = ProjectSettings.objects.all()
+        active_project_ids = {
+            p.id for p in projects_db if p.status == ProjectStatus.ACTIVE
+        }
+        assigned_projects: dict[str, list[str]] = defaultdict(list)
+        for ps in all_ps:
+            project_id = str(ps.project.id)
+            if project_id in active_project_ids:
+                assigned_projects[str(ps.settings.id)].append(project_id)
+
         for _, row in active_settings_df.iterrows():
             col_btn, col_info = st.columns([0.2, 0.8])
+            projects = sorted(set(assigned_projects.get(str(row["_id"]), [])))
+            projects_str = ", ".join(projects) if projects else "none"
             col_info.write(
-                f"'{row['name']}' version {int(row['version'])} (type: `{row.get('software_type', '')}`, executable: `{row.get('software', '')}, description: `{row.get('description', '')}`)"
+                f"'{row['name']}' version {int(row['version'])} (type: `{row.get('software_type', '')}`, executable: `{row.get('software', '')}`, description: `{row.get('description', '')}`) — assigned to projects: {projects_str}"
             )
             if col_btn.button(
                 "Archive",

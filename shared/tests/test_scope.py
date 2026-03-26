@@ -252,3 +252,31 @@ def test_raw_file_id_filter_fallback_to_lower_scope() -> None:
         raw_file_id=RAW_FILE_ID,
     )
     assert result == [ps_default.settings]
+
+
+def test_raw_file_id_filter_match_beats_unfiltered_at_same_scope() -> None:
+    """Test that a matching filter entry wins over an unfiltered entry at the same scope level."""
+    ps_unfiltered = _make_ps("*", "alphadia", "unfiltered_settings")
+    ps_filtered = _make_ps(
+        "*", "alphadia", "filtered_settings", raw_file_id_filter=["plasma"]
+    )
+    result = resolve_scoped_settings(
+        [ps_unfiltered, ps_filtered],
+        INSTRUMENT_ID,
+        INSTRUMENT_TYPE,
+        raw_file_id=RAW_FILE_ID,
+    )
+    assert result == [ps_filtered.settings]
+
+
+def test_raw_file_id_filter_no_priority_when_raw_file_id_is_none() -> None:
+    """Test that filter does not give priority when raw_file_id is None (webapp preview)."""
+    ps_unfiltered = _make_ps("*", "alphadia", "unfiltered_settings")
+    ps_filtered = _make_ps(
+        "*", "alphadia", "filtered_settings", raw_file_id_filter=["plasma"]
+    )
+    result = resolve_scoped_settings(
+        [ps_unfiltered, ps_filtered], INSTRUMENT_ID, INSTRUMENT_TYPE
+    )
+    assert len(result) == 2
+    assert set(result) == {ps_unfiltered.settings, ps_filtered.settings}

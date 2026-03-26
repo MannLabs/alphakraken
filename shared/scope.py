@@ -22,33 +22,35 @@ def resolve_scoped_settings(
 
     Scope levels: "*" (default) < vendor name < instrument ID.
     Per software_type, only the highest-level entries are kept.
-    At the same level, all matching entries are returned.
+    At the same level, entries with a matching raw_file_id_filter beat
+    unfiltered entries. At the same priority, all entries are returned.
 
     If raw_file_id is provided, entries with non-empty raw_file_id_filter
     are only included if the raw_file_id contains at least one of the strings.
     """
-    classified: list[tuple[int, ProjectSettings]] = []
+    classified: list[tuple[tuple[int, bool], ProjectSettings]] = []
     for ps in project_settings:
         if instrument_id in (ps.excluded or []):
             continue
-        if (
-            raw_file_id is not None
-            and (ps.raw_file_id_filter or [])
-            and not any(s in raw_file_id for s in ps.raw_file_id_filter)
-        ):
-            continue
+        has_matching_filter = False
+        if (ps.raw_file_id_filter or []) and raw_file_id is not None:
+            if not any(s in raw_file_id for s in ps.raw_file_id_filter):
+                continue
+            has_matching_filter = True
         level = _classify_scope(ps.scope, instrument_id, instrument_type)
         if level is not None:
-            classified.append((level, ps))
+            classified.append(((level, has_matching_filter), ps))
 
-    groups: dict[str, list[tuple[int, Settings]]] = defaultdict(list)
-    for level, ps in classified:
-        groups[ps.settings.software_type].append((level, ps.settings))
+    groups: dict[str, list[tuple[tuple[int, bool], Settings]]] = defaultdict(list)
+    for priority, ps in classified:
+        groups[ps.settings.software_type].append((priority, ps.settings))
 
     result: list[Settings] = []
     for entries in groups.values():
-        max_level = max(level for level, _ in entries)
-        result.extend(settings for level, settings in entries if level == max_level)
+        max_priority = max(priority for priority, _ in entries)
+        result.extend(
+            settings for priority, settings in entries if priority == max_priority
+        )
 
     return result
 

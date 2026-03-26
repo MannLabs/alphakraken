@@ -466,6 +466,10 @@ if submit:
         )
     if slurm_mem:
         validation_errors.extend(check_for_malicious_content(slurm_mem))
+        if not re.match(r"^\d+[KMGT]$", slurm_mem):
+            validation_errors.append(
+                "Memory must be a number followed by a unit (K, M, G, or T), e.g. '62G'."
+            )
     if slurm_time and not re.match(r"^\d{2}:\d{2}:\d{2}$", slurm_time):
         validation_errors.append("SLURM time must be in HH:MM:SS format.")
 

@@ -86,6 +86,7 @@ class AbstractFileIdentifier(ABC):
 
         if len(ret_val) == 2:  # noqa: PLR2004
             # in case of s3: older files that don't have etag information in DB
+            # etag_in_db = None will fail the downstream verification
             size_in_db, hash_in_db, etag_in_db = ret_val[0], ret_val[1], None
         elif len(ret_val) == 3:  # noqa: PLR2004
             size_in_db, hash_in_db, etag_in_db = ret_val
@@ -100,7 +101,6 @@ class AbstractFileIdentifier(ABC):
                 f"File {rel_file_path} has no size or hash information in DB."
             )
 
-        # returning -1 to have same interface in s3 case
         return size_in_db, hash_in_db, etag_in_db
 
     @staticmethod

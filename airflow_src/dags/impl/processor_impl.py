@@ -75,6 +75,11 @@ def prepare_quanting(raw_file_id: str) -> list[dict[str, str | int | list[str]]]
             f"No settings assigned to project '{raw_file.project_id}'. "
         )
 
+    # Create the base output folder (once per raw file).
+    # Settings-specific subfolders are created later
+    base_output_path = get_internal_output_path_for_raw_file(raw_file)
+    base_output_path.mkdir(parents=True, exist_ok=True)
+
     # get raw file path
     backup_base_path = get_path(YamlKeys.Locations.BACKUP)
     year_month_subfolder = get_created_at_year_month(raw_file)
@@ -316,6 +321,8 @@ def run_quanting(
                 f"{msg} Remove it before restarting the quanting or set Airflow variable 'output_exists_mode' to 'overwrite' or 'associate' "
                 f"(got {output_exists_mode})"
             )
+
+    output_path.mkdir(parents=True, exist_ok=True)
 
     year_month_folder = get_created_at_year_month(raw_file)
 

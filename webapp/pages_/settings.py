@@ -539,7 +539,7 @@ c1.markdown("## Archive settings")
 
 active_settings_df = settings_df[
     settings_df["status"] == SettingsStatus.ACTIVE
-].sort_values(["name", "version"])
+].sort_values(["name", "version"], ascending=[True, False])
 
 if active_settings_df.empty:
     c1.info("No active settings to archive.")
@@ -551,8 +551,8 @@ else:
 
         for _, row in active_settings_df.iterrows():
             col_btn, col_info = st.columns([0.2, 0.8])
-            col_info.markdown(
-                f"**{row['name']}** version {int(row['version'])} [{row.get('software_type', '')} | {row.get('description', '')} ]"
+            col_info.write(
+                f"'{row['name']}' version {int(row['version'])} (type: `{row.get('software_type', '')}`, executable: `{row.get('software', '')}, description: `{row.get('description', '')}`)"
             )
             if col_btn.button(
                 "Archive",

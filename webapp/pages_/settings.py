@@ -42,7 +42,7 @@ st.set_page_config(page_title="AlphaKraken: settings", layout="wide")
 
 show_sandbox_message()
 
-st.markdown("# Settings")
+st.markdown("# Manage settings")
 
 # ########################################### SIDEBAR
 
@@ -101,7 +101,7 @@ def display_settings(
 
 display_settings(settings_df)
 
-c1, c2 = st.columns([0.5, 0.5])
+c1, _ = st.columns([0.5, 0.5])
 with c1.expander("Click here for help ..."):
     st.info(
         """
@@ -158,23 +158,6 @@ if selected_name_option != CREATE_NEW_OPTION:
         .iloc[0]
     )
     current_version = int(latest_settings["version"])
-
-    if c1.button(
-        f"Archive '{selected_name_option}' version {current_version}",
-        disabled=DISABLE_WRITE,
-        icon=":material/archive:",
-        help="Archived settings can no longer be assigned to projects or updated.",
-    ):
-        try:
-            archive_settings(latest_settings["_id"])
-            set_session_state(
-                SessionStateKeys.SUCCESS_MSG,
-                f"Archived settings '{selected_name_option}' version {current_version}.",
-            )
-            st.rerun()
-        except Exception as e:  # noqa: BLE001
-            st.error(f"Error: {e}")
-            set_session_state(SessionStateKeys.ERROR_MSG, f"{e}")
 
     # Prepare prefill data from latest version
     prefill_data = {
@@ -548,3 +531,42 @@ if submit:
             f"Created new settings '{name}'. Assign it to projects on the Projects page.",
         )
     st.rerun()
+
+
+# ########################################### ARCHIVE SETTINGS
+
+c1.markdown("## Archive settings")
+
+active_settings_df = settings_df[
+    settings_df["status"] == SettingsStatus.ACTIVE
+].sort_values(["name", "version"])
+
+if active_settings_df.empty:
+    c1.info("No active settings to archive.")
+else:
+    with c1.expander("Show settings to archive .."):
+        st.warning(
+            "Archived settings can no longer be assigned to projects or updated."
+        )
+
+        for _, row in active_settings_df.iterrows():
+            col_btn, col_info = st.columns([0.2, 0.8])
+            col_info.markdown(
+                f"**{row['name']}** version {int(row['version'])} [{row.get('software_type', '')} | {row.get('description', '')} ]"
+            )
+            if col_btn.button(
+                "Archive",
+                key=f"archive_{row['_id']}",
+                disabled=DISABLE_WRITE,
+                icon=":material/archive:",
+            ):
+                try:
+                    archive_settings(row["_id"])
+                    set_session_state(
+                        SessionStateKeys.SUCCESS_MSG,
+                        f"Archived settings '{row['name']}' version {int(row['version'])}.",
+                    )
+                    st.rerun()
+                except Exception as e:  # noqa: BLE001
+                    st.error(f"Error: {e}")
+                    set_session_state(SessionStateKeys.ERROR_MSG, f"{e}")

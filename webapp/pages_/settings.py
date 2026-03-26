@@ -146,7 +146,7 @@ selected_name_option = c1.selectbox(
 
 # Show info banner if existing settings selected and get latest version data for prefilling
 prefill_data = defaultdict(lambda: "")
-current_version = None
+current_version = -1
 if selected_name_option != CREATE_NEW_OPTION:
     # Get the latest version of the selected settings
     latest_settings = (
@@ -187,6 +187,10 @@ if selected_name_option != CREATE_NEW_OPTION:
         "slurm_time": str(latest_settings.get("slurm_time", "")),
         "num_threads": latest_settings.get("num_threads", ""),
     }
+    # Conversion for legacy data. Remove once all is transferred.
+    for k, v in prefill_data.items():
+        if pd.isna(v):
+            prefill_data[k] = ""
 
 
 disable_software_type_selection = "software_type" in prefill_data
@@ -449,9 +453,20 @@ with c1.form("create_settings"):
             f"`{quanting_settings_path}/<settings_name>/`"
         )
 
-    upload_checkbox = st.checkbox(
-        "I have uploaded all referenced files to this folder.", value=False
-    )
+    if software_type not in [SoftwareTypes.SKYLINE, SoftwareTypes.MSQC]:
+        upload_checkbox = st.checkbox(
+            "I have uploaded all referenced files to this folder.", value=False
+        )
+    else:
+        upload_checkbox = True
+
+    if selected_name_option != CREATE_NEW_OPTION:
+        c1.info(
+            f"This will create a new version ({current_version + 1}) of the existing settings '{selected_name_option}'. "
+            f"Projects always reference a specific version of settings, so existing projects using '{selected_name_option}' version {current_version} will not be affected. "
+            "Make sure to updated (all or selected) projects to use the new version after creating it.",
+            icon="ℹ️",  # noqa: RUF001
+        )
 
     is_update = selected_name_option != CREATE_NEW_OPTION
     submit_label = f"Update settings '{name}'" if is_update else "Create settings"

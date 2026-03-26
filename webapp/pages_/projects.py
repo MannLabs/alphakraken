@@ -246,10 +246,14 @@ with c_assign2:
             if ps.raw_file_id_filter:
                 settings_id_to_filter[str(ps.settings.id)] = str(ps.raw_file_id_filter)
         rows = []
-        for instr_id in _INSTRUMENT_IDS:
-            instr_type = _INSTRUMENTS_CONFIG.get(instr_id, {}).get(YamlKeys.TYPE, "")
+        for instrument_id in _INSTRUMENT_IDS:
+            instrument_type = _INSTRUMENTS_CONFIG.get(instrument_id, {}).get(
+                YamlKeys.TYPE, ""
+            )
             resolved = resolve_scoped_settings(
-                current_ps_for_table, instr_id, instr_type
+                current_ps_for_table,
+                instrument_id=instrument_id,
+                instrument_type=instrument_type,
             )
             if resolved:
                 for s in resolved:
@@ -274,7 +278,7 @@ with c_assign2:
                     )
                     rows.append(
                         {
-                            "instrument": instr_id,
+                            "instrument": instrument_id,
                             "settings": f"{s.name} version {s.version} ({s.software_type}){annotation}",
                             "software": s.software,
                             "details": " | ".join(p for p in detail_parts if p),
@@ -283,7 +287,7 @@ with c_assign2:
             else:
                 rows.append(
                     {
-                        "instrument": instr_id,
+                        "instrument": instrument_id,
                         "settings": "--",
                         "software": "--",
                         "details": "",

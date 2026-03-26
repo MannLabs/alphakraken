@@ -12,6 +12,7 @@ SCOPE_LEVEL_INSTRUMENT = 2
 
 def resolve_scoped_settings(
     project_settings: list[ProjectSettings],
+    *,
     instrument_id: str,
     instrument_type: str,
     raw_file_id: str | None = None,

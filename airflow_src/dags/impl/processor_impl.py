@@ -59,7 +59,10 @@ def prepare_quanting(raw_file_id: str) -> list[dict[str, str | int | list[str]]]
     try:
         project_settings = get_project_settings(raw_file.project_id)
         settings_list = resolve_scoped_settings(
-            project_settings, instrument_id, instrument_type, raw_file_id=raw_file_id
+            project_settings,
+            instrument_id=instrument_id,
+            instrument_type=instrument_type,
+            raw_file_id=raw_file_id,
         )
     except DoesNotExist as e:
         raise AirflowFailException(

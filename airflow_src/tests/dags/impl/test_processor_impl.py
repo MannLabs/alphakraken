@@ -282,7 +282,7 @@ def test_prepare_quanting_multiple_settings(
 @patch("dags.impl.processor_impl.get_path")
 @patch("dags.impl.processor_impl.get_project_settings")
 @patch("dags.impl.processor_impl.resolve_scoped_settings")
-def test_prepare_quanting_validation_error_raises(  # noqa: PLR0913
+def test_prepare_quanting_validation_error_stores_errors(  # noqa: PLR0913
     mock_resolve_scoped: MagicMock,
     mock_get_settings: MagicMock,
     mock_get_path: MagicMock,
@@ -290,7 +290,7 @@ def test_prepare_quanting_validation_error_raises(  # noqa: PLR0913
     mock_create_env: MagicMock,
     mock_check_content: MagicMock,
 ) -> None:
-    """Test that prepare_quanting raises on validation errors."""
+    """Test that prepare_quanting stores validation errors in the quanting env."""
     mock_raw_file = MagicMock(
         wraps=RawFile,
         id="test_file.raw",
@@ -300,13 +300,24 @@ def test_prepare_quanting_validation_error_raises(  # noqa: PLR0913
     )
     mock_get_raw_file_by_id.return_value = mock_raw_file
     mock_get_path.return_value = Path("/some_backup_base_path")
+    mock_settings = MagicMock()
     mock_get_settings.return_value = [MagicMock()]
-    mock_resolve_scoped.return_value = [MagicMock()]
-    mock_create_env.return_value = {"SOFTWARE_TYPE": "custom"}
-    mock_check_content.return_value = ["path traversal in fasta_file_name"]
+    mock_resolve_scoped.return_value = [mock_settings]
+    mock_env = {"SOFTWARE_TYPE": "custom"}
+    mock_create_env.return_value = mock_env
+    mock_check_content.return_value = ["some_error"]
 
-    with pytest.raises(AirflowFailException):
-        prepare_quanting(raw_file_id="test_file.raw")
+    result = prepare_quanting(raw_file_id="test_file.raw")
+
+    mock_create_env.assert_called_once_with(
+        mock_settings,
+        mock_raw_file,
+        Path("/some_backup_base_path/instrument1/1970_01/test_file.raw"),
+        Path("instrument1/1970_01/test_file.raw"),
+    )
+    mock_check_content.assert_called_once_with(mock_env, mock_settings)
+    assert result == [mock_env]
+    assert result[0][QuantingEnv.QUANTING_ENV_CREATION_ERRORS] == ["some_error"]
 
 
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
@@ -391,6 +402,17 @@ def test_get_slurm_job_id_from_log_returns_none_if_file_not_exists() -> None:
         mock_path.exists.return_value = False
         # when
         assert _get_slurm_job_id_from_log(Path("/mock/path")) is None
+
+
+def test_run_quanting_raises_on_env_creation_errors() -> None:
+    """Test that run_quanting raises if the quanting env contains creation errors."""
+    quanting_env = {
+        QuantingEnv.RAW_FILE_ID: "test_file.raw",
+        QuantingEnv.QUANTING_ENV_CREATION_ERRORS: ["some_error"],
+    }
+
+    with pytest.raises(AirflowFailException, match="some_error"):
+        run_quanting(quanting_env=quanting_env)
 
 
 @patch("dags.impl.processor_impl.get_raw_file_by_id")

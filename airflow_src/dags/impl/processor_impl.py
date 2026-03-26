@@ -50,7 +50,7 @@ from shared.validation import check_for_malicious_content
 from shared.yamlsettings import YamlKeys, get_path
 
 
-def prepare_quanting(raw_file_id: str) -> list[dict[str, str | int]]:
+def prepare_quanting(raw_file_id: str) -> list[dict[str, str | int | list[str]]]:
     """Prepare the environmental variables for the quanting job."""
     raw_file = get_raw_file_by_id(raw_file_id)
     instrument_id = raw_file.instrument_id
@@ -78,7 +78,7 @@ def prepare_quanting(raw_file_id: str) -> list[dict[str, str | int]]:
     relative_raw_file_path = Path(instrument_id) / year_month_subfolder / raw_file_id
     raw_file_path = backup_base_path / relative_raw_file_path
 
-    quanting_envs: list[dict[str, str | int]] = []
+    quanting_envs: list[dict[str, str | int | list[str]]] = []
     for settings in settings_list:
         quanting_env = _create_quanting_env(
             settings,
@@ -88,9 +88,8 @@ def prepare_quanting(raw_file_id: str) -> list[dict[str, str | int]]:
         )
 
         if errors := _check_content(quanting_env, settings):
-            raise AirflowFailException(
-                f"Validation errors in quanting environment: {errors}"
-            )
+            # this is a bit of a hack to propagate errors to the individual downstream branches
+            quanting_env[QuantingEnv.QUANTING_ENV_CREATION_ERRORS] = errors
 
         quanting_envs.append(quanting_env)
 
@@ -102,7 +101,7 @@ def _create_quanting_env(
     raw_file: RawFile,
     raw_file_path: Path,
     relative_raw_file_path: Path,
-) -> dict[str, str | int]:
+) -> dict[str, str | int | list[str]]:
     """Create a quanting environment from settings."""
     settings_path = get_path(YamlKeys.Locations.SETTINGS) / settings.name
 
@@ -133,7 +132,7 @@ def _create_quanting_env(
         else ""
     )
 
-    quanting_env: dict[str, str | int] = {
+    quanting_env: dict[str, str | int | list[str]] = {
         QuantingEnv.RAW_FILE_PATH: str(raw_file_path),
         QuantingEnv.SETTINGS_PATH: str(settings_path),
         QuantingEnv.OUTPUT_PATH: str(output_path),
@@ -198,7 +197,9 @@ def _prepare_custom_command(  # noqa: PLR0913 Too many arguments
     return custom_command
 
 
-def _check_content(quanting_env: dict[str, str | int], settings: Settings) -> list[str]:
+def _check_content(
+    quanting_env: dict[str, str | int | list[str]], settings: Settings
+) -> list[str]:
     """Validate the fields in the quanting environment don't contain malicious content."""
     absolute_path_allowed_keys = [
         QuantingEnv.RAW_FILE_PATH,
@@ -273,6 +274,11 @@ def run_quanting(
     :return: The Slurm job ID as a string.
     """
     logging.info(f"Starting quanting with environment: {quanting_env}")
+
+    if quanting_env.get(QuantingEnv.QUANTING_ENV_CREATION_ERRORS):
+        raise AirflowFailException(
+            f"Quanting environment construction failed:\n {quanting_env}"
+        )
 
     raw_file = get_raw_file_by_id(quanting_env[QuantingEnv.RAW_FILE_ID])
 

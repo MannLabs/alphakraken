@@ -129,6 +129,9 @@ with c1.expander("Click here for help ..."):
 
 c1.markdown("## Create / update settings")
 
+# only active settings beyond this point
+settings_df = settings_df[settings_df["status"] == SettingsStatus.ACTIVE]
+
 # Get existing settings names for selectbox (outside form so it can trigger reruns)
 existing_settings_names = (
     sorted(set(settings_df["name"].tolist()))
@@ -156,10 +159,11 @@ if selected_name_option != CREATE_NEW_OPTION:
     )
     current_version = int(latest_settings["version"])
 
-    if latest_settings.get("status") == SettingsStatus.ACTIVE and c1.button(
+    if c1.button(
         f"Archive '{selected_name_option}' version {current_version}",
         disabled=DISABLE_WRITE,
         icon=":material/archive:",
+        help="Archived settings can no longer be assigned to projects or updated.",
     ):
         try:
             archive_settings(latest_settings["_id"])
@@ -461,7 +465,7 @@ with c1.form("create_settings"):
         upload_checkbox = True
 
     if selected_name_option != CREATE_NEW_OPTION:
-        c1.info(
+        st.info(
             f"This will create a new version ({current_version + 1}) of the existing settings '{selected_name_option}'. "
             f"Projects always reference a specific version of settings, so existing projects using '{selected_name_option}' version {current_version} will not be affected. "
             "Make sure to updated (all or selected) projects to use the new version after creating it.",

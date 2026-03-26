@@ -7,7 +7,7 @@ from shared.db.engine import connect_db
 from shared.db.interface import augment_raw_files_with_metrics
 from shared.db.models import RawFile
 
-METRICS_INTERNAL_KEYS = {
+METRICS_EXCLUDED_KEYS = {
     "_id",
     "raw_file",
     "created_at_",
@@ -15,7 +15,7 @@ METRICS_INTERNAL_KEYS = {
     "settings_version",
 }
 
-RAW_FILE_EXCLUDED_KEYS = {"file_info", "backup_base_path", "created_at_"}
+RAW_FILE_EXCLUDED_KEYS = {"_id", "file_info", "backup_base_path", "created_at_"}
 
 
 def _query_raw_files(  # noqa: PLR0913
@@ -56,19 +56,23 @@ def _query_raw_files(  # noqa: PLR0913
 
 
 def _to_metrics_list(raw_file_data: dict[str, Any]) -> list[dict[str, Any]]:
-    """Extract metrics dicts from raw file data into a list, removing internal keys."""
+    """Extract metrics dicts from raw file data into a list, removing internal keys.
+
+    Metrics entries are identified by having a "type" key (added by augment_raw_files_with_metrics).
+    """
     metrics_list = []
     for key in list(raw_file_data):
-        if not isinstance(raw_file_data[key], dict):
+        value = raw_file_data[key]
+        if not isinstance(value, dict) or not len(value):
             continue
-        metrics = raw_file_data.pop(key)
+        raw_file_data.pop(key)
 
         # harmonize legacy field name
-        if "raw:gradient_length_m" in metrics:
-            metrics["gradient_length"] = metrics.pop("raw:gradient_length_m")
+        if "raw:gradient_length_m" in value:
+            value["gradient_length"] = value.pop("raw:gradient_length_m")
 
         metrics_list.append(
-            {k: v for k, v in metrics.items() if k not in METRICS_INTERNAL_KEYS}
+            {k: v for k, v in value.items() if k not in METRICS_EXCLUDED_KEYS}
         )
     return metrics_list
 
@@ -110,7 +114,7 @@ def get_raw_files_with_metrics(  # noqa: PLR0913
             **{
                 k: v
                 for k, v in raw_file_data.items()
-                if k not in RAW_FILE_EXCLUDED_KEYS and k != "_id"
+                if k not in RAW_FILE_EXCLUDED_KEYS
             },
             "metrics": metrics,
         }

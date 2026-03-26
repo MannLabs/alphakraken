@@ -126,7 +126,8 @@ c_assign1, c_assign2 = st.columns([0.5, 0.5])
 
 with c_assign1:
     project_options = [""] + [p.id for p in projects_db]
-    selected_project_id = st.selectbox(
+    c1, _ = st.columns([0.66, 0.33])
+    selected_project_id = c1.selectbox(
         "Select project", options=project_options, key="assign_project_select"
     )
 
@@ -186,31 +187,32 @@ with c_assign1:
                 for s in all_settings
             }
 
-            c1, c2, c3 = st.columns([0.5, 0.25, 0.25])
+            c1, _ = st.columns([0.66, 0.33])
             selected_settings_display = c1.selectbox(
                 "Select settings to assign",
                 options=settings_options_map.keys(),
                 key="assign_settings_select",
             )
 
-            selected_scope = c2.selectbox(
+            c1, c2, c3 = st.columns([0.33, 0.33, 0.33])
+            selected_scope = c1.selectbox(
                 "Select instrument or vendor scope",
                 options=SCOPE_OPTIONS,
                 key="assign_scope_select",
                 help="'*' = all instruments, vendor name = vendor-specific, instrument ID = instrument-specific",
             )
 
-            selected_excluded = c3.multiselect(
+            selected_excluded = c2.multiselect(
                 "Exclude instruments from scope (optional)",
                 options=_INSTRUMENT_IDS,
                 key="assign_excluded_select",
                 help="Instruments to exclude from this scope assignment.",
             )
 
-            raw_file_id_filter_input = st.text_input(
+            raw_file_id_filter_input = c3.text_input(
                 "Raw file name contains (optional)",
                 key="assign_raw_file_id_filter",
-                help="Settings apply only if the raw file ID contains this string. Leave empty to apply to all files.",
+                help="Settings apply only if the raw file ID contains this string. Case sensitive. Leave empty to apply to all files.",
             )
 
             if disable_write:

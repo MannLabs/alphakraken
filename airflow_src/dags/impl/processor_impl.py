@@ -80,59 +80,12 @@ def prepare_quanting(raw_file_id: str) -> list[dict[str, str | int]]:
 
     quanting_envs: list[dict[str, str | int]] = []
     for settings in settings_list:
-        settings_path = get_path(YamlKeys.Locations.SETTINGS) / settings.name
-
-        relative_output_path = get_output_folder_rel_path(
-            raw_file, settings_type=settings.software_type
+        quanting_env = _create_quanting_env(
+            settings,
+            raw_file,
+            raw_file_path,
+            relative_raw_file_path,
         )
-        output_path = get_path(YamlKeys.Locations.OUTPUT) / relative_output_path
-
-        internal_output_path = get_internal_output_path_for_raw_file(
-            raw_file, settings_type=settings.software_type
-        )
-
-        custom_command = (
-            _prepare_custom_command(
-                raw_file_id,
-                relative_output_path,
-                output_path,
-                relative_raw_file_path,
-                raw_file_path,
-                settings,
-                settings_path,
-                settings.num_threads,
-                raw_file.project_id,
-            )
-            # MSQC and skyline are treated as a 'custom command'
-            if settings.software_type
-            in [SoftwareTypes.CUSTOM, SoftwareTypes.SKYLINE, SoftwareTypes.MSQC]
-            else ""
-        )
-
-        quanting_env: dict[str, str | int] = {
-            QuantingEnv.RAW_FILE_PATH: str(raw_file_path),
-            QuantingEnv.SETTINGS_PATH: str(settings_path),
-            QuantingEnv.OUTPUT_PATH: str(output_path),
-            QuantingEnv.RELATIVE_OUTPUT_PATH: str(relative_output_path),
-            QuantingEnv.SPECLIB_FILE_NAME: settings.speclib_file_name,  # TODO: construct path here
-            QuantingEnv.FASTA_FILE_NAME: settings.fasta_file_name,  # TODO: construct path here
-            QuantingEnv.CONFIG_FILE_NAME: settings.config_file_name,  # TODO: construct path here
-            QuantingEnv.SOFTWARE: settings.software,
-            QuantingEnv.SOFTWARE_TYPE: settings.software_type,
-            QuantingEnv.METRICS_TYPE: settings.metrics_type,
-            QuantingEnv.CUSTOM_COMMAND: custom_command,
-            # job parameters
-            QuantingEnv.SLURM_CPUS_PER_TASK: settings.slurm_cpus_per_task,
-            QuantingEnv.SLURM_MEM: settings.slurm_mem,
-            QuantingEnv.SLURM_TIME: settings.slurm_time,
-            QuantingEnv.NUM_THREADS: settings.num_threads,
-            # not required for slurm script:
-            QuantingEnv.RAW_FILE_ID: raw_file_id,
-            QuantingEnv.PROJECT_ID_OR_FALLBACK: raw_file.project_id,
-            QuantingEnv.SETTINGS_NAME: settings.name,
-            QuantingEnv.SETTINGS_VERSION: settings.version,
-            QuantingEnv.INTERNAL_OUTPUT_PATH: str(internal_output_path),
-        }
 
         if errors := _check_content(quanting_env, settings):
             raise AirflowFailException(
@@ -142,6 +95,69 @@ def prepare_quanting(raw_file_id: str) -> list[dict[str, str | int]]:
         quanting_envs.append(quanting_env)
 
     return quanting_envs
+
+
+def _create_quanting_env(
+    settings: Settings,
+    raw_file: RawFile,
+    raw_file_path: Path,
+    relative_raw_file_path: Path,
+) -> dict[str, str | int]:
+    """Create a quanting environment from settings."""
+    settings_path = get_path(YamlKeys.Locations.SETTINGS) / settings.name
+
+    relative_output_path = get_output_folder_rel_path(
+        raw_file, settings_type=settings.software_type
+    )
+    output_path = get_path(YamlKeys.Locations.OUTPUT) / relative_output_path
+
+    internal_output_path = get_internal_output_path_for_raw_file(
+        raw_file, settings_type=settings.software_type
+    )
+
+    custom_command = (
+        _prepare_custom_command(
+            raw_file.id,
+            relative_output_path,
+            output_path,
+            relative_raw_file_path,
+            raw_file_path,
+            settings,
+            settings_path,
+            settings.num_threads,
+            raw_file.project_id,
+        )
+        # MSQC and skyline are treated as a 'custom command'
+        if settings.software_type
+        in [SoftwareTypes.CUSTOM, SoftwareTypes.SKYLINE, SoftwareTypes.MSQC]
+        else ""
+    )
+
+    quanting_env: dict[str, str | int] = {
+        QuantingEnv.RAW_FILE_PATH: str(raw_file_path),
+        QuantingEnv.SETTINGS_PATH: str(settings_path),
+        QuantingEnv.OUTPUT_PATH: str(output_path),
+        QuantingEnv.RELATIVE_OUTPUT_PATH: str(relative_output_path),
+        QuantingEnv.SPECLIB_FILE_NAME: settings.speclib_file_name,  # TODO: construct path here
+        QuantingEnv.FASTA_FILE_NAME: settings.fasta_file_name,  # TODO: construct path here
+        QuantingEnv.CONFIG_FILE_NAME: settings.config_file_name,  # TODO: construct path here
+        QuantingEnv.SOFTWARE: settings.software,
+        QuantingEnv.SOFTWARE_TYPE: settings.software_type,
+        QuantingEnv.METRICS_TYPE: settings.metrics_type,
+        QuantingEnv.CUSTOM_COMMAND: custom_command,
+        # job parameters
+        QuantingEnv.SLURM_CPUS_PER_TASK: settings.slurm_cpus_per_task,
+        QuantingEnv.SLURM_MEM: settings.slurm_mem,
+        QuantingEnv.SLURM_TIME: settings.slurm_time,
+        QuantingEnv.NUM_THREADS: settings.num_threads,
+        # not required for slurm script:
+        QuantingEnv.RAW_FILE_ID: raw_file.id,
+        QuantingEnv.PROJECT_ID_OR_FALLBACK: raw_file.project_id,
+        QuantingEnv.SETTINGS_NAME: settings.name,
+        QuantingEnv.SETTINGS_VERSION: settings.version,
+        QuantingEnv.INTERNAL_OUTPUT_PATH: str(internal_output_path),
+    }
+    return quanting_env
 
 
 def _prepare_custom_command(  # noqa: PLR0913 Too many arguments

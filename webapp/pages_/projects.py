@@ -6,6 +6,7 @@ from typing import Any
 import pandas as pd
 import streamlit as st
 import streamlit.delta_generator
+from pages_.impl.projects_utils import get_resolved_settings_df
 from service.components import show_filter, show_sandbox_message
 from service.db import (
     df_from_db_data,
@@ -29,7 +30,6 @@ from shared.db.interface import (
     remove_project_settings,
 )
 from shared.keys import DEFAULT_SCOPE, KNOWN_VENDOR_NAMES
-from shared.scope import resolve_scoped_settings
 from shared.yamlsettings import YAMLSETTINGS, YamlKeys
 
 _INSTRUMENTS_CONFIG = YAMLSETTINGS.get(YamlKeys.INSTRUMENTS, {})
@@ -240,60 +240,9 @@ with c_assign2:
             "### Resolved settings per instrument",
             help="This table shows the settings that are applied for each instrument based on the current settings assignments and their scopes.",
         )
-        current_ps_for_table = get_project_settings(selected_project_id)
-        settings_id_to_filter: dict[str, str] = {}
-        for ps in current_ps_for_table:
-            if ps.raw_file_id_filter:
-                settings_id_to_filter[str(ps.settings.id)] = str(ps.raw_file_id_filter)
-        rows = []
-        for instrument_id in _INSTRUMENT_IDS:
-            instrument_type = _INSTRUMENTS_CONFIG.get(instrument_id, {}).get(
-                YamlKeys.TYPE, ""
-            )
-            resolved = resolve_scoped_settings(
-                current_ps_for_table,
-                instrument_id=instrument_id,
-                instrument_type=instrument_type,
-            )
-            if resolved:
-                for s in resolved:
-                    detail_parts = [
-                        f"description: {s.description}" if s.description else None,
-                        f"config_file: {s.config_file_name}"
-                        if s.config_file_name
-                        else None,
-                        f"fasta: {s.fasta_file_name}" if s.fasta_file_name else None,
-                        f"speclib: {s.speclib_file_name}"
-                        if s.speclib_file_name
-                        else None,
-                        f"config_params: {s.config_params}"
-                        if s.config_params
-                        else None,
-                    ]
-                    filter_value = settings_id_to_filter.get(str(s.id), "")  # type: ignore[unresolved-attribute]
-                    annotation = (
-                        f" (only for files containing: {filter_value})"
-                        if filter_value
-                        else ""
-                    )
-                    rows.append(
-                        {
-                            "instrument": instrument_id,
-                            "settings": f"{s.name} version {s.version} ({s.software_type}){annotation}",
-                            "software": s.software,
-                            "details": " | ".join(p for p in detail_parts if p),
-                        }
-                    )
-            else:
-                rows.append(
-                    {
-                        "instrument": instrument_id,
-                        "settings": "--",
-                        "software": "--",
-                        "details": "",
-                    }
-                )
-        resolved_df = pd.DataFrame(rows)
+        resolved_df = get_resolved_settings_df(
+            selected_project_id, _INSTRUMENT_IDS, _INSTRUMENTS_CONFIG
+        )
         instrument_color_map = {
             instr: idx % 2
             for idx, instr in enumerate(resolved_df["instrument"].unique())

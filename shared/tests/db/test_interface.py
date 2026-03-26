@@ -365,6 +365,7 @@ def test_create_project_settings(
     mock_settings_instance.status = "active"
     mock_settings_instance.name = "test_settings"
     mock_settings.objects.get.return_value = mock_settings_instance
+    mock_project_settings.objects.return_value = []
 
     create_project_settings("P1234", "settings_id")
 
@@ -376,6 +377,63 @@ def test_create_project_settings(
     )
     mock_project_settings.return_value.save.assert_called_once()
     mock_connect_db.assert_called_once()
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.ProjectSettings")
+@patch("shared.db.interface.Settings")
+@patch("shared.db.interface.Project")
+def test_create_project_settings_duplicate_software_type_scope(
+    mock_project: MagicMock,
+    mock_settings: MagicMock,
+    mock_project_settings: MagicMock,
+    mock_connect_db: MagicMock,  # noqa: ARG001
+) -> None:
+    """Test that assigning the same software_type with the same scope raises ValueError."""
+    mock_project_instance = MagicMock()
+    mock_project.objects.get.return_value = mock_project_instance
+
+    mock_settings_instance = MagicMock()
+    mock_settings_instance.status = "active"
+    mock_settings_instance.software_type = "alphadia"
+    mock_settings.objects.get.return_value = mock_settings_instance
+
+    existing_ps = MagicMock()
+    existing_ps.settings.software_type = "alphadia"
+    mock_project_settings.objects.return_value = [existing_ps]
+
+    with pytest.raises(ValueError, match="software_type 'alphadia' already assigned"):
+        create_project_settings("P1234", "settings_id", scope="bruker")
+
+    mock_project_settings.return_value.save.assert_not_called()
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.ProjectSettings")
+@patch("shared.db.interface.Settings")
+@patch("shared.db.interface.Project")
+def test_create_project_settings_same_scope_different_software_type(
+    mock_project: MagicMock,
+    mock_settings: MagicMock,
+    mock_project_settings: MagicMock,
+    mock_connect_db: MagicMock,  # noqa: ARG001
+) -> None:
+    """Test that assigning a different software_type with the same scope succeeds."""
+    mock_project_instance = MagicMock()
+    mock_project.objects.get.return_value = mock_project_instance
+
+    mock_settings_instance = MagicMock()
+    mock_settings_instance.status = "active"
+    mock_settings_instance.software_type = "alphadia"
+    mock_settings.objects.get.return_value = mock_settings_instance
+
+    existing_ps = MagicMock()
+    existing_ps.settings.software_type = "msqc"
+    mock_project_settings.objects.return_value = [existing_ps]
+
+    create_project_settings("P1234", "settings_id", scope="*")
+
+    mock_project_settings.return_value.save.assert_called_once()
 
 
 @patch("shared.db.interface.connect_db")

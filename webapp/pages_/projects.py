@@ -332,6 +332,7 @@ with c1.expander("Click here for help ..."):
         - Multiple projects can share the same settings
         - You can remove individual settings assignments using the "Remove" button
         - Only active (non-archived) settings can be assigned
+        - A certain software type can only be assigned once for a scope
         - The "scope" defines for which instruments the settings should be applied. `*` means all instruments, otherwise you can choose a specific vendor or instrument id. If multiple settings match for a given instrument, then the most specific one gets picked (e.g. instrument-specific over vendor-specific over '*').
         """,
         icon="ℹ️",  # noqa: RUF001

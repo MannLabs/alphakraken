@@ -239,6 +239,13 @@ def create_project_settings(
         raise ValueError(
             f"Cannot assign archived settings '{settings.name}' version {settings.version}"
         )
+    existing = ProjectSettings.objects(project=project, scope=scope)
+    for ps_existing in existing:
+        if ps_existing.settings.software_type == settings.software_type:
+            raise ValueError(
+                f"Settings with software_type '{settings.software_type}' already assigned "
+                f"to project '{project_id}' with scope '{scope}'"
+            )
     ps = ProjectSettings(
         project=project, settings=settings, scope=scope, excluded=excluded or []
     )

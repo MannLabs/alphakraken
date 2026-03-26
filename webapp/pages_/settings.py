@@ -392,6 +392,9 @@ with c1.form("create_settings"):
         st.write(r"\** At least one of the two must be given")
 
     with st.expander("Resource parameters"):
+        st.info(
+            "Enables setting the resources. Some values are only relevant for Slurm and/or for alphadia/custom."
+        )
         resource_params_defaults = SOFTWARE_TYPE_TO_DEFAULT_RESOURCE_PARAMS[
             software_type
         ]
@@ -418,12 +421,12 @@ with c1.form("create_settings"):
             help="Mapped to --time",
         )
         num_threads = st.number_input(
-            label="Number of threads",
+            label="Number of threads [alphadia and custom only]",
             min_value=1,
             value=int(
                 prefill_data["num_threads"] or resource_params_defaults.num_threads
             ),
-            help="Replaces placeholder NUM_THREADS",
+            help="Use for 'alphadia' and 'custom' (through NUM_THREADS placeholder)",
         )
 
     st.markdown("### Upload files to settings folder")
@@ -443,8 +446,10 @@ with c1.form("create_settings"):
         "I have uploaded all referenced files to this folder.", value=False
     )
 
+    is_update = selected_name_option != CREATE_NEW_OPTION
+    submit_label = f"Update settings '{name}'" if is_update else "Create settings"
     submit = st.form_submit_button(
-        "Create settings",
+        submit_label,
         disabled=DISABLE_WRITE,
         help="Temporarily disabled." if DISABLE_WRITE else "",
     )

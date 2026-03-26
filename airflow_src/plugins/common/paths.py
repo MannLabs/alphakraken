@@ -38,7 +38,7 @@ def get_internal_backup_path_for_instrument(
 
 def get_output_folder_rel_path(
     raw_file: RawFile,
-    settings_type: str | None = None,
+    settings_type: str | None = None,  # TODO: rename to software_type
 ) -> Path:
     """Get the path of the output directory for given raw file name relative to the `output` folder.
 

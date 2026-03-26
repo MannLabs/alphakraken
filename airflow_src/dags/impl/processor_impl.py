@@ -72,7 +72,7 @@ def prepare_quanting(raw_file_id: str) -> list[dict[str, str | int | list[str]]]
     if not settings_list:
         # this should not happen as this DAG should not be triggered if there are no settings
         raise AirflowFailException(
-            f"No settings assigned to project '{raw_file.project_id}'. "
+            f"No settings assigned to project '{raw_file.project_id}'."
         )
 
     # Create the base output folder (once per raw file).
@@ -98,6 +98,7 @@ def prepare_quanting(raw_file_id: str) -> list[dict[str, str | int | list[str]]]
         if errors := _check_content(quanting_env, settings):
             # this is a bit of a hack to propagate errors to the individual downstream branches
             quanting_env[QuantingEnv.QUANTING_ENV_CREATION_ERRORS] = errors
+            logging.warning(f"quanting_env for {settings.name} has errors: {errors}")
 
         quanting_envs.append(quanting_env)
 
@@ -235,7 +236,7 @@ def _check_content(
         ):
             errors.append(f"Validation error in '{value}': {errors_}")
 
-    if settings.software_type == SoftwareTypes.CUSTOM:
+    if quanting_env[QuantingEnv.CUSTOM_COMMAND]:
         errors.extend(
             check_for_malicious_content(
                 str(quanting_env[QuantingEnv.CUSTOM_COMMAND]),
@@ -243,6 +244,7 @@ def _check_content(
                 allow_absolute_paths=True,
             )
         )
+    if settings.config_params:
         errors.extend(
             check_for_malicious_content(settings.config_params, allow_spaces=True)
         )
@@ -267,6 +269,7 @@ def _get_slurm_job_id_from_log(output_path: Path) -> str | None:
 def run_quanting(
     *,
     quanting_env: dict,
+    # TODO: revisit/remove those 3 parameters
     new_status: str | None = RawFileStatus.QUANTING,
     output_path_check: bool = True,
     job_script_name: str = DEFAULT_JOB_SCRIPT_NAME,
@@ -517,3 +520,4 @@ def finalize_raw_file_status(ti: TaskInstance, raw_file_id: str) -> None:
 
     # TODO: currently, if a task is skipped (due to a business error), the raw file will be marked as done.
     update_raw_file(raw_file_id, new_status=RawFileStatus.DONE, status_details=None)
+    # TODO: run_quanting should not set QUANTING status .. dedicated "processing_status" field?

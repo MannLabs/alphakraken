@@ -75,7 +75,6 @@ def display_settings(
 
     filtered_df = filtered_df.drop(columns=["_id"], errors="ignore").fillna("")
 
-    filtered_df = filtered_df.drop(columns=["_id"], errors="ignore").fillna("")
     if "config_params" in filtered_df.columns:
         filtered_df["config_params"] = filtered_df["config_params"].apply(
             lambda x: f"`{x}`" if x else x
@@ -148,7 +147,7 @@ selected_name_option = c1.selectbox(
 )
 
 # Show info banner if existing settings selected and get latest version data for prefilling
-prefill_data = defaultdict(lambda: "")
+prefill_data = defaultdict(lambda: "")  # TODO: normal dict?
 current_version = -1
 if selected_name_option != CREATE_NEW_OPTION:
     # Get the latest version of the selected settings
@@ -452,7 +451,7 @@ with c1.form("create_settings"):
         st.info(
             f"This will create a new version ({current_version + 1}) of the existing settings '{selected_name_option}'. "
             f"Projects always reference a specific version of settings, so existing projects using '{selected_name_option}' version {current_version} will not be affected. "
-            "Make sure to updated (all or selected) projects to use the new version after creating it.",
+            "Make sure to update (all or selected) projects to use the new version after creating it.",
             icon="ℹ️",  # noqa: RUF001
         )
         archive_previous = st.checkbox(

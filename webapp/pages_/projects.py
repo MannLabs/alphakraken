@@ -62,7 +62,7 @@ projects_df = df_from_db_data(projects_db)
 # build settings names column via ProjectSettings M:N relationship
 _project_to_settings: dict[str, list[str]] = {}
 for p in projects_db:
-    ps_list = get_project_settings(p.id)
+    ps_list = get_project_settings(p.id)  # TODO: could be single query
     if ps_list:
         _project_to_settings[p.id] = [
             f"{ps.settings.name} version {ps.settings.version}" for ps in ps_list
@@ -89,7 +89,7 @@ def display_projects(
 
     st_display.table(filtered_df)
     st_display.markdown(
-        f"Output files are stored at `{quanting_output_path}/<project id>/out_<raw file name>/<settings_type>/`. In case you don't know your project ID, it's most likely `_FALLBACK`."
+        f"Output files are stored at `{quanting_output_path}/<project id>/out_<raw file name>/<software_type>/`. In case you don't know your project ID, it's most likely `_FALLBACK`."
     )
 
 
@@ -215,7 +215,7 @@ with c_assign1:
 
             if disable_write:
                 st.warning(
-                    "Changing settings assignment to _FALLBACK project requires admin priviledges."
+                    "Changing settings assignment to _FALLBACK project requires admin privileges."
                 )
             if st.button(
                 f"Assign selected settings to project {selected_project_id}",
@@ -282,8 +282,6 @@ with c_assign2:
             icon="ℹ️",  # noqa: RUF001
         )
 
-# display_projects(projects_df)
-
 # ########################################### FORM
 
 form_items = {
@@ -312,7 +310,7 @@ c1, _ = st.columns([0.5, 0.5])
 with c1.expander("Click here for help ..."):
     st.info(
         """
-        Use this section to add/remove assignements of settings to projects.
+        Use this section to add/remove assignments of settings to projects.
 
         - Projects can have multiple settings assigned
         - Multiple projects can share the same settings

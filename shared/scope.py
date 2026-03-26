@@ -1,6 +1,6 @@
 """Scope resolution for project-settings assignments."""
 
-# TODO: move
+# TODO: rename
 
 from shared.db.models import ProjectSettings, Settings
 from shared.keys import DEFAULT_SCOPE, KNOWN_VENDOR_NAMES
@@ -26,6 +26,8 @@ def resolve_scoped_settings(
 
     If raw_file_id is provided, entries with non-empty raw_file_id_filter
     are only included if the raw_file_id contains the filter string.
+
+    Settings with status "inactive" are deliberately not excluded here.
     """
     scored_settings: list[tuple[tuple[int, int], Settings]] = []
     for ps in project_settings:

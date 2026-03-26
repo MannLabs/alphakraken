@@ -126,8 +126,7 @@ c_assign1, c_assign2 = st.columns([0.5, 0.5])
 
 with c_assign1:
     project_options = [""] + [p.id for p in projects_db]
-    c1, _ = st.columns([0.66, 0.33])
-    selected_project_id = c1.selectbox(
+    selected_project_id = st.selectbox(
         "Select project", options=project_options, key="assign_project_select"
     )
 
@@ -187,8 +186,7 @@ with c_assign1:
                 for s in all_settings
             }
 
-            c1, _ = st.columns([0.66, 0.33])
-            selected_settings_display = c1.selectbox(
+            selected_settings_display = st.selectbox(
                 "Select settings to assign",
                 options=settings_options_map.keys(),
                 key="assign_settings_select",

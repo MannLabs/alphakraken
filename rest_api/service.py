@@ -1,17 +1,16 @@
 """Database query and metrics augmentation logic for the REST API."""
 
-from collections import defaultdict
 from datetime import datetime
 from typing import Any
 
 from shared.db.engine import connect_db
-from shared.db.models import Metrics, RawFile
+from shared.db.interface import augment_raw_files_with_metrics
+from shared.db.models import RawFile
 
 METRICS_INTERNAL_KEYS = {
     "_id",
     "raw_file",
     "created_at_",
-    "type",
     "settings_name",
     "settings_version",
 }
@@ -19,29 +18,7 @@ METRICS_INTERNAL_KEYS = {
 RAW_FILE_EXCLUDED_KEYS = {"file_info", "backup_base_path", "created_at_"}
 
 
-def _flatten_metrics(
-    nested_dict: dict[str, dict[str, Any]],
-) -> dict[str, float | int | str]:
-    """Flatten metrics from different types into a single dict with type prefixes for conflicts."""
-    flattened = {}
-    if not nested_dict:
-        return flattened
-
-    for metrics_type, metrics_data in nested_dict.items():
-        for key, value in metrics_data.items():
-            if key in METRICS_INTERNAL_KEYS:
-                continue
-
-            if key not in flattened:
-                flattened[key] = value
-            else:
-                prefixed_key = f"{metrics_type}_{key}"
-                flattened[prefixed_key] = value
-
-    return flattened
-
-
-def query_raw_files(  # noqa: PLR0913
+def _query_raw_files(  # noqa: PLR0913
     *,
     instrument_id: str | None = None,
     name_contains: str | None = None,
@@ -78,38 +55,22 @@ def query_raw_files(  # noqa: PLR0913
     return raw_files, total
 
 
-def augment_with_metrics(raw_files: list[RawFile]) -> dict[str, dict[str, Any]]:
-    """Augment raw files with their latest flattened metrics.
+def _to_metrics_list(raw_file_data: dict[str, Any]) -> list[dict[str, Any]]:
+    """Extract metrics dicts from raw file data into a list, removing internal keys."""
+    metrics_list = []
+    for key in list(raw_file_data):
+        if not isinstance(raw_file_data[key], dict):
+            continue
+        metrics = raw_file_data.pop(key)
 
-    Returns:
-        Dict keyed by raw file ID, value is a flat dict of raw file fields + metrics fields.
+        # harmonize legacy field name
+        if "raw:gradient_length_m" in metrics:
+            metrics["gradient_length"] = metrics.pop("raw:gradient_length_m")
 
-    """
-    raw_files_dict: dict = {
-        raw_file_mongo["_id"]: raw_file_mongo
-        for raw_file in raw_files
-        if (raw_file_mongo := dict(raw_file.to_mongo()))
-    }
-
-    if not raw_files_dict:
-        return {}
-
-    for metrics_ in Metrics.objects.filter(
-        raw_file__in=list(raw_files_dict.keys())
-    ).order_by("-created_at_"):
-        metrics = dict(metrics_.to_mongo())
-        raw_file_id = metrics["raw_file"]
-
-        if "metrics" not in raw_files_dict[raw_file_id]:
-            raw_files_dict[raw_file_id]["metrics"] = defaultdict(dict)
-
-        metrics_type = metrics.get("type", "default")
-
-        # keep only the latest metrics per type (query is ordered by -created_at_)
-        if metrics_type not in raw_files_dict[raw_file_id]["metrics"]:
-            raw_files_dict[raw_file_id]["metrics"][metrics_type] = metrics
-
-    return raw_files_dict
+        metrics_list.append(
+            {k: v for k, v in metrics.items() if k not in METRICS_INTERNAL_KEYS}
+        )
+    return metrics_list
 
 
 def get_raw_files_with_metrics(  # noqa: PLR0913
@@ -122,13 +83,13 @@ def get_raw_files_with_metrics(  # noqa: PLR0913
     limit: int = 100,
     offset: int = 0,
 ) -> tuple[list[dict[str, Any]], int]:
-    """Query raw files and return them with flattened metrics.
+    """Query raw files and return them with metrics.
 
     Returns:
-        Tuple of (list of raw file dicts with metrics, total count).
+        Tuple of (list of raw file dicts with metrics list, total count).
 
     """
-    raw_files, total = query_raw_files(
+    raw_files, total = _query_raw_files(
         instrument_id=instrument_id,
         name_contains=name_contains,
         project_id=project_id,
@@ -138,15 +99,11 @@ def get_raw_files_with_metrics(  # noqa: PLR0913
         offset=offset,
     )
 
-    augmented = augment_with_metrics(raw_files)
+    augmented = augment_raw_files_with_metrics(raw_files, prefix="")
 
     results = []
     for raw_file_data in augmented.values():
-        metrics = _flatten_metrics(raw_file_data.pop("metrics", None))
-
-        # harmonize legacy field name
-        if "raw:gradient_length_m" in metrics:
-            metrics["gradient_length"] = metrics.pop("raw:gradient_length_m")
+        metrics = _to_metrics_list(raw_file_data)
 
         result = {
             "id": raw_file_data["_id"],
@@ -155,7 +112,7 @@ def get_raw_files_with_metrics(  # noqa: PLR0913
                 for k, v in raw_file_data.items()
                 if k not in RAW_FILE_EXCLUDED_KEYS and k != "_id"
             },
-            **metrics,
+            "metrics": metrics,
         }
 
         results.append(result)

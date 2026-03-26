@@ -173,21 +173,31 @@ def _draw_overlay_plot(
     x: str,
     column: Column,
 ) -> None:
-    """Draw a single plot with multiple columns overlaid as separate traces."""
+    """Draw a single plot with multiple columns overlaid as separate traces.
+
+    If multiple instruments happen to have the same matched columns, they are currently all drawn into one plot.
+    """
     df = df.sort_values(by=x)
 
     fig = go.Figure()
     for col_name in column.matched_columns:
         if col_name not in df.columns:
             continue
-        fig.add_trace(
-            go.Scatter(
-                x=df[x],
-                y=df[col_name],
-                mode="lines+markers",
-                name=col_name,
+
+        df_with_data = df[df[col_name].notna()]
+        instruments = df_with_data["instrument_id"].unique()
+
+        for instrument in instruments:
+            name = f"{col_name} ({instrument})" if len(instruments) > 1 else col_name
+            df_inst = df_with_data[df_with_data["instrument_id"] == instrument]
+            fig.add_trace(
+                go.Scatter(
+                    x=df_inst[x],
+                    y=df_inst[col_name],
+                    mode="lines+markers",
+                    name=name,
+                )
             )
-        )
 
     fig.update_layout(
         title=column.name,

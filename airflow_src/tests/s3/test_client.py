@@ -330,8 +330,8 @@ def test_create_bucket_should_create_bucket_with_location_constraint() -> None:
     )
 
 
-def test_create_bucket_should_set_location_constraint_for_us_east_1() -> None:
-    """Test create_bucket sets LocationConstraint for us-east-1."""
+def test_create_bucket_should_set_no_location_constraint_for_us_east_1() -> None:
+    """Test create_bucket sets no LocationConstraint for us-east-1."""
     # given
     mock_s3_client = MagicMock()
 
@@ -341,7 +341,6 @@ def test_create_bucket_should_set_location_constraint_for_us_east_1() -> None:
     # then
     mock_s3_client.create_bucket.assert_called_once_with(
         Bucket="test-bucket",
-        CreateBucketConfiguration={"LocationConstraint": "us-east-1"},
     )
 
 
@@ -436,11 +435,11 @@ def test_create_bucket_should_handle_bucket_already_owned_by_you() -> None:
     # when
     create_bucket("test-bucket", "eu-central-1", mock_s3_client)
 
-    # then — should not raise, and should not attempt configuration
-    mock_s3_client.put_bucket_versioning.assert_not_called()
-    mock_s3_client.put_bucket_encryption.assert_not_called()
-    mock_s3_client.put_public_access_block.assert_not_called()
-    mock_s3_client.put_bucket_tagging.assert_not_called()
+    # then: should attempt configuration
+    mock_s3_client.put_bucket_versioning.assert_called_once()
+    mock_s3_client.put_bucket_encryption.assert_called_once()
+    mock_s3_client.put_public_access_block.assert_called_once()
+    mock_s3_client.put_bucket_tagging.assert_called_once()
 
 
 def test_create_bucket_should_raise_on_other_client_error() -> None:
@@ -483,7 +482,7 @@ def test_configure_bucket_should_retry_on_failure_and_succeed() -> None:
     # when
     _configure_bucket("test-bucket", mock_s3_client)
 
-    # then — first attempt: versioning OK, encryption FAILED → retry
+    # then: first attempt: versioning OK, encryption FAILED → retry
     # second attempt: all OK
     assert mock_s3_client.put_bucket_versioning.call_count == 2
     assert mock_s3_client.put_bucket_encryption.call_count == 2

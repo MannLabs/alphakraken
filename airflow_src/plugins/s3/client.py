@@ -99,23 +99,23 @@ def create_bucket(bucket_name: str, region: str, s3_client: BaseAwsConnection) -
         s3_client: Boto3 S3 client
 
     """
-    create_kwargs: dict = {
-        "Bucket": bucket_name,
-        "CreateBucketConfiguration": {"LocationConstraint": region},
-    }
+    create_kwargs: dict = {"Bucket": bucket_name}
+    if region != "us-east-1":
+        # cf. https://docs.aws.amazon.com/AmazonS3/latest/API/API_CreateBucketConfiguration.html -> "Valid Values" of LocationConstraint
+        create_kwargs["CreateBucketConfiguration"] = {"LocationConstraint": region}
 
     try:
         s3_client.create_bucket(**create_kwargs)  # ty: ignore[unresolved-attribute]
     except ClientError as e:
         error_code = e.response.get("Error", {}).get("Code", "")
-        if error_code == "BucketAlreadyOwnedByYou":
-            logging.warning(
-                f"Bucket {bucket_name} was already created by a concurrent process"
-            )
-            return
-        raise
+        if error_code != "BucketAlreadyOwnedByYou":
+            raise
 
-    logging.info(f"Created bucket {bucket_name} in {region}")
+        logging.warning(
+            f"Bucket {bucket_name} was already created by a concurrent process"
+        )
+    else:
+        logging.info(f"Created bucket {bucket_name} in {region}")
 
     _configure_bucket(bucket_name, s3_client)
 
@@ -142,13 +142,17 @@ def _configure_bucket(bucket_name: str, s3_client: BaseAwsConnection) -> None:
         "put_public_access_block": "FAILED or SKIPPED",
         "put_bucket_tagging": "FAILED or SKIPPED",
     }
+
+    logging.info(f"Configuring bucket {bucket_name} ..")
     try:
+        logging.info("put_bucket_versioning ..")
         s3_client.put_bucket_versioning(  # ty: ignore[unresolved-attribute]
             Bucket=bucket_name,
             VersioningConfiguration={"Status": "Enabled"},
         )
         status["put_bucket_versioning"] = "OK"
 
+        logging.info("put_bucket_encryption ..")
         s3_client.put_bucket_encryption(  # ty: ignore[unresolved-attribute]
             Bucket=bucket_name,
             ServerSideEncryptionConfiguration={
@@ -163,6 +167,7 @@ def _configure_bucket(bucket_name: str, s3_client: BaseAwsConnection) -> None:
         )
         status["put_bucket_encryption"] = "OK"
 
+        logging.info("put_public_access_block ..")
         s3_client.put_public_access_block(  # ty: ignore[unresolved-attribute]
             Bucket=bucket_name,
             PublicAccessBlockConfiguration={
@@ -174,6 +179,7 @@ def _configure_bucket(bucket_name: str, s3_client: BaseAwsConnection) -> None:
         )
         status["put_public_access_block"] = "OK"
 
+        logging.info("put_bucket_tagging ..")
         s3_client.put_bucket_tagging(  # ty: ignore[unresolved-attribute]
             Bucket=bucket_name,
             Tagging={
@@ -187,17 +193,16 @@ def _configure_bucket(bucket_name: str, s3_client: BaseAwsConnection) -> None:
         )
         status["put_bucket_tagging"] = "OK"
     except ClientError as e:
-        status_report = ", ".join(f"{k}: {v}" for k, v in status.items())
+        status_report = "\n -".join(f"{k}: {v}" for k, v in status.items())
         logging.warning(
-            "Please add the required bucket properties manually and ensure the bucket is properly configured."
+            f"Please add the required bucket properties for {bucket_name} manually and ensure the bucket is properly configured."
         )
         raise BucketConfigurationError(
-            f"Bucket {bucket_name} configuration failed: {status_report}"
+            f"Bucket {bucket_name} configuration failed: \n - {status_report}"
         ) from e
 
-    logging.info(
-        f"Configured bucket {bucket_name} with versioning, encryption, public access block, and tags"
-    )
+    status_report = "\n - ".join(f"{k}: {v}" for k, v in status.items())
+    logging.info(f"Configured bucket {bucket_name}: \n - {status_report}")
 
 
 def get_etag(

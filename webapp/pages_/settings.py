@@ -61,9 +61,6 @@ settings_df = df_from_db_data(settings_db)
 st.markdown("## Current settings")
 
 
-st.warning("This page should be edited only by administrators!", icon="⚠️")
-
-
 @st.fragment
 def display_settings(
     settings_df: pd.DataFrame,

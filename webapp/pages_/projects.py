@@ -12,7 +12,7 @@ from service.db import (
     df_from_db_data,
     get_project_data,
 )
-from service.query_params import get_all_query_params
+from service.query_params import QueryParams, get_all_query_params, is_query_param_true
 from service.session_state import SessionStateKeys, set_session_state
 from service.utils import (
     DISABLE_WRITE,
@@ -29,7 +29,7 @@ from shared.db.interface import (
     get_project_settings,
     remove_project_settings,
 )
-from shared.keys import DEFAULT_SCOPE, KNOWN_VENDOR_NAMES
+from shared.keys import DEFAULT_SCOPE, FALLBACK_PROJECT_ID, KNOWN_VENDOR_NAMES
 from shared.yamlsettings import YAMLSETTINGS, YamlKeys
 
 _INSTRUMENTS_CONFIG = YAMLSETTINGS.get(YamlKeys.INSTRUMENTS, {})
@@ -75,8 +75,6 @@ if not projects_df.empty:
 
 
 # ########################################### DISPLAY
-
-st.warning("This page should be edited only by administrators!", icon="⚠️")
 
 
 @st.fragment
@@ -210,9 +208,17 @@ with c_assign1:
                 help="Settings apply only if the raw file ID contains this string. Leave empty to apply to all files.",
             )
 
+            is_fallback = selected_project_id == FALLBACK_PROJECT_ID
+            disable_assign = DISABLE_WRITE or (
+                is_fallback and not is_query_param_true(QueryParams.ADMIN)
+            )
+            if is_fallback and not is_query_param_true(QueryParams.ADMIN):
+                st.warning(
+                    "Assigning settings to _FALLBACK requires admin priviledges."
+                )
             if st.button(
                 f"Assign selected settings to project {selected_project_id}",
-                disabled=DISABLE_WRITE,
+                disabled=disable_assign,
                 help=f"Assign of the selected settings to the project with the specified scope. {'Temporarily disabled.' if DISABLE_WRITE else ''}",
                 icon=":material/link:",
             ):

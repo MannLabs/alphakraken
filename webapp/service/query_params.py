@@ -27,6 +27,9 @@ class QueryParams:
     # comma-separated list of baseline runs
     BASELINE = "baseline"
 
+    # whether user has admin access
+    ADMIN = "admin"
+
 
 def set_query_param_from_session_state(
     key: str, query_param: str, default: str

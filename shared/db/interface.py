@@ -245,8 +245,7 @@ def create_project_settings(
     for ps_existing in existing:
         if (
             ps_existing.settings.software_type == settings.software_type
-            and not ps_existing.raw_file_id_filter
-            and not raw_file_id_filter
+            and ps_existing.raw_file_id_filter == (raw_file_id_filter or "")
         ):
             raise ValueError(
                 f"Settings with software_type '{settings.software_type}' already assigned "
@@ -255,7 +254,7 @@ def create_project_settings(
     ps = ProjectSettings(
         project=project,
         settings=settings,
-        scope=scope,
+        scope=scope,  # scope is validated on frontend only
         excluded=excluded or [],
         raw_file_id_filter=raw_file_id_filter or "",
     )

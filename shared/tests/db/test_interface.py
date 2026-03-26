@@ -402,7 +402,7 @@ def test_create_project_settings_duplicate_software_type_scope(
     existing_ps = MagicMock()
     existing_ps.settings.software_type = "alphadia"
     existing_ps.raw_file_id_filter = ""
-    mock_project_settings.objects.side_effect = [[], [existing_ps]]
+    mock_project_settings.objects.return_value = [existing_ps]
 
     with pytest.raises(ValueError, match="software_type 'alphadia' already assigned"):
         create_project_settings("P1234", "settings_id", scope="bruker")
@@ -432,7 +432,7 @@ def test_create_project_settings_same_scope_different_software_type(
     existing_ps = MagicMock()
     existing_ps.settings.software_type = "msqc"
     existing_ps.raw_file_id_filter = ""
-    mock_project_settings.objects.side_effect = [[], [existing_ps]]
+    mock_project_settings.objects.return_value = [existing_ps]
 
     create_project_settings("P1234", "settings_id", scope="*")
 
@@ -461,7 +461,7 @@ def test_create_project_settings_with_filter_same_software_type_no_filter_succee
     existing_ps = MagicMock()
     existing_ps.settings.software_type = "alphadia"
     existing_ps.raw_file_id_filter = ""
-    mock_project_settings.objects.side_effect = [[], [existing_ps]]
+    mock_project_settings.objects.return_value = [existing_ps]
 
     create_project_settings(
         "P1234", "settings_id", scope="*", raw_file_id_filter="plasma"

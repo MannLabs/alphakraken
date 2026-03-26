@@ -11,7 +11,9 @@ from common.keys import DagContext, DagParams
 from dags.impl.processor_impl import _get_project_id_or_fallback
 from plugins.file_handling import ETAG_SEPARATOR
 from plugins.s3.client import (
+    S3_BUCKET_NOT_FOUND_ERROR_CODE,
     bucket_exists,
+    create_bucket,
     get_etag,
     get_s3_client,
     get_transfer_config,
@@ -54,8 +56,9 @@ def upload_raw_file_to_s3(ti: TaskInstance, **kwargs) -> None:
     """
     del ti  #    unused
     s3_config = get_s3_upload_config()
-    region = s3_config.get("region")
-    bucket_prefix = s3_config.get("bucket_prefix")
+    region = s3_config["region"]
+    bucket_prefix = s3_config["bucket_prefix"]
+    auto_create_buckets = s3_config.get("auto_create_buckets", False)
     if not region or not bucket_prefix:
         raise S3UploadFailedException(
             "S3 backup enabled but region or bucket_prefix not configured in yaml"
@@ -81,9 +84,12 @@ def upload_raw_file_to_s3(ti: TaskInstance, **kwargs) -> None:
     try:
         s3_client = get_s3_client(region)
 
-        bucket_exists_, error_msg = bucket_exists(bucket_name, s3_client)
+        bucket_exists_, error_msg, error_code = bucket_exists(bucket_name, s3_client)
         if not bucket_exists_:
-            raise S3UploadFailedException(error_msg)  # noqa: TRY301
+            if error_code == S3_BUCKET_NOT_FOUND_ERROR_CODE and auto_create_buckets:
+                create_bucket(bucket_name, region, s3_client)
+            else:
+                raise S3UploadFailedException(error_msg)  # noqa: TRY301
 
         file_path_to_target_path_and_etag, key_prefix = _prepare_upload(
             raw_file, internal_target_folder_path

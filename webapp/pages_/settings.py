@@ -457,7 +457,7 @@ with c1.form("create_settings"):
             f"`{quanting_settings_path}/<settings_name>/`"
         )
 
-    if software_type not in [SoftwareTypes.SKYLINE, SoftwareTypes.MSQC]:
+    if software_type not in [SoftwareTypes.MSQC]:
         upload_checkbox = st.checkbox(
             "I have uploaded all referenced files to this folder.", value=False
         )

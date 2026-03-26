@@ -304,7 +304,10 @@ def create_settings(  # noqa: PLR0913
     existing = Settings.objects(name=name).order_by("-version").first()
     version = (existing.version + 1) if existing else 1
 
+    next_number = Settings.objects.count() + 1
+
     settings = Settings(
+        number=next_number,
         name=name,
         version=version,
         description=description,

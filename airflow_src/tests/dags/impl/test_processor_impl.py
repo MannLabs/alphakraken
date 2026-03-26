@@ -62,6 +62,10 @@ def test_prepare_quanting(
     mock_settings.software_type = "alphadia"
     mock_settings.metrics_type = "alphadia"
     mock_settings.version = 1
+    mock_settings.slurm_cpus_per_task = None
+    mock_settings.slurm_mem = None
+    mock_settings.slurm_time = None
+    mock_settings.slurm_num_threads = None
     mock_get_settings.return_value = [MagicMock()]
     mock_resolve_scoped.return_value = [mock_settings]
 
@@ -135,6 +139,10 @@ def test_prepare_quanting_custom_software(
     mock_settings.software_type = "custom"
     mock_settings.metrics_type = "custom"
     mock_settings.version = 1
+    mock_settings.slurm_cpus_per_task = None
+    mock_settings.slurm_mem = None
+    mock_settings.slurm_time = None
+    mock_settings.slurm_num_threads = None
     mock_get_settings.return_value = [MagicMock()]
     mock_resolve_scoped.return_value = [mock_settings]
 
@@ -213,6 +221,10 @@ def test_prepare_quanting_multiple_settings(
         software="alphadia-1.0",
         software_type="alphadia",
         version=1,
+        slurm_cpus_per_task=None,
+        slurm_mem=None,
+        slurm_time=None,
+        slurm_num_threads=None,
     )
     mock_settings_msqc = MagicMock(
         name="msqc_default",
@@ -223,6 +235,10 @@ def test_prepare_quanting_multiple_settings(
         software="msqc-1.0",
         software_type="msqc",
         version=1,
+        slurm_cpus_per_task=None,
+        slurm_mem=None,
+        slurm_time=None,
+        slurm_num_threads=None,
     )
     mock_get_settings.return_value = [MagicMock(), MagicMock()]
     mock_resolve_scoped.return_value = [mock_settings_alphadia, mock_settings_msqc]
@@ -244,6 +260,55 @@ def test_prepare_quanting_multiple_settings(
     assert result[1][QuantingEnv.SLURM_MEM] == "31G"
     assert result[1][QuantingEnv.SLURM_TIME] == "00:10:00"
     assert result[1][QuantingEnv.NUM_THREADS] == 2
+
+
+@patch.dict(_INSTRUMENTS, {"instrument1": {"type": "thermo"}})
+@patch("dags.impl.processor_impl.get_raw_file_by_id")
+@patch("dags.impl.processor_impl.get_path")
+@patch("dags.impl.processor_impl.get_project_settings")
+@patch("dags.impl.processor_impl.resolve_scoped_settings")
+def test_prepare_quanting_custom_slurm_params(
+    mock_resolve_scoped: MagicMock,
+    mock_get_settings: MagicMock,
+    mock_get_path: MagicMock,
+    mock_get_raw_file_by_id: MagicMock,
+) -> None:
+    """Test that custom SLURM params from settings take precedence over defaults."""
+    mock_raw_file = MagicMock(
+        wraps=RawFile,
+        id="test_file.raw",
+        created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
+        project_id="some_project_id",
+    )
+    mock_get_raw_file_by_id.return_value = mock_raw_file
+    mock_get_path.side_effect = [
+        Path("/some_backup_base_path"),
+        Path("/some_quanting_settings_path"),
+        Path("/some_quanting_output_path"),
+    ]
+    mock_settings = MagicMock()
+    mock_settings.name = "test_settings"
+    mock_settings.speclib_file_name = "some_speclib_file_name"
+    mock_settings.fasta_file_name = "some_fasta_file_name"
+    mock_settings.config_file_name = "some_config_file_name"
+    mock_settings.config_params = ""
+    mock_settings.software = "some_software"
+    mock_settings.software_type = "alphadia"
+    mock_settings.metrics_type = "alphadia"
+    mock_settings.version = 1
+    mock_settings.slurm_cpus_per_task = 16
+    mock_settings.slurm_mem = "128G"
+    mock_settings.slurm_time = "04:00:00"
+    mock_settings.slurm_num_threads = 16
+    mock_get_settings.return_value = [MagicMock()]
+    mock_resolve_scoped.return_value = [mock_settings]
+
+    result = prepare_quanting(raw_file_id="test_file.raw", instrument_id="instrument1")
+
+    assert result[0][QuantingEnv.SLURM_CPUS_PER_TASK] == 16
+    assert result[0][QuantingEnv.SLURM_MEM] == "128G"
+    assert result[0][QuantingEnv.SLURM_TIME] == "04:00:00"
+    assert result[0][QuantingEnv.NUM_THREADS] == 16
 
 
 @patch.dict(_INSTRUMENTS, {"instrument1": {"type": "thermo"}})
@@ -281,6 +346,10 @@ def test_prepare_quanting_validation_error_raises(
             software="custom1.2.3",
             software_type="custom",
             version=1,
+            slurm_cpus_per_task=None,
+            slurm_mem=None,
+            slurm_time=None,
+            slurm_num_threads=None,
         )
     ]
 

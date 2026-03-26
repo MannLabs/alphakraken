@@ -1,5 +1,6 @@
 """Settings management page."""
 
+import re
 from collections import defaultdict
 
 # ruff: noqa: TRY301 # Abstract `raise` to an inner function
@@ -26,7 +27,11 @@ from service.utils import (
 
 from shared.db.interface import create_settings
 from shared.db.models import SettingsStatus
-from shared.keys import MetricsTypes, SoftwareTypes
+from shared.keys import (
+    SOFTWARE_TYPE_TO_DEFAULT_SLURM_PARAMS,
+    MetricsTypes,
+    SoftwareTypes,
+)
 from shared.validation import check_for_malicious_content
 from shared.yamlsettings import YamlKeys, get_path
 
@@ -170,6 +175,10 @@ if selected_name_option != CREATE_NEW_OPTION:
         "config_file_name": str(latest_settings.get("config_file_name", "")),
         "config_params": str(latest_settings.get("config_params", "")),
         "metrics_type": str(latest_settings.get("metrics_type", "")),
+        "slurm_cpus_per_task": latest_settings.get("slurm_cpus_per_task", ""),
+        "slurm_mem": str(latest_settings.get("slurm_mem", "")),
+        "slurm_time": str(latest_settings.get("slurm_time", "")),
+        "slurm_num_threads": latest_settings.get("slurm_num_threads", ""),
     }
 
 
@@ -209,6 +218,8 @@ if is_custom_software:
     c1.info(
         "Currently, custom metrics need to be added to the codebase (`metrics/custom.py`)."
     )
+
+slurm_defaults = SOFTWARE_TYPE_TO_DEFAULT_SLURM_PARAMS[software_type]
 
 form_items = {
     "name": {
@@ -381,6 +392,34 @@ with c1.form("create_settings"):
     if software_type == SoftwareTypes.ALPHADIA:
         st.write(r"\** At least one of the two must be given")
 
+    with st.expander("SLURM job parameters"):
+        slurm_cpus_per_task = st.number_input(
+            label="CPUs per task",
+            min_value=1,
+            value=int(
+                prefill_data["slurm_cpus_per_task"] or slurm_defaults.cpus_per_task
+            ),
+            help="Mapped to --cpus-per-task",
+        )
+        slurm_mem = st.text_input(
+            label="Memory (e.g. '62G')",
+            max_chars=16,
+            value=prefill_data["slurm_mem"] or slurm_defaults.mem,
+            help="Mapped to --mem",
+        )
+        slurm_time = st.text_input(
+            label="Time limit (HH:MM:SS)",
+            max_chars=16,
+            value=prefill_data["slurm_time"] or slurm_defaults.time,
+            help="Mapped to --time",
+        )
+        slurm_num_threads = st.number_input(
+            label="Number of threads",
+            min_value=1,
+            value=int(prefill_data["slurm_num_threads"] or slurm_defaults.num_threads),
+            help="Replaces placeholder NUM_THREADS",
+        )
+
     st.markdown("### Upload files to settings folder")
     settings_name_clean = empty_to_none(name)
     if settings_name_clean:
@@ -419,6 +458,10 @@ if submit:
         validation_errors.extend(
             check_for_malicious_content(config_params, allow_spaces=True)
         )
+    if slurm_mem:
+        validation_errors.extend(check_for_malicious_content(slurm_mem))
+    if slurm_time and not re.match(r"^\d{2}:\d{2}:\d{2}$", slurm_time):
+        validation_errors.append("SLURM time must be in HH:MM:SS format.")
 
     if software_type == SoftwareTypes.ALPHADIA and (
         empty_to_none(fasta_file_name) is None
@@ -450,6 +493,10 @@ if submit:
             software_type=empty_to_none(software_type),
             software=empty_to_none(software),
             metrics_type=metrics_type,
+            slurm_cpus_per_task=slurm_cpus_per_task,
+            slurm_mem=empty_to_none(slurm_mem),
+            slurm_time=empty_to_none(slurm_time),
+            slurm_num_threads=slurm_num_threads,
         )
     except Exception as e:  # noqa: BLE001
         st.error(f"Error: {e}")

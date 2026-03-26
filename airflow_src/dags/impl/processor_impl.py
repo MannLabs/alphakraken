@@ -10,7 +10,6 @@ from airflow.utils.state import TaskInstanceState
 from common.constants import (
     DEFAULT_JOB_SCRIPT_NAME,
     ERROR_CODE_TO_STRING,
-    SOFTWARE_TYPE_TO_SLURM_PARAMS,
     AlphaDiaConstants,
 )
 from common.keys import (
@@ -92,7 +91,6 @@ def prepare_quanting(
         internal_output_path = get_internal_output_path_for_raw_file(
             raw_file, settings_type=settings.software_type
         )
-        slurm_params = SOFTWARE_TYPE_TO_SLURM_PARAMS[settings.software_type]
 
         custom_command = (
             _prepare_custom_command(
@@ -103,7 +101,7 @@ def prepare_quanting(
                 raw_file_path,
                 settings,
                 settings_path,
-                slurm_params.num_threads,
+                settings.slurm_num_threads,
                 raw_file.project_id,
             )
             # MSQC and skyline are treated as a 'custom command'
@@ -125,10 +123,10 @@ def prepare_quanting(
             QuantingEnv.METRICS_TYPE: settings.metrics_type,
             QuantingEnv.CUSTOM_COMMAND: custom_command,
             # job parameters
-            QuantingEnv.SLURM_CPUS_PER_TASK: slurm_params.cpus_per_task,
-            QuantingEnv.SLURM_MEM: slurm_params.mem,
-            QuantingEnv.SLURM_TIME: slurm_params.time,
-            QuantingEnv.NUM_THREADS: slurm_params.num_threads,
+            QuantingEnv.SLURM_CPUS_PER_TASK: settings.slurm_cpus_per_task,
+            QuantingEnv.SLURM_MEM: settings.slurm_mem,
+            QuantingEnv.SLURM_TIME: settings.slurm_time,
+            QuantingEnv.NUM_THREADS: settings.slurm_num_threads,
             # not required for slurm script:
             QuantingEnv.RAW_FILE_ID: raw_file_id,
             QuantingEnv.PROJECT_ID_OR_FALLBACK: raw_file.project_id,
@@ -202,7 +200,7 @@ def _check_content(quanting_env: dict[str, str | int], settings: Settings) -> li
             and key
             not in [
                 QuantingEnv.CUSTOM_COMMAND,
-                QuantingEnv.SLURM_TIME,  # TODO: contains ":", but set internally at the moment
+                QuantingEnv.SLURM_TIME,  # contains ":", validated in webapp
             ]
             and isinstance(value, str)
             and (

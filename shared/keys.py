@@ -1,5 +1,7 @@
 """Keys for accessing environmental variables."""
 
+from dataclasses import dataclass
+
 
 class ConstantsClass(type):
     """A metaclass for classes that should only contain string constants."""
@@ -76,3 +78,29 @@ DDA_FLAG_IN_RAW_FILE_NAME = "_dda_"
 # This a catch-all project ID assigned to raw files that can't be matched to any real project. It ensures every file has some project assignment so it can be stored
 # and processed with default settings, rather than being rejected.
 FALLBACK_PROJECT_ID = "_FALLBACK"
+
+
+@dataclass(frozen=True)
+class SlurmParams:
+    """Resource parameters for a Slurm job."""
+
+    cpus_per_task: int
+    mem: str
+    time: str
+    num_threads: int
+
+
+SOFTWARE_TYPE_TO_DEFAULT_SLURM_PARAMS: dict[str, SlurmParams] = {
+    SoftwareTypes.ALPHADIA: SlurmParams(
+        cpus_per_task=8, mem="62G", time="02:00:00", num_threads=8
+    ),
+    SoftwareTypes.MSQC: SlurmParams(
+        cpus_per_task=2, mem="31G", time="00:10:00", num_threads=2
+    ),
+    SoftwareTypes.SKYLINE: SlurmParams(
+        cpus_per_task=2, mem="31G", time="00:10:00", num_threads=2
+    ),
+    SoftwareTypes.CUSTOM: SlurmParams(
+        cpus_per_task=8, mem="62G", time="02:00:00", num_threads=8
+    ),
+}

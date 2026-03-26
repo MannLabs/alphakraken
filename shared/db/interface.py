@@ -274,6 +274,10 @@ def create_settings(  # noqa: PLR0913
     software_type: str,
     software: str,
     metrics_type: str,
+    slurm_cpus_per_task: int | None = None,
+    slurm_mem: str | None = None,
+    slurm_time: str | None = None,
+    slurm_num_threads: int | None = None,
 ) -> Settings:
     """Create a new settings entry.
 
@@ -295,6 +299,10 @@ def create_settings(  # noqa: PLR0913
         software_type=software_type,
         software=software,
         metrics_type=metrics_type,
+        slurm_cpus_per_task=slurm_cpus_per_task,
+        slurm_mem=slurm_mem,
+        slurm_time=slurm_time,
+        slurm_num_threads=slurm_num_threads,
     )
     settings.save(force_insert=True)
     logging.info(f"Created settings: {name=} {version=}")

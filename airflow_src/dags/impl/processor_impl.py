@@ -50,11 +50,10 @@ from shared.validation import check_for_malicious_content
 from shared.yamlsettings import YamlKeys, get_path
 
 
-def prepare_quanting(
-    raw_file_id: str, instrument_id: str
-) -> list[dict[str, str | int]]:
+def prepare_quanting(raw_file_id: str) -> list[dict[str, str | int]]:
     """Prepare the environmental variables for the quanting job."""
     raw_file = get_raw_file_by_id(raw_file_id)
+    instrument_id = raw_file.instrument_id
 
     instrument_type = get_instrument_settings(instrument_id, InstrumentKeys.TYPE)
     try:

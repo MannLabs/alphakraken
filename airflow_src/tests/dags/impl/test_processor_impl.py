@@ -45,6 +45,7 @@ def test_prepare_quanting(
         id="test_file.raw",
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
         project_id="some_project_id",
+        instrument_id="instrument1",
     )
     mock_get_raw_file_by_id.return_value = mock_raw_file
     mock_get_path.side_effect = [
@@ -62,15 +63,15 @@ def test_prepare_quanting(
     mock_settings.software_type = "alphadia"
     mock_settings.metrics_type = "alphadia"
     mock_settings.version = 1
-    mock_settings.slurm_cpus_per_task = None
-    mock_settings.slurm_mem = None
-    mock_settings.slurm_time = None
-    mock_settings.num_threads = None
+    mock_settings.slurm_cpus_per_task = 8
+    mock_settings.slurm_mem = "62G"
+    mock_settings.slurm_time = "02:00:00"
+    mock_settings.num_threads = 8
     mock_get_settings.return_value = [MagicMock()]
     mock_resolve_scoped.return_value = [mock_settings]
 
     # when
-    result = prepare_quanting(raw_file_id="test_file.raw", instrument_id="instrument1")
+    result = prepare_quanting(raw_file_id="test_file.raw")
 
     mock_get_settings.assert_called_once_with("some_project_id")
     mock_resolve_scoped.assert_called_once()
@@ -121,6 +122,7 @@ def test_prepare_quanting_custom_software(
         id="test_file.raw",
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
         project_id="some_project_id",
+        instrument_id="instrument1",
     )
     mock_get_raw_file_by_id.return_value = mock_raw_file
     mock_get_path.side_effect = [
@@ -139,15 +141,15 @@ def test_prepare_quanting_custom_software(
     mock_settings.software_type = "custom"
     mock_settings.metrics_type = "custom"
     mock_settings.version = 1
-    mock_settings.slurm_cpus_per_task = None
-    mock_settings.slurm_mem = None
-    mock_settings.slurm_time = None
-    mock_settings.num_threads = None
+    mock_settings.slurm_cpus_per_task = 8
+    mock_settings.slurm_mem = "62G"
+    mock_settings.slurm_time = "02:00:00"
+    mock_settings.num_threads = 8
     mock_get_settings.return_value = [MagicMock()]
     mock_resolve_scoped.return_value = [mock_settings]
 
     # when
-    result = prepare_quanting(raw_file_id="test_file.raw", instrument_id="instrument1")
+    result = prepare_quanting(raw_file_id="test_file.raw")
 
     expected_custom_command = (
         "/some_software_base_path/custom1.2.3 --qvalue 0.01 --f /some_backup_base_path/instrument1/1970_01/test_file.raw "
@@ -200,6 +202,7 @@ def test_prepare_quanting_multiple_settings(
         id="test_file.raw",
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
         project_id="some_project_id",
+        instrument_id="instrument1",
     )
     mock_get_raw_file_by_id.return_value = mock_raw_file
     mock_get_path.side_effect = [
@@ -221,10 +224,10 @@ def test_prepare_quanting_multiple_settings(
         software="alphadia-1.0",
         software_type="alphadia",
         version=1,
-        slurm_cpus_per_task=None,
-        slurm_mem=None,
-        slurm_time=None,
-        num_threads=None,
+        slurm_cpus_per_task=8,
+        slurm_mem="62G",
+        slurm_time="02:00:00",
+        num_threads=8,
     )
     mock_settings_msqc = MagicMock(
         name="msqc_default",
@@ -235,15 +238,15 @@ def test_prepare_quanting_multiple_settings(
         software="msqc-1.0",
         software_type="msqc",
         version=1,
-        slurm_cpus_per_task=None,
-        slurm_mem=None,
-        slurm_time=None,
-        num_threads=None,
+        slurm_cpus_per_task=2,
+        slurm_mem="31G",
+        slurm_time="00:10:00",
+        num_threads=2,
     )
     mock_get_settings.return_value = [MagicMock(), MagicMock()]
     mock_resolve_scoped.return_value = [mock_settings_alphadia, mock_settings_msqc]
 
-    result = prepare_quanting(raw_file_id="test_file.raw", instrument_id="instrument1")
+    result = prepare_quanting(raw_file_id="test_file.raw")
 
     assert len(result) == 2
     assert result[0][QuantingEnv.SOFTWARE_TYPE] == "alphadia"
@@ -279,6 +282,7 @@ def test_prepare_quanting_custom_slurm_params(
         id="test_file.raw",
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
         project_id="some_project_id",
+        instrument_id="instrument1",
     )
     mock_get_raw_file_by_id.return_value = mock_raw_file
     mock_get_path.side_effect = [
@@ -303,7 +307,7 @@ def test_prepare_quanting_custom_slurm_params(
     mock_get_settings.return_value = [MagicMock()]
     mock_resolve_scoped.return_value = [mock_settings]
 
-    result = prepare_quanting(raw_file_id="test_file.raw", instrument_id="instrument1")
+    result = prepare_quanting(raw_file_id="test_file.raw")
 
     assert result[0][QuantingEnv.SLURM_CPUS_PER_TASK] == 16
     assert result[0][QuantingEnv.SLURM_MEM] == "128G"
@@ -328,6 +332,7 @@ def test_prepare_quanting_validation_error_raises(
         id="test_file.raw",
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
         project_id="some_project_id",
+        instrument_id="instrument1",
     )
     mock_get_raw_file_by_id.return_value = mock_raw_file
     mock_get_path.side_effect = [
@@ -355,7 +360,7 @@ def test_prepare_quanting_validation_error_raises(
 
     # when
     with pytest.raises(AirflowFailException):
-        prepare_quanting(raw_file_id="test_file.raw", instrument_id="instrument1")
+        prepare_quanting(raw_file_id="test_file.raw")
 
 
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
@@ -381,7 +386,7 @@ def test_prepare_quanting_no_project_raise(
 
     # when
     with pytest.raises(AirflowFailException):
-        prepare_quanting(raw_file_id="test_file.raw", instrument_id="instrument1")
+        prepare_quanting(raw_file_id="test_file.raw")
 
 
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
@@ -410,7 +415,7 @@ def test_prepare_quanting_no_settings_raise(
 
     # when
     with pytest.raises(AirflowFailException):
-        prepare_quanting(raw_file_id="test_file.raw", instrument_id="instrument1")
+        prepare_quanting(raw_file_id="test_file.raw")
 
 
 def test_get_slurm_job_id_from_log_returns_slurm_job_id_if_present_in_log() -> None:

@@ -85,8 +85,7 @@ class AbstractFileIdentifier(ABC):
         ret_val = self._raw_file.file_info[str(rel_file_path)]
 
         if len(ret_val) == 2:  # noqa: PLR2004
-            # in case of s3: older files that don't have etag information in DB
-            # etag_in_db = None will fail the downstream verification
+            # files that were created before s3 upload was turned on don't have etag information in DB -> etag_in_db = None will fail the downstream verification
             size_in_db, hash_in_db, etag_in_db = ret_val[0], ret_val[1], None
         elif len(ret_val) == 3:  # noqa: PLR2004
             size_in_db, hash_in_db, etag_in_db = ret_val

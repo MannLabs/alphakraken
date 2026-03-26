@@ -334,6 +334,7 @@ services:
       - "443:443"
       - "8080:8080" # for serving Airflow webserver
       - "8089:8089" # for serving MCP server
+      - "8090:8090" # for serving REST API
     volumes:
       - ./misc/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx_logs:/var/log/nginx/
@@ -376,6 +377,26 @@ services:
   #      interval: 30s
   #      timeout: 10s
   #      retries: 3
+
+  rest-api:
+    profiles: ["local", "infrastructure"]
+    build:
+      context: .
+      dockerfile: rest_api/Dockerfile
+    ports:
+      - ${REST_API_PORT:-8090}:8090
+    environment:
+      <<: *airflow-common-env
+      MONGO_USER: ${MONGO_USER_READ:?error}
+      MONGO_PASSWORD: ${MONGO_PASSWORD_READ:?error}
+      REST_API_PORT: 8090
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8090/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: always
 
   # test worker for local testing
   airflow-worker-test1:

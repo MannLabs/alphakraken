@@ -387,6 +387,16 @@ docker run -t alphakraken-mcp-server
 Finally, substitute `mannlabs/alphakraken-mcp-server:latest` -> `alphakraken-mcp-server` in the above configuration.
 
 
+## REST API
+A read-only REST API for programmatic access to raw files and metrics, available on port 8090.
+
+- Interactive docs: `http://<alphakraken_ip_address>:8090/docs`
+- Example: `curl "http://<alphakraken_ip_address>:8090/raw_files/?instrument_id=test1&limit=10"`
+
+The service is started automatically with the `local` and `infrastructure` profiles and uses read-only database credentials.
+See [nbs/rest_api_demo.ipynb](../nbs/rest_api_demo.ipynb) for usage examples.
+
+
 ## Automated MongoDB Database Backups
 
 Optionally, you can set up automated backups of the MongoDB database using the provided backup script:

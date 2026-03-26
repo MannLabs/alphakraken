@@ -240,31 +240,35 @@ with c_assign2:
             "### Resolved settings per instrument",
             help="This table shows the settings that are applied for each instrument based on the current settings assignments and their scopes.",
         )
-        resolved_df = get_resolved_settings_df(
-            selected_project_id, _INSTRUMENT_IDS, _INSTRUMENTS_CONFIG
-        )
-        instrument_color_map = {
-            instr: idx % 2
-            for idx, instr in enumerate(resolved_df["instrument"].unique())
-        }
-        RESOLVED_TABLE_COLORS = [
-            "#f0f0f0",
-            "white",
-        ]
-        st.table(
-            resolved_df.style.apply(
-                lambda row: [
-                    f"background-color: {RESOLVED_TABLE_COLORS[instrument_color_map[row['instrument']]]}"
-                ]
-                * len(row),
-                axis=1,
+        try:
+            resolved_df = get_resolved_settings_df(
+                selected_project_id, _INSTRUMENT_IDS, _INSTRUMENTS_CONFIG
             )
-        )
-        st.page_link(
-            "pages_/settings.py",
-            label="➔ Go to settings page to create/edit settings",
-            icon="📋",
-        )
+        except Exception as e:  # noqa: BLE001
+            st.error(f"Could not resolve settings: {e}")
+        else:
+            instrument_color_map = {
+                instr: idx % 2
+                for idx, instr in enumerate(resolved_df["instrument"].unique())
+            }
+            RESOLVED_TABLE_COLORS = [
+                "#f0f0f0",
+                "white",
+            ]
+            st.table(
+                resolved_df.style.apply(
+                    lambda row: [
+                        f"background-color: {RESOLVED_TABLE_COLORS[instrument_color_map[row['instrument']]]}"
+                    ]
+                    * len(row),
+                    axis=1,
+                )
+            )
+            st.page_link(
+                "pages_/settings.py",
+                label="➔ Go to settings page to create/edit settings",
+                icon="📋",
+            )
     else:
         st.info(
             "Select a project on the left to see resolved settings per instrument.",

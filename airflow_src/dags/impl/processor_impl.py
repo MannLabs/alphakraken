@@ -101,7 +101,7 @@ def prepare_quanting(
                 raw_file_path,
                 settings,
                 settings_path,
-                settings.slurm_num_threads,
+                settings.num_threads,
                 raw_file.project_id,
             )
             # MSQC and skyline are treated as a 'custom command'
@@ -126,7 +126,7 @@ def prepare_quanting(
             QuantingEnv.SLURM_CPUS_PER_TASK: settings.slurm_cpus_per_task,
             QuantingEnv.SLURM_MEM: settings.slurm_mem,
             QuantingEnv.SLURM_TIME: settings.slurm_time,
-            QuantingEnv.NUM_THREADS: settings.slurm_num_threads,
+            QuantingEnv.NUM_THREADS: settings.num_threads,
             # not required for slurm script:
             QuantingEnv.RAW_FILE_ID: raw_file_id,
             QuantingEnv.PROJECT_ID_OR_FALLBACK: raw_file.project_id,

@@ -65,7 +65,7 @@ def test_prepare_quanting(
     mock_settings.slurm_cpus_per_task = None
     mock_settings.slurm_mem = None
     mock_settings.slurm_time = None
-    mock_settings.slurm_num_threads = None
+    mock_settings.num_threads = None
     mock_get_settings.return_value = [MagicMock()]
     mock_resolve_scoped.return_value = [mock_settings]
 
@@ -142,7 +142,7 @@ def test_prepare_quanting_custom_software(
     mock_settings.slurm_cpus_per_task = None
     mock_settings.slurm_mem = None
     mock_settings.slurm_time = None
-    mock_settings.slurm_num_threads = None
+    mock_settings.num_threads = None
     mock_get_settings.return_value = [MagicMock()]
     mock_resolve_scoped.return_value = [mock_settings]
 
@@ -224,7 +224,7 @@ def test_prepare_quanting_multiple_settings(
         slurm_cpus_per_task=None,
         slurm_mem=None,
         slurm_time=None,
-        slurm_num_threads=None,
+        num_threads=None,
     )
     mock_settings_msqc = MagicMock(
         name="msqc_default",
@@ -238,7 +238,7 @@ def test_prepare_quanting_multiple_settings(
         slurm_cpus_per_task=None,
         slurm_mem=None,
         slurm_time=None,
-        slurm_num_threads=None,
+        num_threads=None,
     )
     mock_get_settings.return_value = [MagicMock(), MagicMock()]
     mock_resolve_scoped.return_value = [mock_settings_alphadia, mock_settings_msqc]
@@ -299,7 +299,7 @@ def test_prepare_quanting_custom_slurm_params(
     mock_settings.slurm_cpus_per_task = 16
     mock_settings.slurm_mem = "128G"
     mock_settings.slurm_time = "04:00:00"
-    mock_settings.slurm_num_threads = 16
+    mock_settings.num_threads = 16
     mock_get_settings.return_value = [MagicMock()]
     mock_resolve_scoped.return_value = [mock_settings]
 
@@ -349,7 +349,7 @@ def test_prepare_quanting_validation_error_raises(
             slurm_cpus_per_task=None,
             slurm_mem=None,
             slurm_time=None,
-            slurm_num_threads=None,
+            num_threads=None,
         )
     ]
 

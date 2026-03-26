@@ -28,7 +28,7 @@ from service.utils import (
 from shared.db.interface import create_settings
 from shared.db.models import SettingsStatus
 from shared.keys import (
-    SOFTWARE_TYPE_TO_DEFAULT_SLURM_PARAMS,
+    SOFTWARE_TYPE_TO_DEFAULT_RESOURCE_PARAMS,
     MetricsTypes,
     SoftwareTypes,
 )
@@ -178,7 +178,7 @@ if selected_name_option != CREATE_NEW_OPTION:
         "slurm_cpus_per_task": latest_settings.get("slurm_cpus_per_task", ""),
         "slurm_mem": str(latest_settings.get("slurm_mem", "")),
         "slurm_time": str(latest_settings.get("slurm_time", "")),
-        "slurm_num_threads": latest_settings.get("slurm_num_threads", ""),
+        "num_threads": latest_settings.get("num_threads", ""),
     }
 
 
@@ -219,7 +219,6 @@ if is_custom_software:
         "Currently, custom metrics need to be added to the codebase (`metrics/custom.py`)."
     )
 
-slurm_defaults = SOFTWARE_TYPE_TO_DEFAULT_SLURM_PARAMS[software_type]
 
 form_items = {
     "name": {
@@ -392,31 +391,38 @@ with c1.form("create_settings"):
     if software_type == SoftwareTypes.ALPHADIA:
         st.write(r"\** At least one of the two must be given")
 
-    with st.expander("SLURM job parameters"):
+    with st.expander("Resource parameters"):
+        resource_params_defaults = SOFTWARE_TYPE_TO_DEFAULT_RESOURCE_PARAMS[
+            software_type
+        ]
+
         slurm_cpus_per_task = st.number_input(
-            label="CPUs per task",
+            label="CPUs per task [Slurm only]",
             min_value=1,
             value=int(
-                prefill_data["slurm_cpus_per_task"] or slurm_defaults.cpus_per_task
+                prefill_data["slurm_cpus_per_task"]
+                or resource_params_defaults.slurm_cpus_per_task
             ),
             help="Mapped to --cpus-per-task",
         )
         slurm_mem = st.text_input(
-            label="Memory (e.g. '62G')",
+            label="Memory (e.g. '62G') [Slurm only]",
             max_chars=16,
-            value=prefill_data["slurm_mem"] or slurm_defaults.mem,
+            value=prefill_data["slurm_mem"] or resource_params_defaults.slurm_mem,
             help="Mapped to --mem",
         )
         slurm_time = st.text_input(
-            label="Time limit (HH:MM:SS)",
+            label="Time limit (HH:MM:SS) [Slurm only]",
             max_chars=16,
-            value=prefill_data["slurm_time"] or slurm_defaults.time,
+            value=prefill_data["slurm_time"] or resource_params_defaults.slurm_time,
             help="Mapped to --time",
         )
-        slurm_num_threads = st.number_input(
+        num_threads = st.number_input(
             label="Number of threads",
             min_value=1,
-            value=int(prefill_data["slurm_num_threads"] or slurm_defaults.num_threads),
+            value=int(
+                prefill_data["num_threads"] or resource_params_defaults.num_threads
+            ),
             help="Replaces placeholder NUM_THREADS",
         )
 
@@ -496,7 +502,7 @@ if submit:
             slurm_cpus_per_task=slurm_cpus_per_task,
             slurm_mem=empty_to_none(slurm_mem),
             slurm_time=empty_to_none(slurm_time),
-            slurm_num_threads=slurm_num_threads,
+            num_threads=num_threads,
         )
     except Exception as e:  # noqa: BLE001
         st.error(f"Error: {e}")

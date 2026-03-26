@@ -81,26 +81,28 @@ FALLBACK_PROJECT_ID = "_FALLBACK"
 
 
 @dataclass(frozen=True)
-class SlurmParams:
-    """Resource parameters for a Slurm job."""
+class ResourceParams:
+    """Resource parameters, e.g. for a slurm jobs."""
 
-    cpus_per_task: int
-    mem: str
-    time: str
+    # slurm-specific
+    slurm_cpus_per_task: int
+    slurm_mem: str
+    slurm_time: str
+    # universal
     num_threads: int
 
 
-SOFTWARE_TYPE_TO_DEFAULT_SLURM_PARAMS: dict[str, SlurmParams] = {
-    SoftwareTypes.ALPHADIA: SlurmParams(
-        cpus_per_task=8, mem="62G", time="02:00:00", num_threads=8
+SOFTWARE_TYPE_TO_DEFAULT_RESOURCE_PARAMS: dict[str, ResourceParams] = {
+    SoftwareTypes.ALPHADIA: ResourceParams(
+        slurm_cpus_per_task=8, slurm_mem="62G", slurm_time="02:00:00", num_threads=8
     ),
-    SoftwareTypes.MSQC: SlurmParams(
-        cpus_per_task=2, mem="31G", time="00:10:00", num_threads=2
+    SoftwareTypes.MSQC: ResourceParams(
+        slurm_cpus_per_task=2, slurm_mem="31G", slurm_time="00:10:00", num_threads=2
     ),
-    SoftwareTypes.SKYLINE: SlurmParams(
-        cpus_per_task=2, mem="31G", time="00:10:00", num_threads=2
+    SoftwareTypes.SKYLINE: ResourceParams(
+        slurm_cpus_per_task=2, slurm_mem="31G", slurm_time="00:10:00", num_threads=2
     ),
-    SoftwareTypes.CUSTOM: SlurmParams(
-        cpus_per_task=8, mem="62G", time="02:00:00", num_threads=8
+    SoftwareTypes.CUSTOM: ResourceParams(
+        slurm_cpus_per_task=8, slurm_mem="62G", slurm_time="02:00:00", num_threads=8
     ),
 }

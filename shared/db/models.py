@@ -268,7 +268,7 @@ class Settings(Document):
     slurm_cpus_per_task = IntField(required=False, min_value=1)
     slurm_mem = StringField(required=False, max_length=16)
     slurm_time = StringField(required=False, max_length=16)
-    slurm_num_threads = IntField(required=False, min_value=1)
+    num_threads = IntField(required=False, min_value=1)
 
     status = StringField(max_length=64, default=SettingsStatus.ACTIVE)
 

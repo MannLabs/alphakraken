@@ -2,8 +2,6 @@
 
 # TODO: move
 
-from collections import defaultdict
-
 from shared.db.models import ProjectSettings, Settings
 from shared.keys import DEFAULT_SCOPE, KNOWN_VENDOR_NAMES
 
@@ -21,39 +19,36 @@ def resolve_scoped_settings(
     """Filter project-settings by scope, keeping most-specific per software_type.
 
     Scope levels: "*" (default) < vendor name < instrument ID.
-    Per software_type, only the highest-level entries are kept.
+    Per software_type, only the highest-level entry is kept.
     At the same level, entries with a matching raw_file_id_filter beat
     unfiltered entries; among filtered entries the longest match wins.
-    At the same priority, all entries are returned.
 
     If raw_file_id is provided, entries with non-empty raw_file_id_filter
     are only included if the raw_file_id contains the filter string.
     """
-    classified: list[tuple[tuple[int, int], ProjectSettings]] = []
+    scored_settings: list[tuple[tuple[int, int], Settings]] = []
     for ps in project_settings:
         if instrument_id in (ps.excluded or []):
             continue
-        filter_match_len = 0
+
         if ps.raw_file_id_filter and raw_file_id is not None:
             if ps.raw_file_id_filter not in raw_file_id:
                 continue
             filter_match_len = len(ps.raw_file_id_filter)
+        else:
+            filter_match_len = 0
+
         level = _classify_scope(ps.scope, instrument_id, instrument_type)
         if level is not None:
-            classified.append(((level, filter_match_len), ps))
+            scored_settings.append(((level, filter_match_len), ps.settings))
 
-    groups: dict[str, list[tuple[tuple[int, int], Settings]]] = defaultdict(list)
-    for priority, ps in classified:
-        groups[ps.settings.software_type].append((priority, ps.settings))
+    scored_settings.sort(key=lambda x: x[0], reverse=True)
 
-    result: list[Settings] = []
-    for entries in groups.values():
-        max_priority = max(priority for priority, _ in entries)
-        result.extend(
-            settings for priority, settings in entries if priority == max_priority
-        )
-
-    return result
+    best: dict[str, Settings] = {}
+    for _, settings in scored_settings:
+        if settings.software_type not in best:
+            best[settings.software_type] = settings
+    return list(best.values())
 
 
 def _classify_scope(scope: str, instrument_id: str, instrument_type: str) -> int | None:

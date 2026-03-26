@@ -113,15 +113,15 @@ def test_resolve_instrument_scope_replaces_vendor_and_default() -> None:
     assert result == [ps_instrument.settings]
 
 
-def test_resolve_multiple_same_level_entries_all_returned() -> None:
-    """Test that multiple entries at the same scope level are all returned."""
+def test_resolve_multiple_same_level_entries_first_wins() -> None:
+    """Test that duplicate entries at the same scope level keep only the first."""
     ps_default_1 = _make_ps("*", "alphadia", "settings_1")
     ps_default_2 = _make_ps("*", "alphadia", "settings_2")
 
     result = resolve_scoped_settings(
         [ps_default_1, ps_default_2], INSTRUMENT_ID, INSTRUMENT_TYPE
     )
-    assert result == [ps_default_1.settings, ps_default_2.settings]
+    assert result == [ps_default_1.settings]
 
 
 def test_resolve_mixed_software_types_resolved_independently() -> None:
@@ -269,5 +269,4 @@ def test_raw_file_id_filter_no_priority_when_raw_file_id_is_none() -> None:
     result = resolve_scoped_settings(
         [ps_unfiltered, ps_filtered], INSTRUMENT_ID, INSTRUMENT_TYPE
     )
-    assert len(result) == 2
-    assert set(result) == {ps_unfiltered.settings, ps_filtered.settings}
+    assert result == [ps_unfiltered.settings]

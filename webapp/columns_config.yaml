@@ -125,6 +125,12 @@ columns:
   - name: "irt_cv_total_area_max"
     color_gradient: "red_is_high"
     plot: true
+  - name: "irt_n_heavy_peptides"
+    color_gradient: "green_is_high"
+    plot: true
+  - name: "irt_n_light_peptides"
+    color_gradient: "green_is_high"
+    plot: true
   # skyline: per-peptide metrics (wildcard)
   - name: "irt_*_delta_rt"
     color_gradient: "red_is_high"

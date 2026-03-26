@@ -59,7 +59,7 @@ def bucket_exists(bucket_name: str, s3_client: BaseAwsConnection) -> tuple[bool,
 
     """
     try:
-        s3_client.head_bucket(Bucket=bucket_name)
+        s3_client.head_bucket(Bucket=bucket_name)  # ty: ignore[unresolved-attribute]
         logging.info(f"Bucket {bucket_name} exists and is accessible")
     except ClientError as e:
         error_code = e.response.get("Error", {}).get("Code", "n/a")
@@ -75,30 +75,31 @@ def bucket_exists(bucket_name: str, s3_client: BaseAwsConnection) -> tuple[bool,
 
 def get_etag(
     bucket_name: str, s3_key: str, s3_client: BaseAwsConnection
-) -> str | object:
-    """Get ETag of an S3 object.
+) -> tuple[str | object, int]:
+    """Get ETag and content length of an S3 object.
 
     Args:
         bucket_name: Name of the S3 bucket
         s3_key: S3 object key
         s3_client: Boto3 S3 client
     Returns:
-        ETag string if object exists, None if not
+        Tuple of (etag, content_length). On 404, returns (S3_FILE_NOT_FOUND_ETAG, -1).
 
     """
     try:
-        existing_etag = (
-            s3_client.head_object(Bucket=bucket_name, Key=s3_key)
-            .get("ETag", "")
-            .strip('"')
+        response = s3_client.head_object(  # ty: ignore[unresolved-attribute]
+            Bucket=bucket_name, Key=s3_key
         )
+        etag = response.get("ETag", "").strip('"')
+        content_length = response.get("ContentLength", -1)
     except ClientError as e:
         error_code = e.response.get("Error", {}).get("Code")
         if error_code != "404":
             raise ValueError from e
-        existing_etag = S3_FILE_NOT_FOUND_ETAG
+        etag = S3_FILE_NOT_FOUND_ETAG
+        content_length = -1
 
-    return existing_etag
+    return etag, content_length
 
 
 def upload_file_to_s3(
@@ -118,8 +119,10 @@ def upload_file_to_s3(
         s3_client: Boto3 S3 client
 
     """
+    logging.info(f"Uploading {file_path} to s3://{bucket_name}/{s3_key}")
+
     with file_path.open("rb") as f:
-        s3_client.upload_fileobj(
+        s3_client.upload_fileobj(  # ty: ignore[unresolved-attribute]
             f,
             bucket_name,
             s3_key,

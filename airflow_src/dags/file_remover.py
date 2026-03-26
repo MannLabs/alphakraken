@@ -24,8 +24,8 @@ from impl.remover_impl import get_raw_files_to_remove, remove_raw_files
 def create_file_remover_dag() -> None:
     """Create file_remover dag."""
     with DAG(
-        f"{Dags.FILE_REMOVER}",
-        schedule_interval="0 */12 * * *",  # run twice a day
+        Dags.FILE_REMOVER,
+        schedule="0 */12 * * *",  # run twice a day
         start_date=pendulum.datetime(2000, 1, 1, tz="UTC"),
         max_active_runs=1,
         catchup=False,
@@ -46,6 +46,7 @@ def create_file_remover_dag() -> None:
         get_files_to_remove_ = PythonOperator(
             task_id=Tasks.GET_RAW_FILES_TO_REMOVE,
             python_callable=get_raw_files_to_remove,
+            execution_timeout=timedelta(minutes=Timings.GET_FILES_TO_REMOVE_TIMEOUT_M),
         )
 
         remove_raw_files_ = PythonOperator(

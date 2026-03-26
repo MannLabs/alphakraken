@@ -20,6 +20,7 @@ from plugins.s3.client import (
 from plugins.s3.s3_utils import (
     S3_FILE_NOT_FOUND_ETAG,
     S3_KEY_SEPARATOR,
+    S3_PROTOCOL_PREFIX,
     S3_UPLOAD_CHUNK_SIZE_MB,
     S3UploadFailedException,
     is_upload_needed,
@@ -104,9 +105,9 @@ def upload_raw_file_to_s3(ti: TaskInstance, **kwargs) -> None:
         update_raw_file(
             raw_file_id,
             backup_status=BackupStatus.UPLOAD_DONE,
-            s3_upload_path=f"s3://{bucket_name}"
+            s3_upload_path=f"{S3_PROTOCOL_PREFIX}{bucket_name}"
             if not key_prefix
-            else f"s3://{bucket_name}/{key_prefix}",
+            else f"{S3_PROTOCOL_PREFIX}{bucket_name}/{key_prefix}",
         )
 
 
@@ -169,7 +170,9 @@ def _upload_files(
         s3_key,
         local_etag,
     ) in file_path_to_target_path_and_etag.items():
-        logging.info(f"Uploading {local_file_path} to s3://{bucket_name}/{s3_key}")
+        logging.info(
+            f"Checking if upload required: {local_file_path} to s3://{bucket_name}/{s3_key} {local_etag=}"
+        )
 
         try:
             if not is_upload_needed(bucket_name, s3_key, local_etag, s3_client):
@@ -181,7 +184,7 @@ def _upload_files(
             local_file_path, bucket_name, s3_key, transfer_config, s3_client
         )
 
-        remote_etag = get_etag(bucket_name, s3_key, s3_client)
+        remote_etag, _ = get_etag(bucket_name, s3_key, s3_client)
 
         if local_etag != remote_etag or remote_etag is S3_FILE_NOT_FOUND_ETAG:
             msg = f"ETag mismatch for {s3_key}: local {local_etag} != remote {remote_etag}"

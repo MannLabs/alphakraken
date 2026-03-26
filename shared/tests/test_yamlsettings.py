@@ -99,3 +99,40 @@ def test_returns_test_settings_for_test_environment(
             "software": {"absolute_path": "./tmp/test/software"},
         },
     }
+
+
+class TestGetPurgingVerificationType:
+    """Tests for get_purging_verification_type cross-validation."""
+
+    @patch(
+        "shared.yamlsettings.YAMLSETTINGS",
+        {"backup": {"backup_type": "s3", "purging_verification_type": "local"}},
+    )
+    def test_raises_on_local_with_s3_backup(self) -> None:
+        """Test that local purging verification with s3 backup raises ValueError."""
+        from shared.yamlsettings import get_purging_verification_type
+
+        with pytest.raises(
+            ValueError, match="purging_verification_type='local' is not allowed"
+        ):
+            get_purging_verification_type()
+
+    @patch(
+        "shared.yamlsettings.YAMLSETTINGS",
+        {"backup": {"backup_type": "s3", "purging_verification_type": "force_local"}},
+    )
+    def test_force_local_with_s3_backup(self) -> None:
+        """Test that force_local is allowed with s3 backup."""
+        from shared.yamlsettings import get_purging_verification_type
+
+        assert get_purging_verification_type() == "force_local"
+
+    @patch(
+        "shared.yamlsettings.YAMLSETTINGS",
+        {"backup": {"backup_type": "s3", "purging_verification_type": "s3"}},
+    )
+    def test_s3_with_s3_backup(self) -> None:
+        """Test that s3 purging verification with s3 backup is allowed."""
+        from shared.yamlsettings import get_purging_verification_type
+
+        assert get_purging_verification_type() == "s3"

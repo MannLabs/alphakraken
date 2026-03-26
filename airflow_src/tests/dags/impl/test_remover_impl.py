@@ -36,6 +36,8 @@ from shared.db.models import KrakenStatusValues
     },
     clear=True,
 )
+@patch("dags.impl.remover_impl._create_s3_client")
+@patch("dags.impl.remover_impl.get_purging_verification_type")
 @patch("dags.impl.remover_impl.get_airflow_variable")
 @patch("dags.impl.remover_impl._decide_on_raw_files_to_remove")
 @patch("dags.impl.remover_impl.put_xcom")
@@ -43,9 +45,14 @@ def test_get_raw_files_to_remove(
     mock_put_xcom: MagicMock,
     mock_decide_on_raw_files_to_remove: MagicMock,
     mock_get_airflow_variable: MagicMock,
+    mock_get_purging_verification_type: MagicMock,
+    mock_create_s3_client: MagicMock,
 ) -> None:
     """Test that get_raw_files_to_remove calls the correct functions and puts the result in XCom."""
     mock_ti = MagicMock()
+    mock_s3_client = MagicMock()
+    mock_get_purging_verification_type.return_value = "s3"
+    mock_create_s3_client.return_value = mock_s3_client
     mock_decide_on_raw_files_to_remove.side_effect = [
         ["file1", "file2"],
         ["file3", "file4"],
@@ -65,11 +72,15 @@ def test_get_raw_files_to_remove(
                 "instrument1",
                 min_file_age=10,
                 min_free_gb=42,  # taken from airflow variable
+                verify_against_s3=True,
+                s3_client=mock_s3_client,
             ),
             call(
                 "instrument2",
                 min_file_age=10,
                 min_free_gb=123,  # taken from instrument config
+                verify_against_s3=True,
+                s3_client=mock_s3_client,
             ),
             # instrument3 is skipped due to value of -1 in instrument config
         ]
@@ -105,6 +116,7 @@ def test_get_raw_files_to_remove(
     },
     clear=True,
 )
+@patch("dags.impl.remover_impl.get_purging_verification_type", return_value="local")
 @patch("dags.impl.remover_impl.get_airflow_variable")
 @patch("dags.impl.remover_impl._decide_on_raw_files_to_remove")
 @patch("dags.impl.remover_impl.put_xcom")
@@ -112,6 +124,7 @@ def test_get_raw_files_to_remove_with_instrument_overrides(
     mock_put_xcom: MagicMock,  # noqa: ARG001
     mock_decide_on_raw_files_to_remove: MagicMock,
     mock_get_airflow_variable: MagicMock,
+    mock_get_purging_verification_type: MagicMock,  # noqa: ARG001
 ) -> None:
     """Test that instrument-specific min_file_age_days and min_free_space_gb override the global defaults."""
     mock_ti = MagicMock()
@@ -134,11 +147,15 @@ def test_get_raw_files_to_remove_with_instrument_overrides(
                 "instrument1",
                 min_file_age=7,  # taken from instrument config
                 min_free_gb=200,  # taken from instrument config
+                verify_against_s3=False,
+                s3_client=None,
             ),
             call(
                 "instrument2",
                 min_file_age=10,  # falls back to global airflow variable
                 min_free_gb=300,  # taken from instrument config
+                verify_against_s3=False,
+                s3_client=None,
             ),
         ]
     )
@@ -152,11 +169,13 @@ def test_get_raw_files_to_remove_with_instrument_overrides(
     },
     clear=True,
 )
+@patch("dags.impl.remover_impl.get_purging_verification_type", return_value="local")
 @patch("dags.impl.remover_impl.get_airflow_variable")
 @patch("dags.impl.remover_impl.put_xcom")
 def test_get_raw_files_to_remove_switched_off(
     mock_put_xcom: MagicMock,
     mock_get_airflow_variable: MagicMock,
+    mock_get_purging_verification_type: MagicMock,  # noqa: ARG001
 ) -> None:
     """Test that get_raw_files_to_remove puts an empty list in XCom if file size is not set via Airflow Variable."""
     mock_ti = MagicMock()
@@ -182,6 +201,7 @@ def test_get_raw_files_to_remove_switched_off(
 
 
 @patch.dict(_INSTRUMENTS, {"instrument1": {}, "instrument2": {}}, clear=True)
+@patch("dags.impl.remover_impl.get_purging_verification_type", return_value="local")
 @patch("dags.impl.remover_impl.get_airflow_variable")
 @patch("dags.impl.remover_impl._decide_on_raw_files_to_remove")
 @patch("dags.impl.remover_impl.put_xcom")
@@ -189,6 +209,7 @@ def test_get_raw_files_to_remove_handle_error(
     mock_put_xcom: MagicMock,
     mock_decide_on_raw_files_to_remove: MagicMock,
     mock_get_airflow_variable: MagicMock,
+    mock_get_purging_verification_type: MagicMock,  # noqa: ARG001
 ) -> None:
     """Test that get_raw_files_to_remove gracefully handles errors."""
     mock_ti = MagicMock()
@@ -249,6 +270,7 @@ def test_decide_on_raw_files_to_remove_ok(
         "instrument1",
         min_free_gb=300,
         min_file_age=30,
+        verify_against_s3=False,
     )
 
     assert result == ["file1", "file2"]
@@ -271,17 +293,18 @@ def test_decide_on_raw_files_to_remove_nothing_to_remove_ok(
         "instrument1",
         min_free_gb=300,
         min_file_age=30,
+        verify_against_s3=False,
     )
 
     assert result == []
 
 
 @patch("dags.impl.remover_impl.RawFileWrapperFactory")
-@patch("dags.impl.remover_impl.FileIdentifier")
+@patch("dags.impl.remover_impl.create_file_identifier")
 @patch("dags.impl.remover_impl.get_file_size")
 def test_get_total_size_ok(
     mock_get_file_size: MagicMock,
-    mock_file_identifier: MagicMock,
+    mock_create_file_identifier: MagicMock,
     mock_raw_file_wrapper_factory: MagicMock,
 ) -> None:
     """Test that _get_total_size makes correct calls returns correctly in case file exists."""
@@ -301,13 +324,13 @@ def test_get_total_size_ok(
     mock_raw_file = MagicMock()
 
     # when
-    result = _get_total_size(mock_raw_file)
+    result = _get_total_size(mock_raw_file, verify_against_s3=False)
 
     assert result == (101.0, 2)
 
-    mock_file_identifier.assert_has_calls(
+    mock_create_file_identifier.assert_has_calls(
         [
-            call(mock_raw_file),
+            call(mock_raw_file, verify_against_s3=False, s3_client=None),
             call().check_file(
                 mock_to_remove_path_1,
                 mock_backup_path_1,
@@ -315,7 +338,7 @@ def test_get_total_size_ok(
             ),
             call().check_file().__bool__(),
             # 2 is skipped
-            call(mock_raw_file),
+            call(mock_raw_file, verify_against_s3=False, s3_client=None),
             call().check_file(
                 mock_to_remove_path_3,
                 mock_backup_path_3,
@@ -343,7 +366,7 @@ def test_get_total_size_no_files_returned(
     mock_raw_file = MagicMock()
 
     # when
-    assert _get_total_size(mock_raw_file) == (0, 0)
+    assert _get_total_size(mock_raw_file, verify_against_s3=False) == (0, 0)
 
 
 @patch("dags.impl.remover_impl.RawFileWrapperFactory")
@@ -357,7 +380,7 @@ def test_get_total_size_raises_correctly(
 
     # when
     with pytest.raises(FileRemovalError):
-        _get_total_size(MagicMock())
+        _get_total_size(MagicMock(), verify_against_s3=False)
 
 
 @patch("dags.impl.remover_impl.get_env_variable")
@@ -422,7 +445,7 @@ def test_remove_folder_non_production(mock_get_env: MagicMock) -> None:
 @patch("dags.impl.remover_impl.update_raw_file")
 @patch("dags.impl.remover_impl.get_raw_file_by_id")
 @patch("dags.impl.remover_impl.RawFileWrapperFactory")
-@patch("dags.impl.remover_impl.FileIdentifier")
+@patch("dags.impl.remover_impl.create_file_identifier")
 @patch("dags.impl.remover_impl._change_folder_permissions")
 @patch("dags.impl.remover_impl._remove_files")
 @patch("dags.impl.remover_impl._remove_folder")
@@ -430,7 +453,7 @@ def test_safe_remove_files_success(  # noqa: PLR0913
     mock_remove_folder: MagicMock,
     mock_remove_files: MagicMock,
     mock_change_folder_permissions: MagicMock,
-    mock_file_identifier: MagicMock,
+    mock_create_file_identifier: MagicMock,
     mock_wrapper_factory: MagicMock,
     mock_get_raw_file: MagicMock,
     mock_update_raw_file: MagicMock,
@@ -451,10 +474,10 @@ def test_safe_remove_files_success(  # noqa: PLR0913
     mock_wrapper_factory.create_write_wrapper.return_value = mock_wrapper
 
     # when
-    _safe_remove_files("raw_file_id")
+    _safe_remove_files("raw_file_id", verify_against_s3=False)
 
     # then
-    mock_file_identifier.return_value.check_file.assert_called_once_with(
+    mock_create_file_identifier.return_value.check_file.assert_called_once_with(
         mock_path_to_delete, Path("file1")
     )
     mock_change_folder_permissions.assert_not_called()  # because get_folder_to_remove returned None
@@ -472,7 +495,7 @@ def test_safe_remove_files_success(  # noqa: PLR0913
 @patch("dags.impl.remover_impl.update_raw_file")
 @patch("dags.impl.remover_impl.get_raw_file_by_id")
 @patch("dags.impl.remover_impl.RawFileWrapperFactory")
-@patch("dags.impl.remover_impl.FileIdentifier")
+@patch("dags.impl.remover_impl.create_file_identifier")
 @patch("dags.impl.remover_impl._change_folder_permissions")
 @patch("dags.impl.remover_impl._remove_files")
 @patch("dags.impl.remover_impl._remove_folder")
@@ -480,7 +503,7 @@ def test_safe_remove_files_folder_success(  # noqa: PLR0913
     mock_remove_folder: MagicMock,
     mock_remove_files: MagicMock,
     mock_change_folder_permissions: MagicMock,
-    mock_file_identifier: MagicMock,
+    mock_create_file_identifier: MagicMock,
     mock_wrapper_factory: MagicMock,
     mock_get_raw_file: MagicMock,
     mock_update_raw_file: MagicMock,
@@ -501,10 +524,10 @@ def test_safe_remove_files_folder_success(  # noqa: PLR0913
     mock_wrapper_factory.create_write_wrapper.return_value = mock_wrapper
 
     # when
-    _safe_remove_files("raw_file_id")
+    _safe_remove_files("raw_file_id", verify_against_s3=False)
 
     # then
-    mock_file_identifier.return_value.check_file.assert_called_once_with(
+    mock_create_file_identifier.return_value.check_file.assert_called_once_with(
         mock_path_to_delete, Path("file1")
     )
     mock_change_folder_permissions.assert_called_once_with(
@@ -525,13 +548,13 @@ def test_safe_remove_files_folder_success(  # noqa: PLR0913
 @patch("dags.impl.remover_impl.update_raw_file")
 @patch("dags.impl.remover_impl.get_raw_file_by_id")
 @patch("dags.impl.remover_impl.RawFileWrapperFactory")
-@patch("dags.impl.remover_impl.FileIdentifier")
+@patch("dags.impl.remover_impl.create_file_identifier")
 @patch("dags.impl.remover_impl._remove_files")
 @patch("dags.impl.remover_impl._remove_folder")
 def test_safe_remove_files_file_not_existing(  # noqa: PLR0913 # too many args
     mock_remove_folder: MagicMock,
     mock_remove_files: MagicMock,
-    mock_file_identifier: MagicMock,
+    mock_create_file_identifier: MagicMock,
     mock_wrapper_factory: MagicMock,
     mock_get_raw_file: MagicMock,
     mock_update_raw_file: MagicMock,
@@ -554,10 +577,10 @@ def test_safe_remove_files_file_not_existing(  # noqa: PLR0913 # too many args
     mock_wrapper_factory.create_write_wrapper.return_value = mock_wrapper
 
     # when
-    _safe_remove_files("raw_file_id")
+    _safe_remove_files("raw_file_id", verify_against_s3=False)
 
     # then
-    mock_file_identifier.assert_not_called()
+    mock_create_file_identifier.assert_not_called()
     mock_remove_files.assert_not_called()
     mock_remove_folder.assert_not_called()  # because get_folder_to_remove returned None
     mock_wrapper_factory.create_write_wrapper.assert_called_once_with(
@@ -570,9 +593,9 @@ def test_safe_remove_files_file_not_existing(  # noqa: PLR0913 # too many args
 
 @patch("dags.impl.remover_impl.get_raw_file_by_id")
 @patch("dags.impl.remover_impl.RawFileWrapperFactory")
-@patch("dags.impl.remover_impl.FileIdentifier")
+@patch("dags.impl.remover_impl.create_file_identifier")
 def test_safe_remove_files_check_error(
-    mock_file_identifier: MagicMock,
+    mock_create_file_identifier: MagicMock,
     mock_wrapper_factory: MagicMock,
     mock_get_raw_file: MagicMock,
 ) -> None:
@@ -591,13 +614,13 @@ def test_safe_remove_files_check_error(
     }
     mock_wrapper_factory.create_write_wrapper.return_value = mock_wrapper
 
-    mock_file_identifier.return_value.check_file.side_effect = FileRemovalError(
+    mock_create_file_identifier.return_value.check_file.side_effect = FileRemovalError(
         "Check failed"
     )
 
     # when
     with pytest.raises(FileRemovalError):
-        _safe_remove_files("raw_file_id")
+        _safe_remove_files("raw_file_id", verify_against_s3=False)
 
 
 def test_delete_empty_directory() -> None:
@@ -632,11 +655,15 @@ def test_change_folder_permissions() -> None:
     sub_path_2.chmod.assert_not_called()
 
 
+@patch("dags.impl.remover_impl.get_purging_verification_type", return_value="local")
 @patch("dags.impl.remover_impl._update_file_remover_status")
 @patch("dags.impl.remover_impl.get_xcom")
 @patch("dags.impl.remover_impl._safe_remove_files")
 def test_remove_raw_files_success(
-    mock_safe_remove: MagicMock, mock_get_xcom: MagicMock, mock_update_status: MagicMock
+    mock_safe_remove: MagicMock,
+    mock_get_xcom: MagicMock,
+    mock_update_status: MagicMock,
+    mock_get_purging_verification_type: MagicMock,  # noqa: ARG001
 ) -> None:
     """Test that remove_raw_files successfully removes files."""
     mock_ti = MagicMock()
@@ -650,11 +677,15 @@ def test_remove_raw_files_success(
     mock_update_status.assert_called_once_with(KrakenStatusValues.OK)
 
 
+@patch("dags.impl.remover_impl.get_purging_verification_type", return_value="local")
 @patch("dags.impl.remover_impl._update_file_remover_status")
 @patch("dags.impl.remover_impl.get_xcom")
 @patch("dags.impl.remover_impl._safe_remove_files")
 def test_remove_raw_files_upstream_task_failed(
-    mock_safe_remove: MagicMock, mock_get_xcom: MagicMock, mock_update_status: MagicMock
+    mock_safe_remove: MagicMock,
+    mock_get_xcom: MagicMock,
+    mock_update_status: MagicMock,
+    mock_get_purging_verification_type: MagicMock,  # noqa: ARG001
 ) -> None:
     """Test that remove_raw_files successfully raises if an upstream operation failed."""
     mock_ti = MagicMock()
@@ -672,11 +703,15 @@ def test_remove_raw_files_upstream_task_failed(
     )
 
 
+@patch("dags.impl.remover_impl.get_purging_verification_type", return_value="local")
 @patch("dags.impl.remover_impl._update_file_remover_status")
 @patch("dags.impl.remover_impl.get_xcom")
 @patch("dags.impl.remover_impl._safe_remove_files")
 def test_remove_raw_files_error(
-    mock_safe_remove: MagicMock, mock_get_xcom: MagicMock, mock_update_status: MagicMock
+    mock_safe_remove: MagicMock,
+    mock_get_xcom: MagicMock,
+    mock_update_status: MagicMock,
+    mock_get_purging_verification_type: MagicMock,  # noqa: ARG001
 ) -> None:
     """Test that remove_raw_files raises ValueError when errors occur."""
     mock_ti = MagicMock()

@@ -1,18 +1,22 @@
 """Checks to make sure a file is the desired one."""
 
 import logging
+from abc import ABC, abstractmethod
 from pathlib import Path
 
+from airflow.providers.amazon.aws.hooks.base_aws import BaseAwsConnection
 from common.paths import (
     get_internal_backup_path,
 )
-from file_handling import get_file_hash, get_file_size
+from file_handling import ETAG_SEPARATOR, get_file_hash, get_file_size
+from plugins.s3.client import S3_FILE_NOT_FOUND_ETAG, get_etag
+from plugins.s3.s3_utils import parse_s3_upload_path
 from raw_file_wrapper_factory import CopyPathProvider
 
-from shared.db.models import RawFile, parse_file_info_item
+from shared.db.models import BackupStatus, RawFile
 
 
-class FileIdentifier:
+class AbstractFileIdentifier(ABC):
     """Class to identify and verify files before removal."""
 
     def __init__(self, raw_file: RawFile) -> None:
@@ -49,7 +53,7 @@ class FileIdentifier:
         if not self._check_reference_exists(rel_file_path):
             return False
 
-        size_in_db, hash_in_db = self._get_hashes(rel_file_path)
+        size_in_db, hash_in_db, etag_in_db = self._get_hashes(rel_file_path)
 
         logging.debug(f"Comparing {abs_file_path_to_check=} to {rel_file_path} ..")
 
@@ -62,20 +66,13 @@ class FileIdentifier:
             return False
 
         if not self._check_against_reference(  # noqa: SIM103
-            rel_file_path, size_in_db, hash_in_db, hash_check=hash_check
+            rel_file_path, size_in_db, hash_in_db, etag_in_db, hash_check=hash_check
         ):
             return False
 
         return True
 
-    def _check_reference_exists(self, rel_file_path: Path) -> bool:
-        """Check that the file to remove is present in the pool backup."""
-        if not (self._internal_backup_path / rel_file_path).exists():
-            logging.warning(f"File {rel_file_path} does not exist.")
-            return False
-        return True
-
-    def _get_hashes(self, rel_file_path: Path) -> tuple[float, str]:
+    def _get_hashes(self, rel_file_path: Path) -> tuple[float, str, str | None]:
         """Get size and hash from DB for given relative file path."""
         # TODO: this is a hack to support the old format. Remove it once the older DB entries have been migrated.
         # old file_info key format: 'instrument1/2024_07/file.raw', new: 'file.raw'
@@ -85,15 +82,25 @@ class FileIdentifier:
                 get_internal_backup_path()
             )
 
-        size_in_db, hash_in_db = parse_file_info_item(
-            self._raw_file.file_info[str(rel_file_path)]
-        )
+        ret_val = self._raw_file.file_info[str(rel_file_path)]
+
+        if len(ret_val) == 2:  # noqa: PLR2004
+            # files that were created before s3 upload was turned on don't have etag information in DB -> etag_in_db = None will fail the downstream verification
+            size_in_db, hash_in_db, etag_in_db = ret_val[0], ret_val[1], None
+        elif len(ret_val) == 3:  # noqa: PLR2004
+            size_in_db, hash_in_db, etag_in_db = ret_val
+            etag_in_db = etag_in_db.split(ETAG_SEPARATOR)[0]
+        else:
+            raise ValueError(
+                f"Invalid file_info item length {len(ret_val)} for file {rel_file_path}."
+            )
+
         if size_in_db is None or hash_in_db is None:
             raise KeyError(
                 f"File {rel_file_path} has no size or hash information in DB."
             )
 
-        return size_in_db, hash_in_db
+        return size_in_db, hash_in_db, etag_in_db
 
     @staticmethod
     def _check_against_db(
@@ -116,16 +123,45 @@ class FileIdentifier:
             return False
         return True
 
+    @abstractmethod
+    def _check_reference_exists(self, rel_file_path: Path) -> bool:
+        """Check that the file to remove is present in the respective backup."""
+
+    @abstractmethod
     def _check_against_reference(
         self,
         rel_file_path: Path,
         size_in_db: float,
         hash_in_db: str,
+        etag_in_db: str | None,
+        *,
+        hash_check: bool,
+    ) -> bool:
+        """Check that the file matches the reference in the respective backup."""
+
+
+class FileIdentifier(AbstractFileIdentifier):
+    """File identifier that verifies files against local pool backup."""
+
+    def _check_reference_exists(self, rel_file_path: Path) -> bool:
+        """Check that the file to remove is present in the pool backup."""
+        if not (self._internal_backup_path / rel_file_path).exists():
+            logging.warning(f"File {rel_file_path} does not exist.")
+            return False
+        return True
+
+    def _check_against_reference(
+        self,
+        rel_file_path: Path,
+        size_in_db: float,
+        hash_in_db: str,
+        etag_in_db: str,
         *,
         hash_check: bool,
     ) -> bool:
         """Check that the file to remove matches the size and hash on the reference (pool backup)."""
         # this essentially re-checks the checksums that have been calculated right before file copying, would fail if pool backup was corrupted
+        del etag_in_db
 
         reference_file_path = self._internal_backup_path / rel_file_path
 
@@ -143,26 +179,99 @@ class FileIdentifier:
         return True
 
 
-# example implementation for S3-based backups
-# class S3FileIdentifier(FileIdentifier):
-#
-#     def __init__(self, raw_file: RawFile, s3_client = None) -> None:
-#         """Initialize the S3FileIdentifier with a RawFile instance."""
-#         super().__init__(raw_file)
-#         self._s3_client = s3_client
-#
-#     def _check_reference_exists(self, rel_file_path: Path) -> None:
-#         # Check 1b: the single file to delete is present on present in the s3 bucket
-#         pass
-#
-#
-#     @staticmethod
-#     def _check_against_reference(
-#         rel_file_path: Path,
-#         size_in_db: float,
-#         hash_in_db: str,
-#         *,
-#         hash_check: bool,
-#     ) -> None:
-#         # Check 3b: compare the single file to delete with s3 backup (etag)
-#         pass
+class S3FileIdentifier(AbstractFileIdentifier):
+    """File identifier that verifies files against S3 backup instead of local pool backup."""
+
+    def __init__(self, raw_file: RawFile, s3_client: BaseAwsConnection) -> None:
+        """Initialize the S3FileIdentifier with a RawFile instance and S3 client."""
+        super().__init__(raw_file)
+        self._s3_client = s3_client
+        self._cached_head_responses: dict[str, tuple[str | object, int]] = {}
+
+        if raw_file.s3_upload_path:
+            self._bucket_name, self._key_prefix = parse_s3_upload_path(
+                raw_file.s3_upload_path
+            )
+        else:
+            self._bucket_name, self._key_prefix = None, None
+
+    def _check_reference_exists(self, rel_file_path: Path) -> bool:
+        """Check that the file exists on S3."""
+        if self._bucket_name is None or self._key_prefix is None:
+            logging.warning(f"File {rel_file_path}: s3_upload_path not set, skipping.")
+            return False
+
+        if self._raw_file.backup_status != BackupStatus.UPLOAD_DONE:
+            logging.warning(
+                f"File {rel_file_path}: backup_status is {self._raw_file.backup_status}, not UPLOAD_DONE, skipping."
+            )
+            return False
+
+        s3_key = self._key_prefix + str(rel_file_path)
+
+        try:
+            etag, content_length = get_etag(self._bucket_name, s3_key, self._s3_client)
+        except ValueError:
+            logging.warning(
+                f"S3 error checking {rel_file_path} in {self._bucket_name}/{s3_key}, skipping."
+            )
+            return False
+
+        if etag is S3_FILE_NOT_FOUND_ETAG:
+            logging.warning(
+                f"File {rel_file_path} not found on S3 at {self._bucket_name}/{s3_key}."
+            )
+            return False
+
+        logging.info(
+            f"File {rel_file_path} found on S3 at {self._bucket_name}/{s3_key} with {etag=} {content_length=}"
+        )
+
+        self._cached_head_responses[str(rel_file_path)] = (etag, content_length)
+        return True
+
+    def _check_against_reference(
+        self,
+        rel_file_path: Path,
+        size_in_db: float,
+        hash_in_db: str,
+        etag_in_db: str,
+        *,
+        hash_check: bool,  # noqa: ARG002
+    ) -> bool:
+        """Check that the file matches the S3 backup (etag and size)."""
+        del hash_in_db
+
+        etag, content_length = self._cached_head_responses[str(rel_file_path)]
+
+        if content_length != int(size_in_db):
+            logging.warning(
+                f"File mismatch with S3: {content_length=} vs {size_in_db=}"
+            )
+            return False
+
+        if etag != etag_in_db:
+            logging.warning(f"File mismatch with S3: {etag=} vs {etag_in_db=}")
+            return False
+
+        logging.info(
+            f"File {rel_file_path} matches S3 reference {etag=} and {content_length=}."
+        )
+
+        return True
+
+
+def create_file_identifier(
+    raw_file: RawFile,
+    *,
+    verify_against_s3: bool,
+    s3_client: BaseAwsConnection | None = None,
+) -> AbstractFileIdentifier:
+    """Create the appropriate file identifier based on the verification mode."""
+    if verify_against_s3:
+        if s3_client is None:
+            raise ValueError("verify_against_s3=True requires an s3_client")
+        logging.info("Using S3FileIdentifier for file verification.")
+        return S3FileIdentifier(raw_file, s3_client)
+    logging.info("Using FileIdentifier for file verification.")
+    return FileIdentifier(raw_file)

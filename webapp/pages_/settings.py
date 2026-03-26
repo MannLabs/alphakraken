@@ -447,15 +447,18 @@ with c1.form("create_settings"):
     else:
         upload_checkbox = True
 
-    if selected_name_option != CREATE_NEW_OPTION:
+    is_update = selected_name_option != CREATE_NEW_OPTION
+    if is_update:
         st.info(
             f"This will create a new version ({current_version + 1}) of the existing settings '{selected_name_option}'. "
             f"Projects always reference a specific version of settings, so existing projects using '{selected_name_option}' version {current_version} will not be affected. "
             "Make sure to updated (all or selected) projects to use the new version after creating it.",
             icon="ℹ️",  # noqa: RUF001
         )
-
-    is_update = selected_name_option != CREATE_NEW_OPTION
+        archive_previous = st.checkbox(
+            f"Archive previous version ({current_version}) after creating the new version",
+            value=False,
+        )
     submit_label = f"Update settings '{name}'" if is_update else "Create settings"
     submit = st.form_submit_button(
         submit_label,
@@ -526,6 +529,8 @@ if submit:
         st.error(f"Error: {e}")
         set_session_state(SessionStateKeys.ERROR_MSG, f"{e}")
     else:
+        if is_update and archive_previous:
+            archive_settings(latest_settings["_id"])
         set_session_state(
             SessionStateKeys.SUCCESS_MSG,
             f"Created new settings '{name}'. Assign it to projects on the Projects page.",

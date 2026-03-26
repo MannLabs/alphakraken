@@ -130,6 +130,11 @@ with c_assign1:
         "Select project", options=project_options, key="assign_project_select"
     )
 
+    is_fallback = selected_project_id == FALLBACK_PROJECT_ID
+    disable_write = DISABLE_WRITE or (
+        is_fallback and not is_query_param_true(QueryParams.ADMIN)
+    )
+
     if selected_project_id:
         current_ps_list = get_project_settings(selected_project_id)
 
@@ -152,7 +157,7 @@ with c_assign1:
                 if col_btn.button(
                     "",
                     key=f"remove_ps_{ps_id}",
-                    disabled=DISABLE_WRITE,
+                    disabled=disable_write,
                     help=f"Unassign '{ps.settings.name}' from this project. {'Temporarily disabled.' if DISABLE_WRITE else ''}",
                     icon=":material/link_off:",
                 ):
@@ -208,17 +213,13 @@ with c_assign1:
                 help="Settings apply only if the raw file ID contains this string. Leave empty to apply to all files.",
             )
 
-            is_fallback = selected_project_id == FALLBACK_PROJECT_ID
-            disable_assign = DISABLE_WRITE or (
-                is_fallback and not is_query_param_true(QueryParams.ADMIN)
-            )
-            if is_fallback and not is_query_param_true(QueryParams.ADMIN):
+            if disable_write:
                 st.warning(
-                    "Assigning settings to _FALLBACK requires admin priviledges."
+                    "Changing settings assignment to _FALLBACK project requires admin priviledges."
                 )
             if st.button(
                 f"Assign selected settings to project {selected_project_id}",
-                disabled=disable_assign,
+                disabled=disable_write,
                 help=f"Assign of the selected settings to the project with the specified scope. {'Temporarily disabled.' if DISABLE_WRITE else ''}",
                 icon=":material/link:",
             ):

@@ -19,6 +19,7 @@ from pages_.impl.overview_utils import (
     get_column_order,
     get_url_with_query_string,
 )
+from pages_.impl.s3_download import show_s3_download_button
 from service.columns import load_columns_from_yaml
 from service.components import (
     get_full_backup_path,
@@ -387,7 +388,7 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
     # ########################################### DISPLAY: Files
 
     st.markdown("## Files")
-    c1, c2, _ = st.columns([0.10, 0.10, 0.5])
+    c1, c2, c3, _ = st.columns([0.10, 0.10, 0.10, 0.5])
     prefix = (
         " - "
         if c2.checkbox(
@@ -396,6 +397,7 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
         )
         else ""
     )
+    show_s3_download_button(filtered_df, c3)
     if c1.button(
         "🔗 Show file paths for selection",
         help="For the selection in the table, show all file paths on the backup for conveniently copying them manually to another location.",

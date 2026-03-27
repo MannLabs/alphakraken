@@ -6,3 +6,4 @@ matplotlib==3.9.0
 plotly-express==0.4.1
 pyyaml==6.0.2
 kaleido==0.2.1
+requests==2.32.3

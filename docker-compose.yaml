@@ -312,6 +312,9 @@ services:
       <<: *airflow-common-env
       MONGO_USER: ${MONGO_USER_WEBAPP:?error}
       MONGO_PASSWORD: ${MONGO_PASSWORD_WEBAPP:?error}
+      AIRFLOW_API_URL: ${AIRFLOW_API_URL:-http://airflow-webserver:8080}
+      AIRFLOW_USER: ${AIRFLOW_USER:?error}
+      AIRFLOW_PASSWORD: ${AIRFLOW_PASSWORD:?error}
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8501/healthz"]
       interval: 30s

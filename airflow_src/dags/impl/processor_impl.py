@@ -65,8 +65,9 @@ def prepare_quanting(raw_file_id: str) -> list[dict[str, str | int | list[str]]]
             raw_file_id=raw_file_id,
         )
     except DoesNotExist as e:
+        # this should not happen as every project has a fallback setting
         raise AirflowFailException(
-            f"No project found with id '{raw_file.project_id}'. Please add a project and settings in the WebApp."
+            f"Project or settings not found for '{raw_file.project_id}'."
         ) from e
 
     if not settings_list:
@@ -226,7 +227,6 @@ def _check_content(
             not in [
                 QuantingEnv.CUSTOM_COMMAND,  # validated below
                 QuantingEnv.SLURM_TIME,  # contains ":", validated in webapp
-                QuantingEnv.QUANTING_ENV_CREATION_ERRORS,  # no validation needed (not propagated to the job submission)
             ]
             and isinstance(value, str)
             and (

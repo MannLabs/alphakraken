@@ -24,6 +24,7 @@ def get_combined_raw_files_and_metrics_df(
     raw_files_df = df_from_db_data(raw_files_db)
 
     # merge metrics of each type into a single DataFrame
+    # TODO: first existing metrics gets column name w/o suffix -> always append
     metrics_types = [
         MetricsTypes.ALPHADIA,
         MetricsTypes.CUSTOM,

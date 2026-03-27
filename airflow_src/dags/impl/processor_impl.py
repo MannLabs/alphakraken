@@ -224,8 +224,9 @@ def _check_content(
             value
             and key
             not in [
-                QuantingEnv.CUSTOM_COMMAND,
+                QuantingEnv.CUSTOM_COMMAND,  # validated below
                 QuantingEnv.SLURM_TIME,  # contains ":", validated in webapp
+                QuantingEnv.QUANTING_ENV_CREATION_ERRORS,  # no validation needed (not propagated to the job submission)
             ]
             and isinstance(value, str)
             and (

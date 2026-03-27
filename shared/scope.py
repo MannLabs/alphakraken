@@ -27,6 +27,9 @@ def resolve_scoped_settings(
     If raw_file_id is provided, entries with non-empty raw_file_id_filter
     are only included if the raw_file_id contains the filter string.
 
+    When raw_file_id is None, entries with a raw_file_id_filter are not excluded, they just lose filter priority.
+    This is fine as raw_file_id is only None for the webapp preview.
+
     Settings with status "inactive" are deliberately not excluded here.
     """
     scored_settings: list[tuple[tuple[int, int], Settings]] = []

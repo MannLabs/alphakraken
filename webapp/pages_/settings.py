@@ -578,6 +578,7 @@ else:
                 icon=":material/archive:",
             ):
                 try:
+                    # TODO: consider showing a warning in the webapp when archived settings are still assigned.
                     archive_settings(row["_id"])
                     set_session_state(
                         SessionStateKeys.SUCCESS_MSG,

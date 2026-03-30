@@ -235,7 +235,7 @@ services:
         condition: service_healthy
 
   airflow-cli:
-    # allows to run a cli using `./compose.sh run airflow-cli bash`
+    # allows to run a cli using `./compose.sh run --build airflow-cli bash`
     <<: *airflow-common
     profiles: ["debug"]
     environment:

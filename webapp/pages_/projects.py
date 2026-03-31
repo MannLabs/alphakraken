@@ -12,7 +12,7 @@ from service.db import (
     df_from_db_data,
     get_project_data,
 )
-from service.query_params import get_all_query_params
+from service.query_params import QueryParams, get_all_query_params, is_query_param_true
 from service.session_state import SessionStateKeys, set_session_state
 from service.utils import (
     DISABLE_WRITE,
@@ -29,7 +29,7 @@ from shared.db.interface import (
     get_project_settings,
     remove_project_settings,
 )
-from shared.keys import DEFAULT_SCOPE, KNOWN_VENDOR_NAMES
+from shared.keys import DEFAULT_SCOPE, FALLBACK_PROJECT_ID, KNOWN_VENDOR_NAMES
 from shared.yamlsettings import YAMLSETTINGS, YamlKeys
 
 _INSTRUMENTS_CONFIG = YAMLSETTINGS.get(YamlKeys.INSTRUMENTS, {})
@@ -75,8 +75,6 @@ if not projects_df.empty:
 
 
 # ########################################### DISPLAY
-
-st.warning("This page should be edited only by administrators!", icon="⚠️")
 
 
 @st.fragment
@@ -132,6 +130,11 @@ with c_assign1:
         "Select project", options=project_options, key="assign_project_select"
     )
 
+    is_fallback = selected_project_id == FALLBACK_PROJECT_ID
+    disable_write = DISABLE_WRITE or (
+        is_fallback and not is_query_param_true(QueryParams.ADMIN)
+    )
+
     if selected_project_id:
         current_ps_list = get_project_settings(selected_project_id)
 
@@ -154,7 +157,7 @@ with c_assign1:
                 if col_btn.button(
                     "",
                     key=f"remove_ps_{ps_id}",
-                    disabled=DISABLE_WRITE,
+                    disabled=disable_write,
                     help=f"Unassign '{ps.settings.name}' from this project. {'Temporarily disabled.' if DISABLE_WRITE else ''}",
                     icon=":material/link_off:",
                 ):
@@ -183,36 +186,40 @@ with c_assign1:
                 for s in all_settings
             }
 
-            c1, c2, c3 = st.columns([0.5, 0.25, 0.25])
-            selected_settings_display = c1.selectbox(
+            selected_settings_display = st.selectbox(
                 "Select settings to assign",
                 options=settings_options_map.keys(),
                 key="assign_settings_select",
             )
 
-            selected_scope = c2.selectbox(
+            c1, c2, c3 = st.columns([0.33, 0.33, 0.33])
+            selected_scope = c1.selectbox(
                 "Select instrument or vendor scope",
                 options=SCOPE_OPTIONS,
                 key="assign_scope_select",
                 help="'*' = all instruments, vendor name = vendor-specific, instrument ID = instrument-specific",
             )
 
-            selected_excluded = c3.multiselect(
+            selected_excluded = c2.multiselect(
                 "Exclude instruments from scope (optional)",
                 options=_INSTRUMENT_IDS,
                 key="assign_excluded_select",
                 help="Instruments to exclude from this scope assignment.",
             )
 
-            raw_file_id_filter_input = st.text_input(
+            raw_file_id_filter_input = c3.text_input(
                 "Raw file name contains (optional)",
                 key="assign_raw_file_id_filter",
-                help="Settings apply only if the raw file ID contains this string. Leave empty to apply to all files.",
+                help="Settings apply only if the raw file ID contains this string. Case sensitive. Leave empty to apply to all files.",
             )
 
+            if disable_write:
+                st.warning(
+                    "Changing settings assignment to _FALLBACK project requires admin priviledges."
+                )
             if st.button(
                 f"Assign selected settings to project {selected_project_id}",
-                disabled=DISABLE_WRITE,
+                disabled=disable_write,
                 help=f"Assign of the selected settings to the project with the specified scope. {'Temporarily disabled.' if DISABLE_WRITE else ''}",
                 icon=":material/link:",
             ):

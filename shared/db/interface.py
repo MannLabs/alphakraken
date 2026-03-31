@@ -304,7 +304,10 @@ def create_settings(  # noqa: PLR0913
     existing = Settings.objects(name=name).order_by("-version").first()
     version = (existing.version + 1) if existing else 1
 
+    next_number = Settings.objects.count() + 1
+
     settings = Settings(
+        number=next_number,
         name=name,
         version=version,
         description=description,
@@ -323,6 +326,13 @@ def create_settings(  # noqa: PLR0913
     settings.save(force_insert=True)
     logging.info(f"Created settings: {name=} {version=}")
     return settings
+
+
+def archive_settings(settings_id: str) -> None:
+    """Archive a settings entry by setting its status to INACTIVE."""
+    connect_db()
+    Settings.objects(id=settings_id).update_one(status=SettingsStatus.INACTIVE)
+    logging.info(f"Archived settings: {settings_id=}")
 
 
 def get_all_settings(*, include_archived: bool = False) -> list[Settings]:

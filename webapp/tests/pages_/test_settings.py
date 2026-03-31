@@ -13,17 +13,22 @@ from streamlit.testing.v1 import AppTest
 PAGES_FOLDER = Path(__file__).parent / Path("../../pages_")
 
 
+@patch("shared.db.models.ProjectSettings.objects")
 @patch("service.db.get_project_data")
 @patch("service.db.get_settings_data")
 @patch("service.db.df_from_db_data")
 def test_settings(
-    mock_df: MagicMock, mock_get: MagicMock, mock_project_get: MagicMock
+    mock_df: MagicMock,
+    mock_get: MagicMock,
+    mock_project_get: MagicMock,
+    mock_ps_objects: MagicMock,
 ) -> None:
     """A test for the settings page."""
     mock_settings_db = MagicMock()
     mock_get.return_value = mock_settings_db
     mock_projects_db = MagicMock()
     mock_project_get.return_value = mock_projects_db
+    mock_ps_objects.all.return_value = []
 
     settings_df = pd.DataFrame(
         {
@@ -35,6 +40,7 @@ def test_settings(
             ],
             "project_id": ["P1234", "P5678"],
             "name": ["new settings", "another settings"],
+            "version": [1, 1],
             "fasta_file_name": ["fasta_file1", "fasta_file2"],
             "speclib_file_name": ["speclib_file1", "speclib_file2"],
             "config_file_name": ["config_file1", "config_file2"],
@@ -60,6 +66,7 @@ def test_settings(
         "software": {0: "software1", 1: "software2"},
         "speclib_file_name": {0: "speclib_file1", 1: "speclib_file2"},
         "status": {0: "active", 1: "active"},
+        "version": {0: 1, 1: 1},
     }
 
     assert not at.exception

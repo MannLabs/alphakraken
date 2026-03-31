@@ -186,7 +186,9 @@ def test_create_quanting_env_custom_software(
 @patch("dags.impl.processor_impl.get_path")
 @patch("dags.impl.processor_impl.get_project_settings")
 @patch("dags.impl.processor_impl.resolve_scoped_settings")
-def test_prepare_quanting(
+@patch("dags.impl.processor_impl.get_internal_output_path_for_raw_file")
+def test_prepare_quanting(  # noqa: PLR0913
+    mock_get_internal_output_path: MagicMock,
     mock_resolve_scoped: MagicMock,
     mock_get_settings: MagicMock,
     mock_get_path: MagicMock,
@@ -214,6 +216,10 @@ def test_prepare_quanting(
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
     mock_get_settings.assert_called_once_with("some_project_id")
     mock_resolve_scoped.assert_called_once()
+    mock_get_internal_output_path.assert_called_once_with(mock_raw_file)
+    mock_get_internal_output_path.return_value.mkdir.assert_called_once_with(
+        parents=True, exist_ok=True
+    )
     mock_create_env.assert_called_once_with(
         mock_settings,
         mock_raw_file,
@@ -229,7 +235,9 @@ def test_prepare_quanting(
 @patch("dags.impl.processor_impl.get_path")
 @patch("dags.impl.processor_impl.get_project_settings")
 @patch("dags.impl.processor_impl.resolve_scoped_settings")
-def test_prepare_quanting_multiple_settings(
+@patch("dags.impl.processor_impl.get_internal_output_path_for_raw_file")
+def test_prepare_quanting_multiple_settings(  # noqa: PLR0913
+    mock_get_internal_output_path: MagicMock,
     mock_resolve_scoped: MagicMock,
     mock_get_settings: MagicMock,
     mock_get_path: MagicMock,
@@ -273,6 +281,9 @@ def test_prepare_quanting_multiple_settings(
         ),
     ]
     assert result == [mock_env_1, mock_env_2]
+    mock_get_internal_output_path.return_value.mkdir.assert_called_once_with(
+        parents=True, exist_ok=True
+    )
 
 
 @patch.dict(_INSTRUMENTS, {"instrument1": {"type": "thermo"}})
@@ -282,7 +293,9 @@ def test_prepare_quanting_multiple_settings(
 @patch("dags.impl.processor_impl.get_path")
 @patch("dags.impl.processor_impl.get_project_settings")
 @patch("dags.impl.processor_impl.resolve_scoped_settings")
+@patch("dags.impl.processor_impl.get_internal_output_path_for_raw_file")
 def test_prepare_quanting_validation_error_stores_errors(  # noqa: PLR0913
+    mock_get_internal_output_path: MagicMock,
     mock_resolve_scoped: MagicMock,
     mock_get_settings: MagicMock,
     mock_get_path: MagicMock,
@@ -316,6 +329,9 @@ def test_prepare_quanting_validation_error_stores_errors(  # noqa: PLR0913
         Path("instrument1/1970_01/test_file.raw"),
     )
     mock_check_content.assert_called_once_with(mock_env, mock_settings)
+    mock_get_internal_output_path.return_value.mkdir.assert_called_once_with(
+        parents=True, exist_ok=True
+    )
     assert result == [mock_env]
     assert result[0][QuantingEnv.QUANTING_ENV_CREATION_ERRORS] == ["some_error"]
 
@@ -422,15 +438,17 @@ def test_run_quanting_executes_ssh_command_and_stores_job_id(
     mock_update: MagicMock,
     mock_start_job: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
+    tmp_path: Path,
 ) -> None:
     """Test that the run_quanting function executes the SSH command and stores the job ID."""
     # given
+    output_dir = tmp_path / "PID123" / "out_test_file.raw" / "alphadia"
     quanting_env = {
         QuantingEnv.RAW_FILE_ID: "test_file.raw",
         QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID123",
         QuantingEnv.SOFTWARE_TYPE: "alphadia",
         QuantingEnv.CUSTOM_COMMAND: "",
-        QuantingEnv.INTERNAL_OUTPUT_PATH: "/opt/airflow/mounts/output/PID123/out_test_file.raw/alphadia",
+        QuantingEnv.INTERNAL_OUTPUT_PATH: str(output_dir),
     }
     mock_raw_file = MagicMock(
         wraps=RawFile,
@@ -445,6 +463,7 @@ def test_run_quanting_executes_ssh_command_and_stores_job_id(
     result = run_quanting(quanting_env=quanting_env)
 
     assert result == "12345"
+    assert output_dir.exists()
     mock_start_job.assert_called_once_with(
         "submit_job.sh",
         quanting_env,

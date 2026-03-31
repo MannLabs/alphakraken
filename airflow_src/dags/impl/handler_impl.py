@@ -381,6 +381,9 @@ def _is_settings_configured(raw_file: RawFile) -> bool:
         instrument_type=instrument_type,
         raw_file_id=raw_file.id,
     )
+    logging.info(
+        f"Found settings: {', '.join([f'{s.name} version {s.version} ({s.software_type})' for s in resolved_settings])}"
+    )
     return len(resolved_settings) > 0
 
 

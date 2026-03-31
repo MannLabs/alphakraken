@@ -25,8 +25,8 @@ from service.utils import (
     show_feedback_in_sidebar,
 )
 
-from shared.db.interface import create_settings
-from shared.db.models import SettingsStatus
+from shared.db.interface import archive_settings, create_settings
+from shared.db.models import ProjectSettings, ProjectStatus, SettingsStatus
 from shared.keys import (
     SOFTWARE_TYPE_TO_DEFAULT_RESOURCE_PARAMS,
     MetricsTypes,
@@ -42,7 +42,7 @@ st.set_page_config(page_title="AlphaKraken: settings", layout="wide")
 
 show_sandbox_message()
 
-st.markdown("# Settings")
+st.markdown("# Manage settings")
 
 # ########################################### SIDEBAR
 
@@ -59,9 +59,6 @@ settings_df = df_from_db_data(settings_db)
 # ########################################### DISPLAY
 
 st.markdown("## Current settings")
-
-
-st.warning("This page should be edited only by administrators!", icon="⚠️")
 
 
 @st.fragment
@@ -104,7 +101,7 @@ def display_settings(
 
 display_settings(settings_df)
 
-c1, c2 = st.columns([0.5, 0.5])
+c1, _ = st.columns([0.5, 0.5])
 with c1.expander("Click here for help ..."):
     st.info(
         """
@@ -132,6 +129,9 @@ with c1.expander("Click here for help ..."):
 
 c1.markdown("## Create / update settings")
 
+# only active settings beyond this point
+settings_df = settings_df[settings_df["status"] == SettingsStatus.ACTIVE]
+
 # Get existing settings names for selectbox (outside form so it can trigger reruns)
 existing_settings_names = (
     sorted(set(settings_df["name"].tolist()))
@@ -149,6 +149,7 @@ selected_name_option = c1.selectbox(
 
 # Show info banner if existing settings selected and get latest version data for prefilling
 prefill_data = defaultdict(lambda: "")
+current_version = -1
 if selected_name_option != CREATE_NEW_OPTION:
     # Get the latest version of the selected settings
     latest_settings = (
@@ -157,13 +158,6 @@ if selected_name_option != CREATE_NEW_OPTION:
         .iloc[0]
     )
     current_version = int(latest_settings["version"])
-
-    c1.info(
-        f"This will create a new version ({current_version + 1}) of the existing settings '{selected_name_option}'. "
-        f"Projects always reference a specific version of settings, so existing projects using '{selected_name_option}' version {current_version} will not be affected. "
-        "Make sure to updated (all or selected) projects to use the new version after creating it.",
-        icon="ℹ️",  # noqa: RUF001
-    )
 
     # Prepare prefill data from latest version
     prefill_data = {
@@ -180,6 +174,10 @@ if selected_name_option != CREATE_NEW_OPTION:
         "slurm_time": str(latest_settings.get("slurm_time", "")),
         "num_threads": latest_settings.get("num_threads", ""),
     }
+    # Conversion for legacy data. Remove once all is transferred.
+    for k, v in prefill_data.items():
+        if pd.isna(v):
+            prefill_data[k] = ""
 
 
 disable_software_type_selection = "software_type" in prefill_data
@@ -442,11 +440,25 @@ with c1.form("create_settings"):
             f"`{quanting_settings_path}/<settings_name>/`"
         )
 
-    upload_checkbox = st.checkbox(
-        "I have uploaded all referenced files to this folder.", value=False
-    )
+    if software_type not in [SoftwareTypes.MSQC]:
+        upload_checkbox = st.checkbox(
+            "I have uploaded all referenced files to this folder.", value=False
+        )
+    else:
+        upload_checkbox = True
 
     is_update = selected_name_option != CREATE_NEW_OPTION
+    if is_update:
+        st.info(
+            f"This will create a new version ({current_version + 1}) of the existing settings '{selected_name_option}'. "
+            f"Projects always reference a specific version of settings, so existing projects using '{selected_name_option}' version {current_version} will not be affected. "
+            "Make sure to updated (all or selected) projects to use the new version after creating it.",
+            icon="ℹ️",  # noqa: RUF001
+        )
+        archive_previous = st.checkbox(
+            f"Archive previous version ({current_version}) after creating the new version",
+            value=False,
+        )
     submit_label = f"Update settings '{name}'" if is_update else "Create settings"
     submit = st.form_submit_button(
         submit_label,
@@ -517,8 +529,62 @@ if submit:
         st.error(f"Error: {e}")
         set_session_state(SessionStateKeys.ERROR_MSG, f"{e}")
     else:
+        if is_update and archive_previous:
+            archive_settings(latest_settings["_id"])
         set_session_state(
             SessionStateKeys.SUCCESS_MSG,
             f"Created new settings '{name}'. Assign it to projects on the Projects page.",
         )
     st.rerun()
+
+
+# ########################################### ARCHIVE SETTINGS
+
+c1.markdown("## Archive settings")
+
+active_settings_df = settings_df[
+    settings_df["status"] == SettingsStatus.ACTIVE
+].sort_values(["name", "version"], ascending=[True, False])
+
+if active_settings_df.empty:
+    c1.info("No active settings to archive.")
+else:
+    with c1.expander("Show settings to archive .."):
+        st.warning(
+            "Archived settings can no longer be assigned to projects or updated."
+        )
+
+        # Map settings ID -> list of active project IDs
+        all_ps = ProjectSettings.objects.all()
+        active_project_ids = {
+            p.id for p in projects_db if p.status == ProjectStatus.ACTIVE
+        }
+        assigned_projects: dict[str, list[str]] = defaultdict(list)
+        for ps in all_ps:
+            project_id = str(ps.project.id)
+            if project_id in active_project_ids:
+                assigned_projects[str(ps.settings.id)].append(project_id)
+
+        for _, row in active_settings_df.iterrows():
+            col_btn, col_info = st.columns([0.2, 0.8])
+            projects = sorted(set(assigned_projects.get(str(row["_id"]), [])))
+            projects_str = ", ".join(projects) if projects else "none"
+            col_info.write(
+                f"'{row['name']}' version {int(row['version'])} (type: `{row.get('software_type', '')}`, executable: `{row.get('software', '')}`, description: `{row.get('description', '')}`) — assigned to projects: {projects_str}"
+            )
+            if col_btn.button(
+                "Archive",
+                key=f"archive_{row['_id']}",
+                disabled=DISABLE_WRITE,
+                icon=":material/archive:",
+            ):
+                try:
+                    archive_settings(row["_id"])
+                    set_session_state(
+                        SessionStateKeys.SUCCESS_MSG,
+                        f"Archived settings '{row['name']}' version {int(row['version'])}.",
+                    )
+                    st.rerun()
+                except Exception as e:  # noqa: BLE001
+                    st.error(f"Error: {e}")
+                    set_session_state(SessionStateKeys.ERROR_MSG, f"{e}")

@@ -248,10 +248,8 @@ class Settings(Document):
     version = IntField(min_value=1, default=1)
     description = StringField(max_length=512)
 
-    # although only one of (speclib, fasta) is required by alphaDIA,
-    # on DB level, we want both filled (empty string is alright)
-    fasta_file_name = StringField(required=True, max_length=128)
-    speclib_file_name = StringField(required=True, max_length=128)
+    fasta_file_name = StringField(required=False, max_length=128)
+    speclib_file_name = StringField(required=False, max_length=128)
 
     config_file_name = StringField(required=False, max_length=128)
     config_params = StringField(required=False, max_length=2048)

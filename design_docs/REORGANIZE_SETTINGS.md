@@ -96,7 +96,7 @@ This must be resolved during WP1 implementation.
 
 ---
 
-## WP2: Add MSQC Software Type
+## WP2: Add MSQC Software Type ✅
 
 **Goal**: Add MSQC as a software type so it can be used as a regular settings entry, removing all MSQC special-casing.
 
@@ -117,7 +117,8 @@ This must be resolved during WP1 implementation.
 - `run_quanting()`: add `SOFTWARE_TYPE_TO_JOB_SCRIPT` mapping for job script selection
 
 **`airflow_src/plugins/common/keys.py`**
-- Add `SOFTWARE_TYPE_TO_JOB_SCRIPT` constant: `{alphadia: "submit_job.sh", custom: "submit_job.sh", msqc: "submit_msqc_job.sh"}`
+- IGNORE: Add `SOFTWARE_TYPE_TO_JOB_SCRIPT` constant: `{alphadia: "submit_job.sh", custom: "submit_job.sh", msqc: "submit_msqc_job.sh"}`
+- INSTEAD: use "submit_job.sh" for all Slurm jobs
 - Remove MSQC-specific task/XCom keys: `Tasks.RUN_MSQC`, `Tasks.MONITOR_MSQC`, `Tasks.COMPUTE_MSQC_METRICS`, `Tasks.UPLOAD_MSQC_METRICS`, `XComKeys.MSQC_JOB_ID`
 
 **`webapp/pages_/settings.py`** (line 175)

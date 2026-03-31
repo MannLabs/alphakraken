@@ -47,6 +47,13 @@ from shared.keys import MetricsTypes, SoftwareTypes
 from shared.validation import check_for_malicious_content
 from shared.yamlsettings import YamlKeys, get_path
 
+# TODO: only temporarily until set via UI
+SOFTWARE_TYPE_TO_METRICS_TYPE = {
+    SoftwareTypes.ALPHADIA: MetricsTypes.ALPHADIA,
+    SoftwareTypes.CUSTOM: MetricsTypes.CUSTOM,
+    SoftwareTypes.MSQC: MetricsTypes.MSQC,
+}
+
 
 def _get_project_id_or_fallback(project_id: str | None, instrument_id: str) -> str:
     """Get the project id for a raw file or the fallback ID if not present."""
@@ -120,6 +127,7 @@ def prepare_quanting(
         QuantingEnv.CONFIG_FILE_NAME: settings.config_file_name,  # TODO: construct path here
         QuantingEnv.SOFTWARE: settings.software,
         QuantingEnv.SOFTWARE_TYPE: settings.software_type,
+        QuantingEnv.METRICS_TYPE: SOFTWARE_TYPE_TO_METRICS_TYPE[settings.software_type],
         QuantingEnv.CUSTOM_COMMAND: custom_command,
         # job parameters
         QuantingEnv.SLURM_CPUS_PER_TASK: cpus_per_task,
@@ -261,11 +269,7 @@ def run_quanting(
     """
     raw_file = get_raw_file_by_id(quanting_env[QuantingEnv.RAW_FILE_ID])
 
-    # TODO: this is a bit of hack, needs to go with refactoring of projects/settings  edit: now it's a terrible hack
-    if (
-        get_instrument_settings(raw_file.instrument_id, InstrumentKeys.SKIP_QUANTING)
-        and job_script_name != "submit_msqc_job.sh"
-    ):
+    if get_instrument_settings(raw_file.instrument_id, InstrumentKeys.SKIP_QUANTING):
         logging.info(
             f"Skipping quanting for raw file {raw_file.id} because instrument settings have skip_quanting=True."
         )
@@ -405,7 +409,7 @@ def check_quanting_result(*, quanting_env: dict, job_id: str) -> dict:
             metrics={QUANTING_TIME_ELAPSED_METRIC: time_elapsed},
             settings_name=quanting_env[QuantingEnv.SETTINGS_NAME],
             settings_version=quanting_env[QuantingEnv.SETTINGS_VERSION],
-            metrics_type=MetricsTypes.ALPHADIA,
+            metrics_type=quanting_env[QuantingEnv.METRICS_TYPE],
         )
 
         # fail the DAG without retry on new errors to make them transparent in Airflow UI
@@ -428,39 +432,21 @@ def compute_metrics(
     *,
     quanting_env: dict,
     quanting_time_elapsed: int | None = None,
-    metrics_type: str | None = None,
 ) -> dict:
     """Compute metrics from the quanting results.
 
     :param quanting_env: The quanting environment variables dict.
     :param quanting_time_elapsed: Elapsed time from the quanting job, added to metrics if provided.
-    :param metrics_type: Override the metrics type. If None, derived from the software type.
     :return: Dict with ``metrics`` and ``metrics_type``.
     """
     raw_file = get_raw_file_by_id(quanting_env[QuantingEnv.RAW_FILE_ID])
+    metrics_type = quanting_env[QuantingEnv.METRICS_TYPE]
 
     output_path = get_internal_output_path_for_raw_file(
         raw_file, quanting_env[QuantingEnv.PROJECT_ID_OR_FALLBACK]
     )
 
-    if metrics_type is None:
-        # TODO: currently 1:1 mapping between custom workflow & metrics
-        metrics_type = {
-            SoftwareTypes.ALPHADIA: MetricsTypes.ALPHADIA,
-            SoftwareTypes.CUSTOM: MetricsTypes.CUSTOM,
-        }[quanting_env[QuantingEnv.SOFTWARE_TYPE]]
-
-    try:
-        metrics = calc_metrics(output_path, metrics_type=metrics_type)
-    except FileNotFoundError as e:
-        if metrics_type == MetricsTypes.MSQC:
-            # currently, ignore failed MSQC metrics calculation, these runs will usually also fail AlphaDIA
-            # TODO: find a better way to handle msqc errors
-            logging.warning(
-                f"Could not calculate metrics of type {metrics_type}, skipping metrics calculation."
-            )
-            raise AirflowSkipException from e
-        raise
+    metrics = calc_metrics(output_path, metrics_type=metrics_type)
 
     if (
         quanting_time_elapsed is not None
@@ -512,4 +498,5 @@ def finalize_raw_file_status(ti: TaskInstance, raw_file_id: str) -> None:
         raise AirflowFailException("At least on task has failed.")
         # TODO: how to handle status_details? accumulate during the DAG run and reset here in case of success?
 
+    # TODO: currently, if a task is skipped (due to a business error), the raw file will be marked as done.
     update_raw_file(raw_file_id, new_status=RawFileStatus.DONE, status_details=None)

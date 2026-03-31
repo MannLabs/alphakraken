@@ -46,6 +46,7 @@ class SoftwareTypes:
 
     ALPHADIA: str = "alphadia"
     CUSTOM: str = "custom"
+    MSQC: str = "msqc"
 
 
 DDA_FLAG_IN_RAW_FILE_NAME = "_dda_"

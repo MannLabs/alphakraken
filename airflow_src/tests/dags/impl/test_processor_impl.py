@@ -110,6 +110,7 @@ def test_prepare_quanting(
         "CONFIG_FILE_NAME": "some_config_file_name",
         "SOFTWARE": "some_software",
         "SOFTWARE_TYPE": "alphadia",
+        "METRICS_TYPE": "alphadia",
         "CUSTOM_COMMAND": "",
         "_SLURM_CPUS_PER_TASK": 8,
         "_SLURM_MEM": "62G",
@@ -184,6 +185,7 @@ def test_prepare_quanting_custom_software(
         "CONFIG_FILE_NAME": "",
         "SOFTWARE": "custom1.2.3",
         "SOFTWARE_TYPE": "custom",
+        "METRICS_TYPE": "custom",
         "CUSTOM_COMMAND": expected_custom_command,
         "_SLURM_CPUS_PER_TASK": 8,
         "_SLURM_MEM": "62G",
@@ -473,6 +475,7 @@ def test_check_quanting_result_happy_path(
         QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID1",
         QuantingEnv.SETTINGS_NAME: "test_settings",
         QuantingEnv.SETTINGS_VERSION: 1,
+        QuantingEnv.METRICS_TYPE: "alphadia",
     }
 
     mock_get_job_result.return_value = (JobStates.COMPLETED, 522)
@@ -493,6 +496,7 @@ def test_check_quanting_result_unknown_job_status(
         QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID1",
         QuantingEnv.SETTINGS_NAME: "test_settings",
         QuantingEnv.SETTINGS_VERSION: 1,
+        QuantingEnv.METRICS_TYPE: "alphadia",
     }
     mock_get_job_result.return_value = ("SOME_JOB_STATE", 522)
 
@@ -519,6 +523,7 @@ def test_check_quanting_result_business_error(
         QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID1",
         QuantingEnv.SETTINGS_NAME: "test_settings",
         QuantingEnv.SETTINGS_VERSION: 1,
+        QuantingEnv.METRICS_TYPE: "alphadia",
     }
     mock_raw_file = MagicMock(wraps=RawFile, id="test_file.raw")
     mock_get_raw_file_by_id.return_value = mock_raw_file
@@ -563,6 +568,7 @@ def test_check_quanting_result_business_error_raises(
         QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID1",
         QuantingEnv.SETTINGS_NAME: "test_settings",
         QuantingEnv.SETTINGS_VERSION: 1,
+        QuantingEnv.METRICS_TYPE: "alphadia",
     }
     mock_raw_file = MagicMock(wraps=RawFile, id="test_file.raw")
     mock_get_raw_file_by_id.return_value = mock_raw_file
@@ -605,6 +611,7 @@ def test_check_quanting_result_timeout(
         QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID1",
         QuantingEnv.SETTINGS_NAME: "test_settings",
         QuantingEnv.SETTINGS_VERSION: 1,
+        QuantingEnv.METRICS_TYPE: "alphadia",
     }
     mock_raw_file = MagicMock(wraps=RawFile, id="test_file.raw")
     mock_get_raw_file_by_id.return_value = mock_raw_file
@@ -645,6 +652,7 @@ def test_check_quanting_result_oom(
         QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID1",
         QuantingEnv.SETTINGS_NAME: "test_settings",
         QuantingEnv.SETTINGS_VERSION: 1,
+        QuantingEnv.METRICS_TYPE: "alphadia",
     }
     mock_raw_file = MagicMock(wraps=RawFile, id="test_file.raw")
     mock_get_raw_file_by_id.return_value = mock_raw_file
@@ -758,6 +766,7 @@ def test_compute_metrics(
         "RAW_FILE_ID": "test_file.raw",
         "PROJECT_ID_OR_FALLBACK": "P1",
         "SOFTWARE_TYPE": "alphadia",
+        "METRICS_TYPE": "alphadia",
     }
     mock_raw_file = MagicMock(
         wraps=RawFile,
@@ -783,15 +792,16 @@ def test_compute_metrics(
 
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.calc_metrics")
-def test_compute_metrics_msqc_file_not_found_raises_skip_exception(
+def test_compute_metrics_msqc_software_type(
     mock_calc_metrics: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
 ) -> None:
-    """Test that compute_metrics raises AirflowSkipException when calc_metrics fails with FileNotFoundError for MSQC."""
+    """Test that compute_metrics correctly maps MSQC software type to MSQC metrics type."""
     quanting_env = {
         "RAW_FILE_ID": "test_file.raw",
         "PROJECT_ID_OR_FALLBACK": "P1",
-        "SOFTWARE_TYPE": "alphadia",
+        "SOFTWARE_TYPE": "msqc",
+        "METRICS_TYPE": "msqc",
     }
     mock_raw_file = MagicMock(
         wraps=RawFile,
@@ -799,18 +809,17 @@ def test_compute_metrics_msqc_file_not_found_raises_skip_exception(
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
     )
     mock_get_raw_file_by_id.return_value = mock_raw_file
+    mock_calc_metrics.return_value = {"qc_metric": 42}
 
-    # Simulate FileNotFoundError from calc_metrics for MSQC metrics type
-    mock_calc_metrics.side_effect = FileNotFoundError("Metrics file not found")
+    result = compute_metrics(quanting_env=quanting_env)
 
-    # when & then
-    with pytest.raises(AirflowSkipException):
-        compute_metrics(quanting_env=quanting_env, metrics_type="msqc")
-
-    mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
     mock_calc_metrics.assert_called_once_with(
         Path("/opt/airflow/mounts/output/P1/out_test_file.raw"), metrics_type="msqc"
     )
+    assert result == {
+        "metrics": {"qc_metric": 42},
+        "metrics_type": "msqc",
+    }
 
 
 @patch("dags.impl.processor_impl.add_metrics_to_raw_file")

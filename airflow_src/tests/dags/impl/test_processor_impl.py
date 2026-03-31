@@ -19,7 +19,7 @@ from dags.impl.processor_impl import (
     get_business_errors,
     prepare_quanting,
     run_quanting,
-    upload_metrics,
+    store_metrics,
 )
 from mongoengine import DoesNotExist
 from plugins.common.keys import (
@@ -974,12 +974,12 @@ def test_compute_metrics_msqc_software_type(
 
 
 @patch("dags.impl.processor_impl.add_metrics_to_raw_file")
-def test_upload_metrics(
+def test_store_metrics(
     mock_add: MagicMock,
 ) -> None:
-    """Test that upload_metrics makes the expected calls."""
+    """Test that store_metrics makes the expected calls."""
     # when
-    upload_metrics(
+    store_metrics(
         quanting_env={
             "SETTINGS_NAME": "test_settings",
             "SETTINGS_VERSION": 1,
@@ -1177,7 +1177,7 @@ def test_extract_errors_business_error(mock_get_xcom: MagicMock) -> None:
                 [
                     ("run_quanting", "success"),
                     ("check_quanting_result", "skipped"),
-                    ("upload_metrics", "skipped"),
+                    ("store_metrics", "skipped"),
                 ],
             ),
         ]
@@ -1201,7 +1201,7 @@ def test_extract_errors_airflow_failure_with_xcom(mock_get_xcom: MagicMock) -> N
                 [
                     ("run_quanting", "success"),
                     ("check_quanting_result", "failed"),
-                    ("upload_metrics", "upstream_failed"),
+                    ("store_metrics", "upstream_failed"),
                 ],
             ),
         ]
@@ -1225,7 +1225,7 @@ def test_extract_errors_early_task_failed_no_xcom(mock_get_xcom: MagicMock) -> N
                 [
                     ("run_quanting", "failed"),
                     ("check_quanting_result", "upstream_failed"),
-                    ("upload_metrics", "upstream_failed"),
+                    ("store_metrics", "upstream_failed"),
                 ],
             ),
         ]
@@ -1249,7 +1249,7 @@ def test_extract_errors_intentional_skip(mock_get_xcom: MagicMock) -> None:
                 [
                     ("run_quanting", "skipped"),
                     ("check_quanting_result", "skipped"),
-                    ("upload_metrics", "skipped"),
+                    ("store_metrics", "skipped"),
                 ],
             ),
         ]
@@ -1268,9 +1268,9 @@ def test_extract_errors_multiple_branches_mixed(mock_get_xcom: MagicMock) -> Non
     """Multiple branches: one airflow failure, one business error, one success."""
     branch_tis = _make_branch_tis_by_index(
         [
-            (0, [("run_quanting", "success"), ("upload_metrics", "success")]),
-            (1, [("run_quanting", "failed"), ("upload_metrics", "upstream_failed")]),
-            (2, [("check_quanting_result", "skipped"), ("upload_metrics", "skipped")]),
+            (0, [("run_quanting", "success"), ("store_metrics", "success")]),
+            (1, [("run_quanting", "failed"), ("store_metrics", "upstream_failed")]),
+            (2, [("check_quanting_result", "skipped"), ("store_metrics", "skipped")]),
         ]
     )
     envs = [

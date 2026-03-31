@@ -487,7 +487,7 @@ def compute_metrics(
     return {"metrics": metrics, "metrics_type": metrics_type}
 
 
-def upload_metrics(*, quanting_env: dict, metrics: dict, metrics_type: str) -> None:
+def store_metrics(*, quanting_env: dict, metrics: dict, metrics_type: str) -> None:
     """Upload the metrics to the database.
 
     :param quanting_env: The quanting environment variables dict.

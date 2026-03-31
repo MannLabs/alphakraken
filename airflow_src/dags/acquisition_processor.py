@@ -29,7 +29,7 @@ from impl.processor_impl import (
     finalize_raw_file_status,
     prepare_quanting,
     run_quanting,
-    upload_metrics,
+    store_metrics,
 )
 from sensors.ssh_sensor import (
     WaitForJobFinishSensor,
@@ -126,10 +126,10 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
                     quanting_time_elapsed=quanting_time_elapsed,
                 )
 
-            @task(task_id=Tasks.UPLOAD_METRICS)
-            def upload_metrics_task(quanting_env: dict, metrics_result: dict) -> None:
+            @task(task_id=Tasks.STORE_METRICS)
+            def store_metrics_task(quanting_env: dict, metrics_result: dict) -> None:
                 """Upload metrics to the database."""
-                upload_metrics(
+                store_metrics(
                     quanting_env=quanting_env,
                     metrics=metrics_result["metrics"],
                     metrics_type=metrics_result["metrics_type"],
@@ -147,7 +147,7 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
                 quanting_env, check_result["quanting_time_elapsed"]
             )
 
-            upload_metrics_task(quanting_env, metrics_result)
+            store_metrics_task(quanting_env, metrics_result)
 
         @task(
             task_id=Tasks.FINALIZE_STATUS,

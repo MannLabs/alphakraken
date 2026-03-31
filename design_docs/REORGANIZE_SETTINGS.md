@@ -41,7 +41,7 @@ def quanting_pipeline(quanting_env: dict):
     monitor_ = WaitForJobFinishSensor(task_id="monitor_quanting", ...)
     check_ = ShortCircuitOperator(task_id="check_quanting_result", ...)
     compute_ = PythonOperator(task_id="compute_metrics", ...)
-    upload_ = PythonOperator(task_id="upload_metrics", ...)
+    upload_ = PythonOperator(task_id="store_metrics", ...)
     run_ >> wait_ >> monitor_ >> check_ >> compute_ >> upload_
 
 @task(trigger_rule=TriggerRule.ALL_DONE)
@@ -64,11 +64,11 @@ mapped >> finalize_status()
 - Wrap current single `quanting_env` dict into a `list[dict]` return
 - Still uses `get_settings_for_project()` (M:N comes in WP3)
 
-`upload_metrics()`:
+`store_metrics()`:
 - Remove `update_raw_file(...DONE...)` — status update moves to `finalize_status`
 
 Add `finalize_raw_file_status()`:
-- Inspect all upload_metrics task instances in DAG run (pattern from `toy_mapped_taskgroup_classic.py:91-111`)
+- Inspect all store_metrics task instances in DAG run (pattern from `toy_mapped_taskgroup_classic.py:91-111`)
 - All succeeded -> DONE; any failed -> QUANTING_FAILED
 - **No optional branches**: all settings branches are equal (including MSQC once added in WP2)
 

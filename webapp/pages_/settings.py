@@ -196,13 +196,17 @@ form_items = {
         "help": "Human readable description of these settings.",
     },
     "fasta_file_name": {
-        "label": "Fasta file name**",
+        "label": "Fasta file name**"
+        if software_type == SoftwareTypes.ALPHADIA
+        else "Fasta file name",
         "max_chars": 64,
         "placeholder": "e.g. 'human.fasta'",
         "help": "Name of the fasta file.",
     },
     "speclib_file_name": {
-        "label": "Speclib file name**",
+        "label": "Speclib file name**"
+        if software_type == SoftwareTypes.ALPHADIA
+        else "Speclib file name",
         "max_chars": 64,
         "placeholder": "e.g. 'human_plasma.speclib'",
         "help": "Name of the speclib file.",
@@ -284,33 +288,44 @@ with c1.form("create_settings"):
         )
         st.info(
             "The following placeholders can be used in the config parameters, and will be replaced by the specified values:\n\n"
+            "- `RAW_FILE_ID`: name of the raw file\n"
             "- `RAW_FILE_PATH`: absolute path of the raw file\n"
             "- `RELATIVE_RAW_FILE_PATH`: path of the raw file relative to `locations.backup.absolute_path` in alphakraken.yaml\n"
             "- `OUTPUT_PATH`: absolute path of the output directory\n"
             "- `RELATIVE_OUTPUT_PATH`: path of the output directory relative to `locations.output.absolute_path` in alphakraken.yaml\n"
+            "- `SETTINGS_PATH`: absolute path of the settings directory\n"
             "- `LIBRARY_PATH`: absolute path of the library file\n"
             "- `FASTA_PATH`: absolute path of the fasta file\n"
             "- `NUM_THREADS`: number of threads\n"
             "- `PROJECT_ID`: project id\n\n"
             "Notes:\n"
             "- The working directory of the custom software is `OUTPUT_PATH`.\n"
-            "- If you require more than the provided files, reference them directly by their absolute path.\n"
-            "- If something that is in the `$PATH` should be executed, wrap it in a shell script and place it in the software folder.\n"
+            "- If you require more than the provided placeholders, reference them directly by their absolute path.\n"
+            "- If something that is in the `$PATH` should be executed (e.g. `apptainer`), wrap it in a shell script and place it in the software folder.\n"
         )
-        with st.expander("Example parameters for DIANN..."):
+        with st.expander("Example for DIANN..."):
+            st.write("Executable: `diann-2.2.0/diann-linux`")
             st.code(
                 "--f RAW_FILE_PATH --lib LIBRARY_PATH --fasta FASTA_PATH --temp OUTPUT_PATH --threads NUM_THREADS --qvalue 0.01"
             )
-        with st.expander("Example parameters for Spectronaut..."):
+        with st.expander("Example for Spectronaut..."):
+            st.write("Executable: `run_spectronaut.sh` (cf. folder `misc/software`)")
             st.code(
                 "direct -n alphakraken -r RAW_FILE_PATH -fasta FASTA_PATH -o OUTPUT_PATH -s /path/to/settings/alphakraken.prop"
             )
-
+        with st.expander("Example for Skyline..."):
+            st.write(
+                "Executable: `skyline/run_skyline.sh` (cf. folder `misc/software`)"
+            )
+            st.code(
+                "--in iRT_windows.sky --irt-database-path irt_c18_official.irtdb --report-add custom_iRT_report.skyr"
+            )
     else:
         config_params = None
 
     st.write(r"\* Required fields")
-    st.write(r"\** At least one of the two must be given")
+    if software_type == SoftwareTypes.ALPHADIA:
+        st.write(r"\** At least one of the two must be given")
 
     st.markdown("### Upload files to settings folder")
     settings_name_clean = empty_to_none(name)
@@ -351,7 +366,7 @@ if submit:
             check_for_malicious_content(config_params, allow_spaces=True)
         )
 
-    if (
+    if software_type == SoftwareTypes.ALPHADIA and (
         empty_to_none(fasta_file_name) is None
         and empty_to_none(speclib_file_name) is None
     ):

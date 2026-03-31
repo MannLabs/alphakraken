@@ -9,10 +9,11 @@ import pytz
 # ruff: noqa: PD002 # `inplace=True` should be avoided; it has inconsistent behavior
 import streamlit as st
 from matplotlib import pyplot as plt
-from pages_.impl.overview_plotting import _draw_plot
+from pages_.impl.overview_plotting import _draw_overlay_plot, _draw_plot
 from pages_.impl.overview_utils import (
     EXPLANATION_STATUS,
     add_eta,
+    expand_columns,
     filter_valid_columns,
     get_baseline_df,
     get_column_order,
@@ -210,12 +211,15 @@ with st.spinner("Loading data ..."):
         st.stop()
 
     c2.text(f"Last loaded: {data_timestamp.strftime('%Y-%m-%d %H:%M:%S')}")
-    combined_df = harmonize_df(combined_df, COLUMNS)
+    columns_expanded = expand_columns(COLUMNS, list(combined_df.columns))
+    combined_df = harmonize_df(combined_df, columns_expanded)
 
     # Load and merge baseline data if specified
     baseline_query_param = get_query_param(QueryParams.BASELINE, default="")
     if baseline_query_param:
-        baseline_df, num_desired_files = get_baseline_df(baseline_query_param, COLUMNS)
+        baseline_df, num_desired_files = get_baseline_df(
+            baseline_query_param, columns_expanded
+        )
         if len(baseline_df) != num_desired_files:
             st.warning(
                 f"Incomplete baseline data found for `{QueryParams.BASELINE}={baseline_query_param}` . Please select valid baseline file(s) with metrics."
@@ -242,6 +246,7 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
     max_age_in_days: float,
     filter_value: str,
     data_timestamp: datetime,
+    columns: tuple,
 ) -> None:
     """A fragment that displays a DataFrame with a filter."""
     # ########################################### DISPLAY: Filter
@@ -312,11 +317,11 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
 
     # Separate columns by gradient direction
     green_is_high_columns = filter_valid_columns(
-        [column.name for column in COLUMNS if column.color_gradient == "green_is_high"],
+        [column.name for column in columns if column.color_gradient == "green_is_high"],
         filtered_df,
     )
     red_is_high_columns = filter_valid_columns(
-        [column.name for column in COLUMNS if column.color_gradient == "red_is_high"],
+        [column.name for column in columns if column.color_gradient == "red_is_high"],
         filtered_df,
     )
 
@@ -436,7 +441,7 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
         )
 
     c1, c2, c3, c4, c5, c6 = st.columns([0.16, 0.16, 0.16, 0.16, 0.16, 0.16])
-    column_order = get_column_order(filtered_df, COLUMNS)
+    column_order = get_column_order(filtered_df, columns)
 
     # ########################################### DISPLAY: Plots: settings
     color_by_column = c1.selectbox(
@@ -505,8 +510,9 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
 
     columns_to_plot = [
         column
-        for column in COLUMNS
-        if (column.plot and column.name in filtered_df.columns)
+        for column in columns
+        if column.plot
+        and (column.matched_columns or column.name in filtered_df.columns)
     ]
 
     n_plots = 0
@@ -545,15 +551,22 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
                         set_session_state(SessionStateKeys.SHOW_ALL_PLOTS, value=True)
 
                 with st_columns[col_idx]:
-                    _draw_plot(
-                        filtered_df,
-                        x=x,
-                        column=column,
-                        color_by_column=color_by_column,
-                        show_traces=show_traces,
-                        show_std=show_std,
-                        show_trendline=show_trendline,
-                    )
+                    if column.overlay:
+                        _draw_overlay_plot(
+                            filtered_df,
+                            x=x,
+                            column=column,
+                        )
+                    else:
+                        _draw_plot(
+                            filtered_df,
+                            x=x,
+                            column=column,
+                            color_by_column=color_by_column,
+                            show_traces=show_traces,
+                            show_std=show_std,
+                            show_trendline=show_trendline,
+                        )
             except Exception as e:  # noqa: BLE001
                 if not column.plot_optional:
                     _log(e, f"Cannot draw plot for {column.name} vs {x}.")
@@ -563,4 +576,6 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
 
 
 # don't put any code between definition of fragment and its usage
-_display_table_and_plots(combined_df, max_age, filter_value, data_timestamp)
+_display_table_and_plots(
+    combined_df, max_age, filter_value, data_timestamp, columns_expanded
+)

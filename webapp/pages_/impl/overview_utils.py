@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from datetime import datetime
+from fnmatch import fnmatch
 from pathlib import Path
 
 import pandas as pd
@@ -34,7 +35,7 @@ EXPLANATION_STATUS = """
 
 @dataclass
 class Column:
-    """Data class for information on how to display a column information."""
+    """Data class for information on how to display a data column (or multiple data columns if wildcards are used)."""
 
     name: str
     # hide column in table
@@ -51,6 +52,11 @@ class Column:
     alternative_names: list[str] | None = None
     # optional plot
     plot_optional: bool = False
+    # draw all matched wildcard columns as overlaid traces in one plot
+    overlay: bool = False
+    # not taken from yaml but set after parsing:
+    # columns matched by a wildcard pattern, set by expand_columns
+    matched_columns: list[str] | None = None
 
 
 def load_columns_from_yaml() -> tuple[Column, ...]:
@@ -73,10 +79,61 @@ def load_columns_from_yaml() -> tuple[Column, ...]:
                 log_scale=column.get("log_scale"),
                 alternative_names=column.get("alternative_names"),
                 plot_optional=column.get("plot_optional"),
+                overlay=column.get("overlay", False),
             )
             for column in columns_config["columns"]
         ]
     )
+
+
+def expand_columns(
+    columns: tuple[Column, ...], df_columns: list[str]
+) -> tuple[Column, ...]:
+    """Expand wildcard column entries against actual DataFrame columns.
+
+    If overlay=False, each match becomes its own plotable Column.
+    If overlay=True, individual matches get plot=False and one Column collecting all matching columns (for joint plotting) is added instead.
+
+    """
+    expanded = []
+    for column in columns:
+        # regular case: column is taking as is
+        if "*" not in column.name:
+            expanded.append(column)
+            continue
+
+        # 'wildcard' case
+        matches = sorted(c for c in df_columns if fnmatch(c, column.name))
+        if not matches:
+            continue
+
+        # all every column (to show up in the table), but don't plot individual columns if overlay=True
+        for df_col in matches:
+            plot = False if column.overlay else column.plot
+            expanded.append(
+                Column(
+                    name=df_col,
+                    hide=column.hide,
+                    at_end=column.at_end,
+                    color_gradient=column.color_gradient,
+                    plot=plot,
+                    log_scale=column.log_scale,
+                    alternative_names=column.alternative_names,
+                    plot_optional=column.plot_optional,
+                )
+            )
+        if column.overlay and column.plot:
+            expanded.append(
+                Column(
+                    name=column.name,
+                    plot=True,
+                    log_scale=column.log_scale,
+                    plot_optional=column.plot_optional,
+                    overlay=True,
+                    matched_columns=matches,
+                )
+            )
+    return tuple(expanded)
 
 
 def harmonize_df(df: pd.DataFrame, columns: tuple[Column, ...]) -> pd.DataFrame:

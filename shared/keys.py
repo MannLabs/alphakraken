@@ -37,6 +37,7 @@ class MetricsTypes:
 
     ALPHADIA: str = "alphadia"
     MSQC: str = "msqc"
+    SKYLINE: str = "skyline"
     CUSTOM: str = "custom"
 
 

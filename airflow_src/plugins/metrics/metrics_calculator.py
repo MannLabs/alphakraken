@@ -11,6 +11,7 @@ import numpy as np
 from metrics.metrics.alphadia import calc_alphadia_metrics
 from metrics.metrics.custom import calc_custom_metrics
 from metrics.metrics.msqc import calc_msqc_metrics
+from metrics.metrics.skyline import calc_skyline_metrics
 
 from shared.keys import MetricsTypes
 
@@ -24,6 +25,7 @@ def calc_metrics(output_directory: Path, *, metrics_type: str) -> dict[str, Any]
     metrics = {
         MetricsTypes.ALPHADIA: calc_alphadia_metrics,
         MetricsTypes.MSQC: calc_msqc_metrics,
+        MetricsTypes.SKYLINE: calc_skyline_metrics,  # TODO: this needs to be settable via UI
         MetricsTypes.CUSTOM: calc_custom_metrics,
     }[metrics_type](output_directory)
 

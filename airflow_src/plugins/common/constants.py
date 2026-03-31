@@ -57,7 +57,8 @@ ERROR_CODE_TO_STRING = {
     "_ARGMAX_OF_EMPTY_SEQUENCE": "attempt to get argmax of an empty sequence",
     "_INTERNAL_ERROR_CANDIDATE_CONFIG": "'CandidateConfig' object has no attribute 'reporter'",
     "_SINGULAR_MATRIX": "Matrix is singular to machine precision",
-    "_READ_BEYOND_STREAM": "ERROR: Unable to read beyond the end of the stream.",  # sciex
+    "_READ_BEYOND_STREAM1": "ERROR: Attempt to read beyond end of scan stream",  # sciex
+    "_READ_BEYOND_STREAM2": "ERROR: Unable to read beyond the end of the stream.",  # sciex
     "_OUT_OF_BOUNDS": "single positional indexer is out-of-bounds",  # bruker
     # the following are deliberately not included as they require a manual check:
     # "_FILE_IS_NOT_A_DATABASE": "file is not a database", # corrupt file? -> check if something went wrong with copying

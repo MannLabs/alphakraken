@@ -328,7 +328,7 @@ def run_quanting(
         else:
             raise AirflowFailException(
                 f"{msg} Remove it before restarting the quanting or set Airflow variable 'output_exists_mode' to 'overwrite' or 'associate' "
-                f"(got {output_exists_mode})"
+                f"(got '{output_exists_mode}')"
             )
 
     output_path.mkdir(parents=True, exist_ok=True)
@@ -547,7 +547,7 @@ def finalize_raw_file_status(ti: TaskInstance, raw_file_id: str) -> None:
         update_raw_file(
             raw_file_id, new_status=RawFileStatus.ERROR, status_details=details
         )
-        raise AirflowFailException(f"Pipeline error for {raw_file_id}: {details}")
+        raise AirflowFailException(details)
 
     if business_errors:
         details = _build_status_details(business_errors)

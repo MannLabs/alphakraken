@@ -287,8 +287,9 @@ After this the space needs to be reclaimed (execute on the machine that runs the
 VACUUM FULL;
 ```
 
-### Cleaning up the Airflow logs
+### Cleaning up the logs
 
+#### Airflow logs
 Airflow writes task logs to disk under `dag_id=<name>/run_id=<id>/` directories. Over time these accumulate and consume significant disk space.
 The `archive_airflow_logs.sh` script compresses all run directories for a given DAG and month into a single `.tar.gz` file, and can optionally delete the originals after archiving.
 
@@ -298,6 +299,13 @@ Note: this is a destructive operation!
 
 Alternatively, delete the logs manually: `rm -rf /fs/pool-2/airflow_logs/dag_id\=*/run_id\=*__2025-12*`
 
+#### Slurm logs
+`cd` to the `jobs` folder then do (e.g.)
+```bash
+for dir in 2024*; do tar -czf "${dir%/}.tar.gz" "$dir" && rm -rf "$dir"; done
+```
+
+#### Nginx logs
 Note that if you are using `nginx`, the `nginx_logs` also needs regular cleanup.
 
 ### Upgrading Airflow

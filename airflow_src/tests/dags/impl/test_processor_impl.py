@@ -97,7 +97,7 @@ def test_create_quanting_env(
         "_SLURM_TIME": "02:00:00",
         "NUM_THREADS": 8,
         "RAW_FILE_ID": "test_file.raw",
-        "PROJECT_ID_OR_FALLBACK": "some_project_id",
+        "PROJECT_ID": "some_project_id",
         "SETTINGS_NAME": "test_settings",
         "SETTINGS_VERSION": 1,
         "_INTERNAL_OUTPUT_PATH": "/opt/airflow/mounts/output/some_project_id/out_test_file.raw/alphadia",
@@ -176,7 +176,7 @@ def test_create_quanting_env_custom_software(
         "_SLURM_TIME": "02:00:00",
         "NUM_THREADS": 8,
         "RAW_FILE_ID": "test_file.raw",
-        "PROJECT_ID_OR_FALLBACK": "some_project_id",
+        "PROJECT_ID": "some_project_id",
         "SETTINGS_NAME": "test_custom_settings",
         "SETTINGS_VERSION": 1,
         "_INTERNAL_OUTPUT_PATH": "/opt/airflow/mounts/output/some_project_id/out_test_file.raw/custom",
@@ -449,7 +449,7 @@ def test_run_quanting_executes_ssh_command_and_stores_job_id(
     output_dir = tmp_path / "PID123" / "out_test_file.raw" / "alphadia"
     quanting_env = {
         QuantingEnv.RAW_FILE_ID: "test_file.raw",
-        QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID123",
+        QuantingEnv.PROJECT_ID: "PID123",
         QuantingEnv.SOFTWARE_TYPE: "alphadia",
         QuantingEnv.CUSTOM_COMMAND: "",
         QuantingEnv.INTERNAL_OUTPUT_PATH: str(output_dir),
@@ -492,7 +492,7 @@ def test_run_quanting_output_folder_exists(
     output_dir.mkdir()
     quanting_env = {
         QuantingEnv.RAW_FILE_ID: "test_file.raw",
-        QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID123",
+        QuantingEnv.PROJECT_ID: "PID123",
         QuantingEnv.SOFTWARE_TYPE: "alphadia",
         QuantingEnv.CUSTOM_COMMAND: "",
         QuantingEnv.INTERNAL_OUTPUT_PATH: str(output_dir),
@@ -529,7 +529,7 @@ def test_run_quanting_output_folder_exists_associate(
     output_dir.mkdir()
     quanting_env = {
         QuantingEnv.RAW_FILE_ID: "test_file.raw",
-        QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID123",
+        QuantingEnv.PROJECT_ID: "PID123",
         QuantingEnv.SOFTWARE_TYPE: "alphadia",
         QuantingEnv.CUSTOM_COMMAND: "",
         QuantingEnv.INTERNAL_OUTPUT_PATH: str(output_dir),
@@ -565,7 +565,7 @@ def test_run_quanting_output_folder_exists_associate_raise(
     output_dir.mkdir()
     quanting_env = {
         QuantingEnv.RAW_FILE_ID: "test_file.raw",
-        QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID123",
+        QuantingEnv.PROJECT_ID: "PID123",
         QuantingEnv.SOFTWARE_TYPE: "alphadia",
         QuantingEnv.CUSTOM_COMMAND: "",
         QuantingEnv.INTERNAL_OUTPUT_PATH: str(output_dir),
@@ -594,7 +594,7 @@ def test_check_quanting_result_happy_path(
     """Test that check_quanting_result makes the expected calls."""
     quanting_env = {
         QuantingEnv.RAW_FILE_ID: "test_file.raw",
-        QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID1",
+        QuantingEnv.PROJECT_ID: "PID1",
         QuantingEnv.SETTINGS_NAME: "test_settings",
         QuantingEnv.SETTINGS_VERSION: 1,
         QuantingEnv.METRICS_TYPE: "alphadia",
@@ -621,7 +621,7 @@ def test_check_quanting_result_unknown_job_status(
     """Test that check_quanting_result raises on unknown quanting job status."""
     quanting_env = {
         QuantingEnv.RAW_FILE_ID: "test_file.raw",
-        QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID1",
+        QuantingEnv.PROJECT_ID: "PID1",
         QuantingEnv.SETTINGS_NAME: "test_settings",
         QuantingEnv.SETTINGS_VERSION: 1,
         QuantingEnv.METRICS_TYPE: "alphadia",
@@ -653,7 +653,7 @@ def test_check_quanting_result_business_error(
     """Test that check_quanting_result behaves correctly on business errors."""
     quanting_env = {
         QuantingEnv.RAW_FILE_ID: "test_file.raw",
-        QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID1",
+        QuantingEnv.PROJECT_ID: "PID1",
         QuantingEnv.SETTINGS_NAME: "test_settings",
         QuantingEnv.SETTINGS_VERSION: 1,
         QuantingEnv.INTERNAL_OUTPUT_PATH: "/opt/airflow/mounts/output/PID1/out_test_file.raw/alphadia",
@@ -704,7 +704,7 @@ def test_check_quanting_result_business_error_raises(
     """Test that check_quanting_result behaves correctly if business error is unknown."""
     quanting_env = {
         QuantingEnv.RAW_FILE_ID: "test_file.raw",
-        QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID1",
+        QuantingEnv.PROJECT_ID: "PID1",
         QuantingEnv.SETTINGS_NAME: "test_settings",
         QuantingEnv.SETTINGS_VERSION: 1,
         QuantingEnv.INTERNAL_OUTPUT_PATH: "/opt/airflow/mounts/output/PID1/out_test_file.raw/alphadia",
@@ -753,7 +753,7 @@ def test_check_quanting_result_timeout(
     """Test that check_quanting_result behaves correctly on timeout."""
     quanting_env = {
         QuantingEnv.RAW_FILE_ID: "test_file.raw",
-        QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID1",
+        QuantingEnv.PROJECT_ID: "PID1",
         QuantingEnv.SETTINGS_NAME: "test_settings",
         QuantingEnv.SETTINGS_VERSION: 1,
         QuantingEnv.INTERNAL_OUTPUT_PATH: "/opt/airflow/mounts/output/PID1/out_test_file.raw/alphadia",
@@ -796,7 +796,7 @@ def test_check_quanting_result_oom(
     """Test that check_quanting_result behaves correctly on out of memory."""
     quanting_env = {
         QuantingEnv.RAW_FILE_ID: "test_file.raw",
-        QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID1",
+        QuantingEnv.PROJECT_ID: "PID1",
         QuantingEnv.SETTINGS_NAME: "test_settings",
         QuantingEnv.SETTINGS_VERSION: 1,
         QuantingEnv.INTERNAL_OUTPUT_PATH: "/opt/airflow/mounts/output/PID1/out_test_file.raw/alphadia",
@@ -900,7 +900,7 @@ def test_compute_metrics(
     """Test that compute_metrics makes the expected calls."""
     quanting_env = {
         "RAW_FILE_ID": "test_file.raw",
-        "PROJECT_ID_OR_FALLBACK": "P1",
+        "PROJECT_ID": "P1",
         "SOFTWARE_TYPE": "alphadia",
         "METRICS_TYPE": "alphadia",
         "_INTERNAL_OUTPUT_PATH": "/opt/airflow/mounts/output/P1/out_test_file.raw/alphadia",
@@ -928,7 +928,7 @@ def test_compute_metrics_msqc_software_type(
     """Test that compute_metrics correctly maps MSQC software type to MSQC metrics type."""
     quanting_env = {
         "RAW_FILE_ID": "test_file.raw",
-        "PROJECT_ID_OR_FALLBACK": "P1",
+        "PROJECT_ID": "P1",
         "SOFTWARE_TYPE": "msqc",
         "METRICS_TYPE": "msqc",
         "_INTERNAL_OUTPUT_PATH": "/opt/airflow/mounts/output/P1/out_test_file.raw/msqc",

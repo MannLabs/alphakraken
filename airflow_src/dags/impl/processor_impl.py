@@ -182,7 +182,7 @@ def _create_quanting_env(
         QuantingEnv.NUM_THREADS: settings.num_threads,
         # not required for slurm script:
         QuantingEnv.RAW_FILE_ID: raw_file.id,
-        QuantingEnv.PROJECT_ID_OR_FALLBACK: raw_file.project_id,
+        QuantingEnv.PROJECT_ID: raw_file.project_id,
         QuantingEnv.SETTINGS_NAME: settings.name,
         QuantingEnv.SETTINGS_VERSION: settings.version,
         QuantingEnv.INTERNAL_OUTPUT_PATH: str(internal_output_path),

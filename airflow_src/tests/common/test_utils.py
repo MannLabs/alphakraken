@@ -43,11 +43,11 @@ def test_xcom_pull_successful() -> None:
     result = get_xcom(ti, "key1")
     assert result == "value1"
 
-    ti.xcom_pull.assert_called_once_with(key="key1", default=None, task_ids=None)
+    ti.xcom_pull.assert_called_once_with(key="key1")
 
 
 def test_xcom_pull_with_missing_key_raises_error() -> None:
-    """Test that get_xcom raises a ValueError when trying to pull a value for a missing key from XCom."""
+    """Test that get_xcom raises a KeyError when trying to pull a value for a missing key from XCom."""
     ti = Mock()
     ti.xcom_pull = Mock(return_value=None)
     # when
@@ -56,15 +56,24 @@ def test_xcom_pull_with_missing_key_raises_error() -> None:
 
 
 def test_xcom_pull_with_missing_key_gives_default() -> None:
-    """Test that get_xcom raises a ValueError when trying to pull a value for a missing key from XCom."""
+    """Test that get_xcom returns default when key is missing."""
     ti = Mock()
     ti.xcom_pull = Mock(return_value="some_default")
     # when
     assert get_xcom(ti, "missing_key", "some_default") == "some_default"
 
-    ti.xcom_pull.assert_called_once_with(
-        key="missing_key", default="some_default", task_ids=None
-    )
+    ti.xcom_pull.assert_called_once_with(key="missing_key", default="some_default")
+
+
+def test_xcom_pull_with_none_default() -> None:
+    """Test that get_xcom returns None when default=None and key is missing."""
+    ti = Mock()
+    ti.xcom_pull = Mock(return_value=None)
+
+    result = get_xcom(ti, "missing_key", default=None)
+
+    assert result is None
+    ti.xcom_pull.assert_called_once_with(key="missing_key", default=None)
 
 
 def test_xcom_pull_with_task_ids() -> None:
@@ -76,7 +85,22 @@ def test_xcom_pull_with_task_ids() -> None:
 
     assert result == "job_123"
     ti.xcom_pull.assert_called_once_with(
-        key="return_value", default=None, task_ids="quanting_pipeline.run_quanting"
+        key="return_value", task_ids="quanting_pipeline.run_quanting"
+    )
+
+
+def test_xcom_pull_with_map_indexes() -> None:
+    """Test that get_xcom passes map_indexes to xcom_pull."""
+    ti = Mock()
+    ti.xcom_pull = Mock(return_value="branch_error")
+
+    result = get_xcom(
+        ti, "branch_errors", task_ids="some_task", map_indexes=2, default=None
+    )
+
+    assert result == "branch_error"
+    ti.xcom_pull.assert_called_once_with(
+        key="branch_errors", task_ids="some_task", default=None, map_indexes=2
     )
 
 

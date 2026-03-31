@@ -29,6 +29,8 @@ from common.paths import (
 from common.settings import get_instrument_settings
 from common.utils import (
     get_airflow_variable,
+    get_xcom,
+    put_xcom,
 )
 from jobs.job_handler import (
     get_job_result,
@@ -446,14 +448,14 @@ def check_quanting_result(*, quanting_env: dict, job_id: str, ti: TaskInstance) 
             CustomAlphaDiaStates.COULD_NOT_DETERMINE_ERROR,
         ]
         if any(state in errors for state in states_to_fail_task):
-            ti.xcom_push(key=BRANCH_ERRORS_XCOM_KEY, value=";".join(errors))
+            put_xcom(ti, key=BRANCH_ERRORS_XCOM_KEY, value=";".join(errors))
             raise AirflowFailException(f"Quanting failed with new error: {errors=}")
 
-        ti.xcom_push(key=BRANCH_ERRORS_XCOM_KEY, value=";".join(errors))
+        put_xcom(ti, key=BRANCH_ERRORS_XCOM_KEY, value=";".join(errors))
         raise AirflowSkipException("Job failed, skipping downstream tasks.")
 
     # unknown state: fail the DAG without retry
-    ti.xcom_push(key=BRANCH_ERRORS_XCOM_KEY, value=f"unknown_job_status:{job_status}")
+    put_xcom(ti, key=BRANCH_ERRORS_XCOM_KEY, value=f"unknown_job_status:{job_status}")
     raise AirflowFailException(f"Quanting failed: {job_status=}")
 
 
@@ -523,7 +525,7 @@ def finalize_raw_file_status(ti: TaskInstance, raw_file_id: str) -> None:
     if not upload_tis:
         raise AirflowFailException("No upload_metrics task instances found in DAG run.")
 
-    quanting_envs = ti.xcom_pull(task_ids=Tasks.PREPARE_QUANTING)
+    quanting_envs = get_xcom(ti, key="return_value", task_ids=Tasks.PREPARE_QUANTING)
 
     airflow_errors: list[tuple[str, str]] = []
     business_errors: list[tuple[str, str]] = []
@@ -534,8 +536,12 @@ def finalize_raw_file_status(ti: TaskInstance, raw_file_id: str) -> None:
 
         idx = upload_ti.map_index
         settings_name = quanting_envs[idx][QuantingEnv.SETTINGS_NAME]
-        branch_error_details = ti.xcom_pull(
-            task_ids=_CHECK_RESULT_TASK_ID, map_indexes=idx, key=BRANCH_ERRORS_XCOM_KEY
+        branch_error_details = get_xcom(
+            ti,
+            key=BRANCH_ERRORS_XCOM_KEY,
+            task_ids=_CHECK_RESULT_TASK_ID,
+            map_indexes=idx,
+            default=None,
         )
 
         if upload_ti.state in FAILED_STATES:

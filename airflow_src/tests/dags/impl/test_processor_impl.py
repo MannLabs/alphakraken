@@ -582,9 +582,11 @@ def test_run_quanting_output_folder_exists_associate_raise(
         run_quanting(quanting_env=quanting_env)
 
 
+@patch("dags.impl.processor_impl.put_xcom")
 @patch("dags.impl.processor_impl.get_job_result")
 def test_check_quanting_result_happy_path(
     mock_get_job_result: MagicMock,
+    mock_put_xcom: MagicMock,
 ) -> None:
     """Test that check_quanting_result makes the expected calls."""
     quanting_env = {
@@ -604,12 +606,14 @@ def test_check_quanting_result_happy_path(
     )
 
     assert result == {"quanting_time_elapsed": 522}
-    mock_ti.xcom_push.assert_not_called()
+    mock_put_xcom.assert_not_called()
 
 
+@patch("dags.impl.processor_impl.put_xcom")
 @patch("dags.impl.processor_impl.get_job_result")
 def test_check_quanting_result_unknown_job_status(
     mock_get_job_result: MagicMock,
+    mock_put_xcom: MagicMock,
 ) -> None:
     """Test that check_quanting_result raises on unknown quanting job status."""
     quanting_env = {
@@ -626,22 +630,24 @@ def test_check_quanting_result_unknown_job_status(
     with pytest.raises(AirflowFailException):
         check_quanting_result(quanting_env=quanting_env, job_id="12345", ti=mock_ti)
 
-    mock_ti.xcom_push.assert_called_once_with(
-        key=BRANCH_ERRORS_XCOM_KEY, value="unknown_job_status:SOME_JOB_STATE"
+    mock_put_xcom.assert_called_once_with(
+        mock_ti, key=BRANCH_ERRORS_XCOM_KEY, value="unknown_job_status:SOME_JOB_STATE"
     )
 
 
+@patch("dags.impl.processor_impl.put_xcom")
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.get_job_result")
 @patch("dags.impl.processor_impl.get_business_errors")
 @patch("dags.impl.processor_impl.update_raw_file")
 @patch("dags.impl.processor_impl.add_metrics_to_raw_file")
-def test_check_quanting_result_business_error(
+def test_check_quanting_result_business_error(  # noqa: PLR0913
     mock_add_metrics: MagicMock,
     mock_update_raw_file: MagicMock,
     mock_get_business_errors: MagicMock,
     mock_get_job_result: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
+    mock_put_xcom: MagicMock,
 ) -> None:
     """Test that check_quanting_result behaves correctly on business errors."""
     quanting_env = {
@@ -680,22 +686,24 @@ def test_check_quanting_result_business_error(
         settings_version=1,
         metrics_type="alphadia",
     )
-    mock_ti.xcom_push.assert_called_once_with(
-        key=BRANCH_ERRORS_XCOM_KEY, value="error1;error2"
+    mock_put_xcom.assert_called_once_with(
+        mock_ti, key=BRANCH_ERRORS_XCOM_KEY, value="error1;error2"
     )
 
 
+@patch("dags.impl.processor_impl.put_xcom")
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.get_job_result")
 @patch("dags.impl.processor_impl.get_business_errors")
 @patch("dags.impl.processor_impl.update_raw_file")
 @patch("dags.impl.processor_impl.add_metrics_to_raw_file")
-def test_check_quanting_result_business_error_raises(
+def test_check_quanting_result_business_error_raises(  # noqa: PLR0913
     mock_add_metrics: MagicMock,
     mock_update_raw_file: MagicMock,
     mock_get_business_errors: MagicMock,
     mock_get_job_result: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
+    mock_put_xcom: MagicMock,
 ) -> None:
     """Test that check_quanting_result behaves correctly if business error is unknown."""
     quanting_env = {
@@ -734,11 +742,12 @@ def test_check_quanting_result_business_error_raises(
         settings_version=1,
         metrics_type="alphadia",
     )
-    mock_ti.xcom_push.assert_called_once_with(
-        key=BRANCH_ERRORS_XCOM_KEY, value="error1;__UNKNOWN_ERROR"
+    mock_put_xcom.assert_called_once_with(
+        mock_ti, key=BRANCH_ERRORS_XCOM_KEY, value="error1;__UNKNOWN_ERROR"
     )
 
 
+@patch("dags.impl.processor_impl.put_xcom")
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.get_job_result")
 @patch("dags.impl.processor_impl.update_raw_file")
@@ -748,6 +757,7 @@ def test_check_quanting_result_timeout(
     mock_update_raw_file: MagicMock,
     mock_get_job_result: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
+    mock_put_xcom: MagicMock,
 ) -> None:
     """Test that check_quanting_result behaves correctly on timeout."""
     quanting_env = {
@@ -780,11 +790,12 @@ def test_check_quanting_result_timeout(
         settings_version=1,
         metrics_type="alphadia",
     )
-    mock_ti.xcom_push.assert_called_once_with(
-        key=BRANCH_ERRORS_XCOM_KEY, value="TIMEOUT"
+    mock_put_xcom.assert_called_once_with(
+        mock_ti, key=BRANCH_ERRORS_XCOM_KEY, value="TIMEOUT"
     )
 
 
+@patch("dags.impl.processor_impl.put_xcom")
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.get_job_result")
 @patch("dags.impl.processor_impl.update_raw_file")
@@ -794,6 +805,7 @@ def test_check_quanting_result_oom(
     mock_update_raw_file: MagicMock,
     mock_get_job_result: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
+    mock_put_xcom: MagicMock,
 ) -> None:
     """Test that check_quanting_result behaves correctly on out of memory."""
     quanting_env = {
@@ -826,8 +838,8 @@ def test_check_quanting_result_oom(
         settings_version=1,
         metrics_type="alphadia",
     )
-    mock_ti.xcom_push.assert_called_once_with(
-        key=BRANCH_ERRORS_XCOM_KEY, value="OUT_OF_MEMORY"
+    mock_put_xcom.assert_called_once_with(
+        mock_ti, key=BRANCH_ERRORS_XCOM_KEY, value="OUT_OF_MEMORY"
     )
 
 
@@ -979,27 +991,30 @@ def test_upload_metrics(
     )
 
 
-def _make_xcom_pull(quanting_envs, branch_errors=None):  # noqa: ANN001, ANN202
-    """Create a side_effect for ti.xcom_pull that returns the right values."""
+def _make_get_xcom(quanting_envs, branch_errors=None):  # noqa: ANN001, ANN202
+    """Create a side_effect for get_xcom that returns the right values."""
     if branch_errors is None:
         branch_errors = {}
 
-    def side_effect(**kwargs):  # noqa: ANN202
-        if kwargs.get("key") == BRANCH_ERRORS_XCOM_KEY:
+    def side_effect(*, key, **kwargs):  # noqa: ANN001, ANN202
+        if key == BRANCH_ERRORS_XCOM_KEY:
             return branch_errors.get(kwargs.get("map_indexes"))
         return quanting_envs
 
     return side_effect
 
 
+@patch("dags.impl.processor_impl.get_xcom")
 @patch("dags.impl.processor_impl.update_raw_file")
-def test_finalize_raw_file_status_all_succeeded(mock_update: MagicMock) -> None:
+def test_finalize_raw_file_status_all_succeeded(
+    mock_update: MagicMock, mock_get_xcom: MagicMock
+) -> None:
     """Test that finalize_raw_file_status sets DONE when all branches succeed."""
     ti = MagicMock()
     upload_ti = MagicMock(task_id=_UPLOAD_METRICS_TASK_ID, state="success", map_index=0)
     other_ti = MagicMock(task_id="quanting_pipeline.compute_metrics", state="success")
     ti.get_dagrun.return_value.get_task_instances.return_value = [upload_ti, other_ti]
-    ti.xcom_pull.side_effect = _make_xcom_pull(
+    mock_get_xcom.side_effect = _make_get_xcom(
         [{QuantingEnv.SETTINGS_NAME: "settings_A"}]
     )
 
@@ -1010,8 +1025,11 @@ def test_finalize_raw_file_status_all_succeeded(mock_update: MagicMock) -> None:
     )
 
 
+@patch("dags.impl.processor_impl.get_xcom")
 @patch("dags.impl.processor_impl.update_raw_file")
-def test_finalize_raw_file_status_branch_failed(mock_update: MagicMock) -> None:
+def test_finalize_raw_file_status_branch_failed(
+    mock_update: MagicMock, mock_get_xcom: MagicMock
+) -> None:
     """Test that finalize_raw_file_status sets ERROR with details when a branch fails."""
     ti = MagicMock()
     upload_ti_ok = MagicMock(
@@ -1024,7 +1042,7 @@ def test_finalize_raw_file_status_branch_failed(mock_update: MagicMock) -> None:
         upload_ti_ok,
         upload_ti_fail,
     ]
-    ti.xcom_pull.side_effect = _make_xcom_pull(
+    mock_get_xcom.side_effect = _make_get_xcom(
         [
             {QuantingEnv.SETTINGS_NAME: "settings_A"},
             {QuantingEnv.SETTINGS_NAME: "settings_B"},
@@ -1042,15 +1060,18 @@ def test_finalize_raw_file_status_branch_failed(mock_update: MagicMock) -> None:
     )
 
 
+@patch("dags.impl.processor_impl.get_xcom")
 @patch("dags.impl.processor_impl.update_raw_file")
-def test_finalize_raw_file_status_upstream_failed(mock_update: MagicMock) -> None:
+def test_finalize_raw_file_status_upstream_failed(
+    mock_update: MagicMock, mock_get_xcom: MagicMock
+) -> None:
     """Test that finalize_raw_file_status treats upstream_failed as failure with fallback details."""
     ti = MagicMock()
     upload_ti = MagicMock(
         task_id=_UPLOAD_METRICS_TASK_ID, state="upstream_failed", map_index=0
     )
     ti.get_dagrun.return_value.get_task_instances.return_value = [upload_ti]
-    ti.xcom_pull.side_effect = _make_xcom_pull(
+    mock_get_xcom.side_effect = _make_get_xcom(
         [{QuantingEnv.SETTINGS_NAME: "settings_A"}],
     )
 
@@ -1075,13 +1096,16 @@ def test_finalize_raw_file_status_no_upload_tasks() -> None:
         finalize_raw_file_status(ti=ti, raw_file_id="test.raw")
 
 
+@patch("dags.impl.processor_impl.get_xcom")
 @patch("dags.impl.processor_impl.update_raw_file")
-def test_finalize_raw_file_status_business_error(mock_update: MagicMock) -> None:
+def test_finalize_raw_file_status_business_error(
+    mock_update: MagicMock, mock_get_xcom: MagicMock
+) -> None:
     """Test that finalize_raw_file_status sets QUANTING_FAILED on business errors."""
     ti = MagicMock()
     upload_ti = MagicMock(task_id=_UPLOAD_METRICS_TASK_ID, state="skipped", map_index=0)
     ti.get_dagrun.return_value.get_task_instances.return_value = [upload_ti]
-    ti.xcom_pull.side_effect = _make_xcom_pull(
+    mock_get_xcom.side_effect = _make_get_xcom(
         [{QuantingEnv.SETTINGS_NAME: "settings_A"}],
         branch_errors={0: "OUT_OF_MEMORY"},
     )
@@ -1095,9 +1119,10 @@ def test_finalize_raw_file_status_business_error(mock_update: MagicMock) -> None
     )
 
 
+@patch("dags.impl.processor_impl.get_xcom")
 @patch("dags.impl.processor_impl.update_raw_file")
 def test_finalize_raw_file_status_multiple_business_errors(
-    mock_update: MagicMock,
+    mock_update: MagicMock, mock_get_xcom: MagicMock
 ) -> None:
     """Test that finalize_raw_file_status accumulates details from multiple failed branches."""
     ti = MagicMock()
@@ -1111,7 +1136,7 @@ def test_finalize_raw_file_status_multiple_business_errors(
         upload_ti_0,
         upload_ti_1,
     ]
-    ti.xcom_pull.side_effect = _make_xcom_pull(
+    mock_get_xcom.side_effect = _make_get_xcom(
         [
             {QuantingEnv.SETTINGS_NAME: "settings_A"},
             {QuantingEnv.SETTINGS_NAME: "settings_B"},
@@ -1128,8 +1153,11 @@ def test_finalize_raw_file_status_multiple_business_errors(
     )
 
 
+@patch("dags.impl.processor_impl.get_xcom")
 @patch("dags.impl.processor_impl.update_raw_file")
-def test_finalize_raw_file_status_mixed_errors(mock_update: MagicMock) -> None:
+def test_finalize_raw_file_status_mixed_errors(
+    mock_update: MagicMock, mock_get_xcom: MagicMock
+) -> None:
     """Test that ERROR takes priority when there are both Airflow failures and business errors."""
     ti = MagicMock()
     upload_ti_failed = MagicMock(
@@ -1142,7 +1170,7 @@ def test_finalize_raw_file_status_mixed_errors(mock_update: MagicMock) -> None:
         upload_ti_failed,
         upload_ti_skipped,
     ]
-    ti.xcom_pull.side_effect = _make_xcom_pull(
+    mock_get_xcom.side_effect = _make_get_xcom(
         [
             {QuantingEnv.SETTINGS_NAME: "settings_A"},
             {QuantingEnv.SETTINGS_NAME: "settings_B"},
@@ -1160,13 +1188,16 @@ def test_finalize_raw_file_status_mixed_errors(mock_update: MagicMock) -> None:
     )
 
 
+@patch("dags.impl.processor_impl.get_xcom")
 @patch("dags.impl.processor_impl.update_raw_file")
-def test_finalize_raw_file_status_intentional_skip(mock_update: MagicMock) -> None:
+def test_finalize_raw_file_status_intentional_skip(
+    mock_update: MagicMock, mock_get_xcom: MagicMock
+) -> None:
     """Test that intentional skips (e.g. skip_quanting) are treated as non-errors."""
     ti = MagicMock()
     upload_ti = MagicMock(task_id=_UPLOAD_METRICS_TASK_ID, state="skipped", map_index=0)
     ti.get_dagrun.return_value.get_task_instances.return_value = [upload_ti]
-    ti.xcom_pull.side_effect = _make_xcom_pull(
+    mock_get_xcom.side_effect = _make_get_xcom(
         [{QuantingEnv.SETTINGS_NAME: "settings_A"}],
     )
 

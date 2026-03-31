@@ -198,7 +198,7 @@ Keep `get_settings_for_project()` and `assign_settings_to_project()` working dur
   - `slurm_cpus_per_task = IntField(min_value=1, default=8)`
   - `slurm_mem = StringField(max_length=16, default="62G")`
   - `slurm_time = StringField(max_length=16, default="02:00:00")`
-  - `slurm_num_threads = IntField(min_value=1, default=8)`
+  - `num_threads = IntField(min_value=1, default=8)`
 
 **`shared/db/interface.py`** (create_settings, line 233)
 - Add optional slurm_* params to `create_settings()` signature

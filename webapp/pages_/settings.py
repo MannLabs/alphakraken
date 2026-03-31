@@ -1,5 +1,6 @@
 """Settings management page."""
 
+import re
 from collections import defaultdict
 
 # ruff: noqa: TRY301 # Abstract `raise` to an inner function
@@ -26,7 +27,11 @@ from service.utils import (
 
 from shared.db.interface import create_settings
 from shared.db.models import SettingsStatus
-from shared.keys import SoftwareTypes
+from shared.keys import (
+    SOFTWARE_TYPE_TO_DEFAULT_RESOURCE_PARAMS,
+    MetricsTypes,
+    SoftwareTypes,
+)
 from shared.validation import check_for_malicious_content
 from shared.yamlsettings import YamlKeys, get_path
 
@@ -169,16 +174,16 @@ if selected_name_option != CREATE_NEW_OPTION:
         "speclib_file_name": str(latest_settings.get("speclib_file_name", "")),
         "config_file_name": str(latest_settings.get("config_file_name", "")),
         "config_params": str(latest_settings.get("config_params", "")),
+        "metrics_type": str(latest_settings.get("metrics_type", "")),
+        "slurm_cpus_per_task": latest_settings.get("slurm_cpus_per_task", ""),
+        "slurm_mem": str(latest_settings.get("slurm_mem", "")),
+        "slurm_time": str(latest_settings.get("slurm_time", "")),
+        "num_threads": latest_settings.get("num_threads", ""),
     }
 
 
 disable_software_type_selection = "software_type" in prefill_data
-software_type_options = [
-    SoftwareTypes.ALPHADIA,
-    SoftwareTypes.CUSTOM,
-    SoftwareTypes.MSQC,
-    SoftwareTypes.SKYLINE,
-]
+software_type_options = SoftwareTypes.get_values()
 software_type_index = (
     software_type_options.index(prefill_data["software_type"])
     if prefill_data["software_type"] in software_type_options
@@ -190,6 +195,30 @@ software_type = c1.selectbox(
     index=software_type_index,
     disabled=disable_software_type_selection,
 )
+
+metrics_type_options = MetricsTypes.get_values()
+# For non-custom software types, metrics_type is locked to match software_type
+is_custom_software = software_type == SoftwareTypes.CUSTOM
+if not is_custom_software:
+    metrics_type_default = software_type
+else:
+    metrics_type_default = prefill_data.get("metrics_type", "") or software_type
+metrics_type_index = (
+    metrics_type_options.index(metrics_type_default)
+    if metrics_type_default in metrics_type_options
+    else 0
+)
+metrics_type = c1.selectbox(
+    label="Metrics type",
+    options=metrics_type_options,
+    index=metrics_type_index,
+    disabled=not is_custom_software,
+)
+if is_custom_software:
+    c1.info(
+        "Currently, custom metrics need to be added to the codebase (`metrics/custom.py`)."
+    )
+
 
 form_items = {
     "name": {
@@ -362,6 +391,44 @@ with c1.form("create_settings"):
     if software_type == SoftwareTypes.ALPHADIA:
         st.write(r"\** At least one of the two must be given")
 
+    with st.expander("Resource parameters"):
+        st.info(
+            "Enables setting the resources. Some values are only relevant for Slurm and/or for alphadia/custom."
+        )
+        resource_params_defaults = SOFTWARE_TYPE_TO_DEFAULT_RESOURCE_PARAMS[
+            software_type
+        ]
+
+        slurm_cpus_per_task = st.number_input(
+            label="CPUs per task [Slurm only]",
+            min_value=1,
+            value=int(
+                prefill_data["slurm_cpus_per_task"]
+                or resource_params_defaults.slurm_cpus_per_task
+            ),
+            help="Mapped to --cpus-per-task",
+        )
+        slurm_mem = st.text_input(
+            label="Memory (e.g. '62G') [Slurm only]",
+            max_chars=16,
+            value=prefill_data["slurm_mem"] or resource_params_defaults.slurm_mem,
+            help="Mapped to --mem",
+        )
+        slurm_time = st.text_input(
+            label="Time limit (HH:MM:SS) [Slurm only]",
+            max_chars=16,
+            value=prefill_data["slurm_time"] or resource_params_defaults.slurm_time,
+            help="Mapped to --time",
+        )
+        num_threads = st.number_input(
+            label="Number of threads [alphadia and custom only]",
+            min_value=1,
+            value=int(
+                prefill_data["num_threads"] or resource_params_defaults.num_threads
+            ),
+            help="Use for 'alphadia' and 'custom' (through NUM_THREADS placeholder)",
+        )
+
     st.markdown("### Upload files to settings folder")
     settings_name_clean = empty_to_none(name)
     if settings_name_clean:
@@ -379,8 +446,10 @@ with c1.form("create_settings"):
         "I have uploaded all referenced files to this folder.", value=False
     )
 
+    is_update = selected_name_option != CREATE_NEW_OPTION
+    submit_label = f"Update settings '{name}'" if is_update else "Create settings"
     submit = st.form_submit_button(
-        "Create settings",
+        submit_label,
         disabled=DISABLE_WRITE,
         help="Temporarily disabled." if DISABLE_WRITE else "",
     )
@@ -400,6 +469,14 @@ if submit:
         validation_errors.extend(
             check_for_malicious_content(config_params, allow_spaces=True)
         )
+    if slurm_mem:
+        validation_errors.extend(check_for_malicious_content(slurm_mem))
+        if not re.match(r"^\d+[KMGT]$", slurm_mem):
+            validation_errors.append(
+                "Memory must be a number followed by a unit (K, M, G, or T), e.g. '62G'."
+            )
+    if slurm_time and not re.match(r"^\d{2}:\d{2}:\d{2}$", slurm_time):
+        validation_errors.append("SLURM time must be in HH:MM:SS format.")
 
     if software_type == SoftwareTypes.ALPHADIA and (
         empty_to_none(fasta_file_name) is None
@@ -430,6 +507,11 @@ if submit:
             config_params=config_params,
             software_type=empty_to_none(software_type),
             software=empty_to_none(software),
+            metrics_type=metrics_type,
+            slurm_cpus_per_task=slurm_cpus_per_task,
+            slurm_mem=empty_to_none(slurm_mem),
+            slurm_time=empty_to_none(slurm_time),
+            num_threads=num_threads,
         )
     except Exception as e:  # noqa: BLE001
         st.error(f"Error: {e}")

@@ -181,6 +181,8 @@ class QuantingEnv:
     SLURM_TIME: str = "_SLURM_TIME"
     INTERNAL_OUTPUT_PATH: str = "_INTERNAL_OUTPUT_PATH"
 
+    QUANTING_ENV_CREATION_ERRORS: str = "_QUANTING_ENV_CREATION_ERRORS"
+
 
 class JobStates:
     """States of a slurm job as returned by the sacct command, cf slurm_commands.py:get_job_state_cmd()."""

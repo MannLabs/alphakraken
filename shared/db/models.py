@@ -263,6 +263,13 @@ class Settings(Document):
     )
     software = StringField(required=True, max_length=128)
 
+    metrics_type = StringField(required=True, max_length=128)
+
+    slurm_cpus_per_task = IntField(required=False, min_value=1)
+    slurm_mem = StringField(required=False, max_length=16)
+    slurm_time = StringField(required=False, max_length=16)
+    num_threads = IntField(required=False, min_value=1)
+
     status = StringField(max_length=64, default=SettingsStatus.ACTIVE)
 
     created_at_ = DateTimeField(default=datetime.now)

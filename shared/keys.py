@@ -1,5 +1,7 @@
 """Keys for accessing environmental variables."""
 
+from dataclasses import dataclass
+
 
 class ConstantsClass(type):
     """A metaclass for classes that should only contain string constants."""
@@ -51,26 +53,56 @@ class InternalPaths(metaclass=ConstantsClass):
     OUTPUT = "output"
 
 
-class MetricsTypes(metaclass=ConstantsClass):
-    """Types of metrics that can be added to a raw file."""
-
-    ALPHADIA: str = "alphadia"
-    MSQC: str = "msqc"
-    SKYLINE: str = "skyline"
-    CUSTOM: str = "custom"
-
-
 class SoftwareTypes(metaclass=ConstantsClass):
     """Types of software that can be used for quanting."""
 
     ALPHADIA: str = "alphadia"
-    CUSTOM: str = "custom"
     MSQC: str = "msqc"
     SKYLINE: str = "skyline"
+    CUSTOM: str = "custom"
+
+
+class MetricsTypes(metaclass=ConstantsClass):
+    """Types of metrics that can be calculated from quanting results."""
+
+    ALPHADIA: str = "alphadia"
+    MSQC: str = "msqc"
+    SKYLINE: str = "skyline"
+    CUSTOM: str = "custom"
 
 
 DEFAULT_SCOPE = "*"
 
 DDA_FLAG_IN_RAW_FILE_NAME = "_dda_"
 
+# This a catch-all project ID assigned to raw files that can't be matched to any real project. It ensures every file has some project assignment so it can be stored
+# and processed with default settings, rather than being rejected.
 FALLBACK_PROJECT_ID = "_FALLBACK"
+
+
+@dataclass(frozen=True)
+class ResourceParams:
+    """Resource parameters, e.g. for a slurm jobs."""
+
+    # slurm-specific
+    slurm_cpus_per_task: int
+    slurm_mem: str
+    slurm_time: str
+    # universal
+    num_threads: int
+
+
+SOFTWARE_TYPE_TO_DEFAULT_RESOURCE_PARAMS: dict[str, ResourceParams] = {
+    SoftwareTypes.ALPHADIA: ResourceParams(
+        slurm_cpus_per_task=8, slurm_mem="62G", slurm_time="02:00:00", num_threads=8
+    ),
+    SoftwareTypes.MSQC: ResourceParams(
+        slurm_cpus_per_task=2, slurm_mem="31G", slurm_time="00:10:00", num_threads=2
+    ),
+    SoftwareTypes.SKYLINE: ResourceParams(
+        slurm_cpus_per_task=2, slurm_mem="31G", slurm_time="00:10:00", num_threads=2
+    ),
+    SoftwareTypes.CUSTOM: ResourceParams(
+        slurm_cpus_per_task=8, slurm_mem="62G", slurm_time="02:00:00", num_threads=8
+    ),
+}

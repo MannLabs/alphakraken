@@ -76,7 +76,6 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
             assert params is not None
             return prepare_quanting(
                 raw_file_id=params[DagParams.RAW_FILE_ID],
-                instrument_id=instrument_id,
             )
 
         @task_group(group_id=TaskGroups.QUANTING_PIPELINE)

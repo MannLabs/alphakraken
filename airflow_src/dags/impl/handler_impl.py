@@ -26,7 +26,6 @@ from common.utils import (
     put_xcom,
     trigger_dag_run,
 )
-from impl.processor_impl import _get_project_id_or_fallback
 from plugins.file_handling import (
     _decide_if_copy_required,
     copy_file,
@@ -43,8 +42,8 @@ from raw_file_wrapper_factory import (
 )
 
 from shared.db.interface import (
+    get_project_settings,
     get_raw_file_by_id,
-    get_settings_for_raw_file,
     update_raw_file,
 )
 from shared.db.models import (
@@ -205,7 +204,6 @@ def _compare_file_info(
 def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
     """Copy all data associated with a raw file to the target location."""
     raw_file_id = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID]
-    instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
 
     files_dst_paths = {
         Path(k): Path(v) for k, v in get_xcom(ti, XComKeys.FILES_DST_PATHS).items()
@@ -215,7 +213,7 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
     }
 
     raw_file = get_raw_file_by_id(raw_file_id)
-    backup_base_path = get_backup_base_path(instrument_id, raw_file)
+    backup_base_path = get_backup_base_path(raw_file)
 
     update_raw_file(
         raw_file_id,
@@ -296,11 +294,11 @@ def _handle_file_copying(
     return copied_files
 
 
-def get_backup_base_path(instrument_id: str, raw_file: RawFile) -> Path:
-    """Get the backup base path for the given instrument and raw file, e.g. /fs/pool/backup/test2/2025_07 ."""
+def get_backup_base_path(raw_file: RawFile) -> Path:
+    """Get the backup base path for the given raw file, e.g. /fs/pool/backup/test2/2025_07 ."""
     return (
         get_path(YamlKeys.Locations.BACKUP)
-        / instrument_id
+        / raw_file.instrument_id
         / get_created_at_year_month(raw_file)
     )
 
@@ -373,17 +371,14 @@ def _count_special_characters(raw_file_id: str) -> int:
 
 def _is_settings_configured(raw_file: RawFile) -> bool:
     """Return True if settings are configured for the project associated with the raw file."""
-    project_id_or_fallback = _get_project_id_or_fallback(
-        raw_file.project_id, raw_file.instrument_id
-    )
     instrument_type = get_instrument_settings(
         raw_file.instrument_id, InstrumentKeys.TYPE
     )
-    project_settings = get_settings_for_raw_file(project_id_or_fallback)
-    settings_list = resolve_scoped_settings(
+    project_settings = get_project_settings(raw_file.project_id)
+    resolved_settings = resolve_scoped_settings(
         project_settings, raw_file.instrument_id, instrument_type
     )
-    return len(settings_list) > 0
+    return len(resolved_settings) > 0
 
 
 def decide_processing(ti: TaskInstance, **kwargs) -> bool:
@@ -395,7 +390,6 @@ def decide_processing(ti: TaskInstance, **kwargs) -> bool:
         - if the raw file name contains special characters
     """
     raw_file_id = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID]
-    instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
     acquisition_monitor_errors = get_xcom(ti, XComKeys.ACQUISITION_MONITOR_ERRORS, [])
     raw_file = get_raw_file_by_id(raw_file_id)
 
@@ -405,7 +399,9 @@ def decide_processing(ti: TaskInstance, **kwargs) -> bool:
     ):
         new_status = RawFileStatus.ACQUISITION_FAILED
         status_details = ";".join(acquisition_monitor_errors)
-    elif get_instrument_settings(instrument_id, InstrumentKeys.SKIP_PROCESSING):
+    elif get_instrument_settings(
+        raw_file.instrument_id, InstrumentKeys.SKIP_PROCESSING
+    ):
         new_status = RawFileStatus.DONE_NOT_QUANTED
         status_details = "Processing disabled for this instrument."
     elif DDA_FLAG_IN_RAW_FILE_NAME in raw_file_id.lower():

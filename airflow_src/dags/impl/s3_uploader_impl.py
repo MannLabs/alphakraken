@@ -8,7 +8,6 @@ from airflow.providers.amazon.aws.hooks.base_aws import BaseAwsConnection
 from boto3.s3.transfer import TransferConfig
 from botocore.exceptions import BotoCoreError, ClientError
 from common.keys import DagContext, DagParams
-from dags.impl.processor_impl import _get_project_id_or_fallback
 from plugins.file_handling import ETAG_SEPARATOR
 from plugins.s3.client import (
     S3_BUCKET_NOT_FOUND_ERROR_CODE,
@@ -72,7 +71,7 @@ def upload_raw_file_to_s3(ti: TaskInstance, **kwargs) -> None:
     )
 
     bucket_name = normalize_bucket_name(
-        _get_project_id_or_fallback(raw_file.project_id, raw_file.instrument_id),
+        raw_file.project_id,
         bucket_prefix,
     )
     transfer_config = get_transfer_config(S3_UPLOAD_CHUNK_SIZE_MB)
@@ -150,7 +149,7 @@ def _get_key_prefix(raw_file: RawFile) -> str:
 
     """
     key_prefixes = []
-    if raw_file.project_id is None:  # TODO: centralize "no project given" logic
+    if not raw_file.has_project:
         # fallback buckets get organized by instrument and date
         key_prefixes.append(
             f"{raw_file.instrument_id}{S3_KEY_SEPARATOR}{get_created_at_year_month(raw_file)}"

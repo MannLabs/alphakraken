@@ -20,7 +20,7 @@ from mongoengine import (
     StringField,
 )
 
-from shared.keys import MetricsTypes
+from shared.keys import FALLBACK_PROJECT_ID, MetricsTypes, SoftwareTypes
 
 FileInfoItem = (
     tuple[float | None, str | None] | tuple[float | None, str | None, str | None]
@@ -117,7 +117,7 @@ class RawFile(Document):
     original_name = StringField(max_length=255, required=True)
 
     instrument_id = StringField(max_length=32)
-    project_id = StringField(max_length=32)
+    project_id = StringField(max_length=32, default=FALLBACK_PROJECT_ID)
 
     status = StringField(max_length=32)
     status_details = StringField(max_length=512)
@@ -135,7 +135,7 @@ class RawFile(Document):
 
     instrument_file_status = StringField(max_length=16, default=InstrumentFileStatus.NA)
 
-    file_info = DictField()  # mapping of file paths (relative to backup_base_path) to tuples (size: int, hash: str).
+    file_info = DictField()  # mapping of file paths (relative to backup_base_path) to tuples (size: int, hash: str) or (size: int, hash: str, etag: str).
     # When read from DB, the tuples are converted to lists.
 
     created_at = DateTimeField()  # when file was created
@@ -143,6 +143,11 @@ class RawFile(Document):
     # audit fields
     created_at_ = DateTimeField(default=datetime.now)
     updated_at_ = DateTimeField(default=datetime.now)
+
+    @property
+    def has_project(self) -> bool:
+        """Return whether the raw file has a project assigned or belongs to the fallback project."""
+        return self.project_id != FALLBACK_PROJECT_ID
 
 
 def parse_file_info_item(
@@ -191,7 +196,7 @@ class Metrics(DynamicDocument):
     settings_name = StringField(max_length=64, default="n/a")
     settings_version = IntField(min_value=1, default=1)
 
-    # Type of metrics: "alphadia" (default) or "custom"
+    # Type of metrics: e.g. "alphadia" (default), "custom", ..
     type = StringField(max_length=32, default=MetricsTypes.ALPHADIA)
 
     # audit fields
@@ -218,9 +223,7 @@ class Project(Document):
     meta: ClassVar = {"strict": False}
     objects: ClassVar[QuerySet[Project]]
 
-    id = StringField(
-        required=True, primary_key=True, min_length=3, max_length=16
-    )  # TODO: set min_length to 5
+    id = StringField(required=True, primary_key=True, min_length=5, max_length=16)
     name = StringField(required=True, max_length=64)
     description = StringField(max_length=512)
 
@@ -256,7 +259,7 @@ class Settings(Document):
     software_type = StringField(
         required=True,
         max_length=128,
-        default="alphadia",  # TODO: remove, default is just for backwards compatibility
+        default=SoftwareTypes.ALPHADIA,  # TODO: remove, default is just for backwards compatibility
     )
     software = StringField(required=True, max_length=128)
 

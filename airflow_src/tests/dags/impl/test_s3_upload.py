@@ -59,7 +59,6 @@ def test_upload_raw_file_to_s3_should_raise_when_bucket_prefix_not_configured(
 
 @patch("dags.impl.s3_uploader_impl.get_s3_upload_config")
 @patch("dags.impl.s3_uploader_impl.get_raw_file_by_id")
-@patch("dags.impl.s3_uploader_impl._get_project_id_or_fallback")
 @patch("dags.impl.s3_uploader_impl.normalize_bucket_name")
 @patch("dags.impl.s3_uploader_impl.get_transfer_config")
 @patch("dags.impl.s3_uploader_impl.update_raw_file")
@@ -75,7 +74,6 @@ def test_upload_raw_file_to_s3_should_complete_successfully(  # noqa: PLR0913
     mock_update: MagicMock,
     _mock_get_transfer_config: MagicMock,  # noqa: PT019
     mock_normalize_bucket: MagicMock,
-    mock_get_project_id: MagicMock,
     mock_get_raw_file: MagicMock,
     mock_get_s3_config: MagicMock,
 ) -> None:
@@ -86,7 +84,6 @@ def test_upload_raw_file_to_s3_should_complete_successfully(  # noqa: PLR0913
     }
     mock_raw_file = MagicMock(project_id="PID1", instrument_id="instrument1")
     mock_get_raw_file.return_value = mock_raw_file
-    mock_get_project_id.return_value = "PID1"
     mock_normalize_bucket.return_value = "test-prefix-pid1"
     mock_bucket_exists.return_value = (True, "", "")
     mock_prepare.return_value = (
@@ -117,7 +114,6 @@ def test_upload_raw_file_to_s3_should_complete_successfully(  # noqa: PLR0913
 
 @patch("dags.impl.s3_uploader_impl.get_s3_upload_config")
 @patch("dags.impl.s3_uploader_impl.get_raw_file_by_id")
-@patch("dags.impl.s3_uploader_impl._get_project_id_or_fallback")
 @patch("dags.impl.s3_uploader_impl.normalize_bucket_name")
 @patch("dags.impl.s3_uploader_impl.get_transfer_config")
 @patch("dags.impl.s3_uploader_impl.update_raw_file")
@@ -133,7 +129,6 @@ def test_upload_raw_file_to_s3_should_include_key_prefix_in_s3_path(  # noqa: PL
     mock_update: MagicMock,
     _mock_get_transfer_config: MagicMock,  # noqa: PT019
     mock_normalize_bucket: MagicMock,
-    mock_get_project_id: MagicMock,
     mock_get_raw_file: MagicMock,
     mock_get_s3_config: MagicMock,
 ) -> None:
@@ -142,9 +137,8 @@ def test_upload_raw_file_to_s3_should_include_key_prefix_in_s3_path(  # noqa: PL
         "region": "us-west-2",
         "bucket_prefix": "test-prefix",
     }
-    mock_raw_file = MagicMock(project_id=None, instrument_id="instrument1")
+    mock_raw_file = MagicMock(project_id="_FALLBACK", instrument_id="instrument1")
     mock_get_raw_file.return_value = mock_raw_file
-    mock_get_project_id.return_value = "_FALLBACK"
     mock_normalize_bucket.return_value = "test-prefix-fallback"
     mock_bucket_exists.return_value = (True, "", "")
     mock_prepare.return_value = (
@@ -171,7 +165,6 @@ def test_upload_raw_file_to_s3_should_include_key_prefix_in_s3_path(  # noqa: PL
 
 @patch("dags.impl.s3_uploader_impl.get_s3_upload_config")
 @patch("dags.impl.s3_uploader_impl.get_raw_file_by_id")
-@patch("dags.impl.s3_uploader_impl._get_project_id_or_fallback")
 @patch("dags.impl.s3_uploader_impl.normalize_bucket_name")
 @patch("dags.impl.s3_uploader_impl.get_transfer_config")
 @patch("dags.impl.s3_uploader_impl.update_raw_file")
@@ -183,7 +176,6 @@ def test_upload_raw_file_to_s3_should_raise_when_bucket_not_accessible(  # noqa:
     mock_update: MagicMock,
     _mock_get_transfer_config: MagicMock,  # noqa: PT019
     mock_normalize_bucket: MagicMock,
-    mock_get_project_id: MagicMock,
     mock_get_raw_file: MagicMock,
     mock_get_s3_config: MagicMock,
 ) -> None:
@@ -195,7 +187,6 @@ def test_upload_raw_file_to_s3_should_raise_when_bucket_not_accessible(  # noqa:
     }
     mock_raw_file = MagicMock(project_id="PID1", instrument_id="instrument1")
     mock_get_raw_file.return_value = mock_raw_file
-    mock_get_project_id.return_value = "PID1"
     mock_normalize_bucket.return_value = "test-prefix-pid1"
     mock_bucket_exists.return_value = (False, "Cannot access bucket", "403")
 
@@ -217,7 +208,6 @@ def test_upload_raw_file_to_s3_should_raise_when_bucket_not_accessible(  # noqa:
 
 @patch("dags.impl.s3_uploader_impl.get_s3_upload_config")
 @patch("dags.impl.s3_uploader_impl.get_raw_file_by_id")
-@patch("dags.impl.s3_uploader_impl._get_project_id_or_fallback")
 @patch("dags.impl.s3_uploader_impl.normalize_bucket_name")
 @patch("dags.impl.s3_uploader_impl.get_transfer_config")
 @patch("dags.impl.s3_uploader_impl.update_raw_file")
@@ -233,7 +223,6 @@ def test_upload_raw_file_to_s3_should_raise_on_boto_error(  # noqa: PLR0913
     _mock_update: MagicMock,  # noqa: PT019
     _mock_get_transfer_config: MagicMock,  # noqa: PT019
     mock_normalize_bucket: MagicMock,
-    mock_get_project_id: MagicMock,
     mock_get_raw_file: MagicMock,
     mock_get_s3_config: MagicMock,
 ) -> None:
@@ -244,7 +233,6 @@ def test_upload_raw_file_to_s3_should_raise_on_boto_error(  # noqa: PLR0913
     }
     mock_raw_file = MagicMock(project_id="PID1", instrument_id="instrument1")
     mock_get_raw_file.return_value = mock_raw_file
-    mock_get_project_id.return_value = "PID1"
     mock_normalize_bucket.return_value = "test-prefix-pid1"
     mock_bucket_exists.return_value = (True, "", "")
     mock_prepare.return_value = (
@@ -269,7 +257,6 @@ def test_upload_raw_file_to_s3_should_raise_on_boto_error(  # noqa: PLR0913
 
 @patch("dags.impl.s3_uploader_impl.get_s3_upload_config")
 @patch("dags.impl.s3_uploader_impl.get_raw_file_by_id")
-@patch("dags.impl.s3_uploader_impl._get_project_id_or_fallback")
 @patch("dags.impl.s3_uploader_impl.normalize_bucket_name")
 @patch("dags.impl.s3_uploader_impl.get_transfer_config")
 @patch("dags.impl.s3_uploader_impl.update_raw_file")
@@ -285,7 +272,6 @@ def test_upload_raw_file_to_s3_should_raise_on_client_error(  # noqa: PLR0913
     _mock_update: MagicMock,  # noqa: PT019
     _mock_get_transfer_config: MagicMock,  # noqa: PT019
     mock_normalize_bucket: MagicMock,
-    mock_get_project_id: MagicMock,
     mock_get_raw_file: MagicMock,
     mock_get_s3_config: MagicMock,
 ) -> None:
@@ -296,7 +282,6 @@ def test_upload_raw_file_to_s3_should_raise_on_client_error(  # noqa: PLR0913
     }
     mock_raw_file = MagicMock(project_id="PID1", instrument_id="instrument1")
     mock_get_raw_file.return_value = mock_raw_file
-    mock_get_project_id.return_value = "PID1"
     mock_normalize_bucket.return_value = "test-prefix-pid1"
     mock_bucket_exists.return_value = (True, "", "")
     mock_prepare.return_value = (
@@ -369,7 +354,8 @@ def test_get_key_prefix_should_include_instrument_and_date_for_fallback(
     """Test _get_key_prefix includes instrument and date for files without project."""
     mock_get_year_month.return_value = "2025_01"
     mock_raw_file = MagicMock()
-    mock_raw_file.project_id = None
+    mock_raw_file.project_id = "_FALLBACK"
+    mock_raw_file.has_project = False
     mock_raw_file.instrument_id = "instrument1"
     mock_raw_file.id = "test.raw"
 
@@ -385,7 +371,8 @@ def test_get_key_prefix_should_include_file_id_for_wiff_file(
     """Test _get_key_prefix includes file ID for .wiff files."""
     mock_get_year_month.return_value = "2025_01"
     mock_raw_file = MagicMock()
-    mock_raw_file.project_id = None
+    mock_raw_file.project_id = "_FALLBACK"
+    mock_raw_file.has_project = False
     mock_raw_file.instrument_id = "instrument1"
     mock_raw_file.id = "test.wiff"
 
@@ -515,7 +502,6 @@ def test_upload_files_should_raise_when_file_not_found_after_upload(
 
 @patch("dags.impl.s3_uploader_impl.get_s3_upload_config")
 @patch("dags.impl.s3_uploader_impl.get_raw_file_by_id")
-@patch("dags.impl.s3_uploader_impl._get_project_id_or_fallback")
 @patch("dags.impl.s3_uploader_impl.normalize_bucket_name")
 @patch("dags.impl.s3_uploader_impl.get_transfer_config")
 @patch("dags.impl.s3_uploader_impl.update_raw_file")
@@ -531,7 +517,6 @@ def test_upload_raw_file_to_s3_should_handle_multiple_files(  # noqa: PLR0913
     _mock_update: MagicMock,  # noqa: PT019
     _mock_get_transfer_config: MagicMock,  # noqa: PT019
     mock_normalize_bucket: MagicMock,
-    mock_get_project_id: MagicMock,
     mock_get_raw_file: MagicMock,
     mock_get_s3_config: MagicMock,
 ) -> None:
@@ -542,7 +527,6 @@ def test_upload_raw_file_to_s3_should_handle_multiple_files(  # noqa: PLR0913
     }
     mock_raw_file = MagicMock(project_id="PID1", instrument_id="instrument1")
     mock_get_raw_file.return_value = mock_raw_file
-    mock_get_project_id.return_value = "PID1"
     mock_normalize_bucket.return_value = "test-prefix-pid1"
     mock_bucket_exists.return_value = (True, "", "")
     mock_prepare.return_value = (

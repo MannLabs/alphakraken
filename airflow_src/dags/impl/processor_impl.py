@@ -27,7 +27,7 @@ from common.paths import (
     get_internal_output_path_for_raw_file,
     get_output_folder_rel_path,
 )
-from common.settings import get_fallback_project_id, get_instrument_settings
+from common.settings import get_instrument_settings
 from common.utils import (
     get_airflow_variable,
 )
@@ -40,8 +40,8 @@ from mongoengine import DoesNotExist
 
 from shared.db.interface import (
     add_metrics_to_raw_file,
+    get_project_settings,
     get_raw_file_by_id,
-    get_settings_for_raw_file,
     update_raw_file,
 )
 from shared.db.models import RawFile, RawFileStatus, Settings, get_created_at_year_month
@@ -59,37 +59,27 @@ SOFTWARE_TYPE_TO_METRICS_TYPE = {
 }
 
 
-def _get_project_id_or_fallback(project_id: str | None, instrument_id: str) -> str:
-    """Get the project id for a raw file or the fallback ID if not present."""
-    return (
-        project_id if project_id is not None else get_fallback_project_id(instrument_id)
-    )
-
-
 def prepare_quanting(
     raw_file_id: str, instrument_id: str
 ) -> list[dict[str, str | int]]:
     """Prepare the environmental variables for the quanting job."""
     raw_file = get_raw_file_by_id(raw_file_id)
 
-    project_id_or_fallback = _get_project_id_or_fallback(
-        raw_file.project_id, instrument_id
-    )
     instrument_type = get_instrument_settings(instrument_id, InstrumentKeys.TYPE)
     try:
-        project_settings = get_settings_for_raw_file(project_id_or_fallback)
+        project_settings = get_project_settings(raw_file.project_id)
         settings_list = resolve_scoped_settings(
             project_settings, instrument_id, instrument_type
         )
     except DoesNotExist as e:
         raise AirflowFailException(
-            f"No project found with id '{project_id_or_fallback}'. Please add a project and settings in the WebApp."
+            f"No project found with id '{raw_file.project_id}'. Please add a project and settings in the WebApp."
         ) from e
 
     if not settings_list:
         # this should not happen as this DAG should not be triggered if there are no settings
         raise AirflowFailException(
-            f"No settings assigned to project '{project_id_or_fallback}'. "
+            f"No settings assigned to project '{raw_file.project_id}'. "
         )
 
     # get raw file path
@@ -103,12 +93,12 @@ def prepare_quanting(
         settings_path = get_path(YamlKeys.Locations.SETTINGS) / settings.name
 
         relative_output_path = get_output_folder_rel_path(
-            raw_file, project_id_or_fallback, settings_type=settings.software_type
+            raw_file, settings_type=settings.software_type
         )
         output_path = get_path(YamlKeys.Locations.OUTPUT) / relative_output_path
 
         internal_output_path = get_internal_output_path_for_raw_file(
-            raw_file, project_id_or_fallback, settings_type=settings.software_type
+            raw_file, settings_type=settings.software_type
         )
         slurm_params = SOFTWARE_TYPE_TO_SLURM_PARAMS[settings.software_type]
 
@@ -122,7 +112,7 @@ def prepare_quanting(
                 settings,
                 settings_path,
                 slurm_params.num_threads,
-                project_id_or_fallback,
+                raw_file.project_id,
             )
             # MSQC and skyline are treated as a 'custom command'
             if settings.software_type
@@ -151,7 +141,7 @@ def prepare_quanting(
             QuantingEnv.NUM_THREADS: slurm_params.num_threads,
             # not required for slurm script:
             QuantingEnv.RAW_FILE_ID: raw_file_id,
-            QuantingEnv.PROJECT_ID_OR_FALLBACK: project_id_or_fallback,
+            QuantingEnv.PROJECT_ID_OR_FALLBACK: raw_file.project_id,
             QuantingEnv.SETTINGS_NAME: settings.name,
             QuantingEnv.SETTINGS_VERSION: settings.version,
             QuantingEnv.INTERNAL_OUTPUT_PATH: str(internal_output_path),

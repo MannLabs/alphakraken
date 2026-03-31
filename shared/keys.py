@@ -72,3 +72,5 @@ class SoftwareTypes(metaclass=ConstantsClass):
 DEFAULT_SCOPE = "*"
 
 DDA_FLAG_IN_RAW_FILE_NAME = "_dda_"
+
+FALLBACK_PROJECT_ID = "_FALLBACK"

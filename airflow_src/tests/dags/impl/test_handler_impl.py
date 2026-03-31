@@ -497,7 +497,6 @@ def test_copy_raw_file_calls_update_with_correct_args(  # noqa: PLR0913
     ti = MagicMock()
     kwargs = {
         "params": {"raw_file_id": "test_file.raw"},
-        "instrument_id": "instrument1",
     }
     src_path = "/path/to/instrument/test_file.raw"
     dst_path = "/opt/airflow/mounts/backup/test_file.raw"
@@ -564,7 +563,6 @@ def test_copy_raw_file_verify_fails(  # noqa: PLR0913
     ti = MagicMock()
     kwargs = {
         "params": {"raw_file_id": "test_file.raw"},
-        "instrument_id": "instrument1",
     }
     src_path = "/path/to/instrument/test_file.raw"
     dst_path = "/opt/airflow/mounts/backup/test_file.raw"
@@ -621,7 +619,6 @@ def test_copy_raw_file_calls_update_with_correct_args_overwrite(  # noqa: PLR091
     ti = MagicMock()
     kwargs = {
         "params": {"raw_file_id": "test_file.raw"},
-        "instrument_id": "instrument1",
     }
     mock_get_xcom.side_effect = [
         {
@@ -798,7 +795,6 @@ def test_decide_processing_returns_true_if_no_errors(
     ti = MagicMock()
     kwargs = {
         DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"},
-        OpArgs.INSTRUMENT_ID: "instrument1",
     }
 
     # when
@@ -822,7 +818,6 @@ def test_decide_processing_returns_false_if_acquisition_errors_present(
     ti = MagicMock()
     kwargs = {
         DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"},
-        OpArgs.INSTRUMENT_ID: "instrument1",
     }
 
     # when
@@ -849,7 +844,6 @@ def test_decide_processing_returns_false_if_file_size_zero(
     ti = MagicMock()
     kwargs = {
         DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"},
-        OpArgs.INSTRUMENT_ID: "instrument1",
     }
 
     # when
@@ -862,7 +856,10 @@ def test_decide_processing_returns_false_if_file_size_zero(
 
 
 @patch("dags.impl.handler_impl.get_xcom", return_value=[])
-@patch("dags.impl.handler_impl.get_raw_file_by_id", return_value=[])
+@patch(
+    "dags.impl.handler_impl.get_raw_file_by_id",
+    return_value=MagicMock(instrument_id="instrument1"),
+)
 @patch("dags.impl.handler_impl.get_instrument_settings", return_value=True)
 @patch("dags.impl.handler_impl.update_raw_file")
 def test_decide_processing_returns_false_if_skip_processing_is_set(
@@ -875,7 +872,6 @@ def test_decide_processing_returns_false_if_skip_processing_is_set(
     ti = MagicMock()
     kwargs = {
         DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"},
-        OpArgs.INSTRUMENT_ID: "instrument1",
     }
 
     # when
@@ -891,7 +887,10 @@ def test_decide_processing_returns_false_if_skip_processing_is_set(
 
 
 @patch("dags.impl.handler_impl.get_xcom", return_value=[])
-@patch("dags.impl.handler_impl.get_raw_file_by_id", return_value=[])
+@patch(
+    "dags.impl.handler_impl.get_raw_file_by_id",
+    return_value=MagicMock(instrument_id="instrument1"),
+)
 @patch("dags.impl.handler_impl.get_instrument_settings", return_value=False)
 @patch("dags.impl.handler_impl.update_raw_file")
 def test_decide_processing_returns_false_if_dda(
@@ -904,7 +903,6 @@ def test_decide_processing_returns_false_if_dda(
     ti = MagicMock()
     kwargs = {
         DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_dda_file.raw"},
-        OpArgs.INSTRUMENT_ID: "instrument1",
     }
 
     # when
@@ -917,7 +915,10 @@ def test_decide_processing_returns_false_if_dda(
 
 
 @patch("dags.impl.handler_impl.get_xcom", return_value=[])
-@patch("dags.impl.handler_impl.get_raw_file_by_id", return_value=[])
+@patch(
+    "dags.impl.handler_impl.get_raw_file_by_id",
+    return_value=MagicMock(instrument_id="instrument1"),
+)
 @patch("dags.impl.handler_impl.get_instrument_settings", return_value=False)
 @patch("dags.impl.handler_impl._count_special_characters", return_value=1)
 @patch("dags.impl.handler_impl.update_raw_file")
@@ -932,7 +933,6 @@ def test_decide_processing_returns_false_if_special_characters(
     ti = MagicMock()
     kwargs = {
         DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"},
-        OpArgs.INSTRUMENT_ID: "instrument1",
     }
 
     # when
@@ -962,7 +962,6 @@ def test_decide_processing_returns_false_if_corrupted_file(  # noqa: PLR0913
     ti = MagicMock()
     kwargs = {
         DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"},
-        OpArgs.INSTRUMENT_ID: "instrument1",
     }
 
     mock_raw_file_monitor_wrapper.return_value.is_corrupted_file_name.return_value = (
@@ -1001,7 +1000,6 @@ def test_decide_processing_returns_false_if_settings_not_configured(  # noqa: PL
     ti = MagicMock()
     kwargs = {
         DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"},
-        OpArgs.INSTRUMENT_ID: "instrument1",
     }
 
     mock_raw_file_monitor_wrapper.is_corrupted_file_name.return_value = False
@@ -1208,15 +1206,13 @@ def test_start_acquisition_processor_with_single_file(
     )
 
 
-@patch("dags.impl.handler_impl._get_project_id_or_fallback", return_value="project1")
 @patch("dags.impl.handler_impl.resolve_scoped_settings", return_value=[MagicMock()])
-@patch("dags.impl.handler_impl.get_settings_for_raw_file", return_value=[MagicMock()])
+@patch("dags.impl.handler_impl.get_project_settings", return_value=[MagicMock()])
 @patch("dags.impl.handler_impl.get_instrument_settings", return_value="thermo")
 def test_is_settings_configured_returns_true_when_settings_exist(
     mock_get_instrument_settings: MagicMock,  # noqa: ARG001
     mock_get_settings: MagicMock,
     mock_resolve_scoped: MagicMock,
-    mock_get_project_id_or_fallback: MagicMock,
 ) -> None:
     """Test _is_settings_configured returns True when settings exist for the project."""
     # given
@@ -1229,20 +1225,17 @@ def test_is_settings_configured_returns_true_when_settings_exist(
 
     # then
     assert result is True
-    mock_get_project_id_or_fallback.assert_called_once_with("project1", "instrument1")
     mock_get_settings.assert_called_once_with("project1")
     mock_resolve_scoped.assert_called_once()
 
 
-@patch("dags.impl.handler_impl._get_project_id_or_fallback", return_value="project1")
 @patch("dags.impl.handler_impl.resolve_scoped_settings", return_value=[])
-@patch("dags.impl.handler_impl.get_settings_for_raw_file", return_value=[])
+@patch("dags.impl.handler_impl.get_project_settings", return_value=[])
 @patch("dags.impl.handler_impl.get_instrument_settings", return_value="thermo")
 def test_is_settings_configured_returns_false_when_settings_do_not_exist(
     mock_get_instrument_settings: MagicMock,  # noqa: ARG001
     mock_get_settings: MagicMock,
     mock_resolve_scoped: MagicMock,
-    mock_get_project_id_or_fallback: MagicMock,
 ) -> None:
     """Test _is_settings_configured returns False when settings do not exist for the project."""
     # given
@@ -1255,6 +1248,5 @@ def test_is_settings_configured_returns_false_when_settings_do_not_exist(
 
     # then
     assert result is False
-    mock_get_project_id_or_fallback.assert_called_once_with("project1", "instrument1")
     mock_get_settings.assert_called_once_with("project1")
     mock_resolve_scoped.assert_called_once()

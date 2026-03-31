@@ -18,11 +18,10 @@ from pathlib import Path
 from airflow.exceptions import AirflowFailException
 from common.keys import JobStates, QuantingEnv
 from common.paths import get_internal_output_path_for_raw_file
-from dags.impl.processor_impl import _get_project_id_or_fallback
 from jobs.job_handler import JobHandler
 
 from shared.db.interface import get_raw_file_by_id
-from shared.keys import InternalPaths
+from shared.keys import InternalPaths, SoftwareTypes
 
 
 class FileBasedJobHandler(JobHandler):
@@ -101,14 +100,9 @@ class FileBasedJobHandler(JobHandler):
         """
         raw_file = get_raw_file_by_id(job_id)
 
-        project_id_or_fallback = _get_project_id_or_fallback(
-            raw_file.project_id, raw_file.instrument_id
-        )
-
         output_path = get_internal_output_path_for_raw_file(
             raw_file,
-            project_id_or_fallback,
-            settings_type="custom",  # this assumption makes life much easier, and should not limit flexibility too much
+            settings_type=SoftwareTypes.CUSTOM,  # this assumption makes life much easier, and should not limit flexibility too much
         )
         status_file = output_path / "job_status.log"
 

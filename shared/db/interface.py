@@ -98,7 +98,7 @@ def add_raw_file(  # noqa: PLR0913 too many arguments
     file_name: str,
     collision_flag: str | None = None,
     *,
-    project_id: str,
+    project_id: str | None,
     status: str,
     instrument_file_status: str,
     instrument_id: str,
@@ -261,12 +261,6 @@ def get_project_settings(project_id: str) -> list[ProjectSettings]:
     """Get all project-settings assignments for a project."""
     connect_db()
     return list(ProjectSettings.objects(project=project_id).order_by("created_at_"))
-
-
-def get_settings_for_raw_file(project_id: str) -> list[ProjectSettings]:
-    """Get all project-settings assignments for a raw file's project."""
-    connect_db()
-    return list(ProjectSettings.objects(project=project_id))
 
 
 def create_settings(  # noqa: PLR0913

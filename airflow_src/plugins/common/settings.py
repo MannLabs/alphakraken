@@ -4,7 +4,6 @@ from typing import Any
 
 from common.keys import InstrumentKeys
 
-from shared.keys import InstrumentTypes
 from shared.yamlsettings import YAMLSETTINGS, YamlKeys
 
 
@@ -65,26 +64,6 @@ INSTRUMENT_BACKUP_FOLDER_NAME = "Backup"  # TODO: rename this folder to "handled
 DEFAULT_MIN_FILE_AGE_TO_REMOVE_D = 14  # days
 # this is to avoid getting a lot of removal candidates:
 DEFAULT_MAX_FILE_AGE_TO_REMOVE_D = 60  # days
-
-
-# TODO: make this dynamic & symmetric
-FALLBACK_PROJECT_ID = "_FALLBACK"
-FALLBACK_PROJECT_ID_BRUKER = "_FALLBACK_BRUKER"
-
-
-def get_fallback_project_id(instrument_id: str) -> str:
-    """Get the fallback project id.
-
-    Fallback project IDs are used to get the respective settings and the output
-    folder in case no matching project ID is found.
-    """
-    # This is on the edge of being hacky, this information could also be included in the `INSTRUMENTS` dict.
-    return (
-        FALLBACK_PROJECT_ID_BRUKER
-        if get_instrument_settings(instrument_id, InstrumentKeys.TYPE)
-        == InstrumentTypes.BRUKER
-        else FALLBACK_PROJECT_ID
-    )
 
 
 # TODO: move to shared?

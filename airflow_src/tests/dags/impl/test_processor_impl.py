@@ -10,7 +10,6 @@ from airflow.exceptions import AirflowFailException, AirflowSkipException
 from common.settings import _INSTRUMENTS
 from dags.impl.processor_impl import (
     _UPLOAD_METRICS_TASK_ID,
-    _get_project_id_or_fallback,
     _get_slurm_job_id_from_log,
     check_quanting_result,
     compute_metrics,
@@ -29,42 +28,14 @@ from plugins.common.keys import (
 from shared.db.models import RawFile, RawFileStatus
 
 
-def test_get_project_id_for_raw_file() -> None:
-    """Test that _get_project_id_for_raw_file returns correct project id."""
-    # when
-    project_id = _get_project_id_or_fallback("PID1", "some_instrument_id")
-
-    assert project_id == "PID1"
-
-
-@patch.dict(_INSTRUMENTS, {"instrument1": {"type": "some_type"}})
-def test_get_project_id_for_raw_file_fallback() -> None:
-    """Test that _get_project_id_for_raw_file returns correct project id for non-bruker."""
-    # when
-    project_id = _get_project_id_or_fallback(None, "instrument1")
-
-    assert project_id == "_FALLBACK"
-
-
-@patch.dict(_INSTRUMENTS, {"instrument1": {"type": "bruker"}})
-def test_get_project_id_for_raw_file_fallback_bruker() -> None:
-    """Test that _get_project_id_for_raw_file returns correct project id for bruker."""
-    # when
-    project_id = _get_project_id_or_fallback(None, "instrument1")
-
-    assert project_id == "_FALLBACK_BRUKER"
-
-
 @patch.dict(_INSTRUMENTS, {"instrument1": {"type": "thermo"}})
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.get_path")
-@patch("dags.impl.processor_impl._get_project_id_or_fallback")
-@patch("dags.impl.processor_impl.get_settings_for_raw_file")
+@patch("dags.impl.processor_impl.get_project_settings")
 @patch("dags.impl.processor_impl.resolve_scoped_settings")
 def test_prepare_quanting(
     mock_resolve_scoped: MagicMock,
     mock_get_settings: MagicMock,
-    mock_get_project_id_for_raw_file: MagicMock,
     mock_get_path: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
 ) -> None:
@@ -81,7 +52,6 @@ def test_prepare_quanting(
         Path("/some_quanting_settings_path"),
         Path("/some_quanting_output_path"),
     ]
-    mock_get_project_id_for_raw_file.return_value = "some_project_id"
     mock_settings = MagicMock()
     mock_settings.name = "test_settings"
     mock_settings.speclib_file_name = "some_speclib_file_name"
@@ -97,9 +67,6 @@ def test_prepare_quanting(
     # when
     result = prepare_quanting(raw_file_id="test_file.raw", instrument_id="instrument1")
 
-    mock_get_project_id_for_raw_file.assert_called_once_with(
-        "some_project_id", "instrument1"
-    )
     mock_get_settings.assert_called_once_with("some_project_id")
     mock_resolve_scoped.assert_called_once()
 
@@ -135,13 +102,11 @@ def test_prepare_quanting(
 @patch.dict(_INSTRUMENTS, {"instrument1": {"type": "thermo"}})
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.get_path")
-@patch("dags.impl.processor_impl._get_project_id_or_fallback")
-@patch("dags.impl.processor_impl.get_settings_for_raw_file")
+@patch("dags.impl.processor_impl.get_project_settings")
 @patch("dags.impl.processor_impl.resolve_scoped_settings")
 def test_prepare_quanting_custom_software(
     mock_resolve_scoped: MagicMock,
     mock_get_settings: MagicMock,
-    mock_get_project_id_for_raw_file: MagicMock,
     mock_get_path: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
 ) -> None:
@@ -159,7 +124,6 @@ def test_prepare_quanting_custom_software(
         Path("/some_quanting_output_path"),
         Path("/some_software_base_path"),
     ]
-    mock_get_project_id_for_raw_file.return_value = "some_project_id"
     mock_settings = MagicMock()
     mock_settings.name = "test_custom_settings"
     mock_settings.speclib_file_name = "some_speclib_file_name"
@@ -212,13 +176,11 @@ def test_prepare_quanting_custom_software(
 @patch.dict(_INSTRUMENTS, {"instrument1": {"type": "thermo"}})
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.get_path")
-@patch("dags.impl.processor_impl._get_project_id_or_fallback")
-@patch("dags.impl.processor_impl.get_settings_for_raw_file")
+@patch("dags.impl.processor_impl.get_project_settings")
 @patch("dags.impl.processor_impl.resolve_scoped_settings")
 def test_prepare_quanting_multiple_settings(
     mock_resolve_scoped: MagicMock,
     mock_get_settings: MagicMock,
-    mock_get_project_id_for_raw_file: MagicMock,
     mock_get_path: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
 ) -> None:
@@ -240,8 +202,6 @@ def test_prepare_quanting_multiple_settings(
         Path("/output"),
         Path("/software"),
     ]
-    mock_get_project_id_for_raw_file.return_value = "P1"
-
     mock_settings_alphadia = MagicMock(
         name="alphadia_default",
         speclib_file_name="lib.speclib",
@@ -287,13 +247,11 @@ def test_prepare_quanting_multiple_settings(
 @patch.dict(_INSTRUMENTS, {"instrument1": {"type": "thermo"}})
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.get_path")
-@patch("dags.impl.processor_impl._get_project_id_or_fallback")
-@patch("dags.impl.processor_impl.get_settings_for_raw_file")
+@patch("dags.impl.processor_impl.get_project_settings")
 @patch("dags.impl.processor_impl.resolve_scoped_settings")
 def test_prepare_quanting_validation_error_raises(
     mock_resolve_scoped: MagicMock,
     mock_get_settings: MagicMock,
-    mock_get_project_id_for_raw_file: MagicMock,
     mock_get_path: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
 ) -> None:
@@ -311,7 +269,6 @@ def test_prepare_quanting_validation_error_raises(
         Path("some_quanting_output_path"),
         Path("some_software_base_path"),
     ]
-    mock_get_project_id_for_raw_file.return_value = "some_project_id"
     mock_get_settings.return_value = [MagicMock()]
     mock_resolve_scoped.return_value = [
         MagicMock(
@@ -331,13 +288,11 @@ def test_prepare_quanting_validation_error_raises(
 
 
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
-@patch("dags.impl.processor_impl._get_project_id_or_fallback")
-@patch("dags.impl.processor_impl.get_settings_for_raw_file")
+@patch("dags.impl.processor_impl.get_project_settings")
 @patch("dags.impl.processor_impl.get_instrument_settings")
 def test_prepare_quanting_no_project_raise(
     mock_get_instrument_settings: MagicMock,
     mock_get_settings: MagicMock,
-    mock_get_project_id_for_raw_file: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
 ) -> None:
     """Test that prepare_quanting raises an exception if no project is found."""
@@ -349,7 +304,6 @@ def test_prepare_quanting_no_project_raise(
     )
     mock_get_raw_file_by_id.return_value = mock_raw_file
 
-    mock_get_project_id_for_raw_file.return_value = "some_project_id"
     mock_get_instrument_settings.return_value = "thermo"
 
     mock_get_settings.side_effect = DoesNotExist
@@ -360,15 +314,13 @@ def test_prepare_quanting_no_project_raise(
 
 
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
-@patch("dags.impl.processor_impl._get_project_id_or_fallback")
-@patch("dags.impl.processor_impl.get_settings_for_raw_file")
+@patch("dags.impl.processor_impl.get_project_settings")
 @patch("dags.impl.processor_impl.resolve_scoped_settings")
 @patch("dags.impl.processor_impl.get_instrument_settings")
 def test_prepare_quanting_no_settings_raise(
     mock_get_instrument_settings: MagicMock,
     mock_resolve_scoped: MagicMock,
     mock_get_settings: MagicMock,
-    mock_get_project_id_for_raw_file: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
 ) -> None:
     """Test that prepare_quanting raises an exception if no settings are found."""
@@ -380,7 +332,6 @@ def test_prepare_quanting_no_settings_raise(
     )
     mock_get_raw_file_by_id.return_value = mock_raw_file
 
-    mock_get_project_id_for_raw_file.return_value = "some_project_id"
     mock_get_instrument_settings.return_value = "thermo"
 
     mock_get_settings.return_value = [MagicMock()]

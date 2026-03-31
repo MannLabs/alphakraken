@@ -6,6 +6,7 @@ from typing import Any
 import pandas as pd
 import streamlit as st
 import streamlit.delta_generator
+from pages_.impl.projects_utils import get_resolved_settings_df
 from service.components import show_filter, show_sandbox_message
 from service.db import (
     df_from_db_data,
@@ -29,7 +30,6 @@ from shared.db.interface import (
     remove_project_settings,
 )
 from shared.keys import DEFAULT_SCOPE, KNOWN_VENDOR_NAMES
-from shared.scope import resolve_scoped_settings
 from shared.yamlsettings import YAMLSETTINGS, YamlKeys
 
 _INSTRUMENTS_CONFIG = YAMLSETTINGS.get(YamlKeys.INSTRUMENTS, {})
@@ -142,8 +142,13 @@ with c_assign1:
                 excluded_str = (
                     f" [excluded: {', '.join(ps.excluded)}]" if ps.excluded else ""
                 )
+                filter_str = (
+                    f" [file name contains: {ps.raw_file_id_filter}]"
+                    if ps.raw_file_id_filter
+                    else ""
+                )
                 col_info.write(
-                    f"`[scope: {ps.scope}]` '{ps.settings.name}' version {ps.settings.version} (type: `{ps.settings.software_type}`, executable: `{ps.settings.software}`){excluded_str}"
+                    f"`[scope: {ps.scope}]` '{ps.settings.name}' version {ps.settings.version} (type: `{ps.settings.software_type}`, executable: `{ps.settings.software}`){excluded_str}{filter_str}"
                 )
                 ps_id = str(ps.id)  # type: ignore[unresolved-attribute]
                 if col_btn.button(
@@ -199,6 +204,12 @@ with c_assign1:
                 help="Instruments to exclude from this scope assignment.",
             )
 
+            raw_file_id_filter_input = st.text_input(
+                "Raw file name contains (optional)",
+                key="assign_raw_file_id_filter",
+                help="Settings apply only if the raw file ID contains this string. Leave empty to apply to all files.",
+            )
+
             if st.button(
                 f"Assign selected settings to project {selected_project_id}",
                 disabled=DISABLE_WRITE,
@@ -212,6 +223,7 @@ with c_assign1:
                         new_settings_id,
                         scope=selected_scope,
                         excluded=selected_excluded,
+                        raw_file_id_filter=raw_file_id_filter_input.strip() or None,
                     )
                     set_session_state(
                         SessionStateKeys.SUCCESS_MSG,
@@ -228,68 +240,35 @@ with c_assign2:
             "### Resolved settings per instrument",
             help="This table shows the settings that are applied for each instrument based on the current settings assignments and their scopes.",
         )
-        current_ps_for_table = get_project_settings(selected_project_id)
-        rows = []
-        for instr_id in _INSTRUMENT_IDS:
-            instr_type = _INSTRUMENTS_CONFIG.get(instr_id, {}).get(YamlKeys.TYPE, "")
-            resolved = resolve_scoped_settings(
-                current_ps_for_table, instr_id, instr_type
+        try:
+            resolved_df = get_resolved_settings_df(
+                selected_project_id, _INSTRUMENT_IDS, _INSTRUMENTS_CONFIG
             )
-            if resolved:
-                for s in resolved:
-                    detail_parts = [
-                        f"description: {s.description}" if s.description else None,
-                        f"config_file: {s.config_file_name}"
-                        if s.config_file_name
-                        else None,
-                        f"fasta: {s.fasta_file_name}" if s.fasta_file_name else None,
-                        f"speclib: {s.speclib_file_name}"
-                        if s.speclib_file_name
-                        else None,
-                        f"config_params: {s.config_params}"
-                        if s.config_params
-                        else None,
+        except Exception as e:  # noqa: BLE001
+            st.error(f"Could not resolve settings: {e}")
+        else:
+            instrument_color_map = {
+                instr: idx % 2
+                for idx, instr in enumerate(resolved_df["instrument"].unique())
+            }
+            RESOLVED_TABLE_COLORS = [
+                "#f0f0f0",
+                "white",
+            ]
+            st.table(
+                resolved_df.style.apply(
+                    lambda row: [
+                        f"background-color: {RESOLVED_TABLE_COLORS[instrument_color_map[row['instrument']]]}"
                     ]
-                    rows.append(
-                        {
-                            "instrument": instr_id,
-                            "settings": f"{s.name} version {s.version} ({s.software_type})",
-                            "software": s.software,
-                            "details": " | ".join(p for p in detail_parts if p),
-                        }
-                    )
-            else:
-                rows.append(
-                    {
-                        "instrument": instr_id,
-                        "settings": "--",
-                        "software": "--",
-                        "details": "",
-                    }
+                    * len(row),
+                    axis=1,
                 )
-        resolved_df = pd.DataFrame(rows)
-        instrument_color_map = {
-            instr: idx % 2
-            for idx, instr in enumerate(resolved_df["instrument"].unique())
-        }
-        RESOLVED_TABLE_COLORS = [
-            "#f0f0f0",
-            "white",
-        ]
-        st.table(
-            resolved_df.style.apply(
-                lambda row: [
-                    f"background-color: {RESOLVED_TABLE_COLORS[instrument_color_map[row['instrument']]]}"
-                ]
-                * len(row),
-                axis=1,
             )
-        )
-        st.page_link(
-            "pages_/settings.py",
-            label="➔ Go to settings page to create/edit settings",
-            icon="📋",
-        )
+            st.page_link(
+                "pages_/settings.py",
+                label="➔ Go to settings page to create/edit settings",
+                icon="📋",
+            )
     else:
         st.info(
             "Select a project on the left to see resolved settings per instrument.",
@@ -332,6 +311,7 @@ with c1.expander("Click here for help ..."):
         - Multiple projects can share the same settings
         - You can remove individual settings assignments using the "Remove" button
         - Only active (non-archived) settings can be assigned
+        - A certain software type can only be assigned once for a scope
         - The "scope" defines for which instruments the settings should be applied. `*` means all instruments, otherwise you can choose a specific vendor or instrument id. If multiple settings match for a given instrument, then the most specific one gets picked (e.g. instrument-specific over vendor-specific over '*').
         """,
         icon="ℹ️",  # noqa: RUF001

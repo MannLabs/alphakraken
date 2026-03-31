@@ -392,11 +392,12 @@ def get_business_errors(raw_file: RawFile, output_path: Path) -> list[str]:
     return error_codes
 
 
-def check_quanting_result(*, quanting_env: dict, job_id: str) -> dict:
+def check_quanting_result(*, quanting_env: dict, job_id: str, ti: TaskInstance) -> dict:
     """Get info (slurm log, alphaDIA log) about a job from the cluster.
 
     :param quanting_env: The quanting environment variables dict.
     :param job_id: The Slurm job ID to check.
+    :param ti: The Airflow TaskInstance, used to push error details to XCom.
     :return: Dict with ``quanting_time_elapsed`` on success.
     :raises AirflowSkipException: On known job failures (skips downstream tasks).
     :raises AirflowFailException: On unknown job failures.
@@ -445,11 +446,14 @@ def check_quanting_result(*, quanting_env: dict, job_id: str) -> dict:
             CustomAlphaDiaStates.COULD_NOT_DETERMINE_ERROR,
         ]
         if any(state in errors for state in states_to_fail_task):
+            ti.xcom_push(key=BRANCH_ERRORS_XCOM_KEY, value=";".join(errors))
             raise AirflowFailException(f"Quanting failed with new error: {errors=}")
 
+        ti.xcom_push(key=BRANCH_ERRORS_XCOM_KEY, value=";".join(errors))
         raise AirflowSkipException("Job failed, skipping downstream tasks.")
 
     # unknown state: fail the DAG without retry
+    ti.xcom_push(key=BRANCH_ERRORS_XCOM_KEY, value=f"unknown_job_status:{job_status}")
     raise AirflowFailException(f"Quanting failed: {job_status=}")
 
 
@@ -495,12 +499,22 @@ def upload_metrics(*, quanting_env: dict, metrics: dict, metrics_type: str) -> N
     )
 
 
+BRANCH_ERRORS_XCOM_KEY = "branch_errors"
+MAX_STATUS_DETAILS_LENGTH = 512
+
 FAILED_STATES = {TaskInstanceState.FAILED, TaskInstanceState.UPSTREAM_FAILED}
 _UPLOAD_METRICS_TASK_ID = f"{TaskGroups.QUANTING_PIPELINE}.{Tasks.UPLOAD_METRICS}"
+_CHECK_RESULT_TASK_ID = f"{TaskGroups.QUANTING_PIPELINE}.{Tasks.CHECK_QUANTING_RESULT}"
 
 
 def finalize_raw_file_status(ti: TaskInstance, raw_file_id: str) -> None:
-    """Set the final status for the raw file based on all pipeline branch outcomes."""
+    """Set the final status for the raw file based on all pipeline branch outcomes.
+
+    Inspects all parallel branch outcomes and sets the final status:
+    - DONE if all branches succeeded
+    - QUANTING_FAILED if some branches had known business errors (no Airflow failures)
+    - ERROR if any branch had an Airflow failure
+    """
     dag_run = ti.get_dagrun()
     tis = dag_run.get_task_instances()
 
@@ -509,16 +523,57 @@ def finalize_raw_file_status(ti: TaskInstance, raw_file_id: str) -> None:
     if not upload_tis:
         raise AirflowFailException("No upload_metrics task instances found in DAG run.")
 
-    failed = [t for t in upload_tis if t.state in FAILED_STATES]
+    quanting_envs = ti.xcom_pull(task_ids=Tasks.PREPARE_QUANTING)
 
-    if failed:
-        logging.info(
-            f"{len(failed)} of {len(upload_tis)} branches failed for raw file {raw_file_id}."
+    airflow_errors: list[tuple[str, str]] = []
+    business_errors: list[tuple[str, str]] = []
+
+    for upload_ti in upload_tis:
+        if upload_ti.state == TaskInstanceState.SUCCESS:
+            continue
+
+        idx = upload_ti.map_index
+        settings_name = quanting_envs[idx][QuantingEnv.SETTINGS_NAME]
+        branch_error_details = ti.xcom_pull(
+            task_ids=_CHECK_RESULT_TASK_ID, map_indexes=idx, key=BRANCH_ERRORS_XCOM_KEY
         )
-        update_raw_file(raw_file_id, new_status=RawFileStatus.ERROR)
-        raise AirflowFailException("At least one task has failed.")
-        # TODO: how to handle status_details? accumulate during the DAG run and reset here in case of success?
 
-    # TODO: currently, if a task is skipped (due to a business error), the raw file will be marked as done.
+        if upload_ti.state in FAILED_STATES:
+            airflow_errors.append(
+                (settings_name, branch_error_details or "pipeline error")
+            )
+        elif upload_ti.state == TaskInstanceState.SKIPPED and branch_error_details:
+            business_errors.append((settings_name, branch_error_details))
+
+    if airflow_errors:
+        all_errors = airflow_errors + business_errors
+        details = _build_status_details(all_errors)
+        logging.info(
+            f"{len(airflow_errors)} branch(es) failed for {raw_file_id}: {details}"
+        )
+        update_raw_file(
+            raw_file_id, new_status=RawFileStatus.ERROR, status_details=details
+        )
+        raise AirflowFailException(f"Pipeline error for {raw_file_id}: {details}")
+
+    if business_errors:
+        details = _build_status_details(business_errors)
+        logging.info(
+            f"{len(business_errors)} branch(es) with business errors for {raw_file_id}: {details}"
+        )
+        update_raw_file(
+            raw_file_id,
+            new_status=RawFileStatus.QUANTING_FAILED,
+            status_details=details,
+        )
+        return
+
     update_raw_file(raw_file_id, new_status=RawFileStatus.DONE, status_details=None)
-    # TODO: run_quanting should not set QUANTING status .. dedicated "processing_status" field?
+
+
+def _build_status_details(errors: list[tuple[str, str]]) -> str:
+    """Join per-branch error tuples into a single status_details string, truncating if needed."""
+    details = "; ".join(f"{name}: {err}" for name, err in errors)
+    if len(details) > MAX_STATUS_DETAILS_LENGTH:
+        details = details[: MAX_STATUS_DETAILS_LENGTH - 3] + "..."
+    return details

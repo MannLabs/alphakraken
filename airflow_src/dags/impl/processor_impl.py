@@ -237,7 +237,7 @@ def _check_content(
         ):
             errors.append(f"Validation error in '{value}': {errors_}")
 
-    if quanting_env[QuantingEnv.CUSTOM_COMMAND]:
+    if quanting_env.get(QuantingEnv.CUSTOM_COMMAND):
         errors.extend(
             check_for_malicious_content(
                 str(quanting_env[QuantingEnv.CUSTOM_COMMAND]),

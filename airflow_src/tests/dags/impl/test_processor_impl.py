@@ -205,8 +205,8 @@ def test_prepare_quanting(  # noqa: PLR0913
     )
     mock_get_raw_file_by_id.return_value = mock_raw_file
     mock_get_path.return_value = Path("/some_backup_base_path")
-    mock_settings = MagicMock()
-    mock_get_settings.return_value = [MagicMock()]
+    mock_settings = MagicMock(config_params=[])
+    mock_get_settings.return_value = [mock_settings]
     mock_resolve_scoped.return_value = [mock_settings]
     mock_env = {"SOFTWARE_TYPE": "alphadia"}
     mock_create_env.return_value = mock_env
@@ -255,8 +255,8 @@ def test_prepare_quanting_multiple_settings(  # noqa: PLR0913
     mock_get_raw_file_by_id.return_value = mock_raw_file
     mock_get_path.return_value = Path("/backup")
     mock_get_settings.return_value = [MagicMock(), MagicMock()]
-    mock_settings_1 = MagicMock()
-    mock_settings_2 = MagicMock()
+    mock_settings_1 = MagicMock(config_params=[])
+    mock_settings_2 = MagicMock(config_params=[])
     mock_resolve_scoped.return_value = [mock_settings_1, mock_settings_2]
     mock_env_1 = {"SOFTWARE_TYPE": "alphadia"}
     mock_env_2 = {"SOFTWARE_TYPE": "msqc"}

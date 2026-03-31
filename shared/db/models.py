@@ -198,6 +198,8 @@ class Metrics(DynamicDocument):
     # Type of metrics: e.g. "alphadia" (default), "custom", ..
     type = StringField(max_length=32, default=MetricsTypes.ALPHADIA)
 
+    output_path = StringField()
+
     # audit fields
     created_at_ = DateTimeField(default=datetime.now)
 

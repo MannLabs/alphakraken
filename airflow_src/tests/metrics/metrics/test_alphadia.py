@@ -100,7 +100,7 @@ def test_basic_stats_calculation(mock_datastore: MagicMock) -> None:
         "raw.gradient_length": [3600.0],
     }
     mock_df = pd.DataFrame(data)
-    mock_datastore.__getitem__.return_value = mock_df
+    mock_datastore.get.return_value = mock_df
 
     # when
     metrics = BasicStats(mock_datastore).get()
@@ -134,7 +134,7 @@ def test_basic_stats_calculation_v1(mock_datastore: MagicMock) -> None:
         "raw.gradient_length_m": [60.0],
     }
     mock_df = pd.DataFrame(data)
-    mock_datastore.__getitem__.return_value = mock_df
+    mock_datastore.get.return_value = mock_df
 
     # when
     metrics = BasicStats(mock_datastore).get()
@@ -161,7 +161,7 @@ def test_precursor_stats_calculation(mock_datastore: MagicMock) -> None:
         }
     )
 
-    mock_datastore.__getitem__.return_value = mock_df
+    mock_datastore.get.return_value = mock_df
 
     # when
     metrics = PrecursorStatsSum(mock_datastore).get()
@@ -179,7 +179,7 @@ def test_precursor_stats_calculation_column_missing(mock_datastore: MagicMock) -
         }
     )
 
-    mock_datastore.__getitem__.return_value = mock_df
+    mock_datastore.get.return_value = mock_df
 
     # when
     metrics = PrecursorStatsSum(mock_datastore).get()
@@ -198,7 +198,7 @@ def test_precursor_stats_mean_calculation(mock_datastore: MagicMock) -> None:
         }
     )
 
-    mock_datastore.__getitem__.return_value = mock_df
+    mock_datastore.get.return_value = mock_df
 
     # when
     metrics = PrecursorStatsAgg(mock_datastore).get()
@@ -221,7 +221,7 @@ def test_precursor_stats_sequence_len_mean_calculation(
         }
     )
 
-    mock_datastore.__getitem__.return_value = mock_df
+    mock_datastore.get.return_value = mock_df
 
     # when
     metrics = PrecursorStatsMeanLenSequence(mock_datastore).get()
@@ -244,7 +244,7 @@ def test_precursor_stats_intensity_median_calculation(
         }
     )
 
-    mock_datastore.__getitem__.return_value = mock_df
+    mock_datastore.get.return_value = mock_df
 
     # when
     metrics = PrecursorStatsIntensity(mock_datastore).get()

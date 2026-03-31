@@ -8,14 +8,14 @@ from typing import Any, ClassVar
 import pandas as pd
 
 
-def read_tsv(file_path: Path) -> pd.DataFrame:
+def read_tsv(file_path: Path, columns: list[str] | None = None) -> pd.DataFrame:
     """Read a tsv file."""
-    return pd.read_csv(file_path, sep="\t")
+    return pd.read_csv(file_path, sep="\t", usecols=columns)
 
 
-def read_parquet(file_path: Path) -> pd.DataFrame:
+def read_parquet(file_path: Path, columns: list[str] | None = None) -> pd.DataFrame:
     """Read a parquet file."""
-    return pd.read_parquet(file_path)
+    return pd.read_parquet(file_path, columns=columns)
 
 
 class DataStore:
@@ -36,11 +36,18 @@ class DataStore:
 
     def __getitem__(self, key: str) -> pd.DataFrame:
         """Get data from the data store."""
-        if key not in self._data:
+        return self.get(key)
+
+    def get(self, key: str, columns: list[str] | None = None) -> pd.DataFrame:
+        """Get data from the data store, optionally reading only specific columns."""
+        cache_key = (key, tuple(sorted(columns))) if columns else key
+        if cache_key not in self._data:
             file_path = self._data_path / key
             logging.info(f"loading {file_path}")
-            self._data[key] = self._file_name_to_read_method_mapping[key](file_path)
-        return self._data[key]
+            self._data[cache_key] = self._file_name_to_read_method_mapping[key](
+                file_path, columns=columns
+            )
+        return self._data[cache_key]
 
 
 class Metrics(ABC):
@@ -74,7 +81,12 @@ class Metrics(ABC):
         and values are target column names (for internal use). If value is None,
         the source column name is used as-is.
         """
-        df = self._data_store[self._file]
+        source_columns = (
+            list(self._columns.keys())
+            if isinstance(self._columns, dict)
+            else list(self._columns)
+        )
+        df = self._data_store.get(self._file, columns=source_columns)
 
         if isinstance(self._columns, dict):
             for source_col, target_col in self._columns.items():

@@ -30,6 +30,7 @@ def get_combined_raw_files_and_metrics_df(
         MetricsTypes.CUSTOM,
         MetricsTypes.MSQC,
         MetricsTypes.SKYLINE,
+        MetricsTypes.DIANN,
     ]
     metrics_df = pd.DataFrame()
     for metrics_type in metrics_types:

@@ -372,7 +372,7 @@ with c1.form("create_settings"):
             "- If something that is in the `$PATH` should be executed (e.g. `apptainer`), wrap it in a shell script and place it in the software folder.\n"
         )
         with st.expander("Example for DIANN..."):
-            st.write("Executable: `diann-2.2.0/diann-linux`")
+            st.write("Executable: `diann/diann-linux`")
             st.code(
                 "--f RAW_FILE_PATH --lib SETTINGS_PATH/library.speclib --fasta SETTINGS_PATH/human.fasta --temp OUTPUT_PATH --threads NUM_THREADS --qvalue 0.01"
             )

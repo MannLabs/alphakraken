@@ -170,7 +170,7 @@ def test_upload_raw_file_to_s3_should_include_key_prefix_in_s3_path(  # noqa: PL
 @patch("dags.impl.s3_uploader_impl.update_raw_file")
 @patch("dags.impl.s3_uploader_impl.get_s3_client")
 @patch("dags.impl.s3_uploader_impl.bucket_exists")
-def test_upload_raw_file_to_s3_should_raise_when_bucket_not_accessible(  # noqa: PLR0913
+def test_upload_raw_file_to_s3_should_raise_when_bucket_not_accessible(
     mock_bucket_exists: MagicMock,
     _mock_get_s3_client: MagicMock,  # noqa: PT019
     mock_update: MagicMock,

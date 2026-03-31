@@ -107,6 +107,7 @@ def test_overview(
         custom_metrics_df,  # custom metrics
         pd.DataFrame(),  # empty msqc metrics
         pd.DataFrame(),  # empty skyline metrics
+        pd.DataFrame(),  # empty diann metrics
         status_df,
     ]
 

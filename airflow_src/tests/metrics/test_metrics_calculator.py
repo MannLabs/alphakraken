@@ -36,6 +36,19 @@ def test_calc_metrics_custom(mock_custom: MagicMock) -> None:
     assert result == {"custom_metric": 3.0, "custom:metric": 4.5}
 
 
+@patch("plugins.metrics.metrics_calculator.calc_diann_metrics")
+def test_calc_metrics_diann(mock_diann: MagicMock) -> None:
+    """Test calc_metrics with diann metrics type."""
+    output_dir = Path("/test/output")
+    expected_metrics = {"proteins": 500, "peptides": 3000}
+    mock_diann.return_value = expected_metrics
+
+    result = calc_metrics(output_dir, metrics_type=MetricsTypes.DIANN)
+
+    mock_diann.assert_called_once_with(output_dir)
+    assert result == {"proteins": 500, "peptides": 3000}
+
+
 def test_calc_metrics_invalid_type() -> None:
     """Test calc_metrics with invalid metrics type raises KeyError."""
     output_dir = Path("/test/output")

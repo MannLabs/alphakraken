@@ -68,6 +68,7 @@ class MetricsTypes(metaclass=ConstantsClass):
     ALPHADIA: str = "alphadia"
     MSQC: str = "msqc"
     SKYLINE: str = "skyline"
+    DIANN: str = "diann"
     CUSTOM: str = "custom"
 
 

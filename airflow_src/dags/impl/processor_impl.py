@@ -55,6 +55,22 @@ from shared.validation import check_for_malicious_content
 from shared.yamlsettings import YamlKeys, get_path
 
 
+class QuantingFailedNewErrorException(AirflowFailException):
+    """Raise if quanting failed with a new error."""
+
+
+class QuantingFailedKnownErrorException(AirflowSkipException):
+    """Raise if quanting failed with a known error."""
+
+
+class QuantingFailedUnknownErrorException(AirflowFailException):
+    """Raise if quanting failed with a unknown error state."""
+
+
+class QuantingFailedException(AirflowFailException):
+    """Raise if quanting failed but status has already been set."""
+
+
 def prepare_quanting(raw_file_id: str) -> list[dict[str, str | int | list[str]]]:
     """Prepare the environmental variables for the quanting job."""
     raw_file = get_raw_file_by_id(raw_file_id)
@@ -431,11 +447,6 @@ def check_quanting_result(*, quanting_env: dict, job_id: str, ti: TaskInstance) 
             # TODO: this seems not quite right
             errors = ["OUT_OF_MEMORY"]
 
-        update_raw_file(
-            raw_file.id,
-            new_status=RawFileStatus.QUANTING_FAILED,
-            status_details=";".join(errors),
-        )
         add_metrics_to_raw_file(
             raw_file.id,
             metrics={QUANTING_TIME_ELAPSED_METRIC: time_elapsed},
@@ -453,14 +464,14 @@ def check_quanting_result(*, quanting_env: dict, job_id: str, ti: TaskInstance) 
         ]
         if any(state in errors for state in states_to_fail_task):
             put_xcom(ti, key=XComKeys.BRANCH_ERRORS, value=";".join(errors))
-            raise AirflowFailException(f"Quanting failed with new error: {errors=}")
+            raise QuantingFailedNewErrorException(f"new error: {errors=}")
 
         put_xcom(ti, key=XComKeys.BRANCH_ERRORS, value=";".join(errors))
-        raise AirflowSkipException("Job failed, skipping downstream tasks.")
+        raise QuantingFailedKnownErrorException(f"known error: {errors=}")
 
     # unknown state: fail the DAG without retry
-    put_xcom(ti, key=XComKeys.BRANCH_ERRORS, value=f"unknown_job_status:{job_status}")
-    raise AirflowFailException(f"Quanting failed: {job_status=}")
+    put_xcom(ti, key=XComKeys.BRANCH_ERRORS, value=f"unknown_job_status: {job_status}")
+    raise QuantingFailedUnknownErrorException(f"unknown_job_status: {job_status}")
 
 
 def compute_metrics(
@@ -549,7 +560,7 @@ def finalize_raw_file_status(ti: TaskInstance, raw_file_id: str) -> None:
         update_raw_file(
             raw_file_id, new_status=RawFileStatus.ERROR, status_details=details
         )
-        raise AirflowFailException(details)
+        raise QuantingFailedException(details)
 
     if business_errors:
         details = _build_status_details(business_errors)
@@ -608,7 +619,8 @@ def _extract_errors(
 
 def _build_status_details(errors: list[tuple[str, str]]) -> str:
     """Join per-branch error tuples into a single status_details string, truncating if needed."""
-    details = "; ".join(f"{name}: {err}" for name, err in errors)
+    details = "; ".join(f"[{name}] {err}" for name, err in errors)
+    details = f"error while processing settings: {details}"
     if len(details) > MAX_STATUS_DETAILS_LENGTH:
         details = details[: MAX_STATUS_DETAILS_LENGTH - 3] + "..."
     return details

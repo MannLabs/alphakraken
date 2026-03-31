@@ -5,6 +5,11 @@ from typing import Any
 
 from common.keys import DAG_DELIMITER, DagContext, DagParams, XComKeys
 from common.utils import get_xcom
+from impl.processor_impl import (
+    QuantingFailedException,
+    QuantingFailedNewErrorException,
+    QuantingFailedUnknownErrorException,
+)
 from plugins.s3.s3_utils import S3UploadFailedException
 
 from shared.db.interface import update_raw_file
@@ -36,6 +41,9 @@ def on_failure_callback(context: dict[str, Any], **kwargs) -> None:
 
     # TODO: introduce generic exceptions that tell the callback what to set in terms of fields (e.g. ex.field_updates = {..})
 
+    if isinstance(ex, QuantingFailedException):
+        # in this case, the status is already set so nothing to do here
+        return
     if isinstance(ex, S3UploadFailedException):
         # failed s3 uploads should not change the overall raw file state as it is currently hard to recover
         update_args = {"backup_status": BackupStatus.UPLOAD_FAILED}
@@ -50,9 +58,14 @@ def on_failure_callback(context: dict[str, Any], **kwargs) -> None:
             status_details = status_details[: max_status_length - 3] + "..."
 
         update_args = {
-            "new_status": RawFileStatus.ERROR,
             "status_details": status_details,
         }
+
+        # don't set the state to error during quanting checks
+        if not isinstance(
+            ex, (QuantingFailedNewErrorException, QuantingFailedUnknownErrorException)
+        ):
+            update_args["new_status"] = RawFileStatus.ERROR
 
     update_raw_file(
         raw_file_id,

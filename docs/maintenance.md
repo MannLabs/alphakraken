@@ -253,7 +253,62 @@ concurrently submitted jobs should be limited, set the size of the `cluster_slot
 jobs that have already been submitted and thus may take a while to take effect.
 
 
-## Upgrading Airflow
+## Airflow maintenance
+
+### Cleaning up the Airflow DB
+
+Over time, the Airflow metadata DB accumulates DAG runs, task instances, and event logs that are no longer needed.
+The `airflow db clean` command (run inside an Airflow container) archives rows older than a given timestamp, which can then be exported and dropped
+(cf. [Airflow docs](https://airflow.apache.org/docs/apache-airflow/2.11.0/howto/usage-cli.html#purge-history-from-metadata-database))
+
+Note: this is a destructive operation! If in doubt, create a backup copy Airflow DB (i.e. the `airflowdb_local_data` folder).
+
+First, run the airflow-cli
+```bash
+./compose.sh run --build airflow-cli bash
+```
+Then execute the following to export and remove the db entries
+```bash
+airflow db clean --dry-run --clean-before-timestamp '2025-01-01 00:00:00+00:00'
+```
+Verify the output, then re-run without `--dry-run`.
+Next, run
+```bash
+mkdir -p /opt/airflow/logs/db_export/2025
+airflow db export-archived --output-path /opt/airflow/logs/db_export/2025
+airflow db drop-archived
+```
+
+
+After this the space needs to be reclaimed (execute on the machine that runs the `postgres-service`):
+```bash
+./compose.sh exec postgres-service psql -U airflow -d airflow
+# then execute
+VACUUM FULL;
+```
+
+### Cleaning up the logs
+
+#### Airflow logs
+Airflow writes task logs to disk under `dag_id=<name>/run_id=<id>/` directories. Over time these accumulate and consume significant disk space.
+The `archive_airflow_logs.sh` script compresses all run directories for a given DAG and month into a single `.tar.gz` file, and can optionally delete the originals after archiving.
+
+First, go to the folder containing the Airflow Logs, e.g. `cd /fs/pool-2/airflow_logs`
+Then use the `misc/archive_airflow_logs.sh` script to move dedicated folders to an archive (see the help message there).
+Note: this is a destructive operation!
+
+Alternatively, delete the logs manually: `rm -rf /fs/pool-2/airflow_logs/dag_id\=*/run_id\=*__2025-12*`
+
+#### Slurm logs
+`cd` to the `jobs` folder then do (e.g.)
+```bash
+for dir in 2024*; do tar -czf "${dir%/}.tar.gz" "$dir" && rm -rf "$dir"; done
+```
+
+#### Nginx logs
+Note that if you are using `nginx`, the `nginx_logs` also needs regular cleanup.
+
+### Upgrading Airflow
 Every once in a while, the Airflow version should be updated.
 
 1. Create a backup copy of the `mongodb_data_${ENV}` and `airflowdb_data_${ENV}` folders (on the machine that hosts the DBs).

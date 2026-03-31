@@ -31,23 +31,41 @@ def put_xcom(ti: TaskInstance, key: str, value: _xcom_types) -> None:
     ti.xcom_push(key, value)
 
 
+_NO_DEFAULT = object()
+
+
 def get_xcom(
     ti: TaskInstance,
     key: str,
-    default: _xcom_types | None = None,
+    default: _xcom_types | None = _NO_DEFAULT,
     task_ids: str | Iterable[str] | None = None,
-) -> _xcom_types:
+    map_indexes: int | Iterable[int] | None = None,
+) -> _xcom_types | None:
     """Get the value of an XCom with `key`.
 
     :param task_ids: Pull from a specific task. Required inside mapped task groups
         to avoid getting a LazySelectSequence instead of the actual value.
+    :param map_indexes: Pull from a specific map index in dynamically mapped tasks.
+    :raises KeyError: If no value found and no default was provided.
     """
-    value = ti.xcom_pull(key=key, default=default, task_ids=task_ids)
+    pull_kwargs: dict[str, Any] = {"key": key}
 
-    if value is None:
+    if task_ids is not None:
+        pull_kwargs["task_ids"] = task_ids
+    if default is not _NO_DEFAULT:
+        pull_kwargs["default"] = default
+    if map_indexes is not None:
+        pull_kwargs["map_indexes"] = map_indexes
+
+    value = ti.xcom_pull(**pull_kwargs)
+
+    if value is None and default is _NO_DEFAULT:
         raise KeyError(f"No value found for XCOM key {key}")
 
-    logging.info(f"Pulled from XCOM: '{key}'='{value}'")
+    if value is not None:
+        logging.info(
+            f"Pulled from XCOM: '{key}'='{value}' ({task_ids=} {default=} {map_indexes=})"
+        )
 
     return value
 

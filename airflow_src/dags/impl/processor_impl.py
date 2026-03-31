@@ -2,7 +2,9 @@
 
 import json
 import logging
+from collections import defaultdict
 from pathlib import Path
+from typing import Any
 
 from airflow.exceptions import AirflowFailException, AirflowSkipException
 from airflow.models import TaskInstance
@@ -21,6 +23,7 @@ from common.keys import (
     QuantingEnv,
     TaskGroups,
     Tasks,
+    XComKeys,
 )
 from common.paths import (
     get_internal_output_path_for_raw_file,
@@ -29,6 +32,8 @@ from common.paths import (
 from common.settings import get_instrument_settings
 from common.utils import (
     get_airflow_variable,
+    get_xcom,
+    put_xcom,
 )
 from jobs.job_handler import (
     get_job_result,
@@ -323,7 +328,7 @@ def run_quanting(
         else:
             raise AirflowFailException(
                 f"{msg} Remove it before restarting the quanting or set Airflow variable 'output_exists_mode' to 'overwrite' or 'associate' "
-                f"(got {output_exists_mode})"
+                f"(got '{output_exists_mode}')"
             )
 
     output_path.mkdir(parents=True, exist_ok=True)
@@ -392,11 +397,12 @@ def get_business_errors(raw_file: RawFile, output_path: Path) -> list[str]:
     return error_codes
 
 
-def check_quanting_result(*, quanting_env: dict, job_id: str) -> dict:
+def check_quanting_result(*, quanting_env: dict, job_id: str, ti: TaskInstance) -> dict:
     """Get info (slurm log, alphaDIA log) about a job from the cluster.
 
     :param quanting_env: The quanting environment variables dict.
     :param job_id: The Slurm job ID to check.
+    :param ti: The Airflow TaskInstance, used to push error details to XCom.
     :return: Dict with ``quanting_time_elapsed`` on success.
     :raises AirflowSkipException: On known job failures (skips downstream tasks).
     :raises AirflowFailException: On unknown job failures.
@@ -445,11 +451,14 @@ def check_quanting_result(*, quanting_env: dict, job_id: str) -> dict:
             CustomAlphaDiaStates.COULD_NOT_DETERMINE_ERROR,
         ]
         if any(state in errors for state in states_to_fail_task):
+            put_xcom(ti, key=XComKeys.BRANCH_ERRORS, value=";".join(errors))
             raise AirflowFailException(f"Quanting failed with new error: {errors=}")
 
+        put_xcom(ti, key=XComKeys.BRANCH_ERRORS, value=";".join(errors))
         raise AirflowSkipException("Job failed, skipping downstream tasks.")
 
     # unknown state: fail the DAG without retry
+    put_xcom(ti, key=XComKeys.BRANCH_ERRORS, value=f"unknown_job_status:{job_status}")
     raise AirflowFailException(f"Quanting failed: {job_status=}")
 
 
@@ -495,30 +504,109 @@ def upload_metrics(*, quanting_env: dict, metrics: dict, metrics_type: str) -> N
     )
 
 
-FAILED_STATES = {TaskInstanceState.FAILED, TaskInstanceState.UPSTREAM_FAILED}
-_UPLOAD_METRICS_TASK_ID = f"{TaskGroups.QUANTING_PIPELINE}.{Tasks.UPLOAD_METRICS}"
+MAX_STATUS_DETAILS_LENGTH = 1024
+
+_TASK_GROUP_PREFIX = f"{TaskGroups.QUANTING_PIPELINE}."
+_CHECK_RESULT_TASK_ID = f"{_TASK_GROUP_PREFIX}{Tasks.CHECK_QUANTING_RESULT}"
 
 
 def finalize_raw_file_status(ti: TaskInstance, raw_file_id: str) -> None:
-    """Set the final status for the raw file based on all pipeline branch outcomes."""
+    """Set the final status for the raw file based on all pipeline branch outcomes.
+
+    Inspects all parallel branch outcomes and sets the final status:
+    - DONE if all branches succeeded
+    - QUANTING_FAILED if some branches had known business errors (no Airflow failures)
+    - ERROR if any branch had an Airflow failure
+    """
     dag_run = ti.get_dagrun()
-    tis = dag_run.get_task_instances()
+    all_tis = dag_run.get_task_instances()
 
-    upload_tis = [t for t in tis if t.task_id == _UPLOAD_METRICS_TASK_ID]
+    # Group branch task instances by map_index (non-mapped tasks have map_index=-1)
+    branch_tis_by_index: dict[int, list[TaskInstance]] = defaultdict(list)
+    for ti_ in all_tis:
+        if ti_.task_id.startswith(_TASK_GROUP_PREFIX) and ti_.map_index >= 0:
+            branch_tis_by_index[ti_.map_index].append(ti_)
 
-    if not upload_tis:
-        raise AirflowFailException("No upload_metrics task instances found in DAG run.")
+    if not branch_tis_by_index:
+        raise AirflowFailException("No branch task instances found in DAG run.")
 
-    failed = [t for t in upload_tis if t.state in FAILED_STATES]
+    quanting_envs = get_xcom(
+        ti, key=XComKeys.RETURN_VALUE, task_ids=Tasks.PREPARE_QUANTING
+    )
 
-    if failed:
+    airflow_errors, business_errors = _extract_errors(
+        branch_tis_by_index, quanting_envs, ti
+    )
+
+    if airflow_errors:
+        all_errors = airflow_errors + business_errors
+        details = _build_status_details(all_errors)
         logging.info(
-            f"{len(failed)} of {len(upload_tis)} branches failed for raw file {raw_file_id}."
+            f"{len(airflow_errors)} branch(es) failed for {raw_file_id}: {details}"
         )
-        update_raw_file(raw_file_id, new_status=RawFileStatus.ERROR)
-        raise AirflowFailException("At least one task has failed.")
-        # TODO: how to handle status_details? accumulate during the DAG run and reset here in case of success?
+        update_raw_file(
+            raw_file_id, new_status=RawFileStatus.ERROR, status_details=details
+        )
+        raise AirflowFailException(details)
 
-    # TODO: currently, if a task is skipped (due to a business error), the raw file will be marked as done.
+    if business_errors:
+        details = _build_status_details(business_errors)
+        logging.info(
+            f"{len(business_errors)} branch(es) with business errors for {raw_file_id}: {details}"
+        )
+        update_raw_file(
+            raw_file_id,
+            new_status=RawFileStatus.QUANTING_FAILED,
+            status_details=details,
+        )
+        return
+
     update_raw_file(raw_file_id, new_status=RawFileStatus.DONE, status_details=None)
-    # TODO: run_quanting should not set QUANTING status .. dedicated "processing_status" field?
+
+
+def _extract_errors(
+    branch_tis_by_index: dict[int, list[TaskInstance]],
+    quanting_envs: list[dict[str, Any]],
+    ti: TaskInstance,
+) -> tuple[list[tuple[str, str]], list[tuple[str, str]]]:
+    """Extract errors from previous tasks of all branches."""
+    airflow_errors: list[tuple[str, str]] = []
+    business_errors: list[tuple[str, str]] = []
+
+    for idx in sorted(branch_tis_by_index):
+        branch_tis = branch_tis_by_index[idx]
+        settings_name = quanting_envs[idx][QuantingEnv.SETTINGS_NAME]
+
+        # these could be business or airflow errors
+        check_quanting_result_error_details = get_xcom(
+            ti,
+            key=XComKeys.BRANCH_ERRORS,
+            task_ids=_CHECK_RESULT_TASK_ID,
+            map_indexes=idx,
+            default=None,
+        )
+
+        failed_tasks_in_branch = [
+            t for t in branch_tis if t.state == TaskInstanceState.FAILED
+        ]
+
+        if failed_tasks_in_branch:
+            if not check_quanting_result_error_details:
+                failed_task_names = ", ".join(
+                    t.task_id.removeprefix(_TASK_GROUP_PREFIX)
+                    for t in failed_tasks_in_branch
+                )
+                check_quanting_result_error_details = f"failed at {failed_task_names}"
+            airflow_errors.append((settings_name, check_quanting_result_error_details))
+        elif check_quanting_result_error_details:
+            business_errors.append((settings_name, check_quanting_result_error_details))
+
+    return airflow_errors, business_errors
+
+
+def _build_status_details(errors: list[tuple[str, str]]) -> str:
+    """Join per-branch error tuples into a single status_details string, truncating if needed."""
+    details = "; ".join(f"{name}: {err}" for name, err in errors)
+    if len(details) > MAX_STATUS_DETAILS_LENGTH:
+        details = details[: MAX_STATUS_DETAILS_LENGTH - 3] + "..."
+    return details

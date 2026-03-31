@@ -14,32 +14,24 @@ def get_resolved_settings_df(
 ) -> pd.DataFrame:
     """Build a DataFrame showing resolved settings per instrument.
 
-    Resolves separately for unfiltered assignments and for each unique
-    raw_file_id_filter, so both base and filter-specific settings appear.
+    Groups assignments by raw_file_id_filter and resolves each group
+    independently, so both base and filter-specific settings appear.
     """
     all_ps = get_project_settings(selected_project_id)
-    unfiltered_ps = [ps for ps in all_ps if not ps.raw_file_id_filter]
-    unique_filters = sorted(
-        {ps.raw_file_id_filter for ps in all_ps if ps.raw_file_id_filter}
-    )
+    groups: dict[str, list] = {}
+    for ps in all_ps:
+        groups.setdefault(ps.raw_file_id_filter, []).append(ps)
     rows = []
     for instrument_id in instrument_ids:
         instrument_type = instruments_config.get(instrument_id, {}).get(
             YamlKeys.TYPE, ""
         )
-        base_resolved = resolve_scoped_settings(
-            unfiltered_ps,
-            instrument_id=instrument_id,
-            instrument_type=instrument_type,
-        )
-        resolved_entries: list[tuple[Any, str]] = [(s, "") for s in base_resolved]
-        for filter_val in unique_filters:
-            filtered_ps = [ps for ps in all_ps if ps.raw_file_id_filter == filter_val]
+        resolved_entries: list[tuple[Any, str]] = []
+        for filter_val, ps_group in sorted(groups.items()):
             for s in resolve_scoped_settings(
-                filtered_ps,
+                ps_group,
                 instrument_id=instrument_id,
                 instrument_type=instrument_type,
-                raw_file_id=filter_val,
             ):
                 resolved_entries.append((s, filter_val))  # noqa: PERF401
         if not resolved_entries:

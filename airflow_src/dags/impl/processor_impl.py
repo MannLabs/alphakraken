@@ -2,7 +2,9 @@
 
 import json
 import logging
+from collections import defaultdict
 from pathlib import Path
+from typing import Any
 
 from airflow.exceptions import AirflowFailException, AirflowSkipException
 from airflow.models import TaskInstance
@@ -21,6 +23,7 @@ from common.keys import (
     QuantingEnv,
     TaskGroups,
     Tasks,
+    XComKeys,
 )
 from common.paths import (
     get_internal_output_path_for_raw_file,
@@ -448,14 +451,14 @@ def check_quanting_result(*, quanting_env: dict, job_id: str, ti: TaskInstance) 
             CustomAlphaDiaStates.COULD_NOT_DETERMINE_ERROR,
         ]
         if any(state in errors for state in states_to_fail_task):
-            put_xcom(ti, key=BRANCH_ERRORS_XCOM_KEY, value=";".join(errors))
+            put_xcom(ti, key=XComKeys.BRANCH_ERRORS, value=";".join(errors))
             raise AirflowFailException(f"Quanting failed with new error: {errors=}")
 
-        put_xcom(ti, key=BRANCH_ERRORS_XCOM_KEY, value=";".join(errors))
+        put_xcom(ti, key=XComKeys.BRANCH_ERRORS, value=";".join(errors))
         raise AirflowSkipException("Job failed, skipping downstream tasks.")
 
     # unknown state: fail the DAG without retry
-    put_xcom(ti, key=BRANCH_ERRORS_XCOM_KEY, value=f"unknown_job_status:{job_status}")
+    put_xcom(ti, key=XComKeys.BRANCH_ERRORS, value=f"unknown_job_status:{job_status}")
     raise AirflowFailException(f"Quanting failed: {job_status=}")
 
 
@@ -501,12 +504,10 @@ def upload_metrics(*, quanting_env: dict, metrics: dict, metrics_type: str) -> N
     )
 
 
-BRANCH_ERRORS_XCOM_KEY = "branch_errors"
-MAX_STATUS_DETAILS_LENGTH = 512
+MAX_STATUS_DETAILS_LENGTH = 1024
 
-FAILED_STATES = {TaskInstanceState.FAILED, TaskInstanceState.UPSTREAM_FAILED}
-_UPLOAD_METRICS_TASK_ID = f"{TaskGroups.QUANTING_PIPELINE}.{Tasks.UPLOAD_METRICS}"
-_CHECK_RESULT_TASK_ID = f"{TaskGroups.QUANTING_PIPELINE}.{Tasks.CHECK_QUANTING_RESULT}"
+_TASK_GROUP_PREFIX = f"{TaskGroups.QUANTING_PIPELINE}."
+_CHECK_RESULT_TASK_ID = f"{_TASK_GROUP_PREFIX}{Tasks.CHECK_QUANTING_RESULT}"
 
 
 def finalize_raw_file_status(ti: TaskInstance, raw_file_id: str) -> None:
@@ -518,38 +519,24 @@ def finalize_raw_file_status(ti: TaskInstance, raw_file_id: str) -> None:
     - ERROR if any branch had an Airflow failure
     """
     dag_run = ti.get_dagrun()
-    tis = dag_run.get_task_instances()
+    all_tis = dag_run.get_task_instances()
 
-    upload_tis = [t for t in tis if t.task_id == _UPLOAD_METRICS_TASK_ID]
+    # Group branch task instances by map_index (non-mapped tasks have map_index=-1)
+    branch_tis_by_index: dict[int, list[TaskInstance]] = defaultdict(list)
+    for ti_ in all_tis:
+        if ti_.task_id.startswith(_TASK_GROUP_PREFIX) and ti_.map_index >= 0:
+            branch_tis_by_index[ti_.map_index].append(ti_)
 
-    if not upload_tis:
-        raise AirflowFailException("No upload_metrics task instances found in DAG run.")
+    if not branch_tis_by_index:
+        raise AirflowFailException("No branch task instances found in DAG run.")
 
-    quanting_envs = get_xcom(ti, key="return_value", task_ids=Tasks.PREPARE_QUANTING)
+    quanting_envs = get_xcom(
+        ti, key=XComKeys.RETURN_VALUE, task_ids=Tasks.PREPARE_QUANTING
+    )
 
-    airflow_errors: list[tuple[str, str]] = []
-    business_errors: list[tuple[str, str]] = []
-
-    for upload_ti in upload_tis:
-        if upload_ti.state == TaskInstanceState.SUCCESS:
-            continue
-
-        idx = upload_ti.map_index
-        settings_name = quanting_envs[idx][QuantingEnv.SETTINGS_NAME]
-        branch_error_details = get_xcom(
-            ti,
-            key=BRANCH_ERRORS_XCOM_KEY,
-            task_ids=_CHECK_RESULT_TASK_ID,
-            map_indexes=idx,
-            default=None,
-        )
-
-        if upload_ti.state in FAILED_STATES:
-            airflow_errors.append(
-                (settings_name, branch_error_details or "pipeline error")
-            )
-        elif upload_ti.state == TaskInstanceState.SKIPPED and branch_error_details:
-            business_errors.append((settings_name, branch_error_details))
+    airflow_errors, business_errors = _extract_errors(
+        branch_tis_by_index, quanting_envs, ti
+    )
 
     if airflow_errors:
         all_errors = airflow_errors + business_errors
@@ -575,6 +562,46 @@ def finalize_raw_file_status(ti: TaskInstance, raw_file_id: str) -> None:
         return
 
     update_raw_file(raw_file_id, new_status=RawFileStatus.DONE, status_details=None)
+
+
+def _extract_errors(
+    branch_tis_by_index: dict[int, list[TaskInstance]],
+    quanting_envs: list[dict[str, Any]],
+    ti: TaskInstance,
+) -> tuple[list[tuple[str, str]], list[tuple[str, str]]]:
+    """Extract errors from previous tasks of all branches."""
+    airflow_errors: list[tuple[str, str]] = []
+    business_errors: list[tuple[str, str]] = []
+
+    for idx in sorted(branch_tis_by_index):
+        branch_tis = branch_tis_by_index[idx]
+        settings_name = quanting_envs[idx][QuantingEnv.SETTINGS_NAME]
+
+        # these could be business or airflow errors
+        check_quanting_result_error_details = get_xcom(
+            ti,
+            key=XComKeys.BRANCH_ERRORS,
+            task_ids=_CHECK_RESULT_TASK_ID,
+            map_indexes=idx,
+            default=None,
+        )
+
+        failed_tasks_in_branch = [
+            t for t in branch_tis if t.state == TaskInstanceState.FAILED
+        ]
+
+        if failed_tasks_in_branch:
+            if not check_quanting_result_error_details:
+                failed_task_names = ", ".join(
+                    t.task_id.removeprefix(_TASK_GROUP_PREFIX)
+                    for t in failed_tasks_in_branch
+                )
+                check_quanting_result_error_details = f"failed at {failed_task_names}"
+            airflow_errors.append((settings_name, check_quanting_result_error_details))
+        elif check_quanting_result_error_details:
+            business_errors.append((settings_name, check_quanting_result_error_details))
+
+    return airflow_errors, business_errors
 
 
 def _build_status_details(errors: list[tuple[str, str]]) -> str:

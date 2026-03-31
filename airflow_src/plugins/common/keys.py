@@ -98,6 +98,10 @@ class XComKeys:
     FILES_TO_REMOVE = "files_to_remove"
     INSTRUMENTS_WITH_ERRORS = "instrument_with_errors"
 
+    BRANCH_ERRORS = "branch_errors"
+    # special key used by Airflow tasks API
+    RETURN_VALUE = "return_value"
+
 
 class InstrumentKeys:
     """Keys for accessing instrument data.

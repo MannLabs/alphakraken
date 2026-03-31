@@ -82,7 +82,9 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
         def quanting_pipeline(quanting_env: dict) -> None:
             """The quanting pipeline that runs for every quanting_env."""
 
-            @task(task_id=Tasks.RUN_QUANTING, pool=Pools.CLUSTER_SLOTS_POOL)
+            @task(
+                task_id=Tasks.RUN_QUANTING, pool=Pools.CLUSTER_SLOTS_POOL
+            )  # this assumes all are using slurm
             def run_quanting_task(quanting_env: dict) -> str:
                 """Run quanting and return the Slurm job ID."""
                 return run_quanting(quanting_env=quanting_env)

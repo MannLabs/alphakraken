@@ -76,6 +76,7 @@ class Pools:
     # pool to limit file copying across all instruments
     FILE_COPY_POOL = "file_copy_pool"  # suggested default: 3
 
+    # TODO: rename cluster -> slurm?
     # pool to limit the number of concurrent jobs on the cluster
     CLUSTER_SLOTS_POOL = "cluster_slots_pool"  #  suggested default: 30
 

@@ -48,7 +48,6 @@ class RawFileStatus:
     COPYING_DONE = "copying_done"
     ACQUISITION_FAILED = "acquisition_failed"
 
-    COMPUTING_MSQC = "computing_msqc"
     QUEUED_FOR_QUANTING = "queued_for_quanting"
     QUANTING = "quanting"
     QUANTING_FAILED = "quanting_failed"
@@ -246,7 +245,9 @@ class Settings(Document):
     }
     objects: ClassVar[QuerySet[Settings]]
 
-    number = IntField(min_value=1, unique=True, default=-1)
+    number = IntField(
+        min_value=1, unique=True, default=-1
+    )  # default only needed for legacy data
     name = StringField(required=True, max_length=64, regex=SETTINGS_NAME_REGEX)
     version = IntField(min_value=1, default=1)
     description = StringField(max_length=512)
@@ -266,10 +267,11 @@ class Settings(Document):
 
     metrics_type = StringField(required=True, max_length=128)
 
-    slurm_cpus_per_task = IntField(required=False, min_value=1)
-    slurm_mem = StringField(required=False, max_length=16)
-    slurm_time = StringField(required=False, max_length=16)
-    num_threads = IntField(required=False, min_value=1)
+    # TODO: remove defaults after migration
+    slurm_cpus_per_task = IntField(required=True, min_value=1, default=1)
+    slurm_mem = StringField(required=True, max_length=16, default="")
+    slurm_time = StringField(required=True, max_length=16, default="")
+    num_threads = IntField(required=True, min_value=1, default=1)
 
     status = StringField(max_length=64, default=SettingsStatus.ACTIVE)
 

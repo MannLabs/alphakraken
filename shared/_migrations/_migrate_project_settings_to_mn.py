@@ -63,11 +63,18 @@ def migrate(*, dry_run: bool) -> None:
         if not dry_run:
             project = Project.objects.get(id=project_id)
             settings = Settings.objects.get(id=settings_ref)
-            ProjectSettings(
-                project=project,
-                settings=settings,
-                scope=DEFAULT_SCOPE,
-            ).save()
+            if not ProjectSettings.objects(
+                project=project, settings=settings, scope=DEFAULT_SCOPE
+            ):
+                ProjectSettings(
+                    project=project,
+                    settings=settings,
+                    scope=DEFAULT_SCOPE,
+                ).save()
+            else:
+                logger.info(
+                    f"ProjectSettings already exists for project {project_id}, skipping."
+                )
 
         migrated += 1
 

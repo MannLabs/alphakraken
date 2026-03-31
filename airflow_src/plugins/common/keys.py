@@ -93,14 +93,6 @@ class XComKeys:
     FILES_DST_PATHS: str = "files_dst_paths"
     TARGET_FOLDER_PATH: str = "target_folder_path"
 
-    QUANTING_ENV: str = "quanting_env"
-
-    JOB_ID: str = "job_id"
-
-    METRICS: str = "metrics"
-    METRICS_TYPE: str = "metrics_type"
-    QUANTING_TIME_ELAPSED: str = "quanting_time_elapsed"
-
     FILES_TO_MOVE = "files_to_move"
     MAIN_FILE_TO_MOVE = "main_file_to_move"
     FILES_TO_REMOVE = "files_to_remove"
@@ -168,7 +160,7 @@ class QuantingEnv:
 
     METRICS_TYPE: str = "METRICS_TYPE"
 
-    PROJECT_ID_OR_FALLBACK: str = "PROJECT_ID_OR_FALLBACK"
+    PROJECT_ID_OR_FALLBACK: str = "PROJECT_ID_OR_FALLBACK"  # TODO: rename
     RAW_FILE_ID: str = "RAW_FILE_ID"
     SETTINGS_NAME: str = "SETTINGS_NAME"
     SETTINGS_VERSION: str = "SETTINGS_VERSION"

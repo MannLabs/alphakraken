@@ -145,6 +145,47 @@ columns:
     plot: true
     overlay: true
 
+  # DIA-NN metrics
+  # double-use: precursors, proteins, fwhm_rt
+  - name: "fwhm_scans"
+    color_gradient: "red_is_high"
+    plot: true
+  - name: "median_precursor_rt"
+    plot: true
+  - name: "total_quantity"
+    color_gradient: "green_is_high"
+    plot: true
+  - name: "ms1_signal"
+    color_gradient: "green_is_high"
+    plot: true
+  - name: "ms2_signal"
+    color_gradient: "green_is_high"
+    plot: true
+  - name: "median_mass_acc_ms1"
+    color_gradient: "red_is_high"
+    plot: true
+  - name: "median_mass_acc_ms1_corrected"
+    color_gradient: "red_is_high"
+    plot: true
+  - name: "median_mass_acc_ms2"
+    color_gradient: "red_is_high"
+    plot: true
+  - name: "median_mass_acc_ms2_corrected"
+    color_gradient: "red_is_high"
+    plot: true
+  - name: "normalisation_instability"
+    color_gradient: "red_is_high"
+    plot: true
+  - name: "median_rt_prediction_acc"
+    plot: true
+  - name: "average_peptide_length"
+    plot: true
+  - name: "average_peptide_charge"
+    plot: true
+  - name: "average_missed_tryptic_cleavages"
+    color_gradient: "red_is_high"
+    plot: true
+
   # Technical plots
   - name: "lag_time_minutes"
     color_gradient: "red_is_high"

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# year=2025; for dag_id in dag1 dag2; do for instrument in test1 test2; do for month in 01 02 03 04 05 06 07 08 09 10 11 12; do echo $year $month $dag_id $instrument; ~/archive_airflow_logs.sh . $year $month $dag_id.$instrument --delete; done; done
+# year=2025; for dag_id in dag1 dag2; do for instrument in test1 test2; do for month in 01 02 03 04 05 06 07 08 09 10 11 12; do echo $year $month $dag_id $instrument; ./archive_airflow_logs.sh . $year $month $dag_id.$instrument --delete; done; done; done
 
 usage() {
     echo "Usage: $0 LOG_BASE YEAR MONTH DAG_ID [--delete]"

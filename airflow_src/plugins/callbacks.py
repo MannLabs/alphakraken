@@ -44,8 +44,8 @@ def on_failure_callback(context: dict[str, Any], **kwargs) -> None:
         cleaned_dag_id = ti.dag_id.split(DAG_DELIMITER)[0]
         status_details = f"[{cleaned_dag_id}.{ti.task_id}] {ex!s}"
 
-        # Truncate to fit database field max_length of 512
-        max_status_length = 512
+        # Truncate to fit database field max_length of 1024
+        max_status_length = 1024
         if len(status_details) > max_status_length:
             status_details = status_details[: max_status_length - 3] + "..."
 

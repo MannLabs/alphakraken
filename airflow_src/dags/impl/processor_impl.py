@@ -6,6 +6,7 @@ from pathlib import Path
 
 from airflow.exceptions import AirflowFailException, AirflowSkipException
 from airflow.models import TaskInstance
+from airflow.utils.state import TaskInstanceState
 from common.constants import (
     DEFAULT_JOB_SCRIPT_NAME,
     ERROR_CODE_TO_STRING,
@@ -40,11 +41,12 @@ from mongoengine import DoesNotExist
 from shared.db.interface import (
     add_metrics_to_raw_file,
     get_raw_file_by_id,
-    resolve_settings_for_raw_file,
+    get_settings_for_raw_file,
     update_raw_file,
 )
 from shared.db.models import RawFile, RawFileStatus, Settings, get_created_at_year_month
 from shared.keys import MetricsTypes, SoftwareTypes
+from shared.scope import resolve_scoped_settings
 from shared.validation import check_for_malicious_content
 from shared.yamlsettings import YamlKeys, get_path
 
@@ -73,17 +75,21 @@ def prepare_quanting(
     project_id_or_fallback = _get_project_id_or_fallback(
         raw_file.project_id, instrument_id
     )
+    instrument_type = get_instrument_settings(instrument_id, InstrumentKeys.TYPE)
     try:
-        settings_list = resolve_settings_for_raw_file(project_id_or_fallback)
+        project_settings = get_settings_for_raw_file(project_id_or_fallback)
+        settings_list = resolve_scoped_settings(
+            project_settings, instrument_id, instrument_type
+        )
     except DoesNotExist as e:
         raise AirflowFailException(
             f"No project found with id '{project_id_or_fallback}'. Please add a project and settings in the WebApp."
         ) from e
 
     if not settings_list:
+        # this should not happen as this DAG should not be triggered if there are no settings
         raise AirflowFailException(
             f"No settings assigned to project '{project_id_or_fallback}'. "
-            "Please assign settings to this project in the WebApp."
         )
 
     # get raw file path
@@ -108,6 +114,7 @@ def prepare_quanting(
 
         custom_command = (
             _prepare_custom_command(
+                raw_file_id,
                 relative_output_path,
                 output_path,
                 relative_raw_file_path,
@@ -161,6 +168,7 @@ def prepare_quanting(
 
 
 def _prepare_custom_command(  # noqa: PLR0913 Too many arguments
+    raw_file_id: str,
     relative_output_path: Path,
     output_path: Path,
     relative_raw_file_path: Path,
@@ -171,33 +179,23 @@ def _prepare_custom_command(  # noqa: PLR0913 Too many arguments
     project_id: str,
 ) -> str:
     """Prepare the custom command for the quanting job."""
-    speclib_file_path = (
-        str(settings_path / settings.speclib_file_name)
-        if settings.speclib_file_name
-        else ""
-    )
-    fasta_file_path = (
-        str(settings_path / settings.fasta_file_name)
-        if settings.fasta_file_name
-        else ""
-    )
     if settings.config_params is None:
         substituted_params = ""
     else:
         substituted_params = settings.config_params
         replacements = {
             # mind the order of replacements here (LONGER placeholders first, e.g. RAW_FILE_PATH before RELATIVE_RAW_FILE_PATH)
-            "RELATIVE_RAW_FILE_PATH": str(relative_raw_file_path),
-            "RAW_FILE_PATH": str(raw_file_path),
-            "LIBRARY_PATH": speclib_file_path,
-            "RELATIVE_OUTPUT_PATH": str(relative_output_path),
-            "OUTPUT_PATH": str(output_path),
-            "FASTA_PATH": fasta_file_path,
-            "NUM_THREADS": str(num_threads),
+            "RELATIVE_RAW_FILE_PATH": relative_raw_file_path,
+            "RAW_FILE_PATH": raw_file_path,
+            "RAW_FILE_ID": raw_file_id,
+            "SETTINGS_PATH": settings_path,
+            "RELATIVE_OUTPUT_PATH": relative_output_path,
+            "OUTPUT_PATH": output_path,
+            "NUM_THREADS": num_threads,
             "PROJECT_ID": project_id,
         }
         for placeholder, new_value in replacements.items():
-            substituted_params = substituted_params.replace(placeholder, new_value)
+            substituted_params = substituted_params.replace(placeholder, str(new_value))
 
     software_base_path = get_path(YamlKeys.Locations.SOFTWARE)
     software_path = str(software_base_path / settings.software)
@@ -411,6 +409,7 @@ def check_quanting_result(*, quanting_env: dict, job_id: str) -> dict:
         elif job_status == JobStates.TIMEOUT:
             errors = ["TIMEOUT"]
         else:
+            # TODO: this seems not quite right
             errors = ["OUT_OF_MEMORY"]
 
         update_raw_file(
@@ -438,7 +437,6 @@ def check_quanting_result(*, quanting_env: dict, job_id: str) -> dict:
         raise AirflowSkipException("Job failed, skipping downstream tasks.")
 
     # unknown state: fail the DAG without retry
-    logging.info(f"Job {job_id} exited with status {job_status}.")
     raise AirflowFailException(f"Quanting failed: {job_status=}")
 
 
@@ -484,7 +482,7 @@ def upload_metrics(*, quanting_env: dict, metrics: dict, metrics_type: str) -> N
     )
 
 
-FAILED_STATES = {"failed", "upstream_failed"}
+FAILED_STATES = {TaskInstanceState.FAILED, TaskInstanceState.UPSTREAM_FAILED}
 _UPLOAD_METRICS_TASK_ID = f"{TaskGroups.QUANTING_PIPELINE}.{Tasks.UPLOAD_METRICS}"
 
 

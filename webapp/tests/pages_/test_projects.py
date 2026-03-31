@@ -16,7 +16,9 @@ PAGES_FOLDER = Path(__file__).parent / Path("../../pages_")
 @patch("shared.db.interface.ProjectSettings")
 @patch("service.db.get_project_data")
 @patch("service.db.df_from_db_data")
+@patch("service.components.show_filter", side_effect=lambda df, **_kw: (df,))
 def test_projects_display_table(
+    mock_show_filter: MagicMock,  # noqa: ARG001
     mock_df: MagicMock,
     mock_get_project: MagicMock,
     mock_project_settings_cls: MagicMock,
@@ -72,7 +74,7 @@ def test_projects_display_table(
     assert not at.exception
     table_data = at.table[0].value
     assert "settings" in table_data.columns
-    assert table_data.loc[0, "settings"] == "settings1 v1"
+    assert table_data.loc[0, "settings"] == "settings1 version 1"
     assert table_data.loc[1, "settings"] == ""
 
 
@@ -84,8 +86,17 @@ def test_add_new_project_form_submission(
     mock_get: MagicMock,  # noqa: ARG001
 ) -> None:
     """Test that add_project is called with correct arguments when form is submitted."""
+    # given
+    # project_id = "P1234"
+    # name = "new project"
+    # description = "some new project description"
+
+    # when
+    # Problem 1: this patching seems to interfere with the form
+    #    with patch("pages.projects.add_project") as mock_add_project:
     at = AppTest.from_file(f"{PAGES_FOLDER}/projects.py").run()
 
+    # Problem 2: this does not do anything on the form:
     at.text_input[1].set_value("123")
     at.text_input[2].set_value("1234")
     at.button[0].click()

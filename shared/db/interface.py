@@ -226,7 +226,10 @@ def get_all_project_ids() -> list[str]:
 
 # TODO: rename to assign_settings_to_project ?
 def create_project_settings(
-    project_id: str, settings_id: str, scope: str = DEFAULT_SCOPE
+    project_id: str,
+    settings_id: str,
+    scope: str = DEFAULT_SCOPE,
+    excluded: list[str] | None = None,
 ) -> ProjectSettings:
     """Create a new project-settings assignment."""
     connect_db()
@@ -234,16 +237,19 @@ def create_project_settings(
     settings = Settings.objects.get(id=settings_id)
     if settings.status == SettingsStatus.INACTIVE:
         raise ValueError(
-            f"Cannot assign archived settings '{settings.name}' v{settings.version}"
+            f"Cannot assign archived settings '{settings.name}' version {settings.version}"
         )
-    ps = ProjectSettings(project=project, settings=settings, scope=scope)
+    ps = ProjectSettings(
+        project=project, settings=settings, scope=scope, excluded=excluded or []
+    )
     ps.save()
     logging.info(
-        f"Created project-settings assignment: {project_id=} {settings.name=} {scope=}"
+        f"Created project-settings assignment: {project_id=} {settings.name=} {scope=} {excluded=}"
     )
     return ps
 
 
+# TODO: rename to unassign_settings_from_project ?
 def remove_project_settings(project_settings_id: str) -> None:
     """Remove a project-settings assignment by its ID."""
     connect_db()
@@ -257,11 +263,10 @@ def get_project_settings(project_id: str) -> list[ProjectSettings]:
     return list(ProjectSettings.objects(project=project_id).order_by("created_at_"))
 
 
-def resolve_settings_for_raw_file(project_id: str) -> list[Settings]:
-    """Resolve which settings apply to a raw file based on project assignments."""
+def get_settings_for_raw_file(project_id: str) -> list[ProjectSettings]:
+    """Get all project-settings assignments for a raw file's project."""
     connect_db()
-    project_settings = ProjectSettings.objects(project=project_id)
-    return [ps.settings for ps in project_settings]
+    return list(ProjectSettings.objects(project=project_id))
 
 
 def create_settings(  # noqa: PLR0913

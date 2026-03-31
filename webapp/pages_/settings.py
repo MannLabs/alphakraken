@@ -139,7 +139,7 @@ settings_name_options = [CREATE_NEW_OPTION, *existing_settings_names]
 selected_name_option = c1.selectbox(
     label="Action",
     options=settings_name_options,
-    format_func=lambda x: x if x == CREATE_NEW_OPTION else f"🔄 Update {x}",
+    format_func=lambda x: x if x == CREATE_NEW_OPTION else f"🔄 Update '{x}'",
 )
 
 # Show info banner if existing settings selected and get latest version data for prefilling
@@ -155,7 +155,7 @@ if selected_name_option != CREATE_NEW_OPTION:
 
     c1.info(
         f"This will create a new version ({current_version + 1}) of the existing settings '{selected_name_option}'. "
-        f"Projects always reference a specific version of settings, so existing projects using '{selected_name_option}' v{current_version} will not be affected. "
+        f"Projects always reference a specific version of settings, so existing projects using '{selected_name_option}' version {current_version} will not be affected. "
         "Make sure to updated (all or selected) projects to use the new version after creating it.",
         icon="ℹ️",  # noqa: RUF001
     )
@@ -172,6 +172,7 @@ if selected_name_option != CREATE_NEW_OPTION:
     }
 
 
+disable_software_type_selection = "software_type" in prefill_data
 software_type_options = [
     SoftwareTypes.ALPHADIA,
     SoftwareTypes.CUSTOM,
@@ -184,7 +185,10 @@ software_type_index = (
     else 0
 )
 software_type = c1.selectbox(
-    label="Type", options=software_type_options, index=software_type_index
+    label="Type",
+    options=software_type_options,
+    index=software_type_index,
+    disabled=disable_software_type_selection,
 )
 
 form_items = {
@@ -233,18 +237,6 @@ if software_type == SoftwareTypes.ALPHADIA:
 
 elif software_type == SoftwareTypes.CUSTOM:
     form_items |= {
-        "fasta_file_name": {
-            "label": "Fasta file name",
-            "max_chars": 64,
-            "placeholder": "e.g. 'human.fasta'",
-            "help": "Name of the fasta file.",
-        },
-        "speclib_file_name": {
-            "label": "Speclib file name",
-            "max_chars": 64,
-            "placeholder": "e.g. 'human_plasma.speclib'",
-            "help": "Name of the speclib file.",
-        },
         "software": {
             "label": "Executable*",
             "max_chars": 64,
@@ -265,8 +257,8 @@ elif software_type == SoftwareTypes.MSQC:
         "software": {
             "label": "Software*",
             "max_chars": 64,
-            "placeholder": "e.g. 'msqc-1.0.0'",
-            "help": "Name of the Conda environment that holds the MSQC executable.",
+            "placeholder": "e.g. 'msqc/run_msqc.sh'",
+            "help": f"Path to executable, relative to `{get_path(YamlKeys.Locations.SOFTWARE)}/`. Ask an administrator to add the executable to the software folder.",
         },
     }
 
@@ -328,23 +320,26 @@ with c1.form("create_settings"):
         else None
     )
 
-    if "config_params" in form_items:
-        config_params = st.text_area(
+    config_params = (
+        st.text_area(
             **form_items["config_params"],
             value=prefill_data.get("config_params", ""),
         )
+        if "config_params" in form_items
+        else None
+    )
+
+    if software_type == SoftwareTypes.CUSTOM:
         st.info(
             "The following placeholders can be used in the config parameters, and will be replaced by the specified values:\n\n"
+            "- `PROJECT_ID`: project id\n\n"
             "- `RAW_FILE_ID`: name of the raw file\n"
             "- `RAW_FILE_PATH`: absolute path of the raw file\n"
             "- `RELATIVE_RAW_FILE_PATH`: path of the raw file relative to `locations.backup.absolute_path` in alphakraken.yaml\n"
+            "- `SETTINGS_PATH`: absolute path of the settings directory\n"
             "- `OUTPUT_PATH`: absolute path of the output directory\n"
             "- `RELATIVE_OUTPUT_PATH`: path of the output directory relative to `locations.output.absolute_path` in alphakraken.yaml\n"
-            "- `SETTINGS_PATH`: absolute path of the settings directory\n"
-            "- `LIBRARY_PATH`: absolute path of the library file\n"
-            "- `FASTA_PATH`: absolute path of the fasta file\n"
             "- `NUM_THREADS`: number of threads\n"
-            "- `PROJECT_ID`: project id\n\n"
             "Notes:\n"
             "- The working directory of the custom software is `OUTPUT_PATH`.\n"
             "- If you require more than the provided placeholders, reference them directly by their absolute path.\n"
@@ -353,19 +348,12 @@ with c1.form("create_settings"):
         with st.expander("Example for DIANN..."):
             st.write("Executable: `diann-2.2.0/diann-linux`")
             st.code(
-                "--f RAW_FILE_PATH --lib LIBRARY_PATH --fasta FASTA_PATH --temp OUTPUT_PATH --threads NUM_THREADS --qvalue 0.01"
+                "--f RAW_FILE_PATH --lib SETTINGS_PATH/library.speclib --fasta SETTINGS_PATH/human.fasta --temp OUTPUT_PATH --threads NUM_THREADS --qvalue 0.01"
             )
         with st.expander("Example for Spectronaut..."):
             st.write("Executable: `run_spectronaut.sh` (cf. folder `misc/software`)")
             st.code(
-                "direct -n alphakraken -r RAW_FILE_PATH -fasta FASTA_PATH -o OUTPUT_PATH -s /path/to/settings/alphakraken.prop"
-            )
-        with st.expander("Example for Skyline..."):
-            st.write(
-                "Executable: `skyline/run_skyline.sh` (cf. folder `misc/software`)"
-            )
-            st.code(
-                "--in iRT_windows.sky --irt-database-path irt_c18_official.irtdb --report-add custom_iRT_report.skyr"
+                "direct -n alphakraken -r RAW_FILE_PATH -fasta SETTINGS_PATH/human.fasta -o OUTPUT_PATH -s /path/to/settings/alphakraken.prop"
             )
     else:
         config_params = None

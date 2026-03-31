@@ -22,3 +22,8 @@
 - **`finalize_raw_file_status` skipped-state bug**: When a job fails, `check_quanting_result` raises `AirflowSkipException`, marking `upload_metrics` as "skipped". But `finalize_raw_file_status` only checks for "failed"/"upstream_failed" — not "skipped". A failed branch may be treated as successful. Deferred per decision.
 - **Double status write on branch failure**: `check_quanting_result` sets `QUANTING_FAILED` per-branch, then `finalize_raw_file_status` overwrites to `ERROR`. Need to decide on single source of truth for final status.
 - string constants for "alphadia", "custom", etc
+- get rid of "FALLBACK_BRUKER"
+- get rid of "project_id_or_fallback"
+- disallow to edit fallback
+- clean up the results table, considering multiple settings
+- "*" should be "all"

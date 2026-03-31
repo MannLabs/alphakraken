@@ -14,6 +14,7 @@ from mongoengine import (
     Document,
     DynamicDocument,
     IntField,
+    ListField,
     QuerySet,
     ReferenceField,
     StringField,
@@ -273,6 +274,7 @@ class ProjectSettings(Document):
     project = ReferenceField(Project, required=True)
     settings = ReferenceField(Settings, required=True)
     scope = StringField(max_length=64, default="*")
+    excluded = ListField(StringField(max_length=64), default=list)
     created_at_ = DateTimeField(default=datetime.now)
 
 

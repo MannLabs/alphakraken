@@ -44,7 +44,7 @@ from raw_file_wrapper_factory import (
 
 from shared.db.interface import (
     get_raw_file_by_id,
-    resolve_settings_for_raw_file,
+    get_settings_for_raw_file,
     update_raw_file,
 )
 from shared.db.models import (
@@ -59,6 +59,7 @@ from shared.db.models import (
 from shared.keys import (
     DDA_FLAG_IN_RAW_FILE_NAME,
 )
+from shared.scope import resolve_scoped_settings
 from shared.validation import FORBIDDEN_RAW_FILE_NAME_CHARACTERS_PATTERN
 from shared.yamlsettings import YamlKeys, get_path, is_s3_upload_enabled
 
@@ -375,7 +376,13 @@ def _is_settings_configured(raw_file: RawFile) -> bool:
     project_id_or_fallback = _get_project_id_or_fallback(
         raw_file.project_id, raw_file.instrument_id
     )
-    settings_list = resolve_settings_for_raw_file(project_id_or_fallback)
+    instrument_type = get_instrument_settings(
+        raw_file.instrument_id, InstrumentKeys.TYPE
+    )
+    project_settings = get_settings_for_raw_file(project_id_or_fallback)
+    settings_list = resolve_scoped_settings(
+        project_settings, raw_file.instrument_id, instrument_type
+    )
     return len(settings_list) > 0
 
 

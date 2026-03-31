@@ -620,7 +620,7 @@ def _extract_errors(
 def _build_status_details(errors: list[tuple[str, str]]) -> str:
     """Join per-branch error tuples into a single status_details string, truncating if needed."""
     details = "; ".join(f"[{name}] {err}" for name, err in errors)
-    details = f"error while processing settings: {details}"
+    details = f"error while processing: {details}"
     if len(details) > MAX_STATUS_DETAILS_LENGTH:
         details = details[: MAX_STATUS_DETAILS_LENGTH - 3] + "..."
     return details

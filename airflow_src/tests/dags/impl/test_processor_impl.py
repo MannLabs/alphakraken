@@ -6,10 +6,12 @@ from unittest.mock import MagicMock, call, mock_open, patch
 
 import pytest
 import pytz
-from airflow.exceptions import AirflowFailException, AirflowSkipException
+from airflow.exceptions import AirflowFailException
 from common.settings import _INSTRUMENTS
 from dags.impl.processor_impl import (
     _TASK_GROUP_PREFIX,
+    QuantingFailedKnownErrorException,
+    QuantingFailedNewErrorException,
     _create_quanting_env,
     _extract_errors,
     _get_slurm_job_id_from_log,
@@ -632,7 +634,7 @@ def test_check_quanting_result_unknown_job_status(
         check_quanting_result(quanting_env=quanting_env, job_id="12345", ti=mock_ti)
 
     mock_put_xcom.assert_called_once_with(
-        mock_ti, key=XComKeys.BRANCH_ERRORS, value="unknown_job_status:SOME_JOB_STATE"
+        mock_ti, key=XComKeys.BRANCH_ERRORS, value="unknown_job_status: SOME_JOB_STATE"
     )
 
 
@@ -640,11 +642,9 @@ def test_check_quanting_result_unknown_job_status(
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.get_job_result")
 @patch("dags.impl.processor_impl.get_business_errors")
-@patch("dags.impl.processor_impl.update_raw_file")
 @patch("dags.impl.processor_impl.add_metrics_to_raw_file")
-def test_check_quanting_result_business_error(  # noqa: PLR0913
+def test_check_quanting_result_business_error(
     mock_add_metrics: MagicMock,
-    mock_update_raw_file: MagicMock,
     mock_get_business_errors: MagicMock,
     mock_get_job_result: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
@@ -668,18 +668,13 @@ def test_check_quanting_result_business_error(  # noqa: PLR0913
     mock_ti = MagicMock()
 
     # when
-    with pytest.raises(AirflowSkipException):
+    with pytest.raises(QuantingFailedKnownErrorException):
         check_quanting_result(quanting_env=quanting_env, job_id="12345", ti=mock_ti)
 
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
     mock_get_business_errors.assert_called_once_with(
         mock_raw_file,
         Path("/opt/airflow/mounts/output/PID1/out_test_file.raw/alphadia"),
-    )
-    mock_update_raw_file.assert_called_once_with(
-        "test_file.raw",
-        new_status="quanting_failed",
-        status_details="error1;error2",
     )
     mock_add_metrics.assert_called_once_with(
         "test_file.raw",
@@ -698,11 +693,9 @@ def test_check_quanting_result_business_error(  # noqa: PLR0913
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.get_job_result")
 @patch("dags.impl.processor_impl.get_business_errors")
-@patch("dags.impl.processor_impl.update_raw_file")
 @patch("dags.impl.processor_impl.add_metrics_to_raw_file")
-def test_check_quanting_result_business_error_raises(  # noqa: PLR0913
+def test_check_quanting_result_business_error_raises(
     mock_add_metrics: MagicMock,
-    mock_update_raw_file: MagicMock,
     mock_get_business_errors: MagicMock,
     mock_get_job_result: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
@@ -726,18 +719,13 @@ def test_check_quanting_result_business_error_raises(  # noqa: PLR0913
     mock_ti = MagicMock()
 
     # when
-    with pytest.raises(AirflowFailException):
+    with pytest.raises(QuantingFailedNewErrorException):
         check_quanting_result(quanting_env=quanting_env, job_id="12345", ti=mock_ti)
 
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
     mock_get_business_errors.assert_called_once_with(
         mock_raw_file,
         Path("/opt/airflow/mounts/output/PID1/out_test_file.raw/alphadia"),
-    )
-    mock_update_raw_file.assert_called_once_with(
-        "test_file.raw",
-        new_status="quanting_failed",
-        status_details="error1;__UNKNOWN_ERROR",
     )
     mock_add_metrics.assert_called_once_with(
         "test_file.raw",
@@ -755,11 +743,9 @@ def test_check_quanting_result_business_error_raises(  # noqa: PLR0913
 @patch("dags.impl.processor_impl.put_xcom")
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.get_job_result")
-@patch("dags.impl.processor_impl.update_raw_file")
 @patch("dags.impl.processor_impl.add_metrics_to_raw_file")
 def test_check_quanting_result_timeout(
     mock_add_metrics: MagicMock,
-    mock_update_raw_file: MagicMock,
     mock_get_job_result: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
     mock_put_xcom: MagicMock,
@@ -780,15 +766,10 @@ def test_check_quanting_result_timeout(
     mock_ti = MagicMock()
 
     # when
-    with pytest.raises(AirflowSkipException):
+    with pytest.raises(QuantingFailedKnownErrorException):
         check_quanting_result(quanting_env=quanting_env, job_id="12345", ti=mock_ti)
 
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
-    mock_update_raw_file.assert_called_once_with(
-        "test_file.raw",
-        new_status="quanting_failed",
-        status_details="TIMEOUT",
-    )
     mock_add_metrics.assert_called_once_with(
         "test_file.raw",
         metrics={"quanting_time_elapsed": 522},
@@ -805,11 +786,9 @@ def test_check_quanting_result_timeout(
 @patch("dags.impl.processor_impl.put_xcom")
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.get_job_result")
-@patch("dags.impl.processor_impl.update_raw_file")
 @patch("dags.impl.processor_impl.add_metrics_to_raw_file")
 def test_check_quanting_result_oom(
     mock_add_metrics: MagicMock,
-    mock_update_raw_file: MagicMock,
     mock_get_job_result: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
     mock_put_xcom: MagicMock,
@@ -830,15 +809,10 @@ def test_check_quanting_result_oom(
     mock_ti = MagicMock()
 
     # when
-    with pytest.raises(AirflowSkipException):
+    with pytest.raises(QuantingFailedKnownErrorException):
         check_quanting_result(quanting_env=quanting_env, job_id="12345", ti=mock_ti)
 
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
-    mock_update_raw_file.assert_called_once_with(
-        "test_file.raw",
-        new_status="quanting_failed",
-        status_details="OUT_OF_MEMORY",
-    )
     mock_add_metrics.assert_called_once_with(
         "test_file.raw",
         metrics={"quanting_time_elapsed": 522},
@@ -1071,7 +1045,7 @@ def test_finalize_sets_error_on_airflow_failures(
     mock_update.assert_called_once_with(
         "test.raw",
         new_status=RawFileStatus.ERROR,
-        status_details="settings_B: UNKNOWN_ERROR",
+        status_details="error while processing: [settings_B] UNKNOWN_ERROR",
     )
 
 
@@ -1095,7 +1069,7 @@ def test_finalize_sets_quanting_failed_on_business_errors(
     mock_update.assert_called_once_with(
         "test.raw",
         new_status=RawFileStatus.QUANTING_FAILED,
-        status_details="settings_A: OUT_OF_MEMORY",
+        status_details="error while processing: [settings_A] OUT_OF_MEMORY",
     )
 
 
@@ -1121,7 +1095,7 @@ def test_finalize_error_takes_priority_over_business_errors(
     mock_update.assert_called_once_with(
         "test.raw",
         new_status=RawFileStatus.ERROR,
-        status_details="settings_A: failed at run_quanting; settings_B: TIMEOUT",
+        status_details="error while processing: [settings_A] failed at run_quanting; [settings_B] TIMEOUT",
     )
 
 

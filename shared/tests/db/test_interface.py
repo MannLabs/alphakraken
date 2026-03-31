@@ -208,6 +208,7 @@ def test_add_metrics_to_raw_file_happy_path(
         metrics={"metric1": 1, "metric2": 2},
         settings_name="test_settings",
         settings_version=1,
+        output_path="/data/output/P1/out_test_file/alphadia",
     )
 
     # then
@@ -219,6 +220,7 @@ def test_add_metrics_to_raw_file_happy_path(
         type="alphadia",
         settings_name="test_settings",
         settings_version=1,
+        output_path="/data/output/P1/out_test_file/alphadia",
         metric1=1,
         metric2=2,
     )

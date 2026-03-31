@@ -44,7 +44,7 @@ from raw_file_wrapper_factory import (
 
 from shared.db.interface import (
     get_raw_file_by_id,
-    get_settings_for_project,
+    resolve_settings_for_raw_file,
     update_raw_file,
 )
 from shared.db.models import (
@@ -375,8 +375,8 @@ def _is_settings_configured(raw_file: RawFile) -> bool:
     project_id_or_fallback = _get_project_id_or_fallback(
         raw_file.project_id, raw_file.instrument_id
     )
-    settings = get_settings_for_project(project_id_or_fallback)
-    return settings is not None
+    settings_list = resolve_settings_for_raw_file(project_id_or_fallback)
+    return len(settings_list) > 0
 
 
 def decide_processing(ti: TaskInstance, **kwargs) -> bool:

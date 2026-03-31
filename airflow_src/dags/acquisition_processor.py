@@ -81,12 +81,11 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
 
         @task_group(group_id=TaskGroups.QUANTING_PIPELINE)
         def quanting_pipeline(quanting_env: dict) -> None:
+            """The quanting pipeline that runs for every quanting_env."""
+
             @task(task_id=Tasks.RUN_QUANTING, pool=Pools.CLUSTER_SLOTS_POOL)
-            def run_quanting_task(
-                quanting_env: dict, ti: TaskInstance | None = None
-            ) -> str:
-                """Run quantina and return the Slurm job ID."""
-                assert ti is not None
+            def run_quanting_task(quanting_env: dict) -> str:
+                """Run quanting and return the Slurm job ID."""
                 return run_quanting(quanting_env=quanting_env)
 
             wait_ = WaitForJobStartSensor(

@@ -1,5 +1,9 @@
 """Constants."""
 
+from dataclasses import dataclass
+
+from shared.keys import SoftwareTypes
+
 # prefix for the queues the DAGs are assigned to (cf. docker-compose.yaml)
 AIRFLOW_QUEUE_PREFIX = "kraken_queue_"
 
@@ -89,3 +93,30 @@ class AlphaDiaConstants:
     LOG_FILE_NAME = "log.txt"
     EVENTS_FILE_NAME = "events.jsonl"
     PROGRESS_FOLDER_NAME = "quant"
+
+
+@dataclass(frozen=True)
+class SlurmParams:
+    """Resource parameters for a Slurm job."""
+
+    cpus_per_task: int
+    mem: str
+    time: str
+    num_threads: int
+
+
+# TODO: this should be settable via UI
+SOFTWARE_TYPE_TO_SLURM_PARAMS: dict[str, SlurmParams] = {
+    SoftwareTypes.ALPHADIA: SlurmParams(
+        cpus_per_task=8, mem="62G", time="02:00:00", num_threads=8
+    ),
+    SoftwareTypes.CUSTOM: SlurmParams(
+        cpus_per_task=8, mem="62G", time="02:00:00", num_threads=8
+    ),
+    SoftwareTypes.MSQC: SlurmParams(
+        cpus_per_task=2, mem="31G", time="00:10:00", num_threads=2
+    ),
+    SoftwareTypes.SKYLINE: SlurmParams(
+        cpus_per_task=2, mem="31G", time="00:10:00", num_threads=2
+    ),
+}

@@ -23,33 +23,33 @@ def get_combined_raw_files_and_metrics_df(
     )
     raw_files_df = df_from_db_data(raw_files_db)
 
-    # get metrics 1: a raw file should have either alphadia or custom metrics, not both
-    alphadia_metrics_df = df_from_db_data(
-        metrics_db,
-        filter_dict={"type": MetricsTypes.ALPHADIA},
-        drop_duplicates=["raw_file"],
-        drop_columns=["_id", "created_at_"],
-        drop_none_columns=True,
-    )
-    custom_metrics_df = df_from_db_data(
-        metrics_db,
-        filter_dict={"type": MetricsTypes.CUSTOM},
-        drop_duplicates=["raw_file"],
-        drop_columns=["_id", "created_at_"],
-        drop_none_columns=True,
-    )
-
-    if len(alphadia_metrics_df) and len(custom_metrics_df):
-        metrics_df = alphadia_metrics_df.merge(
-            how="outer",
-            right=custom_metrics_df,
-            on="raw_file",
-            suffixes=("", f"_{MetricsTypes.CUSTOM}"),
+    # merge metrics of each type into a single DataFrame
+    metrics_types = [
+        MetricsTypes.ALPHADIA,
+        MetricsTypes.CUSTOM,
+        MetricsTypes.MSQC,
+        MetricsTypes.SKYLINE,
+    ]
+    metrics_df = pd.DataFrame()
+    for metrics_type in metrics_types:
+        type_df = df_from_db_data(
+            metrics_db,
+            filter_dict={"type": metrics_type},
+            drop_duplicates=["raw_file"],
+            drop_columns=["_id", "created_at_"],
+            drop_none_columns=True,
         )
-    elif len(alphadia_metrics_df):
-        metrics_df = alphadia_metrics_df
-    else:
-        metrics_df = custom_metrics_df
+        if len(type_df) == 0:
+            continue
+        if len(metrics_df) == 0:
+            metrics_df = type_df
+        else:
+            metrics_df = metrics_df.merge(
+                type_df,
+                on="raw_file",
+                how="outer",
+                suffixes=("", f"_{metrics_type}"),
+            )
 
     if len(raw_files_df) == 0:
         # TODO: improve -> move st dependency out
@@ -60,35 +60,12 @@ def get_combined_raw_files_and_metrics_df(
             st.dataframe(metrics_df)
         return pd.DataFrame(), data_timestamp
 
-    # the joining could also be done on DB level
     if len(metrics_df) > 0:
         combined_df = raw_files_df.merge(
             metrics_df, left_on="_id", right_on="raw_file", how="left"
         )
     else:
         combined_df = raw_files_df
-
-    # get metrics 2: each raw file can additionally have MSQC metrics
-    if len(
-        msqc_metrics_df := df_from_db_data(
-            metrics_db,
-            filter_dict={"type": MetricsTypes.MSQC},
-            drop_duplicates=["raw_file"],
-            drop_columns=["_id", "created_at_"],
-        )
-    ):
-        combined_df = combined_df.merge(
-            msqc_metrics_df,
-            left_on="_id",
-            right_on="raw_file",
-            how="left",
-            suffixes=("", f"_{MetricsTypes.MSQC}"),
-        )
-        combined_df.drop(
-            columns=[f"raw_file_{MetricsTypes.MSQC}"],
-            inplace=True,  # noqa: PD002
-            errors="ignore",
-        )
 
     # conversions
     combined_df["size_gb"] = combined_df["size"] / 1024**3

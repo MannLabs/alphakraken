@@ -223,8 +223,6 @@ class Project(Document):
     name = StringField(required=True, max_length=64)
     description = StringField(max_length=512)
 
-    settings = ReferenceField("Settings", required=False)
-
     status = StringField(max_length=32, default=ProjectStatus.ACTIVE)
 
     # missing: created by
@@ -263,6 +261,18 @@ class Settings(Document):
 
     status = StringField(max_length=64, default=SettingsStatus.ACTIVE)
 
+    created_at_ = DateTimeField(default=datetime.now)
+
+
+class ProjectSettings(Document):
+    """Intermediate model for M:N Project-Settings assignments."""
+
+    meta: ClassVar = {"strict": False, "auto_create_index": False}
+    objects: ClassVar[QuerySet[ProjectSettings]]
+
+    project = ReferenceField(Project, required=True)
+    settings = ReferenceField(Settings, required=True)
+    scope = StringField(max_length=64, default="*")
     created_at_ = DateTimeField(default=datetime.now)
 
 

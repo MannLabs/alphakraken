@@ -9,6 +9,7 @@ from airflow.models import TaskInstance
 from common.constants import (
     DEFAULT_JOB_SCRIPT_NAME,
     ERROR_CODE_TO_STRING,
+    SOFTWARE_TYPE_TO_SLURM_PARAMS,
     AlphaDiaConstants,
 )
 from common.keys import (
@@ -39,7 +40,7 @@ from mongoengine import DoesNotExist
 from shared.db.interface import (
     add_metrics_to_raw_file,
     get_raw_file_by_id,
-    get_settings_for_project,
+    resolve_settings_for_raw_file,
     update_raw_file,
 )
 from shared.db.models import RawFile, RawFileStatus, Settings, get_created_at_year_month
@@ -52,6 +53,7 @@ SOFTWARE_TYPE_TO_METRICS_TYPE = {
     SoftwareTypes.ALPHADIA: MetricsTypes.ALPHADIA,
     SoftwareTypes.CUSTOM: MetricsTypes.CUSTOM,
     SoftwareTypes.MSQC: MetricsTypes.MSQC,
+    SoftwareTypes.SKYLINE: MetricsTypes.SKYLINE,
 }
 
 
@@ -66,29 +68,23 @@ def prepare_quanting(
     raw_file_id: str, instrument_id: str
 ) -> list[dict[str, str | int]]:
     """Prepare the environmental variables for the quanting job."""
-    # TODO: make these configurable
-    cpus_per_task = 8
-    num_threads = 8
-    mem = "62G"
-    time = "02:00:00"
-
     raw_file = get_raw_file_by_id(raw_file_id)
 
     project_id_or_fallback = _get_project_id_or_fallback(
         raw_file.project_id, instrument_id
     )
     try:
-        settings = get_settings_for_project(project_id_or_fallback)
+        settings_list = resolve_settings_for_raw_file(project_id_or_fallback)
     except DoesNotExist as e:
         raise AirflowFailException(
             f"No project found with id '{project_id_or_fallback}'. Please add a project and settings in the WebApp."
         ) from e
-    else:
-        if settings is None:
-            raise AirflowFailException(
-                f"No settings assigned to project '{project_id_or_fallback}'. "
-                "Please assign settings to this project in the WebApp."
-            )
+
+    if not settings_list:
+        raise AirflowFailException(
+            f"No settings assigned to project '{project_id_or_fallback}'. "
+            "Please assign settings to this project in the WebApp."
+        )
 
     # get raw file path
     backup_base_path = get_path(YamlKeys.Locations.BACKUP)
@@ -96,57 +92,72 @@ def prepare_quanting(
     relative_raw_file_path = Path(instrument_id) / year_month_subfolder / raw_file_id
     raw_file_path = backup_base_path / relative_raw_file_path
 
-    # get settings and output_path
-    settings_path = get_path(YamlKeys.Locations.SETTINGS) / settings.name
+    quanting_envs: list[dict[str, str | int]] = []
+    for settings in settings_list:
+        settings_path = get_path(YamlKeys.Locations.SETTINGS) / settings.name
 
-    relative_output_path = get_output_folder_rel_path(raw_file, project_id_or_fallback)
-    output_path = get_path(YamlKeys.Locations.OUTPUT) / relative_output_path
-
-    custom_command = (
-        _prepare_custom_command(
-            relative_output_path,
-            output_path,
-            relative_raw_file_path,
-            raw_file_path,
-            settings,
-            settings_path,
-            num_threads,
-            project_id_or_fallback,
+        relative_output_path = get_output_folder_rel_path(
+            raw_file, project_id_or_fallback, settings_type=settings.software_type
         )
-        if settings.software_type == SoftwareTypes.CUSTOM
-        else ""
-    )
+        output_path = get_path(YamlKeys.Locations.OUTPUT) / relative_output_path
 
-    quanting_env: dict[str, str | int] = {
-        QuantingEnv.RAW_FILE_PATH: str(raw_file_path),
-        QuantingEnv.SETTINGS_PATH: str(settings_path),
-        QuantingEnv.OUTPUT_PATH: str(output_path),
-        QuantingEnv.RELATIVE_OUTPUT_PATH: str(relative_output_path),
-        QuantingEnv.SPECLIB_FILE_NAME: settings.speclib_file_name,  # TODO: construct path here
-        QuantingEnv.FASTA_FILE_NAME: settings.fasta_file_name,  # TODO: construct path here
-        QuantingEnv.CONFIG_FILE_NAME: settings.config_file_name,  # TODO: construct path here
-        QuantingEnv.SOFTWARE: settings.software,
-        QuantingEnv.SOFTWARE_TYPE: settings.software_type,
-        QuantingEnv.METRICS_TYPE: SOFTWARE_TYPE_TO_METRICS_TYPE[settings.software_type],
-        QuantingEnv.CUSTOM_COMMAND: custom_command,
-        # job parameters
-        QuantingEnv.SLURM_CPUS_PER_TASK: cpus_per_task,
-        QuantingEnv.SLURM_MEM: mem,
-        QuantingEnv.SLURM_TIME: time,
-        QuantingEnv.NUM_THREADS: num_threads,
-        # not required for slurm script:
-        QuantingEnv.RAW_FILE_ID: raw_file_id,
-        QuantingEnv.PROJECT_ID_OR_FALLBACK: project_id_or_fallback,
-        QuantingEnv.SETTINGS_NAME: settings.name,
-        QuantingEnv.SETTINGS_VERSION: settings.version,
-    }
+        internal_output_path = get_internal_output_path_for_raw_file(
+            raw_file, project_id_or_fallback, settings_type=settings.software_type
+        )
+        slurm_params = SOFTWARE_TYPE_TO_SLURM_PARAMS[settings.software_type]
 
-    if errors := _check_content(quanting_env, settings):
-        raise AirflowFailException(
-            f"Validation errors in quanting environment: {errors}"
+        custom_command = (
+            _prepare_custom_command(
+                relative_output_path,
+                output_path,
+                relative_raw_file_path,
+                raw_file_path,
+                settings,
+                settings_path,
+                slurm_params.num_threads,
+                project_id_or_fallback,
+            )
+            # MSQC and skyline are treated as a 'custom command'
+            if settings.software_type
+            in [SoftwareTypes.CUSTOM, SoftwareTypes.SKYLINE, SoftwareTypes.MSQC]
+            else ""
         )
 
-    return [quanting_env]
+        quanting_env: dict[str, str | int] = {
+            QuantingEnv.RAW_FILE_PATH: str(raw_file_path),
+            QuantingEnv.SETTINGS_PATH: str(settings_path),
+            QuantingEnv.OUTPUT_PATH: str(output_path),
+            QuantingEnv.RELATIVE_OUTPUT_PATH: str(relative_output_path),
+            QuantingEnv.SPECLIB_FILE_NAME: settings.speclib_file_name,  # TODO: construct path here
+            QuantingEnv.FASTA_FILE_NAME: settings.fasta_file_name,  # TODO: construct path here
+            QuantingEnv.CONFIG_FILE_NAME: settings.config_file_name,  # TODO: construct path here
+            QuantingEnv.SOFTWARE: settings.software,
+            QuantingEnv.SOFTWARE_TYPE: settings.software_type,
+            QuantingEnv.METRICS_TYPE: SOFTWARE_TYPE_TO_METRICS_TYPE[
+                settings.software_type
+            ],
+            QuantingEnv.CUSTOM_COMMAND: custom_command,
+            # job parameters
+            QuantingEnv.SLURM_CPUS_PER_TASK: slurm_params.cpus_per_task,
+            QuantingEnv.SLURM_MEM: slurm_params.mem,
+            QuantingEnv.SLURM_TIME: slurm_params.time,
+            QuantingEnv.NUM_THREADS: slurm_params.num_threads,
+            # not required for slurm script:
+            QuantingEnv.RAW_FILE_ID: raw_file_id,
+            QuantingEnv.PROJECT_ID_OR_FALLBACK: project_id_or_fallback,
+            QuantingEnv.SETTINGS_NAME: settings.name,
+            QuantingEnv.SETTINGS_VERSION: settings.version,
+            QuantingEnv.INTERNAL_OUTPUT_PATH: str(internal_output_path),
+        }
+
+        if errors := _check_content(quanting_env, settings):
+            raise AirflowFailException(
+                f"Validation errors in quanting environment: {errors}"
+            )
+
+        quanting_envs.append(quanting_env)
+
+    return quanting_envs
 
 
 def _prepare_custom_command(  # noqa: PLR0913 Too many arguments
@@ -170,21 +181,23 @@ def _prepare_custom_command(  # noqa: PLR0913 Too many arguments
         if settings.fasta_file_name
         else ""
     )
-    substituted_params = settings.config_params
-
-    replacements = {
-        # mind the order of replacements here (LONGER placeholders first, e.g. RAW_FILE_PATH before RELATIVE_RAW_FILE_PATH)
-        "RELATIVE_RAW_FILE_PATH": str(relative_raw_file_path),
-        "RAW_FILE_PATH": str(raw_file_path),
-        "LIBRARY_PATH": speclib_file_path,
-        "RELATIVE_OUTPUT_PATH": str(relative_output_path),
-        "OUTPUT_PATH": str(output_path),
-        "FASTA_PATH": fasta_file_path,
-        "NUM_THREADS": str(num_threads),
-        "PROJECT_ID": project_id,
-    }
-    for placeholder, new_value in replacements.items():
-        substituted_params = substituted_params.replace(placeholder, new_value)
+    if settings.config_params is None:
+        substituted_params = ""
+    else:
+        substituted_params = settings.config_params
+        replacements = {
+            # mind the order of replacements here (LONGER placeholders first, e.g. RAW_FILE_PATH before RELATIVE_RAW_FILE_PATH)
+            "RELATIVE_RAW_FILE_PATH": str(relative_raw_file_path),
+            "RAW_FILE_PATH": str(raw_file_path),
+            "LIBRARY_PATH": speclib_file_path,
+            "RELATIVE_OUTPUT_PATH": str(relative_output_path),
+            "OUTPUT_PATH": str(output_path),
+            "FASTA_PATH": fasta_file_path,
+            "NUM_THREADS": str(num_threads),
+            "PROJECT_ID": project_id,
+        }
+        for placeholder, new_value in replacements.items():
+            substituted_params = substituted_params.replace(placeholder, new_value)
 
     software_base_path = get_path(YamlKeys.Locations.SOFTWARE)
     software_path = str(software_base_path / settings.software)
@@ -200,6 +213,7 @@ def _check_content(quanting_env: dict[str, str | int], settings: Settings) -> li
         QuantingEnv.RAW_FILE_PATH,
         QuantingEnv.SETTINGS_PATH,
         QuantingEnv.OUTPUT_PATH,
+        QuantingEnv.INTERNAL_OUTPUT_PATH,
         QuantingEnv.SOFTWARE,
     ]
 
@@ -267,6 +281,8 @@ def run_quanting(
     :param job_script_name: The name of the job script to run, default is DEFAULT_JOB_SCRIPT_NAME.
     :return: The Slurm job ID as a string.
     """
+    logging.info(f"Starting quanting with environment: {quanting_env}")
+
     raw_file = get_raw_file_by_id(quanting_env[QuantingEnv.RAW_FILE_ID])
 
     if get_instrument_settings(raw_file.instrument_id, InstrumentKeys.SKIP_QUANTING):
@@ -276,11 +292,8 @@ def run_quanting(
         raise AirflowSkipException("Skipping quanting due to instrument settings.")
 
     # upfront check 2
-    output_path = get_internal_output_path_for_raw_file(
-        raw_file,
-        project_id_or_fallback=quanting_env[QuantingEnv.PROJECT_ID_OR_FALLBACK],
-    )
-    if output_path_check and Path(output_path).exists():
+    output_path = Path(quanting_env[QuantingEnv.INTERNAL_OUTPUT_PATH])
+    if output_path_check and output_path.exists():
         msg = f"Output path {output_path} already exists with different content."
         output_exists_mode = get_airflow_variable(
             AirflowVars.OUTPUT_EXISTS_MODE, "raise"
@@ -346,10 +359,8 @@ def _get_other_error_codes(output_path: Path) -> str:
     return CustomAlphaDiaStates.COULD_NOT_DETERMINE_ERROR
 
 
-def get_business_errors(raw_file: RawFile, project_id: str) -> list[str]:
+def get_business_errors(raw_file: RawFile, output_path: Path) -> list[str]:
     """Extract business errors from the alphaDIA output."""
-    output_path = get_internal_output_path_for_raw_file(raw_file, project_id)
-
     raw_file_progress_subfolder = Path(raw_file.id).stem
     events_jsonl_path = (
         output_path
@@ -389,11 +400,14 @@ def check_quanting_result(*, quanting_env: dict, job_id: str) -> dict:
     if job_status in [JobStates.FAILED, JobStates.TIMEOUT] or job_status.startswith(
         JobStates.OUT_OF_MEMORY
     ):
-        project_id = quanting_env[QuantingEnv.PROJECT_ID_OR_FALLBACK]
         raw_file = get_raw_file_by_id(quanting_env[QuantingEnv.RAW_FILE_ID])
+        output_path = Path(quanting_env[QuantingEnv.INTERNAL_OUTPUT_PATH])
 
         if job_status == JobStates.FAILED:
-            errors = get_business_errors(raw_file, project_id)
+            if quanting_env[QuantingEnv.SOFTWARE_TYPE] == SoftwareTypes.ALPHADIA:
+                errors = get_business_errors(raw_file, output_path)
+            else:
+                errors = ["FAILED"]
         elif job_status == JobStates.TIMEOUT:
             errors = ["TIMEOUT"]
         else:
@@ -439,12 +453,8 @@ def compute_metrics(
     :param quanting_time_elapsed: Elapsed time from the quanting job, added to metrics if provided.
     :return: Dict with ``metrics`` and ``metrics_type``.
     """
-    raw_file = get_raw_file_by_id(quanting_env[QuantingEnv.RAW_FILE_ID])
     metrics_type = quanting_env[QuantingEnv.METRICS_TYPE]
-
-    output_path = get_internal_output_path_for_raw_file(
-        raw_file, quanting_env[QuantingEnv.PROJECT_ID_OR_FALLBACK]
-    )
+    output_path = Path(quanting_env[QuantingEnv.INTERNAL_OUTPUT_PATH])
 
     metrics = calc_metrics(output_path, metrics_type=metrics_type)
 
@@ -495,7 +505,7 @@ def finalize_raw_file_status(ti: TaskInstance, raw_file_id: str) -> None:
             f"{len(failed)} of {len(upload_tis)} branches failed for raw file {raw_file_id}."
         )
         update_raw_file(raw_file_id, new_status=RawFileStatus.ERROR)
-        raise AirflowFailException("At least on task has failed.")
+        raise AirflowFailException("At least one task has failed.")
         # TODO: how to handle status_details? accumulate during the DAG run and reset here in case of success?
 
     # TODO: currently, if a task is skipped (due to a business error), the raw file will be marked as done.

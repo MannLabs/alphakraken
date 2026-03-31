@@ -103,9 +103,10 @@ def test_overview(
     mock_df_from_db_data.side_effect = [
         status_df,  # this is for display_status_warning
         raw_files_df,
-        metrics_df,
-        custom_metrics_df,
+        metrics_df,  # alphadia metrics
+        custom_metrics_df,  # custom metrics
         pd.DataFrame(),  # empty msqc metrics
+        pd.DataFrame(),  # empty skyline metrics
         status_df,
     ]
 

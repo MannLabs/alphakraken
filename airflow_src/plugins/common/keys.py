@@ -179,6 +179,7 @@ class QuantingEnv:
     SLURM_CPUS_PER_TASK: str = "_SLURM_CPUS_PER_TASK"
     SLURM_MEM: str = "_SLURM_MEM"
     SLURM_TIME: str = "_SLURM_TIME"
+    INTERNAL_OUTPUT_PATH: str = "_INTERNAL_OUTPUT_PATH"
 
 
 class JobStates:

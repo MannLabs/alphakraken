@@ -47,6 +47,9 @@ class SoftwareTypes:
     ALPHADIA: str = "alphadia"
     CUSTOM: str = "custom"
     MSQC: str = "msqc"
+    SKYLINE: str = "skyline"
 
+
+DEFAULT_SCOPE = "*"
 
 DDA_FLAG_IN_RAW_FILE_NAME = "_dda_"

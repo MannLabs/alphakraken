@@ -108,9 +108,13 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
             )
 
             @task(task_id=Tasks.CHECK_QUANTING_RESULT)
-            def check_result_task(quanting_env: dict, job_id: str) -> dict:
+            def check_result_task(
+                quanting_env: dict, job_id: str, ti: TaskInstance | None = None
+            ) -> dict:
                 """Check quanting result and return dict with quanting_time_elapsed."""
-                return check_quanting_result(quanting_env=quanting_env, job_id=job_id)
+                return check_quanting_result(
+                    quanting_env=quanting_env, job_id=job_id, ti=ti
+                )
 
             @task(task_id=Tasks.COMPUTE_METRICS)
             def compute_metrics_task(

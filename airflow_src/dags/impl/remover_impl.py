@@ -7,6 +7,7 @@ from pathlib import Path
 
 from airflow.exceptions import AirflowFailException
 from airflow.models import TaskInstance
+from airflow.providers.amazon.aws.hooks.base_aws import BaseAwsConnection
 from common.constants import (
     BYTES_TO_GB,
     DEFAULT_MIN_FREE_SPACE_GB,
@@ -23,7 +24,8 @@ from common.settings import (
 )
 from common.utils import get_airflow_variable, get_env_variable, get_xcom, put_xcom
 from file_handling import get_disk_usage, get_file_size
-from plugins.file_checks import FileIdentifier
+from plugins.file_checks import create_file_identifier
+from plugins.s3.client import get_s3_client
 from raw_file_wrapper_factory import (
     RawFileStemEmptyError,
     RawFileWrapperFactory,
@@ -43,10 +45,21 @@ from shared.db.models import (
     RawFile,
 )
 from shared.keys import EnvVars
+from shared.yamlsettings import (
+    S3_SWITCH,
+    get_purging_verification_type,
+    get_s3_upload_config,
+)
 
 
 class FileRemovalError(Exception):
     """Custom exception for file check and removal errors."""
+
+
+def _create_s3_client() -> BaseAwsConnection:
+    """Create and return an S3 client."""
+    s3_config = get_s3_upload_config()
+    return get_s3_client(s3_config.get("region"))
 
 
 def _update_file_remover_status(status: str, status_details: str = "") -> None:
@@ -73,6 +86,9 @@ def get_raw_files_to_remove(ti: TaskInstance, **kwargs) -> None:
     global_min_free_space_gb = int(
         get_airflow_variable(AirflowVars.MIN_FREE_SPACE_GB, DEFAULT_MIN_FREE_SPACE_GB)
     )
+
+    verify_against_s3 = get_purging_verification_type() == S3_SWITCH
+    s3_client = _create_s3_client() if verify_against_s3 else None
 
     raw_file_ids_to_remove: dict[str, list[str]] = {}
     instruments_with_errors: list[str] = []
@@ -106,6 +122,8 @@ def get_raw_files_to_remove(ti: TaskInstance, **kwargs) -> None:
                 instrument_id,
                 min_free_gb=min_free_space_gb,
                 min_file_age=min_file_age_days,
+                verify_against_s3=verify_against_s3,
+                s3_client=s3_client,
             )
             logging.info(
                 f"Removing for {instrument_id} {len(raw_file_ids_to_remove[instrument_id])} files: {raw_file_ids_to_remove[instrument_id]}"
@@ -133,6 +151,8 @@ def _decide_on_raw_files_to_remove(
     *,
     min_free_gb: int,
     min_file_age: float,
+    verify_against_s3: bool,
+    s3_client: BaseAwsConnection | None = None,
 ) -> list[str]:
     """Get from the DB the raw files to remove from the instrument backup folder and select as many as needed.
 
@@ -140,7 +160,7 @@ def _decide_on_raw_files_to_remove(
     :param min_free_gb: minimum free space in GB to keep on the instrument
     :param min_file_age: minimum age of files to remove in days
 
-    :return: dict with instrument_id as key and list of raw file ids to remove as value
+    :return: list with instrument_id as key and list of raw file ids to remove as value
 
     For the given instrument, get as many files (oldest first) as are required to free up the desired disk space.
     """
@@ -175,7 +195,9 @@ def _decide_on_raw_files_to_remove(
         )
 
         try:
-            total_size, num_files = _get_total_size(raw_file)
+            total_size, num_files = _get_total_size(
+                raw_file, verify_against_s3=verify_against_s3, s3_client=s3_client
+            )
         except FileRemovalError as e:
             logging.warning(f"Skipping {raw_file.id}: {e}")
             continue
@@ -200,7 +222,12 @@ def _decide_on_raw_files_to_remove(
     return raw_file_ids_to_remove
 
 
-def _get_total_size(raw_file: RawFile) -> tuple[float, int]:
+def _get_total_size(
+    raw_file: RawFile,
+    *,
+    verify_against_s3: bool,
+    s3_client: BaseAwsConnection | None = None,
+) -> tuple[float, int]:
     """Return total size of all files associated with a raw_file that are actually on the disk.
 
     This calculates the total size of all files associated with a raw file that are actually on the disk.
@@ -229,8 +256,8 @@ def _get_total_size(raw_file: RawFile) -> tuple[float, int]:
         if not file_path_to_remove.exists():
             continue  # file was already removed
 
-        if not FileIdentifier(
-            raw_file
+        if not create_file_identifier(
+            raw_file, verify_against_s3=verify_against_s3, s3_client=s3_client
         ).check_file(
             file_path_to_remove,
             rel_file_path,
@@ -246,7 +273,12 @@ def _get_total_size(raw_file: RawFile) -> tuple[float, int]:
     return total_size_bytes, num_files
 
 
-def _safe_remove_files(raw_file_id: str) -> None:
+def _safe_remove_files(
+    raw_file_id: str,
+    *,
+    verify_against_s3: bool,
+    s3_client: BaseAwsConnection | None = None,
+) -> None:
     """Delete raw data from instrument Backup folder.
 
     :param raw_file_id: ID of the raw file to delete
@@ -278,7 +310,9 @@ def _safe_remove_files(raw_file_id: str) -> None:
             )
             continue
 
-        if not FileIdentifier(raw_file).check_file(
+        if not create_file_identifier(
+            raw_file, verify_against_s3=verify_against_s3, s3_client=s3_client
+        ).check_file(
             file_path_to_remove,
             rel_file_path,
         ):
@@ -301,6 +335,7 @@ def _safe_remove_files(raw_file_id: str) -> None:
     if base_raw_file_path_to_remove is not None:  # Bruker case
         _remove_folder(base_raw_file_path_to_remove)
 
+    # TODO: add a InstrumentFileStatus.REMOVED_EXTERNALLY to track manual deletions?
     update_raw_file(raw_file_id, instrument_file_status=InstrumentFileStatus.PURGED)
 
 
@@ -372,6 +407,9 @@ def remove_raw_files(ti: TaskInstance, **kwargs) -> None:
     """Remove files/folders from the instrument backup folder."""
     del kwargs  # unused
 
+    verify_against_s3 = get_purging_verification_type() == S3_SWITCH
+    s3_client = _create_s3_client() if verify_against_s3 else None
+
     raw_file_ids_to_remove = get_xcom(ti, XComKeys.FILES_TO_REMOVE)
 
     errors = defaultdict(list)
@@ -385,7 +423,11 @@ def remove_raw_files(ti: TaskInstance, **kwargs) -> None:
         for raw_file_id in raw_file_ids:
             error = None
             try:
-                _safe_remove_files(raw_file_id)
+                _safe_remove_files(
+                    raw_file_id,
+                    verify_against_s3=verify_against_s3,
+                    s3_client=s3_client,
+                )
             except FileRemovalError as e:
                 error = f"Error: {e}"
             except Exception as e:  # noqa: BLE001
@@ -397,7 +439,7 @@ def remove_raw_files(ti: TaskInstance, **kwargs) -> None:
                     logging.error(error)
 
     if errors:
-        logging.info(
+        logging.warning(
             "There were errors in the `remove_raw_files` task, i.e. while actually removing them:"
         )
         all_errors = []
@@ -416,7 +458,7 @@ def remove_raw_files(ti: TaskInstance, **kwargs) -> None:
 
     # Fail in case raw file selection failed in the upstream task to make these errors transparent in Airflow UI:
     if instruments_with_errors := get_xcom(ti, XComKeys.INSTRUMENTS_WITH_ERRORS):
-        logging.info(
+        logging.warning(
             "There were errors in the `get_raw_files_to_remove` task, i.e. while gathering the files to remove:"
         )
         error_details = f"Error in previous task {Tasks.GET_RAW_FILES_TO_REMOVE} for {instruments_with_errors}"

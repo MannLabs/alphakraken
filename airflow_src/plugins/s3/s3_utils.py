@@ -13,6 +13,25 @@ S3_UPLOAD_CHUNK_SIZE_MB = 100
 
 S3_KEY_SEPARATOR = "/"
 
+S3_PROTOCOL_PREFIX = "s3://"
+
+
+def parse_s3_upload_path(s3_upload_path: str) -> tuple[str, str]:
+    """Parse an S3 upload path into bucket name and key prefix.
+
+    Args:
+        s3_upload_path: S3 path, e.g. "s3://bucket-name" or "s3://bucket-name/prefix/"
+
+    Returns:
+        Tuple of (bucket_name, key_prefix). key_prefix is "" if no prefix.
+
+    """
+    without_protocol = s3_upload_path.removeprefix(S3_PROTOCOL_PREFIX)
+    parts = without_protocol.split(S3_KEY_SEPARATOR, 1)
+    bucket_name = parts[0]
+    key_prefix = parts[1] if len(parts) > 1 else ""
+    return bucket_name, key_prefix
+
 
 class S3UploadFailedException(AirflowFailException):
     """Exception raised when S3 upload fails.
@@ -74,9 +93,9 @@ def is_upload_needed(
         ValueError if ETag mismatch occurs
 
     """
-    existing_etag = get_etag(bucket_name, s3_key, s3_client)
+    existing_etag, _ = get_etag(bucket_name, s3_key, s3_client)
     if existing_etag is S3_FILE_NOT_FOUND_ETAG:
-        logging.info(f"File {s3_key} does not exist in bucket, proceeding with upload")
+        # logging.info(f"File {s3_key} does not exist in bucket, proceeding with upload")
         return True
     if local_etag == existing_etag:
         logging.info(

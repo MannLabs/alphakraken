@@ -109,7 +109,7 @@ columns:
     alternative_names:
       - "sequence_len_mean"
       - "precursor:sequence_len_mean" # alphadia >= 2
-  # skyline
+  # skyline: aggregate metrics
   - name: "irt_delta_rt_mean"
     color_gradient: "red_is_high"
     plot: true
@@ -125,6 +125,25 @@ columns:
   - name: "irt_cv_total_area_max"
     color_gradient: "red_is_high"
     plot: true
+  - name: "irt_n_heavy_peptides"
+    color_gradient: "green_is_high"
+    plot: true
+  - name: "irt_n_light_peptides"
+    color_gradient: "green_is_high"
+    plot: true
+  # skyline: per-peptide metrics (wildcard)
+  - name: "irt_*_delta_rt"
+    color_gradient: "red_is_high"
+    plot: true
+    overlay: true
+  - name: "irt_*_mean_total_area"
+    color_gradient: "green_is_high"
+    plot: true
+    overlay: true
+  - name: "irt_*_cv_total_area"
+    color_gradient: "red_is_high"
+    plot: true
+    overlay: true
 
   # Technical plots
   - name: "lag_time_minutes"

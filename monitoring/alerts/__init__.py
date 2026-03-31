@@ -4,6 +4,7 @@ from .base_alert import BaseAlert
 from .disk_space_alert import DiskSpaceAlert
 from .health_check_failed_alert import HealthCheckFailedAlert
 from .instrument_file_pile_up_alert import InstrumentFilePileUpAlert
+from .instrument_stall_alert import InstrumentStallAlert
 from .pump_pressure_alert import PumpPressureAlert
 from .raw_file_error_alert import RawFileErrorAlert
 from .s3_upload_failure_alert import S3UploadFailureAlert
@@ -16,6 +17,7 @@ __all__ = [
     "DiskSpaceAlert",
     "HealthCheckFailedAlert",
     "InstrumentFilePileUpAlert",
+    "InstrumentStallAlert",
     "PumpPressureAlert",
     "RawFileErrorAlert",
     "S3UploadFailureAlert",

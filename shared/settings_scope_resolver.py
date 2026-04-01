@@ -1,7 +1,5 @@
 """Scope resolution for project-settings assignments."""
 
-# TODO: rename
-
 from shared.db.models import ProjectSettings, Settings
 from shared.keys import DEFAULT_SCOPE, KNOWN_VENDOR_NAMES
 

@@ -131,10 +131,12 @@ def prepare_quanting(
             f"Quanting env validation failed for '{settings.name}': {errors}"
         )
 
-    output_exists_mode = get_airflow_variable(AirflowVars.OUTPUT_EXISTS_MODE, "raise")
-    if output_exists_mode == "add":
-        internal_output_path = Path(quanting_env[QuantingEnv.INTERNAL_OUTPUT_PATH])
-        if internal_output_path.exists():
+    internal_output_path = Path(quanting_env[QuantingEnv.INTERNAL_OUTPUT_PATH])
+    if internal_output_path.exists():
+        output_exists_mode = get_airflow_variable(
+            AirflowVars.OUTPUT_EXISTS_MODE, "raise"
+        )
+        if output_exists_mode == "add":
             suffix = _find_next_free_run_suffix(internal_output_path)
             logging.info(
                 f"Output path {internal_output_path} exists. Using suffix '{suffix}'."

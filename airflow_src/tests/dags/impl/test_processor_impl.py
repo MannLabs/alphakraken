@@ -304,7 +304,10 @@ def test_prepare_quanting(
     mock_get_path.return_value = Path("/some_backup_base_path")
     mock_settings = MagicMock(config_params=[])
     mock_get_settings_by_id.return_value = mock_settings
-    mock_env = {"SOFTWARE_TYPE": "alphadia"}
+    mock_env = {
+        QuantingEnv.SOFTWARE_TYPE: "alphadia",
+        QuantingEnv.INTERNAL_OUTPUT_PATH: "/nonexistent/output/path",
+    }
     mock_create_env.return_value = mock_env
 
     result = prepare_quanting(raw_file_id="test_file.raw", settings_id="sid1")

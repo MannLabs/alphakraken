@@ -588,7 +588,16 @@ def _extract_errors(
 
     for idx in sorted(branch_tis_by_index):
         branch_tis = branch_tis_by_index[idx]
-        settings_name = "n/a"  # TODO: now fix
+        quanting_env = get_xcom(
+            ti,
+            key=XComKeys.RETURN_VALUE,
+            task_ids=_PREPARE_QUANTING_TASK_ID,
+            map_indexes=idx,
+            default=None,
+        )
+        settings_name = (
+            quanting_env[QuantingEnv.SETTINGS_NAME] if quanting_env else "n/a"
+        )
 
         # these could be business or airflow errors
         check_quanting_result_error_details = get_xcom(

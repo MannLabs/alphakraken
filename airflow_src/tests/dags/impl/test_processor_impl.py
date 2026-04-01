@@ -9,6 +9,7 @@ import pytz
 from airflow.exceptions import AirflowFailException
 from common.settings import _INSTRUMENTS
 from dags.impl.processor_impl import (
+    _PREPARE_QUANTING_TASK_ID,
     _TASK_GROUP_PREFIX,
     QuantingFailedKnownErrorException,
     QuantingFailedNewErrorException,
@@ -960,6 +961,8 @@ def _make_get_xcom(quanting_envs, branch_errors=None):  # noqa: ANN001, ANN202
     def side_effect(_ti, *, key, **kwargs):  # noqa: ANN001, ANN202
         if key == XComKeys.BRANCH_ERRORS:
             return branch_errors.get(kwargs.get("map_indexes"))
+        if kwargs.get("task_ids") == _PREPARE_QUANTING_TASK_ID:
+            return quanting_envs[kwargs.get("map_indexes")]
         return quanting_envs
 
     return side_effect
@@ -1097,9 +1100,9 @@ def test_extract_errors_all_success(mock_get_xcom: MagicMock) -> None:
         ]
     )
     envs = [{QuantingEnv.SETTINGS_NAME: "s_A"}]
-    mock_get_xcom.return_value = None
+    mock_get_xcom.side_effect = _make_get_xcom(envs)
 
-    airflow_errors, business_errors = _extract_errors(branch_tis, envs, MagicMock())
+    airflow_errors, business_errors = _extract_errors(branch_tis, MagicMock())
 
     assert airflow_errors == []
     assert business_errors == []
@@ -1121,9 +1124,9 @@ def test_extract_errors_business_error(mock_get_xcom: MagicMock) -> None:
         ]
     )
     envs = [{QuantingEnv.SETTINGS_NAME: "s_A"}]
-    mock_get_xcom.return_value = "OUT_OF_MEMORY"
+    mock_get_xcom.side_effect = _make_get_xcom(envs, branch_errors={0: "OUT_OF_MEMORY"})
 
-    airflow_errors, business_errors = _extract_errors(branch_tis, envs, MagicMock())
+    airflow_errors, business_errors = _extract_errors(branch_tis, MagicMock())
 
     assert airflow_errors == []
     assert business_errors == [("s_A", "OUT_OF_MEMORY")]
@@ -1145,9 +1148,9 @@ def test_extract_errors_airflow_failure_with_xcom(mock_get_xcom: MagicMock) -> N
         ]
     )
     envs = [{QuantingEnv.SETTINGS_NAME: "s_A"}]
-    mock_get_xcom.return_value = "UNKNOWN_ERROR"
+    mock_get_xcom.side_effect = _make_get_xcom(envs, branch_errors={0: "UNKNOWN_ERROR"})
 
-    airflow_errors, business_errors = _extract_errors(branch_tis, envs, MagicMock())
+    airflow_errors, business_errors = _extract_errors(branch_tis, MagicMock())
 
     assert airflow_errors == [("s_A", "UNKNOWN_ERROR")]
     assert business_errors == []
@@ -1169,9 +1172,9 @@ def test_extract_errors_early_task_failed_no_xcom(mock_get_xcom: MagicMock) -> N
         ]
     )
     envs = [{QuantingEnv.SETTINGS_NAME: "s_A"}]
-    mock_get_xcom.return_value = None
+    mock_get_xcom.side_effect = _make_get_xcom(envs)
 
-    airflow_errors, business_errors = _extract_errors(branch_tis, envs, MagicMock())
+    airflow_errors, business_errors = _extract_errors(branch_tis, MagicMock())
 
     assert airflow_errors == [("s_A", "failed at run_quanting")]
     assert business_errors == []
@@ -1193,9 +1196,9 @@ def test_extract_errors_intentional_skip(mock_get_xcom: MagicMock) -> None:
         ]
     )
     envs = [{QuantingEnv.SETTINGS_NAME: "s_A"}]
-    mock_get_xcom.return_value = None
+    mock_get_xcom.side_effect = _make_get_xcom(envs)
 
-    airflow_errors, business_errors = _extract_errors(branch_tis, envs, MagicMock())
+    airflow_errors, business_errors = _extract_errors(branch_tis, MagicMock())
 
     assert airflow_errors == []
     assert business_errors == []
@@ -1220,7 +1223,7 @@ def test_extract_errors_multiple_branches_mixed(mock_get_xcom: MagicMock) -> Non
         envs, branch_errors={1: None, 2: "TIMEOUT"}
     )
 
-    airflow_errors, business_errors = _extract_errors(branch_tis, envs, MagicMock())
+    airflow_errors, business_errors = _extract_errors(branch_tis, MagicMock())
 
     assert airflow_errors == [("s_B", "failed at run_quanting")]
     assert business_errors == [("s_C", "TIMEOUT")]

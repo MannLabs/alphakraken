@@ -38,7 +38,7 @@ class PressureDataPoint:
     """Represents a single pressure measurement with associated metadata."""
 
     pressure: float
-    gradient_length: float
+    gradient_length: float | None
     created_at: datetime
     raw_file_id: str
 
@@ -181,7 +181,7 @@ class PumpPressureAlert(BaseAlert):
             gradient_length = v.get("metrics_alphadia", {}).get("gradient_length")
             pressure = v.get("metrics_msqc", {}).get("evosep_pump_hp_pressure_max")
 
-            if gradient_length is not None and pressure is not None:
+            if pressure is not None:
                 pressure_data[v["instrument_id"]].append(
                     PressureDataPoint(
                         pressure, gradient_length, v["created_at"], raw_file_id
@@ -214,11 +214,16 @@ class PumpPressureAlert(BaseAlert):
         # logging.info(f"pressure_data: {pressure_data}")
 
         def _is_within_tolerance(
-            value: float,
-            target: float,
+            value: float | None,
+            target: float | None,
             tolerance: float = 0.1,
         ) -> bool:
-            """Check if value is within relative tolerance of target (default +-10%)."""
+            """Check if value is within relative tolerance of target (default +-10%).
+
+            Returns False if value and/or target are None.
+            """
+            if value is None or target is None:
+                return False
             return (1 - tolerance) < (value / target) < (1 + tolerance)
 
         is_alert = False

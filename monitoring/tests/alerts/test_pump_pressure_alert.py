@@ -124,10 +124,10 @@ class TestPumpPressureAlert:
         }
         assert result == expected
 
-    def test_get_pressure_data_by_instrument_should_skip_entries_with_missing_gradient_length(
+    def test_get_pressure_data_by_instrument_should_include_entries_with_missing_gradient_length(
         self,
     ) -> None:
-        """Test that get_pressure_data_by_instrument skips entries with missing gradient length."""
+        """Test that get_pressure_data_by_instrument includes entries with missing gradient length."""
         # given
         alert = PumpPressureAlert()
         now = datetime.now(tz=pytz.utc)
@@ -153,6 +153,7 @@ class TestPumpPressureAlert:
         # then
         expected = {
             "instrument1": [
+                PressureDataPoint(100.0, None, now, "file1"),
                 PressureDataPoint(110.0, 0.5, now - timedelta(hours=1), "file2"),
             ],
         }

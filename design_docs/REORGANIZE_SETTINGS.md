@@ -155,7 +155,7 @@ class ProjectSettings(Document):
 **No unique constraint** — duplicates are prevented in the webapp UI only, not at the DB level. This allows assigning the same settings at different scopes, and multiple same-type settings at the same scope (both run).
 
 **`shared/db/interface.py`** — Add new functions:
-- `create_project_settings(project_id, settings_id, scope)` — create assignment
+- `assign_settings_to_project(project_id, settings_id, scope)` — create assignment
 - `remove_project_settings(project_settings_id)` — remove assignment by ID
 - `get_project_settings(project_id) -> list[ProjectSettings]` — list all assignments
 - `resolve_settings_for_raw_file(project_id) -> list[Settings]` — return all assigned settings (no scope filtering yet)

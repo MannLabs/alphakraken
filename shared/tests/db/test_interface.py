@@ -12,8 +12,8 @@ from shared.db.interface import (
     add_metrics_to_raw_file,
     add_project,
     add_raw_file,
+    assign_settings_to_project,
     augment_raw_files_with_metrics,
-    create_project_settings,
     create_settings,
     get_all_project_ids,
     get_all_settings,
@@ -353,13 +353,13 @@ def test_get_all_settings_includes_archived(
 @patch("shared.db.interface.ProjectSettings")
 @patch("shared.db.interface.Settings")
 @patch("shared.db.interface.Project")
-def test_create_project_settings(
+def test_assign_settings_to_project(
     mock_project: MagicMock,
     mock_settings: MagicMock,
     mock_project_settings: MagicMock,
     mock_connect_db: MagicMock,
 ) -> None:
-    """Test that create_project_settings creates a new assignment."""
+    """Test that assign_settings_to_project creates a new assignment."""
     mock_project_instance = MagicMock()
     mock_project.objects.get.return_value = mock_project_instance
 
@@ -369,7 +369,7 @@ def test_create_project_settings(
     mock_settings.objects.get.return_value = mock_settings_instance
     mock_project_settings.objects.return_value = []
 
-    create_project_settings("P1234", "settings_id")
+    assign_settings_to_project("P1234", "settings_id")
 
     mock_project_settings.assert_called_once_with(
         project=mock_project_instance,
@@ -386,7 +386,7 @@ def test_create_project_settings(
 @patch("shared.db.interface.ProjectSettings")
 @patch("shared.db.interface.Settings")
 @patch("shared.db.interface.Project")
-def test_create_project_settings_duplicate_software_type_scope(
+def test_assign_settings_to_project_duplicate_software_type_scope(
     mock_project: MagicMock,
     mock_settings: MagicMock,
     mock_project_settings: MagicMock,
@@ -407,7 +407,7 @@ def test_create_project_settings_duplicate_software_type_scope(
     mock_project_settings.objects.return_value = [existing_ps]
 
     with pytest.raises(ValueError, match="software_type 'alphadia' already assigned"):
-        create_project_settings("P1234", "settings_id", scope="bruker")
+        assign_settings_to_project("P1234", "settings_id", scope="bruker")
 
     mock_project_settings.return_value.save.assert_not_called()
 
@@ -416,7 +416,7 @@ def test_create_project_settings_duplicate_software_type_scope(
 @patch("shared.db.interface.ProjectSettings")
 @patch("shared.db.interface.Settings")
 @patch("shared.db.interface.Project")
-def test_create_project_settings_same_scope_different_software_type(
+def test_assign_settings_to_project_same_scope_different_software_type(
     mock_project: MagicMock,
     mock_settings: MagicMock,
     mock_project_settings: MagicMock,
@@ -436,7 +436,7 @@ def test_create_project_settings_same_scope_different_software_type(
     existing_ps.raw_file_id_filter = ""
     mock_project_settings.objects.return_value = [existing_ps]
 
-    create_project_settings("P1234", "settings_id", scope="*")
+    assign_settings_to_project("P1234", "settings_id", scope="*")
 
     mock_project_settings.return_value.save.assert_called_once()
 
@@ -445,7 +445,7 @@ def test_create_project_settings_same_scope_different_software_type(
 @patch("shared.db.interface.ProjectSettings")
 @patch("shared.db.interface.Settings")
 @patch("shared.db.interface.Project")
-def test_create_project_settings_with_filter_same_software_type_no_filter_succeeds(
+def test_assign_settings_to_project_with_filter_same_software_type_no_filter_succeeds(
     mock_project: MagicMock,
     mock_settings: MagicMock,
     mock_project_settings: MagicMock,
@@ -465,7 +465,7 @@ def test_create_project_settings_with_filter_same_software_type_no_filter_succee
     existing_ps.raw_file_id_filter = ""
     mock_project_settings.objects.return_value = [existing_ps]
 
-    create_project_settings(
+    assign_settings_to_project(
         "P1234", "settings_id", scope="*", raw_file_id_filter="plasma"
     )
 

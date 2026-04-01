@@ -226,8 +226,7 @@ def get_all_project_ids() -> list[str]:
     return [p.id for p in Project.objects.all()]
 
 
-# TODO: rename to assign_settings_to_project ?
-def create_project_settings(
+def assign_settings_to_project(
     project_id: str,
     settings_id: str,
     scope: str = DEFAULT_SCOPE,

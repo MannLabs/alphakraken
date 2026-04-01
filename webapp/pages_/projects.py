@@ -24,7 +24,7 @@ from service.utils import (
 
 from shared.db.interface import (
     add_project,
-    create_project_settings,
+    assign_settings_to_project,
     get_all_settings,
     get_project_settings,
     remove_project_settings,
@@ -225,7 +225,7 @@ with c_assign1:
             ):
                 try:
                     new_settings_id = settings_options_map[selected_settings_display]
-                    create_project_settings(
+                    assign_settings_to_project(
                         selected_project_id,
                         new_settings_id,
                         scope=selected_scope,

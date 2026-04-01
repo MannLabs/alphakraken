@@ -4,10 +4,27 @@ from datetime import datetime
 
 import pandas as pd
 import streamlit as st
+from service.columns import build_alternative_names_mapping, load_columns_from_yaml
 from service.db import df_from_db_data, get_raw_file_and_metrics_data
+from service.utils import Cols
 
 from shared.db.models import RawFileStatus
 from shared.keys import MetricsTypes
+
+_ALTERNATIVE_NAMES_MAPPING = build_alternative_names_mapping(load_columns_from_yaml())
+
+
+def _normalize_metric_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Resolve alternative DB column names to canonical names and apply data transforms."""
+    df = df.rename(columns=_ALTERNATIVE_NAMES_MAPPING)
+
+    # deduplicate columns that map to the same canonical name
+    df = df.T.groupby(level=0).first().T
+
+    if "gradient_length" in df.columns:
+        df["gradient_length"] = df["gradient_length"].round(1)
+
+    return df
 
 
 def get_combined_raw_files_and_metrics_df(
@@ -32,22 +49,25 @@ def get_combined_raw_files_and_metrics_df(
         MetricsTypes.SKYLINE,
         MetricsTypes.DIANN,
     ]
-    metrics_df = pd.DataFrame()
+    merged_metrics_df = pd.DataFrame()
     for metrics_type in metrics_types:
-        type_df = df_from_db_data(
+        metrics_df = df_from_db_data(
             metrics_db,
             filter_dict={"type": metrics_type},
             drop_duplicates=["raw_file"],
             drop_columns=["_id", "created_at_"],
             drop_none_columns=True,
         )
-        if len(type_df) == 0:
-            continue
         if len(metrics_df) == 0:
-            metrics_df = type_df
+            continue
+
+        metrics_df = _normalize_metric_columns(metrics_df)
+
+        if len(merged_metrics_df) == 0:
+            merged_metrics_df = metrics_df
         else:
-            metrics_df = metrics_df.merge(
-                type_df,
+            merged_metrics_df = merged_metrics_df.merge(
+                metrics_df,
                 on="raw_file",
                 how="outer",
                 suffixes=("", f"_{metrics_type}"),
@@ -57,14 +77,14 @@ def get_combined_raw_files_and_metrics_df(
         # TODO: improve -> move st dependency out
         if print_at_no_data:
             # just for debugging
-            st.write(f"[{len(raw_files_df)=} {len(metrics_df)=}]")
+            st.write(f"[{len(raw_files_df)=} {len(merged_metrics_df)=}]")
             st.dataframe(raw_files_df)
-            st.dataframe(metrics_df)
+            st.dataframe(merged_metrics_df)
         return pd.DataFrame(), data_timestamp
 
-    if len(metrics_df) > 0:
+    if len(merged_metrics_df) > 0:
         combined_df = raw_files_df.merge(
-            metrics_df, left_on="_id", right_on="raw_file", how="left"
+            merged_metrics_df, left_on="_id", right_on="raw_file", how="left"
         )
     else:
         combined_df = raw_files_df
@@ -100,6 +120,8 @@ def get_combined_raw_files_and_metrics_df(
     for col in ["precursors", "proteins"]:
         if col in combined_df.columns:
             combined_df[col] = combined_df[col].astype("Int64", errors="ignore")
+
+    combined_df[Cols.IS_BASELINE] = False
 
     return combined_df, data_timestamp
 

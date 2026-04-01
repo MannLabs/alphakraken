@@ -1,12 +1,10 @@
 """Utility functions for the overview page with no Streamlit dependencies."""
 
-from dataclasses import dataclass
 from datetime import datetime
 from fnmatch import fnmatch
-from pathlib import Path
 
 import pandas as pd
-import yaml
+from service.columns import Column
 from service.components import get_display_time
 from service.data_handling import get_combined_raw_files_and_metrics_df
 from service.query_params import QueryParams
@@ -31,59 +29,6 @@ EXPLANATION_STATUS = """
             All other states are transient and should be self-explanatory. If you feel a file stays in a certain status
             for too long, please report it to the developers.
         """
-
-
-@dataclass
-class Column:
-    """Data class for information on how to display a data column (or multiple data columns if wildcards are used)."""
-
-    name: str
-    # hide column in table
-    hide: bool = False
-    # move column to end of table
-    at_end: bool = False
-    # color gradient in table: None (no gradient), "green_is_high" (green=high, red=low), "red_is_high" (red=high, green=low)
-    color_gradient: str | None = None
-    # show as plot
-    plot: bool = False
-    # use log scale for plot
-    log_scale: bool = False
-    # alternative names in the database
-    alternative_names: list[str] | None = None
-    # optional plot
-    plot_optional: bool = False
-    # draw all matched wildcard columns as overlaid traces in one plot
-    overlay: bool = False
-    # not taken from yaml but set after parsing:
-    # columns matched by a wildcard pattern, set by expand_columns
-    matched_columns: list[str] | None = None
-
-
-def load_columns_from_yaml() -> tuple[Column, ...]:
-    """Load column configuration from YAML file."""
-    columns_config_file_path = (
-        Path(__file__).parent / ".." / ".." / "columns_config.yaml"
-    )
-
-    with columns_config_file_path.open() as f:
-        columns_config = yaml.safe_load(f)
-
-    return tuple(
-        [
-            Column(
-                name=column["name"],
-                hide=column.get("hide"),
-                at_end=column.get("at_end"),
-                color_gradient=column.get("color_gradient"),
-                plot=column.get("plot"),
-                log_scale=column.get("log_scale"),
-                alternative_names=column.get("alternative_names"),
-                plot_optional=column.get("plot_optional"),
-                overlay=column.get("overlay", False),
-            )
-            for column in columns_config["columns"]
-        ]
-    )
 
 
 def expand_columns(
@@ -136,26 +81,6 @@ def expand_columns(
     return tuple(expanded)
 
 
-def harmonize_df(df: pd.DataFrame, columns: tuple[Column, ...]) -> pd.DataFrame:
-    """Harmonize the DataFrame by mapping all alternative names to their current ones."""
-    names_mapping = {
-        alternative_name: column.name
-        for column in columns
-        if column.alternative_names
-        for alternative_name in column.alternative_names  # type: ignore[not-iterable]
-        if column.alternative_names is not None
-    }
-    df = df.rename(columns=names_mapping)
-
-    if "gradient_length" in df.columns:
-        df["gradient_length"] = df["gradient_length"].apply(lambda x: round(x, 1))
-
-    df[Cols.IS_BASELINE] = False
-
-    # map all columns of the same name to the first one, assuming that not more than one of the values are filled
-    return df.groupby(axis=1, level=0).first()
-
-
 def get_column_order(df: pd.DataFrame, columns: tuple[Column, ...]) -> list[str]:
     """Get column order."""
     known_columns = [column.name for column in columns if column.name in df.columns]
@@ -181,7 +106,7 @@ def filter_valid_columns(columns: list[str], df: pd.DataFrame) -> list[str]:
 
 
 def get_baseline_df(
-    baseline_query_param: str, columns: tuple[Column, ...]
+    baseline_query_param: str,
 ) -> tuple[pd.DataFrame, int]:
     """Get the baseline DataFrame and the number of desired files based on the query parameter."""
     baseline_file_names = [name.strip() for name in baseline_query_param.split(",")]
@@ -191,7 +116,6 @@ def get_baseline_df(
     if len(baseline_df) == 0:
         return baseline_df, len(baseline_file_names)
 
-    baseline_df = harmonize_df(baseline_df, columns)
     baseline_df[Cols.IS_BASELINE] = True
 
     # this is a hack to prevent index clashing, but also helps to identify the baseline data in the table

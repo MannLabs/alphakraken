@@ -18,9 +18,8 @@ from pages_.impl.overview_utils import (
     get_baseline_df,
     get_column_order,
     get_url_with_query_string,
-    harmonize_df,
-    load_columns_from_yaml,
 )
+from service.columns import load_columns_from_yaml
 from service.components import (
     get_full_backup_path,
     get_terminal_status_counts,
@@ -212,14 +211,11 @@ with st.spinner("Loading data ..."):
 
     c2.text(f"Last loaded: {data_timestamp.strftime('%Y-%m-%d %H:%M:%S')}")
     columns_expanded = expand_columns(COLUMNS, list(combined_df.columns))
-    combined_df = harmonize_df(combined_df, columns_expanded)
 
     # Load and merge baseline data if specified
     baseline_query_param = get_query_param(QueryParams.BASELINE, default="")
     if baseline_query_param:
-        baseline_df, num_desired_files = get_baseline_df(
-            baseline_query_param, columns_expanded
-        )
+        baseline_df, num_desired_files = get_baseline_df(baseline_query_param)
         if len(baseline_df) != num_desired_files:
             st.warning(
                 f"Incomplete baseline data found for `{QueryParams.BASELINE}={baseline_query_param}` . Please select valid baseline file(s) with metrics."

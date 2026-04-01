@@ -324,14 +324,14 @@ def test_prepare_quanting(
 @patch("dags.impl.processor_impl.get_settings_by_id")
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.get_path")
-def test_prepare_quanting_validation_error_stores_errors(
+def test_prepare_quanting_validation_error_raises(
     mock_get_path: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
     mock_get_settings_by_id: MagicMock,
     mock_create_env: MagicMock,
     mock_check_content: MagicMock,
 ) -> None:
-    """Test that prepare_quanting stores validation errors in the quanting env."""
+    """Test that prepare_quanting raises on validation errors in the quanting env."""
     mock_raw_file = MagicMock(
         wraps=RawFile,
         id="test_file.raw",

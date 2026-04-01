@@ -1,5 +1,6 @@
 """Utility functions for the overview page with no Streamlit dependencies."""
 
+from dataclasses import replace
 from datetime import datetime
 from fnmatch import fnmatch
 
@@ -39,18 +40,7 @@ EXPLANATION_STATUS = """
 
 def _make_column(column: Column, name: str, **overrides) -> Column:
     """Create a new Column inheriting properties from `column` but with a different `name`."""
-    return Column(
-        name=name,
-        hide=overrides.get("hide", column.hide),
-        at_end=overrides.get("at_end", column.at_end),
-        color_gradient=overrides.get("color_gradient", column.color_gradient),
-        plot=overrides.get("plot", column.plot),
-        log_scale=overrides.get("log_scale", column.log_scale),
-        alternative_names=overrides.get("alternative_names", column.alternative_names),
-        plot_optional=overrides.get("plot_optional", column.plot_optional),
-        overlay=overrides.get("overlay", column.overlay),
-        matched_columns=overrides.get("matched_columns", column.matched_columns),
-    )
+    return replace(column, name=name, **overrides)
 
 
 def expand_columns(

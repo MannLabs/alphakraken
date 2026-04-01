@@ -40,8 +40,8 @@ def _display_status(combined_df: pd.DataFrame) -> None:
     try:
         status_data_df = df_from_db_data(get_status_data())
 
-        if not len(status_data_df):
-            st.warning("Not enough data yet.")
+        if status_data_df.empty:
+            st.warning("No data available.")
             return
 
         status_data_df["updated_at_"] = status_data_df["updated_at_"].apply(

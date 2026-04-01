@@ -160,6 +160,10 @@ def show_status_plot(
     ignored_status: list[str] = TERMINAL_STATUSES,
 ) -> None:
     """Show a plot of the file statuses for each instrument."""
+    if combined_df.empty:
+        display.warning("No data available.")
+        return
+
     status_counts = (
         combined_df.groupby(["instrument_id", "status"]).size().unstack(fill_value=0)  # noqa: PD010
     )
@@ -199,6 +203,10 @@ def show_time_in_status_table(
     ignored_status: list[str] = TERMINAL_STATUSES,
 ) -> None:
     """Show a table displaying per instrument and status the timestamp of the oldest transition."""
+    if combined_df.empty:
+        display.warning("No data available.")
+        return
+
     df = combined_df.copy()
     df["updated_at"] = pd.to_datetime(df["updated_at_"])
     df = df.sort_values("updated_at", ascending=False)
@@ -346,6 +354,11 @@ def display_status(combined_df: pd.DataFrame, status_data_df: pd.DataFrame) -> N
         f"Note: for performance reasons, by default only data for the last {DEFAULT_MAX_AGE_STATUS} days are loaded, "
         f"which means that mass specs that have been idling for longer than this period are not shown here."
     )
+
+    if combined_df.empty:
+        st.warning("No data available.")
+        return
+
     status_data = defaultdict(list)
 
     # Get all entries to display (instruments + filesystems)

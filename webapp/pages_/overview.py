@@ -206,8 +206,8 @@ with st.spinner("Loading data ..."):
             else instruments_input.split(",")
         ),
     )
-    if len(combined_df) == 0:
-        st.warning("Not enough data yet. Please broaden your selection.")
+    if combined_df.empty:
+        st.warning("No data available. Please broaden your selection.")
         st.stop()
 
     c2.text(f"Last loaded: {data_timestamp.strftime('%Y-%m-%d %H:%M:%S')}")

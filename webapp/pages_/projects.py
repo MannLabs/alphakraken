@@ -13,13 +13,14 @@ from service.db import (
     get_project_data,
 )
 from service.query_params import QueryParams, get_all_query_params, is_query_param_true
-from service.session_state import SessionStateKeys, set_session_state
 from service.utils import (
     DISABLE_WRITE,
     _log,
     empty_to_none,
+    flush_pending_toasts,
     quanting_output_path,
-    show_feedback_in_sidebar,
+    show_error_toast,
+    show_success_toast,
 )
 
 from shared.db.interface import (
@@ -44,14 +45,11 @@ st.set_page_config(page_title="AlphaKraken: projects", layout="wide")
 
 show_sandbox_message()
 
+flush_pending_toasts()
+
 st.markdown("# Projects")
 
 st.markdown("## Current projects")
-
-
-# ########################################### SIDEBAR
-
-show_feedback_in_sidebar()
 
 
 # ########################################### LOGIC
@@ -163,14 +161,13 @@ with c_assign1:
                 ):
                     try:
                         unassign_settings_from_project(ps_id)  # type: ignore[unresolved-attribute]
-                        set_session_state(
-                            SessionStateKeys.SUCCESS_MSG,
-                            f"Removed settings assignment from project {selected_project_id}.",
+                        show_success_toast(
+                            f"Removed settings assignment from project {selected_project_id}."
                         )
                         st.rerun()
                     except Exception as e:  # noqa: BLE001
-                        st.error(f"Error: {e}")
-                        set_session_state(SessionStateKeys.ERROR_MSG, f"{e}")
+                        show_error_toast(str(e))
+                        st.rerun()
         else:
             st.info("No settings assigned to this project.")
 
@@ -232,14 +229,13 @@ with c_assign1:
                         excluded=selected_excluded,
                         raw_file_id_filter=raw_file_id_filter_input.strip() or None,
                     )
-                    set_session_state(
-                        SessionStateKeys.SUCCESS_MSG,
-                        f"Assigned settings '{selected_settings_display}' to project {selected_project_id}.",
+                    show_success_toast(
+                        f"Assigned settings '{selected_settings_display}' to project {selected_project_id}."
                     )
                     st.rerun()
                 except Exception as e:  # noqa: BLE001
-                    st.error(f"Error: {e}")
-                    set_session_state(SessionStateKeys.ERROR_MSG, f"{e}")
+                    show_error_toast(str(e))
+                    st.rerun()
 
 with c_assign2:
     if selected_project_id:
@@ -368,11 +364,8 @@ if form_submit:
             description=project_description,
         )
     except Exception as e:  # noqa: BLE001
-        st.error(f"Error: {e}")
-        set_session_state(SessionStateKeys.ERROR_MSG, f"{e}")
+        show_error_toast(str(e))
+        st.rerun()
     else:
-        set_session_state(
-            SessionStateKeys.SUCCESS_MSG,
-            f"Added new project '{project_id}' to the database.",
-        )
-    st.rerun()
+        show_success_toast(f"Added new project '{project_id}' to the database.")
+        st.rerun()

@@ -254,7 +254,7 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
         text_to_display="Filter:",
         st_display=c1,
         default_value=None if filter_value.strip() == "" else filter_value,
-        example_text="astral1 & !hela & AlKr(.*)5ng & status=done & proteins=[400,500] & settings_version=1",
+        example_text="astral1 & !hela & AlKr(.*)5ng & status=done & alphadia__proteins=[400,500] & alphadia__settings_version=1",
     )
 
     filtered_df = show_date_select(
@@ -346,11 +346,11 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
             )
             .format(
                 subset=[
-                    "settings_version",
+                    c for c in filtered_df.columns if c.endswith("__settings_version")
                 ],
                 formatter="{:.0f}",
             ),
-            column_order=get_column_order(filtered_df, COLUMNS),
+            column_order=get_column_order(filtered_df, columns),
             column_config={"_index": {"label": "raw_file_id", "alignment": "right"}},
         )
     except Exception as e:  # noqa: BLE001

@@ -31,49 +31,64 @@ EXPLANATION_STATUS = """
         """
 
 
+def _make_column(column: Column, name: str, **overrides) -> Column:
+    """Create a new Column inheriting properties from `column` but with a different `name`."""
+    return Column(
+        name=name,
+        hide=overrides.get("hide", column.hide),
+        at_end=overrides.get("at_end", column.at_end),
+        color_gradient=overrides.get("color_gradient", column.color_gradient),
+        plot=overrides.get("plot", column.plot),
+        log_scale=overrides.get("log_scale", column.log_scale),
+        alternative_names=overrides.get("alternative_names", column.alternative_names),
+        plot_optional=overrides.get("plot_optional", column.plot_optional),
+        overlay=overrides.get("overlay", column.overlay),
+        matched_columns=overrides.get("matched_columns", column.matched_columns),
+    )
+
+
 def expand_columns(
     columns: tuple[Column, ...], df_columns: list[str]
 ) -> tuple[Column, ...]:
-    """Expand wildcard column entries against actual DataFrame columns.
+    """Expand column entries against actual DataFrame columns.
 
-    If overlay=False, each match becomes its own plotable Column.
-    If overlay=True, individual matches get plot=False and one Column collecting all matching columns (for joint plotting) is added instead.
+    YAML column names are unprefixed (e.g. "proteins"). This function matches them against
+    prefixed DataFrame columns (e.g. "alphadia__proteins", "diann__proteins").
+    If no prefixed match is found, falls back to exact match (for non-metric columns).
 
+    For wildcards (e.g. "irt_*_delta_rt"), matches are found against the suffix part of prefixed columns.
+    If overlay=True, individual matches get plot=False and one Column collecting all matches is added instead.
     """
     expanded = []
     for column in columns:
-        # regular case: column is taking as is
         if "*" not in column.name:
-            expanded.append(column)
+            # try prefixed matches first, fall back to exact match for non-metric columns
+            prefixed = sorted(c for c in df_columns if c.endswith(f"__{column.name}"))
+            if prefixed:
+                expanded.extend(_make_column(column, df_col) for df_col in prefixed)
+            else:
+                expanded.append(column)
             continue
 
-        # 'wildcard' case
-        matches = sorted(c for c in df_columns if fnmatch(c, column.name))
+        # wildcard case: match against suffix part of prefixed columns
+        matches = sorted(
+            c
+            for c in df_columns
+            if "__" in c and fnmatch(c.split("__", 1)[1], column.name)
+        )
         if not matches:
             continue
 
-        # all every column (to show up in the table), but don't plot individual columns if overlay=True
         for df_col in matches:
             plot = False if column.overlay else column.plot
-            expanded.append(
-                Column(
-                    name=df_col,
-                    hide=column.hide,
-                    at_end=column.at_end,
-                    color_gradient=column.color_gradient,
-                    plot=plot,
-                    log_scale=column.log_scale,
-                    alternative_names=column.alternative_names,
-                    plot_optional=column.plot_optional,
-                )
-            )
+            expanded.append(_make_column(column, df_col, plot=plot))
+
         if column.overlay and column.plot:
             expanded.append(
-                Column(
-                    name=column.name,
+                _make_column(
+                    column,
+                    column.name,
                     plot=True,
-                    log_scale=column.log_scale,
-                    plot_optional=column.plot_optional,
                     overlay=True,
                     matched_columns=matches,
                 )

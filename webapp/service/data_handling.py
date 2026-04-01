@@ -63,6 +63,13 @@ def get_combined_raw_files_and_metrics_df(
 
         metrics_df = _normalize_metric_columns(metrics_df)
 
+        # prefix all metric columns with "{type}__"
+        metrics_df = metrics_df.drop(columns=["type"], errors="ignore")
+        metric_cols = [c for c in metrics_df.columns if c != "raw_file"]
+        metrics_df = metrics_df.rename(
+            columns={c: f"{metrics_type}__{c}" for c in metric_cols}
+        )
+
         if len(merged_metrics_df) == 0:
             merged_metrics_df = metrics_df
         else:
@@ -70,7 +77,6 @@ def get_combined_raw_files_and_metrics_df(
                 metrics_df,
                 on="raw_file",
                 how="outer",
-                suffixes=("", f"_{metrics_type}"),
             )
 
     if len(raw_files_df) == 0:
@@ -112,14 +118,17 @@ def get_combined_raw_files_and_metrics_df(
     combined_df.index = combined_df["_id"]
 
     # conversion of metrics columns: in case all quantings have failed, these columns are not available
-    if "quanting_time_elapsed" in combined_df.columns:
-        combined_df["quanting_time_minutes"] = combined_df["quanting_time_elapsed"] / 60
-        del combined_df["quanting_time_elapsed"]
+    for col in [
+        c for c in combined_df.columns if c.endswith("__quanting_time_elapsed")
+    ]:
+        prefix = col.rsplit("__", 1)[0]
+        combined_df[f"{prefix}__quanting_time_minutes"] = combined_df[col] / 60
+        del combined_df[col]
 
-    # TODO: centralize harmonization of column names
-    for col in ["precursors", "proteins"]:
-        if col in combined_df.columns:
-            combined_df[col] = combined_df[col].astype("Int64", errors="ignore")
+    for col in [
+        c for c in combined_df.columns if c.endswith(("__precursors", "__proteins"))
+    ]:
+        combined_df[col] = combined_df[col].astype("Int64", errors="ignore")
 
     combined_df[Cols.IS_BASELINE] = False
 

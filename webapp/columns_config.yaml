@@ -36,19 +36,19 @@ columns:
       - "calibration:ms2_median_accuracy"
       - "calibration:ms2_bias" # alphadia >= 2
 
-  - name: "msqc_evosep_pump_hp_pressure_max"
+  - name: "evosep_pump_hp_pressure_max"
     plot: true
-  - name: "msqc_ms1_median_injection_time"
+  - name: "ms1_median_injection_time"
     plot: true
-  - name: "msqc_ms1_scans"
+  - name: "ms1_scans"
     plot: true
-  - name: "msqc_ms1_median_tic"
+  - name: "ms1_median_tic"
     plot: true
-  - name: "msqc_ms2_median_injection_time"
+  - name: "ms2_median_injection_time"
     plot: true
-  - name: "msqc_ms2_scans"
+  - name: "ms2_scans"
     plot: true
-  - name: "msqc_ms2_median_tic"
+  - name: "ms2_median_tic"
     plot: true
 
   - name: "fwhm_rt"

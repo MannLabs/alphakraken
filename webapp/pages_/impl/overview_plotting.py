@@ -94,12 +94,8 @@ def _draw_plot(  # noqa: PLR0913
 
     # TODO: centralize column names and harmonization
     hover_data = filter_valid_columns(
-        [
-            "file_created",
-            "size_gb",
-            "precursors",
-            "status",
-        ],
+        ["file_created", "size_gb", "status"]
+        + [c for c in df.columns if c.endswith("__precursors")],
         df,
     )
 

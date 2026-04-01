@@ -45,6 +45,7 @@ from shared.db.interface import (
     add_metrics_to_raw_file,
     get_project_settings,
     get_raw_file_by_id,
+    get_settings_by_id,
     update_raw_file,
 )
 from shared.db.models import RawFile, RawFileStatus, Settings, get_created_at_year_month
@@ -109,7 +110,7 @@ def prepare_quanting(
 ) -> dict[str, str | int | list[str]]:
     """Prepare the environmental variables for the quanting job."""
     raw_file = get_raw_file_by_id(raw_file_id)
-    settings = Settings.objects.get(id=settings_id)  # TODO: now move to interface
+    settings = get_settings_by_id(settings_id)
 
     backup_base_path = get_path(YamlKeys.Locations.BACKUP)
     year_month_subfolder = get_created_at_year_month(raw_file)

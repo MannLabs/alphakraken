@@ -330,6 +330,12 @@ def create_settings(  # noqa: PLR0913
     return settings
 
 
+def get_settings_by_id(settings_id: str) -> Settings:
+    """Get a settings entry by its ID."""
+    connect_db()
+    return Settings.objects.get(id=settings_id)
+
+
 def archive_settings(settings_id: str) -> None:
     """Archive a settings entry by setting its status to INACTIVE."""
     connect_db()

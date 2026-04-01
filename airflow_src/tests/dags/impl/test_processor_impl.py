@@ -282,13 +282,13 @@ def test_resolve_settings_no_settings_raise(
 
 
 @patch("dags.impl.processor_impl._create_quanting_env")
-@patch("dags.impl.processor_impl.Settings")
+@patch("dags.impl.processor_impl.get_settings_by_id")
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.get_path")
 def test_prepare_quanting(
     mock_get_path: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
-    mock_settings_cls: MagicMock,
+    mock_get_settings_by_id: MagicMock,
     mock_create_env: MagicMock,
 ) -> None:
     """Test that prepare_quanting orchestrates the expected calls for a single settings entry."""
@@ -302,14 +302,14 @@ def test_prepare_quanting(
     mock_get_raw_file_by_id.return_value = mock_raw_file
     mock_get_path.return_value = Path("/some_backup_base_path")
     mock_settings = MagicMock(config_params=[])
-    mock_settings_cls.objects.get.return_value = mock_settings
+    mock_get_settings_by_id.return_value = mock_settings
     mock_env = {"SOFTWARE_TYPE": "alphadia"}
     mock_create_env.return_value = mock_env
 
     result = prepare_quanting(raw_file_id="test_file.raw", settings_id="sid1")
 
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
-    mock_settings_cls.objects.get.assert_called_once_with(id="sid1")
+    mock_get_settings_by_id.assert_called_once_with("sid1")
     mock_create_env.assert_called_once_with(
         mock_settings,
         mock_raw_file,
@@ -321,13 +321,13 @@ def test_prepare_quanting(
 
 @patch("dags.impl.processor_impl._check_content")
 @patch("dags.impl.processor_impl._create_quanting_env")
-@patch("dags.impl.processor_impl.Settings")
+@patch("dags.impl.processor_impl.get_settings_by_id")
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.get_path")
 def test_prepare_quanting_validation_error_stores_errors(
     mock_get_path: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
-    mock_settings_cls: MagicMock,
+    mock_get_settings_by_id: MagicMock,
     mock_create_env: MagicMock,
     mock_check_content: MagicMock,
 ) -> None:
@@ -342,7 +342,7 @@ def test_prepare_quanting_validation_error_stores_errors(
     mock_get_raw_file_by_id.return_value = mock_raw_file
     mock_get_path.return_value = Path("/some_backup_base_path")
     mock_settings = MagicMock()
-    mock_settings_cls.objects.get.return_value = mock_settings
+    mock_get_settings_by_id.return_value = mock_settings
     mock_env = {"SOFTWARE_TYPE": "custom"}
     mock_create_env.return_value = mock_env
     mock_check_content.return_value = ["some_error"]

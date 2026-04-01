@@ -172,7 +172,7 @@ with c_assign1:
                         st.rerun()
                     except Exception as e:  # noqa: BLE001
                         show_error_toast(str(e))
-<<<<<<< allow_settings_upgrade
+                        st.rerun()
 
                 update_help = (
                     f"Update to version {latest.version}"
@@ -201,9 +201,7 @@ with c_assign1:
                         st.rerun()
                     except Exception as e:  # noqa: BLE001
                         show_error_toast(str(e))
-=======
                         st.rerun()
->>>>>>> main
         else:
             st.info("No settings assigned to this project.")
 

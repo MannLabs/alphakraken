@@ -6,7 +6,7 @@ import pandas as pd
 import streamlit as st
 from service.columns import build_alternative_names_mapping, load_columns_from_yaml
 from service.db import df_from_db_data, get_raw_file_and_metrics_data
-from service.utils import Cols
+from service.utils import METRICS_TYPE_SEPARATOR, Cols
 
 from shared.db.models import RawFileStatus
 from shared.keys import MetricsTypes
@@ -14,8 +14,18 @@ from shared.keys import MetricsTypes
 _ALTERNATIVE_NAMES_MAPPING = build_alternative_names_mapping(load_columns_from_yaml())
 
 
+_MSQC_PREFIX = "msqc_"
+
+
 def _normalize_metric_columns(df: pd.DataFrame) -> pd.DataFrame:
     """Resolve alternative DB column names to canonical names and apply data transforms."""
+    # strip legacy "msqc_" prefix that the MSQC calculator adds to its metric names
+    df = df.rename(
+        columns={
+            c: c[len(_MSQC_PREFIX) :] for c in df.columns if c.startswith(_MSQC_PREFIX)
+        }
+    )
+
     df = df.rename(columns=_ALTERNATIVE_NAMES_MAPPING)
 
     # deduplicate columns that map to the same canonical name
@@ -63,6 +73,15 @@ def get_combined_raw_files_and_metrics_df(
 
         metrics_df = _normalize_metric_columns(metrics_df)
 
+        # prefix all metric columns with "{type}__"
+        metrics_df = metrics_df.drop(columns=["type"], errors="ignore")
+        metric_cols = [c for c in metrics_df.columns if c != "raw_file"]
+        metrics_df = metrics_df.rename(
+            columns={
+                c: f"{metrics_type}{METRICS_TYPE_SEPARATOR}{c}" for c in metric_cols
+            }
+        )
+
         if len(merged_metrics_df) == 0:
             merged_metrics_df = metrics_df
         else:
@@ -70,7 +89,6 @@ def get_combined_raw_files_and_metrics_df(
                 metrics_df,
                 on="raw_file",
                 how="outer",
-                suffixes=("", f"_{metrics_type}"),
             )
 
     if len(raw_files_df) == 0:
@@ -112,14 +130,25 @@ def get_combined_raw_files_and_metrics_df(
     combined_df.index = combined_df["_id"]
 
     # conversion of metrics columns: in case all quantings have failed, these columns are not available
-    if "quanting_time_elapsed" in combined_df.columns:
-        combined_df["quanting_time_minutes"] = combined_df["quanting_time_elapsed"] / 60
-        del combined_df["quanting_time_elapsed"]
+    for col in [
+        c
+        for c in combined_df.columns
+        if c.endswith(f"{METRICS_TYPE_SEPARATOR}quanting_time_elapsed")
+    ]:
+        prefix = col.rsplit(METRICS_TYPE_SEPARATOR, 1)[0]
+        combined_df[f"{prefix}{METRICS_TYPE_SEPARATOR}quanting_time_minutes"] = (
+            combined_df[col] / 60
+        )
+        del combined_df[col]
 
-    # TODO: centralize harmonization of column names
-    for col in ["precursors", "proteins"]:
-        if col in combined_df.columns:
-            combined_df[col] = combined_df[col].astype("Int64", errors="ignore")
+    for col in [
+        c
+        for c in combined_df.columns
+        if c.endswith(
+            (f"{METRICS_TYPE_SEPARATOR}precursors", f"{METRICS_TYPE_SEPARATOR}proteins")
+        )
+    ]:
+        combined_df[col] = combined_df[col].astype("Int64", errors="ignore")
 
     combined_df[Cols.IS_BASELINE] = False
 

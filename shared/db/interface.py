@@ -426,6 +426,12 @@ def augment_raw_files_with_metrics(
             metrics["gradient_length"] = metrics["raw:gradient_length_m"]
             del metrics["raw:gradient_length_m"]
 
+        if "msqc_evosep_pump_hp_pressure_max" in metrics:
+            metrics["evosep_pump_hp_pressure_max"] = metrics[
+                "msqc_evosep_pump_hp_pressure_max"
+            ]
+            del metrics["msqc_evosep_pump_hp_pressure_max"]
+
         raw_files_dict[metrics["raw_file"]][f"metrics_{metrics['type']}"] = metrics
 
     return raw_files_dict

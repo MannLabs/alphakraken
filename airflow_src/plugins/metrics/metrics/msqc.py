@@ -35,7 +35,7 @@ class BasicStats(Metrics):
 
     def _calc(self, df: pd.DataFrame, source_column: str, target_column: str) -> None:
         """Calculate metrics."""
-        self._metrics[f"msqc_{target_column}"] = df[source_column].mean()
+        self._metrics[target_column] = df[source_column].mean()
 
 
 def calc_msqc_metrics(output_directory: Path) -> dict[str, str | int | float]:

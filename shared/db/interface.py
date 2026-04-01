@@ -196,7 +196,7 @@ def add_metrics_to_raw_file(  # noqa: PLR0913
 ) -> None:
     """Add `metrics` to DB entry of `raw_file_id`."""
     logging.info(
-        f"Adding to DB: {raw_file_id=} <- {metrics=} type={metrics_type} {settings_name=} {settings_version=}"
+        f"Adding to DB: {raw_file_id=} <- {metrics=} type={metrics_type} {settings_name=} {settings_version=} {output_path=}"
     )
     connect_db()
     raw_file = RawFile.objects.get(id=raw_file_id)

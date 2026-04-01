@@ -106,6 +106,24 @@ def test_basic_stats_single_row(mock_datastore: MagicMock) -> None:
     assert metrics["precursors"] == 3000.0
 
 
+@patch("plugins.metrics.metrics.diann.PrecursorMedianRT")
+@patch("plugins.metrics.metrics.diann.BasicStats")
+def test_calc_diann_metrics_missing_report_parquet(
+    mock_basic_stats: MagicMock, mock_precursor_median_rt: MagicMock
+) -> None:
+    """Test that calc_diann_metrics returns BasicStats even when report.parquet is missing."""
+    mock_basic_stats.return_value = MagicMock()
+    mock_basic_stats.return_value.get.return_value = {"proteins": 500, "peptides": 3000}
+    mock_precursor_median_rt.return_value = MagicMock()
+    mock_precursor_median_rt.return_value.get.side_effect = FileNotFoundError(
+        "report.parquet"
+    )
+
+    result = calc_diann_metrics(Path("output_directory"))
+
+    assert result == {"proteins": 500, "peptides": 3000}
+
+
 @patch("plugins.metrics.metrics.diann.DataStore")
 def test_precursor_median_rt(mock_datastore: MagicMock) -> None:
     """Test that PrecursorMedianRT calculates the median RT."""

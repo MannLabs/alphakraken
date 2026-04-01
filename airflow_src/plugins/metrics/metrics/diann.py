@@ -1,5 +1,6 @@
 """Metrics for DIA-NN."""
 
+import logging
 from pathlib import Path
 from typing import ClassVar
 
@@ -62,7 +63,9 @@ def calc_diann_metrics(output_directory: Path) -> dict[str, str | int | float]:
     """Calculate DIA-NN metrics."""
     data_store = DataStore(output_directory, file_name_to_read_method_mapping)
 
-    return {
-        **BasicStats(data_store).get(),
-        **PrecursorMedianRT(data_store).get(),
-    }
+    metrics = BasicStats(data_store).get()
+    try:
+        metrics.update(PrecursorMedianRT(data_store).get())
+    except FileNotFoundError:
+        logging.warning("report.parquet not found, skipping PrecursorMedianRT metrics")
+    return metrics

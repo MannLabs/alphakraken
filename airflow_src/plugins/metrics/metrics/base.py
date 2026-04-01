@@ -6,15 +6,20 @@ from pathlib import Path
 from typing import Any, ClassVar
 
 import pandas as pd
+import pyarrow.parquet as pq
 
 
 def read_tsv(file_path: Path, columns: list[str] | None = None) -> pd.DataFrame:
     """Read a tsv file."""
-    return pd.read_csv(file_path, sep="\t", usecols=columns)
+    usecols = (lambda c: c in columns) if columns else None
+    return pd.read_csv(file_path, sep="\t", usecols=usecols)
 
 
 def read_parquet(file_path: Path, columns: list[str] | None = None) -> pd.DataFrame:
     """Read a parquet file."""
+    if columns is not None:
+        available = set(pq.read_schema(file_path).names)
+        columns = [c for c in columns if c in available]
     return pd.read_parquet(file_path, columns=columns)
 
 
@@ -39,7 +44,10 @@ class DataStore:
         return self.get(key)
 
     def get(self, key: str, columns: list[str] | None = None) -> pd.DataFrame:
-        """Get data from the data store, optionally reading only specific columns."""
+        """Get data from the data store, optionally reading only specific columns.
+
+        Results are cached per (key, columns) pair; requesting the same key with different columns will re-read the file.
+        """
         cache_key = (key, tuple(sorted(columns))) if columns else key
         if cache_key not in self._data:
             file_path = self._data_path / key

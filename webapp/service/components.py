@@ -160,7 +160,7 @@ def show_status_plot(
     ignored_status: list[str] = TERMINAL_STATUSES,
 ) -> None:
     """Show a plot of the file statuses for each instrument."""
-    if not len(combined_df):
+    if combined_df.empty:
         display.warning("No data available.")
         return
 
@@ -203,7 +203,7 @@ def show_time_in_status_table(
     ignored_status: list[str] = TERMINAL_STATUSES,
 ) -> None:
     """Show a table displaying per instrument and status the timestamp of the oldest transition."""
-    if not len(combined_df):
+    if combined_df.empty:
         display.warning("No data available.")
         return
 
@@ -355,7 +355,7 @@ def display_status(combined_df: pd.DataFrame, status_data_df: pd.DataFrame) -> N
         f"which means that mass specs that have been idling for longer than this period are not shown here."
     )
 
-    if not len(combined_df):
+    if combined_df.empty:
         st.warning("No data available.")
         return
 

@@ -61,7 +61,7 @@ def on_failure_callback(context: dict[str, Any], **kwargs) -> None:
             "status_details": status_details,
         }
 
-        # don't set the state to error during quanting checks
+        # don't set the state to error during quanting checks, as it's a transient state; set status_details for early feedback
         if not isinstance(
             ex, (QuantingFailedNewErrorException, QuantingFailedUnknownErrorException)
         ):

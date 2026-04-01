@@ -206,7 +206,7 @@ with st.spinner("Loading data ..."):
             else instruments_input.split(",")
         ),
     )
-    if not len(combined_df):
+    if combined_df.empty:
         st.warning("No data available. Please broaden your selection.")
         st.stop()
 

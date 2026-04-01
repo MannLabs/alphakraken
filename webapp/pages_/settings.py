@@ -127,14 +127,18 @@ with c1.expander("Click here for help ..."):
 c1.markdown("## Create / update settings")
 
 # only active settings beyond this point
-settings_df = settings_df[settings_df["status"] == SettingsStatus.ACTIVE]
+if len(settings_df):
+    settings_df = settings_df[settings_df["status"] == SettingsStatus.ACTIVE]
 
-# Get existing settings names for selectbox (outside form so it can trigger reruns)
-existing_settings_names = (
-    sorted(set(settings_df["name"].tolist()))
-    if not settings_df.empty and "name" in settings_df.columns
-    else []
-)
+    # Get existing settings names for selectbox (outside form so it can trigger reruns)
+    existing_settings_names = (
+        sorted(set(settings_df["name"].tolist()))
+        if not settings_df.empty and "name" in settings_df.columns
+        else []
+    )
+else:
+    existing_settings_names = []
+
 CREATE_NEW_OPTION = "➕ Create new settings..."  # noqa: RUF001
 
 settings_name_options = [CREATE_NEW_OPTION, *existing_settings_names]
@@ -537,9 +541,12 @@ if submit:
 
 c1.markdown("## Archive settings")
 
-active_settings_df = settings_df[
-    settings_df["status"] == SettingsStatus.ACTIVE
-].sort_values(["name", "version"], ascending=[True, False])
+if len(settings_df):
+    active_settings_df = settings_df[
+        settings_df["status"] == SettingsStatus.ACTIVE
+    ].sort_values(["name", "version"], ascending=[True, False])
+else:
+    active_settings_df = pd.DataFrame()
 
 if active_settings_df.empty:
     c1.info("No active settings to archive.")

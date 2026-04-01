@@ -589,3 +589,4 @@ else:
                     st.rerun()
                 except Exception as e:  # noqa: BLE001
                     show_error_toast(str(e))
+                    st.rerun()

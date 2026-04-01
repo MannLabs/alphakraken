@@ -167,6 +167,7 @@ with c_assign1:
                         st.rerun()
                     except Exception as e:  # noqa: BLE001
                         show_error_toast(str(e))
+                        st.rerun()
         else:
             st.info("No settings assigned to this project.")
 
@@ -234,6 +235,7 @@ with c_assign1:
                     st.rerun()
                 except Exception as e:  # noqa: BLE001
                     show_error_toast(str(e))
+                    st.rerun()
 
 with c_assign2:
     if selected_project_id:
@@ -363,6 +365,7 @@ if form_submit:
         )
     except Exception as e:  # noqa: BLE001
         show_error_toast(str(e))
+        st.rerun()
     else:
         show_success_toast(f"Added new project '{project_id}' to the database.")
-    st.rerun()
+        st.rerun()

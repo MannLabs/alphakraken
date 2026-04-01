@@ -22,7 +22,7 @@ from shared.db.interface import (
     get_raw_files_by_age,
     get_raw_files_by_instrument_file_status,
     get_raw_files_by_names,
-    remove_project_settings,
+    unassign_settings_from_project,
     update_kraken_status,
     update_raw_file,
 )
@@ -474,11 +474,11 @@ def test_assign_settings_to_project_with_filter_same_software_type_no_filter_suc
 
 @patch("shared.db.interface.connect_db")
 @patch("shared.db.interface.ProjectSettings")
-def test_remove_project_settings(
+def test_unassign_settings_from_project(
     mock_project_settings: MagicMock, mock_connect_db: MagicMock
 ) -> None:
-    """Test that remove_project_settings deletes the assignment."""
-    remove_project_settings("ps_id_123")
+    """Test that unassign_settings_from_project deletes the assignment."""
+    unassign_settings_from_project("ps_id_123")
 
     mock_project_settings.objects.get.assert_called_once_with(id="ps_id_123")
     mock_project_settings.objects.get.return_value.delete.assert_called_once()

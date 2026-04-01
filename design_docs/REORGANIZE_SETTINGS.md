@@ -156,7 +156,7 @@ class ProjectSettings(Document):
 
 **`shared/db/interface.py`** — Add new functions:
 - `assign_settings_to_project(project_id, settings_id, scope)` — create assignment
-- `remove_project_settings(project_settings_id)` — remove assignment by ID
+- `unassign_settings_from_project(project_settings_id)` — remove assignment by ID
 - `get_project_settings(project_id) -> list[ProjectSettings]` — list all assignments
 - `resolve_settings_for_raw_file(project_id) -> list[Settings]` — return all assigned settings (no scope filtering yet)
 

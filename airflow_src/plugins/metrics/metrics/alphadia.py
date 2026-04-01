@@ -132,7 +132,7 @@ class PrecursorStatsIntensity(Metrics):
         except KeyError as e:
             logging.warning(f"Error calculating precursor_intensity_median: {e}")
             if not self._tolerate_missing:
-                raise e  # noqa: TRY201
+                raise
 
     def _calc(self, df: pd.DataFrame, source_column: str, target_column: str) -> None:
         pass

@@ -46,7 +46,7 @@ class DataStore:
     def get(self, key: str, columns: list[str] | None = None) -> pd.DataFrame:
         """Get data from the data store, optionally reading only specific columns.
 
-        Note: this does not reuse any previously loaded data.
+        Results are cached per (key, columns) pair; requesting the same key with different columns will re-read the file.
         """
         cache_key = (key, tuple(sorted(columns))) if columns else key
         if cache_key not in self._data:

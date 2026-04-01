@@ -42,19 +42,32 @@ DEFAULT_MAX_AGE_STATUS = 90  # days
 
 BASELINE_PREFIX = "BASELINE_"
 
-_ERROR_TOAST_PREFIX = (
-    "Error! If you feel this is a bug, send a screenshot to the AlphaKraken team!\n\n"
+_ERROR_TOAST_SUFFIX = (
+    "If you feel this is a bug, send a screenshot to the AlphaKraken team!"
 )
 
 
+_PENDING_TOAST_KEY = "_pending_toast"
+
+
 def show_success_toast(msg: str) -> None:
-    """Show a success toast notification."""
-    st.toast(f"Success! {msg}", icon=":material/check_circle:", duration="long")
+    """Queue a success toast notification (displayed after next rerun)."""
+    st.session_state[_PENDING_TOAST_KEY] = ("success", msg)
 
 
 def show_error_toast(msg: str) -> None:
-    """Show a persistent error toast notification."""
-    st.toast(_ERROR_TOAST_PREFIX + msg, icon=":material/error:", duration="infinite")
+    """Queue an error toast notification (displayed after next rerun)."""
+    st.session_state[_PENDING_TOAST_KEY] = ("error", msg)
+
+
+def flush_pending_toasts() -> None:
+    """Display any pending toast and clear it from session state."""
+    if toast_data := st.session_state.pop(_PENDING_TOAST_KEY, None):
+        level, msg = toast_data
+        if level == "success":
+            st.toast(f"Success! {msg}", icon="✅")
+        else:
+            st.toast(f"Error: {msg} {_ERROR_TOAST_SUFFIX}", icon="❌")
 
 
 # Configure logging

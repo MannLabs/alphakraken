@@ -17,6 +17,7 @@ from service.utils import (
     DISABLE_WRITE,
     _log,
     empty_to_none,
+    flush_pending_toasts,
     quanting_output_path,
     show_error_toast,
     show_success_toast,
@@ -43,6 +44,8 @@ _log(f"loading {__file__} {get_all_query_params()}")
 st.set_page_config(page_title="AlphaKraken: projects", layout="wide")
 
 show_sandbox_message()
+
+flush_pending_toasts()
 
 st.markdown("# Projects")
 

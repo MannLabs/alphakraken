@@ -6,7 +6,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from pages_.impl.overview_utils import filter_valid_columns
 from service.columns import Column
-from service.utils import Cols, display_plotly_chart
+from service.utils import METRICS_TYPE_SEPARATOR, Cols, display_plotly_chart
 
 from shared.db.models import ERROR_STATUSES
 
@@ -95,7 +95,7 @@ def _draw_plot(  # noqa: PLR0913
     # TODO: centralize column names and harmonization
     hover_data = filter_valid_columns(
         ["file_created", "size_gb", "status"]
-        + [c for c in df.columns if c.endswith("__precursors")],
+        + [c for c in df.columns if c.endswith(f"{METRICS_TYPE_SEPARATOR}precursors")],
         df,
     )
 

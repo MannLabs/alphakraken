@@ -6,7 +6,7 @@ import pandas as pd
 import streamlit as st
 from service.columns import build_alternative_names_mapping, load_columns_from_yaml
 from service.db import df_from_db_data, get_raw_file_and_metrics_data
-from service.utils import Cols
+from service.utils import METRICS_TYPE_SEPARATOR, Cols
 
 from shared.db.models import RawFileStatus
 from shared.keys import MetricsTypes
@@ -77,7 +77,9 @@ def get_combined_raw_files_and_metrics_df(
         metrics_df = metrics_df.drop(columns=["type"], errors="ignore")
         metric_cols = [c for c in metrics_df.columns if c != "raw_file"]
         metrics_df = metrics_df.rename(
-            columns={c: f"{metrics_type}__{c}" for c in metric_cols}
+            columns={
+                c: f"{metrics_type}{METRICS_TYPE_SEPARATOR}{c}" for c in metric_cols
+            }
         )
 
         if len(merged_metrics_df) == 0:
@@ -129,14 +131,22 @@ def get_combined_raw_files_and_metrics_df(
 
     # conversion of metrics columns: in case all quantings have failed, these columns are not available
     for col in [
-        c for c in combined_df.columns if c.endswith("__quanting_time_elapsed")
+        c
+        for c in combined_df.columns
+        if c.endswith(f"{METRICS_TYPE_SEPARATOR}quanting_time_elapsed")
     ]:
-        prefix = col.rsplit("__", 1)[0]
-        combined_df[f"{prefix}__quanting_time_minutes"] = combined_df[col] / 60
+        prefix = col.rsplit(METRICS_TYPE_SEPARATOR, 1)[0]
+        combined_df[f"{prefix}{METRICS_TYPE_SEPARATOR}quanting_time_minutes"] = (
+            combined_df[col] / 60
+        )
         del combined_df[col]
 
     for col in [
-        c for c in combined_df.columns if c.endswith(("__precursors", "__proteins"))
+        c
+        for c in combined_df.columns
+        if c.endswith(
+            (f"{METRICS_TYPE_SEPARATOR}precursors", f"{METRICS_TYPE_SEPARATOR}proteins")
+        )
     ]:
         combined_df[col] = combined_df[col].astype("Int64", errors="ignore")
 

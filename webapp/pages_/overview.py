@@ -54,6 +54,7 @@ from service.utils import (
 )
 
 from shared.yamlsettings import YAMLSETTINGS, YamlKeys
+from webapp.service.utils import METRICS_TYPE_SEPARATOR
 
 _log(f"loading {__file__} {get_all_query_params()}")
 
@@ -346,7 +347,9 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
             )
             .format(
                 subset=[
-                    c for c in filtered_df.columns if c.endswith("__settings_version")
+                    c
+                    for c in filtered_df.columns
+                    if c.endswith(f"{METRICS_TYPE_SEPARATOR}settings_version")
                 ],
                 formatter="{:.0f}",
             ),

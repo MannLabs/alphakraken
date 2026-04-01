@@ -8,7 +8,13 @@ from service.columns import Column
 from service.components import get_display_time
 from service.data_handling import get_combined_raw_files_and_metrics_df
 from service.query_params import QueryParams
-from service.utils import APP_URL, BASELINE_PREFIX, FILTER_MAPPING, Cols
+from service.utils import (
+    APP_URL,
+    BASELINE_PREFIX,
+    FILTER_MAPPING,
+    METRICS_TYPE_SEPARATOR,
+    Cols,
+)
 
 from shared.db.models import TERMINAL_STATUSES
 
@@ -63,7 +69,11 @@ def expand_columns(
     for column in columns:
         if "*" not in column.name:
             # try prefixed matches first, fall back to exact match for non-metric columns
-            prefixed = sorted(c for c in df_columns if c.endswith(f"__{column.name}"))
+            prefixed = sorted(
+                c
+                for c in df_columns
+                if c.endswith(f"{METRICS_TYPE_SEPARATOR}{column.name}")
+            )
             if prefixed:
                 expanded.extend(_make_column(column, df_col) for df_col in prefixed)
             else:
@@ -74,7 +84,8 @@ def expand_columns(
         matches = sorted(
             c
             for c in df_columns
-            if "__" in c and fnmatch(c.split("__", 1)[1], column.name)
+            if METRICS_TYPE_SEPARATOR in c
+            and fnmatch(c.split(METRICS_TYPE_SEPARATOR, 1)[1], column.name)
         )
         if not matches:
             continue

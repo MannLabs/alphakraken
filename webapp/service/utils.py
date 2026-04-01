@@ -105,6 +105,9 @@ def empty_to_none(value: str) -> str | None:
     return None if value is None or value.strip() == "" else value
 
 
+METRICS_TYPE_SEPARATOR = "__"
+
+
 class Cols:
     """Internal column names."""
 

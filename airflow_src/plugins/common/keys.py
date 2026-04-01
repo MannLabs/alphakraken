@@ -40,6 +40,7 @@ class Tasks:
     DECIDE_PROCESSING: str = "decide_processing"
     START_ACQUISITION_PROCESSOR: str = "start_acquisition_processor"
 
+    RESOLVE_SETTINGS: str = "resolve_settings"
     PREPARE_QUANTING: str = "prepare_quanting"
 
     RUN_QUANTING: str = "run_quanting"

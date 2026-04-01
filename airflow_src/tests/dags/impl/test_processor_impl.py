@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from pathlib import Path
-from unittest.mock import MagicMock, call, mock_open, patch
+from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
 import pytz
@@ -20,6 +20,7 @@ from dags.impl.processor_impl import (
     finalize_raw_file_status,
     get_business_errors,
     prepare_quanting,
+    resolve_settings,
     run_quanting,
     store_metrics,
 )
@@ -185,21 +186,111 @@ def test_create_quanting_env_custom_software(
 
 
 @patch.dict(_INSTRUMENTS, {"instrument1": {"type": "thermo"}})
-@patch("dags.impl.processor_impl._create_quanting_env")
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
-@patch("dags.impl.processor_impl.get_path")
 @patch("dags.impl.processor_impl.get_project_settings")
 @patch("dags.impl.processor_impl.resolve_scoped_settings")
 @patch("dags.impl.processor_impl.get_internal_output_path_for_raw_file")
-def test_prepare_quanting(  # noqa: PLR0913
+def test_resolve_settings(
     mock_get_internal_output_path: MagicMock,
     mock_resolve_scoped: MagicMock,
     mock_get_settings: MagicMock,
+    mock_get_raw_file_by_id: MagicMock,
+) -> None:
+    """Test that resolve_settings returns settings info dicts."""
+    mock_raw_file = MagicMock(
+        wraps=RawFile,
+        id="test_file.raw",
+        created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
+        project_id="some_project_id",
+        instrument_id="instrument1",
+    )
+    mock_get_raw_file_by_id.return_value = mock_raw_file
+
+    mock_settings_1 = MagicMock()
+    mock_settings_1.id = "sid1"
+    mock_settings_1.name = "settings_A"
+    mock_settings_2 = MagicMock()
+    mock_settings_2.id = "sid2"
+    mock_settings_2.name = "settings_B"
+    mock_get_settings.return_value = [mock_settings_1, mock_settings_2]
+    mock_resolve_scoped.return_value = [mock_settings_1, mock_settings_2]
+
+    result = resolve_settings(raw_file_id="test_file.raw")
+
+    mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
+    mock_get_settings.assert_called_once_with("some_project_id")
+    mock_resolve_scoped.assert_called_once()
+    mock_get_internal_output_path.assert_called_once_with(mock_raw_file)
+    mock_get_internal_output_path.return_value.mkdir.assert_called_once_with(
+        parents=True, exist_ok=True
+    )
+    assert result == ["sid1", "sid2"]
+
+
+@patch("dags.impl.processor_impl.get_raw_file_by_id")
+@patch("dags.impl.processor_impl.get_project_settings")
+@patch("dags.impl.processor_impl.get_instrument_settings")
+def test_resolve_settings_no_project_raise(
+    mock_get_instrument_settings: MagicMock,
+    mock_get_settings: MagicMock,
+    mock_get_raw_file_by_id: MagicMock,
+) -> None:
+    """Test that resolve_settings raises an exception if no project is found."""
+    mock_raw_file = MagicMock(
+        wraps=RawFile,
+        id="test_file.raw",
+        created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
+        project_id="some_project_id",
+    )
+    mock_get_raw_file_by_id.return_value = mock_raw_file
+
+    mock_get_instrument_settings.return_value = "thermo"
+
+    mock_get_settings.side_effect = DoesNotExist
+
+    with pytest.raises(AirflowFailException):
+        resolve_settings(raw_file_id="test_file.raw")
+
+
+@patch("dags.impl.processor_impl.get_raw_file_by_id")
+@patch("dags.impl.processor_impl.get_project_settings")
+@patch("dags.impl.processor_impl.resolve_scoped_settings")
+@patch("dags.impl.processor_impl.get_instrument_settings")
+def test_resolve_settings_no_settings_raise(
+    mock_get_instrument_settings: MagicMock,
+    mock_resolve_scoped: MagicMock,
+    mock_get_settings: MagicMock,
+    mock_get_raw_file_by_id: MagicMock,
+) -> None:
+    """Test that resolve_settings raises an exception if no settings are found."""
+    mock_raw_file = MagicMock(
+        wraps=RawFile,
+        id="test_file.raw",
+        created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
+        project_id="some_project_id",
+    )
+    mock_get_raw_file_by_id.return_value = mock_raw_file
+
+    mock_get_instrument_settings.return_value = "thermo"
+
+    mock_get_settings.return_value = [MagicMock()]
+    mock_resolve_scoped.return_value = []
+
+    with pytest.raises(AirflowFailException):
+        resolve_settings(raw_file_id="test_file.raw")
+
+
+@patch("dags.impl.processor_impl._create_quanting_env")
+@patch("dags.impl.processor_impl.Settings")
+@patch("dags.impl.processor_impl.get_raw_file_by_id")
+@patch("dags.impl.processor_impl.get_path")
+def test_prepare_quanting(
     mock_get_path: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
+    mock_settings_cls: MagicMock,
     mock_create_env: MagicMock,
 ) -> None:
-    """Test that prepare_quanting orchestrates the expected calls."""
+    """Test that prepare_quanting orchestrates the expected calls for a single settings entry."""
     mock_raw_file = MagicMock(
         wraps=RawFile,
         id="test_file.raw",
@@ -210,100 +301,32 @@ def test_prepare_quanting(  # noqa: PLR0913
     mock_get_raw_file_by_id.return_value = mock_raw_file
     mock_get_path.return_value = Path("/some_backup_base_path")
     mock_settings = MagicMock(config_params=[])
-    mock_get_settings.return_value = [mock_settings]
-    mock_resolve_scoped.return_value = [mock_settings]
+    mock_settings_cls.objects.get.return_value = mock_settings
     mock_env = {"SOFTWARE_TYPE": "alphadia"}
     mock_create_env.return_value = mock_env
 
-    result = prepare_quanting(raw_file_id="test_file.raw")
+    result = prepare_quanting(raw_file_id="test_file.raw", settings_id="sid1")
 
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
-    mock_get_settings.assert_called_once_with("some_project_id")
-    mock_resolve_scoped.assert_called_once()
-    mock_get_internal_output_path.assert_called_once_with(mock_raw_file)
-    mock_get_internal_output_path.return_value.mkdir.assert_called_once_with(
-        parents=True, exist_ok=True
-    )
+    mock_settings_cls.objects.get.assert_called_once_with(id="sid1")
     mock_create_env.assert_called_once_with(
         mock_settings,
         mock_raw_file,
         Path("/some_backup_base_path/instrument1/1970_01/test_file.raw"),
         Path("instrument1/1970_01/test_file.raw"),
     )
-    assert result == [mock_env]
+    assert result == mock_env
 
 
-@patch.dict(_INSTRUMENTS, {"instrument1": {"type": "thermo"}})
-@patch("dags.impl.processor_impl._create_quanting_env")
-@patch("dags.impl.processor_impl.get_raw_file_by_id")
-@patch("dags.impl.processor_impl.get_path")
-@patch("dags.impl.processor_impl.get_project_settings")
-@patch("dags.impl.processor_impl.resolve_scoped_settings")
-@patch("dags.impl.processor_impl.get_internal_output_path_for_raw_file")
-def test_prepare_quanting_multiple_settings(  # noqa: PLR0913
-    mock_get_internal_output_path: MagicMock,
-    mock_resolve_scoped: MagicMock,
-    mock_get_settings: MagicMock,
-    mock_get_path: MagicMock,
-    mock_get_raw_file_by_id: MagicMock,
-    mock_create_env: MagicMock,
-) -> None:
-    """Test that prepare_quanting returns one quanting_env per assigned settings."""
-    mock_raw_file = MagicMock(
-        wraps=RawFile,
-        id="test_file.raw",
-        created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
-        project_id="some_project_id",
-        instrument_id="instrument1",
-    )
-    mock_get_raw_file_by_id.return_value = mock_raw_file
-    mock_get_path.return_value = Path("/backup")
-    mock_get_settings.return_value = [MagicMock(), MagicMock()]
-    mock_settings_1 = MagicMock(config_params=[])
-    mock_settings_2 = MagicMock(config_params=[])
-    mock_resolve_scoped.return_value = [mock_settings_1, mock_settings_2]
-    mock_env_1 = {"SOFTWARE_TYPE": "alphadia"}
-    mock_env_2 = {"SOFTWARE_TYPE": "msqc"}
-    mock_create_env.side_effect = [mock_env_1, mock_env_2]
-
-    result = prepare_quanting(raw_file_id="test_file.raw")
-
-    expected_raw_file_path = Path("/backup/instrument1/1970_01/test_file.raw")
-    expected_relative_path = Path("instrument1/1970_01/test_file.raw")
-    assert mock_create_env.call_args_list == [
-        call(
-            mock_settings_1,
-            mock_raw_file,
-            expected_raw_file_path,
-            expected_relative_path,
-        ),
-        call(
-            mock_settings_2,
-            mock_raw_file,
-            expected_raw_file_path,
-            expected_relative_path,
-        ),
-    ]
-    assert result == [mock_env_1, mock_env_2]
-    mock_get_internal_output_path.return_value.mkdir.assert_called_once_with(
-        parents=True, exist_ok=True
-    )
-
-
-@patch.dict(_INSTRUMENTS, {"instrument1": {"type": "thermo"}})
 @patch("dags.impl.processor_impl._check_content")
 @patch("dags.impl.processor_impl._create_quanting_env")
+@patch("dags.impl.processor_impl.Settings")
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.get_path")
-@patch("dags.impl.processor_impl.get_project_settings")
-@patch("dags.impl.processor_impl.resolve_scoped_settings")
-@patch("dags.impl.processor_impl.get_internal_output_path_for_raw_file")
-def test_prepare_quanting_validation_error_stores_errors(  # noqa: PLR0913
-    mock_get_internal_output_path: MagicMock,
-    mock_resolve_scoped: MagicMock,
-    mock_get_settings: MagicMock,
+def test_prepare_quanting_validation_error_stores_errors(
     mock_get_path: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
+    mock_settings_cls: MagicMock,
     mock_create_env: MagicMock,
     mock_check_content: MagicMock,
 ) -> None:
@@ -318,13 +341,12 @@ def test_prepare_quanting_validation_error_stores_errors(  # noqa: PLR0913
     mock_get_raw_file_by_id.return_value = mock_raw_file
     mock_get_path.return_value = Path("/some_backup_base_path")
     mock_settings = MagicMock()
-    mock_get_settings.return_value = [MagicMock()]
-    mock_resolve_scoped.return_value = [mock_settings]
+    mock_settings_cls.objects.get.return_value = mock_settings
     mock_env = {"SOFTWARE_TYPE": "custom"}
     mock_create_env.return_value = mock_env
     mock_check_content.return_value = ["some_error"]
 
-    result = prepare_quanting(raw_file_id="test_file.raw")
+    result = prepare_quanting(raw_file_id="test_file.raw", settings_id="sid1")
 
     mock_create_env.assert_called_once_with(
         mock_settings,
@@ -333,66 +355,8 @@ def test_prepare_quanting_validation_error_stores_errors(  # noqa: PLR0913
         Path("instrument1/1970_01/test_file.raw"),
     )
     mock_check_content.assert_called_once_with(mock_env, mock_settings)
-    mock_get_internal_output_path.return_value.mkdir.assert_called_once_with(
-        parents=True, exist_ok=True
-    )
-    assert result == [mock_env]
-    assert result[0][QuantingEnv.QUANTING_ENV_CREATION_ERRORS] == ["some_error"]
-
-
-@patch("dags.impl.processor_impl.get_raw_file_by_id")
-@patch("dags.impl.processor_impl.get_project_settings")
-@patch("dags.impl.processor_impl.get_instrument_settings")
-def test_prepare_quanting_no_project_raise(
-    mock_get_instrument_settings: MagicMock,
-    mock_get_settings: MagicMock,
-    mock_get_raw_file_by_id: MagicMock,
-) -> None:
-    """Test that prepare_quanting raises an exception if no project is found."""
-    mock_raw_file = MagicMock(
-        wraps=RawFile,
-        id="test_file.raw",
-        created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
-        project_id="some_project_id",
-    )
-    mock_get_raw_file_by_id.return_value = mock_raw_file
-
-    mock_get_instrument_settings.return_value = "thermo"
-
-    mock_get_settings.side_effect = DoesNotExist
-
-    # when
-    with pytest.raises(AirflowFailException):
-        prepare_quanting(raw_file_id="test_file.raw")
-
-
-@patch("dags.impl.processor_impl.get_raw_file_by_id")
-@patch("dags.impl.processor_impl.get_project_settings")
-@patch("dags.impl.processor_impl.resolve_scoped_settings")
-@patch("dags.impl.processor_impl.get_instrument_settings")
-def test_prepare_quanting_no_settings_raise(
-    mock_get_instrument_settings: MagicMock,
-    mock_resolve_scoped: MagicMock,
-    mock_get_settings: MagicMock,
-    mock_get_raw_file_by_id: MagicMock,
-) -> None:
-    """Test that prepare_quanting raises an exception if no settings are found."""
-    mock_raw_file = MagicMock(
-        wraps=RawFile,
-        id="test_file.raw",
-        created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
-        project_id="some_project_id",
-    )
-    mock_get_raw_file_by_id.return_value = mock_raw_file
-
-    mock_get_instrument_settings.return_value = "thermo"
-
-    mock_get_settings.return_value = [MagicMock()]
-    mock_resolve_scoped.return_value = []
-
-    # when
-    with pytest.raises(AirflowFailException):
-        prepare_quanting(raw_file_id="test_file.raw")
+    assert result == mock_env
+    assert result[QuantingEnv.QUANTING_ENV_CREATION_ERRORS] == ["some_error"]
 
 
 def test_get_slurm_job_id_from_log_returns_slurm_job_id_if_present_in_log() -> None:

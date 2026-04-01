@@ -28,6 +28,7 @@ from impl.processor_impl import (
     compute_metrics,
     finalize_raw_file_status,
     prepare_quanting,
+    resolve_settings,
     run_quanting,
     store_metrics,
 )
@@ -67,20 +68,31 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
         dag.doc_md = __doc__
 
         @task(
-            task_id=Tasks.PREPARE_QUANTING,
+            task_id=Tasks.RESOLVE_SETTINGS,
             # make the youngest created task the one with the highest prio (last in, first out)
             priority_weight=get_minutes_since_fixed_time_point(),
         )
-        def prepare_quanting_task(params: dict | None = None) -> list[dict]:
-            """Collect settings and return list of quanting_env dicts, one per settings entry."""
+        def resolve_settings_task(params: dict | None = None) -> list[str]:
+            """Resolve which settings apply and return list of settings IDs."""
             assert params is not None
-            return prepare_quanting(
+            return resolve_settings(
                 raw_file_id=params[DagParams.RAW_FILE_ID],
             )
 
         @task_group(group_id=TaskGroups.QUANTING_PIPELINE)
-        def quanting_pipeline(quanting_env: dict) -> None:
-            """The quanting pipeline that runs for every quanting_env."""
+        def quanting_pipeline(settings_id: str) -> None:
+            """The quanting pipeline that runs for every settings entry."""
+
+            @task(task_id=Tasks.PREPARE_QUANTING)
+            def prepare_quanting_task(
+                settings_id: str, params: dict | None = None
+            ) -> dict:
+                """Prepare quanting env for a single settings entry."""
+                assert params is not None
+                return prepare_quanting(
+                    raw_file_id=params[DagParams.RAW_FILE_ID],
+                    settings_id=settings_id,
+                )
 
             @task(
                 task_id=Tasks.RUN_QUANTING, pool=Pools.CLUSTER_SLOTS_POOL
@@ -135,6 +147,7 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
                     metrics_type=metrics_result["metrics_type"],
                 )
 
+            quanting_env = prepare_quanting_task(settings_id)
             job_id = run_quanting_task(quanting_env)
 
             job_id >> wait_ >> monitor_
@@ -163,8 +176,8 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
                 raw_file_id=params[DagParams.RAW_FILE_ID],
             )
 
-        envs = prepare_quanting_task()
-        mapped = quanting_pipeline.expand(quanting_env=envs)
+        settings_ids = resolve_settings_task()
+        mapped = quanting_pipeline.expand(settings_id=settings_ids)
         mapped >> finalize_status()
 
 

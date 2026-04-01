@@ -47,7 +47,7 @@ class Tasks:
     MONITOR_QUANTING: str = "monitor_quanting"
     CHECK_QUANTING_RESULT: str = "check_quanting_result"
     COMPUTE_METRICS: str = "compute_metrics"
-    UPLOAD_METRICS: str = "upload_metrics"
+    STORE_METRICS: str = "store_metrics"
 
     FINALIZE_STATUS: str = "finalize_status"
 

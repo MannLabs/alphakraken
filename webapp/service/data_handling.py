@@ -19,10 +19,10 @@ def _normalize_metric_columns(df: pd.DataFrame) -> pd.DataFrame:
     df = df.rename(columns=_ALTERNATIVE_NAMES_MAPPING)
 
     # deduplicate columns that map to the same canonical name
-    df = df.groupby(axis=1, level=0).first()
+    df = df.T.groupby(level=0).first().T
 
     if "gradient_length" in df.columns:
-        df["gradient_length"] = df["gradient_length"].apply(lambda x: round(x, 1))
+        df["gradient_length"] = df["gradient_length"].round(1)
 
     return df
 

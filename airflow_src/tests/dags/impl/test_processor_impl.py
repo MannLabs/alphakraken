@@ -657,6 +657,7 @@ def test_check_quanting_result_business_error(  # noqa: PLR0913
         QuantingEnv.SETTINGS_NAME: "test_settings",
         QuantingEnv.SETTINGS_VERSION: 1,
         QuantingEnv.INTERNAL_OUTPUT_PATH: "/opt/airflow/mounts/output/PID1/out_test_file.raw/alphadia",
+        QuantingEnv.OUTPUT_PATH: "/data/output/PID1/out_test_file.raw/alphadia",
         QuantingEnv.METRICS_TYPE: "alphadia",
         QuantingEnv.SOFTWARE_TYPE: "alphadia",
     }
@@ -686,6 +687,7 @@ def test_check_quanting_result_business_error(  # noqa: PLR0913
         settings_name="test_settings",
         settings_version=1,
         metrics_type="alphadia",
+        output_path="/data/output/PID1/out_test_file.raw/alphadia",
     )
     mock_put_xcom.assert_called_once_with(
         mock_ti, key=XComKeys.BRANCH_ERRORS, value="error1;error2"
@@ -713,6 +715,7 @@ def test_check_quanting_result_business_error_raises(  # noqa: PLR0913
         QuantingEnv.SETTINGS_NAME: "test_settings",
         QuantingEnv.SETTINGS_VERSION: 1,
         QuantingEnv.INTERNAL_OUTPUT_PATH: "/opt/airflow/mounts/output/PID1/out_test_file.raw/alphadia",
+        QuantingEnv.OUTPUT_PATH: "/data/output/PID1/out_test_file.raw/alphadia",
         QuantingEnv.METRICS_TYPE: "alphadia",
         QuantingEnv.SOFTWARE_TYPE: "alphadia",
     }
@@ -742,6 +745,7 @@ def test_check_quanting_result_business_error_raises(  # noqa: PLR0913
         settings_name="test_settings",
         settings_version=1,
         metrics_type="alphadia",
+        output_path="/data/output/PID1/out_test_file.raw/alphadia",
     )
     mock_put_xcom.assert_called_once_with(
         mock_ti, key=XComKeys.BRANCH_ERRORS, value="error1;__UNKNOWN_ERROR"
@@ -767,6 +771,7 @@ def test_check_quanting_result_timeout(
         QuantingEnv.SETTINGS_NAME: "test_settings",
         QuantingEnv.SETTINGS_VERSION: 1,
         QuantingEnv.INTERNAL_OUTPUT_PATH: "/opt/airflow/mounts/output/PID1/out_test_file.raw/alphadia",
+        QuantingEnv.OUTPUT_PATH: "/data/output/PID1/out_test_file.raw/alphadia",
         QuantingEnv.METRICS_TYPE: "alphadia",
     }
     mock_raw_file = MagicMock(wraps=RawFile, id="test_file.raw")
@@ -790,6 +795,7 @@ def test_check_quanting_result_timeout(
         settings_name="test_settings",
         settings_version=1,
         metrics_type="alphadia",
+        output_path="/data/output/PID1/out_test_file.raw/alphadia",
     )
     mock_put_xcom.assert_called_once_with(
         mock_ti, key=XComKeys.BRANCH_ERRORS, value="TIMEOUT"
@@ -815,6 +821,7 @@ def test_check_quanting_result_oom(
         QuantingEnv.SETTINGS_NAME: "test_settings",
         QuantingEnv.SETTINGS_VERSION: 1,
         QuantingEnv.INTERNAL_OUTPUT_PATH: "/opt/airflow/mounts/output/PID1/out_test_file.raw/alphadia",
+        QuantingEnv.OUTPUT_PATH: "/data/output/PID1/out_test_file.raw/alphadia",
         QuantingEnv.METRICS_TYPE: "alphadia",
     }
     mock_raw_file = MagicMock(wraps=RawFile, id="test_file.raw")
@@ -838,6 +845,7 @@ def test_check_quanting_result_oom(
         settings_name="test_settings",
         settings_version=1,
         metrics_type="alphadia",
+        output_path="/data/output/PID1/out_test_file.raw/alphadia",
     )
     mock_put_xcom.assert_called_once_with(
         mock_ti, key=XComKeys.BRANCH_ERRORS, value="OUT_OF_MEMORY"
@@ -976,6 +984,7 @@ def test_upload_metrics(
             "SETTINGS_NAME": "test_settings",
             "SETTINGS_VERSION": 1,
             "RAW_FILE_ID": "some_file.raw",
+            "OUTPUT_PATH": "/data/output/P1/out_some_file.raw/alphadia",
         },
         metrics={"metric1": "value1"},
         metrics_type="alphadia",
@@ -989,6 +998,7 @@ def test_upload_metrics(
         },
         settings_name="test_settings",
         settings_version=1,
+        output_path="/data/output/P1/out_some_file.raw/alphadia",
     )
 
 

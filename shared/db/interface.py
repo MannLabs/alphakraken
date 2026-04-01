@@ -185,17 +185,18 @@ def update_raw_file(  # noqa: PLR0913
     raw_file.update(**{k: v for k, v in kwargs.items() if v != _NO_UPDATE})
 
 
-def add_metrics_to_raw_file(
+def add_metrics_to_raw_file(  # noqa: PLR0913
     raw_file_id: str,
     *,
     metrics_type: str,
     metrics: dict,
     settings_name: str,
     settings_version: int,
+    output_path: str,
 ) -> None:
     """Add `metrics` to DB entry of `raw_file_id`."""
     logging.info(
-        f"Adding to DB: {raw_file_id=} <- {metrics=} type={metrics_type} {settings_name=} {settings_version=}"
+        f"Adding to DB: {raw_file_id=} <- {metrics=} type={metrics_type} {settings_name=} {settings_version=} {output_path=}"
     )
     connect_db()
     raw_file = RawFile.objects.get(id=raw_file_id)
@@ -205,6 +206,7 @@ def add_metrics_to_raw_file(
         type=metrics_type,
         settings_name=settings_name,
         settings_version=settings_version,
+        output_path=output_path,
         **metrics,
     ).save()
 

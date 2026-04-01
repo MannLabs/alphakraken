@@ -1,4 +1,4 @@
-"""Calculate performance metrics and compile TIC data for Thermo and Bruker raw files."""
+"""Calculate performance metrics and compile TIC data for Thermo, Bruker, and SCIEX raw files."""
 
 import sys
 
@@ -6,7 +6,7 @@ import alphatims.bruker
 import alphatims.utils
 import numpy as np
 import pandas as pd
-from alpharaw import thermo
+from alpharaw import sciex, thermo
 from alpharaw.raw_access.pythermorawfilereader import RawFileReader
 
 # Based on https://github.com/MannLabs/alpharaw/blob/main/docs/tutorials/ms_methods.ipynb
@@ -84,7 +84,49 @@ def calculate_thermo_metrics(
 
     combined_tic_df = pd.concat(all_tic_data, ignore_index=True)
 
-    dict_ms_metrics["gradient_length"] = raw_file.spectrum_df["rt"].max()
+    dict_ms_metrics["gradient_length"] = (
+        raw_file.spectrum_df["rt"].max() * 60
+    )  # seconds
+
+    return dict_ms_metrics, combined_tic_df
+
+
+def calculate_sciex_metrics(
+    raw_file: sciex.SciexWiffData,
+) -> tuple[dict, pd.DataFrame]:
+    """Calculate performance metrics and compile TIC data for SCIEX raw file.
+
+    Parameters
+    ----------
+    raw_file : sciex.SciexWiffData
+        Loaded SCIEX raw file object
+
+    Returns
+    -------
+    tuple[dict, pd.DataFrame]
+        (dict_ms_metrics, combined_tic_df) containing metrics and TIC data
+
+    """
+    dict_ms_metrics = {}
+    all_tic_data = []
+
+    for ms_level in raw_file.spectrum_df["ms_level"].unique():
+        level_data = raw_file.spectrum_df[raw_file.spectrum_df["ms_level"] == ms_level]
+        tic_df = _tic_for_spectrum_df(level_data, raw_file.peak_df)
+
+        num_scans = level_data["precursor_mz"].nunique()
+        dict_ms_metrics[f"ms{ms_level}_scans"] = num_scans
+
+        dict_ms_metrics[f"ms{ms_level}_median_tic"] = np.median(tic_df["tic"])
+
+        tic_df["ms_level"] = ms_level
+        all_tic_data.append(tic_df)
+
+    combined_tic_df = pd.concat(all_tic_data, ignore_index=True)
+
+    dict_ms_metrics["gradient_length"] = (
+        raw_file.spectrum_df["rt"].max() * 60
+    )  # seconds
 
     return dict_ms_metrics, combined_tic_df
 
@@ -144,7 +186,7 @@ def calculate_bruker_metrics(
 
     dict_ms_metrics["ms1_median_tic"] = np.median(chrom_ms1["SummedIntensities"])
     dict_ms_metrics["ms2_median_tic"] = np.median(chrom_ms2["SummedIntensities"])
-    dict_ms_metrics["gradient_length"] = data.rt_values.max()
+    dict_ms_metrics["gradient_length"] = data.rt_values.max()  # seconds
 
     chrom_ms1["ms_level"] = 1
     chrom_ms2["ms_level"] = 2
@@ -181,18 +223,23 @@ if __name__ == "__main__":
         except Exception as e:  # noqa: BLE001
             print(e)  #  noqa: T201
 
+    elif raw_file_path.endswith(".wiff"):
+        raw_file = sciex.SciexWiffData()
+        raw_file.import_raw(raw_file_path)
+        ms_metrics, combined_tic_df = calculate_sciex_metrics(raw_file)
+
     elif raw_file_path.endswith(".d"):
         alphatims.utils.set_threads(num_threads)
 
         data = alphatims.bruker.TimsTOF(raw_file_path)
         ms_metrics, combined_tic_df = calculate_bruker_metrics(data)
     else:
-        print("Unsupported file format. Please provide a .raw or .d file.")  #  noqa: T201
+        print("Unsupported file format. Please provide a .raw, .wiff, or .d file.")  #  noqa: T201
         sys.exit(0)
 
-    combined_tic_df.to_csv(f"{output_path}/msqc_tic.tsv", sep="\t")
     pd.DataFrame(ms_metrics, index=[0]).to_csv(
         f"{output_path}/msqc_results.tsv", sep="\t"
     )
+    combined_tic_df.to_csv(f"{output_path}/msqc_tic.tsv", sep="\t")
 
     print("Finished MSQC extraction!")  #  noqa: T201

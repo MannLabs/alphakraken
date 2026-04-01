@@ -5,7 +5,7 @@ from typing import Any
 import pandas as pd
 
 from shared.db.interface import get_project_settings
-from shared.scope import resolve_scoped_settings
+from shared.settings_scope_resolver import resolve_scoped_settings
 from shared.yamlsettings import YamlKeys
 
 

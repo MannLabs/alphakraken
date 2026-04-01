@@ -16,13 +16,13 @@ from service.db import (
     get_settings_data,
 )
 from service.query_params import get_all_query_params
-from service.session_state import SessionStateKeys, set_session_state
 from service.utils import (
     DISABLE_WRITE,
     _log,
     empty_to_none,
     quanting_settings_path,
-    show_feedback_in_sidebar,
+    show_error_toast,
+    show_success_toast,
 )
 
 from shared.db.interface import archive_settings, create_settings
@@ -43,11 +43,6 @@ st.set_page_config(page_title="AlphaKraken: settings", layout="wide")
 show_sandbox_message()
 
 st.markdown("# Manage settings")
-
-# ########################################### SIDEBAR
-
-show_feedback_in_sidebar()
-
 
 # ########################################### LOGIC
 
@@ -525,14 +520,12 @@ if submit:
             num_threads=num_threads,
         )
     except Exception as e:  # noqa: BLE001
-        st.error(f"Error: {e}")
-        set_session_state(SessionStateKeys.ERROR_MSG, f"{e}")
+        show_error_toast(str(e))
     else:
         if is_update and archive_previous:
             archive_settings(latest_settings["_id"])
-        set_session_state(
-            SessionStateKeys.SUCCESS_MSG,
-            f"Created new settings '{name}'. Assign it to projects on the Projects page.",
+        show_success_toast(
+            f"Created new settings '{name}'. Assign it to projects on the Projects page."
         )
     st.rerun()
 
@@ -580,11 +573,9 @@ else:
                 try:
                     # TODO: consider showing a warning in the webapp when archived settings are still assigned.
                     archive_settings(row["_id"])
-                    set_session_state(
-                        SessionStateKeys.SUCCESS_MSG,
-                        f"Archived settings '{row['name']}' version {int(row['version'])}.",
+                    show_success_toast(
+                        f"Archived settings '{row['name']}' version {int(row['version'])}."
                     )
                     st.rerun()
                 except Exception as e:  # noqa: BLE001
-                    st.error(f"Error: {e}")
-                    set_session_state(SessionStateKeys.ERROR_MSG, f"{e}")
+                    show_error_toast(str(e))

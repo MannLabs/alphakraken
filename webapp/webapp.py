@@ -20,7 +20,7 @@ page_icon = (
 st.set_page_config(
     page_title="AlphaKraken",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
     page_icon=page_icon,
 )
 

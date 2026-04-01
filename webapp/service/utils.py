@@ -12,11 +12,6 @@ import streamlit as st
 import streamlit.delta_generator
 from PIL import Image
 from service.query_params import QueryParams, is_query_param_true
-from service.session_state import (
-    SessionStateKeys,
-    get_session_state,
-    remove_session_state,
-)
 
 from shared.yamlsettings import YamlKeys, get_notification_setting, get_path
 
@@ -46,6 +41,21 @@ DEFAULT_MAX_AGE_OVERVIEW = 2  # days
 DEFAULT_MAX_AGE_STATUS = 90  # days
 
 BASELINE_PREFIX = "BASELINE_"
+
+_ERROR_TOAST_PREFIX = (
+    "Error! If you feel this is a bug, send a screenshot to the AlphaKraken team!\n\n"
+)
+
+
+def show_success_toast(msg: str) -> None:
+    """Show a success toast notification."""
+    st.toast(f"Success! {msg}", icon=":material/check_circle:", duration="long")
+
+
+def show_error_toast(msg: str) -> None:
+    """Show a persistent error toast notification."""
+    st.toast(_ERROR_TOAST_PREFIX + msg, icon=":material/error:", duration="infinite")
+
 
 # Configure logging
 logging.basicConfig(
@@ -86,19 +96,6 @@ class Cols:
     """Internal column names."""
 
     IS_BASELINE = "is_baseline"
-
-
-def show_feedback_in_sidebar() -> None:
-    """Show any success or error messages in the sidebar."""
-    for key in [SessionStateKeys.SUCCESS_MSG, SessionStateKeys.ERROR_MSG]:
-        if msg := get_session_state(key):
-            if key == SessionStateKeys.SUCCESS_MSG:
-                msg_to_show = f"Success! {msg}"
-                st.sidebar.success(msg_to_show)
-            else:
-                msg_to_show = f"Error! If you feel this is a bug, send a screenshot to the AlphaKraken team!\n\n{msg}"
-                st.sidebar.error(msg_to_show)
-            remove_session_state(key)
 
 
 def display_info_message(

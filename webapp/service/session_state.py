@@ -8,9 +8,6 @@ import streamlit as st
 class SessionStateKeys:
     """Keys for accessing session state."""
 
-    SUCCESS_MSG = "success_msg"
-    ERROR_MSG = "error_msg"
-
     IS_FIRST_RUN = "is_first_run"
 
     CURRENT_FILTER = "current_filter"

@@ -4,7 +4,6 @@ import json
 import logging
 from collections import defaultdict
 from pathlib import Path
-from typing import Any
 
 from airflow.exceptions import AirflowFailException, AirflowSkipException
 from airflow.models import TaskInstance
@@ -46,6 +45,7 @@ from shared.db.interface import (
     add_metrics_to_raw_file,
     get_project_settings,
     get_raw_file_by_id,
+    get_settings_by_id,
     update_raw_file,
 )
 from shared.db.models import RawFile, RawFileStatus, Settings, get_created_at_year_month
@@ -71,8 +71,8 @@ class QuantingFailedException(AirflowFailException):
     """Raise if quanting failed but status has already been set."""
 
 
-def prepare_quanting(raw_file_id: str) -> list[dict[str, str | int | list[str]]]:
-    """Prepare the environmental variables for the quanting job."""
+def resolve_settings(raw_file_id: str) -> list[str]:
+    """Resolve which settings apply to a raw file."""
     raw_file = get_raw_file_by_id(raw_file_id)
     instrument_id = raw_file.instrument_id
 
@@ -102,29 +102,36 @@ def prepare_quanting(raw_file_id: str) -> list[dict[str, str | int | list[str]]]
     base_output_path = get_internal_output_path_for_raw_file(raw_file)
     base_output_path.mkdir(parents=True, exist_ok=True)
 
-    # get raw file path
+    return [str(s.id) for s in settings_list]  # type: ignore[unresolved-attribute]
+
+
+def prepare_quanting(
+    raw_file_id: str, settings_id: str
+) -> dict[str, str | int | list[str]]:
+    """Prepare the environmental variables for the quanting job."""
+    raw_file = get_raw_file_by_id(raw_file_id)
+    settings = get_settings_by_id(settings_id)
+
     backup_base_path = get_path(YamlKeys.Locations.BACKUP)
     year_month_subfolder = get_created_at_year_month(raw_file)
-    relative_raw_file_path = Path(instrument_id) / year_month_subfolder / raw_file_id
+    relative_raw_file_path = (
+        Path(raw_file.instrument_id) / year_month_subfolder / raw_file_id
+    )
     raw_file_path = backup_base_path / relative_raw_file_path
 
-    quanting_envs: list[dict[str, str | int | list[str]]] = []
-    for settings in settings_list:
-        quanting_env = _create_quanting_env(
-            settings,
-            raw_file,
-            raw_file_path,
-            relative_raw_file_path,
+    quanting_env = _create_quanting_env(
+        settings,
+        raw_file,
+        raw_file_path,
+        relative_raw_file_path,
+    )
+
+    if errors := _check_content(quanting_env, settings):
+        raise AirflowFailException(
+            f"Quanting env validation failed for '{settings.name}': {errors}"
         )
 
-        if errors := _check_content(quanting_env, settings):
-            # this is a bit of a hack to propagate errors to the individual downstream branches
-            quanting_env[QuantingEnv.QUANTING_ENV_CREATION_ERRORS] = errors
-            logging.warning(f"quanting_env for {settings.name} has errors: {errors}")
-
-        quanting_envs.append(quanting_env)
-
-    return quanting_envs
+    return quanting_env
 
 
 def _create_quanting_env(
@@ -307,11 +314,6 @@ def run_quanting(
     :return: The Slurm job ID as a string.
     """
     logging.info(f"Starting quanting with environment: {quanting_env}")
-
-    if quanting_env.get(QuantingEnv.QUANTING_ENV_CREATION_ERRORS):
-        raise AirflowFailException(
-            f"Quanting environment construction failed:\n {quanting_env}"
-        )
 
     raw_file = get_raw_file_by_id(quanting_env[QuantingEnv.RAW_FILE_ID])
 
@@ -520,6 +522,7 @@ def store_metrics(*, quanting_env: dict, metrics: dict, metrics_type: str) -> No
 MAX_STATUS_DETAILS_LENGTH = 1024
 
 _TASK_GROUP_PREFIX = f"{TaskGroups.QUANTING_PIPELINE}."
+_PREPARE_QUANTING_TASK_ID = f"{_TASK_GROUP_PREFIX}{Tasks.PREPARE_QUANTING}"
 _CHECK_RESULT_TASK_ID = f"{_TASK_GROUP_PREFIX}{Tasks.CHECK_QUANTING_RESULT}"
 
 
@@ -543,13 +546,7 @@ def finalize_raw_file_status(ti: TaskInstance, raw_file_id: str) -> None:
     if not branch_tis_by_index:
         raise AirflowFailException("No branch task instances found in DAG run.")
 
-    quanting_envs = get_xcom(
-        ti, key=XComKeys.RETURN_VALUE, task_ids=Tasks.PREPARE_QUANTING
-    )
-
-    airflow_errors, business_errors = _extract_errors(
-        branch_tis_by_index, quanting_envs, ti
-    )
+    airflow_errors, business_errors = _extract_errors(branch_tis_by_index, ti)
 
     if airflow_errors:
         all_errors = airflow_errors + business_errors
@@ -579,7 +576,6 @@ def finalize_raw_file_status(ti: TaskInstance, raw_file_id: str) -> None:
 
 def _extract_errors(
     branch_tis_by_index: dict[int, list[TaskInstance]],
-    quanting_envs: list[dict[str, Any]],
     ti: TaskInstance,
 ) -> tuple[list[tuple[str, str]], list[tuple[str, str]]]:
     """Extract errors from previous tasks of all branches."""
@@ -588,7 +584,16 @@ def _extract_errors(
 
     for idx in sorted(branch_tis_by_index):
         branch_tis = branch_tis_by_index[idx]
-        settings_name = quanting_envs[idx][QuantingEnv.SETTINGS_NAME]
+        quanting_env = get_xcom(
+            ti,
+            key=XComKeys.RETURN_VALUE,
+            task_ids=_PREPARE_QUANTING_TASK_ID,
+            map_indexes=idx,
+            default=None,
+        )
+        settings_name = (
+            quanting_env[QuantingEnv.SETTINGS_NAME] if quanting_env else "n/a"
+        )
 
         # these could be business or airflow errors
         check_quanting_result_error_details = get_xcom(

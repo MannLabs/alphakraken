@@ -40,6 +40,7 @@ class Tasks:
     DECIDE_PROCESSING: str = "decide_processing"
     START_ACQUISITION_PROCESSOR: str = "start_acquisition_processor"
 
+    RESOLVE_SETTINGS: str = "resolve_settings"
     PREPARE_QUANTING: str = "prepare_quanting"
 
     RUN_QUANTING: str = "run_quanting"
@@ -176,8 +177,6 @@ class QuantingEnv:
     SLURM_MEM: str = "_SLURM_MEM"
     SLURM_TIME: str = "_SLURM_TIME"
     INTERNAL_OUTPUT_PATH: str = "_INTERNAL_OUTPUT_PATH"
-
-    QUANTING_ENV_CREATION_ERRORS: str = "_QUANTING_ENV_CREATION_ERRORS"
 
 
 class JobStates:

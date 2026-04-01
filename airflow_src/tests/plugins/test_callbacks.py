@@ -2,6 +2,7 @@
 
 from unittest.mock import MagicMock, patch
 
+from impl.processor_impl import QuantingFailedException
 from plugins.callbacks import on_failure_callback
 from plugins.s3.s3_utils import S3UploadFailedException
 
@@ -88,6 +89,26 @@ def test_on_failure_callback_with_no_rawfile_in_xcom_nor_dag(
             task_id="task1", dag_id="dag1", xcom_pull=MagicMock(side_effect=KeyError)
         ),
         "exception": Exception("Some error"),
+    }
+
+    # when
+    on_failure_callback(context)
+
+    mock_update.assert_not_called()
+
+
+@patch("plugins.callbacks.update_raw_file")
+def test_on_failure_callback_with_quanting_failed_exception(
+    mock_update: MagicMock,
+) -> None:
+    """update_raw_file is not called when QuantingFailedException is raised, because the status is already set."""
+    context = {
+        "task_instance": MagicMock(
+            task_id="task1",
+            dag_id="dag1.instrument1",
+            xcom_pull=MagicMock(return_value="some_file.raw"),
+        ),
+        "exception": QuantingFailedException("Quanting failed"),
     }
 
     # when

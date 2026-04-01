@@ -6,10 +6,12 @@ from unittest.mock import MagicMock, call, mock_open, patch
 
 import pytest
 import pytz
-from airflow.exceptions import AirflowFailException, AirflowSkipException
+from airflow.exceptions import AirflowFailException
 from common.settings import _INSTRUMENTS
 from dags.impl.processor_impl import (
     _TASK_GROUP_PREFIX,
+    QuantingFailedKnownErrorException,
+    QuantingFailedNewErrorException,
     _create_quanting_env,
     _extract_errors,
     _get_slurm_job_id_from_log,
@@ -95,7 +97,7 @@ def test_create_quanting_env(
         "_SLURM_TIME": "02:00:00",
         "NUM_THREADS": 8,
         "RAW_FILE_ID": "test_file.raw",
-        "PROJECT_ID_OR_FALLBACK": "some_project_id",
+        "PROJECT_ID": "some_project_id",
         "SETTINGS_NAME": "test_settings",
         "SETTINGS_VERSION": 1,
         "_INTERNAL_OUTPUT_PATH": "/opt/airflow/mounts/output/some_project_id/out_test_file.raw/alphadia",
@@ -174,7 +176,7 @@ def test_create_quanting_env_custom_software(
         "_SLURM_TIME": "02:00:00",
         "NUM_THREADS": 8,
         "RAW_FILE_ID": "test_file.raw",
-        "PROJECT_ID_OR_FALLBACK": "some_project_id",
+        "PROJECT_ID": "some_project_id",
         "SETTINGS_NAME": "test_custom_settings",
         "SETTINGS_VERSION": 1,
         "_INTERNAL_OUTPUT_PATH": "/opt/airflow/mounts/output/some_project_id/out_test_file.raw/custom",
@@ -447,7 +449,7 @@ def test_run_quanting_executes_ssh_command_and_stores_job_id(
     output_dir = tmp_path / "PID123" / "out_test_file.raw" / "alphadia"
     quanting_env = {
         QuantingEnv.RAW_FILE_ID: "test_file.raw",
-        QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID123",
+        QuantingEnv.PROJECT_ID: "PID123",
         QuantingEnv.SOFTWARE_TYPE: "alphadia",
         QuantingEnv.CUSTOM_COMMAND: "",
         QuantingEnv.INTERNAL_OUTPUT_PATH: str(output_dir),
@@ -490,7 +492,7 @@ def test_run_quanting_output_folder_exists(
     output_dir.mkdir()
     quanting_env = {
         QuantingEnv.RAW_FILE_ID: "test_file.raw",
-        QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID123",
+        QuantingEnv.PROJECT_ID: "PID123",
         QuantingEnv.SOFTWARE_TYPE: "alphadia",
         QuantingEnv.CUSTOM_COMMAND: "",
         QuantingEnv.INTERNAL_OUTPUT_PATH: str(output_dir),
@@ -527,7 +529,7 @@ def test_run_quanting_output_folder_exists_associate(
     output_dir.mkdir()
     quanting_env = {
         QuantingEnv.RAW_FILE_ID: "test_file.raw",
-        QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID123",
+        QuantingEnv.PROJECT_ID: "PID123",
         QuantingEnv.SOFTWARE_TYPE: "alphadia",
         QuantingEnv.CUSTOM_COMMAND: "",
         QuantingEnv.INTERNAL_OUTPUT_PATH: str(output_dir),
@@ -563,7 +565,7 @@ def test_run_quanting_output_folder_exists_associate_raise(
     output_dir.mkdir()
     quanting_env = {
         QuantingEnv.RAW_FILE_ID: "test_file.raw",
-        QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID123",
+        QuantingEnv.PROJECT_ID: "PID123",
         QuantingEnv.SOFTWARE_TYPE: "alphadia",
         QuantingEnv.CUSTOM_COMMAND: "",
         QuantingEnv.INTERNAL_OUTPUT_PATH: str(output_dir),
@@ -592,7 +594,7 @@ def test_check_quanting_result_happy_path(
     """Test that check_quanting_result makes the expected calls."""
     quanting_env = {
         QuantingEnv.RAW_FILE_ID: "test_file.raw",
-        QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID1",
+        QuantingEnv.PROJECT_ID: "PID1",
         QuantingEnv.SETTINGS_NAME: "test_settings",
         QuantingEnv.SETTINGS_VERSION: 1,
         QuantingEnv.METRICS_TYPE: "alphadia",
@@ -619,7 +621,7 @@ def test_check_quanting_result_unknown_job_status(
     """Test that check_quanting_result raises on unknown quanting job status."""
     quanting_env = {
         QuantingEnv.RAW_FILE_ID: "test_file.raw",
-        QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID1",
+        QuantingEnv.PROJECT_ID: "PID1",
         QuantingEnv.SETTINGS_NAME: "test_settings",
         QuantingEnv.SETTINGS_VERSION: 1,
         QuantingEnv.METRICS_TYPE: "alphadia",
@@ -632,7 +634,7 @@ def test_check_quanting_result_unknown_job_status(
         check_quanting_result(quanting_env=quanting_env, job_id="12345", ti=mock_ti)
 
     mock_put_xcom.assert_called_once_with(
-        mock_ti, key=XComKeys.BRANCH_ERRORS, value="unknown_job_status:SOME_JOB_STATE"
+        mock_ti, key=XComKeys.BRANCH_ERRORS, value="unknown_job_status: SOME_JOB_STATE"
     )
 
 
@@ -640,11 +642,9 @@ def test_check_quanting_result_unknown_job_status(
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.get_job_result")
 @patch("dags.impl.processor_impl.get_business_errors")
-@patch("dags.impl.processor_impl.update_raw_file")
 @patch("dags.impl.processor_impl.add_metrics_to_raw_file")
-def test_check_quanting_result_business_error(  # noqa: PLR0913
+def test_check_quanting_result_business_error(
     mock_add_metrics: MagicMock,
-    mock_update_raw_file: MagicMock,
     mock_get_business_errors: MagicMock,
     mock_get_job_result: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
@@ -653,7 +653,7 @@ def test_check_quanting_result_business_error(  # noqa: PLR0913
     """Test that check_quanting_result behaves correctly on business errors."""
     quanting_env = {
         QuantingEnv.RAW_FILE_ID: "test_file.raw",
-        QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID1",
+        QuantingEnv.PROJECT_ID: "PID1",
         QuantingEnv.SETTINGS_NAME: "test_settings",
         QuantingEnv.SETTINGS_VERSION: 1,
         QuantingEnv.INTERNAL_OUTPUT_PATH: "/opt/airflow/mounts/output/PID1/out_test_file.raw/alphadia",
@@ -668,18 +668,13 @@ def test_check_quanting_result_business_error(  # noqa: PLR0913
     mock_ti = MagicMock()
 
     # when
-    with pytest.raises(AirflowSkipException):
+    with pytest.raises(QuantingFailedKnownErrorException):
         check_quanting_result(quanting_env=quanting_env, job_id="12345", ti=mock_ti)
 
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
     mock_get_business_errors.assert_called_once_with(
         mock_raw_file,
         Path("/opt/airflow/mounts/output/PID1/out_test_file.raw/alphadia"),
-    )
-    mock_update_raw_file.assert_called_once_with(
-        "test_file.raw",
-        new_status="quanting_failed",
-        status_details="error1;error2",
     )
     mock_add_metrics.assert_called_once_with(
         "test_file.raw",
@@ -698,11 +693,9 @@ def test_check_quanting_result_business_error(  # noqa: PLR0913
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.get_job_result")
 @patch("dags.impl.processor_impl.get_business_errors")
-@patch("dags.impl.processor_impl.update_raw_file")
 @patch("dags.impl.processor_impl.add_metrics_to_raw_file")
-def test_check_quanting_result_business_error_raises(  # noqa: PLR0913
+def test_check_quanting_result_business_error_raises(
     mock_add_metrics: MagicMock,
-    mock_update_raw_file: MagicMock,
     mock_get_business_errors: MagicMock,
     mock_get_job_result: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
@@ -711,7 +704,7 @@ def test_check_quanting_result_business_error_raises(  # noqa: PLR0913
     """Test that check_quanting_result behaves correctly if business error is unknown."""
     quanting_env = {
         QuantingEnv.RAW_FILE_ID: "test_file.raw",
-        QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID1",
+        QuantingEnv.PROJECT_ID: "PID1",
         QuantingEnv.SETTINGS_NAME: "test_settings",
         QuantingEnv.SETTINGS_VERSION: 1,
         QuantingEnv.INTERNAL_OUTPUT_PATH: "/opt/airflow/mounts/output/PID1/out_test_file.raw/alphadia",
@@ -726,18 +719,13 @@ def test_check_quanting_result_business_error_raises(  # noqa: PLR0913
     mock_ti = MagicMock()
 
     # when
-    with pytest.raises(AirflowFailException):
+    with pytest.raises(QuantingFailedNewErrorException):
         check_quanting_result(quanting_env=quanting_env, job_id="12345", ti=mock_ti)
 
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
     mock_get_business_errors.assert_called_once_with(
         mock_raw_file,
         Path("/opt/airflow/mounts/output/PID1/out_test_file.raw/alphadia"),
-    )
-    mock_update_raw_file.assert_called_once_with(
-        "test_file.raw",
-        new_status="quanting_failed",
-        status_details="error1;__UNKNOWN_ERROR",
     )
     mock_add_metrics.assert_called_once_with(
         "test_file.raw",
@@ -755,11 +743,9 @@ def test_check_quanting_result_business_error_raises(  # noqa: PLR0913
 @patch("dags.impl.processor_impl.put_xcom")
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.get_job_result")
-@patch("dags.impl.processor_impl.update_raw_file")
 @patch("dags.impl.processor_impl.add_metrics_to_raw_file")
 def test_check_quanting_result_timeout(
     mock_add_metrics: MagicMock,
-    mock_update_raw_file: MagicMock,
     mock_get_job_result: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
     mock_put_xcom: MagicMock,
@@ -767,7 +753,7 @@ def test_check_quanting_result_timeout(
     """Test that check_quanting_result behaves correctly on timeout."""
     quanting_env = {
         QuantingEnv.RAW_FILE_ID: "test_file.raw",
-        QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID1",
+        QuantingEnv.PROJECT_ID: "PID1",
         QuantingEnv.SETTINGS_NAME: "test_settings",
         QuantingEnv.SETTINGS_VERSION: 1,
         QuantingEnv.INTERNAL_OUTPUT_PATH: "/opt/airflow/mounts/output/PID1/out_test_file.raw/alphadia",
@@ -780,15 +766,10 @@ def test_check_quanting_result_timeout(
     mock_ti = MagicMock()
 
     # when
-    with pytest.raises(AirflowSkipException):
+    with pytest.raises(QuantingFailedKnownErrorException):
         check_quanting_result(quanting_env=quanting_env, job_id="12345", ti=mock_ti)
 
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
-    mock_update_raw_file.assert_called_once_with(
-        "test_file.raw",
-        new_status="quanting_failed",
-        status_details="TIMEOUT",
-    )
     mock_add_metrics.assert_called_once_with(
         "test_file.raw",
         metrics={"quanting_time_elapsed": 522},
@@ -805,11 +786,9 @@ def test_check_quanting_result_timeout(
 @patch("dags.impl.processor_impl.put_xcom")
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.get_job_result")
-@patch("dags.impl.processor_impl.update_raw_file")
 @patch("dags.impl.processor_impl.add_metrics_to_raw_file")
 def test_check_quanting_result_oom(
     mock_add_metrics: MagicMock,
-    mock_update_raw_file: MagicMock,
     mock_get_job_result: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
     mock_put_xcom: MagicMock,
@@ -817,7 +796,7 @@ def test_check_quanting_result_oom(
     """Test that check_quanting_result behaves correctly on out of memory."""
     quanting_env = {
         QuantingEnv.RAW_FILE_ID: "test_file.raw",
-        QuantingEnv.PROJECT_ID_OR_FALLBACK: "PID1",
+        QuantingEnv.PROJECT_ID: "PID1",
         QuantingEnv.SETTINGS_NAME: "test_settings",
         QuantingEnv.SETTINGS_VERSION: 1,
         QuantingEnv.INTERNAL_OUTPUT_PATH: "/opt/airflow/mounts/output/PID1/out_test_file.raw/alphadia",
@@ -830,15 +809,10 @@ def test_check_quanting_result_oom(
     mock_ti = MagicMock()
 
     # when
-    with pytest.raises(AirflowSkipException):
+    with pytest.raises(QuantingFailedKnownErrorException):
         check_quanting_result(quanting_env=quanting_env, job_id="12345", ti=mock_ti)
 
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
-    mock_update_raw_file.assert_called_once_with(
-        "test_file.raw",
-        new_status="quanting_failed",
-        status_details="OUT_OF_MEMORY",
-    )
     mock_add_metrics.assert_called_once_with(
         "test_file.raw",
         metrics={"quanting_time_elapsed": 522},
@@ -926,7 +900,7 @@ def test_compute_metrics(
     """Test that compute_metrics makes the expected calls."""
     quanting_env = {
         "RAW_FILE_ID": "test_file.raw",
-        "PROJECT_ID_OR_FALLBACK": "P1",
+        "PROJECT_ID": "P1",
         "SOFTWARE_TYPE": "alphadia",
         "METRICS_TYPE": "alphadia",
         "_INTERNAL_OUTPUT_PATH": "/opt/airflow/mounts/output/P1/out_test_file.raw/alphadia",
@@ -954,7 +928,7 @@ def test_compute_metrics_msqc_software_type(
     """Test that compute_metrics correctly maps MSQC software type to MSQC metrics type."""
     quanting_env = {
         "RAW_FILE_ID": "test_file.raw",
-        "PROJECT_ID_OR_FALLBACK": "P1",
+        "PROJECT_ID": "P1",
         "SOFTWARE_TYPE": "msqc",
         "METRICS_TYPE": "msqc",
         "_INTERNAL_OUTPUT_PATH": "/opt/airflow/mounts/output/P1/out_test_file.raw/msqc",
@@ -1071,7 +1045,7 @@ def test_finalize_sets_error_on_airflow_failures(
     mock_update.assert_called_once_with(
         "test.raw",
         new_status=RawFileStatus.ERROR,
-        status_details="settings_B: UNKNOWN_ERROR",
+        status_details="error while processing: [settings_B] UNKNOWN_ERROR",
     )
 
 
@@ -1095,7 +1069,7 @@ def test_finalize_sets_quanting_failed_on_business_errors(
     mock_update.assert_called_once_with(
         "test.raw",
         new_status=RawFileStatus.QUANTING_FAILED,
-        status_details="settings_A: OUT_OF_MEMORY",
+        status_details="error while processing: [settings_A] OUT_OF_MEMORY",
     )
 
 
@@ -1121,7 +1095,7 @@ def test_finalize_error_takes_priority_over_business_errors(
     mock_update.assert_called_once_with(
         "test.raw",
         new_status=RawFileStatus.ERROR,
-        status_details="settings_A: failed at run_quanting; settings_B: TIMEOUT",
+        status_details="error while processing: [settings_A] failed at run_quanting; [settings_B] TIMEOUT",
     )
 
 

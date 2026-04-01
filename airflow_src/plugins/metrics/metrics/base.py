@@ -44,7 +44,10 @@ class DataStore:
         return self.get(key)
 
     def get(self, key: str, columns: list[str] | None = None) -> pd.DataFrame:
-        """Get data from the data store, optionally reading only specific columns."""
+        """Get data from the data store, optionally reading only specific columns.
+
+        Note: this does not reuse any previously loaded data.
+        """
         cache_key = (key, tuple(sorted(columns))) if columns else key
         if cache_key not in self._data:
             file_path = self._data_path / key

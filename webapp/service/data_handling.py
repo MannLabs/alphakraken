@@ -14,8 +14,18 @@ from shared.keys import MetricsTypes
 _ALTERNATIVE_NAMES_MAPPING = build_alternative_names_mapping(load_columns_from_yaml())
 
 
+_MSQC_PREFIX = "msqc_"
+
+
 def _normalize_metric_columns(df: pd.DataFrame) -> pd.DataFrame:
     """Resolve alternative DB column names to canonical names and apply data transforms."""
+    # strip legacy "msqc_" prefix that the MSQC calculator adds to its metric names
+    df = df.rename(
+        columns={
+            c: c[len(_MSQC_PREFIX) :] for c in df.columns if c.startswith(_MSQC_PREFIX)
+        }
+    )
+
     df = df.rename(columns=_ALTERNATIVE_NAMES_MAPPING)
 
     # deduplicate columns that map to the same canonical name

@@ -103,7 +103,8 @@ class PumpPressureAlert(BaseAlert):
             [
                 "raw:gradient_length_m",  # alphadia < 2
                 "gradient_length",
-                "msqc_evosep_pump_hp_pressure_max",
+                "msqc_evosep_pump_hp_pressure_max",  # older alphakraken
+                "evosep_pump_hp_pressure_max",
             ],
         )
 
@@ -178,7 +179,7 @@ class PumpPressureAlert(BaseAlert):
         pressure_data = defaultdict(list)
         for raw_file_id, v in raw_files_with_metrics.items():
             gradient_length = v.get("metrics_alphadia", {}).get("gradient_length")
-            pressure = v.get("metrics_msqc", {}).get("msqc_evosep_pump_hp_pressure_max")
+            pressure = v.get("metrics_msqc", {}).get("evosep_pump_hp_pressure_max")
 
             if gradient_length is not None and pressure is not None:
                 pressure_data[v["instrument_id"]].append(

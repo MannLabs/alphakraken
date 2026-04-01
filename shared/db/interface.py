@@ -345,6 +345,16 @@ def get_all_settings(*, include_archived: bool = False) -> list[Settings]:
     return list(Settings.objects(status=SettingsStatus.ACTIVE).order_by("-created_at_"))
 
 
+def get_latest_active_settings_by_name(name: str) -> Settings | None:
+    """Get the latest active version of settings with the given name."""
+    connect_db()
+    return (
+        Settings.objects(name=name, status=SettingsStatus.ACTIVE)
+        .order_by("-version")
+        .first()
+    )
+
+
 def update_kraken_status(
     id_: str,
     *,

@@ -370,8 +370,9 @@ def run_quanting(
             logging.warning(f"Assuming job id {extracted_job_id}...")
             return str(extracted_job_id)
         elif output_exists_mode == "add":
-            logging.warning(
-                f"{msg} Continuing because Airflow variable output_exists_mode='add' is set."
+            # Normally unreachable: prepare_quanting already suffixed the path to a non-existent name.
+            raise AirflowFailException(
+                f"{msg} although Airflow variable output_exists_mode='add' should have created a unique name."
             )
         else:
             raise AirflowFailException(

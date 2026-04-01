@@ -621,12 +621,12 @@ def test_prepare_quanting_add_mode(  # noqa: PLR0913
 @patch("dags.impl.processor_impl.update_raw_file")
 def test_run_quanting_output_folder_exists_add(
     mock_update: MagicMock,  # noqa: ARG001
-    mock_start_job: MagicMock,
+    mock_start_job: MagicMock,  # noqa: ARG001
     mock_get_airflow_variable: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
     tmp_path: Path,
 ) -> None:
-    """run_quanting continues without error when output_exists_mode is 'add'."""
+    """run_quanting raises when output_exists_mode is 'add' but the output path already exists."""
     output_dir = tmp_path / "output"
     output_dir.mkdir()
     quanting_env = {
@@ -643,12 +643,9 @@ def test_run_quanting_output_folder_exists_add(
     )
     mock_get_raw_file_by_id.return_value = mock_raw_file
     mock_get_airflow_variable.return_value = "add"
-    mock_start_job.return_value = "99999"
 
-    result = run_quanting(quanting_env=quanting_env)
-
-    assert result == "99999"
-    mock_start_job.assert_called_once()
+    with pytest.raises(AirflowFailException, match="should have created a unique name"):
+        run_quanting(quanting_env=quanting_env)
 
 
 @patch("dags.impl.processor_impl.put_xcom")

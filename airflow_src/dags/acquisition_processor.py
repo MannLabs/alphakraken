@@ -128,7 +128,7 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
 
             @task(task_id=Tasks.STORE_METRICS)
             def store_metrics_task(quanting_env: dict, metrics_result: dict) -> None:
-                """Upload metrics to the database."""
+                """Store metrics in the database."""
                 store_metrics(
                     quanting_env=quanting_env,
                     metrics=metrics_result["metrics"],

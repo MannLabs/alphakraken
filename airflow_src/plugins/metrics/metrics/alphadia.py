@@ -115,15 +115,24 @@ class PrecursorStatsIntensity(Metrics):
 
     _file = OutputFiles.PRECURSORS
 
+    _columns: ClassVar[dict[str, str | None]] = {
+        "sum_b_ion_intensity": None,
+        "sum_y_ion_intensity": None,
+    }
+    _tolerate_missing = True
+
     def _calc_metrics(self) -> None:
         """Calculate all the metrics."""
-        df = self._data_store[self._file]
+        source_columns = list(self._columns.keys())
+        df = self._data_store.get(self._file, columns=source_columns)
         try:
             self._metrics["precursor_intensity_median"] = (
                 df["sum_b_ion_intensity"] + df["sum_y_ion_intensity"]
             ).median()
         except KeyError as e:
             logging.warning(f"Error calculating precursor_intensity_median: {e}")
+            if not self._tolerate_missing:
+                raise
 
     def _calc(self, df: pd.DataFrame, source_column: str, target_column: str) -> None:
         pass

@@ -2,7 +2,7 @@
 
 from unittest.mock import MagicMock
 
-from shared.scope import (
+from shared.settings_scope_resolver import (
     SCOPE_LEVEL_DEFAULT,
     SCOPE_LEVEL_INSTRUMENT,
     SCOPE_LEVEL_VENDOR,

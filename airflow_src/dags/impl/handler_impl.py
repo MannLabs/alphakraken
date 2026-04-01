@@ -58,7 +58,7 @@ from shared.db.models import (
 from shared.keys import (
     DDA_FLAG_IN_RAW_FILE_NAME,
 )
-from shared.scope import resolve_scoped_settings
+from shared.settings_scope_resolver import resolve_scoped_settings
 from shared.validation import FORBIDDEN_RAW_FILE_NAME_CHARACTERS_PATTERN
 from shared.yamlsettings import YamlKeys, get_path, is_s3_upload_enabled
 

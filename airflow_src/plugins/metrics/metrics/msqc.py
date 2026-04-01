@@ -31,6 +31,7 @@ class BasicStats(Metrics):
         "ms2_scans",
         "ms2_median_tic",
         "evosep_pump_hp_pressure_max",
+        "gradient_length",
     )
 
     def _calc(self, df: pd.DataFrame, source_column: str, target_column: str) -> None:

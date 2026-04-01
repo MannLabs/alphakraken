@@ -50,7 +50,7 @@ from shared.db.interface import (
 )
 from shared.db.models import RawFile, RawFileStatus, Settings, get_created_at_year_month
 from shared.keys import SoftwareTypes
-from shared.scope import resolve_scoped_settings
+from shared.settings_scope_resolver import resolve_scoped_settings
 from shared.validation import check_for_malicious_content
 from shared.yamlsettings import YamlKeys, get_path
 
@@ -137,12 +137,12 @@ def _create_quanting_env(
     settings_path = get_path(YamlKeys.Locations.SETTINGS) / settings.name
 
     relative_output_path = get_output_folder_rel_path(
-        raw_file, settings_type=settings.software_type
+        raw_file, software_type=settings.software_type
     )
     output_path = get_path(YamlKeys.Locations.OUTPUT) / relative_output_path
 
     internal_output_path = get_internal_output_path_for_raw_file(
-        raw_file, settings_type=settings.software_type
+        raw_file, software_type=settings.software_type
     )
 
     custom_command = (

@@ -226,8 +226,7 @@ def get_all_project_ids() -> list[str]:
     return [p.id for p in Project.objects.all()]
 
 
-# TODO: rename to assign_settings_to_project ?
-def create_project_settings(
+def assign_settings_to_project(
     project_id: str,
     settings_id: str,
     scope: str = DEFAULT_SCOPE,
@@ -267,8 +266,7 @@ def create_project_settings(
     return ps
 
 
-# TODO: rename to unassign_settings_from_project ?
-def remove_project_settings(project_settings_id: str) -> None:
+def unassign_settings_from_project(project_settings_id: str) -> None:
     """Remove a project-settings assignment by its ID."""
     connect_db()
     ProjectSettings.objects.get(id=project_settings_id).delete()

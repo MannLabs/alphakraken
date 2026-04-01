@@ -102,7 +102,7 @@ class FileBasedJobHandler(JobHandler):
 
         output_path = get_internal_output_path_for_raw_file(
             raw_file,
-            settings_type=SoftwareTypes.CUSTOM,  # this assumption makes life much easier, and should not limit flexibility too much
+            software_type=SoftwareTypes.CUSTOM,  # this assumption makes life much easier, and should not limit flexibility too much
         )
         status_file = output_path / "job_status.log"
 

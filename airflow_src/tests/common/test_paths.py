@@ -41,8 +41,8 @@ def test_get_output_folder_rel_path_fallback() -> None:
     assert result == Path("_FALLBACK/1970_01/out_some_file.raw")
 
 
-def test_get_output_folder_rel_path_with_settings_type() -> None:
-    """Test that settings_type is appended as subfolder."""
+def test_get_output_folder_rel_path_with_software_type() -> None:
+    """Test that software_type is appended as subfolder."""
     mock_raw_file = MagicMock(
         wraps=RawFile,
         id="some_file.raw",
@@ -50,6 +50,6 @@ def test_get_output_folder_rel_path_with_settings_type() -> None:
         project_id="some_project_id",
     )
 
-    result = get_output_folder_rel_path(mock_raw_file, settings_type="alphadia")
+    result = get_output_folder_rel_path(mock_raw_file, software_type="alphadia")
 
     assert result == Path("some_project_id/out_some_file.raw/alphadia")

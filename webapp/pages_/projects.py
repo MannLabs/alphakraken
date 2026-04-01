@@ -24,10 +24,10 @@ from service.utils import (
 
 from shared.db.interface import (
     add_project,
-    create_project_settings,
+    assign_settings_to_project,
     get_all_settings,
     get_project_settings,
-    remove_project_settings,
+    unassign_settings_from_project,
 )
 from shared.keys import DEFAULT_SCOPE, FALLBACK_PROJECT_ID, KNOWN_VENDOR_NAMES
 from shared.yamlsettings import YAMLSETTINGS, YamlKeys
@@ -162,7 +162,7 @@ with c_assign1:
                     icon=":material/link_off:",
                 ):
                     try:
-                        remove_project_settings(ps_id)  # type: ignore[unresolved-attribute]
+                        unassign_settings_from_project(ps_id)  # type: ignore[unresolved-attribute]
                         set_session_state(
                             SessionStateKeys.SUCCESS_MSG,
                             f"Removed settings assignment from project {selected_project_id}.",
@@ -225,7 +225,7 @@ with c_assign1:
             ):
                 try:
                     new_settings_id = settings_options_map[selected_settings_display]
-                    create_project_settings(
+                    assign_settings_to_project(
                         selected_project_id,
                         new_settings_id,
                         scope=selected_scope,

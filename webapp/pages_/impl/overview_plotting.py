@@ -4,10 +4,8 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from pages_.impl.overview_utils import (
-    Column,
-    filter_valid_columns,
-)
+from pages_.impl.overview_utils import filter_valid_columns
+from service.columns import Column
 from service.utils import Cols, display_plotly_chart
 
 from shared.db.models import ERROR_STATUSES

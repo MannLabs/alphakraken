@@ -72,6 +72,7 @@ If set to `overwrite`, the system will start a new job, overwriting the existing
 If set to `associate`, the system will try to read off the Slurm job id from the existing AlphaDIA `log.txt`
 (from the first line containing "slurm_job_id: ", taking the first word after that)
 and associate the current task to the slurm job with that id.
+If set to `add`, the system creates a new output folder with a `.run2` suffix (or `.run3`, `.run4`, etc.) and starts a new job there.
 
 Recommended setting in production: 'raise' (default)
 

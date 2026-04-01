@@ -131,7 +131,31 @@ def prepare_quanting(
             f"Quanting env validation failed for '{settings.name}': {errors}"
         )
 
+    output_exists_mode = get_airflow_variable(AirflowVars.OUTPUT_EXISTS_MODE, "raise")
+    if output_exists_mode == "add":
+        internal_output_path = Path(quanting_env[QuantingEnv.INTERNAL_OUTPUT_PATH])
+        if internal_output_path.exists():
+            suffix = _find_next_free_run_suffix(internal_output_path)
+            logging.info(
+                f"Output path {internal_output_path} exists. Using suffix '{suffix}'."
+            )
+            for key in [
+                QuantingEnv.INTERNAL_OUTPUT_PATH,
+                QuantingEnv.OUTPUT_PATH,
+                QuantingEnv.RELATIVE_OUTPUT_PATH,
+            ]:
+                p = Path(quanting_env[key])
+                quanting_env[key] = str(p.parent / f"{p.name}{suffix}")
+
     return quanting_env
+
+
+def _find_next_free_run_suffix(base_path: Path) -> str:
+    """Find the next free `.runN` suffix for the given base path."""
+    run_number = 2
+    while (base_path.parent / f"{base_path.name}.run{run_number}").exists():
+        run_number += 1
+    return f".run{run_number}"
 
 
 def _create_quanting_env(
@@ -343,10 +367,14 @@ def run_quanting(
 
             logging.warning(f"Assuming job id {extracted_job_id}...")
             return str(extracted_job_id)
+        elif output_exists_mode == "add":
+            logging.warning(
+                f"{msg} Continuing because Airflow variable output_exists_mode='add' is set."
+            )
         else:
             raise AirflowFailException(
-                f"{msg} Remove it before restarting the quanting or set Airflow variable 'output_exists_mode' to 'overwrite' or 'associate' "
-                f"(got '{output_exists_mode}')"
+                f"{msg} Remove it before restarting the quanting or set Airflow variable 'output_exists_mode' "
+                f"to 'overwrite', 'associate', or 'add' (got '{output_exists_mode}')"
             )
 
     output_path.mkdir(parents=True, exist_ok=True)

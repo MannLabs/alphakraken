@@ -15,6 +15,7 @@ from dags.impl.processor_impl import (
     QuantingFailedNewErrorException,
     _create_quanting_env,
     _extract_errors,
+    _find_next_free_run_suffix,
     _get_slurm_job_id_from_log,
     check_quanting_result,
     compute_metrics,
@@ -536,6 +537,115 @@ def test_run_quanting_output_folder_exists_associate_raise(
     # when
     with pytest.raises(AirflowFailException):
         run_quanting(quanting_env=quanting_env)
+
+
+def test_find_next_free_run_suffix(tmp_path: Path) -> None:
+    """Test that _find_next_free_run_suffix finds the next available .runN suffix."""
+    base = tmp_path / "output"
+    base.mkdir()
+
+    # base exists -> .run2
+    assert _find_next_free_run_suffix(base) == ".run2"
+
+    # base + .run2 exist -> .run3
+    (tmp_path / "output.run2").mkdir()
+    assert _find_next_free_run_suffix(base) == ".run3"
+
+    # base + .run2 + .run3 exist -> .run4
+    (tmp_path / "output.run3").mkdir()
+    assert _find_next_free_run_suffix(base) == ".run4"
+
+
+def test_find_next_free_run_suffix_base_not_exists(tmp_path: Path) -> None:
+    """Test that _find_next_free_run_suffix returns .run2 when base does not exist."""
+    base = tmp_path / "output"
+    assert _find_next_free_run_suffix(base) == ".run2"
+
+
+@patch("dags.impl.processor_impl.get_airflow_variable")
+@patch("dags.impl.processor_impl._check_content")
+@patch("dags.impl.processor_impl._create_quanting_env")
+@patch("dags.impl.processor_impl.get_settings_by_id")
+@patch("dags.impl.processor_impl.get_raw_file_by_id")
+@patch("dags.impl.processor_impl.get_path")
+def test_prepare_quanting_add_mode(  # noqa: PLR0913
+    mock_get_path: MagicMock,
+    mock_get_raw_file_by_id: MagicMock,
+    mock_get_settings_by_id: MagicMock,
+    mock_create_env: MagicMock,
+    mock_check_content: MagicMock,
+    mock_get_airflow_variable: MagicMock,
+    tmp_path: Path,
+) -> None:
+    """Test that prepare_quanting suffixes paths when output_exists_mode is 'add' and output exists."""
+    mock_raw_file = MagicMock(
+        wraps=RawFile,
+        id="test_file.raw",
+        created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
+        project_id="some_project_id",
+        instrument_id="instrument1",
+    )
+    mock_get_raw_file_by_id.return_value = mock_raw_file
+    mock_get_path.return_value = Path("/some_backup_base_path")
+    mock_settings = MagicMock(config_params=[])
+    mock_get_settings_by_id.return_value = mock_settings
+    mock_check_content.return_value = []
+
+    # create the internal output path so the "add" logic triggers
+    internal_output = tmp_path / "internal_output"
+    internal_output.mkdir()
+
+    mock_create_env.return_value = {
+        QuantingEnv.INTERNAL_OUTPUT_PATH: str(internal_output),
+        QuantingEnv.OUTPUT_PATH: "/output/some_path",
+        QuantingEnv.RELATIVE_OUTPUT_PATH: "some_path",
+        QuantingEnv.SOFTWARE_TYPE: "alphadia",
+    }
+    mock_get_airflow_variable.return_value = "add"
+
+    result = prepare_quanting(raw_file_id="test_file.raw", settings_id="sid1")
+
+    assert result[QuantingEnv.INTERNAL_OUTPUT_PATH] == str(
+        internal_output.parent / "internal_output.run2"
+    )
+    assert result[QuantingEnv.OUTPUT_PATH] == "/output/some_path.run2"
+    assert result[QuantingEnv.RELATIVE_OUTPUT_PATH] == "some_path.run2"
+
+
+@patch("dags.impl.processor_impl.get_raw_file_by_id")
+@patch("dags.impl.processor_impl.get_airflow_variable")
+@patch("dags.impl.processor_impl.start_job")
+@patch("dags.impl.processor_impl.update_raw_file")
+def test_run_quanting_output_folder_exists_add(
+    mock_update: MagicMock,  # noqa: ARG001
+    mock_start_job: MagicMock,
+    mock_get_airflow_variable: MagicMock,
+    mock_get_raw_file_by_id: MagicMock,
+    tmp_path: Path,
+) -> None:
+    """run_quanting continues without error when output_exists_mode is 'add'."""
+    output_dir = tmp_path / "output"
+    output_dir.mkdir()
+    quanting_env = {
+        QuantingEnv.RAW_FILE_ID: "test_file.raw",
+        QuantingEnv.PROJECT_ID: "PID123",
+        QuantingEnv.SOFTWARE_TYPE: "alphadia",
+        QuantingEnv.CUSTOM_COMMAND: "",
+        QuantingEnv.INTERNAL_OUTPUT_PATH: str(output_dir),
+    }
+    mock_raw_file = MagicMock(
+        wraps=RawFile,
+        created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
+        instrument_id="_test1_",
+    )
+    mock_get_raw_file_by_id.return_value = mock_raw_file
+    mock_get_airflow_variable.return_value = "add"
+    mock_start_job.return_value = "99999"
+
+    result = run_quanting(quanting_env=quanting_env)
+
+    assert result == "99999"
+    mock_start_job.assert_called_once()
 
 
 @patch("dags.impl.processor_impl.put_xcom")

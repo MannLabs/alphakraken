@@ -131,7 +131,7 @@ class AirflowVars:
     # whether to consider acquisition "done" if current file is "old" (> 5h) compared to youngest file
     CONSIDER_OLD_FILES_ACQUIRED = "consider_old_files_acquired"
 
-    # for special modes 'overwrite' or 'associated' (see docs)
+    # for special modes 'overwrite', 'associate', or 'add' (see docs)
     OUTPUT_EXISTS_MODE: str = "output_exists_mode"
 
     # The minimum file age in days for files to be removed by the file_remover.

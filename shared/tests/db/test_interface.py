@@ -17,6 +17,7 @@ from shared.db.interface import (
     create_settings,
     get_all_project_ids,
     get_all_settings,
+    get_latest_active_settings_by_name,
     get_project_settings,
     get_raw_file_by_id,
     get_raw_files_by_age,
@@ -26,7 +27,7 @@ from shared.db.interface import (
     update_kraken_status,
     update_raw_file,
 )
-from shared.db.models import InstrumentFileStatus, RawFileStatus
+from shared.db.models import InstrumentFileStatus, RawFileStatus, SettingsStatus
 from shared.keys import MetricsTypes
 
 
@@ -346,6 +347,27 @@ def test_get_all_settings_includes_archived(
     get_all_settings(include_archived=True)
 
     mock_settings.objects.all.assert_called_once()
+    mock_connect_db.assert_called_once()
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.Settings")
+def test_get_latest_active_settings_by_name_returns_latest(
+    mock_settings: MagicMock, mock_connect_db: MagicMock
+) -> None:
+    """Test that get_latest_active_settings_by_name returns the latest active version."""
+    expected = MagicMock()
+    mock_settings.objects.return_value.order_by.return_value.first.return_value = (
+        expected
+    )
+
+    result = get_latest_active_settings_by_name("plasma_settings")
+
+    assert result is expected
+    mock_settings.objects.assert_called_once_with(
+        name="plasma_settings", status=SettingsStatus.ACTIVE
+    )
+    mock_settings.objects.return_value.order_by.assert_called_once_with("-version")
     mock_connect_db.assert_called_once()
 
 

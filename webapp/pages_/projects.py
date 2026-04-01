@@ -27,6 +27,7 @@ from shared.db.interface import (
     add_project,
     assign_settings_to_project,
     get_all_settings,
+    get_latest_active_settings_by_name,
     get_project_settings,
     unassign_settings_from_project,
 )
@@ -139,7 +140,7 @@ with c_assign1:
         if current_ps_list:
             st.markdown("**Current settings assignments:**")
             for ps in current_ps_list:
-                col_info, col_btn = st.columns([0.9, 0.1])
+                col_info, col_unlink, col_update = st.columns([0.8, 0.1, 0.1])
                 excluded_str = (
                     f" [excluded: {', '.join(ps.excluded)}]" if ps.excluded else ""
                 )
@@ -152,7 +153,11 @@ with c_assign1:
                     f"`[scope: {ps.scope}]` '{ps.settings.name}' version {ps.settings.version} (type: `{ps.settings.software_type}`, executable: `{ps.settings.software}`){excluded_str}{filter_str}"
                 )
                 ps_id = str(ps.id)  # type: ignore[unresolved-attribute]
-                if col_btn.button(
+                latest = get_latest_active_settings_by_name(ps.settings.name)
+                has_newer_version = (
+                    latest is not None and latest.version > ps.settings.version
+                )
+                if col_unlink.button(
                     "",
                     key=f"remove_ps_{ps_id}",
                     disabled=disable_write,
@@ -163,6 +168,35 @@ with c_assign1:
                         unassign_settings_from_project(ps_id)  # type: ignore[unresolved-attribute]
                         show_success_toast(
                             f"Removed settings assignment from project {selected_project_id}."
+                        )
+                        st.rerun()
+                    except Exception as e:  # noqa: BLE001
+                        show_error_toast(str(e))
+                        st.rerun()
+
+                update_help = (
+                    f"Update to version {latest.version}"
+                    if has_newer_version
+                    else "Already at latest version"
+                )
+                if col_update.button(
+                    "",
+                    key=f"update_ps_{ps_id}",
+                    disabled=disable_write or not has_newer_version,
+                    help=update_help,
+                    icon=":material/upgrade:",
+                ):
+                    try:
+                        unassign_settings_from_project(ps_id)  # type: ignore[unresolved-attribute]
+                        assign_settings_to_project(
+                            selected_project_id,
+                            str(latest.id),  # type: ignore[union-attr, unresolved-attribute]
+                            scope=ps.scope,
+                            excluded=list(ps.excluded),
+                            raw_file_id_filter=ps.raw_file_id_filter or None,
+                        )
+                        show_success_toast(
+                            f"Updated '{ps.settings.name}' to version {latest.version}."  # type: ignore[union-attr]
                         )
                         st.rerun()
                     except Exception as e:  # noqa: BLE001

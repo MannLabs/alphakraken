@@ -428,25 +428,25 @@ with c1.form("create_settings"):
             help="Use for 'alphadia' and 'custom' (through NUM_THREADS placeholder)",
         )
 
-    st.markdown("### Upload files to settings folder")
-    settings_name_clean = empty_to_none(name)
-    if settings_name_clean:
-        st.markdown(
-            f"Make sure you have uploaded all referenced files to "
-            f"`{quanting_settings_path}/{settings_name_clean}/`"
-        )
+    if software_type in [SoftwareTypes.MSQC]:
+        upload_checkbox = True
     else:
-        st.markdown(
-            f"After entering a settings name above, upload files to "
-            f"`{quanting_settings_path}/<settings_name>/`"
-        )
+        st.markdown("### Upload files to settings folder")
+        settings_name_clean = empty_to_none(name)
+        if settings_name_clean:
+            st.markdown(
+                f"Make sure you have uploaded all referenced files to "
+                f"`{quanting_settings_path}/{settings_name_clean}/`"
+            )
+        else:
+            st.markdown(
+                f"After entering a settings name above, upload files to "
+                f"`{quanting_settings_path}/<settings_name>/`"
+            )
 
-    if software_type not in [SoftwareTypes.MSQC]:
         upload_checkbox = st.checkbox(
             "I have uploaded all referenced files to this folder.", value=False
         )
-    else:
-        upload_checkbox = True
 
     is_update = selected_name_option != CREATE_NEW_OPTION
     if is_update:

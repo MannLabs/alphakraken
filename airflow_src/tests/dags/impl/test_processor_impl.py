@@ -347,7 +347,8 @@ def test_prepare_quanting_validation_error_stores_errors(
     mock_create_env.return_value = mock_env
     mock_check_content.return_value = ["some_error"]
 
-    result = prepare_quanting(raw_file_id="test_file.raw", settings_id="sid1")
+    with pytest.raises(AirflowFailException, match="some_error"):
+        prepare_quanting(raw_file_id="test_file.raw", settings_id="sid1")
 
     mock_create_env.assert_called_once_with(
         mock_settings,
@@ -356,8 +357,6 @@ def test_prepare_quanting_validation_error_stores_errors(
         Path("instrument1/1970_01/test_file.raw"),
     )
     mock_check_content.assert_called_once_with(mock_env, mock_settings)
-    assert result == mock_env
-    assert result[QuantingEnv.QUANTING_ENV_CREATION_ERRORS] == ["some_error"]
 
 
 def test_get_slurm_job_id_from_log_returns_slurm_job_id_if_present_in_log() -> None:
@@ -387,17 +386,6 @@ def test_get_slurm_job_id_from_log_returns_none_if_file_not_exists() -> None:
         mock_path.exists.return_value = False
         # when
         assert _get_slurm_job_id_from_log(Path("/mock/path")) is None
-
-
-def test_run_quanting_raises_on_env_creation_errors() -> None:
-    """Test that run_quanting raises if the quanting env contains creation errors."""
-    quanting_env = {
-        QuantingEnv.RAW_FILE_ID: "test_file.raw",
-        QuantingEnv.QUANTING_ENV_CREATION_ERRORS: ["some_error"],
-    }
-
-    with pytest.raises(AirflowFailException, match="some_error"):
-        run_quanting(quanting_env=quanting_env)
 
 
 @patch("dags.impl.processor_impl.get_raw_file_by_id")

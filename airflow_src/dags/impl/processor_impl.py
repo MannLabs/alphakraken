@@ -127,9 +127,9 @@ def prepare_quanting(
     )
 
     if errors := _check_content(quanting_env, settings):
-        # TODO: now raise here
-        quanting_env[QuantingEnv.QUANTING_ENV_CREATION_ERRORS] = errors
-        logging.warning(f"quanting_env for {settings.name} has errors: {errors}")
+        raise AirflowFailException(
+            f"Quanting env validation failed for '{settings.name}': {errors}"
+        )
 
     return quanting_env
 
@@ -314,11 +314,6 @@ def run_quanting(
     :return: The Slurm job ID as a string.
     """
     logging.info(f"Starting quanting with environment: {quanting_env}")
-
-    if quanting_env.get(QuantingEnv.QUANTING_ENV_CREATION_ERRORS):
-        raise AirflowFailException(
-            f"Quanting environment construction failed:\n {quanting_env}"
-        )
 
     raw_file = get_raw_file_by_id(quanting_env[QuantingEnv.RAW_FILE_ID])
 

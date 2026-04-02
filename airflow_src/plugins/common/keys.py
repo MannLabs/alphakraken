@@ -45,7 +45,7 @@ class Tasks:
 
     RUN_JOB: str = "run_job"
     WAIT_FOR_JOB_START: str = "wait_for_job_start"
-    MONITOR_QUANTING: str = "monitor_quanting"
+    MONITOR_JOB: str = "monitor_job"
     CHECK_QUANTING_RESULT: str = "check_quanting_result"
     COMPUTE_METRICS: str = "compute_metrics"
     STORE_METRICS: str = "store_metrics"

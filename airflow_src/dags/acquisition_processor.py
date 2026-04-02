@@ -108,7 +108,7 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
             )
 
             monitor_ = WaitForJobFinishSensor(
-                task_id=Tasks.MONITOR_QUANTING,
+                task_id=Tasks.MONITOR_JOB,
                 xcom_source_task_id=f"{TaskGroups.QUANTING_PIPELINE}.{Tasks.RUN_JOB}",
                 poke_interval=Timings.JOB_MONITOR_POKE_INTERVAL_S,
                 max_active_tis_per_dag=Concurrency.MAXNO_JOB_MONITOR_TASKS_PER_DAG,

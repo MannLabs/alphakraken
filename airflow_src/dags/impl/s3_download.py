@@ -333,12 +333,23 @@ def _download_and_verify_file(
         download_file_from_s3(
             bucket_name, s3_key, absolute_dest_path, region, chunk_size_mb
         )
+        download_duration = time.time() - start_time
+        download_rate = file_size_mb / max(download_duration, 0.00001)
+        logging.info(
+            f"Download complete: {relative_path} ({file_size_mb:.1f} MB in {download_duration:.1f}s, {download_rate:.1f} MB/s)"
+        )
 
         # Post-download verification
         # TODO: download file to .unverified, then move
+        verify_start = time.time()
         logging.info(f"Verifying downloaded file: {absolute_dest_path}")
         local_hash, local_etag = get_file_hash_with_etag(
             absolute_dest_path, chunk_size_mb, calculate_etag=True
+        )
+        verify_duration = time.time() - verify_start
+        verify_rate = file_size_mb / max(verify_duration, 0.00001)
+        logging.info(
+            f"Verification complete: {relative_path} ({file_size_mb:.1f} MB in {verify_duration:.1f}s, {verify_rate:.1f} MB/s)"
         )
 
         local_etag = local_etag.split("__")[0]  # Remove multipart suffix if present
@@ -364,13 +375,12 @@ def _download_and_verify_file(
         ).exists()  #  TODO: HERE ???
         status = "OK - Self-healed" if was_healed else "OK - Downloaded and verified"
 
-        duration = time.time() - start_time
-        rate_mbps = (file_size_mb / duration) if duration > 0 else 0
+        total_duration = time.time() - start_time
 
         return {  # noqa: TRY300
             "relative_path": relative_path,
             "status": status,
-            "details": f"{file_size_mb:.1f} MB in {duration:.1f}s ({rate_mbps:.1f} MB/s)",
+            "details": f"{file_size_mb:.1f} MB in {total_duration:.1f}s (download: {download_rate:.1f} MB/s, verify: {verify_rate:.1f} MB/s)",
         }
 
     except (BotoCoreError, ClientError, Exception) as e:

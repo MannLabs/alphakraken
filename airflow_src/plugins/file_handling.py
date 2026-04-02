@@ -142,8 +142,9 @@ def get_file_hash_with_etag(
             file_path, verbose=False
         )  # deliberately calling a second time in case the file was modified during the hash calculation
         time_elapsed = (datetime.now() - start).total_seconds()  # noqa: DTZ005
+        rate_mbps = file_size * BYTES_TO_MB / max(time_elapsed, 0.00001)
         logging.info(
-            f".. {md5sum=} {etag=} ({file_size=}) Time elapsed: {time_elapsed / 60:.1f} min"
+            f".. {md5sum=} {etag=} ({file_size=}) Time elapsed: {time_elapsed / 60:.1f} min ({rate_mbps:.1f} MB/s)"
         )
 
     return md5sum, etag

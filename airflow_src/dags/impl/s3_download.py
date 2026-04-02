@@ -188,8 +188,7 @@ def _build_download_plan(raw_file_ids: list[str], output_path: Path) -> dict:
                 logging.warning(f"Skipping {raw_file_id}: No S3 backup path")
                 continue
 
-            if not raw_file.project_id:  # TODO: HERE: fallback?
-                project_id = "_FALLBACK"
+            project_id = "_FALLBACK" if not raw_file.project_id else raw_file.project_id
             #     download_plan[raw_file_id] = {
             #         "skipped": True,
             #         "error": "No project_id",

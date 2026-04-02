@@ -4,6 +4,7 @@ import logging
 import traceback
 from collections import defaultdict
 from pathlib import Path
+from typing import Any
 
 from airflow.exceptions import AirflowFailException
 from airflow.models import TaskInstance
@@ -19,6 +20,7 @@ from common.paths import (
 from common.settings import (
     DEFAULT_MAX_FILE_AGE_TO_REMOVE_D,
     DEFAULT_MIN_FILE_AGE_TO_REMOVE_D,
+    MAX_TOLERATED_REMOVAL_ERRORS_PER_INSTRUMENT,
     get_instrument_ids,
     get_instrument_settings,
 )
@@ -439,20 +441,7 @@ def remove_raw_files(ti: TaskInstance, **kwargs) -> None:
                     logging.error(error)
 
     if errors:
-        logging.warning(
-            "There were errors in the `remove_raw_files` task, i.e. while actually removing them:"
-        )
-        all_errors = []
-        for instrument_id, error_list in errors.items():
-            errors_pretty = "\n  - ".join(error_list)
-            logging.error(
-                f"Errors removing files for {instrument_id}:\n{errors_pretty}\n\n"
-            )
-            all_errors.extend(error_list)
-
-        error_details = "; ".join(all_errors)
-        _update_file_remover_status(KrakenStatusValues.ERROR, error_details)
-        raise AirflowFailException("Errors removing files.")
+        _raise_on_too_many_errors(errors)
 
     logging.info("File removal finished successfully!")
 
@@ -468,3 +457,32 @@ def remove_raw_files(ti: TaskInstance, **kwargs) -> None:
         )
 
     _update_file_remover_status(KrakenStatusValues.OK)
+
+
+def _raise_on_too_many_errors(
+    errors: defaultdict[Any, list],
+    max_tolerated_removal_errors_per_instrument: int = MAX_TOLERATED_REMOVAL_ERRORS_PER_INSTRUMENT,
+) -> None:
+    """Raise if too many errors have been gathered."""
+    logging.warning(
+        "There were errors in the `remove_raw_files` task, i.e. while actually removing them:"
+    )
+    all_errors = []
+    too_many_errors = False
+    for instrument_id, error_list in errors.items():
+        errors_pretty = "\n  - ".join(error_list)
+        logging.error(
+            f"Errors removing files for {instrument_id}:\n{errors_pretty}\n\n"
+        )
+        all_errors.extend(error_list)
+        if len(error_list) > max_tolerated_removal_errors_per_instrument:
+            too_many_errors = True
+
+    error_details = "; ".join(all_errors)
+    if too_many_errors:
+        _update_file_remover_status(KrakenStatusValues.ERROR, error_details)
+        raise AirflowFailException("Errors removing files.")
+    errors_pretty = "\n  - ".join(all_errors)
+    logging.warning(
+        f"There were errors but too few to consider the task failed: \n  - {errors_pretty}"
+    )

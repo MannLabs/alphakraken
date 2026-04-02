@@ -65,6 +65,8 @@ DEFAULT_MIN_FILE_AGE_TO_REMOVE_D = 14  # days
 # this is to avoid getting a lot of removal candidates:
 DEFAULT_MAX_FILE_AGE_TO_REMOVE_D = 60  # days
 
+MAX_TOLERATED_REMOVAL_ERRORS_PER_INSTRUMENT = 5
+
 
 # TODO: move to shared?
 _INSTRUMENTS = YAMLSETTINGS[YamlKeys.INSTRUMENTS].copy()

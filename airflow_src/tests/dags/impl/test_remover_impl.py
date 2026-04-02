@@ -707,23 +707,48 @@ def test_remove_raw_files_upstream_task_failed(
 @patch("dags.impl.remover_impl._update_file_remover_status")
 @patch("dags.impl.remover_impl.get_xcom")
 @patch("dags.impl.remover_impl._safe_remove_files")
-def test_remove_raw_files_error(
+def test_remove_raw_files_tolerated_error(
     mock_safe_remove: MagicMock,
     mock_get_xcom: MagicMock,
     mock_update_status: MagicMock,
     mock_get_purging_verification_type: MagicMock,  # noqa: ARG001
 ) -> None:
-    """Test that remove_raw_files raises ValueError when errors occur."""
+    """Test that remove_raw_files tolerates errors within the threshold."""
     mock_ti = MagicMock()
 
     mock_get_xcom.side_effect = [{"instrument1": ["file1", "file2"]}, []]
     mock_safe_remove.side_effect = [None, FileRemovalError("Removal failed")]
 
-    # when
+    # when - should NOT raise (1 error <= threshold of 5)
+    remove_raw_files(mock_ti)
+
+    # then
+    mock_update_status.assert_called_once_with(KrakenStatusValues.OK)
+
+
+@patch("dags.impl.remover_impl.get_purging_verification_type", return_value="local")
+@patch("dags.impl.remover_impl._update_file_remover_status")
+@patch("dags.impl.remover_impl.get_xcom")
+@patch("dags.impl.remover_impl._safe_remove_files")
+def test_remove_raw_files_errors_exceed_threshold(
+    mock_safe_remove: MagicMock,
+    mock_get_xcom: MagicMock,
+    mock_update_status: MagicMock,
+    mock_get_purging_verification_type: MagicMock,  # noqa: ARG001
+) -> None:
+    """Test that exceeding MAX_TOLERATED_REMOVAL_ERRORS_PER_INSTRUMENT errors raises."""
+    mock_ti = MagicMock()
+
+    file_ids = [f"file{i}" for i in range(6)]
+    mock_get_xcom.side_effect = [{"instrument1": file_ids}, []]
+    mock_safe_remove.side_effect = [FileRemovalError(f"fail {i}") for i in range(6)]
+
+    # when - should raise (6 > threshold of 5)
     with pytest.raises(AirflowFailException):
         remove_raw_files(mock_ti)
 
     # then
     mock_update_status.assert_called_once_with(
-        KrakenStatusValues.ERROR, "Error for file2: Error: Removal failed"
+        KrakenStatusValues.ERROR,
+        "; ".join(f"Error for file{i}: Error: fail {i}" for i in range(6)),
     )

@@ -1041,7 +1041,7 @@ def test_store_metrics(
 
 
 def _branch_ti(task_name: str, map_index: int, state: str) -> MagicMock:
-    """Create a mock TaskInstance for a task within a quanting_pipeline branch."""
+    """Create a mock TaskInstance for a task within a processing branch."""
     return MagicMock(
         task_id=f"{_TASK_GROUP_PREFIX}{task_name}",
         map_index=map_index,

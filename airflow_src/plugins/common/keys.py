@@ -20,7 +20,7 @@ class Dags:
 class TaskGroups:
     """Task Group Names."""
 
-    QUANTING_PIPELINE: str = "quanting_pipeline"
+    PROCESSING: str = "processing"
 
 
 class Tasks:

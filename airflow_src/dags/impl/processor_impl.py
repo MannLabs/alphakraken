@@ -550,7 +550,7 @@ def store_metrics(*, quanting_env: dict, metrics: dict, metrics_type: str) -> No
 
 MAX_STATUS_DETAILS_LENGTH = 1024
 
-_TASK_GROUP_PREFIX = f"{TaskGroups.QUANTING_PIPELINE}."
+_TASK_GROUP_PREFIX = f"{TaskGroups.PROCESSING}."
 _PREPARE_JOB_TASK_ID = f"{_TASK_GROUP_PREFIX}{Tasks.PREPARE_JOB}"
 _CHECK_RESULT_TASK_ID = f"{_TASK_GROUP_PREFIX}{Tasks.CHECK_JOB_RESULT}"
 

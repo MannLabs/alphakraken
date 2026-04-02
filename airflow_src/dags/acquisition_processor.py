@@ -79,9 +79,9 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
                 raw_file_id=params[DagParams.RAW_FILE_ID],
             )
 
-        @task_group(group_id=TaskGroups.QUANTING_PIPELINE)
-        def quanting_pipeline(settings_id: str) -> None:
-            """The quanting pipeline that runs for every settings entry."""
+        @task_group(group_id=TaskGroups.PROCESSING)
+        def processing(settings_id: str) -> None:
+            """The processing steps that runs for every settings entry."""
 
             @task(task_id=Tasks.PREPARE_JOB)
             def prepare_job_task(settings_id: str, params: dict | None = None) -> dict:
@@ -101,7 +101,7 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
 
             wait_ = WaitForJobStartSensor(
                 task_id=Tasks.WAIT_FOR_JOB_START,
-                xcom_source_task_id=f"{TaskGroups.QUANTING_PIPELINE}.{Tasks.RUN_JOB}",
+                xcom_source_task_id=f"{TaskGroups.PROCESSING}.{Tasks.RUN_JOB}",
                 poke_interval=Timings.JOB_MONITOR_POKE_INTERVAL_S,
                 max_active_tis_per_dag=Concurrency.MAXNO_JOB_MONITOR_TASKS_PER_DAG,
                 pool=Pools.CLUSTER_SLOTS_POOL,
@@ -109,7 +109,7 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
 
             monitor_ = WaitForJobFinishSensor(
                 task_id=Tasks.MONITOR_JOB,
-                xcom_source_task_id=f"{TaskGroups.QUANTING_PIPELINE}.{Tasks.RUN_JOB}",
+                xcom_source_task_id=f"{TaskGroups.PROCESSING}.{Tasks.RUN_JOB}",
                 poke_interval=Timings.JOB_MONITOR_POKE_INTERVAL_S,
                 max_active_tis_per_dag=Concurrency.MAXNO_JOB_MONITOR_TASKS_PER_DAG,
                 # Note: if we decouple this task from cluster_slots_pool, then this setting would steer only the
@@ -173,7 +173,7 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
             )
 
         settings_ids = resolve_settings_task()
-        mapped = quanting_pipeline.expand(settings_id=settings_ids)
+        mapped = processing.expand(settings_id=settings_ids)
         mapped >> finalize_status()
 
 

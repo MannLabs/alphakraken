@@ -287,7 +287,7 @@ def _download_and_verify_file(
     try:
         # S3 pre-check: verify S3 etag matches DB
         logging.info(f"Verifying S3 etag for {s3_key}")
-        s3_etag = get_etag(bucket_name, s3_key, s3_client)
+        s3_etag, _ = get_etag(bucket_name, s3_key, s3_client)
 
         if s3_etag is S3_FILE_NOT_FOUND_ETAG:
             return {

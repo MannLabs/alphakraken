@@ -99,7 +99,7 @@ class SlurmSSHJobHandler(JobHandler):
         command = (
             self._create_export_environment_cmd(environment)
             + "\n"
-            + self._get_run_job_cmd(job_script_name, environment, year_month_folder)
+            + self._get_submit_job_cmd(job_script_name, environment, year_month_folder)
         )
         logging.info(f"Running command: >>>>\n{command}\n<<<< end of command")
         ssh_return = ssh_execute(command)
@@ -135,7 +135,7 @@ class SlurmSSHJobHandler(JobHandler):
         job_status = ssh_return.split("\n")[-1]
         return job_status, time_elapsed
 
-    def _get_run_job_cmd(
+    def _get_submit_job_cmd(
         self, job_script_name: str, environment: dict[str, str], year_month_folder: str
     ) -> str:
         """Get the command to run the job on the cluster.

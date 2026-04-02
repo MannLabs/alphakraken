@@ -43,7 +43,7 @@ class Tasks:
     RESOLVE_SETTINGS: str = "resolve_settings"
     PREPARE_JOB: str = "prepare_job"
 
-    RUN_JOB: str = "run_job"
+    SUBMIT_JOB: str = "submit_job"
     WAIT_FOR_JOB_START: str = "wait_for_job_start"
     MONITOR_JOB: str = "monitor_job"
     CHECK_JOB_RESULT: str = "check_job_result"

@@ -29,8 +29,8 @@ from impl.processor_impl import (
     finalize_raw_file_status,
     prepare_job,
     resolve_settings,
-    run_job,
     store_metrics,
+    submit_job,
 )
 from sensors.ssh_sensor import (
     WaitForJobFinishSensor,
@@ -56,7 +56,7 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
             # this callback is executed when tasks fail
             "on_failure_callback": on_failure_callback,
             # make sure that downstream tasks are executed before any upstream tasks
-            # to make sure the cluster_slots_pool works correctly ("run_job" should only run if all "monitoring" tasks are done)
+            # to make sure the cluster_slots_pool works correctly ("submit_job" should only run if all "monitoring" tasks are done)
             # cf. https://airflow.apache.org/docs/apache-airflow/stable/administration-and-deployment/priority-weight.html
             "weight_rule": "upstream",
         },
@@ -93,15 +93,15 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
                 )
 
             @task(
-                task_id=Tasks.RUN_JOB, pool=Pools.CLUSTER_SLOTS_POOL
+                task_id=Tasks.SUBMIT_JOB, pool=Pools.CLUSTER_SLOTS_POOL
             )  # this assumes all are using slurm
-            def run_job_task(quanting_env: dict) -> str:
+            def submit_job_task(quanting_env: dict) -> str:
                 """Run quanting and return the Slurm job ID."""
-                return run_job(quanting_env=quanting_env)
+                return submit_job(quanting_env=quanting_env)
 
             wait_ = WaitForJobStartSensor(
                 task_id=Tasks.WAIT_FOR_JOB_START,
-                xcom_source_task_id=f"{TaskGroups.PROCESSING}.{Tasks.RUN_JOB}",
+                xcom_source_task_id=f"{TaskGroups.PROCESSING}.{Tasks.SUBMIT_JOB}",
                 poke_interval=Timings.JOB_MONITOR_POKE_INTERVAL_S,
                 max_active_tis_per_dag=Concurrency.MAXNO_JOB_MONITOR_TASKS_PER_DAG,
                 pool=Pools.CLUSTER_SLOTS_POOL,
@@ -109,7 +109,7 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
 
             monitor_ = WaitForJobFinishSensor(
                 task_id=Tasks.MONITOR_JOB,
-                xcom_source_task_id=f"{TaskGroups.PROCESSING}.{Tasks.RUN_JOB}",
+                xcom_source_task_id=f"{TaskGroups.PROCESSING}.{Tasks.SUBMIT_JOB}",
                 poke_interval=Timings.JOB_MONITOR_POKE_INTERVAL_S,
                 max_active_tis_per_dag=Concurrency.MAXNO_JOB_MONITOR_TASKS_PER_DAG,
                 # Note: if we decouple this task from cluster_slots_pool, then this setting would steer only the
@@ -142,7 +142,7 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
                 )
 
             quanting_env = prepare_job_task(settings_id)
-            job_id = run_job_task(quanting_env)
+            job_id = submit_job_task(quanting_env)
 
             job_id >> wait_ >> monitor_
 

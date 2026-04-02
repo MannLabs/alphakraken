@@ -23,8 +23,8 @@ from dags.impl.processor_impl import (
     get_business_errors,
     prepare_job,
     resolve_settings,
-    run_job,
     store_metrics,
+    submit_job,
 )
 from mongoengine import DoesNotExist
 from plugins.common.keys import (
@@ -395,13 +395,13 @@ def test_get_slurm_job_id_from_log_returns_none_if_file_not_exists() -> None:
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.start_job")
 @patch("dags.impl.processor_impl.update_raw_file")
-def test_run_job_executes_ssh_command_and_stores_job_id(
+def test_submit_job_executes_ssh_command_and_stores_job_id(
     mock_update: MagicMock,
     mock_start_job: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
     tmp_path: Path,
 ) -> None:
-    """Test that the run_job function executes the SSH command and stores the job ID."""
+    """Test that the submit_job function executes the SSH command and stores the job ID."""
     # given
     output_dir = tmp_path / "PID123" / "out_test_file.raw" / "alphadia"
     quanting_env = {
@@ -421,7 +421,7 @@ def test_run_job_executes_ssh_command_and_stores_job_id(
     mock_start_job.return_value = "12345"
 
     # when
-    result = run_job(quanting_env=quanting_env)
+    result = submit_job(quanting_env=quanting_env)
 
     assert result == "12345"
     assert output_dir.exists()
@@ -438,12 +438,12 @@ def test_run_job_executes_ssh_command_and_stores_job_id(
 
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.get_airflow_variable")
-def test_run_job_output_folder_exists(
+def test_submit_job_output_folder_exists(
     mock_get_airflow_variable: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
     tmp_path: Path,
 ) -> None:
-    """run_job function raises an exception if the output path already exists."""
+    """submit_job function raises an exception if the output path already exists."""
     # given
     output_dir = tmp_path / "output"
     output_dir.mkdir()
@@ -465,7 +465,7 @@ def test_run_job_output_folder_exists(
 
     # when
     with pytest.raises(AirflowFailException):
-        run_job(quanting_env=quanting_env)
+        submit_job(quanting_env=quanting_env)
 
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
     mock_get_airflow_variable.assert_called_once_with("output_exists_mode", "raise")
@@ -474,13 +474,13 @@ def test_run_job_output_folder_exists(
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.get_airflow_variable")
 @patch("dags.impl.processor_impl._get_slurm_job_id_from_log")
-def test_run_job_output_folder_exists_associate(
+def test_submit_job_output_folder_exists_associate(
     mock_get_slurm_job_id_from_log: MagicMock,
     mock_get_airflow_variable: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
     tmp_path: Path,
 ) -> None:
-    """run_job function returns extracted job_id if the output path already exists and mode is 'associate'."""
+    """submit_job function returns extracted job_id if the output path already exists and mode is 'associate'."""
     # given
     output_dir = tmp_path / "output"
     output_dir.mkdir()
@@ -502,7 +502,7 @@ def test_run_job_output_folder_exists_associate(
     mock_get_slurm_job_id_from_log.return_value = "54321"
 
     # when
-    result = run_job(quanting_env=quanting_env)
+    result = submit_job(quanting_env=quanting_env)
 
     assert result == "54321"
 
@@ -510,13 +510,13 @@ def test_run_job_output_folder_exists_associate(
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.get_airflow_variable")
 @patch("dags.impl.processor_impl._get_slurm_job_id_from_log")
-def test_run_job_output_folder_exists_associate_raise(
+def test_submit_job_output_folder_exists_associate_raise(
     mock_get_slurm_job_id_from_log: MagicMock,
     mock_get_airflow_variable: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
     tmp_path: Path,
 ) -> None:
-    """run_job function correctly raises if the output path already exists and mode is 'associate' and no job id."""
+    """submit_job function correctly raises if the output path already exists and mode is 'associate' and no job id."""
     # given
     output_dir = tmp_path / "output"
     output_dir.mkdir()
@@ -539,7 +539,7 @@ def test_run_job_output_folder_exists_associate_raise(
 
     # when
     with pytest.raises(AirflowFailException):
-        run_job(quanting_env=quanting_env)
+        submit_job(quanting_env=quanting_env)
 
 
 def test_find_next_free_run_suffix(tmp_path: Path) -> None:
@@ -619,14 +619,14 @@ def test_prepare_job_add_mode(  # noqa: PLR0913
 @patch("dags.impl.processor_impl.get_airflow_variable")
 @patch("dags.impl.processor_impl.start_job")
 @patch("dags.impl.processor_impl.update_raw_file")
-def test_run_job_output_folder_exists_add(
+def test_submit_job_output_folder_exists_add(
     mock_update: MagicMock,  # noqa: ARG001
     mock_start_job: MagicMock,  # noqa: ARG001
     mock_get_airflow_variable: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
     tmp_path: Path,
 ) -> None:
-    """run_job raises when output_exists_mode is 'add' but the output path already exists."""
+    """submit_job raises when output_exists_mode is 'add' but the output path already exists."""
     output_dir = tmp_path / "output"
     output_dir.mkdir()
     quanting_env = {
@@ -645,7 +645,7 @@ def test_run_job_output_folder_exists_add(
     mock_get_airflow_variable.return_value = "add"
 
     with pytest.raises(AirflowFailException, match="should have created a unique name"):
-        run_job(quanting_env=quanting_env)
+        submit_job(quanting_env=quanting_env)
 
 
 @patch("dags.impl.processor_impl.put_xcom")
@@ -1075,7 +1075,7 @@ def test_finalize_sets_done_when_no_errors(
     """All branches succeeded → DONE."""
     ti = MagicMock()
     ti.get_dagrun.return_value.get_task_instances.return_value = [
-        _branch_ti("run_job", 0, "success"),
+        _branch_ti("submit_job", 0, "success"),
     ]
     mock_extract.return_value = ([], [])
 
@@ -1094,8 +1094,8 @@ def test_finalize_sets_error_on_airflow_failures(
     """Airflow failure in any branch → ERROR with details, raises AirflowFailException."""
     ti = MagicMock()
     ti.get_dagrun.return_value.get_task_instances.return_value = [
-        _branch_ti("run_job", 0, "success"),
-        _branch_ti("run_job", 1, "failed"),
+        _branch_ti("submit_job", 0, "success"),
+        _branch_ti("submit_job", 1, "failed"),
     ]
     mock_extract.return_value = (
         [("settings_B", "UNKNOWN_ERROR")],
@@ -1144,11 +1144,11 @@ def test_finalize_error_takes_priority_over_business_errors(
     """Mix of airflow + business errors → ERROR with all details combined."""
     ti = MagicMock()
     ti.get_dagrun.return_value.get_task_instances.return_value = [
-        _branch_ti("run_job", 0, "failed"),
+        _branch_ti("submit_job", 0, "failed"),
         _branch_ti("check_job_result", 1, "skipped"),
     ]
     mock_extract.return_value = (
-        [("settings_A", "failed at run_job")],
+        [("settings_A", "failed at submit_job")],
         [("settings_B", "TIMEOUT")],
     )
 
@@ -1158,7 +1158,7 @@ def test_finalize_error_takes_priority_over_business_errors(
     mock_update.assert_called_once_with(
         "test.raw",
         new_status=RawFileStatus.ERROR,
-        status_details="error while processing: [settings_A] failed at run_job; [settings_B] TIMEOUT",
+        status_details="error while processing: [settings_A] failed at submit_job; [settings_B] TIMEOUT",
     )
 
 
@@ -1192,7 +1192,7 @@ def test_extract_errors_all_success(mock_get_xcom: MagicMock) -> None:
     """All branches succeed → no errors."""
     branch_tis = _make_branch_tis_by_index(
         [
-            (0, [("run_job", "success"), ("check_job_result", "success")]),
+            (0, [("submit_job", "success"), ("check_job_result", "success")]),
         ]
     )
     envs = [{QuantingEnv.SETTINGS_NAME: "s_A"}]
@@ -1212,7 +1212,7 @@ def test_extract_errors_business_error(mock_get_xcom: MagicMock) -> None:
             (
                 0,
                 [
-                    ("run_job", "success"),
+                    ("submit_job", "success"),
                     ("check_job_result", "skipped"),
                     ("store_metrics", "skipped"),
                 ],
@@ -1236,7 +1236,7 @@ def test_extract_errors_airflow_failure_with_xcom(mock_get_xcom: MagicMock) -> N
             (
                 0,
                 [
-                    ("run_job", "success"),
+                    ("submit_job", "success"),
                     ("check_job_result", "failed"),
                     ("store_metrics", "upstream_failed"),
                 ],
@@ -1260,7 +1260,7 @@ def test_extract_errors_early_task_failed_no_xcom(mock_get_xcom: MagicMock) -> N
             (
                 0,
                 [
-                    ("run_job", "failed"),
+                    ("submit_job", "failed"),
                     ("check_job_result", "upstream_failed"),
                     ("store_metrics", "upstream_failed"),
                 ],
@@ -1272,7 +1272,7 @@ def test_extract_errors_early_task_failed_no_xcom(mock_get_xcom: MagicMock) -> N
 
     airflow_errors, business_errors = _extract_errors(branch_tis, MagicMock())
 
-    assert airflow_errors == [("s_A", "failed at run_job")]
+    assert airflow_errors == [("s_A", "failed at submit_job")]
     assert business_errors == []
 
 
@@ -1284,7 +1284,7 @@ def test_extract_errors_intentional_skip(mock_get_xcom: MagicMock) -> None:
             (
                 0,
                 [
-                    ("run_job", "skipped"),
+                    ("submit_job", "skipped"),
                     ("check_job_result", "skipped"),
                     ("store_metrics", "skipped"),
                 ],
@@ -1305,8 +1305,8 @@ def test_extract_errors_multiple_branches_mixed(mock_get_xcom: MagicMock) -> Non
     """Multiple branches: one airflow failure, one business error, one success."""
     branch_tis = _make_branch_tis_by_index(
         [
-            (0, [("run_job", "success"), ("store_metrics", "success")]),
-            (1, [("run_job", "failed"), ("store_metrics", "upstream_failed")]),
+            (0, [("submit_job", "success"), ("store_metrics", "success")]),
+            (1, [("submit_job", "failed"), ("store_metrics", "upstream_failed")]),
             (2, [("check_job_result", "skipped"), ("store_metrics", "skipped")]),
         ]
     )
@@ -1321,5 +1321,5 @@ def test_extract_errors_multiple_branches_mixed(mock_get_xcom: MagicMock) -> Non
 
     airflow_errors, business_errors = _extract_errors(branch_tis, MagicMock())
 
-    assert airflow_errors == [("s_B", "failed at run_job")]
+    assert airflow_errors == [("s_B", "failed at submit_job")]
     assert business_errors == [("s_C", "TIMEOUT")]

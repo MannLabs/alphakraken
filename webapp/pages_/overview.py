@@ -48,13 +48,13 @@ from service.utils import (
     DEFAULT_MAX_AGE_OVERVIEW,
     DEFAULT_MAX_TABLE_LEN,
     FILTER_MAPPING,
+    METRICS_TYPE_SEPARATOR,
     Cols,
     _log,
     display_info_message,
 )
 
 from shared.yamlsettings import YAMLSETTINGS, YamlKeys
-from webapp.service.utils import METRICS_TYPE_SEPARATOR
 
 _log(f"loading {__file__} {get_all_query_params()}")
 

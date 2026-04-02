@@ -41,7 +41,7 @@ class Tasks:
     START_ACQUISITION_PROCESSOR: str = "start_acquisition_processor"
 
     RESOLVE_SETTINGS: str = "resolve_settings"
-    PREPARE_QUANTING: str = "prepare_quanting"
+    PREPARE_JOB: str = "prepare_job"
 
     RUN_QUANTING: str = "run_quanting"
     WAIT_FOR_JOB_START: str = "wait_for_job_start"

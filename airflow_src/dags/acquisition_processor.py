@@ -27,7 +27,7 @@ from impl.processor_impl import (
     check_quanting_result,
     compute_metrics,
     finalize_raw_file_status,
-    prepare_quanting,
+    prepare_job,
     resolve_settings,
     run_quanting,
     store_metrics,
@@ -83,13 +83,11 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
         def quanting_pipeline(settings_id: str) -> None:
             """The quanting pipeline that runs for every settings entry."""
 
-            @task(task_id=Tasks.PREPARE_QUANTING)
-            def prepare_quanting_task(
-                settings_id: str, params: dict | None = None
-            ) -> dict:
+            @task(task_id=Tasks.PREPARE_JOB)
+            def prepare_job_task(settings_id: str, params: dict | None = None) -> dict:
                 """Prepare quanting env for a single settings entry."""
                 assert params is not None
-                return prepare_quanting(
+                return prepare_job(
                     raw_file_id=params[DagParams.RAW_FILE_ID],
                     settings_id=settings_id,
                 )
@@ -147,7 +145,7 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
                     metrics_type=metrics_result["metrics_type"],
                 )
 
-            quanting_env = prepare_quanting_task(settings_id)
+            quanting_env = prepare_job_task(settings_id)
             job_id = run_quanting_task(quanting_env)
 
             job_id >> wait_ >> monitor_

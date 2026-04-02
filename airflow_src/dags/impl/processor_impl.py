@@ -105,10 +105,8 @@ def resolve_settings(raw_file_id: str) -> list[str]:
     return [str(s.id) for s in settings_list]  # type: ignore[unresolved-attribute]
 
 
-def prepare_quanting(
-    raw_file_id: str, settings_id: str
-) -> dict[str, str | int | list[str]]:
-    """Prepare the environmental variables for the quanting job."""
+def prepare_job(raw_file_id: str, settings_id: str) -> dict[str, str | int | list[str]]:
+    """Prepare the environmental variables for the job."""
     raw_file = get_raw_file_by_id(raw_file_id)
     settings = get_settings_by_id(settings_id)
 
@@ -370,7 +368,7 @@ def run_quanting(
             logging.warning(f"Assuming job id {extracted_job_id}...")
             return str(extracted_job_id)
         elif output_exists_mode == "add":
-            # Normally unreachable: prepare_quanting already suffixed the path to a non-existent name.
+            # Normally unreachable: prepare_job already suffixed the path to a non-existent name.
             raise AirflowFailException(
                 f"{msg} although Airflow variable output_exists_mode='add' should have created a unique name."
             )
@@ -553,7 +551,7 @@ def store_metrics(*, quanting_env: dict, metrics: dict, metrics_type: str) -> No
 MAX_STATUS_DETAILS_LENGTH = 1024
 
 _TASK_GROUP_PREFIX = f"{TaskGroups.QUANTING_PIPELINE}."
-_PREPARE_QUANTING_TASK_ID = f"{_TASK_GROUP_PREFIX}{Tasks.PREPARE_QUANTING}"
+_PREPARE_JOB_TASK_ID = f"{_TASK_GROUP_PREFIX}{Tasks.PREPARE_JOB}"
 _CHECK_RESULT_TASK_ID = f"{_TASK_GROUP_PREFIX}{Tasks.CHECK_QUANTING_RESULT}"
 
 
@@ -618,7 +616,7 @@ def _extract_errors(
         quanting_env = get_xcom(
             ti,
             key=XComKeys.RETURN_VALUE,
-            task_ids=_PREPARE_QUANTING_TASK_ID,
+            task_ids=_PREPARE_JOB_TASK_ID,
             map_indexes=idx,
             default=None,
         )

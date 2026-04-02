@@ -16,6 +16,8 @@ _ALTERNATIVE_NAMES_MAPPING = build_alternative_names_mapping(load_columns_from_y
 
 _MSQC_PREFIX = "msqc_"
 
+_LEGACY_COLUMN_NAMES = {"quanting_time_elapsed": "time_elapsed"}
+
 
 def _normalize_metric_columns(df: pd.DataFrame) -> pd.DataFrame:
     """Resolve alternative DB column names to canonical names and apply data transforms."""
@@ -26,6 +28,7 @@ def _normalize_metric_columns(df: pd.DataFrame) -> pd.DataFrame:
         }
     )
 
+    df = df.rename(columns=_LEGACY_COLUMN_NAMES)
     df = df.rename(columns=_ALTERNATIVE_NAMES_MAPPING)
 
     # deduplicate columns that map to the same canonical name

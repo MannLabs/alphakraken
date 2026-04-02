@@ -130,7 +130,7 @@ def test_overview(
         "created_at_": {1: ts1noms, 2: ts2noms},
         "updated_at_": {1: ts1noms, 2: ts2noms},
         "file_created": {1: ts1str, 2: ts2str},
-        "alphadia__quanting_time_minutes": {1: 1.0, 2: 2.0},
+        "alphadia__time_elapsed_minutes": {1: 1.0, 2: 2.0},
         "size_gb": {1: 1.0, 2: 2.0},
         "project_id": {1: "P1", 2: "P2"},
         "status": {1: "done", 2: "error"},

@@ -20,7 +20,7 @@ from service.utils import (
     DISABLE_WRITE,
     _log,
     empty_to_none,
-    quanting_settings_path,
+    settings_path,
     show_error_toast,
     show_success_toast,
 )
@@ -89,7 +89,7 @@ def display_settings(
 
     st_display.markdown(
         "The files associated with settings are stored at "
-        f"`{quanting_settings_path}/<settings name>/`"
+        f"`{settings_path}/<settings name>/`"
     )
 
 
@@ -433,12 +433,12 @@ with c1.form("create_settings"):
         if settings_name_clean:
             st.markdown(
                 f"Make sure you have uploaded all referenced files to "
-                f"`{quanting_settings_path}/{settings_name_clean}/`"
+                f"`{settings_path}/{settings_name_clean}/`"
             )
         else:
             st.markdown(
                 f"After entering a settings name above, upload files to "
-                f"`{quanting_settings_path}/<settings_name>/`"
+                f"`{settings_path}/<settings_name>/`"
             )
 
         upload_checkbox = st.checkbox(

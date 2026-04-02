@@ -46,8 +46,8 @@ def test_create_quanting_env(
 ) -> None:
     """Test that _create_quanting_env builds the expected environment dict."""
     mock_get_path.side_effect = [
-        Path("/some_quanting_settings_path"),
-        Path("/some_quanting_output_path"),
+        Path("/some_settings_path"),
+        Path("/some_output_path"),
     ]
     mock_output_rel_path.return_value = Path(
         "some_project_id/out_test_file.raw/alphadia"
@@ -85,8 +85,8 @@ def test_create_quanting_env(
     # when you adapt something here, don't forget to adapt also the submit_job.sh script
     expected = {
         "RAW_FILE_PATH": "/some_backup_base_path/instrument1/1970_01/test_file.raw",
-        "SETTINGS_PATH": "/some_quanting_settings_path/test_settings",
-        "OUTPUT_PATH": "/some_quanting_output_path/some_project_id/out_test_file.raw/alphadia",
+        "SETTINGS_PATH": "/some_settings_path/test_settings",
+        "OUTPUT_PATH": "/some_output_path/some_project_id/out_test_file.raw/alphadia",
         "RELATIVE_OUTPUT_PATH": "some_project_id/out_test_file.raw/alphadia",
         "SPECLIB_FILE_NAME": "some_speclib_file_name",
         "FASTA_FILE_NAME": "some_fasta_file_name",
@@ -118,8 +118,8 @@ def test_create_quanting_env_custom_software(
 ) -> None:
     """Test that _create_quanting_env handles custom software settings with parameter substitution."""
     mock_get_path.side_effect = [
-        Path("/some_quanting_settings_path"),
-        Path("/some_quanting_output_path"),
+        Path("/some_settings_path"),
+        Path("/some_output_path"),
         Path("/some_software_base_path"),
     ]
     mock_output_rel_path.return_value = Path("some_project_id/out_test_file.raw/custom")
@@ -156,16 +156,16 @@ def test_create_quanting_env_custom_software(
 
     expected_custom_command = (
         "/some_software_base_path/custom1.2.3 --qvalue 0.01 --f /some_backup_base_path/instrument1/1970_01/test_file.raw "
-        "--lib /some_quanting_settings_path/test_custom_settings/some_speclib_file_name "
-        "--out /some_quanting_output_path/some_project_id/out_test_file.raw/custom "
-        "--fasta /some_quanting_settings_path/test_custom_settings/some_fasta_file_name --threads 8 "
+        "--lib /some_settings_path/test_custom_settings/some_speclib_file_name "
+        "--out /some_output_path/some_project_id/out_test_file.raw/custom "
+        "--fasta /some_settings_path/test_custom_settings/some_fasta_file_name --threads 8 "
         "--some_param instrument1/1970_01/test_file.raw --some_param2 some_project_id/out_test_file.raw/custom"
     )
 
     expected = {
         "RAW_FILE_PATH": "/some_backup_base_path/instrument1/1970_01/test_file.raw",
-        "SETTINGS_PATH": "/some_quanting_settings_path/test_custom_settings",
-        "OUTPUT_PATH": "/some_quanting_output_path/some_project_id/out_test_file.raw/custom",
+        "SETTINGS_PATH": "/some_settings_path/test_custom_settings",
+        "OUTPUT_PATH": "/some_output_path/some_project_id/out_test_file.raw/custom",
         "RELATIVE_OUTPUT_PATH": "some_project_id/out_test_file.raw/custom",
         "SPECLIB_FILE_NAME": "some_speclib_file_name",
         "FASTA_FILE_NAME": "some_fasta_file_name",

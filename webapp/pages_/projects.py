@@ -17,7 +17,7 @@ from service.utils import (
     DISABLE_WRITE,
     _log,
     empty_to_none,
-    quanting_output_path,
+    output_path,
     show_error_toast,
     show_success_toast,
 )
@@ -85,7 +85,7 @@ def display_projects(
 
     st_display.table(filtered_df)
     st_display.markdown(
-        f"Output files are stored at `{quanting_output_path}/<project id>/out_<raw file name>/<software_type>/`. In case you don't know your project ID, it's most likely `_FALLBACK`."
+        f"Output files are stored at `{output_path}/<project id>/out_<raw file name>/<software_type>/`. In case you don't know your project ID, it's most likely `_FALLBACK`."
     )
 
 

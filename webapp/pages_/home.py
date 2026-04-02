@@ -5,7 +5,7 @@ import os
 import streamlit as st
 from service.components import show_sandbox_message
 from service.query_params import get_all_query_params
-from service.utils import APP_URL, _log, display_info_message, quanting_output_path
+from service.utils import APP_URL, _log, display_info_message, output_path
 
 from shared.keys import EnvVars
 from shared.validation import ALLOWED_RAW_FILE_NAME_CHARACTERS_PRETTY
@@ -94,7 +94,7 @@ acquisition is considered "finished".
 Q: Where to I find the AlphaDIA output files?
 
 A:  The output files associated for a given raw file are stored at
-   `{quanting_output_path}/<project id>/out_<raw file name>/`
+   `{output_path}/<project id>/out_<raw file name>/`
 
 
 Q: A lot of jobs are stuck in status "quanting" or "queued_for_quanting".

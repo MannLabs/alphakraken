@@ -32,8 +32,8 @@ except KeyError:
 DISABLE_WRITE = False
 
 
-quanting_settings_path = get_path(YamlKeys.Locations.SETTINGS)
-quanting_output_path = get_path(YamlKeys.Locations.OUTPUT)
+settings_path = get_path(YamlKeys.Locations.SETTINGS)
+output_path = get_path(YamlKeys.Locations.OUTPUT)
 
 
 DEFAULT_MAX_TABLE_LEN = 500

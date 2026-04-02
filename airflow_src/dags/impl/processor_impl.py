@@ -319,7 +319,7 @@ def _get_slurm_job_id_from_log(output_path: Path) -> str | None:
     return None
 
 
-def run_quanting(
+def run_job(
     *,
     quanting_env: dict,
     # TODO: revisit/remove those 3 parameters

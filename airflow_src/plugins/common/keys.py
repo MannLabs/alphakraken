@@ -43,7 +43,7 @@ class Tasks:
     RESOLVE_SETTINGS: str = "resolve_settings"
     PREPARE_JOB: str = "prepare_job"
 
-    RUN_QUANTING: str = "run_quanting"
+    RUN_JOB: str = "run_job"
     WAIT_FOR_JOB_START: str = "wait_for_job_start"
     MONITOR_QUANTING: str = "monitor_quanting"
     CHECK_QUANTING_RESULT: str = "check_quanting_result"

@@ -81,11 +81,11 @@ def test_xcom_pull_with_task_ids() -> None:
     ti = Mock()
     ti.xcom_pull = Mock(return_value="job_123")
 
-    result = get_xcom(ti, "return_value", task_ids="quanting_pipeline.run_quanting")
+    result = get_xcom(ti, "return_value", task_ids="quanting_pipeline.run_job")
 
     assert result == "job_123"
     ti.xcom_pull.assert_called_once_with(
-        key="return_value", task_ids="quanting_pipeline.run_quanting"
+        key="return_value", task_ids="quanting_pipeline.run_job"
     )
 
 

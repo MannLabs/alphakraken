@@ -24,7 +24,7 @@ from common.settings import (
 )
 from common.utils import get_minutes_since_fixed_time_point
 from impl.processor_impl import (
-    check_quanting_result,
+    check_job_result,
     compute_metrics,
     finalize_raw_file_status,
     prepare_job,
@@ -117,14 +117,12 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
                 pool=Pools.CLUSTER_SLOTS_POOL,
             )
 
-            @task(task_id=Tasks.CHECK_QUANTING_RESULT)
+            @task(task_id=Tasks.CHECK_JOB_RESULT)
             def check_result_task(
                 quanting_env: dict, job_id: str, ti: TaskInstance | None = None
             ) -> dict:
                 """Check quanting result and return dict with quanting_time_elapsed."""
-                return check_quanting_result(
-                    quanting_env=quanting_env, job_id=job_id, ti=ti
-                )
+                return check_job_result(quanting_env=quanting_env, job_id=job_id, ti=ti)
 
             @task(task_id=Tasks.COMPUTE_METRICS)
             def compute_metrics_task(

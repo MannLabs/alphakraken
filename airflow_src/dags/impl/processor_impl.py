@@ -444,7 +444,7 @@ def get_business_errors(raw_file: RawFile, output_path: Path) -> list[str]:
     return error_codes
 
 
-def check_quanting_result(*, quanting_env: dict, job_id: str, ti: TaskInstance) -> dict:
+def check_job_result(*, quanting_env: dict, job_id: str, ti: TaskInstance) -> dict:
     """Get info (slurm log, alphaDIA log) about a job from the cluster.
 
     :param quanting_env: The quanting environment variables dict.
@@ -552,7 +552,7 @@ MAX_STATUS_DETAILS_LENGTH = 1024
 
 _TASK_GROUP_PREFIX = f"{TaskGroups.QUANTING_PIPELINE}."
 _PREPARE_JOB_TASK_ID = f"{_TASK_GROUP_PREFIX}{Tasks.PREPARE_JOB}"
-_CHECK_RESULT_TASK_ID = f"{_TASK_GROUP_PREFIX}{Tasks.CHECK_QUANTING_RESULT}"
+_CHECK_RESULT_TASK_ID = f"{_TASK_GROUP_PREFIX}{Tasks.CHECK_JOB_RESULT}"
 
 
 def finalize_raw_file_status(ti: TaskInstance, raw_file_id: str) -> None:
@@ -625,7 +625,7 @@ def _extract_errors(
         )
 
         # these could be business or airflow errors
-        check_quanting_result_error_details = get_xcom(
+        check_job_result_error_details = get_xcom(
             ti,
             key=XComKeys.BRANCH_ERRORS,
             task_ids=_CHECK_RESULT_TASK_ID,
@@ -638,15 +638,15 @@ def _extract_errors(
         ]
 
         if failed_tasks_in_branch:
-            if not check_quanting_result_error_details:
+            if not check_job_result_error_details:
                 failed_task_names = ", ".join(
                     t.task_id.removeprefix(_TASK_GROUP_PREFIX)
                     for t in failed_tasks_in_branch
                 )
-                check_quanting_result_error_details = f"failed at {failed_task_names}"
-            airflow_errors.append((settings_name, check_quanting_result_error_details))
-        elif check_quanting_result_error_details:
-            business_errors.append((settings_name, check_quanting_result_error_details))
+                check_job_result_error_details = f"failed at {failed_task_names}"
+            airflow_errors.append((settings_name, check_job_result_error_details))
+        elif check_job_result_error_details:
+            business_errors.append((settings_name, check_job_result_error_details))
 
     return airflow_errors, business_errors
 

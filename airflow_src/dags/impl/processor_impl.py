@@ -14,7 +14,7 @@ from common.constants import (
     AlphaDiaConstants,
 )
 from common.keys import (
-    QUANTING_TIME_ELAPSED_METRIC,
+    TIME_ELAPSED_METRIC,
     AirflowVars,
     CustomAlphaDiaStates,
     InstrumentKeys,
@@ -450,7 +450,7 @@ def check_job_result(*, quanting_env: dict, job_id: str, ti: TaskInstance) -> di
     :param quanting_env: The quanting environment variables dict.
     :param job_id: The Slurm job ID to check.
     :param ti: The Airflow TaskInstance, used to push error details to XCom.
-    :return: Dict with ``quanting_time_elapsed`` on success.
+    :return: Dict with ``time_elapsed`` on success.
     :raises AirflowSkipException: On known job failures (skips downstream tasks).
     :raises AirflowFailException: On unknown job failures.
     """
@@ -459,7 +459,7 @@ def check_job_result(*, quanting_env: dict, job_id: str, ti: TaskInstance) -> di
     logging.info(f"Job {job_id} exited with status {job_status}.")
 
     if job_status == JobStates.COMPLETED:
-        return {"quanting_time_elapsed": time_elapsed}
+        return {"time_elapsed": time_elapsed}
 
     if job_status in [JobStates.FAILED, JobStates.TIMEOUT] or job_status.startswith(
         JobStates.OUT_OF_MEMORY
@@ -480,7 +480,7 @@ def check_job_result(*, quanting_env: dict, job_id: str, ti: TaskInstance) -> di
 
         add_metrics_to_raw_file(
             raw_file.id,
-            metrics={QUANTING_TIME_ELAPSED_METRIC: time_elapsed},
+            metrics={TIME_ELAPSED_METRIC: time_elapsed},
             settings_name=quanting_env[QuantingEnv.SETTINGS_NAME],
             settings_version=quanting_env[QuantingEnv.SETTINGS_VERSION],
             metrics_type=quanting_env[QuantingEnv.METRICS_TYPE],
@@ -508,12 +508,12 @@ def check_job_result(*, quanting_env: dict, job_id: str, ti: TaskInstance) -> di
 def compute_metrics(
     *,
     quanting_env: dict,
-    quanting_time_elapsed: int | None = None,
+    time_elapsed: int | None = None,
 ) -> dict:
     """Compute metrics from the quanting results.
 
     :param quanting_env: The quanting environment variables dict.
-    :param quanting_time_elapsed: Elapsed time from the quanting job, added to metrics if provided.
+    :param time_elapsed: Elapsed time from the quanting job, added to metrics if provided.
     :return: Dict with ``metrics`` and ``metrics_type``.
     """
     metrics_type = quanting_env[QuantingEnv.METRICS_TYPE]
@@ -521,10 +521,8 @@ def compute_metrics(
 
     metrics = calc_metrics(output_path, metrics_type=metrics_type)
 
-    if (
-        quanting_time_elapsed is not None
-    ):  # TODO: find a better way to handle this also for msqc
-        metrics[QUANTING_TIME_ELAPSED_METRIC] = quanting_time_elapsed
+    if time_elapsed is not None:  # TODO: find a better way to handle this also for msqc
+        metrics[TIME_ELAPSED_METRIC] = time_elapsed
 
     return {"metrics": metrics, "metrics_type": metrics_type}
 

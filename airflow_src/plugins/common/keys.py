@@ -3,7 +3,7 @@
 DAG_DELIMITER: str = "."
 
 
-QUANTING_TIME_ELAPSED_METRIC: str = "quanting_time_elapsed"
+TIME_ELAPSED_METRIC: str = "time_elapsed"
 
 
 class Dags:

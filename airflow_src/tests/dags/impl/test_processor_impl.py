@@ -669,7 +669,7 @@ def test_check_job_result_happy_path(
     # when
     result = check_job_result(quanting_env=quanting_env, job_id="12345", ti=mock_ti)
 
-    assert result == {"quanting_time_elapsed": 522}
+    assert result == {"time_elapsed": 522}
     mock_put_xcom.assert_not_called()
 
 
@@ -739,7 +739,7 @@ def test_check_job_result_business_error(
     )
     mock_add_metrics.assert_called_once_with(
         "test_file.raw",
-        metrics={"quanting_time_elapsed": 522},
+        metrics={"time_elapsed": 522},
         settings_name="test_settings",
         settings_version=1,
         metrics_type="alphadia",
@@ -790,7 +790,7 @@ def test_check_job_result_business_error_raises(
     )
     mock_add_metrics.assert_called_once_with(
         "test_file.raw",
-        metrics={"quanting_time_elapsed": 522},
+        metrics={"time_elapsed": 522},
         settings_name="test_settings",
         settings_version=1,
         metrics_type="alphadia",
@@ -833,7 +833,7 @@ def test_check_job_result_timeout(
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
     mock_add_metrics.assert_called_once_with(
         "test_file.raw",
-        metrics={"quanting_time_elapsed": 522},
+        metrics={"time_elapsed": 522},
         settings_name="test_settings",
         settings_version=1,
         metrics_type="alphadia",
@@ -876,7 +876,7 @@ def test_check_job_result_oom(
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
     mock_add_metrics.assert_called_once_with(
         "test_file.raw",
-        metrics={"quanting_time_elapsed": 522},
+        metrics={"time_elapsed": 522},
         settings_name="test_settings",
         settings_version=1,
         metrics_type="alphadia",
@@ -970,14 +970,14 @@ def test_compute_metrics(
     mock_calc_metrics.return_value = {"metric1": "value1"}
 
     # when
-    result = compute_metrics(quanting_env=quanting_env, quanting_time_elapsed=123)
+    result = compute_metrics(quanting_env=quanting_env, time_elapsed=123)
 
     mock_calc_metrics.assert_called_once_with(
         Path("/opt/airflow/mounts/output/P1/out_test_file.raw/alphadia"),
         metrics_type="alphadia",
     )
     assert result == {
-        "metrics": {"metric1": "value1", "quanting_time_elapsed": 123},
+        "metrics": {"metric1": "value1", "time_elapsed": 123},
         "metrics_type": "alphadia",
     }
 

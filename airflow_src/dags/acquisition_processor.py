@@ -121,17 +121,15 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
             def check_result_task(
                 quanting_env: dict, job_id: str, ti: TaskInstance | None = None
             ) -> dict:
-                """Check quanting result and return dict with quanting_time_elapsed."""
+                """Check quanting result and return dict with time_elapsed."""
                 return check_job_result(quanting_env=quanting_env, job_id=job_id, ti=ti)
 
             @task(task_id=Tasks.COMPUTE_METRICS)
-            def compute_metrics_task(
-                quanting_env: dict, quanting_time_elapsed: int
-            ) -> dict:
+            def compute_metrics_task(quanting_env: dict, time_elapsed: int) -> dict:
                 """Compute metrics and return dict with metrics and metrics_type."""
                 return compute_metrics(
                     quanting_env=quanting_env,
-                    quanting_time_elapsed=quanting_time_elapsed,
+                    time_elapsed=time_elapsed,
                 )
 
             @task(task_id=Tasks.STORE_METRICS)
@@ -153,7 +151,7 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
             monitor_ >> check_result
 
             metrics_result = compute_metrics_task(
-                quanting_env, check_result["quanting_time_elapsed"]
+                quanting_env, check_result["time_elapsed"]
             )
 
             store_metrics_task(quanting_env, metrics_result)

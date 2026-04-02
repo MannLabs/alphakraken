@@ -133,7 +133,7 @@ def get_combined_raw_files_and_metrics_df(
     for col in [
         c
         for c in combined_df.columns
-        if c.endswith(f"{METRICS_TYPE_SEPARATOR}quanting_time_elapsed")
+        if c.endswith(f"{METRICS_TYPE_SEPARATOR}time_elapsed")
     ]:
         prefix = col.rsplit(METRICS_TYPE_SEPARATOR, 1)[0]
         combined_df[f"{prefix}{METRICS_TYPE_SEPARATOR}quanting_time_minutes"] = (

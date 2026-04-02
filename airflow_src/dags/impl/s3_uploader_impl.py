@@ -1,6 +1,7 @@
 """Business logic for S3 backup operations."""
 
 import logging
+import time
 from pathlib import Path
 
 from airflow.models import TaskInstance
@@ -94,6 +95,7 @@ def upload_raw_file_to_s3(ti: TaskInstance, **kwargs) -> None:
             raw_file, internal_target_folder_path
         )
 
+        start_time = time.time()
         _upload_files(
             file_path_to_target_path_and_etag,
             bucket_name,
@@ -101,7 +103,12 @@ def upload_raw_file_to_s3(ti: TaskInstance, **kwargs) -> None:
             s3_client,
         )
 
-        logging.info(f"S3 backup completed for {raw_file_id}")
+        upload_duration = time.time() - start_time
+        file_size_mb = (raw_file.size or 0) / (1024 * 1024)
+        upload_rate = file_size_mb / max(upload_duration, 0.00001)
+        logging.info(
+            f"S3 backup completed for {raw_file_id} ({file_size_mb:.1f} MB in {upload_duration:.1f}s, {upload_rate:.1f} MB/s)"
+        )
 
     except (BotoCoreError, ClientError, Exception) as e:
         msg = f"S3 upload failed for {raw_file_id}: {type(e).__name__} - {e}"

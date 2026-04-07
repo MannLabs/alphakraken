@@ -38,6 +38,7 @@ if [[ -n "$REPORT_TEMPLATE" ]]; then
 	REPORT_ADD_FLAG="--report-add=$REPORT_TEMPLATE"
 fi
 
+# don't change 'custom_iRT_report', metrics calculcation depends on it
 apptainer exec  --bind "$SETTINGS_PATH":/data \
 		--bind "$RAW_FILE_PATH":/input/"$RAW_FILE_ID" \
 		--bind "$OUTPUT_PATH":/output \

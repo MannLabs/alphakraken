@@ -596,7 +596,8 @@ def finalize_raw_file_status(ti: TaskInstance, raw_file_id: str) -> None:
             new_status=RawFileStatus.QUANTING_FAILED,
             status_details=details,
         )
-        return
+        # this is just to find such tasks in the UI more easily
+        raise QuantingFailedKnownErrorException(details)
 
     update_raw_file(raw_file_id, new_status=RawFileStatus.DONE, status_details=None)
 

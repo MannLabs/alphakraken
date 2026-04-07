@@ -380,8 +380,6 @@ with c1.form("create_settings"):
             st.code(
                 "direct -n alphakraken -r RAW_FILE_PATH -fasta SETTINGS_PATH/human.fasta -o OUTPUT_PATH -s /path/to/settings/alphakraken.prop"
             )
-    else:
-        config_params = None
 
     st.write(r"\* Required fields")
     if software_type == SoftwareTypes.ALPHADIA:

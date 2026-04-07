@@ -48,13 +48,15 @@ _ERROR_TOAST_SUFFIX = (
 
 
 def show_success_toast(msg: str) -> None:
-    """Queue a success toast notification (displayed after next rerun)."""
+    """Show a success toast and rerun the page to reflect updated state."""
     st.toast(f"Success! {msg}", icon="✅")
+    st.rerun()
 
 
 def show_error_toast(msg: str) -> None:
-    """Queue an error toast notification (displayed after next rerun)."""
+    """Show an error toast and rerun the page to reflect updated state."""
     st.toast(f"Error: {msg} {_ERROR_TOAST_SUFFIX}", icon="❌", duration="long")
+    st.rerun()
 
 
 # Configure logging

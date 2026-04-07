@@ -1126,8 +1126,8 @@ def test_finalize_sets_quanting_failed_on_business_errors(
         [],
         [("settings_A", "OUT_OF_MEMORY")],
     )
-
-    finalize_raw_file_status(ti=ti, raw_file_id="test.raw")
+    with pytest.raises(QuantingFailedKnownErrorException):
+        finalize_raw_file_status(ti=ti, raw_file_id="test.raw")
 
     mock_update.assert_called_once_with(
         "test.raw",

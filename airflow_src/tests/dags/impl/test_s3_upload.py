@@ -82,7 +82,7 @@ def test_upload_raw_file_to_s3_should_complete_successfully(  # noqa: PLR0913
         "region": "us-west-2",
         "bucket_prefix": "test-prefix",
     }
-    mock_raw_file = MagicMock(project_id="PID1", instrument_id="instrument1")
+    mock_raw_file = MagicMock(project_id="PID1", instrument_id="instrument1", size=1000)
     mock_get_raw_file.return_value = mock_raw_file
     mock_normalize_bucket.return_value = "test-prefix-pid1"
     mock_bucket_exists.return_value = (True, "", "")
@@ -137,7 +137,9 @@ def test_upload_raw_file_to_s3_should_include_key_prefix_in_s3_path(  # noqa: PL
         "region": "us-west-2",
         "bucket_prefix": "test-prefix",
     }
-    mock_raw_file = MagicMock(project_id="_FALLBACK", instrument_id="instrument1")
+    mock_raw_file = MagicMock(
+        project_id="_FALLBACK", instrument_id="instrument1", size=1000
+    )
     mock_get_raw_file.return_value = mock_raw_file
     mock_normalize_bucket.return_value = "test-prefix-fallback"
     mock_bucket_exists.return_value = (True, "", "")
@@ -525,7 +527,7 @@ def test_upload_raw_file_to_s3_should_handle_multiple_files(  # noqa: PLR0913
         "region": "us-west-2",
         "bucket_prefix": "test-prefix",
     }
-    mock_raw_file = MagicMock(project_id="PID1", instrument_id="instrument1")
+    mock_raw_file = MagicMock(project_id="PID1", instrument_id="instrument1", size=1000)
     mock_get_raw_file.return_value = mock_raw_file
     mock_normalize_bucket.return_value = "test-prefix-pid1"
     mock_bucket_exists.return_value = (True, "", "")
@@ -607,7 +609,7 @@ def test_upload_raw_file_to_s3_should_create_bucket_when_not_found_and_auto_crea
         "bucket_prefix": "test-prefix",
         "auto_create_buckets": True,
     }
-    mock_raw_file = MagicMock(project_id="PID1", instrument_id="instrument1")
+    mock_raw_file = MagicMock(project_id="PID1", instrument_id="instrument1", size=1000)
     mock_get_raw_file.return_value = mock_raw_file
     mock_normalize_bucket.return_value = "test-prefix-pid1"
     mock_bucket_exists.return_value = (False, "Bucket does not exist.", "404")

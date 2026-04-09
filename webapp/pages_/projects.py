@@ -26,6 +26,7 @@ from service.utils import (
 from shared.db.interface import (
     add_project,
     assign_settings_to_project,
+    get_all_owners,
     get_all_settings,
     get_latest_active_settings_by_name,
     get_project_settings,
@@ -309,7 +310,7 @@ with c_assign2:
 
 form_items = {
     "project_id": {
-        "label": "Project Id*",
+        "label": "Project Id (all uppercase)*",
         "max_chars": 16,
         "placeholder": "e.g. P1234",
         "help": "Unique identifier of the project. This needs to be put in every file name in order to have it associated with this project. "
@@ -320,6 +321,12 @@ form_items = {
         "max_chars": 64,
         "placeholder": "e.g. Plasma project 42",
         "help": "Human-readable name of the project.",
+    },
+    "project_owner": {
+        "label": "Owner* (type to add new value)",
+        "options": ["", *get_all_owners()],
+        "placeholder": "e.g.ChNo",
+        "accept_new_options": True,
     },
     "project_description": {
         "label": "Project Description",
@@ -349,8 +356,12 @@ with c1.expander("Click here for help ..."):
 c1.markdown("## Add new project")
 
 with c1.form("create_project_form"):
-    project_name = st.text_input(**form_items["project_name"])
     project_id = st.text_input(**form_items["project_id"])
+
+    project_name = st.text_input(**form_items["project_name"])
+
+    project_owner = st.selectbox(**form_items["project_owner"])
+
     project_description = st.text_area(**form_items["project_description"])
 
     st.write(r"\* Required fields")
@@ -389,6 +400,7 @@ if form_submit:
             project_id=empty_to_none(project_id),
             name=empty_to_none(project_name),
             description=project_description,
+            owner=empty_to_none(project_owner),
         )
     except Exception as e:  # noqa: BLE001
         show_error_toast(str(e))

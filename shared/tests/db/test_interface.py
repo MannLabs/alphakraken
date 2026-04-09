@@ -236,12 +236,18 @@ def test_add_project(mock_project: MagicMock, mock_connect_db: MagicMock) -> Non
 
     # when
     add_project(
-        project_id="P1234", name="new project", description="some project description"
+        project_id="P1234",
+        name="new project",
+        description="some project description",
+        owner="test_user",
     )
 
     # then
     mock_project.assert_called_once_with(
-        id="P1234", name="new project", description="some project description"
+        id="P1234",
+        name="new project",
+        description="some project description",
+        owner="test_user",
     )
     mock_connect_db.assert_called_once()
 
@@ -277,6 +283,7 @@ def test_create_settings_first_version(
 
     create_settings(
         name="plasma_settings",
+        owner="test_user",
         description="Fast plasma settings",
         fasta_file_name="human.fasta",
         speclib_file_name="plasma.speclib",
@@ -292,6 +299,7 @@ def test_create_settings_first_version(
     assert call_kwargs["name"] == "plasma_settings"
     assert call_kwargs["version"] == 1
     assert call_kwargs["description"] == "Fast plasma settings"
+    assert call_kwargs["owner"] == "test_user"
     mock_connect_db.assert_called_once()
 
 
@@ -309,6 +317,7 @@ def test_create_settings_auto_increment_version(
 
     create_settings(
         name="plasma_settings",
+        owner="test_user",
         description=None,
         fasta_file_name="human.fasta",
         speclib_file_name="plasma.speclib",

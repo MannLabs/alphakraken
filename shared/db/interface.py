@@ -211,11 +211,11 @@ def add_metrics_to_raw_file(  # noqa: PLR0913
     ).save()
 
 
-def add_project(*, project_id: str, name: str, description: str) -> None:
+def add_project(*, project_id: str, name: str, description: str, owner: str) -> None:
     """Add a new project to the database."""
     logging.info(f"Adding to DB: {project_id=} {name=} {description=}")
     connect_db()
-    project = Project(id=project_id, name=name, description=description)
+    project = Project(id=project_id, name=name, description=description, owner=owner)
     # this will fail if the project id already exists
     project.save(force_insert=True)
 
@@ -224,6 +224,14 @@ def get_all_project_ids() -> list[str]:
     """Get all project ids from the database."""
     connect_db()
     return [p.id for p in Project.objects.all()]
+
+
+def get_all_owners() -> list[str]:
+    """Get all distinct owners from projects and settings, sorted."""
+    connect_db()
+    project_owners = Project.objects.distinct("owner")
+    settings_owners = Settings.objects.distinct("owner")
+    return sorted(set(project_owners) | set(settings_owners))
 
 
 def assign_settings_to_project(
@@ -282,6 +290,7 @@ def get_project_settings(project_id: str) -> list[ProjectSettings]:
 def create_settings(  # noqa: PLR0913
     *,
     name: str,
+    owner: str,
     description: str | None = None,
     fasta_file_name: str | None = None,
     speclib_file_name: str | None = None,
@@ -313,6 +322,7 @@ def create_settings(  # noqa: PLR0913
         name=name,
         version=version,
         description=description,
+        owner=owner,
         fasta_file_name=fasta_file_name,
         speclib_file_name=speclib_file_name,
         config_file_name=config_file_name,

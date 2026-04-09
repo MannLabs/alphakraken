@@ -26,7 +26,7 @@ from service.utils import (
     show_success_toast,
 )
 
-from shared.db.interface import archive_settings, create_settings
+from shared.db.interface import archive_settings, create_settings, get_all_owners
 from shared.db.models import ProjectSettings, ProjectStatus, SettingsStatus
 from shared.keys import (
     SOFTWARE_TYPE_TO_DEFAULT_RESOURCE_PARAMS,
@@ -179,6 +179,15 @@ if selected_name_option != CREATE_NEW_OPTION:
         if pd.isna(v):
             prefill_data[k] = ""
 
+
+is_update = selected_name_option != CREATE_NEW_OPTION
+owner = c1.selectbox(
+    "Owner* (type to add new value)",
+    options=["", *get_all_owners()],
+    accept_new_options=True,
+    disabled=is_update,
+    key="settings_owner_select",
+)
 
 disable_software_type_selection = "software_type" in prefill_data
 software_type_options = SoftwareTypes.get_values()
@@ -445,7 +454,6 @@ with c1.form("create_settings"):
             "I have uploaded all referenced files to this folder.", value=False
         )
 
-    is_update = selected_name_option != CREATE_NEW_OPTION
     if is_update:
         st.info(
             f"This will create a new version ({current_version + 1}) of the existing settings '{selected_name_option}'. "
@@ -510,6 +518,7 @@ if submit:
 
         create_settings(
             name=empty_to_none(name),
+            owner=empty_to_none(owner),
             description=empty_to_none(description),
             fasta_file_name=fasta_file_name,
             speclib_file_name=speclib_file_name,

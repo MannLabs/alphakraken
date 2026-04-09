@@ -227,10 +227,10 @@ class Project(Document):
     id = StringField(required=True, primary_key=True, min_length=5, max_length=16)
     name = StringField(required=True, max_length=64)
     description = StringField(max_length=512)
+    owner = StringField(required=True, min_length=2, max_length=64)
 
     status = StringField(max_length=32, default=ProjectStatus.ACTIVE)
 
-    # missing: created by
     created_at_ = DateTimeField(default=datetime.now)
 
 
@@ -253,6 +253,7 @@ class Settings(Document):
     name = StringField(required=True, max_length=64, regex=SETTINGS_NAME_REGEX)
     version = IntField(min_value=1, default=1)
     description = StringField(max_length=512)
+    owner = StringField(required=True, min_length=2, max_length=64)
 
     fasta_file_name = StringField(required=False, max_length=128)
     speclib_file_name = StringField(required=False, max_length=128)

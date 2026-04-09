@@ -69,6 +69,13 @@ x-airflow-worker:
   &airflow-worker
   <<: *airflow-common
   profiles: ["workers"]
+  entrypoint:
+    [
+      "/usr/bin/dumb-init",
+      "--",
+      "/opt/airflow/wait-for-mounts.sh",
+      "/entrypoint",
+    ]
   healthcheck:
     # yamllint disable rule:line-length
     test:
@@ -78,7 +85,7 @@ x-airflow-worker:
     timeout: 10s
     retries: 5
     start_period: 30s
-  environment:
+  environment: &airflow-worker-env
     <<: *airflow-common-env
     # Required to handle warm shutdown of the celery workers properly
     # See https://airflow.apache.org/docs/docker-stack/entrypoint.html#signal-propagation
@@ -408,6 +415,9 @@ services:
     profiles: ["local", "workers"]
     <<: *airflow-worker
     command: celery worker -q kraken_queue_file_mover
+    environment:
+      <<: *airflow-worker-env
+      MOUNT_CHECK_PATHS: "/opt/airflow/mounts/instruments"
     volumes:
       - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs:rw
       # to write (move) from instrument to instrument Backup folder:
@@ -418,6 +428,9 @@ services:
     profiles: ["local", "workers"]
     <<: *airflow-worker
     command: celery worker -q kraken_queue_file_remover
+    environment:
+      <<: *airflow-worker-env
+      MOUNT_CHECK_PATHS: "/opt/airflow/mounts/backup,/opt/airflow/mounts/instruments"
     volumes:
       - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs:rw
       # to read from pool backup (for file comparison):
@@ -430,6 +443,9 @@ services:
     profiles: ["s3"]
     <<: *airflow-worker
     command: celery worker -q kraken_queue_s3_uploader
+    environment:
+      <<: *airflow-worker-env
+      MOUNT_CHECK_PATHS: "/opt/airflow/mounts/backup"
     volumes:
       - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs:rw
       # to read files to upload

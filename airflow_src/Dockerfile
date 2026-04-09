@@ -28,6 +28,8 @@ COPY airflow_src/dags /opt/airflow/dags
 COPY airflow_src/plugins /opt/airflow/plugins
 # COPY airflow_src/config /opt/airflow/config  # comment in once config folder is being used
 COPY shared /opt/airflow/shared
+COPY misc/wait-for-mounts.sh /opt/airflow/wait-for-mounts.sh
+RUN chmod +x /opt/airflow/wait-for-mounts.sh
 
 # TODO: make this a volume mapping to not bake this into the image
 RUN mkdir -p /opt/airflow/envs

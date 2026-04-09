@@ -212,6 +212,15 @@ in the `envs/alphakraken.${ENV}.yaml` file are set correctly.
 
 4. Add the created entries to the `/etc/fstab` file and set the correct password for each entry.
 
+5. **Mount readiness on reboot**: Worker containers automatically wait for their mounts to be available before starting
+(via `wait-for-mounts.sh`). The `MOUNT_CHECK_PATHS` environment variable controls which paths are checked.
+It is already set for the file-mover, file-remover, and s3-uploader workers.
+When adding a new instrument worker to `docker-compose.yaml`, set `MOUNT_CHECK_PATHS` in its environment block, e.g.:
+```yaml
+  environment:
+    <<: *airflow-worker-env
+    MOUNT_CHECK_PATHS: "/opt/airflow/mounts/output,/opt/airflow/mounts/instruments/<name>,/opt/airflow/mounts/backup/<name>"
+```
 
 Note: for now, user `kraken-write` should only have read access to the backup pool folder, but needs `read/write` on the `output`
 folder.

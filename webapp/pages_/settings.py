@@ -20,6 +20,7 @@ from service.utils import (
     DISABLE_WRITE,
     _log,
     empty_to_none,
+    flush_pending_toasts,
     settings_path,
     show_error_toast,
     show_success_toast,
@@ -40,6 +41,7 @@ _log(f"loading {__file__} {get_all_query_params()}")
 
 st.set_page_config(page_title="AlphaKraken: settings", layout="wide")
 
+flush_pending_toasts()
 show_sandbox_message()
 
 st.markdown("# Manage settings")

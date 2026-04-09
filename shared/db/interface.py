@@ -386,14 +386,14 @@ def update_kraken_status(
 
 
 def augment_raw_files_with_metrics(
-    raw_files: QuerySet,
-    fields: list[str] | None = None,
+    raw_files: QuerySet, fields: list[str] | None = None, *, flatten: bool = False
 ) -> dict[str, Any]:
     """Augment raw files with their latest metrics.
 
     Args:
         raw_files (QuerySet): A mongoengine QuerySet of RawFile objects to augment with metrics.
         fields (list[str] | None): Optional list of specific metric fields to retrieve, None means 'all'.
+        flatten (bool): Whether to flatten the metrics into the main dictionary with keys prefixed by the metric type + "__".
 
     Returns:
         dict[str, Any]: A dictionary containing raw file information and their latest metrics.
@@ -432,6 +432,15 @@ def augment_raw_files_with_metrics(
             ]
             del metrics["msqc_evosep_pump_hp_pressure_max"]
 
-        raw_files_dict[metrics["raw_file"]][f"metrics_{metrics['type']}"] = metrics
+        raw_file_id = metrics["raw_file"]
+
+        if flatten:
+            for key, value in metrics.items():
+                if key not in ["raw_file", "type"]:
+                    new_key = f"{metrics['type']}__{key}"
+
+                    raw_files_dict[raw_file_id][new_key] = value
+        else:
+            raw_files_dict[raw_file_id][f"metrics_{metrics['type']}"] = metrics
 
     return raw_files_dict

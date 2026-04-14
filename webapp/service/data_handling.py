@@ -35,7 +35,9 @@ def _normalize_metric_columns(df: pd.DataFrame) -> pd.DataFrame:
     df = df.T.groupby(level=0).first().T
 
     if "gradient_length" in df.columns:
-        df["gradient_length"] = df["gradient_length"].round(1)
+        df["gradient_length"] = pd.to_numeric(
+            df["gradient_length"], errors="coerce"
+        ).round(1)
 
     return df
 

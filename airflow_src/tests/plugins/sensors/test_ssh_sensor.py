@@ -6,7 +6,7 @@ from airflow.utils.xcom import XCOM_RETURN_KEY
 from plugins.common.keys import JobStates
 from plugins.sensors.ssh_sensor import WaitForJobFinishSensor
 
-SOURCE_TASK_ID = "quanting_pipeline.run_quanting"
+SOURCE_TASK_ID = "processing.submit_job"
 
 
 @patch("plugins.sensors.ssh_sensor.get_job_status")

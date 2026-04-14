@@ -16,6 +16,8 @@ _ALTERNATIVE_NAMES_MAPPING = build_alternative_names_mapping(load_columns_from_y
 
 _MSQC_PREFIX = "msqc_"
 
+_LEGACY_COLUMN_NAMES = {"quanting_time_elapsed": "time_elapsed"}
+
 
 def _normalize_metric_columns(df: pd.DataFrame) -> pd.DataFrame:
     """Resolve alternative DB column names to canonical names and apply data transforms."""
@@ -26,6 +28,7 @@ def _normalize_metric_columns(df: pd.DataFrame) -> pd.DataFrame:
         }
     )
 
+    df = df.rename(columns=_LEGACY_COLUMN_NAMES)
     df = df.rename(columns=_ALTERNATIVE_NAMES_MAPPING)
 
     # deduplicate columns that map to the same canonical name
@@ -133,10 +136,10 @@ def get_combined_raw_files_and_metrics_df(
     for col in [
         c
         for c in combined_df.columns
-        if c.endswith(f"{METRICS_TYPE_SEPARATOR}quanting_time_elapsed")
+        if c.endswith(f"{METRICS_TYPE_SEPARATOR}time_elapsed")
     ]:
         prefix = col.rsplit(METRICS_TYPE_SEPARATOR, 1)[0]
-        combined_df[f"{prefix}{METRICS_TYPE_SEPARATOR}quanting_time_minutes"] = (
+        combined_df[f"{prefix}{METRICS_TYPE_SEPARATOR}time_elapsed_minutes"] = (
             combined_df[col] / 60
         )
         del combined_df[col]

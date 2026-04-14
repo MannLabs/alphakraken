@@ -62,8 +62,8 @@ INSTRUMENT_SETTINGS_DEFAULTS = {
 INSTRUMENT_BACKUP_FOLDER_NAME = "Backup"  # TODO: rename this folder to "handled" or similar to avoid confusion with pool backup
 
 DEFAULT_MIN_FILE_AGE_TO_REMOVE_D = 14  # days
-# this is to avoid getting a lot of removal candidates:
-DEFAULT_MAX_FILE_AGE_TO_REMOVE_D = 60  # days
+# this is to avoid getting a lot of removal candidates: #TODO: get rid of this window!
+DEFAULT_MAX_FILE_AGE_TO_REMOVE_D = 600  # days
 
 MAX_TOLERATED_REMOVAL_ERRORS_PER_INSTRUMENT = 5
 

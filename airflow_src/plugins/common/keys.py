@@ -3,7 +3,7 @@
 DAG_DELIMITER: str = "."
 
 
-QUANTING_TIME_ELAPSED_METRIC: str = "quanting_time_elapsed"
+TIME_ELAPSED_METRIC: str = "time_elapsed"
 
 
 class Dags:
@@ -20,7 +20,7 @@ class Dags:
 class TaskGroups:
     """Task Group Names."""
 
-    QUANTING_PIPELINE: str = "quanting_pipeline"
+    PROCESSING: str = "processing"
 
 
 class Tasks:
@@ -41,12 +41,12 @@ class Tasks:
     START_ACQUISITION_PROCESSOR: str = "start_acquisition_processor"
 
     RESOLVE_SETTINGS: str = "resolve_settings"
-    PREPARE_QUANTING: str = "prepare_quanting"
+    PREPARE_JOB: str = "prepare_job"
 
-    RUN_QUANTING: str = "run_quanting"
+    SUBMIT_JOB: str = "submit_job"
     WAIT_FOR_JOB_START: str = "wait_for_job_start"
-    MONITOR_QUANTING: str = "monitor_quanting"
-    CHECK_QUANTING_RESULT: str = "check_quanting_result"
+    MONITOR_JOB: str = "monitor_job"
+    CHECK_JOB_RESULT: str = "check_job_result"
     COMPUTE_METRICS: str = "compute_metrics"
     STORE_METRICS: str = "store_metrics"
 

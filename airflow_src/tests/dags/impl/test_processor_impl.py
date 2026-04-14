@@ -9,7 +9,7 @@ import pytz
 from airflow.exceptions import AirflowFailException
 from common.settings import _INSTRUMENTS
 from dags.impl.processor_impl import (
-    _PREPARE_QUANTING_TASK_ID,
+    _PREPARE_JOB_TASK_ID,
     _TASK_GROUP_PREFIX,
     QuantingFailedKnownErrorException,
     QuantingFailedNewErrorException,
@@ -17,14 +17,14 @@ from dags.impl.processor_impl import (
     _extract_errors,
     _find_next_free_run_suffix,
     _get_slurm_job_id_from_log,
-    check_quanting_result,
+    check_job_result,
     compute_metrics,
     finalize_raw_file_status,
     get_business_errors,
-    prepare_quanting,
+    prepare_job,
     resolve_settings,
-    run_quanting,
     store_metrics,
+    submit_job,
 )
 from mongoengine import DoesNotExist
 from plugins.common.keys import (
@@ -46,8 +46,8 @@ def test_create_quanting_env(
 ) -> None:
     """Test that _create_quanting_env builds the expected environment dict."""
     mock_get_path.side_effect = [
-        Path("/some_quanting_settings_path"),
-        Path("/some_quanting_output_path"),
+        Path("/some_settings_path"),
+        Path("/some_output_path"),
     ]
     mock_output_rel_path.return_value = Path(
         "some_project_id/out_test_file.raw/alphadia"
@@ -85,8 +85,8 @@ def test_create_quanting_env(
     # when you adapt something here, don't forget to adapt also the submit_job.sh script
     expected = {
         "RAW_FILE_PATH": "/some_backup_base_path/instrument1/1970_01/test_file.raw",
-        "SETTINGS_PATH": "/some_quanting_settings_path/test_settings",
-        "OUTPUT_PATH": "/some_quanting_output_path/some_project_id/out_test_file.raw/alphadia",
+        "SETTINGS_PATH": "/some_settings_path/test_settings",
+        "OUTPUT_PATH": "/some_output_path/some_project_id/out_test_file.raw/alphadia",
         "RELATIVE_OUTPUT_PATH": "some_project_id/out_test_file.raw/alphadia",
         "SPECLIB_FILE_NAME": "some_speclib_file_name",
         "FASTA_FILE_NAME": "some_fasta_file_name",
@@ -118,8 +118,8 @@ def test_create_quanting_env_custom_software(
 ) -> None:
     """Test that _create_quanting_env handles custom software settings with parameter substitution."""
     mock_get_path.side_effect = [
-        Path("/some_quanting_settings_path"),
-        Path("/some_quanting_output_path"),
+        Path("/some_settings_path"),
+        Path("/some_output_path"),
         Path("/some_software_base_path"),
     ]
     mock_output_rel_path.return_value = Path("some_project_id/out_test_file.raw/custom")
@@ -156,16 +156,16 @@ def test_create_quanting_env_custom_software(
 
     expected_custom_command = (
         "/some_software_base_path/custom1.2.3 --qvalue 0.01 --f /some_backup_base_path/instrument1/1970_01/test_file.raw "
-        "--lib /some_quanting_settings_path/test_custom_settings/some_speclib_file_name "
-        "--out /some_quanting_output_path/some_project_id/out_test_file.raw/custom "
-        "--fasta /some_quanting_settings_path/test_custom_settings/some_fasta_file_name --threads 8 "
+        "--lib /some_settings_path/test_custom_settings/some_speclib_file_name "
+        "--out /some_output_path/some_project_id/out_test_file.raw/custom "
+        "--fasta /some_settings_path/test_custom_settings/some_fasta_file_name --threads 8 "
         "--some_param instrument1/1970_01/test_file.raw --some_param2 some_project_id/out_test_file.raw/custom"
     )
 
     expected = {
         "RAW_FILE_PATH": "/some_backup_base_path/instrument1/1970_01/test_file.raw",
-        "SETTINGS_PATH": "/some_quanting_settings_path/test_custom_settings",
-        "OUTPUT_PATH": "/some_quanting_output_path/some_project_id/out_test_file.raw/custom",
+        "SETTINGS_PATH": "/some_settings_path/test_custom_settings",
+        "OUTPUT_PATH": "/some_output_path/some_project_id/out_test_file.raw/custom",
         "RELATIVE_OUTPUT_PATH": "some_project_id/out_test_file.raw/custom",
         "SPECLIB_FILE_NAME": "some_speclib_file_name",
         "FASTA_FILE_NAME": "some_fasta_file_name",
@@ -286,13 +286,13 @@ def test_resolve_settings_no_settings_raise(
 @patch("dags.impl.processor_impl.get_settings_by_id")
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.get_path")
-def test_prepare_quanting(
+def test_prepare_job(
     mock_get_path: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
     mock_get_settings_by_id: MagicMock,
     mock_create_env: MagicMock,
 ) -> None:
-    """Test that prepare_quanting orchestrates the expected calls for a single settings entry."""
+    """Test that prepare_job orchestrates the expected calls for a single settings entry."""
     mock_raw_file = MagicMock(
         wraps=RawFile,
         id="test_file.raw",
@@ -310,7 +310,7 @@ def test_prepare_quanting(
     }
     mock_create_env.return_value = mock_env
 
-    result = prepare_quanting(raw_file_id="test_file.raw", settings_id="sid1")
+    result = prepare_job(raw_file_id="test_file.raw", settings_id="sid1")
 
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
     mock_get_settings_by_id.assert_called_once_with("sid1")
@@ -328,14 +328,14 @@ def test_prepare_quanting(
 @patch("dags.impl.processor_impl.get_settings_by_id")
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.get_path")
-def test_prepare_quanting_validation_error_raises(
+def test_prepare_job_validation_error_raises(
     mock_get_path: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
     mock_get_settings_by_id: MagicMock,
     mock_create_env: MagicMock,
     mock_check_content: MagicMock,
 ) -> None:
-    """Test that prepare_quanting raises on validation errors in the quanting env."""
+    """Test that prepare_job raises on validation errors in the quanting env."""
     mock_raw_file = MagicMock(
         wraps=RawFile,
         id="test_file.raw",
@@ -352,7 +352,7 @@ def test_prepare_quanting_validation_error_raises(
     mock_check_content.return_value = ["some_error"]
 
     with pytest.raises(AirflowFailException, match="some_error"):
-        prepare_quanting(raw_file_id="test_file.raw", settings_id="sid1")
+        prepare_job(raw_file_id="test_file.raw", settings_id="sid1")
 
     mock_create_env.assert_called_once_with(
         mock_settings,
@@ -395,13 +395,13 @@ def test_get_slurm_job_id_from_log_returns_none_if_file_not_exists() -> None:
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.start_job")
 @patch("dags.impl.processor_impl.update_raw_file")
-def test_run_quanting_executes_ssh_command_and_stores_job_id(
+def test_submit_job_executes_ssh_command_and_stores_job_id(
     mock_update: MagicMock,
     mock_start_job: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
     tmp_path: Path,
 ) -> None:
-    """Test that the run_quanting function executes the SSH command and stores the job ID."""
+    """Test that the submit_job function executes the SSH command and stores the job ID."""
     # given
     output_dir = tmp_path / "PID123" / "out_test_file.raw" / "alphadia"
     quanting_env = {
@@ -421,7 +421,7 @@ def test_run_quanting_executes_ssh_command_and_stores_job_id(
     mock_start_job.return_value = "12345"
 
     # when
-    result = run_quanting(quanting_env=quanting_env)
+    result = submit_job(quanting_env=quanting_env)
 
     assert result == "12345"
     assert output_dir.exists()
@@ -438,12 +438,12 @@ def test_run_quanting_executes_ssh_command_and_stores_job_id(
 
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.get_airflow_variable")
-def test_run_quanting_output_folder_exists(
+def test_submit_job_output_folder_exists(
     mock_get_airflow_variable: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
     tmp_path: Path,
 ) -> None:
-    """run_quanting function raises an exception if the output path already exists."""
+    """submit_job function raises an exception if the output path already exists."""
     # given
     output_dir = tmp_path / "output"
     output_dir.mkdir()
@@ -465,7 +465,7 @@ def test_run_quanting_output_folder_exists(
 
     # when
     with pytest.raises(AirflowFailException):
-        run_quanting(quanting_env=quanting_env)
+        submit_job(quanting_env=quanting_env)
 
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
     mock_get_airflow_variable.assert_called_once_with("output_exists_mode", "raise")
@@ -474,13 +474,13 @@ def test_run_quanting_output_folder_exists(
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.get_airflow_variable")
 @patch("dags.impl.processor_impl._get_slurm_job_id_from_log")
-def test_run_quanting_output_folder_exists_associate(
+def test_submit_job_output_folder_exists_associate(
     mock_get_slurm_job_id_from_log: MagicMock,
     mock_get_airflow_variable: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
     tmp_path: Path,
 ) -> None:
-    """run_quanting function returns extracted job_id if the output path already exists and mode is 'associate'."""
+    """submit_job function returns extracted job_id if the output path already exists and mode is 'associate'."""
     # given
     output_dir = tmp_path / "output"
     output_dir.mkdir()
@@ -502,7 +502,7 @@ def test_run_quanting_output_folder_exists_associate(
     mock_get_slurm_job_id_from_log.return_value = "54321"
 
     # when
-    result = run_quanting(quanting_env=quanting_env)
+    result = submit_job(quanting_env=quanting_env)
 
     assert result == "54321"
 
@@ -510,13 +510,13 @@ def test_run_quanting_output_folder_exists_associate(
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.get_airflow_variable")
 @patch("dags.impl.processor_impl._get_slurm_job_id_from_log")
-def test_run_quanting_output_folder_exists_associate_raise(
+def test_submit_job_output_folder_exists_associate_raise(
     mock_get_slurm_job_id_from_log: MagicMock,
     mock_get_airflow_variable: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
     tmp_path: Path,
 ) -> None:
-    """run_quanting function correctly raises if the output path already exists and mode is 'associate' and no job id."""
+    """submit_job function correctly raises if the output path already exists and mode is 'associate' and no job id."""
     # given
     output_dir = tmp_path / "output"
     output_dir.mkdir()
@@ -539,7 +539,7 @@ def test_run_quanting_output_folder_exists_associate_raise(
 
     # when
     with pytest.raises(AirflowFailException):
-        run_quanting(quanting_env=quanting_env)
+        submit_job(quanting_env=quanting_env)
 
 
 def test_find_next_free_run_suffix(tmp_path: Path) -> None:
@@ -571,7 +571,7 @@ def test_find_next_free_run_suffix_base_not_exists(tmp_path: Path) -> None:
 @patch("dags.impl.processor_impl.get_settings_by_id")
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.get_path")
-def test_prepare_quanting_add_mode(  # noqa: PLR0913
+def test_prepare_job_add_mode(  # noqa: PLR0913
     mock_get_path: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
     mock_get_settings_by_id: MagicMock,
@@ -580,7 +580,7 @@ def test_prepare_quanting_add_mode(  # noqa: PLR0913
     mock_get_airflow_variable: MagicMock,
     tmp_path: Path,
 ) -> None:
-    """Test that prepare_quanting suffixes paths when output_exists_mode is 'add' and output exists."""
+    """Test that prepare_job suffixes paths when output_exists_mode is 'add' and output exists."""
     mock_raw_file = MagicMock(
         wraps=RawFile,
         id="test_file.raw",
@@ -606,7 +606,7 @@ def test_prepare_quanting_add_mode(  # noqa: PLR0913
     }
     mock_get_airflow_variable.return_value = "add"
 
-    result = prepare_quanting(raw_file_id="test_file.raw", settings_id="sid1")
+    result = prepare_job(raw_file_id="test_file.raw", settings_id="sid1")
 
     assert result[QuantingEnv.INTERNAL_OUTPUT_PATH] == str(
         internal_output.parent / "internal_output.run2"
@@ -619,14 +619,14 @@ def test_prepare_quanting_add_mode(  # noqa: PLR0913
 @patch("dags.impl.processor_impl.get_airflow_variable")
 @patch("dags.impl.processor_impl.start_job")
 @patch("dags.impl.processor_impl.update_raw_file")
-def test_run_quanting_output_folder_exists_add(
+def test_submit_job_output_folder_exists_add(
     mock_update: MagicMock,  # noqa: ARG001
     mock_start_job: MagicMock,  # noqa: ARG001
     mock_get_airflow_variable: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
     tmp_path: Path,
 ) -> None:
-    """run_quanting raises when output_exists_mode is 'add' but the output path already exists."""
+    """submit_job raises when output_exists_mode is 'add' but the output path already exists."""
     output_dir = tmp_path / "output"
     output_dir.mkdir()
     quanting_env = {
@@ -645,16 +645,16 @@ def test_run_quanting_output_folder_exists_add(
     mock_get_airflow_variable.return_value = "add"
 
     with pytest.raises(AirflowFailException, match="should have created a unique name"):
-        run_quanting(quanting_env=quanting_env)
+        submit_job(quanting_env=quanting_env)
 
 
 @patch("dags.impl.processor_impl.put_xcom")
 @patch("dags.impl.processor_impl.get_job_result")
-def test_check_quanting_result_happy_path(
+def test_check_job_result_happy_path(
     mock_get_job_result: MagicMock,
     mock_put_xcom: MagicMock,
 ) -> None:
-    """Test that check_quanting_result makes the expected calls."""
+    """Test that check_job_result makes the expected calls."""
     quanting_env = {
         QuantingEnv.RAW_FILE_ID: "test_file.raw",
         QuantingEnv.PROJECT_ID: "PID1",
@@ -667,21 +667,19 @@ def test_check_quanting_result_happy_path(
     mock_ti = MagicMock()
 
     # when
-    result = check_quanting_result(
-        quanting_env=quanting_env, job_id="12345", ti=mock_ti
-    )
+    result = check_job_result(quanting_env=quanting_env, job_id="12345", ti=mock_ti)
 
-    assert result == {"quanting_time_elapsed": 522}
+    assert result == {"time_elapsed": 522}
     mock_put_xcom.assert_not_called()
 
 
 @patch("dags.impl.processor_impl.put_xcom")
 @patch("dags.impl.processor_impl.get_job_result")
-def test_check_quanting_result_unknown_job_status(
+def test_check_job_result_unknown_job_status(
     mock_get_job_result: MagicMock,
     mock_put_xcom: MagicMock,
 ) -> None:
-    """Test that check_quanting_result raises on unknown quanting job status."""
+    """Test that check_job_result raises on unknown quanting job status."""
     quanting_env = {
         QuantingEnv.RAW_FILE_ID: "test_file.raw",
         QuantingEnv.PROJECT_ID: "PID1",
@@ -694,7 +692,7 @@ def test_check_quanting_result_unknown_job_status(
 
     # when
     with pytest.raises(AirflowFailException):
-        check_quanting_result(quanting_env=quanting_env, job_id="12345", ti=mock_ti)
+        check_job_result(quanting_env=quanting_env, job_id="12345", ti=mock_ti)
 
     mock_put_xcom.assert_called_once_with(
         mock_ti, key=XComKeys.BRANCH_ERRORS, value="unknown_job_status: SOME_JOB_STATE"
@@ -706,14 +704,14 @@ def test_check_quanting_result_unknown_job_status(
 @patch("dags.impl.processor_impl.get_job_result")
 @patch("dags.impl.processor_impl.get_business_errors")
 @patch("dags.impl.processor_impl.add_metrics_to_raw_file")
-def test_check_quanting_result_business_error(
+def test_check_job_result_business_error(
     mock_add_metrics: MagicMock,
     mock_get_business_errors: MagicMock,
     mock_get_job_result: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
     mock_put_xcom: MagicMock,
 ) -> None:
-    """Test that check_quanting_result behaves correctly on business errors."""
+    """Test that check_job_result behaves correctly on business errors."""
     quanting_env = {
         QuantingEnv.RAW_FILE_ID: "test_file.raw",
         QuantingEnv.PROJECT_ID: "PID1",
@@ -732,7 +730,7 @@ def test_check_quanting_result_business_error(
 
     # when
     with pytest.raises(QuantingFailedKnownErrorException):
-        check_quanting_result(quanting_env=quanting_env, job_id="12345", ti=mock_ti)
+        check_job_result(quanting_env=quanting_env, job_id="12345", ti=mock_ti)
 
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
     mock_get_business_errors.assert_called_once_with(
@@ -741,7 +739,7 @@ def test_check_quanting_result_business_error(
     )
     mock_add_metrics.assert_called_once_with(
         "test_file.raw",
-        metrics={"quanting_time_elapsed": 522},
+        metrics={"time_elapsed": 522},
         settings_name="test_settings",
         settings_version=1,
         metrics_type="alphadia",
@@ -757,14 +755,14 @@ def test_check_quanting_result_business_error(
 @patch("dags.impl.processor_impl.get_job_result")
 @patch("dags.impl.processor_impl.get_business_errors")
 @patch("dags.impl.processor_impl.add_metrics_to_raw_file")
-def test_check_quanting_result_business_error_raises(
+def test_check_job_result_business_error_raises(
     mock_add_metrics: MagicMock,
     mock_get_business_errors: MagicMock,
     mock_get_job_result: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
     mock_put_xcom: MagicMock,
 ) -> None:
-    """Test that check_quanting_result behaves correctly if business error is unknown."""
+    """Test that check_job_result behaves correctly if business error is unknown."""
     quanting_env = {
         QuantingEnv.RAW_FILE_ID: "test_file.raw",
         QuantingEnv.PROJECT_ID: "PID1",
@@ -783,7 +781,7 @@ def test_check_quanting_result_business_error_raises(
 
     # when
     with pytest.raises(QuantingFailedNewErrorException):
-        check_quanting_result(quanting_env=quanting_env, job_id="12345", ti=mock_ti)
+        check_job_result(quanting_env=quanting_env, job_id="12345", ti=mock_ti)
 
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
     mock_get_business_errors.assert_called_once_with(
@@ -792,7 +790,7 @@ def test_check_quanting_result_business_error_raises(
     )
     mock_add_metrics.assert_called_once_with(
         "test_file.raw",
-        metrics={"quanting_time_elapsed": 522},
+        metrics={"time_elapsed": 522},
         settings_name="test_settings",
         settings_version=1,
         metrics_type="alphadia",
@@ -807,13 +805,13 @@ def test_check_quanting_result_business_error_raises(
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.get_job_result")
 @patch("dags.impl.processor_impl.add_metrics_to_raw_file")
-def test_check_quanting_result_timeout(
+def test_check_job_result_timeout(
     mock_add_metrics: MagicMock,
     mock_get_job_result: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
     mock_put_xcom: MagicMock,
 ) -> None:
-    """Test that check_quanting_result behaves correctly on timeout."""
+    """Test that check_job_result behaves correctly on timeout."""
     quanting_env = {
         QuantingEnv.RAW_FILE_ID: "test_file.raw",
         QuantingEnv.PROJECT_ID: "PID1",
@@ -830,12 +828,12 @@ def test_check_quanting_result_timeout(
 
     # when
     with pytest.raises(QuantingFailedKnownErrorException):
-        check_quanting_result(quanting_env=quanting_env, job_id="12345", ti=mock_ti)
+        check_job_result(quanting_env=quanting_env, job_id="12345", ti=mock_ti)
 
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
     mock_add_metrics.assert_called_once_with(
         "test_file.raw",
-        metrics={"quanting_time_elapsed": 522},
+        metrics={"time_elapsed": 522},
         settings_name="test_settings",
         settings_version=1,
         metrics_type="alphadia",
@@ -850,13 +848,13 @@ def test_check_quanting_result_timeout(
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.get_job_result")
 @patch("dags.impl.processor_impl.add_metrics_to_raw_file")
-def test_check_quanting_result_oom(
+def test_check_job_result_oom(
     mock_add_metrics: MagicMock,
     mock_get_job_result: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
     mock_put_xcom: MagicMock,
 ) -> None:
-    """Test that check_quanting_result behaves correctly on out of memory."""
+    """Test that check_job_result behaves correctly on out of memory."""
     quanting_env = {
         QuantingEnv.RAW_FILE_ID: "test_file.raw",
         QuantingEnv.PROJECT_ID: "PID1",
@@ -873,12 +871,12 @@ def test_check_quanting_result_oom(
 
     # when
     with pytest.raises(QuantingFailedKnownErrorException):
-        check_quanting_result(quanting_env=quanting_env, job_id="12345", ti=mock_ti)
+        check_job_result(quanting_env=quanting_env, job_id="12345", ti=mock_ti)
 
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
     mock_add_metrics.assert_called_once_with(
         "test_file.raw",
-        metrics={"quanting_time_elapsed": 522},
+        metrics={"time_elapsed": 522},
         settings_name="test_settings",
         settings_version=1,
         metrics_type="alphadia",
@@ -972,14 +970,14 @@ def test_compute_metrics(
     mock_calc_metrics.return_value = {"metric1": "value1"}
 
     # when
-    result = compute_metrics(quanting_env=quanting_env, quanting_time_elapsed=123)
+    result = compute_metrics(quanting_env=quanting_env, time_elapsed=123)
 
     mock_calc_metrics.assert_called_once_with(
         Path("/opt/airflow/mounts/output/P1/out_test_file.raw/alphadia"),
         metrics_type="alphadia",
     )
     assert result == {
-        "metrics": {"metric1": "value1", "quanting_time_elapsed": 123},
+        "metrics": {"metric1": "value1", "time_elapsed": 123},
         "metrics_type": "alphadia",
     }
 
@@ -1043,7 +1041,7 @@ def test_store_metrics(
 
 
 def _branch_ti(task_name: str, map_index: int, state: str) -> MagicMock:
-    """Create a mock TaskInstance for a task within a quanting_pipeline branch."""
+    """Create a mock TaskInstance for a task within a processing branch."""
     return MagicMock(
         task_id=f"{_TASK_GROUP_PREFIX}{task_name}",
         map_index=map_index,
@@ -1059,7 +1057,7 @@ def _make_get_xcom(quanting_envs, branch_errors=None):  # noqa: ANN001, ANN202
     def side_effect(_ti, *, key, **kwargs):  # noqa: ANN001, ANN202
         if key == XComKeys.BRANCH_ERRORS:
             return branch_errors.get(kwargs.get("map_indexes"))
-        if kwargs.get("task_ids") == _PREPARE_QUANTING_TASK_ID:
+        if kwargs.get("task_ids") == _PREPARE_JOB_TASK_ID:
             return quanting_envs[kwargs.get("map_indexes")]
         return quanting_envs
 
@@ -1077,7 +1075,7 @@ def test_finalize_sets_done_when_no_errors(
     """All branches succeeded → DONE."""
     ti = MagicMock()
     ti.get_dagrun.return_value.get_task_instances.return_value = [
-        _branch_ti("run_quanting", 0, "success"),
+        _branch_ti("submit_job", 0, "success"),
     ]
     mock_extract.return_value = ([], [])
 
@@ -1096,8 +1094,8 @@ def test_finalize_sets_error_on_airflow_failures(
     """Airflow failure in any branch → ERROR with details, raises AirflowFailException."""
     ti = MagicMock()
     ti.get_dagrun.return_value.get_task_instances.return_value = [
-        _branch_ti("run_quanting", 0, "success"),
-        _branch_ti("run_quanting", 1, "failed"),
+        _branch_ti("submit_job", 0, "success"),
+        _branch_ti("submit_job", 1, "failed"),
     ]
     mock_extract.return_value = (
         [("settings_B", "UNKNOWN_ERROR")],
@@ -1122,14 +1120,14 @@ def test_finalize_sets_quanting_failed_on_business_errors(
     """Only business errors → QUANTING_FAILED with details, does not raise."""
     ti = MagicMock()
     ti.get_dagrun.return_value.get_task_instances.return_value = [
-        _branch_ti("check_quanting_result", 0, "skipped"),
+        _branch_ti("check_job_result", 0, "skipped"),
     ]
     mock_extract.return_value = (
         [],
         [("settings_A", "OUT_OF_MEMORY")],
     )
-
-    finalize_raw_file_status(ti=ti, raw_file_id="test.raw")
+    with pytest.raises(QuantingFailedKnownErrorException):
+        finalize_raw_file_status(ti=ti, raw_file_id="test.raw")
 
     mock_update.assert_called_once_with(
         "test.raw",
@@ -1146,11 +1144,11 @@ def test_finalize_error_takes_priority_over_business_errors(
     """Mix of airflow + business errors → ERROR with all details combined."""
     ti = MagicMock()
     ti.get_dagrun.return_value.get_task_instances.return_value = [
-        _branch_ti("run_quanting", 0, "failed"),
-        _branch_ti("check_quanting_result", 1, "skipped"),
+        _branch_ti("submit_job", 0, "failed"),
+        _branch_ti("check_job_result", 1, "skipped"),
     ]
     mock_extract.return_value = (
-        [("settings_A", "failed at run_quanting")],
+        [("settings_A", "failed at submit_job")],
         [("settings_B", "TIMEOUT")],
     )
 
@@ -1160,7 +1158,7 @@ def test_finalize_error_takes_priority_over_business_errors(
     mock_update.assert_called_once_with(
         "test.raw",
         new_status=RawFileStatus.ERROR,
-        status_details="error while processing: [settings_A] failed at run_quanting; [settings_B] TIMEOUT",
+        status_details="error while processing: [settings_A] failed at submit_job; [settings_B] TIMEOUT",
     )
 
 
@@ -1168,7 +1166,7 @@ def test_finalize_raises_when_no_branch_tasks() -> None:
     """No branch task instances → AirflowFailException."""
     ti = MagicMock()
     ti.get_dagrun.return_value.get_task_instances.return_value = [
-        MagicMock(task_id="prepare_quanting", state="success", map_index=-1)
+        MagicMock(task_id="prepare_job", state="success", map_index=-1)
     ]
 
     with pytest.raises(AirflowFailException):
@@ -1194,7 +1192,7 @@ def test_extract_errors_all_success(mock_get_xcom: MagicMock) -> None:
     """All branches succeed → no errors."""
     branch_tis = _make_branch_tis_by_index(
         [
-            (0, [("run_quanting", "success"), ("check_quanting_result", "success")]),
+            (0, [("submit_job", "success"), ("check_job_result", "success")]),
         ]
     )
     envs = [{QuantingEnv.SETTINGS_NAME: "s_A"}]
@@ -1208,14 +1206,14 @@ def test_extract_errors_all_success(mock_get_xcom: MagicMock) -> None:
 
 @patch("dags.impl.processor_impl.get_xcom")
 def test_extract_errors_business_error(mock_get_xcom: MagicMock) -> None:
-    """check_quanting_result skipped with XCom → business error."""
+    """check_job_result skipped with XCom → business error."""
     branch_tis = _make_branch_tis_by_index(
         [
             (
                 0,
                 [
-                    ("run_quanting", "success"),
-                    ("check_quanting_result", "skipped"),
+                    ("submit_job", "success"),
+                    ("check_job_result", "skipped"),
                     ("store_metrics", "skipped"),
                 ],
             ),
@@ -1232,14 +1230,14 @@ def test_extract_errors_business_error(mock_get_xcom: MagicMock) -> None:
 
 @patch("dags.impl.processor_impl.get_xcom")
 def test_extract_errors_airflow_failure_with_xcom(mock_get_xcom: MagicMock) -> None:
-    """check_quanting_result failed with XCom → airflow error with XCom details."""
+    """check_job_result failed with XCom → airflow error with XCom details."""
     branch_tis = _make_branch_tis_by_index(
         [
             (
                 0,
                 [
-                    ("run_quanting", "success"),
-                    ("check_quanting_result", "failed"),
+                    ("submit_job", "success"),
+                    ("check_job_result", "failed"),
                     ("store_metrics", "upstream_failed"),
                 ],
             ),
@@ -1262,8 +1260,8 @@ def test_extract_errors_early_task_failed_no_xcom(mock_get_xcom: MagicMock) -> N
             (
                 0,
                 [
-                    ("run_quanting", "failed"),
-                    ("check_quanting_result", "upstream_failed"),
+                    ("submit_job", "failed"),
+                    ("check_job_result", "upstream_failed"),
                     ("store_metrics", "upstream_failed"),
                 ],
             ),
@@ -1274,7 +1272,7 @@ def test_extract_errors_early_task_failed_no_xcom(mock_get_xcom: MagicMock) -> N
 
     airflow_errors, business_errors = _extract_errors(branch_tis, MagicMock())
 
-    assert airflow_errors == [("s_A", "failed at run_quanting")]
+    assert airflow_errors == [("s_A", "failed at submit_job")]
     assert business_errors == []
 
 
@@ -1286,8 +1284,8 @@ def test_extract_errors_intentional_skip(mock_get_xcom: MagicMock) -> None:
             (
                 0,
                 [
-                    ("run_quanting", "skipped"),
-                    ("check_quanting_result", "skipped"),
+                    ("submit_job", "skipped"),
+                    ("check_job_result", "skipped"),
                     ("store_metrics", "skipped"),
                 ],
             ),
@@ -1307,9 +1305,9 @@ def test_extract_errors_multiple_branches_mixed(mock_get_xcom: MagicMock) -> Non
     """Multiple branches: one airflow failure, one business error, one success."""
     branch_tis = _make_branch_tis_by_index(
         [
-            (0, [("run_quanting", "success"), ("store_metrics", "success")]),
-            (1, [("run_quanting", "failed"), ("store_metrics", "upstream_failed")]),
-            (2, [("check_quanting_result", "skipped"), ("store_metrics", "skipped")]),
+            (0, [("submit_job", "success"), ("store_metrics", "success")]),
+            (1, [("submit_job", "failed"), ("store_metrics", "upstream_failed")]),
+            (2, [("check_job_result", "skipped"), ("store_metrics", "skipped")]),
         ]
     )
     envs = [
@@ -1323,5 +1321,5 @@ def test_extract_errors_multiple_branches_mixed(mock_get_xcom: MagicMock) -> Non
 
     airflow_errors, business_errors = _extract_errors(branch_tis, MagicMock())
 
-    assert airflow_errors == [("s_B", "failed at run_quanting")]
+    assert airflow_errors == [("s_B", "failed at submit_job")]
     assert business_errors == [("s_C", "TIMEOUT")]

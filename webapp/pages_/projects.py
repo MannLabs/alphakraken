@@ -17,7 +17,8 @@ from service.utils import (
     DISABLE_WRITE,
     _log,
     empty_to_none,
-    quanting_output_path,
+    flush_pending_toasts,
+    output_path,
     show_error_toast,
     show_success_toast,
 )
@@ -43,6 +44,7 @@ _log(f"loading {__file__} {get_all_query_params()}")
 
 st.set_page_config(page_title="AlphaKraken: projects", layout="wide")
 
+flush_pending_toasts()
 show_sandbox_message()
 
 st.markdown("# Projects")
@@ -85,7 +87,7 @@ def display_projects(
 
     st_display.table(filtered_df)
     st_display.markdown(
-        f"Output files are stored at `{quanting_output_path}/<project id>/out_<raw file name>/<software_type>/`. In case you don't know your project ID, it's most likely `_FALLBACK`."
+        f"Output files are stored at `{output_path}/<project id>/out_<raw file name>/<software_type>/`. In case you don't know your project ID, it's most likely `_FALLBACK`."
     )
 
 

@@ -20,7 +20,8 @@ from service.utils import (
     DISABLE_WRITE,
     _log,
     empty_to_none,
-    quanting_settings_path,
+    flush_pending_toasts,
+    settings_path,
     show_error_toast,
     show_success_toast,
 )
@@ -40,6 +41,7 @@ _log(f"loading {__file__} {get_all_query_params()}")
 
 st.set_page_config(page_title="AlphaKraken: settings", layout="wide")
 
+flush_pending_toasts()
 show_sandbox_message()
 
 st.markdown("# Manage settings")
@@ -89,7 +91,7 @@ def display_settings(
 
     st_display.markdown(
         "The files associated with settings are stored at "
-        f"`{quanting_settings_path}/<settings name>/`"
+        f"`{settings_path}/<settings name>/`"
     )
 
 
@@ -380,8 +382,6 @@ with c1.form("create_settings"):
             st.code(
                 "direct -n alphakraken -r RAW_FILE_PATH -fasta SETTINGS_PATH/human.fasta -o OUTPUT_PATH -s /path/to/settings/alphakraken.prop"
             )
-    else:
-        config_params = None
 
     st.write(r"\* Required fields")
     if software_type == SoftwareTypes.ALPHADIA:
@@ -433,12 +433,12 @@ with c1.form("create_settings"):
         if settings_name_clean:
             st.markdown(
                 f"Make sure you have uploaded all referenced files to "
-                f"`{quanting_settings_path}/{settings_name_clean}/`"
+                f"`{settings_path}/{settings_name_clean}/`"
             )
         else:
             st.markdown(
                 f"After entering a settings name above, upload files to "
-                f"`{quanting_settings_path}/<settings_name>/`"
+                f"`{settings_path}/<settings_name>/`"
             )
 
         upload_checkbox = st.checkbox(

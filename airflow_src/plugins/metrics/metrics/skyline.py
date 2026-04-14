@@ -5,14 +5,10 @@ from typing import ClassVar
 
 import numpy as np
 import pandas as pd
-from metrics.metrics.base import DataStore, Metrics
+from metrics.metrics.base import DataStore, Metrics, read_csv
 
+# must match the name given in run_skyline.sh
 SKYLINE_REPORT_FILE_NAME = "custom_iRT_report.csv"
-
-
-def read_csv(file_path: Path) -> pd.DataFrame:
-    """Read a CSV file."""
-    return pd.read_csv(file_path, sep=",")
 
 
 file_name_to_read_method_mapping = {

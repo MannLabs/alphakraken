@@ -2,6 +2,7 @@
 
 import logging
 from abc import ABC, abstractmethod
+from functools import partial
 from pathlib import Path
 from typing import Any, ClassVar
 
@@ -9,10 +10,22 @@ import pandas as pd
 import pyarrow.parquet as pq
 
 
+def read_csv(file_path: Path, columns: list[str] | None = None) -> pd.DataFrame:
+    """Read a csv file."""
+    return partial(_read_tsv_csv, sep=",")(file_path=file_path, columns=columns)
+
+
 def read_tsv(file_path: Path, columns: list[str] | None = None) -> pd.DataFrame:
     """Read a tsv file."""
+    return partial(_read_tsv_csv, sep="\t")(file_path=file_path, columns=columns)
+
+
+def _read_tsv_csv(
+    sep: str, file_path: Path, columns: list[str] | None = None
+) -> pd.DataFrame:
+    """Read a csv-like file with separator `sep`."""
     usecols = (lambda c: c in columns) if columns else None
-    return pd.read_csv(file_path, sep="\t", usecols=usecols)
+    return pd.read_csv(file_path, sep=sep, usecols=usecols)
 
 
 def read_parquet(file_path: Path, columns: list[str] | None = None) -> pd.DataFrame:

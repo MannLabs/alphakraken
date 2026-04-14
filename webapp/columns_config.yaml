@@ -193,7 +193,7 @@ columns:
   - name: "settings_version"
     at_end: true
     plot: true
-  - name: "quanting_time_minutes"
+  - name: "time_elapsed_minutes"
     color_gradient: "red_is_high"
     plot: true
   - name: "duration_optimization"

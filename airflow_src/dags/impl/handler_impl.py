@@ -62,6 +62,10 @@ from shared.settings_scope_resolver import resolve_scoped_settings
 from shared.validation import FORBIDDEN_RAW_FILE_NAME_CHARACTERS_PATTERN
 from shared.yamlsettings import YamlKeys, get_path, is_s3_upload_enabled
 
+# special mode that does not copy (e.g. because another instance handles it)
+# point locations.backup.absolute_path to the folder where the files can be picked up for quanting
+SKIP_COPYING = False
+
 
 def compute_checksum(ti: TaskInstance, **kwargs) -> bool:
     """Compute checksums for files in a raw file and store them in DB and XCom."""
@@ -214,6 +218,16 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
 
     raw_file = get_raw_file_by_id(raw_file_id)
     backup_base_path = get_backup_base_path(raw_file)
+
+    if SKIP_COPYING:
+        update_raw_file(
+            raw_file_id,
+            new_status=RawFileStatus.COPYING_DONE,
+            backup_base_path="",
+            backup_status=BackupStatus.SKIPPED,
+        )
+        logging.warning("SKIP_COPYING is enabled, skipping file copy.")
+        return
 
     update_raw_file(
         raw_file_id,

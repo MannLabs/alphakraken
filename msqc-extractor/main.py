@@ -84,9 +84,7 @@ def calculate_thermo_metrics(
 
     combined_tic_df = pd.concat(all_tic_data, ignore_index=True)
 
-    dict_ms_metrics["gradient_length"] = (
-        raw_file.spectrum_df["rt"].max() * 60
-    )  # seconds
+    dict_ms_metrics["gradient_length"] = raw_file.spectrum_df["rt"].max()  # minutes
 
     return dict_ms_metrics, combined_tic_df
 
@@ -124,9 +122,7 @@ def calculate_sciex_metrics(
 
     combined_tic_df = pd.concat(all_tic_data, ignore_index=True)
 
-    dict_ms_metrics["gradient_length"] = (
-        raw_file.spectrum_df["rt"].max() * 60
-    )  # seconds
+    dict_ms_metrics["gradient_length"] = raw_file.spectrum_df["rt"].max()  # minutes
 
     return dict_ms_metrics, combined_tic_df
 
@@ -186,7 +182,7 @@ def calculate_bruker_metrics(
 
     dict_ms_metrics["ms1_median_tic"] = np.median(chrom_ms1["SummedIntensities"])
     dict_ms_metrics["ms2_median_tic"] = np.median(chrom_ms2["SummedIntensities"])
-    dict_ms_metrics["gradient_length"] = data.rt_values.max()  # seconds
+    dict_ms_metrics["gradient_length"] = data.rt_values.max() / 60  # minutes
 
     chrom_ms1["ms_level"] = 1
     chrom_ms2["ms_level"] = 2

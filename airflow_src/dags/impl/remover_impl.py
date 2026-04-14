@@ -53,6 +53,8 @@ from shared.yamlsettings import (
     get_s3_upload_config,
 )
 
+# Note: the parent DAG does not have callbacks configured yet
+
 
 class FileRemovalError(Exception):
     """Custom exception for file check and removal errors."""

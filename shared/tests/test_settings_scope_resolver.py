@@ -3,9 +3,7 @@
 from unittest.mock import MagicMock
 
 from shared.settings_scope_resolver import (
-    SCOPE_LEVEL_DEFAULT,
-    SCOPE_LEVEL_INSTRUMENT,
-    SCOPE_LEVEL_VENDOR,
+    ScopeLevel,
     _classify_scope,
     resolve_scoped_settings,
 )
@@ -37,21 +35,21 @@ INSTRUMENT_TYPE = "bruker"
 
 
 def test_classify_default_scope_returns_level_default() -> None:
-    """Test that default scope '*' returns SCOPE_LEVEL_DEFAULT."""
-    assert _classify_scope("*", INSTRUMENT_ID, INSTRUMENT_TYPE) == SCOPE_LEVEL_DEFAULT
+    """Test that default scope '*' returns ScopeLevel.DEFAULT."""
+    assert _classify_scope("*", INSTRUMENT_ID, INSTRUMENT_TYPE) == ScopeLevel.DEFAULT
 
 
 def test_classify_matching_instrument_id_returns_level_instrument() -> None:
-    """Test that matching instrument_id returns SCOPE_LEVEL_INSTRUMENT."""
+    """Test that matching instrument_id returns ScopeLevel.INSTRUMENT."""
     assert (
         _classify_scope("instrument_1", "instrument_1", INSTRUMENT_TYPE)
-        == SCOPE_LEVEL_INSTRUMENT
+        == ScopeLevel.INSTRUMENT
     )
 
 
 def test_classify_matching_vendor_returns_level_vendor() -> None:
-    """Test that matching vendor name returns SCOPE_LEVEL_VENDOR."""
-    assert _classify_scope("bruker", INSTRUMENT_ID, "bruker") == SCOPE_LEVEL_VENDOR
+    """Test that matching vendor name returns ScopeLevel.VENDOR."""
+    assert _classify_scope("bruker", INSTRUMENT_ID, "bruker") == ScopeLevel.VENDOR
 
 
 def test_classify_non_matching_scope_returns_none() -> None:

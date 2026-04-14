@@ -20,7 +20,6 @@ from service.utils import (
     DISABLE_WRITE,
     _log,
     empty_to_none,
-    flush_pending_toasts,
     quanting_settings_path,
     show_error_toast,
     show_success_toast,
@@ -42,8 +41,6 @@ _log(f"loading {__file__} {get_all_query_params()}")
 st.set_page_config(page_title="AlphaKraken: settings", layout="wide")
 
 show_sandbox_message()
-
-flush_pending_toasts()
 
 st.markdown("# Manage settings")
 
@@ -534,7 +531,6 @@ if submit:
         show_success_toast(
             f"Created new settings '{name}'. Assign it to projects on the Projects page."
         )
-    st.rerun()
 
 
 # ########################################### ARCHIVE SETTINGS
@@ -586,7 +582,5 @@ else:
                     show_success_toast(
                         f"Archived settings '{row['name']}' version {int(row['version'])}."
                     )
-                    st.rerun()
                 except Exception as e:  # noqa: BLE001
                     show_error_toast(str(e))
-                    st.rerun()

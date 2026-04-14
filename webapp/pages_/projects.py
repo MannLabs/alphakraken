@@ -17,7 +17,6 @@ from service.utils import (
     DISABLE_WRITE,
     _log,
     empty_to_none,
-    flush_pending_toasts,
     quanting_output_path,
     show_error_toast,
     show_success_toast,
@@ -45,8 +44,6 @@ _log(f"loading {__file__} {get_all_query_params()}")
 st.set_page_config(page_title="AlphaKraken: projects", layout="wide")
 
 show_sandbox_message()
-
-flush_pending_toasts()
 
 st.markdown("# Projects")
 
@@ -169,10 +166,8 @@ with c_assign1:
                         show_success_toast(
                             f"Removed settings assignment from project {selected_project_id}."
                         )
-                        st.rerun()
                     except Exception as e:  # noqa: BLE001
                         show_error_toast(str(e))
-                        st.rerun()
 
                 update_help = (
                     f"Update to version {latest.version}"
@@ -198,10 +193,8 @@ with c_assign1:
                         show_success_toast(
                             f"Updated '{ps.settings.name}' to version {latest.version}."  # type: ignore[union-attr]
                         )
-                        st.rerun()
                     except Exception as e:  # noqa: BLE001
                         show_error_toast(str(e))
-                        st.rerun()
         else:
             st.info("No settings assigned to this project.")
 
@@ -266,10 +259,8 @@ with c_assign1:
                     show_success_toast(
                         f"Assigned settings '{selected_settings_display}' to project {selected_project_id}."
                     )
-                    st.rerun()
                 except Exception as e:  # noqa: BLE001
                     show_error_toast(str(e))
-                    st.rerun()
 
 with c_assign2:
     if selected_project_id:
@@ -399,7 +390,5 @@ if form_submit:
         )
     except Exception as e:  # noqa: BLE001
         show_error_toast(str(e))
-        st.rerun()
     else:
         show_success_toast(f"Added new project '{project_id}' to the database.")
-        st.rerun()

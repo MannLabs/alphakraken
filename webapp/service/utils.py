@@ -47,27 +47,14 @@ _ERROR_TOAST_SUFFIX = (
 )
 
 
-_PENDING_TOAST_KEY = "_pending_toast"
-
-
 def show_success_toast(msg: str) -> None:
     """Queue a success toast notification (displayed after next rerun)."""
-    st.session_state[_PENDING_TOAST_KEY] = ("success", msg)
+    st.toast(f"Success! {msg}", icon="✅")
 
 
 def show_error_toast(msg: str) -> None:
     """Queue an error toast notification (displayed after next rerun)."""
-    st.session_state[_PENDING_TOAST_KEY] = ("error", msg)
-
-
-def flush_pending_toasts() -> None:
-    """Display any pending toast and clear it from session state."""
-    if toast_data := st.session_state.pop(_PENDING_TOAST_KEY, None):
-        level, msg = toast_data
-        if level == "success":
-            st.toast(f"Success! {msg}", icon="✅")
-        else:
-            st.toast(f"Error: {msg} {_ERROR_TOAST_SUFFIX}", icon="❌")
+    st.toast(f"Error: {msg} {_ERROR_TOAST_SUFFIX}", icon="❌", duration="long")
 
 
 # Configure logging

@@ -19,6 +19,8 @@ from shared.db.interface import get_raw_file_by_id, update_raw_file
 from shared.db.models import InstrumentFileStatus, RawFile
 from shared.keys import EnvVars
 
+# Note: the parent DAG does not have callbacks configured yet
+
 
 def get_files_to_move(ti: TaskInstance, **kwargs) -> None:
     """Get single files to move for a raw_file_id to the instrument backup folder."""
@@ -31,6 +33,12 @@ def get_files_to_move(ti: TaskInstance, **kwargs) -> None:
     )
 
     files_to_move = move_wrapper.get_files_to_move()
+
+    if not files_to_move:
+        # this could happen on task re-runs but for now prevents false positives
+        # a more thorough solution would be to do a health check on the target and destination paths
+        raise AirflowFailException(f"No files to move for raw_file_id {raw_file_id}.")
+
     main_file_to_move = move_wrapper.main_file_path()
 
     put_xcom(

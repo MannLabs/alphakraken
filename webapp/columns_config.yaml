@@ -14,7 +14,7 @@ columns:
   - name: "gradient_length"
     color_gradient: "red_is_high"
     alternative_names:
-      - "raw:gradient_length_m"
+      - "raw:gradient_length_m" # TODO: if this is msqc, move to the back of the table
       - "gradient_length" # alphadia >= 2
   - name: "precursors"
     color_gradient: "green_is_high"
@@ -22,6 +22,52 @@ columns:
   - name: "proteins"
     color_gradient: "green_is_high"
     plot: true
+
+  # DIA-NN metrics
+  # double-use with alphadia: precursors, proteins, fwhm_rt
+  - name: "fwhm_scans"
+    color_gradient: "red_is_high"
+    plot: true
+  - name: "median_precursor_rt"
+    plot: true
+  - name: "total_quantity"
+    color_gradient: "green_is_high"
+    plot: true
+  - name: "ms1_signal"
+    color_gradient: "green_is_high"
+    plot: true
+  - name: "ms2_signal"
+    color_gradient: "green_is_high"
+    plot: true
+  - name: "median_mass_acc_ms1"
+    color_gradient: "red_is_high"
+    plot: true
+  - name: "median_mass_acc_ms1_corrected"
+    color_gradient: "red_is_high"
+    plot: true
+  - name: "median_mass_acc_ms2"
+    color_gradient: "red_is_high"
+    plot: true
+  - name: "median_mass_acc_ms2_corrected"
+    color_gradient: "red_is_high"
+    plot: true
+  - name: "normalisation_instability"
+    color_gradient: "red_is_high"
+    plot: true
+  - name: "median_rt_prediction_acc"
+    plot: true
+  - name: "average_peptide_length"
+    plot: true
+  - name: "average_peptide_charge"
+    plot: true
+  - name: "average_missed_tryptic_cleavages"
+    color_gradient: "red_is_high"
+    plot: true
+
+  - name: "fwhm_rt"
+    color_gradient: "red_is_high"
+    plot: true
+
   - name: "calibration_ms1_bias"
     color_gradient: "red_is_high"
     plot: true
@@ -51,12 +97,6 @@ columns:
   - name: "ms2_median_tic"
     plot: true
 
-  - name: "fwhm_rt"
-    color_gradient: "red_is_high"
-    plot: true
-  - name: "fwhm_mobility"
-    color_gradient: "red_is_high"
-    plot: true
   - name: "weighted_ms1_intensity_sum"
     color_gradient: "green_is_high"
     plot: true
@@ -109,6 +149,11 @@ columns:
     alternative_names:
       - "sequence_len_mean"
       - "precursor:sequence_len_mean" # alphadia >= 2
+
+  - name: "fwhm_mobility"
+    color_gradient: "red_is_high"
+    plot: true
+
   # skyline: aggregate metrics
   - name: "irt_delta_rt_mean"
     color_gradient: "red_is_high"
@@ -144,47 +189,6 @@ columns:
     color_gradient: "red_is_high"
     plot: true
     overlay: true
-
-  # DIA-NN metrics
-  # double-use: precursors, proteins, fwhm_rt
-  - name: "fwhm_scans"
-    color_gradient: "red_is_high"
-    plot: true
-  - name: "median_precursor_rt"
-    plot: true
-  - name: "total_quantity"
-    color_gradient: "green_is_high"
-    plot: true
-  - name: "ms1_signal"
-    color_gradient: "green_is_high"
-    plot: true
-  - name: "ms2_signal"
-    color_gradient: "green_is_high"
-    plot: true
-  - name: "median_mass_acc_ms1"
-    color_gradient: "red_is_high"
-    plot: true
-  - name: "median_mass_acc_ms1_corrected"
-    color_gradient: "red_is_high"
-    plot: true
-  - name: "median_mass_acc_ms2"
-    color_gradient: "red_is_high"
-    plot: true
-  - name: "median_mass_acc_ms2_corrected"
-    color_gradient: "red_is_high"
-    plot: true
-  - name: "normalisation_instability"
-    color_gradient: "red_is_high"
-    plot: true
-  - name: "median_rt_prediction_acc"
-    plot: true
-  - name: "average_peptide_length"
-    plot: true
-  - name: "average_peptide_charge"
-    plot: true
-  - name: "average_missed_tryptic_cleavages"
-    color_gradient: "red_is_high"
-    plot: true
 
   # Technical plots
   - name: "lag_time_minutes"

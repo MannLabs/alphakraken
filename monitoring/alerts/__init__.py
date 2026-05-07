@@ -2,6 +2,7 @@
 
 from .base_alert import BaseAlert
 from .disk_space_alert import DiskSpaceAlert
+from .gradient_pause_alert import GradientPauseAlert
 from .health_check_failed_alert import HealthCheckFailedAlert
 from .instrument_file_pile_up_alert import InstrumentFilePileUpAlert
 from .instrument_stall_alert import InstrumentStallAlert
@@ -15,6 +16,7 @@ from .webapp_health_alert import WebAppHealthAlert
 __all__ = [
     "BaseAlert",
     "DiskSpaceAlert",
+    "GradientPauseAlert",
     "HealthCheckFailedAlert",
     "InstrumentFilePileUpAlert",
     "InstrumentStallAlert",

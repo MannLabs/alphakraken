@@ -41,6 +41,11 @@ INSTRUMENT_FILE_MIN_AGE_HOURS = 6  # Only consider files older than 6 hours
 INSTRUMENT_STALL_THRESHOLD_HOURS = 2  # How long without a new file before alerting
 INSTRUMENT_STALL_INSTRUMENT_IDS: set[str] = set()  # Instruments to monitor
 
+# Gradient pause alert configuration
+GRADIENT_PAUSE_MULTIPLIER = (
+    3  # Pause length factor (vs. last gradient length) before alerting
+)
+
 # Pump pressure alert configuration
 PUMP_PRESSURE_LOOKBACK_DAYS = 1
 PUMP_PRESSURE_WINDOW_SIZE = 5  # Number of samples to compare
@@ -66,6 +71,14 @@ except KeyError:
     )
     BUSINESS_ALERTS_WEBHOOK_URL = OPS_ALERTS_WEBHOOK_URL
 
+try:
+    SLACK_BOT_TOKEN: str = get_notification_setting(YamlKeys.SLACK_BOT_TOKEN)
+except KeyError:
+    logging.warning(
+        "Slack bot token not found in config; user-DM alerts will be disabled."
+    )
+    SLACK_BOT_TOKEN = ""
+
 
 class Cases:
     """Cases for which to send alerts."""
@@ -80,3 +93,4 @@ class Cases:
     WEBAPP_HEALTH = "webapp_health"
     PUMP_PRESSURE_INCREASE = "pump_pressure_increase"
     INSTRUMENT_STALL = "instrument_stall"
+    GRADIENT_PAUSE = "gradient_pause"

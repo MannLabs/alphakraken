@@ -8,6 +8,7 @@ import pytz
 from alerts import (
     BaseAlert,
     DiskSpaceAlert,
+    GradientPauseAlert,
     HealthCheckFailedAlert,
     InstrumentFilePileUpAlert,
     InstrumentStallAlert,
@@ -51,6 +52,7 @@ class AlertManager:
             S3UploadFailureAlert(),
             WebAppHealthAlert(),
             PumpPressureAlert(),
+            GradientPauseAlert(),
         ]
 
     def check_for_issues(self) -> None:
@@ -73,13 +75,12 @@ class AlertManager:
         identifiers = [issue[0] for issue in issues]
 
         if self.should_send_alert(identifiers, alert):
-            message = alert.format_message(issues)
-
-            webhook_url = alert.get_webhook_url()
             if not suppress_alerts:
-                send_message(message, webhook_url)
+                alert.dispatch_issues(issues)
             else:
-                logging.info(f"Suppressed alert for {alert_name}: {message}")
+                logging.info(
+                    f"Suppressed alert for {alert_name}: {alert.format_message(issues)}"
+                )
 
             for identifier in identifiers:
                 self.set_last_alert_time(alert_name, identifier)

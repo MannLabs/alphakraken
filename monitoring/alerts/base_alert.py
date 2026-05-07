@@ -7,6 +7,7 @@ from typing import Any
 
 import yaml
 from alerts.config import DEFAULT_ALERT_COOLDOWN_TIME_MINUTES, OPS_ALERTS_WEBHOOK_URL
+from messenger_clients import send_message
 
 from shared.db.models import KrakenStatus
 
@@ -130,6 +131,15 @@ class BaseAlert(ABC):
         """
         del identifier  # unused
         return DEFAULT_ALERT_COOLDOWN_TIME_MINUTES
+
+    def dispatch_issues(self, issues: list[tuple[str, Any]]) -> None:
+        """Send the alert for the given issues via the configured webhook.
+
+        Override in subclasses that need a non-webhook delivery channel
+        (e.g. direct messages via Slack Web API).
+        """
+        message = self.format_message(issues)
+        send_message(message, self.get_webhook_url())
 
 
 class CustomAlert(BaseAlert):

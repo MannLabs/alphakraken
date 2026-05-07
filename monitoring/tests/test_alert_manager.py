@@ -9,12 +9,9 @@ class TestAlertManager:
     """Test suite for AlertManager class."""
 
     def test_check_for_issues_should_run_all_alert_checks_and_send_alerts(self) -> None:
-        """Test that check_for_issues runs all checks and sends alerts for issues found."""
+        """Test that check_for_issues runs all checks and dispatches alerts for issues found."""
         # given
-        with (
-            patch("monitoring.alert_manager.KrakenStatus") as mock_kraken_status,
-            patch("monitoring.alert_manager.send_message") as mock_send_message,
-        ):
+        with patch("monitoring.alert_manager.KrakenStatus") as mock_kraken_status:
             # Mock status objects
             mock_status_obj = Mock()
             mock_kraken_status.objects = [mock_status_obj]
@@ -24,12 +21,7 @@ class TestAlertManager:
             # Mock one alert to return issues
             mock_issue = ("test_id", "test_data")
             alert_manager.alerts[0].get_issues = Mock(return_value=[mock_issue])
-            alert_manager.alerts[0].format_message = Mock(
-                return_value="Test alert message"
-            )
-            alert_manager.alerts[0].get_webhook_url = Mock(
-                return_value="http://webhook.url"
-            )
+            alert_manager.alerts[0].dispatch_issues = Mock()
 
             # Set is_first_check to False so alerts are sent
             alert_manager.is_first_check = False
@@ -46,9 +38,9 @@ class TestAlertManager:
             for alert in alert_manager.alerts:
                 alert.get_issues.assert_called_once_with([mock_status_obj])
 
-            # Should send message for the one alert with issues
-            mock_send_message.assert_called_once_with(
-                "Test alert message", "http://webhook.url"
+            # Should dispatch the alert with issues
+            alert_manager.alerts[0].dispatch_issues.assert_called_once_with(
+                [mock_issue]
             )
 
             # Should mark as not first check
@@ -59,7 +51,6 @@ class TestAlertManager:
         # given
         with (
             patch("monitoring.alert_manager.KrakenStatus") as mock_kraken_status,
-            patch("monitoring.alert_manager.send_message") as mock_send_message,
             patch("monitoring.alert_manager.logging") as mock_logging,
         ):
             # Mock status objects
@@ -74,7 +65,7 @@ class TestAlertManager:
             alert_name = alert_with_issue.name
             alert_with_issue.get_issues = Mock(return_value=[mock_issue])
             alert_with_issue.format_message = Mock(return_value="Test alert message")
-            alert_with_issue.get_webhook_url = Mock(return_value="http://webhook.url")
+            alert_with_issue.dispatch_issues = Mock()
 
             # Keep is_first_check as True (default)
             assert alert_manager.is_first_check is True
@@ -87,8 +78,8 @@ class TestAlertManager:
             alert_manager.check_for_issues()
 
             # then
-            # Should NOT send message because is_first_check is True
-            mock_send_message.assert_not_called()
+            # Should NOT dispatch because is_first_check is True
+            alert_with_issue.dispatch_issues.assert_not_called()
 
             # Should log the suppressed alert
             mock_logging.info.assert_any_call(
@@ -103,12 +94,9 @@ class TestAlertManager:
             assert alert_id in alert_manager.last_alerts
 
     def test_check_for_issues_should_handle_multiple_alerts_with_issues(self) -> None:
-        """Test that multiple alerts with issues are all handled correctly."""
+        """Test that multiple alerts with issues are all dispatched correctly."""
         # given
-        with (
-            patch("monitoring.alert_manager.KrakenStatus") as mock_kraken_status,
-            patch("monitoring.alert_manager.send_message") as mock_send_message,
-        ):
+        with patch("monitoring.alert_manager.KrakenStatus") as mock_kraken_status:
             # Mock status objects
             mock_status_obj = Mock()
             mock_kraken_status.objects = [mock_status_obj]
@@ -123,20 +111,17 @@ class TestAlertManager:
             alert_1 = alert_manager.alerts[0]
             alert_1_name = alert_1.name
             alert_1.get_issues = Mock(return_value=[mock_issue_1])
-            alert_1.format_message = Mock(return_value="Message 1")
-            alert_1.get_webhook_url = Mock(return_value="http://webhook1.url")
+            alert_1.dispatch_issues = Mock()
 
             alert_2 = alert_manager.alerts[1]
             alert_2_name = alert_2.name
             alert_2.get_issues = Mock(return_value=[mock_issue_2])
-            alert_2.format_message = Mock(return_value="Message 2")
-            alert_2.get_webhook_url = Mock(return_value="http://webhook2.url")
+            alert_2.dispatch_issues = Mock()
 
             alert_3 = alert_manager.alerts[2]
             alert_3_name = alert_3.name
             alert_3.get_issues = Mock(return_value=[mock_issue_3])
-            alert_3.format_message = Mock(return_value="Message 3")
-            alert_3.get_webhook_url = Mock(return_value="http://webhook3.url")
+            alert_3.dispatch_issues = Mock()
 
             # Set is_first_check to False so alerts are sent
             alert_manager.is_first_check = False
@@ -149,11 +134,10 @@ class TestAlertManager:
             alert_manager.check_for_issues()
 
             # then
-            # Should send all three messages
-            assert mock_send_message.call_count == 3
-            mock_send_message.assert_any_call("Message 1", "http://webhook1.url")
-            mock_send_message.assert_any_call("Message 2", "http://webhook2.url")
-            mock_send_message.assert_any_call("Message 3", "http://webhook3.url")
+            # Should dispatch all three alerts
+            alert_1.dispatch_issues.assert_called_once_with([mock_issue_1])
+            alert_2.dispatch_issues.assert_called_once_with([mock_issue_2])
+            alert_3.dispatch_issues.assert_called_once_with([mock_issue_3])
 
             # Should update last alert times for all identifiers
             alert_id_1 = alert_manager._get_alert_id(alert_1_name, "id_1")

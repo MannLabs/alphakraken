@@ -262,15 +262,31 @@ class TestGradientPauseAlert:
         mock_webclient_cls.return_value = client
 
         alert = GradientPauseAlert()
+        ts = datetime(2026, 5, 7, 12, 0, 0, tzinfo=pytz.UTC)
         details = {
             "initials": "MaSc",
             "slack_user_id": "U123",
             "gradient_length": timedelta(minutes=30),
             "pause": timedelta(minutes=200),
             "files": [
-                {"name": "a.d", "size_bytes": 1024 * 1024, "precursors": 100},
-                {"name": "b.d", "size_bytes": 2 * 1024 * 1024, "precursors": 200},
-                {"name": "c.d", "size_bytes": 3 * 1024 * 1024, "precursors": 300},
+                {
+                    "name": "a.d",
+                    "size_bytes": 1024 * 1024,
+                    "precursors": 100,
+                    "created_at": ts,
+                },
+                {
+                    "name": "b.d",
+                    "size_bytes": 2 * 1024 * 1024,
+                    "precursors": 200,
+                    "created_at": ts - timedelta(minutes=30),
+                },
+                {
+                    "name": "c.d",
+                    "size_bytes": 3 * 1024 * 1024,
+                    "precursors": 300,
+                    "created_at": ts - timedelta(minutes=60),
+                },
             ],
         }
         alert.dispatch_issues([("instr1", details)])
@@ -280,6 +296,7 @@ class TestGradientPauseAlert:
         assert kwargs["channel"] == "U123"
         assert "instr1" in kwargs["text"]
         assert "a.d" in kwargs["text"]
+        assert "2026-05-07 12:00:00 UTC" in kwargs["text"]
 
     @patch("monitoring.alerts.gradient_pause_alert.WebClient")
     @patch("monitoring.alerts.gradient_pause_alert.SLACK_BOT_TOKEN", "xoxb-test")
@@ -295,14 +312,30 @@ class TestGradientPauseAlert:
         mock_webclient_cls.return_value = client
 
         alert = GradientPauseAlert()
+        ts = datetime(2026, 5, 7, 12, 0, 0, tzinfo=pytz.UTC)
         details_template = {
             "initials": "MaSc",
             "gradient_length": timedelta(minutes=30),
             "pause": timedelta(minutes=200),
             "files": [
-                {"name": "a.d", "size_bytes": 1024 * 1024, "precursors": 1},
-                {"name": "b.d", "size_bytes": 1024 * 1024, "precursors": 2},
-                {"name": "c.d", "size_bytes": 1024 * 1024, "precursors": 3},
+                {
+                    "name": "a.d",
+                    "size_bytes": 1024 * 1024,
+                    "precursors": 1,
+                    "created_at": ts,
+                },
+                {
+                    "name": "b.d",
+                    "size_bytes": 1024 * 1024,
+                    "precursors": 2,
+                    "created_at": ts - timedelta(minutes=30),
+                },
+                {
+                    "name": "c.d",
+                    "size_bytes": 1024 * 1024,
+                    "precursors": 3,
+                    "created_at": ts - timedelta(minutes=60),
+                },
             ],
         }
         issues = [

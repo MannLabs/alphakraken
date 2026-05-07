@@ -168,6 +168,7 @@ def _file_details_with_precursors(files: list[RawFile]) -> list[dict[str, Any]]:
                 "name": raw_file.original_name,
                 "size_bytes": raw_file.size,
                 "precursors": precursors,
+                "created_at": _as_utc(raw_file.created_at),
             }
         )
     return details
@@ -179,7 +180,9 @@ def _format_dm(instrument_id: str, details: dict[str, Any]) -> str:
     grad_min = details["gradient_length"].total_seconds() / 60
 
     file_lines = [
-        f"  - `{f['name']}` ({_format_size(f['size_bytes'])}, "
+        f"  - `{f['name']}` "
+        f"[{f['created_at'].strftime('%Y-%m-%d %H:%M:%S')} UTC] "
+        f"({_format_size(f['size_bytes'])}, "
         f"precursors={_format_precursors(f['precursors'])})"
         for f in details["files"]
     ]

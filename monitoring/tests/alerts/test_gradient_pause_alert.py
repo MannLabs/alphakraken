@@ -346,6 +346,67 @@ class TestGradientPauseAlert:
 
         assert client.chat_postMessage.call_count == 2
 
+    @patch("monitoring.alerts.gradient_pause_alert.ADMIN_SLACK_ID", "U_ADMIN")
+    @patch("monitoring.alerts.gradient_pause_alert.WebClient")
+    @patch("monitoring.alerts.gradient_pause_alert.SLACK_BOT_TOKEN", "xoxb-test")
+    def test_dispatch_issues_cc_admin(self, mock_webclient_cls: Mock) -> None:
+        """When ADMIN_SLACK_ID is set, the admin is cc'd on every issue DM."""
+        client = Mock()
+        mock_webclient_cls.return_value = client
+
+        alert = GradientPauseAlert()
+        ts = datetime(2026, 5, 7, 12, 0, 0, tzinfo=pytz.UTC)
+        details = {
+            "initials": "MaSc",
+            "slack_user_id": "U_USER",
+            "gradient_length": timedelta(minutes=30),
+            "pause": timedelta(minutes=200),
+            "files": [
+                {
+                    "name": f"f{i}.d",
+                    "size_bytes": 1024 * 1024,
+                    "precursors": 1,
+                    "created_at": ts - timedelta(minutes=30 * i),
+                }
+                for i in range(3)
+            ],
+        }
+        alert.dispatch_issues([("instr1", details)])
+
+        channels = [c.kwargs["channel"] for c in client.chat_postMessage.call_args_list]
+        assert channels == ["U_USER", "U_ADMIN"]
+
+    @patch("monitoring.alerts.gradient_pause_alert.ADMIN_SLACK_ID", "U_USER")
+    @patch("monitoring.alerts.gradient_pause_alert.WebClient")
+    @patch("monitoring.alerts.gradient_pause_alert.SLACK_BOT_TOKEN", "xoxb-test")
+    def test_dispatch_issues_does_not_double_dm_when_admin_is_user(
+        self, mock_webclient_cls: Mock
+    ) -> None:
+        """If the admin and the responsible user are the same person, send only once."""
+        client = Mock()
+        mock_webclient_cls.return_value = client
+
+        alert = GradientPauseAlert()
+        ts = datetime(2026, 5, 7, 12, 0, 0, tzinfo=pytz.UTC)
+        details = {
+            "initials": "MaSc",
+            "slack_user_id": "U_USER",
+            "gradient_length": timedelta(minutes=30),
+            "pause": timedelta(minutes=200),
+            "files": [
+                {
+                    "name": f"f{i}.d",
+                    "size_bytes": 1024 * 1024,
+                    "precursors": 1,
+                    "created_at": ts - timedelta(minutes=30 * i),
+                }
+                for i in range(3)
+            ],
+        }
+        alert.dispatch_issues([("instr1", details)])
+
+        assert client.chat_postMessage.call_count == 1
+
     @patch("monitoring.alerts.gradient_pause_alert.WebClient")
     @patch("monitoring.alerts.gradient_pause_alert.SLACK_BOT_TOKEN", "")
     def test_dispatch_issues_skips_when_token_missing(

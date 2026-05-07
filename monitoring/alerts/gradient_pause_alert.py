@@ -27,6 +27,9 @@ INITIALS_TO_SLACK_ID: dict[str, str] = {
     # "MaSc": "U231231231231",
 }
 
+# Slack user ID receiving a copy of every gradient-pause DM. Empty string disables the cc.
+ADMIN_SLACK_ID: str = ""
+
 NUM_FILES_REQUIRED = 3
 
 
@@ -120,12 +123,18 @@ class GradientPauseAlert(BaseAlert):
         for instrument_id, details in issues:
             slack_user_id = details["slack_user_id"]
             text = _format_dm(instrument_id, details)
-            try:
-                client.chat_postMessage(channel=slack_user_id, text=text)
-            except SlackApiError:
-                logging.exception(
-                    f"Failed to DM {slack_user_id} for instrument {instrument_id}"
-                )
+            recipients = [slack_user_id]
+            if ADMIN_SLACK_ID and slack_user_id != ADMIN_SLACK_ID:
+                recipients.append(ADMIN_SLACK_ID)
+            for recipient in recipients:
+                _safe_dm(client, recipient, text, instrument_id)
+
+
+def _safe_dm(client: WebClient, recipient: str, text: str, instrument_id: str) -> None:
+    try:
+        client.chat_postMessage(channel=recipient, text=text)
+    except SlackApiError:
+        logging.exception(f"Failed to DM {recipient} for instrument {instrument_id}")
 
 
 def _as_utc(value: datetime) -> datetime:

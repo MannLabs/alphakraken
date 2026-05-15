@@ -4,10 +4,10 @@
 
 Notify the operator who acquired the last measurements on an instrument once their measurement queue appears to have ended, so they can either start the next batch or investigate a stalled instrument.
 
-Two failure modes are detected, both per instrument:
+Two modes are detected, both per instrument:
 
-- **Stall** — the most recent operator is still the most recent one and time since their last file exceeds **3 × the gradient length** observed between their two latest consecutive files.
-- **Handoff** — a different operator has now taken over (the newest file's initials differ from the file before it). The previous operator's queue is treated as ended *unconditionally*; no 3× check is performed.
+- **Stall** (failure) — the newest two files share the same initials. and time since their last file exceeds **3 × the gradient length** observed between their two latest consecutive files.
+- **Handoff** (happy case) — a different operator has now taken over (the newest file's initials differ from the file before it). The previous operator's queue is treated as ended *unconditionally*; no 3× check is performed.
 
 Target users: instrument operators identified by their initials in raw file names (e.g. `MaSc`). Optionally a single "supervisor" Slack ID is CC'd on every alert.
 
@@ -252,3 +252,34 @@ Environment for local manual testing:
 # Edit INSTRUMENT_USER_SLACK_IDS in monitoring/alerts/config.py
 # Run the monitor: python monitoring/main.py
 ```
+
+
+
+## REVIEW INPUT
+
+  1. "Gradient length" estimate from only 2 files is fragile (§2.1 Rule A)
+  You're calling newest.created_at - second_newest.created_at the "gradient length," but that's actually the inter-file interval — it includes sample prep, wash, equilibration, and (importantly) any user-side dead time. A few realistic failure modes:
+  - One short calibration/QC file followed by a long sample → gradient_length is small → 3× threshold fires within minutes of the next "real" sample, even though the queue is healthy.
+  - A long pause between batches that the user intentionally took → gradient_length is huge → 3× = days, alert never fires when it should.
+USER COMMENT: There are typically no gradients longer than 2 hours. If two files are more than 2 hours apart, treat the newer one as the start of a new queue.
+
+  3. name property + Cases enum is inconsistent (§3.1, §3.3)
+  You define Cases.QUEUE_END_STALL and Cases.QUEUE_END_HANDOFF, then say the one-class alert uses QUEUE_END_STALL as its name. QUEUE_END_HANDOFF is then... what? Either drop it (one class, one name like QUEUE_END) or commit to two classes. Right now it reads like leftover from a previous
+  design.
+USER COMMENT: please fix
+
+  4. Cooldown semantics on send(message, issues) are unclear (§3.3)
+  The signature pre-formats one message from all issues, then QueueEndAlert.send is supposed to "for each issue … call send_slack_dm per recipient." So does user A get a DM containing user B's queue-end too (because they were both in issues)? That would be weird. You probably want either:
+USER COMMENT: The recipient is only the person with the "old" files, not the "new" one.
+
+
+  6. No minimum pause before alert
+  If gradient_length comes out as 30 s (test/calibration files, or noisy timestamps), 3× = 90 s. You'll page operators constantly. Add MIN_PAUSE_BEFORE_STALL_ALERT (e.g., 10–15 min).
+USER COMMENT: No, the "infinite cooldown" is supposed to fire only once per file. Double-check the SPEC for this requirement.
+
+  12. BaseAlert.send hook added for one consumer
+  You're modifying the abstract base + every caller for one alert. Alternative: override _handle_issues only in QueueEndAlert. Less surface area. Either is fine, but the hook is "preserved for hypothetical future alerts" framing — push back if no other alert needs it soon.
+USER COMMENT: please simplify respectively
+
+13. Suppress handoff if a stall already fired for the same second_newest_file_id (A already heard about it).
+USER COMMMENT: add this to the SPEC

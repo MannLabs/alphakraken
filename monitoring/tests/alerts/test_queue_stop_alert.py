@@ -213,7 +213,7 @@ class TestRuleAStall:
         # then
         assert len(result) == 1
         identifier, issue = result[0]
-        assert identifier == "inst1:x_MaSc_a.raw"
+        assert identifier == "inst1:x_MaSc_b.raw:x_MaSc_a.raw"
         assert issue.kind == KIND_STALL
         assert issue.messenger_user_id == "U_MASC"
 
@@ -362,23 +362,75 @@ class TestRuleAStall:
         assert second == []
 
     @patch("monitoring.alerts.queue_stop_alert.RawFile")
-    def test_stall_cooldown_releases_when_newer_file_appears(
+    def test_stall_cooldown_releases_when_oldest_file_drops_out(
         self, mock_rawfile: Mock
     ) -> None:
-        """A new newest file with a different id can re-trigger stall (different cooldown key)."""
-        # given - first call fires with f1 newest; later a new f0 file becomes newest
+        """Cooldown re-fires once the oldest file drops out of the top-3."""
+        # given - first scan with 3 files [a,b,c]; second scan with [d,a,b] (c dropped out)
+        now1 = datetime(2026, 1, 1, 12, 0, tzinfo=pytz.UTC)
+        gradient = timedelta(minutes=30)
+        a_t = now1 - 4 * gradient  # newest
+        b_t = a_t - gradient
+        c_t = b_t - gradient  # oldest
+
+        alert = QueueStopAlert()
+
+        # first scan: [a, b, c]
+        _install_rawfile_mock(
+            mock_rawfile,
+            {
+                "inst1": [
+                    _make_file("x_MaSc_a.raw", a_t),
+                    _make_file("x_MaSc_b.raw", b_t),
+                    _make_file("x_MaSc_c.raw", c_t),
+                ]
+            },
+        )
+        with patch("monitoring.alerts.queue_stop_alert.datetime") as mock_dt:
+            mock_dt.now.return_value = now1
+            first = alert._get_issues([])
+
+        # second scan: a new file d arrives; top-3 = [d, a, b] (c dropped out of top-3)
+        d_t = a_t + gradient
+        now2 = d_t + 4 * gradient
+        _install_rawfile_mock(
+            mock_rawfile,
+            {
+                "inst1": [
+                    _make_file("x_MaSc_d.raw", d_t),
+                    _make_file("x_MaSc_a.raw", a_t),
+                    _make_file("x_MaSc_b.raw", b_t),
+                ]
+            },
+        )
+        with patch("monitoring.alerts.queue_stop_alert.datetime") as mock_dt:
+            mock_dt.now.return_value = now2
+            second = alert._get_issues([])
+
+        # then - both fire, different dedup keys (oldest pair shifted from (c,b) to (b,a))
+        assert len(first) == 1
+        assert first[0][0] == "inst1:x_MaSc_c.raw:x_MaSc_b.raw"
+        assert len(second) == 1
+        assert second[0][0] == "inst1:x_MaSc_b.raw:x_MaSc_a.raw"
+
+    @patch("monitoring.alerts.queue_stop_alert.RawFile")
+    def test_stall_cooldown_holds_when_new_file_does_not_displace_oldest(
+        self, mock_rawfile: Mock
+    ) -> None:
+        """A new file at the top does NOT re-fire if the oldest pair is unchanged.
+
+        2-file → 3-file transition: the original 2 files stay as the oldest pair,
+        so the dedup_key is identical and the second scan is deduped.
+        """
+        # given
         now1 = datetime(2026, 1, 1, 12, 0, tzinfo=pytz.UTC)
         gradient = timedelta(minutes=30)
         f1_t = now1 - 4 * gradient
         f2_t = f1_t - gradient
-        # f0 appears 30 min after f1 (preserving valid gradient <=2h),
-        # and now2 is far enough later that pause(f0) > 3 x gradient.
-        f0_t = f1_t + gradient
-        now2 = f0_t + 4 * gradient
 
         alert = QueueStopAlert()
 
-        # first scan
+        # scan 1: 2 files → stall fires
         _install_rawfile_mock(
             mock_rawfile,
             {
@@ -392,12 +444,14 @@ class TestRuleAStall:
             mock_dt.now.return_value = now1
             first = alert._get_issues([])
 
-        # second scan with newer f0
+        # scan 2: new file c appears at the top; oldest pair unchanged
+        c_t = f1_t + gradient
+        now2 = c_t + 4 * gradient
         _install_rawfile_mock(
             mock_rawfile,
             {
                 "inst1": [
-                    _make_file("x_MaSc_c.raw", f0_t),
+                    _make_file("x_MaSc_c.raw", c_t),
                     _make_file("x_MaSc_a.raw", f1_t),
                     _make_file("x_MaSc_b.raw", f2_t),
                 ]
@@ -407,11 +461,9 @@ class TestRuleAStall:
             mock_dt.now.return_value = now2
             second = alert._get_issues([])
 
-        # then - both fire, different subject_file_ids
+        # then - first fires, second is deduped (same oldest pair)
         assert len(first) == 1
-        assert first[0][0] == "inst1:x_MaSc_a.raw"
-        assert len(second) == 1
-        assert second[0][0] == "inst1:x_MaSc_c.raw"
+        assert second == []
 
 
 # -- Rule B - Handoff ---------------------------------------------------------
@@ -453,7 +505,7 @@ class TestRuleBHandoff:
         # then
         assert len(result) == 1
         identifier, issue = result[0]
-        assert identifier == "inst1:x_MaSc_a.raw"
+        assert identifier == "inst1:x_MaSc_b.raw:x_MaSc_a.raw"
         assert issue.kind == KIND_HANDOFF
         assert issue.messenger_user_id == "U_MASC"
 
@@ -646,64 +698,6 @@ class TestRuleBHandoff:
             second = alert._get_issues([])
         # then
         assert len(first) == 1
-        assert second == []
-
-
-# -- Unified cooldown ---------------------------------------------------------
-
-
-@patch(
-    "monitoring.alerts.queue_stop_alert.INSTRUMENT_USER_SLACK_IDS",
-    {"MaSc": "U_MASC", "JoeB": "U_JOEB"},
-)
-@patch("monitoring.alerts.queue_stop_alert.MAX_GRADIENT_LENGTH_HOURS", 2)
-@patch("monitoring.alerts.queue_stop_alert.QUEUE_STOP_THRESHOLD_MULTIPLIER", 3)
-class TestUnifiedCooldown:
-    """A stall about user-last-file F must suppress later handoff alerts about the same F."""
-
-    @patch("monitoring.alerts.queue_stop_alert.RawFile")
-    def test_unified_cooldown_handoff_suppressed_after_stall_for_same_user_last_file(
-        self, mock_rawfile: Mock
-    ) -> None:
-        """Stall on F then handoff on F (now second-newest) does not re-fire."""
-        # given - first scan triggers stall on F (newest). Later, JoeB takes over
-        # so F becomes second-newest. The handoff for F must NOT re-fire.
-        now1 = datetime(2026, 1, 1, 12, 0, tzinfo=pytz.UTC)
-        gradient = timedelta(minutes=30)
-        f_t = now1 - 4 * gradient  # 2 h pause = 4 x 30 min (well above 3x)
-        prev_t = f_t - gradient
-        _install_rawfile_mock(
-            mock_rawfile,
-            {
-                "inst1": [
-                    _make_file("x_MaSc_a.raw", f_t),
-                    _make_file("x_MaSc_b.raw", prev_t),
-                ]
-            },
-        )
-        alert = QueueStopAlert()
-        with patch("monitoring.alerts.queue_stop_alert.datetime") as mock_dt:
-            mock_dt.now.return_value = now1
-            first = alert._get_issues([])
-        assert len(first) == 1
-        assert first[0][0] == "inst1:x_MaSc_a.raw"
-
-        # later: a JoeB file becomes newest; F is now second-newest
-        now2 = now1 + timedelta(hours=4)
-        _install_rawfile_mock(
-            mock_rawfile,
-            {
-                "inst1": [
-                    _make_file("x_JoeB_n.raw", now2 - timedelta(minutes=5)),
-                    _make_file("x_MaSc_a.raw", f_t),
-                    _make_file("x_MaSc_b.raw", prev_t),
-                ]
-            },
-        )
-        with patch("monitoring.alerts.queue_stop_alert.datetime") as mock_dt:
-            mock_dt.now.return_value = now2
-            second = alert._get_issues([])
-        # then - same (instrument, F) key already fired -> suppressed
         assert second == []
 
 

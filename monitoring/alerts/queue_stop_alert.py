@@ -148,15 +148,16 @@ class QueueStopAlert(BaseAlert):
             if issue is None:
                 continue
 
-            subject_file_id = file1_id if issue.kind == KIND_STALL else file2_id
-            # USER_COMMENT: the dedup_key should contain only the third and second last file id
-            dedup_key = (instrument_id, subject_file_id)
+            # Dedup on the oldest two file ids (oldest first): (file3, file2)
+            # for 3+ files, (file2, file1) for 2 files. Re-fires only when the
+            # oldest-pair "context" changes.
+            dedup_key = (recent[-1].id, recent[-2].id)
             if dedup_key in self._alerted_subject_files:
                 logging.debug(f"Skipping already-alerted {issue.kind} for {dedup_key}")
                 continue
             self._alerted_subject_files.add(dedup_key)
 
-            identifier = f"{instrument_id}:{subject_file_id}"
+            identifier = f"{instrument_id}:{dedup_key[0]}:{dedup_key[1]}"
             issues.append((identifier, issue))
 
         return issues

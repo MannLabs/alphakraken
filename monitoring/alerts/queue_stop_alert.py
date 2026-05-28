@@ -34,7 +34,6 @@ MIN_FILES_FOR_DETECTION = 2
 MIN_FILES_FOR_HANDOFF = 3
 
 _BYTES_PER_GB = 1024**3
-_BYTES_PER_MB = 1024**2
 
 
 @dataclass
@@ -63,10 +62,7 @@ def _extract_initials(name: str | None) -> str | None:
 def _format_size(size_bytes: int | None) -> str:
     if size_bytes is None or size_bytes < 0:
         return "n/a"
-    # USER_COMMENT: simplify: GB only
-    if size_bytes >= _BYTES_PER_GB:
-        return f"{size_bytes / _BYTES_PER_GB:.2f} GB"
-    return f"{size_bytes / _BYTES_PER_MB:.1f} MB"
+    return f"{size_bytes / _BYTES_PER_GB:.2f} GB"
 
 
 class QueueEndAlert(BaseAlert):

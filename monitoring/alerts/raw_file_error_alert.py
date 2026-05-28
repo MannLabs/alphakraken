@@ -50,7 +50,7 @@ class RawFileErrorAlert(BaseAlert):
                 new_error_files.append((raw_file_id, status_details))
 
         # Update the previous statuses for next check
-        self.previous_raw_file_statuses = current_statuses
+        self.previous_raw_file_statuses.update(current_statuses)
 
         return new_error_files
 

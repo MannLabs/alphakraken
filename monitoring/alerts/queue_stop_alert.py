@@ -43,9 +43,9 @@ class QueueEndIssue:
 
     kind: str
     instrument_id: str
-    alerted_initials: str
-    slack_user_id: str
-    new_operator_initials: str | None
+    alerted_initials: str  # USER_COMMENT: not needed, remove
+    slack_user_id: str  # USER_COMMENT: rename to messenger_user_id
+    new_operator_initials: str | None  # USER_COMMENT: not needed, remove
     gradient_length: timedelta | None
     pause: timedelta | None
     recent_files: list[tuple[str, int | None]]
@@ -65,6 +65,7 @@ def _extract_initials(name: str | None) -> str | None:
 def _format_size(size_bytes: int | None) -> str:
     if size_bytes is None or size_bytes < 0:
         return "n/a"
+    # USER_COMMENT: simplify: GB only
     if size_bytes >= _BYTES_PER_GB:
         return f"{size_bytes / _BYTES_PER_GB:.2f} GB"
     return f"{size_bytes / _BYTES_PER_MB:.1f} MB"
@@ -113,6 +114,7 @@ class QueueEndAlert(BaseAlert):
             has_third = len(recent) >= MIN_FILES_FOR_HANDOFF
             file1_id: str = recent[0].id
             file2_id: str = recent[1].id
+            # USER_COMMENT: no need have 'name' here, id carries the full information
             file1_name: str = recent[0].original_name
             file2_name: str = recent[1].original_name
             file3_name: str | None = recent[2].original_name if has_third else None
@@ -184,6 +186,7 @@ class QueueEndAlert(BaseAlert):
         recent_files: list[tuple[str, int | None]],
     ) -> QueueEndIssue | None:
         """Rule A — stall: file1 & file2 share mapped initials, pause exceeds threshold."""
+        # USER_COMMENT: expand docstring with examples
         if initials1 is None or initials1 != initials2:
             return None
 
@@ -231,6 +234,7 @@ class QueueEndAlert(BaseAlert):
         recent_files: list[tuple[str, int | None]],
     ) -> QueueEndIssue | None:
         """Rule B — handoff: file2 & file3 share mapped initials, file1 differs."""
+        # USER_COMMENT: expand docstring with examples
         if initials2 is None or initials2 != initials3:
             return None
         if initials1 == initials2:
@@ -263,6 +267,7 @@ class QueueEndAlert(BaseAlert):
 
     def dispatch(self, issues: list[tuple[str, QueueEndIssue]]) -> None:
         """Format and DM each issue to the prior operator (plus optional CC)."""
+        # USER_COMMENT: the alert should not be responsible for the sending. Move this up to alert_manager
         for identifier, issue in issues:
             message = self._render(issue)
             recipients: list[str] = [issue.slack_user_id]

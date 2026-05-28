@@ -94,7 +94,7 @@ class QueueEndAlert(BaseAlert):
         for instrument_id in instrument_ids:
             recent = list(
                 RawFile.objects.filter(instrument_id=instrument_id)
-                .only("id", "original_name", "created_at", "size", "instrument_id")
+                .only("id", "created_at", "size", "instrument_id")
                 .order_by("-created_at")
                 .limit(3)
             )
@@ -108,22 +108,18 @@ class QueueEndAlert(BaseAlert):
             has_third = len(recent) >= MIN_FILES_FOR_HANDOFF
             file1_id: str = recent[0].id
             file2_id: str = recent[1].id
-            # USER_COMMENT: no need have 'name' here, id carries the full information
-            file1_name: str = recent[0].original_name
-            file2_name: str = recent[1].original_name
-            file3_name: str | None = recent[2].original_name if has_third else None
             file1_created: datetime = _ensure_utc(recent[0].created_at)
             file2_created: datetime = _ensure_utc(recent[1].created_at)
             file3_created: datetime | None = (
                 _ensure_utc(recent[2].created_at) if has_third else None
             )
 
-            initials1 = _extract_initials(file1_name)
-            initials2 = _extract_initials(file2_name)
-            initials3 = _extract_initials(file3_name) if file3_name else None
+            initials1 = _extract_initials(file1_id)
+            initials2 = _extract_initials(file2_id)
+            initials3 = _extract_initials(recent[2].id) if has_third else None
 
             recent_files: list[tuple[str, int | None]] = [
-                (str(rf.original_name), rf.size) for rf in recent
+                (str(rf.id), rf.size) for rf in recent
             ]
 
             issue = self._evaluate_rule_a(

@@ -17,12 +17,11 @@ from monitoring.alerts.queue_stop_alert import (
 
 
 def _make_file(
-    file_id: str, name: str, created_at: datetime, size: int | None = 1_000_000
+    file_id: str, created_at: datetime, size: int | None = 1_000_000
 ) -> MagicMock:
     """Build a Mock RawFile with the fields the alert reads."""
     raw_file = MagicMock()
     raw_file.id = file_id
-    raw_file.original_name = name
     raw_file.created_at = created_at
     raw_file.size = size
     return raw_file
@@ -75,7 +74,7 @@ class TestQueueEndAlertBasics:
         now = datetime.now(tz=pytz.UTC)
         _install_rawfile_mock(
             mock_rawfile,
-            {"inst1": [_make_file("f1", "x_MaSc_y.raw", now)]},
+            {"inst1": [_make_file("x_MaSc_y.raw", now)]},
         )
         # when
         result = QueueEndAlert()._get_issues([])
@@ -134,9 +133,9 @@ class TestQueueEndAlertBasics:
                     n2 = f"x_{t2}_z.raw" if t2 else "noinitials2.raw"
                     n3 = f"x_{t3}_z.raw" if t3 else "noinitials3.raw"
                     files = [
-                        _make_file("a", n1, long_pause_ago),
-                        _make_file("b", n2, thirty_min_before),
-                        _make_file("c", n3, sixty_min_before),
+                        _make_file(n1, long_pause_ago),
+                        _make_file(n2, thirty_min_before),
+                        _make_file(n3, sixty_min_before),
                     ]
                     QueueEndAlert._alerted_subject_files.clear()
                     _install_rawfile_mock(mock_rawfile, {"inst1": files})
@@ -175,8 +174,8 @@ class TestRuleAStall:
             mock_rawfile,
             {
                 "inst1": [
-                    _make_file("f1", "x_MaSc_a.raw", file1_t),
-                    _make_file("f2", "x_MaSc_b.raw", file2_t),
+                    _make_file("x_MaSc_a.raw", file1_t),
+                    _make_file("x_MaSc_b.raw", file2_t),
                 ]
             },
         )
@@ -202,8 +201,8 @@ class TestRuleAStall:
             mock_rawfile,
             {
                 "inst1": [
-                    _make_file("f1", "x_MaSc_a.raw", file1_t),
-                    _make_file("f2", "x_MaSc_b.raw", file2_t),
+                    _make_file("x_MaSc_a.raw", file1_t),
+                    _make_file("x_MaSc_b.raw", file2_t),
                 ]
             },
         )
@@ -214,7 +213,7 @@ class TestRuleAStall:
         # then
         assert len(result) == 1
         identifier, issue = result[0]
-        assert identifier == "inst1:f1"
+        assert identifier == "inst1:x_MaSc_a.raw"
         assert issue.kind == KIND_STALL
         assert issue.messenger_user_id == "U_MASC"
 
@@ -232,8 +231,8 @@ class TestRuleAStall:
             mock_rawfile,
             {
                 "inst1": [
-                    _make_file("f1", "x_MaSc_a.raw", file1_t),
-                    _make_file("f2", "x_MaSc_b.raw", file2_t),
+                    _make_file("x_MaSc_a.raw", file1_t),
+                    _make_file("x_MaSc_b.raw", file2_t),
                 ]
             },
         )
@@ -256,8 +255,8 @@ class TestRuleAStall:
             mock_rawfile,
             {
                 "inst1": [
-                    _make_file("f1", "x_MaSc_a.raw", same),
-                    _make_file("f2", "x_MaSc_b.raw", same),
+                    _make_file("x_MaSc_a.raw", same),
+                    _make_file("x_MaSc_b.raw", same),
                 ]
             },
         )
@@ -286,9 +285,9 @@ class TestRuleAStall:
             mock_rawfile,
             {
                 "inst1": [
-                    _make_file("f1", "x_MaSc_a.raw", f1_t, size=2 * 1024**3),
-                    _make_file("f2", "x_MaSc_b.raw", f2_t, size=512 * 1024**2),
-                    _make_file("f3", "x_MaSc_c.raw", f3_t, size=None),
+                    _make_file("x_MaSc_a.raw", f1_t, size=2 * 1024**3),
+                    _make_file("x_MaSc_b.raw", f2_t, size=512 * 1024**2),
+                    _make_file("x_MaSc_c.raw", f3_t, size=None),
                 ]
             },
         )
@@ -319,8 +318,8 @@ class TestRuleAStall:
             mock_rawfile,
             {
                 "inst1": [
-                    _make_file("f1", "x_MaSc_a.raw", f1_t, size=1024**3),
-                    _make_file("f2", "x_MaSc_b.raw", f2_t, size=1024**3),
+                    _make_file("x_MaSc_a.raw", f1_t, size=1024**3),
+                    _make_file("x_MaSc_b.raw", f2_t, size=1024**3),
                 ]
             },
         )
@@ -347,8 +346,8 @@ class TestRuleAStall:
             mock_rawfile,
             {
                 "inst1": [
-                    _make_file("f1", "x_MaSc_a.raw", f1_t),
-                    _make_file("f2", "x_MaSc_b.raw", f2_t),
+                    _make_file("x_MaSc_a.raw", f1_t),
+                    _make_file("x_MaSc_b.raw", f2_t),
                 ]
             },
         )
@@ -384,8 +383,8 @@ class TestRuleAStall:
             mock_rawfile,
             {
                 "inst1": [
-                    _make_file("f1", "x_MaSc_a.raw", f1_t),
-                    _make_file("f2", "x_MaSc_b.raw", f2_t),
+                    _make_file("x_MaSc_a.raw", f1_t),
+                    _make_file("x_MaSc_b.raw", f2_t),
                 ]
             },
         )
@@ -398,9 +397,9 @@ class TestRuleAStall:
             mock_rawfile,
             {
                 "inst1": [
-                    _make_file("f0", "x_MaSc_c.raw", f0_t),
-                    _make_file("f1", "x_MaSc_a.raw", f1_t),
-                    _make_file("f2", "x_MaSc_b.raw", f2_t),
+                    _make_file("x_MaSc_c.raw", f0_t),
+                    _make_file("x_MaSc_a.raw", f1_t),
+                    _make_file("x_MaSc_b.raw", f2_t),
                 ]
             },
         )
@@ -410,9 +409,9 @@ class TestRuleAStall:
 
         # then - both fire, different subject_file_ids
         assert len(first) == 1
-        assert first[0][0] == "inst1:f1"
+        assert first[0][0] == "inst1:x_MaSc_a.raw"
         assert len(second) == 1
-        assert second[0][0] == "inst1:f0"
+        assert second[0][0] == "inst1:x_MaSc_c.raw"
 
 
 # -- Rule B - Handoff ---------------------------------------------------------
@@ -442,9 +441,9 @@ class TestRuleBHandoff:
             mock_rawfile,
             {
                 "inst1": [
-                    _make_file("f1", "x_JoeB_n.raw", f1_t),
-                    _make_file("f2", "x_MaSc_a.raw", f2_t),
-                    _make_file("f3", "x_MaSc_b.raw", f3_t),
+                    _make_file("x_JoeB_n.raw", f1_t),
+                    _make_file("x_MaSc_a.raw", f2_t),
+                    _make_file("x_MaSc_b.raw", f3_t),
                 ]
             },
         )
@@ -454,7 +453,7 @@ class TestRuleBHandoff:
         # then
         assert len(result) == 1
         identifier, issue = result[0]
-        assert identifier == "inst1:f2"
+        assert identifier == "inst1:x_MaSc_a.raw"
         assert issue.kind == KIND_HANDOFF
         assert issue.messenger_user_id == "U_MASC"
 
@@ -470,8 +469,8 @@ class TestRuleBHandoff:
             mock_rawfile,
             {
                 "inst1": [
-                    _make_file("f1", "x_JoeB_n.raw", now - timedelta(minutes=10)),
-                    _make_file("f2", "x_MaSc_a.raw", now - timedelta(hours=1)),
+                    _make_file("x_JoeB_n.raw", now - timedelta(minutes=10)),
+                    _make_file("x_MaSc_a.raw", now - timedelta(hours=1)),
                 ]
             },
         )
@@ -492,9 +491,9 @@ class TestRuleBHandoff:
             mock_rawfile,
             {
                 "inst1": [
-                    _make_file("f1", "x_JoeB_n.raw", now - timedelta(minutes=5)),
-                    _make_file("f2", "x_MaSc_a.raw", now - timedelta(hours=1)),
-                    _make_file("f3", "x_JoeB_b.raw", now - timedelta(hours=2)),
+                    _make_file("x_JoeB_n.raw", now - timedelta(minutes=5)),
+                    _make_file("x_MaSc_a.raw", now - timedelta(hours=1)),
+                    _make_file("x_JoeB_b.raw", now - timedelta(hours=2)),
                 ]
             },
         )
@@ -515,9 +514,9 @@ class TestRuleBHandoff:
             mock_rawfile,
             {
                 "inst1": [
-                    _make_file("f1", "x_JoeB_n.raw", now - timedelta(minutes=5)),
-                    _make_file("f2", "x_UNK_a.raw", now - timedelta(hours=1)),
-                    _make_file("f3", "x_UNK_b.raw", now - timedelta(hours=2)),
+                    _make_file("x_JoeB_n.raw", now - timedelta(minutes=5)),
+                    _make_file("x_UNK_a.raw", now - timedelta(hours=1)),
+                    _make_file("x_UNK_b.raw", now - timedelta(hours=2)),
                 ]
             },
         )
@@ -538,9 +537,9 @@ class TestRuleBHandoff:
             mock_rawfile,
             {
                 "inst1": [
-                    _make_file("f1", "x_JoeB_n.raw", now - timedelta(minutes=5)),
-                    _make_file("f2", "x_MaSc_a.raw", now - timedelta(hours=1)),
-                    _make_file("f3", "x_MaSc_b.raw", now - timedelta(hours=2)),
+                    _make_file("x_JoeB_n.raw", now - timedelta(minutes=5)),
+                    _make_file("x_MaSc_a.raw", now - timedelta(hours=1)),
+                    _make_file("x_MaSc_b.raw", now - timedelta(hours=2)),
                 ]
             },
         )
@@ -563,9 +562,9 @@ class TestRuleBHandoff:
             mock_rawfile,
             {
                 "inst1": [
-                    _make_file("f1", "QC_check.raw", now - timedelta(minutes=5)),
-                    _make_file("f2", "x_MaSc_a.raw", now - timedelta(hours=1)),
-                    _make_file("f3", "x_MaSc_b.raw", now - timedelta(hours=2)),
+                    _make_file("QC_check.raw", now - timedelta(minutes=5)),
+                    _make_file("x_MaSc_a.raw", now - timedelta(hours=1)),
+                    _make_file("x_MaSc_b.raw", now - timedelta(hours=2)),
                 ]
             },
         )
@@ -588,9 +587,9 @@ class TestRuleBHandoff:
             mock_rawfile,
             {
                 "inst1": [
-                    _make_file("f1", "x_UNK_n.raw", now - timedelta(minutes=5)),
-                    _make_file("f2", "x_MaSc_a.raw", now - timedelta(hours=1)),
-                    _make_file("f3", "x_MaSc_b.raw", now - timedelta(hours=2)),
+                    _make_file("x_UNK_n.raw", now - timedelta(minutes=5)),
+                    _make_file("x_MaSc_a.raw", now - timedelta(hours=1)),
+                    _make_file("x_MaSc_b.raw", now - timedelta(hours=2)),
                 ]
             },
         )
@@ -613,9 +612,9 @@ class TestRuleBHandoff:
             mock_rawfile,
             {
                 "inst1": [
-                    _make_file("f1", "x_JoeB_n.raw", now - timedelta(minutes=5)),
-                    _make_file("f2", "x_MaSc_a.raw", now - timedelta(hours=1)),
-                    _make_file("f3", "x_MaSc_b.raw", now - timedelta(hours=4)),
+                    _make_file("x_JoeB_n.raw", now - timedelta(minutes=5)),
+                    _make_file("x_MaSc_a.raw", now - timedelta(hours=1)),
+                    _make_file("x_MaSc_b.raw", now - timedelta(hours=4)),
                 ]
             },
         )
@@ -634,9 +633,9 @@ class TestRuleBHandoff:
         now = datetime(2026, 1, 1, 12, 0, tzinfo=pytz.UTC)
         files = {
             "inst1": [
-                _make_file("f1", "x_JoeB_n.raw", now - timedelta(minutes=5)),
-                _make_file("f2", "x_MaSc_a.raw", now - timedelta(hours=1)),
-                _make_file("f3", "x_MaSc_b.raw", now - timedelta(hours=2)),
+                _make_file("x_JoeB_n.raw", now - timedelta(minutes=5)),
+                _make_file("x_MaSc_a.raw", now - timedelta(hours=1)),
+                _make_file("x_MaSc_b.raw", now - timedelta(hours=2)),
             ]
         }
         _install_rawfile_mock(mock_rawfile, files)
@@ -677,8 +676,8 @@ class TestUnifiedCooldown:
             mock_rawfile,
             {
                 "inst1": [
-                    _make_file("F", "x_MaSc_a.raw", f_t),
-                    _make_file("prev", "x_MaSc_b.raw", prev_t),
+                    _make_file("x_MaSc_a.raw", f_t),
+                    _make_file("x_MaSc_b.raw", prev_t),
                 ]
             },
         )
@@ -687,7 +686,7 @@ class TestUnifiedCooldown:
             mock_dt.now.return_value = now1
             first = alert._get_issues([])
         assert len(first) == 1
-        assert first[0][0] == "inst1:F"
+        assert first[0][0] == "inst1:x_MaSc_a.raw"
 
         # later: a JoeB file becomes newest; F is now second-newest
         now2 = now1 + timedelta(hours=4)
@@ -695,9 +694,9 @@ class TestUnifiedCooldown:
             mock_rawfile,
             {
                 "inst1": [
-                    _make_file("newF", "x_JoeB_n.raw", now2 - timedelta(minutes=5)),
-                    _make_file("F", "x_MaSc_a.raw", f_t),
-                    _make_file("prev", "x_MaSc_b.raw", prev_t),
+                    _make_file("x_JoeB_n.raw", now2 - timedelta(minutes=5)),
+                    _make_file("x_MaSc_a.raw", f_t),
+                    _make_file("x_MaSc_b.raw", prev_t),
                 ]
             },
         )
@@ -755,8 +754,8 @@ class TestRecipientsAndDelivery:
             mock_rawfile,
             {
                 "inst1": [
-                    _make_file("f1", "x_MaSc_a.raw", now - 4 * gradient),
-                    _make_file("f2", "x_MaSc_b.raw", now - 5 * gradient),
+                    _make_file("x_MaSc_a.raw", now - 4 * gradient),
+                    _make_file("x_MaSc_b.raw", now - 5 * gradient),
                 ]
             },
         )
@@ -780,9 +779,9 @@ class TestRecipientsAndDelivery:
             mock_rawfile,
             {
                 "inst1": [
-                    _make_file("f1", "x_JoeB_n.raw", now - timedelta(minutes=5)),
-                    _make_file("f2", "x_MaSc_a.raw", now - timedelta(hours=1)),
-                    _make_file("f3", "x_MaSc_b.raw", now - timedelta(hours=2)),
+                    _make_file("x_JoeB_n.raw", now - timedelta(minutes=5)),
+                    _make_file("x_MaSc_a.raw", now - timedelta(hours=1)),
+                    _make_file("x_MaSc_b.raw", now - timedelta(hours=2)),
                 ]
             },
         )

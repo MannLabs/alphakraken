@@ -53,7 +53,7 @@ class S3UploadFailureAlert(BaseAlert):
                 failure_info = self._build_failure_info(raw_file)
                 new_failure_files.append((raw_file_id, failure_info))
 
-        self.previous_upload_statuses = current_statuses
+        self.previous_upload_statuses.update(current_statuses)
 
         return new_failure_files
 

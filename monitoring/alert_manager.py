@@ -12,7 +12,7 @@ from alerts import (
     InstrumentFilePileUpAlert,
     InstrumentStallAlert,
     PumpPressureAlert,
-    QueueEndAlert,
+    QueueStopAlert,
     RawFileErrorAlert,
     S3UploadFailureAlert,
     StaleStatusAlert,
@@ -52,7 +52,7 @@ class AlertManager:
             S3UploadFailureAlert(),
             WebAppHealthAlert(),
             PumpPressureAlert(),
-            QueueEndAlert(),
+            QueueStopAlert(),
         ]
 
     def check_for_issues(self) -> None:
@@ -76,12 +76,12 @@ class AlertManager:
 
         if self.should_send_alert(identifiers, alert):
             # TODO: this is tightly coupled, find a better way to handle dm vs channel messages
-            if isinstance(alert, QueueEndAlert):
+            if isinstance(alert, QueueStopAlert):
                 if not suppress_alerts:
-                    self._dispatch_queue_end_dms(alert, issues)
+                    self._dispatch_queue_stop_dms(alert, issues)
                 else:
                     logging.info(
-                        f"Suppressed QueueEndAlert dispatch ({len(issues)} issues)"
+                        f"Suppressed QueueStopAlert dispatch ({len(issues)} issues)"
                     )
             else:
                 message = alert.format_message(issues)
@@ -95,7 +95,7 @@ class AlertManager:
                 self.set_last_alert_time(alert_name, identifier)
 
     @staticmethod
-    def _dispatch_queue_end_dms(alert: QueueEndAlert, issues: list[tuple]) -> None:
+    def _dispatch_queue_stop_dms(alert: QueueStopAlert, issues: list[tuple]) -> None:
         """Fan out per-issue DMs; a failed send to one recipient does not abort the rest."""
         for identifier, issue in issues:
             message = alert.render_issue(issue)
@@ -104,7 +104,7 @@ class AlertManager:
                     send_dm(message, recipient)
                 except Exception as exc:  # noqa: BLE001, PERF203
                     logging.warning(
-                        f"Failed to send QueueEndAlert DM "
+                        f"Failed to send QueueStopAlert DM "
                         f"(recipient={recipient}, kind={issue.kind}, "
                         f"instrument={issue.instrument_id}, identifier={identifier}): {exc}"
                     )

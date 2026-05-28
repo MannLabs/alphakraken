@@ -19,7 +19,7 @@ from .base_alert import BaseAlert
 from .config import (
     INSTRUMENT_USER_SLACK_IDS,
     MAX_GRADIENT_LENGTH_HOURS,
-    QUEUE_END_THRESHOLD_MULTIPLIER,
+    QUEUE_STOP_THRESHOLD_MULTIPLIER,
     SPECIAL_ALERT_SLACK_ID,
     Cases,
 )
@@ -36,7 +36,7 @@ _BYTES_PER_GB = 1024**3
 
 
 @dataclass
-class QueueEndIssue:
+class QueueStopIssue:
     """Payload describing a queue-stop event (stall or handoff)."""
 
     kind: str
@@ -64,8 +64,7 @@ def _format_size(size_bytes: int | None) -> str:
     return f"{size_bytes / _BYTES_PER_GB:.2f} GB"
 
 
-# USER_COMMENT: rename to QueueStopAlert (all occurrences, also other flavours like queue_end -> queue_stop
-class QueueEndAlert(BaseAlert):
+class QueueStopAlert(BaseAlert):
     """Notify the prior operator when their measurement queue has ended."""
 
     # Class-level so it survives across instances created within a single
@@ -75,11 +74,11 @@ class QueueEndAlert(BaseAlert):
     @property
     def name(self) -> str:
         """Return the case name for this alert type."""
-        return Cases.QUEUE_END
+        return Cases.QUEUE_STOP
 
     def _get_issues(
         self, status_objects: list[KrakenStatus]
-    ) -> list[tuple[str, QueueEndIssue]]:
+    ) -> list[tuple[str, QueueStopIssue]]:
         """Detect stall/handoff conditions per instrument."""
         del status_objects
 
@@ -90,7 +89,7 @@ class QueueEndAlert(BaseAlert):
         now = datetime.now(pytz.UTC)
         max_gradient = timedelta(hours=MAX_GRADIENT_LENGTH_HOURS)
 
-        issues: list[tuple[str, QueueEndIssue]] = []
+        issues: list[tuple[str, QueueStopIssue]] = []
         for instrument_id in instrument_ids:
             recent = list(
                 RawFile.objects.filter(instrument_id=instrument_id)
@@ -175,12 +174,12 @@ class QueueEndAlert(BaseAlert):
         now: datetime,
         max_gradient: timedelta,
         recent_files: list[tuple[str, int | None]],
-    ) -> QueueEndIssue | None:
+    ) -> QueueStopIssue | None:
         """Rule A — stall: file1 & file2 share mapped initials, pause exceeds threshold.
 
         Fires when the still-active operator's queue has gone quiet. The shared
         mapped initials of `file1`/`file2` identify the user; the pause from
-        `file1.created_at` to `now` must exceed `QUEUE_END_THRESHOLD_MULTIPLIER`
+        `file1.created_at` to `now` must exceed `QUEUE_STOP_THRESHOLD_MULTIPLIER`
         times the gradient length inferred from the two files.
 
         Example (fires):
@@ -221,10 +220,10 @@ class QueueEndAlert(BaseAlert):
             return None
 
         pause = now - created1
-        if pause <= QUEUE_END_THRESHOLD_MULTIPLIER * gradient_length:
+        if pause <= QUEUE_STOP_THRESHOLD_MULTIPLIER * gradient_length:
             return None
 
-        return QueueEndIssue(
+        return QueueStopIssue(
             kind=KIND_STALL,
             instrument_id=instrument_id,
             messenger_user_id=INSTRUMENT_USER_SLACK_IDS[initials1],
@@ -244,7 +243,7 @@ class QueueEndAlert(BaseAlert):
         initials3: str | None,
         max_gradient: timedelta,
         recent_files: list[tuple[str, int | None]],
-    ) -> QueueEndIssue | None:
+    ) -> QueueStopIssue | None:
         """Rule B — handoff: file2 & file3 share mapped initials, file1 differs.
 
         Fires when someone else took over: the prior operator's last two files
@@ -285,7 +284,7 @@ class QueueEndAlert(BaseAlert):
             )
             return None
 
-        return QueueEndIssue(
+        return QueueStopIssue(
             kind=KIND_HANDOFF,
             instrument_id=instrument_id,
             messenger_user_id=INSTRUMENT_USER_SLACK_IDS[initials2],
@@ -294,13 +293,13 @@ class QueueEndAlert(BaseAlert):
             recent_files=recent_files,
         )
 
-    def format_message(self, issues: list[tuple[str, QueueEndIssue]]) -> str:
+    def format_message(self, issues: list[tuple[str, QueueStopIssue]]) -> str:
         """Not used — alert_manager renders per-issue via `render_issue` instead."""
         del issues
         return ""
 
     @staticmethod
-    def get_recipients(issue: QueueEndIssue) -> list[str]:
+    def get_recipients(issue: QueueStopIssue) -> list[str]:
         """Return the deduplicated DM recipient list for an issue."""
         recipients: list[str] = [issue.messenger_user_id]
         if SPECIAL_ALERT_SLACK_ID and SPECIAL_ALERT_SLACK_ID not in recipients:
@@ -308,7 +307,7 @@ class QueueEndAlert(BaseAlert):
         return recipients
 
     @staticmethod
-    def render_issue(issue: QueueEndIssue) -> str:
+    def render_issue(issue: QueueStopIssue) -> str:
         """Render a single issue to a DM message string."""
         if issue.kind == KIND_STALL:
             gradient_minutes = (

@@ -216,8 +216,7 @@ class TestRuleAStall:
         identifier, issue = result[0]
         assert identifier == "inst1:f1"
         assert issue.kind == KIND_STALL
-        assert issue.alerted_initials == "MaSc"
-        assert issue.slack_user_id == "U_MASC"
+        assert issue.messenger_user_id == "U_MASC"
 
     @patch("monitoring.alerts.queue_stop_alert.RawFile")
     def test_stall_skips_when_gradient_length_exceeds_max(
@@ -457,9 +456,7 @@ class TestRuleBHandoff:
         identifier, issue = result[0]
         assert identifier == "inst1:f2"
         assert issue.kind == KIND_HANDOFF
-        assert issue.alerted_initials == "MaSc"
-        assert issue.slack_user_id == "U_MASC"
-        assert issue.new_operator_initials == "JoeB"
+        assert issue.messenger_user_id == "U_MASC"
 
     @patch("monitoring.alerts.queue_stop_alert.RawFile")
     def test_handoff_skips_when_only_two_files_on_instrument(
@@ -553,7 +550,7 @@ class TestRuleBHandoff:
         # then
         assert len(result) == 1
         _, issue = result[0]
-        assert issue.alerted_initials == "MaSc"
+        assert issue.messenger_user_id == "U_MASC"
 
     @patch("monitoring.alerts.queue_stop_alert.RawFile")
     def test_handoff_fires_when_newest_has_no_initials_token(
@@ -578,8 +575,7 @@ class TestRuleBHandoff:
         # then
         assert len(result) == 1
         _, issue = result[0]
-        assert issue.alerted_initials == "MaSc"
-        assert issue.new_operator_initials is None
+        assert issue.messenger_user_id == "U_MASC"
 
     @patch("monitoring.alerts.queue_stop_alert.RawFile")
     def test_handoff_fires_when_newest_has_unmapped_initials(
@@ -604,8 +600,7 @@ class TestRuleBHandoff:
         # then
         assert len(result) == 1
         _, issue = result[0]
-        assert issue.alerted_initials == "MaSc"
-        assert issue.new_operator_initials is None  # UNK is not mapped
+        assert issue.messenger_user_id == "U_MASC"
 
     @patch("monitoring.alerts.queue_stop_alert.RawFile")
     def test_handoff_skips_when_prior_gap_exceeds_max_gradient_length_hours(
@@ -717,29 +712,25 @@ class TestUnifiedCooldown:
 
 
 def _build_stall_issue(
-    slack_user_id: str = "U_MASC", instrument_id: str = "inst1"
+    messenger_user_id: str = "U_MASC", instrument_id: str = "inst1"
 ) -> QueueEndIssue:
     """Construct a stall QueueEndIssue for delivery tests."""
     return QueueEndIssue(
         kind=KIND_STALL,
         instrument_id=instrument_id,
-        alerted_initials="MaSc",
-        slack_user_id=slack_user_id,
-        new_operator_initials=None,
+        messenger_user_id=messenger_user_id,
         gradient_length=timedelta(minutes=30),
         pause=timedelta(minutes=120),
         recent_files=[("x_MaSc_a.raw", 1024**3), ("x_MaSc_b.raw", 512 * 1024**2)],
     )
 
 
-def _build_handoff_issue(slack_user_id: str = "U_MASC") -> QueueEndIssue:
+def _build_handoff_issue(messenger_user_id: str = "U_MASC") -> QueueEndIssue:
     """Construct a handoff QueueEndIssue for delivery tests."""
     return QueueEndIssue(
         kind=KIND_HANDOFF,
         instrument_id="inst1",
-        alerted_initials="MaSc",
-        slack_user_id=slack_user_id,
-        new_operator_initials="JoeB",
+        messenger_user_id=messenger_user_id,
         gradient_length=timedelta(minutes=30),
         pause=None,
         recent_files=[("x_JoeB_n.raw", 1024**3), ("x_MaSc_a.raw", 1024**3)],
@@ -772,7 +763,7 @@ class TestRecipientsAndDelivery:
         with patch("monitoring.alerts.queue_stop_alert.datetime") as mock_dt:
             mock_dt.now.return_value = now
             issues = QueueEndAlert()._get_issues([])
-        assert issues[0][1].slack_user_id == "U_MASC"
+        assert issues[0][1].messenger_user_id == "U_MASC"
 
     @patch(
         "monitoring.alerts.queue_stop_alert.INSTRUMENT_USER_SLACK_IDS",
@@ -799,14 +790,14 @@ class TestRecipientsAndDelivery:
             mock_dt.now.return_value = now
             issues = QueueEndAlert()._get_issues([])
         assert len(issues) == 1
-        assert issues[0][1].slack_user_id == "U_MASC"  # prior, not JoeB
+        assert issues[0][1].messenger_user_id == "U_MASC"  # prior, not JoeB
 
     @patch("monitoring.alerts.queue_stop_alert.SPECIAL_ALERT_SLACK_ID", "U_SUP")
     @patch("monitoring.alerts.queue_stop_alert.send_dm")
     def test_special_id_cc_when_configured(self, mock_send_dm: Mock) -> None:
         """When SPECIAL_ALERT_SLACK_ID is set, it is CC'd on every DM."""
         # given
-        issue = _build_stall_issue(slack_user_id="U_MASC")
+        issue = _build_stall_issue(messenger_user_id="U_MASC")
         # when
         QueueEndAlert().dispatch([("inst1:f1", issue)])
         # then - two DMs: user, then special ID
@@ -832,7 +823,7 @@ class TestRecipientsAndDelivery:
     ) -> None:
         """If the alerted user IS the special ID, the recipient list dedups to one entry."""
         # given - user IS the special ID
-        issue = _build_stall_issue(slack_user_id="U_MASC")
+        issue = _build_stall_issue(messenger_user_id="U_MASC")
         # when
         QueueEndAlert().dispatch([("inst1:f1", issue)])
         # then - only one DM
@@ -845,8 +836,8 @@ class TestRecipientsAndDelivery:
     ) -> None:
         """Each (issue x recipient) pair produces its own DM call; messages aren't bundled."""
         # given - two issues, each goes to user + special ID = 4 DMs total
-        issue1 = _build_stall_issue(slack_user_id="U_MASC")
-        issue2 = _build_handoff_issue(slack_user_id="U_JOEB")
+        issue1 = _build_stall_issue(messenger_user_id="U_MASC")
+        issue2 = _build_handoff_issue(messenger_user_id="U_JOEB")
         # when
         QueueEndAlert().dispatch([("inst1:f1", issue1), ("inst2:f2", issue2)])
         # then
@@ -873,7 +864,7 @@ class TestRecipientsAndDelivery:
                 raise requests.HTTPError("Slack returned 500")
 
         mock_send_dm.side_effect = _side_effect
-        issue = _build_stall_issue(slack_user_id="U_MASC")
+        issue = _build_stall_issue(messenger_user_id="U_MASC")
         # when
         with caplog.at_level("WARNING"):
             QueueEndAlert().dispatch([("inst1:f1", issue)])

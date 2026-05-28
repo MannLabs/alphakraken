@@ -43,9 +43,7 @@ class QueueEndIssue:
 
     kind: str
     instrument_id: str
-    alerted_initials: str  # USER_COMMENT: not needed, remove
-    slack_user_id: str  # USER_COMMENT: rename to messenger_user_id
-    new_operator_initials: str | None  # USER_COMMENT: not needed, remove
+    messenger_user_id: str
     gradient_length: timedelta | None
     pause: timedelta | None
     recent_files: list[tuple[str, int | None]]
@@ -213,9 +211,7 @@ class QueueEndAlert(BaseAlert):
         return QueueEndIssue(
             kind=KIND_STALL,
             instrument_id=instrument_id,
-            alerted_initials=initials1,
-            slack_user_id=INSTRUMENT_USER_SLACK_IDS[initials1],
-            new_operator_initials=None,
+            messenger_user_id=INSTRUMENT_USER_SLACK_IDS[initials1],
             gradient_length=gradient_length,
             pause=pause,
             recent_files=recent_files,
@@ -252,9 +248,7 @@ class QueueEndAlert(BaseAlert):
         return QueueEndIssue(
             kind=KIND_HANDOFF,
             instrument_id=instrument_id,
-            alerted_initials=initials2,
-            slack_user_id=INSTRUMENT_USER_SLACK_IDS[initials2],
-            new_operator_initials=initials1,
+            messenger_user_id=INSTRUMENT_USER_SLACK_IDS[initials2],
             gradient_length=prior_gradient_length,
             pause=None,
             recent_files=recent_files,
@@ -270,7 +264,7 @@ class QueueEndAlert(BaseAlert):
         # USER_COMMENT: the alert should not be responsible for the sending. Move this up to alert_manager
         for identifier, issue in issues:
             message = self._render(issue)
-            recipients: list[str] = [issue.slack_user_id]
+            recipients: list[str] = [issue.messenger_user_id]
             if SPECIAL_ALERT_SLACK_ID and SPECIAL_ALERT_SLACK_ID not in recipients:
                 recipients.append(SPECIAL_ALERT_SLACK_ID)
 
@@ -296,16 +290,14 @@ class QueueEndAlert(BaseAlert):
                 issue.pause.total_seconds() / 60 if issue.pause is not None else 0
             )
             header = (
-                f":rotating_light: Queue stall on `{issue.instrument_id}` "
-                f"(initials `{issue.alerted_initials}`): "
+                f":rotating_light: Queue stall on `{issue.instrument_id}`: "
                 f"gradient ~{gradient_minutes:.0f} min, "
                 f"pause {pause_minutes:.0f} min."
             )
         else:
-            new_initials = issue.new_operator_initials or "unknown"
             header = (
                 f":wave: Queue handoff on `{issue.instrument_id}` "
-                f"(your last file is now second-newest; new operator: `{new_initials}`)."
+                f"(your last file is now second-newest)."
             )
 
         file_lines = [

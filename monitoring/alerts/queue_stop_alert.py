@@ -175,8 +175,31 @@ class QueueEndAlert(BaseAlert):
         max_gradient: timedelta,
         recent_files: list[tuple[str, int | None]],
     ) -> QueueEndIssue | None:
-        """Rule A — stall: file1 & file2 share mapped initials, pause exceeds threshold."""
-        # USER_COMMENT: expand docstring with examples
+        """Rule A — stall: file1 & file2 share mapped initials, pause exceeds threshold.
+
+        Fires when the still-active operator's queue has gone quiet. The shared
+        mapped initials of `file1`/`file2` identify the user; the pause from
+        `file1.created_at` to `now` must exceed `QUEUE_END_THRESHOLD_MULTIPLIER`
+        times the gradient length inferred from the two files.
+
+        Example (fires):
+            file1 = "_MaSc_a.raw" at 12:00, file2 = "_MaSc_b.raw" at 11:30,
+            now = 14:00. gradient = 30 min, pause = 2 h > 3 x 30 min → stall
+            alert for MaSc with subject_file_id = file1.id.
+
+        Example (skipped, gradient too large):
+            file1 at 12:00, file2 at 09:00 → gradient = 3 h > MAX 2 h. The two
+            files belong to different queues; `file1` is treated as a fresh
+            queue start.
+
+        Example (skipped, pause below threshold):
+            file1 at 12:00, file2 at 11:30, now = 13:00. gradient = 30 min,
+            pause = 1 h <= 3 x 30 min → no stall yet.
+
+        Example (skipped, initials don't match):
+            file1 = "_MaSc_a.raw", file2 = "_JoeB_b.raw" → Rule A doesn't apply
+            (Rule B may, evaluated separately).
+        """
         if initials1 is None or initials1 != initials2:
             return None
 
@@ -221,8 +244,32 @@ class QueueEndAlert(BaseAlert):
         max_gradient: timedelta,
         recent_files: list[tuple[str, int | None]],
     ) -> QueueEndIssue | None:
-        """Rule B — handoff: file2 & file3 share mapped initials, file1 differs."""
-        # USER_COMMENT: expand docstring with examples
+        """Rule B — handoff: file2 & file3 share mapped initials, file1 differs.
+
+        Fires when someone else took over: the prior operator's last two files
+        are now second- and third-newest, and a different (or unattributable)
+        file is on top. The prior operator's queue is treated as ended
+        unconditionally - no 3x pause check, since a new file has arrived from
+        someone else, which is itself the queue-end signal.
+
+        Example (fires, new operator with mapped initials):
+            file1 = "_JoeB_n.raw", file2 = "_MaSc_a.raw", file3 = "_MaSc_b.raw"
+            with file2→file3 gap ≤ 2 h → handoff alert for MaSc with
+            subject_file_id = file2.id. JoeB is NOT notified.
+
+        Example (fires, unattributable newest file):
+            file1 = "QC_check.raw", file2/file3 share `_MaSc_` → still alerts
+            MaSc; file1 just has no operator.
+
+        Example (skipped, prior pair gap too large):
+            file2 at 12:00, file3 at 08:00 → prior gradient = 4 h > MAX 2 h.
+            file2 and file3 weren't part of the same queue.
+
+        Example (skipped, single-file prior run):
+            file2 = "_MaSc_a.raw", file3 = "_JoeB_b.raw" → prior pair doesn't
+            share initials; the "prior" user only had one file, so they didn't
+            have a queue to end.
+        """
         if initials2 is None or initials2 != initials3:
             return None
         if initials1 == initials2:

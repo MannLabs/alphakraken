@@ -2,6 +2,8 @@
 
 from unittest.mock import Mock, patch
 
+import pytest
+
 from monitoring.alert_manager import AlertManager, send_special_alert
 
 
@@ -197,15 +199,12 @@ class TestAlertManager:
     def test_alert_manager_dispatches_queuestopalert_via_isinstance_branch(
         self,
     ) -> None:
-        """QueueEndAlert.dispatch is called; send_message is not."""
+        """QueueEndAlert routes through _dispatch_queue_end_dms, not send_message."""
         # given
         with (
             patch("monitoring.alert_manager.KrakenStatus") as mock_kraken_status,
             patch("monitoring.alert_manager.send_message") as mock_send_message,
-            patch.object(
-                AlertManager.__init__.__globals__["QueueEndAlert"],
-                "dispatch",
-            ) as mock_dispatch,
+            patch.object(AlertManager, "_dispatch_queue_end_dms") as mock_dispatch,
         ):
             mock_status_obj = Mock()
             mock_kraken_status.objects = [mock_status_obj]
@@ -213,7 +212,6 @@ class TestAlertManager:
             alert_manager = AlertManager()
             alert_manager.is_first_check = False
 
-            # Find the QueueEndAlert instance in self.alerts and stub its _get_issues
             queue_alert = next(
                 a
                 for a in alert_manager.alerts
@@ -222,7 +220,6 @@ class TestAlertManager:
             queue_issue = ("inst1:f1", Mock())
             queue_alert.get_issues = Mock(return_value=[queue_issue])
 
-            # Mock all other alerts to return no issues
             for alert in alert_manager.alerts:
                 if alert is not queue_alert:
                     alert.get_issues = Mock(return_value=[])
@@ -231,8 +228,90 @@ class TestAlertManager:
             alert_manager.check_for_issues()
 
             # then
-            mock_dispatch.assert_called_once_with([queue_issue])
+            mock_dispatch.assert_called_once_with(queue_alert, [queue_issue])
             mock_send_message.assert_not_called()
+
+    def test_dispatch_queue_end_dms_fans_out_per_recipient_per_issue(self) -> None:
+        """Each (issue x recipient) yields a send_dm call; messages aren't bundled."""
+        # given
+        from monitoring.alerts.queue_stop_alert import QueueEndIssue
+
+        issue1 = QueueEndIssue(
+            kind="stall",
+            instrument_id="inst1",
+            messenger_user_id="U_MASC",
+            gradient_length=None,
+            pause=None,
+            recent_files=[],
+        )
+        issue2 = QueueEndIssue(
+            kind="handoff",
+            instrument_id="inst2",
+            messenger_user_id="U_JOEB",
+            gradient_length=None,
+            pause=None,
+            recent_files=[],
+        )
+        mock_alert = Mock()
+        mock_alert.render_issue.side_effect = ["msg1", "msg2"]
+        mock_alert.get_recipients.side_effect = [
+            ["U_MASC", "U_SUP"],
+            ["U_JOEB", "U_SUP"],
+        ]
+
+        with patch("monitoring.alert_manager.send_dm") as mock_send_dm:
+            # when
+            AlertManager._dispatch_queue_end_dms(
+                mock_alert, [("inst1:f1", issue1), ("inst2:f2", issue2)]
+            )
+
+        # then - 4 DMs, separate per recipient per issue
+        assert mock_send_dm.call_count == 4
+        recipients = [call.args[1] for call in mock_send_dm.call_args_list]
+        assert recipients == ["U_MASC", "U_SUP", "U_JOEB", "U_SUP"]
+
+    def test_dispatch_queue_end_dms_continues_after_failed_send(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """One bad recipient must not abort delivery to the rest."""
+        # given
+        import requests
+
+        from monitoring.alerts.queue_stop_alert import QueueEndIssue
+
+        issue = QueueEndIssue(
+            kind="stall",
+            instrument_id="inst1",
+            messenger_user_id="U_MASC",
+            gradient_length=None,
+            pause=None,
+            recent_files=[],
+        )
+        mock_alert = Mock()
+        mock_alert.render_issue.return_value = "msg"
+        mock_alert.get_recipients.return_value = ["U_MASC", "U_SUP"]
+
+        def _side_effect(_msg: str, recipient: str, **_kw: object) -> None:
+            if recipient == "U_MASC":
+                raise requests.HTTPError("500")
+
+        with (
+            patch(
+                "monitoring.alert_manager.send_dm", side_effect=_side_effect
+            ) as mock_send_dm,
+            caplog.at_level("WARNING"),
+        ):
+            # when
+            AlertManager._dispatch_queue_end_dms(mock_alert, [("inst1:f1", issue)])
+
+        # then
+        assert mock_send_dm.call_count == 2
+        assert any(
+            "U_MASC" in rec.message
+            and "stall" in rec.message
+            and "inst1" in rec.message
+            for rec in caplog.records
+        )
 
 
 class TestSendSpecialAlert:

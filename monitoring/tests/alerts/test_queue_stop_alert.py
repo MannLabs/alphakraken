@@ -792,86 +792,44 @@ class TestRecipientsAndDelivery:
         assert issues[0][1].messenger_user_id == "U_MASC"  # prior, not JoeB
 
     @patch("monitoring.alerts.queue_stop_alert.SPECIAL_ALERT_SLACK_ID", "U_SUP")
-    @patch("monitoring.alerts.queue_stop_alert.send_dm")
-    def test_special_id_cc_when_configured(self, mock_send_dm: Mock) -> None:
-        """When SPECIAL_ALERT_SLACK_ID is set, it is CC'd on every DM."""
+    def test_get_recipients_includes_special_id_when_configured(self) -> None:
+        """When SPECIAL_ALERT_SLACK_ID is set, get_recipients CCs it."""
         # given
         issue = _build_stall_issue(messenger_user_id="U_MASC")
         # when
-        QueueEndAlert().dispatch([("inst1:f1", issue)])
-        # then - two DMs: user, then special ID
-        recipients = [call.args[1] for call in mock_send_dm.call_args_list]
+        recipients = QueueEndAlert.get_recipients(issue)
+        # then
         assert recipients == ["U_MASC", "U_SUP"]
 
     @patch("monitoring.alerts.queue_stop_alert.SPECIAL_ALERT_SLACK_ID", None)
-    @patch("monitoring.alerts.queue_stop_alert.send_dm")
-    def test_no_special_id_cc_when_not_configured(self, mock_send_dm: Mock) -> None:
-        """When SPECIAL_ALERT_SLACK_ID is None, only the user receives the DM."""
+    def test_get_recipients_excludes_special_id_when_not_configured(self) -> None:
+        """When SPECIAL_ALERT_SLACK_ID is None, get_recipients returns only the user."""
         # given
         issue = _build_stall_issue()
         # when
-        QueueEndAlert().dispatch([("inst1:f1", issue)])
+        recipients = QueueEndAlert.get_recipients(issue)
         # then
-        assert mock_send_dm.call_count == 1
-        assert mock_send_dm.call_args.args[1] == "U_MASC"
+        assert recipients == ["U_MASC"]
 
     @patch("monitoring.alerts.queue_stop_alert.SPECIAL_ALERT_SLACK_ID", "U_MASC")
-    @patch("monitoring.alerts.queue_stop_alert.send_dm")
-    def test_recipients_deduplicated_when_user_id_equals_special_id(
-        self, mock_send_dm: Mock
-    ) -> None:
-        """If the alerted user IS the special ID, the recipient list dedups to one entry."""
+    def test_get_recipients_deduplicates_when_user_id_equals_special_id(self) -> None:
+        """If the alerted user IS the special ID, get_recipients dedups to one entry."""
         # given - user IS the special ID
         issue = _build_stall_issue(messenger_user_id="U_MASC")
         # when
-        QueueEndAlert().dispatch([("inst1:f1", issue)])
-        # then - only one DM
-        assert mock_send_dm.call_count == 1
-
-    @patch("monitoring.alerts.queue_stop_alert.SPECIAL_ALERT_SLACK_ID", "U_SUP")
-    @patch("monitoring.alerts.queue_stop_alert.send_dm")
-    def test_dispatch_sends_separate_dm_per_recipient_per_issue(
-        self, mock_send_dm: Mock
-    ) -> None:
-        """Each (issue x recipient) pair produces its own DM call; messages aren't bundled."""
-        # given - two issues, each goes to user + special ID = 4 DMs total
-        issue1 = _build_stall_issue(messenger_user_id="U_MASC")
-        issue2 = _build_handoff_issue(messenger_user_id="U_JOEB")
-        # when
-        QueueEndAlert().dispatch([("inst1:f1", issue1), ("inst2:f2", issue2)])
+        recipients = QueueEndAlert.get_recipients(issue)
         # then
-        assert mock_send_dm.call_count == 4
-        recipients = [call.args[1] for call in mock_send_dm.call_args_list]
-        # messages are not bundled across users
-        assert recipients == ["U_MASC", "U_SUP", "U_JOEB", "U_SUP"]
-        # messages differ per kind
-        messages = [call.args[0] for call in mock_send_dm.call_args_list]
-        assert "stall" in messages[0].lower() or "Queue stall" in messages[0]
-        assert "handoff" in messages[2].lower() or "Queue handoff" in messages[2]
+        assert recipients == ["U_MASC"]
 
-    @patch("monitoring.alerts.queue_stop_alert.SPECIAL_ALERT_SLACK_ID", "U_SUP")
-    @patch("monitoring.alerts.queue_stop_alert.send_dm")
-    def test_dispatch_continues_after_failed_send_dm(
-        self, mock_send_dm: Mock, caplog: pytest.LogCaptureFixture
-    ) -> None:
-        """A failed send to one recipient must not abort delivery to the next recipient."""
-        # given - first recipient raises; second still receives the DM
-        import requests
-
-        def _side_effect(_message: str, recipient_id: str, **_kwargs: object) -> None:
-            if recipient_id == "U_MASC":
-                raise requests.HTTPError("Slack returned 500")
-
-        mock_send_dm.side_effect = _side_effect
-        issue = _build_stall_issue(messenger_user_id="U_MASC")
+    def test_render_issue_distinguishes_stall_and_handoff(self) -> None:
+        """Stall and handoff messages have different bodies."""
+        # given
+        stall = _build_stall_issue()
+        handoff = _build_handoff_issue()
         # when
-        with caplog.at_level("WARNING"):
-            QueueEndAlert().dispatch([("inst1:f1", issue)])
-        # then - both recipients attempted; failure logged with context
-        assert mock_send_dm.call_count == 2
-        assert any(
-            "U_MASC" in rec.message
-            and "stall" in rec.message
-            and "inst1" in rec.message
-            for rec in caplog.records
-        )
+        stall_msg = QueueEndAlert.render_issue(stall)
+        handoff_msg = QueueEndAlert.render_issue(handoff)
+        # then
+        assert "stall" in stall_msg.lower()
+        assert "handoff" in handoff_msg.lower()
+        assert stall_msg != handoff_msg

@@ -12,7 +12,6 @@ from datetime import datetime, timedelta
 from typing import ClassVar
 
 import pytz
-from messenger_clients import send_dm
 
 from shared.db.models import KrakenStatus, RawFile
 
@@ -294,31 +293,21 @@ class QueueEndAlert(BaseAlert):
         )
 
     def format_message(self, issues: list[tuple[str, QueueEndIssue]]) -> str:
-        """Not used — `dispatch` formats per-recipient messages instead (decision 1.2)."""
+        """Not used — alert_manager renders per-issue via `render_issue` instead."""
         del issues
         return ""
 
-    def dispatch(self, issues: list[tuple[str, QueueEndIssue]]) -> None:
-        """Format and DM each issue to the prior operator (plus optional CC)."""
-        # USER_COMMENT: the alert should not be responsible for the sending. Move this up to alert_manager
-        for identifier, issue in issues:
-            message = self._render(issue)
-            recipients: list[str] = [issue.messenger_user_id]
-            if SPECIAL_ALERT_SLACK_ID and SPECIAL_ALERT_SLACK_ID not in recipients:
-                recipients.append(SPECIAL_ALERT_SLACK_ID)
-
-            for recipient in recipients:
-                try:
-                    send_dm(message, recipient)
-                except Exception as exc:  # noqa: BLE001, PERF203
-                    logging.warning(
-                        f"Failed to send QueueEndAlert DM "
-                        f"(recipient={recipient}, kind={issue.kind}, "
-                        f"instrument={issue.instrument_id}, identifier={identifier}): {exc}"
-                    )
+    @staticmethod
+    def get_recipients(issue: QueueEndIssue) -> list[str]:
+        """Return the deduplicated DM recipient list for an issue."""
+        recipients: list[str] = [issue.messenger_user_id]
+        if SPECIAL_ALERT_SLACK_ID and SPECIAL_ALERT_SLACK_ID not in recipients:
+            recipients.append(SPECIAL_ALERT_SLACK_ID)
+        return recipients
 
     @staticmethod
-    def _render(issue: QueueEndIssue) -> str:
+    def render_issue(issue: QueueEndIssue) -> str:
+        """Render a single issue to a DM message string."""
         if issue.kind == KIND_STALL:
             gradient_minutes = (
                 issue.gradient_length.total_seconds() / 60
@@ -340,7 +329,8 @@ class QueueEndAlert(BaseAlert):
             )
 
         file_lines = [
-            f"- `{name}` ({_format_size(size)})" for name, size in issue.recent_files
+            f"- `{file_id}` ({_format_size(size)})"
+            for file_id, size in issue.recent_files
         ]
         return header + "\nRecent files:\n" + "\n".join(file_lines)
 

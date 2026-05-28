@@ -1,4 +1,4 @@
-# SPEC: Queue-End User Alert
+# SPEC: Queue-Stop User Alert
 
 ## 1. Objective
 
@@ -11,7 +11,7 @@ Two modes are detected per instrument; they are **mutually exclusive** by constr
 
 Gradient length is estimated from the gap between two consecutive files of the same user. Real LC gradients on these instruments are never longer than ~2 hours; if the relevant pair's gap exceeds `MAX_GRADIENT_LENGTH_HOURS` (= 2 h), that pair is treated as belonging to different queues and the corresponding rule does not fire.
 
-In both modes the DM goes only to the **prior** operator (the user whose queue ended). The new operator is never notified by this alert. Optionally a single "supervisor" Slack ID is CC'd on every alert.
+In both modes the DM goes only to the **prior** operator (the user whose queue stopped). The new operator is never notified by this alert. Optionally a single "supervisor" Slack ID is CC'd on every alert.
 
 Target users: instrument operators identified by their initials in raw file names (e.g. `MaSc`).
 
@@ -89,13 +89,13 @@ Recipients per alert (per-issue, never mixed across issues):
 monitoring/
   alerts/
     config.py                          # add constants (see 3.1)
-    queue_end_alert.py                 # NEW: QueueEndAlert(BaseAlert)
+    queue_stop_alert.py                 # NEW: QueueEndAlert(BaseAlert)
     __init__.py                        # export QueueEndAlert
   alert_manager.py                     # add QueueEndAlert() to self.alerts; isinstance branch in _handle_issues
   messenger_clients.py                 # add send_slack_dm() using bot token + chat.postMessage
   tests/
     alerts/
-      test_queue_end_alert.py          # NEW: unit tests (see §5)
+      test_queue_stop_alert.py          # NEW: unit tests (see §5)
     test_messenger_clients.py          # NEW or extended: cover send_slack_dm
 shared/
   yamlsettings.py                      # add YamlKeys.SLACK_BOT_TOKEN = "slack_bot_token"
@@ -108,7 +108,7 @@ No DB schema changes. `base_alert.py` is **not** touched. The initials → Slack
 ### 3.1 New constants in `monitoring/alerts/config.py`
 
 ```python
-# Queue-end alert configuration
+# Queue-stop alert configuration
 QUEUE_END_THRESHOLD_MULTIPLIER = 3             # stall: pause > N × gradient_length triggers alert
 MAX_GRADIENT_LENGTH_HOURS = 2                  # gap larger than this => new queue, no alert
 INSTRUMENT_USER_SLACK_IDS: dict[str, str] = {  # initials -> Slack user ID
@@ -126,7 +126,7 @@ except KeyError:
 And in `Cases`:
 
 ```python
-QUEUE_END = "queue_end"   # single name covers both stall and handoff kinds
+QUEUE_END = "queue_stop"   # single name covers both stall and handoff kinds
 ```
 
 ### 3.2 New Slack DM transport in `messenger_clients.py`
@@ -164,7 +164,7 @@ QUEUE_END = "queue_end"   # single name covers both stall and handoff kinds
 ## 4. Code style
 
 - Follow the surrounding conventions in `monitoring/alerts/`:
-  - Constants in UPPERCASE in `config.py`. No magic numbers/strings in `queue_end_alert.py`.
+  - Constants in UPPERCASE in `config.py`. No magic numbers/strings in `queue_stop_alert.py`.
   - Docstrings on the class and `name` property; method docstrings only where non-trivial. No WHAT comments.
   - Imports at the top of the module.
   - Timezone-aware datetimes with `pytz.UTC` (match `instrument_stall_alert.py`).
@@ -176,10 +176,10 @@ QUEUE_END = "queue_end"   # single name covers both stall and handoff kinds
 
 Mirror `monitoring/tests/alerts/test_pump_pressure_alert.py` and `test_instrument_stall_alert.py`. Unit tests only — no integration tests against a real Mongo or Slack.
 
-Required tests in `monitoring/tests/alerts/test_queue_end_alert.py`:
+Required tests in `monitoring/tests/alerts/test_queue_stop_alert.py`:
 
 **Setup / common**
-1. `test_name_returns_queue_end_case` (`Cases.QUEUE_END`).
+1. `test_name_returns_queue_stop_case` (`Cases.QUEUE_END`).
 2. `test_no_alert_when_fewer_than_two_files`.
 3. `test_no_alert_when_no_files_have_mapped_initials`.
 4. `test_initials_pattern_matches_underscored_token_only` (e.g. `MaScfoo` should NOT match).
@@ -217,13 +217,13 @@ Required tests in `monitoring/tests/alerts/test_queue_end_alert.py`:
 28. `test_recipients_deduplicated_when_user_id_equals_special_id`.
 29. `test_dispatch_sends_separate_dm_per_recipient_per_issue` (asserts QueueEndAlert.dispatch fans out send_slack_dm; messages are not bundled across users).
 30. `test_dispatch_continues_after_failed_send_slack_dm` — first recipient raises (e.g. `requests.HTTPError` or `ok: false`); second recipient still receives the DM; failure is logged with `(recipient, kind, instrument_id)`; the call to `_get_issues` for the next instrument is unaffected.
-31. `test_alert_manager_dispatches_queueendalert_via_isinstance_branch` (lives in `test_alert_manager.py` if it exists, else in this file).
+31. `test_alert_manager_dispatches_queuestopalert_via_isinstance_branch` (lives in `test_alert_manager.py` if it exists, else in this file).
 
 Mocks:
-- Patch `monitoring.alerts.queue_end_alert.RawFile` for query control.
-- Patch `monitoring.alerts.queue_end_alert.augment_raw_files_with_metrics` to inject precursors.
-- Patch `monitoring.alerts.queue_end_alert.INSTRUMENT_USER_SLACK_IDS`, `SPECIAL_ALERT_SLACK_ID`, `MAX_GRADIENT_LENGTH_HOURS`, `QUEUE_END_THRESHOLD_MULTIPLIER` per test.
-- Patch `monitoring.alerts.queue_end_alert.send_slack_dm` (or `messenger_clients.send_slack_dm`) for delivery assertions.
+- Patch `monitoring.alerts.queue_stop_alert.RawFile` for query control.
+- Patch `monitoring.alerts.queue_stop_alert.augment_raw_files_with_metrics` to inject precursors.
+- Patch `monitoring.alerts.queue_stop_alert.INSTRUMENT_USER_SLACK_IDS`, `SPECIAL_ALERT_SLACK_ID`, `MAX_GRADIENT_LENGTH_HOURS`, `QUEUE_END_THRESHOLD_MULTIPLIER` per test.
+- Patch `monitoring.alerts.queue_stop_alert.send_slack_dm` (or `messenger_clients.send_slack_dm`) for delivery assertions.
 - Freeze `datetime.now` (use `pytz.UTC`).
 
 For `send_slack_dm` in `messenger_clients.py`, add a focused test asserting endpoint, auth header, payload, and the `ok: false` failure path; mock `requests.post`. Add a test that `send_slack_dm` no-ops with a warning when `token` is empty.
@@ -231,7 +231,7 @@ For `send_slack_dm` in `messenger_clients.py`, add a focused test asserting endp
 Run with the existing project commands (per CLAUDE.md):
 
 ```bash
-python -m pytest monitoring/tests/alerts/test_queue_end_alert.py
+python -m pytest monitoring/tests/alerts/test_queue_stop_alert.py
 pre-commit run --all-files
 ```
 

@@ -75,6 +75,7 @@ class AlertManager:
         identifiers = [issue[0] for issue in issues]
 
         if self.should_send_alert(identifiers, alert):
+            # TODO: this is tightly coupled, find a better way to handle dm vs channel messages
             if isinstance(alert, QueueEndAlert):
                 if not suppress_alerts:
                     self._dispatch_queue_end_dms(alert, issues)

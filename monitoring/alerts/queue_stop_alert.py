@@ -30,7 +30,7 @@ KIND_STALL = "stall"
 KIND_HANDOFF = "handoff"
 
 MIN_FILES_FOR_DETECTION = 2
-MIN_FILES_FOR_HANDOFF = 3
+MIN_FILES_FOR_HANDOFF_DETECTION = 3
 
 _BYTES_PER_GB = 1024**3
 
@@ -64,6 +64,7 @@ def _format_size(size_bytes: int | None) -> str:
     return f"{size_bytes / _BYTES_PER_GB:.2f} GB"
 
 
+# USER_COMMENT: rename to QueueStopAlert (all occurrences, also other flavours like queue_end -> queue_stop
 class QueueEndAlert(BaseAlert):
     """Notify the prior operator when their measurement queue has ended."""
 
@@ -104,18 +105,18 @@ class QueueEndAlert(BaseAlert):
                 )
                 continue
 
-            has_third = len(recent) >= MIN_FILES_FOR_HANDOFF
+            has_third_file = len(recent) >= MIN_FILES_FOR_HANDOFF_DETECTION
             file1_id: str = recent[0].id
             file2_id: str = recent[1].id
             file1_created: datetime = _ensure_utc(recent[0].created_at)
             file2_created: datetime = _ensure_utc(recent[1].created_at)
             file3_created: datetime | None = (
-                _ensure_utc(recent[2].created_at) if has_third else None
+                _ensure_utc(recent[2].created_at) if has_third_file else None
             )
 
             initials1 = _extract_initials(file1_id)
             initials2 = _extract_initials(file2_id)
-            initials3 = _extract_initials(recent[2].id) if has_third else None
+            initials3 = _extract_initials(recent[2].id) if has_third_file else None
 
             recent_files: list[tuple[str, int | None]] = [
                 (str(rf.id), rf.size) for rf in recent
@@ -149,6 +150,7 @@ class QueueEndAlert(BaseAlert):
                 continue
 
             subject_file_id = file1_id if issue.kind == KIND_STALL else file2_id
+            # USER_COMMENT: the dedup_key should contain only the third and second last file id
             dedup_key = (instrument_id, subject_file_id)
             if dedup_key in self._alerted_subject_files:
                 logging.debug(f"Skipping already-alerted {issue.kind} for {dedup_key}")
@@ -323,10 +325,7 @@ class QueueEndAlert(BaseAlert):
                 f"pause {pause_minutes:.0f} min."
             )
         else:
-            header = (
-                f":wave: Queue handoff on `{issue.instrument_id}` "
-                f"(your last file is now second-newest)."
-            )
+            header = f":wave: Queue handoff on `{issue.instrument_id}` "
 
         file_lines = [
             f"- `{file_id}` ({_format_size(size)})"

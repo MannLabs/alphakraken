@@ -43,7 +43,7 @@ INSTRUMENT_STALL_INSTRUMENT_IDS: set[str] = set()  # Instruments to monitor
 
 # Queue-stop alert configuration
 QUEUE_END_THRESHOLD_MULTIPLIER = 3  # stall: pause > N x gradient_length triggers alert
-MAX_GRADIENT_LENGTH_HOURS = 2  # gap larger than this => new queue, no alert
+MAX_GRADIENT_LENGTH_HOURS = 2.5  # gap larger than this => new queue, no alert
 INSTRUMENT_USER_SLACK_IDS: dict[str, str] = {  # initials -> Slack user ID
     # "MaSc": "U231231231231",
 }

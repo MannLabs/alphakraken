@@ -12,6 +12,7 @@ from alerts import (
     InstrumentFilePileUpAlert,
     InstrumentStallAlert,
     PumpPressureAlert,
+    QueueEndAlert,
     RawFileErrorAlert,
     S3UploadFailureAlert,
     StaleStatusAlert,
@@ -51,6 +52,7 @@ class AlertManager:
             S3UploadFailureAlert(),
             WebAppHealthAlert(),
             PumpPressureAlert(),
+            QueueEndAlert(),
         ]
 
     def check_for_issues(self) -> None:
@@ -73,13 +75,20 @@ class AlertManager:
         identifiers = [issue[0] for issue in issues]
 
         if self.should_send_alert(identifiers, alert):
-            message = alert.format_message(issues)
-
-            webhook_url = alert.get_webhook_url()
-            if not suppress_alerts:
-                send_message(message, webhook_url)
+            if isinstance(alert, QueueEndAlert):
+                if not suppress_alerts:
+                    alert.dispatch(issues)
+                else:
+                    logging.info(
+                        f"Suppressed QueueEndAlert dispatch ({len(issues)} issues)"
+                    )
             else:
-                logging.info(f"Suppressed alert for {alert_name}: {message}")
+                message = alert.format_message(issues)
+                webhook_url = alert.get_webhook_url()
+                if not suppress_alerts:
+                    send_message(message, webhook_url)
+                else:
+                    logging.info(f"Suppressed alert for {alert_name}: {message}")
 
             for identifier in identifiers:
                 self.set_last_alert_time(alert_name, identifier)

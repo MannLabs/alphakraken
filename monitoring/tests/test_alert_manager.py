@@ -194,6 +194,46 @@ class TestAlertManager:
         should_send_other = alert_manager.should_send_alert(["other_instrument"], alert)
         assert should_send_other is True
 
+    def test_alert_manager_dispatches_queuestopalert_via_isinstance_branch(
+        self,
+    ) -> None:
+        """QueueEndAlert.dispatch is called; send_message is not."""
+        # given
+        with (
+            patch("monitoring.alert_manager.KrakenStatus") as mock_kraken_status,
+            patch("monitoring.alert_manager.send_message") as mock_send_message,
+            patch.object(
+                AlertManager.__init__.__globals__["QueueEndAlert"],
+                "dispatch",
+            ) as mock_dispatch,
+        ):
+            mock_status_obj = Mock()
+            mock_kraken_status.objects = [mock_status_obj]
+
+            alert_manager = AlertManager()
+            alert_manager.is_first_check = False
+
+            # Find the QueueEndAlert instance in self.alerts and stub its _get_issues
+            queue_alert = next(
+                a
+                for a in alert_manager.alerts
+                if a.__class__.__name__ == "QueueEndAlert"
+            )
+            queue_issue = ("inst1:f1", Mock())
+            queue_alert.get_issues = Mock(return_value=[queue_issue])
+
+            # Mock all other alerts to return no issues
+            for alert in alert_manager.alerts:
+                if alert is not queue_alert:
+                    alert.get_issues = Mock(return_value=[])
+
+            # when
+            alert_manager.check_for_issues()
+
+            # then
+            mock_dispatch.assert_called_once_with([queue_issue])
+            mock_send_message.assert_not_called()
+
 
 class TestSendSpecialAlert:
     """Test suite for send_special_alert function."""

@@ -41,6 +41,14 @@ INSTRUMENT_FILE_MIN_AGE_HOURS = 6  # Only consider files older than 6 hours
 INSTRUMENT_STALL_THRESHOLD_HOURS = 2  # How long without a new file before alerting
 INSTRUMENT_STALL_INSTRUMENT_IDS: set[str] = set()  # Instruments to monitor
 
+# Queue-stop alert configuration
+QUEUE_END_THRESHOLD_MULTIPLIER = 3  # stall: pause > N x gradient_length triggers alert
+MAX_GRADIENT_LENGTH_HOURS = 2  # gap larger than this => new queue, no alert
+INSTRUMENT_USER_SLACK_IDS: dict[str, str] = {  # initials -> Slack user ID
+    # "MaSc": "U231231231231",
+}
+SPECIAL_ALERT_SLACK_ID: str | None = None  # optional CC'd Slack user ID
+
 # Pump pressure alert configuration
 PUMP_PRESSURE_LOOKBACK_DAYS = 1
 PUMP_PRESSURE_WINDOW_SIZE = 5  # Number of samples to compare
@@ -66,6 +74,12 @@ except KeyError:
     )
     BUSINESS_ALERTS_WEBHOOK_URL = OPS_ALERTS_WEBHOOK_URL
 
+try:
+    SLACK_BOT_TOKEN: str = get_notification_setting(YamlKeys.SLACK_BOT_TOKEN)
+except KeyError:
+    logging.warning("Slack bot token not found in config; QueueEndAlert DMs disabled.")
+    SLACK_BOT_TOKEN = ""
+
 
 class Cases:
     """Cases for which to send alerts."""
@@ -80,3 +94,4 @@ class Cases:
     WEBAPP_HEALTH = "webapp_health"
     PUMP_PRESSURE_INCREASE = "pump_pressure_increase"
     INSTRUMENT_STALL = "instrument_stall"
+    QUEUE_END = "queue_stop"

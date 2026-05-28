@@ -10,6 +10,9 @@ columns:
   - name: "size_gb"
     color_gradient: "green_is_high"
     plot: true
+  - name: "evosep_pump_hp_pressure_max"
+    color_gradient: "red_is_high"
+    plot: true
   - name: "file_created"
   - name: "gradient_length"
     color_gradient: "red_is_high"
@@ -82,8 +85,6 @@ columns:
       - "calibration:ms2_median_accuracy"
       - "calibration:ms2_bias" # alphadia >= 2
 
-  - name: "evosep_pump_hp_pressure_max"
-    plot: true
   - name: "ms1_median_injection_time"
     plot: true
   - name: "ms1_scans"

@@ -7,6 +7,7 @@ from datetime import timedelta
 from airflow.models import Param
 from airflow.models.dag import DAG
 from airflow.operators.python import PythonOperator
+from callbacks import on_failure_callback
 from common.constants import (
     AIRFLOW_QUEUE_PREFIX,
     Pools,
@@ -27,6 +28,8 @@ with DAG(
         "retries": 3,
         "retry_delay": timedelta(minutes=5),
         "queue": f"{AIRFLOW_QUEUE_PREFIX}s3_uploader",
+        # this callback is executed when tasks fail
+        "on_failure_callback": on_failure_callback,
     },
     description="Upload raw files to S3.",
     tags=["s3"],

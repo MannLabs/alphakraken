@@ -68,6 +68,30 @@ def test_get_files_to_move_correctly_puts_files_to_xcom(
     )
 
 
+@patch("dags.impl.mover_impl.get_raw_file_by_id")
+@patch("dags.impl.mover_impl.RawFileWrapperFactory.create_write_wrapper")
+def test_get_files_to_move_no_files_to_move(
+    mock_create_write_wrapper: MagicMock,
+    mock_get_raw_file_by_id: MagicMock,
+    mock_raw_file: MagicMock,
+) -> None:
+    """Test get_files_to_move correctly raises if no files to move."""
+    ti = MagicMock()
+
+    kwargs = {DagContext.PARAMS: {DagParams.RAW_FILE_ID: 123}}
+
+    mock_get_raw_file_by_id.return_value = mock_raw_file
+
+    files_to_move = {}
+
+    mock_create_write_wrapper.return_value.get_files_to_move.return_value = (
+        files_to_move
+    )
+
+    with pytest.raises(AirflowFailException):
+        get_files_to_move(ti, **kwargs)
+
+
 @patch.dict(_INSTRUMENTS, {"instrument1": {"type": "some_type"}})
 @patch("shared.db.interface.connect_db")
 @patch("dags.impl.mover_impl.update_raw_file")

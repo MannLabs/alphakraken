@@ -224,7 +224,7 @@ class Project(Document):
     meta: ClassVar = {"strict": False}
     objects: ClassVar[QuerySet[Project]]
 
-    id = StringField(required=True, primary_key=True, min_length=5, max_length=16)
+    id = StringField(required=True, primary_key=True, min_length=4, max_length=16)
     name = StringField(required=True, max_length=64)
     description = StringField(max_length=512)
 

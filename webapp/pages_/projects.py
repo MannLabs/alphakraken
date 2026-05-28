@@ -105,7 +105,7 @@ with c1.expander("Click here for help ..."):
         Currently, only projects ids that follow after the pattern 'SA' are picked up, e.g. `20240801_something_SA_A123_my-sample.raw`.
         If no matching project can be found for a file, then fallback settings are used.
         Please make sure your project identifier is 'unique enough' ("DDA" might be a bad pick), otherwise it might cause false positives.
-        Needs to be between 5 and 16 characters, contain only uppercase letters and numbers, and at least one letter.
+        Needs to be between 4 and 16 characters, contain only uppercase letters and numbers, and at least one letter.
 
         ### Workflow
         1. Create a project with a unique project id.
@@ -370,7 +370,7 @@ def _check_project_id(project_id: str) -> None:
     """Check if the project id is valid, raise ValueError if not."""
     if (
         project_id is None
-        or len(project_id) < 5  # noqa: PLR2004
+        or len(project_id) < 4  # noqa: PLR2004
         or len(project_id) > 16  # noqa: PLR2004
         or project_id.isdigit()
         or re.findall(ALLOWED_CHARACTERS_IN_PROJECT_ID, project_id)

@@ -860,3 +860,35 @@ class TestRecipientsAndDelivery:
         assert "1.00 GB" in msg
         assert "2026-01-01 12:00 UTC" in msg
         assert "2026-01-01 11:30 UTC" in msg
+
+    @patch("monitoring.alerts.queue_stop_alert.RawFile")
+    def test_refresh_recent_files_replaces_stale_data(self, mock_rawfile: Mock) -> None:
+        """`refresh_recent_files` re-queries the DB so newly-populated metadata shows up."""
+        # given - issue carries stale data (size=None for newest file)
+        stale_time = datetime(2026, 1, 1, 12, 0, tzinfo=pytz.UTC)
+        issue = QueueStopIssue(
+            kind=KIND_STALL,
+            instrument_id="inst1",
+            messenger_user_id="U_MASC",
+            gradient_length=timedelta(minutes=30),
+            pause=timedelta(minutes=120),
+            recent_files=[
+                RecentFile("x_MaSc_a.raw", None, stale_time),  # stale: size n/a
+            ],
+        )
+        # DB now has the size populated
+        fresh_time = stale_time
+        _install_rawfile_mock(
+            mock_rawfile,
+            {
+                "inst1": [
+                    _make_file("x_MaSc_a.raw", fresh_time, size=12 * 1024**3),
+                ]
+            },
+        )
+        # when
+        QueueStopAlert.refresh_recent_files(issue)
+        # then
+        assert issue.recent_files == [
+            RecentFile("x_MaSc_a.raw", 12 * 1024**3, fresh_time),
+        ]

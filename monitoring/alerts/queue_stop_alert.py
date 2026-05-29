@@ -323,6 +323,28 @@ class QueueStopAlert(BaseAlert):
         return recipients
 
     @staticmethod
+    def refresh_recent_files(issue: QueueStopIssue) -> None:
+        """Re-query the top-3 RawFiles for this instrument to pick up newer metadata.
+
+        Mutates `issue.recent_files`. Called right before render: size may
+        have been populated in the gap between detection and dispatch.
+        """
+        fresh = list(
+            RawFile.objects.filter(instrument_id=issue.instrument_id)
+            .only("id", "created_at", "size", "instrument_id")
+            .order_by("-created_at")
+            .limit(3)
+        )
+        issue.recent_files = [
+            RecentFile(
+                file_id=str(rf.id),
+                size=rf.size,
+                created_at=_ensure_utc(rf.created_at),
+            )
+            for rf in fresh
+        ]
+
+    @staticmethod
     def render_issue(issue: QueueStopIssue) -> str:
         """Render a single issue to a DM message string."""
         if issue.kind == KIND_STALL:

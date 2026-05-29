@@ -269,6 +269,11 @@ class TestAlertManager:
         assert mock_send_dm.call_count == 4
         recipients = [call.args[1] for call in mock_send_dm.call_args_list]
         assert recipients == ["U_MASC", "U_SUP", "U_JOEB", "U_SUP"]
+        # refresh_recent_files must be called once per issue, before render
+        assert mock_alert.refresh_recent_files.call_args_list == [
+            (((issue1,),)),
+            (((issue2,),)),
+        ]
 
     def test_dispatch_queue_stop_dms_continues_after_failed_send(
         self, caplog: pytest.LogCaptureFixture

@@ -98,6 +98,7 @@ class AlertManager:
     def _dispatch_queue_stop_dms(alert: QueueStopAlert, issues: list[tuple]) -> None:
         """Fan out per-issue DMs; a failed send to one recipient does not abort the rest."""
         for identifier, issue in issues:
+            alert.refresh_recent_files(issue)
             message = alert.render_issue(issue)
             for recipient in alert.get_recipients(issue):
                 try:

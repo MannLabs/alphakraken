@@ -146,7 +146,13 @@ for display in the Airflow UI.
 #### URL redirect
 In case you want to set up a URL redirect from one PC to one or multiple others, do the following on the redirecting PC:
 1. Edit `misc/nginx.conf`: substitute the placeholder IP adresses (e.g. `255.255.0.1`) with the correct ones.
-2. Start the respective container `./compose.sh up nginx --build --force-recreate -d`, see the folder `nginx_logs` for logs
+2. Create the basic auth credentials file `misc/.htpasswd` (gitignored). The webapp is served behind HTTP basic auth with two users, `admin` and `kraken`:
+   ```bash
+   htpasswd -cB misc/.htpasswd admin     # -c creates the file, -B uses bcrypt; prompts for password
+   htpasswd -B  misc/.htpasswd kraken    # add the second user (no -c, appends)
+   ```
+   Note: the file must exist before starting nginx, otherwise docker will auto-create it as an empty directory and nginx will fail to start. Basic auth only covers the webapp (ports 80/8501); Airflow (8080) and the MCP server (8089) keep their own access controls.
+3. Start the respective container `./compose.sh up nginx --build --force-recreate -d`, see the folder `nginx_logs` for logs
 
 #### On the cluster
 1. Log into the cluster using the `kraken-read` user.

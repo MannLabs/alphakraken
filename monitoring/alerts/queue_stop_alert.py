@@ -35,6 +35,15 @@ MIN_FILES_FOR_HANDOFF_DETECTION = 3
 _BYTES_PER_GB = 1024**3
 
 
+@dataclass(frozen=True)
+class RecentFile:
+    """One row in the `Recent files:` section of the DM."""
+
+    file_id: str
+    size: int | None
+    created_at: datetime
+
+
 @dataclass
 class QueueStopIssue:
     """Payload describing a queue-stop event (stall or handoff)."""
@@ -44,7 +53,7 @@ class QueueStopIssue:
     messenger_user_id: str
     gradient_length: timedelta | None
     pause: timedelta | None
-    recent_files: list[tuple[str, int | None]]
+    recent_files: list[RecentFile]
 
 
 def _extract_initials(name: str | None) -> str | None:
@@ -117,8 +126,13 @@ class QueueStopAlert(BaseAlert):
             initials2 = _extract_initials(file2_id)
             initials3 = _extract_initials(recent[2].id) if has_third_file else None
 
-            recent_files: list[tuple[str, int | None]] = [
-                (str(rf.id), rf.size) for rf in recent
+            recent_files: list[RecentFile] = [
+                RecentFile(
+                    file_id=str(rf.id),
+                    size=rf.size,
+                    created_at=_ensure_utc(rf.created_at),
+                )
+                for rf in recent
             ]
 
             issue = self._evaluate_rule_a(
@@ -175,7 +189,7 @@ class QueueStopAlert(BaseAlert):
         initials2: str | None,
         now: datetime,
         max_gradient: timedelta,
-        recent_files: list[tuple[str, int | None]],
+        recent_files: list[RecentFile],
     ) -> QueueStopIssue | None:
         """Rule A — stall: file1 & file2 share mapped initials, pause exceeds threshold.
 
@@ -244,7 +258,7 @@ class QueueStopAlert(BaseAlert):
         initials2: str | None,
         initials3: str | None,
         max_gradient: timedelta,
-        recent_files: list[tuple[str, int | None]],
+        recent_files: list[RecentFile],
     ) -> QueueStopIssue | None:
         """Rule B — handoff: file2 & file3 share mapped initials, file1 differs.
 
@@ -329,8 +343,9 @@ class QueueStopAlert(BaseAlert):
             header = f":wave: Queue handoff on `{issue.instrument_id}` "
 
         file_lines = [
-            f"- `{file_id}` ({_format_size(size)})"
-            for file_id, size in issue.recent_files
+            f"- `{rf.file_id}` ({_format_size(rf.size)}) "
+            f"[{rf.created_at:%Y-%m-%d %H:%M UTC}]"
+            for rf in issue.recent_files
         ]
         return header + "\nRecent files:\n" + "\n".join(file_lines)
 

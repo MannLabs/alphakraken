@@ -13,6 +13,7 @@ from monitoring.alerts.queue_stop_alert import (
     KIND_STALL,
     QueueStopAlert,
     QueueStopIssue,
+    RecentFile,
 )
 
 
@@ -273,7 +274,7 @@ class TestRuleAStall:
 
     @patch("monitoring.alerts.queue_stop_alert.RawFile")
     def test_stall_includes_recent_files_with_size(self, mock_rawfile: Mock) -> None:
-        """Issue carries up to three recent files with their (name, size) tuples."""
+        """Issue carries up to three recent files with their (id, size, created_at)."""
         # given - three files; first two share initials and trigger stall
         now = datetime(2026, 1, 1, 12, 0, tzinfo=pytz.UTC)
         gradient = timedelta(minutes=30)
@@ -299,9 +300,9 @@ class TestRuleAStall:
         assert len(result) == 1
         _, issue = result[0]
         assert issue.recent_files == [
-            ("x_MaSc_a.raw", 2 * 1024**3),
-            ("x_MaSc_b.raw", 512 * 1024**2),
-            ("x_MaSc_c.raw", None),
+            RecentFile("x_MaSc_a.raw", 2 * 1024**3, f1_t),
+            RecentFile("x_MaSc_b.raw", 512 * 1024**2, f2_t),
+            RecentFile("x_MaSc_c.raw", None, f3_t),
         ]
 
     @patch("monitoring.alerts.queue_stop_alert.RawFile")
@@ -717,7 +718,16 @@ def _build_stall_issue(
         messenger_user_id=messenger_user_id,
         gradient_length=timedelta(minutes=30),
         pause=timedelta(minutes=120),
-        recent_files=[("x_MaSc_a.raw", 1024**3), ("x_MaSc_b.raw", 512 * 1024**2)],
+        recent_files=[
+            RecentFile(
+                "x_MaSc_a.raw", 1024**3, datetime(2026, 1, 1, 12, 0, tzinfo=pytz.UTC)
+            ),
+            RecentFile(
+                "x_MaSc_b.raw",
+                512 * 1024**2,
+                datetime(2026, 1, 1, 11, 30, tzinfo=pytz.UTC),
+            ),
+        ],
     )
 
 
@@ -729,7 +739,14 @@ def _build_handoff_issue(messenger_user_id: str = "U_MASC") -> QueueStopIssue:
         messenger_user_id=messenger_user_id,
         gradient_length=timedelta(minutes=30),
         pause=None,
-        recent_files=[("x_JoeB_n.raw", 1024**3), ("x_MaSc_a.raw", 1024**3)],
+        recent_files=[
+            RecentFile(
+                "x_JoeB_n.raw", 1024**3, datetime(2026, 1, 1, 12, 0, tzinfo=pytz.UTC)
+            ),
+            RecentFile(
+                "x_MaSc_a.raw", 1024**3, datetime(2026, 1, 1, 11, 0, tzinfo=pytz.UTC)
+            ),
+        ],
     )
 
 
@@ -830,3 +847,16 @@ class TestRecipientsAndDelivery:
         assert "stall" in stall_msg.lower()
         assert "handoff" in handoff_msg.lower()
         assert stall_msg != handoff_msg
+
+    def test_render_issue_includes_file_size_and_timestamp(self) -> None:
+        """Each `Recent files:` row carries the file id, size and creation timestamp."""
+        # given
+        stall = _build_stall_issue()
+        # when
+        msg = QueueStopAlert.render_issue(stall)
+        # then
+        # _build_stall_issue uses 2026-01-01 12:00 UTC for the newest file
+        assert "x_MaSc_a.raw" in msg
+        assert "1.00 GB" in msg
+        assert "2026-01-01 12:00 UTC" in msg
+        assert "2026-01-01 11:30 UTC" in msg

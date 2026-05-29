@@ -56,7 +56,9 @@ class TestWebAppHealthAlert:
 
         # then
         assert result == []
-        mock_requests_get.assert_called_once_with("http://localhost:8501", timeout=10)
+        mock_requests_get.assert_called_once_with(
+            "http://localhost:8501/healthz", timeout=10
+        )
 
     @patch("monitoring.alerts.webapp_health_alert.get_notification_setting")
     @patch("monitoring.alerts.webapp_health_alert.requests.get")
@@ -94,7 +96,9 @@ class TestWebAppHealthAlert:
 
         # then
         assert result == [("webapp", "Request timeout after 5 seconds")]
-        mock_requests_get.assert_called_once_with("http://localhost:8501", timeout=5)
+        mock_requests_get.assert_called_once_with(
+            "http://localhost:8501/healthz", timeout=5
+        )
 
     @patch("monitoring.alerts.webapp_health_alert.get_notification_setting")
     @patch("monitoring.alerts.webapp_health_alert.requests.get")
@@ -163,7 +167,7 @@ class TestWebAppHealthAlert:
         result = alert.format_message(issues)
 
         # then
-        expected = "Webapp health check failed: HTTP 503: Service Unavailable (URL: http://localhost:8501)"
+        expected = "Webapp health check failed: HTTP 503: Service Unavailable (URL: http://localhost:8501/healthz)"
         assert result == expected
 
     @patch("monitoring.alerts.webapp_health_alert.get_notification_setting")
@@ -180,9 +184,7 @@ class TestWebAppHealthAlert:
         result = alert.format_message(issues)
 
         # then
-        expected = (
-            "Webapp health check failed: Unknown error (URL: http://localhost:8501)"
-        )
+        expected = "Webapp health check failed: Unknown error (URL: http://localhost:8501/healthz)"
         assert result == expected
 
     @patch("monitoring.alerts.webapp_health_alert.get_notification_setting")
@@ -202,7 +204,9 @@ class TestWebAppHealthAlert:
         alert._get_issues([])
 
         # then
-        mock_requests_get.assert_called_once_with("http://localhost:8501", timeout=30)
+        mock_requests_get.assert_called_once_with(
+            "http://localhost:8501/healthz", timeout=30
+        )
 
     @patch("monitoring.alerts.webapp_health_alert.get_notification_setting")
     @patch("monitoring.alerts.webapp_health_alert.requests.get")
@@ -241,7 +245,7 @@ class TestWebAppHealthAlert:
     ) -> None:
         """Test that webapp_url is properly initialized from settings and used."""
         # given
-        test_url = "https://example.com:9000/health"
+        test_url = "https://example.com:9000"
         mock_get_setting.return_value = test_url
         mock_response = Mock()
         mock_response.status_code = 200
@@ -252,9 +256,9 @@ class TestWebAppHealthAlert:
         result = alert._get_issues([])
 
         # then
-        assert alert.webapp_url == test_url
+        assert alert.webapp_url == f"{test_url}/healthz"
         assert result == []
-        mock_requests_get.assert_called_once_with(test_url, timeout=10)
+        mock_requests_get.assert_called_once_with(f"{test_url}/healthz", timeout=10)
 
     @patch("monitoring.alerts.webapp_health_alert.get_notification_setting")
     def test_webapp_url_not_set_warning_logged(self, mock_get_setting: Mock) -> None:

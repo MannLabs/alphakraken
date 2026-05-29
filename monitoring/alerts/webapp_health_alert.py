@@ -19,7 +19,7 @@ class WebAppHealthAlert(BaseAlert):
         """Initialize with optional timeout for HTTP requests."""
         self.timeout = timeout
         try:
-            self.webapp_url = get_notification_setting(YamlKeys.WEBAPP_URL)
+            self.webapp_url = f"{get_notification_setting(YamlKeys.WEBAPP_URL)}/healthz"  # built-in streamlit endpoint
         except KeyError:
             logging.warning("WEBAPP_URL not found in config, health check disabled")
             self.webapp_url = ""

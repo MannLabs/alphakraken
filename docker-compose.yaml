@@ -339,7 +339,7 @@ services:
       - ./misc/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./misc/.htpasswd:/etc/nginx/.htpasswd:ro
       - ./nginx_logs:/var/log/nginx/
-        # - ./certs:/etc/nginx/certs:ro  # Optional: for SSL certificates
+      - ./certs:/etc/nginx/certs:ro # SSL certificates (fullchain.pem + privkey.pem)
     restart: always
 
   monitoring:

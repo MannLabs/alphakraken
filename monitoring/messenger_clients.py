@@ -64,6 +64,69 @@ def _send_slack_message(
     logging.info("Successfully sent Slack message.")
 
 
+def send_dm(
+    message: str, recipient_id: str, *, message_type: str = AlertTypes.ALERT
+) -> None:
+    """Send a direct message to a user.
+
+    Dispatches to the appropriate platform implementation based on which
+    credentials are configured in `alerts.config`. Logs a warning and
+    returns (no raise) when no DM credentials are configured, mirroring
+    `send_message`'s no-crash policy.
+
+    Note: when multiple platforms' credentials are configured simultaneously,
+    Slack wins by `if/elif` order. Add a configurable preference if a second
+    DM platform actually lands.
+    """
+    from alerts import config
+
+    if config.SLACK_BOT_TOKEN:
+        _send_slack_dm(message, recipient_id, config.SLACK_BOT_TOKEN, message_type)
+        return
+
+    logging.warning(
+        f"No DM credentials configured; dropping message to recipient {recipient_id}."
+    )
+
+
+def _send_slack_dm(
+    message: str, user_id: str, token: str, message_type: str = AlertTypes.ALERT
+) -> None:
+    env_name = os.environ.get(EnvVars.ENV_NAME)
+
+    if message_type == AlertTypes.INFO:
+        emoji = "ℹ️"  # noqa: RUF001
+        prefix = ""
+    else:
+        emoji = "🚨"
+        prefix = "" if env_name == "production" else f"[{env_name}] "
+
+    payload = {"channel": user_id, "text": f"{emoji} {prefix}{message}"}
+    response = requests.post(
+        "https://slack.com/api/chat.postMessage",
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json; charset=utf-8",
+        },
+        json=payload,
+        timeout=10,
+    )
+    response.raise_for_status()
+    body = response.json()
+    if not body.get("ok"):
+        raise RuntimeError(f"Slack chat.postMessage failed: {body!r}")
+    logging.info(f"Successfully sent Slack DM to {user_id}.")
+
+
+def _send_msteams_dm(
+    message: str,
+    user_id: str,
+    token: str,
+    message_type: str = AlertTypes.ALERT,
+) -> None:
+    raise NotImplementedError("MS Teams DMs not yet supported")
+
+
 def _send_msteams_message(message: str, hostname: str, webhook_url: str) -> None:
     # Define the adaptive card JSON
     message = f"{message} (sent from {hostname})"

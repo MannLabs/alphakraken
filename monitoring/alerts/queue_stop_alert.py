@@ -357,12 +357,12 @@ class QueueStopAlert(BaseAlert):
                 issue.pause.total_seconds() / 60 if issue.pause is not None else 0
             )
             header = (
-                f":rotating_light: Queue stall on `{issue.instrument_id}`: "
+                f"Queue stopped on `{issue.instrument_id}`: "
                 f"gradient ~{gradient_minutes:.0f} min, "
                 f"pause {pause_minutes:.0f} min."
             )
         else:
-            header = f":wave: Queue handoff on `{issue.instrument_id}` "
+            header = f"Queue handoff on `{issue.instrument_id}` "
 
         file_lines = [
             f"- `{rf.file_id}` ({_format_size(rf.size)}) "

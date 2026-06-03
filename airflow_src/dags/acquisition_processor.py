@@ -96,7 +96,7 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
                 task_id=Tasks.SUBMIT_JOB, pool=Pools.CLUSTER_SLOTS_POOL
             )  # known limitation: this pool gates all engines, also non-slurm ones
             def submit_job_task(quanting_env: dict) -> str:
-                """Run quanting and return the Slurm job ID."""
+                """Run quanting and return the job ID."""
                 return submit_job(quanting_env=quanting_env)
 
             wait_ = WaitForJobStartSensor(

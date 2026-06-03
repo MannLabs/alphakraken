@@ -19,24 +19,27 @@ from shared.yamlsettings import YamlKeys, get_path
 
 def _get_job_handler(engine: str) -> "JobHandler":
     """Factory function to get the appropriate job handler for the given engine."""
+    if engine == JobEngines.SLURM:
+        logging.info("Using SlurmSSHJobHandler")
+        return SlurmSSHJobHandler()
+
+    if engine == JobEngines.SLURM_NO_SACCT:
+        logging.info("Using SlurmNoSacctSSHJobHandler")
+        return SlurmNoSacctSSHJobHandler()
+
     if engine == JobEngines.GENERIC:
         from jobs._experimental.generic_job_handler import GenericJobHandler
 
         logging.info("Using GenericJobHandler")
         return GenericJobHandler()
 
-    if engine == JobEngines.SLURM_NO_SACCT:
-        logging.info("Using SlurmNoSacctSSHJobHandler")
-        return SlurmNoSacctSSHJobHandler()
-
     if engine == JobEngines.FILE_BASED:
         from jobs._experimental.file_based_job_handler import FileBasedJobHandler
 
         logging.info("Using FileBasedJobHandler")
         return FileBasedJobHandler()
-    # Default to Slurm
-    logging.info("Using SlurmSSHJobHandler")
-    return SlurmSSHJobHandler()
+
+    raise ValueError(f"Unsupported job engine: {engine}")
 
 
 class JobHandler(abc.ABC):

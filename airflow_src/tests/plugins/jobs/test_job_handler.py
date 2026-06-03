@@ -121,7 +121,6 @@ def test_get_job_result_returns_correct_job_status_and_time_elapsed(
     [
         ("slurm_no_sacct", SlurmNoSacctSSHJobHandler),
         ("slurm", SlurmSSHJobHandler),
-        (None, SlurmSSHJobHandler),
     ],
 )
 @patch("jobs.job_handler.get_path")

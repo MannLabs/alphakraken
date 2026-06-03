@@ -32,6 +32,11 @@ def _get_job_handler(engine: str | None = None) -> "JobHandler":
 
         logging.info("Using GenericJobHandler")
         return GenericJobHandler()
+
+    if engine == "slurm_no_sacct":
+        logging.info("Using SlurmNoSacctSSHJobHandler")
+        return SlurmNoSacctSSHJobHandler()
+
     if engine == "file_based":
         from jobs._experimental.file_based_job_handler import FileBasedJobHandler
 
@@ -211,6 +216,38 @@ class SlurmSSHJobHandler(JobHandler):
         logging.info(f"extracted {time_stamp=}")
         t = datetime.strptime(time_stamp, "%H:%M:%S")  # noqa: DTZ007
         return (t.hour * 3600) + (t.minute * 60) + t.second
+
+
+class SlurmNoSacctSSHJobHandler(SlurmSSHJobHandler):
+    """A Slurm job handler that works without Slurm accounting (`sacct` command) installed.
+
+    Note: Does not provide the actual elapsed time, but always returns 0 for it.
+    """
+
+    @staticmethod
+    def _check_job_result_cmd(job_id: str, slurm_output_file: str) -> str:
+        """Get the job info for a given job id.
+
+        To reduce the number of ssh calls, we combine multiple commands into one
+        In order to be able to extract the run time, we expect the first line to contain only that, e.g. "00:08:42"
+        """
+        del job_id  # unused
+        return "\n".join(
+            ["TIME_ELAPSED=00:00:00", "echo $TIME_ELAPSED", f"cat {slurm_output_file}"]
+        )
+
+    @staticmethod
+    def _get_job_state_cmd(job_id: str) -> str:
+        """Get the state of a job with a given job id.
+
+        Its only output must be the job status.
+        """
+        return "\n".join(
+            [
+                f"ST=$(scontrol show job {job_id} | grep JobState | awk -F 'JobState=' '{{print $2}}' | awk -F ' ' '{{print $1}}')",
+                "echo $ST",
+            ]
+        )
 
 
 def start_job(

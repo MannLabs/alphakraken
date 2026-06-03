@@ -5,7 +5,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from airflow.exceptions import AirflowFailException
-from jobs.job_handler import SlurmSSHJobHandler
+from jobs.job_handler import (
+    SlurmNoSacctSSHJobHandler,
+    SlurmSSHJobHandler,
+    _get_job_handler,
+)
 
 
 @patch("jobs.job_handler.get_path")
@@ -93,6 +97,69 @@ def test_get_job_result_returns_correct_job_status_and_time_elapsed(
         "sacct -l -j 12345\n"
         "cat /path/to/slurm_base_path/jobs/*/slurm-12345.out\n"
         "ST=$(sacct -j 12345 -o State | awk 'FNR == 3 {print $1}')\n"
+        "echo $ST"
+    )
+    mock_ssh_execute.assert_called_once_with(expected_command)
+
+
+@pytest.mark.parametrize(
+    ("engine", "expected_type"),
+    [
+        ("slurm_no_sacct", SlurmNoSacctSSHJobHandler),
+        ("slurm", SlurmSSHJobHandler),
+        (None, SlurmSSHJobHandler),
+    ],
+)
+@patch("jobs.job_handler.get_path")
+def test_get_job_handler_returns_correct_handler(
+    mock_get_path: MagicMock, engine: str | None, expected_type: type
+) -> None:
+    """Test that the factory returns the correct handler for the given engine."""
+    mock_get_path.return_value = Path("/path/to/slurm_base_path")
+
+    handler = _get_job_handler(engine)
+
+    assert type(handler) is expected_type
+
+
+@patch("jobs.job_handler.get_path")
+@patch("jobs.job_handler.ssh_execute")
+def test_no_sacct_get_job_status_returns_correctly(
+    mock_ssh_execute: MagicMock, mock_get_path: MagicMock
+) -> None:
+    """Test that get_job_status uses scontrol instead of sacct."""
+    mock_get_path.return_value = Path("/path/to/slurm_base_path")
+    mock_ssh_execute.return_value = "RUNNING"
+
+    job_status = SlurmNoSacctSSHJobHandler().get_job_status("12345")
+    assert job_status == "RUNNING"
+    expected_command = (
+        "ST=$(scontrol show job 12345 | grep JobState | "
+        "awk -F 'JobState=' '{print $2}' | awk -F ' ' '{print $1}')\n"
+        "echo $ST"
+    )
+    mock_ssh_execute.assert_called_once_with(expected_command)
+
+
+@patch("jobs.job_handler.get_path")
+@patch("jobs.job_handler.ssh_execute")
+def test_no_sacct_get_job_result_returns_correct_job_status_and_time_elapsed(
+    mock_ssh_execute: MagicMock, mock_get_path: MagicMock
+) -> None:
+    """Test that get_job_result works without sacct and reports zero time elapsed."""
+    mock_get_path.return_value = Path("/path/to/slurm_base_path")
+    mock_ssh_execute.return_value = "00:00:00\nRUNNING"
+
+    # when
+    job_status, time_elapsed = SlurmNoSacctSSHJobHandler().get_job_result("12345")
+    assert job_status == "RUNNING"
+    assert time_elapsed == 0
+    expected_command = (
+        "TIME_ELAPSED=00:00:00\n"
+        "echo $TIME_ELAPSED\n"
+        "cat /path/to/slurm_base_path/jobs/*/slurm-12345.out\n"
+        "ST=$(scontrol show job 12345 | grep JobState | "
+        "awk -F 'JobState=' '{print $2}' | awk -F ' ' '{print $1}')\n"
         "echo $ST"
     )
     mock_ssh_execute.assert_called_once_with(expected_command)

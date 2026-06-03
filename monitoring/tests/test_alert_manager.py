@@ -246,7 +246,7 @@ class TestAlertManager:
             mock_send_channel_message.assert_not_called()
 
     def test_dispatch_queue_stop_dms_fans_out_per_recipient_per_issue(self) -> None:
-        """Each (issue x recipient) yields a send_dm call; messages aren't bundled."""
+        """Each (issue x recipient) yields a send_direct_message call; messages aren't bundled."""
         # given
         from monitoring.alerts.queue_stop_alert import QueueStopIssue
 
@@ -273,15 +273,17 @@ class TestAlertManager:
             ["U_JOEB", "U_SUP"],
         ]
 
-        with patch("monitoring.alert_manager.send_dm") as mock_send_dm:
+        with patch(
+            "monitoring.alert_manager.send_direct_message"
+        ) as mock_send_direct_message:
             # when
             AlertManager._dispatch_queue_stop_dms(
                 mock_alert, [("inst1:f1", issue1), ("inst2:f2", issue2)]
             )
 
         # then - 4 DMs, separate per recipient per issue
-        assert mock_send_dm.call_count == 4
-        recipients = [call.args[1] for call in mock_send_dm.call_args_list]
+        assert mock_send_direct_message.call_count == 4
+        recipients = [call.args[1] for call in mock_send_direct_message.call_args_list]
         assert recipients == ["U_MASC", "U_SUP", "U_JOEB", "U_SUP"]
         # refresh_recent_files must be called once per issue, before render
         assert mock_alert.refresh_recent_files.call_args_list == [
@@ -316,15 +318,15 @@ class TestAlertManager:
 
         with (
             patch(
-                "monitoring.alert_manager.send_dm", side_effect=_side_effect
-            ) as mock_send_dm,
+                "monitoring.alert_manager.send_direct_message", side_effect=_side_effect
+            ) as mock_send_direct_message,
             caplog.at_level("WARNING"),
         ):
             # when
             AlertManager._dispatch_queue_stop_dms(mock_alert, [("inst1:f1", issue)])
 
         # then
-        assert mock_send_dm.call_count == 2
+        assert mock_send_direct_message.call_count == 2
         assert any(
             "U_MASC" in rec.message
             and "stall" in rec.message

@@ -751,7 +751,7 @@ def _build_handoff_issue(messenger_user_id: str = "U_MASC") -> QueueStopIssue:
 
 
 class TestRecipientsAndDelivery:
-    """Recipient list construction and DM fan-out via `send_dm`."""
+    """Recipient list construction and DM fan-out via `send_direct_message`."""
 
     @patch(
         "monitoring.alerts.queue_stop_alert.INSTRUMENT_USER_SLACK_IDS",

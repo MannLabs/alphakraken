@@ -1,4 +1,4 @@
-"""Unit tests for messenger_clients DM transport (send_dm, _send_slack_dm, _send_msteams_dm)."""
+"""Unit tests for messenger_clients DM transport (send_direct_message, _send_slack_dm, _send_msteams_dm)."""
 
 from unittest.mock import Mock, patch
 
@@ -9,21 +9,21 @@ from monitoring.messenger_clients import (
     AlertTypes,
     _send_msteams_dm,
     _send_slack_dm,
-    send_dm,
+    send_direct_message,
 )
 
 
 class TestSendDm:
-    """Top-level send_dm dispatches by configured credentials."""
+    """Top-level send_direct_message dispatches by configured credentials."""
 
     @patch("monitoring.messenger_clients._send_slack_dm")
     @patch("alerts.config.SLACK_BOT_TOKEN", "xoxb-test")
-    def test_send_dm_with_slack_token_configured_calls_send_slack_dm(
+    def test_send_direct_message_with_slack_token_configured_calls_send_slack_dm(
         self, mock_slack: Mock
     ) -> None:
-        """When Slack token is configured, send_dm delegates to _send_slack_dm."""
+        """When Slack token is configured, send_direct_message delegates to _send_slack_dm."""
         # given / when
-        send_dm("hello", "U_123")
+        send_direct_message("hello", "U_123")
         # then
         mock_slack.assert_called_once_with(
             "hello", "U_123", "xoxb-test", AlertTypes.ALERT
@@ -31,15 +31,15 @@ class TestSendDm:
 
     @patch("monitoring.messenger_clients._send_slack_dm")
     @patch("alerts.config.SLACK_BOT_TOKEN", "")
-    def test_send_dm_with_no_credentials_logs_and_returns(
+    def test_send_direct_message_with_no_credentials_logs_and_returns(
         self,
         mock_slack: Mock,
         caplog: pytest.LogCaptureFixture,
     ) -> None:
-        """When no DM creds are configured, send_dm logs a warning and does not raise."""
+        """When no DM creds are configured, send_direct_message logs a warning and does not raise."""
         # given / when
         with caplog.at_level("WARNING"):
-            send_dm("hello", "U_123")
+            send_direct_message("hello", "U_123")
         # then - no platform call; warning logged
         mock_slack.assert_not_called()
         assert any(

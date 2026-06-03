@@ -21,7 +21,7 @@ from alerts import (
     config,
 )
 from alerts.base_alert import CustomAlert
-from messenger_clients import AlertTypes, send_channel_message, send_dm
+from messenger_clients import AlertTypes, send_channel_message, send_direct_message
 from requests.exceptions import RequestException
 
 from shared.db.models import KrakenStatus
@@ -102,7 +102,7 @@ class AlertManager:
             message = alert.render_issue(issue)
             for recipient in alert.get_recipients(issue):
                 try:
-                    send_dm(message, recipient)
+                    send_direct_message(message, recipient)
                 except Exception as exc:  # noqa: BLE001, PERF203
                     logging.warning(
                         f"Failed to send QueueStopAlert DM "

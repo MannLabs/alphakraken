@@ -37,12 +37,12 @@ def send_channel_message(
         hostname = ""
 
     if webhook_url.startswith("https://hooks.slack.com"):
-        _send_slack_message(message, hostname, webhook_url, message_type)
+        _send_channel_message_slack(message, hostname, webhook_url, message_type)
     else:
-        _send_msteams_message(message, hostname, webhook_url)
+        _send_channel_message_msteams(message, hostname, webhook_url)
 
 
-def _send_slack_message(
+def _send_channel_message_slack(
     message: str, hostname: str, webhook_url: str, message_type: str = "alert"
 ) -> None:
     env_name = os.environ.get(EnvVars.ENV_NAME)
@@ -64,7 +64,7 @@ def _send_slack_message(
     logging.info("Successfully sent Slack message.")
 
 
-def send_dm(
+def send_direct_message(
     message: str, recipient_id: str, *, message_type: str = AlertTypes.ALERT
 ) -> None:
     """Send a direct message to a user.
@@ -127,7 +127,9 @@ def _send_msteams_dm(
     raise NotImplementedError("MS Teams DMs not yet supported")
 
 
-def _send_msteams_message(message: str, hostname: str, webhook_url: str) -> None:
+def _send_channel_message_msteams(
+    message: str, hostname: str, webhook_url: str
+) -> None:
     # Define the adaptive card JSON
     message = f"{message} (sent from {hostname})"
     adaptive_card_json = {

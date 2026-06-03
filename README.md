@@ -15,8 +15,8 @@ A fully automated data processing and analysis system for mass spectrometry expe
 <img src="docs/overview.jpg" alt="overview" style="max-width: 600px;"/>
 
 Currently supported:
-- quanting software: [AlphaDIA](https://github.com/MannLabs/alphadia), custom (experimental)
-- compute environment: [Slurm](https://slurm.schedmd.com/documentation.html), generic SSH (experimental)
+- quanting software: [AlphaDIA](https://github.com/MannLabs/alphadia), [msqc-extractor](./msqc-extractor), and any other software that offers a CLI
+- compute environment: [Slurm](https://slurm.schedmd.com/documentation.html), Slurm without accounting, generic SSH (experimental), file based (experimental)
 - vendors: Bruker, Sciex, Thermo
 
 

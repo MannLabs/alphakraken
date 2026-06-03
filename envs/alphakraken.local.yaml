@@ -53,7 +53,7 @@ locations:
 
 general:
   job_engine:
-    type: slurm
+    type: slurm # or slurm_no_sacct, file_based (experimental) generic (experimental)
   notifications:
     ops_alerts_webhook_url: "https://hooks.slack.com/services/<something> or https://...api.powerplatform.com:443/powerautomate/automations/<something>"
     business_alerts_webhook_url: "https://hooks.slack.com/services/<something> or https://...api.powerplatform.com:443/powerautomate/automations/<something>"

@@ -151,7 +151,13 @@ In case you want to set up a URL redirect from one PC to one or multiple others,
    htpasswd -cB misc/.htpasswd admin     # -c creates the file, -B uses bcrypt; prompts for password
    htpasswd -B  misc/.htpasswd kraken    # add the second user (no -c, appends)
    ```
-   Note: the file must exist before starting nginx, otherwise docker will auto-create it as an empty directory and nginx will fail to start. Basic auth only covers the webapp (ports 443/8501); Airflow (8080) and the MCP server (8089) keep their own access controls.
+   The REST API (port 8090) is also served behind basic auth, with a dedicated API user `kraken-api`. Add it to the same `misc/.htpasswd` file:
+   ```bash
+   htpasswd -B misc/.htpasswd kraken-api    # add the API user (no -c, appends)
+   ```
+   The REST API's `/health` endpoint is exempted from auth so liveness probes can poll it.
+
+   Note: the file must exist before starting nginx, otherwise docker will auto-create it as an empty directory and nginx will fail to start. Basic auth covers the webapp (ports 443/8501) and the REST API (8090); Airflow (8080) and the MCP server (8089) keep their own access controls.
 3. Provide a TLS certificate. `misc/nginx.conf` serves all endpoints over HTTPS and mounts the certificate via the `certs` volume in `docker-compose.yaml`, expecting:
    - `certs/fullchain.pem` — the server certificate followed by the intermediate chain (leaf first). A bare leaf certificate will fail verification in strict clients such as the monitoring service.
    - `certs/privkey.pem` — the private key.
@@ -409,6 +415,16 @@ and check if it start without errors
 docker run -t alphakraken-mcp-server
 ```
 Finally, substitute `mannlabs/alphakraken-mcp-server:latest` -> `alphakraken-mcp-server` in the above configuration.
+
+
+## REST API
+A read-only REST API for programmatic access to raw files and metrics, available on port 8090.
+
+- Interactive docs: `http://<alphakraken_ip_address>:8090/docs`
+- Example: `curl "http://<alphakraken_ip_address>:8090/raw_files/?instrument_id=test1&limit=10"`
+
+The service is started automatically with the `local` and `infrastructure` profiles and uses read-only database credentials.
+See [nbs/rest_api_demo.ipynb](../nbs/rest_api_demo.ipynb) for usage examples.
 
 
 ## Automated MongoDB Database Backups

@@ -4,11 +4,11 @@ Note: this module must not have any dependencies on the rest of the codebase.
 """
 
 import logging
+from collections.abc import Iterable
 from datetime import datetime, timedelta
 from typing import Any
 
 import pytz
-from mongoengine import QuerySet
 
 from shared.db.engine import connect_db
 from shared.db.models import (
@@ -386,13 +386,18 @@ def update_kraken_status(
 
 
 def augment_raw_files_with_metrics(
-    raw_files: QuerySet, fields: list[str] | None = None, *, flatten: bool = False
+    raw_files: Iterable[RawFile],
+    fields: list[str] | None = None,
+    prefix: str = "metrics_",
+    *,
+    flatten: bool = False,
 ) -> dict[str, Any]:
     """Augment raw files with their latest metrics.
 
     Args:
-        raw_files (QuerySet): A mongoengine QuerySet of RawFile objects to augment with metrics.
-        fields (list[str] | None): Optional list of specific metric fields to retrieve, None means 'all'.
+        raw_files: RawFile objects to augment with metrics.
+        fields: Optional list of specific metric fields to retrieve, None means 'all'.
+        prefix: Prefix for the metrics type keys added to each raw file dict.
         flatten (bool): Whether to flatten the metrics into the main dictionary with keys prefixed by the metric type + "__".
 
     Returns:
@@ -441,6 +446,6 @@ def augment_raw_files_with_metrics(
 
                     raw_files_dict[raw_file_id][new_key] = value
         else:
-            raw_files_dict[raw_file_id][f"metrics_{metrics['type']}"] = metrics
+            raw_files_dict[raw_file_id][f"{prefix}{metrics['type']}"] = metrics
 
     return raw_files_dict

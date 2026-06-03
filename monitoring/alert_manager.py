@@ -12,6 +12,7 @@ from alerts import (
     InstrumentFilePileUpAlert,
     InstrumentStallAlert,
     PumpPressureAlert,
+    QueueStopAlert,
     RawFileErrorAlert,
     S3UploadFailureAlert,
     StaleStatusAlert,
@@ -20,7 +21,7 @@ from alerts import (
     config,
 )
 from alerts.base_alert import CustomAlert
-from messenger_clients import AlertTypes, send_message
+from messenger_clients import AlertTypes, send_channel_message, send_direct_message
 from requests.exceptions import RequestException
 
 from shared.db.models import KrakenStatus
@@ -38,7 +39,9 @@ class AlertManager:
 
     def __init__(self):
         """Initialize the AlertManager with checkers and last alert times."""
+        # TODO: currently this grows indefinitely, we assume regular restarts of the monitoring app
         self.last_alerts = defaultdict(_default_value)
+
         self.is_first_check = True
         self.alerts: list[BaseAlert] = [
             StaleStatusAlert(),
@@ -51,6 +54,7 @@ class AlertManager:
             S3UploadFailureAlert(),
             WebAppHealthAlert(),
             PumpPressureAlert(),
+            QueueStopAlert(),
         ]
 
     def check_for_issues(self) -> None:
@@ -73,16 +77,40 @@ class AlertManager:
         identifiers = [issue[0] for issue in issues]
 
         if self.should_send_alert(identifiers, alert):
-            message = alert.format_message(issues)
-
-            webhook_url = alert.get_webhook_url()
-            if not suppress_alerts:
-                send_message(message, webhook_url)
+            # TODO: this is tightly coupled, find a better way to handle dm vs channel messages
+            if isinstance(alert, QueueStopAlert):
+                if not suppress_alerts:
+                    self._dispatch_queue_stop_dms(alert, issues)
+                else:
+                    logging.info(
+                        f"Suppressed QueueStopAlert dispatch ({len(issues)} issues)"
+                    )
             else:
-                logging.info(f"Suppressed alert for {alert_name}: {message}")
+                message = alert.format_message(issues)
+                webhook_url = alert.get_webhook_url()
+                if not suppress_alerts:
+                    send_channel_message(message, webhook_url)
+                else:
+                    logging.info(f"Suppressed alert for {alert_name}: {message}")
 
             for identifier in identifiers:
                 self.set_last_alert_time(alert_name, identifier)
+
+    @staticmethod
+    def _dispatch_queue_stop_dms(alert: QueueStopAlert, issues: list[tuple]) -> None:
+        """Fan out per-issue DMs; a failed send to one recipient does not abort the rest."""
+        for identifier, issue in issues:
+            alert.refresh_recent_files(issue)
+            message = alert.render_issue(issue)
+            for recipient in alert.get_recipients(issue):
+                try:
+                    send_direct_message(message, recipient)
+                except Exception as exc:  # noqa: BLE001, PERF203
+                    logging.warning(
+                        f"Failed to send QueueStopAlert DM "
+                        f"(recipient={recipient}, kind={issue.kind}, "
+                        f"instrument={issue.instrument_id}, identifier={identifier}): {exc}"
+                    )
 
     def should_send_alert(
         self,
@@ -137,7 +165,7 @@ def send_special_alert(
 
     message = f"{message} [{alert_name} {identifier}]"
     try:
-        send_message(message, config.OPS_ALERTS_WEBHOOK_URL, alert_type)
+        send_channel_message(message, config.OPS_ALERTS_WEBHOOK_URL, alert_type)
     except RequestException:
         logging.exception("Failed to send special alert message.")
     else:

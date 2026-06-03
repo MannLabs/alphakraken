@@ -233,7 +233,7 @@ class SlurmNoSacctSSHJobHandler(SlurmSSHJobHandler):
         """
         del job_id  # unused
         return "\n".join(
-            ["TIME_ELAPSED=0:0:0", "echo $TIME_ELAPSED", f"cat {slurm_output_file}"]
+            ["TIME_ELAPSED=00:00:00", "echo $TIME_ELAPSED", f"cat {slurm_output_file}"]
         )
 
     @staticmethod

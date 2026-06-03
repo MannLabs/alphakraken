@@ -148,14 +148,14 @@ def test_no_sacct_get_job_result_returns_correct_job_status_and_time_elapsed(
 ) -> None:
     """Test that get_job_result works without sacct and reports zero time elapsed."""
     mock_get_path.return_value = Path("/path/to/slurm_base_path")
-    mock_ssh_execute.return_value = "0:0:0\nRUNNING"
+    mock_ssh_execute.return_value = "00:00:00\nRUNNING"
 
     # when
     job_status, time_elapsed = SlurmNoSacctSSHJobHandler().get_job_result("12345")
     assert job_status == "RUNNING"
     assert time_elapsed == 0
     expected_command = (
-        "TIME_ELAPSED=0:0:0\n"
+        "TIME_ELAPSED=00:00:00\n"
         "echo $TIME_ELAPSED\n"
         "cat /path/to/slurm_base_path/jobs/*/slurm-12345.out\n"
         "ST=$(scontrol show job 12345 | grep JobState | "

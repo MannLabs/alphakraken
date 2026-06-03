@@ -43,6 +43,11 @@ def _install_rawfile_mock(
     mock_rawfile.objects.filter.side_effect = _filter
 
 
+def _install_refresh_mock(mock_rawfile: Mock, files: list) -> None:
+    """Wire `RawFile.objects.filter(id__in=...).only(...)` used by `refresh_recent_files`."""
+    mock_rawfile.objects.filter.return_value.only.return_value = files
+
+
 @pytest.fixture(autouse=True)
 def _reset_class_tracker() -> Generator[None, None, None]:
     """Each test gets a fresh `_alerted_subject_files` to keep tests independent."""
@@ -862,8 +867,10 @@ class TestRecipientsAndDelivery:
         assert "2026-01-01 11:30 UTC" in msg
 
     @patch("monitoring.alerts.queue_stop_alert.RawFile")
-    def test_refresh_recent_files_replaces_stale_data(self, mock_rawfile: Mock) -> None:
-        """`refresh_recent_files` re-queries the DB so newly-populated metadata shows up."""
+    def test_refresh_recent_files_updates_size_for_same_files(
+        self, mock_rawfile: Mock
+    ) -> None:
+        """`refresh_recent_files` picks up size populated since detection."""
         # given - issue carries stale data (size=None for newest file)
         stale_time = datetime(2026, 1, 1, 12, 0, tzinfo=pytz.UTC)
         issue = QueueStopIssue(
@@ -876,19 +883,76 @@ class TestRecipientsAndDelivery:
                 RecentFile("x_MaSc_a.raw", None, stale_time),  # stale: size n/a
             ],
         )
-        # DB now has the size populated
-        fresh_time = stale_time
-        _install_rawfile_mock(
-            mock_rawfile,
-            {
-                "inst1": [
-                    _make_file("x_MaSc_a.raw", fresh_time, size=12 * 1024**3),
-                ]
-            },
+        # DB now has the size populated for the same file
+        _install_refresh_mock(
+            mock_rawfile, [_make_file("x_MaSc_a.raw", stale_time, size=12 * 1024**3)]
         )
         # when
         QueueStopAlert.refresh_recent_files(issue)
-        # then
+        # then - same file id and timestamp, only size refreshed
         assert issue.recent_files == [
-            RecentFile("x_MaSc_a.raw", 12 * 1024**3, fresh_time),
+            RecentFile("x_MaSc_a.raw", 12 * 1024**3, stale_time),
+        ]
+
+    @patch("monitoring.alerts.queue_stop_alert.RawFile")
+    def test_refresh_recent_files_queries_only_captured_ids(
+        self, mock_rawfile: Mock
+    ) -> None:
+        """`refresh_recent_files` filters by the exact captured ids, not the top-3."""
+        # given
+        stale_time = datetime(2026, 1, 1, 12, 0, tzinfo=pytz.UTC)
+        issue = QueueStopIssue(
+            kind=KIND_STALL,
+            instrument_id="inst1",
+            messenger_user_id="U_MASC",
+            gradient_length=timedelta(minutes=30),
+            pause=timedelta(minutes=120),
+            recent_files=[
+                RecentFile("x_MaSc_a.raw", None, stale_time),
+                RecentFile("x_MaSc_b.raw", None, stale_time - timedelta(minutes=30)),
+            ],
+        )
+        _install_refresh_mock(mock_rawfile, [])
+        # when
+        QueueStopAlert.refresh_recent_files(issue)
+        # then - the DB query is scoped to the captured ids
+        mock_rawfile.objects.filter.assert_called_once_with(
+            id__in=["x_MaSc_a.raw", "x_MaSc_b.raw"]
+        )
+
+    @patch("monitoring.alerts.queue_stop_alert.RawFile")
+    def test_refresh_recent_files_keeps_subject_file_when_new_files_arrive(
+        self, mock_rawfile: Mock
+    ) -> None:
+        """Files arriving between detection and dispatch must not swap the listed files."""
+        # given - issue captured an older run's files
+        stale_time = datetime(2026, 1, 1, 12, 0, tzinfo=pytz.UTC)
+        issue = QueueStopIssue(
+            kind=KIND_STALL,
+            instrument_id="inst1",
+            messenger_user_id="U_MASC",
+            gradient_length=timedelta(minutes=30),
+            pause=timedelta(minutes=120),
+            recent_files=[
+                RecentFile("x_MaSc_a.raw", 1024**3, stale_time),
+                RecentFile("x_MaSc_b.raw", 1024**3, stale_time - timedelta(minutes=30)),
+            ],
+        )
+        # DB returns the same captured files; a brand-new file from another run
+        # exists but is never returned because it is not in the queried id set.
+        _install_refresh_mock(
+            mock_rawfile,
+            [
+                _make_file("x_MaSc_a.raw", stale_time, size=2 * 1024**3),
+                _make_file(
+                    "x_MaSc_b.raw", stale_time - timedelta(minutes=30), size=1024**3
+                ),
+            ],
+        )
+        # when
+        QueueStopAlert.refresh_recent_files(issue)
+        # then - still the original two files, no new file leaked in
+        assert [rf.file_id for rf in issue.recent_files] == [
+            "x_MaSc_a.raw",
+            "x_MaSc_b.raw",
         ]

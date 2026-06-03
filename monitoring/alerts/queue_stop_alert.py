@@ -324,24 +324,23 @@ class QueueStopAlert(BaseAlert):
 
     @staticmethod
     def refresh_recent_files(issue: QueueStopIssue) -> None:
-        """Re-query the top-3 RawFiles for this instrument to pick up newer metadata.
+        """Refresh metadata (size) for the exact files captured at detection.
 
         Mutates `issue.recent_files`. Called right before render: size may
-        have been populated in the gap between detection and dispatch.
+        have been populated in the gap between detection and dispatch. Re-queries
+        only the same file IDs - never the ordered top-3 - so files arriving in
+        that gap cannot swap out the subject file the alert was raised for.
         """
-        fresh = list(
-            RawFile.objects.filter(instrument_id=issue.instrument_id)
-            .only("id", "created_at", "size", "instrument_id")
-            .order_by("-created_at")
-            .limit(3)
-        )
+        file_ids = [rf.file_id for rf in issue.recent_files]
+        fresh = RawFile.objects.filter(id__in=file_ids).only("id", "size")
+        size_by_id = {str(rf.id): rf.size for rf in fresh}
         issue.recent_files = [
             RecentFile(
-                file_id=str(rf.id),
-                size=rf.size,
-                created_at=_ensure_utc(rf.created_at),
+                file_id=rf.file_id,
+                size=size_by_id.get(rf.file_id, rf.size),
+                created_at=rf.created_at,
             )
-            for rf in fresh
+            for rf in issue.recent_files
         ]
 
     @staticmethod
@@ -362,7 +361,7 @@ class QueueStopAlert(BaseAlert):
                 f"pause {pause_minutes:.0f} min."
             )
         else:
-            header = f"Queue handoff on `{issue.instrument_id}` "
+            header = f"Queue handoff on `{issue.instrument_id}`"
 
         file_lines = [
             f"- `{rf.file_id}` ({_format_size(rf.size)}) "

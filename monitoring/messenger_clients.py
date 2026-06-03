@@ -17,10 +17,10 @@ class AlertTypes:
     INFO = "info"
 
 
-def send_message(
+def send_channel_message(
     message: str, webhook_url: str, message_type: str = AlertTypes.ALERT
 ) -> None:
-    """Send message to Slack or MS Teams.
+    """Send message to a Slack or MS Teams channel.
 
     Args:
         message: The message to send
@@ -72,7 +72,7 @@ def send_dm(
     Dispatches to the appropriate platform implementation based on which
     credentials are configured in `alerts.config`. Logs a warning and
     returns (no raise) when no DM credentials are configured, mirroring
-    `send_message`'s no-crash policy.
+    `send_channel_message`'s no-crash policy.
 
     Note: when multiple platforms' credentials are configured simultaneously,
     Slack wins by `if/elif` order. Add a configurable preference if a second

@@ -15,7 +15,9 @@ class TestAlertManager:
         # given
         with (
             patch("monitoring.alert_manager.KrakenStatus") as mock_kraken_status,
-            patch("monitoring.alert_manager.send_message") as mock_send_message,
+            patch(
+                "monitoring.alert_manager.send_channel_message"
+            ) as mock_send_channel_message,
         ):
             # Mock status objects
             mock_status_obj = Mock()
@@ -49,7 +51,7 @@ class TestAlertManager:
                 alert.get_issues.assert_called_once_with([mock_status_obj])
 
             # Should send message for the one alert with issues
-            mock_send_message.assert_called_once_with(
+            mock_send_channel_message.assert_called_once_with(
                 "Test alert message", "http://webhook.url"
             )
 
@@ -61,7 +63,9 @@ class TestAlertManager:
         # given
         with (
             patch("monitoring.alert_manager.KrakenStatus") as mock_kraken_status,
-            patch("monitoring.alert_manager.send_message") as mock_send_message,
+            patch(
+                "monitoring.alert_manager.send_channel_message"
+            ) as mock_send_channel_message,
             patch("monitoring.alert_manager.logging") as mock_logging,
         ):
             # Mock status objects
@@ -90,7 +94,7 @@ class TestAlertManager:
 
             # then
             # Should NOT send message because is_first_check is True
-            mock_send_message.assert_not_called()
+            mock_send_channel_message.assert_not_called()
 
             # Should log the suppressed alert
             mock_logging.info.assert_any_call(
@@ -109,7 +113,9 @@ class TestAlertManager:
         # given
         with (
             patch("monitoring.alert_manager.KrakenStatus") as mock_kraken_status,
-            patch("monitoring.alert_manager.send_message") as mock_send_message,
+            patch(
+                "monitoring.alert_manager.send_channel_message"
+            ) as mock_send_channel_message,
         ):
             # Mock status objects
             mock_status_obj = Mock()
@@ -152,10 +158,16 @@ class TestAlertManager:
 
             # then
             # Should send all three messages
-            assert mock_send_message.call_count == 3
-            mock_send_message.assert_any_call("Message 1", "http://webhook1.url")
-            mock_send_message.assert_any_call("Message 2", "http://webhook2.url")
-            mock_send_message.assert_any_call("Message 3", "http://webhook3.url")
+            assert mock_send_channel_message.call_count == 3
+            mock_send_channel_message.assert_any_call(
+                "Message 1", "http://webhook1.url"
+            )
+            mock_send_channel_message.assert_any_call(
+                "Message 2", "http://webhook2.url"
+            )
+            mock_send_channel_message.assert_any_call(
+                "Message 3", "http://webhook3.url"
+            )
 
             # Should update last alert times for all identifiers
             alert_id_1 = alert_manager._get_alert_id(alert_1_name, "id_1")
@@ -199,11 +211,13 @@ class TestAlertManager:
     def test_alert_manager_dispatches_queuestopalert_via_isinstance_branch(
         self,
     ) -> None:
-        """QueueStopAlert routes through _dispatch_queue_stop_dms, not send_message."""
+        """QueueStopAlert routes through _dispatch_queue_stop_dms, not send_channel_message."""
         # given
         with (
             patch("monitoring.alert_manager.KrakenStatus") as mock_kraken_status,
-            patch("monitoring.alert_manager.send_message") as mock_send_message,
+            patch(
+                "monitoring.alert_manager.send_channel_message"
+            ) as mock_send_channel_message,
             patch.object(AlertManager, "_dispatch_queue_stop_dms") as mock_dispatch,
         ):
             mock_status_obj = Mock()
@@ -229,7 +243,7 @@ class TestAlertManager:
 
             # then
             mock_dispatch.assert_called_once_with(queue_alert, [queue_issue])
-            mock_send_message.assert_not_called()
+            mock_send_channel_message.assert_not_called()
 
     def test_dispatch_queue_stop_dms_fans_out_per_recipient_per_issue(self) -> None:
         """Each (issue x recipient) yields a send_dm call; messages aren't bundled."""
@@ -322,10 +336,14 @@ class TestAlertManager:
 class TestSendSpecialAlert:
     """Test suite for send_special_alert function."""
 
-    def test_send_special_alert_should_send_message_when_cooldown_expired(self) -> None:
+    def test_send_special_alert_should_send_channel_message_when_cooldown_expired(
+        self,
+    ) -> None:
         """Test that send_special_alert sends message when cooldown has expired."""
         # given
-        with patch("monitoring.alert_manager.send_message") as mock_send_message:
+        with patch(
+            "monitoring.alert_manager.send_channel_message"
+        ) as mock_send_channel_message:
             alert_manager = AlertManager()
             identifier = "test_identifier"
             alert_name = "test_alert"
@@ -336,5 +354,5 @@ class TestSendSpecialAlert:
 
             # then
             expected_message = f"{message} [{alert_name} {identifier}]"
-            mock_send_message.assert_called_once()
-            assert mock_send_message.call_args[0][0] == expected_message
+            mock_send_channel_message.assert_called_once()
+            assert mock_send_channel_message.call_args[0][0] == expected_message

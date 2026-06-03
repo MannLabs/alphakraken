@@ -21,7 +21,7 @@ from alerts import (
     config,
 )
 from alerts.base_alert import CustomAlert
-from messenger_clients import AlertTypes, send_dm, send_message
+from messenger_clients import AlertTypes, send_channel_message, send_dm
 from requests.exceptions import RequestException
 
 from shared.db.models import KrakenStatus
@@ -87,7 +87,7 @@ class AlertManager:
                 message = alert.format_message(issues)
                 webhook_url = alert.get_webhook_url()
                 if not suppress_alerts:
-                    send_message(message, webhook_url)
+                    send_channel_message(message, webhook_url)
                 else:
                     logging.info(f"Suppressed alert for {alert_name}: {message}")
 
@@ -163,7 +163,7 @@ def send_special_alert(
 
     message = f"{message} [{alert_name} {identifier}]"
     try:
-        send_message(message, config.OPS_ALERTS_WEBHOOK_URL, alert_type)
+        send_channel_message(message, config.OPS_ALERTS_WEBHOOK_URL, alert_type)
     except RequestException:
         logging.exception("Failed to send special alert message.")
     else:

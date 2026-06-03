@@ -145,14 +145,32 @@ for display in the Airflow UI.
 
 #### URL redirect
 In case you want to set up a URL redirect from one PC to one or multiple others, do the following on the redirecting PC:
-1. Edit `misc/nginx.conf`: substitute the placeholder IP adresses (e.g. `255.255.0.1`) with the correct ones.
+1. Edit `misc/nginx.conf`: substitute the placeholder IP addresses (e.g. `255.255.0.1`) with the correct ones.
 2. Create the basic auth credentials file `misc/.htpasswd` (gitignored). The webapp is served behind HTTP basic auth with two users, `admin` and `kraken`:
    ```bash
    htpasswd -cB misc/.htpasswd admin     # -c creates the file, -B uses bcrypt; prompts for password
    htpasswd -B  misc/.htpasswd kraken    # add the second user (no -c, appends)
    ```
-   Note: the file must exist before starting nginx, otherwise docker will auto-create it as an empty directory and nginx will fail to start. Basic auth only covers the webapp (ports 80/8501); Airflow (8080) and the MCP server (8089) keep their own access controls.
-3. Start the respective container `./compose.sh up nginx --build --force-recreate -d`, see the folder `nginx_logs` for logs
+   Note: the file must exist before starting nginx, otherwise docker will auto-create it as an empty directory and nginx will fail to start. Basic auth only covers the webapp (ports 443/8501); Airflow (8080) and the MCP server (8089) keep their own access controls.
+3. Provide a TLS certificate. `misc/nginx.conf` serves all endpoints over HTTPS and mounts the certificate via the `certs` volume in `docker-compose.yaml`, expecting:
+   - `certs/fullchain.pem` — the server certificate followed by the intermediate chain (leaf first). A bare leaf certificate will fail verification in strict clients such as the monitoring service.
+   - `certs/privkey.pem` — the private key.
+
+   If you do not have a certificate, use the plaintext variant instead: point the nginx config mount in `docker-compose.yaml` at `misc/nginx_no_ssl.conf`. With the no-SSL config the webapp is served on ports 80/8501 instead of 443, and the `certs` volume is not needed.
+4. Start the respective container `./compose.sh up nginx --build --force-recreate -d`, see the folder `nginx_logs` for logs
+
+To **deactivate** basic auth (e.g. for debugging), comment out the two `auth_basic*` lines in `misc/nginx.conf` and reload nginx:
+```bash
+docker compose exec nginx nginx -s reload      # or: ./compose.sh restart nginx
+```
+With basic auth off, the `X-Remote-User` header is empty, so `is_admin()` in the webapp returns `False` for everyone — admin-only actions (e.g. assigning the fallback project on the Projects page) stay disabled until auth is re-enabled.
+
+To keep admin actions working while basic auth is off, hard-code the username in the proxy header instead of letting it default to the empty `$remote_user`:
+```nginx
+# proxy_set_header X-Remote-User $remote_user;   # original line
+proxy_set_header X-Remote-User admin;            # everyone is admin while auth is off
+```
+Reload nginx after the edit. Use `kraken` (or any non-admin name) instead of `admin` to debug as a regular user.
 
 #### On the cluster
 1. Log into the cluster using the `kraken-read` user.

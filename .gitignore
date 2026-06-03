@@ -172,4 +172,6 @@ mongodb_data*
 airflowdb_data*
 local_test/instruments
 local_test/backup
+local_test/output
 envs/.env-airflow
+misc/.htpasswd

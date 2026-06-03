@@ -369,7 +369,7 @@ class TestRuleAStop:
     def test_stop_cooldown_releases_when_newer_file_appears(
         self, mock_rawfile: Mock
     ) -> None:
-        """A newer file with a still-stoped pause re-fires with a new subject."""
+        """A newer file with a still-stopped pause re-fires with a new subject."""
         # given - first scan with 3 files [a,b,c]; second scan with [d,a,b]
         now1 = datetime(2026, 1, 1, 12, 0, tzinfo=pytz.UTC)
         gradient = timedelta(minutes=30)

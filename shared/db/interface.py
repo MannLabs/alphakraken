@@ -390,7 +390,7 @@ def augment_raw_files_with_metrics(
     fields: list[str] | None = None,
     prefix: str = "metrics_",
     *,
-    flatten: bool = False
+    flatten: bool = False,
 ) -> dict[str, Any]:
     """Augment raw files with their latest metrics.
 

@@ -94,7 +94,7 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
 
             @task(
                 task_id=Tasks.SUBMIT_JOB, pool=Pools.CLUSTER_SLOTS_POOL
-            )  # this assumes all are using slurm
+            )  # known limitation: this pool gates all engines, also non-slurm ones
             def submit_job_task(quanting_env: dict) -> str:
                 """Run quanting and return the Slurm job ID."""
                 return submit_job(quanting_env=quanting_env)
@@ -102,6 +102,7 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
             wait_ = WaitForJobStartSensor(
                 task_id=Tasks.WAIT_FOR_JOB_START,
                 xcom_source_task_id=f"{TaskGroups.PROCESSING}.{Tasks.SUBMIT_JOB}",
+                quanting_env_source_task_id=f"{TaskGroups.PROCESSING}.{Tasks.PREPARE_JOB}",
                 poke_interval=Timings.JOB_MONITOR_POKE_INTERVAL_S,
                 max_active_tis_per_dag=Concurrency.MAXNO_JOB_MONITOR_TASKS_PER_DAG,
                 pool=Pools.CLUSTER_SLOTS_POOL,
@@ -110,6 +111,7 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
             monitor_ = WaitForJobFinishSensor(
                 task_id=Tasks.MONITOR_JOB,
                 xcom_source_task_id=f"{TaskGroups.PROCESSING}.{Tasks.SUBMIT_JOB}",
+                quanting_env_source_task_id=f"{TaskGroups.PROCESSING}.{Tasks.PREPARE_JOB}",
                 poke_interval=Timings.JOB_MONITOR_POKE_INTERVAL_S,
                 max_active_tis_per_dag=Concurrency.MAXNO_JOB_MONITOR_TASKS_PER_DAG,
                 # Note: if we decouple this task from cluster_slots_pool, then this setting would steer only the

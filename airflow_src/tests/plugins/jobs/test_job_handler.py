@@ -5,11 +5,25 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from airflow.exceptions import AirflowFailException
+from jobs._experimental.file_based_job_handler import FileBasedJobHandler
+from jobs._experimental.generic_job_handler import GenericJobHandler
 from jobs.job_handler import (
     SlurmNoSacctSSHJobHandler,
     SlurmSSHJobHandler,
     _get_job_handler,
 )
+
+from shared.keys import JobEngines
+
+
+@patch("jobs.job_handler.get_path")
+def test_get_job_handler_routes_engine_to_handler(mock_get_path: MagicMock) -> None:
+    """Test that the factory returns the handler matching the requested engine."""
+    mock_get_path.return_value = Path("/path/to/slurm_base_path")
+
+    assert isinstance(_get_job_handler(JobEngines.SLURM), SlurmSSHJobHandler)
+    assert isinstance(_get_job_handler(JobEngines.FILE_BASED), FileBasedJobHandler)
+    assert isinstance(_get_job_handler(JobEngines.GENERIC), GenericJobHandler)
 
 
 @patch("jobs.job_handler.get_path")

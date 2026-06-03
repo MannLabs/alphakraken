@@ -74,6 +74,7 @@ def test_create_quanting_env(
     mock_settings.slurm_mem = "62G"
     mock_settings.slurm_time = "02:00:00"
     mock_settings.num_threads = 8
+    mock_settings.job_engine = "slurm"
 
     result = _create_quanting_env(
         settings=mock_settings,
@@ -103,6 +104,7 @@ def test_create_quanting_env(
         "PROJECT_ID": "some_project_id",
         "SETTINGS_NAME": "test_settings",
         "SETTINGS_VERSION": 1,
+        "_JOB_ENGINE": "slurm",
         "_INTERNAL_OUTPUT_PATH": "/opt/airflow/mounts/output/some_project_id/out_test_file.raw/alphadia",
     }
     assert result == expected
@@ -146,6 +148,7 @@ def test_create_quanting_env_custom_software(
     mock_settings.slurm_mem = "62G"
     mock_settings.slurm_time = "02:00:00"
     mock_settings.num_threads = 8
+    mock_settings.job_engine = "slurm"
 
     result = _create_quanting_env(
         settings=mock_settings,
@@ -182,6 +185,7 @@ def test_create_quanting_env_custom_software(
         "PROJECT_ID": "some_project_id",
         "SETTINGS_NAME": "test_custom_settings",
         "SETTINGS_VERSION": 1,
+        "_JOB_ENGINE": "slurm",
         "_INTERNAL_OUTPUT_PATH": "/opt/airflow/mounts/output/some_project_id/out_test_file.raw/custom",
     }
     assert result == expected
@@ -410,6 +414,7 @@ def test_submit_job_executes_ssh_command_and_stores_job_id(
         QuantingEnv.SOFTWARE_TYPE: "alphadia",
         QuantingEnv.CUSTOM_COMMAND: "",
         QuantingEnv.INTERNAL_OUTPUT_PATH: str(output_dir),
+        QuantingEnv.JOB_ENGINE: "slurm",
     }
     mock_raw_file = MagicMock(
         wraps=RawFile,
@@ -429,6 +434,7 @@ def test_submit_job_executes_ssh_command_and_stores_job_id(
         "submit_job.sh",
         quanting_env,
         "1970_01",
+        engine="slurm",
     )
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
     mock_update.assert_called_once_with(
@@ -660,6 +666,7 @@ def test_check_job_result_happy_path(
         QuantingEnv.PROJECT_ID: "PID1",
         QuantingEnv.SETTINGS_NAME: "test_settings",
         QuantingEnv.SETTINGS_VERSION: 1,
+        QuantingEnv.JOB_ENGINE: "slurm",
         QuantingEnv.METRICS_TYPE: "alphadia",
     }
 
@@ -685,6 +692,7 @@ def test_check_job_result_unknown_job_status(
         QuantingEnv.PROJECT_ID: "PID1",
         QuantingEnv.SETTINGS_NAME: "test_settings",
         QuantingEnv.SETTINGS_VERSION: 1,
+        QuantingEnv.JOB_ENGINE: "slurm",
         QuantingEnv.METRICS_TYPE: "alphadia",
     }
     mock_get_job_result.return_value = ("SOME_JOB_STATE", 522)
@@ -717,6 +725,7 @@ def test_check_job_result_business_error(
         QuantingEnv.PROJECT_ID: "PID1",
         QuantingEnv.SETTINGS_NAME: "test_settings",
         QuantingEnv.SETTINGS_VERSION: 1,
+        QuantingEnv.JOB_ENGINE: "slurm",
         QuantingEnv.INTERNAL_OUTPUT_PATH: "/opt/airflow/mounts/output/PID1/out_test_file.raw/alphadia",
         QuantingEnv.OUTPUT_PATH: "/data/output/PID1/out_test_file.raw/alphadia",
         QuantingEnv.METRICS_TYPE: "alphadia",
@@ -768,6 +777,7 @@ def test_check_job_result_business_error_raises(
         QuantingEnv.PROJECT_ID: "PID1",
         QuantingEnv.SETTINGS_NAME: "test_settings",
         QuantingEnv.SETTINGS_VERSION: 1,
+        QuantingEnv.JOB_ENGINE: "slurm",
         QuantingEnv.INTERNAL_OUTPUT_PATH: "/opt/airflow/mounts/output/PID1/out_test_file.raw/alphadia",
         QuantingEnv.OUTPUT_PATH: "/data/output/PID1/out_test_file.raw/alphadia",
         QuantingEnv.METRICS_TYPE: "alphadia",
@@ -817,6 +827,7 @@ def test_check_job_result_timeout(
         QuantingEnv.PROJECT_ID: "PID1",
         QuantingEnv.SETTINGS_NAME: "test_settings",
         QuantingEnv.SETTINGS_VERSION: 1,
+        QuantingEnv.JOB_ENGINE: "slurm",
         QuantingEnv.INTERNAL_OUTPUT_PATH: "/opt/airflow/mounts/output/PID1/out_test_file.raw/alphadia",
         QuantingEnv.OUTPUT_PATH: "/data/output/PID1/out_test_file.raw/alphadia",
         QuantingEnv.METRICS_TYPE: "alphadia",
@@ -860,6 +871,7 @@ def test_check_job_result_oom(
         QuantingEnv.PROJECT_ID: "PID1",
         QuantingEnv.SETTINGS_NAME: "test_settings",
         QuantingEnv.SETTINGS_VERSION: 1,
+        QuantingEnv.JOB_ENGINE: "slurm",
         QuantingEnv.INTERNAL_OUTPUT_PATH: "/opt/airflow/mounts/output/PID1/out_test_file.raw/alphadia",
         QuantingEnv.OUTPUT_PATH: "/data/output/PID1/out_test_file.raw/alphadia",
         QuantingEnv.METRICS_TYPE: "alphadia",

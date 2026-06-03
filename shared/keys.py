@@ -62,6 +62,15 @@ class SoftwareTypes(metaclass=ConstantsClass):
     CUSTOM: str = "custom"
 
 
+class JobEngines(metaclass=ConstantsClass):
+    """Execution engines that can run quanting jobs."""
+
+    SLURM: str = "slurm"
+    SLURM_NO_SACCT: str = "slurm_no_sacct"
+    FILE_BASED: str = "file_based"
+    GENERIC: str = "generic"
+
+
 class MetricsTypes(metaclass=ConstantsClass):
     """Types of metrics that can be calculated from quanting results."""
 

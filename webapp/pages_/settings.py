@@ -30,11 +30,14 @@ from shared.db.interface import archive_settings, create_settings
 from shared.db.models import ProjectSettings, ProjectStatus, SettingsStatus
 from shared.keys import (
     SOFTWARE_TYPE_TO_DEFAULT_RESOURCE_PARAMS,
+    JobEngines,
     MetricsTypes,
     SoftwareTypes,
 )
 from shared.validation import check_for_malicious_content
 from shared.yamlsettings import YamlKeys, get_path
+
+SHOW_JOB_ENGINE_SELECT = False
 
 _log(f"loading {__file__} {get_all_query_params()}")
 # ########################################### PAGE HEADER
@@ -164,6 +167,7 @@ if selected_name_option != CREATE_NEW_OPTION:
         "description": str(latest_settings.get("description", "")),
         "software": str(latest_settings.get("software", "")),
         "software_type": str(latest_settings.get("software_type", "")),
+        "job_engine": str(latest_settings.get("job_engine", "")),
         "fasta_file_name": str(latest_settings.get("fasta_file_name", "")),
         "speclib_file_name": str(latest_settings.get("speclib_file_name", "")),
         "config_file_name": str(latest_settings.get("config_file_name", "")),
@@ -387,6 +391,22 @@ with c1.form("create_settings"):
     if software_type == SoftwareTypes.ALPHADIA:
         st.write(r"\** At least one of the two must be given")
 
+    if SHOW_JOB_ENGINE_SELECT:
+        job_engine_options = JobEngines.get_values()
+        job_engine_index = (
+            job_engine_options.index(prefill_data["job_engine"])
+            if prefill_data["job_engine"] in job_engine_options
+            else job_engine_options.index(JobEngines.SLURM)
+        )
+        job_engine = st.selectbox(
+            label="Execution engine",
+            options=job_engine_options,
+            index=job_engine_index,
+            help="The engine used to run the quanting job.",
+        )
+    else:
+        job_engine = JobEngines.SLURM
+
     with st.expander("Resource parameters"):
         st.info(
             "Enables setting the resources. Some values are only relevant for Slurm and/or for alphadia/custom."
@@ -517,6 +537,7 @@ if submit:
             config_params=config_params,
             software_type=empty_to_none(software_type),
             software=empty_to_none(software),
+            job_engine=job_engine,
             metrics_type=metrics_type,
             slurm_cpus_per_task=slurm_cpus_per_task,
             slurm_mem=empty_to_none(slurm_mem),

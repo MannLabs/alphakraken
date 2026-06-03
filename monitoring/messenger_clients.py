@@ -5,6 +5,7 @@ import logging
 import os
 
 import requests
+from alerts import config
 
 from shared.keys import EnvVars
 from shared.yamlsettings import YamlKeys, get_notification_setting
@@ -108,8 +109,6 @@ def send_direct_message(
     Slack wins by `if/elif` order. Add a configurable preference if a second
     DM platform actually lands.
     """
-    from alerts import config
-
     if config.SLACK_BOT_TOKEN:
         _send_direct_message_slack(
             message, recipient_id, config.SLACK_BOT_TOKEN, message_type

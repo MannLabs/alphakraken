@@ -39,7 +39,9 @@ class AlertManager:
 
     def __init__(self):
         """Initialize the AlertManager with checkers and last alert times."""
+        # TODO: currently this grows indefinitely, we assume regular restarts of the monitoring app
         self.last_alerts = defaultdict(_default_value)
+
         self.is_first_check = True
         self.alerts: list[BaseAlert] = [
             StaleStatusAlert(),

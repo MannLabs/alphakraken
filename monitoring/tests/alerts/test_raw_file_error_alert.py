@@ -116,11 +116,13 @@ class TestRawFileErrorAlert:
         )
 
         # Verify previous_raw_file_statuses was updated correctly
+        # (file_not_in_query is retained from previous state since we merge, not replace)
         expected_previous_state = {
             "file_already_error": RawFileStatus.ERROR,
             "file_was_done": RawFileStatus.ERROR,
             "file_was_quanting": RawFileStatus.ERROR,
             "file_stays_done": RawFileStatus.DONE,
+            "file_not_in_query": RawFileStatus.DONE,
             "file_new_error": RawFileStatus.ERROR,
             "file_new_done": RawFileStatus.DONE,
             "file_error_no_details": RawFileStatus.ERROR,
@@ -284,3 +286,39 @@ class TestRawFileErrorAlert:
 
         # then - second check should find no new errors
         assert result2 == []
+
+    @patch("monitoring.alerts.raw_file_error_alert.RawFile")
+    @patch("monitoring.alerts.raw_file_error_alert.datetime")
+    @patch("monitoring.alerts.raw_file_error_alert.CHECK_INTERVAL_SECONDS", 60)
+    def test_should_not_false_positive_when_error_file_ages_out_and_returns(
+        self, mock_datetime: Mock, mock_raw_file: Mock
+    ) -> None:
+        """Test that a file already in ERROR does not re-alert when it ages out of the query window and re-enters due to an unrelated updated_at_ bump."""
+        # given
+        alert = RawFileErrorAlert()
+        fixed_now = datetime(2024, 1, 1, 12, 0, 0, tzinfo=pytz.UTC)
+        mock_datetime.now.return_value = fixed_now
+
+        mock_error_file = Mock()
+        mock_error_file.id = "file_error"
+        mock_error_file.status = RawFileStatus.ERROR
+        mock_error_file.status_details = "Some error"
+
+        # Round 1: file enters ERROR
+        mock_raw_file.objects.filter.return_value.only.return_value = [mock_error_file]
+        result1 = alert._get_issues([])
+        assert result1 == [("file_error", "Some error")]
+
+        # Round 2: file ages out of the 5-minute window (empty query result)
+        mock_raw_file.objects.filter.return_value.only.return_value = []
+        result2 = alert._get_issues([])
+        assert result2 == []
+
+        # Round 3: file re-enters window due to unrelated updated_at_ bump (still ERROR)
+        mock_raw_file.objects.filter.return_value.only.return_value = [mock_error_file]
+
+        # when
+        result3 = alert._get_issues([])
+
+        # then - should NOT alert again
+        assert result3 == []

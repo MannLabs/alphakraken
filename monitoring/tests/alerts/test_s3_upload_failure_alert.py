@@ -189,3 +189,41 @@ class TestS3UploadFailureAlert:
             "- `file2`: S3 upload failed | path: s3://bucket/key2 | project: proj2 | instrument: inst2"
         )
         assert result == expected
+
+    @patch("monitoring.alerts.s3_upload_failure_alert.RawFile")
+    @patch("monitoring.alerts.s3_upload_failure_alert.datetime")
+    @patch("monitoring.alerts.s3_upload_failure_alert.CHECK_INTERVAL_SECONDS", 60)
+    def test_should_not_false_positive_when_failed_file_ages_out_and_returns(
+        self, mock_datetime: Mock, mock_raw_file: Mock
+    ) -> None:
+        """Test that a file already in UPLOAD_FAILED does not re-alert when it ages out of the query window and re-enters due to an unrelated updated_at_ bump."""
+        # given
+        alert = S3UploadFailureAlert()
+        fixed_now = datetime(2024, 1, 1, 12, 0, 0, tzinfo=pytz.UTC)
+        mock_datetime.now.return_value = fixed_now
+
+        mock_failed_file = _create_mock_raw_file(
+            id="file_failed",
+            backup_status=BackupStatus.UPLOAD_FAILED,
+            project_id="proj1",
+            instrument_id="inst1",
+        )
+
+        # Round 1: file enters UPLOAD_FAILED
+        mock_raw_file.objects.filter.return_value.only.return_value = [mock_failed_file]
+        result1 = alert._get_issues([])
+        assert len(result1) == 1
+
+        # Round 2: file ages out of the 5-minute window (empty query result)
+        mock_raw_file.objects.filter.return_value.only.return_value = []
+        result2 = alert._get_issues([])
+        assert result2 == []
+
+        # Round 3: file re-enters window due to unrelated updated_at_ bump (still UPLOAD_FAILED)
+        mock_raw_file.objects.filter.return_value.only.return_value = [mock_failed_file]
+
+        # when
+        result3 = alert._get_issues([])
+
+        # then - should NOT alert again
+        assert result3 == []

@@ -63,7 +63,7 @@ def _to_metrics_list(raw_file_data: dict[str, Any]) -> list[dict[str, Any]]:
     metrics_list = []
     for key in list(raw_file_data):
         value = raw_file_data[key]
-        if not isinstance(value, dict) or not len(value):
+        if not isinstance(value, dict) or "type" not in value:
             continue
         raw_file_data.pop(key)
 

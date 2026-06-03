@@ -26,7 +26,7 @@ from .config import (
 
 INITIALS_PATTERN = re.compile(r"_([A-Za-z]{2,8})_")
 
-KIND_STALL = "stall"
+KIND_STOP = "stop"
 KIND_HANDOFF = "handoff"
 
 MIN_FILES_FOR_DETECTION = 2
@@ -46,7 +46,7 @@ class RecentFile:
 
 @dataclass
 class QueueStopIssue:
-    """Payload describing a queue-stop event (stall or handoff)."""
+    """Payload describing a queue-stop event (stop or handoff)."""
 
     kind: str
     instrument_id: str
@@ -88,7 +88,7 @@ class QueueStopAlert(BaseAlert):
     def _get_issues(
         self, status_objects: list[KrakenStatus]
     ) -> list[tuple[str, QueueStopIssue]]:
-        """Detect stall/handoff conditions per instrument."""
+        """Detect stop/handoff conditions per instrument."""
         del status_objects
 
         if not INSTRUMENT_USER_SLACK_IDS:
@@ -162,10 +162,10 @@ class QueueStopAlert(BaseAlert):
             if issue is None:
                 continue
 
-            # Subject = alerted user's most recent file (file1.id for stall,
+            # Subject = alerted user's most recent file (file1.id for stop,
             # file2.id for handoff). Sharing the key across rules ensures
-            # stall→handoff for the same user-last-file does not double-notify.
-            subject_file_id = file1_id if issue.kind == KIND_STALL else file2_id
+            # stop→handoff for the same user-last-file does not double-notify.
+            subject_file_id = file1_id if issue.kind == KIND_STOP else file2_id
             dedup_key = (instrument_id, subject_file_id)
             if dedup_key in self._alerted_subject_files:
                 logging.debug(f"Skipping already-alerted {issue.kind} for {dedup_key}")
@@ -191,7 +191,7 @@ class QueueStopAlert(BaseAlert):
         max_gradient: timedelta,
         recent_files: list[RecentFile],
     ) -> QueueStopIssue | None:
-        """Rule A — stall: file1 & file2 share mapped initials, pause exceeds threshold.
+        """Rule A — stop: file1 & file2 share mapped initials, pause exceeds threshold.
 
         Fires when the still-active operator's queue has gone quiet. The shared
         mapped initials of `file1`/`file2` identify the user; the pause from
@@ -200,7 +200,7 @@ class QueueStopAlert(BaseAlert):
 
         Example (fires):
             file1 = "_MaSc_a.raw" at 12:00, file2 = "_MaSc_b.raw" at 11:30,
-            now = 14:00. gradient = 30 min, pause = 2 h > 3 x 30 min → stall
+            now = 14:00. gradient = 30 min, pause = 2 h > 3 x 30 min → stop
             alert for MaSc with subject_file_id = file1.id.
 
         Example (skipped, gradient too large):
@@ -210,7 +210,7 @@ class QueueStopAlert(BaseAlert):
 
         Example (skipped, pause below threshold):
             file1 at 12:00, file2 at 11:30, now = 13:00. gradient = 30 min,
-            pause = 1 h <= 3 x 30 min → no stall yet.
+            pause = 1 h <= 3 x 30 min → no stop yet.
 
         Example (skipped, initials don't match):
             file1 = "_MaSc_a.raw", file2 = "_JoeB_b.raw" → Rule A doesn't apply
@@ -223,14 +223,14 @@ class QueueStopAlert(BaseAlert):
 
         if gradient_length <= timedelta(0):
             logging.warning(
-                f"Skipping stall rule for {instrument_id}: non-positive gradient "
+                f"Skipping stop rule for {instrument_id}: non-positive gradient "
                 f"{gradient_length} between {file1_id} and {file2_id}"
             )
             return None
 
         if gradient_length > max_gradient:
             logging.debug(
-                f"Skipping stall rule for {instrument_id}: gradient "
+                f"Skipping stop rule for {instrument_id}: gradient "
                 f"{gradient_length} > max {max_gradient}"
             )
             return None
@@ -240,7 +240,7 @@ class QueueStopAlert(BaseAlert):
             return None
 
         return QueueStopIssue(
-            kind=KIND_STALL,
+            kind=KIND_STOP,
             instrument_id=instrument_id,
             messenger_user_id=INSTRUMENT_USER_SLACK_IDS[initials1],
             gradient_length=gradient_length,
@@ -346,7 +346,7 @@ class QueueStopAlert(BaseAlert):
     @staticmethod
     def render_issue(issue: QueueStopIssue) -> str:
         """Render a single issue to a DM message string."""
-        if issue.kind == KIND_STALL:
+        if issue.kind == KIND_STOP:
             gradient_minutes = (
                 issue.gradient_length.total_seconds() / 60
                 if issue.gradient_length is not None

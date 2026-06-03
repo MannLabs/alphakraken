@@ -10,7 +10,7 @@ import pytz
 from monitoring.alerts.config import Cases
 from monitoring.alerts.queue_stop_alert import (
     KIND_HANDOFF,
-    KIND_STALL,
+    KIND_STOP,
     QueueStopAlert,
     QueueStopIssue,
     RecentFile,
@@ -196,7 +196,7 @@ class TestRuleAStall:
     def test_stall_alert_fires_when_pause_exceeds_threshold(
         self, mock_rawfile: Mock
     ) -> None:
-        """Pause of 3.5 x gradient triggers a stall alert for the shared user."""
+        """Pause of 3.5 x gradient triggers a stop alert for the shared user."""
         # given - pause = 3.5 x gradient_length, gradient = 30 min
         now = datetime(2026, 1, 1, 12, 0, tzinfo=pytz.UTC)
         gradient = timedelta(minutes=30)
@@ -220,14 +220,14 @@ class TestRuleAStall:
         assert len(result) == 1
         identifier, issue = result[0]
         assert identifier == "inst1:x_MaSc_a.raw"
-        assert issue.kind == KIND_STALL
+        assert issue.kind == KIND_STOP
         assert issue.messenger_user_id == "U_MASC"
 
     @patch("monitoring.alerts.queue_stop_alert.RawFile")
     def test_stall_skips_when_gradient_length_exceeds_max(
         self, mock_rawfile: Mock
     ) -> None:
-        """A gap > MAX_GRADIENT_LENGTH_HOURS is treated as a new-queue start, not a stall."""
+        """A gap > MAX_GRADIENT_LENGTH_HOURS is treated as a new-queue start, not a stop."""
         # given - gap = 3 h > 2 h max -> treat file1 as new queue start
         now = datetime(2026, 1, 1, 12, 0, tzinfo=pytz.UTC)
         file1_t = now - timedelta(hours=10)  # pause is huge but gradient is too big
@@ -280,7 +280,7 @@ class TestRuleAStall:
     @patch("monitoring.alerts.queue_stop_alert.RawFile")
     def test_stall_includes_recent_files_with_size(self, mock_rawfile: Mock) -> None:
         """Issue carries up to three recent files with their (id, size, created_at)."""
-        # given - three files; first two share initials and trigger stall
+        # given - three files; first two share initials and trigger stop
         now = datetime(2026, 1, 1, 12, 0, tzinfo=pytz.UTC)
         gradient = timedelta(minutes=30)
         f1_t = now - 4 * gradient
@@ -314,7 +314,7 @@ class TestRuleAStall:
     def test_stall_renders_two_files_when_instrument_has_only_two(
         self, mock_rawfile: Mock
     ) -> None:
-        """Two-file instruments still trigger stall and render just those two files."""
+        """Two-file instruments still trigger stop and render just those two files."""
         # given - only two files on the instrument
         now = datetime(2026, 1, 1, 12, 0, tzinfo=pytz.UTC)
         gradient = timedelta(minutes=30)
@@ -381,7 +381,7 @@ class TestRuleAStall:
 
         alert = QueueStopAlert()
 
-        # first scan: [a, b, c] -> stall subject = a.id
+        # first scan: [a, b, c] -> stop subject = a.id
         _install_rawfile_mock(
             mock_rawfile,
             {
@@ -396,7 +396,7 @@ class TestRuleAStall:
             mock_dt.now.return_value = now1
             first = alert._get_issues([])
 
-        # second scan: a new file d arrives; top-3 = [d, a, b]; stall subject = d.id
+        # second scan: a new file d arrives; top-3 = [d, a, b]; stop subject = d.id
         d_t = a_t + gradient
         now2 = d_t + 4 * gradient
         _install_rawfile_mock(
@@ -660,9 +660,9 @@ class TestRuleBHandoff:
     ) -> None:
         """Stall about F (newest) suppresses later handoff about F (second-newest).
 
-        SPEC §2.3: stall and handoff share the (instrument, subject_file) key.
+        SPEC §2.3: stop and handoff share the (instrument, subject_file) key.
         """
-        # given - scan 1: 3 MaSc files, stall fires with subject = F.id
+        # given - scan 1: 3 MaSc files, stop fires with subject = F.id
         now1 = datetime(2026, 1, 1, 12, 0, tzinfo=pytz.UTC)
         gradient = timedelta(minutes=30)
         f_t = now1 - 4 * gradient
@@ -703,10 +703,10 @@ class TestRuleBHandoff:
             mock_dt.now.return_value = now2
             second = alert._get_issues([])
 
-        # then - stall fired with subject F.id; handoff suppressed (same subject)
+        # then - stop fired with subject F.id; handoff suppressed (same subject)
         assert len(first) == 1
         assert first[0][0] == "inst1:x_MaSc_F.raw"
-        assert first[0][1].kind == KIND_STALL
+        assert first[0][1].kind == KIND_STOP
         assert second == []
 
 
@@ -716,9 +716,9 @@ class TestRuleBHandoff:
 def _build_stall_issue(
     messenger_user_id: str = "U_MASC", instrument_id: str = "inst1"
 ) -> QueueStopIssue:
-    """Construct a stall QueueStopIssue for delivery tests."""
+    """Construct a stop QueueStopIssue for delivery tests."""
     return QueueStopIssue(
-        kind=KIND_STALL,
+        kind=KIND_STOP,
         instrument_id=instrument_id,
         messenger_user_id=messenger_user_id,
         gradient_length=timedelta(minutes=30),
@@ -843,22 +843,22 @@ class TestRecipientsAndDelivery:
     def test_render_issue_distinguishes_stall_and_handoff(self) -> None:
         """Stall and handoff messages have different bodies."""
         # given
-        stall = _build_stall_issue()
+        stop = _build_stall_issue()
         handoff = _build_handoff_issue()
         # when
-        stall_msg = QueueStopAlert.render_issue(stall)
+        stall_msg = QueueStopAlert.render_issue(stop)
         handoff_msg = QueueStopAlert.render_issue(handoff)
         # then
-        assert "stall" in stall_msg.lower()
+        assert "stop" in stall_msg.lower()
         assert "handoff" in handoff_msg.lower()
         assert stall_msg != handoff_msg
 
     def test_render_issue_includes_file_size_and_timestamp(self) -> None:
         """Each `Recent files:` row carries the file id, size and creation timestamp."""
         # given
-        stall = _build_stall_issue()
+        stop = _build_stall_issue()
         # when
-        msg = QueueStopAlert.render_issue(stall)
+        msg = QueueStopAlert.render_issue(stop)
         # then
         # _build_stall_issue uses 2026-01-01 12:00 UTC for the newest file
         assert "x_MaSc_a.raw" in msg
@@ -874,7 +874,7 @@ class TestRecipientsAndDelivery:
         # given - issue carries stale data (size=None for newest file)
         stale_time = datetime(2026, 1, 1, 12, 0, tzinfo=pytz.UTC)
         issue = QueueStopIssue(
-            kind=KIND_STALL,
+            kind=KIND_STOP,
             instrument_id="inst1",
             messenger_user_id="U_MASC",
             gradient_length=timedelta(minutes=30),
@@ -902,7 +902,7 @@ class TestRecipientsAndDelivery:
         # given
         stale_time = datetime(2026, 1, 1, 12, 0, tzinfo=pytz.UTC)
         issue = QueueStopIssue(
-            kind=KIND_STALL,
+            kind=KIND_STOP,
             instrument_id="inst1",
             messenger_user_id="U_MASC",
             gradient_length=timedelta(minutes=30),
@@ -928,7 +928,7 @@ class TestRecipientsAndDelivery:
         # given - issue captured an older run's files
         stale_time = datetime(2026, 1, 1, 12, 0, tzinfo=pytz.UTC)
         issue = QueueStopIssue(
-            kind=KIND_STALL,
+            kind=KIND_STOP,
             instrument_id="inst1",
             messenger_user_id="U_MASC",
             gradient_length=timedelta(minutes=30),

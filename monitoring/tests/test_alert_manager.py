@@ -251,7 +251,7 @@ class TestAlertManager:
         from monitoring.alerts.queue_stop_alert import QueueStopIssue
 
         issue1 = QueueStopIssue(
-            kind="stall",
+            kind="stop",
             instrument_id="inst1",
             messenger_user_id="U_MASC",
             gradient_length=None,
@@ -301,7 +301,7 @@ class TestAlertManager:
         from monitoring.alerts.queue_stop_alert import QueueStopIssue
 
         issue = QueueStopIssue(
-            kind="stall",
+            kind="stop",
             instrument_id="inst1",
             messenger_user_id="U_MASC",
             gradient_length=None,
@@ -328,9 +328,7 @@ class TestAlertManager:
         # then
         assert mock_send_direct_message.call_count == 2
         assert any(
-            "U_MASC" in rec.message
-            and "stall" in rec.message
-            and "inst1" in rec.message
+            "U_MASC" in rec.message and "stop" in rec.message and "inst1" in rec.message
             for rec in caplog.records
         )
 

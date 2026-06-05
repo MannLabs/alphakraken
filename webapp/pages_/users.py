@@ -95,7 +95,7 @@ form_items = {
         "label": "Initials*",
         "max_chars": 16,
         "placeholder": "e.g. JaDo",
-        "help": "Short, unique initials of the user.",
+        "help": "Short, unique initials of the user as used in raw file names.",
     },
     "slack_member_id": {
         "label": "Slack Member ID",
@@ -167,7 +167,7 @@ if not active_users:
 else:
     with c1.expander("Show users to edit .."):
         for u in active_users:
-            st.markdown(f"**{u.initials}** — `{u.email}`")
+            st.markdown(f"{u.email}` [{u.initials}]")
             col_initials, col_slack = st.columns([0.5, 0.5])
             new_initials = col_initials.text_input(
                 "Initials",

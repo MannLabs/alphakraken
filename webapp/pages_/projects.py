@@ -18,6 +18,7 @@ from service.utils import (
     _log,
     empty_to_none,
     flush_pending_toasts,
+    get_owner_name,
     output_path,
     show_error_toast,
     show_success_toast,
@@ -68,7 +69,7 @@ for p in projects_db:
         _project_to_settings[p.id] = [
             f"{ps.settings.name} version {ps.settings.version}" for ps in ps_list
         ]
-    _project_to_owner[p.id] = p.owner.initials if p.owner else ""
+    _project_to_owner[p.id] = get_owner_name(p)
 
 if not projects_df.empty:
     projects_df["settings"] = projects_df["_id"].map(

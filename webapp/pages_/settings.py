@@ -21,6 +21,7 @@ from service.utils import (
     _log,
     empty_to_none,
     flush_pending_toasts,
+    get_owner_name,
     settings_path,
     show_error_toast,
     show_success_toast,
@@ -56,9 +57,7 @@ projects_db = get_project_data()
 settings_df = df_from_db_data(settings_db)
 
 # owner is a reference, resolve it to readable initials for display
-_settings_to_owner = {
-    str(s.id): (s.owner.initials if s.owner else "") for s in settings_db
-}
+_settings_to_owner = {str(s.id): get_owner_name(s) for s in settings_db}
 if not settings_df.empty and "_id" in settings_df.columns:
     settings_df["owner"] = settings_df["_id"].map(
         lambda sid: _settings_to_owner.get(str(sid), "")

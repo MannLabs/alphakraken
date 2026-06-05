@@ -10,9 +10,11 @@ from typing import Any
 import plotly.graph_objects as go
 import streamlit as st
 import streamlit.delta_generator
+from mongoengine.errors import DoesNotExist
 from PIL import Image
 from service.query_params import QueryParams, is_query_param_true
 
+from shared.db.models import Project, Settings
 from shared.yamlsettings import YamlKeys, get_notification_setting, get_path
 
 # mapping of filter strings to url query parameters
@@ -105,6 +107,22 @@ def empty_to_none(value: str) -> str | None:
     to have the db schema to the validation of "required" fields correctly.
     """
     return None if value is None or value.strip() == "" else value
+
+
+def get_owner_name(doc: Project | Settings) -> str:
+    """Return the owner's name for a document, or '' if there is no resolvable owner.
+
+    Tolerates dangling references (e.g. owner pointing to a deleted/unknown user).
+    """
+    try:
+        owner = doc.owner
+    except DoesNotExist:
+        return "n/a"
+    email = owner.email if owner else "n/a"
+
+    if email:
+        return email.split("@")[0]  # return the part before the @ as the name
+    return "n/a"
 
 
 METRICS_TYPE_SEPARATOR = "__"

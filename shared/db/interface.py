@@ -21,6 +21,8 @@ from shared.db.models import (
     RawFile,
     Settings,
     SettingsStatus,
+    User,
+    UserStatus,
 )
 from shared.keys import DEFAULT_SCOPE
 
@@ -211,11 +213,53 @@ def add_metrics_to_raw_file(  # noqa: PLR0913
     ).save()
 
 
-def add_project(*, project_id: str, name: str, description: str) -> None:
-    """Add a new project to the database."""
-    logging.info(f"Adding to DB: {project_id=} {name=} {description=}")
+def add_user(*, email: str, initials: str, slack_member_id: str | None = None) -> None:
+    """Add a new user to the database."""
+    logging.info(f"Adding to DB: {email=} {initials=} {slack_member_id=}")
     connect_db()
-    project = Project(id=project_id, name=name, description=description)
+    user = User(email=email, initials=initials, slack_member_id=slack_member_id)
+    # this will fail if the email already exists
+    user.save(force_insert=True)
+
+
+def get_all_users(*, include_inactive: bool = False) -> list[User]:
+    """Get all users from the database."""
+    connect_db()
+    if include_inactive:
+        return list(User.objects.all().order_by("initials"))
+    return list(User.objects(status=UserStatus.ACTIVE).order_by("initials"))
+
+
+def update_user(
+    email: str,
+    *,
+    initials: str = _NO_UPDATE,  # type: ignore[invalid-parameter-default]
+    slack_member_id: str | None = _NO_UPDATE,  # type: ignore[invalid-parameter-default]
+) -> None:
+    """Update mutable parameters of the user with `email` (email itself is immutable)."""
+    logging.info(f"Updating DB: {email=} to {initials=} {slack_member_id=}")
+    connect_db()
+    kwargs = {"initials": initials, "slack_member_id": slack_member_id}
+    User.objects(email=email).update_one(
+        **{k: v for k, v in kwargs.items() if v != _NO_UPDATE}
+    )
+
+
+def deactivate_user(email: str) -> None:
+    """Soft-delete a user by setting its status to INACTIVE."""
+    logging.info(f"Deactivating user: {email=}")
+    connect_db()
+    User.objects(email=email).update_one(status=UserStatus.INACTIVE)
+
+
+def add_project(
+    *, project_id: str, name: str, description: str, owner_email: str
+) -> None:
+    """Add a new project to the database."""
+    logging.info(f"Adding to DB: {project_id=} {name=} {description=} {owner_email=}")
+    connect_db()
+    owner = User.objects.get(email=owner_email)
+    project = Project(id=project_id, name=name, description=description, owner=owner)
     # this will fail if the project id already exists
     project.save(force_insert=True)
 
@@ -291,6 +335,7 @@ def create_settings(  # noqa: PLR0913
     software: str,
     job_engine: str,
     metrics_type: str,
+    owner_email: str,
     slurm_cpus_per_task: int | None = None,
     slurm_mem: str | None = None,
     slurm_time: str | None = None,
@@ -301,6 +346,8 @@ def create_settings(  # noqa: PLR0913
     Version is automatically incremented based on existing settings with same name.
     """
     connect_db()
+
+    owner = User.objects.get(email=owner_email)
 
     existing = Settings.objects(name=name).order_by("-version").first()
     version = (existing.version + 1) if existing else 1
@@ -322,6 +369,7 @@ def create_settings(  # noqa: PLR0913
         software=software,
         job_engine=job_engine,
         metrics_type=metrics_type,
+        owner=owner,
         slurm_cpus_per_task=slurm_cpus_per_task,
         slurm_mem=slurm_mem,
         slurm_time=slurm_time,

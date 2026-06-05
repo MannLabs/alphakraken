@@ -31,6 +31,7 @@ pages = [
     st.Page("pages_/status.py", title="📊 Status"),
     st.Page("pages_/projects.py", title="📁 Projects"),
     st.Page("pages_/settings.py", title="📋 Manage settings"),
+    st.Page("pages_/users.py", title="👤 Users"),
 ]
 
 # Create navigation

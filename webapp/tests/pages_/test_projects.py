@@ -12,23 +12,29 @@ from streamlit.testing.v1 import AppTest
 PAGES_FOLDER = Path(__file__).parent / Path("../../pages_")
 
 
+@patch("shared.db.interface.get_all_users")
 @patch("shared.db.interface.connect_db")
 @patch("shared.db.interface.ProjectSettings")
 @patch("service.db.get_project_data")
 @patch("service.db.df_from_db_data")
 @patch("service.components.show_filter", side_effect=lambda df, **_kw: (df,))
-def test_projects_display_table(
+def test_projects_display_table(  # noqa: PLR0913
     mock_show_filter: MagicMock,  # noqa: ARG001
     mock_df: MagicMock,
     mock_get_project: MagicMock,
     mock_project_settings_cls: MagicMock,
     mock_connect_db: MagicMock,  # noqa: ARG001
+    mock_get_all_users: MagicMock,
 ) -> None:
     """Test that the table shows correctly on the projects page."""
+    mock_get_all_users.return_value = []
+
     mock_project1 = MagicMock()
     mock_project1.id = "P1234"
+    mock_project1.owner.initials = "AB"
     mock_project2 = MagicMock()
     mock_project2.id = "P5678"
+    mock_project2.owner.initials = "CD"
 
     mock_projects_db = MagicMock()
     mock_projects_db.__iter__ = MagicMock(
@@ -76,6 +82,9 @@ def test_projects_display_table(
     assert "settings" in table_data.columns
     assert table_data.loc[0, "settings"] == "settings1 version 1"
     assert table_data.loc[1, "settings"] == ""
+    assert "owner" in table_data.columns
+    assert table_data.loc[0, "owner"] == "AB"
+    assert table_data.loc[1, "owner"] == "CD"
 
 
 @skip("")  # TODO: fix this test

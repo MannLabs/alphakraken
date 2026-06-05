@@ -218,6 +218,40 @@ class SettingsStatus:
     INACTIVE = "inactive"
 
 
+class UserStatus:
+    """Status of a user."""
+
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+
+
+EMAIL_REGEX = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
+
+
+class User(Document):
+    """Schema for a user that can own projects and settings.
+
+    Not to be confused with any authentication identity.
+    """
+
+    meta: ClassVar = {
+        "strict": False,
+        "indexes": [{"fields": ["initials"], "unique": True}],
+        "auto_create_index": False,  # to avoid adding write rights to read-only connections
+    }
+    objects: ClassVar[QuerySet[User]]
+
+    email = StringField(
+        required=True, primary_key=True, max_length=128, regex=EMAIL_REGEX
+    )
+    initials = StringField(required=True, max_length=16)
+    slack_member_id = StringField(max_length=32)
+
+    status = StringField(max_length=32, default=UserStatus.ACTIVE)
+
+    created_at_ = DateTimeField(default=datetime.now)
+
+
 class Project(Document):
     """Schema for a project."""
 
@@ -230,7 +264,7 @@ class Project(Document):
 
     status = StringField(max_length=32, default=ProjectStatus.ACTIVE)
 
-    # missing: created by
+    owner = ReferenceField(User, required=True)
     created_at_ = DateTimeField(default=datetime.now)
 
 
@@ -281,6 +315,7 @@ class Settings(Document):
 
     status = StringField(max_length=64, default=SettingsStatus.ACTIVE)
 
+    owner = ReferenceField(User, required=True)
     created_at_ = DateTimeField(default=datetime.now)
 
 

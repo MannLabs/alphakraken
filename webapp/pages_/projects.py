@@ -27,6 +27,7 @@ from shared.db.interface import (
     add_project,
     assign_settings_to_project,
     get_all_settings,
+    get_all_users,
     get_latest_active_settings_by_name,
     get_project_settings,
     unassign_settings_from_project,
@@ -59,16 +60,22 @@ projects_df = df_from_db_data(projects_db)
 
 # build settings names column via ProjectSettings M:N relationship
 _project_to_settings: dict[str, list[str]] = {}
+# owner is a reference, resolve it to readable initials for display
+_project_to_owner: dict[str, str] = {}
 for p in projects_db:
     ps_list = get_project_settings(p.id)  # TODO: could be single query
     if ps_list:
         _project_to_settings[p.id] = [
             f"{ps.settings.name} version {ps.settings.version}" for ps in ps_list
         ]
+    _project_to_owner[p.id] = p.owner.initials if p.owner else ""
 
 if not projects_df.empty:
     projects_df["settings"] = projects_df["_id"].map(
         lambda pid: ", ".join(_project_to_settings.get(pid, []))
+    )
+    projects_df["owner"] = projects_df["_id"].map(
+        lambda pid: _project_to_owner.get(pid, "")
     )
 
 
@@ -348,15 +355,26 @@ with c1.expander("Click here for help ..."):
 
 c1.markdown("## Add new project")
 
+active_users = get_all_users()
+user_options_map = {f"{u.email}": u.email for u in active_users}
+
+if not active_users:
+    c1.warning("No users available. Create a user on the Users page first.")
+
 with c1.form("create_project_form"):
     project_name = st.text_input(**form_items["project_name"])
     project_id = st.text_input(**form_items["project_id"])
     project_description = st.text_area(**form_items["project_description"])
+    selected_owner_display = st.selectbox(
+        "Owner*",
+        options=user_options_map.keys(),
+        help="The user that owns this project.",
+    )
 
     st.write(r"\* Required fields")
     form_submit = st.form_submit_button(
         "Create project",
-        disabled=DISABLE_WRITE,
+        disabled=DISABLE_WRITE or not active_users,
         help="Temporarily disabled." if DISABLE_WRITE else "",
     )
 
@@ -389,6 +407,7 @@ if form_submit:
             project_id=empty_to_none(project_id),
             name=empty_to_none(project_name),
             description=project_description,
+            owner_email=user_options_map[selected_owner_display],
         )
     except Exception as e:  # noqa: BLE001
         show_error_toast(str(e))

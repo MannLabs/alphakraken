@@ -61,7 +61,7 @@ references one `User`.
 ## 5. Migration — `shared/_migrations/_migrate_add_owner.py`
 
 - Dry-run support (matching `_migrate_add_excluded_field.py`).
-- Seed placeholder `User(email="unknown@alphakraken.de", initials="NA")` if absent.
+- Seed placeholder `User(email="kraken@alphapept.org", initials="NA")` if absent.
 - Set `owner` -> placeholder on all Project/Settings docs missing it.
 - Docstring documents the **required mongosh role update**: grant the webapp role
   `find/insert/update/remove` on the new `user` collection (per the

@@ -26,7 +26,7 @@ from service.utils import (
     show_success_toast,
 )
 
-from shared.db.interface import archive_settings, create_settings
+from shared.db.interface import archive_settings, create_settings, get_all_users
 from shared.db.models import ProjectSettings, ProjectStatus, SettingsStatus
 from shared.keys import (
     SOFTWARE_TYPE_TO_DEFAULT_RESOURCE_PARAMS,
@@ -54,6 +54,15 @@ st.markdown("# Manage settings")
 settings_db = get_settings_data()
 projects_db = get_project_data()
 settings_df = df_from_db_data(settings_db)
+
+# owner is a reference, resolve it to readable initials for display
+_settings_to_owner = {
+    str(s.id): (s.owner.initials if s.owner else "") for s in settings_db
+}
+if not settings_df.empty and "_id" in settings_df.columns:
+    settings_df["owner"] = settings_df["_id"].map(
+        lambda sid: _settings_to_owner.get(str(sid), "")
+    )
 
 
 # ########################################### DISPLAY
@@ -310,6 +319,11 @@ else:
         },
     }
 
+active_users = get_all_users()
+user_options_map = {f"{u.initials} — {u.email}": u.email for u in active_users}
+if not active_users:
+    c1.warning("No users available. Create a user on the Users page first.")
+
 with c1.form("create_settings"):
     # Show input field for new name or use selected name
     if selected_name_option == CREATE_NEW_OPTION:
@@ -475,10 +489,16 @@ with c1.form("create_settings"):
             f"Archive previous version ({current_version}) after creating the new version",
             value=False,
         )
+    selected_owner_display = st.selectbox(
+        "Owner*",
+        options=user_options_map.keys(),
+        help="The user that owns these settings.",
+    )
+
     submit_label = f"Update settings '{name}'" if is_update else "Create settings"
     submit = st.form_submit_button(
         submit_label,
-        disabled=DISABLE_WRITE,
+        disabled=DISABLE_WRITE or not active_users,
         help="Temporarily disabled." if DISABLE_WRITE else "",
     )
 
@@ -537,6 +557,7 @@ if submit:
             software=empty_to_none(software),
             job_engine=job_engine,
             metrics_type=metrics_type,
+            owner_email=user_options_map[selected_owner_display],
             slurm_cpus_per_task=slurm_cpus_per_task,
             slurm_mem=empty_to_none(slurm_mem),
             slurm_time=empty_to_none(slurm_time),

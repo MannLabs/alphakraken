@@ -13,6 +13,7 @@ from streamlit.testing.v1 import AppTest
 PAGES_FOLDER = Path(__file__).parent / Path("../../pages_")
 
 
+@patch("shared.db.interface.get_all_users")
 @patch("shared.db.models.ProjectSettings.objects")
 @patch("service.db.get_project_data")
 @patch("service.db.get_settings_data")
@@ -22,9 +23,21 @@ def test_settings(
     mock_get: MagicMock,
     mock_project_get: MagicMock,
     mock_ps_objects: MagicMock,
+    mock_get_all_users: MagicMock,
 ) -> None:
     """A test for the settings page."""
+    mock_get_all_users.return_value = []
+
+    mock_setting1 = MagicMock()
+    mock_setting1.id = 1
+    mock_setting1.owner.initials = "AB"
+    mock_setting2 = MagicMock()
+    mock_setting2.id = 2
+    mock_setting2.owner.initials = "CD"
     mock_settings_db = MagicMock()
+    mock_settings_db.__iter__ = MagicMock(
+        side_effect=lambda: iter([mock_setting1, mock_setting2])
+    )
     mock_get.return_value = mock_settings_db
     mock_projects_db = MagicMock()
     mock_project_get.return_value = mock_projects_db
@@ -62,6 +75,7 @@ def test_settings(
         "created_at_": {0: "2021-01-01", 1: "2021-01-02"},
         "fasta_file_name": {0: "fasta_file1", 1: "fasta_file2"},
         "name": {0: "new settings", 1: "another settings"},
+        "owner": {0: "AB", 1: "CD"},
         "project_id": {0: "P1234", 1: "P5678"},
         "software": {0: "software1", 1: "software2"},
         "speclib_file_name": {0: "speclib_file1", 1: "speclib_file2"},

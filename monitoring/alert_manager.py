@@ -11,6 +11,7 @@ from alerts import (
     HealthCheckFailedAlert,
     InstrumentFilePileUpAlert,
     InstrumentStallAlert,
+    LocalDiskSpaceAlert,
     PumpPressureAlert,
     QueueStopAlert,
     RawFileErrorAlert,
@@ -46,6 +47,7 @@ class AlertManager:
         self.alerts: list[BaseAlert] = [
             StaleStatusAlert(),
             DiskSpaceAlert(),
+            LocalDiskSpaceAlert(),
             HealthCheckFailedAlert(),
             StatusPileUpAlert(),
             InstrumentFilePileUpAlert(),

@@ -27,6 +27,11 @@ FREE_SPACE_THRESHOLD_GB = (
 BACKUP_FREE_SPACE_THRESHOLD_GB = 500  # Backup filesystem threshold
 OUTPUT_FREE_SPACE_THRESHOLD_GB = 300  # Output filesystem threshold
 
+# Local disk alert configuration
+BYTES_PER_GB = 1024**3
+LOCAL_DISK_PATH = "/etc/hosts"  # always-present path probing the monitoring host's local disk
+LOCAL_FREE_SPACE_THRESHOLD_GB = 10  # Local disk of the monitoring host
+
 STATUS_PILE_UP_THRESHOLDS = defaultdict(lambda: 5)
 STATUS_PILE_UP_THRESHOLDS["quanting"] = 10
 
@@ -86,6 +91,7 @@ class Cases:
 
     STALE = "stale"
     LOW_DISK_SPACE = "low_disk_space"
+    LOCAL_DISK_SPACE = "local_disk_space"
     HEALTH_CHECK_FAILED = "health_check_failed"
     STATUS_PILE_UP = "status_pile_up"
     INSTRUMENT_FILE_PILE_UP = "instrument_file_pile_up"

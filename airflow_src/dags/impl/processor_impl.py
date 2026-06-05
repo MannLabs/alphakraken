@@ -188,9 +188,8 @@ def _create_quanting_env(
             settings.num_threads,
             raw_file.project_id,
         )
-        # MSQC and skyline are treated as a 'custom command'
-        if settings.software_type
-        in [SoftwareTypes.CUSTOM, SoftwareTypes.SKYLINE, SoftwareTypes.MSQC]
+        # all non-alphadia softwares are treated as 'custom command'
+        if settings.software_type not in [SoftwareTypes.ALPHADIA]
         else ""
     )
 

@@ -1,5 +1,6 @@
 """Keys for accessing environmental variables."""
 
+from collections import defaultdict
 from dataclasses import dataclass
 
 
@@ -102,17 +103,24 @@ class ResourceParams:
     num_threads: int
 
 
-SOFTWARE_TYPE_TO_DEFAULT_RESOURCE_PARAMS: dict[str, ResourceParams] = {
-    SoftwareTypes.ALPHADIA: ResourceParams(
-        slurm_cpus_per_task=8, slurm_mem="62G", slurm_time="02:00:00", num_threads=8
-    ),
-    SoftwareTypes.MSQC: ResourceParams(
-        slurm_cpus_per_task=2, slurm_mem="31G", slurm_time="00:10:00", num_threads=2
-    ),
-    SoftwareTypes.SKYLINE: ResourceParams(
-        slurm_cpus_per_task=2, slurm_mem="31G", slurm_time="00:10:00", num_threads=2
-    ),
-    SoftwareTypes.CUSTOM: ResourceParams(
-        slurm_cpus_per_task=8, slurm_mem="62G", slurm_time="02:00:00", num_threads=8
-    ),
-}
+DEFAULT_RESOURCE_PARAMS = ResourceParams(
+    slurm_cpus_per_task=8, slurm_mem="62G", slurm_time="02:00:00", num_threads=8
+)
+
+SOFTWARE_TYPE_TO_DEFAULT_RESOURCE_PARAMS: dict[str, ResourceParams] = defaultdict(
+    lambda: DEFAULT_RESOURCE_PARAMS,
+    {
+        SoftwareTypes.ALPHADIA: ResourceParams(
+            slurm_cpus_per_task=8, slurm_mem="62G", slurm_time="02:00:00", num_threads=8
+        ),
+        SoftwareTypes.MSQC: ResourceParams(
+            slurm_cpus_per_task=2, slurm_mem="31G", slurm_time="00:10:00", num_threads=2
+        ),
+        SoftwareTypes.SKYLINE: ResourceParams(
+            slurm_cpus_per_task=2, slurm_mem="31G", slurm_time="00:10:00", num_threads=2
+        ),
+        SoftwareTypes.CUSTOM: ResourceParams(
+            slurm_cpus_per_task=8, slurm_mem="62G", slurm_time="02:00:00", num_threads=8
+        ),
+    },
+)

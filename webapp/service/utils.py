@@ -109,7 +109,7 @@ def empty_to_none(value: str) -> str | None:
     return None if value is None or value.strip() == "" else value
 
 
-def get_owner_name(doc: Project | Settings) -> str:
+def get_owner_email(doc: Project | Settings) -> str:
     """Return the owner's name for a document, or '' if there is no resolvable owner.
 
     Tolerates dangling references (e.g. owner pointing to a deleted/unknown user).
@@ -118,11 +118,7 @@ def get_owner_name(doc: Project | Settings) -> str:
         owner = doc.owner
     except DoesNotExist:
         return "n/a"
-    email = owner.email if owner else "n/a"
-
-    if email:
-        return email.split("@")[0]  # return the part before the @ as the name
-    return "n/a"
+    return owner.email if owner else "n/a"
 
 
 METRICS_TYPE_SEPARATOR = "__"

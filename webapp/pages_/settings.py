@@ -21,7 +21,7 @@ from service.utils import (
     _log,
     empty_to_none,
     flush_pending_toasts,
-    get_owner_name,
+    get_owner_email,
     settings_path,
     show_error_toast,
     show_success_toast,
@@ -57,9 +57,9 @@ projects_db = get_project_data()
 settings_df = df_from_db_data(settings_db)
 
 # owner is a reference, resolve it to readable initials for display
-_settings_to_owner = {str(s.id): get_owner_name(s) for s in settings_db}
+_settings_to_owner = {str(s.id): get_owner_email(s) for s in settings_db}
 if not settings_df.empty and "_id" in settings_df.columns:
-    settings_df["owner"] = settings_df["_id"].map(
+    settings_df["settings_owner"] = settings_df["_id"].map(
         lambda sid: _settings_to_owner.get(str(sid), "")
     )
 
@@ -173,6 +173,7 @@ if selected_name_option != CREATE_NEW_OPTION:
     # Prepare prefill data from latest version
     prefill_data = {
         "description": str(latest_settings.get("description", "")),
+        "settings_owner": str(latest_settings.get("settings_owner", "")),
         "software": str(latest_settings.get("software", "")),
         "software_type": str(latest_settings.get("software_type", "")),
         "job_engine": str(latest_settings.get("job_engine", "")),
@@ -230,6 +231,10 @@ if is_custom_software:
         "Currently, custom metrics need to be added to the codebase (`metrics/custom.py`)."
     )
 
+active_users = get_all_users()
+user_options_map = {"": ""} | {f"{u.email}": u.email for u in active_users}
+if not active_users:
+    c1.warning("No users available. Create a user on the Users page first.")
 
 form_items = {
     "name": {
@@ -237,6 +242,11 @@ form_items = {
         "max_chars": 64,
         "placeholder": "e.g. 'fast_plasma' or 'standard_tissue'",
         "help": "Alphanumeric + underscore only. Used as folder name and for versioning.",
+    },
+    "settings_owner": {
+        "label": "Owner*",
+        "options": user_options_map.keys(),
+        "help": "The user that owns these settings.",
     },
     "description": {
         "label": "Description",
@@ -318,10 +328,6 @@ else:
         },
     }
 
-active_users = get_all_users()
-user_options_map = {f"{u.initials} — {u.email}": u.email for u in active_users}
-if not active_users:
-    c1.warning("No users available. Create a user on the Users page first.")
 
 with c1.form("create_settings"):
     # Show input field for new name or use selected name
@@ -335,6 +341,13 @@ with c1.form("create_settings"):
     else:
         name = selected_name_option
         st.text(f"Settings name: {name}")
+
+    owner_index = (
+        list(user_options_map.keys()).index(prefill_data["settings_owner"])
+        if prefill_data["settings_owner"] in user_options_map
+        else 0
+    )
+    settings_owner = st.selectbox(**form_items["settings_owner"], index=owner_index)
 
     description = st.text_area(
         **form_items["description"], value=prefill_data["description"]
@@ -488,11 +501,6 @@ with c1.form("create_settings"):
             f"Archive previous version ({current_version}) after creating the new version",
             value=False,
         )
-    selected_owner_display = st.selectbox(
-        "Owner*",
-        options=user_options_map.keys(),
-        help="The user that owns these settings.",
-    )
 
     submit_label = f"Update settings '{name}'" if is_update else "Create settings"
     submit = st.form_submit_button(
@@ -556,7 +564,7 @@ if submit:
             software=empty_to_none(software),
             job_engine=job_engine,
             metrics_type=metrics_type,
-            owner_email=user_options_map[selected_owner_display],
+            owner_email=user_options_map[settings_owner],
             slurm_cpus_per_task=slurm_cpus_per_task,
             slurm_mem=empty_to_none(slurm_mem),
             slurm_time=empty_to_none(slurm_time),

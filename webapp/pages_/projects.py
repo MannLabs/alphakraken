@@ -18,7 +18,7 @@ from service.utils import (
     _log,
     empty_to_none,
     flush_pending_toasts,
-    get_owner_name,
+    get_owner_email,
     output_path,
     show_error_toast,
     show_success_toast,
@@ -69,7 +69,7 @@ for p in projects_db:
         _project_to_settings[p.id] = [
             f"{ps.settings.name} version {ps.settings.version}" for ps in ps_list
         ]
-    _project_to_owner[p.id] = get_owner_name(p)
+    _project_to_owner[p.id] = get_owner_email(p)
 
 if not projects_df.empty:
     projects_df["settings"] = projects_df["_id"].map(
@@ -315,6 +315,9 @@ with c_assign2:
 
 # ########################################### FORM
 
+active_users = get_all_users()
+user_options_map = {"": ""} | {f"{u.email}": u.email for u in active_users}
+
 form_items = {
     "project_id": {
         "label": "Project Id*",
@@ -322,6 +325,11 @@ form_items = {
         "placeholder": "e.g. P1234",
         "help": "Unique identifier of the project. This needs to be put in every file name in order to have it associated with this project. "
         "Exception: the special project id '_FALLBACK' will be used for files that do not belong to any project.",
+    },
+    "project_owner": {
+        "label": "Owner*",
+        "options": user_options_map.keys(),
+        "help": "The user that owns this project.",
     },
     "project_name": {
         "label": "Project Name*",
@@ -356,21 +364,15 @@ with c1.expander("Click here for help ..."):
 
 c1.markdown("## Add new project")
 
-active_users = get_all_users()
-user_options_map = {f"{u.email}": u.email for u in active_users}
 
 if not active_users:
     c1.warning("No users available. Create a user on the Users page first.")
 
 with c1.form("create_project_form"):
-    project_name = st.text_input(**form_items["project_name"])
     project_id = st.text_input(**form_items["project_id"])
+    project_name = st.text_input(**form_items["project_name"])
+    project_owner = st.selectbox(**form_items["project_owner"])
     project_description = st.text_area(**form_items["project_description"])
-    selected_owner_display = st.selectbox(
-        "Owner*",
-        options=user_options_map.keys(),
-        help="The user that owns this project.",
-    )
 
     st.write(r"\* Required fields")
     form_submit = st.form_submit_button(
@@ -408,7 +410,7 @@ if form_submit:
             project_id=empty_to_none(project_id),
             name=empty_to_none(project_name),
             description=project_description,
-            owner_email=user_options_map[selected_owner_display],
+            owner_email=user_options_map[project_owner],
         )
     except Exception as e:  # noqa: BLE001
         show_error_toast(str(e))

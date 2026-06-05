@@ -2,7 +2,6 @@
 
 import io
 import logging
-import os
 import traceback
 from pathlib import Path
 from typing import Any
@@ -76,12 +75,7 @@ def flush_pending_toasts() -> None:
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.FileHandler("/app/logs/webapp.log")
-        if os.getenv("IS_PYTEST_RUN", "0") != "1"
-        else None,
-        logging.StreamHandler(),  # Keep console output for debugging
-    ],  # type: ignore[invalid-argument-type]
+    handlers=[logging.StreamHandler()],
 )
 logger = logging.getLogger(__name__)
 

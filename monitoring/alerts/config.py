@@ -29,7 +29,9 @@ OUTPUT_FREE_SPACE_THRESHOLD_GB = 300  # Output filesystem threshold
 
 # Local disk alert configuration
 BYTES_PER_GB = 1024**3
-LOCAL_DISK_PATH = "/etc/hosts"  # always-present path probing the monitoring host's local disk
+LOCAL_DISK_PATH = (
+    "/etc/hosts"  # always-present path probing the monitoring host's local disk
+)
 LOCAL_FREE_SPACE_THRESHOLD_GB = 10  # Local disk of the monitoring host
 
 STATUS_PILE_UP_THRESHOLDS = defaultdict(lambda: 5)

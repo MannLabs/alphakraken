@@ -163,7 +163,7 @@ In case you want to set up a URL redirect from one PC to one or multiple others,
    - `certs/privkey.pem` — the private key.
 
    If you do not have a certificate, use the plaintext variant instead: point the nginx config mount in `docker-compose.yaml` at `misc/nginx_no_ssl.conf`. With the no-SSL config the webapp is served on ports 80/8501 instead of 443, and the `certs` volume is not needed.
-4. Start the respective container `./compose.sh up nginx --build --force-recreate -d`, see the folder `nginx_logs` for logs
+4. Start the respective container `./compose.sh up nginx --build --force-recreate -d`, view logs with `./compose.sh logs nginx`
 
 To **deactivate** basic auth (e.g. for debugging), comment out the two `auth_basic*` lines in `misc/nginx.conf` and reload nginx:
 ```bash

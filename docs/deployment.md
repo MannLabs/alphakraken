@@ -172,6 +172,18 @@ proxy_set_header X-Remote-User admin;            # everyone is admin while auth 
 ```
 Reload nginx after the edit. Use `kraken` (or any non-admin name) instead of `admin` to debug as a regular user.
 
+#### Restricting direct access to backend services (firewall)
+Basic auth only protects traffic passing *through* nginx. The backend ports (webapp `8501`–`8503`, Airflow `8080`, MCP `8089`, REST API `8090`) are published on each PC's VPN IP so nginx can reach them, so anyone on the VPN can hit a service directly (e.g. `https://255.255.0.1:8090`) and bypass auth.
+Docker publishes ports via its own iptables rules that bypass `ufw`, so the rules must go in the `DOCKER-USER` chain.
+On **each backend PC**, drop traffic to those ports unless it comes from the nginx host (`<NGINX_HOST_IP>`):
+```bash
+NGINX_HOST_IP=<NGINX_HOST_IP>
+for p in 8080 8089 8090 8501 8502 8503; do
+  sudo iptables -I DOCKER-USER -p tcp -m conntrack --ctorigdstport $p --ctdir ORIGINAL ! -s $NGINX_HOST_IP -j DROP
+done
+```
+Undo by substituting `-I` with `-D` in the command.
+
 #### On the cluster
 1. Log into the cluster using the `kraken-read` user.
 2. Create a directory (to store the submit script and job logs), e.g.

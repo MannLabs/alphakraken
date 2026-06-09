@@ -315,6 +315,9 @@ elif mcp_transport == "streamable-http":
     # Intentionally binding to all interfaces for container deployment
     mcp.settings.host = "0.0.0.0"  # noqa: S104
     mcp.settings.port = int(os.getenv("MCP_PORT", None))
+    # Stateless mode: no per-backend session state, so requests can be load-balanced
+    # across hosts and survive server restarts without a "Missing session ID" 400.
+    mcp.settings.stateless_http = True
     mcp.run(transport="streamable-http")
 elif mcp_transport == "disabled":
     logging.info("MCP server disabled, not starting.")

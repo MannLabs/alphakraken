@@ -173,16 +173,37 @@ proxy_set_header X-Remote-User admin;            # everyone is admin while auth 
 Reload nginx after the edit. Use `kraken` (or any non-admin name) instead of `admin` to debug as a regular user.
 
 #### Restricting direct access to backend services (firewall)
-Basic auth only protects traffic passing *through* nginx. The backend ports (webapp `8501`–`8503`, Airflow `8080`, MCP `8089`, REST API `8090`) are published on each PC's VPN IP so nginx can reach them, so anyone on the VPN can hit a service directly (e.g. `https://255.255.0.1:8090`) and bypass auth.
-Docker publishes ports via its own iptables rules that bypass `ufw`, so the rules must go in the `DOCKER-USER` chain.
-On **each backend PC**, drop traffic to those ports unless it comes from the nginx host (`<NGINX_HOST_IP>`):
+Basic auth only protects traffic passing *through* nginx. The backend ports (webapp `8501`–`8503`, Airflow `8080`, MCP `8089`, REST API `8090`) are published on each PC's VPN IP so nginx can reach them, so anyone on the VPN can hit a service directly (e.g. `https://255.255.0.1:8090`) and bypass auth. Docker publishes these ports via its own iptables rules that bypass `ufw`, so the blocking rules must go in the `DOCKER-USER` chain. That chain is runtime-only and Docker re-creates it on every daemon restart, so `iptables-persistent` is unreliable (it also snapshots Docker's own rules and races the daemon at boot). Instead, install a systemd unit that re-asserts the rules after Docker starts — on **each backend PC**, drop traffic to those ports unless it comes from the nginx host (`<NGINX_HOST_IP>`):
 ```bash
+sudo tee /etc/systemd/system/alphakraken-firewall.service >/dev/null <<'EOF'
+[Unit]
+Description=Restrict direct access to backend services
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/alphakraken-firewall.sh
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo tee /usr/local/sbin/alphakraken-firewall.sh >/dev/null <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
 NGINX_HOST_IP=<NGINX_HOST_IP>
 for p in 8080 8089 8090 8501 8502 8503; do
-  sudo iptables -I DOCKER-USER -p tcp -m conntrack --ctorigdstport $p --ctdir ORIGINAL ! -s $NGINX_HOST_IP -j DROP
+  # -C tests if the rule exists; only insert if missing (idempotent)
+  iptables -C DOCKER-USER -p tcp -m conntrack --ctorigdstport $p --ctdir ORIGINAL ! -s $NGINX_HOST_IP -j DROP 2>/dev/null \
+    || iptables -I DOCKER-USER -p tcp -m conntrack --ctorigdstport $p --ctdir ORIGINAL ! -s $NGINX_HOST_IP -j DROP
 done
+EOF
+
+sudo chmod +x /usr/local/sbin/alphakraken-firewall.sh
+sudo systemctl enable --now alphakraken-firewall.service
 ```
-Undo by substituting `-I` with `-D` in the command.
+Edit `NGINX_HOST_IP` in the script before enabling. The `-C` check makes it idempotent (safe to re-run); the unit re-applies the rules on every boot, and `sudo systemctl start alphakraken-firewall.service` re-applies them after a Docker daemon restart. To remove, `sudo systemctl disable --now alphakraken-firewall.service` and delete the rules with `-D` in place of `-I`.
 
 #### On the cluster
 1. Log into the cluster using the `kraken-read` user.

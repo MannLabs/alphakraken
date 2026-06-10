@@ -3,8 +3,8 @@
 Sets project_id to "_FALLBACK" for all RawFile documents where project_id is None.
 
 # Usage (export DB credentials as env vars first):
-    python -m shared._migrations._backfill_fallback_project_id --dry-run
-    python -m shared._migrations._backfill_fallback_project_id
+    PYTHONPATH=. python shared/_migrations/from_0.8.0/_backfill_fallback_project_id.py --dry-run
+    PYTHONPATH=. python shared/_migrations/from_0.8.0/_backfill_fallback_project_id.py
 """
 
 import argparse

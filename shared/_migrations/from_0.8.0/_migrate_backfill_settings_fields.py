@@ -19,8 +19,8 @@ Run this BEFORE _migrate_project_settings_to_mn (order does not strictly matter,
 but legacy settings must be backfilled before they are used by new jobs).
 
 # Usage (export DB credentials as env vars first):
-    python -m shared._migrations._migrate_backfill_settings_fields --dry-run
-    python -m shared._migrations._migrate_backfill_settings_fields
+    PYTHONPATH=. python shared/_migrations/from_0.8.0/_migrate_backfill_settings_fields.py --dry-run
+    PYTHONPATH=. python shared/_migrations/from_0.8.0/_migrate_backfill_settings_fields.py
 """
 
 import argparse

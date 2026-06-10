@@ -27,6 +27,7 @@ def _query_raw_files(  # noqa: PLR0913
     date_to: datetime | None = None,
     limit: int = 100,
     offset: int = 0,
+    include_file_info: bool = False,
 ) -> tuple[list[RawFile], int]:
     """Query raw files with filtering and pagination.
 
@@ -36,7 +37,9 @@ def _query_raw_files(  # noqa: PLR0913
     """
     connect_db()
 
-    query = RawFile.objects.exclude("file_info", "backup_base_path")
+    query = RawFile.objects
+    if not include_file_info:
+        query = query.exclude("file_info", "backup_base_path")
 
     if instrument_id is not None:
         query = query.filter(instrument_id=instrument_id)
@@ -77,11 +80,13 @@ def _to_metrics_list(raw_file_data: dict[str, Any]) -> list[dict[str, Any]]:
     return metrics_list
 
 
-def _to_raw_file_dict(raw_file_data: dict[str, Any]) -> dict[str, Any]:
+def _to_raw_file_dict(
+    raw_file_data: dict[str, Any], *, excluded_keys: set[str]
+) -> dict[str, Any]:
     """Build a raw file response dict from augmented data, excluding internal keys."""
     return {
         "id": raw_file_data["_id"],
-        **{k: v for k, v in raw_file_data.items() if k not in RAW_FILE_EXCLUDED_KEYS},
+        **{k: v for k, v in raw_file_data.items() if k not in excluded_keys},
     }
 
 
@@ -95,12 +100,15 @@ def get_raw_files_with_metrics(  # noqa: PLR0913
     limit: int = 100,
     offset: int = 0,
     include_metrics: bool = True,
+    include_file_info: bool = False,
 ) -> tuple[list[dict[str, Any]], int]:
     """Query raw files and return them, optionally with metrics.
 
     Returns:
         Tuple of (list of raw file dicts, total count). Each dict carries a "metrics"
-        list when include_metrics is True, and no "metrics" key otherwise.
+        list when include_metrics is True, and no "metrics" key otherwise. The
+        "file_info" mapping and "backup_base_path" are included only when
+        include_file_info is True.
 
     """
     raw_files, total = _query_raw_files(
@@ -111,11 +119,17 @@ def get_raw_files_with_metrics(  # noqa: PLR0913
         date_to=date_to,
         limit=limit,
         offset=offset,
+        include_file_info=include_file_info,
     )
+
+    excluded_keys = RAW_FILE_EXCLUDED_KEYS
+    if include_file_info:
+        excluded_keys = excluded_keys - {"file_info", "backup_base_path"}
 
     if not include_metrics:
         results = [
-            _to_raw_file_dict(dict(raw_file.to_mongo())) for raw_file in raw_files
+            _to_raw_file_dict(dict(raw_file.to_mongo()), excluded_keys=excluded_keys)
+            for raw_file in raw_files
         ]
         return results, total
 
@@ -124,7 +138,10 @@ def get_raw_files_with_metrics(  # noqa: PLR0913
     results = []
     for raw_file_data in augmented.values():
         metrics = _to_metrics_list(raw_file_data)
-        result = {**_to_raw_file_dict(raw_file_data), "metrics": metrics}
+        result = {
+            **_to_raw_file_dict(raw_file_data, excluded_keys=excluded_keys),
+            "metrics": metrics,
+        }
         results.append(result)
 
     return results, total

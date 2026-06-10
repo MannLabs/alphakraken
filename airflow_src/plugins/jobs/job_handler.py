@@ -13,38 +13,33 @@ from common.constants import CLUSTER_BASE_WORKING_DIR_NAME
 from common.keys import QuantingEnv
 from sensors.ssh_utils import ssh_execute
 
-from shared.yamlsettings import YAMLSETTINGS, YamlKeys, get_path
-
-# TODO: move to settings
-ENGINE: str = (
-    YAMLSETTINGS.get(YamlKeys.GENERAL, {})
-    .get(YamlKeys.JOB_ENGINE, {})
-    .get(YamlKeys.TYPE, "slurm")
-)
+from shared.keys import JobEngines
+from shared.yamlsettings import YamlKeys, get_path
 
 
-def _get_job_handler(engine: str | None = None) -> "JobHandler":
-    """Factory function to get the appropriate job handler based on the configured engine."""
-    engine = engine or ENGINE
+def _get_job_handler(engine: str) -> "JobHandler":
+    """Factory function to get the appropriate job handler for the given engine."""
+    if engine == JobEngines.SLURM:
+        logging.info("Using SlurmSSHJobHandler")
+        return SlurmSSHJobHandler()
 
-    if engine == "generic":
+    if engine == JobEngines.SLURM_NO_SACCT:
+        logging.info("Using SlurmNoSacctSSHJobHandler")
+        return SlurmNoSacctSSHJobHandler()
+
+    if engine == JobEngines.GENERIC:
         from jobs._experimental.generic_job_handler import GenericJobHandler
 
         logging.info("Using GenericJobHandler")
         return GenericJobHandler()
 
-    if engine == "slurm_no_sacct":
-        logging.info("Using SlurmNoSacctSSHJobHandler")
-        return SlurmNoSacctSSHJobHandler()
-
-    if engine == "file_based":
+    if engine == JobEngines.FILE_BASED:
         from jobs._experimental.file_based_job_handler import FileBasedJobHandler
 
         logging.info("Using FileBasedJobHandler")
         return FileBasedJobHandler()
-    # Default to Slurm
-    logging.info("Using SlurmSSHJobHandler")
-    return SlurmSSHJobHandler()
+
+    raise ValueError(f"Unsupported job engine: {engine}")
 
 
 class JobHandler(abc.ABC):
@@ -251,26 +246,29 @@ class SlurmNoSacctSSHJobHandler(SlurmSSHJobHandler):
 
 
 def start_job(
-    job_script_name: str, environment: dict[str, str], year_month_folder: str
+    job_script_name: str,
+    environment: dict[str, str],
+    year_month_folder: str,
+    engine: str,
 ) -> str:
-    """Start a job using the configured job engine.
+    """Start a job using the given job engine.
 
     Delegates to JobHandler.start_job(), see docs there.
     """
-    handler = _get_job_handler()
+    handler = _get_job_handler(engine)
     return handler.start_job(job_script_name, environment, year_month_folder)
 
 
-def get_job_status(job_id: str) -> str:
-    """Get the job status using the configured job engine.
+def get_job_status(job_id: str, engine: str) -> str:
+    """Get the job status using the given job engine.
 
     Delegates to JobHandler.get_job_status(), see docs there.
     """
-    handler = _get_job_handler()
+    handler = _get_job_handler(engine)
     return handler.get_job_status(job_id)
 
 
-def get_job_result(job_id: str) -> tuple[str, int]:
-    """Get the job status and time elapsed using the configured job engine."""
-    handler = _get_job_handler()
+def get_job_result(job_id: str, engine: str) -> tuple[str, int]:
+    """Get the job status and time elapsed using the given job engine."""
+    handler = _get_job_handler(engine)
     return handler.get_job_result(job_id)

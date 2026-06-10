@@ -104,10 +104,10 @@ def test_overview(
         status_df,  # this is for display_status_warning
         raw_files_df,
         metrics_df,  # alphadia metrics
-        custom_metrics_df,  # custom metrics
         pd.DataFrame(),  # empty msqc metrics
         pd.DataFrame(),  # empty skyline metrics
         pd.DataFrame(),  # empty diann metrics
+        custom_metrics_df,  # custom metrics
         status_df,
     ]
 

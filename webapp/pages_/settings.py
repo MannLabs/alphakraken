@@ -30,11 +30,14 @@ from shared.db.interface import archive_settings, create_settings
 from shared.db.models import ProjectSettings, ProjectStatus, SettingsStatus
 from shared.keys import (
     SOFTWARE_TYPE_TO_DEFAULT_RESOURCE_PARAMS,
+    JobEngines,
     MetricsTypes,
     SoftwareTypes,
 )
 from shared.validation import check_for_malicious_content
 from shared.yamlsettings import YamlKeys, get_path
+
+SHOW_JOB_ENGINE_SELECT = False
 
 _log(f"loading {__file__} {get_all_query_params()}")
 # ########################################### PAGE HEADER
@@ -164,6 +167,7 @@ if selected_name_option != CREATE_NEW_OPTION:
         "description": str(latest_settings.get("description", "")),
         "software": str(latest_settings.get("software", "")),
         "software_type": str(latest_settings.get("software_type", "")),
+        "job_engine": str(latest_settings.get("job_engine", "")),
         "fasta_file_name": str(latest_settings.get("fasta_file_name", "")),
         "speclib_file_name": str(latest_settings.get("speclib_file_name", "")),
         "config_file_name": str(latest_settings.get("config_file_name", "")),
@@ -211,6 +215,7 @@ metrics_type = c1.selectbox(
     options=metrics_type_options,
     index=metrics_type_index,
     disabled=not is_custom_software,
+    help="Select which metrics to calculate, should typically match the software type.",
 )
 if is_custom_software:
     c1.info(
@@ -262,22 +267,6 @@ if software_type == SoftwareTypes.ALPHADIA:
         },
     }
 
-elif software_type == SoftwareTypes.CUSTOM:
-    form_items |= {
-        "software": {
-            "label": "Executable*",
-            "max_chars": 64,
-            "placeholder": "e.g. 'custom-software/custom-executable1.2.3'",
-            "help": f"Path to executable, relative to `{get_path(YamlKeys.Locations.SOFTWARE)}/`. Ask an administrator to add the executable to the software folder. "
-            f"If something that is in the `$PATH` should be executed, it needs to be wrapped by a shell script located in the software folder.",
-        },
-        "config_params": {
-            "label": "Configuration parameters",
-            "max_chars": 2048,
-            "placeholder": "e.g. '--qvalue 0.01 --f RAW_FILE_PATH --lib LIBRARY_PATH --fasta FASTA_PATH --temp OUTPUT_PATH --threads NUM_THREADS'",
-            "help": "Configuration options for the custom software. Certain placeholders will be substituted.",
-        },
-    }
 
 elif software_type == SoftwareTypes.MSQC:
     form_items |= {
@@ -302,6 +291,22 @@ elif software_type == SoftwareTypes.SKYLINE:
             "max_chars": 2048,
             "placeholder": "e.g. '--in iRT_windows.sky --irt-database-path irt_c18_official.irtdb --report-add custom_iRT_report.skyr'",
             "help": "Configuration options for the Skyline software. Certain placeholders will be substituted.",
+        },
+    }
+else:
+    form_items |= {
+        "software": {
+            "label": "Executable*",
+            "max_chars": 64,
+            "placeholder": "e.g. 'custom-software/custom-executable1.2.3'",
+            "help": f"Path to executable, relative to `{get_path(YamlKeys.Locations.SOFTWARE)}/`. Ask an administrator to add the executable to the software folder. "
+            f"If something that is in the `$PATH` should be executed, it needs to be wrapped by a shell script located in the software folder.",
+        },
+        "config_params": {
+            "label": "Configuration parameters",
+            "max_chars": 2048,
+            "placeholder": "e.g. '--qvalue 0.01 --f RAW_FILE_PATH --lib LIBRARY_PATH --fasta FASTA_PATH --temp OUTPUT_PATH --threads NUM_THREADS'",
+            "help": "Configuration options for the custom software. Certain placeholders will be substituted.",
         },
     }
 
@@ -387,6 +392,22 @@ with c1.form("create_settings"):
     if software_type == SoftwareTypes.ALPHADIA:
         st.write(r"\** At least one of the two must be given")
 
+    if SHOW_JOB_ENGINE_SELECT:
+        job_engine_options = JobEngines.get_values()
+        job_engine_index = (
+            job_engine_options.index(prefill_data["job_engine"])
+            if prefill_data["job_engine"] in job_engine_options
+            else job_engine_options.index(JobEngines.SLURM)
+        )
+        job_engine = st.selectbox(
+            label="Execution engine",
+            options=job_engine_options,
+            index=job_engine_index,
+            help="The engine used to run the quanting job.",
+        )
+    else:
+        job_engine = JobEngines.SLURM
+
     with st.expander("Resource parameters"):
         st.info(
             "Enables setting the resources. Some values are only relevant for Slurm and/or for alphadia/custom."
@@ -425,25 +446,22 @@ with c1.form("create_settings"):
             help="Use for 'alphadia' and 'custom' (through NUM_THREADS placeholder)",
         )
 
-    if software_type in [SoftwareTypes.MSQC]:
-        upload_checkbox = True
-    else:
-        st.markdown("### Upload files to settings folder")
-        settings_name_clean = empty_to_none(name)
-        if settings_name_clean:
-            st.markdown(
-                f"Make sure you have uploaded all referenced files to "
-                f"`{settings_path}/{settings_name_clean}/`"
-            )
-        else:
-            st.markdown(
-                f"After entering a settings name above, upload files to "
-                f"`{settings_path}/<settings_name>/`"
-            )
-
-        upload_checkbox = st.checkbox(
-            "I have uploaded all referenced files to this folder.", value=False
+    st.markdown("### Upload files to settings folder")
+    settings_name_clean = empty_to_none(name)
+    if settings_name_clean:
+        st.markdown(
+            f"Make sure you have uploaded all referenced files (if any) to "
+            f"`{settings_path}/{settings_name_clean}/`"
         )
+    else:
+        st.markdown(
+            f"After entering a settings name above, upload files to "
+            f"`{settings_path}/<settings_name>/`"
+        )
+
+    upload_checkbox = st.checkbox(
+        "I have uploaded all referenced files to this folder.", value=False
+    )
 
     is_update = selected_name_option != CREATE_NEW_OPTION
     if is_update:
@@ -517,6 +535,7 @@ if submit:
             config_params=config_params,
             software_type=empty_to_none(software_type),
             software=empty_to_none(software),
+            job_engine=job_engine,
             metrics_type=metrics_type,
             slurm_cpus_per_task=slurm_cpus_per_task,
             slurm_mem=empty_to_none(slurm_mem),

@@ -57,15 +57,8 @@ def get_combined_raw_files_and_metrics_df(
 
     # merge metrics of each type into a single DataFrame
     # TODO: first existing metrics gets column name w/o suffix -> always append
-    metrics_types = [
-        MetricsTypes.ALPHADIA,
-        MetricsTypes.CUSTOM,
-        MetricsTypes.MSQC,
-        MetricsTypes.SKYLINE,
-        MetricsTypes.DIANN,
-    ]
     merged_metrics_df = pd.DataFrame()
-    for metrics_type in metrics_types:
+    for metrics_type in MetricsTypes.get_values():
         metrics_df = df_from_db_data(
             metrics_db,
             filter_dict={"type": metrics_type},

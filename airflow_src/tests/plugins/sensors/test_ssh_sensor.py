@@ -1,12 +1,14 @@
 """Tests for the SSH sensor plugin."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 from airflow.utils.xcom import XCOM_RETURN_KEY
-from plugins.common.keys import JobStates
+from plugins.common.keys import JobStates, QuantingEnv
 from plugins.sensors.ssh_sensor import WaitForJobFinishSensor
 
-SOURCE_TASK_ID = "processing.submit_job"
+JOB_ID_SOURCE_TASK_ID = "processing.submit_job"
+QUANTING_ENV_SOURCE_TASK_ID = "processing.prepare_job"
+ENGINE = "file_based"
 
 
 @patch("plugins.sensors.ssh_sensor.get_job_status")
@@ -17,20 +19,30 @@ def test_poke_executes_ssh_command_and_checks_returned_state(
     # given
     mock_ti = MagicMock()
     mock_ti.map_index = 0
-    mock_ti.xcom_pull.return_value = "12345"
+    mock_ti.xcom_pull.side_effect = ["12345", {QuantingEnv.JOB_ENGINE: ENGINE}]
     mock_get_job_status.return_value = JobStates.RUNNING
     context = {"ti": mock_ti}
     operator = WaitForJobFinishSensor(
-        task_id="my_task", xcom_source_task_id=SOURCE_TASK_ID
+        task_id="my_task",
+        xcom_source_task_id=JOB_ID_SOURCE_TASK_ID,
+        quanting_env_source_task_id=QUANTING_ENV_SOURCE_TASK_ID,
     )
 
     operator.pre_execute(context)
 
     # then
-    mock_ti.xcom_pull.assert_called_once_with(
-        key=XCOM_RETURN_KEY, task_ids=SOURCE_TASK_ID, map_indexes=0
+    mock_ti.xcom_pull.assert_has_calls(
+        [
+            call(key=XCOM_RETURN_KEY, task_ids=JOB_ID_SOURCE_TASK_ID, map_indexes=0),
+            call(
+                key=XCOM_RETURN_KEY,
+                task_ids=QUANTING_ENV_SOURCE_TASK_ID,
+                map_indexes=0,
+            ),
+        ]
     )
     assert not operator.poke(context)
+    mock_get_job_status.assert_called_once_with("12345", ENGINE)
 
 
 @patch("plugins.sensors.ssh_sensor.get_job_status")
@@ -41,17 +53,27 @@ def test_poke_returns_true_when_state_not_in_running_states(
     # given
     mock_ti = MagicMock()
     mock_ti.map_index = 2
-    mock_ti.xcom_pull.return_value = "12345"
+    mock_ti.xcom_pull.side_effect = ["12345", {QuantingEnv.JOB_ENGINE: ENGINE}]
     mock_get_job_status.return_value = JobStates.COMPLETED
     context = {"ti": mock_ti}
     operator = WaitForJobFinishSensor(
-        task_id="my_task", xcom_source_task_id=SOURCE_TASK_ID
+        task_id="my_task",
+        xcom_source_task_id=JOB_ID_SOURCE_TASK_ID,
+        quanting_env_source_task_id=QUANTING_ENV_SOURCE_TASK_ID,
     )
 
     operator.pre_execute(context)
 
     # then
-    mock_ti.xcom_pull.assert_called_once_with(
-        key=XCOM_RETURN_KEY, task_ids=SOURCE_TASK_ID, map_indexes=2
+    mock_ti.xcom_pull.assert_has_calls(
+        [
+            call(key=XCOM_RETURN_KEY, task_ids=JOB_ID_SOURCE_TASK_ID, map_indexes=2),
+            call(
+                key=XCOM_RETURN_KEY,
+                task_ids=QUANTING_ENV_SOURCE_TASK_ID,
+                map_indexes=2,
+            ),
+        ]
     )
     assert operator.poke(context)
+    mock_get_job_status.assert_called_once_with("12345", ENGINE)

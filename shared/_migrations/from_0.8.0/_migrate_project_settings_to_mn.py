@@ -5,7 +5,7 @@ entry linking the project to the same settings with scope="*".
 Then removes the `settings` field from all Project documents.
 
 # Migration part 1: (export DB credentials as env vars first):
-    python -m shared._migrations._migrate_project_settings_to_mn --dry-run
+    PYTHONPATH=. python shared/_migrations/from_0.8.0/_migrate_project_settings_to_mn.py --dry-run
 
 # Migration part 2:
 start mongosh and execute:

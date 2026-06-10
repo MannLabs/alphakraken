@@ -16,7 +16,6 @@ class YamlKeys:
     GENERAL = "general"
     INSTRUMENTS = "instruments"
 
-    JOB_ENGINE = "job_engine"
     TYPE = "type"
 
     LOCATIONS = "locations"

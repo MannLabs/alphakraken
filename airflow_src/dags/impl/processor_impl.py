@@ -188,9 +188,8 @@ def _create_quanting_env(
             settings.num_threads,
             raw_file.project_id,
         )
-        # MSQC and skyline are treated as a 'custom command'
-        if settings.software_type
-        in [SoftwareTypes.CUSTOM, SoftwareTypes.SKYLINE, SoftwareTypes.MSQC]
+        # all non-alphadia softwares are treated as 'custom command'
+        if settings.software_type not in [SoftwareTypes.ALPHADIA]
         else ""
     )
 
@@ -217,6 +216,7 @@ def _create_quanting_env(
         QuantingEnv.SETTINGS_NAME: settings.name,
         QuantingEnv.SETTINGS_VERSION: settings.version,
         QuantingEnv.INTERNAL_OUTPUT_PATH: str(internal_output_path),
+        QuantingEnv.JOB_ENGINE: settings.job_engine,
     }
     return quanting_env
 
@@ -382,7 +382,12 @@ def submit_job(
 
     year_month_folder = get_created_at_year_month(raw_file)
 
-    job_id = start_job(job_script_name, quanting_env, year_month_folder)
+    job_id = start_job(
+        job_script_name,
+        quanting_env,
+        year_month_folder,
+        engine=quanting_env[QuantingEnv.JOB_ENGINE],
+    )
 
     if new_status is not None:
         update_raw_file(quanting_env[QuantingEnv.RAW_FILE_ID], new_status=new_status)
@@ -454,7 +459,9 @@ def check_job_result(*, quanting_env: dict, job_id: str, ti: TaskInstance) -> di
     :raises AirflowSkipException: On known job failures (skips downstream tasks).
     :raises AirflowFailException: On unknown job failures.
     """
-    job_status, time_elapsed = get_job_result(job_id)
+    job_status, time_elapsed = get_job_result(
+        job_id, engine=quanting_env[QuantingEnv.JOB_ENGINE]
+    )
 
     logging.info(f"Job {job_id} exited with status {job_status}.")
 

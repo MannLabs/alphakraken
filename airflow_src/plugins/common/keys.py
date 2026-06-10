@@ -177,6 +177,7 @@ class QuantingEnv:
     SLURM_MEM: str = "_SLURM_MEM"
     SLURM_TIME: str = "_SLURM_TIME"
     INTERNAL_OUTPUT_PATH: str = "_INTERNAL_OUTPUT_PATH"
+    JOB_ENGINE: str = "_JOB_ENGINE"
 
 
 class JobStates:

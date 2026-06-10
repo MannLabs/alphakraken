@@ -36,6 +36,10 @@ def list_raw_files(  # noqa: PLR0913
         int, Query(ge=1, le=MAX_LIMIT, description="Number of results per page")
     ] = DEFAULT_LIMIT,
     offset: Annotated[int, Query(ge=0, description="Number of results to skip")] = 0,
+    *,
+    include_metrics: Annotated[
+        bool, Query(description="Include flattened metrics for each raw file")
+    ] = True,
 ) -> dict[str, Any]:
     """List raw files with optional filtering, including flattened metrics."""
     data, total = get_raw_files_with_metrics(
@@ -46,6 +50,7 @@ def list_raw_files(  # noqa: PLR0913
         date_to=date_to,
         limit=limit,
         offset=offset,
+        include_metrics=include_metrics,
     )
 
     return {

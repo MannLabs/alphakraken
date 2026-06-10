@@ -23,7 +23,7 @@ class RawFileResponse(BaseModel):
     # instrument_file_status: str | None = None
     created_at: datetime | None = None
     updated_at_: datetime | None = None
-    metrics: list[dict[str, Any]] = []
+    metrics: list[dict[str, Any]] | None = None
 
 
 class RawFilesListResponse(BaseModel):

@@ -77,6 +77,14 @@ def _to_metrics_list(raw_file_data: dict[str, Any]) -> list[dict[str, Any]]:
     return metrics_list
 
 
+def _to_raw_file_dict(raw_file_data: dict[str, Any]) -> dict[str, Any]:
+    """Build a raw file response dict from augmented data, excluding internal keys."""
+    return {
+        "id": raw_file_data["_id"],
+        **{k: v for k, v in raw_file_data.items() if k not in RAW_FILE_EXCLUDED_KEYS},
+    }
+
+
 def get_raw_files_with_metrics(  # noqa: PLR0913
     *,
     instrument_id: str | None = None,
@@ -86,11 +94,13 @@ def get_raw_files_with_metrics(  # noqa: PLR0913
     date_to: datetime | None = None,
     limit: int = 100,
     offset: int = 0,
+    include_metrics: bool = True,
 ) -> tuple[list[dict[str, Any]], int]:
-    """Query raw files and return them with metrics.
+    """Query raw files and return them, optionally with metrics.
 
     Returns:
-        Tuple of (list of raw file dicts with metrics list, total count).
+        Tuple of (list of raw file dicts, total count). Each dict carries a "metrics"
+        list when include_metrics is True, and no "metrics" key otherwise.
 
     """
     raw_files, total = _query_raw_files(
@@ -103,22 +113,18 @@ def get_raw_files_with_metrics(  # noqa: PLR0913
         offset=offset,
     )
 
+    if not include_metrics:
+        results = [
+            _to_raw_file_dict(dict(raw_file.to_mongo())) for raw_file in raw_files
+        ]
+        return results, total
+
     augmented = augment_raw_files_with_metrics(raw_files, prefix="")
 
     results = []
     for raw_file_data in augmented.values():
         metrics = _to_metrics_list(raw_file_data)
-
-        result = {
-            "id": raw_file_data["_id"],
-            **{
-                k: v
-                for k, v in raw_file_data.items()
-                if k not in RAW_FILE_EXCLUDED_KEYS
-            },
-            "metrics": metrics,
-        }
-
+        result = {**_to_raw_file_dict(raw_file_data), "metrics": metrics}
         results.append(result)
 
     return results, total

@@ -30,10 +30,10 @@ def test_settings(
 
     mock_setting1 = MagicMock()
     mock_setting1.id = 1
-    mock_setting1.owner.initials = "AB"
+    mock_setting1.owner.email = "ab@example.com"
     mock_setting2 = MagicMock()
     mock_setting2.id = 2
-    mock_setting2.owner.initials = "CD"
+    mock_setting2.owner.email = "cd@example.com"
     mock_settings_db = MagicMock()
     mock_settings_db.__iter__ = MagicMock(
         side_effect=lambda: iter([mock_setting1, mock_setting2])
@@ -75,7 +75,7 @@ def test_settings(
         "created_at_": {0: "2021-01-01", 1: "2021-01-02"},
         "fasta_file_name": {0: "fasta_file1", 1: "fasta_file2"},
         "name": {0: "new settings", 1: "another settings"},
-        "owner": {0: "AB", 1: "CD"},
+        "settings_owner": {0: "ab@example.com", 1: "cd@example.com"},
         "project_id": {0: "P1234", 1: "P5678"},
         "software": {0: "software1", 1: "software2"},
         "speclib_file_name": {0: "speclib_file1", 1: "speclib_file2"},

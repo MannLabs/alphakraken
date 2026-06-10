@@ -92,7 +92,7 @@ form_items = {
         "help": "Unique identifier of the user.",
     },
     "initials": {
-        "label": "Initials*",
+        "label": "Initials (as used in raw file named)*",
         "max_chars": 16,
         "placeholder": "e.g. JaDo",
         "help": "Short, unique initials of the user as used in raw file names.",

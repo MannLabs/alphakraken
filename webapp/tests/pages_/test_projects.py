@@ -31,10 +31,10 @@ def test_projects_display_table(  # noqa: PLR0913
 
     mock_project1 = MagicMock()
     mock_project1.id = "P1234"
-    mock_project1.owner.initials = "AB"
+    mock_project1.owner.email = "ab@example.com"
     mock_project2 = MagicMock()
     mock_project2.id = "P5678"
-    mock_project2.owner.initials = "CD"
+    mock_project2.owner.email = "cd@example.com"
 
     mock_projects_db = MagicMock()
     mock_projects_db.__iter__ = MagicMock(
@@ -83,8 +83,8 @@ def test_projects_display_table(  # noqa: PLR0913
     assert table_data.loc[0, "settings"] == "settings1 version 1"
     assert table_data.loc[1, "settings"] == ""
     assert "owner" in table_data.columns
-    assert table_data.loc[0, "owner"] == "AB"
-    assert table_data.loc[1, "owner"] == "CD"
+    assert table_data.loc[0, "owner"] == "ab@example.com"
+    assert table_data.loc[1, "owner"] == "cd@example.com"
 
 
 @skip("")  # TODO: fix this test

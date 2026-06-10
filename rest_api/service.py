@@ -15,7 +15,10 @@ METRICS_EXCLUDED_KEYS = {
     "settings_version",
 }
 
-RAW_FILE_EXCLUDED_KEYS = {"_id", "file_info", "backup_base_path", "created_at_"}
+# file_info paths are relative to backup_base_path, so the two are returned together
+FILE_INFO_KEYS = frozenset({"file_info", "backup_base_path"})
+
+RAW_FILE_EXCLUDED_KEYS = {"_id", "created_at_"} | FILE_INFO_KEYS
 
 
 def _query_raw_files(  # noqa: PLR0913
@@ -39,7 +42,7 @@ def _query_raw_files(  # noqa: PLR0913
 
     query = RawFile.objects
     if not include_file_info:
-        query = query.exclude("file_info", "backup_base_path")
+        query = query.exclude(*FILE_INFO_KEYS)
 
     if instrument_id is not None:
         query = query.filter(instrument_id=instrument_id)
@@ -124,7 +127,7 @@ def get_raw_files_with_metrics(  # noqa: PLR0913
 
     excluded_keys = RAW_FILE_EXCLUDED_KEYS
     if include_file_info:
-        excluded_keys = excluded_keys - {"file_info", "backup_base_path"}
+        excluded_keys = excluded_keys - FILE_INFO_KEYS
 
     if not include_metrics:
         results = [

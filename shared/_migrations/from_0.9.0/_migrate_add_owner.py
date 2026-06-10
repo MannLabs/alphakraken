@@ -4,8 +4,8 @@ Seeds a placeholder User and assigns it as owner to all Project and Settings
 documents that don't have an owner yet.
 
 # Migration part 1 (export DB credentials as env vars first):
-    python -m shared._migrations._migrate_add_owner --dry-run
-    python -m shared._migrations._migrate_add_owner
+    PYTHONPATH=. python shared._migrations/from_0.9.0/_migrate_add_owner --dry-run
+    PYTHONPATH=. python shared._migrations/from_0.9.0/_migrate_add_owner
 
 # Migration part 2:
 start mongosh and execute (grant the webapp role write access to the new `user`
@@ -14,6 +14,18 @@ collection):
 use krakendb
 db.updateRole("webappRole", {
       privileges: [
+          {
+              resource: { db: "krakendb", collection: "project" },
+              actions: ["find", "insert", "update", "remove"]
+          },
+          {
+              resource: { db: "krakendb", collection: "settings" },
+              actions: ["find", "insert", "update", "remove"]
+          },
+          {
+              resource: { db: "krakendb", collection: "project_settings" },
+              actions: ["find", "insert", "update", "remove"]
+          },
           {
               resource: { db: "krakendb", collection: "user" },
               actions: ["find", "insert", "update", "remove"]

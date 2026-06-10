@@ -289,7 +289,7 @@ def create_settings(  # noqa: PLR0913
     config_params: str | None = None,
     software_type: str,
     software: str,
-    job_engine: str | None = None,
+    job_engine: str,
     metrics_type: str,
     slurm_cpus_per_task: int | None = None,
     slurm_mem: str | None = None,

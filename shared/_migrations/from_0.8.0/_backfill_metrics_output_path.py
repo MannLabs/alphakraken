@@ -38,7 +38,7 @@ def _get_output_path(
         raw_file.project_id
         if raw_file.project_id
         else (
-            "_FALLBACK_BRUKER" if raw_file.original_name.endwith(".d") else "_FALLBACK"
+            "_FALLBACK_BRUKER" if raw_file.original_name.endswith(".d") else "_FALLBACK"
         )
     )
     return str(

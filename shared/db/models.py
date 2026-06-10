@@ -247,9 +247,11 @@ class Settings(Document):
     }
     objects: ClassVar[QuerySet[Settings]]
 
+    # unique number for each settings
     number = IntField(
         min_value=1, unique=True, default=-1
     )  # default only needed for legacy data
+
     name = StringField(required=True, max_length=64, regex=SETTINGS_NAME_REGEX)
     version = IntField(min_value=1, default=1)
     description = StringField(max_length=512)

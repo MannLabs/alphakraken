@@ -9,6 +9,7 @@ using the same logic as get_output_folder_rel_path.
 """
 
 import argparse
+import csv
 import logging
 from pathlib import Path
 
@@ -18,6 +19,7 @@ from shared.db.engine import connect_db
 from shared.db.models import Metrics, RawFile, get_created_at_year_month
 
 OUTPUT_FOLDER_PREFIX = "out_"
+LOG_FILE_NAME = "backfill_metrics_output_path.csv"
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -32,7 +34,13 @@ def _get_output_path(
     optional_sub_folder = (
         get_created_at_year_month(raw_file) if not raw_file.has_project else ""
     )
-    project_id = raw_file.project_id if raw_file.project_id else "_FALLBACK"
+    project_id = (
+        raw_file.project_id
+        if raw_file.project_id
+        else (
+            "_FALLBACK_BRUKER" if raw_file.original_name.endwith(".d") else "_FALLBACK"
+        )
+    )
     return str(
         output_base_path
         / project_id
@@ -58,38 +66,46 @@ def migrate(*, output_base_path: Path, dry_run: bool) -> None:
 
     updated = 0
     errors = 0
-    for metrics_doc in collection.find(query):
-        raw_file_ref = metrics_doc.get("raw_file")
-        metrics_type = metrics_doc.get("type", "alphadia")
+    log_path = Path(LOG_FILE_NAME)
+    with log_path.open("w", newline="") as log_file:
+        log_writer = csv.writer(log_file, lineterminator="\n")
+        log_writer.writerow(["raw_file_id", "output_path"])
 
-        if raw_file_ref is None:
-            logger.warning(
-                f"Metrics {metrics_doc['_id']}: no raw_file reference, skipping."
-            )
-            errors += 1
-            continue
+        for metrics_doc in collection.find(query):
+            raw_file_ref = metrics_doc.get("raw_file")
+            metrics_type = metrics_doc.get("type", "alphadia")
 
-        try:
-            raw_file = RawFile.objects.get(id=raw_file_ref)
-        except DoesNotExist:
-            logger.warning(
-                f"Metrics {metrics_doc['_id']}: RawFile {raw_file_ref} not found, skipping."
-            )
-            errors += 1
-            continue
+            if raw_file_ref is None:
+                logger.warning(
+                    f"Metrics {metrics_doc['_id']}: no raw_file reference, skipping."
+                )
+                errors += 1
+                continue
 
-        output_path = _get_output_path(raw_file, metrics_type, output_base_path)
+            try:
+                raw_file = RawFile.objects.get(id=raw_file_ref)
+            except DoesNotExist:
+                logger.warning(
+                    f"Metrics {metrics_doc['_id']}: RawFile {raw_file_ref} not found, skipping."
+                )
+                errors += 1
+                continue
 
-        if dry_run:
-            logger.info(
-                f"  Would set output_path={output_path} on Metrics {metrics_doc['_id']}"
-            )
-        else:
-            collection.update_one(
-                {"_id": metrics_doc["_id"]},
-                {"$set": {"output_path": output_path}},
-            )
-            updated += 1
+            output_path = _get_output_path(raw_file, metrics_type, output_base_path)
+            log_writer.writerow([raw_file.id, output_path])
+
+            if dry_run:
+                logger.info(
+                    f"  Would set output_path={output_path} on Metrics {metrics_doc['_id']}"
+                )
+            else:
+                collection.update_one(
+                    {"_id": metrics_doc["_id"]},
+                    {"$set": {"output_path": output_path}},
+                )
+                updated += 1
+
+    logger.info(f"Wrote log to {log_path.resolve()}")
 
     if dry_run:
         logger.info(

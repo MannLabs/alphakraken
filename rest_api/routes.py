@@ -40,6 +40,12 @@ def list_raw_files(  # noqa: PLR0913
     include_metrics: Annotated[
         bool, Query(description="Include flattened metrics for each raw file")
     ] = True,
+    include_file_info: Annotated[
+        bool,
+        Query(
+            description="Include the file_info mapping and backup_base_path for each raw file"
+        ),
+    ] = False,
 ) -> dict[str, Any]:
     """List raw files with optional filtering, including flattened metrics."""
     data, total = get_raw_files_with_metrics(
@@ -51,6 +57,7 @@ def list_raw_files(  # noqa: PLR0913
         limit=limit,
         offset=offset,
         include_metrics=include_metrics,
+        include_file_info=include_file_info,
     )
 
     return {

@@ -284,6 +284,7 @@ def test_create_settings_first_version(
         config_params=None,
         software_type="alphadia",
         software="alphadia-1.10.0",
+        job_engine="slurm",
         metrics_type="alphadia",
     )
 
@@ -316,6 +317,7 @@ def test_create_settings_auto_increment_version(
         config_params=None,
         software_type="alphadia",
         software="alphadia-1.10.0",
+        job_engine="slurm",
         metrics_type="alphadia",
     )
 

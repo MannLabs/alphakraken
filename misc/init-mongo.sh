@@ -38,6 +38,10 @@ mongosh -u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" admin 
                 resource: { db: "krakendb", collection: "project_settings" },
                 actions: ["find", "insert", "update", "remove"]
             },
+            {
+              resource: { db: "krakendb", collection: "user" },
+              actions: ["find", "insert", "update", "remove"]
+            },
         ],
         roles: ["read"]
     });

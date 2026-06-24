@@ -188,11 +188,19 @@ class SlurmSSHJobHandler(JobHandler):
     def _get_job_state_cmd(job_id: str) -> str:
         """Get the state of a job with a given job id.
 
+        Uses `scontrol` to get the state and falls back to `sacct` only if
+        `scontrol` returns an error (e.g. the job has been purged from the queue).
+
         Its only output must be the job status.
         """
         return "\n".join(
             [
+                f"JOB_INFO=$(scontrol show job {job_id} 2>/dev/null)",
+                "if [ $? -eq 0 ]; then",
+                "ST=$(echo \"$JOB_INFO\" | grep JobState | awk -F 'JobState=' '{print $2}' | awk -F ' ' '{print $1}')",
+                "else",
                 f"ST=$(sacct -j {job_id} -o State | awk 'FNR == 3 {{print $1}}')",
+                "fi",
                 "echo $ST",
             ]
         )

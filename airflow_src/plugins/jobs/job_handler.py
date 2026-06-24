@@ -122,11 +122,11 @@ class SlurmSSHJobHandler(JobHandler):
         """Get the job status and time elapsed from the Slurm cluster via SSH."""
         # Use a wildcard path to find the output file without needing to know the specific year_month subfolder
         # This works as long as job_ids are unique across all subfolders
-        slurm_output_file = (
+        slurm_output_file_path = (
             f"{self._cluster_base_working_dir_path}/*/slurm-{job_id}.out"
         )
         cmd = (
-            self._check_job_result_cmd(job_id, slurm_output_file)
+            self._check_job_result_cmd(job_id, slurm_output_file_path)
             + "\n"
             + self._get_job_state_cmd(job_id)
         )
@@ -170,8 +170,8 @@ class SlurmSSHJobHandler(JobHandler):
         )
 
     @staticmethod
-    def _check_job_result_cmd(job_id: str, slurm_output_file: str) -> str:
-        """Get the job info for a given job id.
+    def _check_job_result_cmd(job_id: str, slurm_output_file_path: str) -> str:
+        """Shell command to print the elapsed time, sacct information and the contents of the slurm log file for a given job id.
 
         To reduce the number of ssh calls, we combine multiple commands into one
         In order to be able to extract the run time, we expect the first line to contain only that, e.g. "00:08:42"
@@ -181,15 +181,15 @@ class SlurmSSHJobHandler(JobHandler):
                 f"SACCT_OUT=$(sacct -l --parsable2 -j {job_id})",
                 "echo \"$SACCT_OUT\" | awk -F'|' 'NR==1{for(i=1;i<=NF;i++)if($i==\"Elapsed\")c=i}END{print $c}'",
                 'echo "$SACCT_OUT"',
-                f"cat {slurm_output_file}",
+                f"cat {slurm_output_file_path}",
             ]
         )
 
     @staticmethod
     def _get_job_state_cmd(job_id: str) -> str:
-        """Get the state of a job with a given job id.
+        """Shell command to print the status of a job with a given job id.
 
-        Uses `scontrol` to get the state and falls back to `sacct` only if
+        Uses `scontrol` to get the state and falls back to `sacct` (more expensive) only if
         `scontrol` returns an error (e.g. the job has been purged from the queue).
 
         Its only output must be the job status.
@@ -229,20 +229,23 @@ class SlurmNoSacctSSHJobHandler(SlurmSSHJobHandler):
     """
 
     @staticmethod
-    def _check_job_result_cmd(job_id: str, slurm_output_file: str) -> str:
-        """Get the job info for a given job id.
+    def _check_job_result_cmd(job_id: str, slurm_output_file_path: str) -> str:
+        """Shell command to print the elapsed time and the contents of the slurm log file for a givem job_id.
 
-        To reduce the number of ssh calls, we combine multiple commands into one
         In order to be able to extract the run time, we expect the first line to contain only that, e.g. "00:08:42"
         """
         del job_id  # unused
         return "\n".join(
-            ["TIME_ELAPSED=00:00:00", "echo $TIME_ELAPSED", f"cat {slurm_output_file}"]
+            [
+                "TIME_ELAPSED=00:00:00",
+                "echo $TIME_ELAPSED",
+                f"cat {slurm_output_file_path}",
+            ]
         )
 
     @staticmethod
     def _get_job_state_cmd(job_id: str) -> str:
-        """Get the state of a job with a given job id.
+        """Shell command to print the status of a job with a given job id.
 
         Its only output must be the job status.
         """

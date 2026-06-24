@@ -114,8 +114,9 @@ def test_get_job_result_returns_correct_job_status_and_time_elapsed(
     assert job_status == "COMPLETED"
     assert time_elapsed == 8 * 60 + 42
     expected_command = (
-        "TIME_ELAPSED=$(sacct --format=Elapsed -j 12345 | tail -n 1); echo $TIME_ELAPSED\n"
-        "sacct -l -j 12345\n"
+        "SACCT_OUT=$(sacct -l --parsable2 -j 12345)\n"
+        "echo \"$SACCT_OUT\" | awk -F'|' 'NR==1{for(i=1;i<=NF;i++)if($i==\"Elapsed\")c=i}END{print $c}'\n"
+        'echo "$SACCT_OUT"\n'
         "cat /path/to/slurm_base_path/jobs/*/slurm-12345.out\n"
         "JOB_INFO=$(scontrol show job 12345 2>/dev/null)\n"
         "if [ $? -eq 0 ]; then\n"

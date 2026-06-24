@@ -178,8 +178,9 @@ class SlurmSSHJobHandler(JobHandler):
         """
         return "\n".join(
             [
-                f"TIME_ELAPSED=$(sacct --format=Elapsed -j {job_id} | tail -n 1); echo $TIME_ELAPSED",
-                f"sacct -l -j {job_id}",
+                f"SACCT_OUT=$(sacct -l --parsable2 -j {job_id})",
+                "echo \"$SACCT_OUT\" | awk -F'|' 'NR==1{for(i=1;i<=NF;i++)if($i==\"Elapsed\")c=i}END{print $c}'",
+                'echo "$SACCT_OUT"',
                 f"cat {slurm_output_file}",
             ]
         )

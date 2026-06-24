@@ -227,6 +227,7 @@ class SlurmSSHJobHandler(JobHandler):
         return (t.hour * 3600) + (t.minute * 60) + t.second
 
 
+# TODO: this could be removed now as SlurmSSHJobHandler is robust against sacct not being available
 class SlurmNoSacctSSHJobHandler(SlurmSSHJobHandler):
     """A Slurm job handler that works without Slurm accounting (`sacct` command) installed.
 

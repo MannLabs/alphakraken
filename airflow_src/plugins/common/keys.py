@@ -189,6 +189,7 @@ class JobStates:
     FAILED: str = "FAILED"
     TIMEOUT: str = "TIMEOUT"
     OUT_OF_MEMORY: str = "OUT_OF_ME"  # it is displayed "OUT_OF_ME+", so only startwith() comparisons here
+    UNKNOWN: str = "UNKNOWN"  # sentinel for when neither scontrol nor sacct can determine the state; not a real slurm state
 
 
 class CustomAlphaDiaStates:

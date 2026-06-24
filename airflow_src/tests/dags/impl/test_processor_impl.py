@@ -682,6 +682,32 @@ def test_check_job_result_happy_path(
 
 @patch("dags.impl.processor_impl.put_xcom")
 @patch("dags.impl.processor_impl.get_job_result")
+def test_check_job_result_unknown_state_treated_as_success(
+    mock_get_job_result: MagicMock,
+    mock_put_xcom: MagicMock,
+) -> None:
+    """Test that an UNKNOWN job state is treated as a successful completion."""
+    quanting_env = {
+        QuantingEnv.RAW_FILE_ID: "test_file.raw",
+        QuantingEnv.PROJECT_ID: "PID1",
+        QuantingEnv.SETTINGS_NAME: "test_settings",
+        QuantingEnv.SETTINGS_VERSION: 1,
+        QuantingEnv.JOB_ENGINE: "slurm",
+        QuantingEnv.METRICS_TYPE: "alphadia",
+    }
+
+    mock_get_job_result.return_value = (JobStates.UNKNOWN, 522)
+    mock_ti = MagicMock()
+
+    # when
+    result = check_job_result(quanting_env=quanting_env, job_id="12345", ti=mock_ti)
+
+    assert result == {"time_elapsed": 522}
+    mock_put_xcom.assert_not_called()
+
+
+@patch("dags.impl.processor_impl.put_xcom")
+@patch("dags.impl.processor_impl.get_job_result")
 def test_check_job_result_unknown_job_status(
     mock_get_job_result: MagicMock,
     mock_put_xcom: MagicMock,

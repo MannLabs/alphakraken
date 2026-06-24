@@ -465,7 +465,9 @@ def check_job_result(*, quanting_env: dict, job_id: str, ti: TaskInstance) -> di
 
     logging.info(f"Job {job_id} exited with status {job_status}.")
 
-    if job_status == JobStates.COMPLETED:
+    # treat UNKNOWN (for slurm: neither scontrol nor sacct could determine the state) as a successful
+    # completion: if the guess is wrong, downstream tasks fail anyway on the missing outputs
+    if job_status in (JobStates.COMPLETED, JobStates.UNKNOWN):
         return {"time_elapsed": time_elapsed}
 
     if job_status in [JobStates.FAILED, JobStates.TIMEOUT] or job_status.startswith(

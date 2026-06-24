@@ -9,8 +9,8 @@ import logging
 from datetime import datetime
 
 from airflow.exceptions import AirflowFailException
-from common.constants import CLUSTER_BASE_WORKING_DIR_NAME
-from common.keys import QuantingEnv
+from common.constants import CLUSTER_BASE_WORKING_DIR_NAME, DUMMY_TIME_ELAPSED
+from common.keys import JobStates, QuantingEnv
 from sensors.ssh_utils import ssh_execute
 
 from shared.keys import JobEngines
@@ -178,9 +178,13 @@ class SlurmSSHJobHandler(JobHandler):
         """
         return "\n".join(
             [
-                f"SACCT_OUT=$(sacct -l --parsable2 -j {job_id})",
+                f"SACCT_OUT=$(sacct -l --parsable2 -j {job_id} 2>/dev/null)",
+                "if [ $? -eq 0 ]; then",
                 "echo \"$SACCT_OUT\" | awk -F'|' 'NR==1{for(i=1;i<=NF;i++)if($i==\"Elapsed\")c=i}END{print $c}'",
                 'echo "$SACCT_OUT"',
+                "else",
+                f'echo "{DUMMY_TIME_ELAPSED}"',
+                "fi",
                 f"cat {slurm_output_file_path}",
             ]
         )
@@ -191,6 +195,7 @@ class SlurmSSHJobHandler(JobHandler):
 
         Uses `scontrol` to get the state and falls back to `sacct` (more expensive) only if
         `scontrol` returns an error (e.g. the job has been purged from the queue).
+        If both fail to determine the state, "UNKNOWN" is returned.
 
         Its only output must be the job status.
         """
@@ -200,9 +205,9 @@ class SlurmSSHJobHandler(JobHandler):
                 "if [ $? -eq 0 ]; then",
                 "ST=$(echo \"$JOB_INFO\" | grep JobState | awk -F 'JobState=' '{print $2}' | awk -F ' ' '{print $1}')",
                 "else",
-                f"ST=$(sacct -j {job_id} -o State | awk 'FNR == 3 {{print $1}}')",
+                f"ST=$(sacct -j {job_id} -o State 2>/dev/null | awk 'FNR == 3 {{print $1}}')",
                 "fi",
-                "echo $ST",
+                f'echo "${{ST:-{JobStates.UNKNOWN}}}"',
             ]
         )
 
@@ -237,7 +242,7 @@ class SlurmNoSacctSSHJobHandler(SlurmSSHJobHandler):
         del job_id  # unused
         return "\n".join(
             [
-                "TIME_ELAPSED=00:00:00",
+                f"TIME_ELAPSED={DUMMY_TIME_ELAPSED}",
                 "echo $TIME_ELAPSED",
                 f"cat {slurm_output_file_path}",
             ]
@@ -247,12 +252,15 @@ class SlurmNoSacctSSHJobHandler(SlurmSSHJobHandler):
     def _get_job_state_cmd(job_id: str) -> str:
         """Shell command to print the status of a job with a given job id.
 
+        Uses `scontrol`; if it fails to determine the state (e.g. the job has been
+        purged from the queue), "UNKNOWN" is returned.
+
         Its only output must be the job status.
         """
         return "\n".join(
             [
-                f"ST=$(scontrol show job {job_id} | grep JobState | awk -F 'JobState=' '{{print $2}}' | awk -F ' ' '{{print $1}}')",
-                "echo $ST",
+                f"ST=$(scontrol show job {job_id} 2>/dev/null | grep JobState | awk -F 'JobState=' '{{print $2}}' | awk -F ' ' '{{print $1}}')",
+                f'echo "${{ST:-{JobStates.UNKNOWN}}}"',
             ]
         )
 

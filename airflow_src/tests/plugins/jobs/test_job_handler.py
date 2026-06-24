@@ -93,9 +93,9 @@ def test_get_job_status_returns_correctly(
         'ST=$(echo "$JOB_INFO" | grep JobState | '
         "awk -F 'JobState=' '{print $2}' | awk -F ' ' '{print $1}')\n"
         "else\n"
-        "ST=$(sacct -j 12345 -o State | awk 'FNR == 3 {print $1}')\n"
+        "ST=$(sacct -j 12345 -o State 2>/dev/null | awk 'FNR == 3 {print $1}')\n"
         "fi\n"
-        "echo $ST"
+        'echo "${ST:-UNKNOWN}"'
     )
     mock_ssh_execute.assert_called_once_with(expected_command)
 
@@ -114,18 +114,22 @@ def test_get_job_result_returns_correct_job_status_and_time_elapsed(
     assert job_status == "COMPLETED"
     assert time_elapsed == 8 * 60 + 42
     expected_command = (
-        "SACCT_OUT=$(sacct -l --parsable2 -j 12345)\n"
+        "SACCT_OUT=$(sacct -l --parsable2 -j 12345 2>/dev/null)\n"
+        "if [ $? -eq 0 ]; then\n"
         "echo \"$SACCT_OUT\" | awk -F'|' 'NR==1{for(i=1;i<=NF;i++)if($i==\"Elapsed\")c=i}END{print $c}'\n"
         'echo "$SACCT_OUT"\n'
+        "else\n"
+        'echo "00:00:00"\n'
+        "fi\n"
         "cat /path/to/slurm_base_path/jobs/*/slurm-12345.out\n"
         "JOB_INFO=$(scontrol show job 12345 2>/dev/null)\n"
         "if [ $? -eq 0 ]; then\n"
         'ST=$(echo "$JOB_INFO" | grep JobState | '
         "awk -F 'JobState=' '{print $2}' | awk -F ' ' '{print $1}')\n"
         "else\n"
-        "ST=$(sacct -j 12345 -o State | awk 'FNR == 3 {print $1}')\n"
+        "ST=$(sacct -j 12345 -o State 2>/dev/null | awk 'FNR == 3 {print $1}')\n"
         "fi\n"
-        "echo $ST"
+        'echo "${ST:-UNKNOWN}"'
     )
     mock_ssh_execute.assert_called_once_with(expected_command)
 
@@ -161,9 +165,9 @@ def test_no_sacct_get_job_status_returns_correctly(
     job_status = SlurmNoSacctSSHJobHandler().get_job_status("12345")
     assert job_status == "RUNNING"
     expected_command = (
-        "ST=$(scontrol show job 12345 | grep JobState | "
+        "ST=$(scontrol show job 12345 2>/dev/null | grep JobState | "
         "awk -F 'JobState=' '{print $2}' | awk -F ' ' '{print $1}')\n"
-        "echo $ST"
+        'echo "${ST:-UNKNOWN}"'
     )
     mock_ssh_execute.assert_called_once_with(expected_command)
 
@@ -185,8 +189,8 @@ def test_no_sacct_get_job_result_returns_correct_job_status_and_time_elapsed(
         "TIME_ELAPSED=00:00:00\n"
         "echo $TIME_ELAPSED\n"
         "cat /path/to/slurm_base_path/jobs/*/slurm-12345.out\n"
-        "ST=$(scontrol show job 12345 | grep JobState | "
+        "ST=$(scontrol show job 12345 2>/dev/null | grep JobState | "
         "awk -F 'JobState=' '{print $2}' | awk -F ' ' '{print $1}')\n"
-        "echo $ST"
+        'echo "${ST:-UNKNOWN}"'
     )
     mock_ssh_execute.assert_called_once_with(expected_command)

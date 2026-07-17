@@ -251,7 +251,7 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
     """A fragment that displays a DataFrame with a filter."""
     # ########################################### DISPLAY: Filter
     len_whole_df = len(df)
-    c1, c2, c3 = st.columns([0.5, 0.25, 0.25])
+    c1, c2, c3, c4 = st.columns([0.4, 0.2, 0.2, 0.2])
 
     filtered_df, user_input, filter_errors = show_filter(
         df,
@@ -261,12 +261,22 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
         example_text="astral1 & !hela & AlKr(.*)5ng & status=done & alphadia__proteins=[400,500] & alphadia__settings_version=1",
     )
 
+    project_id_options = ["", *sorted(df["project_id"].dropna().unique())]
+    selected_project_id = c2.selectbox(
+        "Project ID:",
+        project_id_options,
+        key="project_id_widget_key",
+        help="Show only files of the selected project. Empty means all projects.",
+    )
+    if selected_project_id:
+        filtered_df = filtered_df[filtered_df["project_id"] == selected_project_id]
+
     filtered_df = show_date_select(
         filtered_df,
-        st_display=c2,
+        st_display=c3,
     )
 
-    file_selection_mode = c3.toggle(
+    file_selection_mode = c4.toggle(
         "File selection mode",
         key="file_selection_mode_widget_key",
         help="Show a checkbox list of files (instead of the table and plots) to select a subset "
@@ -417,7 +427,7 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
         )
         else ""
     )
-    if c1.button(
+    if not filtered_df.empty and c1.button(
         "🔗 Show file paths",
         help="For the selection in the table, show all file paths on the backup for conveniently copying them manually to another location.",
     ):

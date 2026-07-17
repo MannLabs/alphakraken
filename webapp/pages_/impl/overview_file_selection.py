@@ -80,7 +80,7 @@ def _show_file_selection(df: pd.DataFrame, max_table_len: int) -> None:
         else ""
     )
 
-    if c1.button(
+    if not df_to_show.empty and c1.button(
         "🔗 Show file paths",
         help="For the ticked files, show all file paths on the backup for conveniently copying them manually to another location.",
     ):

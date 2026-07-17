@@ -175,5 +175,55 @@ def test_overview_file_selection_mode(
     assert any("File selection" in md.value for md in at.markdown)
 
     button_labels = [b.label for b in at.button]
-    assert "🔗 Show file paths for selection" in button_labels
+    assert "🔗 Show file paths" in button_labels
     assert "🔤 Show file names" in button_labels
+
+
+@patch("service.db.get_raw_file_and_metrics_data")
+@patch("service.db.get_status_data")
+def test_overview_file_selection_no_files_hides_show_file_paths(
+    mock_get_status_data: MagicMock,  # noqa: ARG001
+    mock_get_raw_file_and_metrics_data: MagicMock,
+) -> None:
+    """Test that 'Show file paths' is hidden when the filter matches no files."""
+    mock_df_from_db_data = MagicMock()
+    _configure_mocks(mock_df_from_db_data, mock_get_raw_file_and_metrics_data)
+
+    # when: file selection is on but the filter matches no files
+    with (
+        patch("service.data_handling.df_from_db_data", mock_df_from_db_data),
+        patch("service.status.df_from_db_data", mock_df_from_db_data),
+    ):
+        at = AppTest.from_file(f"{PAGES_FOLDER}/overview.py")
+        at.session_state["file_selection_mode_widget_key"] = True
+        at.session_state["current_filter_widget_key"] = "no_such_file_xyz"
+        at.run()
+
+    # then: the 'Show file paths' button is not rendered
+    assert not at.exception
+    assert "🔗 Show file paths" not in [b.label for b in at.button]
+
+
+@patch("service.db.get_raw_file_and_metrics_data")
+@patch("service.db.get_status_data")
+def test_overview_project_id_filter(
+    mock_get_status_data: MagicMock,  # noqa: ARG001
+    mock_get_raw_file_and_metrics_data: MagicMock,
+) -> None:
+    """Test that selecting a project ID narrows the table to that project only."""
+    mock_df_from_db_data = MagicMock()
+    _configure_mocks(mock_df_from_db_data, mock_get_raw_file_and_metrics_data)
+
+    # when: the project ID "P1" is selected
+    with (
+        patch("service.data_handling.df_from_db_data", mock_df_from_db_data),
+        patch("service.status.df_from_db_data", mock_df_from_db_data),
+    ):
+        at = AppTest.from_file(f"{PAGES_FOLDER}/overview.py")
+        at.session_state["project_id_widget_key"] = "P1"
+        at.run()
+
+    # then: the dropdown offers all-projects plus both projects, and only P1 is shown
+    assert not at.exception
+    assert at.selectbox(key="project_id_widget_key").options == ["", "P1", "P2"]
+    assert at.dataframe[0].value["project_id"].to_dict() == {1: "P1"}

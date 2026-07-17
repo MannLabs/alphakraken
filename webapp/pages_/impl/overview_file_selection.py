@@ -2,6 +2,7 @@
 
 import pandas as pd
 import streamlit as st
+import streamlit.delta_generator
 from service.components import get_full_backup_path
 from service.db import get_full_raw_file_data
 from service.utils import METRICS_TYPE_SEPARATOR
@@ -33,6 +34,30 @@ def _show_file_paths(file_ids: list, prefix: str) -> None:
         st.write("Multi-line format:")
         file_paths_pretty = f"\n{prefix}".join(file_paths)
         st.code(f"{prefix}{file_paths_pretty}")
+
+
+def _show_file_paths_controls(
+    file_ids: list,
+    *,
+    checkbox_display: st.delta_generator.DeltaGenerator,
+    button_display: st.delta_generator.DeltaGenerator,
+    button_visible: bool,
+    button_help: str,
+) -> None:
+    """Show the AlphaDIA-prefix checkbox and, if `button_visible`, the 'Show file paths' button."""
+    prefix = (
+        " - "
+        if checkbox_display.checkbox(
+            "AlphaDIA-compatible prefix",
+            help="Whether the Multi-line format should carry a hyphen as prefix",
+        )
+        else ""
+    )
+    if button_visible and button_display.button(
+        "🔗 Show file paths",
+        help=button_help,
+    ):
+        _show_file_paths(file_ids, prefix)
 
 
 def _show_file_selection(df: pd.DataFrame, max_table_len: int) -> None:
@@ -71,20 +96,13 @@ def _show_file_selection(df: pd.DataFrame, max_table_len: int) -> None:
     st.write(f"{len(selected_ids)} / {len(edited_df)} files ticked.")
 
     c1, c2, c3, _ = st.columns([0.15, 0.15, 0.15, 0.55])
-    prefix = (
-        " - "
-        if c3.checkbox(
-            "AlphaDIA-compatible prefix",
-            help="Whether the Multi-line format should carry a hyphen as prefix",
-        )
-        else ""
+    _show_file_paths_controls(
+        selected_ids,
+        checkbox_display=c3,
+        button_display=c1,
+        button_visible=not df_to_show.empty,
+        button_help="For the ticked files, show all file paths on the backup for conveniently copying them manually to another location.",
     )
-
-    if not df_to_show.empty and c1.button(
-        "🔗 Show file paths",
-        help="For the ticked files, show all file paths on the backup for conveniently copying them manually to another location.",
-    ):
-        _show_file_paths(selected_ids, prefix)
 
     if c2.button(
         "🔤 Show file names",

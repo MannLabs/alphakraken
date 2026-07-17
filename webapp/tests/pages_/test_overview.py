@@ -22,15 +22,11 @@ from streamlit.testing.v1 import AppTest  # noqa: E402]
 PAGES_FOLDER = Path(__file__).parent / Path("../../pages_")
 
 
-@patch("service.db.get_raw_file_and_metrics_data")
-@patch("service.db.df_from_db_data")
-@patch("service.db.get_status_data")
-def test_overview(
-    mock_get_status_data: MagicMock,  # noqa: ARG001
+def _configure_mocks(
     mock_df_from_db_data: MagicMock,
     mock_get_raw_file_and_metrics_data: MagicMock,
-) -> None:
-    """Test that overview page renders successfully."""
+) -> tuple[pd.Timestamp, pd.Timestamp]:
+    """Configure the db mocks with two raw files and their metrics; return their timestamps."""
     mock_raw_files_db, mock_metrics_db = (
         MagicMock(),
         MagicMock(),
@@ -46,18 +42,9 @@ def test_overview(
     raw_files_df = pd.DataFrame(
         {
             "_id": [1, 2],
-            "created_at_": [
-                ts1,
-                ts2,
-            ],
-            "updated_at_": [
-                ts1,
-                ts2,
-            ],
-            "created_at": [
-                ts1,
-                ts2,
-            ],
+            "created_at_": [ts1, ts2],
+            "updated_at_": [ts1, ts2],
+            "created_at": [ts1, ts2],
             "size": [1024**3, 2 * 1024**3],
             "project_id": ["P1", "P2"],
             "status": ["done", "error"],
@@ -78,7 +65,6 @@ def test_overview(
             "settings_version": [1, 2],
         }
     )
-
     custom_metrics_df = pd.DataFrame(
         {
             "raw_file": [1, 2],
@@ -86,14 +72,10 @@ def test_overview(
             "some_custom_metric": [1, 2],
         }
     )
-
     status_df = pd.DataFrame(
         {
             "_id": ["i1", "i1"],
-            "updated_at_": [
-                ts1,
-                ts2,
-            ],
+            "updated_at_": [ts1, ts2],
             "status": ["ok", "ok"],
             "status_details": ["", ""],
             "entity_type": ["instrument", "instrument"],
@@ -111,8 +93,27 @@ def test_overview(
         status_df,
     ]
 
+    return ts1, ts2
+
+
+@patch("service.db.get_raw_file_and_metrics_data")
+@patch("service.db.get_status_data")
+def test_overview(
+    mock_get_status_data: MagicMock,  # noqa: ARG001
+    mock_get_raw_file_and_metrics_data: MagicMock,
+) -> None:
+    """Test that overview page renders successfully."""
+    mock_df_from_db_data = MagicMock()
+    ts1, ts2 = _configure_mocks(
+        mock_df_from_db_data, mock_get_raw_file_and_metrics_data
+    )
+
     # when
-    at = AppTest.from_file(f"{PAGES_FOLDER}/overview.py").run()
+    with (
+        patch("service.data_handling.df_from_db_data", mock_df_from_db_data),
+        patch("service.status.df_from_db_data", mock_df_from_db_data),
+    ):
+        at = AppTest.from_file(f"{PAGES_FOLDER}/overview.py").run()
 
     ts1str = ts1.strftime("%Y-%m-%d %H:%M:%S")
     ts2str = ts2.strftime("%Y-%m-%d %H:%M:%S")
@@ -147,3 +148,32 @@ def test_overview(
     assert not at.exception
     assert at.dataframe[0].value.to_dict() == expected_data
     # plots not tested
+
+
+@patch("service.db.get_raw_file_and_metrics_data")
+@patch("service.db.get_status_data")
+def test_overview_file_selection_mode(
+    mock_get_status_data: MagicMock,  # noqa: ARG001
+    mock_get_raw_file_and_metrics_data: MagicMock,
+) -> None:
+    """Test that enabling the 'File selection' toggle shows the file list and its buttons."""
+    mock_df_from_db_data = MagicMock()
+    _configure_mocks(mock_df_from_db_data, mock_get_raw_file_and_metrics_data)
+
+    # when: the file selection toggle is enabled
+    with (
+        patch("service.data_handling.df_from_db_data", mock_df_from_db_data),
+        patch("service.status.df_from_db_data", mock_df_from_db_data),
+    ):
+        at = AppTest.from_file(f"{PAGES_FOLDER}/overview.py")
+        at.session_state["file_selection_mode_widget_key"] = True
+        at.run()
+
+    # then: the file selection UI is shown instead of the table/plots
+    assert not at.exception
+    assert at.toggle[0].value
+    assert any("File selection" in md.value for md in at.markdown)
+
+    button_labels = [b.label for b in at.button]
+    assert "🔗 Show file paths for selection" in button_labels
+    assert "🔤 Show file names" in button_labels

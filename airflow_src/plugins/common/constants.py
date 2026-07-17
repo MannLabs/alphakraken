@@ -11,6 +11,9 @@ CLUSTER_SSH_COMMAND_TIMEOUT = 60
 DEFAULT_JOB_SCRIPT_NAME = "submit_job.sh"
 CLUSTER_BASE_WORKING_DIR_NAME = "jobs"
 
+# returned as the elapsed time when it cannot be determined (e.g. sacct unavailable)
+DUMMY_TIME_ELAPSED = "00:00:00"
+
 
 OUTPUT_FOLDER_PREFIX = "out_"
 

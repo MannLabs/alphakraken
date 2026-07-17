@@ -84,4 +84,5 @@ class WaitForJobFinishSensor(JobStatusSensorOperator):
         return [
             JobStates.PENDING,  # on the edge of hacky: in case we don't use a WaitForJobStartSensor, we need to wait for the job to start here
             JobStates.RUNNING,
+            JobStates.COMPLETING,
         ]

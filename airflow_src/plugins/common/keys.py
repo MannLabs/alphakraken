@@ -185,6 +185,9 @@ class JobStates:
 
     PENDING: str = "PENDING"
     RUNNING: str = "RUNNING"
+    COMPLETING: str = (
+        "COMPLETING"  # transient state while slurm runs epilog/cleanup before COMPLETED
+    )
     COMPLETED: str = "COMPLETED"
     FAILED: str = "FAILED"
     TIMEOUT: str = "TIMEOUT"

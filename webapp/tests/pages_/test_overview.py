@@ -181,11 +181,11 @@ def test_overview_file_selection_mode(
 
 @patch("service.db.get_raw_file_and_metrics_data")
 @patch("service.db.get_status_data")
-def test_overview_file_selection_no_files_hides_show_file_paths(
+def test_overview_file_selection_no_files_hides_export_buttons(
     mock_get_status_data: MagicMock,  # noqa: ARG001
     mock_get_raw_file_and_metrics_data: MagicMock,
 ) -> None:
-    """Test that 'Show file paths' is hidden when the filter matches no files."""
+    """Test that both export buttons are hidden when the filter matches no files."""
     mock_df_from_db_data = MagicMock()
     _configure_mocks(mock_df_from_db_data, mock_get_raw_file_and_metrics_data)
 
@@ -199,9 +199,11 @@ def test_overview_file_selection_no_files_hides_show_file_paths(
         at.session_state["current_filter_widget_key"] = "no_such_file_xyz"
         at.run()
 
-    # then: the 'Show file paths' button is not rendered
+    # then: neither the 'Show file paths' nor the 'Show file names' button is rendered
     assert not at.exception
-    assert "🔗 Show file paths" not in [b.label for b in at.button]
+    button_labels = [b.label for b in at.button]
+    assert "🔗 Show file paths" not in button_labels
+    assert "🔤 Show file names" not in button_labels
 
 
 @patch("service.db.get_raw_file_and_metrics_data")

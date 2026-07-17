@@ -120,7 +120,8 @@ def _draw_plot(  # noqa: PLR0913
             "x" if x in ERROR_STATUSES else "circle" for x in df["status"].to_numpy()
         ]
         fig.update_traces(mode="lines+markers", marker={"symbol": symbol})
-    fig.add_hline(y=median_, line_dash="dash", line={"color": "lightgrey"})
+    if not pd.isna(median_):
+        fig.add_hline(y=median_, line_dash="dash", line={"color": "lightgrey"})
 
     # Add baseline if baseline data is available
     if y_is_numeric:

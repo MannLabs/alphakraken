@@ -81,7 +81,7 @@ def _show_file_selection(df: pd.DataFrame, max_table_len: int) -> None:
     )
 
     if c1.button(
-        "🔗 Show file paths for selection",
+        "🔗 Show file paths",
         help="For the ticked files, show all file paths on the backup for conveniently copying them manually to another location.",
     ):
         _show_file_paths(selected_ids, prefix)

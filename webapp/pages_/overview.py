@@ -267,7 +267,7 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
     )
 
     file_selection_mode = c3.toggle(
-        "File selection",
+        "File selection mode",
         key="file_selection_mode_widget_key",
         help="Show a checkbox list of files (instead of the table and plots) to select a subset "
         "and export their file paths or names.",
@@ -418,7 +418,7 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
         else ""
     )
     if c1.button(
-        "🔗 Show file paths for selection",
+        "🔗 Show file paths",
         help="For the selection in the table, show all file paths on the backup for conveniently copying them manually to another location.",
     ):
         _show_file_paths(list(filtered_df.index), prefix)

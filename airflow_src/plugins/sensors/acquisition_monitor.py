@@ -45,8 +45,8 @@ SIZE_CHECK_INTERVAL_M: int = 60
 # heuristics: for Zeno ZT scan mode, conversion takes < 24h
 ZENO_ZT_SIZE_CHECK_INTERVAL_M: int = 24 * 60
 
-# Zeno ZT scan files remain < 50MB until conversion completes
-ZENO_ZT_SCAN_FILE_THRESHOLD_BYTES: int = 50 * 1024 * 1024
+# Zeno ZT scan files remain small until conversion completes
+ZENO_ZT_SCAN_FILE_THRESHOLD_BYTES: int = 44 + 100  # 44 magic bytes + buffer
 
 
 class AcquisitionMonitor(BaseSensorOperator):
@@ -201,6 +201,8 @@ class AcquisitionMonitor(BaseSensorOperator):
                 f"More than one new file found: {new_dir_content}. "
                 f"This could be due to a manual intervention on the file system."
             )
+
+            # accepting the new content as 'initial' to be able to fire on the next new file
             self._initial_dir_content = current_dir_content
 
         return False

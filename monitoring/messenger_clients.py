@@ -8,7 +8,6 @@ import requests
 from alerts import config
 
 from shared.keys import EnvVars
-from shared.yamlsettings import YamlKeys, get_notification_setting
 
 
 class AlertTypes:
@@ -31,11 +30,7 @@ def send_channel_message(
     """
     # TODO: this could be more elegant
     logging.info(f"Sending message: {message}")
-    try:
-        hostname = get_notification_setting(YamlKeys.HOSTNAME)
-    except KeyError:
-        logging.warning("HOSTNAME not found in config, using empty string")
-        hostname = ""
+    hostname = os.environ.get(EnvVars.KRAKEN_HOSTNAME, "")
 
     if webhook_url.startswith("https://hooks.slack.com"):
         _send_channel_message_slack(message, hostname, webhook_url, message_type)

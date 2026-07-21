@@ -87,7 +87,6 @@ def test_returns_test_settings_for_test_environment(
             "notifications": {
                 "ops_alerts_webhook_url": "http://test-webhook.example.com",
                 "business_alerts_webhook_url": "http://test-webhook.example.com",
-                "hostname": "localhost",
                 "webapp_url": "http://localhost:8501",
             }
         },

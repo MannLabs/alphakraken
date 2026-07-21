@@ -26,6 +26,8 @@ class EnvVars(metaclass=ConstantsClass):
     # the logic that depends on the environment should be as little as possible
     ENV_NAME = "ENV_NAME"
 
+    KRAKEN_HOSTNAME = "KRAKEN_HOSTNAME"
+
     MONGO_HOST = "MONGO_HOST"
     MONGO_PORT = "MONGO_PORT"
     MONGO_USER = "MONGO_USER"

@@ -177,6 +177,7 @@ def test_overview_file_selection_mode(
     button_labels = [b.label for b in at.button]
     assert "🔗 Show file paths" in button_labels
     assert "🔤 Show file names" in button_labels
+    assert "📁 Show output folders" in button_labels
 
 
 @patch("service.db.get_raw_file_and_metrics_data")
@@ -199,11 +200,12 @@ def test_overview_file_selection_no_files_hides_export_buttons(
         at.session_state["current_filter_widget_key"] = "no_such_file_xyz"
         at.run()
 
-    # then: neither the 'Show file paths' nor the 'Show file names' button is rendered
+    # then: none of the file-export buttons is rendered
     assert not at.exception
     button_labels = [b.label for b in at.button]
     assert "🔗 Show file paths" not in button_labels
     assert "🔤 Show file names" not in button_labels
+    assert "📁 Show output folders" not in button_labels
 
 
 @patch("service.db.get_raw_file_and_metrics_data")

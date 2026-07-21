@@ -154,6 +154,47 @@ def get_full_raw_file_data(raw_file_ids: list[str]) -> pd.DataFrame:
     return df_from_db_data(raw_files_db)
 
 
+def get_output_folders(raw_file_ids: list[str]) -> pd.DataFrame:
+    """Return a DataFrame of output folders for the given raw file ids.
+
+    Because of the N:1 relation between metrics and raw files (multiple settings and/or
+    types can be run for one raw file), a single raw file may map to several output folders.
+    """
+    _log("Connecting to the database")
+    connect_db()
+    _log(f"Retrieving output folders for {raw_file_ids}")
+
+    metrics_db = Metrics.objects.filter(raw_file__in=raw_file_ids).only(
+        "raw_file", "settings_name", "settings_version", "type", "output_path"
+    )
+
+    rows = []
+    for metrics_ in metrics_db:
+        doc = metrics_.to_mongo()
+        rows.append(
+            {
+                "raw_file_id": doc.get("raw_file"),
+                "settings_name": doc.get("settings_name"),
+                "settings_version": doc.get("settings_version"),
+                "type": doc.get("type"),
+                "output_path": doc.get("output_path"),
+            }
+        )
+
+    _log(f"Done retrieving output folders for {raw_file_ids}")
+
+    return pd.DataFrame(
+        rows,
+        columns=[
+            "raw_file_id",
+            "settings_name",
+            "settings_version",
+            "type",
+            "output_path",
+        ],
+    )
+
+
 def get_raw_files_for_throughput_per_day(days: int = 14) -> pd.DataFrame:
     """Get a DataFrame with sample count and data volume per day, grouped by instrument.
 

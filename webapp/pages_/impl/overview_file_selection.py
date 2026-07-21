@@ -4,7 +4,7 @@ import pandas as pd
 import streamlit as st
 import streamlit.delta_generator
 from service.components import get_full_backup_path
-from service.db import get_full_raw_file_data
+from service.db import get_full_raw_file_data, get_output_folders
 from service.utils import METRICS_TYPE_SEPARATOR
 
 # name of the checkbox column in the file selection editor
@@ -60,6 +60,53 @@ def _show_file_paths_controls(
         _show_file_paths(file_ids, prefix)
 
 
+def _show_output_folders(file_ids: list) -> None:
+    """Show the output folders for the given raw file ids, grouped by settings and type.
+
+    Multiple runs of the same settings on a raw file write to the same output folder,
+    so identical folders within a settings/type group are collapsed to a single entry.
+    """
+    output_folders_df = get_output_folders(file_ids)
+    output_folders_df = output_folders_df[
+        output_folders_df["output_path"].notna()
+    ].drop_duplicates(
+        subset=["settings_name", "settings_version", "type", "output_path"]
+    )
+
+    if output_folders_df.empty:
+        st.info("No output folders found for the selection.")
+        return
+
+    with st.expander(f"Found {len(output_folders_df)} output folders:", expanded=True):
+        for (
+            settings_name,
+            settings_version,
+            metrics_type,
+        ), group in output_folders_df.groupby(
+            ["settings_name", "settings_version", "type"]
+        ):
+            output_paths = group["output_path"].tolist()
+            st.write(
+                f"**{settings_name}** (v{settings_version}, {metrics_type}) — {len(output_paths)} folders:"
+            )
+            st.code("\n".join(output_paths))
+
+
+def _show_output_folders_button(
+    file_ids: list,
+    *,
+    button_display: st.delta_generator.DeltaGenerator,
+    button_visible: bool,
+    button_help: str,
+) -> None:
+    """Show, if `button_visible`, the 'Show output folders' button and its output when clicked."""
+    if button_visible and button_display.button(
+        "📁 Show output folders",
+        help=button_help,
+    ):
+        _show_output_folders(file_ids)
+
+
 def _show_file_selection(df: pd.DataFrame, max_table_len: int) -> None:
     """Show a checkbox list of files with basic data and buttons to export the ticked selection."""
     df_to_show = df.head(max_table_len)
@@ -95,10 +142,10 @@ def _show_file_selection(df: pd.DataFrame, max_table_len: int) -> None:
     selected_ids = edited_df[edited_df[SELECTED_COLUMN]].index.tolist()
     st.write(f"{len(selected_ids)} / {len(edited_df)} files ticked.")
 
-    c1, c2, c3, _ = st.columns([0.15, 0.15, 0.15, 0.55])
+    c1, c2, c3, c4, _ = st.columns([0.15, 0.15, 0.15, 0.15, 0.40])
     _show_file_paths_controls(
         selected_ids,
-        checkbox_display=c3,
+        checkbox_display=c4,
         button_display=c1,
         button_visible=not df_to_show.empty,
         button_help="For the ticked files, show all file paths on the backup for conveniently copying them manually to another location.",
@@ -110,3 +157,10 @@ def _show_file_selection(df: pd.DataFrame, max_table_len: int) -> None:
     ):
         with st.expander(f"{len(selected_ids)} file names:", expanded=True):
             st.code("\n".join(str(file_id) for file_id in selected_ids))
+
+    _show_output_folders_button(
+        selected_ids,
+        button_display=c3,
+        button_visible=not df_to_show.empty,
+        button_help="For the ticked files, show the output folders where results are stored, grouped by settings and type.",
+    )

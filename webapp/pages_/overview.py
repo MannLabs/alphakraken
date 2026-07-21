@@ -12,6 +12,7 @@ from matplotlib import pyplot as plt
 from pages_.impl.overview_file_selection import (
     _show_file_paths_controls,
     _show_file_selection,
+    _show_output_folders_button,
 )
 from pages_.impl.overview_plotting import _draw_overlay_plot, _draw_plot
 from pages_.impl.overview_utils import (
@@ -418,13 +419,19 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
     # ########################################### DISPLAY: Files
 
     st.markdown("## Files")
-    c1, c2, _ = st.columns([0.10, 0.10, 0.5])
+    c1, c2, c3, _ = st.columns([0.10, 0.10, 0.10, 0.5])
     _show_file_paths_controls(
         list(filtered_df.index),
-        checkbox_display=c2,
+        checkbox_display=c3,
         button_display=c1,
         button_visible=not filtered_df.empty,
         button_help="For the selection in the table, show all file paths on the backup for conveniently copying them manually to another location.",
+    )
+    _show_output_folders_button(
+        list(filtered_df.index),
+        button_display=c2,
+        button_visible=not filtered_df.empty,
+        button_help="For the selection in the table, show the output folders where results are stored, grouped by settings and type.",
     )
 
     # ########################################### DISPLAY: Plots section

@@ -306,9 +306,6 @@ Alternatively, delete the logs manually: `rm -rf /fs/pool-2/airflow_logs/dag_id\
 for dir in 2024*; do tar -czf "${dir%/}.tar.gz" "$dir" && rm -rf "$dir"; done
 ```
 
-#### Nginx logs
-Note that if you are using `nginx`, the `nginx_logs` also needs regular cleanup.
-
 ### Upgrading Airflow
 Every once in a while, the Airflow version should be updated.
 

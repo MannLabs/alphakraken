@@ -5,6 +5,7 @@ from .disk_space_alert import DiskSpaceAlert
 from .health_check_failed_alert import HealthCheckFailedAlert
 from .instrument_file_pile_up_alert import InstrumentFilePileUpAlert
 from .instrument_stall_alert import InstrumentStallAlert
+from .local_disk_space_alert import LocalDiskSpaceAlert
 from .pump_pressure_alert import PumpPressureAlert
 from .queue_stop_alert import QueueStopAlert
 from .raw_file_error_alert import RawFileErrorAlert
@@ -19,6 +20,7 @@ __all__ = [
     "HealthCheckFailedAlert",
     "InstrumentFilePileUpAlert",
     "InstrumentStallAlert",
+    "LocalDiskSpaceAlert",
     "PumpPressureAlert",
     "QueueStopAlert",
     "RawFileErrorAlert",

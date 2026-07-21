@@ -42,7 +42,7 @@ class LocalDiskSpaceAlert(BaseAlert):
 
     def format_message(self, issues: list[tuple[str, int]]) -> str:
         """Format local disk space message."""
-        free_space_gb = issues[0][1] if issues else "unknown"
+        free_space_gb = issues[0][1]
         return (
             f"Low local disk space on the monitoring host "
             f"({config.LOCAL_DISK_PATH}): {free_space_gb} GB free"

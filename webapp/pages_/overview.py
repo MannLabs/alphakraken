@@ -9,6 +9,10 @@ import pytz
 # ruff: noqa: PD002 # `inplace=True` should be avoided; it has inconsistent behavior
 import streamlit as st
 from matplotlib import pyplot as plt
+from pages_.impl.overview_file_selection import (
+    _show_file_paths_controls,
+    _show_file_selection,
+)
 from pages_.impl.overview_plotting import _draw_overlay_plot, _draw_plot
 from pages_.impl.overview_utils import (
     EXPLANATION_STATUS,
@@ -21,7 +25,6 @@ from pages_.impl.overview_utils import (
 )
 from service.columns import load_columns_from_yaml
 from service.components import (
-    get_full_backup_path,
     get_terminal_status_counts,
     highlight_status_cell,
     show_date_select,
@@ -29,7 +32,7 @@ from service.components import (
     show_sandbox_message,
 )
 from service.data_handling import get_combined_raw_files_and_metrics_df, get_lag_time
-from service.db import get_full_raw_file_data, get_raw_file_and_metrics_data
+from service.db import get_raw_file_and_metrics_data
 from service.query_params import (
     QueryParams,
     get_all_query_params,
@@ -248,7 +251,7 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
     """A fragment that displays a DataFrame with a filter."""
     # ########################################### DISPLAY: Filter
     len_whole_df = len(df)
-    c1, c2, _ = st.columns([0.5, 0.25, 0.25])
+    c1, c2, c3, c4 = st.columns([0.4, 0.2, 0.2, 0.2])
 
     filtered_df, user_input, filter_errors = show_filter(
         df,
@@ -258,9 +261,26 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
         example_text="astral1 & !hela & AlKr(.*)5ng & status=done & alphadia__proteins=[400,500] & alphadia__settings_version=1",
     )
 
+    project_id_options = ["", *sorted(df["project_id"].dropna().unique())]
+    selected_project_id = c2.selectbox(
+        "Project ID:",
+        project_id_options,
+        key="project_id_widget_key",
+        help="Show only files of the selected project. Empty means all projects.",
+    )
+    if selected_project_id:
+        filtered_df = filtered_df[filtered_df["project_id"] == selected_project_id]
+
     filtered_df = show_date_select(
         filtered_df,
-        st_display=c2,
+        st_display=c3,
+    )
+
+    file_selection_mode = c4.toggle(
+        "File selection mode",
+        key="file_selection_mode_widget_key",
+        help="Show a checkbox list of files (instead of the table and plots) to select a subset "
+        "and export their file paths or names.",
     )
 
     if filter_errors:
@@ -275,10 +295,21 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
         unsafe_allow_html=True,
     )
 
-    # ########################################### DISPLAY: Summary statistics on statuses
     max_table_len = int(
         get_query_param(QueryParams.MAX_TABLE_LEN, default=DEFAULT_MAX_TABLE_LEN)
     )
+
+    # ########################################### DISPLAY: File selection
+    if file_selection_mode:
+        st.markdown("## File selection")
+        st.write(
+            f"Tick the files to select them, then export their paths or names below. "
+            f"Note: limited to first {max_table_len} entries."
+        )
+        _show_file_selection(filtered_df, max_table_len)
+        return
+
+    # ########################################### DISPLAY: Summary statistics on statuses
     st.write(
         f"Displaying {len(filtered_df)} / {len_whole_df} entries. Distribution of terminal statuses: {get_terminal_status_counts(filtered_df)} "
         f"Note: data is limited to last {max_age_in_days} days, table display is limited to first {max_table_len} entries. See FAQ how to change this.",
@@ -388,39 +419,13 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
 
     st.markdown("## Files")
     c1, c2, _ = st.columns([0.10, 0.10, 0.5])
-    prefix = (
-        " - "
-        if c2.checkbox(
-            "AlphaDIA-compatible prefix",
-            help="Whether the Multi-line format should carry a hyphen as prefix",
-        )
-        else ""
+    _show_file_paths_controls(
+        list(filtered_df.index),
+        checkbox_display=c2,
+        button_display=c1,
+        button_visible=not filtered_df.empty,
+        button_help="For the selection in the table, show all file paths on the backup for conveniently copying them manually to another location.",
     )
-    if c1.button(
-        "🔗 Show file paths for selection",
-        help="For the selection in the table, show all file paths on the backup for conveniently copying them manually to another location.",
-    ):
-        full_info_df = get_full_raw_file_data(list(filtered_df.index))
-        file_paths, is_multiple_types, errors = get_full_backup_path(full_info_df)
-
-        with st.expander(f"Found {len(file_paths)} items:", expanded=True):
-            if is_multiple_types:
-                st.warning(
-                    "Warning: more than one instrument type found, please check your selection!"
-                )
-            if errors:
-                errors_str = "\n- ".join(errors)
-                st.warning(
-                    f"The following {len(errors)} files have been excluded from the selection:\n- {errors_str}"
-                )
-
-            st.write("One-line format:")
-            file_paths_pretty_one_line = " ".join(file_paths)
-            st.code(f"{file_paths_pretty_one_line}")
-
-            st.write("Multi-line format:")
-            file_paths_pretty = f"\n{prefix}".join(file_paths)
-            st.code(f"{prefix}{file_paths_pretty}")
 
     # ########################################### DISPLAY: Plots section
 

@@ -106,8 +106,12 @@ def get_combined_raw_files_and_metrics_df(
         combined_df = raw_files_df
 
     # conversions
-    combined_df["size_gb"] = combined_df["size"] / 1024**3
-    del combined_df["size"]
+    # "size" may be absent if no queried raw file has it set yet (e.g. still being copied)
+    if "size" in combined_df.columns:
+        combined_df["size_gb"] = combined_df["size"] / 1024**3
+        del combined_df["size"]
+    else:
+        combined_df["size_gb"] = pd.NA
 
     combined_df["file_created"] = combined_df["created_at"].dt.strftime(
         "%Y-%m-%d %H:%M:%S"

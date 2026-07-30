@@ -8,6 +8,7 @@ from airflow.exceptions import AirflowFailException, AirflowSkipException
 from airflow.models import TaskInstance
 from common.keys import (
     DAG_DELIMITER,
+    INSTRUMENT_OVERWRITE_PREFIX,
     AcquisitionMonitorErrors,
     AirflowVars,
     DagContext,
@@ -148,9 +149,8 @@ def compute_checksum(ti: TaskInstance, **kwargs) -> bool:
                 f"{file_info=}\n"
             )
 
-            if (
-                get_airflow_variable(AirflowVars.CHECKSUM_OVERWRITE_FILE_ID, "")
-                == raw_file.id
+            if _is_overwrite_requested(
+                AirflowVars.CHECKSUM_OVERWRITE_FILE_ID, raw_file
             ):
                 logging.warning(
                     f"Will overwrite existing file_info as requested by Airflow variable {AirflowVars.CHECKSUM_OVERWRITE_FILE_ID}."
@@ -205,6 +205,20 @@ def _compare_file_info(
     return errors
 
 
+def _is_overwrite_requested(airflow_variable: str, raw_file: RawFile) -> bool:
+    """Check if the Airflow variable `airflow_variable` requests an overwrite for `raw_file`.
+
+    The variable either holds a single raw file id, or `INSTRUMENT_<instrument_id>` to match
+    all raw files of that instrument.
+    """
+    value = get_airflow_variable(airflow_variable, "")
+
+    return value in [
+        raw_file.id,
+        f"{INSTRUMENT_OVERWRITE_PREFIX}{raw_file.instrument_id}",
+    ]
+
+
 def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
     """Copy all data associated with a raw file to the target location."""
     raw_file_id = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID]
@@ -236,8 +250,8 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
         backup_status=BackupStatus.COPYING_IN_PROGRESS,
     )
 
-    if overwrite := (
-        get_airflow_variable(AirflowVars.BACKUP_OVERWRITE_FILE_ID, "") == raw_file.id
+    if overwrite := _is_overwrite_requested(
+        AirflowVars.BACKUP_OVERWRITE_FILE_ID, raw_file
     ):
         logging.warning(
             f"Will overwrite files as requested by Airflow variable {AirflowVars.BACKUP_OVERWRITE_FILE_ID}."

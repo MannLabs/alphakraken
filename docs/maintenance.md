@@ -53,6 +53,10 @@ In this case, set the `checksum_overwrite_file_id` variable to the file _id_ (no
 potential collision flags, and restart the `compute_checksum` task. The overwrite protection
 will be deactivated just for this file id and the copying should succeed.
 
+To repair multiple files at once, set the variable to `INSTRUMENT_<instrument_id>` (e.g. `INSTRUMENT_test1`):
+the overwrite protection is then deactivated for all files of that instrument.
+As this affects all files of that instrument, reset the variable right after the repair.
+
 
 ### backup_overwrite_file_id (default: None)
 In case the `file_copy` task is interrupted (e.g. manually) while a file is being copied,
@@ -61,6 +65,10 @@ due to a security mechanism.
 In this case, set the `backup_overwrite_file_id` variable to the file _id_ (not: file _name_), i.e. including
 potential collision flags, and restart the `file_copy` task. The overwrite protection
 will be deactivated just for this file id and the copying should succeed.
+
+To repair multiple files at once, set the variable to `INSTRUMENT_<instrument_id>` (e.g. `INSTRUMENT_test1`):
+the overwrite protection is then deactivated for all files of that instrument.
+As this affects all files of that instrument, reset the variable right after the repair.
 
 
 ### output_exists_mode (default: raise)

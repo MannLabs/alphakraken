@@ -16,9 +16,10 @@ PLOT_HEIGHT = 400
 PLOT_TOP_MARGIN = 30
 
 
-def _display_plot_headline(name: str, suffix: str = "") -> None:
-    """Display the plot headline as text above the plot, so that the metric name can be selected and copied."""
-    st.markdown(f"**`{name}`**{suffix}")
+def _display_plot_headline(name: str, median: float | None = None) -> None:
+    """Display the plot headline as an anchored heading, so that the metric name can be selected and copied."""
+    subtitle = f" :gray[:small[(median= {median:.2f})]]" if median is not None else ""
+    st.subheader(f"{name}{subtitle}", anchor=name)
 
 
 def _get_yerror_column_name(y_column_name: str, df: pd.DataFrame) -> str | None:
@@ -100,7 +101,7 @@ def _draw_plot(  # noqa: PLR0913
     y = column.name
     y_is_numeric = pd.api.types.is_numeric_dtype(df[y])
     median_ = df[y].median() if y_is_numeric else 0
-    _display_plot_headline(y, f" (median= {median_:.2f})" if y_is_numeric else "")
+    _display_plot_headline(y, median_ if y_is_numeric else None)
 
     # TODO: centralize column names and harmonization
     hover_data = filter_valid_columns(

@@ -3,6 +3,7 @@
 from dataclasses import replace
 from datetime import datetime
 from fnmatch import fnmatch
+from urllib.parse import quote
 
 import pandas as pd
 from service.columns import Column
@@ -148,7 +149,10 @@ def get_url_with_query_string(user_input: str | None, query_params: dict) -> str
             value.strip(), key
         )
 
-    url = f"{APP_URL}/overview?{QueryParams.FILTER}={encoded_user_input}"
+    # characters like "[]", "()" or "," break the link when left unencoded
+    url = (
+        f"{APP_URL}/overview?{QueryParams.FILTER}={quote(encoded_user_input, safe='')}"
+    )
 
     for param in [
         QueryParams.MOBILE,

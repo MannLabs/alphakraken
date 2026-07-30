@@ -65,6 +65,8 @@ def _show_output_folders(file_ids: list) -> None:
 
     Multiple runs of the same settings on a raw file write to the same output folder,
     so identical folders within a settings/type group are collapsed to a single entry.
+    If a raw file still maps to more than one distinct output folder within a group, this
+    is flagged as a warning.
     """
     output_folders_df = get_output_folders(file_ids)
     output_folders_df = output_folders_df[
@@ -90,6 +92,18 @@ def _show_output_folders(file_ids: list) -> None:
                 f"**{settings_name}** (v{settings_version}, {metrics_type}) — {len(output_paths)} folders:"
             )
             st.code("\n".join(output_paths))
+
+            raw_file_folder_counts = group.groupby("raw_file_id").size()
+            multi_folder_raw_files = raw_file_folder_counts[raw_file_folder_counts > 1]
+            if not multi_folder_raw_files.empty:
+                multi_folder_str = "\n- ".join(
+                    f"{raw_file_id} ({count} folders)"
+                    for raw_file_id, count in multi_folder_raw_files.items()
+                )
+                st.warning(
+                    f"Warning: the following {len(multi_folder_raw_files)} raw files have "
+                    f"more than one output folder in this group:\n- {multi_folder_str}"
+                )
 
 
 def _show_output_folders_button(

@@ -75,6 +75,26 @@ def test_input_filter_happy_path_exclusive(mock_text_input: MagicMock) -> None:
 
 
 @patch("streamlit.text_input")
+def test_input_filter_range_with_missing_values(mock_text_input: MagicMock) -> None:
+    """Test that a range filter excludes rows with missing values instead of raising."""
+    mock_text_input.return_value = "column1=[0,1000]"
+    df = pd.DataFrame(
+        {
+            "column1": [1, None, float("nan")],
+            "column2": ["some_text", "other_text", "another_text"],
+        }
+    )
+
+    # when
+    filtered_df, filter_value, errors = show_filter(df, text_to_display="Some Filter")
+
+    assert len(filtered_df) == 1
+    assert filtered_df["column2"].to_numpy() == ["some_text"]
+    assert filter_value == "column1=[0,1000]"
+    assert errors == []
+
+
+@patch("streamlit.text_input")
 def test_input_filter_no_match(mock_text_input: MagicMock) -> None:
     """Test that the filter returns an empty DataFrame when no match is found."""
     mock_text_input.return_value = "no_match"

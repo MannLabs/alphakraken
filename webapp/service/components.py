@@ -97,8 +97,10 @@ def show_filter(  # noqa: C901
 
                 if column is not None:
                     if upper and lower:
+                        # missing values can never be within a range
                         new_mask = df[column].map(
-                            lambda x: float(lower) <= float(x) <= float(upper)
+                            lambda x: pd.notna(x)
+                            and float(lower) <= float(x) <= float(upper)
                         )
                     else:
                         new_mask = df[column].map(lambda x: _re_filter(x, filter_))
@@ -219,7 +221,7 @@ def show_time_in_status_table(
 
     reshaped = latest_updates.sort_index()
 
-    columns = reshaped.columns
+    columns = list(reshaped.columns)
     green_ages_m = [1.5 * 60] * len(columns)
     red_ages_m = [3 * 60] * len(
         columns

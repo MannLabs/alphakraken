@@ -66,6 +66,7 @@ x-airflow-common: &airflow-common
     ENV_NAME: ${ENV_NAME:?error}
     MONGO_HOST: ${MONGO_HOST:?error}
     MONGO_PORT: ${MONGO_PORT:?error}
+    KRAKEN_HOSTNAME: ${KRAKEN_HOSTNAME:-}
   logging: *default-logging
   volumes:
     # all mounts (backup pool folders, results pool folders, instruments, logs) need to be available in $MOUNTS_PATH

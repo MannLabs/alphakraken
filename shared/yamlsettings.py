@@ -25,7 +25,6 @@ class YamlKeys:
     OPS_ALERTS_WEBHOOK_URL = "ops_alerts_webhook_url"
     BUSINESS_ALERTS_WEBHOOK_URL = "business_alerts_webhook_url"
     SLACK_BOT_TOKEN = "slack_bot_token"  # noqa: S105
-    HOSTNAME = "hostname"
     WEBAPP_URL = "webapp_url"
 
     class Locations:
@@ -74,7 +73,6 @@ class YamlSettings:
                     "notifications": {
                         "ops_alerts_webhook_url": "http://test-webhook.example.com",
                         "business_alerts_webhook_url": "http://test-webhook.example.com",
-                        "hostname": "localhost",
                         "webapp_url": "http://localhost:8501",
                     }
                 },

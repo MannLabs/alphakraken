@@ -10,4 +10,6 @@ if [ "${ENV}" == "" ]; then
   exit 1
 fi
 
-sudo docker compose --env-file=envs/.env-airflow --env-file=envs/${ENV}.env "$@"
+# KRAKEN_HOSTNAME passed inline because sudo resets the environment by default
+KRAKEN_HOSTNAME="${HOSTNAME:-$(hostname)}"
+sudo KRAKEN_HOSTNAME=$KRAKEN_HOSTNAME docker compose --env-file=envs/.env-airflow --env-file=envs/${ENV}.env "$@"

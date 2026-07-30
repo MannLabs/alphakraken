@@ -56,7 +56,6 @@ general:
     ops_alerts_webhook_url: "https://hooks.slack.com/services/<something> or https://...api.powerplatform.com:443/powerautomate/automations/<something>"
     business_alerts_webhook_url: "https://hooks.slack.com/services/<something> or https://...api.powerplatform.com:443/powerautomate/automations/<something>"
     slack_bot_token: "xoxb-..." # for individual alerts; get from api.slack.com/apps → your app → OAuth & Permissions → "Bot User OAuth Token" (needs `chat:write` scope)
-    hostname: "localhost"
     webapp_url: "http://localhost:8501"
 
 backup:

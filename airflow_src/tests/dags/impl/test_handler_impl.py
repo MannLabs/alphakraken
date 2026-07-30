@@ -10,6 +10,7 @@ from common.settings import _INSTRUMENTS
 from dags.impl.handler_impl import (
     _count_special_characters,
     _handle_file_copying,
+    _is_overwrite_requested,
     _is_settings_configured,
     _verify_copied_files,
     compute_checksum,
@@ -323,12 +324,15 @@ def test_compute_checksum_different_file_info(
         compute_checksum(ti, **kwargs)
 
 
+@pytest.mark.parametrize(
+    "airflow_variable_value", ["test_file.raw", "INSTRUMENT_instrument1"]
+)
 @patch("dags.impl.handler_impl.get_raw_file_by_id")
 @patch("dags.impl.handler_impl.RawFileWrapperFactory")
 @patch("dags.impl.handler_impl.get_file_size")
 @patch("dags.impl.handler_impl.get_file_hash")
 @patch("dags.impl.handler_impl.update_raw_file")
-@patch("dags.impl.handler_impl.get_airflow_variable", return_value="test_file.raw")
+@patch("dags.impl.handler_impl.get_airflow_variable")
 @patch("dags.impl.handler_impl.put_xcom")
 def test_compute_checksum_different_file_info_overwrite(  # noqa: PLR0913
     mock_put_xcom: MagicMock,
@@ -338,14 +342,17 @@ def test_compute_checksum_different_file_info_overwrite(  # noqa: PLR0913
     mock_get_file_size: MagicMock,
     mock_raw_file_wrapper_factory: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
+    airflow_variable_value: str,
 ) -> None:
     """Test compute_checksum continues on file_info mismatch if airflow variable is set."""
     ti = MagicMock()
     kwargs = {
         "params": {"raw_file_id": "test_file.raw"},
     }
+    mock_get_airflow_variable.return_value = airflow_variable_value
     mock_raw_file = MagicMock()
     mock_raw_file.id = "test_file.raw"
+    mock_raw_file.instrument_id = "instrument1"
     mock_raw_file.file_info = {"test_file.raw": (1000, "some_other_hash")}
     mock_get_raw_file_by_id.return_value = mock_raw_file
 
@@ -598,9 +605,12 @@ def test_copy_raw_file_verify_fails(  # noqa: PLR0913
     )
 
 
+@pytest.mark.parametrize(
+    "airflow_variable_value", ["test_file.raw", "INSTRUMENT_instrument1"]
+)
 @patch("dags.impl.handler_impl.get_xcom")
 @patch("dags.impl.handler_impl.get_raw_file_by_id")
-@patch("dags.impl.handler_impl.get_airflow_variable", return_value="test_file.raw")
+@patch("dags.impl.handler_impl.get_airflow_variable")
 @patch(
     "dags.impl.handler_impl.get_backup_base_path",
     return_value=Path("some_backup_folder"),
@@ -614,12 +624,14 @@ def test_copy_raw_file_calls_update_with_correct_args_overwrite(  # noqa: PLR091
     mock_get_airflow_variable: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
     mock_get_xcom: MagicMock,
+    airflow_variable_value: str,
 ) -> None:
     """Test copy_raw_file calls update with correct arguments in case overwrite is requested."""
     ti = MagicMock()
     kwargs = {
         "params": {"raw_file_id": "test_file.raw"},
     }
+    mock_get_airflow_variable.return_value = airflow_variable_value
     mock_get_xcom.side_effect = [
         {
             "/path/to/instrument/test_file.raw": "/opt/airflow/mounts/backup/test_file.raw"
@@ -629,6 +641,7 @@ def test_copy_raw_file_calls_update_with_correct_args_overwrite(  # noqa: PLR091
 
     mock_raw_file = MagicMock()
     mock_raw_file.id = "test_file.raw"
+    mock_raw_file.instrument_id = "instrument1"
     mock_get_raw_file_by_id.return_value = mock_raw_file
 
     mock_handle_file_copying.return_value = {
@@ -651,6 +664,35 @@ def test_copy_raw_file_calls_update_with_correct_args_overwrite(  # noqa: PLR091
     mock_get_airflow_variable.assert_called_once_with("backup_overwrite_file_id", "")
 
     # not repeating the checks of test_copy_raw_file_calls_update_with_correct_args
+
+
+@pytest.mark.parametrize(
+    ("airflow_variable_value", "expected"),
+    [
+        ("", False),
+        ("test_file.raw", True),
+        ("other_file.raw", False),
+        ("INSTRUMENT_instrument1", True),
+        ("INSTRUMENT_instrument2", False),
+        ("instrument1", False),
+    ],
+)
+@patch("dags.impl.handler_impl.get_airflow_variable")
+def test_is_overwrite_requested(
+    mock_get_airflow_variable: MagicMock,
+    airflow_variable_value: str,
+    expected: bool,  # noqa: FBT001
+) -> None:
+    """Test _is_overwrite_requested matches on file id and on instrument."""
+    mock_get_airflow_variable.return_value = airflow_variable_value
+    raw_file = MagicMock()
+    raw_file.id = "test_file.raw"
+    raw_file.instrument_id = "instrument1"
+
+    # when
+    assert _is_overwrite_requested("some_variable", raw_file) == expected
+
+    mock_get_airflow_variable.assert_called_once_with("some_variable", "")
 
 
 def test_verify_copied_files_raises_exception_on_size_mismatch() -> None:

@@ -4,11 +4,21 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+import streamlit as st
 from pages_.impl.overview_utils import filter_valid_columns
 from service.columns import Column
 from service.utils import METRICS_TYPE_SEPARATOR, Cols, display_plotly_chart
 
 from shared.db.models import ERROR_STATUSES
+
+PLOT_HEIGHT = 400
+# without a figure title, plotly's default top margin leaves a large gap
+PLOT_TOP_MARGIN = 30
+
+
+def _display_plot_headline(name: str, suffix: str = "") -> None:
+    """Display the plot headline as text above the plot, so that the metric name can be selected and copied."""
+    st.markdown(f"**`{name}`**{suffix}")
 
 
 def _get_yerror_column_name(y_column_name: str, df: pd.DataFrame) -> str | None:
@@ -90,7 +100,7 @@ def _draw_plot(  # noqa: PLR0913
     y = column.name
     y_is_numeric = pd.api.types.is_numeric_dtype(df[y])
     median_ = df[y].median() if y_is_numeric else 0
-    title = f"{y} (median= {median_:.2f})" if y_is_numeric else y
+    _display_plot_headline(y, f" (median= {median_:.2f})" if y_is_numeric else "")
 
     # TODO: centralize column names and harmonization
     hover_data = filter_valid_columns(
@@ -110,11 +120,11 @@ def _draw_plot(  # noqa: PLR0913
         color=color_by_column,
         hover_name="_id",
         hover_data=hover_data,
-        title=title,
-        height=400,
+        height=PLOT_HEIGHT,
         error_y=_get_yerror_column_name(y, df) if show_std else None,
         log_y=column.log_scale,
     )
+    fig.update_layout(margin={"t": PLOT_TOP_MARGIN})
     if y_is_numeric and show_traces:
         symbol = [
             "x" if x in ERROR_STATUSES else "circle" for x in df["status"].to_numpy()
@@ -174,6 +184,8 @@ def _draw_overlay_plot(
     """
     df = df.sort_values(by=x)
 
+    _display_plot_headline(column.name)
+
     fig = go.Figure()
     for col_name in column.matched_columns:
         if col_name not in df.columns:
@@ -195,8 +207,8 @@ def _draw_overlay_plot(
             )
 
     fig.update_layout(
-        title=column.name,
-        height=400,
+        height=PLOT_HEIGHT,
+        margin={"t": PLOT_TOP_MARGIN},
         yaxis_type="log" if column.log_scale else None,
     )
     display_plotly_chart(fig)

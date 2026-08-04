@@ -84,7 +84,7 @@ def _calculate_trendline(
     return x_trend, y_trend  # type: ignore[invalid-return-type]
 
 
-def _draw_plot(  # noqa: PLR0913
+def _draw_plot(  # noqa: PLR0913, C901
     df_with_baseline: pd.DataFrame,
     *,
     x: str,
@@ -100,8 +100,10 @@ def _draw_plot(  # noqa: PLR0913
     df = df_with_baseline[~df_with_baseline[Cols.IS_BASELINE]]
     y = column.name
     y_is_numeric = pd.api.types.is_numeric_dtype(df[y])
+    # nullable dtypes (e.g. Int64) yield pd.NA rather than nan for all-missing columns
     median_ = df[y].median() if y_is_numeric else 0
-    _display_plot_headline(y, median_ if y_is_numeric else None)
+    median_is_valid = not pd.isna(median_)
+    _display_plot_headline(y, median_ if y_is_numeric and median_is_valid else None)
 
     # TODO: centralize column names and harmonization
     hover_data = filter_valid_columns(
@@ -131,7 +133,7 @@ def _draw_plot(  # noqa: PLR0913
             "x" if x in ERROR_STATUSES else "circle" for x in df["status"].to_numpy()
         ]
         fig.update_traces(mode="lines+markers", marker={"symbol": symbol})
-    if not pd.isna(median_):
+    if median_is_valid:
         fig.add_hline(y=median_, line_dash="dash", line={"color": "lightgrey"})
 
     # Add baseline if baseline data is available
@@ -141,20 +143,21 @@ def _draw_plot(  # noqa: PLR0913
             baseline_mean = baseline_df[y].mean()
             baseline_std = baseline_df[y].std()
 
-            fig.add_hline(
-                y=baseline_mean,
-                line_dash="dash",
-                line={"color": "green"},
-                annotation_text=f"Baseline Mean: {baseline_mean:.2f} ± {baseline_std:.2f}",
-                annotation_position="bottom right",
-            )
-            if not pd.isna(baseline_std):
-                for err in [-baseline_std, baseline_std]:
-                    fig.add_hline(
-                        y=baseline_mean + err,
-                        line_dash="dot",
-                        line={"color": "green"},
-                    )
+            if not pd.isna(baseline_mean):
+                fig.add_hline(
+                    y=baseline_mean,
+                    line_dash="dash",
+                    line={"color": "green"},
+                    annotation_text=f"Baseline Mean: {baseline_mean:.2f} ± {baseline_std:.2f}",
+                    annotation_position="bottom right",
+                )
+                if not pd.isna(baseline_std):
+                    for err in [-baseline_std, baseline_std]:
+                        fig.add_hline(
+                            y=baseline_mean + err,
+                            line_dash="dot",
+                            line={"color": "green"},
+                        )
 
     # Add trendline if requested and data is numeric
     if show_trendline and y_is_numeric:

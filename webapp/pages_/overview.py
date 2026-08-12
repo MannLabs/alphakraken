@@ -33,7 +33,7 @@ from service.components import (
     show_sandbox_message,
 )
 from service.data_handling import get_combined_raw_files_and_metrics_df, get_lag_time
-from service.db import get_raw_file_and_metrics_data
+from service.db import get_project_data, get_raw_file_and_metrics_data
 from service.query_params import (
     QueryParams,
     get_all_query_params,
@@ -102,6 +102,11 @@ if instruments_query_param and instruments_query_param not in instrument_options
 
 max_age_query_param = get_query_param(QueryParams.MAX_AGE)
 
+project_id_query_param = get_query_param(QueryParams.PROJECT_ID)
+project_options = [ALL, *sorted(project.id for project in get_project_data())]
+if project_id_query_param and project_id_query_param not in project_options:
+    project_options = [project_id_query_param, *project_options]
+
 # ########################################### Load
 
 st.markdown("#### Load from database")
@@ -109,6 +114,9 @@ st.markdown("#### Load from database")
 st.write(
     f"For performance reasons, by default only data for the last {DEFAULT_MAX_AGE_OVERVIEW} days are loaded. ",
     "If you need a longer time range, you need to narrow down the data loading to a specific instrument.",
+)
+st.write(
+    "Alternatively, select a project to load all its data, irrespective of instrument and age."
 )
 st.write(
     "Hint: create a bookmark of the current page to quickly access the data for a certain instrument and time range later.",
@@ -120,7 +128,30 @@ st.write(
 
 # ########################################### Load: selection
 
-c1, c2, _ = st.columns([0.2, 0.2, 0.6])
+c1, c2, c3, _ = st.columns([0.2, 0.2, 0.2, 0.4])
+
+project_id_input = c3.selectbox(
+    "Project:",
+    project_options,
+    index=project_options.index(
+        get_session_state(
+            "project_id_load_widget_key",
+            default=project_id_query_param
+            if project_id_query_param is not None
+            else ALL,
+        )
+    ),
+    key="project_id_load_widget_key",
+    on_change=partial(
+        set_query_param_from_session_state,
+        "project_id_load_widget_key",
+        QueryParams.PROJECT_ID,
+        ALL,
+    ),
+    help="Load all data of a project, overriding the instrument and max age selection.",
+)
+load_by_project = project_id_input != ALL
+
 instruments_input = c1.selectbox(
     "Instruments:",
     instrument_options,
@@ -133,6 +164,7 @@ instruments_input = c1.selectbox(
         )
     ),
     accept_new_options=True,
+    disabled=load_by_project,
     key="instruments_widget_key",
     on_change=partial(
         set_query_param_from_session_state,
@@ -156,6 +188,7 @@ max_age = c2.number_input(
             else DEFAULT_MAX_AGE_OVERVIEW,
         )
     ),
+    disabled=load_by_project,
     key="max_age_widget_key",
     on_change=partial(
         set_query_param_from_session_state,
@@ -171,7 +204,11 @@ max_age = c2.number_input(
 
 c1, c2, _ = st.columns([0.1, 0.2, 0.6])
 
-too_much_data = max_age > DEFAULT_MAX_AGE_OVERVIEW and instruments_input == ALL
+too_much_data = (
+    not load_by_project
+    and max_age > DEFAULT_MAX_AGE_OVERVIEW
+    and instruments_input == ALL
+)
 reload_button_clicked = c1.button(
     "🔄 Reload",
     disabled=too_much_data,
@@ -209,6 +246,7 @@ with st.spinner("Loading data ..."):
             if instruments_input in [ALL, FORCE_ALL]
             else instruments_input.split(",")
         ),
+        project_id=project_id_input if load_by_project else None,
     )
     if combined_df.empty:
         st.warning("No data available. Please broaden your selection.")
@@ -235,6 +273,12 @@ filter_value = get_query_param(QueryParams.FILTER, default="")
 for key_, value_ in FILTER_MAPPING.items():
     filter_value = filter_value.lower().replace(key_.lower(), value_)
 
+data_scope_note = (
+    f"data is limited to project {project_id_input}"
+    if load_by_project
+    else f"data is limited to last {max_age} days"
+)
+
 
 st.markdown("#### Filter data")
 
@@ -244,7 +288,7 @@ st.markdown("#### Filter data")
 @st.fragment
 def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements, too complex, too many branches)
     df: pd.DataFrame,
-    max_age_in_days: float,
+    data_scope_note: str,
     filter_value: str,
     data_timestamp: datetime,
     columns: tuple,
@@ -313,7 +357,7 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
     # ########################################### DISPLAY: Summary statistics on statuses
     st.write(
         f"Displaying {len(filtered_df)} / {len_whole_df} entries. Distribution of terminal statuses: {get_terminal_status_counts(filtered_df)} "
-        f"Note: data is limited to last {max_age_in_days} days, table display is limited to first {max_table_len} entries. See FAQ how to change this.",
+        f"Note: {data_scope_note}, table display is limited to first {max_table_len} entries. See FAQ how to change this.",
     )
 
     # ########################################### DISPLAY: Lag time
@@ -588,5 +632,5 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
 
 # don't put any code between definition of fragment and its usage
 _display_table_and_plots(
-    combined_df, max_age, filter_value, data_timestamp, columns_expanded
+    combined_df, data_scope_note, filter_value, data_timestamp, columns_expanded
 )

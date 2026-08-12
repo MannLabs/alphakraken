@@ -48,10 +48,11 @@ def get_combined_raw_files_and_metrics_df(
     raw_file_ids: list[str] | None = None,
     print_at_no_data: bool = False,
     instruments: list[str] | None = None,
+    project_id: str | None = None,
 ) -> tuple[pd.DataFrame, datetime]:
     """Get the combined DataFrame of raw files and metrics."""
     raw_files_db, metrics_db, data_timestamp = get_raw_file_and_metrics_data(
-        max_age_in_days, raw_file_ids, instruments
+        max_age_in_days, raw_file_ids, instruments, project_id
     )
     raw_files_df = df_from_db_data(raw_files_db)
 

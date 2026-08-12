@@ -92,25 +92,32 @@ def get_raw_file_and_metrics_data(
     max_age_in_days: float | None,
     raw_file_ids: list[str] | None,
     instruments: list[str] | None = None,
+    project_id: str | None = None,
 ) -> tuple[QuerySet, QuerySet, datetime]:
-    """Return from the database the QuerySets for RawFile and Metrics for files younger than max_age_in_days or for given list of raw file ids."""
+    """Return from the database the QuerySets for RawFile and Metrics for files younger than max_age_in_days, for a given list of raw file ids, or for a given project."""
     # need to validate inputs as these values can be set by users
     _validate_input(raw_file_ids, "raw_file_ids")
     _validate_input(instruments, "instruments")  # TODO: use query params accessor
+    _validate_input([project_id] if project_id is not None else None, "project_id")
     # max_age_in_days is implicitly validated to be numeric by converting it to timedelta
 
-    if max_age_in_days is None and raw_file_ids is None:
-        raise ValueError("Either max_age_in_days or raw_file_ids must be provided.")
+    if max_age_in_days is None and raw_file_ids is None and project_id is None:
+        raise ValueError(
+            "Either max_age_in_days, raw_file_ids or project_id must be provided."
+        )
 
     _log("Connecting to the database")
     connect_db()
     _log(
-        f"Retrieving raw file and metrics {max_age_in_days=} {raw_file_ids=} {instruments=}"
+        f"Retrieving raw file and metrics {max_age_in_days=} {raw_file_ids=} {instruments=} {project_id=}"
     )
 
     if raw_file_ids is not None:
-        # selection by raw file ids takes precedence over max_age_in_days and instruments
+        # selection by raw file ids takes precedence over all other criteria
         q = Q(id__in=raw_file_ids)
+    elif project_id is not None:
+        # selection by project takes precedence over max_age_in_days and instruments
+        q = Q(project_id=project_id)
     else:
         q = Q()
         if max_age_in_days is not None:
@@ -135,7 +142,7 @@ def get_raw_file_and_metrics_data(
     now = datetime.now(tz=pytz.UTC).replace(microsecond=0)
 
     _log(
-        f"Done retrieving raw file and metrics {max_age_in_days=} {raw_file_ids=} {instruments=}"
+        f"Done retrieving raw file and metrics {max_age_in_days=} {raw_file_ids=} {instruments=} {project_id=}"
     )
 
     return raw_files_db, metrics_db, now

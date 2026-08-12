@@ -25,8 +25,11 @@ PAGES_FOLDER = Path(__file__).parent / Path("../../pages_")
 def _configure_mocks(
     mock_df_from_db_data: MagicMock,
     mock_get_raw_file_and_metrics_data: MagicMock,
+    mock_get_project_data: MagicMock,
 ) -> tuple[pd.Timestamp, pd.Timestamp]:
     """Configure the db mocks with two raw files and their metrics; return their timestamps."""
+    mock_get_project_data.return_value = [MagicMock(id="P1"), MagicMock(id="P2")]
+
     mock_raw_files_db, mock_metrics_db = (
         MagicMock(),
         MagicMock(),
@@ -96,16 +99,18 @@ def _configure_mocks(
     return ts1, ts2
 
 
+@patch("service.db.get_project_data")
 @patch("service.db.get_raw_file_and_metrics_data")
 @patch("service.db.get_status_data")
 def test_overview(
     mock_get_status_data: MagicMock,  # noqa: ARG001
     mock_get_raw_file_and_metrics_data: MagicMock,
+    mock_get_project_data: MagicMock,
 ) -> None:
     """Test that overview page renders successfully."""
     mock_df_from_db_data = MagicMock()
     ts1, ts2 = _configure_mocks(
-        mock_df_from_db_data, mock_get_raw_file_and_metrics_data
+        mock_df_from_db_data, mock_get_raw_file_and_metrics_data, mock_get_project_data
     )
 
     # when
@@ -150,15 +155,19 @@ def test_overview(
     # plots not tested
 
 
+@patch("service.db.get_project_data")
 @patch("service.db.get_raw_file_and_metrics_data")
 @patch("service.db.get_status_data")
 def test_overview_file_selection_mode(
     mock_get_status_data: MagicMock,  # noqa: ARG001
     mock_get_raw_file_and_metrics_data: MagicMock,
+    mock_get_project_data: MagicMock,
 ) -> None:
     """Test that enabling the 'File selection' toggle shows the file list and its buttons."""
     mock_df_from_db_data = MagicMock()
-    _configure_mocks(mock_df_from_db_data, mock_get_raw_file_and_metrics_data)
+    _configure_mocks(
+        mock_df_from_db_data, mock_get_raw_file_and_metrics_data, mock_get_project_data
+    )
 
     # when: the file selection toggle is enabled
     with (
@@ -180,15 +189,19 @@ def test_overview_file_selection_mode(
     assert "📁 Show output folders" in button_labels
 
 
+@patch("service.db.get_project_data")
 @patch("service.db.get_raw_file_and_metrics_data")
 @patch("service.db.get_status_data")
 def test_overview_file_selection_no_files_hides_export_buttons(
     mock_get_status_data: MagicMock,  # noqa: ARG001
     mock_get_raw_file_and_metrics_data: MagicMock,
+    mock_get_project_data: MagicMock,
 ) -> None:
     """Test that both export buttons are hidden when the filter matches no files."""
     mock_df_from_db_data = MagicMock()
-    _configure_mocks(mock_df_from_db_data, mock_get_raw_file_and_metrics_data)
+    _configure_mocks(
+        mock_df_from_db_data, mock_get_raw_file_and_metrics_data, mock_get_project_data
+    )
 
     # when: file selection is on but the filter matches no files
     with (
@@ -208,15 +221,19 @@ def test_overview_file_selection_no_files_hides_export_buttons(
     assert "📁 Show output folders" not in button_labels
 
 
+@patch("service.db.get_project_data")
 @patch("service.db.get_raw_file_and_metrics_data")
 @patch("service.db.get_status_data")
 def test_overview_project_id_filter(
     mock_get_status_data: MagicMock,  # noqa: ARG001
     mock_get_raw_file_and_metrics_data: MagicMock,
+    mock_get_project_data: MagicMock,
 ) -> None:
     """Test that selecting a project ID narrows the table to that project only."""
     mock_df_from_db_data = MagicMock()
-    _configure_mocks(mock_df_from_db_data, mock_get_raw_file_and_metrics_data)
+    _configure_mocks(
+        mock_df_from_db_data, mock_get_raw_file_and_metrics_data, mock_get_project_data
+    )
 
     # when: the project ID "P1" is selected
     with (

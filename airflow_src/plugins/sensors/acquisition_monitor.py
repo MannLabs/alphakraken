@@ -178,22 +178,25 @@ class AcquisitionMonitor(BaseSensorOperator):
         current_dir_content, new_dir_content = self._get_dir_content()
 
         # this is the standard case
-        if len(new_dir_content) > 0:
+        if len(new_dir_content) > 0:             # ignore corrupted files here
             logging.info(f"New file(s) found: {new_dir_content}.")
+
+            # Handling the case where the file got renamed by the acquisition software.
+            # Deliberately limited to the case of a single new file to avoid false positives on race conditions
+            if (
+                    self._corrupted_file_name is not None
+                    and self._corrupted_file_name in new_dir_content
+            ):
+                logging.warning(f"File got renamed to {self._corrupted_file_name}.")
+                self._file_got_renamed = True
+                return True
+
+
 
             if len(new_dir_content) == 1:
                 # potential additional check: is the new file "small enough" to be considered a freshly started acquisition
                 # but: to adjust the threshold the poke frequency and the data output of the instrument need to be considered
                 logging.info("Considering previous acquisition to be done.")
-
-                # Handling the case where the file got renamed by the acquisition software.
-                # Deliberately limited to the case of a single new file to avoid false positives on race conditions
-                if (
-                    self._corrupted_file_name is not None
-                    and self._corrupted_file_name in new_dir_content
-                ):
-                    logging.warning(f"File got renamed to {self._corrupted_file_name}.")
-                    self._file_got_renamed = True
 
                 return is_not_zeno_or_zeno_ready
 

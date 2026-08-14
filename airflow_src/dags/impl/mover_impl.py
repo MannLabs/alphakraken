@@ -86,7 +86,7 @@ def _get_files_to_move(
             if not dst_path.exists():
                 msg = f"Neither {src_path=} nor {dst_path=} exist."
             else:
-                msg =  f"File {src_path=} does not exist, but {dst_path=} does. Presuming it was moved before."
+                msg = f"File {src_path=} does not exist, but {dst_path=} does. Presuming it was moved before."
 
             logging.info(msg)
             continue

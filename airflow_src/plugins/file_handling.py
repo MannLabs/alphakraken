@@ -40,7 +40,7 @@ def get_file_creation_timestamp(
 
 def get_file_size(
     file_path: Path, default: int | None = None, *, verbose: bool = True
-) -> float:
+) -> int | None:
     """Get the size (in bytes) of a file.
 
     Note that the results of this method will be compared for one file across different file systems,
@@ -194,7 +194,7 @@ def copy_file(
     src_path: Path,
     dst_path: Path,
     src_hash: str,
-) -> tuple[float, str]:
+) -> tuple[int | None, str]:
     """Copy a single file from `src_path` to `dst_path` and check its hashsum.
 
     :param src_path: Path to the source file.

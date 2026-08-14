@@ -5,6 +5,7 @@ Wait until acquisition is done.
 An acquisition is considered "done" if either:
 - exactly one new file has been found
 - the main file has not appeared for a certain amount of time (relevant for Bruker only)
+- the file got renamed by the acquisition software, indicating a failed acquisition
 - the file size has not changed for a certain amount of time
 - (only if Airflow  variable 'consider_old_files_acquired' is set) when the file is "old" (default: > 5h) compared to the
   youngest file. This should be used with caution, but can be handy in case a catchup is required.
@@ -176,23 +177,22 @@ class AcquisitionMonitor(BaseSensorOperator):
                 ZENO_ZT_SIZE_CHECK_INTERVAL_M
             )
 
+        # TODO: ignore _CORRUPED files in new_dir_content?
         current_dir_content, new_dir_content = self._get_dir_content()
 
         # this is the standard case
-        if len(new_dir_content) > 0:             # ignore corrupted files here
+        if len(new_dir_content) > 0:
             logging.info(f"New file(s) found: {new_dir_content}.")
 
-            # Handling the case where the file got renamed by the acquisition software.
-            # Deliberately limited to the case of a single new file to avoid false positives on race conditions
+            # Handling the case where the file got renamed by the acquisition software. Not restricted to a
+            # single new file, as the exact name match makes false positives from race conditions unlikely.
             if (
-                    self._corrupted_file_name is not None
-                    and self._corrupted_file_name in new_dir_content
+                self._corrupted_file_name is not None
+                and self._corrupted_file_name in new_dir_content
             ):
                 logging.warning(f"File got renamed to {self._corrupted_file_name}.")
                 self._file_got_renamed = True
                 return True
-
-
 
             if len(new_dir_content) == 1:
                 # potential additional check: is the new file "small enough" to be considered a freshly started acquisition
@@ -284,9 +284,12 @@ class AcquisitionMonitor(BaseSensorOperator):
         )
 
         new_dir_content = current_dir_content - self._initial_dir_content
-        
-        if current_dir_content!=self._initial_dir_content:
-            logging.info(f"Changed directory content. + {current_dir_content - self._initial_dir_content} / - { self._initial_dir_content - current_dir_content}")
+        removed_dir_content = self._initial_dir_content - current_dir_content
+
+        if new_dir_content or removed_dir_content:
+            logging.info(
+                f"Changed directory content. + {new_dir_content} / - {removed_dir_content}"
+            )
 
         return current_dir_content, new_dir_content
 
@@ -300,7 +303,10 @@ class AcquisitionMonitor(BaseSensorOperator):
         ) / 60
 
         if time_since_last_check_m >= size_check_interval_m:
-            size = get_file_size(self._main_file_path)
+            size = get_file_size(self._main_file_path, None)
+
+            if size is None:
+                logging.warning("File not found, presuming acquisition is not done.")
 
             if size == self._last_file_size:
                 logging.info(

@@ -182,7 +182,6 @@ def test_get_files_to_move_only_dst_exists_ok() -> None:
     assert _get_files_to_move({mock_src_path: mock_dst_path}) == ({}, {})
 
 
-
 @patch("dags.impl.mover_impl.compare_paths")
 def test_get_files_to_move_both_files_exist_but_different_raises(
     mock_compare_paths: MagicMock,

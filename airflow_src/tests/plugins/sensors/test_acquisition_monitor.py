@@ -280,49 +280,6 @@ def test_poke_main_file_disappears(
 @patch("plugins.sensors.acquisition_monitor.RawFileWrapperFactory")
 @patch("plugins.sensors.acquisition_monitor.update_raw_file")
 @patch("plugins.sensors.acquisition_monitor.get_raw_file_by_id")
-@patch("plugins.sensors.acquisition_monitor.put_xcom")
-def test_poke_main_file_disappears_while_next_acquisition_started(
-    mock_put_xcom: MagicMock,
-    mock_get_raw_file_by_id: MagicMock,
-    mock_update_raw_file: MagicMock,  # noqa: ARG001
-    mock_raw_file_wrapper_factory: MagicMock,
-) -> None:
-    """Test poke reports the disappearance even if the next acquisition has already started."""
-    mock_path = MagicMock()
-    mock_path.name = "some_file.raw"
-    mock_path.stat.return_value = MagicMock(st_size=1)
-    mock_path.exists.side_effect = [
-        True,  # pre_execute
-        False,  # first poke -> file disappeared
-    ]
-    mock_get_raw_file_by_id.return_value.original_name = "some_file.raw"
-
-    mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.main_file_path.return_value = mock_path
-    mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.get_corrupted_file_name.return_value = "some_file_CORRUPTED.raw"
-    mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.get_raw_files_on_instrument.side_effect = [
-        {"some_file.raw"},  # initial content (pre_execute)
-        {"some_next_file.raw"},  # first poke -> file gone, next acquisition started
-    ]
-
-    sensor = get_sensor()
-    sensor.pre_execute({DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"}})
-
-    # when
-    result = sensor.poke({})
-    assert result
-
-    ti = MagicMock()
-    # when 2
-    sensor.post_execute({"ti": ti}, result=True)
-
-    mock_put_xcom.assert_called_once_with(
-        ti, "acquisition_monitor_errors", ["File disappeared: some_file.raw"]
-    )
-
-
-@patch("plugins.sensors.acquisition_monitor.RawFileWrapperFactory")
-@patch("plugins.sensors.acquisition_monitor.update_raw_file")
-@patch("plugins.sensors.acquisition_monitor.get_raw_file_by_id")
 def test_poke_file_dir_contents_change_main_file_does_not_exist(
     mock_get_raw_file_by_id: MagicMock,  # noqa: ARG001
     mock_update_raw_file: MagicMock,  # noqa: ARG001

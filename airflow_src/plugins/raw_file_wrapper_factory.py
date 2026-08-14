@@ -98,7 +98,12 @@ class RawFileMonitorWrapper(ABC):
         """Get the current raw file names (only with the relevant extension) in the instrument directory."""
         dir_contents = set(self._instrument_path.glob(f"*{self._raw_file_extension}"))
 
-        return {d.name for d in dir_contents}
+        file_names = {d.name for d in dir_contents}
+
+        # logging.info(
+        #     f"Contents ('*{self._raw_file_extension}') of {self._instrument_path} ({len(file_names)}): {file_names}"
+        # )
+        return file_names
 
     def main_file_path(self) -> Path:
         """Get the (absolute) path to the main file, i.e. the one to monitor."""
@@ -106,6 +111,7 @@ class RawFileMonitorWrapper(ABC):
             raise ValueError("Raw file name not set.")
 
         return self._main_file_path()
+
 
     @abstractmethod
     def _main_file_path(self) -> Path:

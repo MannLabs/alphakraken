@@ -212,3 +212,4 @@ class AcquisitionMonitorErrors:
 
     MAIN_FILE_MISSING: str = "Main file was not created"
     FILE_GOT_RENAMED: str = "File got renamed"
+    FILE_DISAPPEARED: str = "File disappeared"

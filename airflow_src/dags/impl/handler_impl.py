@@ -76,23 +76,23 @@ def compute_checksum(ti: TaskInstance, **kwargs) -> bool:
 
     # TODO: this could be moved to an upfront task
     acquisition_monitor_errors = get_xcom(ti, XComKeys.ACQUISITION_MONITOR_ERRORS, [])
-    if any(
-        AcquisitionMonitorErrors.FILE_GOT_RENAMED in error
-        for error in acquisition_monitor_errors
-    ):
-        logging.warning(
+    for file_missing_error_str in [AcquisitionMonitorErrors.FILE_GOT_RENAMED, AcquisitionMonitorErrors.FILE_DISAPPEARED]:
+        if any(
+            file_missing_error_str in error
+            for error in acquisition_monitor_errors
+        ):
+            logging.warning(
             f"Skipping copy for raw file {raw_file_id}: {acquisition_monitor_errors}"
         )
 
-        # Note: the "new" file `x_CORRUPTED.raw` will be treated as any other raw file.
-        update_raw_file(
-            raw_file_id,
-            new_status=RawFileStatus.ACQUISITION_FAILED,
-            status_details=AcquisitionMonitorErrors.FILE_GOT_RENAMED,
-            backup_status=BackupStatus.SKIPPED,
-            instrument_file_status=InstrumentFileStatus.RENAMED,
-        )
-        return False  # skip downstream tasks
+            update_raw_file(
+                raw_file_id,
+                new_status=RawFileStatus.ACQUISITION_FAILED,
+                status_details=file_missing_error_str,
+                backup_status=BackupStatus.SKIPPED,
+                instrument_file_status=InstrumentFileStatus.RENAMED,
+            )
+            return False  # skip downstream tasks
 
     update_raw_file(raw_file_id, new_status=RawFileStatus.CHECKSUMMING)
 

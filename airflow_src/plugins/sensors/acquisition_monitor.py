@@ -63,7 +63,7 @@ class AcquisitionMonitor(BaseSensorOperator):
         self._initial_dir_content: set | None = None
         self._main_file_path: Path | None = None
         self._corrupted_file_name: str | None = None
-        self._errors: list[str] = []
+        self._file_got_renamed: bool = False
 
         self._first_poke_timestamp: float | None = None
         self._latest_file_size_check_timestamp: float | None = None
@@ -127,10 +127,20 @@ class AcquisitionMonitor(BaseSensorOperator):
         assert self._raw_file_monitor_wrapper is not None
         assert self._raw_file is not None
 
+        acquisition_monitor_errors = []
+        if not self._main_file_exists:
+            acquisition_monitor_errors += [
+                f"{AcquisitionMonitorErrors.MAIN_FILE_MISSING}: {self._raw_file_monitor_wrapper.main_file_name}"
+            ]
+        if self._file_got_renamed:
+            acquisition_monitor_errors += [
+                f"{AcquisitionMonitorErrors.FILE_GOT_RENAMED}: {self._corrupted_file_name}"
+            ]
+
         put_xcom(
             context["ti"],
             XComKeys.ACQUISITION_MONITOR_ERRORS,
-            self._errors,
+            acquisition_monitor_errors,
         )
 
         update_raw_file(self._raw_file.id, new_status=RawFileStatus.MONITORING_DONE)
@@ -159,12 +169,12 @@ class AcquisitionMonitor(BaseSensorOperator):
             if self._main_file_path.exists():
                 self._main_file_exists = True
             else:
-                if self._main_file_missing_for_too_long():
-                    self._errors += [
-                        f"{AcquisitionMonitorErrors.MAIN_FILE_MISSING}: {self._raw_file_monitor_wrapper.main_file_name}"
-                    ]
-                    return True
-                return False
+                return self._main_file_missing_for_too_long()
+
+        if self._file_size_unchanged_for_time():
+            return is_not_zeno_or_zeno_ready or self._file_size_unchanged_for_time(
+                ZENO_ZT_SIZE_CHECK_INTERVAL_M
+            )
 
         current_dir_content, new_dir_content = self._get_dir_content()
 
@@ -179,12 +189,10 @@ class AcquisitionMonitor(BaseSensorOperator):
                     and self._corrupted_file_name in new_dir_content
             ):
                 logging.warning(f"File got renamed to {self._corrupted_file_name}.")
-
-                # Note: the "new" file `x_CORRUPTED.raw` will be treated as any other raw file.
-                self._errors += [
-                        f"{AcquisitionMonitorErrors.FILE_GOT_RENAMED}: {self._corrupted_file_name}"
-                    ]
+                self._file_got_renamed = True
                 return True
+
+
 
             if len(new_dir_content) == 1:
                 # potential additional check: is the new file "small enough" to be considered a freshly started acquisition
@@ -200,19 +208,6 @@ class AcquisitionMonitor(BaseSensorOperator):
 
             # accepting the new content as 'initial' to be able to fire on the next new file
             self._initial_dir_content = current_dir_content
-
-        if self._main_file_exists and not self._main_file_path.exists():
-                logging.warning(
-                    f"The file {self._main_file_path} has disappeared. Assuming acquisition to be done.")
-                self._errors += [
-                    f"{AcquisitionMonitorErrors.FILE_DISAPPEARED}: {self._main_file_path.name}"
-                ]
-                return True
-
-        if self._file_size_unchanged_for_time():
-            return is_not_zeno_or_zeno_ready or self._file_size_unchanged_for_time(
-                ZENO_ZT_SIZE_CHECK_INTERVAL_M
-            )
 
         return False
 

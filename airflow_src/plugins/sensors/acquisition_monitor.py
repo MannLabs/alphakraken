@@ -90,6 +90,7 @@ class AcquisitionMonitor(BaseSensorOperator):
         self._initial_dir_content = (
             self._raw_file_monitor_wrapper.get_raw_files_on_instrument()
         )
+        logging.info(f"Initial directory content: {self._initial_dir_content}")
 
         self._main_file_path = self._raw_file_monitor_wrapper.main_file_path()
 
@@ -288,6 +289,9 @@ class AcquisitionMonitor(BaseSensorOperator):
         )
 
         new_dir_content = current_dir_content - self._initial_dir_content
+        
+        if current_dir_content!=self._initial_dir_content:
+            logging.info(f"Changed directory content. + {current_dir_content - self._initial_dir_content} / - { self._initial_dir_content - current_dir_content}")
 
         return current_dir_content, new_dir_content
 

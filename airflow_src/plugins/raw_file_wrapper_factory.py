@@ -100,9 +100,9 @@ class RawFileMonitorWrapper(ABC):
 
         file_names = {d.name for d in dir_contents}
 
-        logging.info(
-            f"Contents ('*{self._raw_file_extension}') of {self._instrument_path} ({len(file_names)}): {file_names}"
-        )
+        # logging.info(
+        #     f"Contents ('*{self._raw_file_extension}') of {self._instrument_path} ({len(file_names)}): {file_names}"
+        # )
         return file_names
 
     def main_file_path(self) -> Path:
@@ -110,9 +110,8 @@ class RawFileMonitorWrapper(ABC):
         if self._raw_file_original_name is None:
             raise ValueError("Raw file name not set.")
 
-        main_file_path = self._main_file_path()
-        logging.info(f"{main_file_path=}")
-        return main_file_path
+        return self._main_file_path()
+
 
     @abstractmethod
     def _main_file_path(self) -> Path:

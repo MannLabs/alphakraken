@@ -107,8 +107,11 @@ def get_unknown_raw_files(
 
     raw_files_names_lower_to_sizes_from_db: dict[str, list[int]] = defaultdict(list)
     for raw_file in get_raw_files_by_names(list(raw_file_names_on_instrument)):
-        if raw_file.instrument_file_status == InstrumentFileStatus.RENAMED:
-            # renamed files don't have a file size in the DB, but we want to consider them for collision checking, so we set a dummy size that will always trigger the collision logic
+        if raw_file.instrument_file_status in (
+            InstrumentFileStatus.RENAMED,
+            InstrumentFileStatus.DISAPPEARED,
+        ):
+            # renamed and disappeared files don't have a file size in the DB, but we want to consider them for collision checking, so we set a dummy size that will always trigger the collision logic
             raw_file_size = -1
         else:
             raw_file_size = get_main_file_size_from_db(raw_file)

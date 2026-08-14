@@ -67,6 +67,13 @@ from shared.yamlsettings import YamlKeys, get_path, is_s3_upload_enabled
 # point locations.backup.absolute_path to the folder where the files can be picked up for quanting
 SKIP_COPYING = False
 
+# Acquisition monitor errors that mean the file is gone from the instrument, i.e. there is nothing to copy,
+# mapped to the instrument file status to record for them.
+FILE_GONE_ERRORS: dict[str, str] = {
+    AcquisitionMonitorErrors.FILE_GOT_RENAMED: InstrumentFileStatus.RENAMED,
+    AcquisitionMonitorErrors.FILE_DISAPPEARED: InstrumentFileStatus.DISAPPEARED,
+}
+
 
 def compute_checksum(ti: TaskInstance, **kwargs) -> bool:
     """Compute checksums for files in a raw file and store them in DB and XCom."""
@@ -76,21 +83,21 @@ def compute_checksum(ti: TaskInstance, **kwargs) -> bool:
 
     # TODO: this could be moved to an upfront task
     acquisition_monitor_errors = get_xcom(ti, XComKeys.ACQUISITION_MONITOR_ERRORS, [])
-    for file_missing_error_str in [AcquisitionMonitorErrors.FILE_GOT_RENAMED, AcquisitionMonitorErrors.FILE_DISAPPEARED]:
-        if any(
-            file_missing_error_str in error
-            for error in acquisition_monitor_errors
-        ):
+    for error in acquisition_monitor_errors:
+        for error_str, instrument_file_status in FILE_GONE_ERRORS.items():
+            if error_str not in error:
+                continue
+
             logging.warning(
-            f"Skipping copy for raw file {raw_file_id}: {acquisition_monitor_errors}"
-        )
+                f"Skipping copy for raw file {raw_file_id}: {acquisition_monitor_errors}"
+            )
 
             update_raw_file(
                 raw_file_id,
                 new_status=RawFileStatus.ACQUISITION_FAILED,
-                status_details=file_missing_error_str,
+                status_details=";".join(acquisition_monitor_errors),
                 backup_status=BackupStatus.SKIPPED,
-                instrument_file_status=InstrumentFileStatus.RENAMED,
+                instrument_file_status=instrument_file_status,
             )
             return False  # skip downstream tasks
 

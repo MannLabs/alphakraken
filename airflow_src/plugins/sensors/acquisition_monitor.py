@@ -5,9 +5,13 @@ Wait until acquisition is done.
 An acquisition is considered "done" if either:
 - exactly one new file has been found
 - the main file has not appeared for a certain amount of time (relevant for Bruker only)
+- the file got renamed by the acquisition software, indicating a failed acquisition
+- the main file disappeared after having existed
 - the file size has not changed for a certain amount of time
 - (only if Airflow  variable 'consider_old_files_acquired' is set) when the file is "old" (default: > 5h) compared to the
   youngest file. This should be used with caution, but can be handy in case a catchup is required.
+
+The cases that indicate a failed acquisition are reported via XCom, so that downstream tasks can skip copying.
 """
 
 import logging
@@ -168,31 +172,42 @@ class AcquisitionMonitor(BaseSensorOperator):
 
         current_dir_content, new_dir_content = self._get_dir_content()
 
-        # this is the standard case
-        if len(new_dir_content) > 0:             # ignore corrupted files here
+        if len(new_dir_content) > 0:
             logging.info(f"New file(s) found: {new_dir_content}.")
 
-            # Handling the case where the file got renamed by the acquisition software.
-            # Deliberately limited to the case of a single new file to avoid false positives on race conditions
-            if (
-                    self._corrupted_file_name is not None
-                    and self._corrupted_file_name in new_dir_content
-            ):
-                logging.warning(f"File got renamed to {self._corrupted_file_name}.")
+        # Handling the case where the file got renamed by the acquisition software.
+        if (
+            self._corrupted_file_name is not None
+            and self._corrupted_file_name in new_dir_content
+        ):
+            logging.warning(f"File got renamed to {self._corrupted_file_name}.")
 
-                # Note: the "new" file `x_CORRUPTED.raw` will be treated as any other raw file.
-                self._errors += [
-                        f"{AcquisitionMonitorErrors.FILE_GOT_RENAMED}: {self._corrupted_file_name}"
-                    ]
-                return True
+            # Note: the "new" file `x_CORRUPTED.raw` will be treated as any other raw file.
+            self._errors += [
+                f"{AcquisitionMonitorErrors.FILE_GOT_RENAMED}: {self._corrupted_file_name}"
+            ]
+            return True
 
-            if len(new_dir_content) == 1:
-                # potential additional check: is the new file "small enough" to be considered a freshly started acquisition
-                # but: to adjust the threshold the poke frequency and the data output of the instrument need to be considered
-                logging.info("Considering previous acquisition to be done.")
+        # Checked before the new-file logic below, as the disappearance would otherwise go unnoticed
+        # whenever the next acquisition has already started.
+        if self._main_file_exists and not self._main_file_path.exists():
+            logging.warning(
+                f"The file {self._main_file_path} has disappeared. Assuming acquisition to be done."
+            )
+            self._errors += [
+                f"{AcquisitionMonitorErrors.FILE_DISAPPEARED}: {self._main_file_path.name}"
+            ]
+            return True
 
-                return is_not_zeno_or_zeno_ready
+        # this is the standard case
+        if len(new_dir_content) == 1:
+            # potential additional check: is the new file "small enough" to be considered a freshly started acquisition
+            # but: to adjust the threshold the poke frequency and the data output of the instrument need to be considered
+            logging.info("Considering previous acquisition to be done.")
 
+            return is_not_zeno_or_zeno_ready
+
+        if len(new_dir_content) > 1:
             logging.warning(
                 f"More than one new file found: {new_dir_content}. "
                 f"This could be due to a manual intervention on the file system."
@@ -200,14 +215,6 @@ class AcquisitionMonitor(BaseSensorOperator):
 
             # accepting the new content as 'initial' to be able to fire on the next new file
             self._initial_dir_content = current_dir_content
-
-        if self._main_file_exists and not self._main_file_path.exists():
-                logging.warning(
-                    f"The file {self._main_file_path} has disappeared. Assuming acquisition to be done.")
-                self._errors += [
-                    f"{AcquisitionMonitorErrors.FILE_DISAPPEARED}: {self._main_file_path.name}"
-                ]
-                return True
 
         if self._file_size_unchanged_for_time():
             return is_not_zeno_or_zeno_ready or self._file_size_unchanged_for_time(
@@ -289,9 +296,12 @@ class AcquisitionMonitor(BaseSensorOperator):
         )
 
         new_dir_content = current_dir_content - self._initial_dir_content
-        
-        if current_dir_content!=self._initial_dir_content:
-            logging.info(f"Changed directory content. + {current_dir_content - self._initial_dir_content} / - { self._initial_dir_content - current_dir_content}")
+        removed_dir_content = self._initial_dir_content - current_dir_content
+
+        if new_dir_content or removed_dir_content:
+            logging.info(
+                f"Changed directory content. + {new_dir_content} / - {removed_dir_content}"
+            )
 
         return current_dir_content, new_dir_content
 

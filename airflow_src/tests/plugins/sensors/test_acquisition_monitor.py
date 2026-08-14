@@ -480,6 +480,7 @@ def test_post_execute_acquisition_errors(
 ) -> None:
     """Test post_execute correctly works if no acquisition errors."""
     mock_path = MagicMock()
+    mock_path.exists.return_value = False
 
     mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.main_file_path.return_value = mock_path
 
@@ -493,11 +494,12 @@ def test_post_execute_acquisition_errors(
 
     sensor = get_sensor()
     sensor.pre_execute({DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"}})
-    sensor._main_file_exists = False
+    sensor._first_poke_timestamp = 0
 
     ti = MagicMock()
 
     # when
+    sensor.poke({})
     sensor.post_execute({"ti": ti}, result=True)
 
     mock_put_xcom.assert_called_once_with(

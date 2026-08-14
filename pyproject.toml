@@ -33,7 +33,8 @@ ignore = [
     "B023", # Function definition does not bind loop variable
     "PD901", # Avoid using the generic variable name `df` for DataFrames"
     "TC003", # Move standard library import into a type-checking block
-    "ANN401" #  Dynamically typed expressions (typing.Any) are disallowed
+    "ANN401", #  Dynamically typed expressions (typing.Any) are disallowed
+    "LOG015", # root-logger-call
 ]
 
 [tool.ruff.lint.per-file-ignores]

@@ -18,6 +18,28 @@ _MSQC_PREFIX = "msqc_"
 
 _LEGACY_COLUMN_NAMES = {"quanting_time_elapsed": "time_elapsed"}
 
+_METRICS_TYPE_COLUMN = "type"
+_RAW_FILE_COLUMN = "raw_file"
+
+
+def _coalesce_duplicate_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Merge columns sharing a name into one, taking per row the first value that is present."""
+    duplicated_names = df.columns[df.columns.duplicated()].unique()
+    if len(duplicated_names) == 0:
+        return df
+
+    coalesced = {
+        name: df.loc[:, df.columns == name].bfill(axis=1).iloc[:, 0]
+        for name in duplicated_names
+    }
+    return pd.concat(
+        [
+            df.loc[:, ~df.columns.duplicated(keep=False)],
+            pd.DataFrame(coalesced, index=df.index),
+        ],
+        axis=1,
+    )
+
 
 def _normalize_metric_columns(df: pd.DataFrame) -> pd.DataFrame:
     """Resolve alternative DB column names to canonical names and apply data transforms."""
@@ -32,7 +54,7 @@ def _normalize_metric_columns(df: pd.DataFrame) -> pd.DataFrame:
     df = df.rename(columns=_ALTERNATIVE_NAMES_MAPPING)
 
     # deduplicate columns that map to the same canonical name
-    df = df.T.groupby(level=0).first().T
+    df = _coalesce_duplicate_columns(df)
 
     if "gradient_length" in df.columns:
         df["gradient_length"] = pd.to_numeric(

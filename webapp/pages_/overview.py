@@ -96,7 +96,7 @@ def _show_csv_download(
     signature = hash((file_name, tuple(df.index)))
 
     if display.button(
-        f"🧮 Prepare {label}",
+        f"🧮 Prepare download of {label}",
         help="Generate the CSV file. This can take a while for large selections.",
     ):
         set_session_state(state_key, (signature, df_to_csv(df)))

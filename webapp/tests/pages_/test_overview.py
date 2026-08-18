@@ -17,6 +17,7 @@ def mock_get_path(path_key: str) -> Path:
 
 shared.yamlsettings.get_path = mock_get_path  # type: ignore[invalid-assignment]
 
+from service.session_state import SessionStateKeys  # noqa: E402
 from streamlit.testing.v1 import AppTest  # noqa: E402]
 
 PAGES_FOLDER = Path(__file__).parent / Path("../../pages_")
@@ -96,8 +97,8 @@ def _configure_mocks(
     return ts1, ts2
 
 
-@patch("service.db.get_raw_file_and_metrics_data")
-@patch("service.db.get_status_data")
+@patch("service.data_handling.get_raw_file_and_metrics_data")
+@patch("service.status.get_status_data")
 def test_overview(
     mock_get_status_data: MagicMock,  # noqa: ARG001
     mock_get_raw_file_and_metrics_data: MagicMock,
@@ -150,8 +151,8 @@ def test_overview(
     # plots not tested
 
 
-@patch("service.db.get_raw_file_and_metrics_data")
-@patch("service.db.get_status_data")
+@patch("service.data_handling.get_raw_file_and_metrics_data")
+@patch("service.status.get_status_data")
 def test_overview_file_selection_mode(
     mock_get_status_data: MagicMock,  # noqa: ARG001
     mock_get_raw_file_and_metrics_data: MagicMock,
@@ -180,10 +181,8 @@ def test_overview_file_selection_mode(
     assert "📁 Show output folders" in button_labels
 
 
-
-
-@patch("service.db.get_raw_file_and_metrics_data")
-@patch("service.db.get_status_data")
+@patch("service.data_handling.get_raw_file_and_metrics_data")
+@patch("service.status.get_status_data")
 def test_overview_project_id_filter(
     mock_get_status_data: MagicMock,  # noqa: ARG001
     mock_get_raw_file_and_metrics_data: MagicMock,
@@ -205,3 +204,55 @@ def test_overview_project_id_filter(
     assert not at.exception
     assert at.selectbox(key="project_id_widget_key").options == ["", "P1", "P2"]
     assert at.dataframe[0].value["project_id"].to_dict() == {1: "P1"}
+
+
+@patch("service.data_handling.get_raw_file_and_metrics_data")
+@patch("service.status.get_status_data")
+def test_overview_csv_download_is_prepared_on_demand(
+    mock_get_status_data: MagicMock,  # noqa: ARG001
+    mock_get_raw_file_and_metrics_data: MagicMock,
+) -> None:
+    """Test that the CSV is created on demand only and discarded once the selection changes."""
+    mock_df_from_db_data = MagicMock()
+    _configure_mocks(mock_df_from_db_data, mock_get_raw_file_and_metrics_data)
+
+    with (
+        patch("service.data_handling.df_from_db_data", mock_df_from_db_data),
+        patch("service.status.df_from_db_data", mock_df_from_db_data),
+    ):
+        at = AppTest.from_file(f"{PAGES_FOLDER}/overview.py").run()
+
+        # then: nothing is generated before the user asks for it
+        assert not at.exception
+        assert "🧮 Prepare download of filtered table (2 entries)" in [
+            b.label for b in at.button
+        ]
+        assert at.get("download_button") == []
+
+        # AppTest reruns the whole script rather than only the fragment, so the first-run guard
+        # of the page has to be re-armed to get the table displayed again after a click.
+        mock_df_from_db_data.side_effect = None
+        at.session_state[SessionStateKeys.IS_FIRST_RUN] = True
+
+        # when: the CSV is prepared
+        prepare_button = next(
+            b
+            for b in at.button
+            if b.label.startswith("🧮 Prepare download of filtered")
+        )
+        prepare_button.click().run()
+
+        # then: it is served from the media store, not by a deferred callable (which would 404)
+        assert not at.exception
+        download_button = at.get("download_button")[0].proto
+        assert download_button.label == "⬇️ Download filtered table (2 entries)"
+        assert download_button.url.endswith(".csv")
+        assert not download_button.deferred_file_id
+
+        # when: the selection changes
+        at.session_state[SessionStateKeys.IS_FIRST_RUN] = True
+        at.selectbox(key="project_id_widget_key").select("P1").run()
+
+        # then: the prepared CSV no longer matches the selection and is discarded
+        assert not at.exception
+        assert at.get("download_button") == []

@@ -187,7 +187,7 @@ if too_much_data:
     st.stop()
 
 if reload_button_clicked:
-    get_raw_file_and_metrics_data.clear()
+    get_combined_raw_files_and_metrics_df.clear()
     set_session_state(SessionStateKeys.IS_FIRST_RUN, value=True)
     st.rerun()
 if not reload_button_clicked and not get_session_state(

@@ -64,6 +64,12 @@ def _normalize_metric_columns(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+# Cached values are accessible to all users across all sessions.
+# Considering memory it should currently be fine to have all data cached.
+# Command for clearing the cache:  get_combined_raw_files_and_metrics_df.clear()
+# Note: the DataFrame is cached rather than the underlying QuerySets, as pickling a QuerySet
+# (which is what st.cache_data does) drops its cursor and thus its results.
+@st.cache_data(ttl=120)
 def get_combined_raw_files_and_metrics_df(
     *,
     max_age_in_days: float | None = None,

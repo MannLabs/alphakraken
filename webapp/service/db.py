@@ -84,10 +84,6 @@ def _validate_input(values: list[str] | None, param_name: str) -> None:
             )
 
 
-# Cached values are accessible to all users across all sessions.
-# Considering memory it should currently be fine to have all data cached.
-# Command for clearing the cache:  get_all_data.clear()
-@st.cache_data(ttl=120)
 def get_raw_file_and_metrics_data(
     max_age_in_days: float | None,
     raw_file_ids: list[str] | None,

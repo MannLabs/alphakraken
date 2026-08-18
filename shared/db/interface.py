@@ -4,6 +4,7 @@ Note: this module must not have any dependencies on the rest of the codebase.
 """
 
 import logging
+import re
 from collections.abc import Iterable
 from datetime import datetime, timedelta
 from typing import Any
@@ -25,11 +26,20 @@ from shared.db.models import (
 from shared.keys import DEFAULT_SCOPE
 
 
-def get_raw_files_by_names(raw_file_names: list[str]) -> list[RawFile]:
-    """Get raw files from the database with the given original names."""
-    logging.info(f"Getting from DB: {raw_file_names=}")
+def get_raw_files_by_names(
+    raw_file_names: list[str], *, case_sensitive: bool = False
+) -> list[RawFile]:
+    """Get raw files from the database with the given original names, by default ignoring case."""
+    logging.info(f"Getting from DB: {raw_file_names=} {case_sensitive=}")
     connect_db()
-    return list(RawFile.objects.filter(original_name__in=raw_file_names))
+    names: list[str] | list[re.Pattern[str]] = (
+        raw_file_names
+        if case_sensitive
+        else [
+            re.compile(f"^{re.escape(name)}$", re.IGNORECASE) for name in raw_file_names
+        ]
+    )
+    return list(RawFile.objects.filter(original_name__in=names))
 
 
 def get_raw_file_by_id(raw_file_id: str) -> RawFile:

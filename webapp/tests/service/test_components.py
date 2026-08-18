@@ -27,6 +27,8 @@ with patch("shared.yamlsettings.get_path") as p:  # TODO: ugly!
         ("so(.*)text"),
         ("column1=[0.5,1]"),
         ("column2=so(.*)text"),
+        ("column1 = [0.5,1]"),
+        ("column2 = so(.*)text"),
     ],
 )
 @patch("streamlit.text_input")

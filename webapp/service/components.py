@@ -80,8 +80,10 @@ def show_filter(  # noqa: C901
                     filter_ = filter_[1:].strip()  # noqa: PLW2901
 
                 if "=" in filter_:
-                    # separate "column=value" -> column, value
-                    column, filter_ = filter_.split("=", maxsplit=1)  # noqa: PLW2901
+                    # separate "column = value" -> column, value
+                    column, filter_ = (  # noqa: PLW2901
+                        part.strip() for part in filter_.split("=", maxsplit=1)
+                    )
 
                 if (
                     "[" in filter_

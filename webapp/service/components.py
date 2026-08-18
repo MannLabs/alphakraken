@@ -2,6 +2,7 @@
 
 import os
 import re
+import warnings
 from collections import defaultdict
 from datetime import datetime, timedelta
 from functools import partial
@@ -26,6 +27,31 @@ from shared.keys import EnvVars, InstrumentTypes
 def _re_filter(text: Any, filter_: str) -> bool:
     """Filter a value `x` with a `filter_` string."""
     return bool(re.search(filter_, str(text), re.IGNORECASE))
+
+
+# arrow-backed strings make the regex search on the whole table roughly ten times
+# faster than mapping `_re_filter` over each cell
+_SEARCH_DTYPE = "string[pyarrow]"
+_INDEX_COLUMN = "_index_"
+
+
+@st.cache_data
+def _get_searchable_df(df: pd.DataFrame) -> pd.DataFrame:
+    """Return the string representation of `df` and its index, for regex-searching all cells."""
+    searchable_df = df.astype(str).astype(_SEARCH_DTYPE)
+    searchable_df[_INDEX_COLUMN] = df.index.astype(str).astype(_SEARCH_DTYPE)
+    return searchable_df
+
+
+def _search_all_columns(df: pd.DataFrame, filter_: str) -> pd.Series:
+    """Return a mask of the rows of `df` having any cell (or their index) matching `filter_`."""
+    with warnings.catch_warnings():
+        # a filter like "AlKr(.*)5ng" is a legitimate search pattern, its groups are not used
+        warnings.filterwarnings("ignore", message=".*match groups.*")
+        matches = _get_searchable_df(df).apply(
+            lambda col: col.str.contains(filter_, case=False, regex=True, na=False)
+        )
+    return matches.any(axis=1).astype(bool)
 
 
 def show_filter(  # noqa: C901
@@ -101,14 +127,14 @@ def show_filter(  # noqa: C901
                     if upper and lower:
                         # missing values can never be within a range
                         new_mask = df[column].map(
-                            lambda x: pd.notna(x)
-                            and float(lower) <= float(x) <= float(upper)
+                            lambda x: (
+                                pd.notna(x) and float(lower) <= float(x) <= float(upper)
+                            )
                         )
                     else:
                         new_mask = df[column].map(lambda x: _re_filter(x, filter_))
                 else:
-                    new_mask = df.map(lambda x: _re_filter(x, filter_)).any(axis=1)
-                    new_mask |= df.index.map(lambda x: _re_filter(x, filter_))
+                    new_mask = _search_all_columns(df, filter_)
             except (re.error, ValueError, KeyError) as e:
                 errors.append(
                     f"Could not parse filter {filter_}: ignoring it. {type(e)}: '{e}'"

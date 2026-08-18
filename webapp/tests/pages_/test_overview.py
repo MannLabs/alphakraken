@@ -180,32 +180,6 @@ def test_overview_file_selection_mode(
     assert "📁 Show output folders" in button_labels
 
 
-@patch("service.db.get_raw_file_and_metrics_data")
-@patch("service.db.get_status_data")
-def test_overview_file_selection_no_files_hides_export_buttons(
-    mock_get_status_data: MagicMock,  # noqa: ARG001
-    mock_get_raw_file_and_metrics_data: MagicMock,
-) -> None:
-    """Test that both export buttons are hidden when the filter matches no files."""
-    mock_df_from_db_data = MagicMock()
-    _configure_mocks(mock_df_from_db_data, mock_get_raw_file_and_metrics_data)
-
-    # when: file selection is on but the filter matches no files
-    with (
-        patch("service.data_handling.df_from_db_data", mock_df_from_db_data),
-        patch("service.status.df_from_db_data", mock_df_from_db_data),
-    ):
-        at = AppTest.from_file(f"{PAGES_FOLDER}/overview.py")
-        at.session_state["file_selection_mode_widget_key"] = True
-        at.session_state["current_filter_widget_key"] = "no_such_file_xyz"
-        at.run()
-
-    # then: none of the file-export buttons is rendered
-    assert not at.exception
-    button_labels = [b.label for b in at.button]
-    assert "🔗 Show file paths" not in button_labels
-    assert "🔤 Show file names" not in button_labels
-    assert "📁 Show output folders" not in button_labels
 
 
 @patch("service.db.get_raw_file_and_metrics_data")

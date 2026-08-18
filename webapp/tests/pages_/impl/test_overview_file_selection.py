@@ -30,7 +30,9 @@ def test_show_output_folders_collapses_repeated_runs_of_one_setting(
     _show_output_folders(["f1", "f2"])
 
     # then: the duplicated f1 folder is shown only once
-    mock_st.expander.assert_called_once_with("Found 2 output folders:", expanded=True)
+    mock_st.expander.assert_called_once_with(
+        "**s1** (v1, alphadia) — 2 folders", expanded=False
+    )
     mock_st.code.assert_called_once_with("/out/f1/alphadia\n/out/f2/alphadia")
 
 

@@ -17,6 +17,9 @@ class SessionStateKeys:
     PLOTS_PER_ROW = "plots_per_row"
     SHOW_ALL_PLOTS = "show_all_plots"
 
+    PREPARED_CSV_FILTERED = "prepared_csv_filtered"
+    PREPARED_CSV_ALL = "prepared_csv_all"
+
 
 def set_session_state(key: str, value: Any, *, overwrite: bool = True) -> None:
     """Set a value in the session state, optionally overwriting it if it already exists."""

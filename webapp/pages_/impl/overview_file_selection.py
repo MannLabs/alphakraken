@@ -79,19 +79,17 @@ def _show_output_folders(file_ids: list) -> None:
         st.info("No output folders found for the selection.")
         return
 
-    with st.expander(f"Found {len(output_folders_df)} output folders:", expanded=True):
-        for (
-            settings_name,
-            settings_version,
-            metrics_type,
-        ), group in output_folders_df.groupby(
-            ["settings_name", "settings_version", "type"]
-        ):
-            output_paths = group["output_path"].tolist()
-            st.write(
-                f"**{settings_name}** (v{settings_version}, {metrics_type}) — {len(output_paths)} folders:"
-            )
-            st.code("\n".join(output_paths))
+
+    for (
+        settings_name,
+        settings_version,
+        metrics_type,
+    ), group in output_folders_df.groupby(
+        ["settings_name", "settings_version", "type"]
+    ):
+        output_paths = group["output_path"].tolist()
+
+        with st.expander(f"**{settings_name}** (v{settings_version}, {metrics_type}) — {len(output_paths)} folders:", expanded=True):
 
             raw_file_folder_counts = group.groupby("raw_file_id").size()
             multi_folder_raw_files = raw_file_folder_counts[raw_file_folder_counts > 1]
@@ -104,6 +102,8 @@ def _show_output_folders(file_ids: list) -> None:
                     f"Warning: the following {len(multi_folder_raw_files)} raw files have "
                     f"more than one output folder in this group:\n- {multi_folder_str}"
                 )
+            
+            st.code("\n".join(output_paths))
 
 
 def _show_output_folders_button(

@@ -64,6 +64,49 @@ def _normalize_metric_columns(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def _merge_metrics_by_type(all_metrics_df: pd.DataFrame) -> pd.DataFrame:
+    """Merge the metrics of each type into a single DataFrame, one row per raw file.
+
+    Metric columns are prefixed with their type, e.g. "alphadia__proteins".
+    """
+    if len(all_metrics_df) == 0:
+        return pd.DataFrame()
+
+    # TODO: first existing metrics gets column name w/o suffix -> always append
+    merged_metrics_df = pd.DataFrame()
+    for metrics_type in MetricsTypes.get_values():
+        metrics_df = all_metrics_df[
+            all_metrics_df[_METRICS_TYPE_COLUMN] == metrics_type
+        ]
+        if len(metrics_df) == 0:
+            continue
+
+        # the youngest metrics of a raw file win, cf. the sorting in df_from_db_data()
+        metrics_df = metrics_df.drop_duplicates(subset=[_RAW_FILE_COLUMN], keep="first")
+
+        # dropping all-empty columns is required for the Metrics, as e.g. custom metrics
+        # may not have all columns
+        metrics_df = metrics_df.dropna(axis=1, how="all").drop(
+            columns=[_METRICS_TYPE_COLUMN], errors="ignore"
+        )
+
+        metrics_df = metrics_df.rename(
+            columns={
+                c: f"{metrics_type}{METRICS_TYPE_SEPARATOR}{c}"
+                for c in metrics_df.columns
+                if c != _RAW_FILE_COLUMN
+            }
+        )
+
+        merged_metrics_df = (
+            metrics_df
+            if len(merged_metrics_df) == 0
+            else merged_metrics_df.merge(metrics_df, on=_RAW_FILE_COLUMN, how="outer")
+        )
+
+    return merged_metrics_df
+
+
 # Cached values are accessible to all users across all sessions.
 # Considering memory it should currently be fine to have all data cached.
 # Command for clearing the cache:  get_combined_raw_files_and_metrics_df.clear()

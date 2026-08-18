@@ -117,15 +117,8 @@ def get_combined_raw_files_and_metrics_df(
         "%Y-%m-%d %H:%M:%S"
     )
 
-    combined_df["created_at"] = combined_df["created_at"].apply(
-        lambda x: x.replace(microsecond=0)
-    )
-    combined_df["updated_at_"] = combined_df["updated_at_"].apply(
-        lambda x: x.replace(microsecond=0)
-    )
-    combined_df["created_at_"] = combined_df["created_at_"].apply(
-        lambda x: x.replace(microsecond=0)
-    )
+    for col in ["created_at", "updated_at_", "created_at_"]:
+        combined_df[col] = combined_df[col].dt.floor("s")
     # sorting & indexing
     combined_df.sort_values(by="created_at", ascending=False, inplace=True)  # noqa: PD002
     combined_df.reset_index(drop=True, inplace=True)  # noqa: PD002

@@ -354,18 +354,21 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
         filtered_df,
     )
 
+    # gradients are scaled to the displayed rows, so they only carry meaning on a filtered selection
+    is_filter_set = bool(user_input and user_input.strip())
+
     try:
         style = df_to_show.style
 
         # Apply green_is_high gradient (red=low, green=high)
-        if green_is_high_columns:
+        if is_filter_set and green_is_high_columns:
             style = style.background_gradient(
                 subset=green_is_high_columns,
                 cmap=cmap,
             )
 
         # Apply red_is_high gradient (green=low, red=high)
-        if red_is_high_columns:
+        if is_filter_set and red_is_high_columns:
             style = style.background_gradient(
                 subset=red_is_high_columns,
                 cmap=cmap_reversed,

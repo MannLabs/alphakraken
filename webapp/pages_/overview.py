@@ -405,16 +405,17 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
     # ########################################### DISPLAY: Download buttons
 
     c1, c2, _ = st.columns([0.25, 0.25, 0.5])
+    # the CSV is generated only when the user actually downloads it
     c1.download_button(
         label=f"⬇️ Download filtered table ({len(filtered_df)} entries)",
-        data=df_to_csv(filtered_df),
+        data=partial(df_to_csv, filtered_df),
         file_name=f"{data_timestamp.strftime('AlphaKraken_%Y%m%d-%H%M%S_filtered')}.csv",
         mime="text/csv",
     )
 
     c2.download_button(
         label=f"⬇️ Download all data ({len(df)} entries)",
-        data=df_to_csv(df),
+        data=partial(df_to_csv, df),
         file_name=f"{data_timestamp.strftime('AlphaKraken_%Y%m%d-%H%M%S_all')}.csv",
         mime="text/csv",
     )

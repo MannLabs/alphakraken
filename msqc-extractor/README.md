@@ -14,11 +14,11 @@ python main.py <raw_file_path> <output_path> <num_threads>
 ## Usage in a container
 
 The container is how AlphaKraken runs this tool in standalone deployments (`docker` job engine,
-cf. `airflow_src/plugins/jobs/docker_job_handler.py`). Build it from the repo root, tagging it with
-whatever the `software` field of the settings refers to:
+cf. `airflow_src/plugins/jobs/docker_job_handler.py`). Build it from the repo root, naming it like
+the `software` field of the settings refers to it:
 
 ```bash
-docker build -t alphakraken-msqc:latest msqc-extractor
+docker build -t alphakraken-msqc msqc-extractor
 ```
 
 The entrypoint is `entrypoint.sh`, which passes the container command on to `main.py`:
@@ -26,7 +26,7 @@ The entrypoint is `entrypoint.sh`, which passes the container command on to `mai
 ```bash
 docker run --rm --network none \
     -v <host input folder>:/data/in:ro -v <host output folder>:/data/out:rw \
-    alphakraken-msqc:latest /data/in/<raw_file> /data/out 2
+    alphakraken-msqc /data/in/<raw_file> /data/out 2
 ```
 
 In AlphaKraken the arguments come from the `config_params` of the settings
@@ -38,7 +38,7 @@ works too:
 docker run --rm --network none \
     -e RAW_FILE_PATH=/data/in/<raw_file> -e OUTPUT_PATH=/data/out -e NUM_THREADS=2 \
     -v <host input folder>:/data/in:ro -v <host output folder>:/data/out:rw \
-    alphakraken-msqc:latest
+    alphakraken-msqc
 ```
 
 The image reads Thermo files via the `coreclr` .NET runtime, which means it needs no `mono`

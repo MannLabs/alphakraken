@@ -13,8 +13,6 @@ FORBIDDEN_RAW_FILE_NAME_CHARACTERS_PATTERN = rf"[^{_ALLOWED_RAW_FILE_NAME_CHARAC
 # Base pattern allows filenames with safe characters, path pattern adds forward slash
 EXECUTABLE_NAME_PATTERN = rf"^[{_ALLOWED_RAW_FILE_NAME_CHARACTERS}/]+$"
 EXECUTABLE_NAME_PATTERN_WITH_SPACES = rf"^[{_ALLOWED_RAW_FILE_NAME_CHARACTERS}/ ]+$"
-# docker image references contain a ':' to separate the tag, e.g. 'alphakraken-msqc:latest'
-EXECUTABLE_NAME_PATTERN_WITH_COLONS = rf"^[{_ALLOWED_RAW_FILE_NAME_CHARACTERS}/:]+$"
 
 
 # Error messages
@@ -24,15 +22,10 @@ ABSOLUTE_PATH_ERROR = "Cannot be an absolute path"
 # Error messages derive from _ALLOWED_CHARACTERS to maintain single source of truth
 INVALID_CHARS_ERROR = "Contains invalid characters. Only alphanumeric characters, dots, hyphens, underscores, plus signs, and forward slashes are allowed"
 INVALID_CHARS_ERROR_WITH_SPACES = "Contains invalid characters. Only alphanumeric characters, dots, hyphens, underscores, plus signs, forward slashes, and spaces are allowed"
-INVALID_CHARS_ERROR_WITH_COLONS = "Contains invalid characters. Only alphanumeric characters, dots, hyphens, underscores, plus signs, forward slashes, and colons are allowed"
 
 
 def check_for_malicious_content(
-    value: str,
-    *,
-    allow_spaces: bool = False,
-    allow_absolute_paths: bool = False,
-    allow_colons: bool = False,
+    value: str, *, allow_spaces: bool = False, allow_absolute_paths: bool = False
 ) -> list[str]:
     """Validate a value for security (prevent command injection).
 
@@ -40,7 +33,6 @@ def check_for_malicious_content(
         value: The value to validate
         allow_spaces: Whether to allow spaces in the name (default: False)
         allow_absolute_paths: Whether to allow absolute paths (default: False)
-        allow_colons: Whether to allow colons, e.g. for docker image tags (default: False)
 
     Returns:
         list[str]: List of validation error messages (empty if valid)
@@ -62,9 +54,6 @@ def check_for_malicious_content(
     if allow_spaces:
         pattern = EXECUTABLE_NAME_PATTERN_WITH_SPACES
         error_msg = INVALID_CHARS_ERROR_WITH_SPACES
-    elif allow_colons:
-        pattern = EXECUTABLE_NAME_PATTERN_WITH_COLONS
-        error_msg = INVALID_CHARS_ERROR_WITH_COLONS
     else:
         pattern = EXECUTABLE_NAME_PATTERN
         error_msg = INVALID_CHARS_ERROR

@@ -28,7 +28,13 @@ def _get_job_handler(engine: str) -> "JobHandler":
         return SlurmNoSacctSSHJobHandler()
 
     if engine == JobEngines.DOCKER:
-        from jobs.docker_job_handler import DockerJobHandler
+        try:
+            from jobs.docker_job_handler import DockerJobHandler
+        except ImportError as e:
+            raise AirflowFailException(
+                f"The '{JobEngines.DOCKER}' job engine requires the optional requirements in "
+                f"airflow_src/requirements_docker_engine.txt to be installed."
+            ) from e
 
         logging.info("Using DockerJobHandler")
         return DockerJobHandler()

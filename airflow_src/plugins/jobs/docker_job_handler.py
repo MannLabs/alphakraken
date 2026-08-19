@@ -11,6 +11,7 @@ container at the very paths the placeholders resolved to, which makes the same `
 work for both this engine and Slurm.
 
 Notes:
+    - requires the optional requirements in `requirements_docker_engine.txt`.
     - the image must already be present on the host, it is never pulled, cf. `_get_image`.
     - requires the bind mount of the docker socket in docker-compose.yaml (cf. `group_add`).
     - requires key 'locations.general.mounts_path' in alphakraken.{env}.yaml to point to the
@@ -184,7 +185,14 @@ class DockerJobHandler(JobHandler):
         return image
 
     def _to_host_path(self, internal_path: Path) -> Path:
-        """Translate a path within the worker container to the corresponding host path."""
+        """Translate a path within the worker container to the corresponding host path.
+
+        This trick enables to access the files on the container file system with the same paths as on the shared file system.
+
+        E.g. /opt/airflow/mounts/output/P1/out_file.raw/custom
+        -> /home/kraken-user/alphakraken/production/mounts/output/P1/out_file.raw/custom
+        for `locations.general.mounts_path: /home/kraken-user/alphakraken/production/mounts`.
+        """
         return self._host_mounts_path / internal_path.relative_to(
             InternalPaths.MOUNTS_PATH
         )

@@ -48,7 +48,7 @@ def sample_environment() -> dict:
     """Create sample environment variables for testing."""
     return {
         QuantingEnv.RAW_FILE_ID: "raw_file_1.raw",
-        QuantingEnv.SOFTWARE: "alphakraken-msqc:latest",
+        QuantingEnv.SOFTWARE: "alphakraken-msqc",
         QuantingEnv.SOFTWARE_TYPE: SoftwareTypes.CUSTOM,
         QuantingEnv.RAW_FILE_PATH: RAW_FILE_PATH,
         QuantingEnv.OUTPUT_PATH: OUTPUT_PATH,
@@ -100,7 +100,7 @@ class TestStartJob:
         assert job_id == "0123456789ab"
 
         args, kwargs = handler._client.containers.run.call_args
-        assert args == ("alphakraken-msqc:latest", [RAW_FILE_PATH, OUTPUT_PATH, "2"])
+        assert args == ("alphakraken-msqc", [RAW_FILE_PATH, OUTPUT_PATH, "2"])
         assert kwargs["name"] == "kraken-custom-raw_file_1.raw"
         assert kwargs["mem_limit"] == "31g"
         assert kwargs["nano_cpus"] == 2_000_000_000
@@ -154,7 +154,7 @@ class TestStartJob:
         _, kwargs = handler._client.containers.run.call_args
         assert kwargs["environment"] == {
             QuantingEnv.RAW_FILE_ID: "raw_file_1.raw",
-            QuantingEnv.SOFTWARE: "alphakraken-msqc:latest",
+            QuantingEnv.SOFTWARE: "alphakraken-msqc",
             QuantingEnv.SOFTWARE_TYPE: SoftwareTypes.CUSTOM,
             QuantingEnv.RAW_FILE_PATH: RAW_FILE_PATH,
             QuantingEnv.OUTPUT_PATH: OUTPUT_PATH,
@@ -179,7 +179,7 @@ class TestStartJob:
 
         # then
         args, _ = handler._client.containers.run.call_args
-        assert args == ("alphakraken-msqc:latest", None)
+        assert args == ("alphakraken-msqc", None)
 
     def test_start_job_should_remove_leftover_container(
         self,
@@ -252,7 +252,7 @@ class TestStartJob:
         handler.start_job("ignored.sh", sample_environment, "2024_07")
 
         # then
-        handler._client.images.get.assert_called_once_with("alphakraken-msqc:latest")
+        handler._client.images.get.assert_called_once_with("alphakraken-msqc")
         handler._client.images.pull.assert_not_called()
 
 

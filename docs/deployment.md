@@ -325,9 +325,13 @@ For deployments that have no external compute resources, quanting jobs can be ru
 Kraken host itself, using the `docker` execution engine (cf. `airflow_src/plugins/jobs/docker_job_handler.py`).
 Currently the MSQC metrics extractor (`msqc-extractor/`) is available for this.
 
-1. Build the image on the machine that runs the workers:
+0. The engine needs the optional requirements in `airflow_src/requirements_docker_engine.txt`, which
+the airflow image installs by default. Only if that line was removed from `airflow_src/Dockerfile`,
+add it back and rebuild, otherwise the engine fails with a hint to this file.
+1. Build the image on the machine that runs the workers. The name is free to choose, it just has to
+match the `software` field of the settings that use the image (see below):
 ```bash
-docker build -t alphakraken-msqc:latest msqc-extractor
+docker build -t alphakraken-msqc msqc-extractor
 ```
 2. Allow the workers to talk to the docker daemon: set `DOCKER_GID` in `envs/${ENV}.env` to the group id
 of the docker socket:
@@ -348,7 +352,7 @@ monitoring tasks for all engines, not only for Slurm.
     - software type `custom` (the only type the `docker` engine is allowed for) and the metrics type
       you want, e.g. `msqc`,
     - execution engine `docker`,
-    - `software` set to the image reference, e.g. `alphakraken-msqc`,
+    - `software` set to the image name, e.g. `alphakraken-msqc`,
     - `config_params` set to the arguments for the image, with the usual placeholders, e.g.
       `RAW_FILE_PATH OUTPUT_PATH NUM_THREADS` for the msqc image. They may be left empty if the
       image's entrypoint reads the environment variables instead (the msqc image supports both).

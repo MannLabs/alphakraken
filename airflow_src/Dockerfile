@@ -16,9 +16,12 @@ ENV AIRFLOW_HOME=/opt/airflow
 ENV PYTHONPATH "${PYTHONPATH}:${AIRFLOW_HOME}"
 
 COPY airflow_src/requirements_airflow.txt /
+# only needed for the `docker` job engine, remove this line (and below) to build a leaner image
+COPY airflow_src/requirements_docker_engine.txt /
 COPY ../shared/requirements_shared.txt /
 RUN pip install --no-cache-dir "apache-airflow==${AIRFLOW_VERSION}" \
     -r /requirements_airflow.txt  \
+    -r /requirements_docker_engine.txt  \
     -r /requirements_shared.txt
 
 

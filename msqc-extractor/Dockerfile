@@ -1,6 +1,6 @@
 # Image for the msqc-extractor, used by the `docker` job engine.
-# Build (from the repo root): docker build -t alphakraken-msqc:latest msqc-extractor
-# The tag must match the `software` field of the settings that use it.
+# Build (from the repo root): docker build -t alphakraken-msqc msqc-extractor
+# The name must match the `software` field of the settings that use it.
 
 FROM python:3.11-slim-bookworm
 

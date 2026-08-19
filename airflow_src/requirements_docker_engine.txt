@@ -1,0 +1,3 @@
+# Optional requirements, only needed to run quanting jobs with the `docker` job engine
+# (cf. jobs/docker_job_handler.py), which is meant for standalone deployments without a cluster.
+docker==7.1.0 --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.11.0/constraints-3.11.txt"

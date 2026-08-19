@@ -337,34 +337,16 @@ def test_prepare_job(
     assert result == mock_env
 
 
-def _quanting_env_with_software(software: str, job_engine: str) -> dict:
-    """Create a minimal quanting env for testing _check_content."""
-    return {
-        QuantingEnv.SOFTWARE: software,
-        QuantingEnv.JOB_ENGINE: job_engine,
+def test_check_content_allows_image_name_in_software_field() -> None:
+    """Test that a docker image name in the software field is accepted."""
+    quanting_env = {
+        QuantingEnv.SOFTWARE: "alphakraken-msqc",
+        QuantingEnv.JOB_ENGINE: JobEngines.DOCKER,
     }
-
-
-def test_check_content_allows_image_reference_for_docker_engine() -> None:
-    """Test that a docker image reference in the software field is accepted for the docker engine."""
-    quanting_env = _quanting_env_with_software(
-        "alphakraken-msqc:latest", JobEngines.DOCKER
-    )
 
     errors = _check_content(quanting_env, MagicMock(config_params=None))
 
     assert errors == []
-
-
-def test_check_content_rejects_image_reference_for_slurm_engine() -> None:
-    """Test that the colon relaxation does not apply to the other engines."""
-    quanting_env = _quanting_env_with_software(
-        "alphakraken-msqc:latest", JobEngines.SLURM
-    )
-
-    errors = _check_content(quanting_env, MagicMock(config_params=None))
-
-    assert len(errors) == 1
 
 
 @patch("dags.impl.processor_impl._check_content")

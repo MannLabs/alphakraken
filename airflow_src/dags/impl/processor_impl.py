@@ -50,7 +50,7 @@ from shared.db.interface import (
     update_raw_file,
 )
 from shared.db.models import RawFile, RawFileStatus, Settings, get_created_at_year_month
-from shared.keys import JobEngines, SoftwareTypes
+from shared.keys import SoftwareTypes
 from shared.settings_scope_resolver import resolve_scoped_settings
 from shared.validation import check_for_malicious_content
 from shared.yamlsettings import YamlKeys, get_path
@@ -298,11 +298,7 @@ def _check_content(
             and isinstance(value, str)
             and (
                 errors_ := check_for_malicious_content(
-                    value,
-                    allow_absolute_paths=key in absolute_path_allowed_keys,
-                    # for the docker engine, the software field holds an image reference
-                    allow_colons=key == QuantingEnv.SOFTWARE
-                    and quanting_env.get(QuantingEnv.JOB_ENGINE) == JobEngines.DOCKER,
+                    value, allow_absolute_paths=key in absolute_path_allowed_keys
                 )
             )
         ):

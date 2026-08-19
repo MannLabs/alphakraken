@@ -15,14 +15,18 @@ ENV PYTHONUNBUFFERED=1
 ENV AIRFLOW_HOME=/opt/airflow
 ENV PYTHONPATH "${PYTHONPATH}:${AIRFLOW_HOME}"
 
+# set to "false" to build a leaner image without support for the `docker` job engine
+ARG INSTALL_DOCKER_ENGINE=false
+
 COPY airflow_src/requirements_airflow.txt /
-# only needed for the `docker` job engine, remove this line (and below) to build a leaner image
 COPY airflow_src/requirements_docker_engine.txt /
 COPY ../shared/requirements_shared.txt /
 RUN pip install --no-cache-dir "apache-airflow==${AIRFLOW_VERSION}" \
     -r /requirements_airflow.txt  \
-    -r /requirements_docker_engine.txt  \
-    -r /requirements_shared.txt
+    -r /requirements_shared.txt \
+    && if [ "${INSTALL_DOCKER_ENGINE}" = "true" ]; then \
+        pip install --no-cache-dir -r /requirements_docker_engine.txt; \
+    fi
 
 
 # Note that in docker-compose.yaml you can choose to import DAGs and plugins via volume mounts,

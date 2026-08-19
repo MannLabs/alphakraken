@@ -337,6 +337,28 @@ def test_prepare_job(
     assert result == mock_env
 
 
+def test_check_content_allows_resolved_config_params() -> None:
+    """Test that resolved config params pass despite their spaces and absolute paths."""
+    quanting_env = {
+        QuantingEnv.CONFIG_PARAMS: "--f /pool/backup/f.raw --out /pool/output/out_f.raw --threads 8",
+    }
+
+    errors = _check_content(quanting_env, MagicMock(config_params=None))
+
+    assert errors == []
+
+
+def test_check_content_rejects_malicious_resolved_config_params() -> None:
+    """Test that the resolved config params are validated, not only the unresolved ones."""
+    quanting_env = {
+        QuantingEnv.CONFIG_PARAMS: "--f /pool/backup/f.raw; rm -rf /",
+    }
+
+    errors = _check_content(quanting_env, MagicMock(config_params=None))
+
+    assert len(errors) == 1
+
+
 def test_check_content_allows_image_name_in_software_field() -> None:
     """Test that a docker image name in the software field is accepted."""
     quanting_env = {

@@ -326,8 +326,8 @@ Kraken host itself, using the `docker` execution engine (cf. `airflow_src/plugin
 Currently the MSQC metrics extractor (`msqc-extractor/`) is available for this.
 
 0. The engine needs the optional requirements in `airflow_src/requirements_docker_engine.txt`, which
-the airflow image installs by default. Only if that line was removed from `airflow_src/Dockerfile`,
-add it back and rebuild, otherwise the engine fails with a hint to this file.
+the airflow image installs by default. They can be left out with the build argument
+`INSTALL_DOCKER_ENGINE=false`, in which case the engine fails with a hint to this file.
 1. Build the image on the machine that runs the workers. The name is free to choose, it just has to
 match the `software` field of the settings that use the image (see below):
 ```bash

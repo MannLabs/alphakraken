@@ -292,7 +292,7 @@ def _check_content(
             and key
             not in [
                 QuantingEnv.CUSTOM_COMMAND,  # validated below
-                QuantingEnv.CONFIG_PARAMS,  # covered by the config_params check below
+                QuantingEnv.CONFIG_PARAMS,  # validated below
                 QuantingEnv.SLURM_TIME,  # contains ":", validated in webapp
             ]
             and isinstance(value, str)
@@ -304,14 +304,16 @@ def _check_content(
         ):
             errors.append(f"Validation error in '{value}': {errors_}")
 
-    if quanting_env.get(QuantingEnv.CUSTOM_COMMAND):
-        errors.extend(
-            check_for_malicious_content(
-                str(quanting_env[QuantingEnv.CUSTOM_COMMAND]),
-                allow_spaces=True,
-                allow_absolute_paths=True,
+    # these hold resolved paths and are space-separated, so they need the laxer checks
+    for key in [QuantingEnv.CUSTOM_COMMAND, QuantingEnv.CONFIG_PARAMS]:
+        if quanting_env.get(key):
+            errors.extend(
+                check_for_malicious_content(
+                    str(quanting_env[key]),
+                    allow_spaces=True,
+                    allow_absolute_paths=True,
+                )
             )
-        )
     if settings.config_params:
         errors.extend(
             check_for_malicious_content(settings.config_params, allow_spaces=True)

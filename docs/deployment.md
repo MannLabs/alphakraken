@@ -325,9 +325,9 @@ For deployments that have no external compute resources, quanting jobs can be ru
 Kraken host itself, using the `docker` execution engine (cf. `airflow_src/plugins/jobs/docker_job_handler.py`).
 Currently the MSQC metrics extractor (`msqc-extractor/`) is available for this.
 
-1. Build the image (it is tagged `alphakraken-msqc:latest`, which is the name the job handler resolves):
+1. Build the image on the machine that runs the workers:
 ```bash
-./compose.sh --profile msqc build
+docker build -t alphakraken-msqc:latest msqc-extractor
 ```
 2. Allow the workers to talk to the docker daemon: set `DOCKER_GID` in `envs/${ENV}.env` to the group id
 of the docker socket:
@@ -344,10 +344,23 @@ translate the worker's container paths into the host paths it binds into the qua
 `debug_no_cluster_ssh` to `true`, cf. [Setup SSH connection](#setup-ssh-connection).
 5. Size the `cluster_slots_pool` to the local machine's capacity: it gates the `submit_job` and job
 monitoring tasks for all engines, not only for Slurm.
-6. In the webapp, create a settings entry with software type `msqc` and execution engine `docker`. The
-`software` field is only used by the Slurm engine and is ignored here.
+6. In the webapp, create a settings entry with
+    - software type `custom` (the only type the `docker` engine is allowed for) and the metrics type
+      you want, e.g. `msqc`,
+    - execution engine `docker`,
+    - `software` set to the image reference, e.g. `alphakraken-msqc`,
+    - `config_params` set to the arguments for the image, with the usual placeholders, e.g.
+      `RAW_FILE_PATH OUTPUT_PATH NUM_THREADS` for the msqc image. They may be left empty if the
+      image's entrypoint reads the environment variables instead (the msqc image supports both).
+
+The raw file and the output folder are bound into the container at the very paths the placeholders
+resolve to, so the same `config_params` work for the `docker` and the Slurm engine.
 
 Notes:
+- Images are never pulled: the image named in the `software` field must already be present on the
+worker host, otherwise the job fails. This keeps the capability with the administrator, mirroring
+how the software folder works for the Slurm engine. Private registries are fine, an administrator
+just has to `docker pull` the image once.
 - The container reads Thermo `.raw` files via the `coreclr` .NET runtime, which means it needs no `mono`
 installation but also cannot read SCIEX `.wiff` files. Bruker `.d` files are supported.
 - Unlike Slurm, docker has no wall clock limit, so the `slurm_time` resource parameter is ignored and a

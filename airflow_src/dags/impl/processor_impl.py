@@ -50,7 +50,7 @@ from shared.db.interface import (
     update_raw_file,
 )
 from shared.db.models import RawFile, RawFileStatus, Settings, get_created_at_year_month
-from shared.keys import SoftwareTypes
+from shared.keys import JobEngines, SoftwareTypes
 from shared.settings_scope_resolver import resolve_scoped_settings
 from shared.validation import check_for_malicious_content
 from shared.yamlsettings import YamlKeys, get_path
@@ -177,18 +177,20 @@ def _create_quanting_env(
         raw_file, software_type=settings.software_type
     )
 
+    substituted_params = _substitute_config_params(
+        raw_file.id,
+        relative_output_path,
+        output_path,
+        relative_raw_file_path,
+        raw_file_path,
+        settings,
+        settings_path,
+        settings.num_threads,
+        raw_file.project_id,
+    )
+
     custom_command = (
-        _prepare_custom_command(
-            raw_file.id,
-            relative_output_path,
-            output_path,
-            relative_raw_file_path,
-            raw_file_path,
-            settings,
-            settings_path,
-            settings.num_threads,
-            raw_file.project_id,
-        )
+        _prepare_custom_command(settings, substituted_params)
         # all non-alphadia softwares are treated as 'custom command'
         if settings.software_type not in [SoftwareTypes.ALPHADIA]
         else ""
@@ -220,12 +222,14 @@ def _create_quanting_env(
         QuantingEnv.INTERNAL_RAW_FILE_PATH: str(
             get_internal_backup_path() / relative_raw_file_path
         ),
+        # resolved placeholders, used as the command by the docker job engine
+        QuantingEnv.CONFIG_PARAMS: substituted_params,
         QuantingEnv.JOB_ENGINE: settings.job_engine,
     }
     return quanting_env
 
 
-def _prepare_custom_command(  # noqa: PLR0913 Too many arguments
+def _substitute_config_params(  # noqa: PLR0913 Too many arguments
     raw_file_id: str,
     relative_output_path: Path,
     output_path: Path,
@@ -236,25 +240,30 @@ def _prepare_custom_command(  # noqa: PLR0913 Too many arguments
     num_threads: int,
     project_id: str,
 ) -> str:
-    """Prepare the custom command for the quanting job."""
+    """Resolve the placeholders in the configuration parameters of the settings."""
     if settings.config_params is None:
-        substituted_params = ""
-    else:
-        substituted_params = settings.config_params
-        replacements = {
-            # mind the order of replacements here (LONGER placeholders first, e.g. RAW_FILE_PATH before RELATIVE_RAW_FILE_PATH)
-            "RELATIVE_RAW_FILE_PATH": relative_raw_file_path,
-            "RAW_FILE_PATH": raw_file_path,
-            "RAW_FILE_ID": raw_file_id,
-            "SETTINGS_PATH": settings_path,
-            "RELATIVE_OUTPUT_PATH": relative_output_path,
-            "OUTPUT_PATH": output_path,
-            "NUM_THREADS": num_threads,
-            "PROJECT_ID": project_id,
-        }
-        for placeholder, new_value in replacements.items():
-            substituted_params = substituted_params.replace(placeholder, str(new_value))
+        return ""
 
+    substituted_params = settings.config_params
+    replacements = {
+        # mind the order of replacements here (LONGER placeholders first, e.g. RAW_FILE_PATH before RELATIVE_RAW_FILE_PATH)
+        "RELATIVE_RAW_FILE_PATH": relative_raw_file_path,
+        "RAW_FILE_PATH": raw_file_path,
+        "RAW_FILE_ID": raw_file_id,
+        "SETTINGS_PATH": settings_path,
+        "RELATIVE_OUTPUT_PATH": relative_output_path,
+        "OUTPUT_PATH": output_path,
+        "NUM_THREADS": num_threads,
+        "PROJECT_ID": project_id,
+    }
+    for placeholder, new_value in replacements.items():
+        substituted_params = substituted_params.replace(placeholder, str(new_value))
+
+    return substituted_params
+
+
+def _prepare_custom_command(settings: Settings, substituted_params: str) -> str:
+    """Prepare the custom command for the quanting job."""
     software_base_path = get_path(YamlKeys.Locations.SOFTWARE)
     software_path = str(software_base_path / settings.software)
 
@@ -283,12 +292,17 @@ def _check_content(
             and key
             not in [
                 QuantingEnv.CUSTOM_COMMAND,  # validated below
+                QuantingEnv.CONFIG_PARAMS,  # covered by the config_params check below
                 QuantingEnv.SLURM_TIME,  # contains ":", validated in webapp
             ]
             and isinstance(value, str)
             and (
                 errors_ := check_for_malicious_content(
-                    value, allow_absolute_paths=key in absolute_path_allowed_keys
+                    value,
+                    allow_absolute_paths=key in absolute_path_allowed_keys,
+                    # for the docker engine, the software field holds an image reference
+                    allow_colons=key == QuantingEnv.SOFTWARE
+                    and quanting_env.get(QuantingEnv.JOB_ENGINE) == JobEngines.DOCKER,
                 )
             )
         ):

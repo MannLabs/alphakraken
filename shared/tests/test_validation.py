@@ -44,6 +44,34 @@ class TestValidateName:
                 f"Expected '{name}' to be valid with spaces allowed, got errors: {errors}"
             )
 
+    def test_check_for_malicious_content_image_references_with_colons(self) -> None:
+        """Test that docker image references pass validation when allow_colons=True."""
+        valid_image_references = [
+            "alphakraken-msqc:latest",
+            "mannlabs/alphakraken-msqc:0.1.0",
+            "alphakraken-msqc",
+        ]
+
+        for name in valid_image_references:
+            errors = check_for_malicious_content(name, allow_colons=True)
+            assert not errors, (
+                f"Expected '{name}' to be valid with colons allowed, got errors: {errors}"
+            )
+
+    def test_check_for_malicious_content_colons_rejected_by_default(self) -> None:
+        """Test that colons fail validation unless they are explicitly allowed."""
+        errors = check_for_malicious_content("alphakraken-msqc:latest")
+
+        assert errors == [INVALID_CHARS_ERROR]
+
+    def test_check_for_malicious_content_injection_rejected_despite_colons(
+        self,
+    ) -> None:
+        """Test that allowing colons does not open the door for command injection."""
+        for name in ["image:latest; rm -rf /", "image:latest && whoami", "image:$(id)"]:
+            errors = check_for_malicious_content(name, allow_colons=True)
+            assert errors, f"Expected '{name}' to be rejected"
+
     def test_check_for_malicious_content_parent_directory_references(self) -> None:
         """Test that parent directory references fail validation."""
         invalid_names = [

@@ -4,11 +4,17 @@ This is the execution engine for standalone deployments that have no external co
 resources: instead of submitting to Slurm, the Airflow worker starts one sibling container
 per job via the Docker socket.
 
+The image is taken from the `software` field of the settings, and the resolved configuration
+parameters are passed to it as the container command, so an image behaves like a custom command
+that happens to run in a container. The raw file and the output folder are bound into the
+container at the very paths the placeholders resolved to, which makes the same `config_params`
+work for both this engine and Slurm.
+
 Notes:
+    - the image must already be present on the host, it is never pulled, cf. `_get_image`.
     - requires the bind mount of the docker socket in docker-compose.yaml (cf. `group_add`).
     - requires key 'locations.general.mounts_path' in alphakraken.{env}.yaml to point to the
       mounts folder as seen by the docker host.
-    - the image is resolved from the software type, cf. SOFTWARE_TYPE_TO_DOCKER_IMAGE.
     - `_SLURM_TIME` is not honored: docker has no wall clock limit.
 
 """
@@ -16,6 +22,7 @@ Notes:
 import logging
 import os
 import re
+import shlex
 from datetime import datetime
 from pathlib import Path
 
@@ -26,7 +33,7 @@ from docker.errors import ImageNotFound, NotFound
 from docker.models.containers import Container
 from jobs.job_handler import JobHandler
 
-from shared.keys import SOFTWARE_TYPE_TO_DOCKER_IMAGE, InternalPaths
+from shared.keys import InternalPaths
 from shared.yamlsettings import get_host_mounts_path
 
 CONTAINER_NAME_PREFIX = "kraken"
@@ -80,68 +87,59 @@ class DockerJobHandler(JobHandler):
         del job_script_name  # unused
         del year_month_folder  # unused
 
-        software_type = environment[QuantingEnv.SOFTWARE_TYPE]
-        if (image := SOFTWARE_TYPE_TO_DOCKER_IMAGE.get(software_type)) is None:
-            raise AirflowFailException(
-                f"No docker image defined for software type '{software_type}'. "
-                f"Known: {sorted(SOFTWARE_TYPE_TO_DOCKER_IMAGE)}"
-            )
+        image = self._get_image(environment[QuantingEnv.SOFTWARE])
+        # None makes docker use the command defined in the image
+        command = shlex.split(environment[QuantingEnv.CONFIG_PARAMS]) or None
 
-        raw_file_path = Path(environment[QuantingEnv.INTERNAL_RAW_FILE_PATH])
-        output_path = Path(environment[QuantingEnv.INTERNAL_OUTPUT_PATH])
-        for path in (raw_file_path, output_path):
+        internal_raw_file_path = Path(environment[QuantingEnv.INTERNAL_RAW_FILE_PATH])
+        internal_output_path = Path(environment[QuantingEnv.INTERNAL_OUTPUT_PATH])
+        for path in (internal_raw_file_path, internal_output_path):
             if not path.exists():
                 raise AirflowFailException(f"Path {path} does not exist in the worker.")
 
         container_name = (
-            f"{CONTAINER_NAME_PREFIX}-{software_type}-"
+            f"{CONTAINER_NAME_PREFIX}-{environment[QuantingEnv.SOFTWARE_TYPE]}-"
             f"{environment[QuantingEnv.RAW_FILE_ID]}"
         )
         self._remove_container(container_name)
 
-        # the container sees the same paths as the worker, so no path translation is required
-        # for anything that is passed to the software
+        # bind at the paths the placeholders in the config params resolved to, so that the same
+        # config params work for this engine and for Slurm
         volumes = {
-            str(self._to_host_path(raw_file_path)): {
-                "bind": str(raw_file_path),
+            str(self._to_host_path(internal_raw_file_path)): {
+                "bind": environment[QuantingEnv.RAW_FILE_PATH],
                 "mode": "ro",
             },
-            str(self._to_host_path(output_path)): {
-                "bind": str(output_path),
+            str(self._to_host_path(internal_output_path)): {
+                "bind": environment[QuantingEnv.OUTPUT_PATH],
                 "mode": "rw",
             },
         }
 
-        logging.info(f"Running image {image} as {container_name} with {volumes=}")
+        logging.info(
+            f"Running image {image} as {container_name} with {command=} and {volumes=}"
+        )
 
-        try:
-            container = self._client.containers.run(
-                image,
-                detach=True,
-                name=container_name,
-                volumes=volumes,
-                environment={
-                    QuantingEnv.RAW_FILE_PATH: str(raw_file_path),
-                    QuantingEnv.OUTPUT_PATH: str(output_path),
-                    QuantingEnv.NUM_THREADS: str(environment[QuantingEnv.NUM_THREADS]),
-                },
-                labels={
-                    JOB_LABEL: environment[QuantingEnv.RAW_FILE_ID],
-                    OUTPUT_PATH_LABEL: str(output_path),
-                },
-                # write output files with the same ownership as the worker would
-                user=f"{os.getuid()}:0",
-                mem_limit=str(environment[QuantingEnv.SLURM_MEM]).lower(),
-                nano_cpus=int(environment[QuantingEnv.SLURM_CPUS_PER_TASK])
-                * NANO_CPUS_PER_CPU,
-                # the quanting software must not need any network access
-                network_mode="none",
-            )
-        except ImageNotFound as e:
-            raise AirflowFailException(
-                f"Image {image} not found. Build it with "
-                f"`./compose.sh --profile msqc build`."
-            ) from e
+        container = self._client.containers.run(
+            image,
+            command,
+            detach=True,
+            name=container_name,
+            volumes=volumes,
+            # the same variables that the Slurm engine exports before the job script
+            environment=_exported_environment(environment),
+            labels={
+                JOB_LABEL: environment[QuantingEnv.RAW_FILE_ID],
+                OUTPUT_PATH_LABEL: str(internal_output_path),
+            },
+            # write output files with the same ownership as the worker would
+            user=f"{os.getuid()}:0",
+            mem_limit=str(environment[QuantingEnv.SLURM_MEM]).lower(),
+            nano_cpus=int(environment[QuantingEnv.SLURM_CPUS_PER_TASK])
+            * NANO_CPUS_PER_CPU,
+            # the quanting software must not need any network access
+            network_mode="none",
+        )
 
         return container.id[:12]
 
@@ -168,6 +166,22 @@ class DockerJobHandler(JobHandler):
         )
 
         return job_status, time_elapsed
+
+    def _get_image(self, image: str) -> str:
+        """Check that an image is present on this host and return its reference.
+
+        `containers.run()` would otherwise pull an unknown image from the registry, which would
+        allow anyone who can create settings to run arbitrary images on the worker host.
+        """
+        try:
+            self._client.images.get(image)
+        except ImageNotFound as e:
+            raise AirflowFailException(
+                f"Image '{image}' is not present on this host. An administrator needs to build "
+                f"or pull it first."
+            ) from e
+
+        return image
 
     def _to_host_path(self, internal_path: Path) -> Path:
         """Translate a path within the worker container to the corresponding host path."""
@@ -218,6 +232,11 @@ class DockerJobHandler(JobHandler):
         with log_file_path.open("wb") as file:
             file.write(container.logs())
         logging.info(f"Wrote container logs to {log_file_path}")
+
+
+def _exported_environment(environment: dict[str, str]) -> dict[str, str]:
+    """Get the variables to set in the container, ignoring keys with leading underscore."""
+    return {k: str(v) for k, v in environment.items() if not k.startswith("_")}
 
 
 def _get_state(container: Container) -> dict:

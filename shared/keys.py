@@ -127,10 +127,3 @@ SOFTWARE_TYPE_TO_DEFAULT_RESOURCE_PARAMS: dict[str, ResourceParams] = defaultdic
         ),
     },
 )
-
-
-# Images used by the `docker` job engine, cf. DockerJobHandler. The image name cannot be taken
-# from `settings.software` because `check_for_malicious_content` forbids the ':' of an image tag.
-SOFTWARE_TYPE_TO_DOCKER_IMAGE: dict[str, str] = {
-    SoftwareTypes.MSQC: "alphakraken-msqc:latest",
-}

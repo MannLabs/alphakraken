@@ -14,13 +14,25 @@ python main.py <raw_file_path> <output_path> <num_threads>
 ## Usage in a container
 
 The container is how AlphaKraken runs this tool in standalone deployments (`docker` job engine,
-cf. `airflow_src/plugins/jobs/docker_job_handler.py`). Build it from the repo root:
+cf. `airflow_src/plugins/jobs/docker_job_handler.py`). Build it from the repo root, tagging it with
+whatever the `software` field of the settings refers to:
 
 ```bash
-./compose.sh --profile msqc build
+docker build -t alphakraken-msqc:latest msqc-extractor
 ```
 
-The entrypoint takes its arguments from the environment, like `misc/software/run_msqc.sh` does:
+The entrypoint is `entrypoint.sh`, which passes the container command on to `main.py`:
+
+```bash
+docker run --rm --network none \
+    -v <host input folder>:/data/in:ro -v <host output folder>:/data/out:rw \
+    alphakraken-msqc:latest /data/in/<raw_file> /data/out 2
+```
+
+In AlphaKraken the arguments come from the `config_params` of the settings
+(`RAW_FILE_PATH OUTPUT_PATH NUM_THREADS`, with the placeholders resolved). If no arguments are given,
+`entrypoint.sh` takes them from the environment variables that the job handler sets anyway, so this
+works too:
 
 ```bash
 docker run --rm --network none \

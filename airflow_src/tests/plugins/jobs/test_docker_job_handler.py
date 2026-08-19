@@ -15,7 +15,11 @@ MODULE = "jobs.docker_job_handler"
 HOST_MOUNTS_PATH = Path("/host/mounts")
 
 INTERNAL_RAW_FILE_PATH = "/opt/airflow/mounts/backup/test1/2024_07/raw_file_1.raw"
-INTERNAL_OUTPUT_PATH = "/opt/airflow/mounts/output/P1/out_raw_file_1.raw/msqc"
+INTERNAL_OUTPUT_PATH = "/opt/airflow/mounts/output/P1/out_raw_file_1.raw/custom"
+
+# the paths the placeholders in the config params resolved to, cf. `locations.*.absolute_path`
+RAW_FILE_PATH = "/pool/backup/test1/2024_07/raw_file_1.raw"
+OUTPUT_PATH = "/pool/output/P1/out_raw_file_1.raw/custom"
 
 DEFAULT_STATE = {
     "ExitCode": 0,
@@ -44,8 +48,12 @@ def sample_environment() -> dict:
     """Create sample environment variables for testing."""
     return {
         QuantingEnv.RAW_FILE_ID: "raw_file_1.raw",
-        QuantingEnv.SOFTWARE_TYPE: SoftwareTypes.MSQC,
+        QuantingEnv.SOFTWARE: "alphakraken-msqc:latest",
+        QuantingEnv.SOFTWARE_TYPE: SoftwareTypes.CUSTOM,
+        QuantingEnv.RAW_FILE_PATH: RAW_FILE_PATH,
+        QuantingEnv.OUTPUT_PATH: OUTPUT_PATH,
         QuantingEnv.NUM_THREADS: 2,
+        QuantingEnv.CONFIG_PARAMS: f"{RAW_FILE_PATH} {OUTPUT_PATH} 2",
         QuantingEnv.SLURM_MEM: "31G",
         QuantingEnv.SLURM_CPUS_PER_TASK: 2,
         QuantingEnv.INTERNAL_RAW_FILE_PATH: INTERNAL_RAW_FILE_PATH,
@@ -73,13 +81,13 @@ def _container(
 class TestStartJob:
     """Test cases for DockerJobHandler.start_job()."""
 
-    def test_start_job_should_run_container_with_translated_host_paths(
+    def test_start_job_should_run_image_from_software_field_with_config_params(
         self,
         mock_exists: MagicMock,
         handler: MagicMock,
         sample_environment: dict,
     ) -> None:
-        """Test that bind sources are host paths and binds are the internal paths."""
+        """Test that the image comes from the software field and the config params are the command."""
         # given
         mock_exists.return_value = True
         handler._client.containers.get.side_effect = NotFound("not found")
@@ -91,27 +99,87 @@ class TestStartJob:
         # then
         assert job_id == "0123456789ab"
 
-        _, kwargs = handler._client.containers.run.call_args
-        assert kwargs["volumes"] == {
-            "/host/mounts/backup/test1/2024_07/raw_file_1.raw": {
-                "bind": INTERNAL_RAW_FILE_PATH,
-                "mode": "ro",
-            },
-            "/host/mounts/output/P1/out_raw_file_1.raw/msqc": {
-                "bind": INTERNAL_OUTPUT_PATH,
-                "mode": "rw",
-            },
-        }
-        assert kwargs["environment"] == {
-            QuantingEnv.RAW_FILE_PATH: INTERNAL_RAW_FILE_PATH,
-            QuantingEnv.OUTPUT_PATH: INTERNAL_OUTPUT_PATH,
-            QuantingEnv.NUM_THREADS: "2",
-        }
-        assert kwargs["name"] == "kraken-msqc-raw_file_1.raw"
+        args, kwargs = handler._client.containers.run.call_args
+        assert args == ("alphakraken-msqc:latest", [RAW_FILE_PATH, OUTPUT_PATH, "2"])
+        assert kwargs["name"] == "kraken-custom-raw_file_1.raw"
         assert kwargs["mem_limit"] == "31g"
         assert kwargs["nano_cpus"] == 2_000_000_000
         assert kwargs["network_mode"] == "none"
         assert kwargs["detach"] is True
+
+    def test_start_job_should_bind_host_paths_at_the_resolved_paths(
+        self,
+        mock_exists: MagicMock,
+        handler: MagicMock,
+        sample_environment: dict,
+    ) -> None:
+        """Test that bind sources are host paths and bind targets the resolved placeholder paths."""
+        # given
+        mock_exists.return_value = True
+        handler._client.containers.get.side_effect = NotFound("not found")
+        handler._client.containers.run.return_value = _container()
+
+        # when
+        handler.start_job("ignored.sh", sample_environment, "2024_07")
+
+        # then
+        _, kwargs = handler._client.containers.run.call_args
+        assert kwargs["volumes"] == {
+            "/host/mounts/backup/test1/2024_07/raw_file_1.raw": {
+                "bind": RAW_FILE_PATH,
+                "mode": "ro",
+            },
+            "/host/mounts/output/P1/out_raw_file_1.raw/custom": {
+                "bind": OUTPUT_PATH,
+                "mode": "rw",
+            },
+        }
+
+    def test_start_job_should_pass_the_exported_environment(
+        self,
+        mock_exists: MagicMock,
+        handler: MagicMock,
+        sample_environment: dict,
+    ) -> None:
+        """Test that the container gets the same variables the Slurm engine exports."""
+        # given
+        mock_exists.return_value = True
+        handler._client.containers.get.side_effect = NotFound("not found")
+        handler._client.containers.run.return_value = _container()
+
+        # when
+        handler.start_job("ignored.sh", sample_environment, "2024_07")
+
+        # then
+        _, kwargs = handler._client.containers.run.call_args
+        assert kwargs["environment"] == {
+            QuantingEnv.RAW_FILE_ID: "raw_file_1.raw",
+            QuantingEnv.SOFTWARE: "alphakraken-msqc:latest",
+            QuantingEnv.SOFTWARE_TYPE: SoftwareTypes.CUSTOM,
+            QuantingEnv.RAW_FILE_PATH: RAW_FILE_PATH,
+            QuantingEnv.OUTPUT_PATH: OUTPUT_PATH,
+            QuantingEnv.NUM_THREADS: "2",
+        }
+
+    def test_start_job_should_use_image_command_without_config_params(
+        self,
+        mock_exists: MagicMock,
+        handler: MagicMock,
+        sample_environment: dict,
+    ) -> None:
+        """Test that no command is passed if there are no config params."""
+        # given
+        mock_exists.return_value = True
+        sample_environment[QuantingEnv.CONFIG_PARAMS] = ""
+        handler._client.containers.get.side_effect = NotFound("not found")
+        handler._client.containers.run.return_value = _container()
+
+        # when
+        handler.start_job("ignored.sh", sample_environment, "2024_07")
+
+        # then
+        args, _ = handler._client.containers.run.call_args
+        assert args == ("alphakraken-msqc:latest", None)
 
     def test_start_job_should_remove_leftover_container(
         self,
@@ -131,24 +199,9 @@ class TestStartJob:
 
         # then
         handler._client.containers.get.assert_called_once_with(
-            "kraken-msqc-raw_file_1.raw"
+            "kraken-custom-raw_file_1.raw"
         )
         leftover.remove.assert_called_once_with(force=True)
-
-    def test_start_job_should_raise_on_unknown_software_type(
-        self,
-        mock_exists: MagicMock,
-        handler: MagicMock,
-        sample_environment: dict,
-    ) -> None:
-        """Test that a software type without an image mapping fails the task."""
-        # given
-        mock_exists.return_value = True
-        sample_environment[QuantingEnv.SOFTWARE_TYPE] = SoftwareTypes.ALPHADIA
-
-        # when, then
-        with pytest.raises(AirflowFailException, match="No docker image defined"):
-            handler.start_job("ignored.sh", sample_environment, "2024_07")
 
     def test_start_job_should_raise_on_missing_path(
         self,
@@ -164,21 +217,43 @@ class TestStartJob:
         with pytest.raises(AirflowFailException, match="does not exist in the worker"):
             handler.start_job("ignored.sh", sample_environment, "2024_07")
 
-    def test_start_job_should_raise_on_missing_image(
+    def test_start_job_should_raise_on_image_absent_from_host(
         self,
         mock_exists: MagicMock,
         handler: MagicMock,
         sample_environment: dict,
     ) -> None:
-        """Test that a missing image gives a hint on how to build it."""
+        """Test that an image that is not on the host fails the task instead of being pulled."""
         # given
         mock_exists.return_value = True
         handler._client.containers.get.side_effect = NotFound("not found")
-        handler._client.containers.run.side_effect = ImageNotFound("no image")
+        handler._client.images.get.side_effect = ImageNotFound("no image")
 
         # when, then
-        with pytest.raises(AirflowFailException, match="not found"):
+        with pytest.raises(AirflowFailException, match="not present on this host"):
             handler.start_job("ignored.sh", sample_environment, "2024_07")
+
+        handler._client.containers.run.assert_not_called()
+        handler._client.images.pull.assert_not_called()
+
+    def test_start_job_should_check_the_image_is_present_before_running(
+        self,
+        mock_exists: MagicMock,
+        handler: MagicMock,
+        sample_environment: dict,
+    ) -> None:
+        """Test that the image presence is checked, as `containers.run()` would pull implicitly."""
+        # given
+        mock_exists.return_value = True
+        handler._client.containers.get.side_effect = NotFound("not found")
+        handler._client.containers.run.return_value = _container()
+
+        # when
+        handler.start_job("ignored.sh", sample_environment, "2024_07")
+
+        # then
+        handler._client.images.get.assert_called_once_with("alphakraken-msqc:latest")
+        handler._client.images.pull.assert_not_called()
 
 
 class TestGetJobStatus:

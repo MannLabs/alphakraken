@@ -1,5 +1,6 @@
 # Image for the msqc-extractor, used by the `docker` job engine.
-# Build (from the repo root): ./compose.sh --profile msqc build
+# Build (from the repo root): docker build -t alphakraken-msqc:latest msqc-extractor
+# The tag must match the `software` field of the settings that use it.
 
 FROM python:3.11-slim-bookworm
 
@@ -28,4 +29,6 @@ RUN --mount=type=cache,target=/root/.cache/pip pip install -r requirements.txt
 
 COPY main.py entrypoint.sh /app/
 
+# arguments come from the `config_params` of the settings, or, if those are empty, from the
+# RAW_FILE_PATH / OUTPUT_PATH / NUM_THREADS environment variables, cf. DockerJobHandler
 ENTRYPOINT ["/app/entrypoint.sh"]

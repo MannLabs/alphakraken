@@ -434,17 +434,6 @@ services:
     logging: *default-logging
     restart: always
 
-  ########################################## QUANTING IMAGES ##########################################
-
-  # Image used by the `docker` job engine. This service is never started, it exists to build and tag
-  # the image: `./compose.sh --profile msqc build`
-  # The tag must not depend on ENV_NAME, the job handler resolves the image by this exact name.
-  msqc-extractor:
-    profiles: ["msqc"]
-    image: alphakraken-msqc:latest
-    build:
-      context: msqc-extractor
-
   # test worker for local testing
   airflow-worker-test1:
     profiles: ["local"]

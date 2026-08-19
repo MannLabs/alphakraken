@@ -281,7 +281,7 @@ elif software_type == SoftwareTypes.MSQC:
             "label": "Software*",
             "max_chars": 64,
             "placeholder": "e.g. 'msqc/run_msqc.sh'",
-            "help": f"Path to executable, relative to `{get_path(YamlKeys.Locations.SOFTWARE)}/`. Ask an administrator to add the executable to the software folder. Ignored by the `{JobEngines.DOCKER}` execution engine, which runs a container image determined by the software type.",
+            "help": f"Path to executable, relative to `{get_path(YamlKeys.Locations.SOFTWARE)}/`. Ask an administrator to add the executable to the software folder.",
         },
     }
 
@@ -307,7 +307,9 @@ else:
             "max_chars": 64,
             "placeholder": "e.g. 'custom-software/custom-executable1.2.3'",
             "help": f"Path to executable, relative to `{get_path(YamlKeys.Locations.SOFTWARE)}/`. Ask an administrator to add the executable to the software folder. "
-            f"If something that is in the `$PATH` should be executed, it needs to be wrapped by a shell script located in the software folder.",
+            f"If something that is in the `$PATH` should be executed, it needs to be wrapped by a shell script located in the software folder. "
+            f"For the `{JobEngines.DOCKER}` execution engine, this is a docker image reference instead, e.g. `alphakraken-msqc:latest`. "
+            f"The image must already be present on the worker host, ask an administrator to add it.",
         },
         "config_params": {
             "label": "Configuration parameters",
@@ -495,11 +497,22 @@ if submit:
     for to_validate in [
         fasta_file_name,
         speclib_file_name,
-        software,
         config_file_name,
     ]:
         if to_validate:
             validation_errors.extend(check_for_malicious_content(to_validate))
+    if software:
+        # for the docker engine, the software field holds an image reference, e.g. 'my-image:latest'
+        validation_errors.extend(
+            check_for_malicious_content(
+                software, allow_colons=job_engine == JobEngines.DOCKER
+            )
+        )
+    if job_engine == JobEngines.DOCKER and software_type != SoftwareTypes.CUSTOM:
+        validation_errors.append(
+            f"The `{JobEngines.DOCKER}` execution engine is only supported for software type "
+            f"`{SoftwareTypes.CUSTOM}`."
+        )
     if config_params:
         validation_errors.extend(
             check_for_malicious_content(config_params, allow_spaces=True)

@@ -25,6 +25,7 @@ from common.keys import (
     XComKeys,
 )
 from common.paths import (
+    get_internal_backup_path,
     get_internal_output_path_for_raw_file,
     get_output_folder_rel_path,
 )
@@ -216,6 +217,9 @@ def _create_quanting_env(
         QuantingEnv.SETTINGS_NAME: settings.name,
         QuantingEnv.SETTINGS_VERSION: settings.version,
         QuantingEnv.INTERNAL_OUTPUT_PATH: str(internal_output_path),
+        QuantingEnv.INTERNAL_RAW_FILE_PATH: str(
+            get_internal_backup_path() / relative_raw_file_path
+        ),
         QuantingEnv.JOB_ENGINE: settings.job_engine,
     }
     return quanting_env
@@ -268,6 +272,7 @@ def _check_content(
         QuantingEnv.SETTINGS_PATH,
         QuantingEnv.OUTPUT_PATH,
         QuantingEnv.INTERNAL_OUTPUT_PATH,
+        QuantingEnv.INTERNAL_RAW_FILE_PATH,
         QuantingEnv.SOFTWARE,
     ]
 

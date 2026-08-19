@@ -320,6 +320,41 @@ Make sure the environment is named `alphadia-${VERSION}`, as this is the scheme 
 the AlphaDIA jobs.
 Also, don't forget to install `mono` (cf. AlphaDIA Readme).
 
+### Standalone deployment without a cluster
+For deployments that have no external compute resources, quanting jobs can be run in containers on the
+Kraken host itself, using the `docker` execution engine (cf. `airflow_src/plugins/jobs/docker_job_handler.py`).
+Currently the MSQC metrics extractor (`msqc-extractor/`) is available for this.
+
+1. Build the image (it is tagged `alphakraken-msqc:latest`, which is the name the job handler resolves):
+```bash
+./compose.sh --profile msqc build
+```
+2. Allow the workers to talk to the docker daemon: set `DOCKER_GID` in `envs/${ENV}.env` to the group id
+of the docker socket:
+```bash
+stat -c '%g' /var/run/docker.sock
+```
+Note that the docker socket is mounted into the quanting workers, which is equivalent to root access on
+the host. This is acceptable for a single-machine standalone deployment (`compose.sh` already runs
+`docker compose` with `sudo`), but it should not be enabled on a multi-machine production setup.
+3. Make sure `locations.general.mounts_path` in `envs/alphakraken.${ENV}.yaml` points to the mounts folder
+as seen by the docker host (it must match `MOUNTS_PATH` in `envs/${ENV}.env`). The job handler uses it to
+translate the worker's container paths into the host paths it binds into the quanting container.
+4. As no cluster is available, set up a dummy `cluster_ssh_connection` and set the Airflow variable
+`debug_no_cluster_ssh` to `true`, cf. [Setup SSH connection](#setup-ssh-connection).
+5. Size the `cluster_slots_pool` to the local machine's capacity: it gates the `submit_job` and job
+monitoring tasks for all engines, not only for Slurm.
+6. In the webapp, create a settings entry with software type `msqc` and execution engine `docker`. The
+`software` field is only used by the Slurm engine and is ignored here.
+
+Notes:
+- The container reads Thermo `.raw` files via the `coreclr` .NET runtime, which means it needs no `mono`
+installation but also cannot read SCIEX `.wiff` files. Bruker `.d` files are supported.
+- Unlike Slurm, docker has no wall clock limit, so the `slurm_time` resource parameter is ignored and a
+hanging container is monitored indefinitely.
+- Containers are kept after they exited so that their logs and exit code can be read. Clean them up
+occasionally with `docker container prune --filter label=alphakraken.job`.
+
 ### Summary
 The following files need to be edited to customize your deployment:
 - `envs/.env-airflow`: set the current user as the user within the airflow containers
@@ -327,6 +362,7 @@ The following files need to be edited to customize your deployment:
 - `envs/${ENV}.env`: set the environment variables for the basic wiring of components
 - `envs/alphakraken.${ENV}.yaml`: set up the paths and add a configuration for each instrument
 - `docker-compose.yaml`: add a worker for each instrument
+- (standalone deployments only) `envs/${ENV}.env`: set `DOCKER_GID`, cf. [Standalone deployment without a cluster](#standalone-deployment-without-a-cluster)
 - `airflow_src/plugins/cluster_scripts/submit_job.sh` (cluster-local copy): configure partition and nodelist
 
 ### Deploying new code versions

@@ -106,6 +106,7 @@ def test_create_quanting_env(
         "SETTINGS_VERSION": 1,
         "_JOB_ENGINE": "slurm",
         "_INTERNAL_OUTPUT_PATH": "/opt/airflow/mounts/output/some_project_id/out_test_file.raw/alphadia",
+        "_INTERNAL_RAW_FILE_PATH": "/opt/airflow/mounts/backup/instrument1/1970_01/test_file.raw",
     }
     assert result == expected
 
@@ -187,6 +188,7 @@ def test_create_quanting_env_custom_software(
         "SETTINGS_VERSION": 1,
         "_JOB_ENGINE": "slurm",
         "_INTERNAL_OUTPUT_PATH": "/opt/airflow/mounts/output/some_project_id/out_test_file.raw/custom",
+        "_INTERNAL_RAW_FILE_PATH": "/opt/airflow/mounts/backup/instrument1/1970_01/test_file.raw",
     }
     assert result == expected
 

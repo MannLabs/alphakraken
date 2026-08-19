@@ -37,7 +37,14 @@ from shared.keys import (
 from shared.validation import check_for_malicious_content
 from shared.yamlsettings import YamlKeys, get_path
 
-SHOW_JOB_ENGINE_SELECT = False
+SHOW_JOB_ENGINE_SELECT = True
+
+# the experimental engines (cf. `jobs/_experimental`) are deliberately not offered here
+SELECTABLE_JOB_ENGINES = [
+    JobEngines.SLURM,
+    JobEngines.SLURM_NO_SACCT,
+    JobEngines.DOCKER,
+]
 
 _log(f"loading {__file__} {get_all_query_params()}")
 # ########################################### PAGE HEADER
@@ -274,7 +281,7 @@ elif software_type == SoftwareTypes.MSQC:
             "label": "Software*",
             "max_chars": 64,
             "placeholder": "e.g. 'msqc/run_msqc.sh'",
-            "help": f"Path to executable, relative to `{get_path(YamlKeys.Locations.SOFTWARE)}/`. Ask an administrator to add the executable to the software folder.",
+            "help": f"Path to executable, relative to `{get_path(YamlKeys.Locations.SOFTWARE)}/`. Ask an administrator to add the executable to the software folder. Ignored by the `{JobEngines.DOCKER}` execution engine, which runs a container image determined by the software type.",
         },
     }
 
@@ -393,7 +400,7 @@ with c1.form("create_settings"):
         st.write(r"\** At least one of the two must be given")
 
     if SHOW_JOB_ENGINE_SELECT:
-        job_engine_options = JobEngines.get_values()
+        job_engine_options = SELECTABLE_JOB_ENGINES
         job_engine_index = (
             job_engine_options.index(prefill_data["job_engine"])
             if prefill_data["job_engine"] in job_engine_options

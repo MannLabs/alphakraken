@@ -1,4 +1,6 @@
 alphatims==1.0.9
-alpharaw==0.4.8
+# alpharaw is installed from a commit on main (not a release) because only that version can read
+# Thermo files via the `coreclr` .NET runtime, i.e. without a mono installation.
+alpharaw @ git+https://github.com/MannLabs/alpharaw.git@8b4be571b76ccfa2ed0210f84f120597ae9f6a13
 numpy==2.2.6
 pandas==2.3.1

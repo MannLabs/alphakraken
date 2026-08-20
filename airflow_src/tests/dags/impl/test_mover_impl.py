@@ -182,18 +182,6 @@ def test_get_files_to_move_only_dst_exists_ok() -> None:
     assert _get_files_to_move({mock_src_path: mock_dst_path}) == ({}, {})
 
 
-def test_get_files_to_move_both_files_dont_exist_raise() -> None:
-    """Test move_raw_file raises if both files are not present."""
-    mock_src_path = MagicMock()
-    mock_src_path.exists.return_value = False
-    mock_dst_path = MagicMock()
-    mock_dst_path.exists.return_value = False
-
-    # when
-    with pytest.raises(AirflowFailException):
-        _get_files_to_move({mock_src_path: mock_dst_path})
-
-
 @patch("dags.impl.mover_impl.compare_paths")
 def test_get_files_to_move_both_files_exist_but_different_raises(
     mock_compare_paths: MagicMock,

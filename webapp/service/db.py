@@ -6,7 +6,6 @@ from datetime import datetime, timedelta
 # ruff: noqa: PD002 # `inplace=True` should be avoided; it has inconsistent behavior
 import pandas as pd
 import pytz
-import streamlit as st
 from mongoengine import Q, QuerySet
 from service.utils import _log
 

@@ -4,6 +4,8 @@ from datetime import datetime
 
 import pandas as pd
 import streamlit as st
+from mongoengine import QuerySet
+from pandas import DataFrame
 from service.columns import build_alternative_names_mapping, load_columns_from_yaml
 from service.db import df_from_db_data, get_raw_file_and_metrics_data
 from service.utils import METRICS_TYPE_SEPARATOR, Cols
@@ -17,6 +19,28 @@ _ALTERNATIVE_NAMES_MAPPING = build_alternative_names_mapping(load_columns_from_y
 _MSQC_PREFIX = "msqc_"
 
 _LEGACY_COLUMN_NAMES = {"quanting_time_elapsed": "time_elapsed"}
+
+_METRICS_TYPE_COLUMN = "type"
+_RAW_FILE_COLUMN = "raw_file"
+
+
+def _coalesce_duplicate_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Merge columns sharing a name into one, taking per row the first value that is present."""
+    duplicated_names = df.columns[df.columns.duplicated()].unique()
+    if len(duplicated_names) == 0:
+        return df
+
+    coalesced = {
+        name: df.loc[:, df.columns == name].bfill(axis=1).iloc[:, 0]
+        for name in duplicated_names
+    }
+    return pd.concat(
+        [
+            df.loc[:, ~df.columns.duplicated(keep=False)],
+            pd.DataFrame(coalesced, index=df.index),
+        ],
+        axis=1,
+    )
 
 
 def _normalize_metric_columns(df: pd.DataFrame) -> pd.DataFrame:
@@ -32,7 +56,7 @@ def _normalize_metric_columns(df: pd.DataFrame) -> pd.DataFrame:
     df = df.rename(columns=_ALTERNATIVE_NAMES_MAPPING)
 
     # deduplicate columns that map to the same canonical name
-    df = df.T.groupby(level=0).first().T
+    df = _coalesce_duplicate_columns(df)
 
     if "gradient_length" in df.columns:
         df["gradient_length"] = pd.to_numeric(
@@ -42,6 +66,12 @@ def _normalize_metric_columns(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+# Cached values are accessible to all users across all sessions.
+# Considering memory it should currently be fine to have all data cached.
+# Command for clearing the cache:  get_combined_raw_files_and_metrics_df.clear()
+# Note: the DataFrame is cached rather than the underlying QuerySets, as pickling a QuerySet
+# (which is what st.cache_data does) drops its cursor and thus its results.
+@st.cache_data(ttl=120)
 def get_combined_raw_files_and_metrics_df(
     *,
     max_age_in_days: float | None = None,
@@ -55,8 +85,75 @@ def get_combined_raw_files_and_metrics_df(
     )
     raw_files_df = df_from_db_data(raw_files_db)
 
-    # merge metrics of each type into a single DataFrame
-    # TODO: first existing metrics gets column name w/o suffix -> always append
+    merged_metrics_df = _merge_metrics_by_type(metrics_db)
+
+    if len(raw_files_df) == 0:
+        # TODO: improve -> move st dependency out
+        if print_at_no_data:
+            # just for debugging
+            st.write(f"[{len(raw_files_df)=} {len(merged_metrics_df)=}]")
+            st.dataframe(raw_files_df)
+            st.dataframe(merged_metrics_df)
+        return pd.DataFrame(), data_timestamp
+
+    if len(merged_metrics_df) > 0:
+        combined_df = raw_files_df.merge(
+            merged_metrics_df, left_on="_id", right_on="raw_file", how="left"
+        )
+    else:
+        combined_df = raw_files_df
+
+    # conversions
+    # "size" may be absent if no queried raw file has it set yet (e.g. still being copied)
+    if "size" in combined_df.columns:
+        combined_df["size_gb"] = combined_df["size"] / 1024**3
+        del combined_df["size"]
+    else:
+        combined_df["size_gb"] = pd.NA
+
+    combined_df["file_created"] = combined_df["created_at"].dt.strftime(
+        "%Y-%m-%d %H:%M:%S"
+    )
+
+    for col in ["created_at", "updated_at_", "created_at_"]:
+        combined_df[col] = combined_df[col].dt.floor("s")
+    # sorting & indexing
+    combined_df.sort_values(by="created_at", ascending=False, inplace=True)  # noqa: PD002
+    combined_df.reset_index(drop=True, inplace=True)  # noqa: PD002
+    combined_df.index = combined_df["_id"]
+
+    # conversion of metrics columns: in case all quantings have failed, these columns are not available
+    for col in [
+        c
+        for c in combined_df.columns
+        if c.endswith(f"{METRICS_TYPE_SEPARATOR}time_elapsed")
+    ]:
+        prefix = col.rsplit(METRICS_TYPE_SEPARATOR, 1)[0]
+        combined_df[f"{prefix}{METRICS_TYPE_SEPARATOR}time_elapsed_minutes"] = (
+            combined_df[col] / 60
+        )
+        del combined_df[col]
+
+    for col in [
+        c
+        for c in combined_df.columns
+        if c.endswith(
+            (f"{METRICS_TYPE_SEPARATOR}precursors", f"{METRICS_TYPE_SEPARATOR}proteins")
+        )
+    ]:
+        combined_df[col] = combined_df[col].astype("Int64", errors="ignore")
+
+    combined_df[Cols.IS_BASELINE] = False
+
+    return combined_df, data_timestamp
+
+
+def _merge_metrics_by_type(metrics_db: QuerySet) -> DataFrame:
+    """Merge metrics of each type into a single DataFrame.
+
+    - normalize column names
+    - add  "{type}__" prefix
+    """
     merged_metrics_df = pd.DataFrame()
     for metrics_type in MetricsTypes.get_values():
         metrics_df = df_from_db_data(
@@ -88,73 +185,7 @@ def get_combined_raw_files_and_metrics_df(
                 on="raw_file",
                 how="outer",
             )
-
-    if len(raw_files_df) == 0:
-        # TODO: improve -> move st dependency out
-        if print_at_no_data:
-            # just for debugging
-            st.write(f"[{len(raw_files_df)=} {len(merged_metrics_df)=}]")
-            st.dataframe(raw_files_df)
-            st.dataframe(merged_metrics_df)
-        return pd.DataFrame(), data_timestamp
-
-    if len(merged_metrics_df) > 0:
-        combined_df = raw_files_df.merge(
-            merged_metrics_df, left_on="_id", right_on="raw_file", how="left"
-        )
-    else:
-        combined_df = raw_files_df
-
-    # conversions
-    # "size" may be absent if no queried raw file has it set yet (e.g. still being copied)
-    if "size" in combined_df.columns:
-        combined_df["size_gb"] = combined_df["size"] / 1024**3
-        del combined_df["size"]
-    else:
-        combined_df["size_gb"] = pd.NA
-
-    combined_df["file_created"] = combined_df["created_at"].dt.strftime(
-        "%Y-%m-%d %H:%M:%S"
-    )
-
-    combined_df["created_at"] = combined_df["created_at"].apply(
-        lambda x: x.replace(microsecond=0)
-    )
-    combined_df["updated_at_"] = combined_df["updated_at_"].apply(
-        lambda x: x.replace(microsecond=0)
-    )
-    combined_df["created_at_"] = combined_df["created_at_"].apply(
-        lambda x: x.replace(microsecond=0)
-    )
-    # sorting & indexing
-    combined_df.sort_values(by="created_at", ascending=False, inplace=True)  # noqa: PD002
-    combined_df.reset_index(drop=True, inplace=True)  # noqa: PD002
-    combined_df.index = combined_df["_id"]
-
-    # conversion of metrics columns: in case all quantings have failed, these columns are not available
-    for col in [
-        c
-        for c in combined_df.columns
-        if c.endswith(f"{METRICS_TYPE_SEPARATOR}time_elapsed")
-    ]:
-        prefix = col.rsplit(METRICS_TYPE_SEPARATOR, 1)[0]
-        combined_df[f"{prefix}{METRICS_TYPE_SEPARATOR}time_elapsed_minutes"] = (
-            combined_df[col] / 60
-        )
-        del combined_df[col]
-
-    for col in [
-        c
-        for c in combined_df.columns
-        if c.endswith(
-            (f"{METRICS_TYPE_SEPARATOR}precursors", f"{METRICS_TYPE_SEPARATOR}proteins")
-        )
-    ]:
-        combined_df[col] = combined_df[col].astype("Int64", errors="ignore")
-
-    combined_df[Cols.IS_BASELINE] = False
-
-    return combined_df, data_timestamp
+    return merged_metrics_df
 
 
 def get_lag_time(

@@ -174,3 +174,10 @@ local_test/mounts/
 envs/.env-airflow
 misc/.htpasswd
 certs/
+
+# self-contained demo: raw file source, mounts and generated configuration
+misc/demo/raw_files/
+misc/demo/mounts/
+misc/demo/.state/
+envs/demo.env
+envs/alphakraken.demo.yaml

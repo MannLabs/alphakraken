@@ -28,7 +28,7 @@ which is why cycling forever matters: there is always a next file.)
 | Automation | Fully automated: Airflow pools + variables + DAG unpausing + Mongo project/settings seeding |
 | Feeder | One Thermo instrument (`demo1`), cycles over the source files forever |
 | TLS | Reuse the existing `./certs` (`fullchain.pem` + `privkey.pem`) |
-| Retention | Rely on the pipeline's own `file_mover` → `file_remover` DAGs (via `min_free_space_gb` / `min_file_age_days`) |
+| Retention | Hourly cron keeps only the newest 2 raw files in `misc/demo/mounts/{backup,output}` and the instrument `Backup/`; Mongo history kept |
 | Project matching | Real project token: `ADIAMA`, which the datashare demo file names already carry as a `_`-separated token |
 | Raw files | Downloaded from MPIB datashare with `alphabase.tools.data_downloader.DataShareDownloader` |
 
@@ -40,6 +40,7 @@ misc/demo/
   setup_demo.sh                      # one-shot orchestration (idempotent)
   download_raw_files.py              # alphabase DataShareDownloader over the 3 datashare URLs
   feed_instrument.sh                 # sleep -> copy next raw file with timestamp -> repeat, cycling
+  prune_demo_data.sh                 # keep-last-N delete of backup/, output/, instrument Backup/
   seed_db.py                         # creates project ADIAMA + msqc settings + assignment
   templates/
     demo.env.template
@@ -76,6 +77,52 @@ Copied **directly** into the instrument folder, not via a temp file + `mv`: a pa
 file is exactly what a real acquisition looks like, and the acquisition monitor is built for it.
 Timestamp format `%Y%m%d-%H%M%S` deliberately avoids `:` — `shared/validation.py` only allows
 `a-zA-Z0-9-_+.` in raw file names.
+
+### `prune_demo_data.sh`
+
+The demo produces roughly 68 runs/day, so `misc/demo/mounts/{backup,output}` must not grow without
+bound. **Keep the newest `KEEP_LAST=2` raw files per tree, delete everything older.** Constants at
+the top (`MOUNTS_DIR`, `INSTRUMENT=demo1`, `KEEP_LAST=2`), each overridable by an env var of the
+same name. Three independent passes, each acting only on entries at the raw-file level:
+
+| pass | root | depth | entry |
+|---|---|---|---|
+| pool backup | `mounts/backup/demo1` | 2 | `<year_month>/<raw_file_id>` |
+| quanting output | `mounts/output` | 2 | `<project_id>/out_<raw_file_id>` |
+| instrument backup | `mounts/instruments/demo1/Backup` | 1 | `<raw_file_id>` |
+
+Per pass: `find "$root" -mindepth N -maxdepth N -exec stat -c '%Y %n' {} +`, sort by mtime
+descending, `tail -n +$((KEEP_LAST + 1))`, `rm -rf`. Then prune the now-empty `<year_month>` /
+`<project_id>` parents. Line-based processing is safe here because `shared/validation.py` forbids
+spaces in raw file names. `stat -c` assumes Linux, consistent with `setup_demo.sh`'s
+`stat -c '%g' /var/run/docker.sock` and with the Linux host the README requires.
+
+**Why keep-last-N and not a truncating wipe.** A literal `rm -rf backup/* output/*` would delete
+whatever is in flight at that moment, and something always is: with a 21-minute cadence, file N is
+being monitored while file N-1 is being copied, checksummed or quanted — so one failed DAG run per
+wipe, visible in the demo. "Drain first, then wipe" cannot fix that either, because the last fed
+file's `monitor_acquisition` only completes when the *next* file arrives; the pipeline is never
+quiescent while the feeder is paused. Keeping the newest two covers exactly the in-flight set (the
+file being processed and the one before it), so the pruner can never race the pipeline. `KEEP_LAST`
+is a one-line bump if a slower demo host needs more headroom.
+
+Scheduled **hourly** (`0 * * * *`) rather than daily: keep-last-N is self-limiting at any cadence,
+but the cadence sets the peak — hourly holds ~3 raw files on disk (~10 GB), whereas a once-a-day run
+would let a full day's 68 files (~200 GB) accumulate before collapsing back to 2. `setup_demo.sh`
+prints the crontab line; the README documents it. Idempotent and safe to run at any time.
+
+**Mongo is deliberately not touched.** Raw file records and metrics live in the DB, not on disk, so
+history and the webapp's QC trend plots keep accumulating while disk stays bounded — a strictly
+better demo than resetting everything. Nothing re-reads a pruned output folder: raw file ids carry a
+timestamp and are therefore never reused, so `output_exists_mode` never comes into play.
+
+Not pruned: `mounts/airflow_logs` (grows slowly; `misc/archive_airflow_logs.sh` already exists for
+it) and `mounts/instruments/demo1` itself, whose files the `file_mover` DAG relocates into `Backup/`.
+
+This supersedes relying on the `file_remover` DAG for the demo's disk bound: `min_free_space_gb`
+gates it on *free space* (`airflow_src/dags/impl/remover_impl.py:109`), so on a large disk it may
+never fire at all. `file_mover` and `file_remover` stay enabled for realism — the pruner is the
+actual bound.
 
 ### `seed_db.py`
 
@@ -193,7 +240,8 @@ today's behaviour.
    `acquisition_processor.demo1`, `file_mover.demo1`, `file_remover`
    (ids are `<Dags.*>` + `DAG_DELIMITER` + instrument, `airflow_src/plugins/common/keys.py:3`).
 9. Seed Mongo (piped `seed_db.py`, see above).
-10. Print the four URLs and the command to start the feeder.
+10. Print the four URLs, the command to start the feeder, and the crontab line for
+    `prune_demo_data.sh`.
 
 The feeder is **not** started by the setup script — it runs in the foreground (or under `nohup`)
 so the demo operator controls it; the README shows both.
@@ -219,8 +267,14 @@ so the demo operator controls it; the README shows both.
 5. Data visible in all three read paths: raw file with status `done` and msqc metrics in the
    webapp, in `GET /$UUID/api/raw_files/?project_id=ADIAMA`, and via the MCP tools.
 6. Confirm the project token matched: `project_id` is `ADIAMA`, not `_FALLBACK`.
-7. Then restart the feeder at the real cadence (`INTERVAL_S` default 1260) and let it cycle.
-8. Regression check on the unchanged path: `ENV=local ./compose.sh --profile local config` still
+7. Pruner, after at least 4 files have gone through: `misc/demo/prune_demo_data.sh` → exactly 2
+   entries left under `mounts/backup/demo1/*/` and `mounts/output/*/`, empty parents gone, **and the
+   DB untouched** — the webapp still lists every raw file with its metrics. Run it again immediately
+   (no-op) and once more while a run is mid-flight, confirming no DAG fails. `KEEP_LAST=0` sanity
+   check: everything goes, still no DB change.
+8. Then restart the feeder at the real cadence (`INTERVAL_S` default 1260), install the crontab
+   line, and let it cycle.
+9. Regression check on the unchanged path: `ENV=local ./compose.sh --profile local config` still
    renders (defaults intact), and `python -m pytest` passes.
 
 ## Risks / operator notes (for the README)
@@ -228,10 +282,10 @@ so the demo operator controls it; the README shows both.
 - **Demo and local cannot run at the same time.** `MONGO_PORT` is used both as the host port and
   as the in-container connect port, and postgres/redis publish fixed `5432`/`6379`. Stop `ENV=local`
   before starting the demo.
-- **Disk growth.** `min_file_age_days: 0` + `min_free_space_gb` let `file_remover` purge
-  instrument-side copies, but the **backup pool and the msqc output folders keep growing** — about
-  68 runs/day at a 21-minute cadence. Watch `misc/demo/mounts/{backup,output}` and reset the demo
-  when needed. Cheapest reset: stop the feeder, `down -v`, delete `misc/demo/mounts`,
+- **Disk growth** is bounded by `prune_demo_data.sh` (hourly cron, keeps the newest 2), *not* by the
+  `file_remover` DAG. If the cron job is not installed, `misc/demo/mounts/{backup,output}` grow by
+  roughly 68 runs/day. Verify with `du -sh misc/demo/mounts/*` after the first day.
+  Full reset (drops the history too): stop the feeder, `down -v`, delete `misc/demo/mounts`,
   `mongodb_data_demo`, `airflowdb_data_demo`, re-run `setup_demo.sh`.
 - **The UUID is in `envs/demo.env`, `envs/alphakraken.demo.yaml` and `misc/demo/.state/`** — all
   gitignored, but it is not a secret in any strong sense: it appears in nginx access logs and in

@@ -49,6 +49,17 @@ def test_calc_metrics_diann(mock_diann: MagicMock) -> None:
     assert result == {"proteins": 500, "peptides": 3000}
 
 
+@patch("plugins.metrics.metrics_calculator.calc_alphadia_metrics")
+def test_calc_metrics_none(mock_alphadia: MagicMock) -> None:
+    """Test calc_metrics with 'none' metrics type calculates nothing."""
+    output_dir = Path("/test/output")
+
+    result = calc_metrics(output_dir, metrics_type=MetricsTypes.NONE)
+
+    mock_alphadia.assert_not_called()
+    assert result == {}
+
+
 def test_calc_metrics_invalid_type() -> None:
     """Test calc_metrics with invalid metrics type raises KeyError."""
     output_dir = Path("/test/output")

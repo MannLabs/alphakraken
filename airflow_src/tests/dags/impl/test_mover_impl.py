@@ -1,6 +1,5 @@
 """Tests for the mover_impl module."""
 
-import os
 from pathlib import Path
 from unittest.mock import MagicMock, call, patch
 
@@ -223,9 +222,8 @@ def test_get_files_to_move_both_files_exist_but_are_equal(
     mock_compare_paths.assert_called_once_with(mock_src_path, mock_dst_path)
 
 
-@patch.dict(os.environ, {"ENV_NAME": "production"})
 @patch("dags.impl.mover_impl.shutil.move")
-def test_move_files_success_production(
+def test_move_files_success(
     mock_shutil_move: MagicMock,
 ) -> None:
     """Test _move_files success for two paths."""
@@ -248,7 +246,6 @@ def test_move_files_success_production(
     mock_dst_path2.parent.mkdir.assert_not_called()
 
 
-@patch.dict(os.environ, {"ENV_NAME": "production"})
 @patch("dags.impl.mover_impl.shutil.move")
 def test_move_files_rename_success(
     mock_shutil_move: MagicMock,
@@ -271,25 +268,6 @@ def test_move_files_rename_success(
     mock_src_path2.rename.assert_called_once_with(f"{mock_src_path2}.deleteme")
 
 
-@patch.dict(os.environ, {"ENV_NAME": "NOT_production"})
-@patch("dags.impl.mover_impl.shutil.move")
-def test_move_files_success_not_production(
-    mock_shutil_move: MagicMock,
-) -> None:
-    """Test _move_files success for two paths in non-production."""
-    mock_src_path1, mock_dst_path1 = MagicMock(), MagicMock()
-    mock_src_path2, mock_dst_path2 = MagicMock(), MagicMock()
-
-    # when
-    _move_files({mock_src_path1: mock_dst_path1, mock_src_path2: mock_dst_path2})
-
-    mock_shutil_move.assert_not_called()
-
-    mock_dst_path1.parent.mkdir.assert_not_called()
-    mock_dst_path2.parent.mkdir.assert_not_called()
-
-
-@patch.dict(os.environ, {"ENV_NAME": "production"})
 @patch("dags.impl.mover_impl.shutil.move")
 def test_move_files_permission_error_not_dir_no_rename(
     mock_shutil_move: MagicMock,

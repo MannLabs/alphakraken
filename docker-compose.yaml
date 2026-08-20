@@ -107,7 +107,7 @@ x-airflow-worker:
 
 services:
   postgres-service:
-    profiles: ["local", "dbs"]
+    profiles: ["local", "dbs", "demo"]
     image: postgres:13
     # the default value of 100 connections yielded 'psycopg2.OperationalError: FATAL:  sorry, too many clients already'
     # and tasks sticking in 'scheduled' state for a long time
@@ -130,7 +130,7 @@ services:
     restart: always
 
   redis-service:
-    profiles: ["local", "dbs"]
+    profiles: ["local", "dbs", "demo"]
     # Redis is limited to 7.2-bookworm due to licencing change
     # https://redis.io/blog/redis-adopts-dual-source-available-licensing/
     image: redis:7.2-bookworm
@@ -146,13 +146,24 @@ services:
     restart: always
 
   airflow-webserver:
-    profiles: ["local", "infrastructure"]
+    profiles: ["local", "infrastructure", "demo"]
     <<: *airflow-common
     command: webserver
     ports:
       - ${WEBSERVER_PORT:?error}:8080
+    environment:
+      <<: *airflow-common-env
+      # Set this to serve Airflow under a path prefix (cf. misc/demo). Airflow mounts the whole
+      # app under the path of its base_url, so the health endpoint moves along with it.
+      AIRFLOW__WEBSERVER__BASE_URL: ${AIRFLOW_BASE_URL:-http://localhost:8080}
     healthcheck:
-      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      test:
+        [
+          "CMD",
+          "curl",
+          "--fail",
+          "${AIRFLOW_HEALTHCHECK_URL:-http://localhost:8080/health}",
+        ]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -160,7 +171,7 @@ services:
     restart: always
 
   airflow-scheduler:
-    profiles: ["local", "infrastructure"]
+    profiles: ["local", "infrastructure", "demo"]
     <<: *airflow-common
     command: scheduler
     # More replicas, quicker scheduling and more concurrently running tasks. Keep in mind max_connections of airflow DB.
@@ -286,7 +297,7 @@ services:
   #    restart: always
 
   mongodb-service:
-    profiles: ["local", "dbs"]
+    profiles: ["local", "dbs", "demo"]
     # cf. https://www.mongodb.com/resources/products/compatibilities/docker
     image: mongo:6-jammy
     ports:
@@ -318,7 +329,7 @@ services:
     restart: always
 
   webapp:
-    profiles: ["local", "infrastructure"]
+    profiles: ["local", "infrastructure", "demo"]
     build:
       context: .
       dockerfile: webapp/Dockerfile
@@ -337,8 +348,17 @@ services:
       MONGO_PORT: ${MONGO_PORT:?error}
       MONGO_USER: ${MONGO_USER_WEBAPP:?error}
       MONGO_PASSWORD: ${MONGO_PASSWORD_WEBAPP:?error}
+      # Set this to serve the webapp under a path prefix (cf. misc/demo). Streamlit picks up every
+      # config option from STREAMLIT_<SECTION>_<OPTION>.
+      STREAMLIT_SERVER_BASE_URL_PATH: ${STREAMLIT_SERVER_BASE_URL_PATH:-}
     healthcheck:
-      test: ["CMD", "curl", "--fail", "http://localhost:8501/healthz"]
+      test:
+        [
+          "CMD",
+          "curl",
+          "--fail",
+          "${WEBAPP_HEALTHCHECK_URL:-http://localhost:8501/healthz}",
+        ]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -371,7 +391,7 @@ services:
     build:
       context: .
       dockerfile: monitoring/Dockerfile
-    profiles: ["infrastructure", "workers", "dbs"] # have monitoring running on all machines (downsides: potential alerts duplication)
+    profiles: ["infrastructure", "workers", "dbs", "demo"] # have monitoring running on all machines (downsides: potential alerts duplication)
     environment:
       # deliberately not inheriting *airflow-common-env, cf. the comment on the webapp service.
       ENV_NAME: ${ENV_NAME:?error}
@@ -384,7 +404,7 @@ services:
     restart: always
 
   mcp-server:
-    profiles: ["local", "infrastructure"]
+    profiles: ["local", "infrastructure", "demo"]
     build:
       context: .
       dockerfile: mcp_server/Dockerfile
@@ -414,7 +434,7 @@ services:
   #      retries: 3
 
   rest-api:
-    profiles: ["local", "infrastructure"]
+    profiles: ["local", "infrastructure", "demo"]
     build:
       context: .
       dockerfile: rest_api/Dockerfile
@@ -428,6 +448,9 @@ services:
       MONGO_USER: ${MONGO_USER_READ:?error}
       MONGO_PASSWORD: ${MONGO_PASSWORD_READ:?error}
       REST_API_PORT: 8090
+      # Set this to serve the REST API under a path prefix (cf. misc/demo): FastAPI needs it to
+      # generate correct URLs for /docs and openapi.json.
+      REST_API_ROOT_PATH: ${REST_API_ROOT_PATH:-}
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8090/health"]
       interval: 30s
@@ -436,6 +459,38 @@ services:
       start_period: 30s
     logging: *default-logging
     restart: always
+
+  # nginx for the self-contained demo: serves all components from one host behind a single UUID
+  # path prefix, cf. misc/demo/README.md. Deliberately a separate service from `nginx`, whose
+  # additional port publishing would collide with the app services.
+  nginx-demo:
+    image: nginx:latest
+    profiles: ["demo"]
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      # rendered from misc/demo/templates/nginx.demo.conf.template by misc/demo/setup_demo.sh
+      - ./misc/demo/.state/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certs:/etc/nginx/certs:ro # SSL certificates (fullchain.pem + privkey.pem)
+    logging: *default-logging
+    restart: always
+
+  # INSTRUMENT: demo1, the instrument of the self-contained demo (cf. misc/demo/README.md)
+  airflow-worker-demo1:
+    profiles: ["demo"]
+    <<: *airflow-worker
+    command: celery worker -q kraken_queue_demo1
+    # allows the worker (which runs with gid 0) to access the docker socket, required for the
+    # `docker` job engine only. Get the value with `stat -c '%g' /var/run/docker.sock`.
+    group_add: ["${DOCKER_GID:-0}"]
+    volumes:
+      - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs:rw
+      - ${MOUNTS_PATH:?error}/output:/opt/airflow/mounts/output:rw
+      # to start quanting containers on this host with the `docker` job engine (cf. DockerJobHandler):
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${MOUNTS_PATH:?error}/instruments/demo1:/opt/airflow/mounts/instruments/demo1:ro
+      - ${MOUNTS_PATH:?error}/backup/demo1:/opt/airflow/mounts/backup/demo1:rw
 
   # test worker for local testing
   airflow-worker-test1:
@@ -470,7 +525,7 @@ services:
 
   # file mover: moves files from instrument to instrument Backup folder
   airflow-worker-file-mover:
-    profiles: ["local", "workers"]
+    profiles: ["local", "workers", "demo"]
     <<: *airflow-worker
     command: celery worker -q kraken_queue_file_mover
     volumes:
@@ -480,7 +535,7 @@ services:
 
   # file remover: removes files from instrument Backup folder after comparing to pool Backup folder
   airflow-worker-file-remover:
-    profiles: ["local", "workers"]
+    profiles: ["local", "workers", "demo"]
     <<: *airflow-worker
     command: celery worker -q kraken_queue_file_remover
     volumes:

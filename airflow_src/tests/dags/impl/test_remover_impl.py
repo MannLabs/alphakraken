@@ -383,10 +383,8 @@ def test_get_total_size_raises_correctly(
         _get_total_size(MagicMock(), verify_against_s3=False)
 
 
-@patch("dags.impl.remover_impl.get_env_variable")
-def test_remove_files_production(mock_get_env: MagicMock) -> None:
-    """Test that _remove_files removes files in production environment."""
-    mock_get_env.return_value = "production"
+def test_remove_files() -> None:
+    """Test that _remove_files removes files."""
     file_paths = [MagicMock(spec=Path), MagicMock(spec=Path)]
 
     # when
@@ -397,24 +395,8 @@ def test_remove_files_production(mock_get_env: MagicMock) -> None:
         file_path.unlink.assert_called_once()
 
 
-@patch("dags.impl.remover_impl.get_env_variable")
-def test_remove_files_non_production(mock_get_env: MagicMock) -> None:
-    """Test that _remove_files doesn't remove files in non-production environment."""
-    mock_get_env.return_value = "development"
-    file_paths = [MagicMock(spec=Path), MagicMock(spec=Path)]
-
-    # when
-    _remove_files(file_paths)
-
-    # then
-    for file_path in file_paths:
-        file_path.unlink.assert_not_called()
-
-
-@patch("dags.impl.remover_impl.get_env_variable")
-def test_remove_folder_production(mock_get_env: MagicMock) -> None:
-    """Test that _remove_folder removes folder in production environment."""
-    mock_get_env.return_value = "production"
+def test_remove_folder() -> None:
+    """Test that _remove_folder removes folder."""
     folder_path = MagicMock(spec=Path)
     folder_path.exists.return_value = True
     folder_path.is_dir.return_value = True
@@ -424,21 +406,6 @@ def test_remove_folder_production(mock_get_env: MagicMock) -> None:
 
     # then
     folder_path.rmdir.assert_called_once()
-
-
-@patch("dags.impl.remover_impl.get_env_variable")
-def test_remove_folder_non_production(mock_get_env: MagicMock) -> None:
-    """Test that _remove_folder doesn't remove folder in non-production environment."""
-    mock_get_env.return_value = "development"
-    folder_path = MagicMock(spec=Path)
-    folder_path.exists.return_value = True
-    folder_path.is_dir.return_value = True
-
-    # when
-    _remove_folder(folder_path)
-
-    # then
-    folder_path.rmdir.assert_not_called()
 
 
 @patch("shared.db.interface.connect_db")

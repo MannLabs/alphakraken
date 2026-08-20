@@ -82,6 +82,7 @@ class MetricsTypes(metaclass=ConstantsClass):
     SKYLINE: str = "skyline"
     DIANN: str = "diann"
     CUSTOM: str = "custom"
+    NONE: str = "none"
 
 
 DEFAULT_SCOPE = "*"

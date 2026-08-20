@@ -21,8 +21,12 @@ def calc_metrics(output_directory: Path, *, metrics_type: str) -> dict[str, Any]
     """Calculate metrics for the given output directory.
 
     :param output_directory: Path to the output directory
-    :param metrics_type: Type of metrics to calculate ("alphadia" or "custom")
+    :param metrics_type: Type of metrics to calculate ("alphadia", "custom", ..), or "none" to calculate no metrics
     """
+    if metrics_type == MetricsTypes.NONE:
+        logging.info("Metrics type is 'none', not calculating any metrics.")
+        return {}
+
     metrics = {
         MetricsTypes.ALPHADIA: calc_alphadia_metrics,
         MetricsTypes.MSQC: calc_msqc_metrics,

@@ -13,6 +13,7 @@ from dags.impl.processor_impl import (
     _TASK_GROUP_PREFIX,
     QuantingFailedKnownErrorException,
     QuantingFailedNewErrorException,
+    _check_content,
     _create_quanting_env,
     _extract_errors,
     _find_next_free_run_suffix,
@@ -34,6 +35,7 @@ from plugins.common.keys import (
 )
 
 from shared.db.models import RawFile, RawFileStatus
+from shared.keys import JobEngines
 
 
 @patch("dags.impl.processor_impl.get_path")
@@ -68,6 +70,7 @@ def test_create_quanting_env(
     mock_settings.config_file_name = "some_config_file_name"
     mock_settings.software = "some_software"
     mock_settings.software_type = "alphadia"
+    mock_settings.config_params = None
     mock_settings.metrics_type = "alphadia"
     mock_settings.version = 1
     mock_settings.slurm_cpus_per_task = 8
@@ -106,6 +109,8 @@ def test_create_quanting_env(
         "SETTINGS_VERSION": 1,
         "_JOB_ENGINE": "slurm",
         "_INTERNAL_OUTPUT_PATH": "/opt/airflow/mounts/output/some_project_id/out_test_file.raw/alphadia",
+        "_INTERNAL_RAW_FILE_PATH": "/opt/airflow/mounts/backup/instrument1/1970_01/test_file.raw",
+        "_CONFIG_PARAMS": "",
     }
     assert result == expected
 
@@ -157,12 +162,15 @@ def test_create_quanting_env_custom_software(
         relative_raw_file_path=Path("instrument1/1970_01/test_file.raw"),
     )
 
-    expected_custom_command = (
-        "/some_software_base_path/custom1.2.3 --qvalue 0.01 --f /some_backup_base_path/instrument1/1970_01/test_file.raw "
+    expected_config_params = (
+        "--qvalue 0.01 --f /some_backup_base_path/instrument1/1970_01/test_file.raw "
         "--lib /some_settings_path/test_custom_settings/some_speclib_file_name "
         "--out /some_output_path/some_project_id/out_test_file.raw/custom "
         "--fasta /some_settings_path/test_custom_settings/some_fasta_file_name --threads 8 "
         "--some_param instrument1/1970_01/test_file.raw --some_param2 some_project_id/out_test_file.raw/custom"
+    )
+    expected_custom_command = (
+        f"/some_software_base_path/custom1.2.3 {expected_config_params}"
     )
 
     expected = {
@@ -187,6 +195,8 @@ def test_create_quanting_env_custom_software(
         "SETTINGS_VERSION": 1,
         "_JOB_ENGINE": "slurm",
         "_INTERNAL_OUTPUT_PATH": "/opt/airflow/mounts/output/some_project_id/out_test_file.raw/custom",
+        "_INTERNAL_RAW_FILE_PATH": "/opt/airflow/mounts/backup/instrument1/1970_01/test_file.raw",
+        "_CONFIG_PARAMS": expected_config_params,
     }
     assert result == expected
 
@@ -325,6 +335,40 @@ def test_prepare_job(
         Path("instrument1/1970_01/test_file.raw"),
     )
     assert result == mock_env
+
+
+def test_check_content_allows_resolved_config_params() -> None:
+    """Test that resolved config params pass despite their spaces and absolute paths."""
+    quanting_env = {
+        QuantingEnv.CONFIG_PARAMS: "--f /pool/backup/f.raw --out /pool/output/out_f.raw --threads 8",
+    }
+
+    errors = _check_content(quanting_env, MagicMock(config_params=None))
+
+    assert errors == []
+
+
+def test_check_content_rejects_malicious_resolved_config_params() -> None:
+    """Test that the resolved config params are validated, not only the unresolved ones."""
+    quanting_env = {
+        QuantingEnv.CONFIG_PARAMS: "--f /pool/backup/f.raw; rm -rf /",
+    }
+
+    errors = _check_content(quanting_env, MagicMock(config_params=None))
+
+    assert len(errors) == 1
+
+
+def test_check_content_allows_image_name_in_software_field() -> None:
+    """Test that a docker image name in the software field is accepted."""
+    quanting_env = {
+        QuantingEnv.SOFTWARE: "alphakraken-msqc",
+        QuantingEnv.JOB_ENGINE: JobEngines.DOCKER,
+    }
+
+    errors = _check_content(quanting_env, MagicMock(config_params=None))
+
+    assert errors == []
 
 
 @patch("dags.impl.processor_impl._check_content")

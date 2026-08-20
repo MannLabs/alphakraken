@@ -12,12 +12,13 @@ set -e -u
 INSTRUMENT=${1:-test1}
 
 BASE_FOLDER=local_test
+MOUNTS_FOLDER=${BASE_FOLDER}/mounts
 
 # one-time creation of folder structure
-mkdir -p ${BASE_FOLDER}/instruments/$INSTRUMENT/Backup
-mkdir -p ${BASE_FOLDER}/backup/$INSTRUMENT
-mkdir -p ${BASE_FOLDER}/settings/config ${BASE_FOLDER}/settings/fasta ${BASE_FOLDER}/settings/speclib
-mkdir -p ${BASE_FOLDER}/output
+mkdir -p ${MOUNTS_FOLDER}/instruments/$INSTRUMENT/Backup
+mkdir -p ${MOUNTS_FOLDER}/backup/$INSTRUMENT
+mkdir -p ${MOUNTS_FOLDER}/settings/config ${MOUNTS_FOLDER}/settings/fasta ${MOUNTS_FOLDER}/settings/speclib
+mkdir -p ${MOUNTS_FOLDER}/output
 
 FILE_PREFIX=test_file_SA_P123_${INSTRUMENT}_
 I=1
@@ -26,45 +27,45 @@ I=1
 if [ "$INSTRUMENT" = "test1" ]; then
 
   RAW_FILE_NAME=${FILE_PREFIX}${I}.raw
-  while [ -f ${BASE_FOLDER}/instruments/$INSTRUMENT/${RAW_FILE_NAME} ]; do
+  while [ -f ${MOUNTS_FOLDER}/instruments/$INSTRUMENT/${RAW_FILE_NAME} ]; do
     I=$((I+1))
     RAW_FILE_NAME=${FILE_PREFIX}${I}.raw
   done
 
   echo $RAW_FILE_NAME
-  echo some_raw_data > ${BASE_FOLDER}/instruments/$INSTRUMENT/$RAW_FILE_NAME
+  echo some_raw_data > ${MOUNTS_FOLDER}/instruments/$INSTRUMENT/$RAW_FILE_NAME
 
 # TYPE = bruker
 elif [ "$INSTRUMENT" = "test2" ]; then
 
     RAW_FILE_NAME=${FILE_PREFIX}${I}.d
-    while [ -d ${BASE_FOLDER}/instruments/$INSTRUMENT/${RAW_FILE_NAME} ]; do
+    while [ -d ${MOUNTS_FOLDER}/instruments/$INSTRUMENT/${RAW_FILE_NAME} ]; do
       I=$((I+1))
       RAW_FILE_NAME=${FILE_PREFIX}${I}.d
     done
 
     echo $RAW_FILE_NAME
-    mkdir -p ${BASE_FOLDER}/instruments/$INSTRUMENT/$RAW_FILE_NAME/1234.m
-    echo some_raw_data > ${BASE_FOLDER}/instruments/$INSTRUMENT/$RAW_FILE_NAME/analysis.tdf_bin
-    echo some_raw_data > ${BASE_FOLDER}/instruments/$INSTRUMENT/$RAW_FILE_NAME/analysis.tdf
-    echo some_raw_data > ${BASE_FOLDER}/instruments/$INSTRUMENT/$RAW_FILE_NAME/1234.m/some_file.txt
+    mkdir -p ${MOUNTS_FOLDER}/instruments/$INSTRUMENT/$RAW_FILE_NAME/1234.m
+    echo some_raw_data > ${MOUNTS_FOLDER}/instruments/$INSTRUMENT/$RAW_FILE_NAME/analysis.tdf_bin
+    echo some_raw_data > ${MOUNTS_FOLDER}/instruments/$INSTRUMENT/$RAW_FILE_NAME/analysis.tdf
+    echo some_raw_data > ${MOUNTS_FOLDER}/instruments/$INSTRUMENT/$RAW_FILE_NAME/1234.m/some_file.txt
 
 # TYPE = sciex
 elif [ "$INSTRUMENT" = "test3" ]; then
 
   RAW_FILE_STEM=${FILE_PREFIX}${I};
   RAW_FILE_NAME=${RAW_FILE_STEM}.wiff
-  while [ -f ${BASE_FOLDER}/instruments/$INSTRUMENT/${RAW_FILE_NAME} ]; do
+  while [ -f ${MOUNTS_FOLDER}/instruments/$INSTRUMENT/${RAW_FILE_NAME} ]; do
     I=$((I+1))
     RAW_FILE_STEM=${FILE_PREFIX}${I};
     RAW_FILE_NAME=${RAW_FILE_STEM}.wiff
   done
 
   echo $RAW_FILE_NAME
-  echo some_raw_data > ${BASE_FOLDER}/instruments/$INSTRUMENT/$RAW_FILE_NAME
-  echo some_raw_data > ${BASE_FOLDER}/instruments/$INSTRUMENT/${RAW_FILE_STEM}.wiff2
-  echo some_raw_data > ${BASE_FOLDER}/instruments/$INSTRUMENT/${RAW_FILE_STEM}.wiff.scan
-  echo some_raw_data > ${BASE_FOLDER}/instruments/$INSTRUMENT/${RAW_FILE_STEM}.timeseries.data
+  echo some_raw_data > ${MOUNTS_FOLDER}/instruments/$INSTRUMENT/$RAW_FILE_NAME
+  echo some_raw_data > ${MOUNTS_FOLDER}/instruments/$INSTRUMENT/${RAW_FILE_STEM}.wiff2
+  echo some_raw_data > ${MOUNTS_FOLDER}/instruments/$INSTRUMENT/${RAW_FILE_STEM}.wiff.scan
+  echo some_raw_data > ${MOUNTS_FOLDER}/instruments/$INSTRUMENT/${RAW_FILE_STEM}.timeseries.data
 
 else
   echo "Unknown type $TYPE"
@@ -78,7 +79,7 @@ echo To speed up things, use the Airflow UI to mark the "monitor_acquisition" ta
 echo Faking metrics generation of $RAW_FILE_NAME ..
 
 #YEAR_MONTH=$(date +%Y_%m)
-NEW_OUTPUT_FOLDER=${BASE_FOLDER}/output/P123/out_$RAW_FILE_NAME
+NEW_OUTPUT_FOLDER=${MOUNTS_FOLDER}/output/P123/out_$RAW_FILE_NAME
 mkdir -p $NEW_OUTPUT_FOLDER
 cp -r ${BASE_FOLDER}/_data/* $NEW_OUTPUT_FOLDER
 

@@ -1,7 +1,7 @@
 """Module containing the commands to interact with job clusters.
 
 This module provides an abstract interface for job execution on different engines,
-with concrete implementations for Slurm.
+with concrete implementations for Slurm and Docker.
 """
 
 import abc
@@ -26,6 +26,18 @@ def _get_job_handler(engine: str) -> "JobHandler":
     if engine == JobEngines.SLURM_NO_SACCT:
         logging.info("Using SlurmNoSacctSSHJobHandler")
         return SlurmNoSacctSSHJobHandler()
+
+    if engine == JobEngines.DOCKER:
+        try:
+            from jobs.docker_job_handler import DockerJobHandler
+        except ImportError as e:
+            raise AirflowFailException(
+                f"The '{JobEngines.DOCKER}' job engine requires the optional requirements in "
+                f"airflow_src/requirements_docker_engine.txt to be installed."
+            ) from e
+
+        logging.info("Using DockerJobHandler")
+        return DockerJobHandler()
 
     if engine == JobEngines.GENERIC:
         from jobs._experimental.generic_job_handler import GenericJobHandler

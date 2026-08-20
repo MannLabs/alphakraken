@@ -1,5 +1,6 @@
 """Tests for the job_handler module."""
 
+import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -24,6 +25,16 @@ def test_get_job_handler_routes_engine_to_handler(mock_get_path: MagicMock) -> N
     assert isinstance(_get_job_handler(JobEngines.SLURM), SlurmSSHJobHandler)
     assert isinstance(_get_job_handler(JobEngines.FILE_BASED), FileBasedJobHandler)
     assert isinstance(_get_job_handler(JobEngines.GENERIC), GenericJobHandler)
+
+
+def test_get_job_handler_docker_without_optional_dependency() -> None:
+    """Test that a missing optional `docker` dependency points to the requirements file."""
+    # a None entry in sys.modules makes the import of that module raise an ImportError
+    with (
+        patch.dict(sys.modules, {"docker": None, "jobs.docker_job_handler": None}),
+        pytest.raises(AirflowFailException, match="requirements_docker_engine"),
+    ):
+        _get_job_handler(JobEngines.DOCKER)
 
 
 @patch("jobs.job_handler.get_path")

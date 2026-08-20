@@ -42,7 +42,7 @@ coverage-badge > misc/coverage.svg
 
 ### Local testing
 This allows testing most of the functionality on your local machine. The SSH connection is cut off, and a
-special worker ("test1") is used that has the `local_test` folder mounted (instead of the pool folders).
+special worker ("test1") is used that has the `local_test/mounts` folder mounted (instead of the pool folders).
 
 1. Run the `docker compose` (`./compose.sh`) command for the local setup (cf. above) and log into the Airflow UI.
 2. (one-time setup) To decouple from the Slurm cluster, set the Airflow variable `debug_no_cluster_ssh=True` (see above).

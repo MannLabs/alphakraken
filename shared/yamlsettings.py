@@ -30,6 +30,9 @@ class YamlKeys:
     class Locations:
         """Keys for accessing paths in the yaml config."""
 
+        GENERAL = "general"
+        MOUNTS_PATH = "mounts_path"
+
         BACKUP = "backup"
         SETTINGS = "settings"
         OUTPUT = "output"
@@ -77,6 +80,7 @@ class YamlSettings:
                     }
                 },
                 "locations": {
+                    "general": {"mounts_path": "./tmp/test/mounts"},
                     "settings": {"absolute_path": "./tmp/test/settings"},
                     "output": {"absolute_path": "./tmp/test/output"},
                     "backup": {"absolute_path": "./tmp/test/backup"},
@@ -111,6 +115,22 @@ def get_path(path_key: str) -> Path:
     if path is None:
         raise KeyError(
             f"Key `{YamlKeys.LOCATIONS}.{path_key}` or `{YamlKeys.LOCATIONS}.{path_key}.{YamlKeys.ABSOLUTE_PATH}` not found in alphakraken.yaml."
+        )
+
+    return Path(path)
+
+
+def get_host_mounts_path() -> Path:
+    """Get the path of the mounts folder as seen by the docker host (not by the containers)."""
+    path = (
+        YAMLSETTINGS.get(YamlKeys.LOCATIONS, {})  # type: ignore[possibly-unbound-attribute]
+        .get(YamlKeys.Locations.GENERAL, {})
+        .get(YamlKeys.Locations.MOUNTS_PATH)
+    )
+
+    if path is None:
+        raise KeyError(
+            f"Key `{YamlKeys.LOCATIONS}.{YamlKeys.Locations.GENERAL}.{YamlKeys.Locations.MOUNTS_PATH}` not found in alphakraken.yaml."
         )
 
     return Path(path)

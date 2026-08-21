@@ -79,8 +79,18 @@ runs. It is safe to run at any time: keeping the newest two covers whatever is i
 cannot race the pipeline. **MongoDB is not touched**, so the metrics history in the webapp keeps
 growing while the disk usage stays flat.
 
+The pool backup additionally keeps every file that the instrument backup folder still holds, so it
+lags one prune cycle behind and can carry a few GB more than `KEEP_LAST` suggests. This keeps the
+pool copy from vanishing while the instrument copy is still there, which is the order the remover
+expects.
+
 Without the cron job, `mounts/{backup,output}` grow by roughly 68 runs per day. Check with
 `du -sh misc/demo/mounts/*`.
+
+As a backstop, the feeder skips an acquisition when less than `REQUIRED_SPACE_PERCENT=220` of the
+source file size is free on the instrument mount — twice the file size, for the raw file and its
+pool backup copy, plus 10% headroom. It retries the same file at the next interval, so a full disk
+pauses the demo instead of breaking it.
 
 Airflow logs under `mounts/airflow_logs` are not pruned (see `misc/archive_airflow_logs.sh`).
 

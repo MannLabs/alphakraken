@@ -1,0 +1,115 @@
+# Nginx configuration for the self-contained demo.
+#
+# GENERATED FILE -- do not edit, it is overwritten by misc/demo/setup_demo.sh.
+# Edit misc/demo/templates/nginx.demo.conf.template instead.
+#
+# All four components are served from one host behind a single UUID path prefix
+# ("security by obscurity"): anything outside that prefix gets a 404. Upstreams are compose
+# service names, so this only works from within the compose network.
+
+user nginx;
+worker_processes auto;
+error_log /dev/stderr warn;
+pid /var/run/nginx.pid;
+
+events {
+    worker_connections 1024;
+}
+
+http {
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+
+    log_format main '$remote_addr - $remote_user [$time_local] "$request" '
+                    '$status $body_bytes_sent "$http_referer" '
+                    '"$http_user_agent" "$http_x_forwarded_for"';
+
+    access_log /dev/stdout main;
+    sendfile on;
+    keepalive_timeout 65;
+
+    # raw files are large, and the webapp offers CSV downloads
+    client_max_body_size 0;
+
+    ssl_certificate /etc/nginx/certs/fullchain.pem;
+    ssl_certificate_key /etc/nginx/certs/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers on;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 10m;
+
+    server {
+        listen 80;
+        server_name _;
+        return 301 https://$host$request_uri;
+    }
+
+    server {
+        listen 443 ssl;
+        server_name _;
+
+        # Airflow generates absolute URLs from its base_url, which carries the prefix, so the
+        # prefix must NOT be stripped here (note the missing trailing slash on proxy_pass).
+        location /__UUID__/airflow/ {
+            proxy_pass http://airflow-webserver:8080;
+            proxy_max_temp_file_size 0;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+        }
+
+        # FastMCP serves streamable-http at its own /mcp, so the prefix is rewritten away.
+        location /__UUID__/mcp {
+            proxy_pass http://mcp-server:8089/mcp;
+            proxy_max_temp_file_size 0;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            # server-sent events must not be buffered
+            proxy_buffering off;
+            proxy_read_timeout 3600s;
+
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+        }
+
+        # The prefix is stripped; FastAPI's root_path (REST_API_ROOT_PATH) puts it back into the
+        # URLs it generates, which is what makes /docs and openapi.json work.
+        location /__UUID__/api/ {
+            proxy_pass http://rest-api:8090/;
+            proxy_max_temp_file_size 0;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_set_header X-Forwarded-Prefix /__UUID__/api;
+        }
+
+        # Streamlit is configured with baseUrlPath=<uuid>, so it expects the prefix to survive.
+        # Least specific of the four prefixes, hence matched last.
+        location /__UUID__/ {
+            proxy_pass http://webapp:8501;
+            proxy_max_temp_file_size 0;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+        }
+
+        # anything that does not know the UUID learns nothing
+        location / {
+            return 404;
+        }
+    }
+}

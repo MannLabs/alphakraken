@@ -104,6 +104,13 @@ class XComKeys:
     RETURN_VALUE = "return_value"
 
 
+class MetricsResultKeys:
+    """Keys of the metrics result dict that is handed from the compute to the store metrics task."""
+
+    COMPUTED_METRICS: str = "computed_metrics"
+    REPORTED_METRICS: str = "reported_metrics"
+
+
 class InstrumentKeys:
     """Keys for accessing instrument data.
 

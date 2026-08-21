@@ -84,6 +84,10 @@ class MetricsTypes(metaclass=ConstantsClass):
     DIANN: str = "diann"
     CUSTOM: str = "custom"
 
+    # not calculated by Kraken but read from the metrics file the quanting software wrote,
+    # hence it cannot be selected in the settings, cf. REPORTED_METRICS_FILE_NAME
+    REPORTED: str = "reported"
+
 
 DEFAULT_SCOPE = "*"
 

@@ -19,6 +19,7 @@ from common.keys import (
     CustomAlphaDiaStates,
     InstrumentKeys,
     JobStates,
+    MetricsResultKeys,
     QuantingEnv,
     TaskGroups,
     Tasks,
@@ -39,7 +40,7 @@ from jobs.job_handler import (
     get_job_result,
     start_job,
 )
-from metrics.metrics_calculator import calc_metrics
+from metrics.metrics_calculator import calc_metrics, get_reported_metrics
 from mongoengine import DoesNotExist
 
 from shared.db.interface import (
@@ -50,7 +51,7 @@ from shared.db.interface import (
     update_raw_file,
 )
 from shared.db.models import RawFile, RawFileStatus, Settings, get_created_at_year_month
-from shared.keys import SoftwareTypes
+from shared.keys import MetricsTypes, SoftwareTypes
 from shared.settings_scope_resolver import resolve_scoped_settings
 from shared.validation import check_for_malicious_content
 from shared.yamlsettings import YamlKeys, get_path
@@ -540,7 +541,7 @@ def compute_metrics(
 
     :param quanting_env: The quanting environment variables dict.
     :param time_elapsed: Elapsed time from the quanting job, added to metrics if provided.
-    :return: Dict with ``metrics`` and ``metrics_type``.
+    :return: The metrics result dict, cf. `MetricsResultKeys`.
     """
     metrics_type = quanting_env[QuantingEnv.METRICS_TYPE]
     output_path = Path(quanting_env[QuantingEnv.INTERNAL_OUTPUT_PATH])
@@ -550,26 +551,36 @@ def compute_metrics(
     if time_elapsed is not None:  # TODO: find a better way to handle this also for msqc
         metrics[TIME_ELAPSED_METRIC] = time_elapsed
 
-    return {"metrics": metrics, "metrics_type": metrics_type}
+    return {
+        MetricsResultKeys.COMPUTED_METRICS: metrics,
+        MetricsResultKeys.REPORTED_METRICS: get_reported_metrics(output_path),
+    }
 
 
-def store_metrics(*, quanting_env: dict, metrics: dict, metrics_type: str) -> None:
+def store_metrics(*, quanting_env: dict, metrics_result: dict) -> None:
     """Store metrics in the database.
 
+    The metrics the quanting software reported itself are stored as a separate entity.
+
     :param quanting_env: The quanting environment variables dict.
-    :param metrics: The computed metrics dictionary.
-    :param metrics_type: The type of metrics (e.g. alphadia, custom).
+    :param metrics_result: The metrics result dict, cf. `MetricsResultKeys`.
     """
     raw_file_id = quanting_env[QuantingEnv.RAW_FILE_ID]
+    metrics_type = quanting_env[QuantingEnv.METRICS_TYPE]
 
-    add_metrics_to_raw_file(
-        raw_file_id,
-        metrics_type=metrics_type,
-        metrics=metrics,
-        settings_name=quanting_env[QuantingEnv.SETTINGS_NAME],
-        settings_version=quanting_env[QuantingEnv.SETTINGS_VERSION],
-        output_path=quanting_env[QuantingEnv.OUTPUT_PATH],
-    )
+    metrics_by_type = {metrics_type: metrics_result[MetricsResultKeys.COMPUTED_METRICS]}
+    if reported_metrics := metrics_result[MetricsResultKeys.REPORTED_METRICS]:
+        metrics_by_type[MetricsTypes.REPORTED] = reported_metrics
+
+    for type_, metrics_ in metrics_by_type.items():
+        add_metrics_to_raw_file(
+            raw_file_id,
+            metrics_type=type_,
+            metrics=metrics_,
+            settings_name=quanting_env[QuantingEnv.SETTINGS_NAME],
+            settings_version=quanting_env[QuantingEnv.SETTINGS_VERSION],
+            output_path=quanting_env[QuantingEnv.OUTPUT_PATH],
+        )
 
 
 MAX_STATUS_DETAILS_LENGTH = 1024

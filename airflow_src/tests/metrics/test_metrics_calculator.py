@@ -5,7 +5,12 @@ from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
-from plugins.metrics.metrics_calculator import _convert_numpy_types, calc_metrics
+from plugins.metrics.metrics_calculator import (
+    REPORTED_METRICS_FILE_NAME,
+    _convert_numpy_types,
+    calc_metrics,
+    get_reported_metrics,
+)
 
 from shared.keys import MetricsTypes
 
@@ -163,3 +168,43 @@ def test_convert_numpy_types_raises_not_implemented_for_set() -> None:
 
     with pytest.raises(NotImplementedError, match="Tuples and sets are not supported"):
         _convert_numpy_types(input_data)
+
+
+def test_get_reported_metrics_no_file(tmp_path: Path) -> None:
+    """Test get_reported_metrics returns empty dict if the file does not exist."""
+    assert get_reported_metrics(tmp_path) == {}
+
+
+def test_get_reported_metrics_single_row(tmp_path: Path) -> None:
+    """Test get_reported_metrics reads the metrics of a single-row file."""
+    (tmp_path / REPORTED_METRICS_FILE_NAME).write_text(
+        "proteins,fwhm.rt,name\n8123,4.2,some_name\n"
+    )
+
+    result = get_reported_metrics(tmp_path)
+
+    assert result == {"proteins": 8123, "fwhm:rt": 4.2, "name": "some_name"}
+    assert isinstance(result["proteins"], int)
+
+
+def test_get_reported_metrics_multiple_rows(tmp_path: Path) -> None:
+    """Test get_reported_metrics uses the first row of a multi-row file."""
+    (tmp_path / REPORTED_METRICS_FILE_NAME).write_text(
+        "proteins,precursors\n8123,95012\n8090,94500\n"
+    )
+
+    assert get_reported_metrics(tmp_path) == {"proteins": 8123, "precursors": 95012}
+
+
+def test_get_reported_metrics_header_only(tmp_path: Path) -> None:
+    """Test get_reported_metrics returns empty dict for a file without data rows."""
+    (tmp_path / REPORTED_METRICS_FILE_NAME).write_text("proteins,precursors\n")
+
+    assert get_reported_metrics(tmp_path) == {}
+
+
+def test_get_reported_metrics_nan_value(tmp_path: Path) -> None:
+    """Test get_reported_metrics converts missing values to None."""
+    (tmp_path / REPORTED_METRICS_FILE_NAME).write_text("proteins,precursors\n8123,\n")
+
+    assert get_reported_metrics(tmp_path) == {"proteins": 8123, "precursors": None}

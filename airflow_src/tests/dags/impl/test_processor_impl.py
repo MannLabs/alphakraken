@@ -2,11 +2,12 @@
 
 from datetime import datetime
 from pathlib import Path
-from unittest.mock import MagicMock, mock_open, patch
+from unittest.mock import MagicMock, call, mock_open, patch
 
 import pytest
 import pytz
 from airflow.exceptions import AirflowFailException
+from common.keys import MetricsResultKeys
 from common.settings import _INSTRUMENTS
 from dags.impl.processor_impl import (
     _PREPARE_JOB_TASK_ID,
@@ -35,7 +36,7 @@ from plugins.common.keys import (
 )
 
 from shared.db.models import RawFile, RawFileStatus
-from shared.keys import JobEngines
+from shared.keys import JobEngines, MetricsTypes
 
 
 @patch("dags.impl.processor_impl.get_path")
@@ -1059,8 +1060,8 @@ def test_compute_metrics(
         metrics_type="alphadia",
     )
     assert result == {
-        "metrics": {"metric1": "value1", "time_elapsed": 123},
-        "metrics_type": "alphadia",
+        MetricsResultKeys.COMPUTED_METRICS: {"metric1": "value1", "time_elapsed": 123},
+        MetricsResultKeys.REPORTED_METRICS: {},
     }
 
 
@@ -1085,8 +1086,36 @@ def test_compute_metrics_msqc_software_type(
         metrics_type="msqc",
     )
     assert result == {
-        "metrics": {"qc_metric": 42},
-        "metrics_type": "msqc",
+        MetricsResultKeys.COMPUTED_METRICS: {"qc_metric": 42},
+        MetricsResultKeys.REPORTED_METRICS: {},
+    }
+
+
+@patch("dags.impl.processor_impl.get_reported_metrics")
+@patch("dags.impl.processor_impl.calc_metrics")
+def test_compute_metrics_with_reported_metrics(
+    mock_calc_metrics: MagicMock,
+    mock_get_reported_metrics: MagicMock,
+) -> None:
+    """Test that compute_metrics returns the metrics reported by the quanting software."""
+    quanting_env = {
+        "RAW_FILE_ID": "test_file.raw",
+        "PROJECT_ID": "P1",
+        "SOFTWARE_TYPE": "custom",
+        "METRICS_TYPE": "custom",
+        "_INTERNAL_OUTPUT_PATH": "/opt/airflow/mounts/output/P1/out_test_file.raw/custom",
+    }
+    mock_calc_metrics.return_value = {}
+    mock_get_reported_metrics.return_value = {"reported_metric": 1}
+
+    result = compute_metrics(quanting_env=quanting_env)
+
+    mock_get_reported_metrics.assert_called_once_with(
+        Path("/opt/airflow/mounts/output/P1/out_test_file.raw/custom")
+    )
+    assert result == {
+        MetricsResultKeys.COMPUTED_METRICS: {},
+        MetricsResultKeys.REPORTED_METRICS: {"reported_metric": 1},
     }
 
 
@@ -1102,9 +1131,12 @@ def test_store_metrics(
             "SETTINGS_VERSION": 1,
             "RAW_FILE_ID": "some_file.raw",
             "OUTPUT_PATH": "/data/output/P1/out_some_file.raw/alphadia",
+            "METRICS_TYPE": "alphadia",
         },
-        metrics={"metric1": "value1"},
-        metrics_type="alphadia",
+        metrics_result={
+            MetricsResultKeys.COMPUTED_METRICS: {"metric1": "value1"},
+            MetricsResultKeys.REPORTED_METRICS: {},
+        },
     )
 
     mock_add.assert_called_once_with(
@@ -1117,6 +1149,47 @@ def test_store_metrics(
         settings_version=1,
         output_path="/data/output/P1/out_some_file.raw/alphadia",
     )
+
+
+@patch("dags.impl.processor_impl.add_metrics_to_raw_file")
+def test_store_metrics_with_reported_metrics(
+    mock_add: MagicMock,
+) -> None:
+    """Test that store_metrics stores the reported metrics as a separate entity."""
+    # when
+    store_metrics(
+        quanting_env={
+            "SETTINGS_NAME": "test_settings",
+            "SETTINGS_VERSION": 1,
+            "RAW_FILE_ID": "some_file.raw",
+            "OUTPUT_PATH": "/data/output/P1/out_some_file.raw/custom",
+            "METRICS_TYPE": "custom",
+        },
+        metrics_result={
+            MetricsResultKeys.COMPUTED_METRICS: {"metric1": "value1"},
+            MetricsResultKeys.REPORTED_METRICS: {"reported_metric": 1},
+        },
+    )
+
+    common_kwargs = {
+        "settings_name": "test_settings",
+        "settings_version": 1,
+        "output_path": "/data/output/P1/out_some_file.raw/custom",
+    }
+    assert mock_add.call_args_list == [
+        call(
+            "some_file.raw",
+            metrics_type="custom",
+            metrics={"metric1": "value1"},
+            **common_kwargs,
+        ),
+        call(
+            "some_file.raw",
+            metrics_type=MetricsTypes.REPORTED,
+            metrics={"reported_metric": 1},
+            **common_kwargs,
+        ),
+    ]
 
 
 # --- helpers for finalize / _extract_errors tests ---

@@ -128,7 +128,7 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
 
             @task(task_id=Tasks.COMPUTE_METRICS)
             def compute_metrics_task(quanting_env: dict, time_elapsed: int) -> dict:
-                """Compute metrics and return dict with metrics and metrics_type."""
+                """Compute metrics and return dict with computed_metrics and reported_metrics."""
                 return compute_metrics(
                     quanting_env=quanting_env,
                     time_elapsed=time_elapsed,
@@ -137,11 +137,7 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
             @task(task_id=Tasks.STORE_METRICS)
             def store_metrics_task(quanting_env: dict, metrics_result: dict) -> None:
                 """Store metrics in the database."""
-                store_metrics(
-                    quanting_env=quanting_env,
-                    metrics=metrics_result["metrics"],
-                    metrics_type=metrics_result["metrics_type"],
-                )
+                store_metrics(quanting_env=quanting_env, metrics_result=metrics_result)
 
             quanting_env = prepare_job_task(settings_id)
             job_id = submit_job_task(quanting_env)

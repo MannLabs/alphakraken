@@ -9,12 +9,18 @@ from typing import Any
 
 import numpy as np
 from metrics.metrics.alphadia import calc_alphadia_metrics
+from metrics.metrics.base import read_csv
 from metrics.metrics.custom import calc_custom_metrics
 from metrics.metrics.diann import calc_diann_metrics
 from metrics.metrics.msqc import calc_msqc_metrics
 from metrics.metrics.skyline import calc_skyline_metrics
 
 from shared.keys import MetricsTypes
+
+# optional file in the output directory in which the quanting software can report metrics itself,
+# one column per metric. This is the only way to get metrics out of a software that Kraken has no
+# metrics calculation for, cf. MetricsTypes.REPORTED.
+REPORTED_METRICS_FILE_NAME = "metrics.csv"
 
 
 def calc_metrics(output_directory: Path, *, metrics_type: str) -> dict[str, Any]:
@@ -31,10 +37,41 @@ def calc_metrics(output_directory: Path, *, metrics_type: str) -> dict[str, Any]
         MetricsTypes.CUSTOM: calc_custom_metrics,
     }[metrics_type](output_directory)
 
-    # MongoDB field names cannot contain dots (".") or null characters ("\0"), and they must not start with a dollar sign ("$").
-    metrics_cleaned = {k.replace(".", ":"): v for k, v in metrics.items()}
+    metrics_cleaned = _clean_metrics(metrics)
 
     logging.info(f"Calculated {metrics_type} metrics: {metrics_cleaned}")
+
+    return metrics_cleaned
+
+
+def get_reported_metrics(output_directory: Path) -> dict[str, Any]:
+    """Get the metrics the quanting software reported in `REPORTED_METRICS_FILE_NAME`.
+
+    :param output_directory: Path to the output directory
+    :return: The metrics of the file's first row, empty if the file does not exist or has no rows.
+    """
+    file_path = output_directory / REPORTED_METRICS_FILE_NAME
+    if not file_path.exists():
+        return {}
+
+    df = read_csv(file_path)
+    if df.empty:
+        logging.warning(f"No rows in {file_path}, ignoring it.")
+        return {}
+    if len(df) > 1:
+        logging.warning(f"Found {len(df)} rows in {file_path}, using the first one.")
+
+    metrics_cleaned = _clean_metrics(df.iloc[0].to_dict())
+
+    logging.info(f"Read reported metrics: {metrics_cleaned}")
+
+    return metrics_cleaned
+
+
+def _clean_metrics(metrics: dict[str, Any]) -> dict[str, Any]:
+    """Make metrics keys storable in MongoDB and their values JSON-serializable."""
+    # MongoDB field names cannot contain dots ("."), and they must not start with a dollar sign ("$").
+    metrics_cleaned = {str(k).replace(".", ":"): v for k, v in metrics.items()}
 
     # required to prevent TypeError: Object of type float32 is not JSON serializable
     return _convert_numpy_types(metrics_cleaned)

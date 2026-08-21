@@ -91,6 +91,7 @@ def _configure_mocks(
         pd.DataFrame(),  # empty skyline metrics
         pd.DataFrame(),  # empty diann metrics
         custom_metrics_df,  # custom metrics
+        pd.DataFrame(),  # empty reported metrics
         status_df,
     ]
 

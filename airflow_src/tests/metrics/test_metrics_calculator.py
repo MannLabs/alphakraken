@@ -28,17 +28,13 @@ def test_calc_metrics_alphadia(mock_alphadia: MagicMock) -> None:
     assert result == {"test_metric": 1.0, "another:metric": 2.5}
 
 
-@patch("plugins.metrics.metrics_calculator.calc_custom_metrics")
-def test_calc_metrics_custom(mock_custom: MagicMock) -> None:
-    """Test calc_metrics with custom metrics type."""
+def test_calc_metrics_custom() -> None:
+    """Test calc_metrics calculates nothing for the custom metrics type."""
     output_dir = Path("/test/output")
-    expected_metrics = {"custom_metric": 3.0, "custom.metric": 4.5}
-    mock_custom.return_value = expected_metrics
 
     result = calc_metrics(output_dir, metrics_type=MetricsTypes.CUSTOM)
 
-    mock_custom.assert_called_once_with(output_dir)
-    assert result == {"custom_metric": 3.0, "custom:metric": 4.5}
+    assert result == {}
 
 
 @patch("plugins.metrics.metrics_calculator.calc_diann_metrics")
@@ -210,17 +206,26 @@ def test__get_reported_metrics_nan_value(tmp_path: Path) -> None:
     assert _get_reported_metrics(tmp_path) == {"proteins": 8123, "precursors": None}
 
 
-@patch("plugins.metrics.metrics_calculator.calc_custom_metrics")
+@patch("plugins.metrics.metrics_calculator.calc_msqc_metrics")
 def test_calc_metrics_merges_reported_metrics(
-    mock_custom: MagicMock, tmp_path: Path
+    mock_msqc: MagicMock, tmp_path: Path
 ) -> None:
     """Test calc_metrics adds the metrics the quanting software reported itself."""
-    mock_custom.return_value = {"calculated": 1}
+    mock_msqc.return_value = {"calculated": 1}
+    (tmp_path / REPORTED_METRICS_FILE_NAME).write_text("reported\n2\n")
+
+    result = calc_metrics(tmp_path, metrics_type=MetricsTypes.MSQC)
+
+    assert result == {"calculated": 1, "reported": 2}
+
+
+def test_calc_metrics_custom_only_reported_metrics(tmp_path: Path) -> None:
+    """Test calc_metrics returns only reported metrics for the custom metrics type."""
     (tmp_path / REPORTED_METRICS_FILE_NAME).write_text("reported\n2\n")
 
     result = calc_metrics(tmp_path, metrics_type=MetricsTypes.CUSTOM)
 
-    assert result == {"calculated": 1, "reported": 2}
+    assert result == {"reported": 2}
 
 
 @patch("plugins.metrics.metrics_calculator.calc_msqc_metrics")

@@ -215,11 +215,12 @@ metrics_type = c1.selectbox(
     options=metrics_type_options,
     index=metrics_type_index,
     disabled=not is_custom_software,
-    help="Select which metrics to calculate, should typically match the software type.",
+    help="Which metrics to calculate, should typically match the software type. Note: values from a metrics.csv in the output directory will be merged with those selected, overriding values on column name collision.",
 )
 if is_custom_software:
     c1.info(
-        "Currently, custom metrics need to be added to the codebase (`metrics/custom.py`)."
+        f"Select `{MetricsTypes.CUSTOM}` if the software reports its metrics itself in a "
+        "`metrics.csv`, cf. `docs/customization.md`."
     )
 
 

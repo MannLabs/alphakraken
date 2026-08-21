@@ -1,6 +1,6 @@
 """Calculate metrics.
 
-To extend the metrics, create a new class that inherits from Metrics and implement the _calc() method.
+cf. docs/customization.md on how to add metrics for a new software.
 """
 
 import logging
@@ -10,7 +10,6 @@ from typing import Any
 import numpy as np
 from metrics.metrics.alphadia import calc_alphadia_metrics
 from metrics.metrics.base import read_csv
-from metrics.metrics.custom import calc_custom_metrics
 from metrics.metrics.diann import calc_diann_metrics
 from metrics.metrics.msqc import calc_msqc_metrics
 from metrics.metrics.skyline import calc_skyline_metrics
@@ -38,7 +37,7 @@ def calc_metrics(output_directory: Path, *, metrics_type: str) -> dict[str, Any]
         MetricsTypes.MSQC: calc_msqc_metrics,
         MetricsTypes.SKYLINE: calc_skyline_metrics,
         MetricsTypes.DIANN: calc_diann_metrics,
-        MetricsTypes.CUSTOM: calc_custom_metrics,
+        MetricsTypes.CUSTOM: _calc_no_metrics,
     }[metrics_type](output_directory)
 
     calculated_metrics = _clean_metrics(metrics)
@@ -50,6 +49,15 @@ def calc_metrics(output_directory: Path, *, metrics_type: str) -> dict[str, Any]
         logging.warning(f"Reported metrics override calculated ones: {overlapping}")
 
     return calculated_metrics | reported_metrics
+
+
+def _calc_no_metrics(output_directory: Path) -> dict[str, Any]:
+    """Calculate nothing, for softwares that Kraken has no metrics calculation for.
+
+    Such softwares report their metrics themselves, cf. `REPORTED_METRICS_FILE_NAME`.
+    """
+    del output_directory  # unused
+    return {}
 
 
 def _get_reported_metrics(output_directory: Path) -> dict[str, Any]:

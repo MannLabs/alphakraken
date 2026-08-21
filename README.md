@@ -60,6 +60,7 @@ For detailed information, please refer to the following documentation files:
 - [deployment.md](docs/deployment.md) - Setup and deployment instructions
 - [instruments.md](docs/instruments.md) - Adding and configuring instruments
 - [development.md](docs/development.md) - Development setup and testing procedures
+- [customization.md](docs/customization.md) - Adding metrics for new software
 - [maintenance.md](docs/maintenance.md) - Maintenance procedures and post-reboot instructions, common issues and solutions
 
 
@@ -68,7 +69,8 @@ The `alphakraken.yaml` file offers some options regarding the behavior of the sy
 and `webapp/columns_config.yaml` allows to customize the columns and plots shown in the web application.
 
 Currently, other customizations require changes to the source code.
-However, many components (e.g. around quanting, metrics calculation) are already designed to be easily customizable.
+However, many components (e.g. around quanting, metrics calculation) are already designed to be easily customizable,
+cf. [customization.md](docs/customization.md).
 
 ---
 

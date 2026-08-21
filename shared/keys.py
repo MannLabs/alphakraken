@@ -87,8 +87,6 @@ class MetricsTypes(metaclass=ConstantsClass):
 
 
 # The metrics types that can be selected for a software type, the first one being the default.
-# Deliberately a plain dict: a new software type without an entry here should fail loudly rather
-# than silently get some default metrics type.
 SOFTWARE_TYPE_TO_METRICS_TYPES: dict[str, list[str]] = {
     SoftwareTypes.ALPHADIA: [MetricsTypes.ALPHADIA],
     SoftwareTypes.MSQC: [MetricsTypes.MSQC],

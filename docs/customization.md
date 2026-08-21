@@ -25,6 +25,10 @@ AlphaKraken should calculate nothing at all on its own. See
 Prefer this way: it needs no deployment of new AlphaKraken code, and it keeps the knowledge about
 a software's output inside that software.
 
+`custom` doubles as the off switch: it is selectable for every software type, so setting it on e.g.
+an "mzml conversion" settings entry stops AlphaKraken from calculating any metrics (`time_elapsed` is
+stored in any case.)
+
 #### 2. Add a calculation to the codebase
 
 Use this when the software cannot be changed, e.g. for a third-party search engine that only

@@ -198,13 +198,14 @@ software_type = c1.selectbox(
     disabled=disable_software_type_selection,
 )
 
-metrics_type_options = MetricsTypes.get_values()
-# For non-custom software types, metrics_type is locked to match software_type
 is_custom_software = software_type == SoftwareTypes.CUSTOM
-if not is_custom_software:
-    metrics_type_default = software_type
-else:
-    metrics_type_default = prefill_data.get("metrics_type", "") or software_type
+# for non-custom software types, metrics either match the software type or are switched off
+metrics_type_options = (
+    MetricsTypes.get_values()
+    if is_custom_software
+    else [software_type, MetricsTypes.CUSTOM]
+)
+metrics_type_default = prefill_data.get("metrics_type", "") or software_type
 metrics_type_index = (
     metrics_type_options.index(metrics_type_default)
     if metrics_type_default in metrics_type_options
@@ -214,13 +215,12 @@ metrics_type = c1.selectbox(
     label="Metrics type",
     options=metrics_type_options,
     index=metrics_type_index,
-    disabled=not is_custom_software,
-    help="Which metrics to calculate, should typically match the software type. Note: values from a metrics.csv in the output directory will be merged with those selected, overriding values on column name collision.",
+    help=f"Which metrics to calculate, should typically match the software type. Set to `{MetricsTypes.CUSTOM}` to calculate none. Note: values from a metrics.csv in the output directory will be merged with those selected, overriding values on column name collision.",
 )
-if is_custom_software:
+if metrics_type == MetricsTypes.CUSTOM:
     c1.info(
-        f"Select `{MetricsTypes.CUSTOM}` if the software reports its metrics itself in a "
-        "`metrics.csv`, cf. `docs/customization.md`."
+        f"`{MetricsTypes.CUSTOM}` calculates no metrics, it only stores those the software "
+        "reported itself in a `metrics.csv`, cf. `docs/customization.md`."
     )
 
 

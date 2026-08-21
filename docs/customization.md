@@ -28,45 +28,17 @@ a software's output inside that software.
 #### 2. Add a calculation to the codebase
 
 Use this when the software cannot be changed, e.g. for a third-party search engine that only
-leaves its own output files behind.
+leaves its own output files behind. Look for "dummy code for adding new metrics" and code along the example.
 
 1. Add a module in `airflow_src/plugins/metrics/metrics/`, using
-   `example_metrics.py` as the starting point and `msqc.py` or `diann.py` as a full example.
-2. Declare which output files it reads and how, then subclass `Metrics` per group of metrics:
+   `example_metrics.py` as the starting point and `msqc.py` as a full example.
 
-```python
-from metrics.metrics.base import DataStore, Metrics, read_tsv
-
-REPORT_FILE_NAME = "report.stats.tsv"
-
-file_name_to_read_method_mapping = {REPORT_FILE_NAME: read_tsv}
-
-
-class BasicStats(Metrics):
-    _file = REPORT_FILE_NAME
-    # source column name -> metric name (None keeps the source name)
-    _columns: ClassVar[dict[str, str | None]] = {"Proteins.Identified": "proteins"}
-
-    def _calc(self, df: pd.DataFrame, source_column: str, target_column: str) -> None:
-        self._metrics[target_column] = df[source_column].mean()
-
-
-def calc_mysoftware_metrics(output_directory: Path) -> dict[str, str | int | float]:
-    data_store = DataStore(output_directory, file_name_to_read_method_mapping)
-    return BasicStats(data_store).get()
-```
-
-3. Add the metrics type to `MetricsTypes` in `shared/keys.py`, and wire the new function into the
+2. Add the metrics type to `MetricsTypes` in `shared/keys.py`, and wire the new function into the
    dispatch in `calc_metrics()` in `airflow_src/plugins/metrics/metrics_calculator.py`.
 
+
 Notes:
-- `DataStore` reads each output file once and caches it, so several `Metrics` subclasses can share
-  the same file cheaply. Read methods for csv, tsv and parquet are in `metrics/base.py`.
-- Set `_tolerate_missing = True` on a subclass if a column may be absent, e.g. because it only
-  appears in some software versions.
-- Metric names must not contain dots, as MongoDB does not allow them in field names. Dots are
-  replaced by colons automatically, but it is clearer to map the name in `_columns`.
 - Metrics are stored in a `DynamicDocument`, so no database migration is needed for new metrics.
 - New metrics show up in the webapp table on their own, appended after the configured columns. Add
   them to `webapp/columns_config.yaml` to control their position and to give them a color gradient
-  or a plot.
+  and/or a plot.

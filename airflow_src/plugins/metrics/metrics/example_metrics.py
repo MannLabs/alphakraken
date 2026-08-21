@@ -1,4 +1,4 @@
-"""Example Metrics Module.
+"""Example Metrics Module containing dummy code for adding new metrics.
 
 This module is deliberately not wired into `metrics_calculator.py`, it is a template to copy,
 cf. docs/customization.md.
@@ -16,7 +16,7 @@ def calc_example_metrics(output_directory: Path) -> dict[str, str | int | float]
 
     metrics = {}
 
-    # Add any calculations here
+    # Add any calculations here which return metrics as a dictionary.
     # Example:
     # from metrics.metrics.example_metrics import YourMetricsClass
     # metrics |= YourMetricsClass(output_directory).get()

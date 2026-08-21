@@ -30,6 +30,7 @@ from shared.db.interface import archive_settings, create_settings
 from shared.db.models import ProjectSettings, ProjectStatus, SettingsStatus
 from shared.keys import (
     SOFTWARE_TYPE_TO_DEFAULT_RESOURCE_PARAMS,
+    SOFTWARE_TYPE_TO_METRICS_TYPES,
     JobEngines,
     MetricsTypes,
     SoftwareTypes,
@@ -198,14 +199,14 @@ software_type = c1.selectbox(
     disabled=disable_software_type_selection,
 )
 
-is_custom_software = software_type == SoftwareTypes.CUSTOM
-# for non-custom software types, metrics either match the software type or are switched off
-metrics_type_options = (
-    MetricsTypes.get_values()
-    if is_custom_software
-    else [software_type, MetricsTypes.CUSTOM]
+metrics_types_of_software = SOFTWARE_TYPE_TO_METRICS_TYPES[software_type]
+# metrics can always be switched off, cf. MetricsTypes.CUSTOM
+metrics_type_options = list(
+    dict.fromkeys([*metrics_types_of_software, MetricsTypes.CUSTOM])
 )
-metrics_type_default = prefill_data.get("metrics_type", "") or software_type
+metrics_type_default = (
+    prefill_data.get("metrics_type", "") or metrics_types_of_software[0]
+)
 metrics_type_index = (
     metrics_type_options.index(metrics_type_default)
     if metrics_type_default in metrics_type_options

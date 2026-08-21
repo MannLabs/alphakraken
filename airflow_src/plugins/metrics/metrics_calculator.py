@@ -18,13 +18,17 @@ from metrics.metrics.skyline import calc_skyline_metrics
 from shared.keys import MetricsTypes
 
 # optional file in the output directory in which the quanting software can report metrics itself,
-# one column per metric. This is the only way to get metrics out of a software that Kraken has no
-# metrics calculation for, cf. MetricsTypes.REPORTED.
+# one column per metric. They are stored under the configured metrics type, just like the metrics
+# Kraken calculates itself, which is the only way to get metrics out of a software that Kraken has
+# no metrics calculation for.
 REPORTED_METRICS_FILE_NAME = "metrics.csv"
 
 
 def calc_metrics(output_directory: Path, *, metrics_type: str) -> dict[str, Any]:
-    """Calculate metrics for the given output directory.
+    """Get all metrics for the given output directory, calculated ones and reported ones.
+
+    On a name clash, the metrics the quanting software reported itself win, as it is the
+    authority on its own numbers.
 
     :param output_directory: Path to the output directory
     :param metrics_type: Type of metrics to calculate ("alphadia" or "custom")
@@ -37,14 +41,18 @@ def calc_metrics(output_directory: Path, *, metrics_type: str) -> dict[str, Any]
         MetricsTypes.CUSTOM: calc_custom_metrics,
     }[metrics_type](output_directory)
 
-    metrics_cleaned = _clean_metrics(metrics)
+    calculated_metrics = _clean_metrics(metrics)
+    logging.info(f"Calculated {metrics_type} metrics: {calculated_metrics}")
 
-    logging.info(f"Calculated {metrics_type} metrics: {metrics_cleaned}")
+    reported_metrics = _get_reported_metrics(output_directory)
 
-    return metrics_cleaned
+    if overlapping := sorted(set(calculated_metrics) & set(reported_metrics)):
+        logging.warning(f"Reported metrics override calculated ones: {overlapping}")
+
+    return calculated_metrics | reported_metrics
 
 
-def get_reported_metrics(output_directory: Path) -> dict[str, Any]:
+def _get_reported_metrics(output_directory: Path) -> dict[str, Any]:
     """Get the metrics the quanting software reported in `REPORTED_METRICS_FILE_NAME`.
 
     :param output_directory: Path to the output directory

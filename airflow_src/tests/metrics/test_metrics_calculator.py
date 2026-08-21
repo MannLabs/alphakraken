@@ -8,8 +8,8 @@ import pytest
 from plugins.metrics.metrics_calculator import (
     REPORTED_METRICS_FILE_NAME,
     _convert_numpy_types,
+    _get_reported_metrics,
     calc_metrics,
-    get_reported_metrics,
 )
 
 from shared.keys import MetricsTypes
@@ -170,41 +170,67 @@ def test_convert_numpy_types_raises_not_implemented_for_set() -> None:
         _convert_numpy_types(input_data)
 
 
-def test_get_reported_metrics_no_file(tmp_path: Path) -> None:
-    """Test get_reported_metrics returns empty dict if the file does not exist."""
-    assert get_reported_metrics(tmp_path) == {}
+def test__get_reported_metrics_no_file(tmp_path: Path) -> None:
+    """Test _get_reported_metrics returns empty dict if the file does not exist."""
+    assert _get_reported_metrics(tmp_path) == {}
 
 
-def test_get_reported_metrics_single_row(tmp_path: Path) -> None:
-    """Test get_reported_metrics reads the metrics of a single-row file."""
+def test__get_reported_metrics_single_row(tmp_path: Path) -> None:
+    """Test _get_reported_metrics reads the metrics of a single-row file."""
     (tmp_path / REPORTED_METRICS_FILE_NAME).write_text(
         "proteins,fwhm.rt,name\n8123,4.2,some_name\n"
     )
 
-    result = get_reported_metrics(tmp_path)
+    result = _get_reported_metrics(tmp_path)
 
     assert result == {"proteins": 8123, "fwhm:rt": 4.2, "name": "some_name"}
     assert isinstance(result["proteins"], int)
 
 
-def test_get_reported_metrics_multiple_rows(tmp_path: Path) -> None:
-    """Test get_reported_metrics uses the first row of a multi-row file."""
+def test__get_reported_metrics_multiple_rows(tmp_path: Path) -> None:
+    """Test _get_reported_metrics uses the first row of a multi-row file."""
     (tmp_path / REPORTED_METRICS_FILE_NAME).write_text(
         "proteins,precursors\n8123,95012\n8090,94500\n"
     )
 
-    assert get_reported_metrics(tmp_path) == {"proteins": 8123, "precursors": 95012}
+    assert _get_reported_metrics(tmp_path) == {"proteins": 8123, "precursors": 95012}
 
 
-def test_get_reported_metrics_header_only(tmp_path: Path) -> None:
-    """Test get_reported_metrics returns empty dict for a file without data rows."""
+def test__get_reported_metrics_header_only(tmp_path: Path) -> None:
+    """Test _get_reported_metrics returns empty dict for a file without data rows."""
     (tmp_path / REPORTED_METRICS_FILE_NAME).write_text("proteins,precursors\n")
 
-    assert get_reported_metrics(tmp_path) == {}
+    assert _get_reported_metrics(tmp_path) == {}
 
 
-def test_get_reported_metrics_nan_value(tmp_path: Path) -> None:
-    """Test get_reported_metrics converts missing values to None."""
+def test__get_reported_metrics_nan_value(tmp_path: Path) -> None:
+    """Test _get_reported_metrics converts missing values to None."""
     (tmp_path / REPORTED_METRICS_FILE_NAME).write_text("proteins,precursors\n8123,\n")
 
-    assert get_reported_metrics(tmp_path) == {"proteins": 8123, "precursors": None}
+    assert _get_reported_metrics(tmp_path) == {"proteins": 8123, "precursors": None}
+
+
+@patch("plugins.metrics.metrics_calculator.calc_custom_metrics")
+def test_calc_metrics_merges_reported_metrics(
+    mock_custom: MagicMock, tmp_path: Path
+) -> None:
+    """Test calc_metrics adds the metrics the quanting software reported itself."""
+    mock_custom.return_value = {"calculated": 1}
+    (tmp_path / REPORTED_METRICS_FILE_NAME).write_text("reported\n2\n")
+
+    result = calc_metrics(tmp_path, metrics_type=MetricsTypes.CUSTOM)
+
+    assert result == {"calculated": 1, "reported": 2}
+
+
+@patch("plugins.metrics.metrics_calculator.calc_msqc_metrics")
+def test_calc_metrics_reported_metrics_win_on_name_clash(
+    mock_msqc: MagicMock, tmp_path: Path
+) -> None:
+    """Test calc_metrics lets the reported metrics override the calculated ones."""
+    mock_msqc.return_value = {"proteins": 8000, "other": 1}
+    (tmp_path / REPORTED_METRICS_FILE_NAME).write_text("proteins\n8123\n")
+
+    result = calc_metrics(tmp_path, metrics_type=MetricsTypes.MSQC)
+
+    assert result == {"proteins": 8123, "other": 1}

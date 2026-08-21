@@ -198,12 +198,7 @@ software_type = c1.selectbox(
     disabled=disable_software_type_selection,
 )
 
-# REPORTED metrics are read from the file the quanting software wrote, there is nothing to calculate
-metrics_type_options = [
-    metrics_type
-    for metrics_type in MetricsTypes.get_values()
-    if metrics_type != MetricsTypes.REPORTED
-]
+metrics_type_options = MetricsTypes.get_values()
 # For non-custom software types, metrics_type is locked to match software_type
 is_custom_software = software_type == SoftwareTypes.CUSTOM
 if not is_custom_software:

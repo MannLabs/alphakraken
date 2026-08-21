@@ -5,7 +5,12 @@ from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
-from plugins.metrics.metrics_calculator import _convert_numpy_types, calc_metrics
+from plugins.metrics.metrics_calculator import (
+    REPORTED_METRICS_FILE_NAME,
+    _convert_numpy_types,
+    _get_reported_metrics,
+    calc_metrics,
+)
 
 from shared.keys import MetricsTypes
 
@@ -23,17 +28,13 @@ def test_calc_metrics_alphadia(mock_alphadia: MagicMock) -> None:
     assert result == {"test_metric": 1.0, "another:metric": 2.5}
 
 
-@patch("plugins.metrics.metrics_calculator.calc_custom_metrics")
-def test_calc_metrics_custom(mock_custom: MagicMock) -> None:
-    """Test calc_metrics with custom metrics type."""
+def test_calc_metrics_custom() -> None:
+    """Test calc_metrics calculates nothing for the custom metrics type."""
     output_dir = Path("/test/output")
-    expected_metrics = {"custom_metric": 3.0, "custom.metric": 4.5}
-    mock_custom.return_value = expected_metrics
 
     result = calc_metrics(output_dir, metrics_type=MetricsTypes.CUSTOM)
 
-    mock_custom.assert_called_once_with(output_dir)
-    assert result == {"custom_metric": 3.0, "custom:metric": 4.5}
+    assert result == {}
 
 
 @patch("plugins.metrics.metrics_calculator.calc_diann_metrics")
@@ -163,3 +164,78 @@ def test_convert_numpy_types_raises_not_implemented_for_set() -> None:
 
     with pytest.raises(NotImplementedError, match="Tuples and sets are not supported"):
         _convert_numpy_types(input_data)
+
+
+def test__get_reported_metrics_no_file(tmp_path: Path) -> None:
+    """Test _get_reported_metrics returns empty dict if the file does not exist."""
+    assert _get_reported_metrics(tmp_path) == {}
+
+
+def test__get_reported_metrics_single_row(tmp_path: Path) -> None:
+    """Test _get_reported_metrics reads the metrics of a single-row file."""
+    (tmp_path / REPORTED_METRICS_FILE_NAME).write_text(
+        "proteins,fwhm.rt,name\n8123,4.2,some_name\n"
+    )
+
+    result = _get_reported_metrics(tmp_path)
+
+    assert result == {"proteins": 8123, "fwhm:rt": 4.2, "name": "some_name"}
+    assert isinstance(result["proteins"], int)
+
+
+def test__get_reported_metrics_multiple_rows(tmp_path: Path) -> None:
+    """Test _get_reported_metrics uses the first row of a multi-row file."""
+    (tmp_path / REPORTED_METRICS_FILE_NAME).write_text(
+        "proteins,precursors\n8123,95012\n8090,94500\n"
+    )
+
+    assert _get_reported_metrics(tmp_path) == {"proteins": 8123, "precursors": 95012}
+
+
+def test__get_reported_metrics_header_only(tmp_path: Path) -> None:
+    """Test _get_reported_metrics returns empty dict for a file without data rows."""
+    (tmp_path / REPORTED_METRICS_FILE_NAME).write_text("proteins,precursors\n")
+
+    assert _get_reported_metrics(tmp_path) == {}
+
+
+def test__get_reported_metrics_nan_value(tmp_path: Path) -> None:
+    """Test _get_reported_metrics converts missing values to None."""
+    (tmp_path / REPORTED_METRICS_FILE_NAME).write_text("proteins,precursors\n8123,\n")
+
+    assert _get_reported_metrics(tmp_path) == {"proteins": 8123, "precursors": None}
+
+
+@patch("plugins.metrics.metrics_calculator.calc_msqc_metrics")
+def test_calc_metrics_merges_reported_metrics(
+    mock_msqc: MagicMock, tmp_path: Path
+) -> None:
+    """Test calc_metrics adds the metrics the quanting software reported itself."""
+    mock_msqc.return_value = {"calculated": 1}
+    (tmp_path / REPORTED_METRICS_FILE_NAME).write_text("reported\n2\n")
+
+    result = calc_metrics(tmp_path, metrics_type=MetricsTypes.MSQC)
+
+    assert result == {"calculated": 1, "reported": 2}
+
+
+def test_calc_metrics_custom_only_reported_metrics(tmp_path: Path) -> None:
+    """Test calc_metrics returns only reported metrics for the custom metrics type."""
+    (tmp_path / REPORTED_METRICS_FILE_NAME).write_text("reported\n2\n")
+
+    result = calc_metrics(tmp_path, metrics_type=MetricsTypes.CUSTOM)
+
+    assert result == {"reported": 2}
+
+
+@patch("plugins.metrics.metrics_calculator.calc_msqc_metrics")
+def test_calc_metrics_reported_metrics_win_on_name_clash(
+    mock_msqc: MagicMock, tmp_path: Path
+) -> None:
+    """Test calc_metrics lets the reported metrics override the calculated ones."""
+    mock_msqc.return_value = {"proteins": 8000, "other": 1}
+    (tmp_path / REPORTED_METRICS_FILE_NAME).write_text("proteins\n8123\n")
+
+    result = calc_metrics(tmp_path, metrics_type=MetricsTypes.MSQC)
+
+    assert result == {"proteins": 8123, "other": 1}

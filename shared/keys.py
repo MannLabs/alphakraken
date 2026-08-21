@@ -78,11 +78,23 @@ class JobEngines(metaclass=ConstantsClass):
 class MetricsTypes(metaclass=ConstantsClass):
     """Types of metrics that can be calculated from quanting results."""
 
+    CUSTOM: str = "custom"
     ALPHADIA: str = "alphadia"
     MSQC: str = "msqc"
     SKYLINE: str = "skyline"
     DIANN: str = "diann"
-    CUSTOM: str = "custom"
+    # EXAMPLE_METRICS: str = "example_metrics" # dummy code for adding new metrics
+
+
+# The metrics types that can be selected for a software type, the first one being the default.
+SOFTWARE_TYPE_TO_METRICS_TYPES: dict[str, list[str]] = {
+    SoftwareTypes.ALPHADIA: [MetricsTypes.ALPHADIA],
+    SoftwareTypes.MSQC: [MetricsTypes.MSQC],
+    SoftwareTypes.SKYLINE: [MetricsTypes.SKYLINE],
+    # SoftwareTypes.EXAMPLE: [MetricsTypes.EXAMPLE_METRICS],  # dummy code for adding new metrics
+    # a custom software is not tied to any metrics, so all of them can be selected
+    SoftwareTypes.CUSTOM: MetricsTypes.get_values(),
+}
 
 
 DEFAULT_SCOPE = "*"

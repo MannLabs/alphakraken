@@ -540,7 +540,7 @@ def compute_metrics(
 
     :param quanting_env: The quanting environment variables dict.
     :param time_elapsed: Elapsed time from the quanting job, added to metrics if provided.
-    :return: Dict with ``metrics`` and ``metrics_type``.
+    :return: The metrics.
     """
     metrics_type = quanting_env[QuantingEnv.METRICS_TYPE]
     output_path = Path(quanting_env[QuantingEnv.INTERNAL_OUTPUT_PATH])
@@ -550,21 +550,18 @@ def compute_metrics(
     if time_elapsed is not None:  # TODO: find a better way to handle this also for msqc
         metrics[TIME_ELAPSED_METRIC] = time_elapsed
 
-    return {"metrics": metrics, "metrics_type": metrics_type}
+    return metrics
 
 
-def store_metrics(*, quanting_env: dict, metrics: dict, metrics_type: str) -> None:
+def store_metrics(*, quanting_env: dict, metrics: dict) -> None:
     """Store metrics in the database.
 
     :param quanting_env: The quanting environment variables dict.
-    :param metrics: The computed metrics dictionary.
-    :param metrics_type: The type of metrics (e.g. alphadia, custom).
+    :param metrics: The metrics.
     """
-    raw_file_id = quanting_env[QuantingEnv.RAW_FILE_ID]
-
     add_metrics_to_raw_file(
-        raw_file_id,
-        metrics_type=metrics_type,
+        quanting_env[QuantingEnv.RAW_FILE_ID],
+        metrics_type=quanting_env[QuantingEnv.METRICS_TYPE],
         metrics=metrics,
         settings_name=quanting_env[QuantingEnv.SETTINGS_NAME],
         settings_version=quanting_env[QuantingEnv.SETTINGS_VERSION],

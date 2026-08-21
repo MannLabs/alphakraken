@@ -7,7 +7,7 @@ from pathlib import Path
 from airflow.exceptions import AirflowFailException
 from airflow.models import TaskInstance
 from common.keys import DagContext, DagParams, XComKeys
-from common.utils import get_env_variable, get_xcom, put_xcom
+from common.utils import get_xcom, put_xcom
 from file_handling import compare_paths, get_file_size
 from raw_file_wrapper_factory import (
     MovePathProvider,
@@ -17,7 +17,6 @@ from raw_file_wrapper_factory import (
 
 from shared.db.interface import get_raw_file_by_id, update_raw_file
 from shared.db.models import InstrumentFileStatus, RawFile
-from shared.keys import EnvVars
 
 # Note: the parent DAG does not have callbacks configured yet
 
@@ -117,16 +116,7 @@ def _move_files(files_to_move: dict[Path, Path], *, only_rename: bool = False) -
     :param files_to_move: dictionary mapping source to destination paths
     :param only_rename: if True, only rename the source file (add a .deleteme extension to it)
     """
-    env_name = get_env_variable(EnvVars.ENV_NAME)
-
     for src_path, dst_path in files_to_move.items():
-        # security measure to not have sandbox interfere with production
-        if env_name != "production":
-            logging.warning(
-                f"NOT moving raw file {src_path} to {dst_path}: not in production."
-            )
-            continue
-
         if not dst_path.parent.exists():
             logging.info(f"Creating directory {dst_path.parent}")
             dst_path.parent.mkdir(parents=True, exist_ok=True)

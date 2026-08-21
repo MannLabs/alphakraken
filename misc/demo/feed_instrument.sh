@@ -7,6 +7,9 @@
 # Note that an acquisition is considered finished once the *next* file shows up in the instrument
 # folder (cf. AcquisitionMonitor), so this interval is what paces the whole pipeline.
 #
+# A file is only copied if there is enough free disk space for it and for the pool backup copy that
+# follows; otherwise the acquisition is skipped and retried at the next interval.
+#
 # Run in the foreground to watch it, or detached:
 #   nohup misc/demo/feed_instrument.sh > misc/demo/.state/feeder.log 2>&1 &
 
@@ -18,6 +21,8 @@ SOURCE_DIR=${SOURCE_DIR:-${DEMO_DIR}/raw_files}
 TARGET_DIR=${TARGET_DIR:-${DEMO_DIR}/mounts/instruments/demo1}
 # 21 minutes, matching the gradient length of the demo files
 INTERVAL_S=${INTERVAL_S:-1260}
+# a file that gets acquired is also copied to the pool backup, hence twice its size, plus 10% headroom
+REQUIRED_SPACE_PERCENT=${REQUIRED_SPACE_PERCENT:-220}
 
 SOURCE_FILES=()
 while IFS= read -r source_file; do
@@ -41,6 +46,16 @@ while true; do
   sleep "$INTERVAL_S"
 
   source_file=${SOURCE_FILES[$i]}
+
+  required=$(($(stat -c %s "$source_file") * REQUIRED_SPACE_PERCENT / 100))
+  available=$(df -B1 --output=avail "$TARGET_DIR" | tail -n 1)
+  if [ "$available" -lt "$required" ]; then
+    # not advancing the index: the same file is retried next interval, by which time the hourly
+    # pruner may have freed up space again
+    echo "$(date +%Y-%m-%dT%H:%M:%S) skipping $(basename "$source_file"): ${available} bytes available on ${TARGET_DIR}, ${required} required"
+    continue
+  fi
+
   stem=$(basename "$source_file" .raw)
   # ':' is not allowed in raw file names, cf. shared/validation.py
   target_file="${TARGET_DIR}/${stem}_$(date +%Y%m%d-%H%M%S).raw"

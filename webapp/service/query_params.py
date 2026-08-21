@@ -15,6 +15,9 @@ class QueryParams:
     # instruments to load from the DB
     INSTRUMENTS = "instruments"
 
+    # project whose files to load from the DB
+    PROJECT_ID = "project_id"
+
     # max length of table to display
     MAX_TABLE_LEN = "max_table_len"
 

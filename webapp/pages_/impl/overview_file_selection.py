@@ -109,7 +109,7 @@ def _show_output_folders(file_ids: list) -> None:
                     f"Warning: the following {len(multi_folder_raw_files)} raw files have "
                     f"more than one output folder in this group:\n- {multi_folder_str}"
                 )
-            
+
             output_paths_str = "\n".join(output_paths)
             st.download_button(
                 label="⬇️ Download as txt",

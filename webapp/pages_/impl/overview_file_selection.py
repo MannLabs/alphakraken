@@ -43,6 +43,7 @@ def _show_file_paths(file_ids: list, prefix: str) -> None:
         )
         st.code(file_paths_multi_line)
 
+
 def _show_file_paths_controls(
     file_ids: list,
     *,
@@ -86,7 +87,6 @@ def _show_output_folders(file_ids: list) -> None:
         st.info("No output folders found for the selection.")
         return
 
-
     for (
         settings_name,
         settings_version,
@@ -96,8 +96,10 @@ def _show_output_folders(file_ids: list) -> None:
     ):
         output_paths = group["output_path"].tolist()
 
-        with st.expander(f"**{settings_name}** (v{settings_version}, {metrics_type}) — {len(output_paths)} folders", expanded=False):
-
+        with st.expander(
+            f"**{settings_name}** (v{settings_version}, {metrics_type}) — {len(output_paths)} folders",
+            expanded=False,
+        ):
             raw_file_folder_counts = group.groupby("raw_file_id").size()
             multi_folder_raw_files = raw_file_folder_counts[raw_file_folder_counts > 1]
             if not multi_folder_raw_files.empty:
@@ -119,6 +121,7 @@ def _show_output_folders(file_ids: list) -> None:
                 key=f"download_output_folders_{settings_name}_{settings_version}_{metrics_type}",
             )
             st.code(output_paths_str)
+
 
 def _show_output_folders_button(
     file_ids: list,
@@ -184,7 +187,6 @@ def _show_file_selection(df: pd.DataFrame, max_table_len: int) -> None:
         help="For the ticked files, show the file names (one per line).",
     ):
         with st.expander(f"{len(selected_ids)} file names:", expanded=True):
-
             file_names_str = "\n".join(str(file_id) for file_id in selected_ids)
             st.download_button(
                 label="⬇️ Download as txt",

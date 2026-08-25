@@ -38,7 +38,7 @@ def calc_metrics(output_directory: Path, *, metrics_type: str) -> dict[str, Any]
         MetricsTypes.MSQC: calc_msqc_metrics,
         MetricsTypes.SKYLINE: calc_skyline_metrics,
         MetricsTypes.DIANN: calc_diann_metrics,
-        MetricsTypes.CUSTOM: _calc_no_metrics, # metrics are taken from a metrics.csv file exclusively
+        MetricsTypes.CUSTOM: _calc_no_metrics,  # metrics are taken from a metrics.csv file exclusively
         # MetricsTypes.EXAMPLE_METRICS: calc_example_metrics, # dummy code for adding new metrics
     }[metrics_type](output_directory)
 

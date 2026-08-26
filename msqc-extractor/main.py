@@ -200,10 +200,6 @@ def calculate_bruker_metrics(
 
 
 if __name__ == "__main__":
-    print(f"Arguments: {sys.argv}")  # noqa: T201
-    print("Environment variables:")  # noqa: T201
-    for key, value in sorted(os.environ.items()):
-        print(f"  {key}={value}")  # noqa: T201
 
     if len(sys.argv) != NUM_EXPECTED_ARGS:
         print(USAGE)  # noqa: T201
@@ -214,8 +210,7 @@ if __name__ == "__main__":
     num_threads = int(sys.argv[3])
 
     print(f"Starting MSQC extraction {raw_file_path} {output_path} {num_threads=}")  #  noqa: T201
-    # from time import sleep
-    # sleep(1000)
+
     if raw_file_path.endswith(".raw"):
         auxiliary_items = ["injection_time", "faims_cv"]
         raw_file = thermo.ThermoRawData(auxiliary_items=auxiliary_items)

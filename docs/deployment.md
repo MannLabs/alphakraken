@@ -342,7 +342,7 @@ Note that the docker socket is mounted into the quanting workers, which is equiv
 the host. This is acceptable for a single-machine standalone deployment (`compose.sh` already runs
 `docker compose` with `sudo`), but it should not be enabled on a multi-machine production setup.
 3. Make sure `locations.general.mounts_path` in `envs/alphakraken.${ENV}.yaml` points to the mounts folder
-as seen by the docker host (it must match `MOUNTS_PATH` in `envs/${ENV}.env`). 
+as seen by the docker host (it must match `MOUNTS_PATH` in `envs/${ENV}.env`).
 4. As no cluster is available, set up a dummy `cluster_ssh_connection` and set the Airflow variable
 `debug_no_cluster_ssh` to `true`, cf. [Setup SSH connection](#setup-ssh-connection).
 5. Size the `cluster_slots_pool` to the local machine's capacity: it gates the `submit_job` and job
@@ -359,7 +359,7 @@ monitoring tasks for all engines, not only for Slurm.
 
 Notes:
 - Images are never pulled: the image named in the `software` field must already be present on the
-worker host, otherwise the job fails. 
+worker host, otherwise the job fails.
 - Unlike Slurm, docker has no wall clock limit, so the `slurm_time` resource parameter is ignored and a
 hanging container is monitored indefinitely.
 - Containers are kept after they exited so that their logs and exit code can be read. Clean them up

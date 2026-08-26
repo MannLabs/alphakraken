@@ -106,19 +106,29 @@ all_tis = dag_run.get_task_instances()
 
 Verified: `RuntimeTaskInstance` in 3.3.1 has **no** `get_dagrun`. This is the one blocker with no existing seam.
 
-**Action now (2.11-compatible):** extract the state collection into its own function so doc B replaces one function body instead of restructuring the whole routine:
+**Action (done):** the state collection is extracted into `_get_branch_states`
+(`processor_impl.py:621`) so doc B replaces one function body instead of restructuring the routine:
 
 ```python
-def _get_branch_states(ti: TaskInstance) -> dict[int, dict[str, str]]:
-    """Return {map_index: {task_id: state}} for all tasks in the processing task group."""
-    branch_states: dict[int, dict[str, str]] = defaultdict(dict)
+def _get_branch_states(ti: TaskInstance) -> dict[int, dict[str, str | None]]:
+    """Return the state of every processing-branch task, keyed by map index and task id.
+
+    Non-mapped tasks (map_index=-1) are excluded.
+    """
+    branch_states: dict[int, dict[str, str | None]] = defaultdict(dict)
     for ti_ in ti.get_dagrun().get_task_instances():
         if ti_.task_id.startswith(_TASK_GROUP_PREFIX) and ti_.map_index >= 0:
             branch_states[ti_.map_index][ti_.task_id] = ti_.state
     return branch_states
 ```
 
-`_extract_errors` then takes `dict[int, dict[str, str]]` instead of `dict[int, list[TaskInstance]]`, and the `t.state == TaskInstanceState.FAILED` check becomes a dict-value check. Behaviour is identical on 2.11; doc B swaps only `_get_branch_states`.
+`_extract_errors` now takes `dict[int, dict[str, str | None]]` instead of
+`dict[int, list[TaskInstance]]`, and the `t.state == TaskInstanceState.FAILED` check became a
+dict-value check. `state` is typed `str | None` because `TaskInstance.state` is nullable.
+
+Behaviour is identical, including the order of `failed_task_names`: it was list-append order from
+`get_task_instances()` and is now dict insertion order over the same iteration. Verified — 459 passed
+on 2.11, and no new failures on 3.3.1.
 
 ### 3.3 `_get_cluster_ssh_connections()` — ORM query on `Connection` 🔴
 
@@ -197,11 +207,25 @@ Worth recording so nobody re-litigates them during the migration:
 
 ## 6. Suggested PR split
 
-| PR | Content | Risk |
-|---|---|---|
-| A1 | §1 standard-provider imports + requirements pin | trivial |
-| A2 | §4.1 + §4.2 test/CI fixes | trivial |
-| A3 | §3.2 extract `_get_branch_states` | low — pure refactor, covered by `tests/dags/impl/test_processor_impl.py` |
-| A4 | §4.3 type alias | cosmetic |
+| PR | Content | Risk | Status |
+|---|---|---|---|
+| A1 | §1 standard-provider imports + requirements pin | trivial | **done** (`2c534888`) |
+| A2 | §4.1 + §4.2 test/CI fixes | trivial | **done** |
+| A3 | §3.2 extract `_get_branch_states` | low — pure refactor, covered by `tests/dags/impl/test_processor_impl.py` | **done** |
+| A4 | §4.3 type alias | cosmetic | open |
+| — | §3.1 marker comment on `trigger_dag_run` | none | **done** |
 
-After A1–A4, doc B's code diff is roughly: one import sweep + three function bodies.
+Verification baseline after A1–A3: **459 passed on 2.11**; on 3.3.1 **457 passed, 2 failed**, the two
+failures being `tests/common/test_utils.py::test_trigger_dag_run{,_with_delay}` — the §3.1 /
+doc B §3.2 blocker, which the existing unit tests already catch:
+
+```
+airflow_src/plugins/common/utils.py:112: TypeError
+DagRun.generate_run_id() got an unexpected keyword argument 'execution_date'
+```
+
+So doc B's code diff is now: one import sweep + three function bodies (`trigger_dag_run`,
+`_get_branch_states`, `_get_cluster_ssh_connections`) + the `Variable.get` kwarg.
+
+Caveat: unit tests mock `ti`, so they cannot catch the ORM guard in `_get_branch_states` or
+`_get_cluster_ssh_connections` — those two still need a real worker (doc B §6).

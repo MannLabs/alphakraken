@@ -124,24 +124,32 @@ Refs: [Stable REST API v2](https://airflow.apache.org/docs/apache-airflow/stable
 
 ### 3.3 `finalize_raw_file_status()` → `ti.get_task_states()` 🔴
 
-`dags/impl/processor_impl.py:579`. `RuntimeTaskInstance` has **no** `get_dagrun()` in Airflow 3 (verified). If doc A §3.2 was done, only `_get_branch_states` changes:
+`RuntimeTaskInstance` has **no** `get_dagrun()` in Airflow 3 (verified).
+
+Doc A §3.2 is **done**: the ORM read is isolated in `_get_branch_states`
+(`dags/impl/processor_impl.py:621`), the only remaining caller of `ti.get_dagrun()`. Swap that one
+function body; `finalize_raw_file_status` (`:579`) and `_extract_errors` (`:633`) stay as they are.
 
 ```python
-def _get_branch_states(ti) -> dict[int, dict[str, str]]:
-    """Return {map_index: {task_id: state}} for all tasks in the processing task group."""
+def _get_branch_states(ti: TaskInstance) -> dict[int, dict[str, str | None]]:
+    """Return the state of every processing-branch task, keyed by map index and task id."""
     states = ti.get_task_states(
         dag_id=ti.dag_id,
         task_group_id=TaskGroups.PROCESSING,
         run_ids=[ti.run_id],
     ).get(ti.run_id, {})
 
-    branch_states: dict[int, dict[str, str]] = defaultdict(dict)
+    branch_states: dict[int, dict[str, str | None]] = defaultdict(dict)
     for key, state in states.items():
         task_id, _, map_index = key.rpartition("_")
         if map_index.isdigit():
             branch_states[int(map_index)][task_id] = state
     return branch_states
 ```
+
+The keys must stay **full** task ids (`processing.prepare_job`, not `prepare_job`) — `_extract_errors`
+strips the prefix itself via `removeprefix(_TASK_GROUP_PREFIX)`. `rpartition("_")` on
+`processing.prepare_job_0` yields exactly that, so the contract holds.
 
 The return shape is **not** documented; it was read off the API-server implementation (`airflow/api_fastapi/execution_api/routes/task_instances.py:1263-1273`):
 

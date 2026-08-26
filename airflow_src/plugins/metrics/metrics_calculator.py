@@ -13,8 +13,8 @@ from metrics.metrics.base import read_csv
 from metrics.metrics.diann import calc_diann_metrics
 from metrics.metrics.msqc import calc_msqc_metrics
 from metrics.metrics.skyline import calc_skyline_metrics
-# from metrics.metrics.skyline import calc_skyline_metrics # dummy code for adding new metrics
 
+# from metrics.metrics.skyline import calc_skyline_metrics # dummy code for adding new metrics
 from shared.keys import MetricsTypes
 
 # optional file in the output directory in which the quanting software can report metrics itself,

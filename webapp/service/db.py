@@ -6,7 +6,6 @@ from datetime import datetime, timedelta
 # ruff: noqa: PD002 # `inplace=True` should be avoided; it has inconsistent behavior
 import pandas as pd
 import pytz
-import streamlit as st
 from mongoengine import Q, QuerySet
 from service.utils import _log
 
@@ -84,10 +83,6 @@ def _validate_input(values: list[str] | None, param_name: str) -> None:
             )
 
 
-# Cached values are accessible to all users across all sessions.
-# Considering memory it should currently be fine to have all data cached.
-# Command for clearing the cache:  get_all_data.clear()
-@st.cache_data(ttl=120)
 def get_raw_file_and_metrics_data(
     max_age_in_days: float | None,
     raw_file_ids: list[str] | None,
@@ -111,8 +106,10 @@ def get_raw_file_and_metrics_data(
     if raw_file_ids is not None:
         # selection by raw file ids takes precedence over max_age_in_days and instruments
         q = Q(id__in=raw_file_ids)
+        metrics_q = Q(raw_file__in=raw_file_ids)
     else:
         q = Q()
+        metrics_q = Q()
         if max_age_in_days is not None:
             min_created_at = pd.Timestamp(
                 datetime.now(tz=pytz.UTC) - timedelta(days=max_age_in_days)
@@ -120,6 +117,12 @@ def get_raw_file_and_metrics_data(
             q &= Q(
                 created_at__gt=min_created_at
             )  # query on file creation date ('created_at')
+            # Metrics can only be written after their raw file was registered, so restricting
+            # them by their own insertion date yields a superset of the metrics of the selected
+            # raw files. Selecting them by raw file id instead would mean sending one id per
+            # selected raw file to the database. The superset is discarded when joining, cf.
+            # get_combined_raw_files_and_metrics_df().
+            metrics_q &= Q(created_at___gte=min_created_at)  # field is 'created_at_'
         if instruments is not None:
             q &= Q(instrument_id__in=instruments)
 
@@ -130,7 +133,7 @@ def get_raw_file_and_metrics_data(
         .exclude("backup_base_path")
     )
 
-    metrics_db = Metrics.objects(raw_file__in=raw_files_db)
+    metrics_db = Metrics.objects(metrics_q)
 
     now = datetime.now(tz=pytz.UTC).replace(microsecond=0)
 

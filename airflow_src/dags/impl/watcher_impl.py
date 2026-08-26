@@ -58,9 +58,7 @@ def _add_raw_file_to_db(  # noqa: PLR0913
     )
 
 
-def get_unknown_raw_files(
-    ti: TaskInstance, *, case_insensitive: bool = False, **kwargs
-) -> None:
+def get_unknown_raw_files(ti: TaskInstance, **kwargs) -> None:
     """Get all raw files that should be considered for further processing and push to XCom.
 
     Due to potential file name collisions (i.e. a newly acquired file has the same name as one that is already processed),
@@ -68,9 +66,8 @@ def get_unknown_raw_files(
     is still being acquired.
     For each file on the instrument, we check if it is already in the database.
 
-    If the case_insensitive flag is set, the comparison is done by case-insensitive original file name,
-    i.e. the files TEST.raw and test.raw are considered the same.
-    This is important, in case the backup file system is case-insensitive, e.g. on Windows.
+    The comparison is done by case-insensitive original file name, i.e. the files TEST.raw and test.raw
+    are considered the same. This is important, in case the backup file system is case-insensitive, e.g. on Windows.
 
     If not, it is kept in the list of files to be processed that is eventually pushed to XCom.
     If yes, we first check all file sizes in the DB:
@@ -88,11 +85,6 @@ def get_unknown_raw_files(
     Note there's a potential race condition with the "add to db" operation in the subsequent
     start_acquisition_handler(), task, However, as we allow only one of these DAGs to run at a time, this should not be an issue.
     """
-
-    def _cond_lower(raw_file_name: str) -> str:
-        """Return the lower case version of the file name if case-insensitive."""
-        return raw_file_name.lower() if case_insensitive else raw_file_name
-
     instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
 
     raw_file_names_on_instrument = sorted(
@@ -114,9 +106,9 @@ def get_unknown_raw_files(
             raw_file_size = get_main_file_size_from_db(raw_file)
 
         # due to collisions, there could be more than one raw file with the same original name, therefore keep a list of sizes for each original name
-        raw_files_names_lower_to_sizes_from_db[
-            _cond_lower(raw_file.original_name)
-        ].append(raw_file_size)
+        raw_files_names_lower_to_sizes_from_db[raw_file.original_name.lower()].append(
+            raw_file_size
+        )
     logging.info(f"got {raw_files_names_lower_to_sizes_from_db=}")
 
     raw_file_names_to_process: dict[str, bool] = {}
@@ -124,7 +116,7 @@ def get_unknown_raw_files(
         is_collision = False
 
         if (
-            _cond_lower(raw_file_name_on_instrument)
+            raw_file_name_on_instrument.lower()
             in raw_files_names_lower_to_sizes_from_db
         ):
             logging.info(
@@ -139,7 +131,7 @@ def get_unknown_raw_files(
             is_collision = _is_collision(
                 main_file_path,
                 raw_files_names_lower_to_sizes_from_db[
-                    _cond_lower(raw_file_name_on_instrument)
+                    raw_file_name_on_instrument.lower()
                 ],
             )
             if not is_collision:

@@ -91,6 +91,39 @@ def test_get_raw_files_by_names_returns_expected_names_when_files_exist(
 
 @patch("shared.db.interface.connect_db")
 @patch("shared.db.interface.RawFile")
+def test_get_raw_files_by_names_filters_by_exact_names_if_case_sensitive(
+    mock_raw_file: MagicMock, mock_connect_db: MagicMock
+) -> None:
+    """Test that get_raw_files_by_names queries the exact names if case sensitivity is requested."""
+    # when
+    get_raw_files_by_names(["file1.raw", "file2.raw"], case_sensitive=True)
+
+    # then
+    mock_raw_file.objects.filter.assert_called_once_with(
+        original_name__in=["file1.raw", "file2.raw"]
+    )
+    mock_connect_db.assert_called_once()
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.RawFile")
+def test_get_raw_files_by_names_filters_case_insensitively(
+    mock_raw_file: MagicMock, mock_connect_db: MagicMock
+) -> None:
+    """Test that get_raw_files_by_names matches names regardless of case."""
+    # when
+    get_raw_files_by_names(["file1.raw"])
+
+    # then
+    patterns = mock_raw_file.objects.filter.call_args.kwargs["original_name__in"]
+    assert [p.pattern for p in patterns] == [r"^file1\.raw$"]
+    assert patterns[0].match("FILE1.raw")
+    assert not patterns[0].match("xfile1.rawx")
+    mock_connect_db.assert_called_once()
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.RawFile")
 def test_get_raw_file_by_id(
     mock_raw_file: MagicMock, mock_connect_db: MagicMock
 ) -> None:

@@ -32,8 +32,16 @@ def _show_file_paths(file_ids: list, prefix: str) -> None:
         st.code(f"{file_paths_pretty_one_line}")
 
         st.write("Multi-line format:")
+
         file_paths_pretty = f"\n{prefix}".join(file_paths)
-        st.code(f"{prefix}{file_paths_pretty}")
+        file_paths_multi_line = f"{prefix}{file_paths_pretty}"
+        st.download_button(
+            label="⬇️ Download as txt",
+            data=file_paths_multi_line,
+            file_name="AlphaKraken_file_paths.txt",
+            mime="text/plain",
+        )
+        st.code(file_paths_multi_line)
 
 
 def _show_file_paths_controls(
@@ -79,20 +87,19 @@ def _show_output_folders(file_ids: list) -> None:
         st.info("No output folders found for the selection.")
         return
 
-    with st.expander(f"Found {len(output_folders_df)} output folders:", expanded=True):
-        for (
-            settings_name,
-            settings_version,
-            metrics_type,
-        ), group in output_folders_df.groupby(
-            ["settings_name", "settings_version", "type"]
-        ):
-            output_paths = group["output_path"].tolist()
-            st.write(
-                f"**{settings_name}** (v{settings_version}, {metrics_type}) — {len(output_paths)} folders:"
-            )
-            st.code("\n".join(output_paths))
+    for (
+        settings_name,
+        settings_version,
+        metrics_type,
+    ), group in output_folders_df.groupby(
+        ["settings_name", "settings_version", "type"]
+    ):
+        output_paths = group["output_path"].tolist()
 
+        with st.expander(
+            f"**{settings_name}** (v{settings_version}, {metrics_type}) — {len(output_paths)} folders",
+            expanded=False,
+        ):
             raw_file_folder_counts = group.groupby("raw_file_id").size()
             multi_folder_raw_files = raw_file_folder_counts[raw_file_folder_counts > 1]
             if not multi_folder_raw_files.empty:
@@ -104,6 +111,16 @@ def _show_output_folders(file_ids: list) -> None:
                     f"Warning: the following {len(multi_folder_raw_files)} raw files have "
                     f"more than one output folder in this group:\n- {multi_folder_str}"
                 )
+
+            output_paths_str = "\n".join(output_paths)
+            st.download_button(
+                label="⬇️ Download as txt",
+                data=output_paths_str,
+                file_name=f"AlphaKraken_output_folders_{settings_name}-v{settings_version}_{metrics_type}.txt",
+                mime="text/plain",
+                key=f"download_output_folders_{settings_name}_{settings_version}_{metrics_type}",
+            )
+            st.code(output_paths_str)
 
 
 def _show_output_folders_button(
@@ -165,12 +182,19 @@ def _show_file_selection(df: pd.DataFrame, max_table_len: int) -> None:
         button_help="For the ticked files, show all file paths on the backup for conveniently copying them manually to another location.",
     )
 
-    if not df_to_show.empty and c2.button(
+    if c2.button(
         "🔤 Show file names",
         help="For the ticked files, show the file names (one per line).",
     ):
         with st.expander(f"{len(selected_ids)} file names:", expanded=True):
-            st.code("\n".join(str(file_id) for file_id in selected_ids))
+            file_names_str = "\n".join(str(file_id) for file_id in selected_ids)
+            st.download_button(
+                label="⬇️ Download as txt",
+                data=file_names_str,
+                file_name="AlphaKraken_file_names.txt",
+                mime="text/plain",
+            )
+            st.code(file_names_str)
 
     _show_output_folders_button(
         selected_ids,

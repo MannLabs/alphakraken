@@ -78,7 +78,7 @@ def test_get_unknown_raw_files_with_existing_files_in_db(  # noqa: PLR0913
     mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.get_raw_files_on_instrument.return_value = {
         "file1.raw",  # no collision
         "file2.raw",  # is_collision
-        "file3.raw",  # different case than DB-> not in DB
+        "file3.raw",  # different case than DB -> matched case-insensitively, is_collision
         "file4.raw",  # not in DB
     }
     mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.main_file_path.side_effect = [
@@ -100,7 +100,7 @@ def test_get_unknown_raw_files_with_existing_files_in_db(  # noqa: PLR0913
 
     mock_get_main_file_size_from_db.side_effect = [123, 234, 567]
 
-    mock_is_collision.side_effect = [False, True]
+    mock_is_collision.side_effect = [False, True, True]
 
     ti = Mock()
     mock_sort.return_value = ["file4.raw", "file3.raw", "file2.raw"]
@@ -111,7 +111,7 @@ def test_get_unknown_raw_files_with_existing_files_in_db(  # noqa: PLR0913
     mock_put_xcom.assert_called_once_with(
         ti,
         XComKeys.RAW_FILE_NAMES_TO_PROCESS,
-        {"file4.raw": False, "file3.raw": False, "file2.raw": True},
+        {"file4.raw": False, "file3.raw": True, "file2.raw": True},
     )
     mock_sort.assert_called_once_with(
         ["file2.raw", "file3.raw", "file4.raw"], SOME_INSTRUMENT_ID
@@ -120,6 +120,7 @@ def test_get_unknown_raw_files_with_existing_files_in_db(  # noqa: PLR0913
         [
             call(Path("/path/to/file1.raw"), [123]),
             call(Path("/path/to/file2.raw"), [234]),
+            call(Path("/path/to/file3.raw"), [567]),
         ]
     )
 
@@ -138,7 +139,7 @@ def test_get_unknown_raw_files_with_existing_files_in_db_case_insensitive(  # no
     mock_get_raw_files_by_names: MagicMock,
     mock_raw_file_wrapper_factory: MagicMock,
 ) -> None:
-    """Test get_unknown_raw_files with existing files in th but different case in database."""
+    """Test get_unknown_raw_files with existing files in the database, but with a different case."""
     mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.get_raw_files_on_instrument.return_value = {
         "file3.raw",
     }
@@ -159,9 +160,7 @@ def test_get_unknown_raw_files_with_existing_files_in_db_case_insensitive(  # no
     mock_sort.return_value = ["file3.raw"]
 
     # when
-    get_unknown_raw_files(
-        ti, case_insensitive=True, **{OpArgs.INSTRUMENT_ID: SOME_INSTRUMENT_ID}
-    )
+    get_unknown_raw_files(ti, **{OpArgs.INSTRUMENT_ID: SOME_INSTRUMENT_ID})
 
     mock_put_xcom.assert_called_once_with(
         ti,
@@ -169,6 +168,7 @@ def test_get_unknown_raw_files_with_existing_files_in_db_case_insensitive(  # no
         {"file3.raw": True},
     )
     mock_sort.assert_called_once_with(["file3.raw"], SOME_INSTRUMENT_ID)
+    mock_get_raw_files_by_names.assert_called_once_with(["file3.raw"])
     mock_is_collision.assert_has_calls(
         [
             call(Path("/path/to/file3.raw"), [123]),

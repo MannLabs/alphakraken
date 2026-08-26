@@ -9,7 +9,15 @@ import pytz
 from airflow.exceptions import AirflowFailException, DagNotFound
 from airflow.models import TaskInstance
 from common.constants import COLLISION_FLAG_SEP
-from common.keys import DAG_DELIMITER, AirflowVars, DagParams, Dags, OpArgs, XComKeys
+from common.keys import (
+    DAG_DELIMITER,
+    AirflowVars,
+    DagParams,
+    Dags,
+    OpArgs,
+    Tasks,
+    XComKeys,
+)
 from common.utils import get_airflow_variable, get_xcom, put_xcom, trigger_dag_run
 from file_handling import get_file_creation_timestamp, get_file_size
 from impl.project_id_handler import get_unique_project_id
@@ -196,7 +204,7 @@ def decide_raw_file_handling(ti: TaskInstance, **kwargs) -> None:
     """Decide for each raw file whether an acquisition handler should be triggered or not."""
     instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
     raw_file_names_to_process: dict[str, bool] = get_xcom(
-        ti, XComKeys.RAW_FILE_NAMES_TO_PROCESS
+        ti, XComKeys.RAW_FILE_NAMES_TO_PROCESS, task_ids=Tasks.GET_UNKNOWN_RAW_FILES
     )
 
     logging.info(
@@ -287,7 +295,9 @@ def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
     Only for raw files that carry a project id, the acquisition_handler DAG is triggered.
     """
     instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
-    raw_file_names_with_decisions = get_xcom(ti, XComKeys.RAW_FILE_NAMES_WITH_DECISIONS)
+    raw_file_names_with_decisions = get_xcom(
+        ti, XComKeys.RAW_FILE_NAMES_WITH_DECISIONS, task_ids=Tasks.DECIDE_HANDLING
+    )
     logging.info(f"Got {len(raw_file_names_with_decisions)} raw files to handle.")
 
     dag_id_to_trigger = f"{Dags.ACQUISITION_HANDLER}{DAG_DELIMITER}{instrument_id}"

@@ -6,7 +6,7 @@ from pathlib import Path
 
 from airflow.exceptions import AirflowFailException
 from airflow.models import TaskInstance
-from common.keys import DagContext, DagParams, XComKeys
+from common.keys import DagContext, DagParams, Tasks, XComKeys
 from common.utils import get_env_variable, get_xcom, put_xcom
 from file_handling import compare_paths, get_file_size
 from raw_file_wrapper_factory import (
@@ -52,7 +52,9 @@ def move_files(ti: TaskInstance, **kwargs) -> None:
     raw_file_id = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID]
     raw_file = get_raw_file_by_id(raw_file_id)
 
-    files_to_move_str = get_xcom(ti, XComKeys.FILES_TO_MOVE)
+    files_to_move_str = get_xcom(
+        ti, XComKeys.FILES_TO_MOVE, task_ids=Tasks.GET_FILES_TO_MOVE
+    )
     files_to_move = {Path(k): Path(v) for k, v in files_to_move_str.items()}
 
     files_to_actually_move, files_to_actually_remove = _get_files_to_move(files_to_move)
@@ -168,7 +170,9 @@ def _check_main_file_to_move(ti: TaskInstance, raw_file: RawFile) -> None:
 
     :raises: AirflowFailException if the file size does not match the database record.
     """
-    main_file_to_move = Path(get_xcom(ti, XComKeys.MAIN_FILE_TO_MOVE))
+    main_file_to_move = Path(
+        get_xcom(ti, XComKeys.MAIN_FILE_TO_MOVE, task_ids=Tasks.GET_FILES_TO_MOVE)
+    )
 
     if (size_current := get_file_size(main_file_to_move)) != (
         size_db := get_main_file_size_from_db(raw_file)

@@ -144,6 +144,51 @@ The Task Execution API can fetch a connection **by id** (`GetConnection`) but ha
 
 **Action now:** none — single seam, 9 call sites all route through it. Flag it in doc B so the kwarg rename is not missed; it would otherwise fail only at runtime.
 
+### 3.5 `get_xcom()` without `task_ids` — semantics reverse 🔴
+
+The single worst finding in this repo, and Ruff does not see it.
+
+`xcom_pull(task_ids=None)` means the **opposite** thing in the two versions:
+
+| Version | Docstring | Effect |
+|---|---|---|
+| 2.11 | "Only XComs from tasks with matching ids will be pulled. **Pass `None` to remove the filter.**" | pull from **any** task in the run |
+| 3.3.1 | "**If `None` (default), the task_id of the calling task is used.**" | pull from **the calling task only** |
+
+Every cross-task pull that omits `task_ids` therefore stops finding its value. **11 of the 14
+`get_xcom()` call sites omit it, and all 11 are genuine cross-task pulls.** Only the two inside
+`_extract_errors` pass `task_ids`.
+
+| Pull site | Key | Pushed by | Airflow 3 outcome |
+|---|---|---|---|
+| `handler_impl.py:78` `compute_checksum` | `ACQUISITION_MONITOR_ERRORS` | `AcquisitionMonitor.post_execute` | 🔥 **silent** — defaults to `[]` |
+| `handler_impl.py:427` `decide_processing` | `ACQUISITION_MONITOR_ERRORS` | `AcquisitionMonitor.post_execute` | 🔥 **silent** — defaults to `[]` |
+| `handler_impl.py:227` `copy_raw_file` | `FILES_DST_PATHS` | `compute_checksum` | `KeyError` |
+| `handler_impl.py:230` `copy_raw_file` | `FILES_SIZE_AND_HASHSUM` | `compute_checksum` | `KeyError` |
+| `handler_impl.py:387` `start_s3_uploader` | `TARGET_FOLDER_PATH` | `compute_checksum` | `KeyError` |
+| `mover_impl.py:55` `move_files` | `FILES_TO_MOVE` | `get_files_to_move` | `KeyError` |
+| `mover_impl.py:171` `_check_main_file_to_move` | `MAIN_FILE_TO_MOVE` | `get_files_to_move` | `KeyError` |
+| `remover_impl.py:417` `remove_raw_files` | `FILES_TO_REMOVE` | `get_raw_files_to_remove` | `KeyError` |
+| `remover_impl.py:451` `remove_raw_files` | `INSTRUMENTS_WITH_ERRORS` | `get_raw_files_to_remove` | `KeyError` |
+| `watcher_impl.py:198` `decide_raw_file_handling` | `RAW_FILE_NAMES_TO_PROCESS` | `get_unknown_raw_files` | `KeyError` |
+| `watcher_impl.py:290` `start_acquisition_handler` | `RAW_FILE_NAMES_WITH_DECISIONS` | `decide_raw_file_handling` | `KeyError` |
+
+Nine fail loudly with `KeyError` (`get_xcom` raises when the value is `None` and no default was
+given) — unpleasant but obvious. **The two `ACQUISITION_MONITOR_ERRORS` pulls are the dangerous
+ones**: they pass a `[]` default, so they degrade silently into "no acquisition errors", and they
+gate exactly the corruption-detection logic —
+
+- `compute_checksum` skips the copy when `FILE_GOT_RENAMED` → would **copy a corrupted file**;
+- `decide_processing` sets `ACQUISITION_FAILED` when `MAIN_FILE_MISSING` → would **process a failed
+  acquisition as if healthy**.
+
+**Action now (2.11-compatible):** pass `task_ids` explicitly at all 11 sites. Each key has exactly
+one pusher, so narrowing the filter is behaviour-preserving on 2.11 and correct on 3.x. The task-id
+constants already exist in `common.keys.Tasks`.
+
+Consider making `task_ids` a **required** argument of `get_xcom()` so the ambiguous form cannot be
+reintroduced — the wrapper at `utils.py:37` is the only entry point.
+
 ---
 
 ## 4. Small 2.11-safe cleanups
@@ -199,7 +244,7 @@ Worth recording so nobody re-litigates them during the migration:
 | `max_active_tis_per_dag`, `weight_rule="upstream"`, `priority_weight`, `pool`, `retry_exponential_backoff`, `execution_timeout`, `queue` | all DAGs | All still valid `BaseOperator` params |
 | `TriggerRule.ALL_DONE` | `acquisition_processor.py:157` | Still valid (`dummy` / `none_failed_or_skipped` were the removed ones) |
 | Context keys `params`, `ti`, `task_instance`, `exception` | `callbacks.py`, sensors | All present in the AF3 `Context` |
-| `xcom_pull(key=..., task_ids=..., map_indexes=..., default=...)` | `utils.py:60` | Signature preserved. The code **already** passes `task_ids` explicitly where it matters — this repo is not exposed to the "xcom_pull without task_ids returns None" trap |
+| `xcom_pull(key=..., task_ids=..., map_indexes=..., default=...)` | `utils.py:60` | Signature preserved, **but the `task_ids=None` semantics reverse** — see §3.5. An earlier revision of this doc wrongly claimed the repo was not exposed to this; it is, at 11 call sites |
 | `execution_date`, `days_ago`, SubDAGs, SLAs, Datasets, `EmailOperator`, FAB plugins | — | **Not used anywhere.** No work |
 | webapp / rest_api / mcp_server | — | **Zero Airflow imports.** Entirely unaffected |
 

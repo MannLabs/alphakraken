@@ -37,21 +37,20 @@ _NO_DEFAULT = object()
 def get_xcom(
     ti: TaskInstance,
     key: str,
+    *,
+    task_ids: str | Iterable[str],
     default: _xcom_types | None = _NO_DEFAULT,
-    task_ids: str | Iterable[str] | None = None,
     map_indexes: int | Iterable[int] | None = None,
 ) -> _xcom_types | None:
     """Get the value of an XCom with `key`.
 
-    :param task_ids: Pull from a specific task. Required inside mapped task groups
-        to avoid getting a LazySelectSequence instead of the actual value.
+    :param task_ids: The task(s) that pushed the value. Mandatory: airflow 2 reads from any task
+        when this is omitted, airflow 3 reads from the calling task, so omitting it breaks silently.
     :param map_indexes: Pull from a specific map index in dynamically mapped tasks.
     :raises KeyError: If no value found and no default was provided.
     """
-    pull_kwargs: dict[str, Any] = {"key": key}
+    pull_kwargs: dict[str, Any] = {"key": key, "task_ids": task_ids}
 
-    if task_ids is not None:
-        pull_kwargs["task_ids"] = task_ids
     if default is not _NO_DEFAULT:
         pull_kwargs["default"] = default
     if map_indexes is not None:

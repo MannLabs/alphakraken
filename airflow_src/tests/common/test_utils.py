@@ -40,10 +40,10 @@ def test_xcom_pull_successful() -> None:
     ti = Mock()
     ti.xcom_pull = Mock(return_value="value1")
     # when
-    result = get_xcom(ti, "key1")
+    result = get_xcom(ti, "key1", task_ids="task1")
     assert result == "value1"
 
-    ti.xcom_pull.assert_called_once_with(key="key1")
+    ti.xcom_pull.assert_called_once_with(key="key1", task_ids="task1")
 
 
 def test_xcom_pull_with_missing_key_raises_error() -> None:
@@ -52,7 +52,7 @@ def test_xcom_pull_with_missing_key_raises_error() -> None:
     ti.xcom_pull = Mock(return_value=None)
     # when
     with pytest.raises(KeyError):
-        get_xcom(ti, "missing_key")
+        get_xcom(ti, "missing_key", task_ids="task1")
 
 
 def test_xcom_pull_with_missing_key_gives_default() -> None:
@@ -60,9 +60,14 @@ def test_xcom_pull_with_missing_key_gives_default() -> None:
     ti = Mock()
     ti.xcom_pull = Mock(return_value="some_default")
     # when
-    assert get_xcom(ti, "missing_key", "some_default") == "some_default"
+    assert (
+        get_xcom(ti, "missing_key", task_ids="task1", default="some_default")
+        == "some_default"
+    )
 
-    ti.xcom_pull.assert_called_once_with(key="missing_key", default="some_default")
+    ti.xcom_pull.assert_called_once_with(
+        key="missing_key", task_ids="task1", default="some_default"
+    )
 
 
 def test_xcom_pull_with_none_default() -> None:
@@ -70,10 +75,12 @@ def test_xcom_pull_with_none_default() -> None:
     ti = Mock()
     ti.xcom_pull = Mock(return_value=None)
 
-    result = get_xcom(ti, "missing_key", default=None)
+    result = get_xcom(ti, "missing_key", task_ids="task1", default=None)
 
     assert result is None
-    ti.xcom_pull.assert_called_once_with(key="missing_key", default=None)
+    ti.xcom_pull.assert_called_once_with(
+        key="missing_key", task_ids="task1", default=None
+    )
 
 
 def test_xcom_pull_with_task_ids() -> None:

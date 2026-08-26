@@ -6,7 +6,10 @@ from datetime import timedelta
 
 from airflow.models import Param
 from airflow.models.dag import DAG
-from airflow.providers.standard.operators.python import PythonOperator, ShortCircuitOperator
+from airflow.providers.standard.operators.python import (
+    PythonOperator,
+    ShortCircuitOperator,
+)
 from callbacks import on_failure_callback
 from common.constants import (
     AIRFLOW_QUEUE_PREFIX,

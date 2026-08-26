@@ -16,6 +16,7 @@ from common.keys import (
     Dags,
     InstrumentKeys,
     OpArgs,
+    Tasks,
     XComKeys,
 )
 from common.settings import (
@@ -75,7 +76,12 @@ def compute_checksum(ti: TaskInstance, **kwargs) -> bool:
     raw_file = get_raw_file_by_id(raw_file_id)
 
     # TODO: this could be moved to an upfront task
-    acquisition_monitor_errors = get_xcom(ti, XComKeys.ACQUISITION_MONITOR_ERRORS, [])
+    acquisition_monitor_errors = get_xcom(
+        ti,
+        XComKeys.ACQUISITION_MONITOR_ERRORS,
+        task_ids=Tasks.MONITOR_ACQUISITION,
+        default=[],
+    )
     if any(
         AcquisitionMonitorErrors.FILE_GOT_RENAMED in error
         for error in acquisition_monitor_errors
@@ -224,10 +230,16 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
     raw_file_id = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID]
 
     files_dst_paths = {
-        Path(k): Path(v) for k, v in get_xcom(ti, XComKeys.FILES_DST_PATHS).items()
+        Path(k): Path(v)
+        for k, v in get_xcom(
+            ti, XComKeys.FILES_DST_PATHS, task_ids=Tasks.COMPUTE_CHECKSUM
+        ).items()
     }
     files_size_and_hashsum = {
-        Path(k): v for k, v in get_xcom(ti, XComKeys.FILES_SIZE_AND_HASHSUM).items()
+        Path(k): v
+        for k, v in get_xcom(
+            ti, XComKeys.FILES_SIZE_AND_HASHSUM, task_ids=Tasks.COMPUTE_CHECKSUM
+        ).items()
     }
 
     raw_file = get_raw_file_by_id(raw_file_id)
@@ -385,7 +397,7 @@ def start_s3_uploader(ti: TaskInstance, **kwargs) -> None:
         {
             DagParams.RAW_FILE_ID: kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID],
             DagParams.INTERNAL_TARGET_FOLDER_PATH: get_xcom(
-                ti, XComKeys.TARGET_FOLDER_PATH
+                ti, XComKeys.TARGET_FOLDER_PATH, task_ids=Tasks.COMPUTE_CHECKSUM
             ),
         },
     )
@@ -424,7 +436,12 @@ def decide_processing(ti: TaskInstance, **kwargs) -> bool:
         - if the raw file name contains special characters
     """
     raw_file_id = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID]
-    acquisition_monitor_errors = get_xcom(ti, XComKeys.ACQUISITION_MONITOR_ERRORS, [])
+    acquisition_monitor_errors = get_xcom(
+        ti,
+        XComKeys.ACQUISITION_MONITOR_ERRORS,
+        task_ids=Tasks.MONITOR_ACQUISITION,
+        default=[],
+    )
     raw_file = get_raw_file_by_id(raw_file_id)
 
     if any(

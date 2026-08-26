@@ -30,7 +30,8 @@ def on_failure_callback(context: dict[str, Any], **kwargs) -> None:
         raw_file_id = context[DagContext.PARAMS][DagParams.RAW_FILE_ID]
     except KeyError:
         try:
-            raw_file_id = get_xcom(ti, key=XComKeys.RAW_FILE_ID)
+            # nothing pushes this key today, so this fallback never resolves (cf. BYCATCH.md)
+            raw_file_id = get_xcom(ti, key=XComKeys.RAW_FILE_ID, task_ids=ti.task_id)
         except KeyError:
             logging.warning(
                 "could not find raw file id in dag params nor xcom. Not updating status in db."

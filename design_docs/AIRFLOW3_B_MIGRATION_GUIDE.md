@@ -52,7 +52,7 @@ Ref: [pandas 3.0 whatsnew](https://pandas.pydata.org/docs/whatsnew/v3.0.0.html)
 
 **Useful scoping detail:** the webapp container pins its own `pandas==2.2.2` (`webapp/requirements_webapp.txt:3`) and has **zero Airflow imports**. The pandas 3 bump therefore does **not** reach the webapp in production. But CI installs webapp and Airflow deps into *one* env (`.github/workflows/branch-checks.yaml`, which already notes this shortcut) — after the bump, CI would test webapp code against pandas 3 while prod runs 2.2.2. Either split the CI envs or accept the divergence knowingly.
 
-**paramiko 5.0** — used only through `SSHHook` (`plugins/common/utils.py:208`, `sensors/ssh_utils.py`). The provider absorbs the API change; the risk is behavioural (auth/algorithm negotiation against your cluster's SSH daemon), not compile-time. As you said, easy to catch — but catch it *deliberately*: run the `submit_job` → `WaitForJobStartSensor` → `WaitForJobFinishSensor` chain against the real cluster in staging before switching production.
+**paramiko 5.0** — used only through `SSHHook` (`plugins/common/utils.py:210`, `sensors/ssh_utils.py`). The provider absorbs the API change; the risk is behavioural (auth/algorithm negotiation against your cluster's SSH daemon), not compile-time. As you said, easy to catch — but catch it *deliberately*: run the `submit_job` → `WaitForJobStartSensor` → `WaitForJobFinishSensor` chain against the real cluster in staging before switching production.
 
 Also update `misc/requirements_development.txt:8-10` — the comment pinning `pandas==2.1.4` "because the apache/airflow:2.11.0 image comes with that version" is now wrong.
 
@@ -84,7 +84,7 @@ Ref: [Task SDK API](https://airflow.apache.org/docs/task-sdk/stable/api.html)
 
 ### 3.2 `trigger_dag_run()` → REST API v2 🔴
 
-`plugins/common/utils.py:105-126`. The current implementation writes the metadata DB through the ORM and will raise `RuntimeError: Direct database access via the ORM is not allowed in Airflow 3.0` on every worker.
+`plugins/common/utils.py:105-128`. The current implementation writes the metadata DB through the ORM and will raise `RuntimeError: Direct database access via the ORM is not allowed in Airflow 3.0` on every worker.
 
 Keep the signature; swap the body:
 
@@ -116,7 +116,7 @@ Three things that changed and matter here:
 2. Passing `logical_date: None` is now the normal way to trigger a manual run; identity comes from `run_id`.
 3. The hand-built `run_id` via `DagRun.generate_run_id(...)` can be dropped — let the API generate it. (`generate_run_id` is also now keyword-only with a required `run_after`.)
 
-**Alternative worth considering** for the 4 of 5 call sites that trigger exactly one DAG run: `TriggerDagRunOperator` from the standard provider now supports `run_after`, `conf`, and `logical_date` directly, and needs no API token. It does **not** fit `watcher_impl.start_acquisition_handler`, which triggers a variable number of runs inside a DB transaction with rollback-on-failure — that one needs the API call. See doc C §2.
+**Alternative worth considering** for the 3 of 4 call sites that trigger exactly one DAG run: `TriggerDagRunOperator` from the standard provider now supports `run_after`, `conf`, and `logical_date` directly, and needs no API token. It does **not** fit `watcher_impl.start_acquisition_handler`, which triggers a variable number of runs inside a DB transaction with rollback-on-failure — that one needs the API call. See doc C §2.
 
 ⚠️ **New operational dependency:** workers now need `AIRFLOW__API__BASE_URL` and an API token. Create a token and inject it like the Mongo credentials in `docker-compose.yaml`. This also means the worker network must be able to reach the API server — check this against your nginx/firewall layout before cutover.
 
@@ -156,7 +156,7 @@ The return shape is **not** documented; it was read off the API-server implement
 
 ### 3.4 `_get_cluster_ssh_connections()` → REST API v2 🔴
 
-`plugins/common/utils.py:157-178`. The Task Execution API can fetch a connection by id but has **no list operation** (verified in `airflow/sdk/execution_time/comms.py`) — so there is no SDK-only fix.
+`plugins/common/utils.py:159-180`. The Task Execution API can fetch a connection by id but has **no list operation** (verified in `airflow/sdk/execution_time/comms.py`) — so there is no SDK-only fix.
 
 Good news: the v2 endpoint has a purpose-built query parameter (`connection_id_prefix_pattern`, verified in `airflow/api_fastapi/core_api/routes/public/connections.py:205`), so this maps cleanly:
 

@@ -163,11 +163,11 @@ This is the closest thing to the SLA feature that Airflow 3 removed — and sinc
 
 ---
 
-## 7. 🥉 `TriggerDagRunOperator` + dynamic mapping — for 4 of the 5 trigger sites
+## 7. 🥉 `TriggerDagRunOperator` + dynamic mapping — for 3 of the 4 trigger sites
 
-Covered in doc B §3.2. Once `trigger_dag_run` moves to the REST API, four of the five call sites (`start_file_mover`, `start_s3_uploader`, `start_acquisition_processor`, and the delayed mover) trigger exactly one run and could instead use `TriggerDagRunOperator`, which now supports `run_after`, `conf`, and `trigger_run_id` natively — **no API token needed**.
+Covered in doc B §3.2. Once `trigger_dag_run` moves to the REST API, three of the four call sites — `start_file_mover` (`handler_impl.py:372`, the delayed one), `start_s3_uploader` (`:383`), `start_acquisition_processor` (`:485`) — trigger exactly one run and could instead use `TriggerDagRunOperator`, which now supports `run_after`, `conf`, and `trigger_run_id` natively — **no API token needed**.
 
-`watcher_impl.start_acquisition_handler` cannot: it triggers a variable number of runs inside a per-file DB transaction with rollback-on-failure (`watcher_impl.py:305-330`). Splitting that into a mapped `TriggerDagRunOperator.expand()` would break the atomicity the comments there deliberately protect. **Leave that one on the API call.**
+`watcher_impl.start_acquisition_handler` cannot: it triggers a variable number of runs inside a per-file DB transaction with rollback-on-failure (`watcher_impl.py:327-345`). Splitting that into a mapped `TriggerDagRunOperator.expand()` would break the atomicity the comments there deliberately protect. **Leave that one on the API call.**
 
 Net effect: shrinks the blast radius of the API-token dependency introduced in doc B to a single task.
 

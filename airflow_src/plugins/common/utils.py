@@ -106,6 +106,8 @@ def trigger_dag_run(
     dag_id: str, conf: dict[str, str], time_delay_minutes: int | None = None
 ) -> None:
     """Trigger a DAG run with the given configuration."""
+    # Airflow 3 swap point: workers cannot reach the metadata DB via the ORM, so this body
+    # becomes a REST API v2 call. Keep trigger_dag() confined to this function.
     now = datetime.now(tz=pytz.utc)
     run_id = DagRun.generate_run_id(DagRunType.MANUAL, execution_date=now)
 

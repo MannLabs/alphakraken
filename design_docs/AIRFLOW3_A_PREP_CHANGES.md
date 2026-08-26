@@ -83,7 +83,7 @@ Ruff catches none of these. Three of the four already sit behind a single functi
 
 ### 3.1 `trigger_dag_run()` — ORM write from task code 🔴
 
-`plugins/common/utils.py:105-126`. Calls `airflow.api.common.trigger_dag.trigger_dag`, which is `@provide_session`-decorated and writes `DagModel`/`DagRun` directly. In Airflow 3 worker code this raises:
+`plugins/common/utils.py:105-128`. Calls `airflow.api.common.trigger_dag.trigger_dag`, which is `@provide_session`-decorated and writes `DagModel`/`DagRun` directly. In Airflow 3 worker code this raises:
 
 ```
 RuntimeError: Direct database access via the ORM is not allowed in Airflow 3.0
@@ -91,9 +91,9 @@ RuntimeError: Direct database access via the ORM is not allowed in Airflow 3.0
 
 Its signature also changed (verified on 3.3.1): `execution_date` → `logical_date`, new required kwarg `triggered_by`, new `run_after`. Likewise `DagRun.generate_run_id` is now keyword-only with a required `run_after`.
 
-This is the **spine of the pipeline** — 5 call sites chain every DAG to the next (`handler_impl.py:373,383`, `watcher_impl.py`, `handler_impl.py:485`).
+This is the **spine of the pipeline** — 4 call sites chain every DAG to the next: `handler_impl.py:372` (file mover, delayed), `:383` (s3 uploader), `:485` (acquisition processor), and `watcher_impl.py:331` (acquisition handler, N runs in a transaction).
 
-**Action now:** none required — the seam already exists and all 5 call sites go through it. **Do not add a 6th direct `trigger_dag` call.** Consider adding a comment marking it as the AF3 swap point.
+**Action now:** none beyond a marker comment — the seam holds. Verified: no direct `trigger_dag()` or `DagRun.generate_run_id()` call exists outside `common/utils.py`. **Keep it that way** — a direct call added elsewhere becomes a separate migration site.
 
 ### 3.2 `finalize_raw_file_status()` — ORM read from task code 🔴
 
@@ -122,11 +122,11 @@ def _get_branch_states(ti: TaskInstance) -> dict[int, dict[str, str]]:
 
 ### 3.3 `_get_cluster_ssh_connections()` — ORM query on `Connection` 🔴
 
-`plugins/common/utils.py:157-178`. `@provide_session` + `session.query(Connection).filter(Connection.conn_id.startswith(...))`.
+`plugins/common/utils.py:159-180`. `@provide_session` + `session.query(Connection).filter(Connection.conn_id.startswith(...))`.
 
 The Task Execution API can fetch a connection **by id** (`GetConnection`) but has **no list/scan operation** — verified against `airflow/sdk/execution_time/comms.py`. So this cannot be expressed with the SDK at all and must go to the REST API in doc B.
 
-**Action now:** none — single seam, one call site (`get_cluster_ssh_hook`, `utils.py:198`).
+**Action now:** none — single seam, one call site (`get_cluster_ssh_hook`, `utils.py:200`).
 
 ### 3.4 `get_airflow_variable()` — silent kwarg rename 🟡
 

@@ -192,7 +192,7 @@ Drop `@provide_session` and the `Connection` import. `get_cluster_ssh_hook()` ab
 value = Variable.get(key) if default == "__DEFAULT_NOT_SET" else Variable.get(key, default=default)
 ```
 
-Silent runtime failure if missed — 9 call sites depend on it, including `AirflowVars.CONSIDER_OLD_FILES_ACQUIRED` in `acquisition_monitor.py:108`, where a wrong default silently changes acquisition semantics.
+Silent runtime failure if missed — 8 call sites depend on it, including `AirflowVars.CONSIDER_OLD_FILES_ACQUIRED` in `acquisition_monitor.py:108`, where a wrong default silently changes acquisition semantics.
 
 ---
 

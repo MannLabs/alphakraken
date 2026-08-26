@@ -34,9 +34,9 @@ with DAG(
     description="Upload raw files to S3.",
     tags=["s3"],
     params={
-        DagParams.RAW_FILE_ID: Param(type="string", minimum=3),
+        DagParams.RAW_FILE_ID: Param(type="string", minLength=3),
         # TODO: this can in principle be also re-constructed from the RawFile
-        DagParams.INTERNAL_TARGET_FOLDER_PATH: Param(type="string", minimum=3),
+        DagParams.INTERNAL_TARGET_FOLDER_PATH: Param(type="string", minLength=3),
     },
 ) as dag:
     dag.doc_md = __doc__

@@ -46,7 +46,7 @@ def create_file_mover_dag(instrument_id: str | None) -> None:
             tags=["mover", instrument_id]
             if instrument_id is not None
             else ["mover"],  # TODO: remove with legacy DAG name
-            params={DagParams.RAW_FILE_ID: Param(type="string", minimum=3)},
+            params={DagParams.RAW_FILE_ID: Param(type="string", minLength=3)},
         ) as dag
     ):
         dag.doc_md = __doc__

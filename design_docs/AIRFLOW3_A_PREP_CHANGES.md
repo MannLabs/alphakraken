@@ -142,7 +142,7 @@ The Task Execution API can fetch a connection **by id** (`GetConnection`) but ha
 
 `plugins/common/utils.py:73-87` uses `airflow.models.Variable.get(key, default_var=...)`. The Airflow 3 replacement `airflow.sdk.Variable.get` renames `default_var` → `default` (verified). `airflow.models.Variable` is the ORM model and will hit the ORM guard from task code.
 
-**Action now:** none — single seam, 9 call sites all route through it. Flag it in doc B so the kwarg rename is not missed; it would otherwise fail only at runtime.
+**Action now:** none — single seam, 8 call sites all route through it. Flag it in doc B so the kwarg rename is not missed; it would otherwise fail only at runtime.
 
 ### 3.5 `get_xcom()` without `task_ids` — semantics reverse 🔴
 
@@ -182,7 +182,17 @@ gate exactly the corruption-detection logic —
 - `decide_processing` sets `ACQUISITION_FAILED` when `MAIN_FILE_MISSING` → would **process a failed
   acquisition as if healthy**.
 
-**Action now (2.11-compatible):** pass `task_ids` explicitly at all 11 sites. Each key has exactly
+**Action (done):** `task_ids` is passed explicitly at all 11 sites, and is now a **required,
+keyword-only** parameter of `get_xcom()` (`utils.py:41`) so the ambiguous form cannot come back.
+Keyword-only matters: `default` used to be the third positional, so a stray `get_xcom(ti, KEY, [])`
+would otherwise have bound `[]` to `task_ids`.
+
+`get_xcom` is also now the **sole** XCom entry point — the two direct `ti.xcom_pull()` calls in
+`sensors/ssh_sensor.py` were routed through it, which is what makes the guard airtight.
+`test_xcom_pull_requires_task_ids` locks the signature in: without it, nothing failed when the
+parameter regained a default (verified by mutation).
+
+Original plan, for reference: pass `task_ids` explicitly at all 11 sites. Each key has exactly
 one pusher, so narrowing the filter is behaviour-preserving on 2.11 and correct on 3.x. The task-id
 constants already exist in `common.keys.Tasks`.
 
@@ -221,14 +231,34 @@ airflow db migrate
 
 24 signatures across `dags/impl/*.py` annotate `ti: TaskInstance` (`airflow.models.TaskInstance`). At runtime under Airflow 3 the object is a `RuntimeTaskInstance`, not the ORM model — the annotations are wrong but harmless (the modules use `from __future__ import annotations`, so they are never evaluated).
 
-Introduce one alias in `plugins/common/utils.py` and use it everywhere, so doc B repoints 24 annotations by editing one line:
+**Action: none — declined as overkill.** Implemented once (a `TaskInstanceLike` alias in
+`common/utils.py` used at all 25 sites) and reverted: it touched 8 files to buy a one-line edit in
+doc B, which is not a good trade for an annotation that is never evaluated at runtime
+(`from __future__ import annotations`).
 
-```python
-from airflow.models import TaskInstance
-TaskInstanceLike = TaskInstance  # AF3: -> airflow.sdk.execution_time.task_runner.RuntimeTaskInstance
+Doc B instead does the plain sweep: `ti: TaskInstance` → the SDK type at **25** sites across
+`dags/impl/*.py`, `acquisition_processor.py` and `common/utils.py`. It is a single
+find-and-replace, and `ruff --select AIR --fix` may well do it.
+
+### 4.4 `Param(minimum=...)` on a string never validated 🟡
+
+Found while checking Airflow 3's stricter `Param` handling. All five DAG param declarations used
+`minimum=3` on `type="string"` — but `minimum` is a JSON Schema keyword for **numbers**; the string
+equivalent is `minLength`. The constraint was a silent no-op on **both** versions:
+
+```
+Param(type="string", minimum=3).resolve("")     -> accepted     (2.11 and 3.3.1)
+Param(type="string", minLength=3).resolve("ab") -> ParamValidationError
 ```
 
-Low priority — cosmetic until someone trusts the annotation.
+So an empty `raw_file_id` passed DAG-trigger validation and failed later in the MongoDB lookup.
+
+**Action (done):** `minimum=3` → `minLength=3` in `acquisition_handler.py:67`,
+`acquisition_processor.py:66`, `file_mover.py:49`, `s3_uploader.py:37` and `:39`. Verified to reject
+`""` and `"ab"` and accept real ids on both versions. Pre-existing bug, not caused by the migration.
+
+Note this **tightens input validation**: a trigger with a <3-character `raw_file_id` now fails at
+trigger time instead of downstream.
 
 ---
 
@@ -257,8 +287,19 @@ Worth recording so nobody re-litigates them during the migration:
 | A1 | §1 standard-provider imports + requirements pin | trivial | **done** (`2c534888`) |
 | A2 | §4.1 + §4.2 test/CI fixes | trivial | **done** |
 | A3 | §3.2 extract `_get_branch_states` | low — pure refactor, covered by `tests/dags/impl/test_processor_impl.py` | **done** |
-| A4 | §4.3 type alias | cosmetic | open |
+| A4 | §4.3 `TaskInstanceLike` alias | cosmetic | **declined** — 8 files touched for a one-line saving |
+| A5 | §3.5 required `task_ids` + all 11 call sites | **high value** — closes a silent-failure class | **done** (`0e63d141`) |
+| A6 | route `ssh_sensor` XCom reads through the wrapper | low | **done** (`600aa391`) |
 | — | §3.1 marker comment on `trigger_dag_run` | none | **done** |
+
+**Part A is complete** (A4 deliberately skipped). Baseline: **460 passed on 2.11**; on 3.3.1 **458 passed,
+2 failed** — both `tests/common/test_utils.py::test_trigger_dag_run{,_with_delay}`, which is the
+§3.1 / doc B §3.2 blocker. All 7 DAGs still parse on 3.3.1 with 0 import errors.
+
+Useful consequence: **the existing unit tests already catch the `trigger_dag_run` breakage**, so
+doc B §3.2 has a `pytest` gate, not just a staging smoke test. They cannot catch the ORM guard in
+`_get_branch_states` or `_get_cluster_ssh_connections` — `ti` is mocked there, so those two still
+need a real worker (doc B §6).
 
 Verification baseline after A1–A3: **459 passed on 2.11**; on 3.3.1 **457 passed, 2 failed**, the two
 failures being `tests/common/test_utils.py::test_trigger_dag_run{,_with_delay}` — the §3.1 /

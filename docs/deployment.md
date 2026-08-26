@@ -333,11 +333,13 @@ match the `software` field of the settings that use the image (see below):
 ```bash
 docker build -t alphakraken-msqc msqc-extractor
 ```
-2. Allow the workers to talk to the docker daemon: set `DOCKER_GID` in `envs/${ENV}.env` to the group id
-of the docker socket:
+2. On Linux hosts, allow the workers to talk to the docker daemon: set `DOCKER_GID` in `envs/${ENV}.env`
+to the group id of the docker socket:
 ```bash
 stat -c '%g' /var/run/docker.sock
 ```
+On Docker Desktop (macOS/Windows) this is not needed: the socket appears as `root:root` inside the
+container, so the default `DOCKER_GID=0` already grants access.
 Note that the docker socket is mounted into the quanting workers, which is equivalent to root access on
 the host. This is acceptable for a single-machine standalone deployment (`compose.sh` already runs
 `docker compose` with `sudo`), but it should not be enabled on a multi-machine production setup.

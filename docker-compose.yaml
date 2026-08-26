@@ -33,6 +33,9 @@ x-airflow-common: &airflow-common
   build:
     context: .
     dockerfile: airflow_src/Dockerfile
+    args:
+      # set to "true" to install the optional requirements of the `docker` job engine
+      INSTALL_DOCKER_ENGINE: ${INSTALL_DOCKER_ENGINE:-false}
   # User ID in Airflow containers
   user: "${AIRFLOW_UID:?error}:0"
   environment: &airflow-common-env

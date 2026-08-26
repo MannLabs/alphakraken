@@ -7,6 +7,7 @@ import numpy as np
 import pytest
 from plugins.metrics.metrics_calculator import (
     REPORTED_METRICS_FILE_NAME,
+    _clean_metrics,
     _convert_numpy_types,
     _get_reported_metrics,
     calc_metrics,
@@ -166,6 +167,26 @@ def test_convert_numpy_types_raises_not_implemented_for_set() -> None:
         _convert_numpy_types(input_data)
 
 
+def test__clean_metrics() -> None:
+    """Test _clean_metrics stringifies keys, replaces dots and converts numpy values."""
+    input_data = {
+        "fwhm.rt": np.float32(4.2),
+        "a.b.c": 1,
+        1.5: "non_string_key",
+        "plain": np.nan,
+    }
+
+    result = _clean_metrics(input_data)
+
+    assert result == {
+        "fwhm:rt": pytest.approx(4.2),
+        "a:b:c": 1,
+        "1:5": "non_string_key",
+        "plain": None,
+    }
+    assert isinstance(result["fwhm:rt"], float)
+
+
 def test__get_reported_metrics_no_file(tmp_path: Path) -> None:
     """Test _get_reported_metrics returns empty dict if the file does not exist."""
     assert _get_reported_metrics(tmp_path) == {}
@@ -210,7 +231,7 @@ def test__get_reported_metrics_nan_value(tmp_path: Path) -> None:
 def test_calc_metrics_merges_reported_metrics(
     mock_msqc: MagicMock, tmp_path: Path
 ) -> None:
-    """Test calc_metrics adds the metrics the quanting software reported itself."""
+    """Test calc_metrics adds the metrics the quanting job reported itself."""
     mock_msqc.return_value = {"calculated": 1}
     (tmp_path / REPORTED_METRICS_FILE_NAME).write_text("reported\n2\n")
 

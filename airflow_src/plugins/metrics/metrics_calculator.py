@@ -19,16 +19,14 @@ from shared.keys import MetricsTypes
 
 # optional file in the output directory in which the quanting software can report metrics itself,
 # one column per metric. They are stored under the configured metrics type, just like the metrics
-# Kraken calculates itself, which is the only way to get metrics out of a software that Kraken has
-# no metrics calculation for.
+# AlphaKraken calculates itself.
 REPORTED_METRICS_FILE_NAME = "metrics.csv"
 
 
 def calc_metrics(output_directory: Path, *, metrics_type: str) -> dict[str, Any]:
     """Get all metrics for the given output directory, calculated ones and reported ones.
 
-    On a name clash, the metrics the quanting software reported itself win, as it is the
-    authority on its own numbers.
+    On a name clash, the metrics provided via `'`REPORTED_METRICS_FILE_NAME`'` by the quanting job win.
 
     :param output_directory: Path to the output directory
     :param metrics_type: Type of metrics to calculate ("alphadia" or "custom")
@@ -54,9 +52,9 @@ def calc_metrics(output_directory: Path, *, metrics_type: str) -> dict[str, Any]
 
 
 def _calc_no_metrics(output_directory: Path) -> dict[str, Any]:
-    """Calculate nothing, for softwares that Kraken has no metrics calculation for.
+    """Calculate nothing, returns an empty dict.
 
-    Such softwares report their metrics themselves, cf. `REPORTED_METRICS_FILE_NAME`.
+    Used for softwares that AlphaKraken has no metrics calculation for, those report their metrics themselves, cf. `REPORTED_METRICS_FILE_NAME`.
     """
     del output_directory  # unused
     return {}

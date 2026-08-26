@@ -129,7 +129,7 @@ show_sandbox_message()
 st.markdown("# Overview")
 
 st.write(
-    f"Current Kraken time: {datetime.now(tz=pytz.UTC).replace(microsecond=0)} [all time stamps are given in UTC!]"
+    f"Current AlphaKraken time: {datetime.now(tz=pytz.UTC).replace(microsecond=0)} [all time stamps are given in UTC!]"
 )
 
 display_info_message()

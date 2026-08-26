@@ -33,7 +33,7 @@ SOFT_FAIL_TIMEOUT_H: int = 24
 
 
 def _check_health(instrument_id: str) -> None:
-    """Check the health of the instrument data, and the output and backup paths and update Kraken status."""
+    """Check the health of the instrument data, and the output and backup paths and update AlphaKraken status."""
     status_details = []
 
     data_path = get_internal_instrument_data_path(instrument_id)

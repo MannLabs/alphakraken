@@ -170,9 +170,7 @@ cython_debug/
 airflow_logs
 mongodb_data*
 airflowdb_data*
-local_test/instruments
-local_test/backup
-local_test/output
+local_test/mounts/
 envs/.env-airflow
 misc/.htpasswd
 certs/

@@ -306,7 +306,7 @@ class KrakenStatusValues:
 
 
 class KrakenStatusEntities:
-    """Entities for Kraken status updates."""
+    """Entities for AlphaKraken status updates."""
 
     INSTRUMENT = "instrument"
     FILE_SYSTEM = "file_system"
@@ -314,7 +314,7 @@ class KrakenStatusEntities:
 
 
 class KrakenStatus(Document):
-    """Schema for the Kraken status, representing health, status details, free space, entity type, and last update time."""
+    """Schema for the AlphaKraken status, representing health, status details, free space, entity type, and last update time."""
 
     meta: ClassVar = {"strict": False}
     objects: ClassVar[QuerySet[KrakenStatus]]

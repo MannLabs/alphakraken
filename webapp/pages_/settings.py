@@ -37,7 +37,7 @@ from shared.keys import (
 from shared.validation import check_for_malicious_content
 from shared.yamlsettings import YamlKeys, get_path
 
-SHOW_JOB_ENGINE_SELECT = False
+SHOW_JOB_ENGINE_SELECT = True
 
 _log(f"loading {__file__} {get_all_query_params()}")
 # ########################################### PAGE HEADER
@@ -300,7 +300,9 @@ else:
             "max_chars": 64,
             "placeholder": "e.g. 'custom-software/custom-executable1.2.3'",
             "help": f"Path to executable, relative to `{get_path(YamlKeys.Locations.SOFTWARE)}/`. Ask an administrator to add the executable to the software folder. "
-            f"If something that is in the `$PATH` should be executed, it needs to be wrapped by a shell script located in the software folder.",
+            f"If something that is in the `$PATH` should be executed, it needs to be wrapped by a shell script located in the software folder. "
+            f"For the `{JobEngines.DOCKER}` execution engine, this is a docker image name instead, e.g. `alphakraken-msqc`. "
+            f"The image must already be present on the worker host, ask an administrator to add it.",
         },
         "config_params": {
             "label": "Configuration parameters",
@@ -493,6 +495,11 @@ if submit:
     ]:
         if to_validate:
             validation_errors.extend(check_for_malicious_content(to_validate))
+    if job_engine == JobEngines.DOCKER and software_type != SoftwareTypes.CUSTOM:
+        validation_errors.append(
+            f"The `{JobEngines.DOCKER}` execution engine is only supported for software type "
+            f"`{SoftwareTypes.CUSTOM}`."
+        )
     if config_params:
         validation_errors.extend(
             check_for_malicious_content(config_params, allow_spaces=True)

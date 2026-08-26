@@ -378,7 +378,7 @@ def display_status(combined_df: pd.DataFrame, status_data_df: pd.DataFrame) -> N
     """Display the status of the kraken."""
     now = datetime.now()  # noqa:  DTZ005 no tz argument
     st.write(
-        f"Current Kraken time: {now.replace(microsecond=0)} [all time stamps are given in UTC!]"
+        f"Current AlphaKraken time: {now.replace(microsecond=0)} [all time stamps are given in UTC!]"
     )
     st.write(
         f"Note: for performance reasons, by default only data for the last {DEFAULT_MAX_AGE_STATUS} days are loaded, "

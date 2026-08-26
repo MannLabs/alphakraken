@@ -11,6 +11,10 @@ from alpharaw.raw_access.pythermorawfilereader import RawFileReader
 
 # Based on https://github.com/MannLabs/alpharaw/blob/main/docs/tutorials/ms_methods.ipynb
 
+NUM_EXPECTED_ARGS = 4
+
+USAGE = "Usage: python main.py <raw_file_path> <output_path> <num_threads>"
+
 
 def _tic_for_spectrum_df(
     spectrum_df: pd.DataFrame, peak_df: pd.DataFrame
@@ -195,9 +199,9 @@ def calculate_bruker_metrics(
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 4:  # noqa: PLR2004
-        print("Usage: python main.py <raw_file_path> <output_path> <num_threads>")  # noqa: T201
-        sys.exit(0)
+    if len(sys.argv) != NUM_EXPECTED_ARGS:
+        print(USAGE)  # noqa: T201
+        sys.exit(1)
 
     raw_file_path = sys.argv[1]
     output_path = sys.argv[2]
@@ -231,7 +235,7 @@ if __name__ == "__main__":
         ms_metrics, combined_tic_df = calculate_bruker_metrics(data)
     else:
         print("Unsupported file format. Please provide a .raw, .wiff, or .d file.")  #  noqa: T201
-        sys.exit(0)
+        sys.exit(1)
 
     pd.DataFrame(ms_metrics, index=[0]).to_csv(
         f"{output_path}/msqc_results.tsv", sep="\t"

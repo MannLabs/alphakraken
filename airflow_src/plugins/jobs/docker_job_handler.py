@@ -1,4 +1,4 @@
-"""Implementation of a job handler that runs jobs in Docker containers on the Kraken host.
+"""Implementation of a job handler that runs jobs in Docker containers on the AlphaKraken host.
 
 This is the execution engine for standalone deployments that have no external compute
 resources: instead of submitting to Slurm, the Airflow worker starts one sibling container
@@ -11,7 +11,7 @@ container at the very paths the placeholders resolved to, which makes the same `
 work for both this engine and Slurm.
 
 Notes:
-    - requires the optional requirements in `requirements_docker_engine.txt`.
+    - requires the optional requirements in `requirements_docker_job_engine.txt`.
     - the image must already be present on the host, it is never pulled, cf. `_get_image`.
     - requires the bind mount of the docker socket in docker-compose.yaml (cf. `group_add`).
     - requires key 'locations.general.mounts_path' in alphakraken.{env}.yaml to point to the
@@ -60,7 +60,7 @@ NANO_CPUS_PER_CPU = 1_000_000_000
 
 
 class DockerJobHandler(JobHandler):
-    """Implementation of JobHandler that runs jobs in Docker containers on the Kraken host."""
+    """Implementation of JobHandler that runs jobs in Docker containers on the AlphaKraken host."""
 
     def __init__(self):
         """Initialize the docker job handler."""
@@ -74,7 +74,7 @@ class DockerJobHandler(JobHandler):
         environment: dict[str, str],
         year_month_folder: str,
     ) -> str:
-        """Start a job by running a container on the Kraken host.
+        """Start a job by running a container on the AlphaKraken host.
 
         Args:
             job_script_name: Name of the job script (ignored for this handler)

@@ -191,12 +191,12 @@ Make sure to update also this file when deploying a new version of the AlphaKrak
 
 4. Set up AlphaDIA (see [below](#setup-alphadia-on-the-cluster)).
 
-### General note on how Kraken gets to know the data
+### General note on how AlphaKraken gets to know the data
 
 Each worker needs two 'views' on the raw and output data.
 
 The first view ("worker PC view") enables read/write access,
-by mounting on the Kraken host PC a specific (network) folder (e.g. `\\pool-backup\pool-backup` or `\\pool-output\pool-output`)
+by mounting on the AlphaKraken host PC a specific (network) folder (e.g. `\\pool-backup\pool-backup` or `\\pool-output\pool-output`)
 using `cifs` mounts (wrapped by `mount.sh`)
 to a target folder and then mapping this target folder to a worker container
 in `docker-compose.yaml`, such that it can be accessed in a unified manner from within the containers (cf. `InternalPaths`).
@@ -322,7 +322,7 @@ Also, don't forget to install `mono` (cf. AlphaDIA Readme).
 
 ### Standalone deployment without a cluster
 For deployments that have no external compute resources, quanting jobs can be run in containers on the
-Kraken host itself, using the `docker` execution engine (cf. `airflow_src/plugins/jobs/docker_job_handler.py`).
+AlphaKraken host itself, using the `docker` execution engine (cf. `airflow_src/plugins/jobs/docker_job_handler.py`).
 Currently the MSQC metrics extractor (`msqc-extractor/`) is available for this.
 
 0. The engine needs the optional requirements in `airflow_src/requirements_docker_engine.txt`, which

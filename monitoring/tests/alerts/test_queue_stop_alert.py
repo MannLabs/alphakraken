@@ -115,6 +115,16 @@ class TestQueueStopAlertBasics:
         # 9-char tokens excluded
         assert INITIALS_PATTERN.search("_ABCDEFGHI_") is None
 
+    def test_initials_pattern_matches_adjacent_tokens(self) -> None:
+        """Adjacent tokens sharing one underscore both match (overlapping boundary)."""
+        # given
+        from monitoring.alerts.queue_stop_alert import INITIALS_PATTERN
+
+        # when
+        tokens = [m.group(1) for m in INITIALS_PATTERN.finditer("x_SA_AnSc_y.raw")]
+        # then
+        assert tokens == ["SA", "AnSc"]
+
     @patch(
         "monitoring.alerts.queue_stop_alert.INSTRUMENT_USER_SLACK_IDS",
         {"MaSc": "U_MASC", "JoeB": "U_JOEB"},
@@ -706,6 +716,75 @@ class TestRuleBHandoff:
         assert first[0][0] == "inst1:x_MaSc_F.raw"
         assert first[0][1].kind == KIND_STOP
         assert second == []
+
+
+# -- Regression ---------------------------------------------------------------
+
+_T1 = datetime(2026, 8, 19, 6, 45, tzinfo=pytz.UTC)
+_T2 = datetime(2026, 8, 19, 6, 41, tzinfo=pytz.UTC)
+_T3 = datetime(2026, 8, 19, 6, 38, tzinfo=pytz.UTC)
+
+
+@patch(
+    "monitoring.alerts.queue_stop_alert.INSTRUMENT_USER_SLACK_IDS", {"AnSc": "U_ANSC"}
+)
+@patch("monitoring.alerts.queue_stop_alert.MAX_GRADIENT_LENGTH_HOURS", 2.5)
+@patch("monitoring.alerts.queue_stop_alert.QUEUE_STOP_THRESHOLD_MULTIPLIER", 3)
+class TestAdjacentInitialsTokens:
+    """A token preceding the operator's initials must not hide them (false handoff)."""
+
+    _NEWEST = "20260819_OA5_Eno10_500SPD_SA_AnSc_16w25_01.raw"
+    _SECOND = "20260819_OA5_Eno10_500SPD_AnSc_blank_16w25_02.raw"
+    _THIRD = "20260819_OA5_Eno10_500SPD_AnSc_blank_16w25_03.raw"
+
+    @patch("monitoring.alerts.queue_stop_alert.RawFile")
+    def test_no_handoff_when_newest_has_initials_behind_another_token(
+        self, mock_rawfile: Mock
+    ) -> None:
+        """All three files are AnSc's, so no handoff - and the pause is still short."""
+        # given - newest file carries "_SA_AnSc_"; same operator throughout
+        now = datetime(2026, 8, 19, 6, 50, tzinfo=pytz.UTC)
+        _install_rawfile_mock(
+            mock_rawfile,
+            {
+                "inst1": [
+                    _make_file(self._NEWEST, _T1),
+                    _make_file(self._SECOND, _T2),
+                    _make_file(self._THIRD, _T3),
+                ]
+            },
+        )
+        # when
+        with patch("monitoring.alerts.queue_stop_alert.datetime") as mock_dt:
+            mock_dt.now.return_value = now
+            result = QueueStopAlert()._get_issues([])
+        # then
+        assert result == []
+
+    @patch("monitoring.alerts.queue_stop_alert.RawFile")
+    def test_stop_fires_once_pause_exceeds_threshold(self, mock_rawfile: Mock) -> None:
+        """The same queue ending is a stop alert for AnSc, not a handoff."""
+        # given - same files, but the pause now exceeds 3 x the 4 min gradient
+        now = datetime(2026, 8, 19, 7, 10, tzinfo=pytz.UTC)
+        _install_rawfile_mock(
+            mock_rawfile,
+            {
+                "inst1": [
+                    _make_file(self._NEWEST, _T1),
+                    _make_file(self._SECOND, _T2),
+                    _make_file(self._THIRD, _T3),
+                ]
+            },
+        )
+        # when
+        with patch("monitoring.alerts.queue_stop_alert.datetime") as mock_dt:
+            mock_dt.now.return_value = now
+            result = QueueStopAlert()._get_issues([])
+        # then
+        assert len(result) == 1
+        _, issue = result[0]
+        assert issue.kind == KIND_STOP
+        assert issue.messenger_user_id == "U_ANSC"
 
 
 # -- Recipients & delivery ----------------------------------------------------

@@ -24,7 +24,9 @@ from .config import (
     Cases,
 )
 
-INITIALS_PATTERN = re.compile(r"_([A-Za-z]{2,8})_")
+# Trailing boundary is a lookahead so adjacent tokens can both match:
+# "_SA_AnSc_" must yield both "SA" and "AnSc", not just "SA".
+INITIALS_PATTERN = re.compile(r"_([A-Za-z]{2,8})(?=_)")
 
 KIND_STOP = "stop"
 KIND_HANDOFF = "handoff"

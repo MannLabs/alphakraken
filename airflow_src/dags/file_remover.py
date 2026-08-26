@@ -6,7 +6,7 @@ from datetime import timedelta
 
 import pendulum
 from airflow.models.dag import DAG
-from airflow.operators.python import PythonOperator
+from airflow.providers.standard.operators.python import PythonOperator
 from common.constants import (
     AIRFLOW_QUEUE_PREFIX,
 )

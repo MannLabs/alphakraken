@@ -1253,13 +1253,13 @@ def test_finalize_raises_when_no_branch_tasks() -> None:
 
 
 def _make_branch_tis_by_index(branches):  # noqa: ANN001, ANN202
-    """Build branch_tis_by_index dict from a compact spec.
+    """Build the branch_states dict from a compact spec.
 
     branches: list of (map_index, [(task_name, state), ...])
     """
-    result: dict[int, list[MagicMock]] = {}
+    result: dict[int, dict[str, str | None]] = {}
     for idx, tasks in branches:
-        result[idx] = [_branch_ti(name, idx, state) for name, state in tasks]
+        result[idx] = {f"{_TASK_GROUP_PREFIX}{name}": state for name, state in tasks}
     return result
 
 

@@ -584,19 +584,12 @@ def finalize_raw_file_status(ti: TaskInstance, raw_file_id: str) -> None:
     - QUANTING_FAILED if some branches had known business errors (no Airflow failures)
     - ERROR if any branch had an Airflow failure
     """
-    dag_run = ti.get_dagrun()
-    all_tis = dag_run.get_task_instances()
+    branch_states = _get_branch_states(ti)
 
-    # Group branch task instances by map_index (non-mapped tasks have map_index=-1)
-    branch_tis_by_index: dict[int, list[TaskInstance]] = defaultdict(list)
-    for ti_ in all_tis:
-        if ti_.task_id.startswith(_TASK_GROUP_PREFIX) and ti_.map_index >= 0:
-            branch_tis_by_index[ti_.map_index].append(ti_)
-
-    if not branch_tis_by_index:
+    if not branch_states:
         raise AirflowFailException("No branch task instances found in DAG run.")
 
-    airflow_errors, business_errors = _extract_errors(branch_tis_by_index, ti)
+    airflow_errors, business_errors = _extract_errors(branch_states, ti)
 
     if airflow_errors:
         all_errors = airflow_errors + business_errors
@@ -625,16 +618,28 @@ def finalize_raw_file_status(ti: TaskInstance, raw_file_id: str) -> None:
     update_raw_file(raw_file_id, new_status=RawFileStatus.DONE, status_details=None)
 
 
+def _get_branch_states(ti: TaskInstance) -> dict[int, dict[str, str | None]]:
+    """Return the state of every processing-branch task, keyed by map index and task id.
+
+    Non-mapped tasks (map_index=-1) are excluded.
+    """
+    branch_states: dict[int, dict[str, str | None]] = defaultdict(dict)
+    for ti_ in ti.get_dagrun().get_task_instances():
+        if ti_.task_id.startswith(_TASK_GROUP_PREFIX) and ti_.map_index >= 0:
+            branch_states[ti_.map_index][ti_.task_id] = ti_.state
+    return branch_states
+
+
 def _extract_errors(
-    branch_tis_by_index: dict[int, list[TaskInstance]],
+    branch_states: dict[int, dict[str, str | None]],
     ti: TaskInstance,
 ) -> tuple[list[tuple[str, str]], list[tuple[str, str]]]:
     """Extract errors from previous tasks of all branches."""
     airflow_errors: list[tuple[str, str]] = []
     business_errors: list[tuple[str, str]] = []
 
-    for idx in sorted(branch_tis_by_index):
-        branch_tis = branch_tis_by_index[idx]
+    for idx in sorted(branch_states):
+        task_states = branch_states[idx]
         quanting_env = get_xcom(
             ti,
             key=XComKeys.RETURN_VALUE,
@@ -655,15 +660,17 @@ def _extract_errors(
             default=None,
         )
 
-        failed_tasks_in_branch = [
-            t for t in branch_tis if t.state == TaskInstanceState.FAILED
+        failed_task_ids = [
+            task_id
+            for task_id, state in task_states.items()
+            if state == TaskInstanceState.FAILED
         ]
 
-        if failed_tasks_in_branch:
+        if failed_task_ids:
             if not check_job_result_error_details:
                 failed_task_names = ", ".join(
-                    t.task_id.removeprefix(_TASK_GROUP_PREFIX)
-                    for t in failed_tasks_in_branch
+                    task_id.removeprefix(_TASK_GROUP_PREFIX)
+                    for task_id in failed_task_ids
                 )
                 check_job_result_error_details = f"failed at {failed_task_names}"
             airflow_errors.append((settings_name, check_job_result_error_details))

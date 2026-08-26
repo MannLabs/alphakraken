@@ -33,7 +33,7 @@ def _get_job_handler(engine: str) -> "JobHandler":
         except ImportError as e:
             raise AirflowFailException(
                 f"The '{JobEngines.DOCKER}' job engine requires the optional requirements in "
-                f"airflow_src/requirements_docker_engine.txt to be installed."
+                f"airflow_src/requirements_docker_job_engine.txt to be installed."
             ) from e
 
         logging.info("Using DockerJobHandler")

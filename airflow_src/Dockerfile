@@ -15,7 +15,7 @@ ENV PYTHONUNBUFFERED=1
 ENV AIRFLOW_HOME=/opt/airflow
 ENV PYTHONPATH "${PYTHONPATH}:${AIRFLOW_HOME}"
 
-# set to "false" to build a leaner image without support for the `docker` job engine
+# set to "true" to enable the `docker` job engine
 ARG INSTALL_DOCKER_ENGINE=false
 
 COPY airflow_src/requirements_airflow.txt /

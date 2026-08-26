@@ -1,5 +1,4 @@
 alphatims==1.0.9
-# TODO use alpharaw release once available
-alpharaw @ git+https://github.com/MannLabs/alpharaw.git@8b4be571b76ccfa2ed0210f84f120597ae9f6a13
+alpharaw==0.7.0
 numpy==2.2.6
 pandas==2.3.1

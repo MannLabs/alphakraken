@@ -72,7 +72,7 @@ def _normalize_metric_columns(df: pd.DataFrame) -> pd.DataFrame:
 # Note: the DataFrame is cached rather than the underlying QuerySets, as pickling a QuerySet
 # (which is what st.cache_data does) drops its cursor and thus its results.
 @st.cache_data(ttl=120)
-def get_combined_raw_files_and_metrics_df(  # noqa: PLR0912, C901: Too many branches, too complex
+def get_combined_raw_files_and_metrics_df(
     *,
     max_age_in_days: float | None = None,
     raw_file_ids: list[str] | None = None,

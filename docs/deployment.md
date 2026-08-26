@@ -367,6 +367,25 @@ hanging container is monitored indefinitely.
 - Containers are kept after they exited so that their logs and exit code can be read. Clean them up
 occasionally with `docker container prune --filter label=alphakraken.job`.
 
+### Metrics reported by the quanting software
+Independently of the software type and execution engine, the quanting software can report metrics itself
+by writing a `metrics.csv` file into its output folder. AlphaKraken reads that file after the job finished and
+stores its content together with the metrics it calculated itself, under the metrics type configured in
+the settings. So an image configured with metrics type `msqc` produces `msqc__*` columns in the webapp,
+no matter whether AlphaKraken or the image itself computed the numbers.
+
+The file is expected to have one header row with the metric names and one row with the values:
+```
+proteins,precursors,my_own_metric
+8123,95012,0.42
+```
+If it has more than one row, only the first one is used. If a metric name is
+both calculated by AlphaKraken and present in the file, the value from the file wins. In both cases a warning is logged in Airflow.
+
+This is the only way to get metrics out of a software that AlphaKraken has no metrics calculation for, so it
+does not require any code change: pick the metrics type that labels the metrics best, e.g. `custom` if
+AlphaKraken calculates nothing at all for that software.
+
 ### Summary
 The following files need to be edited to customize your deployment:
 - `envs/.env-airflow`: set the current user as the user within the airflow containers

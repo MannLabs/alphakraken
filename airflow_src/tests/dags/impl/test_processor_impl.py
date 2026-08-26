@@ -1058,10 +1058,7 @@ def test_compute_metrics(
         Path("/opt/airflow/mounts/output/P1/out_test_file.raw/alphadia"),
         metrics_type="alphadia",
     )
-    assert result == {
-        "metrics": {"metric1": "value1", "time_elapsed": 123},
-        "metrics_type": "alphadia",
-    }
+    assert result == {"metric1": "value1", "time_elapsed": 123}
 
 
 @patch("dags.impl.processor_impl.calc_metrics")
@@ -1084,10 +1081,7 @@ def test_compute_metrics_msqc_software_type(
         Path("/opt/airflow/mounts/output/P1/out_test_file.raw/msqc"),
         metrics_type="msqc",
     )
-    assert result == {
-        "metrics": {"qc_metric": 42},
-        "metrics_type": "msqc",
-    }
+    assert result == {"qc_metric": 42}
 
 
 @patch("dags.impl.processor_impl.add_metrics_to_raw_file")
@@ -1102,9 +1096,9 @@ def test_store_metrics(
             "SETTINGS_VERSION": 1,
             "RAW_FILE_ID": "some_file.raw",
             "OUTPUT_PATH": "/data/output/P1/out_some_file.raw/alphadia",
+            "METRICS_TYPE": "alphadia",
         },
         metrics={"metric1": "value1"},
-        metrics_type="alphadia",
     )
 
     mock_add.assert_called_once_with(

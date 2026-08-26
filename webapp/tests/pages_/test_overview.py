@@ -83,14 +83,15 @@ def _configure_mocks(
         }
     )
 
+    # order must match MetricsTypes.get_values(), cf. the loop in data_handling.py
     mock_df_from_db_data.side_effect = [
         status_df,  # this is for display_status_warning
         raw_files_df,
+        custom_metrics_df,  # custom metrics
         metrics_df,  # alphadia metrics
         pd.DataFrame(),  # empty msqc metrics
         pd.DataFrame(),  # empty skyline metrics
         pd.DataFrame(),  # empty diann metrics
-        custom_metrics_df,  # custom metrics
         status_df,
     ]
 

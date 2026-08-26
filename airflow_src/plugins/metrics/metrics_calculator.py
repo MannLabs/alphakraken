@@ -1,6 +1,6 @@
 """Calculate metrics.
 
-To extend the metrics, create a new class that inherits from Metrics and implement the _calc() method.
+cf. docs/customization.md on how to add metrics for a new software.
 """
 
 import logging
@@ -9,16 +9,24 @@ from typing import Any
 
 import numpy as np
 from metrics.metrics.alphadia import calc_alphadia_metrics
-from metrics.metrics.custom import calc_custom_metrics
+from metrics.metrics.base import read_csv
 from metrics.metrics.diann import calc_diann_metrics
 from metrics.metrics.msqc import calc_msqc_metrics
 from metrics.metrics.skyline import calc_skyline_metrics
 
+# from metrics.metrics.skyline import calc_skyline_metrics # dummy code for adding new metrics
 from shared.keys import MetricsTypes
+
+# optional file in the output directory in which the quanting software can report metrics itself,
+# one column per metric. They are stored under the configured metrics type, just like the metrics
+# AlphaKraken calculates itself.
+REPORTED_METRICS_FILE_NAME = "metrics.csv"
 
 
 def calc_metrics(output_directory: Path, *, metrics_type: str) -> dict[str, Any]:
-    """Calculate metrics for the given output directory.
+    """Get all metrics for the given output directory, calculated ones and reported ones.
+
+    On a name clash, the metrics provided via `'`REPORTED_METRICS_FILE_NAME`'` by the quanting job win.
 
     :param output_directory: Path to the output directory
     :param metrics_type: Type of metrics to calculate ("alphadia" or "custom")
@@ -28,13 +36,58 @@ def calc_metrics(output_directory: Path, *, metrics_type: str) -> dict[str, Any]
         MetricsTypes.MSQC: calc_msqc_metrics,
         MetricsTypes.SKYLINE: calc_skyline_metrics,
         MetricsTypes.DIANN: calc_diann_metrics,
-        MetricsTypes.CUSTOM: calc_custom_metrics,
+        MetricsTypes.CUSTOM: _calc_no_metrics,  # metrics are taken from a metrics.csv file exclusively
+        # MetricsTypes.EXAMPLE_METRICS: calc_example_metrics, # dummy code for adding new metrics
     }[metrics_type](output_directory)
 
-    # MongoDB field names cannot contain dots (".") or null characters ("\0"), and they must not start with a dollar sign ("$").
-    metrics_cleaned = {k.replace(".", ":"): v for k, v in metrics.items()}
+    calculated_metrics = _clean_metrics(metrics)
+    logging.info(f"Calculated {metrics_type} metrics: {calculated_metrics}")
 
-    logging.info(f"Calculated {metrics_type} metrics: {metrics_cleaned}")
+    reported_metrics = _get_reported_metrics(output_directory)
+
+    if overlapping := sorted(set(calculated_metrics) & set(reported_metrics)):
+        logging.warning(f"Reported metrics override calculated ones: {overlapping}")
+
+    return calculated_metrics | reported_metrics
+
+
+def _calc_no_metrics(output_directory: Path) -> dict[str, Any]:
+    """Calculate nothing, returns an empty dict.
+
+    Used for softwares that AlphaKraken has no metrics calculation for, those report their metrics themselves, cf. `REPORTED_METRICS_FILE_NAME`.
+    """
+    del output_directory  # unused
+    return {}
+
+
+def _get_reported_metrics(output_directory: Path) -> dict[str, Any]:
+    """Get the metrics the quanting software reported in `REPORTED_METRICS_FILE_NAME`.
+
+    :param output_directory: Path to the output directory
+    :return: The metrics of the file's first row, empty if the file does not exist or has no rows.
+    """
+    file_path = output_directory / REPORTED_METRICS_FILE_NAME
+    if not file_path.exists():
+        return {}
+
+    df = read_csv(file_path)
+    if df.empty:
+        logging.warning(f"No rows in {file_path}, ignoring it.")
+        return {}
+    if len(df) > 1:
+        logging.warning(f"Found {len(df)} rows in {file_path}, using the first one.")
+
+    metrics_cleaned = _clean_metrics(df.iloc[0].to_dict())
+
+    logging.info(f"Read reported metrics: {metrics_cleaned}")
+
+    return metrics_cleaned
+
+
+def _clean_metrics(metrics: dict[str, Any]) -> dict[str, Any]:
+    """Make metrics keys storable in MongoDB and their values JSON-serializable."""
+    # MongoDB field names cannot contain dots ("."), and they must not start with a dollar sign ("$").
+    metrics_cleaned = {str(k).replace(".", ":"): v for k, v in metrics.items()}
 
     # required to prevent TypeError: Object of type float32 is not JSON serializable
     return _convert_numpy_types(metrics_cleaned)

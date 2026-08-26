@@ -47,7 +47,7 @@ st.set_page_config(page_title="AlphaKraken: projects", layout="wide")
 flush_pending_toasts()
 show_sandbox_message()
 
-st.markdown("# Projects")
+st.markdown("# Manage projects")
 
 st.markdown("## Current projects")
 

@@ -32,7 +32,7 @@ def test_get_job_handler_docker_without_optional_dependency() -> None:
     # a None entry in sys.modules makes the import of that module raise an ImportError
     with (
         patch.dict(sys.modules, {"docker": None, "jobs.docker_job_handler": None}),
-        pytest.raises(AirflowFailException, match="requirements_docker_engine"),
+        pytest.raises(AirflowFailException, match="requirements_docker_job_engine"),
     ):
         _get_job_handler(JobEngines.DOCKER)
 

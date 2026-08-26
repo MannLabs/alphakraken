@@ -4,6 +4,8 @@ from datetime import datetime
 
 import pandas as pd
 import streamlit as st
+from mongoengine import QuerySet
+from pandas import DataFrame
 from service.columns import build_alternative_names_mapping, load_columns_from_yaml
 from service.db import df_from_db_data, get_raw_file_and_metrics_data
 from service.utils import METRICS_TYPE_SEPARATOR, Cols
@@ -64,49 +66,6 @@ def _normalize_metric_columns(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def _merge_metrics_by_type(all_metrics_df: pd.DataFrame) -> pd.DataFrame:
-    """Merge the metrics of each type into a single DataFrame, one row per raw file.
-
-    Metric columns are prefixed with their type, e.g. "alphadia__proteins".
-    """
-    if len(all_metrics_df) == 0:
-        return pd.DataFrame()
-
-    # TODO: first existing metrics gets column name w/o suffix -> always append
-    merged_metrics_df = pd.DataFrame()
-    for metrics_type in MetricsTypes.get_values():
-        metrics_df = all_metrics_df[
-            all_metrics_df[_METRICS_TYPE_COLUMN] == metrics_type
-        ]
-        if len(metrics_df) == 0:
-            continue
-
-        # the youngest metrics of a raw file win, cf. the sorting in df_from_db_data()
-        metrics_df = metrics_df.drop_duplicates(subset=[_RAW_FILE_COLUMN], keep="first")
-
-        # dropping all-empty columns is required for the Metrics, as e.g. custom metrics
-        # may not have all columns
-        metrics_df = metrics_df.dropna(axis=1, how="all").drop(
-            columns=[_METRICS_TYPE_COLUMN], errors="ignore"
-        )
-
-        metrics_df = metrics_df.rename(
-            columns={
-                c: f"{metrics_type}{METRICS_TYPE_SEPARATOR}{c}"
-                for c in metrics_df.columns
-                if c != _RAW_FILE_COLUMN
-            }
-        )
-
-        merged_metrics_df = (
-            metrics_df
-            if len(merged_metrics_df) == 0
-            else merged_metrics_df.merge(metrics_df, on=_RAW_FILE_COLUMN, how="outer")
-        )
-
-    return merged_metrics_df
-
-
 # Cached values are accessible to all users across all sessions.
 # Considering memory it should currently be fine to have all data cached.
 # Command for clearing the cache:  get_combined_raw_files_and_metrics_df.clear()
@@ -126,39 +85,7 @@ def get_combined_raw_files_and_metrics_df(
     )
     raw_files_df = df_from_db_data(raw_files_db)
 
-    # merge metrics of each type into a single DataFrame
-    # TODO: first existing metrics gets column name w/o suffix -> always append
-    merged_metrics_df = pd.DataFrame()
-    for metrics_type in MetricsTypes.get_values():
-        metrics_df = df_from_db_data(
-            metrics_db,
-            filter_dict={"type": metrics_type},
-            drop_duplicates=["raw_file"],
-            drop_columns=["_id", "created_at_"],
-            drop_none_columns=True,
-        )
-        if len(metrics_df) == 0:
-            continue
-
-        metrics_df = _normalize_metric_columns(metrics_df)
-
-        # prefix all metric columns with "{type}__"
-        metrics_df = metrics_df.drop(columns=["type"], errors="ignore")
-        metric_cols = [c for c in metrics_df.columns if c != "raw_file"]
-        metrics_df = metrics_df.rename(
-            columns={
-                c: f"{metrics_type}{METRICS_TYPE_SEPARATOR}{c}" for c in metric_cols
-            }
-        )
-
-        if len(merged_metrics_df) == 0:
-            merged_metrics_df = metrics_df
-        else:
-            merged_metrics_df = merged_metrics_df.merge(
-                metrics_df,
-                on="raw_file",
-                how="outer",
-            )
+    merged_metrics_df = _merge_metrics_by_type(metrics_db)
 
     if len(raw_files_df) == 0:
         # TODO: improve -> move st dependency out
@@ -219,6 +146,46 @@ def get_combined_raw_files_and_metrics_df(
     combined_df[Cols.IS_BASELINE] = False
 
     return combined_df, data_timestamp
+
+
+def _merge_metrics_by_type(metrics_db: QuerySet) -> DataFrame:
+    """Merge metrics of each type into a single DataFrame.
+
+    - normalize column names
+    - add  "{type}__" prefix
+    """
+    merged_metrics_df = pd.DataFrame()
+    for metrics_type in MetricsTypes.get_values():
+        metrics_df = df_from_db_data(
+            metrics_db,
+            filter_dict={"type": metrics_type},
+            drop_duplicates=["raw_file"],
+            drop_columns=["_id", "created_at_"],
+            drop_none_columns=True,
+        )
+        if len(metrics_df) == 0:
+            continue
+
+        metrics_df = _normalize_metric_columns(metrics_df)
+
+        # prefix all metric columns with "{type}__"
+        metrics_df = metrics_df.drop(columns=["type"], errors="ignore")
+        metric_cols = [c for c in metrics_df.columns if c != "raw_file"]
+        metrics_df = metrics_df.rename(
+            columns={
+                c: f"{metrics_type}{METRICS_TYPE_SEPARATOR}{c}" for c in metric_cols
+            }
+        )
+
+        if len(merged_metrics_df) == 0:
+            merged_metrics_df = metrics_df
+        else:
+            merged_metrics_df = merged_metrics_df.merge(
+                metrics_df,
+                on="raw_file",
+                how="outer",
+            )
+    return merged_metrics_df
 
 
 def get_lag_time(

@@ -33,6 +33,9 @@ x-airflow-common: &airflow-common
   build:
     context: .
     dockerfile: airflow_src/Dockerfile
+    args:
+      # set to "true" to install the optional requirements of the `docker` job engine
+      INSTALL_DOCKER_ENGINE: ${INSTALL_DOCKER_ENGINE:-false}
   # User ID in Airflow containers
   user: "${AIRFLOW_UID:?error}:0"
   environment: &airflow-common-env
@@ -441,7 +444,8 @@ services:
     # "-q <XXX>" makes this worker handle only DAGs that reference queue_name=<XXX> during DAG instantiation
     command: celery worker -q kraken_queue_test1
     # allows the worker (which runs with gid 0) to access the docker socket, required for the
-    # `docker` job engine only. Get the value with `stat -c '%g' /var/run/docker.sock`.
+    # `docker` job engine on Linux hosts only. Get the value with `stat -c '%g' /var/run/docker.sock`;
+    # on Docker Desktop the socket is root:root in the container, so the default of 0 works.
     group_add: ["${DOCKER_GID:-0}"]
     volumes:
       # all mounts (backup pool folders, results pool folders, instruments) need to be available in $MOUNTS_PATH .
@@ -505,7 +509,8 @@ services:
     <<: *airflow-worker
     command: celery worker -q kraken_queue_test2
     # allows the worker (which runs with gid 0) to access the docker socket, required for the
-    # `docker` job engine only. Get the value with `stat -c '%g' /var/run/docker.sock`.
+    # `docker` job engine on Linux hosts only. Get the value with `stat -c '%g' /var/run/docker.sock`;
+    # on Docker Desktop the socket is root:root in the container, so the default of 0 works.
     group_add: ["${DOCKER_GID:-0}"]
     volumes:
       - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs:rw
@@ -521,7 +526,8 @@ services:
     <<: *airflow-worker
     command: celery worker -q kraken_queue_test3
     # allows the worker (which runs with gid 0) to access the docker socket, required for the
-    # `docker` job engine only. Get the value with `stat -c '%g' /var/run/docker.sock`.
+    # `docker` job engine on Linux hosts only. Get the value with `stat -c '%g' /var/run/docker.sock`;
+    # on Docker Desktop the socket is root:root in the container, so the default of 0 works.
     group_add: ["${DOCKER_GID:-0}"]
     volumes:
       - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs:rw

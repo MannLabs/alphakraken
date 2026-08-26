@@ -189,7 +189,7 @@ def _create_quanting_env(
         raw_file.project_id,
     )
 
-    custom_command = (
+    custom_command = (  # TODO: remove in favour of software_path and params
         _prepare_custom_command(settings, substituted_params)
         # all non-alphadia softwares are treated as 'custom command'
         if settings.software_type not in [SoftwareTypes.ALPHADIA]
@@ -222,7 +222,6 @@ def _create_quanting_env(
         QuantingEnv.INTERNAL_RAW_FILE_PATH: str(
             get_internal_backup_path() / relative_raw_file_path
         ),
-        # resolved placeholders, used as the command by the docker job engine
         QuantingEnv.CONFIG_PARAMS: substituted_params,
         QuantingEnv.JOB_ENGINE: settings.job_engine,
     }

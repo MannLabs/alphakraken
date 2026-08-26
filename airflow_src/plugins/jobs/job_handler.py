@@ -35,12 +35,6 @@ def _get_job_handler(engine: str) -> "JobHandler":
         logging.info("Using DockerJobHandler")
         return DockerJobHandler()
 
-    if engine == JobEngines.GENERIC:
-        from jobs._experimental.generic_job_handler import GenericJobHandler
-
-        logging.info("Using GenericJobHandler")
-        return GenericJobHandler()
-
     if engine == JobEngines.FILE_BASED:
         from jobs._experimental.file_based_job_handler import FileBasedJobHandler
 

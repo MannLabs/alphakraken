@@ -7,7 +7,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 from airflow.exceptions import AirflowFailException
 from jobs._experimental.file_based_job_handler import FileBasedJobHandler
-from jobs._experimental.generic_job_handler import GenericJobHandler
 from jobs.job_handler import (
     SlurmSSHJobHandler,
     _get_job_handler,
@@ -23,7 +22,6 @@ def test_get_job_handler_routes_engine_to_handler(mock_get_path: MagicMock) -> N
 
     assert isinstance(_get_job_handler(JobEngines.SLURM), SlurmSSHJobHandler)
     assert isinstance(_get_job_handler(JobEngines.FILE_BASED), FileBasedJobHandler)
-    assert isinstance(_get_job_handler(JobEngines.GENERIC), GenericJobHandler)
 
 
 def test_get_job_handler_docker_without_optional_dependency() -> None:

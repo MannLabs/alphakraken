@@ -71,7 +71,6 @@ class JobEngines(metaclass=ConstantsClass):
     SLURM: str = "slurm"
     DOCKER: str = "docker"
     FILE_BASED: str = "file_based"
-    GENERIC: str = "generic"
 
 
 class MetricsTypes(metaclass=ConstantsClass):

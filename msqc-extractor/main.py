@@ -1,6 +1,5 @@
 """Calculate performance metrics and compile TIC data for Thermo, Bruker, and SCIEX raw files."""
 
-import os
 import sys
 
 import alphatims.bruker
@@ -200,7 +199,6 @@ def calculate_bruker_metrics(
 
 
 if __name__ == "__main__":
-
     if len(sys.argv) != NUM_EXPECTED_ARGS:
         print(USAGE)  # noqa: T201
         sys.exit(1)

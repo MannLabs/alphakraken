@@ -48,10 +48,11 @@ ignore = [
 
 [tool.pytest.ini_options]
 pythonpath = [
-# cf. README.md:A note on importing
+    # cf. docs/development.md: A note on importing and PYTHONPATH
+    # root, to import the `shared` package
+    ".",
     "./airflow_src/dags",
     "./airflow_src/plugins",
-    "./shared",
     # this is to enable importing in tests as `from dags.impl. ...` rather than `from impl. ...`
     "./airflow_src",
     # note that package names must be unique in the airflow_src and webapp directories to not confuse the imports in pytest

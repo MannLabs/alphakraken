@@ -36,26 +36,16 @@ class FileBasedJobHandler(JobHandler):
             Path(InternalPaths.MOUNTS_PATH) / InternalPaths.OUTPUT / "job_queue"
         )
 
-    def start_job(
-        self,
-        job_script_name: str,
-        environment: dict[str, str],
-        year_month_folder: str,
-    ) -> str:
+    def start_job(self, environment: dict[str, str]) -> str:
         """Start a job by writing quanting environment to a .job file.
 
         Args:
-            job_script_name: Name of the job script (ignored for file-based handler)
             environment: Environment variables containing quanting configuration
-            year_month_folder: Folder for job outputs (ignored for file-based handler)
 
         Returns:
             Job ID (in the case of this handler, it's the raw file id)
 
         """
-        del job_script_name  # unused
-        del year_month_folder  # unused
-
         raw_file_id = environment[QuantingEnv.RAW_FILE_ID]
         job_file_path = self._job_submit_dir / f"{raw_file_id}.job"
 

@@ -56,6 +56,7 @@ def test_create_quanting_env(
         wraps=RawFile,
         id="test_file.raw",
         project_id="some_project_id",
+        created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
     )
     mock_settings = MagicMock()
     mock_settings.name = "test_settings"
@@ -102,6 +103,7 @@ def test_create_quanting_env(
         "SETTINGS_NAME": "test_settings",
         "SETTINGS_VERSION": 1,
         "_JOB_ENGINE": "slurm",
+        "_YEAR_MONTH_FOLDER": "1970_01",
         "_INTERNAL_OUTPUT_PATH": "/opt/airflow/mounts/output/some_project_id/out_test_file.raw/alphadia",
         "_INTERNAL_RAW_FILE_PATH": "/opt/airflow/mounts/backup/instrument1/1970_01/test_file.raw",
         "_CONFIG_PARAMS": "",
@@ -128,6 +130,7 @@ def test_create_quanting_env_custom_software(
         wraps=RawFile,
         id="test_file.raw",
         project_id="some_project_id",
+        created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
     )
     mock_settings = MagicMock()
     mock_settings.name = "test_custom_settings"
@@ -184,6 +187,7 @@ def test_create_quanting_env_custom_software(
         "SETTINGS_NAME": "test_custom_settings",
         "SETTINGS_VERSION": 1,
         "_JOB_ENGINE": "slurm",
+        "_YEAR_MONTH_FOLDER": "1970_01",
         "_INTERNAL_OUTPUT_PATH": "/opt/airflow/mounts/output/some_project_id/out_test_file.raw/custom",
         "_INTERNAL_RAW_FILE_PATH": "/opt/airflow/mounts/backup/instrument1/1970_01/test_file.raw",
         "_CONFIG_PARAMS": expected_config_params,
@@ -490,9 +494,7 @@ def test_submit_job_executes_ssh_command_and_stores_job_id(
     assert result == "12345"
     assert output_dir.exists()
     mock_start_job.assert_called_once_with(
-        "submit_job.sh",
         quanting_env,
-        "1970_01",
         engine="slurm",
     )
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
@@ -701,7 +703,11 @@ def test_create_quanting_env_with_suffix(
 
     result = _create_quanting_env(
         settings=mock_settings,
-        raw_file=MagicMock(wraps=RawFile, id="test_file.raw"),
+        raw_file=MagicMock(
+            wraps=RawFile,
+            id="test_file.raw",
+            created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
+        ),
         raw_file_path=Path("/some_backup_base_path/instrument1/1970_01/test_file.raw"),
         relative_raw_file_path=Path("instrument1/1970_01/test_file.raw"),
         output_path_suffix=".run2",

@@ -5,7 +5,11 @@ from datetime import datetime
 from pathlib import Path
 
 from airflow.exceptions import AirflowFailException
-from common.constants import CLUSTER_BASE_WORKING_DIR_NAME, DUMMY_TIME_ELAPSED
+from common.constants import (
+    CLUSTER_BASE_WORKING_DIR_NAME,
+    DEFAULT_JOB_SCRIPT_NAME,
+    DUMMY_TIME_ELAPSED,
+)
 from common.keys import JobStates, QuantingEnv
 from jobs.job_handler import JobHandler
 from sensors.ssh_utils import ssh_execute
@@ -28,17 +32,12 @@ class SlurmSSHJobHandler(JobHandler):
             self._cluster_base_dir / CLUSTER_BASE_WORKING_DIR_NAME
         )
 
-    def start_job(
-        self,
-        job_script_name: str,
-        environment: dict[str, str],
-        year_month_folder: str,
-    ) -> str:
+    def start_job(self, environment: dict[str, str]) -> str:
         """Start a job on the Slurm cluster via SSH."""
         command = (
             self._create_export_environment_cmd(environment)
             + "\n"
-            + self._get_submit_job_cmd(job_script_name, environment, year_month_folder)
+            + self._get_submit_job_cmd(DEFAULT_JOB_SCRIPT_NAME, environment)
         )
         logging.info(f"Running command: >>>>\n{command}\n<<<< end of command")
         ssh_return = ssh_execute(command)
@@ -68,7 +67,7 @@ class SlurmSSHJobHandler(JobHandler):
         return job_status, time_elapsed
 
     def _get_submit_job_cmd(
-        self, job_script_name: str, environment: dict[str, str], year_month_folder: str
+        self, job_script_name: str, environment: dict[str, str]
     ) -> str:
         """Get the command to run the job on the cluster.
 
@@ -76,10 +75,12 @@ class SlurmSSHJobHandler(JobHandler):
         ${JID##* } is removing everything up to the last space.
 
         :param job_script_name: the name of the slurm job script, e.g. "submit_job.sh"
-        :param year_month_folder: the sub folder in which the slurm output script will be written to, e.g. "2024_07"
         """
         cluster_job_script_path = self._cluster_base_dir / job_script_name
-        cluster_working_dir = self._cluster_base_working_dir_path / year_month_folder
+        cluster_working_dir = (
+            self._cluster_base_working_dir_path
+            / environment[QuantingEnv.YEAR_MONTH_FOLDER]
+        )
 
         # if those parameters are not passed, the value defined in the submit script are taken
         param_list = []

@@ -46,15 +46,11 @@ class JobHandler(abc.ABC):
     """Abstract base class for job handling."""
 
     @abc.abstractmethod
-    def start_job(
-        self, job_script_name: str, environment: dict[str, str], year_month_folder: str
-    ) -> str:
+    def start_job(self, environment: dict[str, str]) -> str:
         """Start a job and return the job ID.
 
         Args:
-            job_script_name: Name of the Slurm job script to run, e.g. "submit_job.sh"
             environment: Environment variables to set before job submission
-            year_month_folder: Folder to store job outputs, e.g. "2024_07"
 
         Returns:
             Job ID as a string
@@ -79,9 +75,7 @@ class JobHandler(abc.ABC):
 
 
 def start_job(
-    job_script_name: str,
     environment: dict[str, str],
-    year_month_folder: str,
     engine: str,
 ) -> str:
     """Start a job using the given job engine.
@@ -89,7 +83,7 @@ def start_job(
     Delegates to JobHandler.start_job(), see docs there.
     """
     handler = _get_job_handler(engine)
-    return handler.start_job(job_script_name, environment, year_month_folder)
+    return handler.start_job(environment)
 
 
 def get_job_status(job_id: str, engine: str) -> str:

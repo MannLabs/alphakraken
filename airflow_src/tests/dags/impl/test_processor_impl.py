@@ -34,23 +34,19 @@ from plugins.common.keys import (
     XComKeys,
 )
 
+from airflow_src.tests.helpers import yaml_locations
 from shared.db.models import RawFile, RawFileStatus
 from shared.keys import JobEngines
 
 
-@patch("dags.impl.processor_impl.get_path")
+@yaml_locations(settings="/some_settings_path", output="/some_output_path")
 @patch("dags.impl.processor_impl.get_output_folder_rel_path")
 @patch("dags.impl.processor_impl.get_internal_output_path_for_raw_file")
 def test_create_quanting_env(
     mock_internal_output_path: MagicMock,
     mock_output_rel_path: MagicMock,
-    mock_get_path: MagicMock,
 ) -> None:
     """Test that _create_quanting_env builds the expected environment dict."""
-    mock_get_path.side_effect = [
-        Path("/some_settings_path"),
-        Path("/some_output_path"),
-    ]
     mock_output_rel_path.return_value = Path(
         "some_project_id/out_test_file.raw/alphadia"
     )
@@ -115,20 +111,18 @@ def test_create_quanting_env(
     assert result == expected
 
 
-@patch("dags.impl.processor_impl.get_path")
+@yaml_locations(
+    settings="/some_settings_path",
+    output="/some_output_path",
+    software="/some_software_base_path",
+)
 @patch("dags.impl.processor_impl.get_output_folder_rel_path")
 @patch("dags.impl.processor_impl.get_internal_output_path_for_raw_file")
 def test_create_quanting_env_custom_software(
     mock_internal_output_path: MagicMock,
     mock_output_rel_path: MagicMock,
-    mock_get_path: MagicMock,
 ) -> None:
     """Test that _create_quanting_env handles custom software settings with parameter substitution."""
-    mock_get_path.side_effect = [
-        Path("/some_settings_path"),
-        Path("/some_output_path"),
-        Path("/some_software_base_path"),
-    ]
     mock_output_rel_path.return_value = Path("some_project_id/out_test_file.raw/custom")
     mock_internal_output_path.return_value = Path(
         "/opt/airflow/mounts/output/some_project_id/out_test_file.raw/custom"
@@ -299,9 +293,8 @@ def test_resolve_settings_no_settings_raise(
 @patch("dags.impl.processor_impl._create_quanting_env")
 @patch("dags.impl.processor_impl.get_settings_by_id")
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
-@patch("dags.impl.processor_impl.get_path")
+@yaml_locations(backup="/some_backup_base_path")
 def test_prepare_job(
-    mock_get_path: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
     mock_get_settings_by_id: MagicMock,
     mock_create_env: MagicMock,
@@ -315,7 +308,6 @@ def test_prepare_job(
         instrument_id="instrument1",
     )
     mock_get_raw_file_by_id.return_value = mock_raw_file
-    mock_get_path.return_value = Path("/some_backup_base_path")
     mock_settings = MagicMock(config_params=[])
     mock_get_settings_by_id.return_value = mock_settings
     mock_env = {
@@ -375,9 +367,8 @@ def test_check_content_allows_image_name_in_software_field() -> None:
 @patch("dags.impl.processor_impl._create_quanting_env")
 @patch("dags.impl.processor_impl.get_settings_by_id")
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
-@patch("dags.impl.processor_impl.get_path")
+@yaml_locations(backup="/some_backup_base_path")
 def test_prepare_job_validation_error_raises(
-    mock_get_path: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
     mock_get_settings_by_id: MagicMock,
     mock_create_env: MagicMock,
@@ -392,7 +383,6 @@ def test_prepare_job_validation_error_raises(
         instrument_id="instrument1",
     )
     mock_get_raw_file_by_id.return_value = mock_raw_file
-    mock_get_path.return_value = Path("/some_backup_base_path")
     mock_settings = MagicMock()
     mock_get_settings_by_id.return_value = mock_settings
     mock_env = {"SOFTWARE_TYPE": "custom"}
@@ -620,9 +610,8 @@ def test_find_next_free_run_suffix_base_not_exists(tmp_path: Path) -> None:
 @patch("dags.impl.processor_impl._create_quanting_env")
 @patch("dags.impl.processor_impl.get_settings_by_id")
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
-@patch("dags.impl.processor_impl.get_path")
+@yaml_locations(backup="/some_backup_base_path")
 def test_prepare_job_add_mode(  # noqa: PLR0913
-    mock_get_path: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
     mock_get_settings_by_id: MagicMock,
     mock_create_env: MagicMock,
@@ -639,7 +628,6 @@ def test_prepare_job_add_mode(  # noqa: PLR0913
         instrument_id="instrument1",
     )
     mock_get_raw_file_by_id.return_value = mock_raw_file
-    mock_get_path.return_value = Path("/some_backup_base_path")
     mock_settings = MagicMock(config_params=[])
     mock_get_settings_by_id.return_value = mock_settings
     mock_check_content.return_value = []

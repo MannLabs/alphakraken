@@ -22,12 +22,11 @@ def test_start_job_returns_valid_job_id(
         "_SLURM_CPUS_PER_TASK": 8,
         "_SLURM_MEM": "62G",
         "_SLURM_TIME": "02:00:00",
+        "_YEAR_MONTH_FOLDER": "2024_07",
     }
 
     # when
-    job_id = SlurmSSHJobHandler(SLURM_BASE_DIR).start_job(
-        "submit_job.sh", environment, "2024_07"
-    )
+    job_id = SlurmSSHJobHandler(SLURM_BASE_DIR).start_job(environment)
     assert job_id == "12345"
     expected_command = (
         'export ENV_VAR="value"\n'
@@ -52,12 +51,11 @@ def test_start_job_handles_invalid_job_id(
         "_SLURM_CPUS_PER_TASK": 8,
         "_SLURM_MEM": "62G",
         "_SLURM_TIME": "02:00:00",
+        "_YEAR_MONTH_FOLDER": "2024_07",
     }
 
     with pytest.raises(AirflowFailException, match="Job submission failed."):
-        SlurmSSHJobHandler(SLURM_BASE_DIR).start_job(
-            "submit_job.sh", environment, "2024_07"
-        )
+        SlurmSSHJobHandler(SLURM_BASE_DIR).start_job(environment)
 
 
 @patch("jobs.slurm_ssh_job_handler.ssh_execute")

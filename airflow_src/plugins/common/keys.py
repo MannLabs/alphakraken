@@ -184,6 +184,7 @@ class QuantingEnv:
     INTERNAL_RAW_FILE_PATH: str = "_INTERNAL_RAW_FILE_PATH"
     CONFIG_PARAMS: str = "_CONFIG_PARAMS"
     JOB_ENGINE: str = "_JOB_ENGINE"
+    YEAR_MONTH_FOLDER: str = "_YEAR_MONTH_FOLDER"
 
 
 class JobStates:

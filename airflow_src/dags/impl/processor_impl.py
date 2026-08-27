@@ -9,7 +9,6 @@ from airflow.exceptions import AirflowFailException, AirflowSkipException
 from airflow.models import TaskInstance
 from airflow.utils.state import TaskInstanceState
 from common.constants import (
-    DEFAULT_JOB_SCRIPT_NAME,
     ERROR_CODE_TO_STRING,
     AlphaDiaConstants,
 )
@@ -228,6 +227,7 @@ def _create_quanting_env(
         ),
         QuantingEnv.CONFIG_PARAMS: substituted_params,
         QuantingEnv.JOB_ENGINE: settings.job_engine,
+        QuantingEnv.YEAR_MONTH_FOLDER: get_created_at_year_month(raw_file),
     }
     return quanting_env
 
@@ -342,19 +342,10 @@ def _get_slurm_job_id_from_log(output_path: Path) -> str | None:
 def submit_job(
     *,
     quanting_env: dict,
-    # TODO: revisit/remove those 3 parameters
-    new_status: str | None = RawFileStatus.QUANTING,
-    output_path_check: bool = True,
-    job_script_name: str = DEFAULT_JOB_SCRIPT_NAME,
 ) -> str:
     """Run a job on the cluster.
 
     :param quanting_env: The quanting environment variables dict.
-    :param new_status: The status to set for the raw file after starting the job, default is RawFileStatus.QUANTING.
-        Set to None to not change the status.
-    :param output_path_check: Whether to check if the output path already exists
-        and handle it accordingly, default is True. Setting to false will overwrite contents of the output path.
-    :param job_script_name: The name of the job script to run, default is DEFAULT_JOB_SCRIPT_NAME.
     :return: The Slurm job ID as a string.
     """
     logging.info(f"Starting quanting with environment: {quanting_env}")
@@ -369,7 +360,7 @@ def submit_job(
 
     # upfront check 2
     output_path = Path(quanting_env[QuantingEnv.INTERNAL_OUTPUT_PATH])
-    if output_path_check and output_path.exists():
+    if output_path.exists():
         msg = f"Output path {output_path} already exists with different content."
         output_exists_mode = get_airflow_variable(
             AirflowVars.OUTPUT_EXISTS_MODE, "raise"
@@ -400,17 +391,15 @@ def submit_job(
 
     output_path.mkdir(parents=True, exist_ok=True)
 
-    year_month_folder = get_created_at_year_month(raw_file)
-
     job_id = start_job(
-        job_script_name,
         quanting_env,
-        year_month_folder,
         engine=quanting_env[QuantingEnv.JOB_ENGINE],
     )
 
-    if new_status is not None:
-        update_raw_file(quanting_env[QuantingEnv.RAW_FILE_ID], new_status=new_status)
+    # TODO: race condition here, e.g. for file in ERROR status
+    update_raw_file(
+        quanting_env[QuantingEnv.RAW_FILE_ID], new_status=RawFileStatus.QUANTING
+    )
 
     return str(job_id)
 

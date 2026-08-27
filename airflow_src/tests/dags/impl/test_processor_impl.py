@@ -695,7 +695,7 @@ def test_create_quanting_env_with_suffix(
     mock_internal_output_path.return_value = Path("/opt/airflow/mounts/output")
 
     mock_settings = MagicMock(
-        software_type="custom", config_params="--out OUTPUT_PATH", num_threads=8
+        software_type="custom", config_params="--out {OUTPUT_PATH}", num_threads=8
     )
     mock_settings.name = "test_settings"
 

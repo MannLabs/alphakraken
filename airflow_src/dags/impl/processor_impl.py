@@ -42,6 +42,11 @@ from jobs.job_handler import (
 from metrics.metrics_calculator import calc_metrics
 from mongoengine import DoesNotExist
 
+from shared.config_params import (
+    ConfigParamPlaceholders,
+    substitute_dummy_values,
+    substitute_placeholders,
+)
 from shared.db.interface import (
     add_metrics_to_raw_file,
     get_project_settings,
@@ -243,22 +248,19 @@ def _substitute_config_params(  # noqa: PLR0913 Too many arguments
     if settings.config_params is None:
         return ""
 
-    substituted_params = settings.config_params
-    replacements = {
-        # mind the order of replacements here (LONGER placeholders first, e.g. RAW_FILE_PATH before RELATIVE_RAW_FILE_PATH)
-        "RELATIVE_RAW_FILE_PATH": relative_raw_file_path,
-        "RAW_FILE_PATH": raw_file_path,
-        "RAW_FILE_ID": raw_file_id,
-        "SETTINGS_PATH": settings_path,
-        "RELATIVE_OUTPUT_PATH": relative_output_path,
-        "OUTPUT_PATH": output_path,
-        "NUM_THREADS": num_threads,
-        "PROJECT_ID": project_id,
-    }
-    for placeholder, new_value in replacements.items():
-        substituted_params = substituted_params.replace(placeholder, str(new_value))
-
-    return substituted_params
+    return substitute_placeholders(
+        settings.config_params,
+        {
+            ConfigParamPlaceholders.PROJECT_ID: project_id,
+            ConfigParamPlaceholders.RAW_FILE_ID: raw_file_id,
+            ConfigParamPlaceholders.RAW_FILE_PATH: str(raw_file_path),
+            ConfigParamPlaceholders.RELATIVE_RAW_FILE_PATH: str(relative_raw_file_path),
+            ConfigParamPlaceholders.SETTINGS_PATH: str(settings_path),
+            ConfigParamPlaceholders.OUTPUT_PATH: str(output_path),
+            ConfigParamPlaceholders.RELATIVE_OUTPUT_PATH: str(relative_output_path),
+            ConfigParamPlaceholders.NUM_THREADS: str(num_threads),
+        },
+    )
 
 
 def _prepare_custom_command(settings: Settings, substituted_params: str) -> str:
@@ -315,7 +317,9 @@ def _check_content(
             )
     if settings.config_params:
         errors.extend(
-            check_for_malicious_content(settings.config_params, allow_spaces=True)
+            check_for_malicious_content(
+                substitute_dummy_values(settings.config_params), allow_spaces=True
+            )
         )
 
     return errors

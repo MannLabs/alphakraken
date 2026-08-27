@@ -26,6 +26,7 @@ from service.utils import (
     show_success_toast,
 )
 
+from shared.config_params import PLACEHOLDER_DESCRIPTIONS, substitute_dummy_values
 from shared.db.interface import archive_settings, create_settings
 from shared.db.models import ProjectSettings, ProjectStatus, SettingsStatus
 from shared.keys import (
@@ -309,7 +310,7 @@ else:
         "config_params": {
             "label": "Configuration parameters",
             "max_chars": 2048,
-            "placeholder": "e.g. '--qvalue 0.01 --f RAW_FILE_PATH --lib LIBRARY_PATH --fasta FASTA_PATH --temp OUTPUT_PATH --threads NUM_THREADS'",
+            "placeholder": "e.g. '--qvalue 0.01 --f {RAW_FILE_PATH} --lib {SETTINGS_PATH}/library.speclib --fasta {SETTINGS_PATH}/human.fasta --temp {OUTPUT_PATH} --threads {NUM_THREADS}'",
             "help": "Configuration options for the custom software. Certain placeholders will be substituted.",
         },
     }
@@ -366,30 +367,27 @@ with c1.form("create_settings"):
     )
 
     if software_type == SoftwareTypes.CUSTOM:
+        placeholder_list = "\n".join(
+            f"- `{{{placeholder}}}`: {description}"
+            for placeholder, description in PLACEHOLDER_DESCRIPTIONS.items()
+        )
         st.info(
             "The following placeholders can be used in the config parameters, and will be replaced by the specified values:\n\n"
-            "- `PROJECT_ID`: project id\n\n"
-            "- `RAW_FILE_ID`: name of the raw file\n"
-            "- `RAW_FILE_PATH`: absolute path of the raw file\n"
-            "- `RELATIVE_RAW_FILE_PATH`: path of the raw file relative to `locations.backup.absolute_path` in alphakraken.yaml\n"
-            "- `SETTINGS_PATH`: absolute path of the settings directory\n"
-            "- `OUTPUT_PATH`: absolute path of the output directory\n"
-            "- `RELATIVE_OUTPUT_PATH`: path of the output directory relative to `locations.output.absolute_path` in alphakraken.yaml\n"
-            "- `NUM_THREADS`: number of threads\n"
+            f"{placeholder_list}\n"
             "Notes:\n"
-            "- The working directory of the custom software is `OUTPUT_PATH`.\n"
+            "- The working directory of the custom software is `{OUTPUT_PATH}`.\n"
             "- If you require more than the provided placeholders, reference them directly by their absolute path.\n"
             "- If something that is in the `$PATH` should be executed (e.g. `apptainer`), wrap it in a shell script and place it in the software folder.\n"
         )
         with st.expander("Example for DIANN..."):
             st.write("Executable: `diann/diann-linux`")
             st.code(
-                "--f RAW_FILE_PATH --lib SETTINGS_PATH/library.speclib --fasta SETTINGS_PATH/human.fasta --temp OUTPUT_PATH --threads NUM_THREADS --qvalue 0.01"
+                "--f {RAW_FILE_PATH} --lib {SETTINGS_PATH}/library.speclib --fasta {SETTINGS_PATH}/human.fasta --temp {OUTPUT_PATH} --threads {NUM_THREADS} --qvalue 0.01"
             )
         with st.expander("Example for Spectronaut..."):
             st.write("Executable: `run_spectronaut.sh` (cf. folder `misc/software`)")
             st.code(
-                "direct -n alphakraken -r RAW_FILE_PATH -fasta SETTINGS_PATH/human.fasta -o OUTPUT_PATH -s /path/to/settings/alphakraken.prop"
+                "direct -n alphakraken -r {RAW_FILE_PATH} -fasta {SETTINGS_PATH}/human.fasta -o {OUTPUT_PATH} -s /path/to/settings/alphakraken.prop"
             )
 
     st.write(r"\* Required fields")
@@ -447,7 +445,7 @@ with c1.form("create_settings"):
             value=int(
                 prefill_data["num_threads"] or resource_params_defaults.num_threads
             ),
-            help="Use for 'alphadia' and 'custom' (through NUM_THREADS placeholder)",
+            help="Use for 'alphadia' and 'custom' (through {NUM_THREADS} placeholder)",
         )
 
     st.markdown("### Upload files to settings folder")
@@ -504,7 +502,9 @@ if submit:
         )
     if config_params:
         validation_errors.extend(
-            check_for_malicious_content(config_params, allow_spaces=True)
+            check_for_malicious_content(
+                substitute_dummy_values(config_params), allow_spaces=True
+            )
         )
     if slurm_mem:
         validation_errors.extend(check_for_malicious_content(slurm_mem))

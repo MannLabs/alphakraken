@@ -355,7 +355,7 @@ monitoring tasks for all engines, not only for Slurm.
     - execution engine `docker`,
     - `software` set to the image name, e.g. `alphakraken-msqc`,
     - `config_params` set to the arguments for the image, with the usual placeholders, e.g.
-      `RAW_FILE_PATH OUTPUT_PATH NUM_THREADS` for the msqc image. They may be left empty if the
+      `{RAW_FILE_PATH} {OUTPUT_PATH} {NUM_THREADS}` for the msqc image. They may be left empty if the
       image's entrypoint reads the environment variables instead (the msqc image supports both).
    - memory and cpus are taken from the slurm settings
 

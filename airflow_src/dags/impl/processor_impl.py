@@ -194,7 +194,7 @@ def _create_quanting_env(
         raw_file.project_id,
     )
 
-    custom_command = (  # TODO: remove in favour of software_path and params
+    custom_command = (
         _prepare_custom_command(settings, substituted_params)
         # all non-alphadia softwares are treated as 'custom command'
         if settings.software_type not in [SoftwareTypes.ALPHADIA]
@@ -206,9 +206,9 @@ def _create_quanting_env(
         QuantingEnv.SETTINGS_PATH: str(settings_path),
         QuantingEnv.OUTPUT_PATH: str(output_path),
         QuantingEnv.RELATIVE_OUTPUT_PATH: str(relative_output_path),
-        QuantingEnv.SPECLIB_FILE_NAME: settings.speclib_file_name,  # TODO: construct path here
-        QuantingEnv.FASTA_FILE_NAME: settings.fasta_file_name,  # TODO: construct path here
-        QuantingEnv.CONFIG_FILE_NAME: settings.config_file_name,  # TODO: construct path here
+        QuantingEnv.SPECLIB_FILE_NAME: settings.speclib_file_name,
+        QuantingEnv.FASTA_FILE_NAME: settings.fasta_file_name,
+        QuantingEnv.CONFIG_FILE_NAME: settings.config_file_name,
         QuantingEnv.SOFTWARE: settings.software,
         QuantingEnv.SOFTWARE_TYPE: settings.software_type,
         QuantingEnv.METRICS_TYPE: settings.metrics_type,

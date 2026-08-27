@@ -35,7 +35,6 @@ from docker.models.containers import Container
 from jobs.job_handler import JobHandler
 
 from shared.keys import InternalPaths
-from shared.yamlsettings import get_host_mounts_path
 
 CONTAINER_NAME_PREFIX = "kraken"
 
@@ -62,11 +61,17 @@ NANO_CPUS_PER_CPU = 1_000_000_000
 class DockerJobHandler(JobHandler):
     """Implementation of JobHandler that runs jobs in Docker containers on the AlphaKraken host."""
 
-    def __init__(self):
-        """Initialize the docker job handler."""
+    def __init__(self, host_mounts_path: Path):
+        """Initialize the docker job handler.
+
+        Args:
+            host_mounts_path: Path of the mounts folder as seen by the docker host
+                (not by the containers)
+
+        """
         super().__init__()
         self._client = docker.from_env()
-        self._host_mounts_path = get_host_mounts_path()
+        self._host_mounts_path = host_mounts_path
 
     def start_job(
         self,

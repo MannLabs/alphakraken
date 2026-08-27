@@ -59,15 +59,8 @@ class SlurmSSHJobHandler(JobHandler):
 
     def get_job_result(self, job_id: str) -> tuple[str, int]:
         """Get the job status and time elapsed from the Slurm cluster via SSH."""
-        # Use a wildcard path to find the output file without needing to know the specific year_month subfolder
-        # This works as long as job_ids are unique across all subfolders
-        slurm_output_file_path = (
-            f"{self._cluster_base_working_dir_path}/*/slurm-{job_id}.out"
-        )
         cmd = (
-            self._check_job_result_cmd(job_id, slurm_output_file_path)
-            + "\n"
-            + self._get_job_state_cmd(job_id)
+            self._check_job_result_cmd(job_id) + "\n" + self._get_job_state_cmd(job_id)
         )
         ssh_return = ssh_execute(cmd)
         time_elapsed = self._get_time_elapsed(ssh_return)
@@ -109,7 +102,7 @@ class SlurmSSHJobHandler(JobHandler):
         )
 
     @staticmethod
-    def _check_job_result_cmd(job_id: str, slurm_output_file_path: str) -> str:
+    def _check_job_result_cmd(job_id: str) -> str:
         """Shell command to print the elapsed time, sacct information and the contents of the slurm log file for a given job id.
 
         To reduce the number of ssh calls, we combine multiple commands into one
@@ -124,7 +117,7 @@ class SlurmSSHJobHandler(JobHandler):
                 "else",
                 f'echo "{DUMMY_TIME_ELAPSED}"',
                 "fi",
-                f"cat {slurm_output_file_path}",
+                # f"cat {slurm_output_file_path}", # TODO: do this elsewhere
             ]
         )
 

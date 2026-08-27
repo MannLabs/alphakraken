@@ -103,7 +103,7 @@ def test_get_job_result_returns_correct_job_status_and_time_elapsed(
         "else\n"
         'echo "00:00:00"\n'
         "fi\n"
-        "cat /path/to/slurm_base_path/jobs/*/slurm-12345.out\n"
+        # "cat /path/to/slurm_base_path/jobs/*/slurm-12345.out\n"
         "JOB_INFO=$(scontrol show job 12345 2>/dev/null)\n"
         "if [ $? -eq 0 ]; then\n"
         'ST=$(echo "$JOB_INFO" | grep JobState | '

@@ -2,6 +2,7 @@
 
 # TODO: add unit tests
 from common.keys import JobStates
+from common.quanting_env import QuantingEnv
 from jobs.job_handler import JobHandler
 from sensors.ssh_utils import ssh_execute
 
@@ -10,11 +11,11 @@ class GenericJobHandler(JobHandler):
     """Implementation of JobHandler that doesn't use Slurm but a more generic approach."""
 
     def start_job(
-        self, job_script_name: str, environment: dict[str, str], year_month_folder: str
+        self, job_script_name: str, quanting_env: QuantingEnv, year_month_folder: str
     ) -> str:
         """Start a quanting job on the generic job engine."""
         del job_script_name
-        del environment
+        del quanting_env
         del year_month_folder
         command = "sleep 60"  # TODO: replace with path + job_script_name
         wrapped_command = f"{command} > /dev/null 2>&1 & echo $!"

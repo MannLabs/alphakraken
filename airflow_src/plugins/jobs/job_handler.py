@@ -7,10 +7,12 @@ with concrete implementations for Slurm and Docker.
 import abc
 import logging
 from datetime import datetime
+from typing import Any
 
 from airflow.exceptions import AirflowFailException
 from common.constants import CLUSTER_BASE_WORKING_DIR_NAME, DUMMY_TIME_ELAPSED
-from common.keys import JobStates, QuantingEnv
+from common.keys import JobStates
+from common.quanting_env import QuantingEnv
 from sensors.ssh_utils import ssh_execute
 
 from shared.keys import JobEngines
@@ -59,13 +61,16 @@ class JobHandler(abc.ABC):
 
     @abc.abstractmethod
     def start_job(
-        self, job_script_name: str, environment: dict[str, str], year_month_folder: str
+        self,
+        job_script_name: str,
+        quanting_env: QuantingEnv,
+        year_month_folder: str,
     ) -> str:
         """Start a job and return the job ID.
 
         Args:
             job_script_name: Name of the Slurm job script to run, e.g. "submit_job.sh"
-            environment: Environment variables to set before job submission
+            quanting_env: Environment of the quanting job
             year_month_folder: Folder to store job outputs, e.g. "2024_07"
 
         Returns:
@@ -104,14 +109,14 @@ class SlurmSSHJobHandler(JobHandler):
     def start_job(
         self,
         job_script_name: str,
-        environment: dict[str, str],
+        quanting_env: QuantingEnv,
         year_month_folder: str,
     ) -> str:
         """Start a job on the Slurm cluster via SSH."""
         command = (
-            self._create_export_environment_cmd(environment)
+            self._create_export_environment_cmd(quanting_env.to_dict())
             + "\n"
-            + self._get_submit_job_cmd(job_script_name, environment, year_month_folder)
+            + self._get_submit_job_cmd(job_script_name, quanting_env, year_month_folder)
         )
         logging.info(f"Running command: >>>>\n{command}\n<<<< end of command")
         ssh_return = ssh_execute(command)
@@ -148,7 +153,7 @@ class SlurmSSHJobHandler(JobHandler):
         return job_status, time_elapsed
 
     def _get_submit_job_cmd(
-        self, job_script_name: str, environment: dict[str, str], year_month_folder: str
+        self, job_script_name: str, quanting_env: QuantingEnv, year_month_folder: str
     ) -> str:
         """Get the command to run the job on the cluster.
 
@@ -163,11 +168,11 @@ class SlurmSSHJobHandler(JobHandler):
 
         # if those parameters are not passed, the value defined in the submit script are taken
         param_list = []
-        if (cpus := environment.get(QuantingEnv.SLURM_CPUS_PER_TASK)) is not None:
+        if (cpus := quanting_env.slurm_cpus_per_task) is not None:
             param_list.append(f"--cpus-per-task={cpus}")
-        if (mem := environment.get(QuantingEnv.SLURM_MEM)) is not None:
+        if (mem := quanting_env.slurm_mem) is not None:
             param_list.append(f"--mem={mem}")
-        if (time := environment.get(QuantingEnv.SLURM_TIME)) is not None:
+        if (time := quanting_env.slurm_time) is not None:
             param_list.append(f"--time={time}")
         params = " ".join(param_list)
 
@@ -224,7 +229,7 @@ class SlurmSSHJobHandler(JobHandler):
         )
 
     @staticmethod
-    def _create_export_environment_cmd(mapping: dict[str, str]) -> str:
+    def _create_export_environment_cmd(mapping: dict[str, Any]) -> str:
         """Create a bash command to export environment variables, ignoring keys with leading underscore."""
         return "\n".join(
             [f'export {k}="{v}"' for k, v in mapping.items() if not k.startswith("_")]
@@ -280,7 +285,7 @@ class SlurmNoSacctSSHJobHandler(SlurmSSHJobHandler):
 
 def start_job(
     job_script_name: str,
-    environment: dict[str, str],
+    quanting_env: QuantingEnv,
     year_month_folder: str,
     engine: str,
 ) -> str:
@@ -289,7 +294,7 @@ def start_job(
     Delegates to JobHandler.start_job(), see docs there.
     """
     handler = _get_job_handler(engine)
-    return handler.start_job(job_script_name, environment, year_month_folder)
+    return handler.start_job(job_script_name, quanting_env, year_month_folder)
 
 
 def get_job_status(job_id: str, engine: str) -> str:

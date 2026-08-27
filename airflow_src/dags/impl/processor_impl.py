@@ -19,7 +19,6 @@ from common.keys import (
     CustomAlphaDiaStates,
     InstrumentKeys,
     JobStates,
-    QuantingEnv,
     TaskGroups,
     Tasks,
     XComKeys,
@@ -29,6 +28,7 @@ from common.paths import (
     get_internal_output_path_for_raw_file,
     get_output_folder_rel_path,
 )
+from common.quanting_env import QuantingEnv
 from common.settings import get_instrument_settings
 from common.utils import (
     get_airflow_variable,
@@ -106,7 +106,7 @@ def resolve_settings(raw_file_id: str) -> list[str]:
     return [str(s.id) for s in settings_list]  # type: ignore[unresolved-attribute]
 
 
-def prepare_job(raw_file_id: str, settings_id: str) -> dict[str, str | int | list[str]]:
+def prepare_job(raw_file_id: str, settings_id: str) -> QuantingEnv:
     """Prepare the environmental variables for the job."""
     raw_file = get_raw_file_by_id(raw_file_id)
     settings = get_settings_by_id(settings_id)
@@ -130,7 +130,7 @@ def prepare_job(raw_file_id: str, settings_id: str) -> dict[str, str | int | lis
             f"Quanting env validation failed for '{settings.name}': {errors}"
         )
 
-    internal_output_path = Path(quanting_env[QuantingEnv.INTERNAL_OUTPUT_PATH])
+    internal_output_path = Path(quanting_env.internal_output_path)
     if internal_output_path.exists():
         output_exists_mode = get_airflow_variable(
             AirflowVars.OUTPUT_EXISTS_MODE, "raise"
@@ -140,15 +140,25 @@ def prepare_job(raw_file_id: str, settings_id: str) -> dict[str, str | int | lis
             logging.info(
                 f"Output path {internal_output_path} exists. Using suffix '{suffix}'."
             )
-            for key in [
-                QuantingEnv.INTERNAL_OUTPUT_PATH,
-                QuantingEnv.OUTPUT_PATH,
-                QuantingEnv.RELATIVE_OUTPUT_PATH,
-            ]:
-                p = Path(quanting_env[key])
-                quanting_env[key] = str(p.parent / f"{p.name}{suffix}")
+            quanting_env = quanting_env.model_copy(
+                update={
+                    "internal_output_path": _add_suffix(
+                        quanting_env.internal_output_path, suffix
+                    ),
+                    "output_path": _add_suffix(quanting_env.output_path, suffix),
+                    "relative_output_path": _add_suffix(
+                        quanting_env.relative_output_path, suffix
+                    ),
+                }
+            )
 
     return quanting_env
+
+
+def _add_suffix(path: str, suffix: str) -> str:
+    """Append a suffix to the last component of a path."""
+    p = Path(path)
+    return str(p.parent / f"{p.name}{suffix}")
 
 
 def _find_next_free_run_suffix(base_path: Path) -> str:
@@ -164,7 +174,7 @@ def _create_quanting_env(
     raw_file: RawFile,
     raw_file_path: Path,
     relative_raw_file_path: Path,
-) -> dict[str, str | int | list[str]]:
+) -> QuantingEnv:
     """Create a quanting environment from settings."""
     settings_path = get_path(YamlKeys.Locations.SETTINGS) / settings.name
 
@@ -196,36 +206,33 @@ def _create_quanting_env(
         else ""
     )
 
-    quanting_env: dict[str, str | int | list[str]] = {
-        QuantingEnv.RAW_FILE_PATH: str(raw_file_path),
-        QuantingEnv.SETTINGS_PATH: str(settings_path),
-        QuantingEnv.OUTPUT_PATH: str(output_path),
-        QuantingEnv.RELATIVE_OUTPUT_PATH: str(relative_output_path),
-        QuantingEnv.SPECLIB_FILE_NAME: settings.speclib_file_name,  # TODO: construct path here
-        QuantingEnv.FASTA_FILE_NAME: settings.fasta_file_name,  # TODO: construct path here
-        QuantingEnv.CONFIG_FILE_NAME: settings.config_file_name,  # TODO: construct path here
-        QuantingEnv.SOFTWARE: settings.software,
-        QuantingEnv.SOFTWARE_TYPE: settings.software_type,
-        QuantingEnv.METRICS_TYPE: settings.metrics_type,
-        QuantingEnv.CUSTOM_COMMAND: custom_command,
+    return QuantingEnv(
+        raw_file_path=str(raw_file_path),
+        settings_path=str(settings_path),
+        output_path=str(output_path),
+        relative_output_path=str(relative_output_path),
+        speclib_file_name=settings.speclib_file_name,  # TODO: construct path here
+        fasta_file_name=settings.fasta_file_name,  # TODO: construct path here
+        config_file_name=settings.config_file_name,  # TODO: construct path here
+        software=settings.software,
+        software_type=settings.software_type,
+        metrics_type=settings.metrics_type,
+        custom_command=custom_command,
         # job parameters
-        QuantingEnv.SLURM_CPUS_PER_TASK: settings.slurm_cpus_per_task,
-        QuantingEnv.SLURM_MEM: settings.slurm_mem,
-        QuantingEnv.SLURM_TIME: settings.slurm_time,
-        QuantingEnv.NUM_THREADS: settings.num_threads,
+        num_threads=settings.num_threads,
+        slurm_cpus_per_task=settings.slurm_cpus_per_task,
+        slurm_mem=settings.slurm_mem,
+        slurm_time=settings.slurm_time,
         # not required for slurm script:
-        QuantingEnv.RAW_FILE_ID: raw_file.id,
-        QuantingEnv.PROJECT_ID: raw_file.project_id,
-        QuantingEnv.SETTINGS_NAME: settings.name,
-        QuantingEnv.SETTINGS_VERSION: settings.version,
-        QuantingEnv.INTERNAL_OUTPUT_PATH: str(internal_output_path),
-        QuantingEnv.INTERNAL_RAW_FILE_PATH: str(
-            get_internal_backup_path() / relative_raw_file_path
-        ),
-        QuantingEnv.CONFIG_PARAMS: substituted_params,
-        QuantingEnv.JOB_ENGINE: settings.job_engine,
-    }
-    return quanting_env
+        raw_file_id=raw_file.id,
+        project_id=raw_file.project_id,
+        settings_name=settings.name,
+        settings_version=settings.version,
+        internal_output_path=str(internal_output_path),
+        internal_raw_file_path=str(get_internal_backup_path() / relative_raw_file_path),
+        config_params=substituted_params,
+        job_engine=settings.job_engine,
+    )
 
 
 def _substitute_config_params(  # noqa: PLR0913 Too many arguments
@@ -271,28 +278,27 @@ def _prepare_custom_command(settings: Settings, substituted_params: str) -> str:
     return custom_command
 
 
-def _check_content(
-    quanting_env: dict[str, str | int | list[str]], settings: Settings
-) -> list[str]:
+def _check_content(quanting_env: QuantingEnv, settings: Settings) -> list[str]:
     """Validate the fields in the quanting environment don't contain malicious content."""
     absolute_path_allowed_keys = [
-        QuantingEnv.RAW_FILE_PATH,
-        QuantingEnv.SETTINGS_PATH,
-        QuantingEnv.OUTPUT_PATH,
-        QuantingEnv.INTERNAL_OUTPUT_PATH,
-        QuantingEnv.INTERNAL_RAW_FILE_PATH,
-        QuantingEnv.SOFTWARE,
+        "raw_file_path",
+        "settings_path",
+        "output_path",
+        "internal_output_path",
+        "internal_raw_file_path",
+        "software",
     ]
+    values = quanting_env.model_dump()
 
     errors = []
-    for key, value in quanting_env.items():
+    for key, value in values.items():
         if (
             value
             and key
             not in [
-                QuantingEnv.CUSTOM_COMMAND,  # validated below
-                QuantingEnv.CONFIG_PARAMS,  # validated below
-                QuantingEnv.SLURM_TIME,  # contains ":", validated in webapp
+                "custom_command",  # validated below
+                "config_params",  # validated below
+                "slurm_time",  # contains ":", validated in webapp
             ]
             and isinstance(value, str)
             and (
@@ -304,13 +310,11 @@ def _check_content(
             errors.append(f"Validation error in '{value}': {errors_}")
 
     # these hold resolved paths and are space-separated, so they need the laxer checks
-    for key in [QuantingEnv.CUSTOM_COMMAND, QuantingEnv.CONFIG_PARAMS]:
-        if quanting_env.get(key):
+    for value in [quanting_env.custom_command, quanting_env.config_params]:
+        if value:
             errors.extend(
                 check_for_malicious_content(
-                    str(quanting_env[key]),
-                    allow_spaces=True,
-                    allow_absolute_paths=True,
+                    value, allow_spaces=True, allow_absolute_paths=True
                 )
             )
     if settings.config_params:
@@ -337,7 +341,7 @@ def _get_slurm_job_id_from_log(output_path: Path) -> str | None:
 
 def submit_job(
     *,
-    quanting_env: dict,
+    quanting_env: QuantingEnv,
     # TODO: revisit/remove those 3 parameters
     new_status: str | None = RawFileStatus.QUANTING,
     output_path_check: bool = True,
@@ -345,7 +349,7 @@ def submit_job(
 ) -> str:
     """Run a job on the cluster.
 
-    :param quanting_env: The quanting environment variables dict.
+    :param quanting_env: The quanting environment.
     :param new_status: The status to set for the raw file after starting the job, default is RawFileStatus.QUANTING.
         Set to None to not change the status.
     :param output_path_check: Whether to check if the output path already exists
@@ -355,7 +359,7 @@ def submit_job(
     """
     logging.info(f"Starting quanting with environment: {quanting_env}")
 
-    raw_file = get_raw_file_by_id(quanting_env[QuantingEnv.RAW_FILE_ID])
+    raw_file = get_raw_file_by_id(quanting_env.raw_file_id)
 
     if get_instrument_settings(raw_file.instrument_id, InstrumentKeys.SKIP_QUANTING):
         logging.info(
@@ -364,7 +368,7 @@ def submit_job(
         raise AirflowSkipException("Skipping quanting due to instrument settings.")
 
     # upfront check 2
-    output_path = Path(quanting_env[QuantingEnv.INTERNAL_OUTPUT_PATH])
+    output_path = Path(quanting_env.internal_output_path)
     if output_path_check and output_path.exists():
         msg = f"Output path {output_path} already exists with different content."
         output_exists_mode = get_airflow_variable(
@@ -402,11 +406,11 @@ def submit_job(
         job_script_name,
         quanting_env,
         year_month_folder,
-        engine=quanting_env[QuantingEnv.JOB_ENGINE],
+        engine=quanting_env.job_engine,
     )
 
     if new_status is not None:
-        update_raw_file(quanting_env[QuantingEnv.RAW_FILE_ID], new_status=new_status)
+        update_raw_file(quanting_env.raw_file_id, new_status=new_status)
 
     return str(job_id)
 
@@ -465,19 +469,19 @@ def get_business_errors(raw_file: RawFile, output_path: Path) -> list[str]:
     return error_codes
 
 
-def check_job_result(*, quanting_env: dict, job_id: str, ti: TaskInstance) -> dict:
+def check_job_result(
+    *, quanting_env: QuantingEnv, job_id: str, ti: TaskInstance
+) -> dict:
     """Get info (slurm log, alphaDIA log) about a job from the cluster.
 
-    :param quanting_env: The quanting environment variables dict.
+    :param quanting_env: The quanting environment.
     :param job_id: The Slurm job ID to check.
     :param ti: The Airflow TaskInstance, used to push error details to XCom.
     :return: Dict with ``time_elapsed`` on success.
     :raises AirflowSkipException: On known job failures (skips downstream tasks).
     :raises AirflowFailException: On unknown job failures.
     """
-    job_status, time_elapsed = get_job_result(
-        job_id, engine=quanting_env[QuantingEnv.JOB_ENGINE]
-    )
+    job_status, time_elapsed = get_job_result(job_id, engine=quanting_env.job_engine)
 
     logging.info(f"Job {job_id} exited with status {job_status}.")
 
@@ -489,11 +493,11 @@ def check_job_result(*, quanting_env: dict, job_id: str, ti: TaskInstance) -> di
     if job_status in [JobStates.FAILED, JobStates.TIMEOUT] or job_status.startswith(
         JobStates.OUT_OF_MEMORY
     ):
-        raw_file = get_raw_file_by_id(quanting_env[QuantingEnv.RAW_FILE_ID])
-        output_path = Path(quanting_env[QuantingEnv.INTERNAL_OUTPUT_PATH])
+        raw_file = get_raw_file_by_id(quanting_env.raw_file_id)
+        output_path = Path(quanting_env.internal_output_path)
 
         if job_status == JobStates.FAILED:
-            if quanting_env[QuantingEnv.SOFTWARE_TYPE] == SoftwareTypes.ALPHADIA:
+            if quanting_env.software_type == SoftwareTypes.ALPHADIA:
                 errors = get_business_errors(raw_file, output_path)
             else:
                 errors = ["FAILED"]
@@ -506,10 +510,10 @@ def check_job_result(*, quanting_env: dict, job_id: str, ti: TaskInstance) -> di
         add_metrics_to_raw_file(
             raw_file.id,
             metrics={TIME_ELAPSED_METRIC: time_elapsed},
-            settings_name=quanting_env[QuantingEnv.SETTINGS_NAME],
-            settings_version=quanting_env[QuantingEnv.SETTINGS_VERSION],
-            metrics_type=quanting_env[QuantingEnv.METRICS_TYPE],
-            output_path=quanting_env[QuantingEnv.OUTPUT_PATH],
+            settings_name=quanting_env.settings_name,
+            settings_version=quanting_env.settings_version,
+            metrics_type=quanting_env.metrics_type,
+            output_path=quanting_env.output_path,
         )
 
         # fail the DAG without retry on new errors to make them transparent in Airflow UI
@@ -532,17 +536,17 @@ def check_job_result(*, quanting_env: dict, job_id: str, ti: TaskInstance) -> di
 
 def compute_metrics(
     *,
-    quanting_env: dict,
+    quanting_env: QuantingEnv,
     time_elapsed: int | None = None,
 ) -> dict:
     """Compute metrics from the quanting results.
 
-    :param quanting_env: The quanting environment variables dict.
+    :param quanting_env: The quanting environment.
     :param time_elapsed: Elapsed time from the quanting job, added to metrics if provided.
     :return: The metrics.
     """
-    metrics_type = quanting_env[QuantingEnv.METRICS_TYPE]
-    output_path = Path(quanting_env[QuantingEnv.INTERNAL_OUTPUT_PATH])
+    metrics_type = quanting_env.metrics_type
+    output_path = Path(quanting_env.internal_output_path)
 
     metrics = calc_metrics(output_path, metrics_type=metrics_type)
 
@@ -552,19 +556,19 @@ def compute_metrics(
     return metrics
 
 
-def store_metrics(*, quanting_env: dict, metrics: dict) -> None:
+def store_metrics(*, quanting_env: QuantingEnv, metrics: dict) -> None:
     """Store metrics in the database.
 
-    :param quanting_env: The quanting environment variables dict.
+    :param quanting_env: The quanting environment.
     :param metrics: The metrics.
     """
     add_metrics_to_raw_file(
-        quanting_env[QuantingEnv.RAW_FILE_ID],
-        metrics_type=quanting_env[QuantingEnv.METRICS_TYPE],
+        quanting_env.raw_file_id,
+        metrics_type=quanting_env.metrics_type,
         metrics=metrics,
-        settings_name=quanting_env[QuantingEnv.SETTINGS_NAME],
-        settings_version=quanting_env[QuantingEnv.SETTINGS_VERSION],
-        output_path=quanting_env[QuantingEnv.OUTPUT_PATH],
+        settings_name=quanting_env.settings_name,
+        settings_version=quanting_env.settings_version,
+        output_path=quanting_env.output_path,
     )
 
 
@@ -642,7 +646,7 @@ def _extract_errors(
             default=None,
         )
         settings_name = (
-            quanting_env[QuantingEnv.SETTINGS_NAME] if quanting_env else "n/a"
+            QuantingEnv.from_dict(quanting_env).settings_name if quanting_env else "n/a"
         )
 
         # these could be business or airflow errors

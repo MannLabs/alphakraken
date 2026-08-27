@@ -95,7 +95,7 @@ class TestStartJob:
         handler._client.containers.run.return_value = _container()
 
         # when
-        job_id = handler.start_job("ignored.sh", sample_environment, "2024_07")
+        job_id = handler.start_job(sample_environment)
 
         # then
         assert job_id == "0123456789ab"
@@ -121,7 +121,7 @@ class TestStartJob:
         handler._client.containers.run.return_value = _container()
 
         # when
-        handler.start_job("ignored.sh", sample_environment, "2024_07")
+        handler.start_job(sample_environment)
 
         # then
         _, kwargs = handler._client.containers.run.call_args
@@ -149,7 +149,7 @@ class TestStartJob:
         handler._client.containers.run.return_value = _container()
 
         # when
-        handler.start_job("ignored.sh", sample_environment, "2024_07")
+        handler.start_job(sample_environment)
 
         # then
         _, kwargs = handler._client.containers.run.call_args
@@ -176,7 +176,7 @@ class TestStartJob:
         handler._client.containers.run.return_value = _container()
 
         # when
-        handler.start_job("ignored.sh", sample_environment, "2024_07")
+        handler.start_job(sample_environment)
 
         # then
         args, _ = handler._client.containers.run.call_args
@@ -196,7 +196,7 @@ class TestStartJob:
         handler._client.containers.run.return_value = _container()
 
         # when
-        handler.start_job("ignored.sh", sample_environment, "2024_07")
+        handler.start_job(sample_environment)
 
         # then
         handler._client.containers.get.assert_called_once_with(
@@ -216,7 +216,7 @@ class TestStartJob:
 
         # when, then
         with pytest.raises(AirflowFailException, match="does not exist in the worker"):
-            handler.start_job("ignored.sh", sample_environment, "2024_07")
+            handler.start_job(sample_environment)
 
     def test_start_job_should_raise_on_image_absent_from_host(
         self,
@@ -232,7 +232,7 @@ class TestStartJob:
 
         # when, then
         with pytest.raises(AirflowFailException, match="not present on this host"):
-            handler.start_job("ignored.sh", sample_environment, "2024_07")
+            handler.start_job(sample_environment)
 
         handler._client.containers.run.assert_not_called()
         handler._client.images.pull.assert_not_called()
@@ -250,7 +250,7 @@ class TestStartJob:
         handler._client.containers.run.return_value = _container()
 
         # when
-        handler.start_job("ignored.sh", sample_environment, "2024_07")
+        handler.start_job(sample_environment)
 
         # then
         handler._client.images.get.assert_called_once_with("alphakraken-msqc")

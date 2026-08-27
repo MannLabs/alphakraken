@@ -73,26 +73,16 @@ class DockerJobHandler(JobHandler):
         self._client = docker.from_env()
         self._host_mounts_path = host_mounts_path
 
-    def start_job(
-        self,
-        job_script_name: str,
-        environment: dict[str, str],
-        year_month_folder: str,
-    ) -> str:
+    def start_job(self, environment: dict[str, str]) -> str:
         """Start a job by running a container on the AlphaKraken host.
 
         Args:
-            job_script_name: Name of the job script (ignored for this handler)
             environment: Environment variables containing quanting configuration
-            year_month_folder: Folder for job outputs (ignored for this handler)
 
         Returns:
             Job ID (in the case of this handler, the short container id)
 
         """
-        del job_script_name  # unused
-        del year_month_folder  # unused
-
         image = self._get_image(environment[QuantingEnv.SOFTWARE])
         # None makes docker use the command defined in the image
         command = shlex.split(environment[QuantingEnv.CONFIG_PARAMS]) or None

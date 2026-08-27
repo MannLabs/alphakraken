@@ -9,7 +9,6 @@ from airflow.exceptions import AirflowFailException, AirflowSkipException
 from airflow.models import TaskInstance
 from airflow.utils.state import TaskInstanceState
 from common.constants import (
-    DEFAULT_JOB_SCRIPT_NAME,
     ERROR_CODE_TO_STRING,
     AlphaDiaConstants,
 )
@@ -228,6 +227,7 @@ def _create_quanting_env(
         ),
         QuantingEnv.CONFIG_PARAMS: substituted_params,
         QuantingEnv.JOB_ENGINE: settings.job_engine,
+        QuantingEnv.YEAR_MONTH_FOLDER: get_created_at_year_month(raw_file),
     }
     return quanting_env
 
@@ -391,12 +391,8 @@ def submit_job(
 
     output_path.mkdir(parents=True, exist_ok=True)
 
-    year_month_folder = get_created_at_year_month(raw_file)
-
     job_id = start_job(
-        DEFAULT_JOB_SCRIPT_NAME,
         quanting_env,
-        year_month_folder,
         engine=quanting_env[QuantingEnv.JOB_ENGINE],
     )
 

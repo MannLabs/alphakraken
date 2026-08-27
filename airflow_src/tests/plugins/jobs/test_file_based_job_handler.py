@@ -68,9 +68,7 @@ class TestFileBasedJobHandler:
         mock_mkdir.return_value = None
 
         # when
-        job_id = handler.start_job(
-            "ignored_script", sample_environment, "ignored_folder"
-        )
+        job_id = handler.start_job(sample_environment)
 
         # then
         assert job_id == "test_raw_file_123"
@@ -99,7 +97,7 @@ class TestFileBasedJobHandler:
 
         # when/then
         with pytest.raises(AirflowFailException, match="Job file .* already exists"):
-            handler.start_job("ignored_script", sample_environment, "ignored_folder")
+            handler.start_job(sample_environment)
 
     @patch("jobs._experimental.file_based_job_handler.get_raw_file_by_id")
     @patch(

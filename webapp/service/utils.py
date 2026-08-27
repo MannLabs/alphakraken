@@ -12,7 +12,7 @@ import streamlit.delta_generator
 from PIL import Image
 from service.query_params import QueryParams, is_query_param_true
 
-from shared.yamlsettings import YamlKeys, get_notification_setting, get_path
+from shared.yamlsettings import YamlKeys, get_notification_setting
 
 # mapping of filter strings to url query parameters
 FILTER_MAPPING: dict[str, str] = {
@@ -29,10 +29,6 @@ except KeyError:
     APP_URL = None
 
 DISABLE_WRITE = False
-
-
-settings_path = get_path(YamlKeys.Locations.SETTINGS)
-output_path = get_path(YamlKeys.Locations.OUTPUT)
 
 
 DEFAULT_MAX_TABLE_LEN = 500

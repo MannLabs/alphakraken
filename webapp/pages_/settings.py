@@ -21,7 +21,6 @@ from service.utils import (
     _log,
     empty_to_none,
     flush_pending_toasts,
-    settings_path,
     show_error_toast,
     show_success_toast,
 )
@@ -41,7 +40,6 @@ from shared.keys import (
     SoftwareTypes,
 )
 from shared.validation import check_for_malicious_content
-from shared.yamlsettings import YamlKeys, get_path
 
 SHOW_JOB_ENGINE_SELECT = True
 
@@ -98,9 +96,10 @@ def display_settings(
         )
     )
 
+    # TODO: reimplement using actual {settings_path}
     st_display.markdown(
         "The files associated with settings are stored at "
-        f"`{settings_path}/<settings name>/`"
+        "`<settings path>/<settings name>/`"
     )
 
 
@@ -108,6 +107,7 @@ display_settings(settings_df)
 
 c1, _ = st.columns([0.5, 0.5])
 with c1.expander("Click here for help ..."):
+    # TODO: resolve those paths
     st.info(
         """
         ### Explanation
@@ -281,7 +281,8 @@ elif software_type == SoftwareTypes.MSQC:
             "label": "Software*",
             "max_chars": 64,
             "placeholder": "e.g. 'msqc/run_msqc.sh'",
-            "help": f"Path to executable, relative to `{get_path(YamlKeys.Locations.SOFTWARE)}/`. Ask an administrator to add the executable to the software folder.",
+            # TODO: reimplement using actual {software_path}
+            "help": "Path to executable, relative to the software folder. Ask an administrator to add the executable to the software folder.",
         },
     }
 
@@ -291,7 +292,8 @@ elif software_type == SoftwareTypes.SKYLINE:
             "label": "Software*",
             "max_chars": 64,
             "placeholder": "e.g. 'skyline/run_skyline.sh'",
-            "help": f"Path to executable, relative to `{get_path(YamlKeys.Locations.SOFTWARE)}/`. Ask an administrator to add the executable to the software folder.",
+            # TODO: reimplement using actual {software_path}
+            "help": "Path to executable, relative to the software folder. Ask an administrator to add the executable to the software folder.",
         },
         "config_params": {
             "label": "Configuration parameters",
@@ -306,7 +308,8 @@ else:
             "label": "Executable*",
             "max_chars": 64,
             "placeholder": "e.g. 'custom-software/custom-executable1.2.3'",
-            "help": f"Path to executable, relative to `{get_path(YamlKeys.Locations.SOFTWARE)}/`. Ask an administrator to add the executable to the software folder. "
+            # "help": f"Path to executable, relative to `{get_path(YamlKeys.Locations.SOFTWARE)}/`. Ask an administrator to add the executable to the software folder. "
+            "help": "Path to executable, relative to the software folder. Ask an administrator to add the executable to the software folder. "
             f"If something that is in the `$PATH` should be executed, it needs to be wrapped by a shell script located in the software folder. "
             f"For the `{JobEngines.DOCKER}` execution engine, this is a docker image name instead, e.g. `alphakraken-msqc`. "
             f"The image must already be present on the worker host, ask an administrator to add it.",
@@ -375,6 +378,7 @@ with c1.form("create_settings"):
             f"- `{{{placeholder}}}`: {description}"
             for placeholder, description in PLACEHOLDER_DESCRIPTIONS.items()
         )
+        # TODO: resolve those paths (e.g. locations.backup.absolute_path)
         st.info(
             "The following placeholders can be used in the config parameters, and will be replaced by the specified values:\n\n"
             f"{placeholder_list}\n\n"
@@ -456,15 +460,16 @@ with c1.form("create_settings"):
 
     st.markdown("### Upload files to settings folder")
     settings_name_clean = empty_to_none(name)
+    # TODO: reimplement using actual {settings_path}
     if settings_name_clean:
         st.markdown(
             f"Make sure you have uploaded all referenced files (if any) to "
-            f"`{settings_path}/{settings_name_clean}/`"
+            f"`<settings path>/{settings_name_clean}/`"
         )
     else:
         st.markdown(
-            f"After entering a settings name above, upload files to "
-            f"`{settings_path}/<settings_name>/`"
+            "After entering a settings name above, upload files to "
+            "`<settings path>/<settings_name>/`"
         )
 
     upload_checkbox = st.checkbox(

@@ -6,9 +6,13 @@ from unittest.mock import MagicMock, patch
 import pytest
 from airflow.exceptions import AirflowFailException
 from common.keys import JobStates, QuantingEnv
-from docker.errors import ImageNotFound, NotFound
 
 from shared.keys import SoftwareTypes
+
+# `docker` is an optional dependency, cf. requirements_docker_job_engine.txt
+pytest.importorskip("docker")
+
+from docker.errors import ImageNotFound, NotFound
 
 MODULE = "jobs.docker_job_handler"
 
@@ -103,6 +107,27 @@ class TestStartJob:
         assert kwargs["nano_cpus"] == 2_000_000_000
         assert kwargs["network_mode"] == "none"
         assert kwargs["detach"] is True
+
+    def test_start_job_should_sanitize_container_name(
+        self,
+        mock_exists: MagicMock,
+        handler: MagicMock,
+        sample_environment: dict,
+    ) -> None:
+        """Test that characters docker forbids in a container name are replaced."""
+        # given
+        mock_exists.return_value = True
+        handler._client.containers.get.side_effect = NotFound("not found")
+        handler._client.containers.run.return_value = _container()
+        sample_environment[QuantingEnv.RAW_FILE_ID] = "raw+file+1.raw"
+
+        # when
+        handler.start_job("ignored.sh", sample_environment, "2024_07")
+
+        # then
+        _, kwargs = handler._client.containers.run.call_args
+        assert kwargs["name"] == "kraken-custom-raw_file_1.raw"
+        assert kwargs["labels"]["alphakraken.job"] == "raw+file+1.raw"
 
     def test_start_job_should_bind_host_paths_at_the_resolved_paths(
         self,

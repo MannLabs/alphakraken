@@ -34,29 +34,23 @@ from plugins.common.keys import (
     XComKeys,
 )
 
+from airflow_src.tests.helpers import yaml_locations
 from shared.db.models import RawFile, RawFileStatus
 from shared.keys import JobEngines
 
 
-@patch("dags.impl.processor_impl.get_path")
+@yaml_locations(settings="/some_settings_path", output="/some_output_path")
 @patch("dags.impl.processor_impl.get_output_folder_rel_path")
-@patch("dags.impl.processor_impl.get_internal_output_path_for_raw_file")
+@patch("dags.impl.processor_impl.get_internal_output_path")
 def test_create_quanting_env(
     mock_internal_output_path: MagicMock,
     mock_output_rel_path: MagicMock,
-    mock_get_path: MagicMock,
 ) -> None:
     """Test that _create_quanting_env builds the expected environment dict."""
-    mock_get_path.side_effect = [
-        Path("/some_settings_path"),
-        Path("/some_output_path"),
-    ]
     mock_output_rel_path.return_value = Path(
         "some_project_id/out_test_file.raw/alphadia"
     )
-    mock_internal_output_path.return_value = Path(
-        "/opt/airflow/mounts/output/some_project_id/out_test_file.raw/alphadia"
-    )
+    mock_internal_output_path.return_value = Path("/opt/airflow/mounts/output")
 
     mock_raw_file = MagicMock(
         wraps=RawFile,
@@ -115,24 +109,20 @@ def test_create_quanting_env(
     assert result == expected
 
 
-@patch("dags.impl.processor_impl.get_path")
+@yaml_locations(
+    settings="/some_settings_path",
+    output="/some_output_path",
+    software="/some_software_base_path",
+)
 @patch("dags.impl.processor_impl.get_output_folder_rel_path")
-@patch("dags.impl.processor_impl.get_internal_output_path_for_raw_file")
+@patch("dags.impl.processor_impl.get_internal_output_path")
 def test_create_quanting_env_custom_software(
     mock_internal_output_path: MagicMock,
     mock_output_rel_path: MagicMock,
-    mock_get_path: MagicMock,
 ) -> None:
     """Test that _create_quanting_env handles custom software settings with parameter substitution."""
-    mock_get_path.side_effect = [
-        Path("/some_settings_path"),
-        Path("/some_output_path"),
-        Path("/some_software_base_path"),
-    ]
     mock_output_rel_path.return_value = Path("some_project_id/out_test_file.raw/custom")
-    mock_internal_output_path.return_value = Path(
-        "/opt/airflow/mounts/output/some_project_id/out_test_file.raw/custom"
-    )
+    mock_internal_output_path.return_value = Path("/opt/airflow/mounts/output")
 
     mock_raw_file = MagicMock(
         wraps=RawFile,
@@ -299,9 +289,8 @@ def test_resolve_settings_no_settings_raise(
 @patch("dags.impl.processor_impl._create_quanting_env")
 @patch("dags.impl.processor_impl.get_settings_by_id")
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
-@patch("dags.impl.processor_impl.get_path")
+@yaml_locations(backup="/some_backup_base_path")
 def test_prepare_job(
-    mock_get_path: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
     mock_get_settings_by_id: MagicMock,
     mock_create_env: MagicMock,
@@ -315,7 +304,6 @@ def test_prepare_job(
         instrument_id="instrument1",
     )
     mock_get_raw_file_by_id.return_value = mock_raw_file
-    mock_get_path.return_value = Path("/some_backup_base_path")
     mock_settings = MagicMock(config_params=[])
     mock_get_settings_by_id.return_value = mock_settings
     mock_env = {
@@ -333,6 +321,7 @@ def test_prepare_job(
         mock_raw_file,
         Path("/some_backup_base_path/instrument1/1970_01/test_file.raw"),
         Path("instrument1/1970_01/test_file.raw"),
+        "",
     )
     assert result == mock_env
 
@@ -402,9 +391,8 @@ def test_check_content_allows_image_name_in_software_field() -> None:
 @patch("dags.impl.processor_impl._create_quanting_env")
 @patch("dags.impl.processor_impl.get_settings_by_id")
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
-@patch("dags.impl.processor_impl.get_path")
+@yaml_locations(backup="/some_backup_base_path")
 def test_prepare_job_validation_error_raises(
-    mock_get_path: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
     mock_get_settings_by_id: MagicMock,
     mock_create_env: MagicMock,
@@ -419,7 +407,6 @@ def test_prepare_job_validation_error_raises(
         instrument_id="instrument1",
     )
     mock_get_raw_file_by_id.return_value = mock_raw_file
-    mock_get_path.return_value = Path("/some_backup_base_path")
     mock_settings = MagicMock()
     mock_get_settings_by_id.return_value = mock_settings
     mock_env = {"SOFTWARE_TYPE": "custom"}
@@ -434,6 +421,7 @@ def test_prepare_job_validation_error_raises(
         mock_raw_file,
         Path("/some_backup_base_path/instrument1/1970_01/test_file.raw"),
         Path("instrument1/1970_01/test_file.raw"),
+        "",
     )
     mock_check_content.assert_called_once_with(mock_env, mock_settings)
 
@@ -643,21 +631,22 @@ def test_find_next_free_run_suffix_base_not_exists(tmp_path: Path) -> None:
 
 
 @patch("dags.impl.processor_impl.get_airflow_variable")
+@patch("dags.impl.processor_impl.get_internal_output_path_for_raw_file")
 @patch("dags.impl.processor_impl._check_content")
 @patch("dags.impl.processor_impl._create_quanting_env")
 @patch("dags.impl.processor_impl.get_settings_by_id")
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
-@patch("dags.impl.processor_impl.get_path")
+@yaml_locations(backup="/some_backup_base_path")
 def test_prepare_job_add_mode(  # noqa: PLR0913
-    mock_get_path: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
     mock_get_settings_by_id: MagicMock,
     mock_create_env: MagicMock,
     mock_check_content: MagicMock,
+    mock_get_internal_output_path_for_raw_file: MagicMock,
     mock_get_airflow_variable: MagicMock,
     tmp_path: Path,
 ) -> None:
-    """Test that prepare_job suffixes paths when output_exists_mode is 'add' and output exists."""
+    """Test that prepare_job passes a suffix when output_exists_mode is 'add' and output exists."""
     mock_raw_file = MagicMock(
         wraps=RawFile,
         id="test_file.raw",
@@ -666,7 +655,6 @@ def test_prepare_job_add_mode(  # noqa: PLR0913
         instrument_id="instrument1",
     )
     mock_get_raw_file_by_id.return_value = mock_raw_file
-    mock_get_path.return_value = Path("/some_backup_base_path")
     mock_settings = MagicMock(config_params=[])
     mock_get_settings_by_id.return_value = mock_settings
     mock_check_content.return_value = []
@@ -674,22 +662,67 @@ def test_prepare_job_add_mode(  # noqa: PLR0913
     # create the internal output path so the "add" logic triggers
     internal_output = tmp_path / "internal_output"
     internal_output.mkdir()
+    mock_get_internal_output_path_for_raw_file.return_value = internal_output
 
-    mock_create_env.return_value = {
-        QuantingEnv.INTERNAL_OUTPUT_PATH: str(internal_output),
-        QuantingEnv.OUTPUT_PATH: "/output/some_path",
-        QuantingEnv.RELATIVE_OUTPUT_PATH: "some_path",
-        QuantingEnv.SOFTWARE_TYPE: "alphadia",
-    }
     mock_get_airflow_variable.return_value = "add"
 
-    result = prepare_job(raw_file_id="test_file.raw", settings_id="sid1")
+    prepare_job(raw_file_id="test_file.raw", settings_id="sid1")
 
-    assert result[QuantingEnv.INTERNAL_OUTPUT_PATH] == str(
-        internal_output.parent / "internal_output.run2"
+    mock_create_env.assert_called_once_with(
+        mock_settings,
+        mock_raw_file,
+        Path("/some_backup_base_path/instrument1/1970_01/test_file.raw"),
+        Path("instrument1/1970_01/test_file.raw"),
+        ".run2",
     )
-    assert result[QuantingEnv.OUTPUT_PATH] == "/output/some_path.run2"
-    assert result[QuantingEnv.RELATIVE_OUTPUT_PATH] == "some_path.run2"
+
+
+@yaml_locations(
+    settings="/some_settings_path",
+    output="/some_output_path",
+    software="/some_software_base_path",
+)
+@patch("dags.impl.processor_impl.get_internal_output_path")
+@patch("dags.impl.processor_impl.get_output_folder_rel_path")
+def test_create_quanting_env_with_suffix(
+    mock_output_rel_path: MagicMock,
+    mock_internal_output_path: MagicMock,
+) -> None:
+    """Test that _create_quanting_env applies the suffix to all output paths, incl. the config params."""
+    mock_output_rel_path.return_value = Path(
+        "some_project_id/out_test_file.raw/alphadia"
+    )
+    mock_internal_output_path.return_value = Path("/opt/airflow/mounts/output")
+
+    mock_settings = MagicMock(
+        software_type="custom", config_params="--out OUTPUT_PATH", num_threads=8
+    )
+    mock_settings.name = "test_settings"
+
+    result = _create_quanting_env(
+        settings=mock_settings,
+        raw_file=MagicMock(wraps=RawFile, id="test_file.raw"),
+        raw_file_path=Path("/some_backup_base_path/instrument1/1970_01/test_file.raw"),
+        relative_raw_file_path=Path("instrument1/1970_01/test_file.raw"),
+        output_path_suffix=".run2",
+    )
+
+    assert (
+        result[QuantingEnv.RELATIVE_OUTPUT_PATH]
+        == "some_project_id/out_test_file.raw/alphadia.run2"
+    )
+    assert (
+        result[QuantingEnv.OUTPUT_PATH]
+        == "/some_output_path/some_project_id/out_test_file.raw/alphadia.run2"
+    )
+    assert (
+        result[QuantingEnv.INTERNAL_OUTPUT_PATH]
+        == "/opt/airflow/mounts/output/some_project_id/out_test_file.raw/alphadia.run2"
+    )
+    assert (
+        result[QuantingEnv.CONFIG_PARAMS]
+        == "--out /some_output_path/some_project_id/out_test_file.raw/alphadia.run2"
+    )
 
 
 @patch("dags.impl.processor_impl.get_raw_file_by_id")

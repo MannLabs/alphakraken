@@ -37,6 +37,9 @@ from jobs.job_handler import JobHandler
 from shared.keys import InternalPaths
 
 CONTAINER_NAME_PREFIX = "kraken"
+# docker accepts only [a-zA-Z0-9][a-zA-Z0-9_.-]* as container name, but raw file names may
+# contain e.g. '+', cf. `_ALLOWED_RAW_FILE_NAME_CHARACTERS`
+_FORBIDDEN_CONTAINER_NAME_CHARACTERS_PATTERN = r"[^a-zA-Z0-9_.-]"
 
 JOB_LABEL = "alphakraken.job"
 OUTPUT_PATH_LABEL = "alphakraken.internal_output_path"
@@ -103,7 +106,7 @@ class DockerJobHandler(JobHandler):
             if not path.exists():
                 raise AirflowFailException(f"Path {path} does not exist in the worker.")
 
-        container_name = (
+        container_name = _to_container_name(
             f"{CONTAINER_NAME_PREFIX}-{environment[QuantingEnv.SOFTWARE_TYPE]}-"
             f"{environment[QuantingEnv.RAW_FILE_ID]}"
         )
@@ -245,6 +248,11 @@ class DockerJobHandler(JobHandler):
         with log_file_path.open("wb") as file:
             file.write(container.logs())
         logging.info(f"Wrote container logs to {log_file_path}")
+
+
+def _to_container_name(name: str) -> str:
+    """Replace all characters that docker does not accept in a container name."""
+    return re.sub(_FORBIDDEN_CONTAINER_NAME_CHARACTERS_PATTERN, "_", name)
 
 
 def _exported_environment(environment: dict[str, str]) -> dict[str, str]:

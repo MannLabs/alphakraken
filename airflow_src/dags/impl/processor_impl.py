@@ -26,6 +26,7 @@ from common.keys import (
 )
 from common.paths import (
     get_internal_backup_path,
+    get_internal_output_path,
     get_internal_output_path_for_raw_file,
     get_output_folder_rel_path,
 )
@@ -123,11 +124,16 @@ def prepare_job(raw_file_id: str, settings_id: str) -> dict[str, str | int | lis
     )
     raw_file_path = backup_base_path / relative_raw_file_path
 
+    internal_output_path = get_internal_output_path_for_raw_file(
+        raw_file, software_type=settings.software_type
+    )
+
     quanting_env = _create_quanting_env(
         settings,
         raw_file,
         raw_file_path,
         relative_raw_file_path,
+        _get_output_path_suffix(internal_output_path),
     )
 
     if errors := _check_content(quanting_env, settings):
@@ -135,25 +141,20 @@ def prepare_job(raw_file_id: str, settings_id: str) -> dict[str, str | int | lis
             f"Quanting env validation failed for '{settings.name}': {errors}"
         )
 
-    internal_output_path = Path(quanting_env[QuantingEnv.INTERNAL_OUTPUT_PATH])
-    if internal_output_path.exists():
-        output_exists_mode = get_airflow_variable(
-            AirflowVars.OUTPUT_EXISTS_MODE, "raise"
-        )
-        if output_exists_mode == "add":
-            suffix = _find_next_free_run_suffix(internal_output_path)
-            logging.info(
-                f"Output path {internal_output_path} exists. Using suffix '{suffix}'."
-            )
-            for key in [
-                QuantingEnv.INTERNAL_OUTPUT_PATH,
-                QuantingEnv.OUTPUT_PATH,
-                QuantingEnv.RELATIVE_OUTPUT_PATH,
-            ]:
-                p = Path(quanting_env[key])
-                quanting_env[key] = str(p.parent / f"{p.name}{suffix}")
-
     return quanting_env
+
+
+def _get_output_path_suffix(internal_output_path: Path) -> str:
+    """Get the suffix to disambiguate an already existing output path, empty string if none is required."""
+    if not internal_output_path.exists():
+        return ""
+
+    if get_airflow_variable(AirflowVars.OUTPUT_EXISTS_MODE, "raise") != "add":
+        return ""
+
+    suffix = _find_next_free_run_suffix(internal_output_path)
+    logging.info(f"Output path {internal_output_path} exists. Using suffix '{suffix}'.")
+    return suffix
 
 
 def _find_next_free_run_suffix(base_path: Path) -> str:
@@ -169,6 +170,7 @@ def _create_quanting_env(
     raw_file: RawFile,
     raw_file_path: Path,
     relative_raw_file_path: Path,
+    output_path_suffix: str = "",
 ) -> dict[str, str | int | list[str]]:
     """Create a quanting environment from settings."""
     settings_path = get_path(YamlKeys.Locations.SETTINGS) / settings.name
@@ -176,11 +178,13 @@ def _create_quanting_env(
     relative_output_path = get_output_folder_rel_path(
         raw_file, software_type=settings.software_type
     )
-    output_path = get_path(YamlKeys.Locations.OUTPUT) / relative_output_path
+    if output_path_suffix:
+        relative_output_path = relative_output_path.with_name(
+            relative_output_path.name + output_path_suffix
+        )
 
-    internal_output_path = get_internal_output_path_for_raw_file(
-        raw_file, software_type=settings.software_type
-    )
+    output_path = get_path(YamlKeys.Locations.OUTPUT) / relative_output_path
+    internal_output_path = get_internal_output_path() / relative_output_path
 
     substituted_params = _substitute_config_params(
         raw_file.id,

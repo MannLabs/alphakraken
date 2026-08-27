@@ -266,8 +266,41 @@ airflow dags reserialize
 # 5. build the 3.3.1 image, then migrate
 airflow db migrate
 
-# 6. bring up: api-server, scheduler, dag-processor, workers
+# 6. MANDATORY: drop the Flask session rows written by 2.11.
+#    They are pickle-encoded; the FAB provider in 3.x decodes them as msgpack and every
+#    request to /auth/login/ dies with msgspec.DecodeError -> HTTP 500. See below.
+./compose.sh exec postgres-service psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c 'DELETE FROM session;'
+
+# 7. bring up: api-server, scheduler, dag-processor, workers
 ```
+
+### 5.1 The session table must be purged 🔴
+
+Verified by diffing the two implementations:
+
+| | class | serializer |
+|---|---|---|
+| 2.11 | `airflow.www.session.AirflowDatabaseSessionInterface` | flask-session default (**pickle**) |
+| 3.3.1 | `airflow.providers.fab.www.session.AirflowDatabaseSessionInterface` | `_LazySafeSerializer` (**msgpack**, via `msgspec`) |
+
+Same table, same class name, incompatible payloads. `airflow db migrate` does not touch the rows, so
+every session carried over from 2.11 is undecodable:
+
+```
+File ".../flask_session/sqlalchemy/sqlalchemy.py", line 152, in _retrieve_session_data
+  return self.serializer.decode(serialized_session_data)
+msgspec.DecodeError: MessagePack data is malformed: trailing characters (byte 1)
+```
+
+It surfaces as a 500 on `GET /auth/login/`, and the traceback is doubly confusing because Flask's own
+500 handler then fails with `AssertionError: The session has not yet been opened` — the *real* error is
+above that in the log.
+
+Nothing is lost by deleting the rows: users simply log in again. **Also clear the browser cookie** for
+the Airflow host, since the stale cookie points at a deleted row.
+
+`session` is a registered `db clean` table (`recency_column_name="expiry"`), so
+`airflow db clean --table session` is the supported alternative to raw SQL.
 
 ⚠️ `airflow db init` is **removed** — only `migrate | reset | check | check-migrations | clean` remain. Fix `.github/workflows/branch-checks.yaml:48` (doc A §4.2).
 

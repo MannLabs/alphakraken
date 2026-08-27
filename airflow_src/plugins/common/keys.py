@@ -144,6 +144,9 @@ class AirflowVars:
     # Minimum free space that should be left after file removal.
     MIN_FREE_SPACE_GB: str = "min_free_space_gb"
 
+    # comma-separated ids of the cluster SSH connections defined in the Airflow UI
+    CLUSTER_SSH_CONNECTION_IDS = "cluster_ssh_connection_ids"
+
     # some flags that can be used for debugging and/or to simplify the local setup
     DEBUG_NO_CLUSTER_SSH = "debug_no_cluster_ssh"
 

@@ -3,7 +3,7 @@
 import logging
 from time import sleep
 
-from airflow.exceptions import AirflowException, AirflowFailException
+from airflow.sdk.exceptions import AirflowException, AirflowFailException
 from common.keys import AirflowVars, JobStates
 from common.utils import get_airflow_variable, get_cluster_ssh_hook, truncate_string
 from paramiko.ssh_exception import SSHException

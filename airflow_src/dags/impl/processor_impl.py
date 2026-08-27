@@ -5,8 +5,8 @@ import logging
 from collections import defaultdict
 from pathlib import Path
 
-from airflow.exceptions import AirflowFailException, AirflowSkipException
-from airflow.models import TaskInstance
+from airflow.sdk.exceptions import AirflowFailException, AirflowSkipException
+from airflow.sdk.execution_time.task_runner import RuntimeTaskInstance
 from airflow.utils.state import TaskInstanceState
 from common.constants import (
     DEFAULT_JOB_SCRIPT_NAME,
@@ -466,12 +466,14 @@ def get_business_errors(raw_file: RawFile, output_path: Path) -> list[str]:
     return error_codes
 
 
-def check_job_result(*, quanting_env: dict, job_id: str, ti: TaskInstance) -> dict:
+def check_job_result(
+    *, quanting_env: dict, job_id: str, ti: RuntimeTaskInstance
+) -> dict:
     """Get info (slurm log, alphaDIA log) about a job from the cluster.
 
     :param quanting_env: The quanting environment variables dict.
     :param job_id: The Slurm job ID to check.
-    :param ti: The Airflow TaskInstance, used to push error details to XCom.
+    :param ti: The Airflow RuntimeTaskInstance, used to push error details to XCom.
     :return: Dict with ``time_elapsed`` on success.
     :raises AirflowSkipException: On known job failures (skips downstream tasks).
     :raises AirflowFailException: On unknown job failures.
@@ -572,11 +574,12 @@ def store_metrics(*, quanting_env: dict, metrics: dict) -> None:
 MAX_STATUS_DETAILS_LENGTH = 1024
 
 _TASK_GROUP_PREFIX = f"{TaskGroups.PROCESSING}."
+_MAP_INDEX_SEP = "_"
 _PREPARE_JOB_TASK_ID = f"{_TASK_GROUP_PREFIX}{Tasks.PREPARE_JOB}"
 _CHECK_RESULT_TASK_ID = f"{_TASK_GROUP_PREFIX}{Tasks.CHECK_JOB_RESULT}"
 
 
-def finalize_raw_file_status(ti: TaskInstance, raw_file_id: str) -> None:
+def finalize_raw_file_status(ti: RuntimeTaskInstance, raw_file_id: str) -> None:
     """Set the final status for the raw file based on all pipeline branch outcomes.
 
     Inspects all parallel branch outcomes and sets the final status:
@@ -618,21 +621,30 @@ def finalize_raw_file_status(ti: TaskInstance, raw_file_id: str) -> None:
     update_raw_file(raw_file_id, new_status=RawFileStatus.DONE, status_details=None)
 
 
-def _get_branch_states(ti: TaskInstance) -> dict[int, dict[str, str | None]]:
+def _get_branch_states(ti: RuntimeTaskInstance) -> dict[int, dict[str, str | None]]:
     """Return the state of every processing-branch task, keyed by map index and task id.
 
     Non-mapped tasks (map_index=-1) are excluded.
     """
+    # the Task Execution API keys mapped tasks as `<task_id>_<map_index>` and non-mapped ones as `<task_id>`,
+    # so a task id ending in `_<digits>` would be ambiguous here (cf. test_task_ids_are_unambiguous_for_map_index)
+    task_states = ti.get_task_states(
+        dag_id=ti.dag_id,
+        task_group_id=TaskGroups.PROCESSING,
+        run_ids=[ti.run_id],
+    ).get(ti.run_id, {})
+
     branch_states: dict[int, dict[str, str | None]] = defaultdict(dict)
-    for ti_ in ti.get_dagrun().get_task_instances():
-        if ti_.task_id.startswith(_TASK_GROUP_PREFIX) and ti_.map_index >= 0:
-            branch_states[ti_.map_index][ti_.task_id] = ti_.state
+    for key, state in task_states.items():
+        task_id, _, map_index = key.rpartition(_MAP_INDEX_SEP)
+        if map_index.isdigit():
+            branch_states[int(map_index)][task_id] = state
     return branch_states
 
 
 def _extract_errors(
     branch_states: dict[int, dict[str, str | None]],
-    ti: TaskInstance,
+    ti: RuntimeTaskInstance,
 ) -> tuple[list[tuple[str, str]], list[tuple[str, str]]]:
     """Extract errors from previous tasks of all branches."""
     airflow_errors: list[tuple[str, str]] = []

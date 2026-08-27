@@ -4,7 +4,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
-from airflow.exceptions import AirflowFailException
+from airflow.sdk.exceptions import AirflowFailException
 from common.keys import JobStates, QuantingEnv
 from jobs._experimental.file_based_job_handler import FileBasedJobHandler
 

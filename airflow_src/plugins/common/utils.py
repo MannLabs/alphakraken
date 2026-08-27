@@ -4,25 +4,33 @@ import logging
 import os
 from collections.abc import Iterable
 from datetime import datetime, timedelta
+from http import HTTPStatus
 from typing import Any
 
 import pytz
-from airflow.api.common.trigger_dag import trigger_dag
-from airflow.exceptions import AirflowFailException, AirflowNotFoundException
-from airflow.models import Connection, DagRun, TaskInstance, Variable
+from airflow.exceptions import DagNotFound
+from airflow.models import DagRun
 from airflow.providers.ssh.hooks.ssh import SSHHook
-from airflow.utils.db import provide_session
+from airflow.sdk import Variable
+from airflow.sdk.exceptions import AirflowFailException, AirflowNotFoundException
+from airflow.sdk.execution_time import task_runner
+from airflow.sdk.execution_time.comms import ErrorResponse, TriggerDagRun
+from airflow.sdk.execution_time.task_runner import RuntimeTaskInstance
 from airflow.utils.types import DagRunType
 from common.constants import (
     CLUSTER_SSH_COMMAND_TIMEOUT,
-    CLUSTER_SSH_CONNECTION_ID_PREFIX,
+    CLUSTER_SSH_CONNECTION_ID_SEP,
     CLUSTER_SSH_CONNECTION_TIMEOUT,
 )
+from common.keys import AirflowVars
 
 _xcom_types = str | list[str] | dict[str, Any] | int
 
+# key under which the supervisor reports the API server status code in an ErrorResponse
+_STATUS_CODE_KEY = "status_code"
 
-def put_xcom(ti: TaskInstance, key: str, value: _xcom_types) -> None:
+
+def put_xcom(ti: RuntimeTaskInstance, key: str, value: _xcom_types) -> None:
     """Push to XCom `key`=`value`."""
     if value is None:
         raise ValueError(f"No value found for {key}.")
@@ -35,7 +43,7 @@ _NO_DEFAULT = object()
 
 
 def get_xcom(
-    ti: TaskInstance,
+    ti: RuntimeTaskInstance,
     key: str,
     *,
     task_ids: str | Iterable[str],
@@ -58,8 +66,12 @@ def get_xcom(
 
     value = ti.xcom_pull(**pull_kwargs)
 
-    if value is None and default is _NO_DEFAULT:
-        raise KeyError(f"No value found for XCOM key {key}")
+    # `default` is applied here rather than left to xcom_pull: airflow 3 ignores it on the
+    # branch taken when `map_indexes` is not given, and returns None instead.
+    if value is None:
+        if default is _NO_DEFAULT:
+            raise KeyError(f"No value found for XCOM key {key}")
+        return default
 
     if value is not None:
         logging.info(
@@ -79,7 +91,7 @@ def get_airflow_variable(
     if default == "__DEFAULT_NOT_SET":
         value = Variable.get(key)
     else:
-        value = Variable.get(key, default_var=default)
+        value = Variable.get(key, default=default)
 
     logging.info(f"Got airflow variable: '{key}'='{value}' (default: '{default}')")
 
@@ -104,27 +116,35 @@ def get_env_variable(
 def trigger_dag_run(
     dag_id: str, conf: dict[str, str], time_delay_minutes: int | None = None
 ) -> None:
-    """Trigger a DAG run with the given configuration."""
-    # Airflow 3 swap point: workers cannot reach the metadata DB via the ORM, so this body
-    # becomes a REST API v2 call. Keep trigger_dag() confined to this function.
-    now = datetime.now(tz=pytz.utc)
-    run_id = DagRun.generate_run_id(DagRunType.MANUAL, execution_date=now)
+    """Trigger a DAG run with the given configuration.
 
-    execution_date = (
-        None
+    :param time_delay_minutes: If given, the run will not start before that many minutes from now.
+
+    :raises DagNotFound: If there is no DAG with `dag_id`.
+    :raises AirflowFailException: If the run could not be created for any other reason.
+    """
+    now = datetime.now(tz=pytz.utc)
+    run_after = (
+        now
         if time_delay_minutes is None
         else now + timedelta(minutes=time_delay_minutes)
     )
+    # no logical_date: these are manual runs, identified by their run_id, which then gets a random suffix
+    run_id = DagRun.generate_run_id(run_type=DagRunType.MANUAL, run_after=run_after)
 
     logging.info(f"Triggering DAG {dag_id} with {run_id=} with {conf=}")
 
-    trigger_dag(
-        dag_id=dag_id,
-        run_id=run_id,
-        conf=conf,
-        execution_date=execution_date,
-        replace_microseconds=False,
+    # Tasks cannot write the metadata DB in Airflow 3, so this goes through the Task Execution API,
+    # which is the same channel TriggerDagRunOperator uses.
+    response = task_runner.SUPERVISOR_COMMS.send(
+        TriggerDagRun(dag_id=dag_id, run_id=run_id, conf=conf, run_after=run_after)
     )
+
+    if isinstance(response, ErrorResponse):
+        detail = response.detail or {}
+        if detail.get(_STATUS_CODE_KEY) == HTTPStatus.NOT_FOUND:
+            raise DagNotFound(f"Dag id {dag_id} not found")
+        raise AirflowFailException(f"Could not trigger DAG {dag_id}: {response}")
 
 
 def truncate_string(input_string: str | None, n: int = 200) -> str | None:
@@ -155,28 +175,22 @@ def get_minutes_since_fixed_time_point() -> int:
     return int((current_epoch_time - baseline) // 60)
 
 
-@provide_session
-def _get_cluster_ssh_connections(
-    session: Any = None,
-) -> list[str]:
-    """Get all SSH connection IDs that start with the given prefix.
+def _get_cluster_ssh_connections() -> list[str]:
+    """Get all cluster SSH connection IDs, sorted by ID.
 
-    :param session: Database session (provided by decorator)
-
-    :return: List of connection IDs matching the prefix, sorted by ID
+    The Task Execution API can fetch a connection by id, but cannot list connections, so the ids
+    are read from an Airflow Variable rather than scanned from the connection table.
     """
-    assert session is not None
-    connections = (
-        session.query(Connection)
-        .filter(Connection.conn_id.startswith(CLUSTER_SSH_CONNECTION_ID_PREFIX))
-        .all()
+    conn_ids = sorted(
+        conn_id.strip()
+        for conn_id in str(
+            get_airflow_variable(AirflowVars.CLUSTER_SSH_CONNECTION_IDS, default="")
+        ).split(CLUSTER_SSH_CONNECTION_ID_SEP)
+        if conn_id.strip()
     )
-    conn_ids = [conn.conn_id for conn in connections]
 
-    logging.info(
-        f"Found {len(conn_ids)} SSH connections with prefix '{CLUSTER_SSH_CONNECTION_ID_PREFIX}': {conn_ids}"
-    )
-    return sorted(conn_ids)
+    logging.info(f"Found {len(conn_ids)} cluster SSH connections: {conn_ids}")
+    return conn_ids
 
 
 def get_cluster_ssh_hook(
@@ -190,11 +204,12 @@ def get_cluster_ssh_hook(
     :param conn_timeout: Connection timeout in seconds.
     :param cmd_timeout: Command execution timeout in seconds.
 
-    The connection id needs to be defined in the Airflow UI and is obtained from get_cluster_ssh_connections().
+    The connection id needs to be defined in the Airflow UI and is obtained from _get_cluster_ssh_connections().
     """
     error_details = (
-        f"Please set up a connection starting with {CLUSTER_SSH_CONNECTION_ID_PREFIX} in the Airflow UI ('Admin -> Connections') "
-        "or set the Airflow Variable 'debug_no_cluster_ssh=True'."
+        f"Please set up the connection(s) in the Airflow UI ('Admin -> Connections') and list their ids in the "
+        f"Airflow Variable '{AirflowVars.CLUSTER_SSH_CONNECTION_IDS}', "
+        f"or set the Airflow Variable '{AirflowVars.DEBUG_NO_CLUSTER_SSH}=True'."
     )
     cluster_ssh_connections_ids = _get_cluster_ssh_connections()
     if not cluster_ssh_connections_ids:

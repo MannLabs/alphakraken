@@ -5,7 +5,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, call, patch
 
 import pytest
-from airflow.exceptions import AirflowFailException
+from airflow.sdk.exceptions import AirflowFailException
 from common.keys import XComKeys
 from common.settings import _INSTRUMENTS
 from dags.impl.remover_impl import (

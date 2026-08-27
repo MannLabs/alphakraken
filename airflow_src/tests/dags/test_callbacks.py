@@ -1,15 +1,15 @@
-"""Tests for the plugins.callbacks module."""
+"""Tests for the dags.callbacks module."""
 
 from unittest.mock import MagicMock, patch
 
+from dags.callbacks import on_failure_callback
 from impl.processor_impl import QuantingFailedException
-from plugins.callbacks import on_failure_callback
 from plugins.s3.s3_utils import S3UploadFailedException
 
 from shared.db.models import BackupStatus, RawFileStatus
 
 
-@patch("plugins.callbacks.update_raw_file")
+@patch("dags.callbacks.update_raw_file")
 def test_on_failure_callback_with_other_exception(mock_update: MagicMock) -> None:
     """Test that on_failure_callback updates the raw file status to error."""
     ex = Exception("Some error")
@@ -32,7 +32,7 @@ def test_on_failure_callback_with_other_exception(mock_update: MagicMock) -> Non
     )
 
 
-@patch("plugins.callbacks.update_raw_file")
+@patch("dags.callbacks.update_raw_file")
 def test_on_failure_callback_with_s3_exception(mock_update: MagicMock) -> None:
     """Test that on_failure_callback updates the raw file status to error."""
     ex = S3UploadFailedException("Some error")
@@ -54,7 +54,7 @@ def test_on_failure_callback_with_s3_exception(mock_update: MagicMock) -> None:
     )
 
 
-@patch("plugins.callbacks.update_raw_file")
+@patch("dags.callbacks.update_raw_file")
 def test_on_failure_callback_with_no_rawfile_in_xcom_but_dag_context(
     mock_update: MagicMock,
 ) -> None:
@@ -79,7 +79,7 @@ def test_on_failure_callback_with_no_rawfile_in_xcom_but_dag_context(
     )
 
 
-@patch("plugins.callbacks.update_raw_file")
+@patch("dags.callbacks.update_raw_file")
 def test_on_failure_callback_with_no_rawfile_in_xcom_nor_dag(
     mock_update: MagicMock,
 ) -> None:
@@ -97,7 +97,7 @@ def test_on_failure_callback_with_no_rawfile_in_xcom_nor_dag(
     mock_update.assert_not_called()
 
 
-@patch("plugins.callbacks.update_raw_file")
+@patch("dags.callbacks.update_raw_file")
 def test_on_failure_callback_with_quanting_failed_exception(
     mock_update: MagicMock,
 ) -> None:

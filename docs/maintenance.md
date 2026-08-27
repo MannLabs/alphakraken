@@ -6,7 +6,7 @@ Together with the raw data on the instrument and in the backup, this defines the
 All other components can, in principle, be shut down, restarted and/or deleted any time without loss of information,
 in particular:
 
-- The Airflow scheduler and webserver, and the Webapp can be restarted at any point.
+- The Airflow scheduler, api-server and dag-processor, and the Webapp can be restarted at any point.
 
 - The Airflow workers can be restarted at any point, with a little caveat: if this happens while the `copy_file`
 task is being run, the file copy operation can be interrupted mid-way. Once the worker is restarted, the task will
@@ -37,6 +37,12 @@ and to monitor the system closely.
 ## Airflow Variables
 These variables are set in the Airflow UI under "Admin" -> "Variables". They steer the behavior of the whole system,
 so be careful when changing them. If in doubt, pause all DAGs that are not part of the current problem before changing them.
+
+### cluster_ssh_connection_ids (default: None)
+Comma-separated list of the ids of the SSH connections to the cluster head nodes,
+e.g. `cluster_ssh_connection1,cluster_ssh_connection2`. The connections themselves are defined under
+"Admin" -> "Connections"; this variable tells the workers which ones exist, as Airflow 3 tasks cannot
+scan the connection table. A connection that is missing here is silently never used.
 
 ### consider_old_files_acquired (default: False)
 If this is set to `True`, the acquisition monitor will use an additional check to decide whether acquisition is done:

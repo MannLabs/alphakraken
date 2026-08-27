@@ -42,16 +42,25 @@ x-airflow-common: &airflow-common
     AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER:?error}:${POSTGRES_PASSWORD:?error}@${POSTGRES_HOST:?error}:${POSTGRES_PORT:?error}/${POSTGRES_DB:?error}
     AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://${POSTGRES_USER:?error}:${POSTGRES_PASSWORD:?error}@${POSTGRES_HOST:?error}:${POSTGRES_PORT:?error}/${POSTGRES_DB:?error}
     AIRFLOW__CELERY__BROKER_URL: redis://:@${REDIS_HOST:?error}:${REDIS_PORT:?error}/0
-    AIRFLOW__WEBSERVER__SECRET_KEY: "some-random-string-here"
+    AIRFLOW__API__SECRET_KEY: "some-random-string-here"
     AIRFLOW__CORE__FERNET_KEY: ""
     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
     AIRFLOW__CORE__LOAD_EXAMPLES: "false"
-    AIRFLOW__API__AUTH_BACKENDS: "airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session"
+    # without this, tasks cannot reach the Task Execution API and every task fails immediately.
+    # Unlike in airflow 2, workers do not talk to the metadata DB, so they need to reach the api-server:
+    # AIRFLOW_APISERVER_HOST must be resolvable from the worker machines, cf. POSTGRES_HOST.
+    AIRFLOW__CORE__EXECUTION_API_SERVER_URL: http://${AIRFLOW_APISERVER_HOST:?error}:8080/execution/
+    # the URL users type in the browser: used for login redirects, cookie scoping and task log links.
+    # Must NOT be the compose-internal service name, the browser cannot resolve that.
+    AIRFLOW__API__BASE_URL: ${AIRFLOW_BASE_URL:?error}
+    AIRFLOW__API_AUTH__JWT_SECRET: ${AIRFLOW_JWT_SECRET:?error}
+    # keeps the username/password login; the Airflow 3 default (SimpleAuthManager) does not read _AIRFLOW_WWW_USER_*
+    AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
     # Trust nginx's X-Forwarded-Proto header so redirects use https, not http.
     # Without this, post-action redirects target http://...:8080 and hit the
     # TLS port as plain HTTP, yielding a 400 (nginx terminates TLS on 8080).
-    AIRFLOW__WEBSERVER__ENABLE_PROXY_FIX: "true"
-    AIRFLOW__SCHEDULER__MIN_FILE_PROCESS_INTERVAL: 300 # reduce this number locally to get DAG changes faster
+    AIRFLOW__FAB__ENABLE_PROXY_FIX: "true"
+    AIRFLOW__DAG_PROCESSOR__MIN_FILE_PROCESS_INTERVAL: 300 # reduce this number locally to get DAG changes faster
     AIRFLOW__CORE__TEST_CONNECTION: "Enabled" # to allow testing connections via UI
     # yamllint disable rule:line-length
     # Use simple http server on scheduler for health checks
@@ -142,14 +151,27 @@ services:
     logging: *default-logging
     restart: always
 
-  airflow-webserver:
+  airflow-apiserver:
     profiles: ["local", "infrastructure"]
     <<: *airflow-common
-    command: webserver
+    command: api-server
     ports:
       - ${WEBSERVER_PORT:?error}:8080
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: always
+
+  # mandatory in Airflow 3: the scheduler no longer parses DAG files, without this no DAG ever appears
+  airflow-dag-processor:
+    profiles: ["local", "infrastructure"]
+    <<: *airflow-common
+    command: dag-processor
+    healthcheck:
+      test: ["CMD-SHELL", 'airflow jobs check --job-type DagProcessorJob --hostname "$${HOSTNAME}"']
       interval: 30s
       timeout: 10s
       retries: 5
@@ -354,7 +376,7 @@ services:
       - "80:80"
       - "8501:8501" # for serving webapp on streamlit port
       - "443:443"
-      - "8080:8080" # for serving Airflow webserver
+      - "8080:8080" # for serving the Airflow api-server
       - "8089:8089" # for serving MCP server
       - "8090:8090" # for serving REST API
     volumes:

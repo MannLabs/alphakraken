@@ -2,8 +2,8 @@
 
 import logging
 
-from airflow.exceptions import AirflowFailException
 from airflow.providers.amazon.aws.hooks.base_aws import BaseAwsConnection
+from airflow.sdk.exceptions import AirflowFailException
 from plugins.s3.client import S3_FILE_NOT_FOUND_ETAG, get_etag
 
 # S3 bucket name length limits

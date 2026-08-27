@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 from datetime import timedelta
+from typing import TYPE_CHECKING
 
-from airflow.decorators import task, task_group
-from airflow.models import Param, TaskInstance
-from airflow.models.dag import DAG
-from airflow.utils.trigger_rule import TriggerRule
+from airflow.sdk import DAG, Param, ParamsDict, task, task_group
+from airflow.task.trigger_rule import TriggerRule
 from callbacks import on_failure_callback
 from common.constants import AIRFLOW_QUEUE_PREFIX, Pools
 from common.keys import (
@@ -39,6 +38,9 @@ from sensors.ssh_sensor import (
 
 from shared.yamlsettings import YamlKeys
 
+if TYPE_CHECKING:
+    from airflow.sdk.execution_time.task_runner import RuntimeTaskInstance
+
 
 def create_acquisition_processor_dag(instrument_id: str) -> None:
     """Create acquisition_processor dag for instrument with `instrument_id`."""
@@ -62,8 +64,8 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
         },
         description="Process acquired files and add metrics to DB.",
         catchup=False,
-        tags=["processor", instrument_id],
-        params={DagParams.RAW_FILE_ID: Param(type="string", minLength=3)},
+        tags={"processor", instrument_id},
+        params=ParamsDict({DagParams.RAW_FILE_ID: Param(type="string", minLength=3)}),
     ) as dag:
         dag.doc_md = __doc__
 
@@ -83,7 +85,7 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
         def processing(settings_id: str) -> None:
             """The processing steps that runs for every settings entry."""
 
-            @task(task_id=Tasks.PREPARE_JOB)
+            @task(multiple_outputs=True, task_id=Tasks.PREPARE_JOB)
             def prepare_job_task(settings_id: str, params: dict | None = None) -> dict:
                 """Prepare quanting env for a single settings entry."""
                 assert params is not None
@@ -119,14 +121,14 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
                 pool=Pools.CLUSTER_SLOTS_POOL,
             )
 
-            @task(task_id=Tasks.CHECK_JOB_RESULT)
+            @task(multiple_outputs=True, task_id=Tasks.CHECK_JOB_RESULT)
             def check_result_task(
-                quanting_env: dict, job_id: str, ti: TaskInstance | None = None
+                quanting_env: dict, job_id: str, ti: RuntimeTaskInstance | None = None
             ) -> dict:
                 """Check quanting result and return dict with time_elapsed."""
                 return check_job_result(quanting_env=quanting_env, job_id=job_id, ti=ti)
 
-            @task(task_id=Tasks.COMPUTE_METRICS)
+            @task(multiple_outputs=True, task_id=Tasks.COMPUTE_METRICS)
             def compute_metrics_task(quanting_env: dict, time_elapsed: int) -> dict:
                 """Compute metrics and return them."""
                 return compute_metrics(
@@ -157,7 +159,7 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
             trigger_rule=TriggerRule.ALL_DONE,
         )
         def finalize_status(
-            params: dict | None = None, ti: TaskInstance | None = None
+            params: dict | None = None, ti: RuntimeTaskInstance | None = None
         ) -> None:
             """Set final raw file status based on all branch outcomes."""
             assert params is not None

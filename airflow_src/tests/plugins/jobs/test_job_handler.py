@@ -5,7 +5,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-from airflow.exceptions import AirflowFailException
+from airflow.sdk.exceptions import AirflowFailException
 from jobs._experimental.file_based_job_handler import FileBasedJobHandler
 from jobs._experimental.generic_job_handler import GenericJobHandler
 from jobs.job_handler import (

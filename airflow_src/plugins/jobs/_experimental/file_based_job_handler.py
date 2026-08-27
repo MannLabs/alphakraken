@@ -15,7 +15,7 @@ Notes:
 import logging
 from pathlib import Path
 
-from airflow.exceptions import AirflowFailException
+from airflow.sdk.exceptions import AirflowFailException
 from common.keys import JobStates, QuantingEnv
 from common.paths import get_internal_output_path_for_raw_file
 from jobs.job_handler import JobHandler

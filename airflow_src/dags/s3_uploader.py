@@ -4,9 +4,8 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-from airflow.models import Param
-from airflow.models.dag import DAG
 from airflow.providers.standard.operators.python import PythonOperator
+from airflow.sdk import DAG, Param, ParamsDict
 from callbacks import on_failure_callback
 from common.constants import (
     AIRFLOW_QUEUE_PREFIX,
@@ -32,12 +31,14 @@ with DAG(
         "on_failure_callback": on_failure_callback,
     },
     description="Upload raw files to S3.",
-    tags=["s3"],
-    params={
-        DagParams.RAW_FILE_ID: Param(type="string", minLength=3),
-        # TODO: this can in principle be also re-constructed from the RawFile
-        DagParams.INTERNAL_TARGET_FOLDER_PATH: Param(type="string", minLength=3),
-    },
+    tags={"s3"},
+    params=ParamsDict(
+        {
+            DagParams.RAW_FILE_ID: Param(type="string", minLength=3),
+            # TODO: this can in principle be also re-constructed from the RawFile
+            DagParams.INTERNAL_TARGET_FOLDER_PATH: Param(type="string", minLength=3),
+        }
+    ),
 ) as dag:
     dag.doc_md = __doc__
 

@@ -56,7 +56,8 @@ e.g. to spin up another instance hosting workers only.
 
 2. In the Airflow UI, set up the SSH connection to the cluster (see [below](#setup-ssh-connection)).
 If you don't want to connect to the cluster, just create the connection of type
-"ssh" and name "cluster_ssh_connection" with some dummy values for host, username, and password.
+"ssh" and name "cluster_ssh_connection" with some dummy values for host, username, and password,
+and set the Airflow variable `cluster_ssh_connection_ids=cluster_ssh_connection`.
 In this case, make sure to set the Airflow variable `debug_no_cluster_ssh=True` (see below).
 
 3. In the Airflow UI, set up the required Pools (see [below](#setup-required-pools)).
@@ -66,7 +67,7 @@ Start all docker containers required for local testing with
 ```bash
 ./compose.sh --profile local up --build -d
 ```
-After startup, the airflow webserver runs on http://localhost:8080/ (default credentials: `airflow`/`airflow`), the Streamlit webapp on http://localhost:8501/ .
+After startup, the airflow api-server runs on http://localhost:8080/ (default credentials: `airflow`/`airflow`), the Streamlit webapp on http://localhost:8501/ .
 
 To spin all containers down again, use
 ```bash
@@ -90,7 +91,7 @@ whereas `sandbox`/`production` is per default distributed over two machines
 The different services can be distributed over several machines. The only important thing is that there
 it exactly one instance of each of the 'central components': `postgres-service`, `redis-service`, and `mongodb-service`.
 One reasonable setup is to have the central components on one machine,
-and Airflow infrastructure (scheduler & webserver), workers and WebApp on another.
+and Airflow infrastructure (scheduler, api-server & dag-processor), workers and WebApp on another.
 This is the current setup in the docker-compose, which is reflected by the
 profiles `dbs`, and `infrastructure`/`workers`/`webapp`, respectively. If you move one of the central components
 to another machine, you might need to adjust the `*_HOST` variables in the
@@ -98,7 +99,11 @@ to another machine, you might need to adjust the `*_HOST` variables in the
 
 Make sure that the time is in sync between all machines, e.g. by using the same NTP time server.
 
-For production: set strong passwords for `AIRFLOW_PASSWORD`, `MONGO_PASSWORD`, and `POSTGRES_PASSWORD`
+Set `AIRFLOW_BASE_URL` in `./env/${ENV}.env` to the URL users type in the browser (e.g. `https://<hostname>:8080`).
+It is what the api-server uses for login redirects, cookie scoping and the task log links; a compose-internal
+service name there makes the browser fail with "Server Not Found".
+
+For production: set strong passwords for `AIRFLOW_PASSWORD`, `AIRFLOW_JWT_SECRET`, `MONGO_PASSWORD`, and `POSTGRES_PASSWORD`
 in `./env/production.env` and `MONGO_INITDB_ROOT_PASSWORD` in `./env/.env-mongo`.
 Make sure they don't contain special characters (e.g. '\', '#', '@', '$', ..) as they might interfere with name resolution in `docker-compose.yaml`.
 
@@ -117,7 +122,7 @@ Both users should be able to write to the `logs` and `output` directories, and t
 ./compose.sh --profile dbs up --build -d
 ```
 
-#### On the PC (VM) hosting the airflow infrastructure (scheduler, webserver)
+#### On the PC (VM) hosting the airflow infrastructure (scheduler, api-server, dag-processor)
 
 1. `ssh` into the PC/VM, `cd` to the alphakraken source directory, and set `export ENV=sandbox` (`export ENV=production`).
 
@@ -137,7 +142,15 @@ for display in the Airflow UI.
 
 2. Set up the [pool bind mounts](#set-up-pool-bind-mounts) for all instruments and `logs`, `backup` and `output`.
 
-3. Run the worker and/or infrastructure containers
+3. Make sure `AIRFLOW_APISERVER_HOST` in `./envs/${ENV}.env` points to the machine hosting the
+api-server, and that port 8080 is reachable from here. Unlike in Airflow 2, workers do not talk to the
+metadata DB: they get connections, variables, XComs and DAG-run triggers from the api-server, so every
+task fails immediately if it is unreachable. Verify with
+```bash
+curl --fail http://${AIRFLOW_APISERVER_HOST}:8080/health
+```
+
+4. Run the worker and/or infrastructure containers
 ```bash
 ./compose.sh --profile workers up --build -d
 ```
@@ -211,7 +224,7 @@ All paths are configured in the `locations` section of the `envs/alphakraken.${E
 for details).
 
 ### Set up pool bind mounts
-All airflow components (webserver, scheduler and workers) need a bind mount to a pool folder to read and write `airflow_logs`.
+All airflow components (api-server, scheduler, dag-processor and workers) need a bind mount to a pool folder to read and write `airflow_logs`.
 The workers need in addition bind mounts set up to the pool filesystems for `backup` and reading AlphaDIA `output` data,
 and to the instrument PCs.
 
@@ -288,9 +301,13 @@ At least one connection is required to interact with the Slurm cluster.
     - Password: `<password of user kraken-read>`
 3. (optional) Click "Test" to verify the connection.
 4. Click "Save".
+5. Navigate to "Admin" -> "Variables" and add the connection id to the Airflow variable
+`cluster_ssh_connection_ids` (comma-separated list).
 Note: make sure to use the `kraken-read` user with read-only access to the backup pool folder.
 
-You can define multiple connections (name needs to start with `cluster_ssh_connection`) to increase robustness, e.g. in case one head node is down.
+You can define multiple connections to increase robustness, e.g. in case one head node is down.
+Beware: a connection that is not listed in `cluster_ssh_connection_ids` is silently never used.
+Airflow 3 tasks cannot scan the connection table, which is why the ids are kept in a variable.
 
 ### Setup required pools
 Pools are used to limit the number of parallel tasks for certain operations. They are managed via the Airflow UI
@@ -344,7 +361,8 @@ the host. This is acceptable for a single-machine standalone deployment (`compos
 3. Make sure `locations.general.mounts_path` in `envs/alphakraken.${ENV}.yaml` points to the mounts folder
 as seen by the docker host (it must match `MOUNTS_PATH` in `envs/${ENV}.env`). The job handler uses it to
 translate the worker's container paths into the host paths it binds into the quanting container.
-4. As no cluster is available, set up a dummy `cluster_ssh_connection` and set the Airflow variable
+4. As no cluster is available, set up a dummy `cluster_ssh_connection`, list it in the Airflow variable
+`cluster_ssh_connection_ids`, and set the Airflow variable
 `debug_no_cluster_ssh` to `true`, cf. [Setup SSH connection](#setup-ssh-connection).
 5. Size the `cluster_slots_pool` to the local machine's capacity: it gates the `submit_job` and job
 monitoring tasks for all engines, not only for Slurm.
@@ -450,7 +468,7 @@ To access the server that is spun up with the infrastructure, use the following 
     }
   }
 ```
-where `<alphakraken_ip_address>` is the IP address of the PC hosting the airflow infrastructure (webserver, scheduler).
+where `<alphakraken_ip_address>` is the IP address of the PC hosting the airflow infrastructure (api-server, scheduler).
 
 ### Run it locally
 Set up a local MCP server using the following configuration:

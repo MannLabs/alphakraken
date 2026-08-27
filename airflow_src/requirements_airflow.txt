@@ -1,10 +1,14 @@
 # requirements for the airflow tasks
-apache-airflow==2.11.0 --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.11.0/constraints-3.11.txt" # pin to avoid pip resolving to airflow 3
-apache-airflow-providers-ssh==4.1.6 --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.11.0/constraints-3.11.txt"
-# operators moved here in airflow 3; the provider supports airflow >=2.11, so the import can be switched ahead of the upgrade
-apache-airflow-providers-standard==1.18.0 --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.11.0/constraints-3.11.txt"
+apache-airflow==3.3.1 --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-3.3.1/constraints-3.13.txt"
+apache-airflow-providers-ssh==6.0.1 --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-3.3.1/constraints-3.13.txt"
+apache-airflow-providers-standard==1.17.0 --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-3.3.1/constraints-3.13.txt"
+# required to keep the username/password login and the FAB-based auth manager, cf. AIRFLOW__CORE__AUTH_MANAGER
+apache-airflow-providers-fab==3.8.0 --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-3.3.1/constraints-3.13.txt"
 
-apache-airflow-providers-amazon==9.17.0 --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.11.0/constraints-3.11.txt"
-boto3==1.41.4 --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.11.0/constraints-3.11.txt" # pin to avoid pip resolution-too-deep error
-pyarrow>=19.0.1 --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.11.0/constraints-3.11.txt" # fixes https://github.com/apache/arrow/issues/45283
-sagemaker-studio==1.0.23 --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.11.0/constraints-3.11.txt" # pin to avoid pip resolution-too-deep error (1.1.x has heavy deps)
+apache-airflow-providers-amazon==9.34.0 --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-3.3.1/constraints-3.13.txt"
+boto3==1.43.56 --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-3.3.1/constraints-3.13.txt" # pin to avoid pip resolution-too-deep error
+# apache-airflow declares pandas only as an extra, so it came with the apache/airflow:2.11.0 base image.
+# Pinned explicitly to not depend on what the base image happens to ship, cf. plugins/metrics/metrics/*.py
+pandas==3.0.5 --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-3.3.1/constraints-3.13.txt"
+pyarrow>=19.0.1 --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-3.3.1/constraints-3.13.txt" # fixes https://github.com/apache/arrow/issues/45283
+sagemaker-studio==1.0.27 --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-3.3.1/constraints-3.13.txt" # pin to avoid pip resolution-too-deep error (1.1.x has heavy deps)

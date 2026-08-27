@@ -8,7 +8,7 @@ import abc
 import logging
 from datetime import datetime
 
-from airflow.exceptions import AirflowFailException
+from airflow.sdk.exceptions import AirflowFailException
 from common.constants import CLUSTER_BASE_WORKING_DIR_NAME, DUMMY_TIME_ELAPSED
 from common.keys import JobStates, QuantingEnv
 from sensors.ssh_utils import ssh_execute

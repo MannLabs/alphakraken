@@ -28,7 +28,7 @@ from datetime import datetime
 from pathlib import Path
 
 import docker
-from airflow.exceptions import AirflowFailException
+from airflow.sdk.exceptions import AirflowFailException
 from common.keys import JobStates, QuantingEnv
 from docker.errors import ImageNotFound, NotFound
 from docker.models.containers import Container

@@ -6,9 +6,9 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
-from airflow.exceptions import AirflowFailException
-from airflow.models import TaskInstance
 from airflow.providers.amazon.aws.hooks.base_aws import BaseAwsConnection
+from airflow.sdk.exceptions import AirflowFailException
+from airflow.sdk.execution_time.task_runner import RuntimeTaskInstance
 from common.constants import (
     BYTES_TO_GB,
     DEFAULT_MIN_FREE_SPACE_GB,
@@ -77,7 +77,7 @@ def _update_file_remover_status(status: str, status_details: str = "") -> None:
     )
 
 
-def get_raw_files_to_remove(ti: TaskInstance, **kwargs) -> None:
+def get_raw_files_to_remove(ti: RuntimeTaskInstance, **kwargs) -> None:
     """Get files to remove from the instrument backup folder."""
     del kwargs  # unused
 
@@ -407,7 +407,7 @@ def _delete_empty_directory(directory_path: Path) -> None:
     directory_path.rmdir()  # rmdir only removes empty directories
 
 
-def remove_raw_files(ti: TaskInstance, **kwargs) -> None:
+def remove_raw_files(ti: RuntimeTaskInstance, **kwargs) -> None:
     """Remove files/folders from the instrument backup folder."""
     del kwargs  # unused
 

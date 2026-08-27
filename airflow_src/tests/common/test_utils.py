@@ -5,9 +5,17 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 import pytz
-from airflow.exceptions import AirflowFailException, AirflowNotFoundException
-from airflow.models import Variable
+from airflow.exceptions import DagNotFound
+from airflow.sdk import Variable
+from airflow.sdk.exceptions import AirflowFailException, AirflowNotFoundException
+from airflow.sdk.execution_time.comms import (
+    ErrorResponse,
+    ErrorType,
+    OKResponse,
+    TriggerDagRun,
+)
 from plugins.common.utils import (
+    _get_cluster_ssh_connections,
     get_airflow_variable,
     get_cluster_ssh_hook,
     get_env_variable,
@@ -124,6 +132,28 @@ def test_xcom_pull_with_map_indexes() -> None:
     )
 
 
+def test_xcom_pull_returns_default_when_airflow_ignores_it() -> None:
+    """Test that the default is applied even when xcom_pull returns None despite being given one.
+
+    Airflow 3 ignores `default` on the code path taken when `map_indexes` is not passed.
+    """
+    ti = Mock()
+    ti.xcom_pull = Mock(return_value=None)
+
+    # when
+    assert get_xcom(ti, "key1", task_ids="task1", default=[]) == []
+
+
+def test_xcom_pull_raises_when_no_value_and_no_default() -> None:
+    """Test that a missing value without a default still raises."""
+    ti = Mock()
+    ti.xcom_pull = Mock(return_value=None)
+
+    # when
+    with pytest.raises(KeyError):
+        get_xcom(ti, "key1", task_ids="task1")
+
+
 @patch.object(Variable, "get")
 def test_get_airflow_variable_returns_value_when_default_not_set(
     mock_get: MagicMock,
@@ -175,42 +205,98 @@ def test_get_env_variable_raises_when_value_not_found() -> None:
         get_env_variable("not_existing_env_var")
 
 
+_EPOCH = datetime.fromtimestamp(0, tz=pytz.utc)
+_RUN_ID = "manual__1970-01-01T00:00:00+00:00"
+
+
+@patch("plugins.common.utils.task_runner")
+@patch("plugins.common.utils.DagRun")
 @patch("plugins.common.utils.datetime")
-@patch("plugins.common.utils.trigger_dag")
-def test_trigger_dag_run(mock_trigger_dag: MagicMock, mock_datetime: MagicMock) -> None:
+def test_trigger_dag_run(
+    mock_datetime: MagicMock, mock_dag_run: MagicMock, mock_task_runner: MagicMock
+) -> None:
     """Test that trigger_dag_run triggers a DAG run with the given configuration."""
-    mock_datetime.now.return_value = datetime.fromtimestamp(0, tz=pytz.utc)
+    mock_datetime.now.return_value = _EPOCH
+    mock_dag_run.generate_run_id.return_value = _RUN_ID
+    mock_task_runner.SUPERVISOR_COMMS.send.return_value = OKResponse(ok=True)
 
     # when
     trigger_dag_run("dag_id", {"key": "value"})
 
-    mock_trigger_dag.assert_called_once_with(
-        dag_id="dag_id",
-        run_id="manual__1970-01-01T00:00:00+00:00",
-        conf={"key": "value"},
-        execution_date=None,
-        replace_microseconds=False,
+    mock_task_runner.SUPERVISOR_COMMS.send.assert_called_once_with(
+        TriggerDagRun(
+            dag_id="dag_id",
+            run_id=_RUN_ID,
+            conf={"key": "value"},
+            run_after=_EPOCH,
+        )
     )
 
 
+@patch("plugins.common.utils.task_runner")
+@patch("plugins.common.utils.DagRun")
 @patch("plugins.common.utils.datetime")
-@patch("plugins.common.utils.trigger_dag")
 def test_trigger_dag_run_with_delay(
-    mock_trigger_dag: MagicMock, mock_datetime: MagicMock
+    mock_datetime: MagicMock, mock_dag_run: MagicMock, mock_task_runner: MagicMock
 ) -> None:
     """Test that trigger_dag_run triggers a DAG run with the given configuration and time delay."""
-    mock_datetime.now.return_value = datetime.fromtimestamp(0, tz=pytz.utc)
+    mock_datetime.now.return_value = _EPOCH
+    mock_dag_run.generate_run_id.return_value = _RUN_ID
+    mock_task_runner.SUPERVISOR_COMMS.send.return_value = OKResponse(ok=True)
 
     # when
     trigger_dag_run("dag_id", {"key": "value"}, 10)
 
-    mock_trigger_dag.assert_called_once_with(
-        dag_id="dag_id",
-        run_id="manual__1970-01-01T00:00:00+00:00",
-        conf={"key": "value"},
-        execution_date=datetime(1970, 1, 1, 0, 10, tzinfo=pytz.utc),
-        replace_microseconds=False,
+    mock_task_runner.SUPERVISOR_COMMS.send.assert_called_once_with(
+        TriggerDagRun(
+            dag_id="dag_id",
+            run_id=_RUN_ID,
+            conf={"key": "value"},
+            run_after=datetime(1970, 1, 1, 0, 10, tzinfo=pytz.utc),
+        )
     )
+
+
+@patch("plugins.common.utils.task_runner")
+def test_trigger_dag_run_raises_dag_not_found(mock_task_runner: MagicMock) -> None:
+    """Test that trigger_dag_run raises DagNotFound if the API server does not know the DAG."""
+    mock_task_runner.SUPERVISOR_COMMS.send.return_value = ErrorResponse(
+        error=ErrorType.API_SERVER_ERROR, detail={"status_code": 404}
+    )
+
+    # when
+    with pytest.raises(DagNotFound):
+        trigger_dag_run("dag_id", {"key": "value"})
+
+
+@patch("plugins.common.utils.task_runner")
+def test_trigger_dag_run_raises_on_other_errors(mock_task_runner: MagicMock) -> None:
+    """Test that trigger_dag_run fails the task on any other error response."""
+    mock_task_runner.SUPERVISOR_COMMS.send.return_value = ErrorResponse(
+        error=ErrorType.DAGRUN_ALREADY_EXISTS
+    )
+
+    # when
+    with pytest.raises(AirflowFailException):
+        trigger_dag_run("dag_id", {"key": "value"})
+
+
+@patch("plugins.common.utils.get_airflow_variable")
+def test_get_cluster_ssh_connections(mock_get_airflow_variable: MagicMock) -> None:
+    """Test that the connection ids are read from the Airflow variable and sorted."""
+    mock_get_airflow_variable.return_value = " conn_b ,conn_a, "
+
+    # when
+    assert _get_cluster_ssh_connections() == ["conn_a", "conn_b"]
+
+
+@patch("plugins.common.utils.get_airflow_variable", return_value="")
+def test_get_cluster_ssh_connections_empty(
+    mock_get_airflow_variable: MagicMock,  # noqa:ARG001
+) -> None:
+    """Test that an unset Airflow variable yields no connection ids."""
+    # when
+    assert _get_cluster_ssh_connections() == []
 
 
 def test_truncate_string_returns_none_if_input_is_none() -> None:

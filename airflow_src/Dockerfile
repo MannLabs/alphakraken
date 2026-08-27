@@ -1,7 +1,9 @@
 # https://airflow.apache.org/docs/docker-stack/build.html
-ARG AIRFLOW_VERSION=2.11.0
+ARG AIRFLOW_VERSION=3.3.1
 
-FROM apache/airflow:${AIRFLOW_VERSION}
+# the python version must match the constraints-<py> file used in requirements_airflow.txt.
+# Pinned explicitly: the untagged image follows Airflow's default python, which moved 3.12 -> 3.13 in Airflow 3.
+FROM apache/airflow:${AIRFLOW_VERSION}-python3.13
 
 # Prevents Python from writing pyc files.
 ENV PYTHONDONTWRITEBYTECODE=1

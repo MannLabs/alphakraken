@@ -3,7 +3,7 @@
 from unittest.mock import MagicMock, call, patch
 
 import pytest
-from airflow.exceptions import AirflowFailException
+from airflow.sdk.exceptions import AirflowFailException
 from plugins.sensors.ssh_utils import ssh_execute
 
 

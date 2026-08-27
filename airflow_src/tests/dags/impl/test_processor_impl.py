@@ -137,7 +137,7 @@ def test_create_quanting_env_custom_software(
     mock_settings.speclib_file_name = "some_speclib_file_name"
     mock_settings.fasta_file_name = "some_fasta_file_name"
     mock_settings.config_file_name = ""
-    mock_settings.config_params = "--qvalue 0.01 --f RAW_FILE_PATH --lib SETTINGS_PATH/some_speclib_file_name --out OUTPUT_PATH --fasta SETTINGS_PATH/some_fasta_file_name --threads NUM_THREADS --some_param RELATIVE_RAW_FILE_PATH --some_param2 RELATIVE_OUTPUT_PATH"
+    mock_settings.config_params = "--qvalue 0.01 --f {RAW_FILE_PATH} --lib {SETTINGS_PATH}/some_speclib_file_name --out {OUTPUT_PATH} --fasta {SETTINGS_PATH}/some_fasta_file_name --threads {NUM_THREADS} --some_param {RELATIVE_RAW_FILE_PATH} --some_param2 {RELATIVE_OUTPUT_PATH}"
     mock_settings.software = "custom1.2.3"
     mock_settings.software_type = "custom"
     mock_settings.metrics_type = "custom"
@@ -348,6 +348,33 @@ def test_check_content_rejects_malicious_resolved_config_params() -> None:
     }
 
     errors = _check_content(quanting_env, MagicMock(config_params=None))
+
+    assert len(errors) == 1
+
+
+def test_check_content_allows_placeholders_in_unresolved_config_params() -> None:
+    """Test that the placeholder braces of the unresolved config params pass validation."""
+    quanting_env = {
+        QuantingEnv.CONFIG_PARAMS: "--f /pool/backup/f.raw --threads 8",
+    }
+
+    errors = _check_content(
+        quanting_env,
+        MagicMock(config_params="--f {RAW_FILE_PATH} --threads {NUM_THREADS}"),
+    )
+
+    assert errors == []
+
+
+def test_check_content_rejects_unknown_placeholder() -> None:
+    """Test that a misspelled placeholder in the unresolved config params is rejected."""
+    quanting_env = {
+        QuantingEnv.CONFIG_PARAMS: "--f /pool/backup/f.raw",
+    }
+
+    errors = _check_content(
+        quanting_env, MagicMock(config_params="--f {RAW_FILE_PAHT}")
+    )
 
     assert len(errors) == 1
 
@@ -670,7 +697,7 @@ def test_create_quanting_env_with_suffix(
     mock_internal_output_path.return_value = Path("/opt/airflow/mounts/output")
 
     mock_settings = MagicMock(
-        software_type="custom", config_params="--out OUTPUT_PATH", num_threads=8
+        software_type="custom", config_params="--out {OUTPUT_PATH}", num_threads=8
     )
     mock_settings.name = "test_settings"
 

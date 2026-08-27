@@ -6,9 +6,13 @@ from unittest.mock import MagicMock, patch
 import pytest
 from airflow.exceptions import AirflowFailException
 from common.keys import JobStates, QuantingEnv
-from docker.errors import ImageNotFound, NotFound
 
 from shared.keys import SoftwareTypes
+
+# `docker` is an optional dependency, cf. requirements_docker_job_engine.txt
+pytest.importorskip("docker")
+
+from docker.errors import ImageNotFound, NotFound
 
 MODULE = "jobs.docker_job_handler"
 

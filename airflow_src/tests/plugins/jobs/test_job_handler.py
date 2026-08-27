@@ -1,7 +1,6 @@
 """Tests for the job_handler module."""
 
 import sys
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -14,14 +13,13 @@ from jobs.job_handler import (
     _get_job_handler,
 )
 
+from airflow_src.tests.helpers import yaml_locations
 from shared.keys import JobEngines
 
 
-@patch("jobs.job_handler.get_path")
-def test_get_job_handler_routes_engine_to_handler(mock_get_path: MagicMock) -> None:
+@yaml_locations(slurm="/path/to/slurm_base_path")
+def test_get_job_handler_routes_engine_to_handler() -> None:
     """Test that the factory returns the handler matching the requested engine."""
-    mock_get_path.return_value = Path("/path/to/slurm_base_path")
-
     assert isinstance(_get_job_handler(JobEngines.SLURM), SlurmSSHJobHandler)
     assert isinstance(_get_job_handler(JobEngines.FILE_BASED), FileBasedJobHandler)
     assert isinstance(_get_job_handler(JobEngines.GENERIC), GenericJobHandler)
@@ -37,13 +35,10 @@ def test_get_job_handler_docker_without_optional_dependency() -> None:
         _get_job_handler(JobEngines.DOCKER)
 
 
-@patch("jobs.job_handler.get_path")
+@yaml_locations(slurm="/path/to/slurm_base_path")
 @patch("jobs.job_handler.ssh_execute")
-def test_start_job_returns_valid_job_id(
-    mock_ssh_execute: MagicMock, mock_get_path: MagicMock
-) -> None:
+def test_start_job_returns_valid_job_id(mock_ssh_execute: MagicMock) -> None:
     """Test that start_job returns a valid job ID."""
-    mock_get_path.return_value = Path("/path/to/slurm_base_path")
     mock_ssh_execute.return_value = "12345"
 
     environment = {
@@ -67,13 +62,10 @@ def test_start_job_returns_valid_job_id(
     mock_ssh_execute.assert_called_once_with(expected_command)
 
 
-@patch("jobs.job_handler.get_path")
+@yaml_locations(slurm="/path/to/slurm_base_path")
 @patch("jobs.job_handler.ssh_execute")
-def test_start_job_handles_invalid_job_id(
-    mock_ssh_execute: MagicMock, mock_get_path: MagicMock
-) -> None:
+def test_start_job_handles_invalid_job_id(mock_ssh_execute: MagicMock) -> None:
     """Test that start_job raises an exception when the job ID is invalid."""
-    mock_get_path.return_value = Path("/path/to/slurm_base_path")
     mock_ssh_execute.return_value = "invalid_id"
 
     environment = {
@@ -87,13 +79,10 @@ def test_start_job_handles_invalid_job_id(
         SlurmSSHJobHandler().start_job("submit_job.sh", environment, "2024_07")
 
 
-@patch("jobs.job_handler.get_path")
+@yaml_locations(slurm="/path/to/slurm_base_path")
 @patch("jobs.job_handler.ssh_execute")
-def test_get_job_status_returns_correctly(
-    mock_ssh_execute: MagicMock, mock_get_path: MagicMock
-) -> None:
+def test_get_job_status_returns_correctly(mock_ssh_execute: MagicMock) -> None:
     """Test that get_job_status returns the correct status."""
-    mock_get_path.return_value = Path("/path/to/slurm_base_path")
     mock_ssh_execute.return_value = "COMPLETED"
 
     job_status = SlurmSSHJobHandler().get_job_status("12345")
@@ -111,13 +100,12 @@ def test_get_job_status_returns_correctly(
     mock_ssh_execute.assert_called_once_with(expected_command)
 
 
-@patch("jobs.job_handler.get_path")
+@yaml_locations(slurm="/path/to/slurm_base_path")
 @patch("jobs.job_handler.ssh_execute")
 def test_get_job_result_returns_correct_job_status_and_time_elapsed(
-    mock_ssh_execute: MagicMock, mock_get_path: MagicMock
+    mock_ssh_execute: MagicMock,
 ) -> None:
     """Test that get_job_result returns the correct job status and time elapsed."""
-    mock_get_path.return_value = Path("/path/to/slurm_base_path")
     mock_ssh_execute.return_value = "00:08:42\nCOMPLETED"
 
     # when
@@ -152,25 +140,20 @@ def test_get_job_result_returns_correct_job_status_and_time_elapsed(
         ("slurm", SlurmSSHJobHandler),
     ],
 )
-@patch("jobs.job_handler.get_path")
+@yaml_locations(slurm="/path/to/slurm_base_path")
 def test_get_job_handler_returns_correct_handler(
-    mock_get_path: MagicMock, engine: str | None, expected_type: type
+    engine: str | None, expected_type: type
 ) -> None:
     """Test that the factory returns the correct handler for the given engine."""
-    mock_get_path.return_value = Path("/path/to/slurm_base_path")
-
     handler = _get_job_handler(engine)
 
     assert type(handler) is expected_type
 
 
-@patch("jobs.job_handler.get_path")
+@yaml_locations(slurm="/path/to/slurm_base_path")
 @patch("jobs.job_handler.ssh_execute")
-def test_no_sacct_get_job_status_returns_correctly(
-    mock_ssh_execute: MagicMock, mock_get_path: MagicMock
-) -> None:
+def test_no_sacct_get_job_status_returns_correctly(mock_ssh_execute: MagicMock) -> None:
     """Test that get_job_status uses scontrol instead of sacct."""
-    mock_get_path.return_value = Path("/path/to/slurm_base_path")
     mock_ssh_execute.return_value = "RUNNING"
 
     job_status = SlurmNoSacctSSHJobHandler().get_job_status("12345")
@@ -183,13 +166,12 @@ def test_no_sacct_get_job_status_returns_correctly(
     mock_ssh_execute.assert_called_once_with(expected_command)
 
 
-@patch("jobs.job_handler.get_path")
+@yaml_locations(slurm="/path/to/slurm_base_path")
 @patch("jobs.job_handler.ssh_execute")
 def test_no_sacct_get_job_result_returns_correct_job_status_and_time_elapsed(
-    mock_ssh_execute: MagicMock, mock_get_path: MagicMock
+    mock_ssh_execute: MagicMock,
 ) -> None:
     """Test that get_job_result works without sacct and reports zero time elapsed."""
-    mock_get_path.return_value = Path("/path/to/slurm_base_path")
     mock_ssh_execute.return_value = "00:00:00\nRUNNING"
 
     # when

@@ -1,9 +1,13 @@
 """Placeholders that can be used in the `config_params` of a settings entry."""
 
+import re
+
 from shared.keys import ConstantsClass
 
 # stand-in for a placeholder value, used where the real values are not known yet
 PLACEHOLDER_DUMMY_VALUE = "dummy"
+
+UNKNOWN_PLACEHOLDER_ERROR = "Unknown placeholder"
 
 
 class ConfigParamPlaceholders(metaclass=ConstantsClass):
@@ -31,11 +35,18 @@ PLACEHOLDER_DESCRIPTIONS: dict[str, str] = {
 }
 
 
+_KNOWN_PLACEHOLDER_PATTERN = re.compile(
+    rf"\{{({'|'.join(ConfigParamPlaceholders.get_values())})\}}"
+)
+_BRACED_TOKEN_PATTERN = re.compile(r"\{([^{}]*)\}")
+
+
 def substitute_placeholders(config_params: str, values: dict[str, str]) -> str:
     """Replace each `{PLACEHOLDER}` in `config_params` by the given value."""
-    for placeholder, value in values.items():
-        config_params = config_params.replace(f"{{{placeholder}}}", value)
-    return config_params
+    # single pass, so that a substituted value containing a placeholder is not expanded again
+    return _KNOWN_PLACEHOLDER_PATTERN.sub(
+        lambda match: values.get(match.group(1), match.group()), config_params
+    )
 
 
 def substitute_dummy_values(config_params: str) -> str:
@@ -44,3 +55,18 @@ def substitute_dummy_values(config_params: str) -> str:
         config_params,
         dict.fromkeys(ConfigParamPlaceholders.get_values(), PLACEHOLDER_DUMMY_VALUE),
     )
+
+
+def check_for_unknown_placeholders(config_params: str) -> list[str]:
+    """Validate that `config_params` contains no braced token besides the known placeholders.
+
+    Returns:
+        list[str]: List of validation error messages (empty if valid)
+
+    """
+    known_placeholders = ConfigParamPlaceholders.get_values()
+    return [
+        f"{UNKNOWN_PLACEHOLDER_ERROR}: {match.group()}"
+        for match in _BRACED_TOKEN_PATTERN.finditer(config_params)
+        if match.group(1) not in known_placeholders
+    ]

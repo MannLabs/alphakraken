@@ -4,6 +4,7 @@ from shared.config_params import (
     PLACEHOLDER_DESCRIPTIONS,
     PLACEHOLDER_DUMMY_VALUE,
     ConfigParamPlaceholders,
+    check_for_unknown_placeholders,
     substitute_dummy_values,
     substitute_placeholders,
 )
@@ -54,6 +55,19 @@ def test_substitute_placeholders_is_order_independent() -> None:
     assert result_reversed == result
 
 
+def test_substitute_placeholders_does_not_expand_substituted_values() -> None:
+    """Test that a placeholder contained in a substituted value is not expanded again."""
+    result = substitute_placeholders(
+        "{OUTPUT_PATH} {NUM_THREADS}",
+        {
+            ConfigParamPlaceholders.OUTPUT_PATH: "/out/{NUM_THREADS}",
+            ConfigParamPlaceholders.NUM_THREADS: "8",
+        },
+    )
+
+    assert result == "/out/{NUM_THREADS} 8"
+
+
 def test_substitute_dummy_values() -> None:
     """Test that all known placeholders are replaced by the dummy value."""
     config_params = " ".join(
@@ -78,10 +92,20 @@ def test_dummy_substituted_params_pass_validation() -> None:
     assert errors == []
 
 
-def test_unknown_placeholder_fails_validation() -> None:
-    """Test that a misspelled placeholder is rejected, as its braces survive the substitution."""
-    errors = check_for_malicious_content(
-        substitute_dummy_values("--f {RAW_FILE_PAHT}"), allow_spaces=True
+def test_check_for_unknown_placeholders_accepts_known_ones() -> None:
+    """Test that all known placeholders pass the check."""
+    config_params = " ".join(
+        f"{{{placeholder}}}" for placeholder in ConfigParamPlaceholders.get_values()
+    )
+
+    assert check_for_unknown_placeholders(config_params) == []
+
+
+def test_check_for_unknown_placeholders_rejects_misspelled_one() -> None:
+    """Test that a misspelled placeholder is reported by name."""
+    errors = check_for_unknown_placeholders(
+        "--f {RAW_FILE_PAHT} --threads {NUM_THREADS}"
     )
 
     assert len(errors) == 1
+    assert "{RAW_FILE_PAHT}" in errors[0]

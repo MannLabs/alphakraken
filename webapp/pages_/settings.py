@@ -26,7 +26,11 @@ from service.utils import (
     show_success_toast,
 )
 
-from shared.config_params import PLACEHOLDER_DESCRIPTIONS, substitute_dummy_values
+from shared.config_params import (
+    PLACEHOLDER_DESCRIPTIONS,
+    check_for_unknown_placeholders,
+    substitute_dummy_values,
+)
 from shared.db.interface import archive_settings, create_settings
 from shared.db.models import ProjectSettings, ProjectStatus, SettingsStatus
 from shared.keys import (
@@ -366,19 +370,21 @@ with c1.form("create_settings"):
         else None
     )
 
-    if software_type == SoftwareTypes.CUSTOM:
+    if "config_params" in form_items:
         placeholder_list = "\n".join(
             f"- `{{{placeholder}}}`: {description}"
             for placeholder, description in PLACEHOLDER_DESCRIPTIONS.items()
         )
         st.info(
             "The following placeholders can be used in the config parameters, and will be replaced by the specified values:\n\n"
-            f"{placeholder_list}\n"
+            f"{placeholder_list}\n\n"
             "Notes:\n"
-            "- The working directory of the custom software is `{OUTPUT_PATH}`.\n"
+            "- The working directory of the software is `{OUTPUT_PATH}`.\n"
             "- If you require more than the provided placeholders, reference them directly by their absolute path.\n"
             "- If something that is in the `$PATH` should be executed (e.g. `apptainer`), wrap it in a shell script and place it in the software folder.\n"
         )
+
+    if software_type == SoftwareTypes.CUSTOM:
         with st.expander("Example for DIANN..."):
             st.write("Executable: `diann/diann-linux`")
             st.code(
@@ -501,8 +507,12 @@ if submit:
             f"`{SoftwareTypes.CUSTOM}`."
         )
     if config_params:
+        # TODO: warn on bare (RAW_FILE_PATH) and half-open ({RAW_FILE_PATH) placeholders,
+        # they currently pass validation and fail silently at runtime
+        placeholder_errors = check_for_unknown_placeholders(config_params)
         validation_errors.extend(
-            check_for_malicious_content(
+            placeholder_errors
+            or check_for_malicious_content(
                 substitute_dummy_values(config_params), allow_spaces=True
             )
         )

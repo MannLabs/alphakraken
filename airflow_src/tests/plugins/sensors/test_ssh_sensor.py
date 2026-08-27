@@ -1,10 +1,11 @@
 """Tests for the SSH sensor plugin."""
 
+from collections.abc import Callable
 from unittest.mock import MagicMock, call, patch
 
 import pytest
 from airflow.utils.xcom import XCOM_RETURN_KEY
-from plugins.common.keys import JobStates, QuantingEnv
+from plugins.common.keys import JobStates
 from plugins.sensors.ssh_sensor import WaitForJobFinishSensor
 
 JOB_ID_SOURCE_TASK_ID = "processing.submit_job"
@@ -15,12 +16,16 @@ ENGINE = "file_based"
 @patch("plugins.sensors.ssh_sensor.get_job_status")
 def test_poke_executes_ssh_command_and_checks_returned_state(
     mock_get_job_status: MagicMock,
+    make_quanting_env: Callable,
 ) -> None:
     """Test that the poke function returns False when the returned state is in the running states."""
     # given
     mock_ti = MagicMock()
     mock_ti.map_index = 0
-    mock_ti.xcom_pull.side_effect = ["12345", {QuantingEnv.JOB_ENGINE: ENGINE}]
+    mock_ti.xcom_pull.side_effect = [
+        "12345",
+        make_quanting_env(job_engine=ENGINE).to_dict(),
+    ]
     mock_get_job_status.return_value = JobStates.RUNNING
     context = {"ti": mock_ti}
     operator = WaitForJobFinishSensor(
@@ -63,6 +68,7 @@ def test_poke_executes_ssh_command_and_checks_returned_state(
 def test_poke_returns_true_when_state_not_in_running_states(
     mock_get_job_status: MagicMock,
     job_status: str,
+    make_quanting_env: Callable,
     *,
     expected_poke: bool,
 ) -> None:
@@ -70,7 +76,10 @@ def test_poke_returns_true_when_state_not_in_running_states(
     # given
     mock_ti = MagicMock()
     mock_ti.map_index = 2
-    mock_ti.xcom_pull.side_effect = ["12345", {QuantingEnv.JOB_ENGINE: ENGINE}]
+    mock_ti.xcom_pull.side_effect = [
+        "12345",
+        make_quanting_env(job_engine=ENGINE).to_dict(),
+    ]
     mock_get_job_status.return_value = job_status
     context = {"ti": mock_ti}
     operator = WaitForJobFinishSensor(

@@ -8,6 +8,7 @@ import abc
 import logging
 
 from airflow.exceptions import AirflowFailException
+from common.quanting_env import QuantingEnv
 
 from shared.keys import JobEngines
 from shared.yamlsettings import YamlKeys, get_host_mounts_path, get_path
@@ -47,13 +48,13 @@ class JobHandler(abc.ABC):
 
     @abc.abstractmethod
     def start_job(
-        self, job_script_name: str, environment: dict[str, str], year_month_folder: str
+        self, job_script_name: str, quanting_env: QuantingEnv, year_month_folder: str
     ) -> str:
         """Start a job and return the job ID.
 
         Args:
             job_script_name: Name of the Slurm job script to run, e.g. "submit_job.sh"
-            environment: Environment variables to set before job submission
+            quanting_env: Environment of the quanting job
             year_month_folder: Folder to store job outputs, e.g. "2024_07"
 
         Returns:
@@ -80,7 +81,7 @@ class JobHandler(abc.ABC):
 
 def start_job(
     job_script_name: str,
-    environment: dict[str, str],
+    quanting_env: QuantingEnv,
     year_month_folder: str,
     engine: str,
 ) -> str:
@@ -89,7 +90,7 @@ def start_job(
     Delegates to JobHandler.start_job(), see docs there.
     """
     handler = _get_job_handler(engine)
-    return handler.start_job(job_script_name, environment, year_month_folder)
+    return handler.start_job(job_script_name, quanting_env, year_month_folder)
 
 
 def get_job_status(job_id: str, engine: str) -> str:

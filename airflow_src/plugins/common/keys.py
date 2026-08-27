@@ -152,40 +152,6 @@ class AirflowVars:
     DEBUG_MAX_FILE_AGE_IN_HOURS: str = "debug_max_file_age_in_hours"
 
 
-class QuantingEnv:
-    """Keys for setting quanting environment variables for the slurm submit script."""
-
-    RAW_FILE_PATH = "RAW_FILE_PATH"
-    OUTPUT_PATH = "OUTPUT_PATH"
-    RELATIVE_OUTPUT_PATH = "RELATIVE_OUTPUT_PATH"
-    SETTINGS_PATH = "SETTINGS_PATH"
-
-    SPECLIB_FILE_NAME = "SPECLIB_FILE_NAME"
-    FASTA_FILE_NAME = "FASTA_FILE_NAME"
-    CONFIG_FILE_NAME = "CONFIG_FILE_NAME"
-    SOFTWARE = "SOFTWARE"
-    SOFTWARE_TYPE = "SOFTWARE_TYPE"
-    CUSTOM_COMMAND = "CUSTOM_COMMAND"
-
-    METRICS_TYPE: str = "METRICS_TYPE"
-
-    PROJECT_ID: str = "PROJECT_ID"
-    RAW_FILE_ID: str = "RAW_FILE_ID"
-    SETTINGS_NAME: str = "SETTINGS_NAME"
-    SETTINGS_VERSION: str = "SETTINGS_VERSION"
-
-    NUM_THREADS: str = "NUM_THREADS"
-
-    # those will not be exported as environment variables due to the leading underscore
-    SLURM_CPUS_PER_TASK: str = "_SLURM_CPUS_PER_TASK"
-    SLURM_MEM: str = "_SLURM_MEM"
-    SLURM_TIME: str = "_SLURM_TIME"
-    INTERNAL_OUTPUT_PATH: str = "_INTERNAL_OUTPUT_PATH"
-    INTERNAL_RAW_FILE_PATH: str = "_INTERNAL_RAW_FILE_PATH"
-    CONFIG_PARAMS: str = "_CONFIG_PARAMS"
-    JOB_ENGINE: str = "_JOB_ENGINE"
-
-
 class JobStates:
     """States of a slurm job as returned by the sacct command, cf slurm_commands.py:get_job_state_cmd()."""
 

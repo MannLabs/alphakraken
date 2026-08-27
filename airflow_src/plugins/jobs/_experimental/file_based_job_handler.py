@@ -16,8 +16,9 @@ import logging
 from pathlib import Path
 
 from airflow.exceptions import AirflowFailException
-from common.keys import JobStates, QuantingEnv
+from common.keys import JobStates
 from common.paths import get_internal_output_path_for_raw_file
+from common.quanting_env import QuantingEnv
 from jobs.job_handler import JobHandler
 
 from shared.db.interface import get_raw_file_by_id
@@ -39,14 +40,14 @@ class FileBasedJobHandler(JobHandler):
     def start_job(
         self,
         job_script_name: str,
-        environment: dict[str, str],
+        quanting_env: QuantingEnv,
         year_month_folder: str,
     ) -> str:
         """Start a job by writing quanting environment to a .job file.
 
         Args:
             job_script_name: Name of the job script (ignored for file-based handler)
-            environment: Environment variables containing quanting configuration
+            quanting_env: Environment of the quanting job
             year_month_folder: Folder for job outputs (ignored for file-based handler)
 
         Returns:
@@ -56,7 +57,7 @@ class FileBasedJobHandler(JobHandler):
         del job_script_name  # unused
         del year_month_folder  # unused
 
-        raw_file_id = environment[QuantingEnv.RAW_FILE_ID]
+        raw_file_id = quanting_env.raw_file_id
         job_file_path = self._job_submit_dir / f"{raw_file_id}.job"
 
         if job_file_path.exists():
@@ -69,15 +70,12 @@ class FileBasedJobHandler(JobHandler):
         try:
             self._job_submit_dir.mkdir(exist_ok=True)
 
+            # this file format is read by an external watcher
             with job_file_path.open("w") as f:
-                for key, value in environment.items():
-                    if key in [
-                        QuantingEnv.RAW_FILE_ID,
-                        QuantingEnv.OUTPUT_PATH,
-                        QuantingEnv.RELATIVE_OUTPUT_PATH,
-                        QuantingEnv.CUSTOM_COMMAND,
-                    ]:
-                        f.write(f"{key}={value}\n")
+                f.write(f"RAW_FILE_ID={quanting_env.raw_file_id}\n")
+                f.write(f"OUTPUT_PATH={quanting_env.output_path}\n")
+                f.write(f"RELATIVE_OUTPUT_PATH={quanting_env.relative_output_path}\n")
+                f.write(f"CUSTOM_COMMAND={quanting_env.custom_command}\n")
         except OSError as e:
             logging.info(
                 "For this job handler, you need to change the bind mount of the output folder in docker-compose.yml to type 'rw' (read-write)."

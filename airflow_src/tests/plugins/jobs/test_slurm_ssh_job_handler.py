@@ -1,5 +1,6 @@
 """Tests for the slurm_ssh_job_handler module."""
 
+from collections.abc import Callable
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -13,24 +14,34 @@ SLURM_BASE_DIR = Path("/path/to/slurm_base_path")
 @patch("jobs.slurm_ssh_job_handler.ssh_execute")
 def test_start_job_returns_valid_job_id(
     mock_ssh_execute: MagicMock,
+    make_quanting_env: Callable,
 ) -> None:
-    """Test that start_job returns a valid job ID."""
+    """Test that start_job returns a valid job ID and exports the full environment."""
     mock_ssh_execute.return_value = "12345"
-
-    environment = {
-        "ENV_VAR": "value",
-        "_SLURM_CPUS_PER_TASK": 8,
-        "_SLURM_MEM": "62G",
-        "_SLURM_TIME": "02:00:00",
-    }
 
     # when
     job_id = SlurmSSHJobHandler(SLURM_BASE_DIR).start_job(
-        "submit_job.sh", environment, "2024_07"
+        "submit_job.sh", make_quanting_env(), "2024_07"
     )
     assert job_id == "12345"
+    # when you adapt something here, don't forget to adapt also the submit_job.sh script
     expected_command = (
-        'export ENV_VAR="value"\n'
+        'export RAW_FILE_PATH="/pool/backup/instrument1/2024_07/test_file.raw"\n'
+        'export SETTINGS_PATH="/pool/settings/test_settings"\n'
+        'export OUTPUT_PATH="/pool/output/PID123/out_test_file.raw/alphadia"\n'
+        'export RELATIVE_OUTPUT_PATH="PID123/out_test_file.raw/alphadia"\n'
+        'export SPECLIB_FILE_NAME="some_speclib_file_name"\n'
+        'export FASTA_FILE_NAME="some_fasta_file_name"\n'
+        'export CONFIG_FILE_NAME="some_config_file_name"\n'
+        'export SOFTWARE="some_software"\n'
+        'export SOFTWARE_TYPE="alphadia"\n'
+        'export METRICS_TYPE="alphadia"\n'
+        'export CUSTOM_COMMAND=""\n'
+        'export NUM_THREADS="8"\n'
+        'export RAW_FILE_ID="test_file.raw"\n'
+        'export PROJECT_ID="PID123"\n'
+        'export SETTINGS_NAME="test_settings"\n'
+        'export SETTINGS_VERSION="1"\n'
         "mkdir -p /path/to/slurm_base_path/jobs/2024_07\n"
         "cd /path/to/slurm_base_path/jobs/2024_07\n"
         "cat /path/to/slurm_base_path/submit_job.sh\n"
@@ -43,20 +54,14 @@ def test_start_job_returns_valid_job_id(
 @patch("jobs.slurm_ssh_job_handler.ssh_execute")
 def test_start_job_handles_invalid_job_id(
     mock_ssh_execute: MagicMock,
+    make_quanting_env: Callable,
 ) -> None:
     """Test that start_job raises an exception when the job ID is invalid."""
     mock_ssh_execute.return_value = "invalid_id"
 
-    environment = {
-        "ENV_VAR": "value",
-        "_SLURM_CPUS_PER_TASK": 8,
-        "_SLURM_MEM": "62G",
-        "_SLURM_TIME": "02:00:00",
-    }
-
     with pytest.raises(AirflowFailException, match="Job submission failed."):
         SlurmSSHJobHandler(SLURM_BASE_DIR).start_job(
-            "submit_job.sh", environment, "2024_07"
+            "submit_job.sh", make_quanting_env(), "2024_07"
         )
 
 

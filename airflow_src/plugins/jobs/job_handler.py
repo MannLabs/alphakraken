@@ -23,10 +23,6 @@ def _get_job_handler(engine: str) -> "JobHandler":
         logging.info("Using SlurmSSHJobHandler")
         return SlurmSSHJobHandler()
 
-    if engine == JobEngines.SLURM_NO_SACCT:
-        logging.info("Using SlurmNoSacctSSHJobHandler")
-        return SlurmNoSacctSSHJobHandler()
-
     if engine == JobEngines.DOCKER:
         try:
             from jobs.docker_job_handler import DockerJobHandler
@@ -38,12 +34,6 @@ def _get_job_handler(engine: str) -> "JobHandler":
 
         logging.info("Using DockerJobHandler")
         return DockerJobHandler()
-
-    if engine == JobEngines.GENERIC:
-        from jobs._experimental.generic_job_handler import GenericJobHandler
-
-        logging.info("Using GenericJobHandler")
-        return GenericJobHandler()
 
     if engine == JobEngines.FILE_BASED:
         from jobs._experimental.file_based_job_handler import FileBasedJobHandler
@@ -192,7 +182,7 @@ class SlurmSSHJobHandler(JobHandler):
             [
                 f"SACCT_OUT=$(sacct -l --parsable2 -j {job_id} 2>/dev/null)",
                 "if [ $? -eq 0 ]; then",
-                "echo \"$SACCT_OUT\" | awk -F'|' 'NR==1{for(i=1;i<=NF;i++)if($i==\"Elapsed\")c=i}END{print $c}'",
+                f'echo "$SACCT_OUT" | awk -F\'|\' \'NR==1{{for(i=1;i<=NF;i++)if($i=="Elapsed")c=i}}END{{print (c && NR>1) ? $c : "{DUMMY_TIME_ELAPSED}"}}\'',
                 'echo "$SACCT_OUT"',
                 "else",
                 f'echo "{DUMMY_TIME_ELAPSED}"',
@@ -232,50 +222,18 @@ class SlurmSSHJobHandler(JobHandler):
 
     @staticmethod
     def _get_time_elapsed(ssh_return: str) -> int:
-        """Extract the time in seconds from a string "hours:minutes:seconds" in the first line of a string."""
+        """Extract the time in seconds from a string "hours:minutes:seconds" in the first line of a string.
+
+        Returns 0 if the first line is not a timestamp, e.g. because `sacct` is not available.
+        """
         time_stamp = ssh_return.split("\n")[0]
         logging.info(f"extracted {time_stamp=}")
-        t = datetime.strptime(time_stamp, "%H:%M:%S")  # noqa: DTZ007
+        try:
+            t = datetime.strptime(time_stamp, "%H:%M:%S")  # noqa: DTZ007
+        except ValueError:
+            logging.warning(f"Could not parse time elapsed from {time_stamp=}")
+            return 0
         return (t.hour * 3600) + (t.minute * 60) + t.second
-
-
-# TODO: this could be removed now as SlurmSSHJobHandler is robust against sacct not being available
-class SlurmNoSacctSSHJobHandler(SlurmSSHJobHandler):
-    """A Slurm job handler that works without Slurm accounting (`sacct` command) installed.
-
-    Note: Does not provide the actual elapsed time, but always returns 0 for it.
-    """
-
-    @staticmethod
-    def _check_job_result_cmd(job_id: str, slurm_output_file_path: str) -> str:
-        """Shell command to print the elapsed time and the contents of the slurm log file for a givem job_id.
-
-        In order to be able to extract the run time, we expect the first line to contain only that, e.g. "00:08:42"
-        """
-        del job_id  # unused
-        return "\n".join(
-            [
-                f"TIME_ELAPSED={DUMMY_TIME_ELAPSED}",
-                "echo $TIME_ELAPSED",
-                f"cat {slurm_output_file_path}",
-            ]
-        )
-
-    @staticmethod
-    def _get_job_state_cmd(job_id: str) -> str:
-        """Shell command to print the status of a job with a given job id.
-
-        Uses `scontrol`; if it fails to determine the state (e.g. the job has been
-        purged from the queue), "UNKNOWN" is returned.
-
-        Its only output must be the job status.
-        """
-        return "\n".join(
-            [
-                f"ST=$(scontrol show job {job_id} 2>/dev/null | grep JobState | awk -F 'JobState=' '{{print $2}}' | awk -F ' ' '{{print $1}}')",
-                f'echo "${{ST:-{JobStates.UNKNOWN}}}"',
-            ]
-        )
 
 
 def start_job(

@@ -7,9 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from airflow.exceptions import AirflowFailException
 from jobs._experimental.file_based_job_handler import FileBasedJobHandler
-from jobs._experimental.generic_job_handler import GenericJobHandler
 from jobs.job_handler import (
-    SlurmNoSacctSSHJobHandler,
     SlurmSSHJobHandler,
     _get_job_handler,
 )
@@ -24,7 +22,6 @@ def test_get_job_handler_routes_engine_to_handler(mock_get_path: MagicMock) -> N
 
     assert isinstance(_get_job_handler(JobEngines.SLURM), SlurmSSHJobHandler)
     assert isinstance(_get_job_handler(JobEngines.FILE_BASED), FileBasedJobHandler)
-    assert isinstance(_get_job_handler(JobEngines.GENERIC), GenericJobHandler)
 
 
 def test_get_job_handler_docker_without_optional_dependency() -> None:
@@ -127,7 +124,7 @@ def test_get_job_result_returns_correct_job_status_and_time_elapsed(
     expected_command = (
         "SACCT_OUT=$(sacct -l --parsable2 -j 12345 2>/dev/null)\n"
         "if [ $? -eq 0 ]; then\n"
-        "echo \"$SACCT_OUT\" | awk -F'|' 'NR==1{for(i=1;i<=NF;i++)if($i==\"Elapsed\")c=i}END{print $c}'\n"
+        'echo "$SACCT_OUT" | awk -F\'|\' \'NR==1{for(i=1;i<=NF;i++)if($i=="Elapsed")c=i}END{print (c && NR>1) ? $c : "00:00:00"}\'\n'
         'echo "$SACCT_OUT"\n'
         "else\n"
         'echo "00:00:00"\n'
@@ -145,63 +142,17 @@ def test_get_job_result_returns_correct_job_status_and_time_elapsed(
     mock_ssh_execute.assert_called_once_with(expected_command)
 
 
-@pytest.mark.parametrize(
-    ("engine", "expected_type"),
-    [
-        ("slurm_no_sacct", SlurmNoSacctSSHJobHandler),
-        ("slurm", SlurmSSHJobHandler),
-    ],
-)
-@patch("jobs.job_handler.get_path")
-def test_get_job_handler_returns_correct_handler(
-    mock_get_path: MagicMock, engine: str | None, expected_type: type
-) -> None:
-    """Test that the factory returns the correct handler for the given engine."""
-    mock_get_path.return_value = Path("/path/to/slurm_base_path")
-
-    handler = _get_job_handler(engine)
-
-    assert type(handler) is expected_type
-
-
 @patch("jobs.job_handler.get_path")
 @patch("jobs.job_handler.ssh_execute")
-def test_no_sacct_get_job_status_returns_correctly(
+def test_get_job_result_returns_zero_time_elapsed_on_unparseable_timestamp(
     mock_ssh_execute: MagicMock, mock_get_path: MagicMock
 ) -> None:
-    """Test that get_job_status uses scontrol instead of sacct."""
+    """Test that get_job_result reports zero time elapsed if sacct gave no usable output."""
     mock_get_path.return_value = Path("/path/to/slurm_base_path")
-    mock_ssh_execute.return_value = "RUNNING"
-
-    job_status = SlurmNoSacctSSHJobHandler().get_job_status("12345")
-    assert job_status == "RUNNING"
-    expected_command = (
-        "ST=$(scontrol show job 12345 2>/dev/null | grep JobState | "
-        "awk -F 'JobState=' '{print $2}' | awk -F ' ' '{print $1}')\n"
-        'echo "${ST:-UNKNOWN}"'
-    )
-    mock_ssh_execute.assert_called_once_with(expected_command)
-
-
-@patch("jobs.job_handler.get_path")
-@patch("jobs.job_handler.ssh_execute")
-def test_no_sacct_get_job_result_returns_correct_job_status_and_time_elapsed(
-    mock_ssh_execute: MagicMock, mock_get_path: MagicMock
-) -> None:
-    """Test that get_job_result works without sacct and reports zero time elapsed."""
-    mock_get_path.return_value = Path("/path/to/slurm_base_path")
-    mock_ssh_execute.return_value = "00:00:00\nRUNNING"
+    mock_ssh_execute.return_value = "some slurm log line\nCOMPLETED"
 
     # when
-    job_status, time_elapsed = SlurmNoSacctSSHJobHandler().get_job_result("12345")
-    assert job_status == "RUNNING"
+    job_status, time_elapsed = SlurmSSHJobHandler().get_job_result("12345")
+
+    assert job_status == "COMPLETED"
     assert time_elapsed == 0
-    expected_command = (
-        "TIME_ELAPSED=00:00:00\n"
-        "echo $TIME_ELAPSED\n"
-        "cat /path/to/slurm_base_path/jobs/*/slurm-12345.out\n"
-        "ST=$(scontrol show job 12345 2>/dev/null | grep JobState | "
-        "awk -F 'JobState=' '{print $2}' | awk -F ' ' '{print $1}')\n"
-        'echo "${ST:-UNKNOWN}"'
-    )
-    mock_ssh_execute.assert_called_once_with(expected_command)

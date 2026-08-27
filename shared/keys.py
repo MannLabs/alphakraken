@@ -69,10 +69,8 @@ class JobEngines(metaclass=ConstantsClass):
     """Execution engines that can run quanting jobs."""
 
     SLURM: str = "slurm"
-    SLURM_NO_SACCT: str = "slurm_no_sacct"
     DOCKER: str = "docker"
     FILE_BASED: str = "file_based"
-    GENERIC: str = "generic"
 
 
 class MetricsTypes(metaclass=ConstantsClass):

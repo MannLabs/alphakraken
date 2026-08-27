@@ -10,6 +10,7 @@ import logging
 from airflow.exceptions import AirflowFailException
 
 from shared.keys import JobEngines
+from shared.yamlsettings import YamlKeys, get_host_mounts_path, get_path
 
 
 def _get_job_handler(engine: str) -> "JobHandler":
@@ -18,7 +19,7 @@ def _get_job_handler(engine: str) -> "JobHandler":
         from jobs.slurm_ssh_job_handler import SlurmSSHJobHandler
 
         logging.info("Using SlurmSSHJobHandler")
-        return SlurmSSHJobHandler()
+        return SlurmSSHJobHandler(get_path(YamlKeys.Locations.SLURM))
 
     if engine == JobEngines.DOCKER:
         try:
@@ -30,7 +31,7 @@ def _get_job_handler(engine: str) -> "JobHandler":
             ) from e
 
         logging.info("Using DockerJobHandler")
-        return DockerJobHandler()
+        return DockerJobHandler(get_host_mounts_path())
 
     if engine == JobEngines.FILE_BASED:
         from jobs._experimental.file_based_job_handler import FileBasedJobHandler

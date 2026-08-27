@@ -32,13 +32,10 @@ DEFAULT_STATE = {
 @pytest.fixture
 def handler() -> MagicMock:
     """Create a DockerJobHandler with a mocked docker client."""
-    with (
-        patch(f"{MODULE}.docker.from_env") as mock_from_env,
-        patch(f"{MODULE}.get_host_mounts_path", return_value=HOST_MOUNTS_PATH),
-    ):
+    with patch(f"{MODULE}.docker.from_env") as mock_from_env:
         from jobs.docker_job_handler import DockerJobHandler
 
-        handler_ = DockerJobHandler()
+        handler_ = DockerJobHandler(HOST_MOUNTS_PATH)
         handler_._client = mock_from_env.return_value
         return handler_
 

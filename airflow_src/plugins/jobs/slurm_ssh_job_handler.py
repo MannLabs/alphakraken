@@ -2,6 +2,7 @@
 
 import logging
 from datetime import datetime
+from pathlib import Path
 
 from airflow.exceptions import AirflowFailException
 from common.constants import CLUSTER_BASE_WORKING_DIR_NAME, DUMMY_TIME_ELAPSED
@@ -9,16 +10,20 @@ from common.keys import JobStates, QuantingEnv
 from jobs.job_handler import JobHandler
 from sensors.ssh_utils import ssh_execute
 
-from shared.yamlsettings import YamlKeys, get_path
-
 
 class SlurmSSHJobHandler(JobHandler):
     """Implementation of JobHandler that executes commands on a Slurm cluster via SSH."""
 
-    def __init__(self):
-        """Initialize the Slurm job handler."""
+    def __init__(self, cluster_base_dir: Path):
+        """Initialize the Slurm job handler.
+
+        Args:
+            cluster_base_dir: Working directory on the cluster, holding the submit script
+                and the job logs
+
+        """
         super().__init__()
-        self._cluster_base_dir = get_path(YamlKeys.Locations.SLURM)
+        self._cluster_base_dir = cluster_base_dir
         self._cluster_base_working_dir_path = (
             self._cluster_base_dir / CLUSTER_BASE_WORKING_DIR_NAME
         )

@@ -1,0 +1,45 @@
+# Configuration file for alphakraken: instruments and mounts (environment: demo)
+#
+# GENERATED FILE -- do not edit, it is overwritten by misc/demo/setup_demo.sh.
+# Edit misc/demo/templates/alphakraken.demo.yaml.template instead.
+instruments:
+  demo1:
+    type: thermo
+    # -1 excludes the instrument from file removing: the demo's disk bound is
+    # misc/demo/prune_demo_data.sh, not the file_remover DAG.
+    min_free_space_gb: -1
+    file_move_delay_m: 15
+
+locations:
+  general:
+    # Host path, not a container path: the `docker` job engine translates worker paths through it
+    # to bind the raw file and the output folder into the quanting container.
+    mounts_path: __ABS_MOUNTS_PATH__
+  backup:
+    mount_target: backup
+    absolute_path: __ABS_MOUNTS_PATH__/backup
+  settings:
+    absolute_path: __ABS_MOUNTS_PATH__/settings
+  software:
+    # unused by the `docker` job engine, which takes a container image instead of an executable
+    absolute_path: __ABS_MOUNTS_PATH__/software
+  slurm:
+    # unused by the `docker` job engine
+    absolute_path: __ABS_MOUNTS_PATH__/slurm
+  output:
+    mount_target: output
+    absolute_path: __ABS_MOUNTS_PATH__/output
+  logs:
+    mount_target: airflow_logs
+    absolute_path: __ABS_MOUNTS_PATH__/airflow_logs
+
+general:
+  notifications:
+    ops_alerts_webhook_url: ""
+    business_alerts_webhook_url: ""
+    slack_bot_token: ""
+    webapp_url: "https://__DEMO_HOST__/__UUID__/"
+
+backup:
+  backup_type: local
+  purging_verification_type: local

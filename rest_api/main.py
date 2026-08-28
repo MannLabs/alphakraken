@@ -12,6 +12,9 @@ from shared.db.engine import connect_db
 
 REST_API_PORT = int(os.getenv("REST_API_PORT", "8090"))
 
+# path prefix the API is served under by a reverse proxy, needed to generate correct URLs
+REST_API_ROOT_PATH = os.getenv("REST_API_ROOT_PATH", "")
+
 
 @asynccontextmanager
 async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
@@ -25,6 +28,7 @@ app = FastAPI(
     description="Read-only API for querying raw files and metrics.",
     version="0.1.0",
     lifespan=_lifespan,
+    root_path=REST_API_ROOT_PATH,
 )
 
 app.include_router(router)

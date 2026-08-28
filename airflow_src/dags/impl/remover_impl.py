@@ -24,7 +24,7 @@ from common.settings import (
     get_instrument_ids,
     get_instrument_settings,
 )
-from common.utils import get_airflow_variable, get_env_variable, get_xcom, put_xcom
+from common.utils import get_airflow_variable, get_xcom, put_xcom
 from file_handling import get_disk_usage, get_file_size
 from plugins.file_checks import create_file_identifier
 from plugins.s3.client import get_s3_client
@@ -46,7 +46,6 @@ from shared.db.models import (
     KrakenStatusValues,
     RawFile,
 )
-from shared.keys import EnvVars
 from shared.yamlsettings import (
     S3_SWITCH,
     get_purging_verification_type,
@@ -361,12 +360,6 @@ def _remove_files(file_paths_to_remove: list[Path]) -> None:
 
     :raises: FileRemovalError if removing a file fails.
     """
-    if get_env_variable(EnvVars.ENV_NAME) != "production":
-        logging.warning(
-            f"NOT removing files {file_paths_to_remove}: not in production."
-        )
-        return
-
     logging.info(f"removing files {file_paths_to_remove}")
     try:
         for file_path_to_remove in file_paths_to_remove:
@@ -384,12 +377,6 @@ def _remove_folder(folder_path_to_remove: Path) -> None:
     :raises: FileRemovalError if removing a file fails.
     """
     if folder_path_to_remove.exists() and folder_path_to_remove.is_dir():
-        if get_env_variable(EnvVars.ENV_NAME) != "production":
-            logging.warning(
-                f"NOT removing folder {folder_path_to_remove}: not in production."
-            )
-            return
-
         try:
             _delete_empty_directory(folder_path_to_remove)
         except Exception as e:

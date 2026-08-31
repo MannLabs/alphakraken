@@ -10,7 +10,8 @@ from common.constants import (
     DEFAULT_JOB_SCRIPT_NAME,
     DUMMY_TIME_ELAPSED,
 )
-from common.keys import JobStates, QuantingEnv
+from common.keys import JobStates
+from common.quanting_env import QuantingEnv
 from jobs.job_handler import JobHandler
 from sensors.ssh_utils import ssh_execute
 
@@ -32,12 +33,12 @@ class SlurmSSHJobHandler(JobHandler):
             self._cluster_base_dir / CLUSTER_BASE_WORKING_DIR_NAME
         )
 
-    def start_job(self, environment: dict[str, str]) -> str:
+    def start_job(self, quanting_env: QuantingEnv) -> str:
         """Start a job on the Slurm cluster via SSH."""
         command = (
-            self._create_export_environment_cmd(environment)
+            self._create_export_environment_cmd(quanting_env.to_dict())
             + "\n"
-            + self._get_submit_job_cmd(DEFAULT_JOB_SCRIPT_NAME, environment)
+            + self._get_submit_job_cmd(DEFAULT_JOB_SCRIPT_NAME, quanting_env)
         )
         logging.info(f"Running command: >>>>\n{command}\n<<<< end of command")
         ssh_return = ssh_execute(command)
@@ -67,7 +68,7 @@ class SlurmSSHJobHandler(JobHandler):
         return job_status, time_elapsed
 
     def _get_submit_job_cmd(
-        self, job_script_name: str, environment: dict[str, str]
+        self, job_script_name: str, quanting_env: QuantingEnv
     ) -> str:
         """Get the command to run the job on the cluster.
 
@@ -78,19 +79,16 @@ class SlurmSSHJobHandler(JobHandler):
         """
         cluster_job_script_path = self._cluster_base_dir / job_script_name
         cluster_working_dir = (
-            self._cluster_base_working_dir_path
-            / environment[QuantingEnv.YEAR_MONTH_FOLDER]
+            self._cluster_base_working_dir_path / quanting_env.year_month_folder
         )
 
-        # if those parameters are not passed, the value defined in the submit script are taken
-        param_list = []
-        if (cpus := environment.get(QuantingEnv.SLURM_CPUS_PER_TASK)) is not None:
-            param_list.append(f"--cpus-per-task={cpus}")
-        if (mem := environment.get(QuantingEnv.SLURM_MEM)) is not None:
-            param_list.append(f"--mem={mem}")
-        if (time := environment.get(QuantingEnv.SLURM_TIME)) is not None:
-            param_list.append(f"--time={time}")
-        params = " ".join(param_list)
+        params = " ".join(
+            [
+                f"--cpus-per-task={quanting_env.slurm_cpus_per_task}",
+                f"--mem={quanting_env.slurm_mem}",
+                f"--time={quanting_env.slurm_time}",
+            ]
+        )
 
         return "\n".join(
             [

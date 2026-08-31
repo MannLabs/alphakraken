@@ -8,7 +8,8 @@ from typing import Any
 
 from airflow.sensors.base import BaseSensorOperator
 from airflow.utils.xcom import XCOM_RETURN_KEY
-from common.keys import JobStates, QuantingEnv
+from common.keys import JobStates
+from common.quanting_env import QuantingEnv
 from jobs.job_handler import get_job_status
 
 
@@ -54,7 +55,7 @@ class JobStatusSensorOperator(BaseSensorOperator, ABC):
             task_ids=self.quanting_env_source_task_id,
             map_indexes=ti.map_index,
         )
-        self._engine = quanting_env[QuantingEnv.JOB_ENGINE]
+        self._engine = QuantingEnv.from_dict(quanting_env).job_engine
 
     def poke(self, context: dict[str, Any]) -> bool:
         """Check the output of the ssh command."""

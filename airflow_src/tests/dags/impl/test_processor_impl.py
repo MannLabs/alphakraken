@@ -486,7 +486,7 @@ def test_submit_job_executes_ssh_command_and_stores_job_id(
     mock_start_job.return_value = "12345"
 
     # when
-    result = submit_job(quanting_env=quanting_env.to_dict())
+    result = submit_job(quanting_env_dict=quanting_env.to_dict())
 
     assert result == "12345"
     assert output_dir.exists()
@@ -524,7 +524,7 @@ def test_submit_job_output_folder_exists(
 
     # when
     with pytest.raises(AirflowFailException):
-        submit_job(quanting_env=quanting_env.to_dict())
+        submit_job(quanting_env_dict=quanting_env.to_dict())
 
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
     mock_get_airflow_variable.assert_called_once_with("output_exists_mode", "raise")
@@ -556,7 +556,7 @@ def test_submit_job_output_folder_exists_associate(
     mock_get_slurm_job_id_from_log.return_value = "54321"
 
     # when
-    result = submit_job(quanting_env=quanting_env.to_dict())
+    result = submit_job(quanting_env_dict=quanting_env.to_dict())
 
     assert result == "54321"
 
@@ -588,7 +588,7 @@ def test_submit_job_output_folder_exists_associate_raise(
 
     # when
     with pytest.raises(AirflowFailException):
-        submit_job(quanting_env=quanting_env.to_dict())
+        submit_job(quanting_env_dict=quanting_env.to_dict())
 
 
 def test_find_next_free_run_suffix(tmp_path: Path) -> None:
@@ -750,7 +750,7 @@ def test_submit_job_output_folder_exists_add(  # noqa: PLR0913
     mock_get_airflow_variable.return_value = "add"
 
     with pytest.raises(AirflowFailException, match="should have created a unique name"):
-        submit_job(quanting_env=quanting_env.to_dict())
+        submit_job(quanting_env_dict=quanting_env.to_dict())
 
 
 @patch("dags.impl.processor_impl.put_xcom")
@@ -768,7 +768,7 @@ def test_check_job_result_happy_path(
 
     # when
     result = check_job_result(
-        quanting_env=quanting_env.to_dict(), job_id="12345", ti=mock_ti
+        quanting_env_dict=quanting_env.to_dict(), job_id="12345", ti=mock_ti
     )
 
     assert result == {"time_elapsed": 522}
@@ -790,7 +790,7 @@ def test_check_job_result_unknown_state_treated_as_success(
 
     # when
     result = check_job_result(
-        quanting_env=quanting_env.to_dict(), job_id="12345", ti=mock_ti
+        quanting_env_dict=quanting_env.to_dict(), job_id="12345", ti=mock_ti
     )
 
     assert result == {"time_elapsed": 522}
@@ -812,7 +812,7 @@ def test_check_job_result_unknown_job_status(
     # when
     with pytest.raises(AirflowFailException):
         check_job_result(
-            quanting_env=quanting_env.to_dict(), job_id="12345", ti=mock_ti
+            quanting_env_dict=quanting_env.to_dict(), job_id="12345", ti=mock_ti
         )
 
     mock_put_xcom.assert_called_once_with(
@@ -846,7 +846,7 @@ def test_check_job_result_business_error(  # noqa: PLR0913
     # when
     with pytest.raises(QuantingFailedKnownErrorException):
         check_job_result(
-            quanting_env=quanting_env.to_dict(), job_id="12345", ti=mock_ti
+            quanting_env_dict=quanting_env.to_dict(), job_id="12345", ti=mock_ti
         )
 
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
@@ -893,7 +893,7 @@ def test_check_job_result_business_error_raises(  # noqa: PLR0913
     # when
     with pytest.raises(QuantingFailedNewErrorException):
         check_job_result(
-            quanting_env=quanting_env.to_dict(), job_id="12345", ti=mock_ti
+            quanting_env_dict=quanting_env.to_dict(), job_id="12345", ti=mock_ti
         )
 
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
@@ -937,7 +937,7 @@ def test_check_job_result_timeout(
     # when
     with pytest.raises(QuantingFailedKnownErrorException):
         check_job_result(
-            quanting_env=quanting_env.to_dict(), job_id="12345", ti=mock_ti
+            quanting_env_dict=quanting_env.to_dict(), job_id="12345", ti=mock_ti
         )
 
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
@@ -977,7 +977,7 @@ def test_check_job_result_oom(
     # when
     with pytest.raises(QuantingFailedKnownErrorException):
         check_job_result(
-            quanting_env=quanting_env.to_dict(), job_id="12345", ti=mock_ti
+            quanting_env_dict=quanting_env.to_dict(), job_id="12345", ti=mock_ti
         )
 
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
@@ -1074,7 +1074,7 @@ def test_compute_metrics(
     mock_calc_metrics.return_value = {"metric1": "value1"}
 
     # when
-    result = compute_metrics(quanting_env=quanting_env.to_dict(), time_elapsed=123)
+    result = compute_metrics(quanting_env_dict=quanting_env.to_dict(), time_elapsed=123)
 
     mock_calc_metrics.assert_called_once_with(
         Path("/opt/airflow/mounts/output/P1/out_test_file.raw/alphadia"),
@@ -1096,7 +1096,7 @@ def test_compute_metrics_msqc_software_type(
     )
     mock_calc_metrics.return_value = {"qc_metric": 42}
 
-    result = compute_metrics(quanting_env=quanting_env.to_dict())
+    result = compute_metrics(quanting_env_dict=quanting_env.to_dict())
 
     mock_calc_metrics.assert_called_once_with(
         Path("/opt/airflow/mounts/output/P1/out_test_file.raw/msqc"),
@@ -1113,7 +1113,7 @@ def test_store_metrics(
     """Test that store_metrics makes the expected calls."""
     # when
     store_metrics(
-        quanting_env=make_quanting_env(
+        quanting_env_dict=make_quanting_env(
             raw_file_id="some_file.raw",
             output_path="/data/output/P1/out_some_file.raw/alphadia",
         ).to_dict(),

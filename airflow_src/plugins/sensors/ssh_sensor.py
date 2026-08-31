@@ -50,12 +50,12 @@ class JobStatusSensorOperator(BaseSensorOperator, ABC):
                 map_indexes=ti.map_index,
             )
         )
-        quanting_env = ti.xcom_pull(
+        quanting_env_dict = ti.xcom_pull(
             key=XCOM_RETURN_KEY,
             task_ids=self.quanting_env_source_task_id,
             map_indexes=ti.map_index,
         )
-        self._engine = QuantingEnv.from_dict(quanting_env).job_engine
+        self._engine = QuantingEnv.from_dict(quanting_env_dict).job_engine
 
     def poke(self, context: dict[str, Any]) -> bool:
         """Check the output of the ssh command."""

@@ -111,8 +111,11 @@ def resolve_settings(raw_file_id: str) -> list[str]:
     return [str(s.id) for s in settings_list]  # type: ignore[unresolved-attribute]
 
 
-def prepare_job(raw_file_id: str, settings_id: str) -> QuantingEnv:
-    """Prepare the environmental variables for the job."""
+def prepare_job(raw_file_id: str, settings_id: str) -> dict:
+    """Prepare the environmental variables for the job.
+
+    :return: The quanting environment as a dict, to be passed on via XCom.
+    """
     raw_file = get_raw_file_by_id(raw_file_id)
     settings = get_settings_by_id(settings_id)
 
@@ -140,7 +143,7 @@ def prepare_job(raw_file_id: str, settings_id: str) -> QuantingEnv:
             f"Quanting env validation failed for '{settings.name}': {errors}"
         )
 
-    return quanting_env
+    return quanting_env.to_dict()
 
 
 def _get_output_path_suffix(internal_output_path: Path) -> str:
@@ -342,16 +345,18 @@ def _get_slurm_job_id_from_log(output_path: Path) -> str | None:
 
 def submit_job(
     *,
-    quanting_env: QuantingEnv,
+    quanting_env: dict,
 ) -> str:
     """Run a job on the cluster.
 
-    :param quanting_env: The quanting environment.
+    :param quanting_env: The quanting environment as a dict, as received via XCom.
     :return: The Slurm job ID as a string.
     """
-    logging.info(f"Starting quanting with environment: {quanting_env}")
+    env = QuantingEnv.from_dict(quanting_env)
 
-    raw_file = get_raw_file_by_id(quanting_env.raw_file_id)
+    logging.info(f"Starting quanting with environment: {env}")
+
+    raw_file = get_raw_file_by_id(env.raw_file_id)
 
     if get_instrument_settings(raw_file.instrument_id, InstrumentKeys.SKIP_QUANTING):
         logging.info(
@@ -360,7 +365,7 @@ def submit_job(
         raise AirflowSkipException("Skipping quanting due to instrument settings.")
 
     # upfront check 2
-    output_path = Path(quanting_env.internal_output_path)
+    output_path = Path(env.internal_output_path)
     if output_path.exists():
         msg = f"Output path {output_path} already exists with different content."
         output_exists_mode = get_airflow_variable(
@@ -393,12 +398,12 @@ def submit_job(
     output_path.mkdir(parents=True, exist_ok=True)
 
     job_id = start_job(
-        quanting_env,
-        engine=quanting_env.job_engine,
+        env,
+        engine=env.job_engine,
     )
 
     # TODO: race condition here, e.g. for file in ERROR status
-    update_raw_file(quanting_env.raw_file_id, new_status=RawFileStatus.QUANTING)
+    update_raw_file(env.raw_file_id, new_status=RawFileStatus.QUANTING)
 
     return str(job_id)
 
@@ -457,19 +462,19 @@ def get_business_errors(raw_file: RawFile, output_path: Path) -> list[str]:
     return error_codes
 
 
-def check_job_result(
-    *, quanting_env: QuantingEnv, job_id: str, ti: TaskInstance
-) -> dict:
+def check_job_result(*, quanting_env: dict, job_id: str, ti: TaskInstance) -> dict:
     """Get info (slurm log, alphaDIA log) about a job from the cluster.
 
-    :param quanting_env: The quanting environment.
+    :param quanting_env: The quanting environment as a dict, as received via XCom.
     :param job_id: The Slurm job ID to check.
     :param ti: The Airflow TaskInstance, used to push error details to XCom.
     :return: Dict with ``time_elapsed`` on success.
     :raises AirflowSkipException: On known job failures (skips downstream tasks).
     :raises AirflowFailException: On unknown job failures.
     """
-    job_status, time_elapsed = get_job_result(job_id, engine=quanting_env.job_engine)
+    env = QuantingEnv.from_dict(quanting_env)
+
+    job_status, time_elapsed = get_job_result(job_id, engine=env.job_engine)
 
     logging.info(f"Job {job_id} exited with status {job_status}.")
 
@@ -481,11 +486,11 @@ def check_job_result(
     if job_status in [JobStates.FAILED, JobStates.TIMEOUT] or job_status.startswith(
         JobStates.OUT_OF_MEMORY
     ):
-        raw_file = get_raw_file_by_id(quanting_env.raw_file_id)
-        output_path = Path(quanting_env.internal_output_path)
+        raw_file = get_raw_file_by_id(env.raw_file_id)
+        output_path = Path(env.internal_output_path)
 
         if job_status == JobStates.FAILED:
-            if quanting_env.software_type == SoftwareTypes.ALPHADIA:
+            if env.software_type == SoftwareTypes.ALPHADIA:
                 errors = get_business_errors(raw_file, output_path)
             else:
                 errors = ["FAILED"]
@@ -498,10 +503,10 @@ def check_job_result(
         add_metrics_to_raw_file(
             raw_file.id,
             metrics={TIME_ELAPSED_METRIC: time_elapsed},
-            settings_name=quanting_env.settings_name,
-            settings_version=quanting_env.settings_version,
-            metrics_type=quanting_env.metrics_type,
-            output_path=quanting_env.output_path,
+            settings_name=env.settings_name,
+            settings_version=env.settings_version,
+            metrics_type=env.metrics_type,
+            output_path=env.output_path,
         )
 
         # fail the DAG without retry on new errors to make them transparent in Airflow UI
@@ -524,17 +529,19 @@ def check_job_result(
 
 def compute_metrics(
     *,
-    quanting_env: QuantingEnv,
+    quanting_env: dict,
     time_elapsed: int | None = None,
 ) -> dict:
     """Compute metrics from the quanting results.
 
-    :param quanting_env: The quanting environment.
+    :param quanting_env: The quanting environment as a dict, as received via XCom.
     :param time_elapsed: Elapsed time from the quanting job, added to metrics if provided.
     :return: The metrics.
     """
-    metrics_type = quanting_env.metrics_type
-    output_path = Path(quanting_env.internal_output_path)
+    env = QuantingEnv.from_dict(quanting_env)
+
+    metrics_type = env.metrics_type
+    output_path = Path(env.internal_output_path)
 
     metrics = calc_metrics(output_path, metrics_type=metrics_type)
 
@@ -544,19 +551,21 @@ def compute_metrics(
     return metrics
 
 
-def store_metrics(*, quanting_env: QuantingEnv, metrics: dict) -> None:
+def store_metrics(*, quanting_env: dict, metrics: dict) -> None:
     """Store metrics in the database.
 
-    :param quanting_env: The quanting environment.
+    :param quanting_env: The quanting environment as a dict, as received via XCom.
     :param metrics: The metrics.
     """
+    env = QuantingEnv.from_dict(quanting_env)
+
     add_metrics_to_raw_file(
-        quanting_env.raw_file_id,
-        metrics_type=quanting_env.metrics_type,
+        env.raw_file_id,
+        metrics_type=env.metrics_type,
         metrics=metrics,
-        settings_name=quanting_env.settings_name,
-        settings_version=quanting_env.settings_version,
-        output_path=quanting_env.output_path,
+        settings_name=env.settings_name,
+        settings_version=env.settings_version,
+        output_path=env.output_path,
     )
 
 

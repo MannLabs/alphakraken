@@ -100,10 +100,23 @@ deliberately not started here; D2 only has to avoid blocking it.
 ### C6 - Host view cutover
 
 - **Goal:** remove the container->host `relative_to` round-trip.
-- **Do:** `DockerJobHandler._to_host_path` (`docker_job_handler.py:185-197`) becomes
-  `DOCKER_HOST_VIEW.resolve(location, rel)`; the handler is constructed with the view rather than with
-  `get_host_mounts_path()` (`job_handler.py:35`). Delete `get_host_mounts_path`.
+- **Do:** the handler is constructed with `DOCKER_HOST_VIEW` rather than with
+  `get_host_mounts_path()` (`job_handler.py:35`); delete `get_host_mounts_path`.
+  `DockerJobHandler._to_host_path` disappears entirely: `QuantingEnv` carries
+  `relative_raw_file_path` and `relative_output_path`, so each side resolves in its own view and
+  nothing ever crosses between views.
+  - This replaces `_INTERNAL_OUTPUT_PATH` / `_INTERNAL_RAW_FILE_PATH` with
+    `_RELATIVE_RAW_FILE_PATH`, which lands §6.5 (`QuantingEnv` carrying both views of the same
+    object) ahead of D3/D5. Safe: both handlers strip `_`-prefixed keys, so these fields never
+    leave the process.
+  - Needs a `container_locations()` test helper next to `yaml_locations()`: tests used to redirect
+    output to a `tmp_path` by overriding the resolved path in the env, which is no longer a field.
+  - The factory reports a missing `locations.general.mounts_path` when the `docker` engine is
+    selected, restoring the actionable message that C3's lenient `DOCKER_HOST_VIEW` gave up.
 - **Done when:** `shared/yamlsettings.py` no longer exports any path accessor.
+- **Note:** the 13 `test_docker_job_handler.py` tests need the optional `docker` package. To run
+  them without it, put a stub package (`from_env`, `errors.ImageNotFound/NotFound`,
+  `models.containers.Container`) on `PYTHONPATH`.
 
 ### C7 - Consistency test
 

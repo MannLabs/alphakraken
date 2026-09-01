@@ -13,12 +13,12 @@ from jobs.slurm_ssh_job_handler import SlurmSSHJobHandler
 
 from airflow_src.tests.helpers import yaml_locations
 from shared.keys import JobEngines
+from shared.path_views import DOCKER_HOST_VIEW
 
 # `docker` is an optional dependency, cf. requirements_docker_job_engine.txt
 HAS_DOCKER = importlib.util.find_spec("docker") is not None
 
 SLURM_BASE_DIR = Path("/path/to/slurm_base_path")
-HOST_MOUNTS_PATH = Path("/host/mounts")
 
 
 @yaml_locations(slurm=str(SLURM_BASE_DIR))
@@ -37,18 +37,27 @@ def test_get_job_handler_injects_slurm_base_dir() -> None:
 
 
 @pytest.mark.skipif(not HAS_DOCKER, reason="`docker` not installed")
-@patch("jobs.job_handler.get_host_mounts_path")
 @patch("jobs.docker_job_handler.docker.from_env")
-def test_get_job_handler_injects_host_mounts_path(
+def test_get_job_handler_injects_docker_host_view(
     mock_from_env: MagicMock,  # noqa: ARG001
-    mock_get_host_mounts_path: MagicMock,
 ) -> None:
-    """Test that the factory reads the mounts path and hands it to the docker handler."""
-    mock_get_host_mounts_path.return_value = HOST_MOUNTS_PATH
-
+    """Test that the factory hands the docker host view to the docker handler."""
     handler = _get_job_handler(JobEngines.DOCKER)
 
-    assert handler._host_mounts_path == HOST_MOUNTS_PATH
+    assert handler._docker_host_view is DOCKER_HOST_VIEW
+
+
+@pytest.mark.skipif(not HAS_DOCKER, reason="`docker` not installed")
+@patch("jobs.docker_job_handler.docker.from_env")
+def test_get_job_handler_docker_without_mounts_path(
+    mock_from_env: MagicMock,  # noqa: ARG001
+) -> None:
+    """Test that a docker host view without locations points to the missing yaml key."""
+    with (
+        patch.object(DOCKER_HOST_VIEW, "_locations", {}),
+        pytest.raises(AirflowFailException, match="locations.general.mounts_path"),
+    ):
+        _get_job_handler(JobEngines.DOCKER)
 
 
 def test_get_job_handler_docker_without_optional_dependency() -> None:

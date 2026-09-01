@@ -53,12 +53,12 @@ from shared.db.models import (
     InstrumentFileStatus,
     RawFile,
     RawFileStatus,
-    get_created_at_year_month,
     parse_file_info_item,
 )
 from shared.keys import (
     DDA_FLAG_IN_RAW_FILE_NAME,
 )
+from shared.path_layout import get_raw_file_folder_rel_path
 from shared.settings_scope_resolver import resolve_scoped_settings
 from shared.validation import FORBIDDEN_RAW_FILE_NAME_CHARACTERS_PATTERN
 from shared.yamlsettings import YamlKeys, get_path, is_s3_upload_enabled
@@ -324,11 +324,7 @@ def _handle_file_copying(
 
 def get_backup_base_path(raw_file: RawFile) -> Path:
     """Get the backup base path for the given raw file, e.g. /fs/pool/backup/test2/2025_07 ."""
-    return (
-        get_path(YamlKeys.Locations.BACKUP)
-        / raw_file.instrument_id
-        / get_created_at_year_month(raw_file)
-    )
+    return get_path(YamlKeys.Locations.BACKUP) / get_raw_file_folder_rel_path(raw_file)
 
 
 def _verify_copied_files(

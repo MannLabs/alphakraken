@@ -7,6 +7,22 @@ from shared.db.models import RawFile, get_created_at_year_month
 OUTPUT_FOLDER_PREFIX = "out_"
 
 
+def get_raw_file_folder_rel_path(raw_file: RawFile) -> Path:
+    """Get the path of the folder holding the given raw file, relative to the `backup` folder.
+
+    E.g. test1/2024_07
+    """
+    return Path(raw_file.instrument_id) / get_created_at_year_month(raw_file)
+
+
+def get_raw_file_rel_path(raw_file: RawFile) -> Path:
+    """Get the path of the given raw file, relative to the `backup` folder.
+
+    E.g. test1/2024_07/RAW-FILE-1.raw
+    """
+    return get_raw_file_folder_rel_path(raw_file) / raw_file.id
+
+
 def get_output_folder_rel_path(
     raw_file: RawFile,
     software_type: str | None = None,

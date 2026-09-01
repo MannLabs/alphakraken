@@ -1,13 +1,13 @@
-"""Tests for the paths module."""
+"""Tests for the path_layout module."""
 
 from datetime import datetime
 from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytz
-from common.paths import get_output_folder_rel_path
 
 from shared.db.models import RawFile
+from shared.path_layout import get_output_folder_rel_path
 
 
 def test_get_output_folder_rel_path_no_fallback() -> None:

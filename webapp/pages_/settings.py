@@ -308,7 +308,7 @@ else:
             "label": "Executable*",
             "max_chars": 64,
             "placeholder": "e.g. 'custom-software/custom-executable1.2.3'",
-            # "help": f"Path to executable, relative to `{get_path(YamlKeys.Locations.SOFTWARE)}/`. Ask an administrator to add the executable to the software folder. "
+            # TODO: reimplement using the actual software path, cf. CLUSTER_VIEW
             "help": "Path to executable, relative to the software folder. Ask an administrator to add the executable to the software folder. "
             f"If something that is in the `$PATH` should be executed, it needs to be wrapped by a shell script located in the software folder. "
             f"For the `{JobEngines.DOCKER}` execution engine, this is a docker image name instead, e.g. `alphakraken-msqc`. "

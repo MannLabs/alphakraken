@@ -50,11 +50,9 @@ class TestFileBasedJobHandler:
         expected_path = AIRFLOW_CONTAINER_VIEW.resolve(Locations.OUTPUT, "job_queue")
         assert handler._job_submit_dir == expected_path
 
-    @patch(
-        "jobs._experimental.file_based_job_handler.Path.open", new_callable=mock_open
-    )
-    @patch("jobs._experimental.file_based_job_handler.Path.mkdir")
-    @patch("jobs._experimental.file_based_job_handler.Path.exists")
+    @patch("pathlib.Path.open", new_callable=mock_open)
+    @patch("pathlib.Path.mkdir")
+    @patch("pathlib.Path.exists")
     def test_start_job_should_create_job_file_when_directory_creation_succeeds(
         self,
         mock_exists: MagicMock,
@@ -87,7 +85,7 @@ class TestFileBasedJobHandler:
         for expected_line in expected_content:
             handle.write.assert_any_call(expected_line)
 
-    @patch("jobs._experimental.file_based_job_handler.Path.exists")
+    @patch("pathlib.Path.exists")
     def test_start_job_should_raise_exception_when_job_file_already_exists(
         self, mock_exists: MagicMock, sample_quanting_env: QuantingEnv
     ) -> None:
@@ -104,7 +102,7 @@ class TestFileBasedJobHandler:
     @patch(
         "jobs._experimental.file_based_job_handler.get_internal_output_path_for_raw_file"
     )
-    @patch("jobs._experimental.file_based_job_handler.Path.exists")
+    @patch("pathlib.Path.exists")
     def test_get_job_status_should_return_pending_when_status_file_does_not_exist(
         self,
         mock_exists: MagicMock,
@@ -138,7 +136,7 @@ class TestFileBasedJobHandler:
     @patch(
         "jobs._experimental.file_based_job_handler.get_internal_output_path_for_raw_file"
     )
-    @patch("jobs._experimental.file_based_job_handler.Path.exists")
+    @patch("pathlib.Path.exists")
     def test_get_job_status_should_return_correct_status_based_on_file_content(  # noqa: PLR0913
         self,
         mock_exists: MagicMock,
@@ -157,7 +155,7 @@ class TestFileBasedJobHandler:
 
         # when
         with patch(
-            "jobs._experimental.file_based_job_handler.Path.open",
+            "pathlib.Path.open",
             mock_open(read_data=read_data),
         ):
             status = handler.get_job_status("test_raw_file_123")

@@ -59,11 +59,14 @@ deliberately not started here; D2 only has to avoid blocking it.
     (this is where the §2 holes become explicit).
   - `AIRFLOW_CONTAINER_VIEW` is a module constant built from `InternalPaths` (`shared/keys.py:48-56`), carrying
     `Path` because it is the only view this code does filesystem I/O in.
-  - `get_cluster_view()` (from `locations.<location>.absolute_path`) and `get_docker_host_view()` (from
-    `locations.general.mounts_path` plus the container-relative location names) are functions, not
-    constants: `airflow_src/tests/helpers.py:yaml_locations` patches the `YAMLSETTINGS` dict at
-    test time, so a view built at import would freeze the yaml. Both carry `PurePosixPath`, which
-    also makes a foreign path impossible to `stat()` by accident.
+  - `CLUSTER_VIEW` (from `locations.<location>.absolute_path`) and `DOCKER_HOST_VIEW` (from
+    `locations.general.mounts_path` plus the container-relative location names) are constants too,
+    built at import. `airflow_src/tests/helpers.py:yaml_locations` overrides them by patching the
+    contents of the view object, not the name, so the patch reaches every import site. Both carry
+    `PurePosixPath`, which also makes a foreign path impossible to `stat()` by accident.
+  - A missing `locations.general.mounts_path` yields a `DOCKER_HOST_VIEW` that reaches nothing,
+    rather than an error: the key is needed by the `docker` job engine only, and raising at import
+    would break every slurm-only deployment that omits it.
 - **Done when:** unit tests cover resolve, the missing-location error, and a windows-flavor view
   resolving to `\\srv\share\backup\...` and `Z:\backup\...` from the same layout input.
   Needs a `shared/tests/conftest.py` setting `ENV_NAME=_test_`: CI runs `pytest shared` on its
@@ -87,7 +90,7 @@ deliberately not started here; D2 only has to avoid blocking it.
 
 - **Goal:** the cluster view has exactly one entry point.
 - **Do:** replace the 6 sites - `processor_impl.py:122,178,188,272`, `handler_impl.py:328`,
-  `job_handler.py:23` - with `get_cluster_view().resolve(Locations.X, ...)`. Delete
+  `job_handler.py:23` - with `CLUSTER_VIEW.resolve(Locations.X, ...)`. Delete
   `shared/yamlsettings.py:get_path` and repoint its test helpers.
 - **Done when:** `grep get_path(` returns nothing outside `path_views.py`.
 - **Risk:** the only chunk touching the strings exported to the cluster
@@ -98,7 +101,7 @@ deliberately not started here; D2 only has to avoid blocking it.
 
 - **Goal:** remove the container->host `relative_to` round-trip.
 - **Do:** `DockerJobHandler._to_host_path` (`docker_job_handler.py:185-197`) becomes
-  `get_docker_host_view().resolve(location, rel)`; the handler is constructed with the view rather than with
+  `DOCKER_HOST_VIEW.resolve(location, rel)`; the handler is constructed with the view rather than with
   `get_host_mounts_path()` (`job_handler.py:35`). Delete `get_host_mounts_path`.
 - **Done when:** `shared/yamlsettings.py` no longer exports any path accessor.
 

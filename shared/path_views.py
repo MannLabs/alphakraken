@@ -74,8 +74,8 @@ AIRFLOW_CONTAINER_VIEW: View[Path] = View(
 )
 
 
-def get_cluster_view() -> View[PurePosixPath]:
-    """Get the view of a machine that accesses the data via the shared file system."""
+def _build_cluster_view() -> View[PurePosixPath]:
+    """Build the view of a machine that accesses the data via the shared file system."""
     locations: dict[str, dict[str, str]] = YAMLSETTINGS.get(YamlKeys.LOCATIONS, {})  # type: ignore[invalid-assignment]
 
     absolute_paths = {
@@ -87,12 +87,15 @@ def get_cluster_view() -> View[PurePosixPath]:
     return View("cluster", absolute_paths, PurePosixPath)
 
 
-def get_docker_host_view() -> View[PurePosixPath]:
-    """Get the view from within the processing (e.g. msqc) docker containers.
+def _build_docker_host_view() -> View[PurePosixPath]:
+    """Build the view from within the processing (e.g. msqc) docker containers.
 
     Note this is not the airflow containers, they use InternalPaths.
     The docker daemon resolves bind mounts in host coordinates, so the paths handed to it need
     to be translated from the container view to this one.
+
+    `locations.general.mounts_path` is required by the `docker` job engine only, so a missing key
+    yields a view without locations rather than an error: it is reported when the view is used.
     """
     mounts_path = (
         YAMLSETTINGS.get(YamlKeys.LOCATIONS, {})  # type: ignore[possibly-unbound-attribute]
@@ -100,13 +103,14 @@ def get_docker_host_view() -> View[PurePosixPath]:
         .get(YamlKeys.Locations.MOUNTS_PATH)
     )
 
-    if mounts_path is None:
-        raise KeyError(
-            f"Key `{YamlKeys.LOCATIONS}.{YamlKeys.Locations.GENERAL}.{YamlKeys.Locations.MOUNTS_PATH}` not found in alphakraken.yaml."
-        )
-
-    return View(
-        "docker host",
-        {location: f"{mounts_path}/{location}" for location in _MOUNTED_LOCATIONS},
-        PurePosixPath,
+    locations = (
+        {}
+        if mounts_path is None
+        else {location: f"{mounts_path}/{location}" for location in _MOUNTED_LOCATIONS}
     )
+
+    return View("docker host", locations, PurePosixPath)
+
+
+CLUSTER_VIEW: View[PurePosixPath] = _build_cluster_view()
+DOCKER_HOST_VIEW: View[PurePosixPath] = _build_docker_host_view()

@@ -9,8 +9,8 @@ from shared.path_views import (
     AIRFLOW_CONTAINER_VIEW,
     Locations,
     View,
-    get_cluster_view,
-    get_docker_host_view,
+    _build_cluster_view,
+    _build_docker_host_view,
 )
 from shared.yamlsettings import YAMLSETTINGS, YamlKeys
 
@@ -111,7 +111,7 @@ def test_cluster_view() -> None:
     }
 
     with patch.dict(YAMLSETTINGS, {YamlKeys.LOCATIONS: locations}):
-        view = get_cluster_view()
+        view = _build_cluster_view()
 
     assert view.resolve(Locations.BACKUP, "test1/1970_01") == PurePosixPath(
         "/some/pool/backup/test1/1970_01"
@@ -129,7 +129,7 @@ def test_docker_host_view() -> None:
     }
 
     with patch.dict(YAMLSETTINGS, {YamlKeys.LOCATIONS: locations}):
-        view = get_docker_host_view()
+        view = _build_docker_host_view()
 
     assert view.resolve(Locations.OUTPUT, "P1/out_some_file.raw") == PurePosixPath(
         "/some/mounts/output/P1/out_some_file.raw"
@@ -137,13 +137,14 @@ def test_docker_host_view() -> None:
     assert not view.has(Locations.SETTINGS)
 
 
-def test_docker_host_view_raises_without_mounts_path() -> None:
-    """Test that a missing mounts path in the yaml settings is reported."""
-    with (
-        patch.dict(YAMLSETTINGS, {YamlKeys.LOCATIONS: {}}),
-        pytest.raises(KeyError, match="mounts_path"),
-    ):
-        get_docker_host_view()
+def test_docker_host_view_without_mounts_path_reaches_nothing() -> None:
+    """Test that a missing mounts path yields an empty view, reported only when it is used."""
+    with patch.dict(YAMLSETTINGS, {YamlKeys.LOCATIONS: {}}):
+        view = _build_docker_host_view()
+
+    assert not view.has(Locations.OUTPUT)
+    with pytest.raises(KeyError, match="not reachable in the 'docker host' view"):
+        view.resolve(Locations.OUTPUT)
 
 
 def test_locations_agree_with_the_yaml_key_names() -> None:

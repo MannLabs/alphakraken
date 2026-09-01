@@ -1,6 +1,7 @@
 """Views on the data directories: the same tree, seen from different machines."""
 
 from pathlib import Path, PurePath, PurePosixPath
+from typing import Generic, TypeVar
 
 from shared.keys import ConstantsClass, InternalPaths
 from shared.yamlsettings import YAMLSETTINGS, YamlKeys
@@ -22,18 +23,21 @@ class Locations(metaclass=ConstantsClass):
     LOGS = "logs"
 
 
+# the path flavor a view is expressed in, `Path` for the machine this code runs on
+_P = TypeVar("_P", bound=PurePath)
+
 # the locations that are mounted into the containers, cf. docker-compose.yaml
 _MOUNTED_LOCATIONS = (Locations.INSTRUMENTS, Locations.BACKUP, Locations.OUTPUT)
 
 
-class View:
+class View(Generic[_P]):
     """The absolute paths of the data directories as seen from one machine (container, cluster, ..).
 
     Not every location is reachable from every machine.
     """
 
     def __init__(
-        self, name: str, locations: dict[str, str], path_class: type[PurePath]
+        self, name: str, locations: dict[str, str], path_class: type[_P]
     ) -> None:
         """Initialize the View.
 
@@ -50,7 +54,7 @@ class View:
         """Whether the given `location` is reachable in this view."""
         return location in self._locations
 
-    def resolve(self, location: str, rel_path: PurePath | str = "") -> PurePath:
+    def resolve(self, location: str, rel_path: PurePath | str = "") -> _P:
         """Get the absolute path of `rel_path`, which is relative to `location`, in this view."""
         if location not in self._locations:
             raise KeyError(
@@ -60,8 +64,8 @@ class View:
         return self._locations[location] / rel_path
 
 
-CONTAINER = View(
-    "container",
+AIRFLOW_CONTAINER_VIEW: View[Path] = View(
+    "airflow container",
     {
         location: f"{InternalPaths.MOUNTS_PATH}{location}"
         for location in _MOUNTED_LOCATIONS
@@ -70,7 +74,7 @@ CONTAINER = View(
 )
 
 
-def get_cluster_view() -> View:
+def get_cluster_view() -> View[PurePosixPath]:
     """Get the view of a machine that accesses the data via the shared file system."""
     locations: dict[str, dict[str, str]] = YAMLSETTINGS.get(YamlKeys.LOCATIONS, {})  # type: ignore[invalid-assignment]
 
@@ -83,7 +87,7 @@ def get_cluster_view() -> View:
     return View("cluster", absolute_paths, PurePosixPath)
 
 
-def get_host_view() -> View:
+def get_docker_host_view() -> View[PurePosixPath]:
     """Get the view from within the processing (e.g. msqc) docker containers.
 
     Note this is not the airflow containers, they use InternalPaths.
@@ -102,7 +106,7 @@ def get_host_view() -> View:
         )
 
     return View(
-        "host",
+        "docker host",
         {location: f"{mounts_path}/{location}" for location in _MOUNTED_LOCATIONS},
         PurePosixPath,
     )

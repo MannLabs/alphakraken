@@ -64,7 +64,7 @@ Obtained 2026-09-01:
   into "location + rel"; `RemovePathProvider`'s `Path()` sentinel becomes an honest `rel="."`
   on a named location.
 - `views` module: `Locations` constants; `View(name, flavor, locations: dict[str, PurePath])` with
-  `.resolve(location, rel)` and `.has(location)`. Instances `CONTAINER` (from `InternalPaths`),
+  `.resolve(location, rel)` and `.has(location)`. Instances `AIRFLOW_CONTAINER_VIEW` (from `InternalPaths`),
   `CLUSTER` (from yaml `locations`), `HOST` (from `locations.general.mounts_path`).
   A missing location raises naming both view and location, so the §2 holes become explicit.
 

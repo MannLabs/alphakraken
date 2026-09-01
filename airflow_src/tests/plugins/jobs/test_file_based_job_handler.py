@@ -10,7 +10,7 @@ from common.keys import JobStates
 from common.quanting_env import QuantingEnv
 from jobs._experimental.file_based_job_handler import FileBasedJobHandler
 
-from shared.keys import InternalPaths
+from shared.path_views import AIRFLOW_CONTAINER_VIEW, Locations
 
 
 @pytest.fixture
@@ -47,9 +47,7 @@ class TestFileBasedJobHandler:
         handler = FileBasedJobHandler()
 
         # then
-        expected_path = (
-            Path(InternalPaths.MOUNTS_PATH) / InternalPaths.OUTPUT / "job_queue"
-        )
+        expected_path = AIRFLOW_CONTAINER_VIEW.resolve(Locations.OUTPUT, "job_queue")
         assert handler._job_submit_dir == expected_path
 
     @patch(

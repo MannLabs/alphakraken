@@ -11,7 +11,7 @@ deliberately not started here; D2 only has to avoid blocking it.
 - 0.2 **Module naming:** flat modules `shared/path_layout.py` and `shared/path_views.py`, not a
   `shared/paths/` package. `./shared` is on `pythonpath` (`pyproject.toml:50-58`), so a
   `shared/paths` package would also be importable as `paths` - two module objects for one file,
-  two `CONTAINER` singletons. `path_layout` / `path_views` are unshadowable.
+  two `AIRFLOW_CONTAINER_VIEW` singletons. `path_layout` / `path_views` are unshadowable.
 - 0.3 **Flavor from day one:** `View` takes the path class it builds its locations with -
   `Path` for the machine this code runs on, `PurePosixPath` / `PureWindowsPath` for any other -
   even though every view is posix today. Retrofitting flavor after ~50 call sites exist is the
@@ -57,9 +57,9 @@ deliberately not started here; D2 only has to avoid blocking it.
   - `View(name, locations: dict[str, str], path_class)` with `.resolve(location, rel) -> PurePath`,
     `.has(location) -> bool`, and a `KeyError` naming both view and location when a location is absent
     (this is where the §2 holes become explicit).
-  - `CONTAINER` is a module constant built from `InternalPaths` (`shared/keys.py:48-56`), carrying
+  - `AIRFLOW_CONTAINER_VIEW` is a module constant built from `InternalPaths` (`shared/keys.py:48-56`), carrying
     `Path` because it is the only view this code does filesystem I/O in.
-  - `get_cluster_view()` (from `locations.<location>.absolute_path`) and `get_host_view()` (from
+  - `get_cluster_view()` (from `locations.<location>.absolute_path`) and `get_docker_host_view()` (from
     `locations.general.mounts_path` plus the container-relative location names) are functions, not
     constants: `airflow_src/tests/helpers.py:yaml_locations` patches the `YAMLSETTINGS` dict at
     test time, so a view built at import would freeze the yaml. Both carry `PurePosixPath`, which
@@ -78,7 +78,7 @@ deliberately not started here; D2 only has to avoid blocking it.
 
 - **Goal:** `common/paths.py` stops knowing `InternalPaths`.
 - **Do:** reimplement `get_internal_*` (5 functions) as one-liners over
-  `CONTAINER.resolve(...)` plus `path_layout`. Their signatures and return types stay identical,
+  `AIRFLOW_CONTAINER_VIEW.resolve(...)` plus `path_layout`. Their signatures and return types stay identical,
   so the ~41 call sites in 12 files are untouched.
 - **Done when:** `InternalPaths` is imported only by `path_views.py`
   (plus `docker_job_handler.py` until C6).
@@ -98,7 +98,7 @@ deliberately not started here; D2 only has to avoid blocking it.
 
 - **Goal:** remove the container->host `relative_to` round-trip.
 - **Do:** `DockerJobHandler._to_host_path` (`docker_job_handler.py:185-197`) becomes
-  `get_host_view().resolve(location, rel)`; the handler is constructed with the view rather than with
+  `get_docker_host_view().resolve(location, rel)`; the handler is constructed with the view rather than with
   `get_host_mounts_path()` (`job_handler.py:35`). Delete `get_host_mounts_path`.
 - **Done when:** `shared/yamlsettings.py` no longer exports any path accessor.
 
@@ -107,7 +107,7 @@ deliberately not started here; D2 only has to avoid blocking it.
 - **Goal:** attack §6.6 - `InternalPaths`, `docker-compose.yaml` mount targets and yaml
   `mount_target` agree by convention only.
 - **Do:** a test that parses the volume lists in `docker-compose.yaml:451-538` and each
-  `envs/alphakraken.*.yaml`, and asserts every `CONTAINER` location reachable by the worker is
+  `envs/alphakraken.*.yaml`, and asserts every `AIRFLOW_CONTAINER_VIEW` location reachable by the worker is
   actually mounted there and that `mount_target` matches.
   Note the mounts are per service and, for `instruments`/`backup`, per instrument
   (`:460,462,520,521,537,538`), so the assertion is "every location has a mount whose target is that

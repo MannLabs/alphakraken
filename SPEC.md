@@ -37,6 +37,9 @@ that handler. No exported string changes for existing deployments, except where 
 - 1.2.4 A yaml without `runners:` fails at import with a clear error. No implicit defaults.
 - 1.2.5 The docker runner keeps binding host paths onto the paths the placeholders resolved to;
   admins copy the old `absolute_path` values into its `locations` to keep exported strings equal.
+- 1.2.6 With `absolute_path` gone, the per-location entries hold mount information only. They
+  move under `locations.mounts.<x>`; `locations.general` stays as is. Entries that had only an
+  `absolute_path` (`settings`, `software`, `slurm`) disappear from `locations`.
 
 ## 2. Design
 
@@ -44,15 +47,17 @@ that handler. No exported string changes for existing deployments, except where 
 
 ```yaml
 locations:
-  general:
+  general:                        # unchanged shape
     mounts_path: /home/kraken-user/alphakraken/mounts
     backup_absolute_path: /fs/pool-0/alphakraken/backup   # persisted for display, cf. 2.2
-  backup:                         # mount information only, `absolute_path` is gone
-    username: user
-    mount_src: //mount_src/backup
-    mount_target: backup
-  output: ...
-  logs: ...
+  mounts:                         # read by mount.sh and the consistency test only
+    backup:
+      username: user
+      mount_src: //mount_src/backup
+      mount_target: backup
+    output: ...
+    logs: ...
+    # settings, software, slurm are not mounted and no longer appear here
 
 runners:
   slurm:                          # runner name, referenced by Settings.runner
@@ -88,6 +93,8 @@ runners:
   Two runners on one file system repeat the paths; yaml anchors are available if that hurts.
 - A location a runner does not declare is unreachable and fails at `View.resolve` with the
   existing error naming view and location.
+- `locations.mounts.<x>` is not read by any Python view. `DOCKER_HOST_VIEW` keeps deriving from
+  `locations.general.mounts_path` plus the fixed location names.
 - All three in-repo yamls (`envs/alphakraken.{local,sandbox,production}.yaml`) move their
   `absolute_path` values into a `slurm` and a `docker` runner and gain `backup_absolute_path`,
   so the migration in 2.8 maps 1:1. The `_test_` stub in `shared/yamlsettings.py:73-90` gets
@@ -192,7 +199,15 @@ those names.
 
 Extend `shared/tests/test_deployment_paths.py`: every in-repo yaml declares `runners`, each
 engine and os is known, each runner has `locations`, `locations.general.backup_absolute_path`
-is present, and no `locations.<x>.absolute_path` survives.
+is present, `locations` has no keys besides `general` and `mounts`, and every
+`locations.mounts.<x>` entry has `mount_src` and `mount_target`. The existing mount-target
+assertions (`test_deployment_paths.py:84-98`) iterate `locations.mounts` instead of `locations`.
+
+### 2.9a mount.sh
+
+`mount.sh:52-61` looks up `backup`/`output`/`logs` under `locations.mounts.<x>` instead of
+`locations.<x>`; `get_data` takes the key path as separate arguments so both depths work.
+Behaviour of the generated fstab line is unchanged.
 
 ### 2.10 Docs
 
@@ -225,7 +240,8 @@ CI runs the three `pytest` commands separately (`.github/workflows/branch-checks
 ```
 shared/runners.py                        new: Runner, RUNNERS, get_runner, OperatingSystems
 shared/path_views.py                     CLUSTER_VIEW and _build_cluster_view removed
-shared/yamlsettings.py                   YamlKeys.RUNNERS (+ nested keys), BACKUP_ABSOLUTE_PATH, _test_ stub
+shared/yamlsettings.py                   YamlKeys.RUNNERS (+ nested), Locations.MOUNTS, BACKUP_ABSOLUTE_PATH, _test_ stub
+mount.sh                                 reads locations.mounts.<x>
 shared/keys.py                           JobEngines unchanged
 shared/db/models.py, shared/db/interface.py   Settings.runner
 shared/_migrations/from_<release>/_migrate_job_engine_to_runner.py
@@ -316,7 +332,8 @@ pytest, tests next to the existing ones (`shared/tests`, `airflow_src/tests`, `w
 ## 10. Out of scope
 
 The SSH job handler and its Windows job script. Per-runner job scripts. Changing how the docker
-handler binds paths (1.2.5 keeps it). `mount.sh` generation. DB-persisted views and the six webapp path TODOs
+handler binds paths (1.2.5 keeps it). Generating `mount.sh` from the yaml (only its key lookup
+moves, 2.9a). DB-persisted views and the six webapp path TODOs
 (D5). `QuantingEnv` view-typed fields (D4). Runner-specific `Pools` (`cluster_slots_pool` still
 gates all runners).
 

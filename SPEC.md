@@ -70,7 +70,7 @@ mounts:                           # read by mount.sh and the consistency test on
 runners:
   - name: slurm                   # referenced by Settings.runner; unique within the list
     engine: slurm                 # one of shared.keys.JobEngines
-    os: linux                     # required; determines the path flavour of `view`
+    os: linux                     # required; linux | macos | windows, determines the path flavour of `view`
     ssh_connection_id_prefix: cluster_ssh_connection   # required for engines that use SSH
     view:                         # the data directories as seen from this runner, complete
       backup: /fs/pool-0/alphakraken/backup
@@ -122,6 +122,7 @@ runners:
 ```python
 class OperatingSystems(metaclass=ConstantsClass):
     LINUX = "linux"
+    MACOS = "macos"
     WINDOWS = "windows"
 
 
@@ -149,7 +150,8 @@ def get_runner(name: str) -> Runner:
   which engines use SSH. Which locations an engine needs is likewise not checked here; a missing
   one fails at first use via `View.resolve`, naming view and location. No key has a default. Each
   failure names the runner and the yaml key.
-- `os: linux` -> `PurePosixPath`, `os: windows` -> `PureWindowsPath`. Never `Path`: no code does
+- `os: linux` and `os: macos` -> `PurePosixPath`, `os: windows` -> `PureWindowsPath`. `macos`
+  exists for completeness and is treated exactly like `linux`. Never `Path`: no code does
   filesystem I/O in a runner view.
 - `view` is required for every runner; `Runner.view = View(name, yaml_view, path_class)`.
 - `CLUSTER_VIEW` and `_build_cluster_view` are deleted from `shared/path_views.py`. Its one
@@ -343,8 +345,8 @@ def resolve(self, location: str, rel_path: PurePath | str = "") -> _P:
 pytest, tests next to the existing ones (`shared/tests`, `airflow_src/tests`, `webapp/tests`).
 
 - 7.1 `test_runners.py`: build from a yaml list; missing `name`, duplicate `name`, missing `os`,
-  missing `view`, unknown location key each fail; a prefix on a `docker` runner and a
-  runner without `slurm` are accepted; windows runner resolves
+  missing `view`, unknown location key, unknown `os` each fail; a prefix on a `docker` runner and a
+  runner without `slurm` are accepted; `macos` yields the same view as `linux`; windows runner resolves
   `\\server\share\backup\test1\1970_01\f.raw` and `Z:\...\out_f.raw\alphadia` from the layout
   functions; each import-time validation error; `get_runner` KeyError names known runners.
 - 7.2 `test_processor_impl.py`: `prepare_job` with a windows runner (patched `RUNNERS`) yields

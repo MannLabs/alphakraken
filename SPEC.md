@@ -32,32 +32,40 @@ that handler. No exported string changes for existing deployments, except where 
   configuration. This is the one deliberate behaviour change.
 - 1.2.3 Every runner declares its complete `view`. There is no default view and no fallback.
   `locations.<x>.absolute_path` is removed; the one non-job reader of it, the persisted display
-  path in `get_backup_base_path`, reads a new key `locations.general.backup_absolute_path`.
+  path in `get_backup_base_path`, reads a new key `backup.backup_base_path` in the existing
+  top-level `backup` block.
   `CLUSTER_VIEW` is deleted. (Supersedes the earlier fallback decision, 2026-09-02.)
 - 1.2.4 A yaml without `runners:` fails at import with a clear error. No implicit defaults.
 - 1.2.5 The docker runner keeps binding host paths onto the paths the placeholders resolved to;
   admins copy the old `absolute_path` values into its `view` to keep exported strings equal.
 - 1.2.6 With `absolute_path` gone, the per-location entries hold mount information only. They
-  move under `locations.mounts.<x>`; `locations.general` stays as is. Entries that had only an
-  `absolute_path` (`settings`, `software`, `slurm`) disappear from `locations`.
+  move to a new top-level `mounts.<x>` block. The `locations` block disappears entirely. Entries
+  that had only an `absolute_path` (`settings`, `software`, `slurm`) are not carried over.
+- 1.2.7 `locations.general.mounts_path` is dropped. It duplicated `MOUNTS_PATH` from
+  `envs/<env>.env`, and the two already disagree in the local environment. `MOUNTS_PATH` is
+  passed into the containers instead and read from the environment. It must be absolute when the
+  docker runner is used, because the Docker daemon rejects relative bind sources; this is
+  documented as a comment in the `.env` files, not enforced.
 
 ## 2. Design
 
 ### 2.1 Yaml
 
 ```yaml
-locations:
-  general:                        # unchanged shape
-    mounts_path: /home/kraken-user/alphakraken/mounts
-    backup_absolute_path: /fs/pool-0/alphakraken/backup   # persisted for display, cf. 2.2
-  mounts:                         # read by mount.sh and the consistency test only
-    backup:
-      username: user
-      mount_src: //mount_src/backup
-      mount_target: backup
-    output: ...
-    logs: ...
-    # settings, software, slurm are not mounted and no longer appear here
+backup:                           # existing block
+  backup_type: local
+  purging_verification_type: local
+  backup_base_path: /fs/pool-0/alphakraken/backup   # persisted for display, cf. 2.2
+  s3: ...
+
+mounts:                           # read by mount.sh and the consistency test only; the mounts folder itself is MOUNTS_PATH in <env>.env
+  backup:
+    username: user
+    mount_src: //mount_src/backup
+    mount_target: backup
+  output: ...
+  logs: ...
+  # settings, software, slurm are not mounted and do not appear here
 
 runners:
   - name: slurm                   # referenced by Settings.runner; unique within the list
@@ -94,17 +102,20 @@ runners:
 
 - Per-runner `view` is a flat `location -> path` map (no `absolute_path` sub-key: there is
   no mount information at this level). Values are opaque strings; the flavour comes from `os`.
-  The key is named `view`, not `locations`, to avoid a clash with the top-level `locations` block
-  and to match `Runner.view` and the `View` class.
+  The key is named `view`, not `locations`, to match `Runner.view` and the `View` class.
   Two runners on one file system repeat the paths; yaml anchors are available if that hurts.
 - A location a runner does not declare is unreachable and fails at `View.resolve` with the
   existing error naming view and location.
-- `locations.mounts.<x>` is not read by any Python view. `DOCKER_HOST_VIEW` keeps deriving from
-  `locations.general.mounts_path` plus the fixed location names.
+- `mounts.<x>` is not read by any Python view. `DOCKER_HOST_VIEW` derives from the
+  `MOUNTS_PATH` environment variable (`EnvVars.MOUNTS_PATH`, passed through the
+  `airflow-common-env` block of `docker-compose.yaml`) plus the fixed location names. A missing
+  variable yields an empty view, reported by the factory when the docker engine is selected, as
+  today.
 - All three in-repo yamls (`envs/alphakraken.{local,sandbox,production}.yaml`) move their
-  `absolute_path` values into a `slurm` and a `docker` runner and gain `backup_absolute_path`,
+  `absolute_path` values into a `slurm` and a `docker` runner and gain `backup_base_path`,
   so the migration in 2.8 maps 1:1. The `_test_` stub in `shared/yamlsettings.py:73-90` gets
-  `slurm`, `docker`, `file_based` with the current test paths.
+  `slurm`, `docker`, `file_based` with the current test paths and loses `general.mounts_path`;
+  the test conftests set `MOUNTS_PATH` in the environment next to `ENV_NAME`.
 
 ### 2.2 `shared/runners.py` (new)
 
@@ -143,8 +154,8 @@ def get_runner(name: str) -> Runner:
 - `view` is required for every runner; `Runner.view = View(name, yaml_view, path_class)`.
 - `CLUSTER_VIEW` and `_build_cluster_view` are deleted from `shared/path_views.py`. Its one
   non-job reader, `handler_impl.get_backup_base_path`, becomes
-  `PurePosixPath(BACKUP_ABSOLUTE_PATH) / get_raw_file_folder_rel_path(raw_file)` with
-  `BACKUP_ABSOLUTE_PATH` read from `locations.general.backup_absolute_path` in `shared/yamlsettings.py`,
+  `PurePosixPath(BACKUP_BASE_PATH) / get_raw_file_folder_rel_path(raw_file)` with
+  `BACKUP_BASE_PATH` read from `backup.backup_base_path` in `shared/yamlsettings.py`,
   missing key raising at import like the runners do.
 - `CLUSTER_SSH_CONNECTION_ID_PREFIX` (`common/constants.py:6`) is deleted without replacement;
   the prefix always comes from the runner. The error text in `get_cluster_ssh_hook` names the
@@ -232,17 +243,18 @@ those names.
 ### 2.9 Consistency test
 
 Extend `shared/tests/test_deployment_paths.py`: every in-repo yaml declares `runners`, each
-engine and os is known, each runner has `view`, `locations.general.backup_absolute_path`
-is present, `locations` has no keys besides `general` and `mounts`, every
-`locations.mounts.<x>` entry has `mount_src` and `mount_target`, and each in-repo `slurm` runner
-declares all five locations it uses (the import-time check only rejects unknown keys). The existing mount-target
-assertions (`test_deployment_paths.py:84-98`) iterate `locations.mounts` instead of `locations`.
+engine and os is known, each runner has `view`, `backup.backup_base_path` is present, no
+top-level `locations` key exists, every `mounts.<x>` entry has `mount_src` and `mount_target`,
+and each in-repo `slurm` runner declares all five locations it uses (the import-time check only
+rejects unknown keys). The existing mount-target assertions (`test_deployment_paths.py:84-98`)
+iterate `mounts` instead of `locations`.
 
 ### 2.9a mount.sh
 
-`mount.sh:52-61` looks up `backup`/`output`/`logs` under `locations.mounts.<x>` instead of
-`locations.<x>`; `get_data` takes the key path as separate arguments so both depths work.
-Behaviour of the generated fstab line is unchanged.
+`mount.sh:52-56` sets `ENTITY_TYPE` to `mounts` instead of `locations` for `backup`/`output`/
+`logs`; `mounts.<x>` has the same depth as `instruments.<x>`, so `get_data` is unchanged. The
+mounts folder comes from `MOUNTS_PATH` in `envs/${ENV}.env`, which the script sources, instead of
+the yaml. Behaviour of the generated fstab line is unchanged.
 
 ### 2.10 Docs
 
@@ -251,7 +263,11 @@ Behaviour of the generated fstab line is unchanged.
 - `docs/deployment.md`, "Setup SSH connection" section: state that credentials stay in Airflow
   and why, and how a runner selects its connections by prefix.
 - `docs/deployment.md:323-360` (standalone docker section) says "runner" instead of
-  "execution engine", and mentions the `runners:` block.
+  "execution engine", mentions the `runners:` block, and drops the instruction to keep
+  `locations.general.mounts_path` and `MOUNTS_PATH` in sync (lines 232 and 346), replacing it
+  with "`MOUNTS_PATH` must be absolute for the docker runner".
+- `envs/{local,sandbox,production}.env`: comment on `MOUNTS_PATH` saying it must be absolute
+  when the docker runner is used. The local value stays relative.
 - `shared/config_params.py:30,33`: relative paths are "relative to the runner's backup/output
   location" instead of naming `locations.<x>.absolute_path`.
 
@@ -277,9 +293,12 @@ CI runs the three `pytest` commands separately (`.github/workflows/branch-checks
 
 ```
 shared/runners.py                        new: Runner, RUNNERS, get_runner, OperatingSystems
-shared/path_views.py                     CLUSTER_VIEW and _build_cluster_view removed
-shared/yamlsettings.py                   YamlKeys.RUNNERS (+ nested), Locations.MOUNTS, BACKUP_ABSOLUTE_PATH, _test_ stub
-mount.sh                                 reads locations.mounts.<x>
+shared/path_views.py                     CLUSTER_VIEW and _build_cluster_view removed; DOCKER_HOST_VIEW reads EnvVars.MOUNTS_PATH
+shared/yamlsettings.py                   YamlKeys.RUNNERS (+ nested), YamlKeys.MOUNTS, YamlKeys.Backup.BACKUP_BASE_PATH; YamlKeys.LOCATIONS, ABSOLUTE_PATH, Locations removed; BACKUP_BASE_PATH; _test_ stub
+shared/keys.py                           EnvVars.MOUNTS_PATH
+docker-compose.yaml                      MOUNTS_PATH added to airflow-common-env
+envs/{local,sandbox,production}.env      comment: MOUNTS_PATH absolute for the docker runner
+mount.sh                                 reads mounts.<x>, sources envs/${ENV}.env for MOUNTS_PATH
 shared/keys.py                           JobEngines unchanged
 shared/db/models.py, shared/db/interface.py   Settings.runner
 shared/_migrations/from_<release>/_migrate_job_engine_to_runner.py
@@ -292,7 +311,7 @@ airflow_src/plugins/common/utils.py      ssh discovery by prefix argument
 airflow_src/plugins/common/constants.py  CLUSTER_SSH_CONNECTION_ID_PREFIX removed
 airflow_src/plugins/common/quanting_env.py   runner field
 airflow_src/dags/impl/processor_impl.py  runner.view, _check_content
-airflow_src/dags/impl/handler_impl.py    get_backup_base_path reads BACKUP_ABSOLUTE_PATH
+airflow_src/dags/impl/handler_impl.py    get_backup_base_path reads BACKUP_BASE_PATH
 airflow_src/tests/helpers.py             yaml_locations() -> runner_view(name, **paths)
 webapp/pages_/settings.py
 envs/alphakraken.{local,sandbox,production}.yaml
@@ -341,7 +360,9 @@ pytest, tests next to the existing ones (`shared/tests`, `airflow_src/tests`, `w
 - 7.6 `webapp/tests`: selectbox options come from `RUNNERS`; docker-only-custom check keyed by
   engine of the selected runner.
 - 7.7 Consistency test per 2.9; each assertion shown to fail on a mutated yaml.
-- 7.8 Coverage expectation: every new branch in `runners.py` and `_check_content` is hit.
+- 7.8 `test_path_views.py`: `DOCKER_HOST_VIEW` built from `MOUNTS_PATH` in the environment; unset
+  variable yields a view that reaches nothing.
+- 7.9 Coverage expectation: every new branch in `runners.py` and `_check_content` is hit.
 
 ## 8. Boundaries
 
@@ -358,8 +379,10 @@ pytest, tests next to the existing ones (`shared/tests`, `airflow_src/tests`, `w
 ## 9. Success criteria
 
 - 9.1 `grep -rn job_engine --include='*.py'` outside `shared/_migrations` returns nothing.
-- 9.2 `grep -rn "CLUSTER_VIEW\|absolute_path"` over `*.py` and `envs/*.yaml` returns only
-  `backup_absolute_path` and the migration scripts.
+- 9.2 `grep -rn "CLUSTER_VIEW\|absolute_path\|mounts_path\|locations"` over `*.py`, `*.sh`,
+  `*.md` and `envs/*.yaml` returns only the migration scripts, the design docs, and the
+  `path_views.Locations` constants with their uses. `InternalPaths.MOUNTS_PATH`
+  (the container-side constant) is unaffected and not part of this criterion.
 - 9.3 Tests 7.1 to 7.7 pass; full suite green (the 5 known `test_dags` env failures excepted
   when `AIRFLOW_HOME` is not set up).
 - 9.4 A yaml with a windows runner produces a `QuantingEnv` whose absolute paths are UNC or

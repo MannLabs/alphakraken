@@ -60,7 +60,7 @@ locations:
     # settings, software, slurm are not mounted and no longer appear here
 
 runners:
-  slurm:                          # runner name, referenced by Settings.runner
+  - name: slurm                   # referenced by Settings.runner; unique within the list
     engine: slurm                 # one of shared.keys.JobEngines
     # os: linux                   # default; determines the path flavour of `locations`
     # ssh_connection_id_prefix: cluster_ssh_connection   # default
@@ -70,14 +70,14 @@ runners:
       settings: /fs/pool-0/alphakraken/settings
       software: /fs/home/kraken-read/software
       slurm: /fs/pool-0/alphakraken/slurm
-  docker:
+  - name: docker
     engine: docker
     locations:                    # paths inside the job container, cf. 1.2.5
       backup: /fs/pool-0/alphakraken/backup
       output: /fs/pool-0/alphakraken/output
       settings: /fs/pool-0/alphakraken/settings
       software: /fs/home/kraken-read/software
-  win_box:                        # illustrative, not in the in-repo yamls
+  - name: win_box                 # illustrative, not in the in-repo yamls
     engine: slurm                 # `ssh` once that handler exists; the factory rejects unknown engines
     os: windows
     ssh_connection_id_prefix: win_box_ssh
@@ -87,6 +87,8 @@ runners:
       settings: 'Z:\alphakraken\settings'
       software: 'C:\alphakraken\software'
 ```
+
+- `runners` is a list; each entry carries its `name`. Order is the display order in the webapp.
 
 - Per-runner `locations` is a flat `location -> path` map (no `absolute_path` sub-key: there is
   no mount information at this level). Values are opaque strings; the flavour comes from `os`.
@@ -118,16 +120,16 @@ class Runner:
     ssh_connection_id_prefix: str
 
 
-RUNNERS: dict[str, Runner]  # built at import from YAMLSETTINGS["runners"], insertion order kept
+RUNNERS: dict[str, Runner]  # keyed by name, built at import from the YAMLSETTINGS["runners"] list, order kept
 
 
 def get_runner(name: str) -> Runner:
     """Raises KeyError naming the known runners."""
 ```
 
-- Built at import, like the views in `shared/path_views.py`. Import-time validation: block
-  present and non-empty, `engine` in `JobEngines`, `os` in `OperatingSystems`, a windows runner has
-  `locations`. Each failure names the runner and the yaml key.
+- Built at import, like the views in `shared/path_views.py`. Import-time validation: list
+  present and non-empty, every entry has a `name`, names unique, `engine` in `JobEngines`, `os` in
+  `OperatingSystems`, `locations` present. Each failure names the runner and the yaml key.
 - `os: linux` -> `PurePosixPath`, `os: windows` -> `PureWindowsPath`. Never `Path`: no code does
   filesystem I/O in a runner view.
 - `locations` is required for every runner; `view = View(name, locations, path_class)`.
@@ -285,7 +287,8 @@ def resolve(self, location: str, rel_path: PurePath | str = "") -> _P:
 
 pytest, tests next to the existing ones (`shared/tests`, `airflow_src/tests`, `webapp/tests`).
 
-- 7.1 `test_runners.py`: build from a yaml dict; missing `locations` fails; windows runner resolves
+- 7.1 `test_runners.py`: build from a yaml list; missing `name`, duplicate `name`, missing
+  `locations` each fail; windows runner resolves
   `\\server\share\backup\test1\1970_01\f.raw` and `Z:\...\out_f.raw\alphadia` from the layout
   functions; each import-time validation error; `get_runner` KeyError names known runners.
 - 7.2 `test_processor_impl.py`: `prepare_job` with a windows runner (patched `RUNNERS`) yields

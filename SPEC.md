@@ -30,28 +30,53 @@ that handler. No exported string changes for existing deployments, except where 
 - 1.2.1 `Settings.job_engine` is renamed to `Settings.runner`, with a one-shot DB migration.
 - 1.2.2 Validation moves to the user-controlled relative parts; resolved bases count as admin
   configuration. This is the one deliberate behaviour change.
-- 1.2.3 A runner without `locations` uses the existing default view (`locations.*.absolute_path`).
-  The docker runner keeps exporting default-view paths and binding host paths onto them.
+- 1.2.3 Every runner declares its complete `locations`. There is no default view and no fallback.
+  `locations.<x>.absolute_path` is removed; the one non-job reader of it, the persisted display
+  path in `get_backup_base_path`, reads a new key `locations.general.backup_absolute_path`.
+  `CLUSTER_VIEW` is deleted. (Supersedes the earlier fallback decision, 2026-09-02.)
 - 1.2.4 A yaml without `runners:` fails at import with a clear error. No implicit defaults.
+- 1.2.5 The docker runner keeps binding host paths onto the paths the placeholders resolved to;
+  admins copy the old `absolute_path` values into its `locations` to keep exported strings equal.
 
 ## 2. Design
 
 ### 2.1 Yaml
 
 ```yaml
+locations:
+  general:
+    mounts_path: /home/kraken-user/alphakraken/mounts
+    backup_absolute_path: /fs/pool-0/alphakraken/backup   # persisted for display, cf. 2.2
+  backup:                         # mount information only, `absolute_path` is gone
+    username: user
+    mount_src: //mount_src/backup
+    mount_target: backup
+  output: ...
+  logs: ...
+
 runners:
   slurm:                          # runner name, referenced by Settings.runner
     engine: slurm                 # one of shared.keys.JobEngines
     # os: linux                   # default; determines the path flavour of `locations`
     # ssh_connection_id_prefix: cluster_ssh_connection   # default
-    # locations: (absent)         # -> default view: locations.<x>.absolute_path above
+    locations:                    # the view of this runner, complete
+      backup: /fs/pool-0/alphakraken/backup
+      output: /fs/pool-0/alphakraken/output
+      settings: /fs/pool-0/alphakraken/settings
+      software: /fs/home/kraken-read/software
+      slurm: /fs/pool-0/alphakraken/slurm
   docker:
     engine: docker
+    locations:                    # paths inside the job container, cf. 1.2.5
+      backup: /fs/pool-0/alphakraken/backup
+      output: /fs/pool-0/alphakraken/output
+      settings: /fs/pool-0/alphakraken/settings
+      software: /fs/home/kraken-read/software
   win_box:                        # illustrative, not in the in-repo yamls
     engine: slurm                 # `ssh` once that handler exists; the factory rejects unknown engines
     os: windows
     ssh_connection_id_prefix: win_box_ssh
-    locations:                    # complete view, replaces (never merges with) the default view
+    locations:
       backup: '\\server\share\backup'
       output: 'Z:\alphakraken\output'
       settings: 'Z:\alphakraken\settings'
@@ -60,9 +85,13 @@ runners:
 
 - Per-runner `locations` is a flat `location -> path` map (no `absolute_path` sub-key: there is
   no mount information at this level). Values are opaque strings; the flavour comes from `os`.
-- All three in-repo yamls (`envs/alphakraken.{local,sandbox,production}.yaml`) get a `runners:`
-  block with `slurm` and `docker`, so the migration in 2.6 maps 1:1. The `_test_` stub in
-  `shared/yamlsettings.py:73-90` gets `slurm`, `docker`, `file_based`.
+  Two runners on one file system repeat the paths; yaml anchors are available if that hurts.
+- A location a runner does not declare is unreachable and fails at `View.resolve` with the
+  existing error naming view and location.
+- All three in-repo yamls (`envs/alphakraken.{local,sandbox,production}.yaml`) move their
+  `absolute_path` values into a `slurm` and a `docker` runner and gain `backup_absolute_path`,
+  so the migration in 2.8 maps 1:1. The `_test_` stub in `shared/yamlsettings.py:73-90` gets
+  `slurm`, `docker`, `file_based` with the current test paths.
 
 ### 2.2 `shared/runners.py` (new)
 
@@ -94,8 +123,12 @@ def get_runner(name: str) -> Runner:
   `locations`. Each failure names the runner and the yaml key.
 - `os: linux` -> `PurePosixPath`, `os: windows` -> `PureWindowsPath`. Never `Path`: no code does
   filesystem I/O in a runner view.
-- No `locations` -> `view = CLUSTER_VIEW`. `CLUSTER_VIEW` keeps its name and stays the view for
-  paths persisted for display (`handler_impl.get_backup_base_path`).
+- `locations` is required for every runner; `view = View(name, locations, path_class)`.
+- `CLUSTER_VIEW` and `_build_cluster_view` are deleted from `shared/path_views.py`. Its one
+  non-job reader, `handler_impl.get_backup_base_path`, becomes
+  `PurePosixPath(BACKUP_ABSOLUTE_PATH) / get_raw_file_folder_rel_path(raw_file)` with
+  `BACKUP_ABSOLUTE_PATH` read from `locations.general.backup_absolute_path` in `shared/yamlsettings.py`,
+  missing key raising at import like the runners do.
 - `DEFAULT_SSH_CONNECTION_ID_PREFIX = "cluster_ssh_connection"` moves here from
   `common/constants.py:6`; the two users are repointed.
 - Lives in `shared` because the webapp needs the runner names and engines (2.7).
@@ -158,13 +191,16 @@ those names.
 ### 2.9 Consistency test
 
 Extend `shared/tests/test_deployment_paths.py`: every in-repo yaml declares `runners`, each
-engine and os is known, each windows runner has `locations`.
+engine and os is known, each runner has `locations`, `locations.general.backup_absolute_path`
+is present, and no `locations.<x>.absolute_path` survives.
 
 ### 2.10 Docs
 
 - `envs/alphakraken.local.yaml` is the commented reference: document the block there.
 - `docs/deployment.md:323-360` (standalone docker section) says "runner" instead of
   "execution engine", and mentions the `runners:` block.
+- `shared/config_params.py:30,33`: relative paths are "relative to the runner's backup/output
+  location" instead of naming `locations.<x>.absolute_path`.
 
 ## 3. Tech stack
 
@@ -188,8 +224,8 @@ CI runs the three `pytest` commands separately (`.github/workflows/branch-checks
 
 ```
 shared/runners.py                        new: Runner, RUNNERS, get_runner, OperatingSystems
-shared/path_views.py                     unchanged API; CLUSTER_VIEW stays
-shared/yamlsettings.py                   YamlKeys.RUNNERS (+ nested keys), _test_ stub gains runners
+shared/path_views.py                     CLUSTER_VIEW and _build_cluster_view removed
+shared/yamlsettings.py                   YamlKeys.RUNNERS (+ nested keys), BACKUP_ABSOLUTE_PATH, _test_ stub
 shared/keys.py                           JobEngines unchanged
 shared/db/models.py, shared/db/interface.py   Settings.runner
 shared/_migrations/from_<release>/_migrate_job_engine_to_runner.py
@@ -202,7 +238,8 @@ airflow_src/plugins/common/utils.py      ssh discovery by prefix argument
 airflow_src/plugins/common/constants.py  CLUSTER_SSH_CONNECTION_ID_PREFIX removed
 airflow_src/plugins/common/quanting_env.py   runner field
 airflow_src/dags/impl/processor_impl.py  runner.view, _check_content
-airflow_src/tests/helpers.py             runner_locations() helper next to yaml_locations()
+airflow_src/dags/impl/handler_impl.py    get_backup_base_path reads BACKUP_ABSOLUTE_PATH
+airflow_src/tests/helpers.py             yaml_locations() -> runner_locations(name, **paths)
 webapp/pages_/settings.py
 envs/alphakraken.{local,sandbox,production}.yaml
 docs/deployment.md
@@ -213,15 +250,14 @@ docs/deployment.md
 Follows the existing modules. Example of the target style, from `shared/path_views.py`:
 
 ```python
-def _build_cluster_view() -> View[PurePosixPath]:
-    """Build the view of a machine that accesses the data via the shared file system."""
-    locations: dict[str, dict[str, str]] = YAMLSETTINGS.get(YamlKeys.LOCATIONS, {})
-    absolute_paths = {
-        location: values[YamlKeys.ABSOLUTE_PATH]
-        for location, values in locations.items()
-        if YamlKeys.ABSOLUTE_PATH in values
-    }
-    return View("cluster", absolute_paths, PurePosixPath)
+def resolve(self, location: str, rel_path: PurePath | str = "") -> _P:
+    """Get the absolute path of `rel_path`, which is relative to `location`, in this view."""
+    if location not in self._locations:
+        raise KeyError(
+            f"Location '{location}' is not reachable in the '{self._name}' view, "
+            f"reachable are: {sorted(self._locations)}."
+        )
+    return self._locations[location] / rel_path
 ```
 
 - Yaml keys and engine/os names are constants (`ConstantsClass`), never literals at use sites.
@@ -233,15 +269,16 @@ def _build_cluster_view() -> View[PurePosixPath]:
 
 pytest, tests next to the existing ones (`shared/tests`, `airflow_src/tests`, `webapp/tests`).
 
-- 7.1 `test_runners.py`: build from a yaml dict; default view fallback; windows runner resolves
+- 7.1 `test_runners.py`: build from a yaml dict; missing `locations` fails; windows runner resolves
   `\\server\share\backup\test1\1970_01\f.raw` and `Z:\...\out_f.raw\alphadia` from the layout
   functions; each import-time validation error; `get_runner` KeyError names known runners.
 - 7.2 `test_processor_impl.py`: `prepare_job` with a windows runner (patched `RUNNERS`) yields
   the windows strings in `RAW_FILE_PATH`, `SETTINGS_PATH`, `OUTPUT_PATH`, `CUSTOM_COMMAND`,
   substituted `_CONFIG_PARAMS`, and `_check_content` returns no errors. `_check_content` still
   rejects `..`, `;`, `$` in relative paths, file names, `software`, `config_params`.
-- 7.3 Regression: for the `slurm` runner without `locations`, `QuantingEnv.to_dict()` is
-  byte-identical to before, except `_JOB_ENGINE` -> `_RUNNER`.
+- 7.3 Regression: for a `slurm` runner whose `locations` equal the former `absolute_path`
+  values, `QuantingEnv.to_dict()` is byte-identical to before, except `_JOB_ENGINE` -> `_RUNNER`.
+  `get_backup_base_path` yields the same string as before for the same yaml values.
 - 7.4 `test_utils.py`: two prefixes select disjoint connection sets.
 - 7.5 `test_job_handler.py`: factory per engine with a `Runner`; unknown engine raises.
 - 7.6 `webapp/tests`: selectbox options come from `RUNNERS`; docker-only-custom check keyed by
@@ -252,7 +289,7 @@ pytest, tests next to the existing ones (`shared/tests`, `airflow_src/tests`, `w
 ## 8. Boundaries
 
 - **Always:** run the three pytest commands and `pre-commit` before each commit; one chunk per
-  commit; keep `CLUSTER_VIEW` for persisted display paths; keep relative paths posix.
+  commit; keep relative paths posix; keep `get_backup_base_path` independent of any runner.
 - **Ask first:** any change to the allowed character set in `shared/validation.py`; adding a
   `JobEngines` value; touching `docker_job_handler.py` beyond the constructor call site; any
   further change to exported env var names.
@@ -264,8 +301,8 @@ pytest, tests next to the existing ones (`shared/tests`, `airflow_src/tests`, `w
 ## 9. Success criteria
 
 - 9.1 `grep -rn job_engine --include='*.py'` outside `shared/_migrations` returns nothing.
-- 9.2 `grep -rn CLUSTER_VIEW` outside `shared/path_views.py`, `shared/runners.py`,
-  `handler_impl.py:get_backup_base_path` and tests returns nothing.
+- 9.2 `grep -rn "CLUSTER_VIEW\|absolute_path"` over `*.py` and `envs/*.yaml` returns only
+  `backup_absolute_path` and the migration scripts.
 - 9.3 Tests 7.1 to 7.7 pass; full suite green (the 5 known `test_dags` env failures excepted
   when `AIRFLOW_HOME` is not set up).
 - 9.4 A yaml with a windows runner produces a `QuantingEnv` whose absolute paths are UNC or
@@ -278,8 +315,8 @@ pytest, tests next to the existing ones (`shared/tests`, `airflow_src/tests`, `w
 
 ## 10. Out of scope
 
-The SSH job handler and its Windows job script. Per-runner job scripts. The docker runner's
-view (2.2.3 keeps it). `mount.sh` generation. DB-persisted views and the six webapp path TODOs
+The SSH job handler and its Windows job script. Per-runner job scripts. Changing how the docker
+handler binds paths (1.2.5 keeps it). `mount.sh` generation. DB-persisted views and the six webapp path TODOs
 (D5). `QuantingEnv` view-typed fields (D4). Runner-specific `Pools` (`cluster_slots_pool` still
 gates all runners).
 

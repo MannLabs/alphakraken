@@ -131,9 +131,11 @@ def get_runner(name: str) -> Runner:
 
 - Built at import, like the views in `shared/path_views.py`. Import-time validation: list
   present and non-empty, every entry has a `name`, names unique, `engine` in `JobEngines`, `os`
-  present and in `OperatingSystems`, `locations` present. `ssh_connection_id_prefix` is optional
-  here and not interpreted: the loader knows nothing about which engines use SSH. No key has a
-  default. Each failure names the runner and the yaml key.
+  present and in `OperatingSystems`, `locations` present and every key of it in `Locations`.
+  `ssh_connection_id_prefix` is optional here and not interpreted: the loader knows nothing about
+  which engines use SSH. Which locations an engine needs is likewise not checked here; a missing
+  one fails at first use via `View.resolve`, naming view and location. No key has a default. Each
+  failure names the runner and the yaml key.
 - `os: linux` -> `PurePosixPath`, `os: windows` -> `PureWindowsPath`. Never `Path`: no code does
   filesystem I/O in a runner view.
 - `locations` is required for every runner; `view = View(name, locations, path_class)`.
@@ -174,6 +176,28 @@ resolved absolute strings change flavour.
 - Unknown `engine` still raises `ValueError` in the factory. Adding the SSH handler later is:
   one `JobEngines` constant, one factory branch, one module.
 
+#### 2.5.1 Why SSH credentials stay in Airflow Connections
+
+Considered and rejected (2026-09-02): moving host, user and password into the runner block.
+
+- The yaml is read by every Airflow component and by the webapp; only the workers running
+  `ssh_execute` need the credentials. Airflow Connections are Fernet-encrypted in the metadata DB
+  and reachable from Airflow only.
+- The yaml is loaded once at import; rotating a password would need a container restart.
+  Connections change live and can be tested in the UI.
+- Reproducible, file-based setup is available without moving secrets:
+  `AIRFLOW_CONN_<ID>=ssh://user:pw@host` in `envs/<env>.env`, next to `MONGO_PASSWORD`.
+
+#### 2.5.2 Why a prefix, not a list of connection ids
+
+A `ssh_connection_ids: [...]` list would make the runner self-contained, but adding or removing a
+head node would then touch the yaml and restart the containers. With a prefix, connections are
+added and removed in Airflow alone, and the existing round-robin discovery
+(`_get_cluster_ssh_connections`) is reused unchanged. The list is a possible follow-up.
+
+Both rationales are recorded as comments next to `ssh_connection_id_prefix` in
+`envs/alphakraken.local.yaml` and in `docs/deployment.md` (SSH connection section), cf. 2.10.
+
 ### 2.6 Validation (`_check_content`)
 
 Replace the dump-everything loop with an explicit list. Strict check (no spaces, no absolute):
@@ -207,8 +231,9 @@ those names.
 
 Extend `shared/tests/test_deployment_paths.py`: every in-repo yaml declares `runners`, each
 engine and os is known, each runner has `locations`, `locations.general.backup_absolute_path`
-is present, `locations` has no keys besides `general` and `mounts`, and every
-`locations.mounts.<x>` entry has `mount_src` and `mount_target`. The existing mount-target
+is present, `locations` has no keys besides `general` and `mounts`, every
+`locations.mounts.<x>` entry has `mount_src` and `mount_target`, and each in-repo `slurm` runner
+declares all five locations it uses (the import-time check only rejects unknown keys). The existing mount-target
 assertions (`test_deployment_paths.py:84-98`) iterate `locations.mounts` instead of `locations`.
 
 ### 2.9a mount.sh
@@ -219,7 +244,10 @@ Behaviour of the generated fstab line is unchanged.
 
 ### 2.10 Docs
 
-- `envs/alphakraken.local.yaml` is the commented reference: document the block there.
+- `envs/alphakraken.local.yaml` is the commented reference: document the block there, including
+  a one-line version of 2.5.1 and 2.5.2 next to `ssh_connection_id_prefix`.
+- `docs/deployment.md`, "Setup SSH connection" section: state that credentials stay in Airflow
+  and why, and how a runner selects its connections by prefix.
 - `docs/deployment.md:323-360` (standalone docker section) says "runner" instead of
   "execution engine", and mentions the `runners:` block.
 - `shared/config_params.py:30,33`: relative paths are "relative to the runner's backup/output
@@ -294,7 +322,8 @@ def resolve(self, location: str, rel_path: PurePath | str = "") -> _P:
 pytest, tests next to the existing ones (`shared/tests`, `airflow_src/tests`, `webapp/tests`).
 
 - 7.1 `test_runners.py`: build from a yaml list; missing `name`, duplicate `name`, missing `os`,
-  missing `locations` each fail; a prefix on a `docker` runner is accepted; windows runner resolves
+  missing `locations`, unknown location key each fail; a prefix on a `docker` runner and a
+  runner without `slurm` are accepted; windows runner resolves
   `\\server\share\backup\test1\1970_01\f.raw` and `Z:\...\out_f.raw\alphadia` from the layout
   functions; each import-time validation error; `get_runner` KeyError names known runners.
 - 7.2 `test_processor_impl.py`: `prepare_job` with a windows runner (patched `RUNNERS`) yields

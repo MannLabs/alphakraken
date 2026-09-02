@@ -30,13 +30,13 @@ that handler. No exported string changes for existing deployments, except where 
 - 1.2.1 `Settings.job_engine` is renamed to `Settings.runner`, with a one-shot DB migration.
 - 1.2.2 Validation moves to the user-controlled relative parts; resolved bases count as admin
   configuration. This is the one deliberate behaviour change.
-- 1.2.3 Every runner declares its complete `locations`. There is no default view and no fallback.
+- 1.2.3 Every runner declares its complete `view`. There is no default view and no fallback.
   `locations.<x>.absolute_path` is removed; the one non-job reader of it, the persisted display
   path in `get_backup_base_path`, reads a new key `locations.general.backup_absolute_path`.
   `CLUSTER_VIEW` is deleted. (Supersedes the earlier fallback decision, 2026-09-02.)
 - 1.2.4 A yaml without `runners:` fails at import with a clear error. No implicit defaults.
 - 1.2.5 The docker runner keeps binding host paths onto the paths the placeholders resolved to;
-  admins copy the old `absolute_path` values into its `locations` to keep exported strings equal.
+  admins copy the old `absolute_path` values into its `view` to keep exported strings equal.
 - 1.2.6 With `absolute_path` gone, the per-location entries hold mount information only. They
   move under `locations.mounts.<x>`; `locations.general` stays as is. Entries that had only an
   `absolute_path` (`settings`, `software`, `slurm`) disappear from `locations`.
@@ -62,9 +62,9 @@ locations:
 runners:
   - name: slurm                   # referenced by Settings.runner; unique within the list
     engine: slurm                 # one of shared.keys.JobEngines
-    os: linux                     # required; determines the path flavour of `locations`
+    os: linux                     # required; determines the path flavour of `view`
     ssh_connection_id_prefix: cluster_ssh_connection   # required for engines that use SSH
-    locations:                    # the view of this runner, complete
+    view:                         # the data directories as seen from this runner, complete
       backup: /fs/pool-0/alphakraken/backup
       output: /fs/pool-0/alphakraken/output
       settings: /fs/pool-0/alphakraken/settings
@@ -74,7 +74,7 @@ runners:
     engine: docker
     os: linux
     # no ssh_connection_id_prefix: the docker engine does not use SSH, the key would be ignored
-    locations:                    # paths inside the job container, cf. 1.2.5
+    view:                         # paths inside the job container, cf. 1.2.5
       backup: /fs/pool-0/alphakraken/backup
       output: /fs/pool-0/alphakraken/output
       settings: /fs/pool-0/alphakraken/settings
@@ -83,7 +83,7 @@ runners:
     engine: slurm                 # `ssh` once that handler exists; the factory rejects unknown engines
     os: windows
     ssh_connection_id_prefix: win_box_ssh
-    locations:
+    view:
       backup: '\\server\share\backup'
       output: 'Z:\alphakraken\output'
       settings: 'Z:\alphakraken\settings'
@@ -92,8 +92,10 @@ runners:
 
 - `runners` is a list; each entry carries its `name`. Order is the display order in the webapp.
 
-- Per-runner `locations` is a flat `location -> path` map (no `absolute_path` sub-key: there is
+- Per-runner `view` is a flat `location -> path` map (no `absolute_path` sub-key: there is
   no mount information at this level). Values are opaque strings; the flavour comes from `os`.
+  The key is named `view`, not `locations`, to avoid a clash with the top-level `locations` block
+  and to match `Runner.view` and the `View` class.
   Two runners on one file system repeat the paths; yaml anchors are available if that hurts.
 - A location a runner does not declare is unreachable and fails at `View.resolve` with the
   existing error naming view and location.
@@ -131,14 +133,14 @@ def get_runner(name: str) -> Runner:
 
 - Built at import, like the views in `shared/path_views.py`. Import-time validation: list
   present and non-empty, every entry has a `name`, names unique, `engine` in `JobEngines`, `os`
-  present and in `OperatingSystems`, `locations` present and every key of it in `Locations`.
+  present and in `OperatingSystems`, `view` present and every key of it in `Locations`.
   `ssh_connection_id_prefix` is optional here and not interpreted: the loader knows nothing about
   which engines use SSH. Which locations an engine needs is likewise not checked here; a missing
   one fails at first use via `View.resolve`, naming view and location. No key has a default. Each
   failure names the runner and the yaml key.
 - `os: linux` -> `PurePosixPath`, `os: windows` -> `PureWindowsPath`. Never `Path`: no code does
   filesystem I/O in a runner view.
-- `locations` is required for every runner; `view = View(name, locations, path_class)`.
+- `view` is required for every runner; `Runner.view = View(name, yaml_view, path_class)`.
 - `CLUSTER_VIEW` and `_build_cluster_view` are deleted from `shared/path_views.py`. Its one
   non-job reader, `handler_impl.get_backup_base_path`, becomes
   `PurePosixPath(BACKUP_ABSOLUTE_PATH) / get_raw_file_folder_rel_path(raw_file)` with
@@ -230,7 +232,7 @@ those names.
 ### 2.9 Consistency test
 
 Extend `shared/tests/test_deployment_paths.py`: every in-repo yaml declares `runners`, each
-engine and os is known, each runner has `locations`, `locations.general.backup_absolute_path`
+engine and os is known, each runner has `view`, `locations.general.backup_absolute_path`
 is present, `locations` has no keys besides `general` and `mounts`, every
 `locations.mounts.<x>` entry has `mount_src` and `mount_target`, and each in-repo `slurm` runner
 declares all five locations it uses (the import-time check only rejects unknown keys). The existing mount-target
@@ -291,7 +293,7 @@ airflow_src/plugins/common/constants.py  CLUSTER_SSH_CONNECTION_ID_PREFIX remove
 airflow_src/plugins/common/quanting_env.py   runner field
 airflow_src/dags/impl/processor_impl.py  runner.view, _check_content
 airflow_src/dags/impl/handler_impl.py    get_backup_base_path reads BACKUP_ABSOLUTE_PATH
-airflow_src/tests/helpers.py             yaml_locations() -> runner_locations(name, **paths)
+airflow_src/tests/helpers.py             yaml_locations() -> runner_view(name, **paths)
 webapp/pages_/settings.py
 envs/alphakraken.{local,sandbox,production}.yaml
 docs/deployment.md
@@ -322,7 +324,7 @@ def resolve(self, location: str, rel_path: PurePath | str = "") -> _P:
 pytest, tests next to the existing ones (`shared/tests`, `airflow_src/tests`, `webapp/tests`).
 
 - 7.1 `test_runners.py`: build from a yaml list; missing `name`, duplicate `name`, missing `os`,
-  missing `locations`, unknown location key each fail; a prefix on a `docker` runner and a
+  missing `view`, unknown location key each fail; a prefix on a `docker` runner and a
   runner without `slurm` are accepted; windows runner resolves
   `\\server\share\backup\test1\1970_01\f.raw` and `Z:\...\out_f.raw\alphadia` from the layout
   functions; each import-time validation error; `get_runner` KeyError names known runners.
@@ -330,7 +332,7 @@ pytest, tests next to the existing ones (`shared/tests`, `airflow_src/tests`, `w
   the windows strings in `RAW_FILE_PATH`, `SETTINGS_PATH`, `OUTPUT_PATH`, `CUSTOM_COMMAND`,
   substituted `_CONFIG_PARAMS`, and `_check_content` returns no errors. `_check_content` still
   rejects `..`, `;`, `$` in relative paths, file names, `software`, `config_params`.
-- 7.3 Regression: for a `slurm` runner whose `locations` equal the former `absolute_path`
+- 7.3 Regression: for a `slurm` runner whose `view` equals the former `absolute_path`
   values, `QuantingEnv.to_dict()` is byte-identical to before, except `_JOB_ENGINE` -> `_RUNNER`.
   `get_backup_base_path` yields the same string as before for the same yaml values.
 - 7.4 `test_utils.py`: two prefixes select disjoint connection sets.

@@ -62,8 +62,8 @@ locations:
 runners:
   - name: slurm                   # referenced by Settings.runner; unique within the list
     engine: slurm                 # one of shared.keys.JobEngines
-    # os: linux                   # default; determines the path flavour of `locations`
-    # ssh_connection_id_prefix: cluster_ssh_connection   # default
+    os: linux                     # required; determines the path flavour of `locations`
+    ssh_connection_id_prefix: cluster_ssh_connection   # required for engines that use SSH
     locations:                    # the view of this runner, complete
       backup: /fs/pool-0/alphakraken/backup
       output: /fs/pool-0/alphakraken/output
@@ -72,6 +72,8 @@ runners:
       slurm: /fs/pool-0/alphakraken/slurm
   - name: docker
     engine: docker
+    os: linux
+    # no ssh_connection_id_prefix: the docker engine does not use SSH, the key would be ignored
     locations:                    # paths inside the job container, cf. 1.2.5
       backup: /fs/pool-0/alphakraken/backup
       output: /fs/pool-0/alphakraken/output
@@ -117,7 +119,7 @@ class Runner:
     name: str
     engine: str
     view: View[PurePath]
-    ssh_connection_id_prefix: str
+    ssh_connection_id_prefix: str | None  # optional in yaml; engines that need it check for None
 
 
 RUNNERS: dict[str, Runner]  # keyed by name, built at import from the YAMLSETTINGS["runners"] list, order kept
@@ -128,8 +130,10 @@ def get_runner(name: str) -> Runner:
 ```
 
 - Built at import, like the views in `shared/path_views.py`. Import-time validation: list
-  present and non-empty, every entry has a `name`, names unique, `engine` in `JobEngines`, `os` in
-  `OperatingSystems`, `locations` present. Each failure names the runner and the yaml key.
+  present and non-empty, every entry has a `name`, names unique, `engine` in `JobEngines`, `os`
+  present and in `OperatingSystems`, `locations` present. `ssh_connection_id_prefix` is optional
+  here and not interpreted: the loader knows nothing about which engines use SSH. No key has a
+  default. Each failure names the runner and the yaml key.
 - `os: linux` -> `PurePosixPath`, `os: windows` -> `PureWindowsPath`. Never `Path`: no code does
   filesystem I/O in a runner view.
 - `locations` is required for every runner; `view = View(name, locations, path_class)`.
@@ -138,8 +142,9 @@ def get_runner(name: str) -> Runner:
   `PurePosixPath(BACKUP_ABSOLUTE_PATH) / get_raw_file_folder_rel_path(raw_file)` with
   `BACKUP_ABSOLUTE_PATH` read from `locations.general.backup_absolute_path` in `shared/yamlsettings.py`,
   missing key raising at import like the runners do.
-- `DEFAULT_SSH_CONNECTION_ID_PREFIX = "cluster_ssh_connection"` moves here from
-  `common/constants.py:6`; the two users are repointed.
+- `CLUSTER_SSH_CONNECTION_ID_PREFIX` (`common/constants.py:6`) is deleted without replacement;
+  the prefix always comes from the runner. The error text in `get_cluster_ssh_hook` names the
+  prefix it was given.
 - Lives in `shared` because the webapp needs the runner names and engines (2.7).
 
 ### 2.3 Settings and QuantingEnv
@@ -161,6 +166,7 @@ resolved absolute strings change flavour.
 - `_get_job_handler(runner: Runner)`. `start_job/get_job_status/get_job_result(..., runner_name)`
   look the runner up. `ssh_sensor.py:58` reads `.runner`.
 - Slurm: `SlurmSSHJobHandler(runner.view.resolve(Locations.SLURM), runner.ssh_connection_id_prefix)`.
+  The factory raises `AirflowFailException` naming the runner if the prefix is `None`.
 - Docker: unchanged, `DockerJobHandler(DOCKER_HOST_VIEW)`. The host view is a property of the
   worker host, not of a runner.
 - `ssh_execute(command, ssh_connection_id_prefix)`, `get_cluster_ssh_hook(attempt_no, prefix, ...)`,
@@ -287,8 +293,8 @@ def resolve(self, location: str, rel_path: PurePath | str = "") -> _P:
 
 pytest, tests next to the existing ones (`shared/tests`, `airflow_src/tests`, `webapp/tests`).
 
-- 7.1 `test_runners.py`: build from a yaml list; missing `name`, duplicate `name`, missing
-  `locations` each fail; windows runner resolves
+- 7.1 `test_runners.py`: build from a yaml list; missing `name`, duplicate `name`, missing `os`,
+  missing `locations` each fail; a prefix on a `docker` runner is accepted; windows runner resolves
   `\\server\share\backup\test1\1970_01\f.raw` and `Z:\...\out_f.raw\alphadia` from the layout
   functions; each import-time validation error; `get_runner` KeyError names known runners.
 - 7.2 `test_processor_impl.py`: `prepare_job` with a windows runner (patched `RUNNERS`) yields
@@ -299,7 +305,8 @@ pytest, tests next to the existing ones (`shared/tests`, `airflow_src/tests`, `w
   values, `QuantingEnv.to_dict()` is byte-identical to before, except `_JOB_ENGINE` -> `_RUNNER`.
   `get_backup_base_path` yields the same string as before for the same yaml values.
 - 7.4 `test_utils.py`: two prefixes select disjoint connection sets.
-- 7.5 `test_job_handler.py`: factory per engine with a `Runner`; unknown engine raises.
+- 7.5 `test_job_handler.py`: factory per engine with a `Runner`; unknown engine raises; a
+  `slurm` runner without `ssh_connection_id_prefix` raises naming the runner.
 - 7.6 `webapp/tests`: selectbox options come from `RUNNERS`; docker-only-custom check keyed by
   engine of the selected runner.
 - 7.7 Consistency test per 2.9; each assertion shown to fail on a mutated yaml.

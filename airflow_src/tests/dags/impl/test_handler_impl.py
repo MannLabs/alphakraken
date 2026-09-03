@@ -1,7 +1,7 @@
 """Unit tests for handler_impl.py."""
 
 from datetime import datetime
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from unittest.mock import MagicMock, Mock, call, patch
 
 import pytest
@@ -18,13 +18,12 @@ from dags.impl.handler_impl import (
     compute_checksum,
     copy_raw_file,
     decide_processing,
-    get_backup_base_path,
     start_acquisition_processor,
     start_file_mover,
     start_s3_uploader,
 )
 
-from shared.db.models import InstrumentFileStatus, RawFile, RawFileStatus
+from shared.db.models import InstrumentFileStatus, RawFileStatus
 
 
 @pytest.mark.parametrize(
@@ -488,18 +487,14 @@ def test_compute_checksum_no_files_found(
 
 @patch("dags.impl.handler_impl.get_xcom")
 @patch("dags.impl.handler_impl.get_raw_file_by_id")
-@patch(
-    "dags.impl.handler_impl.get_backup_base_path",
-    return_value=Path("some_backup_folder"),
-)
+@patch("dags.impl.handler_impl.BACKUP_BASE_PATH", "/fs/pool/backup")
 @patch("dags.impl.handler_impl._handle_file_copying")
 @patch("dags.impl.handler_impl._verify_copied_files")
 @patch("dags.impl.handler_impl.update_raw_file")
-def test_copy_raw_file_calls_update_with_correct_args(  # noqa: PLR0913
+def test_copy_raw_file_calls_update_with_correct_args(
     mock_update_raw_file: MagicMock,
     mock_verify_copied_files: MagicMock,
     mock_handle_file_copying: MagicMock,
-    mock_get_backup_base_path: MagicMock,  # noqa: ARG001
     mock_get_raw_file_by_id: MagicMock,
     mock_get_xcom: MagicMock,
 ) -> None:
@@ -516,7 +511,9 @@ def test_copy_raw_file_calls_update_with_correct_args(  # noqa: PLR0913
         {src_path: (1000, "some_hash")},
     ]
 
-    mock_raw_file = MagicMock()
+    mock_raw_file = MagicMock(
+        instrument_id="test1", created_at=datetime(2025, 7, 1, tzinfo=pytz.UTC)
+    )
     mock_get_raw_file_by_id.return_value = mock_raw_file
 
     mock_handle_file_copying.return_value = {Path(src_path): (1000, "some_hash")}
@@ -535,7 +532,7 @@ def test_copy_raw_file_calls_update_with_correct_args(  # noqa: PLR0913
             call(
                 "test_file.raw",
                 new_status=RawFileStatus.COPYING,
-                backup_base_path="some_backup_folder",
+                backup_base_path="/fs/pool/backup/test1/2025_07",
                 backup_status="copying_in_progress",
             ),
             call(
@@ -554,18 +551,14 @@ def test_copy_raw_file_calls_update_with_correct_args(  # noqa: PLR0913
 
 @patch("dags.impl.handler_impl.get_xcom")
 @patch("dags.impl.handler_impl.get_raw_file_by_id")
-@patch(
-    "dags.impl.handler_impl.get_backup_base_path",
-    return_value=Path("some_backup_folder"),
-)
+@patch("dags.impl.handler_impl.BACKUP_BASE_PATH", "/fs/pool/backup")
 @patch("dags.impl.handler_impl._handle_file_copying")
 @patch("dags.impl.handler_impl._verify_copied_files")
 @patch("dags.impl.handler_impl.update_raw_file")
-def test_copy_raw_file_verify_fails(  # noqa: PLR0913
+def test_copy_raw_file_verify_fails(
     mock_update_raw_file: MagicMock,
     mock_verify_copied_files: MagicMock,
     mock_handle_file_copying: MagicMock,  # noqa: ARG001
-    mock_get_backup_base_path: MagicMock,  # noqa: ARG001
     mock_get_raw_file_by_id: MagicMock,
     mock_get_xcom: MagicMock,
 ) -> None:
@@ -582,7 +575,9 @@ def test_copy_raw_file_verify_fails(  # noqa: PLR0913
         {src_path: (1000, "some_hash")},
     ]
 
-    mock_raw_file = MagicMock()
+    mock_raw_file = MagicMock(
+        instrument_id="test1", created_at=datetime(2025, 7, 1, tzinfo=pytz.UTC)
+    )
     mock_get_raw_file_by_id.return_value = mock_raw_file
 
     mock_verify_copied_files.side_effect = ValueError("File copy failed with errors")
@@ -597,7 +592,7 @@ def test_copy_raw_file_verify_fails(  # noqa: PLR0913
             call(
                 "test_file.raw",
                 new_status=RawFileStatus.COPYING,
-                backup_base_path="some_backup_folder",
+                backup_base_path="/fs/pool/backup/test1/2025_07",
                 backup_status="copying_in_progress",
             ),
             call(
@@ -614,16 +609,12 @@ def test_copy_raw_file_verify_fails(  # noqa: PLR0913
 @patch("dags.impl.handler_impl.get_xcom")
 @patch("dags.impl.handler_impl.get_raw_file_by_id")
 @patch("dags.impl.handler_impl.get_airflow_variable")
-@patch(
-    "dags.impl.handler_impl.get_backup_base_path",
-    return_value=Path("some_backup_folder"),
-)
+@patch("dags.impl.handler_impl.BACKUP_BASE_PATH", "/fs/pool/backup")
 @patch("dags.impl.handler_impl._handle_file_copying")
 @patch("dags.impl.handler_impl.update_raw_file")
 def test_copy_raw_file_calls_update_with_correct_args_overwrite(  # noqa: PLR0913
     mock_update_raw_file: MagicMock,  # noqa: ARG001
     mock_handle_file_copying: MagicMock,
-    mock_get_backup_base_path: MagicMock,  # noqa: ARG001
     mock_get_airflow_variable: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
     mock_get_xcom: MagicMock,
@@ -642,7 +633,7 @@ def test_copy_raw_file_calls_update_with_correct_args_overwrite(  # noqa: PLR091
         {"/path/to/instrument/test_file.raw": (1000, "some_hash")},
     ]
 
-    mock_raw_file = MagicMock()
+    mock_raw_file = MagicMock(created_at=datetime(2025, 7, 1, tzinfo=pytz.UTC))
     mock_raw_file.id = "test_file.raw"
     mock_raw_file.instrument_id = "instrument1"
     mock_get_raw_file_by_id.return_value = mock_raw_file
@@ -1295,18 +1286,3 @@ def test_is_settings_configured_returns_false_when_settings_do_not_exist(
     assert result is False
     mock_get_settings.assert_called_once_with("project1")
     mock_resolve_scoped.assert_called_once()
-
-
-@patch("dags.impl.handler_impl.BACKUP_BASE_PATH", "/fs/pool/backup")
-def test_get_backup_base_path() -> None:
-    """Test that the backup base path is the yaml backup folder plus the raw file's folder."""
-    raw_file = MagicMock(
-        wraps=RawFile,
-        instrument_id="test2",
-        created_at=datetime(2025, 7, 1, tzinfo=pytz.UTC),
-    )
-
-    # when
-    result = get_backup_base_path(raw_file)
-
-    assert result == PurePosixPath("/fs/pool/backup/test2/2025_07")

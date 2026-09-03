@@ -231,7 +231,9 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
     }
 
     raw_file = get_raw_file_by_id(raw_file_id)
-    backup_base_path = get_backup_base_path(raw_file)
+    backup_base_path = PurePosixPath(BACKUP_BASE_PATH) / get_raw_file_folder_rel_path(
+        raw_file
+    )
 
     if SKIP_COPYING:
         update_raw_file(
@@ -320,12 +322,6 @@ def _handle_file_copying(
 
         copied_files[src_path] = (dst_size, dst_hash)  # type:  ignore[invalid-assignment]
     return copied_files
-
-
-# TODO: move
-def get_backup_base_path(raw_file: RawFile) -> PurePosixPath:
-    """Get the backup base path for the given raw file, e.g. /fs/pool/backup/test2/2025_07 ."""
-    return PurePosixPath(BACKUP_BASE_PATH) / get_raw_file_folder_rel_path(raw_file)
 
 
 def _verify_copied_files(

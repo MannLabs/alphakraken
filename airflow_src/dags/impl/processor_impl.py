@@ -271,9 +271,9 @@ def _prepare_custom_command(settings: Settings, substituted_params: str) -> str:
 
 # TODO: revisit validation: which fields need which check, and where (webapp vs. here)
 # user-controlled fields, checked strictly (no spaces, no absolute paths).
-# Not checked: `raw_file_path`, `settings_path`, `output_path`, `custom_command`, `config_params`.
-# They are composed of a yaml base path (admin configuration) and fields from this list, e.g.
-# `output_path` = output base + `relative_output_path`.
+# Not checked: `raw_file_path`, `settings_path`, `output_path`.
+# They are composed of a yaml base path (admin configuration) and fields from this list.
+# Checked more loosely: `custom_command`, `config_params`.
 _STRICTLY_CHECKED_FIELDS = (
     "relative_raw_file_path",
     "relative_output_path",
@@ -299,7 +299,7 @@ def _check_content(quanting_env: QuantingEnv, settings: Settings) -> list[str]:
         if value and (errors_ := check_for_malicious_content(value)):
             errors.append(f"Validation error in '{value}': {errors_}")
 
-    # an absolute `software` is a valid config
+    # an absolute `software` is a valid config. # TODO: double-check
     if errors_ := check_for_malicious_content(
         quanting_env.software, allow_absolute_paths=True
     ):

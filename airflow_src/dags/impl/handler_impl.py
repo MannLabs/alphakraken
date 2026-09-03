@@ -2,7 +2,7 @@
 
 import logging
 import re
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from airflow.exceptions import AirflowFailException, AirflowSkipException
 from airflow.models import TaskInstance
@@ -59,9 +59,10 @@ from shared.keys import (
     DDA_FLAG_IN_RAW_FILE_NAME,
 )
 from shared.path_layout import get_raw_file_folder_rel_path
+from shared.path_views import CLUSTER_VIEW, Locations
 from shared.settings_scope_resolver import resolve_scoped_settings
 from shared.validation import FORBIDDEN_RAW_FILE_NAME_CHARACTERS_PATTERN
-from shared.yamlsettings import YamlKeys, get_path, is_s3_upload_enabled
+from shared.yamlsettings import is_s3_upload_enabled
 
 # special mode that does not copy (e.g. because another instance handles it)
 # point locations.backup.absolute_path to the folder where the files can be picked up for quanting
@@ -322,9 +323,12 @@ def _handle_file_copying(
     return copied_files
 
 
-def get_backup_base_path(raw_file: RawFile) -> Path:
+# TODO: move
+def get_backup_base_path(raw_file: RawFile) -> PurePosixPath:
     """Get the backup base path for the given raw file, e.g. /fs/pool/backup/test2/2025_07 ."""
-    return get_path(YamlKeys.Locations.BACKUP) / get_raw_file_folder_rel_path(raw_file)
+    return CLUSTER_VIEW.resolve(
+        Locations.BACKUP, get_raw_file_folder_rel_path(raw_file)
+    )
 
 
 def _verify_copied_files(

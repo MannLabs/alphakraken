@@ -2,7 +2,7 @@
 
 import logging
 from datetime import datetime
-from pathlib import Path
+from pathlib import PurePosixPath
 
 from airflow.exceptions import AirflowFailException
 from common.constants import (
@@ -19,7 +19,7 @@ from sensors.ssh_utils import ssh_execute
 class SlurmSSHJobHandler(JobHandler):
     """Implementation of JobHandler that executes commands on a Slurm cluster via SSH."""
 
-    def __init__(self, cluster_base_dir: Path):
+    def __init__(self, cluster_base_dir: PurePosixPath):
         """Initialize the Slurm job handler.
 
         Args:

@@ -1,9 +1,11 @@
 """Unit tests for handler_impl.py."""
 
-from pathlib import Path
+from datetime import datetime
+from pathlib import Path, PurePosixPath
 from unittest.mock import MagicMock, Mock, call, patch
 
 import pytest
+import pytz
 from airflow.exceptions import AirflowFailException, AirflowSkipException
 from common.keys import AcquisitionMonitorErrors, DagContext, DagParams, OpArgs
 from common.settings import _INSTRUMENTS
@@ -16,12 +18,13 @@ from dags.impl.handler_impl import (
     compute_checksum,
     copy_raw_file,
     decide_processing,
+    get_backup_base_path,
     start_acquisition_processor,
     start_file_mover,
     start_s3_uploader,
 )
 
-from shared.db.models import InstrumentFileStatus, RawFileStatus
+from shared.db.models import InstrumentFileStatus, RawFile, RawFileStatus
 
 
 @pytest.mark.parametrize(
@@ -1292,3 +1295,18 @@ def test_is_settings_configured_returns_false_when_settings_do_not_exist(
     assert result is False
     mock_get_settings.assert_called_once_with("project1")
     mock_resolve_scoped.assert_called_once()
+
+
+@patch("dags.impl.handler_impl.BACKUP_BASE_PATH", "/fs/pool/backup")
+def test_get_backup_base_path() -> None:
+    """Test that the backup base path is the yaml backup folder plus the raw file's folder."""
+    raw_file = MagicMock(
+        wraps=RawFile,
+        instrument_id="test2",
+        created_at=datetime(2025, 7, 1, tzinfo=pytz.UTC),
+    )
+
+    # when
+    result = get_backup_base_path(raw_file)
+
+    assert result == PurePosixPath("/fs/pool/backup/test2/2025_07")

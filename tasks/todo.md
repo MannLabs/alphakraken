@@ -15,13 +15,13 @@ yaml key. `envs/*.env` comment: must be absolute when the docker runner is used.
 `locations.general.mounts_path` stays, unread, until T10. Spec 1.2.7, 7.8.
 
 **Acceptance criteria:**
-- [ ] `MOUNTS_PATH=/m` -> `DOCKER_HOST_VIEW.resolve(OUTPUT, "P1/x") == PurePosixPath("/m/output/P1/x")`; unset -> `has(OUTPUT)` is `False` (7.8).
-- [ ] Docker factory branch with empty view raises naming `MOUNTS_PATH`.
-- [ ] `grep -rn mounts_path shared airflow_src docker-compose.yaml` returns nothing.
+- [x] `MOUNTS_PATH=/m` -> `DOCKER_HOST_VIEW.resolve(OUTPUT, "P1/x") == PurePosixPath("/m/output/P1/x")`; unset -> `has(OUTPUT)` is `False` (7.8).
+- [x] Docker factory branch with empty view raises naming `MOUNTS_PATH`.
+- [x] `grep -rn mounts_path shared airflow_src docker-compose.yaml` returns nothing.
 
 **Verification:**
-- [ ] `pytest shared/tests/test_path_views.py airflow_src/tests/plugins/jobs/test_job_handler.py`
-- [ ] All three suites (conftests changed); `docker compose config` shows `MOUNTS_PATH` in an airflow service's environment.
+- [x] `pytest shared/tests/test_path_views.py airflow_src/tests/plugins/jobs/test_job_handler.py`
+- [x] All three suites (conftests changed); `docker compose config` shows `MOUNTS_PATH` in an airflow service's environment (checked via the yaml anchors, `docker compose` not runnable in the sandbox).
 
 **Dependencies:** None
 **Files:** `shared/keys.py`, `shared/path_views.py`, `shared/yamlsettings.py` (stub), `docker-compose.yaml`, `envs/{local,sandbox,production}.env`, `airflow_src/plugins/jobs/job_handler.py`, `airflow_src/plugins/jobs/docker_job_handler.py` (docstring), `{shared,airflow_src,webapp}/tests/conftest.py`, `shared/tests/test_path_views.py`, `airflow_src/tests/plugins/jobs/test_job_handler.py`

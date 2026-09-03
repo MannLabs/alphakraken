@@ -1,9 +1,10 @@
 """Views on the data directories: the same tree, seen from different machines."""
 
+import os
 from pathlib import Path, PurePath, PurePosixPath
 from typing import Generic, TypeVar
 
-from shared.keys import ConstantsClass, InternalPaths
+from shared.keys import ConstantsClass, EnvVars, InternalPaths
 from shared.yamlsettings import YAMLSETTINGS, YamlKeys
 
 
@@ -94,19 +95,17 @@ def _build_docker_host_view() -> View[PurePosixPath]:
     The docker daemon resolves bind mounts in host coordinates, so the paths handed to it need
     to be translated from the container view to this one.
 
-    `locations.general.mounts_path` is required by the `docker` job engine only, so a missing key
-    yields a view without locations rather than an error: it is reported when the view is used.
+    `MOUNTS_PATH` is required by the `docker` job engine only, so an unset variable yields a view
+    without locations rather than an error: it is reported when the view is used.
     """
-    mounts_path = (
-        YAMLSETTINGS.get(YamlKeys.LOCATIONS, {})  # type: ignore[possibly-unbound-attribute]
-        .get(YamlKeys.Locations.GENERAL, {})
-        .get(YamlKeys.Locations.MOUNTS_PATH)
-    )
+    mounts_folder = os.getenv(EnvVars.MOUNTS_PATH)
 
     locations = (
         {}
-        if mounts_path is None
-        else {location: f"{mounts_path}/{location}" for location in _MOUNTED_LOCATIONS}
+        if mounts_folder is None
+        else {
+            location: f"{mounts_folder}/{location}" for location in _MOUNTED_LOCATIONS
+        }
     )
 
     return View("docker host", locations, PurePosixPath)

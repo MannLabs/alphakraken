@@ -49,7 +49,7 @@ def _env_yamls() -> list[tuple[str, dict]]:
 def test_compose_binds_mirror_the_mounts_folder() -> None:
     """Test that each bind puts the data at the same path below the mounts folder on both sides.
 
-    This is what lets the docker host view be derived from `locations.general.mounts_path`.
+    This is what lets the docker host view be derived from `MOUNTS_PATH`.
     """
     for host_path, container_path in _mount_binds():
         rel_path = container_path.removeprefix(InternalPaths.MOUNTS_PATH)

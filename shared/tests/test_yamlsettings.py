@@ -91,7 +91,6 @@ def test_returns_test_settings_for_test_environment(
             }
         },
         "locations": {
-            "general": {"mounts_path": "./tmp/test/mounts"},
             "settings": {"absolute_path": "./tmp/test/settings"},
             "output": {"absolute_path": "./tmp/test/output"},
             "backup": {"absolute_path": "./tmp/test/backup"},

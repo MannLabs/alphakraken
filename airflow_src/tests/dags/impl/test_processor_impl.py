@@ -340,13 +340,15 @@ def test_check_content_allows_resolved_config_params(
     assert errors == []
 
 
-def test_check_content_rejects_malicious_resolved_config_params(
+def test_check_content_rejects_malicious_unresolved_config_params(
     make_quanting_env: Callable[..., QuantingEnv],
 ) -> None:
-    """Test that the resolved config params are validated, not only the unresolved ones."""
+    """Test that malicious content in the config params template is rejected once."""
     quanting_env = make_quanting_env(config_params="--f /pool/backup/f.raw; rm -rf /")
 
-    errors = _check_content(quanting_env, MagicMock(config_params=None))
+    errors = _check_content(
+        quanting_env, MagicMock(config_params="--f {RAW_FILE_PATH}; rm -rf /")
+    )
 
     assert len(errors) == 1
 
@@ -389,6 +391,58 @@ def test_check_content_allows_image_name_in_software_field(
     errors = _check_content(quanting_env, MagicMock(config_params=None))
 
     assert errors == []
+
+
+def test_check_content_ignores_resolved_paths(
+    make_quanting_env: Callable[..., QuantingEnv],
+) -> None:
+    """Test that windows-style resolved paths pass: their base is admin configuration, their parts are checked."""
+    quanting_env = make_quanting_env(
+        raw_file_path=r"\\server\share\backup\instrument1\1970_01\test_file.raw",
+        settings_path=r"Z:\settings\test_settings",
+        output_path=r"Z:\output\PID1\out_test_file.raw\alphadia",
+        custom_command=r"run.exe Z:\output\PID1\out_test_file.raw\alphadia",
+        config_params=r"--f \\server\share\backup\instrument1\1970_01\test_file.raw --threads 8",
+    )
+
+    errors = _check_content(quanting_env, MagicMock(config_params=None))
+
+    assert errors == []
+
+
+def test_check_content_skips_unset_file_names(
+    make_quanting_env: Callable[..., QuantingEnv],
+) -> None:
+    """Test that optional file names that are not set do not yield errors."""
+    quanting_env = make_quanting_env(
+        speclib_file_name=None, fasta_file_name=None, config_file_name=None
+    )
+
+    errors = _check_content(quanting_env, MagicMock(config_params=None))
+
+    assert errors == []
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("relative_raw_file_path", "../instrument1/1970_01/test_file.raw"),
+        ("relative_output_path", "/PID1/out_test_file.raw/alphadia"),
+        ("fasta_file_name", "$(rm -rf /).fasta"),
+        ("project_id", "PID1;rm"),
+        ("software", "alphadia; rm -rf /"),
+        ("slurm_mem", "62G$X"),
+    ],
+)
+def test_check_content_rejects_malicious_field(
+    field: str, value: str, make_quanting_env: Callable[..., QuantingEnv]
+) -> None:
+    """Test that a malicious value in a user-controlled field yields one error."""
+    quanting_env = make_quanting_env(**{field: value})
+
+    errors = _check_content(quanting_env, MagicMock(config_params=None))
+
+    assert len(errors) == 1
 
 
 @patch("dags.impl.processor_impl._check_content")

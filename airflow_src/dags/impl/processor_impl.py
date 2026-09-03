@@ -270,10 +270,7 @@ def _prepare_custom_command(settings: Settings, substituted_params: str) -> str:
 
 
 # TODO: revisit validation: which fields need which check, and where (webapp vs. here)
-# user-controlled fields, checked strictly (no spaces, no absolute paths).
-# Not checked: `raw_file_path`, `settings_path`, `output_path`.
-# They are composed of a yaml base path (admin configuration) and fields from this list.
-# Checked more loosely: `custom_command`, `config_params`.
+# user-controlled fields, checked strictly (no spaces, no absolute paths)
 _STRICTLY_CHECKED_FIELDS = (
     "relative_raw_file_path",
     "relative_output_path",
@@ -287,7 +284,18 @@ _STRICTLY_CHECKED_FIELDS = (
     "settings_name",
     "year_month_folder",
     "slurm_mem",
-    # "slurm_time" # contains ":" and is validated in the webapp
+)
+
+# composed of a yaml base path (admin configuration) and fields checked above, e.g.
+# `output_path` = output base + `relative_output_path`; `software` is checked separately
+_UNCHECKED_FIELDS = (
+    "raw_file_path",
+    "settings_path",
+    "output_path",
+    "custom_command",
+    "config_params",
+    "slurm_time",  # contains ":", validated in the webapp
+    "job_engine",  # selectbox value, dispatch only, not exported to the job
 )
 
 

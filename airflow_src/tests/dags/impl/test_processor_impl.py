@@ -12,7 +12,9 @@ from common.quanting_env import QuantingEnv
 from common.settings import _INSTRUMENTS
 from dags.impl.processor_impl import (
     _PREPARE_JOB_TASK_ID,
+    _STRICTLY_CHECKED_FIELDS,
     _TASK_GROUP_PREFIX,
+    _UNCHECKED_FIELDS,
     QuantingFailedKnownErrorException,
     QuantingFailedNewErrorException,
     _check_content,
@@ -391,6 +393,20 @@ def test_check_content_allows_image_name_in_software_field(
     errors = _check_content(quanting_env, MagicMock(config_params=None))
 
     assert errors == []
+
+
+def test_check_content_sorts_every_string_field() -> None:
+    """Test that each string field of the quanting env is either checked or explicitly unchecked."""
+    str_fields = {
+        name
+        for name, field in QuantingEnv.model_fields.items()
+        if field.annotation in (str, str | None)
+    }
+
+    assert (
+        set(_STRICTLY_CHECKED_FIELDS) | set(_UNCHECKED_FIELDS) | {"software"}
+        == str_fields
+    )
 
 
 def test_check_content_ignores_resolved_paths(

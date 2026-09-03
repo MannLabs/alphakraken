@@ -28,7 +28,6 @@ class EnvVars(metaclass=ConstantsClass):
 
     KRAKEN_HOSTNAME = "KRAKEN_HOSTNAME"
 
-    # the mounts folder as seen by the docker host, cf. envs/<env>.env
     MOUNTS_PATH = "MOUNTS_PATH"
 
     MONGO_HOST = "MONGO_HOST"

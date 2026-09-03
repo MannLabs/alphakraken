@@ -83,15 +83,15 @@ yet. Consistency test: every in-repo yaml declares `runners`, engine and os know
 `locations` stays in the yamls. Spec 2.1, 2.2, 2.9 runner parts, 7.1.
 
 **Acceptance criteria:**
-- [ ] `_build_runners` rejects: empty list, missing `name`, duplicate `name`, unknown `engine`, missing or unknown `os`, missing `view`, unknown `view` key; each error names runner and key.
-- [ ] Accepts: prefix on a `docker` runner, runner without `slurm`; `macos` == `linux` flavour.
-- [ ] Windows runner resolves `\\server\share\backup\test1\1970_01\f.raw` and `Z:\...\out_f.raw\alphadia` from the layout functions; `get_runner("nope")` raises `KeyError` listing known names.
-- [ ] Each new consistency assertion fails on a mutated yaml (one mutation each, reverted).
-- [ ] No yaml key or engine/os literal at a use site in `runners.py`.
+- [x] `_build_runners` rejects: empty list, missing `name`, duplicate `name`, unknown `engine`, missing or unknown `os`, missing `view`, unknown `view` key; each error names runner and key.
+- [x] Accepts: prefix on a `docker` runner, runner without `slurm`; `macos` == `linux` flavour.
+- [x] Windows runner resolves `\\server\share\backup\test1\1970_01\f.raw` and `Z:\...\out_f.raw\alphadia` from the layout functions; `get_runner("nope")` raises `KeyError` listing known names.
+- [x] Each new consistency assertion fails on a mutated yaml (one mutation each, reverted).
+- [x] No yaml key or engine/os literal at a use site in `runners.py`.
 
 **Verification:**
-- [ ] `pytest shared/tests/test_runners.py shared/tests/test_deployment_paths.py`
-- [ ] `pytest shared`
+- [x] `pytest shared/tests/test_runners.py shared/tests/test_deployment_paths.py`
+- [x] `pytest shared`
 
 **Dependencies:** T2 (equality assertion)
 **Files:** `shared/runners.py` (new), `shared/tests/test_runners.py` (new), `shared/yamlsettings.py`, `envs/alphakraken.{local,sandbox,production}.yaml`, `shared/tests/test_deployment_paths.py`

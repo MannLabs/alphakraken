@@ -23,6 +23,8 @@ class YamlKeys:
 
     BACKUP = "backup"
 
+    RUNNERS = "runners"
+
     NOTIFICATIONS = "notifications"
     OPS_ALERTS_WEBHOOK_URL = "ops_alerts_webhook_url"
     BUSINESS_ALERTS_WEBHOOK_URL = "business_alerts_webhook_url"
@@ -40,6 +42,15 @@ class YamlKeys:
         SLURM = "slurm"
         SOFTWARE = "software"
 
+    class Runners:
+        """Keys of one entry of the `runners` list."""
+
+        NAME = "name"
+        ENGINE = "engine"
+        OS = "os"
+        SSH_CONNECTION_ID_PREFIX = "ssh_connection_id_prefix"
+        VIEW = "view"
+
     class Backup:
         """Keys for accessing backup configuration in the yaml config."""
 
@@ -55,16 +66,16 @@ class YamlKeys:
 class YamlSettings:
     """Class to load and access the alphakraken.yaml settings as a singleton."""
 
-    _instance: dict[str, dict[str, Any]] | None = None
+    _instance: dict[str, Any] | None = None
 
-    def __new__(cls) -> dict[str, dict[str, Any]]:
+    def __new__(cls) -> dict[str, Any]:
         """Get a new or existing instance of the YamlSettings class."""
         if cls._instance is None:
             cls._instance = cls.load_alphakraken_yaml()
         return cls._instance.copy()
 
     @classmethod
-    def load_alphakraken_yaml(cls) -> dict[str, dict[str, Any]]:
+    def load_alphakraken_yaml(cls) -> dict[str, Any]:
         """Load alphakraken settings from a YAML file."""
         env_name = os.getenv(EnvVars.ENV_NAME)
 
@@ -90,6 +101,44 @@ class YamlSettings:
                     "slurm": {"absolute_path": "./tmp/test/slurm"},
                     "software": {"absolute_path": "./tmp/test/software"},
                 },
+                "runners": [
+                    {
+                        "name": "slurm",
+                        "engine": "slurm",
+                        "os": "linux",
+                        "ssh_connection_id_prefix": "cluster_ssh_connection",
+                        "view": {
+                            "backup": "./tmp/test/backup",
+                            "output": "./tmp/test/output",
+                            "settings": "./tmp/test/settings",
+                            "software": "./tmp/test/software",
+                            "slurm": "./tmp/test/slurm",
+                        },
+                    },
+                    {
+                        "name": "docker",
+                        "engine": "docker",
+                        "os": "linux",
+                        "view": {
+                            "backup": "./tmp/test/backup",
+                            "output": "./tmp/test/output",
+                            "settings": "./tmp/test/settings",
+                            "software": "./tmp/test/software",
+                        },
+                    },
+                    {
+                        "name": "file_based",
+                        "engine": "file_based",
+                        "os": "linux",
+                        "view": {
+                            "backup": "./tmp/test/backup",
+                            "output": "./tmp/test/output",
+                            "settings": "./tmp/test/settings",
+                            "software": "./tmp/test/software",
+                            "slurm": "./tmp/test/slurm",
+                        },
+                    },
+                ],
             }
 
         if not file_path.exists():
@@ -102,12 +151,10 @@ class YamlSettings:
             return yaml.safe_load(file)
 
 
-YAMLSETTINGS: dict[str, dict[str, Any]] = cast(
-    dict[str, dict[str, Any]], YamlSettings()
-)
+YAMLSETTINGS: dict[str, Any] = cast(dict[str, Any], YamlSettings())
 
 
-def _read_backup_base_path(settings: dict[str, dict[str, Any]]) -> str:
+def _read_backup_base_path(settings: dict[str, Any]) -> str:
     """Read the absolute path of the backup folder on the shared file system."""
     try:
         return settings[YamlKeys.BACKUP][YamlKeys.Backup.BACKUP_BASE_PATH]

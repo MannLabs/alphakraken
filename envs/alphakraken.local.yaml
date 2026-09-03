@@ -67,3 +67,29 @@ backup:
     region: eu-central-1
     bucket_prefix: alphakraken
     auto_create_buckets: false
+
+# the places where quanting jobs execute, referenced by name from a settings entry (`runner`)
+runners:
+  - name: slurm # unique within the list; the order here is the display order in the webapp
+    engine: slurm # one of shared.keys.JobEngines
+    os: linux # linux | macos | windows, determines the path flavour of `view`
+    # prefix of the Airflow connections this runner uses, required for engines that use SSH.
+    # Credentials stay in Airflow connections: they are encrypted there, can be rotated without a
+    # restart, and only the workers need them. A prefix instead of a list, so head nodes can be
+    # added or removed in Airflow alone.
+    ssh_connection_id_prefix: cluster_ssh_connection
+    view: # the data directories as seen from this runner, cf. path_views.Locations
+      backup: /fs/pool/pool-0/alphakraken_sandbox/backup
+      output: /fs/pool/pool-0/alphakraken_sandbox/output
+      settings: /fs/pool/pool-0/alphakraken_sandbox/settings
+      software: /fs/home/kraken-read/software # location of custom executables for quanting software
+      slurm: /fs/pool/pool-0/alphakraken_local/slurm # location of slurm submit script and destination for slurm logs
+  - name: docker
+    engine: docker
+    os: linux
+    # no ssh_connection_id_prefix: the docker engine does not use SSH
+    view: # paths inside the job container
+      backup: /fs/pool/pool-0/alphakraken_sandbox/backup
+      output: /fs/pool/pool-0/alphakraken_sandbox/output
+      settings: /fs/pool/pool-0/alphakraken_sandbox/settings
+      software: /fs/home/kraken-read/software

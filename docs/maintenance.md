@@ -10,7 +10,7 @@ in particular:
 
 - The Airflow workers can be restarted at any point, with a little caveat: if this happens while the `copy_file`
 task is being run, the file copy operation can be interrupted mid-way. Once the worker is restarted, the task will
-then report a hashsum mismatch, which needs to be resolved (e.g. using the `overwrite_file_id` variable).
+then report a hashsum mismatch, which needs to be resolved (e.g. using the `force_overwrite_for_raw_file_id` variable).
 
 - The Airflow DB can in principle be deleted and rebuilt from scratch, as all information is stored in the MongoDB database.
 Under certain circumstances, files will stay in non-final states, which can be detected easily in the Webapp.
@@ -45,11 +45,11 @@ If this is more than a certain threshold (currently 5 hours), the acquisition is
 This is useful to speed up the `acquisition_handler` DAG in case there a many 'old' files,
 e.g. when processing was halted for some time.
 
-### overwrite_file_id (default: None)
+### force_overwrite_for_raw_file_id (default: None)
 In case the `compute_checksum` or `file_copy` task is interrupted (e.g. manually) while a file is being
 checksummed or copied, simply restarting it will not help, as the partially computed checksum or partially
 copied file will not be overwritten due to a security mechanism.
-In this case, set the `overwrite_file_id` variable to the file _id_ (not: file _name_), i.e. including
+In this case, set the `force_overwrite_for_raw_file_id` variable to the file _id_ (not: file _name_), i.e. including
 potential collision flags, and restart the task. The overwrite protection
 will be deactivated just for this file id and the task should succeed.
 Existing backup files are not deleted but renamed to `<name>.<n>.alphakraken.bkp`.

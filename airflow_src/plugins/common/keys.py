@@ -119,7 +119,7 @@ class InstrumentKeys:
     FILE_MOVE_DELAY_M: str = "file_move_delay_m"
 
 
-# prefix to make the `OVERWRITE_FILE_ID` variable match all files of one instrument
+# prefix to make the `FORCE_OVERWRITE_FOR_RAW_FILE_ID` variable match all files of one instrument
 INSTRUMENT_OVERWRITE_PREFIX = "INSTRUMENT_"
 
 
@@ -127,7 +127,7 @@ class AirflowVars:
     """Keys for accessing Airflow Variables (set in the Airflow UI). Cf. also Readme."""
 
     # set to a specific file id (or `INSTRUMENT_<instrument_id>`) to allow overwriting its checksum and pool backup
-    OVERWRITE_FILE_ID = "overwrite_file_id"
+    FORCE_OVERWRITE_FOR_RAW_FILE_ID = "force_overwrite_for_raw_file_id"
 
     # whether to consider acquisition "done" if current file is "old" (> 5h) compared to youngest file
     CONSIDER_OLD_FILES_ACQUIRED = "consider_old_files_acquired"

@@ -374,7 +374,9 @@ def test_compute_checksum_different_file_info_overwrite(  # noqa: PLR0913
     # then
     assert continue_downstream_tasks
 
-    mock_get_airflow_variable.assert_called_once_with("overwrite_file_id", "")
+    mock_get_airflow_variable.assert_called_once_with(
+        "force_overwrite_for_raw_file_id", ""
+    )
 
     mock_update_raw_file.assert_has_calls(
         [
@@ -661,7 +663,9 @@ def test_copy_raw_file_calls_update_with_correct_args_overwrite(  # noqa: PLR091
         {Path("/path/to/instrument/test_file.raw"): (1000, "some_hash")},
         overwrite=True,
     )
-    mock_get_airflow_variable.assert_called_once_with("overwrite_file_id", "")
+    mock_get_airflow_variable.assert_called_once_with(
+        "force_overwrite_for_raw_file_id", ""
+    )
 
     # not repeating the checks of test_copy_raw_file_calls_update_with_correct_args
 

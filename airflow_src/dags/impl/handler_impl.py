@@ -149,15 +149,17 @@ def compute_checksum(ti: TaskInstance, **kwargs) -> bool:
                 f"{file_info=}\n"
             )
 
-            if _is_overwrite_requested(AirflowVars.OVERWRITE_FILE_ID, raw_file):
+            if _is_overwrite_requested(
+                AirflowVars.FORCE_OVERWRITE_FOR_RAW_FILE_ID, raw_file
+            ):
                 logging.warning(
-                    f"Will overwrite existing file_info as requested by Airflow variable {AirflowVars.OVERWRITE_FILE_ID}."
+                    f"Will overwrite existing file_info as requested by Airflow variable {AirflowVars.FORCE_OVERWRITE_FOR_RAW_FILE_ID}."
                 )
             else:
                 logging.warning(
                     "This might be due to a previous checksumming operation being interrupted. \n"
                     "To resolve this issue: \n"
-                    f"Set the Airflow Variable {AirflowVars.OVERWRITE_FILE_ID} to the ID of the raw file to force overwrite."
+                    f"Set the Airflow Variable {AirflowVars.FORCE_OVERWRITE_FOR_RAW_FILE_ID} to the ID of the raw file to force overwrite."
                 )
 
                 raise AirflowFailException(f"File info mismatch for {raw_file_id}")
@@ -248,9 +250,11 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
         backup_status=BackupStatus.COPYING_IN_PROGRESS,
     )
 
-    if overwrite := _is_overwrite_requested(AirflowVars.OVERWRITE_FILE_ID, raw_file):
+    if overwrite := _is_overwrite_requested(
+        AirflowVars.FORCE_OVERWRITE_FOR_RAW_FILE_ID, raw_file
+    ):
         logging.warning(
-            f"Will overwrite files as requested by Airflow variable {AirflowVars.OVERWRITE_FILE_ID}."
+            f"Will overwrite files as requested by Airflow variable {AirflowVars.FORCE_OVERWRITE_FOR_RAW_FILE_ID}."
         )
 
     copied_files = _handle_file_copying(

@@ -260,7 +260,7 @@ def _decide_if_copy_required(
                 "This might be due to a previous copy operation being interrupted. \n"
                 "To resolve this issue: \n"
                 "1. Check and remove the file from backup if necessary, then restart this task, or \n"
-                f"2. Set the Airflow Variable {AirflowVars.OVERWRITE_FILE_ID} to the ID of the raw file to force overwrite."
+                f"2. Set the Airflow Variable {AirflowVars.FORCE_OVERWRITE_FOR_RAW_FILE_ID} to the ID of the raw file to force overwrite."
             )
 
             raise AirflowFailException(msg) from e

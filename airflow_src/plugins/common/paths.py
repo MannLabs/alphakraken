@@ -3,8 +3,8 @@
 from pathlib import Path
 
 from shared.db.models import RawFile
-from shared.keys import InternalPaths
 from shared.path_layout import get_output_folder_rel_path
+from shared.path_views import AIRFLOW_CONTAINER_VIEW, Locations
 
 
 def get_internal_instrument_data_path(instrument_id: str) -> Path:
@@ -12,7 +12,7 @@ def get_internal_instrument_data_path(instrument_id: str) -> Path:
 
     e.g. /opt/airflow/mounts/instruments/test2
     """
-    return Path(InternalPaths.MOUNTS_PATH) / InternalPaths.INSTRUMENTS / instrument_id
+    return AIRFLOW_CONTAINER_VIEW.resolve(Locations.INSTRUMENTS, instrument_id)
 
 
 def get_internal_backup_path() -> Path:
@@ -20,7 +20,7 @@ def get_internal_backup_path() -> Path:
 
     e.g. /opt/airflow/mounts/backup
     """
-    return Path(InternalPaths.MOUNTS_PATH) / InternalPaths.BACKUP
+    return AIRFLOW_CONTAINER_VIEW.resolve(Locations.BACKUP)
 
 
 def get_internal_backup_path_for_instrument(
@@ -30,12 +30,12 @@ def get_internal_backup_path_for_instrument(
 
     e.g. /opt/airflow/mounts/backup/test2
     """
-    return get_internal_backup_path() / instrument_id
+    return AIRFLOW_CONTAINER_VIEW.resolve(Locations.BACKUP, instrument_id)
 
 
 def get_internal_output_path() -> Path:
     """Get absolute internal output path."""
-    return Path(InternalPaths.MOUNTS_PATH) / InternalPaths.OUTPUT
+    return AIRFLOW_CONTAINER_VIEW.resolve(Locations.OUTPUT)
 
 
 def get_internal_output_path_for_raw_file(
@@ -43,8 +43,6 @@ def get_internal_output_path_for_raw_file(
     software_type: str | None = None,
 ) -> Path:
     """Get absolute internal output path for the given raw file name."""
-    return (
-        Path(InternalPaths.MOUNTS_PATH)
-        / InternalPaths.OUTPUT
-        / get_output_folder_rel_path(raw_file, software_type)
+    return AIRFLOW_CONTAINER_VIEW.resolve(
+        Locations.OUTPUT, get_output_folder_rel_path(raw_file, software_type)
     )

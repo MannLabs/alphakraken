@@ -199,7 +199,7 @@ The first view ("worker PC view") enables read/write access,
 by mounting on the AlphaKraken host PC a specific (network) folder (e.g. `\\pool-backup\pool-backup` or `\\pool-output\pool-output`)
 using `cifs` mounts (wrapped by `mount.sh`)
 to a target folder and then mapping this target folder to a worker container
-in `docker-compose.yaml`, such that it can be accessed in a unified manner from within the containers (cf. `InternalPaths`).
+in `docker-compose.yaml`, such that it can be accessed in a unified manner from within the containers (cf. the `AIRFLOW_CONTAINER_VIEW` view in `shared/path_views.py`).
 
 The second view ("cluster view") is the location of the data on the shared filesystem as seen from the Slurm cluster
 (e.g. `/fs/pool/pool-backup` or `/fs/pool/pool-output`),

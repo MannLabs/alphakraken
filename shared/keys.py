@@ -51,10 +51,6 @@ class InternalPaths(metaclass=ConstantsClass):
     MOUNTS_PATH = "/opt/airflow/mounts/"
     ENVS_PATH = "/opt/airflow/envs/"
 
-    INSTRUMENTS = "instruments"
-    BACKUP = "backup"
-    OUTPUT = "output"
-
 
 class SoftwareTypes(metaclass=ConstantsClass):
     """Types of software that can be used for quanting."""

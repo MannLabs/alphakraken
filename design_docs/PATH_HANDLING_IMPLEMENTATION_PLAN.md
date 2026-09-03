@@ -8,22 +8,23 @@ deliberately not started here; D2 only has to avoid blocking it.
 
 - 0.1 Each chunk is a separate commit, green on its own. No chunk changes behavior;
   the whole plan is a pure refactoring.
-- 0.2 **Module naming:** flat modules `shared/path_layout.py` and `shared/path_frames.py`, not a
+- 0.2 **Module naming:** flat modules `shared/path_layout.py` and `shared/path_views.py`, not a
   `shared/paths/` package. `./shared` is on `pythonpath` (`pyproject.toml:50-58`), so a
   `shared/paths` package would also be importable as `paths` - two module objects for one file,
-  two `CLUSTER` singletons. `path_layout` / `path_frames` are unshadowable.
-- 0.3 **Flavor from day one:** `Frame` carries a `flavor` and builds its roots with
-  `PurePosixPath` / `PureWindowsPath`, even though every frame is posix today. Retrofitting
-  flavor after ~50 call sites exist is the expensive version.
+  two `AIRFLOW_CONTAINER_VIEW` singletons. `path_layout` / `path_views` are unshadowable.
+- 0.3 **Flavor from day one:** `View` takes the path class it builds its locations with -
+  `Path` for the machine this code runs on, `PurePosixPath` / `PureWindowsPath` for any other -
+  even though every view is posix today. Retrofitting flavor after ~50 call sites exist is the
+  expensive version.
 - 0.4 Verification per chunk: `pytest shared`, `pytest airflow_src`, `pytest webapp`
-  (conda env `alphakraken2`, `AIRFLOW_HOME` exported, `--ignore` the docker job handler tests
-  unless `docker` is installed).
+  (conda env `alphakraken`, `AIRFLOW_HOME` exported and `airflow db init` run once, `--ignore`
+  the docker job handler tests unless `docker` is installed).
 
 ## 1. Chunks
 
 ### C1 - `shared/path_layout.py`, output layout moved
 
-- **Goal:** one frame-free home for the output layout.
+- **Goal:** one view-free home for the output layout.
 - **Do:** move `get_output_folder_rel_path` (`airflow_src/plugins/common/paths.py:39-63`)
   verbatim into `shared/path_layout.py`. Move `OUTPUT_FOLDER_PREFIX` with it, or import it.
   Repoint the 2 callers (`common/paths.py:78`, `processor_impl.py:29,180`).
@@ -46,48 +47,61 @@ deliberately not started here; D2 only has to avoid blocking it.
 - **Risk:** `get_backup_base_path` feeds `RawFile.backup_base_path` in the DB. Assert the
   produced strings are byte-identical in a test before and after.
 
-### C3 - `shared/path_frames.py`, no callers
+### C3 - `shared/path_views.py`, no callers
 
-- **Goal:** the frame table exists and is tested, nothing uses it yet.
+- **Goal:** the view table exists and is tested, nothing uses it yet.
 - **Do:**
-  - `Root` enum: `INSTRUMENTS, BACKUP, OUTPUT, SETTINGS, SOFTWARE, SLURM, LOGS`.
-  - `Frame(name, flavor, roots: dict[Root, PurePath])` with `.resolve(root, rel) -> PurePath`,
-    `.has(root) -> bool`, and a `KeyError` naming both frame and root when a root is absent
+  - `Locations` constants: `INSTRUMENTS, BACKUP, OUTPUT, SETTINGS, SOFTWARE, SLURM, LOGS`.
+    A `ConstantsClass` like `InternalPaths` and `JobEngines`, not an enum: `StrEnum` needs
+    Python 3.11 and the python version of `apache/airflow:2.11.0` is unverified.
+  - `View(name, locations: dict[str, str], path_class)` with `.resolve(location, rel) -> PurePath`,
+    `.has(location) -> bool`, and a `KeyError` naming both view and location when a location is absent
     (this is where the §2 holes become explicit).
-  - Instances: `CONTAINER` from `InternalPaths` (`shared/keys.py:48-56`), `CLUSTER` from
-    `locations.<root>.absolute_path`, `HOST` from `locations.general.mounts_path` plus the
-    container-relative root names.
-  - `CLUSTER`/`HOST` construction reads yaml lazily, matching today's `get_path` behavior.
-- **Done when:** unit tests cover resolve, the missing-root error, and a windows-flavor frame
+  - `AIRFLOW_CONTAINER_VIEW` is a module constant built from `InternalPaths` (`shared/keys.py:48-56`), carrying
+    `Path` because it is the only view this code does filesystem I/O in.
+  - `CLUSTER_VIEW` (from `locations.<location>.absolute_path`) and `DOCKER_HOST_VIEW` (from
+    `locations.general.mounts_path` plus the container-relative location names) are constants too,
+    built at import. `airflow_src/tests/helpers.py:yaml_locations` overrides them by patching the
+    contents of the view object, not the name, so the patch reaches every import site. Both carry
+    `PurePosixPath`, which also makes a foreign path impossible to `stat()` by accident.
+  - A missing `locations.general.mounts_path` yields a `DOCKER_HOST_VIEW` that reaches nothing,
+    rather than an error: the key is needed by the `docker` job engine only, and raising at import
+    would break every slurm-only deployment that omits it.
+- **Done when:** unit tests cover resolve, the missing-location error, and a windows-flavor view
   resolving to `\\srv\share\backup\...` and `Z:\backup\...` from the same layout input.
-- **Note:** `Root.LOGS` exists in the cluster and host frames only for prod/sandbox; the
+  Needs a `shared/tests/conftest.py` setting `ENV_NAME=_test_`: CI runs `pytest shared` on its
+  own, and importing the module loads the yaml.
+- **Note:** `Locations`, `InternalPaths.{INSTRUMENTS,BACKUP,OUTPUT}` and `YamlKeys.Locations.*`
+  are three copies of the same strings until C4/C5 delete the latter two. A test guards them
+  against divergence in the meantime.
+- **Note:** `Locations.LOGS` exists in the cluster and host views only for prod/sandbox; the
   container log path `/opt/airflow/logs` is outside `MOUNTS_PATH` and stays out of the table.
 
-### C4 - Container frame cutover, API unchanged
+### C4 - Container view cutover, API unchanged
 
 - **Goal:** `common/paths.py` stops knowing `InternalPaths`.
 - **Do:** reimplement `get_internal_*` (5 functions) as one-liners over
-  `CONTAINER.resolve(...)` plus `path_layout`. Their signatures and return types stay identical,
+  `AIRFLOW_CONTAINER_VIEW.resolve(...)` plus `path_layout`. Their signatures and return types stay identical,
   so the ~41 call sites in 12 files are untouched.
-- **Done when:** `InternalPaths` is imported only by `path_frames.py`
+- **Done when:** `InternalPaths` is imported only by `path_views.py`
   (plus `docker_job_handler.py` until C6).
 
-### C5 - Cluster frame cutover, `get_path` removed
+### C5 - Cluster view cutover, `get_path` removed
 
 - **Goal:** the cluster view has exactly one entry point.
 - **Do:** replace the 6 sites - `processor_impl.py:122,178,188,272`, `handler_impl.py:328`,
-  `job_handler.py:23` - with `CLUSTER.resolve(Root.X, ...)`. Delete
+  `job_handler.py:23` - with `CLUSTER_VIEW.resolve(Locations.X, ...)`. Delete
   `shared/yamlsettings.py:get_path` and repoint its test helpers.
-- **Done when:** `grep get_path(` returns nothing outside `path_frames.py`.
+- **Done when:** `grep get_path(` returns nothing outside `path_views.py`.
 - **Risk:** the only chunk touching the strings exported to the cluster
   (`QuantingEnv.raw_file_path`, `settings_path`, `output_path`, `custom_command`). Compare a
   full `QuantingEnv.to_dict()` before/after in a test.
 
-### C6 - Host frame cutover
+### C6 - Host view cutover
 
 - **Goal:** remove the container->host `relative_to` round-trip.
 - **Do:** `DockerJobHandler._to_host_path` (`docker_job_handler.py:185-197`) becomes
-  `HOST.resolve(root, rel)`; the handler is constructed with the frame rather than with
+  `DOCKER_HOST_VIEW.resolve(location, rel)`; the handler is constructed with the view rather than with
   `get_host_mounts_path()` (`job_handler.py:35`). Delete `get_host_mounts_path`.
 - **Done when:** `shared/yamlsettings.py` no longer exports any path accessor.
 
@@ -96,11 +110,11 @@ deliberately not started here; D2 only has to avoid blocking it.
 - **Goal:** attack §6.6 - `InternalPaths`, `docker-compose.yaml` mount targets and yaml
   `mount_target` agree by convention only.
 - **Do:** a test that parses the volume lists in `docker-compose.yaml:451-538` and each
-  `envs/alphakraken.*.yaml`, and asserts every `CONTAINER` root reachable by the worker is
+  `envs/alphakraken.*.yaml`, and asserts every `AIRFLOW_CONTAINER_VIEW` location reachable by the worker is
   actually mounted there and that `mount_target` matches.
   Note the mounts are per service and, for `instruments`/`backup`, per instrument
-  (`:460,462,520,521,537,538`), so the assertion is "every root has a mount whose target is that
-  root or a child of it", not a set equality.
+  (`:460,462,520,521,537,538`), so the assertion is "every location has a mount whose target is that
+  location or a child of it", not a set equality.
 - **Done when:** the test fails on the production `backup` mount-depth discrepancy reported in
   `BOYSCOUT_20260901_081142.md`, or that discrepancy is resolved first and the test guards it.
 - **Note:** decide the production `backup` question (`//samba-pool-1/pool-1` vs
@@ -125,7 +139,7 @@ they progressively empty `yamlsettings` and `InternalPaths`.
   whitelist-by-field-name (D3/D4).
 - `check_for_malicious_content` flavor awareness (needed before any Windows path is exported,
   cf. design §6.1 - but nothing exports one until D3).
-- The DB-persisted frames (`RawFile.backup_base_path`, `Metrics.output_path`,
+- The DB-persisted views (`RawFile.backup_base_path`, `Metrics.output_path`,
   `RawFile.file_info` keys) and the 6 webapp TODOs (D5).
-- Generating `mount.sh` from the frame table.
+- Generating `mount.sh` from the view table.
 - The msqc-extractor container.

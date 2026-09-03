@@ -97,7 +97,7 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
             )  # known limitation: this pool gates all engines, also non-slurm ones
             def submit_job_task(quanting_env: dict) -> str:
                 """Run quanting and return the job ID."""
-                return submit_job(quanting_env=quanting_env)
+                return submit_job(quanting_env_dict=quanting_env)
 
             wait_ = WaitForJobStartSensor(
                 task_id=Tasks.WAIT_FOR_JOB_START,
@@ -124,20 +124,22 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
                 quanting_env: dict, job_id: str, ti: TaskInstance | None = None
             ) -> dict:
                 """Check quanting result and return dict with time_elapsed."""
-                return check_job_result(quanting_env=quanting_env, job_id=job_id, ti=ti)
+                return check_job_result(
+                    quanting_env_dict=quanting_env, job_id=job_id, ti=ti
+                )
 
             @task(task_id=Tasks.COMPUTE_METRICS)
             def compute_metrics_task(quanting_env: dict, time_elapsed: int) -> dict:
                 """Compute metrics and return them."""
                 return compute_metrics(
-                    quanting_env=quanting_env,
+                    quanting_env_dict=quanting_env,
                     time_elapsed=time_elapsed,
                 )
 
             @task(task_id=Tasks.STORE_METRICS)
             def store_metrics_task(quanting_env: dict, metrics: dict) -> None:
                 """Store metrics in the database."""
-                store_metrics(quanting_env=quanting_env, metrics=metrics)
+                store_metrics(quanting_env_dict=quanting_env, metrics=metrics)
 
             quanting_env = prepare_job_task(settings_id)
             job_id = submit_job_task(quanting_env)

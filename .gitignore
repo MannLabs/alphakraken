@@ -174,3 +174,6 @@ local_test/mounts/
 envs/.env-airflow
 misc/.htpasswd
 certs/
+
+ignore_me
+.agents

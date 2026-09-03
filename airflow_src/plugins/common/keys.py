@@ -121,6 +121,7 @@ class InstrumentKeys:
 
 # prefix to make the `FORCE_OVERWRITE_FOR_RAW_FILE_ID` variable match all files of one instrument
 INSTRUMENT_OVERWRITE_PREFIX = "INSTRUMENT_"
+OVERWRITE_IDS_SEPARATOR = ","
 
 
 class AirflowVars:

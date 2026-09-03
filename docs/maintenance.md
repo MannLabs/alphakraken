@@ -54,9 +54,10 @@ potential collision flags, and restart the task. The overwrite protection
 will be deactivated just for this file id and the task should succeed.
 Existing backup files are not deleted but renamed to `<name>.<n>.alphakraken.bkp`.
 
-To repair multiple files at once, set the variable to `INSTRUMENT_<instrument_id>` (e.g. `INSTRUMENT_test1`):
+To repair multiple files at once, either give a comma-separated list of file ids,
+or set the variable to `INSTRUMENT_<instrument_id>` (e.g. `INSTRUMENT_test1`):
 the overwrite protection is then deactivated for all files of that instrument.
-As this affects all files of that instrument, reset the variable right after the repair.
+Both forms can be mixed. As this affects all files of that instrument, reset the variable right after the repair.
 
 
 ### output_exists_mode (default: raise)

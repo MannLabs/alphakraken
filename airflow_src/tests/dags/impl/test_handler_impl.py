@@ -679,6 +679,9 @@ def test_copy_raw_file_calls_update_with_correct_args_overwrite(  # noqa: PLR091
         ("INSTRUMENT_instrument1", True),
         ("INSTRUMENT_instrument2", False),
         ("instrument1", False),
+        ("other_file.raw,test_file.raw", True),
+        ("other_file.raw, INSTRUMENT_instrument1", True),
+        ("other_file.raw,INSTRUMENT_instrument2", False),
     ],
 )
 @patch("dags.impl.handler_impl.get_airflow_variable")
@@ -687,7 +690,7 @@ def test_is_overwrite_requested(
     airflow_variable_value: str,
     expected: bool,  # noqa: FBT001
 ) -> None:
-    """Test _is_overwrite_requested matches on file id and on instrument."""
+    """Test _is_overwrite_requested matches on file id and on instrument, also in comma-separated lists."""
     mock_get_airflow_variable.return_value = airflow_variable_value
     raw_file = MagicMock()
     raw_file.id = "test_file.raw"

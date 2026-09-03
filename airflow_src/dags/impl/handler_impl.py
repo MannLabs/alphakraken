@@ -9,6 +9,7 @@ from airflow.models import TaskInstance
 from common.keys import (
     DAG_DELIMITER,
     INSTRUMENT_OVERWRITE_PREFIX,
+    OVERWRITE_IDS_SEPARATOR,
     AcquisitionMonitorErrors,
     AirflowVars,
     DagContext,
@@ -208,15 +209,16 @@ def _compare_file_info(
 def _is_overwrite_requested(airflow_variable: str, raw_file: RawFile) -> bool:
     """Check if the Airflow variable `airflow_variable` requests an overwrite for `raw_file`.
 
-    The variable either holds a single raw file id, or `INSTRUMENT_<instrument_id>` to match
-    all raw files of that instrument.
+    The variable holds a comma-separated list of raw file ids and/or `INSTRUMENT_<instrument_id>`
+    entries, the latter matching all raw files of that instrument.
     """
     value = get_airflow_variable(airflow_variable, "")
+    requested_ids = {v.strip() for v in value.split(OVERWRITE_IDS_SEPARATOR)}
 
-    return value in [
-        raw_file.id,
-        f"{INSTRUMENT_OVERWRITE_PREFIX}{raw_file.instrument_id}",
-    ]
+    return bool(
+        requested_ids
+        & {raw_file.id, f"{INSTRUMENT_OVERWRITE_PREFIX}{raw_file.instrument_id}"}
+    )
 
 
 def copy_raw_file(ti: TaskInstance, **kwargs) -> None:

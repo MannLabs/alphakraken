@@ -88,7 +88,9 @@ runners:
       settings: /fs/pool-0/alphakraken/settings
       software: /fs/home/kraken-read/software
   - name: win_box                 # illustrative, not in the in-repo yamls
-    engine: slurm                 # `ssh` once that handler exists; the factory rejects unknown engines
+    engine: slurm                 # `ssh` once that handler exists; the factory rejects unknown engines.
+                                  # NOTE: this entry validates but cannot run: the slurm handler builds
+                                  # bash and gets a windows path. Illustrates the yaml shape only.
     os: windows
     ssh_connection_id_prefix: win_box_ssh
     view:
@@ -112,10 +114,14 @@ runners:
   variable yields an empty view, reported by the factory when the docker engine is selected, as
   today.
 - All three in-repo yamls (`envs/alphakraken.{local,sandbox,production}.yaml`) move their
-  `absolute_path` values into a `slurm` and a `docker` runner and gain `backup_base_path`,
-  so the migration in 2.8 maps 1:1. The `_test_` stub in `shared/yamlsettings.py:73-90` gets
-  `slurm`, `docker`, `file_based` with the current test paths and loses `general.mounts_path`;
-  the test conftests set `MOUNTS_PATH` in the environment next to `ENV_NAME`.
+  `absolute_path` values into a `slurm` and a `docker` runner and gain `backup_base_path` with
+  the value of the former `locations.backup.absolute_path`, so the migration in 2.8 maps 1:1.
+  `view.backup` of the `slurm` runner holds the same value; the consistency test (2.9) asserts
+  the equality. The `_test_` stub in `shared/yamlsettings.py:73-90` gets `slurm`, `docker`,
+  `file_based` with the current test paths, gains
+  `backup: {backup_base_path: ./tmp/test/backup}` (today's `locations.backup.absolute_path`) and
+  loses `general.mounts_path`; the test conftests set `MOUNTS_PATH` in the environment next to
+  `ENV_NAME`.
 
 ### 2.2 `shared/runners.py` (new)
 
@@ -132,18 +138,24 @@ class Runner:
 
     name: str
     engine: str
+    os: str  # one of OperatingSystems; kept for the future SSH handler (job script per OS)
     view: View[PurePath]
     ssh_connection_id_prefix: str | None  # optional in yaml; engines that need it check for None
 
 
-RUNNERS: dict[str, Runner]  # keyed by name, built at import from the YAMLSETTINGS["runners"] list, order kept
+def _build_runners(entries: list[dict]) -> dict[str, Runner]:
+    """Validate the yaml `runners` list and build the runners, order kept."""
+
+
+RUNNERS: dict[str, Runner] = _build_runners(YAMLSETTINGS[YamlKeys.RUNNERS])  # keyed by name
 
 
 def get_runner(name: str) -> Runner:
     """Raises KeyError naming the known runners."""
 ```
 
-- Built at import, like the views in `shared/path_views.py`. Import-time validation: list
+- Built at import, like the views in `shared/path_views.py`. All validation lives in
+  `_build_runners`, which the tests call directly (7.1). Import-time validation: list
   present and non-empty, every entry has a `name`, names unique, `engine` in `JobEngines`, `os`
   present and in `OperatingSystems`, `view` present and every key of it in `Locations`.
   `ssh_connection_id_prefix` is optional here and not interpreted: the loader knows nothing about
@@ -217,11 +229,14 @@ Both rationales are recorded as comments next to `ssh_connection_id_prefix` in
 
 Replace the dump-everything loop with an explicit list. Strict check (no spaces, no absolute):
 `relative_raw_file_path`, `relative_output_path`, `speclib_file_name`, `fasta_file_name`,
-`config_file_name`, `software`, `software_type`, `metrics_type`, `raw_file_id`, `project_id`,
-`settings_name`, `year_month_folder`, `runner`. `config_params` via
-`substitute_dummy_values(settings.config_params)` with spaces, as today.
+`config_file_name`, `software_type`, `metrics_type`, `raw_file_id`, `project_id`,
+`settings_name`, `year_month_folder`, `runner`, `slurm_mem` (ends up in `sbatch --mem=`).
+`software` with `allow_absolute_paths=True`, as today (an absolute `software` is a valid config).
+`config_params` via `substitute_dummy_values(settings.config_params)` with spaces, as today.
 Not checked: `raw_file_path`, `settings_path`, `output_path`, `custom_command` (base from yaml
 plus parts checked above), `slurm_time` (as today).
+Add one `TODO: revisit validation: which fields need which check, and where (webapp vs. here)`
+above the list.
 
 Coverage is equivalent to today's: the absolute fields were only ever "yaml base + relative
 part", and the relative part is now checked directly. The allowed character set in
@@ -236,16 +251,19 @@ part", and the relative part is now checked directly. The allowed character set 
 
 ### 2.8 Migration
 
-`shared/_migrations/from_<current_release>/_migrate_job_engine_to_runner.py`, same shape as
+`shared/_migrations/from_0.9.0/_migrate_job_engine_to_runner.py`, same shape as
 `_migrate_backfill_settings_fields.py`: for each Settings document with `job_engine` and without
 `runner`, set `runner` from an editable `_ENGINE_TO_RUNNER` dict (identity by default), unset
-`job_engine`. `--dry-run`. Docstring states the precondition: the yaml must declare runners with
+`job_engine`. `--dry-run`; at the end, print the distinct target runner names with their counts,
+so they can be compared with the yaml (the sandbox may hold `file_based` Settings, which no
+in-repo yaml declares). Docstring states the precondition: the yaml must declare runners with
 those names.
 
 ### 2.9 Consistency test
 
 Extend `shared/tests/test_deployment_paths.py`: every in-repo yaml declares `runners`, each
-engine and os is known, each runner has `view`, `backup.backup_base_path` is present, no
+engine and os is known, each runner has `view`, `backup.backup_base_path` is present and equals
+the `slurm` runner's `view.backup`, no
 top-level `locations` key exists, every `mounts.<x>` entry has `mount_src` and `mount_target`,
 and each in-repo `slurm` runner declares all five locations it uses (the import-time check only
 rejects unknown keys). The existing mount-target assertions (`test_deployment_paths.py:84-98`)
@@ -270,6 +288,12 @@ the yaml. Behaviour of the generated fstab line is unchanged.
   with "`MOUNTS_PATH` must be absolute for the docker runner".
 - `envs/{local,sandbox,production}.env`: comment on `MOUNTS_PATH` saying it must be absolute
   when the docker runner is used. The local value stays relative.
+- `docs/deployment.md`, mounting section: `MOUNTS_PATH` must be absolute when `mount.sh` is
+  used, a relative value resolves against the current directory and yields a relative fstab
+  line.
+- `docs/deployment.md`, upgrade notes: deploy the new yaml and code together, then run the
+  migration (2.8) before any quanting DAG runs. New code without the migration fails every job
+  (`Settings.runner` is unset); the new yaml on old code fails at import (no `locations`).
 - `shared/config_params.py:30,33`: relative paths are "relative to the runner's backup/output
   location" instead of naming `locations.<x>.absolute_path`.
 
@@ -294,7 +318,7 @@ CI runs the three `pytest` commands separately (`.github/workflows/branch-checks
 ## 5. Project structure
 
 ```
-shared/runners.py                        new: Runner, RUNNERS, get_runner, OperatingSystems
+shared/runners.py                        new: Runner, _build_runners, RUNNERS, get_runner, OperatingSystems
 shared/path_views.py                     CLUSTER_VIEW and _build_cluster_view removed; DOCKER_HOST_VIEW reads EnvVars.MOUNTS_PATH
 shared/yamlsettings.py                   YamlKeys.RUNNERS (+ nested), YamlKeys.MOUNTS, YamlKeys.Backup.BACKUP_BASE_PATH; YamlKeys.LOCATIONS, ABSOLUTE_PATH, Locations removed; BACKUP_BASE_PATH; _test_ stub
 shared/keys.py                           EnvVars.MOUNTS_PATH
@@ -303,11 +327,13 @@ envs/{local,sandbox,production}.env      comment: MOUNTS_PATH absolute for the d
 mount.sh                                 reads mounts.<x>, sources envs/${ENV}.env for MOUNTS_PATH
 shared/keys.py                           JobEngines unchanged
 shared/db/models.py, shared/db/interface.py   Settings.runner
-shared/_migrations/from_<release>/_migrate_job_engine_to_runner.py
+shared/_migrations/from_0.9.0/_migrate_job_engine_to_runner.py
 shared/tests/test_runners.py             new
 shared/tests/test_deployment_paths.py    extended
 airflow_src/plugins/jobs/job_handler.py  factory takes Runner
 airflow_src/plugins/jobs/slurm_ssh_job_handler.py   takes ssh prefix
+airflow_src/plugins/jobs/docker_job_handler.py      docstring only: MOUNTS_PATH instead of locations.general.mounts_path
+airflow_src/plugins/jobs/_experimental/file_based_job_handler.py   docstring only: runner view instead of locations.software.absolute_path
 airflow_src/plugins/sensors/ssh_utils.py, sensors/ssh_sensor.py
 airflow_src/plugins/common/utils.py      ssh discovery by prefix argument
 airflow_src/plugins/common/constants.py  CLUSTER_SSH_CONNECTION_ID_PREFIX removed
@@ -318,6 +344,15 @@ airflow_src/tests/helpers.py             yaml_locations() -> runner_view(name, *
 webapp/pages_/settings.py
 envs/alphakraken.{local,sandbox,production}.yaml
 docs/deployment.md
+# comment/docstring rewording only, so that 9.2 holds; existing TODOs stay TODOs:
+shared/path_views.py                     Locations docstring ("keys of the `locations` section")
+shared/tests/test_deployment_paths.py    line 52 docstring
+webapp/pages_/settings.py                TODOs at 311 (`cf. CLUSTER_VIEW`) and 381 (`locations.backup.absolute_path`)
+envs/alphakraken.local.yaml              line 27 comment
+airflow_src/dags/impl/handler_impl.py    line 68 comment
+airflow_src/plugins/common/constants.py  line 10 comment
+airflow_src/tests/plugins/jobs/test_docker_job_handler.py   line 37 comment
+docs/deployment.md                       line 187 (`locations.slurm.absolute_path` -> the slurm runner's `view.slurm`)
 ```
 
 ## 6. Code style
@@ -344,11 +379,11 @@ def resolve(self, location: str, rel_path: PurePath | str = "") -> _P:
 
 pytest, tests next to the existing ones (`shared/tests`, `airflow_src/tests`, `webapp/tests`).
 
-- 7.1 `test_runners.py`: build from a yaml list; missing `name`, duplicate `name`, missing `os`,
+- 7.1 `test_runners.py`: `_build_runners` from a yaml list; missing `name`, duplicate `name`, missing `os`,
   missing `view`, unknown location key, unknown `os` each fail; a prefix on a `docker` runner and a
   runner without `slurm` are accepted; `macos` yields the same view as `linux`; windows runner resolves
   `\\server\share\backup\test1\1970_01\f.raw` and `Z:\...\out_f.raw\alphadia` from the layout
-  functions; each import-time validation error; `get_runner` KeyError names known runners.
+  functions; `get_runner` KeyError names known runners.
 - 7.2 `test_processor_impl.py`: `prepare_job` with a windows runner (patched `RUNNERS`) yields
   the windows strings in `RAW_FILE_PATH`, `SETTINGS_PATH`, `OUTPUT_PATH`, `CUSTOM_COMMAND`,
   substituted `_CONFIG_PARAMS`, and `_check_content` returns no errors. `_check_content` still
@@ -371,8 +406,8 @@ pytest, tests next to the existing ones (`shared/tests`, `airflow_src/tests`, `w
 - **Always:** run the three pytest commands and `pre-commit` before each commit; one chunk per
   commit; keep relative paths posix; keep `get_backup_base_path` independent of any runner.
 - **Ask first:** any change to the allowed character set in `shared/validation.py`; adding a
-  `JobEngines` value; touching `docker_job_handler.py` beyond the constructor call site; any
-  further change to exported env var names.
+  `JobEngines` value; touching `docker_job_handler.py` beyond the constructor call site and the
+  module docstring; any further change to exported env var names.
 - **Never:** implement the SSH handler or a Windows job script here; add backwards
   compatibility for missing `runners:` or old `job_engine`; change the persisted DB paths
   (`RawFile.backup_base_path`, `Metrics.output_path`); generate `mount.sh`; touch
@@ -381,10 +416,10 @@ pytest, tests next to the existing ones (`shared/tests`, `airflow_src/tests`, `w
 ## 9. Success criteria
 
 - 9.1 `grep -rn job_engine --include='*.py'` outside `shared/_migrations` returns nothing.
-- 9.2 `grep -rn "CLUSTER_VIEW\|absolute_path\|mounts_path\|locations"` over `*.py`, `*.sh`,
-  `*.md` and `envs/*.yaml` returns only the migration scripts, the design docs, and the
-  `path_views.Locations` constants with their uses. `InternalPaths.MOUNTS_PATH`
-  (the container-side constant) is unaffected and not part of this criterion.
+- 9.2 `grep -rn 'CLUSTER_VIEW\|absolute_path\|mounts_path\|locations\.[a-z*]*\.\|"locations"\|^locations:\|YamlKeys.LOCATIONS'`
+  over `*.py`, `*.sh`, `*.md` and `envs/*.yaml` returns only the migration scripts and the
+  design docs. `InternalPaths.MOUNTS_PATH` (the container-side constant) is unaffected and not
+  part of this criterion.
 - 9.3 Tests 7.1 to 7.7 pass; full suite green (the 5 known `test_dags` env failures excepted
   when `AIRFLOW_HOME` is not set up).
 - 9.4 A yaml with a windows runner produces a `QuantingEnv` whose absolute paths are UNC or
@@ -420,29 +455,34 @@ Reviewed against `211d5c52` (branch `refactor_introduce_runners`).
   | The `_test_` stub in `shared/yamlsettings.py:73-90` gets `slurm`, `docker`, `file_based` with the current test paths and loses `general.mounts_path`
   Fix: 2.1 last bullet also says the stub gains `backup: {backup_base_path: ./tmp/test/backup}` (equal to today's `locations.backup.absolute_path` so 7.3 holds).
 USER_COMMENT: apply fix
+AGENT_RESPONSE: 2.1 last bullet: stub gains `backup: {backup_base_path: ./tmp/test/backup}`.
 
 - M2 `slurm_mem` silently loses its check. Today it is checked strictly (str, not excluded); it ends up in `sbatch --mem=...` (`slurm_ssh_job_handler.py:88`), i.e. a shell command.
   | Strict check (no spaces, no absolute): `relative_raw_file_path`, ..., `year_month_folder`, `runner`.
   | Not checked: `raw_file_path`, `settings_path`, `output_path`, `custom_command` (...), `slurm_time` (as today).
   Fix: add `slurm_mem` to the strict list.
 USER_COMMENT: apply fix
+AGENT_RESPONSE: 2.6: `slurm_mem` added to the strict list.
 
 - M3 `software` changes from absolute-allowed to strict. Today it is in `absolute_path_allowed_fields` (`processor_impl.py:277`); an absolute `software` is a valid config (PurePosixPath join keeps the rhs). This is a second, undocumented behaviour change next to 1.2.2.
   | `software`, `software_type`, `metrics_type`, ... (strict list)
   | Coverage is equivalent to today's
   Fix: either keep `allow_absolute_paths=True` for `software` (recommended, matches "equivalent") or list the change in 1.2.
 USER_COMMENT: apply fix, add a TODO for revisiting validation
+AGENT_RESPONSE: 2.6: `software` keeps `allow_absolute_paths=True`; a TODO above the field list asks to revisit which field needs which check.
 
 - M4 Boundaries forbid the docstring edit that 9.2 demands. `docker_job_handler.py:17-18` says `requires key 'locations.general.mounts_path'`; `file_based_job_handler.py:10` says `requires key 'locations.software.absolute_path: ""'`. Both match the 9.2 grep, neither file is in §5.
   | **Ask first:** ... touching `docker_job_handler.py` beyond the constructor call site
   | `grep -rn "CLUSTER_VIEW\|absolute_path\|mounts_path\|locations"` ... returns only the migration scripts, the design docs, and the `path_views.Locations` constants
   Fix: add both files to §5 as "docstring only: MOUNTS_PATH / runner view", and exempt docstring edits from the Ask-first item.
 USER_COMMENT: apply fix
+AGENT_RESPONSE: §5 lists both handlers as docstring-only; §8 Ask-first exempts the module docstring.
 
 - M5 Value of `backup.backup_base_path` is not pinned. 7.3 needs it equal to the old `locations.backup.absolute_path`, 2.1 only says the yamls "gain" it; the example shows a path that exists in no in-repo yaml.
   | All three in-repo yamls ... move their `absolute_path` values into a `slurm` and a `docker` runner and gain `backup_base_path`
   Fix: "gain `backup_base_path` with the value of the former `locations.backup.absolute_path`". Same for `view.backup` of the `slurm` runner; add the equality to the consistency test (2.9) or state that the copies are allowed to diverge.
 USER_COMMENT: apply fix
+AGENT_RESPONSE: 2.1 pins both values to the former `locations.backup.absolute_path`; 2.9 asserts `backup_base_path == slurm view.backup`.
 
 ### Defer
 
@@ -450,25 +490,30 @@ USER_COMMENT: apply fix
   | `ssh_connection_id_prefix: str | None  # optional in yaml; ...`
   Fix: add `os: str` to the dataclass; costs one line.
 USER_COMMENT: apply fix
+AGENT_RESPONSE: 2.2: `os: str` added to `Runner`.
 
 - D2 The `win_box` example is a config that validates and cannot run: `engine: slurm` with `os: windows` hands a `PureWindowsPath` to `SlurmSSHJobHandler`, which builds bash.
   | `engine: slurm                 # `ssh` once that handler exists; the factory rejects unknown engines`
   Fix: say so in the comment, or have the slurm factory branch reject a non-posix view (`isinstance(runner.view.resolve(SLURM), PureWindowsPath)`).
 USER_COMMENT: apply fix (comment)
+AGENT_RESPONSE: 2.1 yaml: `win_box` comment says the entry validates but cannot run; factory unchanged.
 
 - D3 9.2 grep for `locations` is not satisfiable as written: it matches `self._locations`, `locations:` parameters, `container_locations`, `yaml_locations`.
   | `grep -rn "CLUSTER_VIEW\|absolute_path\|mounts_path\|locations"`
   Fix: `grep -rn 'locations\.\|"locations"\|^locations:\|YamlKeys.LOCATIONS'`.
 USER_COMMENT: apply fix
+AGENT_RESPONSE: 9.2 uses `locations\.[a-z*]*\.` (yaml-key shape) instead of `locations\.`, which still matched `locations.items()` in `View`; the `Locations` constants exemption is dropped since they no longer match.
 
 - D4 Migration folder: latest tag is `v0.9.0`.
   | `shared/_migrations/from_<current_release>/_migrate_job_engine_to_runner.py`
   Fix: `from_0.9.0`. Also: the dry-run should print the distinct target runner names, so 9.7 can be compared with the yaml (sandbox may hold `file_based` Settings, which no in-repo yaml declares).
 USER_COMMENT: apply fix
+AGENT_RESPONSE: 2.8 and §5 say `from_0.9.0`; 2.8 prints distinct target runner names with counts.
 
 - D5 Deployment order is unstated: new code without the migration reads `settings.runner is None` -> `get_runner(None)` KeyError on every job; new yaml on old code ignores `runners:` and fails on the missing `locations`.
   Fix: one line in `docs/deployment.md`: deploy yaml + code, then run the migration before any quanting DAG runs.
 USER_COMMENT: apply fix
+AGENT_RESPONSE: 2.10 gains an upgrade-notes bullet with the deploy order.
 
 - D6 2.9 checks `mount_src` and `mount_target`, `mount.sh` also reads `username`.
   | every `mounts.<x>` entry has `mount_src` and `mount_target`
@@ -478,14 +523,19 @@ USER_COMMENT: apply fix
   | `RUNNERS: dict[str, Runner]  # keyed by name, built at import from the YAMLSETTINGS["runners"] list`
   Fix: name `_build_runners(entries: list[dict]) -> dict[str, Runner]`, tested directly, `RUNNERS = _build_runners(...)`.
 USER_COMMENT: apply fix
+AGENT_RESPONSE: 2.2 declares `_build_runners`; 7.1 and §5 reference it, "each import-time validation error" dropped from 7.1 as redundant.
 
 - D8 `mount.sh` with the relative local `MOUNTS_PATH` (`./local_test/mounts`) emits a relative fstab line and mounts relative to cwd; the yaml value it replaces was absolute.
   | The local value stays relative.
   Accepted by 1.2.7; note it in the `mount.sh` usage text.
 USER_COMMENT: add to the docs that MOUNTS_PATHS
+AGENT_RESPONSE: comment is cut off; read as "must be absolute for mount.sh". 2.10 gains a bullet saying so. `mount.sh` usage text untouched.
 
 - D9 Header is stale.
   | Commit: `e0561ecf` (branch `path_refactoring_4`).
   Fix: `211d5c52` (`refactor_introduce_runners`).
 
 - D10 Not listed in §5 but hit by 9.2: `path_views.Locations` docstring ("keys of the `locations` section"), `test_deployment_paths.py:52` docstring, `webapp/pages_/settings.py:311` TODO (`cf. CLUSTER_VIEW`), `envs/alphakraken.local.yaml:27` comment. Reword, do not resolve the TODO.
+  Also hit (found while checking the 9.2 pattern): `handler_impl.py:68`, `common/constants.py:10`, `webapp/pages_/settings.py:381` (TODO), `tests/plugins/jobs/test_docker_job_handler.py:37`, `docs/deployment.md:187`.
+USER_COMMENT: apply
+AGENT_RESPONSE: §5 lists all nine sites under "rewording only"; TODOs are reworded, not resolved.

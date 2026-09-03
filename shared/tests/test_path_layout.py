@@ -1,13 +1,17 @@
-"""Tests for the paths module."""
+"""Tests for the path_layout module."""
 
 from datetime import datetime
 from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytz
-from common.paths import get_output_folder_rel_path
 
 from shared.db.models import RawFile
+from shared.path_layout import (
+    get_output_folder_rel_path,
+    get_raw_file_folder_rel_path,
+    get_raw_file_rel_path,
+)
 
 
 def test_get_output_folder_rel_path_no_fallback() -> None:
@@ -53,3 +57,33 @@ def test_get_output_folder_rel_path_with_software_type() -> None:
     result = get_output_folder_rel_path(mock_raw_file, software_type="alphadia")
 
     assert result == Path("some_project_id/out_some_file.raw/alphadia")
+
+
+def test_get_raw_file_folder_rel_path() -> None:
+    """Test that the raw file folder is instrument and creation month."""
+    mock_raw_file = MagicMock(
+        wraps=RawFile,
+        id="some_file.raw",
+        instrument_id="test1",
+        created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
+    )
+
+    # when
+    result = get_raw_file_folder_rel_path(mock_raw_file)
+
+    assert result == Path("test1/1970_01")
+
+
+def test_get_raw_file_rel_path() -> None:
+    """Test that the raw file path is the raw file folder plus the raw file id."""
+    mock_raw_file = MagicMock(
+        wraps=RawFile,
+        id="some_file.raw",
+        instrument_id="test1",
+        created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
+    )
+
+    # when
+    result = get_raw_file_rel_path(mock_raw_file)
+
+    assert result == Path("test1/1970_01/some_file.raw")

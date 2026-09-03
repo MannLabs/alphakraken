@@ -249,7 +249,7 @@ def mock_instrument_paths() -> Generator[Path, None, None]:
             "plugins.raw_file_wrapper_factory.get_internal_instrument_data_path"
         ) as mock_data_path,
         patch(
-            "plugins.raw_file_wrapper_factory.get_internal_backup_path_for_instrument"
+            "plugins.raw_file_wrapper_factory.get_internal_backup_path"
         ) as mock_backup_path,
     ):
         mock_data_path.return_value = Path("/path/to/instrument")
@@ -414,6 +414,7 @@ def test_thermo_get_files_to_copy(
     """Test that get_files_to_copy returns the correct mapping for ThermoRawDataWrapper."""
     mock_raw_file = MagicMock(
         wraps=RawFile,
+        instrument_id="instrument1",
         id="123-sample.raw",
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
         original_name="sample.raw",
@@ -424,7 +425,7 @@ def test_thermo_get_files_to_copy(
     )
     expected_mapping = {
         Path("/path/to/instrument/sample.raw"): Path(
-            "/path/to/backup/1970_01/123-sample.raw"
+            "/path/to/backup/instrument1/1970_01/123-sample.raw"
         )
     }
     assert wrapper.get_files_to_copy() == expected_mapping
@@ -445,6 +446,7 @@ def test_sciex_get_files_to_copy(
 
     mock_raw_file = MagicMock(
         wraps=RawFile,
+        instrument_id="instrument1",
         id="123-sample.wiff",
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
         original_name="sample.wiff",
@@ -473,6 +475,7 @@ def test_bruker_get_files_to_copy() -> None:
     """Test that get_files_to_copy returns the correct mapping for BrukerRawDataWrapper."""
     mock_raw_file = MagicMock(
         wraps=RawFile,
+        instrument_id="instrument1",
         id="123-sample.d",
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
         original_name="sample.d",
@@ -492,9 +495,9 @@ def test_bruker_get_files_to_copy() -> None:
             """Mock method for get_internal_instrument_data_path()."""
             return Path(tempdir) / instrument_id
 
-        def mock_get_internal_backup_path_for_instrument(instrument_id: str) -> Path:
-            """Mock method for get_internal_backup_path_for_instrument()."""
-            return Path(tempdir) / "backup" / instrument_id
+        def mock_get_internal_backup_path() -> Path:
+            """Mock method for get_internal_backup_path()."""
+            return Path(tempdir) / "backup"
 
         with (
             patch(
@@ -502,8 +505,8 @@ def test_bruker_get_files_to_copy() -> None:
                 side_effect=mock_get_internal_instrument_data_path,
             ),
             patch(
-                "plugins.raw_file_wrapper_factory.get_internal_backup_path_for_instrument",
-                side_effect=mock_get_internal_backup_path_for_instrument,
+                "plugins.raw_file_wrapper_factory.get_internal_backup_path",
+                side_effect=mock_get_internal_backup_path,
             ),
             patch.dict(_INSTRUMENTS, {"instrument1": {"type": "bruker"}}),
         ):

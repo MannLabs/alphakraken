@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from pathlib import PurePath, PurePosixPath, PureWindowsPath
 from typing import Any
 
+from pydantic import BaseModel, ConfigDict, ValidationError, field_validator
+
 from shared.keys import ConstantsClass, JobEngines
 from shared.path_views import Locations, View
 from shared.yamlsettings import YAMLSETTINGS, YamlKeys
@@ -17,12 +19,49 @@ class OperatingSystems(metaclass=ConstantsClass):
     WINDOWS = "windows"
 
 
-# never `Path`: no code does filesystem I/O in a runner view
+# PurePath flavours only: runner paths are rendered for another machine, never opened here
 _OS_TO_PATH_CLASS: dict[str, type[PurePath]] = {
     OperatingSystems.LINUX: PurePosixPath,
     OperatingSystems.MACOS: PurePosixPath,
     OperatingSystems.WINDOWS: PureWindowsPath,
 }
+
+
+class _RunnerEntry(BaseModel):
+    """One entry of the yaml `runners` list, the field names being the yaml keys."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    engine: str
+    os: str
+    view: dict[str, str]
+    ssh_connection_id_prefix: str | None = None
+
+    @field_validator("engine")
+    @classmethod
+    def _engine_is_known(cls, engine: str) -> str:
+        if engine not in JobEngines.get_values():
+            raise ValueError(
+                f"unknown engine '{engine}', known are: {JobEngines.get_values()}"
+            )
+        return engine
+
+    @field_validator("os")
+    @classmethod
+    def _os_is_known(cls, os: str) -> str:
+        if os not in _OS_TO_PATH_CLASS:
+            raise ValueError(f"unknown os '{os}', known are: {list(_OS_TO_PATH_CLASS)}")
+        return os
+
+    @field_validator("view")
+    @classmethod
+    def _view_keys_are_locations(cls, view: dict[str, str]) -> dict[str, str]:
+        if unknown := set(view) - set(Locations.get_values()):
+            raise ValueError(
+                f"unknown view keys {sorted(unknown)}, known are: {sorted(Locations.get_values())}"
+            )
+        return view
 
 
 @dataclass(frozen=True)
@@ -31,56 +70,15 @@ class Runner:
 
     name: str
     engine: str
-    os: str
+    os: str  # kept for the future SSH handler (job script per OS)
     view: View[PurePath]
-    ssh_connection_id_prefix: str | None
+    ssh_connection_id_prefix: str | None  # engines that need it check for None
 
 
-def _get_value(entry: dict[str, Any], key: str, runner_name: str) -> Any:
-    """Get `key` from a runner entry, raising if it is missing."""
-    if key not in entry:
-        raise KeyError(
-            f"Runner '{runner_name}': key `{key}` is missing in alphakraken.yaml."
-        )
-    return entry[key]
-
-
-def _build_runner(entry: dict[str, Any]) -> Runner:
-    """Validate one yaml runner entry and build the runner."""
-    name = entry.get(YamlKeys.Runners.NAME)
-    if name is None:
-        raise KeyError(
-            f"A runner is missing its `{YamlKeys.Runners.NAME}` in alphakraken.yaml: {entry}"
-        )
-
-    engine = _get_value(entry, YamlKeys.Runners.ENGINE, name)
-    if engine not in JobEngines.get_values():
-        raise ValueError(
-            f"Runner '{name}': unknown `{YamlKeys.Runners.ENGINE}` '{engine}', "
-            f"known are: {JobEngines.get_values()}."
-        )
-
-    os = _get_value(entry, YamlKeys.Runners.OS, name)
-    if os not in _OS_TO_PATH_CLASS:
-        raise ValueError(
-            f"Runner '{name}': unknown `{YamlKeys.Runners.OS}` '{os}', "
-            f"known are: {list(_OS_TO_PATH_CLASS)}."
-        )
-
-    view = _get_value(entry, YamlKeys.Runners.VIEW, name)
-    if unknown := set(view) - set(Locations.get_values()):
-        raise ValueError(
-            f"Runner '{name}': unknown `{YamlKeys.Runners.VIEW}` keys {sorted(unknown)}, "
-            f"known are: {sorted(Locations.get_values())}."
-        )
-
-    return Runner(
-        name=name,
-        engine=engine,
-        os=os,
-        view=View(name, view, _OS_TO_PATH_CLASS[os]),
-        ssh_connection_id_prefix=entry.get(YamlKeys.Runners.SSH_CONNECTION_ID_PREFIX),
-    )
+def _label(entry: Any, index: int) -> str:
+    """Identify a runner entry in error messages by its name, or by its position if it has none."""
+    name = entry.get("name") if isinstance(entry, dict) else None
+    return f"'{name}'" if name else f"#{index}"
 
 
 def _build_runners(entries: list[dict[str, Any]] | None) -> dict[str, Runner]:
@@ -91,13 +89,26 @@ def _build_runners(entries: list[dict[str, Any]] | None) -> dict[str, Runner]:
         )
 
     runners: dict[str, Runner] = {}
-    for entry in entries:
-        runner = _build_runner(entry)
-        if runner.name in runners:
+    for index, entry in enumerate(entries):
+        try:
+            parsed = _RunnerEntry.model_validate(entry)
+        except ValidationError as e:
             raise ValueError(
-                f"Runner '{runner.name}': duplicate `{YamlKeys.Runners.NAME}` in alphakraken.yaml."
+                f"Runner {_label(entry, index)} in alphakraken.yaml: {e}"
+            ) from e
+
+        if parsed.name in runners:
+            raise ValueError(
+                f"Runner '{parsed.name}': duplicate name in alphakraken.yaml."
             )
-        runners[runner.name] = runner
+
+        runners[parsed.name] = Runner(
+            name=parsed.name,
+            engine=parsed.engine,
+            os=parsed.os,
+            view=View(parsed.name, parsed.view, _OS_TO_PATH_CLASS[parsed.os]),
+            ssh_connection_id_prefix=parsed.ssh_connection_id_prefix,
+        )
 
     return runners
 

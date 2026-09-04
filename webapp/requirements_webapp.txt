@@ -5,4 +5,5 @@ streamlit==1.55.0
 matplotlib==3.9.0
 plotly-express==0.4.1
 pyyaml==6.0.2
+pydantic==2.11.7 # shared/runners.py, same version as resolved by requirements_airflow.txt
 kaleido==0.2.1

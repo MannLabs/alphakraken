@@ -42,15 +42,6 @@ class YamlKeys:
         SLURM = "slurm"
         SOFTWARE = "software"
 
-    class Runners:
-        """Keys of one entry of the `runners` list."""
-
-        NAME = "name"
-        ENGINE = "engine"
-        OS = "os"
-        SSH_CONNECTION_ID_PREFIX = "ssh_connection_id_prefix"
-        VIEW = "view"
-
     class Backup:
         """Keys for accessing backup configuration in the yaml config."""
 

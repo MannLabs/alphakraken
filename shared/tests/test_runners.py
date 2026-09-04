@@ -12,7 +12,6 @@ from shared.keys import JobEngines
 from shared.path_layout import get_output_folder_rel_path, get_raw_file_rel_path
 from shared.path_views import Locations
 from shared.runners import RUNNERS, OperatingSystems, _build_runners, get_runner
-from shared.yamlsettings import YamlKeys
 
 _SLURM_VIEW = {
     Locations.BACKUP: "/fs/pool/backup",
@@ -26,11 +25,11 @@ _SLURM_VIEW = {
 def _entry(**overrides: object) -> dict:
     """Get a valid `slurm` runner entry, overridable per key."""
     entry = {
-        YamlKeys.Runners.NAME: "slurm",
-        YamlKeys.Runners.ENGINE: JobEngines.SLURM,
-        YamlKeys.Runners.OS: OperatingSystems.LINUX,
-        YamlKeys.Runners.SSH_CONNECTION_ID_PREFIX: "cluster_ssh_connection",
-        YamlKeys.Runners.VIEW: _SLURM_VIEW,
+        "name": "slurm",
+        "engine": JobEngines.SLURM,
+        "os": OperatingSystems.LINUX,
+        "ssh_connection_id_prefix": "cluster_ssh_connection",
+        "view": _SLURM_VIEW,
     }
     entry.update(overrides)
     return {key: value for key, value in entry.items() if value is not ...}
@@ -64,45 +63,51 @@ def test_build_runners_rejects_missing_or_empty_list(entries: list | None) -> No
 
 
 def test_build_runners_rejects_missing_name() -> None:
-    """Test that a runner without a name is rejected."""
-    with pytest.raises(KeyError, match="`name`"):
+    """Test that a runner without a name is rejected, identified by its position."""
+    with pytest.raises(ValueError, match=r"(?s)#0.*\bname\b"):
         _build_runners([_entry(name=...)])
 
 
 def test_build_runners_rejects_duplicate_name() -> None:
     """Test that two runners with the same name are rejected, naming it."""
-    with pytest.raises(ValueError, match="'slurm'.*`name`"):
+    with pytest.raises(ValueError, match="'slurm'.*duplicate"):
         _build_runners([_entry(), _entry()])
 
 
 def test_build_runners_rejects_unknown_engine() -> None:
     """Test that an engine outside `JobEngines` is rejected, naming runner and key."""
-    with pytest.raises(ValueError, match="'slurm'.*`engine`.*'kubernetes'"):
+    with pytest.raises(ValueError, match=r"(?s)'slurm'.*\bengine\b.*'kubernetes'"):
         _build_runners([_entry(engine="kubernetes")])
 
 
 def test_build_runners_rejects_missing_os() -> None:
     """Test that the os is required."""
-    with pytest.raises(KeyError, match="'slurm'.*`os`"):
+    with pytest.raises(ValueError, match=r"(?s)'slurm'.*\bos\b.*required"):
         _build_runners([_entry(os=...)])
 
 
 def test_build_runners_rejects_unknown_os() -> None:
     """Test that an os outside `OperatingSystems` is rejected, naming runner and key."""
-    with pytest.raises(ValueError, match="'slurm'.*`os`.*'plan9'"):
+    with pytest.raises(ValueError, match=r"(?s)'slurm'.*\bos\b.*'plan9'"):
         _build_runners([_entry(os="plan9")])
 
 
 def test_build_runners_rejects_missing_view() -> None:
     """Test that the view is required."""
-    with pytest.raises(KeyError, match="'slurm'.*`view`"):
+    with pytest.raises(ValueError, match=r"(?s)'slurm'.*\bview\b.*required"):
         _build_runners([_entry(view=...)])
 
 
 def test_build_runners_rejects_unknown_view_key() -> None:
     """Test that a view key outside `Locations` is rejected, naming runner and key."""
-    with pytest.raises(ValueError, match="'slurm'.*`view`.*'scratch'"):
+    with pytest.raises(ValueError, match=r"(?s)'slurm'.*\bview\b.*'scratch'"):
         _build_runners([_entry(view={**_SLURM_VIEW, "scratch": "/scratch"})])
+
+
+def test_build_runners_rejects_unknown_key() -> None:
+    """Test that a misspelled key in a runner entry is rejected rather than ignored."""
+    with pytest.raises(ValueError, match=r"(?s)'slurm'.*ssh_connection_prefix"):
+        _build_runners([_entry(ssh_connection_prefix="typo")])
 
 
 def test_build_runners_accepts_prefix_on_docker_runner() -> None:

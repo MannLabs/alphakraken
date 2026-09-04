@@ -317,7 +317,7 @@ def test_create_settings_first_version(
         config_params=None,
         software_type="alphadia",
         software="alphadia-1.10.0",
-        runner="slurm",
+        runner_name="slurm",
         metrics_type="alphadia",
     )
 
@@ -350,7 +350,7 @@ def test_create_settings_auto_increment_version(
         config_params=None,
         software_type="alphadia",
         software="alphadia-1.10.0",
-        runner="slurm",
+        runner_name="slurm",
         metrics_type="alphadia",
     )
 
@@ -363,7 +363,7 @@ def test_create_settings_auto_increment_version(
 
 def test_create_settings_requires_runner() -> None:
     """Test that settings cannot be created without naming the runner."""
-    with pytest.raises(TypeError, match="runner"):
+    with pytest.raises(TypeError, match="runner_name"):
         create_settings(  # type: ignore[missing-argument]
             name="plasma_settings",
             software_type="alphadia",

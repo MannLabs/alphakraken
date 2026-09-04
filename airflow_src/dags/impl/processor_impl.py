@@ -225,7 +225,7 @@ def _create_quanting_env(
         settings_version=settings.version,
         relative_raw_file_path=str(relative_raw_file_path),
         config_params=substituted_params,
-        runner_name=settings.runner,
+        runner_name=settings.runner_name,
         year_month_folder=get_created_at_year_month(raw_file),
     )
 

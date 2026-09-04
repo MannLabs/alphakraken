@@ -128,12 +128,12 @@ message). `runner` joins the strict list of `_check_content`. Slurm branch still
 **Files:** `airflow_src/plugins/common/quanting_env.py`, `airflow_src/plugins/jobs/job_handler.py`, `airflow_src/plugins/sensors/ssh_sensor.py`, `airflow_src/dags/impl/processor_impl.py`, tests: `conftest.py`, `test_job_handler.py`, `test_ssh_sensor.py`, `test_processor_impl.py`
 **Scope:** M
 
-### Task 6: `Settings.runner` replaces `job_engine`; webapp selectbox
+### Task 6: `Settings.runner_name` replaces `job_engine`; webapp selectbox
 
-**Description:** `Settings.runner = StringField(required=True, max_length=64)`, `job_engine`
-deleted; `create_settings(runner=...)`. The T5 transitional line becomes `runner_name=settings.runner`.
+**Description:** `Settings.runner_name = StringField(required=True, max_length=64)`, `job_engine`
+deleted; `create_settings(runner_name=...)`. The T5 transitional line becomes `runner_name=settings.runner_name`.
 Webapp (spec 2.7): options `list(RUNNERS)`, default first declared, `SHOW_RUNNER_SELECT`, prefill
-key `runner`, docker-only-custom check via `RUNNERS[runner].engine`, help texts at 314 and 415
+key `runner_name`, docker-only-custom check via `RUNNERS[runner_name].engine`, help texts at 314 and 415
 say "runner". Empty `RUNNERS` (spec 1.2.4): no settings form, a notice instead; covers the
 hidden-selectbox fallback at line 421 too. Test 7.6.
 
@@ -154,7 +154,7 @@ hidden-selectbox fallback at line 421 too. Test 7.6.
 
 **Description:** `shared/_migrations/from_0.9.0/_migrate_job_engine_to_runner.py`, shape of
 `_migrate_backfill_settings_fields.py`: for each Settings document with `job_engine` and without
-`runner`, `$set runner` from `_ENGINE_TO_RUNNER` (identity by default), `$unset job_engine`.
+`runner_name`, `$set runner_name` from `_ENGINE_TO_RUNNER` (identity by default), `$unset job_engine`.
 `--dry-run`; prints distinct target runner names with counts. Docstring states the yaml
 precondition. Spec 2.8, 9.7.
 
@@ -203,7 +203,7 @@ prefix, ...)`, `_get_cluster_ssh_connections(prefix)`; error text names the give
 
 ### Task 9: `prepare_job` resolves through `runner.view`; `CLUSTER_VIEW` deleted
 
-**Description:** `runner = get_runner(settings.runner)`; the four `CLUSTER_VIEW.resolve` calls
+**Description:** `runner = get_runner(settings.runner_name)`; the four `CLUSTER_VIEW.resolve` calls
 become `runner.view.resolve`; parameter types `PurePosixPath` -> `PurePath`; relative paths stay
 posix. `CLUSTER_VIEW`, `_build_cluster_view` and `test_cluster_view` removed. Test helper
 `yaml_locations` -> `runner_view(name, **paths)` patching `RUNNERS[name].view._locations`;

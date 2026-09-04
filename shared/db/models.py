@@ -269,7 +269,7 @@ class Settings(Document):
     )
     software = StringField(required=True, max_length=128)
 
-    runner = StringField(
+    runner_name = StringField(
         required=True, max_length=64
     )  # a name in alphakraken.yaml `runners`
 

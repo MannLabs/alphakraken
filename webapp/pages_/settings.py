@@ -181,7 +181,7 @@ if selected_name_option != CREATE_NEW_OPTION:
         "description": str(latest_settings.get("description", "")),
         "software": str(latest_settings.get("software", "")),
         "software_type": str(latest_settings.get("software_type", "")),
-        "runner": str(latest_settings.get("runner", "")),
+        "runner_name": str(latest_settings.get("runner_name", "")),
         "fasta_file_name": str(latest_settings.get("fasta_file_name", "")),
         "speclib_file_name": str(latest_settings.get("speclib_file_name", "")),
         "config_file_name": str(latest_settings.get("config_file_name", "")),
@@ -415,18 +415,18 @@ with c1.form("create_settings"):
     runner_names = list(RUNNERS)
     if SHOW_RUNNER_SELECT:
         runner_index = (
-            runner_names.index(prefill_data["runner"])
-            if prefill_data["runner"] in runner_names
+            runner_names.index(prefill_data["runner_name"])
+            if prefill_data["runner_name"] in runner_names
             else 0
         )
-        runner = st.selectbox(
+        runner_name = st.selectbox(
             label="Runner",
             options=runner_names,
             index=runner_index,
             help="Where the quanting job runs, cf. `runners` in `alphakraken.yaml`.",
         )
     else:
-        runner = runner_names[0]
+        runner_name = runner_names[0]
 
     with st.expander("Resource parameters"):
         st.info(
@@ -514,7 +514,9 @@ if submit:
     ]:
         if to_validate:
             validation_errors.extend(check_for_malicious_content(to_validate))
-    validation_errors.extend(check_runner_supports_software_type(runner, software_type))
+    validation_errors.extend(
+        check_runner_supports_software_type(runner_name, software_type)
+    )
     if config_params:
         # TODO: warn on bare (RAW_FILE_PATH) and half-open ({RAW_FILE_PATH) placeholders,
         # they currently pass validation and fail silently at runtime
@@ -563,7 +565,7 @@ if submit:
             config_params=config_params,
             software_type=empty_to_none(software_type),
             software=empty_to_none(software),
-            runner=runner,
+            runner_name=runner_name,
             metrics_type=metrics_type,
             slurm_cpus_per_task=slurm_cpus_per_task,
             slurm_mem=empty_to_none(slurm_mem),

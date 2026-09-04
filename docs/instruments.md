@@ -36,13 +36,13 @@ and to not accidentally drop the `ro` and `rw` flags as they limit file access r
 4. Transfer the changes in `2.` and `3.` to all AlphaKraken PCs/VMs.
 
 5. On the backup pool, create the folder `backup/<INSTRUMENT_ID>` containing an empty file `Krakenfile`
-(otherwise the health check reports the empty folder as unhealthy, cf. [deployment.md](deployment.md#protect-against-lost-mounts)).
+(the health check reports empty folders as unhealthy, cf. [deployment.md](deployment.md#protect-against-lost-mounts)).
 
 6. On the PC hosting the workers execute
 ```
 ./mount.sh <INSTRUMENT_ID> mount
 ```
-to mount the instrument folder (this also protects the mount target, cf. [deployment.md](deployment.md#protect-against-lost-mounts)). If you want to create a persistent mount, additionally use
+to mount the instrument folder. If you want to create a persistent mount, additionally use
 ```
 ./mount.sh <INSTRUMENT_ID> fstab
 ```

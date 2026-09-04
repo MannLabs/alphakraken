@@ -55,7 +55,7 @@ class JobStatusSensorOperator(BaseSensorOperator, ABC):
             task_ids=self.quanting_env_source_task_id,
             map_indexes=ti.map_index,
         )
-        self._runner_name = QuantingEnv.from_dict(quanting_env_dict).runner
+        self._runner_name = QuantingEnv.from_dict(quanting_env_dict).runner_name
 
     def poke(self, context: dict[str, Any]) -> bool:
         """Check the output of the ssh command."""

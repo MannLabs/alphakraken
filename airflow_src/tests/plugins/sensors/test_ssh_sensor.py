@@ -25,7 +25,7 @@ def test_poke_executes_ssh_command_and_checks_returned_state(
     mock_ti.map_index = 0
     mock_ti.xcom_pull.side_effect = [
         "12345",
-        make_quanting_env(runner=RUNNER_NAME).to_dict(),
+        make_quanting_env(runner_name=RUNNER_NAME).to_dict(),
     ]
     mock_get_job_status.return_value = JobStates.RUNNING
     context = {"ti": mock_ti}
@@ -79,7 +79,7 @@ def test_poke_returns_true_when_state_not_in_running_states(
     mock_ti.map_index = 2
     mock_ti.xcom_pull.side_effect = [
         "12345",
-        make_quanting_env(runner=RUNNER_NAME).to_dict(),
+        make_quanting_env(runner_name=RUNNER_NAME).to_dict(),
     ]
     mock_get_job_status.return_value = job_status
     context = {"ti": mock_ti}

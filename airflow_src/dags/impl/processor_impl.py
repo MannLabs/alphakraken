@@ -226,7 +226,7 @@ def _create_quanting_env(
         relative_raw_file_path=str(relative_raw_file_path),
         config_params=substituted_params,
         # transitional until Settings.runner exists: every in-repo runner is named after its engine
-        runner=settings.job_engine,
+        runner_name=settings.job_engine,
         year_month_folder=get_created_at_year_month(raw_file),
     )
 
@@ -285,7 +285,7 @@ _STRICTLY_CHECKED_FIELDS = (
     "settings_name",
     "year_month_folder",
     "slurm_mem",
-    "runner",
+    "runner_name",
 )
 
 # composed of a yaml base path (admin configuration) and fields checked above, e.g.
@@ -392,7 +392,7 @@ def submit_job(
 
     output_path.mkdir(parents=True, exist_ok=True)
 
-    job_id = start_job(quanting_env, runner_name=quanting_env.runner)
+    job_id = start_job(quanting_env, runner_name=quanting_env.runner_name)
 
     # TODO: race condition here, e.g. for file in ERROR status
     update_raw_file(quanting_env.raw_file_id, new_status=RawFileStatus.QUANTING)
@@ -466,7 +466,9 @@ def check_job_result(*, quanting_env_dict: dict, job_id: str, ti: TaskInstance) 
     """
     quanting_env = QuantingEnv.from_dict(quanting_env_dict)
 
-    job_status, time_elapsed = get_job_result(job_id, runner_name=quanting_env.runner)
+    job_status, time_elapsed = get_job_result(
+        job_id, runner_name=quanting_env.runner_name
+    )
 
     logging.info(f"Job {job_id} exited with status {job_status}.")
 

@@ -105,7 +105,7 @@ def test_create_quanting_env(
         "PROJECT_ID": "some_project_id",
         "SETTINGS_NAME": "test_settings",
         "SETTINGS_VERSION": 1,
-        "_RUNNER": "slurm",
+        "_RUNNER_NAME": "slurm",
         "_YEAR_MONTH_FOLDER": "1970_01",
         "_RELATIVE_RAW_FILE_PATH": "instrument1/1970_01/test_file.raw",
         "_CONFIG_PARAMS": "",
@@ -188,7 +188,7 @@ def test_create_quanting_env_custom_software(
         "PROJECT_ID": "some_project_id",
         "SETTINGS_NAME": "test_custom_settings",
         "SETTINGS_VERSION": 1,
-        "_RUNNER": "slurm",
+        "_RUNNER_NAME": "slurm",
         "_YEAR_MONTH_FOLDER": "1970_01",
         "_RELATIVE_RAW_FILE_PATH": "instrument1/1970_01/test_file.raw",
         "_CONFIG_PARAMS": expected_config_params,
@@ -387,7 +387,7 @@ def test_check_content_allows_image_name_in_software_field(
 ) -> None:
     """Test that a docker image name in the software field is accepted."""
     quanting_env = make_quanting_env(
-        software="alphakraken-msqc", runner=JobEngines.DOCKER
+        software="alphakraken-msqc", runner_name=JobEngines.DOCKER
     )
 
     errors = _check_content(quanting_env, MagicMock(config_params=None))

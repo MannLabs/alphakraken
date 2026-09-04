@@ -42,7 +42,7 @@ class QuantingEnv(BaseModel):
 
     relative_raw_file_path: str = Field(alias="_RELATIVE_RAW_FILE_PATH")
     config_params: str = Field(alias="_CONFIG_PARAMS")
-    runner: str = Field(alias="_RUNNER")
+    runner_name: str = Field(alias="_RUNNER_NAME")
     year_month_folder: str = Field(alias="_YEAR_MONTH_FOLDER")
 
     def to_dict(self) -> dict:

@@ -152,22 +152,22 @@ hidden-selectbox fallback at line 421 too. Test 7.6.
 
 ### Task 7: Migration `job_engine` -> `runner`
 
-**Description:** `shared/_migrations/from_0.9.0/_migrate_job_engine_to_runner.py`, shape of
+**Description:** `shared/_migrations/from_1.0.0/_migrate_job_engine_to_runner.py`, shape of
 `_migrate_backfill_settings_fields.py`: for each Settings document with `job_engine` and without
 `runner_name`, `$set runner_name` from `_ENGINE_TO_RUNNER` (identity by default), `$unset job_engine`.
 `--dry-run`; prints distinct target runner names with counts. Docstring states the yaml
 precondition. Spec 2.8, 9.7.
 
 **Acceptance criteria:**
-- [ ] Documents already carrying `runner` are skipped; each document reported once (9.7).
-- [ ] Summary lists distinct target names with counts.
+- [x] Documents already carrying `runner_name` are skipped; each document reported once (9.7).
+- [x] Summary lists distinct target names with counts.
 
 **Verification:**
-- [ ] `--dry-run` against a local mongo with two hand-made Settings docs (one legacy, one migrated): 1 updated, 1 skipped.
-- [ ] `pre-commit run --all-files`
+- [ ] (not run: no mongo reachable from the sandbox) `--dry-run` against a local mongo with two hand-made Settings docs (one legacy, one migrated): 1 updated, 1 skipped.
+- [x] `pre-commit run --all-files`
 
 **Dependencies:** T6
-**Files:** `shared/_migrations/from_0.9.0/_migrate_job_engine_to_runner.py` (new)
+**Files:** `shared/_migrations/from_1.0.0/_migrate_job_engine_to_runner.py` (new)
 **Scope:** S
 
 ### Checkpoint 2: Runner flows

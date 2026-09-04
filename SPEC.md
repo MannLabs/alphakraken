@@ -182,7 +182,7 @@ def get_runner(name: str) -> Runner:
 
 - `Settings.runner = StringField(required=True, max_length=64)`, no default. `job_engine` is
   deleted. `create_settings(runner=...)`.
-- `QuantingEnv.job_engine` -> `runner: str = Field(alias="_RUNNER")`. Underscore prefix, so it
+- `QuantingEnv.job_engine` -> `runner_name: str = Field(alias="_RUNNER_NAME")`. Underscore prefix, so it
   is never exported to a job.
 
 ### 2.4 prepare_job
@@ -195,7 +195,7 @@ resolved absolute strings change flavour.
 ### 2.5 Handler factory and SSH
 
 - `_get_job_handler(runner: Runner)`. `start_job/get_job_status/get_job_result(..., runner_name)`
-  look the runner up. `ssh_sensor.py:58` reads `.runner`.
+  look the runner up. `ssh_sensor.py:58` reads `.runner_name`.
 - Slurm: `SlurmSSHJobHandler(runner.view.resolve(Locations.SLURM), runner.ssh_connection_id_prefix)`.
   The factory raises `AirflowFailException` naming the runner if the prefix is `None`.
 - Docker: unchanged, `DockerJobHandler(DOCKER_HOST_VIEW)`. The host view is a property of the
@@ -392,7 +392,7 @@ pytest, tests next to the existing ones (`shared/tests`, `airflow_src/tests`, `w
   substituted `_CONFIG_PARAMS`, and `_check_content` returns no errors. `_check_content` still
   rejects `..`, `;`, `$` in relative paths, file names, `software`, `config_params`.
 - 7.3 Regression: for a `slurm` runner whose `view` equals the former `absolute_path`
-  values, `QuantingEnv.to_dict()` is byte-identical to before, except `_JOB_ENGINE` -> `_RUNNER`.
+  values, `QuantingEnv.to_dict()` is byte-identical to before, except `_JOB_ENGINE` -> `_RUNNER_NAME`.
   `get_backup_base_path` yields the same string as before for the same yaml values.
 - 7.4 `test_utils.py`: two prefixes select disjoint connection sets.
 - 7.5 `test_job_handler.py`: factory per engine with a `Runner`; unknown engine raises; a

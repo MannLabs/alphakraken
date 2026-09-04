@@ -104,25 +104,25 @@ yet. Consistency test: every in-repo yaml declares `runners`, engine and os know
 
 ## Phase 2: Jobs are dispatched by runner
 
-### Task 5: `QuantingEnv.runner`, factory takes a `Runner`
+### Task 5: `QuantingEnv.runner_name`, factory takes a `Runner`
 
-**Description:** `QuantingEnv.job_engine` -> `runner: str = Field(alias="_RUNNER")`.
+**Description:** `QuantingEnv.job_engine` -> `runner_name: str = Field(alias="_RUNNER_NAME")`.
 `_get_job_handler(runner: Runner)` dispatches on `runner.engine`; `start_job/get_job_status/
-get_job_result(..., runner_name)` call `get_runner`. `ssh_sensor.py` reads `.runner`.
-`processor_impl` passes `quanting_env.runner` to the job functions and, for this commit only,
-sets `runner=settings.job_engine` (transitional line, removed in T6, named in the commit
+get_job_result(..., runner_name)` call `get_runner`. `ssh_sensor.py` reads `.runner_name`.
+`processor_impl` passes `quanting_env.runner_name` to the job functions and, for this commit only,
+sets `runner_name=settings.job_engine` (transitional line, removed in T6, named in the commit
 message). `runner` joins the strict list of `_check_content`. Slurm branch still resolves
 `CLUSTER_VIEW` for its base dir (T8). Spec 2.3, 2.5 factory signature, 7.5 partial, 9.5.
 
 **Acceptance criteria:**
-- [ ] `QuantingEnv.to_dict()` differs from before only in `_JOB_ENGINE` -> `_RUNNER` (existing full-dict assertion in `test_create_quanting_env`, spec 7.3).
-- [ ] Factory per engine with a `Runner`; unknown engine raises `ValueError`.
-- [ ] `start_job(env, runner_name="nope")` raises `KeyError` listing declared runners (9.5).
-- [ ] `grep -rn job_engine airflow_src --include='*.py'` hits only the transitional line.
+- [x] `QuantingEnv.to_dict()` differs from before only in `_JOB_ENGINE` -> `_RUNNER_NAME` (existing full-dict assertion in `test_create_quanting_env`, spec 7.3).
+- [x] Factory per engine with a `Runner`; unknown engine raises `ValueError`.
+- [x] `start_job(env, runner_name="nope")` raises `KeyError` listing declared runners (9.5).
+- [x] `grep -rn job_engine airflow_src --include='*.py'` hits only the transitional line.
 
 **Verification:**
-- [ ] `pytest airflow_src/tests/plugins/jobs/test_job_handler.py airflow_src/tests/plugins/sensors airflow_src/tests/dags/impl/test_processor_impl.py`
-- [ ] `pytest airflow_src`
+- [x] `pytest airflow_src/tests/plugins/jobs/test_job_handler.py airflow_src/tests/plugins/sensors airflow_src/tests/dags/impl/test_processor_impl.py`
+- [x] `pytest airflow_src`
 
 **Dependencies:** T3, T4
 **Files:** `airflow_src/plugins/common/quanting_env.py`, `airflow_src/plugins/jobs/job_handler.py`, `airflow_src/plugins/sensors/ssh_sensor.py`, `airflow_src/dags/impl/processor_impl.py`, tests: `conftest.py`, `test_job_handler.py`, `test_ssh_sensor.py`, `test_processor_impl.py`
@@ -131,7 +131,7 @@ message). `runner` joins the strict list of `_check_content`. Slurm branch still
 ### Task 6: `Settings.runner` replaces `job_engine`; webapp selectbox
 
 **Description:** `Settings.runner = StringField(required=True, max_length=64)`, `job_engine`
-deleted; `create_settings(runner=...)`. The T5 transitional line becomes `runner=settings.runner`.
+deleted; `create_settings(runner=...)`. The T5 transitional line becomes `runner_name=settings.runner`.
 Webapp (spec 2.7): options `list(RUNNERS)`, default first declared, `SHOW_RUNNER_SELECT`, prefill
 key `runner`, docker-only-custom check via `RUNNERS[runner].engine`, help texts at 314 and 415
 say "runner". Empty `RUNNERS` (spec 1.2.4): no settings form, a notice instead; covers the
@@ -172,7 +172,7 @@ precondition. Spec 2.8, 9.7.
 
 ### Checkpoint 2: Runner flows
 - [ ] Three suites green, pre-commit clean; `grep -n "job_engine" airflow_src/dags/impl/processor_impl.py` empty.
-- [ ] Local stack: create a settings entry in the webapp with runner `slurm`, trigger a quanting DAG with `debug_no_cluster_ssh=true`, the `prepare_job` XCom shows `_RUNNER: slurm` and the same paths as before.
+- [ ] Local stack: create a settings entry in the webapp with runner `slurm`, trigger a quanting DAG with `debug_no_cluster_ssh=true`, the `prepare_job` XCom shows `_RUNNER_NAME: slurm` and the same paths as before.
 - [ ] Migration `--dry-run` runs against a sandbox DB copy; note the distinct names (open question 1).
 - [ ] Human review before Phase 3.
 

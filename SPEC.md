@@ -254,7 +254,7 @@ part", and the relative part is now checked directly. The allowed character set 
 
 ### 2.8 Migration
 
-`shared/_migrations/from_1.0.0/_migrate_job_engine_to_runner.py`, same shape as
+`shared/_migrations/from_0.10.0/_migrate_job_engine_to_runner.py`, same shape as
 `_migrate_backfill_settings_fields.py`: for each Settings document with `job_engine` and without
 `runner_name`, set `runner_name` from an editable `_ENGINE_TO_RUNNER` dict (identity by default), unset
 `job_engine`. `--dry-run`; at the end, print the distinct target runner names with their counts,
@@ -330,7 +330,7 @@ envs/{local,sandbox,production}.env      comment: MOUNTS_PATH absolute for the d
 mount.sh                                 reads mounts.<x>, sources envs/${ENV}.env for MOUNTS_PATH
 shared/keys.py                           JobEngines unchanged
 shared/db/models.py, shared/db/interface.py   Settings.runner_name
-shared/_migrations/from_1.0.0/_migrate_job_engine_to_runner.py
+shared/_migrations/from_0.10.0/_migrate_job_engine_to_runner.py
 shared/tests/test_runners.py             new
 shared/tests/test_deployment_paths.py    extended
 airflow_src/plugins/jobs/job_handler.py  factory takes Runner

@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, call
 
 _SCRIPT = (
     Path(__file__).parents[1]
-    / "_migrations/from_1.0.0/_migrate_job_engine_to_runner.py"
+    / "_migrations/from_0.10.0/_migrate_job_engine_to_runner.py"
 )
 
 # the migrations folder is no package, so the script is loaded by path

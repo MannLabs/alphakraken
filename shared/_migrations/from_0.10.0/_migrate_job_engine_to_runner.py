@@ -12,8 +12,8 @@ For each Settings document with `job_engine` and without `runner_name`:
     job_engine  -> removed
 
 # Usage (export DB credentials as env vars first):
-    PYTHONPATH=. python shared/_migrations/from_1.0.0/_migrate_job_engine_to_runner.py --dry-run
-    PYTHONPATH=. python shared/_migrations/from_1.0.0/_migrate_job_engine_to_runner.py
+    PYTHONPATH=. python shared/_migrations/from_0.10.0/_migrate_job_engine_to_runner.py --dry-run
+    PYTHONPATH=. python shared/_migrations/from_0.10.0/_migrate_job_engine_to_runner.py
 """
 
 import argparse

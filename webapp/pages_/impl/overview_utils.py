@@ -25,6 +25,7 @@ EXPLANATION_STATUS = """
             - `done`: The file has been fully processed successfully.
             - `done_not_quanted`: The file has been handled successfully, but was not quanted (check the "status_details" column).
             - `acquisition_failed`: the acquisition of the file failed (check the "status_details" column).
+            - `disappeared`: the file vanished from the instrument before it was backed up (check the "status_details" column).
             - `quanting_failed`: something went wrong with the quanting, check the "status_details" column for more information:
               - `NO_RECALIBRATION_TARGET`: alphaDIA did not find enough precursors to calibrate the data.
               - `NOT_DIA_DATA`: the file is not DIA data.

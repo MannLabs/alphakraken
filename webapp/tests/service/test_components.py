@@ -276,10 +276,10 @@ def test_get_color() -> None:
     assert result == ["background-color: #008066", "background-color: #2a9466", None]
 
 
-def get_status_cell_style() -> None:
+def test_get_status_cell_style() -> None:
     """Test that the status cell is highlighted correctly."""
     status_to_expected_style = {
-        "error": ["background-color: red"],
+        "error": ["background-color: darkred"],
         "done": ["background-color: green"],
         "ignored": ["background-color: lightgray"],
         "disappeared": ["background-color: red"],

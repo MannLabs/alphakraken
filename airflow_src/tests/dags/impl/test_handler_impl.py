@@ -487,7 +487,7 @@ def test_compute_checksum_no_files_found_accepted(
     mock_get_raw_file_by_id: MagicMock,
     mock_get_airflow_variable: MagicMock,  # noqa: ARG001
 ) -> None:
-    """Test compute_checksum marks the raw file as removed and skips if missing files are accepted."""
+    """Test compute_checksum marks the raw file as disappeared and skips if missing files are accepted."""
     ti = MagicMock()
     kwargs = {
         "params": {"raw_file_id": "test_file.raw"},
@@ -526,6 +526,62 @@ def test_compute_checksum_no_files_found_accepted(
     ],
 )
 @patch("dags.impl.handler_impl.get_airflow_variable")
+@patch("dags.impl.handler_impl.get_raw_file_by_id")
+@patch("dags.impl.handler_impl.RawFileWrapperFactory")
+@patch("dags.impl.handler_impl.get_file_size")
+@patch("dags.impl.handler_impl.update_raw_file")
+def test_compute_checksum_source_missing(  # noqa: PLR0913
+    mock_update_raw_file: MagicMock,
+    mock_get_file_size: MagicMock,
+    mock_raw_file_wrapper_factory: MagicMock,
+    mock_get_raw_file_by_id: MagicMock,
+    mock_get_airflow_variable: MagicMock,
+    airflow_variable_value: str,
+    expected_exception: type[Exception],
+) -> None:
+    """Test compute_checksum fails if the single file (e.g. Thermo) vanished, or marks the raw file as disappeared if accepted."""
+    ti = MagicMock()
+    kwargs = {
+        "params": {"raw_file_id": "test_file.raw"},
+    }
+    mock_raw_file = MagicMock()
+    mock_raw_file.id = "test_file.raw"
+    mock_raw_file.file_info = None
+    mock_get_raw_file_by_id.return_value = mock_raw_file
+    mock_get_airflow_variable.return_value = airflow_variable_value
+
+    src_path = "/path/to/instrument/test_file.raw"
+    mock_raw_file_wrapper_factory.create_write_wrapper.return_value.get_files_to_copy.return_value = {
+        Path(src_path): Path("/path/to/backup/test_file.raw")
+    }
+    mock_get_file_size.side_effect = FileNotFoundError(f"File {src_path} not found.")
+
+    # when
+    with pytest.raises(expected_exception, match="Files missing on instrument"):
+        compute_checksum(ti, **kwargs)
+
+    # then
+    disappeared_call = call(
+        "test_file.raw",
+        new_status=RawFileStatus.DISAPPEARED,
+        status_details=f"Files missing on instrument: File {src_path} not found.",
+        backup_status=BackupStatus.SKIPPED,
+        instrument_file_status=InstrumentFileStatus.DISAPPEARED,
+    )
+    if expected_exception is AirflowSkipException:
+        assert mock_update_raw_file.call_args == disappeared_call
+    else:
+        assert disappeared_call not in mock_update_raw_file.call_args_list
+
+
+@pytest.mark.parametrize(
+    ("airflow_variable_value", "expected_exception"),
+    [
+        ("", AirflowFailException),
+        ("test_file.raw", AirflowSkipException),
+    ],
+)
+@patch("dags.impl.handler_impl.get_airflow_variable")
 @patch("dags.impl.handler_impl.get_xcom")
 @patch("dags.impl.handler_impl.get_raw_file_by_id")
 @patch(
@@ -544,7 +600,7 @@ def test_copy_raw_file_source_missing(  # noqa: PLR0913
     airflow_variable_value: str,
     expected_exception: type[Exception],
 ) -> None:
-    """Test copy_raw_file fails on a missing source file, or marks the raw file as removed if accepted."""
+    """Test copy_raw_file fails on a missing source file, or marks the raw file as disappeared if accepted."""
     ti = MagicMock()
     kwargs = {
         "params": {"raw_file_id": "test_file.raw"},
@@ -567,7 +623,7 @@ def test_copy_raw_file_source_missing(  # noqa: PLR0913
         copy_raw_file(ti, **kwargs)
 
     # then
-    removed_call = call(
+    disappeared_call = call(
         "test_file.raw",
         new_status=RawFileStatus.DISAPPEARED,
         status_details=f"Files missing on instrument: File {src_path} not found.",
@@ -575,9 +631,9 @@ def test_copy_raw_file_source_missing(  # noqa: PLR0913
         instrument_file_status=InstrumentFileStatus.DISAPPEARED,
     )
     if expected_exception is AirflowSkipException:
-        assert mock_update_raw_file.call_args == removed_call
+        assert mock_update_raw_file.call_args == disappeared_call
     else:
-        assert removed_call not in mock_update_raw_file.call_args_list
+        assert disappeared_call not in mock_update_raw_file.call_args_list
 
 
 @patch("dags.impl.handler_impl.get_xcom")

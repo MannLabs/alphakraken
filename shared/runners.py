@@ -84,9 +84,7 @@ def _label(entry: Any, index: int) -> str:
 def _build_runners(entries: list[dict[str, Any]] | None) -> dict[str, Runner]:
     """Validate the yaml `runners` list and build the runners keyed by name, order kept."""
     if not entries:
-        raise ValueError(
-            f"`{YamlKeys.RUNNERS}` in alphakraken.yaml must be a non-empty list."
-        )
+        return {}
 
     runners: dict[str, Runner] = {}
     for index, entry in enumerate(entries):

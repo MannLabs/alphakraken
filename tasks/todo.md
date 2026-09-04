@@ -189,13 +189,13 @@ prefix, ...)`, `_get_cluster_ssh_connections(prefix)`; error text names the give
 `yaml_locations`. Spec 2.5, 7.4, 7.5.
 
 **Acceptance criteria:**
-- [ ] Two prefixes select disjoint connection sets (7.4).
-- [ ] `slurm` runner with `ssh_connection_id_prefix=None` raises naming the runner (7.5).
-- [ ] `grep -rn CLUSTER_SSH_CONNECTION_ID_PREFIX .` empty; `job_handler.py` no longer imports `CLUSTER_VIEW`.
+- [x] Two prefixes select disjoint connection sets (7.4).
+- [x] `slurm` runner with `ssh_connection_id_prefix=None` raises naming the runner (7.5).
+- [x] `grep -rn CLUSTER_SSH_CONNECTION_ID_PREFIX .` empty; `job_handler.py` no longer imports `CLUSTER_VIEW`.
 
 **Verification:**
-- [ ] `pytest airflow_src/tests/plugins/jobs airflow_src/tests/common/test_utils.py airflow_src/tests/plugins/sensors`
-- [ ] `pytest airflow_src`
+- [x] `pytest airflow_src/tests/plugins/jobs airflow_src/tests/common/test_utils.py airflow_src/tests/plugins/sensors`
+- [x] `pytest airflow_src`
 
 **Dependencies:** T5
 **Files:** `airflow_src/plugins/jobs/job_handler.py`, `airflow_src/plugins/jobs/slurm_ssh_job_handler.py`, `airflow_src/plugins/sensors/ssh_utils.py`, `airflow_src/plugins/common/utils.py`, `airflow_src/plugins/common/constants.py`, tests: `test_job_handler.py`, `test_utils.py`, `test_ssh_utils.py`, `test_slurm_ssh_job_handler.py`

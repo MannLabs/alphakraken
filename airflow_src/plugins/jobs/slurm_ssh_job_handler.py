@@ -2,7 +2,7 @@
 
 import logging
 from datetime import datetime
-from pathlib import PurePosixPath
+from pathlib import PurePath
 
 from airflow.exceptions import AirflowFailException
 from common.constants import (
@@ -19,16 +19,18 @@ from sensors.ssh_utils import ssh_execute
 class SlurmSSHJobHandler(JobHandler):
     """Implementation of JobHandler that executes commands on a Slurm cluster via SSH."""
 
-    def __init__(self, cluster_base_dir: PurePosixPath):
+    def __init__(self, cluster_base_dir: PurePath, ssh_connection_id_prefix: str):
         """Initialize the Slurm job handler.
 
         Args:
             cluster_base_dir: Working directory on the cluster, holding the submit script
                 and the job logs
+            ssh_connection_id_prefix: Prefix of the Airflow connections to the cluster
 
         """
         super().__init__()
         self._cluster_base_dir = cluster_base_dir
+        self._ssh_connection_id_prefix = ssh_connection_id_prefix
         self._cluster_base_working_dir_path = (
             self._cluster_base_dir / CLUSTER_BASE_WORKING_DIR_NAME
         )
@@ -41,7 +43,7 @@ class SlurmSSHJobHandler(JobHandler):
             + self._get_submit_job_cmd(DEFAULT_JOB_SCRIPT_NAME, quanting_env)
         )
         logging.info(f"Running command: >>>>\n{command}\n<<<< end of command")
-        ssh_return = ssh_execute(command)
+        ssh_return = ssh_execute(command, self._ssh_connection_id_prefix)
 
         try:
             job_id = str(int(ssh_return.split("\n")[-1]))
@@ -55,14 +57,14 @@ class SlurmSSHJobHandler(JobHandler):
     def get_job_status(self, job_id: str) -> str:
         """Get the status of a job on the Slurm cluster via SSH."""
         cmd = self._get_job_state_cmd(job_id)
-        return ssh_execute(cmd)
+        return ssh_execute(cmd, self._ssh_connection_id_prefix)
 
     def get_job_result(self, job_id: str) -> tuple[str, int]:
         """Get the job status and time elapsed from the Slurm cluster via SSH."""
         cmd = (
             self._check_job_result_cmd(job_id) + "\n" + self._get_job_state_cmd(job_id)
         )
-        ssh_return = ssh_execute(cmd)
+        ssh_return = ssh_execute(cmd, self._ssh_connection_id_prefix)
         time_elapsed = self._get_time_elapsed(ssh_return)
         job_status = ssh_return.split("\n")[-1]
         return job_status, time_elapsed

@@ -64,7 +64,7 @@ Both forms can be mixed. As this affects all files of that instrument, reset the
 If a file of a raw file is not found while the `compute_checksum` or `file_copy` task runs
 (e.g. because it was removed from the instrument), the task fails. Check the root cause first.
 To repair, set the `accept_missing_files_for_raw_file_id` variable to the file _id_ and restart the failed task:
-the raw file is then marked as `acquisition_failed` with instrument file status `disappeared`,
+the raw file is then marked with status `disappeared` (also as instrument file status),
 and downstream tasks are skipped. Note that this acts on any file-not-found error in these tasks,
 including ones on the backup side.
 

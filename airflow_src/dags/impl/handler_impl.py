@@ -105,7 +105,7 @@ def handle_missing_files(task: Callable[..., T]) -> Callable[..., T]:
             )
             update_raw_file(
                 raw_file_id,
-                new_status=RawFileStatus.ACQUISITION_FAILED,  # this is an assumption about the root cause
+                new_status=RawFileStatus.DISAPPEARED,
                 status_details=msg,
                 backup_status=BackupStatus.SKIPPED,
                 instrument_file_status=InstrumentFileStatus.DISAPPEARED,

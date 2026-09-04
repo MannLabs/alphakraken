@@ -509,7 +509,7 @@ def test_compute_checksum_no_files_found_accepted(
             call("test_file.raw", new_status=RawFileStatus.CHECKSUMMING),
             call(
                 "test_file.raw",
-                new_status=RawFileStatus.ACQUISITION_FAILED,
+                new_status=RawFileStatus.DISAPPEARED,
                 status_details="Files missing on instrument: No files were found.",
                 backup_status=BackupStatus.SKIPPED,
                 instrument_file_status=InstrumentFileStatus.DISAPPEARED,
@@ -569,7 +569,7 @@ def test_copy_raw_file_source_missing(  # noqa: PLR0913
     # then
     removed_call = call(
         "test_file.raw",
-        new_status=RawFileStatus.ACQUISITION_FAILED,
+        new_status=RawFileStatus.DISAPPEARED,
         status_details=f"Files missing on instrument: File {src_path} not found.",
         backup_status=BackupStatus.SKIPPED,
         instrument_file_status=InstrumentFileStatus.DISAPPEARED,

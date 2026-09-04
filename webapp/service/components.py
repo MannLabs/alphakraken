@@ -550,7 +550,11 @@ def highlight_status_cell(row: pd.Series) -> list[str | None]:
 
     if status == RawFileStatus.ERROR:
         style = "background-color: darkred"
-    elif status in [RawFileStatus.QUANTING_FAILED, RawFileStatus.ACQUISITION_FAILED]:
+    elif status in [
+        RawFileStatus.QUANTING_FAILED,
+        RawFileStatus.ACQUISITION_FAILED,
+        RawFileStatus.DISAPPEARED,
+    ]:
         style = "background-color: red"
     elif status in [RawFileStatus.DONE, RawFileStatus.DONE_NOT_QUANTED]:
         style = "background-color: green"

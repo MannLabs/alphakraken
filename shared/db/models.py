@@ -47,6 +47,7 @@ class RawFileStatus:
     COPYING = "copying"
     COPYING_DONE = "copying_done"
     ACQUISITION_FAILED = "acquisition_failed"
+    DISAPPEARED = "disappeared"  # files vanished from the instrument before backup
 
     QUEUED_FOR_QUANTING = "queued_for_quanting"
     QUANTING = "quanting"
@@ -78,6 +79,7 @@ ERROR_STATUSES = [
     RawFileStatus.ERROR,
     RawFileStatus.QUANTING_FAILED,
     RawFileStatus.ACQUISITION_FAILED,
+    RawFileStatus.DISAPPEARED,
 ]
 TERMINAL_STATUSES = [
     *ERROR_STATUSES,

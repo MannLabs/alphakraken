@@ -282,6 +282,7 @@ def get_status_cell_style() -> None:
         "error": ["background-color: red"],
         "done": ["background-color: green"],
         "ignored": ["background-color: lightgray"],
+        "disappeared": ["background-color: red"],
         "other": ["background-color: #aed989"],
     }
 

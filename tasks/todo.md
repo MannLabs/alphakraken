@@ -83,15 +83,15 @@ yet. Consistency test: every in-repo yaml declares `runners`, engine and os know
 `locations` stays in the yamls. Spec 2.1, 2.2, 2.9 runner parts, 7.1.
 
 **Acceptance criteria:**
-- [ ] `_build_runners` rejects: empty list, missing `name`, duplicate `name`, unknown `engine`, missing or unknown `os`, missing `view`, unknown `view` key; each error names runner and key.
-- [ ] Accepts: prefix on a `docker` runner, runner without `slurm`; `macos` == `linux` flavour.
-- [ ] Windows runner resolves `\\server\share\backup\test1\1970_01\f.raw` and `Z:\...\out_f.raw\alphadia` from the layout functions; `get_runner("nope")` raises `KeyError` listing known names.
-- [ ] Each new consistency assertion fails on a mutated yaml (one mutation each, reverted).
-- [ ] No yaml key or engine/os literal at a use site in `runners.py`.
+- [x] `_build_runners` accepts a missing or empty list (no runners); rejects: missing `name`, duplicate `name`, unknown `engine`, missing or unknown `os`, missing `view`, unknown `view` key; each error names runner and key.
+- [x] Accepts: prefix on a `docker` runner, runner without `slurm`; `macos` == `linux` flavour.
+- [x] Windows runner resolves `\\server\share\backup\test1\1970_01\f.raw` and `Z:\...\out_f.raw\alphadia` from the layout functions; `get_runner("nope")` raises `KeyError` listing known names.
+- [x] Each new consistency assertion fails on a mutated yaml (one mutation each, reverted).
+- [x] No yaml key or engine/os literal at a use site in `runners.py`.
 
 **Verification:**
-- [ ] `pytest shared/tests/test_runners.py shared/tests/test_deployment_paths.py`
-- [ ] `pytest shared`
+- [x] `pytest shared/tests/test_runners.py shared/tests/test_deployment_paths.py`
+- [x] `pytest shared`
 
 **Dependencies:** T2 (equality assertion)
 **Files:** `shared/runners.py` (new), `shared/tests/test_runners.py` (new), `shared/yamlsettings.py`, `envs/alphakraken.{local,sandbox,production}.yaml`, `shared/tests/test_deployment_paths.py`
@@ -134,7 +134,8 @@ message). `runner` joins the strict list of `_check_content`. Slurm branch still
 deleted; `create_settings(runner=...)`. The T5 transitional line becomes `runner=settings.runner`.
 Webapp (spec 2.7): options `list(RUNNERS)`, default first declared, `SHOW_RUNNER_SELECT`, prefill
 key `runner`, docker-only-custom check via `RUNNERS[runner].engine`, help texts at 314 and 415
-say "runner". Test 7.6.
+say "runner". Empty `RUNNERS` (spec 1.2.4): no settings form, a notice instead; covers the
+hidden-selectbox fallback at line 421 too. Test 7.6.
 
 **Acceptance criteria:**
 - [ ] `grep -rn job_engine --include='*.py' . | grep -v _migrations` returns nothing (9.1).
@@ -256,7 +257,7 @@ Spec 1.2.6, 1.2.7, 2.1, 2.9, 2.9a, 7.7.
 **Scope:** M
 
 ### Checkpoint 4: Yaml final shape
-- [ ] Three suites green, pre-commit clean; 9.6 holds (import fails naming `runners` on a stub without it, one reload-based test at most).
+- [ ] Three suites green, pre-commit clean; 9.6 holds (a stub without `runners` yields an empty `RUNNERS`).
 - [ ] Local stack boots on the new yaml; `prepare_job` XCom identical to checkpoint 3.
 - [ ] Human review before Phase 5.
 

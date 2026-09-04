@@ -11,8 +11,10 @@ from pathlib import Path
 import pytest
 import yaml
 
-from shared.keys import InternalPaths
+from shared.keys import InternalPaths, JobEngines
 from shared.path_views import AIRFLOW_CONTAINER_VIEW, Locations
+from shared.runners import _build_runners
+from shared.yamlsettings import YamlKeys
 
 _REPO_ROOT = Path(__file__).parents[2]
 
@@ -116,6 +118,46 @@ def test_instrument_mount_targets_are_below_the_instruments_location(
 def test_backup_base_path_is_declared(file_name: str, config: dict) -> None:
     """Test that each environment declares the folder the backups are displayed under."""
     assert config["backup"]["backup_base_path"], file_name
+
+
+@pytest.mark.parametrize(("file_name", "config"), _env_yamls())
+def test_runners_are_valid(file_name: str, config: dict) -> None:
+    """Test that each environment declares at least one runner and all pass the validation."""
+    assert _build_runners(config[YamlKeys.RUNNERS]), file_name
+
+
+@pytest.mark.parametrize(("file_name", "config"), _env_yamls())
+def test_slurm_runners_declare_every_location_they_use(
+    file_name: str, config: dict
+) -> None:
+    """Test that a slurm runner reaches all five locations, which the loader does not check."""
+    runners = _build_runners(config[YamlKeys.RUNNERS])
+
+    for runner in runners.values():
+        if runner.engine != JobEngines.SLURM:
+            continue
+        for location in [
+            Locations.BACKUP,
+            Locations.OUTPUT,
+            Locations.SETTINGS,
+            Locations.SOFTWARE,
+            Locations.SLURM,
+        ]:
+            assert runner.view.has(location), (
+                f"{file_name}: runner '{runner.name}' lacks '{location}'"
+            )
+
+
+@pytest.mark.parametrize(("file_name", "config"), _env_yamls())
+def test_backup_base_path_equals_the_slurm_backup_location(
+    file_name: str, config: dict
+) -> None:
+    """Test that the persisted display path is the path the slurm runner sees."""
+    runners = _build_runners(config[YamlKeys.RUNNERS])
+
+    assert str(runners[JobEngines.SLURM].view.resolve(Locations.BACKUP)) == str(
+        config["backup"]["backup_base_path"]
+    ), file_name
 
 
 def test_the_logs_are_not_mounted_below_the_mounts_folder() -> None:

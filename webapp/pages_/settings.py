@@ -316,7 +316,7 @@ else:
             "label": "Executable*",
             "max_chars": 64,
             "placeholder": "e.g. 'custom-software/custom-executable1.2.3'",
-            # TODO: reimplement using the actual software path, cf. CLUSTER_VIEW
+            # TODO: reimplement using the actual software path, cf. the runner's `view.software`
             "help": "Path to executable, relative to the software folder. Ask an administrator to add the executable to the software folder. "
             f"If something that is in the `$PATH` should be executed, it needs to be wrapped by a shell script located in the software folder. "
             f"For a runner with the `{JobEngines.DOCKER}` engine, this is a docker image name instead, e.g. `alphakraken-msqc`. "

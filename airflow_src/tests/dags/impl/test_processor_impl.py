@@ -35,7 +35,7 @@ from plugins.common.keys import (
     XComKeys,
 )
 
-from airflow_src.tests.helpers import yaml_locations
+from airflow_src.tests.helpers import container_locations, yaml_locations
 from shared.db.models import RawFile, RawFileStatus
 from shared.keys import JobEngines
 
@@ -105,8 +105,7 @@ def test_create_quanting_env(
         "SETTINGS_VERSION": 1,
         "_JOB_ENGINE": "slurm",
         "_YEAR_MONTH_FOLDER": "1970_01",
-        "_INTERNAL_OUTPUT_PATH": "/opt/airflow/mounts/output/some_project_id/out_test_file.raw/alphadia",
-        "_INTERNAL_RAW_FILE_PATH": "/opt/airflow/mounts/backup/instrument1/1970_01/test_file.raw",
+        "_RELATIVE_RAW_FILE_PATH": "instrument1/1970_01/test_file.raw",
         "_CONFIG_PARAMS": "",
     }
     assert result.to_dict() == expected
@@ -189,8 +188,7 @@ def test_create_quanting_env_custom_software(
         "SETTINGS_VERSION": 1,
         "_JOB_ENGINE": "slurm",
         "_YEAR_MONTH_FOLDER": "1970_01",
-        "_INTERNAL_OUTPUT_PATH": "/opt/airflow/mounts/output/some_project_id/out_test_file.raw/custom",
-        "_INTERNAL_RAW_FILE_PATH": "/opt/airflow/mounts/backup/instrument1/1970_01/test_file.raw",
+        "_RELATIVE_RAW_FILE_PATH": "instrument1/1970_01/test_file.raw",
         "_CONFIG_PARAMS": expected_config_params,
     }
     assert result.to_dict() == expected
@@ -312,7 +310,7 @@ def test_prepare_job(
     mock_get_raw_file_by_id.return_value = mock_raw_file
     mock_settings = MagicMock(config_params=[])
     mock_get_settings_by_id.return_value = mock_settings
-    mock_env = make_quanting_env(internal_output_path="/nonexistent/output/path")
+    mock_env = make_quanting_env()
     mock_create_env.return_value = mock_env
 
     result = prepare_job(raw_file_id="test_file.raw", settings_id="sid1")
@@ -474,8 +472,9 @@ def test_submit_job_executes_ssh_command_and_stores_job_id(
 ) -> None:
     """Test that the submit_job function executes the SSH command and stores the job ID."""
     # given
-    output_dir = tmp_path / "PID123" / "out_test_file.raw" / "alphadia"
-    quanting_env = make_quanting_env(internal_output_path=str(output_dir))
+    relative_output_path = "PID123/out_test_file.raw/alphadia"
+    output_dir = tmp_path / relative_output_path
+    quanting_env = make_quanting_env(relative_output_path=relative_output_path)
     mock_raw_file = MagicMock(
         wraps=RawFile,
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
@@ -486,7 +485,8 @@ def test_submit_job_executes_ssh_command_and_stores_job_id(
     mock_start_job.return_value = "12345"
 
     # when
-    result = submit_job(quanting_env_dict=quanting_env.to_dict())
+    with container_locations(output=str(tmp_path)):
+        result = submit_job(quanting_env_dict=quanting_env.to_dict())
 
     assert result == "12345"
     assert output_dir.exists()
@@ -512,7 +512,7 @@ def test_submit_job_output_folder_exists(
     # given
     output_dir = tmp_path / "output"
     output_dir.mkdir()
-    quanting_env = make_quanting_env(internal_output_path=str(output_dir))
+    quanting_env = make_quanting_env(relative_output_path="output")
     mock_raw_file = MagicMock(
         wraps=RawFile,
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
@@ -523,7 +523,10 @@ def test_submit_job_output_folder_exists(
     mock_get_airflow_variable.return_value = "raise"
 
     # when
-    with pytest.raises(AirflowFailException):
+    with (
+        container_locations(output=str(tmp_path)),
+        pytest.raises(AirflowFailException),
+    ):
         submit_job(quanting_env_dict=quanting_env.to_dict())
 
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
@@ -544,7 +547,7 @@ def test_submit_job_output_folder_exists_associate(
     # given
     output_dir = tmp_path / "output"
     output_dir.mkdir()
-    quanting_env = make_quanting_env(internal_output_path=str(output_dir))
+    quanting_env = make_quanting_env(relative_output_path="output")
     mock_raw_file = MagicMock(
         wraps=RawFile,
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
@@ -556,7 +559,8 @@ def test_submit_job_output_folder_exists_associate(
     mock_get_slurm_job_id_from_log.return_value = "54321"
 
     # when
-    result = submit_job(quanting_env_dict=quanting_env.to_dict())
+    with container_locations(output=str(tmp_path)):
+        result = submit_job(quanting_env_dict=quanting_env.to_dict())
 
     assert result == "54321"
 
@@ -575,7 +579,7 @@ def test_submit_job_output_folder_exists_associate_raise(
     # given
     output_dir = tmp_path / "output"
     output_dir.mkdir()
-    quanting_env = make_quanting_env(internal_output_path=str(output_dir))
+    quanting_env = make_quanting_env(relative_output_path="output")
     mock_raw_file = MagicMock(
         wraps=RawFile,
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
@@ -587,7 +591,10 @@ def test_submit_job_output_folder_exists_associate_raise(
     mock_get_slurm_job_id_from_log.return_value = None
 
     # when
-    with pytest.raises(AirflowFailException):
+    with (
+        container_locations(output=str(tmp_path)),
+        pytest.raises(AirflowFailException),
+    ):
         submit_job(quanting_env_dict=quanting_env.to_dict())
 
 
@@ -666,17 +673,14 @@ def test_prepare_job_add_mode(  # noqa: PLR0913
     output="/some_output_path",
     software="/some_software_base_path",
 )
-@patch("dags.impl.processor_impl.get_internal_output_path")
 @patch("dags.impl.processor_impl.get_output_folder_rel_path")
 def test_create_quanting_env_with_suffix(
     mock_output_rel_path: MagicMock,
-    mock_internal_output_path: MagicMock,
 ) -> None:
     """Test that _create_quanting_env applies the suffix to all output paths, incl. the config params."""
     mock_output_rel_path.return_value = Path(
         "some_project_id/out_test_file.raw/alphadia"
     )
-    mock_internal_output_path.return_value = Path("/opt/airflow/mounts/output")
 
     mock_settings = MagicMock(
         software_type="custom",
@@ -716,10 +720,6 @@ def test_create_quanting_env_with_suffix(
         == "/some_output_path/some_project_id/out_test_file.raw/alphadia.run2"
     )
     assert (
-        result.internal_output_path
-        == "/opt/airflow/mounts/output/some_project_id/out_test_file.raw/alphadia.run2"
-    )
-    assert (
         result.config_params
         == "--out /some_output_path/some_project_id/out_test_file.raw/alphadia.run2"
     )
@@ -740,7 +740,7 @@ def test_submit_job_output_folder_exists_add(  # noqa: PLR0913
     """submit_job raises when output_exists_mode is 'add' but the output path already exists."""
     output_dir = tmp_path / "output"
     output_dir.mkdir()
-    quanting_env = make_quanting_env(internal_output_path=str(output_dir))
+    quanting_env = make_quanting_env(relative_output_path="output")
     mock_raw_file = MagicMock(
         wraps=RawFile,
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
@@ -749,7 +749,10 @@ def test_submit_job_output_folder_exists_add(  # noqa: PLR0913
     mock_get_raw_file_by_id.return_value = mock_raw_file
     mock_get_airflow_variable.return_value = "add"
 
-    with pytest.raises(AirflowFailException, match="should have created a unique name"):
+    with (
+        container_locations(output=str(tmp_path)),
+        pytest.raises(AirflowFailException, match="should have created a unique name"),
+    ):
         submit_job(quanting_env_dict=quanting_env.to_dict())
 
 
@@ -1068,7 +1071,7 @@ def test_compute_metrics(
 ) -> None:
     """Test that compute_metrics makes the expected calls."""
     quanting_env = make_quanting_env(
-        internal_output_path="/opt/airflow/mounts/output/P1/out_test_file.raw/alphadia"
+        relative_output_path="P1/out_test_file.raw/alphadia"
     )
 
     mock_calc_metrics.return_value = {"metric1": "value1"}
@@ -1092,7 +1095,7 @@ def test_compute_metrics_msqc_software_type(
     quanting_env = make_quanting_env(
         software_type="msqc",
         metrics_type="msqc",
-        internal_output_path="/opt/airflow/mounts/output/P1/out_test_file.raw/msqc",
+        relative_output_path="P1/out_test_file.raw/msqc",
     )
     mock_calc_metrics.return_value = {"qc_metric": 42}
 

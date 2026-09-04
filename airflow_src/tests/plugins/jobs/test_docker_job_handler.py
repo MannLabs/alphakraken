@@ -1,7 +1,7 @@
 """Tests for the docker_job_handler module."""
 
 from collections.abc import Callable
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -10,6 +10,7 @@ from common.keys import JobStates
 from common.quanting_env import QuantingEnv
 
 from shared.keys import SoftwareTypes
+from shared.path_views import Locations, View
 
 # `docker` is an optional dependency, cf. requirements_docker_job_engine.txt
 pytest.importorskip("docker")
@@ -18,10 +19,20 @@ from docker.errors import ImageNotFound, NotFound
 
 MODULE = "jobs.docker_job_handler"
 
-HOST_MOUNTS_PATH = Path("/host/mounts")
+DOCKER_HOST_VIEW = View(
+    "docker host",
+    {
+        location: f"/host/mounts/{location}"
+        for location in [Locations.BACKUP, Locations.OUTPUT]
+    },
+    PurePosixPath,
+)
 
-INTERNAL_RAW_FILE_PATH = "/opt/airflow/mounts/backup/test1/2024_07/raw_file_1.raw"
-INTERNAL_OUTPUT_PATH = "/opt/airflow/mounts/output/P1/out_raw_file_1.raw/custom"
+RELATIVE_RAW_FILE_PATH = "test1/2024_07/raw_file_1.raw"
+RELATIVE_OUTPUT_PATH = "P1/out_raw_file_1.raw/custom"
+
+INTERNAL_RAW_FILE_PATH = f"/opt/airflow/mounts/backup/{RELATIVE_RAW_FILE_PATH}"
+INTERNAL_OUTPUT_PATH = f"/opt/airflow/mounts/output/{RELATIVE_OUTPUT_PATH}"
 
 # the paths the placeholders in the config params resolved to, cf. `locations.*.absolute_path`
 RAW_FILE_PATH = "/pool/backup/test1/2024_07/raw_file_1.raw"
@@ -41,7 +52,7 @@ def handler() -> MagicMock:
     with patch(f"{MODULE}.docker.from_env") as mock_from_env:
         from jobs.docker_job_handler import DockerJobHandler
 
-        handler_ = DockerJobHandler(HOST_MOUNTS_PATH)
+        handler_ = DockerJobHandler(DOCKER_HOST_VIEW)
         handler_._client = mock_from_env.return_value
         return handler_
 
@@ -61,8 +72,8 @@ def sample_quanting_env(
         config_params=f"{RAW_FILE_PATH} {OUTPUT_PATH} 2",
         slurm_mem="31G",
         slurm_cpus_per_task=2,
-        internal_raw_file_path=INTERNAL_RAW_FILE_PATH,
-        internal_output_path=INTERNAL_OUTPUT_PATH,
+        relative_raw_file_path=RELATIVE_RAW_FILE_PATH,
+        relative_output_path=RELATIVE_OUTPUT_PATH,
     )
 
 
@@ -184,7 +195,7 @@ class TestStartJob:
             "RAW_FILE_PATH": RAW_FILE_PATH,
             "SETTINGS_PATH": "/pool/settings/test_settings",
             "OUTPUT_PATH": OUTPUT_PATH,
-            "RELATIVE_OUTPUT_PATH": "PID1/out_test_file.raw/alphadia",
+            "RELATIVE_OUTPUT_PATH": RELATIVE_OUTPUT_PATH,
             "SPECLIB_FILE_NAME": "some_speclib_file_name",
             "FASTA_FILE_NAME": "some_fasta_file_name",
             "CONFIG_FILE_NAME": "some_config_file_name",

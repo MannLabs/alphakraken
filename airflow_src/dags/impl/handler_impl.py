@@ -1,15 +1,19 @@
 """Business logic for the "acquisition_handler" DAG."""
 
+import functools
 import logging
 import re
+from collections.abc import Callable
 from pathlib import Path
+from typing import TypeVar
 
 from airflow.exceptions import AirflowFailException, AirflowSkipException
 from airflow.models import TaskInstance
 from common.keys import (
     DAG_DELIMITER,
-    INSTRUMENT_OVERWRITE_PREFIX,
-    OVERWRITE_IDS_SEPARATOR,
+    INSTRUMENT_MATCH_PREFIX,
+    RAW_FILE_IDS_SEPARATOR,
+    AcquisitionHandlerErrors,
     AcquisitionMonitorErrors,
     AirflowVars,
     DagContext,
@@ -68,7 +72,50 @@ from shared.yamlsettings import YamlKeys, get_path, is_s3_upload_enabled
 # point locations.backup.absolute_path to the folder where the files can be picked up for quanting
 SKIP_COPYING = False
 
+T = TypeVar("T")
 
+
+def handle_missing_files(task: Callable[..., T]) -> Callable[..., T]:
+    """Turn a `FileNotFoundError` in `task` into a failure, or into a skip if accepted via Airflow variable.
+
+    On acceptance, the raw file is marked as disappeared from the instrument.
+    """
+
+    @functools.wraps(task)
+    def wrapper(ti: TaskInstance, **kwargs) -> T:
+        try:
+            return task(ti, **kwargs)
+        except FileNotFoundError as e:
+            raw_file_id = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID]
+            raw_file = get_raw_file_by_id(raw_file_id)
+            msg = f"{AcquisitionHandlerErrors.FILES_MISSING}: {e}"
+
+            if not _is_raw_file_listed(
+                AirflowVars.ACCEPT_MISSING_FILES_FOR_RAW_FILE_ID, raw_file
+            ):
+                raise AirflowFailException(
+                    f"{msg}\n"
+                    "To resolve this issue, after checking the root cause: \n"
+                    f"Set the Airflow Variable {AirflowVars.ACCEPT_MISSING_FILES_FOR_RAW_FILE_ID} to the ID of the raw file "
+                    "and restart this task. The raw file will then be marked as disappeared and downstream tasks skipped."
+                ) from e
+
+            logging.warning(
+                f"{msg}. Marking raw file as disappeared as requested by Airflow variable {AirflowVars.ACCEPT_MISSING_FILES_FOR_RAW_FILE_ID}."
+            )
+            update_raw_file(
+                raw_file_id,
+                new_status=RawFileStatus.ACQUISITION_FAILED,  # this is an assumption about the root cause
+                status_details=msg,
+                backup_status=BackupStatus.SKIPPED,
+                instrument_file_status=InstrumentFileStatus.DISAPPEARED,
+            )
+            raise AirflowSkipException(msg) from e
+
+    return wrapper
+
+
+@handle_missing_files
 def compute_checksum(ti: TaskInstance, **kwargs) -> bool:
     """Compute checksums for files in a raw file and store them in DB and XCom."""
     raw_file_id = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID]
@@ -128,14 +175,7 @@ def compute_checksum(ti: TaskInstance, **kwargs) -> bool:
         )
 
     if not files_size_and_hashsum:
-        update_raw_file(
-            raw_file_id,
-            new_status=RawFileStatus.ACQUISITION_FAILED,
-            size=total_file_size,
-            file_info=file_info,
-            status_details="No files were found.",
-        )
-        raise AirflowSkipException("No files were found!")
+        raise FileNotFoundError("No files were found.")
 
     if existing_file_info := raw_file.file_info:
         logging.warning(
@@ -150,7 +190,7 @@ def compute_checksum(ti: TaskInstance, **kwargs) -> bool:
                 f"{file_info=}\n"
             )
 
-            if _is_overwrite_requested(
+            if _is_raw_file_listed(
                 AirflowVars.FORCE_OVERWRITE_FOR_RAW_FILE_ID, raw_file
             ):
                 logging.warning(
@@ -206,21 +246,21 @@ def _compare_file_info(
     return errors
 
 
-def _is_overwrite_requested(airflow_variable: str, raw_file: RawFile) -> bool:
-    """Check if the Airflow variable `airflow_variable` requests an overwrite for `raw_file`.
+def _is_raw_file_listed(airflow_variable: str, raw_file: RawFile) -> bool:
+    """Check if the Airflow variable `airflow_variable` lists `raw_file`.
 
     The variable holds a comma-separated list of raw file ids and/or `INSTRUMENT_<instrument_id>`
     entries, the latter matching all raw files of that instrument.
     """
     value = get_airflow_variable(airflow_variable, "")
-    requested_ids = {v.strip() for v in value.split(OVERWRITE_IDS_SEPARATOR)}
+    listed_ids = {v.strip() for v in value.split(RAW_FILE_IDS_SEPARATOR)}
 
     return bool(
-        requested_ids
-        & {raw_file.id, f"{INSTRUMENT_OVERWRITE_PREFIX}{raw_file.instrument_id}"}
+        listed_ids & {raw_file.id, f"{INSTRUMENT_MATCH_PREFIX}{raw_file.instrument_id}"}
     )
 
 
+@handle_missing_files
 def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
     """Copy all data associated with a raw file to the target location."""
     raw_file_id = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID]
@@ -252,7 +292,7 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
         backup_status=BackupStatus.COPYING_IN_PROGRESS,
     )
 
-    if overwrite := _is_overwrite_requested(
+    if overwrite := _is_raw_file_listed(
         AirflowVars.FORCE_OVERWRITE_FOR_RAW_FILE_ID, raw_file
     ):
         logging.warning(

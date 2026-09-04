@@ -10,7 +10,7 @@ from common.settings import _INSTRUMENTS
 from dags.impl.handler_impl import (
     _count_special_characters,
     _handle_file_copying,
-    _is_overwrite_requested,
+    _is_raw_file_listed,
     _is_settings_configured,
     _verify_copied_files,
     compute_checksum,
@@ -21,7 +21,7 @@ from dags.impl.handler_impl import (
     start_s3_uploader,
 )
 
-from shared.db.models import InstrumentFileStatus, RawFileStatus
+from shared.db.models import BackupStatus, InstrumentFileStatus, RawFileStatus
 
 
 @pytest.mark.parametrize(
@@ -444,6 +444,7 @@ def test_compute_checksum_file_got_renamed(
     )
 
 
+@patch("dags.impl.handler_impl.get_airflow_variable", return_value="")
 @patch("dags.impl.handler_impl.get_raw_file_by_id")
 @patch("dags.impl.handler_impl.RawFileWrapperFactory")
 @patch("dags.impl.handler_impl.update_raw_file")
@@ -451,8 +452,9 @@ def test_compute_checksum_no_files_found(
     mock_update_raw_file: MagicMock,
     mock_raw_file_wrapper_factory: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
+    mock_get_airflow_variable: MagicMock,  # noqa: ARG001
 ) -> None:
-    """Test compute_checksum raises AirflowSkipException and updates status when no files are found."""
+    """Test compute_checksum fails when no files are found."""
     ti = MagicMock()
     kwargs = {
         "params": {"raw_file_id": "test_file.raw"},
@@ -462,12 +464,43 @@ def test_compute_checksum_no_files_found(
     mock_get_raw_file_by_id.return_value = mock_raw_file
 
     mock_raw_file_wrapper_factory.create_write_wrapper.return_value.get_files_to_copy.return_value = {}
-    mock_raw_file_wrapper_factory.create_write_wrapper.return_value.target_folder_path = Path(
-        "/path/to/backup/"
-    )
 
     # when
-    with pytest.raises(AirflowSkipException, match="No files were found!"):
+    with pytest.raises(
+        AirflowFailException, match="Files missing on instrument: No files were found."
+    ):
+        compute_checksum(ti, **kwargs)
+
+    # then
+    mock_update_raw_file.assert_called_once_with(
+        "test_file.raw", new_status=RawFileStatus.CHECKSUMMING
+    )
+
+
+@patch("dags.impl.handler_impl.get_airflow_variable", return_value="test_file.raw")
+@patch("dags.impl.handler_impl.get_raw_file_by_id")
+@patch("dags.impl.handler_impl.RawFileWrapperFactory")
+@patch("dags.impl.handler_impl.update_raw_file")
+def test_compute_checksum_no_files_found_accepted(
+    mock_update_raw_file: MagicMock,
+    mock_raw_file_wrapper_factory: MagicMock,
+    mock_get_raw_file_by_id: MagicMock,
+    mock_get_airflow_variable: MagicMock,  # noqa: ARG001
+) -> None:
+    """Test compute_checksum marks the raw file as removed and skips if missing files are accepted."""
+    ti = MagicMock()
+    kwargs = {
+        "params": {"raw_file_id": "test_file.raw"},
+    }
+    mock_raw_file = MagicMock()
+    mock_raw_file.id = "test_file.raw"
+    mock_raw_file.file_info = None
+    mock_get_raw_file_by_id.return_value = mock_raw_file
+
+    mock_raw_file_wrapper_factory.create_write_wrapper.return_value.get_files_to_copy.return_value = {}
+
+    # when
+    with pytest.raises(AirflowSkipException):
         compute_checksum(ti, **kwargs)
 
     # then
@@ -477,12 +510,74 @@ def test_compute_checksum_no_files_found(
             call(
                 "test_file.raw",
                 new_status=RawFileStatus.ACQUISITION_FAILED,
-                size=0,
-                file_info={},
-                status_details="No files were found.",
+                status_details="Files missing on instrument: No files were found.",
+                backup_status=BackupStatus.SKIPPED,
+                instrument_file_status=InstrumentFileStatus.DISAPPEARED,
             ),
         ]
     )
+
+
+@pytest.mark.parametrize(
+    ("airflow_variable_value", "expected_exception"),
+    [
+        ("", AirflowFailException),
+        ("test_file.raw", AirflowSkipException),
+    ],
+)
+@patch("dags.impl.handler_impl.get_airflow_variable")
+@patch("dags.impl.handler_impl.get_xcom")
+@patch("dags.impl.handler_impl.get_raw_file_by_id")
+@patch(
+    "dags.impl.handler_impl.get_backup_base_path",
+    return_value=Path("some_backup_folder"),
+)
+@patch("dags.impl.handler_impl._handle_file_copying")
+@patch("dags.impl.handler_impl.update_raw_file")
+def test_copy_raw_file_source_missing(  # noqa: PLR0913
+    mock_update_raw_file: MagicMock,
+    mock_handle_file_copying: MagicMock,
+    mock_get_backup_base_path: MagicMock,  # noqa: ARG001
+    mock_get_raw_file_by_id: MagicMock,
+    mock_get_xcom: MagicMock,
+    mock_get_airflow_variable: MagicMock,
+    airflow_variable_value: str,
+    expected_exception: type[Exception],
+) -> None:
+    """Test copy_raw_file fails on a missing source file, or marks the raw file as removed if accepted."""
+    ti = MagicMock()
+    kwargs = {
+        "params": {"raw_file_id": "test_file.raw"},
+    }
+    src_path = "/path/to/instrument/test_file.raw"
+    mock_get_xcom.side_effect = [
+        {src_path: "/opt/airflow/mounts/backup/test_file.raw"},
+        {src_path: (1000, "some_hash")},
+    ]
+    mock_raw_file = MagicMock()
+    mock_raw_file.id = "test_file.raw"
+    mock_get_raw_file_by_id.return_value = mock_raw_file
+    mock_get_airflow_variable.return_value = airflow_variable_value
+    mock_handle_file_copying.side_effect = FileNotFoundError(
+        f"File {src_path} not found."
+    )
+
+    # when
+    with pytest.raises(expected_exception, match="Files missing on instrument"):
+        copy_raw_file(ti, **kwargs)
+
+    # then
+    removed_call = call(
+        "test_file.raw",
+        new_status=RawFileStatus.ACQUISITION_FAILED,
+        status_details=f"Files missing on instrument: File {src_path} not found.",
+        backup_status=BackupStatus.SKIPPED,
+        instrument_file_status=InstrumentFileStatus.DISAPPEARED,
+    )
+    if expected_exception is AirflowSkipException:
+        assert mock_update_raw_file.call_args == removed_call
+    else:
+        assert removed_call not in mock_update_raw_file.call_args_list
 
 
 @patch("dags.impl.handler_impl.get_xcom")
@@ -685,19 +780,19 @@ def test_copy_raw_file_calls_update_with_correct_args_overwrite(  # noqa: PLR091
     ],
 )
 @patch("dags.impl.handler_impl.get_airflow_variable")
-def test_is_overwrite_requested(
+def test_is_raw_file_listed(
     mock_get_airflow_variable: MagicMock,
     airflow_variable_value: str,
     expected: bool,  # noqa: FBT001
 ) -> None:
-    """Test _is_overwrite_requested matches on file id and on instrument, also in comma-separated lists."""
+    """Test _is_raw_file_listed matches on file id and on instrument, also in comma-separated lists."""
     mock_get_airflow_variable.return_value = airflow_variable_value
     raw_file = MagicMock()
     raw_file.id = "test_file.raw"
     raw_file.instrument_id = "instrument1"
 
     # when
-    assert _is_overwrite_requested("some_variable", raw_file) == expected
+    assert _is_raw_file_listed("some_variable", raw_file) == expected
 
     mock_get_airflow_variable.assert_called_once_with("some_variable", "")
 

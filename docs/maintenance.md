@@ -60,6 +60,17 @@ the overwrite protection is then deactivated for all files of that instrument.
 Both forms can be mixed. As this affects all files of that instrument, reset the variable right after the repair.
 
 
+### accept_missing_files_for_raw_file_id (default: None)
+If a file of a raw file is not found while the `compute_checksum` or `file_copy` task runs
+(e.g. because it was removed from the instrument), the task fails. Check the root cause first.
+To repair, set the `accept_missing_files_for_raw_file_id` variable to the file _id_ and restart the failed task:
+the raw file is then marked as `acquisition_failed` with instrument file status `disappeared`,
+and downstream tasks are skipped. Note that this acts on any file-not-found error in these tasks,
+including ones on the backup side.
+
+The value format is the same as for `force_overwrite_for_raw_file_id`. Reset the variable right after the repair.
+
+
 ### output_exists_mode (default: raise)
 Convenience switch to avoid manual handling of output files
 in case something went wrong with the quanting.

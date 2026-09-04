@@ -119,9 +119,9 @@ class InstrumentKeys:
     FILE_MOVE_DELAY_M: str = "file_move_delay_m"
 
 
-# prefix to make the `FORCE_OVERWRITE_FOR_RAW_FILE_ID` variable match all files of one instrument
-INSTRUMENT_OVERWRITE_PREFIX = "INSTRUMENT_"
-OVERWRITE_IDS_SEPARATOR = ","
+# prefix to make the `*_FOR_RAW_FILE_ID` variables match all files of one instrument
+INSTRUMENT_MATCH_PREFIX = "INSTRUMENT_"
+RAW_FILE_IDS_SEPARATOR = ","
 
 
 class AirflowVars:
@@ -129,6 +129,9 @@ class AirflowVars:
 
     # set to a specific file id (or `INSTRUMENT_<instrument_id>`) to allow overwriting its checksum and pool backup
     FORCE_OVERWRITE_FOR_RAW_FILE_ID = "force_overwrite_for_raw_file_id"
+
+    # set to a specific file id (or `INSTRUMENT_<instrument_id>`) to mark it as disappeared if its files are missing
+    ACCEPT_MISSING_FILES_FOR_RAW_FILE_ID = "accept_missing_files_for_raw_file_id"
 
     # whether to consider acquisition "done" if current file is "old" (> 5h) compared to youngest file
     CONSIDER_OLD_FILES_ACQUIRED = "consider_old_files_acquired"
@@ -213,3 +216,9 @@ class AcquisitionMonitorErrors:
 
     MAIN_FILE_MISSING: str = "Main file was not created"
     FILE_GOT_RENAMED: str = "File got renamed"
+
+
+class AcquisitionHandlerErrors:
+    """Errors that can occur during acquisition handling."""
+
+    FILES_MISSING: str = "Files missing on instrument"

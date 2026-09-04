@@ -17,8 +17,8 @@ fi
 
 set -e -u
 
-# keep in sync with shared.keys.InternalPaths.LOCAL_DIR_SENTINEL
-LOCAL_DIR_SENTINEL=alphakraken_local_dir_sentinel
+# keep in sync with shared.keys.InternalPaths.LOCAL_DIR_SENTINEL_FILE
+LOCAL_DIR_SENTINEL_FILE=alphakraken_local_dir_sentinel
 
 if [ -z "${1:-}" ] ; then
   echo "Usage: $0 <entity> [fstab|mount|umount]"
@@ -26,7 +26,7 @@ if [ -z "${1:-}" ] ; then
   echo "If 'fstab' is passed, an entry for the /etc/fstab file will be created."
   echo "If 'mount' is passed, the source folder will be mounted to the target folder."
   echo "If 'umount' is passed, the target folder will be unmounted first, before mounting the source folder to the target folder."
-  echo "All actions protect the (unmounted) target folder: it gets a '${LOCAL_DIR_SENTINEL}' sentinel file and is made immutable (chattr +i), cf. docs/deployment.md."
+  echo "All actions protect the (unmounted) target folder: it gets a '${LOCAL_DIR_SENTINEL_FILE}' sentinel file and is made immutable (chattr +i), cf. docs/deployment.md."
   echo
   echo "Example 1: $0 logs fstab"
   echo "Example 2: $0 test1 mount"

@@ -56,7 +56,7 @@ class InternalPaths(metaclass=ConstantsClass):
     OUTPUT = "output"
 
     # created by `mount.sh prepare` in the host directory a share gets mounted onto: visible only if the share is not mounted
-    LOCAL_DIR_SENTINEL = "alphakraken_local_dir_sentinel"
+    LOCAL_DIR_SENTINEL_FILE = "alphakraken_local_dir_sentinel"
 
 
 class SoftwareTypes(metaclass=ConstantsClass):

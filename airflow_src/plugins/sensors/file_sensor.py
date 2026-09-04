@@ -94,7 +94,7 @@ def _check_path_health(path: Path, description: str, status_details: list[str]) 
     try:
         if (
             not (exists := _path_exists(path))
-            or not (mounted := not _path_exists(path / InternalPaths.LOCAL_DIR_SENTINEL))
+            or not (mounted := not _path_exists(path / InternalPaths.LOCAL_DIR_SENTINEL_FILE))
             or not (has_files := (any(True for _ in path.rglob("*"))))
         ):
             logging.warning(

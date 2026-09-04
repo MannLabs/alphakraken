@@ -2,7 +2,7 @@
 
 from collections.abc import Callable
 from datetime import datetime
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
@@ -37,12 +37,24 @@ from plugins.common.keys import (
     XComKeys,
 )
 
-from airflow_src.tests.helpers import container_locations, yaml_locations
+from airflow_src.tests.helpers import container_locations, runner_view
 from shared.db.models import RawFile, RawFileStatus
 from shared.keys import JobEngines
+from shared.path_views import Locations, View
+from shared.runners import RUNNERS, OperatingSystems, Runner, get_runner
+
+_POSIX_VIEW = View(
+    "test",
+    {
+        Locations.BACKUP: "/some_backup_base_path",
+        Locations.SETTINGS: "/some_settings_path",
+        Locations.OUTPUT: "/some_output_path",
+        Locations.SOFTWARE: "/some_software_base_path",
+    },
+    PurePosixPath,
+)
 
 
-@yaml_locations(settings="/some_settings_path", output="/some_output_path")
 @patch("dags.impl.processor_impl.get_output_folder_rel_path")
 @patch("dags.impl.processor_impl.get_internal_output_path")
 def test_create_quanting_env(
@@ -60,6 +72,7 @@ def test_create_quanting_env(
         id="test_file.raw",
         project_id="some_project_id",
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
+        instrument_id="instrument1",
     )
     mock_settings = MagicMock()
     mock_settings.name = "test_settings"
@@ -80,8 +93,7 @@ def test_create_quanting_env(
     result = _create_quanting_env(
         settings=mock_settings,
         raw_file=mock_raw_file,
-        raw_file_path=Path("/some_backup_base_path/instrument1/1970_01/test_file.raw"),
-        relative_raw_file_path=Path("instrument1/1970_01/test_file.raw"),
+        view=_POSIX_VIEW,
     )
 
     # when you adapt something here, don't forget to adapt also the submit_job.sh script
@@ -113,11 +125,6 @@ def test_create_quanting_env(
     assert result.to_dict() == expected
 
 
-@yaml_locations(
-    settings="/some_settings_path",
-    output="/some_output_path",
-    software="/some_software_base_path",
-)
 @patch("dags.impl.processor_impl.get_output_folder_rel_path")
 @patch("dags.impl.processor_impl.get_internal_output_path")
 def test_create_quanting_env_custom_software(
@@ -133,6 +140,7 @@ def test_create_quanting_env_custom_software(
         id="test_file.raw",
         project_id="some_project_id",
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
+        instrument_id="instrument1",
     )
     mock_settings = MagicMock()
     mock_settings.name = "test_custom_settings"
@@ -153,8 +161,7 @@ def test_create_quanting_env_custom_software(
     result = _create_quanting_env(
         settings=mock_settings,
         raw_file=mock_raw_file,
-        raw_file_path=Path("/some_backup_base_path/instrument1/1970_01/test_file.raw"),
-        relative_raw_file_path=Path("instrument1/1970_01/test_file.raw"),
+        view=_POSIX_VIEW,
     )
 
     expected_config_params = (
@@ -294,7 +301,7 @@ def test_resolve_settings_no_settings_raise(
 @patch("dags.impl.processor_impl._create_quanting_env")
 @patch("dags.impl.processor_impl.get_settings_by_id")
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
-@yaml_locations(backup="/some_backup_base_path")
+@runner_view("slurm", backup="/some_backup_base_path")
 def test_prepare_job(
     mock_get_raw_file_by_id: MagicMock,
     mock_get_settings_by_id: MagicMock,
@@ -311,6 +318,7 @@ def test_prepare_job(
     )
     mock_get_raw_file_by_id.return_value = mock_raw_file
     mock_settings = MagicMock(config_params=[])
+    mock_settings.runner_name = "slurm"
     mock_get_settings_by_id.return_value = mock_settings
     mock_env = make_quanting_env()
     mock_create_env.return_value = mock_env
@@ -322,11 +330,78 @@ def test_prepare_job(
     mock_create_env.assert_called_once_with(
         mock_settings,
         mock_raw_file,
-        Path("/some_backup_base_path/instrument1/1970_01/test_file.raw"),
-        Path("instrument1/1970_01/test_file.raw"),
+        get_runner("slurm").view,
         "",
     )
     assert result == mock_env.to_dict()
+
+
+_WINDOWS_RUNNER = Runner(
+    name="win_box",
+    engine=JobEngines.SLURM,
+    os=OperatingSystems.WINDOWS,
+    view=View(
+        "win_box",
+        {
+            Locations.BACKUP: r"\\server\share\backup",
+            Locations.SETTINGS: r"Z:\alphakraken\settings",
+            Locations.OUTPUT: r"Z:\alphakraken\output",
+            Locations.SOFTWARE: r"C:\alphakraken\software",
+        },
+        PureWindowsPath,
+    ),
+    ssh_connection_id_prefix="win_box_ssh",
+)
+
+
+@patch.dict(RUNNERS, {"win_box": _WINDOWS_RUNNER})
+@patch("dags.impl.processor_impl.get_settings_by_id")
+@patch("dags.impl.processor_impl.get_raw_file_by_id")
+def test_prepare_job_windows_runner_yields_windows_paths(
+    mock_get_raw_file_by_id: MagicMock,
+    mock_get_settings_by_id: MagicMock,
+) -> None:
+    """Test that the absolute paths follow the runner's OS while the relative ones stay posix."""
+    mock_get_raw_file_by_id.return_value = MagicMock(
+        wraps=RawFile,
+        id="test_file.raw",
+        created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
+        project_id="some_project_id",
+        instrument_id="instrument1",
+    )
+    mock_settings = MagicMock(
+        software_type="custom",
+        software="tool.exe",
+        config_params="--f {RAW_FILE_PATH} --out {OUTPUT_PATH}",
+        num_threads=8,
+        speclib_file_name=None,
+        fasta_file_name=None,
+        config_file_name=None,
+        metrics_type="custom",
+        version=1,
+        slurm_cpus_per_task=8,
+        slurm_mem="62G",
+        slurm_time="02:00:00",
+        runner_name="win_box",
+    )
+    mock_settings.name = "test_settings"
+    mock_get_settings_by_id.return_value = mock_settings
+
+    # when
+    result = prepare_job(raw_file_id="test_file.raw", settings_id="sid1")
+
+    raw_file_path = r"\\server\share\backup\instrument1\1970_01\test_file.raw"
+    output_path = r"Z:\alphakraken\output\some_project_id\out_test_file.raw\custom"
+    assert result["RAW_FILE_PATH"] == raw_file_path
+    assert result["SETTINGS_PATH"] == r"Z:\alphakraken\settings\test_settings"
+    assert result["OUTPUT_PATH"] == output_path
+    assert result["_CONFIG_PARAMS"] == f"--f {raw_file_path} --out {output_path}"
+    assert (
+        result["CUSTOM_COMMAND"]
+        == rf"C:\alphakraken\software\tool.exe --f {raw_file_path} --out {output_path}"
+    )
+    assert result["_RELATIVE_RAW_FILE_PATH"] == "instrument1/1970_01/test_file.raw"
+    assert result["RELATIVE_OUTPUT_PATH"] == "some_project_id/out_test_file.raw/custom"
 
 
 def test_check_content_allows_resolved_config_params(
@@ -465,7 +540,7 @@ def test_check_content_rejects_malicious_field(
 @patch("dags.impl.processor_impl._create_quanting_env")
 @patch("dags.impl.processor_impl.get_settings_by_id")
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
-@yaml_locations(backup="/some_backup_base_path")
+@runner_view("slurm", backup="/some_backup_base_path")
 def test_prepare_job_validation_error_raises(
     mock_get_raw_file_by_id: MagicMock,
     mock_get_settings_by_id: MagicMock,
@@ -483,6 +558,7 @@ def test_prepare_job_validation_error_raises(
     )
     mock_get_raw_file_by_id.return_value = mock_raw_file
     mock_settings = MagicMock()
+    mock_settings.runner_name = "slurm"
     mock_get_settings_by_id.return_value = mock_settings
     mock_env = make_quanting_env(software_type="custom")
     mock_create_env.return_value = mock_env
@@ -494,8 +570,7 @@ def test_prepare_job_validation_error_raises(
     mock_create_env.assert_called_once_with(
         mock_settings,
         mock_raw_file,
-        Path("/some_backup_base_path/instrument1/1970_01/test_file.raw"),
-        Path("instrument1/1970_01/test_file.raw"),
+        get_runner("slurm").view,
         "",
     )
     mock_check_content.assert_called_once_with(mock_env, mock_settings)
@@ -697,7 +772,7 @@ def test_find_next_free_run_suffix_base_not_exists(tmp_path: Path) -> None:
 @patch("dags.impl.processor_impl._create_quanting_env")
 @patch("dags.impl.processor_impl.get_settings_by_id")
 @patch("dags.impl.processor_impl.get_raw_file_by_id")
-@yaml_locations(backup="/some_backup_base_path")
+@runner_view("slurm", backup="/some_backup_base_path")
 def test_prepare_job_add_mode(  # noqa: PLR0913
     mock_get_raw_file_by_id: MagicMock,
     mock_get_settings_by_id: MagicMock,
@@ -717,6 +792,7 @@ def test_prepare_job_add_mode(  # noqa: PLR0913
     )
     mock_get_raw_file_by_id.return_value = mock_raw_file
     mock_settings = MagicMock(config_params=[])
+    mock_settings.runner_name = "slurm"
     mock_get_settings_by_id.return_value = mock_settings
     mock_check_content.return_value = []
 
@@ -732,17 +808,11 @@ def test_prepare_job_add_mode(  # noqa: PLR0913
     mock_create_env.assert_called_once_with(
         mock_settings,
         mock_raw_file,
-        Path("/some_backup_base_path/instrument1/1970_01/test_file.raw"),
-        Path("instrument1/1970_01/test_file.raw"),
+        get_runner("slurm").view,
         ".run2",
     )
 
 
-@yaml_locations(
-    settings="/some_settings_path",
-    output="/some_output_path",
-    software="/some_software_base_path",
-)
 @patch("dags.impl.processor_impl.get_output_folder_rel_path")
 def test_create_quanting_env_with_suffix(
     mock_output_rel_path: MagicMock,
@@ -776,9 +846,9 @@ def test_create_quanting_env_with_suffix(
             id="test_file.raw",
             project_id="some_project_id",
             created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
+            instrument_id="instrument1",
         ),
-        raw_file_path=Path("/some_backup_base_path/instrument1/1970_01/test_file.raw"),
-        relative_raw_file_path=Path("instrument1/1970_01/test_file.raw"),
+        view=_POSIX_VIEW,
         output_path_suffix=".run2",
     )
 

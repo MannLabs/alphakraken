@@ -76,7 +76,7 @@ def _check_health(instrument_id: str) -> None:
     )
 
 
-def _exists(path: Path) -> bool:
+def _path_exists(path: Path) -> bool:
     """Like `Path.exists()`, but raise any OSError other than 'not found' (e.g. an unreachable server)."""
     try:
         path.stat()
@@ -93,8 +93,8 @@ def _check_path_health(path: Path, description: str, status_details: list[str]) 
     # Note: using rglob could give false negatives if the folder is empty
     try:
         if (
-            not (exists := _exists(path))
-            or not (mounted := not _exists(path / InternalPaths.LOCAL_DIR_SENTINEL))
+            not (exists := _path_exists(path))
+            or not (mounted := not _path_exists(path / InternalPaths.LOCAL_DIR_SENTINEL))
             or not (has_files := (any(True for _ in path.rglob("*"))))
         ):
             logging.warning(

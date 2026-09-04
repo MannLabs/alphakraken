@@ -21,6 +21,7 @@ from raw_file_wrapper_factory import RawFileWrapperFactory
 
 from shared.db.interface import update_kraken_status
 from shared.db.models import KrakenStatusEntities, KrakenStatusValues
+from shared.keys import InternalPaths
 
 # to reduce network traffic, do the health check only every few minutes. If changed, adapt also webapp color code.
 HEALTH_CHECK_INTERVAL_M: int = 5
@@ -77,20 +78,26 @@ def _check_health(instrument_id: str) -> None:
 
 def _check_path_health(path: Path, description: str, status_details: list[str]) -> None:
     """Check the health of a path and add status details if necessary."""
-    is_mount = has_files = None
+    mounted = has_files = None
 
+    # Note: `is_mount()` is useless here: a docker bind mount is always a mount point, even if the share behind it is gone.
     # Note: using rglob could give false negatives if the folder is empty
-    if (
-        not (exists := path.exists())
-        or not (is_mount := path.is_mount())
-        or not (has_files := (any(True for _ in path.rglob("*"))))
-    ):
-        logging.warning(
-            f"Path {path} failed checks: {exists=} {is_mount=} {has_files=}"
-        )
-        status_details.append(
-            f"{description} path not healthy ({exists=} {is_mount=} {has_files=})"
-        )
+    try:
+        if (
+            not (exists := path.exists())
+            or not (mounted := not (path / InternalPaths.LOCAL_DIR_SENTINEL).exists())
+            or not (has_files := (any(True for _ in path.rglob("*"))))
+        ):
+            logging.warning(
+                f"Path {path} failed checks: {exists=} {mounted=} {has_files=}"
+            )
+            status_details.append(
+                f"{description} path not healthy ({exists=} {mounted=} {has_files=})"
+            )
+    except OSError as e:
+        # e.g. the server behind the share is unreachable
+        logging.warning(f"Path {path} not accessible: {e}")
+        status_details.append(f"{description} path not accessible ({e})")
 
 
 class FileCreationSensor(BaseSensorOperator):

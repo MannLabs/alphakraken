@@ -7,7 +7,11 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytz
-from plugins.sensors.file_sensor import FileCreationSensor, _check_health
+from plugins.sensors.file_sensor import (
+    FileCreationSensor,
+    _check_health,
+    _check_path_health,
+)
 
 from shared.db.models import KrakenStatusValues
 
@@ -107,7 +111,7 @@ def test_check_health_when_all_paths_exist(
     """Test that the health check passes when both paths exist."""
     mock_path = MagicMock()
     mock_path.exists.side_effect = [True, True, True]
-    mock_path.is_mount.side_effect = [True, True, True]
+    mock_path.__truediv__.return_value.exists.return_value = False  # sentinel
     mock_path.rglob.side_effect = [["file1"], ["file1"], ["file1"]]
     mock_get_data_path.return_value = mock_path
     mock_get_backup_path.return_value = mock_path
@@ -166,9 +170,7 @@ def test_check_health_when_no_paths_exist(
     mock_get_disk_usage.return_value = (123, 456, 789)
 
     # when
-    _check_health(
-        "instrument_id"
-    )  # TODO: this could be tested separately, is_mount & has_files cases are missing
+    _check_health("instrument_id")
 
     # Check that three calls were made: instrument, backup filesystem, output filesystem
     assert mock_update_status.call_count == 3
@@ -177,7 +179,7 @@ def test_check_health_when_no_paths_exist(
     mock_update_status.assert_any_call(
         "instrument_id",
         status="error",
-        status_details="data path not healthy (exists=False is_mount=None has_files=None); backup path not healthy (exists=False is_mount=None has_files=None); output path not healthy (exists=False is_mount=None has_files=None)",
+        status_details="data path not healthy (exists=False mounted=None has_files=None); backup path not healthy (exists=False mounted=None has_files=None); output path not healthy (exists=False mounted=None has_files=None)",
         free_space_gb=789,
     )
 
@@ -196,3 +198,49 @@ def test_check_health_when_no_paths_exist(
         free_space_gb=789,
         entity_type="file_system",
     )
+
+
+def test_check_path_health_when_healthy(tmp_path: Path) -> None:
+    """Test that a non-empty path without sentinel adds no status details."""
+    (tmp_path / "file1").touch()
+    status_details: list[str] = []
+
+    _check_path_health(tmp_path, "data", status_details)
+
+    assert status_details == []
+
+
+def test_check_path_health_when_not_mounted(tmp_path: Path) -> None:
+    """Test that a visible sentinel file is reported as not mounted."""
+    (tmp_path / "alphakraken_local_dir_sentinel").touch()
+    status_details: list[str] = []
+
+    _check_path_health(tmp_path, "data", status_details)
+
+    assert status_details == [
+        "data path not healthy (exists=True mounted=False has_files=None)"
+    ]
+
+
+def test_check_path_health_when_empty(tmp_path: Path) -> None:
+    """Test that an empty path is reported."""
+    status_details: list[str] = []
+
+    _check_path_health(tmp_path, "data", status_details)
+
+    assert status_details == [
+        "data path not healthy (exists=True mounted=True has_files=False)"
+    ]
+
+
+def test_check_path_health_when_not_accessible() -> None:
+    """Test that an OSError is reported instead of raised."""
+    mock_path = MagicMock()
+    mock_path.exists.return_value = True
+    mock_path.__truediv__.return_value.exists.return_value = False
+    mock_path.rglob.side_effect = OSError(112, "Host is down")
+    status_details: list[str] = []
+
+    _check_path_health(mock_path, "data", status_details)
+
+    assert status_details == ["data path not accessible ([Errno 112] Host is down)"]

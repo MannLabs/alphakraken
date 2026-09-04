@@ -35,22 +35,25 @@ and to not accidentally drop the `ro` and `rw` flags as they limit file access r
 
 4. Transfer the changes in `2.` and `3.` to all AlphaKraken PCs/VMs.
 
-5. On the PC hosting the workers execute
+5. On the backup pool, create the folder `backup/<INSTRUMENT_ID>` containing an empty file `Krakenfile`
+(otherwise the health check reports the empty folder as unhealthy, cf. [deployment.md](deployment.md#protect-against-lost-mounts)).
+
+6. On the PC hosting the workers execute
 ```
 ./mount.sh <INSTRUMENT_ID> mount
 ```
-to mount the instrument folder. If you want to create a persistent mount, additionally use
+to mount the instrument folder (this also protects the mount target, cf. [deployment.md](deployment.md#protect-against-lost-mounts)). If you want to create a persistent mount, additionally use
 ```
 ./mount.sh <INSTRUMENT_ID> fstab
 ```
 and copy the resulting entry to `/etc/fstab` and set the correct password.
 
-6. Start the new container
+7. Start the new container
 ```
 ./compose.sh up airflow-worker-<INSTRUMENT_ID> -d
 ```
 
-7. Restart all relevant infrastructure containers (`scheduler`, `file_mover` and `file_remover`) with the `--build` flag.
+8. Restart all relevant infrastructure containers (`scheduler`, `file_mover` and `file_remover`) with the `--build` flag.
 
-8. Open the airflow UI and unpause the new `*.<INSTRUMENT_ID>` DAGs. It might be wise to do this one after another,
+9. Open the airflow UI and unpause the new `*.<INSTRUMENT_ID>` DAGs. It might be wise to do this one after another,
 (`instrument_watcher` -> `acquisition_handler` -> `acquisition_processor`.) and to check the logs for errors before starting the next one.

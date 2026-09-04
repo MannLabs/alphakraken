@@ -242,10 +242,40 @@ in the `envs/alphakraken.${ENV}.yaml` file are set correctly.
 
 4. Add the created entries to the `/etc/fstab` file and set the correct password for each entry.
 
+5. Mount each folder once via `mount.sh` (this also protects the target folders against a lost mount, see [below](#protect-against-lost-mounts)):
+```bash
+for entity in test1 backup output logs; do
+  ./mount.sh $entity mount
+done
+```
+
 
 Note: for now, user `kraken-write` should only have read access to the backup pool folder, but needs `read/write` on the `output`
 folder.
 
+
+#### Protect against lost mounts
+Docker bind-mounts the host folder `${MOUNTS_PATH}/<mount_target>` into the containers.
+If the network share is not mounted on the host when a container starts (e.g. after a reboot with a failed `fstab` mount,
+or a redeploy while a share is unmounted), Docker silently binds the empty local folder instead.
+A worker would then e.g. copy raw files to the local disk instead of the backup pool, without noticing:
+from inside the container, an empty local folder and a share look alike (`is_mount()` is always true for a bind mount).
+
+Before mounting, `mount.sh` closes this gap in two ways:
+- It creates an empty `alphakraken_local_dir_sentinel` file in the target folder. The share hides it while mounted, so
+if it becomes visible, the share is not mounted. The health check of the acquisition workers reports this as `mounted=False`.
+- It makes the target folder immutable (`chattr +i`), so nothing can be written into it while the share is not mounted.
+Mounting onto it still works; any write attempt fails with `Operation not permitted`, making the affected tasks fail loudly.
+
+If a folder is mounted by other means than `mount.sh` (e.g. `fstab` only), do this manually while it is not mounted:
+`touch <folder>/alphakraken_local_dir_sentinel && sudo chattr +i <folder>`.
+To rename or remove a protected folder, first run `sudo chattr -i <folder>`.
+
+As a fallback for folders without sentinel, the health check also reports empty folders as unhealthy (`has_files=False`).
+Fresh folders, e.g. the backup pool folder of a new instrument, therefore need at least one file: create an empty `Krakenfile` in them.
+
+Note: a running container keeps its own reference to a share. Unmounting or remounting a share on the host
+is not visible inside running containers (they keep using the old mount), so restart the affected workers after remounting.
 
 #### Alternative: non-persistent mounts
 You can also mount the folder manually, at the disadvantage that it needs to be re-done after a reboot. However,

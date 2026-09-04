@@ -152,22 +152,22 @@ hidden-selectbox fallback at line 421 too. Test 7.6.
 
 ### Task 7: Migration `job_engine` -> `runner`
 
-**Description:** `shared/_migrations/from_0.9.0/_migrate_job_engine_to_runner.py`, shape of
+**Description:** `shared/_migrations/from_0.10.0/_migrate_job_engine_to_runner.py`, shape of
 `_migrate_backfill_settings_fields.py`: for each Settings document with `job_engine` and without
 `runner_name`, `$set runner_name` from `_ENGINE_TO_RUNNER` (identity by default), `$unset job_engine`.
 `--dry-run`; prints distinct target runner names with counts. Docstring states the yaml
 precondition. Spec 2.8, 9.7.
 
 **Acceptance criteria:**
-- [ ] Documents already carrying `runner` are skipped; each document reported once (9.7).
-- [ ] Summary lists distinct target names with counts.
+- [x] Documents already carrying `runner_name` are skipped; each document reported once (9.7).
+- [x] Summary lists distinct target names with counts.
 
 **Verification:**
-- [ ] `--dry-run` against a local mongo with two hand-made Settings docs (one legacy, one migrated): 1 updated, 1 skipped.
-- [ ] `pre-commit run --all-files`
+- [ ] (not run: no mongo reachable from the sandbox) `--dry-run` against a local mongo with two hand-made Settings docs (one legacy, one migrated): 1 updated, 1 skipped.
+- [x] `pre-commit run --all-files`
 
 **Dependencies:** T6
-**Files:** `shared/_migrations/from_0.9.0/_migrate_job_engine_to_runner.py` (new)
+**Files:** `shared/_migrations/from_0.10.0/_migrate_job_engine_to_runner.py` (new)
 **Scope:** S
 
 ### Checkpoint 2: Runner flows
@@ -189,13 +189,13 @@ prefix, ...)`, `_get_cluster_ssh_connections(prefix)`; error text names the give
 `yaml_locations`. Spec 2.5, 7.4, 7.5.
 
 **Acceptance criteria:**
-- [ ] Two prefixes select disjoint connection sets (7.4).
-- [ ] `slurm` runner with `ssh_connection_id_prefix=None` raises naming the runner (7.5).
-- [ ] `grep -rn CLUSTER_SSH_CONNECTION_ID_PREFIX .` empty; `job_handler.py` no longer imports `CLUSTER_VIEW`.
+- [x] Two prefixes select disjoint connection sets (7.4).
+- [x] `slurm` runner with `ssh_connection_id_prefix=None` raises naming the runner (7.5).
+- [x] `grep -rn CLUSTER_SSH_CONNECTION_ID_PREFIX .` empty; `job_handler.py` no longer imports `CLUSTER_VIEW`.
 
 **Verification:**
-- [ ] `pytest airflow_src/tests/plugins/jobs airflow_src/tests/common/test_utils.py airflow_src/tests/plugins/sensors`
-- [ ] `pytest airflow_src`
+- [x] `pytest airflow_src/tests/plugins/jobs airflow_src/tests/common/test_utils.py airflow_src/tests/plugins/sensors`
+- [x] `pytest airflow_src`
 
 **Dependencies:** T5
 **Files:** `airflow_src/plugins/jobs/job_handler.py`, `airflow_src/plugins/jobs/slurm_ssh_job_handler.py`, `airflow_src/plugins/sensors/ssh_utils.py`, `airflow_src/plugins/common/utils.py`, `airflow_src/plugins/common/constants.py`, tests: `test_job_handler.py`, `test_utils.py`, `test_ssh_utils.py`, `test_slurm_ssh_job_handler.py`

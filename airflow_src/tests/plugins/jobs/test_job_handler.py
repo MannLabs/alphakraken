@@ -3,7 +3,7 @@
 import importlib.util
 import sys
 from collections.abc import Callable
-from pathlib import Path
+from pathlib import PurePosixPath
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -13,34 +13,50 @@ from jobs._experimental.file_based_job_handler import FileBasedJobHandler
 from jobs.job_handler import _get_job_handler, start_job
 from jobs.slurm_ssh_job_handler import SlurmSSHJobHandler
 
-from airflow_src.tests.helpers import yaml_locations
 from shared.keys import JobEngines
-from shared.path_views import DOCKER_HOST_VIEW
-from shared.runners import Runner, get_runner
+from shared.path_views import DOCKER_HOST_VIEW, Locations, View
+from shared.runners import OperatingSystems, Runner, get_runner
 
 # `docker` is an optional dependency, cf. requirements_docker_job_engine.txt
 HAS_DOCKER = importlib.util.find_spec("docker") is not None
 
-SLURM_BASE_DIR = Path("/path/to/slurm_base_path")
+SLURM_BASE_DIR = PurePosixPath("/path/to/slurm_base_path")
+SSH_PREFIX = "some_cluster_ssh"
 
 
-@yaml_locations(slurm=str(SLURM_BASE_DIR))
+def _runner(engine: str, ssh_connection_id_prefix: str | None = SSH_PREFIX) -> Runner:
+    """Get a linux runner of the given engine whose view reaches the slurm location."""
+    return Runner(
+        name=f"{engine}_runner",
+        engine=engine,
+        os=OperatingSystems.LINUX,
+        view=View("test", {Locations.SLURM: str(SLURM_BASE_DIR)}, PurePosixPath),
+        ssh_connection_id_prefix=ssh_connection_id_prefix,
+    )
+
+
 def test_get_job_handler_routes_engine_to_handler() -> None:
-    """Test that the factory returns the handler matching the requested engine."""
+    """Test that the factory returns the handler matching the engine of the runner."""
+    assert isinstance(_get_job_handler(_runner(JobEngines.SLURM)), SlurmSSHJobHandler)
     assert isinstance(
-        _get_job_handler(get_runner(JobEngines.SLURM)), SlurmSSHJobHandler
-    )
-    assert isinstance(
-        _get_job_handler(get_runner(JobEngines.FILE_BASED)), FileBasedJobHandler
+        _get_job_handler(_runner(JobEngines.FILE_BASED)), FileBasedJobHandler
     )
 
 
-@yaml_locations(slurm=str(SLURM_BASE_DIR))
-def test_get_job_handler_injects_slurm_base_dir() -> None:
-    """Test that the factory reads the base dir and hands it to the Slurm handler."""
-    handler = _get_job_handler(get_runner(JobEngines.SLURM))
+def test_get_job_handler_injects_slurm_base_dir_and_ssh_prefix() -> None:
+    """Test that the Slurm handler gets the runner's slurm location and SSH prefix."""
+    handler = _get_job_handler(_runner(JobEngines.SLURM))
 
     assert handler._cluster_base_dir == SLURM_BASE_DIR
+    assert handler._ssh_connection_id_prefix == SSH_PREFIX
+
+
+def test_get_job_handler_slurm_without_ssh_prefix_raises_naming_the_runner() -> None:
+    """Test that a slurm runner without an SSH prefix is rejected before any SSH attempt."""
+    with pytest.raises(
+        AirflowFailException, match="'slurm_runner'.*ssh_connection_id_prefix"
+    ):
+        _get_job_handler(_runner(JobEngines.SLURM, ssh_connection_id_prefix=None))
 
 
 @pytest.mark.skipif(not HAS_DOCKER, reason="`docker` not installed")

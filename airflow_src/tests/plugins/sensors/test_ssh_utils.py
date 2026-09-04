@@ -6,6 +6,8 @@ import pytest
 from airflow.exceptions import AirflowFailException
 from plugins.sensors.ssh_utils import ssh_execute
 
+SSH_PREFIX = "some_cluster_ssh"
+
 
 @patch("plugins.sensors.ssh_utils.get_cluster_ssh_hook")
 def test_ssh_execute_returns_decoded_output(
@@ -18,10 +20,13 @@ def test_ssh_execute_returns_decoded_output(
     mock_get_cluster_ssh_hook.return_value = ssh_hook
 
     # when
-    result = ssh_execute("my_command")
+    result = ssh_execute("my_command", SSH_PREFIX)
 
     # then
     assert result == "command output"
+    mock_get_cluster_ssh_hook.assert_called_once_with(
+        attempt_no=0, ssh_connection_id_prefix=SSH_PREFIX
+    )
     ssh_hook.exec_ssh_client_command.assert_called_once_with(
         ssh_hook.get_conn.return_value,
         "my_command",
@@ -50,7 +55,7 @@ def test_ssh_execute_multiple_tries(
     mock_get_cluster_ssh_hook.return_value = ssh_hook
 
     # when
-    result = ssh_execute("my_command")
+    result = ssh_execute("my_command", SSH_PREFIX)
 
     # then
     assert result == "command output"
@@ -83,7 +88,7 @@ def test_ssh_execute_too_many_tries(
 
     # when
     with pytest.raises(AirflowFailException):
-        ssh_execute("my_command")
+        ssh_execute("my_command", SSH_PREFIX)
 
     assert mock_sleep.call_count == 30
     assert ssh_hook.exec_ssh_client_command.call_count == 30

@@ -46,6 +46,7 @@ from shared.runners import RUNNERS, OperatingSystems, Runner, get_runner
 _POSIX_VIEW = View(
     "test",
     {
+        Locations.BACKUP: "/some_backup_base_path",
         Locations.SETTINGS: "/some_settings_path",
         Locations.OUTPUT: "/some_output_path",
         Locations.SOFTWARE: "/some_software_base_path",
@@ -71,6 +72,7 @@ def test_create_quanting_env(
         id="test_file.raw",
         project_id="some_project_id",
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
+        instrument_id="instrument1",
     )
     mock_settings = MagicMock()
     mock_settings.name = "test_settings"
@@ -92,8 +94,6 @@ def test_create_quanting_env(
         settings=mock_settings,
         raw_file=mock_raw_file,
         view=_POSIX_VIEW,
-        raw_file_path=Path("/some_backup_base_path/instrument1/1970_01/test_file.raw"),
-        relative_raw_file_path=Path("instrument1/1970_01/test_file.raw"),
     )
 
     # when you adapt something here, don't forget to adapt also the submit_job.sh script
@@ -140,6 +140,7 @@ def test_create_quanting_env_custom_software(
         id="test_file.raw",
         project_id="some_project_id",
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
+        instrument_id="instrument1",
     )
     mock_settings = MagicMock()
     mock_settings.name = "test_custom_settings"
@@ -161,8 +162,6 @@ def test_create_quanting_env_custom_software(
         settings=mock_settings,
         raw_file=mock_raw_file,
         view=_POSIX_VIEW,
-        raw_file_path=Path("/some_backup_base_path/instrument1/1970_01/test_file.raw"),
-        relative_raw_file_path=Path("instrument1/1970_01/test_file.raw"),
     )
 
     expected_config_params = (
@@ -332,8 +331,6 @@ def test_prepare_job(
         mock_settings,
         mock_raw_file,
         get_runner("slurm").view,
-        Path("/some_backup_base_path/instrument1/1970_01/test_file.raw"),
-        Path("instrument1/1970_01/test_file.raw"),
         "",
     )
     assert result == mock_env.to_dict()
@@ -574,8 +571,6 @@ def test_prepare_job_validation_error_raises(
         mock_settings,
         mock_raw_file,
         get_runner("slurm").view,
-        Path("/some_backup_base_path/instrument1/1970_01/test_file.raw"),
-        Path("instrument1/1970_01/test_file.raw"),
         "",
     )
     mock_check_content.assert_called_once_with(mock_env, mock_settings)
@@ -814,8 +809,6 @@ def test_prepare_job_add_mode(  # noqa: PLR0913
         mock_settings,
         mock_raw_file,
         get_runner("slurm").view,
-        Path("/some_backup_base_path/instrument1/1970_01/test_file.raw"),
-        Path("instrument1/1970_01/test_file.raw"),
         ".run2",
     )
 
@@ -853,10 +846,9 @@ def test_create_quanting_env_with_suffix(
             id="test_file.raw",
             project_id="some_project_id",
             created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
+            instrument_id="instrument1",
         ),
         view=_POSIX_VIEW,
-        raw_file_path=Path("/some_backup_base_path/instrument1/1970_01/test_file.raw"),
-        relative_raw_file_path=Path("instrument1/1970_01/test_file.raw"),
         output_path_suffix=".run2",
     )
 

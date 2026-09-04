@@ -120,9 +120,6 @@ def prepare_job(raw_file_id: str, settings_id: str) -> dict:
     settings = get_settings_by_id(settings_id)
     runner = get_runner(settings.runner_name)
 
-    relative_raw_file_path = get_raw_file_rel_path(raw_file)
-    raw_file_path = runner.view.resolve(Locations.BACKUP, relative_raw_file_path)
-
     internal_output_path = get_internal_output_path_for_raw_file(
         raw_file, software_type=settings.software_type
     )
@@ -131,8 +128,6 @@ def prepare_job(raw_file_id: str, settings_id: str) -> dict:
         settings,
         raw_file,
         runner.view,
-        raw_file_path,
-        relative_raw_file_path,
         _get_output_path_suffix(internal_output_path),
     )
 
@@ -165,15 +160,15 @@ def _find_next_free_run_suffix(base_path: Path) -> str:
     return f".run{run_number}"
 
 
-def _create_quanting_env(  # noqa: PLR0913
+def _create_quanting_env(
     settings: Settings,
     raw_file: RawFile,
     view: View[PurePath],
-    raw_file_path: PurePath,
-    relative_raw_file_path: Path,
     output_path_suffix: str = "",
 ) -> QuantingEnv:
     """Create a quanting environment from settings, with absolute paths as seen in `view`."""
+    relative_raw_file_path = get_raw_file_rel_path(raw_file)
+    raw_file_path = view.resolve(Locations.BACKUP, relative_raw_file_path)
     settings_path = view.resolve(Locations.SETTINGS, settings.name)
 
     relative_output_path = get_output_folder_rel_path(

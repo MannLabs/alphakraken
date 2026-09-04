@@ -31,12 +31,12 @@ class Runner:
 
     name: str
     engine: str
-    os: str  # kept for the future SSH handler (job script per OS)
+    os: str
     view: View[PurePath]
-    ssh_connection_id_prefix: str | None  # engines that need it check for None
+    ssh_connection_id_prefix: str | None
 
 
-def _get_required(entry: dict[str, Any], key: str, runner_name: str) -> Any:
+def _get_value(entry: dict[str, Any], key: str, runner_name: str) -> Any:
     """Get `key` from a runner entry, raising if it is missing."""
     if key not in entry:
         raise KeyError(
@@ -53,21 +53,21 @@ def _build_runner(entry: dict[str, Any]) -> Runner:
             f"A runner is missing its `{YamlKeys.Runners.NAME}` in alphakraken.yaml: {entry}"
         )
 
-    engine = _get_required(entry, YamlKeys.Runners.ENGINE, name)
+    engine = _get_value(entry, YamlKeys.Runners.ENGINE, name)
     if engine not in JobEngines.get_values():
         raise ValueError(
             f"Runner '{name}': unknown `{YamlKeys.Runners.ENGINE}` '{engine}', "
             f"known are: {JobEngines.get_values()}."
         )
 
-    os = _get_required(entry, YamlKeys.Runners.OS, name)
+    os = _get_value(entry, YamlKeys.Runners.OS, name)
     if os not in _OS_TO_PATH_CLASS:
         raise ValueError(
             f"Runner '{name}': unknown `{YamlKeys.Runners.OS}` '{os}', "
             f"known are: {list(_OS_TO_PATH_CLASS)}."
         )
 
-    view = _get_required(entry, YamlKeys.Runners.VIEW, name)
+    view = _get_value(entry, YamlKeys.Runners.VIEW, name)
     if unknown := set(view) - set(Locations.get_values()):
         raise ValueError(
             f"Runner '{name}': unknown `{YamlKeys.Runners.VIEW}` keys {sorted(unknown)}, "

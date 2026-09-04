@@ -138,13 +138,13 @@ say "runner". Empty `RUNNERS` (spec 1.2.4): no settings form, a notice instead; 
 hidden-selectbox fallback at line 421 too. Test 7.6.
 
 **Acceptance criteria:**
-- [ ] `grep -rn job_engine --include='*.py' . | grep -v _migrations` returns nothing (9.1).
-- [ ] Webapp selectbox options equal `list(RUNNERS)`; docker + non-custom rejected by the engine of the selected runner (7.6).
-- [ ] `create_settings` without `runner` raises.
+- [x] `grep -rn job_engine --include='*.py' . | grep -v _migrations` returns nothing (9.1) except the filename `requirements_docker_job_engine.txt`.
+- [x] Webapp selectbox options equal `list(RUNNERS)`; docker + non-custom rejected by the engine of the selected runner (7.6).
+- [x] `create_settings` without `runner` raises.
 
 **Verification:**
-- [ ] `pytest shared/tests/db/test_interface.py webapp airflow_src/tests/dags/impl/test_processor_impl.py`
-- [ ] All three suites
+- [x] `pytest shared/tests/db/test_interface.py webapp airflow_src/tests/dags/impl/test_processor_impl.py`
+- [x] All three suites
 
 **Dependencies:** T5
 **Files:** `shared/db/models.py`, `shared/db/interface.py`, `webapp/pages_/settings.py`, `airflow_src/dags/impl/processor_impl.py` (one line), tests: `shared/tests/db/test_interface.py`, `webapp/tests/pages_/test_settings.py`, `airflow_src/tests/dags/impl/test_processor_impl.py` (mocks)

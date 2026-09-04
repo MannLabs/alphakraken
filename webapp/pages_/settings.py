@@ -16,6 +16,7 @@ from service.db import (
     get_settings_data,
 )
 from service.query_params import get_all_query_params
+from service.settings_validation import check_runner_supports_software_type
 from service.utils import (
     DISABLE_WRITE,
     _log,
@@ -39,9 +40,10 @@ from shared.keys import (
     MetricsTypes,
     SoftwareTypes,
 )
+from shared.runners import RUNNERS
 from shared.validation import check_for_malicious_content
 
-SHOW_JOB_ENGINE_SELECT = True
+SHOW_RUNNER_SELECT = True
 
 _log(f"loading {__file__} {get_all_query_params()}")
 # ########################################### PAGE HEADER
@@ -134,6 +136,12 @@ with c1.expander("Click here for help ..."):
 
 c1.markdown("## Create / update settings")
 
+if not RUNNERS:
+    c1.warning(
+        "No runners are declared in `alphakraken.yaml`, so no settings can be created."
+    )
+    st.stop()
+
 # only active settings beyond this point
 if len(settings_df):
     settings_df = settings_df[settings_df["status"] == SettingsStatus.ACTIVE]
@@ -173,7 +181,7 @@ if selected_name_option != CREATE_NEW_OPTION:
         "description": str(latest_settings.get("description", "")),
         "software": str(latest_settings.get("software", "")),
         "software_type": str(latest_settings.get("software_type", "")),
-        "job_engine": str(latest_settings.get("job_engine", "")),
+        "runner": str(latest_settings.get("runner", "")),
         "fasta_file_name": str(latest_settings.get("fasta_file_name", "")),
         "speclib_file_name": str(latest_settings.get("speclib_file_name", "")),
         "config_file_name": str(latest_settings.get("config_file_name", "")),
@@ -311,7 +319,7 @@ else:
             # TODO: reimplement using the actual software path, cf. CLUSTER_VIEW
             "help": "Path to executable, relative to the software folder. Ask an administrator to add the executable to the software folder. "
             f"If something that is in the `$PATH` should be executed, it needs to be wrapped by a shell script located in the software folder. "
-            f"For the `{JobEngines.DOCKER}` execution engine, this is a docker image name instead, e.g. `alphakraken-msqc`. "
+            f"For a runner with the `{JobEngines.DOCKER}` engine, this is a docker image name instead, e.g. `alphakraken-msqc`. "
             f"The image must already be present on the worker host, ask an administrator to add it.",
         },
         "config_params": {
@@ -404,21 +412,21 @@ with c1.form("create_settings"):
     if software_type == SoftwareTypes.ALPHADIA:
         st.write(r"\** At least one of the two must be given")
 
-    if SHOW_JOB_ENGINE_SELECT:
-        job_engine_options = JobEngines.get_values()
-        job_engine_index = (
-            job_engine_options.index(prefill_data["job_engine"])
-            if prefill_data["job_engine"] in job_engine_options
-            else job_engine_options.index(JobEngines.SLURM)
+    runner_names = list(RUNNERS)
+    if SHOW_RUNNER_SELECT:
+        runner_index = (
+            runner_names.index(prefill_data["runner"])
+            if prefill_data["runner"] in runner_names
+            else 0
         )
-        job_engine = st.selectbox(
-            label="Execution engine",
-            options=job_engine_options,
-            index=job_engine_index,
-            help="The engine used to run the quanting job.",
+        runner = st.selectbox(
+            label="Runner",
+            options=runner_names,
+            index=runner_index,
+            help="Where the quanting job runs, cf. `runners` in `alphakraken.yaml`.",
         )
     else:
-        job_engine = JobEngines.SLURM
+        runner = runner_names[0]
 
     with st.expander("Resource parameters"):
         st.info(
@@ -506,11 +514,7 @@ if submit:
     ]:
         if to_validate:
             validation_errors.extend(check_for_malicious_content(to_validate))
-    if job_engine == JobEngines.DOCKER and software_type != SoftwareTypes.CUSTOM:
-        validation_errors.append(
-            f"The `{JobEngines.DOCKER}` execution engine is only supported for software type "
-            f"`{SoftwareTypes.CUSTOM}`."
-        )
+    validation_errors.extend(check_runner_supports_software_type(runner, software_type))
     if config_params:
         # TODO: warn on bare (RAW_FILE_PATH) and half-open ({RAW_FILE_PATH) placeholders,
         # they currently pass validation and fail silently at runtime
@@ -559,7 +563,7 @@ if submit:
             config_params=config_params,
             software_type=empty_to_none(software_type),
             software=empty_to_none(software),
-            job_engine=job_engine,
+            runner=runner,
             metrics_type=metrics_type,
             slurm_cpus_per_task=slurm_cpus_per_task,
             slurm_mem=empty_to_none(slurm_mem),

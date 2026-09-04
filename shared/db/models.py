@@ -20,7 +20,7 @@ from mongoengine import (
     StringField,
 )
 
-from shared.keys import FALLBACK_PROJECT_ID, JobEngines, MetricsTypes, SoftwareTypes
+from shared.keys import FALLBACK_PROJECT_ID, MetricsTypes, SoftwareTypes
 
 FileInfoItem = (
     tuple[float | None, str | None] | tuple[float | None, str | None, str | None]
@@ -269,7 +269,9 @@ class Settings(Document):
     )
     software = StringField(required=True, max_length=128)
 
-    job_engine = StringField(required=True, max_length=32, default=JobEngines.SLURM)
+    runner = StringField(
+        required=True, max_length=64
+    )  # a name in alphakraken.yaml `runners`
 
     metrics_type = StringField(required=True, max_length=128)
 

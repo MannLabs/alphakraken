@@ -317,7 +317,7 @@ def test_create_settings_first_version(
         config_params=None,
         software_type="alphadia",
         software="alphadia-1.10.0",
-        job_engine="slurm",
+        runner="slurm",
         metrics_type="alphadia",
     )
 
@@ -350,7 +350,7 @@ def test_create_settings_auto_increment_version(
         config_params=None,
         software_type="alphadia",
         software="alphadia-1.10.0",
-        job_engine="slurm",
+        runner="slurm",
         metrics_type="alphadia",
     )
 
@@ -359,6 +359,17 @@ def test_create_settings_auto_increment_version(
     assert call_kwargs["name"] == "plasma_settings"
     assert call_kwargs["version"] == 4
     mock_connect_db.assert_called_once()
+
+
+def test_create_settings_requires_runner() -> None:
+    """Test that settings cannot be created without naming the runner."""
+    with pytest.raises(TypeError, match="runner"):
+        create_settings(  # type: ignore[missing-argument]
+            name="plasma_settings",
+            software_type="alphadia",
+            software="alphadia-1.10.0",
+            metrics_type="alphadia",
+        )
 
 
 @patch("shared.db.interface.connect_db")

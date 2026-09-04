@@ -75,7 +75,7 @@ def test_create_quanting_env(
     mock_settings.slurm_mem = "62G"
     mock_settings.slurm_time = "02:00:00"
     mock_settings.num_threads = 8
-    mock_settings.job_engine = "slurm"
+    mock_settings.runner = "slurm"
 
     result = _create_quanting_env(
         settings=mock_settings,
@@ -148,7 +148,7 @@ def test_create_quanting_env_custom_software(
     mock_settings.slurm_mem = "62G"
     mock_settings.slurm_time = "02:00:00"
     mock_settings.num_threads = 8
-    mock_settings.job_engine = "slurm"
+    mock_settings.runner = "slurm"
 
     result = _create_quanting_env(
         settings=mock_settings,
@@ -765,7 +765,7 @@ def test_create_quanting_env_with_suffix(
         slurm_cpus_per_task=8,
         slurm_mem="62G",
         slurm_time="02:00:00",
-        job_engine="slurm",
+        runner="slurm",
     )
     mock_settings.name = "test_settings"
 

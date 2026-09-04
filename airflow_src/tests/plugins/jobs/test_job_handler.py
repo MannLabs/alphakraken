@@ -49,13 +49,13 @@ def test_get_job_handler_injects_docker_host_view(
 
 @pytest.mark.skipif(not HAS_DOCKER, reason="`docker` not installed")
 @patch("jobs.docker_job_handler.docker.from_env")
-def test_get_job_handler_docker_without_mounts_path(
+def test_get_job_handler_docker_without_mounts_env(
     mock_from_env: MagicMock,  # noqa: ARG001
 ) -> None:
-    """Test that a docker host view without locations points to the missing yaml key."""
+    """Test that a docker host view without locations points to the missing environment variable."""
     with (
         patch.object(DOCKER_HOST_VIEW, "_locations", {}),
-        pytest.raises(AirflowFailException, match="locations.general.mounts_path"),
+        pytest.raises(AirflowFailException, match="MOUNTS_PATH"),
     ):
         _get_job_handler(JobEngines.DOCKER)
 

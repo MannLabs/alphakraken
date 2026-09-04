@@ -10,7 +10,7 @@ import logging
 from airflow.exceptions import AirflowFailException
 from common.quanting_env import QuantingEnv
 
-from shared.keys import JobEngines
+from shared.keys import EnvVars, JobEngines
 from shared.path_views import CLUSTER_VIEW, DOCKER_HOST_VIEW, Locations
 
 
@@ -33,8 +33,8 @@ def _get_job_handler(engine: str) -> "JobHandler":
 
         if not DOCKER_HOST_VIEW.has(Locations.OUTPUT):
             raise AirflowFailException(
-                f"The '{JobEngines.DOCKER}' job engine requires the key "
-                f"`locations.general.mounts_path` in alphakraken.yaml."
+                f"The '{JobEngines.DOCKER}' job engine requires the environment variable "
+                f"`{EnvVars.MOUNTS_PATH}`, cf. envs/<env>.env."
             )
 
         logging.info("Using DockerJobHandler")

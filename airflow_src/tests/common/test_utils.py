@@ -236,7 +236,9 @@ def test_get_cluster_ssh_hook_returns_valid_ssh_hook(
     hook = get_cluster_ssh_hook(attempt_no=0, ssh_connection_id_prefix="some_prefix")
 
     assert hook == mock_ssh_hook.return_value
-    mock_get_cluster_ssh_connections.assert_called_once_with("some_prefix")
+    mock_get_cluster_ssh_connections.assert_called_once_with(
+        ssh_connection_id_prefix="some_prefix"
+    )
     mock_ssh_hook.assert_called_once_with(
         ssh_conn_id="conn_1", conn_timeout=60, cmd_timeout=60
     )
@@ -302,7 +304,9 @@ def test_get_cluster_ssh_hook_selects_connections_by_prefix(
 
     with patch(
         "plugins.common.utils._get_cluster_ssh_connections",
-        side_effect=lambda prefix: connections[prefix],
+        side_effect=lambda ssh_connection_id_prefix: connections[
+            ssh_connection_id_prefix
+        ],
     ):
         get_cluster_ssh_hook(attempt_no=0, ssh_connection_id_prefix="cluster_a")
         get_cluster_ssh_hook(attempt_no=0, ssh_connection_id_prefix="cluster_b")
@@ -322,7 +326,9 @@ def test_get_cluster_ssh_connections_filters_by_the_given_prefix() -> None:
     ]
 
     # when
-    conn_ids = _get_cluster_ssh_connections("cluster_b", session=session)
+    conn_ids = _get_cluster_ssh_connections(
+        session=session, ssh_connection_id_prefix="cluster_b"
+    )
 
     assert conn_ids == ["cluster_b_1", "cluster_b_2"]
     filter_expression = session.query.return_value.filter.call_args.args[0]

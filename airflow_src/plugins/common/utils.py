@@ -155,13 +155,14 @@ def get_minutes_since_fixed_time_point() -> int:
 
 @provide_session
 def _get_cluster_ssh_connections(
-    ssh_connection_id_prefix: str,
     session: Any = None,
+    *,
+    ssh_connection_id_prefix: str,
 ) -> list[str]:
     """Get all SSH connection IDs that start with the given prefix.
 
-    :param ssh_connection_id_prefix: Prefix of the connection IDs to select
     :param session: Database session (provided by decorator)
+    :param ssh_connection_id_prefix: Prefix of the connection IDs to select
 
     :return: List of connection IDs matching the prefix, sorted by ID
     """
@@ -180,15 +181,15 @@ def _get_cluster_ssh_connections(
 
 
 def get_cluster_ssh_hook(
-    attempt_no: int,
     ssh_connection_id_prefix: str,
+    attempt_no: int,
     conn_timeout: int = CLUSTER_SSH_CONNECTION_TIMEOUT,
     cmd_timeout: int = CLUSTER_SSH_COMMAND_TIMEOUT,
 ) -> SSHHook | None:
     """Get an SSH hook for the compute cluster.
 
-    :param attempt_no: The attempt number to select the SSH connection ID. Will return a different connection ID on each attempt.
     :param ssh_connection_id_prefix: Prefix of the Airflow connection IDs to choose from.
+    :param attempt_no: The attempt number to select the SSH connection ID. Will return a different connection ID on each attempt.
     :param conn_timeout: Connection timeout in seconds.
     :param cmd_timeout: Command execution timeout in seconds.
 
@@ -198,7 +199,9 @@ def get_cluster_ssh_hook(
         f"Please set up a connection starting with {ssh_connection_id_prefix} in the Airflow UI ('Admin -> Connections') "
         "or set the Airflow Variable 'debug_no_cluster_ssh=True'."
     )
-    cluster_ssh_connections_ids = _get_cluster_ssh_connections(ssh_connection_id_prefix)
+    cluster_ssh_connections_ids = _get_cluster_ssh_connections(
+        ssh_connection_id_prefix=ssh_connection_id_prefix
+    )
     if not cluster_ssh_connections_ids:
         raise AirflowFailException(f"No SSH connections found.\n{error_details}")
 

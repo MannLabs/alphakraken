@@ -37,13 +37,13 @@ Three yamls and the `_test_` stub gain `backup.backup_base_path` = former
 reworded. Consistency test: key present in every in-repo yaml. Spec 1.2.3, 2.2, 7.3 second half.
 
 **Acceptance criteria:**
-- [ ] `get_backup_base_path` returns the same string as before for the same yaml values (regression test with patched `BACKUP_BASE_PATH`).
-- [ ] The reader function raises naming `backup.backup_base_path` on a dict without the key.
-- [ ] `handler_impl.py` no longer imports `CLUSTER_VIEW`.
+- [x] `get_backup_base_path` returns the same string as before for the same yaml values (regression test with patched `BACKUP_BASE_PATH`).
+- [x] The reader function raises naming `backup.backup_base_path` on a dict without the key.
+- [x] `handler_impl.py` no longer imports `CLUSTER_VIEW`.
 
 **Verification:**
-- [ ] `pytest shared/tests/test_yamlsettings.py shared/tests/test_deployment_paths.py airflow_src/tests/dags/impl/test_handler_impl.py`
-- [ ] All three suites
+- [x] `pytest shared/tests/test_yamlsettings.py shared/tests/test_deployment_paths.py airflow_src/tests/dags/impl/test_handler_impl.py`
+- [x] All three suites
 
 **Dependencies:** None
 **Files:** `envs/alphakraken.{local,sandbox,production}.yaml`, `shared/yamlsettings.py`, `shared/tests/test_yamlsettings.py`, `airflow_src/dags/impl/handler_impl.py`, `airflow_src/tests/dags/impl/test_handler_impl.py`, `shared/tests/test_deployment_paths.py`

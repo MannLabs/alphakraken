@@ -112,6 +112,12 @@ def test_instrument_mount_targets_are_below_the_instruments_location(
         )
 
 
+@pytest.mark.parametrize(("file_name", "config"), _env_yamls())
+def test_backup_base_path_is_declared(file_name: str, config: dict) -> None:
+    """Test that each environment declares the folder the backups are displayed under."""
+    assert config["backup"]["backup_base_path"], file_name
+
+
 def test_the_logs_are_not_mounted_below_the_mounts_folder() -> None:
     """Test the one bind that deliberately breaks the mirroring, so that it stays deliberate."""
     compose = yaml.safe_load((_REPO_ROOT / "docker-compose.yaml").read_text())

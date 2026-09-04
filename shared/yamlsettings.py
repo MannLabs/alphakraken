@@ -21,6 +21,8 @@ class YamlKeys:
     LOCATIONS = "locations"
     ABSOLUTE_PATH = "absolute_path"
 
+    BACKUP = "backup"
+
     NOTIFICATIONS = "notifications"
     OPS_ALERTS_WEBHOOK_URL = "ops_alerts_webhook_url"
     BUSINESS_ALERTS_WEBHOOK_URL = "business_alerts_webhook_url"
@@ -42,6 +44,8 @@ class YamlKeys:
         """Keys for accessing backup configuration in the yaml config."""
 
         # TODO: incorporate
+
+        BACKUP_BASE_PATH = "backup_base_path"
 
         TYPE = "backup.backup_type"
         S3_REGION = "backup.s3.region"
@@ -78,6 +82,7 @@ class YamlSettings:
                         "webapp_url": "http://localhost:8501",
                     }
                 },
+                "backup": {"backup_base_path": "./tmp/test/backup"},
                 "locations": {
                     "settings": {"absolute_path": "./tmp/test/settings"},
                     "output": {"absolute_path": "./tmp/test/output"},
@@ -100,6 +105,19 @@ class YamlSettings:
 YAMLSETTINGS: dict[str, dict[str, Any]] = cast(
     dict[str, dict[str, Any]], YamlSettings()
 )
+
+
+def _read_backup_base_path(settings: dict[str, dict[str, Any]]) -> str:
+    """Read the absolute path of the backup folder on the shared file system."""
+    try:
+        return settings[YamlKeys.BACKUP][YamlKeys.Backup.BACKUP_BASE_PATH]
+    except KeyError as e:
+        raise KeyError(
+            f"Key `{YamlKeys.BACKUP}.{YamlKeys.Backup.BACKUP_BASE_PATH}` not found in alphakraken.yaml."
+        ) from e
+
+
+BACKUP_BASE_PATH: str = _read_backup_base_path(YAMLSETTINGS)
 
 
 def get_notification_setting(setting_key: str) -> str:

@@ -110,8 +110,7 @@ def test_check_health_when_all_paths_exist(
 ) -> None:
     """Test that the health check passes when both paths exist."""
     mock_path = MagicMock()
-    mock_path.exists.side_effect = [True, True, True]
-    mock_path.__truediv__.return_value.exists.return_value = False  # sentinel
+    mock_path.__truediv__.return_value.stat.side_effect = FileNotFoundError  # sentinel
     mock_path.rglob.side_effect = [["file1"], ["file1"], ["file1"]]
     mock_get_data_path.return_value = mock_path
     mock_get_backup_path.return_value = mock_path
@@ -163,7 +162,7 @@ def test_check_health_when_no_paths_exist(
 ) -> None:
     """Test that the health check fails when both paths do not exist."""
     mock_path = MagicMock()
-    mock_path.exists.side_effect = [False, False, False]
+    mock_path.stat.side_effect = FileNotFoundError
     mock_get_data_path.return_value = mock_path
     mock_get_backup_path.return_value = mock_path
     mock_get_output_path.return_value = mock_path
@@ -236,9 +235,19 @@ def test_check_path_health_when_empty(tmp_path: Path) -> None:
 def test_check_path_health_when_not_accessible() -> None:
     """Test that an OSError is reported instead of raised."""
     mock_path = MagicMock()
-    mock_path.exists.return_value = True
-    mock_path.__truediv__.return_value.exists.return_value = False
-    mock_path.rglob.side_effect = OSError(112, "Host is down")
+    mock_path.stat.side_effect = OSError(112, "Host is down")
+    status_details: list[str] = []
+
+    _check_path_health(mock_path, "data", status_details)
+
+    assert status_details == ["data path not accessible ([Errno 112] Host is down)"]
+    mock_path.rglob.assert_not_called()
+
+
+def test_check_path_health_when_sentinel_lookup_not_accessible() -> None:
+    """Test that an OSError on the sentinel lookup is reported, not read as mounted."""
+    mock_path = MagicMock()
+    mock_path.__truediv__.return_value.stat.side_effect = OSError(112, "Host is down")
     status_details: list[str] = []
 
     _check_path_health(mock_path, "data", status_details)

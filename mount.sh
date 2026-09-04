@@ -26,7 +26,7 @@ if [ -z "${1:-}" ] ; then
   echo "If 'fstab' is passed, an entry for the /etc/fstab file will be created."
   echo "If 'mount' is passed, the source folder will be mounted to the target folder."
   echo "If 'umount' is passed, the target folder will be unmounted first, before mounting the source folder to the target folder."
-  echo "Before mounting, the target folder gets a '${LOCAL_DIR_SENTINEL}' sentinel file and is made immutable (chattr +i), cf. docs/deployment.md."
+  echo "All actions protect the (unmounted) target folder: it gets a '${LOCAL_DIR_SENTINEL}' sentinel file and is made immutable (chattr +i), cf. docs/deployment.md."
   echo
   echo "Example 1: $0 logs fstab"
   echo "Example 2: $0 test1 mount"
@@ -66,7 +66,29 @@ MOUNT_TARGET="$(get_data $ENTITY_TYPE $ENTITY mount_target)"
 
 MOUNT_TARGET=$MOUNTS_PATH/$MOUNT_TARGET
 
+isMounted() { findmnt "$1" > /dev/null && echo 1 || echo 0; }
+isImmutable() { lsattr -d "$1" | cut -d' ' -f1 | grep -q i && echo 1 || echo 0; }
+
+# sentinel file + immutable folder make a lost mount visible and prevent writing into the local folder, cf. docs/deployment.md
+# must only be called when the target is not mounted, otherwise the sentinel would end up on the share
+protectTarget() {
+  if [ ! -e "$MOUNT_TARGET/$LOCAL_DIR_SENTINEL" ]; then
+    sudo chattr -i "$MOUNT_TARGET"
+    touch "$MOUNT_TARGET/$LOCAL_DIR_SENTINEL"
+  fi
+  if [ $(isImmutable $MOUNT_TARGET) == 0 ]; then
+    sudo chattr +i "$MOUNT_TARGET"
+  fi
+  lsattr -d "$MOUNT_TARGET"
+}
+
 if [ "${ACTION}" == "fstab" ]; then
+  # messages go to stderr so that stdout can be redirected into fstab
+  if [ ! -e "$MOUNT_TARGET" ]; then
+    echo "WARNING: '${MOUNT_TARGET}' does not exist, cannot protect it. Create it and re-run." >&2
+  elif [ $(isMounted $MOUNT_TARGET) == 0 ]; then
+    protectTarget >&2
+  fi
   # file_mode & dir_mode sometime required to prevent a read-only mount
   echo "${MOUNT_SRC// /\\040}" "${MOUNT_TARGET// /\\040}" cifs username=$USERNAME,password=SET_PASSWORD,uid=$(id -u),gid=$(id -g),file_mode=0755,dir_mode=0755 0 0
   exit 0
@@ -86,22 +108,6 @@ if [ ! -e $MOUNT_TARGET ]; then
   echo Mounts directory does not exist. Check if it is correct: \'${MOUNT_TARGET}\'. Create it if desired.
   exit 1
 fi
-
-isMounted() { findmnt "$1" > /dev/null && echo 1 || echo 0; }
-isImmutable() { lsattr -d "$1" | cut -d' ' -f1 | grep -q i && echo 1 || echo 0; }
-
-# sentinel file + immutable folder make a lost mount visible and prevent writing into the local folder, cf. docs/deployment.md
-# must only be called when the target is not mounted, otherwise the sentinel would end up on the share
-protectTarget() {
-  if [ ! -e "$MOUNT_TARGET/$LOCAL_DIR_SENTINEL" ]; then
-    sudo chattr -i "$MOUNT_TARGET"
-    touch "$MOUNT_TARGET/$LOCAL_DIR_SENTINEL"
-  fi
-  if [ $(isImmutable $MOUNT_TARGET) == 0 ]; then
-    sudo chattr +i "$MOUNT_TARGET"
-  fi
-  lsattr -d "$MOUNT_TARGET"
-}
 
 if [ -n "$(find $MOUNT_TARGET -mindepth 1 -maxdepth 1 -not -name "$LOCAL_DIR_SENTINEL")" ] && [ $(isMounted $MOUNT_TARGET) == 0 ]; then
   echo "Mount target path is not a mount and is not empty: '${MOUNT_TARGET}'"

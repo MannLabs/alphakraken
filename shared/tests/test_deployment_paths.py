@@ -122,7 +122,7 @@ def test_backup_base_path_is_declared(file_name: str, config: dict) -> None:
 
 @pytest.mark.parametrize(("file_name", "config"), _env_yamls())
 def test_runners_are_valid(file_name: str, config: dict) -> None:
-    """Test that each environment declares runners that pass the import-time validation."""
+    """Test that each environment declares at least one runner and all pass the validation."""
     assert _build_runners(config[YamlKeys.RUNNERS]), file_name
 
 

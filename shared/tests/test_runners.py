@@ -56,10 +56,9 @@ def test_build_runners_keeps_the_yaml_order_and_fields() -> None:
 
 
 @pytest.mark.parametrize("entries", [None, []])
-def test_build_runners_rejects_missing_or_empty_list(entries: list | None) -> None:
-    """Test that a yaml without runners fails naming the key."""
-    with pytest.raises(ValueError, match="`runners`"):
-        _build_runners(entries)
+def test_build_runners_accepts_no_runners(entries: list | None) -> None:
+    """Test that a deployment without analysis declares no runners, or omits the key."""
+    assert _build_runners(entries) == {}
 
 
 def test_build_runners_rejects_missing_name() -> None:

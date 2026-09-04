@@ -27,7 +27,7 @@ that handler. No exported string changes for existing deployments, except where 
 
 ### 1.2 Decisions taken (2026-09-02)
 
-- 1.2.1 `Settings.job_engine` is renamed to `Settings.runner`, with a one-shot DB migration.
+- 1.2.1 `Settings.job_engine` is renamed to `Settings.runner_name`, with a one-shot DB migration.
 - 1.2.2 Validation moves to the user-controlled relative parts; resolved bases count as admin
   configuration. This is the one deliberate behaviour change.
 - 1.2.3 Every runner declares its complete `view`. There is no default view and no fallback.
@@ -70,7 +70,7 @@ mounts:                           # read by mount.sh and the consistency test on
   # settings, software, slurm are not mounted and do not appear here
 
 runners:
-  - name: slurm                   # referenced by Settings.runner; unique within the list
+  - name: slurm                   # referenced by Settings.runner_name; unique within the list
     engine: slurm                 # one of shared.keys.JobEngines
     os: linux                     # required; linux | macos | windows, determines the path flavour of `view`
     ssh_connection_id_prefix: cluster_ssh_connection   # required for engines that use SSH
@@ -180,14 +180,14 @@ def get_runner(name: str) -> Runner:
 
 ### 2.3 Settings and QuantingEnv
 
-- `Settings.runner = StringField(required=True, max_length=64)`, no default. `job_engine` is
-  deleted. `create_settings(runner=...)`.
+- `Settings.runner_name = StringField(required=True, max_length=64)`, no default. `job_engine` is
+  deleted. `create_settings(runner_name=...)`.
 - `QuantingEnv.job_engine` -> `runner_name: str = Field(alias="_RUNNER_NAME")`. Underscore prefix, so it
   is never exported to a job.
 
 ### 2.4 prepare_job
 
-`runner = get_runner(settings.runner)`; the four `CLUSTER_VIEW.resolve` calls in
+`runner = get_runner(settings.runner_name)`; the four `CLUSTER_VIEW.resolve` calls in
 `processor_impl.py` become `runner.view.resolve`. Parameter types `PurePosixPath` -> `PurePath`.
 Relative paths stay posix-separated whatever the runner OS: they are layout, not view. Only the
 resolved absolute strings change flavour.
@@ -247,7 +247,7 @@ part", and the relative part is now checked directly. The allowed character set 
 ### 2.7 Webapp (`webapp/pages_/settings.py`)
 
 - Selectbox options `list(RUNNERS)`; default the first declared runner. `SHOW_JOB_ENGINE_SELECT`
-  -> `SHOW_RUNNER_SELECT`. Prefill key `runner`. With no runners declared (1.2.4) the page shows a
+  -> `SHOW_RUNNER_SELECT`. Prefill key `runner_name`. With no runners declared (1.2.4) the page shows a
   notice instead of the settings form.
 - Line 509 check becomes `RUNNERS[runner].engine == JobEngines.DOCKER and software_type != CUSTOM`.
 - Help texts at 314 and 415 say "runner".
@@ -256,7 +256,7 @@ part", and the relative part is now checked directly. The allowed character set 
 
 `shared/_migrations/from_0.9.0/_migrate_job_engine_to_runner.py`, same shape as
 `_migrate_backfill_settings_fields.py`: for each Settings document with `job_engine` and without
-`runner`, set `runner` from an editable `_ENGINE_TO_RUNNER` dict (identity by default), unset
+`runner_name`, set `runner_name` from an editable `_ENGINE_TO_RUNNER` dict (identity by default), unset
 `job_engine`. `--dry-run`; at the end, print the distinct target runner names with their counts,
 so they can be compared with the yaml (the sandbox may hold `file_based` Settings, which no
 in-repo yaml declares). Docstring states the precondition: the yaml must declare runners with
@@ -296,7 +296,7 @@ the yaml. Behaviour of the generated fstab line is unchanged.
   line.
 - `docs/deployment.md`, upgrade notes: deploy the new yaml and code together, then run the
   migration (2.8) before any quanting DAG runs. New code without the migration fails every job
-  (`Settings.runner` is unset); the new yaml on old code fails at import (no `locations`).
+  (`Settings.runner_name` is unset); the new yaml on old code fails at import (no `locations`).
 - `shared/config_params.py:30,33`: relative paths are "relative to the runner's backup/output
   location" instead of naming `locations.<x>.absolute_path`.
 
@@ -329,7 +329,7 @@ docker-compose.yaml                      MOUNTS_PATH added to airflow-common-env
 envs/{local,sandbox,production}.env      comment: MOUNTS_PATH absolute for the docker runner
 mount.sh                                 reads mounts.<x>, sources envs/${ENV}.env for MOUNTS_PATH
 shared/keys.py                           JobEngines unchanged
-shared/db/models.py, shared/db/interface.py   Settings.runner
+shared/db/models.py, shared/db/interface.py   Settings.runner_name
 shared/_migrations/from_0.9.0/_migrate_job_engine_to_runner.py
 shared/tests/test_runners.py             new
 shared/tests/test_deployment_paths.py    extended
@@ -427,7 +427,7 @@ pytest, tests next to the existing ones (`shared/tests`, `airflow_src/tests`, `w
   when `AIRFLOW_HOME` is not set up).
 - 9.4 A yaml with a windows runner produces a `QuantingEnv` whose absolute paths are UNC or
   drive-letter strings and that passes `_check_content`.
-- 9.5 A `Settings.runner` that is not declared fails the DAG with a message listing the declared
+- 9.5 A `Settings.runner_name` that is not declared fails the DAG with a message listing the declared
   runners.
 - 9.6 A yaml without `runners:` imports with an empty `RUNNERS`; the webapp shows no settings
   form.
@@ -446,4 +446,4 @@ gates all runners).
 
 - 11.1 Should `settings_path` for a windows runner keep the trailing-slash-free join, i.e. does
   the future Windows job script want `Z:\settings\NAME` exactly? Assumed yes.
-- 11.2 `Settings.runner` max length 64: enough for hostnames-as-names? Assumed yes.
+- 11.2 `Settings.runner_name` max length 64: enough for hostnames-as-names? Assumed yes.

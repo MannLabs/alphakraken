@@ -115,14 +115,14 @@ message). `runner` joins the strict list of `_check_content`. Slurm branch still
 `CLUSTER_VIEW` for its base dir (T8). Spec 2.3, 2.5 factory signature, 7.5 partial, 9.5.
 
 **Acceptance criteria:**
-- [ ] `QuantingEnv.to_dict()` differs from before only in `_JOB_ENGINE` -> `_RUNNER` (existing full-dict assertion in `test_create_quanting_env`, spec 7.3).
-- [ ] Factory per engine with a `Runner`; unknown engine raises `ValueError`.
-- [ ] `start_job(env, runner_name="nope")` raises `KeyError` listing declared runners (9.5).
-- [ ] `grep -rn job_engine airflow_src --include='*.py'` hits only the transitional line.
+- [x] `QuantingEnv.to_dict()` differs from before only in `_JOB_ENGINE` -> `_RUNNER` (existing full-dict assertion in `test_create_quanting_env`, spec 7.3).
+- [x] Factory per engine with a `Runner`; unknown engine raises `ValueError`.
+- [x] `start_job(env, runner_name="nope")` raises `KeyError` listing declared runners (9.5).
+- [x] `grep -rn job_engine airflow_src --include='*.py'` hits only the transitional line.
 
 **Verification:**
-- [ ] `pytest airflow_src/tests/plugins/jobs/test_job_handler.py airflow_src/tests/plugins/sensors airflow_src/tests/dags/impl/test_processor_impl.py`
-- [ ] `pytest airflow_src`
+- [x] `pytest airflow_src/tests/plugins/jobs/test_job_handler.py airflow_src/tests/plugins/sensors airflow_src/tests/dags/impl/test_processor_impl.py`
+- [x] `pytest airflow_src`
 
 **Dependencies:** T3, T4
 **Files:** `airflow_src/plugins/common/quanting_env.py`, `airflow_src/plugins/jobs/job_handler.py`, `airflow_src/plugins/sensors/ssh_sensor.py`, `airflow_src/dags/impl/processor_impl.py`, tests: `conftest.py`, `test_job_handler.py`, `test_ssh_sensor.py`, `test_processor_impl.py`

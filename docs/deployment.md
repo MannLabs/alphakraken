@@ -410,10 +410,6 @@ Make sure the code is always consistent across all machines!
 1. On each machine, pull the most recent version of the code from the repository using `git pull`.
 2. Check if there are any special changes to be done (e.g. updating `submit_job.sh` on the cluster,
 new mounts, new environment variables, manual database interventions, ..) and apply them.
-    - Upgrading to named runners (`runners:` in the yaml, `Settings.runner_name`): deploy the new yaml and the
-      new code together on all machines, the webapp container included, since it reads `runners:` too. Then run
-      `shared/_migrations/from_0.10.0/_migrate_job_engine_to_runner.py` before any quanting DAG runs. New code
-      without the migration fails every job (`runner_name` unset); the new yaml on old code fails at import.
 3. (when deploying workers) To avoid copying processes being interrupted, in the Airflow UI set the size of the `file_copy_pool` to 0 and wait until all `copy_raw_file` tasks are finished.
 4. Stop all docker compose services that need to be updated across all machines using the `./compose.sh --profile $PROFILE stop` command, once with `$PROFILE` set to `workers`,
 and once to `infrastructure`.

@@ -19,12 +19,13 @@ instruments:
 # MOUNTS_PATH/xxx (cf. <env>.env), an instrument at MOUNTS_PATH/instruments/<instrument id>.
 # DO NOT CHANGE the entry names, they are the file structure within the containers, cf. docker-compose.yaml
 mounts:
-  # e.g.:
-  #  xxx:
-  #    username: user  # username for mounting
-  #    mount_src: //mount_src/xxx  # source path for mounting
+  # the entry name is a path_views.Locations value: the folder name below MOUNTS_PATH (on host), and below /opt/airflow/mounts (in airflow containers).
+  # A runner's `view` umust use the same words as keys (checked at import); the folder names behind mount_src and behind a view entry are free.
+  # Exception: airflow_logs is bound to /opt/airflow/logs and is no location.
   backup: # -> path_views.Locations.BACKUP
+    # username for mounting, password will be prompted for
     username: user
+    # source path for mounting, as seen from host of airflow containers
     mount_src: //mount_src/backup
   output: # -> path_views.Locations.OUTPUT
     username: user

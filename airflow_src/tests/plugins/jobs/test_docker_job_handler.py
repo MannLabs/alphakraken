@@ -34,7 +34,7 @@ RELATIVE_OUTPUT_PATH = "P1/out_raw_file_1.raw/custom"
 INTERNAL_RAW_FILE_PATH = f"/opt/airflow/mounts/backup/{RELATIVE_RAW_FILE_PATH}"
 INTERNAL_OUTPUT_PATH = f"/opt/airflow/mounts/output/{RELATIVE_OUTPUT_PATH}"
 
-# the paths the placeholders in the config params resolved to, cf. `locations.*.absolute_path`
+# the paths the placeholders in the config params resolved to, cf. the runner's `view`
 RAW_FILE_PATH = "/pool/backup/test1/2024_07/raw_file_1.raw"
 OUTPUT_PATH = "/pool/output/P1/out_raw_file_1.raw/custom"
 

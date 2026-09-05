@@ -184,7 +184,7 @@ Reload nginx after the edit. Use `kraken` (or any non-admin name) instead of `ad
 ```bash
 mkdir /fs/pool-2/slurm
 ```
-and set the `locations.slurm.absolute_path` key in `envs/alphakraken.${ENV}.yaml` to this value.
+and set `view.slurm` of the `slurm` runner (`runners:` block in `envs/alphakraken.${ENV}.yaml`) to this value.
 
 3. Copy the cluster run script `submit_job.sh` to `/fs/pool-2/slurm` and adapt the `partition` (and optionally `nodelist`) directives.
 Make sure to update also this file when deploying a new version of the AlphaKraken.
@@ -229,8 +229,9 @@ sudo apt install cifs-utils
 
 1. Create folders `settings`, `output`, and `airflow_logs` in the desired pool location(s), e.g. under `/fs/pool/pool-alphakraken`.
 
-2. Make sure the variables `MOUNTS_PATH` in the `envs/${ENV}.env` file and `locations.general.mounts_path`
-in the `envs/alphakraken.${ENV}.yaml` file are set correctly.
+2. Make sure `MOUNTS_PATH` in the `envs/${ENV}.env` file is set correctly: `mount.sh` mounts below it and the
+containers bind from it. It must be absolute here, a relative value resolves against the current directory and
+yields a relative `fstab` line.
 
 3. Create `fstab` entries for the backup, output, and logs folders, and all  instruments (here: `test1`):
 ```bash
@@ -290,7 +291,13 @@ At least one connection is required to interact with the Slurm cluster.
 4. Click "Save".
 Note: make sure to use the `kraken-read` user with read-only access to the backup pool folder.
 
-You can define multiple connections (name needs to start with `cluster_ssh_connection`) to increase robustness, e.g. in case one head node is down.
+A runner selects its connections by prefix: it uses every connection whose id starts with its
+`ssh_connection_id_prefix` (`runners:` block in `envs/alphakraken.${ENV}.yaml`, `cluster_ssh_connection` for the
+in-repo `slurm` runner), cycling through them on retries. Define multiple connections with the same prefix to
+increase robustness, e.g. in case one head node is down; add or remove them in Airflow alone, the yaml stays as is.
+
+The credentials stay in Airflow connections rather than in the yaml: they are encrypted there, can be rotated
+and tested in the UI without a container restart, and only the workers need them.
 
 ### Setup required pools
 Pools are used to limit the number of parallel tasks for certain operations. They are managed via the Airflow UI
@@ -322,7 +329,8 @@ Also, don't forget to install `mono` (cf. AlphaDIA Readme).
 
 ### Standalone deployment without a cluster
 For deployments that have no external compute resources, quanting jobs can be run in containers on the
-AlphaKraken host itself, using the `docker` execution engine (cf. `airflow_src/plugins/jobs/docker_job_handler.py`).
+AlphaKraken host itself, using a runner with the `docker` engine (`runners:` block in `envs/alphakraken.${ENV}.yaml`,
+cf. `airflow_src/plugins/jobs/docker_job_handler.py`).
 Currently the MSQC metrics extractor (`msqc-extractor/`) is available for this.
 
 0. The engine needs the optional requirements in `airflow_src/requirements_docker_job_engine.txt`, which
@@ -343,16 +351,16 @@ container, so the default `DOCKER_GID=0` already grants access.
 Note that the docker socket is mounted into the quanting workers, which is equivalent to root access on
 the host. This is acceptable for a single-machine standalone deployment (`compose.sh` already runs
 `docker compose` with `sudo`), but it should not be enabled on a multi-machine production setup.
-3. Make sure `locations.general.mounts_path` in `envs/alphakraken.${ENV}.yaml` points to the mounts folder
-as seen by the docker host (it must match `MOUNTS_PATH` in `envs/${ENV}.env`).
+3. Make sure `MOUNTS_PATH` in `envs/${ENV}.env` is absolute: the docker daemon resolves the job containers'
+bind mounts on the host and rejects relative sources.
 4. As no cluster is available, set up a dummy `cluster_ssh_connection` and set the Airflow variable
 `debug_no_cluster_ssh` to `true`, cf. [Setup SSH connection](#setup-ssh-connection).
 5. Size the `cluster_slots_pool` to the local machine's capacity: it gates the `submit_job` and job
-monitoring tasks for all engines, not only for Slurm.
+monitoring tasks for all runners, not only for Slurm.
 6. In the webapp, create a settings entry with
     - software type `custom` (the only type the `docker` engine is allowed for) and the metrics type
       you want, e.g. `msqc`,
-    - execution engine `docker`,
+    - runner `docker` (or any runner declared with the `docker` engine),
     - `software` set to the image name, e.g. `alphakraken-msqc`,
     - `config_params` set to the arguments for the image, with the usual placeholders, e.g.
       `{RAW_FILE_PATH} {OUTPUT_PATH} {NUM_THREADS}` for the msqc image. They may be left empty if the
@@ -368,7 +376,7 @@ hanging container is monitored indefinitely.
 occasionally with `docker container prune --filter label=alphakraken.job`.
 
 ### Metrics reported by the quanting software
-Independently of the software type and execution engine, the quanting software can report metrics itself
+Independently of the software type and runner, the quanting software can report metrics itself
 by writing a `metrics.csv` file into its output folder. AlphaKraken reads that file after the job finished and
 stores its content together with the metrics it calculated itself, under the metrics type configured in
 the settings. So an image configured with metrics type `msqc` produces `msqc__*` columns in the webapp,
@@ -402,6 +410,10 @@ Make sure the code is always consistent across all machines!
 1. On each machine, pull the most recent version of the code from the repository using `git pull`.
 2. Check if there are any special changes to be done (e.g. updating `submit_job.sh` on the cluster,
 new mounts, new environment variables, manual database interventions, ..) and apply them.
+    - Upgrading to named runners (`runners:` in the yaml, `Settings.runner_name`): deploy the new yaml and the
+      new code together on all machines, the webapp container included, since it reads `runners:` too. Then run
+      `shared/_migrations/from_0.10.0/_migrate_job_engine_to_runner.py` before any quanting DAG runs. New code
+      without the migration fails every job (`runner_name` unset); the new yaml on old code fails at import.
 3. (when deploying workers) To avoid copying processes being interrupted, in the Airflow UI set the size of the `file_copy_pool` to 0 and wait until all `copy_raw_file` tasks are finished.
 4. Stop all docker compose services that need to be updated across all machines using the `./compose.sh --profile $PROFILE stop` command, once with `$PROFILE` set to `workers`,
 and once to `infrastructure`.

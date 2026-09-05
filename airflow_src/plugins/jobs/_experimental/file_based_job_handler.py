@@ -7,7 +7,7 @@ Notes:
     - requires an external process to monitor the `job_queue` directory, execute jobs accordingly, and update the `job_status.log` file.
         See the `misc/job_queue_watcher/job_queue_watcher.py` script for an example implementation.
     - requires the bind mount of the output folder in docker-compose.yml to be of type "rw" (read-write), not "ro" (read-only).
-    - requires key 'locations.software.absolute_path: ""' in alphakraken.{env}.yaml
+    - requires `view.software: ""` on the runner in alphakraken.{env}.yaml
 
 """
 

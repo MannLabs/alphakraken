@@ -386,7 +386,7 @@ with c1.form("create_settings"):
             f"- `{{{placeholder}}}`: {description}"
             for placeholder, description in PLACEHOLDER_DESCRIPTIONS.items()
         )
-        # TODO: resolve those paths (e.g. locations.backup.absolute_path)
+        # TODO: resolve those paths (e.g. the runner's `view.backup`)
         st.info(
             "The following placeholders can be used in the config parameters, and will be replaced by the specified values:\n\n"
             f"{placeholder_list}\n\n"

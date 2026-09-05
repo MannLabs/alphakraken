@@ -240,7 +240,7 @@ and `_check_content` passes. Spec 2.4, 7.2, 7.3, 9.4.
 `Locations` docstring in `path_views.py` reworded. `mount.sh`: `ENTITY_TYPE=mounts`,
 `MOUNTS_PATH` from `envs/${ENV}.env` sourced in a subshell exporting only that variable.
 Consistency test: no top-level `locations`, every `mounts.<x>` has `mount_src` and
-`mount_target`, mount-target assertions iterate `mounts`; line 52 docstring reworded.
+is bound by compose (the target is the entry name, `mount_target` dropped); line 52 docstring reworded.
 Spec 1.2.6, 1.2.7, 2.1, 2.9, 2.9a, 7.7.
 
 **Acceptance criteria:**

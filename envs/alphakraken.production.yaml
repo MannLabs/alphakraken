@@ -5,20 +5,16 @@ instruments:
     type: thermo
     username: user
     mount_src: //0.0.0.0/test1/
-    mount_target: instruments/test1
 mounts:
   backup:
     username: kraken-write
     mount_src: //samba-pool-1/pool-1
-    mount_target: backup
   output:
     username: kraken-write
     mount_src: //samba-pool-2/pool-2/output
-    mount_target: output
-  logs:
+  airflow_logs:
     username: kraken-write
     mount_src: //samba-pool-2/pool-2/airflow_logs
-    mount_target: airflow_logs
 
 general:
   notifications:

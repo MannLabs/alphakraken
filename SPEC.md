@@ -61,12 +61,11 @@ backup:                           # existing block
   s3: ...
 
 mounts:                           # read by mount.sh and the consistency test only; the mounts folder itself is MOUNTS_PATH in <env>.env
-  backup:
+  backup:                         # mounted at MOUNTS_PATH/backup: the entry name is the target
     username: user
     mount_src: //mount_src/backup
-    mount_target: backup
   output: ...
-  logs: ...
+  airflow_logs: ...
   # settings, software, slurm are not mounted and do not appear here
 
 runners:
@@ -267,7 +266,8 @@ those names.
 Extend `shared/tests/test_deployment_paths.py`: every in-repo yaml declares `runners`, each
 engine and os is known, each runner has `view`, `backup.backup_base_path` is present and equals
 the `slurm` runner's `view.backup`, no
-top-level `locations` key exists, every `mounts.<x>` entry has `mount_src` and `mount_target`,
+top-level `locations` key exists, every `mounts.<x>` entry has `mount_src` and `x` is a folder
+`docker-compose.yaml` binds below the mounts folder,
 and each in-repo `slurm` runner declares all five locations it uses (the import-time check only
 rejects unknown keys). The existing mount-target assertions (`test_deployment_paths.py:84-98`)
 iterate `mounts` instead of `locations`.

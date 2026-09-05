@@ -20,12 +20,12 @@ set -e -u
 
 if [ -z "${1:-}" ] ; then
   echo "Usage: $0 <entity> [fstab|mount|umount]"
-  echo "<entity> can be an instrument name (e.g. test1, ..) or a special folder (logs, backup, or output)."
+  echo "<entity> can be an instrument name (e.g. test1, ..) or a special folder (airflow_logs, backup, or output)."
   echo "If 'fstab' is passed, an entry for the /etc/fstab file will be created."
   echo "If 'mount' is passed, the source folder will be mounted to the target folder."
   echo "If 'umount' is passed, the target folder will be unmounted first, before mounting the source folder to the target folder."
   echo
-  echo "Example 1: $0 logs fstab"
+  echo "Example 1: $0 airflow_logs fstab"
   echo "Example 2: $0 test1 mount"
   echo "Example 3: $0 backup umount"
   exit 1
@@ -50,10 +50,13 @@ get_data() {
 }
 
 # a little hack to look up the correct information
-if [[ "$ENTITY" == "backup" || "$ENTITY" == "output" || "$ENTITY" == "logs" ]]; then
+# the mount target below MOUNTS_PATH is the entity name, cf. docker-compose.yaml
+if [[ "$ENTITY" == "backup" || "$ENTITY" == "output" || "$ENTITY" == "airflow_logs" ]]; then
   ENTITY_TYPE="mounts"
+  MOUNT_TARGET="$ENTITY"
 else
   ENTITY_TYPE="instruments"
+  MOUNT_TARGET="instruments/$ENTITY"
 fi
 
 # read the value without sourcing the file: it holds passwords and placeholders like <port>
@@ -64,7 +67,6 @@ if [ -z "$MOUNTS_PATH" ]; then
 fi
 USERNAME=$(get_data $ENTITY_TYPE $ENTITY username)
 MOUNT_SRC="$(get_data $ENTITY_TYPE $ENTITY mount_src)"
-MOUNT_TARGET="$(get_data $ENTITY_TYPE $ENTITY mount_target)"
 
 MOUNT_TARGET=$MOUNTS_PATH/$MOUNT_TARGET
 

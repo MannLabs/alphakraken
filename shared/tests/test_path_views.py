@@ -13,7 +13,6 @@ from shared.path_views import (
     View,
     _build_docker_host_view,
 )
-from shared.yamlsettings import YamlKeys
 
 
 def test_resolve() -> None:
@@ -123,14 +122,3 @@ def test_docker_host_view_without_mounts_env_reaches_nothing() -> None:
     assert not view.has(Locations.OUTPUT)
     with pytest.raises(KeyError, match="not reachable in the 'docker host' view"):
         view.resolve(Locations.OUTPUT)
-
-
-def test_locations_agree_with_the_yaml_key_names() -> None:
-    """Test that the two vocabularies for the same folder names have not diverged."""
-    assert {
-        YamlKeys.Locations.BACKUP,
-        YamlKeys.Locations.SETTINGS,
-        YamlKeys.Locations.OUTPUT,
-        YamlKeys.Locations.SLURM,
-        YamlKeys.Locations.SOFTWARE,
-    } <= set(Locations.get_values())

@@ -16,40 +16,25 @@ instruments:
   test3:
     type: sciex
 
-locations:
-  general:
-    mounts_path: /home/kraken-user/alphakraken/mounts
+# the folders mounted into the containers below MOUNTS_PATH (cf. <env>.env), read by mount.sh
+mounts:
   # e.g.:
   #  xxx:
   #    username: user  # username for mounting
   #    mount_src: //mount_src/xxx  # source path for mounting ("worker pc view" part 1)
-  #    mount_target: xxx # DO NOT CHANGE! this is related to the file structure within the containers -> cf. path_views.Locations ("worker pc view" part 2)
-  #    absolute_path: /fs/pool/pool-0/alphakraken_sandbox/xxx  # this is the absolute path of this folder on the shared file system ("cluster view")
+  #    mount_target: xxx # DO NOT CHANGE! relative to MOUNTS_PATH, this is the file structure within the containers -> cf. path_views.Locations ("worker pc view" part 2)
   backup:
     username: user
     mount_src: //mount_src/backup
-    mount_target: backup # DO NOT CHANGE! relative to mounts_path -> path_views.Locations.BACKUP
-    absolute_path: /fs/pool/pool-0/alphakraken_sandbox/backup
-  settings:
-    # no need for mount information (yet)
-    absolute_path: /fs/pool/pool-0/alphakraken_sandbox/settings
-  software:
-    # location of custom executables for quanting software
-    # no need for mount information (yet)
-    absolute_path: /fs/home/kraken-read/software
-  slurm:
-    # location of slurm submit script and destination for slurm logs
-    # no need for mount information (yet)
-    absolute_path: /fs/pool/pool-0/alphakraken_local/slurm
+    mount_target: backup # DO NOT CHANGE! -> path_views.Locations.BACKUP
   output:
     username: user
     mount_src: //mount_src/output
-    mount_target: output # DO NOT CHANGE! relative to mounts_path -> path_views.Locations.OUTPUT
-    absolute_path: /fs/pool/pool-0/alphakraken_sandbox/output
+    mount_target: output # DO NOT CHANGE! -> path_views.Locations.OUTPUT
   logs:
     username: user
     mount_src: //mount_src/airflow_logs
-    mount_target: airflow_logs # DO NOT CHANGE! relative to mounts_path ->/opt/airflow/logs
+    mount_target: airflow_logs # DO NOT CHANGE! -> /opt/airflow/logs
 
 general:
   notifications:

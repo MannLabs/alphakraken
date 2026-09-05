@@ -6,30 +6,19 @@ instruments:
     username: user
     mount_src: //0.0.0.0/test1/
     mount_target: instruments/test1
-locations:
-  general:
-    mounts_path: /home/kraken-user/alphakraken/production/mounts
+mounts:
   backup:
     username: kraken-write
     mount_src: //samba-pool-1/pool-1
     mount_target: backup
-    absolute_path: /fs/pool-1/backup
-  settings:
-    absolute_path: /fs/pool-2/settings
-  software:
-    absolute_path: /fs/home/kraken-read/software
-  slurm:
-    absolute_path: /fs/pool-2/slurm
   output:
     username: kraken-write
     mount_src: //samba-pool-2/pool-2/output
     mount_target: output
-    absolute_path: /fs/pool-2/output
   logs:
     username: kraken-write
     mount_src: //samba-pool-2/pool-2/airflow_logs
     mount_target: airflow_logs
-    absolute_path: /fs/pool-2/airflow_logs
 
 general:
   notifications:

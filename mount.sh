@@ -1,7 +1,8 @@
 #!/bin/bash
 
 # A little helper for mounting.
-# Will read data from environmental-specific alphakraken.yaml file and do the mounting or create fstab entries.
+# Will read the mount data from the environment-specific alphakraken.yaml file and the mounts folder
+# (MOUNTS_PATH) from the environment-specific .env file, then do the mounting or create fstab entries.
 
 # IMPORTANT NOTE: it is absolutely crucial that the mounts are set correctly in the respective alphakraken.yaml file!
 # Make sure the data (user names, ip addresses) are always up to date!
@@ -50,12 +51,17 @@ get_data() {
 
 # a little hack to look up the correct information
 if [[ "$ENTITY" == "backup" || "$ENTITY" == "output" || "$ENTITY" == "logs" ]]; then
-  ENTITY_TYPE="locations"
+  ENTITY_TYPE="mounts"
 else
   ENTITY_TYPE="instruments"
 fi
 
-MOUNTS_PATH=$(get_data locations general mounts_path)
+# read the value without sourcing the file: it holds passwords and placeholders like <port>
+MOUNTS_PATH=$(grep -E '^MOUNTS_PATH=' "envs/${ENV}.env" | cut -d= -f2- | sed 's/[[:space:]]*#.*$//')
+if [ -z "$MOUNTS_PATH" ]; then
+  echo "MOUNTS_PATH not set in envs/${ENV}.env"
+  exit 1
+fi
 USERNAME=$(get_data $ENTITY_TYPE $ENTITY username)
 MOUNT_SRC="$(get_data $ENTITY_TYPE $ENTITY mount_src)"
 MOUNT_TARGET="$(get_data $ENTITY_TYPE $ENTITY mount_target)"

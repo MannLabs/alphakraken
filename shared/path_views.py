@@ -10,8 +10,8 @@ from shared.keys import ConstantsClass, EnvVars, InternalPaths
 class Locations(metaclass=ConstantsClass):
     """The data directories that can be addressed within a view.
 
-    The values are the keys of the `locations` section of the yaml settings, and at the same time
-    the folder names below the mounts folder within the containers.
+    The values are the keys of a runner's `view` and of the `mounts` section in the yaml settings,
+    and at the same time the folder names below the mounts folder within the containers.
     """
 
     INSTRUMENTS = "instruments"

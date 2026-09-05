@@ -83,13 +83,25 @@ def test_every_container_location_is_mounted() -> None:
 
 
 @pytest.mark.parametrize(("file_name", "config"), _env_yamls())
-def test_location_mount_targets_match_the_location_names(
-    file_name: str, config: dict
-) -> None:
+def test_no_top_level_locations_key(file_name: str, config: dict) -> None:
+    """Test that the pre-runner `locations` block is gone: its paths live in `runners` and `mounts`."""
+    assert "locations" not in config, file_name
+
+
+@pytest.mark.parametrize(("file_name", "config"), _env_yamls())
+def test_every_mount_has_source_and_target(file_name: str, config: dict) -> None:
+    """Test that each mount entry carries what mount.sh reads."""
+    for name, values in config[YamlKeys.MOUNTS].items():
+        assert {"mount_src", "mount_target"} <= set(values), (
+            f"{file_name}: mount '{name}' is incomplete"
+        )
+
+
+@pytest.mark.parametrize(("file_name", "config"), _env_yamls())
+def test_mount_targets_match_the_location_names(file_name: str, config: dict) -> None:
     """Test that a location is mounted at the folder the container view expects it at."""
-    for location, values in config["locations"].items():
-        if (mount_target := values.get("mount_target")) is None:
-            continue
+    for location, values in config[YamlKeys.MOUNTS].items():
+        mount_target = values["mount_target"]
 
         if location == Locations.LOGS:
             assert mount_target == _LOGS_MOUNT_TARGET, file_name

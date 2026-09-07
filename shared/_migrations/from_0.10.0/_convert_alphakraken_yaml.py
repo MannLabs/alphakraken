@@ -31,7 +31,7 @@ from shared.path_views import Locations
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
-# the locations a runner resolves job paths in, cf. `test_slurm_runners_declare_every_location_they_use`
+# the locations a slurm runner needs, cf. `_REQUIRED_LOCATIONS` in `shared.runners`
 _VIEW_LOCATIONS = (
     Locations.BACKUP,
     Locations.OUTPUT,

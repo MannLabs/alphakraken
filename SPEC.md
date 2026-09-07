@@ -141,7 +141,7 @@ class Runner:
     engine: str
     os: str  # one of OperatingSystems; kept for the future SSH handler (job script per OS)
     view: View[PurePath]
-    ssh_connection_id_prefix: str | None  # optional in yaml; engines that need it check for None
+    ssh_connection_id_prefix: str | None  # optional in yaml; required for engines that use SSH
 
 
 def _build_runners(entries: list[dict]) -> dict[str, Runner]:
@@ -159,10 +159,11 @@ def get_runner(name: str) -> Runner:
   `_build_runners`, which the tests call directly (7.1). Import-time validation: list
   present and non-empty, every entry has a `name`, names unique, `engine` in `JobEngines`, `os`
   present and in `OperatingSystems`, `view` present and every key of it in `Locations`.
-  `ssh_connection_id_prefix` is optional here and not interpreted: the loader knows nothing about
-  which engines use SSH. Which locations an engine needs is likewise not checked here; a missing
-  one fails at first use via `View.resolve`, naming view and location. No key has a default. Each
-  failure names the runner and the yaml key.
+  Per engine, the loader also checks that `view` has every location `prepare_job` and the handler
+  resolve (`backup`, `output`, `settings`, `software`; plus `slurm` for the slurm engine) and that
+  `ssh_connection_id_prefix` is set for engines that use SSH (slurm). A config error thus fails at
+  import instead of failing every job with Airflow retries (decision 2026-09-07, supersedes the
+  first-use failure). No key has a default. Each failure names the runner and the yaml key.
 - `os: linux` and `os: macos` -> `PurePosixPath`, `os: windows` -> `PureWindowsPath`. `macos`
   exists for completeness and is treated exactly like `linux`. Never `Path`: no code does
   filesystem I/O in a runner view.

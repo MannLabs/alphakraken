@@ -21,11 +21,9 @@ def _get_job_handler(runner: Runner) -> "JobHandler":
     if engine == JobEngines.SLURM:
         from jobs.slurm_ssh_job_handler import SlurmSSHJobHandler
 
-        if runner.ssh_connection_id_prefix is None:
-            raise AirflowFailException(
-                f"Runner '{runner.name}' uses the '{JobEngines.SLURM}' engine, which requires "
-                f"`ssh_connection_id_prefix` in alphakraken.yaml."
-            )
+        assert (
+            runner.ssh_connection_id_prefix is not None
+        )  # guaranteed by shared.runners
 
         logging.info("Using SlurmSSHJobHandler")
         return SlurmSSHJobHandler(

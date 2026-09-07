@@ -110,21 +110,43 @@ def test_build_runners_rejects_unknown_key() -> None:
 
 
 def test_build_runners_accepts_prefix_on_docker_runner() -> None:
-    """Test that the prefix is not interpreted: the loader knows nothing about which engines use SSH."""
+    """Test that a prefix on an engine that does not use SSH is accepted, not rejected."""
     runners = _build_runners([_entry(name="docker", engine=JobEngines.DOCKER)])
 
     assert runners["docker"].ssh_connection_id_prefix == "cluster_ssh_connection"
 
 
-def test_build_runners_accepts_runner_without_slurm_location() -> None:
-    """Test that a missing location is not an error at load time, only at first use."""
+def test_build_runners_rejects_slurm_runner_without_slurm_location() -> None:
+    """Test that a location the engine needs is checked at load time, naming runner and location."""
     view = {key: value for key, value in _SLURM_VIEW.items() if key != Locations.SLURM}
 
-    runners = _build_runners([_entry(view=view)])
+    with pytest.raises(ValueError, match=r"(?s)'slurm'.*engine 'slurm'.*\['slurm'\]"):
+        _build_runners([_entry(view=view)])
 
-    assert not runners["slurm"].view.has(Locations.SLURM)
-    with pytest.raises(KeyError, match="'slurm' is not reachable in the 'slurm' view"):
-        runners["slurm"].view.resolve(Locations.SLURM)
+
+def test_build_runners_accepts_docker_runner_without_slurm_location() -> None:
+    """Test that only the locations the engine needs are required."""
+    view = {key: value for key, value in _SLURM_VIEW.items() if key != Locations.SLURM}
+
+    runners = _build_runners(
+        [_entry(name="docker", engine=JobEngines.DOCKER, view=view)]
+    )
+
+    assert not runners["docker"].view.has(Locations.SLURM)
+
+
+def test_build_runners_rejects_runner_without_job_location() -> None:
+    """Test that the locations `prepare_job` resolves are required for every engine."""
+    view = {key: value for key, value in _SLURM_VIEW.items() if key != Locations.BACKUP}
+
+    with pytest.raises(ValueError, match=r"(?s)'docker'.*\['backup'\]"):
+        _build_runners([_entry(name="docker", engine=JobEngines.DOCKER, view=view)])
+
+
+def test_build_runners_rejects_slurm_runner_without_ssh_prefix() -> None:
+    """Test that an engine using SSH requires the prefix, naming runner and key."""
+    with pytest.raises(ValueError, match=r"(?s)'slurm'.*ssh_connection_id_prefix"):
+        _build_runners([_entry(ssh_connection_id_prefix=...)])
 
 
 def test_build_runners_treats_macos_like_linux() -> None:
@@ -147,6 +169,9 @@ def test_build_runners_windows_view_resolves_layout_paths() -> None:
                 view={
                     Locations.BACKUP: r"\\server\share\backup",
                     Locations.OUTPUT: r"Z:\alphakraken\output",
+                    Locations.SETTINGS: r"Z:\alphakraken\settings",
+                    Locations.SOFTWARE: r"C:\alphakraken\software",
+                    Locations.SLURM: r"Z:\alphakraken\slurm",
                 },
             )
         ]

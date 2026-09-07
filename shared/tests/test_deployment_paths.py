@@ -132,28 +132,6 @@ def test_runners_are_valid(file_name: str, config: dict) -> None:
 
 
 @pytest.mark.parametrize(("file_name", "config"), _env_yamls())
-def test_slurm_runners_declare_every_location_they_use(
-    file_name: str, config: dict
-) -> None:
-    """Test that a slurm runner reaches all five locations, which the loader does not check."""
-    runners = _build_runners(config[YamlKeys.RUNNERS])
-
-    for runner in runners.values():
-        if runner.engine != JobEngines.SLURM:
-            continue
-        for location in [
-            Locations.BACKUP,
-            Locations.OUTPUT,
-            Locations.SETTINGS,
-            Locations.SOFTWARE,
-            Locations.SLURM,
-        ]:
-            assert runner.view.has(location), (
-                f"{file_name}: runner '{runner.name}' lacks '{location}'"
-            )
-
-
-@pytest.mark.parametrize(("file_name", "config"), _env_yamls())
 def test_backup_base_path_equals_the_slurm_backup_location(
     file_name: str, config: dict
 ) -> None:

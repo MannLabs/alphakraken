@@ -461,13 +461,22 @@ def test_check_content_allows_image_name_in_software_field(
     make_quanting_env: Callable[..., QuantingEnv],
 ) -> None:
     """Test that a docker image name in the software field is accepted."""
-    quanting_env = make_quanting_env(
-        software="alphakraken-msqc", runner_name=JobEngines.DOCKER
-    )
+    quanting_env = make_quanting_env(software="alphakraken-msqc")
 
     errors = _check_content(quanting_env, MagicMock(config_params=None))
 
     assert errors == []
+
+
+def test_check_content_rejects_an_absolute_software(
+    make_quanting_env: Callable[..., QuantingEnv],
+) -> None:
+    """Test that `software` must stay relative to the runner's software location, as in the webapp."""
+    quanting_env = make_quanting_env(software="/usr/bin/diann")
+
+    errors = _check_content(quanting_env, MagicMock(config_params=None))
+
+    assert len(errors) == 1
 
 
 def test_check_content_sorts_every_string_field() -> None:
@@ -478,10 +487,7 @@ def test_check_content_sorts_every_string_field() -> None:
         if field.annotation in (str, str | None)
     }
 
-    assert (
-        set(_STRICTLY_CHECKED_FIELDS) | set(_UNCHECKED_FIELDS) | {"software"}
-        == str_fields
-    )
+    assert set(_STRICTLY_CHECKED_FIELDS) | set(_UNCHECKED_FIELDS) == str_fields
 
 
 def test_check_content_ignores_resolved_paths(
@@ -574,6 +580,22 @@ def test_prepare_job_validation_error_raises(
         "",
     )
     mock_check_content.assert_called_once_with(mock_env, mock_settings)
+
+
+@patch("dags.impl.processor_impl.get_settings_by_id")
+@patch("dags.impl.processor_impl.get_raw_file_by_id")
+def test_prepare_job_unknown_runner_raises(
+    mock_get_raw_file_by_id: MagicMock,
+    mock_get_settings_by_id: MagicMock,
+) -> None:
+    """Test that a settings entry naming an undeclared runner fails the task without a retry."""
+    mock_get_raw_file_by_id.return_value = MagicMock(wraps=RawFile, id="test_file.raw")
+    mock_settings = MagicMock()
+    mock_settings.runner_name = "no_such_runner"
+    mock_get_settings_by_id.return_value = mock_settings
+
+    with pytest.raises(AirflowFailException, match="Unknown runner 'no_such_runner'"):
+        prepare_job(raw_file_id="test_file.raw", settings_id="sid1")
 
 
 def test_get_slurm_job_id_from_log_returns_slurm_job_id_if_present_in_log() -> None:

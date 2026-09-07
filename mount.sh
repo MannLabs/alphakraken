@@ -59,10 +59,12 @@ else
   MOUNT_TARGET="instruments/$ENTITY"
 fi
 
-# read the value without sourcing the file: it holds passwords and placeholders like <port>
-MOUNTS_PATH=$(grep -E '^MOUNTS_PATH=' "envs/${ENV}.env" | cut -d= -f2- | sed 's/[[:space:]]*#.*$//')
+# sourced in a subshell, so that the rest of the file (credentials, unset placeholders) does not
+# leak into this script's environment
+MOUNTS_PATH=$(set +u; . "envs/${ENV}.env"; echo "$MOUNTS_PATH")
 if [ -z "$MOUNTS_PATH" ]; then
-  echo "MOUNTS_PATH not set in envs/${ENV}.env"
+  echo "Could not read MOUNTS_PATH from envs/${ENV}.env."
+  echo "It must be set, and the file must be sourceable: replace every <placeholder> first."
   exit 1
 fi
 USERNAME=$(get_data $ENTITY_TYPE $ENTITY username)

@@ -111,14 +111,21 @@ def resolve_settings(raw_file_id: str) -> list[str]:
     return [str(s.id) for s in settings_list]  # type: ignore[unresolved-attribute]
 
 
-def prepare_job(raw_file_id: str, settings_id: str) -> dict:
+def prepare_job(raw_file_id: str, settings_id: str) -> dict[str, str | int | None]:
     """Prepare the environmental variables for the job.
 
     :return: The quanting environment as a dict, to be passed on via XCom.
     """
     raw_file = get_raw_file_by_id(raw_file_id)
     settings = get_settings_by_id(settings_id)
-    runner = get_runner(settings.runner_name)
+
+    # an undeclared runner is a config error: fail without the retries of the surrounding DAG
+    try:
+        runner = get_runner(settings.runner_name)
+    except KeyError as e:
+        raise AirflowFailException(
+            f"Settings '{settings.name}' v{settings.version}: {e.args[0]}"
+        ) from e
 
     internal_output_path = get_internal_output_path_for_raw_file(
         raw_file, software_type=settings.software_type
@@ -278,6 +285,7 @@ _STRICTLY_CHECKED_FIELDS = (
     "speclib_file_name",
     "fasta_file_name",
     "config_file_name",
+    "software",
     "software_type",
     "metrics_type",
     "raw_file_id",
@@ -289,7 +297,7 @@ _STRICTLY_CHECKED_FIELDS = (
 )
 
 # composed of a yaml base path (admin configuration) and fields checked above, e.g.
-# `output_path` = output base + `relative_output_path`; `software` is checked separately
+# `output_path` = output base + `relative_output_path`
 _UNCHECKED_FIELDS = (
     "raw_file_path",
     "settings_path",
@@ -307,12 +315,6 @@ def _check_content(quanting_env: QuantingEnv, settings: Settings) -> list[str]:
         value = getattr(quanting_env, field)
         if value and (errors_ := check_for_malicious_content(value)):
             errors.append(f"Validation error in '{value}': {errors_}")
-
-    # an absolute `software` is a valid config. # TODO: double-check
-    if errors_ := check_for_malicious_content(
-        quanting_env.software, allow_absolute_paths=True
-    ):
-        errors.append(f"Validation error in '{quanting_env.software}': {errors_}")
 
     if settings.config_params:
         errors.extend(

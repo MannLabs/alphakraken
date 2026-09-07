@@ -36,14 +36,26 @@ _ENGINE_TO_RUNNER: dict[str, str] = {
 
 def _migrate_collection(collection: Any, *, dry_run: bool) -> Counter[str]:
     """Rewrite the legacy documents of the Settings collection, returning the target names with counts."""
+    docs = list(collection.find().sort("created_at_", 1))
+    legacy_docs = [
+        doc for doc in docs if "runner_name" not in doc and "job_engine" in doc
+    ]
+    skipped = len(docs) - len(legacy_docs)
+
+    # the writes below are not transactional, so an unmapped engine must not surface halfway through
+    if unmapped := sorted(
+        {
+            doc["job_engine"]
+            for doc in legacy_docs
+            if doc["job_engine"] not in _ENGINE_TO_RUNNER
+        }
+    ):
+        raise ValueError(
+            f"No `_ENGINE_TO_RUNNER` entry for job_engine {unmapped}, add them and rerun."
+        )
+
     target_names: Counter[str] = Counter()
-    skipped = 0
-
-    for doc in collection.find().sort("created_at_", 1):
-        if "runner_name" in doc or "job_engine" not in doc:
-            skipped += 1
-            continue
-
+    for doc in legacy_docs:
         runner_name = _ENGINE_TO_RUNNER[doc["job_engine"]]
         logger.info(
             f"{'[DRY RUN] ' if dry_run else ''}Settings {doc['_id']} "

@@ -19,7 +19,7 @@ def test_all_placeholders_have_a_description() -> None:
 def test_substitute_placeholders() -> None:
     """Test that braced placeholders are replaced."""
     result = substitute_placeholders(
-        "--f {RAW_FILE_PATH} --threads {NUM_THREADS}",
+        "--f {{RAW_FILE_PATH}} --threads {{NUM_THREADS}}",
         {
             ConfigParamPlaceholders.RAW_FILE_PATH: "/backup/f.raw",
             ConfigParamPlaceholders.NUM_THREADS: "8",
@@ -46,9 +46,11 @@ def test_substitute_placeholders_is_order_independent() -> None:
         ConfigParamPlaceholders.RELATIVE_RAW_FILE_PATH: "instrument1/f.raw",
     }
 
-    result = substitute_placeholders("{RAW_FILE_PATH} {RELATIVE_RAW_FILE_PATH}", values)
+    result = substitute_placeholders(
+        "{{RAW_FILE_PATH}} {{RELATIVE_RAW_FILE_PATH}}", values
+    )
     result_reversed = substitute_placeholders(
-        "{RAW_FILE_PATH} {RELATIVE_RAW_FILE_PATH}", dict(reversed(values.items()))
+        "{{RAW_FILE_PATH}} {{RELATIVE_RAW_FILE_PATH}}", dict(reversed(values.items()))
     )
 
     assert result == "/backup/f.raw instrument1/f.raw"
@@ -58,20 +60,20 @@ def test_substitute_placeholders_is_order_independent() -> None:
 def test_substitute_placeholders_does_not_expand_substituted_values() -> None:
     """Test that a placeholder contained in a substituted value is not expanded again."""
     result = substitute_placeholders(
-        "{OUTPUT_PATH} {NUM_THREADS}",
+        "{{OUTPUT_PATH}} {{NUM_THREADS}}",
         {
-            ConfigParamPlaceholders.OUTPUT_PATH: "/out/{NUM_THREADS}",
+            ConfigParamPlaceholders.OUTPUT_PATH: "/out/{{NUM_THREADS}}",
             ConfigParamPlaceholders.NUM_THREADS: "8",
         },
     )
 
-    assert result == "/out/{NUM_THREADS} 8"
+    assert result == "/out/{{NUM_THREADS}} 8"
 
 
 def test_substitute_dummy_values() -> None:
     """Test that all known placeholders are replaced by the dummy value."""
     config_params = " ".join(
-        f"{{{placeholder}}}" for placeholder in ConfigParamPlaceholders.get_values()
+        f"{{{{{placeholder}}}}}" for placeholder in ConfigParamPlaceholders.get_values()
     )
 
     result = substitute_dummy_values(config_params)
@@ -83,7 +85,7 @@ def test_substitute_dummy_values() -> None:
 
 def test_dummy_substituted_params_pass_validation() -> None:
     """Test that config params using placeholders are accepted by the validation."""
-    config_params = "--f {RAW_FILE_PATH} --lib {SETTINGS_PATH}/library.speclib --threads {NUM_THREADS}"
+    config_params = "--f {{RAW_FILE_PATH}} --lib {{SETTINGS_PATH}}/library.speclib --threads {{NUM_THREADS}}"
 
     errors = check_for_malicious_content(
         substitute_dummy_values(config_params), allow_spaces=True
@@ -95,7 +97,7 @@ def test_dummy_substituted_params_pass_validation() -> None:
 def test_check_for_unknown_placeholders_accepts_known_ones() -> None:
     """Test that all known placeholders pass the check."""
     config_params = " ".join(
-        f"{{{placeholder}}}" for placeholder in ConfigParamPlaceholders.get_values()
+        f"{{{{{placeholder}}}}}" for placeholder in ConfigParamPlaceholders.get_values()
     )
 
     assert check_for_unknown_placeholders(config_params) == []
@@ -104,8 +106,16 @@ def test_check_for_unknown_placeholders_accepts_known_ones() -> None:
 def test_check_for_unknown_placeholders_rejects_misspelled_one() -> None:
     """Test that a misspelled placeholder is reported by name."""
     errors = check_for_unknown_placeholders(
-        "--f {RAW_FILE_PAHT} --threads {NUM_THREADS}"
+        "--f {{RAW_FILE_PAHT}} --threads {{NUM_THREADS}}"
     )
 
     assert len(errors) == 1
-    assert "{RAW_FILE_PAHT}" in errors[0]
+    assert "{{RAW_FILE_PAHT}}" in errors[0]
+
+
+def test_check_for_unknown_placeholders_rejects_single_braced_one() -> None:
+    """Test that the pre-double-brace syntax is reported rather than passed through unsubstituted."""
+    errors = check_for_unknown_placeholders("--f {RAW_FILE_PATH} --out {{OUTPUT_PATH}}")
+
+    assert len(errors) == 1
+    assert "{RAW_FILE_PATH}" in errors[0]

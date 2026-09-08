@@ -147,7 +147,7 @@ def test_create_quanting_env_custom_software(
     mock_settings.speclib_file_name = "some_speclib_file_name"
     mock_settings.fasta_file_name = "some_fasta_file_name"
     mock_settings.config_file_name = ""
-    mock_settings.config_params = "--qvalue 0.01 --f {RAW_FILE_PATH} --lib {SETTINGS_PATH}/some_speclib_file_name --out {OUTPUT_PATH} --fasta {SETTINGS_PATH}/some_fasta_file_name --threads {NUM_THREADS} --some_param {RELATIVE_RAW_FILE_PATH} --some_param2 {RELATIVE_OUTPUT_PATH}"
+    mock_settings.config_params = "--qvalue 0.01 --f {{RAW_FILE_PATH}} --lib {{SETTINGS_PATH}}/some_speclib_file_name --out {{OUTPUT_PATH}} --fasta {{SETTINGS_PATH}}/some_fasta_file_name --threads {{NUM_THREADS}} --some_param {{RELATIVE_RAW_FILE_PATH}} --some_param2 {{RELATIVE_OUTPUT_PATH}}"
     mock_settings.software = "custom1.2.3"
     mock_settings.software_type = "custom"
     mock_settings.metrics_type = "custom"
@@ -372,7 +372,7 @@ def test_prepare_job_windows_runner_yields_windows_paths(
     mock_settings = MagicMock(
         software_type="custom",
         software="tool.exe",
-        config_params="--f {RAW_FILE_PATH} --out {OUTPUT_PATH}",
+        config_params="--f {{RAW_FILE_PATH}} --out {{OUTPUT_PATH}}",
         num_threads=8,
         speclib_file_name=None,
         fasta_file_name=None,
@@ -424,7 +424,7 @@ def test_check_content_rejects_malicious_unresolved_config_params(
     quanting_env = make_quanting_env(config_params="--f /pool/backup/f.raw; rm -rf /")
 
     errors = _check_content(
-        quanting_env, MagicMock(config_params="--f {RAW_FILE_PATH}; rm -rf /")
+        quanting_env, MagicMock(config_params="--f {{RAW_FILE_PATH}}; rm -rf /")
     )
 
     assert len(errors) == 1
@@ -438,7 +438,7 @@ def test_check_content_allows_placeholders_in_unresolved_config_params(
 
     errors = _check_content(
         quanting_env,
-        MagicMock(config_params="--f {RAW_FILE_PATH} --threads {NUM_THREADS}"),
+        MagicMock(config_params="--f {{RAW_FILE_PATH}} --threads {{NUM_THREADS}}"),
     )
 
     assert errors == []
@@ -451,7 +451,7 @@ def test_check_content_rejects_unknown_placeholder(
     quanting_env = make_quanting_env(config_params="--f /pool/backup/f.raw")
 
     errors = _check_content(
-        quanting_env, MagicMock(config_params="--f {RAW_FILE_PAHT}")
+        quanting_env, MagicMock(config_params="--f {{RAW_FILE_PAHT}}")
     )
 
     assert len(errors) == 1
@@ -846,7 +846,7 @@ def test_create_quanting_env_with_suffix(
 
     mock_settings = MagicMock(
         software_type="custom",
-        config_params="--out {OUTPUT_PATH}",
+        config_params="--out {{OUTPUT_PATH}}",
         num_threads=8,
         speclib_file_name="some_speclib_file_name",
         fasta_file_name="some_fasta_file_name",

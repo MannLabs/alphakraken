@@ -1,31 +1,41 @@
 ---
 name: deploying-alphakraken
-description: Plans the first AlphaKraken deployment on custom infrastructure. Interviews the operator about available machines, compute, storage and instruments, edits the config files accordingly, and writes a tailored DEPLOYMENT_CHECKLIST.md with the exact commands to run on each machine. Use when setting up AlphaKraken on new hardware ("how do I deploy this on our machines", "set up AlphaKraken here", "deploy to our cluster"). Not for day-2 ops (adding instruments, upgrading) — see docs/instruments.md and docs/maintenance.md.
+description: Plans a first sandbox or production AlphaKraken deployment on custom infrastructure. Interviews the operator about available machines, compute, storage and instruments, edits the config files accordingly, and writes a tailored DEPLOYMENT_CHECKLIST.md grouped per machine, with the exact commands to run and a success check after each one. Use when setting up AlphaKraken on new hardware ("how do I deploy this on our machines", "set up AlphaKraken here", "deploy to our cluster"). Not for local development (see docs/development.md) and not for day-2 ops (see docs/instruments.md, docs/maintenance.md).
 ---
 
 # Deploying AlphaKraken on custom infrastructure
 
 `docs/deployment.md` is the source of truth. This skill does not repeat it — it decides **which**
-of its steps apply to *this* operator's infrastructure, in **which order**, and on **which machine**.
+of its steps apply to *this* operator's infrastructure, in **which order**, on **which machine**,
+and **how to tell each step worked**.
+
+Scope: `sandbox` and `production` only. A `local` setup is development, not deployment — point at
+`docs/development.md#local-testing` and stop.
 
 ## Rules
 
 1. **Link, never restate.** A checklist item is one imperative line + the machine + the command or
    file + a link `docs/deployment.md#anchor`. If you find yourself explaining *how* a documented
    step works, delete the explanation and link instead.
-2. **Commands are quoted verbatim** in the checklist (`./compose.sh …`, `./mount.sh …`,
-   `docker build …`), so the operator can copy-paste. Substitute their real `ENV`, instrument ids
-   and profiles — no placeholders that they have to resolve themselves.
-3. **You edit config; the operator runs commands.** You may edit `envs/${ENV}.env`,
-   `envs/alphakraken.${ENV}.yaml`, `envs/.env-airflow`, `docker-compose.yaml`, `misc/nginx.conf`.
-   You never run `compose.sh`, `mount.sh`, `docker`, `sudo`, or touch `/etc/fstab`.
-4. **Passwords stay with the operator.** Never invent or write real passwords into env files —
-   leave a clearly marked placeholder and a checklist item.
-5. If an answer maps to no documented path, say so plainly instead of improvising a deployment.
+2. **Every action gets a check.** No item is done because a command exited 0. Give the observable
+   proof as an indented `Check:` line — see *Standard checks* below.
+3. **Commands are quoted verbatim** in the checklist (`./compose.sh …`, `./mount.sh …`,
+   `docker build …`), so the operator can copy-paste. Substitute their real `ENV`, hostnames,
+   instrument ids and profiles — no placeholders they have to resolve themselves.
+4. **You edit config; the operator runs commands.** You may edit `envs/${ENV}.env`,
+   `envs/alphakraken.${ENV}.yaml`, `envs/.env-airflow`, `envs/.env-mongo`, `docker-compose.yaml`,
+   `misc/nginx.conf`. You never run `compose.sh`, `mount.sh`, `docker`, `sudo`, or touch
+   `/etc/fstab`.
+5. **Passwords by environment.** `sandbox` holds no valuable data: set simple, obvious passwords
+   yourself (e.g. `sandbox`) so the operator is not blocked, and say so. `production`: never invent
+   one — write `SET_STRONG_PASSWORD_NO_SPECIAL_CHARS` and make filling it a checklist item.
+   Constraints in `#additional-steps-required-for-initial-sandboxproduction-deployment`.
+6. If an answer maps to no documented path, say so plainly instead of improvising a deployment.
 
 ## Step 1 — read
 
-Read `docs/deployment.md` in full, and the comments in `envs/alphakraken.local.yaml`. Skim
+Read `docs/deployment.md` in full, the comments in `envs/alphakraken.local.yaml` (the commented
+reference for the yaml) and the `*_HOST` comments in `envs/sandbox.env`. Skim
 `README.md#system-requirements`. Do not start the interview before that.
 
 ## Step 2 — interview
@@ -33,24 +43,24 @@ Read `docs/deployment.md` in full, and the comments in `envs/alphakraken.local.y
 Three `AskUserQuestion` batches, in this order. Skip any question already answered in the prompt.
 
 **Batch A — topology**
-- Target environment: `local` (test, no cluster/pool) / `sandbox` / `production` / other name.
+- Target environment: `sandbox` or `production` (or a custom name modelled on one of them).
 - Machine layout: one machine for everything / two (dbs + rest) / three or more
   (dbs, infrastructure, workers) / already-running instance, adding a machine.
-- Host OS and whether Docker + `python3` are already installed.
+- Which OS account owns the checkout and runs `compose.sh` on each machine — and whether Docker and
+  `python3` are installed. Reject `root`, see *Push back when*.
 - Number of instruments to onboard now, and their vendors (thermo / bruker / sciex).
 
 **Batch B — compute and storage**
 - Where quanting jobs run: Slurm cluster over SSH / containers on the worker host (`docker` engine)
-  / nothing yet (discovery + copying only).
+  / nothing yet (discovery only).
 - Shared file system: CIFS shares reachable from the worker host / already mounted natively /
   none. Also: is it reachable from the compute nodes under a *different* path? (the "cluster view").
 - Raw file backup target: pool folder (`local`) or S3.
-- Rollout ambition: full pipeline immediately, or read-only first (no copying/moving/purging on the
-  instruments). Recommend read-only first for a production instrument — see *Gradual rollout* below.
+- Confirm the read-only start (see below). Ask for a reason to deviate, not for a preference.
 
 **Batch C — accounts and optional components** (multi-select where sensible)
 - Two service accounts available (`kraken-write` with write access to backup, `kraken-read`
-  read-only, cf. `#required-users`)? If only one exists, flag the least-privilege loss.
+  read-only access to backup, cf. `#required-users`)? If only one exists, flag the least-privilege loss.
 - Optional: nginx reverse proxy with TLS + basic auth · Slack/Teams alerting · nightly MongoDB
   backups · S3 upload worker · MCP server / REST API (both come with the `infrastructure` profile).
 
@@ -60,8 +70,8 @@ Map answers to steps. Always in the checklist:
 
 | Step | Machine | Doc anchor |
 |---|---|---|
-| Install Docker + `python3`, clone repo | every | `#setting-up-new-alphakraken-instance-workers-andor-infrastructure` |
-| `echo -e "AIRFLOW_UID=$(id -u)" > envs/.env-airflow` | every | same |
+| Install Docker + `python3`, clone repo at the same commit | every | `#setting-up-new-alphakraken-instance-workers-andor-infrastructure` |
+| `echo -e "AIRFLOW_UID=$(id -u)" > envs/.env-airflow` — per machine, never copied | every | same |
 | `export ENV=<env>` in every shell that runs `compose.sh`/`mount.sh` | every | `#deployment` |
 | `./misc/bootstrap_airflow.sh --init` (once, ever — db init + Pools + Variables) | db host | `#one-time-initialization-of-airflow-infrastructure` |
 | Review the bootstrapped Pools and Variables; size `cluster_slots_pool` to the real capacity | UI | `#setup-required-pools` |
@@ -71,12 +81,10 @@ Conditional:
 
 | Answer | Adds |
 |---|---|
-| one machine, `local` | `./compose.sh --profile local up --build -d` — that is the whole bring-up |
-| one machine, real env | `dbs`, then `infrastructure`, then `workers` profiles on the same host |
-| ≥2 machines | adjust `*_HOST` in `envs/${ENV}.env`; per-machine profile bring-up in dependency order (dbs → infrastructure → workers); NTP time sync (`#additional-steps-required-for-initial-sandboxproduction-deployment`) |
+| one machine | `dbs`, then `infrastructure`, then `workers` profiles on that host; `*_HOST` may stay at the compose service names |
+| ≥2 machines | per-host env wiring (see below); bring-up in dependency order (dbs → infrastructure → workers); NTP time sync (`#additional-steps-required-for-initial-sandboxproduction-deployment`) |
 | custom env name | copy `envs/sandbox.env` and `envs/alphakraken.sandbox.yaml` to the new name |
-| any real env | strong passwords, no special characters, in `envs/${ENV}.env` + `envs/.env-mongo` (same anchor) |
-| CIFS shares | `sudo apt install cifs-utils`; `MOUNTS_PATH` **absolute**; one `./mount.sh <entity> fstab` per entity, entries pasted into `/etc/fstab` with passwords (`#set-up-pool-bind-mounts`). `airflow_logs` on every airflow machine; `backup`, `output` and every instrument on worker machines |
+| CIFS shares | `sudo apt install cifs-utils`; `MOUNTS_PATH` **absolute**; create the mount targets first (`mount.sh` will not mount into a missing folder); one `./mount.sh <entity> fstab` per entity, pasted into `/etc/fstab` with passwords (`#set-up-pool-bind-mounts`). `airflow_logs` on every machine that runs an airflow container; `backup`, `output` and every instrument on worker machines |
 | debugging / first try | offer `./mount.sh <entity> mount` instead (`#alternative-non-persistent-mounts`) |
 | Slurm | cluster dir + `submit_job.sh` with adapted `partition`/`nodelist`; `runners[].view` paths = *cluster view*; AlphaDIA env named `alphadia-<version>` (`#on-the-cluster`, `#setup-alphadia-on-the-cluster`) |
 | `docker` engine | `INSTALL_DOCKER_ENGINE=true` + `DOCKER_GID`; `docker build -t alphakraken-msqc msqc-extractor`; dummy ssh connection + Airflow var `debug_no_cluster_ssh=true`; size `cluster_slots_pool` to the host; settings entry in the webapp (`#standalone-deployment-without-a-cluster`) |
@@ -87,15 +95,46 @@ Conditional:
 | alerting | `general.notifications.*` in the yaml (`#monitoring--alerting`) |
 | db backups | `misc/backup_db.sh` path + cron (`#automated-mongodb-database-backups`) |
 
-### Gradual rollout
+### Per-host env wiring
 
-A first production instance should not write to instruments on day one. The per-instrument keys in
-`envs/alphakraken.${ENV}.yaml` gate this (`skip_processing`, `skip_quanting`, `file_move_delay_m`,
-`min_free_space_gb` — semantics in the yaml comments). Propose: discovery + metrics only, then
-enable copying, then moving and purging, checking the Airflow UI between each.
+`envs/${ENV}.env` is a **per-machine** file, not a shared one. Copying one machine's copy verbatim
+to the others is the most common deployment bug: `MONGO_HOST=mongodb-service` resolves only inside
+the compose network of the machine that actually runs the `dbs` profile.
+
+Decide and state, per machine, in the checklist:
+- `MONGO_HOST` / `POSTGRES_HOST` / `REDIS_HOST` — the db machine's hostname or IP on every machine
+  that does *not* run the `dbs` profile. Simplest correct choice: use that address on **all**
+  machines, provided the db machine resolves its own name; the service-name variant is valid only
+  on the db machine itself. Comments in `envs/sandbox.env`.
+- `MOUNTS_PATH` — absolute, and may legitimately differ per machine.
+- `envs/.env-airflow` — generated on each machine (`id -u` differs); never copy it.
+- `envs/.env-mongo` — needed only on the db machine.
+- Ports — only meaningful on the machine that serves them.
+
+Every value that differs between machines gets its own checklist item under that machine, plus a
+connectivity check.
+
+### Read-only start (default)
+
+A new instance does not write to instruments on day one. Propose this as the plan and only deviate
+if the operator gives a reason:
+
+1. **Discovery + metrics only.** Per instrument in `envs/alphakraken.${ENV}.yaml`:
+   `file_move_delay_m: -1` (no file moving) and `min_free_space_gb: -1` (no file removing) —
+   semantics in the yaml comments. Keep the `file_mover.*` and `file_remover.*` DAGs paused.
+2. Then enable copying to backup, and watch it for a few days.
+3. Then the file mover, then the remover — one at a time, checking the Airflow UI in between.
+
+The checklist must carry the *later* steps too, as an explicit "not yet" item, so nobody assumes
+purging works.
 
 ### Push back when
 
+- **`root` as the OS account** owning the checkout or running `compose.sh`. `AIRFLOW_UID` would be
+  `0`, so every container writes root-owned files into the mounts and logs. Insist on an
+  unprivileged account (the operator's own, or a dedicated `kraken` login) with docker access.
+  Same for the CIFS/pool accounts: use the dedicated `kraken-read`/`kraken-write` service accounts,
+  not a root or admin account (`#required-users`).
 - Slurm chosen but no shared file system reachable from both sides — the cluster view cannot be
   resolved; this is not a supported deployment.
 - `docker` engine on a multi-machine production setup — mounting the docker socket into workers is
@@ -106,13 +145,21 @@ enable copying, then moving and purging, checking the Airflow UI between each.
 
 ## Step 4 — edit config
 
-Make the edits from Rule 3, one file at a time, and list each in the checklist under
+Make the edits from Rule 4, one file at a time, and list each in the checklist under
 *Config already edited* so the operator reviews rather than repeats them. Everything that must be
 edited is enumerated in `#summary` — check your edits against that list before moving on.
 
+Flag anything you edited that is **tracked by git** (`envs/${ENV}.env`, `envs/.env-mongo`) so
+filled-in passwords are not committed.
+
 ## Step 5 — write `DEPLOYMENT_CHECKLIST.md`
 
-Repo root. Gitignored — never commit it. Structure:
+Repo root. Gitignored — never commit it.
+
+**Group by machine, not by topic.** One `##` section per machine, in the order the operator should
+work through them, each headed by the machine's role. A step that genuinely applies everywhere goes
+in a section named `all machines` (`both machines` for two). Never make the reader scan a mixed list
+to find out where they are supposed to be sitting.
 
 ```markdown
 # AlphaKraken deployment checklist
@@ -120,39 +167,58 @@ Generated <date> · ENV=<env> · <one-line summary of the setup>
 
 ## Your setup
 <the interview answers, one line each — makes the file self-contained>
+<the machine names and what each one runs>
 
 ## Config already edited
-- [ ] Review `envs/<env>.env` — <what changed>
-...
+<one item per file, what changed, and what the operator still has to fill in>
 
-## 0. Prerequisites (every machine)
-- [ ] **<host>** Install Docker and python3 — [docs](docs/deployment.md#setting-up-new-alphakraken-instance-workers-andor-infrastructure)
-...
-## 1. Central components (<host>)
-## 2. Mounts (<host>)
-## 3. Infrastructure (<host>)
-## 4. Workers (<host>)
-## 5. Compute
-## 6. Airflow UI, one-time
-## 7. Instruments
-## 8. Optional components
-## 9. Verify
+## 0. all machines — prerequisites
+## 1. <db-host> — central components
+## 2. <worker-host> — mounts
+## 3. <infra-host> — airflow infrastructure
+## 4. <worker-host> — workers
+## 5. cluster / compute
+## 6. any machine — Airflow UI, one-time
+## 7. <instrument PC> + UI — per instrument
+## 8. optional components (grouped by machine)
+## 9. all machines — end-to-end verification
 ```
 
-Item shape — machine, action, command/file, link, nothing more:
+Item shape — action, then the proof, nothing more:
 
 ```markdown
-- [ ] **db-vm** `./compose.sh --profile dbs up --build -d` — [docs](docs/deployment.md#on-the-pc-vm-hosting-the-dbs-mongodb-airflow-postgres-redis)
-- [ ] **worker-pc** Paste the generated fstab lines into `/etc/fstab`, add passwords — [docs](docs/deployment.md#set-up-pool-bind-mounts)
+- [ ] `sudo mount -a` — [docs](docs/deployment.md#set-up-pool-bind-mounts)
+  - Check: `ls <MOUNTS_PATH>/backup` lists the pool's content, `findmnt <MOUNTS_PATH>/backup` shows a `cifs` entry
 ```
 
-Order strictly by dependency: mounts exist before the containers that bind them;
-`bootstrap_airflow.sh --init` before any airflow container; webserver up before connections are
-created in the UI; workers before infrastructure on restarts.
+Order strictly by dependency: `envs/${ENV}.env` filled before `mount.sh` (it sources the file to
+read `MOUNTS_PATH` and aborts on unresolved placeholders); mount targets exist before `mount.sh`;
+mounts before the containers that bind them; `bootstrap_airflow.sh --init` before any airflow
+container; webserver up before connections are created in the UI; workers before infrastructure on
+restarts.
 
-## Step 6 — verify
+### Standard checks
 
-Close the checklist with checks, not prose: Airflow UI reachable and DAGs green, webapp reachable,
-a test file picked up end to end, `./compose.sh logs <service>` clean. Point to
-`docs/maintenance.md#troubleshooting` for failures. Then tell the operator, in two lines, what you
-edited and where the checklist is.
+Use these rather than inventing weaker ones:
+
+| After | Check |
+|---|---|
+| creating a mount target | `ls -ld <target>` exists, owned by the deployment account |
+| `mount.sh … fstab` + `sudo mount -a` | `ls <target>` shows the **remote** content (not empty), `findmnt <target>` shows `cifs`. (`mount.sh <entity> mount` prints that listing itself.) |
+| an instrument mount | the acquisition folder and its `Backup` folder are listed |
+| filling `envs/${ENV}.env` on a non-db machine | from that machine, each db port answers: `nc -z <db-host> 27017`, then `5432`, then `6379` |
+| `compose.sh … up` | `./compose.sh ps` — every service `healthy`/`running`, none restarting; `./compose.sh logs <svc>` free of errors |
+| `dbs` profile | mongo logs show the three users created (`#mongodb-user-management`) |
+| `bootstrap_airflow.sh --init` | Airflow UI → Admin → Pools and → Variables list the entries |
+| `infrastructure` profile | Airflow UI, webapp and `:8090/docs` answer; no DAG import errors |
+| `workers` profile | every expected worker shows up as an active Celery worker in the Airflow UI |
+| adding an instrument | its `*.<instrument_id>` DAGs appear; after unpausing `instrument_watcher`, its log lists real files |
+| the SSH connection | "Test" in the Airflow UI succeeds |
+| nginx | the URLs answer over TLS and basic auth prompts; `./compose.sh logs nginx` clean |
+| alerting | provoke one alert (e.g. stop `mongodb-service` briefly) and see the webhook fire |
+| the whole pipeline | one small raw file: discovered → copied to backup → job submitted → metrics in the webapp |
+
+## Step 6 — hand over
+
+Point at `docs/maintenance.md#troubleshooting` for failures. Then tell the operator, in two lines,
+what you edited and where the checklist is.

@@ -31,13 +31,37 @@ All commands in this Readme assume you are in the root folder of the repository.
 Please note that running and developing the alphakraken is only tested for MacOS and Linux
 (the UI can be accessed from any OS, of course).
 
+#### Folder layout on the host
+Each environment lives in its own folder, so `sandbox` and `production` can coexist on one machine.
+Not every machine holds every folder: the data directories exist only on the db host, and the
+`backup`, `output` and `instruments` mounts only on worker machines.
+
+```
+/home/<user>/alphakraken/<env>/           # e.g. /home/kraken-user/alphakraken/production
+├── alphakraken/                          # the git clone, all commands are run from here
+│   ├── envs/                             # <env>.env, alphakraken.<env>.yaml, .env-airflow
+│   ├── airflowdb_data_<env>/             # Airflow postgres data
+│   ├── mongodb_data_<env>/               # MongoDB data
+│   └── certs/                            # fullchain.pem, privkey.pem for nginx
+└── mounts/                               # = MOUNTS_PATH, all cifs mounts live below (cf. mount.sh)
+    ├── airflow_logs/                     # -> pool, on every airflow machine
+    ├── backup/                           # -> pool
+    ├── output/                           # -> pool
+    ├── instruments/
+    │   └── <instrument_id>/              # -> instrument PC, one per instrument
+    └── db_backups/                       # target of misc/backup_db.sh, created manually
+```
+
+The `mounts` folder must match `MOUNTS_PATH` in `envs/${ENV}.env`, the folder names below it are
+fixed by `docker-compose.yaml` and the `mounts` section of `envs/alphakraken.${ENV}.yaml`.
+
 #### Setting up new AlphaKraken instance (workers and/or infrastructure)
 The following steps are required for both the `local` and the `sandbox`/`production` deployments.
 For the latter, additional steps are required, see [here](#additional-steps-required-for-initial-sandboxproduction-deployment).
 
 1. Install [Docker](https://docs.docker.com/engine/install/ubuntu/) and `python3`.
 
-2. Clone the repository into a folder and `cd` into it.
+2. Clone the repository into a folder (cf. [above](#folder-layout-on-the-host)) and `cd` into it.
 
 3. Set the current user as the user within the airflow containers and get the correct permissions on the "logs"
 directory (otherwise, `root` would be used)

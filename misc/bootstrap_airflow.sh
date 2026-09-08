@@ -26,6 +26,9 @@ if [ "${ENV:-}" == "" ]; then
   exit 1
 fi
 
+echo "Make sure you run this on the machine hosting the Airflow postgres DB (Ctrl-C to cancel)"
+read -r -p "Press Enter to continue .. "
+
 # the local setup has no cluster to connect to
 DEBUG_NO_CLUSTER_SSH=False
 if [ "${ENV}" == "local" ]; then

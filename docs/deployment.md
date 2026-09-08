@@ -49,17 +49,16 @@ echo -e "AIRFLOW_UID=$(id -u)" > envs/.env-airflow
 This needs to be done only once for a brand-new installation. It is not required
 e.g. to spin up another instance hosting workers only.
 
-1. On the PC that will host the internal Airflow database (this is not the MongoDB!) run
+1. On the PC that will host the internal Airflow database (this is not the MongoDB!), initialize it and create
+the required Pools and Variables (see [below](#setup-required-pools))
 ```bash
-./compose.sh --profile dbs up airflow-init
+./misc/bootstrap_airflow.sh --init
 ```
 
 2. In the Airflow UI, set up the SSH connection to the cluster (see [below](#setup-ssh-connection)).
 If you don't want to connect to the cluster, just create the connection of type
 "ssh" and name "cluster_ssh_connection" with some dummy values for host, username, and password.
 In this case, make sure to set the Airflow variable `debug_no_cluster_ssh=True` (see below).
-
-3. In the Airflow UI, set up the required Pools (see [below](#setup-required-pools)).
 
 #### Run the containers (local version)
 Start all docker containers required for local testing with
@@ -300,10 +299,20 @@ The credentials stay in Airflow connections rather than in the yaml: they are en
 and tested in the UI without a container restart, and only the workers need them.
 
 ### Setup required pools
-Pools are used to limit the number of parallel tasks for certain operations. They are managed via the Airflow UI
-and need to be created manually once.
-1. Open the Airflow UI, navigate to "Admin" -> "Pools".
-2. For each pool defined in `settings.py:Pools`, create a new pool with a sensible value (see suggestions in the `Pools` class).
+Pools are used to limit the number of parallel tasks for certain operations, Variables steer the behavior of the
+whole system (cf. [maintenance.md](maintenance.md#airflow-variables)). Both need to be created once.
+
+Create them with defaults using
+```bash
+./misc/bootstrap_airflow.sh
+```
+The script only adds what is missing, so it is safe to re-run. With `ENV=local` it sets `debug_no_cluster_ssh=True`.
+Pass `--init` to initialize the airflow database beforehand. Afterwards, review the values in the Airflow UI
+under "Admin" -> "Pools" and "Admin" -> "Variables": the defaults are deliberately conservative and at least
+`cluster_slots_pool` needs to match the capacity of your cluster.
+
+Alternatively, create them manually in the Airflow UI, one for each entry in `constants.py:Pools`
+and `keys.py:AirflowVars`.
 
 ### Setup AlphaDIA on the cluster
 For details on how to install AlphaDIA on the Slurm cluster, follow the AlphaDIA

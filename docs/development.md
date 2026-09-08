@@ -45,8 +45,9 @@ This allows testing most of the functionality on your local machine. The SSH con
 special worker ("test1") is used that has the `local_test/mounts` folder mounted (instead of the pool folders).
 
 1. Run the `docker compose` (`./compose.sh`) command for the local setup (cf. above) and log into the Airflow UI.
-2. (one-time setup) To decouple from the Slurm cluster, set the Airflow variable `debug_no_cluster_ssh=True` (see above).
-Also, create the `cluster_slots_pool` and the `file_copy_pool` (cf. [here](#setup-required-pools)) in the Airflow UI.
+2. (one-time setup) Create the required pools and variables with `./misc/bootstrap_airflow.sh`
+(cf. [here](deployment.md#setup-required-pools)). With `ENV=local`, this also sets `debug_no_cluster_ssh=True`
+to decouple from the Slurm cluster.
 In the webapp, create a project with the name `P123`, and add some fake settings to it.
 
 3. Unpause all `*.test*` DAGs. The `instrument_watcher`s should start running.

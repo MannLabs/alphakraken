@@ -360,6 +360,43 @@ Make sure the environment is named `alphadia-${VERSION}`, as this is the scheme 
 the AlphaDIA jobs.
 Also, don't forget to install `mono` (cf. AlphaDIA Readme).
 
+### Setup a custom software on the cluster
+Any software with a CLI can be used for quanting. `submit_job.sh` runs every software type except `alphadia` as
+```
+<software location>/<software> <config_params>
+```
+where `<software location>` is the runner's `view.software` (`runners:` block in `envs/alphakraken.${ENV}.yaml`),
+and `software` and `config_params` come from the settings entry (the webapp lists the available `{PLACEHOLDER}`s).
+
+Your job as an administrator is to provide the executable in the `software` location. Anything that is not a single
+binary needs a wrapper script there. Example for the MSQC metrics extractor (`msqc-extractor/`, whose CLI is
+`main.py <raw_file_path> <output_path> <num_threads>`), assuming `<software location>` is `/fs/home/kraken-read/software`:
+
+1. Copy `msqc-extractor/main.py` and `msqc-extractor/requirements.txt` to `/fs/home/kraken-read/software/msqc/`.
+
+2. Create the environment
+```bash
+conda create --name msqc python=3.11 -y
+conda run -n msqc pip install -r /fs/home/kraken-read/software/msqc/requirements.txt
+```
+
+3. Add the wrapper `/fs/home/kraken-read/software/msqc/run_msqc.sh` and `chmod +x` it
+```bash
+#!/usr/bin/env bash
+conda run -n msqc python "$(dirname "$0")/main.py" "$@"
+```
+
+4. In the webapp, create a settings entry with software type `msqc`, metrics type `msqc`,
+`software` set to `msqc/run_msqc.sh` and `config_params` set to `{RAW_FILE_PATH} {OUTPUT_PATH} {NUM_THREADS}`.
+
+MSQC is a good first software to configure on a new deployment: it needs no spectral library, fasta or config file,
+and its resource defaults are small (cf. `keys.py:SOFTWARE_TYPE_TO_DEFAULT_RESOURCE_PARAMS`), so a failing job points at
+the cluster connection rather than at the analysis.
+
+For a runner with the `docker` engine, `software` is an image name instead, see [below](#standalone-deployment-without-a-cluster).
+If AlphaKraken has no metrics calculation for your software, let it report its own metrics, see
+[below](#metrics-reported-by-the-quanting-software).
+
 ### Standalone deployment without a cluster
 For deployments that have no external compute resources, quanting jobs can be run in containers on the
 AlphaKraken host itself, using a runner with the `docker` engine (`runners:` block in `envs/alphakraken.${ENV}.yaml`,

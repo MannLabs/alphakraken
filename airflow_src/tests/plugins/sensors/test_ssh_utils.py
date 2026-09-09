@@ -4,7 +4,8 @@ from unittest.mock import MagicMock, call, patch
 
 import pytest
 from airflow.exceptions import AirflowFailException
-from plugins.sensors.ssh_utils import ssh_execute
+from plugins.common.constants import EXIT_CODE_FILE_NAME, LAUNCHER_SCRIPT_STEM
+from plugins.sensors.ssh_utils import _get_fake_ssh_response, ssh_execute
 
 SSH_PREFIX = "some_cluster_ssh"
 
@@ -92,3 +93,20 @@ def test_ssh_execute_too_many_tries(
 
     assert mock_sleep.call_count == 30
     assert ssh_hook.exec_ssh_client_command.call_count == 30
+
+
+@pytest.mark.parametrize(
+    ("command", "expected"),
+    [
+        (
+            f'nohup sh "/out/{LAUNCHER_SCRIPT_STEM}.sh" > /dev/null 2>&1 &\necho $!',
+            "123",
+        ),
+        (f'if [ -f "/out/{EXIT_CODE_FILE_NAME}" ]; then', "COMPLETED 1"),
+    ],
+)
+def test_get_fake_ssh_response_for_direct_ssh_commands(
+    command: str, expected: str
+) -> None:
+    """Test that the direct_ssh start and status commands get a pid and a status line."""
+    assert _get_fake_ssh_response(command) == expected

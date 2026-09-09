@@ -10,6 +10,7 @@ import pytest
 from airflow.exceptions import AirflowFailException
 from common.quanting_env import QuantingEnv
 from jobs._experimental.file_based_job_handler import FileBasedJobHandler
+from jobs.direct_ssh_job_handler import _OS_TO_DIALECT, DirectSSHJobHandler
 from jobs.job_handler import _get_job_handler, start_job
 from jobs.slurm_ssh_job_handler import SlurmSSHJobHandler
 
@@ -21,6 +22,7 @@ from shared.runners import OperatingSystems, Runner, get_runner
 HAS_DOCKER = importlib.util.find_spec("docker") is not None
 
 SLURM_BASE_DIR = PurePosixPath("/path/to/slurm_base_path")
+OUTPUT_DIR = PurePosixPath("/path/to/output")
 SSH_PREFIX = "some_cluster_ssh"
 
 
@@ -30,7 +32,11 @@ def _runner(engine: str, ssh_connection_id_prefix: str | None = SSH_PREFIX) -> R
         name=f"{engine}_runner",
         engine=engine,
         os=OperatingSystems.LINUX,
-        view=View("test", {Locations.SLURM: str(SLURM_BASE_DIR)}, PurePosixPath),
+        view=View(
+            "test",
+            {Locations.SLURM: str(SLURM_BASE_DIR), Locations.OUTPUT: str(OUTPUT_DIR)},
+            PurePosixPath,
+        ),
         ssh_connection_id_prefix=ssh_connection_id_prefix,
     )
 
@@ -41,6 +47,9 @@ def test_get_job_handler_routes_engine_to_handler() -> None:
     assert isinstance(
         _get_job_handler(_runner(JobEngines.FILE_BASED)), FileBasedJobHandler
     )
+    assert isinstance(
+        _get_job_handler(_runner(JobEngines.DIRECT_SSH)), DirectSSHJobHandler
+    )
 
 
 def test_get_job_handler_injects_slurm_base_dir_and_ssh_prefix() -> None:
@@ -48,6 +57,15 @@ def test_get_job_handler_injects_slurm_base_dir_and_ssh_prefix() -> None:
     handler = _get_job_handler(_runner(JobEngines.SLURM))
 
     assert handler._cluster_base_dir == SLURM_BASE_DIR
+    assert handler._ssh_connection_id_prefix == SSH_PREFIX
+
+
+def test_get_job_handler_injects_output_dir_os_and_ssh_prefix() -> None:
+    """Test that the direct_ssh handler gets the runner's output location, os and SSH prefix."""
+    handler = _get_job_handler(_runner(JobEngines.DIRECT_SSH))
+
+    assert handler._output_dir == OUTPUT_DIR
+    assert handler._dialect is _OS_TO_DIALECT[OperatingSystems.LINUX]
     assert handler._ssh_connection_id_prefix == SSH_PREFIX
 
 

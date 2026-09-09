@@ -46,6 +46,18 @@ def _get_job_handler(runner: Runner) -> "JobHandler":
         logging.info("Using DockerJobHandler")
         return DockerJobHandler(DOCKER_HOST_VIEW)
 
+    if engine == JobEngines.DIRECT_SSH:
+        from jobs.direct_ssh_job_handler import DirectSSHJobHandler
+
+        assert runner.ssh_connection_id_prefix is not None
+
+        logging.info("Using DirectSSHJobHandler")
+        return DirectSSHJobHandler(
+            runner.view.resolve(Locations.OUTPUT),
+            runner.os,
+            runner.ssh_connection_id_prefix,
+        )
+
     if engine == JobEngines.FILE_BASED:
         from jobs._experimental.file_based_job_handler import FileBasedJobHandler
 

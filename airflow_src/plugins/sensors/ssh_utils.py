@@ -4,6 +4,7 @@ import logging
 from time import sleep
 
 from airflow.exceptions import AirflowException, AirflowFailException
+from common.constants import EXIT_CODE_FILE_NAME, LAUNCHER_SCRIPT_STEM
 from common.keys import AirflowVars, JobStates
 from common.utils import get_airflow_variable, get_cluster_ssh_hook, truncate_string
 from paramiko.ssh_exception import SSHException
@@ -101,6 +102,10 @@ def _get_fake_ssh_response(command: str) -> str:
         response = "something\nsomething\n123"
     elif "TIME_ELAPSED" in command:  # get job info
         response = f"00:00:01\nsomething\n{JobStates.COMPLETED}"
+    elif LAUNCHER_SCRIPT_STEM in command:  # direct_ssh: run job
+        response = "123"
+    elif EXIT_CODE_FILE_NAME in command:  # direct_ssh: get job info
+        response = f"{JobStates.COMPLETED} 1"
     else:
         response = JobStates.COMPLETED  # monitor job
 

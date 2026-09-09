@@ -69,6 +69,7 @@ class JobEngines(metaclass=ConstantsClass):
     SLURM: str = "slurm"
     DOCKER: str = "docker"
     FILE_BASED: str = "file_based"
+    DIRECT_SSH: str = "direct_ssh"
 
 
 class MetricsTypes(metaclass=ConstantsClass):

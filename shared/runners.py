@@ -43,8 +43,9 @@ _REQUIRED_LOCATIONS: dict[str, tuple[str, ...]] = {
     JobEngines.SLURM: (*_JOB_LOCATIONS, Locations.SLURM),
     JobEngines.DOCKER: _JOB_LOCATIONS,
     JobEngines.FILE_BASED: _JOB_LOCATIONS,
+    JobEngines.DIRECT_SSH: _JOB_LOCATIONS,
 }
-_ENGINES_USING_SSH = (JobEngines.SLURM,)
+_ENGINES_USING_SSH = (JobEngines.SLURM, JobEngines.DIRECT_SSH)
 
 
 class _RunnerEntry(BaseModel):

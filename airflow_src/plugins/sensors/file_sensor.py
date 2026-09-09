@@ -90,16 +90,24 @@ def _check_path_health(path: Path, description: str, status_details: list[str]) 
     mounted = has_files = None
 
     # Note: `is_mount()` is useless here: a docker bind mount is always a mount point, even if the share behind it is gone.
-    # Note: using rglob could give false negatives if the folder is empty
     try:
         if (
             not (exists := _path_exists(path))
-            or not (mounted := not _path_exists(path / InternalPaths.LOCAL_DIR_SENTINEL_FILE))
+            or not (
+                mounted := not _path_exists(
+                    path / InternalPaths.LOCAL_DIR_SENTINEL_FILE
+                )
+            )
+            # this could give false negatives if the folder is empty, in this case create an empty file in the folder
             or not (has_files := (any(True for _ in path.rglob("*"))))
         ):
             logging.warning(
                 f"Path {path} failed checks: {exists=} {mounted=} {has_files=}"
             )
+            if not has_files:
+                logging.info(
+                    f"If this is a fresh installation and {path} is empty, create a temporary dummy file called 'Krakenfile' to satisfy this check."
+                )
             status_details.append(
                 f"{description} path not healthy ({exists=} {mounted=} {has_files=})"
             )

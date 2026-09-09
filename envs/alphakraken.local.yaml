@@ -106,3 +106,14 @@ runners:
       output: D:\kraken-test\output
       settings: D:\kraken-test\settings
       software: D:\kraken-test\software
+  - name: pueue
+    engine: pueue # queues the custom executable with `pueued` running on a plain machine
+    os: linux
+    # needs Airflow connections `pueue_connection*` to that machine; until they exist, jobs on
+    # this runner fail at start
+    ssh_connection_id_prefix: pueue_connection
+    view: # paths as seen from that machine
+      backup: /fs/pool/pool-0/alphakraken_sandbox/backup
+      output: /fs/pool/pool-0/alphakraken_sandbox/output
+      settings: /fs/pool/pool-0/alphakraken_sandbox/settings
+      software: /fs/home/kraken-read/software

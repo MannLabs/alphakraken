@@ -1,5 +1,6 @@
 """Utility functions for SSH operations."""
 
+import json
 import logging
 from time import sleep
 
@@ -106,6 +107,24 @@ def _get_fake_ssh_response(command: str) -> str:
         response = "123"
     elif EXIT_CODE_FILE_NAME in command:  # simple_ssh: get job info
         response = f"{JobStates.COMPLETED} 1"
+    elif "pueue add" in command or "-EncodedCommand" in command:  # pueue: run job
+        response = "123"
+    elif "pueue status" in command:  # pueue: get job info
+        response = json.dumps(
+            {
+                "tasks": {
+                    "123": {
+                        "status": {
+                            "Done": {
+                                "start": "1970-01-01T00:00:00+00:00",
+                                "end": "1970-01-01T00:00:01+00:00",
+                                "result": "Success",
+                            }
+                        }
+                    }
+                }
+            }
+        )
     else:
         response = JobStates.COMPLETED  # monitor job
 

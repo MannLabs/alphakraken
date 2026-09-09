@@ -1,5 +1,6 @@
 """Unit tests for the ssh_utils module."""
 
+import json
 from unittest.mock import MagicMock, call, patch
 
 import pytest
@@ -103,6 +104,8 @@ def test_ssh_execute_too_many_tries(
             "123",
         ),
         (f'if [ -f "/out/{EXIT_CODE_FILE_NAME}" ]; then', "COMPLETED 1"),
+        ('export A="b"\npueue add --print-task-id -- "cmd"', "123"),
+        ("powershell -NoProfile -EncodedCommand cHVldWU=", "123"),
     ],
 )
 def test_get_fake_ssh_response_for_simple_ssh_commands(
@@ -110,3 +113,10 @@ def test_get_fake_ssh_response_for_simple_ssh_commands(
 ) -> None:
     """Test that the simple_ssh start and status commands get a pid and a status line."""
     assert _get_fake_ssh_response(command) == expected
+
+
+def test_get_fake_ssh_response_for_pueue_status_is_a_done_task() -> None:
+    """Test that the fake pueue state holds the fake task id as a successful task."""
+    state = json.loads(_get_fake_ssh_response("pueue status --json"))
+
+    assert state["tasks"]["123"]["status"]["Done"]["result"] == "Success"

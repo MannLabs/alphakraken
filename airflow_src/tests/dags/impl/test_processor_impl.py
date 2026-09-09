@@ -1025,7 +1025,7 @@ def test_check_job_result_business_error(  # noqa: PLR0913
         settings_name="test_settings",
         settings_version=1,
         metrics_type="alphadia",
-        output_path="/data/output/PID1/out_test_file.raw/alphadia",
+        relative_output_path="PID1/out_test_file.raw/alphadia",
     )
     mock_put_xcom.assert_called_once_with(
         mock_ti, key=XComKeys.BRANCH_ERRORS, value="error1;error2"
@@ -1072,7 +1072,7 @@ def test_check_job_result_business_error_raises(  # noqa: PLR0913
         settings_name="test_settings",
         settings_version=1,
         metrics_type="alphadia",
-        output_path="/data/output/PID1/out_test_file.raw/alphadia",
+        relative_output_path="PID1/out_test_file.raw/alphadia",
     )
     mock_put_xcom.assert_called_once_with(
         mock_ti, key=XComKeys.BRANCH_ERRORS, value="error1;__UNKNOWN_ERROR"
@@ -1112,7 +1112,7 @@ def test_check_job_result_timeout(
         settings_name="test_settings",
         settings_version=1,
         metrics_type="alphadia",
-        output_path="/data/output/PID1/out_test_file.raw/alphadia",
+        relative_output_path="PID1/out_test_file.raw/alphadia",
     )
     mock_put_xcom.assert_called_once_with(
         mock_ti, key=XComKeys.BRANCH_ERRORS, value="TIMEOUT"
@@ -1152,7 +1152,7 @@ def test_check_job_result_oom(
         settings_name="test_settings",
         settings_version=1,
         metrics_type="alphadia",
-        output_path="/data/output/PID1/out_test_file.raw/alphadia",
+        relative_output_path="PID1/out_test_file.raw/alphadia",
     )
     mock_put_xcom.assert_called_once_with(
         mock_ti, key=XComKeys.BRANCH_ERRORS, value="OUT_OF_MEMORY"
@@ -1280,7 +1280,7 @@ def test_store_metrics(
     store_metrics(
         quanting_env_dict=make_quanting_env(
             raw_file_id="some_file.raw",
-            output_path="/data/output/P1/out_some_file.raw/alphadia",
+            relative_output_path="P1/out_some_file.raw/alphadia",
         ).to_dict(),
         metrics={"metric1": "value1"},
     )
@@ -1293,7 +1293,7 @@ def test_store_metrics(
         },
         settings_name="test_settings",
         settings_version=1,
-        output_path="/data/output/P1/out_some_file.raw/alphadia",
+        relative_output_path="P1/out_some_file.raw/alphadia",
     )
 
 

@@ -41,10 +41,13 @@ general:
     slack_bot_token: "xoxb-..." # for individual alerts; get from api.slack.com/apps → your app → OAuth & Permissions → "Bot User OAuth Token" (needs `chat:write` scope)
     webapp_url: "http://localhost:8501"
 
+# absolute paths (posix or windows) of the data directories as users see them on the shared file system, cf. path_views.Locations.
+# Not used for the pipeline file operations: only prepended to the location-relative paths for display (webapp, REST API).
+display_paths:
+  backup: /fs/pool/pool-0/alphakraken_sandbox/backup
+  output: /fs/pool/pool-0/alphakraken_sandbox/output
+
 backup:
-  # absolute path of the backup folder on the shared file system
-  # Not relevant for the pipeline file operations, but persisted in the DB for the later discovery of raw files by users.
-  backup_base_path: /fs/pool/pool-0/alphakraken_sandbox/backup
   backup_type: local # or 's3'
   purging_verification_type: local # 'local', 's3', or 'force_local'
   s3:

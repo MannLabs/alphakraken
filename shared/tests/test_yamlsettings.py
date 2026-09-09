@@ -90,7 +90,10 @@ def test_returns_test_settings_for_test_environment(
                 "webapp_url": "http://localhost:8501",
             }
         },
-        "backup": {"backup_base_path": "./tmp/test/backup"},
+        "display_paths": {
+            "backup": "./tmp/test/backup",
+            "output": "./tmp/test/output",
+        },
         "runners": [
             {
                 "name": "slurm",
@@ -130,24 +133,6 @@ def test_returns_test_settings_for_test_environment(
             },
         ],
     }
-
-
-def test_read_backup_base_path() -> None:
-    """Test that the backup base path is read from the `backup` block."""
-    from shared.yamlsettings import _read_backup_base_path
-
-    assert (
-        _read_backup_base_path({"backup": {"backup_base_path": "/some/backup"}})
-        == "/some/backup"
-    )
-
-
-def test_read_backup_base_path_raises_naming_the_key() -> None:
-    """Test that a missing backup base path is reported with its full yaml key."""
-    from shared.yamlsettings import _read_backup_base_path
-
-    with pytest.raises(KeyError, match="backup.backup_base_path"):
-        _read_backup_base_path({"backup": {}})
 
 
 class TestGetPurgingVerificationType:

@@ -123,10 +123,6 @@ class RawFile(Document):
 
     size = IntField(min_value=-1, max_value=int(1000 * 1024**3))  # unit: bytes
 
-    backup_base_path = StringField(
-        max_length=128
-    )  # absolute path to pool backup location
-
     backup_status = StringField(max_length=32, default=None)
 
     # bucket_name or bucket_name/sub_path/ -> file_info paths are always relative to that
@@ -134,7 +130,7 @@ class RawFile(Document):
 
     instrument_file_status = StringField(max_length=16, default=InstrumentFileStatus.NA)
 
-    file_info = DictField()  # mapping of file paths (relative to backup_base_path) to tuples (size: int, hash: str) or (size: int, hash: str, etag: str).
+    file_info = DictField()  # mapping of file paths (relative to the raw file folder, cf. path_layout) to tuples (size: int, hash: str) or (size: int, hash: str, etag: str).
     # When read from DB, the tuples are converted to lists.
 
     created_at = DateTimeField()  # when file was created
@@ -198,7 +194,8 @@ class Metrics(DynamicDocument):
     # Type of metrics: e.g. "alphadia" (default), "custom", ..
     type = StringField(max_length=32, default=MetricsTypes.ALPHADIA)
 
-    output_path = StringField(max_length=512)
+    # relative to the `output` location, cf. path_layout
+    relative_output_path = StringField(max_length=512)
 
     # audit fields
     created_at_ = DateTimeField(default=datetime.now)

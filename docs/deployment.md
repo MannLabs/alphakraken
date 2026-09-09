@@ -207,6 +207,9 @@ which is required to set the paths for the cluster jobs correctly.
 
 For instruments, only the first type of view is required, as the cluster does not access the instruments directly.
 
+The DB stores paths relative to these locations. The `display_paths` section of `envs/alphakraken.${ENV}.yaml`
+holds the absolute paths users see, which the webapp and the REST API prepend for display.
+
 All paths are configured in the `locations` section of the `envs/alphakraken.${ENV}.yaml` file (see comments in `alphakraken.local.yaml`
 for details).
 

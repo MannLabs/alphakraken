@@ -487,7 +487,6 @@ def test_compute_checksum_no_files_found(
 
 @patch("dags.impl.handler_impl.get_xcom")
 @patch("dags.impl.handler_impl.get_raw_file_by_id")
-@patch("dags.impl.handler_impl.BACKUP_BASE_PATH", "/fs/pool/backup")
 @patch("dags.impl.handler_impl._handle_file_copying")
 @patch("dags.impl.handler_impl._verify_copied_files")
 @patch("dags.impl.handler_impl.update_raw_file")
@@ -532,7 +531,6 @@ def test_copy_raw_file_calls_update_with_correct_args(
             call(
                 "test_file.raw",
                 new_status=RawFileStatus.COPYING,
-                backup_base_path="/fs/pool/backup/test1/2025_07",
                 backup_status="copying_in_progress",
             ),
             call(
@@ -551,7 +549,6 @@ def test_copy_raw_file_calls_update_with_correct_args(
 
 @patch("dags.impl.handler_impl.get_xcom")
 @patch("dags.impl.handler_impl.get_raw_file_by_id")
-@patch("dags.impl.handler_impl.BACKUP_BASE_PATH", "/fs/pool/backup")
 @patch("dags.impl.handler_impl._handle_file_copying")
 @patch("dags.impl.handler_impl._verify_copied_files")
 @patch("dags.impl.handler_impl.update_raw_file")
@@ -592,7 +589,6 @@ def test_copy_raw_file_verify_fails(
             call(
                 "test_file.raw",
                 new_status=RawFileStatus.COPYING,
-                backup_base_path="/fs/pool/backup/test1/2025_07",
                 backup_status="copying_in_progress",
             ),
             call(
@@ -609,7 +605,6 @@ def test_copy_raw_file_verify_fails(
 @patch("dags.impl.handler_impl.get_xcom")
 @patch("dags.impl.handler_impl.get_raw_file_by_id")
 @patch("dags.impl.handler_impl.get_airflow_variable")
-@patch("dags.impl.handler_impl.BACKUP_BASE_PATH", "/fs/pool/backup")
 @patch("dags.impl.handler_impl._handle_file_copying")
 @patch("dags.impl.handler_impl.update_raw_file")
 def test_copy_raw_file_calls_update_with_correct_args_overwrite(  # noqa: PLR0913

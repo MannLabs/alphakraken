@@ -6,6 +6,7 @@ from typing import Any
 from shared.db.engine import connect_db
 from shared.db.interface import augment_raw_files_with_metrics
 from shared.db.models import RawFile
+from shared.display_paths import get_display_backup_folder, get_display_output_path
 
 METRICS_EXCLUDED_KEYS = {
     "_id",
@@ -13,12 +14,15 @@ METRICS_EXCLUDED_KEYS = {
     "created_at_",
     "settings_name",
     "settings_version",
+    "relative_output_path",  # served resolved as `output_path`
 }
 
-# file_info paths are relative to backup_base_path, so the two are returned together
-FILE_INFO_KEYS = frozenset({"file_info", "backup_base_path"})
+FILE_INFO_KEY = "file_info"
+# file_info paths are relative to this folder, so the two are returned together
+BACKUP_FOLDER_KEY = "backup_folder_path"
+OUTPUT_PATH_KEY = "output_path"
 
-RAW_FILE_EXCLUDED_KEYS = {"_id", "created_at_"} | FILE_INFO_KEYS
+RAW_FILE_EXCLUDED_KEYS = {"_id", "created_at_", FILE_INFO_KEY}
 
 
 def _query_raw_files(  # noqa: PLR0913
@@ -42,7 +46,7 @@ def _query_raw_files(  # noqa: PLR0913
 
     query = RawFile.objects
     if not include_file_info:
-        query = query.exclude(*FILE_INFO_KEYS)
+        query = query.exclude(FILE_INFO_KEY)
 
     if instrument_id is not None:
         query = query.filter(instrument_id=instrument_id)
@@ -77,6 +81,9 @@ def _to_metrics_list(raw_file_data: dict[str, Any]) -> list[dict[str, Any]]:
         if "raw:gradient_length_m" in value:
             value["gradient_length"] = value.pop("raw:gradient_length_m")
 
+        if (relative_output_path := value.get("relative_output_path")) is not None:
+            value[OUTPUT_PATH_KEY] = str(get_display_output_path(relative_output_path))
+
         metrics_list.append(
             {k: v for k, v in value.items() if k not in METRICS_EXCLUDED_KEYS}
         )
@@ -110,8 +117,8 @@ def get_raw_files_with_metrics(  # noqa: PLR0913
     Returns:
         Tuple of (list of raw file dicts, total count). Each dict carries a "metrics"
         list when include_metrics is True, and no "metrics" key otherwise. The
-        "file_info" mapping and "backup_base_path" are included only when
-        include_file_info is True.
+        "file_info" mapping and "backup_folder_path", the folder its paths are relative to,
+        are included only when include_file_info is True.
 
     """
     raw_files, total = _query_raw_files(
@@ -127,24 +134,28 @@ def get_raw_files_with_metrics(  # noqa: PLR0913
 
     excluded_keys = RAW_FILE_EXCLUDED_KEYS
     if include_file_info:
-        excluded_keys = excluded_keys - FILE_INFO_KEYS
+        excluded_keys = excluded_keys - {FILE_INFO_KEY}
 
-    if not include_metrics:
+    if include_metrics:
+        results = []
+        for raw_file_data in augment_raw_files_with_metrics(
+            raw_files, prefix=""
+        ).values():
+            metrics = _to_metrics_list(raw_file_data)
+            results.append(
+                {
+                    **_to_raw_file_dict(raw_file_data, excluded_keys=excluded_keys),
+                    "metrics": metrics,
+                }
+            )
+    else:
         results = [
             _to_raw_file_dict(dict(raw_file.to_mongo()), excluded_keys=excluded_keys)
             for raw_file in raw_files
         ]
-        return results, total
 
-    augmented = augment_raw_files_with_metrics(raw_files, prefix="")
-
-    results = []
-    for raw_file_data in augmented.values():
-        metrics = _to_metrics_list(raw_file_data)
-        result = {
-            **_to_raw_file_dict(raw_file_data, excluded_keys=excluded_keys),
-            "metrics": metrics,
-        }
-        results.append(result)
+    if include_file_info:
+        for raw_file, result in zip(raw_files, results, strict=True):
+            result[BACKUP_FOLDER_KEY] = str(get_display_backup_folder(raw_file))
 
     return results, total

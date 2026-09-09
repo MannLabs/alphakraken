@@ -501,7 +501,7 @@ def check_job_result(*, quanting_env_dict: dict, job_id: str, ti: TaskInstance) 
             settings_name=quanting_env.settings_name,
             settings_version=quanting_env.settings_version,
             metrics_type=quanting_env.metrics_type,
-            output_path=quanting_env.output_path,
+            relative_output_path=quanting_env.relative_output_path,
         )
 
         # fail the DAG without retry on new errors to make them transparent in Airflow UI
@@ -560,7 +560,7 @@ def store_metrics(*, quanting_env_dict: dict, metrics: dict) -> None:
         metrics=metrics,
         settings_name=quanting_env.settings_name,
         settings_version=quanting_env.settings_version,
-        output_path=quanting_env.output_path,
+        relative_output_path=quanting_env.relative_output_path,
     )
 
 

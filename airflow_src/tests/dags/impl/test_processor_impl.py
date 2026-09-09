@@ -118,7 +118,6 @@ def test_create_quanting_env(
         "SETTINGS_NAME": "test_settings",
         "SETTINGS_VERSION": 1,
         "_RUNNER_NAME": "slurm",
-        "_YEAR_MONTH_FOLDER": "1970_01",
         "_RELATIVE_RAW_FILE_PATH": "instrument1/1970_01/test_file.raw",
         "_CONFIG_PARAMS": "",
     }
@@ -196,7 +195,6 @@ def test_create_quanting_env_custom_software(
         "SETTINGS_NAME": "test_custom_settings",
         "SETTINGS_VERSION": 1,
         "_RUNNER_NAME": "slurm",
-        "_YEAR_MONTH_FOLDER": "1970_01",
         "_RELATIVE_RAW_FILE_PATH": "instrument1/1970_01/test_file.raw",
         "_CONFIG_PARAMS": expected_config_params,
     }

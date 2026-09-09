@@ -52,7 +52,7 @@ from shared.db.interface import (
     get_settings_by_id,
     update_raw_file,
 )
-from shared.db.models import RawFile, RawFileStatus, Settings, get_created_at_year_month
+from shared.db.models import RawFile, RawFileStatus, Settings
 from shared.keys import SoftwareTypes
 from shared.path_layout import get_output_folder_rel_path, get_raw_file_rel_path
 from shared.path_views import Locations, View
@@ -231,7 +231,6 @@ def _create_quanting_env(
         relative_raw_file_path=str(relative_raw_file_path),
         config_params=substituted_params,
         runner_name=settings.runner_name,
-        year_month_folder=get_created_at_year_month(raw_file),
     )
 
 
@@ -290,7 +289,6 @@ _STRICTLY_CHECKED_FIELDS = (
     "raw_file_id",
     "project_id",
     "settings_name",
-    "year_month_folder",
     "slurm_mem",
     "runner_name",
 )

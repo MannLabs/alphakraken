@@ -5,11 +5,7 @@ from datetime import datetime
 from pathlib import PurePath
 
 from airflow.exceptions import AirflowFailException
-from common.constants import (
-    CLUSTER_BASE_WORKING_DIR_NAME,
-    DEFAULT_JOB_SCRIPT_NAME,
-    DUMMY_TIME_ELAPSED,
-)
+from common.constants import DEFAULT_JOB_SCRIPT_NAME, DUMMY_TIME_ELAPSED
 from common.keys import JobStates
 from common.quanting_env import QuantingEnv
 from jobs.job_handler import JobHandler
@@ -23,17 +19,13 @@ class SlurmSSHJobHandler(JobHandler):
         """Initialize the Slurm job handler.
 
         Args:
-            cluster_base_dir: Working directory on the cluster, holding the submit script
-                and the job logs
+            cluster_base_dir: Directory on the cluster holding the submit script
             ssh_connection_id_prefix: Prefix of the Airflow connections to the cluster
 
         """
         super().__init__()
         self._cluster_base_dir = cluster_base_dir
         self._ssh_connection_id_prefix = ssh_connection_id_prefix
-        self._cluster_base_working_dir_path = (
-            self._cluster_base_dir / CLUSTER_BASE_WORKING_DIR_NAME
-        )
 
     def start_job(self, quanting_env: QuantingEnv) -> str:
         """Start a job on the Slurm cluster via SSH."""
@@ -74,15 +66,14 @@ class SlurmSSHJobHandler(JobHandler):
     ) -> str:
         """Get the command to run the job on the cluster.
 
+        The job is submitted from the output directory, so slurm writes its log there.
         Its last line of output to stdout must be the job id of the submitted job.
         ${JID##* } is removing everything up to the last space.
 
         :param job_script_name: the name of the slurm job script, e.g. "submit_job.sh"
         """
         cluster_job_script_path = self._cluster_base_dir / job_script_name
-        cluster_working_dir = (
-            self._cluster_base_working_dir_path / quanting_env.year_month_folder
-        )
+        output_path = quanting_env.output_path
 
         params = " ".join(
             [
@@ -94,8 +85,8 @@ class SlurmSSHJobHandler(JobHandler):
 
         return "\n".join(
             [
-                f"mkdir -p {cluster_working_dir}",
-                f"cd {cluster_working_dir}",
+                f"mkdir -p {output_path}",
+                f"cd {output_path}",
                 f"cat {cluster_job_script_path}",
                 f"JID=$(sbatch {params} {cluster_job_script_path})",
                 "echo ${JID##* }",

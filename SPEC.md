@@ -3,9 +3,8 @@
 ## Context
 
 A deployment should be able to run quanting jobs on a plain machine reachable over SSH — no Slurm,
-no Docker daemon, no file-queue watcher. The `refactor_introduce_runners_XI` branch built exactly
-that seam: `SPEC.md` §2.5 states "Adding the SSH handler later is: one `JobEngines` constant, one
-factory branch, one module", and `SPEC.md` §10 deliberately left the handler out of scope. This
+no Docker daemon, no file-queue watcher. The named-runners refactor built exactly that seam and
+left the handler itself for later: one `JobEngines` constant, one factory branch, one module. This
 change fills it in.
 
 ### About "bring the removed engine back first"
@@ -31,8 +30,7 @@ the two things it got wrong. The old file is quoted in the git history if a revi
 ### Decisions taken (2026-09-08)
 
 - Engine name `direct_ssh`; `JobEngines.DIRECT_SSH`, `DirectSSHJobHandler`,
-  `jobs/direct_ssh_job_handler.py`. (`SPEC.md`:92,205 anticipates the name `ssh`; the comment at
-  `SPEC.md`:92 gets corrected.)
+  `jobs/direct_ssh_job_handler.py`.
 - The job is the already-resolved `custom_command`, run directly — the same thing the docker
   engine uses as its container command. No script on the remote host, no `submit_job.sh`.
   Consequence: `software_type: alphadia` does not work (its conda logic lives in
@@ -187,7 +185,6 @@ Known limitations to record in the module docstring:
   webapp runner dropdown for local deployments and will fail at job start with an SSH connection
   error until an Airflow connection with that prefix exists — expected for the local env.
   `sandbox` and `production` yamls are left alone.
-- `SPEC.md:92,205-206` — correct the two places that name the future handler `ssh`.
 - `README.md:19` — the compute-environment list still advertises "generic SSH (experimental)",
   a leftover of the engine removed in `d6642656`; replace it with `direct_ssh`.
 - `docs/deployment.md` — a short section next to "Standalone deployment without a cluster"

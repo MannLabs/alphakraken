@@ -10,6 +10,7 @@ from shared.runners import RUNNERS
 _RUNNERS = {
     "cluster": MagicMock(engine=JobEngines.SLURM),
     "box": MagicMock(engine=JobEngines.DOCKER),
+    "ssh_box": MagicMock(engine=JobEngines.DIRECT_SSH),
 }
 
 
@@ -26,6 +27,22 @@ def test_docker_runner_rejects_non_custom_software_type() -> None:
 def test_docker_runner_accepts_custom_software_type() -> None:
     """Test that the docker engine with the custom software type passes."""
     assert check_runner_supports_software_type("box", SoftwareTypes.CUSTOM) == []
+
+
+@patch.dict(RUNNERS, _RUNNERS, clear=True)
+def test_direct_ssh_runner_rejects_non_custom_software_type() -> None:
+    """Test that a runner with the direct_ssh engine only accepts the custom software type."""
+    errors = check_runner_supports_software_type("ssh_box", SoftwareTypes.ALPHADIA)
+
+    assert len(errors) == 1
+    assert "ssh_box" in errors[0]
+    assert JobEngines.DIRECT_SSH in errors[0]
+
+
+@patch.dict(RUNNERS, _RUNNERS, clear=True)
+def test_direct_ssh_runner_accepts_custom_software_type() -> None:
+    """Test that the direct_ssh engine with the custom software type passes."""
+    assert check_runner_supports_software_type("ssh_box", SoftwareTypes.CUSTOM) == []
 
 
 @patch.dict(RUNNERS, _RUNNERS, clear=True)

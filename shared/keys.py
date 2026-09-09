@@ -70,6 +70,7 @@ class JobEngines(metaclass=ConstantsClass):
     DOCKER: str = "docker"
     FILE_BASED: str = "file_based"
     SIMPLE_SSH: str = "simple_ssh"
+    PUEUE: str = "pueue"
 
 
 class MetricsTypes(metaclass=ConstantsClass):

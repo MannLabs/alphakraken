@@ -8,11 +8,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from airflow.exceptions import AirflowFailException
-from common.constants import EXIT_CODE_FILE_NAME
+from common.constants import EXIT_CODE_FILE_NAME, LOG_FILE_NAME
 from common.keys import JobStates
 from common.quanting_env import QuantingEnv
 from jobs.simple_ssh_job_handler import (
-    LOG_FILE_NAME,
     SimpleSSHJobHandler,
     _PosixDialect,
     _WindowsDialect,

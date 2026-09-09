@@ -28,7 +28,7 @@ from pathlib import PurePath
 from typing import Protocol
 
 from airflow.exceptions import AirflowFailException
-from common.constants import EXIT_CODE_FILE_NAME, LAUNCHER_SCRIPT_STEM
+from common.constants import EXIT_CODE_FILE_NAME, LAUNCHER_SCRIPT_STEM, LOG_FILE_NAME
 from common.keys import JobStates
 from common.quanting_env import QuantingEnv
 from jobs.job_handler import JobHandler
@@ -37,7 +37,6 @@ from sensors.ssh_utils import ssh_execute
 from shared.path_views import AIRFLOW_CONTAINER_VIEW, Locations
 from shared.runners import OperatingSystems
 
-LOG_FILE_NAME = "log.txt"
 JOB_ID_SEPARATOR = ":"  # cannot occur in a relative output path, cf. shared.validation
 
 _STATUS_STATES = (JobStates.COMPLETED, JobStates.FAILED, JobStates.RUNNING)

@@ -414,15 +414,15 @@ with c1.form("create_settings"):
 
     runner_names = list(RUNNERS)
     if SHOW_RUNNER_SELECT:
-        stored_runner_name = prefill_data["runner_name"]
-        if stored_runner_name and stored_runner_name not in runner_names:
+        prefilled_runner_name = prefill_data["runner_name"]
+        if prefilled_runner_name and prefilled_runner_name not in runner_names:
             st.warning(
-                f"Runner `{stored_runner_name}` of the previous version is not declared in "
+                f"Runner `{prefilled_runner_name}` of the previous version is not declared in "
                 f"`alphakraken.yaml` anymore, using `{runner_names[0]}`."
             )
         runner_index = (
-            runner_names.index(stored_runner_name)
-            if stored_runner_name in runner_names
+            runner_names.index(prefilled_runner_name)
+            if prefilled_runner_name in runner_names
             else 0
         )
         runner_name = st.selectbox(

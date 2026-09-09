@@ -119,7 +119,6 @@ def prepare_job(raw_file_id: str, settings_id: str) -> dict[str, str | int | Non
     raw_file = get_raw_file_by_id(raw_file_id)
     settings = get_settings_by_id(settings_id)
 
-    # an undeclared runner is a config error: fail without the retries of the surrounding DAG
     try:
         runner = get_runner(settings.runner_name)
     except KeyError as e:

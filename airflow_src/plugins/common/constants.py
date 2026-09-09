@@ -13,6 +13,10 @@ CLUSTER_BASE_WORKING_DIR_NAME = "jobs"
 # returned as the elapsed time when it cannot be determined (e.g. sacct unavailable)
 DUMMY_TIME_ELAPSED = "00:00:00"
 
+# written by the direct_ssh engine into the job's output folder, cf. direct_ssh_job_handler.py
+LAUNCHER_SCRIPT_STEM = "_alphakraken_job"
+EXIT_CODE_FILE_NAME = ".alphakraken_exit_code"
+
 
 # separator between the timestamp and the raw file id in case of collisions
 COLLISION_FLAG_SEP = "-"

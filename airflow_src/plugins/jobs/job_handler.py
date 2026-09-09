@@ -21,9 +21,7 @@ def _get_job_handler(runner: Runner) -> "JobHandler":
     if engine == JobEngines.SLURM:
         from jobs.slurm_ssh_job_handler import SlurmSSHJobHandler
 
-        assert (
-            runner.ssh_connection_id_prefix is not None
-        )  # guaranteed by shared.runners
+        assert runner.ssh_connection_id_prefix is not None
 
         logging.info("Using SlurmSSHJobHandler")
         return SlurmSSHJobHandler(

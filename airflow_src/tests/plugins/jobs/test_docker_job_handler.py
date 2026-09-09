@@ -122,7 +122,7 @@ class TestStartJob:
         sample_environment[QuantingEnv.RAW_FILE_ID] = "raw+file+1.raw"
 
         # when
-        handler.start_job("ignored.sh", sample_environment, "2024_07")
+        handler.start_job(sample_environment)
 
         # then
         _, kwargs = handler._client.containers.run.call_args

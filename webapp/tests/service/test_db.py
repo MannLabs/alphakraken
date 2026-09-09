@@ -117,13 +117,13 @@ def test_get_output_folders_no_metrics(
     ]
 
 
-@patch("service.db.get_display_backup_folder", side_effect=lambda r: f"/backup/{r.id}")
+@patch("service.db.get_display_backup_path", side_effect=lambda r: f"/backup/{r.id}")
 @patch("service.db.connect_db")
 @patch("service.db.RawFile")
-def test_get_full_raw_file_data_adds_the_backup_folder(
+def test_get_full_raw_file_data_adds_the_backup_path(
     mock_raw_file: MagicMock,
     mock_connect_db: MagicMock,  # noqa: ARG001
-    mock_get_display_backup_folder: MagicMock,  # noqa: ARG001
+    mock_get_display_backup_path: MagicMock,  # noqa: ARG001
 ) -> None:
     """Test that each row carries the display path of its backup folder."""
     r1, r2 = MagicMock(id="f1"), MagicMock(id="f2")
@@ -136,4 +136,4 @@ def test_get_full_raw_file_data_adds_the_backup_folder(
 
     # then
     mock_raw_file.objects.filter.assert_called_once_with(id__in=["f1", "f2"])
-    assert result["backup_folder_path"].tolist() == ["/backup/f1", "/backup/f2"]
+    assert result["backup_path"].tolist() == ["/backup/f1", "/backup/f2"]

@@ -30,7 +30,7 @@ def _build_display_view(settings: dict[str, Any]) -> View[PurePosixPath]:
 DISPLAY_VIEW: View[PurePosixPath] = _build_display_view(YAMLSETTINGS)
 
 
-def get_display_backup_folder(raw_file: RawFile) -> PurePosixPath:
+def get_display_backup_path(raw_file: RawFile) -> PurePosixPath:
     """Get the folder holding the backup of `raw_file`, as users see it."""
     return DISPLAY_VIEW.resolve(
         Locations.BACKUP, get_raw_file_folder_rel_path(raw_file)

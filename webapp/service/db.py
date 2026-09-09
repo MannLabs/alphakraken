@@ -11,7 +11,7 @@ from service.utils import _log
 
 from shared.db.engine import connect_db
 from shared.db.models import KrakenStatus, Metrics, Project, RawFile, Settings
-from shared.display_paths import get_display_backup_folder, get_display_output_path
+from shared.display_paths import get_display_backup_path, get_display_output_path
 from shared.validation import (
     ALLOWED_RAW_FILE_NAME_CHARACTERS_PRETTY,
     FORBIDDEN_RAW_FILE_NAME_CHARACTERS_PATTERN,
@@ -147,7 +147,7 @@ def get_raw_file_and_metrics_data(
 def get_full_raw_file_data(raw_file_ids: list[str]) -> pd.DataFrame:
     """Return from the database a dataframe derived from the QuerySet for RawFile for all `raw_file_ids`.
 
-    The column `backup_folder_path` holds the folder each raw file is backed up to, as users see it.
+    The column `backup_path` holds the folder each raw file is backed up to, as users see it.
     """
     _log("Connecting to the database")
     connect_db()
@@ -158,8 +158,8 @@ def get_full_raw_file_data(raw_file_ids: list[str]) -> pd.DataFrame:
     _log(f"Done retrieving all raw file data for {raw_file_ids}")
 
     df = df_from_db_data(raw_files_db)
-    df["backup_folder_path"] = [
-        str(get_display_backup_folder(raw_file)) for raw_file in raw_files_db
+    df["backup_path"] = [
+        str(get_display_backup_path(raw_file)) for raw_file in raw_files_db
     ]
     return df
 

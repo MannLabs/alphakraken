@@ -8,7 +8,7 @@ import pytest
 from shared.db.models import RawFile
 from shared.display_paths import (
     _build_display_view,
-    get_display_backup_folder,
+    get_display_backup_path,
     get_display_output_path,
 )
 
@@ -33,7 +33,7 @@ def test_build_display_view_raises_naming_the_key(settings: dict) -> None:
         _build_display_view(settings)
 
 
-def test_get_display_backup_folder() -> None:
+def test_get_display_backup_path() -> None:
     """Test that the backup folder follows the path layout below the display backup path."""
     raw_file = RawFile(
         id="f.raw",
@@ -41,7 +41,7 @@ def test_get_display_backup_folder() -> None:
         created_at=datetime(2024, 7, 1),  # noqa: DTZ001
     )
 
-    assert get_display_backup_folder(raw_file) == PurePosixPath(
+    assert get_display_backup_path(raw_file) == PurePosixPath(
         "tmp/test/backup/test1/2024_07"
     )
 

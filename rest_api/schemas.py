@@ -25,7 +25,7 @@ class RawFileResponse(BaseModel):
     updated_at_: datetime | None = None
     metrics: list[dict[str, Any]] | None = None
     file_info: dict[str, Any] | None = None
-    backup_folder_path: str | None = None
+    backup_path: str | None = None
 
 
 class RawFilesListResponse(BaseModel):

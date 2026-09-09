@@ -43,7 +43,7 @@ def list_raw_files(  # noqa: PLR0913
     include_file_info: Annotated[
         bool,
         Query(
-            description="Include the file_info mapping and backup_folder_path for each raw file"
+            description="Include the file_info mapping and backup_path for each raw file"
         ),
     ] = False,
 ) -> dict[str, Any]:

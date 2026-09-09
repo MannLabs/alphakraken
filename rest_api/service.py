@@ -6,7 +6,7 @@ from typing import Any
 from shared.db.engine import connect_db
 from shared.db.interface import augment_raw_files_with_metrics
 from shared.db.models import RawFile
-from shared.display_paths import get_display_backup_folder, get_display_output_path
+from shared.display_paths import get_display_backup_path, get_display_output_path
 
 METRICS_EXCLUDED_KEYS = {
     "_id",
@@ -19,7 +19,7 @@ METRICS_EXCLUDED_KEYS = {
 
 FILE_INFO_KEY = "file_info"
 # file_info paths are relative to this folder, so the two are returned together
-BACKUP_FOLDER_KEY = "backup_folder_path"
+BACKUP_PATH_KEY = "backup_path"
 OUTPUT_PATH_KEY = "output_path"
 
 RAW_FILE_EXCLUDED_KEYS = {"_id", "created_at_", FILE_INFO_KEY}
@@ -117,7 +117,7 @@ def get_raw_files_with_metrics(  # noqa: PLR0913
     Returns:
         Tuple of (list of raw file dicts, total count). Each dict carries a "metrics"
         list when include_metrics is True, and no "metrics" key otherwise. The
-        "file_info" mapping and "backup_folder_path", the folder its paths are relative to,
+        "file_info" mapping and "backup_path", the folder its paths are relative to,
         are included only when include_file_info is True.
 
     """
@@ -156,6 +156,6 @@ def get_raw_files_with_metrics(  # noqa: PLR0913
 
     if include_file_info:
         for raw_file, result in zip(raw_files, results, strict=True):
-            result[BACKUP_FOLDER_KEY] = str(get_display_backup_folder(raw_file))
+            result[BACKUP_PATH_KEY] = str(get_display_backup_path(raw_file))
 
     return results, total

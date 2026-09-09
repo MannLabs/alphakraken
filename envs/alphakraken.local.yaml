@@ -84,3 +84,14 @@ runners:
       output: /fs/pool/pool-0/alphakraken_sandbox/output
       settings: /fs/pool/pool-0/alphakraken_sandbox/settings
       software: /fs/home/kraken-read/software
+  - name: direct_ssh
+    engine: direct_ssh # runs the custom executable as a background process on a plain machine
+    os: linux
+    # needs Airflow connections `direct_ssh_connection*` to that machine; until they exist, jobs
+    # on this runner fail at start
+    ssh_connection_id_prefix: direct_ssh_connection
+    view: # paths as seen from that machine; `output` must be the same folder the workers see as their output mount
+      backup: /fs/pool/pool-0/alphakraken_sandbox/backup
+      output: /fs/pool/pool-0/alphakraken_sandbox/output
+      settings: /fs/pool/pool-0/alphakraken_sandbox/settings
+      software: /fs/home/kraken-read/software

@@ -405,14 +405,22 @@ cf. [Setup SSH connection](#setup-ssh-connection).
 2. The `output` and `backup` folders mounted on the machine at the paths given in the runner's `view`.
 4. Settings entries on this runner use software type `custom`, with `software` pointing to the executable as reachable
 from the machine.
-5. `pueued` daemon (version 4.x) running on the machine under the SSH user (see pueue documention)
-6.1 For Windows: the `pueue` executable is named `pueue.exe` and is in the `PATH`:
+6. Install the 4.x binaries (`pueued` and `pueue`) from the [release page](https://github.com/Nukesor/pueue/releases) as
+described in the [pueue docs](https://github.com/Nukesor/pueue#installation);
+6.1 For Linux: Put them into `/usr/local/bin`, which a
+non-interactive SSH session has on its `PATH`, and adapt `ExecStart` in `pueued.service`
+accordingly. Run `sudo loginctl enable-linger $USER` so the user service keeps running without a login session.
+6.2 For Windows: install `pueued` as a Windows service. It runs `pueued` as the user logged in at the console,
+so that must be the runner's SSH user (auto-logon on a headless machine).
+`pueue.exe` must be on the *machine-wide* `PATH`, and `sshd` restarted afterwards, so that a
+non-interactive SSH session finds it (profile scripts are not run there):
 ```
- $pueueDir = "D:\kraken-test\software\pueue"   # folder where pueue.exe and pueued.exe live
-  [Environment]::SetEnvironmentVariable("Path", [Environment]::GetEnvironmentVariable("Path", "Machine") + ";$pueueDir", "Machine")
-  Restart-Service sshd
+$pueueDir = "D:\kraken-test\software\pueue"   # folder where pueue.exe and pueued.exe live
+[Environment]::SetEnvironmentVariable("Path", [Environment]::GetEnvironmentVariable("Path", "Machine") + ";$pueueDir", "Machine")
+Restart-Service sshd
 ```
-6.2
+
+Verify either OS from the AlphaKraken host with `ssh <user>@<host> pueue status`, or with `misc/check_pueue_runner.sh`.
 
 Operation:
 - The number of parallel jobs on the machine is set on the machine with `pueue parallel <n>`. The `cluster_slots_pool`

@@ -37,7 +37,7 @@ from sensors.ssh_utils import ssh_execute
 
 from shared.runners import OperatingSystems
 
-PUEUE_EXE = "pueue"
+PUEUE_EXE = "pueue.exe"
 STATUS_CMD = f"{PUEUE_EXE} status --json"
 
 # pueue's `TaskStatus` variants that are not `Done`
@@ -85,6 +85,7 @@ def _windows_start_cmd(
             _add_cmd(output_path, custom_command, label),
         ]
     )
+    logging.info(f"Encoding powershell script: >>>>\n{script}\n<<<< end of script")
     encoded = base64.b64encode(script.encode("utf-16-le")).decode("ascii")
     return f"powershell -NoProfile -EncodedCommand {encoded}"
 

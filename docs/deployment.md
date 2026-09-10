@@ -409,6 +409,12 @@ non-interactive SSH session, so install it to a system location like `/usr/local
 its output folder and writes `log.txt` there.
 4. Settings entries on this runner use software type `custom`, with `software` pointing to the executable as reachable
 from the machine.
+5. the `pueue` executables are in the `PATH`:
+```
+ $pueueDir = "D:\kraken-test\software\pueue"   # wherever pueue.exe and pueued.exe live
+  [Environment]::SetEnvironmentVariable("Path", [Environment]::GetEnvironmentVariable("Path", "Machine") + ";$pueueDir", "Machine")
+  Restart-Service sshd
+```
 
 Operation:
 - The number of parallel jobs on the machine is set on the machine with `pueue parallel <n>`. The `cluster_slots_pool`

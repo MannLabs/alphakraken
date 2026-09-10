@@ -102,9 +102,9 @@ def _get_fake_ssh_response(command: str) -> str:
         response = "something\nsomething\n123"
     elif "TIME_ELAPSED" in command:  # get job info
         response = f"00:00:01\nsomething\n{JobStates.COMPLETED}"
-    elif LAUNCHER_SCRIPT_STEM in command:  # direct_ssh: run job
+    elif LAUNCHER_SCRIPT_STEM in command:  # simple_ssh: run job
         response = "123"
-    elif EXIT_CODE_FILE_NAME in command:  # direct_ssh: get job info
+    elif EXIT_CODE_FILE_NAME in command:  # simple_ssh: get job info
         response = f"{JobStates.COMPLETED} 1"
     else:
         response = JobStates.COMPLETED  # monitor job

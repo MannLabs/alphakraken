@@ -1,4 +1,4 @@
-"""Tests for the direct_ssh_job_handler module."""
+"""Tests for the simple_ssh_job_handler module."""
 
 import base64
 import re
@@ -11,9 +11,9 @@ from airflow.exceptions import AirflowFailException
 from common.constants import EXIT_CODE_FILE_NAME
 from common.keys import JobStates
 from common.quanting_env import QuantingEnv
-from jobs.direct_ssh_job_handler import (
+from jobs.simple_ssh_job_handler import (
     LOG_FILE_NAME,
-    DirectSSHJobHandler,
+    SimpleSSHJobHandler,
     _PosixDialect,
     _WindowsDialect,
 )
@@ -23,7 +23,7 @@ from shared.path_views import Locations, View
 from shared.runners import OperatingSystems
 from shared.validation import check_for_malicious_content
 
-MODULE = "jobs.direct_ssh_job_handler"
+MODULE = "jobs.simple_ssh_job_handler"
 
 SSH_PREFIX = "box_ssh"
 RELATIVE_OUTPUT_PATH = "P1/out_raw_file_1.raw/custom"
@@ -63,13 +63,13 @@ def _decoded(command: str) -> str:
     return base64.b64decode(command.rsplit(" ", 1)[-1]).decode("utf-16-le")
 
 
-def _handler(runner_os: str = OperatingSystems.LINUX) -> DirectSSHJobHandler:
+def _handler(runner_os: str = OperatingSystems.LINUX) -> SimpleSSHJobHandler:
     output_dir = (
         WINDOWS_OUTPUT_DIR
         if runner_os == OperatingSystems.WINDOWS
         else POSIX_OUTPUT_DIR
     )
-    return DirectSSHJobHandler(output_dir, runner_os, SSH_PREFIX)
+    return SimpleSSHJobHandler(output_dir, runner_os, SSH_PREFIX)
 
 
 def _environment(quanting_env: QuantingEnv) -> dict[str, str]:
@@ -175,7 +175,7 @@ class TestCommandsPrintOutput:
 
 @patch(f"{MODULE}.ssh_execute")
 class TestStartJob:
-    """Test cases for DirectSSHJobHandler.start_job()."""
+    """Test cases for SimpleSSHJobHandler.start_job()."""
 
     def test_start_job_writes_launcher_and_returns_pid_with_output_path(
         self,

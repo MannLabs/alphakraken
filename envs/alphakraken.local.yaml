@@ -85,7 +85,7 @@ runners:
       settings: /fs/pool/pool-0/alphakraken_sandbox/settings
       software: /fs/home/kraken-read/software
   - name: direct_ssh_1
-    engine: direct_ssh # runs the custom executable as a background process on a plain machine
+    engine: simple_ssh # runs the custom executable as a background process on a plain machine
     os: linux
     # needs Airflow connections `direct_ssh_connection*` to that machine; until they exist, jobs
     # on this runner fail at start
@@ -96,7 +96,7 @@ runners:
       settings: /fs/pool/pool-0/alphakraken_sandbox/settings
       software: /fs/home/kraken-read/software
   - name: direct_ssh_win_2
-    engine: direct_ssh # runs the custom executable as a background process on a plain machine
+    engine: simple_ssh # runs the custom executable as a background process on a plain machine
     os: windows
     # needs Airflow connections `direct_ssh_win_connection*` to that machine; until they exist, jobs
     # on this runner fail at start

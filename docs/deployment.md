@@ -371,8 +371,8 @@ hanging container is monitored indefinitely.
 occasionally with `docker container prune --filter label=alphakraken.job`.
 
 ### Standalone deployment on a machine reachable via SSH
-For a plain machine without Slurm and without Docker, use a runner with the `direct_ssh` engine
-(cf. `airflow_src/plugins/jobs/direct_ssh_job_handler.py`). The executable named in the `software` field is
+For a plain machine without Slurm and without Docker, use a runner with the `simple_ssh` engine
+(cf. `airflow_src/plugins/jobs/simple_ssh_job_handler.py`). The executable named in the `software` field is
 run directly on that machine as a background process; its output goes to `log.txt` in the job's output folder,
 its exit code to `.alphakraken_exit_code` next to it.
 

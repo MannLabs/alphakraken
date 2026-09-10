@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Dummy quanting software to smoke-test a runner with the `direct_ssh` or `pueue` engine:
+# Dummy quanting software to smoke-test a runner with the `simple_ssh` or `pueue` engine:
 # reports what the job handler passed in, waits, and reports one metric.
 #
 # Usage:

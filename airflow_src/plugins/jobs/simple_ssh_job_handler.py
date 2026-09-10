@@ -166,7 +166,7 @@ _OS_TO_DIALECT: dict[str, _Dialect] = {
 }
 
 
-class DirectSSHJobHandler(JobHandler):
+class SimpleSSHJobHandler(JobHandler):
     """Implementation of JobHandler that runs jobs as background processes via SSH."""
 
     def __init__(

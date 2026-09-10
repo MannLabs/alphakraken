@@ -10,8 +10,8 @@ import pytest
 from airflow.exceptions import AirflowFailException
 from common.quanting_env import QuantingEnv
 from jobs._experimental.file_based_job_handler import FileBasedJobHandler
-from jobs.direct_ssh_job_handler import _OS_TO_DIALECT, DirectSSHJobHandler
 from jobs.job_handler import _get_job_handler, start_job
+from jobs.simple_ssh_job_handler import _OS_TO_DIALECT, SimpleSSHJobHandler
 from jobs.slurm_ssh_job_handler import SlurmSSHJobHandler
 
 from shared.keys import JobEngines
@@ -48,7 +48,7 @@ def test_get_job_handler_routes_engine_to_handler() -> None:
         _get_job_handler(_runner(JobEngines.FILE_BASED)), FileBasedJobHandler
     )
     assert isinstance(
-        _get_job_handler(_runner(JobEngines.DIRECT_SSH)), DirectSSHJobHandler
+        _get_job_handler(_runner(JobEngines.SIMPLE_SSH)), SimpleSSHJobHandler
     )
 
 
@@ -61,8 +61,8 @@ def test_get_job_handler_injects_slurm_base_dir_and_ssh_prefix() -> None:
 
 
 def test_get_job_handler_injects_output_dir_os_and_ssh_prefix() -> None:
-    """Test that the direct_ssh handler gets the runner's output location, os and SSH prefix."""
-    handler = _get_job_handler(_runner(JobEngines.DIRECT_SSH))
+    """Test that the simple_ssh handler gets the runner's output location, os and SSH prefix."""
+    handler = _get_job_handler(_runner(JobEngines.SIMPLE_SSH))
 
     assert handler._output_dir == OUTPUT_DIR
     assert handler._dialect is _OS_TO_DIALECT[OperatingSystems.LINUX]

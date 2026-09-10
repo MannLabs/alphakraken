@@ -105,8 +105,8 @@ def test_ssh_execute_too_many_tries(
         (f'if [ -f "/out/{EXIT_CODE_FILE_NAME}" ]; then', "COMPLETED 1"),
     ],
 )
-def test_get_fake_ssh_response_for_direct_ssh_commands(
+def test_get_fake_ssh_response_for_simple_ssh_commands(
     command: str, expected: str
 ) -> None:
-    """Test that the direct_ssh start and status commands get a pid and a status line."""
+    """Test that the simple_ssh start and status commands get a pid and a status line."""
     assert _get_fake_ssh_response(command) == expected

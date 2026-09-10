@@ -419,7 +419,7 @@ described in the [pueue docs](https://github.com/Nukesor/pueue#installation), pl
      Restart-Service sshd
      ```
 
-Verify from the AlphaKraken host with `ssh <user>@<host> pueue status`, or with `misc/check_pueue_runner.sh`.
+Verify from the AlphaKraken host with `ssh <user>@<host> pueue status`.
 
 Operation:
 - `pueue parallel <n>` on the machine sets its number of parallel jobs. The `cluster_slots_pool` still gates job

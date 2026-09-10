@@ -44,7 +44,6 @@ def _config(**overrides: Any) -> dict:
             },
             "settings": {"absolute_path": "/fs/settings"},
             "software": {"absolute_path": "/fs/software"},
-            "slurm": {"absolute_path": "/fs/slurm"},
         },
         "general": {"notifications": {"webapp_url": "http://localhost:8501"}},
         "backup": {"backup_type": "local"},
@@ -74,7 +73,6 @@ def test_converts_a_full_config() -> None:
                 "output": "/fs/output",
                 "settings": "/fs/settings",
                 "software": "/fs/software",
-                "slurm": "/fs/slurm",
             },
         }
     ]

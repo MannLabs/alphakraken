@@ -105,7 +105,6 @@ def test_returns_test_settings_for_test_environment(
                     "output": "./tmp/test/output",
                     "settings": "./tmp/test/settings",
                     "software": "./tmp/test/software",
-                    "slurm": "./tmp/test/slurm",
                 },
             },
             {
@@ -128,7 +127,6 @@ def test_returns_test_settings_for_test_environment(
                     "output": "./tmp/test/output",
                     "settings": "./tmp/test/settings",
                     "software": "./tmp/test/software",
-                    "slurm": "./tmp/test/slurm",
                 },
             },
         ],

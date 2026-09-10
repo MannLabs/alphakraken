@@ -18,7 +18,6 @@ _SLURM_VIEW = {
     Locations.OUTPUT: "/fs/pool/output",
     Locations.SETTINGS: "/fs/pool/settings",
     Locations.SOFTWARE: "/fs/home/software",
-    Locations.SLURM: "/fs/pool/slurm",
 }
 
 
@@ -49,8 +48,8 @@ def test_build_runners_keeps_the_yaml_order_and_fields() -> None:
     assert runners["slurm"].engine == JobEngines.SLURM
     assert runners["slurm"].os == OperatingSystems.LINUX
     assert runners["slurm"].ssh_connection_id_prefix == "cluster_ssh_connection"
-    assert runners["slurm"].view.resolve(Locations.SLURM) == PurePosixPath(
-        "/fs/pool/slurm"
+    assert runners["slurm"].view.resolve(Locations.SOFTWARE) == PurePosixPath(
+        "/fs/home/software"
     )
     assert runners["docker"].ssh_connection_id_prefix is None
 
@@ -116,25 +115,6 @@ def test_build_runners_accepts_prefix_on_docker_runner() -> None:
     assert runners["docker"].ssh_connection_id_prefix == "cluster_ssh_connection"
 
 
-def test_build_runners_rejects_slurm_runner_without_slurm_location() -> None:
-    """Test that a location the engine needs is checked at load time, naming runner and location."""
-    view = {key: value for key, value in _SLURM_VIEW.items() if key != Locations.SLURM}
-
-    with pytest.raises(ValueError, match=r"(?s)'slurm'.*engine 'slurm'.*\['slurm'\]"):
-        _build_runners([_entry(view=view)])
-
-
-def test_build_runners_accepts_docker_runner_without_slurm_location() -> None:
-    """Test that only the locations the engine needs are required."""
-    view = {key: value for key, value in _SLURM_VIEW.items() if key != Locations.SLURM}
-
-    runners = _build_runners(
-        [_entry(name="docker", engine=JobEngines.DOCKER, view=view)]
-    )
-
-    assert not runners["docker"].view.has(Locations.SLURM)
-
-
 def test_build_runners_rejects_runner_without_job_location() -> None:
     """Test that the locations `prepare_job` resolves are required for every engine."""
     view = {key: value for key, value in _SLURM_VIEW.items() if key != Locations.BACKUP}
@@ -171,7 +151,6 @@ def test_build_runners_windows_view_resolves_layout_paths() -> None:
                     Locations.OUTPUT: r"Z:\alphakraken\output",
                     Locations.SETTINGS: r"Z:\alphakraken\settings",
                     Locations.SOFTWARE: r"C:\alphakraken\software",
-                    Locations.SLURM: r"Z:\alphakraken\slurm",
                 },
             )
         ]

@@ -19,7 +19,6 @@ class Locations(metaclass=ConstantsClass):
     OUTPUT = "output"
     SETTINGS = "settings"
     SOFTWARE = "software"
-    SLURM = "slurm"
     LOGS = "logs"
 
 

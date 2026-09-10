@@ -96,10 +96,9 @@ def test_container_view_has_only_the_mounted_locations() -> None:
         for location in [
             Locations.SETTINGS,
             Locations.SOFTWARE,
-            Locations.SLURM,
             Locations.LOGS,
         ]
-    ] == [False] * 4
+    ] == [False] * 3
 
 
 def test_docker_host_view() -> None:

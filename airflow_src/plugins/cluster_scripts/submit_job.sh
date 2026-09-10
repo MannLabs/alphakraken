@@ -9,6 +9,9 @@
 ####SBATCH --mem=62G  # set by calling command
 ####SBATCH --time=02:00:00  # set by calling command
 
+# SECURITY: keep this file writable by administrators only. AlphaKraken runs it on the cluster
+# for every job, so anyone who can edit it can execute arbitrary code as the cluster user.
+
 set -u -e
 echo HOSTNAME=$HOSTNAME
 

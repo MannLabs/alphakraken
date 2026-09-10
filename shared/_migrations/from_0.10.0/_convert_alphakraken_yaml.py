@@ -40,7 +40,6 @@ _VIEW_LOCATIONS = (
     Locations.OUTPUT,
     Locations.SETTINGS,
     Locations.SOFTWARE,
-    Locations.SLURM,
 )
 
 _RUNNER_NAME = JobEngines.SLURM

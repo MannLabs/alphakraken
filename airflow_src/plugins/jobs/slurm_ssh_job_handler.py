@@ -15,16 +15,16 @@ from sensors.ssh_utils import ssh_execute
 class SlurmSSHJobHandler(JobHandler):
     """Implementation of JobHandler that executes commands on a Slurm cluster via SSH."""
 
-    def __init__(self, cluster_base_dir: PurePath, ssh_connection_id_prefix: str):
+    def __init__(self, job_script_dir: PurePath, ssh_connection_id_prefix: str):
         """Initialize the Slurm job handler.
 
         Args:
-            cluster_base_dir: Directory on the cluster holding the submit script
+            job_script_dir: Directory on the cluster holding the submit script
             ssh_connection_id_prefix: Prefix of the Airflow connections to the cluster
 
         """
         super().__init__()
-        self._cluster_base_dir = cluster_base_dir
+        self._job_script_dir = job_script_dir
         self._ssh_connection_id_prefix = ssh_connection_id_prefix
 
     def start_job(self, quanting_env: QuantingEnv) -> str:
@@ -72,7 +72,7 @@ class SlurmSSHJobHandler(JobHandler):
 
         :param job_script_name: the name of the slurm job script, e.g. "submit_job.sh"
         """
-        cluster_job_script_path = self._cluster_base_dir / job_script_name
+        cluster_job_script_path = self._job_script_dir / job_script_name
         output_path = quanting_env.output_path
 
         params = " ".join(

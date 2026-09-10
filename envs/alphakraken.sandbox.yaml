@@ -45,7 +45,6 @@ runners:
       output: /fs/pool-0/alphakraken_sandbox/output
       settings: /fs/pool-0/alphakraken_sandbox/settings
       software: /fs/home/kraken-read/software
-      slurm: /fs/pool-0/alphakraken_sandbox/slurm
   - name: docker
     engine: docker
     os: linux

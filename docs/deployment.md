@@ -180,16 +180,13 @@ Reload nginx after the edit. Use `kraken` (or any non-admin name) instead of `ad
 
 #### On the cluster
 1. Log into the cluster using the `kraken-read` user.
-2. Create a directory to store the submit script, e.g.
-```bash
-mkdir /fs/pool-2/slurm
-```
-and set `view.slurm` of the `slurm` runner (`runners:` block in `envs/alphakraken.${ENV}.yaml`) to this value.
-
-3. Copy the cluster run script `submit_job.sh` to `/fs/pool-2/slurm` and adapt the `partition` (and optionally `nodelist`) directives.
+2. Copy the cluster run script `submit_job.sh` to the `software` location of the `slurm` runner
+(`view.software` in the `runners:` block of `envs/alphakraken.${ENV}.yaml`)
+and adapt the `partition` (and optionally `nodelist`) directives.
 Make sure to update also this file when deploying a new version of the AlphaKraken.
+Keep it writable by administrators only: anyone who can edit it can execute arbitrary code as the cluster user.
 
-4. Set up AlphaDIA (see [below](#setup-alphadia-on-the-cluster)).
+3. Set up AlphaDIA (see [below](#setup-alphadia-on-the-cluster)).
 
 ### General note on how AlphaKraken gets to know the data
 

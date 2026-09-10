@@ -87,7 +87,6 @@ class YamlSettings:
                             "output": "./tmp/test/output",
                             "settings": "./tmp/test/settings",
                             "software": "./tmp/test/software",
-                            "slurm": "./tmp/test/slurm",
                         },
                     },
                     {
@@ -110,7 +109,6 @@ class YamlSettings:
                             "output": "./tmp/test/output",
                             "settings": "./tmp/test/settings",
                             "software": "./tmp/test/software",
-                            "slurm": "./tmp/test/slurm",
                         },
                     },
                 ],

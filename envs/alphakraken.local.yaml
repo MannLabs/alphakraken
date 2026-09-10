@@ -74,10 +74,8 @@ runners:
       output: /fs/pool/pool-0/alphakraken_sandbox/output
       # location of additional input files for settings, looked up in subfolders '<settings_name>'
       settings: /fs/pool/pool-0/alphakraken_sandbox/settings
-      # location of custom executables for quanting software
+      # location of custom executables for quanting software and of the slurm submit script
       software: /fs/home/kraken-read/software
-      # location of slurm submit script
-      slurm: /fs/pool/pool-0/alphakraken_local/slurm
   - name: docker
     engine: docker
     os: linux

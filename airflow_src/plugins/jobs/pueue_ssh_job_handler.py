@@ -97,7 +97,7 @@ _OS_TO_START_CMD = {
 }
 
 
-class PueueJobHandler(JobHandler):
+class PueueSSHJobHandler(JobHandler):
     """Implementation of JobHandler that queues jobs with pueue via SSH."""
 
     def __init__(

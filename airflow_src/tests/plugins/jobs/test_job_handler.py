@@ -11,8 +11,8 @@ from airflow.exceptions import AirflowFailException
 from common.quanting_env import QuantingEnv
 from jobs._experimental.file_based_job_handler import FileBasedJobHandler
 from jobs.job_handler import _get_job_handler, start_job
+from jobs.pueue_ssh_job_handler import PueueSSHJobHandler
 from jobs.simple_ssh_job_handler import _OS_TO_DIALECT, SimpleSSHJobHandler
-from jobs.pueue_job_handler import PueueJobHandler
 from jobs.slurm_ssh_job_handler import SlurmSSHJobHandler
 
 from shared.keys import JobEngines
@@ -51,7 +51,9 @@ def test_get_job_handler_routes_engine_to_handler() -> None:
     assert isinstance(
         _get_job_handler(_runner(JobEngines.SIMPLE_SSH)), SimpleSSHJobHandler
     )
-    assert isinstance(_get_job_handler(_runner(JobEngines.PUEUE)), PueueJobHandler)
+    assert isinstance(
+        _get_job_handler(_runner(JobEngines.PUEUE_SSH)), PueueSSHJobHandler
+    )
 
 
 def test_get_job_handler_injects_slurm_base_dir_and_ssh_prefix() -> None:
@@ -73,7 +75,7 @@ def test_get_job_handler_injects_output_dir_os_and_ssh_prefix() -> None:
 
 def test_get_job_handler_injects_output_dir_and_ssh_prefix_into_pueue_handler() -> None:
     """Test that the pueue handler gets the runner's output location and SSH prefix."""
-    handler = _get_job_handler(_runner(JobEngines.PUEUE))
+    handler = _get_job_handler(_runner(JobEngines.PUEUE_SSH))
 
     assert handler._output_dir == OUTPUT_DIR
     assert handler._ssh_connection_id_prefix == SSH_PREFIX

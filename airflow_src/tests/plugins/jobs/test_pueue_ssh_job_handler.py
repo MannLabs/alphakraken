@@ -1,4 +1,4 @@
-"""Tests for the pueue_job_handler module."""
+"""Tests for the pueue_ssh_job_handler module."""
 
 import base64
 import json
@@ -11,12 +11,12 @@ from airflow.exceptions import AirflowFailException
 from common.constants import LOG_FILE_NAME
 from common.keys import JobStates
 from common.quanting_env import QuantingEnv
-from jobs.pueue_job_handler import STATUS_CMD, PueueJobHandler
+from jobs.pueue_ssh_job_handler import STATUS_CMD, PueueSSHJobHandler
 
 from shared.keys import SoftwareTypes
 from shared.runners import OperatingSystems
 
-MODULE = "jobs.pueue_job_handler"
+MODULE = "jobs.pueue_ssh_job_handler"
 
 SSH_PREFIX = "box_ssh"
 RELATIVE_OUTPUT_PATH = "P1/out_raw_file_1.raw/custom"
@@ -44,13 +44,13 @@ def sample_quanting_env(
     )
 
 
-def _handler(runner_os: str = OperatingSystems.LINUX) -> PueueJobHandler:
+def _handler(runner_os: str = OperatingSystems.LINUX) -> PueueSSHJobHandler:
     output_dir = (
         WINDOWS_OUTPUT_DIR
         if runner_os == OperatingSystems.WINDOWS
         else POSIX_OUTPUT_DIR
     )
-    return PueueJobHandler(output_dir, runner_os, SSH_PREFIX)
+    return PueueSSHJobHandler(output_dir, runner_os, SSH_PREFIX)
 
 
 def _status_json(status: str | dict, job_id: str = JOB_ID) -> str:
@@ -68,7 +68,7 @@ def _done(result: str | dict) -> dict:
 
 @patch(f"{MODULE}.ssh_execute")
 class TestStartJob:
-    """Test cases for PueueJobHandler.start_job()."""
+    """Test cases for PueueSSHJobHandler.start_job()."""
 
     def test_posix_start_exports_env_and_adds_task_in_output_folder(
         self, mock_ssh_execute: MagicMock, sample_quanting_env: QuantingEnv

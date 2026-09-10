@@ -12,7 +12,7 @@ _RUNNERS = {
     "cluster": MagicMock(engine=JobEngines.SLURM),
     "box": MagicMock(engine=JobEngines.DOCKER),
     "ssh_box": MagicMock(engine=JobEngines.SIMPLE_SSH),
-    "pueue_box": MagicMock(engine=JobEngines.PUEUE),
+    "pueue_box": MagicMock(engine=JobEngines.PUEUE_SSH),
 }
 
 
@@ -33,7 +33,7 @@ def test_docker_runner_accepts_custom_software_type() -> None:
 
 @pytest.mark.parametrize(
     ("runner_name", "engine"),
-    [("ssh_box", JobEngines.DIRECT_SSH), ("pueue_box", JobEngines.PUEUE)],
+    [("ssh_box", JobEngines.DIRECT_SSH), ("pueue_box", JobEngines.PUEUE_SSH)],
 )
 @patch.dict(RUNNERS, _RUNNERS, clear=True)
 def test_plain_machine_runner_rejects_non_custom_software_type(

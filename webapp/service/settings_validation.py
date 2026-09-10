@@ -7,7 +7,7 @@ from shared.runners import RUNNERS
 _ENGINES_SUPPORTING_ONLY_CUSTOM = (
     JobEngines.DOCKER,
     JobEngines.SIMPLE_SSH,
-    JobEngines.PUEUE,
+    JobEngines.PUEUE_SSH,
 )
 
 

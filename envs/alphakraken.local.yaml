@@ -115,16 +115,16 @@ runners:
   # pueue runners examples #
   # ###################### #
   - name: pueue_ssh_linux_pc1
-    engine: pueue # queues the custom executable with `pueued` running on a plain machine
+    engine: pueue_ssh # queues the custom executable with `pueued` running on a plain machine
     os: linux
     ssh_connection_id_prefix: pueue_ssh_linux_pc1_connection
     view:
-      backup: /home/kraken/kraken-test/backup
-      output: //home/kraken/kraken-test/output
-      settings: /home/kraken/kraken-test/settings
-      software: /home/kraken/kraken-test/software
-  - name: pueue_ssh_linux_pc1
-    engine: pueue
+      backup: /fs/pool/pool-0/alphakraken_sandbox/backup
+      output: /fs/pool/pool-0/alphakraken_sandbox/output
+      settings: /fs/pool/pool-0/alphakraken_sandbox/settings
+      software: /fs/home/kraken-read/software
+  - name: pueue_ssh_windows_pc1
+    engine: pueue_ssh
     os: windows
     ssh_connection_id_prefix: pueue_ssh_windows_pc1_connection
     view:

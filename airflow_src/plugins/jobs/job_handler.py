@@ -58,13 +58,13 @@ def _get_job_handler(runner: Runner) -> "JobHandler":
             runner.ssh_connection_id_prefix,
         )
 
-    if engine == JobEngines.PUEUE:
-        from jobs.pueue_job_handler import PueueJobHandler
+    if engine == JobEngines.PUEUE_SSH:
+        from jobs.pueue_ssh_job_handler import PueueSSHJobHandler
 
         assert runner.ssh_connection_id_prefix is not None
 
-        logging.info("Using PueueJobHandler")
-        return PueueJobHandler(
+        logging.info("Using PueueSSHJobHandler")
+        return PueueSSHJobHandler(
             runner.view.resolve(Locations.OUTPUT),
             runner.os,
             runner.ssh_connection_id_prefix,

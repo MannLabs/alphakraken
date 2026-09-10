@@ -37,7 +37,8 @@ from sensors.ssh_utils import ssh_execute
 
 from shared.runners import OperatingSystems
 
-STATUS_CMD = "pueue status --json"
+PUEUE_EXE = "pueue"
+STATUS_CMD = f"{PUEUE_EXE} status --json"
 
 # pueue's `TaskStatus` variants that are not `Done`
 _PUEUE_STATUS_TO_JOB_STATE = {
@@ -54,7 +55,7 @@ _SUCCESS = "Success"
 def _add_cmd(output_path: PurePath, custom_command: str, label: str) -> str:
     """The `pueue add` command, printing only the task id."""
     return (
-        f'pueue add --print-task-id --working-directory "{output_path}" --label "{label}" '
+        f'{PUEUE_EXE} add --print-task-id --working-directory "{output_path}" --label "{label}" '
         f'-- "{custom_command} > {LOG_FILE_NAME} 2>&1"'
     )
 

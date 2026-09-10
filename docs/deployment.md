@@ -394,7 +394,7 @@ a settings entry: it logs the arguments, the environment and the mounted paths, 
 
 
 ### Standalone deployment with pueue on a machine reachable via SSH
-Like `direct_ssh`, but jobs are queued with [pueue](https://github.com/Nukesor/pueue) instead of being started as
+Like `simple_ssh`, but jobs are queued with [pueue](https://github.com/Nukesor/pueue) instead of being started as
 plain background processes.
 This adds a per-machine queue with a configurable number of parallel jobs, a `PENDING` state, and reliable
 process tracking, at the price of a daemon that has to run on the machine.

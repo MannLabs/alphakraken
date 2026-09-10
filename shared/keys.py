@@ -69,7 +69,7 @@ class JobEngines(metaclass=ConstantsClass):
     SLURM: str = "slurm"
     DOCKER: str = "docker"
     FILE_BASED: str = "file_based"
-    SIMPLE_SSH: str = "direct_ssh"
+    SIMPLE_SSH: str = "simple_ssh"
     PUEUE_SSH: str = "pueue_ssh"
 
 

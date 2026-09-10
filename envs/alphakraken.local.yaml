@@ -93,19 +93,19 @@ runners:
   # ########################### #
   # direct ssh runners examples #
   # ########################### #
-  - name: direct_ssh_linux_pc1
-    engine: direct_ssh # runs the custom executable as a background process on a plain machine
+  - name: simple_ssh_linux_pc1
+    engine: simple_ssh # runs the custom executable as a background process on a plain machine
     os: linux
-    ssh_connection_id_prefix: direct_ssh_linux_pc1_connection
+    ssh_connection_id_prefix: simple_ssh_linux_pc1_connection
     view:
       backup: /fs/pool/pool-0/alphakraken_sandbox/backup
       output: /fs/pool/pool-0/alphakraken_sandbox/output
       settings: /fs/pool/pool-0/alphakraken_sandbox/settings
       software: /fs/home/kraken-read/software
-  - name: direct_ssh_windows_pc1
-    engine: direct_ssh
+  - name: simple_ssh_windows_pc1
+    engine: simple_ssh
     os: windows
-    ssh_connection_id_prefix: direct_ssh_windows_pc1_connection
+    ssh_connection_id_prefix: simple_ssh_windows_pc1_connection
     view:
       backup: D:\kraken-test\backup
       output: D:\kraken-test\output

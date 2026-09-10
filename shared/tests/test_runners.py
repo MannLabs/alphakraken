@@ -149,7 +149,7 @@ def test_build_runners_rejects_slurm_runner_without_ssh_prefix() -> None:
         _build_runners([_entry(ssh_connection_id_prefix=...)])
 
 
-_PLAIN_MACHINE_ENGINES = [JobEngines.DIRECT_SSH, JobEngines.PUEUE_SSH]
+_PLAIN_MACHINE_ENGINES = [JobEngines.SIMPLE_SSH, JobEngines.PUEUE_SSH]
 
 
 @pytest.mark.parametrize("engine", _PLAIN_MACHINE_ENGINES)

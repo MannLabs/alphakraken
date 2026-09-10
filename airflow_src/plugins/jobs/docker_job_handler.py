@@ -7,8 +7,8 @@ per job via the Docker socket.
 The image is taken from the `software` field of the settings, and the resolved configuration
 parameters are passed to it as the container command, so an image behaves like a custom command
 that happens to run in a container. The raw file and the output folder are bound into the
-container at the very paths the placeholders resolved to, which makes the same `config_params`
-work for both this engine and Slurm.
+container at the very paths the placeholders resolved to, i.e. at the paths of the runner's
+`view`, so that the command finds them where it points.
 
 Notes:
     - requires the optional requirements in `requirements_docker_job_engine.txt`.
@@ -107,8 +107,8 @@ class DockerJobHandler(JobHandler):
         )
         self._remove_container(container_name)
 
-        # bind at the paths the placeholders in the config params resolved to, so that the same
-        # config params work for this engine and for Slurm
+        # target: where the substituted config params point, i.e. the runner's `view`
+        # source: the same file as the docker daemon addresses it, i.e. below `MOUNTS_PATH`
         volumes = {
             str(
                 self._docker_host_view.resolve(

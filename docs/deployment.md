@@ -371,9 +371,8 @@ hanging container is monitored indefinitely.
 occasionally with `docker container prune --filter label=alphakraken.job`.
 
 ### Standalone deployment on a machine reachable via SSH
-For a plain machine without Slurm and without Docker, use a runner with the `simple_ssh` engine
-(cf. `airflow_src/plugins/jobs/simple_ssh_job_handler.py`). The executable named in the `software` field is
-run directly on that machine as a background process; its output goes to `log.txt` in the job's output folder,
+For a plain machine without Slurm and without Docker, use a runner with the `simple_ssh` engine.
+The executable named in the `software` field is run directly on that machine as a background process; its output goes to `log.txt` in the job's output folder,
 its exit code to `.alphakraken_exit_code` next to it.
 
 Prerequisites:
@@ -381,13 +380,11 @@ Prerequisites:
 cf. [Setup SSH connection](#setup-ssh-connection). On Windows, the OpenSSH server is required; its default
 shell may be `cmd.exe`, PowerShell or git-bash.
 2. The `output` and `backup` folders mounted on the machine at the paths given in the runner's `view`.
-The `output` folder must be the same folder the workers see as their output mount: the launcher script is
-written there by the worker and started via SSH.
-3. Settings entries on this runner use software type `custom` (like the `docker` engine), with `software`
-pointing to the executable as reachable from the machine.
+3. Settings entries on this runner use software type `custom`, with `software`
+pointing to the executable as reachable from the machine via the path configured in the `software` view.
 
 Limitations:
-- no resource control: the `slurm_*` resource parameters are ignored, concurrency is bounded by the
+   - no concurrency or resource control: the `slurm_*` resource parameters are ignored, concurrency is bounded by the
 `cluster_slots_pool` only.
 - on Windows, the reported `time_elapsed` is always 0.
 

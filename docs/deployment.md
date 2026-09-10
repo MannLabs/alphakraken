@@ -395,26 +395,24 @@ a settings entry: it logs the arguments, the environment and the mounted paths, 
 
 ### Standalone deployment with pueue on a machine reachable via SSH
 Like `direct_ssh`, but jobs are queued with [pueue](https://github.com/Nukesor/pueue) instead of being started as
-plain background processes: use a runner with the `pueue` engine (cf. `airflow_src/plugins/jobs/pueue_job_handler.py`).
+plain background processes.
 This adds a per-machine queue with a configurable number of parallel jobs, a `PENDING` state, and reliable
 process tracking, at the price of a daemon that has to run on the machine.
 
 Prerequisites:
 1. Airflow SSH connections to the machine, their ids starting with the runner's `ssh_connection_id_prefix`,
 cf. [Setup SSH connection](#setup-ssh-connection).
-2. `pueued` (version 4.x) running on the machine under the SSH user, e.g. as a systemd user service
-(`systemctl --user enable --now pueued`), launchd agent or Windows service. `pueue` must be on the `PATH` of a
-non-interactive SSH session, so install it to a system location like `/usr/local/bin` rather than `~/.cargo/bin`.
-3. The `output` and `backup` folders mounted on the machine at the paths given in the runner's `view`. The job runs in
-its output folder and writes `log.txt` there.
+2. The `output` and `backup` folders mounted on the machine at the paths given in the runner's `view`.
 4. Settings entries on this runner use software type `custom`, with `software` pointing to the executable as reachable
 from the machine.
-5. the `pueue` executables are in the `PATH`:
+5. `pueued` daemon (version 4.x) running on the machine under the SSH user (see pueue documention)
+6.1 For Windows: the `pueue` executable is named `pueue.exe` and is in the `PATH`:
 ```
- $pueueDir = "D:\kraken-test\software\pueue"   # wherever pueue.exe and pueued.exe live
+ $pueueDir = "D:\kraken-test\software\pueue"   # folder where pueue.exe and pueued.exe live
   [Environment]::SetEnvironmentVariable("Path", [Environment]::GetEnvironmentVariable("Path", "Machine") + ";$pueueDir", "Machine")
   Restart-Service sshd
 ```
+6.2
 
 Operation:
 - The number of parallel jobs on the machine is set on the machine with `pueue parallel <n>`. The `cluster_slots_pool`

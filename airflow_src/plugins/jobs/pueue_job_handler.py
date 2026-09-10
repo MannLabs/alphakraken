@@ -37,7 +37,7 @@ from sensors.ssh_utils import ssh_execute
 
 from shared.runners import OperatingSystems
 
-PUEUE_EXE = "pueue.exe"
+PUEUE_EXE = "pueue"
 STATUS_CMD = f"{PUEUE_EXE} status --json"
 
 # pueue's `TaskStatus` variants that are not `Done`

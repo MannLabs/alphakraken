@@ -402,31 +402,30 @@ process tracking, at the price of a daemon that has to run on the machine.
 Prerequisites:
 1. Airflow SSH connections to the machine, their ids starting with the runner's `ssh_connection_id_prefix`,
 cf. [Setup SSH connection](#setup-ssh-connection).
-2. The `output` and `backup` folders mounted on the machine at the paths given in the runner's `view`.
-4. Settings entries on this runner use software type `custom`, with `software` pointing to the executable as reachable
+2. The folders of the runner's `view` mounted on the machine at the given paths. `output` must be the same folder
+the workers see as their output mount: the job runs in the folder the worker created there.
+3. Settings entries on this runner use software type `custom`, with `software` pointing to the executable as reachable
 from the machine.
-6. Install the 4.x binaries (`pueued` and `pueue`) from the [release page](https://github.com/Nukesor/pueue/releases) as
-described in the [pueue docs](https://github.com/Nukesor/pueue#installation);
-6.1 For Linux: Put them into `/usr/local/bin`, which a
-non-interactive SSH session has on its `PATH`, and adapt `ExecStart` in `pueued.service`
-accordingly. Run `sudo loginctl enable-linger $USER` so the user service keeps running without a login session.
-6.2 For Windows: install `pueued` as a Windows service. It runs `pueued` as the user logged in at the console,
-so that must be the runner's SSH user (auto-logon on a headless machine).
-`pueue.exe` must be on the *machine-wide* `PATH`, and `sshd` restarted afterwards, so that a
-non-interactive SSH session finds it (profile scripts are not run there):
-```
-$pueueDir = "D:\kraken-test\software\pueue"   # folder where pueue.exe and pueued.exe live
-[Environment]::SetEnvironmentVariable("Path", [Environment]::GetEnvironmentVariable("Path", "Machine") + ";$pueueDir", "Machine")
-Restart-Service sshd
-```
+4. `pueue` and `pueued` 4.x from the [release page](https://github.com/Nukesor/pueue/releases), installed as
+described in the [pueue docs](https://github.com/Nukesor/pueue#installation), plus:
+   - Linux: put the binaries into `/usr/local/bin` to make them accessible in a a non-interactive SSH session),
+     adapt `ExecStart` in `pueued.service`, and run `sudo loginctl enable-linger $USER` so the user service survives logouts.
+   - Windows: run `pueued` as a Windows service. It runs as the user logged in at the console, so that must be the
+     runner's SSH user (auto-logon on a headless machine). Put the pueue folder on the *machine-wide* `PATH` and
+     restart `sshd`, which hands its `PATH` to the SSH sessions:
+     ```
+     $pueueDir = "D:\kraken-test\software\pueue"   # folder where pueue.exe and pueued.exe live
+     [Environment]::SetEnvironmentVariable("Path", [Environment]::GetEnvironmentVariable("Path", "Machine") + ";$pueueDir", "Machine")
+     Restart-Service sshd
+     ```
 
-Verify either OS from the AlphaKraken host with `ssh <user>@<host> pueue status`, or with `misc/check_pueue_runner.sh`.
+Verify from the AlphaKraken host with `ssh <user>@<host> pueue status`, or with `misc/check_pueue_runner.sh`.
 
 Operation:
-- The number of parallel jobs on the machine is set on the machine with `pueue parallel <n>`. The `cluster_slots_pool`
-still gates job submission globally.
-- Tasks are labeled with the raw file id, so `pueue status` on the machine shows which job is which.
-- Finished tasks stay in pueue until `pueue clean` is run; a job whose task has been cleaned is reported as `UNKNOWN`.
+- `pueue parallel <n>` on the machine sets its number of parallel jobs. The `cluster_slots_pool` still gates job
+submission globally.
+- Tasks are labeled with the raw file id, so `pueue status` shows which job is which.
+- Finished tasks stay in pueue until `pueue clean`; a job whose task has been cleaned is reported as `UNKNOWN`.
 - The `slurm_*` resource parameters are ignored, pueue limits parallelism only.
 
 ### Metrics reported by the quanting software

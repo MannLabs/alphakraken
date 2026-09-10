@@ -1,5 +1,6 @@
 """Tests for the direct_ssh_job_handler module."""
 
+import base64
 import re
 from collections.abc import Callable, Iterator
 from pathlib import Path, PurePosixPath, PureWindowsPath
@@ -55,6 +56,11 @@ def local_output_path(tmp_path: Path) -> Iterator[Path]:
     output_path.mkdir(parents=True)
     with patch(f"{MODULE}.AIRFLOW_CONTAINER_VIEW", view):
         yield output_path
+
+
+def _decoded(command: str) -> str:
+    """Get the script back from a `-EncodedCommand` powershell call."""
+    return base64.b64decode(command.rsplit(" ", 1)[-1]).decode("utf-16-le")
 
 
 def _handler(runner_os: str = OperatingSystems.LINUX) -> DirectSSHJobHandler:
@@ -121,7 +127,7 @@ class TestLauncherScript:
         )
         assert not [line for line in lines if line.startswith('set "_')]
         assert r'cd /d "Z:\alphakraken\output\P1\out_raw_file_1.raw\custom"' in lines
-        assert f"{CUSTOM_COMMAND} > {LOG_FILE_NAME} 2>&1" in lines
+        assert f"call {CUSTOM_COMMAND} > {LOG_FILE_NAME} 2>&1" in lines
         assert lines[-1] == f"echo %ERRORLEVEL% 0 > {EXIT_CODE_FILE_NAME}"
 
     def test_every_exported_key_is_present(
@@ -154,7 +160,9 @@ class TestCommandsPrintOutput:
         """Test that the start command ends in printing the process id."""
         cmd = _handler(runner_os)._dialect.start_cmd(PurePosixPath("/x/launcher"))
 
-        assert cmd.rstrip('"').endswith(("echo $!", ").Id"))
+        if "-EncodedCommand" in cmd:
+            cmd = _decoded(cmd)
+        assert cmd.endswith(("echo $!", ").ProcessId"))
 
     def test_status_cmd_prints_a_state_on_every_branch(self, runner_os: str) -> None:
         """Test that every branch of the status command prints a state."""
@@ -210,10 +218,11 @@ class TestStartJob:
         assert b"\r\n" in launcher.read_bytes()
 
         command = mock_ssh_execute.call_args.args[0]
-        assert command == (
-            'powershell -NoProfile -Command "(Start-Process -FilePath '
-            r"'Z:\alphakraken\output\P1\out_raw_file_1.raw\custom\_alphakraken_job.cmd' "
-            '-WindowStyle Hidden -PassThru).Id"'
+        assert command.startswith("powershell -NoProfile -EncodedCommand ")
+        assert _decoded(command) == (
+            "(Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments "
+            r"""@{CommandLine = 'cmd.exe /c call "Z:\alphakraken\output\P1\out_raw_file_1.raw"""
+            r"""\custom\_alphakraken_job.cmd"'}).ProcessId"""
         )
 
     def test_start_job_raises_on_non_numeric_pid(

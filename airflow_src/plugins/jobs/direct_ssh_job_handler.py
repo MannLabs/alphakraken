@@ -22,6 +22,7 @@ Notes:
 
 """
 
+import base64
 import logging
 from pathlib import PurePath
 from typing import Protocol
@@ -106,8 +107,14 @@ class _WindowsDialect:
 
     `powershell -NoProfile -Command "..."` works whatever the default shell of the OpenSSH server
     is (cmd.exe, powershell or git-bash), as long as the script contains no `"`, `$`, `%` or
-    backtick: those are interpreted differently by the three.
+    backtick: those are interpreted differently by the three. The start command needs `"` around
+    the launcher path, so it goes through `-EncodedCommand` instead.
     Batch files are written with CRLF line endings, cmd.exe misparses LF-only files in some cases.
+
+    The launcher is spawned by WMI, not by `Start-Process`: `ssh-shellhost.exe` puts the session in
+    a job object with "kill on job close" and without "breakaway ok", so anything started within the
+    session dies when the SSH command returns. A process
+    created via `Win32_Process` is a child of `WmiPrvSE.exe` and outside that job object.
     """
 
     launcher_file_name = f"{LAUNCHER_SCRIPT_STEM}.cmd"
@@ -120,16 +127,19 @@ class _WindowsDialect:
             "@echo off",
             *[f'set "{key}={value}"' for key, value in environment.items()],
             f'cd /d "{output_path}"',
-            f"{custom_command} > {LOG_FILE_NAME} 2>&1",
+            f"call {custom_command} > {LOG_FILE_NAME} 2>&1",
             f"echo %ERRORLEVEL% 0 > {EXIT_CODE_FILE_NAME}",
         ]
         return "\r\n".join(lines) + "\r\n"
 
     def start_cmd(self, launcher_path: PurePath) -> str:
-        """Command to start the launcher in a hidden window."""
-        return self._powershell(
-            f"(Start-Process -FilePath '{launcher_path}' -WindowStyle Hidden -PassThru).Id"
+        """Command to start the launcher outside the SSH session's job object."""
+        script = (
+            "(Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments "
+            f"""@{{CommandLine = 'cmd.exe /c call "{launcher_path}"'}}).ProcessId"""
         )
+        encoded = base64.b64encode(script.encode("utf-16-le")).decode("ascii")
+        return f"powershell -NoProfile -EncodedCommand {encoded}"
 
     def status_cmd(self, exit_code_file_path: PurePath, job_id: str) -> str:
         """Command printing the job state and the elapsed seconds.

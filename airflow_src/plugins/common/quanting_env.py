@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field
 class QuantingEnv(BaseModel):
     """Environment of a quanting job.
 
-    The field aliases are the environment variable names as read by `cluster_scripts/submit_job.sh`,
+    The field aliases are the environment variable names as read by e.g. `submit_slurm_job.sh`,
     e.g. `raw_file_path -> RAW_FILE_PATH`.
     Aliases with a leading underscore are not exported to the job, cf. the job handlers.
     """

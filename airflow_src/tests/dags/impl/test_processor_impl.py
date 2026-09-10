@@ -96,7 +96,7 @@ def test_create_quanting_env(
         view=_POSIX_VIEW,
     )
 
-    # when you adapt something here, don't forget to adapt also the submit_job.sh script
+    # when you adapt something here, don't forget to adapt also the submit_slurm_job.sh script
     expected = {
         "RAW_FILE_PATH": "/some_backup_base_path/instrument1/1970_01/test_file.raw",
         "SETTINGS_PATH": "/some_settings_path/test_settings",

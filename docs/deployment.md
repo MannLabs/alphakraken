@@ -180,7 +180,7 @@ Reload nginx after the edit. Use `kraken` (or any non-admin name) instead of `ad
 
 #### On the cluster
 1. Log into the cluster using the `kraken-read` user.
-2. Copy the cluster run script `submit_job.sh` to the `software` location of the `slurm` runner
+2. Copy the cluster run script `submit_slurm_job.sh` to the `software` location of the `slurm` runner
 (`view.software` in the `runners:` block of `envs/alphakraken.${ENV}.yaml`)
 and adapt the `partition` (and optionally `nodelist`) directives.
 Make sure to update also this file when deploying a new version of the AlphaKraken.
@@ -396,14 +396,14 @@ The following files need to be edited to customize your deployment:
 - `envs/${ENV}.env`: set the environment variables for the basic wiring of components
 - `envs/alphakraken.${ENV}.yaml`: set up the paths and add a configuration for each instrument
 - `docker-compose.yaml`: add a worker for each instrument
-- `airflow_src/plugins/cluster_scripts/submit_job.sh` (cluster-local copy): configure partition and nodelist
+- `misc/software/submit_slurm_job.sh` make a cluster-local copy and configure partition and nodelist
 
 ### Deploying new code versions
 These steps need to be done on all machines that run alphakraken services.
 Make sure the code is always consistent across all machines!
 0. If in doubt that something could break, create a backup copy of the `mongodb_data_${ENV}` and `airflowdb_data_${ENV}` folders (on the machine that hosts the DBs).
 1. On each machine, pull the most recent version of the code from the repository using `git pull`.
-2. Check if there are any special changes to be done (e.g. updating `submit_job.sh` on the cluster,
+2. Check if there are any special changes to be done (e.g. updating `submit_slurm_job.sh` on the cluster,
 new mounts, new environment variables, manual database interventions, ..) and apply them.
 3. (when deploying workers) To avoid copying processes being interrupted, in the Airflow UI set the size of the `file_copy_pool` to 0 and wait until all `copy_raw_file` tasks are finished.
 4. Stop all docker compose services that need to be updated across all machines using the `./compose.sh --profile $PROFILE stop` command, once with `$PROFILE` set to `workers`,

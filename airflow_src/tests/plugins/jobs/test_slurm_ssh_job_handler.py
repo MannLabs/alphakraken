@@ -49,8 +49,8 @@ def test_start_job_returns_valid_job_id(
         f"{EXPECTED_EXPORTS}\n"
         "mkdir -p /pool/output/PID1/out_test_file.raw/alphadia\n"
         "cd /pool/output/PID1/out_test_file.raw/alphadia\n"
-        "cat /path/to/slurm_base_path/submit_job.sh\n"
-        "JID=$(sbatch --cpus-per-task=8 --mem=62G --time=02:00:00 /path/to/slurm_base_path/submit_job.sh)\n"
+        "cat /path/to/slurm_base_path/submit_slurm_job.sh\n"
+        "JID=$(sbatch --cpus-per-task=8 --mem=62G --time=02:00:00 /path/to/slurm_base_path/submit_slurm_job.sh)\n"
         "echo ${JID##* }"
     )
     mock_ssh_execute.assert_called_once_with(expected_command, SSH_PREFIX)

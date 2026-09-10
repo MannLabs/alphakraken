@@ -7,7 +7,7 @@ CLUSTER_SSH_CONNECTION_TIMEOUT = 60
 CLUSTER_SSH_COMMAND_TIMEOUT = 60
 
 # relative to the `software` location of the runner's view
-DEFAULT_JOB_SCRIPT_NAME = "submit_job.sh"
+SLURM_JOB_SCRIPT_NAME = "submit_slurm_job.sh"
 
 # returned as the elapsed time when it cannot be determined (e.g. sacct unavailable)
 DUMMY_TIME_ELAPSED = "00:00:00"

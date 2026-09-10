@@ -391,6 +391,11 @@ Limitations:
 `cluster_slots_pool` only.
 - on Windows, the reported `time_elapsed` is always 0.
 
+To smoke-test the setup before pointing it at real software, put `misc/software/run_dummy.sh` (executable,
+`misc/software/run_dummy.cmd` on Windows) into the runner's `software` folder and use it as the `software` of
+a settings entry: it logs the arguments, the environment and the mounted paths, sleeps, and writes a `metrics.csv`.
+
+
 ### Metrics reported by the quanting software
 Independently of the software type and runner, the quanting software can report metrics itself
 by writing a `metrics.csv` file into its output folder. AlphaKraken reads that file after the job finished and

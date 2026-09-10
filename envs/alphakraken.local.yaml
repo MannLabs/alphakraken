@@ -54,6 +54,9 @@ backup:
 
 # the places where quanting jobs execute, referenced by name from a settings entry (`runner_name`)
 runners:
+  # #################### #
+  # slurm runner example #
+  # #################### #
   - name: slurm # unique within the list; the order here is the display order in the webapp
     engine: slurm # one of shared.keys.JobEngines
     os: linux # linux | macos | windows, determines the path flavour of `view`
@@ -75,6 +78,9 @@ runners:
       software: /fs/home/kraken-read/software
       # location of slurm submit script and destination for slurm logs
       slurm: /fs/pool/pool-0/alphakraken_local/slurm
+  # ###################### #
+  # docker runner example #
+  # ###################### #
   - name: docker
     engine: docker
     os: linux
@@ -84,36 +90,45 @@ runners:
       output: /fs/pool/pool-0/alphakraken_sandbox/output
       settings: /fs/pool/pool-0/alphakraken_sandbox/settings
       software: /fs/home/kraken-read/software
-  - name: simple_ssh_1
-    engine: simple_ssh # runs the custom executable as a background process on a plain machine
+  # ########################### #
+  # direct ssh runners examples #
+  # ########################### #
+  - name: direct_ssh_linux_pc1
+    engine: direct_ssh # runs the custom executable as a background process on a plain machine
     os: linux
-    # needs Airflow connections `simple_ssh_connection*` to that machine; until they exist, jobs
-    # on this runner fail at start
-    ssh_connection_id_prefix: simple_ssh_connection
-    view: # paths as seen from that machine; `output` must be the same folder the workers see as their output mount
+    ssh_connection_id_prefix: direct_ssh_linux_pc1_connection
+    view:
       backup: /fs/pool/pool-0/alphakraken_sandbox/backup
       output: /fs/pool/pool-0/alphakraken_sandbox/output
       settings: /fs/pool/pool-0/alphakraken_sandbox/settings
       software: /fs/home/kraken-read/software
-  - name: simple_ssh_win_2
-    engine: simple_ssh # runs the custom executable as a background process on a plain machine
+  - name: direct_ssh_windows_pc1
+    engine: direct_ssh
     os: windows
-    # needs Airflow connections `simple_ssh_win_connection*` to that machine; until they exist, jobs
-    # on this runner fail at start
-    ssh_connection_id_prefix: simple_ssh_win_connection
-    view: # paths as seen from that machine; `output` must be the same folder the workers see as their output mount
+    ssh_connection_id_prefix: direct_ssh_windows_pc1_connection
+    view:
       backup: D:\kraken-test\backup
       output: D:\kraken-test\output
       settings: D:\kraken-test\settings
       software: D:\kraken-test\software
-  - name: pueue
+  # ###################### #
+  # pueue runners examples #
+  # ###################### #
+  - name: pueue_ssh_linux_pc1
     engine: pueue # queues the custom executable with `pueued` running on a plain machine
     os: linux
-    # needs Airflow connections `pueue_connection*` to that machine; until they exist, jobs on
-    # this runner fail at start
-    ssh_connection_id_prefix: pueue_connection
-    view: # paths as seen from that machine
-      backup: /fs/pool/pool-0/alphakraken_sandbox/backup
-      output: /fs/pool/pool-0/alphakraken_sandbox/output
-      settings: /fs/pool/pool-0/alphakraken_sandbox/settings
-      software: /fs/home/kraken-read/software
+    ssh_connection_id_prefix: pueue_ssh_linux_pc1_connection
+    view:
+      backup: /home/kraken/kraken-test/backup
+      output: //home/kraken/kraken-test/output
+      settings: /home/kraken/kraken-test/settings
+      software: /home/kraken/kraken-test/software
+  - name: pueue_ssh_linux_pc1
+    engine: pueue
+    os: windows
+    ssh_connection_id_prefix: pueue_ssh_windows_pc1_connection
+    view:
+      backup: D:\kraken-test\backup
+      output: D:\kraken-test\output
+      settings: D:\kraken-test\settings
+      software: D:\kraken-test\software

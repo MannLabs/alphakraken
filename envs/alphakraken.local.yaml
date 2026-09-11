@@ -69,7 +69,7 @@ backup:
     bucket_prefix: alphakraken
     auto_create_buckets: false
 
-# the places where quanting jobs execute, referenced by name from a settings entry (`runner`)
+# the places where quanting jobs execute, referenced by name from a settings entry (`runner_name`)
 runners:
   - name: slurm # unique within the list; the order here is the display order in the webapp
     engine: slurm # one of shared.keys.JobEngines

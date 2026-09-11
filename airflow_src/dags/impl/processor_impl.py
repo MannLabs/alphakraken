@@ -225,8 +225,7 @@ def _create_quanting_env(
         settings_version=settings.version,
         relative_raw_file_path=str(relative_raw_file_path),
         config_params=substituted_params,
-        # transitional until Settings.runner exists: every in-repo runner is named after its engine
-        runner_name=settings.job_engine,
+        runner_name=settings.runner_name,
         year_month_folder=get_created_at_year_month(raw_file),
     )
 

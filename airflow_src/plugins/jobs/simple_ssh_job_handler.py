@@ -1,21 +1,16 @@
 """Implementation of a job handler that runs jobs as background processes on a machine reachable via SSH.
 
-No scheduler, no container: the resolved `custom_command` is run directly on the remote machine,
-so like the docker engine this one supports the custom software type only.
+The resolved `custom_command` is run directly on the remote machine,
+supports the `custom` software type only. No scheduling or load balancing is done, so this is for very
+lightweight jobs only. The runner must be reachable via SSH and have a POSIX shell or powershell.
 
 The handler writes a launcher script into the job's output folder (which the worker and the runner
-share) and uses SSH only to start it and to inspect it. The launcher captures the command's exit
-code and elapsed seconds into `EXIT_CODE_FILE_NAME`, the job's output into `LOG_FILE_NAME`. The
-job id is `<process id of the launcher>:<relative output path>`, as the status commands need both.
+share) and uses SSH only to start the job and poll its status.
 
-Precondition: `custom_command` contains only `a-zA-Z0-9-_+./` and spaces (enforced by the webapp
-and by `_check_content` in the processor), so it never needs escaping in the launcher.
+Precondition: `custom_command` contains only `a-zA-Z0-9-_+./` and spaces (enforced upstream),
+so it never needs escaping in the launcher.
 
 Notes:
-    - the same folder must be reachable as `AIRFLOW_CONTAINER_VIEW`'s `output` on the worker and
-      as the runner's `view.output`, which the pipeline already assumes for reading the results.
-    - `_SLURM_MEM`, `_SLURM_CPUS_PER_TASK` and `_SLURM_TIME` are not honored: there is no resource
-      control, concurrency is bounded by `cluster_slots_pool` only.
     - on windows, `time_elapsed` is always 0.
     - if the launcher dies before writing the exit code file and its pid is recycled, the job
       stays `RUNNING`.
@@ -111,10 +106,10 @@ class _WindowsDialect:
     the launcher path, so it goes through `-EncodedCommand` instead.
     Batch files are written with CRLF line endings, cmd.exe misparses LF-only files in some cases.
 
-    The launcher is spawned by WMI, not by `Start-Process`: `ssh-shellhost.exe` puts the session in
-    a job object with "kill on job close" and without "breakaway ok", so anything started within the
-    session dies when the SSH command returns. A process
-    created via `Win32_Process` is a child of `WmiPrvSE.exe` and outside that job object.
+    The launcher is spawned by WMI, not `Start-Process`: the latter puts the session in a
+    job object with "kill on job close" and without "breakaway ok", so anything started in the
+    session dies when the SSH command returns. `Win32_Process` parents it to `WmiPrvSE.exe` instead,
+    outside that job object.
     """
 
     launcher_script_file_name = f"{LAUNCHER_SCRIPT_STEM}.cmd"
@@ -206,7 +201,9 @@ class SimpleSSHJobHandler(JobHandler):
             remote_output_path,
             quanting_env.custom_command,
         )
-        launcher_script_path = internal_output_path / self._dialect.launcher_script_file_name
+        launcher_script_path = (
+            internal_output_path / self._dialect.launcher_script_file_name
+        )
         # newline="" keeps the dialect's line endings
         launcher_script_path.write_text(script, newline="")
         logging.info(

@@ -295,30 +295,26 @@ settings_using_software = get_settings_using_software(
 used_software = list(dict.fromkeys(settings_using_software["software"].dropna()))
 prefilled_software = prefill_data["software"]
 
-if prefilled_software in used_software:
-    software_index = used_software.index(prefilled_software)
-elif prefilled_software:
-    # a prefilled software the selected runner has never run: offer to keep it, do not swap it silently
-    software_index = len(used_software)
-else:
-    # the most recently used one, or the "add new" entry if there is none
-    software_index = 0
+# a prefilled software the selected runner has never run stays selectable, it is not swapped silently
+software_options = used_software + (
+    [prefilled_software]
+    if prefilled_software and prefilled_software not in used_software
+    else []
+)
 
 selected_software_option = c1.selectbox(
     label=form_items["software"]["label"],
-    options=[*used_software, ADD_NEW_SOFTWARE_OPTION],
-    index=software_index,
+    options=[*software_options, ADD_NEW_SOFTWARE_OPTION],
+    # the prefilled one, else the most recently used one, else the "add new" entry
+    index=software_options.index(prefilled_software) if prefilled_software else 0,
     help=form_items["software"]["help"],
 )
 if selected_software_option == ADD_NEW_SOFTWARE_OPTION:
     software = c1.text_input(
-        label=form_items["software"]["label"],
-        label_visibility="collapsed",
+        label="New software",
         max_chars=form_items["software"]["max_chars"],
         placeholder=form_items["software"]["placeholder"],
         help=form_items["software"]["help"],
-        # a prefilled software the current runner has never run is carried over, not dropped
-        value="" if prefilled_software in used_software else prefilled_software,
     )
 else:
     software = selected_software_option

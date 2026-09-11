@@ -59,6 +59,8 @@ general:
     webapp_url: "http://localhost:8501"
 
 backup:
+  # absolute path of the backup folder on the shared file system, persisted in the DB for display
+  backup_base_path: /fs/pool/pool-0/alphakraken_sandbox/backup
   backup_type: local # or 's3'
   purging_verification_type: local # 'local', 's3', or 'force_local'
   s3:

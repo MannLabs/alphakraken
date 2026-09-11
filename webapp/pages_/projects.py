@@ -30,7 +30,9 @@ from shared.db.interface import (
     get_project_settings,
     unassign_settings_from_project,
 )
+from shared.display_paths import DISPLAY_PATHS
 from shared.keys import DEFAULT_SCOPE, FALLBACK_PROJECT_ID, KNOWN_VENDOR_NAMES
+from shared.path_views import Locations
 from shared.yamlsettings import YAMLSETTINGS, YamlKeys
 
 _INSTRUMENTS_CONFIG = YAMLSETTINGS.get(YamlKeys.INSTRUMENTS, {})
@@ -85,9 +87,9 @@ def display_projects(
     filtered_df, *_ = show_filter(projects_df, st_display=st_display)
 
     st_display.table(filtered_df)
-    # TODO: reimplement using actual {output_path}
     st_display.markdown(
-        "Output files are stored at `<output path>/<project id>/out_<raw file name>/<software_type>/`. In case you don't know your project ID, it's most likely `_FALLBACK`."
+        f"Output files are stored at `{DISPLAY_PATHS[Locations.OUTPUT]}/<project id>/out_<raw file name>/<software_type>/`. "
+        "In case you don't know your project ID, it's most likely `_FALLBACK`."
     )
 
 

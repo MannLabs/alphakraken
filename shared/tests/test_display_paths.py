@@ -14,9 +14,14 @@ from shared.display_paths import (
 )
 
 
-def test_build_display_paths_returns_both_locations() -> None:
+def test_build_display_paths_returns_all_locations() -> None:
     """Test that the base paths are taken from the `display_paths` block."""
-    paths = {"backup": "/fs/backup", "output": "/fs/output"}
+    paths = {
+        "backup": "/fs/backup",
+        "output": "/fs/output",
+        "settings": "/fs/settings",
+        "software": "/fs/software",
+    }
 
     assert _build_display_paths({"display_paths": paths}) == paths
 

@@ -28,11 +28,13 @@ from service.utils import (
 
 from shared.config_params import (
     PLACEHOLDER_DESCRIPTIONS,
+    PLACEHOLDER_LOCATIONS,
     check_for_unknown_placeholders,
     substitute_dummy_values,
 )
 from shared.db.interface import archive_settings, create_settings
 from shared.db.models import ProjectSettings, ProjectStatus, SettingsStatus
+from shared.display_paths import DISPLAY_PATHS, get_display_settings_path
 from shared.keys import (
     SOFTWARE_TYPE_TO_DEFAULT_RESOURCE_PARAMS,
     SOFTWARE_TYPE_TO_METRICS_TYPES,
@@ -40,10 +42,14 @@ from shared.keys import (
     MetricsTypes,
     SoftwareTypes,
 )
-from shared.runners import RUNNERS
+from shared.path_views import Locations
+from shared.runners import RUNNERS, get_runner
 from shared.validation import check_for_malicious_content
 
 SHOW_RUNNER_SELECT = True
+
+# stand-in shown where the settings name is not known yet
+SETTINGS_NAME_PLACEHOLDER = "<settings name>"
 
 _log(f"loading {__file__} {get_all_query_params()}")
 # ########################################### PAGE HEADER
@@ -98,10 +104,9 @@ def display_settings(
         )
     )
 
-    # TODO: reimplement using actual {settings_path}
     st_display.markdown(
         "The files associated with settings are stored at "
-        "`<settings path>/<settings name>/`"
+        f"`{get_display_settings_path(SETTINGS_NAME_PLACEHOLDER)}/`"
     )
 
 
@@ -109,9 +114,8 @@ display_settings(settings_df)
 
 c1, _ = st.columns([0.5, 0.5])
 with c1.expander("Click here for help ..."):
-    # TODO: resolve those paths
     st.info(
-        """
+        f"""
         ### Explanation
         Settings are a defined tuple of input to the quanting software: config file, speclib file and/or fasta file.
         Settings are standalone entities that can be shared across multiple projects.
@@ -119,7 +123,7 @@ with c1.expander("Click here for help ..."):
         ### Workflow
         1. Select an existing settings name to create a new version, or choose "Create new settings..." to define a brand new settings configuration.
         2. Fill in required information (file names, software, etc.).
-        3. Upload the files to the designated location: `<settings_path>/<settings_name>/`
+        3. Upload the files to the designated location: `{get_display_settings_path(SETTINGS_NAME_PLACEHOLDER)}/`
         4. Assign the settings to projects on the Projects page.
 
         ### Versioning
@@ -238,6 +242,29 @@ if metrics_type == MetricsTypes.CUSTOM:
     )
 
 
+runner_names = list(RUNNERS)
+if SHOW_RUNNER_SELECT:
+    prefilled_runner_name = prefill_data["runner_name"]
+    if prefilled_runner_name and prefilled_runner_name not in runner_names:
+        c1.warning(
+            f"Runner `{prefilled_runner_name}` of the previous version is not declared in "
+            f"`alphakraken.yaml` anymore, using `{runner_names[0]}`."
+        )
+    runner_index = (
+        runner_names.index(prefilled_runner_name)
+        if prefilled_runner_name in runner_names
+        else 0
+    )
+    runner_name = c1.selectbox(
+        label="Runner",
+        options=runner_names,
+        index=runner_index,
+        help="Where the quanting job runs, cf. `runners` in `alphakraken.yaml`.",
+    )
+else:
+    runner_name = runner_names[0]
+
+
 form_items = {
     "name": {
         "label": "Settings Name*",
@@ -289,8 +316,7 @@ elif software_type == SoftwareTypes.MSQC:
             "label": "Software*",
             "max_chars": 64,
             "placeholder": "e.g. 'msqc/run_msqc.sh'",
-            # TODO: reimplement using actual {software_path}
-            "help": "Path to executable, relative to the software folder. Ask an administrator to add the executable to the software folder.",
+            "help": f"Path to executable, relative to `{DISPLAY_PATHS[Locations.SOFTWARE]}/`. Ask an administrator to add the executable to the software folder.",
         },
     }
 
@@ -300,8 +326,7 @@ elif software_type == SoftwareTypes.SKYLINE:
             "label": "Software*",
             "max_chars": 64,
             "placeholder": "e.g. 'skyline/run_skyline.sh'",
-            # TODO: reimplement using actual {software_path}
-            "help": "Path to executable, relative to the software folder. Ask an administrator to add the executable to the software folder.",
+            "help": f"Path to executable, relative to `{DISPLAY_PATHS[Locations.SOFTWARE]}/`. Ask an administrator to add the executable to the software folder.",
         },
         "config_params": {
             "label": "Configuration parameters",
@@ -316,8 +341,7 @@ else:
             "label": "Executable*",
             "max_chars": 64,
             "placeholder": "e.g. 'custom-software/custom-executable1.2.3'",
-            # TODO: reimplement using the actual software path, cf. the runner's `view.software`
-            "help": "Path to executable, relative to the software folder. Ask an administrator to add the executable to the software folder. "
+            "help": f"Path to executable, relative to `{DISPLAY_PATHS[Locations.SOFTWARE]}/`. Ask an administrator to add the executable to the software folder. "
             f"If something that is in the `$PATH` should be executed, it needs to be wrapped by a shell script located in the software folder. "
             f"For a runner with the `{JobEngines.DOCKER}` engine, this is a docker image name instead, e.g. `alphakraken-msqc`. "
             f"The image must already be present on the worker host, ask an administrator to add it. ",
@@ -382,13 +406,19 @@ with c1.form("create_settings"):
     )
 
     if "config_params" in form_items:
+        runner_view = get_runner(runner_name).view
         placeholder_list = "\n".join(
             f"- `{{{{{placeholder}}}}}`: {description}"
+            + (
+                f", below `{runner_view.resolve(PLACEHOLDER_LOCATIONS[placeholder])}`"
+                if placeholder in PLACEHOLDER_LOCATIONS
+                else ""
+            )
             for placeholder, description in PLACEHOLDER_DESCRIPTIONS.items()
         )
-        # TODO: resolve those paths (e.g. the runner's `view.backup`)
         st.info(
-            "The following placeholders can be used in the config parameters, and will be replaced by the specified values:\n\n"
+            "The following placeholders can be used in the config parameters, and will be replaced by the specified values "
+            f"(paths as runner `{runner_name}` sees them):\n\n"
             f"{placeholder_list}\n\n"
             "Notes:\n"
             "- The working directory of the software is `{{OUTPUT_PATH}}`.\n"
@@ -411,28 +441,6 @@ with c1.form("create_settings"):
     st.write(r"\* Required fields")
     if software_type == SoftwareTypes.ALPHADIA:
         st.write(r"\** At least one of the two must be given")
-
-    runner_names = list(RUNNERS)
-    if SHOW_RUNNER_SELECT:
-        prefilled_runner_name = prefill_data["runner_name"]
-        if prefilled_runner_name and prefilled_runner_name not in runner_names:
-            st.warning(
-                f"Runner `{prefilled_runner_name}` of the previous version is not declared in "
-                f"`alphakraken.yaml` anymore, using `{runner_names[0]}`."
-            )
-        runner_index = (
-            runner_names.index(prefilled_runner_name)
-            if prefilled_runner_name in runner_names
-            else 0
-        )
-        runner_name = st.selectbox(
-            label="Runner",
-            options=runner_names,
-            index=runner_index,
-            help="Where the quanting job runs, cf. `runners` in `alphakraken.yaml`.",
-        )
-    else:
-        runner_name = runner_names[0]
 
     with st.expander("Resource parameters"):
         st.info(
@@ -474,16 +482,15 @@ with c1.form("create_settings"):
 
     st.markdown("### Upload files to settings folder")
     settings_name_clean = empty_to_none(name)
-    # TODO: reimplement using actual {settings_path}
     if settings_name_clean:
         st.markdown(
-            f"Make sure you have uploaded all referenced files (if any) to "
-            f"`<settings path>/{settings_name_clean}/`"
+            "Make sure you have uploaded all referenced files (if any) to "
+            f"`{get_display_settings_path(settings_name_clean)}/`"
         )
     else:
         st.markdown(
             "After entering a settings name above, upload files to "
-            "`<settings path>/<settings_name>/`"
+            f"`{get_display_settings_path(SETTINGS_NAME_PLACEHOLDER)}/`"
         )
 
     upload_checkbox = st.checkbox(

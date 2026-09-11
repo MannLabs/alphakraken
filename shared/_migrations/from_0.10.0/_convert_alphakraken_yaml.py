@@ -32,7 +32,12 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 # the locations shown to users, cf. `_REQUIRED_LOCATIONS` in `shared.display_paths`
-_DISPLAY_LOCATIONS = (Locations.BACKUP, Locations.OUTPUT)
+_DISPLAY_LOCATIONS = (
+    Locations.BACKUP,
+    Locations.OUTPUT,
+    Locations.SETTINGS,
+    Locations.SOFTWARE,
+)
 
 # the locations a slurm runner needs, cf. `_REQUIRED_LOCATIONS` in `shared.runners`
 _VIEW_LOCATIONS = (

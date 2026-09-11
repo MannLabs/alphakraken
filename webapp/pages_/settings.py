@@ -149,6 +149,9 @@ if not RUNNERS:
     )
     st.stop()
 
+# the software selection is built from all settings, so that archiving one does not drop its software
+all_settings_df = settings_df
+
 # only active settings beyond this point
 if len(settings_df):
     settings_df = settings_df[settings_df["status"] == SettingsStatus.ACTIVE]
@@ -163,6 +166,24 @@ else:
     existing_settings_names = []
 
 CREATE_NEW_OPTION = "➕ Create new settings..."  # noqa: RUF001
+ADD_NEW_SOFTWARE_OPTION = "➕ Add new software..."  # noqa: RUF001
+
+
+def get_settings_using_software(
+    all_settings_df: pd.DataFrame, software_type: str, runner_name: str
+) -> pd.DataFrame:
+    """Get the settings that run `software_type` on `runner_name`, most recently created first."""
+    required_columns = ["software", "software_type", "runner_name", "name", "version"]
+    if all_settings_df.empty or not set(required_columns) <= set(
+        all_settings_df.columns
+    ):
+        return pd.DataFrame(columns=required_columns)
+
+    return all_settings_df[
+        (all_settings_df["software_type"] == software_type)
+        & (all_settings_df["runner_name"] == runner_name)
+    ]
+
 
 settings_name_options = [CREATE_NEW_OPTION, *existing_settings_names]
 selected_name_option = c1.selectbox(
@@ -373,7 +394,46 @@ description = c1.text_area(
     **form_items["description"], value=prefill_data["description"]
 )
 
-software = c1.text_input(**form_items["software"], value=prefill_data["software"])
+settings_using_software = get_settings_using_software(
+    all_settings_df, software_type, runner_name
+)
+# the frame is sorted by creation date descending, cf. df_from_db_data
+used_software = list(dict.fromkeys(settings_using_software["software"].dropna()))
+prefilled_software = prefill_data["software"]
+
+if prefilled_software in used_software:
+    software_index = used_software.index(prefilled_software)
+elif prefilled_software:
+    # a prefilled software the selected runner has never run: offer to keep it, do not swap it silently
+    software_index = len(used_software)
+else:
+    # the most recently used one, or the "add new" entry if there is none
+    software_index = 0
+
+selected_software_option = c1.selectbox(
+    label=form_items["software"]["label"],
+    options=[*used_software, ADD_NEW_SOFTWARE_OPTION],
+    index=software_index,
+    help=form_items["software"]["help"],
+)
+if selected_software_option == ADD_NEW_SOFTWARE_OPTION:
+    software = c1.text_input(
+        label=form_items["software"]["label"],
+        label_visibility="collapsed",
+        max_chars=form_items["software"]["max_chars"],
+        placeholder=form_items["software"]["placeholder"],
+        help=form_items["software"]["help"],
+        # a prefilled software the current runner has never run is carried over, not dropped
+        value="" if prefilled_software in used_software else prefilled_software,
+    )
+else:
+    software = selected_software_option
+
+software_used_by = [
+    f"`{row['name']}` v{int(row['version'])}"
+    for _, row in settings_using_software.iterrows()
+    if row["software"] == software
+]
 
 fasta_file_name = (
     c1.text_input(
@@ -500,7 +560,11 @@ with c1.form("create_settings"):
             + "\n".join(f"- `{file_name}`" for file_name in referenced_files)
         )
 
-    if empty_to_none(software):
+    if software_used_by:
+        st.markdown(
+            f"The software `{software}` is already used by {', '.join(software_used_by)}."
+        )
+    elif empty_to_none(software):
         # `software` is a path below the software folder only for the non-containerized non-alphadia case
         if software_type == SoftwareTypes.ALPHADIA:
             software_hint = f"the Conda environment `{software}`"

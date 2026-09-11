@@ -21,7 +21,6 @@ from shared.runners import OperatingSystems, Runner, get_runner
 # `docker` is an optional dependency, cf. requirements_docker_job_engine.txt
 HAS_DOCKER = importlib.util.find_spec("docker") is not None
 
-SLURM_BASE_DIR = PurePosixPath("/path/to/slurm_base_path")
 OUTPUT_DIR = PurePosixPath("/path/to/output")
 SOFTWARE_DIR = PurePosixPath("/path/to/software")
 SSH_PREFIX = "some_cluster_ssh"
@@ -35,7 +34,7 @@ def _runner(engine: str, ssh_connection_id_prefix: str | None = SSH_PREFIX) -> R
         os=OperatingSystems.LINUX,
         view=View(
             "test",
-            {Locations.SLURM: str(SLURM_BASE_DIR), Locations.OUTPUT: str(OUTPUT_DIR), Locations.SOFTWARE: str(SOFTWARE_DIR)}, PurePosixPath)},
+            {Locations.OUTPUT: str(OUTPUT_DIR), Locations.SOFTWARE: str(SOFTWARE_DIR)},
             PurePosixPath,
         ),
         ssh_connection_id_prefix=ssh_connection_id_prefix,

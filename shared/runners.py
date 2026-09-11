@@ -32,19 +32,13 @@ _OS_TO_PATH_CLASS: dict[str, type[PurePath]] = {
     OperatingSystems.WINDOWS: PureWindowsPath,
 }
 
-# the locations `prepare_job` resolves for every engine
-_JOB_LOCATIONS = (
+# the locations `prepare_job` resolves, required for every engine
+_REQUIRED_LOCATIONS = (
     Locations.BACKUP,
     Locations.OUTPUT,
     Locations.SETTINGS,
     Locations.SOFTWARE,
 )
-_REQUIRED_LOCATIONS: dict[str, tuple[str, ...]] = {
-    JobEngines.SLURM: (*_JOB_LOCATIONS, Locations.SLURM),
-    JobEngines.DOCKER: _JOB_LOCATIONS,
-    JobEngines.FILE_BASED: _JOB_LOCATIONS,
-    JobEngines.SIMPLE_SSH: _JOB_LOCATIONS,
-}
 _ENGINES_USING_SSH = (JobEngines.SLURM, JobEngines.SIMPLE_SSH)
 
 

@@ -15,8 +15,6 @@ CLUSTER_BASE_WORKING_DIR_NAME = "jobs"
 DUMMY_TIME_ELAPSED = "00:00:00"
 
 
-OUTPUT_FOLDER_PREFIX = "out_"
-
 # separator between the timestamp and the raw file id in case of collisions
 COLLISION_FLAG_SEP = "-"
 

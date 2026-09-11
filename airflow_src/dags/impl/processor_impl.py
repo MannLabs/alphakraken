@@ -26,7 +26,6 @@ from common.paths import (
     get_internal_backup_path,
     get_internal_output_path,
     get_internal_output_path_for_raw_file,
-    get_output_folder_rel_path,
 )
 from common.quanting_env import QuantingEnv
 from common.settings import get_instrument_settings
@@ -56,6 +55,7 @@ from shared.db.interface import (
 )
 from shared.db.models import RawFile, RawFileStatus, Settings, get_created_at_year_month
 from shared.keys import SoftwareTypes
+from shared.path_layout import get_output_folder_rel_path, get_raw_file_rel_path
 from shared.settings_scope_resolver import resolve_scoped_settings
 from shared.validation import check_for_malicious_content
 from shared.yamlsettings import YamlKeys, get_path
@@ -119,12 +119,8 @@ def prepare_job(raw_file_id: str, settings_id: str) -> dict:
     raw_file = get_raw_file_by_id(raw_file_id)
     settings = get_settings_by_id(settings_id)
 
-    backup_base_path = get_path(YamlKeys.Locations.BACKUP)
-    year_month_subfolder = get_created_at_year_month(raw_file)
-    relative_raw_file_path = (
-        Path(raw_file.instrument_id) / year_month_subfolder / raw_file_id
-    )
-    raw_file_path = backup_base_path / relative_raw_file_path
+    relative_raw_file_path = get_raw_file_rel_path(raw_file)
+    raw_file_path = get_path(YamlKeys.Locations.BACKUP) / relative_raw_file_path
 
     internal_output_path = get_internal_output_path_for_raw_file(
         raw_file, software_type=settings.software_type

@@ -87,7 +87,7 @@ class _RunnerEntry(BaseModel):
     @model_validator(mode="after")
     def _engine_requirements_are_met(self) -> "_RunnerEntry":
         # checked here rather than at first use, so that a config error fails at import instead of failing every job
-        if missing := set(_REQUIRED_LOCATIONS[self.engine]) - set(self.view):
+        if missing := set(_REQUIRED_LOCATIONS) - set(self.view):
             raise ValueError(
                 f"engine '{self.engine}' requires the view keys {sorted(missing)}"
             )

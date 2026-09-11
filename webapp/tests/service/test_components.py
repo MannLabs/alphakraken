@@ -293,7 +293,7 @@ def test_get_full_backup_path_handles_thermo_files() -> None:
     """Test that the function handles Thermo files correctly."""
     df = pd.DataFrame(
         {
-            "backup_base_path": ["/backup/path"],
+            "backup_path": ["/backup/path"],
             "file_info": [{"file1.raw": [1, "hash1"]}],
         }
     )
@@ -307,7 +307,7 @@ def test_get_full_backup_path_handles_sciex_files() -> None:
     """Test that the function handles Sciex files correctly."""
     df = pd.DataFrame(
         {
-            "backup_base_path": ["/backup/path"],
+            "backup_path": ["/backup/path"],
             "file_info": [
                 {"file1.wiff": [1, "hash1"], "file2.wiff.scan": [2, "hash2"]}
             ],
@@ -323,7 +323,7 @@ def test_get_full_backup_path_handles_bruker_files() -> None:
     """Test that the function handles Bruker files correctly."""
     df = pd.DataFrame(
         {
-            "backup_base_path": ["/backup/path"],
+            "backup_path": ["/backup/path"],
             "file_info": [
                 {"folder.d/file1": [1, "hash1"], "folder.d/file2": [1, "hash2"]}
             ],
@@ -339,11 +339,10 @@ def test_get_full_backup_path_returns_errors_on_missing_data() -> None:
     """Test that the function handles errors correctly."""
     df = pd.DataFrame(
         {
-            "_id": ["file1.raw", "file2.raw", "file3.raw", "file4.raw"],
-            "backup_base_path": ["/backup/path", None, "/backup/path", "/backup/path"],
+            "_id": ["file1.raw", "file3.raw", "file4.raw"],
+            "backup_path": ["/backup/path", "/backup/path", "/backup/path"],
             "file_info": [
                 {"file1.raw": [1, "hash1"]},
-                {"file2.raw": [1, "hash1"]},
                 {},
                 None,
             ],
@@ -353,9 +352,8 @@ def test_get_full_backup_path_returns_errors_on_missing_data() -> None:
     assert paths == ["/backup/path/file1.raw"]
     assert not is_multiple_types
     assert errors == [
-        "file2.raw: missing backup_base_path_str=None or file_info={'file2.raw': [1, 'hash1']}.",
-        "file3.raw: missing backup_base_path_str='/backup/path' or file_info={}.",
-        "file4.raw: missing backup_base_path_str='/backup/path' or file_info=None.",
+        "file3.raw: missing file_info={}.",
+        "file4.raw: missing file_info=None.",
     ]
 
 
@@ -363,7 +361,7 @@ def test_get_full_backup_path_detects_multiple_instrument_types() -> None:
     """Test that the function detects multiple instrument types."""
     df = pd.DataFrame(
         {
-            "backup_base_path": ["/backup/path", "/backup/path"],
+            "backup_path": ["/backup/path", "/backup/path"],
             "file_info": [{"file1.raw": [1, "hash1"]}, {"file1.wiff": [1, "hash1"]}],
         }
     )

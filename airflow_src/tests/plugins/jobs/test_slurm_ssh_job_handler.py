@@ -40,17 +40,17 @@ def test_start_job_returns_valid_job_id(
     """Test that start_job returns a valid job ID."""
     mock_ssh_execute.return_value = "12345"
 
-    quanting_env = make_quanting_env(year_month_folder="2024_07")
+    quanting_env = make_quanting_env()
 
     # when
     job_id = SlurmSSHJobHandler(SLURM_BASE_DIR, SSH_PREFIX).start_job(quanting_env)
     assert job_id == "12345"
     expected_command = (
         f"{EXPECTED_EXPORTS}\n"
-        "mkdir -p /path/to/slurm_base_path/jobs/2024_07\n"
-        "cd /path/to/slurm_base_path/jobs/2024_07\n"
-        "cat /path/to/slurm_base_path/submit_job.sh\n"
-        "JID=$(sbatch --cpus-per-task=8 --mem=62G --time=02:00:00 /path/to/slurm_base_path/submit_job.sh)\n"
+        "mkdir -p /pool/output/PID1/out_test_file.raw/alphadia\n"
+        "cd /pool/output/PID1/out_test_file.raw/alphadia\n"
+        "cat /path/to/slurm_base_path/submit_slurm_job.sh\n"
+        "JID=$(sbatch --cpus-per-task=8 --mem=62G --time=02:00:00 /path/to/slurm_base_path/submit_slurm_job.sh)\n"
         "echo ${JID##* }"
     )
     mock_ssh_execute.assert_called_once_with(expected_command, SSH_PREFIX)

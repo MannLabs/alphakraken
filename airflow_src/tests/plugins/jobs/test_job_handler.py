@@ -23,18 +23,19 @@ HAS_DOCKER = importlib.util.find_spec("docker") is not None
 
 SLURM_BASE_DIR = PurePosixPath("/path/to/slurm_base_path")
 OUTPUT_DIR = PurePosixPath("/path/to/output")
+SOFTWARE_DIR = PurePosixPath("/path/to/software")
 SSH_PREFIX = "some_cluster_ssh"
 
 
 def _runner(engine: str, ssh_connection_id_prefix: str | None = SSH_PREFIX) -> Runner:
-    """Get a linux runner of the given engine whose view reaches the slurm location."""
+    """Get a linux runner of the given engine whose view reaches the software location."""
     return Runner(
         name=f"{engine}_runner",
         engine=engine,
         os=OperatingSystems.LINUX,
         view=View(
             "test",
-            {Locations.SLURM: str(SLURM_BASE_DIR), Locations.OUTPUT: str(OUTPUT_DIR)},
+            {Locations.SLURM: str(SLURM_BASE_DIR), Locations.OUTPUT: str(OUTPUT_DIR), Locations.SOFTWARE: str(SOFTWARE_DIR)}, PurePosixPath)},
             PurePosixPath,
         ),
         ssh_connection_id_prefix=ssh_connection_id_prefix,
@@ -52,11 +53,11 @@ def test_get_job_handler_routes_engine_to_handler() -> None:
     )
 
 
-def test_get_job_handler_injects_slurm_base_dir_and_ssh_prefix() -> None:
-    """Test that the Slurm handler gets the runner's slurm location and SSH prefix."""
+def test_get_job_handler_injects_job_script_dir_and_ssh_prefix() -> None:
+    """Test that the Slurm handler gets the runner's software location and SSH prefix."""
     handler = _get_job_handler(_runner(JobEngines.SLURM))
 
-    assert handler._cluster_base_dir == SLURM_BASE_DIR
+    assert handler._job_script_dir == SOFTWARE_DIR
     assert handler._ssh_connection_id_prefix == SSH_PREFIX
 
 

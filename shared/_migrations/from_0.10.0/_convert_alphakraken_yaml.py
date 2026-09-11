@@ -3,7 +3,7 @@
 The `locations` block is dissolved:
     locations.<loc>.mount_src/username   -> mounts.<mount_target>          (mount information)
     locations.<loc>.absolute_path        -> runners[0].view.<loc>          (paths as seen by the runner)
-    locations.backup.absolute_path       -> backup.backup_base_path        (display path in the webapp)
+    locations.{backup,output}.absolute_path -> display_paths.{backup,output} (display paths in the webapp)
     locations.general.mounts_path        -> `MOUNTS_PATH` in envs/<env>.env, reported for comparison
     instruments.<id>.mount_target        -> dropped, the target is `instruments/<id>`
 
@@ -31,13 +31,15 @@ from shared.path_views import Locations
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
+# the locations shown to users, cf. `_REQUIRED_LOCATIONS` in `shared.display_paths`
+_DISPLAY_LOCATIONS = (Locations.BACKUP, Locations.OUTPUT)
+
 # the locations a slurm runner needs, cf. `_REQUIRED_LOCATIONS` in `shared.runners`
 _VIEW_LOCATIONS = (
     Locations.BACKUP,
     Locations.OUTPUT,
     Locations.SETTINGS,
     Locations.SOFTWARE,
-    Locations.SLURM,
 )
 
 _RUNNER_NAME = JobEngines.SLURM
@@ -102,7 +104,8 @@ def convert(config: dict[str, Any]) -> dict[str, Any]:
         "instruments": _strip_mount_targets(config["instruments"]),
         "mounts": _build_mounts(locations),
         "general": config["general"],
-        "backup": {"backup_base_path": view[Locations.BACKUP], **config["backup"]},
+        "display_paths": {location: view[location] for location in _DISPLAY_LOCATIONS},
+        "backup": config["backup"],
         "runners": [
             {
                 "name": _RUNNER_NAME,

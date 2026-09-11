@@ -52,7 +52,7 @@ from shared.db.interface import (
     get_settings_by_id,
     update_raw_file,
 )
-from shared.db.models import RawFile, RawFileStatus, Settings, get_created_at_year_month
+from shared.db.models import RawFile, RawFileStatus, Settings
 from shared.keys import SoftwareTypes
 from shared.path_layout import get_output_folder_rel_path, get_raw_file_rel_path
 from shared.path_views import Locations, View
@@ -211,9 +211,9 @@ def _create_quanting_env(
         settings_path=str(settings_path),
         output_path=str(output_path),
         relative_output_path=str(relative_output_path),
-        speclib_file_name=settings.speclib_file_name,
-        fasta_file_name=settings.fasta_file_name,
-        config_file_name=settings.config_file_name,
+        speclib_file_name=settings.speclib_file_name,  # TODO: construct path here ?
+        fasta_file_name=settings.fasta_file_name,  # TODO: construct path here ?
+        config_file_name=settings.config_file_name,  # TODO: construct path here ?
         software=settings.software,
         software_type=settings.software_type,
         metrics_type=settings.metrics_type,
@@ -231,7 +231,6 @@ def _create_quanting_env(
         relative_raw_file_path=str(relative_raw_file_path),
         config_params=substituted_params,
         runner_name=settings.runner_name,
-        year_month_folder=get_created_at_year_month(raw_file),
     )
 
 
@@ -290,7 +289,6 @@ _STRICTLY_CHECKED_FIELDS = (
     "raw_file_id",
     "project_id",
     "settings_name",
-    "year_month_folder",
     "slurm_mem",
     "runner_name",
 )
@@ -501,7 +499,7 @@ def check_job_result(*, quanting_env_dict: dict, job_id: str, ti: TaskInstance) 
             settings_name=quanting_env.settings_name,
             settings_version=quanting_env.settings_version,
             metrics_type=quanting_env.metrics_type,
-            output_path=quanting_env.output_path,
+            relative_output_path=quanting_env.relative_output_path,
         )
 
         # fail the DAG without retry on new errors to make them transparent in Airflow UI
@@ -560,7 +558,7 @@ def store_metrics(*, quanting_env_dict: dict, metrics: dict) -> None:
         metrics=metrics,
         settings_name=quanting_env.settings_name,
         settings_version=quanting_env.settings_version,
-        output_path=quanting_env.output_path,
+        relative_output_path=quanting_env.relative_output_path,
     )
 
 

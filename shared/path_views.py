@@ -19,7 +19,6 @@ class Locations(metaclass=ConstantsClass):
     OUTPUT = "output"
     SETTINGS = "settings"
     SOFTWARE = "software"
-    SLURM = "slurm"
     LOGS = "logs"
 
 
@@ -56,12 +55,13 @@ class View(Generic[_P]):
 
     def resolve(self, location: str, rel_path: PurePath | str = "") -> _P:
         """Get the absolute path of `rel_path`, which is relative to `location`, in this view."""
-        if location not in self._locations:
+        try:
+            return self._locations[location] / rel_path
+        except KeyError as e:
             raise KeyError(
                 f"Location '{location}' is not reachable in the '{self._name}' view, "
                 f"reachable are: {sorted(self._locations)}."
-            )
-        return self._locations[location] / rel_path
+            ) from e
 
 
 AIRFLOW_CONTAINER_VIEW: View[Path] = View(
@@ -84,14 +84,13 @@ def _build_docker_host_view() -> View[PurePosixPath]:
     `MOUNTS_PATH` is required by the `docker` job engine only, so an unset variable yields a view
     without locations rather than an error: it is reported when the view is used.
     """
-    mounts_folder = os.getenv(EnvVars.MOUNTS_PATH)
+    mounts_path = os.getenv(EnvVars.MOUNTS_PATH)
 
     locations = (
         {}
-        if mounts_folder is None
-        else {
-            location: f"{mounts_folder}/{location}" for location in _MOUNTED_LOCATIONS
-        }
+        if mounts_path
+        is None  # could be None e.g. in the webapp, where it does no harm currently
+        else {location: f"{mounts_path}/{location}" for location in _MOUNTED_LOCATIONS}
     )
 
     return View("docker host", locations, PurePosixPath)

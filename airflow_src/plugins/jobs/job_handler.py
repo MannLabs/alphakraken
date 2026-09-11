@@ -25,7 +25,7 @@ def _get_job_handler(runner: Runner) -> "JobHandler":
 
         logging.info("Using SlurmSSHJobHandler")
         return SlurmSSHJobHandler(
-            runner.view.resolve(Locations.SLURM), runner.ssh_connection_id_prefix
+            runner.view.resolve(Locations.SOFTWARE), runner.ssh_connection_id_prefix
         )
 
     if engine == JobEngines.DOCKER:

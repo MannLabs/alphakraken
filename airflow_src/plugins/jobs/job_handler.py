@@ -15,6 +15,11 @@ from shared.path_views import DOCKER_HOST_VIEW, Locations
 from shared.runners import Runner, get_runner
 
 
+def posix_export_lines(environment: dict[str, str]) -> list[str]:
+    """Get the shell lines exporting the given variables, for a POSIX shell."""
+    return [f'export {key}="{value}"' for key, value in environment.items()]
+
+
 def _get_job_handler(runner: Runner) -> "JobHandler":
     """Factory function to get the job handler for the engine of the given runner."""
     engine = runner.engine

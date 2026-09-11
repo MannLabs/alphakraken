@@ -139,7 +139,7 @@ class DockerJobHandler(JobHandler):
             name=container_name,
             volumes=volumes,
             # the same variables that the Slurm engine exports before the job script
-            environment=_exported_environment(quanting_env.to_dict()),
+            environment=quanting_env.to_exportable_dict(),
             labels={
                 JOB_LABEL: quanting_env.raw_file_id,
                 OUTPUT_PATH_LABEL: str(internal_output_path),
@@ -242,11 +242,6 @@ class DockerJobHandler(JobHandler):
 def _to_container_name(name: str) -> str:
     """Replace all characters that docker does not accept in a container name."""
     return re.sub(_FORBIDDEN_CONTAINER_NAME_CHARACTERS_PATTERN, "_", name)
-
-
-def _exported_environment(environment: dict) -> dict[str, str]:
-    """Get the variables to set in the container, ignoring keys with leading underscore."""
-    return {k: str(v) for k, v in environment.items() if not k.startswith("_")}
 
 
 def _get_state(container: Container) -> dict:

@@ -13,7 +13,6 @@ Notes:
 
 # TODO: add unit tests
 import logging
-from pathlib import Path
 
 from airflow.exceptions import AirflowFailException
 from common.keys import JobStates
@@ -22,7 +21,8 @@ from common.quanting_env import QuantingEnv
 from jobs.job_handler import JobHandler
 
 from shared.db.interface import get_raw_file_by_id
-from shared.keys import InternalPaths, SoftwareTypes
+from shared.keys import SoftwareTypes
+from shared.path_views import AIRFLOW_CONTAINER_VIEW, Locations
 
 
 class FileBasedJobHandler(JobHandler):
@@ -33,8 +33,8 @@ class FileBasedJobHandler(JobHandler):
         super().__init__()
 
         # is is a bit of a hack to use the output path here, but it avoids another bind mount
-        self._job_submit_dir = (
-            Path(InternalPaths.MOUNTS_PATH) / InternalPaths.OUTPUT / "job_queue"
+        self._job_submit_dir = AIRFLOW_CONTAINER_VIEW.resolve(
+            Locations.OUTPUT, "job_queue"
         )
 
     def start_job(self, quanting_env: QuantingEnv) -> str:

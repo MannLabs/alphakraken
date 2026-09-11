@@ -10,27 +10,16 @@ import pytz
 from pandas import Timestamp
 from streamlit.testing.v1 import AppTest
 
+from shared.runners import RUNNERS
+
 PAGES_FOLDER = Path(__file__).parent / Path("../../pages_")
 
+RUNNER_SELECT_LABEL = "Runner"
 
-@patch("shared.db.models.ProjectSettings.objects")
-@patch("service.db.get_project_data")
-@patch("service.db.get_settings_data")
-@patch("service.db.df_from_db_data")
-def test_settings(
-    mock_df: MagicMock,
-    mock_get: MagicMock,
-    mock_project_get: MagicMock,
-    mock_ps_objects: MagicMock,
-) -> None:
-    """A test for the settings page."""
-    mock_settings_db = MagicMock()
-    mock_get.return_value = mock_settings_db
-    mock_projects_db = MagicMock()
-    mock_project_get.return_value = mock_projects_db
-    mock_ps_objects.all.return_value = []
 
-    settings_df = pd.DataFrame(
+def _settings_df() -> pd.DataFrame:
+    """Get two active settings entries as the page reads them from the DB."""
+    return pd.DataFrame(
         {
             "_id": [1, 2],
             "created_at_": ["2021-01-01", "2021-01-02"],
@@ -49,9 +38,26 @@ def test_settings(
         },
     )
 
-    mock_df.return_value = settings_df
 
-    at = AppTest.from_file(f"{PAGES_FOLDER}/settings.py").run()
+@patch("shared.db.models.ProjectSettings.objects")
+@patch("service.db.get_project_data")
+@patch("service.db.get_settings_data")
+@patch("service.db.df_from_db_data")
+def test_settings(
+    mock_df: MagicMock,
+    mock_get: MagicMock,
+    mock_project_get: MagicMock,
+    mock_ps_objects: MagicMock,
+) -> None:
+    """A test for the settings page."""
+    mock_settings_db = MagicMock()
+    mock_get.return_value = mock_settings_db
+    mock_projects_db = MagicMock()
+    mock_project_get.return_value = mock_projects_db
+    mock_ps_objects.all.return_value = []
+    mock_df.return_value = _settings_df()
+
+    at = AppTest.from_file(f"{PAGES_FOLDER}/settings.py").run(timeout=10)
 
     expected_data = {
         "config_file_name": {0: "config_file1", 1: "config_file2"},
@@ -71,6 +77,52 @@ def test_settings(
 
     assert not at.exception
     assert expected_data == at.table[0].value.to_dict()
+
+
+@patch("shared.db.models.ProjectSettings.objects")
+@patch("service.db.get_project_data")
+@patch("service.db.get_settings_data")
+@patch("service.db.df_from_db_data")
+def test_settings_runner_selectbox_offers_the_declared_runners(
+    mock_df: MagicMock,
+    mock_get: MagicMock,  # noqa: ARG001
+    mock_project_get: MagicMock,  # noqa: ARG001
+    mock_ps_objects: MagicMock,
+) -> None:
+    """Test that the runner selectbox lists the runners of alphakraken.yaml in declaration order."""
+    mock_ps_objects.all.return_value = []
+    mock_df.return_value = _settings_df()
+
+    at = AppTest.from_file(f"{PAGES_FOLDER}/settings.py").run(timeout=10)
+
+    assert not at.exception
+    runner_selects = [s for s in at.selectbox if s.label == RUNNER_SELECT_LABEL]
+    assert len(runner_selects) == 1
+    assert runner_selects[0].options == list(RUNNERS)
+    assert runner_selects[0].value == next(iter(RUNNERS))
+
+
+@patch.dict(RUNNERS, {}, clear=True)
+@patch("shared.db.models.ProjectSettings.objects")
+@patch("service.db.get_project_data")
+@patch("service.db.get_settings_data")
+@patch("service.db.df_from_db_data")
+def test_settings_without_runners_shows_notice_instead_of_form(
+    mock_df: MagicMock,
+    mock_get: MagicMock,  # noqa: ARG001
+    mock_project_get: MagicMock,  # noqa: ARG001
+    mock_ps_objects: MagicMock,
+) -> None:
+    """Test that a deployment without runners still lists settings but cannot create any."""
+    mock_ps_objects.all.return_value = []
+    mock_df.return_value = _settings_df()
+
+    at = AppTest.from_file(f"{PAGES_FOLDER}/settings.py").run(timeout=10)
+
+    assert not at.exception
+    assert len(at.table) == 1
+    assert any("runners" in w.value for w in at.warning)
+    assert [s for s in at.selectbox if s.label == RUNNER_SELECT_LABEL] == []
 
 
 @skip(

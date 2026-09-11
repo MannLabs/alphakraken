@@ -242,7 +242,7 @@ def test_add_metrics_to_raw_file_happy_path(
         metrics={"metric1": 1, "metric2": 2},
         settings_name="test_settings",
         settings_version=1,
-        output_path="/data/output/P1/out_test_file/alphadia",
+        relative_output_path="P1/out_test_file/alphadia",
     )
 
     # then
@@ -254,7 +254,7 @@ def test_add_metrics_to_raw_file_happy_path(
         type="alphadia",
         settings_name="test_settings",
         settings_version=1,
-        output_path="/data/output/P1/out_test_file/alphadia",
+        relative_output_path="P1/out_test_file/alphadia",
         metric1=1,
         metric2=2,
     )
@@ -317,7 +317,7 @@ def test_create_settings_first_version(
         config_params=None,
         software_type="alphadia",
         software="alphadia-1.10.0",
-        job_engine="slurm",
+        runner_name="slurm",
         metrics_type="alphadia",
     )
 
@@ -350,7 +350,7 @@ def test_create_settings_auto_increment_version(
         config_params=None,
         software_type="alphadia",
         software="alphadia-1.10.0",
-        job_engine="slurm",
+        runner_name="slurm",
         metrics_type="alphadia",
     )
 
@@ -359,6 +359,17 @@ def test_create_settings_auto_increment_version(
     assert call_kwargs["name"] == "plasma_settings"
     assert call_kwargs["version"] == 4
     mock_connect_db.assert_called_once()
+
+
+def test_create_settings_requires_runner() -> None:
+    """Test that settings cannot be created without naming the runner."""
+    with pytest.raises(TypeError, match="runner_name"):
+        create_settings(  # type: ignore[missing-argument]
+            name="plasma_settings",
+            software_type="alphadia",
+            software="alphadia-1.10.0",
+            metrics_type="alphadia",
+        )
 
 
 @patch("shared.db.interface.connect_db")

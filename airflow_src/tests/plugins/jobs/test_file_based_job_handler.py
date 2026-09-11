@@ -1,14 +1,16 @@
 """Tests for the file_based_job_handler module."""
 
+from collections.abc import Callable
 from pathlib import Path
 from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
 from airflow.exceptions import AirflowFailException
-from common.keys import JobStates, QuantingEnv
+from common.keys import JobStates
+from common.quanting_env import QuantingEnv
 from jobs._experimental.file_based_job_handler import FileBasedJobHandler
 
-from shared.keys import InternalPaths
+from shared.path_views import AIRFLOW_CONTAINER_VIEW, Locations
 
 
 @pytest.fixture
@@ -22,15 +24,16 @@ def mock_raw_file() -> MagicMock:
 
 
 @pytest.fixture
-def sample_environment() -> dict:
-    """Create sample environment variables for testing."""
-    return {
-        QuantingEnv.RAW_FILE_ID: "test_raw_file_123",
-        QuantingEnv.OUTPUT_PATH: "/test/output/path",
-        QuantingEnv.RELATIVE_OUTPUT_PATH: "test/relative/path",
-        QuantingEnv.CUSTOM_COMMAND: "test_command.exe",
-        "OTHER_VAR": "other_value",
-    }
+def sample_quanting_env(
+    make_quanting_env: Callable[..., QuantingEnv],
+) -> QuantingEnv:
+    """Create a sample quanting environment for testing."""
+    return make_quanting_env(
+        raw_file_id="test_raw_file_123",
+        output_path="/test/output/path",
+        relative_output_path="test/relative/path",
+        custom_command="test_command.exe",
+    )
 
 
 class TestFileBasedJobHandler:
@@ -44,22 +47,18 @@ class TestFileBasedJobHandler:
         handler = FileBasedJobHandler()
 
         # then
-        expected_path = (
-            Path(InternalPaths.MOUNTS_PATH) / InternalPaths.OUTPUT / "job_queue"
-        )
+        expected_path = AIRFLOW_CONTAINER_VIEW.resolve(Locations.OUTPUT, "job_queue")
         assert handler._job_submit_dir == expected_path
 
-    @patch(
-        "jobs._experimental.file_based_job_handler.Path.open", new_callable=mock_open
-    )
-    @patch("jobs._experimental.file_based_job_handler.Path.mkdir")
-    @patch("jobs._experimental.file_based_job_handler.Path.exists")
+    @patch("pathlib.Path.open", new_callable=mock_open)
+    @patch("pathlib.Path.mkdir")
+    @patch("pathlib.Path.exists")
     def test_start_job_should_create_job_file_when_directory_creation_succeeds(
         self,
         mock_exists: MagicMock,
         mock_mkdir: MagicMock,
         mock_file_open: MagicMock,
-        sample_environment: dict,
+        sample_quanting_env: QuantingEnv,
     ) -> None:
         """Test that start_job creates a .job file with correct content when directory creation succeeds."""
         # given
@@ -68,7 +67,7 @@ class TestFileBasedJobHandler:
         mock_mkdir.return_value = None
 
         # when
-        job_id = handler.start_job(sample_environment)
+        job_id = handler.start_job(sample_quanting_env)
 
         # then
         assert job_id == "test_raw_file_123"
@@ -77,18 +76,18 @@ class TestFileBasedJobHandler:
 
         # Verify file content
         expected_content = [
-            f"{QuantingEnv.RAW_FILE_ID}=test_raw_file_123\n",
-            f"{QuantingEnv.OUTPUT_PATH}=/test/output/path\n",
-            f"{QuantingEnv.RELATIVE_OUTPUT_PATH}=test/relative/path\n",
-            f"{QuantingEnv.CUSTOM_COMMAND}=test_command.exe\n",
+            "RAW_FILE_ID=test_raw_file_123\n",
+            "OUTPUT_PATH=/test/output/path\n",
+            "RELATIVE_OUTPUT_PATH=test/relative/path\n",
+            "CUSTOM_COMMAND=test_command.exe\n",
         ]
         handle = mock_file_open.return_value.__enter__.return_value
         for expected_line in expected_content:
             handle.write.assert_any_call(expected_line)
 
-    @patch("jobs._experimental.file_based_job_handler.Path.exists")
+    @patch("pathlib.Path.exists")
     def test_start_job_should_raise_exception_when_job_file_already_exists(
-        self, mock_exists: MagicMock, sample_environment: dict
+        self, mock_exists: MagicMock, sample_quanting_env: QuantingEnv
     ) -> None:
         """Test that start_job raises AirflowFailException when job file already exists."""
         # given
@@ -97,13 +96,13 @@ class TestFileBasedJobHandler:
 
         # when/then
         with pytest.raises(AirflowFailException, match="Job file .* already exists"):
-            handler.start_job(sample_environment)
+            handler.start_job(sample_quanting_env)
 
     @patch("jobs._experimental.file_based_job_handler.get_raw_file_by_id")
     @patch(
         "jobs._experimental.file_based_job_handler.get_internal_output_path_for_raw_file"
     )
-    @patch("jobs._experimental.file_based_job_handler.Path.exists")
+    @patch("pathlib.Path.exists")
     def test_get_job_status_should_return_pending_when_status_file_does_not_exist(
         self,
         mock_exists: MagicMock,
@@ -137,7 +136,7 @@ class TestFileBasedJobHandler:
     @patch(
         "jobs._experimental.file_based_job_handler.get_internal_output_path_for_raw_file"
     )
-    @patch("jobs._experimental.file_based_job_handler.Path.exists")
+    @patch("pathlib.Path.exists")
     def test_get_job_status_should_return_correct_status_based_on_file_content(  # noqa: PLR0913
         self,
         mock_exists: MagicMock,
@@ -156,7 +155,7 @@ class TestFileBasedJobHandler:
 
         # when
         with patch(
-            "jobs._experimental.file_based_job_handler.Path.open",
+            "pathlib.Path.open",
             mock_open(read_data=read_data),
         ):
             status = handler.get_job_status("test_raw_file_123")

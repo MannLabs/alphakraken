@@ -2,12 +2,9 @@
 
 from pathlib import Path
 
-from common.constants import (
-    OUTPUT_FOLDER_PREFIX,
-)
-
-from shared.db.models import RawFile, get_created_at_year_month
-from shared.keys import InternalPaths
+from shared.db.models import RawFile
+from shared.path_layout import get_output_folder_rel_path
+from shared.path_views import AIRFLOW_CONTAINER_VIEW, Locations
 
 
 def get_internal_instrument_data_path(instrument_id: str) -> Path:
@@ -15,7 +12,7 @@ def get_internal_instrument_data_path(instrument_id: str) -> Path:
 
     e.g. /opt/airflow/mounts/instruments/test2
     """
-    return Path(InternalPaths.MOUNTS_PATH) / InternalPaths.INSTRUMENTS / instrument_id
+    return AIRFLOW_CONTAINER_VIEW.resolve(Locations.INSTRUMENTS, instrument_id)
 
 
 def get_internal_backup_path() -> Path:
@@ -23,7 +20,7 @@ def get_internal_backup_path() -> Path:
 
     e.g. /opt/airflow/mounts/backup
     """
-    return Path(InternalPaths.MOUNTS_PATH) / InternalPaths.BACKUP
+    return AIRFLOW_CONTAINER_VIEW.resolve(Locations.BACKUP)
 
 
 def get_internal_backup_path_for_instrument(
@@ -33,38 +30,12 @@ def get_internal_backup_path_for_instrument(
 
     e.g. /opt/airflow/mounts/backup/test2
     """
-    return get_internal_backup_path() / instrument_id
-
-
-def get_output_folder_rel_path(
-    raw_file: RawFile,
-    software_type: str | None = None,
-) -> Path:
-    """Get the path of the output directory for given raw file name relative to the `output` folder.
-
-    Only if the raw_file has no project defined, we use a month-specific subfolder
-    This is to avoid having too many files in the fallback output folders.
-
-    E.g.
-        <project_id>/2024_07/out_RAW-FILE-1.raw/<software_type> in case raw_file has no project ID
-        <project_id>/out_RAW-FILE-1.raw/<software_type> in case raw_file has a project ID
-    """
-    optional_sub_folder = (
-        get_created_at_year_month(raw_file) if not raw_file.has_project else ""
-    )
-    path = (
-        Path(raw_file.project_id)
-        / optional_sub_folder
-        / f"{OUTPUT_FOLDER_PREFIX}{raw_file.id}"
-    )
-    if software_type is not None:
-        path = path / software_type
-    return path
+    return AIRFLOW_CONTAINER_VIEW.resolve(Locations.BACKUP, instrument_id)
 
 
 def get_internal_output_path() -> Path:
     """Get absolute internal output path."""
-    return Path(InternalPaths.MOUNTS_PATH) / InternalPaths.OUTPUT
+    return AIRFLOW_CONTAINER_VIEW.resolve(Locations.OUTPUT)
 
 
 def get_internal_output_path_for_raw_file(
@@ -72,8 +43,6 @@ def get_internal_output_path_for_raw_file(
     software_type: str | None = None,
 ) -> Path:
     """Get absolute internal output path for the given raw file name."""
-    return (
-        Path(InternalPaths.MOUNTS_PATH)
-        / InternalPaths.OUTPUT
-        / get_output_folder_rel_path(raw_file, software_type)
+    return AIRFLOW_CONTAINER_VIEW.resolve(
+        Locations.OUTPUT, get_output_folder_rel_path(raw_file, software_type)
     )

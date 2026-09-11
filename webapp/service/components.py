@@ -609,10 +609,10 @@ def get_terminal_status_counts(
 
 
 def get_full_backup_path(df: pd.DataFrame) -> tuple[list, bool, list]:  # noqa: C901 (too complex)
-    """Construct full path to files by concatenating 'backup_base_path' with the relevant keys from the 'file_info' dictionary.
+    """Construct full path to files by concatenating 'backup_path' with the relevant keys from the 'file_info' dictionary.
 
     Args:
-        df (pd.DataFrame): DataFrame containing the columns 'backup_base_path' and 'file_info'.
+        df (pd.DataFrame): DataFrame containing the columns 'backup_path' and 'file_info'.
 
     Returns:
         paths, is_multiple_types, errors:
@@ -647,24 +647,23 @@ def get_full_backup_path(df: pd.DataFrame) -> tuple[list, bool, list]:  # noqa: 
 
         :return: list of paths, instrument type (None if not found), error (None if no error)
         """
-        backup_base_path_str = raw_file_row.get("backup_base_path", "")
         file_info = raw_file_row.get("file_info", {})
 
-        if not backup_base_path_str or not file_info:
-            error = f"{raw_file_row['_id']}: missing {backup_base_path_str=} or {file_info=}."
+        if not file_info:
+            error = f"{raw_file_row['_id']}: missing {file_info=}."
             return [], None, error
 
-        backup_base_path = Path(backup_base_path_str)
+        backup_path = Path(raw_file_row["backup_path"])
 
         instrument_type = _get_instrument_type(file_info)
         paths = []
 
         if instrument_type == InstrumentTypes.THERMO:
             first_file_path = next(iter(file_info))
-            paths.append(backup_base_path / first_file_path)
+            paths.append(backup_path / first_file_path)
         elif instrument_type == InstrumentTypes.SCIEX:
             for file_path in file_info:
-                paths.append(backup_base_path / file_path)  # noqa: PERF401
+                paths.append(backup_path / file_path)  # noqa: PERF401
         elif instrument_type == InstrumentTypes.BRUKER:
             paths_ = []
             first_file_path = next(iter(file_info))
@@ -672,7 +671,7 @@ def get_full_backup_path(df: pd.DataFrame) -> tuple[list, bool, list]:  # noqa: 
             for k in first_file_path.split("/"):
                 paths_.append(k)
                 if k.endswith(".d"):
-                    paths.append(backup_base_path / "/".join(paths_))
+                    paths.append(backup_path / "/".join(paths_))
                     break
 
         return paths, instrument_type, None

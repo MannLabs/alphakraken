@@ -8,18 +8,25 @@ import abc
 import logging
 
 from airflow.exceptions import AirflowFailException
+from common.quanting_env import QuantingEnv
 
-from shared.keys import JobEngines
-from shared.yamlsettings import YamlKeys, get_host_mounts_path, get_path
+from shared.keys import EnvVars, JobEngines
+from shared.path_views import DOCKER_HOST_VIEW, Locations
+from shared.runners import Runner, get_runner
 
 
-def _get_job_handler(engine: str) -> "JobHandler":
-    """Factory function to get the appropriate job handler for the given engine."""
+def _get_job_handler(runner: Runner) -> "JobHandler":
+    """Factory function to get the job handler for the engine of the given runner."""
+    engine = runner.engine
     if engine == JobEngines.SLURM:
         from jobs.slurm_ssh_job_handler import SlurmSSHJobHandler
 
+        assert runner.ssh_connection_id_prefix is not None
+
         logging.info("Using SlurmSSHJobHandler")
-        return SlurmSSHJobHandler(get_path(YamlKeys.Locations.SLURM))
+        return SlurmSSHJobHandler(
+            runner.view.resolve(Locations.SOFTWARE), runner.ssh_connection_id_prefix
+        )
 
     if engine == JobEngines.DOCKER:
         try:
@@ -30,8 +37,14 @@ def _get_job_handler(engine: str) -> "JobHandler":
                 f"airflow_src/requirements_docker_job_engine.txt to be installed."
             ) from e
 
+        if not DOCKER_HOST_VIEW.has(Locations.OUTPUT):
+            raise AirflowFailException(
+                f"The '{JobEngines.DOCKER}' job engine requires the environment variable "
+                f"`{EnvVars.MOUNTS_PATH}`, cf. envs/<env>.env."
+            )
+
         logging.info("Using DockerJobHandler")
-        return DockerJobHandler(get_host_mounts_path())
+        return DockerJobHandler(DOCKER_HOST_VIEW)
 
     if engine == JobEngines.FILE_BASED:
         from jobs._experimental.file_based_job_handler import FileBasedJobHandler
@@ -46,11 +59,11 @@ class JobHandler(abc.ABC):
     """Abstract base class for job handling."""
 
     @abc.abstractmethod
-    def start_job(self, environment: dict[str, str]) -> str:
+    def start_job(self, quanting_env: QuantingEnv) -> str:
         """Start a job and return the job ID.
 
         Args:
-            environment: Environment variables to set before job submission
+            quanting_env: Environment of the job to submit
 
         Returns:
             Job ID as a string
@@ -74,28 +87,25 @@ class JobHandler(abc.ABC):
         """
 
 
-def start_job(
-    environment: dict[str, str],
-    engine: str,
-) -> str:
-    """Start a job using the given job engine.
+def start_job(quanting_env: QuantingEnv, runner_name: str) -> str:
+    """Start a job on the given runner.
 
     Delegates to JobHandler.start_job(), see docs there.
     """
-    handler = _get_job_handler(engine)
-    return handler.start_job(environment)
+    handler = _get_job_handler(get_runner(runner_name))
+    return handler.start_job(quanting_env)
 
 
-def get_job_status(job_id: str, engine: str) -> str:
-    """Get the job status using the given job engine.
+def get_job_status(job_id: str, runner_name: str) -> str:
+    """Get the job status from the given runner.
 
     Delegates to JobHandler.get_job_status(), see docs there.
     """
-    handler = _get_job_handler(engine)
+    handler = _get_job_handler(get_runner(runner_name))
     return handler.get_job_status(job_id)
 
 
-def get_job_result(job_id: str, engine: str) -> tuple[str, int]:
-    """Get the job status and time elapsed using the given job engine."""
-    handler = _get_job_handler(engine)
+def get_job_result(job_id: str, runner_name: str) -> tuple[str, int]:
+    """Get the job status and time elapsed from the given runner."""
+    handler = _get_job_handler(get_runner(runner_name))
     return handler.get_job_result(job_id)

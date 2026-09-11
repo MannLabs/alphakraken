@@ -7,14 +7,14 @@ per job via the Docker socket.
 The image is taken from the `software` field of the settings, and the resolved configuration
 parameters are passed to it as the container command, so an image behaves like a custom command
 that happens to run in a container. The raw file and the output folder are bound into the
-container at the very paths the placeholders resolved to, which makes the same `config_params`
-work for both this engine and Slurm.
+container at the very paths the placeholders resolved to, i.e. at the paths of the runner's
+`view`, so that the command finds them where it points.
 
 Notes:
     - requires the optional requirements in `requirements_docker_job_engine.txt`.
     - the image must already be present on the host, it is never pulled, cf. `_get_image`.
     - requires the bind mount of the docker socket in docker-compose.yaml (cf. `group_add`).
-    - requires key 'locations.general.mounts_path' in alphakraken.{env}.yaml to point to the
+    - requires the environment variable `MOUNTS_PATH` (cf. envs/{env}.env) to point to the
       mounts folder as seen by the docker host.
     - `_SLURM_TIME` is not honored: docker has no wall clock limit.
 
@@ -25,16 +25,17 @@ import os
 import re
 import shlex
 from datetime import datetime
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 import docker
 from airflow.exceptions import AirflowFailException
-from common.keys import JobStates, QuantingEnv
+from common.keys import JobStates
+from common.quanting_env import QuantingEnv
 from docker.errors import ImageNotFound, NotFound
 from docker.models.containers import Container
 from jobs.job_handler import JobHandler
 
-from shared.keys import InternalPaths
+from shared.path_views import AIRFLOW_CONTAINER_VIEW, Locations, View
 
 CONTAINER_NAME_PREFIX = "kraken"
 # docker accepts only [a-zA-Z0-9][a-zA-Z0-9_.-]* as container name, but raw file names may
@@ -64,53 +65,65 @@ NANO_CPUS_PER_CPU = 1_000_000_000
 class DockerJobHandler(JobHandler):
     """Implementation of JobHandler that runs jobs in Docker containers on the AlphaKraken host."""
 
-    def __init__(self, host_mounts_path: Path):
+    def __init__(self, docker_host_view: View[PurePosixPath]):
         """Initialize the docker job handler.
 
         Args:
-            host_mounts_path: Path of the mounts folder as seen by the docker host
+            docker_host_view: The data directories as seen by the docker host
                 (not by the containers)
 
         """
         super().__init__()
         self._client = docker.from_env()
-        self._host_mounts_path = host_mounts_path
+        self._docker_host_view = docker_host_view
 
-    def start_job(self, environment: dict[str, str]) -> str:
+    def start_job(self, quanting_env: QuantingEnv) -> str:
         """Start a job by running a container on the AlphaKraken host.
 
         Args:
-            environment: Environment variables containing quanting configuration
+            quanting_env: Environment of the job to submit
 
         Returns:
             Job ID (in the case of this handler, the short container id)
 
         """
-        image = self._get_image(environment[QuantingEnv.SOFTWARE])
+        image = self._get_image(quanting_env.software)
         # None makes docker use the command defined in the image
-        command = shlex.split(environment[QuantingEnv.CONFIG_PARAMS]) or None
+        command = shlex.split(quanting_env.config_params) or None
 
-        internal_raw_file_path = Path(environment[QuantingEnv.INTERNAL_RAW_FILE_PATH])
-        internal_output_path = Path(environment[QuantingEnv.INTERNAL_OUTPUT_PATH])
+        internal_raw_file_path = AIRFLOW_CONTAINER_VIEW.resolve(
+            Locations.BACKUP, quanting_env.relative_raw_file_path
+        )
+        internal_output_path = AIRFLOW_CONTAINER_VIEW.resolve(
+            Locations.OUTPUT, quanting_env.relative_output_path
+        )
         for path in (internal_raw_file_path, internal_output_path):
             if not path.exists():
                 raise AirflowFailException(f"Path {path} does not exist in the worker.")
 
         container_name = _to_container_name(
-            f"{CONTAINER_NAME_PREFIX}-{environment[QuantingEnv.SOFTWARE_TYPE]}-"
-            f"{environment[QuantingEnv.RAW_FILE_ID]}"
+            f"{CONTAINER_NAME_PREFIX}-{quanting_env.software_type}-"
+            f"{quanting_env.raw_file_id}"
         )
         self._remove_container(container_name)
 
-        # bind at the paths the placeholders in the config params resolved to, so that the same
-        # config params work for this engine and for Slurm
+        # target: where the substituted config params point, i.e. the runner's `view`
+        # source: the same file as the docker daemon addresses it, i.e. below `MOUNTS_PATH`
         volumes = {
-            str(self._to_host_path(internal_raw_file_path)): {
-                "bind": environment[QuantingEnv.RAW_FILE_PATH],
+            str(
+                self._docker_host_view.resolve(
+                    Locations.BACKUP, quanting_env.relative_raw_file_path
+                )
+            ): {
+                "bind": quanting_env.raw_file_path,
                 "mode": "ro",
             },
-            str(self._to_host_path(internal_output_path)): {
-                "bind": environment[QuantingEnv.OUTPUT_PATH],
+            str(
+                self._docker_host_view.resolve(
+                    Locations.OUTPUT, quanting_env.relative_output_path
+                )
+            ): {
+                "bind": quanting_env.output_path,
                 "mode": "rw",
             },
         }
@@ -126,16 +139,15 @@ class DockerJobHandler(JobHandler):
             name=container_name,
             volumes=volumes,
             # the same variables that the Slurm engine exports before the job script
-            environment=_exported_environment(environment),
+            environment=_exported_environment(quanting_env.to_dict()),
             labels={
-                JOB_LABEL: environment[QuantingEnv.RAW_FILE_ID],
+                JOB_LABEL: quanting_env.raw_file_id,
                 OUTPUT_PATH_LABEL: str(internal_output_path),
             },
             # write output files with the same ownership as the worker would
             user=f"{os.getuid()}:0",
-            mem_limit=str(environment[QuantingEnv.SLURM_MEM]).lower(),
-            nano_cpus=int(environment[QuantingEnv.SLURM_CPUS_PER_TASK])
-            * NANO_CPUS_PER_CPU,
+            mem_limit=quanting_env.slurm_mem.lower(),
+            nano_cpus=quanting_env.slurm_cpus_per_task * NANO_CPUS_PER_CPU,
             # the quanting software must not need any network access
             network_mode="none",
         )
@@ -181,19 +193,6 @@ class DockerJobHandler(JobHandler):
             ) from e
 
         return image
-
-    def _to_host_path(self, internal_path: Path) -> Path:
-        """Translate a path within the worker container to the corresponding host path.
-
-        This trick enables to access the files on the container file system with the same paths as on the shared file system.
-
-        E.g. /opt/airflow/mounts/output/P1/out_file.raw/custom
-        -> /home/kraken-user/alphakraken/production/mounts/output/P1/out_file.raw/custom
-        for `locations.general.mounts_path: /home/kraken-user/alphakraken/production/mounts`.
-        """
-        return self._host_mounts_path / internal_path.relative_to(
-            InternalPaths.MOUNTS_PATH
-        )
 
     def _get_container(self, job_id: str) -> Container | None:
         """Get the container with the given id, None if it does not exist (anymore)."""
@@ -245,7 +244,7 @@ def _to_container_name(name: str) -> str:
     return re.sub(_FORBIDDEN_CONTAINER_NAME_CHARACTERS_PATTERN, "_", name)
 
 
-def _exported_environment(environment: dict[str, str]) -> dict[str, str]:
+def _exported_environment(environment: dict) -> dict[str, str]:
     """Get the variables to set in the container, ignoring keys with leading underscore."""
     return {k: str(v) for k, v in environment.items() if not k.startswith("_")}
 

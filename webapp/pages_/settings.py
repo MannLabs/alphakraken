@@ -16,6 +16,7 @@ from service.db import (
     get_settings_data,
 )
 from service.query_params import get_all_query_params
+from service.settings_validation import check_runner_supports_software_type
 from service.utils import (
     DISABLE_WRITE,
     _log,
@@ -25,6 +26,11 @@ from service.utils import (
     show_success_toast,
 )
 
+from shared.config_params import (
+    PLACEHOLDER_DESCRIPTIONS,
+    check_for_unknown_placeholders,
+    substitute_dummy_values,
+)
 from shared.db.interface import archive_settings, create_settings
 from shared.db.models import ProjectSettings, ProjectStatus, SettingsStatus
 from shared.keys import (
@@ -34,9 +40,10 @@ from shared.keys import (
     MetricsTypes,
     SoftwareTypes,
 )
+from shared.runners import RUNNERS
 from shared.validation import check_for_malicious_content
 
-SHOW_JOB_ENGINE_SELECT = True
+SHOW_RUNNER_SELECT = True
 
 _log(f"loading {__file__} {get_all_query_params()}")
 # ########################################### PAGE HEADER
@@ -129,6 +136,12 @@ with c1.expander("Click here for help ..."):
 
 c1.markdown("## Create / update settings")
 
+if not RUNNERS:
+    c1.warning(
+        "No runners are declared in `alphakraken.yaml`, so no settings can be created."
+    )
+    st.stop()
+
 # only active settings beyond this point
 if len(settings_df):
     settings_df = settings_df[settings_df["status"] == SettingsStatus.ACTIVE]
@@ -168,7 +181,7 @@ if selected_name_option != CREATE_NEW_OPTION:
         "description": str(latest_settings.get("description", "")),
         "software": str(latest_settings.get("software", "")),
         "software_type": str(latest_settings.get("software_type", "")),
-        "job_engine": str(latest_settings.get("job_engine", "")),
+        "runner_name": str(latest_settings.get("runner_name", "")),
         "fasta_file_name": str(latest_settings.get("fasta_file_name", "")),
         "speclib_file_name": str(latest_settings.get("speclib_file_name", "")),
         "config_file_name": str(latest_settings.get("config_file_name", "")),
@@ -303,16 +316,16 @@ else:
             "label": "Executable*",
             "max_chars": 64,
             "placeholder": "e.g. 'custom-software/custom-executable1.2.3'",
-            # "help": f"Path to executable, relative to `{get_path(YamlKeys.Locations.SOFTWARE)}/`. Ask an administrator to add the executable to the software folder. "
+            # TODO: reimplement using the actual software path, cf. the runner's `view.software`
             "help": "Path to executable, relative to the software folder. Ask an administrator to add the executable to the software folder. "
             f"If something that is in the `$PATH` should be executed, it needs to be wrapped by a shell script located in the software folder. "
-            f"For the `{JobEngines.DOCKER}` execution engine, this is a docker image name instead, e.g. `alphakraken-msqc`. "
+            f"For a runner with the `{JobEngines.DOCKER}` engine, this is a docker image name instead, e.g. `alphakraken-msqc`. "
             f"The image must already be present on the worker host, ask an administrator to add it.",
         },
         "config_params": {
             "label": "Configuration parameters",
             "max_chars": 2048,
-            "placeholder": "e.g. '--qvalue 0.01 --f RAW_FILE_PATH --lib LIBRARY_PATH --fasta FASTA_PATH --temp OUTPUT_PATH --threads NUM_THREADS'",
+            "placeholder": "e.g. '--qvalue 0.01 --f {{RAW_FILE_PATH}} --lib {{SETTINGS_PATH}}/library.speclib --fasta {{SETTINGS_PATH}}/human.fasta --temp {{OUTPUT_PATH}} --threads {{NUM_THREADS}}'",
             "help": "Configuration options for the custom software. Certain placeholders will be substituted.",
         },
     }
@@ -368,53 +381,58 @@ with c1.form("create_settings"):
         else None
     )
 
-    if software_type == SoftwareTypes.CUSTOM:
-        # TODO: resolve those paths
+    if "config_params" in form_items:
+        placeholder_list = "\n".join(
+            f"- `{{{{{placeholder}}}}}`: {description}"
+            for placeholder, description in PLACEHOLDER_DESCRIPTIONS.items()
+        )
+        # TODO: resolve those paths (e.g. the runner's `view.backup`)
         st.info(
             "The following placeholders can be used in the config parameters, and will be replaced by the specified values:\n\n"
-            "- `PROJECT_ID`: project id\n\n"
-            "- `RAW_FILE_ID`: name of the raw file\n"
-            "- `RAW_FILE_PATH`: absolute path of the raw file\n"
-            "- `RELATIVE_RAW_FILE_PATH`: path of the raw file relative to `locations.backup.absolute_path` in alphakraken.yaml\n"
-            "- `SETTINGS_PATH`: absolute path of the settings directory\n"
-            "- `OUTPUT_PATH`: absolute path of the output directory\n"
-            "- `RELATIVE_OUTPUT_PATH`: path of the output directory relative to `locations.output.absolute_path` in alphakraken.yaml\n"
-            "- `NUM_THREADS`: number of threads\n"
+            f"{placeholder_list}\n\n"
             "Notes:\n"
-            "- The working directory of the custom software is `OUTPUT_PATH`.\n"
+            "- The working directory of the software is `{{OUTPUT_PATH}}`.\n"
             "- If you require more than the provided placeholders, reference them directly by their absolute path.\n"
             "- If something that is in the `$PATH` should be executed (e.g. `apptainer`), wrap it in a shell script and place it in the software folder.\n"
         )
+
+    if software_type == SoftwareTypes.CUSTOM:
         with st.expander("Example for DIANN..."):
             st.write("Executable: `diann/diann-linux`")
             st.code(
-                "--f RAW_FILE_PATH --lib SETTINGS_PATH/library.speclib --fasta SETTINGS_PATH/human.fasta --temp OUTPUT_PATH --threads NUM_THREADS --qvalue 0.01"
+                "--f {{RAW_FILE_PATH}} --lib {{SETTINGS_PATH}}/library.speclib --fasta {{SETTINGS_PATH}}/human.fasta --temp {{OUTPUT_PATH}} --threads {{NUM_THREADS}} --qvalue 0.01"
             )
         with st.expander("Example for Spectronaut..."):
             st.write("Executable: `run_spectronaut.sh` (cf. folder `misc/software`)")
             st.code(
-                "direct -n alphakraken -r RAW_FILE_PATH -fasta SETTINGS_PATH/human.fasta -o OUTPUT_PATH -s /path/to/settings/alphakraken.prop"
+                "direct -n alphakraken -r {{RAW_FILE_PATH}} -fasta {{SETTINGS_PATH}}/human.fasta -o {{OUTPUT_PATH}} -s /path/to/settings/alphakraken.prop"
             )
 
     st.write(r"\* Required fields")
     if software_type == SoftwareTypes.ALPHADIA:
         st.write(r"\** At least one of the two must be given")
 
-    if SHOW_JOB_ENGINE_SELECT:
-        job_engine_options = JobEngines.get_values()
-        job_engine_index = (
-            job_engine_options.index(prefill_data["job_engine"])
-            if prefill_data["job_engine"] in job_engine_options
-            else job_engine_options.index(JobEngines.SLURM)
+    runner_names = list(RUNNERS)
+    if SHOW_RUNNER_SELECT:
+        prefilled_runner_name = prefill_data["runner_name"]
+        if prefilled_runner_name and prefilled_runner_name not in runner_names:
+            st.warning(
+                f"Runner `{prefilled_runner_name}` of the previous version is not declared in "
+                f"`alphakraken.yaml` anymore, using `{runner_names[0]}`."
+            )
+        runner_index = (
+            runner_names.index(prefilled_runner_name)
+            if prefilled_runner_name in runner_names
+            else 0
         )
-        job_engine = st.selectbox(
-            label="Execution engine",
-            options=job_engine_options,
-            index=job_engine_index,
-            help="The engine used to run the quanting job.",
+        runner_name = st.selectbox(
+            label="Runner",
+            options=runner_names,
+            index=runner_index,
+            help="Where the quanting job runs, cf. `runners` in `alphakraken.yaml`.",
         )
     else:
-        job_engine = JobEngines.SLURM
+        runner_name = runner_names[0]
 
     with st.expander("Resource parameters"):
         st.info(
@@ -451,7 +469,7 @@ with c1.form("create_settings"):
             value=int(
                 prefill_data["num_threads"] or resource_params_defaults.num_threads
             ),
-            help="Use for 'alphadia' and 'custom' (through NUM_THREADS placeholder)",
+            help="Use for 'alphadia' and 'custom' (through {{NUM_THREADS}} placeholder)",
         )
 
     st.markdown("### Upload files to settings folder")
@@ -502,14 +520,18 @@ if submit:
     ]:
         if to_validate:
             validation_errors.extend(check_for_malicious_content(to_validate))
-    if job_engine == JobEngines.DOCKER and software_type != SoftwareTypes.CUSTOM:
-        validation_errors.append(
-            f"The `{JobEngines.DOCKER}` execution engine is only supported for software type "
-            f"`{SoftwareTypes.CUSTOM}`."
-        )
+    validation_errors.extend(
+        check_runner_supports_software_type(runner_name, software_type)
+    )
     if config_params:
+        # TODO: warn on bare (RAW_FILE_PATH) and half-open ({{RAW_FILE_PATH) placeholders,
+        # they currently pass validation and fail silently at runtime
+        placeholder_errors = check_for_unknown_placeholders(config_params)
         validation_errors.extend(
-            check_for_malicious_content(config_params, allow_spaces=True)
+            placeholder_errors
+            or check_for_malicious_content(
+                substitute_dummy_values(config_params), allow_spaces=True
+            )
         )
     if slurm_mem:
         validation_errors.extend(check_for_malicious_content(slurm_mem))
@@ -549,7 +571,7 @@ if submit:
             config_params=config_params,
             software_type=empty_to_none(software_type),
             software=empty_to_none(software),
-            job_engine=job_engine,
+            runner_name=runner_name,
             metrics_type=metrics_type,
             slurm_cpus_per_task=slurm_cpus_per_task,
             slurm_mem=empty_to_none(slurm_mem),

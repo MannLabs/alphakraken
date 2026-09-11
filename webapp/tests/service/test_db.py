@@ -3,7 +3,7 @@
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
-from service.db import df_from_db_data, get_output_folders
+from service.db import df_from_db_data, get_full_raw_file_data, get_output_folders
 
 
 def test_df_from_db_data() -> None:
@@ -40,11 +40,13 @@ def test_df_from_db_data_all_parameters() -> None:
     pd.testing.assert_frame_equal(expected_data, result)
 
 
+@patch("service.db.get_display_output_path", side_effect=lambda p: f"/out/{p}")
 @patch("service.db.connect_db")
 @patch("service.db.Metrics")
 def test_get_output_folders(
     mock_metrics: MagicMock,
     mock_connect_db: MagicMock,  # noqa: ARG001
+    mock_get_display_output_path: MagicMock,  # noqa: ARG001
 ) -> None:
     """Test that get_output_folders returns one row per metrics doc, respecting the N:1 relation."""
     m1, m2, m3 = MagicMock(), MagicMock(), MagicMock()
@@ -53,14 +55,14 @@ def test_get_output_folders(
         "settings_name": "s1",
         "settings_version": 1,
         "type": "alphadia",
-        "output_path": "/out/f1/alphadia",
+        "relative_output_path": "f1/alphadia",
     }
     m2.to_mongo.return_value = {
         "raw_file": "f2",
         "settings_name": "s1",
         "settings_version": 1,
         "type": "alphadia",
-        "output_path": "/out/f2/alphadia",
+        "relative_output_path": "f2/alphadia",
     }
     # same raw file f1 run with different settings -> its own output folder
     m3.to_mongo.return_value = {
@@ -68,7 +70,7 @@ def test_get_output_folders(
         "settings_name": "s2",
         "settings_version": 3,
         "type": "custom",
-        "output_path": "/out/f1/custom",
+        "relative_output_path": "f1/custom",
     }
     mock_metrics.objects.filter.return_value.only.return_value = [m1, m2, m3]
 
@@ -113,3 +115,25 @@ def test_get_output_folders_no_metrics(
         "type",
         "output_path",
     ]
+
+
+@patch("service.db.get_display_backup_path", side_effect=lambda r: f"/backup/{r.id}")
+@patch("service.db.connect_db")
+@patch("service.db.RawFile")
+def test_get_full_raw_file_data_adds_the_backup_path(
+    mock_raw_file: MagicMock,
+    mock_connect_db: MagicMock,  # noqa: ARG001
+    mock_get_display_backup_path: MagicMock,  # noqa: ARG001
+) -> None:
+    """Test that each row carries the display path of its backup folder."""
+    r1, r2 = MagicMock(id="f1"), MagicMock(id="f2")
+    r1.to_mongo.return_value = {"_id": "f1", "created_at_": 1}
+    r2.to_mongo.return_value = {"_id": "f2", "created_at_": 2}
+    mock_raw_file.objects.filter.return_value = [r1, r2]
+
+    # when
+    result = get_full_raw_file_data(["f1", "f2"])
+
+    # then
+    mock_raw_file.objects.filter.assert_called_once_with(id__in=["f1", "f2"])
+    assert result["backup_path"].tolist() == ["/backup/f1", "/backup/f2"]

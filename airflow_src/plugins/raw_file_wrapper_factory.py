@@ -17,7 +17,7 @@ from typing import Union
 from airflow.exceptions import AirflowFailException
 from common.keys import InstrumentKeys
 from common.paths import (
-    get_internal_backup_path_for_instrument,
+    get_internal_backup_path,
     get_internal_instrument_data_path,
 )
 from common.settings import (
@@ -25,8 +25,9 @@ from common.settings import (
     get_instrument_settings,
 )
 
-from shared.db.models import RawFile, get_created_at_year_month
+from shared.db.models import RawFile
 from shared.keys import InstrumentTypes
+from shared.path_layout import get_raw_file_folder_rel_path
 
 MONITOR = "monitor"
 COPIER = "copier"
@@ -188,7 +189,7 @@ class PathProvider(ABC):
 
     def __init__(self, instrument_id: str, raw_file: RawFile):
         """Initialize the PathProvider."""
-        self._instrument_id = instrument_id
+        self._instrument_id = instrument_id  # TODO: no need to pass this, stored in raw_file.instrument_id
         self._raw_file = raw_file
 
     @abstractmethod
@@ -219,9 +220,7 @@ class CopyPathProvider(
 
     def get_target_folder_path(self) -> Path:
         """See docu of superclass."""
-        return get_internal_backup_path_for_instrument(
-            self._instrument_id
-        ) / get_created_at_year_month(self._raw_file)
+        return get_internal_backup_path() / get_raw_file_folder_rel_path(self._raw_file)
 
     def get_source_file_name(self) -> str:
         """See docu of superclass."""

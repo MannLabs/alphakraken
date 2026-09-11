@@ -12,7 +12,6 @@ Note that some parts of the system rely on convention, so make sure to use exact
     type: <INSTRUMENT_TYPE>
     username: <username for instrument>
     mount_src: //<ip address of instrument>/<INSTRUMENT_ID>
-    mount_target: instruments/<INSTRUMENT_ID>
 ```
 Here, `<INSTRUMENT_TYPE>` is one of the keys defined in the `InstrumentKeys` class (`thermo`, `bruker`, `sciex`) and determines
 what output is expected from the instrument:

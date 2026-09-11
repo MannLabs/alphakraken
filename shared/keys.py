@@ -28,6 +28,8 @@ class EnvVars(metaclass=ConstantsClass):
 
     KRAKEN_HOSTNAME = "KRAKEN_HOSTNAME"
 
+    MOUNTS_PATH = "MOUNTS_PATH"
+
     MONGO_HOST = "MONGO_HOST"
     MONGO_PORT = "MONGO_PORT"
     MONGO_USER = "MONGO_USER"
@@ -50,10 +52,6 @@ class InternalPaths(metaclass=ConstantsClass):
 
     MOUNTS_PATH = "/opt/airflow/mounts/"
     ENVS_PATH = "/opt/airflow/envs/"
-
-    INSTRUMENTS = "instruments"
-    BACKUP = "backup"
-    OUTPUT = "output"
 
 
 class SoftwareTypes(metaclass=ConstantsClass):

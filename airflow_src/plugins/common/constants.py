@@ -3,19 +3,15 @@
 # prefix for the queues the DAGs are assigned to (cf. docker-compose.yaml)
 AIRFLOW_QUEUE_PREFIX = "kraken_queue_"
 
-CLUSTER_SSH_CONNECTION_ID_PREFIX = "cluster_ssh_connection"
 CLUSTER_SSH_CONNECTION_TIMEOUT = 60
 CLUSTER_SSH_COMMAND_TIMEOUT = 60
 
-# these are relative to the locations.general.slurm_base_path variable
-DEFAULT_JOB_SCRIPT_NAME = "submit_job.sh"
-CLUSTER_BASE_WORKING_DIR_NAME = "jobs"
+# relative to the `software` location of the runner's view
+SLURM_JOB_SCRIPT_NAME = "submit_slurm_job.sh"
 
 # returned as the elapsed time when it cannot be determined (e.g. sacct unavailable)
 DUMMY_TIME_ELAPSED = "00:00:00"
 
-
-OUTPUT_FOLDER_PREFIX = "out_"
 
 # separator between the timestamp and the raw file id in case of collisions
 COLLISION_FLAG_SEP = "-"

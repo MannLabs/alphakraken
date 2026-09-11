@@ -269,46 +269,50 @@ def _prepare_custom_command(settings: Settings, substituted_params: str) -> str:
     return custom_command
 
 
+# TODO: revisit validation: which fields need which check, and where (webapp vs. here)
+# user-controlled fields, checked strictly (no spaces, no absolute paths)
+_STRICTLY_CHECKED_FIELDS = (
+    "relative_raw_file_path",
+    "relative_output_path",
+    "speclib_file_name",
+    "fasta_file_name",
+    "config_file_name",
+    "software_type",
+    "metrics_type",
+    "raw_file_id",
+    "project_id",
+    "settings_name",
+    "year_month_folder",
+    "slurm_mem",
+)
+
+# composed of a yaml base path (admin configuration) and fields checked above, e.g.
+# `output_path` = output base + `relative_output_path`; `software` is checked separately
+_UNCHECKED_FIELDS = (
+    "raw_file_path",
+    "settings_path",
+    "output_path",
+    "custom_command",
+    "config_params",
+    "slurm_time",  # contains ":", validated in the webapp
+    "job_engine",  # selectbox value, dispatch only, not exported to the job
+)
+
+
 def _check_content(quanting_env: QuantingEnv, settings: Settings) -> list[str]:
-    """Validate the fields in the quanting environment don't contain malicious content."""
-    absolute_path_allowed_fields = [
-        "raw_file_path",
-        "settings_path",
-        "output_path",
-        "software",
-    ]
-    # these hold resolved paths and are space-separated, so they need the laxer checks
-    space_allowed_fields = ["custom_command", "config_params"]
-
-    fields = quanting_env.model_dump()
-
+    """Validate the user-controlled fields of the quanting environment don't contain malicious content."""
     errors = []
-    for field, value in fields.items():
-        if (
-            value
-            and field
-            not in [
-                *space_allowed_fields,  # validated below
-                "slurm_time",  # contains ":", validated in webapp
-            ]
-            and isinstance(value, str)
-            and (
-                errors_ := check_for_malicious_content(
-                    value, allow_absolute_paths=field in absolute_path_allowed_fields
-                )
-            )
-        ):
+    for field in _STRICTLY_CHECKED_FIELDS:
+        value = getattr(quanting_env, field)
+        if value and (errors_ := check_for_malicious_content(value)):
             errors.append(f"Validation error in '{value}': {errors_}")
 
-    for field in space_allowed_fields:
-        if fields[field]:
-            errors.extend(
-                check_for_malicious_content(
-                    str(fields[field]),
-                    allow_spaces=True,
-                    allow_absolute_paths=True,
-                )
-            )
+    # an absolute `software` is a valid config. # TODO: double-check
+    if errors_ := check_for_malicious_content(
+        quanting_env.software, allow_absolute_paths=True
+    ):
+        errors.append(f"Validation error in '{quanting_env.software}': {errors_}")
+
     if settings.config_params:
         errors.extend(
             check_for_malicious_content(

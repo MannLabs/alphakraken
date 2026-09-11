@@ -58,13 +58,13 @@ fields incl. `slurm_mem` (`runner` is added in T5); `software` with `allow_absol
 `TODO: revisit validation ...` above the list. `shared/validation.py` untouched.
 
 **Acceptance criteria:**
-- [ ] Still rejects `..`, `;`, `$` in relative paths, file names, `software`, `slurm_mem`, `config_params` (7.2 second half).
-- [ ] A `QuantingEnv` with `raw_file_path='\\server\share\x.raw'`, `output_path='Z:\out'` and posix relative parts returns no errors.
-- [ ] Every new branch covered (7.9).
+- [x] Still rejects `..`, `;`, `$` in relative paths, file names, `software`, `slurm_mem`, `config_params` (7.2 second half).
+- [x] A `QuantingEnv` with `raw_file_path='\\server\share\x.raw'`, `output_path='Z:\out'` and posix relative parts returns no errors.
+- [x] Every new branch covered (7.9).
 
 **Verification:**
-- [ ] `pytest airflow_src/tests/dags/impl/test_processor_impl.py -k check_content`
-- [ ] `pytest airflow_src`
+- [x] `pytest airflow_src/tests/dags/impl/test_processor_impl.py -k check_content`
+- [x] `pytest airflow_src`
 
 **Dependencies:** None
 **Files:** `airflow_src/dags/impl/processor_impl.py`, `airflow_src/tests/dags/impl/test_processor_impl.py`

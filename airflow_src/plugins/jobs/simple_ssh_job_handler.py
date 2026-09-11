@@ -192,12 +192,12 @@ class SimpleSSHJobHandler(JobHandler):
             Job ID (in the case of this handler, the process id of the launcher)
 
         """
-        local_output_path = AIRFLOW_CONTAINER_VIEW.resolve(
+        internal_output_path = AIRFLOW_CONTAINER_VIEW.resolve(
             Locations.OUTPUT, quanting_env.relative_output_path
         )
-        if not local_output_path.exists():
+        if not internal_output_path.exists():
             raise AirflowFailException(
-                f"Path {local_output_path} does not exist in the worker."
+                f"Path {internal_output_path} does not exist in the worker."
             )
         remote_output_path = self._output_dir / quanting_env.relative_output_path
 
@@ -206,7 +206,7 @@ class SimpleSSHJobHandler(JobHandler):
             remote_output_path,
             quanting_env.custom_command,
         )
-        launcher_path = local_output_path / self._dialect.launcher_file_name
+        launcher_path = internal_output_path / self._dialect.launcher_file_name
         # newline="" keeps the dialect's line endings
         launcher_path.write_text(script, newline="")
         logging.info(

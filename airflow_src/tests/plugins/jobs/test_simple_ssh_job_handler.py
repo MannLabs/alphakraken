@@ -49,7 +49,7 @@ def sample_quanting_env(
 
 
 @pytest.fixture
-def local_output_path(tmp_path: Path) -> Iterator[Path]:
+def internal_output_path(tmp_path: Path) -> Iterator[Path]:
     """Create the job's output folder in a worker view rooted at `tmp_path`."""
     view = View("test", {Locations.OUTPUT: str(tmp_path)}, Path)
     output_path = tmp_path / RELATIVE_OUTPUT_PATH
@@ -181,7 +181,7 @@ class TestStartJob:
         self,
         mock_ssh_execute: MagicMock,
         sample_quanting_env: QuantingEnv,
-        local_output_path: Path,
+        internal_output_path: Path,
     ) -> None:
         """Test that the launcher lands in the output folder and the job id carries pid and folder."""
         mock_ssh_execute.return_value = "some noise\n4711"
@@ -190,7 +190,7 @@ class TestStartJob:
         job_id = _handler().start_job(sample_quanting_env)
 
         assert job_id == JOB_ID
-        launcher = local_output_path / "_alphakraken_job.sh"
+        launcher = internal_output_path / "_alphakraken_job.sh"
         assert launcher.exists()
         assert CUSTOM_COMMAND in launcher.read_text()
 
@@ -205,7 +205,7 @@ class TestStartJob:
         self,
         mock_ssh_execute: MagicMock,
         sample_quanting_env: QuantingEnv,
-        local_output_path: Path,
+        internal_output_path: Path,
     ) -> None:
         """Test that a windows runner gets a `.cmd` launcher with CRLF preserved on disk."""
         mock_ssh_execute.return_value = "4711"
@@ -214,7 +214,7 @@ class TestStartJob:
         job_id = _handler(OperatingSystems.WINDOWS).start_job(sample_quanting_env)
 
         assert job_id == JOB_ID
-        launcher = local_output_path / "_alphakraken_job.cmd"
+        launcher = internal_output_path / "_alphakraken_job.cmd"
         assert b"\r\n" in launcher.read_bytes()
 
         command = mock_ssh_execute.call_args.args[0]
@@ -229,7 +229,7 @@ class TestStartJob:
         self,
         mock_ssh_execute: MagicMock,
         sample_quanting_env: QuantingEnv,
-        local_output_path: Path,  # noqa: ARG002
+        internal_output_path: Path,  # noqa: ARG002
     ) -> None:
         """Test that a last stdout line that is not a process id fails the job."""
         mock_ssh_execute.return_value = "sh: not found"

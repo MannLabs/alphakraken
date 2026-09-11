@@ -82,7 +82,7 @@ def _to_metrics_list(raw_file_data: dict[str, Any]) -> list[dict[str, Any]]:
             value["gradient_length"] = value.pop("raw:gradient_length_m")
 
         if (relative_output_path := value.get("relative_output_path")) is not None:
-            value[OUTPUT_PATH_KEY] = str(get_display_output_path(relative_output_path))
+            value[OUTPUT_PATH_KEY] = get_display_output_path(relative_output_path)
 
         metrics_list.append(
             {k: v for k, v in value.items() if k not in METRICS_EXCLUDED_KEYS}
@@ -156,6 +156,6 @@ def get_raw_files_with_metrics(  # noqa: PLR0913
 
     if include_file_info:
         for raw_file, result in zip(raw_files, results, strict=True):
-            result[BACKUP_PATH_KEY] = str(get_display_backup_path(raw_file))
+            result[BACKUP_PATH_KEY] = get_display_backup_path(raw_file)
 
     return results, total

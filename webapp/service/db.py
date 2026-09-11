@@ -158,9 +158,7 @@ def get_full_raw_file_data(raw_file_ids: list[str]) -> pd.DataFrame:
     _log(f"Done retrieving all raw file data for {raw_file_ids}")
 
     df = df_from_db_data(raw_files_db)
-    df["backup_path"] = [
-        str(get_display_backup_path(raw_file)) for raw_file in raw_files_db
-    ]
+    df["backup_path"] = [get_display_backup_path(raw_file) for raw_file in raw_files_db]
     return df
 
 
@@ -190,7 +188,7 @@ def get_output_folders(raw_file_ids: list[str]) -> pd.DataFrame:
                 "type": doc.get("type"),
                 "output_path": None
                 if relative_output_path is None
-                else str(get_display_output_path(relative_output_path)),
+                else get_display_output_path(relative_output_path),
             }
         )
 

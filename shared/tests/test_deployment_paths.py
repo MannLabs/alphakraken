@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from shared.display_paths import _REQUIRED_LOCATIONS, _build_display_view
+from shared.display_paths import _REQUIRED_LOCATIONS, _build_display_paths
 from shared.keys import InternalPaths, JobEngines
 from shared.path_views import AIRFLOW_CONTAINER_VIEW, Locations
 from shared.runners import _build_runners
@@ -123,10 +123,10 @@ def test_every_mount_is_bound_into_a_container(file_name: str, config: dict) -> 
 @pytest.mark.parametrize(("file_name", "config"), _env_yamls())
 def test_display_paths_are_declared(file_name: str, config: dict) -> None:
     """Test that each environment declares the folders the paths are displayed under."""
-    view = _build_display_view(config)
+    paths = _build_display_paths(config)
 
     for location in _REQUIRED_LOCATIONS:
-        assert str(view.resolve(location)) != ".", f"{file_name}: '{location}'"
+        assert paths[location], f"{file_name}: '{location}'"
 
 
 @pytest.mark.parametrize(("file_name", "config"), _env_yamls())
@@ -138,16 +138,16 @@ def test_runners_are_valid(file_name: str, config: dict) -> None:
 @pytest.mark.parametrize(("file_name", "config"), _env_yamls())
 def test_display_paths_equal_the_slurm_locations(file_name: str, config: dict) -> None:
     """Test that the display paths are the paths the slurm runners see."""
-    display_view = _build_display_view(config)
+    display_paths = _build_display_paths(config)
     runners = _build_runners(config[YamlKeys.RUNNERS])
 
     for runner in runners.values():
         if runner.engine != JobEngines.SLURM:
             continue
         for location in _REQUIRED_LOCATIONS:
-            assert str(runner.view.resolve(location)) == str(
-                display_view.resolve(location)
-            ), f"{file_name}: runner '{runner.name}', '{location}'"
+            assert str(runner.view.resolve(location)) == display_paths[location], (
+                f"{file_name}: runner '{runner.name}', '{location}'"
+            )
 
 
 def test_the_logs_are_not_mounted_below_the_mounts_folder() -> None:

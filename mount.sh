@@ -59,12 +59,11 @@ else
   MOUNT_TARGET="instruments/$ENTITY"
 fi
 
-# sourced in a subshell, so that the rest of the file (credentials, unset placeholders) does not
-# leak into this script's environment
-MOUNTS_PATH=$(set +u; . "envs/${ENV}.env"; echo "$MOUNTS_PATH")
+# read literally: the file is docker-compose KEY=VALUE, not shell, so sourcing it would execute
+# metacharacters in a value, e.g. a password containing `$(`, a backtick or `>`
+MOUNTS_PATH=$(sed -n 's/^MOUNTS_PATH=//p' "envs/${ENV}.env" | tail -1)
 if [ -z "$MOUNTS_PATH" ]; then
-  echo "Could not read MOUNTS_PATH from envs/${ENV}.env."
-  echo "It must be set, and the file must be sourceable: replace every <placeholder> first."
+  echo "Could not read MOUNTS_PATH from envs/${ENV}.env. It must be set."
   exit 1
 fi
 USERNAME=$(get_data $ENTITY_TYPE $ENTITY username)

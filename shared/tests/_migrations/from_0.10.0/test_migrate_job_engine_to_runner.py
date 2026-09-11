@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, call
 import pytest
 
 _SCRIPT = (
-    Path(__file__).parents[1]
+    Path(__file__).parents[3]
     / "_migrations/from_0.10.0/_migrate_job_engine_to_runner.py"
 )
 

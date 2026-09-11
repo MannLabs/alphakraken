@@ -211,9 +211,9 @@ def _create_quanting_env(
         settings_path=str(settings_path),
         output_path=str(output_path),
         relative_output_path=str(relative_output_path),
-        speclib_file_name=settings.speclib_file_name,
-        fasta_file_name=settings.fasta_file_name,
-        config_file_name=settings.config_file_name,
+        speclib_file_name=settings.speclib_file_name,  # TODO: construct path here ?
+        fasta_file_name=settings.fasta_file_name,  # TODO: construct path here ?
+        config_file_name=settings.config_file_name,  # TODO: construct path here ?
         software=settings.software,
         software_type=settings.software_type,
         metrics_type=settings.metrics_type,

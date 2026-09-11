@@ -129,6 +129,41 @@ def test_build_runners_rejects_slurm_runner_without_ssh_prefix() -> None:
         _build_runners([_entry(ssh_connection_id_prefix=...)])
 
 
+def test_build_runners_rejects_simple_ssh_runner_without_ssh_prefix() -> None:
+    """Test that the simple_ssh engine requires the prefix like slurm does."""
+    with pytest.raises(ValueError, match=r"(?s)'box'.*ssh_connection_id_prefix"):
+        _build_runners(
+            [
+                _entry(
+                    name="box",
+                    engine=JobEngines.SIMPLE_SSH,
+                    ssh_connection_id_prefix=...,
+                )
+            ]
+        )
+
+
+def test_build_runners_accepts_windows_simple_ssh_runner() -> None:
+    """Test that the simple_ssh engine runs on windows, with the windows path flavour."""
+    runners = _build_runners(
+        [
+            _entry(
+                name="box",
+                engine=JobEngines.SIMPLE_SSH,
+                os=OperatingSystems.WINDOWS,
+                view={
+                    Locations.BACKUP: r"Z:\backup",
+                    Locations.OUTPUT: r"Z:\output",
+                    Locations.SETTINGS: r"Z:\settings",
+                    Locations.SOFTWARE: r"C:\software",
+                },
+            )
+        ]
+    )
+
+    assert isinstance(runners["box"].view.resolve(Locations.OUTPUT), PureWindowsPath)
+
+
 def test_build_runners_treats_macos_like_linux() -> None:
     """Test that a macos runner gets the posix path flavour."""
     runners = _build_runners([_entry(), _entry(name="mac", os=OperatingSystems.MACOS)])

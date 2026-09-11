@@ -391,6 +391,29 @@ hanging container is monitored indefinitely.
 - Containers are kept after they exited so that their logs and exit code can be read. Clean them up
 occasionally with `docker container prune --filter label=alphakraken.job`.
 
+### Standalone deployment on a machine reachable via SSH
+For a plain machine without Slurm and without Docker, use a runner with the `simple_ssh` engine.
+The executable named in the `software` field is run directly on that machine as a background process; its output goes to `log.txt` in the job's output folder,
+its exit code to `.alphakraken_exit_code` next to it.
+
+Prerequisites:
+1. Airflow SSH connections to the machine, their ids starting with the runner's `ssh_connection_id_prefix`,
+cf. [Setup SSH connection](#setup-ssh-connection). On Windows, the OpenSSH server is required; its default
+shell may be `cmd.exe`, PowerShell or git-bash.
+2. The `output` and `backup` folders mounted on the machine at the paths given in the runner's `view`.
+3. Settings entries on this runner use software type `custom`, with `software`
+pointing to the executable as reachable from the machine via the path configured in the `software` view.
+
+Limitations:
+   - no concurrency or resource control: the `slurm_*` resource parameters are ignored, concurrency is bounded by the
+`cluster_slots_pool` only.
+- on Windows, the reported `time_elapsed` is always 0.
+
+To smoke-test the setup before pointing it at real software, put `misc/software/run_dummy.sh` (executable,
+`misc/software/run_dummy.cmd` on Windows) into the runner's `software` folder and use it as the `software` of
+a settings entry: it logs the arguments, the environment and the mounted paths, sleeps, and writes a `metrics.csv`.
+
+
 ### Metrics reported by the quanting software
 Independently of the software type and runner, the quanting software can report metrics itself
 by writing a `metrics.csv` file into its output folder. AlphaKraken reads that file after the job finished and

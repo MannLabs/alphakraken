@@ -354,48 +354,49 @@ else:
         },
     }
 
+# outside the form, so that the required files and software below follow the input without a submit
+# Show input field for new name or use selected name
+if selected_name_option == CREATE_NEW_OPTION:
+    name = c1.text_input(
+        label=form_items["name"]["label"],
+        max_chars=form_items["name"]["max_chars"],
+        placeholder=form_items["name"]["placeholder"],
+        help=form_items["name"]["help"],
+    )
+else:
+    name = selected_name_option
+    c1.text(f"Settings name: {name}")
+
+description = c1.text_area(
+    **form_items["description"], value=prefill_data["description"]
+)
+
+software = c1.text_input(**form_items["software"], value=prefill_data["software"])
+
+fasta_file_name = (
+    c1.text_input(
+        **form_items["fasta_file_name"], value=prefill_data["fasta_file_name"]
+    )
+    if "fasta_file_name" in form_items
+    else None
+)
+speclib_file_name = (
+    c1.text_input(
+        **form_items["speclib_file_name"], value=prefill_data["speclib_file_name"]
+    )
+    if "speclib_file_name" in form_items
+    else None
+)
+
+config_file_name = (
+    c1.text_input(
+        **form_items["config_file_name"], value=prefill_data["config_file_name"]
+    )
+    if "config_file_name" in form_items
+    else None
+)
+
 with c1.form("create_settings"):
-    # Show input field for new name or use selected name
-    if selected_name_option == CREATE_NEW_OPTION:
-        name = st.text_input(
-            label=form_items["name"]["label"],
-            max_chars=form_items["name"]["max_chars"],
-            placeholder=form_items["name"]["placeholder"],
-            help=form_items["name"]["help"],
-        )
-    else:
-        name = selected_name_option
-        st.text(f"Settings name: {name}")
-
-    description = st.text_area(
-        **form_items["description"], value=prefill_data["description"]
-    )
-
-    software = st.text_input(**form_items["software"], value=prefill_data["software"])
-
-    fasta_file_name = (
-        st.text_input(
-            **form_items["fasta_file_name"], value=prefill_data["fasta_file_name"]
-        )
-        if "fasta_file_name" in form_items
-        else None
-    )
-    speclib_file_name = (
-        st.text_input(
-            **form_items["speclib_file_name"], value=prefill_data["speclib_file_name"]
-        )
-        if "speclib_file_name" in form_items
-        else None
-    )
-
-    config_file_name = (
-        st.text_input(
-            **form_items["config_file_name"], value=prefill_data["config_file_name"]
-        )
-        if "config_file_name" in form_items
-        else None
-    )
-
     config_params = (
         st.text_area(
             **form_items["config_params"],
@@ -480,21 +481,33 @@ with c1.form("create_settings"):
             help="Use for 'alphadia' and 'custom' (through {{NUM_THREADS}} placeholder)",
         )
 
-    st.markdown("### Upload files to settings folder")
+    st.markdown("### Required files and software")
     settings_name_clean = empty_to_none(name)
-    if settings_name_clean:
+    settings_folder = get_display_settings_path(
+        settings_name_clean or SETTINGS_NAME_PLACEHOLDER
+    )
+
+    referenced_files = [
+        file_name
+        for file_name in (fasta_file_name, speclib_file_name, config_file_name)
+        if empty_to_none(file_name)
+    ]
+    if referenced_files:
         st.markdown(
-            "Make sure you have uploaded all referenced files (if any) to "
-            f"`{get_display_settings_path(settings_name_clean)}/`"
-        )
-    else:
-        st.markdown(
-            "After entering a settings name above, upload files to "
-            f"`{get_display_settings_path(SETTINGS_NAME_PLACEHOLDER)}/`"
+            f"Upload these files to `{settings_folder}/`:\n"
+            + "\n".join(f"- `{file_name}`" for file_name in referenced_files)
         )
 
-    upload_checkbox = st.checkbox(
-        "I have uploaded all referenced files to this folder.", value=False
+    if empty_to_none(software):
+        st.markdown(
+            f"Make sure the software `{DISPLAY_PATHS[Locations.SOFTWARE]}/{software}` is available, "
+            "ask an administrator if in doubt."
+        )
+
+    upload_checkbox = (
+        st.checkbox("I have uploaded all referenced files to this folder.", value=False)
+        if referenced_files
+        else True
     )
 
     is_update = selected_name_option != CREATE_NEW_OPTION

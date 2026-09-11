@@ -1,14 +1,25 @@
 """Unit tests for the ssh_utils module."""
 
+import base64
 import json
 from unittest.mock import MagicMock, call, patch
 
 import pytest
 from airflow.exceptions import AirflowFailException
 from plugins.common.constants import EXIT_CODE_FILE_NAME, LAUNCHER_SCRIPT_STEM
-from plugins.sensors.ssh_utils import _get_fake_ssh_response, ssh_execute
+from plugins.sensors.ssh_utils import (
+    _decode_powershell_command,
+    _get_fake_ssh_response,
+    ssh_execute,
+)
 
 SSH_PREFIX = "some_cluster_ssh"
+
+
+def _encoded(script: str) -> str:
+    """Get the powershell command a windows handler sends to run `script`."""
+    payload = base64.b64encode(script.encode("utf-16-le")).decode("ascii")
+    return f"powershell -NoProfile -EncodedCommand {payload}"
 
 
 @patch("plugins.sensors.ssh_utils.get_cluster_ssh_hook")
@@ -105,7 +116,8 @@ def test_ssh_execute_too_many_tries(
         ),
         (f'if [ -f "/out/{EXIT_CODE_FILE_NAME}" ]; then', "COMPLETED 1"),
         ('export A="b"\npueue add --print-task-id -- "cmd"', "123"),
-        ("powershell -NoProfile -EncodedCommand cHVldWU=", "123"),
+        (_encoded(f'cmd.exe /c call "/out/{LAUNCHER_SCRIPT_STEM}.cmd"'), "123"),
+        (_encoded("$env:A = 'b'; pueue add --print-task-id -- \"cmd\""), "123"),
     ],
 )
 def test_get_fake_ssh_response_for_simple_ssh_commands(
@@ -113,6 +125,12 @@ def test_get_fake_ssh_response_for_simple_ssh_commands(
 ) -> None:
     """Test that the simple_ssh start and status commands get a pid and a status line."""
     assert _get_fake_ssh_response(command) == expected
+
+
+def test_decode_powershell_command_reveals_the_windows_script() -> None:
+    """Test that the script is read back from the payload, which tells the windows engines apart."""
+    assert _decode_powershell_command(_encoded("pueue add")) == "pueue add"
+    assert _decode_powershell_command("pueue add") == "pueue add"
 
 
 def test_get_fake_ssh_response_for_pueue_status_is_a_done_task() -> None:

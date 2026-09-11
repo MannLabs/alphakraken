@@ -408,7 +408,7 @@ the workers see as their output mount: the job runs in the folder the worker cre
 from the machine.
 4. `pueue` and `pueued` 4.x from the [release page](https://github.com/Nukesor/pueue/releases), installed as
 described in the [pueue docs](https://github.com/Nukesor/pueue#installation), plus:
-   - Linux: put the binaries into `/usr/local/bin` to make them accessible in a a non-interactive SSH session),
+   - Linux: put the binaries into `/usr/local/bin` to make them accessible in a non-interactive SSH session,
      adapt `ExecStart` in `pueued.service`, and run `sudo loginctl enable-linger $USER` so the user service survives logouts.
    - Windows: run `pueued` as a Windows service. It runs as the user logged in at the console, so that must be the
      runner's SSH user (auto-logon on a headless machine). Put the pueue folder on the *machine-wide* `PATH` and

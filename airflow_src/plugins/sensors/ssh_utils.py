@@ -1,5 +1,6 @@
 """Utility functions for SSH operations."""
 
+import base64
 import json
 import logging
 from time import sleep
@@ -9,6 +10,9 @@ from common.constants import EXIT_CODE_FILE_NAME, LAUNCHER_SCRIPT_STEM
 from common.keys import AirflowVars, JobStates
 from common.utils import get_airflow_variable, get_cluster_ssh_hook, truncate_string
 from paramiko.ssh_exception import SSHException
+
+# both the simple_ssh and the pueue engine hide their windows script behind this powershell flag
+_ENCODED_COMMAND_FLAG = "-EncodedCommand "
 
 
 def ssh_execute(
@@ -99,17 +103,18 @@ def _get_fake_ssh_response(command: str) -> str:
         f"Variable {AirflowVars.DEBUG_NO_CLUSTER_SSH} set: Not running SSH command on cluster:\n{command}"
     )
     # very heuristic way to decide which fake response to return
-    if "sbatch" in command:  # run job
+    script = _decode_powershell_command(command)
+    if "sbatch" in script:  # run job
         response = "something\nsomething\n123"
-    elif "TIME_ELAPSED" in command:  # get job info
+    elif "TIME_ELAPSED" in script:  # get job info
         response = f"00:00:01\nsomething\n{JobStates.COMPLETED}"
-    elif LAUNCHER_SCRIPT_STEM in command:  # simple_ssh: run job
+    elif LAUNCHER_SCRIPT_STEM in script:  # simple_ssh: run job
         response = "123"
-    elif EXIT_CODE_FILE_NAME in command:  # simple_ssh: get job info
+    elif EXIT_CODE_FILE_NAME in script:  # simple_ssh: get job info
         response = f"{JobStates.COMPLETED} 1"
-    elif "pueue add" in command or "-EncodedCommand" in command:  # pueue: run job
+    elif "pueue add" in script:  # pueue: run job
         response = "123"
-    elif "pueue status" in command:  # pueue: get job info
+    elif "pueue status" in script:  # pueue: get job info
         response = json.dumps(
             {
                 "tasks": {
@@ -130,3 +135,15 @@ def _get_fake_ssh_response(command: str) -> str:
 
     logging.warning(f"Returning fake response: {response}")
     return response
+
+
+def _decode_powershell_command(command: str) -> str:
+    """Get the script a windows command carries, so the heuristics above match on its content.
+
+    Without this, every `-EncodedCommand` looks alike: the payload is base64 of UTF-16LE.
+    """
+    if _ENCODED_COMMAND_FLAG not in command:
+        return command
+
+    encoded = command.split(_ENCODED_COMMAND_FLAG)[-1]
+    return base64.b64decode(encoded).decode("utf-16-le")

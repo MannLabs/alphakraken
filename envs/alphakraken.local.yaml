@@ -42,10 +42,13 @@ general:
     webapp_url: "http://localhost:8501"
 
 # absolute paths (posix or windows) of the data directories as users see them on the shared file system, cf. path_views.Locations.
-# Not used for the pipeline file operations: only prepended to the location-relative paths for display (webapp, REST API).
+# Not used for the pipeline file operations: only prepended to the location-relative paths for display (webapp, REST API),
+# and shown as the folders to upload settings files to and to place software in.
 display_paths:
   backup: /fs/pool/pool-0/alphakraken_sandbox/backup
   output: /fs/pool/pool-0/alphakraken_sandbox/output
+  settings: /fs/pool/pool-0/alphakraken_sandbox/settings
+  software: /fs/home/kraken-read/software
 
 backup:
   backup_type: local # or 's3'

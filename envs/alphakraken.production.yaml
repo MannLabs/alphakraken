@@ -26,6 +26,8 @@ general:
 display_paths:
   backup: /fs/pool-1/backup
   output: /fs/pool-2/output
+  settings: /fs/pool-2/settings
+  software: /fs/home/kraken-read/software
 
 backup:
   backup_type: local # or 's3'

@@ -79,6 +79,8 @@ def test_converts_a_full_config() -> None:
     assert converted["display_paths"] == {
         "backup": "/fs/backup",
         "output": "/fs/output",
+        "settings": "/fs/settings",
+        "software": "/fs/software",
     }
     assert converted["backup"] == {"backup_type": "local"}
     assert converted["general"] == _config()["general"]

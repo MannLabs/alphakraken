@@ -3,6 +3,7 @@
 import re
 
 from shared.keys import ConstantsClass
+from shared.path_views import Locations
 
 # stand-in for a placeholder value, used where the real values are not known yet
 PLACEHOLDER_DUMMY_VALUE = "dummy"
@@ -24,14 +25,21 @@ class ConfigParamPlaceholders(metaclass=ConstantsClass):
 
 
 PLACEHOLDER_DESCRIPTIONS: dict[str, str] = {
-    ConfigParamPlaceholders.PROJECT_ID: "project id",
-    ConfigParamPlaceholders.RAW_FILE_ID: "name of the raw file",
+    ConfigParamPlaceholders.SETTINGS_PATH: "absolute path of the settings directory, use it to reference the uploaded files",
     ConfigParamPlaceholders.RAW_FILE_PATH: "absolute path of the raw file",
-    ConfigParamPlaceholders.RELATIVE_RAW_FILE_PATH: "path of the raw file relative to the runner's `backup` location",
-    ConfigParamPlaceholders.SETTINGS_PATH: "absolute path of the settings directory",
     ConfigParamPlaceholders.OUTPUT_PATH: "absolute path of the output directory",
-    ConfigParamPlaceholders.RELATIVE_OUTPUT_PATH: "path of the output directory relative to the runner's `output` location",
+    ConfigParamPlaceholders.RAW_FILE_ID: "name of the raw file",
+    ConfigParamPlaceholders.PROJECT_ID: "project id",
     ConfigParamPlaceholders.NUM_THREADS: "number of threads",
+    ConfigParamPlaceholders.RELATIVE_RAW_FILE_PATH: "path of the raw file relative to the runner's `backup` location",
+    ConfigParamPlaceholders.RELATIVE_OUTPUT_PATH: "path of the output directory relative to the runner's `output` location",
+}
+
+# the location each path placeholder is resolved below, cf. `_create_quanting_env`
+PLACEHOLDER_LOCATIONS: dict[str, str] = {
+    ConfigParamPlaceholders.RAW_FILE_PATH: Locations.BACKUP,
+    ConfigParamPlaceholders.SETTINGS_PATH: Locations.SETTINGS,
+    ConfigParamPlaceholders.OUTPUT_PATH: Locations.OUTPUT,
 }
 
 

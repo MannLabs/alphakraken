@@ -1,10 +1,12 @@
 """Tests for the path_views module."""
 
+import os
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from unittest.mock import patch
 
 import pytest
 
+from shared.keys import EnvVars
 from shared.path_views import (
     AIRFLOW_CONTAINER_VIEW,
     Locations,
@@ -105,7 +107,7 @@ def test_container_view_has_only_the_mounted_locations() -> None:
 def test_cluster_view() -> None:
     """Test that the cluster view is built from the absolute paths in the yaml settings."""
     locations = {
-        YamlKeys.Locations.GENERAL: {YamlKeys.Locations.MOUNTS_PATH: "/some/mounts"},
+        YamlKeys.Locations.GENERAL: {},
         Locations.BACKUP: {YamlKeys.ABSOLUTE_PATH: "/some/pool/backup"},
         Locations.SETTINGS: {YamlKeys.ABSOLUTE_PATH: "/some/pool/settings"},
     }
@@ -124,11 +126,7 @@ def test_cluster_view() -> None:
 
 def test_docker_host_view() -> None:
     """Test that the docker host view mirrors the container view below the host mounts path."""
-    locations = {
-        YamlKeys.Locations.GENERAL: {YamlKeys.Locations.MOUNTS_PATH: "/some/mounts"}
-    }
-
-    with patch.dict(YAMLSETTINGS, {YamlKeys.LOCATIONS: locations}):
+    with patch.dict(os.environ, {EnvVars.MOUNTS_PATH: "/some/mounts"}):
         view = _build_docker_host_view()
 
     assert view.resolve(Locations.OUTPUT, "P1/out_some_file.raw") == PurePosixPath(
@@ -137,9 +135,10 @@ def test_docker_host_view() -> None:
     assert not view.has(Locations.SETTINGS)
 
 
-def test_docker_host_view_without_mounts_path_reaches_nothing() -> None:
-    """Test that a missing mounts path yields an empty view, reported only when it is used."""
-    with patch.dict(YAMLSETTINGS, {YamlKeys.LOCATIONS: {}}):
+def test_docker_host_view_without_mounts_env_reaches_nothing() -> None:
+    """Test that an unset `MOUNTS_PATH` yields an empty view, reported only when it is used."""
+    with patch.dict(os.environ):
+        del os.environ[EnvVars.MOUNTS_PATH]
         view = _build_docker_host_view()
 
     assert not view.has(Locations.OUTPUT)

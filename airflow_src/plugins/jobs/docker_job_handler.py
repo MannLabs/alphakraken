@@ -14,7 +14,7 @@ Notes:
     - requires the optional requirements in `requirements_docker_job_engine.txt`.
     - the image must already be present on the host, it is never pulled, cf. `_get_image`.
     - requires the bind mount of the docker socket in docker-compose.yaml (cf. `group_add`).
-    - requires key 'locations.general.mounts_path' in alphakraken.{env}.yaml to point to the
+    - requires the environment variable `MOUNTS_PATH` (cf. envs/{env}.env) to point to the
       mounts folder as seen by the docker host.
     - `_SLURM_TIME` is not honored: docker has no wall clock limit.
 

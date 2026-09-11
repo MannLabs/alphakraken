@@ -78,10 +78,10 @@ runners:
       software: /fs/home/kraken-read/software
   - name: docker
     engine: docker
-    os: linux
-    # no ssh_connection_id_prefix: the docker engine does not use SSH
-    view: # paths inside the job container
-      backup: /fs/pool/pool-0/alphakraken_sandbox/backup
-      output: /fs/pool/pool-0/alphakraken_sandbox/output
-      settings: /fs/pool/pool-0/alphakraken_sandbox/settings
-      software: /fs/home/kraken-read/software
+    os: linux # do not change
+    # no ssh_connection_id_prefix: docker engine does not use SSH
+    view: # paths inside the job container: those can be set arbitrarily, so just leave them like this:
+      backup: /kraken/backup
+      output: /kraken/output
+      settings: /kraken/settings
+      software: /kraken/software

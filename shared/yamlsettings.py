@@ -104,22 +104,6 @@ YAMLSETTINGS: dict[str, dict[str, Any]] = cast(
 )
 
 
-def get_path(path_key: str) -> Path:
-    """Get a certain path from the yaml settings."""
-    path = (
-        YAMLSETTINGS.get(YamlKeys.LOCATIONS, {})  # type: ignore[possibly-unbound-attribute]
-        .get(path_key, {})
-        .get(YamlKeys.ABSOLUTE_PATH)
-    )
-
-    if path is None:
-        raise KeyError(
-            f"Key `{YamlKeys.LOCATIONS}.{path_key}` or `{YamlKeys.LOCATIONS}.{path_key}.{YamlKeys.ABSOLUTE_PATH}` not found in alphakraken.yaml."
-        )
-
-    return Path(path)
-
-
 def get_host_mounts_path() -> Path:
     """Get the path of the mounts folder as seen by the docker host (not by the containers)."""
     path = (

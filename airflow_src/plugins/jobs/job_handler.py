@@ -11,7 +11,8 @@ from airflow.exceptions import AirflowFailException
 from common.quanting_env import QuantingEnv
 
 from shared.keys import JobEngines
-from shared.yamlsettings import YamlKeys, get_host_mounts_path, get_path
+from shared.path_views import CLUSTER_VIEW, Locations
+from shared.yamlsettings import get_host_mounts_path
 
 
 def _get_job_handler(engine: str) -> "JobHandler":
@@ -20,7 +21,7 @@ def _get_job_handler(engine: str) -> "JobHandler":
         from jobs.slurm_ssh_job_handler import SlurmSSHJobHandler
 
         logging.info("Using SlurmSSHJobHandler")
-        return SlurmSSHJobHandler(get_path(YamlKeys.Locations.SLURM))
+        return SlurmSSHJobHandler(CLUSTER_VIEW.resolve(Locations.SLURM))
 
     if engine == JobEngines.DOCKER:
         try:

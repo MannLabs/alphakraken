@@ -51,6 +51,10 @@ SHOW_RUNNER_SELECT = True
 # stand-in shown where the settings name is not known yet
 SETTINGS_NAME_PLACEHOLDER = "<settings name>"
 
+# every widget interaction reruns the page, so the reads below are cached rather than repeated.
+# Writes clear the cache, the TTL only covers changes made elsewhere.
+DB_CACHE_TTL_SECONDS = 60
+
 _log(f"loading {__file__} {get_all_query_params()}")
 # ########################################### PAGE HEADER
 
@@ -63,9 +67,20 @@ st.markdown("# Manage settings")
 
 # ########################################### LOGIC
 
-settings_db = get_settings_data()
-projects_db = get_project_data()
-settings_df = df_from_db_data(settings_db)
+
+@st.cache_data(ttl=DB_CACHE_TTL_SECONDS)
+def get_settings_df() -> pd.DataFrame:
+    """Get all settings entries."""
+    return df_from_db_data(get_settings_data())
+
+
+@st.cache_data(ttl=DB_CACHE_TTL_SECONDS)
+def get_active_project_ids() -> set[str]:
+    """Get the ids of all active projects."""
+    return {p.id for p in get_project_data() if p.status == ProjectStatus.ACTIVE}
+
+
+settings_df = get_settings_df()
 
 
 # ########################################### DISPLAY
@@ -458,153 +473,146 @@ config_file_name = (
     else None
 )
 
-with c1.form("create_settings"):
-    config_params = (
-        st.text_area(
-            **form_items["config_params"],
-            value=prefill_data.get("config_params", ""),
+config_params = (
+    c1.text_area(
+        **form_items["config_params"],
+        value=prefill_data.get("config_params", ""),
+    )
+    if "config_params" in form_items
+    else None
+)
+
+if "config_params" in form_items:
+    runner_view = get_runner(runner_name).view
+    placeholder_list = "\n".join(
+        f"- `{{{{{placeholder}}}}}`: {description}"
+        + (
+            f", below `{runner_view.resolve(PLACEHOLDER_LOCATIONS[placeholder])}`"
+            if placeholder in PLACEHOLDER_LOCATIONS
+            else ""
         )
-        if "config_params" in form_items
-        else None
+        for placeholder, description in PLACEHOLDER_DESCRIPTIONS.items()
+    )
+    c1.info(
+        "The following placeholders can be used in the config parameters, and will be replaced by the specified values "
+        f"(paths as runner `{runner_name}` sees them):\n\n"
+        f"{placeholder_list}\n\n"
+        f"Notes:\n"
+        "- Your uploaded input files are available under `{{SETTINGS_PATH}}}`, e.g. `{{SETTINGS_PATH}}/human.fasta`.\n"
+        "- The working directory of the software is `{{OUTPUT_PATH}}`.\n"
+        "- If something that is in the `$PATH` should be executed (e.g. `apptainer`), wrap it in a shell script and ask an admin to place it in the software folder.\n"
     )
 
-    if "config_params" in form_items:
-        runner_view = get_runner(runner_name).view
-        placeholder_list = "\n".join(
-            f"- `{{{{{placeholder}}}}}`: {description}"
-            + (
-                f", below `{runner_view.resolve(PLACEHOLDER_LOCATIONS[placeholder])}`"
-                if placeholder in PLACEHOLDER_LOCATIONS
-                else ""
-            )
-            for placeholder, description in PLACEHOLDER_DESCRIPTIONS.items()
+if software_type == SoftwareTypes.CUSTOM:
+    with c1.expander("Example for DIANN..."):
+        st.write("Executable: `diann/diann-linux`")
+        st.code(
+            "--f {{RAW_FILE_PATH}} --lib {{SETTINGS_PATH}}/library.speclib --fasta {{SETTINGS_PATH}}/human.fasta --temp {{OUTPUT_PATH}} --threads {{NUM_THREADS}} --qvalue 0.01"
         )
-        st.info(
-            "The following placeholders can be used in the config parameters, and will be replaced by the specified values "
-            f"(paths as runner `{runner_name}` sees them):\n\n"
-            f"{placeholder_list}\n\n"
-            f"Notes:\n"
-            "- Your uploaded input files are available under `{{SETTINGS_PATH}}}`, e.g. `{{SETTINGS_PATH}}/human.fasta`.\n"
-            "- The working directory of the software is `{{OUTPUT_PATH}}`.\n"
-            "- If something that is in the `$PATH` should be executed (e.g. `apptainer`), wrap it in a shell script and ask an admin to place it in the software folder.\n"
+    with c1.expander("Example for Spectronaut..."):
+        st.write("Executable: `spectronaut/run_spectronaut.sh`")
+        st.code(
+            "direct -n alphakraken -r {{RAW_FILE_PATH}} -fasta {{SETTINGS_PATH}}/human.fasta -o {{OUTPUT_PATH}} -s {{SETTINGS_PATH}}/alphakraken.prop"
         )
 
-    if software_type == SoftwareTypes.CUSTOM:
-        with st.expander("Example for DIANN..."):
-            st.write("Executable: `diann/diann-linux`")
-            st.code(
-                "--f {{RAW_FILE_PATH}} --lib {{SETTINGS_PATH}}/library.speclib --fasta {{SETTINGS_PATH}}/human.fasta --temp {{OUTPUT_PATH}} --threads {{NUM_THREADS}} --qvalue 0.01"
-            )
-        with st.expander("Example for Spectronaut..."):
-            st.write("Executable: `spectronaut/run_spectronaut.sh`")
-            st.code(
-                "direct -n alphakraken -r {{RAW_FILE_PATH}} -fasta {{SETTINGS_PATH}}/human.fasta -o {{OUTPUT_PATH}} -s {{SETTINGS_PATH}}/alphakraken.prop"
-            )
+c1.write(r"\* Required fields")
+if software_type == SoftwareTypes.ALPHADIA:
+    c1.write(r"\** At least one of the two must be given")
 
-    st.write(r"\* Required fields")
+with c1.expander("Resource parameters"):
+    st.info(
+        "Enables setting the resources. Some values are only relevant for Slurm and/or for alphadia/custom."
+    )
+    resource_params_defaults = SOFTWARE_TYPE_TO_DEFAULT_RESOURCE_PARAMS[software_type]
+
+    slurm_cpus_per_task = st.number_input(
+        label="CPUs per task [Slurm only]",
+        min_value=1,
+        value=int(
+            prefill_data["slurm_cpus_per_task"]
+            or resource_params_defaults.slurm_cpus_per_task
+        ),
+        help="Mapped to --cpus-per-task",
+    )
+    slurm_mem = st.text_input(
+        label="Memory (e.g. '62G') [Slurm only]",
+        max_chars=16,
+        value=prefill_data["slurm_mem"] or resource_params_defaults.slurm_mem,
+        help="Mapped to --mem",
+    )
+    slurm_time = st.text_input(
+        label="Time limit (HH:MM:SS) [Slurm only]",
+        max_chars=16,
+        value=prefill_data["slurm_time"] or resource_params_defaults.slurm_time,
+        help="Mapped to --time",
+    )
+    num_threads = st.number_input(
+        label="Number of threads [alphadia and custom only]",
+        min_value=1,
+        value=int(prefill_data["num_threads"] or resource_params_defaults.num_threads),
+        help="Use for 'alphadia' and 'custom' (through {{NUM_THREADS}} placeholder)",
+    )
+
+c1.markdown("### Required files and software")
+settings_name_clean = empty_to_none(name)
+settings_folder = get_display_settings_path(
+    settings_name_clean or SETTINGS_NAME_PLACEHOLDER
+)
+
+referenced_files = [
+    file_name
+    for file_name in (fasta_file_name, speclib_file_name, config_file_name)
+    if empty_to_none(file_name)
+]
+if referenced_files:
+    c1.markdown(
+        f"Make sure you uploaded these files to `{settings_folder}/`:\n"
+        + "\n".join(f"- `{file_name}`" for file_name in referenced_files)
+    )
+
+if software_used_by:
+    c1.markdown(
+        f"The software `{software}` is already used by {', '.join(software_used_by)}."
+    )
+elif empty_to_none(software):
+    # `software` is a path below the software folder only for the non-containerized non-alphadia case
     if software_type == SoftwareTypes.ALPHADIA:
-        st.write(r"\** At least one of the two must be given")
-
-    with st.expander("Resource parameters"):
-        st.info(
-            "Enables setting the resources. Some values are only relevant for Slurm and/or for alphadia/custom."
-        )
-        resource_params_defaults = SOFTWARE_TYPE_TO_DEFAULT_RESOURCE_PARAMS[
-            software_type
-        ]
-
-        slurm_cpus_per_task = st.number_input(
-            label="CPUs per task [Slurm only]",
-            min_value=1,
-            value=int(
-                prefill_data["slurm_cpus_per_task"]
-                or resource_params_defaults.slurm_cpus_per_task
-            ),
-            help="Mapped to --cpus-per-task",
-        )
-        slurm_mem = st.text_input(
-            label="Memory (e.g. '62G') [Slurm only]",
-            max_chars=16,
-            value=prefill_data["slurm_mem"] or resource_params_defaults.slurm_mem,
-            help="Mapped to --mem",
-        )
-        slurm_time = st.text_input(
-            label="Time limit (HH:MM:SS) [Slurm only]",
-            max_chars=16,
-            value=prefill_data["slurm_time"] or resource_params_defaults.slurm_time,
-            help="Mapped to --time",
-        )
-        num_threads = st.number_input(
-            label="Number of threads [alphadia and custom only]",
-            min_value=1,
-            value=int(
-                prefill_data["num_threads"] or resource_params_defaults.num_threads
-            ),
-            help="Use for 'alphadia' and 'custom' (through {{NUM_THREADS}} placeholder)",
-        )
-
-    st.markdown("### Required files and software")
-    settings_name_clean = empty_to_none(name)
-    settings_folder = get_display_settings_path(
-        settings_name_clean or SETTINGS_NAME_PLACEHOLDER
+        software_hint = f"the Conda environment `{software}`"
+    elif get_runner(runner_name).engine == JobEngines.DOCKER:
+        software_hint = f"the docker image `{software}` on the worker host"
+    else:
+        software_hint = f"the software `{DISPLAY_PATHS[Locations.SOFTWARE]}/{software}`"
+    c1.markdown(
+        f"Make sure {software_hint} is available, ask an administrator if in doubt."
     )
 
-    referenced_files = [
-        file_name
-        for file_name in (fasta_file_name, speclib_file_name, config_file_name)
-        if empty_to_none(file_name)
-    ]
-    if referenced_files:
-        st.markdown(
-            f"Make sure you uploaded these files to `{settings_folder}/`:\n"
-            + "\n".join(f"- `{file_name}`" for file_name in referenced_files)
-        )
-
-    if software_used_by:
-        st.markdown(
-            f"The software `{software}` is already used by {', '.join(software_used_by)}."
-        )
-    elif empty_to_none(software):
-        # `software` is a path below the software folder only for the non-containerized non-alphadia case
-        if software_type == SoftwareTypes.ALPHADIA:
-            software_hint = f"the Conda environment `{software}`"
-        elif get_runner(runner_name).engine == JobEngines.DOCKER:
-            software_hint = f"the docker image `{software}` on the worker host"
-        else:
-            software_hint = (
-                f"the software `{DISPLAY_PATHS[Locations.SOFTWARE]}/{software}`"
-            )
-        st.markdown(
-            f"Make sure {software_hint} is available, ask an administrator if in doubt."
-        )
-
-    upload_checkbox = (
-        st.checkbox(
-            "I have uploaded all referenced files to this folder and checked the software is available.",
-            value=False,
-        )
-        if referenced_files
-        else True
+upload_checkbox = (
+    c1.checkbox(
+        "I have uploaded all referenced files to this folder and checked the software is available.",
+        value=False,
     )
+    if referenced_files
+    else True
+)
 
-    is_update = selected_name_option != CREATE_NEW_OPTION
-    if is_update:
-        st.info(
-            f"This will create a new version ({current_version + 1}) of the existing settings '{selected_name_option}'. "
-            f"Projects always reference a specific version of settings, so existing projects using '{selected_name_option}' version {current_version} will not be affected. "
-            "Make sure to update (all or selected) projects to use the new version after creating it.",
-            icon="ℹ️",  # noqa: RUF001
-        )
-        archive_previous = st.checkbox(
-            f"Archive previous version ({current_version}) after creating the new version",
-            value=False,
-        )
-    submit_label = f"Update settings '{name}'" if is_update else "Create settings"
-    submit = st.form_submit_button(
-        submit_label,
-        disabled=DISABLE_WRITE,
-        help="Temporarily disabled." if DISABLE_WRITE else "",
+is_update = selected_name_option != CREATE_NEW_OPTION
+if is_update:
+    c1.info(
+        f"This will create a new version ({current_version + 1}) of the existing settings '{selected_name_option}'. "
+        f"Projects always reference a specific version of settings, so existing projects using '{selected_name_option}' version {current_version} will not be affected. "
+        "Make sure to update (all or selected) projects to use the new version after creating it.",
+        icon="ℹ️",  # noqa: RUF001
     )
+    archive_previous = c1.checkbox(
+        f"Archive previous version ({current_version}) after creating the new version",
+        value=False,
+    )
+submit_label = f"Update settings '{name}'" if is_update else "Create settings"
+submit = c1.button(
+    submit_label,
+    disabled=DISABLE_WRITE,
+    help="Temporarily disabled." if DISABLE_WRITE else "",
+)
 
 
 if submit:
@@ -680,6 +688,7 @@ if submit:
     else:
         if is_update and archive_previous:
             archive_settings(latest_settings["_id"])
+        get_settings_df.clear()
         show_success_toast(
             f"Created new settings '{name}'. Assign it to projects on the Projects page."
         )
@@ -706,9 +715,7 @@ else:
 
         # Map settings ID -> list of active project IDs
         all_ps = ProjectSettings.objects.all()
-        active_project_ids = {
-            p.id for p in projects_db if p.status == ProjectStatus.ACTIVE
-        }
+        active_project_ids = get_active_project_ids()
         assigned_projects: dict[str, list[str]] = defaultdict(list)
         for ps in all_ps:
             project_id = str(ps.project.id)
@@ -731,6 +738,7 @@ else:
                 try:
                     # TODO: consider showing a warning in the webapp when archived settings are still assigned.
                     archive_settings(row["_id"])
+                    get_settings_df.clear()
                     show_success_toast(
                         f"Archived settings '{row['name']}' version {int(row['version'])}."
                     )

@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field
 class QuantingEnv(BaseModel):
     """Environment of a quanting job.
 
-    The field aliases are the environment variable names as read by `cluster_scripts/submit_job.sh`,
+    The field aliases are the environment variable names as read by e.g. `submit_slurm_job.sh`,
     e.g. `raw_file_path -> RAW_FILE_PATH`.
     Aliases with a leading underscore are not exported to the job, cf. the job handlers.
     """
@@ -43,7 +43,6 @@ class QuantingEnv(BaseModel):
     relative_raw_file_path: str = Field(alias="_RELATIVE_RAW_FILE_PATH")
     config_params: str = Field(alias="_CONFIG_PARAMS")
     runner_name: str = Field(alias="_RUNNER_NAME")
-    year_month_folder: str = Field(alias="_YEAR_MONTH_FOLDER")
 
     def to_dict(self) -> dict:
         """Convert to a dict keyed by the environment variable names."""

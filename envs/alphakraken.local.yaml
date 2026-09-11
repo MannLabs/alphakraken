@@ -41,10 +41,13 @@ general:
     slack_bot_token: "xoxb-..." # for individual alerts; get from api.slack.com/apps → your app → OAuth & Permissions → "Bot User OAuth Token" (needs `chat:write` scope)
     webapp_url: "http://localhost:8501"
 
+# absolute paths (posix or windows) of the data directories as users see them on the shared file system, cf. path_views.Locations.
+# Not used for the pipeline file operations: only prepended to the location-relative paths for display (webapp, REST API).
+display_paths:
+  backup: /fs/pool/pool-0/alphakraken_sandbox/backup
+  output: /fs/pool/pool-0/alphakraken_sandbox/output
+
 backup:
-  # absolute path of the backup folder on the shared file system
-  # Not relevant for the pipeline file operations, but persisted in the DB for the later discovery of raw files by users.
-  backup_base_path: /fs/pool/pool-0/alphakraken_sandbox/backup
   backup_type: local # or 's3'
   purging_verification_type: local # 'local', 's3', or 'force_local'
   s3:
@@ -66,7 +69,7 @@ runners:
     # added or removed in Airflow alone.
     ssh_connection_id_prefix: cluster_ssh_connection
     # the data directories as seen from this runner, cf. path_views.Locations
-    # These depend on how the central file system is mounted on the runner, and are used to resolve the paths for the analysis jobs.
+    # These depend on how the central file system is mounted of the compute node fed by the runner, and are used to resolve the paths for the analysis jobs.
     view:
       # location where the raw file will be read from
       backup: /fs/pool/pool-0/alphakraken_sandbox/backup
@@ -74,22 +77,20 @@ runners:
       output: /fs/pool/pool-0/alphakraken_sandbox/output
       # location of additional input files for settings, looked up in subfolders '<settings_name>'
       settings: /fs/pool/pool-0/alphakraken_sandbox/settings
-      # location of custom executables for quanting software
+      # location of custom executables for quanting software and of the slurm submit script
       software: /fs/home/kraken-read/software
-      # location of slurm submit script and destination for slurm logs
-      slurm: /fs/pool/pool-0/alphakraken_local/slurm
   # ###################### #
   # docker runner example #
   # ###################### #
   - name: docker
     engine: docker
-    os: linux
-    # no ssh_connection_id_prefix: the docker engine does not use SSH
-    view: # paths inside the job container
-      backup: /fs/pool/pool-0/alphakraken_sandbox/backup
-      output: /fs/pool/pool-0/alphakraken_sandbox/output
-      settings: /fs/pool/pool-0/alphakraken_sandbox/settings
-      software: /fs/home/kraken-read/software
+    os: linux # do not change
+    # no ssh_connection_id_prefix: docker engine does not use SSH
+    view: # paths inside the job container: those can be set arbitrarily, so just leave them like this:
+      backup: /kraken/backup
+      output: /kraken/output
+      settings: /kraken/settings
+      software: /kraken/software
   # ########################### #
   # direct ssh runners examples #
   # ########################### #

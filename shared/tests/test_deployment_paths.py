@@ -11,6 +11,7 @@ from pathlib import Path
 import pytest
 import yaml
 
+from shared.display_paths import _REQUIRED_LOCATIONS, _build_display_paths
 from shared.keys import InternalPaths, JobEngines
 from shared.path_views import AIRFLOW_CONTAINER_VIEW, Locations
 from shared.runners import _build_runners
@@ -120,9 +121,12 @@ def test_every_mount_is_bound_into_a_container(file_name: str, config: dict) -> 
 
 
 @pytest.mark.parametrize(("file_name", "config"), _env_yamls())
-def test_backup_base_path_is_declared(file_name: str, config: dict) -> None:
-    """Test that each environment declares the folder the backups are displayed under."""
-    assert config["backup"]["backup_base_path"], file_name
+def test_display_paths_are_declared(file_name: str, config: dict) -> None:
+    """Test that each environment declares the folders the paths are displayed under."""
+    paths = _build_display_paths(config)
+
+    for location in _REQUIRED_LOCATIONS:
+        assert paths[location], f"{file_name}: '{location}'"
 
 
 @pytest.mark.parametrize(("file_name", "config"), _env_yamls())
@@ -132,18 +136,18 @@ def test_runners_are_valid(file_name: str, config: dict) -> None:
 
 
 @pytest.mark.parametrize(("file_name", "config"), _env_yamls())
-def test_backup_base_path_equals_the_slurm_backup_location(
-    file_name: str, config: dict
-) -> None:
-    """Test that the persisted display path is the path the slurm runners see."""
+def test_display_paths_equal_the_slurm_locations(file_name: str, config: dict) -> None:
+    """Test that the display paths are the paths the slurm runners see."""
+    display_paths = _build_display_paths(config)
     runners = _build_runners(config[YamlKeys.RUNNERS])
 
     for runner in runners.values():
         if runner.engine != JobEngines.SLURM:
             continue
-        assert str(runner.view.resolve(Locations.BACKUP)) == str(
-            config["backup"]["backup_base_path"]
-        ), f"{file_name}: runner '{runner.name}'"
+        for location in _REQUIRED_LOCATIONS:
+            assert str(runner.view.resolve(location)) == display_paths[location], (
+                f"{file_name}: runner '{runner.name}', '{location}'"
+            )
 
 
 def test_the_logs_are_not_mounted_below_the_mounts_folder() -> None:

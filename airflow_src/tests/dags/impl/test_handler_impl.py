@@ -376,7 +376,9 @@ def test_compute_checksum_different_file_info_overwrite(  # noqa: PLR0913
     # then
     assert continue_downstream_tasks
 
-    mock_get_airflow_variable.assert_called_once_with("checksum_overwrite_file_id", "")
+    mock_get_airflow_variable.assert_called_once_with(
+        "force_overwrite_for_raw_file_id", ""
+    )
 
     mock_update_raw_file.assert_has_calls(
         [
@@ -487,7 +489,6 @@ def test_compute_checksum_no_files_found(
 
 @patch("dags.impl.handler_impl.get_xcom")
 @patch("dags.impl.handler_impl.get_raw_file_by_id")
-@patch("dags.impl.handler_impl.BACKUP_BASE_PATH", "/fs/pool/backup")
 @patch("dags.impl.handler_impl._handle_file_copying")
 @patch("dags.impl.handler_impl._verify_copied_files")
 @patch("dags.impl.handler_impl.update_raw_file")
@@ -532,7 +533,6 @@ def test_copy_raw_file_calls_update_with_correct_args(
             call(
                 "test_file.raw",
                 new_status=RawFileStatus.COPYING,
-                backup_base_path="/fs/pool/backup/test1/2025_07",
                 backup_status="copying_in_progress",
             ),
             call(
@@ -551,7 +551,6 @@ def test_copy_raw_file_calls_update_with_correct_args(
 
 @patch("dags.impl.handler_impl.get_xcom")
 @patch("dags.impl.handler_impl.get_raw_file_by_id")
-@patch("dags.impl.handler_impl.BACKUP_BASE_PATH", "/fs/pool/backup")
 @patch("dags.impl.handler_impl._handle_file_copying")
 @patch("dags.impl.handler_impl._verify_copied_files")
 @patch("dags.impl.handler_impl.update_raw_file")
@@ -592,7 +591,6 @@ def test_copy_raw_file_verify_fails(
             call(
                 "test_file.raw",
                 new_status=RawFileStatus.COPYING,
-                backup_base_path="/fs/pool/backup/test1/2025_07",
                 backup_status="copying_in_progress",
             ),
             call(
@@ -609,7 +607,6 @@ def test_copy_raw_file_verify_fails(
 @patch("dags.impl.handler_impl.get_xcom")
 @patch("dags.impl.handler_impl.get_raw_file_by_id")
 @patch("dags.impl.handler_impl.get_airflow_variable")
-@patch("dags.impl.handler_impl.BACKUP_BASE_PATH", "/fs/pool/backup")
 @patch("dags.impl.handler_impl._handle_file_copying")
 @patch("dags.impl.handler_impl.update_raw_file")
 def test_copy_raw_file_calls_update_with_correct_args_overwrite(  # noqa: PLR0913
@@ -655,7 +652,9 @@ def test_copy_raw_file_calls_update_with_correct_args_overwrite(  # noqa: PLR091
         {Path("/path/to/instrument/test_file.raw"): (1000, "some_hash")},
         overwrite=True,
     )
-    mock_get_airflow_variable.assert_called_once_with("backup_overwrite_file_id", "")
+    mock_get_airflow_variable.assert_called_once_with(
+        "force_overwrite_for_raw_file_id", ""
+    )
 
     # not repeating the checks of test_copy_raw_file_calls_update_with_correct_args
 
@@ -669,6 +668,9 @@ def test_copy_raw_file_calls_update_with_correct_args_overwrite(  # noqa: PLR091
         ("INSTRUMENT_instrument1", True),
         ("INSTRUMENT_instrument2", False),
         ("instrument1", False),
+        ("other_file.raw,test_file.raw", True),
+        ("other_file.raw, INSTRUMENT_instrument1", True),
+        ("other_file.raw,INSTRUMENT_instrument2", False),
     ],
 )
 @patch("dags.impl.handler_impl.get_airflow_variable")
@@ -677,7 +679,7 @@ def test_is_overwrite_requested(
     airflow_variable_value: str,
     expected: bool,  # noqa: FBT001
 ) -> None:
-    """Test _is_overwrite_requested matches on file id and on instrument."""
+    """Test _is_overwrite_requested matches on file id and on instrument, also in comma-separated lists."""
     mock_get_airflow_variable.return_value = airflow_variable_value
     raw_file = MagicMock()
     raw_file.id = "test_file.raw"

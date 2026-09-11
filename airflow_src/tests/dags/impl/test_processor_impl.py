@@ -96,7 +96,7 @@ def test_create_quanting_env(
         view=_POSIX_VIEW,
     )
 
-    # when you adapt something here, don't forget to adapt also the submit_job.sh script
+    # when you adapt something here, don't forget to adapt also the submit_slurm_job.sh script
     expected = {
         "RAW_FILE_PATH": "/some_backup_base_path/instrument1/1970_01/test_file.raw",
         "SETTINGS_PATH": "/some_settings_path/test_settings",
@@ -118,7 +118,6 @@ def test_create_quanting_env(
         "SETTINGS_NAME": "test_settings",
         "SETTINGS_VERSION": 1,
         "_RUNNER_NAME": "slurm",
-        "_YEAR_MONTH_FOLDER": "1970_01",
         "_RELATIVE_RAW_FILE_PATH": "instrument1/1970_01/test_file.raw",
         "_CONFIG_PARAMS": "",
     }
@@ -196,7 +195,6 @@ def test_create_quanting_env_custom_software(
         "SETTINGS_NAME": "test_custom_settings",
         "SETTINGS_VERSION": 1,
         "_RUNNER_NAME": "slurm",
-        "_YEAR_MONTH_FOLDER": "1970_01",
         "_RELATIVE_RAW_FILE_PATH": "instrument1/1970_01/test_file.raw",
         "_CONFIG_PARAMS": expected_config_params,
     }
@@ -1025,7 +1023,7 @@ def test_check_job_result_business_error(  # noqa: PLR0913
         settings_name="test_settings",
         settings_version=1,
         metrics_type="alphadia",
-        output_path="/data/output/PID1/out_test_file.raw/alphadia",
+        relative_output_path="PID1/out_test_file.raw/alphadia",
     )
     mock_put_xcom.assert_called_once_with(
         mock_ti, key=XComKeys.BRANCH_ERRORS, value="error1;error2"
@@ -1072,7 +1070,7 @@ def test_check_job_result_business_error_raises(  # noqa: PLR0913
         settings_name="test_settings",
         settings_version=1,
         metrics_type="alphadia",
-        output_path="/data/output/PID1/out_test_file.raw/alphadia",
+        relative_output_path="PID1/out_test_file.raw/alphadia",
     )
     mock_put_xcom.assert_called_once_with(
         mock_ti, key=XComKeys.BRANCH_ERRORS, value="error1;__UNKNOWN_ERROR"
@@ -1112,7 +1110,7 @@ def test_check_job_result_timeout(
         settings_name="test_settings",
         settings_version=1,
         metrics_type="alphadia",
-        output_path="/data/output/PID1/out_test_file.raw/alphadia",
+        relative_output_path="PID1/out_test_file.raw/alphadia",
     )
     mock_put_xcom.assert_called_once_with(
         mock_ti, key=XComKeys.BRANCH_ERRORS, value="TIMEOUT"
@@ -1152,7 +1150,7 @@ def test_check_job_result_oom(
         settings_name="test_settings",
         settings_version=1,
         metrics_type="alphadia",
-        output_path="/data/output/PID1/out_test_file.raw/alphadia",
+        relative_output_path="PID1/out_test_file.raw/alphadia",
     )
     mock_put_xcom.assert_called_once_with(
         mock_ti, key=XComKeys.BRANCH_ERRORS, value="OUT_OF_MEMORY"
@@ -1280,7 +1278,7 @@ def test_store_metrics(
     store_metrics(
         quanting_env_dict=make_quanting_env(
             raw_file_id="some_file.raw",
-            output_path="/data/output/P1/out_some_file.raw/alphadia",
+            relative_output_path="P1/out_some_file.raw/alphadia",
         ).to_dict(),
         metrics={"metric1": "value1"},
     )
@@ -1293,7 +1291,7 @@ def test_store_metrics(
         },
         settings_name="test_settings",
         settings_version=1,
-        output_path="/data/output/P1/out_some_file.raw/alphadia",
+        relative_output_path="P1/out_some_file.raw/alphadia",
     )
 
 

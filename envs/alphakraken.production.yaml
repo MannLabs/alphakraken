@@ -23,8 +23,11 @@ general:
     slack_bot_token: "<slack_bot_token>"
     webapp_url: "<webapp_url>"
 
+display_paths:
+  backup: /fs/pool-1/backup
+  output: /fs/pool-2/output
+
 backup:
-  backup_base_path: /fs/pool-1/backup
   backup_type: local # or 's3'
   purging_verification_type: local # 'local', 's3', or 'force_local'
   s3:
@@ -42,7 +45,6 @@ runners:
       output: /fs/pool-2/output
       settings: /fs/pool-2/settings
       software: /fs/home/kraken-read/software
-      slurm: /fs/pool-2/slurm
   - name: docker
     engine: docker
     os: linux

@@ -130,7 +130,7 @@ D2 now, D3 next, D4 never (until views multiply), D5 as a separate later decisio
   `PurePosixPath`, never `Path`: on the Linux worker `Path("\\\\srv\\share")` is one filename,
   not a UNC location. The view must own its flavor, and yaml locations must stay opaque strings so
   that both UNC and drive letters (§3.2) survive.
-- 6.3 **The job script is bash-only.** `submit_job.sh` uses `sbatch`, `module load`, `md5sum`.
+- 6.3 **The job script is bash-only.** `submit_slurm_job.sh` uses `sbatch`, `module load`, `md5sum`.
   A Windows runner needs its own script and submitter. That is a Runner concern, not a path
   concern - an argument for D3.
 - 6.4 **`mount.sh`, `docker-compose.yaml` and `InternalPaths` agree by convention only** (§6.6),

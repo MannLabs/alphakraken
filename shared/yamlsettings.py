@@ -22,6 +22,8 @@ class YamlKeys:
 
     BACKUP = "backup"
 
+    DISPLAY_PATHS = "display_paths"
+
     RUNNERS = "runners"
 
     NOTIFICATIONS = "notifications"
@@ -34,8 +36,6 @@ class YamlKeys:
         """Keys for accessing backup configuration in the yaml config."""
 
         # TODO: incorporate
-
-        BACKUP_BASE_PATH = "backup_base_path"
 
         TYPE = "backup.backup_type"
         S3_REGION = "backup.s3.region"
@@ -72,7 +72,10 @@ class YamlSettings:
                         "webapp_url": "http://localhost:8501",
                     }
                 },
-                "backup": {"backup_base_path": "./tmp/test/backup"},
+                "display_paths": {
+                    "backup": "./tmp/test/backup",
+                    "output": "./tmp/test/output",
+                },
                 "runners": [
                     {
                         "name": "slurm",
@@ -84,7 +87,6 @@ class YamlSettings:
                             "output": "./tmp/test/output",
                             "settings": "./tmp/test/settings",
                             "software": "./tmp/test/software",
-                            "slurm": "./tmp/test/slurm",
                         },
                     },
                     {
@@ -107,7 +109,6 @@ class YamlSettings:
                             "output": "./tmp/test/output",
                             "settings": "./tmp/test/settings",
                             "software": "./tmp/test/software",
-                            "slurm": "./tmp/test/slurm",
                         },
                     },
                 ],
@@ -124,19 +125,6 @@ class YamlSettings:
 
 
 YAMLSETTINGS: dict[str, Any] = cast(dict[str, Any], YamlSettings())
-
-
-def _read_backup_base_path(settings: dict[str, Any]) -> str:
-    """Read the absolute path of the backup folder on the shared file system."""
-    try:
-        return settings[YamlKeys.BACKUP][YamlKeys.Backup.BACKUP_BASE_PATH]
-    except KeyError as e:
-        raise KeyError(
-            f"Key `{YamlKeys.BACKUP}.{YamlKeys.Backup.BACKUP_BASE_PATH}` not found in alphakraken.yaml."
-        ) from e
-
-
-BACKUP_BASE_PATH: str = _read_backup_base_path(YAMLSETTINGS)
 
 
 def get_notification_setting(setting_key: str) -> str:

@@ -2,13 +2,14 @@
 
 import logging
 import re
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 
 from airflow.exceptions import AirflowFailException, AirflowSkipException
 from airflow.models import TaskInstance
 from common.keys import (
     DAG_DELIMITER,
     INSTRUMENT_OVERWRITE_PREFIX,
+    OVERWRITE_IDS_SEPARATOR,
     AcquisitionMonitorErrors,
     AirflowVars,
     DagContext,
@@ -58,13 +59,12 @@ from shared.db.models import (
 from shared.keys import (
     DDA_FLAG_IN_RAW_FILE_NAME,
 )
-from shared.path_layout import get_raw_file_folder_rel_path
 from shared.settings_scope_resolver import resolve_scoped_settings
 from shared.validation import FORBIDDEN_RAW_FILE_NAME_CHARACTERS_PATTERN
-from shared.yamlsettings import BACKUP_BASE_PATH, is_s3_upload_enabled
+from shared.yamlsettings import is_s3_upload_enabled
 
 # special mode that does not copy (e.g. because another instance handles it)
-# point backup.backup_base_path to the folder where the files can be picked up for quanting
+# point the `backup` location of the runner views to the folder where the files can be picked up for quanting # TODO: check is this is still true
 SKIP_COPYING = False
 
 
@@ -150,16 +150,16 @@ def compute_checksum(ti: TaskInstance, **kwargs) -> bool:
             )
 
             if _is_overwrite_requested(
-                AirflowVars.CHECKSUM_OVERWRITE_FILE_ID, raw_file
+                AirflowVars.FORCE_OVERWRITE_FOR_RAW_FILE_ID, raw_file
             ):
                 logging.warning(
-                    f"Will overwrite existing file_info as requested by Airflow variable {AirflowVars.CHECKSUM_OVERWRITE_FILE_ID}."
+                    f"Will overwrite existing file_info as requested by Airflow variable {AirflowVars.FORCE_OVERWRITE_FOR_RAW_FILE_ID}."
                 )
             else:
                 logging.warning(
                     "This might be due to a previous checksumming operation being interrupted. \n"
                     "To resolve this issue: \n"
-                    f"Set the Airflow Variable {AirflowVars.CHECKSUM_OVERWRITE_FILE_ID} to the ID of the raw file to force overwrite."
+                    f"Set the Airflow Variable {AirflowVars.FORCE_OVERWRITE_FOR_RAW_FILE_ID} to the ID of the raw file to force overwrite."
                 )
 
                 raise AirflowFailException(f"File info mismatch for {raw_file_id}")
@@ -208,15 +208,16 @@ def _compare_file_info(
 def _is_overwrite_requested(airflow_variable: str, raw_file: RawFile) -> bool:
     """Check if the Airflow variable `airflow_variable` requests an overwrite for `raw_file`.
 
-    The variable either holds a single raw file id, or `INSTRUMENT_<instrument_id>` to match
-    all raw files of that instrument.
+    The variable holds a comma-separated list of raw file ids and/or `INSTRUMENT_<instrument_id>`
+    entries, the latter matching all raw files of that instrument.
     """
     value = get_airflow_variable(airflow_variable, "")
+    requested_ids = {v.strip() for v in value.split(OVERWRITE_IDS_SEPARATOR)}
 
-    return value in [
-        raw_file.id,
-        f"{INSTRUMENT_OVERWRITE_PREFIX}{raw_file.instrument_id}",
-    ]
+    return bool(
+        requested_ids
+        & {raw_file.id, f"{INSTRUMENT_OVERWRITE_PREFIX}{raw_file.instrument_id}"}
+    )
 
 
 def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
@@ -231,15 +232,11 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
     }
 
     raw_file = get_raw_file_by_id(raw_file_id)
-    backup_base_path = PurePosixPath(BACKUP_BASE_PATH) / get_raw_file_folder_rel_path(
-        raw_file
-    )
 
     if SKIP_COPYING:
         update_raw_file(
             raw_file_id,
             new_status=RawFileStatus.COPYING_DONE,
-            backup_base_path="",
             backup_status=BackupStatus.SKIPPED,
         )
         logging.warning("SKIP_COPYING is enabled, skipping file copy.")
@@ -248,15 +245,14 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
     update_raw_file(
         raw_file_id,
         new_status=RawFileStatus.COPYING,
-        backup_base_path=str(backup_base_path),
         backup_status=BackupStatus.COPYING_IN_PROGRESS,
     )
 
     if overwrite := _is_overwrite_requested(
-        AirflowVars.BACKUP_OVERWRITE_FILE_ID, raw_file
+        AirflowVars.FORCE_OVERWRITE_FOR_RAW_FILE_ID, raw_file
     ):
         logging.warning(
-            f"Will overwrite files as requested by Airflow variable {AirflowVars.BACKUP_OVERWRITE_FILE_ID}."
+            f"Will overwrite files as requested by Airflow variable {AirflowVars.FORCE_OVERWRITE_FOR_RAW_FILE_ID}."
         )
 
     copied_files = _handle_file_copying(

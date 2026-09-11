@@ -586,16 +586,11 @@ def test_compute_checksum_source_missing(  # noqa: PLR0913
 @patch("dags.impl.handler_impl.get_airflow_variable")
 @patch("dags.impl.handler_impl.get_xcom")
 @patch("dags.impl.handler_impl.get_raw_file_by_id")
-@patch(
-    "dags.impl.handler_impl.get_backup_base_path",
-    return_value=Path("some_backup_folder"),
-)
 @patch("dags.impl.handler_impl._handle_file_copying")
 @patch("dags.impl.handler_impl.update_raw_file")
 def test_copy_raw_file_source_missing(  # noqa: PLR0913
     mock_update_raw_file: MagicMock,
     mock_handle_file_copying: MagicMock,
-    mock_get_backup_base_path: MagicMock,  # noqa: ARG001
     mock_get_raw_file_by_id: MagicMock,
     mock_get_xcom: MagicMock,
     mock_get_airflow_variable: MagicMock,

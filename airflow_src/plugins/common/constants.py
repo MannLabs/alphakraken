@@ -3,11 +3,10 @@
 # prefix for the queues the DAGs are assigned to (cf. docker-compose.yaml)
 AIRFLOW_QUEUE_PREFIX = "kraken_queue_"
 
-CLUSTER_SSH_CONNECTION_ID_PREFIX = "cluster_ssh_connection"
 CLUSTER_SSH_CONNECTION_TIMEOUT = 60
 CLUSTER_SSH_COMMAND_TIMEOUT = 60
 
-# these are relative to the locations.general.slurm_base_path variable
+# these are relative to the `slurm` location of the runner's view
 DEFAULT_JOB_SCRIPT_NAME = "submit_job.sh"
 CLUSTER_BASE_WORKING_DIR_NAME = "jobs"
 

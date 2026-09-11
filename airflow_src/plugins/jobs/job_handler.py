@@ -11,7 +11,7 @@ from airflow.exceptions import AirflowFailException
 from common.quanting_env import QuantingEnv
 
 from shared.keys import EnvVars, JobEngines
-from shared.path_views import CLUSTER_VIEW, DOCKER_HOST_VIEW, Locations
+from shared.path_views import DOCKER_HOST_VIEW, Locations
 from shared.runners import Runner, get_runner
 
 
@@ -21,8 +21,16 @@ def _get_job_handler(runner: Runner) -> "JobHandler":
     if engine == JobEngines.SLURM:
         from jobs.slurm_ssh_job_handler import SlurmSSHJobHandler
 
+        if runner.ssh_connection_id_prefix is None:
+            raise AirflowFailException(
+                f"Runner '{runner.name}' uses the '{JobEngines.SLURM}' engine, which requires "
+                f"`ssh_connection_id_prefix` in alphakraken.yaml."
+            )
+
         logging.info("Using SlurmSSHJobHandler")
-        return SlurmSSHJobHandler(CLUSTER_VIEW.resolve(Locations.SLURM))
+        return SlurmSSHJobHandler(
+            runner.view.resolve(Locations.SLURM), runner.ssh_connection_id_prefix
+        )
 
     if engine == JobEngines.DOCKER:
         try:

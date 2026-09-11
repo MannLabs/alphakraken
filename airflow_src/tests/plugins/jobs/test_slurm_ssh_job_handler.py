@@ -10,6 +10,7 @@ from common.quanting_env import QuantingEnv
 from jobs.slurm_ssh_job_handler import SlurmSSHJobHandler
 
 SLURM_BASE_DIR = Path("/path/to/slurm_base_path")
+SSH_PREFIX = "some_cluster_ssh"
 
 EXPECTED_EXPORTS = (
     'export RAW_FILE_PATH="/pool/backup/instrument1/1970_01/test_file.raw"\n'
@@ -42,7 +43,7 @@ def test_start_job_returns_valid_job_id(
     quanting_env = make_quanting_env(year_month_folder="2024_07")
 
     # when
-    job_id = SlurmSSHJobHandler(SLURM_BASE_DIR).start_job(quanting_env)
+    job_id = SlurmSSHJobHandler(SLURM_BASE_DIR, SSH_PREFIX).start_job(quanting_env)
     assert job_id == "12345"
     expected_command = (
         f"{EXPECTED_EXPORTS}\n"
@@ -52,7 +53,7 @@ def test_start_job_returns_valid_job_id(
         "JID=$(sbatch --cpus-per-task=8 --mem=62G --time=02:00:00 /path/to/slurm_base_path/submit_job.sh)\n"
         "echo ${JID##* }"
     )
-    mock_ssh_execute.assert_called_once_with(expected_command)
+    mock_ssh_execute.assert_called_once_with(expected_command, SSH_PREFIX)
 
 
 @patch("jobs.slurm_ssh_job_handler.ssh_execute")
@@ -64,7 +65,7 @@ def test_start_job_handles_invalid_job_id(
     mock_ssh_execute.return_value = "invalid_id"
 
     with pytest.raises(AirflowFailException, match="Job submission failed."):
-        SlurmSSHJobHandler(SLURM_BASE_DIR).start_job(make_quanting_env())
+        SlurmSSHJobHandler(SLURM_BASE_DIR, SSH_PREFIX).start_job(make_quanting_env())
 
 
 @patch("jobs.slurm_ssh_job_handler.ssh_execute")
@@ -74,7 +75,7 @@ def test_get_job_status_returns_correctly(
     """Test that get_job_status returns the correct status."""
     mock_ssh_execute.return_value = "COMPLETED"
 
-    job_status = SlurmSSHJobHandler(SLURM_BASE_DIR).get_job_status("12345")
+    job_status = SlurmSSHJobHandler(SLURM_BASE_DIR, SSH_PREFIX).get_job_status("12345")
     assert job_status == "COMPLETED"
     expected_command = (
         "JOB_INFO=$(scontrol show job 12345 2>/dev/null)\n"
@@ -86,7 +87,7 @@ def test_get_job_status_returns_correctly(
         "fi\n"
         'echo "${ST:-UNKNOWN}"'
     )
-    mock_ssh_execute.assert_called_once_with(expected_command)
+    mock_ssh_execute.assert_called_once_with(expected_command, SSH_PREFIX)
 
 
 @patch("jobs.slurm_ssh_job_handler.ssh_execute")
@@ -97,9 +98,9 @@ def test_get_job_result_returns_correct_job_status_and_time_elapsed(
     mock_ssh_execute.return_value = "00:08:42\nCOMPLETED"
 
     # when
-    job_status, time_elapsed = SlurmSSHJobHandler(SLURM_BASE_DIR).get_job_result(
-        "12345"
-    )
+    job_status, time_elapsed = SlurmSSHJobHandler(
+        SLURM_BASE_DIR, SSH_PREFIX
+    ).get_job_result("12345")
     assert job_status == "COMPLETED"
     assert time_elapsed == 8 * 60 + 42
     expected_command = (
@@ -120,7 +121,7 @@ def test_get_job_result_returns_correct_job_status_and_time_elapsed(
         "fi\n"
         'echo "${ST:-UNKNOWN}"'
     )
-    mock_ssh_execute.assert_called_once_with(expected_command)
+    mock_ssh_execute.assert_called_once_with(expected_command, SSH_PREFIX)
 
 
 @patch("jobs.slurm_ssh_job_handler.ssh_execute")
@@ -131,9 +132,9 @@ def test_get_job_result_returns_zero_time_elapsed_on_unparseable_timestamp(
     mock_ssh_execute.return_value = "some slurm log line\nCOMPLETED"
 
     # when
-    job_status, time_elapsed = SlurmSSHJobHandler(SLURM_BASE_DIR).get_job_result(
-        "12345"
-    )
+    job_status, time_elapsed = SlurmSSHJobHandler(
+        SLURM_BASE_DIR, SSH_PREFIX
+    ).get_job_result("12345")
 
     assert job_status == "COMPLETED"
     assert time_elapsed == 0

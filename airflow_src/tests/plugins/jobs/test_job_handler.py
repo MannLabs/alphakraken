@@ -51,14 +51,6 @@ def test_get_job_handler_injects_slurm_base_dir_and_ssh_prefix() -> None:
     assert handler._ssh_connection_id_prefix == SSH_PREFIX
 
 
-def test_get_job_handler_slurm_without_ssh_prefix_raises_naming_the_runner() -> None:
-    """Test that a slurm runner without an SSH prefix is rejected before any SSH attempt."""
-    with pytest.raises(
-        AirflowFailException, match="'slurm_runner'.*ssh_connection_id_prefix"
-    ):
-        _get_job_handler(_runner(JobEngines.SLURM, ssh_connection_id_prefix=None))
-
-
 @pytest.mark.skipif(not HAS_DOCKER, reason="`docker` not installed")
 @patch("jobs.docker_job_handler.docker.from_env")
 def test_get_job_handler_injects_docker_host_view(

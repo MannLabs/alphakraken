@@ -5,6 +5,8 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, call
 
+import pytest
+
 _SCRIPT = (
     Path(__file__).parents[1]
     / "_migrations/from_0.10.0/_migrate_job_engine_to_runner.py"
@@ -70,4 +72,19 @@ def test_documents_without_either_field_are_skipped() -> None:
     target_names = migration._migrate_collection(collection, dry_run=False)
 
     assert target_names == {}
+    collection.update_one.assert_not_called()
+
+
+def test_unmapped_engine_aborts_before_the_first_write() -> None:
+    """Test that an engine without a target name stops the migration instead of leaving it partial."""
+    collection = _collection(
+        [
+            {"_id": 1, "name": "a", "version": 1, "job_engine": "slurm"},
+            {"_id": 2, "name": "b", "version": 1, "job_engine": "some_engine"},
+        ]
+    )
+
+    with pytest.raises(ValueError, match=r"\['some_engine'\]"):
+        migration._migrate_collection(collection, dry_run=False)
+
     collection.update_one.assert_not_called()

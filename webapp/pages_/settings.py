@@ -325,7 +325,7 @@ else:
         "config_params": {
             "label": "Configuration parameters",
             "max_chars": 2048,
-            "placeholder": "e.g. '--qvalue 0.01 --f {RAW_FILE_PATH} --lib {SETTINGS_PATH}/library.speclib --fasta {SETTINGS_PATH}/human.fasta --temp {OUTPUT_PATH} --threads {NUM_THREADS}'",
+            "placeholder": "e.g. '--qvalue 0.01 --f {{RAW_FILE_PATH}} --lib {{SETTINGS_PATH}}/library.speclib --fasta {{SETTINGS_PATH}}/human.fasta --temp {{OUTPUT_PATH}} --threads {{NUM_THREADS}}'",
             "help": "Configuration options for the custom software. Certain placeholders will be substituted.",
         },
     }
@@ -383,7 +383,7 @@ with c1.form("create_settings"):
 
     if "config_params" in form_items:
         placeholder_list = "\n".join(
-            f"- `{{{placeholder}}}`: {description}"
+            f"- `{{{{{placeholder}}}}}`: {description}"
             for placeholder, description in PLACEHOLDER_DESCRIPTIONS.items()
         )
         # TODO: resolve those paths (e.g. the runner's `view.backup`)
@@ -391,7 +391,7 @@ with c1.form("create_settings"):
             "The following placeholders can be used in the config parameters, and will be replaced by the specified values:\n\n"
             f"{placeholder_list}\n\n"
             "Notes:\n"
-            "- The working directory of the software is `{OUTPUT_PATH}`.\n"
+            "- The working directory of the software is `{{OUTPUT_PATH}}`.\n"
             "- If you require more than the provided placeholders, reference them directly by their absolute path.\n"
             "- If something that is in the `$PATH` should be executed (e.g. `apptainer`), wrap it in a shell script and place it in the software folder.\n"
         )
@@ -400,12 +400,12 @@ with c1.form("create_settings"):
         with st.expander("Example for DIANN..."):
             st.write("Executable: `diann/diann-linux`")
             st.code(
-                "--f {RAW_FILE_PATH} --lib {SETTINGS_PATH}/library.speclib --fasta {SETTINGS_PATH}/human.fasta --temp {OUTPUT_PATH} --threads {NUM_THREADS} --qvalue 0.01"
+                "--f {{RAW_FILE_PATH}} --lib {{SETTINGS_PATH}}/library.speclib --fasta {{SETTINGS_PATH}}/human.fasta --temp {{OUTPUT_PATH}} --threads {{NUM_THREADS}} --qvalue 0.01"
             )
         with st.expander("Example for Spectronaut..."):
             st.write("Executable: `run_spectronaut.sh` (cf. folder `misc/software`)")
             st.code(
-                "direct -n alphakraken -r {RAW_FILE_PATH} -fasta {SETTINGS_PATH}/human.fasta -o {OUTPUT_PATH} -s /path/to/settings/alphakraken.prop"
+                "direct -n alphakraken -r {{RAW_FILE_PATH}} -fasta {{SETTINGS_PATH}}/human.fasta -o {{OUTPUT_PATH}} -s /path/to/settings/alphakraken.prop"
             )
 
     st.write(r"\* Required fields")
@@ -414,9 +414,15 @@ with c1.form("create_settings"):
 
     runner_names = list(RUNNERS)
     if SHOW_RUNNER_SELECT:
+        prefilled_runner_name = prefill_data["runner_name"]
+        if prefilled_runner_name and prefilled_runner_name not in runner_names:
+            st.warning(
+                f"Runner `{prefilled_runner_name}` of the previous version is not declared in "
+                f"`alphakraken.yaml` anymore, using `{runner_names[0]}`."
+            )
         runner_index = (
-            runner_names.index(prefill_data["runner_name"])
-            if prefill_data["runner_name"] in runner_names
+            runner_names.index(prefilled_runner_name)
+            if prefilled_runner_name in runner_names
             else 0
         )
         runner_name = st.selectbox(
@@ -463,7 +469,7 @@ with c1.form("create_settings"):
             value=int(
                 prefill_data["num_threads"] or resource_params_defaults.num_threads
             ),
-            help="Use for 'alphadia' and 'custom' (through {NUM_THREADS} placeholder)",
+            help="Use for 'alphadia' and 'custom' (through {{NUM_THREADS}} placeholder)",
         )
 
     st.markdown("### Upload files to settings folder")
@@ -518,7 +524,7 @@ if submit:
         check_runner_supports_software_type(runner_name, software_type)
     )
     if config_params:
-        # TODO: warn on bare (RAW_FILE_PATH) and half-open ({RAW_FILE_PATH) placeholders,
+        # TODO: warn on bare (RAW_FILE_PATH) and half-open ({{RAW_FILE_PATH) placeholders,
         # they currently pass validation and fail silently at runtime
         placeholder_errors = check_for_unknown_placeholders(config_params)
         validation_errors.extend(

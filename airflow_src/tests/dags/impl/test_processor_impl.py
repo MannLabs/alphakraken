@@ -147,7 +147,7 @@ def test_create_quanting_env_custom_software(
     mock_settings.speclib_file_name = "some_speclib_file_name"
     mock_settings.fasta_file_name = "some_fasta_file_name"
     mock_settings.config_file_name = ""
-    mock_settings.config_params = "--qvalue 0.01 --f {RAW_FILE_PATH} --lib {SETTINGS_PATH}/some_speclib_file_name --out {OUTPUT_PATH} --fasta {SETTINGS_PATH}/some_fasta_file_name --threads {NUM_THREADS} --some_param {RELATIVE_RAW_FILE_PATH} --some_param2 {RELATIVE_OUTPUT_PATH}"
+    mock_settings.config_params = "--qvalue 0.01 --f {{RAW_FILE_PATH}} --lib {{SETTINGS_PATH}}/some_speclib_file_name --out {{OUTPUT_PATH}} --fasta {{SETTINGS_PATH}}/some_fasta_file_name --threads {{NUM_THREADS}} --some_param {{RELATIVE_RAW_FILE_PATH}} --some_param2 {{RELATIVE_OUTPUT_PATH}}"
     mock_settings.software = "custom1.2.3"
     mock_settings.software_type = "custom"
     mock_settings.metrics_type = "custom"
@@ -372,7 +372,7 @@ def test_prepare_job_windows_runner_yields_windows_paths(
     mock_settings = MagicMock(
         software_type="custom",
         software="tool.exe",
-        config_params="--f {RAW_FILE_PATH} --out {OUTPUT_PATH}",
+        config_params="--f {{RAW_FILE_PATH}} --out {{OUTPUT_PATH}}",
         num_threads=8,
         speclib_file_name=None,
         fasta_file_name=None,
@@ -424,7 +424,7 @@ def test_check_content_rejects_malicious_unresolved_config_params(
     quanting_env = make_quanting_env(config_params="--f /pool/backup/f.raw; rm -rf /")
 
     errors = _check_content(
-        quanting_env, MagicMock(config_params="--f {RAW_FILE_PATH}; rm -rf /")
+        quanting_env, MagicMock(config_params="--f {{RAW_FILE_PATH}}; rm -rf /")
     )
 
     assert len(errors) == 1
@@ -438,7 +438,7 @@ def test_check_content_allows_placeholders_in_unresolved_config_params(
 
     errors = _check_content(
         quanting_env,
-        MagicMock(config_params="--f {RAW_FILE_PATH} --threads {NUM_THREADS}"),
+        MagicMock(config_params="--f {{RAW_FILE_PATH}} --threads {{NUM_THREADS}}"),
     )
 
     assert errors == []
@@ -451,7 +451,7 @@ def test_check_content_rejects_unknown_placeholder(
     quanting_env = make_quanting_env(config_params="--f /pool/backup/f.raw")
 
     errors = _check_content(
-        quanting_env, MagicMock(config_params="--f {RAW_FILE_PAHT}")
+        quanting_env, MagicMock(config_params="--f {{RAW_FILE_PAHT}}")
     )
 
     assert len(errors) == 1
@@ -461,13 +461,22 @@ def test_check_content_allows_image_name_in_software_field(
     make_quanting_env: Callable[..., QuantingEnv],
 ) -> None:
     """Test that a docker image name in the software field is accepted."""
-    quanting_env = make_quanting_env(
-        software="alphakraken-msqc", runner_name=JobEngines.DOCKER
-    )
+    quanting_env = make_quanting_env(software="alphakraken-msqc")
 
     errors = _check_content(quanting_env, MagicMock(config_params=None))
 
     assert errors == []
+
+
+def test_check_content_rejects_an_absolute_software(
+    make_quanting_env: Callable[..., QuantingEnv],
+) -> None:
+    """Test that `software` must stay relative to the runner's software location, as in the webapp."""
+    quanting_env = make_quanting_env(software="/usr/bin/diann")
+
+    errors = _check_content(quanting_env, MagicMock(config_params=None))
+
+    assert len(errors) == 1
 
 
 def test_check_content_sorts_every_string_field() -> None:
@@ -478,10 +487,7 @@ def test_check_content_sorts_every_string_field() -> None:
         if field.annotation in (str, str | None)
     }
 
-    assert (
-        set(_STRICTLY_CHECKED_FIELDS) | set(_UNCHECKED_FIELDS) | {"software"}
-        == str_fields
-    )
+    assert set(_STRICTLY_CHECKED_FIELDS) | set(_UNCHECKED_FIELDS) == str_fields
 
 
 def test_check_content_ignores_resolved_paths(
@@ -574,6 +580,22 @@ def test_prepare_job_validation_error_raises(
         "",
     )
     mock_check_content.assert_called_once_with(mock_env, mock_settings)
+
+
+@patch("dags.impl.processor_impl.get_settings_by_id")
+@patch("dags.impl.processor_impl.get_raw_file_by_id")
+def test_prepare_job_unknown_runner_raises(
+    mock_get_raw_file_by_id: MagicMock,
+    mock_get_settings_by_id: MagicMock,
+) -> None:
+    """Test that a settings entry naming an undeclared runner fails the task without a retry."""
+    mock_get_raw_file_by_id.return_value = MagicMock(wraps=RawFile, id="test_file.raw")
+    mock_settings = MagicMock()
+    mock_settings.runner_name = "no_such_runner"
+    mock_get_settings_by_id.return_value = mock_settings
+
+    with pytest.raises(AirflowFailException, match="Unknown runner 'no_such_runner'"):
+        prepare_job(raw_file_id="test_file.raw", settings_id="sid1")
 
 
 def test_get_slurm_job_id_from_log_returns_slurm_job_id_if_present_in_log() -> None:
@@ -824,7 +846,7 @@ def test_create_quanting_env_with_suffix(
 
     mock_settings = MagicMock(
         software_type="custom",
-        config_params="--out {OUTPUT_PATH}",
+        config_params="--out {{OUTPUT_PATH}}",
         num_threads=8,
         speclib_file_name="some_speclib_file_name",
         fasta_file_name="some_fasta_file_name",

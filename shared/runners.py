@@ -4,7 +4,13 @@ from dataclasses import dataclass
 from pathlib import PurePath, PurePosixPath, PureWindowsPath
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, ValidationError, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 
 from shared.keys import ConstantsClass, JobEngines
 from shared.path_views import Locations, View
@@ -25,6 +31,20 @@ _OS_TO_PATH_CLASS: dict[str, type[PurePath]] = {
     OperatingSystems.MACOS: PurePosixPath,
     OperatingSystems.WINDOWS: PureWindowsPath,
 }
+
+# the locations `prepare_job` resolves for every engine
+_JOB_LOCATIONS = (
+    Locations.BACKUP,
+    Locations.OUTPUT,
+    Locations.SETTINGS,
+    Locations.SOFTWARE,
+)
+_REQUIRED_LOCATIONS: dict[str, tuple[str, ...]] = {
+    JobEngines.SLURM: (*_JOB_LOCATIONS, Locations.SLURM),
+    JobEngines.DOCKER: _JOB_LOCATIONS,
+    JobEngines.FILE_BASED: _JOB_LOCATIONS,
+}
+_ENGINES_USING_SSH = (JobEngines.SLURM,)
 
 
 class _RunnerEntry(BaseModel):
@@ -63,6 +83,19 @@ class _RunnerEntry(BaseModel):
             )
         return view
 
+    @model_validator(mode="after")
+    def _engine_requirements_are_met(self) -> "_RunnerEntry":
+        # checked here rather than at first use, so that a config error fails at import instead of failing every job
+        if missing := set(_REQUIRED_LOCATIONS[self.engine]) - set(self.view):
+            raise ValueError(
+                f"engine '{self.engine}' requires the view keys {sorted(missing)}"
+            )
+        if self.engine in _ENGINES_USING_SSH and self.ssh_connection_id_prefix is None:
+            raise ValueError(
+                f"engine '{self.engine}' requires `ssh_connection_id_prefix`"
+            )
+        return self
+
 
 @dataclass(frozen=True)
 class Runner:
@@ -70,9 +103,9 @@ class Runner:
 
     name: str
     engine: str
-    os: str  # kept for the future SSH handler (job script per OS)
+    os: str
     view: View[PurePath]
-    ssh_connection_id_prefix: str | None  # engines that need it check for None
+    ssh_connection_id_prefix: str | None
 
 
 def _label(entry: Any, index: int) -> str:

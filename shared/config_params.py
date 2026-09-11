@@ -36,13 +36,14 @@ PLACEHOLDER_DESCRIPTIONS: dict[str, str] = {
 
 
 _KNOWN_PLACEHOLDER_PATTERN = re.compile(
-    rf"\{{({'|'.join(ConfigParamPlaceholders.get_values())})\}}"
+    rf"\{{\{{({'|'.join(ConfigParamPlaceholders.get_values())})\}}\}}"
 )
-_BRACED_TOKEN_PATTERN = re.compile(r"\{([^{}]*)\}")
+# any run of braces around a token, so that `{X}` and `{{{X}}}` are reported as unknown placeholders
+_BRACED_TOKEN_PATTERN = re.compile(r"\{+[^{}]*\}+")
 
 
 def substitute_placeholders(config_params: str, values: dict[str, str]) -> str:
-    """Replace each `{PLACEHOLDER}` in `config_params` by the given value."""
+    """Replace each `{{PLACEHOLDER}}` in `config_params` by the given value."""
     # single pass, so that a substituted value containing a placeholder is not expanded again
     return _KNOWN_PLACEHOLDER_PATTERN.sub(
         lambda match: values.get(match.group(1), match.group()), config_params
@@ -64,9 +65,8 @@ def check_for_unknown_placeholders(config_params: str) -> list[str]:
         list[str]: List of validation error messages (empty if valid)
 
     """
-    known_placeholders = ConfigParamPlaceholders.get_values()
     return [
         f"{UNKNOWN_PLACEHOLDER_ERROR}: {match.group()}"
         for match in _BRACED_TOKEN_PATTERN.finditer(config_params)
-        if match.group(1) not in known_placeholders
+        if not _KNOWN_PLACEHOLDER_PATTERN.fullmatch(match.group())
     ]

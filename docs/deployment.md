@@ -229,9 +229,8 @@ sudo apt install cifs-utils
 
 1. Create folders `settings`, `output`, and `airflow_logs` in the desired pool location(s), e.g. under `/fs/pool/pool-alphakraken`.
 
-2. Make sure `MOUNTS_PATH` in the `envs/${ENV}.env` file is set correctly: `mount.sh` mounts below it and the
-containers bind from it. It must be absolute here, a relative value resolves against the current directory and
-yields a relative `fstab` line.
+2. Make sure `MOUNTS_PATH` in the `envs/${ENV}.env` file is set correctly: `mount.sh` creates mounts below it and the
+containers bind from it. Must be absolute in order to make the docker job engine and fstab mounting work properlt (can be relative in local test setups).
 
 3. Create `fstab` entries for the backup, output, and logs folders, and all  instruments (here: `test1`):
 ```bash
@@ -291,13 +290,9 @@ At least one connection is required to interact with the Slurm cluster.
 4. Click "Save".
 Note: make sure to use the `kraken-read` user with read-only access to the backup pool folder.
 
-A runner selects its connections by prefix: it uses every connection whose id starts with its
-`ssh_connection_id_prefix` (`runners:` block in `envs/alphakraken.${ENV}.yaml`, `cluster_ssh_connection` for the
-in-repo `slurm` runner), cycling through them on retries. Define multiple connections with the same prefix to
-increase robustness, e.g. in case one head node is down; add or remove them in Airflow alone, the yaml stays as is.
+A runner selects its connections by prefix: it uses every connection (manged in Airflow UI) whose id starts with its
+`ssh_connection_id_prefix`, cycling through them on retries.
 
-The credentials stay in Airflow connections rather than in the yaml: they are encrypted there, can be rotated
-and tested in the UI without a container restart, and only the workers need them.
 
 ### Setup required pools
 Pools are used to limit the number of parallel tasks for certain operations. They are managed via the Airflow UI
@@ -363,7 +358,7 @@ monitoring tasks for all runners, not only for Slurm.
     - runner `docker` (or any runner declared with the `docker` engine),
     - `software` set to the image name, e.g. `alphakraken-msqc`,
     - `config_params` set to the arguments for the image, with the usual placeholders, e.g.
-      `{RAW_FILE_PATH} {OUTPUT_PATH} {NUM_THREADS}` for the msqc image. They may be left empty if the
+      `{{RAW_FILE_PATH}} {{OUTPUT_PATH}} {{NUM_THREADS}}` for the msqc image. They may be left empty if the
       image's entrypoint reads the environment variables instead (the msqc image supports both).
    - memory and cpus are taken from the slurm settings
 

@@ -25,7 +25,7 @@ import os
 import re
 import shlex
 from datetime import datetime
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 import docker
 from airflow.exceptions import AirflowFailException
@@ -35,7 +35,7 @@ from docker.errors import ImageNotFound, NotFound
 from docker.models.containers import Container
 from jobs.job_handler import JobHandler
 
-from shared.keys import InternalPaths
+from shared.path_views import AIRFLOW_CONTAINER_VIEW, Locations, View
 
 CONTAINER_NAME_PREFIX = "kraken"
 # docker accepts only [a-zA-Z0-9][a-zA-Z0-9_.-]* as container name, but raw file names may
@@ -65,17 +65,17 @@ NANO_CPUS_PER_CPU = 1_000_000_000
 class DockerJobHandler(JobHandler):
     """Implementation of JobHandler that runs jobs in Docker containers on the AlphaKraken host."""
 
-    def __init__(self, host_mounts_path: Path):
+    def __init__(self, docker_host_view: View[PurePosixPath]):
         """Initialize the docker job handler.
 
         Args:
-            host_mounts_path: Path of the mounts folder as seen by the docker host
+            docker_host_view: The data directories as seen by the docker host
                 (not by the containers)
 
         """
         super().__init__()
         self._client = docker.from_env()
-        self._host_mounts_path = host_mounts_path
+        self._docker_host_view = docker_host_view
 
     def start_job(self, quanting_env: QuantingEnv) -> str:
         """Start a job by running a container on the AlphaKraken host.
@@ -91,8 +91,12 @@ class DockerJobHandler(JobHandler):
         # None makes docker use the command defined in the image
         command = shlex.split(quanting_env.config_params) or None
 
-        internal_raw_file_path = Path(quanting_env.internal_raw_file_path)
-        internal_output_path = Path(quanting_env.internal_output_path)
+        internal_raw_file_path = AIRFLOW_CONTAINER_VIEW.resolve(
+            Locations.BACKUP, quanting_env.relative_raw_file_path
+        )
+        internal_output_path = AIRFLOW_CONTAINER_VIEW.resolve(
+            Locations.OUTPUT, quanting_env.relative_output_path
+        )
         for path in (internal_raw_file_path, internal_output_path):
             if not path.exists():
                 raise AirflowFailException(f"Path {path} does not exist in the worker.")
@@ -106,11 +110,19 @@ class DockerJobHandler(JobHandler):
         # bind at the paths the placeholders in the config params resolved to, so that the same
         # config params work for this engine and for Slurm
         volumes = {
-            str(self._to_host_path(internal_raw_file_path)): {
+            str(
+                self._docker_host_view.resolve(
+                    Locations.BACKUP, quanting_env.relative_raw_file_path
+                )
+            ): {
                 "bind": quanting_env.raw_file_path,
                 "mode": "ro",
             },
-            str(self._to_host_path(internal_output_path)): {
+            str(
+                self._docker_host_view.resolve(
+                    Locations.OUTPUT, quanting_env.relative_output_path
+                )
+            ): {
                 "bind": quanting_env.output_path,
                 "mode": "rw",
             },
@@ -181,19 +193,6 @@ class DockerJobHandler(JobHandler):
             ) from e
 
         return image
-
-    def _to_host_path(self, internal_path: Path) -> Path:
-        """Translate a path within the worker container to the corresponding host path.
-
-        This trick enables to access the files on the container file system with the same paths as on the shared file system.
-
-        E.g. /opt/airflow/mounts/output/P1/out_file.raw/custom
-        -> /home/kraken-user/alphakraken/production/mounts/output/P1/out_file.raw/custom
-        for `locations.general.mounts_path: /home/kraken-user/alphakraken/production/mounts`.
-        """
-        return self._host_mounts_path / internal_path.relative_to(
-            InternalPaths.MOUNTS_PATH
-        )
 
     def _get_container(self, job_id: str) -> Container | None:
         """Get the container with the given id, None if it does not exist (anymore)."""

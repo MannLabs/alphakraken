@@ -104,22 +104,6 @@ YAMLSETTINGS: dict[str, dict[str, Any]] = cast(
 )
 
 
-def get_host_mounts_path() -> Path:
-    """Get the path of the mounts folder as seen by the docker host (not by the containers)."""
-    path = (
-        YAMLSETTINGS.get(YamlKeys.LOCATIONS, {})  # type: ignore[possibly-unbound-attribute]
-        .get(YamlKeys.Locations.GENERAL, {})
-        .get(YamlKeys.Locations.MOUNTS_PATH)
-    )
-
-    if path is None:
-        raise KeyError(
-            f"Key `{YamlKeys.LOCATIONS}.{YamlKeys.Locations.GENERAL}.{YamlKeys.Locations.MOUNTS_PATH}` not found in alphakraken.yaml."
-        )
-
-    return Path(path)
-
-
 def get_notification_setting(setting_key: str) -> str:
     """Get a notification setting from the yaml settings."""
     setting_value = (

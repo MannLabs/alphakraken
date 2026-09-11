@@ -23,7 +23,6 @@ from common.keys import (
     XComKeys,
 )
 from common.paths import (
-    get_internal_backup_path,
     get_internal_output_path,
     get_internal_output_path_for_raw_file,
 )
@@ -182,7 +181,6 @@ def _create_quanting_env(
         )
 
     output_path = CLUSTER_VIEW.resolve(Locations.OUTPUT, relative_output_path)
-    internal_output_path = get_internal_output_path() / relative_output_path
 
     substituted_params = _substitute_config_params(
         raw_file.id,
@@ -225,8 +223,7 @@ def _create_quanting_env(
         project_id=raw_file.project_id,
         settings_name=settings.name,
         settings_version=settings.version,
-        internal_output_path=str(internal_output_path),
-        internal_raw_file_path=str(get_internal_backup_path() / relative_raw_file_path),
+        relative_raw_file_path=str(relative_raw_file_path),
         config_params=substituted_params,
         job_engine=settings.job_engine,
         year_month_folder=get_created_at_year_month(raw_file),
@@ -278,8 +275,6 @@ def _check_content(quanting_env: QuantingEnv, settings: Settings) -> list[str]:
         "raw_file_path",
         "settings_path",
         "output_path",
-        "internal_output_path",
-        "internal_raw_file_path",
         "software",
     ]
     # these hold resolved paths and are space-separated, so they need the laxer checks
@@ -360,7 +355,7 @@ def submit_job(
         raise AirflowSkipException("Skipping quanting due to instrument settings.")
 
     # upfront check 2
-    output_path = Path(quanting_env.internal_output_path)
+    output_path = get_internal_output_path() / quanting_env.relative_output_path
     if output_path.exists():
         msg = f"Output path {output_path} already exists with different content."
         output_exists_mode = get_airflow_variable(
@@ -482,7 +477,7 @@ def check_job_result(*, quanting_env_dict: dict, job_id: str, ti: TaskInstance) 
         JobStates.OUT_OF_MEMORY
     ):
         raw_file = get_raw_file_by_id(quanting_env.raw_file_id)
-        output_path = Path(quanting_env.internal_output_path)
+        output_path = get_internal_output_path() / quanting_env.relative_output_path
 
         if job_status == JobStates.FAILED:
             if quanting_env.software_type == SoftwareTypes.ALPHADIA:
@@ -536,7 +531,7 @@ def compute_metrics(
     quanting_env = QuantingEnv.from_dict(quanting_env_dict)
 
     metrics_type = quanting_env.metrics_type
-    output_path = Path(quanting_env.internal_output_path)
+    output_path = get_internal_output_path() / quanting_env.relative_output_path
 
     metrics = calc_metrics(output_path, metrics_type=metrics_type)
 

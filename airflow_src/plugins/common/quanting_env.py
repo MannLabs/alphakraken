@@ -40,8 +40,7 @@ class QuantingEnv(BaseModel):
     settings_name: str
     settings_version: int
 
-    internal_output_path: str = Field(alias="_INTERNAL_OUTPUT_PATH")
-    internal_raw_file_path: str = Field(alias="_INTERNAL_RAW_FILE_PATH")
+    relative_raw_file_path: str = Field(alias="_RELATIVE_RAW_FILE_PATH")
     config_params: str = Field(alias="_CONFIG_PARAMS")
     job_engine: str = Field(alias="_JOB_ENGINE")
     year_month_folder: str = Field(alias="_YEAR_MONTH_FOLDER")

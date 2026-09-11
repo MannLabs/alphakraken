@@ -11,8 +11,7 @@ from airflow.exceptions import AirflowFailException
 from common.quanting_env import QuantingEnv
 
 from shared.keys import JobEngines
-from shared.path_views import CLUSTER_VIEW, Locations
-from shared.yamlsettings import get_host_mounts_path
+from shared.path_views import CLUSTER_VIEW, DOCKER_HOST_VIEW, Locations
 
 
 def _get_job_handler(engine: str) -> "JobHandler":
@@ -32,8 +31,14 @@ def _get_job_handler(engine: str) -> "JobHandler":
                 f"airflow_src/requirements_docker_job_engine.txt to be installed."
             ) from e
 
+        if not DOCKER_HOST_VIEW.has(Locations.OUTPUT):
+            raise AirflowFailException(
+                f"The '{JobEngines.DOCKER}' job engine requires the key "
+                f"`locations.general.mounts_path` in alphakraken.yaml."
+            )
+
         logging.info("Using DockerJobHandler")
-        return DockerJobHandler(get_host_mounts_path())
+        return DockerJobHandler(DOCKER_HOST_VIEW)
 
     if engine == JobEngines.FILE_BASED:
         from jobs._experimental.file_based_job_handler import FileBasedJobHandler

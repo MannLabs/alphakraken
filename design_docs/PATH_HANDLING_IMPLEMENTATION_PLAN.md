@@ -100,26 +100,46 @@ deliberately not started here; D2 only has to avoid blocking it.
 ### C6 - Host view cutover
 
 - **Goal:** remove the container->host `relative_to` round-trip.
-- **Do:** `DockerJobHandler._to_host_path` (`docker_job_handler.py:185-197`) becomes
-  `DOCKER_HOST_VIEW.resolve(location, rel)`; the handler is constructed with the view rather than with
-  `get_host_mounts_path()` (`job_handler.py:35`). Delete `get_host_mounts_path`.
+- **Do:** the handler is constructed with `DOCKER_HOST_VIEW` rather than with
+  `get_host_mounts_path()` (`job_handler.py:35`); delete `get_host_mounts_path`.
+  `DockerJobHandler._to_host_path` disappears entirely: `QuantingEnv` carries
+  `relative_raw_file_path` and `relative_output_path`, so each side resolves in its own view and
+  nothing ever crosses between views.
+  - This replaces `_INTERNAL_OUTPUT_PATH` / `_INTERNAL_RAW_FILE_PATH` with
+    `_RELATIVE_RAW_FILE_PATH`, which lands §6.5 (`QuantingEnv` carrying both views of the same
+    object) ahead of D3/D5. Safe: both handlers strip `_`-prefixed keys, so these fields never
+    leave the process.
+  - Needs a `container_locations()` test helper next to `yaml_locations()`: tests used to redirect
+    output to a `tmp_path` by overriding the resolved path in the env, which is no longer a field.
+  - The factory reports a missing `locations.general.mounts_path` when the `docker` engine is
+    selected, restoring the actionable message that C3's lenient `DOCKER_HOST_VIEW` gave up.
 - **Done when:** `shared/yamlsettings.py` no longer exports any path accessor.
+- **Note:** the 13 `test_docker_job_handler.py` tests need the optional `docker` package. To run
+  them without it, put a stub package (`from_env`, `errors.ImageNotFound/NotFound`,
+  `models.containers.Container`) on `PYTHONPATH`.
 
 ### C7 - Consistency test
 
 - **Goal:** attack §6.6 - `InternalPaths`, `docker-compose.yaml` mount targets and yaml
   `mount_target` agree by convention only.
-- **Do:** a test that parses the volume lists in `docker-compose.yaml:451-538` and each
-  `envs/alphakraken.*.yaml`, and asserts every `AIRFLOW_CONTAINER_VIEW` location reachable by the worker is
-  actually mounted there and that `mount_target` matches.
-  Note the mounts are per service and, for `instruments`/`backup`, per instrument
-  (`:460,462,520,521,537,538`), so the assertion is "every location has a mount whose target is that
-  location or a child of it", not a set equality.
-- **Done when:** the test fails on the production `backup` mount-depth discrepancy reported in
-  `BOYSCOUT_20260901_081142.md`, or that discrepancy is resolved first and the test guards it.
-- **Note:** decide the production `backup` question (`//samba-pool-1/pool-1` vs
-  `//samba-pool-1/pool-1/backup`) before writing the assertion - it is a config bug, not a
-  test-authoring detail.
+- **Do:** `shared/tests/test_deployment_paths.py` parses `docker-compose.yaml` and every
+  `envs/alphakraken.*.yaml` and asserts what is derivable in-repo:
+  - each bind below the mounts folder puts the data at the same relative path on both sides -
+    this is what lets the docker host view be derived from `locations.general.mounts_path`;
+  - nothing is mounted into the containers below a location the container view does not know;
+  - every location of the container view is backed by at least one bind;
+  - each `locations.<x>.mount_target` equals `<x>`, and each instrument's `mount_target` is
+    `instruments/<instrument_id>`;
+  - the one deliberate exception - the logs, mounted from `airflow_logs` to `/opt/airflow/logs`,
+    outside the mounts folder - is pinned so that it stays deliberate.
+- **Done when:** each assertion has been shown to fail on a mutation of the config it guards.
+- **Note:** `mount_src` is deliberately not checked against `absolute_path`. The former is an SMB
+  share path, the latter a cluster filesystem path; where a share is rooted on the server is not
+  derivable from this repo. The production `backup` entry (`//samba-pool-1/pool-1` vs
+  `/fs/pool-1/backup`) is the only one whose share path does not end in the same component as its
+  absolute path. That is either a different export convention for `pool-1` (fine) or a real
+  misconfiguration; `ls <mounts_path>/backup` on the worker host settles it - instrument folders
+  mean fine, a nested `backup` folder means the mount is one level off.
 
 ## 2. Dependency order
 

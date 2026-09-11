@@ -7,7 +7,7 @@ from typing import Any
 import pytest
 
 _SCRIPT = (
-    Path(__file__).parents[1] / "_migrations/from_0.10.0/_convert_alphakraken_yaml.py"
+    Path(__file__).parents[3] / "_migrations/from_0.10.0/_convert_alphakraken_yaml.py"
 )
 
 # the migrations folder is no package, so the script is loaded by path

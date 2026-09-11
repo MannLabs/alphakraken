@@ -6,7 +6,7 @@ from typing import Any
 from unittest.mock import MagicMock
 
 _SCRIPT = (
-    Path(__file__).parents[1] / "_migrations/from_0.10.0/_migrate_paths_to_relative.py"
+    Path(__file__).parents[3] / "_migrations/from_0.10.0/_migrate_paths_to_relative.py"
 )
 
 # the migrations folder is no package, so the script is loaded by path

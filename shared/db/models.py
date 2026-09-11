@@ -47,6 +47,7 @@ class RawFileStatus:
     COPYING = "copying"
     COPYING_DONE = "copying_done"
     ACQUISITION_FAILED = "acquisition_failed"
+    DISAPPEARED = "disappeared"  # files vanished from the instrument before backup
 
     QUEUED_FOR_QUANTING = "queued_for_quanting"
     QUANTING = "quanting"
@@ -78,6 +79,7 @@ ERROR_STATUSES = [
     RawFileStatus.ERROR,
     RawFileStatus.QUANTING_FAILED,
     RawFileStatus.ACQUISITION_FAILED,
+    RawFileStatus.DISAPPEARED,
 ]
 TERMINAL_STATUSES = [
     *ERROR_STATUSES,
@@ -93,6 +95,9 @@ class InstrumentFileStatus:
     NA = "n/a"  # for backwards compatibility
     INITIAL = "initial"  # File exists on instrument, not yet moved
     RENAMED = "renamed"  # File was renamed on instrument (read as "file does no longer exist under its name as it was renamed")
+    DISAPPEARED = (
+        "disappeared"  # File disappeared from instrument before it was backed up
+    )
     MOVED = "moved"  # File moved from instrument to instrument backup folder
     PURGED = "purged"  # File removed from instrument backup folder
 

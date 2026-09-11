@@ -49,7 +49,7 @@ class _Dialect(Protocol):
     Every command prints exactly one line, as `ssh_execute` retries on empty output.
     """
 
-    launcher_file_name: str
+    launcher_script_file_name: str
 
     def launcher_script(
         self, environment: dict[str, str], output_path: PurePath, custom_command: str
@@ -57,7 +57,7 @@ class _Dialect(Protocol):
         """Content of the launcher script, which writes `<exit code> <elapsed seconds>` to the exit code file."""
         ...
 
-    def start_cmd(self, launcher_path: PurePath) -> str:
+    def start_cmd(self, launcher_script_path: PurePath) -> str:
         """Command to start the launcher in the background, printing its process id."""
         ...
 
@@ -69,7 +69,7 @@ class _Dialect(Protocol):
 class _PosixDialect:
     """Dialect for linux and macos, using `sh`."""
 
-    launcher_file_name = f"{LAUNCHER_SCRIPT_STEM}.sh"
+    launcher_script_file_name = f"{LAUNCHER_SCRIPT_STEM}.sh"
 
     def launcher_script(
         self, environment: dict[str, str], output_path: PurePath, custom_command: str
@@ -85,9 +85,9 @@ class _PosixDialect:
         ]
         return "\n".join(lines) + "\n"
 
-    def start_cmd(self, launcher_path: PurePath) -> str:
+    def start_cmd(self, launcher_script_path: PurePath) -> str:
         """Command to start the launcher in the background."""
-        return f'nohup sh "{launcher_path}" > /dev/null 2>&1 &\necho $!'
+        return f'nohup sh "{launcher_script_path}" > /dev/null 2>&1 &\necho $!'
 
     def status_cmd(self, exit_code_file_path: PurePath, job_id: str) -> str:
         """Command printing the job state and the elapsed seconds."""
@@ -117,7 +117,7 @@ class _WindowsDialect:
     created via `Win32_Process` is a child of `WmiPrvSE.exe` and outside that job object.
     """
 
-    launcher_file_name = f"{LAUNCHER_SCRIPT_STEM}.cmd"
+    launcher_script_file_name = f"{LAUNCHER_SCRIPT_STEM}.cmd"
 
     def launcher_script(
         self, environment: dict[str, str], output_path: PurePath, custom_command: str
@@ -132,11 +132,11 @@ class _WindowsDialect:
         ]
         return "\r\n".join(lines) + "\r\n"
 
-    def start_cmd(self, launcher_path: PurePath) -> str:
+    def start_cmd(self, launcher_script_path: PurePath) -> str:
         """Command to start the launcher outside the SSH session's job object."""
         script = (
             "(Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments "
-            f"""@{{CommandLine = 'cmd.exe /c call "{launcher_path}"'}}).ProcessId"""
+            f"""@{{CommandLine = 'cmd.exe /c call "{launcher_script_path}"'}}).ProcessId"""
         )
         encoded = base64.b64encode(script.encode("utf-16-le")).decode("ascii")
         return f"powershell -NoProfile -EncodedCommand {encoded}"
@@ -206,15 +206,15 @@ class SimpleSSHJobHandler(JobHandler):
             remote_output_path,
             quanting_env.custom_command,
         )
-        launcher_path = internal_output_path / self._dialect.launcher_file_name
+        launcher_script_path = internal_output_path / self._dialect.launcher_script_file_name
         # newline="" keeps the dialect's line endings
-        launcher_path.write_text(script, newline="")
+        launcher_script_path.write_text(script, newline="")
         logging.info(
-            f"Wrote launcher {launcher_path}: >>>>\n{script}<<<< end of launcher"
+            f"Wrote launcher {launcher_script_path}: >>>>\n{script}<<<< end of launcher"
         )
 
         command = self._dialect.start_cmd(
-            remote_output_path / self._dialect.launcher_file_name
+            remote_output_path / self._dialect.launcher_script_file_name
         )
         logging.info(f"Running command: >>>>\n{command}\n<<<< end of command")
         ssh_return = ssh_execute(command, self._ssh_connection_id_prefix)

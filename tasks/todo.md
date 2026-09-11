@@ -275,13 +275,13 @@ reword sites: `webapp/pages_/settings.py:311,381`, `file_based_job_handler.py:10
 `test_docker_job_handler.py:37`. TODOs reworded, never resolved.
 
 **Acceptance criteria:**
-- [ ] 9.1 and 9.2 greps return only migration scripts and `design_docs`.
-- [ ] Every 2.10 bullet has a corresponding diff hunk.
-- [ ] `git grep -c TODO -- '*.py' | awk -F: '{s+=$2} END {print s}'` equals the count on `main` plus one (the T3 TODO).
+- [x] 9.1 and 9.2 greps return only migration scripts and `design_docs` (plus `allow_absolute_paths` in the validation code, the filename `requirements_docker_job_engine.txt`, and the tests of the migration).
+- [x] Every 2.10 bullet has a corresponding diff hunk.
+- [x] `git grep -c TODO -- '*.py' | awk -F: '{s+=$2} END {print s}'` equals the count on `main` plus one (the T3 TODO) minus one (the `get_backup_base_path` TODO went with the inlining), i.e. equal.
 
 **Verification:**
-- [ ] `grep -rn 'CLUSTER_VIEW\|absolute_path\|mounts_path\|locations\.[a-z*]*\.\|"locations"\|^locations:\|YamlKeys.LOCATIONS' --include='*.py' --include='*.sh' --include='*.md' . envs/*.yaml | grep -v node_modules`
-- [ ] All three suites; `pre-commit run --all-files`
+- [x] `grep -rn 'CLUSTER_VIEW\|absolute_path\|mounts_path\|locations\.[a-z*]*\.\|"locations"\|^locations:\|YamlKeys.LOCATIONS' --include='*.py' --include='*.sh' --include='*.md' . envs/*.yaml | grep -v node_modules`
+- [x] All three suites; `pre-commit run --all-files`
 
 **Dependencies:** T10
 **Files:** `docs/deployment.md`, `shared/config_params.py`, `webapp/pages_/settings.py`, `airflow_src/plugins/jobs/_experimental/file_based_job_handler.py`, `airflow_src/tests/plugins/jobs/test_docker_job_handler.py`

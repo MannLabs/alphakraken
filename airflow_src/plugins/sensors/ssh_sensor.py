@@ -32,7 +32,7 @@ class JobStatusSensorOperator(BaseSensorOperator, ABC):
 
         :param xcom_source_task_id: The task id of the task that pushes the job id to XCom.
         :param quanting_env_source_task_id: The task id of the task that pushes the quanting env
-            (carrying the job engine) to XCom.
+            (carrying the runner name) to XCom.
         """
         super().__init__(*args, **kwargs)
         self.xcom_source_task_id: str = xcom_source_task_id
@@ -41,7 +41,7 @@ class JobStatusSensorOperator(BaseSensorOperator, ABC):
         self._runner_name: str | None = None
 
     def pre_execute(self, context: dict[str, Any]) -> None:
-        """Persist the job id and job engine from XCom."""
+        """Persist the job id and runner name from XCom."""
         ti = context["ti"]
         self._job_id = str(
             ti.xcom_pull(

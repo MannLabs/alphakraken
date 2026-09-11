@@ -213,6 +213,9 @@ def test_settings_software_selectbox_without_used_software_offers_adding_one(
     software_selects = [s for s in at.selectbox if s.label == SOFTWARE_SELECT_LABEL]
     assert software_selects[0].options == [ADD_NEW_SOFTWARE_OPTION]
     assert [t for t in at.text_input if t.label == NEW_SOFTWARE_INPUT_LABEL]
+    assert any(
+        "administrator needs to make it available" in w.value for w in at.warning
+    )
 
 
 @patch("shared.db.models.ProjectSettings.objects")
@@ -238,3 +241,6 @@ def test_settings_software_selectbox_keeps_a_software_the_runner_never_ran(
     assert software_select.value == "alphadia-retired"
     assert software_select.options[-1] == ADD_NEW_SOFTWARE_OPTION
     assert [t for t in at.text_input if t.label == NEW_SOFTWARE_INPUT_LABEL] == []
+    assert not any(
+        "administrator needs to make it available" in w.value for w in at.warning
+    )

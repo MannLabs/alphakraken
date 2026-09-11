@@ -316,6 +316,11 @@ if selected_software_option == ADD_NEW_SOFTWARE_OPTION:
         placeholder=form_items["software"]["placeholder"],
         help=form_items["software"]["help"],
     )
+    c1.warning(
+        "No settings use this software yet: an administrator needs to make it available first, "
+        "otherwise the quanting jobs of these settings will fail.",
+        icon="⚠️",
+    )
 else:
     software = selected_software_option
 

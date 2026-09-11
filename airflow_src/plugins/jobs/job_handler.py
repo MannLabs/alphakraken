@@ -8,6 +8,7 @@ import abc
 import logging
 
 from airflow.exceptions import AirflowFailException
+from common.quanting_env import QuantingEnv
 
 from shared.keys import JobEngines
 from shared.yamlsettings import YamlKeys, get_host_mounts_path, get_path
@@ -46,11 +47,11 @@ class JobHandler(abc.ABC):
     """Abstract base class for job handling."""
 
     @abc.abstractmethod
-    def start_job(self, environment: dict[str, str]) -> str:
+    def start_job(self, quanting_env: QuantingEnv) -> str:
         """Start a job and return the job ID.
 
         Args:
-            environment: Environment variables to set before job submission
+            quanting_env: Environment of the job to submit
 
         Returns:
             Job ID as a string
@@ -75,7 +76,7 @@ class JobHandler(abc.ABC):
 
 
 def start_job(
-    environment: dict[str, str],
+    quanting_env: QuantingEnv,
     engine: str,
 ) -> str:
     """Start a job using the given job engine.
@@ -83,7 +84,7 @@ def start_job(
     Delegates to JobHandler.start_job(), see docs there.
     """
     handler = _get_job_handler(engine)
-    return handler.start_job(environment)
+    return handler.start_job(quanting_env)
 
 
 def get_job_status(job_id: str, engine: str) -> str:

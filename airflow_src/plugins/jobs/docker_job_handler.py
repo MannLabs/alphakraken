@@ -29,7 +29,8 @@ from pathlib import Path
 
 import docker
 from airflow.exceptions import AirflowFailException
-from common.keys import JobStates, QuantingEnv
+from common.keys import JobStates
+from common.quanting_env import QuantingEnv
 from docker.errors import ImageNotFound, NotFound
 from docker.models.containers import Container
 from jobs.job_handler import JobHandler
@@ -76,29 +77,29 @@ class DockerJobHandler(JobHandler):
         self._client = docker.from_env()
         self._host_mounts_path = host_mounts_path
 
-    def start_job(self, environment: dict[str, str]) -> str:
+    def start_job(self, quanting_env: QuantingEnv) -> str:
         """Start a job by running a container on the AlphaKraken host.
 
         Args:
-            environment: Environment variables containing quanting configuration
+            quanting_env: Environment of the job to submit
 
         Returns:
             Job ID (in the case of this handler, the short container id)
 
         """
-        image = self._get_image(environment[QuantingEnv.SOFTWARE])
+        image = self._get_image(quanting_env.software)
         # None makes docker use the command defined in the image
-        command = shlex.split(environment[QuantingEnv.CONFIG_PARAMS]) or None
+        command = shlex.split(quanting_env.config_params) or None
 
-        internal_raw_file_path = Path(environment[QuantingEnv.INTERNAL_RAW_FILE_PATH])
-        internal_output_path = Path(environment[QuantingEnv.INTERNAL_OUTPUT_PATH])
+        internal_raw_file_path = Path(quanting_env.internal_raw_file_path)
+        internal_output_path = Path(quanting_env.internal_output_path)
         for path in (internal_raw_file_path, internal_output_path):
             if not path.exists():
                 raise AirflowFailException(f"Path {path} does not exist in the worker.")
 
         container_name = _to_container_name(
-            f"{CONTAINER_NAME_PREFIX}-{environment[QuantingEnv.SOFTWARE_TYPE]}-"
-            f"{environment[QuantingEnv.RAW_FILE_ID]}"
+            f"{CONTAINER_NAME_PREFIX}-{quanting_env.software_type}-"
+            f"{quanting_env.raw_file_id}"
         )
         self._remove_container(container_name)
 
@@ -106,11 +107,11 @@ class DockerJobHandler(JobHandler):
         # config params work for this engine and for Slurm
         volumes = {
             str(self._to_host_path(internal_raw_file_path)): {
-                "bind": environment[QuantingEnv.RAW_FILE_PATH],
+                "bind": quanting_env.raw_file_path,
                 "mode": "ro",
             },
             str(self._to_host_path(internal_output_path)): {
-                "bind": environment[QuantingEnv.OUTPUT_PATH],
+                "bind": quanting_env.output_path,
                 "mode": "rw",
             },
         }
@@ -126,16 +127,15 @@ class DockerJobHandler(JobHandler):
             name=container_name,
             volumes=volumes,
             # the same variables that the Slurm engine exports before the job script
-            environment=_exported_environment(environment),
+            environment=_exported_environment(quanting_env.to_dict()),
             labels={
-                JOB_LABEL: environment[QuantingEnv.RAW_FILE_ID],
+                JOB_LABEL: quanting_env.raw_file_id,
                 OUTPUT_PATH_LABEL: str(internal_output_path),
             },
             # write output files with the same ownership as the worker would
             user=f"{os.getuid()}:0",
-            mem_limit=str(environment[QuantingEnv.SLURM_MEM]).lower(),
-            nano_cpus=int(environment[QuantingEnv.SLURM_CPUS_PER_TASK])
-            * NANO_CPUS_PER_CPU,
+            mem_limit=quanting_env.slurm_mem.lower(),
+            nano_cpus=quanting_env.slurm_cpus_per_task * NANO_CPUS_PER_CPU,
             # the quanting software must not need any network access
             network_mode="none",
         )
@@ -245,7 +245,7 @@ def _to_container_name(name: str) -> str:
     return re.sub(_FORBIDDEN_CONTAINER_NAME_CHARACTERS_PATTERN, "_", name)
 
 
-def _exported_environment(environment: dict[str, str]) -> dict[str, str]:
+def _exported_environment(environment: dict) -> dict[str, str]:
     """Get the variables to set in the container, ignoring keys with leading underscore."""
     return {k: str(v) for k, v in environment.items() if not k.startswith("_")}
 

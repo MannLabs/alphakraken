@@ -496,18 +496,29 @@ with c1.form("create_settings"):
     ]
     if referenced_files:
         st.markdown(
-            f"Upload these files to `{settings_folder}/`:\n"
+            f"Make sure you uploaded these files to `{settings_folder}/`:\n"
             + "\n".join(f"- `{file_name}`" for file_name in referenced_files)
         )
 
     if empty_to_none(software):
+        # `software` is a path below the software folder only for the non-containerized non-alphadia case
+        if software_type == SoftwareTypes.ALPHADIA:
+            software_hint = f"the Conda environment `{software}`"
+        elif get_runner(runner_name).engine == JobEngines.DOCKER:
+            software_hint = f"the docker image `{software}` on the worker host"
+        else:
+            software_hint = (
+                f"the software `{DISPLAY_PATHS[Locations.SOFTWARE]}/{software}`"
+            )
         st.markdown(
-            f"Make sure the software `{DISPLAY_PATHS[Locations.SOFTWARE]}/{software}` is available, "
-            "ask an administrator if in doubt."
+            f"Make sure {software_hint} is available, ask an administrator if in doubt."
         )
 
     upload_checkbox = (
-        st.checkbox("I have uploaded all referenced files to this folder.", value=False)
+        st.checkbox(
+            "I have uploaded all referenced files to this folder and checked the software is available.",
+            value=False,
+        )
         if referenced_files
         else True
     )

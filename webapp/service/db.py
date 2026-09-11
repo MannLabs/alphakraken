@@ -11,6 +11,7 @@ from service.utils import _log
 
 from shared.db.engine import connect_db
 from shared.db.models import KrakenStatus, Metrics, Project, RawFile, Settings
+from shared.display_paths import get_display_backup_path, get_display_output_path
 from shared.validation import (
     ALLOWED_RAW_FILE_NAME_CHARACTERS_PRETTY,
     FORBIDDEN_RAW_FILE_NAME_CHARACTERS_PATTERN,
@@ -130,7 +131,6 @@ def get_raw_file_and_metrics_data(
         RawFile.objects(q)
         # exclude some not-needed fields
         .exclude("file_info")
-        .exclude("backup_base_path")
     )
 
     metrics_db = Metrics.objects(metrics_q)
@@ -145,7 +145,10 @@ def get_raw_file_and_metrics_data(
 
 
 def get_full_raw_file_data(raw_file_ids: list[str]) -> pd.DataFrame:
-    """Return from the database a dataframe derived from the QuerySet for RawFile for all `raw_file_ids`."""
+    """Return from the database a dataframe derived from the QuerySet for RawFile for all `raw_file_ids`.
+
+    The column `backup_path` holds the folder each raw file is backed up to, as users see it.
+    """
     _log("Connecting to the database")
     connect_db()
     _log(f"Retrieving all raw file data for {raw_file_ids}")
@@ -154,7 +157,11 @@ def get_full_raw_file_data(raw_file_ids: list[str]) -> pd.DataFrame:
 
     _log(f"Done retrieving all raw file data for {raw_file_ids}")
 
-    return df_from_db_data(raw_files_db)
+    df = df_from_db_data(raw_files_db)
+    df["backup_path"] = [
+        str(get_display_backup_path(raw_file)) for raw_file in raw_files_db
+    ]
+    return df
 
 
 def get_output_folders(raw_file_ids: list[str]) -> pd.DataFrame:
@@ -168,19 +175,22 @@ def get_output_folders(raw_file_ids: list[str]) -> pd.DataFrame:
     _log(f"Retrieving output folders for {raw_file_ids}")
 
     metrics_db = Metrics.objects.filter(raw_file__in=raw_file_ids).only(
-        "raw_file", "settings_name", "settings_version", "type", "output_path"
+        "raw_file", "settings_name", "settings_version", "type", "relative_output_path"
     )
 
     rows = []
     for metrics_ in metrics_db:
         doc = metrics_.to_mongo()
+        relative_output_path = doc.get("relative_output_path")
         rows.append(
             {
                 "raw_file_id": doc.get("raw_file"),
                 "settings_name": doc.get("settings_name"),
                 "settings_version": doc.get("settings_version"),
                 "type": doc.get("type"),
-                "output_path": doc.get("output_path"),
+                "output_path": None
+                if relative_output_path is None
+                else str(get_display_output_path(relative_output_path)),
             }
         )
 

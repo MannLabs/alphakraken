@@ -78,10 +78,11 @@ def test_converts_a_full_config() -> None:
             },
         }
     ]
-    assert converted["backup"] == {
-        "backup_base_path": "/fs/backup",
-        "backup_type": "local",
+    assert converted["display_paths"] == {
+        "backup": "/fs/backup",
+        "output": "/fs/output",
     }
+    assert converted["backup"] == {"backup_type": "local"}
     assert converted["general"] == _config()["general"]
     assert "locations" not in converted
 

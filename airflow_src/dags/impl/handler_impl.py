@@ -2,7 +2,7 @@
 
 import logging
 import re
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 
 from airflow.exceptions import AirflowFailException, AirflowSkipException
 from airflow.models import TaskInstance
@@ -58,13 +58,12 @@ from shared.db.models import (
 from shared.keys import (
     DDA_FLAG_IN_RAW_FILE_NAME,
 )
-from shared.path_layout import get_raw_file_folder_rel_path
 from shared.settings_scope_resolver import resolve_scoped_settings
 from shared.validation import FORBIDDEN_RAW_FILE_NAME_CHARACTERS_PATTERN
-from shared.yamlsettings import BACKUP_BASE_PATH, is_s3_upload_enabled
+from shared.yamlsettings import is_s3_upload_enabled
 
 # special mode that does not copy (e.g. because another instance handles it)
-# point backup.backup_base_path to the folder where the files can be picked up for quanting
+# point the `backup` location of the runner views to the folder where the files can be picked up for quanting # TODO: check is this is still true
 SKIP_COPYING = False
 
 
@@ -231,15 +230,11 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
     }
 
     raw_file = get_raw_file_by_id(raw_file_id)
-    backup_base_path = PurePosixPath(BACKUP_BASE_PATH) / get_raw_file_folder_rel_path(
-        raw_file
-    )
 
     if SKIP_COPYING:
         update_raw_file(
             raw_file_id,
             new_status=RawFileStatus.COPYING_DONE,
-            backup_base_path="",
             backup_status=BackupStatus.SKIPPED,
         )
         logging.warning("SKIP_COPYING is enabled, skipping file copy.")
@@ -248,7 +243,6 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
     update_raw_file(
         raw_file_id,
         new_status=RawFileStatus.COPYING,
-        backup_base_path=str(backup_base_path),
         backup_status=BackupStatus.COPYING_IN_PROGRESS,
     )
 

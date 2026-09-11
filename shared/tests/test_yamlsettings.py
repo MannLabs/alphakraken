@@ -98,6 +98,44 @@ def test_returns_test_settings_for_test_environment(
             "slurm": {"absolute_path": "./tmp/test/slurm"},
             "software": {"absolute_path": "./tmp/test/software"},
         },
+        "runners": [
+            {
+                "name": "slurm",
+                "engine": "slurm",
+                "os": "linux",
+                "ssh_connection_id_prefix": "cluster_ssh_connection",
+                "view": {
+                    "backup": "./tmp/test/backup",
+                    "output": "./tmp/test/output",
+                    "settings": "./tmp/test/settings",
+                    "software": "./tmp/test/software",
+                    "slurm": "./tmp/test/slurm",
+                },
+            },
+            {
+                "name": "docker",
+                "engine": "docker",
+                "os": "linux",
+                "view": {
+                    "backup": "./tmp/test/backup",
+                    "output": "./tmp/test/output",
+                    "settings": "./tmp/test/settings",
+                    "software": "./tmp/test/software",
+                },
+            },
+            {
+                "name": "file_based",
+                "engine": "file_based",
+                "os": "linux",
+                "view": {
+                    "backup": "./tmp/test/backup",
+                    "output": "./tmp/test/output",
+                    "settings": "./tmp/test/settings",
+                    "software": "./tmp/test/software",
+                    "slurm": "./tmp/test/slurm",
+                },
+            },
+        ],
     }
 
 

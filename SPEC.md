@@ -35,7 +35,9 @@ that handler. No exported string changes for existing deployments, except where 
   path in `get_backup_base_path`, reads a new key `backup.backup_base_path` in the existing
   top-level `backup` block.
   `CLUSTER_VIEW` is deleted. (Supersedes the earlier fallback decision, 2026-09-02.)
-- 1.2.4 A yaml without `runners:` fails at import with a clear error. No implicit defaults.
+- 1.2.4 A yaml without `runners:`, or with `runners: []`, declares no runners: deployments
+  without analysis need none. The webapp then offers no settings form (2.7). No other default.
+  (Supersedes the import-time failure, 2026-09-04.)
 - 1.2.5 The docker runner keeps binding host paths onto the paths the placeholders resolved to;
   admins copy the old `absolute_path` values into its `view` to keep exported strings equal.
 - 1.2.6 With `absolute_path` gone, the per-location entries hold mount information only. They
@@ -245,7 +247,8 @@ part", and the relative part is now checked directly. The allowed character set 
 ### 2.7 Webapp (`webapp/pages_/settings.py`)
 
 - Selectbox options `list(RUNNERS)`; default the first declared runner. `SHOW_JOB_ENGINE_SELECT`
-  -> `SHOW_RUNNER_SELECT`. Prefill key `runner`.
+  -> `SHOW_RUNNER_SELECT`. Prefill key `runner`. With no runners declared (1.2.4) the page shows a
+  notice instead of the settings form.
 - Line 509 check becomes `RUNNERS[runner].engine == JobEngines.DOCKER and software_type != CUSTOM`.
 - Help texts at 314 and 415 say "runner".
 
@@ -426,7 +429,8 @@ pytest, tests next to the existing ones (`shared/tests`, `airflow_src/tests`, `w
   drive-letter strings and that passes `_check_content`.
 - 9.5 A `Settings.runner` that is not declared fails the DAG with a message listing the declared
   runners.
-- 9.6 A yaml without `runners:` fails at import naming the missing key.
+- 9.6 A yaml without `runners:` imports with an empty `RUNNERS`; the webapp shows no settings
+  form.
 - 9.7 Migration `--dry-run` on a copy of the sandbox DB reports every Settings document exactly
   once.
 

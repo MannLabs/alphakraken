@@ -46,3 +46,23 @@ backup:
     region: eu-central-1
     bucket_prefix: alphakraken
     auto_create_buckets: false
+
+runners:
+  - name: slurm
+    engine: slurm
+    os: linux
+    ssh_connection_id_prefix: cluster_ssh_connection
+    view:
+      backup: /fs/pool-1/backup
+      output: /fs/pool-2/output
+      settings: /fs/pool-2/settings
+      software: /fs/home/kraken-read/software
+      slurm: /fs/pool-2/slurm
+  - name: docker
+    engine: docker
+    os: linux
+    view:
+      backup: /fs/pool-1/backup
+      output: /fs/pool-2/output
+      settings: /fs/pool-2/settings
+      software: /fs/home/kraken-read/software

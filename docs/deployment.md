@@ -236,7 +236,7 @@ in the `envs/alphakraken.${ENV}.yaml` file are set correctly.
 ```bash
 ./mount.sh backup fstab
 ./mount.sh output fstab
-./mount.sh logs fstab
+./mount.sh airflow_logs fstab
 ./mount.sh test1 fstab
 ```
 

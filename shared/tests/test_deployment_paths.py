@@ -25,6 +25,9 @@ _BIND = re.compile(r"^(?P<host>.+?):(?P<container>/opt/airflow/[^:]+)(?::[a-z]+)
 _LOGS_MOUNT_TARGET = "airflow_logs"
 _LOGS_CONTAINER_PATH = "/opt/airflow/logs"
 
+# host side of every bind below the mounts folder, cf. `docker-compose.yaml`
+_HOST_MOUNTS_PREFIX = "${MOUNTS_PATH:?error}/"
+
 
 def _mount_binds() -> list[tuple[str, str]]:
     """Get all (host path, container path) binds of `docker-compose.yaml` below the mounts folder."""
@@ -83,34 +86,36 @@ def test_every_container_location_is_mounted() -> None:
 
 
 @pytest.mark.parametrize(("file_name", "config"), _env_yamls())
-def test_location_mount_targets_match_the_location_names(
-    file_name: str, config: dict
-) -> None:
-    """Test that a location is mounted at the folder the container view expects it at."""
-    for location, values in config["locations"].items():
-        if (mount_target := values.get("mount_target")) is None:
-            continue
-
-        if location == Locations.LOGS:
-            assert mount_target == _LOGS_MOUNT_TARGET, file_name
-            continue
-
-        assert mount_target == location, (
-            f"{file_name}: '{location}' is mounted at '{mount_target}'"
-        )
+def test_no_top_level_locations_key(file_name: str, config: dict) -> None:
+    """Test that the pre-runner `locations` block is gone: its paths live in `runners` and `mounts`."""
+    assert "locations" not in config, file_name
 
 
 @pytest.mark.parametrize(("file_name", "config"), _env_yamls())
-def test_instrument_mount_targets_are_below_the_instruments_location(
-    file_name: str, config: dict
-) -> None:
-    """Test that the instruments are mounted below the folder the container view expects."""
-    for instrument_id, values in config["instruments"].items():
-        if (mount_target := values.get("mount_target")) is None:
-            continue
+def test_every_mount_has_a_source(file_name: str, config: dict) -> None:
+    """Test that each mount entry carries what mount.sh reads; the target is the entry's name."""
+    for name, values in config[YamlKeys.MOUNTS].items():
+        assert "mount_src" in values, f"{file_name}: mount '{name}' has no mount_src"
 
-        assert mount_target == f"{Locations.INSTRUMENTS}/{instrument_id}", (
-            f"{file_name}: '{instrument_id}' is mounted at '{mount_target}'"
+
+def _host_mount_folders() -> set[str]:
+    """Get the folders below the mounts folder that `docker-compose.yaml` binds into a container."""
+    compose = yaml.safe_load((_REPO_ROOT / "docker-compose.yaml").read_text())
+
+    return {
+        str(volume).removeprefix(_HOST_MOUNTS_PREFIX).split(":")[0].split("/")[0]
+        for service in compose["services"].values()
+        for volume in service.get("volumes") or []
+        if str(volume).startswith(_HOST_MOUNTS_PREFIX)
+    }
+
+
+@pytest.mark.parametrize(("file_name", "config"), _env_yamls())
+def test_every_mount_is_bound_into_a_container(file_name: str, config: dict) -> None:
+    """Test that mount.sh mounts each entry at a folder some container reads, i.e. the name is right."""
+    for name in config[YamlKeys.MOUNTS]:
+        assert name in _host_mount_folders(), (
+            f"{file_name}: nothing binds '{name}' below the mounts folder"
         )
 
 

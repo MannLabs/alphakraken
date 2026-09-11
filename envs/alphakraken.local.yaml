@@ -5,7 +5,6 @@ instruments:
     # the following is required for mounting only (read by mount.sh):
     username: user
     mount_src: //0.0.0.0/test1/
-    mount_target: instruments/test1 # DO NOT CHANGE THE 'instruments' part -> path_views.Locations.INSTRUMENTS
     # skip_processing: true  # optional, default: false
     # skip_quanting: true  # optional, default: false
     # min_free_space_gb: 100  # optional, default: taken from Airflow variable MIN_FREE_SPACE_GB. Set to -1 to exclude from file removing.
@@ -16,40 +15,24 @@ instruments:
   test3:
     type: sciex
 
-locations:
-  general:
-    mounts_path: /home/kraken-user/alphakraken/mounts
-  # e.g.:
-  #  xxx:
-  #    username: user  # username for mounting
-  #    mount_src: //mount_src/xxx  # source path for mounting ("worker pc view" part 1)
-  #    mount_target: xxx # DO NOT CHANGE! this is related to the file structure within the containers -> cf. path_views.Locations ("worker pc view" part 2)
-  #    absolute_path: /fs/pool/pool-0/alphakraken_sandbox/xxx  # this is the absolute path of this folder on the shared file system ("cluster view")
-  backup:
+# the folders mounted into the containers, read by mount.sh: an entry `xxx` is mounted at
+# MOUNTS_PATH/xxx (cf. <env>.env), an instrument at MOUNTS_PATH/instruments/<instrument id>.
+# DO NOT CHANGE the entry names, they are the file structure within the containers, cf. docker-compose.yaml
+mounts:
+  # the entry name is a path_views.Locations value: the folder name below MOUNTS_PATH (on host), and below /opt/airflow/mounts (in airflow containers).
+  # A runner's `view` umust use the same words as keys (checked at import); the folder names behind mount_src and behind a view entry are free.
+  # Exception: airflow_logs is bound to /opt/airflow/logs and is no location.
+  backup: # -> path_views.Locations.BACKUP
+    # username for mounting, password will be prompted for
     username: user
+    # source path for mounting, as seen from host of airflow containers
     mount_src: //mount_src/backup
-    mount_target: backup # DO NOT CHANGE! relative to mounts_path -> path_views.Locations.BACKUP
-    absolute_path: /fs/pool/pool-0/alphakraken_sandbox/backup
-  settings:
-    # no need for mount information (yet)
-    absolute_path: /fs/pool/pool-0/alphakraken_sandbox/settings
-  software:
-    # location of custom executables for quanting software
-    # no need for mount information (yet)
-    absolute_path: /fs/home/kraken-read/software
-  slurm:
-    # location of slurm submit script and destination for slurm logs
-    # no need for mount information (yet)
-    absolute_path: /fs/pool/pool-0/alphakraken_local/slurm
-  output:
+  output: # -> path_views.Locations.OUTPUT
     username: user
     mount_src: //mount_src/output
-    mount_target: output # DO NOT CHANGE! relative to mounts_path -> path_views.Locations.OUTPUT
-    absolute_path: /fs/pool/pool-0/alphakraken_sandbox/output
-  logs:
+  airflow_logs: # -> /opt/airflow/logs
     username: user
     mount_src: //mount_src/airflow_logs
-    mount_target: airflow_logs # DO NOT CHANGE! relative to mounts_path ->/opt/airflow/logs
 
 general:
   notifications:

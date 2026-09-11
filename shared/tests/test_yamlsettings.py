@@ -91,13 +91,6 @@ def test_returns_test_settings_for_test_environment(
             }
         },
         "backup": {"backup_base_path": "./tmp/test/backup"},
-        "locations": {
-            "settings": {"absolute_path": "./tmp/test/settings"},
-            "output": {"absolute_path": "./tmp/test/output"},
-            "backup": {"absolute_path": "./tmp/test/backup"},
-            "slurm": {"absolute_path": "./tmp/test/slurm"},
-            "software": {"absolute_path": "./tmp/test/software"},
-        },
         "runners": [
             {
                 "name": "slurm",

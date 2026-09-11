@@ -18,8 +18,7 @@ class YamlKeys:
 
     TYPE = "type"
 
-    LOCATIONS = "locations"
-    ABSOLUTE_PATH = "absolute_path"
+    MOUNTS = "mounts"
 
     BACKUP = "backup"
 
@@ -30,17 +29,6 @@ class YamlKeys:
     BUSINESS_ALERTS_WEBHOOK_URL = "business_alerts_webhook_url"
     SLACK_BOT_TOKEN = "slack_bot_token"  # noqa: S105
     WEBAPP_URL = "webapp_url"
-
-    class Locations:
-        """Keys for accessing paths in the yaml config."""
-
-        GENERAL = "general"
-
-        BACKUP = "backup"
-        SETTINGS = "settings"
-        OUTPUT = "output"
-        SLURM = "slurm"
-        SOFTWARE = "software"
 
     class Backup:
         """Keys for accessing backup configuration in the yaml config."""
@@ -85,13 +73,6 @@ class YamlSettings:
                     }
                 },
                 "backup": {"backup_base_path": "./tmp/test/backup"},
-                "locations": {
-                    "settings": {"absolute_path": "./tmp/test/settings"},
-                    "output": {"absolute_path": "./tmp/test/output"},
-                    "backup": {"absolute_path": "./tmp/test/backup"},
-                    "slurm": {"absolute_path": "./tmp/test/slurm"},
-                    "software": {"absolute_path": "./tmp/test/software"},
-                },
                 "runners": [
                     {
                         "name": "slurm",

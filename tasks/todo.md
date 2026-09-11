@@ -240,17 +240,17 @@ and `_check_content` passes. Spec 2.4, 7.2, 7.3, 9.4.
 `Locations` docstring in `path_views.py` reworded. `mount.sh`: `ENTITY_TYPE=mounts`,
 `MOUNTS_PATH` from `envs/${ENV}.env` sourced in a subshell exporting only that variable.
 Consistency test: no top-level `locations`, every `mounts.<x>` has `mount_src` and
-`mount_target`, mount-target assertions iterate `mounts`; line 52 docstring reworded.
+is bound by compose (the target is the entry name, `mount_target` dropped); line 52 docstring reworded.
 Spec 1.2.6, 1.2.7, 2.1, 2.9, 2.9a, 7.7.
 
 **Acceptance criteria:**
-- [ ] `grep -n '^locations:' envs/*.yaml` empty; `grep -rn 'YamlKeys.LOCATIONS\|ABSOLUTE_PATH\|mounts_path' --include='*.py' . | grep -v _migrations` returns only `shared/validation.py:ABSOLUTE_PATH_ERROR`.
-- [ ] `ENV=local ./mount.sh {backup,output,logs,test1} fstab` prints the same lines as before this task when `MOUNTS_PATH` in `envs/local.env` equals the old yaml value (manual diff, noted in the commit message).
-- [ ] Each new consistency assertion fails on a mutated yaml (7.7).
+- [x] `grep -n '^locations:' envs/*.yaml` empty; `grep -rn 'YamlKeys.LOCATIONS\|ABSOLUTE_PATH\|mounts_path' --include='*.py' . | grep -v _migrations` returns only `shared/validation.py:ABSOLUTE_PATH_ERROR` and its test.
+- [x] `ENV=local ./mount.sh {backup,output,logs,test1} fstab` prints the same lines as before this task when `MOUNTS_PATH` in `envs/local.env` equals the old yaml value (manual diff, noted in the commit message; `local.env` holds a different value, mapped for the diff).
+- [x] Each new consistency assertion fails on a mutated yaml (7.7).
 
 **Verification:**
-- [ ] `pytest shared`; all three suites
-- [ ] Manual `mount.sh ... fstab` diff
+- [x] `pytest shared`; all three suites
+- [x] Manual `mount.sh ... fstab` diff
 
 **Dependencies:** T1, T9
 **Files:** `envs/alphakraken.{local,sandbox,production}.yaml`, `shared/yamlsettings.py`, `shared/path_views.py` (docstring), `shared/tests/test_yamlsettings.py`, `shared/tests/test_deployment_paths.py`, `mount.sh`

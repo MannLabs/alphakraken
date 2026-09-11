@@ -112,37 +112,40 @@ def display_settings(
 
 display_settings(settings_df)
 
+# ########################################### CREATE NEW SETTINGS
+
 c1, _ = st.columns([0.5, 0.5])
+c1.markdown("## Create / update settings")
+
+
 with c1.expander("Click here for help ..."):
     st.info(
         f"""
         ### Explanation
-        Settings are a defined tuple of input to the quanting software: config file, speclib file and/or fasta file.
+        Settings are a defined tuple that decides what software is run and its parameters.
         Settings are standalone entities that can be shared across multiple projects.
 
         ### Workflow
-        1. Select an existing settings name to create a new version, or choose "Create new settings..." to define a brand new settings configuration.
-        2. Fill in required information (file names, software, etc.).
-        3. Upload the files to the designated location: `{get_display_settings_path(SETTINGS_NAME_PLACEHOLDER)}/`
-        4. Assign the settings to projects on the Projects page.
+        1. Choose "Create new settings..." to define a brand new settings configuration or select an existing settings name to update it to a new version.
+        2. Fill in required information (software, file names, etc.).
+        3. Make sure the software is available and upload the files to the designated location: `{get_display_settings_path(SETTINGS_NAME_PLACEHOLDER)}/`
+        4. Submit
+        4. Assign the settings to projects on the "Manage projects" page.
 
         ### Versioning
         Settings use name + version as a unique identifier. If you create settings with an existing name, the version number will automatically increment.
         This allows you to update settings (e.g., use a newer AlphaDIA version) while keeping old versions available.
 
-        **Important:** Projects always reference a specific version of settings (e.g., 'fast_plasma' v2).
-        Creating a new version does not affect existing projects - they continue using their assigned version until explicitly updated.
+        **Important:** Projects always reference a specific version of settings (e.g., 'plasma_fast' v2).
+        Creating a new version does not affect existing projects - they continue using their assigned version until the assignment is explicitly updated on the "Manage projects" page.
         """,
         icon="ℹ️",  # noqa: RUF001
     )
 
-# ########################################### CREATE NEW SETTINGS
-
-c1.markdown("## Create / update settings")
 
 if not RUNNERS:
     c1.warning(
-        "No runners are declared in `alphakraken.yaml`, so no settings can be created."
+        "No runners are declared in `alphakraken.yaml`, so no settings can be created. Ask an admin."
     )
     st.stop()
 
@@ -233,7 +236,7 @@ metrics_type = c1.selectbox(
     label="Metrics type",
     options=metrics_type_options,
     index=metrics_type_index,
-    help=f"Which metrics to calculate, should typically match the software type. Set to `{MetricsTypes.CUSTOM}` to calculate none. Note: values from a metrics.csv in the output directory will be merged with those selected, overriding values on column name collision.",
+    help=f"Which metrics to calculate, should typically match the software type. Set to `{MetricsTypes.CUSTOM}` to calculate none. Note: values from a `metrics.csv` in the output directory will be merged with those selected, overriding values on column name collision.",
 )
 if metrics_type == MetricsTypes.CUSTOM:
     c1.info(
@@ -269,7 +272,7 @@ form_items = {
     "name": {
         "label": "Settings Name*",
         "max_chars": 64,
-        "placeholder": "e.g. 'fast_plasma' or 'standard_tissue'",
+        "placeholder": "e.g. 'plasma_fast' or 'hela_qc'",
         "help": "Alphanumeric + underscore only. Used as folder name and for versioning.",
     },
     "description": {
@@ -299,13 +302,13 @@ if software_type == SoftwareTypes.ALPHADIA:
             "label": "Config file name*",
             "max_chars": 64,
             "placeholder": "e.g. 'very_fast_config.yaml'",
-            "help": "Name of the config file. If none is given, default will be used.",
+            "help": "Name of the config file. If none is given, AlphaDIA's default config will be used.",
         },
         "software": {
             "label": "Software*",
             "max_chars": 64,
-            "placeholder": "e.g. 'alphadia-1.10.0'",
-            "help": "Name of the Conda environment that holds the AlphaDIA executable. Ask an administrator to create this environment.",
+            "placeholder": "e.g. 'alphadia-2.0.0'",
+            "help": "Name of the conda environment that holds the AlphaDIA executable. Ask an administrator to create this environment.",
         },
     }
 
@@ -342,7 +345,6 @@ else:
             "max_chars": 64,
             "placeholder": "e.g. 'custom-software/custom-executable1.2.3'",
             "help": f"Path to executable, relative to `{DISPLAY_PATHS[Locations.SOFTWARE]}/`. Ask an administrator to add the executable to the software folder. "
-            f"If something that is in the `$PATH` should be executed, it needs to be wrapped by a shell script located in the software folder. "
             f"For a runner with the `{JobEngines.DOCKER}` engine, this is a docker image name instead, e.g. `alphakraken-msqc`. "
             f"The image must already be present on the worker host, ask an administrator to add it. ",
         },
@@ -421,10 +423,10 @@ with c1.form("create_settings"):
             "The following placeholders can be used in the config parameters, and will be replaced by the specified values "
             f"(paths as runner `{runner_name}` sees them):\n\n"
             f"{placeholder_list}\n\n"
-            "Notes:\n"
+            f"Notes:\n"
+            "- Your uploaded input files are available under `{{SETTINGS_PATH}}}`, e.g. `{{SETTINGS_PATH}}/human.fasta`.\n"
             "- The working directory of the software is `{{OUTPUT_PATH}}`.\n"
-            "- If you require more than the provided placeholders, reference them directly by their absolute path.\n"
-            "- If something that is in the `$PATH` should be executed (e.g. `apptainer`), wrap it in a shell script and place it in the software folder.\n"
+            "- If something that is in the `$PATH` should be executed (e.g. `apptainer`), wrap it in a shell script and ask an admin to place it in the software folder.\n"
         )
 
     if software_type == SoftwareTypes.CUSTOM:
@@ -434,9 +436,9 @@ with c1.form("create_settings"):
                 "--f {{RAW_FILE_PATH}} --lib {{SETTINGS_PATH}}/library.speclib --fasta {{SETTINGS_PATH}}/human.fasta --temp {{OUTPUT_PATH}} --threads {{NUM_THREADS}} --qvalue 0.01"
             )
         with st.expander("Example for Spectronaut..."):
-            st.write("Executable: `run_spectronaut.sh` (cf. folder `misc/software`)")
+            st.write("Executable: `spectronaut/run_spectronaut.sh`")
             st.code(
-                "direct -n alphakraken -r {{RAW_FILE_PATH}} -fasta {{SETTINGS_PATH}}/human.fasta -o {{OUTPUT_PATH}} -s /path/to/settings/alphakraken.prop"
+                "direct -n alphakraken -r {{RAW_FILE_PATH}} -fasta {{SETTINGS_PATH}}/human.fasta -o {{OUTPUT_PATH}} -s {{SETTINGS_PATH}}/alphakraken.prop"
             )
 
     st.write(r"\* Required fields")

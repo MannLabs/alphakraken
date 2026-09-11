@@ -92,7 +92,7 @@ runners:
       settings: /kraken/settings
       software: /kraken/software
   # ########################### #
-  # direct ssh runners examples #
+  # simple ssh runners examples #
   # ########################### #
   - name: simple_ssh_linux_pc1
     engine: simple_ssh # runs the custom executable as a background process on a plain machine

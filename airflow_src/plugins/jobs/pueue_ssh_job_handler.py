@@ -2,14 +2,9 @@
 
 `pueued` (https://github.com/Nukesor/pueue) is a task queue daemon for a single machine. The
 handler adds the resolved `custom_command` as a task and reads the task's state back from
-`pueue status --json`. Like the docker engine this one supports the custom software type only.
+`pueue status --json`; supports the `custom` software type only. The job id is the pueue task id.
 
-The job id is the pueue task id. The task runs in the job's output folder and redirects its
-output to `LOG_FILE_NAME` there. Pueue copies the environment of the shell that adds a task, so the
-environment variables are exported in the same SSH command.
-
-Precondition: `custom_command` contains only `a-zA-Z0-9-_+./` and spaces (enforced by the webapp
-and by `_check_content` in the processor), so it never needs escaping.
+Precondition: `custom_command` contains only `a-zA-Z0-9-_+./` and spaces (enforced upstream), so it never needs escaping.
 
 Notes:
     - requires `pueued` running on the machine under the SSH user, and `pueue` on the `PATH` of a
@@ -167,7 +162,7 @@ class PueueSSHJobHandler(JobHandler):
 
 
 def _untag(tagged: str | dict[str, Any]) -> tuple[str, dict[str, Any]]:
-    """Split a serde externally tagged enum value, `"Variant"` or `{"Variant": {...}}`, into variant and details."""
+    """Split pueue's status value, `"Variant"` or `{"Variant": {...}}`, into variant name and details."""
     if isinstance(tagged, str):
         return tagged, {}
     ((variant, details),) = tagged.items()

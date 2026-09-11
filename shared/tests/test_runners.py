@@ -143,8 +143,9 @@ def test_build_runners_rejects_plain_machine_runner_without_ssh_prefix(
         )
 
 
-def test_build_runners_accepts_windows_simple_ssh_runner() -> None:
-    """Test that the simple_ssh engine runs on windows, with the windows path flavour."""
+@pytest.mark.parametrize("engine", _PLAIN_MACHINE_ENGINES)
+def test_build_runners_accepts_windows_plain_machine_runner(engine: str) -> None:
+    """Test that the engines for plain machines run on windows, with the windows path flavour."""
     runners = _build_runners(
         [
             _entry(

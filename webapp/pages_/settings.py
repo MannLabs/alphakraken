@@ -320,7 +320,7 @@ else:
             "help": "Path to executable, relative to the software folder. Ask an administrator to add the executable to the software folder. "
             f"If something that is in the `$PATH` should be executed, it needs to be wrapped by a shell script located in the software folder. "
             f"For a runner with the `{JobEngines.DOCKER}` engine, this is a docker image name instead, e.g. `alphakraken-msqc`. "
-            f"The image must already be present on the worker host, ask an administrator to add it. ",
+            f"The image must already be present on the worker host, ask an administrator to add it. "
         },
         "config_params": {
             "label": "Configuration parameters",

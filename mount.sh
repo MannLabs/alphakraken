@@ -1,7 +1,8 @@
 #!/bin/bash
 
 # A little helper for mounting.
-# Will read data from environmental-specific alphakraken.yaml file and do the mounting or create fstab entries.
+# Will read the mount data from the environment-specific alphakraken.yaml file and the mounts folder
+# (MOUNTS_PATH) from the environment-specific .env file, then do the mounting or create fstab entries.
 
 # IMPORTANT NOTE: it is absolutely crucial that the mounts are set correctly in the respective alphakraken.yaml file!
 # Make sure the data (user names, ip addresses) are always up to date!
@@ -22,13 +23,13 @@ LOCAL_DIR_SENTINEL_FILE=alphakraken_local_dir_sentinel
 
 if [ -z "${1:-}" ] ; then
   echo "Usage: $0 <entity> [fstab|mount|umount]"
-  echo "<entity> can be an instrument name (e.g. test1, ..) or a special folder (logs, backup, or output)."
+  echo "<entity> can be an instrument name (e.g. test1, ..) or a special folder (airflow_logs, backup, or output)."
   echo "If 'fstab' is passed, an entry for the /etc/fstab file will be created."
   echo "If 'mount' is passed, the source folder will be mounted to the target folder."
   echo "If 'umount' is passed, the target folder will be unmounted first, before mounting the source folder to the target folder."
   echo "All actions protect the (unmounted) target folder: it gets a '${LOCAL_DIR_SENTINEL_FILE}' sentinel file and is made immutable (chattr +i), cf. docs/deployment.md."
   echo
-  echo "Example 1: $0 logs fstab"
+  echo "Example 1: $0 airflow_logs fstab"
   echo "Example 2: $0 test1 mount"
   echo "Example 3: $0 backup umount"
   exit 1
@@ -53,16 +54,24 @@ get_data() {
 }
 
 # a little hack to look up the correct information
-if [[ "$ENTITY" == "backup" || "$ENTITY" == "output" || "$ENTITY" == "logs" ]]; then
-  ENTITY_TYPE="locations"
+# the mount target below MOUNTS_PATH is the entity name, cf. docker-compose.yaml
+if [[ "$ENTITY" == "backup" || "$ENTITY" == "output" || "$ENTITY" == "airflow_logs" ]]; then
+  ENTITY_TYPE="mounts"
+  MOUNT_TARGET="$ENTITY"
 else
   ENTITY_TYPE="instruments"
+  MOUNT_TARGET="instruments/$ENTITY"
 fi
 
-MOUNTS_PATH=$(get_data locations general mounts_path)
+# read literally: the file is docker-compose KEY=VALUE, not shell, so sourcing it would execute
+# metacharacters in a value, e.g. a password containing `$(`, a backtick or `>`
+MOUNTS_PATH=$(sed -n 's/^MOUNTS_PATH=//p' "envs/${ENV}.env" | tail -1)
+if [ -z "$MOUNTS_PATH" ]; then
+  echo "Could not read MOUNTS_PATH from envs/${ENV}.env. It must be set."
+  exit 1
+fi
 USERNAME=$(get_data $ENTITY_TYPE $ENTITY username)
 MOUNT_SRC="$(get_data $ENTITY_TYPE $ENTITY mount_src)"
-MOUNT_TARGET="$(get_data $ENTITY_TYPE $ENTITY mount_target)"
 
 MOUNT_TARGET=$MOUNTS_PATH/$MOUNT_TARGET
 

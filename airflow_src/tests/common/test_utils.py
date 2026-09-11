@@ -8,6 +8,7 @@ import pytz
 from airflow.exceptions import AirflowFailException, AirflowNotFoundException
 from airflow.models import Variable
 from plugins.common.utils import (
+    _get_cluster_ssh_connections,
     get_airflow_variable,
     get_cluster_ssh_hook,
     get_env_variable,
@@ -229,12 +230,15 @@ def test_truncate_string_handles_edge_case_of_exactly_n_characters() -> None:
 @patch("plugins.common.utils.SSHHook")
 def test_get_cluster_ssh_hook_returns_valid_ssh_hook(
     mock_ssh_hook: MagicMock,
-    mock_get_cluster_ssh_connections: MagicMock,  # noqa:ARG001
+    mock_get_cluster_ssh_connections: MagicMock,
 ) -> None:
     """Test that get_cluster_ssh_hook returns a valid SSHHook instance."""
-    hook = get_cluster_ssh_hook(attempt_no=0)
+    hook = get_cluster_ssh_hook(attempt_no=0, ssh_connection_id_prefix="some_prefix")
 
     assert hook == mock_ssh_hook.return_value
+    mock_get_cluster_ssh_connections.assert_called_once_with(
+        ssh_connection_id_prefix="some_prefix"
+    )
     mock_ssh_hook.assert_called_once_with(
         ssh_conn_id="conn_1", conn_timeout=60, cmd_timeout=60
     )
@@ -246,7 +250,7 @@ def test_get_cluster_ssh_hook_raises_exception_when_no_connections_found(
 ) -> None:
     """Test that get_cluster_ssh_hook raises an exception when no SSH connections are found."""
     with pytest.raises(AirflowFailException, match="No SSH connections found"):
-        get_cluster_ssh_hook(attempt_no=0)
+        get_cluster_ssh_hook(attempt_no=0, ssh_connection_id_prefix="some_prefix")
 
 
 @patch(
@@ -265,7 +269,7 @@ def test_get_cluster_ssh_hook_raises_exception_when_connection_not_found(
     with pytest.raises(
         AirflowFailException, match="Could not find cluster SSH connection"
     ):
-        get_cluster_ssh_hook(attempt_no=0)
+        get_cluster_ssh_hook(attempt_no=0, ssh_connection_id_prefix="some_prefix")
 
 
 @patch(
@@ -283,9 +287,51 @@ def test_get_cluster_ssh_hook_cycles_through_connections_on_multiple_attempts(
         MagicMock(ssh_conn_id="conn_2"),
         MagicMock(ssh_conn_id="conn_1"),
     ]
-    hook_1 = get_cluster_ssh_hook(attempt_no=0)
-    hook_2 = get_cluster_ssh_hook(attempt_no=1)
-    hook_3 = get_cluster_ssh_hook(attempt_no=2)
+    hook_1 = get_cluster_ssh_hook(attempt_no=0, ssh_connection_id_prefix="some_prefix")
+    hook_2 = get_cluster_ssh_hook(attempt_no=1, ssh_connection_id_prefix="some_prefix")
+    hook_3 = get_cluster_ssh_hook(attempt_no=2, ssh_connection_id_prefix="some_prefix")
     assert hook_1.ssh_conn_id == "conn_1"
     assert hook_2.ssh_conn_id == "conn_2"
     assert hook_3.ssh_conn_id == "conn_1"
+
+
+@patch("plugins.common.utils.SSHHook")
+def test_get_cluster_ssh_hook_selects_connections_by_prefix(
+    mock_ssh_hook: MagicMock,
+) -> None:
+    """Test that two prefixes select disjoint connection sets."""
+    connections = {"cluster_a": ["cluster_a_1"], "cluster_b": ["cluster_b_1"]}
+
+    with patch(
+        "plugins.common.utils._get_cluster_ssh_connections",
+        side_effect=lambda ssh_connection_id_prefix: connections[
+            ssh_connection_id_prefix
+        ],
+    ):
+        get_cluster_ssh_hook(attempt_no=0, ssh_connection_id_prefix="cluster_a")
+        get_cluster_ssh_hook(attempt_no=0, ssh_connection_id_prefix="cluster_b")
+
+    assert [c.kwargs["ssh_conn_id"] for c in mock_ssh_hook.call_args_list] == [
+        "cluster_a_1",
+        "cluster_b_1",
+    ]
+
+
+def test_get_cluster_ssh_connections_filters_by_the_given_prefix() -> None:
+    """Test that the connection query matches ids starting with the given prefix."""
+    session = MagicMock()
+    session.query.return_value.filter.return_value.all.return_value = [
+        MagicMock(conn_id="cluster_b_2"),
+        MagicMock(conn_id="cluster_b_1"),
+    ]
+
+    # when
+    conn_ids = _get_cluster_ssh_connections(
+        session=session, ssh_connection_id_prefix="cluster_b"
+    )
+
+    assert conn_ids == ["cluster_b_1", "cluster_b_2"]
+    filter_expression = session.query.return_value.filter.call_args.args[0]
+    assert "'cluster_b'" in str(
+        filter_expression.compile(compile_kwargs={"literal_binds": True})
+    )

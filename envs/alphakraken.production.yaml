@@ -5,31 +5,16 @@ instruments:
     type: thermo
     username: user
     mount_src: //0.0.0.0/test1/
-    mount_target: instruments/test1
-locations:
-  general:
-    mounts_path: /home/kraken-user/alphakraken/production/mounts
+mounts:
   backup:
     username: kraken-write
     mount_src: //samba-pool-1/pool-1
-    mount_target: backup
-    absolute_path: /fs/pool-1/backup
-  settings:
-    absolute_path: /fs/pool-2/settings
-  software:
-    absolute_path: /fs/home/kraken-read/software
-  slurm:
-    absolute_path: /fs/pool-2/slurm
   output:
     username: kraken-write
     mount_src: //samba-pool-2/pool-2/output
-    mount_target: output
-    absolute_path: /fs/pool-2/output
-  logs:
+  airflow_logs:
     username: kraken-write
     mount_src: //samba-pool-2/pool-2/airflow_logs
-    mount_target: airflow_logs
-    absolute_path: /fs/pool-2/airflow_logs
 
 general:
   notifications:
@@ -38,6 +23,10 @@ general:
     slack_bot_token: "<slack_bot_token>"
     webapp_url: "<webapp_url>"
 
+display_paths:
+  backup: /fs/pool-1/backup
+  output: /fs/pool-2/output
+
 backup:
   backup_type: local # or 's3'
   purging_verification_type: local # 'local', 's3', or 'force_local'
@@ -45,3 +34,22 @@ backup:
     region: eu-central-1
     bucket_prefix: alphakraken
     auto_create_buckets: false
+
+runners:
+  - name: slurm
+    engine: slurm
+    os: linux
+    ssh_connection_id_prefix: cluster_ssh_connection
+    view:
+      backup: /fs/pool-1/backup
+      output: /fs/pool-2/output
+      settings: /fs/pool-2/settings
+      software: /fs/home/kraken-read/software
+  - name: docker
+    engine: docker
+    os: linux
+    view:
+      backup: /fs/pool-1/backup
+      output: /fs/pool-2/output
+      settings: /fs/pool-2/settings
+      software: /fs/home/kraken-read/software

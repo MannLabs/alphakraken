@@ -17,6 +17,12 @@ RUN pip install --upgrade pip && pip install -r requirements_rest_api.txt && pip
 COPY --chown=appuser:appuser rest_api/ rest_api
 COPY --chown=appuser:appuser shared shared
 
+# the yaml holds the display paths, cf. shared.display_paths
+RUN mkdir -p /opt/airflow/envs
+COPY envs/alphakraken.*.yaml /opt/airflow/envs
+# avoid sensitive data in the container
+RUN sed -i '/\(username\|password\)/d'  /opt/airflow/envs/alphakraken.*.yaml
+
 USER appuser
 
 ENV REST_API_PORT=8090

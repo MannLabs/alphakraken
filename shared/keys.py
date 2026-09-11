@@ -28,6 +28,8 @@ class EnvVars(metaclass=ConstantsClass):
 
     KRAKEN_HOSTNAME = "KRAKEN_HOSTNAME"
 
+    MOUNTS_PATH = "MOUNTS_PATH"
+
     MONGO_HOST = "MONGO_HOST"
     MONGO_PORT = "MONGO_PORT"
     MONGO_USER = "MONGO_USER"
@@ -50,10 +52,6 @@ class InternalPaths(metaclass=ConstantsClass):
 
     MOUNTS_PATH = "/opt/airflow/mounts/"
     ENVS_PATH = "/opt/airflow/envs/"
-
-    INSTRUMENTS = "instruments"
-    BACKUP = "backup"
-    OUTPUT = "output"
 
     # created by `mount.sh prepare` in the host directory a share gets mounted onto: visible only if the share is not mounted
     LOCAL_DIR_SENTINEL_FILE = "alphakraken_local_dir_sentinel"

@@ -90,14 +90,46 @@ def test_returns_test_settings_for_test_environment(
                 "webapp_url": "http://localhost:8501",
             }
         },
-        "locations": {
-            "general": {"mounts_path": "./tmp/test/mounts"},
-            "settings": {"absolute_path": "./tmp/test/settings"},
-            "output": {"absolute_path": "./tmp/test/output"},
-            "backup": {"absolute_path": "./tmp/test/backup"},
-            "slurm": {"absolute_path": "./tmp/test/slurm"},
-            "software": {"absolute_path": "./tmp/test/software"},
+        "display_paths": {
+            "backup": "./tmp/test/backup",
+            "output": "./tmp/test/output",
         },
+        "runners": [
+            {
+                "name": "slurm",
+                "engine": "slurm",
+                "os": "linux",
+                "ssh_connection_id_prefix": "cluster_ssh_connection",
+                "view": {
+                    "backup": "./tmp/test/backup",
+                    "output": "./tmp/test/output",
+                    "settings": "./tmp/test/settings",
+                    "software": "./tmp/test/software",
+                },
+            },
+            {
+                "name": "docker",
+                "engine": "docker",
+                "os": "linux",
+                "view": {
+                    "backup": "./tmp/test/backup",
+                    "output": "./tmp/test/output",
+                    "settings": "./tmp/test/settings",
+                    "software": "./tmp/test/software",
+                },
+            },
+            {
+                "name": "file_based",
+                "engine": "file_based",
+                "os": "linux",
+                "view": {
+                    "backup": "./tmp/test/backup",
+                    "output": "./tmp/test/output",
+                    "settings": "./tmp/test/settings",
+                    "software": "./tmp/test/software",
+                },
+            },
+        ],
     }
 
 

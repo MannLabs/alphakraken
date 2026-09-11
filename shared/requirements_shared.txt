@@ -2,3 +2,4 @@
 pymongo==4.7.2
 mongoengine==0.28.2
 pytz==2025.2
+pydantic==2.11.7 # same version as resolved by requirements_airflow.txt

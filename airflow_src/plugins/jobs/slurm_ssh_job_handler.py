@@ -2,15 +2,12 @@
 
 import logging
 from datetime import datetime
-from pathlib import Path
+from pathlib import PurePath
 
 from airflow.exceptions import AirflowFailException
-from common.constants import (
-    CLUSTER_BASE_WORKING_DIR_NAME,
-    DEFAULT_JOB_SCRIPT_NAME,
-    DUMMY_TIME_ELAPSED,
-)
-from common.keys import JobStates, QuantingEnv
+from common.constants import DUMMY_TIME_ELAPSED, SLURM_JOB_SCRIPT_NAME
+from common.keys import JobStates
+from common.quanting_env import QuantingEnv
 from jobs.job_handler import JobHandler
 from sensors.ssh_utils import ssh_execute
 
@@ -18,29 +15,27 @@ from sensors.ssh_utils import ssh_execute
 class SlurmSSHJobHandler(JobHandler):
     """Implementation of JobHandler that executes commands on a Slurm cluster via SSH."""
 
-    def __init__(self, cluster_base_dir: Path):
+    def __init__(self, job_script_dir: PurePath, ssh_connection_id_prefix: str):
         """Initialize the Slurm job handler.
 
         Args:
-            cluster_base_dir: Working directory on the cluster, holding the submit script
-                and the job logs
+            job_script_dir: Directory on the cluster holding the submit script
+            ssh_connection_id_prefix: Prefix of the Airflow connections to the cluster
 
         """
         super().__init__()
-        self._cluster_base_dir = cluster_base_dir
-        self._cluster_base_working_dir_path = (
-            self._cluster_base_dir / CLUSTER_BASE_WORKING_DIR_NAME
-        )
+        self._job_script_dir = job_script_dir
+        self._ssh_connection_id_prefix = ssh_connection_id_prefix
 
-    def start_job(self, environment: dict[str, str]) -> str:
+    def start_job(self, quanting_env: QuantingEnv) -> str:
         """Start a job on the Slurm cluster via SSH."""
         command = (
-            self._create_export_environment_cmd(environment)
+            self._create_export_environment_cmd(quanting_env.to_dict())
             + "\n"
-            + self._get_submit_job_cmd(DEFAULT_JOB_SCRIPT_NAME, environment)
+            + self._get_submit_job_cmd(SLURM_JOB_SCRIPT_NAME, quanting_env)
         )
         logging.info(f"Running command: >>>>\n{command}\n<<<< end of command")
-        ssh_return = ssh_execute(command)
+        ssh_return = ssh_execute(command, self._ssh_connection_id_prefix)
 
         try:
             job_id = str(int(ssh_return.split("\n")[-1]))
@@ -54,48 +49,44 @@ class SlurmSSHJobHandler(JobHandler):
     def get_job_status(self, job_id: str) -> str:
         """Get the status of a job on the Slurm cluster via SSH."""
         cmd = self._get_job_state_cmd(job_id)
-        return ssh_execute(cmd)
+        return ssh_execute(cmd, self._ssh_connection_id_prefix)
 
     def get_job_result(self, job_id: str) -> tuple[str, int]:
         """Get the job status and time elapsed from the Slurm cluster via SSH."""
         cmd = (
             self._check_job_result_cmd(job_id) + "\n" + self._get_job_state_cmd(job_id)
         )
-        ssh_return = ssh_execute(cmd)
+        ssh_return = ssh_execute(cmd, self._ssh_connection_id_prefix)
         time_elapsed = self._get_time_elapsed(ssh_return)
         job_status = ssh_return.split("\n")[-1]
         return job_status, time_elapsed
 
     def _get_submit_job_cmd(
-        self, job_script_name: str, environment: dict[str, str]
+        self, job_script_name: str, quanting_env: QuantingEnv
     ) -> str:
         """Get the command to run the job on the cluster.
 
+        The job is submitted from the output directory, so slurm writes its log there.
         Its last line of output to stdout must be the job id of the submitted job.
         ${JID##* } is removing everything up to the last space.
 
-        :param job_script_name: the name of the slurm job script, e.g. "submit_job.sh"
+        :param job_script_name: the name of the slurm job script, e.g. "submit_slurm_job.sh"
         """
-        cluster_job_script_path = self._cluster_base_dir / job_script_name
-        cluster_working_dir = (
-            self._cluster_base_working_dir_path
-            / environment[QuantingEnv.YEAR_MONTH_FOLDER]
-        )
+        cluster_job_script_path = self._job_script_dir / job_script_name
+        output_path = quanting_env.output_path
 
-        # if those parameters are not passed, the value defined in the submit script are taken
-        param_list = []
-        if (cpus := environment.get(QuantingEnv.SLURM_CPUS_PER_TASK)) is not None:
-            param_list.append(f"--cpus-per-task={cpus}")
-        if (mem := environment.get(QuantingEnv.SLURM_MEM)) is not None:
-            param_list.append(f"--mem={mem}")
-        if (time := environment.get(QuantingEnv.SLURM_TIME)) is not None:
-            param_list.append(f"--time={time}")
-        params = " ".join(param_list)
+        params = " ".join(
+            [
+                f"--cpus-per-task={quanting_env.slurm_cpus_per_task}",
+                f"--mem={quanting_env.slurm_mem}",
+                f"--time={quanting_env.slurm_time}",
+            ]
+        )
 
         return "\n".join(
             [
-                f"mkdir -p {cluster_working_dir}",
-                f"cd {cluster_working_dir}",
+                f"mkdir -p {output_path}",
+                f"cd {output_path}",
                 f"cat {cluster_job_script_path}",
                 f"JID=$(sbatch {params} {cluster_job_script_path})",
                 "echo ${JID##* }",

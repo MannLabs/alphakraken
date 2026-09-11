@@ -8,7 +8,8 @@ from typing import Any
 
 from airflow.sensors.base import BaseSensorOperator
 from airflow.utils.xcom import XCOM_RETURN_KEY
-from common.keys import JobStates, QuantingEnv
+from common.keys import JobStates
+from common.quanting_env import QuantingEnv
 from jobs.job_handler import get_job_status
 
 
@@ -31,16 +32,16 @@ class JobStatusSensorOperator(BaseSensorOperator, ABC):
 
         :param xcom_source_task_id: The task id of the task that pushes the job id to XCom.
         :param quanting_env_source_task_id: The task id of the task that pushes the quanting env
-            (carrying the job engine) to XCom.
+            (carrying the runner name) to XCom.
         """
         super().__init__(*args, **kwargs)
         self.xcom_source_task_id: str = xcom_source_task_id
         self.quanting_env_source_task_id: str = quanting_env_source_task_id
         self._job_id: str | None = None
-        self._engine: str | None = None
+        self._runner_name: str | None = None
 
     def pre_execute(self, context: dict[str, Any]) -> None:
-        """Persist the job id and job engine from XCom."""
+        """Persist the job id and runner name from XCom."""
         ti = context["ti"]
         self._job_id = str(
             ti.xcom_pull(
@@ -49,18 +50,18 @@ class JobStatusSensorOperator(BaseSensorOperator, ABC):
                 map_indexes=ti.map_index,
             )
         )
-        quanting_env = ti.xcom_pull(
+        quanting_env_dict = ti.xcom_pull(
             key=XCOM_RETURN_KEY,
             task_ids=self.quanting_env_source_task_id,
             map_indexes=ti.map_index,
         )
-        self._engine = quanting_env[QuantingEnv.JOB_ENGINE]
+        self._runner_name = QuantingEnv.from_dict(quanting_env_dict).runner_name
 
     def poke(self, context: dict[str, Any]) -> bool:
         """Check the output of the ssh command."""
         del context  # unused
 
-        job_status = get_job_status(self._job_id, self._engine)
+        job_status = get_job_status(self._job_id, self._runner_name)
         logging.info(f"job_status: '{job_status}'")
 
         return job_status not in self.states

@@ -18,26 +18,19 @@ class YamlKeys:
 
     TYPE = "type"
 
-    LOCATIONS = "locations"
-    ABSOLUTE_PATH = "absolute_path"
+    MOUNTS = "mounts"
+
+    BACKUP = "backup"
+
+    DISPLAY_PATHS = "display_paths"
+
+    RUNNERS = "runners"
 
     NOTIFICATIONS = "notifications"
     OPS_ALERTS_WEBHOOK_URL = "ops_alerts_webhook_url"
     BUSINESS_ALERTS_WEBHOOK_URL = "business_alerts_webhook_url"
     SLACK_BOT_TOKEN = "slack_bot_token"  # noqa: S105
     WEBAPP_URL = "webapp_url"
-
-    class Locations:
-        """Keys for accessing paths in the yaml config."""
-
-        GENERAL = "general"
-        MOUNTS_PATH = "mounts_path"
-
-        BACKUP = "backup"
-        SETTINGS = "settings"
-        OUTPUT = "output"
-        SLURM = "slurm"
-        SOFTWARE = "software"
 
     class Backup:
         """Keys for accessing backup configuration in the yaml config."""
@@ -52,16 +45,16 @@ class YamlKeys:
 class YamlSettings:
     """Class to load and access the alphakraken.yaml settings as a singleton."""
 
-    _instance: dict[str, dict[str, Any]] | None = None
+    _instance: dict[str, Any] | None = None
 
-    def __new__(cls) -> dict[str, dict[str, Any]]:
+    def __new__(cls) -> dict[str, Any]:
         """Get a new or existing instance of the YamlSettings class."""
         if cls._instance is None:
             cls._instance = cls.load_alphakraken_yaml()
         return cls._instance.copy()
 
     @classmethod
-    def load_alphakraken_yaml(cls) -> dict[str, dict[str, Any]]:
+    def load_alphakraken_yaml(cls) -> dict[str, Any]:
         """Load alphakraken settings from a YAML file."""
         env_name = os.getenv(EnvVars.ENV_NAME)
 
@@ -79,14 +72,46 @@ class YamlSettings:
                         "webapp_url": "http://localhost:8501",
                     }
                 },
-                "locations": {
-                    "general": {"mounts_path": "./tmp/test/mounts"},
-                    "settings": {"absolute_path": "./tmp/test/settings"},
-                    "output": {"absolute_path": "./tmp/test/output"},
-                    "backup": {"absolute_path": "./tmp/test/backup"},
-                    "slurm": {"absolute_path": "./tmp/test/slurm"},
-                    "software": {"absolute_path": "./tmp/test/software"},
+                "display_paths": {
+                    "backup": "./tmp/test/backup",
+                    "output": "./tmp/test/output",
                 },
+                "runners": [
+                    {
+                        "name": "slurm",
+                        "engine": "slurm",
+                        "os": "linux",
+                        "ssh_connection_id_prefix": "cluster_ssh_connection",
+                        "view": {
+                            "backup": "./tmp/test/backup",
+                            "output": "./tmp/test/output",
+                            "settings": "./tmp/test/settings",
+                            "software": "./tmp/test/software",
+                        },
+                    },
+                    {
+                        "name": "docker",
+                        "engine": "docker",
+                        "os": "linux",
+                        "view": {
+                            "backup": "./tmp/test/backup",
+                            "output": "./tmp/test/output",
+                            "settings": "./tmp/test/settings",
+                            "software": "./tmp/test/software",
+                        },
+                    },
+                    {
+                        "name": "file_based",
+                        "engine": "file_based",
+                        "os": "linux",
+                        "view": {
+                            "backup": "./tmp/test/backup",
+                            "output": "./tmp/test/output",
+                            "settings": "./tmp/test/settings",
+                            "software": "./tmp/test/software",
+                        },
+                    },
+                ],
             }
 
         if not file_path.exists():
@@ -99,41 +124,7 @@ class YamlSettings:
             return yaml.safe_load(file)
 
 
-YAMLSETTINGS: dict[str, dict[str, Any]] = cast(
-    dict[str, dict[str, Any]], YamlSettings()
-)
-
-
-def get_path(path_key: str) -> Path:
-    """Get a certain path from the yaml settings."""
-    path = (
-        YAMLSETTINGS.get(YamlKeys.LOCATIONS, {})  # type: ignore[possibly-unbound-attribute]
-        .get(path_key, {})
-        .get(YamlKeys.ABSOLUTE_PATH)
-    )
-
-    if path is None:
-        raise KeyError(
-            f"Key `{YamlKeys.LOCATIONS}.{path_key}` or `{YamlKeys.LOCATIONS}.{path_key}.{YamlKeys.ABSOLUTE_PATH}` not found in alphakraken.yaml."
-        )
-
-    return Path(path)
-
-
-def get_host_mounts_path() -> Path:
-    """Get the path of the mounts folder as seen by the docker host (not by the containers)."""
-    path = (
-        YAMLSETTINGS.get(YamlKeys.LOCATIONS, {})  # type: ignore[possibly-unbound-attribute]
-        .get(YamlKeys.Locations.GENERAL, {})
-        .get(YamlKeys.Locations.MOUNTS_PATH)
-    )
-
-    if path is None:
-        raise KeyError(
-            f"Key `{YamlKeys.LOCATIONS}.{YamlKeys.Locations.GENERAL}.{YamlKeys.Locations.MOUNTS_PATH}` not found in alphakraken.yaml."
-        )
-
-    return Path(path)
+YAMLSETTINGS: dict[str, Any] = cast(dict[str, Any], YamlSettings())
 
 
 def get_notification_setting(setting_key: str) -> str:

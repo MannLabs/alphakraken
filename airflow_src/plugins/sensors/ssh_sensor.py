@@ -38,7 +38,7 @@ class JobStatusSensorOperator(BaseSensorOperator, ABC):
         self.xcom_source_task_id: str = xcom_source_task_id
         self.quanting_env_source_task_id: str = quanting_env_source_task_id
         self._job_id: str | None = None
-        self._engine: str | None = None
+        self._runner_name: str | None = None
 
     def pre_execute(self, context: dict[str, Any]) -> None:
         """Persist the job id and job engine from XCom."""
@@ -55,13 +55,13 @@ class JobStatusSensorOperator(BaseSensorOperator, ABC):
             task_ids=self.quanting_env_source_task_id,
             map_indexes=ti.map_index,
         )
-        self._engine = QuantingEnv.from_dict(quanting_env_dict).job_engine
+        self._runner_name = QuantingEnv.from_dict(quanting_env_dict).runner_name
 
     def poke(self, context: dict[str, Any]) -> bool:
         """Check the output of the ssh command."""
         del context  # unused
 
-        job_status = get_job_status(self._job_id, self._engine)
+        job_status = get_job_status(self._job_id, self._runner_name)
         logging.info(f"job_status: '{job_status}'")
 
         return job_status not in self.states

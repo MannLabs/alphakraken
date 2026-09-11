@@ -32,7 +32,7 @@ _QUANTING_ENV_DEFAULTS = {
     "settings_version": 1,
     "relative_raw_file_path": "instrument1/1970_01/test_file.raw",
     "config_params": "",
-    "job_engine": "slurm",
+    "runner_name": "slurm",
     "year_month_folder": "1970_01",
 }
 

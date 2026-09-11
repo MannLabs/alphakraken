@@ -180,7 +180,7 @@ Reload nginx after the edit. Use `kraken` (or any non-admin name) instead of `ad
 
 #### On the cluster
 1. Log into the cluster using the `kraken-read` user.
-2. Create a directory (to store the submit script and job logs), e.g.
+2. Create a directory to store the submit script, e.g.
 ```bash
 mkdir /fs/pool-2/slurm
 ```

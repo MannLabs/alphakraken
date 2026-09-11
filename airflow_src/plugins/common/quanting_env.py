@@ -48,6 +48,10 @@ class QuantingEnv(BaseModel):
         """Convert to a dict keyed by the environment variable names."""
         return self.model_dump(by_alias=True)
 
+    def to_exportable_dict(self) -> dict[str, str]:
+        """Get the variables to set for the job, ignoring keys with leading underscore."""
+        return {k: str(v) for k, v in self.to_dict().items() if not k.startswith("_")}
+
     @classmethod
     def from_dict(cls, data: dict) -> "QuantingEnv":
         """Create from a dict keyed by the environment variable names."""

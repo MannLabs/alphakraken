@@ -39,7 +39,7 @@ _REQUIRED_LOCATIONS = (
     Locations.SETTINGS,
     Locations.SOFTWARE,
 )
-_ENGINES_USING_SSH = (JobEngines.SLURM, JobEngines.SIMPLE_SSH)
+_ENGINES_USING_SSH = (JobEngines.SLURM, JobEngines.SIMPLE_SSH, JobEngines.PUEUE_SSH)
 
 
 class _RunnerEntry(BaseModel):

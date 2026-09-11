@@ -414,6 +414,41 @@ To smoke-test the setup before pointing it at real software, put `misc/software/
 a settings entry: it logs the arguments, the environment and the mounted paths, sleeps, and writes a `metrics.csv`.
 
 
+### Standalone deployment with pueue on a machine reachable via SSH
+Like `simple_ssh`, but jobs are queued with [pueue](https://github.com/Nukesor/pueue) instead of being started as
+plain background processes.
+This adds a per-machine queue with a configurable number of parallel jobs, a `PENDING` state, and reliable
+process tracking, at the price of a daemon that has to run on the machine.
+
+Prerequisites:
+1. Airflow SSH connections to the machine, their ids starting with the runner's `ssh_connection_id_prefix`,
+cf. [Setup SSH connection](#setup-ssh-connection).
+2. The folders of the runner's `view` mounted on the machine at the given paths. `output` must be the same folder
+the workers see as their output mount: the job runs in the folder the worker created there.
+3. Settings entries on this runner use software type `custom`, with `software` pointing to the executable as reachable
+from the machine.
+4. `pueue` and `pueued` 4.x from the [release page](https://github.com/Nukesor/pueue/releases), installed as
+described in the [pueue docs](https://github.com/Nukesor/pueue#installation), plus:
+   - Linux: put the binaries into `/usr/local/bin` to make them accessible in a non-interactive SSH session,
+     adapt `ExecStart` in `pueued.service`, and run `sudo loginctl enable-linger $USER` so the user service survives logouts.
+   - Windows: run `pueued` as a Windows service. It runs as the user logged in at the console, so that must be the
+     runner's SSH user (auto-logon on a headless machine). Put the pueue folder on the *machine-wide* `PATH` and
+     restart `sshd`, which hands its `PATH` to the SSH sessions:
+     ```
+     $pueueDir = "D:\kraken-test\software\pueue"   # folder where pueue.exe and pueued.exe live
+     [Environment]::SetEnvironmentVariable("Path", [Environment]::GetEnvironmentVariable("Path", "Machine") + ";$pueueDir", "Machine")
+     Restart-Service sshd
+     ```
+
+Verify from the AlphaKraken host with `ssh <user>@<host> pueue status`.
+
+Operation:
+- `pueue parallel <n>` on the machine sets its number of parallel jobs. The `cluster_slots_pool` still gates job
+submission globally.
+- Tasks are labeled with the raw file id, so `pueue status` shows which job is which.
+- Finished tasks stay in pueue until `pueue clean`; a job whose task has been cleaned is reported as `UNKNOWN`.
+- The `slurm_*` resource parameters are ignored, pueue limits parallelism only.
+
 ### Metrics reported by the quanting software
 Independently of the software type and runner, the quanting software can report metrics itself
 by writing a `metrics.csv` file into its output folder. AlphaKraken reads that file after the job finished and

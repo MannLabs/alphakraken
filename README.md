@@ -16,12 +16,12 @@ A fully automated data processing and analysis system for mass spectrometry expe
 
 Currently supported:
 - quanting software: [AlphaDIA](https://github.com/MannLabs/alphadia), [msqc-extractor](./msqc-extractor), and any other software that offers a CLI
-- compute environment: [Slurm](https://slurm.schedmd.com/documentation.html), Slurm without accounting, direct SSH to a plain machine (`simple_ssh`), file based (experimental)
+- compute environment: [Slurm](https://slurm.schedmd.com/documentation.html), SSH to a plain machine (`simple_ssh`), [pueue](https://github.com/Nukesor/pueue) on a plain machine (`pueue_ssh`), file based (experimental)
 - vendors: Bruker, Sciex, Thermo
 
 
 Regular users should find all required documentation in the AlphaKraken WebApp.
-This documentation is relevant only for developers and administrators.
+This documentation in [docs](docs/) is relevant only for developers and administrators.
 
 ## System Requirements
 

@@ -23,16 +23,15 @@ from pathlib import PurePath
 from typing import Protocol
 
 from airflow.exceptions import AirflowFailException
-from common.constants import EXIT_CODE_FILE_NAME, LAUNCHER_SCRIPT_STEM
+from common.constants import EXIT_CODE_FILE_NAME, LAUNCHER_SCRIPT_STEM, LOG_FILE_NAME
 from common.keys import JobStates
 from common.quanting_env import QuantingEnv
-from jobs.job_handler import JobHandler
+from jobs.job_handler import JobHandler, posix_export_lines
 from sensors.ssh_utils import ssh_execute
 
 from shared.path_views import AIRFLOW_CONTAINER_VIEW, Locations
 from shared.runners import OperatingSystems
 
-LOG_FILE_NAME = "log.txt"
 JOB_ID_SEPARATOR = ":"  # cannot occur in a relative output path, cf. shared.validation
 
 _STATUS_STATES = (JobStates.COMPLETED, JobStates.FAILED, JobStates.RUNNING)
@@ -71,7 +70,7 @@ class _PosixDialect:
     ) -> str:
         """Content of the launcher script."""
         lines = [
-            *[f'export {key}="{value}"' for key, value in environment.items()],
+            *posix_export_lines(environment),
             f'cd "{output_path}"',
             "START=$(date +%s)",
             f"{custom_command} > {LOG_FILE_NAME} 2>&1",
@@ -197,7 +196,7 @@ class SimpleSSHJobHandler(JobHandler):
         remote_output_path = self._output_dir / quanting_env.relative_output_path
 
         script = self._dialect.launcher_script(
-            _exported_environment(quanting_env.to_dict()),
+            quanting_env.to_exportable_dict(),
             remote_output_path,
             quanting_env.custom_command,
         )
@@ -252,8 +251,3 @@ class SimpleSSHJobHandler(JobHandler):
             raise AirflowFailException(
                 f"Unexpected status line from the runner: {ssh_return!r}"
             ) from e
-
-
-def _exported_environment(environment: dict) -> dict[str, str]:
-    """Get the variables to set for the job, ignoring keys with leading underscore."""
-    return {k: str(v) for k, v in environment.items() if not k.startswith("_")}

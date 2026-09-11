@@ -8,7 +8,7 @@ from airflow.exceptions import AirflowFailException
 from common.constants import DUMMY_TIME_ELAPSED, SLURM_JOB_SCRIPT_NAME
 from common.keys import JobStates
 from common.quanting_env import QuantingEnv
-from jobs.job_handler import JobHandler
+from jobs.job_handler import JobHandler, posix_export_lines
 from sensors.ssh_utils import ssh_execute
 
 
@@ -29,10 +29,11 @@ class SlurmSSHJobHandler(JobHandler):
 
     def start_job(self, quanting_env: QuantingEnv) -> str:
         """Start a job on the Slurm cluster via SSH."""
-        command = (
-            self._create_export_environment_cmd(quanting_env.to_dict())
-            + "\n"
-            + self._get_submit_job_cmd(SLURM_JOB_SCRIPT_NAME, quanting_env)
+        command = "\n".join(
+            [
+                *posix_export_lines(quanting_env.to_exportable_dict()),
+                self._get_submit_job_cmd(SLURM_JOB_SCRIPT_NAME, quanting_env),
+            ]
         )
         logging.info(f"Running command: >>>>\n{command}\n<<<< end of command")
         ssh_return = ssh_execute(command, self._ssh_connection_id_prefix)
@@ -133,13 +134,6 @@ class SlurmSSHJobHandler(JobHandler):
                 "fi",
                 f'echo "${{ST:-{JobStates.UNKNOWN}}}"',
             ]
-        )
-
-    @staticmethod
-    def _create_export_environment_cmd(mapping: dict[str, str]) -> str:
-        """Create a bash command to export environment variables, ignoring keys with leading underscore."""
-        return "\n".join(
-            [f'export {k}="{v}"' for k, v in mapping.items() if not k.startswith("_")]
         )
 
     @staticmethod

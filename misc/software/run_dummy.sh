@@ -1,13 +1,16 @@
 #!/bin/bash
 
-# Dummy quanting software to smoke-test a runner with the `simple_ssh` or `pueue` engine:
-# reports what the job handler passed in, waits, and reports one metric.
+# Dummy quanting software to smoke-test a runner: reports what the job handler passed in,
+# waits, and reports one metric.
 #
 # Usage:
 #   run_dummy.sh [any arguments]
 #
 # Set it as `software` of a settings entry with software type `custom` and metrics type `custom`;
 # the arguments come from `config_params`.
+#
+# Works with the `simple_ssh`, `pueue_ssh` and `slurm` engines, the ones that run `custom_command`
+# with the job environment.
 
 set -u
 

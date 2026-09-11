@@ -129,27 +129,28 @@ def test_build_runners_rejects_slurm_runner_without_ssh_prefix() -> None:
         _build_runners([_entry(ssh_connection_id_prefix=...)])
 
 
-def test_build_runners_rejects_simple_ssh_runner_without_ssh_prefix() -> None:
-    """Test that the simple_ssh engine requires the prefix like slurm does."""
+_PLAIN_MACHINE_ENGINES = [JobEngines.SIMPLE_SSH, JobEngines.PUEUE_SSH]
+
+
+@pytest.mark.parametrize("engine", _PLAIN_MACHINE_ENGINES)
+def test_build_runners_rejects_plain_machine_runner_without_ssh_prefix(
+    engine: str,
+) -> None:
+    """Test that the engines for plain machines require the prefix like slurm does."""
     with pytest.raises(ValueError, match=r"(?s)'box'.*ssh_connection_id_prefix"):
         _build_runners(
-            [
-                _entry(
-                    name="box",
-                    engine=JobEngines.SIMPLE_SSH,
-                    ssh_connection_id_prefix=...,
-                )
-            ]
+            [_entry(name="box", engine=engine, ssh_connection_id_prefix=...)]
         )
 
 
-def test_build_runners_accepts_windows_simple_ssh_runner() -> None:
-    """Test that the simple_ssh engine runs on windows, with the windows path flavour."""
+@pytest.mark.parametrize("engine", _PLAIN_MACHINE_ENGINES)
+def test_build_runners_accepts_windows_plain_machine_runner(engine: str) -> None:
+    """Test that the engines for plain machines run on windows, with the windows path flavour."""
     runners = _build_runners(
         [
             _entry(
                 name="box",
-                engine=JobEngines.SIMPLE_SSH,
+                engine=engine,
                 os=OperatingSystems.WINDOWS,
                 view={
                     Locations.BACKUP: r"Z:\backup",

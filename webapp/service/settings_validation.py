@@ -4,7 +4,11 @@ from shared.keys import JobEngines, SoftwareTypes
 from shared.runners import RUNNERS
 
 # these engines run the `software` as given, which only the custom software type provides
-_ENGINES_SUPPORTING_ONLY_CUSTOM = (JobEngines.DOCKER, JobEngines.SIMPLE_SSH)
+_ENGINES_SUPPORTING_ONLY_CUSTOM = (
+    JobEngines.DOCKER,
+    JobEngines.SIMPLE_SSH,
+    JobEngines.PUEUE_SSH,
+)
 
 
 def check_runner_supports_software_type(

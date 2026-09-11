@@ -15,6 +15,11 @@ from shared.path_views import DOCKER_HOST_VIEW, Locations
 from shared.runners import Runner, get_runner
 
 
+def posix_export_lines(environment: dict[str, str]) -> list[str]:
+    """Get the shell lines exporting the given variables, for a POSIX shell."""
+    return [f'export {key}="{value}"' for key, value in environment.items()]
+
+
 def _get_job_handler(runner: Runner) -> "JobHandler":
     """Factory function to get the job handler for the engine of the given runner."""
     engine = runner.engine
@@ -53,6 +58,18 @@ def _get_job_handler(runner: Runner) -> "JobHandler":
 
         logging.info("Using SimpleSSHJobHandler")
         return SimpleSSHJobHandler(
+            runner.view.resolve(Locations.OUTPUT),
+            runner.os,
+            runner.ssh_connection_id_prefix,
+        )
+
+    if engine == JobEngines.PUEUE_SSH:
+        from jobs.pueue_ssh_job_handler import PueueSSHJobHandler
+
+        assert runner.ssh_connection_id_prefix is not None
+
+        logging.info("Using PueueSSHJobHandler")
+        return PueueSSHJobHandler(
             runner.view.resolve(Locations.OUTPUT),
             runner.os,
             runner.ssh_connection_id_prefix,

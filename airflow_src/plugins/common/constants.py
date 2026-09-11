@@ -12,7 +12,9 @@ SLURM_JOB_SCRIPT_NAME = "submit_slurm_job.sh"
 # returned as the elapsed time when it cannot be determined (e.g. sacct unavailable)
 DUMMY_TIME_ELAPSED = "00:00:00"
 
-# written by the simple_ssh engine into the job's output folder, cf. simple_ssh_job_handler.py
+# written by the simple_ssh and pueue engines into the job's output folder
+LOG_FILE_NAME = "log.txt"
+# written by the simple_ssh engine only
 LAUNCHER_SCRIPT_STEM = "_alphakraken_job"
 EXIT_CODE_FILE_NAME = ".alphakraken_exit_code"
 

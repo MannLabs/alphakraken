@@ -1,8 +1,8 @@
 @echo off
 setlocal
 
-rem Dummy quanting software to smoke-test a windows runner with the `simple_ssh` or `pueue`
-rem engine: reports what the job handler passed in, waits, and reports one metric.
+rem Dummy quanting software to smoke-test a windows runner: reports what the job handler
+rem passed in, waits, and reports one metric.
 rem
 rem Usage:
 rem   run_dummy.cmd [any arguments]
@@ -10,10 +10,10 @@ rem
 rem Set it as `software` of a settings entry with software type `custom` and metrics type
 rem `custom`; the arguments come from `config_params`.
 rem
-rem Known limitation of the simple_ssh engine: its launcher invokes the executable without
-rem `call`, so cmd.exe chains into this file and never writes the exit code file, and the job
-rem is reported FAILED however this script ends. Under the pueue engine, which starts the task
-rem from PowerShell, the exit code arrives correctly.
+rem Works with the `simple_ssh` and `pueue_ssh` engines.
+rem
+rem `exit /b` rather than `exit`: the simple_ssh launcher invokes this file with `call` and
+rem must regain control to write the exit code file.
 
 set SLEEP_SECONDS=20
 set METRIC_NAME=dummy_metric

@@ -5,7 +5,6 @@ from pathlib import Path, PurePath, PurePosixPath
 from typing import Generic, TypeVar
 
 from shared.keys import ConstantsClass, EnvVars, InternalPaths
-from shared.yamlsettings import YAMLSETTINGS, YamlKeys
 
 
 class Locations(metaclass=ConstantsClass):
@@ -75,19 +74,6 @@ AIRFLOW_CONTAINER_VIEW: View[Path] = View(
 )
 
 
-def _build_cluster_view() -> View[PurePosixPath]:
-    """Build the view of a machine that accesses the data via the shared file system."""
-    locations: dict[str, dict[str, str]] = YAMLSETTINGS.get(YamlKeys.LOCATIONS, {})  # type: ignore[invalid-assignment]
-
-    absolute_paths = {
-        location: values[YamlKeys.ABSOLUTE_PATH]
-        for location, values in locations.items()
-        if YamlKeys.ABSOLUTE_PATH in values
-    }
-
-    return View("cluster", absolute_paths, PurePosixPath)
-
-
 def _build_docker_host_view() -> View[PurePosixPath]:
     """Build the view from within the processing (e.g. msqc) docker containers.
 
@@ -111,5 +97,4 @@ def _build_docker_host_view() -> View[PurePosixPath]:
     return View("docker host", locations, PurePosixPath)
 
 
-CLUSTER_VIEW: View[PurePosixPath] = _build_cluster_view()
 DOCKER_HOST_VIEW: View[PurePosixPath] = _build_docker_host_view()

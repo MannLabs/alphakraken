@@ -3,7 +3,7 @@
 import json
 import logging
 from collections import defaultdict
-from pathlib import Path, PurePosixPath
+from pathlib import Path, PurePath
 
 from airflow.exceptions import AirflowFailException, AirflowSkipException
 from airflow.models import TaskInstance
@@ -55,7 +55,8 @@ from shared.db.interface import (
 from shared.db.models import RawFile, RawFileStatus, Settings, get_created_at_year_month
 from shared.keys import SoftwareTypes
 from shared.path_layout import get_output_folder_rel_path, get_raw_file_rel_path
-from shared.path_views import CLUSTER_VIEW, Locations
+from shared.path_views import Locations, View
+from shared.runners import get_runner
 from shared.settings_scope_resolver import resolve_scoped_settings
 from shared.validation import check_for_malicious_content
 
@@ -117,9 +118,7 @@ def prepare_job(raw_file_id: str, settings_id: str) -> dict:
     """
     raw_file = get_raw_file_by_id(raw_file_id)
     settings = get_settings_by_id(settings_id)
-
-    relative_raw_file_path = get_raw_file_rel_path(raw_file)
-    raw_file_path = CLUSTER_VIEW.resolve(Locations.BACKUP, relative_raw_file_path)
+    runner = get_runner(settings.runner_name)
 
     internal_output_path = get_internal_output_path_for_raw_file(
         raw_file, software_type=settings.software_type
@@ -128,8 +127,7 @@ def prepare_job(raw_file_id: str, settings_id: str) -> dict:
     quanting_env = _create_quanting_env(
         settings,
         raw_file,
-        raw_file_path,
-        relative_raw_file_path,
+        runner.view,
         _get_output_path_suffix(internal_output_path),
     )
 
@@ -165,12 +163,13 @@ def _find_next_free_run_suffix(base_path: Path) -> str:
 def _create_quanting_env(
     settings: Settings,
     raw_file: RawFile,
-    raw_file_path: PurePosixPath,
-    relative_raw_file_path: Path,
+    view: View[PurePath],
     output_path_suffix: str = "",
 ) -> QuantingEnv:
-    """Create a quanting environment from settings."""
-    settings_path = CLUSTER_VIEW.resolve(Locations.SETTINGS, settings.name)
+    """Create a quanting environment from settings, with absolute paths as seen in `view`."""
+    relative_raw_file_path = get_raw_file_rel_path(raw_file)
+    raw_file_path = view.resolve(Locations.BACKUP, relative_raw_file_path)
+    settings_path = view.resolve(Locations.SETTINGS, settings.name)
 
     relative_output_path = get_output_folder_rel_path(
         raw_file, software_type=settings.software_type
@@ -180,7 +179,7 @@ def _create_quanting_env(
             relative_output_path.name + output_path_suffix
         )
 
-    output_path = CLUSTER_VIEW.resolve(Locations.OUTPUT, relative_output_path)
+    output_path = view.resolve(Locations.OUTPUT, relative_output_path)
 
     substituted_params = _substitute_config_params(
         raw_file.id,
@@ -195,7 +194,7 @@ def _create_quanting_env(
     )
 
     custom_command = (
-        _prepare_custom_command(settings, substituted_params)
+        _prepare_custom_command(settings, substituted_params, view)
         # all non-alphadia softwares are treated as 'custom command'
         if settings.software_type not in [SoftwareTypes.ALPHADIA]
         else ""
@@ -233,11 +232,11 @@ def _create_quanting_env(
 def _substitute_config_params(  # noqa: PLR0913 Too many arguments
     raw_file_id: str,
     relative_output_path: Path,
-    output_path: PurePosixPath,
+    output_path: PurePath,
     relative_raw_file_path: Path,
-    raw_file_path: PurePosixPath,
+    raw_file_path: PurePath,
     settings: Settings,
-    settings_path: PurePosixPath,
+    settings_path: PurePath,
     num_threads: int,
     project_id: str,
 ) -> str:
@@ -260,9 +259,11 @@ def _substitute_config_params(  # noqa: PLR0913 Too many arguments
     )
 
 
-def _prepare_custom_command(settings: Settings, substituted_params: str) -> str:
+def _prepare_custom_command(
+    settings: Settings, substituted_params: str, view: View[PurePath]
+) -> str:
     """Prepare the custom command for the quanting job."""
-    software_path = str(CLUSTER_VIEW.resolve(Locations.SOFTWARE, settings.software))
+    software_path = str(view.resolve(Locations.SOFTWARE, settings.software))
 
     custom_command = f"{software_path} {substituted_params}"
     logging.info(f"Custom command for quanting: {custom_command}")

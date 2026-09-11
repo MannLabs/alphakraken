@@ -11,10 +11,9 @@ from shared.path_views import (
     AIRFLOW_CONTAINER_VIEW,
     Locations,
     View,
-    _build_cluster_view,
     _build_docker_host_view,
 )
-from shared.yamlsettings import YAMLSETTINGS, YamlKeys
+from shared.yamlsettings import YamlKeys
 
 
 def test_resolve() -> None:
@@ -102,26 +101,6 @@ def test_container_view_has_only_the_mounted_locations() -> None:
             Locations.LOGS,
         ]
     ] == [False] * 4
-
-
-def test_cluster_view() -> None:
-    """Test that the cluster view is built from the absolute paths in the yaml settings."""
-    locations = {
-        YamlKeys.Locations.GENERAL: {},
-        Locations.BACKUP: {YamlKeys.ABSOLUTE_PATH: "/some/pool/backup"},
-        Locations.SETTINGS: {YamlKeys.ABSOLUTE_PATH: "/some/pool/settings"},
-    }
-
-    with patch.dict(YAMLSETTINGS, {YamlKeys.LOCATIONS: locations}):
-        view = _build_cluster_view()
-
-    assert view.resolve(Locations.BACKUP, "test1/1970_01") == PurePosixPath(
-        "/some/pool/backup/test1/1970_01"
-    )
-    assert view.resolve(Locations.SETTINGS) == PurePosixPath("/some/pool/settings")
-    # the `general` section carries no absolute path and is not a location
-    assert not view.has(YamlKeys.Locations.GENERAL)
-    assert not view.has(Locations.OUTPUT)
 
 
 def test_docker_host_view() -> None:

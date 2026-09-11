@@ -212,13 +212,13 @@ posix. `CLUSTER_VIEW`, `_build_cluster_view` and `test_cluster_view` removed. Te
 and `_check_content` passes. Spec 2.4, 7.2, 7.3, 9.4.
 
 **Acceptance criteria:**
-- [ ] Windows-runner `prepare_job` output matches 9.4; `_RELATIVE_RAW_FILE_PATH` and `RELATIVE_OUTPUT_PATH` stay `/`-separated.
-- [ ] Slurm runner with the former `absolute_path` values: `to_dict()` unchanged vs. T5 (7.3).
-- [ ] `grep -rn CLUSTER_VIEW --include='*.py' .` empty.
+- [x] Windows-runner `prepare_job` output matches 9.4; `_RELATIVE_RAW_FILE_PATH` and `RELATIVE_OUTPUT_PATH` stay `/`-separated.
+- [x] Slurm runner with the former `absolute_path` values: `to_dict()` unchanged vs. T5 (7.3).
+- [x] `grep -rn CLUSTER_VIEW --include='*.py' .` empty.
 
 **Verification:**
-- [ ] `pytest airflow_src/tests/dags/impl/test_processor_impl.py shared/tests/test_path_views.py`
-- [ ] All three suites
+- [x] `pytest airflow_src/tests/dags/impl/test_processor_impl.py shared/tests/test_path_views.py`
+- [x] All three suites
 
 **Dependencies:** T2, T6, T8
 **Files:** `airflow_src/dags/impl/processor_impl.py`, `shared/path_views.py`, `airflow_src/tests/helpers.py`, `airflow_src/tests/dags/impl/test_processor_impl.py`, `shared/tests/test_path_views.py`

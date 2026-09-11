@@ -5,18 +5,19 @@ from contextlib import contextmanager
 from pathlib import Path, PurePosixPath
 from unittest.mock import patch
 
-from shared.path_views import AIRFLOW_CONTAINER_VIEW, CLUSTER_VIEW
+from shared.path_views import AIRFLOW_CONTAINER_VIEW
+from shared.runners import RUNNERS
 
 
 @contextmanager
-def yaml_locations(**paths: str) -> Iterator[None]:
-    """Override the locations of `CLUSTER_VIEW`, e.g. `yaml_locations(slurm="/path/to/slurm")`.
+def runner_view(runner_name: str, **paths: str) -> Iterator[None]:
+    """Override the view of a declared runner, e.g. `runner_view("slurm", backup="/pool/backup")`.
 
     Patches the contents of the view object rather than its name, so the patch reaches every
     import site and tests stay valid when code moves between modules.
     """
     with patch.object(
-        CLUSTER_VIEW,
+        RUNNERS[runner_name].view,
         "_locations",
         {key: PurePosixPath(path) for key, path in paths.items()},
     ):

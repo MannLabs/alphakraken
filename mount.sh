@@ -81,9 +81,9 @@ isImmutable() { lsattr -d "$1" | cut -d' ' -f1 | grep -q i && echo 1 || echo 0; 
 # sentinel file + immutable folder make a lost mount visible and prevent writing into the local folder, cf. docs/deployment.md
 # must only be called when the target is not mounted, otherwise the sentinel would end up on the share
 protectTarget() {
-  if [ ! -e "$MOUNT_TARGET/$LOCAL_DIR_SENTINEL" ]; then
+  if [ ! -e "$MOUNT_TARGET/$LOCAL_DIR_SENTINEL_FILE" ]; then
     sudo chattr -i "$MOUNT_TARGET"
-    touch "$MOUNT_TARGET/$LOCAL_DIR_SENTINEL"
+    touch "$MOUNT_TARGET/$LOCAL_DIR_SENTINEL_FILE"
   fi
   if [ $(isImmutable $MOUNT_TARGET) == 0 ]; then
     sudo chattr +i "$MOUNT_TARGET"
@@ -118,7 +118,7 @@ if [ ! -e $MOUNT_TARGET ]; then
   exit 1
 fi
 
-if [ -n "$(find $MOUNT_TARGET -mindepth 1 -maxdepth 1 -not -name "$LOCAL_DIR_SENTINEL")" ] && [ $(isMounted $MOUNT_TARGET) == 0 ]; then
+if [ -n "$(find $MOUNT_TARGET -mindepth 1 -maxdepth 1 -not -name "$LOCAL_DIR_SENTINEL_FILE")" ] && [ $(isMounted $MOUNT_TARGET) == 0 ]; then
   echo "Mount target path is not a mount and is not empty: '${MOUNT_TARGET}'"
   echo "Check if data has been written to a local folder by accident and take care of it (e.g. move it away)."
   exit 1

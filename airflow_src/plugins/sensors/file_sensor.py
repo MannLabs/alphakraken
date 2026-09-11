@@ -104,7 +104,8 @@ def _check_path_health(path: Path, description: str, status_details: list[str]) 
             logging.warning(
                 f"Path {path} failed checks: {exists=} {mounted=} {has_files=}"
             )
-            if not has_files:
+            # `is False`: only the empty-folder case, not a short-circuit that left it unchecked
+            if has_files is False:
                 logging.info(
                     f"If this is a fresh installation and {path} is empty, create a temporary dummy file called 'Krakenfile' to satisfy this check."
                 )

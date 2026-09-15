@@ -1,5 +1,9 @@
 """Migration: Convert Project.settings (1:1) to ProjectSettings (M:N).
 
+NOTE: written against the pre-1.0 `ProjectSettings` schema (`scope: str`). Since the scope fields
+became lists (`scopes`, cf. from_0.10.0/_migrate_project_settings_scopes.py), the `scope=` query
+and constructor below raise. Do not re-run without adapting.
+
 For each Project with a non-null `settings` field, creates a ProjectSettings
 entry linking the project to the same settings with scope="*".
 Then removes the `settings` field from all Project documents.

@@ -29,9 +29,10 @@ def dagbag(fixture_cluster_ssh_connection_uri: str) -> DagBag:
             "os.environ",
             AIRFLOW_CONN_CLUSTER_SSH_CONNECTION=fixture_cluster_ssh_connection_uri,
             ENV_NAME="_test_",
+            AIRFLOW__CORE__LOAD_EXAMPLES="False",
         ),
     ):
-        return DagBag(dag_folder=DAG_FOLDER, include_examples=False)
+        return DagBag(dag_folder=DAG_FOLDER)
 
 
 def test_dag_load_instrument_watcher(dagbag: DagBag) -> None:

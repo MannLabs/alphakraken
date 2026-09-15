@@ -9,6 +9,9 @@ from shared.db.models import KrakenStatusEntities, KrakenStatusValues
 def display_status_warning() -> None:
     """Display a warning if there are instruments with issues."""
     status_data_df = df_from_db_data(get_status_data())
+    if status_data_df.empty:
+        return
+
     nok_status_df = status_data_df[
         (status_data_df["entity_type"] == KrakenStatusEntities.INSTRUMENT)
         & (status_data_df["status"] != KrakenStatusValues.OK)

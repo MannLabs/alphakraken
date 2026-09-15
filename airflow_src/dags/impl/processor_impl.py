@@ -116,15 +116,15 @@ def prepare_job(raw_file_id: str, settings_id: str) -> dict[str, str | int | Non
             f"Settings '{settings.name}' v{settings.version}: {e.args[0]}"
         ) from e
 
-    internal_output_path = get_internal_output_path_for_raw_file(
-        raw_file, settings=settings
+    output_path_suffix = _get_output_path_suffix(
+        get_internal_output_path_for_raw_file(raw_file, settings=settings)
     )
 
     quanting_env = _create_quanting_env(
         settings,
         raw_file,
         runner.view,
-        _get_output_path_suffix(internal_output_path),
+        output_path_suffix,
     )
 
     if errors := _check_content(quanting_env, settings):

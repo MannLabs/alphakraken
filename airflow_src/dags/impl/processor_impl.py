@@ -421,14 +421,18 @@ def _get_other_error_codes(output_path: Path) -> str:
         return CustomAlphaDiaStates.NO_LOG_FILE
 
     with log_file_path.open() as file:
-        for line in reversed(file.readlines()):
-            if "ERROR" in line:
-                logging.info(f"Found error line: {line.strip()}")
-                for error_code, error_string in ERROR_CODE_TO_STRING.items():
-                    if error_string in line:
-                        return error_code
-                return CustomAlphaDiaStates.UNKNOWN_ERROR
-    return CustomAlphaDiaStates.COULD_NOT_DETERMINE_ERROR
+        error_lines = [line for line in file if "ERROR" in line]
+
+    if not error_lines:
+        return CustomAlphaDiaStates.COULD_NOT_DETERMINE_ERROR
+
+    # alphaDIA logs the detail message as a separate ERROR line after the error code, so scan all
+    for line in reversed(error_lines):
+        logging.info(f"Found error line: {line.strip()}")
+        for error_code, error_string in ERROR_CODE_TO_STRING.items():
+            if error_string in line:
+                return error_code
+    return CustomAlphaDiaStates.UNKNOWN_ERROR
 
 
 def get_business_errors(raw_file: RawFile, output_path: Path) -> list[str]:

@@ -1224,6 +1224,23 @@ def test_get_business_errors_with_unknown_error(tmp_path: Path) -> None:
     assert result == ["__UNKNOWN_ERROR"]
 
 
+def test_get_business_errors_known_error_before_last_error_line(tmp_path: Path) -> None:
+    """Test that get_business_errors finds a known error code when a later ERROR line does not match."""
+    raw_file = MagicMock()
+    raw_file.id = "test_file.raw"
+
+    log_file = tmp_path / "log.txt"
+    log_file.write_text(
+        "INFO: something\n"
+        "ERROR: Search failed with error: NO_PSM_FOUND No PSMs found.\n"
+        "ERROR: No PSMs were found during search. Please check the input parameters.\n"
+    )
+
+    result = get_business_errors(raw_file, tmp_path)
+
+    assert result == ["NO_PSM_FOUND"]
+
+
 @patch("dags.impl.processor_impl.calc_metrics")
 def test_compute_metrics(
     mock_calc_metrics: MagicMock,

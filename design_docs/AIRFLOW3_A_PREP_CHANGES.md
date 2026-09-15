@@ -1,7 +1,12 @@
 # A) Preparatory code changes — land now, still on Airflow 2.11
 
 **Target:** `apache-airflow==3.3.1` (latest at time of writing).
-**Current:** `apache-airflow==2.11.0` (`airflow_src/requirements_airflow.txt:2`), Python 3.11.
+**Current:** `apache-airflow==2.11.0` (`airflow_src/requirements_airflow.txt:2`).
+
+⚠️ **The interpreter is not what the requirements file implies.** `requirements_airflow.txt` constrains
+against `constraints-3.11.txt`, but `airflow_src/Dockerfile` uses the **untagged**
+`apache/airflow:${AIRFLOW_VERSION}`, which follows Airflow's default python — **3.12** for 2.11.0.
+The constraint file has never matched the interpreter. Doc B §1 pins both ends.
 **Scope of this doc:** changes that can be merged and run on 2.11 **today**, shrinking the migration PR to a mechanical, reversible flip.
 
 Base commit for all line references: `609a06bb`.
@@ -20,6 +25,11 @@ Not asserted from docs — run against a real `apache-airflow==3.3.1` install wi
 | `airflow config lint` on the compose env block | 5 config keys moved (see doc B) |
 
 **Conclusion: nothing in this repo breaks at DAG *parse* time.** Every blocker is at *runtime*, in code paths Ruff does not inspect. The work below is therefore mostly about (1) clearing the deprecations Ruff *does* see, and (2) putting seams around the four places that genuinely break.
+
+⚠️ **Read the first row narrowly.** `dags reserialize` exercises the DAG-processor path only, which is
+the one process that still has both the DAGs and plugins folders on `sys.path`. It passed cleanly while
+§4.5 was broken, and it stayed clean through every runtime failure found during the test migration.
+A clean reserialize is evidence about parsing, and about nothing else.
 
 Refs:
 - [Ruff Airflow (AIR) rules](https://docs.astral.sh/ruff/rules/#airflow-air)
@@ -134,7 +144,7 @@ on 2.11, and no new failures on 3.3.1.
 
 `plugins/common/utils.py:159-180`. `@provide_session` + `session.query(Connection).filter(Connection.conn_id.startswith(...))`.
 
-The Task Execution API can fetch a connection **by id** (`GetConnection`) but has **no list/scan operation** — verified against `airflow/sdk/execution_time/comms.py`. So this cannot be expressed with the SDK at all and must go to the REST API in doc B.
+The Task Execution API can fetch a connection **by id** (`GetConnection`) but has **no list/scan operation** — verified against `airflow/sdk/execution_time/comms.py`. So the *scan* cannot be expressed with the SDK at all; doc B §3.4 replaces it with a list of ids in an Airflow Variable rather than a REST call.
 
 **Action now:** none — single seam, one call site (`get_cluster_ssh_hook`, `utils.py:200`).
 
@@ -161,8 +171,8 @@ Every cross-task pull that omits `task_ids` therefore stops finding its value. *
 
 | Pull site | Key | Pushed by | Airflow 3 outcome |
 |---|---|---|---|
-| `handler_impl.py:78` `compute_checksum` | `ACQUISITION_MONITOR_ERRORS` | `AcquisitionMonitor.post_execute` | 🔥 **silent** — defaults to `[]` |
-| `handler_impl.py:427` `decide_processing` | `ACQUISITION_MONITOR_ERRORS` | `AcquisitionMonitor.post_execute` | 🔥 **silent** — defaults to `[]` |
+| `handler_impl.py:78` `compute_checksum` | `ACQUISITION_MONITOR_ERRORS` | `AcquisitionMonitor.post_execute` | 🔥 **silent** — defaults to `[]`; also hits the `default` bug below |
+| `handler_impl.py:427` `decide_processing` | `ACQUISITION_MONITOR_ERRORS` | `AcquisitionMonitor.post_execute` | 🔥 **silent** — defaults to `[]`; also hits the `default` bug below |
 | `handler_impl.py:227` `copy_raw_file` | `FILES_DST_PATHS` | `compute_checksum` | `KeyError` |
 | `handler_impl.py:230` `copy_raw_file` | `FILES_SIZE_AND_HASHSUM` | `compute_checksum` | `KeyError` |
 | `handler_impl.py:387` `start_s3_uploader` | `TARGET_FOLDER_PATH` | `compute_checksum` | `KeyError` |
@@ -191,6 +201,35 @@ would otherwise have bound `[]` to `task_ids`.
 `sensors/ssh_sensor.py` were routed through it, which is what makes the guard airtight.
 `test_xcom_pull_requires_task_ids` locks the signature in: without it, nothing failed when the
 parameter regained a default (verified by mutation).
+
+#### The second half of the same bug: `default` is ignored 🔴
+
+Passing `task_ids` is necessary but **not sufficient**. `RuntimeTaskInstance.xcom_pull`
+(`task_runner.py:487`) has two branches, and only one of them honours `default`:
+
+```python
+if not is_arg_set(map_indexes_iterable):        # map_indexes NOT passed
+    ...
+    xcoms.append(None) if values is None else xcoms.extend(values)
+    if single_task_requested and len(xcoms) == 1:
+        return xcoms[0]                          # `default` never consulted
+    return xcoms
+
+for t_id, m_idx in product(task_ids, map_indexes_iterable):   # map_indexes passed
+    ...
+    xcoms.append(default if value is None else value)          # `default` honoured
+```
+
+So `get_xcom(..., default=[])` **without** `map_indexes` returns `None` on Airflow 3 where 2.11
+returned `[]`. The affected sites are exactly the two flagged above as "the dangerous ones" — the
+corruption-detection gates — which crash with `TypeError: 'NoneType' object is not iterable` rather
+than degrading silently. The two `_extract_errors` calls pass `map_indexes` and take the safe branch.
+
+**Action (done):** `get_xcom` (`utils.py:45`) applies the default itself instead of delegating to
+`xcom_pull`, which restores 2.11 semantics on both branches. Behaviour-preserving on 2.11, so it lands
+here rather than in doc B. Two regression tests added.
+
+Making the wrapper the sole entry point (above) is what reduced this to a three-line fix.
 
 Original plan, for reference: pass `task_ids` explicitly at all 11 sites. Each key has exactly
 one pusher, so narrowing the filter is behaviour-preserving on 2.11 and correct on 3.x. The task-id
@@ -229,16 +268,25 @@ airflow db migrate
 
 ### 4.3 Pin the `ti` type behind an alias
 
-24 signatures across `dags/impl/*.py` annotate `ti: TaskInstance` (`airflow.models.TaskInstance`). At runtime under Airflow 3 the object is a `RuntimeTaskInstance`, not the ORM model — the annotations are wrong but harmless (the modules use `from __future__ import annotations`, so they are never evaluated).
+24 signatures across `dags/impl/*.py` annotate `ti: TaskInstance` (`airflow.models.TaskInstance`). At
+runtime under Airflow 3 the object is a `RuntimeTaskInstance`, not the ORM model.
 
-**Action: none — declined as overkill.** Implemented once (a `TaskInstanceLike` alias in
-`common/utils.py` used at all 25 sites) and reverted: it touched 8 files to buy a one-line edit in
-doc B, which is not a good trade for an annotation that is never evaluated at runtime
-(`from __future__ import annotations`).
+⚠️ These annotations **are** evaluated at import: `dags/impl/*.py` have **no**
+`from __future__ import annotations`. Only `acquisition_processor.py` does. So the import, not just
+the name, matters.
 
-Doc B instead does the plain sweep: `ti: TaskInstance` → the SDK type at **25** sites across
-`dags/impl/*.py`, `acquisition_processor.py` and `common/utils.py`. It is a single
-find-and-replace, and `ruff --select AIR --fix` may well do it.
+**Action now: none possible** — `airflow.sdk` does not exist on 2.11 (§2), so the target type cannot
+be named here. A local `TaskInstanceLike` alias in `common/utils.py` was tried and reverted: 8 files
+touched to buy nothing on 2.11.
+
+Doc B §3.1 does it with an **import alias** rather than a rename:
+
+```python
+from airflow.sdk.execution_time.task_runner import RuntimeTaskInstance as TaskInstance
+```
+
+8 import lines change, the 25 signatures stay as they read today. The cost is that `TaskInstance` now
+means the SDK runtime object, not the ORM model it names everywhere else in Airflow.
 
 ### 4.4 `Param(minimum=...)` on a string never validated 🟡
 
@@ -260,6 +308,37 @@ So an empty `raw_file_id` passed DAG-trigger validation and failed later in the 
 Note this **tightens input validation**: a trigger with a <3-character `raw_file_id` now fails at
 trigger time instead of downstream.
 
+### 4.5 Move `callbacks.py` out of the plugins folder 🔴
+
+In Airflow 2, `settings.prepare_syspath()` put **both** the DAGs folder and the plugins folder on
+`sys.path` in every process. In 3.3.1 the renamed `prepare_syspath_for_config_and_plugins()`
+(`settings.py:716`) adds only `config/` and `PLUGINS_FOLDER` — the **DAGs folder is added by the DAG
+processor**, which the api-server no longer runs.
+
+`plugins/callbacks.py` does `from impl.processor_impl import ...`, i.e. a plugins-folder module
+reaching into the DAGs folder. The api-server therefore fails to load it.
+
+**Action:** `mv airflow_src/plugins/callbacks.py airflow_src/dags/callbacks.py` (+ its test). Safe on
+2.11, where both folders are on `sys.path`. `callbacks.py` is the only plugins-folder module importing
+from `dags/`, and the repo defines **no** `AirflowPlugin` subclass at all — the plugins folder is used
+purely as a shared-code path — so nothing needs it to live there.
+
+Verify with `plugins_manager.get_import_errors()` and the DAGs folder off `sys.path`: expect `NONE`,
+not `{'callbacks.py': "No module named 'impl'"}`.
+
+⚠️ **The follow-on symptom names the wrong file.** `plugins_manager.py:253-255` writes
+`sys.modules[spec.name] = mod` *before* `exec_module` and never removes the entry on failure, so a
+failed plugin import parks an empty module under the file stem. The DAG parse then reports
+
+```
+ImportError: cannot import name 'on_failure_callback' from 'callbacks' (/opt/airflow/plugins/callbacks.py)
+```
+
+— the *poisoned* module's `__file__`, not the file being imported. Do not chase that path.
+
+The one-line alternative is `PYTHONPATH` += `${AIRFLOW_HOME}/dags`, which restores Airflow 2 behaviour
+but keeps the api-server importing mongoengine/pandas/docker at startup.
+
 ---
 
 ## 5. Things that are fine — explicitly checked, no action
@@ -269,7 +348,8 @@ Worth recording so nobody re-litigates them during the migration:
 | Pattern | Where | Verdict |
 |---|---|---|
 | `schedule="@continuous"` | `instrument_watcher.py:31` | **Still supported.** `ContinuousTimetable` is present in 3.3.1 (`airflow/timetables/simple.py`) |
-| Bare imports (`from common.utils import ...`, `from callbacks import ...`) | all DAGs | **Still work.** `settings.prepare_syspath_for_config_and_plugins()` still appends `PLUGINS_FOLDER` to `sys.path` in 3.3.1; confirmed by the clean parse. The Astro "use `dags.common`" advice does **not** apply to this non-Astro deployment |
+| Bare imports **from DAG files** (`from common.utils import ...`) | all DAGs | **Still work.** `settings.prepare_syspath_for_config_and_plugins()` still appends `PLUGINS_FOLDER` to `sys.path` in 3.3.1. The Astro "use `dags.common`" advice does **not** apply to this non-Astro deployment |
+| Bare imports **from plugins into `dags/`** (`plugins/callbacks.py` → `impl.processor_impl`) | `callbacks.py` | 🔴 **Broken in 3.3.1** — the DAGs folder is only on `sys.path` in the DAG processor, so the api-server cannot load the plugin. See §4.5. A clean `dags reserialize` does **not** exercise this: it runs the DAG-processor path, the one that still has both folders |
 | `pre_execute` / `post_execute` on custom sensors | `sensors/*.py` | Still on `airflow.sdk.BaseSensorOperator` |
 | `max_active_tis_per_dag`, `weight_rule="upstream"`, `priority_weight`, `pool`, `retry_exponential_backoff`, `execution_timeout`, `queue` | all DAGs | All still valid `BaseOperator` params |
 | `TriggerRule.ALL_DONE` | `acquisition_processor.py:157` | Still valid (`dummy` / `none_failed_or_skipped` were the removed ones) |
@@ -287,31 +367,30 @@ Worth recording so nobody re-litigates them during the migration:
 | A1 | §1 standard-provider imports + requirements pin | trivial | **done** (`2c534888`) |
 | A2 | §4.1 + §4.2 test/CI fixes | trivial | **done** |
 | A3 | §3.2 extract `_get_branch_states` | low — pure refactor, covered by `tests/dags/impl/test_processor_impl.py` | **done** |
-| A4 | §4.3 `TaskInstanceLike` alias | cosmetic | **declined** — 8 files touched for a one-line saving |
+| A4 | §4.3 `ti` type alias | cosmetic | **not possible on 2.11** — done in doc B §3.1 as an import alias |
 | A5 | §3.5 required `task_ids` + all 11 call sites | **high value** — closes a silent-failure class | **done** (`0e63d141`) |
 | A6 | route `ssh_sensor` XCom reads through the wrapper | low | **done** (`600aa391`) |
+| A7 | §3.5 `get_xcom` applies `default` itself | **high value** — the other half of A5; without it the two corruption gates raise `TypeError` on 3.x | |
+| A8 | §4.5 move `callbacks.py` into `dags/` | low on 2.11; **blocker** on 3.x | |
 | — | §3.1 marker comment on `trigger_dag_run` | none | **done** |
 
-**Part A is complete** (A4 deliberately skipped). Baseline: **460 passed on 2.11**; on 3.3.1 **458 passed,
-2 failed** — both `tests/common/test_utils.py::test_trigger_dag_run{,_with_delay}`, which is the
-§3.1 / doc B §3.2 blocker. All 7 DAGs still parse on 3.3.1 with 0 import errors.
-
-Useful consequence: **the existing unit tests already catch the `trigger_dag_run` breakage**, so
-doc B §3.2 has a `pytest` gate, not just a staging smoke test. They cannot catch the ORM guard in
-`_get_branch_states` or `_get_cluster_ssh_connections` — `ti` is mocked there, so those two still
-need a real worker (doc B §6).
-
-Verification baseline after A1–A3: **459 passed on 2.11**; on 3.3.1 **457 passed, 2 failed**, the two
-failures being `tests/common/test_utils.py::test_trigger_dag_run{,_with_delay}` — the §3.1 /
-doc B §3.2 blocker, which the existing unit tests already catch:
+Baseline after A1–A6: **460 passed on 2.11**; on 3.3.1 **458 passed, 2 failed** — both
+`tests/common/test_utils.py::test_trigger_dag_run{,_with_delay}`:
 
 ```
 airflow_src/plugins/common/utils.py:112: TypeError
 DagRun.generate_run_id() got an unexpected keyword argument 'execution_date'
 ```
 
-So doc B's code diff is now: one import sweep + three function bodies (`trigger_dag_run`,
-`_get_branch_states`, `_get_cluster_ssh_connections`) + the `Variable.get` kwarg.
+All 7 DAGs still parse on 3.3.1 with 0 import errors.
 
-Caveat: unit tests mock `ti`, so they cannot catch the ORM guard in `_get_branch_states` or
-`_get_cluster_ssh_connections` — those two still need a real worker (doc B §6).
+Useful consequence: **the existing unit tests already catch the `trigger_dag_run` breakage**, so
+doc B §3.2 has a `pytest` gate, not just a staging smoke test.
+
+⚠️ **Do not read a green suite as readiness.** The unit tests passed with the plugins/`sys.path`
+bug (§4.5), the `xcom` `default` bug (§3.5), the session-table bug and the `base_url` bug all present
+simultaneously. `ti` is mocked throughout, so nothing here exercises the ORM guard in
+`_get_branch_states` or `_get_cluster_ssh_connections` either — those need a real worker (doc B §6).
+
+So doc B's code diff is: one import sweep + two function bodies (`trigger_dag_run`,
+`_get_branch_states`) + a Variable lookup replacing `_get_cluster_ssh_connections`.

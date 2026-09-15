@@ -11,26 +11,76 @@ Base commit for line references: `609a06bb`.
 
 - Airflow 3 requires ≥ 2.7 as the source version ([upgrade guide](https://airflow.apache.org/docs/apache-airflow/stable/installation/upgrading_to_airflow3.html)); 2.11 is the designated bridge release and this repo is already on it.
 - ⚠️ The migration skill recommends "2.11 → 3.0.11 → 3.1". **That advice is stale**: `3.0.11` was never released (3.0.x stops at 3.0.6), and 3.1 is now four minor versions behind. Staging through 3.0.x buys nothing and costs two extra DB migrations.
-- Python **3.11 stays** — 3.3.1 supports 3.10–3.14 and `constraints-3.11.txt` exists for it. No interpreter bump needed.
 
 Rollback is a **metadata-DB restore**, not a package downgrade — the schema migration is one-way. Plan accordingly (§7).
+
+### 1.1 Python: pin both ends 🔴
+
+A `constraints-3.11.txt` existing is not the same as the image using it. `airflow_src/Dockerfile` uses
+the **untagged** `apache/airflow:${AIRFLOW_VERSION}`, which follows Airflow's default python. From
+Docker Hub digest comparison:
+
+| tag | default python |
+|---|---|
+| `apache/airflow:2.11.0` | **3.12** |
+| `apache/airflow:3.3.1` | **3.13** |
+
+So the constraint file has *never* matched the interpreter, and the migration widens the gap.
+Confirmed from a running container: `/home/airflow/.local/lib/python3.13/site-packages/...`.
+
+**Do:** pin both ends — `FROM apache/airflow:3.3.1-python3.13` in the Dockerfile, `constraints-3.13.txt`
+in every requirements URL, CI on 3.13.
+
+This is a determinism problem, not a smoking gun: only **12 of 699** pins differ between
+`constraints-3.11.txt` and `constraints-3.13.txt`, and none are in the Flask/FastAPI stack. Pin it
+anyway — §2 is unresolvable otherwise, because the resolver and the image must agree on a python.
+
+⚠️ Local dev environments on python 3.11 may no longer be able to install `requirements_airflow.txt`.
+Check this before it blocks someone.
 
 ---
 
 ## 2. Dependency changes
 
-`airflow_src/requirements_airflow.txt` — repoint every constraint URL to `constraints-3.3.1`:
+`airflow_src/requirements_airflow.txt` — repoint every constraint URL to
+`constraints-3.3.1/constraints-3.13.txt` (§1.1):
 
 ```
-apache-airflow==3.3.1 --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-3.3.1/constraints-3.11.txt"
-apache-airflow-providers-standard==1.18.0 --constraint "..."
+apache-airflow==3.3.1 --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-3.3.1/constraints-3.13.txt"
+apache-airflow-providers-standard==1.17.0 --constraint "..."
 apache-airflow-providers-ssh==6.0.1 --constraint "..."
-apache-airflow-providers-celery==3.23.1 --constraint "..."
 apache-airflow-providers-fab==3.8.0 --constraint "..."     # NEW - see §4.3
-apache-airflow-providers-amazon==9.35.0 --constraint "..."
+apache-airflow-providers-amazon==9.34.0 --constraint "..."
+sagemaker-studio==1.0.27 --constraint "..."
+boto3==1.43.56 --constraint "..."
+pandas==3.0.5 --constraint "..."                           # NEW - see §2.2
 ```
 
-`airflow_src/Dockerfile:2` — `ARG AIRFLOW_VERSION=3.3.1`.
+`airflow_src/Dockerfile:2` — `ARG AIRFLOW_VERSION=3.3.1`, and the `FROM` line pinned to
+`apache/airflow:3.3.1-python3.13`.
+
+🔴 **Every version here must equal the constraint file's**, because each line carries
+`--constraint <that file>`. A disagreement is a hard resolution failure, not a preference. The values
+above were read off `constraints-3.13.txt`; re-read them if the Airflow version moves:
+
+| Package | naive guess | actual constraint | note |
+|---|---|---|---|
+| `apache-airflow-providers-amazon` | 9.35.0 | **9.34.0** | see below |
+| `apache-airflow-providers-standard` | 1.18.0 | **1.17.0** | doc A §1 pinned 1.18.0 for 2.11 (`2c534888`); must be *dropped* here |
+| `sagemaker-studio` | — | **1.0.27** | repo pinned 1.0.23 |
+| `boto3` | — | **1.43.56** | repo pinned 1.41.4 |
+| `apache-airflow-providers-celery` | 3.23.1 | — | **leave unpinned**; the repo never pinned it and the image ships it |
+
+⚠️ **The amazon version blames the wrong package.** amazon 9.35.0 requires `sagemaker-studio>=1.0.25`,
+so pip reports a conflict on the *sagemaker* pin, not on amazon. Do not chase the sagemaker line.
+
+**Gate before anything else** (§6 step 0a):
+
+```bash
+uv pip compile --python-version 3.13 -c constraints-3.13.txt airflow_src/requirements_airflow.txt
+```
+
+Expect 188 packages, no conflicts, with `paramiko==5.0.0` and `flask-appbuilder==5.2.2` falling out.
 
 ### 2.1 The two dependency bumps you flagged
 
@@ -50,11 +100,42 @@ One caveat worth a targeted check rather than a blanket "it's fine": **pandas 3.
 
 Ref: [pandas 3.0 whatsnew](https://pandas.pydata.org/docs/whatsnew/v3.0.0.html)
 
-**Useful scoping detail:** the webapp container pins its own `pandas==2.2.2` (`webapp/requirements_webapp.txt:3`) and has **zero Airflow imports**. The pandas 3 bump therefore does **not** reach the webapp in production. But CI installs webapp and Airflow deps into *one* env (`.github/workflows/branch-checks.yaml`, which already notes this shortcut) — after the bump, CI would test webapp code against pandas 3 while prod runs 2.2.2. Either split the CI envs or accept the divergence knowingly.
-
 **paramiko 5.0** — used only through `SSHHook` (`plugins/common/utils.py:210`, `sensors/ssh_utils.py`). The provider absorbs the API change; the risk is behavioural (auth/algorithm negotiation against your cluster's SSH daemon), not compile-time. As you said, easy to catch — but catch it *deliberately*: run the `submit_job` → `WaitForJobStartSensor` → `WaitForJobFinishSensor` chain against the real cluster in staging before switching production.
 
 Also update `misc/requirements_development.txt:8-10` — the comment pinning `pandas==2.1.4` "because the apache/airflow:2.11.0 image comes with that version" is now wrong.
+
+### 2.2 pandas was never a dependency — pin it 🔴
+
+From the installed metadata of both releases:
+
+```
+apache-airflow 2.11.0 -> ["pandas>=1.2.5,<2.2; extra == 'pandas'", ...]
+apache-airflow 3.3.1  -> []      # apache-airflow-core: [] as well
+```
+
+pandas is an **extra** in 2.x and absent from core in 3.x. Nothing in `requirements_airflow.txt` or
+`shared/requirements_shared.txt` asks for it, yet all five `plugins/metrics/metrics/*.py` import it.
+It has only ever been present because the `apache/airflow:2.11.0` base image shipped it.
+
+If the 3.3.1 image does not, every metrics task fails with `ModuleNotFoundError` **at runtime only** —
+no parse-time and no unit-test signal, because the test environments install pandas separately.
+
+**Do:** pin `pandas==3.0.5` explicitly (§2), so the behaviour stops depending on the base image.
+
+### 2.3 CI must split into two environments 🔴
+
+The webapp container pins its own `pandas==2.2.2` (`webapp/requirements_webapp.txt:3`) and has **zero
+Airflow imports**, so the pandas 3 bump does not reach the webapp in production. But CI installs webapp
+and Airflow deps into *one* env (`.github/workflows/branch-checks.yaml`, which already notes this
+shortcut).
+
+This is no longer a judgement call: `streamlit==1.55.0` requires `pandas<3` and the airflow constraints
+pin `pandas==3.0.5`. The two requirement sets are **mutually exclusive**. Installing streamlit into a
+pandas-3 env silently downgrades pandas to 2.3.3 — so a single-env CI would not even fail loudly, it
+would just stop testing what production runs.
+
+**Do:** `branch-checks.yaml` builds one venv for the webapp suite and one for the airflow suite.
+Production containers were never affected — the webapp image installs only its own requirements.
 
 ---
 
@@ -80,47 +161,81 @@ Then verify by hand — the unsafe fixes touch import blocks. Expected mapping:
 | `airflow.models.Variable` | `airflow.sdk.Variable` |
 | `airflow.models.TaskInstance` (annotations) | `airflow.sdk.execution_time.task_runner.RuntimeTaskInstance` |
 
+**What ruff does not do — four manual gaps:**
+
+1. `airflow.utils.trigger_rule.TriggerRule` → `airflow.task.trigger_rule.TriggerRule`. Not flagged.
+2. The `airflow.exceptions.*` → `airflow.sdk.exceptions.*` moves. Not flagged. They are literally the
+   same class objects (verified by `is`), so this only silences deprecation warnings —
+   except that `DagNotFound` has **no** SDK equivalent and stays on `airflow.exceptions`.
+3. Imports are appended **unsorted**, and `Param` is routed to `airflow.sdk.definitions.param` rather
+   than `airflow.sdk`. Consolidate by hand.
+4. `ti` annotations. Import it as an **alias** so the 25 signatures do not change (doc A §4.3):
+   ```python
+   from airflow.sdk.execution_time.task_runner import RuntimeTaskInstance as TaskInstance
+   ```
+   8 import lines. In `acquisition_processor.py` put it behind `TYPE_CHECKING` — that file has
+   `from __future__ import annotations`, and the guard avoids a ~0.6 s import at DAG-parse time. The
+   other files do **not** have it, so their imports must be real.
+
+**Bycatch ruff adds that is not in the table:** `multiple_outputs=True` on three `@task` decorators
+(rule `airflow-task-implicit-multiple-outputs`). Behaviour-preserving — the inference code is
+byte-for-byte identical in 2.11 and 3.3.1 — but it is a real diff, so do not be surprised by it.
+
+The §3.5 `Variable.get(default_var=)` → `default=` rename **is** handled by ruff; no manual work.
+
 Ref: [Task SDK API](https://airflow.apache.org/docs/task-sdk/stable/api.html)
 
-### 3.2 `trigger_dag_run()` → REST API v2 🔴
+#### Fallout: the `ty` pre-commit hook breaks in two places
+
+Consequence of the sweep, and not obvious until the hook runs against an env that actually has 3.3.1:
+
+| | Airflow 2 | Airflow 3 SDK |
+|---|---|---|
+| `DAG(tags=...)` | `list[str]` | `MutableSet[str]` |
+| `DAG(params=...)` | `dict` | `ParamsDict` |
+
+Both have attrs converters, so lists and dicts still work at runtime — but `ty` does not model
+converters. Change to set literals and `ParamsDict(...)` wrappers.
+
+⚠️ The hook cannot pass on a local env still pinned to 2.11. That is an environment problem, not a code
+problem — do not "fix" the code to satisfy it.
+
+### 3.2 `trigger_dag_run()` → the Task Execution API 🔴
 
 `plugins/common/utils.py:105-128`. The current implementation writes the metadata DB through the ORM and will raise `RuntimeError: Direct database access via the ORM is not allowed in Airflow 3.0` on every worker.
 
-Keep the signature; swap the body:
+**Use the Task Execution API, not the public REST API v2.** `TriggerDagRun` in
+`airflow/sdk/execution_time/comms.py` is the same channel `TriggerDagRunOperator` uses on AF3. Keep the
+signature; send the message via `task_runner.SUPERVISOR_COMMS`, and re-raise `DagNotFound` on a 404.
 
-```python
-import os, requests
+🔴 **Do not use a static API token.** Airflow 3 has none: `POST /auth/token` mints a JWT bounded by
+`AIRFLOW__API_AUTH__JWT_EXPIRATION_TIME` (default 86400 s). A token baked into a long-running worker's
+environment stops working after a day and takes the DAG-chaining spine of the pipeline down with it.
 
-_API_BASE = os.environ["AIRFLOW__API__BASE_URL"]
-_API_TOKEN = os.environ["ALPHAKRAKEN_AIRFLOW_API_TOKEN"]
-
-def trigger_dag_run(dag_id: str, conf: dict[str, str],
-                    time_delay_minutes: int | None = None) -> None:
-    """Trigger a DAG run with the given configuration."""
-    payload: dict[str, Any] = {"conf": conf, "logical_date": None}
-    if time_delay_minutes is not None:
-        run_after = datetime.now(tz=pytz.utc) + timedelta(minutes=time_delay_minutes)
-        payload["run_after"] = run_after.isoformat()
-
-    response = requests.post(
-        f"{_API_BASE}/api/v2/dags/{dag_id}/dagRuns",
-        headers={"Authorization": f"Bearer {_API_TOKEN}"},
-        json=payload, timeout=30,
-    )
-    response.raise_for_status()
-```
+🔴 **The 404 must surface as `DagNotFound`.** `watcher_impl.py` catches `DagNotFound` to delete the
+just-inserted raw file from MongoDB; its own comment says that without it "the file would need to be
+removed from the DB manually". A plain REST call surfaces a missing DAG as HTTP 404 and leaves that
+`except` dead — a silently broken rollback path.
 
 Three things that changed and matter here:
 
 1. **`execution_date` → `logical_date`**, and you **cannot** set a future `logical_date` any more. The current code abuses `execution_date=now + delay` to defer the file-mover run — that must become **`run_after`**, which is the Airflow 3 field for "don't run before".
 2. Passing `logical_date: None` is now the normal way to trigger a manual run; identity comes from `run_id`.
-3. The hand-built `run_id` via `DagRun.generate_run_id(...)` can be dropped — let the API generate it. (`generate_run_id` is also now keyword-only with a required `run_after`.)
+3. ⚠️ **Keep** the hand-built `run_id` via `DagRun.generate_run_id(...)`. Dropping it is correct for
+   the *REST* endpoint but wrong here — `run_id` is a **path parameter** of the execution API. It is a
+   pure static method with no session, and `TriggerDagRunOperator` itself calls it on AF3.
+   (`generate_run_id` is now keyword-only with a required `run_after`.)
 
-**Alternative worth considering** for the 3 of 4 call sites that trigger exactly one DAG run: `TriggerDagRunOperator` from the standard provider now supports `run_after`, `conf`, and `logical_date` directly, and needs no API token. It does **not** fit `watcher_impl.start_acquisition_handler`, which triggers a variable number of runs inside a DB transaction with rollback-on-failure — that one needs the API call. See doc C §2.
+**What this buys:** no API token, no `AIRFLOW__API__BASE_URL` on workers, no worker→api-server REST
+path, no new firewall hole. It removes the single largest operational risk in this migration.
 
-⚠️ **New operational dependency:** workers now need `AIRFLOW__API__BASE_URL` and an API token. Create a token and inject it like the Mongo credentials in `docker-compose.yaml`. This also means the worker network must be able to reach the API server — check this against your nginx/firewall layout before cutover.
+**What it costs:** `SUPERVISOR_COMMS` is internal API and may move between minor Airflow versions.
+Accepted knowingly — the token approach fails on a one-day timer, which is worse.
 
-Refs: [Stable REST API v2](https://airflow.apache.org/docs/apache-airflow/stable/stable-rest-api-ref.html), [TriggerDagRunOperator](https://airflow.apache.org/docs/apache-airflow-providers-standard/stable/operators/trigger_dag_run.html)
+The `tests/common/test_utils.py::test_trigger_dag_run{,_with_delay}` tests already fail on 3.3.1
+against the old body (doc A §6), so this change has a `pytest` gate, not just a staging smoke test.
+
+Refs: [TriggerDagRunOperator](https://airflow.apache.org/docs/apache-airflow-providers-standard/stable/operators/trigger_dag_run.html)
 
 ### 3.3 `finalize_raw_file_status()` → `ti.get_task_states()` 🔴
 
@@ -162,27 +277,25 @@ The return shape is **not** documented; it was read off the API-server implement
 
 ⚠️ Also confirm the `TaskInstanceState.FAILED` comparison still works: `get_task_states` returns the state as a **string**, not the enum. `TaskInstanceState` is a `str` enum so `state == TaskInstanceState.FAILED` still compares equal — but this is worth an explicit test rather than an assumption.
 
-### 3.4 `_get_cluster_ssh_connections()` → REST API v2 🔴
+Two tests to add beyond the swap: `test_task_ids_are_unambiguous_for_map_index`, asserting no task id
+ends in `_<digits>`; and one asserting non-mapped tasks in the group are excluded.
+
+### 3.4 `_get_cluster_ssh_connections()` → an Airflow Variable 🔴
 
 `plugins/common/utils.py:159-180`. The Task Execution API can fetch a connection by id but has **no list operation** (verified in `airflow/sdk/execution_time/comms.py`) — so there is no SDK-only fix.
 
-Good news: the v2 endpoint has a purpose-built query parameter (`connection_id_prefix_pattern`, verified in `airflow/api_fastapi/core_api/routes/public/connections.py:205`), so this maps cleanly:
+The public REST v2 endpoint does have a purpose-built `connection_id_prefix_pattern` query parameter
+(`airflow/api_fastapi/core_api/routes/public/connections.py:205`), so a REST port is possible — but it
+reintroduces exactly the token-and-network machinery §3.2 removed, for one function on a retry path.
 
-```python
-def _get_cluster_ssh_connections() -> list[str]:
-    response = requests.get(
-        f"{_API_BASE}/api/v2/connections",
-        headers={"Authorization": f"Bearer {_API_TOKEN}"},
-        params={"connection_id_prefix_pattern": CLUSTER_SSH_CONNECTION_ID_PREFIX},
-        timeout=30,
-    )
-    response.raise_for_status()
-    return sorted(c["connection_id"] for c in response.json()["connections"])
-```
+**Read the ids from a new Airflow Variable `cluster_ssh_connection_ids` instead.** The Connection
+objects, with the real secrets, stay in the UI. Drop `@provide_session` and the `Connection` import.
+`get_cluster_ssh_hook()` above it is unchanged — `SSHHook(ssh_conn_id=...)` resolves the connection
+through the Task Execution API automatically.
 
-Drop `@provide_session` and the `Connection` import. `get_cluster_ssh_hook()` above it is unchanged — `SSHHook(ssh_conn_id=...)` resolves the connection through the Task Execution API automatically.
-
-**Simpler alternative worth weighing:** put the connection ids in an Airflow Variable or in `alphakraken.<env>.yaml` and drop the API call entirely. It removes a network round-trip from a retry path, at the cost of maintaining the list in two places.
+⚠️ **This trades a silent failure in.** A connection added in the UI but not listed in the Variable is
+never used, with no error. Mitigate in two places — `docs/maintenance.md` and the `get_cluster_ssh_hook`
+error message — and accept it as a genuine regression in operability versus the prefix scan.
 
 ### 3.5 `get_airflow_variable()` — kwarg rename 🟡
 
@@ -193,6 +306,9 @@ value = Variable.get(key) if default == "__DEFAULT_NOT_SET" else Variable.get(ke
 ```
 
 Silent runtime failure if missed — 8 call sites depend on it, including `AirflowVars.CONSIDER_OLD_FILES_ACQUIRED` in `acquisition_monitor.py:108`, where a wrong default silently changes acquisition semantics.
+
+In practice `ruff --select AIR --fix` performs this rename, so it needs no manual work — but verify it
+happened rather than assuming.
 
 ---
 
@@ -211,22 +327,54 @@ Output of `airflow config lint` run against this repo's actual env block:
 
 Unchanged and still valid: `AIRFLOW__DATABASE__SQL_ALCHEMY_CONN`, `AIRFLOW__CELERY__*`, `AIRFLOW__CORE__FERNET_KEY`, `AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION`, `AIRFLOW__CORE__LOAD_EXAMPLES`, `AIRFLOW__CORE__TEST_CONNECTION`, `AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK`.
 
-### 4.2 New required config
+### 4.2 New required config 🔴
 
 ```yaml
-AIRFLOW__CORE__EXECUTION_API_SERVER_URL: 'http://airflow-webserver:8080/execution/'
-AIRFLOW__API__BASE_URL: 'http://airflow-webserver:8080'
+AIRFLOW__CORE__EXECUTION_API_SERVER_URL: 'http://${AIRFLOW_APISERVER_HOST}:8080/execution/'
+AIRFLOW__API__BASE_URL: 'https://${AIRFLOW_EXTERNAL_HOST}'
 AIRFLOW__API_AUTH__JWT_SECRET: ${AIRFLOW_JWT_SECRET:?error}
 AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
 ```
 
-`EXECUTION_API_SERVER_URL` is what lets workers reach the Task Execution API instead of the metadata DB — **without it, every task fails**. Class path for the auth manager verified by import against `apache-airflow-providers-fab==3.8.0`.
+**These two URLs are not the same thing, and neither may be a compose service name.** Getting this
+wrong is the single easiest way to break this migration; both failure modes were hit in testing.
+
+**`[api] base_url` is the externally visible URL.** It feeds the login redirect
+(`auth/managers/simple/routes/login.py:89`), cookie path scoping (`api_fastapi/app.py:56`) and
+`log_url` / `mark_success_url` (`models/taskinstance.py:818`). A compose service name here hands the
+**browser** an unresolvable hostname — *Server Not Found* immediately after login. Airflow 2's
+`[webserver] base_url` was never set in this repo, so a wrong value here is a regression created purely
+by the migration.
+
+**`[core] execution_api_server_url` is internal — but a service name is still wrong.** A compose service
+name resolves only within one compose project on one host. This deployment splits `infrastructure` and
+`workers` across machines, which is why `POSTGRES_HOST` / `MONGO_HOST` are env vars. On 2.11 workers
+reached the metadata DB directly and never needed the webserver; on 3.x **every task** needs the
+Execution API. A hardcoded service name means every task on every remote worker fails immediately — and
+it passes a `--profile local` smoke test cleanly, because there it happens to resolve.
+
+**Do:** two env vars, following the existing `*_HOST` convention. Verify the worker→api-server path from
+a *worker host*, not from the compose network.
+
+Class path for the auth manager verified by import against `apache-airflow-providers-fab==3.8.0`.
 
 ### 4.3 Authentication changed completely
 
 `airflow/api/auth/backend/` **does not exist** in Airflow 3 (verified — the directory is gone). The current value `"airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session"` is dead config and must be deleted, not renamed.
 
 Airflow 3's default auth manager is `SimpleAuthManager`. To keep the existing username/password login you must install `apache-airflow-providers-fab` and set `AIRFLOW__CORE__AUTH_MANAGER` as in §4.2. The API is JWT-based now; `_AIRFLOW_WWW_USER_CREATE` in `airflow-init` (l.246-249) still works but only with the FAB provider present.
+
+**Three things that are *not* needed** — recorded so nobody adds them:
+
+- **`airflow fab-db migrate`.** The FAB provider declares `"db-managers": [...FABDBManager]` in its
+  provider info and `airflow db migrate` auto-discovers it. Verified: `RunDBManager()` resolves
+  `[FABDBManager]`, and one migration run creates all eleven `ab_*` tables.
+- **`[database] external_db_managers`.** Same reason.
+- **Creating the Flask `session` table.** It appears automatically, despite not being in
+  `FABDBManager.metadata`. (Its *contents* are a different problem — §5.1.)
+
+`flask_app.secret_key` reads `[api] secret_key` (`providers/fab/www/app.py:70`), so the §4.1
+`AIRFLOW__WEBSERVER__SECRET_KEY` → `AIRFLOW__API__SECRET_KEY` rename is correct and sufficient.
 
 Ref: [FAB auth manager](https://airflow.apache.org/docs/apache-airflow-providers-fab/stable/auth-manager/index.html)
 
@@ -244,7 +392,16 @@ Ref: [official Airflow 3 docker-compose.yaml](https://airflow.apache.org/docs/ap
 
 ### 4.5 Dockerfile
 
-`airflow_src/Dockerfile:16` sets `PYTHONPATH=$AIRFLOW_HOME` so `shared` is importable. **This still works** — verified. Airflow 3 also still appends `plugins/` to `sys.path`, so the bare imports (`from common.utils import ...`) keep working. No Dockerfile restructuring needed beyond the version ARG.
+`airflow_src/Dockerfile:16` sets `PYTHONPATH=$AIRFLOW_HOME` so `shared` is importable. **This still works** — verified. Airflow 3 also still appends `plugins/` to `sys.path`, so the bare imports (`from common.utils import ...`) keep working.
+
+🔴 **But the DAGs folder is no longer on `sys.path` outside the DAG processor.** In Airflow 2,
+`prepare_syspath()` added both folders in every process; in 3.3.1 the renamed
+`prepare_syspath_for_config_and_plugins()` (`settings.py:716`) adds only `config/` and
+`PLUGINS_FOLDER`. So any plugins-folder module importing from `dags/` fails to load in the api-server.
+Doc A §4.5 handles the one case (`callbacks.py`) ahead of time — confirm it landed, and see doc A for
+why the resulting `ImportError` names the wrong file.
+
+Beyond that and the version/python ARGs (§1.1), no Dockerfile restructuring is needed.
 
 ---
 
@@ -310,15 +467,34 @@ the Airflow host, since the stale cookie points at a deleted row.
 
 ## 6. Verification order
 
-1. **Local** (`--profile local`): `airflow dags reserialize` → expect 0 import errors. This already passes against 3.3.1 with the current code.
-2. **Per-DAG smoke test**, in dependency order — each exercises a different blocker:
+🔴 **Steps 0a–0c come first and cost seconds.** Of the nine real problems hit during the test
+migration, `dags reserialize` caught **none**, the unit suite caught **none** (548 green with four
+runtime blockers present simultaneously), `airflow config lint` caught **none** beyond the §4.1 key
+renames, and `ruff --select AIR` caught **none**. Everything that mattered was found by starting the
+stack. These three checks move four of those failures earlier:
+
+- **0a.** `uv pip compile --python-version 3.13 -c constraints-3.13.txt` over the requirement files
+  (§2). Catches the constraint disagreements and the missing pandas pin before a single image builds.
+- **0b.** Load the plugins manager with the DAGs folder **off** `sys.path` and assert
+  `plugins_manager.get_import_errors()` is empty (doc A §4.5). Catches the api-server plugin failure,
+  which no parse check sees.
+- **0c.** Read the **whole** container log on first boot, not the tail. Both the session-table failure
+  (§5.1) and the plugin failure hide their real cause *above* the visible traceback; the tail of each
+  names something unrelated.
+
+Then:
+
+1. **Local** (`--profile local`): `airflow dags reserialize` → expect 0 import errors. This already passes against 3.3.1 with the current code — which is exactly why it is step 1 and not step 0.
+2. **Open the UI in a browser.** Not curl: the `[api] base_url` failure (§4.2) only appears to a real
+   browser following the post-login redirect.
+3. **Per-DAG smoke test**, in dependency order — each exercises a different blocker:
    - `file_remover` — simplest; validates cron scheduling + worker→API path
    - `instrument_watcher` — validates `@continuous` and `FileCreationSensor`
    - `acquisition_handler` — validates **§3.2 `trigger_dag_run`** (the file-mover `run_after` delay especially)
    - `acquisition_processor` — validates **§3.3 `get_task_states`**, **§3.4 SSH connections**, paramiko 5, dynamic task mapping, and the `cluster_slots_pool` behaviour
    - `s3_uploader` — validates the amazon provider bump
-3. **Explicitly force a branch failure** in `acquisition_processor` and confirm `finalize_raw_file_status` still produces the right `RawFileStatus` (DONE / QUANTING_FAILED / ERROR). This is the subtlest change in the whole migration and has no parse-time signal.
-4. **Confirm `on_failure_callback` still fires** and still finds `raw_file_id` — callbacks run in a separate supervisor process in Airflow 3.
+4. **Explicitly force a branch failure** in `acquisition_processor` and confirm `finalize_raw_file_status` still produces the right `RawFileStatus` (DONE / QUANTING_FAILED / ERROR). This is the subtlest change in the whole migration and has no parse-time signal.
+5. **Confirm `on_failure_callback` still fires** and still finds `raw_file_id` — callbacks run in a separate supervisor process in Airflow 3.
 
 ---
 
@@ -336,12 +512,39 @@ Practical mitigation: cut over during an acquisition gap, and keep the 2.11 imag
 
 | Risk | Severity | Signal if wrong |
 |---|---|---|
-| `trigger_dag_run` API token / network path not reachable from workers | 🔴 | Whole pipeline chain stops; every handler task fails |
+| `AIRFLOW__CORE__EXECUTION_API_SERVER_URL` missing, or set to a compose service name | 🔴 | Every task on every **remote** worker fails immediately. Passes a single-host `--profile local` test |
+| `AIRFLOW__API__BASE_URL` set to an internal hostname | 🔴 | *Server Not Found* in the browser right after login. Curl and health checks stay green |
+| `session` table not purged before first boot | 🔴 | HTTP 500 on `/auth/login/`; traceback names the wrong error (§5.1) |
+| `plugins/callbacks.py` still importing from `dags/` | 🔴 | api-server cannot load the plugin; the follow-on `ImportError` names the wrong file (doc A §4.5) |
 | `run_after` semantics ≠ old `execution_date` delay | 🔴 | File mover runs immediately or never |
-| `AIRFLOW__CORE__EXECUTION_API_SERVER_URL` missing | 🔴 | Every task fails immediately |
 | `dag-processor` service not added | 🔴 | No DAGs appear at all — loud, easy to spot |
+| Constraint file ≠ image python, or pins ≠ constraints | 🔴 | Image build fails, blaming a package you did not touch (§2) |
+| `get_xcom` `default` not applied by the wrapper | 🔴 | `TypeError: 'NoneType' object is not iterable` in both corruption gates (doc A §3.5) |
 | `get_task_states` key parsing wrong | 🟡 | Wrong final `RawFileStatus`; **silent** |
 | `Variable.get(default_var=)` not renamed | 🟡 | Wrong defaults; **silent** |
+| `cluster_ssh_connection_ids` Variable missing an entry | 🟡 | That cluster is never used; **silent** (§3.4) |
+| pandas missing from the 3.3.1 image and not pinned | 🟡 | Every metrics task fails at runtime only; no parse or test signal |
 | pandas 3 string-dtype change in metrics | 🟡 | Wrong metric values; **silent**; `msqc`/`skyline` untested |
 | paramiko 5 vs cluster SSH daemon | 🟡 | Job submission fails; loud |
 | FAB auth not configured | 🟡 | Nobody can log in; loud |
+| `SUPERVISOR_COMMS` moves in a future minor version | 🟡 | `trigger_dag_run` breaks on a later upgrade, not this one (§3.2) |
+
+**None of the 🔴 rows above has a parse-time or unit-test signal.** The suite was green with four of
+them present at once. Plan the verification (§6) accordingly.
+
+---
+
+## 9. Carried forward — not verified
+
+Everything else in this document was checked against a running 3.3.1 deployment. These were not:
+
+| Item | Why it is still open |
+|---|---|
+| pandas 3 against real `msqc` / `skyline` output | §2.1; those two metrics have no test coverage |
+| paramiko 5 against the cluster SSH daemon | needs the real cluster |
+| Can `requirements_airflow.txt` install on a python **3.11** dev env? | the constraints are now 3.13 (§1.1) |
+| `pymongo==4.7.2` / `pytz==2025.2` in `requirements_shared.txt` vs the airflow constraint files | `uv pip compile` calls it unsatisfiable, but says the same of 2.11 where CI builds the image today — so the resolver is stricter than pip here. Pre-existing either way; the pytz gap widens from "identical" to a year apart |
+| The `get_xcom` default fix (doc A §3.5) | source-verified and unit-tested against a mocked `ti`; **not** exercised by a real task run |
+| DB migration against the **real** 2.11 database, and the rollback path | §5 / §7 — only a test database was migrated |
+| Worker → api-server reachability in sandbox/production | §4.2; only the single-host local profile was exercised |
+| `ty` in CI | the local env is on 2.11, so the hook cannot pass there; CI installs 3.3.1 and should |

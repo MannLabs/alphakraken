@@ -4,8 +4,7 @@ from collections.abc import Callable
 from unittest.mock import MagicMock, call, patch
 
 import pytest
-from airflow.utils.xcom import XCOM_RETURN_KEY
-from plugins.common.keys import JobStates
+from plugins.common.keys import JobStates, XComKeys
 from plugins.common.quanting_env import QuantingEnv
 from plugins.sensors.ssh_sensor import WaitForJobFinishSensor
 
@@ -14,16 +13,18 @@ QUANTING_ENV_SOURCE_TASK_ID = "processing.prepare_job"
 RUNNER_NAME = "file_based"
 
 
+@patch("plugins.sensors.ssh_sensor.get_xcom")
 @patch("plugins.sensors.ssh_sensor.get_job_status")
 def test_poke_executes_ssh_command_and_checks_returned_state(
     mock_get_job_status: MagicMock,
+    mock_get_xcom: MagicMock,
     make_quanting_env: Callable[..., QuantingEnv],
 ) -> None:
     """Test that the poke function returns False when the returned state is in the running states."""
     # given
     mock_ti = MagicMock()
     mock_ti.map_index = 0
-    mock_ti.xcom_pull.side_effect = [
+    mock_get_xcom.side_effect = [
         "12345",
         make_quanting_env(runner_name=RUNNER_NAME).to_dict(),
     ]
@@ -38,11 +39,17 @@ def test_poke_executes_ssh_command_and_checks_returned_state(
     operator.pre_execute(context)
 
     # then
-    mock_ti.xcom_pull.assert_has_calls(
+    mock_get_xcom.assert_has_calls(
         [
-            call(key=XCOM_RETURN_KEY, task_ids=JOB_ID_SOURCE_TASK_ID, map_indexes=0),
             call(
-                key=XCOM_RETURN_KEY,
+                mock_ti,
+                XComKeys.RETURN_VALUE,
+                task_ids=JOB_ID_SOURCE_TASK_ID,
+                map_indexes=0,
+            ),
+            call(
+                mock_ti,
+                XComKeys.RETURN_VALUE,
                 task_ids=QUANTING_ENV_SOURCE_TASK_ID,
                 map_indexes=0,
             ),
@@ -65,9 +72,11 @@ def test_poke_executes_ssh_command_and_checks_returned_state(
         (JobStates.COMPLETING, False),
     ],
 )
+@patch("plugins.sensors.ssh_sensor.get_xcom")
 @patch("plugins.sensors.ssh_sensor.get_job_status")
 def test_poke_returns_true_when_state_not_in_running_states(
     mock_get_job_status: MagicMock,
+    mock_get_xcom: MagicMock,
     make_quanting_env: Callable[..., QuantingEnv],
     job_status: str,
     *,
@@ -77,7 +86,7 @@ def test_poke_returns_true_when_state_not_in_running_states(
     # given
     mock_ti = MagicMock()
     mock_ti.map_index = 2
-    mock_ti.xcom_pull.side_effect = [
+    mock_get_xcom.side_effect = [
         "12345",
         make_quanting_env(runner_name=RUNNER_NAME).to_dict(),
     ]
@@ -92,11 +101,17 @@ def test_poke_returns_true_when_state_not_in_running_states(
     operator.pre_execute(context)
 
     # then
-    mock_ti.xcom_pull.assert_has_calls(
+    mock_get_xcom.assert_has_calls(
         [
-            call(key=XCOM_RETURN_KEY, task_ids=JOB_ID_SOURCE_TASK_ID, map_indexes=2),
             call(
-                key=XCOM_RETURN_KEY,
+                mock_ti,
+                XComKeys.RETURN_VALUE,
+                task_ids=JOB_ID_SOURCE_TASK_ID,
+                map_indexes=2,
+            ),
+            call(
+                mock_ti,
+                XComKeys.RETURN_VALUE,
                 task_ids=QUANTING_ENV_SOURCE_TASK_ID,
                 map_indexes=2,
             ),

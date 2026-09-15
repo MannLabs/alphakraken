@@ -175,12 +175,23 @@ message, but it is a genuine regression in operability versus the prefix scan.
 
 ### 4.5 New: `ti` annotations and the type checker
 
-Doc A §4.3 declined the alias, doc B said "the plain sweep". Done: `ti: TaskInstance` →
-`RuntimeTaskInstance` at 25 sites. In `acquisition_processor.py` it sits behind `TYPE_CHECKING` (that
-file has `from __future__ import annotations`), which avoids a ~0.6 s import at DAG-parse time.
+Doc A §4.3 declined the alias, doc B said "the plain sweep". Done first as the plain sweep:
+`ti: TaskInstance` → `RuntimeTaskInstance` at 25 sites. In `acquisition_processor.py` it sits behind
+`TYPE_CHECKING` (that file has `from __future__ import annotations`), which avoids a ~0.6 s import at
+DAG-parse time.
 
 Doc A §4.3's stated reason for declining was wrong: `dags/impl/*.py` do **not** have
 `from __future__ import annotations`, so those annotations *are* evaluated at import.
+
+**Reverted to the alias afterwards** (commit `333869c7`) to keep the PR reviewable:
+`from airflow.sdk.execution_time.task_runner import RuntimeTaskInstance as TaskInstance` in the 8
+importing modules, annotations left reading `TaskInstance`. 27 signature and docstring lines drop out
+of the diff; only the import lines change.
+
+⚠️ **Cost:** a reader skimming `def f(ti: TaskInstance)` now sees a name that means the ORM
+`airflow.models.TaskInstance` everywhere else in Airflow, but is the SDK runtime object with a
+different API (no `get_dagrun`, cf. doc B §3.3). Doc B §3.1's mapping table still lists the unaliased
+name.
 
 The sweep to the SDK types then broke the `ty` pre-commit hook in two places nobody had considered:
 

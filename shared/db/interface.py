@@ -265,7 +265,7 @@ def assign_settings_to_project(  # noqa: PLR0913
         ):
             raise ValueError(
                 f"Settings '{settings.name}' version {settings.version} already assigned "
-                f"to project '{project_id}' with the same file name filters"
+                f"to project '{project_id}' with the same file name filters."
             )
 
     ps = ProjectSettings(

@@ -442,9 +442,10 @@ def test_assign_settings_to_project(
     mock_project_settings.assert_called_once_with(
         project=mock_project_instance,
         settings=mock_settings_instance,
-        scope="*",
-        excluded=[],
-        raw_file_id_filter="",
+        scopes=["*"],
+        excluded_scopes=[],
+        raw_file_id_filter=[],
+        raw_file_id_exclude_filter=[],
     )
     mock_project_settings.return_value.save.assert_called_once()
     mock_connect_db.assert_called_once()
@@ -454,28 +455,30 @@ def test_assign_settings_to_project(
 @patch("shared.db.interface.ProjectSettings")
 @patch("shared.db.interface.Settings")
 @patch("shared.db.interface.Project")
-def test_assign_settings_to_project_duplicate_software_type_scope(
+def test_assign_settings_to_project_same_settings_same_filters_raises(
     mock_project: MagicMock,
     mock_settings: MagicMock,
     mock_project_settings: MagicMock,
     mock_connect_db: MagicMock,  # noqa: ARG001
 ) -> None:
-    """Test that assigning the same software_type with the same scope raises ValueError."""
-    mock_project_instance = MagicMock()
-    mock_project.objects.get.return_value = mock_project_instance
+    """Test that assigning the same settings twice with identical file-name filters raises ValueError."""
+    mock_project.objects.get.return_value = MagicMock()
 
     mock_settings_instance = MagicMock()
     mock_settings_instance.status = "active"
-    mock_settings_instance.software_type = "alphadia"
+    mock_settings_instance.name = "s1"
+    mock_settings_instance.version = 3
     mock_settings.objects.get.return_value = mock_settings_instance
 
     existing_ps = MagicMock()
-    existing_ps.settings.software_type = "alphadia"
-    existing_ps.raw_file_id_filter = ""
+    existing_ps.raw_file_id_filter = ["plasma"]
+    existing_ps.raw_file_id_exclude_filter = []
     mock_project_settings.objects.return_value = [existing_ps]
 
-    with pytest.raises(ValueError, match="software_type 'alphadia' already assigned"):
-        assign_settings_to_project("P1234", "settings_id", scope="bruker")
+    with pytest.raises(ValueError, match="'s1' version 3 already assigned"):
+        assign_settings_to_project(
+            "P1234", "settings_id", scopes=["bruker"], raw_file_id_filter=["plasma"]
+        )
 
     mock_project_settings.return_value.save.assert_not_called()
 
@@ -484,27 +487,27 @@ def test_assign_settings_to_project_duplicate_software_type_scope(
 @patch("shared.db.interface.ProjectSettings")
 @patch("shared.db.interface.Settings")
 @patch("shared.db.interface.Project")
-def test_assign_settings_to_project_same_scope_different_software_type(
+def test_assign_settings_to_project_same_settings_different_filters_succeeds(
     mock_project: MagicMock,
     mock_settings: MagicMock,
     mock_project_settings: MagicMock,
     mock_connect_db: MagicMock,  # noqa: ARG001
 ) -> None:
-    """Test that assigning a different software_type with the same scope succeeds."""
-    mock_project_instance = MagicMock()
-    mock_project.objects.get.return_value = mock_project_instance
+    """Test that the same settings can be assigned again with different file-name filters."""
+    mock_project.objects.get.return_value = MagicMock()
 
     mock_settings_instance = MagicMock()
     mock_settings_instance.status = "active"
-    mock_settings_instance.software_type = "alphadia"
     mock_settings.objects.get.return_value = mock_settings_instance
 
     existing_ps = MagicMock()
-    existing_ps.settings.software_type = "msqc"
-    existing_ps.raw_file_id_filter = ""
+    existing_ps.raw_file_id_filter = []
+    existing_ps.raw_file_id_exclude_filter = []
     mock_project_settings.objects.return_value = [existing_ps]
 
-    assign_settings_to_project("P1234", "settings_id", scope="*")
+    assign_settings_to_project(
+        "P1234", "settings_id", raw_file_id_exclude_filter=["plasma"]
+    )
 
     mock_project_settings.return_value.save.assert_called_once()
 
@@ -513,31 +516,37 @@ def test_assign_settings_to_project_same_scope_different_software_type(
 @patch("shared.db.interface.ProjectSettings")
 @patch("shared.db.interface.Settings")
 @patch("shared.db.interface.Project")
-def test_assign_settings_to_project_with_filter_same_software_type_no_filter_succeeds(
+def test_assign_settings_to_project_passes_all_fields(
     mock_project: MagicMock,
     mock_settings: MagicMock,
     mock_project_settings: MagicMock,
     mock_connect_db: MagicMock,  # noqa: ARG001
 ) -> None:
-    """Test that adding a filtered entry when existing has no filter succeeds."""
+    """Test that all scope and filter fields are stored as given."""
     mock_project_instance = MagicMock()
     mock_project.objects.get.return_value = mock_project_instance
-
     mock_settings_instance = MagicMock()
     mock_settings_instance.status = "active"
-    mock_settings_instance.software_type = "alphadia"
     mock_settings.objects.get.return_value = mock_settings_instance
-
-    existing_ps = MagicMock()
-    existing_ps.settings.software_type = "alphadia"
-    existing_ps.raw_file_id_filter = ""
-    mock_project_settings.objects.return_value = [existing_ps]
+    mock_project_settings.objects.return_value = []
 
     assign_settings_to_project(
-        "P1234", "settings_id", scope="*", raw_file_id_filter="plasma"
+        "P1234",
+        "settings_id",
+        scopes=["thermo", "sciex"],
+        excluded_scopes=["stellar1"],
+        raw_file_id_filter=["plasma"],
+        raw_file_id_exclude_filter=["blank"],
     )
 
-    mock_project_settings.return_value.save.assert_called_once()
+    mock_project_settings.assert_called_once_with(
+        project=mock_project_instance,
+        settings=mock_settings_instance,
+        scopes=["thermo", "sciex"],
+        excluded_scopes=["stellar1"],
+        raw_file_id_filter=["plasma"],
+        raw_file_id_exclude_filter=["blank"],
+    )
 
 
 @patch("shared.db.interface.connect_db")

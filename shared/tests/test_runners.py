@@ -203,13 +203,15 @@ def test_build_runners_windows_view_resolves_layout_paths() -> None:
     # when
     view = runners["win_box"].view
     raw_file_path = view.resolve(Locations.BACKUP, get_raw_file_rel_path(raw_file))
+    settings = MagicMock(version=2)
+    settings.name = "s1"
     output_path = view.resolve(
-        Locations.OUTPUT, get_output_folder_rel_path(raw_file, "alphadia")
+        Locations.OUTPUT, get_output_folder_rel_path(raw_file, settings)
     )
 
     assert isinstance(raw_file_path, PureWindowsPath)
     assert str(raw_file_path) == r"\\server\share\backup\test1\1970_01\f.raw"
-    assert str(output_path) == r"Z:\alphakraken\output\P1\out_f.raw\alphadia"
+    assert str(output_path) == r"Z:\alphakraken\output\P1\out_f.raw\s1_v2"
 
 
 def test_runners_are_built_from_the_yaml_at_import() -> None:

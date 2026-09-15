@@ -234,12 +234,13 @@ def get_all_project_ids() -> list[str]:
     return [p.id for p in Project.objects.all()]
 
 
-def assign_settings_to_project(
+def assign_settings_to_project(  # noqa: PLR0913
     project_id: str,
     settings_id: str,
-    scope: str = DEFAULT_SCOPE,
-    excluded: list[str] | None = None,
-    raw_file_id_filter: str | None = None,
+    scopes: list[str] | None = None,
+    excluded_scopes: list[str] | None = None,
+    raw_file_id_filter: list[str] | None = None,
+    raw_file_id_exclude_filter: list[str] | None = None,
 ) -> ProjectSettings:
     """Create a new project-settings assignment."""
     connect_db()
@@ -250,26 +251,34 @@ def assign_settings_to_project(
             f"Cannot assign archived settings '{settings.name}' version {settings.version}"
         )
 
-    existing = ProjectSettings.objects(project=project, scope=scope)
-    for ps_existing in existing:
+    scopes = scopes or [DEFAULT_SCOPE]
+    excluded_scopes = excluded_scopes or []
+    raw_file_id_filter = raw_file_id_filter or []
+    raw_file_id_exclude_filter = raw_file_id_exclude_filter or []
+
+    for ps_existing in ProjectSettings.objects(project=project, settings=settings):
         if (
-            ps_existing.settings.software_type == settings.software_type
-            and ps_existing.raw_file_id_filter == (raw_file_id_filter or "")
+            list(ps_existing.raw_file_id_filter) == raw_file_id_filter
+            and list(ps_existing.raw_file_id_exclude_filter)
+            == raw_file_id_exclude_filter
         ):
             raise ValueError(
-                f"Settings with software_type '{settings.software_type}' already assigned "
-                f"to project '{project_id}' with scope '{scope}'"
+                f"Settings '{settings.name}' version {settings.version} already assigned "
+                f"to project '{project_id}' with the same file name filters"
             )
+
     ps = ProjectSettings(
         project=project,
         settings=settings,
-        scope=scope,  # scope is validated on frontend only
-        excluded=excluded or [],
-        raw_file_id_filter=raw_file_id_filter or "",
+        scopes=scopes,  # scopes are validated on frontend only
+        excluded_scopes=excluded_scopes,
+        raw_file_id_filter=raw_file_id_filter,
+        raw_file_id_exclude_filter=raw_file_id_exclude_filter,
     )
     ps.save()
     logging.info(
-        f"Created project-settings assignment: {project_id=} {settings.name=} {scope=} {excluded=} {raw_file_id_filter=}"
+        f"Created project-settings assignment: {project_id=} {settings.name=} {scopes=} "
+        f"{excluded_scopes=} {raw_file_id_filter=} {raw_file_id_exclude_filter=}"
     )
     return ps
 

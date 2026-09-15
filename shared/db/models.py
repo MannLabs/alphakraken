@@ -20,7 +20,7 @@ from mongoengine import (
     StringField,
 )
 
-from shared.keys import FALLBACK_PROJECT_ID, MetricsTypes, SoftwareTypes
+from shared.keys import DEFAULT_SCOPE, FALLBACK_PROJECT_ID, MetricsTypes, SoftwareTypes
 
 FileInfoItem = (
     tuple[float | None, str | None] | tuple[float | None, str | None, str | None]
@@ -296,9 +296,12 @@ class ProjectSettings(Document):
 
     project = ReferenceField(Project, required=True)
     settings = ReferenceField(Settings, required=True)
-    scope = StringField(max_length=64, default="*")
-    excluded = ListField(StringField(max_length=64), default=list)
-    raw_file_id_filter = StringField(max_length=128, default="")
+    # "*", a vendor name or an instrument ID; an assignment applies if any scope matches and no excluded one does
+    scopes = ListField(StringField(max_length=64), default=lambda: [DEFAULT_SCOPE])
+    excluded_scopes = ListField(StringField(max_length=64), default=list)
+    # substrings of the raw file ID; include = any matches (empty = all), exclude = none matches
+    raw_file_id_filter = ListField(StringField(max_length=128), default=list)
+    raw_file_id_exclude_filter = ListField(StringField(max_length=128), default=list)
     created_at_ = DateTimeField(default=datetime.now)
 
 

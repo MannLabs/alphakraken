@@ -9,7 +9,7 @@ from shared.db.models import ProjectSettings, Settings
 from shared.settings_scope_resolver import resolve_scoped_settings
 from shared.yamlsettings import YamlKeys
 
-SAME_SOFTWARE_TYPE_WARNING = "⚠️ same software type as another settings on this instrument, check that the file name filters separate them"
+SAME_SOFTWARE_TYPE_WARNING = "⚠️ same software type as another settings on this instrument. Check this is intended and/or make sure the file name filters separate them."
 
 
 def get_resolved_settings_df(

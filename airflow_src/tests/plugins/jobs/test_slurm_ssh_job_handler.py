@@ -15,8 +15,8 @@ SSH_PREFIX = "some_cluster_ssh"
 EXPECTED_EXPORTS = (
     'export RAW_FILE_PATH="/pool/backup/instrument1/1970_01/test_file.raw"\n'
     'export SETTINGS_PATH="/pool/settings/test_settings"\n'
-    'export OUTPUT_PATH="/pool/output/PID1/out_test_file.raw/alphadia"\n'
-    'export RELATIVE_OUTPUT_PATH="PID1/out_test_file.raw/alphadia"\n'
+    'export OUTPUT_PATH="/pool/output/PID1/out_test_file.raw/test_settings_v1"\n'
+    'export RELATIVE_OUTPUT_PATH="PID1/out_test_file.raw/test_settings_v1"\n'
     'export SPECLIB_FILE_NAME="some_speclib_file_name"\n'
     'export FASTA_FILE_NAME="some_fasta_file_name"\n'
     'export CONFIG_FILE_NAME="some_config_file_name"\n'
@@ -47,8 +47,8 @@ def test_start_job_returns_valid_job_id(
     assert job_id == "12345"
     expected_command = (
         f"{EXPECTED_EXPORTS}\n"
-        "mkdir -p /pool/output/PID1/out_test_file.raw/alphadia\n"
-        "cd /pool/output/PID1/out_test_file.raw/alphadia\n"
+        "mkdir -p /pool/output/PID1/out_test_file.raw/test_settings_v1\n"
+        "cd /pool/output/PID1/out_test_file.raw/test_settings_v1\n"
         "cat /path/to/slurm_base_path/submit_slurm_job.sh\n"
         "JID=$(sbatch --cpus-per-task=8 --mem=62G --time=02:00:00 /path/to/slurm_base_path/submit_slurm_job.sh)\n"
         "echo ${JID##* }"

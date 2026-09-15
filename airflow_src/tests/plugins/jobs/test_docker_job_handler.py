@@ -117,7 +117,7 @@ class TestStartJob:
 
         args, kwargs = handler._client.containers.run.call_args
         assert args == ("alphakraken-msqc", [RAW_FILE_PATH, OUTPUT_PATH, "2"])
-        assert kwargs["name"] == "kraken-custom-raw_file_1.raw"
+        assert kwargs["name"] == "kraken-test_settings-v1-raw_file_1.raw"
         assert kwargs["mem_limit"] == "31g"
         assert kwargs["nano_cpus"] == 2_000_000_000
         assert kwargs["network_mode"] == "none"
@@ -143,8 +143,8 @@ class TestStartJob:
 
         # then
         _, kwargs = handler._client.containers.run.call_args
-        assert kwargs["name"] == "kraken-custom-raw_file_1.raw"
-        assert kwargs["labels"]["alphakraken.job"] == "raw+file+1.raw"
+        assert kwargs["name"] == "kraken-test_settings-v1-raw_file_1.raw"
+        assert kwargs["labels"]["alphakraken.job"] == "raw+file+1.raw/test_settings-v1"
 
     def test_start_job_should_bind_host_paths_at_the_resolved_paths(
         self,
@@ -248,7 +248,7 @@ class TestStartJob:
 
         # then
         handler._client.containers.get.assert_called_once_with(
-            "kraken-custom-raw_file_1.raw"
+            "kraken-test_settings-v1-raw_file_1.raw"
         )
         leftover.remove.assert_called_once_with(force=True)
 

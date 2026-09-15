@@ -117,7 +117,7 @@ def prepare_job(raw_file_id: str, settings_id: str) -> dict[str, str | int | Non
         ) from e
 
     internal_output_path = get_internal_output_path_for_raw_file(
-        raw_file, software_type=settings.software_type
+        raw_file, settings=settings
     )
 
     quanting_env = _create_quanting_env(
@@ -167,9 +167,7 @@ def _create_quanting_env(
     raw_file_path = view.resolve(Locations.BACKUP, relative_raw_file_path)
     settings_path = view.resolve(Locations.SETTINGS, settings.name)
 
-    relative_output_path = get_output_folder_rel_path(
-        raw_file, software_type=settings.software_type
-    )
+    relative_output_path = get_output_folder_rel_path(raw_file, settings=settings)
     if output_path_suffix:
         relative_output_path = relative_output_path.with_name(
             relative_output_path.name + output_path_suffix

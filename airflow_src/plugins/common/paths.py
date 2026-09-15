@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from shared.db.models import RawFile
+from shared.db.models import RawFile, Settings
 from shared.path_layout import get_output_folder_rel_path
 from shared.path_views import AIRFLOW_CONTAINER_VIEW, Locations
 
@@ -40,9 +40,9 @@ def get_internal_output_path() -> Path:
 
 def get_internal_output_path_for_raw_file(
     raw_file: RawFile,
-    software_type: str | None = None,
+    settings: Settings | None = None,
 ) -> Path:
-    """Get absolute internal output path for the given raw file name."""
+    """Get absolute internal output path for the given raw file name, and settings if given."""
     return AIRFLOW_CONTAINER_VIEW.resolve(
-        Locations.OUTPUT, get_output_folder_rel_path(raw_file, software_type)
+        Locations.OUTPUT, get_output_folder_rel_path(raw_file, settings)
     )

@@ -63,7 +63,7 @@ def test_create_quanting_env(
 ) -> None:
     """Test that _create_quanting_env builds the expected environment dict."""
     mock_output_rel_path.return_value = Path(
-        "some_project_id/out_test_file.raw/alphadia"
+        "some_project_id/out_test_file.raw/test_settings_v1"
     )
     mock_internal_output_path.return_value = Path("/opt/airflow/mounts/output")
 
@@ -100,8 +100,8 @@ def test_create_quanting_env(
     expected = {
         "RAW_FILE_PATH": "/some_backup_base_path/instrument1/1970_01/test_file.raw",
         "SETTINGS_PATH": "/some_settings_path/test_settings",
-        "OUTPUT_PATH": "/some_output_path/some_project_id/out_test_file.raw/alphadia",
-        "RELATIVE_OUTPUT_PATH": "some_project_id/out_test_file.raw/alphadia",
+        "OUTPUT_PATH": "/some_output_path/some_project_id/out_test_file.raw/test_settings_v1",
+        "RELATIVE_OUTPUT_PATH": "some_project_id/out_test_file.raw/test_settings_v1",
         "SPECLIB_FILE_NAME": "some_speclib_file_name",
         "FASTA_FILE_NAME": "some_fasta_file_name",
         "CONFIG_FILE_NAME": "some_config_file_name",
@@ -131,7 +131,9 @@ def test_create_quanting_env_custom_software(
     mock_output_rel_path: MagicMock,
 ) -> None:
     """Test that _create_quanting_env handles custom software settings with parameter substitution."""
-    mock_output_rel_path.return_value = Path("some_project_id/out_test_file.raw/custom")
+    mock_output_rel_path.return_value = Path(
+        "some_project_id/out_test_file.raw/test_custom_settings_v1"
+    )
     mock_internal_output_path.return_value = Path("/opt/airflow/mounts/output")
 
     mock_raw_file = MagicMock(
@@ -166,9 +168,9 @@ def test_create_quanting_env_custom_software(
     expected_config_params = (
         "--qvalue 0.01 --f /some_backup_base_path/instrument1/1970_01/test_file.raw "
         "--lib /some_settings_path/test_custom_settings/some_speclib_file_name "
-        "--out /some_output_path/some_project_id/out_test_file.raw/custom "
+        "--out /some_output_path/some_project_id/out_test_file.raw/test_custom_settings_v1 "
         "--fasta /some_settings_path/test_custom_settings/some_fasta_file_name --threads 8 "
-        "--some_param instrument1/1970_01/test_file.raw --some_param2 some_project_id/out_test_file.raw/custom"
+        "--some_param instrument1/1970_01/test_file.raw --some_param2 some_project_id/out_test_file.raw/test_custom_settings_v1"
     )
     expected_custom_command = (
         f"/some_software_base_path/custom1.2.3 {expected_config_params}"
@@ -177,8 +179,8 @@ def test_create_quanting_env_custom_software(
     expected = {
         "RAW_FILE_PATH": "/some_backup_base_path/instrument1/1970_01/test_file.raw",
         "SETTINGS_PATH": "/some_settings_path/test_custom_settings",
-        "OUTPUT_PATH": "/some_output_path/some_project_id/out_test_file.raw/custom",
-        "RELATIVE_OUTPUT_PATH": "some_project_id/out_test_file.raw/custom",
+        "OUTPUT_PATH": "/some_output_path/some_project_id/out_test_file.raw/test_custom_settings_v1",
+        "RELATIVE_OUTPUT_PATH": "some_project_id/out_test_file.raw/test_custom_settings_v1",
         "SPECLIB_FILE_NAME": "some_speclib_file_name",
         "FASTA_FILE_NAME": "some_fasta_file_name",
         "CONFIG_FILE_NAME": "",
@@ -389,7 +391,9 @@ def test_prepare_job_windows_runner_yields_windows_paths(
     result = prepare_job(raw_file_id="test_file.raw", settings_id="sid1")
 
     raw_file_path = r"\\server\share\backup\instrument1\1970_01\test_file.raw"
-    output_path = r"Z:\alphakraken\output\some_project_id\out_test_file.raw\custom"
+    output_path = (
+        r"Z:\alphakraken\output\some_project_id\out_test_file.raw\test_settings_v1"
+    )
     assert result["RAW_FILE_PATH"] == raw_file_path
     assert result["SETTINGS_PATH"] == r"Z:\alphakraken\settings\test_settings"
     assert result["OUTPUT_PATH"] == output_path
@@ -399,7 +403,10 @@ def test_prepare_job_windows_runner_yields_windows_paths(
         == rf"C:\alphakraken\software\tool.exe --f {raw_file_path} --out {output_path}"
     )
     assert result["_RELATIVE_RAW_FILE_PATH"] == "instrument1/1970_01/test_file.raw"
-    assert result["RELATIVE_OUTPUT_PATH"] == "some_project_id/out_test_file.raw/custom"
+    assert (
+        result["RELATIVE_OUTPUT_PATH"]
+        == "some_project_id/out_test_file.raw/test_settings_v1"
+    )
 
 
 def test_check_content_allows_resolved_config_params(
@@ -522,7 +529,7 @@ def test_check_content_skips_unset_file_names(
     ("field", "value"),
     [
         ("relative_raw_file_path", "../instrument1/1970_01/test_file.raw"),
-        ("relative_output_path", "/PID1/out_test_file.raw/alphadia"),
+        ("relative_output_path", "/PID1/out_test_file.raw/test_settings_v1"),
         ("fasta_file_name", "$(rm -rf /).fasta"),
         ("project_id", "PID1;rm"),
         ("software", "alphadia; rm -rf /"),
@@ -839,7 +846,7 @@ def test_create_quanting_env_with_suffix(
 ) -> None:
     """Test that _create_quanting_env applies the suffix to all output paths, incl. the config params."""
     mock_output_rel_path.return_value = Path(
-        "some_project_id/out_test_file.raw/alphadia"
+        "some_project_id/out_test_file.raw/test_settings_v1"
     )
 
     mock_settings = MagicMock(
@@ -873,15 +880,16 @@ def test_create_quanting_env_with_suffix(
     )
 
     assert (
-        result.relative_output_path == "some_project_id/out_test_file.raw/alphadia.run2"
+        result.relative_output_path
+        == "some_project_id/out_test_file.raw/test_settings_v1.run2"
     )
     assert (
         result.output_path
-        == "/some_output_path/some_project_id/out_test_file.raw/alphadia.run2"
+        == "/some_output_path/some_project_id/out_test_file.raw/test_settings_v1.run2"
     )
     assert (
         result.config_params
-        == "--out /some_output_path/some_project_id/out_test_file.raw/alphadia.run2"
+        == "--out /some_output_path/some_project_id/out_test_file.raw/test_settings_v1.run2"
     )
 
 
@@ -998,7 +1006,7 @@ def test_check_job_result_business_error(  # noqa: PLR0913
 ) -> None:
     """Test that check_job_result behaves correctly on business errors."""
     quanting_env = make_quanting_env(
-        output_path="/data/output/PID1/out_test_file.raw/alphadia"
+        output_path="/data/output/PID1/out_test_file.raw/test_settings_v1"
     )
     mock_raw_file = MagicMock(wraps=RawFile, id="test_file.raw")
     mock_get_raw_file_by_id.return_value = mock_raw_file
@@ -1015,7 +1023,7 @@ def test_check_job_result_business_error(  # noqa: PLR0913
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
     mock_get_business_errors.assert_called_once_with(
         mock_raw_file,
-        Path("/opt/airflow/mounts/output/PID1/out_test_file.raw/alphadia"),
+        Path("/opt/airflow/mounts/output/PID1/out_test_file.raw/test_settings_v1"),
     )
     mock_add_metrics.assert_called_once_with(
         "test_file.raw",
@@ -1023,7 +1031,7 @@ def test_check_job_result_business_error(  # noqa: PLR0913
         settings_name="test_settings",
         settings_version=1,
         metrics_type="alphadia",
-        relative_output_path="PID1/out_test_file.raw/alphadia",
+        relative_output_path="PID1/out_test_file.raw/test_settings_v1",
     )
     mock_put_xcom.assert_called_once_with(
         mock_ti, key=XComKeys.BRANCH_ERRORS, value="error1;error2"
@@ -1045,7 +1053,7 @@ def test_check_job_result_business_error_raises(  # noqa: PLR0913
 ) -> None:
     """Test that check_job_result behaves correctly if business error is unknown."""
     quanting_env = make_quanting_env(
-        output_path="/data/output/PID1/out_test_file.raw/alphadia"
+        output_path="/data/output/PID1/out_test_file.raw/test_settings_v1"
     )
     mock_raw_file = MagicMock(wraps=RawFile, id="test_file.raw")
     mock_get_raw_file_by_id.return_value = mock_raw_file
@@ -1062,7 +1070,7 @@ def test_check_job_result_business_error_raises(  # noqa: PLR0913
     mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
     mock_get_business_errors.assert_called_once_with(
         mock_raw_file,
-        Path("/opt/airflow/mounts/output/PID1/out_test_file.raw/alphadia"),
+        Path("/opt/airflow/mounts/output/PID1/out_test_file.raw/test_settings_v1"),
     )
     mock_add_metrics.assert_called_once_with(
         "test_file.raw",
@@ -1070,7 +1078,7 @@ def test_check_job_result_business_error_raises(  # noqa: PLR0913
         settings_name="test_settings",
         settings_version=1,
         metrics_type="alphadia",
-        relative_output_path="PID1/out_test_file.raw/alphadia",
+        relative_output_path="PID1/out_test_file.raw/test_settings_v1",
     )
     mock_put_xcom.assert_called_once_with(
         mock_ti, key=XComKeys.BRANCH_ERRORS, value="error1;__UNKNOWN_ERROR"
@@ -1090,7 +1098,7 @@ def test_check_job_result_timeout(
 ) -> None:
     """Test that check_job_result behaves correctly on timeout."""
     quanting_env = make_quanting_env(
-        output_path="/data/output/PID1/out_test_file.raw/alphadia"
+        output_path="/data/output/PID1/out_test_file.raw/test_settings_v1"
     )
     mock_raw_file = MagicMock(wraps=RawFile, id="test_file.raw")
     mock_get_raw_file_by_id.return_value = mock_raw_file
@@ -1110,7 +1118,7 @@ def test_check_job_result_timeout(
         settings_name="test_settings",
         settings_version=1,
         metrics_type="alphadia",
-        relative_output_path="PID1/out_test_file.raw/alphadia",
+        relative_output_path="PID1/out_test_file.raw/test_settings_v1",
     )
     mock_put_xcom.assert_called_once_with(
         mock_ti, key=XComKeys.BRANCH_ERRORS, value="TIMEOUT"
@@ -1130,7 +1138,7 @@ def test_check_job_result_oom(
 ) -> None:
     """Test that check_job_result behaves correctly on out of memory."""
     quanting_env = make_quanting_env(
-        output_path="/data/output/PID1/out_test_file.raw/alphadia"
+        output_path="/data/output/PID1/out_test_file.raw/test_settings_v1"
     )
     mock_raw_file = MagicMock(wraps=RawFile, id="test_file.raw")
     mock_get_raw_file_by_id.return_value = mock_raw_file
@@ -1150,7 +1158,7 @@ def test_check_job_result_oom(
         settings_name="test_settings",
         settings_version=1,
         metrics_type="alphadia",
-        relative_output_path="PID1/out_test_file.raw/alphadia",
+        relative_output_path="PID1/out_test_file.raw/test_settings_v1",
     )
     mock_put_xcom.assert_called_once_with(
         mock_ti, key=XComKeys.BRANCH_ERRORS, value="OUT_OF_MEMORY"

@@ -1,7 +1,6 @@
 """Tests for the file_based_job_handler module."""
 
 from collections.abc import Callable
-from pathlib import Path
 from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
@@ -11,16 +10,6 @@ from common.quanting_env import QuantingEnv
 from jobs._experimental.file_based_job_handler import FileBasedJobHandler
 
 from shared.path_views import AIRFLOW_CONTAINER_VIEW, Locations
-
-
-@pytest.fixture
-def mock_raw_file() -> MagicMock:
-    """Create a mock RawFile for testing."""
-    raw_file = MagicMock()
-    raw_file.id = "test_raw_file_123"
-    raw_file.project_id = "test_project"
-    raw_file.instrument_id = "test_instrument"
-    return raw_file
 
 
 @pytest.fixture
@@ -70,7 +59,7 @@ class TestFileBasedJobHandler:
         job_id = handler.start_job(sample_quanting_env)
 
         # then
-        assert job_id == "test_raw_file_123"
+        assert job_id == "test/relative/path"
         mock_mkdir.assert_called_once_with(exist_ok=True)
         mock_exists.assert_called_once()
 
@@ -98,27 +87,18 @@ class TestFileBasedJobHandler:
         with pytest.raises(AirflowFailException, match="Job file .* already exists"):
             handler.start_job(sample_quanting_env)
 
-    @patch("jobs._experimental.file_based_job_handler.get_raw_file_by_id")
-    @patch(
-        "jobs._experimental.file_based_job_handler.get_internal_output_path_for_raw_file"
-    )
     @patch("pathlib.Path.exists")
     def test_get_job_status_should_return_pending_when_status_file_does_not_exist(
         self,
         mock_exists: MagicMock,
-        mock_get_path: MagicMock,
-        mock_get_raw_file: MagicMock,
-        mock_raw_file: MagicMock,
     ) -> None:
         """Test that get_job_status returns PENDING when status file does not exist."""
         # given
         handler = FileBasedJobHandler()
-        mock_get_raw_file.return_value = mock_raw_file
-        mock_get_path.return_value = Path("/test/output")
         mock_exists.return_value = False
 
         # when
-        status = handler.get_job_status("test_raw_file_123")
+        status = handler.get_job_status("test/relative/path")
 
         # then
         assert status == JobStates.PENDING
@@ -132,25 +112,16 @@ class TestFileBasedJobHandler:
             ("Starting job\nSome log output\n\n", JobStates.RUNNING),
         ],
     )
-    @patch("jobs._experimental.file_based_job_handler.get_raw_file_by_id")
-    @patch(
-        "jobs._experimental.file_based_job_handler.get_internal_output_path_for_raw_file"
-    )
     @patch("pathlib.Path.exists")
-    def test_get_job_status_should_return_correct_status_based_on_file_content(  # noqa: PLR0913
+    def test_get_job_status_should_return_correct_status_based_on_file_content(
         self,
         mock_exists: MagicMock,
-        mock_get_path: MagicMock,
-        mock_get_raw_file: MagicMock,
-        mock_raw_file: MagicMock,
         read_data: str,
         expected_status: str,
     ) -> None:
         """Test that get_job_status returns correct status based on file content."""
         # given
         handler = FileBasedJobHandler()
-        mock_get_raw_file.return_value = mock_raw_file
-        mock_get_path.return_value = Path("/test/output")
         mock_exists.return_value = True
 
         # when
@@ -158,7 +129,7 @@ class TestFileBasedJobHandler:
             "pathlib.Path.open",
             mock_open(read_data=read_data),
         ):
-            status = handler.get_job_status("test_raw_file_123")
+            status = handler.get_job_status("test/relative/path")
 
         # then
         assert status == expected_status

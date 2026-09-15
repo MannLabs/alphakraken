@@ -1,11 +1,7 @@
 # B) The migration: 2.11.0 → 3.3.1
 
 Prerequisite: the `airflow_3_prep` stack (doc A §6) merged. Line references are against the tip of
-`airflow_3_prep_IV`, stacked on main `250579ab`.
-
-🔴 Doc A items **A7** (`get_xcom` applies `default`) and **A8** (move `callbacks.py` into `dags/`)
-are not in that stack. Both are 3.x blockers (§8) and must land before or with this migration; the
-test-migration commit `49a39866` has a working version of each.
+`airflow_3_prep_V`, stacked on main `250579ab`.
 
 ⚠️ Everything marked verified below was checked against a running 3.3.1 deployment on the previous
 base (`609a06bb`, branch `airflow_3_test_migration`); the plan was then re-based on `250579ab`
@@ -108,7 +104,7 @@ One caveat worth a targeted check rather than a blanket "it's fine": **pandas 3.
 
 Ref: [pandas 3.0 whatsnew](https://pandas.pydata.org/docs/whatsnew/v3.0.0.html)
 
-**paramiko 5.0** — used only through `SSHHook` (`plugins/common/utils.py:215`, `sensors/ssh_utils.py`). The provider absorbs the API change; the risk is behavioural (auth/algorithm negotiation against your cluster's SSH daemon), not compile-time. As you said, easy to catch — but catch it *deliberately*: run the `submit_job` → `WaitForJobStartSensor` → `WaitForJobFinishSensor` chain against the real cluster in staging before switching production.
+**paramiko 5.0** — used only through `SSHHook` (`plugins/common/utils.py:218`, `sensors/ssh_utils.py`). The provider absorbs the API change; the risk is behavioural (auth/algorithm negotiation against your cluster's SSH daemon), not compile-time. As you said, easy to catch — but catch it *deliberately*: run the `submit_job` → `WaitForJobStartSensor` → `WaitForJobFinishSensor` chain against the real cluster in staging before switching production.
 
 Also update `misc/requirements_development.txt:8-10` — the comment pinning `pandas==2.1.4` "because the apache/airflow:2.11.0 image comes with that version" is now wrong.
 
@@ -211,7 +207,7 @@ problem — do not "fix" the code to satisfy it.
 
 ### 3.2 `trigger_dag_run()` → the Task Execution API 🔴
 
-`plugins/common/utils.py:103-127`. The current implementation writes the metadata DB through the ORM and will raise `RuntimeError: Direct database access via the ORM is not allowed in Airflow 3.0` on every worker.
+`plugins/common/utils.py:106-130`. The current implementation writes the metadata DB through the ORM and will raise `RuntimeError: Direct database access via the ORM is not allowed in Airflow 3.0` on every worker.
 
 **Use the Task Execution API, not the public REST API v2.** `TriggerDagRun` in
 `airflow/sdk/execution_time/comms.py` is the same channel `TriggerDagRunOperator` uses on AF3. Keep the
@@ -291,7 +287,7 @@ ends in `_<digits>`; and one asserting non-mapped tasks in the group are exclude
 
 ### 3.4 `_get_cluster_ssh_connections()` → an Airflow Variable 🔴
 
-`plugins/common/utils.py:157-181`. The Task Execution API can fetch a connection by id but has **no list operation** (verified in `airflow/sdk/execution_time/comms.py`) — so there is no SDK-only fix.
+`plugins/common/utils.py:160-184`. The Task Execution API can fetch a connection by id but has **no list operation** (verified in `airflow/sdk/execution_time/comms.py`) — so there is no SDK-only fix.
 
 The public REST v2 endpoint does have a purpose-built `connection_id_prefix_pattern` query parameter
 (`airflow/api_fastapi/core_api/routes/public/connections.py:205`), so a REST port is possible — but it
@@ -308,7 +304,7 @@ error message — and accept it as a genuine regression in operability versus th
 
 ### 3.5 `get_airflow_variable()` — kwarg rename 🟡
 
-`plugins/common/utils.py:71-86`. `airflow.sdk.Variable.get` renames `default_var` → **`default`**:
+`plugins/common/utils.py:74-89`. `airflow.sdk.Variable.get` renames `default_var` → **`default`**:
 
 ```python
 value = Variable.get(key) if default == "__DEFAULT_NOT_SET" else Variable.get(key, default=default)

@@ -9,11 +9,11 @@ against `constraints-3.11.txt`, but `airflow_src/Dockerfile` uses the **untagged
 The constraint file has never matched the interpreter. Doc B §1 pins both ends.
 **Scope of this doc:** changes that can be merged and run on 2.11 **today**, shrinking the migration PR to a mechanical, reversible flip.
 
-Line references are against the tip of the `airflow_3_prep_IV` branch (§6), stacked on main `250579ab`.
+Line references are against the tip of the `airflow_3_prep_V` branch (§6), stacked on main `250579ab`.
 
 ⚠️ **What "verified" means here.** Everything marked verified on 3.3.1 was checked during the test
 migration on the previous base (`609a06bb`, branch `airflow_3_test_migration`). The stack was then
-re-applied on `250579ab` and re-verified with the 2.11 unit suite only (541 passed). Nothing was
+re-applied on `250579ab` and re-verified with the 2.11 unit suite only (543 passed). Nothing was
 re-run against 3.3.1 on the new base.
 
 ---
@@ -98,7 +98,7 @@ Ruff catches none of these. Three of the four already sit behind a single functi
 
 ### 3.1 `trigger_dag_run()` — ORM write from task code 🔴
 
-`plugins/common/utils.py:103-127`. Calls `airflow.api.common.trigger_dag.trigger_dag`, which is `@provide_session`-decorated and writes `DagModel`/`DagRun` directly. In Airflow 3 worker code this raises:
+`plugins/common/utils.py:106-130`. Calls `airflow.api.common.trigger_dag.trigger_dag`, which is `@provide_session`-decorated and writes `DagModel`/`DagRun` directly. In Airflow 3 worker code this raises:
 
 ```
 RuntimeError: Direct database access via the ORM is not allowed in Airflow 3.0
@@ -147,15 +147,15 @@ passes on 2.11, and the test migration saw no new failures on 3.3.1.
 
 ### 3.3 `_get_cluster_ssh_connections()` — ORM query on `Connection` 🔴
 
-`plugins/common/utils.py:157-181`. `@provide_session` + `session.query(Connection).filter(Connection.conn_id.startswith(...))`.
+`plugins/common/utils.py:160-184`. `@provide_session` + `session.query(Connection).filter(Connection.conn_id.startswith(...))`.
 
 The Task Execution API can fetch a connection **by id** (`GetConnection`) but has **no list/scan operation** — verified against `airflow/sdk/execution_time/comms.py`. So the *scan* cannot be expressed with the SDK at all; doc B §3.4 replaces it with a list of ids in an Airflow Variable rather than a REST call.
 
-**Action now:** none — single seam, one call site (`get_cluster_ssh_hook`, `utils.py:184`).
+**Action now:** none — single seam, one call site (`get_cluster_ssh_hook`, `utils.py:187`).
 
 ### 3.4 `get_airflow_variable()` — silent kwarg rename 🟡
 
-`plugins/common/utils.py:71-86` uses `airflow.models.Variable.get(key, default_var=...)`. The Airflow 3 replacement `airflow.sdk.Variable.get` renames `default_var` → `default` (verified). `airflow.models.Variable` is the ORM model and will hit the ORM guard from task code.
+`plugins/common/utils.py:74-89` uses `airflow.models.Variable.get(key, default_var=...)`. The Airflow 3 replacement `airflow.sdk.Variable.get` renames `default_var` → `default` (verified). `airflow.models.Variable` is the ORM model and will hit the ORM guard from task code.
 
 **Action now:** none — single seam, 8 call sites all route through it. Flag it in doc B so the kwarg rename is not missed; it would otherwise fail only at runtime.
 
@@ -230,12 +230,11 @@ returned `[]`. The affected sites are exactly the two flagged above as "the dang
 corruption-detection gates — which crash with `TypeError: 'NoneType' object is not iterable` rather
 than degrading silently. The two `_extract_errors` calls pass `map_indexes` and take the safe branch.
 
-**Action (pending, A7 in §6):** `get_xcom` applies the default itself instead of delegating to
-`xcom_pull`, which restores 2.11 semantics on both branches. Behaviour-preserving on 2.11, so it
-belongs here rather than in doc B. Implemented with two regression tests in the test-migration
-branch (`49a39866`), **not yet in the stack**.
+**Action (done, A7):** `get_xcom` (`utils.py:58`) applies the default itself instead of delegating to
+`xcom_pull`, which restores 2.11 semantics on both branches. Behaviour-preserving on 2.11, so it lands
+here rather than in doc B. Two regression tests added.
 
-Making the wrapper the sole entry point (above) is what reduces this to a three-line fix.
+Making the wrapper the sole entry point (above) is what reduced this to a three-line fix.
 
 ---
 
@@ -317,8 +316,8 @@ processor**, which the api-server no longer runs.
 `plugins/callbacks.py` does `from impl.processor_impl import ...`, i.e. a plugins-folder module
 reaching into the DAGs folder. The api-server therefore fails to load it.
 
-**Action (pending, A8 in §6):** `mv airflow_src/plugins/callbacks.py airflow_src/dags/callbacks.py`
-(+ its test). Done in the test-migration branch (`49a39866`), **not yet in the stack**. Safe on 2.11, where both folders are on `sys.path`. `callbacks.py` is the only plugins-folder module importing
+**Action (done, A8):** `mv airflow_src/plugins/callbacks.py airflow_src/dags/callbacks.py` (+ its test).
+Safe on 2.11, where both folders are on `sys.path`. `callbacks.py` is the only plugins-folder module importing
 from `dags/`, and the repo defines **no** `AirflowPlugin` subclass at all — the plugins folder is used
 purely as a shared-code path — so nothing needs it to live there.
 
@@ -361,7 +360,7 @@ Worth recording so nobody re-litigates them during the migration:
 
 ## 6. Suggested PR split
 
-Four branches stacked on main `250579ab`, to be merged in order:
+Five branches stacked on main `250579ab`, to be merged in order:
 
 | PR | Branch | Content | Risk | Status |
 |---|---|---|---|---|
@@ -373,10 +372,10 @@ Four branches stacked on main `250579ab`, to be merged in order:
 | A6 | `airflow_3_prep_III` | route `ssh_sensor` XCom reads through the wrapper | low | **done** |
 | A9 | `airflow_3_prep_IV` | §4.4 `Param(minLength=)` | low — tightens trigger validation | **done** |
 | A4 | — | §4.3 `ti` type alias | cosmetic | **not possible on 2.11** — done in doc B §3.1 as an import alias |
-| A7 | — | §3.5 `get_xcom` applies `default` itself | **high value** — the other half of A5; without it the two corruption gates raise `TypeError` on 3.x | **pending** — in `49a39866`, not ported |
-| A8 | — | §4.5 move `callbacks.py` into `dags/` | low on 2.11; **blocker** on 3.x | **pending** — in `49a39866`, not ported |
+| A7 | `airflow_3_prep_V` | §3.5 `get_xcom` applies `default` itself | **high value** — the other half of A5; without it the two corruption gates raise `TypeError` on 3.x | **done** |
+| A8 | `airflow_3_prep_V` | §4.5 move `callbacks.py` into `dags/` | low on 2.11; **blocker** on 3.x | **done** |
 
-Baseline with the full stack: **541 passed on 2.11**. During the test migration (previous base),
+Baseline with the full stack: **543 passed on 2.11**. During the test migration (previous base),
 3.3.1 showed **2 failures** — both `tests/common/test_utils.py::test_trigger_dag_run{,_with_delay}`:
 
 ```
@@ -395,5 +394,4 @@ simultaneously. `ti` is mocked throughout, so nothing here exercises the ORM gua
 `_get_branch_states` or `_get_cluster_ssh_connections` either — those need a real worker (doc B §6).
 
 So doc B's code diff is: one import sweep + two function bodies (`trigger_dag_run`,
-`_get_branch_states`) + a Variable lookup replacing `_get_cluster_ssh_connections` — plus A7 and A8
-if they have not landed by then.
+`_get_branch_states`) + a Variable lookup replacing `_get_cluster_ssh_connections`.

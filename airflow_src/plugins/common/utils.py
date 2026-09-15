@@ -15,7 +15,7 @@ from airflow.sdk import Variable
 from airflow.sdk.exceptions import AirflowFailException, AirflowNotFoundException
 from airflow.sdk.execution_time import task_runner
 from airflow.sdk.execution_time.comms import ErrorResponse, TriggerDagRun
-from airflow.sdk.execution_time.task_runner import RuntimeTaskInstance
+from airflow.sdk.execution_time.task_runner import RuntimeTaskInstance as TaskInstance
 from airflow.utils.types import DagRunType
 from common.constants import (
     CLUSTER_SSH_COMMAND_TIMEOUT,
@@ -30,7 +30,7 @@ _xcom_types = str | list[str] | dict[str, Any] | int
 _STATUS_CODE_KEY = "status_code"
 
 
-def put_xcom(ti: RuntimeTaskInstance, key: str, value: _xcom_types) -> None:
+def put_xcom(ti: TaskInstance, key: str, value: _xcom_types) -> None:
     """Push to XCom `key`=`value`."""
     if value is None:
         raise ValueError(f"No value found for {key}.")
@@ -43,7 +43,7 @@ _NO_DEFAULT = object()
 
 
 def get_xcom(
-    ti: RuntimeTaskInstance,
+    ti: TaskInstance,
     key: str,
     *,
     task_ids: str | Iterable[str],

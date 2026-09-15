@@ -5,7 +5,7 @@ import time
 from pathlib import Path
 
 from airflow.providers.amazon.aws.hooks.base_aws import BaseAwsConnection
-from airflow.sdk.execution_time.task_runner import RuntimeTaskInstance
+from airflow.sdk.execution_time.task_runner import RuntimeTaskInstance as TaskInstance
 from boto3.s3.transfer import TransferConfig
 from botocore.exceptions import BotoCoreError, ClientError
 from common.keys import DagContext, DagParams
@@ -34,7 +34,7 @@ from shared.db.models import BackupStatus, RawFile, get_created_at_year_month
 from shared.yamlsettings import get_s3_upload_config
 
 
-def upload_raw_file_to_s3(ti: RuntimeTaskInstance, **kwargs) -> None:
+def upload_raw_file_to_s3(ti: TaskInstance, **kwargs) -> None:
     """Upload raw file to S3 bucket.
 
     This function:
@@ -50,7 +50,7 @@ def upload_raw_file_to_s3(ti: RuntimeTaskInstance, **kwargs) -> None:
     7. On failure: set backup_status = FAILED, log error (non-blocking)
 
     Args:
-        ti: RuntimeTaskInstance from Airflow
+        ti: TaskInstance from Airflow
         **kwargs: Contains raw_file_id in params
 
     """

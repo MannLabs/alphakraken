@@ -5,7 +5,7 @@ import shutil
 from pathlib import Path
 
 from airflow.sdk.exceptions import AirflowFailException
-from airflow.sdk.execution_time.task_runner import RuntimeTaskInstance
+from airflow.sdk.execution_time.task_runner import RuntimeTaskInstance as TaskInstance
 from common.keys import DagContext, DagParams, Tasks, XComKeys
 from common.utils import get_env_variable, get_xcom, put_xcom
 from file_handling import compare_paths, get_file_size
@@ -22,7 +22,7 @@ from shared.keys import EnvVars
 # Note: the parent DAG does not have callbacks configured yet
 
 
-def get_files_to_move(ti: RuntimeTaskInstance, **kwargs) -> None:
+def get_files_to_move(ti: TaskInstance, **kwargs) -> None:
     """Get single files to move for a raw_file_id to the instrument backup folder."""
     raw_file_id = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID]
 
@@ -47,7 +47,7 @@ def get_files_to_move(ti: RuntimeTaskInstance, **kwargs) -> None:
     put_xcom(ti, XComKeys.MAIN_FILE_TO_MOVE, str(main_file_to_move))
 
 
-def move_files(ti: RuntimeTaskInstance, **kwargs) -> None:
+def move_files(ti: TaskInstance, **kwargs) -> None:
     """Move all files/folders associated with a raw file to the instrument backup folder."""
     raw_file_id = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID]
     raw_file = get_raw_file_by_id(raw_file_id)
@@ -155,7 +155,7 @@ def _move_files(files_to_move: dict[Path, Path], *, only_rename: bool = False) -
             logging.info(".. done")
 
 
-def _check_main_file_to_move(ti: RuntimeTaskInstance, raw_file: RawFile) -> None:
+def _check_main_file_to_move(ti: TaskInstance, raw_file: RawFile) -> None:
     """Check if the file size matches the database record.
 
     This is a safety measure to avoid moving the wrong files in the following (hypothetical) scenario:
@@ -165,7 +165,7 @@ def _check_main_file_to_move(ti: RuntimeTaskInstance, raw_file: RawFile) -> None
 
     Given the very low probability of this happening, a check on the file size of the main file should suffice.
 
-    :param ti: RuntimeTaskInstance object
+    :param ti: TaskInstance object
     :param raw_file: RawFile from DB
 
     :raises: AirflowFailException if the file size does not match the database record.

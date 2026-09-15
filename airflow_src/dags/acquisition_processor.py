@@ -39,7 +39,7 @@ from sensors.ssh_sensor import (
 from shared.yamlsettings import YamlKeys
 
 if TYPE_CHECKING:
-    from airflow.sdk.execution_time.task_runner import RuntimeTaskInstance
+    from airflow.sdk.execution_time.task_runner import RuntimeTaskInstance as TaskInstance
 
 
 def create_acquisition_processor_dag(instrument_id: str) -> None:
@@ -123,7 +123,7 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
 
             @task(multiple_outputs=True, task_id=Tasks.CHECK_JOB_RESULT)
             def check_result_task(
-                quanting_env: dict, job_id: str, ti: RuntimeTaskInstance | None = None
+                quanting_env: dict, job_id: str, ti: TaskInstance | None = None
             ) -> dict:
                 """Check quanting result and return dict with time_elapsed."""
                 return check_job_result(quanting_env=quanting_env, job_id=job_id, ti=ti)
@@ -159,7 +159,7 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
             trigger_rule=TriggerRule.ALL_DONE,
         )
         def finalize_status(
-            params: dict | None = None, ti: RuntimeTaskInstance | None = None
+            params: dict | None = None, ti: TaskInstance | None = None
         ) -> None:
             """Set final raw file status based on all branch outcomes."""
             assert params is not None

@@ -8,7 +8,7 @@ from pathlib import Path
 import pytz
 from airflow.exceptions import DagNotFound
 from airflow.sdk.exceptions import AirflowFailException
-from airflow.sdk.execution_time.task_runner import RuntimeTaskInstance
+from airflow.sdk.execution_time.task_runner import RuntimeTaskInstance as TaskInstance
 from common.constants import COLLISION_FLAG_SEP
 from common.keys import (
     DAG_DELIMITER,
@@ -67,7 +67,7 @@ def _add_raw_file_to_db(  # noqa: PLR0913
     )
 
 
-def get_unknown_raw_files(ti: RuntimeTaskInstance, **kwargs) -> None:
+def get_unknown_raw_files(ti: TaskInstance, **kwargs) -> None:
     """Get all raw files that should be considered for further processing and push to XCom.
 
     Due to potential file name collisions (i.e. a newly acquired file has the same name as one that is already processed),
@@ -201,7 +201,7 @@ def _sort_by_creation_date(raw_file_names: list[str], instrument_id: str) -> lis
     return [r for _, r in sorted(zip(file_creation_timestamps, raw_file_names))][::-1]
 
 
-def decide_raw_file_handling(ti: RuntimeTaskInstance, **kwargs) -> None:
+def decide_raw_file_handling(ti: TaskInstance, **kwargs) -> None:
     """Decide for each raw file whether an acquisition handler should be triggered or not."""
     instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
     raw_file_names_to_process: dict[str, bool] = get_xcom(
@@ -288,7 +288,7 @@ def _get_collision_flag() -> str:
     return collision_flag
 
 
-def start_acquisition_handler(ti: RuntimeTaskInstance, **kwargs) -> None:
+def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
     """Trigger an acquisition_handler DAG run for specific raw files.
 
     Each raw file is added to the database first.

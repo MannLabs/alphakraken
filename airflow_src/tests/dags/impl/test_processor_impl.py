@@ -1128,7 +1128,7 @@ def _branch_ti(task_name: str, map_index: int, state: str) -> tuple[str, str]:
 
 
 def _mock_ti(*task_states: tuple[str, str]) -> MagicMock:
-    """Create a mock RuntimeTaskInstance whose `get_task_states` returns `task_states`."""
+    """Create a mock TaskInstance whose `get_task_states` returns `task_states`."""
     ti = MagicMock(run_id=_RUN_ID)
     ti.get_task_states.return_value = {_RUN_ID: dict(task_states)}
     return ti

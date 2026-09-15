@@ -5,7 +5,7 @@ import re
 from pathlib import Path
 
 from airflow.sdk.exceptions import AirflowFailException, AirflowSkipException
-from airflow.sdk.execution_time.task_runner import RuntimeTaskInstance
+from airflow.sdk.execution_time.task_runner import RuntimeTaskInstance as TaskInstance
 from common.keys import (
     DAG_DELIMITER,
     INSTRUMENT_OVERWRITE_PREFIX,
@@ -69,7 +69,7 @@ from shared.yamlsettings import YamlKeys, get_path, is_s3_upload_enabled
 SKIP_COPYING = False
 
 
-def compute_checksum(ti: RuntimeTaskInstance, **kwargs) -> bool:
+def compute_checksum(ti: TaskInstance, **kwargs) -> bool:
     """Compute checksums for files in a raw file and store them in DB and XCom."""
     raw_file_id = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID]
 
@@ -225,7 +225,7 @@ def _is_overwrite_requested(airflow_variable: str, raw_file: RawFile) -> bool:
     ]
 
 
-def copy_raw_file(ti: RuntimeTaskInstance, **kwargs) -> None:
+def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
     """Copy all data associated with a raw file to the target location."""
     raw_file_id = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID]
 
@@ -367,7 +367,7 @@ def _verify_copied_files(
         raise ValueError(f"File copy failed with errors: {','.join(errors)}")
 
 
-def start_file_mover(ti: RuntimeTaskInstance, **kwargs) -> None:
+def start_file_mover(ti: TaskInstance, **kwargs) -> None:
     """Trigger the file_mover DAG for a specific raw file."""
     del ti  # unused
     raw_file_id = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID]
@@ -390,7 +390,7 @@ def start_file_mover(ti: RuntimeTaskInstance, **kwargs) -> None:
     )
 
 
-def start_s3_uploader(ti: RuntimeTaskInstance, **kwargs) -> None:
+def start_s3_uploader(ti: TaskInstance, **kwargs) -> None:
     """Trigger the s3_uploader DAG for a specific raw file."""
     trigger_dag_run(
         Dags.S3_UPLOADER,
@@ -427,7 +427,7 @@ def _is_settings_configured(raw_file: RawFile) -> bool:
     return len(resolved_settings) > 0
 
 
-def decide_processing(ti: RuntimeTaskInstance, **kwargs) -> bool:
+def decide_processing(ti: TaskInstance, **kwargs) -> bool:
     """Decide whether to start the acquisition_processor DAG.
 
     Skip the downstream tasks if the raw file is not suitable for processing:
@@ -484,7 +484,7 @@ def decide_processing(ti: RuntimeTaskInstance, **kwargs) -> bool:
     return False  # skip downstream tasks
 
 
-def start_acquisition_processor(ti: RuntimeTaskInstance, **kwargs) -> None:
+def start_acquisition_processor(ti: TaskInstance, **kwargs) -> None:
     """Trigger an acquisition_processor DAG run for specific raw files.
 
     Each raw file is added to the database first.

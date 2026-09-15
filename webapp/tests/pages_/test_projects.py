@@ -39,6 +39,10 @@ def test_projects_display_table(
     mock_ps1 = MagicMock()
     mock_ps1.settings.name = "settings1"
     mock_ps1.settings.version = 1
+    mock_ps1.scopes = ["*"]
+    mock_ps1.excluded_scopes = []
+    mock_ps1.raw_file_id_filter = []
+    mock_ps1.raw_file_id_exclude_filter = []
 
     def ps_objects_side_effect(*args, **kwargs) -> MagicMock:
         mock_qs = MagicMock()

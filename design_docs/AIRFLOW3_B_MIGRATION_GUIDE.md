@@ -247,8 +247,8 @@ Refs: [TriggerDagRunOperator](https://airflow.apache.org/docs/apache-airflow-pro
 `RuntimeTaskInstance` has **no** `get_dagrun()` in Airflow 3 (verified).
 
 Doc A §3.2 is **done** (`airflow_3_prep_II`): the ORM read is isolated in `_get_branch_states`
-(`dags/impl/processor_impl.py:614`), the only remaining caller of `ti.get_dagrun()`. Swap that one
-function body; `finalize_raw_file_status` (`:572`) and `_extract_errors` (`:626`) stay as they are.
+(`dags/impl/processor_impl.py:604`), the only remaining caller of `ti.get_dagrun()`. Swap that one
+function body; `finalize_raw_file_status` (`:562`) and `_extract_errors` (`:616`) stay as they are.
 
 ```python
 def _get_branch_states(ti: TaskInstance) -> dict[int, dict[str, str | None]]:

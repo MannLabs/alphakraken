@@ -112,7 +112,7 @@ This is the **spine of the pipeline** — 4 call sites chain every DAG to the ne
 
 ### 3.2 `finalize_raw_file_status()` — ORM read from task code 🔴
 
-`dags/impl/processor_impl.py:572` (`finalize_raw_file_status`), before the refactor below:
+`dags/impl/processor_impl.py:562` (`finalize_raw_file_status`), before the refactor below:
 
 ```python
 dag_run = ti.get_dagrun()          # ← does not exist on RuntimeTaskInstance in AF3
@@ -122,7 +122,7 @@ all_tis = dag_run.get_task_instances()
 Verified: `RuntimeTaskInstance` in 3.3.1 has **no** `get_dagrun`. This is the one blocker with no existing seam.
 
 **Action (done):** the state collection is extracted into `_get_branch_states`
-(`processor_impl.py:614`) so doc B replaces one function body instead of restructuring the routine:
+(`processor_impl.py:604`) so doc B replaces one function body instead of restructuring the routine:
 
 ```python
 def _get_branch_states(ti: TaskInstance) -> dict[int, dict[str, str | None]]:
@@ -306,7 +306,7 @@ So an empty `raw_file_id` passed DAG-trigger validation and failed later in the 
 Note this **tightens input validation**: a trigger with a <3-character `raw_file_id` now fails at
 trigger time instead of downstream.
 
-### 4.5 Move `callbacks.py` out of the plugins folder 🔴
+### 4.5 Stop `callbacks.py` importing from the DAGs folder 🔴
 
 In Airflow 2, `settings.prepare_syspath()` put **both** the DAGs folder and the plugins folder on
 `sys.path` in every process. In 3.3.1 the renamed `prepare_syspath_for_config_and_plugins()`
@@ -316,10 +316,10 @@ processor**, which the api-server no longer runs.
 `plugins/callbacks.py` does `from impl.processor_impl import ...`, i.e. a plugins-folder module
 reaching into the DAGs folder. The api-server therefore fails to load it.
 
-**Action (done, A8):** `mv airflow_src/plugins/callbacks.py airflow_src/dags/callbacks.py` (+ its test).
-Safe on 2.11, where both folders are on `sys.path`. `callbacks.py` is the only plugins-folder module importing
-from `dags/`, and the repo defines **no** `AirflowPlugin` subclass at all — the plugins folder is used
-purely as a shared-code path — so nothing needs it to live there.
+**Action (done, A8):** the four `QuantingFailed*Exception` classes it needs moved from
+`dags/impl/processor_impl.py` to `plugins/common/exceptions.py`; `callbacks.py` stays in `plugins/`
+with the rest of the shared code. Safe on 2.11, where both folders are on `sys.path`. `callbacks.py`
+was the only plugins-folder module importing from `dags/`; keep it that way.
 
 Verify with `plugins_manager.get_import_errors()` and the DAGs folder off `sys.path`: expect `NONE`,
 not `{'callbacks.py': "No module named 'impl'"}`.
@@ -373,7 +373,7 @@ Five branches stacked on main `250579ab`, to be merged in order:
 | A9 | `airflow_3_prep_IV` | §4.4 `Param(minLength=)` | low — tightens trigger validation | **done** |
 | A4 | — | §4.3 `ti` type alias | cosmetic | **not possible on 2.11** — done in doc B §3.1 as an import alias |
 | A7 | `airflow_3_prep_V` | §3.5 `get_xcom` applies `default` itself | **high value** — the other half of A5; without it the two corruption gates raise `TypeError` on 3.x | **done** |
-| A8 | `airflow_3_prep_V` | §4.5 move `callbacks.py` into `dags/` | low on 2.11; **blocker** on 3.x | **done** |
+| A8 | `airflow_3_prep_V` | §4.5 move the quanting exceptions out of `dags/` | low on 2.11; **blocker** on 3.x | **done** |
 
 Baseline with the full stack: **543 passed on 2.11**. During the test migration (previous base),
 3.3.1 showed **2 failures** — both `tests/common/test_utils.py::test_trigger_dag_run{,_with_delay}`:

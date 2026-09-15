@@ -45,5 +45,7 @@ def get_output_folder_rel_path(
         / f"{OUTPUT_FOLDER_PREFIX}{raw_file.id}"
     )
     if settings is not None:
-        path = path / f"{settings.name}_v{settings.version}"
+        path = (
+            path / f"{settings.name}_v{settings.version}"
+        )  # TODO: could be moved to settings class
     return path

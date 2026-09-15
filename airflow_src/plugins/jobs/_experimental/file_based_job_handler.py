@@ -44,7 +44,7 @@ class FileBasedJobHandler(JobHandler):
             Job ID (in the case of this handler, it's the relative output path)
 
         """
-        job_id = quanting_env.relative_output_path
+        job_id = quanting_env.relative_output_path  # TODO: this is a hack!
         job_file_path = self._job_submit_dir / f"{job_id.replace('/', '__')}.job"
 
         if job_file_path.exists():

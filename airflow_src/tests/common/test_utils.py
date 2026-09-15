@@ -97,6 +97,28 @@ def test_xcom_pull_with_none_default() -> None:
     )
 
 
+def test_xcom_pull_returns_default_when_airflow_ignores_it() -> None:
+    """Test that the default is applied even when xcom_pull returns None despite being given one.
+
+    Airflow 3 ignores `default` on the code path taken when `map_indexes` is not passed.
+    """
+    ti = Mock()
+    ti.xcom_pull = Mock(return_value=None)
+
+    # when
+    assert get_xcom(ti, "key1", task_ids="task1", default=[]) == []
+
+
+def test_xcom_pull_raises_when_no_value_and_no_default() -> None:
+    """Test that a missing value without a default still raises."""
+    ti = Mock()
+    ti.xcom_pull = Mock(return_value=None)
+
+    # when
+    with pytest.raises(KeyError):
+        get_xcom(ti, "key1", task_ids="task1")
+
+
 def test_xcom_pull_with_task_ids() -> None:
     """Test that get_xcom passes task_ids to xcom_pull."""
     ti = Mock()

@@ -251,7 +251,8 @@ def assign_settings_to_project(  # noqa: PLR0913
             f"Cannot assign archived settings '{settings.name}' version {settings.version}"
         )
 
-    scopes = scopes or [DEFAULT_SCOPE]
+    # the default scope matches everything, so any other entry next to it is redundant
+    scopes = [DEFAULT_SCOPE] if not scopes or DEFAULT_SCOPE in scopes else scopes
     excluded_scopes = excluded_scopes or []
     raw_file_id_filter = raw_file_id_filter or []
     raw_file_id_exclude_filter = raw_file_id_exclude_filter or []

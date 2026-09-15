@@ -551,6 +551,30 @@ def test_assign_settings_to_project_passes_all_fields(
 
 @patch("shared.db.interface.connect_db")
 @patch("shared.db.interface.ProjectSettings")
+@patch("shared.db.interface.Settings")
+@patch("shared.db.interface.Project")
+def test_assign_settings_to_project_default_scope_absorbs_other_scopes(
+    mock_project: MagicMock,
+    mock_settings: MagicMock,
+    mock_project_settings: MagicMock,
+    mock_connect_db: MagicMock,  # noqa: ARG001
+) -> None:
+    """Test that scopes listed next to the default scope are dropped."""
+    mock_project.objects.get.return_value = MagicMock()
+    mock_settings_instance = MagicMock()
+    mock_settings_instance.status = "active"
+    mock_settings.objects.get.return_value = mock_settings_instance
+    mock_project_settings.objects.return_value = []
+
+    assign_settings_to_project(
+        "P1234", "settings_id", scopes=["thermo", "*", "astral1"]
+    )
+
+    assert mock_project_settings.call_args.kwargs["scopes"] == ["*"]
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.ProjectSettings")
 def test_unassign_settings_from_project(
     mock_project_settings: MagicMock, mock_connect_db: MagicMock
 ) -> None:

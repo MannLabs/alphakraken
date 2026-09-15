@@ -12,6 +12,7 @@ _INSTRUMENTS_CONFIG = {"instr1": {"type": "thermo"}, "instr2": {"type": "bruker"
 
 def _settings(name: str, software_type: str) -> MagicMock:
     s = MagicMock(
+        id=name,
         version=1,
         software_type=software_type,
         software="sw",
@@ -66,3 +67,32 @@ def test_get_resolved_settings_df_warns_on_same_software_type(
 
     flagged = [SAME_SOFTWARE_TYPE_WARNING in s for s in df["settings"]]
     assert flagged == [True, True, False]
+
+
+@patch("pages_.impl.projects_utils.get_project_settings")
+def test_get_resolved_settings_df_annotates_file_name_filters(
+    mock_get_ps: MagicMock,
+) -> None:
+    """Test that the filters of the matching assignment are shown, those of a non-matching one not."""
+    a = _settings("a", "alphadia")
+    ps_match = MagicMock(
+        settings=a,
+        scopes=["thermo"],
+        excluded_scopes=[],
+        raw_file_id_filter=["PP", "QQ"],
+        raw_file_id_exclude_filter=["blank"],
+    )
+    ps_other_instrument = MagicMock(
+        settings=a,
+        scopes=["bruker"],
+        excluded_scopes=[],
+        raw_file_id_filter=["ZZ"],
+        raw_file_id_exclude_filter=[],
+    )
+    mock_get_ps.return_value = [ps_match, ps_other_instrument]
+
+    df = get_resolved_settings_df("P1", ["instr1"], _INSTRUMENTS_CONFIG)
+
+    assert df["settings"].tolist() == [
+        "a version 1 (alphadia) (only for files containing: PP, QQ; not for files containing: blank)"
+    ]

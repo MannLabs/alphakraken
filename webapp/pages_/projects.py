@@ -38,6 +38,7 @@ from shared.yamlsettings import YAMLSETTINGS, YamlKeys
 _INSTRUMENTS_CONFIG = YAMLSETTINGS.get(YamlKeys.INSTRUMENTS, {})
 _INSTRUMENT_IDS = list(_INSTRUMENTS_CONFIG.keys())
 SCOPE_OPTIONS = [DEFAULT_SCOPE, *KNOWN_VENDOR_NAMES, *_INSTRUMENT_IDS]
+DEFAULT_SCOPE_DISPLAY = "(all)"
 
 _log(f"loading {__file__} {get_all_query_params()}")
 
@@ -45,6 +46,11 @@ _log(f"loading {__file__} {get_all_query_params()}")
 def _split_filter(text: str) -> list[str]:
     """Split a comma-separated filter input into its non-empty entries."""
     return [t.strip() for t in text.split(",") if t.strip()]
+
+
+def _display_scope(scope: str) -> str:
+    """Get the display name of a scope."""
+    return DEFAULT_SCOPE_DISPLAY if scope == DEFAULT_SCOPE else scope
 
 
 # ########################################### PAGE HEADER
@@ -164,7 +170,7 @@ with c_assign1:
                     else ""
                 )
                 col_info.write(
-                    f"`[scopes: {', '.join(ps.scopes)}]` '{ps.settings.name}' version {ps.settings.version} (type: `{ps.settings.software_type}`, executable: `{ps.settings.software}`){excluded_str}{filter_str}{exclude_filter_str}"
+                    f"`[scopes: {', '.join(map(_display_scope, ps.scopes))}]` '{ps.settings.name}' version {ps.settings.version} (type: `{ps.settings.software_type}`, executable: `{ps.settings.software}`){excluded_str}{filter_str}{exclude_filter_str}"
                 )
                 ps_id = str(ps.id)  # type: ignore[unresolved-attribute]
                 latest = get_latest_active_settings_by_name(ps.settings.name)
@@ -241,8 +247,9 @@ with c_assign1:
                 "Select instrument or vendor scopes",
                 options=SCOPE_OPTIONS,
                 default=[DEFAULT_SCOPE],
+                format_func=_display_scope,
                 key="assign_scopes_select",
-                help="Settings apply if any scope matches: '*' = all instruments, vendor name = all instruments of that vendor, instrument ID = that instrument.",
+                help=f"Settings apply if any scope matches: '{DEFAULT_SCOPE_DISPLAY}' = all instruments, vendor name = all instruments of that vendor, instrument ID = that instrument.",
             )
 
             selected_excluded_scopes = c2.multiselect(
@@ -367,7 +374,7 @@ with c1.expander("Click here for help ..."):
         - Multiple projects can share the same settings
         - You can remove individual settings assignments using the "Remove" button
         - Only active (non-archived) settings can be assigned
-        - The "scopes" define for which instruments the settings apply: `*` means all instruments, otherwise a vendor or an instrument id. An assignment applies if any of its scopes matches and none of its excluded scopes does.
+        - The "scopes" define for which instruments the settings apply: `(all)` means all instruments, otherwise a vendor or an instrument id. An assignment applies if any of its scopes matches and none of its excluded scopes does.
         - The file name filters narrow this further: "contains any of" must match (empty = all files), "contains none of" must not match. Exclusion always wins over inclusion.
         - Every assignment that matches a raw file is run. There is no precedence: to restrict an assignment, exclude explicitly.
         """,

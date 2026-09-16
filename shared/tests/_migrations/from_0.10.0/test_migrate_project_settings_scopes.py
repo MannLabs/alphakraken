@@ -168,7 +168,19 @@ def test_cofiring_report_respects_exclusions_and_partitions() -> None:
 
 
 def test_cofiring_report_same_level_first_wins() -> None:
-    """Test that of two '*' assignments of one software_type, the second is the newly firing one."""
+    """Test that of two unfiltered '*' assignments of one software_type, the second is the newly firing one."""
+    docs = [
+        {"_id": 1, "project": "P1", "settings": "a", "scope": "*"},
+        {"_id": 2, "project": "P1", "settings": "b", "scope": "*"},
+    ]
+
+    report = migration.build_cofiring_report(docs, _SETTINGS, {"instr1": "thermo"})
+
+    assert report == {("P1", "instr1"): ["b v2 (alphadia, scope='*')"]}
+
+
+def test_cofiring_report_filtered_assignment_won_before() -> None:
+    """Test that the unfiltered assignment is the newly firing one, and only for files matching the filter."""
     docs = [
         {"_id": 1, "project": "P1", "settings": "a", "scope": "*"},
         {
@@ -182,4 +194,30 @@ def test_cofiring_report_same_level_first_wins() -> None:
 
     report = migration.build_cofiring_report(docs, _SETTINGS, {"instr1": "thermo"})
 
-    assert report == {("P1", "instr1"): ["b v2 (alphadia, scope='*', filter='x')"]}
+    assert report == {
+        ("P1", "instr1"): ["a v1 (alphadia, scope='*') [files matching 'x']"]
+    }
+
+
+def test_cofiring_report_disjoint_filters_do_not_cofire() -> None:
+    """Test that two assignments with different filters are never eligible for the same file."""
+    docs = [
+        {
+            "_id": 1,
+            "project": "P1",
+            "settings": "a",
+            "scope": "*",
+            "raw_file_id_filter": "HeLa",
+        },
+        {
+            "_id": 2,
+            "project": "P1",
+            "settings": "b",
+            "scope": "*",
+            "raw_file_id_filter": "Plasma",
+        },
+    ]
+
+    report = migration.build_cofiring_report(docs, _SETTINGS, {"instr1": "thermo"})
+
+    assert report == {}

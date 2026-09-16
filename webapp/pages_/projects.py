@@ -277,7 +277,7 @@ with c_assign1:
                 )
             if st.button(
                 f"Assign selected settings to project {selected_project_id}",
-                disabled=disable_write,
+                disabled=disable_write or not selected_scopes,
                 help=f"Assign of the selected settings to the project with the specified scope. {'Temporarily disabled.' if DISABLE_WRITE else ''}",
                 icon=":material/link:",
             ):

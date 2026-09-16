@@ -116,19 +116,54 @@ def _matching(
     return result
 
 
-def _old_winners(
-    matching: list[tuple[int, dict]], settings_by_id: dict[Any, dict]
-) -> set[Any]:
-    """IDs of the docs the pre-migration resolver kept: highest level per software_type, first wins.
+def _filter_of(doc: dict) -> str:
+    return doc.get("raw_file_id_filter") or ""
 
-    Mirrors the webapp preview (raw_file_id=None), where the file-name filter gave no priority.
+
+def _old_winners(
+    eligible: list[tuple[int, dict]], settings_by_id: dict[Any, dict]
+) -> set[Any]:
+    """IDs of the docs the pre-migration resolver kept for one raw file.
+
+    Highest (scope level, filter length) per software_type, first wins on ties.
     """
-    ranked = sorted(enumerate(matching), key=lambda x: (x[1][0], -x[0]), reverse=True)
+    ranked = sorted(
+        enumerate(eligible),
+        key=lambda x: (x[1][0], len(_filter_of(x[1][1])), -x[0]),
+        reverse=True,
+    )
     winners: dict[str, Any] = {}
     for _, (_, doc) in ranked:
         software_type = settings_by_id[doc["settings"]]["software_type"]
         winners.setdefault(software_type, doc["_id"])
     return set(winners.values())
+
+
+def _newly_firing(
+    matching: list[tuple[int, dict]], settings_by_id: dict[Any, dict]
+) -> list[str]:
+    """Assignments overridden before but firing now, per class of raw files.
+
+    A raw file matching filter F was eligible for the unfiltered docs and the docs with filter F;
+    a file matching no filter only for the unfiltered ones. Filters are assumed not to overlap.
+    """
+    result = []
+    for filter_value in sorted({_filter_of(doc) for _, doc in matching}):
+        eligible = [
+            (level, doc)
+            for level, doc in matching
+            if _filter_of(doc) in ("", filter_value)
+        ]
+        if len(eligible) < 2:  # noqa: PLR2004
+            continue
+        winners = _old_winners(eligible, settings_by_id)
+        suffix = f" [files matching {filter_value!r}]" if filter_value else ""
+        result.extend(
+            _describe(doc, settings_by_id) + suffix
+            for _, doc in eligible
+            if doc["_id"] not in winners
+        )
+    return result
 
 
 def build_cofiring_report(
@@ -145,14 +180,7 @@ def build_cofiring_report(
     for project_id, docs in sorted(by_project.items()):
         for instrument_id, instrument_type in instruments.items():
             matching = _matching(docs, instrument_id, instrument_type)
-            if len(matching) < 2:  # noqa: PLR2004
-                continue
-            winners = _old_winners(matching, settings_by_id)
-            newly_firing = [
-                _describe(doc, settings_by_id)
-                for _, doc in matching
-                if doc["_id"] not in winners
-            ]
+            newly_firing = _newly_firing(matching, settings_by_id)
             if newly_firing:
                 report[(project_id, instrument_id)] = newly_firing
     return report
@@ -160,7 +188,7 @@ def build_cofiring_report(
 
 def _describe(doc: dict, settings_by_id: dict[Any, dict]) -> str:
     s = settings_by_id[doc["settings"]]
-    filter_str = f", filter={f!r}" if (f := doc.get("raw_file_id_filter")) else ""
+    filter_str = f", filter={f!r}" if (f := _filter_of(doc)) else ""
     return f"{s['name']} v{s['version']} ({s['software_type']}, scope={doc['scope']!r}{filter_str})"
 
 

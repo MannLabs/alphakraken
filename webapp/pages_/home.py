@@ -97,7 +97,7 @@ acquisition is considered "finished".
 Q: Where to I find the AlphaDIA output files?
 
 A:  The output files associated for a given raw file are stored at
-   `{output_path}/<project_id>/out_<raw_file_name>/`
+   `{output_path}/<project_id>/out_<raw_file_name>/<settings_name>_v<version>/`
 
 
 Q: A lot of jobs are stuck in status "quanting" or "queued_for_quanting".

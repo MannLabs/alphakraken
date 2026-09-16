@@ -7,9 +7,10 @@ no migration, see step 7.
 
 **The whole upgrade is a strict cutover in a maintenance window**: stop the schedulers, migrate,
 deploy, restart, in that order. There is no compatibility read for the `ProjectSettings` change.
-Deploying the new code onto an un-migrated DB leaves `scopes` empty on every assignment, so no
-settings resolve, and every new file terminates as `DONE_NOT_QUANTED`. That status is terminal:
-those files are never retried and nothing alerts.
+Deploying the new code onto an un-migrated DB loads every assignment with the default `scopes`
+(`["*"]`), no exclusions, and the legacy `raw_file_id_filter` string, which the resolver iterates
+character by character. Every legacy assignment then fires on every instrument and on nearly
+every file. Nothing errors and nothing alerts: the result is silent over-quanting.
 
 Commands below assume `export ENV=production`; substitute your environment.
 

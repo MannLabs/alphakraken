@@ -271,7 +271,9 @@ def assign_settings_to_project(  # noqa: PLR0913
     ps = ProjectSettings(
         project=project,
         settings=settings,
-        scopes=scopes,  # scopes are validated on frontend only
+        # TODO: validate here, not only on the frontend: reject DEFAULT_SCOPE in excluded_scopes
+        #  and scopes overlapping excluded_scopes, both silently match nothing
+        scopes=scopes,
         excluded_scopes=excluded_scopes,
         raw_file_id_filter=raw_file_id_filter,
         raw_file_id_exclude_filter=raw_file_id_exclude_filter,

@@ -310,10 +310,13 @@ At least one connection is required to interact with the Slurm cluster.
     - Password: `<password of user kraken-read>`
 3. (optional) Click "Test" to verify the connection.
 4. Click "Save".
+5. Add the connection id to the comma-separated Airflow Variable `cluster_ssh_connection_ids`
+("Admin" -> "Variables"), e.g. `cluster_ssh_connection` or `cluster_ssh_connection_1,cluster_ssh_connection_2`.
 Note: make sure to use the `kraken-read` user with read-only access to the backup pool folder.
 
-A runner selects its connections by prefix: it uses every connection (manged in Airflow UI) whose id starts with its
-`ssh_connection_id_prefix`, cycling through them on retries.
+A runner selects its connections by prefix: it uses every id in `cluster_ssh_connection_ids` that starts with its
+`ssh_connection_id_prefix`, cycling through them on retries. A connection that is not listed in the Variable is
+silently ignored.
 
 
 ### Setup required pools

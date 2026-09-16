@@ -16,12 +16,9 @@ import logging
 
 from airflow.exceptions import AirflowFailException
 from common.keys import JobStates
-from common.paths import get_internal_output_path_for_raw_file
 from common.quanting_env import QuantingEnv
 from jobs.job_handler import JobHandler
 
-from shared.db.interface import get_raw_file_by_id
-from shared.keys import SoftwareTypes
 from shared.path_views import AIRFLOW_CONTAINER_VIEW, Locations
 
 
@@ -44,11 +41,11 @@ class FileBasedJobHandler(JobHandler):
             quanting_env: Environment of the job to submit
 
         Returns:
-            Job ID (in the case of this handler, it's the raw file id)
+            Job ID (in the case of this handler, it's the relative output path)
 
         """
-        raw_file_id = quanting_env.raw_file_id
-        job_file_path = self._job_submit_dir / f"{raw_file_id}.job"
+        job_id = quanting_env.relative_output_path  # TODO: this is a terrible hack now!
+        job_file_path = self._job_submit_dir / f"{job_id.replace('/', '__')}.job"
 
         if job_file_path.exists():
             raise AirflowFailException(
@@ -73,25 +70,20 @@ class FileBasedJobHandler(JobHandler):
             logging.exception("Failed to create job submit directory.")
             raise AirflowFailException from e
 
-        logging.info(f"Job file created for raw_file_id: {raw_file_id}")
-        return raw_file_id
+        logging.info(f"Job file created for {job_id=}")
+        return job_id
 
     def get_job_status(self, job_id: str) -> str:
         """Get the status of a job by checking the job_status.log file.
 
         Args:
-            job_id: Job ID (raw_file_id)
+            job_id: Job ID (relative output path)
 
         Returns:
             Job status string (PENDING, RUNNING, COMPLETED, FAILED)
 
         """
-        raw_file = get_raw_file_by_id(job_id)
-
-        output_path = get_internal_output_path_for_raw_file(
-            raw_file,
-            software_type=SoftwareTypes.CUSTOM,  # this assumption makes life much easier, and should not limit flexibility too much
-        )
+        output_path = AIRFLOW_CONTAINER_VIEW.resolve(Locations.OUTPUT, job_id)
         status_file = output_path / "job_status.log"
 
         if not status_file.exists():
@@ -121,7 +113,7 @@ class FileBasedJobHandler(JobHandler):
         """Get the job status and execution time.
 
         Args:
-            job_id: Job ID (raw_file_id)
+            job_id: Job ID (relative output path)
 
         Returns:
             Tuple of (job_status, time_elapsed_seconds)

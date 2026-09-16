@@ -101,9 +101,12 @@ class DockerJobHandler(JobHandler):
             if not path.exists():
                 raise AirflowFailException(f"Path {path} does not exist in the worker.")
 
+        # namespaced by settings: several settings may run on the same raw file concurrently
+        settings_unique_name = (
+            f"{quanting_env.settings_name}-v{quanting_env.settings_version}"
+        )
         container_name = _to_container_name(
-            f"{CONTAINER_NAME_PREFIX}-{quanting_env.software_type}-"
-            f"{quanting_env.raw_file_id}"
+            f"{CONTAINER_NAME_PREFIX}-{settings_unique_name}-{quanting_env.raw_file_id}"
         )
         self._remove_container(container_name)
 
@@ -141,7 +144,7 @@ class DockerJobHandler(JobHandler):
             # the same variables that the Slurm engine exports before the job script
             environment=quanting_env.to_exportable_dict(),
             labels={
-                JOB_LABEL: quanting_env.raw_file_id,
+                JOB_LABEL: f"{quanting_env.raw_file_id}/{settings_unique_name}",
                 OUTPUT_PATH_LABEL: str(internal_output_path),
             },
             # write output files with the same ownership as the worker would

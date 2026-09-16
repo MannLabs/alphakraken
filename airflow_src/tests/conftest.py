@@ -13,8 +13,8 @@ from common.quanting_env import QuantingEnv
 _QUANTING_ENV_DEFAULTS = {
     "raw_file_path": "/pool/backup/instrument1/1970_01/test_file.raw",
     "settings_path": "/pool/settings/test_settings",
-    "output_path": "/pool/output/PID1/out_test_file.raw/alphadia",
-    "relative_output_path": "PID1/out_test_file.raw/alphadia",
+    "output_path": "/pool/output/PID1/out_test_file.raw/test_settings_v1",
+    "relative_output_path": "PID1/out_test_file.raw/test_settings_v1",
     "speclib_file_name": "some_speclib_file_name",
     "fasta_file_name": "some_fasta_file_name",
     "config_file_name": "some_config_file_name",

@@ -19,7 +19,7 @@ Three axes are conflated today:
 | Axis | Values |
 |---|---|
 | **location** | backup, output, settings, software, slurm, instruments, logs |
-| **layout** | `<instrument>/<YYYY_MM>/<raw_file_id>`, `<project>/[<YYYY_MM>]/out_<raw_file_id>/<software_type>` |
+| **layout** | `<instrument>/<YYYY_MM>/<raw_file_id>`, `<project>/[<YYYY_MM>]/out_<raw_file_id>/<settings_name>_v<version>` |
 | **view** | container, cluster, docker-host, SMB source (+ the new Windows one) |
 
 The view is chosen *implicitly*, by which accessor a caller happens to import

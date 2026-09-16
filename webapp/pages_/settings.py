@@ -444,7 +444,7 @@ upload_checkbox = (
         "I have uploaded all referenced files to this folder and checked the software is available.",
         value=False,
     )
-    if referenced_files
+    if referenced_files or selected_software_option == ADD_NEW_SOFTWARE_OPTION
     else True
 )
 

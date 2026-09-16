@@ -234,12 +234,13 @@ def get_all_project_ids() -> list[str]:
     return [p.id for p in Project.objects.all()]
 
 
-def assign_settings_to_project(
+def assign_settings_to_project(  # noqa: PLR0913
     project_id: str,
     settings_id: str,
-    scope: str = DEFAULT_SCOPE,
-    excluded: list[str] | None = None,
-    raw_file_id_filter: str | None = None,
+    scopes: list[str] | None = None,
+    excluded_scopes: list[str] | None = None,
+    raw_file_id_filter: list[str] | None = None,
+    raw_file_id_exclude_filter: list[str] | None = None,
 ) -> ProjectSettings:
     """Create a new project-settings assignment."""
     connect_db()
@@ -250,28 +251,55 @@ def assign_settings_to_project(
             f"Cannot assign archived settings '{settings.name}' version {settings.version}"
         )
 
-    existing = ProjectSettings.objects(project=project, scope=scope)
-    for ps_existing in existing:
-        if (
-            ps_existing.settings.software_type == settings.software_type
-            and ps_existing.raw_file_id_filter == (raw_file_id_filter or "")
-        ):
-            raise ValueError(
-                f"Settings with software_type '{settings.software_type}' already assigned "
-                f"to project '{project_id}' with scope '{scope}'"
-            )
+    # the default scope matches everything, so any other entry next to it is redundant
+    scopes = [DEFAULT_SCOPE] if not scopes or DEFAULT_SCOPE in scopes else scopes
+    excluded_scopes = excluded_scopes or []
+    raw_file_id_filter = raw_file_id_filter or []
+    raw_file_id_exclude_filter = raw_file_id_exclude_filter or []
+
+    check_not_assigned_with_same_filters(
+        project_id, settings, raw_file_id_filter, raw_file_id_exclude_filter
+    )
+
     ps = ProjectSettings(
         project=project,
         settings=settings,
-        scope=scope,  # scope is validated on frontend only
-        excluded=excluded or [],
-        raw_file_id_filter=raw_file_id_filter or "",
+        # TODO: validate here, not only on the frontend: reject DEFAULT_SCOPE in excluded_scopes
+        #  and scopes overlapping excluded_scopes, both silently match nothing
+        scopes=scopes,
+        excluded_scopes=excluded_scopes,
+        raw_file_id_filter=raw_file_id_filter,
+        raw_file_id_exclude_filter=raw_file_id_exclude_filter,
     )
     ps.save()
     logging.info(
-        f"Created project-settings assignment: {project_id=} {settings.name=} {scope=} {excluded=} {raw_file_id_filter=}"
+        f"Created project-settings assignment: {project_id=} {settings.name=} {scopes=} "
+        f"{excluded_scopes=} {raw_file_id_filter=} {raw_file_id_exclude_filter=}"
     )
     return ps
+
+
+def check_not_assigned_with_same_filters(
+    project_id: str,
+    settings: Settings,
+    raw_file_id_filter: list[str],
+    raw_file_id_exclude_filter: list[str],
+) -> None:
+    """Raise if the settings are already assigned to the project with identical file name filters."""
+    connect_db()
+    for ps_existing in ProjectSettings.objects(project=project_id, settings=settings):
+        if set(ps_existing.raw_file_id_filter) == set(raw_file_id_filter) and _lower(
+            ps_existing.raw_file_id_exclude_filter
+        ) == _lower(raw_file_id_exclude_filter):
+            raise ValueError(
+                f"Settings '{settings.name}' version {settings.version} already assigned "
+                f"to project '{project_id}' with the same file name filters. "
+                "Unlink the existing assignment and re-assign with the merged scopes."
+            )
+
+
+def _lower(filters: list[str]) -> set[str]:
+    return {f.lower() for f in filters}
 
 
 def unassign_settings_from_project(project_settings_id: str) -> None:

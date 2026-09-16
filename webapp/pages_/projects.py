@@ -25,6 +25,7 @@ from service.utils import (
 from shared.db.interface import (
     add_project,
     assign_settings_to_project,
+    check_not_assigned_with_same_filters,
     get_all_settings,
     get_latest_active_settings_by_name,
     get_project_settings,
@@ -38,8 +39,20 @@ from shared.yamlsettings import YAMLSETTINGS, YamlKeys
 _INSTRUMENTS_CONFIG = YAMLSETTINGS.get(YamlKeys.INSTRUMENTS, {})
 _INSTRUMENT_IDS = list(_INSTRUMENTS_CONFIG.keys())
 SCOPE_OPTIONS = [DEFAULT_SCOPE, *KNOWN_VENDOR_NAMES, *_INSTRUMENT_IDS]
+DEFAULT_SCOPE_DISPLAY = "(all)"
 
 _log(f"loading {__file__} {get_all_query_params()}")
+
+
+def _split_filter(text: str) -> list[str]:
+    """Split a comma-separated filter input into its non-empty entries."""
+    return [t.strip() for t in text.split(",") if t.strip()]
+
+
+def _display_scope(scope: str) -> str:
+    """Get the display name of a scope."""
+    return DEFAULT_SCOPE_DISPLAY if scope == DEFAULT_SCOPE else scope
+
 
 # ########################################### PAGE HEADER
 
@@ -88,7 +101,7 @@ def display_projects(
 
     st_display.table(filtered_df)
     st_display.markdown(
-        f"Output files are stored at `{DISPLAY_PATHS[Locations.OUTPUT]}/<project id>/out_<raw file name>/<software_type>/`. "
+        f"Output files are stored at `{DISPLAY_PATHS[Locations.OUTPUT]}/<project id>/out_<raw file name>/<settings name>_v<version>/`. "
         "In case you don't know your project ID, it's most likely `_FALLBACK`."
     )
 
@@ -143,15 +156,22 @@ with c_assign1:
             for ps in current_ps_list:
                 col_info, col_unlink, col_update = st.columns([0.8, 0.1, 0.1])
                 excluded_str = (
-                    f" [excluded: {', '.join(ps.excluded)}]" if ps.excluded else ""
+                    f" [excluded: {', '.join(ps.excluded_scopes)}]"
+                    if ps.excluded_scopes
+                    else ""
                 )
                 filter_str = (
-                    f" [file name contains: {ps.raw_file_id_filter}]"
+                    f" [file name contains any of: {', '.join(ps.raw_file_id_filter)}]"
                     if ps.raw_file_id_filter
                     else ""
                 )
+                exclude_filter_str = (
+                    f" [file name contains none of: {', '.join(ps.raw_file_id_exclude_filter)}]"
+                    if ps.raw_file_id_exclude_filter
+                    else ""
+                )
                 col_info.write(
-                    f"`[scope: {ps.scope}]` '{ps.settings.name}' version {ps.settings.version} (type: `{ps.settings.software_type}`, executable: `{ps.settings.software}`){excluded_str}{filter_str}"
+                    f"`[scopes: {', '.join(map(_display_scope, ps.scopes))}]` '{ps.settings.name}' version {ps.settings.version} (type: `{ps.settings.software_type}`, executable: `{ps.settings.software}`){excluded_str}{filter_str}{exclude_filter_str}"
                 )
                 ps_id = str(ps.id)  # type: ignore[unresolved-attribute]
                 latest = get_latest_active_settings_by_name(ps.settings.name)
@@ -186,13 +206,22 @@ with c_assign1:
                     icon=":material/upgrade:",
                 ):
                     try:
+                        check_not_assigned_with_same_filters(
+                            selected_project_id,
+                            latest,  # type: ignore[arg-type]
+                            list(ps.raw_file_id_filter),
+                            list(ps.raw_file_id_exclude_filter),
+                        )
                         unassign_settings_from_project(ps_id)  # type: ignore[unresolved-attribute]
                         assign_settings_to_project(
                             selected_project_id,
                             str(latest.id),  # type: ignore[union-attr, unresolved-attribute]
-                            scope=ps.scope,
-                            excluded=list(ps.excluded),
-                            raw_file_id_filter=ps.raw_file_id_filter or None,
+                            scopes=list(ps.scopes),
+                            excluded_scopes=list(ps.excluded_scopes),
+                            raw_file_id_filter=list(ps.raw_file_id_filter),
+                            raw_file_id_exclude_filter=list(
+                                ps.raw_file_id_exclude_filter
+                            ),
                         )
                         show_success_toast(
                             f"Updated '{ps.settings.name}' to version {latest.version}."  # type: ignore[union-attr]
@@ -220,25 +249,33 @@ with c_assign1:
                 key="assign_settings_select",
             )
 
-            c1, c2, c3 = st.columns([0.33, 0.33, 0.33])
-            selected_scope = c1.selectbox(
-                "Select instrument or vendor scope",
+            c1, c2, c3, c4 = st.columns([0.25, 0.25, 0.25, 0.25])
+            selected_scopes = c1.multiselect(
+                "Select instrument or vendor scopes",
                 options=SCOPE_OPTIONS,
-                key="assign_scope_select",
-                help="'*' = all instruments, vendor name = vendor-specific, instrument ID = instrument-specific",
+                default=[DEFAULT_SCOPE],
+                format_func=_display_scope,
+                key="assign_scopes_select",
+                help=f"Settings apply if any scope matches: '{DEFAULT_SCOPE_DISPLAY}' = all instruments, vendor name = all instruments of that vendor, instrument ID = that instrument.",
             )
 
-            selected_excluded = c2.multiselect(
-                "Exclude instruments from scope (optional)",
-                options=_INSTRUMENT_IDS,
-                key="assign_excluded_select",
-                help="Instruments to exclude from this scope assignment.",
+            selected_excluded_scopes = c2.multiselect(
+                "Exclude scopes (optional)",
+                options=SCOPE_OPTIONS[1:],
+                key="assign_excluded_scopes_select",
+                help="Vendors or instruments to exclude. Exclusion wins over inclusion.",
             )
 
             raw_file_id_filter_input = c3.text_input(
-                "Raw file name contains (optional)",
+                "Raw file name contains any of (optional)",
                 key="assign_raw_file_id_filter",
-                help="Settings apply only if the raw file ID contains this string. Case sensitive. Leave empty to apply to all files.",
+                help="Comma-separated. Settings apply only if the raw file ID contains at least one entry. Case sensitive. Leave empty to apply to all files.",
+            )
+
+            raw_file_id_exclude_filter_input = c4.text_input(
+                "Raw file name contains none of (optional)",
+                key="assign_raw_file_id_exclude_filter",
+                help="Comma-separated. Settings do not apply if the raw file ID contains any entry. Case insensitive. Exclusion wins over inclusion.",
             )
 
             if disable_write:
@@ -247,7 +284,7 @@ with c_assign1:
                 )
             if st.button(
                 f"Assign selected settings to project {selected_project_id}",
-                disabled=disable_write,
+                disabled=disable_write or not selected_scopes,
                 help=f"Assign of the selected settings to the project with the specified scope. {'Temporarily disabled.' if DISABLE_WRITE else ''}",
                 icon=":material/link:",
             ):
@@ -256,9 +293,12 @@ with c_assign1:
                     assign_settings_to_project(
                         selected_project_id,
                         new_settings_id,
-                        scope=selected_scope,
-                        excluded=selected_excluded,
-                        raw_file_id_filter=raw_file_id_filter_input.strip() or None,
+                        scopes=selected_scopes,
+                        excluded_scopes=selected_excluded_scopes,
+                        raw_file_id_filter=_split_filter(raw_file_id_filter_input),
+                        raw_file_id_exclude_filter=_split_filter(
+                            raw_file_id_exclude_filter_input
+                        ),
                     )
                     show_success_toast(
                         f"Assigned settings '{selected_settings_display}' to project {selected_project_id}."
@@ -341,8 +381,9 @@ with c1.expander("Click here for help ..."):
         - Multiple projects can share the same settings
         - You can remove individual settings assignments using the "Remove" button
         - Only active (non-archived) settings can be assigned
-        - A certain software type can only be assigned once for a scope
-        - The "scope" defines for which instruments the settings should be applied. `*` means all instruments, otherwise you can choose a specific vendor or instrument id. If multiple settings match for a given instrument, then the most specific one gets picked (e.g. instrument-specific over vendor-specific over '*').
+        - The "scopes" define for which instruments the settings apply: `(all)` means all instruments, otherwise a vendor or an instrument id. An assignment applies if any of its scopes matches and none of its excluded scopes does.
+        - The file name filters narrow this further: "contains any of" must match (empty = all files), "contains none of" must not match. Exclusion always wins over inclusion.
+        - Every assignment that matches a raw file is run. There is no precedence: to restrict an assignment, exclude explicitly.
         """,
         icon="ℹ️",  # noqa: RUF001
     )

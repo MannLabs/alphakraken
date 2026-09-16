@@ -275,7 +275,7 @@ with c_assign1:
             raw_file_id_exclude_filter_input = c4.text_input(
                 "Raw file name contains none of (optional)",
                 key="assign_raw_file_id_exclude_filter",
-                help="Comma-separated. Settings do not apply if the raw file ID contains any entry. Case sensitive. Exclusion wins over inclusion.",
+                help="Comma-separated. Settings do not apply if the raw file ID contains any entry. Case insensitive. Exclusion wins over inclusion.",
             )
 
             if disable_write:

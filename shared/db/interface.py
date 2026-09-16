@@ -288,15 +288,18 @@ def check_not_assigned_with_same_filters(
     """Raise if the settings are already assigned to the project with identical file name filters."""
     connect_db()
     for ps_existing in ProjectSettings.objects(project=project_id, settings=settings):
-        if (
-            list(ps_existing.raw_file_id_filter) == raw_file_id_filter
-            and list(ps_existing.raw_file_id_exclude_filter)
-            == raw_file_id_exclude_filter
-        ):
+        if set(ps_existing.raw_file_id_filter) == set(raw_file_id_filter) and _lower(
+            ps_existing.raw_file_id_exclude_filter
+        ) == _lower(raw_file_id_exclude_filter):
             raise ValueError(
                 f"Settings '{settings.name}' version {settings.version} already assigned "
-                f"to project '{project_id}' with the same file name filters."
+                f"to project '{project_id}' with the same file name filters. "
+                "Unlink the existing assignment and re-assign with the merged scopes."
             )
+
+
+def _lower(filters: list[str]) -> set[str]:
+    return {f.lower() for f in filters}
 
 
 def unassign_settings_from_project(project_settings_id: str) -> None:

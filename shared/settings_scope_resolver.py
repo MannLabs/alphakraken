@@ -17,7 +17,7 @@ def resolve_scoped_settings(
 
     An assignment applies if any of its `scopes` matches the instrument, none of its
     `excluded_scopes` matches, the raw file ID contains any entry of `raw_file_id_filter`
-    (empty = all files) and none of `raw_file_id_exclude_filter`. Exclusion beats inclusion.
+    (empty = all files) and none of `raw_file_id_exclude_filter` (case-insensitive). Exclusion beats inclusion.
 
     When raw_file_id is None (webapp preview), both file-name filters are ignored.
 
@@ -81,8 +81,8 @@ def _name_included(filters: list[str], raw_file_id: str) -> bool:
 
 
 def _name_excluded(filters: list[str], raw_file_id: str) -> bool:
-    """Return True if the raw file ID contains any of the filters."""
-    return any(f in raw_file_id for f in filters or [])
+    """Return True if the raw file ID contains any of the filters, case-insensitive."""
+    return any(f.lower() in raw_file_id.lower() for f in filters or [])
 
 
 def _unique_by_id(settings_list: list[Settings]) -> list[Settings]:

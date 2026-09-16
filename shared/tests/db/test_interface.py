@@ -461,7 +461,7 @@ def test_assign_settings_to_project_same_settings_same_filters_raises(
     mock_project_settings: MagicMock,
     mock_connect_db: MagicMock,  # noqa: ARG001
 ) -> None:
-    """Test that assigning the same settings twice with identical file-name filters raises ValueError."""
+    """Test that assigning the same settings twice with identical (reordered, differently cased) file-name filters raises ValueError."""
     mock_project.objects.get.return_value = MagicMock()
 
     mock_settings_instance = MagicMock()
@@ -471,13 +471,17 @@ def test_assign_settings_to_project_same_settings_same_filters_raises(
     mock_settings.objects.get.return_value = mock_settings_instance
 
     existing_ps = MagicMock()
-    existing_ps.raw_file_id_filter = ["plasma"]
-    existing_ps.raw_file_id_exclude_filter = []
+    existing_ps.raw_file_id_filter = ["plasma", "hela"]
+    existing_ps.raw_file_id_exclude_filter = ["Serum"]
     mock_project_settings.objects.return_value = [existing_ps]
 
     with pytest.raises(ValueError, match="'s1' version 3 already assigned"):
         assign_settings_to_project(
-            "P1234", "settings_id", scopes=["bruker"], raw_file_id_filter=["plasma"]
+            "P1234",
+            "settings_id",
+            scopes=["bruker"],
+            raw_file_id_filter=["hela", "plasma"],
+            raw_file_id_exclude_filter=["serum"],
         )
 
     mock_project_settings.return_value.save.assert_not_called()

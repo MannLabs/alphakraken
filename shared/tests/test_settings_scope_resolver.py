@@ -206,6 +206,12 @@ def test_raw_file_id_exclude_filter_beats_include_filter() -> None:
     assert _resolve([ps], RAW_FILE_ID) == []
 
 
+def test_raw_file_id_exclude_filter_is_case_insensitive() -> None:
+    """Test that the exclude filter matches regardless of case."""
+    ps = _make_ps(raw_file_id_exclude_filter=["PLASMA"])
+    assert _resolve([ps], RAW_FILE_ID) == []
+
+
 def test_raw_file_id_exclude_filter_no_match_applies() -> None:
     """Test that a non-matching exclude filter has no effect."""
     ps = _make_ps(raw_file_id_exclude_filter=["serum"])

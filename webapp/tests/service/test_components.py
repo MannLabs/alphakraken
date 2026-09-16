@@ -15,6 +15,7 @@ from service.components import (
     show_date_select,
     show_filter,
 )
+from service.timezone import display_now
 
 
 @pytest.mark.parametrize(
@@ -254,7 +255,7 @@ def test_display_status_with_multiple_instruments(mock_st_dataframe: MagicMock) 
 
 def test_get_color() -> None:
     """Test that the color is returned correctly."""
-    now = datetime.now()  # noqa: DTZ005
+    now = display_now()
     row = pd.Series(
         {
             "last_file_creation": now - timedelta(hours=1),

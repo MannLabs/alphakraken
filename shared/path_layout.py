@@ -47,5 +47,5 @@ def get_output_folder_rel_path(
     if settings is not None:
         path = (
             path / f"{settings.name}_v{settings.version}"
-        )  # TODO: could be moved to settings class
+        )  # TODO: logic of creating unique settings name could be moved to settings class
     return path

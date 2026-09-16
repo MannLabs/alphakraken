@@ -169,7 +169,7 @@ def show_placeholder_info(
         f"(paths as runner `{runner_name}` sees them):\n\n"
         f"{placeholder_list}\n\n"
         f"Notes:\n"
-        "- Your uploaded input files are available under `{{SETTINGS_PATH}}}`, e.g. `{{SETTINGS_PATH}}/human.fasta`.\n"
+        "- Your uploaded input files are available under `{{SETTINGS_PATH}}`, e.g. `{{SETTINGS_PATH}}/human.fasta`.\n"
         "- The working directory of the software is `{{OUTPUT_PATH}}`.\n"
         "- If something that is in the `$PATH` should be executed (e.g. `apptainer`), wrap it in a shell script and ask an admin to place it in the software folder.\n"
     )

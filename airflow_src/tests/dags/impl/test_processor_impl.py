@@ -21,6 +21,7 @@ from dags.impl.processor_impl import (
     _create_quanting_env,
     _extract_errors,
     _find_next_free_run_suffix,
+    _get_branch_states,
     _get_slurm_job_id_from_log,
     check_job_result,
     compute_metrics,
@@ -34,6 +35,7 @@ from dags.impl.processor_impl import (
 from mongoengine import DoesNotExist
 from plugins.common.keys import (
     JobStates,
+    Tasks,
     XComKeys,
 )
 
@@ -1323,13 +1325,14 @@ def test_store_metrics(
 # --- helpers for finalize / _extract_errors tests ---
 
 
-def _branch_ti(task_name: str, map_index: int, state: str) -> MagicMock:
-    """Create a mock TaskInstance for a task within a processing branch."""
-    return MagicMock(
-        task_id=f"{_TASK_GROUP_PREFIX}{task_name}",
-        map_index=map_index,
-        state=state,
-    )
+def _mock_task_states(ti: MagicMock, *tasks: tuple[str, int, str]) -> None:
+    """Mock ti.get_task_states() with (task_name, map_index, state) tuples of the processing group."""
+    ti.get_task_states.return_value = {
+        ti.run_id: {
+            f"{_TASK_GROUP_PREFIX}{name}" + (f"_{idx}" if idx >= 0 else ""): state
+            for name, idx, state in tasks
+        }
+    }
 
 
 def _make_get_xcom(quanting_envs, branch_errors=None):  # noqa: ANN001, ANN202
@@ -1357,9 +1360,10 @@ def test_finalize_sets_done_when_no_errors(
 ) -> None:
     """All branches succeeded → DONE."""
     ti = MagicMock()
-    ti.get_dagrun.return_value.get_task_instances.return_value = [
-        _branch_ti("submit_job", 0, "success"),
-    ]
+    _mock_task_states(
+        ti,
+        ("submit_job", 0, "success"),
+    )
     mock_extract.return_value = ([], [])
 
     finalize_raw_file_status(ti=ti, raw_file_id="test.raw")
@@ -1376,10 +1380,11 @@ def test_finalize_sets_error_on_airflow_failures(
 ) -> None:
     """Airflow failure in any branch → ERROR with details, raises AirflowFailException."""
     ti = MagicMock()
-    ti.get_dagrun.return_value.get_task_instances.return_value = [
-        _branch_ti("submit_job", 0, "success"),
-        _branch_ti("submit_job", 1, "failed"),
-    ]
+    _mock_task_states(
+        ti,
+        ("submit_job", 0, "success"),
+        ("submit_job", 1, "failed"),
+    )
     mock_extract.return_value = (
         [("settings_B", "UNKNOWN_ERROR")],
         [],
@@ -1402,9 +1407,10 @@ def test_finalize_sets_quanting_failed_on_business_errors(
 ) -> None:
     """Only business errors → QUANTING_FAILED with details, does not raise."""
     ti = MagicMock()
-    ti.get_dagrun.return_value.get_task_instances.return_value = [
-        _branch_ti("check_job_result", 0, "skipped"),
-    ]
+    _mock_task_states(
+        ti,
+        ("check_job_result", 0, "skipped"),
+    )
     mock_extract.return_value = (
         [],
         [("settings_A", "OUT_OF_MEMORY")],
@@ -1426,10 +1432,11 @@ def test_finalize_error_takes_priority_over_business_errors(
 ) -> None:
     """Mix of airflow + business errors → ERROR with all details combined."""
     ti = MagicMock()
-    ti.get_dagrun.return_value.get_task_instances.return_value = [
-        _branch_ti("submit_job", 0, "failed"),
-        _branch_ti("check_job_result", 1, "skipped"),
-    ]
+    _mock_task_states(
+        ti,
+        ("submit_job", 0, "failed"),
+        ("check_job_result", 1, "skipped"),
+    )
     mock_extract.return_value = (
         [("settings_A", "failed at submit_job")],
         [("settings_B", "TIMEOUT")],
@@ -1448,12 +1455,65 @@ def test_finalize_error_takes_priority_over_business_errors(
 def test_finalize_raises_when_no_branch_tasks() -> None:
     """No branch task instances → AirflowFailException."""
     ti = MagicMock()
-    ti.get_dagrun.return_value.get_task_instances.return_value = [
-        MagicMock(task_id="prepare_job", state="success", map_index=-1)
-    ]
+    _mock_task_states(ti, ("prepare_job", -1, "success"))
 
     with pytest.raises(AirflowFailException):
         finalize_raw_file_status(ti=ti, raw_file_id="test.raw")
+
+
+# --- _get_branch_states tests ---
+
+
+def test_get_branch_states_groups_by_map_index_with_full_task_ids() -> None:
+    """Mapped tasks are grouped by map index, keyed by the full task id."""
+    ti = MagicMock()
+    _mock_task_states(
+        ti,
+        ("submit_job", 0, "success"),
+        ("check_job_result", 0, "failed"),
+        ("submit_job", 1, "success"),
+    )
+
+    # when
+    result = _get_branch_states(ti)
+
+    assert result == {
+        0: {
+            f"{_TASK_GROUP_PREFIX}submit_job": "success",
+            f"{_TASK_GROUP_PREFIX}check_job_result": "failed",
+        },
+        1: {f"{_TASK_GROUP_PREFIX}submit_job": "success"},
+    }
+    ti.get_task_states.assert_called_once_with(
+        dag_id=ti.dag_id, task_group_id="processing", run_ids=[ti.run_id]
+    )
+
+
+def test_get_branch_states_excludes_non_mapped_tasks() -> None:
+    """Tasks without a map index are not part of any branch."""
+    ti = MagicMock()
+    _mock_task_states(ti, ("prepare_job", -1, "success"), ("submit_job", 2, "failed"))
+
+    # when
+    result = _get_branch_states(ti)
+
+    assert result == {2: {f"{_TASK_GROUP_PREFIX}submit_job": "failed"}}
+
+
+def test_get_branch_states_empty_when_run_unknown() -> None:
+    """No entry for the current run yields no branches."""
+    ti = MagicMock()
+    ti.get_task_states.return_value = {}
+
+    # when
+    assert _get_branch_states(ti) == {}
+
+
+def test_task_ids_are_unambiguous_for_map_index() -> None:
+    """get_task_states() keys mapped tasks as '<task_id>_<map_index>' without escaping."""
+    task_ids = [v for k, v in vars(Tasks).items() if k.isupper()]
+    assert task_ids
+    assert not [t for t in task_ids if t.rpartition("_")[2].isdigit()]
 
 
 # --- _extract_errors tests ---

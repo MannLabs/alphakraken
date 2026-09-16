@@ -608,10 +608,20 @@ def _get_branch_states(ti: TaskInstance) -> dict[int, dict[str, str | None]]:
 
     Non-mapped tasks (map_index=-1) are excluded.
     """
+    # undocumented return shape (cf. execution_api/routes/task_instances.py):
+    # {run_id: {"<task_id>": state, "<task_id>_<map_index>": state}}, no escaping,
+    # so task ids must not end in "_<digits>"
+    states = ti.get_task_states(
+        dag_id=ti.dag_id,
+        task_group_id=TaskGroups.PROCESSING,
+        run_ids=[ti.run_id],
+    ).get(ti.run_id, {})
+
     branch_states: dict[int, dict[str, str | None]] = defaultdict(dict)
-    for ti_ in ti.get_dagrun().get_task_instances():
-        if ti_.task_id.startswith(_TASK_GROUP_PREFIX) and ti_.map_index >= 0:
-            branch_states[ti_.map_index][ti_.task_id] = ti_.state
+    for key, state in states.items():
+        task_id, _, map_index = key.rpartition("_")
+        if map_index.isdigit():
+            branch_states[int(map_index)][task_id] = state
     return branch_states
 
 

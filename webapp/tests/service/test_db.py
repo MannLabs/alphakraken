@@ -1,8 +1,10 @@
 """Tests for the db module."""
 
+from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
+import pytz
 from service.db import df_from_db_data, get_full_raw_file_data, get_output_folders
 
 
@@ -38,6 +40,24 @@ def test_df_from_db_data_all_parameters() -> None:
 
     expected_data = pd.DataFrame({"a": [1], "created_at_": [6]})
     pd.testing.assert_frame_equal(expected_data, result)
+
+
+@patch("service.timezone.DISPLAY_TIMEZONE", pytz.timezone("Europe/Berlin"))
+def test_df_from_db_data_shifts_timestamps_to_display_timezone() -> None:
+    """Test that the db timestamps are shifted to the configured timezone."""
+    mock_query = MagicMock()
+    mock_query.to_mongo.return_value = {
+        "created_at": datetime(2024, 7, 1, 12, 0, 0),  # noqa: DTZ001
+        "created_at_": datetime(2024, 7, 1, 12, 0, 1),  # noqa: DTZ001
+        "updated_at_": datetime(2024, 7, 1, 12, 0, 2),  # noqa: DTZ001
+    }
+
+    # when
+    result = df_from_db_data([mock_query])
+
+    assert result["created_at"].tolist() == [pd.Timestamp("2024-07-01 14:00:00")]
+    assert result["created_at_"].tolist() == [pd.Timestamp("2024-07-01 14:00:01")]
+    assert result["updated_at_"].tolist() == [pd.Timestamp("2024-07-01 14:00:02")]
 
 
 @patch("service.db.get_display_output_path", side_effect=lambda p: f"/out/{p}")

@@ -18,6 +18,7 @@ import streamlit as st
 import streamlit.delta_generator
 from matplotlib import pyplot as plt
 from service.session_state import SessionStateKeys, copy_session_state
+from service.timezone import DISPLAY_TIMEZONE_NAME, display_now
 from service.utils import BASELINE_PREFIX, DEFAULT_MAX_AGE_STATUS, display_plotly_chart
 
 from shared.db.models import TERMINAL_STATUSES, KrakenStatusEntities, RawFileStatus
@@ -33,6 +34,14 @@ def _re_filter(text: Any, filter_: str) -> bool:
 # faster than mapping `_re_filter` over each cell
 _SEARCH_DTYPE = "string[pyarrow]"
 _INDEX_COLUMN = "_index_"
+
+# grouping label -> (pandas period alias, x-axis label format)
+DEFAULT_THROUGHPUT_GROUPING = "days"
+_THROUGHPUT_GROUPINGS = {
+    DEFAULT_THROUGHPUT_GROUPING: ("D", "%Y-%m-%d"),
+    "weeks": ("W", "%G-W%V"),
+    "months": ("M", "%Y-%m"),
+}
 
 
 @st.cache_data
@@ -170,7 +179,7 @@ def show_date_select(
     oldest_file = df["created_at"].min()
     youngest_file = df["created_at"].max()
     max_age = (
-        datetime.now() - timedelta(days=max_age_days) if max_age_days else oldest_file  # noqa: DTZ005
+        display_now() - timedelta(days=max_age_days) if max_age_days else oldest_file
     )
     last_selectable_date = min(youngest_file, max(oldest_file, max_age))
     min_date = st_display.date_input(
@@ -278,7 +287,7 @@ def show_throughput_per_day_plot(  # noqa: PLR0913
     default_days: int = 14,
     key_prefix: str = "",
 ) -> None:
-    """Show a stacked bar plot of a metric per day for each instrument over a selected date range.
+    """Show a stacked bar plot of a metric per day/week/month for each instrument over a selected date range.
 
     :param throughput_df: DataFrame with columns: date, instrument_id, and the value_column
     :param display: The streamlit display object
@@ -299,10 +308,10 @@ def show_throughput_per_day_plot(  # noqa: PLR0913
 
     default_start_date = max(
         min_date_in_data,
-        (datetime.now() - timedelta(days=default_days)).date(),  # noqa: DTZ005
+        (display_now() - timedelta(days=default_days)).date(),
     )
 
-    c1, c2, *_ = display.columns([1, 1, 1, 1])
+    c1, c2, c3, *_ = display.columns([1, 1, 1, 1])
     start_date = c1.date_input(
         "Start date:",
         min_value=min_date_in_data,
@@ -317,6 +326,12 @@ def show_throughput_per_day_plot(  # noqa: PLR0913
         value=max_date_in_data,
         key=f"{key_prefix}end_date" if key_prefix else None,
     )
+    grouping = c3.selectbox(
+        "Group by:",
+        options=list(_THROUGHPUT_GROUPINGS),
+        key=f"{key_prefix}grouping" if key_prefix else None,
+    )
+    period_alias, label_format = _THROUGHPUT_GROUPINGS[grouping]
 
     filtered_df = throughput_df[
         (throughput_df["date"].dt.date >= start_date)
@@ -328,15 +343,15 @@ def show_throughput_per_day_plot(  # noqa: PLR0913
         return
 
     pivot_df = filtered_df.pivot_table(
-        index="date", columns="instrument_id", values=value_column
+        index=filtered_df["date"].dt.to_period(period_alias).dt.start_time,
+        columns="instrument_id",
+        values=value_column,
+        aggfunc="sum",
     ).fillna(0)
-
-    daily_totals = pivot_df.sum(axis=1)
-    mean_value = daily_totals.mean()
 
     fig = go.Figure()
 
-    x_labels = [date.strftime("%Y-%m-%d") for date in pivot_df.index]
+    x_labels = [date.strftime(label_format) for date in pivot_df.index]
     use_int_format = value_column == "count"
 
     for instrument_id in pivot_df.columns:
@@ -353,13 +368,16 @@ def show_throughput_per_day_plot(  # noqa: PLR0913
             )
         )
 
-    fig.add_hline(
-        y=mean_value,
-        line_dash="dash",
-        line_color="red",
-        annotation_text=f"<b>Mean: {mean_value:.1f}{mean_unit}</b>",
-        annotation_position="top right",
-    )
+    # partial first/last weeks or months would skew the mean
+    if grouping == DEFAULT_THROUGHPUT_GROUPING:
+        mean_value = pivot_df.sum(axis=1).mean()
+        fig.add_hline(
+            y=mean_value,
+            line_dash="dash",
+            line_color="red",
+            annotation_text=f"<b>Mean: {mean_value:.1f}{mean_unit}</b>",
+            annotation_position="top right",
+        )
 
     fig.update_layout(
         barmode="stack",
@@ -376,9 +394,9 @@ def show_throughput_per_day_plot(  # noqa: PLR0913
 
 def display_status(combined_df: pd.DataFrame, status_data_df: pd.DataFrame) -> None:
     """Display the status of the kraken."""
-    now = datetime.now()  # noqa:  DTZ005 no tz argument
+    now = display_now()
     st.write(
-        f"Current AlphaKraken time: {now.replace(microsecond=0)} [all time stamps are given in UTC!]"
+        f"Current AlphaKraken time: {now.replace(microsecond=0)} [all time stamps are given in {DISPLAY_TIMEZONE_NAME}!]"
     )
     st.write(
         f"Note: for performance reasons, by default only data for the last {DEFAULT_MAX_AGE_STATUS} days are loaded, "
@@ -522,7 +540,7 @@ def _get_color(
     :return: style for the row, e.g. [ "background-color: #FF0000", None, None]
     """
     column_styles = {}
-    now = datetime.now()  # noqa:  DTZ005 no tz argument
+    now = display_now()
     for column, green_age_m, red_age_m, colormap in zip(
         columns, green_ages_m, red_ages_m, colormaps, strict=True
     ):

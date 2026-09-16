@@ -14,7 +14,9 @@ from service.components import (
     highlight_status_cell,
     show_date_select,
     show_filter,
+    show_throughput_per_day_plot,
 )
+from service.timezone import display_now
 
 
 @pytest.mark.parametrize(
@@ -196,6 +198,58 @@ def test_date_input_happy_path(mock_date_input: MagicMock) -> None:
     assert "file2" in filtered_df["column2"].to_numpy()
 
 
+@pytest.mark.parametrize(
+    ("grouping", "expected_labels", "expected_totals"),
+    [
+        (
+            "days",
+            ["2026-08-31", "2026-09-01", "2026-09-07", "2026-10-01"],
+            [1, 2, 4, 8],
+        ),
+        ("weeks", ["2026-W36", "2026-W37", "2026-W40"], [3, 4, 8]),
+        ("months", ["2026-08", "2026-09", "2026-10"], [1, 6, 8]),
+    ],
+)
+@patch("service.components.display_plotly_chart")
+def test_show_throughput_per_day_plot_grouping(
+    mock_display_plotly_chart: MagicMock,
+    grouping: str,
+    expected_labels: list[str],
+    expected_totals: list[int],
+) -> None:
+    """Test that bars are aggregated per selected grouping."""
+    df = pd.DataFrame(
+        {
+            "date": [
+                "2026-08-31",
+                "2026-09-01",
+                "2026-09-07",
+                "2026-09-07",
+                "2026-10-01",
+            ],
+            "instrument_id": ["i1", "i1", "i1", "i2", "i2"],
+            "count": [1, 2, 3, 1, 8],
+        }
+    )
+    display = MagicMock()
+    c1, c2, c3 = MagicMock(), MagicMock(), MagicMock()
+    display.columns.return_value = [c1, c2, c3, MagicMock()]
+    c1.date_input.return_value = datetime(2026, 8, 1).date()  # noqa: DTZ001
+    c2.date_input.return_value = datetime(2026, 12, 31).date()  # noqa: DTZ001
+    c3.selectbox.return_value = grouping
+
+    # when
+    show_throughput_per_day_plot(df, display, value_column="count", y_label="Samples")
+
+    fig = mock_display_plotly_chart.call_args[0][0]
+    assert list(fig.data[0].x) == expected_labels
+    totals = [
+        sum(trace.y[i] for trace in fig.data) for i in range(len(expected_labels))
+    ]
+    assert totals == expected_totals
+    assert len(fig.layout.shapes) == (1 if grouping == "days" else 0)
+
+
 @patch("streamlit.dataframe")
 def test_display_status_with_multiple_instruments(mock_st_dataframe: MagicMock) -> None:
     """Test that the display_status function works correctly."""
@@ -254,7 +308,7 @@ def test_display_status_with_multiple_instruments(mock_st_dataframe: MagicMock) 
 
 def test_get_color() -> None:
     """Test that the color is returned correctly."""
-    now = datetime.now()  # noqa: DTZ005
+    now = display_now()
     row = pd.Series(
         {
             "last_file_creation": now - timedelta(hours=1),

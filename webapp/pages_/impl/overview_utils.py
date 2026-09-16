@@ -172,9 +172,9 @@ def add_eta(df: pd.DataFrame, now: datetime, lag_time: float) -> pd.Series:
     """Return the "ETA" column for the dataframe."""
     # TODO: this would become more precises if lag times would be calculated per instrument & project
     non_terminal_mask = ~df["status"].isin(TERMINAL_STATUSES)
-    eta_timestamps = (
-        df.loc[non_terminal_mask, "created_at_"] + pd.Timedelta(seconds=lag_time)
-    ).dt.tz_localize("UTC")
+    eta_timestamps = df.loc[non_terminal_mask, "created_at_"] + pd.Timedelta(
+        seconds=lag_time
+    )
 
     # Convert ETA timestamps to human-readable format showing "in X time"
     def _format_eta(eta_time: datetime) -> str:

@@ -57,8 +57,7 @@ def get_xcom(
 
     value = ti.xcom_pull(**pull_kwargs)
 
-    # `default` is applied here rather than left to xcom_pull: airflow 3 ignores it on the
-    # branch taken when `map_indexes` is not given, and returns None instead.
+    # we handle the default ourselves, as passing it to xcom_pull is ignored when `map_indexes` is not given
     if value is None:
         if default is _NO_DEFAULT:
             raise KeyError(f"No value found for XCOM key {key}")

@@ -7,7 +7,7 @@ and the factory dispatching to the concrete implementations.
 import abc
 import logging
 
-from airflow.exceptions import AirflowFailException
+from airflow.sdk.exceptions import AirflowFailException
 from common.quanting_env import QuantingEnv
 
 from shared.keys import EnvVars, JobEngines

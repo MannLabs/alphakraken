@@ -14,7 +14,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Union
 
-from airflow.exceptions import AirflowFailException
+from airflow.sdk.exceptions import AirflowFailException
 from common.keys import InstrumentKeys
 from common.paths import (
     get_internal_backup_path,

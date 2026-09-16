@@ -4,7 +4,7 @@ import logging
 from datetime import datetime
 from pathlib import PurePath
 
-from airflow.exceptions import AirflowFailException
+from airflow.sdk.exceptions import AirflowFailException
 from common.constants import DUMMY_TIME_ELAPSED, SLURM_JOB_SCRIPT_NAME
 from common.keys import JobStates
 from common.quanting_env import QuantingEnv

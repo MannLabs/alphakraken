@@ -14,7 +14,7 @@ Notes:
 # TODO: add unit tests
 import logging
 
-from airflow.exceptions import AirflowFailException
+from airflow.sdk.exceptions import AirflowFailException
 from common.keys import JobStates
 from common.quanting_env import QuantingEnv
 from jobs.job_handler import JobHandler

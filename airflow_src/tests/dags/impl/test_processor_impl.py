@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
 import pytz
-from airflow.exceptions import AirflowFailException
+from airflow.sdk.exceptions import AirflowFailException
 from common.quanting_env import QuantingEnv
 from common.settings import _INSTRUMENTS
 from dags.impl.processor_impl import (

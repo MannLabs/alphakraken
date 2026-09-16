@@ -5,8 +5,8 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 import pytz
-from airflow.exceptions import AirflowFailException, AirflowNotFoundException
-from airflow.models import Variable
+from airflow.sdk import Variable
+from airflow.sdk.exceptions import AirflowFailException, AirflowNotFoundException
 from plugins.common.utils import (
     _get_cluster_ssh_connections,
     get_airflow_variable,

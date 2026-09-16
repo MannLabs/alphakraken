@@ -7,7 +7,7 @@ from pathlib import PurePosixPath
 from unittest.mock import MagicMock, patch
 
 import pytest
-from airflow.exceptions import AirflowFailException
+from airflow.sdk.exceptions import AirflowFailException
 from common.quanting_env import QuantingEnv
 from jobs._experimental.file_based_job_handler import FileBasedJobHandler
 from jobs.job_handler import _get_job_handler, start_job

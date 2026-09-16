@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 from datetime import timedelta
+from typing import TYPE_CHECKING
 
-from airflow.decorators import task, task_group
-from airflow.models import Param, TaskInstance
-from airflow.models.dag import DAG
-from airflow.utils.trigger_rule import TriggerRule
+from airflow.sdk import DAG, Param, ParamsDict, task, task_group
+from airflow.task.trigger_rule import TriggerRule
 from callbacks import on_failure_callback
 from common.constants import AIRFLOW_QUEUE_PREFIX, Pools
 from common.keys import (
@@ -39,6 +38,11 @@ from sensors.ssh_sensor import (
 
 from shared.yamlsettings import YamlKeys
 
+if TYPE_CHECKING:
+    from airflow.sdk.execution_time.task_runner import (
+        RuntimeTaskInstance as TaskInstance,
+    )
+
 
 def create_acquisition_processor_dag(instrument_id: str) -> None:
     """Create acquisition_processor dag for instrument with `instrument_id`."""
@@ -62,8 +66,8 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
         },
         description="Process acquired files and add metrics to DB.",
         catchup=False,
-        tags=["processor", instrument_id],
-        params={DagParams.RAW_FILE_ID: Param(type="string", minLength=3)},
+        tags={"processor", instrument_id},
+        params=ParamsDict({DagParams.RAW_FILE_ID: Param(type="string", minLength=3)}),
     ) as dag:
         dag.doc_md = __doc__
 

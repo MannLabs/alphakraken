@@ -4,7 +4,7 @@ from collections.abc import Callable
 from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
-from airflow.exceptions import AirflowFailException
+from airflow.sdk.exceptions import AirflowFailException
 from common.keys import JobStates
 from common.quanting_env import QuantingEnv
 from jobs._experimental.file_based_job_handler import FileBasedJobHandler

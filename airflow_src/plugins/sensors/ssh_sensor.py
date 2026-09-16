@@ -6,7 +6,7 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Any, cast
 
-from airflow.sensors.base import BaseSensorOperator
+from airflow.sdk import BaseSensorOperator
 from common.keys import JobStates, XComKeys
 from common.quanting_env import QuantingEnv
 from common.utils import get_xcom

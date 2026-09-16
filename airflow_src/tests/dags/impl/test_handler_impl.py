@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, Mock, call, patch
 
 import pytest
 import pytz
-from airflow.exceptions import AirflowFailException, AirflowSkipException
+from airflow.sdk.exceptions import AirflowFailException, AirflowSkipException
 from common.keys import AcquisitionMonitorErrors, DagContext, DagParams, OpArgs
 from common.settings import _INSTRUMENTS
 from dags.impl.handler_impl import (

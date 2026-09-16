@@ -7,8 +7,8 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import TypeVar
 
-from airflow.exceptions import AirflowFailException, AirflowSkipException
-from airflow.models import TaskInstance
+from airflow.sdk.exceptions import AirflowFailException, AirflowSkipException
+from airflow.sdk.execution_time.task_runner import RuntimeTaskInstance as TaskInstance
 from common.keys import (
     DAG_DELIMITER,
     INSTRUMENT_MATCH_PREFIX,

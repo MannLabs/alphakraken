@@ -4,7 +4,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-from airflow.exceptions import AirflowFailException
+from airflow.sdk.exceptions import AirflowFailException
 from botocore.exceptions import BotoCoreError, ClientError
 from common.keys import DagContext, DagParams
 from dags.impl.s3_uploader_impl import (

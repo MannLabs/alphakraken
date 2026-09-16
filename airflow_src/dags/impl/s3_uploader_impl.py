@@ -4,8 +4,8 @@ import logging
 import time
 from pathlib import Path
 
-from airflow.models import TaskInstance
 from airflow.providers.amazon.aws.hooks.base_aws import BaseAwsConnection
+from airflow.sdk.execution_time.task_runner import RuntimeTaskInstance as TaskInstance
 from boto3.s3.transfer import TransferConfig
 from botocore.exceptions import BotoCoreError, ClientError
 from common.keys import DagContext, DagParams

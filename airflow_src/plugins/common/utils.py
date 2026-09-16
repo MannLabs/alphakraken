@@ -8,9 +8,11 @@ from typing import Any
 
 import pytz
 from airflow.api.common.trigger_dag import trigger_dag
-from airflow.exceptions import AirflowFailException, AirflowNotFoundException
-from airflow.models import Connection, DagRun, TaskInstance, Variable
+from airflow.models import Connection, DagRun
 from airflow.providers.ssh.hooks.ssh import SSHHook
+from airflow.sdk import Variable
+from airflow.sdk.exceptions import AirflowFailException, AirflowNotFoundException
+from airflow.sdk.execution_time.task_runner import RuntimeTaskInstance as TaskInstance
 from airflow.utils.db import provide_session
 from airflow.utils.types import DagRunType
 from common.constants import (
@@ -79,7 +81,7 @@ def get_airflow_variable(
     if default == "__DEFAULT_NOT_SET":
         value = Variable.get(key)
     else:
-        value = Variable.get(key, default_var=default)
+        value = Variable.get(key, default=default)
 
     logging.info(f"Got airflow variable: '{key}'='{value}' (default: '{default}')")
 

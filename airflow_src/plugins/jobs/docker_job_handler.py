@@ -28,7 +28,7 @@ from datetime import datetime
 from pathlib import Path, PurePosixPath
 
 import docker
-from airflow.exceptions import AirflowFailException
+from airflow.sdk.exceptions import AirflowFailException
 from common.keys import JobStates
 from common.quanting_env import QuantingEnv
 from docker.errors import ImageNotFound, NotFound

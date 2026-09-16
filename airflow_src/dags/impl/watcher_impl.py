@@ -6,8 +6,9 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytz
-from airflow.exceptions import AirflowFailException, DagNotFound
-from airflow.models import TaskInstance
+from airflow.exceptions import DagNotFound
+from airflow.sdk.exceptions import AirflowFailException
+from airflow.sdk.execution_time.task_runner import RuntimeTaskInstance as TaskInstance
 from common.constants import COLLISION_FLAG_SEP
 from common.keys import (
     DAG_DELIMITER,

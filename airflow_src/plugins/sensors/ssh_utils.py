@@ -5,7 +5,7 @@ import json
 import logging
 from time import sleep
 
-from airflow.exceptions import AirflowException, AirflowFailException
+from airflow.sdk.exceptions import AirflowException, AirflowFailException
 from common.constants import EXIT_CODE_FILE_NAME, LAUNCHER_SCRIPT_STEM
 from common.keys import AirflowVars, JobStates
 from common.utils import get_airflow_variable, get_cluster_ssh_hook, truncate_string

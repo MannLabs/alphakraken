@@ -5,8 +5,8 @@ from __future__ import annotations
 from datetime import timedelta
 
 import pendulum
-from airflow.models.dag import DAG
 from airflow.providers.standard.operators.python import PythonOperator
+from airflow.sdk import DAG
 from callbacks import on_failure_callback
 from common.constants import AIRFLOW_QUEUE_PREFIX
 from common.keys import (
@@ -47,10 +47,10 @@ def create_instrument_watcher_dag(instrument_id: str) -> None:
             "priority_weight": 20000000,
         },
         description="Watch for new files.",
-        tags=[
+        tags={
             "watcher",
             instrument_id,
-        ],
+        },
     ) as dag:
         dag.doc_md = __doc__
 

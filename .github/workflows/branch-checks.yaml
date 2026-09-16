@@ -17,8 +17,10 @@ jobs:
       - run: pip install uv
       - uses: pre-commit/action@v3.0.1
 
-  unit-tests:
-    name: Run unit tests
+  # webapp and airflow have mutually exclusive requirements (streamlit needs pandas<3, airflow pins pandas 3),
+  # so they are tested in separate jobs
+  unit-tests-webapp:
+    name: Run shared and webapp unit tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -35,19 +37,30 @@ jobs:
           pip freeze
           python -m pytest shared
 
-      # strictly speaking, the webapp and airfloe test sets should be in separate python envs but should be fine for now
       - name: Run webapp unit tests
         run: |
           pip install -r webapp/requirements_webapp.txt
           pip freeze
           python -m pytest webapp
 
+  unit-tests-airflow:
+    name: Run Airflow unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: "pip"
+
       - name: Run Airflow unit tests
         run: |
-          pip install apache-airflow==2.11.0 --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.11.0/constraints-3.11.txt"
-          airflow db migrate
+          pip install -r misc/requirements_development.txt
+          pip install -r shared/requirements_shared.txt
           pip install -r airflow_src/requirements_airflow.txt
           pip install -r airflow_src/requirements_docker_job_engine.txt
+          airflow db migrate
           pip freeze
           python -m pytest airflow_src
 

@@ -6,8 +6,8 @@ This is required to have all the required dependencies for local development, in
 dereference all dependencies and to run the tests.
 1. Set up your environment for developing locally with
 ```bash
-PYTHON_VERSION=3.11
-AIRFLOW_VERSION=2.11.0
+PYTHON_VERSION=3.13
+AIRFLOW_VERSION=3.3.1
 git clone git@github.com:MannLabs/alphakraken.git
 cd alphakraken
 conda create --name alphakraken python=${PYTHON_VERSION} -y
@@ -19,8 +19,14 @@ pip install apache-airflow==${AIRFLOW_VERSION} --constraint "https://raw.githubu
 ```bash
 pip install -r airflow_src/requirements_airflow.txt
 pip install -r shared/requirements_shared.txt
-pip install -r webapp/requirements_webapp.txt
 pip install -r misc/requirements_development.txt
+```
+The webapp requirements are incompatible with the airflow ones (`streamlit` needs `pandas<3`), so they need a
+second environment (python 3.11, cf. `webapp/Dockerfile`):
+```bash
+conda create --name alphakraken-webapp python=3.11 -y
+conda activate alphakraken-webapp
+pip install -r webapp/requirements_webapp.txt -r shared/requirements_shared.txt -r misc/requirements_development.txt
 ```
 
 3. (optional) Mount the code directly into the containers. This way, changes are reflected immediately, without having to

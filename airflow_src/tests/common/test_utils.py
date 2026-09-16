@@ -5,8 +5,15 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 import pytz
+from airflow.exceptions import DagNotFound
 from airflow.sdk import Variable
-from airflow.sdk.exceptions import AirflowFailException, AirflowNotFoundException
+from airflow.sdk.exceptions import (
+    AirflowFailException,
+    AirflowNotFoundException,
+    AirflowRuntimeError,
+    ErrorType,
+)
+from airflow.sdk.execution_time.comms import ErrorResponse, OKResponse, TriggerDagRun
 from plugins.common.utils import (
     _get_cluster_ssh_connections,
     get_airflow_variable,
@@ -198,42 +205,87 @@ def test_get_env_variable_raises_when_value_not_found() -> None:
         get_env_variable("not_existing_env_var")
 
 
+def _sent_trigger_message(mock_task_runner: MagicMock) -> TriggerDagRun:
+    mock_task_runner.SUPERVISOR_COMMS.send.assert_called_once()
+    return mock_task_runner.SUPERVISOR_COMMS.send.call_args.args[0]
+
+
 @patch("plugins.common.utils.datetime")
-@patch("plugins.common.utils.trigger_dag")
-def test_trigger_dag_run(mock_trigger_dag: MagicMock, mock_datetime: MagicMock) -> None:
-    """Test that trigger_dag_run triggers a DAG run with the given configuration."""
+@patch("plugins.common.utils.task_runner")
+def test_trigger_dag_run(mock_task_runner: MagicMock, mock_datetime: MagicMock) -> None:
+    """Test that trigger_dag_run sends a TriggerDagRun message with the given configuration."""
     mock_datetime.now.return_value = datetime.fromtimestamp(0, tz=pytz.utc)
+    mock_task_runner.SUPERVISOR_COMMS.send.return_value = OKResponse(ok=True)
 
     # when
     trigger_dag_run("dag_id", {"key": "value"})
 
-    mock_trigger_dag.assert_called_once_with(
-        dag_id="dag_id",
-        run_id="manual__1970-01-01T00:00:00+00:00",
-        conf={"key": "value"},
-        execution_date=None,
-        replace_microseconds=False,
-    )
+    msg = _sent_trigger_message(mock_task_runner)
+    assert isinstance(msg, TriggerDagRun)
+    assert msg.dag_id == "dag_id"
+    assert msg.run_id.startswith("manual__1970-01-01T00:00:00+00:00_")
+    assert msg.conf == {"key": "value"}
+    assert msg.logical_date is None
+    assert msg.run_after == datetime(1970, 1, 1, 0, 0, tzinfo=pytz.utc)
 
 
 @patch("plugins.common.utils.datetime")
-@patch("plugins.common.utils.trigger_dag")
+@patch("plugins.common.utils.task_runner")
 def test_trigger_dag_run_with_delay(
-    mock_trigger_dag: MagicMock, mock_datetime: MagicMock
+    mock_task_runner: MagicMock, mock_datetime: MagicMock
 ) -> None:
-    """Test that trigger_dag_run triggers a DAG run with the given configuration and time delay."""
+    """Test that the time delay is passed as run_after."""
     mock_datetime.now.return_value = datetime.fromtimestamp(0, tz=pytz.utc)
+    mock_task_runner.SUPERVISOR_COMMS.send.return_value = OKResponse(ok=True)
 
     # when
     trigger_dag_run("dag_id", {"key": "value"}, 10)
 
-    mock_trigger_dag.assert_called_once_with(
-        dag_id="dag_id",
-        run_id="manual__1970-01-01T00:00:00+00:00",
-        conf={"key": "value"},
-        execution_date=datetime(1970, 1, 1, 0, 10, tzinfo=pytz.utc),
-        replace_microseconds=False,
+    msg = _sent_trigger_message(mock_task_runner)
+    assert msg.run_after == datetime(1970, 1, 1, 0, 10, tzinfo=pytz.utc)
+    assert msg.run_id.startswith("manual__1970-01-01T00:10:00+00:00_")
+
+
+@patch("plugins.common.utils.task_runner")
+def test_trigger_dag_run_raises_dag_not_found_on_404(
+    mock_task_runner: MagicMock,
+) -> None:
+    """Test that a 404 of the api-server surfaces as DagNotFound."""
+    mock_task_runner.SUPERVISOR_COMMS.send.side_effect = AirflowRuntimeError(
+        ErrorResponse(error=ErrorType.API_SERVER_ERROR, detail={"status_code": 404})
     )
+
+    with pytest.raises(DagNotFound):
+        # when
+        trigger_dag_run("dag_id", {"key": "value"})
+
+
+@patch("plugins.common.utils.task_runner")
+def test_trigger_dag_run_reraises_other_runtime_errors(
+    mock_task_runner: MagicMock,
+) -> None:
+    """Test that api-server errors other than 404 are re-raised unchanged."""
+    mock_task_runner.SUPERVISOR_COMMS.send.side_effect = AirflowRuntimeError(
+        ErrorResponse(error=ErrorType.API_SERVER_ERROR, detail={"status_code": 500})
+    )
+
+    with pytest.raises(AirflowRuntimeError):
+        # when
+        trigger_dag_run("dag_id", {"key": "value"})
+
+
+@patch("plugins.common.utils.task_runner")
+def test_trigger_dag_run_fails_when_run_already_exists(
+    mock_task_runner: MagicMock,
+) -> None:
+    """Test that an ErrorResponse (e.g. run id collision) fails the task."""
+    mock_task_runner.SUPERVISOR_COMMS.send.return_value = ErrorResponse(
+        error=ErrorType.DAGRUN_ALREADY_EXISTS
+    )
+
+    with pytest.raises(AirflowFailException, match="DAGRUN_ALREADY_EXISTS"):
+        # when
+        trigger_dag_run("dag_id", {"key": "value"})
 
 
 def test_truncate_string_returns_none_if_input_is_none() -> None:

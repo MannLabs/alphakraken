@@ -4,14 +4,21 @@ import logging
 import os
 from collections.abc import Iterable
 from datetime import datetime, timedelta
+from http import HTTPStatus
 from typing import Any
 
 import pytz
-from airflow.api.common.trigger_dag import trigger_dag
+from airflow.exceptions import DagNotFound
 from airflow.models import Connection, DagRun
 from airflow.providers.ssh.hooks.ssh import SSHHook
 from airflow.sdk import Variable
-from airflow.sdk.exceptions import AirflowFailException, AirflowNotFoundException
+from airflow.sdk.exceptions import (
+    AirflowFailException,
+    AirflowNotFoundException,
+    AirflowRuntimeError,
+)
+from airflow.sdk.execution_time import task_runner
+from airflow.sdk.execution_time.comms import ErrorResponse, TriggerDagRun
 from airflow.sdk.execution_time.task_runner import RuntimeTaskInstance as TaskInstance
 from airflow.utils.db import provide_session
 from airflow.utils.types import DagRunType
@@ -106,27 +113,44 @@ def get_env_variable(
 def trigger_dag_run(
     dag_id: str, conf: dict[str, str], time_delay_minutes: int | None = None
 ) -> None:
-    """Trigger a DAG run with the given configuration."""
-    # Airflow 3 swap point: workers cannot reach the metadata DB via the ORM, so this body
-    # becomes a Task Execution API call. Keep trigger_dag() confined to this function.
-    now = datetime.now(tz=pytz.utc)
-    run_id = DagRun.generate_run_id(DagRunType.MANUAL, execution_date=now)
+    """Trigger a DAG run with the given configuration.
 
-    execution_date = (
-        None
+    :param time_delay_minutes: If given, the run does not start before now plus this delay.
+    :raises DagNotFound: If no DAG with `dag_id` exists.
+    """
+    now = datetime.now(tz=pytz.utc)
+    run_after = (
+        now
         if time_delay_minutes is None
         else now + timedelta(minutes=time_delay_minutes)
     )
-
-    logging.info(f"Triggering DAG {dag_id} with {run_id=} with {conf=}")
-
-    trigger_dag(
-        dag_id=dag_id,
-        run_id=run_id,
-        conf=conf,
-        execution_date=execution_date,
-        replace_microseconds=False,
+    run_id = DagRun.generate_run_id(
+        run_type=DagRunType.MANUAL, logical_date=None, run_after=run_after
     )
+
+    logging.info(f"Triggering DAG {dag_id} with {run_id=} {run_after=} {conf=}")
+
+    # The Task Execution API is the same channel TriggerDagRunOperator uses: no API token needed.
+    # The supervisor turns a 404 of the api-server into an AirflowRuntimeError.
+    try:
+        response = task_runner.SUPERVISOR_COMMS.send(
+            TriggerDagRun(
+                dag_id=dag_id,
+                run_id=run_id,
+                conf=conf,
+                logical_date=None,
+                run_after=run_after,
+            )
+        )
+    except AirflowRuntimeError as e:
+        if (e.error.detail or {}).get("status_code") == HTTPStatus.NOT_FOUND:
+            raise DagNotFound(f"Dag id {dag_id} not found") from e
+        raise
+
+    if isinstance(response, ErrorResponse):
+        raise AirflowFailException(
+            f"Could not trigger DAG {dag_id}: {response.error.value} {response.detail}"
+        )
 
 
 def truncate_string(input_string: str | None, n: int = 200) -> str | None:

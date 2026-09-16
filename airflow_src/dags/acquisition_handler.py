@@ -64,7 +64,7 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
         description="Watch acquisition, handle raw files and trigger follow-up DAGs on demand.",
         catchup=False,
         tags=["handler", instrument_id],
-        params={DagParams.RAW_FILE_ID: Param(type="string", minimum=3)},
+        params={DagParams.RAW_FILE_ID: Param(type="string", minLength=3)},
     ) as dag:
         dag.doc_md = __doc__
 

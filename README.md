@@ -46,7 +46,7 @@ ENV=local && export ENV=$ENV
 ./compose.sh --profile dbs up airflow-init
 ./compose.sh --profile local up --build -d
 ```
-After startup, the airflow webserver runs on http://localhost:8080/ (default credentials: airflow/airflow), the Streamlit webapp on http://localhost:8501/ .
+After startup, the Airflow UI runs on http://localhost:8080/ (default credentials: airflow/airflow), the Streamlit webapp on http://localhost:8501/ .
 See [here](docs/development.md#local-testing) on how to test the system locally.
 
 See the [deployment.md](docs/deployment.md) for detailed instructions.

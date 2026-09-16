@@ -6,7 +6,7 @@ Together with the raw data on the instrument and in the backup, this defines the
 All other components can, in principle, be shut down, restarted and/or deleted any time without loss of information,
 in particular:
 
-- The Airflow scheduler and webserver, and the Webapp can be restarted at any point.
+- The Airflow scheduler, dag-processor and api-server, and the Webapp can be restarted at any point.
 
 - The Airflow workers can be restarted at any point, with a little caveat: if this happens while the `copy_file`
 task is being run, the file copy operation can be interrupted mid-way. Once the worker is restarted, the task will

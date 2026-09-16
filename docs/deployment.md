@@ -66,7 +66,7 @@ Start all docker containers required for local testing with
 ```bash
 ./compose.sh --profile local up --build -d
 ```
-After startup, the airflow webserver runs on http://localhost:8080/ (default credentials: `airflow`/`airflow`), the Streamlit webapp on http://localhost:8501/ .
+After startup, the Airflow UI runs on http://localhost:8080/ (default credentials: `airflow`/`airflow`), the Streamlit webapp on http://localhost:8501/ .
 
 To spin all containers down again, use
 ```bash
@@ -90,15 +90,18 @@ whereas `sandbox`/`production` is per default distributed over two machines
 The different services can be distributed over several machines. The only important thing is that there
 it exactly one instance of each of the 'central components': `postgres-service`, `redis-service`, and `mongodb-service`.
 One reasonable setup is to have the central components on one machine,
-and Airflow infrastructure (scheduler & webserver), workers and WebApp on another.
+and Airflow infrastructure (scheduler, dag-processor & api-server), workers and WebApp on another.
 This is the current setup in the docker-compose, which is reflected by the
 profiles `dbs`, and `infrastructure`/`workers`/`webapp`, respectively. If you move one of the central components
 to another machine, you might need to adjust the `*_HOST` variables in the
 `./env/${ENV}.env` files (see comments there). Of course, one machine could also host them all.
+Every task needs the api-server: `AIRFLOW_APISERVER_HOST`/`AIRFLOW_APISERVER_PORT` must be reachable from all worker
+machines, and `AIRFLOW_BASE_URL` is the URL of the UI as seen from the browser. `AIRFLOW_JWT_SECRET` must be
+identical on all machines.
 
 Make sure that the time is in sync between all machines, e.g. by using the same NTP time server.
 
-For production: set strong passwords for `AIRFLOW_PASSWORD`, `MONGO_PASSWORD`, and `POSTGRES_PASSWORD`
+For production: set strong passwords for `AIRFLOW_PASSWORD`, `MONGO_PASSWORD`, `POSTGRES_PASSWORD` and `AIRFLOW_JWT_SECRET`
 in `./env/production.env` and `MONGO_INITDB_ROOT_PASSWORD` in `./env/.env-mongo`.
 Make sure they don't contain special characters (e.g. '\', '#', '@', '$', ..) as they might interfere with name resolution in `docker-compose.yaml`.
 
@@ -117,7 +120,7 @@ Both users should be able to write to the `logs` and `output` directories, and t
 ./compose.sh --profile dbs up --build -d
 ```
 
-#### On the PC (VM) hosting the airflow infrastructure (scheduler, webserver)
+#### On the PC (VM) hosting the airflow infrastructure (scheduler, dag-processor, api-server)
 
 1. `ssh` into the PC/VM, `cd` to the alphakraken source directory, and set `export ENV=sandbox` (`export ENV=production`).
 
@@ -212,7 +215,7 @@ All paths are configured in the `locations` section of the `envs/alphakraken.${E
 for details).
 
 ### Set up pool bind mounts
-All airflow components (webserver, scheduler and workers) need a bind mount to a pool folder to read and write `airflow_logs`.
+All airflow components (api-server, scheduler, dag-processor and workers) need a bind mount to a pool folder to read and write `airflow_logs`.
 The workers need in addition bind mounts set up to the pool filesystems for `backup` and reading AlphaDIA `output` data,
 and to the instrument PCs.
 
@@ -530,7 +533,7 @@ To access the server that is spun up with the infrastructure, use the following 
     }
   }
 ```
-where `<alphakraken_ip_address>` is the IP address of the PC hosting the airflow infrastructure (webserver, scheduler).
+where `<alphakraken_ip_address>` is the IP address of the PC hosting the airflow infrastructure (api-server, scheduler).
 
 ### Run it locally
 Set up a local MCP server using the following configuration:

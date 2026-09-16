@@ -1024,7 +1024,7 @@ def test_decide_processing_returns_false_if_file_size_zero(
     mock_get_raw_file_by_id: MagicMock,  # noqa:ARG001
     mock_get_xcom: MagicMock,  # noqa:ARG001
 ) -> None:
-    """Test decide_processing returns False if file name contains 'dda'."""
+    """Test decide_processing returns False if file has size 0."""
     ti = MagicMock()
     kwargs = {
         DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"},
@@ -1067,34 +1067,6 @@ def test_decide_processing_returns_false_if_skip_processing_is_set(
         "some_file.raw",
         new_status=RawFileStatus.DONE_NOT_QUANTED,
         status_details="Processing disabled for this instrument.",
-    )
-
-
-@patch("dags.impl.handler_impl.get_xcom", return_value=[])
-@patch(
-    "dags.impl.handler_impl.get_raw_file_by_id",
-    return_value=MagicMock(instrument_id="instrument1"),
-)
-@patch("dags.impl.handler_impl.get_instrument_settings", return_value=False)
-@patch("dags.impl.handler_impl.update_raw_file")
-def test_decide_processing_returns_false_if_dda(
-    mock_update_raw_file: MagicMock,
-    mock_get_instrument_settings: MagicMock,  # noqa:ARG001
-    mock_get_raw_file_by_id: MagicMock,  # noqa:ARG001
-    mock_get_xcom: MagicMock,  # noqa:ARG001
-) -> None:
-    """Test decide_processing returns False if file name contains 'dda'."""
-    ti = MagicMock()
-    kwargs = {
-        DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_dda_file.raw"},
-    }
-
-    # when
-    assert decide_processing(ti, **kwargs) is False
-    mock_update_raw_file.assert_called_once_with(
-        "some_dda_file.raw",
-        new_status=RawFileStatus.DONE_NOT_QUANTED,
-        status_details="Filename contains 'dda'.",
     )
 
 

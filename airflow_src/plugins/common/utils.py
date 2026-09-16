@@ -9,7 +9,7 @@ from typing import Any
 
 import pytz
 from airflow.exceptions import DagNotFound
-from airflow.models import Connection, DagRun
+from airflow.models import DagRun
 from airflow.providers.ssh.hooks.ssh import SSHHook
 from airflow.sdk import Variable
 from airflow.sdk.exceptions import (
@@ -20,12 +20,12 @@ from airflow.sdk.exceptions import (
 from airflow.sdk.execution_time import task_runner
 from airflow.sdk.execution_time.comms import ErrorResponse, TriggerDagRun
 from airflow.sdk.execution_time.task_runner import RuntimeTaskInstance as TaskInstance
-from airflow.utils.db import provide_session
 from airflow.utils.types import DagRunType
 from common.constants import (
     CLUSTER_SSH_COMMAND_TIMEOUT,
     CLUSTER_SSH_CONNECTION_TIMEOUT,
 )
+from common.keys import AirflowVars
 
 _xcom_types = str | list[str] | dict[str, Any] | int
 
@@ -181,31 +181,29 @@ def get_minutes_since_fixed_time_point() -> int:
     return int((current_epoch_time - baseline) // 60)
 
 
-@provide_session
-def _get_cluster_ssh_connections(
-    session: Any = None,
-    *,
-    ssh_connection_id_prefix: str,
-) -> list[str]:
+def _get_cluster_ssh_connections(ssh_connection_id_prefix: str) -> list[str]:
     """Get all SSH connection IDs that start with the given prefix.
 
-    :param session: Database session (provided by decorator)
+    Workers cannot list connections in Airflow 3, so the ids are read from the comma-separated
+    Airflow Variable `cluster_ssh_connection_ids`.
+
     :param ssh_connection_id_prefix: Prefix of the connection IDs to select
 
     :return: List of connection IDs matching the prefix, sorted by ID
     """
-    assert session is not None
-    connections = (
-        session.query(Connection)
-        .filter(Connection.conn_id.startswith(ssh_connection_id_prefix))
-        .all()
+    all_conn_ids = str(
+        get_airflow_variable(AirflowVars.CLUSTER_SSH_CONNECTION_IDS, "")
+    ).split(",")
+    conn_ids = sorted(
+        conn_id
+        for conn_id in (c.strip() for c in all_conn_ids)
+        if conn_id.startswith(ssh_connection_id_prefix)
     )
-    conn_ids = [conn.conn_id for conn in connections]
 
     logging.info(
         f"Found {len(conn_ids)} SSH connections with prefix '{ssh_connection_id_prefix}': {conn_ids}"
     )
-    return sorted(conn_ids)
+    return conn_ids
 
 
 def get_cluster_ssh_hook(
@@ -221,10 +219,12 @@ def get_cluster_ssh_hook(
     :param conn_timeout: Connection timeout in seconds.
     :param cmd_timeout: Command execution timeout in seconds.
 
-    The connection id needs to be defined in the Airflow UI and is obtained from get_cluster_ssh_connections().
+    The connection id needs to be defined in the Airflow UI and listed in the Airflow Variable
+    `cluster_ssh_connection_ids`.
     """
     error_details = (
         f"Please set up a connection starting with {ssh_connection_id_prefix} in the Airflow UI ('Admin -> Connections') "
+        f"and add its id to the comma-separated Airflow Variable '{AirflowVars.CLUSTER_SSH_CONNECTION_IDS}', "
         "or set the Airflow Variable 'debug_no_cluster_ssh=True'."
     )
     cluster_ssh_connections_ids = _get_cluster_ssh_connections(

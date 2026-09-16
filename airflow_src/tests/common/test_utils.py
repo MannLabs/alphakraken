@@ -411,21 +411,25 @@ def test_get_cluster_ssh_hook_selects_connections_by_prefix(
     ]
 
 
-def test_get_cluster_ssh_connections_filters_by_the_given_prefix() -> None:
-    """Test that the connection query matches ids starting with the given prefix."""
-    session = MagicMock()
-    session.query.return_value.filter.return_value.all.return_value = [
-        MagicMock(conn_id="cluster_b_2"),
-        MagicMock(conn_id="cluster_b_1"),
-    ]
-
+@patch(
+    "plugins.common.utils.get_airflow_variable",
+    return_value="cluster_b_2, cluster_a_1,cluster_b_1 ",
+)
+def test_get_cluster_ssh_connections_filters_by_the_given_prefix(
+    mock_get_variable: MagicMock,
+) -> None:
+    """Test that the ids of the Variable are filtered by prefix, stripped and sorted."""
     # when
-    conn_ids = _get_cluster_ssh_connections(
-        session=session, ssh_connection_id_prefix="cluster_b"
-    )
+    conn_ids = _get_cluster_ssh_connections(ssh_connection_id_prefix="cluster_b")
 
     assert conn_ids == ["cluster_b_1", "cluster_b_2"]
-    filter_expression = session.query.return_value.filter.call_args.args[0]
-    assert "'cluster_b'" in str(
-        filter_expression.compile(compile_kwargs={"literal_binds": True})
-    )
+    mock_get_variable.assert_called_once_with("cluster_ssh_connection_ids", "")
+
+
+@patch("plugins.common.utils.get_airflow_variable", return_value="")
+def test_get_cluster_ssh_connections_returns_empty_when_variable_not_set(
+    mock_get_variable: MagicMock,  # noqa:ARG001
+) -> None:
+    """Test that a missing or empty Variable yields no connections."""
+    # when
+    assert _get_cluster_ssh_connections(ssh_connection_id_prefix="cluster") == []

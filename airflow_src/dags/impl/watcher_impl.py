@@ -21,6 +21,7 @@ from common.keys import (
 from common.utils import get_airflow_variable, get_xcom, put_xcom, trigger_dag_run
 from file_handling import get_file_creation_timestamp, get_file_size
 from impl.project_id_handler import get_unique_project_id
+from mongoengine import NotUniqueError
 from raw_file_wrapper_factory import RawFileWrapperFactory, get_main_file_size_from_db
 
 from shared.db.interface import (
@@ -306,6 +307,7 @@ def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
 
     dag_id_to_trigger = f"{Dags.ACQUISITION_HANDLER}{DAG_DELIMITER}{instrument_id}"
 
+    duplicate_raw_file_names: list[str] = []
     for raw_file_name, (
         project_id,
         file_needs_handling,
@@ -317,20 +319,28 @@ def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
             else RawFileStatus.IGNORED
         )
 
-        # Here mongoengine.errors.NotUniqueError is raised when the file is already in the DB.
-        # It is deliberately not caught: on this error, the task will fail, but in the next DAG run, the
-        # file that caused the problem is filtered out in get_unknown_raw_files().
-        # Beware: if `is_collision` is `True`, and this task is re-run, it will be successfully saved and processed
-        # as a collision. So avoid manual restarts of this task.
+        # Beware: if `is_collision` is `True`, and this task is re-run, a raw file will be successfully added and processed
+        # as a collision. So avoid manualor automated restarts of this task.
         # To prevent automatic task restarting, retries need to be set to 0.
-        raw_file_id = _add_raw_file_to_db(
-            raw_file_name,
-            is_collision=is_collision,
-            project_id=project_id,
-            instrument_id=instrument_id,
-            status=status,
-            instrument_file_status=InstrumentFileStatus.INITIAL,
-        )
+        try:
+            raw_file_id = _add_raw_file_to_db(
+                raw_file_name,
+                is_collision=is_collision,
+                project_id=project_id,
+                instrument_id=instrument_id,
+                status=status,
+                instrument_file_status=InstrumentFileStatus.INITIAL,
+            )
+        except NotUniqueError:  # raised when the file is already in the DB.
+            # In the next DAG run, the file that caused the problem is filtered out in get_unknown_raw_files().
+            # There's a subtle exception: if a file on the instrument is named like a known file with a collision flag:
+            # in this case, the original_name is unknown, which then becomes the id -> clash.
+            # Never happened in practise. This needs to be handled manually by renaming the file on the instrument.
+            # In order to not skip files, error caught here and is raised only at the end.
+
+            logging.exception(f"Raw file {raw_file_name} is already in the DB.")
+            duplicate_raw_file_names.append(raw_file_name)
+            continue
 
         if not file_needs_handling:
             logging.info(
@@ -357,3 +367,9 @@ def start_acquisition_handler(ti: TaskInstance, **kwargs) -> None:
             raise AirflowFailException(
                 f"DAG {dag_id_to_trigger} not found. File {raw_file_id} will be picked up again in next DAG run."
             ) from e
+
+    # fail only after all other files have been handled to make the duplicates transparent in the Airflow UI
+    if duplicate_raw_file_names:
+        raise AirflowFailException(
+            f"Raw files already in the DB, remove them from the instrument: {duplicate_raw_file_names}"
+        )

@@ -32,7 +32,7 @@ Run the tests with
 ```bash
 python -m pytest
 ```
-If you encounter a `sqlite3.OperationalError: no such table: dag`, run `airflow db init` once.
+If you encounter a `sqlite3.OperationalError: no such table: dag`, run `airflow db migrate` once.
 
 #### Update coverage badge
 ```bash

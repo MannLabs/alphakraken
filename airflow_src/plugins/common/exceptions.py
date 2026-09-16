@@ -2,6 +2,7 @@
 
 from airflow.exceptions import AirflowFailException, AirflowSkipException
 
+# TODO move all custom exceptions here
 
 class QuantingFailedNewErrorException(AirflowFailException):
     """Raise if quanting failed with a new error."""

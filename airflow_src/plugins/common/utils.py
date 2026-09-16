@@ -24,8 +24,8 @@ from airflow.utils.types import DagRunType
 from common.constants import (
     CLUSTER_SSH_COMMAND_TIMEOUT,
     CLUSTER_SSH_CONNECTION_TIMEOUT,
+    CLUSTER_SSH_MAX_CONNECTIONS,
 )
-from common.keys import AirflowVars
 
 _xcom_types = str | list[str] | dict[str, Any] | int
 
@@ -181,37 +181,12 @@ def get_minutes_since_fixed_time_point() -> int:
     return int((current_epoch_time - baseline) // 60)
 
 
-def _get_cluster_ssh_connections(ssh_connection_id_prefix: str) -> list[str]:
-    """Get all SSH connection IDs that start with the given prefix.
-
-    Workers cannot list connections in Airflow 3, so the ids are read from the comma-separated
-    Airflow Variable `cluster_ssh_connection_ids`.
-
-    :param ssh_connection_id_prefix: Prefix of the connection IDs to select
-
-    :return: List of connection IDs matching the prefix, sorted by ID
-    """
-    all_conn_ids = str(
-        get_airflow_variable(AirflowVars.CLUSTER_SSH_CONNECTION_IDS, "")
-    ).split(",")
-    conn_ids = sorted(
-        conn_id
-        for conn_id in (c.strip() for c in all_conn_ids)
-        if conn_id.startswith(ssh_connection_id_prefix)
-    )
-
-    logging.info(
-        f"Found {len(conn_ids)} SSH connections with prefix '{ssh_connection_id_prefix}': {conn_ids}"
-    )
-    return conn_ids
-
-
 def get_cluster_ssh_hook(
     ssh_connection_id_prefix: str,
     attempt_no: int,
     conn_timeout: int = CLUSTER_SSH_CONNECTION_TIMEOUT,
     cmd_timeout: int = CLUSTER_SSH_COMMAND_TIMEOUT,
-) -> SSHHook | None:
+) -> SSHHook:
     """Get an SSH hook for the compute cluster.
 
     :param ssh_connection_id_prefix: Prefix of the Airflow connection IDs to choose from.
@@ -219,33 +194,31 @@ def get_cluster_ssh_hook(
     :param conn_timeout: Connection timeout in seconds.
     :param cmd_timeout: Command execution timeout in seconds.
 
-    The connection id needs to be defined in the Airflow UI and listed in the Airflow Variable
-    `cluster_ssh_connection_ids`.
+    The connections need to be defined in the Airflow UI as `<prefix>_1`, `<prefix>_2`, ... without gaps.
     """
-    error_details = (
-        f"Please set up a connection starting with {ssh_connection_id_prefix} in the Airflow UI ('Admin -> Connections') "
-        f"and add its id to the comma-separated Airflow Variable '{AirflowVars.CLUSTER_SSH_CONNECTION_IDS}', "
-        "or set the Airflow Variable 'debug_no_cluster_ssh=True'."
-    )
-    cluster_ssh_connections_ids = _get_cluster_ssh_connections(
-        ssh_connection_id_prefix=ssh_connection_id_prefix
-    )
-    if not cluster_ssh_connections_ids:
-        raise AirflowFailException(f"No SSH connections found.\n{error_details}")
+    # workers cannot list connections, so probe the ids until the first missing one
+    hooks: list[SSHHook] = []
+    for n in range(1, CLUSTER_SSH_MAX_CONNECTIONS + 1):
+        try:
+            hooks.append(
+                SSHHook(
+                    ssh_conn_id=f"{ssh_connection_id_prefix}_{n}",
+                    conn_timeout=conn_timeout,
+                    cmd_timeout=cmd_timeout,
+                )
+            )
+        except AirflowNotFoundException:  # noqa: PERF203 probing is the purpose of this loop
+            break
 
-    ssh_conn_id = cluster_ssh_connections_ids[
-        attempt_no % len(cluster_ssh_connections_ids)
-    ]
+    if not hooks:
+        raise AirflowFailException(
+            f"No SSH connections found.\n"
+            f"Please set up a connection '{ssh_connection_id_prefix}_1' in the Airflow UI ('Admin -> Connections') "
+            "or set the Airflow Variable 'debug_no_cluster_ssh=True'."
+        )
 
-    logging.info(f"Using {ssh_conn_id=} for SSH connection (attempt {attempt_no})")
-    try:
-        return SSHHook(
-            ssh_conn_id=ssh_conn_id, conn_timeout=conn_timeout, cmd_timeout=cmd_timeout
-        )
-    except AirflowNotFoundException as e:
-        msg = (
-            f"Could not find cluster SSH connection.\n"
-            f"{error_details}\n"
-            f"Original message: {e}"
-        )
-        raise AirflowFailException(msg) from e
+    ssh_hook = hooks[attempt_no % len(hooks)]
+    logging.info(
+        f"Using {ssh_hook.ssh_conn_id=} of {len(hooks)} connections (attempt {attempt_no})"
+    )
+    return ssh_hook

@@ -102,11 +102,6 @@ The minimum file age in days for files to be removed by the file_remover.
 Recommended setting in production: `14` (default)
 
 
-### cluster_ssh_connection_ids (default: empty)
-Comma-separated ids of the SSH connections ("Admin" -> "Connections") to the compute environments,
-cf. [Setup SSH connection](deployment.md#setup-ssh-connection).
-Airflow 3 workers cannot list connections, so a connection that is not listed here is silently ignored.
-
 ### debug_no_cluster_ssh (default: False)
 `debug_no_cluster_ssh` If set to `True`, the system will not connect to the Slurm cluster. This is useful for
 testing, debugging and to avoid flooding the cluster at the initial setup.

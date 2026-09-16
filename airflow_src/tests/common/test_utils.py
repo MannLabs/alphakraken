@@ -15,7 +15,6 @@ from airflow.sdk.exceptions import (
 )
 from airflow.sdk.execution_time.comms import ErrorResponse, OKResponse, TriggerDagRun
 from plugins.common.utils import (
-    _get_cluster_ssh_connections,
     get_airflow_variable,
     get_cluster_ssh_hook,
     get_env_variable,
@@ -317,76 +316,73 @@ def test_truncate_string_handles_edge_case_of_exactly_n_characters() -> None:
     assert truncate_string(input_string, 200) == input_string
 
 
-@patch(
-    "plugins.common.utils._get_cluster_ssh_connections",
-    return_value=["conn_1", "conn_2"],
-)
+def _ssh_hooks(mock_ssh_hook: MagicMock, *conn_ids: str) -> dict[str, MagicMock]:
+    """Make the SSHHook mock return a hook per existing connection id and raise otherwise."""
+    hooks = {conn_id: MagicMock(ssh_conn_id=conn_id) for conn_id in conn_ids}
+
+    def side_effect(ssh_conn_id: str, **_: int) -> MagicMock:
+        if ssh_conn_id not in hooks:
+            raise AirflowNotFoundException(f"The conn_id `{ssh_conn_id}` isn't defined")
+        return hooks[ssh_conn_id]
+
+    mock_ssh_hook.side_effect = side_effect
+    return hooks
+
+
 @patch("plugins.common.utils.SSHHook")
-def test_get_cluster_ssh_hook_returns_valid_ssh_hook(
-    mock_ssh_hook: MagicMock,
-    mock_get_cluster_ssh_connections: MagicMock,
-) -> None:
-    """Test that get_cluster_ssh_hook returns a valid SSHHook instance."""
+def test_get_cluster_ssh_hook_returns_valid_ssh_hook(mock_ssh_hook: MagicMock) -> None:
+    """Test that get_cluster_ssh_hook probes the numbered connections and returns the first one."""
+    hooks = _ssh_hooks(mock_ssh_hook, "some_prefix_1", "some_prefix_2")
+
+    # when
     hook = get_cluster_ssh_hook(attempt_no=0, ssh_connection_id_prefix="some_prefix")
 
-    assert hook == mock_ssh_hook.return_value
-    mock_get_cluster_ssh_connections.assert_called_once_with(
-        ssh_connection_id_prefix="some_prefix"
-    )
-    mock_ssh_hook.assert_called_once_with(
-        ssh_conn_id="conn_1", conn_timeout=60, cmd_timeout=60
-    )
+    assert hook == hooks["some_prefix_1"]
+    assert [c.kwargs for c in mock_ssh_hook.call_args_list] == [
+        {"ssh_conn_id": f"some_prefix_{n}", "conn_timeout": 60, "cmd_timeout": 60}
+        for n in (1, 2, 3)
+    ]
 
 
-@patch("plugins.common.utils._get_cluster_ssh_connections", return_value=[])
+@patch("plugins.common.utils.SSHHook")
 def test_get_cluster_ssh_hook_raises_exception_when_no_connections_found(
-    mock_get_cluster_ssh_connections: MagicMock,  # noqa:ARG001
+    mock_ssh_hook: MagicMock,
 ) -> None:
-    """Test that get_cluster_ssh_hook raises an exception when no SSH connections are found."""
+    """Test that get_cluster_ssh_hook raises an exception when `<prefix>_1` does not exist."""
+    _ssh_hooks(mock_ssh_hook)
+
     with pytest.raises(AirflowFailException, match="No SSH connections found"):
         get_cluster_ssh_hook(attempt_no=0, ssh_connection_id_prefix="some_prefix")
 
 
-@patch(
-    "plugins.common.utils._get_cluster_ssh_connections",
-    return_value=["conn_1", "conn_2"],
-)
 @patch(
     "airflow.providers.ssh.hooks.ssh.SSHHook.__init__",
     side_effect=AirflowNotFoundException("Not found"),
 )
 def test_get_cluster_ssh_hook_raises_exception_when_connection_not_found(
     mock_ssh_hook: MagicMock,  # noqa:ARG001
-    mock_get_cluster_ssh_connections: MagicMock,  # noqa:ARG001
 ) -> None:
-    """Test that get_cluster_ssh_hook raises an exception when the connection is not found."""
-    with pytest.raises(
-        AirflowFailException, match="Could not find cluster SSH connection"
-    ):
+    """Test that the real SSHHook constructor raising AirflowNotFoundException ends the probing."""
+    with pytest.raises(AirflowFailException, match="No SSH connections found"):
         get_cluster_ssh_hook(attempt_no=0, ssh_connection_id_prefix="some_prefix")
 
 
-@patch(
-    "plugins.common.utils._get_cluster_ssh_connections",
-    return_value=["conn_1", "conn_2"],
-)
 @patch("plugins.common.utils.SSHHook")
 def test_get_cluster_ssh_hook_cycles_through_connections_on_multiple_attempts(
     mock_ssh_hook: MagicMock,
-    mock_get_cluster_ssh_connections: MagicMock,  # noqa:ARG001
 ) -> None:
     """Test that get_cluster_ssh_hook cycles through available connections on multiple attempts."""
-    mock_ssh_hook.side_effect = [
-        MagicMock(ssh_conn_id="conn_1"),
-        MagicMock(ssh_conn_id="conn_2"),
-        MagicMock(ssh_conn_id="conn_1"),
+    _ssh_hooks(mock_ssh_hook, "some_prefix_1", "some_prefix_2")
+
+    # when
+    conn_ids = [
+        get_cluster_ssh_hook(
+            attempt_no=attempt_no, ssh_connection_id_prefix="some_prefix"
+        ).ssh_conn_id
+        for attempt_no in (0, 1, 2)
     ]
-    hook_1 = get_cluster_ssh_hook(attempt_no=0, ssh_connection_id_prefix="some_prefix")
-    hook_2 = get_cluster_ssh_hook(attempt_no=1, ssh_connection_id_prefix="some_prefix")
-    hook_3 = get_cluster_ssh_hook(attempt_no=2, ssh_connection_id_prefix="some_prefix")
-    assert hook_1.ssh_conn_id == "conn_1"
-    assert hook_2.ssh_conn_id == "conn_2"
-    assert hook_3.ssh_conn_id == "conn_1"
+
+    assert conn_ids == ["some_prefix_1", "some_prefix_2", "some_prefix_1"]
 
 
 @patch("plugins.common.utils.SSHHook")
@@ -394,42 +390,21 @@ def test_get_cluster_ssh_hook_selects_connections_by_prefix(
     mock_ssh_hook: MagicMock,
 ) -> None:
     """Test that two prefixes select disjoint connection sets."""
-    connections = {"cluster_a": ["cluster_a_1"], "cluster_b": ["cluster_b_1"]}
+    _ssh_hooks(mock_ssh_hook, "cluster_a_1", "cluster_b_1")
 
-    with patch(
-        "plugins.common.utils._get_cluster_ssh_connections",
-        side_effect=lambda ssh_connection_id_prefix: connections[
-            ssh_connection_id_prefix
-        ],
-    ):
-        get_cluster_ssh_hook(attempt_no=0, ssh_connection_id_prefix="cluster_a")
-        get_cluster_ssh_hook(attempt_no=0, ssh_connection_id_prefix="cluster_b")
-
-    assert [c.kwargs["ssh_conn_id"] for c in mock_ssh_hook.call_args_list] == [
-        "cluster_a_1",
-        "cluster_b_1",
-    ]
-
-
-@patch(
-    "plugins.common.utils.get_airflow_variable",
-    return_value="cluster_b_2, cluster_a_1,cluster_b_1 ",
-)
-def test_get_cluster_ssh_connections_filters_by_the_given_prefix(
-    mock_get_variable: MagicMock,
-) -> None:
-    """Test that the ids of the Variable are filtered by prefix, stripped and sorted."""
     # when
-    conn_ids = _get_cluster_ssh_connections(ssh_connection_id_prefix="cluster_b")
+    hook_a = get_cluster_ssh_hook(attempt_no=0, ssh_connection_id_prefix="cluster_a")
+    hook_b = get_cluster_ssh_hook(attempt_no=0, ssh_connection_id_prefix="cluster_b")
 
-    assert conn_ids == ["cluster_b_1", "cluster_b_2"]
-    mock_get_variable.assert_called_once_with("cluster_ssh_connection_ids", "")
+    assert (hook_a.ssh_conn_id, hook_b.ssh_conn_id) == ("cluster_a_1", "cluster_b_1")
 
 
-@patch("plugins.common.utils.get_airflow_variable", return_value="")
-def test_get_cluster_ssh_connections_returns_empty_when_variable_not_set(
-    mock_get_variable: MagicMock,  # noqa:ARG001
-) -> None:
-    """Test that a missing or empty Variable yields no connections."""
+@patch("plugins.common.utils.SSHHook")
+def test_get_cluster_ssh_hook_stops_at_first_gap(mock_ssh_hook: MagicMock) -> None:
+    """Test that a gap in the numbering hides the connections after it (documented contract)."""
+    _ssh_hooks(mock_ssh_hook, "some_prefix_1", "some_prefix_3")
+
     # when
-    assert _get_cluster_ssh_connections(ssh_connection_id_prefix="cluster") == []
+    hook = get_cluster_ssh_hook(attempt_no=1, ssh_connection_id_prefix="some_prefix")
+
+    assert hook.ssh_conn_id == "some_prefix_1"

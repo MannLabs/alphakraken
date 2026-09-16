@@ -5,7 +5,7 @@ import json
 from unittest.mock import MagicMock, call, patch
 
 import pytest
-from airflow.exceptions import AirflowFailException
+from airflow.sdk.exceptions import AirflowFailException
 from plugins.common.constants import EXIT_CODE_FILE_NAME, LAUNCHER_SCRIPT_STEM
 from plugins.sensors.ssh_utils import (
     _decode_powershell_command,

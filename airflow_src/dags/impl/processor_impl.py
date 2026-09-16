@@ -5,8 +5,8 @@ import logging
 from collections import defaultdict
 from pathlib import Path, PurePath
 
-from airflow.exceptions import AirflowFailException
-from airflow.models import TaskInstance
+from airflow.sdk.exceptions import AirflowFailException
+from airflow.sdk.models import TaskInstance
 from airflow.utils.state import TaskInstanceState
 from common.constants import (
     ERROR_CODE_TO_STRING,

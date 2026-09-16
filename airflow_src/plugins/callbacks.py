@@ -3,7 +3,7 @@
 import logging
 from typing import Any, cast
 
-from airflow.models import TaskInstance
+from airflow.sdk.execution_time.task_runner import RuntimeTaskInstance as TaskInstance
 from common.exceptions import (
     QuantingFailedException,
     QuantingFailedNewErrorException,

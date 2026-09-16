@@ -9,8 +9,8 @@ from pathlib import Path
 from typing import TypeVar
 
 import pytz
-from airflow.exceptions import AirflowFailException, AirflowSkipException
-from airflow.models import TaskInstance
+from airflow.sdk.exceptions import AirflowFailException, AirflowSkipException
+from airflow.sdk.models import TaskInstance
 from common.keys import (
     DAG_DELIMITER,
     INSTRUMENT_MATCH_PREFIX,

@@ -22,7 +22,7 @@ import logging
 from pathlib import PurePath
 from typing import Protocol
 
-from airflow.exceptions import AirflowFailException
+from airflow.sdk.exceptions import AirflowFailException
 from common.constants import EXIT_CODE_FILE_NAME, LAUNCHER_SCRIPT_STEM, LOG_FILE_NAME
 from common.keys import JobStates
 from common.quanting_env import QuantingEnv

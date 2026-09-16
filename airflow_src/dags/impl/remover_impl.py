@@ -6,9 +6,9 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
-from airflow.exceptions import AirflowFailException
-from airflow.models import TaskInstance
 from airflow.providers.amazon.aws.hooks.base_aws import BaseAwsConnection
+from airflow.sdk.exceptions import AirflowFailException
+from airflow.sdk.execution_time.task_runner import RuntimeTaskInstance as TaskInstance
 from common.constants import (
     BYTES_TO_GB,
     DEFAULT_MIN_FREE_SPACE_GB,

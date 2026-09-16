@@ -4,9 +4,8 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-from airflow.models import Param
-from airflow.models.dag import DAG
 from airflow.providers.standard.operators.python import PythonOperator
+from airflow.sdk import DAG, Param, ParamsDict
 from common.constants import (
     AIRFLOW_QUEUE_PREFIX,
 )
@@ -43,10 +42,12 @@ def create_file_mover_dag(instrument_id: str | None) -> None:
                 "queue": f"{AIRFLOW_QUEUE_PREFIX}file_mover",  # no instrument-specific queue for file mover, they all share the same worker(s)
             },
             description="Move file from acquisition folder to backup folder on instrument.",
-            tags=["mover", instrument_id]
+            tags={"mover", instrument_id}
             if instrument_id is not None
-            else ["mover"],  # TODO: remove with legacy DAG name
-            params={DagParams.RAW_FILE_ID: Param(type="string", minLength=3)},
+            else {"mover"},  # TODO: remove with legacy DAG name
+            params=ParamsDict(
+                {DagParams.RAW_FILE_ID: Param(type="string", minLength=3)}
+            ),
         ) as dag
     ):
         dag.doc_md = __doc__

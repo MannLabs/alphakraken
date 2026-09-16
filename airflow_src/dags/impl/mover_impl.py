@@ -4,8 +4,8 @@ import logging
 import shutil
 from pathlib import Path
 
-from airflow.exceptions import AirflowFailException
-from airflow.models import TaskInstance
+from airflow.sdk.exceptions import AirflowFailException
+from airflow.sdk.execution_time.task_runner import RuntimeTaskInstance as TaskInstance
 from common.keys import DagContext, DagParams, Tasks, XComKeys
 from common.utils import get_env_variable, get_xcom, put_xcom
 from file_handling import compare_paths, get_file_size

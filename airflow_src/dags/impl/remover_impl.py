@@ -414,7 +414,9 @@ def remove_raw_files(ti: TaskInstance, **kwargs) -> None:
     verify_against_s3 = get_purging_verification_type() == S3_SWITCH
     s3_client = _create_s3_client() if verify_against_s3 else None
 
-    raw_file_ids_to_remove = get_xcom(ti, XComKeys.FILES_TO_REMOVE)
+    raw_file_ids_to_remove = get_xcom(
+        ti, XComKeys.FILES_TO_REMOVE, task_ids=Tasks.GET_RAW_FILES_TO_REMOVE
+    )
 
     errors = defaultdict(list)
     for (
@@ -448,7 +450,9 @@ def remove_raw_files(ti: TaskInstance, **kwargs) -> None:
     logging.info("File removal finished successfully!")
 
     # Fail in case raw file selection failed in the upstream task to make these errors transparent in Airflow UI:
-    if instruments_with_errors := get_xcom(ti, XComKeys.INSTRUMENTS_WITH_ERRORS):
+    if instruments_with_errors := get_xcom(
+        ti, XComKeys.INSTRUMENTS_WITH_ERRORS, task_ids=Tasks.GET_RAW_FILES_TO_REMOVE
+    ):
         logging.warning(
             "There were errors in the `get_raw_files_to_remove` task, i.e. while gathering the files to remove:"
         )

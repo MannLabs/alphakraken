@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, cast
 
 from airflow.sensors.base import BaseSensorOperator
-from airflow.utils.xcom import XCOM_RETURN_KEY
-from common.keys import JobStates
+from common.keys import JobStates, XComKeys
 from common.quanting_env import QuantingEnv
+from common.utils import get_xcom
 from jobs.job_handler import get_job_status
 
 
@@ -44,16 +44,21 @@ class JobStatusSensorOperator(BaseSensorOperator, ABC):
         """Persist the job id and runner name from XCom."""
         ti = context["ti"]
         self._job_id = str(
-            ti.xcom_pull(
-                key=XCOM_RETURN_KEY,
+            get_xcom(
+                ti,
+                XComKeys.RETURN_VALUE,
                 task_ids=self.xcom_source_task_id,
                 map_indexes=ti.map_index,
             )
         )
-        quanting_env_dict = ti.xcom_pull(
-            key=XCOM_RETURN_KEY,
-            task_ids=self.quanting_env_source_task_id,
-            map_indexes=ti.map_index,
+        quanting_env_dict = cast(
+            "dict[str, Any]",
+            get_xcom(
+                ti,
+                XComKeys.RETURN_VALUE,
+                task_ids=self.quanting_env_source_task_id,
+                map_indexes=ti.map_index,
+            ),
         )
         self._runner_name = QuantingEnv.from_dict(quanting_env_dict).runner_name
 

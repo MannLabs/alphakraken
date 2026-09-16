@@ -314,7 +314,9 @@ def test_decide_raw_file_handling(
     # when
     decide_raw_file_handling(mock_ti, instrument_id="instrument1")
 
-    mock_get_xcom.assert_called_once_with(mock_ti, "raw_file_names_to_process")
+    mock_get_xcom.assert_called_once_with(
+        mock_ti, "raw_file_names_to_process", task_ids="get_unknown_raw_files"
+    )
     mock_get_project_ids.assert_called_once()
     mock_get_unique.assert_any_call("file1", ["project1", "project2"])
     mock_get_unique.assert_any_call("file2", ["project1", "project2"])

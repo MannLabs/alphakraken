@@ -1,12 +1,14 @@
 """Keys for accessing Dags, Tasks, etc.."""
 
+from shared.keys import ConstantsClass
+
 DAG_DELIMITER: str = "."
 
 
 TIME_ELAPSED_METRIC: str = "time_elapsed"
 
 
-class Dags:
+class Dags(metaclass=ConstantsClass):
     """Dag Names."""
 
     ACQUISITION_WATCHER: str = "instrument_watcher"
@@ -17,13 +19,13 @@ class Dags:
     S3_UPLOADER: str = "s3_uploader"
 
 
-class TaskGroups:
+class TaskGroups(metaclass=ConstantsClass):
     """Task Group Names."""
 
     PROCESSING: str = "processing"
 
 
-class Tasks:
+class Tasks(metaclass=ConstantsClass):
     """Task Names."""
 
     WAIT_FOR_RAW_FILE_CREATION: str = "wait_for_raw_file_creation"
@@ -59,19 +61,19 @@ class Tasks:
     GET_RAW_FILES_TO_REMOVE: str = "get_raw_files_to_remove"
 
 
-class OpArgs:
+class OpArgs(metaclass=ConstantsClass):
     """Keys for passing arguments to operators."""
 
     INSTRUMENT_ID: str = "instrument_id"
 
 
-class DagContext:
+class DagContext(metaclass=ConstantsClass):
     """Keys for accessing context in DAGs."""
 
     PARAMS: str = "params"
 
 
-class DagParams:
+class DagParams(metaclass=ConstantsClass):
     """Keys for accessing parameters in DAG context 'params'."""
 
     # "params" level
@@ -81,7 +83,7 @@ class DagParams:
     INTERNAL_TARGET_FOLDER_PATH: str = "internal_target_folder_path"
 
 
-class XComKeys:
+class XComKeys(metaclass=ConstantsClass):
     """Keys for accessing XCom."""
 
     RAW_FILE_ID: str = "raw_file_id"
@@ -104,7 +106,7 @@ class XComKeys:
     RETURN_VALUE = "return_value"
 
 
-class InstrumentKeys:
+class InstrumentKeys(metaclass=ConstantsClass):
     """Keys for accessing instrument data.
 
     If defaults need to be set, use the INSTRUMENT_SETTINGS_DEFAULTS dictionary in settings.py.
@@ -124,7 +126,7 @@ INSTRUMENT_MATCH_PREFIX = "INSTRUMENT_"
 RAW_FILE_IDS_SEPARATOR = ","
 
 
-class AirflowVars:
+class AirflowVars(metaclass=ConstantsClass):
     """Keys for accessing Airflow Variables (set in the Airflow UI). Cf. also Readme."""
 
     # set to a specific file id (or `INSTRUMENT_<instrument_id>`) to allow overwriting its checksum and pool backup
@@ -153,7 +155,7 @@ class AirflowVars:
     DEBUG_MAX_FILE_AGE_IN_HOURS: str = "debug_max_file_age_in_hours"
 
 
-class JobStates:
+class JobStates(metaclass=ConstantsClass):
     """States of a slurm job as returned by the sacct command, cf slurm_commands.py:get_job_state_cmd()."""
 
     PENDING: str = "PENDING"
@@ -168,7 +170,7 @@ class JobStates:
     UNKNOWN: str = "UNKNOWN"  # sentinel for when neither scontrol nor sacct can determine the state; not a real slurm state
 
 
-class CustomAlphaDiaStates:
+class CustomAlphaDiaStates(metaclass=ConstantsClass):
     """Alphakraken-custom states to handle errors during retrieval of unknown alphaDIA errors."""
 
     NO_LOG_FILE: str = "__NO_LOG_FILE"
@@ -176,14 +178,14 @@ class CustomAlphaDiaStates:
     COULD_NOT_DETERMINE_ERROR: str = "__COULD_NOT_DETERMINE_ERROR"
 
 
-class AcquisitionMonitorErrors:
+class AcquisitionMonitorErrors(metaclass=ConstantsClass):
     """Errors that can occur during acquisition monitoring."""
 
     MAIN_FILE_MISSING: str = "Main file was not created"
     FILE_GOT_RENAMED: str = "File got renamed"
 
 
-class AcquisitionHandlerErrors:
+class AcquisitionHandlerErrors(metaclass=ConstantsClass):
     """Errors that can occur during acquisition handling."""
 
     FILES_MISSING: str = "Files missing on instrument"

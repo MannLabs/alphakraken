@@ -2,6 +2,7 @@
 
 from unittest.mock import MagicMock, patch
 
+import pytest
 from impl.processor_impl import QuantingFailedException
 from plugins.callbacks import on_failure_callback
 from plugins.s3.s3_utils import S3UploadFailedException
@@ -17,7 +18,7 @@ def test_on_failure_callback_with_other_exception(mock_update: MagicMock) -> Non
         "task_instance": MagicMock(
             task_id="task1",
             dag_id="dag1.instrument1",
-            xcom_pull=MagicMock(return_value="some_file.raw"),
+            xcom_pull=MagicMock(return_value=["some_file.raw"]),
         ),
         "exception": ex,
     }
@@ -40,7 +41,7 @@ def test_on_failure_callback_with_s3_exception(mock_update: MagicMock) -> None:
         "task_instance": MagicMock(
             task_id="task1",
             dag_id="dag1.instrument1",
-            xcom_pull=MagicMock(return_value="some_file.raw"),
+            xcom_pull=MagicMock(return_value=["some_file.raw"]),
         ),
         "exception": ex,
     }
@@ -80,19 +81,53 @@ def test_on_failure_callback_with_no_rawfile_in_xcom_but_dag_context(
 
 
 @patch("plugins.callbacks.update_raw_file")
-def test_on_failure_callback_with_no_rawfile_in_xcom_nor_dag(
+def test_on_failure_callback_with_rawfile_in_xcom_of_one_task(
     mock_update: MagicMock,
 ) -> None:
-    """on_failure_callback does not update the status when the raw file name is not in XCom nor Dag context."""
+    """on_failure_callback takes the raw file id from XCom when exactly one task pushed it."""
     context = {
         "task_instance": MagicMock(
-            task_id="task1", dag_id="dag1", xcom_pull=MagicMock(side_effect=KeyError)
+            task_id="task1",
+            dag_id="dag1.instrument1",
+            xcom_pull=MagicMock(return_value=[None, "some_file.raw", None]),
         ),
         "exception": Exception("Some error"),
     }
 
     # when
     on_failure_callback(context)
+
+    mock_update.assert_called_once_with(
+        "some_file.raw",
+        new_status=RawFileStatus.ERROR,
+        status_details="[dag1.task1] Some error",
+    )
+
+
+@pytest.mark.parametrize(
+    "xcom_values",
+    [
+        [None, None],
+        ["some_file.raw", "other_file.raw"],
+    ],
+)
+@patch("plugins.callbacks.update_raw_file")
+def test_on_failure_callback_with_no_unique_rawfile_in_xcom_nor_dag(
+    mock_update: MagicMock, xcom_values: list[str | None]
+) -> None:
+    """on_failure_callback raises when the raw file id is not in the Dag context and XCom holds no unique value."""
+    context = {
+        "task_instance": MagicMock(
+            task_id="task1",
+            dag_id="dag1",
+            xcom_pull=MagicMock(return_value=xcom_values),
+        ),
+        "exception": Exception("Some error"),
+    }
+
+    # when
+    with pytest.raises(ValueError, match="Expected exactly one raw file id"):
+        on_failure_callback(context)
 
     mock_update.assert_not_called()
 
@@ -106,7 +141,7 @@ def test_on_failure_callback_with_quanting_failed_exception(
         "task_instance": MagicMock(
             task_id="task1",
             dag_id="dag1.instrument1",
-            xcom_pull=MagicMock(return_value="some_file.raw"),
+            xcom_pull=MagicMock(return_value=["some_file.raw"]),
         ),
         "exception": QuantingFailedException("Quanting failed"),
     }

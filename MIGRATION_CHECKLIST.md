@@ -11,8 +11,12 @@ Everything below needs a human and/or a running deployment.
   `AIRFLOW_APISERVER_HOST`, `AIRFLOW_APISERVER_PORT`, `AIRFLOW_BASE_URL`, `AIRFLOW_JWT_SECRET`.
   - `AIRFLOW_APISERVER_HOST/PORT`: reachable from every **worker** host (= infra host IP + `WEBSERVER_PORT`),
     never a compose service name unless all services share one compose network.
-  - `AIRFLOW_BASE_URL`: the URL the **browser** uses (behind nginx: `https://<host>:8080`). A wrong value shows
-    up only as *Server Not Found* after login.
+  - `AIRFLOW_BASE_URL`: the URL the **browser** uses. Airflow 3 redirects to it after login, scopes the session
+    cookie by its path and builds the log links in notifications from it; workers do not use it.
+    Behind nginx (`misc/nginx.conf` terminates TLS on 8080 and proxies to the api-servers) it is
+    `https://<nginx_host>:8080`: scheme and port of nginx as typed into the address bar, not of the api-server
+    container, no trailing path. A wrong value shows up only as *Server Not Found* after login; curl and health
+    checks stay green.
   - `AIRFLOW_JWT_SECRET`: one strong random string, identical on all machines.
 - 1.2 Open the firewall for worker hosts → api-server port (new path; 2.11 workers only needed postgres/redis).
 - 1.3 Rename the SSH connections (Admin → Connections) to `<ssh_connection_id_prefix>_1`, `_2`, ... without gaps,
@@ -38,7 +42,8 @@ Everything below needs a human and/or a running deployment.
 
 ## 3. After cutover
 
-- 3.1 UI reachable in a real browser after login (not curl).
+- 3.1 UI reachable in a real browser after login (not curl), through nginx. With two api-server replicas the
+  `ip_hash` upstream keeps a browser on one backend; confirm login survives a reload and a second tab.
 - 3.2 Connections not following the naming of 1.3 (or after a gap in the numbering) are silently unused.
 - 3.3 Pools and other Variables survive the migration; verify they are present.
 - 3.4 Smoke test DAGs in this order: `file_remover` (cron + worker→api path), `instrument_watcher`,

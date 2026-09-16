@@ -448,7 +448,7 @@ def test_assign_settings_to_project(
         raw_file_id_exclude_filter=[],
     )
     mock_project_settings.return_value.save.assert_called_once()
-    mock_connect_db.assert_called_once()
+    mock_connect_db.assert_called()
 
 
 @patch("shared.db.interface.connect_db")

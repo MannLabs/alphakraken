@@ -257,16 +257,9 @@ def assign_settings_to_project(  # noqa: PLR0913
     raw_file_id_filter = raw_file_id_filter or []
     raw_file_id_exclude_filter = raw_file_id_exclude_filter or []
 
-    for ps_existing in ProjectSettings.objects(project=project, settings=settings):
-        if (
-            list(ps_existing.raw_file_id_filter) == raw_file_id_filter
-            and list(ps_existing.raw_file_id_exclude_filter)
-            == raw_file_id_exclude_filter
-        ):
-            raise ValueError(
-                f"Settings '{settings.name}' version {settings.version} already assigned "
-                f"to project '{project_id}' with the same file name filters."
-            )
+    check_not_assigned_with_same_filters(
+        project_id, settings, raw_file_id_filter, raw_file_id_exclude_filter
+    )
 
     ps = ProjectSettings(
         project=project,
@@ -284,6 +277,26 @@ def assign_settings_to_project(  # noqa: PLR0913
         f"{excluded_scopes=} {raw_file_id_filter=} {raw_file_id_exclude_filter=}"
     )
     return ps
+
+
+def check_not_assigned_with_same_filters(
+    project_id: str,
+    settings: Settings,
+    raw_file_id_filter: list[str],
+    raw_file_id_exclude_filter: list[str],
+) -> None:
+    """Raise if the settings are already assigned to the project with identical file name filters."""
+    connect_db()
+    for ps_existing in ProjectSettings.objects(project=project_id, settings=settings):
+        if (
+            list(ps_existing.raw_file_id_filter) == raw_file_id_filter
+            and list(ps_existing.raw_file_id_exclude_filter)
+            == raw_file_id_exclude_filter
+        ):
+            raise ValueError(
+                f"Settings '{settings.name}' version {settings.version} already assigned "
+                f"to project '{project_id}' with the same file name filters."
+            )
 
 
 def unassign_settings_from_project(project_settings_id: str) -> None:

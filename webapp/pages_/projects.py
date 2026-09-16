@@ -25,6 +25,7 @@ from service.utils import (
 from shared.db.interface import (
     add_project,
     assign_settings_to_project,
+    check_not_assigned_with_same_filters,
     get_all_settings,
     get_latest_active_settings_by_name,
     get_project_settings,
@@ -205,6 +206,12 @@ with c_assign1:
                     icon=":material/upgrade:",
                 ):
                     try:
+                        check_not_assigned_with_same_filters(
+                            selected_project_id,
+                            latest,  # type: ignore[arg-type]
+                            list(ps.raw_file_id_filter),
+                            list(ps.raw_file_id_exclude_filter),
+                        )
                         unassign_settings_from_project(ps_id)  # type: ignore[unresolved-attribute]
                         assign_settings_to_project(
                             selected_project_id,

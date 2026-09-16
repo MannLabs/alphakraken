@@ -58,6 +58,11 @@ class Tasks:
     REMOVE_RAW_FILES: str = "remove_raw_files"
     GET_RAW_FILES_TO_REMOVE: str = "get_raw_files_to_remove"
 
+    @classmethod
+    def all_values(cls) -> list[str]:
+        """Return all task ids."""
+        return [value for name, value in vars(cls).items() if name.isupper()]
+
 
 class OpArgs:
     """Keys for passing arguments to operators."""

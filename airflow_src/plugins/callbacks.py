@@ -1,9 +1,10 @@
 """Callbacks for Airflow tasks."""
 
 import logging
-from typing import Any
+from typing import Any, cast
 
-from common.keys import DAG_DELIMITER, DagContext, DagParams, XComKeys
+from airflow.models import TaskInstance
+from common.keys import DAG_DELIMITER, DagContext, DagParams, Tasks, XComKeys
 from common.utils import get_xcom
 from impl.processor_impl import (
     QuantingFailedException,
@@ -29,14 +30,7 @@ def on_failure_callback(context: dict[str, Any], **kwargs) -> None:
     try:
         raw_file_id = context[DagContext.PARAMS][DagParams.RAW_FILE_ID]
     except KeyError:
-        try:
-            # nothing pushes this key today, so this fallback never resolves
-            raw_file_id = get_xcom(ti, key=XComKeys.RAW_FILE_ID, task_ids=ti.task_id)
-        except KeyError:
-            logging.warning(
-                "could not find raw file id in dag params nor xcom. Not updating status in db."
-            )
-            return
+        raw_file_id = _get_raw_file_id_from_xcom(ti)
 
     ex = context["exception"]
 
@@ -72,3 +66,20 @@ def on_failure_callback(context: dict[str, Any], **kwargs) -> None:
         raw_file_id,
         **update_args,  # type: ignore[invalid-argument-type]
     )
+
+
+def _get_raw_file_id_from_xcom(ti: TaskInstance) -> str:
+    """Get the raw file id pushed to XCom by any task of the DAG run.
+
+    :raises ValueError: If not exactly one distinct raw file id was pushed.
+    """
+    values = cast(
+        "list[str | None]",
+        get_xcom(ti, key=XComKeys.RAW_FILE_ID, task_ids=Tasks.all_values()),
+    )
+    raw_file_ids = {value for value in values if value is not None}
+    if len(raw_file_ids) != 1:
+        raise ValueError(
+            f"Expected exactly one raw file id in XCom, got {sorted(raw_file_ids)}."
+        )
+    return raw_file_ids.pop()

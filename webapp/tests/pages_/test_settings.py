@@ -15,6 +15,9 @@ from shared.runners import RUNNERS
 PAGES_FOLDER = Path(__file__).parent / Path("../../pages_")
 
 RUNNER_SELECT_LABEL = "Runner"
+SOFTWARE_SELECT_LABEL = "Software*"
+ADD_NEW_SOFTWARE_OPTION = "➕ Add new software..."  # noqa: RUF001
+NEW_SOFTWARE_INPUT_LABEL = "New software"
 
 
 def _settings_df() -> pd.DataFrame:
@@ -130,3 +133,114 @@ def test_settings_without_runners_shows_notice_instead_of_form(
 )  # TODO: fix this test once the issues with test_add_new_project_form_submission() are fixed
 def test_add_new_settings_form_submission() -> None:
     """A test for the form submission on the settings page."""
+
+
+def _settings_df_with_software() -> pd.DataFrame:
+    """Get settings entries of mixed software type and runner, youngest first, as df_from_db_data sorts them."""
+    return pd.DataFrame(
+        {
+            "_id": [1, 2, 3, 4, 5],
+            "created_at_": [
+                "2021-01-05",
+                "2021-01-04",
+                "2021-01-03",
+                "2021-01-02",
+                "2021-01-01",
+            ],
+            "name": ["young", "old", "other_type", "other_runner", "retired_runner"],
+            "version": [2, 1, 1, 1, 1],
+            "software": [
+                "alphadia-2.0.0",
+                "alphadia-1.10.0",
+                "msqc/run_msqc.sh",
+                "alphadia-on-docker",
+                "alphadia-retired",
+            ],
+            "software_type": ["alphadia", "alphadia", "msqc", "alphadia", "alphadia"],
+            "runner_name": ["slurm", "slurm", "slurm", "docker", "gone_from_the_yaml"],
+            "status": ["active", "inactive", "active", "active", "active"],
+        },
+    )
+
+
+@patch("shared.db.models.ProjectSettings.objects")
+@patch("service.db.get_project_data")
+@patch("service.db.get_settings_data")
+@patch("service.db.df_from_db_data")
+def test_settings_software_selectbox_offers_the_used_software(
+    mock_df: MagicMock,
+    mock_get: MagicMock,  # noqa: ARG001
+    mock_project_get: MagicMock,  # noqa: ARG001
+    mock_ps_objects: MagicMock,
+) -> None:
+    """Test that the software of the selected type and runner is offered, youngest first, archived included."""
+    mock_ps_objects.all.return_value = []
+    mock_df.return_value = _settings_df_with_software()
+
+    at = AppTest.from_file(f"{PAGES_FOLDER}/settings.py").run(timeout=10)
+
+    assert not at.exception
+    software_selects = [s for s in at.selectbox if s.label == SOFTWARE_SELECT_LABEL]
+    assert len(software_selects) == 1
+    # 'msqc/run_msqc.sh' is another software type, 'alphadia-on-docker' another runner
+    assert software_selects[0].options == [
+        "alphadia-2.0.0",
+        "alphadia-1.10.0",
+        ADD_NEW_SOFTWARE_OPTION,
+    ]
+    assert any(
+        "`alphadia-2.0.0` is already used by `young` v2" in m.value for m in at.markdown
+    )
+
+
+@patch("shared.db.models.ProjectSettings.objects")
+@patch("service.db.get_project_data")
+@patch("service.db.get_settings_data")
+@patch("service.db.df_from_db_data")
+def test_settings_software_selectbox_without_used_software_offers_adding_one(
+    mock_df: MagicMock,
+    mock_get: MagicMock,  # noqa: ARG001
+    mock_project_get: MagicMock,  # noqa: ARG001
+    mock_ps_objects: MagicMock,
+) -> None:
+    """Test that a deployment without matching settings falls back to entering the software by hand."""
+    mock_ps_objects.all.return_value = []
+    mock_df.return_value = _settings_df()  # has no software_type and runner_name
+
+    at = AppTest.from_file(f"{PAGES_FOLDER}/settings.py").run(timeout=10)
+
+    assert not at.exception
+    software_selects = [s for s in at.selectbox if s.label == SOFTWARE_SELECT_LABEL]
+    assert software_selects[0].options == [ADD_NEW_SOFTWARE_OPTION]
+    assert [t for t in at.text_input if t.label == NEW_SOFTWARE_INPUT_LABEL]
+    assert any(
+        "administrator needs to make it available" in w.value for w in at.warning
+    )
+
+
+@patch("shared.db.models.ProjectSettings.objects")
+@patch("service.db.get_project_data")
+@patch("service.db.get_settings_data")
+@patch("service.db.df_from_db_data")
+def test_settings_software_selectbox_keeps_a_software_the_runner_never_ran(
+    mock_df: MagicMock,
+    mock_get: MagicMock,  # noqa: ARG001
+    mock_project_get: MagicMock,  # noqa: ARG001
+    mock_ps_objects: MagicMock,
+) -> None:
+    """Test that updating settings whose software is not in the list selects it rather than 'add new'."""
+    mock_ps_objects.all.return_value = []
+    mock_df.return_value = _settings_df_with_software()
+
+    at = AppTest.from_file(f"{PAGES_FOLDER}/settings.py").run(timeout=10)
+    # the runner of 'retired_runner' is gone, so the page falls back to 'slurm', which never ran its software
+    at.selectbox[0].select("retired_runner").run(timeout=10)
+
+    assert not at.exception
+    software_select = next(s for s in at.selectbox if s.label == SOFTWARE_SELECT_LABEL)
+    assert software_select.value == "alphadia-retired"
+    assert software_select.options[-1] == ADD_NEW_SOFTWARE_OPTION
+    assert [t for t in at.text_input if t.label == NEW_SOFTWARE_INPUT_LABEL] == []
+    assert not any(
+        "administrator needs to make it available" in w.value for w in at.warning
+    )

@@ -11,7 +11,12 @@ from shared.path_layout import get_raw_file_folder_rel_path
 from shared.path_views import Locations
 from shared.yamlsettings import YAMLSETTINGS, YamlKeys
 
-_REQUIRED_LOCATIONS = (Locations.BACKUP, Locations.OUTPUT)
+_REQUIRED_LOCATIONS = (
+    Locations.BACKUP,
+    Locations.OUTPUT,
+    Locations.SETTINGS,
+    Locations.SOFTWARE,
+)
 
 _POSIX_SEPARATOR = "/"
 _WINDOWS_SEPARATOR = "\\"
@@ -56,3 +61,8 @@ def get_display_backup_path(raw_file: RawFile) -> str:
 def get_display_output_path(relative_output_path: str) -> str:
     """Get the output folder for `relative_output_path`, as users see it."""
     return _display_path(Locations.OUTPUT, relative_output_path)
+
+
+def get_display_settings_path(settings_name: str) -> str:
+    """Get the folder holding the input files of `settings_name`, as users see it."""
+    return _display_path(Locations.SETTINGS, settings_name)

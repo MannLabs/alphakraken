@@ -75,6 +75,8 @@ class YamlSettings:
                 "display_paths": {
                     "backup": "./tmp/test/backup",
                     "output": "./tmp/test/output",
+                    "settings": "./tmp/test/settings",
+                    "software": "./tmp/test/software",
                 },
                 "runners": [
                     {

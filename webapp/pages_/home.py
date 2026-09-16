@@ -7,7 +7,9 @@ from service.components import show_sandbox_message
 from service.query_params import get_all_query_params
 from service.utils import APP_URL, _log, display_info_message
 
+from shared.display_paths import DISPLAY_PATHS
 from shared.keys import EnvVars
+from shared.path_views import Locations
 from shared.validation import ALLOWED_RAW_FILE_NAME_CHARACTERS_PRETTY
 
 _log(f"loading {__file__} {get_all_query_params()}")
@@ -60,7 +62,8 @@ To ensure a smooth automated processing, please follow these rules when acquirin
 - If your file name contains `_dda_`, they will also not be quanted.""")
 
 
-c1.markdown("""### FAQ
+output_path = DISPLAY_PATHS[Locations.OUTPUT]
+c1.markdown(f"""### FAQ
 
 Q: Why is there a strange prefix (like "20241029-162042-876912-") in front of my file name?
 
@@ -89,17 +92,14 @@ if the current file has not changed for 2 hours. As a consequence, the last file
 with this 2 hour delay (this could be remedied by adding a blank sample to the end of a queue).
 Note: if AlphaKraken processing is disrupted for a certain time, it might take up to 2 hours until their
 acquisition is considered "finished".
-""")
 
-# TODO: reimplement
-# c1.markdown(f"""
-# Q: Where to I find the AlphaDIA output files?
-#
-# A:  The output files associated for a given raw file are stored at
-#    `{output_path}/<project id>/out_<raw file name>/`
-# """)
 
-c1.markdown(f"""
+Q: Where to I find the AlphaDIA output files?
+
+A:  The output files associated for a given raw file are stored at
+   `{output_path}/<project_id>/out_<raw_file_name>/`
+
+
 Q: A lot of jobs are stuck in status "quanting" or "queued_for_quanting".
 
 A: This is the case when the cluster is under heavy load. The jobs will be processed as soon as possible.

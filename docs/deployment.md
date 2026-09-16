@@ -192,20 +192,21 @@ Keep it writable by administrators only: anyone who can edit it can execute arbi
 
 Each worker needs two 'views' on the raw and output data.
 
-The first view ("worker PC view") enables read/write access,
-by mounting on the AlphaKraken host PC a specific (network) folder (e.g. `\\pool-backup\pool-backup` or `\\pool-output\pool-output`)
-using `cifs` mounts (wrapped by `mount.sh`)
-to a target folder and then mapping this target folder to a worker container
+The first view ("worker PC view") enables read/write access from the worker containers.
+This is achieved by mounting on the AlphaKraken host PC a specific network folder (e.g. `\\pool-backup\pool-backup` or `\\pool-output\pool-output`)
+using `cifs` mounts (wrapped by `mount.sh`) to a local target folder and then mapping this target folder to a worker container
 in `docker-compose.yaml`, such that it can be accessed in a unified manner from within the containers (cf. the `AIRFLOW_CONTAINER_VIEW` view in `shared/path_views.py`).
 
-The second view ("cluster view") is the location of the data on the shared filesystem as seen from the Slurm cluster
-(e.g. `/fs/pool/pool-backup` or `/fs/pool/pool-output`),
-which is required to set the paths for the cluster jobs correctly.
+The second view ("runner view") is the location of the data on the shared filesystem as seen from the respective runners
+which is required to set the paths for the compute jobs correctly.
+E.g. from a slurm cluster, the output location could be seen under `/fs/pool/output`, whereas on a Windows PC fed by a certain runner, the same location could be
+references as "X:\pool-output" or "\\pool-output\pool-output".
 
-For instruments, only the first type of view is required, as the cluster does not access the instruments directly.
+For instruments, only the first type of view is required, as the runners do never see the instruments directly.
 
 The DB stores paths relative to these locations. The `display_paths` section of `envs/alphakraken.${ENV}.yaml`
-holds the absolute paths users see, which the webapp and the REST API prepend for display.
+holds the absolute paths users see, which the webapp and the REST API prepend for display (and show as upload
+and software folders on the settings page).
 
 All paths are configured in the `locations` section of the `envs/alphakraken.${ENV}.yaml` file (see comments in `alphakraken.local.yaml`
 for details).

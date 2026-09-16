@@ -26,6 +26,8 @@ general:
 display_paths:
   backup: /fs/pool-0/alphakraken_sandbox/backup
   output: /fs/pool-0/alphakraken_sandbox/output
+  settings: /fs/pool-0/alphakraken_sandbox/settings
+  software: /fs/home/kraken-read/software
 
 backup:
   backup_type: local # or 's3'

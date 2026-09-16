@@ -56,13 +56,15 @@ def get_xcom(
 
     value = ti.xcom_pull(**pull_kwargs)
 
-    if value is None and default is _NO_DEFAULT:
-        raise KeyError(f"No value found for XCOM key {key}")
+    # we handle the default ourselves, as passing it to xcom_pull is ignored when `map_indexes` is not given
+    if value is None:
+        if default is _NO_DEFAULT:
+            raise KeyError(f"No value found for XCOM key {key}")
+        return default
 
-    if value is not None:
-        logging.info(
-            f"Pulled from XCOM: '{key}'='{value}' ({task_ids=} {default=} {map_indexes=})"
-        )
+    logging.info(
+        f"Pulled from XCOM: '{key}'='{value}' ({task_ids=} {default=} {map_indexes=})"
+    )
 
     return value
 

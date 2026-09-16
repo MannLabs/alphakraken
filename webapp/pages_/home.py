@@ -59,7 +59,7 @@ In particular:
 To ensure a smooth automated processing, please follow these rules when acquiring files:
 - Make sure your raw filename does not contain any special characters. Only allowed: `{ALLOWED_RAW_FILE_NAME_CHARACTERS_PRETTY}`
 (basic latin letters, numbers, and a few special characters like `-`, `_`, `+`). Otherwise, they will not be quanted.
-- If your file name contains `_dda_`, they will also not be quanted.""")
+""")
 
 
 output_path = DISPLAY_PATHS[Locations.OUTPUT]

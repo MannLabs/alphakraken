@@ -106,7 +106,7 @@ with c1.expander("Click here for help ..."):
         are associated with project `A1234`.
         Currently, only projects ids that follow after the pattern 'SA' are picked up, e.g. `20240801_something_SA_A123_my-sample.raw`.
         If no matching project can be found for a file, then fallback settings are used.
-        Please make sure your project identifier is 'unique enough' ("DDA" might be a bad pick), otherwise it might cause false positives.
+        Please make sure your project identifier is 'unique enough' ("PLATE1" might be a bad pick), otherwise it might cause false positives.
         Needs to be between 4 and 16 characters, contain only uppercase letters and numbers, and at least one letter.
 
         ### Workflow
@@ -364,7 +364,6 @@ with c1.form("create_project_form"):
 
 
 ALLOWED_CHARACTERS_IN_PROJECT_ID = r"[^A-Z0-9]"
-FORBIDDEN_PROJECT_IDS = ["dda", "dia"]
 SPECIAL_PROJECT_IDS = ["_FALLBACK"]
 
 
@@ -376,7 +375,6 @@ def _check_project_id(project_id: str) -> None:
         or len(project_id) > 16  # noqa: PLR2004
         or project_id.isdigit()
         or re.findall(ALLOWED_CHARACTERS_IN_PROJECT_ID, project_id)
-        or project_id.lower() in FORBIDDEN_PROJECT_IDS
     ) and project_id not in SPECIAL_PROJECT_IDS:
         raise ValueError(
             f"Invalid project id '{project_id}'. Please choose a different one."

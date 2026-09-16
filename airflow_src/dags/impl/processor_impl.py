@@ -12,6 +12,12 @@ from common.constants import (
     ERROR_CODE_TO_STRING,
     AlphaDiaConstants,
 )
+from common.exceptions import (
+    QuantingFailedException,
+    QuantingFailedKnownErrorException,
+    QuantingFailedNewErrorException,
+    QuantingFailedUnknownErrorException,
+)
 from common.keys import (
     TIME_ELAPSED_METRIC,
     AirflowVars,
@@ -59,22 +65,6 @@ from shared.path_views import Locations, View
 from shared.runners import get_runner
 from shared.settings_scope_resolver import resolve_scoped_settings
 from shared.validation import check_for_malicious_content
-
-
-class QuantingFailedNewErrorException(AirflowFailException):
-    """Raise if quanting failed with a new error."""
-
-
-class QuantingFailedKnownErrorException(AirflowSkipException):
-    """Raise if quanting failed with a known error."""
-
-
-class QuantingFailedUnknownErrorException(AirflowFailException):
-    """Raise if quanting failed with a unknown error state."""
-
-
-class QuantingFailedException(AirflowFailException):
-    """Raise if quanting failed but status has already been set."""
 
 
 def resolve_settings(raw_file_id: str) -> list[str]:

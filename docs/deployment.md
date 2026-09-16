@@ -56,7 +56,7 @@ e.g. to spin up another instance hosting workers only.
 
 2. In the Airflow UI, set up the SSH connection to the cluster (see [below](#setup-ssh-connection)).
 If you don't want to connect to the cluster, just create the connection of type
-"ssh" and name "cluster_ssh_connection" with some dummy values for host, username, and password.
+"ssh" and name "cluster_ssh_connection_1" with some dummy values for host, username, and password.
 In this case, make sure to set the Airflow variable `debug_no_cluster_ssh=True` (see below).
 
 3. In the Airflow UI, set up the required Pools (see [below](#setup-required-pools)).
@@ -306,20 +306,17 @@ At least one connection is required to interact with the Slurm cluster.
 
 1. Open the Airflow UI, navigate to "Admin" -> "Connections" and click the "+" button.
 2. Fill in the following fields:
-    - Connection Id: `cluster_ssh_connection`
+    - Connection Id: `cluster_ssh_connection_1`
     - Conn Type: `SSH`
     - Host: `<cluster_head_node_ip>`  # the IP address of a cluster head node, in this case `<cluster_head_node>`
     - Username: `<user name of user kraken-read>`
     - Password: `<password of user kraken-read>`
 3. (optional) Click "Test" to verify the connection.
 4. Click "Save".
-5. Add the connection id to the comma-separated Airflow Variable `cluster_ssh_connection_ids`
-("Admin" -> "Variables"), e.g. `cluster_ssh_connection` or `cluster_ssh_connection_1,cluster_ssh_connection_2`.
 Note: make sure to use the `kraken-read` user with read-only access to the backup pool folder.
 
-A runner selects its connections by prefix: it uses every id in `cluster_ssh_connection_ids` that starts with its
-`ssh_connection_id_prefix`, cycling through them on retries. A connection that is not listed in the Variable is
-silently ignored.
+A runner uses the connections `<ssh_connection_id_prefix>_1`, `<ssh_connection_id_prefix>_2`, ... cycling through them on
+retries. Numbering must start at 1 and have no gaps: connections after a gap are silently ignored.
 
 
 ### Setup required pools
@@ -376,7 +373,7 @@ the host. This is acceptable for a single-machine standalone deployment (`compos
 `docker compose` with `sudo`), but it should not be enabled on a multi-machine production setup.
 3. Make sure `MOUNTS_PATH` in `envs/${ENV}.env` is absolute: the docker daemon resolves the job containers'
 bind mounts on the host and rejects relative sources.
-4. As no cluster is available, set up a dummy `cluster_ssh_connection` and set the Airflow variable
+4. As no cluster is available, set up a dummy `cluster_ssh_connection_1` and set the Airflow variable
 `debug_no_cluster_ssh` to `true`, cf. [Setup SSH connection](#setup-ssh-connection).
 5. Size the `cluster_slots_pool` to the local machine's capacity: it gates the `submit_job` and job
 monitoring tasks for all runners, not only for Slurm.
@@ -404,7 +401,7 @@ The executable named in the `software` field is run directly on that machine as 
 its exit code to `.alphakraken_exit_code` next to it.
 
 Prerequisites:
-1. Airflow SSH connections to the machine, their ids starting with the runner's `ssh_connection_id_prefix`,
+1. Airflow SSH connections to the machine, named `<ssh_connection_id_prefix>_1`, `_2`, ... of the runner,
 cf. [Setup SSH connection](#setup-ssh-connection). On Windows, the OpenSSH server is required; its default
 shell may be `cmd.exe`, PowerShell or git-bash.
 2. The `output` and `backup` folders mounted on the machine at the paths given in the runner's `view`.
@@ -428,7 +425,7 @@ This adds a per-machine queue with a configurable number of parallel jobs, a `PE
 process tracking, at the price of a daemon that has to run on the machine.
 
 Prerequisites:
-1. Airflow SSH connections to the machine, their ids starting with the runner's `ssh_connection_id_prefix`,
+1. Airflow SSH connections to the machine, named `<ssh_connection_id_prefix>_1`, `_2`, ... of the runner,
 cf. [Setup SSH connection](#setup-ssh-connection).
 2. The folders of the runner's `view` mounted on the machine at the given paths. `output` must be the same folder
 the workers see as their output mount: the job runs in the folder the worker created there.

@@ -15,7 +15,8 @@ Everything below needs a human and/or a running deployment.
     up only as *Server Not Found* after login.
   - `AIRFLOW_JWT_SECRET`: one strong random string, identical on all machines.
 - 1.2 Open the firewall for worker hosts → api-server port (new path; 2.11 workers only needed postgres/redis).
-- 1.3 Note all SSH connection ids (Admin → Connections) for step 3.2.
+- 1.3 Rename the SSH connections (Admin → Connections) to `<ssh_connection_id_prefix>_1`, `_2`, ... without gaps,
+  e.g. `cluster_ssh_connection` → `cluster_ssh_connection_1`. Workers cannot list connections any more; they probe these ids.
 - 1.4 Staging: build the image (`./compose.sh build`) and run the whole of section 3 there first.
   paramiko 5 against the cluster SSH daemon and the amazon provider bump are untested.
 - 1.5 Pick an acquisition gap; keep the 2.11 image pullable for rollback.
@@ -38,12 +39,11 @@ Everything below needs a human and/or a running deployment.
 ## 3. After cutover
 
 - 3.1 UI reachable in a real browser after login (not curl).
-- 3.2 Set Airflow Variable `cluster_ssh_connection_ids` = comma-separated ids from 1.3.
-  Unlisted connections are silently unused.
+- 3.2 Connections not following the naming of 1.3 (or after a gap in the numbering) are silently unused.
 - 3.3 Pools and other Variables survive the migration; verify they are present.
 - 3.4 Smoke test DAGs in this order: `file_remover` (cron + worker→api path), `instrument_watcher`,
   `acquisition_handler` (checks `trigger_dag_run`; verify the file_mover run starts only after the delay),
-  `acquisition_processor` (checks `get_task_states`, SSH Variable, paramiko 5, mapping), `s3_uploader`.
+  `acquisition_processor` (checks `get_task_states`, SSH connection probing, paramiko 5, mapping), `s3_uploader`.
 - 3.5 Force one branch of `acquisition_processor` to fail and check the resulting `RawFileStatus`
   (DONE / QUANTING_FAILED / ERROR). Silent if wrong.
 - 3.6 Confirm `on_failure_callback` fires and finds `raw_file_id` (callbacks run in the supervisor now).

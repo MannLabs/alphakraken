@@ -5,6 +5,8 @@ AIRFLOW_QUEUE_PREFIX = "kraken_queue_"
 
 CLUSTER_SSH_CONNECTION_TIMEOUT = 60
 CLUSTER_SSH_COMMAND_TIMEOUT = 60
+# upper bound when probing for connections `<prefix>_1`, `<prefix>_2`, ...
+CLUSTER_SSH_MAX_CONNECTIONS = 50
 
 # relative to the `software` location of the runner's view
 SLURM_JOB_SCRIPT_NAME = "submit_slurm_job.sh"

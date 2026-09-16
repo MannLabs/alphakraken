@@ -3,7 +3,7 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-from impl.processor_impl import QuantingFailedException
+from common.exceptions import QuantingFailedException
 from plugins.callbacks import on_failure_callback
 from plugins.s3.s3_utils import S3UploadFailedException
 

@@ -75,7 +75,7 @@ def _get_raw_file_id_from_xcom(ti: TaskInstance) -> str:
     """
     values = cast(
         "list[str | None]",
-        get_xcom(ti, key=XComKeys.RAW_FILE_ID, task_ids=Tasks.all_values()),
+        get_xcom(ti, key=XComKeys.RAW_FILE_ID, task_ids=Tasks.get_values()),
     )
     raw_file_ids = {value for value in values if value is not None}
     if len(raw_file_ids) != 1:

@@ -5,6 +5,7 @@ from collections.abc import Generator
 from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
+from pytz.exceptions import UnknownTimeZoneError
 
 
 @pytest.fixture(autouse=True)
@@ -170,3 +171,33 @@ class TestGetPurgingVerificationType:
         from shared.yamlsettings import get_purging_verification_type
 
         assert get_purging_verification_type() == "s3"
+
+
+class TestGetTimezone:
+    """Tests for the get_timezone function."""
+
+    @patch(
+        "shared.yamlsettings.YAMLSETTINGS", {"general": {"timezone": "Europe/Berlin"}}
+    )
+    def test_returns_configured_timezone(self) -> None:
+        """Test that the configured timezone is returned."""
+        from shared.yamlsettings import get_timezone
+
+        assert str(get_timezone()) == "Europe/Berlin"
+
+    @patch("shared.yamlsettings.YAMLSETTINGS", {"general": {}})
+    def test_defaults_to_utc(self) -> None:
+        """Test that UTC is returned if no timezone is configured."""
+        from shared.yamlsettings import get_timezone
+
+        assert str(get_timezone()) == "UTC"
+
+    @patch(
+        "shared.yamlsettings.YAMLSETTINGS", {"general": {"timezone": "Mars/Olympus"}}
+    )
+    def test_raises_on_unknown_timezone(self) -> None:
+        """Test that an unknown timezone name raises."""
+        from shared.yamlsettings import get_timezone
+
+        with pytest.raises(UnknownTimeZoneError):
+            get_timezone()

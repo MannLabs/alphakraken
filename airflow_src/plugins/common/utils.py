@@ -43,8 +43,7 @@ def get_xcom(
 ) -> _xcom_types | None:
     """Get the value of an XCom with `key`.
 
-    :param task_ids: The task(s) that pushed the value. Mandatory: airflow 2 reads from any task
-        when this is omitted, airflow 3 reads from the calling task, so omitting it breaks silently.
+    :param task_ids: The task(s) that pushed the value.
     :param map_indexes: Pull from a specific map index in dynamically mapped tasks.
     :raises KeyError: If no value found and no default was provided.
     """

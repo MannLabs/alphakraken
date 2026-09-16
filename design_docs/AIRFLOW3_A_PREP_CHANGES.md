@@ -13,7 +13,7 @@ Line references are against the tip of the `airflow_3_prep_V` branch (§6), stac
 
 ⚠️ **What "verified" means here.** Everything marked verified on 3.3.1 was checked during the test
 migration on the previous base (`609a06bb`, branch `airflow_3_test_migration`). The stack was then
-re-applied on `250579ab` and re-verified with the 2.11 unit suite only (543 passed). Nothing was
+re-applied on `250579ab` and re-verified with the 2.11 unit suite only (546 passed). Nothing was
 re-run against 3.3.1 on the new base.
 
 ---
@@ -375,7 +375,7 @@ Five branches stacked on main `250579ab`, to be merged in order:
 | A7 | `airflow_3_prep_V` | §3.5 `get_xcom` applies `default` itself | **high value** — the other half of A5; without it the two corruption gates raise `TypeError` on 3.x | **done** |
 | A8 | `airflow_3_prep_V` | §4.5 move the quanting exceptions out of `dags/` | low on 2.11; **blocker** on 3.x | **done** |
 
-Baseline with the full stack: **543 passed on 2.11**. During the test migration (previous base),
+Baseline with the full stack: **546 passed on 2.11**. During the test migration (previous base),
 3.3.1 showed **2 failures** — both `tests/common/test_utils.py::test_trigger_dag_run{,_with_delay}`:
 
 ```

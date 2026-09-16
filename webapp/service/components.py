@@ -35,6 +35,14 @@ def _re_filter(text: Any, filter_: str) -> bool:
 _SEARCH_DTYPE = "string[pyarrow]"
 _INDEX_COLUMN = "_index_"
 
+# grouping label -> (pandas period alias, x-axis label format)
+DEFAULT_THROUGHPUT_GROUPING = "days"
+_THROUGHPUT_GROUPINGS = {
+    DEFAULT_THROUGHPUT_GROUPING: ("D", "%Y-%m-%d"),
+    "weeks": ("W", "%G-W%V"),
+    "months": ("M", "%Y-%m"),
+}
+
 
 @st.cache_data
 def _get_searchable_df(df: pd.DataFrame) -> pd.DataFrame:
@@ -279,7 +287,7 @@ def show_throughput_per_day_plot(  # noqa: PLR0913
     default_days: int = 14,
     key_prefix: str = "",
 ) -> None:
-    """Show a stacked bar plot of a metric per day for each instrument over a selected date range.
+    """Show a stacked bar plot of a metric per day/week/month for each instrument over a selected date range.
 
     :param throughput_df: DataFrame with columns: date, instrument_id, and the value_column
     :param display: The streamlit display object
@@ -303,7 +311,7 @@ def show_throughput_per_day_plot(  # noqa: PLR0913
         (display_now() - timedelta(days=default_days)).date(),
     )
 
-    c1, c2, *_ = display.columns([1, 1, 1, 1])
+    c1, c2, c3, *_ = display.columns([1, 1, 1, 1])
     start_date = c1.date_input(
         "Start date:",
         min_value=min_date_in_data,
@@ -318,6 +326,12 @@ def show_throughput_per_day_plot(  # noqa: PLR0913
         value=max_date_in_data,
         key=f"{key_prefix}end_date" if key_prefix else None,
     )
+    grouping = c3.selectbox(
+        "Group by:",
+        options=list(_THROUGHPUT_GROUPINGS),
+        key=f"{key_prefix}grouping" if key_prefix else None,
+    )
+    period_alias, label_format = _THROUGHPUT_GROUPINGS[grouping]
 
     filtered_df = throughput_df[
         (throughput_df["date"].dt.date >= start_date)
@@ -329,15 +343,15 @@ def show_throughput_per_day_plot(  # noqa: PLR0913
         return
 
     pivot_df = filtered_df.pivot_table(
-        index="date", columns="instrument_id", values=value_column
+        index=filtered_df["date"].dt.to_period(period_alias).dt.start_time,
+        columns="instrument_id",
+        values=value_column,
+        aggfunc="sum",
     ).fillna(0)
-
-    daily_totals = pivot_df.sum(axis=1)
-    mean_value = daily_totals.mean()
 
     fig = go.Figure()
 
-    x_labels = [date.strftime("%Y-%m-%d") for date in pivot_df.index]
+    x_labels = [date.strftime(label_format) for date in pivot_df.index]
     use_int_format = value_column == "count"
 
     for instrument_id in pivot_df.columns:
@@ -354,13 +368,16 @@ def show_throughput_per_day_plot(  # noqa: PLR0913
             )
         )
 
-    fig.add_hline(
-        y=mean_value,
-        line_dash="dash",
-        line_color="red",
-        annotation_text=f"<b>Mean: {mean_value:.1f}{mean_unit}</b>",
-        annotation_position="top right",
-    )
+    # partial first/last weeks or months would skew the mean
+    if grouping == DEFAULT_THROUGHPUT_GROUPING:
+        mean_value = pivot_df.sum(axis=1).mean()
+        fig.add_hline(
+            y=mean_value,
+            line_dash="dash",
+            line_color="red",
+            annotation_text=f"<b>Mean: {mean_value:.1f}{mean_unit}</b>",
+            annotation_position="top right",
+        )
 
     fig.update_layout(
         barmode="stack",

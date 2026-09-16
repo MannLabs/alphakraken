@@ -1,9 +1,11 @@
 # C) Airflow 3 features that could replace current patterns
 
 Post-migration opportunities. **Nothing here is required for the upgrade** — doc B stands alone.
-Ordered by value-per-effort. Base commit: `609a06bb`.
+Ordered by value-per-effort. Line references against `airflow3_migration` at `9c7c5849` (doc B implemented);
+SDK claims re-verified against the installed 3.3.1.
 
 Honest framing up front: items 1–4 fix things that are *actually wrong or costly today*. Items 5–8 are genuine improvements but discretionary. Item 9 is listed so it can be explicitly declined rather than rediscovered later.
+Section 10 lists the internal-API debt doc B knowingly took on, so it is not rediscovered either.
 
 ---
 
@@ -11,11 +13,11 @@ Honest framing up front: items 1–4 fix things that are *actually wrong or cost
 
 **New in:** 3.3 (AIP-103, built on the task state store)
 
-**Problem today.** `submit_job_task` (`dags/acquisition_processor.py:95-98`) inherits `retries: 4` from the DAG's `default_args`. `submit_job()` submits to Slurm and returns a job id. If the task dies *after* Slurm accepted the job but *before* the task completes — worker crash, XCom push failure, `execution_timeout` — the retry runs `submit_job()` again and **submits a second Slurm job** for the same raw file. The existing `output_path_check` guard (`processor_impl.py:368`) catches the case where output already exists, but not a job that is still running.
+**Problem today.** `submit_job_task` (`dags/acquisition_processor.py:99-103`) inherits `retries: 4` from the DAG's `default_args`. `submit_job()` submits to Slurm and returns a job id. If the task dies *after* Slurm accepted the job but *before* the task completes — worker crash, XCom push failure, `execution_timeout` — the retry runs `submit_job()` again and **submits a second Slurm job** for the same raw file. The existing `output_exists_mode` guard (`processor_impl.py:352-372`) catches the case where output already exists, but not a job that is still running.
 
 **Fix.** `ResumableJobMixin` persists the external job id to the task state store *before* polling, and on retry reconnects instead of resubmitting.
 
-The required interface is a near-exact match for the existing `JobHandler` ABC (`plugins/jobs/job_handler.py:77-85`), which already defines `submit_job`, `get_job_status`, and `get_job_result`:
+The required interface is a near-exact match for the existing `JobHandler` ABC (`plugins/jobs/job_handler.py:87-107`), which already defines `start_job`, `get_job_status`, and `get_job_result`. All **six** methods below are abstract in 3.3.1 (`sdk/bases/resumablejobmixin.py`), including `poll_until_complete` and `get_job_result`:
 
 ```python
 class SubmitQuantingJobOperator(ResumableJobMixin, BaseOperator):
@@ -25,19 +27,27 @@ class SubmitQuantingJobOperator(ResumableJobMixin, BaseOperator):
         return self.execute_resumable(context)
 
     def submit_job(self, context):
-        return submit_job(quanting_env=...)
+        return submit_job(quanting_env_dict=...)
 
     def get_job_status(self, external_id, context):
-        return get_job_status(external_id, engine=...)
+        return get_job_status(external_id, runner_name=...)
 
     def is_job_active(self, status):
         return status in (JobStates.PENDING, JobStates.RUNNING, JobStates.COMPLETING)
 
     def is_job_succeeded(self, status):
         return status == JobStates.COMPLETED
+
+    def poll_until_complete(self, external_id, context):
+        ...  # the loop currently split over WaitForJobStartSensor / WaitForJobFinishSensor
+
+    def get_job_result(self, external_id, context):
+        return get_job_result(external_id, runner_name=...)
 ```
 
-**Bonus:** this collapses `submit_job_task` + `WaitForJobStartSensor` + `WaitForJobFinishSensor` into one operator, removing the XCom plumbing in `sensors/ssh_sensor.py:42-57` that currently reaches back into two upstream tasks by hard-coded task id.
+`__init__(durable=True)` controls whether the external id is persisted; keep the default.
+
+**Bonus:** this collapses `submit_job_task` + `WaitForJobStartSensor` + `WaitForJobFinishSensor` into one operator, removing the XCom plumbing in `sensors/ssh_sensor.py:26-38` that currently reaches back into two upstream tasks by hard-coded task id. It also removes two of the mapped task ids that `_get_branch_states` has to parse (doc B §3.3).
 
 **Caveat, from its own docstring:** it does **not** free the worker slot during polling. For that, see item 2 — the two are complementary, not alternatives.
 
@@ -47,18 +57,18 @@ Refs: [Airflow 3.3 release blog](https://airflow.apache.org/blog/airflow-3.3.0/)
 
 ## 2. 🥇 Deferrable job sensors — reclaim worker and pool slots
 
-**New in:** deferrable operators exist in 2.x, but the triggerer is **currently disabled here** (`docker-compose.yaml:176-185`, commented out) and Airflow 3 improves the execution model.
+**New in:** deferrable operators exist in 2.x, but the triggerer is **currently disabled here** (`docker-compose.yaml:206-215`, commented out) and Airflow 3 improves the execution model.
 
 **Problem today.** `WaitForJobStartSensor` and `WaitForJobFinishSensor` run in default `mode="poke"`, poking every 60 s (`Timings.JOB_MONITOR_POKE_INTERVAL_S`). For the entire duration of a cluster job — potentially hours — each one holds:
 
 - a **Celery worker slot**, and
 - a slot in `Pools.CLUSTER_SLOTS_POOL`.
 
-The code already acknowledges the pain: `acquisition_processor.py:110-115` notes the pool coupling, and the whole `weight_rule: "upstream"` + `priority_weight` scheme exists to work around the resulting contention.
+The code already acknowledges the pain: `acquisition_processor.py:121-122` notes the pool coupling, and the whole `weight_rule: "upstream"` + `priority_weight` scheme exists to work around the resulting contention.
 
 **Fix.** Make them deferrable so the wait moves to the triggerer, which handles thousands of concurrent waits in one async process. Enable the `airflow-triggerer` service (doc B §4.4).
 
-⚠️ **Gotcha the migration skill calls out explicitly:** a trigger that calls hooks synchronously inside the asyncio event loop will block or fail. The SSH polling in `plugins/jobs/job_handler.py:128-131` is synchronous `ssh_execute`. Wrap it in `sync_to_async(...)` rather than calling it directly from the trigger.
+⚠️ **Gotcha the migration skill calls out explicitly:** a trigger that calls hooks synchronously inside the asyncio event loop will block or fail. The SSH polling behind `get_job_status` (`plugins/jobs/job_handler.py:128`) is synchronous `ssh_execute` (`slurm_ssh_job_handler.py:39-60`, `sensors/ssh_utils.py`). Wrap it in `sync_to_async(...)` rather than calling it directly from the trigger. The numbered-connection probing of doc B §3.4 runs inside it and costs one Execution-API call per connection per poke.
 
 ⚠️ Also: triggers cannot live in the DAG bundle — they must be importable from elsewhere on `sys.path`. The `plugins/` folder qualifies (verified: still appended to `sys.path` in 3.3.1).
 
@@ -110,8 +120,8 @@ State survives retries **and** reschedules — which then unlocks `mode="resched
 
 - `retries: 4` blanket in every DAG's `default_args`
 - `AirflowFailException` raised in ~8 places to mean "do not retry"
-- a bespoke hierarchy — `QuantingFailedException`, `QuantingFailedKnownErrorException`, `QuantingFailedNewErrorException`, `QuantingFailedUnknownErrorException` — whose only job is to signal retry-worthiness and steer `on_failure_callback` (`plugins/callbacks.py:44-68`)
-- `retries=0` on `start_acquisition_handler` (`instrument_watcher.py:79`) with a five-line comment explaining why
+- a bespoke hierarchy — `QuantingFailedException`, `QuantingFailedKnownErrorException`, `QuantingFailedNewErrorException`, `QuantingFailedUnknownErrorException` (`plugins/common/exceptions.py`, moved there by doc A §4.5) — whose only job is to signal retry-worthiness and steer `on_failure_callback` (`plugins/callbacks.py:39-62`)
+- `retries=0` on `start_acquisition_handler` (`instrument_watcher.py:79-82`) with a comment explaining why
 
 **Fix.** Move the policy to the DAG definition, where it is visible:
 
@@ -124,7 +134,7 @@ retry_policy = ExceptionRetryPolicy(
         RetryRule(exception="paramiko.ssh_exception.SSHException",
                   action=RetryAction.RETRY, retry_delay=timedelta(minutes=5),
                   reason="transient cluster SSH failure"),
-        RetryRule(exception="impl.processor_impl.QuantingFailedKnownErrorException",
+        RetryRule(exception="common.exceptions.QuantingFailedKnownErrorException",
                   action=RetryAction.FAIL,
                   reason="known business error - retrying will not help"),
     ],
@@ -135,15 +145,27 @@ retry_policy = ExceptionRetryPolicy(
 
 ---
 
-## 5. 🥈 DAG versioning — mid-run deploys stop changing task behaviour
+## 5. 🥈 DAG versioning — mid-run deploys stop changing task behaviour ⚠️ not free here
 
-**New in:** 3.0. Zero code change; you get it by upgrading.
+**New in:** 3.0. What you get for free is **less than the headline**.
 
-A DAG run now completes against the DAG version it **started** with, even if new code is deployed mid-run. The UI ties runs, task structure, code, and logs to that version.
+The UI ties every run to the DAG *structure* it started with (tasks, dependencies, code shown in the UI). But tasks
+execute against the code on disk at the time they start unless the DAG **bundle supports versioning**. The default
+`LocalDagBundle` has `supports_versioning = False` (verified, `dag_processing/bundles/local.py:33`), and this repo
+bakes `dags/` into the image (`airflow_src/Dockerfile`) or bind-mounts it for the test worker. So after the
+migration, a mid-run deploy **still** changes the behaviour of not-yet-started tasks in a running DAG; the UI merely
+shows that the structure changed.
 
-Directly relevant here: DAG runs in this system are long — `AcquisitionMonitor` up to 3 h, cluster jobs longer — and deploys happen while they're in flight. Today a mid-run deploy silently changes the behaviour of not-yet-started tasks in a running DAG.
+Directly relevant here: DAG runs in this system are long — `AcquisitionMonitor` up to 3 h, cluster jobs longer — and deploys happen while they're in flight.
 
-Practical follow-up: once versioning is live, `AIRFLOW__DAG_PROCESSOR__MIN_FILE_PROCESS_INTERVAL: 300` (doc B §4.1) can be revisited — the reason for the long interval was partly to limit mid-run churn.
+**To actually get the guarantee:** switch to a `GitDagBundle` (`[dag_processor] dag_bundle_config_list`, git provider),
+so runs pin a commit. That changes how code is deployed (workers pull the bundle instead of `git pull` + image build
+on every machine) and conflicts with `PYTHONPATH=$AIRFLOW_HOME` importing `shared` and `plugins` from the image.
+Genuine project, not a checkbox. Until then, treat "deploy during an acquisition gap" as the mitigation, as today.
+
+Practical follow-up only after a versioning bundle is in place: `AIRFLOW__DAG_PROCESSOR__MIN_FILE_PROCESS_INTERVAL: 300` (doc B §4.1) can be revisited — the reason for the long interval was partly to limit mid-run churn.
+
+Ref: [Dag bundles](https://airflow.apache.org/docs/apache-airflow/stable/administration-and-deployment/dag-bundles.html)
 
 Ref: [Airflow 3 GA announcement](https://airflow.apache.org/blog/airflow-three-point-oh-is-here/)
 
@@ -153,7 +175,7 @@ Ref: [Airflow 3 GA announcement](https://airflow.apache.org/blog/airflow-three-p
 
 **New in:** 3.1, extended since. `DeadlineAlert` is exported from `airflow.sdk`; `DAG(deadline=...)` is accepted (both verified on 3.3.1).
 
-References available: `AVERAGE_RUNTIME`, `DAGRUN_LOGICAL_DATE`, `DAGRUN_QUEUED_AT`, `FIXED_DATETIME`, plus `register_custom_reference`.
+References available: `AVERAGE_RUNTIME(max_runs=..., min_runs=...)`, `DAGRUN_LOGICAL_DATE`, `DAGRUN_QUEUED_AT`, `FIXED_DATETIME(...)`, plus `register_custom_reference` (verified, `sdk/definitions/deadline.py`).
 
 **Why it fits.** The system currently detects "too slow" only via hard `execution_timeout` values (`common/settings.py:Timings`), which are absolute and hand-tuned per task. `DeadlineReference.AVERAGE_RUNTIME` is relative to observed history — it catches "this run is 3× slower than usual" without anyone picking a threshold.
 
@@ -163,13 +185,25 @@ This is the closest thing to the SLA feature that Airflow 3 removed — and sinc
 
 ---
 
-## 7. 🥉 `TriggerDagRunOperator` + dynamic mapping — for 3 of the 4 trigger sites
+## 7. 🥉 `TriggerDagRunOperator` — get 3 of the 4 trigger sites off internal API
 
-Covered in doc B §3.2. Once `trigger_dag_run` moves to the REST API, three of the four call sites — `start_file_mover` (`handler_impl.py:372`, the delayed one), `start_s3_uploader` (`:383`), `start_acquisition_processor` (`:485`) — trigger exactly one run and could instead use `TriggerDagRunOperator`, which now supports `run_after`, `conf`, and `trigger_run_id` natively — **no API token needed**.
+Doc B §3.2 ended up on the **Task Execution API via `task_runner.SUPERVISOR_COMMS`** (not the REST API, no token).
+That is internal API and may move between minor versions — the cost doc B accepted knowingly.
 
-`watcher_impl.start_acquisition_handler` cannot: it triggers a variable number of runs inside a per-file DB transaction with rollback-on-failure (`watcher_impl.py:327-345`). Splitting that into a mapped `TriggerDagRunOperator.expand()` would break the atomicity the comments there deliberately protect. **Leave that one on the API call.**
+Three of the four call sites trigger exactly one run at the end of their task — `start_file_mover`
+(`handler_impl.py:410`, the delayed one), `start_s3_uploader` (`:421`), `start_acquisition_processor` (`:524`) — and
+could be `TriggerDagRunOperator` tasks instead. The operator supports `run_after`, `conf` and `trigger_run_id`
+natively and goes through the same channel, but through a **public, provider-maintained** class. Note how it works
+on 3.x: `execute()` raises `DagRunTriggerException`, which the task runner turns into the `TriggerDagRun` message —
+so the trigger must be the *last* thing the task does, which is the case at all three sites.
 
-Net effect: shrinks the blast radius of the API-token dependency introduced in doc B to a single task.
+`watcher_impl.start_acquisition_handler` (`watcher_impl.py:346-355`) cannot: it triggers a variable number of runs
+and deletes the just-inserted raw file from MongoDB when the DAG does not exist. Splitting that into a mapped
+`TriggerDagRunOperator.expand()` would break the rollback the comments there deliberately protect. **Leave that one
+on `trigger_dag_run`.**
+
+Net effect: shrinks the `SUPERVISOR_COMMS` dependency to a single site, and makes the file-mover delay a visible
+`run_after=` argument in the DAG file instead of a parameter buried in impl code.
 
 ---
 
@@ -203,7 +237,7 @@ Ref: [Event-driven scheduling](https://airflow.apache.org/docs/apache-airflow/st
 
 | Feature | Verdict |
 |---|---|
-| **Human-in-the-loop tasks** (3.1/3.3, `awaiting_input` state) | The manual-override flows (`AirflowVars.CHECKSUM_OVERWRITE_FILE_ID`, `BACKUP_OVERWRITE_FILE_ID`) currently require setting a Variable and re-running a task. HITL could make that a first-class approval step. Genuinely relevant but speculative — raise with the operators before building |
+| **Human-in-the-loop tasks** (3.1/3.3, `awaiting_input` state) | The manual-override flows (`AirflowVars.FORCE_OVERWRITE_FOR_RAW_FILE_ID`, `ACCEPT_MISSING_FILES_FOR_RAW_FILE_ID`) currently require setting a Variable and re-running a task. HITL could make that a first-class approval step. Genuinely relevant but speculative — raise with the operators before building |
 | **New backfill (UI/API-driven)** | Everything runs `catchup=False` and is externally triggered. No use case |
 | **New React UI** | Free with the upgrade. Note `dag.doc_md = __doc__` (set in every DAG) still renders |
 | **New mappers** (`FanOutMapper`, `ChainMapper`, …, 3.3) | `processing.expand(settings_id=...)` is a simple 1-D fan-out. Current API is adequate |
@@ -213,11 +247,22 @@ Ref: [Event-driven scheduling](https://airflow.apache.org/docs/apache-airflow/st
 
 ---
 
+## 10. Debt taken on by doc B — where the code touches internal or undocumented API
+
+| Site | What | Public alternative |
+|---|---|---|
+| `common/utils.py:trigger_dag_run` | `task_runner.SUPERVISOR_COMMS.send(TriggerDagRun(...))`, 404 → `DagNotFound` | item 7 for three of four callers; none for the watcher |
+| `impl/processor_impl.py:_get_branch_states` | parses the undocumented `<task_id>_<map_index>` keys of `ti.get_task_states()` | none; item 1 reduces the number of mapped tasks it has to parse. Re-check the key format on every Airflow bump (`api_fastapi/execution_api/routes/task_instances.py`) |
+| `common/utils.py:get_cluster_ssh_hook` | probes connections `<prefix>_1..N` because the Execution API cannot list connections | none needed; it is public API used in a loop |
+
+---
+
 ## Suggested sequencing
 
 | Phase | Items | Rationale |
 |---|---|---|
-| Right after migration | 5 (versioning — free), 3 (state store) | 5 costs nothing; 3 fixes a live correctness bug |
+| Right after migration | 3 (state store) | fixes a live correctness bug |
 | Next | 1 (`ResumableJobMixin`), 2 (deferrable + triggerer) | Together they fix duplicate job submission *and* the worker/pool contention. Do 1 first — it's lower risk and simplifies the operators that 2 then makes deferrable |
 | Opportunistic | 4 (retry policy), 7 (`TriggerDagRunOperator`), 6 (deadline alerts) | Touch as the surrounding code is edited |
+| Separate project | 5 (versioning) | only pays off with a `GitDagBundle`, which changes how code is deployed |
 | Declined | 9 (assets), 8 (`ObjectStoragePath`) unless S3 code is reworked anyway | |

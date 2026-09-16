@@ -59,6 +59,7 @@ def ssh_execute(
         except (
             SSHException,  # "Timeout opening channel."
             AirflowException,  # "SSH command timed out"
+            TimeoutError,
         ) as e:
             logging.warning(f"Exception while executing SSH command: {e}")
             continue

@@ -25,6 +25,9 @@ from dags.impl.handler_impl import (
 
 from shared.db.models import BackupStatus, InstrumentFileStatus, RawFileStatus
 
+FINALIZED_TS = 1786954471.0
+FINALIZED_AT = datetime.fromtimestamp(FINALIZED_TS, tz=pytz.utc)
+
 
 @pytest.mark.parametrize(
     "file_info",
@@ -33,6 +36,7 @@ from shared.db.models import BackupStatus, InstrumentFileStatus, RawFileStatus
         {},
     ],
 )
+@patch("dags.impl.handler_impl.get_file_mtime", return_value=FINALIZED_TS)
 @patch("dags.impl.handler_impl.get_raw_file_by_id")
 @patch("dags.impl.handler_impl.RawFileWrapperFactory")
 @patch("dags.impl.handler_impl.get_file_size")
@@ -46,6 +50,7 @@ def test_compute_checksum_one_file(  # noqa: PLR0913
     mock_get_file_size: MagicMock,
     mock_raw_file_wrapper_factory: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
+    mock_get_file_mtime: MagicMock,
     file_info: dict[str, tuple[float, str]],
 ) -> None:
     """Test compute_checksum calls update with correct arguments for one file (e.g. Thermo)."""
@@ -80,6 +85,7 @@ def test_compute_checksum_one_file(  # noqa: PLR0913
             call(
                 "test_file.raw",
                 new_status=RawFileStatus.CHECKSUMMING_DONE,
+                finalized_at=FINALIZED_AT,
                 size=1000,
                 file_info={
                     "test_file.raw": (
@@ -90,6 +96,7 @@ def test_compute_checksum_one_file(  # noqa: PLR0913
             ),
         ]
     )
+    mock_get_file_mtime.assert_called_once_with(mock_main_file_path)
     mock_put_xcom.assert_has_calls(
         [
             call(ti, "target_folder_path", "/path/to/backup"),
@@ -114,6 +121,7 @@ def test_compute_checksum_one_file(  # noqa: PLR0913
         {},
     ],
 )
+@patch("dags.impl.handler_impl.get_file_mtime", return_value=FINALIZED_TS)
 @patch("dags.impl.handler_impl.get_raw_file_by_id")
 @patch("dags.impl.handler_impl.RawFileWrapperFactory")
 @patch("dags.impl.handler_impl.get_file_size")
@@ -129,6 +137,7 @@ def test_compute_checksum_one_file_s3_upload(  # noqa: PLR0913
     mock_get_file_size: MagicMock,
     mock_raw_file_wrapper_factory: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
+    mock_get_file_mtime: MagicMock,  # noqa: ARG001
     file_info: dict[str, tuple[float, str]],
 ) -> None:
     """Test compute_checksum calls update with correct arguments for one file (e.g. Thermo)."""
@@ -163,6 +172,7 @@ def test_compute_checksum_one_file_s3_upload(  # noqa: PLR0913
             call(
                 "test_file.raw",
                 new_status=RawFileStatus.CHECKSUMMING_DONE,
+                finalized_at=FINALIZED_AT,
                 size=1000,
                 file_info={"test_file.raw": (1000, "some_hash", "some_etag")},
             ),
@@ -198,6 +208,7 @@ def test_compute_checksum_one_file_s3_upload(  # noqa: PLR0913
         {},
     ],
 )
+@patch("dags.impl.handler_impl.get_file_mtime", return_value=FINALIZED_TS)
 @patch("dags.impl.handler_impl.get_raw_file_by_id")
 @patch("dags.impl.handler_impl.RawFileWrapperFactory")
 @patch("dags.impl.handler_impl.get_file_size")
@@ -211,6 +222,7 @@ def test_compute_checksum_multiple_files(  # noqa: PLR0913
     mock_get_file_size: MagicMock,
     mock_raw_file_wrapper_factory: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
+    mock_get_file_mtime: MagicMock,  # noqa: ARG001
     file_info: dict[str, tuple[float, str]],
 ) -> None:
     """Test compute_checksum calls update with correct arguments for multiple files (e.g. Sciex)."""
@@ -250,6 +262,7 @@ def test_compute_checksum_multiple_files(  # noqa: PLR0913
             call(
                 "test_file.wiff",
                 new_status=RawFileStatus.CHECKSUMMING_DONE,
+                finalized_at=FINALIZED_AT,
                 size=3000,
                 file_info={
                     "test_file.wiff": (
@@ -283,6 +296,58 @@ def test_compute_checksum_multiple_files(  # noqa: PLR0913
                 },
             ),
         ]
+    )
+
+
+@patch("dags.impl.handler_impl.get_file_mtime")
+@patch("dags.impl.handler_impl.get_raw_file_by_id")
+@patch("dags.impl.handler_impl.RawFileWrapperFactory")
+@patch("dags.impl.handler_impl.get_file_size")
+@patch("dags.impl.handler_impl.get_file_hash")
+@patch("dags.impl.handler_impl.update_raw_file")
+@patch("dags.impl.handler_impl.put_xcom")
+def test_compute_checksum_main_file_missing(  # noqa: PLR0913
+    mock_put_xcom: MagicMock,  # noqa: ARG001
+    mock_update_raw_file: MagicMock,
+    mock_get_file_hash: MagicMock,
+    mock_get_file_size: MagicMock,
+    mock_raw_file_wrapper_factory: MagicMock,
+    mock_get_raw_file_by_id: MagicMock,
+    mock_get_file_mtime: MagicMock,
+) -> None:
+    """Test compute_checksum sets finalized_at to None if the main file is missing (e.g. Bruker)."""
+    ti = MagicMock()
+    kwargs = {
+        "params": {"raw_file_id": "test_file.d"},
+    }
+    mock_raw_file = MagicMock()
+    mock_raw_file.file_info = {}
+    mock_get_raw_file_by_id.return_value = mock_raw_file
+
+    mock_get_file_size.return_value = 1000
+    mock_get_file_hash.return_value = "some_hash"
+    mock_raw_file_wrapper_factory.create_write_wrapper.return_value.get_files_to_copy.return_value = {
+        Path("/path/to/instrument/test_file.d/analysis.tdf"): Path(
+            "/path/to/backup/test_file.d/analysis.tdf"
+        )
+    }
+    mock_raw_file_wrapper_factory.create_write_wrapper.return_value.target_folder_path = Path(
+        "/path/to/backup/"
+    )
+    mock_raw_file_wrapper_factory.create_write_wrapper.return_value.main_file_path.return_value.exists.return_value = False
+
+    # when
+    continue_downstream_tasks = compute_checksum(ti, **kwargs)
+
+    # then
+    assert continue_downstream_tasks
+    mock_get_file_mtime.assert_not_called()
+    mock_update_raw_file.assert_called_with(
+        "test_file.d",
+        new_status=RawFileStatus.CHECKSUMMING_DONE,
+        size=1000,
+        file_info={"test_file.d/analysis.tdf": (1000, "some_hash")},
+        finalized_at=None,
     )
 
 
@@ -329,6 +394,7 @@ def test_compute_checksum_different_file_info(
 @pytest.mark.parametrize(
     "airflow_variable_value", ["test_file.raw", "INSTRUMENT_instrument1"]
 )
+@patch("dags.impl.handler_impl.get_file_mtime", return_value=FINALIZED_TS)
 @patch("dags.impl.handler_impl.get_raw_file_by_id")
 @patch("dags.impl.handler_impl.RawFileWrapperFactory")
 @patch("dags.impl.handler_impl.get_file_size")
@@ -344,6 +410,7 @@ def test_compute_checksum_different_file_info_overwrite(  # noqa: PLR0913
     mock_get_file_size: MagicMock,
     mock_raw_file_wrapper_factory: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
+    mock_get_file_mtime: MagicMock,  # noqa: ARG001
     airflow_variable_value: str,
 ) -> None:
     """Test compute_checksum continues on file_info mismatch if airflow variable is set."""
@@ -386,6 +453,7 @@ def test_compute_checksum_different_file_info_overwrite(  # noqa: PLR0913
             call(
                 "test_file.raw",
                 new_status=RawFileStatus.CHECKSUMMING_DONE,
+                finalized_at=FINALIZED_AT,
                 size=1000,
                 file_info={
                     "test_file.raw": (

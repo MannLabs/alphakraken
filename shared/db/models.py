@@ -139,6 +139,7 @@ class RawFile(Document):
     # When read from DB, the tuples are converted to lists.
 
     created_at = DateTimeField()  # when file was created
+    finalized_at = DateTimeField()  # when acquisition was finished (mtime of main file)
 
     # audit fields
     created_at_ = DateTimeField(default=datetime.now)

@@ -4,9 +4,11 @@ import functools
 import logging
 import re
 from collections.abc import Callable
+from datetime import datetime
 from pathlib import Path
 from typing import TypeVar
 
+import pytz
 from airflow.exceptions import AirflowFailException, AirflowSkipException
 from airflow.models import TaskInstance
 from common.keys import (
@@ -38,6 +40,7 @@ from plugins.file_handling import (
     copy_file,
     get_file_hash,
     get_file_hash_with_etag,
+    get_file_mtime,
     get_file_size,
     move_existing_file,
 )
@@ -207,11 +210,20 @@ def compute_checksum(ti: TaskInstance, **kwargs) -> bool:
 
                 raise AirflowFailException(f"File info mismatch for {raw_file_id}")
 
+    main_file_path = copy_wrapper.main_file_path()
+    # main file can be missing (cf. AcquisitionMonitorErrors.MAIN_FILE_MISSING)
+    finalized_at = (
+        datetime.fromtimestamp(get_file_mtime(main_file_path), tz=pytz.utc)
+        if main_file_path.exists()
+        else None
+    )
+
     update_raw_file(
         raw_file_id,
         new_status=RawFileStatus.CHECKSUMMING_DONE,
         size=total_file_size,
         file_info=file_info,
+        finalized_at=finalized_at,
     )
     put_xcom(ti, XComKeys.TARGET_FOLDER_PATH, str(copy_wrapper.target_folder_path))
     put_xcom(

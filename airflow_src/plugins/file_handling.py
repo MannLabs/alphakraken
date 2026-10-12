@@ -29,6 +29,11 @@ def get_file_ctime(path: Path) -> float:
     return path.stat().st_ctime
 
 
+def get_file_mtime(path: Path) -> float:
+    """Get the modification timestamp (unix epoch, unit: seconds) of a file."""
+    return path.stat().st_mtime
+
+
 def _get_file_birth_timestamp(path: Path) -> float:
     """Get the birth timestamp (unix epoch, unit: seconds) of a file, falling back to ctime.
 

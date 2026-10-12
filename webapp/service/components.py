@@ -18,7 +18,7 @@ import streamlit as st
 import streamlit.delta_generator
 from matplotlib import pyplot as plt
 from service.session_state import SessionStateKeys, copy_session_state
-from service.timezone import DISPLAY_TIMEZONE_NAME, display_now
+from service.timezone import DISPLAY_TIMEZONE, DISPLAY_TIMEZONE_NAME, display_now
 from service.utils import BASELINE_PREFIX, DEFAULT_MAX_AGE_STATUS, display_plotly_chart
 
 from shared.db.models import TERMINAL_STATUSES, KrakenStatusEntities, RawFileStatus
@@ -181,7 +181,7 @@ def show_date_select(
         value=last_selectable_date,
         help=help_to_display,
     )
-    min_date_with_time = datetime.combine(min_date, datetime.min.time())
+    min_date_with_time = pd.Timestamp(min_date).tz_localize(DISPLAY_TIMEZONE)
     return df[df["created_at"] > min_date_with_time]
 
 

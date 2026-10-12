@@ -55,9 +55,15 @@ def test_df_from_db_data_shifts_timestamps_to_display_timezone() -> None:
     # when
     result = df_from_db_data([mock_query])
 
-    assert result["created_at"].tolist() == [pd.Timestamp("2024-07-01 14:00:00")]
-    assert result["created_at_"].tolist() == [pd.Timestamp("2024-07-01 14:00:01")]
-    assert result["updated_at_"].tolist() == [pd.Timestamp("2024-07-01 14:00:02")]
+    assert result["created_at"].tolist() == [
+        pd.Timestamp("2024-07-01 14:00:00", tz="Europe/Berlin")
+    ]
+    assert result["created_at_"].tolist() == [
+        pd.Timestamp("2024-07-01 14:00:01", tz="Europe/Berlin")
+    ]
+    assert result["updated_at_"].tolist() == [
+        pd.Timestamp("2024-07-01 14:00:02", tz="Europe/Berlin")
+    ]
 
 
 @patch("service.db.get_display_output_path", side_effect=lambda p: f"/out/{p}")

@@ -8,6 +8,7 @@ from mongoengine import QuerySet
 from pandas import DataFrame
 from service.columns import build_alternative_names_mapping, load_columns_from_yaml
 from service.db import df_from_db_data, get_raw_file_and_metrics_data
+from service.timezone import floor_to_seconds
 from service.utils import METRICS_TYPE_SEPARATOR, Cols
 
 from shared.db.models import RawFileStatus
@@ -116,7 +117,7 @@ def get_combined_raw_files_and_metrics_df(
     )
 
     for col in ["created_at", "updated_at_", "created_at_"]:
-        combined_df[col] = combined_df[col].dt.floor("s")
+        combined_df[col] = floor_to_seconds(combined_df[col])
     # sorting & indexing
     combined_df.sort_values(by="created_at", ascending=False, inplace=True)  # noqa: PD002
     combined_df.reset_index(drop=True, inplace=True)  # noqa: PD002

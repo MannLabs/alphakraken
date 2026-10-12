@@ -572,7 +572,9 @@ def finalize_raw_file_status(ti: TaskInstance, raw_file_id: str) -> None:
     branch_states = _get_branch_states(ti)
 
     if not branch_states:
-        raise AirflowFailException("No branch task instances found in DAG run.")
+        raise AirflowFailException(
+            "No branch task instances found in DAG run. Did any of the branches run?"
+        )
 
     airflow_errors, business_errors = _extract_errors(branch_states, ti)
 

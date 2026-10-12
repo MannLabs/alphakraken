@@ -243,7 +243,7 @@ def get_raw_files_for_throughput_per_day(days: int = 14) -> pd.DataFrame:
         ]
     )
 
-    df = to_display_timezone(df)
+    # df = to_display_timezone(df) # no timezone conversion needed: we only care about the date, not the time
     df["date"] = df["created_at"].dt.date
 
     result = (

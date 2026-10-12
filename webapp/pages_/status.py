@@ -74,7 +74,7 @@ def _display_status(combined_df: pd.DataFrame) -> None:
 
         st.markdown("## Sample throughput")
 
-        throughput_df = get_raw_files_for_throughput_per_day(days=90)
+        throughput_df = get_raw_files_for_throughput_per_day(days=365)
 
         st.markdown("### Samples")
         show_throughput_per_day_plot(

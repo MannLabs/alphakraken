@@ -50,6 +50,11 @@ def _get_file_birth_timestamp(path: Path) -> float:
         logging.warning(f"Could not get birth time of {path}, using ctime: {e}")
         return get_file_ctime(path)
 
+    # some SMB servers report 0 for an unknown creation time
+    if filetime == 0:
+        logging.warning(f"Birth time of {path} is unknown, using ctime.")
+        return get_file_ctime(path)
+
     return (filetime - FILETIME_TICKS_TO_UNIX_EPOCH) / FILETIME_TICKS_PER_SECOND
 
 

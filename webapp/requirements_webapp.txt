@@ -2,6 +2,7 @@
 humanize==4.9.0
 pandas==2.2.2
 streamlit==1.55.0
+pyarrow==19.0.1 # newer versions need numpy>=2, unit tests share an env with numpy 1.26.4
 matplotlib==3.9.0
 plotly-express==0.4.1
 pyyaml==6.0.2

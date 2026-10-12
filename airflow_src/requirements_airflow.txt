@@ -11,3 +11,4 @@ sagemaker-studio==1.0.23 --constraint "https://raw.githubusercontent.com/apache/
 
 # only a transitive dependency of airflow, but imported directly (cf. common/quanting_env.py)
 pydantic>=2 --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.11.0/constraints-3.11.txt"
+pyarrow==19.0.1 --constraint "...constraints-3.11.txt" # fixes https://github.com/apache/arrow/issues/45283; pinned: newer versions need numpy>=2, airflow 2.11 constraints pin numpy 1.26.4

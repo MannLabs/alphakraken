@@ -17,6 +17,7 @@ from dags.impl.watcher_impl import (
     get_unknown_raw_files,
     start_acquisition_handler,
 )
+from mongoengine import NotUniqueError
 from plugins.common.keys import OpArgs, XComKeys
 
 from shared.db.models import InstrumentFileStatus, RawFile, RawFileStatus
@@ -517,6 +518,42 @@ def test_start_acquisition_handler_with_multiple_files(  # Too many arguments
         ]
     )
     mock_delete_raw_file.assert_not_called()
+
+
+@patch("dags.impl.watcher_impl.get_xcom")
+@patch("dags.impl.watcher_impl._add_raw_file_to_db")
+@patch("dags.impl.watcher_impl.trigger_dag_run")
+def test_start_acquisition_handler_continues_on_duplicate_and_fails_at_end(
+    mock_trigger_dag_run: MagicMock,
+    mock_add_raw_file_to_db: MagicMock,
+    mock_get_xcom: MagicMock,
+) -> None:
+    """Test that a file already in the DB is skipped, the remaining files are handled, and the task fails at the end."""
+    # given
+    mock_get_xcom.return_value = {
+        "file1.raw": ("project1", True, False),
+        "duplicate.raw": ("project1", True, False),
+        "file3.raw": ("project2", True, False),
+    }
+    mock_add_raw_file_to_db.side_effect = [
+        "file1.raw",
+        NotUniqueError("duplicate"),
+        "file3.raw",
+    ]
+
+    # when
+    with pytest.raises(AirflowFailException, match="duplicate.raw"):
+        start_acquisition_handler(Mock(), **{OpArgs.INSTRUMENT_ID: "instrument1"})
+
+    # then
+    assert mock_add_raw_file_to_db.call_count == 3
+    mock_trigger_dag_run.assert_has_calls(
+        [
+            call("acquisition_handler.instrument1", {"raw_file_id": "file1.raw"}),
+            call("acquisition_handler.instrument1", {"raw_file_id": "file3.raw"}),
+        ]
+    )
+    assert mock_trigger_dag_run.call_count == 2
 
 
 @patch("dags.impl.watcher_impl.get_xcom")

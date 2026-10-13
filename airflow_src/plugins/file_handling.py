@@ -2,13 +2,20 @@
 
 import hashlib
 import logging
+import os
 import shutil
 from datetime import datetime
 from pathlib import Path
 
 import pytz
 from airflow.exceptions import AirflowFailException
-from common.constants import BYTES_TO_GB, BYTES_TO_MB
+from common.constants import (
+    BYTES_TO_GB,
+    BYTES_TO_MB,
+    CIFS_CREATION_TIME_XATTR,
+    FILETIME_TICKS_PER_SECOND,
+    FILETIME_TICKS_TO_UNIX_EPOCH,
+)
 from common.keys import AirflowVars
 from common.paths import get_internal_instrument_data_path
 
@@ -22,6 +29,35 @@ def get_file_ctime(path: Path) -> float:
     return path.stat().st_ctime
 
 
+def get_file_mtime(path: Path) -> float:
+    """Get the modification timestamp (unix epoch, unit: seconds) of a file."""
+    return path.stat().st_mtime
+
+
+def _get_file_birth_timestamp(path: Path) -> float:
+    """Get the birth timestamp (unix epoch, unit: seconds) of a file, falling back to ctime.
+
+    On Linux, st_ctime is the inode change time, not the creation time. The birth time is only accessible
+    via statx(), so on CIFS mounts we read it from the extended attribute exposed by the CIFS client.
+    """
+    # TODO: replace by os.statx() once Python 3.15 is available.
+    try:
+        xattr = os.getxattr(  # ty: ignore[unresolved-attribute]
+            path, CIFS_CREATION_TIME_XATTR
+        )
+        filetime = int.from_bytes(xattr, "little")
+    except OSError as e:
+        logging.warning(f"Could not get birth time of {path}, using ctime: {e}")
+        return get_file_ctime(path)
+
+    # some SMB servers report 0 for an unknown creation time
+    if filetime == 0:
+        logging.warning(f"Birth time of {path} is unknown, using ctime.")
+        return get_file_ctime(path)
+
+    return (filetime - FILETIME_TICKS_TO_UNIX_EPOCH) / FILETIME_TICKS_PER_SECOND
+
+
 def get_file_creation_timestamp(
     raw_file_name: str, instrument_id: str, *, verbose: bool = True
 ) -> float:
@@ -31,7 +67,10 @@ def get_file_creation_timestamp(
     so make sure the results are file system independent.
     """
     raw_file_path = get_internal_instrument_data_path(instrument_id) / raw_file_name
-    file_creation_ts = get_file_ctime(raw_file_path)
+    # copying a file sets a new birth time but keeps mtime, so the earlier of both is closest to the acquisition
+    file_creation_ts = min(
+        _get_file_birth_timestamp(raw_file_path), raw_file_path.stat().st_mtime
+    )
     logging.info(
         f"File {raw_file_name} has {file_creation_ts=} {datetime.fromtimestamp(file_creation_ts, tz=pytz.UTC)}"
     ) if verbose else None

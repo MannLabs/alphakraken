@@ -24,14 +24,60 @@ from plugins.file_handling import (
     move_existing_file,
 )
 
+# 2026-08-17 08:14:31.4526512 UTC as Windows FILETIME
+BIRTH_FILETIME = 134314280714526512
+BIRTH_TS = 1786954471.4526512
+
 
 @patch.dict(_INSTRUMENTS, {"instrument1": {}})
 @patch("os.stat")
-def test_get_file_creation_timestamp(
+@patch("os.getxattr", create=True)  # create=True: not available on macOS
+def test_get_file_creation_timestamp_birth_earlier_than_mtime(
+    mock_getxattr: MagicMock,
     mock_stat: MagicMock,
 ) -> None:
-    """Test get_file_creation_timestamp returns the expected values."""
+    """Test get_file_creation_timestamp returns the birth time from the CIFS extended attribute if it is earlier than mtime."""
+    mock_getxattr.return_value = BIRTH_FILETIME.to_bytes(8, "little")
+    mock_stat.return_value.st_mtime = BIRTH_TS + 3600
+
+    # when
+    result = get_file_creation_timestamp("test_file.raw", "instrument1")
+
+    assert result == pytest.approx(BIRTH_TS)
+    mock_getxattr.assert_called_once_with(
+        Path("/opt/airflow/mounts/instruments/instrument1/test_file.raw"),
+        "user.cifs.creationtime",
+    )
+
+
+@patch.dict(_INSTRUMENTS, {"instrument1": {}})
+@patch("os.stat")
+@patch("os.getxattr", create=True)
+def test_get_file_creation_timestamp_mtime_earlier_than_birth(
+    mock_getxattr: MagicMock,
+    mock_stat: MagicMock,
+) -> None:
+    """Test get_file_creation_timestamp returns mtime if it is earlier than the birth time (e.g. copied file)."""
+    mock_getxattr.return_value = BIRTH_FILETIME.to_bytes(8, "little")
+    mock_stat.return_value.st_mtime = BIRTH_TS - 3600
+
+    # when
+    result = get_file_creation_timestamp("test_file.raw", "instrument1")
+
+    assert result == BIRTH_TS - 3600
+
+
+@patch.dict(_INSTRUMENTS, {"instrument1": {}})
+@patch("os.stat")
+@patch("os.getxattr", create=True)
+def test_get_file_creation_timestamp_falls_back_to_ctime(
+    mock_getxattr: MagicMock,
+    mock_stat: MagicMock,
+) -> None:
+    """Test get_file_creation_timestamp falls back to ctime if the extended attribute is not available."""
+    mock_getxattr.side_effect = OSError("not supported")
     mock_stat.return_value.st_ctime = 42.0
+    mock_stat.return_value.st_mtime = 43.0
 
     # when
     result = get_file_creation_timestamp("test_file.raw", "instrument1")

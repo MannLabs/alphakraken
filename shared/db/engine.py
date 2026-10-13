@@ -37,7 +37,7 @@ def connect_db(
         username = connection_data.get("DB_USER", DB_USER)
         password = connection_data.get("DB_PASSWORD", DB_PASSWORD)
 
-        logging.info(f"Connecting to db: {db_name=} {host=} {port=} {username=}")
+        logging.debug(f"Connecting to db: {db_name=} {host=} {port=} {username=}")
 
         connect(
             db_name,

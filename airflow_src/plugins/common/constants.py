@@ -26,6 +26,12 @@ COLLISION_FLAG_SEP = "-"
 BYTES_TO_GB = 1 / 1024**3
 BYTES_TO_MB = 1 / 1024**2
 
+# extended attribute exposed by the Linux CIFS client holding the Windows file creation time (FILETIME)
+CIFS_CREATION_TIME_XATTR = "user.cifs.creationtime"
+# FILETIME: 100 ns ticks since 1601-01-01 UTC
+FILETIME_TICKS_PER_SECOND = 10**7
+FILETIME_TICKS_TO_UNIX_EPOCH = 116444736000000000
+
 # relevant for Bruker only
 DEFAULT_RAW_FILE_SIZE_IF_MAIN_FILE_MISSING = -1
 

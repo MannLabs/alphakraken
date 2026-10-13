@@ -240,10 +240,11 @@ def archive_project(project_id: str) -> None:
     logging.info(f"Archived project: {project_id=}")
 
 
-def get_all_project_ids() -> list[str]:
-    """Get all project ids from the database."""
+def get_active_project_ids() -> list[str]:
+    """Get the ids of all non-archived projects."""
     connect_db()
-    return [p.id for p in Project.objects.all()]
+    # legacy projects have no status field, so match on "not archived" instead of "active"
+    return [p.id for p in Project.objects(status__ne=ProjectStatus.INACTIVE)]
 
 
 def assign_settings_to_project(  # noqa: PLR0913

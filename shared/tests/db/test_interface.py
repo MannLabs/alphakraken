@@ -16,7 +16,7 @@ from shared.db.interface import (
     assign_settings_to_project,
     augment_raw_files_with_metrics,
     create_settings,
-    get_all_project_ids,
+    get_active_project_ids,
     get_all_settings,
     get_latest_active_settings_by_name,
     get_project_settings,
@@ -287,21 +287,22 @@ def test_add_project(mock_project: MagicMock, mock_connect_db: MagicMock) -> Non
 
 @patch("shared.db.interface.connect_db")
 @patch("shared.db.interface.Project")
-def test_get_all_project_ids(
+def test_get_active_project_ids(
     mock_project: MagicMock, mock_connect_db: MagicMock
 ) -> None:
-    """get_all_project_ids returns all project ids."""
+    """get_active_project_ids returns the ids of all non-archived projects."""
     # given
-    mock_project.objects.all.return_value = [
+    mock_project.objects.return_value = [
         MagicMock(id="P1234"),
         MagicMock(id="P1235"),
     ]
 
     # when
-    result = get_all_project_ids()
+    result = get_active_project_ids()
 
     # then
     assert result == ["P1234", "P1235"]
+    mock_project.objects.assert_called_once_with(status__ne=ProjectStatus.INACTIVE)
 
     mock_connect_db.assert_called_once()
 

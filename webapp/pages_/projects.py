@@ -386,6 +386,7 @@ with c1.expander("Click here for help ..."):
         - You can remove individual settings assignments using the "Remove" button
         - Only active (non-archived) settings can be assigned
         - Archived projects are not shown and their settings assignments can no longer be changed
+        - New raw files for archived projects are assigned to the fallback project
         - The "scopes" define for which instruments the settings apply: `(all)` means all instruments, otherwise a vendor or an instrument id. An assignment applies if any of its scopes matches and none of its excluded scopes does.
         - The file name filters narrow this further: "contains any of" must match (empty = all files), "contains none of" must not match. Exclusion always wins over inclusion.
         - Every assignment that matches a raw file is run. There is no precedence: to restrict an assignment, exclude explicitly.
@@ -458,7 +459,7 @@ else:
     with c1.expander("Show projects to archive .."):
         st.warning(
             "Settings assignments of archived projects can no longer be changed. "
-            "Raw files of archived projects are still processed with the assigned settings."
+            f"New raw files for archived projects are assigned to {FALLBACK_PROJECT_ID} instead."
         )
 
         for p in archivable_projects:

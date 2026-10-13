@@ -12,6 +12,7 @@ from shared.db.interface import (
     add_metrics_to_raw_file,
     add_project,
     add_raw_file,
+    archive_project,
     assign_settings_to_project,
     augment_raw_files_with_metrics,
     create_settings,
@@ -27,7 +28,12 @@ from shared.db.interface import (
     update_kraken_status,
     update_raw_file,
 )
-from shared.db.models import InstrumentFileStatus, RawFileStatus, SettingsStatus
+from shared.db.models import (
+    InstrumentFileStatus,
+    ProjectStatus,
+    RawFileStatus,
+    SettingsStatus,
+)
 from shared.keys import MetricsTypes
 
 
@@ -1141,3 +1147,52 @@ def test_augment_raw_files_with_metrics_should_query_correct_fields_when_fields_
 
     # then
     mock_metrics_queryset.only.assert_not_called()
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.Project")
+def test_archive_project(mock_project: MagicMock, mock_connect_db: MagicMock) -> None:
+    """Test that archive_project sets the project status to INACTIVE."""
+    archive_project("P1234")
+
+    mock_project.objects.assert_called_once_with(id="P1234")
+    mock_project.objects.return_value.update_one.assert_called_once_with(
+        status=ProjectStatus.INACTIVE
+    )
+    mock_connect_db.assert_called_once()
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.ProjectSettings")
+@patch("shared.db.interface.Settings")
+@patch("shared.db.interface.Project")
+def test_assign_settings_to_archived_project_raises(
+    mock_project: MagicMock,
+    mock_settings: MagicMock,  # noqa: ARG001
+    mock_project_settings: MagicMock,
+    mock_connect_db: MagicMock,  # noqa: ARG001
+) -> None:
+    """Test that assigning settings to an archived project raises ValueError."""
+    mock_project.objects.get.return_value.status = ProjectStatus.INACTIVE
+
+    with pytest.raises(ValueError, match="archived project 'P1234'"):
+        assign_settings_to_project("P1234", "settings_id")
+
+    mock_project_settings.assert_not_called()
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.ProjectSettings")
+def test_unassign_settings_from_archived_project_raises(
+    mock_project_settings: MagicMock,
+    mock_connect_db: MagicMock,  # noqa: ARG001
+) -> None:
+    """Test that unassigning settings from an archived project raises ValueError."""
+    mock_ps = mock_project_settings.objects.get.return_value
+    mock_ps.project.status = ProjectStatus.INACTIVE
+    mock_ps.project.id = "P1234"
+
+    with pytest.raises(ValueError, match="archived project 'P1234'"):
+        unassign_settings_from_project("ps_id_123")
+
+    mock_ps.delete.assert_not_called()

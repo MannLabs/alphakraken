@@ -19,6 +19,7 @@ from shared.db.models import (
     Metrics,
     Project,
     ProjectSettings,
+    ProjectStatus,
     RawFile,
     Settings,
     SettingsStatus,
@@ -232,6 +233,13 @@ def add_project(*, project_id: str, name: str, description: str) -> None:
     project.save(force_insert=True)
 
 
+def archive_project(project_id: str) -> None:
+    """Archive a project by setting its status to INACTIVE."""
+    connect_db()
+    Project.objects(id=project_id).update_one(status=ProjectStatus.INACTIVE)
+    logging.info(f"Archived project: {project_id=}")
+
+
 def get_all_project_ids() -> list[str]:
     """Get all project ids from the database."""
     connect_db()
@@ -249,6 +257,8 @@ def assign_settings_to_project(  # noqa: PLR0913
     """Create a new project-settings assignment."""
     connect_db()
     project = Project.objects.get(id=project_id)
+    if project.status == ProjectStatus.INACTIVE:
+        raise ValueError(f"Cannot assign settings to archived project '{project_id}'")
     settings = Settings.objects.get(id=settings_id)
     if settings.status == SettingsStatus.INACTIVE:
         raise ValueError(
@@ -309,7 +319,12 @@ def _lower(filters: list[str]) -> set[str]:
 def unassign_settings_from_project(project_settings_id: str) -> None:
     """Remove a project-settings assignment by its ID."""
     connect_db()
-    ProjectSettings.objects.get(id=project_settings_id).delete()
+    ps = ProjectSettings.objects.get(id=project_settings_id)
+    if ps.project.status == ProjectStatus.INACTIVE:
+        raise ValueError(
+            f"Cannot unassign settings from archived project '{ps.project.id}'"
+        )
+    ps.delete()
     logging.info(f"Removed project-settings assignment: {project_settings_id=}")
 
 

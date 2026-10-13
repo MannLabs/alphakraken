@@ -24,6 +24,7 @@ from service.utils import (
 
 from shared.db.interface import (
     add_project,
+    archive_project,
     assign_settings_to_project,
     check_not_assigned_with_same_filters,
     get_all_settings,
@@ -31,6 +32,7 @@ from shared.db.interface import (
     get_project_settings,
     unassign_settings_from_project,
 )
+from shared.db.models import ProjectStatus
 from shared.display_paths import DISPLAY_PATHS
 from shared.keys import DEFAULT_SCOPE, FALLBACK_PROJECT_ID, KNOWN_VENDOR_NAMES
 from shared.path_views import Locations
@@ -138,7 +140,9 @@ st.markdown("## Manage project settings")
 c_assign1, c_assign2 = st.columns([0.5, 0.5])
 
 with c_assign1:
-    project_options = [""] + [p.id for p in projects_db]
+    project_options = [""] + [
+        p.id for p in projects_db if p.status == ProjectStatus.ACTIVE
+    ]
     selected_project_id = st.selectbox(
         "Select project", options=project_options, key="assign_project_select"
     )
@@ -381,6 +385,7 @@ with c1.expander("Click here for help ..."):
         - Multiple projects can share the same settings
         - You can remove individual settings assignments using the "Remove" button
         - Only active (non-archived) settings can be assigned
+        - Archived projects are not shown and their settings assignments can no longer be changed
         - The "scopes" define for which instruments the settings apply: `(all)` means all instruments, otherwise a vendor or an instrument id. An assignment applies if any of its scopes matches and none of its excluded scopes does.
         - The file name filters narrow this further: "contains any of" must match (empty = all files), "contains none of" must not match. Exclusion always wins over inclusion.
         - Every assignment that matches a raw file is run. There is no precedence: to restrict an assignment, exclude explicitly.
@@ -435,3 +440,41 @@ if form_submit:
         show_error_toast(str(e))
     else:
         show_success_toast(f"Added new project '{project_id}' to the database.")
+
+
+# ########################################### ARCHIVE PROJECTS
+
+c1.markdown("## Archive projects")
+
+archivable_projects = [
+    p
+    for p in projects_db
+    if p.status == ProjectStatus.ACTIVE and p.id != FALLBACK_PROJECT_ID
+]
+
+if not archivable_projects:
+    c1.info("No active projects to archive.")
+else:
+    with c1.expander("Show projects to archive .."):
+        st.warning(
+            "Settings assignments of archived projects can no longer be changed. "
+            "Raw files of archived projects are still processed with the assigned settings."
+        )
+
+        for p in archivable_projects:
+            col_btn, col_info = st.columns([0.2, 0.8])
+            settings_str = ", ".join(_project_to_settings.get(p.id, [])) or "none"
+            col_info.write(
+                f"'{p.id}' (name: `{p.name}`, description: `{p.description}`) — assigned settings: {settings_str}"
+            )
+            if col_btn.button(
+                "Archive",
+                key=f"archive_{p.id}",
+                disabled=DISABLE_WRITE,
+                icon=":material/archive:",
+            ):
+                try:
+                    archive_project(p.id)
+                    show_success_toast(f"Archived project '{p.id}'.")
+                except Exception as e:  # noqa: BLE001
+                    show_error_toast(str(e))

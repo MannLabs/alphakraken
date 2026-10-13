@@ -5,7 +5,7 @@ import logging
 from collections import defaultdict
 from pathlib import Path, PurePath
 
-from airflow.exceptions import AirflowFailException, AirflowSkipException
+from airflow.exceptions import AirflowFailException
 from airflow.models import TaskInstance
 from airflow.utils.state import TaskInstanceState
 from common.constants import (
@@ -337,14 +337,6 @@ def submit_job(
     quanting_env = QuantingEnv.from_dict(quanting_env_dict)
 
     logging.info(f"Starting quanting with environment: {quanting_env}")
-
-    raw_file = get_raw_file_by_id(quanting_env.raw_file_id)
-
-    if get_instrument_settings(raw_file.instrument_id, InstrumentKeys.SKIP_QUANTING):
-        logging.info(
-            f"Skipping quanting for raw file {raw_file.id} because instrument settings have skip_quanting=True."
-        )
-        raise AirflowSkipException("Skipping quanting due to instrument settings.")
 
     # upfront check 2
     output_path = get_internal_output_path() / quanting_env.relative_output_path

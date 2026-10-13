@@ -632,13 +632,11 @@ def test_get_slurm_job_id_from_log_returns_none_if_file_not_exists() -> None:
         assert _get_slurm_job_id_from_log(Path("/mock/path")) is None
 
 
-@patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.start_job")
 @patch("dags.impl.processor_impl.update_raw_file")
 def test_submit_job_executes_ssh_command_and_stores_job_id(
     mock_update: MagicMock,
     mock_start_job: MagicMock,
-    mock_get_raw_file_by_id: MagicMock,
     tmp_path: Path,
     make_quanting_env: Callable[..., QuantingEnv],
 ) -> None:
@@ -647,12 +645,6 @@ def test_submit_job_executes_ssh_command_and_stores_job_id(
     relative_output_path = "PID123/out_test_file.raw/alphadia"
     output_dir = tmp_path / relative_output_path
     quanting_env = make_quanting_env(relative_output_path=relative_output_path)
-    mock_raw_file = MagicMock(
-        wraps=RawFile,
-        created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
-        instrument_id="_test1_",
-    )
-    mock_get_raw_file_by_id.return_value = mock_raw_file
 
     mock_start_job.return_value = "12345"
 
@@ -666,17 +658,14 @@ def test_submit_job_executes_ssh_command_and_stores_job_id(
         quanting_env,
         runner_name="slurm",
     )
-    mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
     mock_update.assert_called_once_with(
         "test_file.raw", new_status=RawFileStatus.QUANTING
     )
 
 
-@patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.get_airflow_variable")
 def test_submit_job_output_folder_exists(
     mock_get_airflow_variable: MagicMock,
-    mock_get_raw_file_by_id: MagicMock,
     tmp_path: Path,
     make_quanting_env: Callable[..., QuantingEnv],
 ) -> None:
@@ -685,12 +674,6 @@ def test_submit_job_output_folder_exists(
     output_dir = tmp_path / "output"
     output_dir.mkdir()
     quanting_env = make_quanting_env(relative_output_path="output")
-    mock_raw_file = MagicMock(
-        wraps=RawFile,
-        created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
-        instrument_id="_test1_",
-    )
-    mock_get_raw_file_by_id.return_value = mock_raw_file
 
     mock_get_airflow_variable.return_value = "raise"
 
@@ -701,17 +684,14 @@ def test_submit_job_output_folder_exists(
     ):
         submit_job(quanting_env_dict=quanting_env.to_dict())
 
-    mock_get_raw_file_by_id.assert_called_once_with("test_file.raw")
     mock_get_airflow_variable.assert_called_once_with("output_exists_mode", "raise")
 
 
-@patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.get_airflow_variable")
 @patch("dags.impl.processor_impl._get_slurm_job_id_from_log")
 def test_submit_job_output_folder_exists_associate(
     mock_get_slurm_job_id_from_log: MagicMock,
     mock_get_airflow_variable: MagicMock,
-    mock_get_raw_file_by_id: MagicMock,
     tmp_path: Path,
     make_quanting_env: Callable[..., QuantingEnv],
 ) -> None:
@@ -720,12 +700,6 @@ def test_submit_job_output_folder_exists_associate(
     output_dir = tmp_path / "output"
     output_dir.mkdir()
     quanting_env = make_quanting_env(relative_output_path="output")
-    mock_raw_file = MagicMock(
-        wraps=RawFile,
-        created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
-        instrument_id="_test1_",
-    )
-    mock_get_raw_file_by_id.return_value = mock_raw_file
 
     mock_get_airflow_variable.return_value = "associate"
     mock_get_slurm_job_id_from_log.return_value = "54321"
@@ -737,13 +711,11 @@ def test_submit_job_output_folder_exists_associate(
     assert result == "54321"
 
 
-@patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.get_airflow_variable")
 @patch("dags.impl.processor_impl._get_slurm_job_id_from_log")
 def test_submit_job_output_folder_exists_associate_raise(
     mock_get_slurm_job_id_from_log: MagicMock,
     mock_get_airflow_variable: MagicMock,
-    mock_get_raw_file_by_id: MagicMock,
     tmp_path: Path,
     make_quanting_env: Callable[..., QuantingEnv],
 ) -> None:
@@ -752,12 +724,6 @@ def test_submit_job_output_folder_exists_associate_raise(
     output_dir = tmp_path / "output"
     output_dir.mkdir()
     quanting_env = make_quanting_env(relative_output_path="output")
-    mock_raw_file = MagicMock(
-        wraps=RawFile,
-        created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
-        instrument_id="_test1_",
-    )
-    mock_get_raw_file_by_id.return_value = mock_raw_file
 
     mock_get_airflow_variable.return_value = "associate"
     mock_get_slurm_job_id_from_log.return_value = None
@@ -893,15 +859,13 @@ def test_create_quanting_env_with_suffix(
     )
 
 
-@patch("dags.impl.processor_impl.get_raw_file_by_id")
 @patch("dags.impl.processor_impl.get_airflow_variable")
 @patch("dags.impl.processor_impl.start_job")
 @patch("dags.impl.processor_impl.update_raw_file")
-def test_submit_job_output_folder_exists_add(  # noqa: PLR0913
+def test_submit_job_output_folder_exists_add(
     mock_update: MagicMock,  # noqa: ARG001
     mock_start_job: MagicMock,  # noqa: ARG001
     mock_get_airflow_variable: MagicMock,
-    mock_get_raw_file_by_id: MagicMock,
     tmp_path: Path,
     make_quanting_env: Callable[..., QuantingEnv],
 ) -> None:
@@ -909,12 +873,6 @@ def test_submit_job_output_folder_exists_add(  # noqa: PLR0913
     output_dir = tmp_path / "output"
     output_dir.mkdir()
     quanting_env = make_quanting_env(relative_output_path="output")
-    mock_raw_file = MagicMock(
-        wraps=RawFile,
-        created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
-        instrument_id="_test1_",
-    )
-    mock_get_raw_file_by_id.return_value = mock_raw_file
     mock_get_airflow_variable.return_value = "add"
 
     with (
@@ -1571,7 +1529,7 @@ def test_extract_errors_early_task_failed_no_xcom(
 def test_extract_errors_intentional_skip(
     mock_get_xcom: MagicMock, make_quanting_env: Callable[..., QuantingEnv]
 ) -> None:
-    """All tasks skipped without XCom (e.g. skip_quanting) → no error."""
+    """All tasks skipped without XCom → no error."""
     branch_tis = _make_branch_tis_by_index(
         [
             (

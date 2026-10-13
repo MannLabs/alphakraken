@@ -31,7 +31,7 @@ def test_loads_alphakraken_yaml_successfully(
     instruments:
       instrument1:
         type: thermo
-        skip_quanting: true
+        skip_processing: true
         min_free_space_gb: 123
     """
 
@@ -47,7 +47,7 @@ def test_loads_alphakraken_yaml_successfully(
         "instruments": {
             "instrument1": {
                 "type": "thermo",
-                "skip_quanting": True,
+                "skip_processing": True,
                 "min_free_space_gb": 123,
             }
         }

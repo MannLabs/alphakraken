@@ -1,6 +1,5 @@
 """Test the overview.py file."""
 
-from datetime import datetime
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -23,11 +22,11 @@ def _configure_mocks(
     mock_get_raw_file_and_metrics_data.return_value = (
         mock_raw_files_db,
         mock_metrics_db,
-        datetime.now(),  # noqa: DTZ005
+        pd.Timestamp.now(tz="UTC"),
     )
 
-    ts1 = pd.to_datetime(datetime.now())  # noqa: DTZ005
-    ts2 = pd.to_datetime(datetime.fromtimestamp(5e9 + 0.5))  # noqa: DTZ006
+    ts1 = pd.Timestamp.now(tz="UTC")
+    ts2 = pd.Timestamp(5e9 + 0.5, unit="s", tz="UTC")
     raw_files_df = pd.DataFrame(
         {
             "_id": [1, 2],

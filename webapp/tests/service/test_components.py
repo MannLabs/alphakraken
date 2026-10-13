@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
+import pytz
 from service.components import (
     _get_color,
     display_status,
@@ -15,6 +16,7 @@ from service.components import (
     show_date_select,
     show_filter,
 )
+from service.timezone import display_now
 
 
 @pytest.mark.parametrize(
@@ -178,12 +180,12 @@ def test_input_filter_combination(mock_text_input: MagicMock) -> None:
 @patch("streamlit.date_input")
 def test_date_input_happy_path(mock_date_input: MagicMock) -> None:
     """Test that the date filter returns the correct DataFrame when a match is found."""
-    mock_date_input.return_value = datetime(2021, 1, 5)  # noqa: DTZ001
+    mock_date_input.return_value = datetime(2021, 1, 5).date()  # noqa: DTZ001
     df = pd.DataFrame(
         {
             "created_at": [
-                datetime(2021, 1, 1),  # noqa: DTZ001
-                datetime(2021, 1, 10),  # noqa: DTZ001
+                datetime(2021, 1, 1, tzinfo=pytz.UTC),
+                datetime(2021, 1, 10, tzinfo=pytz.UTC),
             ],
             "column2": ["file1", "file2"],
         }
@@ -199,9 +201,9 @@ def test_date_input_happy_path(mock_date_input: MagicMock) -> None:
 @patch("streamlit.dataframe")
 def test_display_status_with_multiple_instruments(mock_st_dataframe: MagicMock) -> None:
     """Test that the display_status function works correctly."""
-    ts1 = datetime(2022, 1, 1, 11, 0, 0)  # noqa: DTZ001
-    ts2 = datetime(2022, 1, 1, 10, 0, 0)  # noqa: DTZ001
-    ts3 = datetime(2022, 1, 1, 9, 0, 0)  # noqa: DTZ001
+    ts1 = datetime(2022, 1, 1, 11, 0, 0, tzinfo=pytz.UTC)
+    ts2 = datetime(2022, 1, 1, 10, 0, 0, tzinfo=pytz.UTC)
+    ts3 = datetime(2022, 1, 1, 9, 0, 0, tzinfo=pytz.UTC)
     df = pd.DataFrame(
         {
             "instrument_id": ["inst1", "inst1", "inst2", "inst2"],
@@ -254,7 +256,7 @@ def test_display_status_with_multiple_instruments(mock_st_dataframe: MagicMock) 
 
 def test_get_color() -> None:
     """Test that the color is returned correctly."""
-    now = datetime.now()  # noqa: DTZ005
+    now = display_now()
     row = pd.Series(
         {
             "last_file_creation": now - timedelta(hours=1),

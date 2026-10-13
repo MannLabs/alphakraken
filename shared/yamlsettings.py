@@ -5,7 +5,9 @@ import os
 from pathlib import Path
 from typing import Any, cast
 
+import pytz
 import yaml
+from pytz.tzinfo import BaseTzInfo
 
 from shared.keys import EnvVars, InternalPaths
 
@@ -15,6 +17,8 @@ class YamlKeys:
 
     GENERAL = "general"
     INSTRUMENTS = "instruments"
+
+    TIMEZONE = "timezone"
 
     TYPE = "type"
 
@@ -143,6 +147,17 @@ def get_notification_setting(setting_key: str) -> str:
         )
 
     return setting_value
+
+
+DEFAULT_TIMEZONE = "UTC"
+
+
+def get_timezone() -> BaseTzInfo:
+    """Get the timezone that the webapp displays timestamps in."""
+    timezone_name = YAMLSETTINGS.get(YamlKeys.GENERAL, {}).get(  # type: ignore[possibly-unbound-attribute]
+        YamlKeys.TIMEZONE, DEFAULT_TIMEZONE
+    )
+    return pytz.timezone(timezone_name)
 
 
 S3_SWITCH = "s3"

@@ -25,8 +25,8 @@ def test_status(
 
     mock_get_status_data.return_value = mock_status_db
 
-    ts1 = pd.to_datetime(datetime.now())  # noqa: DTZ005
-    ts2 = pd.to_datetime(datetime.fromtimestamp(5e9 + 0.5))  # noqa: DTZ006
+    ts1 = pd.Timestamp.now(tz="UTC")
+    ts2 = pd.Timestamp(5e9 + 0.5, unit="s", tz="UTC")
 
     combined_df = pd.DataFrame(
         {

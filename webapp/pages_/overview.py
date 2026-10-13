@@ -4,7 +4,6 @@ from datetime import datetime
 from functools import partial
 
 import pandas as pd
-import pytz
 
 # ruff: noqa: PD002 # `inplace=True` should be avoided; it has inconsistent behavior
 import streamlit as st
@@ -47,6 +46,7 @@ from service.session_state import (
     set_session_state,
 )
 from service.status import display_status_warning
+from service.timezone import DISPLAY_TIMEZONE_NAME, display_now
 from service.utils import (
     BASELINE_PREFIX,
     DEFAULT_MAX_AGE_OVERVIEW,
@@ -129,7 +129,7 @@ show_sandbox_message()
 st.markdown("# Overview")
 
 st.write(
-    f"Current AlphaKraken time: {datetime.now(tz=pytz.UTC).replace(microsecond=0)} [all time stamps are given in UTC!]"
+    f"Current AlphaKraken time: {display_now().replace(microsecond=0)} [all time stamps are given in {DISPLAY_TIMEZONE_NAME}!]"
 )
 
 display_info_message()
@@ -371,7 +371,7 @@ def _display_table_and_plots(  # noqa: PLR0915,C901,PLR0912 (too many statements
 
         filtered_df["lag_time_minutes"] = lag_times / 60
         filtered_df["eta"] = add_eta(
-            filtered_df, datetime.now(tz=pytz.UTC).replace(microsecond=0), lag_time
+            filtered_df, display_now().replace(microsecond=0), lag_time
         )
 
     # ########################################### DISPLAY: Data table

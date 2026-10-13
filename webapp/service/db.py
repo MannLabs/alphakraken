@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 import pandas as pd
 import pytz
 from mongoengine import Q, QuerySet
+from service.timezone import display_now, to_display_timezone
 from service.utils import _log
 
 from shared.db.engine import connect_db
@@ -61,6 +62,8 @@ def get_raw_files_for_status_df(
 
     if len(df) == 0:
         return df
+
+    df = to_display_timezone(df)
 
     # Ensure consistent order and reset index
     df.sort_values(
@@ -135,7 +138,7 @@ def get_raw_file_and_metrics_data(
 
     metrics_db = Metrics.objects(metrics_q)
 
-    now = datetime.now(tz=pytz.UTC).replace(microsecond=0)
+    now = display_now().replace(microsecond=0)
 
     _log(
         f"Done retrieving raw file and metrics {max_age_in_days=} {raw_file_ids=} {instruments=}"
@@ -240,6 +243,7 @@ def get_raw_files_for_throughput_per_day(days: int = 14) -> pd.DataFrame:
         ]
     )
 
+    df = to_display_timezone(df)
     df["date"] = df["created_at"].dt.date
 
     result = (
@@ -338,4 +342,4 @@ def df_from_db_data(
 
     query_set_df.reset_index(drop=True, inplace=True)
 
-    return query_set_df
+    return to_display_timezone(query_set_df)

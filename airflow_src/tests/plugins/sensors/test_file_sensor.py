@@ -111,7 +111,6 @@ def test_check_health_when_all_paths_exist(
     """Test that the health check passes when both paths exist."""
     mock_path = MagicMock()
     mock_path.__truediv__.return_value.stat.side_effect = FileNotFoundError  # sentinel
-    mock_path.rglob.side_effect = [["file1"], ["file1"], ["file1"]]
     mock_get_data_path.return_value = mock_path
     mock_get_backup_path.return_value = mock_path
     mock_get_output_path.return_value = mock_path
@@ -178,7 +177,7 @@ def test_check_health_when_no_paths_exist(
     mock_update_status.assert_any_call(
         "instrument_id",
         status="error",
-        status_details="data path not healthy (exists=False mounted=None has_files=None); backup path not healthy (exists=False mounted=None has_files=None); output path not healthy (exists=False mounted=None has_files=None)",
+        status_details="data path not healthy (exists=False mounted=None); backup path not healthy (exists=False mounted=None); output path not healthy (exists=False mounted=None)",
         free_space_gb=789,
     )
 
@@ -200,8 +199,7 @@ def test_check_health_when_no_paths_exist(
 
 
 def test_check_path_health_when_healthy(tmp_path: Path) -> None:
-    """Test that a non-empty path without sentinel adds no status details."""
-    (tmp_path / "file1").touch()
+    """Test that a path without sentinel adds no status details, even if empty."""
     status_details: list[str] = []
 
     _check_path_health(tmp_path, "data", status_details)
@@ -216,20 +214,7 @@ def test_check_path_health_when_not_mounted(tmp_path: Path) -> None:
 
     _check_path_health(tmp_path, "data", status_details)
 
-    assert status_details == [
-        "data path not healthy (exists=True mounted=False has_files=None)"
-    ]
-
-
-def test_check_path_health_when_empty(tmp_path: Path) -> None:
-    """Test that an empty path is reported."""
-    status_details: list[str] = []
-
-    _check_path_health(tmp_path, "data", status_details)
-
-    assert status_details == [
-        "data path not healthy (exists=True mounted=True has_files=False)"
-    ]
+    assert status_details == ["data path not healthy (exists=True mounted=False)"]
 
 
 def test_check_path_health_when_not_accessible() -> None:
@@ -241,7 +226,6 @@ def test_check_path_health_when_not_accessible() -> None:
     _check_path_health(mock_path, "data", status_details)
 
     assert status_details == ["data path not accessible ([Errno 112] Host is down)"]
-    mock_path.rglob.assert_not_called()
 
 
 def test_check_path_health_when_sentinel_lookup_not_accessible() -> None:

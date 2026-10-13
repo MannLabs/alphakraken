@@ -10,7 +10,7 @@ from typing import TypeVar
 
 import pytz
 from airflow.sdk.exceptions import AirflowFailException, AirflowSkipException
-from airflow.sdk.models import RuntimeTaskInstance as TaskInstance
+from airflow.sdk.execution_time.task_runner import RuntimeTaskInstance as TaskInstance
 from common.keys import (
     DAG_DELIMITER,
     INSTRUMENT_MATCH_PREFIX,

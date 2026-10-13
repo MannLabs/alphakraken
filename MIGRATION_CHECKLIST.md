@@ -1,4 +1,4 @@
-# Airflow 2.11.0 → 3.3.1: manual steps
+# Airflow 2.11.0 → 3.3.2: manual steps
 
 Code changes are on branch `airflow3_migration` (based on `design_docs/AIRFLOW3_B_MIGRATION_GUIDE.md`).
 Verified without a running stack: 553 unit tests, `ty`, `ruff --select AIR`, plugin loading with the

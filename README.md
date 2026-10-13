@@ -3,7 +3,7 @@
 ![Coverage](https://github.com/MannLabs/alphakraken/blob/main/misc/coverage.svg)
 ![GitHub Release](https://img.shields.io/github/v/release/mannlabs/alphakraken?logoColor=green&color=brightgreen)
 ![Versions](https://img.shields.io/badge/python-3.13-brightgreen)
-![Versions](https://img.shields.io/badge/Apache_Airflow-3.3.1-brightgreen)
+![Versions](https://img.shields.io/badge/Apache_Airflow-3.3.2-brightgreen)
 
 # AlphaKraken
 

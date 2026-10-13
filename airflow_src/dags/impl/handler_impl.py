@@ -38,6 +38,7 @@ from common.utils import (
 from plugins.file_handling import (
     _decide_if_copy_required,
     copy_file,
+    get_file_creation_timestamp,
     get_file_hash,
     get_file_hash_with_etag,
     get_file_mtime,
@@ -149,6 +150,14 @@ def compute_checksum(ti: TaskInstance, **kwargs) -> bool:
 
     update_raw_file(raw_file_id, new_status=RawFileStatus.CHECKSUMMING)
 
+    # The creation time read by the watcher during acquisition can still change afterwards (e.g. copy tools
+    # restoring the source's creation time), so re-read it from the final file to unambiguously identify it.
+    # Must be set before any path is derived from created_at.
+    raw_file.created_at = datetime.fromtimestamp(
+        get_file_creation_timestamp(raw_file.original_name, raw_file.instrument_id),
+        tz=pytz.utc,
+    )
+
     copy_wrapper = RawFileWrapperFactory.create_write_wrapper(
         raw_file=raw_file,
         path_provider=CopyPathProvider,
@@ -224,6 +233,7 @@ def compute_checksum(ti: TaskInstance, **kwargs) -> bool:
         size=total_file_size,
         file_info=file_info,
         finalized_at=finalized_at,
+        created_at=raw_file.created_at,
     )
     put_xcom(ti, XComKeys.TARGET_FOLDER_PATH, str(copy_wrapper.target_folder_path))
     put_xcom(

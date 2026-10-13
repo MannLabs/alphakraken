@@ -69,10 +69,6 @@ from shared.settings_scope_resolver import resolve_scoped_settings
 from shared.validation import FORBIDDEN_RAW_FILE_NAME_CHARACTERS_PATTERN
 from shared.yamlsettings import is_s3_upload_enabled
 
-# special mode that does not copy (e.g. because another instance handles it)
-# point the `backup` location of the runner views to the folder where the files can be picked up for quanting # TODO: check is this is still true
-SKIP_COPYING = False
-
 T = TypeVar("T")
 
 
@@ -304,13 +300,15 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
 
     raw_file = get_raw_file_by_id(raw_file_id)
 
-    if SKIP_COPYING:
+    if get_instrument_settings(raw_file.instrument_id, InstrumentKeys.SKIP_COPYING):
         update_raw_file(
             raw_file_id,
             new_status=RawFileStatus.COPYING_DONE,
             backup_status=BackupStatus.SKIPPED,
         )
-        logging.warning("SKIP_COPYING is enabled, skipping file copy.")
+        logging.warning(
+            f"{InstrumentKeys.SKIP_COPYING} is enabled for this instrument, skipping file copy."
+        )
         return
 
     update_raw_file(

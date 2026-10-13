@@ -673,6 +673,7 @@ def test_compute_checksum_source_missing(  # noqa: PLR0913
         assert disappeared_call not in mock_update_raw_file.call_args_list
 
 
+@patch.dict(_INSTRUMENTS, {"instrument1": {}})
 @pytest.mark.parametrize(
     ("airflow_variable_value", "expected_exception"),
     [
@@ -704,7 +705,7 @@ def test_copy_raw_file_source_missing(  # noqa: PLR0913
         {src_path: "/opt/airflow/mounts/backup/test_file.raw"},
         {src_path: (1000, "some_hash")},
     ]
-    mock_raw_file = MagicMock()
+    mock_raw_file = MagicMock(instrument_id="instrument1")
     mock_raw_file.id = "test_file.raw"
     mock_get_raw_file_by_id.return_value = mock_raw_file
     mock_get_airflow_variable.return_value = airflow_variable_value
@@ -730,6 +731,7 @@ def test_copy_raw_file_source_missing(  # noqa: PLR0913
         assert disappeared_call not in mock_update_raw_file.call_args_list
 
 
+@patch.dict(_INSTRUMENTS, {"test1": {}})
 @patch("dags.impl.handler_impl.get_xcom")
 @patch("dags.impl.handler_impl.get_raw_file_by_id")
 @patch("dags.impl.handler_impl._handle_file_copying")
@@ -792,6 +794,36 @@ def test_copy_raw_file_calls_update_with_correct_args(
     )
 
 
+@patch.dict(_INSTRUMENTS, {"instrument1": {"skip_copying": True}})
+@patch("dags.impl.handler_impl.get_xcom")
+@patch(
+    "dags.impl.handler_impl.get_raw_file_by_id",
+    return_value=MagicMock(instrument_id="instrument1"),
+)
+@patch("dags.impl.handler_impl._handle_file_copying")
+@patch("dags.impl.handler_impl.update_raw_file")
+def test_copy_raw_file_skip_copying(
+    mock_update_raw_file: MagicMock,
+    mock_handle_file_copying: MagicMock,
+    mock_get_raw_file_by_id: MagicMock,  # noqa:ARG001
+    mock_get_xcom: MagicMock,
+) -> None:
+    """Test copy_raw_file skips copying if instrument settings has skip_copying set."""
+    mock_get_xcom.side_effect = [{}, {}]
+
+    # when
+    copy_raw_file(MagicMock(), params={"raw_file_id": "test_file.raw"})
+
+    # then
+    mock_handle_file_copying.assert_not_called()
+    mock_update_raw_file.assert_called_once_with(
+        "test_file.raw",
+        new_status=RawFileStatus.COPYING_DONE,
+        backup_status=BackupStatus.SKIPPED,
+    )
+
+
+@patch.dict(_INSTRUMENTS, {"test1": {}})
 @patch("dags.impl.handler_impl.get_xcom")
 @patch("dags.impl.handler_impl.get_raw_file_by_id")
 @patch("dags.impl.handler_impl._handle_file_copying")
@@ -844,6 +876,7 @@ def test_copy_raw_file_verify_fails(
     )
 
 
+@patch.dict(_INSTRUMENTS, {"instrument1": {}})
 @pytest.mark.parametrize(
     "airflow_variable_value", ["test_file.raw", "INSTRUMENT_instrument1"]
 )

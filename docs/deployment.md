@@ -283,16 +283,13 @@ Docker bind-mounts the host folder `${MOUNTS_PATH}/<mount_target>` into the cont
 If the network share is not mounted on the host when a container starts, Docker silently binds the empty local folder instead.
 A worker would then e.g. copy raw files to the local disk instead of the backup pool.
 
-`mount.sh` configures the local folders to prevent his:
+`mount.sh` configures the local folders to prevent this:
 - It creates an empty `alphakraken_local_dir_sentinel` file in the target folder, which is hidden by the share while mounted.
-The health check of the acquisition workers reports `is_mounted=False` if this file is visibile.
+The health check of the acquisition workers reports `mounted=False` if this file is visible.
 - It makes the target folder immutable (`chattr +i`), so nothing can be written into it while the share is not mounted.
 
 If a folder is set up without `mount.sh`, do this manually while it is not mounted:
 `touch <folder>/alphakraken_local_dir_sentinel && sudo chattr +i <folder>` (undo with `sudo chattr -i <folder>`).
-
-As a fallback for folders without sentinel, the health check also reports empty folders as unhealthy.
-Fresh folders, e.g. the backup pool folder of a new instrument, therefore need at least one file: create an empty `Krakenfile` in them.
 
 Note: a running container keeps its own reference to a share. Unmounting or remounting a share on the host
 is not visible inside running containers (they keep using the old mount), so restart the affected workers after remounting.

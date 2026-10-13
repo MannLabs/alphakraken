@@ -87,30 +87,16 @@ def _path_exists(path: Path) -> bool:
 
 def _check_path_health(path: Path, description: str, status_details: list[str]) -> None:
     """Check the health of a path and add status details if necessary."""
-    mounted = has_files = None
+    mounted = None
 
     # Note: `is_mount()` is useless here: a docker bind mount is always a mount point, even if the share behind it is gone.
     try:
-        if (
-            not (exists := _path_exists(path))
-            or not (
-                mounted := not _path_exists(
-                    path / InternalPaths.LOCAL_DIR_SENTINEL_FILE
-                )
-            )
-            # this could give false negatives if the folder is empty, in this case create an empty file in the folder
-            or not (has_files := (any(True for _ in path.rglob("*"))))
+        if not (exists := _path_exists(path)) or not (
+            mounted := not _path_exists(path / InternalPaths.LOCAL_DIR_SENTINEL_FILE)
         ):
-            logging.warning(
-                f"Path {path} failed checks: {exists=} {mounted=} {has_files=}"
-            )
-            # `is False`: only the empty-folder case, not a short-circuit that left it unchecked
-            if has_files is False:
-                logging.info(
-                    f"If this is a fresh installation and {path} is empty, create a temporary dummy file called 'Krakenfile' to satisfy this check."
-                )
+            logging.warning(f"Path {path} failed checks: {exists=} {mounted=}")
             status_details.append(
-                f"{description} path not healthy ({exists=} {mounted=} {has_files=})"
+                f"{description} path not healthy ({exists=} {mounted=})"
             )
     except OSError as e:
         # e.g. the server behind the share is unreachable

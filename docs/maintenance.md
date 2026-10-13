@@ -318,7 +318,7 @@ for dir in 2024*; do tar -czf "${dir%/}.tar.gz" "$dir" && rm -rf "$dir"; done
 Every once in a while, the Airflow version should be updated.
 
 1. Create a backup copy of the `mongodb_data_${ENV}` and `airflowdb_data_${ENV}` folders (on the machine that hosts the DBs).
-2. Locate the current version in the Airflow Dockerfile, line `ARG AIRFLOW_VERSION=3.3.1`
+2. Locate the current version in the Airflow Dockerfile, line `ARG AIRFLOW_VERSION=3.3.2`
 3. Check for breaking changes between the current and the new version [here](https://airflow.apache.org/docs/apache-airflow/stable/release_notes.html)
 and adapt the code if necessary.
 4. Search and replace the old version string (e.g. `3.3.1`) with the new version throughout the code.

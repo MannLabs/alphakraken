@@ -1,5 +1,5 @@
 # https://airflow.apache.org/docs/docker-stack/build.html
-ARG AIRFLOW_VERSION=3.3.1
+ARG AIRFLOW_VERSION=3.3.2
 # must match the python version of the constraint file in requirements_airflow.txt
 ARG PYTHON_VERSION=3.13
 

@@ -9,7 +9,6 @@ from typing import Any
 
 import pytz
 from airflow.exceptions import DagNotFound
-from airflow.models import DagRun
 from airflow.sdk import Variable
 from airflow.sdk.exceptions import (
     AirflowFailException,
@@ -111,6 +110,8 @@ def trigger_dag_run(
     :param time_delay_minutes: If given, the run does not start before now plus this delay.
     :raises DagNotFound: If no DAG with `dag_id` exists.
     """
+    from airflow.models import DagRun  # import only on demand to avoid loading overhead
+
     now = datetime.now(tz=pytz.utc)
     run_after = (
         now

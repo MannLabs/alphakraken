@@ -6,9 +6,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 from airflow.sdk.exceptions import AirflowFailException
 from botocore.exceptions import BotoCoreError, ClientError
+from common.exceptions import S3UploadFailedException
 from common.keys import DagContext, DagParams
 from dags.impl.s3_uploader_impl import (
-    S3UploadFailedException,
     _get_key_prefix,
     _prepare_upload,
     _upload_files,

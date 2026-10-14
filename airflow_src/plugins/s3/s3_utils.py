@@ -33,13 +33,6 @@ def parse_s3_upload_path(s3_upload_path: str) -> tuple[str, str]:
     return bucket_name, key_prefix
 
 
-class S3UploadFailedException(AirflowFailException):
-    """Exception raised when S3 upload fails.
-
-    Enables on_failure_callback to take special action.
-    """
-
-
 # TODO: move to shared to enable bucket name preview
 def normalize_bucket_name(project_id: str, bucket_prefix: str) -> str:
     """Normalize bucket name to be S3-compatible.

@@ -3,9 +3,8 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-from common.exceptions import QuantingFailedException
+from common.exceptions import QuantingFailedException, S3UploadFailedException
 from plugins.callbacks import on_failure_callback
-from plugins.s3.s3_utils import S3UploadFailedException
 
 from shared.db.models import BackupStatus, RawFileStatus
 

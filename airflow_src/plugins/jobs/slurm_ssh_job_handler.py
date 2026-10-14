@@ -4,12 +4,16 @@ import logging
 from datetime import datetime
 from pathlib import PurePath
 
+import pytz
 from airflow.sdk.exceptions import AirflowFailException
 from common.constants import DUMMY_TIME_ELAPSED, SLURM_JOB_SCRIPT_NAME
 from common.keys import JobStates
 from common.quanting_env import QuantingEnv
+from common.settings import Timings
 from jobs.job_handler import JobHandler, posix_export_lines
 from sensors.ssh_utils import ssh_execute
+
+from shared.db.interface import get_slurm_job_states
 
 
 class SlurmSSHJobHandler(JobHandler):
@@ -48,7 +52,23 @@ class SlurmSSHJobHandler(JobHandler):
         return job_id
 
     def get_job_status(self, job_id: str) -> str:
-        """Get the status of a job on the Slurm cluster via SSH."""
+        """Get the status of a job on the Slurm cluster.
+
+        Taken from the DB snapshot written by the cluster_job_poller DAG if it is fresh and contains the job,
+        otherwise queried via SSH (e.g. job not yet or no longer in the queue, poller not running).
+        """
+        snapshot = get_slurm_job_states(self._ssh_connection_id_prefix)
+        if snapshot is not None and job_id in snapshot.states:
+            # the DB returns naive datetimes in UTC
+            age_s = (
+                datetime.now(tz=pytz.utc)
+                - snapshot.updated_at_.replace(tzinfo=pytz.utc)
+            ).total_seconds()
+            if age_s < Timings.CLUSTER_POLLER_MAX_STALENESS_S:
+                logging.info(f"Got job status from DB snapshot of age {age_s:.0f}s")
+                return snapshot.states[job_id]
+            logging.warning(f"Ignoring stale DB snapshot of age {age_s:.0f}s")
+
         cmd = self._get_job_state_cmd(job_id)
         return ssh_execute(cmd, self._ssh_connection_id_prefix)
 

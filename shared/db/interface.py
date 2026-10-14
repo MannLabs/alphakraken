@@ -23,6 +23,7 @@ from shared.db.models import (
     RawFile,
     Settings,
     SettingsStatus,
+    SlurmJobStates,
 )
 from shared.keys import DEFAULT_SCOPE
 
@@ -480,6 +481,22 @@ def update_kraken_status(
         status_details=status_details,
         entity_type=entity_type,
     ).save()
+
+
+def update_slurm_job_states(cluster_id: str, states: dict[str, str]) -> None:
+    """Overwrite the snapshot of the Slurm job states of the cluster `cluster_id`."""
+    connect_db()
+
+    SlurmJobStates(
+        id=cluster_id, states=states, updated_at_=datetime.now(tz=pytz.utc)
+    ).save()
+
+
+def get_slurm_job_states(cluster_id: str) -> SlurmJobStates | None:
+    """Get the snapshot of the Slurm job states of the cluster `cluster_id`, None if there is none."""
+    connect_db()
+
+    return SlurmJobStates.objects(id=cluster_id).first()
 
 
 def augment_raw_files_with_metrics(

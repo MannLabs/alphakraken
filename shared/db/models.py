@@ -336,3 +336,18 @@ class KrakenStatus(Document):
     entity_type = StringField(max_length=16, default=KrakenStatusEntities.INSTRUMENT)
 
     updated_at_ = DateTimeField(default=datetime.now)
+
+
+class SlurmJobStates(Document):
+    """Snapshot of the states of all queued jobs on a Slurm cluster, as reported by `squeue`."""
+
+    meta: ClassVar = {"strict": False}
+    objects: ClassVar[QuerySet[SlurmJobStates]]
+
+    # the SSH connection id prefix of the cluster
+    id = StringField(max_length=64, required=True, primary_key=True)
+
+    # job id -> state; jobs that left the queue (e.g. finished) are absent
+    states = DictField(StringField(max_length=32))
+
+    updated_at_ = DateTimeField(default=datetime.now)

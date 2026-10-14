@@ -517,6 +517,14 @@ services:
       # to write (remove) from instrument Backup folder: (this could be limited to the 'Backup' folders but then requires one entry per instrument)
       - ${MOUNTS_PATH:?error}/instruments:/opt/airflow/mounts/instruments:rw
 
+  # cluster job poller: continuously writes the states of the Slurm jobs to the DB (occupies one slot permanently)
+  airflow-worker-cluster-job-poller:
+    profiles: ["local", "workers"]
+    <<: *airflow-worker
+    command: celery worker -q kraken_queue_cluster_job_poller
+    volumes:
+      - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs:rw
+
   # s3 uploader: uploads files to s3
   airflow-worker-s3-uploader:
     profiles: ["s3"]

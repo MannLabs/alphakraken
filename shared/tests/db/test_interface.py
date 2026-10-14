@@ -23,9 +23,11 @@ from shared.db.interface import (
     get_raw_files_by_age,
     get_raw_files_by_instrument_file_status,
     get_raw_files_by_names,
+    get_slurm_job_states,
     unassign_settings_from_project,
     update_kraken_status,
     update_raw_file,
+    update_slurm_job_states,
 )
 from shared.db.models import InstrumentFileStatus, RawFileStatus, SettingsStatus
 from shared.keys import MetricsTypes
@@ -633,6 +635,43 @@ def test_update_kraken_status(
         free_space_gb=123,
         entity_type="instrument",
     )
+    mock_connect_db.assert_called_once()
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.SlurmJobStates")
+@patch("shared.db.interface.datetime")
+def test_update_slurm_job_states(
+    mock_datetime: MagicMock,
+    mock_slurm_job_states: MagicMock,
+    mock_connect_db: MagicMock,
+) -> None:
+    """Test that update_slurm_job_states saves the snapshot."""
+    # when
+    update_slurm_job_states("cluster1", {"123": "RUNNING"})
+
+    # then
+    mock_slurm_job_states.assert_called_once_with(
+        id="cluster1",
+        states={"123": "RUNNING"},
+        updated_at_=mock_datetime.now.return_value,
+    )
+    mock_slurm_job_states.return_value.save.assert_called_once()
+    mock_connect_db.assert_called_once()
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.SlurmJobStates")
+def test_get_slurm_job_states(
+    mock_slurm_job_states: MagicMock, mock_connect_db: MagicMock
+) -> None:
+    """Test that get_slurm_job_states returns the snapshot of the cluster."""
+    # when
+    result = get_slurm_job_states("cluster1")
+
+    # then
+    mock_slurm_job_states.objects.assert_called_once_with(id="cluster1")
+    assert result == mock_slurm_job_states.objects.return_value.first.return_value
     mock_connect_db.assert_called_once()
 
 

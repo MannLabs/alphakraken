@@ -70,11 +70,11 @@ def test_start_job_handles_invalid_job_id(
         SlurmSSHJobHandler(SLURM_BASE_DIR, SSH_PREFIX).start_job(make_quanting_env())
 
 
-@patch("jobs.slurm_ssh_job_handler.get_slurm_job_states", return_value=None)
+@patch("jobs.slurm_ssh_job_handler.get_slurm_job", return_value=None)
 @patch("jobs.slurm_ssh_job_handler.ssh_execute")
 def test_get_job_status_returns_correctly(
     mock_ssh_execute: MagicMock,
-    mock_get_slurm_job_states: MagicMock,  # noqa: ARG001
+    mock_get_slurm_job: MagicMock,  # noqa: ARG001
 ) -> None:
     """Test that get_job_status returns the correct status."""
     mock_ssh_execute.return_value = "COMPLETED"
@@ -94,50 +94,58 @@ def test_get_job_status_returns_correctly(
     mock_ssh_execute.assert_called_once_with(expected_command, SSH_PREFIX)
 
 
-def _snapshot(states: dict[str, str], age_s: int) -> MagicMock:
-    """Create a mock DB snapshot of the given age, with a naive UTC timestamp as returned by the DB."""
+def _db_job(state: str, age_s: int) -> MagicMock:
+    """Create a mock DB job of the given age, with a naive UTC timestamp as returned by the DB."""
     return MagicMock(
-        states=states,
+        state=state,
         updated_at_=datetime.now(tz=pytz.utc).replace(tzinfo=None)
         - timedelta(seconds=age_s),
     )
 
 
-@patch("jobs.slurm_ssh_job_handler.get_slurm_job_states")
+@pytest.mark.parametrize(
+    ("state", "age_s"),
+    [
+        ("RUNNING", 1),
+        ("LEFT_QUEUE", 10_000),  # final, so age does not matter
+    ],
+)
+@patch("jobs.slurm_ssh_job_handler.get_slurm_job")
 @patch("jobs.slurm_ssh_job_handler.ssh_execute")
-def test_get_job_status_returns_status_from_fresh_snapshot(
+def test_get_job_status_returns_status_from_db(
     mock_ssh_execute: MagicMock,
-    mock_get_slurm_job_states: MagicMock,
+    mock_get_slurm_job: MagicMock,
+    state: str,
+    age_s: int,
 ) -> None:
-    """Test that get_job_status takes the status from a fresh DB snapshot without SSH."""
-    mock_get_slurm_job_states.return_value = _snapshot({"12345": "RUNNING"}, age_s=1)
+    """Test that get_job_status takes a fresh or final status from the DB without SSH."""
+    mock_get_slurm_job.return_value = _db_job(state, age_s)
 
     # when
     job_status = SlurmSSHJobHandler(SLURM_BASE_DIR, SSH_PREFIX).get_job_status("12345")
 
     # then
-    assert job_status == "RUNNING"
-    mock_get_slurm_job_states.assert_called_once_with(SSH_PREFIX)
+    assert job_status == state
+    mock_get_slurm_job.assert_called_once_with(SSH_PREFIX, "12345")
     mock_ssh_execute.assert_not_called()
 
 
 @pytest.mark.parametrize(
-    ("states", "age_s"),
+    "db_job",
     [
-        ({"99999": "RUNNING"}, 1),  # job not in queue
-        ({"12345": "RUNNING"}, 10_000),  # stale snapshot
+        None,  # job not yet polled
+        _db_job("RUNNING", 10_000),  # stale
     ],
 )
-@patch("jobs.slurm_ssh_job_handler.get_slurm_job_states")
+@patch("jobs.slurm_ssh_job_handler.get_slurm_job")
 @patch("jobs.slurm_ssh_job_handler.ssh_execute")
 def test_get_job_status_falls_back_to_ssh(
     mock_ssh_execute: MagicMock,
-    mock_get_slurm_job_states: MagicMock,
-    states: dict[str, str],
-    age_s: int,
+    mock_get_slurm_job: MagicMock,
+    db_job: MagicMock | None,
 ) -> None:
-    """Test that get_job_status queries the cluster if the snapshot lacks the job or is stale."""
-    mock_get_slurm_job_states.return_value = _snapshot(states, age_s)
+    """Test that get_job_status queries the cluster if the job is not in the DB or its status is stale."""
+    mock_get_slurm_job.return_value = db_job
     mock_ssh_execute.return_value = "COMPLETED"
 
     # when

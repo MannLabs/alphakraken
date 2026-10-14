@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 from typing import Any
 
 import pytz
+from pymongo import UpdateOne
 
 from shared.db.engine import connect_db
 from shared.db.models import (
@@ -22,7 +23,9 @@ from shared.db.models import (
     RawFile,
     Settings,
     SettingsStatus,
-    SlurmJobStates,
+    SlurmJob,
+    SlurmJobQueueStates,
+    get_slurm_job_db_id,
 )
 from shared.keys import DEFAULT_SCOPE
 
@@ -428,20 +431,47 @@ def update_kraken_status(
     ).save()
 
 
-def update_slurm_job_states(cluster_id: str, states: dict[str, str]) -> None:
-    """Overwrite the snapshot of the Slurm job states of the cluster `cluster_id`."""
+def update_slurm_jobs(cluster_id: str, states: dict[str, str]) -> None:
+    """Store the `states` (job id -> state) of all jobs in the queue of the cluster `cluster_id`.
+
+    Jobs of the cluster that are stored but not in `states` get the state `LEFT_QUEUE`.
+    """
+    connect_db()
+    now = datetime.now(tz=pytz.utc)
+    db_ids = [get_slurm_job_db_id(cluster_id, job_id) for job_id in states]
+
+    if states:
+        # one round trip for all jobs
+        SlurmJob._get_collection().bulk_write(  # noqa: SLF001
+            [
+                UpdateOne(
+                    {"_id": db_id},
+                    {
+                        "$set": {
+                            "cluster_id": cluster_id,
+                            "state": state,
+                            "updated_at_": now,
+                        }
+                    },
+                    upsert=True,
+                )
+                for db_id, state in zip(db_ids, states.values(), strict=True)
+            ],
+            ordered=False,
+        )
+
+    SlurmJob.objects(
+        cluster_id=cluster_id,
+        state__ne=SlurmJobQueueStates.LEFT_QUEUE,
+        id__nin=db_ids,
+    ).update(set__state=SlurmJobQueueStates.LEFT_QUEUE, set__updated_at_=now)
+
+
+def get_slurm_job(cluster_id: str, job_id: str) -> SlurmJob | None:
+    """Get the Slurm job `job_id` of the cluster `cluster_id`, None if it was never seen in the queue."""
     connect_db()
 
-    SlurmJobStates(
-        id=cluster_id, states=states, updated_at_=datetime.now(tz=pytz.utc)
-    ).save()
-
-
-def get_slurm_job_states(cluster_id: str) -> SlurmJobStates | None:
-    """Get the snapshot of the Slurm job states of the cluster `cluster_id`, None if there is none."""
-    connect_db()
-
-    return SlurmJobStates.objects(id=cluster_id).first()
+    return SlurmJob.objects(id=get_slurm_job_db_id(cluster_id, job_id)).first()
 
 
 def augment_raw_files_with_metrics(

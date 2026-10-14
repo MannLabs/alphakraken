@@ -28,7 +28,6 @@ from impl.processor_impl import (
     finalize_raw_file_status,
     prepare_job,
     resolve_settings,
-    store_metrics,
     submit_job,
 )
 from sensors.ssh_sensor import (
@@ -133,17 +132,12 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
                 )
 
             @task(task_id=Tasks.COMPUTE_METRICS)
-            def compute_metrics_task(quanting_env: dict, time_elapsed: int) -> dict:
-                """Compute metrics and return them."""
-                return compute_metrics(
+            def compute_metrics_task(quanting_env: dict, time_elapsed: int) -> None:
+                """Compute metrics and store them in the database."""
+                compute_metrics(
                     quanting_env_dict=quanting_env,
                     time_elapsed=time_elapsed,
                 )
-
-            @task(task_id=Tasks.STORE_METRICS)
-            def store_metrics_task(quanting_env: dict, metrics: dict) -> None:
-                """Store metrics in the database."""
-                store_metrics(quanting_env_dict=quanting_env, metrics=metrics)
 
             quanting_env = prepare_job_task(settings_id)
             job_id = submit_job_task(quanting_env)
@@ -154,9 +148,7 @@ def create_acquisition_processor_dag(instrument_id: str) -> None:
 
             monitor_ >> check_result
 
-            metrics = compute_metrics_task(quanting_env, check_result["time_elapsed"])
-
-            store_metrics_task(quanting_env, metrics)
+            compute_metrics_task(quanting_env, check_result["time_elapsed"])
 
         @task(
             task_id=Tasks.FINALIZE_STATUS,

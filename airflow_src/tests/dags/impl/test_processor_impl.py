@@ -29,7 +29,6 @@ from dags.impl.processor_impl import (
     get_business_errors,
     prepare_job,
     resolve_settings,
-    store_metrics,
     submit_job,
 )
 from mongoengine import DoesNotExist
@@ -1209,31 +1208,43 @@ def test_get_business_errors_known_error_before_last_error_line(tmp_path: Path) 
     assert result == ["NO_PSM_FOUND"]
 
 
+@patch("dags.impl.processor_impl.add_metrics_to_raw_file")
 @patch("dags.impl.processor_impl.calc_metrics")
 def test_compute_metrics(
     mock_calc_metrics: MagicMock,
+    mock_add: MagicMock,
     make_quanting_env: Callable[..., QuantingEnv],
 ) -> None:
     """Test that compute_metrics makes the expected calls."""
     quanting_env = make_quanting_env(
-        relative_output_path="P1/out_test_file.raw/alphadia"
+        raw_file_id="some_file.raw",
+        relative_output_path="P1/out_some_file.raw/alphadia",
     )
 
     mock_calc_metrics.return_value = {"metric1": "value1"}
 
     # when
-    result = compute_metrics(quanting_env_dict=quanting_env.to_dict(), time_elapsed=123)
+    compute_metrics(quanting_env_dict=quanting_env.to_dict(), time_elapsed=123)
 
     mock_calc_metrics.assert_called_once_with(
-        Path("/opt/airflow/mounts/output/P1/out_test_file.raw/alphadia"),
+        Path("/opt/airflow/mounts/output/P1/out_some_file.raw/alphadia"),
         metrics_type="alphadia",
     )
-    assert result == {"metric1": "value1", "time_elapsed": 123}
+    mock_add.assert_called_once_with(
+        "some_file.raw",
+        metrics_type="alphadia",
+        metrics={"metric1": "value1", "time_elapsed": 123},
+        settings_name="test_settings",
+        settings_version=1,
+        relative_output_path="P1/out_some_file.raw/alphadia",
+    )
 
 
+@patch("dags.impl.processor_impl.add_metrics_to_raw_file")
 @patch("dags.impl.processor_impl.calc_metrics")
 def test_compute_metrics_msqc_software_type(
     mock_calc_metrics: MagicMock,
+    mock_add: MagicMock,
     make_quanting_env: Callable[..., QuantingEnv],
 ) -> None:
     """Test that compute_metrics correctly maps MSQC software type to MSQC metrics type."""
@@ -1244,40 +1255,14 @@ def test_compute_metrics_msqc_software_type(
     )
     mock_calc_metrics.return_value = {"qc_metric": 42}
 
-    result = compute_metrics(quanting_env_dict=quanting_env.to_dict())
+    compute_metrics(quanting_env_dict=quanting_env.to_dict())
 
     mock_calc_metrics.assert_called_once_with(
         Path("/opt/airflow/mounts/output/P1/out_test_file.raw/msqc"),
         metrics_type="msqc",
     )
-    assert result == {"qc_metric": 42}
-
-
-@patch("dags.impl.processor_impl.add_metrics_to_raw_file")
-def test_store_metrics(
-    mock_add: MagicMock,
-    make_quanting_env: Callable[..., QuantingEnv],
-) -> None:
-    """Test that store_metrics makes the expected calls."""
-    # when
-    store_metrics(
-        quanting_env_dict=make_quanting_env(
-            raw_file_id="some_file.raw",
-            relative_output_path="P1/out_some_file.raw/alphadia",
-        ).to_dict(),
-        metrics={"metric1": "value1"},
-    )
-
-    mock_add.assert_called_once_with(
-        "some_file.raw",
-        metrics_type="alphadia",
-        metrics={
-            "metric1": "value1",
-        },
-        settings_name="test_settings",
-        settings_version=1,
-        relative_output_path="P1/out_some_file.raw/alphadia",
-    )
+    assert mock_add.call_args.kwargs["metrics_type"] == "msqc"
+    assert mock_add.call_args.kwargs["metrics"] == {"qc_metric": 42}
 
 
 # --- helpers for finalize / _extract_errors tests ---
@@ -1519,7 +1504,7 @@ def test_extract_errors_business_error(
                 [
                     ("submit_job", "success"),
                     ("check_job_result", "skipped"),
-                    ("store_metrics", "skipped"),
+                    ("compute_metrics", "skipped"),
                 ],
             ),
         ]
@@ -1545,7 +1530,7 @@ def test_extract_errors_airflow_failure_with_xcom(
                 [
                     ("submit_job", "success"),
                     ("check_job_result", "failed"),
-                    ("store_metrics", "upstream_failed"),
+                    ("compute_metrics", "upstream_failed"),
                 ],
             ),
         ]
@@ -1571,7 +1556,7 @@ def test_extract_errors_early_task_failed_no_xcom(
                 [
                     ("submit_job", "failed"),
                     ("check_job_result", "upstream_failed"),
-                    ("store_metrics", "upstream_failed"),
+                    ("compute_metrics", "upstream_failed"),
                 ],
             ),
         ]
@@ -1597,7 +1582,7 @@ def test_extract_errors_intentional_skip(
                 [
                     ("submit_job", "skipped"),
                     ("check_job_result", "skipped"),
-                    ("store_metrics", "skipped"),
+                    ("compute_metrics", "skipped"),
                 ],
             ),
         ]
@@ -1618,9 +1603,9 @@ def test_extract_errors_multiple_branches_mixed(
     """Multiple branches: one airflow failure, one business error, one success."""
     branch_tis = _make_branch_tis_by_index(
         [
-            (0, [("submit_job", "success"), ("store_metrics", "success")]),
-            (1, [("submit_job", "failed"), ("store_metrics", "upstream_failed")]),
-            (2, [("check_job_result", "skipped"), ("store_metrics", "skipped")]),
+            (0, [("submit_job", "success"), ("compute_metrics", "success")]),
+            (1, [("submit_job", "failed"), ("compute_metrics", "upstream_failed")]),
+            (2, [("check_job_result", "skipped"), ("compute_metrics", "skipped")]),
         ]
     )
     envs = [

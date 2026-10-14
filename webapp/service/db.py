@@ -11,7 +11,14 @@ from service.timezone import display_now, to_display_timezone
 from service.utils import _log
 
 from shared.db.engine import connect_db
-from shared.db.models import KrakenStatus, Metrics, Project, RawFile, Settings
+from shared.db.models import (
+    KrakenStatus,
+    Metrics,
+    Project,
+    ProjectStatus,
+    RawFile,
+    Settings,
+)
 from shared.display_paths import get_display_backup_path, get_display_output_path
 from shared.validation import (
     ALLOWED_RAW_FILE_NAME_CHARACTERS_PRETTY,
@@ -270,11 +277,11 @@ def get_status_data() -> QuerySet:
 
 
 def get_project_data() -> QuerySet:
-    """Connect to the database and return the QuerySet for Project."""
+    """Connect to the database and return the QuerySet for all non-deleted Projects."""
     _log("Connecting to the database")
     connect_db()
     _log("Retrieving all project data")
-    return Project.objects
+    return Project.objects(status__ne=ProjectStatus.DELETED)
 
 
 def get_settings_data() -> QuerySet:

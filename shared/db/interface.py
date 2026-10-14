@@ -26,6 +26,8 @@ from shared.db.models import (
 )
 from shared.keys import DEFAULT_SCOPE
 
+_NON_ACTIVE_PROJECT_STATUSES = [ProjectStatus.INACTIVE, ProjectStatus.DELETED]
+
 
 def get_raw_files_by_names(
     raw_file_names: list[str], *, case_sensitive: bool = False
@@ -228,6 +230,11 @@ def add_project(*, project_id: str, name: str, description: str) -> None:
     """Add a new project to the database."""
     logging.info(f"Adding to DB: {project_id=} {name=} {description=}")
     connect_db()
+    existing = Project.objects(id=project_id).first()
+    if existing is not None and existing.status == ProjectStatus.DELETED:
+        raise ValueError(
+            f"Project id '{project_id}' was used by a deleted project. Please choose a different one."
+        )
     project = Project(id=project_id, name=name, description=description)
     # this will fail if the project id already exists
     project.save(force_insert=True)
@@ -240,11 +247,19 @@ def archive_project(project_id: str) -> None:
     logging.info(f"Archived project: {project_id=}")
 
 
-def get_active_project_ids() -> list[str]:
-    """Get the ids of all non-archived projects."""
+def delete_project(project_id: str) -> None:
+    """Soft-delete a project by setting its status to DELETED."""
     connect_db()
-    # legacy projects have no status field, so match on "not archived" instead of "active"
-    return [p.id for p in Project.objects(status__ne=ProjectStatus.INACTIVE)]
+    if Project.objects.get(id=project_id).status == ProjectStatus.INACTIVE:
+        raise ValueError(f"Cannot delete archived project '{project_id}'")
+    Project.objects(id=project_id).update_one(status=ProjectStatus.DELETED)
+    logging.info(f"Deleted project: {project_id=}")
+
+
+def get_active_project_ids() -> list[str]:
+    """Get the ids of all projects that are neither archived nor deleted."""
+    connect_db()
+    return [p.id for p in Project.objects(status=ProjectStatus.ACTIVE)]
 
 
 def assign_settings_to_project(  # noqa: PLR0913
@@ -258,8 +273,10 @@ def assign_settings_to_project(  # noqa: PLR0913
     """Create a new project-settings assignment."""
     connect_db()
     project = Project.objects.get(id=project_id)
-    if project.status == ProjectStatus.INACTIVE:
-        raise ValueError(f"Cannot assign settings to archived project '{project_id}'")
+    if project.status in _NON_ACTIVE_PROJECT_STATUSES:
+        raise ValueError(
+            f"Cannot assign settings to archived or deleted project '{project_id}'"
+        )
     settings = Settings.objects.get(id=settings_id)
     if settings.status == SettingsStatus.INACTIVE:
         raise ValueError(
@@ -321,9 +338,9 @@ def unassign_settings_from_project(project_settings_id: str) -> None:
     """Remove a project-settings assignment by its ID."""
     connect_db()
     ps = ProjectSettings.objects.get(id=project_settings_id)
-    if ps.project.status == ProjectStatus.INACTIVE:
+    if ps.project.status in _NON_ACTIVE_PROJECT_STATUSES:
         raise ValueError(
-            f"Cannot unassign settings from archived project '{ps.project.id}'"
+            f"Cannot unassign settings from archived or deleted project '{ps.project.id}'"
         )
     ps.delete()
     logging.info(f"Removed project-settings assignment: {project_settings_id=}")

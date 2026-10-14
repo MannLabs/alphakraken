@@ -16,6 +16,7 @@ from shared.db.interface import (
     assign_settings_to_project,
     augment_raw_files_with_metrics,
     create_settings,
+    delete_project,
     get_active_project_ids,
     get_all_settings,
     get_latest_active_settings_by_name,
@@ -287,10 +288,25 @@ def test_add_project(mock_project: MagicMock, mock_connect_db: MagicMock) -> Non
 
 @patch("shared.db.interface.connect_db")
 @patch("shared.db.interface.Project")
+def test_add_project_with_id_of_deleted_project_raises(
+    mock_project: MagicMock,
+    mock_connect_db: MagicMock,  # noqa: ARG001
+) -> None:
+    """Test that add_project refuses to reuse the id of a deleted project."""
+    mock_project.objects.return_value.first.return_value.status = ProjectStatus.DELETED
+
+    with pytest.raises(ValueError, match="'P1234' was used by a deleted project"):
+        add_project(project_id="P1234", name="new project", description="")
+
+    mock_project.assert_not_called()
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.Project")
 def test_get_active_project_ids(
     mock_project: MagicMock, mock_connect_db: MagicMock
 ) -> None:
-    """get_active_project_ids returns the ids of all non-archived projects."""
+    """get_active_project_ids returns the ids of all projects that are neither archived nor deleted."""
     # given
     mock_project.objects.return_value = [
         MagicMock(id="P1234"),
@@ -302,7 +318,7 @@ def test_get_active_project_ids(
 
     # then
     assert result == ["P1234", "P1235"]
-    mock_project.objects.assert_called_once_with(status__ne=ProjectStatus.INACTIVE)
+    mock_project.objects.assert_called_once_with(status=ProjectStatus.ACTIVE)
 
     mock_connect_db.assert_called_once()
 
@@ -1176,7 +1192,7 @@ def test_assign_settings_to_archived_project_raises(
     """Test that assigning settings to an archived project raises ValueError."""
     mock_project.objects.get.return_value.status = ProjectStatus.INACTIVE
 
-    with pytest.raises(ValueError, match="archived project 'P1234'"):
+    with pytest.raises(ValueError, match="archived or deleted project 'P1234'"):
         assign_settings_to_project("P1234", "settings_id")
 
     mock_project_settings.assert_not_called()
@@ -1193,7 +1209,37 @@ def test_unassign_settings_from_archived_project_raises(
     mock_ps.project.status = ProjectStatus.INACTIVE
     mock_ps.project.id = "P1234"
 
-    with pytest.raises(ValueError, match="archived project 'P1234'"):
+    with pytest.raises(ValueError, match="archived or deleted project 'P1234'"):
         unassign_settings_from_project("ps_id_123")
 
     mock_ps.delete.assert_not_called()
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.Project")
+def test_delete_project(mock_project: MagicMock, mock_connect_db: MagicMock) -> None:
+    """Test that delete_project sets the project status to DELETED."""
+    mock_project.objects.get.return_value.status = ProjectStatus.ACTIVE
+
+    delete_project("P1234")
+
+    mock_project.objects.assert_called_once_with(id="P1234")
+    mock_project.objects.return_value.update_one.assert_called_once_with(
+        status=ProjectStatus.DELETED
+    )
+    mock_connect_db.assert_called_once()
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.Project")
+def test_delete_archived_project_raises(
+    mock_project: MagicMock,
+    mock_connect_db: MagicMock,  # noqa: ARG001
+) -> None:
+    """Test that an archived project cannot be deleted."""
+    mock_project.objects.get.return_value.status = ProjectStatus.INACTIVE
+
+    with pytest.raises(ValueError, match="Cannot delete archived project 'P1234'"):
+        delete_project("P1234")
+
+    mock_project.objects.assert_not_called()

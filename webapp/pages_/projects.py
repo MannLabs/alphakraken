@@ -27,6 +27,7 @@ from shared.db.interface import (
     archive_project,
     assign_settings_to_project,
     check_not_assigned_with_same_filters,
+    delete_project,
     get_all_settings,
     get_latest_active_settings_by_name,
     get_project_settings,
@@ -387,6 +388,7 @@ with c1.expander("Click here for help ..."):
         - Only active (non-archived) settings can be assigned
         - Archived projects are not shown and their settings assignments can no longer be changed
         - New raw files for archived projects are assigned to the fallback project
+        - Deleted projects are no longer shown, behave like archived ones, and their id cannot be reused. Archived projects cannot be deleted
         - The "scopes" define for which instruments the settings apply: `(all)` means all instruments, otherwise a vendor or an instrument id. An assignment applies if any of its scopes matches and none of its excluded scopes does.
         - The file name filters narrow this further: "contains any of" must match (empty = all files), "contains none of" must not match. Exclusion always wins over inclusion.
         - Every assignment that matches a raw file is run. There is no precedence: to restrict an assignment, exclude explicitly.
@@ -443,27 +445,24 @@ if form_submit:
         show_success_toast(f"Added new project '{project_id}' to the database.")
 
 
-# ########################################### ARCHIVE PROJECTS
+# ########################################### ARCHIVE/DELETE PROJECTS
 
-c1.markdown("## Archive projects")
+c1.markdown("## Archive or delete projects")
 
-archivable_projects = [
-    p
-    for p in projects_db
-    if p.status == ProjectStatus.ACTIVE and p.id != FALLBACK_PROJECT_ID
-]
+manageable_projects = [p for p in projects_db if p.id != FALLBACK_PROJECT_ID]
 
-if not archivable_projects:
-    c1.info("No active projects to archive.")
+if not manageable_projects:
+    c1.info("No projects to archive or delete.")
 else:
-    with c1.expander("Show projects to archive .."):
+    with c1.expander("Show projects to archive or delete .."):
         st.warning(
-            "Settings assignments of archived projects can no longer be changed. "
-            f"New raw files for archived projects are assigned to {FALLBACK_PROJECT_ID} instead."
+            "Settings assignments of archived or deleted projects can no longer be changed. "
+            f"New raw files for archived or deleted projects are assigned to {FALLBACK_PROJECT_ID} instead. "
+            "Deleted projects are no longer shown and their id cannot be reused."
         )
 
-        for p in archivable_projects:
-            col_btn, col_info = st.columns([0.2, 0.8])
+        for p in manageable_projects:
+            col_btn, col_delete, col_info = st.columns([0.15, 0.15, 0.7])
             settings_str = ", ".join(_project_to_settings.get(p.id, [])) or "none"
             col_info.write(
                 f"'{p.id}' (name: `{p.name}`, description: `{p.description}`) — assigned settings: {settings_str}"
@@ -471,11 +470,22 @@ else:
             if col_btn.button(
                 "Archive",
                 key=f"archive_{p.id}",
-                disabled=DISABLE_WRITE,
+                disabled=DISABLE_WRITE or p.status != ProjectStatus.ACTIVE,
                 icon=":material/archive:",
             ):
                 try:
                     archive_project(p.id)
                     show_success_toast(f"Archived project '{p.id}'.")
+                except Exception as e:  # noqa: BLE001
+                    show_error_toast(str(e))
+            if col_delete.button(
+                "Delete",
+                key=f"delete_{p.id}",
+                disabled=DISABLE_WRITE or p.status != ProjectStatus.ACTIVE,
+                icon=":material/delete:",
+            ):
+                try:
+                    delete_project(p.id)
+                    show_success_toast(f"Deleted project '{p.id}'.")
                 except Exception as e:  # noqa: BLE001
                     show_error_toast(str(e))

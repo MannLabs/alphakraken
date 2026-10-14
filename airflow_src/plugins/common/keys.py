@@ -50,7 +50,6 @@ class Tasks(metaclass=ConstantsClass):
     MONITOR_JOB: str = "monitor_job"
     CHECK_JOB_RESULT: str = "check_job_result"
     COMPUTE_METRICS: str = "compute_metrics"
-    STORE_METRICS: str = "store_metrics"
 
     FINALIZE_STATUS: str = "finalize_status"
 

@@ -220,6 +220,7 @@ class SettingsStatus:
 
     ACTIVE = "active"
     INACTIVE = "inactive"
+    DELETED = "deleted"
 
 
 class Project(Document):

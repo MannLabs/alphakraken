@@ -17,6 +17,7 @@ from shared.db.interface import (
     augment_raw_files_with_metrics,
     create_settings,
     delete_project,
+    delete_settings,
     get_active_project_ids,
     get_all_settings,
     get_latest_active_settings_by_name,
@@ -412,10 +413,10 @@ def test_get_all_settings_excludes_archived(
 def test_get_all_settings_includes_archived(
     mock_settings: MagicMock, mock_connect_db: MagicMock
 ) -> None:
-    """Test that get_all_settings includes archived when requested."""
+    """Test that get_all_settings includes archived but not deleted when requested."""
     get_all_settings(include_archived=True)
 
-    mock_settings.objects.all.assert_called_once()
+    mock_settings.objects.assert_called_once_with(status__ne=SettingsStatus.DELETED)
     mock_connect_db.assert_called_once()
 
 
@@ -1243,3 +1244,70 @@ def test_delete_archived_project_raises(
         delete_project("P1234")
 
     mock_project.objects.assert_not_called()
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.ProjectSettings")
+@patch("shared.db.interface.Settings")
+def test_delete_settings(
+    mock_settings: MagicMock,
+    mock_project_settings: MagicMock,
+    mock_connect_db: MagicMock,
+) -> None:
+    """Test that delete_settings sets the status of unassigned settings to DELETED."""
+    mock_settings.objects.get.return_value.status = SettingsStatus.ACTIVE
+    mock_project_settings.objects.return_value = []
+
+    delete_settings("settings_id")
+
+    mock_settings.objects.assert_called_once_with(id="settings_id")
+    mock_settings.objects.return_value.update_one.assert_called_once_with(
+        status=SettingsStatus.DELETED
+    )
+    mock_connect_db.assert_called_once()
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.ProjectSettings")
+@patch("shared.db.interface.Settings")
+def test_delete_archived_settings_raises(
+    mock_settings: MagicMock,
+    mock_project_settings: MagicMock,  # noqa: ARG001
+    mock_connect_db: MagicMock,  # noqa: ARG001
+) -> None:
+    """Test that archived settings cannot be deleted."""
+    mock_settings_instance = mock_settings.objects.get.return_value
+    mock_settings_instance.status = SettingsStatus.INACTIVE
+    mock_settings_instance.name = "s1"
+    mock_settings_instance.version = 2
+
+    with pytest.raises(
+        ValueError, match="Cannot delete archived settings 's1' version 2"
+    ):
+        delete_settings("settings_id")
+
+    mock_settings.objects.assert_not_called()
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.ProjectSettings")
+@patch("shared.db.interface.Settings")
+def test_delete_assigned_settings_raises(
+    mock_settings: MagicMock,
+    mock_project_settings: MagicMock,
+    mock_connect_db: MagicMock,  # noqa: ARG001
+) -> None:
+    """Test that settings assigned to any project cannot be deleted."""
+    mock_settings_instance = mock_settings.objects.get.return_value
+    mock_settings_instance.status = SettingsStatus.ACTIVE
+    mock_settings_instance.name = "s1"
+    mock_settings_instance.version = 2
+    ps1, ps2 = MagicMock(), MagicMock()
+    ps1.project.id = "P2"
+    ps2.project.id = "P1"
+    mock_project_settings.objects.return_value = [ps1, ps2]
+
+    with pytest.raises(ValueError, match="still assigned to projects P1, P2"):
+        delete_settings("settings_id")
+
+    mock_settings.objects.assert_not_called()

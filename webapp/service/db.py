@@ -18,6 +18,7 @@ from shared.db.models import (
     ProjectStatus,
     RawFile,
     Settings,
+    SettingsStatus,
 )
 from shared.display_paths import get_display_backup_path, get_display_output_path
 from shared.validation import (
@@ -285,11 +286,11 @@ def get_project_data() -> QuerySet:
 
 
 def get_settings_data() -> QuerySet:
-    """Connect to the database and return the QuerySet for Settings."""
+    """Connect to the database and return the QuerySet for all non-deleted Settings."""
     _log("Connecting to the database")
     connect_db()
     _log("Retrieving all settings data")
-    return Settings.objects
+    return Settings.objects(status__ne=SettingsStatus.DELETED)
 
 
 def df_from_db_data(

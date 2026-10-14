@@ -418,11 +418,33 @@ def archive_settings(settings_id: str) -> None:
     logging.info(f"Archived settings: {settings_id=}")
 
 
+def delete_settings(settings_id: str) -> None:
+    """Soft-delete a settings entry by setting its status to DELETED."""
+    connect_db()
+    settings = Settings.objects.get(id=settings_id)
+    if settings.status == SettingsStatus.INACTIVE:
+        raise ValueError(
+            f"Cannot delete archived settings '{settings.name}' version {settings.version}"
+        )
+    project_ids = sorted(
+        {str(ps.project.id) for ps in ProjectSettings.objects(settings=settings)}
+    )
+    if project_ids:
+        raise ValueError(
+            f"Cannot delete settings '{settings.name}' version {settings.version}: "
+            f"still assigned to projects {', '.join(project_ids)}"
+        )
+    Settings.objects(id=settings_id).update_one(status=SettingsStatus.DELETED)
+    logging.info(f"Deleted settings: {settings_id=}")
+
+
 def get_all_settings(*, include_archived: bool = False) -> list[Settings]:
-    """Get all settings from the database."""
+    """Get all non-deleted settings from the database."""
     connect_db()
     if include_archived:
-        return list(Settings.objects.all().order_by("-created_at_"))
+        return list(
+            Settings.objects(status__ne=SettingsStatus.DELETED).order_by("-created_at_")
+        )
     return list(Settings.objects(status=SettingsStatus.ACTIVE).order_by("-created_at_"))
 
 

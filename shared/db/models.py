@@ -340,16 +340,40 @@ class KrakenStatus(Document):
     updated_at_ = DateTimeField(default=datetime.now)
 
 
-class SlurmJobStates(Document):
-    """Snapshot of the states of all queued jobs on a Slurm cluster, as reported by `squeue`."""
+class SlurmJobQueueStates:
+    """States of Slurm jobs set by AlphaKraken, in addition to the ones reported by `squeue`."""
 
-    meta: ClassVar = {"strict": False}
-    objects: ClassVar[QuerySet[SlurmJobStates]]
+    # the job was in the queue, but is no more (e.g. finished)
+    LEFT_QUEUE = "LEFT_QUEUE"
+
+
+# expired entries are deleted by MongoDB
+SLURM_JOB_EXPIRY_S = 7 * 24 * 60 * 60
+
+
+class SlurmJob(Document):
+    """State of a Slurm job as last reported by `squeue`."""
+
+    meta: ClassVar = {
+        "strict": False,
+        "indexes": [
+            "cluster_id",
+            {"fields": ["updated_at_"], "expireAfterSeconds": SLURM_JOB_EXPIRY_S},
+        ],
+    }
+    objects: ClassVar[QuerySet[SlurmJob]]
+
+    # "<cluster id>/<job id>", cf. `get_slurm_job_db_id`
+    id = StringField(max_length=128, required=True, primary_key=True)
 
     # the SSH connection id prefix of the cluster
-    id = StringField(max_length=64, required=True, primary_key=True)
+    cluster_id = StringField(max_length=64, required=True)
 
-    # job id -> state; jobs that left the queue (e.g. finished) are absent
-    states = DictField(StringField(max_length=32))
+    state = StringField(max_length=32)
 
     updated_at_ = DateTimeField(default=datetime.now)
+
+
+def get_slurm_job_db_id(cluster_id: str, job_id: str) -> str:
+    """Get the DB id of the Slurm job `job_id` on the cluster `cluster_id`, unique across clusters."""
+    return f"{cluster_id}/{job_id}"

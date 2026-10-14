@@ -14,7 +14,7 @@ from common.utils import get_airflow_variable
 from paramiko.ssh_exception import SSHException
 from sensors.ssh_utils import get_cluster_ssh_hook
 
-from shared.db.interface import update_slurm_job_states
+from shared.db.interface import update_slurm_jobs
 
 if TYPE_CHECKING:
     from airflow.providers.ssh.hooks.ssh import SSHHook
@@ -61,7 +61,7 @@ def poll_slurm_job_states(ssh_connection_id_prefix: str) -> None:
                 continue
 
             if exit_status == 0:
-                update_slurm_job_states(
+                update_slurm_jobs(
                     ssh_connection_id_prefix,
                     _parse_squeue_output(stdout.decode("utf-8")),
                 )

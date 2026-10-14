@@ -21,7 +21,7 @@ class Timings:
     CLUSTER_POLLER_RECONNECT_DELAY_S: int = 30
     # the poller task ends after this time, the next DAG run takes over
     CLUSTER_POLLER_LOOP_DURATION_M: int = 10
-    # older snapshots are ignored, the job status is then queried directly
+    # older job states in the DB are ignored, the job status is then queried directly
     CLUSTER_POLLER_MAX_STALENESS_S: int = 300
 
     RAW_DATA_COPY_TASK_TIMEOUT_M: int = 15  # large enough to not time out on big files, small enough to not block other tasks

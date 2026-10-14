@@ -32,11 +32,11 @@ def test_poll_slurm_job_states_skips_in_debug_mode(
 @patch("dags.impl.poller_impl.get_airflow_variable", return_value="false")
 @patch("dags.impl.poller_impl.monotonic")
 @patch("dags.impl.poller_impl.sleep")
-@patch("dags.impl.poller_impl.update_slurm_job_states")
+@patch("dags.impl.poller_impl.update_slurm_jobs")
 @patch("dags.impl.poller_impl.get_cluster_ssh_hook")
 def test_poll_slurm_job_states_writes_states_and_reuses_hook(
     mock_get_cluster_ssh_hook: MagicMock,
-    mock_update_slurm_job_states: MagicMock,
+    mock_update_slurm_jobs: MagicMock,
     mock_sleep: MagicMock,  # noqa: ARG001
     mock_monotonic: MagicMock,
     mock_get_airflow_variable: MagicMock,  # noqa: ARG001
@@ -55,18 +55,18 @@ def test_poll_slurm_job_states_writes_states_and_reuses_hook(
 
     # then
     mock_get_cluster_ssh_hook.assert_called_once_with(SSH_PREFIX, 0)
-    mock_update_slurm_job_states.assert_called_once_with(SSH_PREFIX, {"123": "RUNNING"})
+    mock_update_slurm_jobs.assert_called_once_with(SSH_PREFIX, {"123": "RUNNING"})
     mock_hook.client.close.assert_called_once()
 
 
 @patch("dags.impl.poller_impl.get_airflow_variable", return_value="false")
 @patch("dags.impl.poller_impl.monotonic")
 @patch("dags.impl.poller_impl.sleep")
-@patch("dags.impl.poller_impl.update_slurm_job_states")
+@patch("dags.impl.poller_impl.update_slurm_jobs")
 @patch("dags.impl.poller_impl.get_cluster_ssh_hook")
 def test_poll_slurm_job_states_reconnects_after_error(
     mock_get_cluster_ssh_hook: MagicMock,
-    mock_update_slurm_job_states: MagicMock,
+    mock_update_slurm_jobs: MagicMock,
     mock_sleep: MagicMock,  # noqa: ARG001
     mock_monotonic: MagicMock,
     mock_get_airflow_variable: MagicMock,  # noqa: ARG001
@@ -87,4 +87,4 @@ def test_poll_slurm_job_states_reconnects_after_error(
         call(SSH_PREFIX, 0),
         call(SSH_PREFIX, 1),
     ]
-    mock_update_slurm_job_states.assert_called_once_with(SSH_PREFIX, {"123": "PENDING"})
+    mock_update_slurm_jobs.assert_called_once_with(SSH_PREFIX, {"123": "PENDING"})

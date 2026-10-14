@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import pytz
+from pymongo import UpdateOne
 
 from shared.db.interface import (
     add_metrics_to_raw_file,
@@ -26,11 +27,11 @@ from shared.db.interface import (
     get_raw_files_by_age,
     get_raw_files_by_instrument_file_status,
     get_raw_files_by_names,
-    get_slurm_job_states,
+    get_slurm_job,
     unassign_settings_from_project,
     update_kraken_status,
     update_raw_file,
-    update_slurm_job_states,
+    update_slurm_jobs,
 )
 from shared.db.models import (
     InstrumentFileStatus,
@@ -663,39 +664,70 @@ def test_update_kraken_status(
 
 
 @patch("shared.db.interface.connect_db")
-@patch("shared.db.interface.SlurmJobStates")
+@patch("shared.db.interface.SlurmJob")
 @patch("shared.db.interface.datetime")
-def test_update_slurm_job_states(
-    mock_datetime: MagicMock,
-    mock_slurm_job_states: MagicMock,
-    mock_connect_db: MagicMock,
+def test_update_slurm_jobs_upserts_queued_and_marks_left_jobs(
+    mock_datetime: MagicMock, mock_slurm_job: MagicMock, mock_connect_db: MagicMock
 ) -> None:
-    """Test that update_slurm_job_states saves the snapshot."""
+    """Test that queued jobs are upserted and the other stored jobs are marked as having left the queue."""
+    now = mock_datetime.now.return_value
+
     # when
-    update_slurm_job_states("cluster1", {"123": "RUNNING"})
+    update_slurm_jobs("cluster1", {"123": "RUNNING"})
 
     # then
-    mock_slurm_job_states.assert_called_once_with(
-        id="cluster1",
-        states={"123": "RUNNING"},
-        updated_at_=mock_datetime.now.return_value,
+    mock_slurm_job._get_collection.return_value.bulk_write.assert_called_once_with(
+        [
+            UpdateOne(
+                {"_id": "cluster1/123"},
+                {
+                    "$set": {
+                        "cluster_id": "cluster1",
+                        "state": "RUNNING",
+                        "updated_at_": now,
+                    }
+                },
+                upsert=True,
+            )
+        ],
+        ordered=False,
     )
-    mock_slurm_job_states.return_value.save.assert_called_once()
+    mock_slurm_job.objects.assert_called_once_with(
+        cluster_id="cluster1", state__ne="LEFT_QUEUE", id__nin=["cluster1/123"]
+    )
+    mock_slurm_job.objects.return_value.update.assert_called_once_with(
+        set__state="LEFT_QUEUE", set__updated_at_=now
+    )
     mock_connect_db.assert_called_once()
 
 
 @patch("shared.db.interface.connect_db")
-@patch("shared.db.interface.SlurmJobStates")
-def test_get_slurm_job_states(
-    mock_slurm_job_states: MagicMock, mock_connect_db: MagicMock
+@patch("shared.db.interface.SlurmJob")
+def test_update_slurm_jobs_empty_queue_marks_all_left(
+    mock_slurm_job: MagicMock,
+    mock_connect_db: MagicMock,  # noqa: ARG001
 ) -> None:
-    """Test that get_slurm_job_states returns the snapshot of the cluster."""
+    """Test that with an empty queue, nothing is upserted and all stored jobs are marked as having left the queue."""
     # when
-    result = get_slurm_job_states("cluster1")
+    update_slurm_jobs("cluster1", {})
 
     # then
-    mock_slurm_job_states.objects.assert_called_once_with(id="cluster1")
-    assert result == mock_slurm_job_states.objects.return_value.first.return_value
+    mock_slurm_job._get_collection.return_value.bulk_write.assert_not_called()
+    mock_slurm_job.objects.assert_called_once_with(
+        cluster_id="cluster1", state__ne="LEFT_QUEUE", id__nin=[]
+    )
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.SlurmJob")
+def test_get_slurm_job(mock_slurm_job: MagicMock, mock_connect_db: MagicMock) -> None:
+    """Test that get_slurm_job queries by the id combining cluster and job id."""
+    # when
+    result = get_slurm_job("cluster1", "123")
+
+    # then
+    mock_slurm_job.objects.assert_called_once_with(id="cluster1/123")
+    assert result == mock_slurm_job.objects.return_value.first.return_value
     mock_connect_db.assert_called_once()
 
 

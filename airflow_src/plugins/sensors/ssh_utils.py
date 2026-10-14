@@ -5,10 +5,21 @@ import json
 import logging
 from time import sleep
 
-from airflow.sdk.exceptions import AirflowException, AirflowFailException
-from common.constants import EXIT_CODE_FILE_NAME, LAUNCHER_SCRIPT_STEM
+from airflow.providers.ssh.hooks.ssh import SSHHook
+from airflow.sdk.exceptions import (
+    AirflowException,
+    AirflowFailException,
+    AirflowNotFoundException,
+)
+from common.constants import (
+    CLUSTER_SSH_COMMAND_TIMEOUT,
+    CLUSTER_SSH_CONNECTION_TIMEOUT,
+    CLUSTER_SSH_MAX_CONNECTIONS,
+    EXIT_CODE_FILE_NAME,
+    LAUNCHER_SCRIPT_STEM,
+)
 from common.keys import AirflowVars, JobStates
-from common.utils import get_airflow_variable, get_cluster_ssh_hook, truncate_string
+from common.utils import get_airflow_variable, truncate_string
 from paramiko.ssh_exception import SSHException
 
 # both the simple_ssh and the pueue engine hide their windows script behind this powershell flag
@@ -148,3 +159,46 @@ def _decode_powershell_command(command: str) -> str:
 
     encoded = command.split(_ENCODED_COMMAND_FLAG)[-1]
     return base64.b64decode(encoded).decode("utf-16-le")
+
+
+def get_cluster_ssh_hook(
+    ssh_connection_id_prefix: str,
+    attempt_no: int,
+    conn_timeout: int = CLUSTER_SSH_CONNECTION_TIMEOUT,
+    cmd_timeout: int = CLUSTER_SSH_COMMAND_TIMEOUT,
+) -> SSHHook:
+    """Get an SSH hook for the compute cluster.
+
+    :param ssh_connection_id_prefix: Prefix of the Airflow connection IDs to choose from.
+    :param attempt_no: The attempt number to select the SSH connection ID. Will return a different connection ID on each attempt.
+    :param conn_timeout: Connection timeout in seconds.
+    :param cmd_timeout: Command execution timeout in seconds.
+
+    The connections need to be defined in the Airflow UI as `<prefix>_1`, `<prefix>_2`, ... without gaps.
+    """
+    # workers cannot list connections, so probe the ids until the first missing one
+    hooks: list[SSHHook] = []
+    for n in range(1, CLUSTER_SSH_MAX_CONNECTIONS + 1):
+        try:
+            hooks.append(
+                SSHHook(
+                    ssh_conn_id=f"{ssh_connection_id_prefix}_{n}",
+                    conn_timeout=conn_timeout,
+                    cmd_timeout=cmd_timeout,
+                )
+            )
+        except AirflowNotFoundException:  # noqa: PERF203 probing is the purpose of this loop
+            break
+
+    if not hooks:
+        raise AirflowFailException(
+            f"No SSH connections found.\n"
+            f"Please set up a connection '{ssh_connection_id_prefix}_1' in the Airflow UI ('Admin -> Connections') "
+            "or set the Airflow Variable 'debug_no_cluster_ssh=True'."
+        )
+
+    ssh_hook = hooks[attempt_no % len(hooks)]
+    logging.info(
+        f"Using {ssh_hook.ssh_conn_id=} of {len(hooks)} connections (attempt {attempt_no})"
+    )
+    return ssh_hook

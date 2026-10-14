@@ -40,7 +40,6 @@ class Tasks(metaclass=ConstantsClass):
     UPLOAD_TO_S3: str = "upload_to_s3"
     START_S3_UPLOADER: str = "start_s3_uploader"
     START_FILE_MOVER: str = "start_file_mover"
-    DECIDE_PROCESSING: str = "decide_processing"
     START_ACQUISITION_PROCESSOR: str = "start_acquisition_processor"
 
     RESOLVE_SETTINGS: str = "resolve_settings"

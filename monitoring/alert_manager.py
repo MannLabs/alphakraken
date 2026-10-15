@@ -1,7 +1,6 @@
 """Decide when to send alerts based on monitoring checks."""
 
 import logging
-from collections import defaultdict
 from datetime import datetime, timedelta
 
 import pytz
@@ -35,20 +34,13 @@ _WEBHOOK_URLS = {
 }
 
 
-def _default_value() -> datetime:
-    """Special default value for defaultdict to have an alert on the first occurrence."""
-    return datetime.now(pytz.UTC) - timedelta(
-        minutes=config.DEFAULT_ALERT_COOLDOWN_TIME_MINUTES + 1
-    )
-
-
 class AlertManager:
     """Manages all alert checks and sending."""
 
     def __init__(self):
         """Initialize the AlertManager with checkers and last alert times."""
         # TODO: currently this grows indefinitely, we assume regular restarts of the monitoring app
-        self.last_alerts = defaultdict(_default_value)
+        self.last_alerts: dict[str, datetime] = {}
 
         self.is_first_check = True
         self.alerts: list[BaseAlert] = [
@@ -107,21 +99,18 @@ class AlertManager:
             else:
                 effective_cooldown_time_minutes = alert.get_cooldown_time_minutes(issue)
 
-            earliest_next_alert_time = self._get_last_alert_time(
-                alert.name, issue
-            ) + timedelta(minutes=effective_cooldown_time_minutes)
-            send_alert |= datetime.now(pytz.UTC) > earliest_next_alert_time
+            last_alert_time = self.last_alerts.get(
+                self._get_alert_id(alert.name, issue)
+            )
+            send_alert |= last_alert_time is None or datetime.now(
+                pytz.UTC
+            ) > last_alert_time + timedelta(minutes=effective_cooldown_time_minutes)
         return send_alert
 
     def set_last_alert_time(self, alert_name: str, issue: Issue) -> None:
         """Get the alert ID for tracking last sent time."""
         alert_id = self._get_alert_id(alert_name, issue)
         self.last_alerts[alert_id] = datetime.now(pytz.UTC)
-
-    def _get_last_alert_time(self, alert_name: str, issue: Issue) -> datetime:
-        """Get the alert ID for tracking last sent time."""
-        alert_id = self._get_alert_id(alert_name, issue)
-        return self.last_alerts[alert_id]
 
     @staticmethod
     def _get_alert_id(alert_name: str, issue: Issue) -> str:

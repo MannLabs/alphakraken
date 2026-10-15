@@ -207,6 +207,23 @@ class TestAlertManager:
         )
         assert should_send_other is True
 
+    def test_should_send_alert_immediately_for_new_issue_with_long_cooldown(
+        self,
+    ) -> None:
+        """A never-alerted issue is sent right away, regardless of its cooldown."""
+        # given
+        from monitoring.alerts.health_check_failed_alert import HealthCheckFailedAlert
+
+        alert_manager = AlertManager()
+        issue = Issue("file_remover", "x")  # cooldown 720 min
+
+        # when
+        should_send = alert_manager.should_send_alert([issue], HealthCheckFailedAlert())
+
+        # then
+        assert should_send is True
+        assert alert_manager.last_alerts == {}  # checking must not record an alert
+
     def test_cooldown_should_be_tracked_per_kind(self) -> None:
         """Issues with the same identifier but different kinds have separate cooldowns."""
         # given

@@ -45,6 +45,8 @@ x-airflow-common: &airflow-common
     AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER:?error}:${POSTGRES_PASSWORD:?error}@${POSTGRES_HOST:?error}:${POSTGRES_PORT:?error}/${POSTGRES_DB:?error}
     AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://${POSTGRES_USER:?error}:${POSTGRES_PASSWORD:?error}@${POSTGRES_HOST:?error}:${POSTGRES_PORT:?error}/${POSTGRES_DB:?error}
     AIRFLOW__CELERY__BROKER_URL: redis://:@${REDIS_HOST:?error}:${REDIS_PORT:?error}/0
+    # preloads heavy libraries to speed up task startup, cf. celery_config.py
+    AIRFLOW__CELERY__CELERY_CONFIG_OPTIONS: celery_config.CELERY_CONFIG
     AIRFLOW__API__SECRET_KEY: "some-random-string-here"
     # signs the JWTs between api-server, workers and UI; must be identical on all machines
     AIRFLOW__API_AUTH__JWT_SECRET: ${AIRFLOW_JWT_SECRET:?error}

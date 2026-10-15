@@ -8,6 +8,7 @@ from airflow.providers.amazon.aws.hooks.base_aws import BaseAwsConnection
 from airflow.sdk.execution_time.task_runner import RuntimeTaskInstance as TaskInstance
 from boto3.s3.transfer import TransferConfig
 from botocore.exceptions import BotoCoreError, ClientError
+from common.constants import S3_UPLOAD_CHUNK_SIZE_MB
 from common.exceptions import S3UploadFailedException
 from common.keys import DagContext, DagParams
 from plugins.file_handling import ETAG_SEPARATOR
@@ -24,7 +25,6 @@ from plugins.s3.s3_utils import (
     S3_FILE_NOT_FOUND_ETAG,
     S3_KEY_SEPARATOR,
     S3_PROTOCOL_PREFIX,
-    S3_UPLOAD_CHUNK_SIZE_MB,
     is_upload_needed,
     normalize_bucket_name,
 )

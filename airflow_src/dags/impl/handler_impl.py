@@ -11,6 +11,7 @@ from typing import TypeVar
 import pytz
 from airflow.sdk.exceptions import AirflowFailException, AirflowSkipException
 from airflow.sdk.execution_time.task_runner import RuntimeTaskInstance as TaskInstance
+from common.constants import S3_UPLOAD_CHUNK_SIZE_MB
 from common.keys import (
     DAG_DELIMITER,
     INSTRUMENT_MATCH_PREFIX,
@@ -45,7 +46,6 @@ from plugins.file_handling import (
     get_file_size,
     move_existing_file,
 )
-from plugins.s3.s3_utils import S3_UPLOAD_CHUNK_SIZE_MB
 from raw_file_wrapper_factory import (
     CopyPathProvider,
     RawFileWrapperFactory,

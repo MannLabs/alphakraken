@@ -2,6 +2,7 @@
 
 from unittest.mock import Mock, patch
 
+from monitoring.alerts.base_alert import Issue
 from monitoring.alerts.config import Cases
 from monitoring.alerts.instrument_file_pile_up_alert import InstrumentFilePileUpAlert
 from shared.db.models import InstrumentFileStatus, KrakenStatusEntities
@@ -130,10 +131,10 @@ class TestInstrumentFilePileUpAlert:
         # then
         # Should only check instruments and return those with pile-ups
         expected = [
-            ("instrument_new_files_issue", "initial: 25"),
-            ("instrument_multiple_issues", "initial: 35; moved: 75; purged: 8"),
-            ("instrument_boundary_case", "moved: 55"),
-            ("instrument_mixed_status", "initial: 25; purged: 7"),
+            Issue("instrument_new_files_issue", "initial: 25"),
+            Issue("instrument_multiple_issues", "initial: 35; moved: 75; purged: 8"),
+            Issue("instrument_boundary_case", "moved: 55"),
+            Issue("instrument_mixed_status", "initial: 25; purged: 7"),
         ]
         assert result == expected
 
@@ -144,11 +145,11 @@ class TestInstrumentFilePileUpAlert:
 
         # Complex mix of issues with different pile-up patterns
         issues = [
-            ("instrument_critical", "initial: 45; moved: 120"),
-            ("instrument_single_new", "initial: 30"),
-            ("instrument_complex", "initial: 25; moved: 80; purged: 15"),
-            ("instrument_minor", "purged: 8"),
-            ("instrument_moved_only", "moved: 200"),
+            Issue("instrument_critical", "initial: 45; moved: 120"),
+            Issue("instrument_single_new", "initial: 30"),
+            Issue("instrument_complex", "initial: 25; moved: 80; purged: 15"),
+            Issue("instrument_minor", "purged: 8"),
+            Issue("instrument_moved_only", "moved: 200"),
         ]
 
         # when
@@ -303,4 +304,4 @@ class TestInstrumentFilePileUpAlert:
             assert kwargs["instrument_id"] == "test_instrument"
             assert kwargs["min_age_hours"] == 8
 
-        assert result == [("test_instrument", "initial: 20; moved: 35")]
+        assert result == [Issue("test_instrument", "initial: 20; moved: 35")]

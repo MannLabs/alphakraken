@@ -2,8 +2,9 @@
 
 import logging
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Generic, TypeVar
 
 import yaml
 from alerts.config import DEFAULT_ALERT_COOLDOWN_TIME_MINUTES
@@ -32,14 +33,27 @@ def _load_suppressions() -> list[dict[str, Any]]:
 # Load suppressions at module import
 _suppressions: list[dict[str, Any]] = _load_suppressions()
 
+# covariant: Issue is immutable, so e.g. Issue[str] is an Issue[str | None]
+D_co = TypeVar("D_co", covariant=True)
+
+
+@dataclass(frozen=True)
+class Issue(Generic[D_co]):
+    """An issue found by an alert."""
+
+    # e.g. an instrument or raw file id; key for cooldown and suppression context
+    identifier: str
+    # alert-specific payload, rendered by the alert's `format_message`
+    details: D_co
+    # raw file the issue relates to; its initials determine the user to notify
+    relevant_file: str | None = None
+
 
 class BaseAlert(ABC):
     """Base class for all alert checkers."""
 
-    def get_issues(self, status_objects: list[KrakenStatus]) -> list[tuple[str, Any]]:
-        """Check for issues and return list of (identifier, details) tuples.
-
-        e.g. [('instrument1', "low disk space: 123 GB"), ...]
+    def get_issues(self, status_objects: list[KrakenStatus]) -> list[Issue]:
+        """Check for issues and return them.
 
         Returns empty list if no issues found.
         """
@@ -56,9 +70,7 @@ class BaseAlert(ABC):
         logging.info(f"Found {len(issues)} issues after suppression: {self.name}.")
         return issues
 
-    def _apply_suppressions(
-        self, issues: list[tuple[str, Any]]
-    ) -> list[tuple[str, Any]]:
+    def _apply_suppressions(self, issues: list[Issue]) -> list[Issue]:
         """Apply suppression rules to filter out suppressed issues."""
         if not _suppressions:
             return issues
@@ -67,8 +79,8 @@ class BaseAlert(ABC):
         filtered_issues = []
 
         for issue in issues:
-            context = issue[0]
-            message = issue[1]
+            context = issue.identifier
+            message = issue.details
 
             suppressed = False
             for suppression in _suppressions:
@@ -96,25 +108,17 @@ class BaseAlert(ABC):
         return filtered_issues
 
     @abstractmethod
-    def _get_issues(self, status_objects: list[KrakenStatus]) -> list[tuple[str, Any]]:
-        """Check for issues and return list of (identifier, details) tuples."""
+    def _get_issues(self, status_objects: list[KrakenStatus]) -> list[Issue]:
+        """Check for issues and return them."""
 
     @abstractmethod
-    def format_message(self, issues: list[tuple[str, Any]]) -> str:
+    def format_message(self, issues: list[Issue]) -> str:
         """Format the alert message for the issues found."""
 
     @property
     @abstractmethod
     def name(self) -> str:
         """Return the name for this alert type."""
-
-    def get_relevant_file(self, issue: tuple[str, Any]) -> str | None:
-        """Return the name of the raw file an issue relates to, None if there is none.
-
-        Override this method in subclasses to enable sending alerts to the user owning the file.
-        """
-        del issue  # unused
-        return None
 
     def get_cooldown_time_minutes(self, identifier: str) -> int:
         """Return cooldown in minutes for this alert and identifier.
@@ -145,12 +149,12 @@ class CustomAlert(BaseAlert):
         """Return the alert name."""
         return self._name
 
-    def _get_issues(self, status_objects: list[KrakenStatus]) -> list[tuple[str, Any]]:
+    def _get_issues(self, status_objects: list[KrakenStatus]) -> list[Issue]:
         """Not used for custom alerts."""
         del status_objects  # unused
         return []
 
-    def format_message(self, issues: list[tuple[str, Any]]) -> str:
+    def format_message(self, issues: list[Issue]) -> str:
         """Not used for custom alerts."""
         del issues  # unused
         return ""

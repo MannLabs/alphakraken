@@ -315,7 +315,7 @@ services:
   mongodb-service:
     profiles: ["local", "dbs"]
     # cf. https://www.mongodb.com/resources/products/compatibilities/docker
-    image: mongo:6-jammy
+    image: mongo:8.0-noble
     ports:
       - ${MONGO_PORT:?error}:27017
     volumes:

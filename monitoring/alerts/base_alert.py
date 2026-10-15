@@ -100,9 +100,7 @@ class BaseAlert(ABC):
                     supp_instrument_id in (WILDCARD, issue.instrument_id)
                 ):
                     supp_context = suppression.get("context", WILDCARD)
-                    context_matches = supp_context == WILDCARD or supp_context in str(
-                        context
-                    )
+                    context_matches = supp_context in (WILDCARD, context)
 
                     supp_message = suppression.get("message", WILDCARD)
                     message_matches = supp_message == WILDCARD or supp_message in str(

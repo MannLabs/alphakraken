@@ -6,7 +6,7 @@
 # - instrument_id: exact match on the instrument an issue relates to (optional)
 # - context: "*" matches any context
 # - message: "*" matches any message
-# - Substring matching is used for both context and message
+# - context is matched exactly against the issue identifier, message as substring
 
 suppressions:
   # Example suppressions - remove or modify as needed

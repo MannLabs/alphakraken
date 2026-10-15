@@ -17,6 +17,7 @@ class Dags(metaclass=ConstantsClass):
     FILE_MOVER: str = "file_mover"
     FILE_REMOVER: str = "file_remover"
     S3_UPLOADER: str = "s3_uploader"
+    CLUSTER_JOB_POLLER: str = "cluster_job_poller"
 
 
 class TaskGroups(metaclass=ConstantsClass):
@@ -59,6 +60,8 @@ class Tasks(metaclass=ConstantsClass):
 
     REMOVE_RAW_FILES: str = "remove_raw_files"
     GET_RAW_FILES_TO_REMOVE: str = "get_raw_files_to_remove"
+
+    POLL_SLURM_JOB_STATES: str = "poll_slurm_job_states"
 
 
 class OpArgs(metaclass=ConstantsClass):

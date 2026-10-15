@@ -102,3 +102,14 @@ def test_dag_load_file_remover(dagbag: DagBag) -> None:
     assert dagbag.import_errors == {}
     assert dag is not None
     assert len(dag.tasks) == 2
+
+
+def test_dag_load_cluster_job_poller(dagbag: DagBag) -> None:
+    """Test that cluster_job_poller loads correctly."""
+    # when
+    dag = dagbag.get_dag(dag_id="cluster_job_poller")
+
+    # then
+    assert dagbag.import_errors == {}
+    assert dag is not None
+    assert len(dag.tasks) == 1

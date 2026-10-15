@@ -1,10 +1,12 @@
 """Tests for the slurm_ssh_job_handler module."""
 
 from collections.abc import Callable
+from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+import pytz
 from airflow.sdk.exceptions import AirflowFailException
 from common.quanting_env import QuantingEnv
 from jobs.slurm_ssh_job_handler import SlurmSSHJobHandler
@@ -68,9 +70,11 @@ def test_start_job_handles_invalid_job_id(
         SlurmSSHJobHandler(SLURM_BASE_DIR, SSH_PREFIX).start_job(make_quanting_env())
 
 
+@patch("jobs.slurm_ssh_job_handler.get_slurm_job", return_value=None)
 @patch("jobs.slurm_ssh_job_handler.ssh_execute")
 def test_get_job_status_returns_correctly(
     mock_ssh_execute: MagicMock,
+    mock_get_slurm_job: MagicMock,  # noqa: ARG001
 ) -> None:
     """Test that get_job_status returns the correct status."""
     mock_ssh_execute.return_value = "COMPLETED"
@@ -88,6 +92,68 @@ def test_get_job_status_returns_correctly(
         'echo "${ST:-UNKNOWN}"'
     )
     mock_ssh_execute.assert_called_once_with(expected_command, SSH_PREFIX)
+
+
+def _db_job(state: str, age_s: int) -> MagicMock:
+    """Create a mock DB job of the given age, with a naive UTC timestamp as returned by the DB."""
+    return MagicMock(
+        state=state,
+        updated_at_=datetime.now(tz=pytz.utc).replace(tzinfo=None)
+        - timedelta(seconds=age_s),
+    )
+
+
+@pytest.mark.parametrize(
+    ("state", "age_s"),
+    [
+        ("RUNNING", 1),
+        ("LEFT_QUEUE", 10_000),  # final, so age does not matter
+    ],
+)
+@patch("jobs.slurm_ssh_job_handler.get_slurm_job")
+@patch("jobs.slurm_ssh_job_handler.ssh_execute")
+def test_get_job_status_returns_status_from_db(
+    mock_ssh_execute: MagicMock,
+    mock_get_slurm_job: MagicMock,
+    state: str,
+    age_s: int,
+) -> None:
+    """Test that get_job_status takes a fresh or final status from the DB without SSH."""
+    mock_get_slurm_job.return_value = _db_job(state, age_s)
+
+    # when
+    job_status = SlurmSSHJobHandler(SLURM_BASE_DIR, SSH_PREFIX).get_job_status("12345")
+
+    # then
+    assert job_status == state
+    mock_get_slurm_job.assert_called_once_with(SSH_PREFIX, "12345")
+    mock_ssh_execute.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "db_job",
+    [
+        None,  # job not yet polled
+        _db_job("RUNNING", 10_000),  # stale
+    ],
+)
+@patch("jobs.slurm_ssh_job_handler.get_slurm_job")
+@patch("jobs.slurm_ssh_job_handler.ssh_execute")
+def test_get_job_status_falls_back_to_ssh(
+    mock_ssh_execute: MagicMock,
+    mock_get_slurm_job: MagicMock,
+    db_job: MagicMock | None,
+) -> None:
+    """Test that get_job_status queries the cluster if the job is not in the DB or its status is stale."""
+    mock_get_slurm_job.return_value = db_job
+    mock_ssh_execute.return_value = "COMPLETED"
+
+    # when
+    job_status = SlurmSSHJobHandler(SLURM_BASE_DIR, SSH_PREFIX).get_job_status("12345")
+
+    # then
+    assert job_status == "COMPLETED"
+    mock_ssh_execute.assert_called_once()
 
 
 @patch("jobs.slurm_ssh_job_handler.ssh_execute")

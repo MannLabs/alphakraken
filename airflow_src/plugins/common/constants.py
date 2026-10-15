@@ -8,6 +8,9 @@ CLUSTER_SSH_COMMAND_TIMEOUT = 60
 # upper bound when probing for connections `<prefix>_1`, `<prefix>_2`, ...
 CLUSTER_SSH_MAX_CONNECTIONS = 50
 
+# lists all queued jobs of the SSH user as lines "<job id> <state>"
+SLURM_QUEUE_STATES_CMD = 'squeue --me --noheader --format="%i %T"'
+
 # relative to the `software` location of the runner's view
 SLURM_JOB_SCRIPT_NAME = "submit_slurm_job.sh"
 

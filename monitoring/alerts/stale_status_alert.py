@@ -3,6 +3,7 @@
 from datetime import datetime, timedelta
 
 import pytz
+from utils import ensure_utc
 
 from shared.db.models import KrakenStatus, KrakenStatusEntities
 
@@ -28,7 +29,7 @@ class StaleStatusAlert(BaseAlert):
 
         stale_instruments = []
         for kraken_status in status_objects:
-            last_updated_at = pytz.utc.localize(kraken_status.updated_at_)
+            last_updated_at = ensure_utc(kraken_status.updated_at_)
             id_ = kraken_status.id
 
             # Use different thresholds based on entry type

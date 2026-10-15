@@ -4,6 +4,8 @@ import pandas as pd
 import streamlit as st
 from service.admin import is_admin
 from service.query_params import get_all_query_params
+from service.session_state import SessionStateKeys, set_session_state
+from service.user_input import clean_email, clean_initials, parse_user_row
 from service.utils import (
     DISABLE_WRITE,
     _log,
@@ -27,14 +29,6 @@ st.markdown("# Admin")
 if not is_admin():
     st.warning("This page is only available to admins.")
     st.stop()
-
-
-def _clean_email(email: str) -> str:
-    return email.strip().lower()
-
-
-def _clean_initials(initials: str) -> str:
-    return initials.strip().upper()
 
 
 # ########################################### USERS
@@ -68,11 +62,45 @@ with c1.form("add_user_form"):
 
 if add_submit:
     try:
-        add_user(email=_clean_email(new_email), initials=_clean_initials(new_initials))
+        add_user(email=clean_email(new_email), initials=clean_initials(new_initials))
     except Exception as e:  # noqa: BLE001
         show_error_toast(str(e))
     else:
-        show_success_toast(f"Added user '{_clean_initials(new_initials)}'.")
+        show_success_toast(f"Added user '{clean_initials(new_initials)}'.")
+
+with c1.form("bulk_add_users_form"):
+    bulk_rows = st.text_area(
+        "Bulk add users",
+        placeholder="jane.doe@example.com,JD\njohn.roe@example.com,JR",
+        help="One user per row as `e-mail,initials`. Valid rows are added even if others fail.",
+    )
+    bulk_submit = st.form_submit_button("Add users", disabled=DISABLE_WRITE)
+
+if bulk_submit:
+    added, failures = [], []
+    for line_number, row in enumerate(bulk_rows.splitlines(), start=1):
+        if not row.strip():
+            continue
+        try:
+            email, initials = parse_user_row(row)
+            add_user(email=email, initials=initials)
+        except Exception as e:  # noqa: BLE001
+            failures.append(f"line {line_number}: {e}")
+        else:
+            added.append(initials)
+    # shown after the rerun, which refreshes the users table
+    set_session_state(SessionStateKeys.BULK_ADD_USERS_REPORT, (added, failures))
+    st.rerun()
+
+if report := st.session_state.pop(SessionStateKeys.BULK_ADD_USERS_REPORT, None):
+    added, failures = report
+    if added:
+        c1.success(f"Added {len(added)} users: {', '.join(added)}")
+    if failures:
+        c1.error(
+            f"Failed to add {len(failures)} users:\n"
+            + "\n".join(f"- {f}" for f in failures)
+        )
 
 if users:
     c1.markdown("### Edit user")
@@ -96,11 +124,11 @@ if users:
     col_save, col_status = c1.columns([0.5, 0.5])
     if col_save.button("Save", disabled=DISABLE_WRITE):
         try:
-            update_user(selected_email, initials=_clean_initials(initials))
+            update_user(selected_email, initials=clean_initials(initials))
         except Exception as e:  # noqa: BLE001
             show_error_toast(str(e))
         else:
-            show_success_toast(f"Updated user '{_clean_initials(initials)}'.")
+            show_success_toast(f"Updated user '{clean_initials(initials)}'.")
 
     is_active = user.status == UserStatus.ACTIVE
     if col_status.button(

@@ -1,7 +1,7 @@
 """Test the admin.py file."""
 
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 from service.session_state import SessionStateKeys
 from streamlit.testing.v1 import AppTest
@@ -61,7 +61,7 @@ def test_admin_shows_users(mock_get_users: MagicMock) -> None:
     assert table["initials"].tolist() == ["AB", "CD"]
     assert table["status"].tolist() == [UserStatus.ACTIVE, UserStatus.INACTIVE]
     assert at.selectbox[0].options == ["AB (ab@b.de, active)", "CD (cd@b.de, inactive)"]
-    assert at.button[2].label == "Deactivate"
+    assert at.button[3].label == "Deactivate"
 
 
 @patch("shared.db.interface.add_user")
@@ -91,7 +91,7 @@ def test_admin_updates_user(
     at = _admin_app().run()
 
     at.text_input[2].set_value("xy")
-    at.button[1].click().run()
+    at.button[2].click().run()
 
     assert not at.exception
     mock_update_user.assert_called_once_with("ab@b.de", initials="XY")
@@ -106,7 +106,50 @@ def test_admin_reactivates_inactive_user(
     mock_get_users.return_value = [_user("AB", UserStatus.INACTIVE)]
     at = _admin_app().run()
 
-    at.button[2].click().run()
+    at.button[3].click().run()
 
     assert not at.exception
     mock_set_status.assert_called_once_with("ab@b.de", UserStatus.ACTIVE)
+
+
+@patch("shared.db.interface.add_user")
+@patch("shared.db.interface.get_all_users", return_value=[])
+def test_admin_bulk_adds_users_and_reports_failures(
+    mock_get_users: MagicMock,  # noqa: ARG001
+    mock_add_user: MagicMock,
+) -> None:
+    """Test that valid rows are added and failing rows are reported with their line."""
+    mock_add_user.side_effect = [None, ValueError("initials 'CD' already exists.")]
+    at = _admin_app().run()
+
+    at.text_area[0].set_value("a@b.de,ab\n\nC@D.de,CD\nbad row")
+    at.button[1].click().run()
+
+    assert not at.exception
+    assert mock_add_user.call_args_list == [
+        call(email="a@b.de", initials="AB"),
+        call(email="c@d.de", initials="CD"),
+    ]
+    assert at.success[0].value == "Added 1 users: AB"
+    assert at.error[0].value == (
+        "Failed to add 2 users:\n"
+        "- line 3: initials 'CD' already exists.\n"
+        "- line 4: expected 'e-mail,initials', got 'bad row'."
+    )
+
+
+@patch("shared.db.interface.add_user")
+@patch("shared.db.interface.get_all_users", return_value=[])
+def test_admin_bulk_add_report_is_shown_once(
+    mock_get_users: MagicMock,  # noqa: ARG001
+    mock_add_user: MagicMock,  # noqa: ARG001
+) -> None:
+    """Test that the report disappears on the next interaction."""
+    at = _admin_app().run()
+    at.text_area[0].set_value("a@b.de,ab")
+    at.button[1].click().run()
+    assert at.success
+
+    at.run()
+
+    assert not at.success

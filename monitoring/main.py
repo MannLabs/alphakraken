@@ -15,13 +15,13 @@ from datetime import timedelta
 from time import sleep
 from uuid import uuid4
 
+from active_instance import ActiveInstanceElection
 from alert_manager import AlertManager, send_special_alert
 from alerts.config import (
+    ACTIVE_INSTANCE_TIMEOUT_SECONDS,
     CHECK_INTERVAL_SECONDS,
-    LEADER_LEASE_DURATION_SECONDS,
     STALE_STATUS_THRESHOLD_MINUTES,
 )
-from leader_lease import LeaderLease
 from messenger_clients import AlertTypes
 from pymongo.errors import ServerSelectionTimeoutError
 from utils import extract_error_line
@@ -43,8 +43,10 @@ def main() -> None:
 
     alert_manager = AlertManager()
     # unique per instance, also if several instances run on the same host
-    holder = f"{os.environ.get(EnvVars.KRAKEN_HOSTNAME, '')}-{uuid4().hex[:8]}"
-    leader_lease = LeaderLease(holder, timedelta(seconds=LEADER_LEASE_DURATION_SECONDS))
+    instance = f"{os.environ.get(EnvVars.KRAKEN_HOSTNAME, '')}-{uuid4().hex[:8]}"
+    active_instance_election = ActiveInstanceElection(
+        instance, timedelta(seconds=ACTIVE_INSTANCE_TIMEOUT_SECONDS)
+    )
     # sent by every instance, to see which ones are running
     send_special_alert(
         "general",
@@ -57,9 +59,9 @@ def main() -> None:
     while True:
         try:
             connect_db(raise_on_error=True)
-            is_leader = leader_lease.try_acquire()
+            is_active = active_instance_election.try_become_active()
         except Exception as e:  # noqa: BLE001
-            # sent by every instance, as leadership cannot be determined without DB
+            # sent by every instance, as the active one cannot be determined without DB
             send_special_alert(
                 "db",
                 "db_connection_error",
@@ -71,7 +73,7 @@ def main() -> None:
             continue
 
         try:
-            alert_manager.check_for_issues(is_leader=is_leader)
+            alert_manager.check_for_issues(is_active=is_active)
         except ServerSelectionTimeoutError:
             send_special_alert(
                 "db", "db_timeout", "Error connecting to MongoDB", alert_manager
@@ -79,7 +81,7 @@ def main() -> None:
 
         except Exception as e:
             logging.exception("Error checking KrakenStatus")
-            if is_leader:
+            if is_active:
                 error_line = extract_error_line(e)
                 send_special_alert(
                     "general",

@@ -56,7 +56,7 @@ mongosh -u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" admin 
         role: "alertingRole",
         privileges: [
             {
-                resource: { db: "krakendb", collection: "alerting_leader_lease" },
+                resource: { db: "krakendb", collection: "alerting_active_instance" },
                 actions: ["find", "insert", "update"]
             },
         ],

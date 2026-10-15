@@ -521,13 +521,13 @@ class TestHandleIssues:
 
 
 class TestCheckForIssues:
-    """Test suite for sending alerts only from the leader."""
+    """Test suite for sending alerts only from the active instance."""
 
-    @pytest.mark.parametrize("is_leader", [True, False])
-    def test_check_for_issues_should_send_only_as_leader(
-        self, *, is_leader: bool
+    @pytest.mark.parametrize("is_active", [True, False])
+    def test_check_for_issues_should_send_only_as_active_instance(
+        self, *, is_active: bool
     ) -> None:
-        """Non-leaders handle issues as suppressed, keeping their state in sync."""
+        """Inactive instances handle issues as suppressed, keeping their state in sync."""
         # given
         with (
             patch("monitoring.alert_manager.KrakenStatus") as mock_kraken_status,
@@ -543,10 +543,10 @@ class TestCheckForIssues:
             alert_manager.alerts[0].get_cooldown_time_minutes.return_value = 60
 
             # when
-            alert_manager.check_for_issues(is_leader=is_leader)
+            alert_manager.check_for_issues(is_active=is_active)
 
         # then
-        assert mock_dispatch.call_count == (1 if is_leader else 0)
+        assert mock_dispatch.call_count == (1 if is_active else 0)
         assert alert_manager.reported_unique_keys == {
             ("my_alert", "k1"),
             ("my_alert", "k2"),

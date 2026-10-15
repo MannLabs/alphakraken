@@ -403,14 +403,14 @@ services:
     build:
       context: .
       dockerfile: monitoring/Dockerfile
-    profiles: ["infrastructure", "workers", "dbs"] # have monitoring running on all machines, only the leader sends alerts
+    profiles: ["infrastructure", "workers", "dbs"] # have monitoring running on all machines, only the active instance sends alerts
     environment:
       # deliberately not inheriting *airflow-common-env, cf. the comment on the webapp service.
       ENV_NAME: ${ENV_NAME:?error}
       KRAKEN_HOSTNAME: ${KRAKEN_HOSTNAME:-}
       MONGO_HOST: ${MONGO_HOST:?error}
       MONGO_PORT: ${MONGO_PORT:?error}
-      # read-only, plus write access to the leader lease collection
+      # read-only, plus write access to the active instance collection
       MONGO_USER: ${MONGO_USER_ALERTING:?error}
       MONGO_PASSWORD: ${MONGO_PASSWORD_ALERTING:?error}
     logging: *default-logging

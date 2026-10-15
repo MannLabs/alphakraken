@@ -11,8 +11,8 @@ from shared.yamlsettings import YamlKeys, get_notification_setting
 
 # Constants
 CHECK_INTERVAL_SECONDS = 60
-# only the instance holding the lease sends alerts; another takes over once it expires
-LEADER_LEASE_DURATION_SECONDS = 3 * CHECK_INTERVAL_SECONDS
+# only the active instance sends alerts; another takes over if it does not renew its claim within this time
+ACTIVE_INSTANCE_TIMEOUT_SECONDS = 3 * CHECK_INTERVAL_SECONDS
 DEFAULT_ALERT_COOLDOWN_TIME_MINUTES = (
     120  # Minimum time between repeated alerts for the same issue_type
 )

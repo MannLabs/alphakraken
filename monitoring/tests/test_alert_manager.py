@@ -1,10 +1,17 @@
 """Unit tests for AlertManager class."""
 
+from collections.abc import Generator
+from contextlib import AbstractContextManager
+from typing import Any
 from unittest.mock import Mock, patch
 
 import pytest
+import requests
 
-from monitoring.alert_manager import AlertManager, send_special_alert
+from monitoring.alert_manager import AlertManager, _dispatch, send_special_alert
+from monitoring.alerts.config import Destinations
+
+BUSINESS, OPS, USER = Destinations.BUSINESS, Destinations.OPS, Destinations.USER
 
 
 class TestAlertManager:
@@ -14,6 +21,7 @@ class TestAlertManager:
         """Test that check_for_issues runs all checks and sends alerts for issues found."""
         # given
         with (
+            patch("monitoring.alert_manager.config.ALERT_DESTINATIONS", {}),
             patch("monitoring.alert_manager.KrakenStatus") as mock_kraken_status,
             patch(
                 "monitoring.alert_manager.send_channel_message"
@@ -30,9 +38,6 @@ class TestAlertManager:
             alert_manager.alerts[0].get_issues = Mock(return_value=[mock_issue])
             alert_manager.alerts[0].format_message = Mock(
                 return_value="Test alert message"
-            )
-            alert_manager.alerts[0].get_webhook_url = Mock(
-                return_value="http://webhook.url"
             )
 
             # Set is_first_check to False so alerts are sent
@@ -52,7 +57,7 @@ class TestAlertManager:
 
             # Should send message for the one alert with issues
             mock_send_channel_message.assert_called_once_with(
-                "Test alert message", "http://webhook.url"
+                "Test alert message", "http://ops.url"
             )
 
             # Should mark as not first check
@@ -80,7 +85,6 @@ class TestAlertManager:
             alert_name = alert_with_issue.name
             alert_with_issue.get_issues = Mock(return_value=[mock_issue])
             alert_with_issue.format_message = Mock(return_value="Test alert message")
-            alert_with_issue.get_webhook_url = Mock(return_value="http://webhook.url")
 
             # Keep is_first_check as True (default)
             assert alert_manager.is_first_check is True
@@ -98,7 +102,7 @@ class TestAlertManager:
 
             # Should log the suppressed alert
             mock_logging.info.assert_any_call(
-                f"Suppressed alert for {alert_name}: Test alert message"
+                f"Suppressed alert for {alert_name} (1 issues)"
             )
 
             # Should mark as not first check after running
@@ -112,6 +116,7 @@ class TestAlertManager:
         """Test that multiple alerts with issues are all handled correctly."""
         # given
         with (
+            patch("monitoring.alert_manager.config.ALERT_DESTINATIONS", {}),
             patch("monitoring.alert_manager.KrakenStatus") as mock_kraken_status,
             patch(
                 "monitoring.alert_manager.send_channel_message"
@@ -132,19 +137,16 @@ class TestAlertManager:
             alert_1_name = alert_1.name
             alert_1.get_issues = Mock(return_value=[mock_issue_1])
             alert_1.format_message = Mock(return_value="Message 1")
-            alert_1.get_webhook_url = Mock(return_value="http://webhook1.url")
 
             alert_2 = alert_manager.alerts[1]
             alert_2_name = alert_2.name
             alert_2.get_issues = Mock(return_value=[mock_issue_2])
             alert_2.format_message = Mock(return_value="Message 2")
-            alert_2.get_webhook_url = Mock(return_value="http://webhook2.url")
 
             alert_3 = alert_manager.alerts[2]
             alert_3_name = alert_3.name
             alert_3.get_issues = Mock(return_value=[mock_issue_3])
             alert_3.format_message = Mock(return_value="Message 3")
-            alert_3.get_webhook_url = Mock(return_value="http://webhook3.url")
 
             # Set is_first_check to False so alerts are sent
             alert_manager.is_first_check = False
@@ -159,15 +161,9 @@ class TestAlertManager:
             # then
             # Should send all three messages
             assert mock_send_channel_message.call_count == 3
-            mock_send_channel_message.assert_any_call(
-                "Message 1", "http://webhook1.url"
-            )
-            mock_send_channel_message.assert_any_call(
-                "Message 2", "http://webhook2.url"
-            )
-            mock_send_channel_message.assert_any_call(
-                "Message 3", "http://webhook3.url"
-            )
+            mock_send_channel_message.assert_any_call("Message 1", "http://ops.url")
+            mock_send_channel_message.assert_any_call("Message 2", "http://ops.url")
+            mock_send_channel_message.assert_any_call("Message 3", "http://ops.url")
 
             # Should update last alert times for all identifiers
             alert_id_1 = alert_manager._get_alert_id(alert_1_name, "id_1")
@@ -208,129 +204,164 @@ class TestAlertManager:
         should_send_other = alert_manager.should_send_alert(["other_instrument"], alert)
         assert should_send_other is True
 
-    def test_alert_manager_dispatches_queuestopalert_via_isinstance_branch(
-        self,
+
+def _mock_alert(name: str = "my_alert") -> Mock:
+    alert = Mock()
+    alert.name = name
+    alert.format_message.side_effect = lambda issues: "|".join(i[0] for i in issues)
+    alert.get_relevant_file.side_effect = lambda issue: f"file_{issue[0]}"
+    return alert
+
+
+ISSUES = [("id1", "d1"), ("id2", "d2")]
+
+
+@pytest.fixture
+def mock_send_channel_message() -> Generator[Mock, None, None]:
+    """Patch channel message sending."""
+    with patch("monitoring.alert_manager.send_channel_message") as mock:
+        yield mock
+
+
+@pytest.fixture
+def mock_send_direct_message() -> Generator[Mock, None, None]:
+    """Patch direct message sending."""
+    with patch("monitoring.alert_manager.send_direct_message") as mock:
+        yield mock
+
+
+@pytest.fixture(autouse=True)
+def webhook_urls() -> Generator[None, None, None]:
+    """Patch the webhook URLs per destination."""
+    with patch.dict(
+        "monitoring.alert_manager._WEBHOOK_URLS",
+        {OPS: "http://ops.url", BUSINESS: "http://business.url"},
+    ):
+        yield
+
+
+def _set_destinations(destinations: set[str]) -> AbstractContextManager[Any]:
+    return patch(
+        "monitoring.alert_manager.config.ALERT_DESTINATIONS",
+        {"my_alert": destinations},
+    )
+
+
+class TestDispatch:
+    """Test suite for routing alerts to their configured destinations."""
+
+    def test_dispatch_should_use_default_destinations_for_unconfigured_alert(
+        self, mock_send_channel_message: Mock, mock_send_direct_message: Mock
     ) -> None:
-        """QueueStopAlert routes through _dispatch_queue_stop_dms, not send_channel_message."""
+        """Alerts missing from ALERT_DESTINATIONS go to the ops channel."""
         # given
-        with (
-            patch("monitoring.alert_manager.KrakenStatus") as mock_kraken_status,
-            patch(
-                "monitoring.alert_manager.send_channel_message"
-            ) as mock_send_channel_message,
-            patch.object(AlertManager, "_dispatch_queue_stop_dms") as mock_dispatch,
-        ):
-            mock_status_obj = Mock()
-            mock_kraken_status.objects = [mock_status_obj]
+        alert = _mock_alert("unconfigured_alert")
 
-            alert_manager = AlertManager()
-            alert_manager.is_first_check = False
-
-            queue_alert = next(
-                a
-                for a in alert_manager.alerts
-                if a.__class__.__name__ == "QueueStopAlert"
-            )
-            queue_issue = ("inst1:f1", Mock())
-            queue_alert.get_issues = Mock(return_value=[queue_issue])
-
-            for alert in alert_manager.alerts:
-                if alert is not queue_alert:
-                    alert.get_issues = Mock(return_value=[])
-
-            # when
-            alert_manager.check_for_issues()
-
-            # then
-            mock_dispatch.assert_called_once_with(queue_alert, [queue_issue])
-            mock_send_channel_message.assert_not_called()
-
-    def test_dispatch_queue_stop_dms_fans_out_per_recipient_per_issue(self) -> None:
-        """Each (issue x recipient) yields a send_direct_message call; messages aren't bundled."""
-        # given
-        from monitoring.alerts.queue_stop_alert import QueueStopIssue
-
-        issue1 = QueueStopIssue(
-            kind="stop",
-            instrument_id="inst1",
-            messenger_user_id="U_MASC",
-            gradient_length=None,
-            pause=None,
-            recent_files=[],
-        )
-        issue2 = QueueStopIssue(
-            kind="handoff",
-            instrument_id="inst2",
-            messenger_user_id="U_JOEB",
-            gradient_length=None,
-            pause=None,
-            recent_files=[],
-        )
-        mock_alert = Mock()
-        mock_alert.render_issue.side_effect = ["msg1", "msg2"]
-        mock_alert.get_recipients.side_effect = [
-            ["U_MASC", "U_SUP"],
-            ["U_JOEB", "U_SUP"],
-        ]
-
-        with patch(
-            "monitoring.alert_manager.send_direct_message"
-        ) as mock_send_direct_message:
-            # when
-            AlertManager._dispatch_queue_stop_dms(
-                mock_alert, [("inst1:f1", issue1), ("inst2:f2", issue2)]
-            )
-
-        # then - 4 DMs, separate per recipient per issue
-        assert mock_send_direct_message.call_count == 4
-        recipients = [call.args[1] for call in mock_send_direct_message.call_args_list]
-        assert recipients == ["U_MASC", "U_SUP", "U_JOEB", "U_SUP"]
-        # refresh_recent_files must be called once per issue, before render
-        assert mock_alert.refresh_recent_files.call_args_list == [
-            (((issue1,),)),
-            (((issue2,),)),
-        ]
-
-    def test_dispatch_queue_stop_dms_continues_after_failed_send(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
-        """One bad recipient must not abort delivery to the rest."""
-        # given
-        import requests
-
-        from monitoring.alerts.queue_stop_alert import QueueStopIssue
-
-        issue = QueueStopIssue(
-            kind="stop",
-            instrument_id="inst1",
-            messenger_user_id="U_MASC",
-            gradient_length=None,
-            pause=None,
-            recent_files=[],
-        )
-        mock_alert = Mock()
-        mock_alert.render_issue.return_value = "msg"
-        mock_alert.get_recipients.return_value = ["U_MASC", "U_SUP"]
-
-        def _side_effect(_msg: str, recipient: str, **_kw: object) -> None:
-            if recipient == "U_MASC":
-                raise requests.HTTPError("500")
-
-        with (
-            patch(
-                "monitoring.alert_manager.send_direct_message", side_effect=_side_effect
-            ) as mock_send_direct_message,
-            caplog.at_level("WARNING"),
-        ):
-            # when
-            AlertManager._dispatch_queue_stop_dms(mock_alert, [("inst1:f1", issue)])
+        # when
+        with _set_destinations({BUSINESS}):
+            _dispatch(alert, ISSUES)
 
         # then
-        assert mock_send_direct_message.call_count == 2
-        assert any(
-            "U_MASC" in rec.message and "stop" in rec.message and "inst1" in rec.message
-            for rec in caplog.records
-        )
+        mock_send_channel_message.assert_called_once_with("id1|id2", "http://ops.url")
+        mock_send_direct_message.assert_not_called()
+
+    def test_dispatch_should_send_to_all_configured_destinations(
+        self, mock_send_channel_message: Mock, mock_send_direct_message: Mock
+    ) -> None:
+        """One aggregated message per channel, one direct message per issue and recipient."""
+        # given
+        alert = _mock_alert()
+        recipients = {"file_id1": ["U_A", "U_SUP"], "file_id2": ["U_B", "U_SUP"]}
+
+        # when
+        with (
+            _set_destinations({USER, OPS, BUSINESS}),
+            patch(
+                "monitoring.alert_manager.get_recipients",
+                side_effect=lambda f: recipients[f],
+            ),
+        ):
+            _dispatch(alert, ISSUES)
+
+        # then
+        assert sorted(c.args for c in mock_send_channel_message.call_args_list) == [
+            ("id1|id2", "http://business.url"),
+            ("id1|id2", "http://ops.url"),
+        ]
+        assert [c.args for c in mock_send_direct_message.call_args_list] == [
+            ("id1", "U_A"),
+            ("id1", "U_SUP"),
+            ("id2", "U_B"),
+            ("id2", "U_SUP"),
+        ]
+
+    def test_dispatch_should_send_once_when_channels_share_webhook_url(
+        self, mock_send_channel_message: Mock
+    ) -> None:
+        """The business webhook URL falling back to the ops one must not yield duplicates."""
+        # given
+        alert = _mock_alert()
+
+        # when
+        with (
+            _set_destinations({OPS, BUSINESS}),
+            patch.dict(
+                "monitoring.alert_manager._WEBHOOK_URLS", {BUSINESS: "http://ops.url"}
+            ),
+        ):
+            _dispatch(alert, ISSUES)
+
+        # then
+        mock_send_channel_message.assert_called_once_with("id1|id2", "http://ops.url")
+
+    def test_dispatch_should_skip_issues_without_recipients(
+        self, mock_send_channel_message: Mock, mock_send_direct_message: Mock
+    ) -> None:
+        """Issues whose relevant file maps to no user are not sent as direct messages."""
+        # given
+        alert = _mock_alert()
+        recipients = {"file_id1": [], "file_id2": ["U_B"]}
+
+        # when
+        with (
+            _set_destinations({USER}),
+            patch(
+                "monitoring.alert_manager.get_recipients",
+                side_effect=lambda f: recipients[f],
+            ),
+        ):
+            _dispatch(alert, ISSUES)
+
+        # then
+        mock_send_direct_message.assert_called_once_with("id2", "U_B")
+        mock_send_channel_message.assert_not_called()
+
+    def test_dispatch_should_continue_after_failed_sends(
+        self, mock_send_channel_message: Mock, mock_send_direct_message: Mock
+    ) -> None:
+        """A failed send to one destination or recipient does not abort the rest."""
+        # given
+        alert = _mock_alert()
+        mock_send_channel_message.side_effect = requests.HTTPError("500")
+        mock_send_direct_message.side_effect = [requests.HTTPError("500"), None, None]
+
+        # when
+        with (
+            _set_destinations({USER, OPS}),
+            patch(
+                "monitoring.alert_manager.get_recipients",
+                side_effect=[["U_A", "U_SUP"], ["U_B"]],
+            ),
+        ):
+            _dispatch(alert, ISSUES)
+
+        # then
+        assert mock_send_channel_message.call_count == 1
+        assert [c.args for c in mock_send_direct_message.call_args_list] == [
+            ("id1", "U_A"),
+            ("id1", "U_SUP"),
+            ("id2", "U_B"),
+        ]
 
 
 class TestSendSpecialAlert:

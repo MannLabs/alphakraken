@@ -13,6 +13,11 @@ from shared.db.models import RawFileStatus
 class TestRawFileErrorAlert:
     """Test suite for RawFileErrorAlert class."""
 
+    def test_get_relevant_file_should_return_raw_file_id(self) -> None:
+        """Test that the relevant file is the raw file in error."""
+        # when / then
+        assert RawFileErrorAlert().get_relevant_file(("file1.raw", "x")) == "file1.raw"
+
     def test_case_name_should_return_correct_value(self) -> None:
         """Test that name property returns correct value."""
         # given

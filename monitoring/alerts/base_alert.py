@@ -134,6 +134,13 @@ class BaseAlert(ABC):
     def name(self) -> str:
         """Return the name for this alert type."""
 
+    def mark_reported(self, issues: list[Issue]) -> None:
+        """Remember that the issues were handled, so they are not raised again.
+
+        Override this method in subclasses that suppress already reported issues in `_get_issues`.
+        """
+        del issues  # unused
+
     def get_cooldown_time_minutes(self, issue: Issue) -> int:
         """Return cooldown in minutes for an issue of this alert.
 

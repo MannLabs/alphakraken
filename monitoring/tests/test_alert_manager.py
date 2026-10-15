@@ -322,9 +322,10 @@ class TestDispatch:
                 side_effect=lambda f: recipients[f],
             ),
         ):
-            _dispatch(alert, ISSUES)
+            all_sent = _dispatch(alert, ISSUES)
 
         # then
+        assert all_sent is True
         assert sorted(c.args for c in mock_send_channel_message.call_args_list) == [
             ("id1|id2", "http://business.url"),
             ("id1|id2", "http://ops.url"),
@@ -394,15 +395,78 @@ class TestDispatch:
                 side_effect=[["U_A", "U_SUP"], ["U_B"]],
             ),
         ):
-            _dispatch(alert, ISSUES)
+            all_sent = _dispatch(alert, ISSUES)
 
         # then
+        assert all_sent is False
         assert mock_send_channel_message.call_count == 1
         assert [c.args for c in mock_send_direct_message.call_args_list] == [
             ("id1", "U_A"),
             ("id1", "U_SUP"),
             ("id2", "U_B"),
         ]
+
+
+class TestHandleIssues:
+    """Test suite for marking issues as reported only once they are handled."""
+
+    @pytest.mark.parametrize(
+        ("suppress_alerts", "all_sent"),
+        [(False, True), (True, False)],
+    )
+    def test_handle_issues_should_mark_reported_when_sent_or_suppressed(
+        self, *, suppress_alerts: bool, all_sent: bool
+    ) -> None:
+        """Sent or deliberately suppressed issues are marked and start their cooldown."""
+        # given
+        alert_manager = AlertManager()
+        alert = _mock_alert()
+        alert.get_cooldown_time_minutes.return_value = 60
+
+        # when
+        with patch("monitoring.alert_manager._dispatch", return_value=all_sent):
+            alert_manager._handle_issues(alert, ISSUES, suppress_alerts=suppress_alerts)
+
+        # then
+        alert.mark_reported.assert_called_once_with(ISSUES)
+        assert set(alert_manager.last_alerts) == {"my_alert_id1", "my_alert_id2"}
+
+    def test_handle_issues_should_retry_when_send_failed(self) -> None:
+        """Issues whose send failed are neither marked nor start their cooldown."""
+        # given
+        alert_manager = AlertManager()
+        alert = _mock_alert()
+        alert.get_cooldown_time_minutes.return_value = 60
+
+        # when
+        with patch(
+            "monitoring.alert_manager._dispatch", side_effect=[False, True]
+        ) as mock_dispatch:
+            alert_manager._handle_issues(alert, ISSUES)
+            alert_manager._handle_issues(alert, ISSUES)
+
+        # then
+        assert mock_dispatch.call_count == 2
+        alert.mark_reported.assert_called_once_with(ISSUES)
+
+    def test_handle_issues_should_not_mark_reported_when_blocked_by_cooldown(
+        self,
+    ) -> None:
+        """Issues blocked by cooldown are not marked, so they are raised again later."""
+        # given
+        alert_manager = AlertManager()
+        alert = _mock_alert()
+        alert.get_cooldown_time_minutes.return_value = 60
+        for issue in ISSUES:
+            alert_manager.set_last_alert_time(alert.name, issue)
+
+        # when
+        with patch("monitoring.alert_manager._dispatch") as mock_dispatch:
+            alert_manager._handle_issues(alert, ISSUES)
+
+        # then
+        mock_dispatch.assert_not_called()
+        alert.mark_reported.assert_not_called()
 
 
 class TestSendSpecialAlert:

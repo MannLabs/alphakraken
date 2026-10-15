@@ -73,17 +73,23 @@ class AlertManager:
     def _handle_issues(
         self, alert: BaseAlert, issues: list[Issue], *, suppress_alerts: bool = False
     ) -> None:
-        """Handle sending an alert if cooldown has passed."""
-        if self.should_send_alert(issues, alert):
-            if not suppress_alerts:
-                _dispatch(alert, issues)
-            else:
-                logging.info(
-                    f"Suppressed alert for {alert.name} ({len(issues)} issues)"
-                )
+        """Handle sending an alert if cooldown has passed.
 
-            for issue in issues:
-                self.set_last_alert_time(alert.name, issue)
+        Issues are only marked as reported once handled, so issues blocked by cooldown or
+        failed sends are raised again on the next check.
+        """
+        if not self.should_send_alert(issues, alert):
+            return
+
+        if suppress_alerts:
+            logging.info(f"Suppressed alert for {alert.name} ({len(issues)} issues)")
+        elif not _dispatch(alert, issues):
+            logging.warning(f"Failed to send {alert.name}, retrying on next check")
+            return
+
+        alert.mark_reported(issues)
+        for issue in issues:
+            self.set_last_alert_time(alert.name, issue)
 
     def should_send_alert(
         self,
@@ -119,11 +125,12 @@ class AlertManager:
         return f"{alert_id}_{issue.kind}" if issue.kind else alert_id
 
 
-def _dispatch(alert: BaseAlert, issues: list[Issue]) -> None:
-    """Send the issues to all destinations configured for the alert.
+def _dispatch(alert: BaseAlert, issues: list[Issue]) -> bool:
+    """Send the issues to all destinations configured for the alert, return whether all sends succeeded.
 
     A failed send to one destination or recipient does not abort the rest.
     """
+    all_sent = True
     destinations = config.ALERT_DESTINATIONS.get(
         alert.name, config.DEFAULT_ALERT_DESTINATIONS
     )
@@ -141,13 +148,20 @@ def _dispatch(alert: BaseAlert, issues: list[Issue]) -> None:
                 send_channel_message(message, webhook_url)
             except Exception:  # noqa: PERF203
                 logging.exception(f"Failed to send {alert.name} channel message")
+                all_sent = False
 
     if Destinations.USER in destinations:
-        _send_direct_messages(alert, issues)
+        all_sent &= _send_direct_messages(alert, issues)
+
+    return all_sent
 
 
-def _send_direct_messages(alert: BaseAlert, issues: list[Issue]) -> None:
-    """Send one direct message per issue to each recipient derived from the issue's relevant file."""
+def _send_direct_messages(alert: BaseAlert, issues: list[Issue]) -> bool:
+    """Send one direct message per issue to each recipient derived from the issue's relevant file.
+
+    Return whether all sends succeeded.
+    """
+    all_sent = True
     for issue in issues:
         recipients = get_recipients(issue.relevant_file)
         if not recipients:
@@ -165,6 +179,8 @@ def _send_direct_messages(alert: BaseAlert, issues: list[Issue]) -> None:
                     f"Failed to send {alert.name} direct message "
                     f"(recipient={recipient}, identifier={issue.identifier})"
                 )
+                all_sent = False
+    return all_sent
 
 
 def send_special_alert(

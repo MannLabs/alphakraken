@@ -49,11 +49,7 @@ class PumpPressureAlert(BaseAlert):
     def __init__(self) -> None:
         """Initialize the alert with memory for tracking reported issues."""
         super().__init__()
-        # Memory: set of (instrument_id, issue_identifier) to track reported issues
-        # issue_identifier can be:
-        # - tuple of pressure_changes for relative increase alerts
-        # - raw_file_id for absolute threshold alerts
-        self._reported_issues: set[tuple[str, tuple[Any, ...] | str]] = set()
+        self._reported_issues: set[Issue[str]] = set()
 
     @property
     def name(self) -> str:
@@ -117,22 +113,16 @@ class PumpPressureAlert(BaseAlert):
             )
 
             if is_alert:
-                # Create memory key from instrument_id and pressure changes
-                memory_key = (instrument_id, tuple(pressure_changes))
-
-                # Only report if not already reported
-                if memory_key not in self._reported_issues:
-                    self._reported_issues.add(memory_key)
-                    issues.append(
-                        Issue(
-                            instrument_id,
-                            f"Pressure changes: {self._format(pressure_changes)}",
-                            # the younger file of the (single) change
-                            relevant_file=pressure_changes[0][4],
-                            instrument_id=instrument_id,
-                            kind=KIND_INCREASE,
-                        )
-                    )
+                issue = Issue(
+                    instrument_id,
+                    f"Pressure changes: {self._format(pressure_changes)}",
+                    # the younger file of the (single) change
+                    relevant_file=pressure_changes[0][4],
+                    instrument_id=instrument_id,
+                    kind=KIND_INCREASE,
+                )
+                if issue not in self._reported_issues:
+                    issues.append(issue)
                 else:
                     logging.debug(
                         f"Suppressing duplicate alert for {instrument_id} "
@@ -144,19 +134,15 @@ class PumpPressureAlert(BaseAlert):
                 pressure_data, PUMP_PRESSURE_ABSOLUTE_THRESHOLD_BAR
             )
             for pressure, raw_file_id, timestamp in high_pressure_alerts:
-                memory_key = (instrument_id, raw_file_id)
-
-                if memory_key not in self._reported_issues:
-                    self._reported_issues.add(memory_key)
-                    issues.append(
-                        Issue(
-                            instrument_id,
-                            f"High pressure: {pressure:.1f} bar (≥{PUMP_PRESSURE_ABSOLUTE_THRESHOLD_BAR} bar) in `{raw_file_id}` at {timestamp.strftime('%Y-%m-%d %H:%M:%S')}",
-                            relevant_file=raw_file_id,
-                            instrument_id=instrument_id,
-                            kind=KIND_ABSOLUTE,
-                        )
-                    )
+                issue = Issue(
+                    instrument_id,
+                    f"High pressure: {pressure:.1f} bar (≥{PUMP_PRESSURE_ABSOLUTE_THRESHOLD_BAR} bar) in `{raw_file_id}` at {timestamp.strftime('%Y-%m-%d %H:%M:%S')}",
+                    relevant_file=raw_file_id,
+                    instrument_id=instrument_id,
+                    kind=KIND_ABSOLUTE,
+                )
+                if issue not in self._reported_issues:
+                    issues.append(issue)
                 else:
                     logging.debug(
                         f"Suppressing duplicate absolute pressure alert for {instrument_id} "
@@ -164,6 +150,10 @@ class PumpPressureAlert(BaseAlert):
                     )
 
         return issues
+
+    def mark_reported(self, issues: list[Issue[str]]) -> None:
+        """Remember the reported issues to not raise them again."""
+        self._reported_issues.update(issues)
 
     @staticmethod
     def _format(changes: list[tuple[float, float, float, datetime, str, str]]) -> str:

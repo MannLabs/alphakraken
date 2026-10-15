@@ -374,6 +374,7 @@ class TestRuleAStop:
             mock_dt.now.return_value = now
             # when - first call fires; second is suppressed
             first = alert._get_issues([])
+            alert.mark_reported(first)
             second = alert._get_issues([])
         # then
         assert len(first) == 1
@@ -407,6 +408,7 @@ class TestRuleAStop:
         with patch("monitoring.alerts.queue_stop_alert.datetime") as mock_dt:
             mock_dt.now.return_value = now1
             first = alert._get_issues([])
+            alert.mark_reported(first)
 
         # second scan: a new file d arrives; top-3 = [d, a, b]; stop subject = d.id
         d_t = a_t + gradient
@@ -662,6 +664,7 @@ class TestRuleBHandoff:
         with patch("monitoring.alerts.queue_stop_alert.datetime") as mock_dt:
             mock_dt.now.return_value = now
             first = alert._get_issues([])
+            alert.mark_reported(first)
             second = alert._get_issues([])
         # then
         assert len(first) == 1
@@ -697,6 +700,7 @@ class TestRuleBHandoff:
         with patch("monitoring.alerts.queue_stop_alert.datetime") as mock_dt:
             mock_dt.now.return_value = now1
             first = alert._get_issues([])
+            alert.mark_reported(first)
 
         # scan 2: JoeB takes over with G; top-3 = [G_JoeB, F_MaSc, E_MaSc]
         # Rule B would fire for MaSc with subject = F.id - same key, suppressed.

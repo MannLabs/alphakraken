@@ -18,7 +18,6 @@ from shared.db.models import KrakenStatus, RawFile
 
 from .base_alert import BaseAlert
 from .config import (
-    BUSINESS_ALERTS_WEBHOOK_URL,
     DEFAULT_ALERT_COOLDOWN_TIME_MINUTES,
     PUMP_PRESSURE_ABSOLUTE_THRESHOLD_BAR,
     PUMP_PRESSURE_LOOKBACK_DAYS,
@@ -59,10 +58,6 @@ class PumpPressureAlert(BaseAlert):
     def name(self) -> str:
         """Return the case name for this alert type."""
         return Cases.PUMP_PRESSURE_INCREASE
-
-    def get_webhook_url(self) -> str:
-        """Return the configured BUSINESS_ALERTS_WEBHOOK_URL for pump pressure alerts."""
-        return BUSINESS_ALERTS_WEBHOOK_URL
 
     def get_cooldown_time_minutes(self, identifier: str) -> int:
         """Return cooldown in minutes for this alert and identifier."""

@@ -9,6 +9,8 @@ from .config import Cases
 class HealthCheckFailedAlert(BaseAlert):
     """Check for failed health checks."""
 
+    title = "Health check failed"
+
     @property
     def name(self) -> str:
         """Return the case name for this alert type."""
@@ -33,13 +35,6 @@ class HealthCheckFailedAlert(BaseAlert):
                 )
 
         return health_check_failed_instruments
-
-    def format_message(self, issues: list[Issue[str | None]]) -> str:
-        """Format health check failure message."""
-        instruments_str = "\n".join(
-            [f"- `{issue.identifier}`: {issue.details}" for issue in issues]
-        )
-        return f"Health check failed:\n{instruments_str}"
 
     def get_cooldown_time_minutes(self, issue: Issue) -> int:
         """Return custom cooldown for specific instruments."""

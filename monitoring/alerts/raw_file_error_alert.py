@@ -7,15 +7,13 @@ import pytz
 from shared.db.models import KrakenStatus, RawFile, RawFileStatus
 
 from .base_alert import BaseAlert, Issue
-from .config import CHECK_INTERVAL_SECONDS, Cases
+from .config import RAW_FILE_STATUS_LOOKBACK_HOURS, Cases
 
 
 class RawFileErrorAlert(BaseAlert):
-    """Check for raw files that have changed to ERROR status."""
+    """Check for raw files in ERROR status."""
 
-    def __init__(self):
-        """Initialize with previous statuses."""
-        self.previous_raw_file_statuses = {}
+    title = "Raw files changed to ERROR status"
 
     @property
     def name(self) -> str:
@@ -23,47 +21,27 @@ class RawFileErrorAlert(BaseAlert):
         return Cases.RAW_FILE_ERROR
 
     def _get_issues(self, status_objects: list[KrakenStatus]) -> list[Issue[str]]:
-        """Check for raw files that have changed to ERROR status."""
+        """Check for raw files in ERROR status that were updated recently."""
         del status_objects
 
         youngest_updated_at = datetime.now(pytz.UTC) - timedelta(
-            seconds=CHECK_INTERVAL_SECONDS * 5
+            hours=RAW_FILE_STATUS_LOOKBACK_HOURS
         )
-        recently_updated_raw_files = RawFile.objects.filter(
-            updated_at___gt=youngest_updated_at
-        ).only("id", "status", "status_details", "instrument_id")
+        error_raw_files = RawFile.objects.filter(
+            status=RawFileStatus.ERROR, updated_at___gt=youngest_updated_at
+        ).only("id", "status_details", "instrument_id")
 
-        new_error_files = []
-        current_statuses = {}
-
-        for raw_file in recently_updated_raw_files:
-            raw_file_id = raw_file.id
-            current_status = raw_file.status
-            current_statuses[raw_file_id] = current_status
-
-            # Check if this file has changed to ERROR status
-            if (
-                current_status == RawFileStatus.ERROR
-                and current_status != self.previous_raw_file_statuses.get(raw_file_id)
-            ):
-                status_details = raw_file.status_details or "None"
-                new_error_files.append(
-                    Issue(
-                        raw_file_id,
-                        status_details,
-                        relevant_file=raw_file_id,
-                        instrument_id=raw_file.instrument_id,
-                    )
+        issues = []
+        for raw_file in error_raw_files:
+            status_details = raw_file.status_details or "None"
+            issues.append(
+                Issue(
+                    raw_file.id,
+                    status_details,
+                    relevant_file=raw_file.id,
+                    instrument_id=raw_file.instrument_id,
+                    # a file failing again with a different error is reported again
+                    unique_key=(raw_file.id, status_details),
                 )
-
-        # Update the previous statuses for next check
-        self.previous_raw_file_statuses.update(current_statuses)
-
-        return new_error_files
-
-    def format_message(self, issues: list[Issue[str | None]]) -> str:
-        """Format raw file error message."""
-        files_str = "\n".join(
-            [f"- `{issue.identifier}`: {issue.details}" for issue in issues]
-        )
-        return f"Raw files changed to ERROR status:\n{files_str}"
+            )
+        return issues

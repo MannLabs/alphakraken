@@ -9,6 +9,7 @@ import pytest
 import requests
 
 from monitoring.alert_manager import AlertManager, _dispatch, send_special_alert
+from monitoring.alerts.base_alert import Issue
 from monitoring.alerts.config import Destinations
 
 BUSINESS, OPS, USER = Destinations.BUSINESS, Destinations.OPS, Destinations.USER
@@ -34,7 +35,7 @@ class TestAlertManager:
             alert_manager = AlertManager()
 
             # Mock one alert to return issues
-            mock_issue = ("test_id", "test_data")
+            mock_issue = Issue("test_id", "test_data")
             alert_manager.alerts[0].get_issues = Mock(return_value=[mock_issue])
             alert_manager.alerts[0].format_message = Mock(
                 return_value="Test alert message"
@@ -80,7 +81,7 @@ class TestAlertManager:
             alert_manager = AlertManager()
 
             # Mock one alert to return issues
-            mock_issue = ("test_id", "test_data")
+            mock_issue = Issue("test_id", "test_data")
             alert_with_issue = alert_manager.alerts[0]
             alert_name = alert_with_issue.name
             alert_with_issue.get_issues = Mock(return_value=[mock_issue])
@@ -129,9 +130,9 @@ class TestAlertManager:
             alert_manager = AlertManager()
 
             # Mock three alerts to return issues
-            mock_issue_1 = ("id_1", "data_1")
-            mock_issue_2 = ("id_2", "data_2")
-            mock_issue_3 = ("id_3", "data_3")
+            mock_issue_1 = Issue("id_1", "data_1")
+            mock_issue_2 = Issue("id_2", "data_2")
+            mock_issue_3 = Issue("id_3", "data_3")
 
             alert_1 = alert_manager.alerts[0]
             alert_1_name = alert_1.name
@@ -208,12 +209,16 @@ class TestAlertManager:
 def _mock_alert(name: str = "my_alert") -> Mock:
     alert = Mock()
     alert.name = name
-    alert.format_message.side_effect = lambda issues: "|".join(i[0] for i in issues)
-    alert.get_relevant_file.side_effect = lambda issue: f"file_{issue[0]}"
+    alert.format_message.side_effect = lambda issues: "|".join(
+        i.identifier for i in issues
+    )
     return alert
 
 
-ISSUES = [("id1", "d1"), ("id2", "d2")]
+ISSUES = [
+    Issue("id1", "d1", relevant_file="file_id1"),
+    Issue("id2", "d2", relevant_file="file_id2"),
+]
 
 
 @pytest.fixture

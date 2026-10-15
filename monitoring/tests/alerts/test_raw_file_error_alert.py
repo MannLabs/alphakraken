@@ -47,42 +47,42 @@ class TestRawFileErrorAlert:
         }
 
         # Create comprehensive mix of files with different scenarios
-        mock_file_already_error = Mock()
+        mock_file_already_error = Mock(instrument_id="inst1")
         mock_file_already_error.id = "file_already_error"
         mock_file_already_error.status = RawFileStatus.ERROR
         mock_file_already_error.status_details = "Still failing"
 
-        mock_file_was_done = Mock()
+        mock_file_was_done = Mock(instrument_id="inst1")
         mock_file_was_done.id = "file_was_done"
         mock_file_was_done.status = RawFileStatus.ERROR
         mock_file_was_done.status_details = "Processing failed after completion"
 
-        mock_file_was_quanting = Mock()
+        mock_file_was_quanting = Mock(instrument_id="inst1")
         mock_file_was_quanting.id = "file_was_quanting"
         mock_file_was_quanting.status = RawFileStatus.ERROR
         mock_file_was_quanting.status_details = "Failed during quanting"
 
-        mock_file_stays_done = Mock()
+        mock_file_stays_done = Mock(instrument_id="inst1")
         mock_file_stays_done.id = "file_stays_done"
         mock_file_stays_done.status = RawFileStatus.DONE
         mock_file_stays_done.status_details = "Completed successfully"
 
-        mock_file_new_error = Mock()
+        mock_file_new_error = Mock(instrument_id="inst1")
         mock_file_new_error.id = "file_new_error"  # Not in previous state
         mock_file_new_error.status = RawFileStatus.ERROR
         mock_file_new_error.status_details = "New file encountered error"
 
-        mock_file_new_done = Mock()
+        mock_file_new_done = Mock(instrument_id="inst1")
         mock_file_new_done.id = "file_new_done"  # Not in previous state
         mock_file_new_done.status = RawFileStatus.DONE
         mock_file_new_done.status_details = "New file completed"
 
-        mock_file_error_no_details = Mock()
+        mock_file_error_no_details = Mock(instrument_id="inst1")
         mock_file_error_no_details.id = "file_error_no_details"
         mock_file_error_no_details.status = RawFileStatus.ERROR
         mock_file_error_no_details.status_details = None
 
-        mock_file_quanting_to_done = Mock()
+        mock_file_quanting_to_done = Mock(instrument_id="inst1")
         mock_file_quanting_to_done.id = "file_quanting_to_done"
         mock_file_quanting_to_done.status = RawFileStatus.DONE
         mock_file_quanting_to_done.status_details = "Completed after quanting"
@@ -108,19 +108,25 @@ class TestRawFileErrorAlert:
                 "file_was_done",
                 "Processing failed after completion",
                 relevant_file="file_was_done",
+                instrument_id="inst1",
             ),
             Issue(
                 "file_was_quanting",
                 "Failed during quanting",
                 relevant_file="file_was_quanting",
+                instrument_id="inst1",
             ),
             Issue(
                 "file_new_error",
                 "New file encountered error",
                 relevant_file="file_new_error",
+                instrument_id="inst1",
             ),
             Issue(
-                "file_error_no_details", "None", relevant_file="file_error_no_details"
+                "file_error_no_details",
+                "None",
+                relevant_file="file_error_no_details",
+                instrument_id="inst1",
             ),
         ]
         assert result == expected
@@ -205,21 +211,25 @@ class TestRawFileErrorAlert:
         # Create files that maintain their previous status or aren't errors
         mock_file1 = Mock()
         mock_file1.id = "file1"
+        mock_file1.instrument_id = "inst1"
         mock_file1.status = RawFileStatus.ERROR  # Still error
         mock_file1.status_details = "Still failing"
 
         mock_file2 = Mock()
         mock_file2.id = "file2"
+        mock_file2.instrument_id = "inst1"
         mock_file2.status = RawFileStatus.DONE  # Still done
         mock_file2.status_details = "Completed"
 
         mock_file3 = Mock()
         mock_file3.id = "file3"
+        mock_file3.instrument_id = "inst1"
         mock_file3.status = RawFileStatus.QUANTING  # Still quanting
         mock_file3.status_details = "In progress"
 
         mock_file4 = Mock()
         mock_file4.id = "file4"  # New file, not error
+        mock_file4.instrument_id = "inst1"
         mock_file4.status = RawFileStatus.DONE
         mock_file4.status_details = "New completed file"
 
@@ -259,11 +269,13 @@ class TestRawFileErrorAlert:
         # Create files with various statuses
         mock_error_file = Mock()
         mock_error_file.id = "first_error"
+        mock_error_file.instrument_id = "inst1"
         mock_error_file.status = RawFileStatus.ERROR
         mock_error_file.status_details = "First time error"
 
         mock_done_file = Mock()
         mock_done_file.id = "completed_file"
+        mock_done_file.instrument_id = "inst1"
         mock_done_file.status = RawFileStatus.DONE
         mock_done_file.status_details = "Successfully completed"
 
@@ -277,7 +289,12 @@ class TestRawFileErrorAlert:
 
         # then - first check should detect new error
         assert result1 == [
-            Issue("first_error", "First time error", relevant_file="first_error")
+            Issue(
+                "first_error",
+                "First time error",
+                relevant_file="first_error",
+                instrument_id="inst1",
+            )
         ]
 
         # Verify correct time window for first check
@@ -321,6 +338,7 @@ class TestRawFileErrorAlert:
 
         mock_error_file = Mock()
         mock_error_file.id = "file_error"
+        mock_error_file.instrument_id = "inst1"
         mock_error_file.status = RawFileStatus.ERROR
         mock_error_file.status_details = "Some error"
 
@@ -328,7 +346,12 @@ class TestRawFileErrorAlert:
         mock_raw_file.objects.filter.return_value.only.return_value = [mock_error_file]
         result1 = alert._get_issues([])
         assert result1 == [
-            Issue("file_error", "Some error", relevant_file="file_error")
+            Issue(
+                "file_error",
+                "Some error",
+                relevant_file="file_error",
+                instrument_id="inst1",
+            )
         ]
 
         # Round 2: file ages out of the 5-minute window (empty query result)

@@ -48,7 +48,7 @@ class InstrumentFilePileUpAlert(BaseAlert):
             if pile_up_detected:
                 pile_up_str = "; ".join(pile_up_detected)
                 instrument_file_pile_up_instruments.append(
-                    Issue(instrument_id, pile_up_str)
+                    Issue(instrument_id, pile_up_str, instrument_id=instrument_id)
                 )
 
         return instrument_file_pile_up_instruments

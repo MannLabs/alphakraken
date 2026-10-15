@@ -1,8 +1,11 @@
 """Unit tests for BaseAlert suppression functionality."""
 
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
-from monitoring.alerts.base_alert import BaseAlert, Issue
+import pytest
+
+from monitoring.alerts.base_alert import BaseAlert, Issue, get_instrument_id
+from shared.db.models import KrakenStatusEntities
 
 
 class TestAlert(BaseAlert):
@@ -152,3 +155,118 @@ class TestBaseAlertSuppressions:
 
             # then
             assert result == [Issue("instrument1", "error message")]
+
+    def test_wildcard_error_class_suppresses_all_alerts_for_context(self) -> None:
+        """Test that error_class: '*' suppresses matching contexts of any alert class."""
+        # given
+        alert = TestAlert()
+        alert.test_issues = [
+            Issue("instrument1", "disk full"),
+            Issue("instrument2", "disk full"),
+        ]
+
+        suppressions = [{"error_class": "*", "context": "instrument1"}]
+
+        with patch("monitoring.alerts.base_alert._suppressions", suppressions):
+            # when
+            result = alert.get_issues([])
+
+            # then
+            assert result == [Issue("instrument2", "disk full")]
+
+    def test_context_suppression_matches_exactly(self) -> None:
+        """Test that context does not match identifiers that merely contain it."""
+        # given
+        alert = TestAlert()
+        alert.test_issues = [
+            Issue("astral1", "disk full"),
+            Issue("astral10", "disk full"),
+            Issue("absolute_astral1", "high pressure"),
+        ]
+
+        suppressions = [{"error_class": "TestAlert", "context": "astral1"}]
+
+        with patch("monitoring.alerts.base_alert._suppressions", suppressions):
+            # when
+            result = alert.get_issues([])
+
+            # then
+            assert result == [
+                Issue("astral10", "disk full"),
+                Issue("absolute_astral1", "high pressure"),
+            ]
+
+    def test_missing_error_class_not_suppressed(self) -> None:
+        """Test that a rule without error_class matches no alert class."""
+        # given
+        alert = TestAlert()
+        alert.test_issues = [Issue("instrument1", "disk full")]
+
+        suppressions = [{"context": "instrument1"}]
+
+        with patch("monitoring.alerts.base_alert._suppressions", suppressions):
+            # when
+            result = alert.get_issues([])
+
+            # then
+            assert result == [Issue("instrument1", "disk full")]
+
+    def test_instrument_id_suppression_matches_exactly(self) -> None:
+        """Test that instrument_id suppresses only issues of exactly that instrument."""
+        # given
+        alert = TestAlert()
+        alert.test_issues = [
+            Issue("file_a.raw", "error", instrument_id="astral1"),
+            Issue("file_b.raw", "error", instrument_id="astral10"),
+            Issue("webapp", "error"),
+        ]
+
+        suppressions = [{"error_class": "*", "instrument_id": "astral1"}]
+
+        with patch("monitoring.alerts.base_alert._suppressions", suppressions):
+            # when
+            result = alert.get_issues([])
+
+            # then
+            assert result == [
+                Issue("file_b.raw", "error", instrument_id="astral10"),
+                Issue("webapp", "error"),
+            ]
+
+    def test_instrument_id_suppression_combines_with_message(self) -> None:
+        """Test that instrument_id and message must both match."""
+        # given
+        alert = TestAlert()
+        alert.test_issues = [
+            Issue("astral1", "disk full", instrument_id="astral1"),
+            Issue("astral1", "copy failed", instrument_id="astral1"),
+        ]
+
+        suppressions = [
+            {"error_class": "TestAlert", "instrument_id": "astral1", "message": "disk"}
+        ]
+
+        with patch("monitoring.alerts.base_alert._suppressions", suppressions):
+            # when
+            result = alert.get_issues([])
+
+            # then
+            assert result == [Issue("astral1", "copy failed", instrument_id="astral1")]
+
+
+@pytest.mark.parametrize(
+    ("entity_type", "expected"),
+    [
+        (KrakenStatusEntities.INSTRUMENT, "astral1"),
+        (KrakenStatusEntities.FILE_SYSTEM, None),
+        (KrakenStatusEntities.JOB, None),
+    ],
+)
+def test_get_instrument_id_only_for_instruments(
+    entity_type: str, expected: str | None
+) -> None:
+    """Only status objects of instruments yield an instrument id."""
+    # given
+    kraken_status = Mock(id="astral1", entity_type=entity_type)
+    # when / then
+    assert get_instrument_id(kraken_status) == expected

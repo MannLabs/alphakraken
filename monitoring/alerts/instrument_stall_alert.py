@@ -58,7 +58,12 @@ class InstrumentStallAlert(BaseAlert):
                 if self._alerted_file_names.get(instrument_id) == latest.original_name:
                     continue
                 issues.append(
-                    Issue(instrument_id, created_at, relevant_file=latest.original_name)
+                    Issue(
+                        instrument_id,
+                        created_at,
+                        relevant_file=latest.original_name,
+                        instrument_id=instrument_id,
+                    )
                 )
                 self._alerted_file_names[instrument_id] = latest.original_name
             else:

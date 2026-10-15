@@ -2,6 +2,8 @@
 # Suppress specific alerts based on error class, context, and message patterns
 #
 # Rules:
+# - error_class: "*" matches any alert class
+# - instrument_id: exact match on the instrument an issue relates to (optional)
 # - context: "*" matches any context
 # - message: "*" matches any message
 # - Substring matching is used for both context and message
@@ -15,3 +17,7 @@ suppressions:
   # - error_class: RawFileErrorAlert
   #   context: "*"
   #   message: "temporary network error"
+  #
+  # Mute all alerts for instrument1:
+  # - error_class: "*"
+  #   instrument_id: "instrument1"

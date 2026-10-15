@@ -131,10 +131,26 @@ class TestInstrumentFilePileUpAlert:
         # then
         # Should only check instruments and return those with pile-ups
         expected = [
-            Issue("instrument_new_files_issue", "initial: 25"),
-            Issue("instrument_multiple_issues", "initial: 35; moved: 75; purged: 8"),
-            Issue("instrument_boundary_case", "moved: 55"),
-            Issue("instrument_mixed_status", "initial: 25; purged: 7"),
+            Issue(
+                "instrument_new_files_issue",
+                "initial: 25",
+                instrument_id="instrument_new_files_issue",
+            ),
+            Issue(
+                "instrument_multiple_issues",
+                "initial: 35; moved: 75; purged: 8",
+                instrument_id="instrument_multiple_issues",
+            ),
+            Issue(
+                "instrument_boundary_case",
+                "moved: 55",
+                instrument_id="instrument_boundary_case",
+            ),
+            Issue(
+                "instrument_mixed_status",
+                "initial: 25; purged: 7",
+                instrument_id="instrument_mixed_status",
+            ),
         ]
         assert result == expected
 
@@ -304,4 +320,10 @@ class TestInstrumentFilePileUpAlert:
             assert kwargs["instrument_id"] == "test_instrument"
             assert kwargs["min_age_hours"] == 8
 
-        assert result == [Issue("test_instrument", "initial: 20; moved: 35")]
+        assert result == [
+            Issue(
+                "test_instrument",
+                "initial: 20; moved: 35",
+                instrument_id="test_instrument",
+            )
+        ]

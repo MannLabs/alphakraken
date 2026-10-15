@@ -3,7 +3,7 @@
 from shared.db.models import KrakenStatus, KrakenStatusEntities
 
 from . import config
-from .base_alert import BaseAlert, Issue
+from .base_alert import BaseAlert, Issue, get_instrument_id
 from .config import Cases
 
 
@@ -29,7 +29,11 @@ class DiskSpaceAlert(BaseAlert):
                 kraken_status
             ):
                 low_disk_space_instruments.append(  # noqa: PERF401
-                    Issue(kraken_status.id, free_space_gb)
+                    Issue(
+                        kraken_status.id,
+                        free_space_gb,
+                        instrument_id=get_instrument_id(kraken_status),
+                    )
                 )
 
         return low_disk_space_instruments

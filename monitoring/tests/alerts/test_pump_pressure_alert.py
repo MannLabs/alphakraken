@@ -13,7 +13,12 @@ from monitoring.alerts.pump_pressure_alert import (
     PressureDataPoint,
     PumpPressureAlert,
 )
-from shared.db.models import KrakenStatusEntities
+from shared.db.models import AlertSuppression, KrakenStatusEntities
+
+
+def _suppression(**kwargs: str) -> AlertSuppression:
+    """Build a suppression; fields not given match anything."""
+    return AlertSuppression(comment="test", **kwargs)
 
 
 class TestPumpPressureAlert:
@@ -433,12 +438,11 @@ class TestPumpPressureAlert:
             Issue("instrument2", "Pressure changes: +25.0 bar", relevant_file="f2"),
         ]
         suppressions = [
-            {"error_class": "PumpPressureAlert", "message": "High pressure"},
+            _suppression(error_class="PumpPressureAlert", message="High pressure"),
         ]
 
         # when
-        with patch("monitoring.alerts.base_alert._suppressions", suppressions):
-            result = alert._apply_suppressions(issues)
+        result = alert._apply_suppressions(issues, suppressions)
 
         # then
         assert result == [issues[1]]

@@ -153,6 +153,7 @@ def compute_checksum(ti: TaskInstance, **kwargs) -> bool:
     # The creation time read by the watcher during acquisition can still change afterwards (e.g. copy tools
     # restoring the source's creation time), so re-read it from the final file to unambiguously identify it.
     # Must be set before any path is derived from created_at.
+    # Updating created_at in the DB is not super-clean, but should be fine in practise.
     raw_file.created_at = datetime.fromtimestamp(
         get_file_creation_timestamp(raw_file.original_name, raw_file.instrument_id),
         tz=pytz.utc,

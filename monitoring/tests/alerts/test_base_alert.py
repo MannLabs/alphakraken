@@ -162,7 +162,6 @@ class TestBaseAlertSuppressions:
         alert = TestAlert()
         alert.test_issues = [
             Issue("instrument1", "disk full"),
-            Issue("absolute_instrument1", "high pressure"),
             Issue("instrument2", "disk full"),
         ]
 
@@ -174,6 +173,28 @@ class TestBaseAlertSuppressions:
 
             # then
             assert result == [Issue("instrument2", "disk full")]
+
+    def test_context_suppression_matches_exactly(self) -> None:
+        """Test that context does not match identifiers that merely contain it."""
+        # given
+        alert = TestAlert()
+        alert.test_issues = [
+            Issue("astral1", "disk full"),
+            Issue("astral10", "disk full"),
+            Issue("absolute_astral1", "high pressure"),
+        ]
+
+        suppressions = [{"error_class": "TestAlert", "context": "astral1"}]
+
+        with patch("monitoring.alerts.base_alert._suppressions", suppressions):
+            # when
+            result = alert.get_issues([])
+
+            # then
+            assert result == [
+                Issue("astral10", "disk full"),
+                Issue("absolute_astral1", "high pressure"),
+            ]
 
     def test_missing_error_class_not_suppressed(self) -> None:
         """Test that a rule without error_class matches no alert class."""

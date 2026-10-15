@@ -223,6 +223,37 @@ class SettingsStatus:
     DELETED = "deleted"
 
 
+class UserStatus:
+    """Status of user."""
+
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+
+
+USER_EMAIL_REGEX = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
+USER_INITIALS_REGEX = r"^[a-zA-Z0-9]+$"
+
+
+class User(Document):
+    """Schema for a user, used as owner of projects and settings.
+
+    Not a login identity.
+    """
+
+    # uniqueness of initials is checked in the interface, to avoid adding index write rights
+    meta: ClassVar = {"strict": False, "auto_create_index": False}
+    objects: ClassVar[QuerySet[User]]
+
+    email = StringField(
+        required=True, primary_key=True, max_length=128, regex=USER_EMAIL_REGEX
+    )
+    initials = StringField(required=True, max_length=8, regex=USER_INITIALS_REGEX)
+
+    status = StringField(max_length=32, default=UserStatus.ACTIVE)
+
+    created_at_ = DateTimeField(default=datetime.now)
+
+
 class Project(Document):
     """Schema for a project."""
 
@@ -235,7 +266,8 @@ class Project(Document):
 
     status = StringField(max_length=32, default=ProjectStatus.ACTIVE)
 
-    # missing: created by
+    owner = ReferenceField(User, default=None)
+
     created_at_ = DateTimeField(default=datetime.now)
 
 
@@ -287,6 +319,8 @@ class Settings(Document):
     num_threads = IntField(required=True, min_value=1, default=1)
 
     status = StringField(max_length=64, default=SettingsStatus.ACTIVE)
+
+    owner = ReferenceField(User, default=None)
 
     created_at_ = DateTimeField(default=datetime.now)
 

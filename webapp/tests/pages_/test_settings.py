@@ -244,3 +244,59 @@ def test_settings_software_selectbox_keeps_a_software_the_runner_never_ran(
     assert not any(
         "administrator needs to make it available" in w.value for w in at.warning
     )
+
+
+OWNER_SELECT_LABEL = "Owner"
+
+
+@patch("service.owner.get_all_users")
+@patch("shared.db.models.ProjectSettings.objects")
+@patch("service.db.get_project_data")
+@patch("service.db.get_settings_data")
+@patch("service.db.df_from_db_data")
+def test_settings_owner_is_shown_and_prefilled_for_new_version(
+    mock_df: MagicMock,
+    mock_get: MagicMock,  # noqa: ARG001
+    mock_project_get: MagicMock,  # noqa: ARG001
+    mock_ps_objects: MagicMock,
+    mock_get_users: MagicMock,
+) -> None:
+    """Test that the owner initials are shown and a new version is prefilled with the previous owner."""
+    mock_ps_objects.all.return_value = []
+    mock_df.return_value = _settings_df().assign(owner=["a@b.de", None])
+    user = MagicMock(initials="AB", email="a@b.de")
+    mock_get_users.return_value = [user]
+
+    at = AppTest.from_file(f"{PAGES_FOLDER}/settings.py").run(timeout=10)
+
+    assert not at.exception
+    assert at.table[0].value["owner"].tolist() == ["AB", ""]
+    owner_select = next(s for s in at.selectbox if s.label == OWNER_SELECT_LABEL)
+    assert owner_select.options == ["(none)", "AB (a@b.de)"]
+    assert owner_select.value is None
+
+    at.selectbox[0].set_value("new settings").run(timeout=10)
+
+    assert not at.exception
+    owner_select = next(s for s in at.selectbox if s.label == OWNER_SELECT_LABEL)
+    assert owner_select.value == "a@b.de"
+
+
+@patch("shared.db.models.ProjectSettings.objects")
+@patch("service.db.get_project_data")
+@patch("service.db.get_settings_data")
+@patch("service.db.df_from_db_data")
+def test_settings_without_users_shows_no_owner_select(
+    mock_df: MagicMock,
+    mock_get: MagicMock,  # noqa: ARG001
+    mock_project_get: MagicMock,  # noqa: ARG001
+    mock_ps_objects: MagicMock,
+) -> None:
+    """Test that there is no owner selectbox without users."""
+    mock_ps_objects.all.return_value = []
+    mock_df.return_value = _settings_df()
+
+    at = AppTest.from_file(f"{PAGES_FOLDER}/settings.py").run(timeout=10)
+
+    assert not at.exception
+    assert OWNER_SELECT_LABEL not in [s.label for s in at.selectbox]

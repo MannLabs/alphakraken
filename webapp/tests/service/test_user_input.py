@@ -5,14 +5,14 @@ from service.user_input import clean_email, clean_initials, parse_user_row
 
 
 def test_clean_email_and_initials() -> None:
-    """Test that email is lowercased and initials are uppercased, both stripped."""
+    """Test that email is lowercased and initials keep their case, both stripped."""
     assert clean_email(" A@B.de ") == "a@b.de"
-    assert clean_initials(" ab ") == "AB"
+    assert clean_initials(" Ab ") == "Ab"
 
 
 def test_parse_user_row() -> None:
     """Test that a row is parsed and normalized."""
-    assert parse_user_row(" A@B.de , ab") == ("a@b.de", "AB")
+    assert parse_user_row(" A@B.de , Ab") == ("a@b.de", "Ab")
 
 
 @pytest.mark.parametrize("bad_row", ["a@b.de", "a@b.de,AB,extra"])

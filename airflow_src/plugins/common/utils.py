@@ -9,23 +9,15 @@ from typing import Any
 
 import pytz
 from airflow.exceptions import DagNotFound
-from airflow.models import DagRun
-from airflow.providers.ssh.hooks.ssh import SSHHook
 from airflow.sdk import Variable
 from airflow.sdk.exceptions import (
     AirflowFailException,
-    AirflowNotFoundException,
     AirflowRuntimeError,
 )
 from airflow.sdk.execution_time import task_runner
 from airflow.sdk.execution_time.comms import ErrorResponse, TriggerDagRun
 from airflow.sdk.execution_time.task_runner import RuntimeTaskInstance as TaskInstance
 from airflow.utils.types import DagRunType
-from common.constants import (
-    CLUSTER_SSH_COMMAND_TIMEOUT,
-    CLUSTER_SSH_CONNECTION_TIMEOUT,
-    CLUSTER_SSH_MAX_CONNECTIONS,
-)
 
 _xcom_types = str | list[str] | dict[str, Any] | int
 
@@ -118,6 +110,8 @@ def trigger_dag_run(
     :param time_delay_minutes: If given, the run does not start before now plus this delay.
     :raises DagNotFound: If no DAG with `dag_id` exists.
     """
+    from airflow.models import DagRun  # import only on demand to avoid loading overhead
+
     now = datetime.now(tz=pytz.utc)
     run_after = (
         now
@@ -179,46 +173,3 @@ def get_minutes_since_fixed_time_point() -> int:
     baseline = datetime(2024, 1, 1, tzinfo=pytz.utc).timestamp()
 
     return int((current_epoch_time - baseline) // 60)
-
-
-def get_cluster_ssh_hook(
-    ssh_connection_id_prefix: str,
-    attempt_no: int,
-    conn_timeout: int = CLUSTER_SSH_CONNECTION_TIMEOUT,
-    cmd_timeout: int = CLUSTER_SSH_COMMAND_TIMEOUT,
-) -> SSHHook:
-    """Get an SSH hook for the compute cluster.
-
-    :param ssh_connection_id_prefix: Prefix of the Airflow connection IDs to choose from.
-    :param attempt_no: The attempt number to select the SSH connection ID. Will return a different connection ID on each attempt.
-    :param conn_timeout: Connection timeout in seconds.
-    :param cmd_timeout: Command execution timeout in seconds.
-
-    The connections need to be defined in the Airflow UI as `<prefix>_1`, `<prefix>_2`, ... without gaps.
-    """
-    # workers cannot list connections, so probe the ids until the first missing one
-    hooks: list[SSHHook] = []
-    for n in range(1, CLUSTER_SSH_MAX_CONNECTIONS + 1):
-        try:
-            hooks.append(
-                SSHHook(
-                    ssh_conn_id=f"{ssh_connection_id_prefix}_{n}",
-                    conn_timeout=conn_timeout,
-                    cmd_timeout=cmd_timeout,
-                )
-            )
-        except AirflowNotFoundException:  # noqa: PERF203 probing is the purpose of this loop
-            break
-
-    if not hooks:
-        raise AirflowFailException(
-            f"No SSH connections found.\n"
-            f"Please set up a connection '{ssh_connection_id_prefix}_1' in the Airflow UI ('Admin -> Connections') "
-            "or set the Airflow Variable 'debug_no_cluster_ssh=True'."
-        )
-
-    ssh_hook = hooks[attempt_no % len(hooks)]
-    logging.info(
-        f"Using {ssh_hook.ssh_conn_id=} of {len(hooks)} connections (attempt {attempt_no})"
-    )
-    return ssh_hook

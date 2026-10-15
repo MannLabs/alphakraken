@@ -1,0 +1,3 @@
+# No AirflowPlugin subclasses live here; this folder is only on sys.path for imports.
+# Without this, every task process executes all modules here on startup (~2 s).
+*

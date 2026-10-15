@@ -19,3 +19,10 @@ class QuantingFailedUnknownErrorException(AirflowFailException):
 
 class QuantingFailedException(AirflowFailException):
     """Raise if quanting failed but status has already been set."""
+
+
+class S3UploadFailedException(AirflowFailException):
+    """Exception raised when S3 upload fails.
+
+    Enables on_failure_callback to take special action.
+    """

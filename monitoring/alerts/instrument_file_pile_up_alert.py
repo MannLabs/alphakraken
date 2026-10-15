@@ -14,6 +14,8 @@ from .config import (
 class InstrumentFilePileUpAlert(BaseAlert):
     """Check for instrument file pile-ups (files not moved/purged)."""
 
+    title = "Instrument file pile up detected (files not moved/purged)"
+
     @property
     def name(self) -> str:
         """Return the case name for this alert type."""
@@ -52,10 +54,3 @@ class InstrumentFilePileUpAlert(BaseAlert):
                 )
 
         return instrument_file_pile_up_instruments
-
-    def format_message(self, issues: list[Issue[str]]) -> str:
-        """Format instrument file pile-up message."""
-        instruments_str = "\n".join(
-            [f"- `{issue.identifier}`: {issue.details}" for issue in issues]
-        )
-        return f"Instrument file pile up detected (files not moved/purged):\n{instruments_str}"

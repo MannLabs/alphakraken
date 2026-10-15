@@ -13,6 +13,8 @@ from .config import CHECK_INTERVAL_SECONDS, Cases
 class S3UploadFailureAlert(BaseAlert):
     """Check for raw files that have transitioned to UPLOAD_FAILED status."""
 
+    title = "S3 upload failures detected"
+
     def __init__(self):
         """Initialize with previous upload statuses."""
         self.previous_upload_statuses = {}
@@ -70,10 +72,3 @@ class S3UploadFailureAlert(BaseAlert):
         instrument = raw_file.instrument_id or "N/A"
 
         return f"S3 upload failed | project: {project} | instrument: {instrument}"
-
-    def format_message(self, issues: list[Issue[str]]) -> str:
-        """Format S3 upload failure message."""
-        files_str = "\n".join(
-            [f"- `{issue.identifier}`: {issue.details}" for issue in issues]
-        )
-        return f"S3 upload failures detected:\n{files_str}"

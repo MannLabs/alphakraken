@@ -46,6 +46,8 @@ class PressureDataPoint:
 class PumpPressureAlert(BaseAlert):
     """Check for pump pressure increases across instruments."""
 
+    title = "Pump pressure increase detected"
+
     @property
     def name(self) -> str:
         """Return the case name for this alert type."""
@@ -273,10 +275,3 @@ class PumpPressureAlert(BaseAlert):
                 )
 
         return high_pressure_measurements
-
-    def format_message(self, issues: list[Issue[str]]) -> str:
-        """Format pump pressure alert message."""
-        instruments_str = "\n".join(
-            [f"- `{issue.identifier}`: {issue.details}" for issue in issues]
-        )
-        return f"Pump pressure increase detected:\n{instruments_str}"

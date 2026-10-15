@@ -82,9 +82,7 @@ class AlertManager:
         self, alert: BaseAlert, issues: list[Issue], *, suppress_alerts: bool = False
     ) -> None:
         """Handle sending an alert if cooldown has passed."""
-        identifiers = [issue.identifier for issue in issues]
-
-        if self.should_send_alert(identifiers, alert):
+        if self.should_send_alert(issues, alert):
             if not suppress_alerts:
                 _dispatch(alert, issues)
             else:
@@ -92,45 +90,44 @@ class AlertManager:
                     f"Suppressed alert for {alert.name} ({len(issues)} issues)"
                 )
 
-            for identifier in identifiers:
-                self.set_last_alert_time(alert.name, identifier)
+            for issue in issues:
+                self.set_last_alert_time(alert.name, issue)
 
     def should_send_alert(
         self,
-        identifiers: list[str],
+        issues: list[Issue],
         alert: BaseAlert,
         cooldown_time_minutes: int | None = None,
     ) -> bool:
         """Check if we should send an alert based on cooldown period."""
         send_alert = False
-        for identifier in identifiers:
+        for issue in issues:
             if cooldown_time_minutes is not None:
                 effective_cooldown_time_minutes = cooldown_time_minutes
             else:
-                effective_cooldown_time_minutes = alert.get_cooldown_time_minutes(
-                    identifier
-                )
+                effective_cooldown_time_minutes = alert.get_cooldown_time_minutes(issue)
 
             earliest_next_alert_time = self._get_last_alert_time(
-                alert.name, identifier
+                alert.name, issue
             ) + timedelta(minutes=effective_cooldown_time_minutes)
             send_alert |= datetime.now(pytz.UTC) > earliest_next_alert_time
         return send_alert
 
-    def set_last_alert_time(self, alert_name: str, identifier: str) -> None:
+    def set_last_alert_time(self, alert_name: str, issue: Issue) -> None:
         """Get the alert ID for tracking last sent time."""
-        alert_id = self._get_alert_id(alert_name, identifier)
+        alert_id = self._get_alert_id(alert_name, issue)
         self.last_alerts[alert_id] = datetime.now(pytz.UTC)
 
-    def _get_last_alert_time(self, alert_name: str, identifier: str) -> datetime:
+    def _get_last_alert_time(self, alert_name: str, issue: Issue) -> datetime:
         """Get the alert ID for tracking last sent time."""
-        alert_id = self._get_alert_id(alert_name, identifier)
+        alert_id = self._get_alert_id(alert_name, issue)
         return self.last_alerts[alert_id]
 
     @staticmethod
-    def _get_alert_id(alert_name: str, identifier: str) -> str:
+    def _get_alert_id(alert_name: str, issue: Issue) -> str:
         """Get the alert ID for tracking last sent time."""
-        return f"{alert_name}_{identifier}"
+        alert_id = f"{alert_name}_{issue.identifier}"
+        return f"{alert_id}_{issue.kind}" if issue.kind else alert_id
 
 
 def _dispatch(alert: BaseAlert, issues: list[Issue]) -> None:
@@ -191,7 +188,8 @@ def send_special_alert(
     """Send simple alerts."""
     # alert is only used for determining cooldown here
     alert = CustomAlert(alert_name, 10)
-    if not alert_manager.should_send_alert([identifier], alert):
+    issue = Issue(identifier, message)
+    if not alert_manager.should_send_alert([issue], alert):
         return
 
     message = f"{message} [{alert_name} {identifier}]"
@@ -200,4 +198,4 @@ def send_special_alert(
     except RequestException:
         logging.exception("Failed to send special alert message.")
     else:
-        alert_manager.set_last_alert_time(alert_name, identifier)
+        alert_manager.set_last_alert_time(alert_name, issue)

@@ -294,7 +294,7 @@ def test_get_unknown_raw_files_with_empty_directory(
     mock_put_xcom.assert_called_once_with(ti, XComKeys.RAW_FILE_NAMES_TO_PROCESS, {})
 
 
-@patch("dags.impl.watcher_impl.get_all_project_ids")
+@patch("dags.impl.watcher_impl.get_active_project_ids")
 @patch("dags.impl.watcher_impl.get_xcom")
 @patch("dags.impl.watcher_impl.get_unique_project_id")
 @patch("dags.impl.watcher_impl._file_meets_age_criterion")

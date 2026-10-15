@@ -44,6 +44,8 @@ Writes `<name>.converted` next to the original. Then:
 3. `locations.slurm` is gone entirely.
 4. `instruments.*.mount_target` is dropped; the target is always `instruments/<id>`. The converter
    aborts if an instrument deviates.
+5. `instruments.*.skip_quanting` is removed and now **ignored silently**: such an instrument gets
+   quanted. Use `skip_processing` instead, or exclude the instrument via `excluded_scopes`.
 
 This step stays on the host: it writes to `envs/`, and the container's copy of the yaml has the
 `username`/`password` lines stripped by the Dockerfile.
@@ -176,6 +178,12 @@ Two consequences of the new layout:
 3. Open the projects page for each project and compare the "Resolved settings per instrument"
    table against the co-firing report from step 6.
 
+## 12. Airflow Variables renamed
+
+`checksum_overwrite_file_id` and `backup_overwrite_file_id` are merged into
+`force_overwrite_for_raw_file_id` (accepts comma-separated IDs). The old Variables are ignored:
+delete them in the Airflow UI.
+
 ## Checklist of breaking changes
 
 | # | Change | Migration |
@@ -191,3 +199,5 @@ Two consequences of the new layout:
 | 9 | REST API image bakes in the yaml | rebuild |
 | 10 | `ProjectSettings.scope`/`excluded`/`raw_file_id_filter` -> list fields; all matching assignments run | `_migrate_project_settings_scopes.py`, read its co-firing report |
 | 11 | Output subfolder `<software_type>` -> `<settings_name>_v<version>` | none needed, old paths stay stored |
+| 12 | `instruments.*.skip_quanting` removed, ignored silently | manual, see step 2 |
+| 13 | Airflow Variables `checksum_overwrite_file_id`/`backup_overwrite_file_id` -> `force_overwrite_for_raw_file_id` | manual |

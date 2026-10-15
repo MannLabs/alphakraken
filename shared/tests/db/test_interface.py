@@ -13,10 +13,13 @@ from shared.db.interface import (
     add_metrics_to_raw_file,
     add_project,
     add_raw_file,
+    archive_project,
     assign_settings_to_project,
     augment_raw_files_with_metrics,
     create_settings,
-    get_all_project_ids,
+    delete_project,
+    delete_settings,
+    get_active_project_ids,
     get_all_settings,
     get_latest_active_settings_by_name,
     get_project_settings,
@@ -30,7 +33,12 @@ from shared.db.interface import (
     update_raw_file,
     update_slurm_jobs,
 )
-from shared.db.models import InstrumentFileStatus, RawFileStatus, SettingsStatus
+from shared.db.models import (
+    InstrumentFileStatus,
+    ProjectStatus,
+    RawFileStatus,
+    SettingsStatus,
+)
 from shared.keys import MetricsTypes
 
 
@@ -284,21 +292,37 @@ def test_add_project(mock_project: MagicMock, mock_connect_db: MagicMock) -> Non
 
 @patch("shared.db.interface.connect_db")
 @patch("shared.db.interface.Project")
-def test_get_all_project_ids(
+def test_add_project_with_id_of_deleted_project_raises(
+    mock_project: MagicMock,
+    mock_connect_db: MagicMock,  # noqa: ARG001
+) -> None:
+    """Test that add_project refuses to reuse the id of a deleted project."""
+    mock_project.objects.return_value.first.return_value.status = ProjectStatus.DELETED
+
+    with pytest.raises(ValueError, match="'P1234' was used by a deleted project"):
+        add_project(project_id="P1234", name="new project", description="")
+
+    mock_project.assert_not_called()
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.Project")
+def test_get_active_project_ids(
     mock_project: MagicMock, mock_connect_db: MagicMock
 ) -> None:
-    """get_all_project_ids returns all project ids."""
+    """get_active_project_ids returns the ids of all projects that are neither archived nor deleted."""
     # given
-    mock_project.objects.all.return_value = [
+    mock_project.objects.return_value = [
         MagicMock(id="P1234"),
         MagicMock(id="P1235"),
     ]
 
     # when
-    result = get_all_project_ids()
+    result = get_active_project_ids()
 
     # then
     assert result == ["P1234", "P1235"]
+    mock_project.objects.assert_called_once_with(status=ProjectStatus.ACTIVE)
 
     mock_connect_db.assert_called_once()
 
@@ -392,10 +416,10 @@ def test_get_all_settings_excludes_archived(
 def test_get_all_settings_includes_archived(
     mock_settings: MagicMock, mock_connect_db: MagicMock
 ) -> None:
-    """Test that get_all_settings includes archived when requested."""
+    """Test that get_all_settings includes archived but not deleted when requested."""
     get_all_settings(include_archived=True)
 
-    mock_settings.objects.all.assert_called_once()
+    mock_settings.objects.assert_called_once_with(status__ne=SettingsStatus.DELETED)
     mock_connect_db.assert_called_once()
 
 
@@ -1212,3 +1236,149 @@ def test_augment_raw_files_with_metrics_should_query_correct_fields_when_fields_
 
     # then
     mock_metrics_queryset.only.assert_not_called()
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.Project")
+def test_archive_project(mock_project: MagicMock, mock_connect_db: MagicMock) -> None:
+    """Test that archive_project sets the project status to INACTIVE."""
+    archive_project("P1234")
+
+    mock_project.objects.assert_called_once_with(id="P1234")
+    mock_project.objects.return_value.update_one.assert_called_once_with(
+        status=ProjectStatus.INACTIVE
+    )
+    mock_connect_db.assert_called_once()
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.ProjectSettings")
+@patch("shared.db.interface.Settings")
+@patch("shared.db.interface.Project")
+def test_assign_settings_to_archived_project_raises(
+    mock_project: MagicMock,
+    mock_settings: MagicMock,  # noqa: ARG001
+    mock_project_settings: MagicMock,
+    mock_connect_db: MagicMock,  # noqa: ARG001
+) -> None:
+    """Test that assigning settings to an archived project raises ValueError."""
+    mock_project.objects.get.return_value.status = ProjectStatus.INACTIVE
+
+    with pytest.raises(ValueError, match="archived or deleted project 'P1234'"):
+        assign_settings_to_project("P1234", "settings_id")
+
+    mock_project_settings.assert_not_called()
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.ProjectSettings")
+def test_unassign_settings_from_archived_project_raises(
+    mock_project_settings: MagicMock,
+    mock_connect_db: MagicMock,  # noqa: ARG001
+) -> None:
+    """Test that unassigning settings from an archived project raises ValueError."""
+    mock_ps = mock_project_settings.objects.get.return_value
+    mock_ps.project.status = ProjectStatus.INACTIVE
+    mock_ps.project.id = "P1234"
+
+    with pytest.raises(ValueError, match="archived or deleted project 'P1234'"):
+        unassign_settings_from_project("ps_id_123")
+
+    mock_ps.delete.assert_not_called()
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.Project")
+def test_delete_project(mock_project: MagicMock, mock_connect_db: MagicMock) -> None:
+    """Test that delete_project sets the project status to DELETED."""
+    mock_project.objects.get.return_value.status = ProjectStatus.ACTIVE
+
+    delete_project("P1234")
+
+    mock_project.objects.assert_called_once_with(id="P1234")
+    mock_project.objects.return_value.update_one.assert_called_once_with(
+        status=ProjectStatus.DELETED
+    )
+    mock_connect_db.assert_called_once()
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.Project")
+def test_delete_archived_project_raises(
+    mock_project: MagicMock,
+    mock_connect_db: MagicMock,  # noqa: ARG001
+) -> None:
+    """Test that an archived project cannot be deleted."""
+    mock_project.objects.get.return_value.status = ProjectStatus.INACTIVE
+
+    with pytest.raises(ValueError, match="Cannot delete archived project 'P1234'"):
+        delete_project("P1234")
+
+    mock_project.objects.assert_not_called()
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.ProjectSettings")
+@patch("shared.db.interface.Settings")
+def test_delete_settings(
+    mock_settings: MagicMock,
+    mock_project_settings: MagicMock,
+    mock_connect_db: MagicMock,
+) -> None:
+    """Test that delete_settings sets the status of unassigned settings to DELETED."""
+    mock_settings.objects.get.return_value.status = SettingsStatus.ACTIVE
+    mock_project_settings.objects.return_value = []
+
+    delete_settings("settings_id")
+
+    mock_settings.objects.assert_called_once_with(id="settings_id")
+    mock_settings.objects.return_value.update_one.assert_called_once_with(
+        status=SettingsStatus.DELETED
+    )
+    mock_connect_db.assert_called_once()
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.ProjectSettings")
+@patch("shared.db.interface.Settings")
+def test_delete_archived_settings_raises(
+    mock_settings: MagicMock,
+    mock_project_settings: MagicMock,  # noqa: ARG001
+    mock_connect_db: MagicMock,  # noqa: ARG001
+) -> None:
+    """Test that archived settings cannot be deleted."""
+    mock_settings_instance = mock_settings.objects.get.return_value
+    mock_settings_instance.status = SettingsStatus.INACTIVE
+    mock_settings_instance.name = "s1"
+    mock_settings_instance.version = 2
+
+    with pytest.raises(
+        ValueError, match="Cannot delete archived settings 's1' version 2"
+    ):
+        delete_settings("settings_id")
+
+    mock_settings.objects.assert_not_called()
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.ProjectSettings")
+@patch("shared.db.interface.Settings")
+def test_delete_assigned_settings_raises(
+    mock_settings: MagicMock,
+    mock_project_settings: MagicMock,
+    mock_connect_db: MagicMock,  # noqa: ARG001
+) -> None:
+    """Test that settings assigned to any project cannot be deleted."""
+    mock_settings_instance = mock_settings.objects.get.return_value
+    mock_settings_instance.status = SettingsStatus.ACTIVE
+    mock_settings_instance.name = "s1"
+    mock_settings_instance.version = 2
+    ps1, ps2 = MagicMock(), MagicMock()
+    ps1.project.id = "P2"
+    ps2.project.id = "P1"
+    mock_project_settings.objects.return_value = [ps1, ps2]
+
+    with pytest.raises(ValueError, match="still assigned to projects P1, P2"):
+        delete_settings("settings_id")
+
+    mock_settings.objects.assert_not_called()

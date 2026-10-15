@@ -40,7 +40,6 @@ class Tasks(metaclass=ConstantsClass):
     UPLOAD_TO_S3: str = "upload_to_s3"
     START_S3_UPLOADER: str = "start_s3_uploader"
     START_FILE_MOVER: str = "start_file_mover"
-    DECIDE_PROCESSING: str = "decide_processing"
     START_ACQUISITION_PROCESSOR: str = "start_acquisition_processor"
 
     RESOLVE_SETTINGS: str = "resolve_settings"
@@ -51,7 +50,6 @@ class Tasks(metaclass=ConstantsClass):
     MONITOR_JOB: str = "monitor_job"
     CHECK_JOB_RESULT: str = "check_job_result"
     COMPUTE_METRICS: str = "compute_metrics"
-    STORE_METRICS: str = "store_metrics"
 
     FINALIZE_STATUS: str = "finalize_status"
 

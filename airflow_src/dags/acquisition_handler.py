@@ -9,6 +9,7 @@ from airflow.providers.standard.operators.python import (
     ShortCircuitOperator,
 )
 from airflow.sdk import DAG, Param, ParamsDict
+from airflow.task.trigger_rule import TriggerRule
 from callbacks import on_failure_callback
 from common.constants import (
     AIRFLOW_QUEUE_PREFIX,
@@ -29,7 +30,6 @@ from common.settings import (
 from impl.handler_impl import (
     compute_checksum,
     copy_raw_file,
-    decide_processing,
     start_acquisition_processor,
     start_file_mover,
     start_s3_uploader,
@@ -91,47 +91,40 @@ def create_acquisition_handler_dag(instrument_id: str) -> None:
             pool=Pools.FILE_COPY_POOL,
         )
 
-        if is_s3_upload_enabled():
-            start_s3_uploader_ = PythonOperator(
-                task_id=Tasks.START_S3_UPLOADER,
-                python_callable=start_s3_uploader,
-            )
-
-        start_file_mover_ = PythonOperator(
-            task_id=Tasks.START_FILE_MOVER,
-            python_callable=start_file_mover,
-            op_kwargs={OpArgs.INSTRUMENT_ID: instrument_id},
-        )
-
-        decide_processing_ = ShortCircuitOperator(
-            task_id=Tasks.DECIDE_PROCESSING,
-            python_callable=decide_processing,
-        )
-
         start_acquisition_processor_ = PythonOperator(
             task_id=Tasks.START_ACQUISITION_PROCESSOR,
             python_callable=start_acquisition_processor,
             op_kwargs={OpArgs.INSTRUMENT_ID: instrument_id},
         )
 
-    if not is_s3_upload_enabled():
-        (
-            monitor_acquisition_
-            >> compute_checksum_
-            >> copy_raw_file_
-            >> start_file_mover_
-            >> decide_processing_
-            >> start_acquisition_processor_
+        # run regardless of start_acquisition_processor outcome, but only if copy_raw_file succeeded
+        if is_s3_upload_enabled():
+            start_s3_uploader_ = PythonOperator(
+                task_id=Tasks.START_S3_UPLOADER,
+                python_callable=start_s3_uploader,
+                trigger_rule=TriggerRule.ALL_DONE_MIN_ONE_SUCCESS,
+            )
+
+        start_file_mover_ = PythonOperator(
+            task_id=Tasks.START_FILE_MOVER,
+            python_callable=start_file_mover,
+            op_kwargs={OpArgs.INSTRUMENT_ID: instrument_id},
+            trigger_rule=TriggerRule.ALL_DONE_MIN_ONE_SUCCESS,
         )
+
+    (
+        monitor_acquisition_
+        >> compute_checksum_
+        >> copy_raw_file_
+        >> start_acquisition_processor_
+    )
+    if not is_s3_upload_enabled():
+        [copy_raw_file_, start_acquisition_processor_] >> start_file_mover_
     else:
         (
-            monitor_acquisition_
-            >> compute_checksum_
-            >> copy_raw_file_
+            [copy_raw_file_, start_acquisition_processor_]
             >> start_s3_uploader_
             >> start_file_mover_
-            >> decide_processing_
-            >> start_acquisition_processor_
         )
 
 

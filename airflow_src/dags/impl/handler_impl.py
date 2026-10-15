@@ -475,14 +475,8 @@ def _is_settings_configured(raw_file: RawFile) -> bool:
     return len(resolved_settings) > 0
 
 
-def decide_processing(ti: TaskInstance, **kwargs) -> bool:
-    """Decide whether to start the acquisition_processor DAG.
-
-    Skip the downstream tasks if the raw file is not suitable for processing:
-        - if the acquisition monitor has reported errors
-        - if the raw file name contains special characters
-    """
-    raw_file_id = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID]
+def _decide_processing(ti: TaskInstance, raw_file_id: str) -> bool:
+    """Return True if the raw file is suitable for processing, otherwise update its status and return False."""
     acquisition_monitor_errors = get_xcom(
         ti,
         XComKeys.ACQUISITION_MONITOR_ERRORS,
@@ -515,9 +509,9 @@ def decide_processing(ti: TaskInstance, **kwargs) -> bool:
         new_status = RawFileStatus.DONE_NOT_QUANTED
         status_details = "No settings configured."
     else:
-        return True  # continue with downstream tasks
+        return True
 
-    logging.info(f"Skipping downstream tasks: {status_details=}")
+    logging.info(f"Skipping processing: {status_details=}")
 
     update_raw_file(
         raw_file_id,
@@ -525,7 +519,7 @@ def decide_processing(ti: TaskInstance, **kwargs) -> bool:
         status_details=status_details,
     )
 
-    return False  # skip downstream tasks
+    return False
 
 
 def start_acquisition_processor(ti: TaskInstance, **kwargs) -> None:
@@ -534,10 +528,13 @@ def start_acquisition_processor(ti: TaskInstance, **kwargs) -> None:
     Each raw file is added to the database first.
     Then, for each raw file, the project id is determined.
     Only for raw files that carry a project id, the acquisition_handler DAG is triggered.
+    Raw files not suitable for processing are skipped.
     """
-    del ti  # unused
     instrument_id = kwargs[OpArgs.INSTRUMENT_ID]
     raw_file_id = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID]
+
+    if not _decide_processing(ti, raw_file_id):
+        return
 
     dag_id_to_trigger = f"{Dags.ACQUISITION_PROCESSOR}{DAG_DELIMITER}{instrument_id}"
 

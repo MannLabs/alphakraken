@@ -11,13 +11,13 @@ from common.keys import AcquisitionMonitorErrors, DagContext, DagParams, OpArgs
 from common.settings import _INSTRUMENTS
 from dags.impl.handler_impl import (
     _count_special_characters,
+    _decide_processing,
     _handle_file_copying,
     _is_raw_file_listed,
     _is_settings_configured,
     _verify_copied_files,
     compute_checksum,
     copy_raw_file,
-    decide_processing,
     start_acquisition_processor,
     start_file_mover,
     start_s3_uploader,
@@ -1066,20 +1066,17 @@ def test_start_s3_uploader(
 )
 @patch("dags.impl.handler_impl.get_instrument_settings", return_value=False)
 @patch("dags.impl.handler_impl._is_settings_configured", return_value=True)
-def test_decide_processing_returns_true_if_no_errors(
+def test__decide_processing_returns_true_if_no_errors(
     mock_is_settings_configured: MagicMock,  # noqa:ARG001
     mock_get_instrument_settings: MagicMock,  # noqa:ARG001
     mock_get_raw_file_by_id: MagicMock,  # noqa:ARG001
     mock_get_xcom: MagicMock,  # noqa:ARG001
 ) -> None:
-    """Test decide_processing returns True if no errors are present."""
+    """Test _decide_processing returns True if no errors are present."""
     ti = MagicMock()
-    kwargs = {
-        DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"},
-    }
 
     # when
-    assert decide_processing(ti, **kwargs) is True
+    assert _decide_processing(ti, "some_file.raw") is True
 
 
 @patch(
@@ -1089,20 +1086,17 @@ def test_decide_processing_returns_true_if_no_errors(
 @patch("dags.impl.handler_impl.get_raw_file_by_id", return_value=MagicMock())
 @patch("dags.impl.handler_impl.update_raw_file")
 @patch("dags.impl.handler_impl.get_instrument_settings", return_value=False)
-def test_decide_processing_returns_false_if_acquisition_errors_present(
+def test__decide_processing_returns_false_if_acquisition_errors_present(
     mock_get_instrument_settings: MagicMock,  # noqa:ARG001
     mock_update_raw_file: MagicMock,
     mock_get_raw_file_by_id: MagicMock,  # noqa:ARG001
     mock_get_xcom: MagicMock,  # noqa:ARG001
 ) -> None:
-    """Test decide_processing returns False if acquisition errors are present."""
+    """Test _decide_processing returns False if acquisition errors are present."""
     ti = MagicMock()
-    kwargs = {
-        DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"},
-    }
 
     # when
-    assert decide_processing(ti, **kwargs) is False
+    assert _decide_processing(ti, "some_file.raw") is False
 
     mock_update_raw_file.assert_called_once_with(
         "some_file.raw",
@@ -1115,20 +1109,17 @@ def test_decide_processing_returns_false_if_acquisition_errors_present(
 @patch("dags.impl.handler_impl.get_raw_file_by_id", return_value=MagicMock(size=0))
 @patch("dags.impl.handler_impl.get_instrument_settings", return_value=False)
 @patch("dags.impl.handler_impl.update_raw_file")
-def test_decide_processing_returns_false_if_file_size_zero(
+def test__decide_processing_returns_false_if_file_size_zero(
     mock_update_raw_file: MagicMock,
     mock_get_instrument_settings: MagicMock,  # noqa:ARG001
     mock_get_raw_file_by_id: MagicMock,  # noqa:ARG001
     mock_get_xcom: MagicMock,  # noqa:ARG001
 ) -> None:
-    """Test decide_processing returns False if file has size 0."""
+    """Test _decide_processing returns False if file has size 0."""
     ti = MagicMock()
-    kwargs = {
-        DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"},
-    }
 
     # when
-    assert decide_processing(ti, **kwargs) is False
+    assert _decide_processing(ti, "some_file.raw") is False
     mock_update_raw_file.assert_called_once_with(
         "some_file.raw",
         new_status=RawFileStatus.ACQUISITION_FAILED,
@@ -1143,20 +1134,17 @@ def test_decide_processing_returns_false_if_file_size_zero(
 )
 @patch("dags.impl.handler_impl.get_instrument_settings", return_value=True)
 @patch("dags.impl.handler_impl.update_raw_file")
-def test_decide_processing_returns_false_if_skip_processing_is_set(
+def test__decide_processing_returns_false_if_skip_processing_is_set(
     mock_update_raw_file: MagicMock,
     mock_get_instrument_settings: MagicMock,
     mock_get_raw_file_by_id: MagicMock,  # noqa:ARG001
     mock_get_xcom: MagicMock,  # noqa:ARG001
 ) -> None:
-    """Test decide_processing returns False if instrument settings has skip_processing set."""
+    """Test _decide_processing returns False if instrument settings has skip_processing set."""
     ti = MagicMock()
-    kwargs = {
-        DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"},
-    }
 
     # when
-    assert decide_processing(ti, **kwargs) is False
+    assert _decide_processing(ti, "some_file.raw") is False
     mock_get_instrument_settings.assert_called_once_with(
         "instrument1", "skip_processing"
     )
@@ -1175,21 +1163,18 @@ def test_decide_processing_returns_false_if_skip_processing_is_set(
 @patch("dags.impl.handler_impl.get_instrument_settings", return_value=False)
 @patch("dags.impl.handler_impl._count_special_characters", return_value=1)
 @patch("dags.impl.handler_impl.update_raw_file")
-def test_decide_processing_returns_false_if_special_characters(
+def test__decide_processing_returns_false_if_special_characters(
     mock_update_raw_file: MagicMock,
     mock_count_special_characters: MagicMock,  # noqa:ARG001
     mock_get_instrument_settings: MagicMock,  # noqa:ARG001
     mock_get_raw_file_by_id: MagicMock,  # noqa:ARG001
     mock_get_xcom: MagicMock,  # noqa:ARG001
 ) -> None:
-    """Test decide_processing returns False if file name contains special characters."""
+    """Test _decide_processing returns False if file name contains special characters."""
     ti = MagicMock()
-    kwargs = {
-        DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"},
-    }
 
     # when
-    assert decide_processing(ti, **kwargs) is False
+    assert _decide_processing(ti, "some_file.raw") is False
     mock_update_raw_file.assert_called_once_with(
         "some_file.raw",
         new_status=RawFileStatus.DONE_NOT_QUANTED,
@@ -1203,7 +1188,7 @@ def test_decide_processing_returns_false_if_special_characters(
 @patch("dags.impl.handler_impl._count_special_characters", return_value=0)
 @patch("dags.impl.handler_impl.ThermoRawFileMonitorWrapper", return_value=MagicMock())
 @patch("dags.impl.handler_impl.update_raw_file")
-def test_decide_processing_returns_false_if_corrupted_file(  # noqa: PLR0913
+def test__decide_processing_returns_false_if_corrupted_file(  # noqa: PLR0913
     mock_update_raw_file: MagicMock,
     mock_raw_file_monitor_wrapper: MagicMock,
     mock_count_special_characters: MagicMock,  # noqa:ARG001
@@ -1211,18 +1196,15 @@ def test_decide_processing_returns_false_if_corrupted_file(  # noqa: PLR0913
     mock_get_raw_file_by_id: MagicMock,  # noqa:ARG001
     mock_get_xcom: MagicMock,  # noqa:ARG001
 ) -> None:
-    """Test decide_processing returns False if the raw file name indicates a failed acquisition."""
+    """Test _decide_processing returns False if the raw file name indicates a failed acquisition."""
     ti = MagicMock()
-    kwargs = {
-        DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"},
-    }
 
     mock_raw_file_monitor_wrapper.return_value.is_corrupted_file_name.return_value = (
         True
     )
 
     # when
-    assert decide_processing(ti, **kwargs) is False
+    assert _decide_processing(ti, "some_file.raw") is False
     mock_update_raw_file.assert_called_once_with(
         "some_file.raw",
         new_status=RawFileStatus.ACQUISITION_FAILED,
@@ -1240,7 +1222,7 @@ def test_decide_processing_returns_false_if_corrupted_file(  # noqa: PLR0913
 @patch("dags.impl.handler_impl.ThermoRawFileMonitorWrapper")
 @patch("dags.impl.handler_impl._is_settings_configured", return_value=False)
 @patch("dags.impl.handler_impl.update_raw_file")
-def test_decide_processing_returns_false_if_settings_not_configured(  # noqa: PLR0913
+def test__decide_processing_returns_false_if_settings_not_configured(  # noqa: PLR0913
     mock_update_raw_file: MagicMock,
     mock_is_settings_configured: MagicMock,  # noqa:ARG001
     mock_raw_file_monitor_wrapper: MagicMock,
@@ -1249,16 +1231,13 @@ def test_decide_processing_returns_false_if_settings_not_configured(  # noqa: PL
     mock_get_raw_file_by_id: MagicMock,  # noqa:ARG001
     mock_get_xcom: MagicMock,  # noqa:ARG001
 ) -> None:
-    """Test decide_processing returns False if settings are not configured for the project."""
+    """Test _decide_processing returns False if settings are not configured for the project."""
     ti = MagicMock()
-    kwargs = {
-        DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"},
-    }
 
     mock_raw_file_monitor_wrapper.is_corrupted_file_name.return_value = False
 
     # when
-    assert decide_processing(ti, **kwargs) is False
+    assert _decide_processing(ti, "some_file.raw") is False
     mock_update_raw_file.assert_called_once_with(
         "some_file.raw",
         new_status=RawFileStatus.DONE_NOT_QUANTED,
@@ -1427,11 +1406,13 @@ def test_handle_file_copying_multiple_files(
     mock_get_file_size.assert_called_once_with(dst_path2)
 
 
+@patch("dags.impl.handler_impl._decide_processing", return_value=True)
 @patch("dags.impl.handler_impl.trigger_dag_run")
 @patch("dags.impl.handler_impl.update_raw_file")
 def test_start_acquisition_processor_with_single_file(
     mock_update_raw_file: MagicMock,
     mock_trigger_dag_run: MagicMock,
+    mock_decide_processing: MagicMock,  # noqa: ARG001
 ) -> None:
     """Test start_acquisition_processor with a single file."""
     # given
@@ -1457,6 +1438,32 @@ def test_start_acquisition_processor_with_single_file(
     mock_update_raw_file.assert_called_once_with(
         "file1.raw", new_status=RawFileStatus.QUEUED_FOR_QUANTING
     )
+
+
+@patch("dags.impl.handler_impl._decide_processing", return_value=False)
+@patch("dags.impl.handler_impl.trigger_dag_run")
+@patch("dags.impl.handler_impl.update_raw_file")
+def test_start_acquisition_processor_skipped_if_not_suitable(
+    mock_update_raw_file: MagicMock,
+    mock_trigger_dag_run: MagicMock,
+    mock_decide_processing: MagicMock,
+) -> None:
+    """Test start_acquisition_processor does not trigger if raw file is not suitable for processing."""
+    ti = Mock()
+
+    # when
+    start_acquisition_processor(
+        ti,
+        **{
+            OpArgs.INSTRUMENT_ID: "instrument1",
+            DagContext.PARAMS: {DagParams.RAW_FILE_ID: "file1.raw"},
+        },
+    )
+
+    # then
+    mock_decide_processing.assert_called_once_with(ti, "file1.raw")
+    mock_trigger_dag_run.assert_not_called()
+    mock_update_raw_file.assert_not_called()
 
 
 @patch("dags.impl.handler_impl.resolve_scoped_settings", return_value=[MagicMock()])

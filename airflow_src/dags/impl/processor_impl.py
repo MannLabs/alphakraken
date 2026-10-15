@@ -508,12 +508,11 @@ def compute_metrics(
     *,
     quanting_env_dict: dict,
     time_elapsed: int | None = None,
-) -> dict:
-    """Compute metrics from the quanting results.
+) -> None:
+    """Compute metrics from the quanting results and store them in the database.
 
     :param quanting_env_dict: The quanting environment as a dict, as received via XCom.
     :param time_elapsed: Elapsed time from the quanting job, added to metrics if provided.
-    :return: The metrics.
     """
     quanting_env = QuantingEnv.from_dict(quanting_env_dict)
 
@@ -524,17 +523,6 @@ def compute_metrics(
 
     if time_elapsed is not None:  # TODO: find a better way to handle this also for msqc
         metrics[TIME_ELAPSED_METRIC] = time_elapsed
-
-    return metrics
-
-
-def store_metrics(*, quanting_env_dict: dict, metrics: dict) -> None:
-    """Store metrics in the database.
-
-    :param quanting_env_dict: The quanting environment as a dict, as received via XCom.
-    :param metrics: The metrics.
-    """
-    quanting_env = QuantingEnv.from_dict(quanting_env_dict)
 
     add_metrics_to_raw_file(
         quanting_env.raw_file_id,

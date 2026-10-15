@@ -43,7 +43,6 @@ from jobs.job_handler import (
     get_job_result,
     start_job,
 )
-from metrics.metrics_calculator import calc_metrics
 from mongoengine import DoesNotExist
 
 from shared.config_params import (
@@ -514,6 +513,9 @@ def compute_metrics(
     :param quanting_env_dict: The quanting environment as a dict, as received via XCom.
     :param time_elapsed: Elapsed time from the quanting job, added to metrics if provided.
     """
+    # imported here as it pulls in pandas (~1s), which would otherwise slow down every task of this DAG
+    from metrics.metrics_calculator import calc_metrics
+
     quanting_env = QuantingEnv.from_dict(quanting_env_dict)
 
     metrics_type = quanting_env.metrics_type

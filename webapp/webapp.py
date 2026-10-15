@@ -3,6 +3,7 @@
 import os
 
 import streamlit as st
+from service.admin import show_admin_login
 from service.utils import _log
 
 from shared.keys import EnvVars
@@ -35,6 +36,8 @@ pages = [
 
 # Create navigation
 pg = st.navigation(pages, position="top")
+
+show_admin_login()
 
 # Run the selected page
 pg.run()

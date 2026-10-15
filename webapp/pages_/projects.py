@@ -7,12 +7,13 @@ import pandas as pd
 import streamlit as st
 import streamlit.delta_generator
 from pages_.impl.projects_utils import get_resolved_settings_df
+from service.admin import is_admin
 from service.components import show_filter, show_sandbox_message
 from service.db import (
     df_from_db_data,
     get_project_data,
 )
-from service.query_params import QueryParams, get_all_query_params, is_query_param_true
+from service.query_params import get_all_query_params
 from service.utils import (
     DISABLE_WRITE,
     _log,
@@ -149,9 +150,7 @@ with c_assign1:
     )
 
     is_fallback = selected_project_id == FALLBACK_PROJECT_ID
-    disable_write = DISABLE_WRITE or (
-        is_fallback and not is_query_param_true(QueryParams.ADMIN)
-    )
+    disable_write = DISABLE_WRITE or (is_fallback and not is_admin())
 
     if selected_project_id:
         current_ps_list = get_project_settings(selected_project_id)

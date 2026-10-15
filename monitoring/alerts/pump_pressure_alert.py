@@ -42,6 +42,18 @@ class PressureDataPoint:
     raw_file_id: str
 
 
+@dataclass(frozen=True)
+class PumpPressureIssue:
+    """Details of a pump pressure issue."""
+
+    details: str
+    raw_file_id: str
+
+    def __str__(self) -> str:
+        """Return the details, e.g. for matching suppressions."""
+        return self.details
+
+
 class PumpPressureAlert(BaseAlert):
     """Check for pump pressure increases across instruments."""
 
@@ -65,7 +77,9 @@ class PumpPressureAlert(BaseAlert):
             return DEFAULT_ALERT_COOLDOWN_TIME_MINUTES
         return 0
 
-    def _get_issues(self, status_objects: list[KrakenStatus]) -> list[tuple[str, str]]:
+    def _get_issues(
+        self, status_objects: list[KrakenStatus]
+    ) -> list[tuple[str, PumpPressureIssue]]:
         """Check for pump pressure increases per instrument."""
         # Get all instrument IDs
         instrument_ids = [
@@ -122,7 +136,11 @@ class PumpPressureAlert(BaseAlert):
                     issues.append(
                         (
                             instrument_id,
-                            f"Pressure changes: {self._format(pressure_changes)}",
+                            PumpPressureIssue(
+                                f"Pressure changes: {self._format(pressure_changes)}",
+                                # the younger file of the (single) change
+                                pressure_changes[0][4],
+                            ),
                         )
                     )
                 else:
@@ -146,7 +164,10 @@ class PumpPressureAlert(BaseAlert):
                     issues.append(
                         (
                             f"{ABSOLUTE_IDENTIFIER_PREFIX}{instrument_id}",
-                            f"High pressure: {pressure:.1f} bar (≥{PUMP_PRESSURE_ABSOLUTE_THRESHOLD_BAR} bar) in `{raw_file_id}` at {timestamp.strftime('%Y-%m-%d %H:%M:%S')}",
+                            PumpPressureIssue(
+                                f"High pressure: {pressure:.1f} bar (≥{PUMP_PRESSURE_ABSOLUTE_THRESHOLD_BAR} bar) in `{raw_file_id}` at {timestamp.strftime('%Y-%m-%d %H:%M:%S')}",
+                                raw_file_id,
+                            ),
                         )
                     )
                 else:
@@ -293,9 +314,13 @@ class PumpPressureAlert(BaseAlert):
 
         return high_pressure_measurements
 
-    def format_message(self, issues: list[tuple[str, str | None]]) -> str:
+    def get_relevant_file(self, issue: tuple[str, PumpPressureIssue]) -> str:
+        """Return the raw file showing the pressure issue."""
+        return issue[1].raw_file_id
+
+    def format_message(self, issues: list[tuple[str, PumpPressureIssue]]) -> str:
         """Format pump pressure alert message."""
         instruments_str = "\n".join(
-            [f"- `{instrument_id}`: {details}" for instrument_id, details in issues]
+            [f"- `{instrument_id}`: {issue.details}" for instrument_id, issue in issues]
         )
         return f"Pump pressure increase detected:\n{instruments_str}"

@@ -1,5 +1,6 @@
 # shared between airflow and the Streamlit webapp
-pymongo==4.7.2
-mongoengine==0.28.2
-pytz==2026.3.post1 # same version as in the airflow constraint file
-pydantic==2.13.5 # same version as in the airflow constraint file
+# versions must equal the ones in the airflow constraint file (cf. airflow_src/requirements_airflow.txt)
+pymongo==4.18.1
+mongoengine==0.29.3
+pytz==2026.3.post1
+pydantic==2.13.5

@@ -13,6 +13,7 @@ from service.db import (
     df_from_db_data,
     get_project_data,
 )
+from service.owner import add_owner_initials, show_owner_selectbox
 from service.query_params import get_all_query_params
 from service.utils import (
     DISABLE_WRITE,
@@ -70,7 +71,7 @@ st.markdown("## Current projects")
 # ########################################### LOGIC
 
 projects_db = get_project_data()
-projects_df = df_from_db_data(projects_db)
+projects_df = add_owner_initials(df_from_db_data(projects_db))
 
 # build settings names column via ProjectSettings M:N relationship
 _project_to_settings: dict[str, list[str]] = {}
@@ -394,6 +395,7 @@ with c1.form("create_project_form"):
     project_name = st.text_input(**form_items["project_name"])
     project_id = st.text_input(**form_items["project_id"])
     project_description = st.text_area(**form_items["project_description"])
+    owner_email = show_owner_selectbox(st)
 
     st.write(r"\* Required fields")
     form_submit = st.form_submit_button(
@@ -429,6 +431,7 @@ if form_submit:
             project_id=empty_to_none(project_id),
             name=empty_to_none(project_name),
             description=project_description,
+            owner_email=owner_email,
         )
     except Exception as e:  # noqa: BLE001
         show_error_toast(str(e))

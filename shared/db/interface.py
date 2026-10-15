@@ -25,6 +25,8 @@ from shared.db.models import (
     SettingsStatus,
     SlurmJob,
     SlurmJobQueueStates,
+    User,
+    UserStatus,
     get_slurm_job_db_id,
 )
 from shared.keys import DEFAULT_SCOPE
@@ -227,11 +229,18 @@ def add_metrics_to_raw_file(  # noqa: PLR0913
     ).save()
 
 
-def add_project(*, project_id: str, name: str, description: str) -> None:
+def add_project(
+    *, project_id: str, name: str, description: str, owner_email: str | None = None
+) -> None:
     """Add a new project to the database."""
-    logging.info(f"Adding to DB: {project_id=} {name=} {description=}")
+    logging.info(f"Adding to DB: {project_id=} {name=} {description=} {owner_email=}")
     connect_db()
-    project = Project(id=project_id, name=name, description=description)
+    project = Project(
+        id=project_id,
+        name=name,
+        description=description,
+        owner=_get_owner(owner_email),
+    )
     # this will fail if the project id already exists
     project.save(force_insert=True)
 
@@ -339,6 +348,7 @@ def create_settings(  # noqa: PLR0913
     slurm_mem: str | None = None,
     slurm_time: str | None = None,
     num_threads: int | None = None,
+    owner_email: str | None = None,
 ) -> Settings:
     """Create a new settings entry.
 
@@ -370,10 +380,60 @@ def create_settings(  # noqa: PLR0913
         slurm_mem=slurm_mem,
         slurm_time=slurm_time,
         num_threads=num_threads,
+        owner=_get_owner(owner_email),
     )
     settings.save(force_insert=True)
     logging.info(f"Created settings: {name=} {version=}")
     return settings
+
+
+def _get_owner(owner_email: str | None) -> User | None:
+    """Get the user to set as owner, raises if it does not exist."""
+    return User.objects.get(email=owner_email) if owner_email else None
+
+
+def add_user(*, email: str, initials: str) -> User:
+    """Add a new active user."""
+    connect_db()
+    if User.objects(email=email).first():
+        raise ValueError(f"A user with email '{email}' already exists.")
+    _check_initials_unique(initials)
+    user = User(email=email, initials=initials)
+    user.save(force_insert=True)
+    logging.info(f"Added user: {email=} {initials=}")
+    return user
+
+
+def update_user(email: str, *, initials: str) -> None:
+    """Update the initials of a user, the email is immutable."""
+    connect_db()
+    _check_initials_unique(initials, exclude_email=email)
+    user = User.objects.get(email=email)
+    user.initials = initials
+    # save() instead of update() to run the field validation
+    user.save()
+    logging.info(f"Updated user: {email=} {initials=}")
+
+
+def _check_initials_unique(initials: str, *, exclude_email: str | None = None) -> None:
+    """Raise if another user already has the initials."""
+    others = User.objects(email__ne=exclude_email) if exclude_email else User.objects
+    if others(initials=initials).first():
+        raise ValueError(f"A user with initials '{initials}' already exists.")
+
+
+def set_user_status(email: str, status: str) -> None:
+    """Set the status of a user, used for soft-deleting."""
+    connect_db()
+    User.objects(email=email).update_one(status=status)
+    logging.info(f"Set user status: {email=} {status=}")
+
+
+def get_all_users(*, include_inactive: bool = False) -> list[User]:
+    """Get all users, ordered by initials."""
+    connect_db()
+    users = User.objects if include_inactive else User.objects(status=UserStatus.ACTIVE)
+    return list(users.order_by("initials"))
 
 
 def get_settings_by_id(settings_id: str) -> Settings:

@@ -23,6 +23,7 @@ from service.db import (
     get_project_data,
     get_settings_data,
 )
+from service.owner import add_owner_initials, show_owner_selectbox
 from service.query_params import get_all_query_params
 from service.settings_validation import check_runner_supports_software_type
 from service.utils import (
@@ -100,7 +101,9 @@ def display_settings(
     if st_display is None:
         st_display = st
     filtered_df, *_ = show_filter(
-        settings_df, st_display=st_display, default_value="status=^active"
+        add_owner_initials(settings_df),
+        st_display=st_display,
+        default_value="status=^active",
     )
 
     filtered_df = filtered_df.drop(columns=["_id"], errors="ignore").fillna("")
@@ -175,6 +178,7 @@ selected_name_option = c1.selectbox(
 # Show info banner if existing settings selected and get latest version data for prefilling
 prefill_data = defaultdict(lambda: "")  # TODO: normal dict?
 current_version = -1
+prefill_owner_email = None
 if selected_name_option != CREATE_NEW_OPTION:
     # Get the latest version of the selected settings
     latest_settings = (
@@ -200,6 +204,8 @@ if selected_name_option != CREATE_NEW_OPTION:
         "slurm_time": str(latest_settings.get("slurm_time", "")),
         "num_threads": latest_settings.get("num_threads", ""),
     }
+    owner = latest_settings.get("owner")
+    prefill_owner_email = None if pd.isna(owner) else str(owner)
     # Conversion for legacy data. Remove once all is transferred.
     for k, v in prefill_data.items():
         if pd.isna(v):
@@ -287,6 +293,7 @@ else:
 description = c1.text_area(
     **form_items["description"], value=prefill_data["description"]
 )
+owner_email = show_owner_selectbox(c1, prefill_owner_email)
 
 settings_using_software = get_settings_using_software(
     all_settings_df, software_type, runner_name
@@ -535,6 +542,7 @@ if submit:
             slurm_mem=empty_to_none(slurm_mem),
             slurm_time=empty_to_none(slurm_time),
             num_threads=num_threads,
+            owner_email=owner_email,
         )
     except Exception as e:  # noqa: BLE001
         show_error_toast(str(e))

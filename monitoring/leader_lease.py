@@ -6,9 +6,9 @@ from datetime import datetime, timedelta
 import pytz
 from mongoengine.connection import get_db
 from pymongo import ReturnDocument
-from pymongo.errors import DuplicateKeyError
+from pymongo.errors import DuplicateKeyError, PyMongoError
 
-LEASE_COLLECTION = "monitoring_leader_lease"
+LEASE_COLLECTION = "alerting_leader_lease"
 LEASE_ID = "monitoring"
 
 
@@ -23,6 +23,9 @@ class LeaderLease:
 
     def try_acquire(self) -> bool:
         """Acquire or renew the lease, return whether this instance is the leader.
+
+        Fails open: if the lease cannot be read or written (e.g. missing permissions), this
+        instance acts as leader, as duplicate alerts are preferable to no alerts.
 
         Note: expiry is compared against this instance's clock, so clocks of all instances must be roughly in sync.
         """
@@ -47,6 +50,11 @@ class LeaderLease:
             is_leader = lease["holder"] == self._holder
         except DuplicateKeyError:
             is_leader = False
+        except PyMongoError:
+            logging.exception(
+                "Failed to acquire monitoring leader lease, acting as leader"
+            )
+            is_leader = True
 
         if is_leader != self._is_leader:
             logging.info(

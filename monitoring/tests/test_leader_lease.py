@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import pytz
-from pymongo.errors import DuplicateKeyError
+from pymongo.errors import DuplicateKeyError, OperationFailure
 
 from monitoring.leader_lease import LEASE_COLLECTION, LEASE_ID, LeaderLease
 
@@ -67,3 +67,16 @@ def test_try_acquire_should_fail_when_returned_lease_belongs_to_other_instance(
 
     # when / then
     assert LeaderLease("me", LEASE_DURATION).try_acquire() is False
+
+
+def test_try_acquire_should_fail_open_when_lease_cannot_be_written(
+    mock_collection: MagicMock,
+) -> None:
+    """Without permission to write the lease, every instance sends rather than none."""
+    # given
+    mock_collection.find_one_and_update.side_effect = OperationFailure(
+        "not authorized on krakendb to execute command"
+    )
+
+    # when / then
+    assert LeaderLease("me", LEASE_DURATION).try_acquire() is True

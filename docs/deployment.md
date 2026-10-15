@@ -497,11 +497,13 @@ This component allows to detect issues early and to react before they become cri
 See the `monitoring` folder for details.
 
 ## MongoDB User Management
-AlphaKraken implements a role-based access control system for MongoDB with three user types:
+AlphaKraken implements a role-based access control system for MongoDB with four user types:
 
 1. `MONGO_USER_READWRITE`: Full read-write access to the database, used by Airflow workers that need to update file status
-2. `MONGO_USER_READ`: Read-only access to all collections, used by monitoring service
+2. `MONGO_USER_READ`: Read-only access to all collections, used by the MCP server and REST API
 3. `MONGO_USER_WEBAPP`: Custom role with read access to all collections, but write access only to project, settings and user collections
+4. `MONGO_USER_ALERTING`: Custom role with read access to all collections, but write access only to the `alerting_leader_lease` collection,
+used by the monitoring service to elect the one instance that sends alerts
 
 This separation follows the principle of least privilege, ensuring each component has only the permissions it needs.
 

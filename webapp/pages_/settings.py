@@ -39,7 +39,7 @@ from shared.config_params import (
     check_for_unknown_placeholders,
     substitute_dummy_values,
 )
-from shared.db.interface import archive_settings, create_settings
+from shared.db.interface import archive_settings, create_settings, delete_settings
 from shared.db.models import ProjectSettings, ProjectStatus, SettingsStatus
 from shared.display_paths import DISPLAY_PATHS, get_display_settings_path
 from shared.keys import (
@@ -555,9 +555,9 @@ if submit:
         )
 
 
-# ########################################### ARCHIVE SETTINGS
+# ########################################### ARCHIVE/DELETE SETTINGS
 
-c1.markdown("## Archive settings")
+c1.markdown("## Archive or delete settings")
 
 if len(settings_df):
     active_settings_df = settings_df[
@@ -567,24 +567,28 @@ else:
     active_settings_df = pd.DataFrame()
 
 if active_settings_df.empty:
-    c1.info("No active settings to archive.")
+    c1.info("No active settings to archive or delete.")
 else:
-    with c1.expander("Show settings to archive .."):
+    with c1.expander("Show settings to archive or delete .."):
         st.warning(
-            "Archived settings can no longer be assigned to projects or updated."
+            "Archived settings can no longer be assigned to projects or updated. "
+            "Deleted settings are no longer shown. "
+            "Settings can only be deleted if they are not assigned to any project, including archived and deleted ones."
         )
 
         # Map settings ID -> list of active project IDs
         all_ps = ProjectSettings.objects.all()
         active_project_ids = get_active_project_ids()
         assigned_projects: dict[str, list[str]] = defaultdict(list)
+        assigned_settings_ids: set[str] = set()
         for ps in all_ps:
             project_id = str(ps.project.id)
+            assigned_settings_ids.add(str(ps.settings.id))
             if project_id in active_project_ids:
                 assigned_projects[str(ps.settings.id)].append(project_id)
 
         for _, row in active_settings_df.iterrows():
-            col_btn, col_info = st.columns([0.2, 0.8])
+            col_btn, col_delete, col_info = st.columns([0.15, 0.15, 0.7])
             projects = sorted(set(assigned_projects.get(str(row["_id"]), [])))
             projects_str = ", ".join(projects) if projects else "none"
             col_info.write(
@@ -602,6 +606,22 @@ else:
                     get_settings_df.clear()
                     show_success_toast(
                         f"Archived settings '{row['name']}' version {int(row['version'])}."
+                    )
+                except Exception as e:  # noqa: BLE001
+                    show_error_toast(str(e))
+            is_assigned = str(row["_id"]) in assigned_settings_ids
+            if col_delete.button(
+                "Delete",
+                key=f"delete_{row['_id']}",
+                disabled=DISABLE_WRITE or is_assigned,
+                help="Unassign from all projects first." if is_assigned else "",
+                icon=":material/delete:",
+            ):
+                try:
+                    delete_settings(row["_id"])
+                    get_settings_df.clear()
+                    show_success_toast(
+                        f"Deleted settings '{row['name']}' version {int(row['version'])}."
                     )
                 except Exception as e:  # noqa: BLE001
                     show_error_toast(str(e))

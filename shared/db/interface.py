@@ -20,6 +20,7 @@ from shared.db.models import (
     Metrics,
     Project,
     ProjectSettings,
+    ProjectStatus,
     RawFile,
     Settings,
     SettingsStatus,
@@ -30,6 +31,8 @@ from shared.db.models import (
     get_slurm_job_db_id,
 )
 from shared.keys import DEFAULT_SCOPE
+
+_NON_ACTIVE_PROJECT_STATUSES = [ProjectStatus.INACTIVE, ProjectStatus.DELETED]
 
 
 def get_raw_files_by_names(
@@ -235,6 +238,11 @@ def add_project(
     """Add a new project to the database."""
     logging.info(f"Adding to DB: {project_id=} {name=} {description=} {owner_email=}")
     connect_db()
+    existing = Project.objects(id=project_id).first()
+    if existing is not None and existing.status == ProjectStatus.DELETED:
+        raise ValueError(
+            f"Project id '{project_id}' was used by a deleted project. Please choose a different one."
+        )
     project = Project(
         id=project_id,
         name=name,
@@ -245,10 +253,26 @@ def add_project(
     project.save(force_insert=True)
 
 
-def get_all_project_ids() -> list[str]:
-    """Get all project ids from the database."""
+def archive_project(project_id: str) -> None:
+    """Archive a project by setting its status to INACTIVE."""
     connect_db()
-    return [p.id for p in Project.objects.all()]
+    Project.objects(id=project_id).update_one(status=ProjectStatus.INACTIVE)
+    logging.info(f"Archived project: {project_id=}")
+
+
+def delete_project(project_id: str) -> None:
+    """Soft-delete a project by setting its status to DELETED."""
+    connect_db()
+    if Project.objects.get(id=project_id).status == ProjectStatus.INACTIVE:
+        raise ValueError(f"Cannot delete archived project '{project_id}'")
+    Project.objects(id=project_id).update_one(status=ProjectStatus.DELETED)
+    logging.info(f"Deleted project: {project_id=}")
+
+
+def get_active_project_ids() -> list[str]:
+    """Get the ids of all projects that are neither archived nor deleted."""
+    connect_db()
+    return [p.id for p in Project.objects(status=ProjectStatus.ACTIVE)]
 
 
 def assign_settings_to_project(  # noqa: PLR0913
@@ -262,6 +286,10 @@ def assign_settings_to_project(  # noqa: PLR0913
     """Create a new project-settings assignment."""
     connect_db()
     project = Project.objects.get(id=project_id)
+    if project.status in _NON_ACTIVE_PROJECT_STATUSES:
+        raise ValueError(
+            f"Cannot assign settings to archived or deleted project '{project_id}'"
+        )
     settings = Settings.objects.get(id=settings_id)
     if settings.status == SettingsStatus.INACTIVE:
         raise ValueError(
@@ -322,7 +350,12 @@ def _lower(filters: list[str]) -> set[str]:
 def unassign_settings_from_project(project_settings_id: str) -> None:
     """Remove a project-settings assignment by its ID."""
     connect_db()
-    ProjectSettings.objects.get(id=project_settings_id).delete()
+    ps = ProjectSettings.objects.get(id=project_settings_id)
+    if ps.project.status in _NON_ACTIVE_PROJECT_STATUSES:
+        raise ValueError(
+            f"Cannot unassign settings from archived or deleted project '{ps.project.id}'"
+        )
+    ps.delete()
     logging.info(f"Removed project-settings assignment: {project_settings_id=}")
 
 
@@ -449,11 +482,33 @@ def archive_settings(settings_id: str) -> None:
     logging.info(f"Archived settings: {settings_id=}")
 
 
+def delete_settings(settings_id: str) -> None:
+    """Soft-delete a settings entry by setting its status to DELETED."""
+    connect_db()
+    settings = Settings.objects.get(id=settings_id)
+    if settings.status == SettingsStatus.INACTIVE:
+        raise ValueError(
+            f"Cannot delete archived settings '{settings.name}' version {settings.version}"
+        )
+    project_ids = sorted(
+        {str(ps.project.id) for ps in ProjectSettings.objects(settings=settings)}
+    )
+    if project_ids:
+        raise ValueError(
+            f"Cannot delete settings '{settings.name}' version {settings.version}: "
+            f"still assigned to projects {', '.join(project_ids)}"
+        )
+    Settings.objects(id=settings_id).update_one(status=SettingsStatus.DELETED)
+    logging.info(f"Deleted settings: {settings_id=}")
+
+
 def get_all_settings(*, include_archived: bool = False) -> list[Settings]:
-    """Get all settings from the database."""
+    """Get all non-deleted settings from the database."""
     connect_db()
     if include_archived:
-        return list(Settings.objects.all().order_by("-created_at_"))
+        return list(
+            Settings.objects(status__ne=SettingsStatus.DELETED).order_by("-created_at_")
+        )
     return list(Settings.objects(status=SettingsStatus.ACTIVE).order_by("-created_at_"))
 
 

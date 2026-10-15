@@ -212,6 +212,7 @@ class ProjectStatus:
 
     ACTIVE = "active"
     INACTIVE = "inactive"
+    DELETED = "deleted"
 
 
 class SettingsStatus:
@@ -219,6 +220,7 @@ class SettingsStatus:
 
     ACTIVE = "active"
     INACTIVE = "inactive"
+    DELETED = "deleted"
 
 
 class UserStatus:

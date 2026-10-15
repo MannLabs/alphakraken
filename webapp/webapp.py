@@ -3,7 +3,7 @@
 import os
 
 import streamlit as st
-from service.admin import show_admin_login
+from service.admin import is_admin, show_admin_login
 from service.utils import _log
 
 from shared.keys import EnvVars
@@ -33,6 +33,9 @@ pages = [
     st.Page("pages_/projects.py", title="📁 Manage projects"),
     st.Page("pages_/settings.py", title="📋 Manage settings"),
 ]
+# non-admins can't reach pages that are not registered
+if is_admin():
+    pages.append(st.Page("pages_/admin.py", title="🔧 Admin"))
 
 # Create navigation
 pg = st.navigation(pages, position="top")

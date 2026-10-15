@@ -1,9 +1,11 @@
 # extra requirements for the webapp container
-humanize==4.9.0
-pandas==2.2.2
-streamlit==1.55.0
-pyarrow==19.0.1 # newer versions need numpy>=2, unit tests share an env with numpy 1.26.4
-matplotlib==3.9.0
+# versions of packages also in the airflow constraint file must equal the ones there (cf. airflow_src/requirements_airflow.txt)
+humanize==4.16.0
+pandas==3.0.5
+streamlit==1.66.0
+pyarrow==25.0.1
+matplotlib==3.10.9
 plotly-express==0.4.1
-pyyaml==6.0.2
+plotly==6.9.0 # 7 drops kaleido 0.x, which display_plotly_chart() relies on
+pyyaml==6.0.3
 kaleido==0.2.1

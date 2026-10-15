@@ -134,7 +134,7 @@ def test_input_filter_bad_regexp(mock_text_input: MagicMock) -> None:
     assert "filter_text" in filtered_df["column1"].to_numpy()
     assert filter_value == "FILTER_text & (bad_regexp"
     assert errors == [
-        "Could not parse filter (bad_regexp: ignoring it. <class 're.error'>: 'missing ), unterminated subpattern at position 0'"
+        "Could not parse filter (bad_regexp: ignoring it. <class 'pyarrow.lib.ArrowInvalid'>: 'Invalid regular expression: missing ): (bad_regexp'"
     ]
 
 

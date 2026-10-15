@@ -21,6 +21,13 @@ def _create_mock_raw_file(**kwargs: str | None) -> Mock:
 class TestS3UploadFailureAlert:
     """Test suite for S3UploadFailureAlert class."""
 
+    def test_get_relevant_file_should_return_raw_file_id(self) -> None:
+        """Test that the relevant file is the raw file whose upload failed."""
+        # when / then
+        assert (
+            S3UploadFailureAlert().get_relevant_file(("file1.raw", "x")) == "file1.raw"
+        )
+
     def test_case_name_should_return_correct_value(self) -> None:
         """Test that name property returns correct value."""
         # given

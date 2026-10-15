@@ -31,6 +31,12 @@ class TestAlert(BaseAlert):
         return f"Test message with {len(issues)} issues"
 
 
+def test_get_relevant_file_returns_none_by_default() -> None:
+    """Alerts without an override relate to no file."""
+    # when / then
+    assert TestAlert().get_relevant_file(("id", "details")) is None
+
+
 class TestBaseAlertSuppressions:
     """Test suite for BaseAlert suppression functionality."""
 

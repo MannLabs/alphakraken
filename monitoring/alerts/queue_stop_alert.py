@@ -1,4 +1,4 @@
-"""Queue-stop alert: DMs the prior operator when their measurement queue ends.
+"""Queue-stop alert: notifies the prior operator when their measurement queue ends.
 
 Two mutually exclusive modes per instrument (see SPEC.md §2.1):
 - Stall: newest two files share mapped initials and the pause exceeds N x gradient.
@@ -6,7 +6,6 @@ Two mutually exclusive modes per instrument (see SPEC.md §2.1):
 """
 
 import logging
-import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import ClassVar
@@ -20,13 +19,9 @@ from .config import (
     INSTRUMENT_USER_SLACK_IDS,
     MAX_GRADIENT_LENGTH_HOURS,
     QUEUE_STOP_THRESHOLD_MULTIPLIER,
-    SPECIAL_ALERT_SLACK_ID,
     Cases,
 )
-
-# Trailing boundary is a lookahead so adjacent tokens can both match:
-# "_SA_AnSc_" must yield both "SA" and "AnSc", not just "SA".
-INITIALS_PATTERN = re.compile(r"_([A-Za-z]{2,8})(?=_)")
+from .recipients import extract_initials
 
 KIND_STOP = "stop"
 KIND_HANDOFF = "handoff"
@@ -39,7 +34,7 @@ _BYTES_PER_GB = 1024**3
 
 @dataclass(frozen=True)
 class RecentFile:
-    """One row in the `Recent files:` section of the DM."""
+    """One row in the `Recent files:` section of the message."""
 
     file_id: str
     size: int | None
@@ -52,21 +47,10 @@ class QueueStopIssue:
 
     kind: str
     instrument_id: str
-    messenger_user_id: str
+    subject_file_id: str  # the alerted user's most recent file
     gradient_length: timedelta | None
     pause: timedelta | None
     recent_files: list[RecentFile]
-
-
-def _extract_initials(name: str | None) -> str | None:
-    """Return the first regex match whose token is a mapped initial, else None."""
-    if not name:
-        return None
-    for match in INITIALS_PATTERN.finditer(name):
-        token = match.group(1)
-        if token in INSTRUMENT_USER_SLACK_IDS:
-            return token
-    return None
 
 
 def _format_size(size_bytes: int | None) -> str:
@@ -124,9 +108,9 @@ class QueueStopAlert(BaseAlert):
                 _ensure_utc(recent[2].created_at) if has_third_file else None
             )
 
-            initials1 = _extract_initials(file1_id)
-            initials2 = _extract_initials(file2_id)
-            initials3 = _extract_initials(recent[2].id) if has_third_file else None
+            initials1 = extract_initials(file1_id)
+            initials2 = extract_initials(file2_id)
+            initials3 = extract_initials(recent[2].id) if has_third_file else None
 
             recent_files: list[RecentFile] = [
                 RecentFile(
@@ -152,6 +136,7 @@ class QueueStopAlert(BaseAlert):
             if issue is None and file3_created is not None:
                 issue = self._evaluate_rule_b(
                     instrument_id=instrument_id,
+                    file2_id=file2_id,
                     created2=file2_created,
                     created3=file3_created,
                     initials1=initials1,
@@ -164,10 +149,9 @@ class QueueStopAlert(BaseAlert):
             if issue is None:
                 continue
 
-            # Subject = alerted user's most recent file (file1.id for stop,
-            # file2.id for handoff). Sharing the key across rules ensures
+            # Sharing the subject file as key across rules ensures
             # stop→handoff for the same user-last-file does not double-notify.
-            subject_file_id = file1_id if issue.kind == KIND_STOP else file2_id
+            subject_file_id = issue.subject_file_id
             dedup_key = (instrument_id, subject_file_id)
             if dedup_key in self._alerted_subject_files:
                 logging.debug(f"Skipping already-alerted {issue.kind} for {dedup_key}")
@@ -244,7 +228,7 @@ class QueueStopAlert(BaseAlert):
         return QueueStopIssue(
             kind=KIND_STOP,
             instrument_id=instrument_id,
-            messenger_user_id=INSTRUMENT_USER_SLACK_IDS[initials1],
+            subject_file_id=file1_id,
             gradient_length=gradient_length,
             pause=pause,
             recent_files=recent_files,
@@ -254,6 +238,7 @@ class QueueStopAlert(BaseAlert):
     def _evaluate_rule_b(  # noqa: PLR0913
         *,
         instrument_id: str,
+        file2_id: str,
         created2: datetime,
         created3: datetime,
         initials1: str | None,
@@ -305,24 +290,23 @@ class QueueStopAlert(BaseAlert):
         return QueueStopIssue(
             kind=KIND_HANDOFF,
             instrument_id=instrument_id,
-            messenger_user_id=INSTRUMENT_USER_SLACK_IDS[initials2],
+            subject_file_id=file2_id,
             gradient_length=prior_gradient_length,
             pause=None,
             recent_files=recent_files,
         )
 
-    def format_message(self, issues: list[tuple[str, QueueStopIssue]]) -> str:
-        """Not used — alert_manager renders per-issue via `render_issue` instead."""
-        del issues
-        return ""
+    def get_relevant_file(self, issue: tuple[str, QueueStopIssue]) -> str:
+        """Return the alerted user's most recent file."""
+        return issue[1].subject_file_id
 
-    @staticmethod
-    def get_recipients(issue: QueueStopIssue) -> list[str]:
-        """Return the deduplicated DM recipient list for an issue."""
-        recipients: list[str] = [issue.messenger_user_id]
-        if SPECIAL_ALERT_SLACK_ID and SPECIAL_ALERT_SLACK_ID not in recipients:
-            recipients.append(SPECIAL_ALERT_SLACK_ID)
-        return recipients
+    def format_message(self, issues: list[tuple[str, QueueStopIssue]]) -> str:
+        """Render all issues, with file metadata refreshed."""
+        messages = []
+        for _, issue in issues:
+            self.refresh_recent_files(issue)
+            messages.append(self.render_issue(issue))
+        return "\n\n".join(messages)
 
     @staticmethod
     def refresh_recent_files(issue: QueueStopIssue) -> None:
@@ -347,7 +331,7 @@ class QueueStopAlert(BaseAlert):
 
     @staticmethod
     def render_issue(issue: QueueStopIssue) -> str:
-        """Render a single issue to a DM message string."""
+        """Render a single issue to a message string."""
         if issue.kind == KIND_STOP:
             gradient_minutes = (
                 issue.gradient_length.total_seconds() / 60

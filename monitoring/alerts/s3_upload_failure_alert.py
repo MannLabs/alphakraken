@@ -64,6 +64,10 @@ class S3UploadFailureAlert(BaseAlert):
 
         return f"S3 upload failed | project: {project} | instrument: {instrument}"
 
+    def get_relevant_file(self, issue: tuple[str, str]) -> str:
+        """Return the raw file whose upload failed."""
+        return issue[0]
+
     def format_message(self, issues: list[tuple[str, str]]) -> str:
         """Format S3 upload failure message."""
         files_str = "\n".join(

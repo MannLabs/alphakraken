@@ -22,7 +22,9 @@ Users are not login identities. Admin is still the single shared password (`serv
 2. **Owner field**: `owner = ReferenceField(User, required=False, default=None)` on `Project` and
    `Settings`. Set only on create and never changed afterwards. No backfill: existing documents keep
    no owner.
-3. **Admin-only writes**: add, edit (initials only), deactivate and reactivate users. These actions
+3. **Admin-only writes**: add (single or bulk), edit (initials only), deactivate and reactivate users.
+   Bulk add takes rows of `e-mail,initials` and adds them one by one: valid rows are added, failing
+   rows are reported with their line number and error. These actions
    live on the existing admin page (`webapp/pages_/admin.py`). Non-admins cannot see that page.
    Deactivate is a soft delete. Reactivate exists so that a mistaken deactivation can be undone.
 4. **Inactive users**:
@@ -71,16 +73,14 @@ Lint:   pre-commit run --all-files
 Follow the existing interface functions, for example:
 
 ```python
-def add_user(*, email: str, initials: str) -> User:
-    """Add a new active user."""
+def update_user(email: str, *, initials: str) -> None:
+    """Update the initials of a user, the email is immutable."""
     connect_db()
-    if User.objects(email=email).first():
-        raise ValueError(f"A user with email '{email}' already exists.")
-    _check_initials_unique(initials)
-    user = User(email=email, initials=initials)
-    user.save(force_insert=True)
-    logging.info(f"Added user: {email=} {initials=}")
-    return user
+    _check_initials_unique(initials, exclude_email=email)
+    user = User.objects.get(email=email)
+    user.initials = initials
+    user.save()
+    logging.info(f"Updated user: {email=} {initials=}")
 ```
 
 - Keyword-only args.

@@ -10,6 +10,7 @@ class SessionStateKeys:
 
     IS_FIRST_RUN = "is_first_run"
     IS_ADMIN = "is_admin"
+    BULK_ADD_USERS_REPORT = "bulk_add_users_report"
 
     CURRENT_FILTER = "current_filter"
     SHOW_TRACES = "show_traces"

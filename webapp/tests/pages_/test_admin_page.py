@@ -3,12 +3,20 @@
 from pathlib import Path
 from unittest.mock import MagicMock, call, patch
 
+import pytest
 from service.session_state import SessionStateKeys
 from streamlit.testing.v1 import AppTest
 
-from shared.db.models import UserStatus
+from shared.db.models import AlertSuppression, UserStatus
 
 PAGES_FOLDER = Path(__file__).parent / Path("../../pages_")
+
+
+@pytest.fixture(autouse=True)
+def _no_alert_suppressions():  # noqa: ANN202
+    # the alert suppressions section would otherwise query the DB
+    with patch("shared.db.interface.get_alert_suppressions", return_value=[]):
+        yield
 
 
 def _admin_app() -> AppTest:
@@ -41,8 +49,8 @@ def test_admin_without_users(mock_get_users: MagicMock) -> None:  # noqa: ARG001
 
     assert not at.exception
     assert not at.table
-    assert len(at.text_input) == 2
-    assert not at.selectbox
+    assert sum(t.label == "Initials*" for t in at.text_input) == 1
+    assert "User" not in [s.label for s in at.selectbox]
 
 
 @patch("shared.db.interface.get_all_users")
@@ -153,3 +161,47 @@ def test_admin_bulk_add_report_is_shown_once(
     at.run()
 
     assert not at.success
+
+
+@patch("shared.db.interface.get_all_users", return_value=[])
+@patch("shared.db.interface.get_alert_suppressions", return_value=[])
+def test_admin_page_should_render_without_suppressions(
+    mock_get: MagicMock,  # noqa: ARG001
+    mock_get_users: MagicMock,  # noqa: ARG001
+) -> None:
+    """The page renders an empty state and the add form."""
+    # when
+    at = _admin_app().run(timeout=30)
+
+    # then
+    assert not at.exception
+    assert any("No alert suppressions" in i.value for i in at.info)
+    assert at.button(key="FormSubmitter:add_suppression_form-Add suppression")
+
+
+@patch("shared.db.interface.get_all_users", return_value=[])
+@patch("shared.db.interface.get_alert_suppressions")
+def test_admin_page_should_show_suppressions(
+    mock_get: MagicMock,
+    mock_get_users: MagicMock,  # noqa: ARG001
+) -> None:
+    """Existing suppressions are shown in a table, each with a delete button."""
+    # given
+    mock_get.return_value = [
+        AlertSuppression(
+            id="0123456789abcdef01234567",
+            error_class="PumpPressureAlert",
+            instrument_id="astral1",
+            comment="maintenance",
+        )
+    ]
+
+    # when
+    at = _admin_app().run(timeout=30)
+
+    # then
+    assert not at.exception
+    df = at.dataframe[0].value
+    assert df["alert class"].tolist() == ["PumpPressureAlert"]
+    assert df["instrument"].tolist() == ["astral1"]
+    assert at.button(key="delete_suppression_0123456789abcdef01234567")

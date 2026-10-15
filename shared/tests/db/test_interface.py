@@ -10,6 +10,7 @@ import pytz
 from pymongo import UpdateOne
 
 from shared.db.interface import (
+    add_alert_suppression,
     add_metrics_to_raw_file,
     add_project,
     add_raw_file,
@@ -18,8 +19,10 @@ from shared.db.interface import (
     assign_settings_to_project,
     augment_raw_files_with_metrics,
     create_settings,
+    delete_alert_suppression,
     delete_project,
     delete_settings,
+    get_active_alert_suppressions,
     get_active_project_ids,
     get_all_settings,
     get_all_users,
@@ -1551,3 +1554,77 @@ def test_delete_assigned_settings_raises(
         delete_settings("settings_id")
 
     mock_settings.objects.assert_not_called()
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.AlertSuppression")
+def test_add_alert_suppression(
+    mock_suppression: MagicMock, mock_connect_db: MagicMock
+) -> None:
+    """add_alert_suppression saves a new suppression with the given fields."""
+    # given
+    expires_at = datetime(2026, 3, 1, tzinfo=pytz.UTC)
+
+    # when
+    add_alert_suppression(
+        error_class="PumpPressureAlert",
+        instrument_id="astral1",
+        context="*",
+        message="*",
+        comment="maintenance",
+        expires_at=expires_at,
+        created_by="me",
+    )
+
+    # then
+    mock_suppression.assert_called_once_with(
+        error_class="PumpPressureAlert",
+        instrument_id="astral1",
+        context="*",
+        message="*",
+        comment="maintenance",
+        expires_at=expires_at,
+        created_by="me",
+    )
+    mock_suppression.return_value.save.assert_called_once()
+    mock_connect_db.assert_called_once()
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.AlertSuppression")
+def test_delete_alert_suppression(
+    mock_suppression: MagicMock,
+    mock_connect_db: MagicMock,  # noqa: ARG001
+) -> None:
+    """delete_alert_suppression deletes the suppression with the given id."""
+    # when
+    delete_alert_suppression("abc")
+
+    # then
+    mock_suppression.objects.assert_called_once_with(id="abc")
+    mock_suppression.objects.return_value.delete.assert_called_once()
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.AlertSuppression")
+@patch("shared.db.interface.datetime")
+def test_get_active_alert_suppressions_excludes_expired(
+    mock_datetime: MagicMock,
+    mock_suppression: MagicMock,
+    mock_connect_db: MagicMock,  # noqa: ARG001
+) -> None:
+    """Only suppressions without expiry or expiring in the future are returned."""
+    # given
+    now = datetime(2026, 1, 1, tzinfo=pytz.UTC)
+    mock_datetime.now.return_value = now
+    mock_suppression.objects.return_value = ["s1"]
+
+    # when
+    result = get_active_alert_suppressions()
+
+    # then
+    assert result == ["s1"]
+    (query,) = mock_suppression.objects.call_args.args
+    assert query.to_query(None) == {
+        "$or": [{"expires_at": None}, {"expires_at": {"$gt": now}}]
+    }

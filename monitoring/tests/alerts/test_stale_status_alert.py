@@ -286,3 +286,19 @@ class TestStaleStatusAlert:
             Issue("regular_job", datetime(2024, 1, 14, 12, 0, 1, tzinfo=pytz.UTC))
         ]
         assert result == expected
+
+
+def test_get_issues_should_handle_tz_aware_updated_at() -> None:
+    """A tz-aware updated_at_ is handled like a naive UTC one."""
+    # given
+    alert = StaleStatusAlert()
+    status = Mock()
+    status.id = "instrument1"
+    status.entity_type = KrakenStatusEntities.INSTRUMENT
+    status.updated_at_ = datetime(2020, 1, 1, tzinfo=pytz.UTC)
+
+    # when
+    result = alert._get_issues([status])
+
+    # then
+    assert [issue.details for issue in result] == [status.updated_at_]

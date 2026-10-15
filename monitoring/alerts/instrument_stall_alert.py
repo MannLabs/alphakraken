@@ -4,6 +4,7 @@ import logging
 from datetime import datetime, timedelta
 
 import pytz
+from utils import ensure_utc
 
 from shared.db.models import KrakenStatus, RawFile
 
@@ -50,9 +51,7 @@ class InstrumentStallAlert(BaseAlert):
                 logging.debug(f"No raw files found for instrument {instrument_id}")
                 continue
 
-            created_at = latest.created_at
-            if created_at.tzinfo is None:
-                created_at = pytz.utc.localize(created_at)
+            created_at = ensure_utc(latest.created_at)
 
             if created_at < threshold:
                 if self._alerted_file_names.get(instrument_id) == latest.original_name:

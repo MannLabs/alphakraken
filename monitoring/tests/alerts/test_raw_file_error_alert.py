@@ -25,132 +25,6 @@ class TestRawFileErrorAlert:
         # then
         assert result == Cases.RAW_FILE_ERROR
 
-    @patch("monitoring.alerts.raw_file_error_alert.RawFile")
-    @patch("monitoring.alerts.raw_file_error_alert.datetime")
-    @patch("monitoring.alerts.raw_file_error_alert.CHECK_INTERVAL_SECONDS", 60)
-    def test_check_should_handle_comprehensive_error_scenarios(
-        self, mock_datetime: Mock, mock_raw_file: Mock
-    ) -> None:
-        """Test that check handles complex mixed scenarios with various file status changes and error conditions."""
-        # given
-        alert = RawFileErrorAlert()
-        fixed_now = datetime(2024, 1, 1, 12, 0, 0, tzinfo=pytz.UTC)
-        mock_datetime.now.return_value = fixed_now
-
-        # Set up previous state with some files already in different statuses
-        alert.previous_raw_file_statuses = {
-            "file_already_error": RawFileStatus.ERROR,  # Already in error - should be ignored
-            "file_was_done": RawFileStatus.DONE,  # Changed from DONE to ERROR - should trigger
-            "file_was_quanting": RawFileStatus.QUANTING,  # Changed from QUANTING to ERROR - should trigger
-            "file_stays_done": RawFileStatus.DONE,  # Still DONE - should not trigger
-            "file_not_in_query": RawFileStatus.DONE,  # Not returned by query anymore
-        }
-
-        # Create comprehensive mix of files with different scenarios
-        mock_file_already_error = Mock(instrument_id="inst1")
-        mock_file_already_error.id = "file_already_error"
-        mock_file_already_error.status = RawFileStatus.ERROR
-        mock_file_already_error.status_details = "Still failing"
-
-        mock_file_was_done = Mock(instrument_id="inst1")
-        mock_file_was_done.id = "file_was_done"
-        mock_file_was_done.status = RawFileStatus.ERROR
-        mock_file_was_done.status_details = "Processing failed after completion"
-
-        mock_file_was_quanting = Mock(instrument_id="inst1")
-        mock_file_was_quanting.id = "file_was_quanting"
-        mock_file_was_quanting.status = RawFileStatus.ERROR
-        mock_file_was_quanting.status_details = "Failed during quanting"
-
-        mock_file_stays_done = Mock(instrument_id="inst1")
-        mock_file_stays_done.id = "file_stays_done"
-        mock_file_stays_done.status = RawFileStatus.DONE
-        mock_file_stays_done.status_details = "Completed successfully"
-
-        mock_file_new_error = Mock(instrument_id="inst1")
-        mock_file_new_error.id = "file_new_error"  # Not in previous state
-        mock_file_new_error.status = RawFileStatus.ERROR
-        mock_file_new_error.status_details = "New file encountered error"
-
-        mock_file_new_done = Mock(instrument_id="inst1")
-        mock_file_new_done.id = "file_new_done"  # Not in previous state
-        mock_file_new_done.status = RawFileStatus.DONE
-        mock_file_new_done.status_details = "New file completed"
-
-        mock_file_error_no_details = Mock(instrument_id="inst1")
-        mock_file_error_no_details.id = "file_error_no_details"
-        mock_file_error_no_details.status = RawFileStatus.ERROR
-        mock_file_error_no_details.status_details = None
-
-        mock_file_quanting_to_done = Mock(instrument_id="inst1")
-        mock_file_quanting_to_done.id = "file_quanting_to_done"
-        mock_file_quanting_to_done.status = RawFileStatus.DONE
-        mock_file_quanting_to_done.status_details = "Completed after quanting"
-
-        mock_raw_file.objects.filter.return_value.only.return_value = [
-            mock_file_already_error,
-            mock_file_was_done,
-            mock_file_was_quanting,
-            mock_file_stays_done,
-            mock_file_new_error,
-            mock_file_new_done,
-            mock_file_error_no_details,
-            mock_file_quanting_to_done,
-        ]
-
-        # when
-        result = alert._get_issues([])
-
-        # then
-        # Should only return files that changed TO error status (not already in error)
-        expected = [
-            Issue(
-                "file_was_done",
-                "Processing failed after completion",
-                relevant_file="file_was_done",
-                instrument_id="inst1",
-            ),
-            Issue(
-                "file_was_quanting",
-                "Failed during quanting",
-                relevant_file="file_was_quanting",
-                instrument_id="inst1",
-            ),
-            Issue(
-                "file_new_error",
-                "New file encountered error",
-                relevant_file="file_new_error",
-                instrument_id="inst1",
-            ),
-            Issue(
-                "file_error_no_details",
-                "None",
-                relevant_file="file_error_no_details",
-                instrument_id="inst1",
-            ),
-        ]
-        assert result == expected
-
-        # Verify the query was made with correct time window
-        mock_raw_file.objects.filter.assert_called_once_with(
-            updated_at___gt=fixed_now - timedelta(seconds=300)  # 60 * 5
-        )
-
-        # Verify previous_raw_file_statuses was updated correctly
-        # (file_not_in_query is retained from previous state since we merge, not replace)
-        expected_previous_state = {
-            "file_already_error": RawFileStatus.ERROR,
-            "file_was_done": RawFileStatus.ERROR,
-            "file_was_quanting": RawFileStatus.ERROR,
-            "file_stays_done": RawFileStatus.DONE,
-            "file_not_in_query": RawFileStatus.DONE,
-            "file_new_error": RawFileStatus.ERROR,
-            "file_new_done": RawFileStatus.DONE,
-            "file_error_no_details": RawFileStatus.ERROR,
-            "file_quanting_to_done": RawFileStatus.DONE,
-        }
-        assert alert.previous_raw_file_statuses == expected_previous_state
-
     def test_format_message_should_handle_comprehensive_scenarios(self) -> None:
         """Test that format_message handles multiple issues with various error details including None values."""
         # given
@@ -191,179 +65,56 @@ class TestRawFileErrorAlert:
 
     @patch("monitoring.alerts.raw_file_error_alert.RawFile")
     @patch("monitoring.alerts.raw_file_error_alert.datetime")
-    @patch("monitoring.alerts.raw_file_error_alert.CHECK_INTERVAL_SECONDS", 120)
-    def test_check_should_return_empty_when_no_new_errors(
+    @patch("monitoring.alerts.raw_file_error_alert.RAW_FILE_STATUS_LOOKBACK_HOURS", 24)
+    def test_get_issues_should_query_recent_error_files(
         self, mock_datetime: Mock, mock_raw_file: Mock
     ) -> None:
-        """Test that check returns empty result when no files have newly changed to ERROR status."""
+        """Only files in ERROR status updated within the lookback are queried."""
         # given
-        alert = RawFileErrorAlert()
-        fixed_now = datetime(2024, 1, 1, 15, 30, 0, tzinfo=pytz.UTC)
-        mock_datetime.now.return_value = fixed_now
-
-        # Set up previous state with files in various statuses
-        alert.previous_raw_file_statuses = {
-            "file1": RawFileStatus.ERROR,  # Already error
-            "file2": RawFileStatus.DONE,  # Still done
-            "file3": RawFileStatus.QUANTING,  # Still quanting
-        }
-
-        # Create files that maintain their previous status or aren't errors
-        mock_file1 = Mock()
-        mock_file1.id = "file1"
-        mock_file1.instrument_id = "inst1"
-        mock_file1.status = RawFileStatus.ERROR  # Still error
-        mock_file1.status_details = "Still failing"
-
-        mock_file2 = Mock()
-        mock_file2.id = "file2"
-        mock_file2.instrument_id = "inst1"
-        mock_file2.status = RawFileStatus.DONE  # Still done
-        mock_file2.status_details = "Completed"
-
-        mock_file3 = Mock()
-        mock_file3.id = "file3"
-        mock_file3.instrument_id = "inst1"
-        mock_file3.status = RawFileStatus.QUANTING  # Still quanting
-        mock_file3.status_details = "In progress"
-
-        mock_file4 = Mock()
-        mock_file4.id = "file4"  # New file, not error
-        mock_file4.instrument_id = "inst1"
-        mock_file4.status = RawFileStatus.DONE
-        mock_file4.status_details = "New completed file"
-
-        mock_raw_file.objects.filter.return_value.only.return_value = [
-            mock_file1,
-            mock_file2,
-            mock_file3,
-            mock_file4,
-        ]
+        now = datetime(2024, 1, 2, 12, 0, 0, tzinfo=pytz.UTC)
+        mock_datetime.now.return_value = now
+        mock_raw_file.objects.filter.return_value.only.return_value = []
 
         # when
-        result = alert._get_issues([])
+        result = RawFileErrorAlert()._get_issues([])
 
         # then
         assert result == []
-
-        # Verify correct time window calculation
         mock_raw_file.objects.filter.assert_called_once_with(
-            updated_at___gt=fixed_now - timedelta(seconds=600)  # 120 * 5
+            status=RawFileStatus.ERROR, updated_at___gt=now - timedelta(hours=24)
         )
 
     @patch("monitoring.alerts.raw_file_error_alert.RawFile")
-    @patch("monitoring.alerts.raw_file_error_alert.datetime")
-    @patch("monitoring.alerts.raw_file_error_alert.CHECK_INTERVAL_SECONDS", 90)
-    def test_state_tracking_and_time_window_behavior(
-        self, mock_datetime: Mock, mock_raw_file: Mock
+    def test_get_issues_should_return_one_issue_per_error_file(
+        self, mock_raw_file: Mock
     ) -> None:
-        """Test that state tracking works correctly and time window is calculated properly."""
+        """Each error file yields an issue keyed by file id and error details."""
         # given
-        alert = RawFileErrorAlert()
-        fixed_now = datetime(2024, 2, 15, 9, 45, 0, tzinfo=pytz.UTC)
-        mock_datetime.now.return_value = fixed_now
-
-        # Empty previous state (first run)
-        assert alert.previous_raw_file_statuses == {}
-
-        # Create files with various statuses
-        mock_error_file = Mock()
-        mock_error_file.id = "first_error"
-        mock_error_file.instrument_id = "inst1"
-        mock_error_file.status = RawFileStatus.ERROR
-        mock_error_file.status_details = "First time error"
-
-        mock_done_file = Mock()
-        mock_done_file.id = "completed_file"
-        mock_done_file.instrument_id = "inst1"
-        mock_done_file.status = RawFileStatus.DONE
-        mock_done_file.status_details = "Successfully completed"
-
         mock_raw_file.objects.filter.return_value.only.return_value = [
-            mock_error_file,
-            mock_done_file,
+            Mock(id="file1", status_details="Disk full", instrument_id="inst1"),
+            Mock(id="file2", status_details=None, instrument_id="inst2"),
         ]
-
-        # when - first check
-        result1 = alert._get_issues([])
-
-        # then - first check should detect new error
-        assert result1 == [
-            Issue(
-                "first_error",
-                "First time error",
-                relevant_file="first_error",
-                instrument_id="inst1",
-            )
-        ]
-
-        # Verify correct time window for first check
-        expected_time_window = fixed_now - timedelta(seconds=450)  # 90 * 5
-        mock_raw_file.objects.filter.assert_called_with(
-            updated_at___gt=expected_time_window
-        )
-
-        # Verify state was updated
-        assert alert.previous_raw_file_statuses == {
-            "first_error": RawFileStatus.ERROR,
-            "completed_file": RawFileStatus.DONE,
-        }
-
-        # Reset mock for second check
-        mock_raw_file.reset_mock()
-
-        # Setup for second check - same files, no status changes
-        mock_raw_file.objects.filter.return_value.only.return_value = [
-            mock_error_file,
-            mock_done_file,
-        ]
-
-        # when - second check
-        result2 = alert._get_issues([])
-
-        # then - second check should find no new errors
-        assert result2 == []
-
-    @patch("monitoring.alerts.raw_file_error_alert.RawFile")
-    @patch("monitoring.alerts.raw_file_error_alert.datetime")
-    @patch("monitoring.alerts.raw_file_error_alert.CHECK_INTERVAL_SECONDS", 60)
-    def test_should_not_false_positive_when_error_file_ages_out_and_returns(
-        self, mock_datetime: Mock, mock_raw_file: Mock
-    ) -> None:
-        """Test that a file already in ERROR does not re-alert when it ages out of the query window and re-enters due to an unrelated updated_at_ bump."""
-        # given
         alert = RawFileErrorAlert()
-        fixed_now = datetime(2024, 1, 1, 12, 0, 0, tzinfo=pytz.UTC)
-        mock_datetime.now.return_value = fixed_now
-
-        mock_error_file = Mock()
-        mock_error_file.id = "file_error"
-        mock_error_file.instrument_id = "inst1"
-        mock_error_file.status = RawFileStatus.ERROR
-        mock_error_file.status_details = "Some error"
-
-        # Round 1: file enters ERROR
-        mock_raw_file.objects.filter.return_value.only.return_value = [mock_error_file]
-        result1 = alert._get_issues([])
-        assert result1 == [
-            Issue(
-                "file_error",
-                "Some error",
-                relevant_file="file_error",
-                instrument_id="inst1",
-            )
-        ]
-
-        # Round 2: file ages out of the 5-minute window (empty query result)
-        mock_raw_file.objects.filter.return_value.only.return_value = []
-        result2 = alert._get_issues([])
-        assert result2 == []
-
-        # Round 3: file re-enters window due to unrelated updated_at_ bump (still ERROR)
-        mock_raw_file.objects.filter.return_value.only.return_value = [mock_error_file]
 
         # when
-        result3 = alert._get_issues([])
+        first = alert._get_issues([])
+        second = alert._get_issues([])
 
-        # then - should NOT alert again
-        assert result3 == []
+        # then
+        assert first == [
+            Issue(
+                "file1",
+                "Disk full",
+                relevant_file="file1",
+                instrument_id="inst1",
+                unique_key=("file1", "Disk full"),
+            ),
+            Issue(
+                "file2",
+                "None",
+                relevant_file="file2",
+                instrument_id="inst2",
+                unique_key=("file2", "None"),
+            ),
+        ]
+        assert second == first  # stateless: the alert manager reports each key once

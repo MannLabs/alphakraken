@@ -1,6 +1,7 @@
 """Decide when to send alerts based on monitoring checks."""
 
 import logging
+from collections.abc import Hashable
 from datetime import datetime, timedelta
 
 import pytz
@@ -41,6 +42,8 @@ class AlertManager:
         """Initialize the AlertManager with checkers and last alert times."""
         # TODO: currently this grows indefinitely, we assume regular restarts of the monitoring app
         self.last_alerts: dict[str, datetime] = {}
+        # (alert name, unique key) of handled issues, to report those only once
+        self.reported_unique_keys: set[tuple[str, Hashable]] = set()
 
         self.is_first_check = True
         self.alerts: list[BaseAlert] = [
@@ -78,7 +81,12 @@ class AlertManager:
         Issues are only marked as reported once handled, so issues blocked by cooldown or
         failed sends are raised again on the next check.
         """
-        if not self.should_send_alert(issues, alert):
+        issues = [
+            issue
+            for issue in issues
+            if (alert.name, issue.unique_key) not in self.reported_unique_keys
+        ]
+        if not issues or not self.should_send_alert(issues, alert):
             return
 
         if suppress_alerts:
@@ -87,9 +95,10 @@ class AlertManager:
             logging.warning(f"Failed to send {alert.name}, retrying on next check")
             return
 
-        alert.mark_reported(issues)
         for issue in issues:
             self.set_last_alert_time(alert.name, issue)
+            if issue.unique_key is not None:
+                self.reported_unique_keys.add((alert.name, issue.unique_key))
 
     def should_send_alert(
         self,

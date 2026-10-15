@@ -46,11 +46,6 @@ class PressureDataPoint:
 class PumpPressureAlert(BaseAlert):
     """Check for pump pressure increases across instruments."""
 
-    def __init__(self) -> None:
-        """Initialize the alert with memory for tracking reported issues."""
-        super().__init__()
-        self._reported_issues: set[Issue[str]] = set()
-
     @property
     def name(self) -> str:
         """Return the case name for this alert type."""
@@ -59,7 +54,7 @@ class PumpPressureAlert(BaseAlert):
     def get_cooldown_time_minutes(self, issue: Issue) -> int:
         """Return the default cooldown for absolute threshold issues, none for increases.
 
-        Increases need no cooldown, as `_reported_issues` already prevents repeated alerts.
+        Increases need no cooldown, as their unique key already prevents repeated alerts.
         """
         if issue.kind == KIND_ABSOLUTE:
             return DEFAULT_ALERT_COOLDOWN_TIME_MINUTES
@@ -113,47 +108,35 @@ class PumpPressureAlert(BaseAlert):
             )
 
             if is_alert:
-                issue = Issue(
-                    instrument_id,
-                    f"Pressure changes: {self._format(pressure_changes)}",
-                    # the younger file of the (single) change
-                    relevant_file=pressure_changes[0][4],
-                    instrument_id=instrument_id,
-                    kind=KIND_INCREASE,
-                )
-                if issue not in self._reported_issues:
-                    issues.append(issue)
-                else:
-                    logging.debug(
-                        f"Suppressing duplicate alert for {instrument_id} "
-                        f"with pressure changes: {pressure_changes}"
+                issues.append(
+                    Issue(
+                        instrument_id,
+                        f"Pressure changes: {self._format(pressure_changes)}",
+                        # the younger file of the (single) change
+                        relevant_file=pressure_changes[0][4],
+                        instrument_id=instrument_id,
+                        kind=KIND_INCREASE,
+                        unique_key=(instrument_id, tuple(pressure_changes)),
                     )
+                )
 
             # Check for high absolute pressure
             high_pressure_alerts = self._detect_high_absolute_pressure(
                 pressure_data, PUMP_PRESSURE_ABSOLUTE_THRESHOLD_BAR
             )
             for pressure, raw_file_id, timestamp in high_pressure_alerts:
-                issue = Issue(
-                    instrument_id,
-                    f"High pressure: {pressure:.1f} bar (≥{PUMP_PRESSURE_ABSOLUTE_THRESHOLD_BAR} bar) in `{raw_file_id}` at {timestamp.strftime('%Y-%m-%d %H:%M:%S')}",
-                    relevant_file=raw_file_id,
-                    instrument_id=instrument_id,
-                    kind=KIND_ABSOLUTE,
-                )
-                if issue not in self._reported_issues:
-                    issues.append(issue)
-                else:
-                    logging.debug(
-                        f"Suppressing duplicate absolute pressure alert for {instrument_id} "
-                        f"with raw_file_id: {raw_file_id}"
+                issues.append(
+                    Issue(
+                        instrument_id,
+                        f"High pressure: {pressure:.1f} bar (≥{PUMP_PRESSURE_ABSOLUTE_THRESHOLD_BAR} bar) in `{raw_file_id}` at {timestamp.strftime('%Y-%m-%d %H:%M:%S')}",
+                        relevant_file=raw_file_id,
+                        instrument_id=instrument_id,
+                        kind=KIND_ABSOLUTE,
+                        unique_key=(instrument_id, KIND_ABSOLUTE, raw_file_id),
                     )
+                )
 
         return issues
-
-    def mark_reported(self, issues: list[Issue[str]]) -> None:
-        """Remember the reported issues to not raise them again."""
-        self._reported_issues.update(issues)
 
     @staticmethod
     def _format(changes: list[tuple[float, float, float, datetime, str, str]]) -> str:

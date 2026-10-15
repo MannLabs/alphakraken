@@ -8,7 +8,6 @@ Two mutually exclusive modes per instrument (see SPEC.md §2.1):
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import ClassVar
 
 import pytz
 from utils import ensure_utc
@@ -62,10 +61,6 @@ def _format_size(size_bytes: int | None) -> str:
 
 class QueueStopAlert(BaseAlert):
     """Notify the prior operator when their measurement queue has ended."""
-
-    # Class-level so it survives across instances created within a single
-    # monitor process; matches the InstrumentStallAlert tracker pattern.
-    _alerted_subject_files: ClassVar[set[tuple[str, str]]] = set()
 
     @property
     def name(self) -> str:
@@ -150,14 +145,7 @@ class QueueStopAlert(BaseAlert):
             if issue is None:
                 continue
 
-            # Sharing the subject file as key across rules ensures
-            # stop→handoff for the same user-last-file does not double-notify.
             subject_file_id = issue.subject_file_id
-            dedup_key = (instrument_id, subject_file_id)
-            if dedup_key in self._alerted_subject_files:
-                logging.debug(f"Skipping already-alerted {issue.kind} for {dedup_key}")
-                continue
-
             identifier = f"{instrument_id}:{subject_file_id}"
             issues.append(
                 Issue(
@@ -165,6 +153,9 @@ class QueueStopAlert(BaseAlert):
                     issue,
                     relevant_file=subject_file_id,
                     instrument_id=instrument_id,
+                    # Sharing the subject file as key across rules ensures
+                    # stop→handoff for the same user-last-file does not double-notify.
+                    unique_key=(instrument_id, subject_file_id),
                 )
             )
 
@@ -302,13 +293,6 @@ class QueueStopAlert(BaseAlert):
             pause=None,
             recent_files=recent_files,
         )
-
-    def mark_reported(self, issues: list[Issue[QueueStopIssue]]) -> None:
-        """Remember the subject files to not alert again for them."""
-        for issue in issues:
-            self._alerted_subject_files.add(
-                (issue.details.instrument_id, issue.details.subject_file_id)
-            )
 
     def format_message(self, issues: list[Issue[QueueStopIssue]]) -> str:
         """Render all issues, with file metadata refreshed."""

@@ -5,8 +5,8 @@ from __future__ import annotations
 from datetime import timedelta
 
 import pendulum
-from airflow.models.dag import DAG
 from airflow.providers.standard.operators.python import PythonOperator
+from airflow.sdk import DAG
 from common.constants import (
     AIRFLOW_QUEUE_PREFIX,
 )
@@ -39,7 +39,7 @@ def create_file_remover_dag() -> None:
             "queue": f"{AIRFLOW_QUEUE_PREFIX}file_remover",
         },
         description="Remove files from backup folder on instrument.",
-        tags=["file_remover"],
+        tags={"file_remover"},
     ) as dag:
         dag.doc_md = __doc__
 

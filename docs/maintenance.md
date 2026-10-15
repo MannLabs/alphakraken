@@ -6,7 +6,7 @@ Together with the raw data on the instrument and in the backup, this defines the
 All other components can, in principle, be shut down, restarted and/or deleted any time without loss of information,
 in particular:
 
-- The Airflow scheduler and webserver, and the Webapp can be restarted at any point.
+- The Airflow scheduler, dag-processor and api-server, and the Webapp can be restarted at any point.
 
 - The Airflow workers can be restarted at any point, with a little caveat: if this happens while the `copy_file`
 task is being run, the file copy operation can be interrupted mid-way. Once the worker is restarted, the task will
@@ -268,7 +268,7 @@ jobs that have already been submitted and thus may take a while to take effect.
 
 Over time, the Airflow metadata DB accumulates DAG runs, task instances, and event logs that are no longer needed.
 The `airflow db clean` command (run inside an Airflow container) archives rows older than a given timestamp, which can then be exported and dropped
-(cf. [Airflow docs](https://airflow.apache.org/docs/apache-airflow/2.11.0/howto/usage-cli.html#purge-history-from-metadata-database))
+(cf. [Airflow docs](https://airflow.apache.org/docs/apache-airflow/stable/howto/usage-cli.html#purge-history-from-metadata-database))
 
 Note: this is a destructive operation! If in doubt, create a backup copy Airflow DB (i.e. the `airflowdb_local_data` folder).
 
@@ -318,10 +318,10 @@ for dir in 2024*; do tar -czf "${dir%/}.tar.gz" "$dir" && rm -rf "$dir"; done
 Every once in a while, the Airflow version should be updated.
 
 1. Create a backup copy of the `mongodb_data_${ENV}` and `airflowdb_data_${ENV}` folders (on the machine that hosts the DBs).
-2. Locate the current version in the Airflow Dockerfile, line `ARG AIRFLOW_VERSION=2.11.0`
+2. Locate the current version in the Airflow Dockerfile, line `ARG AIRFLOW_VERSION=3.3.2`
 3. Check for breaking changes between the current and the new version [here](https://airflow.apache.org/docs/apache-airflow/stable/release_notes.html)
 and adapt the code if necessary.
-4. Search and replace the old version string (e.g. `2.11.0`) with the new version throughout the code.
+4. Search and replace the old version string (e.g. `3.3.1`) with the new version throughout the code.
 5. Shutdown all workers and infrastructure (up to the databases), generally following the instructions on how to deploy new code versions [here](deployment.md#deploying-new-code-versions).
 6. Migrate the Airflow DB: `./compose.sh run airflow-cli db migrate`
 7. Spin up workers and infrastructure again.

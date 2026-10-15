@@ -1,6 +1,6 @@
 """Custom Airflow exceptions."""
 
-from airflow.exceptions import AirflowFailException, AirflowSkipException
+from airflow.sdk.exceptions import AirflowFailException, AirflowSkipException
 
 # TODO: move all custom exceptions here
 

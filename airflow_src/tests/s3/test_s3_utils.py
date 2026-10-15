@@ -3,7 +3,7 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-from airflow.exceptions import AirflowFailException
+from airflow.sdk.exceptions import AirflowFailException
 from plugins.s3.client import S3_FILE_NOT_FOUND_ETAG
 from plugins.s3.s3_utils import (
     S3_MAX_BUCKET_NAME_LENGTH,

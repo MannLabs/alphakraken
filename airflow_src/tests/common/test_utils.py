@@ -5,10 +5,16 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 import pytz
-from airflow.exceptions import AirflowFailException, AirflowNotFoundException
-from airflow.models import Variable
+from airflow.exceptions import DagNotFound
+from airflow.sdk import Variable
+from airflow.sdk.exceptions import (
+    AirflowFailException,
+    AirflowNotFoundException,
+    AirflowRuntimeError,
+    ErrorType,
+)
+from airflow.sdk.execution_time.comms import ErrorResponse, OKResponse, TriggerDagRun
 from plugins.common.utils import (
-    _get_cluster_ssh_connections,
     get_airflow_variable,
     get_cluster_ssh_hook,
     get_env_variable,
@@ -198,42 +204,87 @@ def test_get_env_variable_raises_when_value_not_found() -> None:
         get_env_variable("not_existing_env_var")
 
 
+def _sent_trigger_message(mock_task_runner: MagicMock) -> TriggerDagRun:
+    mock_task_runner.SUPERVISOR_COMMS.send.assert_called_once()
+    return mock_task_runner.SUPERVISOR_COMMS.send.call_args.args[0]
+
+
 @patch("plugins.common.utils.datetime")
-@patch("plugins.common.utils.trigger_dag")
-def test_trigger_dag_run(mock_trigger_dag: MagicMock, mock_datetime: MagicMock) -> None:
-    """Test that trigger_dag_run triggers a DAG run with the given configuration."""
+@patch("plugins.common.utils.task_runner")
+def test_trigger_dag_run(mock_task_runner: MagicMock, mock_datetime: MagicMock) -> None:
+    """Test that trigger_dag_run sends a TriggerDagRun message with the given configuration."""
     mock_datetime.now.return_value = datetime.fromtimestamp(0, tz=pytz.utc)
+    mock_task_runner.SUPERVISOR_COMMS.send.return_value = OKResponse(ok=True)
 
     # when
     trigger_dag_run("dag_id", {"key": "value"})
 
-    mock_trigger_dag.assert_called_once_with(
-        dag_id="dag_id",
-        run_id="manual__1970-01-01T00:00:00+00:00",
-        conf={"key": "value"},
-        execution_date=None,
-        replace_microseconds=False,
-    )
+    msg = _sent_trigger_message(mock_task_runner)
+    assert isinstance(msg, TriggerDagRun)
+    assert msg.dag_id == "dag_id"
+    assert msg.run_id.startswith("manual__1970-01-01T00:00:00+00:00_")
+    assert msg.conf == {"key": "value"}
+    assert msg.logical_date is None
+    assert msg.run_after == datetime(1970, 1, 1, 0, 0, tzinfo=pytz.utc)
 
 
 @patch("plugins.common.utils.datetime")
-@patch("plugins.common.utils.trigger_dag")
+@patch("plugins.common.utils.task_runner")
 def test_trigger_dag_run_with_delay(
-    mock_trigger_dag: MagicMock, mock_datetime: MagicMock
+    mock_task_runner: MagicMock, mock_datetime: MagicMock
 ) -> None:
-    """Test that trigger_dag_run triggers a DAG run with the given configuration and time delay."""
+    """Test that the time delay is passed as run_after."""
     mock_datetime.now.return_value = datetime.fromtimestamp(0, tz=pytz.utc)
+    mock_task_runner.SUPERVISOR_COMMS.send.return_value = OKResponse(ok=True)
 
     # when
     trigger_dag_run("dag_id", {"key": "value"}, 10)
 
-    mock_trigger_dag.assert_called_once_with(
-        dag_id="dag_id",
-        run_id="manual__1970-01-01T00:00:00+00:00",
-        conf={"key": "value"},
-        execution_date=datetime(1970, 1, 1, 0, 10, tzinfo=pytz.utc),
-        replace_microseconds=False,
+    msg = _sent_trigger_message(mock_task_runner)
+    assert msg.run_after == datetime(1970, 1, 1, 0, 10, tzinfo=pytz.utc)
+    assert msg.run_id.startswith("manual__1970-01-01T00:10:00+00:00_")
+
+
+@patch("plugins.common.utils.task_runner")
+def test_trigger_dag_run_raises_dag_not_found_on_404(
+    mock_task_runner: MagicMock,
+) -> None:
+    """Test that a 404 of the api-server surfaces as DagNotFound."""
+    mock_task_runner.SUPERVISOR_COMMS.send.side_effect = AirflowRuntimeError(
+        ErrorResponse(error=ErrorType.API_SERVER_ERROR, detail={"status_code": 404})
     )
+
+    with pytest.raises(DagNotFound):
+        # when
+        trigger_dag_run("dag_id", {"key": "value"})
+
+
+@patch("plugins.common.utils.task_runner")
+def test_trigger_dag_run_reraises_other_runtime_errors(
+    mock_task_runner: MagicMock,
+) -> None:
+    """Test that api-server errors other than 404 are re-raised unchanged."""
+    mock_task_runner.SUPERVISOR_COMMS.send.side_effect = AirflowRuntimeError(
+        ErrorResponse(error=ErrorType.API_SERVER_ERROR, detail={"status_code": 500})
+    )
+
+    with pytest.raises(AirflowRuntimeError):
+        # when
+        trigger_dag_run("dag_id", {"key": "value"})
+
+
+@patch("plugins.common.utils.task_runner")
+def test_trigger_dag_run_fails_when_run_already_exists(
+    mock_task_runner: MagicMock,
+) -> None:
+    """Test that an ErrorResponse (e.g. run id collision) fails the task."""
+    mock_task_runner.SUPERVISOR_COMMS.send.return_value = ErrorResponse(
+        error=ErrorType.DAGRUN_ALREADY_EXISTS
+    )
+
+    with pytest.raises(AirflowFailException, match="DAGRUN_ALREADY_EXISTS"):
+        # when
+        trigger_dag_run("dag_id", {"key": "value"})
 
 
 def test_truncate_string_returns_none_if_input_is_none() -> None:
@@ -265,76 +316,73 @@ def test_truncate_string_handles_edge_case_of_exactly_n_characters() -> None:
     assert truncate_string(input_string, 200) == input_string
 
 
-@patch(
-    "plugins.common.utils._get_cluster_ssh_connections",
-    return_value=["conn_1", "conn_2"],
-)
+def _ssh_hooks(mock_ssh_hook: MagicMock, *conn_ids: str) -> dict[str, MagicMock]:
+    """Make the SSHHook mock return a hook per existing connection id and raise otherwise."""
+    hooks = {conn_id: MagicMock(ssh_conn_id=conn_id) for conn_id in conn_ids}
+
+    def side_effect(ssh_conn_id: str, **_: int) -> MagicMock:
+        if ssh_conn_id not in hooks:
+            raise AirflowNotFoundException(f"The conn_id `{ssh_conn_id}` isn't defined")
+        return hooks[ssh_conn_id]
+
+    mock_ssh_hook.side_effect = side_effect
+    return hooks
+
+
 @patch("plugins.common.utils.SSHHook")
-def test_get_cluster_ssh_hook_returns_valid_ssh_hook(
-    mock_ssh_hook: MagicMock,
-    mock_get_cluster_ssh_connections: MagicMock,
-) -> None:
-    """Test that get_cluster_ssh_hook returns a valid SSHHook instance."""
+def test_get_cluster_ssh_hook_returns_valid_ssh_hook(mock_ssh_hook: MagicMock) -> None:
+    """Test that get_cluster_ssh_hook probes the numbered connections and returns the first one."""
+    hooks = _ssh_hooks(mock_ssh_hook, "some_prefix_1", "some_prefix_2")
+
+    # when
     hook = get_cluster_ssh_hook(attempt_no=0, ssh_connection_id_prefix="some_prefix")
 
-    assert hook == mock_ssh_hook.return_value
-    mock_get_cluster_ssh_connections.assert_called_once_with(
-        ssh_connection_id_prefix="some_prefix"
-    )
-    mock_ssh_hook.assert_called_once_with(
-        ssh_conn_id="conn_1", conn_timeout=60, cmd_timeout=60
-    )
+    assert hook == hooks["some_prefix_1"]
+    assert [c.kwargs for c in mock_ssh_hook.call_args_list] == [
+        {"ssh_conn_id": f"some_prefix_{n}", "conn_timeout": 60, "cmd_timeout": 60}
+        for n in (1, 2, 3)
+    ]
 
 
-@patch("plugins.common.utils._get_cluster_ssh_connections", return_value=[])
+@patch("plugins.common.utils.SSHHook")
 def test_get_cluster_ssh_hook_raises_exception_when_no_connections_found(
-    mock_get_cluster_ssh_connections: MagicMock,  # noqa:ARG001
+    mock_ssh_hook: MagicMock,
 ) -> None:
-    """Test that get_cluster_ssh_hook raises an exception when no SSH connections are found."""
+    """Test that get_cluster_ssh_hook raises an exception when `<prefix>_1` does not exist."""
+    _ssh_hooks(mock_ssh_hook)
+
     with pytest.raises(AirflowFailException, match="No SSH connections found"):
         get_cluster_ssh_hook(attempt_no=0, ssh_connection_id_prefix="some_prefix")
 
 
-@patch(
-    "plugins.common.utils._get_cluster_ssh_connections",
-    return_value=["conn_1", "conn_2"],
-)
 @patch(
     "airflow.providers.ssh.hooks.ssh.SSHHook.__init__",
     side_effect=AirflowNotFoundException("Not found"),
 )
 def test_get_cluster_ssh_hook_raises_exception_when_connection_not_found(
     mock_ssh_hook: MagicMock,  # noqa:ARG001
-    mock_get_cluster_ssh_connections: MagicMock,  # noqa:ARG001
 ) -> None:
-    """Test that get_cluster_ssh_hook raises an exception when the connection is not found."""
-    with pytest.raises(
-        AirflowFailException, match="Could not find cluster SSH connection"
-    ):
+    """Test that the real SSHHook constructor raising AirflowNotFoundException ends the probing."""
+    with pytest.raises(AirflowFailException, match="No SSH connections found"):
         get_cluster_ssh_hook(attempt_no=0, ssh_connection_id_prefix="some_prefix")
 
 
-@patch(
-    "plugins.common.utils._get_cluster_ssh_connections",
-    return_value=["conn_1", "conn_2"],
-)
 @patch("plugins.common.utils.SSHHook")
 def test_get_cluster_ssh_hook_cycles_through_connections_on_multiple_attempts(
     mock_ssh_hook: MagicMock,
-    mock_get_cluster_ssh_connections: MagicMock,  # noqa:ARG001
 ) -> None:
     """Test that get_cluster_ssh_hook cycles through available connections on multiple attempts."""
-    mock_ssh_hook.side_effect = [
-        MagicMock(ssh_conn_id="conn_1"),
-        MagicMock(ssh_conn_id="conn_2"),
-        MagicMock(ssh_conn_id="conn_1"),
+    _ssh_hooks(mock_ssh_hook, "some_prefix_1", "some_prefix_2")
+
+    # when
+    conn_ids = [
+        get_cluster_ssh_hook(
+            attempt_no=attempt_no, ssh_connection_id_prefix="some_prefix"
+        ).ssh_conn_id
+        for attempt_no in (0, 1, 2)
     ]
-    hook_1 = get_cluster_ssh_hook(attempt_no=0, ssh_connection_id_prefix="some_prefix")
-    hook_2 = get_cluster_ssh_hook(attempt_no=1, ssh_connection_id_prefix="some_prefix")
-    hook_3 = get_cluster_ssh_hook(attempt_no=2, ssh_connection_id_prefix="some_prefix")
-    assert hook_1.ssh_conn_id == "conn_1"
-    assert hook_2.ssh_conn_id == "conn_2"
-    assert hook_3.ssh_conn_id == "conn_1"
+
+    assert conn_ids == ["some_prefix_1", "some_prefix_2", "some_prefix_1"]
 
 
 @patch("plugins.common.utils.SSHHook")
@@ -342,38 +390,21 @@ def test_get_cluster_ssh_hook_selects_connections_by_prefix(
     mock_ssh_hook: MagicMock,
 ) -> None:
     """Test that two prefixes select disjoint connection sets."""
-    connections = {"cluster_a": ["cluster_a_1"], "cluster_b": ["cluster_b_1"]}
-
-    with patch(
-        "plugins.common.utils._get_cluster_ssh_connections",
-        side_effect=lambda ssh_connection_id_prefix: connections[
-            ssh_connection_id_prefix
-        ],
-    ):
-        get_cluster_ssh_hook(attempt_no=0, ssh_connection_id_prefix="cluster_a")
-        get_cluster_ssh_hook(attempt_no=0, ssh_connection_id_prefix="cluster_b")
-
-    assert [c.kwargs["ssh_conn_id"] for c in mock_ssh_hook.call_args_list] == [
-        "cluster_a_1",
-        "cluster_b_1",
-    ]
-
-
-def test_get_cluster_ssh_connections_filters_by_the_given_prefix() -> None:
-    """Test that the connection query matches ids starting with the given prefix."""
-    session = MagicMock()
-    session.query.return_value.filter.return_value.all.return_value = [
-        MagicMock(conn_id="cluster_b_2"),
-        MagicMock(conn_id="cluster_b_1"),
-    ]
+    _ssh_hooks(mock_ssh_hook, "cluster_a_1", "cluster_b_1")
 
     # when
-    conn_ids = _get_cluster_ssh_connections(
-        session=session, ssh_connection_id_prefix="cluster_b"
-    )
+    hook_a = get_cluster_ssh_hook(attempt_no=0, ssh_connection_id_prefix="cluster_a")
+    hook_b = get_cluster_ssh_hook(attempt_no=0, ssh_connection_id_prefix="cluster_b")
 
-    assert conn_ids == ["cluster_b_1", "cluster_b_2"]
-    filter_expression = session.query.return_value.filter.call_args.args[0]
-    assert "'cluster_b'" in str(
-        filter_expression.compile(compile_kwargs={"literal_binds": True})
-    )
+    assert (hook_a.ssh_conn_id, hook_b.ssh_conn_id) == ("cluster_a_1", "cluster_b_1")
+
+
+@patch("plugins.common.utils.SSHHook")
+def test_get_cluster_ssh_hook_stops_at_first_gap(mock_ssh_hook: MagicMock) -> None:
+    """Test that a gap in the numbering hides the connections after it (documented contract)."""
+    _ssh_hooks(mock_ssh_hook, "some_prefix_1", "some_prefix_3")
+
+    # when
+    hook = get_cluster_ssh_hook(attempt_no=1, ssh_connection_id_prefix="some_prefix")
+
+    assert hook.ssh_conn_id == "some_prefix_1"

@@ -6,7 +6,8 @@ from unittest.mock import MagicMock, Mock, call, patch
 
 import pytest
 import pytz
-from airflow.exceptions import AirflowFailException, DagNotFound
+from airflow.exceptions import DagNotFound
+from airflow.sdk.exceptions import AirflowFailException
 from dags.impl.watcher_impl import (
     _add_raw_file_to_db,
     _file_meets_age_criterion,

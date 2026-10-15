@@ -4,18 +4,27 @@ import logging
 import os
 from collections.abc import Iterable
 from datetime import datetime, timedelta
+from http import HTTPStatus
 from typing import Any
 
 import pytz
-from airflow.api.common.trigger_dag import trigger_dag
-from airflow.exceptions import AirflowFailException, AirflowNotFoundException
-from airflow.models import Connection, DagRun, TaskInstance, Variable
+from airflow.exceptions import DagNotFound
+from airflow.models import DagRun
 from airflow.providers.ssh.hooks.ssh import SSHHook
-from airflow.utils.db import provide_session
+from airflow.sdk import Variable
+from airflow.sdk.exceptions import (
+    AirflowFailException,
+    AirflowNotFoundException,
+    AirflowRuntimeError,
+)
+from airflow.sdk.execution_time import task_runner
+from airflow.sdk.execution_time.comms import ErrorResponse, TriggerDagRun
+from airflow.sdk.execution_time.task_runner import RuntimeTaskInstance as TaskInstance
 from airflow.utils.types import DagRunType
 from common.constants import (
     CLUSTER_SSH_COMMAND_TIMEOUT,
     CLUSTER_SSH_CONNECTION_TIMEOUT,
+    CLUSTER_SSH_MAX_CONNECTIONS,
 )
 
 _xcom_types = str | list[str] | dict[str, Any] | int
@@ -79,7 +88,7 @@ def get_airflow_variable(
     if default == "__DEFAULT_NOT_SET":
         value = Variable.get(key)
     else:
-        value = Variable.get(key, default_var=default)
+        value = Variable.get(key, default=default)
 
     logging.info(f"Got airflow variable: '{key}'='{value}' (default: '{default}')")
 
@@ -104,27 +113,44 @@ def get_env_variable(
 def trigger_dag_run(
     dag_id: str, conf: dict[str, str], time_delay_minutes: int | None = None
 ) -> None:
-    """Trigger a DAG run with the given configuration."""
-    # Airflow 3 swap point: workers cannot reach the metadata DB via the ORM, so this body
-    # becomes a Task Execution API call. Keep trigger_dag() confined to this function.
-    now = datetime.now(tz=pytz.utc)
-    run_id = DagRun.generate_run_id(DagRunType.MANUAL, execution_date=now)
+    """Trigger a DAG run with the given configuration.
 
-    execution_date = (
-        None
+    :param time_delay_minutes: If given, the run does not start before now plus this delay.
+    :raises DagNotFound: If no DAG with `dag_id` exists.
+    """
+    now = datetime.now(tz=pytz.utc)
+    run_after = (
+        now
         if time_delay_minutes is None
         else now + timedelta(minutes=time_delay_minutes)
     )
-
-    logging.info(f"Triggering DAG {dag_id} with {run_id=} with {conf=}")
-
-    trigger_dag(
-        dag_id=dag_id,
-        run_id=run_id,
-        conf=conf,
-        execution_date=execution_date,
-        replace_microseconds=False,
+    run_id = DagRun.generate_run_id(
+        run_type=DagRunType.MANUAL, logical_date=None, run_after=run_after
     )
+
+    logging.info(f"Triggering DAG {dag_id} with {run_id=} {run_after=} {conf=}")
+
+    # The Task Execution API is the same channel TriggerDagRunOperator uses: no API token needed.
+    # The supervisor turns a 404 of the api-server into an AirflowRuntimeError.
+    try:
+        response = task_runner.SUPERVISOR_COMMS.send(
+            TriggerDagRun(
+                dag_id=dag_id,
+                run_id=run_id,
+                conf=conf,
+                logical_date=None,
+                run_after=run_after,
+            )
+        )
+    except AirflowRuntimeError as e:
+        if (e.error.detail or {}).get("status_code") == HTTPStatus.NOT_FOUND:
+            raise DagNotFound(f"Dag id {dag_id} not found") from e
+        raise
+
+    if isinstance(response, ErrorResponse):
+        raise AirflowFailException(
+            f"Could not trigger DAG {dag_id}: {response.error.value} {response.detail}"
+        )
 
 
 def truncate_string(input_string: str | None, n: int = 200) -> str | None:
@@ -155,39 +181,12 @@ def get_minutes_since_fixed_time_point() -> int:
     return int((current_epoch_time - baseline) // 60)
 
 
-@provide_session
-def _get_cluster_ssh_connections(
-    session: Any = None,
-    *,
-    ssh_connection_id_prefix: str,
-) -> list[str]:
-    """Get all SSH connection IDs that start with the given prefix.
-
-    :param session: Database session (provided by decorator)
-    :param ssh_connection_id_prefix: Prefix of the connection IDs to select
-
-    :return: List of connection IDs matching the prefix, sorted by ID
-    """
-    assert session is not None
-    connections = (
-        session.query(Connection)
-        .filter(Connection.conn_id.startswith(ssh_connection_id_prefix))
-        .all()
-    )
-    conn_ids = [conn.conn_id for conn in connections]
-
-    logging.info(
-        f"Found {len(conn_ids)} SSH connections with prefix '{ssh_connection_id_prefix}': {conn_ids}"
-    )
-    return sorted(conn_ids)
-
-
 def get_cluster_ssh_hook(
     ssh_connection_id_prefix: str,
     attempt_no: int,
     conn_timeout: int = CLUSTER_SSH_CONNECTION_TIMEOUT,
     cmd_timeout: int = CLUSTER_SSH_COMMAND_TIMEOUT,
-) -> SSHHook | None:
+) -> SSHHook:
     """Get an SSH hook for the compute cluster.
 
     :param ssh_connection_id_prefix: Prefix of the Airflow connection IDs to choose from.
@@ -195,31 +194,31 @@ def get_cluster_ssh_hook(
     :param conn_timeout: Connection timeout in seconds.
     :param cmd_timeout: Command execution timeout in seconds.
 
-    The connection id needs to be defined in the Airflow UI and is obtained from get_cluster_ssh_connections().
+    The connections need to be defined in the Airflow UI as `<prefix>_1`, `<prefix>_2`, ... without gaps.
     """
-    error_details = (
-        f"Please set up a connection starting with {ssh_connection_id_prefix} in the Airflow UI ('Admin -> Connections') "
-        "or set the Airflow Variable 'debug_no_cluster_ssh=True'."
-    )
-    cluster_ssh_connections_ids = _get_cluster_ssh_connections(
-        ssh_connection_id_prefix=ssh_connection_id_prefix
-    )
-    if not cluster_ssh_connections_ids:
-        raise AirflowFailException(f"No SSH connections found.\n{error_details}")
+    # workers cannot list connections, so probe the ids until the first missing one
+    hooks: list[SSHHook] = []
+    for n in range(1, CLUSTER_SSH_MAX_CONNECTIONS + 1):
+        try:
+            hooks.append(
+                SSHHook(
+                    ssh_conn_id=f"{ssh_connection_id_prefix}_{n}",
+                    conn_timeout=conn_timeout,
+                    cmd_timeout=cmd_timeout,
+                )
+            )
+        except AirflowNotFoundException:  # noqa: PERF203 probing is the purpose of this loop
+            break
 
-    ssh_conn_id = cluster_ssh_connections_ids[
-        attempt_no % len(cluster_ssh_connections_ids)
-    ]
+    if not hooks:
+        raise AirflowFailException(
+            f"No SSH connections found.\n"
+            f"Please set up a connection '{ssh_connection_id_prefix}_1' in the Airflow UI ('Admin -> Connections') "
+            "or set the Airflow Variable 'debug_no_cluster_ssh=True'."
+        )
 
-    logging.info(f"Using {ssh_conn_id=} for SSH connection (attempt {attempt_no})")
-    try:
-        return SSHHook(
-            ssh_conn_id=ssh_conn_id, conn_timeout=conn_timeout, cmd_timeout=cmd_timeout
-        )
-    except AirflowNotFoundException as e:
-        msg = (
-            f"Could not find cluster SSH connection.\n"
-            f"{error_details}\n"
-            f"Original message: {e}"
-        )
-        raise AirflowFailException(msg) from e
+    ssh_hook = hooks[attempt_no % len(hooks)]
+    logging.info(
+        f"Using {ssh_hook.ssh_conn_id=} of {len(hooks)} connections (attempt {attempt_no})"
+    )
+    return ssh_hook

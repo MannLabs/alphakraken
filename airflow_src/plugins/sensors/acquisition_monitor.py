@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Any
 
 import pytz
-from airflow.sensors.base import BaseSensorOperator
+from airflow.sdk import BaseSensorOperator
 from common.keys import (
     AcquisitionMonitorErrors,
     AirflowVars,

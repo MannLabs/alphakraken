@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 import pytz
-from airflow.sensors.base import BaseSensorOperator
+from airflow.sdk import BaseSensorOperator
 from common.paths import (
     get_internal_backup_path_for_instrument,
     get_internal_instrument_data_path,

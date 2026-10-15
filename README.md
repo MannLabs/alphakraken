@@ -2,8 +2,8 @@
 [![unit tests](https://github.com/MannLabs/alphakraken/actions/workflows/branch-checks.yaml/badge.svg)](https://github.com/MannLabs/alphakraken/actions/workflows/branch-checks.yaml)
 ![Coverage](https://github.com/MannLabs/alphakraken/blob/main/misc/coverage.svg)
 ![GitHub Release](https://img.shields.io/github/v/release/mannlabs/alphakraken?logoColor=green&color=brightgreen)
-![Versions](https://img.shields.io/badge/python-3.11-brightgreen)
-![Versions](https://img.shields.io/badge/Apache_Airflow-2.11.0-brightgreen)
+![Versions](https://img.shields.io/badge/python-3.13-brightgreen)
+![Versions](https://img.shields.io/badge/Apache_Airflow-3.3.2-brightgreen)
 
 # AlphaKraken
 
@@ -46,7 +46,7 @@ ENV=local && export ENV=$ENV
 ./compose.sh --profile dbs up airflow-init
 ./compose.sh --profile local up --build -d
 ```
-After startup, the airflow webserver runs on http://localhost:8080/ (default credentials: airflow/airflow), the Streamlit webapp on http://localhost:8501/ .
+After startup, the Airflow UI runs on http://localhost:8080/ (default credentials: airflow/airflow), the Streamlit webapp on http://localhost:8501/ .
 See [here](docs/development.md#local-testing) on how to test the system locally.
 
 See the [deployment.md](docs/deployment.md) for detailed instructions.

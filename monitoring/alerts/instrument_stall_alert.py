@@ -19,10 +19,6 @@ from .config import (
 class InstrumentStallAlert(BaseAlert):
     """Check if no new file has been acquired for a configured time period."""
 
-    def __init__(self):
-        """Initialize with empty alerted file names tracker."""
-        self._alerted_file_names: dict[str, str | None] = {}
-
     @property
     def name(self) -> str:
         """Return the case name for this alert type."""
@@ -54,25 +50,18 @@ class InstrumentStallAlert(BaseAlert):
             created_at = ensure_utc(latest.created_at)
 
             if created_at < threshold:
-                if self._alerted_file_names.get(instrument_id) == latest.original_name:
-                    continue
                 issues.append(
                     Issue(
                         instrument_id,
                         created_at,
                         relevant_file=latest.original_name,
                         instrument_id=instrument_id,
+                        # alert once per stall, i.e. per last file
+                        unique_key=(instrument_id, latest.original_name),
                     )
                 )
-            else:
-                self._alerted_file_names.pop(instrument_id, None)
 
         return issues
-
-    def mark_reported(self, issues: list[Issue[datetime]]) -> None:
-        """Remember the last file of each stalled instrument to not alert again for it."""
-        for issue in issues:
-            self._alerted_file_names[issue.identifier] = issue.relevant_file
 
     def format_message(self, issues: list[Issue[datetime]]) -> str:
         """Format no new file acquired message."""

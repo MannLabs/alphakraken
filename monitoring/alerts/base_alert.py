@@ -2,6 +2,7 @@
 
 import logging
 from abc import ABC, abstractmethod
+from collections.abc import Hashable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Generic, TypeVar
@@ -53,6 +54,8 @@ class Issue(Generic[D_co]):
     instrument_id: str | None = None
     # distinguishes kinds of issues of one alert; part of the cooldown key
     kind: str | None = None
+    # if set, the issue is reported only once per key, regardless of cooldown
+    unique_key: Hashable | None = None
 
 
 def get_instrument_id(kraken_status: KrakenStatus) -> str | None:
@@ -133,13 +136,6 @@ class BaseAlert(ABC):
     @abstractmethod
     def name(self) -> str:
         """Return the name for this alert type."""
-
-    def mark_reported(self, issues: list[Issue]) -> None:
-        """Remember that the issues were handled, so they are not raised again.
-
-        Override this method in subclasses that suppress already reported issues in `_get_issues`.
-        """
-        del issues  # unused
 
     def get_cooldown_time_minutes(self, issue: Issue) -> int:
         """Return cooldown in minutes for an issue of this alert.

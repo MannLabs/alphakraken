@@ -21,8 +21,8 @@ def _install_latest_file(
 )
 @patch("monitoring.alerts.instrument_stall_alert.INSTRUMENT_STALL_THRESHOLD_HOURS", 2)
 @patch("monitoring.alerts.instrument_stall_alert.RawFile")
-def test_stall_should_be_raised_until_reported(mock_rawfile: Mock) -> None:
-    """A stall is raised again until marked as reported, then not for the same file."""
+def test_stall_should_be_unique_per_last_file(mock_rawfile: Mock) -> None:
+    """A stall is reported once per last file of the instrument."""
     # given
     alert = InstrumentStallAlert()
     _install_latest_file(
@@ -30,14 +30,10 @@ def test_stall_should_be_raised_until_reported(mock_rawfile: Mock) -> None:
     )
 
     # when
-    first = alert._get_issues([])
-    unreported = alert._get_issues([])
-    alert.mark_reported(first)
-    reported = alert._get_issues([])
+    result = alert._get_issues([])
 
     # then
-    assert len(first) == 1
-    assert first[0].identifier == "inst1"
-    assert first[0].relevant_file == "x_MaSc_a.raw"
-    assert unreported == first
-    assert reported == []
+    assert len(result) == 1
+    assert result[0].identifier == "inst1"
+    assert result[0].relevant_file == "x_MaSc_a.raw"
+    assert result[0].unique_key == ("inst1", "x_MaSc_a.raw")

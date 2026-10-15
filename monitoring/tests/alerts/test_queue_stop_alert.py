@@ -1,6 +1,5 @@
 """Unit tests for QueueStopAlert (queue-stop user alert)."""
 
-from collections.abc import Generator
 from datetime import datetime, timedelta
 from unittest.mock import MagicMock, Mock, patch
 
@@ -48,14 +47,6 @@ def _install_rawfile_mock(
 def _install_refresh_mock(mock_rawfile: Mock, files: list) -> None:
     """Wire `RawFile.objects.filter(id__in=...).only(...)` used by `refresh_recent_files`."""
     mock_rawfile.objects.filter.return_value.only.return_value = files
-
-
-@pytest.fixture(autouse=True)
-def _reset_class_tracker() -> Generator[None, None, None]:
-    """Each test gets a fresh `_alerted_subject_files` to keep tests independent."""
-    QueueStopAlert._alerted_subject_files.clear()
-    yield
-    QueueStopAlert._alerted_subject_files.clear()
 
 
 # -- Setup / common -----------------------------------------------------------
@@ -157,7 +148,6 @@ class TestQueueStopAlertBasics:
                         _make_file(n2, thirty_min_before),
                         _make_file(n3, sixty_min_before),
                     ]
-                    QueueStopAlert._alerted_subject_files.clear()
                     _install_rawfile_mock(mock_rawfile, {"inst1": files})
                     with patch(
                         "monitoring.alerts.queue_stop_alert.datetime"
@@ -354,8 +344,8 @@ class TestRuleAStop:
     def test_stop_cooldown_no_repeat_alert_for_same_subject_file_id(
         self, mock_rawfile: Mock
     ) -> None:
-        """Same (instrument, subject_file_id) does not re-fire on repeated polls."""
-        # given - same data twice; second call must not re-fire
+        """Repeated polls of the same stop share the unique key, so it is reported once."""
+        # given - same data twice
         now = datetime(2026, 1, 1, 12, 0, tzinfo=pytz.UTC)
         gradient = timedelta(minutes=30)
         f1_t = now - 4 * gradient
@@ -372,13 +362,13 @@ class TestRuleAStop:
         alert = QueueStopAlert()
         with patch("monitoring.alerts.queue_stop_alert.datetime") as mock_dt:
             mock_dt.now.return_value = now
-            # when - first call fires; second is suppressed
+            # when
             first = alert._get_issues([])
-            alert.mark_reported(first)
             second = alert._get_issues([])
         # then
         assert len(first) == 1
-        assert second == []
+        assert first[0].unique_key == ("inst1", "x_MaSc_a.raw")
+        assert [i.unique_key for i in second] == [first[0].unique_key]
 
     @patch("monitoring.alerts.queue_stop_alert.RawFile")
     def test_stop_cooldown_releases_when_newer_file_appears(
@@ -408,7 +398,6 @@ class TestRuleAStop:
         with patch("monitoring.alerts.queue_stop_alert.datetime") as mock_dt:
             mock_dt.now.return_value = now1
             first = alert._get_issues([])
-            alert.mark_reported(first)
 
         # second scan: a new file d arrives; top-3 = [d, a, b]; stop subject = d.id
         d_t = a_t + gradient
@@ -432,6 +421,7 @@ class TestRuleAStop:
         assert first[0].identifier == "inst1:x_MaSc_a.raw"
         assert len(second) == 1
         assert second[0].identifier == "inst1:x_MaSc_d.raw"
+        assert second[0].unique_key != first[0].unique_key
 
 
 # -- Rule B - Handoff ---------------------------------------------------------
@@ -649,8 +639,8 @@ class TestRuleBHandoff:
     def test_handoff_cooldown_no_repeat_alert_for_same_subject_file_id(
         self, mock_rawfile: Mock
     ) -> None:
-        """Same handoff polled twice fires only once."""
-        # given - same handoff scenario polled twice; second poll suppressed
+        """Repeated polls of the same handoff share the unique key, so it is reported once."""
+        # given - same handoff scenario polled twice
         now = datetime(2026, 1, 1, 12, 0, tzinfo=pytz.UTC)
         files = {
             "inst1": [
@@ -664,11 +654,11 @@ class TestRuleBHandoff:
         with patch("monitoring.alerts.queue_stop_alert.datetime") as mock_dt:
             mock_dt.now.return_value = now
             first = alert._get_issues([])
-            alert.mark_reported(first)
             second = alert._get_issues([])
         # then
         assert len(first) == 1
-        assert second == []
+        assert first[0].unique_key == ("inst1", "x_MaSc_a.raw")
+        assert [i.unique_key for i in second] == [first[0].unique_key]
 
     @patch("monitoring.alerts.queue_stop_alert.RawFile")
     def test_unified_cooldown_handoff_suppressed_after_stop_for_same_user_last_file(
@@ -700,7 +690,6 @@ class TestRuleBHandoff:
         with patch("monitoring.alerts.queue_stop_alert.datetime") as mock_dt:
             mock_dt.now.return_value = now1
             first = alert._get_issues([])
-            alert.mark_reported(first)
 
         # scan 2: JoeB takes over with G; top-3 = [G_JoeB, F_MaSc, E_MaSc]
         # Rule B would fire for MaSc with subject = F.id - same key, suppressed.
@@ -720,11 +709,13 @@ class TestRuleBHandoff:
             mock_dt.now.return_value = now2
             second = alert._get_issues([])
 
-        # then - stop fired with subject F.id; handoff suppressed (same subject)
+        # then - stop fired with subject F.id; handoff has the same unique key
         assert len(first) == 1
         assert first[0].identifier == "inst1:x_MaSc_F.raw"
         assert first[0].details.kind == KIND_STOP
-        assert second == []
+        assert len(second) == 1
+        assert second[0].details.kind == KIND_HANDOFF
+        assert second[0].unique_key == first[0].unique_key
 
 
 # -- Regression ---------------------------------------------------------------

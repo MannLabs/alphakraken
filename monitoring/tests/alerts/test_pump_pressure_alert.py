@@ -6,8 +6,13 @@ from unittest.mock import Mock, patch
 import pytz
 
 from monitoring.alerts.base_alert import Issue
-from monitoring.alerts.config import Cases
-from monitoring.alerts.pump_pressure_alert import PressureDataPoint, PumpPressureAlert
+from monitoring.alerts.config import DEFAULT_ALERT_COOLDOWN_TIME_MINUTES, Cases
+from monitoring.alerts.pump_pressure_alert import (
+    KIND_ABSOLUTE,
+    KIND_INCREASE,
+    PressureDataPoint,
+    PumpPressureAlert,
+)
 from shared.db.models import KrakenStatusEntities
 
 
@@ -703,18 +708,33 @@ class TestPumpPressureAlert:
         # 1. Pressure increase (485 - 460 = 25 bar over window of 5)
         # 2. Multiple absolute threshold violations (485, 484, 483, 482, 481, 480 all >= 480)
         assert len(result) > 1
-        instrument_ids = [issue.identifier for issue in result]
-        details = [issue.details for issue in result]
+        assert all(issue.identifier == "instrument1" for issue in result)
 
-        assert all(
-            inst_id in ("instrument1", "absolute_instrument1")
-            for inst_id in instrument_ids
-        )
-        assert any("Pressure changes:" in detail for detail in details)
-        assert any("High pressure:" in detail for detail in details)
-        absolute_files = [
-            issue.relevant_file
-            for issue in result
-            if issue.identifier == "absolute_instrument1"
+        increase_issues = [i for i in result if i.kind == KIND_INCREASE]
+        absolute_issues = [i for i in result if i.kind == KIND_ABSOLUTE]
+        assert len(increase_issues) == 1
+        assert "Pressure changes:" in increase_issues[0].details
+        assert all("High pressure:" in i.details for i in absolute_issues)
+        assert [i.relevant_file for i in absolute_issues] == [
+            "file1",
+            "file2",
+            "file3",
+            "file4",
+            "file5",
+            "file6",
         ]
-        assert absolute_files == ["file1", "file2", "file3", "file4", "file5", "file6"]
+
+    def test_get_cooldown_time_minutes_should_depend_on_kind(self) -> None:
+        """Test that absolute issues have the default cooldown, increases none."""
+        # given
+        alert = PumpPressureAlert()
+
+        # when / then
+        assert (
+            alert.get_cooldown_time_minutes(Issue("inst1", "x", kind=KIND_ABSOLUTE))
+            == DEFAULT_ALERT_COOLDOWN_TIME_MINUTES
+        )
+        assert (
+            alert.get_cooldown_time_minutes(Issue("inst1", "x", kind=KIND_INCREASE))
+            == 0
+        )

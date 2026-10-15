@@ -20,7 +20,7 @@ class InstrumentStallAlert(BaseAlert):
 
     def __init__(self):
         """Initialize with empty alerted file names tracker."""
-        self._alerted_file_names: dict[str, str] = {}
+        self._alerted_file_names: dict[str, str | None] = {}
 
     @property
     def name(self) -> str:
@@ -65,11 +65,15 @@ class InstrumentStallAlert(BaseAlert):
                         instrument_id=instrument_id,
                     )
                 )
-                self._alerted_file_names[instrument_id] = latest.original_name
             else:
                 self._alerted_file_names.pop(instrument_id, None)
 
         return issues
+
+    def mark_reported(self, issues: list[Issue[datetime]]) -> None:
+        """Remember the last file of each stalled instrument to not alert again for it."""
+        for issue in issues:
+            self._alerted_file_names[issue.identifier] = issue.relevant_file
 
     def format_message(self, issues: list[Issue[datetime]]) -> str:
         """Format no new file acquired message."""

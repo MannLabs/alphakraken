@@ -573,7 +573,14 @@ class TestPumpPressureAlert:
         # younger file of the change: file2 (124 bar) vs. file7 (100 bar)
         assert result_first[0].relevant_file == "file2"
 
-        # when - second call with same data should suppress the issue
+        # when - not yet reported (e.g. blocked by cooldown): raised again
+        result_unreported = alert._get_issues(status_objects)
+
+        # then
+        assert result_unreported == result_first
+
+        # when - second call with same data after reporting should suppress the issue
+        alert.mark_reported(result_first)
         result_second = alert._get_issues(status_objects)
 
         # then - second call suppresses the duplicate

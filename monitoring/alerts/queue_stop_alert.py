@@ -156,7 +156,6 @@ class QueueStopAlert(BaseAlert):
             if dedup_key in self._alerted_subject_files:
                 logging.debug(f"Skipping already-alerted {issue.kind} for {dedup_key}")
                 continue
-            self._alerted_subject_files.add(dedup_key)
 
             identifier = f"{instrument_id}:{subject_file_id}"
             issues.append(
@@ -302,6 +301,13 @@ class QueueStopAlert(BaseAlert):
             pause=None,
             recent_files=recent_files,
         )
+
+    def mark_reported(self, issues: list[Issue[QueueStopIssue]]) -> None:
+        """Remember the subject files to not alert again for them."""
+        for issue in issues:
+            self._alerted_subject_files.add(
+                (issue.details.instrument_id, issue.details.subject_file_id)
+            )
 
     def format_message(self, issues: list[Issue[QueueStopIssue]]) -> str:
         """Render all issues, with file metadata refreshed."""

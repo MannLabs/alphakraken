@@ -51,6 +51,8 @@ class Issue(Generic[D_co]):
     relevant_file: str | None = None
     # instrument the issue relates to; matched exactly by suppressions
     instrument_id: str | None = None
+    # distinguishes kinds of issues of one alert; part of the cooldown key
+    kind: str | None = None
 
 
 def get_instrument_id(kraken_status: KrakenStatus) -> str | None:
@@ -132,19 +134,12 @@ class BaseAlert(ABC):
     def name(self) -> str:
         """Return the name for this alert type."""
 
-    def get_cooldown_time_minutes(self, identifier: str) -> int:
-        """Return cooldown in minutes for this alert and identifier.
+    def get_cooldown_time_minutes(self, issue: Issue) -> int:
+        """Return cooldown in minutes for an issue of this alert.
 
-        Override this method in subclasses to specify custom cooldowns for specific identifiers.
-
-        Args:
-            identifier: The identifier (e.g., instrument_id) for this alert instance
-
-        Returns:
-            Cooldown in minutes
-
+        Override this method in subclasses to specify custom cooldowns, e.g. per identifier or kind.
         """
-        del identifier  # unused
+        del issue  # unused
         return DEFAULT_ALERT_COOLDOWN_TIME_MINUTES
 
 
@@ -171,8 +166,8 @@ class CustomAlert(BaseAlert):
         del issues  # unused
         return ""
 
-    def get_cooldown_time_minutes(self, identifier: str) -> int:
+    def get_cooldown_time_minutes(self, issue: Issue) -> int:
         """Return cooldown in minutes for this alert."""
         if self._cooldown_time_minutes is not None:
             return self._cooldown_time_minutes
-        return super().get_cooldown_time_minutes(identifier)
+        return super().get_cooldown_time_minutes(issue)

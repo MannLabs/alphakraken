@@ -61,11 +61,11 @@ class AlertManager:
             QueueStopAlert(),
         ]
 
-    def check_for_issues(self, *, is_leader: bool = True) -> None:
+    def check_for_issues(self, *, is_active: bool = True) -> None:
         """Run all alert checks.
 
-        Only the leader sends alerts. Other instances handle issues as suppressed, so their
-        state (cooldowns, reported issues) stays in sync in case they become leader.
+        Only the active instance sends alerts. Other instances handle issues as suppressed, so
+        their state (cooldowns, reported issues) stays in sync in case they become active.
         """
         logging.info("Checking for issues...")
         status_objects = list(KrakenStatus.objects)
@@ -74,7 +74,7 @@ class AlertManager:
             issues = alert.get_issues(status_objects)
             if issues:
                 self._handle_issues(
-                    alert, issues, suppress_alerts=self.is_first_check or not is_leader
+                    alert, issues, suppress_alerts=self.is_first_check or not is_active
                 )
 
         self.is_first_check = False

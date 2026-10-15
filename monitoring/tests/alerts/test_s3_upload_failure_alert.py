@@ -64,6 +64,7 @@ class TestS3UploadFailureAlert:
         assert len(result) == 1
         assert result[0].identifier == "file_was_uploading"
         assert result[0].relevant_file == "file_was_uploading"
+        assert result[0].instrument_id == "inst2"
         assert "S3 upload failed" in result[0].details
         assert "proj2" in result[0].details
         assert "inst2" in result[0].details

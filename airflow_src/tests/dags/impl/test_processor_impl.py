@@ -1209,7 +1209,7 @@ def test_get_business_errors_known_error_before_last_error_line(tmp_path: Path) 
 
 
 @patch("dags.impl.processor_impl.add_metrics_to_raw_file")
-@patch("dags.impl.processor_impl.calc_metrics")
+@patch("metrics.metrics_calculator.calc_metrics")
 def test_compute_metrics(
     mock_calc_metrics: MagicMock,
     mock_add: MagicMock,
@@ -1241,7 +1241,7 @@ def test_compute_metrics(
 
 
 @patch("dags.impl.processor_impl.add_metrics_to_raw_file")
-@patch("dags.impl.processor_impl.calc_metrics")
+@patch("metrics.metrics_calculator.calc_metrics")
 def test_compute_metrics_msqc_software_type(
     mock_calc_metrics: MagicMock,
     mock_add: MagicMock,

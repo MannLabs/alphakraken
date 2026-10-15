@@ -28,6 +28,9 @@ EXIT_CODE_FILE_NAME = ".alphakraken_exit_code"
 COLLISION_FLAG_SEP = "-"
 
 
+# kept here rather than in s3 module so importing it does not load boto3
+S3_UPLOAD_CHUNK_SIZE_MB = 100
+
 BYTES_TO_GB = 1 / 1024**3
 BYTES_TO_MB = 1 / 1024**2
 

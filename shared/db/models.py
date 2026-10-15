@@ -237,7 +237,7 @@ class UserStatus:
 
 
 USER_EMAIL_REGEX = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
-USER_INITIALS_REGEX = r"^[A-Z0-9]+$"
+USER_INITIALS_REGEX = r"^[a-zA-Z0-9]+$"
 
 
 class User(Document):

@@ -10,7 +10,7 @@ def clean_email(email: str) -> str:
 
 def clean_initials(initials: str) -> str:
     """Normalize initials."""
-    return initials.strip().upper()
+    return initials.strip()
 
 
 def parse_user_row(row: str) -> tuple[str, str]:

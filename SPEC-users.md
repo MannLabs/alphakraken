@@ -13,7 +13,7 @@ Users are not login identities. Admin is still the single shared password (`serv
 1. **`User` document** (`shared/db/models.py`):
    - `email`: primary key, immutable, basic regex, max 128. To change an email, add a new user and
      deactivate the old one; existing documents keep the old user as owner.
-   - `initials`: required, unique, `[A-Z0-9]`, max 8, editable
+   - `initials`: required, unique (case-sensitive), `[a-zA-Z0-9]`, max 8, editable
    - `status`: `UserStatus.ACTIVE` / `UserStatus.INACTIVE` (soft-delete; mirrors `SettingsStatus`)
    - `created_at_`
    - `meta = {"strict": False, "auto_create_index": False}`. Uniqueness of initials is checked in the
@@ -122,5 +122,5 @@ def update_user(email: str, *, initials: str) -> None:
 
 ## Resolved questions
 
-1. Initials are `[A-Z0-9]{1,8}`. Input is converted to upper case, and email to lower case.
+1. Initials are `[a-zA-Z0-9]{1,8}` and case-sensitive (`AB` and `Ab` are different). Email is converted to lower case.
 2. The collection is named `user`, the MongoEngine default.

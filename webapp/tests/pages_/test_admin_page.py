@@ -70,15 +70,15 @@ def test_admin_adds_user_with_cleaned_inputs(
     mock_get_users: MagicMock,  # noqa: ARG001
     mock_add_user: MagicMock,
 ) -> None:
-    """Test that adding a user passes lowercased email and uppercased initials."""
+    """Test that adding a user passes lowercased email and initials with their case kept."""
     at = _admin_app().run()
 
     at.text_input[0].set_value(" A@B.de ")
-    at.text_input[1].set_value("ab")
+    at.text_input[1].set_value(" Ab ")
     at.button[0].click().run()
 
     assert not at.exception
-    mock_add_user.assert_called_once_with(email="a@b.de", initials="AB")
+    mock_add_user.assert_called_once_with(email="a@b.de", initials="Ab")
 
 
 @patch("shared.db.interface.update_user")
@@ -90,11 +90,11 @@ def test_admin_updates_user(
     mock_get_users.return_value = [_user("AB")]
     at = _admin_app().run()
 
-    at.text_input[2].set_value("xy")
+    at.text_input[2].set_value("xY")
     at.button[2].click().run()
 
     assert not at.exception
-    mock_update_user.assert_called_once_with("ab@b.de", initials="XY")
+    mock_update_user.assert_called_once_with("ab@b.de", initials="xY")
 
 
 @patch("shared.db.interface.set_user_status")
@@ -122,15 +122,15 @@ def test_admin_bulk_adds_users_and_reports_failures(
     mock_add_user.side_effect = [None, ValueError("initials 'CD' already exists.")]
     at = _admin_app().run()
 
-    at.text_area[0].set_value("a@b.de,ab\n\nC@D.de,CD\nbad row")
+    at.text_area[0].set_value("a@b.de,Ab\n\nC@D.de,CD\nbad row")
     at.button[1].click().run()
 
     assert not at.exception
     assert mock_add_user.call_args_list == [
-        call(email="a@b.de", initials="AB"),
+        call(email="a@b.de", initials="Ab"),
         call(email="c@d.de", initials="CD"),
     ]
-    assert at.success[0].value == "Added 1 users: AB"
+    assert at.success[0].value == "Added 1 users: Ab"
     assert at.error[0].value == (
         "Failed to add 2 users:\n"
         "- line 3: initials 'CD' already exists.\n"

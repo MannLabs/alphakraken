@@ -1,5 +1,6 @@
 # https://docs.streamlit.io/deploy/tutorials/docker
-FROM python:3.11-slim-bookworm
+# same python version as airflow_src/Dockerfile to allow shared requirements
+FROM python:3.13-slim-bookworm
 
 WORKDIR /app
 

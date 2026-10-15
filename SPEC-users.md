@@ -10,18 +10,19 @@ Users are not login identities. Admin is still the single shared password (`serv
 
 ## Decisions
 
-1. **`User` document** (`shared/db/models.py`), default ObjectId PK:
-   - `email`: required, unique, basic regex, max 128
-   - `initials`: required, unique, `[A-Z0-9]`, max 8
+1. **`User` document** (`shared/db/models.py`):
+   - `email`: primary key, immutable, basic regex, max 128. To change an email, add a new user and
+     deactivate the old one; existing documents keep the old user as owner.
+   - `initials`: required, unique, `[A-Z0-9]`, max 8, editable
    - `status`: `UserStatus.ACTIVE` / `UserStatus.INACTIVE` (soft-delete; mirrors `SettingsStatus`)
    - `created_at_`
-   - `meta = {"strict": False, "auto_create_index": False}`. Uniqueness is checked in the interface
-     before every write. Concurrent admin edits can race; we accept that, as `create_settings` does
+   - `meta = {"strict": False, "auto_create_index": False}`. Uniqueness of initials is checked in the
+     interface before every create and edit. Concurrent admin edits can race; we accept that, as `create_settings` does
      for `number`.
 2. **Owner field**: `owner = ReferenceField(User, required=False, default=None)` on `Project` and
    `Settings`. Set only on create and never changed afterwards. No backfill: existing documents keep
    no owner.
-3. **Admin-only writes**: add, edit (email, initials), deactivate and reactivate users. These actions
+3. **Admin-only writes**: add, edit (initials only), deactivate and reactivate users. These actions
    live on the existing admin page (`webapp/pages_/admin.py`). Non-admins cannot see that page.
    Deactivate is a soft delete. Reactivate exists so that a mistaken deactivation can be undone.
 4. **Inactive users**:
@@ -35,7 +36,7 @@ Users are not login identities. Admin is still the single shared password (`serv
      owner of the latest version. You can change it. If that owner is inactive, the prefill is
      "(none)".
 6. **Display**: projects and settings tables get an "owner" column that shows initials, or empty.
-   There is no filtering.
+   The column appears only once at least one document has an owner. There is no filtering.
 7. **Fallback project** (`_FALLBACK`): has no owner and no special handling.
 
 ## Out of scope
@@ -51,10 +52,10 @@ Users are not login identities. Admin is still the single shared password (`serv
 | File | Change |
 |---|---|
 | `shared/db/models.py` | `UserStatus`, `User`, `owner` on `Project` + `Settings` |
-| `shared/db/interface.py` | `add_user`, `update_user`, `set_user_status`, `get_all_users(include_inactive)`; optional `owner_id` on `add_project` / `create_settings` |
+| `shared/db/interface.py` | `add_user`, `update_user`, `set_user_status`, `get_all_users(include_inactive)`; optional `owner_email` on `add_project` / `create_settings` |
 | `webapp/pages_/admin.py` | user table + create/edit/(de)activate |
 | `webapp/pages_/projects.py`, `settings.py` | owner selectbox + owner column |
-| `misc/init-mongo.sh`, `docs/deployment.md` | `webappRole`: `find/insert/update/remove` on collection `user`. Includes the manual `mongosh` command for existing DBs |
+| `misc/init-mongo.sh`, `docs/upgrade_guides/upgrade_add_users.md` | `webappRole`: `find/insert/update/remove` on collection `user`; upgrade guide for existing DBs |
 
 No data migration is needed.
 
@@ -73,7 +74,9 @@ Follow the existing interface functions, for example:
 def add_user(*, email: str, initials: str) -> User:
     """Add a new active user."""
     connect_db()
-    _check_user_unique(email=email, initials=initials)
+    if User.objects(email=email).first():
+        raise ValueError(f"A user with email '{email}' already exists.")
+    _check_initials_unique(initials)
     user = User(email=email, initials=initials)
     user.save(force_insert=True)
     logging.info(f"Added user: {email=} {initials=}")
@@ -90,10 +93,11 @@ def add_user(*, email: str, initials: str) -> User:
   - add/update user, including uniqueness violations on both fields;
   - set status;
   - `get_all_users` filtering;
-  - `add_project` / `create_settings` with and without `owner_id`.
+  - `add_project` / `create_settings` with and without `owner_email`.
 - `webapp/tests/pages_/test_admin_page.py`: the user form renders for admins, and creating a user calls the interface.
 - `test_projects.py`, `test_settings.py`:
-  - with no users, there is no owner selectbox and the current tests pass unchanged;
+  - with no users, there is no owner selectbox and the current tests pass unchanged
+    (an autouse fixture in `webapp/tests/pages_/conftest.py` provides "no users");
   - with users, the selection is passed through;
   - for a new settings version, the selectbox is prefilled with the previous owner.
 
@@ -109,14 +113,14 @@ def add_user(*, email: str, initials: str) -> User:
    look the same as today.
 2. An admin can create, edit, deactivate and reactivate a user. A non-admin cannot reach any of these
    actions.
-3. Duplicate email or initials are rejected with an error toast. This holds for create and for edit.
+3. Duplicate email (on create) or initials (on create and edit) are rejected with an error toast.
 4. A project or settings created with an owner stores a reference to that owner. Its table row
    shows the owner's initials. When the user's initials are edited, the row shows the new initials.
 5. A deactivated user is not offered in the selectboxes, and is still shown on the documents they own.
 6. For a new settings version, the owner selectbox is prefilled with the previous version's owner,
    unless that owner is inactive.
 
-## Open questions
+## Resolved questions
 
-1. Initials format: is `[A-Z0-9]{1,8}` OK? Should lowercase input be converted to upper case?
-2. Collection name `user`: this is the MongoEngine default. Is it OK, or should it be `users`?
+1. Initials are `[A-Z0-9]{1,8}`. Input is converted to upper case, and email to lower case.
+2. The collection is named `user`, the MongoEngine default.

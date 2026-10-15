@@ -104,3 +104,30 @@ def test_add_new_project_form_submission(
     at.text_input[1].set_value("123")
     at.text_input[2].set_value("1234")
     at.button[0].click()
+
+
+@patch("service.owner.get_all_users")
+@patch("service.db.get_project_data")
+@patch("service.db.df_from_db_data")
+@patch("service.components.show_filter", side_effect=lambda df, **_kw: (df,))
+def test_projects_owner_is_shown_and_selectable(
+    mock_show_filter: MagicMock,  # noqa: ARG001
+    mock_df: MagicMock,
+    mock_get_project: MagicMock,
+    mock_get_users: MagicMock,
+) -> None:
+    """Test that owner initials are shown and the active users are offered as owner."""
+    mock_get_project.return_value = []
+    mock_df.return_value = pd.DataFrame(
+        {"_id": ["P1234", "P5678"], "name": ["a", "b"], "owner": ["a@b.de", None]}
+    )
+    user = MagicMock(initials="AB", email="a@b.de")
+    mock_get_users.return_value = [user]
+
+    at = AppTest.from_file(f"{PAGES_FOLDER}/projects.py").run(timeout=10)
+
+    assert not at.exception
+    assert at.table[0].value["owner"].tolist() == ["AB", ""]
+    owner_select = next(s for s in at.selectbox if s.label == "Owner")
+    assert owner_select.options == ["(none)", "AB (a@b.de)"]
+    assert owner_select.value is None

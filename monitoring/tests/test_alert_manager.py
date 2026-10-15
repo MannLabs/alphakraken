@@ -54,7 +54,7 @@ class TestAlertManager:
             # then
             # Should call get_issues on all alerts
             for alert in alert_manager.alerts:
-                alert.get_issues.assert_called_once_with([mock_status_obj])
+                alert.get_issues.assert_called_once_with([mock_status_obj], [])
 
             # Should send message for the one alert with issues
             mock_send_channel_message.assert_called_once_with(
@@ -269,6 +269,15 @@ def mock_send_direct_message() -> Generator[Mock, None, None]:
     """Patch direct message sending."""
     with patch("monitoring.alert_manager.send_direct_message") as mock:
         yield mock
+
+
+@pytest.fixture(autouse=True)
+def no_suppressions() -> Generator[None, None, None]:
+    """Patch the suppressions loaded from the DB."""
+    with patch(
+        "monitoring.alert_manager.get_active_alert_suppressions", return_value=[]
+    ):
+        yield
 
 
 @pytest.fixture(autouse=True)
@@ -546,6 +555,7 @@ class TestCheckForIssues:
             alert_manager.check_for_issues(is_active=is_active)
 
         # then
+        alert_manager.alerts[0].get_issues.assert_called_once_with([], [])
         assert mock_dispatch.call_count == (1 if is_active else 0)
         assert alert_manager.reported_unique_keys == {
             ("my_alert", "k1"),

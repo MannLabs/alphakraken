@@ -10,10 +10,12 @@ from datetime import datetime, timedelta
 from typing import Any
 
 import pytz
+from mongoengine import Q
 from pymongo import UpdateOne
 
 from shared.db.engine import connect_db
 from shared.db.models import (
+    AlertSuppression,
     FileInfoItem,
     InstrumentFileStatus,
     KrakenStatus,
@@ -659,3 +661,49 @@ def augment_raw_files_with_metrics(
             raw_files_dict[raw_file_id][f"{prefix}{metrics['type']}"] = metrics
 
     return raw_files_dict
+
+
+def get_alert_suppressions() -> list[AlertSuppression]:
+    """Get all alert suppressions, including expired ones, newest first."""
+    connect_db()
+    return list(AlertSuppression.objects.order_by("-created_at_"))
+
+
+def get_active_alert_suppressions() -> list[AlertSuppression]:
+    """Get all alert suppressions that are not expired."""
+    connect_db()
+    now = datetime.now(tz=pytz.UTC)
+    return list(AlertSuppression.objects(Q(expires_at=None) | Q(expires_at__gt=now)))
+
+
+def add_alert_suppression(  # noqa: PLR0913
+    *,
+    error_class: str,
+    instrument_id: str,
+    context: str,
+    message: str,
+    comment: str,
+    expires_at: datetime | None,
+    created_by: str | None,
+) -> None:
+    """Add an alert suppression to the database."""
+    logging.info(
+        f"Adding alert suppression to DB: {error_class=} {instrument_id=} {context=} {message=} {expires_at=}"
+    )
+    connect_db()
+    AlertSuppression(
+        error_class=error_class,
+        instrument_id=instrument_id,
+        context=context,
+        message=message,
+        comment=comment,
+        expires_at=expires_at,
+        created_by=created_by,
+    ).save()
+
+
+def delete_alert_suppression(suppression_id: str) -> None:
+    """Delete an alert suppression from the database."""
+    connect_db()
+    AlertSuppression.objects(id=suppression_id).delete()
+    logging.info(f"Deleted alert suppression: {suppression_id=}")

@@ -20,7 +20,13 @@ from mongoengine import (
     StringField,
 )
 
-from shared.keys import DEFAULT_SCOPE, FALLBACK_PROJECT_ID, MetricsTypes, SoftwareTypes
+from shared.keys import (
+    ALERT_SUPPRESSION_WILDCARD,
+    DEFAULT_SCOPE,
+    FALLBACK_PROJECT_ID,
+    MetricsTypes,
+    SoftwareTypes,
+)
 
 FileInfoItem = (
     tuple[float | None, str | None] | tuple[float | None, str | None, str | None]
@@ -345,6 +351,36 @@ class ProjectSettings(Document):
     # substrings of the raw file ID; include = any matches (empty = all), exclude = none matches
     raw_file_id_filter = ListField(StringField(max_length=128), default=list)
     raw_file_id_exclude_filter = ListField(StringField(max_length=128), default=list)
+    created_at_ = DateTimeField(default=datetime.now)
+
+
+class AlertSuppression(Document):
+    """Schema for a rule muting monitoring alerts; an issue is muted if all fields match."""
+
+    meta: ClassVar = {"strict": False}
+    objects: ClassVar[QuerySet[AlertSuppression]]
+
+    # alert class name, e.g. "PumpPressureAlert"
+    error_class = StringField(
+        required=True, max_length=64, default=ALERT_SUPPRESSION_WILDCARD
+    )
+    # exact match on the instrument the issue relates to
+    instrument_id = StringField(
+        required=True, max_length=64, default=ALERT_SUPPRESSION_WILDCARD
+    )
+    # exact match on the issue identifier
+    context = StringField(
+        required=True, max_length=256, default=ALERT_SUPPRESSION_WILDCARD
+    )
+    # substring of the issue details
+    message = StringField(
+        required=True, max_length=256, default=ALERT_SUPPRESSION_WILDCARD
+    )
+
+    comment = StringField(required=True, max_length=512)
+    # None: never expires
+    expires_at = DateTimeField()
+    created_by = StringField(max_length=64)
     created_at_ = DateTimeField(default=datetime.now)
 
 

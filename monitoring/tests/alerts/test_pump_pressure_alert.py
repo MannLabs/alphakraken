@@ -5,12 +5,9 @@ from unittest.mock import Mock, patch
 
 import pytz
 
+from monitoring.alerts.base_alert import Issue
 from monitoring.alerts.config import Cases
-from monitoring.alerts.pump_pressure_alert import (
-    PressureDataPoint,
-    PumpPressureAlert,
-    PumpPressureIssue,
-)
+from monitoring.alerts.pump_pressure_alert import PressureDataPoint, PumpPressureAlert
 from shared.db.models import KrakenStatusEntities
 
 
@@ -427,8 +424,8 @@ class TestPumpPressureAlert:
         # given
         alert = PumpPressureAlert()
         issues = [
-            ("instrument1", PumpPressureIssue("High pressure: 485.0 bar", "f1")),
-            ("instrument2", PumpPressureIssue("Pressure changes: +25.0 bar", "f2")),
+            Issue("instrument1", "High pressure: 485.0 bar", relevant_file="f1"),
+            Issue("instrument2", "Pressure changes: +25.0 bar", relevant_file="f2"),
         ]
         suppressions = [
             {"error_class": "PumpPressureAlert", "message": "High pressure"},
@@ -446,9 +443,10 @@ class TestPumpPressureAlert:
         # given
         alert = PumpPressureAlert()
         issues = [
-            (
+            Issue(
                 "instrument1",
-                PumpPressureIssue("Pressure changes: [21.5, 22.3, 23.1]", "f1"),
+                "Pressure changes: [21.5, 22.3, 23.1]",
+                relevant_file="f1",
             )
         ]
 
@@ -464,11 +462,12 @@ class TestPumpPressureAlert:
         # given
         alert = PumpPressureAlert()
         issues = [
-            ("instrument1", PumpPressureIssue("Pressure changes: [21.5, 22.3]", "f1")),
-            ("instrument2", PumpPressureIssue("Pressure changes: [25.0]", "f2")),
-            (
+            Issue("instrument1", "Pressure changes: [21.5, 22.3]", relevant_file="f1"),
+            Issue("instrument2", "Pressure changes: [25.0]", relevant_file="f2"),
+            Issue(
                 "instrument3",
-                PumpPressureIssue("Pressure changes: [30.2, 31.5, 32.8]", "f3"),
+                "Pressure changes: [30.2, 31.5, 32.8]",
+                relevant_file="f3",
             ),
         ]
 
@@ -564,10 +563,10 @@ class TestPumpPressureAlert:
 
         # then - first call returns the issue
         assert len(result_first) == 1
-        assert result_first[0][0] == "instrument1"
-        assert "Pressure changes:" in result_first[0][1].details
+        assert result_first[0].identifier == "instrument1"
+        assert "Pressure changes:" in result_first[0].details
         # younger file of the change: file2 (124 bar) vs. file7 (100 bar)
-        assert alert.get_relevant_file(result_first[0]) == "file2"
+        assert result_first[0].relevant_file == "file2"
 
         # when - second call with same data should suppress the issue
         result_second = alert._get_issues(status_objects)
@@ -704,8 +703,8 @@ class TestPumpPressureAlert:
         # 1. Pressure increase (485 - 460 = 25 bar over window of 5)
         # 2. Multiple absolute threshold violations (485, 484, 483, 482, 481, 480 all >= 480)
         assert len(result) > 1
-        instrument_ids = [issue[0] for issue in result]
-        details = [issue[1].details for issue in result]
+        instrument_ids = [issue.identifier for issue in result]
+        details = [issue.details for issue in result]
 
         assert all(
             inst_id in ("instrument1", "absolute_instrument1")
@@ -714,8 +713,8 @@ class TestPumpPressureAlert:
         assert any("Pressure changes:" in detail for detail in details)
         assert any("High pressure:" in detail for detail in details)
         absolute_files = [
-            alert.get_relevant_file(issue)
+            issue.relevant_file
             for issue in result
-            if issue[0] == "absolute_instrument1"
+            if issue.identifier == "absolute_instrument1"
         ]
         assert absolute_files == ["file1", "file2", "file3", "file4", "file5", "file6"]

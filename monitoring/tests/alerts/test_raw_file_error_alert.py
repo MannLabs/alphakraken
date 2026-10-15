@@ -5,6 +5,7 @@ from unittest.mock import Mock, patch
 
 import pytz
 
+from monitoring.alerts.base_alert import Issue
 from monitoring.alerts.config import Cases
 from monitoring.alerts.raw_file_error_alert import RawFileErrorAlert
 from shared.db.models import RawFileStatus
@@ -12,11 +13,6 @@ from shared.db.models import RawFileStatus
 
 class TestRawFileErrorAlert:
     """Test suite for RawFileErrorAlert class."""
-
-    def test_get_relevant_file_should_return_raw_file_id(self) -> None:
-        """Test that the relevant file is the raw file in error."""
-        # when / then
-        assert RawFileErrorAlert().get_relevant_file(("file1.raw", "x")) == "file1.raw"
 
     def test_case_name_should_return_correct_value(self) -> None:
         """Test that name property returns correct value."""
@@ -108,10 +104,24 @@ class TestRawFileErrorAlert:
         # then
         # Should only return files that changed TO error status (not already in error)
         expected = [
-            ("file_was_done", "Processing failed after completion"),
-            ("file_was_quanting", "Failed during quanting"),
-            ("file_new_error", "New file encountered error"),
-            ("file_error_no_details", "None"),
+            Issue(
+                "file_was_done",
+                "Processing failed after completion",
+                relevant_file="file_was_done",
+            ),
+            Issue(
+                "file_was_quanting",
+                "Failed during quanting",
+                relevant_file="file_was_quanting",
+            ),
+            Issue(
+                "file_new_error",
+                "New file encountered error",
+                relevant_file="file_new_error",
+            ),
+            Issue(
+                "file_error_no_details", "None", relevant_file="file_error_no_details"
+            ),
         ]
         assert result == expected
 
@@ -142,16 +152,19 @@ class TestRawFileErrorAlert:
 
         # Complex mix of issues with different error details
         issues = [
-            ("critical_file_001", "Database connection timeout after 30 seconds"),
-            ("instrument_data_corrupted", "Checksum mismatch - file appears corrupted"),
-            ("processing_job_123", None),
-            ("network_file_transfer", "Network unreachable - connection refused"),
-            (
+            Issue("critical_file_001", "Database connection timeout after 30 seconds"),
+            Issue(
+                "instrument_data_corrupted",
+                "Checksum mismatch - file appears corrupted",
+            ),
+            Issue("processing_job_123", None),
+            Issue("network_file_transfer", "Network unreachable - connection refused"),
+            Issue(
                 "validation_error_456",
                 "Schema validation failed: missing required fields",
             ),
-            ("memory_issue_789", "Out of memory during processing"),
-            ("disk_full_error", None),
+            Issue("memory_issue_789", "Out of memory during processing"),
+            Issue("disk_full_error", None),
         ]
 
         # when
@@ -263,7 +276,9 @@ class TestRawFileErrorAlert:
         result1 = alert._get_issues([])
 
         # then - first check should detect new error
-        assert result1 == [("first_error", "First time error")]
+        assert result1 == [
+            Issue("first_error", "First time error", relevant_file="first_error")
+        ]
 
         # Verify correct time window for first check
         expected_time_window = fixed_now - timedelta(seconds=450)  # 90 * 5
@@ -312,7 +327,9 @@ class TestRawFileErrorAlert:
         # Round 1: file enters ERROR
         mock_raw_file.objects.filter.return_value.only.return_value = [mock_error_file]
         result1 = alert._get_issues([])
-        assert result1 == [("file_error", "Some error")]
+        assert result1 == [
+            Issue("file_error", "Some error", relevant_file="file_error")
+        ]
 
         # Round 2: file ages out of the 5-minute window (empty query result)
         mock_raw_file.objects.filter.return_value.only.return_value = []

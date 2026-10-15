@@ -5,6 +5,7 @@ from unittest.mock import Mock, patch
 
 import pytz
 
+from monitoring.alerts.base_alert import Issue
 from monitoring.alerts.config import Cases
 from monitoring.alerts.stale_status_alert import StaleStatusAlert
 from shared.db.models import KrakenStatusEntities
@@ -128,14 +129,16 @@ class TestStaleStatusAlert:
         # then
         # Should return only stale entities, with proper timezone handling
         expected = [
-            ("instrument_stale", datetime(2024, 1, 15, 11, 30, 0, tzinfo=pytz.UTC)),
-            (
+            Issue(
+                "instrument_stale", datetime(2024, 1, 15, 11, 30, 0, tzinfo=pytz.UTC)
+            ),
+            Issue(
                 "instrument_very_stale",
                 datetime(2024, 1, 15, 10, 0, 0, tzinfo=pytz.UTC),
             ),
-            ("storage_stale", datetime(2024, 1, 15, 11, 20, 0, tzinfo=pytz.UTC)),
-            ("monitor_job", datetime(2024, 1, 15, 11, 25, 0, tzinfo=pytz.UTC)),
-            ("file_remover", datetime(2024, 1, 14, 10, 0, 0, tzinfo=pytz.UTC)),
+            Issue("storage_stale", datetime(2024, 1, 15, 11, 20, 0, tzinfo=pytz.UTC)),
+            Issue("monitor_job", datetime(2024, 1, 15, 11, 25, 0, tzinfo=pytz.UTC)),
+            Issue("file_remover", datetime(2024, 1, 14, 10, 0, 0, tzinfo=pytz.UTC)),
         ]
         assert result == expected
 
@@ -151,23 +154,23 @@ class TestStaleStatusAlert:
 
         # Complex mix of issues with different staleness levels
         issues = [
-            (
+            Issue(
                 "instrument_main",
                 datetime(2024, 1, 15, 10, 0, 0, tzinfo=pytz.UTC),
             ),  # 2.0 hours ago
-            (
+            Issue(
                 "backup_system",
                 datetime(2024, 1, 15, 9, 30, 0, tzinfo=pytz.UTC),
             ),  # 2.5 hours ago
-            (
+            Issue(
                 "file_remover",
                 datetime(2024, 1, 14, 10, 0, 0, tzinfo=pytz.UTC),
             ),  # 26.0 hours ago
-            (
+            Issue(
                 "processor_job",
                 datetime(2024, 1, 15, 11, 45, 0, tzinfo=pytz.UTC),
             ),  # 0.25 hours ago
-            (
+            Issue(
                 "storage_server",
                 datetime(2024, 1, 15, 11, 40, 0, tzinfo=pytz.UTC),
             ),  # 0.33 hours ago
@@ -276,5 +279,7 @@ class TestStaleStatusAlert:
 
         # then
         # Only regular job should be stale
-        expected = [("regular_job", datetime(2024, 1, 14, 12, 0, 1, tzinfo=pytz.UTC))]
+        expected = [
+            Issue("regular_job", datetime(2024, 1, 14, 12, 0, 1, tzinfo=pytz.UTC))
+        ]
         assert result == expected

@@ -520,6 +520,39 @@ class TestHandleIssues:
         assert alert_manager.reported_unique_keys == set()
 
 
+class TestCheckForIssues:
+    """Test suite for sending alerts only from the leader."""
+
+    @pytest.mark.parametrize("is_leader", [True, False])
+    def test_check_for_issues_should_send_only_as_leader(
+        self, *, is_leader: bool
+    ) -> None:
+        """Non-leaders handle issues as suppressed, keeping their state in sync."""
+        # given
+        with (
+            patch("monitoring.alert_manager.KrakenStatus") as mock_kraken_status,
+            patch(
+                "monitoring.alert_manager._dispatch", return_value=True
+            ) as mock_dispatch,
+        ):
+            mock_kraken_status.objects = []
+            alert_manager = AlertManager()
+            alert_manager.is_first_check = False
+            alert_manager.alerts = [_mock_alert()]
+            alert_manager.alerts[0].get_issues.return_value = UNIQUE_KEY_ISSUES
+            alert_manager.alerts[0].get_cooldown_time_minutes.return_value = 60
+
+            # when
+            alert_manager.check_for_issues(is_leader=is_leader)
+
+        # then
+        assert mock_dispatch.call_count == (1 if is_leader else 0)
+        assert alert_manager.reported_unique_keys == {
+            ("my_alert", "k1"),
+            ("my_alert", "k2"),
+        }
+
+
 class TestSendSpecialAlert:
     """Test suite for send_special_alert function."""
 

@@ -1,11 +1,11 @@
 """Migration: Backfill `output_display_base_path` for Metrics documents without one.
 
-Sets it to the given `display_paths.output` for all Metrics documents. Only correct if the output
-file system has not changed since these were written.
+Sets it to the current `display_paths.output` from alphakraken.yaml for all Metrics documents.
+Only correct if the output file system has not changed since these were written.
 
-# Usage (export DB credentials as env vars first):
-    PYTHONPATH=. python shared/_migrations/from_0.12.0/_backfill_output_display_base_path.py --output-display-base-path /fs/pool-2/output --dry-run
-    PYTHONPATH=. python shared/_migrations/from_0.12.0/_backfill_output_display_base_path.py --output-display-base-path /fs/pool-2/output
+# Usage (in a worker container, which holds alphakraken.yaml and the DB credentials):
+    ./compose.sh exec -w /opt/airflow -e PYTHONPATH=/opt/airflow airflow-worker-file-mover python shared/_migrations/from_0.12.0/_backfill_output_display_base_path.py --dry-run
+    ./compose.sh exec -w /opt/airflow -e PYTHONPATH=/opt/airflow airflow-worker-file-mover python shared/_migrations/from_0.12.0/_backfill_output_display_base_path.py
 """
 
 import argparse
@@ -13,13 +13,17 @@ import logging
 
 from shared.db.engine import connect_db
 from shared.db.models import Metrics
+from shared.display_paths import get_current_output_display_base_path
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 
-def migrate(output_display_base_path: str, *, dry_run: bool) -> None:
+def migrate(*, dry_run: bool) -> None:
     """Set output_display_base_path for all Metrics documents where it is None."""
+    output_display_base_path = get_current_output_display_base_path()
+    logger.info(f"Using {output_display_base_path=}.")
+
     connect_db()
 
     collection = Metrics._get_collection()  # noqa: SLF001
@@ -47,15 +51,10 @@ if __name__ == "__main__":
         description="Backfill `output_display_base_path` for Metrics documents without one."
     )
     parser.add_argument(
-        "--output-display-base-path",
-        required=True,
-        help="Current `display_paths.output` from alphakraken.yaml.",
-    )
-    parser.add_argument(
         "--dry-run",
         action="store_true",
         default=False,
         help="Preview changes without writing to the database.",
     )
     args = parser.parse_args()
-    migrate(args.output_display_base_path, dry_run=args.dry_run)
+    migrate(dry_run=args.dry_run)

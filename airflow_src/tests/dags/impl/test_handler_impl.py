@@ -782,6 +782,7 @@ def test_copy_raw_file_calls_update_with_correct_args(
                 "test_file.raw",
                 new_status=RawFileStatus.COPYING_DONE,
                 backup_status="copying_done",
+                backup_display_base_path="./tmp/test/backup",
             ),
         ]
     )

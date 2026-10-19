@@ -65,6 +65,7 @@ from shared.db.models import (
     RawFileStatus,
     parse_file_info_item,
 )
+from shared.display_paths import get_current_backup_display_base_path
 from shared.settings_scope_resolver import resolve_scoped_settings
 from shared.validation import FORBIDDEN_RAW_FILE_NAME_CHARACTERS_PATTERN
 from shared.yamlsettings import is_s3_upload_enabled
@@ -344,6 +345,7 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
         raw_file_id,
         new_status=RawFileStatus.COPYING_DONE,
         backup_status=BackupStatus.COPYING_DONE,
+        backup_display_base_path=get_current_backup_display_base_path(),
     )
 
 

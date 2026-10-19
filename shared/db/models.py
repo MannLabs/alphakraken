@@ -130,6 +130,9 @@ class RawFile(Document):
 
     backup_status = StringField(max_length=32, default=None)
 
+    # `display_paths.backup` at copy time: records which backup file system holds the file
+    backup_display_base_path = StringField(max_length=1024, default=None)
+
     # bucket_name or bucket_name/sub_path/ -> file_info paths are always relative to that
     s3_upload_path = StringField(max_length=1024, default=None)
 

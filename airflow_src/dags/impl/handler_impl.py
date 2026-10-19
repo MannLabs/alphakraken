@@ -40,7 +40,6 @@ from plugins.file_handling import (
     _decide_if_copy_required,
     copy_file,
     get_file_creation_timestamp,
-    get_file_hash,
     get_file_hash_with_etag,
     get_file_mtime,
     get_file_size,
@@ -170,17 +169,17 @@ def compute_checksum(ti: TaskInstance, **kwargs) -> bool:
     file_info: dict[str, FileInfoItem] = {}
     total_file_size = 0
     for src_path, dst_path in copy_wrapper.get_files_to_copy().items():
-        file_size = get_file_size(src_path)
+        s3_upload_enabled = is_s3_upload_enabled()
+        md5sum, etag, file_size = get_file_hash_with_etag(
+            src_path,
+            chunk_size_mb=S3_UPLOAD_CHUNK_SIZE_MB,
+            calculate_etag=s3_upload_enabled,
+        )
         total_file_size += file_size
 
-        if is_s3_upload_enabled():
-            md5sum, etag = get_file_hash_with_etag(
-                src_path, chunk_size_mb=S3_UPLOAD_CHUNK_SIZE_MB, calculate_etag=True
-            )
-            size_and_hashsum = (file_size, md5sum, etag)
-        else:
-            md5sum = get_file_hash(src_path)
-            size_and_hashsum = (file_size, md5sum)
+        size_and_hashsum = (
+            (file_size, md5sum, etag) if s3_upload_enabled else (file_size, md5sum)
+        )
 
         files_dst_paths[src_path] = dst_path
         files_size_and_hashsum[src_path] = size_and_hashsum

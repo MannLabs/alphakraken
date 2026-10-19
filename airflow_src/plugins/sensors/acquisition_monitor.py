@@ -3,7 +3,7 @@
 Wait until acquisition is done.
 
 An acquisition is considered "done" if either:
-- exactly one new file has been found
+- exactly one new file has been found and the main file's (size, mtime) has settled
 - the main file has not appeared for a certain amount of time (relevant for Bruker only)
 - the file got renamed by the acquisition software, indicating a failed acquisition
 - the file size has not changed for a certain amount of time
@@ -43,6 +43,10 @@ SOFT_TIMEOUT_ON_MISSING_MAIN_FILE_M: int = 120
 # Note that it takes at least 2*SIZE_CHECK_INTERVAL_M minutes to detect that the acquisition is done that way.
 SIZE_CHECK_INTERVAL_M: int = 60
 
+# After the next file appeared, the main file's (size, mtime) must be unchanged for at least this long,
+# as the acquisition software might still be writing to it.
+MAIN_FILE_SETTLE_TIME_S: int = 5
+
 # heuristics: for Zeno ZT scan mode, conversion takes < 24h
 ZENO_ZT_SIZE_CHECK_INTERVAL_M: int = 24 * 60
 
@@ -69,6 +73,9 @@ class AcquisitionMonitor(BaseSensorOperator):
         self._first_poke_timestamp: float | None = None
         self._latest_file_size_check_timestamp: float | None = None
         self._last_file_size = -1
+
+        self._main_file_stat: tuple[int, float] | None = None
+        self._main_file_stat_timestamp: float | None = None
 
         # to track whether the main file showed up (relevant for Bruker only)
         self._main_file_exists: bool = False
@@ -194,12 +201,10 @@ class AcquisitionMonitor(BaseSensorOperator):
                 self._file_got_renamed = True
                 return True
 
-            if len(new_dir_content) == 1:
+            if len(new_dir_content) == 1 or self._main_file_stat is not None:
                 # potential additional check: is the new file "small enough" to be considered a freshly started acquisition
                 # but: to adjust the threshold the poke frequency and the data output of the instrument need to be considered
-                logging.info("Considering previous acquisition to be done.")
-
-                return is_not_zeno_or_zeno_ready
+                return self._main_file_settled() and is_not_zeno_or_zeno_ready
 
             logging.warning(
                 f"More than one new file found: {new_dir_content}. "
@@ -292,6 +297,36 @@ class AcquisitionMonitor(BaseSensorOperator):
             )
 
         return current_dir_content, new_dir_content
+
+    def _main_file_settled(self) -> bool:
+        """Return true if the main file's (size, mtime) is unchanged since a check at least MAIN_FILE_SETTLE_TIME_S ago, or if it is missing."""
+        try:
+            stat = self._main_file_path.stat()
+        except FileNotFoundError:
+            # handled downstream by compute_checksum
+            logging.warning(
+                "Main file disappeared. Considering previous acquisition to be done."
+            )
+            return True
+
+        main_file_stat = (stat.st_size, stat.st_mtime)
+        current_timestamp = get_timestamp()
+
+        if main_file_stat != self._main_file_stat:
+            logging.info(
+                f"Main file (size, mtime) is {main_file_stat}, waiting for it to settle."
+            )
+            self._main_file_stat = main_file_stat
+            self._main_file_stat_timestamp = current_timestamp
+            return False
+
+        if current_timestamp - self._main_file_stat_timestamp < MAIN_FILE_SETTLE_TIME_S:
+            return False
+
+        logging.info(
+            f"Main file (size, mtime) {main_file_stat} has settled. Considering previous acquisition to be done."
+        )
+        return True
 
     def _file_size_unchanged_for_time(
         self, size_check_interval_m: int = SIZE_CHECK_INTERVAL_M

@@ -206,6 +206,9 @@ class Metrics(DynamicDocument):
     # relative to the `output` location, cf. path_layout
     relative_output_path = StringField(max_length=512)
 
+    # `display_paths.output` at processing time: records which output file system holds the results
+    output_display_base_path = StringField(max_length=1024, default=None)
+
     # audit fields
     created_at_ = DateTimeField(default=datetime.now)
 

@@ -1,8 +1,8 @@
 """The data directories as users see them on the shared file system.
 
 Mainly for display (webapp, REST API): the DB holds location-relative paths, the pipeline uses the
-runner views. Exception: `display_paths.backup` is stored with each raw file to record which backup
-file system holds it.
+runner views. Exception: `display_paths.backup` and `display_paths.output` are stored with each raw file
+and metrics, respectively, to record which file system holds the data.
 """
 
 from typing import Any
@@ -68,9 +68,18 @@ def get_current_backup_display_base_path() -> str:
     return DISPLAY_PATHS[Locations.BACKUP]
 
 
-def get_display_output_path(relative_output_path: str) -> str:
-    """Get the output folder for `relative_output_path`, as users see it."""
-    return _display_path(Locations.OUTPUT, relative_output_path)
+def get_current_output_display_base_path() -> str:
+    """Get the display base path of the output location new results are written to."""
+    return DISPLAY_PATHS[Locations.OUTPUT]
+
+
+def get_display_output_path(
+    relative_output_path: str, output_display_base_path: str | None = None
+) -> str:
+    """Get the output folder for `relative_output_path` below `output_display_base_path` (default: current one), as users see it."""
+    return _display_path(
+        Locations.OUTPUT, relative_output_path, output_display_base_path
+    )
 
 
 def get_display_settings_path(settings_name: str) -> str:

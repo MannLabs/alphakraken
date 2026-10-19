@@ -15,6 +15,7 @@ METRICS_EXCLUDED_KEYS = {
     "settings_name",
     "settings_version",
     "relative_output_path",  # served resolved as `output_path`
+    "output_display_base_path",  # served resolved as `output_path`
 }
 
 FILE_INFO_KEY = "file_info"
@@ -82,7 +83,9 @@ def _to_metrics_list(raw_file_data: dict[str, Any]) -> list[dict[str, Any]]:
             value["gradient_length"] = value.pop("raw:gradient_length_m")
 
         if (relative_output_path := value.get("relative_output_path")) is not None:
-            value[OUTPUT_PATH_KEY] = get_display_output_path(relative_output_path)
+            value[OUTPUT_PATH_KEY] = get_display_output_path(
+                relative_output_path, value.get("output_display_base_path")
+            )
 
         metrics_list.append(
             {k: v for k, v in value.items() if k not in METRICS_EXCLUDED_KEYS}

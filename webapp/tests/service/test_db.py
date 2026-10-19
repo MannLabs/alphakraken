@@ -66,7 +66,10 @@ def test_df_from_db_data_shifts_timestamps_to_display_timezone() -> None:
     ]
 
 
-@patch("service.db.get_display_output_path", side_effect=lambda p: f"/out/{p}")
+@patch(
+    "service.db.get_display_output_path",
+    side_effect=lambda p, base: f"{base or '/out'}/{p}",
+)
 @patch("service.db.connect_db")
 @patch("service.db.Metrics")
 def test_get_output_folders(
@@ -97,6 +100,7 @@ def test_get_output_folders(
         "settings_version": 3,
         "type": "custom",
         "relative_output_path": "f1/custom",
+        "output_display_base_path": "/old_out",
     }
     mock_metrics.objects.filter.return_value.only.return_value = [m1, m2, m3]
 
@@ -116,7 +120,7 @@ def test_get_output_folders(
     assert result["output_path"].tolist() == [
         "/out/f1/alphadia",
         "/out/f2/alphadia",
-        "/out/f1/custom",
+        "/old_out/f1/custom",
     ]
 
 

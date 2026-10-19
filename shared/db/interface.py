@@ -214,10 +214,11 @@ def add_metrics_to_raw_file(  # noqa: PLR0913
     settings_name: str,
     settings_version: int,
     relative_output_path: str,
+    output_display_base_path: str,
 ) -> None:
     """Add `metrics` to DB entry of `raw_file_id`."""
     logging.info(
-        f"Adding to DB: {raw_file_id=} <- {metrics=} type={metrics_type} {settings_name=} {settings_version=} {relative_output_path=}"
+        f"Adding to DB: {raw_file_id=} <- {metrics=} type={metrics_type} {settings_name=} {settings_version=} {relative_output_path=} {output_display_base_path=}"
     )
     connect_db()
     raw_file = RawFile.objects.get(id=raw_file_id)
@@ -228,6 +229,7 @@ def add_metrics_to_raw_file(  # noqa: PLR0913
         settings_name=settings_name,
         settings_version=settings_version,
         relative_output_path=relative_output_path,
+        output_display_base_path=output_display_base_path,
         **metrics,
     ).save()
 

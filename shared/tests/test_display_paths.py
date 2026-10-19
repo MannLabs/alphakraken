@@ -83,3 +83,11 @@ def test_get_display_output_path() -> None:
         get_display_output_path("P1/out_f.raw/alphadia")
         == "./tmp/test/output/P1/out_f.raw/alphadia"
     )
+
+
+def test_get_display_output_path_uses_given_base_path() -> None:
+    """Test that the relative output path is placed below the base path stored with the metrics."""
+    assert (
+        get_display_output_path("P1/out_f.raw/alphadia", "/fs/old_pool/output")
+        == "/fs/old_pool/output/P1/out_f.raw/alphadia"
+    )

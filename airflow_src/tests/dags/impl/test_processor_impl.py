@@ -991,6 +991,7 @@ def test_check_job_result_business_error(  # noqa: PLR0913
         settings_version=1,
         metrics_type="alphadia",
         relative_output_path="PID1/out_test_file.raw/test_settings_v1",
+        output_display_base_path="./tmp/test/output",
     )
     mock_put_xcom.assert_called_once_with(
         mock_ti, key=XComKeys.BRANCH_ERRORS, value="error1;error2"
@@ -1038,6 +1039,7 @@ def test_check_job_result_business_error_raises(  # noqa: PLR0913
         settings_version=1,
         metrics_type="alphadia",
         relative_output_path="PID1/out_test_file.raw/test_settings_v1",
+        output_display_base_path="./tmp/test/output",
     )
     mock_put_xcom.assert_called_once_with(
         mock_ti, key=XComKeys.BRANCH_ERRORS, value="error1;__UNKNOWN_ERROR"
@@ -1078,6 +1080,7 @@ def test_check_job_result_timeout(
         settings_version=1,
         metrics_type="alphadia",
         relative_output_path="PID1/out_test_file.raw/test_settings_v1",
+        output_display_base_path="./tmp/test/output",
     )
     mock_put_xcom.assert_called_once_with(
         mock_ti, key=XComKeys.BRANCH_ERRORS, value="TIMEOUT"
@@ -1118,6 +1121,7 @@ def test_check_job_result_oom(
         settings_version=1,
         metrics_type="alphadia",
         relative_output_path="PID1/out_test_file.raw/test_settings_v1",
+        output_display_base_path="./tmp/test/output",
     )
     mock_put_xcom.assert_called_once_with(
         mock_ti, key=XComKeys.BRANCH_ERRORS, value="OUT_OF_MEMORY"
@@ -1237,6 +1241,7 @@ def test_compute_metrics(
         settings_name="test_settings",
         settings_version=1,
         relative_output_path="P1/out_some_file.raw/alphadia",
+        output_display_base_path="./tmp/test/output",
     )
 
 

@@ -11,20 +11,21 @@ class Timings:
     """Timing constants."""
 
     # if you update this, you might also want to update the coloring in the webapp (components.py:_get_color())
-    FILE_SENSOR_POKE_INTERVAL_S: int = 60
+    FILE_SENSOR_POKE_INTERVAL_S: int = 30
 
-    ACQUISITION_MONITOR_POKE_INTERVAL_S: int = 30
+    # should be larger than the cache of the cifs mount (typically 1s)
+    ACQUISITION_MONITOR_POKE_INTERVAL_S: int = 10
 
-    JOB_MONITOR_POKE_INTERVAL_S: int = 60
+    JOB_MONITOR_POKE_INTERVAL_S: int = 10
 
-    CLUSTER_POLLER_INTERVAL_S: int = 1
+    CLUSTER_POLLER_INTERVAL_S: int = 10
     CLUSTER_POLLER_RECONNECT_DELAY_S: int = 30
     # the poller task ends after this time, the next DAG run takes over
     CLUSTER_POLLER_LOOP_DURATION_M: int = 10
     # older job states in the DB are ignored, the job status is then queried directly
     CLUSTER_POLLER_MAX_STALENESS_S: int = 300
 
-    RAW_DATA_COPY_TASK_TIMEOUT_M: int = 15  # large enough to not time out on big files, small enough to not block other tasks
+    RAW_DATA_COPY_TASK_TIMEOUT_M: int = 30  # large enough to not time out on big files, small enough to not block other tasks
 
     # this timeout needs to be big compared to the time scales defined in AcquisitionMonitor
     ACQUISITION_MONITOR_TIMEOUT_M: int = 180

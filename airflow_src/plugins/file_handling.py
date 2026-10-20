@@ -24,6 +24,10 @@ class HashMismatchError(Exception):
     """Custom exception for hash mismatch errors."""
 
 
+class FileChangedDuringHashingError(Exception):
+    """Raised if a file changed while its hash was computed."""
+
+
 def get_file_ctime(path: Path) -> float:
     """Get the creation timestamp (unix epoch, unit: seconds) of a file."""
     return path.stat().st_ctime
@@ -145,7 +149,7 @@ def get_file_hash_with_etag(
     *,
     calculate_etag: bool = False,
     verbose: bool = True,
-) -> tuple[str, str]:
+) -> tuple[str, str, int]:
     """Get the hash of a file with optional etag.
 
     This operation is expensive for large files and/or if transferred over a network.
@@ -154,7 +158,8 @@ def get_file_hash_with_etag(
     :param calculate_etag: Whether to calculate the etag (for multipart uploads).
     :param verbose: Whether to log progress information.
 
-    :return: A tuple containing the MD5 hash and the ETag of the file. The latter is empty if calculate_etag is False
+    :return: A tuple containing the MD5 hash, the ETag (empty if calculate_etag is False) and the number of bytes hashed.
+    :raises FileChangedDuringHashingError: If the file size differs from the number of bytes hashed.
     """
     if verbose:
         start = datetime.now()  # noqa: DTZ005
@@ -163,13 +168,20 @@ def get_file_hash_with_etag(
 
     chunk_size_bytes = chunk_size_mb * 1024 * 1024
     md5_hashes = []
+    bytes_read = 0
     with file_path.open("rb") as f:
         file_hash = hashlib.md5()  # noqa: S324 hashlib-insecure-hash-function
         while chunk := f.read(chunk_size_bytes):
             file_hash.update(chunk)
+            bytes_read += len(chunk)
 
             if calculate_etag:
                 md5_hashes.append(hashlib.md5(chunk).digest())  # noqa: S324
+
+        if bytes_read != (file_size_after := os.fstat(f.fileno()).st_size):
+            raise FileChangedDuringHashingError(
+                f"File {file_path} changed during hashing: {bytes_read=} != {file_size_after=}"
+            )
 
     md5sum = file_hash.hexdigest()
     etag = _md5hashes_to_etag(md5_hashes, chunk_size_mb) if calculate_etag else ""
@@ -183,7 +195,7 @@ def get_file_hash_with_etag(
             f".. {md5sum=} {etag=} ({file_size=}) Time elapsed: {time_elapsed / 60:.1f} min"
         )
 
-    return md5sum, etag
+    return md5sum, etag, bytes_read
 
 
 # separator between ETag and chunk size

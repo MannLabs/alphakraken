@@ -10,6 +10,7 @@ from airflow.sdk.exceptions import AirflowFailException
 from common.settings import _INSTRUMENTS
 from plugins.common.constants import BYTES_TO_GB
 from plugins.file_handling import (
+    FileChangedDuringHashingError,
     HashMismatchError,
     _decide_if_copy_required,
     _identical_copy_exists,
@@ -131,11 +132,13 @@ def test_get_disk_usage_returns_correct_values(mock_disk_usage: MagicMock) -> No
     assert free_gb == 400 * BYTES_TO_GB
 
 
+@patch("plugins.file_handling.os.fstat", return_value=MagicMock(st_size=17))
 @patch("plugins.file_handling.get_file_size", return_value=123)
 @patch("plugins.file_handling.Path.open", new_callable=mock_open)
 def test_get_file_hash(
     mock_file_open: MagicMock,
     mock_get_file_size: MagicMock,  # noqa: ARG001
+    mock_fstat: MagicMock,  # noqa: ARG001
 ) -> None:
     """Test get_file_hash."""
     mock_file_open.return_value.read.side_effect = [b"some_file_content", None]
@@ -146,11 +149,13 @@ def test_get_file_hash(
     assert return_value == "faff66b0fba39e3a4961b45dc5f9826c"
 
 
+@patch("plugins.file_handling.os.fstat", return_value=MagicMock(st_size=17))
 @patch("plugins.file_handling.get_file_size", return_value=123)
 @patch("plugins.file_handling.Path.open", new_callable=mock_open)
 def test_get_file_hash_chunks(
     mock_file_open: MagicMock,
     mock_get_file_size: MagicMock,  # noqa: ARG001
+    mock_fstat: MagicMock,  # noqa: ARG001
 ) -> None:
     """Test get_file_hash with multiple chunks."""
     mock_file_open.return_value.read.side_effect = [
@@ -166,11 +171,13 @@ def test_get_file_hash_chunks(
     assert return_value == "faff66b0fba39e3a4961b45dc5f9826c"
 
 
+@patch("plugins.file_handling.os.fstat", return_value=MagicMock(st_size=17))
 @patch("plugins.file_handling.get_file_size", return_value=123)
 @patch("plugins.file_handling.Path.open", new_callable=mock_open)
 def test_get_file_hash_with_etag(
     mock_file_open: MagicMock,
     mock_get_file_size: MagicMock,  # noqa: ARG001
+    mock_fstat: MagicMock,  # noqa: ARG001
 ) -> None:
     """Test get_file_hash_with_etag."""
     mock_file_open.return_value.read.side_effect = [b"some_file_content", None]
@@ -183,14 +190,17 @@ def test_get_file_hash_with_etag(
     assert return_value == (
         "faff66b0fba39e3a4961b45dc5f9826c",
         "faff66b0fba39e3a4961b45dc5f9826c__42",
+        17,
     )
 
 
+@patch("plugins.file_handling.os.fstat", return_value=MagicMock(st_size=17))
 @patch("plugins.file_handling.get_file_size", return_value=123)
 @patch("plugins.file_handling.Path.open", new_callable=mock_open)
 def test_get_file_hash_with_etag_chunks(
     mock_file_open: MagicMock,
     mock_get_file_size: MagicMock,  # noqa: ARG001
+    mock_fstat: MagicMock,  # noqa: ARG001
 ) -> None:
     """Test get_file_hash_with_etag with multiple chunks."""
     mock_file_open.return_value.read.side_effect = [
@@ -208,7 +218,24 @@ def test_get_file_hash_with_etag_chunks(
     assert return_value == (
         "faff66b0fba39e3a4961b45dc5f9826c",
         "6de5b63da956997419b0f495fa7f265a-3__42",
+        17,
     )
+
+
+@patch("plugins.file_handling.os.fstat", return_value=MagicMock(st_size=18))
+@patch("plugins.file_handling.Path.open", new_callable=mock_open)
+def test_get_file_hash_with_etag_raises_if_file_changed(
+    mock_file_open: MagicMock,
+    mock_fstat: MagicMock,  # noqa: ARG001
+) -> None:
+    """Test get_file_hash_with_etag raises if the file size differs from the number of bytes hashed."""
+    mock_file_open.return_value.read.side_effect = [b"some_file_content", None]
+
+    # when
+    with pytest.raises(FileChangedDuringHashingError, match="bytes_read=17"):
+        get_file_hash_with_etag(
+            Path("/test/file/path"), chunk_size_mb=42, verbose=False
+        )
 
 
 def test_md5hashes_to_etag_empty_file() -> None:

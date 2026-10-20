@@ -42,15 +42,13 @@ CREATED_AT = datetime.fromtimestamp(CREATION_TS, tz=pytz.utc)
 @patch("dags.impl.handler_impl.get_file_mtime", return_value=FINALIZED_TS)
 @patch("dags.impl.handler_impl.get_raw_file_by_id")
 @patch("dags.impl.handler_impl.RawFileWrapperFactory")
-@patch("dags.impl.handler_impl.get_file_size")
-@patch("dags.impl.handler_impl.get_file_hash")
+@patch("dags.impl.handler_impl.get_file_hash_with_etag")
 @patch("dags.impl.handler_impl.update_raw_file")
 @patch("dags.impl.handler_impl.put_xcom")
 def test_compute_checksum_one_file(  # noqa: PLR0913
     mock_put_xcom: MagicMock,
     mock_update_raw_file: MagicMock,
-    mock_get_file_hash: MagicMock,
-    mock_get_file_size: MagicMock,
+    mock_get_file_hash_with_etag: MagicMock,
     mock_raw_file_wrapper_factory: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
     mock_get_file_mtime: MagicMock,
@@ -66,8 +64,7 @@ def test_compute_checksum_one_file(  # noqa: PLR0913
     mock_raw_file.file_info = file_info
     mock_get_raw_file_by_id.return_value = mock_raw_file
 
-    mock_get_file_size.return_value = 1000
-    mock_get_file_hash.return_value = "some_hash"
+    mock_get_file_hash_with_etag.return_value = ("some_hash", "", 1000)
     mock_raw_file_wrapper_factory.create_write_wrapper.return_value.get_files_to_copy.return_value = {
         Path("/path/to/instrument/test_file.raw"): Path("/path/to/backup/test_file.raw")
     }
@@ -134,7 +131,6 @@ def test_compute_checksum_one_file(  # noqa: PLR0913
 @patch("dags.impl.handler_impl.get_file_mtime", return_value=FINALIZED_TS)
 @patch("dags.impl.handler_impl.get_raw_file_by_id")
 @patch("dags.impl.handler_impl.RawFileWrapperFactory")
-@patch("dags.impl.handler_impl.get_file_size")
 @patch("dags.impl.handler_impl.is_s3_upload_enabled")
 @patch("dags.impl.handler_impl.get_file_hash_with_etag")
 @patch("dags.impl.handler_impl.update_raw_file")
@@ -144,7 +140,6 @@ def test_compute_checksum_one_file_s3_upload(  # noqa: PLR0913
     mock_update_raw_file: MagicMock,
     mock_get_file_hash_with_etag: MagicMock,
     mock_is_s3_upload_enabled: MagicMock,  # noqa: ARG001
-    mock_get_file_size: MagicMock,
     mock_raw_file_wrapper_factory: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
     mock_get_file_mtime: MagicMock,  # noqa: ARG001
@@ -160,8 +155,7 @@ def test_compute_checksum_one_file_s3_upload(  # noqa: PLR0913
     mock_raw_file.file_info = file_info
     mock_get_raw_file_by_id.return_value = mock_raw_file
 
-    mock_get_file_size.return_value = 1000
-    mock_get_file_hash_with_etag.return_value = ("some_hash", "some_etag")
+    mock_get_file_hash_with_etag.return_value = ("some_hash", "some_etag", 1000)
     mock_raw_file_wrapper_factory.create_write_wrapper.return_value.get_files_to_copy.return_value = {
         Path("/path/to/instrument/test_file.raw"): Path("/path/to/backup/test_file.raw")
     }
@@ -224,15 +218,13 @@ def test_compute_checksum_one_file_s3_upload(  # noqa: PLR0913
 @patch("dags.impl.handler_impl.get_file_mtime", return_value=FINALIZED_TS)
 @patch("dags.impl.handler_impl.get_raw_file_by_id")
 @patch("dags.impl.handler_impl.RawFileWrapperFactory")
-@patch("dags.impl.handler_impl.get_file_size")
-@patch("dags.impl.handler_impl.get_file_hash")
+@patch("dags.impl.handler_impl.get_file_hash_with_etag")
 @patch("dags.impl.handler_impl.update_raw_file")
 @patch("dags.impl.handler_impl.put_xcom")
 def test_compute_checksum_multiple_files(  # noqa: PLR0913
     mock_put_xcom: MagicMock,
     mock_update_raw_file: MagicMock,
-    mock_get_file_hash: MagicMock,
-    mock_get_file_size: MagicMock,
+    mock_get_file_hash_with_etag: MagicMock,
     mock_raw_file_wrapper_factory: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
     mock_get_file_mtime: MagicMock,  # noqa: ARG001
@@ -248,8 +240,10 @@ def test_compute_checksum_multiple_files(  # noqa: PLR0913
     mock_raw_file.file_info = file_info
     mock_get_raw_file_by_id.return_value = mock_raw_file
 
-    mock_get_file_size.side_effect = [1000, 2000]
-    mock_get_file_hash.side_effect = ["some_hash", "some_other_hash"]
+    mock_get_file_hash_with_etag.side_effect = [
+        ("some_hash", "", 1000),
+        ("some_other_hash", "", 2000),
+    ]
     mock_raw_file_wrapper_factory.create_write_wrapper.return_value.get_files_to_copy.return_value = {
         Path("/path/to/instrument/test_file.wiff"): Path(
             "/path/to/backup/test_file.wiff"
@@ -318,15 +312,13 @@ def test_compute_checksum_multiple_files(  # noqa: PLR0913
 @patch("dags.impl.handler_impl.get_file_mtime")
 @patch("dags.impl.handler_impl.get_raw_file_by_id")
 @patch("dags.impl.handler_impl.RawFileWrapperFactory")
-@patch("dags.impl.handler_impl.get_file_size")
-@patch("dags.impl.handler_impl.get_file_hash")
+@patch("dags.impl.handler_impl.get_file_hash_with_etag")
 @patch("dags.impl.handler_impl.update_raw_file")
 @patch("dags.impl.handler_impl.put_xcom")
 def test_compute_checksum_main_file_missing(  # noqa: PLR0913
     mock_put_xcom: MagicMock,  # noqa: ARG001
     mock_update_raw_file: MagicMock,
-    mock_get_file_hash: MagicMock,
-    mock_get_file_size: MagicMock,
+    mock_get_file_hash_with_etag: MagicMock,
     mock_raw_file_wrapper_factory: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
     mock_get_file_mtime: MagicMock,
@@ -341,8 +333,7 @@ def test_compute_checksum_main_file_missing(  # noqa: PLR0913
     mock_raw_file.file_info = {}
     mock_get_raw_file_by_id.return_value = mock_raw_file
 
-    mock_get_file_size.return_value = 1000
-    mock_get_file_hash.return_value = "some_hash"
+    mock_get_file_hash_with_etag.return_value = ("some_hash", "", 1000)
     mock_raw_file_wrapper_factory.create_write_wrapper.return_value.get_files_to_copy.return_value = {
         Path("/path/to/instrument/test_file.d/analysis.tdf"): Path(
             "/path/to/backup/test_file.d/analysis.tdf"
@@ -372,13 +363,11 @@ def test_compute_checksum_main_file_missing(  # noqa: PLR0913
 @patch("dags.impl.handler_impl.get_file_creation_timestamp", return_value=CREATION_TS)
 @patch("dags.impl.handler_impl.get_raw_file_by_id")
 @patch("dags.impl.handler_impl.RawFileWrapperFactory")
-@patch("dags.impl.handler_impl.get_file_size")
-@patch("dags.impl.handler_impl.get_file_hash")
+@patch("dags.impl.handler_impl.get_file_hash_with_etag")
 @patch("dags.impl.handler_impl.update_raw_file")
-def test_compute_checksum_different_file_info(  # noqa: PLR0913
+def test_compute_checksum_different_file_info(
     mock_update_raw_file: MagicMock,  # noqa: ARG001
-    mock_get_file_hash: MagicMock,
-    mock_get_file_size: MagicMock,
+    mock_get_file_hash_with_etag: MagicMock,
     mock_raw_file_wrapper_factory: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
     mock_get_file_creation_timestamp: MagicMock,  # noqa: ARG001
@@ -392,8 +381,7 @@ def test_compute_checksum_different_file_info(  # noqa: PLR0913
     mock_raw_file.file_info = {"test_file.raw": (1001, "some_other_hash")}
     mock_get_raw_file_by_id.return_value = mock_raw_file
 
-    mock_get_file_size.return_value = 1000
-    mock_get_file_hash.return_value = "some_hash"
+    mock_get_file_hash_with_etag.return_value = ("some_hash", "", 1000)
     mock_raw_file_wrapper_factory.create_write_wrapper.return_value.get_files_to_copy.return_value = {
         Path("/path/to/instrument/test_file.raw"): Path("/path/to/backup/test_file.raw")
     }
@@ -418,8 +406,7 @@ def test_compute_checksum_different_file_info(  # noqa: PLR0913
 @patch("dags.impl.handler_impl.get_file_mtime", return_value=FINALIZED_TS)
 @patch("dags.impl.handler_impl.get_raw_file_by_id")
 @patch("dags.impl.handler_impl.RawFileWrapperFactory")
-@patch("dags.impl.handler_impl.get_file_size")
-@patch("dags.impl.handler_impl.get_file_hash")
+@patch("dags.impl.handler_impl.get_file_hash_with_etag")
 @patch("dags.impl.handler_impl.update_raw_file")
 @patch("dags.impl.handler_impl.get_airflow_variable")
 @patch("dags.impl.handler_impl.put_xcom")
@@ -427,8 +414,7 @@ def test_compute_checksum_different_file_info_overwrite(  # noqa: PLR0913
     mock_put_xcom: MagicMock,
     mock_get_airflow_variable: MagicMock,
     mock_update_raw_file: MagicMock,
-    mock_get_file_hash: MagicMock,
-    mock_get_file_size: MagicMock,
+    mock_get_file_hash_with_etag: MagicMock,
     mock_raw_file_wrapper_factory: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
     mock_get_file_mtime: MagicMock,  # noqa: ARG001
@@ -447,8 +433,7 @@ def test_compute_checksum_different_file_info_overwrite(  # noqa: PLR0913
     mock_raw_file.file_info = {"test_file.raw": (1000, "some_other_hash")}
     mock_get_raw_file_by_id.return_value = mock_raw_file
 
-    mock_get_file_size.return_value = 1000
-    mock_get_file_hash.return_value = "some_hash"
+    mock_get_file_hash_with_etag.return_value = ("some_hash", "", 1000)
     mock_raw_file_wrapper_factory.create_write_wrapper.return_value.get_files_to_copy.return_value = {
         Path("/path/to/instrument/test_file.raw"): Path("/path/to/backup/test_file.raw")
     }
@@ -626,11 +611,11 @@ def test_compute_checksum_no_files_found_accepted(
 @patch("dags.impl.handler_impl.get_airflow_variable")
 @patch("dags.impl.handler_impl.get_raw_file_by_id")
 @patch("dags.impl.handler_impl.RawFileWrapperFactory")
-@patch("dags.impl.handler_impl.get_file_size")
+@patch("dags.impl.handler_impl.get_file_hash_with_etag")
 @patch("dags.impl.handler_impl.update_raw_file")
 def test_compute_checksum_source_missing(  # noqa: PLR0913
     mock_update_raw_file: MagicMock,
-    mock_get_file_size: MagicMock,
+    mock_get_file_hash_with_etag: MagicMock,
     mock_raw_file_wrapper_factory: MagicMock,
     mock_get_raw_file_by_id: MagicMock,
     mock_get_airflow_variable: MagicMock,
@@ -653,7 +638,9 @@ def test_compute_checksum_source_missing(  # noqa: PLR0913
     mock_raw_file_wrapper_factory.create_write_wrapper.return_value.get_files_to_copy.return_value = {
         Path(src_path): Path("/path/to/backup/test_file.raw")
     }
-    mock_get_file_size.side_effect = FileNotFoundError(f"File {src_path} not found.")
+    mock_get_file_hash_with_etag.side_effect = FileNotFoundError(
+        f"File {src_path} not found."
+    )
 
     # when
     with pytest.raises(expected_exception, match="Files missing on instrument"):

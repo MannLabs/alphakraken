@@ -516,6 +516,8 @@ services:
       - ${MOUNTS_PATH:?error}/airflow_logs:/opt/airflow/logs:rw
       # to read from pool backup (for file comparison):
       - ${MOUNTS_PATH:?error}/backup:/opt/airflow/mounts/backup:ro
+      # to read from the pool backup before a cutover (for file comparison), cf. docs/deployment.md:
+      # - ${MOUNTS_PATH:?error}/backup_previous:/opt/airflow/mounts/backup_previous:ro
       # to write (remove) from instrument Backup folder: (this could be limited to the 'Backup' folders but then requires one entry per instrument)
       - ${MOUNTS_PATH:?error}/instruments:/opt/airflow/mounts/instruments:rw
 

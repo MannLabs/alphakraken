@@ -14,6 +14,7 @@ from dags.impl.remover_impl import (
     _decide_on_raw_files_to_remove,
     _delete_empty_directory,
     _get_total_size,
+    _is_file_on_backup,
     _remove_files,
     _remove_folder,
     _safe_remove_files,
@@ -478,7 +479,7 @@ def test_safe_remove_files_success(  # noqa: PLR0913
 
     # then
     mock_create_file_identifier.return_value.check_file.assert_called_once_with(
-        mock_path_to_delete, Path("file1")
+        mock_path_to_delete, Path("file1"), hash_check=True
     )
     mock_change_folder_permissions.assert_not_called()  # because get_folder_to_remove returned None
     mock_remove_files.assert_called_once_with([mock_path_to_delete])
@@ -528,7 +529,7 @@ def test_safe_remove_files_folder_success(  # noqa: PLR0913
 
     # then
     mock_create_file_identifier.return_value.check_file.assert_called_once_with(
-        mock_path_to_delete, Path("file1")
+        mock_path_to_delete, Path("file1"), hash_check=True
     )
     mock_change_folder_permissions.assert_called_once_with(
         Path("/instrument/Backup/file1")
@@ -751,4 +752,33 @@ def test_remove_raw_files_errors_exceed_threshold(
     mock_update_status.assert_called_once_with(
         KrakenStatusValues.ERROR,
         "; ".join(f"Error for file{i}: Error: fail {i}" for i in range(6)),
+    )
+
+
+@pytest.mark.parametrize("check_result", [True, False])
+@patch("dags.impl.remover_impl.create_file_identifier")
+def test_is_file_on_backup(
+    mock_create_file_identifier: MagicMock, *, check_result: bool
+) -> None:
+    """Test that the file is checked against the backup with the given arguments."""
+    mock_create_file_identifier.return_value.check_file.return_value = check_result
+    mock_raw_file = MagicMock()
+    mock_s3_client = MagicMock()
+
+    # when
+    result = _is_file_on_backup(
+        mock_raw_file,
+        Path("/instrument/file1"),
+        Path("file1"),
+        verify_against_s3=True,
+        s3_client=mock_s3_client,
+        hash_check=False,
+    )
+
+    assert result == check_result
+    mock_create_file_identifier.assert_called_once_with(
+        mock_raw_file, verify_against_s3=True, s3_client=mock_s3_client
+    )
+    mock_create_file_identifier.return_value.check_file.assert_called_once_with(
+        Path("/instrument/file1"), Path("file1"), hash_check=False
     )

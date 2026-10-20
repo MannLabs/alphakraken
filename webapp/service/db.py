@@ -184,7 +184,12 @@ def get_output_folders(raw_file_ids: list[str]) -> pd.DataFrame:
     _log(f"Retrieving output folders for {raw_file_ids}")
 
     metrics_db = Metrics.objects.filter(raw_file__in=raw_file_ids).only(
-        "raw_file", "settings_name", "settings_version", "type", "relative_output_path"
+        "raw_file",
+        "settings_name",
+        "settings_version",
+        "type",
+        "relative_output_path",
+        "output_display_base_path",
     )
 
     rows = []
@@ -199,7 +204,9 @@ def get_output_folders(raw_file_ids: list[str]) -> pd.DataFrame:
                 "type": doc.get("type"),
                 "output_path": None
                 if relative_output_path is None
-                else get_display_output_path(relative_output_path),
+                else get_display_output_path(
+                    relative_output_path, doc.get("output_display_base_path")
+                ),
             }
         )
 

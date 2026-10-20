@@ -65,9 +65,29 @@ def test_get_display_backup_path() -> None:
     assert get_display_backup_path(raw_file) == "./tmp/test/backup/test1/2024_07"
 
 
+def test_get_display_backup_path_uses_stored_base_path() -> None:
+    """Test that the backup folder is placed below the base path stored at copy time."""
+    raw_file = RawFile(
+        id="f.raw",
+        instrument_id="test1",
+        created_at=datetime(2024, 7, 1),  # noqa: DTZ001
+        backup_display_base_path="/fs/old_pool/backup",
+    )
+
+    assert get_display_backup_path(raw_file) == "/fs/old_pool/backup/test1/2024_07"
+
+
 def test_get_display_output_path() -> None:
     """Test that the relative output path is placed below the display output path."""
     assert (
         get_display_output_path("P1/out_f.raw/alphadia")
         == "./tmp/test/output/P1/out_f.raw/alphadia"
+    )
+
+
+def test_get_display_output_path_uses_given_base_path() -> None:
+    """Test that the relative output path is placed below the base path stored with the metrics."""
+    assert (
+        get_display_output_path("P1/out_f.raw/alphadia", "/fs/old_pool/output")
+        == "/fs/old_pool/output/P1/out_f.raw/alphadia"
     )

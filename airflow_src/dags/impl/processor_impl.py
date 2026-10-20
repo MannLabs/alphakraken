@@ -58,6 +58,7 @@ from shared.db.interface import (
     update_raw_file,
 )
 from shared.db.models import RawFile, RawFileStatus, Settings
+from shared.display_paths import get_current_output_display_base_path
 from shared.keys import SoftwareTypes
 from shared.path_layout import get_output_folder_rel_path, get_raw_file_rel_path
 from shared.path_views import Locations, View
@@ -483,6 +484,7 @@ def check_job_result(*, quanting_env_dict: dict, job_id: str, ti: TaskInstance) 
             settings_version=quanting_env.settings_version,
             metrics_type=quanting_env.metrics_type,
             relative_output_path=quanting_env.relative_output_path,
+            output_display_base_path=get_current_output_display_base_path(),
         )
 
         # fail the DAG without retry on new errors to make them transparent in Airflow UI
@@ -533,6 +535,7 @@ def compute_metrics(
         settings_name=quanting_env.settings_name,
         settings_version=quanting_env.settings_version,
         relative_output_path=quanting_env.relative_output_path,
+        output_display_base_path=get_current_output_display_base_path(),
     )
 
 

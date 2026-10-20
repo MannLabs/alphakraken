@@ -174,6 +174,7 @@ def update_raw_file(  # noqa: PLR0913
     size: float = _NO_UPDATE,  # type: ignore[invalid-parameter-default]
     file_info: dict[str, FileInfoItem] = _NO_UPDATE,  # type: ignore[invalid-parameter-default]
     backup_status: str = _NO_UPDATE,  # type: ignore[invalid-parameter-default]
+    backup_display_base_path: str = _NO_UPDATE,  # type: ignore[invalid-parameter-default]
     s3_upload_path: str = _NO_UPDATE,  # type: ignore[invalid-parameter-default]
     instrument_file_status: str = _NO_UPDATE,  # type: ignore[invalid-parameter-default]
     finalized_at: datetime | None = _NO_UPDATE,  # type: ignore[invalid-parameter-default]
@@ -181,7 +182,7 @@ def update_raw_file(  # noqa: PLR0913
 ) -> None:
     """Update parameters of DB entity of raw file with `raw_file_id`."""
     logging.info(
-        f"Updating DB: {raw_file_id=} to {new_status=} {status_details=} {size=} {file_info=} {backup_status=} {s3_upload_path=} {instrument_file_status=} {finalized_at=} {created_at=}"
+        f"Updating DB: {raw_file_id=} to {new_status=} {status_details=} {size=} {file_info=} {backup_status=} {backup_display_base_path=} {s3_upload_path=} {instrument_file_status=} {finalized_at=} {created_at=}"
     )
     connect_db()
     raw_file = RawFile.objects.with_id(raw_file_id)
@@ -195,6 +196,7 @@ def update_raw_file(  # noqa: PLR0913
         "size": size,
         "file_info": file_info,
         "backup_status": backup_status,
+        "backup_display_base_path": backup_display_base_path,
         "s3_upload_path": s3_upload_path,
         "instrument_file_status": instrument_file_status,
         "finalized_at": finalized_at,
@@ -212,10 +214,11 @@ def add_metrics_to_raw_file(  # noqa: PLR0913
     settings_name: str,
     settings_version: int,
     relative_output_path: str,
+    output_display_base_path: str,
 ) -> None:
     """Add `metrics` to DB entry of `raw_file_id`."""
     logging.info(
-        f"Adding to DB: {raw_file_id=} <- {metrics=} type={metrics_type} {settings_name=} {settings_version=} {relative_output_path=}"
+        f"Adding to DB: {raw_file_id=} <- {metrics=} type={metrics_type} {settings_name=} {settings_version=} {relative_output_path=} {output_display_base_path=}"
     )
     connect_db()
     raw_file = RawFile.objects.get(id=raw_file_id)
@@ -226,6 +229,7 @@ def add_metrics_to_raw_file(  # noqa: PLR0913
         settings_name=settings_name,
         settings_version=settings_version,
         relative_output_path=relative_output_path,
+        output_display_base_path=output_display_base_path,
         **metrics,
     ).save()
 

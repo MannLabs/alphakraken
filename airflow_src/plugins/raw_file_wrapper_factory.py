@@ -325,7 +325,7 @@ class RawFileWriteWrapper(ABC):
         self._check_path_provider(CopyPathProvider)
 
         files = self._get_files_to_copy()
-        logging.info(f"{files=}")
+        logging.debug(f"{files=}")
         return files
 
     @property
@@ -349,7 +349,7 @@ class RawFileWriteWrapper(ABC):
         self._check_path_provider(MovePathProvider)
 
         files = self._get_files_to_move()
-        logging.info(f"{files=}")
+        logging.debug(f"{files=}")
         return files
 
     @abstractmethod
@@ -378,7 +378,7 @@ class RawFileWriteWrapper(ABC):
         self._check_path_provider(RemovePathProvider)
 
         files = self._get_files_to_copy()
-        logging.info(f"{files=}")
+        logging.debug(f"{files=}")
         return files
 
     def main_file_path(self) -> Path:

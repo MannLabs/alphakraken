@@ -135,7 +135,7 @@ class FileIdentifier(AbstractFileIdentifier):
     def _check_reference_exists(self, rel_file_path: Path) -> bool:
         """Check that the file to remove is present in the pool backup."""
         if not (self.internal_backup_path / rel_file_path).exists():
-            logging.warning(f"File {rel_file_path} does not exist.")
+            logging.debug(f"File {rel_file_path} does not exist.")
             return False
         return True
 
@@ -260,7 +260,7 @@ def create_file_identifier(
     if verify_against_s3:
         if s3_client is None:
             raise ValueError("verify_against_s3=True requires an s3_client")
-        logging.info("Using S3FileIdentifier for file verification.")
+        logging.debug("Using S3FileIdentifier for file verification.")
         return S3FileIdentifier(raw_file, s3_client)
-    logging.info("Using FileIdentifier for file verification.")
+    logging.debug("Using FileIdentifier for file verification.")
     return FileIdentifier(raw_file)

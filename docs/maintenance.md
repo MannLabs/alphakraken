@@ -308,11 +308,6 @@ Note: this is a destructive operation!
 
 Alternatively, delete the logs manually: `rm -rf /fs/pool-2/airflow_logs/dag_id\=*/run_id\=*__2025-12*`
 
-#### Slurm logs
-`cd` to the `jobs` folder then do (e.g.)
-```bash
-for dir in 2024*; do tar -czf "${dir%/}.tar.gz" "$dir" && rm -rf "$dir"; done
-```
 
 ### Upgrading Airflow
 Every once in a while, the Airflow version should be updated.

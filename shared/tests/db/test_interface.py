@@ -23,8 +23,8 @@ from shared.db.interface import (
     get_all_settings,
     get_latest_active_settings_by_name,
     get_project_settings,
+    get_purge_candidates_by_age,
     get_raw_file_by_id,
-    get_raw_files_by_age,
     get_raw_files_by_instrument_file_status,
     get_raw_files_by_names,
     get_slurm_job,
@@ -154,7 +154,7 @@ def test_get_raw_file_by_id(
 @patch("shared.db.interface.connect_db")
 @patch("shared.db.interface.RawFile")
 @patch("shared.db.interface.datetime")
-def test_get_raw_files_by_age(
+def test_get_purge_candidates_by_age(
     mock_datetime: MagicMock, mock_raw_file: MagicMock, mock_connect_db: MagicMock
 ) -> None:
     """Test get raw file ids from DB returns correct value."""
@@ -166,7 +166,7 @@ def test_get_raw_files_by_age(
     mock_datetime.now.return_value = datetime(2022, 7, 5, 4, 16, 0, 0, tzinfo=pytz.UTC)
 
     # when
-    result = get_raw_files_by_age("instrument1", min_age_in_days=30, max_age_in_days=60)
+    result = get_purge_candidates_by_age("instrument1", min_age_in_days=30)
 
     assert result == [file1]
 
@@ -174,7 +174,11 @@ def test_get_raw_files_by_age(
     mock_raw_file.objects.filter.assert_called_once_with(
         instrument_id="instrument1",
         created_at__lt=mock_datetime.now.return_value - timedelta(days=30),
-        created_at__gte=mock_datetime.now.return_value - timedelta(days=60),
+        instrument_file_status__nin=[
+            InstrumentFileStatus.PURGED,
+            InstrumentFileStatus.RENAMED,
+            InstrumentFileStatus.DISAPPEARED,
+        ],
     )
 
 

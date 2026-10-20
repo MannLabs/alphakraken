@@ -99,7 +99,8 @@ if [ "${ACTION}" == "fstab" ]; then
     protectTarget >&2
   fi
   # file_mode & dir_mode sometime required to prevent a read-only mount
-  echo "${MOUNT_SRC// /\\040}" "${MOUNT_TARGET// /\\040}" cifs username=$USERNAME,password=SET_PASSWORD,uid=$(id -u),gid=$(id -g),file_mode=0755,dir_mode=0755 0 0
+  # noperm: the client strips write bits for the Windows READONLY attribute (e.g. set by instrument software), let the server decide instead
+  echo "${MOUNT_SRC// /\\040}" "${MOUNT_TARGET// /\\040}" cifs username=$USERNAME,password=SET_PASSWORD,uid=$(id -u),gid=$(id -g),file_mode=0755,dir_mode=0755,noperm 0 0
   exit 0
 fi
 
@@ -141,7 +142,7 @@ fi
 protectTarget
 
 # pass user id (uid) and group id (gid) otherwise would be mounted as root
-sudo mount -t cifs -o username=$USERNAME,uid=$(id -u),gid=$(id -g) "$MOUNT_SRC" "$MOUNT_TARGET"
+sudo mount -t cifs -o username=$USERNAME,uid=$(id -u),gid=$(id -g),noperm "$MOUNT_SRC" "$MOUNT_TARGET"
 
 echo contents of  "$MOUNT_TARGET":
 ls "$MOUNT_TARGET"

@@ -17,13 +17,11 @@ from shared.db.models import BackupStatus
 
 @patch("plugins.file_checks.CopyPathProvider")
 @patch("plugins.file_checks.get_file_size")
-@patch("plugins.file_checks.get_internal_backup_path")
 @patch("plugins.file_checks.get_file_hash")
 @patch("pathlib.Path.exists")
 def test_check_file_success(
     mock_path_exists: MagicMock,
     mock_get_file_hash: MagicMock,
-    mock_backup_path: MagicMock,
     mock_get_file_size: MagicMock,
     mock_copy_path_provider: MagicMock,
 ) -> None:
@@ -31,7 +29,6 @@ def test_check_file_success(
     mock_copy_path_provider.return_value.get_target_folder_path.return_value = Path(
         "/backup/instrument1/2024_08"
     )
-    mock_backup_path.return_value = Path("/backup")
     mock_path_exists.return_value = True
 
     mock_get_file_size.side_effect = [100, 100]  # Same size for both files
@@ -93,13 +90,11 @@ def test_check_file_not_existing_on_pool_backup(
 )
 @patch("plugins.file_checks.CopyPathProvider")
 @patch("plugins.file_checks.get_file_size")
-@patch("plugins.file_checks.get_internal_backup_path")
 @patch("plugins.file_checks.get_file_hash")
 @patch("pathlib.Path.exists")
 def test_check_file_mismatch_instrument(  # noqa: PLR0913
     mock_path_exists: MagicMock,
     mock_get_file_hash: MagicMock,
-    mock_backup_path: MagicMock,
     mock_get_file_size: MagicMock,
     mock_copy_path_provider: MagicMock,
     file_size: int,
@@ -113,7 +108,6 @@ def test_check_file_mismatch_instrument(  # noqa: PLR0913
     mock_copy_path_provider.return_value.get_target_folder_path.return_value = Path(
         "/backup/instrument1/2024_08"
     )
-    mock_backup_path.return_value = Path("/backup")
     mock_path_exists.return_value = True
     mock_get_file_size.return_value = file_size
     mock_get_file_hash.return_value = file_hash
@@ -129,13 +123,11 @@ def test_check_file_mismatch_instrument(  # noqa: PLR0913
 )
 @patch("plugins.file_checks.CopyPathProvider")
 @patch("plugins.file_checks.get_file_size")
-@patch("plugins.file_checks.get_internal_backup_path")
 @patch("plugins.file_checks.get_file_hash")
 @patch("pathlib.Path.exists")
 def test_check_file_mismatch_pool(  # noqa: PLR0913
     mock_path_exists: MagicMock,
     mock_get_file_hash: MagicMock,
-    mock_backup_path: MagicMock,
     mock_get_file_size: MagicMock,
     mock_copy_path_provider: MagicMock,
     file_size: int,
@@ -149,7 +141,6 @@ def test_check_file_mismatch_pool(  # noqa: PLR0913
     mock_copy_path_provider.return_value.get_target_folder_path.return_value = Path(
         "/backup/instrument1/2024_08"
     )
-    mock_backup_path.return_value = Path("/backup")
     mock_path_exists.return_value = True
     mock_get_file_size.side_effect = [100, file_size]
     mock_get_file_hash.side_effect = ["some_hash", file_hash]
@@ -162,51 +153,15 @@ def test_check_file_mismatch_pool(  # noqa: PLR0913
 
 
 @patch("plugins.file_checks.CopyPathProvider")
-@patch("plugins.file_checks.get_file_size")
-@patch("plugins.file_checks.get_internal_backup_path")
-@patch("plugins.file_checks.get_file_hash")
-@patch("pathlib.Path.exists")
-def test_check_file_old_format_fallback(
-    mock_path_exists: MagicMock,
-    mock_get_file_hash: MagicMock,
-    mock_backup_path: MagicMock,
-    mock_get_file_size: MagicMock,
-    mock_copy_path_provider: MagicMock,
-) -> None:
-    """Test that check_file handles old file_info format with full path as key."""
-    mock_copy_path_provider.return_value.get_target_folder_path.return_value = Path(
-        "/backup/instrument1/2024_08"
-    )
-    mock_backup_path.return_value = Path("/backup")
-    mock_path_exists.return_value = True
-
-    mock_get_file_size.side_effect = [100, 100]
-    mock_get_file_hash.side_effect = ["some_hash", "some_hash"]
-    file_path_to_check = Path("/instrument1/file.raw")
-
-    rel_file_path = Path("file.raw")
-
-    file_info_in_db = {"instrument1/2024_08/file.raw": (100, "some_hash")}
-
-    raw_file = MagicMock()
-    raw_file.file_info = file_info_in_db
-
-    assert FileIdentifier(raw_file).check_file(file_path_to_check, rel_file_path)
-
-
-@patch("plugins.file_checks.CopyPathProvider")
-@patch("plugins.file_checks.get_internal_backup_path")
 @patch("pathlib.Path.exists")
 def test_check_file_raises_when_size_is_none(
     mock_path_exists: MagicMock,
-    mock_backup_path: MagicMock,
     mock_copy_path_provider: MagicMock,
 ) -> None:
     """Test that check_file raises KeyError when size_in_db is None."""
     mock_copy_path_provider.return_value.get_target_folder_path.return_value = Path(
         "/backup/instrument1/2024_08"
     )
-    mock_backup_path.return_value = Path("/backup")
     mock_path_exists.return_value = True
 
     file_path_to_check = Path("/instrument1/file.raw")
@@ -222,18 +177,15 @@ def test_check_file_raises_when_size_is_none(
 
 
 @patch("plugins.file_checks.CopyPathProvider")
-@patch("plugins.file_checks.get_internal_backup_path")
 @patch("pathlib.Path.exists")
 def test_check_file_raises_when_hash_is_none(
     mock_path_exists: MagicMock,
-    mock_backup_path: MagicMock,
     mock_copy_path_provider: MagicMock,
 ) -> None:
     """Test that check_file raises KeyError when hash_in_db is None."""
     mock_copy_path_provider.return_value.get_target_folder_path.return_value = Path(
         "/backup/instrument1/2024_08"
     )
-    mock_backup_path.return_value = Path("/backup")
     mock_path_exists.return_value = True
 
     file_path_to_check = Path("/instrument1/file.raw")
@@ -248,18 +200,37 @@ def test_check_file_raises_when_hash_is_none(
         FileIdentifier(raw_file).check_file(file_path_to_check, rel_file_path)
 
 
+@patch("plugins.file_checks.CopyPathProvider")
+@patch("pathlib.Path.exists")
+def test_check_file_raises_when_key_is_missing(
+    mock_path_exists: MagicMock,
+    mock_copy_path_provider: MagicMock,
+) -> None:
+    """Test that check_file raises KeyError when the file is not in file_info."""
+    mock_copy_path_provider.return_value.get_target_folder_path.return_value = Path(
+        "/backup/instrument1/2024_08"
+    )
+    mock_path_exists.return_value = True
+
+    raw_file = MagicMock()
+    raw_file.file_info = {"instrument1/2024_08/file.raw": (100, "some_hash")}
+
+    with pytest.raises(KeyError, match="file.raw"):
+        FileIdentifier(raw_file).check_file(
+            Path("/instrument1/file.raw"), Path("file.raw")
+        )
+
+
 # --- S3FileIdentifier tests ---
 
 
 @patch("plugins.file_checks.CopyPathProvider")
 @patch("plugins.file_checks.get_file_size")
-@patch("plugins.file_checks.get_internal_backup_path")
 @patch("plugins.file_checks.get_file_hash")
 @patch("plugins.file_checks.get_etag")
 def test_s3_check_file_success(
     mock_get_etag: MagicMock,
     mock_get_file_hash: MagicMock,
-    mock_backup_path: MagicMock,
     mock_get_file_size: MagicMock,
     mock_copy_path_provider: MagicMock,
 ) -> None:
@@ -267,7 +238,6 @@ def test_s3_check_file_success(
     mock_copy_path_provider.return_value.get_target_folder_path.return_value = Path(
         "/backup/instrument1/2024_08"
     )
-    mock_backup_path.return_value = Path("/backup")
     mock_get_etag.return_value = ("abc123", 100)
     mock_get_file_size.return_value = 100
     mock_get_file_hash.return_value = "some_hash"
@@ -315,13 +285,11 @@ def test_s3_check_file_not_found_on_s3(
 
 @patch("plugins.file_checks.CopyPathProvider")
 @patch("plugins.file_checks.get_file_size")
-@patch("plugins.file_checks.get_internal_backup_path")
 @patch("plugins.file_checks.get_file_hash")
 @patch("plugins.file_checks.get_etag")
 def test_s3_check_file_size_mismatch(
     mock_get_etag: MagicMock,
     mock_get_file_hash: MagicMock,
-    mock_backup_path: MagicMock,
     mock_get_file_size: MagicMock,
     mock_copy_path_provider: MagicMock,
 ) -> None:
@@ -329,7 +297,6 @@ def test_s3_check_file_size_mismatch(
     mock_copy_path_provider.return_value.get_target_folder_path.return_value = Path(
         "/backup/instrument1/2024_08"
     )
-    mock_backup_path.return_value = Path("/backup")
     mock_get_etag.return_value = ("abc123", 999)  # wrong size
     mock_get_file_size.return_value = 100
     mock_get_file_hash.return_value = "some_hash"
@@ -348,13 +315,11 @@ def test_s3_check_file_size_mismatch(
 
 @patch("plugins.file_checks.CopyPathProvider")
 @patch("plugins.file_checks.get_file_size")
-@patch("plugins.file_checks.get_internal_backup_path")
 @patch("plugins.file_checks.get_file_hash")
 @patch("plugins.file_checks.get_etag")
 def test_s3_check_file_etag_mismatch(
     mock_get_etag: MagicMock,
     mock_get_file_hash: MagicMock,
-    mock_backup_path: MagicMock,
     mock_get_file_size: MagicMock,
     mock_copy_path_provider: MagicMock,
 ) -> None:
@@ -362,7 +327,6 @@ def test_s3_check_file_etag_mismatch(
     mock_copy_path_provider.return_value.get_target_folder_path.return_value = Path(
         "/backup/instrument1/2024_08"
     )
-    mock_backup_path.return_value = Path("/backup")
     mock_get_etag.return_value = ("different_etag", 100)
     mock_get_file_size.return_value = 100
     mock_get_file_hash.return_value = "some_hash"
@@ -382,11 +346,9 @@ def test_s3_check_file_etag_mismatch(
 @patch("plugins.file_checks.get_file_size")
 @patch("plugins.file_checks.get_file_hash")
 @patch("plugins.file_checks.CopyPathProvider")
-@patch("plugins.file_checks.get_internal_backup_path")
 @patch("plugins.file_checks.get_etag")
 def test_s3_check_file_no_etag_in_file_info(
     mock_get_etag: MagicMock,
-    mock_backup_path: MagicMock,
     mock_copy_path_provider: MagicMock,
     mock_get_file_hash: MagicMock,
     mock_get_file_size: MagicMock,
@@ -395,7 +357,6 @@ def test_s3_check_file_no_etag_in_file_info(
     mock_copy_path_provider.return_value.get_target_folder_path.return_value = Path(
         "/backup/instrument1/2024_08"
     )
-    mock_backup_path.return_value = Path("/backup")
     mock_get_etag.return_value = ("abc123", 100)
     mock_get_file_size.return_value = 100
     mock_get_file_hash.return_value = "some_hash"

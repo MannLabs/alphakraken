@@ -5,9 +5,6 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 
 from airflow.providers.amazon.aws.hooks.base_aws import BaseAwsConnection
-from common.paths import (
-    get_internal_backup_path,
-)
 from file_handling import ETAG_SEPARATOR, get_file_hash, get_file_size
 from plugins.s3.client import S3_FILE_NOT_FOUND_ETAG, get_etag
 from plugins.s3.s3_utils import parse_s3_upload_path
@@ -23,7 +20,7 @@ class AbstractFileIdentifier(ABC):
         """Initialize the FileIdentifier with a RawFile instance."""
         self._raw_file = raw_file
 
-        self._internal_backup_path = CopyPathProvider(
+        self.internal_backup_path = CopyPathProvider(
             instrument_id=raw_file.instrument_id, raw_file=raw_file
         ).get_target_folder_path()
 
@@ -74,14 +71,6 @@ class AbstractFileIdentifier(ABC):
 
     def _get_hashes(self, rel_file_path: Path) -> tuple[float, str, str | None]:
         """Get size and hash from DB for given relative file path."""
-        # TODO: this is a hack to support the old format. Remove it once the older DB entries have been migrated.
-        # old file_info key format: 'instrument1/2024_07/file.raw', new: 'file.raw'
-        if str(rel_file_path) not in self._raw_file.file_info:
-            # map e.g. '/opt/airflow/mounts/backup/test1/2024_08/test_file_SA_P123_2.raw' => 'test1/2024_08/test_file_SA_P123_2.raw'
-            rel_file_path = (self._internal_backup_path / rel_file_path).relative_to(
-                get_internal_backup_path()
-            )
-
         ret_val = self._raw_file.file_info[str(rel_file_path)]
 
         if len(ret_val) == 2:  # noqa: PLR2004
@@ -145,7 +134,7 @@ class FileIdentifier(AbstractFileIdentifier):
 
     def _check_reference_exists(self, rel_file_path: Path) -> bool:
         """Check that the file to remove is present in the pool backup."""
-        if not (self._internal_backup_path / rel_file_path).exists():
+        if not (self.internal_backup_path / rel_file_path).exists():
             logging.warning(f"File {rel_file_path} does not exist.")
             return False
         return True
@@ -163,7 +152,7 @@ class FileIdentifier(AbstractFileIdentifier):
         # this essentially re-checks the checksums that have been calculated right before file copying, would fail if pool backup was corrupted
         del etag_in_db
 
-        reference_file_path = self._internal_backup_path / rel_file_path
+        reference_file_path = self.internal_backup_path / rel_file_path
 
         size_on_pool_backup = get_file_size(reference_file_path, verbose=False)
         hash_on_pool_backup = None

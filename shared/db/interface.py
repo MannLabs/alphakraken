@@ -15,6 +15,7 @@ from pymongo import UpdateOne
 from shared.db.engine import connect_db
 from shared.db.models import (
     FileInfoItem,
+    InstrumentFileStatus,
     KrakenStatus,
     KrakenStatusEntities,
     Metrics,
@@ -86,27 +87,28 @@ def get_raw_files_by_instrument_file_status(
     return list(query.order_by("created_at"))
 
 
-def get_raw_files_by_age(
+def get_purge_candidates_by_age(
     instrument_id: str,
     *,
-    max_age_in_days: int,
     min_age_in_days: float,
 ) -> list[RawFile]:
-    """Get raw file ids older than the given age window in days for a given instrument sorted 'oldest first'."""
+    """Get raw files older than the given age in days for a given instrument that are not purged, renamed or disappeared, sorted 'oldest first'."""
     connect_db()
-    now = datetime.now(tz=pytz.UTC)
 
-    oldest_created_at = now - timedelta(days=max_age_in_days)
-    youngest_created_at = now - timedelta(hours=min_age_in_days * 24)
-    logging.info(
-        f"Getting from DB: {instrument_id=} {oldest_created_at=} {youngest_created_at=}"
+    youngest_created_at = datetime.now(tz=pytz.UTC) - timedelta(
+        hours=min_age_in_days * 24
     )
+    logging.info(f"Getting from DB: {instrument_id=} {youngest_created_at=}")
 
     return list(
         RawFile.objects.filter(
             instrument_id=instrument_id,
-            created_at__gte=oldest_created_at,
             created_at__lt=youngest_created_at,
+            instrument_file_status__nin=[
+                InstrumentFileStatus.PURGED,
+                InstrumentFileStatus.RENAMED,
+                InstrumentFileStatus.DISAPPEARED,
+            ],
         ).order_by("created_at")
     )
 

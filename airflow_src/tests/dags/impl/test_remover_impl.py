@@ -237,13 +237,13 @@ def test_get_raw_files_to_remove_handle_error(
 
 
 @patch("dags.impl.remover_impl.get_internal_instrument_data_path")
-@patch("dags.impl.remover_impl.get_raw_files_by_age")
+@patch("dags.impl.remover_impl.get_purge_candidates_by_age")
 @patch("dags.impl.remover_impl._get_total_size")
 @patch("dags.impl.remover_impl.get_disk_usage")
 def test_decide_on_raw_files_to_remove_ok(
     mock_get_disk_usage: MagicMock,
     mock_get_total_size: MagicMock,
-    mock_get_raw_files_by_age: MagicMock,
+    mock_get_purge_candidates_by_age: MagicMock,
     mock_get_internal_instrument_data_path: MagicMock,
 ) -> None:
     """Test that _decide_on_raw_files_to_remove returns the correct files to remove."""
@@ -257,7 +257,7 @@ def test_decide_on_raw_files_to_remove_ok(
         KeyError,
     ]
 
-    mock_get_raw_files_by_age.return_value = [
+    mock_get_purge_candidates_by_age.return_value = [
         MagicMock(id="file0"),  # skipped to due to FileRemovalError
         MagicMock(id="file1"),
         MagicMock(id="file2"),

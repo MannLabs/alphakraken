@@ -18,7 +18,6 @@ from common.paths import (
     get_internal_instrument_data_path,
 )
 from common.settings import (
-    DEFAULT_MAX_FILE_AGE_TO_REMOVE_D,
     DEFAULT_MIN_FILE_AGE_TO_REMOVE_D,
     MAX_TOLERATED_REMOVAL_ERRORS_PER_INSTRUMENT,
     get_instrument_ids,
@@ -35,8 +34,8 @@ from raw_file_wrapper_factory import (
 )
 
 from shared.db.interface import (
+    get_purge_candidates_by_age,
     get_raw_file_by_id,
-    get_raw_files_by_age,
     update_kraken_status,
     update_raw_file,
 )
@@ -185,15 +184,11 @@ def _decide_on_raw_files_to_remove(
         )
         return raw_file_ids_to_remove
 
-    raw_files = get_raw_files_by_age(
-        instrument_id,
-        min_age_in_days=min_file_age,
-        max_age_in_days=DEFAULT_MAX_FILE_AGE_TO_REMOVE_D,
-    )
+    raw_files = get_purge_candidates_by_age(instrument_id, min_age_in_days=min_file_age)
 
     sum_size_gb = 0
     for raw_file in raw_files:
-        logging.info(
+        logging.debug(
             f"Checking {raw_file.id=} created_at={raw_file.created_at.strftime('%Y-%m-%d %H-%M-%S:%f')}"
         )
 
@@ -202,7 +197,7 @@ def _decide_on_raw_files_to_remove(
                 raw_file, verify_against_s3=verify_against_s3, s3_client=s3_client
             )
         except FileRemovalError as e:
-            logging.warning(f"Skipping {raw_file.id}: {e}")
+            logging.debug(f"Skipping {raw_file.id}: {e}")
             continue
         except Exception:
             # prevent one foul file from blocking all others
@@ -210,10 +205,10 @@ def _decide_on_raw_files_to_remove(
             continue
 
         if not num_files:
-            logging.info(f"Skipping {raw_file.id}: no files found to remove")
+            logging.debug(f"Skipping {raw_file.id}: no files found to remove")
             continue
 
-        logging.info(f"Adding {raw_file.id=} {total_size=} bytes {sum_size_gb=}")
+        logging.debug(f"Adding {raw_file.id=} {total_size=} bytes {sum_size_gb=}")
         raw_file_ids_to_remove.append(raw_file.id)
         sum_size_gb += total_size * BYTES_TO_GB
         if sum_size_gb >= min_space_to_free_gb:

@@ -291,6 +291,7 @@ def _is_file_on_backup(  # noqa: PLR0913
 
     # uncomment this in case the backup filesystem has changed
     # optional mount for a backup file system cutover, cf. docs/deployment.md
+    # from shared.keys import InternalPaths
     # internal_backup_previous_path = Path(InternalPaths.MOUNTS_PATH) / "backup_previous"
     # logging.info(f"Retrying check of {file_path_to_remove} against previous backup ..")
     # file_identifier.internal_backup_path = (

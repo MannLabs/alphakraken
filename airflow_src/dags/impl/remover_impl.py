@@ -260,11 +260,12 @@ def _get_total_size(
         if not file_path_to_remove.exists():
             continue  # file was already removed
 
-        if not create_file_identifier(
-            raw_file, verify_against_s3=verify_against_s3, s3_client=s3_client
-        ).check_file(
+        if not _is_file_on_backup(
+            raw_file,
             file_path_to_remove,
             rel_file_path,
+            verify_against_s3=verify_against_s3,
+            s3_client=s3_client,
             hash_check=False,  # we only use this to calculate the sizes, so we can tolerate possible hash mismatches here
         ):
             raise FileRemovalError(
@@ -275,6 +276,35 @@ def _get_total_size(
         num_files += 1
 
     return total_size_bytes, num_files
+
+
+def _is_file_on_backup(  # noqa: PLR0913
+    raw_file: RawFile,
+    file_path_to_remove: Path,
+    rel_file_path: Path,
+    *,
+    verify_against_s3: bool,
+    s3_client: BaseAwsConnection | None,
+    hash_check: bool = True,
+) -> bool:
+    """Check the file against the backup."""
+    file_identifier = create_file_identifier(
+        raw_file, verify_against_s3=verify_against_s3, s3_client=s3_client
+    )
+    return file_identifier.check_file(
+        file_path_to_remove, rel_file_path, hash_check=hash_check
+    )
+
+    # uncomment this in case the backup filesystem has changed
+    # optional mount for a backup file system cutover, cf. docs/deployment.md
+    # internal_backup_previous_path = Path(InternalPaths.MOUNTS_PATH) / "backup_previous"
+    # logging.info(f"Retrying check of {file_path_to_remove} against previous backup ..")
+    # file_identifier.internal_backup_path = (
+    #     internal_backup_previous_path / get_raw_file_folder_rel_path(raw_file)
+    # )
+    # return file_identifier.check_file(
+    #     file_path_to_remove, rel_file_path, hash_check=hash_check
+    # )
 
 
 def _safe_remove_files(
@@ -314,11 +344,12 @@ def _safe_remove_files(
             )
             continue
 
-        if not create_file_identifier(
-            raw_file, verify_against_s3=verify_against_s3, s3_client=s3_client
-        ).check_file(
+        if not _is_file_on_backup(
+            raw_file,
             file_path_to_remove,
             rel_file_path,
+            verify_against_s3=verify_against_s3,
+            s3_client=s3_client,
         ):
             raise FileRemovalError(
                 f"File {file_path_to_remove} failed check_file() before removal."

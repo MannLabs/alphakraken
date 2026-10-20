@@ -297,6 +297,14 @@ If a folder is set up without `mount.sh`, do this manually while it is not mount
 Note: a running container keeps its own reference to a share. Unmounting or remounting a share on the host
 is not visible inside running containers (they keep using the old mount), so restart the affected workers after remounting.
 
+#### Backup file system cutover
+When the backup file system changes, the file remover needs to verify older files against the previous backup.
+This is supported, but needs code changes:
+1. mount the previous backup file system to `${MOUNTS_PATH}/backup_previous`.
+2. In `docker-compose.yaml`, uncomment the `backup_previous` volume of `airflow-worker-file-remover`.
+3. Uncomment and activate the respective code in `remover_impl.py:_is_file_on_backup()`, rebuild the file-remover image, and restart the file remover worker.
+Once the previous backup is not needed anymore, revert these steps.
+
 
 ### Setup SSH connection
 At least one connection is required to interact with the Slurm cluster.

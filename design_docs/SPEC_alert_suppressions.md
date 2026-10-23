@@ -58,7 +58,7 @@ redeploying. Rules can expire and carry a reason. Monitoring picks up changes wi
 - `monitoring/alerts/base_alert.py`: `get_issues(status_objects, suppressions)`, matching as above.
 - `monitoring/alert_manager.py`: load active suppressions once per cycle.
 - `webapp/pages_/admin.py`, `webapp/pages_/impl/admin_utils.py`.
-- `misc/init-mongo.sh`, `docs/upgrade_guides/upgrade_alert_suppressions.md`.
+- `misc/init-mongo.sh`, `docs/upgrade_guides/upgrade_alert_refactoring.md`.
 - Delete `monitoring/suppressions.yaml` and its loader.
 
 ## Testing strategy

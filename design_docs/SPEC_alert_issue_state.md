@@ -61,7 +61,7 @@ resolved notifications, to keep the design small).
 - `monitoring/alerts/base_alert.py`: `Issue.key`, `BaseAlert.cooldown_minutes: int | None`,
   `get_cooldown_minutes(issue)` for the `file_remover` case.
 - `monitoring/alert_manager.py`: the cycle above; `send_once` for the DB-free tier.
-- `misc/init-mongo.sh`, `docs/upgrade_guides/upgrade_alert_issue_state.md`.
+- `misc/init-mongo.sh`, `docs/upgrade_guides/upgrade_alert_refactoring.md`.
 
 ## Testing strategy
 

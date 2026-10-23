@@ -6,7 +6,7 @@ from .health_check_failed_alert import HealthCheckFailedAlert
 from .instrument_file_pile_up_alert import InstrumentFilePileUpAlert
 from .instrument_stall_alert import InstrumentStallAlert
 from .local_disk_space_alert import LocalDiskSpaceAlert
-from .pump_pressure_alert import PumpPressureAlert
+from .pump_pressure_alert import PumpPressureHighAlert, PumpPressureIncreaseAlert
 from .queue_stop_alert import QueueStopAlert
 from .raw_file_error_alert import RawFileErrorAlert
 from .s3_upload_failure_alert import S3UploadFailureAlert
@@ -21,7 +21,8 @@ __all__ = [
     "InstrumentFilePileUpAlert",
     "InstrumentStallAlert",
     "LocalDiskSpaceAlert",
-    "PumpPressureAlert",
+    "PumpPressureHighAlert",
+    "PumpPressureIncreaseAlert",
     "QueueStopAlert",
     "RawFileErrorAlert",
     "S3UploadFailureAlert",

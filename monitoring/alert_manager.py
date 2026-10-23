@@ -10,7 +10,8 @@ from alerts import (
     InstrumentFilePileUpAlert,
     InstrumentStallAlert,
     LocalDiskSpaceAlert,
-    PumpPressureAlert,
+    PumpPressureHighAlert,
+    PumpPressureIncreaseAlert,
     QueueStopAlert,
     RawFileErrorAlert,
     S3UploadFailureAlert,
@@ -55,7 +56,8 @@ class AlertManager:
             InstrumentStallAlert(),
             RawFileErrorAlert(),
             S3UploadFailureAlert(),
-            PumpPressureAlert(),
+            PumpPressureIncreaseAlert(),
+            PumpPressureHighAlert(),
             QueueStopAlert(),
         ]
         self._last_sent: dict[str, datetime] = {}

@@ -1,6 +1,6 @@
 # Spec: alerting active instance
 
-Status: to be re-implemented from scratch. Reference implementation on `refactor_alerts_IX`
+Status: implemented (slice 5). Reference implementation on `refactor_alerts_IX`
 (commits 79f81de6, 3318e4eb, 55b016e3; `monitoring/active_instance.py`). Revised 2026-10-23 for
 persisted issue state (`SPEC_alert_issue_state.md`): the election now decides which instance
 runs the DB-backed checks, not merely which one sends.
@@ -19,7 +19,8 @@ because the issue state is in the DB. No coordination beyond MongoDB.
 - Claim or renew in one atomic `find_one_and_update(..., upsert=True)` whose filter is
   `_id` and (`instance == self` or `expires_at < now`). If the filter does not match, the upsert
   tries to insert a second `_id` and raises `DuplicateKeyError`: this instance is not active.
-- Timeout is 3 × `CHECK_INTERVAL_SECONDS` (180 s). Each loop iteration renews before checking.
+- Timeout is 10 × `CHECK_INTERVAL_SECONDS` (600 s). Each loop iteration renews once, before
+  checking, so the timeout covers slow checks plus the sleep.
 - Instance id is `<KRAKEN_HOSTNAME>-<8 hex of uuid4>`, unique even for two instances on one host.
 - Fail open: on any other `PyMongoError` (e.g. missing write permission) the instance logs the
   exception and acts as active. Duplicate alerts beat no alerts.

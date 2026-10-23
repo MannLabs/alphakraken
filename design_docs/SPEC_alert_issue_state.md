@@ -12,10 +12,12 @@ can show what is open.
 
 ## Decisions
 
-- Collection `alert_issue`, one document per `(alert, key)`, unique index on both:
+- Collection `alert_issue`, one document per occurrence of an issue (a resolved issue that
+  comes back gets a new document, so there is no unique index):
   `alert` (class name), `key` (str, see below), `identifier`, `instrument_id`, `relevant_file`,
   `details` (str rendering), `first_seen`, `last_notified` (`None` = never), `resolved_at`
-  (`None` = open), `muted` (bool, matched a suppression in the last cycle).
+  (`None` = open), `muted` (bool, matched a suppression in the last cycle; added with the
+  suppressions slice).
 - `key` is an explicit, stable string built by the alert, never a tuple of floats or a repr.
   Default is `identifier`. Details-dependent keys use a short stable digest of the details.
   Examples: stall `"<instrument>:<last file>"`, raw file error `"<file>:<digest(details)>"`,
@@ -23,9 +25,10 @@ can show what is open.
 - Two tiers of alerts:
   - DB-backed (everything that reads Mongo): governed by `alert_issue` records; run and
     notified by the active instance only (see `SPEC_alerting_active_instance.md`).
-  - DB-free (`db_connection_error`, `db_timeout`, `startup`, `exception`, local disk, webapp
-    health): in-memory cooldown via `AlertManager.send_once`, sent by every instance. These must
-    work while the DB is down.
+  - DB-free (`db_connection_error`, `startup`, `exception`, local disk, webapp health):
+    in-memory cooldown via `AlertManager.send_once`, sent by every instance. These must work
+    while the DB is down. (`db_timeout` is folded into `db_connection_error`: a server selection
+    timeout is a connection failure.)
 - One cycle on the active instance:
   1. Load open records (`resolved_at = None`) once.
   2. Detect issues (`detect(snapshot, now)` per alert), apply suppressions.
@@ -43,7 +46,8 @@ can show what is open.
 - No first-check special case. On the first deploy, every currently open issue is notified once.
   The upgrade guide says so.
 - Retention: resolved records are kept for the dashboard. A TTL index on `resolved_at`
-  (90 days) bounds the collection.
+  (90 days) bounds the collection. The alerting user may not create indexes, so
+  `misc/init-mongo.sh` and the upgrade guide create it.
 - DB access: `alertingRole` gets `find`/`insert`/`update` on `alert_issue`. The webapp reads it
   later for the ops dashboard (`webappRole` already has read).
 

@@ -21,7 +21,7 @@ from alerts import (
     WebAppHealthAlert,
     config,
 )
-from alerts.base_alert import CustomAlert
+from alerts.base_alert import CustomAlert, Issue
 from alerts.config import Destinations
 from alerts.recipients import get_recipients
 from messenger_clients import AlertTypes, send_channel_message, send_direct_message
@@ -79,10 +79,10 @@ class AlertManager:
         self.is_first_check = False
 
     def _handle_issues(
-        self, alert: BaseAlert, issues: list[tuple], *, suppress_alerts: bool = False
+        self, alert: BaseAlert, issues: list[Issue], *, suppress_alerts: bool = False
     ) -> None:
         """Handle sending an alert if cooldown has passed."""
-        identifiers = [issue[0] for issue in issues]
+        identifiers = [issue.identifier for issue in issues]
 
         if self.should_send_alert(identifiers, alert):
             if not suppress_alerts:
@@ -133,7 +133,7 @@ class AlertManager:
         return f"{alert_name}_{identifier}"
 
 
-def _dispatch(alert: BaseAlert, issues: list[tuple]) -> None:
+def _dispatch(alert: BaseAlert, issues: list[Issue]) -> None:
     """Send the issues to all destinations configured for the alert.
 
     A failed send to one destination or recipient does not abort the rest.
@@ -160,12 +160,14 @@ def _dispatch(alert: BaseAlert, issues: list[tuple]) -> None:
         _send_direct_messages(alert, issues)
 
 
-def _send_direct_messages(alert: BaseAlert, issues: list[tuple]) -> None:
+def _send_direct_messages(alert: BaseAlert, issues: list[Issue]) -> None:
     """Send one direct message per issue to each recipient derived from the issue's relevant file."""
     for issue in issues:
-        recipients = get_recipients(alert.get_relevant_file(issue))
+        recipients = get_recipients(issue.relevant_file)
         if not recipients:
-            logging.info(f"No recipients found for {alert.name} issue {issue[0]}")
+            logging.info(
+                f"No recipients found for {alert.name} issue {issue.identifier}"
+            )
             continue
 
         message = alert.format_message([issue])
@@ -175,7 +177,7 @@ def _send_direct_messages(alert: BaseAlert, issues: list[tuple]) -> None:
             except Exception:  # noqa: PERF203
                 logging.exception(
                     f"Failed to send {alert.name} direct message "
-                    f"(recipient={recipient}, identifier={issue[0]})"
+                    f"(recipient={recipient}, identifier={issue.identifier})"
                 )
 
 

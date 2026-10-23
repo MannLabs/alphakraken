@@ -3,7 +3,7 @@
 from shared.db.interface import get_raw_files_by_instrument_file_status
 from shared.db.models import KrakenStatus, KrakenStatusEntities
 
-from .base_alert import BaseAlert
+from .base_alert import BaseAlert, Issue
 from .config import (
     INSTRUMENT_FILE_MIN_AGE_HOURS,
     INSTRUMENT_FILE_PILE_UP_THRESHOLDS,
@@ -19,7 +19,7 @@ class InstrumentFilePileUpAlert(BaseAlert):
         """Return the case name for this alert type."""
         return Cases.INSTRUMENT_FILE_PILE_UP
 
-    def _get_issues(self, status_objects: list[KrakenStatus]) -> list[tuple[str, str]]:
+    def _get_issues(self, status_objects: list[KrakenStatus]) -> list[Issue[str]]:
         """Check for instrument file pile-ups."""
         instrument_file_pile_up_instruments = []
 
@@ -47,13 +47,15 @@ class InstrumentFilePileUpAlert(BaseAlert):
 
             if pile_up_detected:
                 pile_up_str = "; ".join(pile_up_detected)
-                instrument_file_pile_up_instruments.append((instrument_id, pile_up_str))
+                instrument_file_pile_up_instruments.append(
+                    Issue(instrument_id, pile_up_str)
+                )
 
         return instrument_file_pile_up_instruments
 
-    def format_message(self, issues: list[tuple[str, str | None]]) -> str:
+    def format_message(self, issues: list[Issue[str]]) -> str:
         """Format instrument file pile-up message."""
         instruments_str = "\n".join(
-            [f"- `{instrument_id}`: {file_info}" for instrument_id, file_info in issues]
+            [f"- `{issue.identifier}`: {issue.details}" for issue in issues]
         )
         return f"Instrument file pile up detected (files not moved/purged):\n{instruments_str}"

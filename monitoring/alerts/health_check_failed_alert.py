@@ -2,7 +2,7 @@
 
 from shared.db.models import KrakenStatus, KrakenStatusValues
 
-from .base_alert import BaseAlert
+from .base_alert import BaseAlert, Issue
 from .config import Cases
 
 
@@ -14,7 +14,9 @@ class HealthCheckFailedAlert(BaseAlert):
         """Return the case name for this alert type."""
         return Cases.HEALTH_CHECK_FAILED
 
-    def _get_issues(self, status_objects: list[KrakenStatus]) -> list[tuple[str, str]]:
+    def _get_issues(
+        self, status_objects: list[KrakenStatus]
+    ) -> list[Issue[str | None]]:
         """Check for health check failures."""
         health_check_failed_instruments = []
 
@@ -22,17 +24,14 @@ class HealthCheckFailedAlert(BaseAlert):
             if kraken_status.status != KrakenStatusValues.OK:
                 id_ = kraken_status.id
                 status_details = kraken_status.status_details
-                health_check_failed_instruments.append((id_, status_details))
+                health_check_failed_instruments.append(Issue(id_, status_details))
 
         return health_check_failed_instruments
 
-    def format_message(self, issues: list[tuple[str, str | None]]) -> str:
+    def format_message(self, issues: list[Issue[str | None]]) -> str:
         """Format health check failure message."""
         instruments_str = "\n".join(
-            [
-                f"- `{instrument_id}`: {status_details}"
-                for instrument_id, status_details in issues
-            ]
+            [f"- `{issue.identifier}`: {issue.details}" for issue in issues]
         )
         return f"Health check failed:\n{instruments_str}"
 

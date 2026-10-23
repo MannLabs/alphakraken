@@ -3,6 +3,7 @@
 from unittest.mock import Mock, patch
 
 from monitoring.alerts import config
+from monitoring.alerts.base_alert import Issue
 from monitoring.alerts.config import Cases
 from monitoring.alerts.local_disk_space_alert import LocalDiskSpaceAlert
 
@@ -50,7 +51,7 @@ class TestLocalDiskSpaceAlert:
         result = alert._get_issues([])
 
         # then
-        assert result == [("local", 5)]
+        assert result == [Issue("local", 5)]
 
     @patch("monitoring.alerts.local_disk_space_alert.shutil.disk_usage")
     def test_get_issues_should_return_empty_list_when_exactly_at_threshold(
@@ -88,7 +89,7 @@ class TestLocalDiskSpaceAlert:
         """Test that format_message formats the issue correctly."""
         # given
         alert = LocalDiskSpaceAlert()
-        issues = [("local", 5)]
+        issues = [Issue("local", 5)]
 
         # when
         result = alert.format_message(issues)

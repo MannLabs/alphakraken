@@ -3,7 +3,7 @@
 from shared.db.models import KrakenStatus, KrakenStatusEntities
 
 from . import config
-from .base_alert import BaseAlert
+from .base_alert import BaseAlert, Issue
 from .config import Cases
 
 
@@ -15,7 +15,7 @@ class DiskSpaceAlert(BaseAlert):
         """Return the case name for this alert type."""
         return Cases.LOW_DISK_SPACE
 
-    def _get_issues(self, status_objects: list[KrakenStatus]) -> list[tuple[str, int]]:
+    def _get_issues(self, status_objects: list[KrakenStatus]) -> list[Issue[int]]:
         """Check for low disk space."""
         low_disk_space_instruments = []
 
@@ -28,7 +28,9 @@ class DiskSpaceAlert(BaseAlert):
             if (free_space_gb := kraken_status.free_space_gb) < self._get_threshold(
                 kraken_status
             ):
-                low_disk_space_instruments.append((kraken_status.id, free_space_gb))  # noqa: PERF401
+                low_disk_space_instruments.append(  # noqa: PERF401
+                    Issue(kraken_status.id, free_space_gb)
+                )
 
         return low_disk_space_instruments
 
@@ -49,12 +51,9 @@ class DiskSpaceAlert(BaseAlert):
 
         return threshold
 
-    def format_message(self, issues: list[tuple[str, int]]) -> str:
+    def format_message(self, issues: list[Issue[int]]) -> str:
         """Format disk space message."""
         instruments_str = "\n".join(
-            [
-                f"- `{instrument_id}`: {disk_space} GB"
-                for instrument_id, disk_space in issues
-            ]
+            [f"- `{issue.identifier}`: {issue.details} GB" for issue in issues]
         )
         return f"Low disk space detected:\n{instruments_str}"

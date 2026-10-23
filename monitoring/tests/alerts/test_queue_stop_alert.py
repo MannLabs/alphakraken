@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, Mock, patch
 import pytest
 import pytz
 
+from monitoring.alerts.base_alert import Issue
 from monitoring.alerts.config import Cases
 from monitoring.alerts.queue_stop_alert import (
     KIND_HANDOFF,
@@ -229,7 +230,7 @@ class TestRuleAStop:
             result = QueueStopAlert()._get_issues([])
         # then
         assert len(result) == 1
-        identifier, issue = result[0]
+        identifier, issue = result[0].identifier, result[0].details
         assert identifier == "inst1:x_MaSc_a.raw"
         assert issue.kind == KIND_STOP
         assert issue.subject_file_id == "x_MaSc_a.raw"
@@ -314,7 +315,7 @@ class TestRuleAStop:
             result = QueueStopAlert()._get_issues([])
         # then
         assert len(result) == 1
-        _, issue = result[0]
+        issue = result[0].details
         assert issue.recent_files == [
             RecentFile("x_MaSc_a.raw", 2 * 1024**3, f1_t),
             RecentFile("x_MaSc_b.raw", 512 * 1024**2, f2_t),
@@ -346,7 +347,7 @@ class TestRuleAStop:
             result = QueueStopAlert()._get_issues([])
         # then
         assert len(result) == 1
-        _, issue = result[0]
+        issue = result[0].details
         assert len(issue.recent_files) == 2
 
     @patch("monitoring.alerts.queue_stop_alert.RawFile")
@@ -426,9 +427,9 @@ class TestRuleAStop:
 
         # then - both fire with different subject_file_ids
         assert len(first) == 1
-        assert first[0][0] == "inst1:x_MaSc_a.raw"
+        assert first[0].identifier == "inst1:x_MaSc_a.raw"
         assert len(second) == 1
-        assert second[0][0] == "inst1:x_MaSc_d.raw"
+        assert second[0].identifier == "inst1:x_MaSc_d.raw"
 
 
 # -- Rule B - Handoff ---------------------------------------------------------
@@ -470,7 +471,7 @@ class TestRuleBHandoff:
             result = QueueStopAlert()._get_issues([])
         # then
         assert len(result) == 1
-        identifier, issue = result[0]
+        identifier, issue = result[0].identifier, result[0].details
         assert identifier == "inst1:x_MaSc_a.raw"
         assert issue.kind == KIND_HANDOFF
         assert issue.subject_file_id == "x_MaSc_a.raw"
@@ -566,7 +567,7 @@ class TestRuleBHandoff:
             result = QueueStopAlert()._get_issues([])
         # then
         assert len(result) == 1
-        _, issue = result[0]
+        issue = result[0].details
         assert issue.subject_file_id == "x_MaSc_a.raw"
 
     @patch("monitoring.alerts.queue_stop_alert.RawFile")
@@ -591,7 +592,7 @@ class TestRuleBHandoff:
             result = QueueStopAlert()._get_issues([])
         # then
         assert len(result) == 1
-        _, issue = result[0]
+        issue = result[0].details
         assert issue.subject_file_id == "x_MaSc_a.raw"
 
     @patch("monitoring.alerts.queue_stop_alert.RawFile")
@@ -616,7 +617,7 @@ class TestRuleBHandoff:
             result = QueueStopAlert()._get_issues([])
         # then
         assert len(result) == 1
-        _, issue = result[0]
+        issue = result[0].details
         assert issue.subject_file_id == "x_MaSc_a.raw"
 
     @patch("monitoring.alerts.queue_stop_alert.RawFile")
@@ -717,8 +718,8 @@ class TestRuleBHandoff:
 
         # then - stop fired with subject F.id; handoff suppressed (same subject)
         assert len(first) == 1
-        assert first[0][0] == "inst1:x_MaSc_F.raw"
-        assert first[0][1].kind == KIND_STOP
+        assert first[0].identifier == "inst1:x_MaSc_F.raw"
+        assert first[0].details.kind == KIND_STOP
         assert second == []
 
 
@@ -786,7 +787,7 @@ class TestAdjacentInitialsTokens:
             result = QueueStopAlert()._get_issues([])
         # then
         assert len(result) == 1
-        _, issue = result[0]
+        issue = result[0].details
         assert issue.kind == KIND_STOP
         assert issue.subject_file_id == self._NEWEST
 
@@ -861,9 +862,7 @@ class TestRecipientsAndDelivery:
         with patch("monitoring.alerts.queue_stop_alert.datetime") as mock_dt:
             mock_dt.now.return_value = now
             issues = QueueStopAlert()._get_issues([])
-        assert get_recipients(QueueStopAlert().get_relevant_file(issues[0])) == [
-            "U_MASC"
-        ]
+        assert get_recipients(issues[0].relevant_file) == ["U_MASC"]
 
     @patch.dict(
         "monitoring.alerts.config.INSTRUMENT_USER_SLACK_IDS",
@@ -891,9 +890,7 @@ class TestRecipientsAndDelivery:
             mock_dt.now.return_value = now
             issues = QueueStopAlert()._get_issues([])
         assert len(issues) == 1
-        assert get_recipients(QueueStopAlert().get_relevant_file(issues[0])) == [
-            "U_MASC"
-        ]  # prior, not JoeB
+        assert get_recipients(issues[0].relevant_file) == ["U_MASC"]  # prior, not JoeB
 
     def test_render_issue_distinguishes_stop_and_handoff(self) -> None:
         """Stop and handoff messages have different bodies."""
@@ -921,20 +918,15 @@ class TestRecipientsAndDelivery:
             [_make_file("x_MaSc_a.raw", datetime.now(tz=pytz.UTC), size=3 * 1024**3)],
         )
         # when
-        msg = QueueStopAlert().format_message([("id1", stop), ("id2", handoff)])
+        msg = QueueStopAlert().format_message(
+            [Issue("id1", stop), Issue("id2", handoff)]
+        )
         # then
         assert msg == "\n\n".join(
             [QueueStopAlert.render_issue(stop), QueueStopAlert.render_issue(handoff)]
         )
         assert "3.00 GB" in msg
         assert mock_rawfile.objects.filter.call_count == 2
-
-    def test_get_relevant_file_returns_subject_file(self) -> None:
-        """The relevant file of an issue is its subject file."""
-        # given
-        issue = _build_handoff_issue()
-        # when / then
-        assert QueueStopAlert().get_relevant_file(("id", issue)) == "x_MaSc_a.raw"
 
     def test_render_issue_includes_file_size_and_timestamp(self) -> None:
         """Each `Recent files:` row carries the file id, size and creation timestamp."""

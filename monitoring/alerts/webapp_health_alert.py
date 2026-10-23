@@ -8,7 +8,7 @@ import requests.exceptions
 from shared.db.models import KrakenStatus
 from shared.yamlsettings import YamlKeys, get_notification_setting
 
-from .base_alert import BaseAlert
+from .base_alert import BaseAlert, Issue
 from .config import Cases
 
 
@@ -29,7 +29,7 @@ class WebAppHealthAlert(BaseAlert):
         """Return the case name for this alert type."""
         return Cases.WEBAPP_HEALTH
 
-    def _get_issues(self, status_objects: list[KrakenStatus]) -> list[tuple[str, str]]:
+    def _get_issues(self, status_objects: list[KrakenStatus]) -> list[Issue[str]]:
         """Check if webapp is accessible via HTTP request."""
         del status_objects  # unused
 
@@ -43,21 +43,23 @@ class WebAppHealthAlert(BaseAlert):
             response = requests.get(self.webapp_url, timeout=self.timeout)
             if response.status_code != 200:  # noqa: PLR2004
                 issues.append(
-                    ("webapp", f"HTTP {response.status_code}: {response.reason}")
+                    Issue("webapp", f"HTTP {response.status_code}: {response.reason}")
                 )
         except requests.exceptions.Timeout:
-            issues.append(("webapp", f"Request timeout after {self.timeout} seconds"))
+            issues.append(
+                Issue("webapp", f"Request timeout after {self.timeout} seconds")
+            )
         except requests.exceptions.ConnectionError:
-            issues.append(("webapp", "Connection failed - webapp may be down"))
+            issues.append(Issue("webapp", "Connection failed - webapp may be down"))
         except requests.exceptions.RequestException as e:
-            issues.append(("webapp", f"Request failed: {e!s}"))
+            issues.append(Issue("webapp", f"Request failed: {e!s}"))
         except Exception as e:
             logging.exception("Unexpected error during webapp health check")
-            issues.append(("webapp", f"Unexpected error: {e!s}"))
+            issues.append(Issue("webapp", f"Unexpected error: {e!s}"))
 
         return issues
 
-    def format_message(self, issues: list[tuple[str, str | None]]) -> str:
+    def format_message(self, issues: list[Issue[str]]) -> str:
         """Format webapp health failure message."""
-        error_details = issues[0][1] if issues else "Unknown error"
+        error_details = issues[0].details if issues else "Unknown error"
         return f"Webapp health check failed: {error_details} (URL: {self.webapp_url})"

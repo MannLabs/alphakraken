@@ -25,7 +25,7 @@ from alerts.config import Destinations
 from alerts.recipients import get_messenger_ids_by_initials, get_recipients
 from alerts.suppressions import is_muted
 from messenger import Message, send
-from utils import ensure_utc
+from utils import ensure_utc, extract_error_line
 
 from shared.db.interface import (
     add_alert_issue,
@@ -75,31 +75,53 @@ class AlertManager:
         messenger_ids_by_initials = get_messenger_ids_by_initials()
 
         for alert in self.alerts:
-            due: list[tuple[Issue, AlertIssue]] = []
-            for issue in alert.get_issues(status_objects, now):
-                if is_muted(alert, issue, self._suppressions):
-                    continue
-                record = records.get((alert.name, issue.key))
-                if record is None:
-                    record = add_alert_issue(
-                        alert=alert.name,
-                        key=issue.key,
-                        identifier=issue.identifier,
-                        instrument_id=issue.instrument_id,
-                        relevant_file=issue.relevant_file,
-                        details=str(issue.details),
-                        first_seen=now,
-                    )
-                if _is_due(record, alert.get_cooldown_minutes(issue), now):
-                    due.append((issue, record))
+            # one failing alert must not silence the others
+            try:
+                self._check_alert(
+                    alert, status_objects, records, messenger_ids_by_initials, now
+                )
+            except Exception as e:  # noqa: BLE001, PERF203
+                self.report_exception(e, now, alert.name)
 
-            # the records are only marked as notified once sent, so failed sends are retried
-            delivered = _dispatch(
-                alert, [issue for issue, _ in due], messenger_ids_by_initials
-            )
-            for issue, record in due:
-                if issue in delivered:
-                    set_alert_issue_notified(record, now)
+    def _check_alert(
+        self,
+        alert: BaseAlert,
+        status_objects: list[KrakenStatus],
+        records: dict[tuple[str, str], AlertIssue],
+        messenger_ids_by_initials: dict[str, str],
+        now: datetime,
+    ) -> None:
+        due: list[tuple[Issue, AlertIssue]] = []
+        for issue in alert.get_issues(status_objects, now):
+            if is_muted(alert, issue, self._suppressions):
+                continue
+            record = records.get((alert.name, issue.key))
+            if record is None:
+                record = add_alert_issue(
+                    alert=alert.name, key=issue.key, first_seen=now
+                )
+            if _is_due(record, alert.get_cooldown_minutes(issue), now):
+                due.append((issue, record))
+
+        # the records are only marked as notified once sent, so failed sends are retried
+        delivered = _dispatch(
+            alert, [issue for issue, _ in due], messenger_ids_by_initials
+        )
+        for issue, record in due:
+            if issue in delivered:
+                set_alert_issue_notified(record, now)
+
+    def report_exception(
+        self, e: Exception, now: datetime, scope: str = "checks"
+    ) -> None:
+        """Log an unexpected exception and tell ops, once per cooldown and scope."""
+        logging.exception(f"Error in {scope}")
+        self.send_once(
+            f"exception:{scope}",
+            Message(f"{type(e).__name__} in {scope}: {e} at: {extract_error_line(e)}"),
+            config.SPECIAL_ALERT_COOLDOWN_MINUTES,
+            now,
+        )
 
     def _refresh_suppressions(self) -> None:
         """Read the active suppressions, keeping the last known ones if the DB is unreachable."""

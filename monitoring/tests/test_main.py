@@ -92,9 +92,8 @@ def test_main_reports_exceptions_during_checks(
         main()
 
     # then
-    assert _sent_keys(mock_alert_manager_cls) == ["startup", "exception"]
-    message = mock_alert_manager_cls.return_value.send_once.call_args.args[1]
-    assert "RuntimeError during checking alerts: bug" in message.body
+    assert _sent_keys(mock_alert_manager_cls) == ["startup"]
+    mock_alert_manager_cls.return_value.report_exception.assert_called_once()
 
 
 @patch("monitoring.main.sleep", side_effect=_StopLoopError)
@@ -117,5 +116,6 @@ def test_main_runs_db_checks_when_a_db_free_check_fails(
         main()
 
     # then
-    assert _sent_keys(mock_alert_manager_cls) == ["startup", "exception"]
+    assert _sent_keys(mock_alert_manager_cls) == ["startup"]
+    manager.report_exception.assert_called_once()
     manager.check_for_issues.assert_called_once()

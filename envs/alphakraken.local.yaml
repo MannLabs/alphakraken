@@ -44,6 +44,12 @@ general:
     webapp_url: "http://localhost:8501"
     # optional: instruments to alert on if no new file is acquired for a while
     # instrument_stall_instrument_ids: [test1]
+    # optional alert thresholds, shown with their defaults
+    # free_space_threshold_gb: 200
+    # file_system_free_space_thresholds_gb: {backup: 500, output: 300}
+    # local_free_space_threshold_gb: 10
+    # pump_pressure_threshold_bar: 20
+    # pump_pressure_absolute_threshold_bar: 480
 
 # absolute paths (posix or windows) of the data directories as users see them on the shared file system, cf. path_views.Locations.
 # Not used for the pipeline file operations: only prepended to the location-relative paths for display (webapp, REST API),

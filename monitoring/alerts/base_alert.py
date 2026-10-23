@@ -77,7 +77,8 @@ class BaseAlert(ABC):
         Override this method in subclasses that need a different format.
         """
         return "\n".join(
-            f"- `{issue.identifier}`: {shorten(str(issue.details))}" for issue in issues
+            f"- `{issue.identifier}`: {_shorten(str(issue.details))}"
+            for issue in issues
         )
 
     @property
@@ -94,7 +95,7 @@ class BaseAlert(ABC):
         return self.cooldown_minutes
 
 
-def shorten(text: str, max_chars: int = MAX_DETAILS_CHARS) -> str:
+def _shorten(text: str, max_chars: int = MAX_DETAILS_CHARS) -> str:
     """Return the text cut to `max_chars` with an ellipsis, so that messages stay small."""
     if len(text) <= max_chars:
         return text

@@ -143,3 +143,7 @@ SOFTWARE_TYPE_TO_DEFAULT_RESOURCE_PARAMS: dict[str, ResourceParams] = defaultdic
         ),
     },
 )
+
+# KrakenStatus id of the file remover job: its DAG name (`common.keys.Dags.FILE_REMOVER`, which the
+# monitoring cannot import)
+FILE_REMOVER_STATUS_ID = "file_remover"

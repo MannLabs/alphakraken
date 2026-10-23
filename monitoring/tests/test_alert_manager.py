@@ -101,10 +101,6 @@ class TestCheckForIssues:
         db["add"].assert_called_once_with(
             alert="TestAlert",
             key="inst1:k",
-            identifier="inst1",
-            instrument_id="inst1",
-            relevant_file=None,
-            details="150",
             first_seen=NOW,
         )
         mock_send.assert_called_once_with(Message("inst1", "TestAlert title"), {"ops"})
@@ -260,6 +256,30 @@ class TestCheckForIssues:
         db["add"].assert_not_called()
         mock_send.assert_not_called()
         db["suppressions"].assert_not_called()
+
+    @patch("monitoring.alert_manager.send", return_value=True)
+    def test_a_failing_alert_is_reported_and_does_not_stop_the_others(
+        self, mock_send: Mock, db: dict[str, Mock]
+    ) -> None:
+        """An exception in one alert is sent to ops; the remaining alerts still run."""
+        # given
+        broken = _alert("BrokenAlert")
+        broken.get_issues.side_effect = TypeError("'<' not supported")
+        manager = AlertManager()
+        manager.alerts = [broken, _alert(issues=[Issue("a", "details")])]
+
+        # when
+        manager.check_for_issues(NOW)
+
+        # then
+        bodies = [c.args[0].body for c in mock_send.call_args_list]
+        assert any(
+            b.startswith("TypeError in BrokenAlert: '<' not supported")
+            and b.endswith("[exception:BrokenAlert]")
+            for b in bodies
+        )
+        assert "a" in bodies
+        db["set_notified"].assert_called_once()
 
 
 class TestDispatch:

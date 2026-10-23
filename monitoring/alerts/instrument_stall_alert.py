@@ -66,6 +66,11 @@ class InstrumentStallAlert(BaseAlert):
 
         return issues
 
+    def get_relevant_file(self, issue: tuple[str, tuple[str, datetime]]) -> str:
+        """Return the last file acquired on the stalled instrument."""
+        original_name, _ = issue[1]
+        return original_name
+
     def format_message(self, issues: list[tuple[str, tuple[str, datetime]]]) -> str:
         """Format no new file acquired message."""
         now = datetime.now(pytz.UTC)

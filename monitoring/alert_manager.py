@@ -22,10 +22,17 @@ from alerts import (
     config,
 )
 from alerts.base_alert import CustomAlert
+from alerts.config import Destinations
+from alerts.recipients import get_recipients
 from messenger_clients import AlertTypes, send_channel_message, send_direct_message
 from requests.exceptions import RequestException
 
 from shared.db.models import KrakenStatus
+
+_WEBHOOK_URLS = {
+    Destinations.OPS: config.OPS_ALERTS_WEBHOOK_URL,
+    Destinations.BUSINESS: config.BUSINESS_ALERTS_WEBHOOK_URL,
+}
 
 
 def _default_value() -> datetime:
@@ -75,44 +82,18 @@ class AlertManager:
         self, alert: BaseAlert, issues: list[tuple], *, suppress_alerts: bool = False
     ) -> None:
         """Handle sending an alert if cooldown has passed."""
-        alert_name = alert.name
         identifiers = [issue[0] for issue in issues]
 
         if self.should_send_alert(identifiers, alert):
-            # TODO: this is tightly coupled, find a better way to handle dm vs channel messages
-            if isinstance(alert, QueueStopAlert):
-                if not suppress_alerts:
-                    self._dispatch_queue_stop_dms(alert, issues)
-                else:
-                    logging.info(
-                        f"Suppressed QueueStopAlert dispatch ({len(issues)} issues)"
-                    )
+            if not suppress_alerts:
+                _dispatch(alert, issues)
             else:
-                message = alert.format_message(issues)
-                webhook_url = alert.get_webhook_url()
-                if not suppress_alerts:
-                    send_channel_message(message, webhook_url)
-                else:
-                    logging.info(f"Suppressed alert for {alert_name}: {message}")
+                logging.info(
+                    f"Suppressed alert for {alert.name} ({len(issues)} issues)"
+                )
 
             for identifier in identifiers:
-                self.set_last_alert_time(alert_name, identifier)
-
-    @staticmethod
-    def _dispatch_queue_stop_dms(alert: QueueStopAlert, issues: list[tuple]) -> None:
-        """Fan out per-issue DMs; a failed send to one recipient does not abort the rest."""
-        for identifier, issue in issues:
-            alert.refresh_recent_files(issue)
-            message = alert.render_issue(issue)
-            for recipient in alert.get_recipients(issue):
-                try:
-                    send_direct_message(message, recipient)
-                except Exception as exc:  # noqa: BLE001, PERF203
-                    logging.warning(
-                        f"Failed to send QueueStopAlert DM "
-                        f"(recipient={recipient}, kind={issue.kind}, "
-                        f"instrument={issue.instrument_id}, identifier={identifier}): {exc}"
-                    )
+                self.set_last_alert_time(alert.name, identifier)
 
     def should_send_alert(
         self,
@@ -150,6 +131,52 @@ class AlertManager:
     def _get_alert_id(alert_name: str, identifier: str) -> str:
         """Get the alert ID for tracking last sent time."""
         return f"{alert_name}_{identifier}"
+
+
+def _dispatch(alert: BaseAlert, issues: list[tuple]) -> None:
+    """Send the issues to all destinations configured for the alert.
+
+    A failed send to one destination or recipient does not abort the rest.
+    """
+    destinations = config.ALERT_DESTINATIONS.get(
+        alert.name, config.DEFAULT_ALERT_DESTINATIONS
+    )
+
+    # set: the business webhook URL falls back to the ops one if not configured
+    webhook_urls = {
+        _WEBHOOK_URLS[destination]
+        for destination in destinations
+        if destination != Destinations.USER
+    }
+    if webhook_urls:
+        message = alert.format_message(issues)
+        for webhook_url in webhook_urls:
+            try:
+                send_channel_message(message, webhook_url)
+            except Exception:  # noqa: PERF203
+                logging.exception(f"Failed to send {alert.name} channel message")
+
+    if Destinations.USER in destinations:
+        _send_direct_messages(alert, issues)
+
+
+def _send_direct_messages(alert: BaseAlert, issues: list[tuple]) -> None:
+    """Send one direct message per issue to each recipient derived from the issue's relevant file."""
+    for issue in issues:
+        recipients = get_recipients(alert.get_relevant_file(issue))
+        if not recipients:
+            logging.info(f"No recipients found for {alert.name} issue {issue[0]}")
+            continue
+
+        message = alert.format_message([issue])
+        for recipient in recipients:
+            try:
+                send_direct_message(message, recipient)
+            except Exception:  # noqa: PERF203
+                logging.exception(
+                    f"Failed to send {alert.name} direct message "
+                    f"(recipient={recipient}, identifier={issue[0]})"
+                )
 
 
 def send_special_alert(

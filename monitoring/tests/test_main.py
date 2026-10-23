@@ -44,6 +44,10 @@ def test_main_runs_db_backed_checks_only_when_active(
     manager.check_db_free_alerts.assert_called_once()
     mock_connect_db.assert_called_once_with(raise_on_error=True)
     assert manager.check_for_issues.called is is_active
+    # the active instance renews its claim after the checks as well
+    assert mock_election_cls.return_value.try_become_active.call_count == (
+        2 if is_active else 1
+    )
     assert _sent_keys(mock_alert_manager_cls) == ["startup"]
     mock_sleep.assert_called_once()
 
@@ -94,3 +98,27 @@ def test_main_reports_exceptions_during_checks(
     assert _sent_keys(mock_alert_manager_cls) == ["startup", "exception"]
     message = mock_alert_manager_cls.return_value.send_once.call_args.args[1]
     assert "RuntimeError during checking alerts: bug" in message.body
+
+
+@patch("monitoring.main.sleep", side_effect=_StopLoopError)
+@patch("monitoring.main.connect_db")
+@patch("monitoring.main.ActiveInstanceElection")
+@patch("monitoring.main.AlertManager")
+def test_main_runs_db_checks_when_a_db_free_check_fails(
+    mock_alert_manager_cls: Mock,
+    mock_election_cls: Mock,  # noqa: ARG001
+    mock_connect_db: Mock,  # noqa: ARG001
+    mock_sleep: Mock,  # noqa: ARG001
+) -> None:
+    """A failing DB-free check is reported and does not stop the DB-backed checks."""
+    # given
+    manager = mock_alert_manager_cls.return_value
+    manager.check_db_free_alerts.side_effect = ValueError("bug")
+
+    # when
+    with pytest.raises(_StopLoopError):
+        main()
+
+    # then
+    assert _sent_keys(mock_alert_manager_cls) == ["startup", "exception"]
+    manager.check_for_issues.assert_called_once()

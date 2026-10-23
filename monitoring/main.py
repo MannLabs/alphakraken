@@ -59,11 +59,18 @@ def main() -> None:
 
     while True:
         now = datetime.now(pytz.UTC)
+        # separate from the DB part, so that a failing DB-free check cannot stop the DB checks
         try:
             alert_manager.check_db_free_alerts(now)
+        except Exception as e:  # noqa: BLE001
+            _report_exception(alert_manager, e, now)
+
+        try:
             connect_db(raise_on_error=True)
             if election.try_become_active(now):
                 alert_manager.check_for_issues(now)
+                # the checks may take long: renew the claim so that it covers the sleep
+                election.try_become_active(datetime.now(pytz.UTC))
         except ConnectionFailure as e:
             alert_manager.send_once(
                 "db_connection_error",
@@ -71,18 +78,23 @@ def main() -> None:
                 SPECIAL_ALERT_COOLDOWN_MINUTES,
                 now,
             )
-        except Exception as e:
-            logging.exception("Error checking for issues")
-            alert_manager.send_once(
-                "exception",
-                Message(
-                    f"{type(e).__name__} during checking alerts: {e} at: {extract_error_line(e)}"
-                ),
-                SPECIAL_ALERT_COOLDOWN_MINUTES,
-                now,
-            )
+        except Exception as e:  # noqa: BLE001
+            _report_exception(alert_manager, e, now)
 
         sleep(CHECK_INTERVAL_SECONDS)
+
+
+def _report_exception(alert_manager: AlertManager, e: Exception, now: datetime) -> None:
+    """Log an unexpected exception and tell ops once per cooldown."""
+    logging.exception("Error checking for issues")
+    alert_manager.send_once(
+        "exception",
+        Message(
+            f"{type(e).__name__} during checking alerts: {e} at: {extract_error_line(e)}"
+        ),
+        SPECIAL_ALERT_COOLDOWN_MINUTES,
+        now,
+    )
 
 
 if __name__ == "__main__":

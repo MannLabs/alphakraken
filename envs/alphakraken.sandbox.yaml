@@ -25,6 +25,12 @@ general:
     webapp_url: "<webapp_url>"
     # optional: instruments to alert on if no new file is acquired for a while
     # instrument_stall_instrument_ids: [test1]
+    # optional alert thresholds, shown with their defaults
+    # free_space_threshold_gb: 200
+    # file_system_free_space_thresholds_gb: {backup: 500, output: 300}
+    # local_free_space_threshold_gb: 10
+    # pump_pressure_threshold_bar: 20
+    # pump_pressure_absolute_threshold_bar: 480
 
 display_paths:
   backup: /fs/pool-0/alphakraken_sandbox/backup

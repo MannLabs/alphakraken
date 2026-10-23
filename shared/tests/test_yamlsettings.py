@@ -201,3 +201,32 @@ class TestGetTimezone:
 
         with pytest.raises(UnknownTimeZoneError):
             get_timezone()
+
+
+class TestGetNotificationSetting:
+    """Tests for the get_notification_setting function."""
+
+    @patch(
+        "shared.yamlsettings.YAMLSETTINGS",
+        {"general": {"notifications": {"pump_pressure_threshold_bar": 30}}},
+    )
+    def test_returns_configured_value_over_default(self) -> None:
+        """Test that a configured value wins over the default."""
+        from shared.yamlsettings import get_notification_setting
+
+        assert get_notification_setting("pump_pressure_threshold_bar", 20) == 30
+
+    @patch("shared.yamlsettings.YAMLSETTINGS", {"general": {"notifications": {}}})
+    def test_returns_default_if_not_configured(self) -> None:
+        """Test that the default is returned for a missing optional setting."""
+        from shared.yamlsettings import get_notification_setting
+
+        assert get_notification_setting("pump_pressure_threshold_bar", 20) == 20
+
+    @patch("shared.yamlsettings.YAMLSETTINGS", {"general": {"notifications": {}}})
+    def test_raises_if_required_setting_missing(self) -> None:
+        """Test that a missing setting without default raises."""
+        from shared.yamlsettings import get_notification_setting
+
+        with pytest.raises(KeyError):
+            get_notification_setting("ops_alerts_webhook_url")

@@ -14,30 +14,32 @@ redeploying. Rules can expire and carry a reason. Monitoring picks up changes wi
 ## Decisions
 
 - Document `AlertSuppression` in collection `alert_suppression`:
-  `error_class`, `instrument_id`, `context`, `message` (all required, default `*`, max 64/64/256/256),
+  `alert`, `instrument_id`, `identifier`, `details` (all required, non-empty, default `*`, max
+  64/64/256/256; named like the `AlertIssue` fields they match),
   `comment` (required, max 512), `expires_at` (optional, `None` = never), `created_by` (optional),
   `created_at_`.
 - Wildcard `*` is `ALERT_SUPPRESSION_WILDCARD` in `shared/keys.py`.
 - An issue is muted if all four fields match:
-  - `error_class`: alert class name, exact, or `*`.
+  - `alert`: alert class name, exact, or `*`.
   - `instrument_id`: exact match on the instrument the issue relates to, or `*`. Issues of file
     systems, jobs, webapp and local disk have no instrument, so only `*` matches them.
-  - `context`: exact match on the issue identifier, or `*`.
-  - `message`: substring of `str(issue.details)`, or `*`.
+  - `identifier`: exact match on the issue identifier, or `*`.
+  - `details`: substring of the issue as rendered in the message (`format_message([issue])`),
+    or `*`.
 - Active rules are those with `expires_at` `None` or in the future. Monitoring loads them once per
-  check cycle and passes them to every alert. A muted issue still gets an `alert_issue` record
-  with `muted = True` (`SPEC_alert_issue_state.md`) but no notification. When the rule expires
-  and the issue is still detected, it is notified on the next cycle.
+  loop, before the DB-free checks, and keeps the last read ones while the DB is down. A muted
+  issue is skipped: no `alert_issue` record, no notification. When the rule expires and the issue
+  is still detected, it is treated like any other detected issue.
 - `suppressions.yaml` is removed and no longer read.
 - Admin page section "Alert suppressions": info text with the matching rules; table of all rules
   with an `expired` column, timestamps in display timezone; "Delete suppressions" expander with one
   delete button per rule; "Add suppression" form.
 - Form: alert class (text, default `*`), instrument (selectbox: `*` plus known instrument ids),
-  context (text, `*`), message (text, `*`), comment (text area), expires after (date, optional,
+  identifier (text, `*`), details (text, `*`), comment (text area), expires after (date, optional,
   not before today; stored as end of that day in display timezone), created by (text, optional).
   Writes respect `DISABLE_WRITE`.
-- Validation (`validate_suppression`): alert class and comment non-empty; not all four match
-  fields `*` (would mute everything). Fields are stripped before saving.
+- Validation (`validate_suppression`): all match fields and the comment non-empty; not all four
+  match fields `*` (would mute everything). Fields are stripped before saving.
 - DB access: `webappRole` gets `find`/`insert`/`update`/`remove` on `alert_suppression`.
   Monitoring needs read only. Upgrade guide: note yaml rules, grant privileges, re-create rules.
 - Interface (`shared/db/interface.py`): `get_alert_suppressions()` ordered by `created_at_`
@@ -61,7 +63,7 @@ redeploying. Rules can expire and carry a reason. Monitoring picks up changes wi
 
 ## Testing strategy
 
-Monitoring: matching matrix (each field exact vs `*`, context exact not substring, message
+Monitoring: matching matrix (each field exact vs `*`, identifier exact not substring, details
 substring, instrument `None` vs `*`, expired rule ignored by the interface query). Webapp:
 `validate_suppression` cases, `get_suppressions_df` expired column, page tests for add and delete.
 
@@ -75,6 +77,6 @@ substring, instrument `None` vs `*`, expired rule ignored by the interface query
 
 - With class names as alert names, the alert class field could be a dropdown built from
   `BaseAlert.__subclasses__()`. Free text was chosen originally; revisit.
-- Should `message` also be an exact match, for symmetry with `context`?
+- Should `details` also be an exact match, for symmetry with `identifier`?
 - Should rules with no instrument match non-instrument issues at all, or should those issues get
   a pseudo instrument id (e.g. the file system name)?

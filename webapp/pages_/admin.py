@@ -2,20 +2,39 @@
 
 import pandas as pd
 import streamlit as st
+from pages_.impl.admin_utils import (
+    end_of_day,
+    get_suppressions_df,
+    validate_suppression,
+)
 from service.admin import is_admin
 from service.query_params import get_all_query_params
 from service.session_state import SessionStateKeys, set_session_state
+from service.timezone import display_now, to_display_timezone
 from service.user_input import clean_initials, clean_messenger_id, parse_user_row
 from service.utils import (
     DISABLE_WRITE,
     _log,
+    empty_to_none,
     flush_pending_toasts,
     show_error_toast,
     show_success_toast,
 )
 
-from shared.db.interface import add_user, get_all_users, set_user_status, update_user
+from shared.db.interface import (
+    add_alert_suppression,
+    add_user,
+    delete_alert_suppression,
+    get_alert_suppressions,
+    get_all_users,
+    set_user_status,
+    update_user,
+)
 from shared.db.models import UserStatus
+from shared.keys import ALERT_SUPPRESSION_WILDCARD
+from shared.yamlsettings import YAMLSETTINGS, YamlKeys
+
+_INSTRUMENT_IDS = list(YAMLSETTINGS.get(YamlKeys.INSTRUMENTS, {}).keys())
 
 _MESSENGER_ID_HELP = (
     "Id of the user in the messenger (e.g. Slack member ID), to notify the user directly "
@@ -171,3 +190,117 @@ if users:
         show_success_toast(
             f"{'Deactivated' if is_active else 'Reactivated'} user '{user.initials}'."
         )
+
+
+# ########################################### ALERT SUPPRESSIONS
+
+st.markdown("## Alert suppressions")
+
+st.info(
+    f"""
+    Alerts matching a suppression are not sent. A suppression matches an alert if all of its fields match,
+    `{ALERT_SUPPRESSION_WILDCARD}` matches anything:
+    - **Alert class**: class name of the alert, e.g. `PumpPressureAlert` (cf. `monitoring/alerts`).
+    - **Instrument**: the instrument the alert relates to.
+    - **Context**: the exact identifier shown in the alert, e.g. an instrument or raw file id.
+    - **Message**: a part of the alert text.
+
+    Expired suppressions no longer apply. Changes take effect with the next monitoring check.
+    """,
+    icon="ℹ️",  # noqa: RUF001
+)
+
+suppressions = get_alert_suppressions()
+
+if not suppressions:
+    st.info("No alert suppressions.")
+else:
+    st.dataframe(
+        to_display_timezone(get_suppressions_df(suppressions)),
+        hide_index=True,
+        use_container_width=True,
+    )
+
+    with st.expander("Delete suppressions .."):
+        for suppression in suppressions:
+            # id is added by mongoengine
+            suppression_id = str(suppression.id)  # ty: ignore[unresolved-attribute]
+            col_delete, col_info = st.columns([0.15, 0.85])
+            col_info.write(
+                f"`{suppression.error_class}` / `{suppression.instrument_id}` / "
+                f"`{suppression.context}` / `{suppression.message}`: {suppression.comment}"
+            )
+            if col_delete.button(
+                "Delete",
+                key=f"delete_suppression_{suppression_id}",
+                disabled=DISABLE_WRITE,
+                icon=":material/delete:",
+            ):
+                try:
+                    delete_alert_suppression(suppression_id)
+                except Exception as e:  # noqa: BLE001
+                    show_error_toast(str(e))
+                else:
+                    show_success_toast("Deleted alert suppression.")
+
+st.markdown("### Add suppression")
+
+with st.form("add_suppression_form"):
+    c1, c2 = st.columns(2)
+    error_class = c1.text_input(
+        "Alert class*",
+        value=ALERT_SUPPRESSION_WILDCARD,
+        help="Class name of the alert, e.g. `PumpPressureAlert`.",
+    )
+    instrument_id = c2.selectbox(
+        "Instrument*", options=[ALERT_SUPPRESSION_WILDCARD, *_INSTRUMENT_IDS]
+    )
+    context = c1.text_input(
+        "Context*",
+        value=ALERT_SUPPRESSION_WILDCARD,
+        help="Exact identifier shown in the alert.",
+    )
+    message = c2.text_input(
+        "Message*",
+        value=ALERT_SUPPRESSION_WILDCARD,
+        help="Part of the alert text.",
+    )
+    comment = st.text_area("Comment*", help="Why are these alerts muted?")
+    c3, c4 = st.columns(2)
+    expires_on = c3.date_input(
+        "Expires after",
+        value=None,
+        min_value=display_now().date(),
+        help="Last day the suppression applies. Leave empty to never expire.",
+    )
+    created_by = c4.text_input("Created by")
+
+    st.write(r"\* Required fields")
+    form_submit = st.form_submit_button(
+        "Add suppression",
+        disabled=DISABLE_WRITE,
+        help="Temporarily disabled." if DISABLE_WRITE else "",
+    )
+
+if form_submit:
+    try:
+        validate_suppression(
+            error_class=error_class,
+            instrument_id=instrument_id,
+            context=context,
+            message=message,
+            comment=comment,
+        )
+        add_alert_suppression(
+            error_class=error_class.strip(),
+            instrument_id=instrument_id,
+            context=context.strip(),
+            message=message.strip(),
+            comment=comment.strip(),
+            expires_at=end_of_day(expires_on) if expires_on else None,
+            created_by=empty_to_none(created_by),
+        )
+    except Exception as e:  # noqa: BLE001
+        show_error_toast(str(e))
+    else:
+        show_success_toast("Added alert suppression.")

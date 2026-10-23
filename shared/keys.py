@@ -106,6 +106,9 @@ DEFAULT_SCOPE = "*"
 # and processed with default settings, rather than being rejected.
 FALLBACK_PROJECT_ID = "_FALLBACK"
 
+# matches any value in an alert suppression field
+ALERT_SUPPRESSION_WILDCARD = "*"
+
 
 @dataclass(frozen=True)
 class ResourceParams:

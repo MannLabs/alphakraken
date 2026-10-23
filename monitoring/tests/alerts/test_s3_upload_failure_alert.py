@@ -5,6 +5,7 @@ from unittest.mock import Mock, patch
 
 import pytz
 
+from monitoring.alerts.base_alert import Issue
 from monitoring.alerts.config import Cases
 from monitoring.alerts.s3_upload_failure_alert import S3UploadFailureAlert
 from shared.db.models import BackupStatus
@@ -61,10 +62,10 @@ class TestS3UploadFailureAlert:
 
         # then
         assert len(result) == 1
-        assert result[0][0] == "file_was_uploading"
-        assert "S3 upload failed" in result[0][1]
-        assert "proj2" in result[0][1]
-        assert "inst2" in result[0][1]
+        assert result[0].identifier == "file_was_uploading"
+        assert "S3 upload failed" in result[0].details
+        assert "proj2" in result[0].details
+        assert "inst2" in result[0].details
 
     @patch("monitoring.alerts.s3_upload_failure_alert.RawFile")
     @patch("monitoring.alerts.s3_upload_failure_alert.datetime")
@@ -146,7 +147,7 @@ class TestS3UploadFailureAlert:
 
         # then
         assert len(result) == 2
-        result_ids = [r[0] for r in result]
+        result_ids = [r.identifier for r in result]
         assert "file_was_uploading" in result_ids
         assert "file_new_failed" in result_ids
         assert "file_already_upload_failed" not in result_ids
@@ -169,11 +170,11 @@ class TestS3UploadFailureAlert:
         # given
         alert = S3UploadFailureAlert()
         issues = [
-            (
+            Issue(
                 "file1",
                 "S3 upload failed | path: s3://bucket/key1 | project: proj1 | instrument: inst1",
             ),
-            (
+            Issue(
                 "file2",
                 "S3 upload failed | path: s3://bucket/key2 | project: proj2 | instrument: inst2",
             ),

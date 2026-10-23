@@ -2,6 +2,7 @@
 
 from unittest.mock import Mock
 
+from monitoring.alerts.base_alert import Issue
 from monitoring.alerts.config import Cases
 from monitoring.alerts.health_check_failed_alert import HealthCheckFailedAlert
 from shared.db.models import KrakenStatusValues
@@ -66,8 +67,8 @@ class TestHealthCheckFailedAlert:
 
         # then
         assert result == [
-            ("instrument1", "Disk full"),
-            ("instrument3", "Service unavailable"),
+            Issue("instrument1", "Disk full"),
+            Issue("instrument3", "Service unavailable"),
         ]
 
     def test_format_message_should_format_multiple_issues_correctly(self) -> None:
@@ -75,9 +76,9 @@ class TestHealthCheckFailedAlert:
         # given
         alert = HealthCheckFailedAlert()
         issues = [
-            ("instrument1", "Disk full"),
-            ("instrument2", "Connection timeout"),
-            ("instrument3", "Service unavailable"),
+            Issue("instrument1", "Disk full"),
+            Issue("instrument2", "Connection timeout"),
+            Issue("instrument3", "Service unavailable"),
         ]
 
         # when
@@ -96,7 +97,10 @@ class TestHealthCheckFailedAlert:
         """Test that format_message handles None status details in issues."""
         # given
         alert = HealthCheckFailedAlert()
-        issues = [("instrument1", None), ("instrument2", "Connection timeout")]
+        issues = [
+            Issue("instrument1", None),
+            Issue("instrument2", "Connection timeout"),
+        ]
 
         # when
         result = alert.format_message(issues)

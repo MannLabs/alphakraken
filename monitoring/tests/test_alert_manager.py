@@ -5,6 +5,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from monitoring.alert_manager import AlertManager, send_special_alert
+from monitoring.alerts.base_alert import Issue
 
 
 class TestAlertManager:
@@ -26,7 +27,7 @@ class TestAlertManager:
             alert_manager = AlertManager()
 
             # Mock one alert to return issues
-            mock_issue = ("test_id", "test_data")
+            mock_issue = Issue("test_id", "test_data")
             alert_manager.alerts[0].get_issues = Mock(return_value=[mock_issue])
             alert_manager.alerts[0].format_message = Mock(
                 return_value="Test alert message"
@@ -75,7 +76,7 @@ class TestAlertManager:
             alert_manager = AlertManager()
 
             # Mock one alert to return issues
-            mock_issue = ("test_id", "test_data")
+            mock_issue = Issue("test_id", "test_data")
             alert_with_issue = alert_manager.alerts[0]
             alert_name = alert_with_issue.name
             alert_with_issue.get_issues = Mock(return_value=[mock_issue])
@@ -124,9 +125,9 @@ class TestAlertManager:
             alert_manager = AlertManager()
 
             # Mock three alerts to return issues
-            mock_issue_1 = ("id_1", "data_1")
-            mock_issue_2 = ("id_2", "data_2")
-            mock_issue_3 = ("id_3", "data_3")
+            mock_issue_1 = Issue("id_1", "data_1")
+            mock_issue_2 = Issue("id_2", "data_2")
+            mock_issue_3 = Issue("id_3", "data_3")
 
             alert_1 = alert_manager.alerts[0]
             alert_1_name = alert_1.name
@@ -231,7 +232,7 @@ class TestAlertManager:
                 for a in alert_manager.alerts
                 if a.__class__.__name__ == "QueueStopAlert"
             )
-            queue_issue = ("inst1:f1", Mock())
+            queue_issue = Issue("inst1:f1", Mock())
             queue_alert.get_issues = Mock(return_value=[queue_issue])
 
             for alert in alert_manager.alerts:
@@ -278,7 +279,7 @@ class TestAlertManager:
         ) as mock_send_direct_message:
             # when
             AlertManager._dispatch_queue_stop_dms(
-                mock_alert, [("inst1:f1", issue1), ("inst2:f2", issue2)]
+                mock_alert, [Issue("inst1:f1", issue1), Issue("inst2:f2", issue2)]
             )
 
         # then - 4 DMs, separate per recipient per issue
@@ -323,7 +324,9 @@ class TestAlertManager:
             caplog.at_level("WARNING"),
         ):
             # when
-            AlertManager._dispatch_queue_stop_dms(mock_alert, [("inst1:f1", issue)])
+            AlertManager._dispatch_queue_stop_dms(
+                mock_alert, [Issue("inst1:f1", issue)]
+            )
 
         # then
         assert mock_send_direct_message.call_count == 2

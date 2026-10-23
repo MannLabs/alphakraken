@@ -2,6 +2,7 @@
 
 from unittest.mock import Mock, patch
 
+from monitoring.alerts.base_alert import Issue
 from monitoring.alerts.config import Cases
 from monitoring.alerts.disk_space_alert import DiskSpaceAlert
 from shared.db.models import KrakenStatusEntities
@@ -94,7 +95,11 @@ class TestDiskSpaceAlert:
         result = alert._get_issues(status_objects)
 
         # then
-        assert result == [("instrument1", 150), ("backup", 180), ("instrument2", 100)]
+        assert result == [
+            Issue("instrument1", 150, instrument_id="instrument1"),
+            Issue("backup", 180),
+            Issue("instrument2", 100, instrument_id="instrument2"),
+        ]
 
     @patch.object(DiskSpaceAlert, "_get_threshold")
     def test_get_issues_should_return_mixed_results_when_mixed_disk_space_levels(
@@ -131,13 +136,13 @@ class TestDiskSpaceAlert:
         result = alert._get_issues(status_objects)
 
         # then
-        assert result == [("backup", 150), ("output", 180)]
+        assert result == [Issue("backup", 150), Issue("output", 180)]
 
     def test_format_message_should_format_single_issue_correctly(self) -> None:
         """Test that format_message formats single issue correctly."""
         # given
         alert = DiskSpaceAlert()
-        issues = [("instrument1", 150)]
+        issues = [Issue("instrument1", 150)]
 
         # when
         result = alert.format_message(issues)
@@ -151,9 +156,9 @@ class TestDiskSpaceAlert:
         # given
         alert = DiskSpaceAlert()
         issues = [
-            ("instrument1", 150),
-            ("backup", 180),
-            ("output", 100),
+            Issue("instrument1", 150),
+            Issue("backup", 180),
+            Issue("output", 100),
         ]
 
         # when

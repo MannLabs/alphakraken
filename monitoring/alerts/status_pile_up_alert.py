@@ -7,7 +7,7 @@ from shared.db.models import (
     RawFile,
 )
 
-from .base_alert import BaseAlert
+from .base_alert import BaseAlert, Issue
 from .config import STATUS_PILE_UP_THRESHOLDS, Cases
 
 
@@ -19,7 +19,7 @@ class StatusPileUpAlert(BaseAlert):
         """Return the case name for this alert type."""
         return Cases.STATUS_PILE_UP
 
-    def _get_issues(self, status_objects: list[KrakenStatus]) -> list[tuple[str, str]]:
+    def _get_issues(self, status_objects: list[KrakenStatus]) -> list[Issue[str]]:
         """Check for status pile-ups on instruments."""
         status_pile_up_instruments = []
 
@@ -47,17 +47,18 @@ class StatusPileUpAlert(BaseAlert):
                     ]
                 )
                 status_pile_up_instruments.append(
-                    (instrument_id, piled_up_statuses_str)
+                    Issue(
+                        instrument_id,
+                        piled_up_statuses_str,
+                        instrument_id=instrument_id,
+                    )
                 )
 
         return status_pile_up_instruments
 
-    def format_message(self, issues: list[tuple[str, str | None]]) -> str:
+    def format_message(self, issues: list[Issue[str]]) -> str:
         """Format status pile-up message."""
         instruments_str = "\n".join(
-            [
-                f"- `{instrument_id}`: {status_info}"
-                for instrument_id, status_info in issues
-            ]
+            [f"- `{issue.identifier}`: {issue.details}" for issue in issues]
         )
         return f"Status pile up detected:\n{instruments_str}"

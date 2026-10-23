@@ -21,7 +21,7 @@ from alerts import (
     WebAppHealthAlert,
     config,
 )
-from alerts.base_alert import CustomAlert
+from alerts.base_alert import CustomAlert, Issue
 from messenger_clients import AlertTypes, send_channel_message, send_direct_message
 from requests.exceptions import RequestException
 
@@ -72,11 +72,11 @@ class AlertManager:
         self.is_first_check = False
 
     def _handle_issues(
-        self, alert: BaseAlert, issues: list[tuple], *, suppress_alerts: bool = False
+        self, alert: BaseAlert, issues: list[Issue], *, suppress_alerts: bool = False
     ) -> None:
         """Handle sending an alert if cooldown has passed."""
         alert_name = alert.name
-        identifiers = [issue[0] for issue in issues]
+        identifiers = [issue.identifier for issue in issues]
 
         if self.should_send_alert(identifiers, alert):
             # TODO: this is tightly coupled, find a better way to handle dm vs channel messages
@@ -99,19 +99,19 @@ class AlertManager:
                 self.set_last_alert_time(alert_name, identifier)
 
     @staticmethod
-    def _dispatch_queue_stop_dms(alert: QueueStopAlert, issues: list[tuple]) -> None:
+    def _dispatch_queue_stop_dms(alert: QueueStopAlert, issues: list[Issue]) -> None:
         """Fan out per-issue DMs; a failed send to one recipient does not abort the rest."""
-        for identifier, issue in issues:
-            alert.refresh_recent_files(issue)
-            message = alert.render_issue(issue)
-            for recipient in alert.get_recipients(issue):
+        for issue in issues:
+            alert.refresh_recent_files(issue.details)
+            message = alert.render_issue(issue.details)
+            for recipient in alert.get_recipients(issue.details):
                 try:
                     send_direct_message(message, recipient)
                 except Exception as exc:  # noqa: BLE001, PERF203
                     logging.warning(
                         f"Failed to send QueueStopAlert DM "
-                        f"(recipient={recipient}, kind={issue.kind}, "
-                        f"instrument={issue.instrument_id}, identifier={identifier}): {exc}"
+                        f"(recipient={recipient}, kind={issue.details.kind}, "
+                        f"instrument={issue.instrument_id}, identifier={issue.identifier}): {exc}"
                     )
 
     def should_send_alert(

@@ -7,7 +7,7 @@ import pytz
 
 from shared.db.models import KrakenStatus, RawFile
 
-from .base_alert import BaseAlert
+from .base_alert import BaseAlert, Issue
 from .config import (
     INSTRUMENT_STALL_INSTRUMENT_IDS,
     INSTRUMENT_STALL_THRESHOLD_HOURS,
@@ -27,9 +27,7 @@ class InstrumentStallAlert(BaseAlert):
         """Return the case name for this alert type."""
         return Cases.INSTRUMENT_STALL
 
-    def _get_issues(
-        self, status_objects: list[KrakenStatus]
-    ) -> list[tuple[str, tuple[str, datetime]]]:
+    def _get_issues(self, status_objects: list[KrakenStatus]) -> list[Issue[datetime]]:
         """Check for instruments with no recent file acquisition."""
         del status_objects
 
@@ -59,21 +57,29 @@ class InstrumentStallAlert(BaseAlert):
             if created_at < threshold:
                 if self._alerted_file_names.get(instrument_id) == latest.original_name:
                     continue
-                issues.append((instrument_id, (latest.original_name, created_at)))
+                issues.append(
+                    Issue(
+                        instrument_id,
+                        created_at,
+                        relevant_file=latest.original_name,
+                        instrument_id=instrument_id,
+                    )
+                )
                 self._alerted_file_names[instrument_id] = latest.original_name
             else:
                 self._alerted_file_names.pop(instrument_id, None)
 
         return issues
 
-    def format_message(self, issues: list[tuple[str, tuple[str, datetime]]]) -> str:
+    def format_message(self, issues: list[Issue[datetime]]) -> str:
         """Format no new file acquired message."""
         now = datetime.now(pytz.UTC)
         lines = []
-        for instrument_id, (original_name, created_at) in issues:
+        for issue in issues:
+            created_at = issue.details
             hours_ago = (now - created_at).total_seconds() / 3600
             lines.append(
-                f'- `{instrument_id}`: last file "{original_name}" '
+                f'- `{issue.identifier}`: last file "{issue.relevant_file}" '
                 f"acquired at {created_at.strftime('%Y-%m-%d %H:%M:%S')} UTC "
                 f"({hours_ago:.1f} hours ago)"
             )

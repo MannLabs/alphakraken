@@ -226,7 +226,7 @@ class TestRuleAStop:
             result = QueueStopAlert()._get_issues([])
         # then
         assert len(result) == 1
-        identifier, issue = result[0]
+        identifier, issue = result[0].identifier, result[0].details
         assert identifier == "inst1:x_MaSc_a.raw"
         assert issue.kind == KIND_STOP
         assert issue.messenger_user_id == "U_MASC"
@@ -311,7 +311,7 @@ class TestRuleAStop:
             result = QueueStopAlert()._get_issues([])
         # then
         assert len(result) == 1
-        _, issue = result[0]
+        issue = result[0].details
         assert issue.recent_files == [
             RecentFile("x_MaSc_a.raw", 2 * 1024**3, f1_t),
             RecentFile("x_MaSc_b.raw", 512 * 1024**2, f2_t),
@@ -343,7 +343,7 @@ class TestRuleAStop:
             result = QueueStopAlert()._get_issues([])
         # then
         assert len(result) == 1
-        _, issue = result[0]
+        issue = result[0].details
         assert len(issue.recent_files) == 2
 
     @patch("monitoring.alerts.queue_stop_alert.RawFile")
@@ -423,9 +423,9 @@ class TestRuleAStop:
 
         # then - both fire with different subject_file_ids
         assert len(first) == 1
-        assert first[0][0] == "inst1:x_MaSc_a.raw"
+        assert first[0].identifier == "inst1:x_MaSc_a.raw"
         assert len(second) == 1
-        assert second[0][0] == "inst1:x_MaSc_d.raw"
+        assert second[0].identifier == "inst1:x_MaSc_d.raw"
 
 
 # -- Rule B - Handoff ---------------------------------------------------------
@@ -466,7 +466,7 @@ class TestRuleBHandoff:
             result = QueueStopAlert()._get_issues([])
         # then
         assert len(result) == 1
-        identifier, issue = result[0]
+        identifier, issue = result[0].identifier, result[0].details
         assert identifier == "inst1:x_MaSc_a.raw"
         assert issue.kind == KIND_HANDOFF
         assert issue.messenger_user_id == "U_MASC"
@@ -562,7 +562,7 @@ class TestRuleBHandoff:
             result = QueueStopAlert()._get_issues([])
         # then
         assert len(result) == 1
-        _, issue = result[0]
+        issue = result[0].details
         assert issue.messenger_user_id == "U_MASC"
 
     @patch("monitoring.alerts.queue_stop_alert.RawFile")
@@ -587,7 +587,7 @@ class TestRuleBHandoff:
             result = QueueStopAlert()._get_issues([])
         # then
         assert len(result) == 1
-        _, issue = result[0]
+        issue = result[0].details
         assert issue.messenger_user_id == "U_MASC"
 
     @patch("monitoring.alerts.queue_stop_alert.RawFile")
@@ -612,7 +612,7 @@ class TestRuleBHandoff:
             result = QueueStopAlert()._get_issues([])
         # then
         assert len(result) == 1
-        _, issue = result[0]
+        issue = result[0].details
         assert issue.messenger_user_id == "U_MASC"
 
     @patch("monitoring.alerts.queue_stop_alert.RawFile")
@@ -713,8 +713,8 @@ class TestRuleBHandoff:
 
         # then - stop fired with subject F.id; handoff suppressed (same subject)
         assert len(first) == 1
-        assert first[0][0] == "inst1:x_MaSc_F.raw"
-        assert first[0][1].kind == KIND_STOP
+        assert first[0].identifier == "inst1:x_MaSc_F.raw"
+        assert first[0].details.kind == KIND_STOP
         assert second == []
 
 
@@ -782,7 +782,7 @@ class TestAdjacentInitialsTokens:
             result = QueueStopAlert()._get_issues([])
         # then
         assert len(result) == 1
-        _, issue = result[0]
+        issue = result[0].details
         assert issue.kind == KIND_STOP
         assert issue.messenger_user_id == "U_ANSC"
 
@@ -858,7 +858,7 @@ class TestRecipientsAndDelivery:
         with patch("monitoring.alerts.queue_stop_alert.datetime") as mock_dt:
             mock_dt.now.return_value = now
             issues = QueueStopAlert()._get_issues([])
-        assert issues[0][1].messenger_user_id == "U_MASC"
+        assert issues[0].details.messenger_user_id == "U_MASC"
 
     @patch(
         "monitoring.alerts.queue_stop_alert.INSTRUMENT_USER_SLACK_IDS",
@@ -885,7 +885,7 @@ class TestRecipientsAndDelivery:
             mock_dt.now.return_value = now
             issues = QueueStopAlert()._get_issues([])
         assert len(issues) == 1
-        assert issues[0][1].messenger_user_id == "U_MASC"  # prior, not JoeB
+        assert issues[0].details.messenger_user_id == "U_MASC"  # prior, not JoeB
 
     @patch("monitoring.alerts.queue_stop_alert.SPECIAL_ALERT_SLACK_ID", "U_SUP")
     def test_get_recipients_includes_special_id_when_configured(self) -> None:

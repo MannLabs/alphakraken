@@ -5,6 +5,7 @@ from unittest.mock import Mock, patch
 import requests
 import requests.exceptions
 
+from monitoring.alerts.base_alert import Issue
 from monitoring.alerts.config import Cases
 from monitoring.alerts.webapp_health_alert import WebAppHealthAlert
 
@@ -78,7 +79,7 @@ class TestWebAppHealthAlert:
         result = alert._get_issues([])
 
         # then
-        assert result == [("webapp", "HTTP 503: Service Unavailable")]
+        assert result == [Issue("webapp", "HTTP 503: Service Unavailable")]
 
     @patch("monitoring.alerts.webapp_health_alert.get_notification_setting")
     @patch("monitoring.alerts.webapp_health_alert.requests.get")
@@ -95,7 +96,7 @@ class TestWebAppHealthAlert:
         result = alert._get_issues([])
 
         # then
-        assert result == [("webapp", "Request timeout after 5 seconds")]
+        assert result == [Issue("webapp", "Request timeout after 5 seconds")]
         mock_requests_get.assert_called_once_with(
             "http://localhost:8501/healthz", timeout=5
         )
@@ -115,7 +116,7 @@ class TestWebAppHealthAlert:
         result = alert._get_issues([])
 
         # then
-        assert result == [("webapp", "Connection failed - webapp may be down")]
+        assert result == [Issue("webapp", "Connection failed - webapp may be down")]
 
     @patch("monitoring.alerts.webapp_health_alert.get_notification_setting")
     @patch("monitoring.alerts.webapp_health_alert.requests.get")
@@ -134,7 +135,7 @@ class TestWebAppHealthAlert:
         result = alert._get_issues([])
 
         # then
-        assert result == [("webapp", "Request failed: SSL error")]
+        assert result == [Issue("webapp", "Request failed: SSL error")]
 
     @patch("monitoring.alerts.webapp_health_alert.get_notification_setting")
     @patch("monitoring.alerts.webapp_health_alert.requests.get")
@@ -151,7 +152,7 @@ class TestWebAppHealthAlert:
         result = alert._get_issues([])
 
         # then
-        assert result == [("webapp", "Unexpected error: Unexpected error")]
+        assert result == [Issue("webapp", "Unexpected error: Unexpected error")]
 
     @patch("monitoring.alerts.webapp_health_alert.get_notification_setting")
     def test_format_message_should_format_single_issue_correctly(
@@ -161,7 +162,7 @@ class TestWebAppHealthAlert:
         # given
         mock_get_setting.return_value = "http://localhost:8501"
         alert = WebAppHealthAlert()
-        issues = [("webapp", "HTTP 503: Service Unavailable")]
+        issues = [Issue("webapp", "HTTP 503: Service Unavailable")]
 
         # when
         result = alert.format_message(issues)
@@ -236,7 +237,7 @@ class TestWebAppHealthAlert:
             result = alert._get_issues([])
 
             # then
-            assert result == [("webapp", f"HTTP {status_code}: {reason}")]
+            assert result == [Issue("webapp", f"HTTP {status_code}: {reason}")]
 
     @patch("monitoring.alerts.webapp_health_alert.get_notification_setting")
     @patch("monitoring.alerts.webapp_health_alert.requests.get")
@@ -299,7 +300,7 @@ class TestWebAppHealthAlert:
         result = alert._get_issues([])
 
         # then
-        assert result == [("webapp", "Unexpected error: Unexpected error")]
+        assert result == [Issue("webapp", "Unexpected error: Unexpected error")]
         mock_logging_exception.assert_called_once_with(
             "Unexpected error during webapp health check"
         )

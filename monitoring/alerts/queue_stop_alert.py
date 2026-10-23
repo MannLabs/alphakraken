@@ -15,7 +15,7 @@ import pytz
 
 from shared.db.models import KrakenStatus, RawFile
 
-from .base_alert import BaseAlert
+from .base_alert import BaseAlert, Issue
 from .config import (
     INSTRUMENT_USER_SLACK_IDS,
     MAX_GRADIENT_LENGTH_HOURS,
@@ -89,7 +89,7 @@ class QueueStopAlert(BaseAlert):
 
     def _get_issues(
         self, status_objects: list[KrakenStatus]
-    ) -> list[tuple[str, QueueStopIssue]]:
+    ) -> list[Issue[QueueStopIssue]]:
         """Detect stop/handoff conditions per instrument."""
         del status_objects
 
@@ -100,7 +100,7 @@ class QueueStopAlert(BaseAlert):
         now = datetime.now(pytz.UTC)
         max_gradient = timedelta(hours=MAX_GRADIENT_LENGTH_HOURS)
 
-        issues: list[tuple[str, QueueStopIssue]] = []
+        issues: list[Issue[QueueStopIssue]] = []
         for instrument_id in instrument_ids:
             recent = list(
                 RawFile.objects.filter(instrument_id=instrument_id)
@@ -175,7 +175,14 @@ class QueueStopAlert(BaseAlert):
             self._alerted_subject_files.add(dedup_key)
 
             identifier = f"{instrument_id}:{subject_file_id}"
-            issues.append((identifier, issue))
+            issues.append(
+                Issue(
+                    identifier,
+                    issue,
+                    relevant_file=subject_file_id,
+                    instrument_id=instrument_id,
+                )
+            )
 
         return issues
 
@@ -311,7 +318,7 @@ class QueueStopAlert(BaseAlert):
             recent_files=recent_files,
         )
 
-    def format_message(self, issues: list[tuple[str, QueueStopIssue]]) -> str:
+    def format_message(self, issues: list[Issue[QueueStopIssue]]) -> str:
         """Not used — alert_manager renders per-issue via `render_issue` instead."""
         del issues
         return ""

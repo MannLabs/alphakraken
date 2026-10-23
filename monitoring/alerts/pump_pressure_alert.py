@@ -16,7 +16,7 @@ import pytz
 from shared.db.interface import augment_raw_files_with_metrics
 from shared.db.models import KrakenStatus, RawFile
 
-from .base_alert import BaseAlert
+from .base_alert import BaseAlert, Issue
 from .config import (
     BUSINESS_ALERTS_WEBHOOK_URL,
     DEFAULT_ALERT_COOLDOWN_TIME_MINUTES,
@@ -70,7 +70,7 @@ class PumpPressureAlert(BaseAlert):
             return DEFAULT_ALERT_COOLDOWN_TIME_MINUTES
         return 0
 
-    def _get_issues(self, status_objects: list[KrakenStatus]) -> list[tuple[str, str]]:
+    def _get_issues(self, status_objects: list[KrakenStatus]) -> list[Issue[str]]:
         """Check for pump pressure increases per instrument."""
         # Get all instrument IDs
         instrument_ids = [
@@ -125,9 +125,12 @@ class PumpPressureAlert(BaseAlert):
                 if memory_key not in self._reported_issues:
                     self._reported_issues.add(memory_key)
                     issues.append(
-                        (
+                        Issue(
                             instrument_id,
                             f"Pressure changes: {self._format(pressure_changes)}",
+                            # the younger file of the (single) change
+                            relevant_file=pressure_changes[0][4],
+                            instrument_id=instrument_id,
                         )
                     )
                 else:
@@ -149,9 +152,11 @@ class PumpPressureAlert(BaseAlert):
                 if memory_key not in self._reported_issues:
                     self._reported_issues.add(memory_key)
                     issues.append(
-                        (
+                        Issue(
                             f"{ABSOLUTE_IDENTIFIER_PREFIX}{instrument_id}",
                             f"High pressure: {pressure:.1f} bar (≥{PUMP_PRESSURE_ABSOLUTE_THRESHOLD_BAR} bar) in `{raw_file_id}` at {timestamp.strftime('%Y-%m-%d %H:%M:%S')}",
+                            relevant_file=raw_file_id,
+                            instrument_id=instrument_id,
                         )
                     )
                 else:
@@ -298,9 +303,9 @@ class PumpPressureAlert(BaseAlert):
 
         return high_pressure_measurements
 
-    def format_message(self, issues: list[tuple[str, str | None]]) -> str:
+    def format_message(self, issues: list[Issue[str]]) -> str:
         """Format pump pressure alert message."""
         instruments_str = "\n".join(
-            [f"- `{instrument_id}`: {details}" for instrument_id, details in issues]
+            [f"- `{issue.identifier}`: {issue.details}" for issue in issues]
         )
         return f"Pump pressure increase detected:\n{instruments_str}"

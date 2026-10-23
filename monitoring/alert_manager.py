@@ -122,25 +122,14 @@ class AlertManager:
                         f"instrument={issue.instrument_id}, identifier={issue.identifier}): {exc}"
                     )
 
-    def should_send_alert(
-        self,
-        identifiers: list[str],
-        alert: BaseAlert,
-        cooldown_time_minutes: int | None = None,
-    ) -> bool:
+    def should_send_alert(self, identifiers: list[str], alert: BaseAlert) -> bool:
         """Check if we should send an alert based on cooldown period."""
         send_alert = False
         for identifier in identifiers:
-            if cooldown_time_minutes is not None:
-                effective_cooldown_time_minutes = cooldown_time_minutes
-            else:
-                effective_cooldown_time_minutes = alert.get_cooldown_time_minutes(
-                    identifier
-                )
-
+            cooldown_time_minutes = alert.get_cooldown_time_minutes(identifier)
             earliest_next_alert_time = self._get_last_alert_time(
                 alert.name, identifier
-            ) + timedelta(minutes=effective_cooldown_time_minutes)
+            ) + timedelta(minutes=cooldown_time_minutes)
             send_alert |= datetime.now(pytz.UTC) > earliest_next_alert_time
         return send_alert
 

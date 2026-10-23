@@ -1,4 +1,4 @@
-"""Unit tests for messenger_clients DM transport (send_direct_message, _send_direct_message_slack, _send_direct_message_msteams)."""
+"""Unit tests for messenger_clients DM transport (send_direct_message, _send_direct_message_slack)."""
 
 from unittest.mock import Mock, patch
 
@@ -7,7 +7,6 @@ import requests
 
 from monitoring.messenger_clients import (
     Message,
-    _send_direct_message_msteams,
     _send_direct_message_slack,
     send_direct_message,
 )
@@ -112,12 +111,3 @@ class TestSendSlackDm:
         # when / then
         with pytest.raises(requests.HTTPError):
             _send_direct_message_slack(Message("hi"), "U_123", "xoxb-test")
-
-
-class TestSendMsteamsDmStub:
-    """The MS Teams DM stub must raise NotImplementedError."""
-
-    def test_raises_not_implemented_error(self) -> None:
-        """The MS Teams DM stub is not yet implemented and must raise."""
-        with pytest.raises(NotImplementedError, match="MS Teams"):
-            _send_direct_message_msteams(Message("hi"), "U_123", "token")

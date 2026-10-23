@@ -19,6 +19,7 @@ from .config import (
     BUSINESS_ALERTS_WEBHOOK_URL,
     DEFAULT_ALERT_COOLDOWN_TIME_MINUTES,
     PUMP_PRESSURE_ABSOLUTE_THRESHOLD_BAR,
+    PUMP_PRESSURE_GRADIENT_TOLERANCE,
     PUMP_PRESSURE_LOOKBACK_DAYS,
     PUMP_PRESSURE_THRESHOLD_BAR,
     PUMP_PRESSURE_WINDOW_SIZE,
@@ -217,9 +218,9 @@ class PumpPressureAlert(BaseAlert):
         def _is_within_tolerance(
             value: float | None,
             target: float | None,
-            tolerance: float = 0.1,
+            tolerance: float = PUMP_PRESSURE_GRADIENT_TOLERANCE,
         ) -> bool:
-            """Check if value is within relative tolerance of target (default +-10%).
+            """Check if value is within relative tolerance of target.
 
             Returns False if value and/or target are None.
             """

@@ -101,12 +101,7 @@ def _send_channel_message_msteams(
 def send_direct_message(message: Message, recipient_id: str) -> None:
     """Send a direct message to a user.
 
-    Dispatches to the platform whose credentials are configured in `alerts.config`.
     Logs a warning and returns when no DM credentials are configured.
-
-    Note: when multiple platforms' credentials are configured simultaneously,
-    Slack wins by `if/elif` order. Add a configurable preference if a second
-    DM platform actually lands.
     """
     if config.SLACK_BOT_TOKEN:
         _send_direct_message_slack(message, recipient_id, config.SLACK_BOT_TOKEN)
@@ -142,7 +137,3 @@ def _send_direct_message_slack(message: Message, user_id: str, token: str) -> No
     if not body.get("ok"):
         raise RuntimeError(f"Slack chat.postMessage failed: {body!r}")
     logging.info(f"Successfully sent Slack DM to {user_id}.")
-
-
-def _send_direct_message_msteams(message: Message, user_id: str, token: str) -> None:
-    raise NotImplementedError("MS Teams DMs not yet supported")

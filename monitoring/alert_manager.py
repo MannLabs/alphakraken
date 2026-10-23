@@ -27,6 +27,7 @@ from alerts.recipients import get_recipients
 from messenger_clients import AlertTypes, send_channel_message, send_direct_message
 from requests.exceptions import RequestException
 
+from shared.db.interface import get_active_alert_suppressions
 from shared.db.models import KrakenStatus
 
 _WEBHOOK_URLS = {
@@ -69,9 +70,10 @@ class AlertManager:
         """
         logging.info("Checking for issues...")
         status_objects = list(KrakenStatus.objects)
+        suppressions = get_active_alert_suppressions()
 
         for alert in self.alerts:
-            issues = alert.get_issues(status_objects)
+            issues = alert.get_issues(status_objects, suppressions)
             if issues:
                 self._handle_issues(
                     alert, issues, suppress_alerts=self.is_first_check or not is_active

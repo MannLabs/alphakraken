@@ -4,37 +4,12 @@ import logging
 from abc import ABC, abstractmethod
 from collections.abc import Hashable
 from dataclasses import dataclass
-from pathlib import Path
-from typing import Any, Generic, TypeVar
+from typing import Generic, TypeVar
 
-import yaml
 from alerts.config import DEFAULT_ALERT_COOLDOWN_TIME_MINUTES
 
-from shared.db.models import KrakenStatus, KrakenStatusEntities
-
-
-def _load_suppressions() -> list[dict[str, Any]]:
-    """Load suppressions from YAML file."""
-    suppressions_file = Path(__file__).parent / ".." / "suppressions.yaml"
-
-    try:
-        with Path(suppressions_file).open() as f:
-            config = yaml.safe_load(f)
-            suppressions = config.get("suppressions", []) if config else []
-            logging.info(f"Loaded {len(suppressions)} suppression rules")
-    except FileNotFoundError:
-        logging.info("No suppressions.yaml file found, no alerts will be suppressed")
-        suppressions = []
-    except Exception as e:  # noqa: BLE001
-        logging.warning(f"Failed to load suppressions.yaml: {e}")
-        suppressions = []
-    return suppressions
-
-
-WILDCARD = "*"
-
-# Load suppressions at module import
-_suppressions: list[dict[str, Any]] = _load_suppressions()
+from shared.db.models import AlertSuppression, KrakenStatus, KrakenStatusEntities
+from shared.keys import ALERT_SUPPRESSION_WILDCARD
 
 # covariant: Issue is immutable, so e.g. Issue[str] is an Issue[str | None]
 D_co = TypeVar("D_co", covariant=True)
@@ -71,15 +46,19 @@ class BaseAlert(ABC):
     # message title, required by the default `format_message`
     title: str
 
-    def get_issues(self, status_objects: list[KrakenStatus]) -> list[Issue]:
-        """Check for issues and return them.
+    def get_issues(
+        self,
+        status_objects: list[KrakenStatus],
+        suppressions: list[AlertSuppression],
+    ) -> list[Issue]:
+        """Check for issues and return those not muted by any of the suppressions.
 
         Returns empty list if no issues found.
         """
         logging.info(f"Checking for issues: {self.name}...")
         issues = self._get_issues(status_objects)
         issues_before_suppression = len(issues)
-        issues = self._apply_suppressions(issues)
+        issues = self._apply_suppressions(issues, suppressions)
 
         if issues_before_suppression != len(issues):
             logging.info(
@@ -89,9 +68,11 @@ class BaseAlert(ABC):
         logging.info(f"Found {len(issues)} issues after suppression: {self.name}.")
         return issues
 
-    def _apply_suppressions(self, issues: list[Issue]) -> list[Issue]:
+    def _apply_suppressions(
+        self, issues: list[Issue], suppressions: list[AlertSuppression]
+    ) -> list[Issue]:
         """Apply suppression rules to filter out suppressed issues."""
-        if not _suppressions:
+        if not suppressions:
             return issues
 
         alert_class = self.__class__.__name__
@@ -102,17 +83,21 @@ class BaseAlert(ABC):
             message = issue.details
 
             suppressed = False
-            for suppression in _suppressions:
-                supp_instrument_id = suppression.get("instrument_id", WILDCARD)
-                if suppression.get("error_class") in (WILDCARD, alert_class) and (
-                    supp_instrument_id in (WILDCARD, issue.instrument_id)
+            for suppression in suppressions:
+                if suppression.error_class in (
+                    ALERT_SUPPRESSION_WILDCARD,
+                    alert_class,
+                ) and suppression.instrument_id in (
+                    ALERT_SUPPRESSION_WILDCARD,
+                    issue.instrument_id,
                 ):
-                    supp_context = suppression.get("context", WILDCARD)
-                    context_matches = supp_context in (WILDCARD, context)
-
-                    supp_message = suppression.get("message", WILDCARD)
-                    message_matches = supp_message == WILDCARD or supp_message in str(
-                        message
+                    context_matches = suppression.context in (
+                        ALERT_SUPPRESSION_WILDCARD,
+                        context,
+                    )
+                    message_matches = (
+                        suppression.message == ALERT_SUPPRESSION_WILDCARD
+                        or suppression.message in str(message)
                     )
 
                     if context_matches and message_matches:

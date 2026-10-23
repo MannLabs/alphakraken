@@ -20,12 +20,12 @@ Status: `open` | `done` | `deferred` | `dropped`
 | B8 | Pump pressure absolute-threshold issues use the plain instrument id as identifier plus a `kind`; cooldown is keyed by identifier and kind. Absolute → default cooldown, increase → none. | 6c80ea0b | test: cooldown keys differ per kind; suppression context `inst1` hits both kinds | open |
 | B9 | The first occurrence of an issue is sent immediately, whatever its cooldown. (Before: cooldowns above 121 min, i.e. `file_remover` health check at 720 min, delayed the first alert by ~10 h.) | 492a26fd | test: 720 min cooldown, first issue sent at once | open |
 | B10 | Issues are marked reported and their cooldown set only after a successful send. Blocked or failed sends are retried next check. (Before: stateful alerts marked issues in `_get_issues`, losing them.) | 2288dc9f | test: send raises → issue raised again next check | open |
-| B11 | After a DB connect failure the check cycle is skipped, so only the `db_connection_error` alert is sent, not a second `exception` alert. | ba9d023f | test: `connect_db` raises → `check_for_issues` not called | open |
-| B12 | `StaleStatusAlert` accepts tz-aware `updated_at_` (was `pytz.utc.localize`, which raises on aware datetimes). | ba9d023f | test: aware datetime input | open |
+| B11 | After a DB connect failure the check cycle is skipped, so only the `db_connection_error` alert is sent, not a second `exception` alert. | ba9d023f | test: `connect_db` raises → `check_for_issues` not called | done (slice 1) |
+| B12 | `StaleStatusAlert` accepts tz-aware `updated_at_` (was `pytz.utc.localize`, which raises on aware datetimes). | ba9d023f | test: aware datetime input | done (slice 1) |
 | B13 | Once-only reporting via `unique_key`, kept in the manager: stall `(instrument, last file)`; pump increase `(instrument, changes)`; pump absolute `(instrument, kind, file)`; queue stop `(instrument, subject file)` shared by stop and handoff; raw file error `(file, status_details)`; S3 `(file,)`. | 982ff34c | test per alert: same key twice → one report | open |
 | B14 | Raw file error and S3 upload failure alerts are stateless: files in `ERROR` / `UPLOAD_FAILED` updated within the last 24 h, deduplicated by B13. (Before: 5 min window diffed against in-memory previous statuses.) A file failing again with different `status_details` is reported again. | 92f2ee9b | test: lookback filter, re-report on changed details | open |
 | B15 | Known initials for queue-stop detection are the initials of active users in the DB; DM recipients are users with a `messenger_id`. The hard-coded `INSTRUMENT_USER_SLACK_IDS` is gone. | 480b1093 | test: unknown token ignored; user without messenger id → no recipient | open |
-| B16 | Default `format_message`: `title` line plus one `- \`identifier\`: details` line per issue; alerts without a custom format set `title`. | 81566149 | test: default rendering | open |
+| B16 | Default `format_message`: `title` line plus one `- \`identifier\`: details` line per issue; alerts without a custom format set `title`. | 81566149 | test: default rendering | done (slice 1) |
 
 ## Known side effects worth a decision
 

@@ -44,6 +44,9 @@ INSTRUMENT_FILE_PILE_UP_THRESHOLDS = {
 }
 INSTRUMENT_FILE_MIN_AGE_HOURS = 6  # Only consider files older than 6 hours
 
+# Raw file error / S3 upload failure alerts: only consider files updated within this time
+RAW_FILE_STATUS_LOOKBACK_HOURS = 24
+
 # Instrument stall alert configuration
 INSTRUMENT_STALL_THRESHOLD_HOURS = 2  # How long without a new file before alerting
 INSTRUMENT_STALL_INSTRUMENT_IDS: set[str] = set()  # Instruments to monitor

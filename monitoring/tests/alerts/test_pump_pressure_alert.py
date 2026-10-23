@@ -493,12 +493,12 @@ class TestPumpPressureAlert:
     @patch("monitoring.alerts.pump_pressure_alert.PUMP_PRESSURE_LOOKBACK_DAYS", 7)
     @patch("monitoring.alerts.pump_pressure_alert.PUMP_PRESSURE_WINDOW_SIZE", 5)
     @patch("monitoring.alerts.pump_pressure_alert.PUMP_PRESSURE_THRESHOLD_BAR", 20)
-    def test_memory_should_suppress_duplicate_issues(
+    def test_repeated_detection_should_share_unique_key(
         self,
         mock_rawfile: Mock,
         mock_augment: Mock,
     ) -> None:
-        """Test that memory suppresses duplicate issues with same instrument_id and pressure changes."""
+        """Test that repeated detection of the same pressure changes yields the same unique key."""
         # given
         alert = PumpPressureAlert()
         now = datetime.now(tz=pytz.utc)
@@ -573,11 +573,12 @@ class TestPumpPressureAlert:
         # younger file of the change: file2 (124 bar) vs. file7 (100 bar)
         assert result_first[0].relevant_file == "file2"
 
-        # when - second call with same data should suppress the issue
+        # when - polled again with the same data
         result_second = alert._get_issues(status_objects)
 
-        # then - second call suppresses the duplicate
-        assert result_second == []
+        # then - same unique key, so the alert manager reports it only once
+        assert result_second == result_first
+        assert result_first[0].unique_key is not None
 
     def test_detect_high_absolute_pressure_should_detect_pressure_above_threshold(
         self,
@@ -715,6 +716,7 @@ class TestPumpPressureAlert:
         assert len(increase_issues) == 1
         assert "Pressure changes:" in increase_issues[0].details
         assert all("High pressure:" in i.details for i in absolute_issues)
+        assert absolute_issues[0].unique_key == ("instrument1", KIND_ABSOLUTE, "file1")
         assert [i.relevant_file for i in absolute_issues] == [
             "file1",
             "file2",

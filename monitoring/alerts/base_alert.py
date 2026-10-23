@@ -2,6 +2,7 @@
 
 import logging
 from abc import ABC, abstractmethod
+from collections.abc import Hashable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Generic, TypeVar
@@ -53,6 +54,8 @@ class Issue(Generic[D_co]):
     instrument_id: str | None = None
     # distinguishes kinds of issues of one alert; part of the cooldown key
     kind: str | None = None
+    # if set, the issue is reported only once per key, regardless of cooldown
+    unique_key: Hashable | None = None
 
 
 def get_instrument_id(kraken_status: KrakenStatus) -> str | None:
@@ -64,6 +67,9 @@ def get_instrument_id(kraken_status: KrakenStatus) -> str | None:
 
 class BaseAlert(ABC):
     """Base class for all alert checkers."""
+
+    # message title, required by the default `format_message`
+    title: str
 
     def get_issues(self, status_objects: list[KrakenStatus]) -> list[Issue]:
         """Check for issues and return them.
@@ -125,9 +131,15 @@ class BaseAlert(ABC):
     def _get_issues(self, status_objects: list[KrakenStatus]) -> list[Issue]:
         """Check for issues and return them."""
 
-    @abstractmethod
     def format_message(self, issues: list[Issue]) -> str:
-        """Format the alert message for the issues found."""
+        """Format the alert message: `title`, followed by one line per issue.
+
+        Override this method in subclasses that need a different format.
+        """
+        lines = "\n".join(
+            f"- `{issue.identifier}`: {issue.details}" for issue in issues
+        )
+        return f"{self.title}:\n{lines}"
 
     @property
     @abstractmethod

@@ -207,6 +207,23 @@ class TestAlertManager:
         )
         assert should_send_other is True
 
+    def test_should_send_alert_immediately_for_new_issue_with_long_cooldown(
+        self,
+    ) -> None:
+        """A never-alerted issue is sent right away, regardless of its cooldown."""
+        # given
+        from monitoring.alerts.health_check_failed_alert import HealthCheckFailedAlert
+
+        alert_manager = AlertManager()
+        issue = Issue("file_remover", "x")  # cooldown 720 min
+
+        # when
+        should_send = alert_manager.should_send_alert([issue], HealthCheckFailedAlert())
+
+        # then
+        assert should_send is True
+        assert alert_manager.last_alerts == {}  # checking must not record an alert
+
     def test_cooldown_should_be_tracked_per_kind(self) -> None:
         """Issues with the same identifier but different kinds have separate cooldowns."""
         # given
@@ -305,9 +322,10 @@ class TestDispatch:
                 side_effect=lambda f: recipients[f],
             ),
         ):
-            _dispatch(alert, ISSUES)
+            all_sent = _dispatch(alert, ISSUES)
 
         # then
+        assert all_sent is True
         assert sorted(c.args for c in mock_send_channel_message.call_args_list) == [
             ("id1|id2", "http://business.url"),
             ("id1|id2", "http://ops.url"),
@@ -377,15 +395,129 @@ class TestDispatch:
                 side_effect=[["U_A", "U_SUP"], ["U_B"]],
             ),
         ):
-            _dispatch(alert, ISSUES)
+            all_sent = _dispatch(alert, ISSUES)
 
         # then
+        assert all_sent is False
         assert mock_send_channel_message.call_count == 1
         assert [c.args for c in mock_send_direct_message.call_args_list] == [
             ("id1", "U_A"),
             ("id1", "U_SUP"),
             ("id2", "U_B"),
         ]
+
+
+UNIQUE_KEY_ISSUES = [
+    Issue("id1", "d1", unique_key="k1"),
+    Issue("id2", "d2", unique_key="k2"),
+]
+
+
+class TestHandleIssues:
+    """Test suite for reporting issues with a unique key only once they are handled."""
+
+    @pytest.mark.parametrize(
+        ("suppress_alerts", "all_sent"),
+        [(False, True), (True, False)],
+    )
+    def test_handle_issues_should_report_unique_keys_once_when_sent_or_suppressed(
+        self, *, suppress_alerts: bool, all_sent: bool
+    ) -> None:
+        """Sent or deliberately suppressed issues are not raised again, even without cooldown."""
+        # given
+        alert_manager = AlertManager()
+        alert = _mock_alert()
+        alert.get_cooldown_time_minutes.return_value = 0
+
+        # when
+        with patch(
+            "monitoring.alert_manager._dispatch", return_value=all_sent
+        ) as mock_dispatch:
+            alert_manager._handle_issues(
+                alert, UNIQUE_KEY_ISSUES, suppress_alerts=suppress_alerts
+            )
+            alert_manager._handle_issues(alert, UNIQUE_KEY_ISSUES)
+
+        # then
+        assert alert_manager.reported_unique_keys == {
+            ("my_alert", "k1"),
+            ("my_alert", "k2"),
+        }
+        assert set(alert_manager.last_alerts) == {"my_alert_id1", "my_alert_id2"}
+        assert mock_dispatch.call_count == (0 if suppress_alerts else 1)
+
+    def test_handle_issues_should_only_send_issues_not_reported_yet(self) -> None:
+        """Already reported issues are dropped, new ones are sent."""
+        # given
+        alert_manager = AlertManager()
+        alert = _mock_alert()
+        alert.get_cooldown_time_minutes.return_value = 0
+        alert_manager.reported_unique_keys.add(("my_alert", "k1"))
+
+        # when
+        with patch(
+            "monitoring.alert_manager._dispatch", return_value=True
+        ) as mock_dispatch:
+            alert_manager._handle_issues(alert, UNIQUE_KEY_ISSUES)
+
+        # then
+        mock_dispatch.assert_called_once_with(alert, [UNIQUE_KEY_ISSUES[1]])
+
+    def test_handle_issues_should_send_issues_without_unique_key_again(self) -> None:
+        """Issues without unique key are only limited by their cooldown."""
+        # given
+        alert_manager = AlertManager()
+        alert = _mock_alert()
+        alert.get_cooldown_time_minutes.return_value = 0
+
+        # when
+        with patch(
+            "monitoring.alert_manager._dispatch", return_value=True
+        ) as mock_dispatch:
+            alert_manager._handle_issues(alert, ISSUES)
+            alert_manager._handle_issues(alert, ISSUES)
+
+        # then
+        assert mock_dispatch.call_count == 2
+        assert alert_manager.reported_unique_keys == set()
+
+    def test_handle_issues_should_retry_when_send_failed(self) -> None:
+        """Issues whose send failed are neither reported nor start their cooldown."""
+        # given
+        alert_manager = AlertManager()
+        alert = _mock_alert()
+        alert.get_cooldown_time_minutes.return_value = 60
+
+        # when
+        with patch(
+            "monitoring.alert_manager._dispatch", side_effect=[False, True]
+        ) as mock_dispatch:
+            alert_manager._handle_issues(alert, UNIQUE_KEY_ISSUES)
+            assert alert_manager.reported_unique_keys == set()
+            alert_manager._handle_issues(alert, UNIQUE_KEY_ISSUES)
+
+        # then
+        assert mock_dispatch.call_count == 2
+        assert len(alert_manager.reported_unique_keys) == 2
+
+    def test_handle_issues_should_not_report_when_blocked_by_cooldown(
+        self,
+    ) -> None:
+        """Issues blocked by cooldown are not reported, so they are raised again later."""
+        # given
+        alert_manager = AlertManager()
+        alert = _mock_alert()
+        alert.get_cooldown_time_minutes.return_value = 60
+        for issue in UNIQUE_KEY_ISSUES:
+            alert_manager.set_last_alert_time(alert.name, issue)
+
+        # when
+        with patch("monitoring.alert_manager._dispatch") as mock_dispatch:
+            alert_manager._handle_issues(alert, UNIQUE_KEY_ISSUES)
+
+        # then
+        mock_dispatch.assert_not_called()
+        assert alert_manager.reported_unique_keys == set()
 
 
 class TestSendSpecialAlert:

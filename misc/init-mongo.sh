@@ -69,6 +69,6 @@ mongosh -u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" admin 
     });
 
     db.settings.createIndex({name: 1, version: 1}, {unique: true});
-    // resolved alert issues expire after 90 days, cf. ALERT_ISSUE_EXPIRY_S
-    db.alert_issue.createIndex({resolved_at: 1}, {expireAfterSeconds: 7776000});
+    // alert issues expire 90 days after they were first seen, cf. ALERT_ISSUE_EXPIRY_S
+    db.alert_issue.createIndex({first_seen: 1}, {expireAfterSeconds: 7776000});
 EOF

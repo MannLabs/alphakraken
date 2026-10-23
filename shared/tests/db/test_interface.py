@@ -22,17 +22,16 @@ from shared.db.interface import (
     delete_project,
     delete_settings,
     get_active_project_ids,
+    get_alert_issues,
     get_all_settings,
     get_all_users,
     get_latest_active_settings_by_name,
-    get_open_alert_issues,
     get_project_settings,
     get_purge_candidates_by_age,
     get_raw_file_by_id,
     get_raw_files_by_instrument_file_status,
     get_raw_files_by_names,
     get_slurm_job,
-    resolve_alert_issues,
     set_alert_issue_notified,
     set_user_status,
     unassign_settings_from_project,
@@ -1565,17 +1564,16 @@ def test_delete_assigned_settings_raises(
 
 @patch("shared.db.interface.AlertIssue")
 @patch("shared.db.interface.connect_db")
-def test_get_open_alert_issues(
+def test_get_alert_issues(
     mock_connect_db: MagicMock,  # noqa: ARG001
     mock_alert_issue: MagicMock,
 ) -> None:
-    """Test that only unresolved issues are queried."""
-    # when
-    result = get_open_alert_issues()
+    """Test that all issues are returned."""
+    # given
+    mock_alert_issue.objects = ["a", "b"]
 
-    # then
-    mock_alert_issue.objects.assert_called_once_with(resolved_at=None)
-    assert result == list(mock_alert_issue.objects.return_value)
+    # when / then
+    assert get_alert_issues() == ["a", "b"]
 
 
 @patch("shared.db.interface.AlertIssue")
@@ -1627,39 +1625,3 @@ def test_set_alert_issue_notified(
 
     # then
     issue.update.assert_called_once_with(set__last_notified=notified_at)
-
-
-@patch("shared.db.interface.AlertIssue")
-@patch("shared.db.interface.connect_db")
-def test_resolve_alert_issues(
-    mock_connect_db: MagicMock,  # noqa: ARG001
-    mock_alert_issue: MagicMock,
-) -> None:
-    """Test that all given issues are resolved in one update."""
-    # given
-    issues = [MagicMock(id="a"), MagicMock(id="b")]
-    resolved_at = datetime(2024, 1, 1, tzinfo=pytz.UTC)
-
-    # when
-    resolve_alert_issues(issues, resolved_at)
-
-    # then
-    mock_alert_issue.objects.assert_called_once_with(id__in=["a", "b"])
-    mock_alert_issue.objects.return_value.update.assert_called_once_with(
-        set__resolved_at=resolved_at
-    )
-
-
-@patch("shared.db.interface.AlertIssue")
-@patch("shared.db.interface.connect_db")
-def test_resolve_alert_issues_without_issues_does_not_query(
-    mock_connect_db: MagicMock,
-    mock_alert_issue: MagicMock,
-) -> None:
-    """Test that an empty list causes no DB access."""
-    # when
-    resolve_alert_issues([], datetime(2024, 1, 1, tzinfo=pytz.UTC))
-
-    # then
-    mock_connect_db.assert_not_called()
-    mock_alert_issue.objects.assert_not_called()

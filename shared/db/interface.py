@@ -663,10 +663,10 @@ def augment_raw_files_with_metrics(
     return raw_files_dict
 
 
-def get_open_alert_issues() -> list[AlertIssue]:
-    """Get all alert issues that are not resolved."""
+def get_alert_issues() -> list[AlertIssue]:
+    """Get all alert issues."""
     connect_db()
-    return list(AlertIssue.objects(resolved_at=None))
+    return list(AlertIssue.objects)
 
 
 def add_alert_issue(  # noqa: PLR0913
@@ -699,14 +699,3 @@ def set_alert_issue_notified(issue: AlertIssue, notified_at: datetime) -> None:
     """Record that the issue was notified."""
     connect_db()
     issue.update(set__last_notified=notified_at)
-
-
-def resolve_alert_issues(issues: list[AlertIssue], resolved_at: datetime) -> None:
-    """Mark the issues as resolved."""
-    if not issues:
-        return
-    connect_db()
-    # id is added by mongoengine
-    ids = [issue.id for issue in issues]  # ty: ignore[unresolved-attribute]
-    AlertIssue.objects(id__in=ids).update(set__resolved_at=resolved_at)
-    logging.info(f"Resolved alert issues: {[(i.alert, i.key) for i in issues]}")

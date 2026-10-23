@@ -5,19 +5,18 @@ once-only key set, the per-alert memory sets and the "first check suppresses eve
 
 ## Objective
 
-Every issue the monitoring detects has a record in MongoDB with a lifecycle: opened, notified,
-resolved. Cooldown and once-only reporting are properties of that record. Restarts lose nothing,
-a takeover by another instance is warm, "resolved" notifications become possible, and the webapp
-can show what is open.
+Every issue the monitoring detects has a record in MongoDB with when it was last notified.
+Cooldown and once-only reporting are properties of that record. Restarts lose nothing and a
+takeover by another instance is warm. The record is notification memory, not a lifecycle: the
+monitor does not track whether an issue is still present (dropped on 2026-10-23, together with
+resolved notifications, to keep the design small).
 
 ## Decisions
 
-- Collection `alert_issue`, one document per occurrence of an issue (a resolved issue that
-  comes back gets a new document, so there is no unique index):
+- Collection `alert_issue`, one document per `(alert, key)`:
   `alert` (class name), `key` (str, see below), `identifier`, `instrument_id`, `relevant_file`,
-  `details` (str rendering), `first_seen`, `last_notified` (`None` = never), `resolved_at`
-  (`None` = open), `muted` (bool, matched a suppression in the last cycle; added with the
-  suppressions slice).
+  `details` (str rendering), `first_seen`, `last_notified` (`None` = never), `muted` (bool,
+  matched a suppression in the last cycle; added with the suppressions slice).
 - `key` is an explicit, stable string built by the alert, never a tuple of floats or a repr.
   Default is `identifier`. Details-dependent keys use a short stable digest of the details.
   Examples: stall `"<instrument>:<last file>"`, raw file error `"<file>:<digest(details)>"`,
@@ -30,13 +29,12 @@ can show what is open.
     while the DB is down. (`db_timeout` is folded into `db_connection_error`: a server selection
     timeout is a connection failure.)
 - One cycle on the active instance:
-  1. Load open records (`resolved_at = None`) once.
+  1. Load all records once.
   2. Detect issues (`detect(snapshot, now)` per alert), apply suppressions.
   3. Detected, no record ⇒ insert; notify unless muted.
-  4. Detected, record open ⇒ notify if not muted and (`last_notified` is `None` or
+  4. Detected, record exists ⇒ notify if not muted and (`last_notified` is `None` or
      `now > last_notified + cooldown`); `cooldown = None` ⇒ never again. Update `muted`.
-  5. Record open, not detected ⇒ set `resolved_at`. Resolved notification is opt-in per alert
-     class (later slice).
+  5. Not detected ⇒ nothing. An issue that disappears and comes back keeps its cooldown.
 - `last_notified` is written after a successful send. A failed send leaves it unchanged, so the
   issue is retried next cycle. Races between instances are prevented by the election, not by the
   record; the fail-open case accepts duplicates.
@@ -45,15 +43,16 @@ can show what is open.
   is still `None` or old).
 - No first-check special case. On the first deploy, every currently open issue is notified once.
   The upgrade guide says so.
-- Retention: resolved records are kept for the dashboard. A TTL index on `resolved_at`
-  (90 days) bounds the collection. The alerting user may not create indexes, so
+- Retention: a TTL index on `first_seen` (90 days) bounds the collection; a once-only issue
+  recurring after that is notified again. The alerting user may not create indexes, so
   `misc/init-mongo.sh` and the upgrade guide create it.
 - DB access: `alertingRole` gets `find`/`insert`/`update` on `alert_issue`. The webapp reads it
   later for the ops dashboard (`webappRole` already has read).
 
 ## Out of scope
 
-- Resolved notifications and the dashboard page (planned as later slices).
+- Resolved notifications and an issue dashboard: both would need the monitor to track
+  whether an issue is still present, which this design deliberately does not.
 - Grouping several issues of one alert into one message across cycles: a cycle's due issues of
   one alert class still go out as one channel message, as today.
 - Editing records from the webapp.
@@ -78,10 +77,10 @@ as unreachable.
 ## Success criteria
 
 - Restart the monitoring during an open issue ⇒ no repeated message, no lost later message.
-- An issue that disappears ⇒ its record is resolved within one cycle.
+- An issue that flaps around its threshold ⇒ one message per cooldown, not per cycle.
 - DB unreachable ⇒ `db_connection_error` is still sent.
 
 ## Open questions
 
 - None. Decided 2026-10-23: channel messages do not show how long an issue has been open;
-  resolved records expire after 90 days via TTL index.
+  records expire 90 days after first seen via TTL index.

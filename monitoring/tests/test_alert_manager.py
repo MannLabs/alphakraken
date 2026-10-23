@@ -63,10 +63,9 @@ def db() -> Generator[dict[str, Mock], None, None]:
     """Patch the DB access of the manager."""
     with (
         patch("monitoring.alert_manager.KrakenStatus") as kraken_status,
-        patch("monitoring.alert_manager.get_open_alert_issues") as get_open,
+        patch("monitoring.alert_manager.get_alert_issues") as get_open,
         patch("monitoring.alert_manager.add_alert_issue") as add,
         patch("monitoring.alert_manager.set_alert_issue_notified") as set_notified,
-        patch("monitoring.alert_manager.resolve_alert_issues") as resolve,
     ):
         kraken_status.objects = []
         get_open.return_value = []
@@ -75,7 +74,6 @@ def db() -> Generator[dict[str, Mock], None, None]:
             "get_open": get_open,
             "add": add,
             "set_notified": set_notified,
-            "resolve": resolve,
         }
 
 
@@ -111,7 +109,6 @@ class TestCheckForIssues:
         notified_record, notified_at = db["set_notified"].call_args.args
         assert (notified_record.alert, notified_record.key) == ("TestAlert", "inst1:k")
         assert notified_at == NOW
-        db["resolve"].assert_called_once_with([], NOW)
 
     @patch("monitoring.alert_manager.send_channel_message")
     def test_only_due_issues_are_sent(
@@ -169,26 +166,6 @@ class TestCheckForIssues:
         # then
         db["add"].assert_called_once()
         db["set_notified"].assert_not_called()
-
-    @patch("monitoring.alert_manager.send_channel_message")
-    def test_undetected_records_are_resolved(
-        self,
-        mock_send: Mock,  # noqa: ARG002
-        db: dict[str, Mock],
-    ) -> None:
-        """Open records of issues that are no longer detected are resolved."""
-        # given
-        gone = _record("TestAlert", "gone", NOW)
-        still_there = _record("TestAlert", "a", NOW)
-        db["get_open"].return_value = [gone, still_there]
-        manager = AlertManager()
-        manager.alerts = [_alert(issues=[Issue("a", "details")])]
-
-        # when
-        manager.check_for_issues(NOW)
-
-        # then
-        db["resolve"].assert_called_once_with([gone], NOW)
 
     @patch("monitoring.alert_manager.send_channel_message")
     def test_alerts_use_their_own_cooldown(
@@ -291,6 +268,28 @@ class TestDispatchQueueStopDms:
         assert result is False
         assert mock_send.call_count == 2
         assert any("U_BAD" in rec.message for rec in caplog.records)
+
+    @patch("monitoring.alert_manager.send_channel_message")
+    def test_an_issue_that_comes_back_within_its_cooldown_is_not_notified_again(
+        self, mock_send: Mock, db: dict[str, Mock]
+    ) -> None:
+        """The record survives a disappearance, so flapping issues keep their cooldown."""
+        # given
+        record = _record("TestAlert", "a", NOW - timedelta(minutes=10))
+        db["get_open"].return_value = [record]
+        alert = _alert()
+        alert.get_issues.side_effect = [[], [Issue("a", "details")]]
+        manager = AlertManager()
+        manager.alerts = [alert]
+
+        # when - absent, then back
+        manager.check_for_issues(NOW)
+        manager.check_for_issues(NOW + timedelta(minutes=1))
+
+        # then
+        db["add"].assert_not_called()
+        mock_send.assert_not_called()
+        db["set_notified"].assert_not_called()
 
 
 class TestSendOnce:

@@ -25,8 +25,7 @@ from utils import ensure_utc
 
 from shared.db.interface import (
     add_alert_issue,
-    get_open_alert_issues,
-    resolve_alert_issues,
+    get_alert_issues,
     set_alert_issue_notified,
 )
 from shared.db.models import AlertIssue, KrakenStatus
@@ -58,18 +57,15 @@ class AlertManager:
         self._last_sent: dict[str, datetime] = {}
 
     def check_for_issues(self, now: datetime) -> None:
-        """Run the DB-backed checks: open, notify and resolve the issue records."""
+        """Run the DB-backed checks and notify the issues that are due."""
         logging.info("Checking for issues...")
         status_objects = list(KrakenStatus.objects)
-        records = {(r.alert, r.key): r for r in get_open_alert_issues()}
-        detected: set[tuple[str, str]] = set()
+        records = {(r.alert, r.key): r for r in get_alert_issues()}
 
         for alert in self.alerts:
             due: list[tuple[Issue, AlertIssue]] = []
             for issue in alert.get_issues(status_objects, now):
-                record_key = (alert.name, issue.key)
-                detected.add(record_key)
-                record = records.get(record_key)
+                record = records.get((alert.name, issue.key))
                 if record is None:
                     record = add_alert_issue(
                         alert=alert.name,
@@ -87,9 +83,6 @@ class AlertManager:
             if due and _notify(alert, [issue for issue, _ in due]):
                 for _, record in due:
                     set_alert_issue_notified(record, now)
-
-        resolved = [r for k, r in records.items() if k not in detected]
-        resolve_alert_issues(resolved, now)
 
     def check_db_free_alerts(self, now: datetime) -> None:
         """Run the checks that need no DB, sending each issue with an in-memory cooldown."""

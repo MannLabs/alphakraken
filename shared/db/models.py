@@ -264,10 +264,11 @@ ALERT_ISSUE_EXPIRY_S = 90 * 24 * 60 * 60
 
 
 class AlertIssue(Document):
-    """An issue found by the monitoring, with its notification lifecycle.
+    """An issue found by the monitoring, and when it was last notified.
 
-    One document per occurrence: an issue that disappears is resolved, and a new document
-    is created if it comes back. The TTL index on `resolved_at` is created by
+    One document per issue key, kept as the notification memory across checks and restarts:
+    an issue that disappears and comes back is subject to its cooldown like any other. The
+    documents expire ALERT_ISSUE_EXPIRY_S after `first_seen` through a TTL index created by
     `misc/init-mongo.sh`, as the alerting user may not create indexes.
     """
 
@@ -286,8 +287,6 @@ class AlertIssue(Document):
     first_seen = DateTimeField(required=True)
     # None: never notified
     last_notified = DateTimeField()
-    # None: open; resolved issues expire after ALERT_ISSUE_EXPIRY_S
-    resolved_at = DateTimeField()
 
 
 class Project(Document):

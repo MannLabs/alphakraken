@@ -17,13 +17,14 @@ def test_add_owner_initials(mock_get_users: MagicMock) -> None:
     """Test that owner ids are replaced by initials, also for inactive and unknown owners."""
     mock_get_users.return_value = [_user("AB")]
     df = pd.DataFrame({"owner": ["ab@b.de", None, "unknown"]})
+    original_df = df.copy()
 
     # when
     result = add_owner_initials(df)
 
     # then
     assert result["owner"].tolist() == ["AB", "", ""]
-    assert df["owner"].tolist() == ["ab@b.de", None, "unknown"]
+    pd.testing.assert_frame_equal(df, original_df)
     mock_get_users.assert_called_once_with(include_inactive=True)
 
 

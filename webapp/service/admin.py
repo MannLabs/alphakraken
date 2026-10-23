@@ -29,8 +29,7 @@ def show_admin_login() -> None:
         else:
             password = st.text_input("Password", type="password")
             if password:
-                # constant-time comparison to avoid timing attacks
-                if hmac.compare_digest(password, expected_password):
+                if hmac.compare_digest(password.encode(), expected_password.encode()):
                     set_session_state(SessionStateKeys.IS_ADMIN, value=True)
                     st.rerun()
                 st.error("Wrong password.")

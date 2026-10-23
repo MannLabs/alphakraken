@@ -2,7 +2,6 @@
 
 from datetime import datetime
 from pathlib import Path
-from unittest import skip
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
@@ -126,13 +125,6 @@ def test_settings_without_runners_shows_notice_instead_of_form(
     assert len(at.table) == 1
     assert any("runners" in w.value for w in at.warning)
     assert [s for s in at.selectbox if s.label == RUNNER_SELECT_LABEL] == []
-
-
-@skip(
-    ""
-)  # TODO: fix this test once the issues with test_add_new_project_form_submission() are fixed
-def test_add_new_settings_form_submission() -> None:
-    """A test for the form submission on the settings page."""
 
 
 def _settings_df_with_software() -> pd.DataFrame:
@@ -300,3 +292,34 @@ def test_settings_without_users_shows_no_owner_select(
 
     assert not at.exception
     assert OWNER_SELECT_LABEL not in [s.label for s in at.selectbox]
+
+
+@patch("shared.db.interface.create_settings")
+@patch("service.owner.get_all_users")
+@patch("shared.db.models.ProjectSettings.objects")
+@patch("service.db.get_project_data")
+@patch("service.db.get_settings_data")
+@patch("service.db.df_from_db_data")
+def test_create_settings_passes_selected_owner(  # noqa: PLR0913
+    mock_df: MagicMock,
+    mock_get: MagicMock,  # noqa: ARG001
+    mock_project_get: MagicMock,  # noqa: ARG001
+    mock_ps_objects: MagicMock,
+    mock_get_users: MagicMock,
+    mock_create_settings: MagicMock,
+) -> None:
+    """Test that the owner selected in the form is passed on when creating settings."""
+    mock_ps_objects.all.return_value = []
+    mock_df.return_value = _settings_df()
+    mock_get_users.return_value = [MagicMock(initials="AB", email="a@b.de")]
+    at = AppTest.from_file(f"{PAGES_FOLDER}/settings.py").run(timeout=30)
+    at.selectbox[0].set_value("new settings").run(timeout=10)
+
+    next(s for s in at.selectbox if s.label == OWNER_SELECT_LABEL).set_value("a@b.de")
+    next(c for c in at.checkbox if c.label.startswith("I have uploaded")).check()
+    next(b for b in at.button if b.label.startswith("Update settings")).click().run(
+        timeout=10
+    )
+
+    assert not at.exception
+    assert mock_create_settings.call_args.kwargs["owner_email"] == "a@b.de"

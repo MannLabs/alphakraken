@@ -70,7 +70,7 @@ def test_admin_adds_user_with_cleaned_inputs(
     mock_get_users: MagicMock,  # noqa: ARG001
     mock_add_user: MagicMock,
 ) -> None:
-    """Test that adding a user passes lowercased email and initials with their case kept."""
+    """Test that adding a user passes the email and the stripped initials with their case kept."""
     at = _admin_app().run()
 
     at.text_input[0].set_value(" A@B.de ")
@@ -78,7 +78,7 @@ def test_admin_adds_user_with_cleaned_inputs(
     at.button[0].click().run()
 
     assert not at.exception
-    mock_add_user.assert_called_once_with(email="a@b.de", initials="Ab")
+    mock_add_user.assert_called_once_with(email=" A@B.de ", initials="Ab")
 
 
 @patch("shared.db.interface.update_user")
@@ -128,7 +128,7 @@ def test_admin_bulk_adds_users_and_reports_failures(
     assert not at.exception
     assert mock_add_user.call_args_list == [
         call(email="a@b.de", initials="Ab"),
-        call(email="c@d.de", initials="CD"),
+        call(email="C@D.de", initials="CD"),
     ]
     assert at.success[0].value == "Added 1 users: Ab"
     assert at.error[0].value == (

@@ -1298,11 +1298,11 @@ def test_augment_raw_files_with_metrics_should_query_correct_fields_when_fields_
 @patch("shared.db.interface.connect_db")
 @patch("shared.db.interface.User")
 def test_add_user(mock_user: MagicMock, mock_connect_db: MagicMock) -> None:
-    """Test that add_user saves a new user if email and initials are unused."""
+    """Test that add_user saves a new user with normalized email if email and initials are unused."""
     mock_user.objects.return_value.first.return_value = None
 
     # when
-    add_user(email="a@b.de", initials="AB")
+    add_user(email=" A@B.de ", initials="AB")
 
     # then
     mock_user.objects.assert_any_call(email="a@b.de")

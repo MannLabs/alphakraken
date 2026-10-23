@@ -246,7 +246,7 @@ class User(Document):
     Not a login identity.
     """
 
-    # uniqueness of initials is checked in the interface, to avoid adding index write rights
+    # uniqueness of initials is only checked in the interface, a race between concurrent writes is accepted
     meta: ClassVar = {"strict": False, "auto_create_index": False}
     objects: ClassVar[QuerySet[User]]
 

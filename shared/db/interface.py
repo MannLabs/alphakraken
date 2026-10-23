@@ -432,8 +432,9 @@ def _get_owner(owner_email: str | None) -> User | None:
 
 
 def add_user(*, email: str, initials: str) -> User:
-    """Add a new active user."""
+    """Add a new active user, the email is normalized to lower case."""
     connect_db()
+    email = email.strip().lower()
     if User.objects(email=email).first():
         raise ValueError(f"A user with email '{email}' already exists.")
     _check_initials_unique(initials)

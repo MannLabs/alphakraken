@@ -5,7 +5,7 @@ import streamlit as st
 from service.admin import is_admin
 from service.query_params import get_all_query_params
 from service.session_state import SessionStateKeys, set_session_state
-from service.user_input import clean_email, clean_initials, parse_user_row
+from service.user_input import clean_initials, parse_user_row
 from service.utils import (
     DISABLE_WRITE,
     _log,
@@ -62,17 +62,18 @@ with c1.form("add_user_form"):
 
 if add_submit:
     try:
-        add_user(email=clean_email(new_email), initials=clean_initials(new_initials))
+        add_user(email=new_email, initials=clean_initials(new_initials))
     except Exception as e:  # noqa: BLE001
         show_error_toast(str(e))
     else:
         show_success_toast(f"Added user '{clean_initials(new_initials)}'.")
 
+# cleared, as the report lists the failed rows
 with c1.form("bulk_add_users_form"):
     bulk_rows = st.text_area(
         "Bulk add users",
         placeholder="jane.doe@example.com,JD\njohn.roe@example.com,JR",
-        help="One user per row as `e-mail,initials`. Valid rows are added even if others fail.",
+        help="One user per row as `e-mail,initials` (or tab-separated, e.g. pasted from a spreadsheet). Valid rows are added even if others fail.",
     )
     bulk_submit = st.form_submit_button("Add users", disabled=DISABLE_WRITE)
 

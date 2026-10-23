@@ -45,6 +45,9 @@ _INSTRUMENTS_CONFIG = YAMLSETTINGS.get(YamlKeys.INSTRUMENTS, {})
 _INSTRUMENT_IDS = list(_INSTRUMENTS_CONFIG.keys())
 SCOPE_OPTIONS = [DEFAULT_SCOPE, *KNOWN_VENDOR_NAMES, *_INSTRUMENT_IDS]
 DEFAULT_SCOPE_DISPLAY = "(all)"
+FALLBACK_ADMIN_ONLY_MESSAGE = (
+    "Changing settings assignment to _FALLBACK project requires admin privileges."
+)
 
 _log(f"loading {__file__} {get_all_query_params()}")
 
@@ -52,6 +55,13 @@ _log(f"loading {__file__} {get_all_query_params()}")
 def _split_filter(text: str) -> list[str]:
     """Split a comma-separated filter input into its non-empty entries."""
     return [t.strip() for t in text.split(",") if t.strip()]
+
+
+def _check_assignment_allowed(project_id: str) -> None:
+    """Raise if the assignments of the project can't be changed by the current session."""
+    # the buttons are disabled as well, but this is enforced client-side only
+    if project_id == FALLBACK_PROJECT_ID and not is_admin():
+        raise PermissionError(FALLBACK_ADMIN_ONLY_MESSAGE)
 
 
 def _display_scope(scope: str) -> str:
@@ -191,6 +201,7 @@ with c_assign1:
                     icon=":material/link_off:",
                 ):
                     try:
+                        _check_assignment_allowed(selected_project_id)
                         unassign_settings_from_project(ps_id)  # type: ignore[unresolved-attribute]
                         show_success_toast(
                             f"Removed settings assignment from project {selected_project_id}."
@@ -211,6 +222,7 @@ with c_assign1:
                     icon=":material/upgrade:",
                 ):
                     try:
+                        _check_assignment_allowed(selected_project_id)
                         check_not_assigned_with_same_filters(
                             selected_project_id,
                             latest,  # type: ignore[arg-type]
@@ -284,9 +296,7 @@ with c_assign1:
             )
 
             if disable_write:
-                st.warning(
-                    "Changing settings assignment to _FALLBACK project requires admin privileges."
-                )
+                st.warning(FALLBACK_ADMIN_ONLY_MESSAGE)
             if st.button(
                 f"Assign selected settings to project {selected_project_id}",
                 disabled=disable_write or not selected_scopes,
@@ -294,6 +304,7 @@ with c_assign1:
                 icon=":material/link:",
             ):
                 try:
+                    _check_assignment_allowed(selected_project_id)
                     new_settings_id = settings_options_map[selected_settings_display]
                     assign_settings_to_project(
                         selected_project_id,

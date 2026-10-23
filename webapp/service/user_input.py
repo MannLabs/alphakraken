@@ -1,11 +1,9 @@
 """Normalization and parsing of user input on the admin page."""
 
-USER_ROW_SEPARATOR = ","
+import re
 
-
-def clean_email(email: str) -> str:
-    """Normalize an email."""
-    return email.strip().lower()
+# comma, or tab as in rows pasted from a spreadsheet
+USER_ROW_SEPARATOR_REGEX = r"[,\t]"
 
 
 def clean_initials(initials: str) -> str:
@@ -14,8 +12,8 @@ def clean_initials(initials: str) -> str:
 
 
 def parse_user_row(row: str) -> tuple[str, str]:
-    """Parse a row of `email,initials` into a normalized (email, initials) tuple."""
-    fields = row.split(USER_ROW_SEPARATOR)
+    """Parse a row of `email,initials` (or tab-separated) into an (email, initials) tuple."""
+    fields = re.split(USER_ROW_SEPARATOR_REGEX, row)
     if len(fields) != 2:  # noqa: PLR2004
-        raise ValueError(f"expected 'e-mail{USER_ROW_SEPARATOR}initials', got '{row}'.")
-    return clean_email(fields[0]), clean_initials(fields[1])
+        raise ValueError(f"expected 'e-mail,initials', got '{row}'.")
+    return fields[0], clean_initials(fields[1])

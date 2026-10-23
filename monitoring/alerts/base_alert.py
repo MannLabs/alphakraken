@@ -4,10 +4,8 @@ import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
-from pathlib import Path
-from typing import Any, Generic, TypeVar
+from typing import Generic, TypeVar
 
-import yaml
 from alerts.config import (
     DEFAULT_ALERT_COOLDOWN_TIME_MINUTES,
     MAX_DETAILS_CHARS,
@@ -48,28 +46,6 @@ def get_instrument_id(kraken_status: KrakenStatus) -> str | None:
     return None
 
 
-def _load_suppressions() -> list[dict[str, Any]]:
-    """Load suppressions from YAML file."""
-    suppressions_file = Path(__file__).parent / ".." / "suppressions.yaml"
-
-    try:
-        with Path(suppressions_file).open() as f:
-            config = yaml.safe_load(f)
-            suppressions = config.get("suppressions", []) if config else []
-            logging.info(f"Loaded {len(suppressions)} suppression rules")
-    except FileNotFoundError:
-        logging.info("No suppressions.yaml file found, no alerts will be suppressed")
-        suppressions = []
-    except Exception as e:  # noqa: BLE001
-        logging.warning(f"Failed to load suppressions.yaml: {e}")
-        suppressions = []
-    return suppressions
-
-
-# Load suppressions at module import
-_suppressions: list[dict[str, Any]] = _load_suppressions()
-
-
 class BaseAlert(ABC):
     """Base class for all alert checkers."""
 
@@ -83,59 +59,11 @@ class BaseAlert(ABC):
     def get_issues(
         self, status_objects: list[KrakenStatus], now: datetime
     ) -> list[Issue]:
-        """Check for issues and return those not muted by a suppression.
-
-        Returns empty list if no issues found.
-        """
+        """Check for issues and return them."""
         logging.info(f"Checking for issues: {self.name}...")
         issues = self._get_issues(status_objects, now)
-        issues_before_suppression = len(issues)
-        issues = self._apply_suppressions(issues)
-
-        if issues_before_suppression != len(issues):
-            logging.info(
-                f"Suppressed {issues_before_suppression - len(issues)} issues for {self.name}"
-            )
-
-        logging.info(f"Found {len(issues)} issues after suppression: {self.name}.")
+        logging.info(f"Found {len(issues)} issues: {self.name}.")
         return issues
-
-    def _apply_suppressions(self, issues: list[Issue]) -> list[Issue]:
-        """Apply suppression rules to filter out suppressed issues."""
-        if not _suppressions:
-            return issues
-
-        alert_class = self.__class__.__name__
-        filtered_issues = []
-
-        for issue in issues:
-            context = issue.identifier
-            message = issue.details
-
-            suppressed = False
-            for suppression in _suppressions:
-                if suppression.get("error_class") == alert_class:
-                    supp_context = suppression.get("context", "*")
-                    context_matches = supp_context == "*" or supp_context in str(
-                        context
-                    )
-
-                    supp_message = suppression.get("message", "*")
-                    message_matches = supp_message == "*" or supp_message in str(
-                        message
-                    )
-
-                    if context_matches and message_matches:
-                        suppressed = True
-                        logging.debug(
-                            f"Suppressed issue: {alert_class} - {context} - {message}"
-                        )
-                        break
-
-            if not suppressed:
-                filtered_issues.append(issue)
-
-        return filtered_issues
 
     @abstractmethod
     def _get_issues(

@@ -22,12 +22,15 @@ from alerts import (
 from alerts.base_alert import Issue
 from alerts.config import Destinations
 from alerts.recipients import get_messenger_ids_by_initials, get_recipients
+from alerts.suppressions import is_muted
 from messenger import Message, send
 from utils import ensure_utc
 
 from shared.db.interface import (
     add_alert_issue,
+    get_active_alert_suppressions,
     get_alert_issues,
+    set_alert_issue_muted,
     set_alert_issue_notified,
 )
 from shared.db.models import AlertIssue, KrakenStatus
@@ -63,11 +66,13 @@ class AlertManager:
         logging.info("Checking for issues...")
         status_objects = list(KrakenStatus.objects)
         records = {(r.alert, r.key): r for r in get_alert_issues()}
+        suppressions = get_active_alert_suppressions()
         messenger_ids_by_initials = get_messenger_ids_by_initials()
 
         for alert in self.alerts:
             due: list[tuple[Issue, AlertIssue]] = []
             for issue in alert.get_issues(status_objects, now):
+                muted = is_muted(alert.name, issue, suppressions)
                 record = records.get((alert.name, issue.key))
                 if record is None:
                     record = add_alert_issue(
@@ -78,8 +83,13 @@ class AlertManager:
                         relevant_file=issue.relevant_file,
                         details=str(issue.details),
                         first_seen=now,
+                        muted=muted,
                     )
-                if _is_due(record, alert.get_cooldown_minutes(issue), now):
+                elif record.muted != muted:
+                    set_alert_issue_muted(record, muted)
+                if not muted and _is_due(
+                    record, alert.get_cooldown_minutes(issue), now
+                ):
                     due.append((issue, record))
 
             # the records are only marked as notified once sent, so failed sends are retried

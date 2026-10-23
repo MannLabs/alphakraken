@@ -288,10 +288,6 @@ class AlertIssue(Document):
     alert = StringField(required=True, max_length=64)
     # stable per issue within an alert, cf. `Issue.key` in the monitoring
     key = StringField(required=True, max_length=512)
-    identifier = StringField(required=True, max_length=256)
-    instrument_id = StringField(max_length=64)
-    relevant_file = StringField(max_length=512)
-    details = StringField(required=True)
 
     first_seen = DateTimeField(required=True)
     # None: never notified
@@ -301,7 +297,7 @@ class AlertIssue(Document):
 class AlertSuppression(Document):
     """Schema for a rule muting monitoring alerts; an issue is muted if all fields match.
 
-    The match fields mirror the fields of `AlertIssue`.
+    The match fields mirror those of `Issue` in the monitoring.
     """
 
     meta: ClassVar = {"strict": False}

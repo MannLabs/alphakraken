@@ -98,13 +98,7 @@ class AlertManager:
             record = records.get((alert.name, issue.key))
             if record is None:
                 record = add_alert_issue(
-                    alert=alert.name,
-                    key=issue.key,
-                    identifier=issue.identifier,
-                    instrument_id=issue.instrument_id,
-                    relevant_file=issue.relevant_file,
-                    details=str(issue.details),
-                    first_seen=now,
+                    alert=alert.name, key=issue.key, first_seen=now
                 )
             if _is_due(record, alert.get_cooldown_minutes(issue), now):
                 due.append((issue, record))

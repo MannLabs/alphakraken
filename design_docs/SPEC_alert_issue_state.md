@@ -14,8 +14,9 @@ resolved notifications, to keep the design small).
 ## Decisions
 
 - Collection `alert_issue`, one document per `(alert, key)`:
-  `alert` (class name), `key` (str, see below), `identifier`, `instrument_id`, `relevant_file`,
-  `details` (str rendering), `first_seen`, `last_notified` (`None` = never).
+  `alert` (class name), `key` (str, see below), `first_seen`, `last_notified` (`None` = never).
+  Nothing else: the record is read only to decide whether to notify, so it carries no
+  description of the issue (dropped 2026-10-23, it was written and never read).
 - `key` is an explicit, stable string built by the alert, never a tuple of floats or a repr.
   Default is `identifier`. Details-dependent keys use a short stable digest of the details.
   Examples: stall `"<instrument>:<last file>"`, raw file error `"<file>:<digest(details)>"`,
@@ -42,8 +43,7 @@ resolved notifications, to keep the design small).
 - Retention: a TTL index on `first_seen` (90 days) bounds the collection; a once-only issue
   recurring after that is notified again. The alerting user may not create indexes, so
   `misc/init-mongo.sh` and the upgrade guide create it.
-- DB access: `alertingRole` gets `find`/`insert`/`update` on `alert_issue`. The webapp reads it
-  later for the ops dashboard (`webappRole` already has read).
+- DB access: `alertingRole` gets `find`/`insert`/`update` on `alert_issue`.
 
 ## Out of scope
 

@@ -101,10 +101,6 @@ class TestCheckForIssues:
         db["add"].assert_called_once_with(
             alert="TestAlert",
             key="inst1:k",
-            identifier="inst1",
-            instrument_id="inst1",
-            relevant_file=None,
-            details="150",
             first_seen=NOW,
         )
         mock_send.assert_called_once_with(Message("inst1", "TestAlert title"), {"ops"})

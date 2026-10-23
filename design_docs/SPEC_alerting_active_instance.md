@@ -19,7 +19,8 @@ because the issue state is in the DB. No coordination beyond MongoDB.
 - Claim or renew in one atomic `find_one_and_update(..., upsert=True)` whose filter is
   `_id` and (`instance == self` or `expires_at < now`). If the filter does not match, the upsert
   tries to insert a second `_id` and raises `DuplicateKeyError`: this instance is not active.
-- Timeout is 3 × `CHECK_INTERVAL_SECONDS` (180 s). Each loop iteration renews before checking.
+- Timeout is 10 × `CHECK_INTERVAL_SECONDS` (600 s). Each loop iteration renews once, before
+  checking, so the timeout covers slow checks plus the sleep.
 - Instance id is `<KRAKEN_HOSTNAME>-<8 hex of uuid4>`, unique even for two instances on one host.
 - Fail open: on any other `PyMongoError` (e.g. missing write permission) the instance logs the
   exception and acts as active. Duplicate alerts beat no alerts.

@@ -44,10 +44,7 @@ def test_main_runs_db_backed_checks_only_when_active(
     manager.check_db_free_alerts.assert_called_once()
     mock_connect_db.assert_called_once_with(raise_on_error=True)
     assert manager.check_for_issues.called is is_active
-    # the active instance renews its claim after the checks as well
-    assert mock_election_cls.return_value.try_become_active.call_count == (
-        2 if is_active else 1
-    )
+    mock_election_cls.return_value.try_become_active.assert_called_once()
     assert _sent_keys(mock_alert_manager_cls) == ["startup"]
     mock_sleep.assert_called_once()
 

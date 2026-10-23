@@ -69,8 +69,6 @@ def main() -> None:
             connect_db(raise_on_error=True)
             if election.try_become_active(now):
                 alert_manager.check_for_issues(now)
-                # the checks may take long: renew the claim so that it covers the sleep
-                election.try_become_active(datetime.now(pytz.UTC))
         except ConnectionFailure as e:
             alert_manager.send_once(
                 "db_connection_error",

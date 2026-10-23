@@ -10,6 +10,7 @@ import pytz
 from pymongo import UpdateOne
 
 from shared.db.interface import (
+    add_alert_issue,
     add_metrics_to_raw_file,
     add_project,
     add_raw_file,
@@ -24,12 +25,15 @@ from shared.db.interface import (
     get_all_settings,
     get_all_users,
     get_latest_active_settings_by_name,
+    get_open_alert_issues,
     get_project_settings,
     get_purge_candidates_by_age,
     get_raw_file_by_id,
     get_raw_files_by_instrument_file_status,
     get_raw_files_by_names,
     get_slurm_job,
+    resolve_alert_issues,
+    set_alert_issue_notified,
     set_user_status,
     unassign_settings_from_project,
     update_kraken_status,
@@ -1557,3 +1561,105 @@ def test_delete_assigned_settings_raises(
         delete_settings("settings_id")
 
     mock_settings.objects.assert_not_called()
+
+
+@patch("shared.db.interface.AlertIssue")
+@patch("shared.db.interface.connect_db")
+def test_get_open_alert_issues(
+    mock_connect_db: MagicMock,  # noqa: ARG001
+    mock_alert_issue: MagicMock,
+) -> None:
+    """Test that only unresolved issues are queried."""
+    # when
+    result = get_open_alert_issues()
+
+    # then
+    mock_alert_issue.objects.assert_called_once_with(resolved_at=None)
+    assert result == list(mock_alert_issue.objects.return_value)
+
+
+@patch("shared.db.interface.AlertIssue")
+@patch("shared.db.interface.connect_db")
+def test_add_alert_issue(
+    mock_connect_db: MagicMock,  # noqa: ARG001
+    mock_alert_issue: MagicMock,
+) -> None:
+    """Test that an open issue is inserted with all fields."""
+    # given
+    first_seen = datetime(2024, 1, 1, tzinfo=pytz.UTC)
+
+    # when
+    result = add_alert_issue(
+        alert="DiskSpaceAlert",
+        key="inst1",
+        identifier="inst1",
+        instrument_id="inst1",
+        relevant_file=None,
+        details="150 GB",
+        first_seen=first_seen,
+    )
+
+    # then
+    mock_alert_issue.assert_called_once_with(
+        alert="DiskSpaceAlert",
+        key="inst1",
+        identifier="inst1",
+        instrument_id="inst1",
+        relevant_file=None,
+        details="150 GB",
+        first_seen=first_seen,
+    )
+    mock_alert_issue.return_value.save.assert_called_once_with(force_insert=True)
+    assert result == mock_alert_issue.return_value
+
+
+@patch("shared.db.interface.connect_db")
+def test_set_alert_issue_notified(
+    mock_connect_db: MagicMock,  # noqa: ARG001
+) -> None:
+    """Test that the notification time is written to the issue."""
+    # given
+    issue = MagicMock()
+    notified_at = datetime(2024, 1, 1, tzinfo=pytz.UTC)
+
+    # when
+    set_alert_issue_notified(issue, notified_at)
+
+    # then
+    issue.update.assert_called_once_with(set__last_notified=notified_at)
+
+
+@patch("shared.db.interface.AlertIssue")
+@patch("shared.db.interface.connect_db")
+def test_resolve_alert_issues(
+    mock_connect_db: MagicMock,  # noqa: ARG001
+    mock_alert_issue: MagicMock,
+) -> None:
+    """Test that all given issues are resolved in one update."""
+    # given
+    issues = [MagicMock(id="a"), MagicMock(id="b")]
+    resolved_at = datetime(2024, 1, 1, tzinfo=pytz.UTC)
+
+    # when
+    resolve_alert_issues(issues, resolved_at)
+
+    # then
+    mock_alert_issue.objects.assert_called_once_with(id__in=["a", "b"])
+    mock_alert_issue.objects.return_value.update.assert_called_once_with(
+        set__resolved_at=resolved_at
+    )
+
+
+@patch("shared.db.interface.AlertIssue")
+@patch("shared.db.interface.connect_db")
+def test_resolve_alert_issues_without_issues_does_not_query(
+    mock_connect_db: MagicMock,
+    mock_alert_issue: MagicMock,
+) -> None:
+    """Test that an empty list causes no DB access."""
+    # when
+    resolve_alert_issues([], datetime(2024, 1, 1, tzinfo=pytz.UTC))
+
+    # then
+    mock_connect_db.assert_not_called()
+    mock_alert_issue.objects.assert_not_called()

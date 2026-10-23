@@ -23,6 +23,8 @@ general:
     business_alerts_webhook_url: "https://hooks.slack.com/services/<something> or https://...api.powerplatform.com:443/powerautomate/automations/<something>"
     slack_bot_token: "<slack_bot_token>"
     webapp_url: "<webapp_url>"
+    # optional: instruments to alert on if no new file is acquired for a while
+    # instrument_stall_instrument_ids: [test1]
 
 display_paths:
   backup: /fs/pool-1/backup

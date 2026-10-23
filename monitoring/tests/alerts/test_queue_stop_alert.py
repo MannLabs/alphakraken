@@ -21,6 +21,7 @@ from monitoring.alerts.queue_stop_alert import (
 NOW = datetime(2026, 1, 1, 12, 0, tzinfo=pytz.UTC)
 MAX_GRADIENT = timedelta(hours=2)
 MULTIPLIER = 3
+MAX_AGE = timedelta(hours=12)
 GRADIENT = timedelta(minutes=30)
 
 
@@ -31,7 +32,7 @@ def _file(name: str, created_at: datetime, initials: str | None) -> RecentFile:
 def _detect_on_inst1(
     files: list[RecentFile], now: datetime = NOW
 ) -> QueueStopIssue | None:
-    return _detect("inst1", files, now, MAX_GRADIENT, MULTIPLIER)
+    return _detect("inst1", files, now, MAX_GRADIENT, MULTIPLIER, MAX_AGE)
 
 
 class TestStopRule:
@@ -58,6 +59,14 @@ class TestStopRule:
         files = [
             _file("x_MaSc_a.raw", NOW - 2 * GRADIENT, "MaSc"),
             _file("x_MaSc_b.raw", NOW - 3 * GRADIENT, "MaSc"),
+        ]
+        assert _detect_on_inst1(files) is None
+
+    def test_no_stop_when_the_newest_file_exceeds_the_max_age(self) -> None:
+        """A stop older than the max age is not reported, e.g. on the first deploy."""
+        files = [
+            _file("x_MaSc_a.raw", NOW - timedelta(hours=13), "MaSc"),
+            _file("x_MaSc_b.raw", NOW - timedelta(hours=13) - GRADIENT, "MaSc"),
         ]
         assert _detect_on_inst1(files) is None
 
@@ -123,6 +132,15 @@ class TestHandoffRule:
         assert result == QueueStopIssue(
             KIND_HANDOFF, "inst1", "x_MaSc_a.raw", GRADIENT, None, tuple(files)
         )
+
+    def test_no_handoff_when_the_newest_file_exceeds_the_max_age(self) -> None:
+        """A handoff older than the max age is not reported."""
+        files = [
+            _file("x_n.raw", NOW - timedelta(hours=13), "JoDo"),
+            _file("x_MaSc_a.raw", NOW - timedelta(hours=14), "MaSc"),
+            _file("x_MaSc_b.raw", NOW - timedelta(hours=14) - GRADIENT, "MaSc"),
+        ]
+        assert _detect_on_inst1(files) is None
 
     def test_no_handoff_with_only_two_files(self) -> None:
         """Without a third file the prior user's queue cannot be identified."""

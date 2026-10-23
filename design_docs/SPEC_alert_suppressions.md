@@ -24,7 +24,8 @@ redeploying. Rules can expire and carry a reason. Monitoring picks up changes wi
   - `instrument_id`: exact match on the instrument the issue relates to, or `*`. Issues of file
     systems, jobs, webapp and local disk have no instrument, so only `*` matches them.
   - `identifier`: exact match on the issue identifier, or `*`.
-  - `details`: substring of `str(issue.details)`, or `*`.
+  - `details`: substring of the issue as rendered in the message (`format_message([issue])`),
+    or `*`.
 - Active rules are those with `expires_at` `None` or in the future. Monitoring loads them once per
   loop, before the DB-free checks, and keeps the last read ones while the DB is down. A muted
   issue is skipped: no `alert_issue` record, no notification. When the rule expires and the issue

@@ -75,7 +75,7 @@ class AlertManager:
         for alert in self.alerts:
             due: list[tuple[Issue, AlertIssue]] = []
             for issue in alert.get_issues(status_objects, now):
-                if is_muted(alert.name, issue, self._suppressions):
+                if is_muted(alert, issue, self._suppressions):
                     continue
                 record = records.get((alert.name, issue.key))
                 if record is None:
@@ -117,7 +117,7 @@ class AlertManager:
         self._refresh_suppressions()
         for alert in self.db_free_alerts:
             for issue in alert.get_issues([], now):
-                if is_muted(alert.name, issue, self._suppressions):
+                if is_muted(alert, issue, self._suppressions):
                     logging.info(f"Muted {alert.name} issue {issue.identifier}")
                     continue
                 self.send_once(

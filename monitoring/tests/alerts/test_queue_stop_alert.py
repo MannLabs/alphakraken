@@ -225,7 +225,10 @@ class TestQueueStopAlert:
         assert QueueStopAlert().cooldown_minutes is None
 
     @patch("monitoring.alerts.queue_stop_alert.load_recent_files")
-    @patch("monitoring.alerts.queue_stop_alert.get_messenger_ids_by_initials", return_value={})
+    @patch(
+        "monitoring.alerts.queue_stop_alert.get_messenger_ids_by_initials",
+        return_value={},
+    )
     def test_no_issues_without_users_with_a_messenger_id(
         self, mock_known: Mock, mock_load: Mock
     ) -> None:
@@ -239,7 +242,8 @@ class TestQueueStopAlert:
     @patch("monitoring.alerts.queue_stop_alert.QUEUE_STOP_THRESHOLD_MULTIPLIER", 3)
     @patch("monitoring.alerts.queue_stop_alert.load_recent_files")
     @patch(
-        "monitoring.alerts.queue_stop_alert.get_messenger_ids_by_initials", return_value={"MaSc"}
+        "monitoring.alerts.queue_stop_alert.get_messenger_ids_by_initials",
+        return_value={"MaSc": "U_MASC"},
     )
     def test_one_issue_per_instrument_with_a_queue_stop(
         self,

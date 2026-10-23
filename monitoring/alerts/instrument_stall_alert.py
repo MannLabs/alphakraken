@@ -3,7 +3,6 @@
 import logging
 from datetime import datetime, timedelta
 
-import pytz
 from utils import ensure_utc
 
 from shared.db.models import KrakenStatus, RawFile
@@ -26,7 +25,7 @@ class InstrumentStallAlert(BaseAlert):
 
     def _get_issues(
         self, status_objects: list[KrakenStatus], now: datetime
-    ) -> list[Issue[datetime]]:
+    ) -> list[Issue[str]]:
         """Check for instruments with no recent file acquisition."""
         del status_objects
 
@@ -53,10 +52,12 @@ class InstrumentStallAlert(BaseAlert):
             if created_at < threshold:
                 if self._alerted_file_names.get(instrument_id) == latest.original_name:
                     continue
+                hours_ago = (now - created_at).total_seconds() / 3600
                 issues.append(
                     Issue(
                         instrument_id,
-                        created_at,
+                        f'last file "{latest.original_name}" acquired at '
+                        f"{created_at:%Y-%m-%d %H:%M:%S} UTC ({hours_ago:.1f} hours ago)",
                         relevant_file=latest.original_name,
                         instrument_id=instrument_id,
                     )
@@ -66,17 +67,3 @@ class InstrumentStallAlert(BaseAlert):
                 self._alerted_file_names.pop(instrument_id, None)
 
         return issues
-
-    def format_message(self, issues: list[Issue[datetime]]) -> str:
-        """Format no new file acquired message body."""
-        now = datetime.now(pytz.UTC)
-        lines = []
-        for issue in issues:
-            created_at = issue.details
-            hours_ago = (now - created_at).total_seconds() / 3600
-            lines.append(
-                f'- `{issue.identifier}`: last file "{issue.relevant_file}" '
-                f"acquired at {created_at.strftime('%Y-%m-%d %H:%M:%S')} UTC "
-                f"({hours_ago:.1f} hours ago)"
-            )
-        return "\n".join(lines)

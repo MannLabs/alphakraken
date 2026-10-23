@@ -2,7 +2,6 @@
 
 from datetime import datetime, timedelta
 
-import pytz
 from utils import ensure_utc
 
 from shared.db.models import KrakenStatus, KrakenStatusEntities
@@ -21,7 +20,7 @@ class StaleStatusAlert(BaseAlert):
 
     def _get_issues(
         self, status_objects: list[KrakenStatus], now: datetime
-    ) -> list[Issue[datetime]]:
+    ) -> list[Issue[str]]:
         """Check for stale statuses."""
         stale_instruments = []
         for kraken_status in status_objects:
@@ -39,20 +38,13 @@ class StaleStatusAlert(BaseAlert):
 
             threshold = now - time_delta
             if last_updated_at < threshold:
+                hours_ago = (now - last_updated_at).total_seconds() / 3600
                 stale_instruments.append(
                     Issue(
                         id_,
-                        last_updated_at,
+                        f"{last_updated_at:%Y-%m-%d %H:%M:%S} UTC ({hours_ago:.1f} hours ago)",
                         instrument_id=get_instrument_id(kraken_status),
                     )
                 )
 
         return stale_instruments
-
-    def format_message(self, issues: list[Issue[datetime]]) -> str:
-        """Format stale status message body."""
-        return "\n".join(
-            f"- `{issue.identifier}`: {issue.details.strftime('%Y-%m-%d %H:%M:%S')} UTC "
-            f"({(datetime.now(pytz.UTC) - issue.details).total_seconds() / 60 / 60:.1f} hours ago)"
-            for issue in issues
-        )

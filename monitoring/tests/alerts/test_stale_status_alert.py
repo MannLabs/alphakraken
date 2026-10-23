@@ -1,7 +1,7 @@
 """Unit tests for StaleStatusAlert class."""
 
 from datetime import datetime
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 import pytz
 
@@ -126,65 +126,18 @@ class TestStaleStatusAlert:
         expected = [
             Issue(
                 "instrument_stale",
-                datetime(2024, 1, 15, 11, 30, 0, tzinfo=pytz.UTC),
+                "2024-01-15 11:30:00 UTC (0.5 hours ago)",
                 instrument_id="instrument_stale",
             ),
             Issue(
                 "instrument_very_stale",
-                datetime(2024, 1, 15, 10, 0, 0, tzinfo=pytz.UTC),
+                "2024-01-15 10:00:00 UTC (2.0 hours ago)",
                 instrument_id="instrument_very_stale",
             ),
-            Issue("storage_stale", datetime(2024, 1, 15, 11, 20, 0, tzinfo=pytz.UTC)),
-            Issue("monitor_job", datetime(2024, 1, 15, 11, 25, 0, tzinfo=pytz.UTC)),
-            Issue("file_remover", datetime(2024, 1, 14, 10, 0, 0, tzinfo=pytz.UTC)),
+            Issue("storage_stale", "2024-01-15 11:20:00 UTC (0.7 hours ago)"),
+            Issue("monitor_job", "2024-01-15 11:25:00 UTC (0.6 hours ago)"),
+            Issue("file_remover", "2024-01-14 10:00:00 UTC (26.0 hours ago)"),
         ]
-        assert result == expected
-
-    @patch("monitoring.alerts.stale_status_alert.datetime")
-    def test_format_message_should_handle_comprehensive_scenarios(
-        self, mock_datetime: Mock
-    ) -> None:
-        """Test that format_message handles multiple issues with various entity types and time differences."""
-        # given
-        alert = StaleStatusAlert()
-        now = datetime(2024, 1, 15, 12, 0, 0, tzinfo=pytz.UTC)
-        mock_datetime.now.return_value = now
-
-        # Complex mix of issues with different staleness levels
-        issues = [
-            Issue(
-                "instrument_main",
-                datetime(2024, 1, 15, 10, 0, 0, tzinfo=pytz.UTC),
-            ),  # 2.0 hours ago
-            Issue(
-                "backup_system",
-                datetime(2024, 1, 15, 9, 30, 0, tzinfo=pytz.UTC),
-            ),  # 2.5 hours ago
-            Issue(
-                "file_remover",
-                datetime(2024, 1, 14, 10, 0, 0, tzinfo=pytz.UTC),
-            ),  # 26.0 hours ago
-            Issue(
-                "processor_job",
-                datetime(2024, 1, 15, 11, 45, 0, tzinfo=pytz.UTC),
-            ),  # 0.25 hours ago
-            Issue(
-                "storage_server",
-                datetime(2024, 1, 15, 11, 40, 0, tzinfo=pytz.UTC),
-            ),  # 0.33 hours ago
-        ]
-
-        # when
-        result = alert.format_message(issues)
-
-        # then
-        expected = (
-            "- `instrument_main`: 2024-01-15 10:00:00 UTC (2.0 hours ago)\n"
-            "- `backup_system`: 2024-01-15 09:30:00 UTC (2.5 hours ago)\n"
-            "- `file_remover`: 2024-01-14 10:00:00 UTC (26.0 hours ago)\n"
-            "- `processor_job`: 2024-01-15 11:45:00 UTC (0.2 hours ago)\n"
-            "- `storage_server`: 2024-01-15 11:40:00 UTC (0.3 hours ago)"
-        )
         assert result == expected
 
     def test_check_should_return_empty_when_all_fresh(self) -> None:
@@ -270,7 +223,5 @@ class TestStaleStatusAlert:
 
         # then
         # Only regular job should be stale
-        expected = [
-            Issue("regular_job", datetime(2024, 1, 14, 12, 0, 1, tzinfo=pytz.UTC))
-        ]
+        expected = [Issue("regular_job", "2024-01-14 12:00:01 UTC (24.0 hours ago)")]
         assert result == expected

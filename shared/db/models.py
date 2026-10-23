@@ -260,6 +260,35 @@ class User(Document):
     created_at_ = DateTimeField(default=datetime.now)
 
 
+ALERT_ISSUE_EXPIRY_S = 90 * 24 * 60 * 60
+
+
+class AlertIssue(Document):
+    """An issue found by the monitoring, and when it was last notified.
+
+    One document per issue key, kept as the notification memory across checks and restarts:
+    an issue that disappears and comes back is subject to its cooldown like any other. The
+    documents expire ALERT_ISSUE_EXPIRY_S after `first_seen` through a TTL index created by
+    `misc/init-mongo.sh`, as the alerting user may not create indexes.
+    """
+
+    meta: ClassVar = {"strict": False, "auto_create_index": False}
+    objects: ClassVar[QuerySet[AlertIssue]]
+
+    # alert class name, e.g. "DiskSpaceAlert"
+    alert = StringField(required=True, max_length=64)
+    # stable per issue within an alert, cf. `Issue.key` in the monitoring
+    key = StringField(required=True, max_length=512)
+    identifier = StringField(required=True, max_length=256)
+    instrument_id = StringField(max_length=64)
+    relevant_file = StringField(max_length=512)
+    details = StringField(required=True)
+
+    first_seen = DateTimeField(required=True)
+    # None: never notified
+    last_notified = DateTimeField()
+
+
 class Project(Document):
     """Schema for a project."""
 

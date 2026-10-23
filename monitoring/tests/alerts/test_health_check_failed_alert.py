@@ -3,6 +3,7 @@
 from datetime import datetime
 from unittest.mock import Mock
 
+import pytest
 import pytz
 
 from monitoring.alerts.base_alert import Issue
@@ -111,3 +112,16 @@ class TestHealthCheckFailedAlert:
         # then
         expected = "- `instrument1`: None\n- `instrument2`: Connection timeout"
         assert result == expected
+
+
+@pytest.mark.parametrize(
+    ("identifier", "expected"), [("file_remover", 720), ("instrument1", 120)]
+)
+def test_cooldown_is_longer_for_the_file_remover(
+    identifier: str, expected: int
+) -> None:
+    """The file remover health check repeats less often."""
+    assert (
+        HealthCheckFailedAlert().get_cooldown_minutes(Issue(identifier, "x"))
+        == expected
+    )

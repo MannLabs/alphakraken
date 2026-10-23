@@ -18,10 +18,8 @@ class InstrumentStallAlert(BaseAlert):
     """Check if no new file has been acquired for a configured time period."""
 
     title = "No new file acquired"
-
-    def __init__(self):
-        """Initialize with empty alerted file names tracker."""
-        self._alerted_file_names: dict[str, str] = {}
+    # once per stall, i.e. per last file
+    cooldown_minutes = None
 
     def _get_issues(
         self, status_objects: list[KrakenStatus], now: datetime
@@ -50,8 +48,6 @@ class InstrumentStallAlert(BaseAlert):
             created_at = ensure_utc(latest.created_at)
 
             if created_at < threshold:
-                if self._alerted_file_names.get(instrument_id) == latest.original_name:
-                    continue
                 hours_ago = (now - created_at).total_seconds() / 3600
                 issues.append(
                     Issue(
@@ -60,10 +56,8 @@ class InstrumentStallAlert(BaseAlert):
                         f"{created_at:%Y-%m-%d %H:%M:%S} UTC ({hours_ago:.1f} hours ago)",
                         relevant_file=latest.original_name,
                         instrument_id=instrument_id,
+                        key=f"{instrument_id}:{latest.original_name}",
                     )
                 )
-                self._alerted_file_names[instrument_id] = latest.original_name
-            else:
-                self._alerted_file_names.pop(instrument_id, None)
 
         return issues

@@ -1,10 +1,8 @@
 """Decide when to send alerts based on monitoring checks."""
 
 import logging
-from collections import defaultdict
 from datetime import datetime, timedelta
 
-import pytz
 from alerts import (
     BaseAlert,
     DiskSpaceAlert,
@@ -21,153 +19,143 @@ from alerts import (
     WebAppHealthAlert,
     config,
 )
-from alerts.base_alert import CustomAlert, Issue
-from messenger_clients import (
-    AlertTypes,
-    Message,
-    send_channel_message,
-    send_direct_message,
+from alerts.base_alert import Issue
+from messenger_clients import Message, send_channel_message, send_direct_message
+from utils import ensure_utc
+
+from shared.db.interface import (
+    add_alert_issue,
+    get_alert_issues,
+    set_alert_issue_notified,
 )
-from requests.exceptions import RequestException
-
-from shared.db.models import KrakenStatus
-
-
-def _default_value() -> datetime:
-    """Special default value for defaultdict to have an alert on the first occurrence."""
-    return datetime.now(pytz.UTC) - timedelta(
-        minutes=config.DEFAULT_ALERT_COOLDOWN_TIME_MINUTES + 1
-    )
+from shared.db.models import AlertIssue, KrakenStatus
 
 
 class AlertManager:
-    """Manages all alert checks and sending."""
+    """Runs the alert checks and decides what to notify."""
 
     def __init__(self):
-        """Initialize the AlertManager with checkers and last alert times."""
-        # TODO: currently this grows indefinitely, we assume regular restarts of the monitoring app
-        self.last_alerts = defaultdict(_default_value)
-
-        self.is_first_check = True
+        """Initialize with the alerts of both tiers."""
+        # checked without DB access, with an in-memory cooldown; work while the DB is down
+        self.db_free_alerts: list[BaseAlert] = [
+            LocalDiskSpaceAlert(),
+            WebAppHealthAlert(),
+        ]
+        # governed by `AlertIssue` records in the DB
         self.alerts: list[BaseAlert] = [
             StaleStatusAlert(),
             DiskSpaceAlert(),
-            LocalDiskSpaceAlert(),
             HealthCheckFailedAlert(),
             StatusPileUpAlert(),
             InstrumentFilePileUpAlert(),
             InstrumentStallAlert(),
             RawFileErrorAlert(),
             S3UploadFailureAlert(),
-            WebAppHealthAlert(),
             PumpPressureAlert(),
             QueueStopAlert(),
         ]
+        self._last_sent: dict[str, datetime] = {}
 
-    def check_for_issues(self) -> None:
-        """Run all alert checks."""
+    def check_for_issues(self, now: datetime) -> None:
+        """Run the DB-backed checks and notify the issues that are due."""
         logging.info("Checking for issues...")
         status_objects = list(KrakenStatus.objects)
-        now = datetime.now(pytz.UTC)
+        records = {(r.alert, r.key): r for r in get_alert_issues()}
 
         for alert in self.alerts:
-            issues = alert.get_issues(status_objects, now)
-            if issues:
-                self._handle_issues(alert, issues, suppress_alerts=self.is_first_check)
+            due: list[tuple[Issue, AlertIssue]] = []
+            for issue in alert.get_issues(status_objects, now):
+                record = records.get((alert.name, issue.key))
+                if record is None:
+                    record = add_alert_issue(
+                        alert=alert.name,
+                        key=issue.key,
+                        identifier=issue.identifier,
+                        instrument_id=issue.instrument_id,
+                        relevant_file=issue.relevant_file,
+                        details=str(issue.details),
+                        first_seen=now,
+                    )
+                if _is_due(record, alert.get_cooldown_minutes(issue), now):
+                    due.append((issue, record))
 
-        self.is_first_check = False
+            # the records are only marked as notified once sent, so failed sends are retried
+            if due and _notify(alert, [issue for issue, _ in due]):
+                for _, record in due:
+                    set_alert_issue_notified(record, now)
 
-    def _handle_issues(
-        self, alert: BaseAlert, issues: list[Issue], *, suppress_alerts: bool = False
+    def check_db_free_alerts(self, now: datetime) -> None:
+        """Run the checks that need no DB, sending each issue with an in-memory cooldown."""
+        for alert in self.db_free_alerts:
+            for issue in alert.get_issues([], now):
+                self.send_once(
+                    f"{alert.name}:{issue.key}",
+                    Message(alert.format_message([issue]), alert.title),
+                    alert.get_cooldown_minutes(issue),
+                    now,
+                )
+
+    def send_once(
+        self, key: str, message: Message, cooldown_minutes: int | None, now: datetime
     ) -> None:
-        """Handle sending an alert if cooldown has passed."""
-        alert_name = alert.name
-        identifiers = [issue.identifier for issue in issues]
+        """Send a message to the ops channel, at most once per cooldown for the same key.
 
-        if self.should_send_alert(identifiers, alert):
-            # TODO: this is tightly coupled, find a better way to handle dm vs channel messages
-            if isinstance(alert, QueueStopAlert):
-                if not suppress_alerts:
-                    self._dispatch_queue_stop_dms(alert, issues)
-                else:
-                    logging.info(
-                        f"Suppressed QueueStopAlert dispatch ({len(issues)} issues)"
-                    )
-            else:
-                message = Message(alert.format_message(issues), alert.title)
-                webhook_url = alert.get_webhook_url()
-                if not suppress_alerts:
-                    send_channel_message(message, webhook_url)
-                else:
-                    logging.info(
-                        f"Suppressed alert for {alert_name} ({len(issues)} issues)"
-                    )
+        A cooldown of None sends only once. A failed send is retried on the next call.
+        """
+        last_sent = self._last_sent.get(key)
+        if last_sent is not None and (
+            cooldown_minutes is None
+            or now < last_sent + timedelta(minutes=cooldown_minutes)
+        ):
+            return
 
-            for identifier in identifiers:
-                self.set_last_alert_time(alert_name, identifier)
-
-    @staticmethod
-    def _dispatch_queue_stop_dms(alert: QueueStopAlert, issues: list[Issue]) -> None:
-        """Fan out per-issue DMs; a failed send to one recipient does not abort the rest."""
-        for issue in issues:
-            alert.refresh_recent_files(issue.details)
-            message = Message(alert.render_issue(issue.details))
-            for recipient in alert.get_recipients(issue.details):
-                try:
-                    send_direct_message(message, recipient)
-                except Exception as exc:  # noqa: BLE001, PERF203
-                    logging.warning(
-                        f"Failed to send QueueStopAlert DM "
-                        f"(recipient={recipient}, kind={issue.details.kind}, "
-                        f"instrument={issue.instrument_id}, identifier={issue.identifier}): {exc}"
-                    )
-
-    def should_send_alert(self, identifiers: list[str], alert: BaseAlert) -> bool:
-        """Check if we should send an alert based on cooldown period."""
-        send_alert = False
-        for identifier in identifiers:
-            cooldown_time_minutes = alert.get_cooldown_time_minutes(identifier)
-            earliest_next_alert_time = self._get_last_alert_time(
-                alert.name, identifier
-            ) + timedelta(minutes=cooldown_time_minutes)
-            send_alert |= datetime.now(pytz.UTC) > earliest_next_alert_time
-        return send_alert
-
-    def set_last_alert_time(self, alert_name: str, identifier: str) -> None:
-        """Get the alert ID for tracking last sent time."""
-        alert_id = self._get_alert_id(alert_name, identifier)
-        self.last_alerts[alert_id] = datetime.now(pytz.UTC)
-
-    def _get_last_alert_time(self, alert_name: str, identifier: str) -> datetime:
-        """Get the alert ID for tracking last sent time."""
-        alert_id = self._get_alert_id(alert_name, identifier)
-        return self.last_alerts[alert_id]
-
-    @staticmethod
-    def _get_alert_id(alert_name: str, identifier: str) -> str:
-        """Get the alert ID for tracking last sent time."""
-        return f"{alert_name}_{identifier}"
+        message = Message(f"{message.body} [{key}]", message.title, message.type)
+        try:
+            send_channel_message(message, config.OPS_ALERTS_WEBHOOK_URL)
+        except Exception:
+            logging.exception(f"Failed to send {key}")
+        else:
+            self._last_sent[key] = now
 
 
-def send_special_alert(
-    identifier: str,
-    alert_name: str,
-    message: str,
-    alert_manager: AlertManager,
-    alert_type: str = AlertTypes.ALERT,
-) -> None:
-    """Send simple alerts."""
-    # alert is only used for determining cooldown here
-    alert = CustomAlert(alert_name, 10)
-    if not alert_manager.should_send_alert([identifier], alert):
-        return
+def _is_due(record: AlertIssue, cooldown_minutes: int | None, now: datetime) -> bool:
+    """Return whether the issue should be notified now."""
+    if record.last_notified is None:
+        return True
+    if cooldown_minutes is None:
+        return False
+    return now > ensure_utc(record.last_notified) + timedelta(minutes=cooldown_minutes)
 
-    message = f"{message} [{alert_name} {identifier}]"
+
+def _notify(alert: BaseAlert, issues: list[Issue]) -> bool:
+    """Send the issues of an alert, return whether all sends succeeded."""
+    # TODO: this is tightly coupled, find a better way to handle dm vs channel messages
+    if isinstance(alert, QueueStopAlert):
+        return _dispatch_queue_stop_dms(alert, issues)
+
+    message = Message(alert.format_message(issues), alert.title)
     try:
-        send_channel_message(
-            Message(message, type=alert_type), config.OPS_ALERTS_WEBHOOK_URL
-        )
-    except RequestException:
-        logging.exception("Failed to send special alert message.")
-    else:
-        alert_manager.set_last_alert_time(alert_name, identifier)
+        send_channel_message(message, alert.get_webhook_url())
+    except Exception:
+        logging.exception(f"Failed to send {alert.name}, retrying on next check")
+        return False
+    return True
+
+
+def _dispatch_queue_stop_dms(alert: QueueStopAlert, issues: list[Issue]) -> bool:
+    """Fan out per-issue DMs; a failed send to one recipient does not abort the rest."""
+    all_sent = True
+    for issue in issues:
+        alert.refresh_recent_files(issue.details)
+        message = Message(alert.render_issue(issue.details))
+        for recipient in alert.get_recipients(issue.details):
+            try:
+                send_direct_message(message, recipient)
+            except Exception as exc:  # noqa: BLE001, PERF203
+                logging.warning(
+                    f"Failed to send QueueStopAlert DM "
+                    f"(recipient={recipient}, kind={issue.details.kind}, "
+                    f"instrument={issue.instrument_id}, identifier={issue.identifier}): {exc}"
+                )
+                all_sent = False
+    return all_sent

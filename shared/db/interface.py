@@ -14,6 +14,7 @@ from pymongo import UpdateOne
 
 from shared.db.engine import connect_db
 from shared.db.models import (
+    AlertIssue,
     FileInfoItem,
     InstrumentFileStatus,
     KrakenStatus,
@@ -660,3 +661,41 @@ def augment_raw_files_with_metrics(
             raw_files_dict[raw_file_id][f"{prefix}{metrics['type']}"] = metrics
 
     return raw_files_dict
+
+
+def get_alert_issues() -> list[AlertIssue]:
+    """Get all alert issues."""
+    connect_db()
+    return list(AlertIssue.objects)
+
+
+def add_alert_issue(  # noqa: PLR0913
+    *,
+    alert: str,
+    key: str,
+    identifier: str,
+    instrument_id: str | None,
+    relevant_file: str | None,
+    details: str,
+    first_seen: datetime,
+) -> AlertIssue:
+    """Add an open alert issue to the database."""
+    connect_db()
+    issue = AlertIssue(
+        alert=alert,
+        key=key,
+        identifier=identifier,
+        instrument_id=instrument_id,
+        relevant_file=relevant_file,
+        details=details,
+        first_seen=first_seen,
+    )
+    issue.save(force_insert=True)
+    logging.info(f"Added alert issue: {alert=} {key=}")
+    return issue
+
+
+def set_alert_issue_notified(issue: AlertIssue, notified_at: datetime) -> None:
+    """Record that the issue was notified."""
+    connect_db()
+    issue.update(set__last_notified=notified_at)

@@ -237,6 +237,55 @@ class TestCheckForIssues:
         )
         db["set_notified"].assert_called_once()
 
+    @patch("monitoring.alert_manager.config.MAX_SEND_ATTEMPTS", 3)
+    @patch("monitoring.alert_manager.send", return_value=False)
+    def test_gives_up_on_a_batch_after_repeated_channel_failures(
+        self, mock_send: Mock, db: dict[str, Mock]
+    ) -> None:
+        """After three failed sends the issues are marked notified and ops is told."""
+        # given
+        record = _record("TestAlert", "a")
+        db["get_open"].return_value = [record]
+        manager = AlertManager()
+        manager.alerts = [_alert(issues=[Issue("a", "d")])]
+
+        # when - two failures: still retried
+        manager.check_for_issues(NOW)
+        manager.check_for_issues(NOW)
+        db["set_notified"].assert_not_called()
+        assert all(c.args[0].body == "a" for c in mock_send.call_args_list)
+
+        # when - third failure: given up
+        manager.check_for_issues(NOW)
+
+        # then
+        db["set_notified"].assert_called_once_with(record, NOW)
+        escalation = mock_send.call_args_list[-1]
+        assert escalation.args[1] == {"ops"}
+        assert escalation.args[0].body == (
+            "Gave up on 1 issues of TestAlert after 3 failed sends to ops; see the log "
+            "[send_failed:TestAlert]"
+        )
+
+    @patch("monitoring.alert_manager.send", side_effect=[False, False, True, False])
+    def test_a_successful_send_resets_the_failure_count(
+        self, mock_send: Mock, db: dict[str, Mock]
+    ) -> None:
+        """Only consecutive failures count towards giving up."""
+        # given
+        db["get_open"].return_value = [_record("TestAlert", "a")]
+        manager = AlertManager()
+        manager.alerts = [_alert(issues=[Issue("a", "d")])]
+
+        # when
+        for _ in range(4):
+            manager.check_for_issues(NOW)
+
+        # then - two failures, a success, one failure: no escalation
+        assert mock_send.call_count == 4
+        assert all(c.args[0].body == "a" for c in mock_send.call_args_list)
+        assert manager._failed_sends == {"TestAlert": 1}
+
 
 class TestDispatch:
     """_dispatch routes an alert's issues to its configured destinations."""
@@ -255,10 +304,28 @@ class TestDispatch:
         result = _dispatch(alert, [Issue("a", 1), Issue("b", 2)], {})
 
         # then
-        assert result == [Issue("a", 1), Issue("b", 2)]
+        assert result.delivered == [Issue("a", 1), Issue("b", 2)]
+        assert result.channel_failed is False
         mock_send.assert_called_once_with(
             Message("a,b", "BusinessAlert title"), {"business", "ops"}
         )
+
+    @patch("monitoring.alert_manager.config.MAX_ISSUES_PER_MESSAGE", 2)
+    @patch("monitoring.alert_manager.send", side_effect=[True, False])
+    def test_channel_messages_are_chunked_and_delivered_per_chunk(
+        self, mock_send: Mock
+    ) -> None:
+        """Issues are sent in chunks; a failed chunk leaves only its issues undelivered."""
+        # given
+        issues = [Issue("a", 1), Issue("b", 2), Issue("c", 3)]
+
+        # when
+        result = _dispatch(_alert(), issues, {})
+
+        # then
+        assert [c.args[0].body for c in mock_send.call_args_list] == ["a,b", "c"]
+        assert result.delivered == issues[:2]
+        assert result.channel_failed is True
 
     @patch("monitoring.alert_manager.send", side_effect=[True, False])
     @patch(
@@ -279,7 +346,8 @@ class TestDispatch:
         result = _dispatch(alert, issues, {"MaSc": "U_MASC", "AnSc": "U_ANSC"})
 
         # then
-        assert result == [issues[0]]
+        assert result.delivered == [issues[0]]
+        assert result.channel_failed is False
         assert mock_send.call_args_list == [
             call(Message("a", "UserAlert title"), recipients=["U_MASC"]),
             call(Message("b", "UserAlert title"), recipients=["U_ANSC"]),
@@ -297,10 +365,10 @@ class TestDispatch:
         )
 
         # then
-        assert result == [Issue("a", 1, relevant_file="x_UNK_a.raw")]
+        assert result.delivered == [Issue("a", 1, relevant_file="x_UNK_a.raw")]
         mock_send.assert_not_called()
 
-    @patch("monitoring.alert_manager.send_channel_message")
+    @patch("monitoring.alert_manager.send", return_value=True)
     def test_an_issue_that_comes_back_within_its_cooldown_is_not_notified_again(
         self, mock_send: Mock, db: dict[str, Mock]
     ) -> None:

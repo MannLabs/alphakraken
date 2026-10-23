@@ -17,6 +17,12 @@ DEFAULT_ALERT_COOLDOWN_TIME_MINUTES = (
 # cooldown of the alerts sent without DB access (startup, DB and check errors)
 SPECIAL_ALERT_COOLDOWN_MINUTES = 10
 
+# bounds on channel messages, so that no message exceeds the webhook payload limits
+MAX_ISSUES_PER_MESSAGE = 20
+MAX_DETAILS_CHARS = 300
+# consecutive failed channel sends of one alert before its issues are given up on
+MAX_SEND_ATTEMPTS = 3
+
 STALE_STATUS_THRESHOLD_MINUTES = (
     15  # How old a kraken status can be before considered stale
 )

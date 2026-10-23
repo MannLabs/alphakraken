@@ -1,6 +1,7 @@
 """Decide when to send alerts based on monitoring checks."""
 
 import logging
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
 from alerts import (
@@ -57,6 +58,8 @@ class AlertManager:
             QueueStopAlert(),
         ]
         self._last_sent: dict[str, datetime] = {}
+        # consecutive failed channel sends per alert class
+        self._failed_sends: dict[str, int] = {}
 
     def check_for_issues(self, now: datetime) -> None:
         """Run the DB-backed checks and notify the issues that are due."""
@@ -83,12 +86,41 @@ class AlertManager:
                     due.append((issue, record))
 
             # the records are only marked as notified once sent, so failed sends are retried
-            delivered = _dispatch(
+            result = _dispatch(
                 alert, [issue for issue, _ in due], messenger_ids_by_initials
             )
+            undelivered = [(i, r) for i, r in due if i not in result.delivered]
+            if not result.channel_failed:
+                self._failed_sends.pop(alert.name, None)
+            elif self._give_up(alert, len(undelivered), now):
+                undelivered = []
             for issue, record in due:
-                if issue in delivered:
+                if (issue, record) not in undelivered:
                     set_alert_issue_notified(record, now)
+
+    def _give_up(self, alert: BaseAlert, n_issues: int, now: datetime) -> bool:
+        """Count a failed channel send; after MAX_SEND_ATTEMPTS, tell ops and return True.
+
+        Giving up marks the issues as notified, so that a message failing for good (e.g.
+        a dead webhook) does not hold back every later issue of the alert.
+        """
+        failures = self._failed_sends.get(alert.name, 0) + 1
+        if failures < config.MAX_SEND_ATTEMPTS:
+            self._failed_sends[alert.name] = failures
+            return False
+
+        self._failed_sends.pop(alert.name, None)
+        channels = ", ".join(sorted(_channels(alert)))
+        self.send_once(
+            f"send_failed:{alert.name}",
+            Message(
+                f"Gave up on {n_issues} issues of {alert.name} after {failures} failed "
+                f"sends to {channels}; see the log"
+            ),
+            config.SPECIAL_ALERT_COOLDOWN_MINUTES,
+            now,
+        )
+        return True
 
     def check_db_free_alerts(self, now: datetime) -> None:
         """Run the checks that need no DB, sending each issue with an in-memory cooldown."""
@@ -129,28 +161,44 @@ def _is_due(record: AlertIssue, cooldown_minutes: int | None, now: datetime) -> 
     return now > ensure_utc(record.last_notified) + timedelta(minutes=cooldown_minutes)
 
 
-def _dispatch(
-    alert: BaseAlert, issues: list[Issue], messenger_ids_by_initials: dict[str, str]
-) -> list[Issue]:
-    """Send the issues to the destinations of the alert, return the issues that were delivered.
+@dataclass
+class DispatchResult:
+    """What a dispatch delivered, and whether a channel send failed."""
 
-    Channels get one message with all issues, so they are delivered all or none. Users get
-    one message per issue of their files, delivered per issue.
-    """
-    if not issues:
-        return []
+    delivered: list[Issue] = field(default_factory=list)
+    channel_failed: bool = False
+
+
+def _channels(alert: BaseAlert) -> set[str]:
     destinations = config.ALERT_DESTINATIONS.get(
         alert.name, config.DEFAULT_ALERT_DESTINATIONS
     )
-    delivered = list(issues)
+    return destinations - {Destinations.USER}
 
-    channels = destinations - {Destinations.USER}
-    if channels and not send(
-        Message(alert.format_message(issues), alert.title), channels
+
+def _dispatch(
+    alert: BaseAlert, issues: list[Issue], messenger_ids_by_initials: dict[str, str]
+) -> DispatchResult:
+    """Send the issues to the destinations of the alert and return what was delivered.
+
+    Channels get messages of at most MAX_ISSUES_PER_MESSAGE issues, delivered per message.
+    Users get one message per issue of their files, delivered per issue.
+    """
+    if not issues:
+        return DispatchResult()
+    result = DispatchResult(delivered=list(issues))
+
+    channels = _channels(alert)
+    if channels:
+        for start in range(0, len(issues), config.MAX_ISSUES_PER_MESSAGE):
+            chunk = issues[start : start + config.MAX_ISSUES_PER_MESSAGE]
+            if not send(Message(alert.format_message(chunk), alert.title), channels):
+                result.channel_failed = True
+                result.delivered = [i for i in result.delivered if i not in chunk]
+
+    if Destinations.USER in config.ALERT_DESTINATIONS.get(
+        alert.name, config.DEFAULT_ALERT_DESTINATIONS
     ):
-        delivered = []
-
-    if Destinations.USER in destinations:
         for issue in issues:
             recipients = get_recipients(issue.relevant_file, messenger_ids_by_initials)
             if not recipients:
@@ -159,7 +207,7 @@ def _dispatch(
                 )
                 continue
             message = Message(alert.format_message([issue]), alert.title)
-            if not send(message, recipients=recipients) and issue in delivered:
-                delivered.remove(issue)
+            if not send(message, recipients=recipients) and issue in result.delivered:
+                result.delivered.remove(issue)
 
-    return delivered
+    return result

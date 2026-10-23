@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, Generic, TypeVar
 
 import yaml
-from alerts.config import DEFAULT_ALERT_COOLDOWN_TIME_MINUTES
+from alerts.config import DEFAULT_ALERT_COOLDOWN_TIME_MINUTES, MAX_DETAILS_CHARS
 
 from shared.db.models import KrakenStatus, KrakenStatusEntities
 
@@ -138,11 +138,13 @@ class BaseAlert(ABC):
         """Check for issues and return them."""
 
     def format_message(self, issues: list[Issue]) -> str:
-        """Format the message body: one line per issue.
+        """Format the message body: one line per issue, with the details shortened.
 
         Override this method in subclasses that need a different format.
         """
-        return "\n".join(f"- `{issue.identifier}`: {issue.details}" for issue in issues)
+        return "\n".join(
+            f"- `{issue.identifier}`: {shorten(str(issue.details))}" for issue in issues
+        )
 
     @property
     def name(self) -> str:
@@ -156,3 +158,10 @@ class BaseAlert(ABC):
         """
         del issue  # unused
         return self.cooldown_minutes
+
+
+def shorten(text: str, max_chars: int = MAX_DETAILS_CHARS) -> str:
+    """Return the text cut to `max_chars` with an ellipsis, so that messages stay small."""
+    if len(text) <= max_chars:
+        return text
+    return text[: max_chars - 1] + "…"

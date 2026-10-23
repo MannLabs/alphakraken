@@ -6,7 +6,11 @@ from unittest.mock import Mock, patch
 import pytz
 
 from monitoring.alerts.config import Cases
-from monitoring.alerts.pump_pressure_alert import PressureDataPoint, PumpPressureAlert
+from monitoring.alerts.pump_pressure_alert import (
+    PressureDataPoint,
+    PumpPressureAlert,
+    PumpPressureIssue,
+)
 from shared.db.models import KrakenStatusEntities
 
 
@@ -418,11 +422,35 @@ class TestPumpPressureAlert:
         assert is_alert is False
         assert all(change[0] <= 0 for change in pressure_changes)
 
+    def test_suppressions_should_match_issue_details(self) -> None:
+        """Test that suppression rules match against the issue details text."""
+        # given
+        alert = PumpPressureAlert()
+        issues = [
+            ("instrument1", PumpPressureIssue("High pressure: 485.0 bar", "f1")),
+            ("instrument2", PumpPressureIssue("Pressure changes: +25.0 bar", "f2")),
+        ]
+        suppressions = [
+            {"error_class": "PumpPressureAlert", "message": "High pressure"},
+        ]
+
+        # when
+        with patch("monitoring.alerts.base_alert._suppressions", suppressions):
+            result = alert._apply_suppressions(issues)
+
+        # then
+        assert result == [issues[1]]
+
     def test_format_message_should_format_single_issue(self) -> None:
         """Test that format_message formats single issue correctly."""
         # given
         alert = PumpPressureAlert()
-        issues = [("instrument1", "Pressure changes: [21.5, 22.3, 23.1]")]
+        issues = [
+            (
+                "instrument1",
+                PumpPressureIssue("Pressure changes: [21.5, 22.3, 23.1]", "f1"),
+            )
+        ]
 
         # when
         result = alert.format_message(issues)
@@ -436,9 +464,12 @@ class TestPumpPressureAlert:
         # given
         alert = PumpPressureAlert()
         issues = [
-            ("instrument1", "Pressure changes: [21.5, 22.3]"),
-            ("instrument2", "Pressure changes: [25.0]"),
-            ("instrument3", "Pressure changes: [30.2, 31.5, 32.8]"),
+            ("instrument1", PumpPressureIssue("Pressure changes: [21.5, 22.3]", "f1")),
+            ("instrument2", PumpPressureIssue("Pressure changes: [25.0]", "f2")),
+            (
+                "instrument3",
+                PumpPressureIssue("Pressure changes: [30.2, 31.5, 32.8]", "f3"),
+            ),
         ]
 
         # when
@@ -534,43 +565,15 @@ class TestPumpPressureAlert:
         # then - first call returns the issue
         assert len(result_first) == 1
         assert result_first[0][0] == "instrument1"
-        assert "Pressure changes:" in result_first[0][1]
+        assert "Pressure changes:" in result_first[0][1].details
+        # younger file of the change: file2 (124 bar) vs. file7 (100 bar)
+        assert alert.get_relevant_file(result_first[0]) == "file2"
 
         # when - second call with same data should suppress the issue
         result_second = alert._get_issues(status_objects)
 
         # then - second call suppresses the duplicate
         assert result_second == []
-
-    @patch(
-        "monitoring.alerts.pump_pressure_alert.BUSINESS_ALERTS_WEBHOOK_URL",
-        "https://hooks.slack.com/custom",
-    )
-    def test_get_webhook_url_should_return_custom_url_when_configured(self) -> None:
-        """Test that get_webhook_url returns custom URL when env var is set."""
-        # given
-        alert = PumpPressureAlert()
-
-        # when
-        result = alert.get_webhook_url()
-
-        # then
-        assert result == "https://hooks.slack.com/custom"
-
-    @patch(
-        "monitoring.alerts.pump_pressure_alert.BUSINESS_ALERTS_WEBHOOK_URL",
-        "http://test-webhook.example.com",
-    )
-    def test_get_webhook_url_should_return_default_when_not_configured(self) -> None:
-        """Test that get_webhook_url returns default webhook when env var is not set."""
-        # given
-        alert = PumpPressureAlert()
-
-        # when
-        result = alert.get_webhook_url()
-
-        # then
-        assert result == "http://test-webhook.example.com"
 
     def test_detect_high_absolute_pressure_should_detect_pressure_above_threshold(
         self,
@@ -702,7 +705,7 @@ class TestPumpPressureAlert:
         # 2. Multiple absolute threshold violations (485, 484, 483, 482, 481, 480 all >= 480)
         assert len(result) > 1
         instrument_ids = [issue[0] for issue in result]
-        details = [issue[1] for issue in result]
+        details = [issue[1].details for issue in result]
 
         assert all(
             inst_id in ("instrument1", "absolute_instrument1")
@@ -710,3 +713,9 @@ class TestPumpPressureAlert:
         )
         assert any("Pressure changes:" in detail for detail in details)
         assert any("High pressure:" in detail for detail in details)
+        absolute_files = [
+            alert.get_relevant_file(issue)
+            for issue in result
+            if issue[0] == "absolute_instrument1"
+        ]
+        assert absolute_files == ["file1", "file2", "file3", "file4", "file5", "file6"]

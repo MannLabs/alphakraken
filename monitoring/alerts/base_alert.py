@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from alerts.config import DEFAULT_ALERT_COOLDOWN_TIME_MINUTES, OPS_ALERTS_WEBHOOK_URL
+from alerts.config import DEFAULT_ALERT_COOLDOWN_TIME_MINUTES
 
 from shared.db.models import KrakenStatus
 
@@ -108,13 +108,13 @@ class BaseAlert(ABC):
     def name(self) -> str:
         """Return the name for this alert type."""
 
-    def get_webhook_url(self) -> str:
-        """Return webhook URL for this alert.
+    def get_relevant_file(self, issue: tuple[str, Any]) -> str | None:
+        """Return the name of the raw file an issue relates to, None if there is none.
 
-        Override this method in subclasses to route alerts to different channels.
-        Default implementation returns the global OPS_ALERTS_WEBHOOK_URL.
+        Override this method in subclasses to enable sending alerts to the user owning the file.
         """
-        return OPS_ALERTS_WEBHOOK_URL
+        del issue  # unused
+        return None
 
     def get_cooldown_time_minutes(self, identifier: str) -> int:
         """Return cooldown in minutes for this alert and identifier.

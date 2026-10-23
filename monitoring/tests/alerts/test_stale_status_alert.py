@@ -130,11 +130,14 @@ class TestStaleStatusAlert:
         # Should return only stale entities, with proper timezone handling
         expected = [
             Issue(
-                "instrument_stale", datetime(2024, 1, 15, 11, 30, 0, tzinfo=pytz.UTC)
+                "instrument_stale",
+                datetime(2024, 1, 15, 11, 30, 0, tzinfo=pytz.UTC),
+                instrument_id="instrument_stale",
             ),
             Issue(
                 "instrument_very_stale",
                 datetime(2024, 1, 15, 10, 0, 0, tzinfo=pytz.UTC),
+                instrument_id="instrument_very_stale",
             ),
             Issue("storage_stale", datetime(2024, 1, 15, 11, 20, 0, tzinfo=pytz.UTC)),
             Issue("monitor_job", datetime(2024, 1, 15, 11, 25, 0, tzinfo=pytz.UTC)),

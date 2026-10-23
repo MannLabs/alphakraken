@@ -125,6 +125,7 @@ class PumpPressureAlert(BaseAlert):
                             f"Pressure changes: {self._format(pressure_changes)}",
                             # the younger file of the (single) change
                             relevant_file=pressure_changes[0][4],
+                            instrument_id=instrument_id,
                         )
                     )
                 else:
@@ -150,6 +151,7 @@ class PumpPressureAlert(BaseAlert):
                             f"{ABSOLUTE_IDENTIFIER_PREFIX}{instrument_id}",
                             f"High pressure: {pressure:.1f} bar (≥{PUMP_PRESSURE_ABSOLUTE_THRESHOLD_BAR} bar) in `{raw_file_id}` at {timestamp.strftime('%Y-%m-%d %H:%M:%S')}",
                             relevant_file=raw_file_id,
+                            instrument_id=instrument_id,
                         )
                     )
                 else:

@@ -9,7 +9,7 @@ from typing import Any, Generic, TypeVar
 import yaml
 from alerts.config import DEFAULT_ALERT_COOLDOWN_TIME_MINUTES
 
-from shared.db.models import KrakenStatus
+from shared.db.models import KrakenStatus, KrakenStatusEntities
 
 
 def _load_suppressions() -> list[dict[str, Any]]:
@@ -30,6 +30,8 @@ def _load_suppressions() -> list[dict[str, Any]]:
     return suppressions
 
 
+WILDCARD = "*"
+
 # Load suppressions at module import
 _suppressions: list[dict[str, Any]] = _load_suppressions()
 
@@ -47,6 +49,15 @@ class Issue(Generic[D_co]):
     details: D_co
     # raw file the issue relates to; its initials determine the user to notify
     relevant_file: str | None = None
+    # instrument the issue relates to; matched exactly by suppressions
+    instrument_id: str | None = None
+
+
+def get_instrument_id(kraken_status: KrakenStatus) -> str | None:
+    """Return the id of a status object if it belongs to an instrument, else None."""
+    if kraken_status.entity_type == KrakenStatusEntities.INSTRUMENT:
+        return kraken_status.id
+    return None
 
 
 class BaseAlert(ABC):
@@ -84,14 +95,15 @@ class BaseAlert(ABC):
 
             suppressed = False
             for suppression in _suppressions:
-                if suppression.get("error_class") == alert_class:
-                    supp_context = suppression.get("context", "*")
-                    context_matches = supp_context == "*" or supp_context in str(
-                        context
-                    )
+                supp_instrument_id = suppression.get("instrument_id", WILDCARD)
+                if suppression.get("error_class") in (WILDCARD, alert_class) and (
+                    supp_instrument_id in (WILDCARD, issue.instrument_id)
+                ):
+                    supp_context = suppression.get("context", WILDCARD)
+                    context_matches = supp_context in (WILDCARD, context)
 
-                    supp_message = suppression.get("message", "*")
-                    message_matches = supp_message == "*" or supp_message in str(
+                    supp_message = suppression.get("message", WILDCARD)
+                    message_matches = supp_message == WILDCARD or supp_message in str(
                         message
                     )
 

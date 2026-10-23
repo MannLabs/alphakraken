@@ -2,7 +2,7 @@
 
 from shared.db.models import KrakenStatus, KrakenStatusValues
 
-from .base_alert import BaseAlert, Issue
+from .base_alert import BaseAlert, Issue, get_instrument_id
 from .config import Cases
 
 
@@ -24,7 +24,13 @@ class HealthCheckFailedAlert(BaseAlert):
             if kraken_status.status != KrakenStatusValues.OK:
                 id_ = kraken_status.id
                 status_details = kraken_status.status_details
-                health_check_failed_instruments.append(Issue(id_, status_details))
+                health_check_failed_instruments.append(
+                    Issue(
+                        id_,
+                        status_details,
+                        instrument_id=get_instrument_id(kraken_status),
+                    )
+                )
 
         return health_check_failed_instruments
 

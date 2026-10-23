@@ -96,9 +96,9 @@ class TestDiskSpaceAlert:
 
         # then
         assert result == [
-            Issue("instrument1", 150),
+            Issue("instrument1", 150, instrument_id="instrument1"),
             Issue("backup", 180),
-            Issue("instrument2", 100),
+            Issue("instrument2", 100, instrument_id="instrument2"),
         ]
 
     @patch.object(DiskSpaceAlert, "_get_threshold")

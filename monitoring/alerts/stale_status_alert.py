@@ -6,7 +6,7 @@ import pytz
 
 from shared.db.models import KrakenStatus, KrakenStatusEntities
 
-from .base_alert import BaseAlert, Issue
+from .base_alert import BaseAlert, Issue, get_instrument_id
 from .config import (
     FILE_REMOVER_STALE_THRESHOLD_HOURS,
     STALE_STATUS_THRESHOLD_MINUTES,
@@ -42,7 +42,13 @@ class StaleStatusAlert(BaseAlert):
 
             threshold = now - time_delta
             if last_updated_at < threshold:
-                stale_instruments.append(Issue(id_, last_updated_at))
+                stale_instruments.append(
+                    Issue(
+                        id_,
+                        last_updated_at,
+                        instrument_id=get_instrument_id(kraken_status),
+                    )
+                )
 
         return stale_instruments
 

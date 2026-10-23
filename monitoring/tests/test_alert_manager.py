@@ -184,6 +184,36 @@ class TestCheckForIssues:
         # then
         db["set_notified"].assert_called_once_with(record, NOW)
 
+    @patch(
+        "monitoring.alert_manager.config.ALERT_DESTINATIONS", {"UserAlert": {"user"}}
+    )
+    @patch("monitoring.alert_manager.send", side_effect=[False, True, True])
+    def test_a_failed_user_send_is_retried_without_resending_the_others(
+        self, mock_send: Mock, db: dict[str, Mock]
+    ) -> None:
+        """Only the issue whose send failed is sent again next check."""
+        # given
+        issues = [
+            Issue("a", "d", relevant_file="x_MaSc_a.raw"),
+            Issue("b", "d", relevant_file="x_MaSc_b.raw"),
+        ]
+        record_a, record_b = _record("UserAlert", "a"), _record("UserAlert", "b")
+        db["get_open"].return_value = [record_a, record_b]
+        manager = AlertManager()
+        manager.alerts = [_alert("UserAlert", issues)]
+
+        # when - first check: a fails, b succeeds
+        manager.check_for_issues(NOW)
+        db["set_notified"].assert_called_once_with(record_b, NOW)
+        record_b.last_notified = NOW
+
+        # when - second check: only a is sent
+        manager.check_for_issues(NOW + timedelta(minutes=1))
+
+        # then
+        assert [c.args[0].body for c in mock_send.call_args_list] == ["a", "b", "a"]
+        assert db["set_notified"].call_args_list[-1].args[0] is record_a
+
     @patch("monitoring.alert_manager.send", return_value=True)
     def test_user_destination_sends_per_issue_to_the_files_user(
         self, mock_send: Mock, db: dict[str, Mock]
@@ -225,7 +255,7 @@ class TestDispatch:
         result = _dispatch(alert, [Issue("a", 1), Issue("b", 2)], {})
 
         # then
-        assert result is True
+        assert result == [Issue("a", 1), Issue("b", 2)]
         mock_send.assert_called_once_with(
             Message("a,b", "BusinessAlert title"), {"business", "ops"}
         )
@@ -234,10 +264,10 @@ class TestDispatch:
     @patch(
         "monitoring.alert_manager.config.ALERT_DESTINATIONS", {"UserAlert": {"user"}}
     )
-    def test_users_get_one_message_per_issue_and_failures_are_reported(
+    def test_users_get_one_message_per_issue_and_only_delivered_ones_are_returned(
         self, mock_send: Mock
     ) -> None:
-        """Each issue goes to its file's user; one failed send makes the dispatch fail."""
+        """Each issue goes to its file's user; a failed send leaves that issue undelivered."""
         # given
         alert = _alert("UserAlert")
         issues = [
@@ -249,7 +279,7 @@ class TestDispatch:
         result = _dispatch(alert, issues, {"MaSc": "U_MASC", "AnSc": "U_ANSC"})
 
         # then
-        assert result is False
+        assert result == [issues[0]]
         assert mock_send.call_args_list == [
             call(Message("a", "UserAlert title"), recipients=["U_MASC"]),
             call(Message("b", "UserAlert title"), recipients=["U_ANSC"]),
@@ -267,7 +297,7 @@ class TestDispatch:
         )
 
         # then
-        assert result is True
+        assert result == [Issue("a", 1, relevant_file="x_UNK_a.raw")]
         mock_send.assert_not_called()
 
     @patch("monitoring.alert_manager.send_channel_message")

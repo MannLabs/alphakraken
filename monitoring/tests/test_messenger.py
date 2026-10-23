@@ -7,6 +7,7 @@ import requests
 
 from monitoring.messenger import (
     Message,
+    PermanentSendError,
     _send_direct_message,
     _send_direct_message_slack,
     send,
@@ -51,6 +52,23 @@ class TestSend:
         assert result is False
         mock_channel.assert_called_once()
         mock_direct.assert_called_once()
+
+    @patch(
+        "monitoring.messenger._send_direct_message",
+        side_effect=PermanentSendError("user_not_found"),
+    )
+    def test_permanent_failure_counts_as_done(
+        self, mock_direct: Mock, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """A send that can never succeed is logged and not reported for a retry."""
+        # when
+        with caplog.at_level("WARNING"):
+            result = send(Message("m"), recipients=["U_STALE"])
+
+        # then
+        assert result is True
+        mock_direct.assert_called_once()
+        assert any("Not retrying" in rec.message for rec in caplog.records)
 
     @patch("monitoring.messenger._send_channel_message")
     def test_nothing_to_send_succeeds(self, mock_channel: Mock) -> None:
@@ -140,10 +158,21 @@ class TestSendSlackDm:
         """Slack returns 200 + `ok: false` for API errors — must raise."""
         # given
         mock_resp = Mock()
-        mock_resp.json.return_value = {"ok": False, "error": "channel_not_found"}
+        mock_resp.json.return_value = {"ok": False, "error": "ratelimited"}
         mock_post.return_value = mock_resp
         # when / then
-        with pytest.raises(RuntimeError, match="channel_not_found"):
+        with pytest.raises(RuntimeError, match="ratelimited"):
+            _send_direct_message_slack(Message("hi"), "U_123", "xoxb-test")
+
+    @patch("monitoring.messenger.requests.post")
+    def test_raises_permanent_error_for_unknown_user(self, mock_post: Mock) -> None:
+        """A stale user id is a permanent failure."""
+        # given
+        mock_resp = Mock()
+        mock_resp.json.return_value = {"ok": False, "error": "user_not_found"}
+        mock_post.return_value = mock_resp
+        # when / then
+        with pytest.raises(PermanentSendError, match="user_not_found"):
             _send_direct_message_slack(Message("hi"), "U_123", "xoxb-test")
 
     @patch("monitoring.messenger.requests.post")

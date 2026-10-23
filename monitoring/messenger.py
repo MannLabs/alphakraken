@@ -19,6 +19,19 @@ _WEBHOOK_URLS = {
 }
 _REQUEST_TIMEOUT_S = 10
 _SLACK_POST_MESSAGE_URL = "https://slack.com/api/chat.postMessage"
+# Slack API errors that a retry cannot fix, e.g. a stale user id
+_SLACK_PERMANENT_ERRORS = {
+    "user_not_found",
+    "users_not_found",
+    "channel_not_found",
+    "not_in_channel",
+    "account_inactive",
+    "invalid_auth",
+}
+
+
+class PermanentSendError(Exception):
+    """A send failed for a reason that a retry cannot fix."""
 
 
 class AlertTypes:
@@ -44,7 +57,8 @@ def send(
 ) -> bool:
     """Send the message to the channels of the destinations and directly to the recipients.
 
-    Every send is attempted; return whether all succeeded.
+    Every send is attempted; return whether all succeeded. A send that failed permanently
+    counts as done, as retrying it would fail again.
     """
     all_sent = True
     # set: the business webhook URL falls back to the ops one if not configured
@@ -66,6 +80,8 @@ def _attempt(send_function: Callable[[], None], what: str) -> bool:
     """Call the send function, log a failure and return whether it succeeded."""
     try:
         send_function()
+    except PermanentSendError as e:
+        logging.warning(f"Not retrying {what}: {e}")
     except Exception:
         logging.exception(f"Failed to send {what}")
         return False
@@ -179,5 +195,7 @@ def _send_direct_message_slack(message: Message, user_id: str, token: str) -> No
     response.raise_for_status()
     body = response.json()
     if not body.get("ok"):
+        if body.get("error") in _SLACK_PERMANENT_ERRORS:
+            raise PermanentSendError(f"Slack chat.postMessage failed: {body!r}")
         raise RuntimeError(f"Slack chat.postMessage failed: {body!r}")
     logging.info(f"Successfully sent Slack DM to {user_id}.")

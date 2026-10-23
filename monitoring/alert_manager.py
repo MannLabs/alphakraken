@@ -83,10 +83,11 @@ class AlertManager:
                     due.append((issue, record))
 
             # the records are only marked as notified once sent, so failed sends are retried
-            if due and _dispatch(
+            delivered = _dispatch(
                 alert, [issue for issue, _ in due], messenger_ids_by_initials
-            ):
-                for _, record in due:
+            )
+            for issue, record in due:
+                if issue in delivered:
                     set_alert_issue_notified(record, now)
 
     def check_db_free_alerts(self, now: datetime) -> None:
@@ -130,19 +131,24 @@ def _is_due(record: AlertIssue, cooldown_minutes: int | None, now: datetime) -> 
 
 def _dispatch(
     alert: BaseAlert, issues: list[Issue], messenger_ids_by_initials: dict[str, str]
-) -> bool:
-    """Send the issues to the destinations of the alert, return whether all sends succeeded.
+) -> list[Issue]:
+    """Send the issues to the destinations of the alert, return the issues that were delivered.
 
-    Channels get one message with all issues, users one message per issue of their files.
+    Channels get one message with all issues, so they are delivered all or none. Users get
+    one message per issue of their files, delivered per issue.
     """
+    if not issues:
+        return []
     destinations = config.ALERT_DESTINATIONS.get(
         alert.name, config.DEFAULT_ALERT_DESTINATIONS
     )
-    all_sent = True
+    delivered = list(issues)
 
     channels = destinations - {Destinations.USER}
-    if channels:
-        all_sent &= send(Message(alert.format_message(issues), alert.title), channels)
+    if channels and not send(
+        Message(alert.format_message(issues), alert.title), channels
+    ):
+        delivered = []
 
     if Destinations.USER in destinations:
         for issue in issues:
@@ -153,6 +159,7 @@ def _dispatch(
                 )
                 continue
             message = Message(alert.format_message([issue]), alert.title)
-            all_sent &= send(message, recipients=recipients)
+            if not send(message, recipients=recipients) and issue in delivered:
+                delivered.remove(issue)
 
-    return all_sent
+    return delivered

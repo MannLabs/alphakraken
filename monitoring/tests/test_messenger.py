@@ -7,7 +7,7 @@ from apprise import NotifyType
 
 from monitoring.messenger import AlertTypes, Message, _notify, send
 
-_USER_URL = "slack://xoxb-test/@{messenger_id}"
+_USER_URL = "slack://xoxb-test/@{{ALPHAKRAKEN_MESSENGER_ID}}"
 
 
 class TestSend:

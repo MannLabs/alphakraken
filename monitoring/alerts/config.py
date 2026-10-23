@@ -97,7 +97,7 @@ except KeyError:
     BUSINESS_ALERTS_URL = OPS_ALERTS_URL
 
 # replaced by the messenger id of the user in the user alerts URL
-MESSENGER_ID_PLACEHOLDER = "{messenger_id}"
+MESSENGER_ID_PLACEHOLDER = "{{ALPHAKRAKEN_MESSENGER_ID}}"
 try:
     USER_ALERTS_URL: str = get_notification_setting(YamlKeys.USER_ALERTS_URL)
 except KeyError:

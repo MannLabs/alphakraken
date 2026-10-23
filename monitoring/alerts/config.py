@@ -20,8 +20,6 @@ SPECIAL_ALERT_COOLDOWN_MINUTES = 10
 # bounds on channel messages, so that no message exceeds the webhook payload limits
 MAX_ISSUES_PER_MESSAGE = 20
 MAX_DETAILS_CHARS = 300
-# consecutive failed channel sends of one alert before its issues are given up on
-MAX_SEND_ATTEMPTS = 3
 
 STALE_STATUS_THRESHOLD_MINUTES = (
     15  # How old a kraken status can be before considered stale
@@ -62,7 +60,6 @@ INSTRUMENT_STALL_INSTRUMENT_IDS: set[str] = set()  # Instruments to monitor
 # Queue-stop alert configuration
 QUEUE_STOP_THRESHOLD_MULTIPLIER = 3  # stop: pause > N x gradient_length triggers alert
 MAX_GRADIENT_LENGTH_HOURS = 2.5  # gap larger than this => new queue, no alert
-SPECIAL_ALERT_SLACK_ID: str | None = None  # optional Slack user ID CC'd on all DMs
 
 # Pump pressure alert configuration
 PUMP_PRESSURE_LOOKBACK_DAYS = 1
@@ -103,11 +100,3 @@ class Destinations:
     USER = "user"
     OPS = "ops"
     BUSINESS = "business"
-
-
-DEFAULT_ALERT_DESTINATIONS: set[str] = {Destinations.OPS}
-# by alert class name
-ALERT_DESTINATIONS: dict[str, set[str]] = {
-    "PumpPressureAlert": {Destinations.BUSINESS},
-    "QueueStopAlert": {Destinations.USER},
-}

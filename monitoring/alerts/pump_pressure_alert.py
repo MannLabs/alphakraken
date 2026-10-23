@@ -21,6 +21,7 @@ from .config import (
     PUMP_PRESSURE_LOOKBACK_DAYS,
     PUMP_PRESSURE_THRESHOLD_BAR,
     PUMP_PRESSURE_WINDOW_SIZE,
+    Destinations,
 )
 
 # temporary hack to bypass bug in pump pressure extraction
@@ -43,6 +44,7 @@ class PumpPressureAlert(BaseAlert):
     """Check for pump pressure increases across instruments."""
 
     title = "Pump pressure increase detected"
+    destinations = frozenset({Destinations.BUSINESS})
     # once per detected change resp. per file with high pressure
     cooldown_minutes = None
 

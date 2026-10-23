@@ -8,7 +8,11 @@ from pathlib import Path
 from typing import Any, Generic, TypeVar
 
 import yaml
-from alerts.config import DEFAULT_ALERT_COOLDOWN_TIME_MINUTES, MAX_DETAILS_CHARS
+from alerts.config import (
+    DEFAULT_ALERT_COOLDOWN_TIME_MINUTES,
+    MAX_DETAILS_CHARS,
+    Destinations,
+)
 
 from shared.db.models import KrakenStatus, KrakenStatusEntities
 
@@ -73,6 +77,8 @@ class BaseAlert(ABC):
     title: str | None
     # minimum time between two notifications of the same issue; None: notify only once
     cooldown_minutes: int | None = DEFAULT_ALERT_COOLDOWN_TIME_MINUTES
+    # where the issues are sent to, cf. `Destinations`
+    destinations: frozenset[str] = frozenset({Destinations.OPS})
 
     def get_issues(
         self, status_objects: list[KrakenStatus], now: datetime

@@ -53,33 +53,17 @@ def test_extract_initials_returns_first_known_token(
     assert extract_initials(name, {"MaSc", "AnSc"}) == expected
 
 
-@patch("monitoring.alerts.recipients.SPECIAL_ALERT_SLACK_ID", None)
 def test_get_recipients_returns_messenger_id_of_user() -> None:
-    """Without a special ID, only the user's messenger id is returned."""
-    # when / then
-    assert get_recipients("x_MaSc_a.raw", MESSENGER_IDS) == ["U_MASC"]
-
-
-@patch("monitoring.alerts.recipients.SPECIAL_ALERT_SLACK_ID", "U_SUP")
-def test_get_recipients_includes_special_id_when_configured() -> None:
-    """When SPECIAL_ALERT_SLACK_ID is set, it is CC'd."""
-    # when / then
-    assert get_recipients("x_MaSc_a.raw", MESSENGER_IDS) == ["U_MASC", "U_SUP"]
-
-
-@patch("monitoring.alerts.recipients.SPECIAL_ALERT_SLACK_ID", "U_MASC")
-def test_get_recipients_deduplicates_when_user_id_equals_special_id() -> None:
-    """If the user's messenger id IS the special ID, it is returned once."""
+    """The messenger id of the first user named in the file is the recipient."""
     # when / then
     assert get_recipients("x_MaSc_a.raw", MESSENGER_IDS) == ["U_MASC"]
 
 
 @pytest.mark.parametrize("file_name", [None, "x_UNK_a.raw"])
-@patch("monitoring.alerts.recipients.SPECIAL_ALERT_SLACK_ID", "U_SUP")
 def test_get_recipients_returns_empty_when_no_user_found(
     file_name: str | None,
 ) -> None:
-    """No user with a messenger id means no recipients, not even the special ID."""
+    """No user with a messenger id means no recipients."""
     # when / then
     assert get_recipients(file_name, MESSENGER_IDS) == []
 

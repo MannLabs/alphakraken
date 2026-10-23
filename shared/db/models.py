@@ -309,19 +309,19 @@ class AlertSuppression(Document):
 
     # alert class name, e.g. "PumpPressureAlert"
     error_class = StringField(
-        required=True, max_length=64, default=ALERT_SUPPRESSION_WILDCARD
+        required=True, min_length=1, max_length=64, default=ALERT_SUPPRESSION_WILDCARD
     )
     # exact match on the instrument the issue relates to
     instrument_id = StringField(
-        required=True, max_length=64, default=ALERT_SUPPRESSION_WILDCARD
+        required=True, min_length=1, max_length=64, default=ALERT_SUPPRESSION_WILDCARD
     )
     # exact match on the issue identifier
     context = StringField(
-        required=True, max_length=256, default=ALERT_SUPPRESSION_WILDCARD
+        required=True, min_length=1, max_length=256, default=ALERT_SUPPRESSION_WILDCARD
     )
     # substring of the issue details
     message = StringField(
-        required=True, max_length=256, default=ALERT_SUPPRESSION_WILDCARD
+        required=True, min_length=1, max_length=256, default=ALERT_SUPPRESSION_WILDCARD
     )
 
     comment = StringField(required=True, max_length=512)

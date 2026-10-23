@@ -78,3 +78,12 @@ def test_issue_without_instrument_only_matches_wildcard() -> None:
         )
         is False
     )
+
+
+def test_empty_message_matches_nothing() -> None:
+    """An empty message is not a wildcard."""
+    # given
+    suppression = AlertSuppression(comment="c", message="")
+
+    # when / then
+    assert is_muted("DiskSpaceAlert", ISSUE, [suppression]) is False

@@ -26,6 +26,7 @@ def _matches(alert_name: str, issue: Issue, suppression: AlertSuppression) -> bo
         and suppression.context in (ALERT_SUPPRESSION_WILDCARD, issue.identifier)
         and (
             suppression.message == ALERT_SUPPRESSION_WILDCARD
-            or suppression.message in str(issue.details)
+            # an empty message must not match everything
+            or (bool(suppression.message) and suppression.message in str(issue.details))
         )
     )

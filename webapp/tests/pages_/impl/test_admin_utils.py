@@ -32,6 +32,9 @@ def test_validate_suppression_should_accept_restricted_suppression() -> None:
     ("overrides", "match"),
     [
         ({"error_class": " "}, "Alert class is required"),
+        ({"instrument_id": ""}, "Instrument is required"),
+        ({"context": " "}, "Context is required"),
+        ({"message": ""}, "Message is required"),
         ({"comment": " "}, "Comment is required"),
         ({"error_class": "*"}, "would mute all alerts"),
     ],
@@ -39,7 +42,7 @@ def test_validate_suppression_should_accept_restricted_suppression() -> None:
 def test_validate_suppression_should_reject_invalid_suppression(
     overrides: dict[str, str], match: str
 ) -> None:
-    """Suppressions without alert class or comment, or matching everything, are rejected."""
+    """Suppressions with an empty field or matching everything are rejected."""
     # when / then
     with pytest.raises(ValueError, match=match):
         validate_suppression(**{**VALID, **overrides})

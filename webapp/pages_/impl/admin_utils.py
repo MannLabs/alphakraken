@@ -13,8 +13,14 @@ def validate_suppression(
     *, error_class: str, instrument_id: str, context: str, message: str, comment: str
 ) -> None:
     """Raise ValueError if the suppression is incomplete or would mute every alert."""
-    if not error_class.strip():
-        raise ValueError("Alert class is required, use '*' for all.")
+    for name, value in (
+        ("Alert class", error_class),
+        ("Instrument", instrument_id),
+        ("Context", context),
+        ("Message", message),
+    ):
+        if not value.strip():
+            raise ValueError(f"{name} is required, use '*' for any.")
     if not comment.strip():
         raise ValueError("Comment is required: state why the alerts are muted.")
     if all(

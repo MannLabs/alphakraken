@@ -1305,12 +1305,14 @@ def test_add_user(mock_user: MagicMock, mock_connect_db: MagicMock) -> None:
     mock_user.objects.return_value.first.return_value = None
 
     # when
-    add_user(email="a@b.de", initials="AB")
+    add_user(email="a@b.de", initials="AB", messenger_id="U123")
 
     # then
     mock_user.objects.assert_any_call(email="a@b.de")
     mock_user.objects.assert_any_call(initials="AB")
-    mock_user.assert_called_once_with(email="a@b.de", initials="AB")
+    mock_user.assert_called_once_with(
+        email="a@b.de", initials="AB", messenger_id="U123"
+    )
     mock_user.return_value.save.assert_called_once_with(force_insert=True)
     mock_connect_db.assert_called_once()
 
@@ -1348,7 +1350,7 @@ def test_update_user(mock_user: MagicMock, mock_connect_db: MagicMock) -> None:
     mock_user.objects.return_value = others
 
     # when
-    update_user("a@b.de", initials="NB")
+    update_user("a@b.de", initials="NB", messenger_id="U123")
 
     # then
     mock_user.objects.assert_called_once_with(email__ne="a@b.de")
@@ -1356,6 +1358,7 @@ def test_update_user(mock_user: MagicMock, mock_connect_db: MagicMock) -> None:
     mock_user.objects.get.assert_called_once_with(email="a@b.de")
     user = mock_user.objects.get.return_value
     assert user.initials == "NB"
+    assert user.messenger_id == "U123"
     user.save.assert_called_once()
     mock_connect_db.assert_called_once()
 
@@ -1371,7 +1374,7 @@ def test_update_user_rejects_duplicate_initials(
 
     # when
     with pytest.raises(ValueError, match="initials 'NB'"):
-        update_user("a@b.de", initials="NB")
+        update_user("a@b.de", initials="NB", messenger_id=None)
 
     # then
     mock_user.objects.get.assert_not_called()

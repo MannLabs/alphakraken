@@ -1,8 +1,10 @@
 """Queue-stop alert: notifies the prior operator when their measurement queue ends.
 
+Known initials are those of the active users; they identify the operator in the raw file names.
+
 Two mutually exclusive modes per instrument (see SPEC.md §2.1):
-- Stall: newest two files share mapped initials and the pause exceeds N x gradient.
-- Handoff: second- and third-newest share mapped initials but the newest differs.
+- Stall: newest two files share known initials and the pause exceeds N x gradient.
+- Handoff: second- and third-newest share known initials but the newest differs.
 """
 
 import logging
@@ -16,12 +18,11 @@ from shared.db.models import KrakenStatus, RawFile
 
 from .base_alert import BaseAlert, Issue
 from .config import (
-    INSTRUMENT_USER_SLACK_IDS,
     MAX_GRADIENT_LENGTH_HOURS,
     QUEUE_STOP_THRESHOLD_MULTIPLIER,
     Cases,
 )
-from .recipients import extract_initials
+from .recipients import extract_initials, get_known_initials
 
 KIND_STOP = "stop"
 KIND_HANDOFF = "handoff"
@@ -73,7 +74,8 @@ class QueueStopAlert(BaseAlert):
         """Detect stop/handoff conditions per instrument."""
         del status_objects
 
-        if not INSTRUMENT_USER_SLACK_IDS:
+        known_initials = get_known_initials()
+        if not known_initials:
             return []
 
         instrument_ids = RawFile.objects.distinct("instrument_id")
@@ -104,9 +106,13 @@ class QueueStopAlert(BaseAlert):
                 ensure_utc(recent[2].created_at) if has_third_file else None
             )
 
-            initials1 = extract_initials(file1_id)
-            initials2 = extract_initials(file2_id)
-            initials3 = extract_initials(recent[2].id) if has_third_file else None
+            initials1 = extract_initials(file1_id, known_initials)
+            initials2 = extract_initials(file2_id, known_initials)
+            initials3 = (
+                extract_initials(recent[2].id, known_initials)
+                if has_third_file
+                else None
+            )
 
             recent_files: list[RecentFile] = [
                 RecentFile(
@@ -175,10 +181,10 @@ class QueueStopAlert(BaseAlert):
         max_gradient: timedelta,
         recent_files: list[RecentFile],
     ) -> QueueStopIssue | None:
-        """Rule A — stop: file1 & file2 share mapped initials, pause exceeds threshold.
+        """Rule A — stop: file1 & file2 share known initials, pause exceeds threshold.
 
         Fires when the still-active operator's queue has gone quiet. The shared
-        mapped initials of `file1`/`file2` identify the user; the pause from
+        known initials of `file1`/`file2` identify the user; the pause from
         `file1.created_at` to `now` must exceed `QUEUE_STOP_THRESHOLD_MULTIPLIER`
         times the gradient length inferred from the two files.
 
@@ -245,7 +251,7 @@ class QueueStopAlert(BaseAlert):
         max_gradient: timedelta,
         recent_files: list[RecentFile],
     ) -> QueueStopIssue | None:
-        """Rule B — handoff: file2 & file3 share mapped initials, file1 differs.
+        """Rule B — handoff: file2 & file3 share known initials, file1 differs.
 
         Fires when someone else took over: the prior operator's last two files
         are now second- and third-newest, and a different (or unattributable)
@@ -253,7 +259,7 @@ class QueueStopAlert(BaseAlert):
         unconditionally - no 3x pause check, since a new file has arrived from
         someone else, which is itself the queue-end signal.
 
-        Example (fires, new operator with mapped initials):
+        Example (fires, new operator with known initials):
             file1 = "_JoeB_n.raw", file2 = "_MaSc_a.raw", file3 = "_MaSc_b.raw"
             with file2→file3 gap ≤ 2 h → handoff alert for MaSc with
             subject_file_id = file2.id. JoeB is NOT notified.

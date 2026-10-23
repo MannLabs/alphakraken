@@ -26,7 +26,7 @@ def _admin_app() -> AppTest:
 
 
 def _user(initials: str, status: str = UserStatus.ACTIVE) -> MagicMock:
-    user = MagicMock(initials=initials, status=status)
+    user = MagicMock(initials=initials, status=status, messenger_id=None)
     user.email = f"{initials.lower()}@b.de"
     return user
 
@@ -83,10 +83,13 @@ def test_admin_adds_user_with_cleaned_inputs(
 
     at.text_input[0].set_value(" A@B.de ")
     at.text_input[1].set_value(" Ab ")
+    at.text_input[2].set_value(" U123 ")
     at.button[0].click().run()
 
     assert not at.exception
-    mock_add_user.assert_called_once_with(email="a@b.de", initials="Ab")
+    mock_add_user.assert_called_once_with(
+        email="a@b.de", initials="Ab", messenger_id="U123"
+    )
 
 
 @patch("shared.db.interface.update_user")
@@ -98,11 +101,14 @@ def test_admin_updates_user(
     mock_get_users.return_value = [_user("AB")]
     at = _admin_app().run()
 
-    at.text_input[2].set_value("xY")
+    at.text_input[3].set_value("xY")
+    at.text_input[4].set_value("U123")
     at.button[2].click().run()
 
     assert not at.exception
-    mock_update_user.assert_called_once_with("ab@b.de", initials="xY")
+    mock_update_user.assert_called_once_with(
+        "ab@b.de", initials="xY", messenger_id="U123"
+    )
 
 
 @patch("shared.db.interface.set_user_status")
@@ -130,19 +136,19 @@ def test_admin_bulk_adds_users_and_reports_failures(
     mock_add_user.side_effect = [None, ValueError("initials 'CD' already exists.")]
     at = _admin_app().run()
 
-    at.text_area[0].set_value("a@b.de,Ab\n\nC@D.de,CD\nbad row")
+    at.text_area[0].set_value("a@b.de,Ab,U123\n\nC@D.de,CD\nbad row")
     at.button[1].click().run()
 
     assert not at.exception
     assert mock_add_user.call_args_list == [
-        call(email="a@b.de", initials="Ab"),
-        call(email="c@d.de", initials="CD"),
+        call(email="a@b.de", initials="Ab", messenger_id="U123"),
+        call(email="c@d.de", initials="CD", messenger_id=None),
     ]
     assert at.success[0].value == "Added 1 users: Ab"
     assert at.error[0].value == (
         "Failed to add 2 users:\n"
         "- line 3: initials 'CD' already exists.\n"
-        "- line 4: expected 'e-mail,initials', got 'bad row'."
+        "- line 4: expected 'e-mail,initials[,messenger id]', got 'bad row'."
     )
 
 

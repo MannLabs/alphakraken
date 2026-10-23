@@ -272,6 +272,15 @@ def mock_send_direct_message() -> Generator[Mock, None, None]:
 
 
 @pytest.fixture(autouse=True)
+def no_users() -> Generator[None, None, None]:
+    """Patch the users' messenger ids loaded from the DB."""
+    with patch(
+        "monitoring.alert_manager.get_messenger_ids_by_initials", return_value={}
+    ):
+        yield
+
+
+@pytest.fixture(autouse=True)
 def no_suppressions() -> Generator[None, None, None]:
     """Patch the suppressions loaded from the DB."""
     with patch(
@@ -328,7 +337,7 @@ class TestDispatch:
             _set_destinations({USER, OPS, BUSINESS}),
             patch(
                 "monitoring.alert_manager.get_recipients",
-                side_effect=lambda f: recipients[f],
+                side_effect=lambda f, _ids: recipients[f],
             ),
         ):
             all_sent = _dispatch(alert, ISSUES)
@@ -378,7 +387,7 @@ class TestDispatch:
             _set_destinations({USER}),
             patch(
                 "monitoring.alert_manager.get_recipients",
-                side_effect=lambda f: recipients[f],
+                side_effect=lambda f, _ids: recipients[f],
             ),
         ):
             _dispatch(alert, ISSUES)

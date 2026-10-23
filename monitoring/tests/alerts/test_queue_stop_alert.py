@@ -15,7 +15,7 @@ from monitoring.alerts.queue_stop_alert import (
     QueueStopIssue,
     RecentFile,
 )
-from monitoring.alerts.recipients import get_recipients
+from monitoring.alerts.recipients import extract_initials
 
 
 def _make_file(
@@ -62,10 +62,8 @@ class TestQueueStopAlertBasics:
         # then
         assert result == Cases.QUEUE_STOP
 
-    @patch.dict(
-        "monitoring.alerts.config.INSTRUMENT_USER_SLACK_IDS",
-        {"MaSc": "U_MASC"},
-        clear=True,
+    @patch(
+        "monitoring.alerts.queue_stop_alert.get_known_initials", new=lambda: {"MaSc"}
     )
     @patch("monitoring.alerts.queue_stop_alert.RawFile")
     def test_no_alert_when_fewer_than_two_files(self, mock_rawfile: Mock) -> None:
@@ -81,13 +79,13 @@ class TestQueueStopAlertBasics:
         # then
         assert result == []
 
-    @patch.dict("monitoring.alerts.config.INSTRUMENT_USER_SLACK_IDS", {}, clear=True)
+    @patch("monitoring.alerts.queue_stop_alert.get_known_initials", new=set)
     @patch("monitoring.alerts.queue_stop_alert.RawFile")
-    def test_no_alert_when_no_files_have_mapped_initials(
+    def test_no_alert_when_there_are_no_known_initials(
         self, mock_rawfile: Mock
     ) -> None:
-        """Empty user-id map short-circuits before any DB query."""
-        # given - empty user map -> alert short-circuits without querying DB
+        """Without known initials, the alert short-circuits before querying raw files."""
+        # given - no users -> alert short-circuits without querying raw files
         # when
         result = QueueStopAlert()._get_issues([])
         # then
@@ -119,10 +117,9 @@ class TestQueueStopAlertBasics:
         # then
         assert tokens == ["SA", "AnSc"]
 
-    @patch.dict(
-        "monitoring.alerts.config.INSTRUMENT_USER_SLACK_IDS",
-        {"MaSc": "U_MASC", "JoeB": "U_JOEB"},
-        clear=True,
+    @patch(
+        "monitoring.alerts.queue_stop_alert.get_known_initials",
+        new=lambda: {"MaSc", "JoeB"},
     )
     @patch("monitoring.alerts.queue_stop_alert.MAX_GRADIENT_LENGTH_HOURS", 2)
     @patch("monitoring.alerts.queue_stop_alert.QUEUE_STOP_THRESHOLD_MULTIPLIER", 3)
@@ -161,9 +158,7 @@ class TestQueueStopAlertBasics:
 # -- Rule A - Stop -----------------------------------------------------------
 
 
-@patch.dict(
-    "monitoring.alerts.config.INSTRUMENT_USER_SLACK_IDS", {"MaSc": "U_MASC"}, clear=True
-)
+@patch("monitoring.alerts.queue_stop_alert.get_known_initials", new=lambda: {"MaSc"})
 @patch("monitoring.alerts.queue_stop_alert.MAX_GRADIENT_LENGTH_HOURS", 2)
 @patch("monitoring.alerts.queue_stop_alert.QUEUE_STOP_THRESHOLD_MULTIPLIER", 3)
 class TestRuleAStop:
@@ -427,10 +422,9 @@ class TestRuleAStop:
 # -- Rule B - Handoff ---------------------------------------------------------
 
 
-@patch.dict(
-    "monitoring.alerts.config.INSTRUMENT_USER_SLACK_IDS",
-    {"MaSc": "U_MASC", "JoeB": "U_JOEB"},
-    clear=True,
+@patch(
+    "monitoring.alerts.queue_stop_alert.get_known_initials",
+    new=lambda: {"MaSc", "JoeB"},
 )
 @patch("monitoring.alerts.queue_stop_alert.MAX_GRADIENT_LENGTH_HOURS", 2)
 @patch("monitoring.alerts.queue_stop_alert.QUEUE_STOP_THRESHOLD_MULTIPLIER", 3)
@@ -725,9 +719,7 @@ _T2 = datetime(2026, 8, 19, 6, 41, tzinfo=pytz.UTC)
 _T3 = datetime(2026, 8, 19, 6, 38, tzinfo=pytz.UTC)
 
 
-@patch.dict(
-    "monitoring.alerts.config.INSTRUMENT_USER_SLACK_IDS", {"AnSc": "U_ANSC"}, clear=True
-)
+@patch("monitoring.alerts.queue_stop_alert.get_known_initials", new=lambda: {"AnSc"})
 @patch("monitoring.alerts.queue_stop_alert.MAX_GRADIENT_LENGTH_HOURS", 2.5)
 @patch("monitoring.alerts.queue_stop_alert.QUEUE_STOP_THRESHOLD_MULTIPLIER", 3)
 class TestAdjacentInitialsTokens:
@@ -833,10 +825,8 @@ def _build_handoff_issue() -> QueueStopIssue:
 class TestRecipientsAndDelivery:
     """Recipient list construction and DM fan-out via `send_direct_message`."""
 
-    @patch.dict(
-        "monitoring.alerts.config.INSTRUMENT_USER_SLACK_IDS",
-        {"MaSc": "U_MASC"},
-        clear=True,
+    @patch(
+        "monitoring.alerts.queue_stop_alert.get_known_initials", new=lambda: {"MaSc"}
     )
     @patch("monitoring.alerts.queue_stop_alert.MAX_GRADIENT_LENGTH_HOURS", 2)
     @patch("monitoring.alerts.queue_stop_alert.QUEUE_STOP_THRESHOLD_MULTIPLIER", 3)
@@ -857,12 +847,11 @@ class TestRecipientsAndDelivery:
         with patch("monitoring.alerts.queue_stop_alert.datetime") as mock_dt:
             mock_dt.now.return_value = now
             issues = QueueStopAlert()._get_issues([])
-        assert get_recipients(issues[0].relevant_file) == ["U_MASC"]
+        assert extract_initials(issues[0].relevant_file, {"MaSc"}) == "MaSc"
 
-    @patch.dict(
-        "monitoring.alerts.config.INSTRUMENT_USER_SLACK_IDS",
-        {"MaSc": "U_MASC", "JoeB": "U_JOEB"},
-        clear=True,
+    @patch(
+        "monitoring.alerts.queue_stop_alert.get_known_initials",
+        new=lambda: {"MaSc", "JoeB"},
     )
     @patch("monitoring.alerts.queue_stop_alert.MAX_GRADIENT_LENGTH_HOURS", 2)
     @patch("monitoring.alerts.queue_stop_alert.RawFile")
@@ -885,7 +874,8 @@ class TestRecipientsAndDelivery:
             mock_dt.now.return_value = now
             issues = QueueStopAlert()._get_issues([])
         assert len(issues) == 1
-        assert get_recipients(issues[0].relevant_file) == ["U_MASC"]  # prior, not JoeB
+        # the prior user's file, not JoeB's
+        assert extract_initials(issues[0].relevant_file, {"MaSc", "JoeB"}) == "MaSc"
 
     def test_render_issue_distinguishes_stop_and_handoff(self) -> None:
         """Stop and handoff messages have different bodies."""

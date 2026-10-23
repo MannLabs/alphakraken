@@ -23,7 +23,7 @@ from alerts import (
 )
 from alerts.base_alert import CustomAlert, Issue
 from alerts.config import Destinations
-from alerts.recipients import get_recipients
+from alerts.recipients import get_messenger_ids_by_initials, get_recipients
 from messenger_clients import AlertTypes, send_channel_message, send_direct_message
 from requests.exceptions import RequestException
 
@@ -179,8 +179,9 @@ def _send_direct_messages(alert: BaseAlert, issues: list[Issue]) -> bool:
     Return whether all sends succeeded.
     """
     all_sent = True
+    messenger_ids_by_initials = get_messenger_ids_by_initials()
     for issue in issues:
-        recipients = get_recipients(issue.relevant_file)
+        recipients = get_recipients(issue.relevant_file, messenger_ids_by_initials)
         if not recipients:
             logging.info(
                 f"No recipients found for {alert.name} issue {issue.identifier}"

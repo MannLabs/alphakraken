@@ -433,27 +433,28 @@ def _get_owner(owner_email: str | None) -> User | None:
     return User.objects.get(email=owner_email) if owner_email else None
 
 
-def add_user(*, email: str, initials: str) -> User:
+def add_user(*, email: str, initials: str, messenger_id: str | None = None) -> User:
     """Add a new active user."""
     connect_db()
     if User.objects(email=email).first():
         raise ValueError(f"A user with email '{email}' already exists.")
     _check_initials_unique(initials)
-    user = User(email=email, initials=initials)
+    user = User(email=email, initials=initials, messenger_id=messenger_id)
     user.save(force_insert=True)
-    logging.info(f"Added user: {email=} {initials=}")
+    logging.info(f"Added user: {email=} {initials=} {messenger_id=}")
     return user
 
 
-def update_user(email: str, *, initials: str) -> None:
-    """Update the initials of a user, the email is immutable."""
+def update_user(email: str, *, initials: str, messenger_id: str | None) -> None:
+    """Update the initials and messenger id of a user, the email is immutable."""
     connect_db()
     _check_initials_unique(initials, exclude_email=email)
     user = User.objects.get(email=email)
     user.initials = initials
+    user.messenger_id = messenger_id
     # save() instead of update() to run the field validation
     user.save()
-    logging.info(f"Updated user: {email=} {initials=}")
+    logging.info(f"Updated user: {email=} {initials=} {messenger_id=}")
 
 
 def _check_initials_unique(initials: str, *, exclude_email: str | None = None) -> None:

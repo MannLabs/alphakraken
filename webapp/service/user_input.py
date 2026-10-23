@@ -13,9 +13,17 @@ def clean_initials(initials: str) -> str:
     return initials.strip()
 
 
-def parse_user_row(row: str) -> tuple[str, str]:
-    """Parse a row of `email,initials` into a normalized (email, initials) tuple."""
+def clean_messenger_id(messenger_id: str) -> str | None:
+    """Normalize a messenger id, None if empty."""
+    return messenger_id.strip() or None
+
+
+def parse_user_row(row: str) -> tuple[str, str, str | None]:
+    """Parse a row of `email,initials[,messenger_id]` into a normalized (email, initials, messenger_id) tuple."""
     fields = row.split(USER_ROW_SEPARATOR)
-    if len(fields) != 2:  # noqa: PLR2004
-        raise ValueError(f"expected 'e-mail{USER_ROW_SEPARATOR}initials', got '{row}'.")
-    return clean_email(fields[0]), clean_initials(fields[1])
+    if len(fields) not in (2, 3):
+        raise ValueError(
+            f"expected 'e-mail{USER_ROW_SEPARATOR}initials[{USER_ROW_SEPARATOR}messenger id]', got '{row}'."
+        )
+    messenger_id = clean_messenger_id(fields[2]) if len(fields) == 3 else None  # noqa: PLR2004
+    return clean_email(fields[0]), clean_initials(fields[1]), messenger_id

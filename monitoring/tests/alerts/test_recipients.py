@@ -1,25 +1,18 @@
 """Unit tests for recipient resolution from raw file names."""
 
-from collections.abc import Generator
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from monitoring.alerts.recipients import (
     INITIALS_PATTERN,
     extract_initials,
+    get_known_initials,
+    get_messenger_ids_by_initials,
     get_recipients,
 )
 
-USER_IDS = {"MaSc": "U_MASC", "AnSc": "U_ANSC"}
-
-
-@pytest.fixture(autouse=True)
-def _user_ids() -> Generator[None, None, None]:
-    with patch.dict(
-        "monitoring.alerts.config.INSTRUMENT_USER_SLACK_IDS", USER_IDS, clear=True
-    ):
-        yield
+MESSENGER_IDS = {"MaSc": "U_MASC", "AnSc": "U_ANSC"}
 
 
 def test_initials_pattern_matches_adjacent_tokens() -> None:
@@ -41,33 +34,33 @@ def test_initials_pattern_matches_adjacent_tokens() -> None:
         (None, None),
     ],
 )
-def test_extract_initials_returns_first_mapped_token(
+def test_extract_initials_returns_first_known_token(
     name: str | None, expected: str | None
 ) -> None:
-    """Only tokens present in the user map count as initials."""
+    """Only tokens that are known initials count."""
     # when / then
-    assert extract_initials(name) == expected
+    assert extract_initials(name, {"MaSc", "AnSc"}) == expected
 
 
 @patch("monitoring.alerts.recipients.SPECIAL_ALERT_SLACK_ID", None)
-def test_get_recipients_returns_mapped_user() -> None:
-    """Without a special ID, only the mapped user is returned."""
+def test_get_recipients_returns_messenger_id_of_user() -> None:
+    """Without a special ID, only the user's messenger id is returned."""
     # when / then
-    assert get_recipients("x_MaSc_a.raw") == ["U_MASC"]
+    assert get_recipients("x_MaSc_a.raw", MESSENGER_IDS) == ["U_MASC"]
 
 
 @patch("monitoring.alerts.recipients.SPECIAL_ALERT_SLACK_ID", "U_SUP")
 def test_get_recipients_includes_special_id_when_configured() -> None:
     """When SPECIAL_ALERT_SLACK_ID is set, it is CC'd."""
     # when / then
-    assert get_recipients("x_MaSc_a.raw") == ["U_MASC", "U_SUP"]
+    assert get_recipients("x_MaSc_a.raw", MESSENGER_IDS) == ["U_MASC", "U_SUP"]
 
 
 @patch("monitoring.alerts.recipients.SPECIAL_ALERT_SLACK_ID", "U_MASC")
 def test_get_recipients_deduplicates_when_user_id_equals_special_id() -> None:
-    """If the mapped user IS the special ID, it is returned once."""
+    """If the user's messenger id IS the special ID, it is returned once."""
     # when / then
-    assert get_recipients("x_MaSc_a.raw") == ["U_MASC"]
+    assert get_recipients("x_MaSc_a.raw", MESSENGER_IDS) == ["U_MASC"]
 
 
 @pytest.mark.parametrize("file_name", [None, "x_UNK_a.raw"])
@@ -75,6 +68,23 @@ def test_get_recipients_deduplicates_when_user_id_equals_special_id() -> None:
 def test_get_recipients_returns_empty_when_no_user_found(
     file_name: str | None,
 ) -> None:
-    """No mapped user means no recipients, not even the special ID."""
+    """No user with a messenger id means no recipients, not even the special ID."""
     # when / then
-    assert get_recipients(file_name) == []
+    assert get_recipients(file_name, MESSENGER_IDS) == []
+
+
+@patch("monitoring.alerts.recipients.get_all_users")
+def test_get_known_initials_and_messenger_ids_from_active_users(
+    mock_get_all_users: MagicMock,
+) -> None:
+    """All active users' initials are known; only users with a messenger id can be messaged."""
+    # given
+    mock_get_all_users.return_value = [
+        MagicMock(initials="MaSc", messenger_id="U_MASC"),
+        MagicMock(initials="AnSc", messenger_id=None),
+    ]
+
+    # when / then
+    assert get_known_initials() == {"MaSc", "AnSc"}
+    assert get_messenger_ids_by_initials() == {"MaSc": "U_MASC"}
+    mock_get_all_users.assert_called_with()

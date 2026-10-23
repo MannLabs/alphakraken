@@ -12,7 +12,12 @@ from service.components import show_sandbox_message
 from service.query_params import get_all_query_params
 from service.session_state import SessionStateKeys, set_session_state
 from service.timezone import display_now, to_display_timezone
-from service.user_input import clean_email, clean_initials, parse_user_row
+from service.user_input import (
+    clean_email,
+    clean_initials,
+    clean_messenger_id,
+    parse_user_row,
+)
 from service.utils import (
     DISABLE_WRITE,
     _log,
@@ -36,6 +41,10 @@ from shared.keys import ALERT_SUPPRESSION_WILDCARD
 from shared.yamlsettings import YAMLSETTINGS, YamlKeys
 
 _INSTRUMENT_IDS = list(YAMLSETTINGS.get(YamlKeys.INSTRUMENTS, {}).keys())
+_MESSENGER_ID_HELP = (
+    "Id of the user in the messenger (e.g. Slack member ID), to notify the user directly "
+    "about alerts concerning raw files with their initials."
+)
 
 _log(f"loading {__file__} {get_all_query_params()}")
 
@@ -62,7 +71,12 @@ if users:
     st.table(
         pd.DataFrame(
             [
-                {"initials": u.initials, "email": u.email, "status": u.status}
+                {
+                    "initials": u.initials,
+                    "email": u.email,
+                    "messenger id": u.messenger_id,
+                    "status": u.status,
+                }
                 for u in users
             ]
         )
@@ -79,11 +93,18 @@ c1.markdown("### Add user")
 with c1.form("add_user_form"):
     new_email = st.text_input("Email*", max_chars=128)
     new_initials = st.text_input("Initials*", max_chars=8)
+    new_messenger_id = st.text_input(
+        "Messenger id", max_chars=64, help=_MESSENGER_ID_HELP
+    )
     add_submit = st.form_submit_button("Add user", disabled=DISABLE_WRITE)
 
 if add_submit:
     try:
-        add_user(email=clean_email(new_email), initials=clean_initials(new_initials))
+        add_user(
+            email=clean_email(new_email),
+            initials=clean_initials(new_initials),
+            messenger_id=clean_messenger_id(new_messenger_id),
+        )
     except Exception as e:  # noqa: BLE001
         show_error_toast(str(e))
     else:
@@ -92,8 +113,8 @@ if add_submit:
 with c1.form("bulk_add_users_form"):
     bulk_rows = st.text_area(
         "Bulk add users",
-        placeholder="jane.doe@example.com,JD\njohn.roe@example.com,JR",
-        help="One user per row as `e-mail,initials`. Valid rows are added even if others fail.",
+        placeholder="jane.doe@example.com,JD,U0123ABCD\njohn.roe@example.com,JR",
+        help="One user per row as `e-mail,initials[,messenger id]`. Valid rows are added even if others fail.",
     )
     bulk_submit = st.form_submit_button("Add users", disabled=DISABLE_WRITE)
 
@@ -103,8 +124,8 @@ if bulk_submit:
         if not row.strip():
             continue
         try:
-            email, initials = parse_user_row(row)
-            add_user(email=email, initials=initials)
+            email, initials, messenger_id = parse_user_row(row)
+            add_user(email=email, initials=initials, messenger_id=messenger_id)
         except Exception as e:  # noqa: BLE001
             failures.append(f"line {line_number}: {e}")
         else:
@@ -138,6 +159,13 @@ if users:
     initials = c1.text_input(
         "Initials*", value=user.initials, max_chars=8, key=f"initials_{selected_email}"
     )
+    messenger_id = c1.text_input(
+        "Messenger id",
+        value=user.messenger_id or "",
+        max_chars=64,
+        key=f"messenger_id_{selected_email}",
+        help=_MESSENGER_ID_HELP,
+    )
     c1.caption(
         "The email can't be changed: add a new user and deactivate this one instead."
     )
@@ -145,7 +173,11 @@ if users:
     col_save, col_status = c1.columns([0.5, 0.5])
     if col_save.button("Save", disabled=DISABLE_WRITE):
         try:
-            update_user(selected_email, initials=clean_initials(initials))
+            update_user(
+                selected_email,
+                initials=clean_initials(initials),
+                messenger_id=clean_messenger_id(messenger_id),
+            )
         except Exception as e:  # noqa: BLE001
             show_error_toast(str(e))
         else:

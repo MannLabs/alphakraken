@@ -237,7 +237,8 @@ class UserStatus:
 
 
 USER_EMAIL_REGEX = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
-USER_INITIALS_REGEX = r"^[a-zA-Z0-9]+$"
+# letters only, 2 to 8: what `INITIALS_PATTERN` in the monitoring can find in raw file names
+USER_INITIALS_REGEX = r"^[a-zA-Z]{2,8}$"
 
 
 class User(Document):

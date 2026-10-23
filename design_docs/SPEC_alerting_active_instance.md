@@ -1,6 +1,6 @@
 # Spec: alerting active instance
 
-Status: to be re-implemented from scratch. Reference implementation on `refactor_alerts_IX`
+Status: implemented (slice 5). Reference implementation on `refactor_alerts_IX`
 (commits 79f81de6, 3318e4eb, 55b016e3; `monitoring/active_instance.py`). Revised 2026-10-23 for
 persisted issue state (`SPEC_alert_issue_state.md`): the election now decides which instance
 runs the DB-backed checks, not merely which one sends.

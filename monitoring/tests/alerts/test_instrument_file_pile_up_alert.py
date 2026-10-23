@@ -1,10 +1,15 @@
 """Unit tests for InstrumentFilePileUpAlert class."""
 
+from datetime import datetime
 from unittest.mock import Mock, patch
 
-from monitoring.alerts.config import Cases
+import pytz
+
+from monitoring.alerts.base_alert import Issue
 from monitoring.alerts.instrument_file_pile_up_alert import InstrumentFilePileUpAlert
 from shared.db.models import InstrumentFileStatus, KrakenStatusEntities
+
+NOW = datetime(2024, 1, 15, 12, 0, tzinfo=pytz.UTC)
 
 
 class TestInstrumentFilePileUpAlert:
@@ -19,7 +24,7 @@ class TestInstrumentFilePileUpAlert:
         result = alert.name
 
         # then
-        assert result == Cases.INSTRUMENT_FILE_PILE_UP
+        assert result == "InstrumentFilePileUpAlert"
 
     @patch(
         "monitoring.alerts.instrument_file_pile_up_alert.INSTRUMENT_FILE_MIN_AGE_HOURS",
@@ -125,15 +130,31 @@ class TestInstrumentFilePileUpAlert:
         mock_get_files.side_effect = mock_get_files_side_effect
 
         # when
-        result = alert._get_issues(status_objects)
+        result = alert._get_issues(status_objects, NOW)
 
         # then
         # Should only check instruments and return those with pile-ups
         expected = [
-            ("instrument_new_files_issue", "initial: 25"),
-            ("instrument_multiple_issues", "initial: 35; moved: 75; purged: 8"),
-            ("instrument_boundary_case", "moved: 55"),
-            ("instrument_mixed_status", "initial: 25; purged: 7"),
+            Issue(
+                "instrument_new_files_issue",
+                "initial: 25",
+                instrument_id="instrument_new_files_issue",
+            ),
+            Issue(
+                "instrument_multiple_issues",
+                "initial: 35; moved: 75; purged: 8",
+                instrument_id="instrument_multiple_issues",
+            ),
+            Issue(
+                "instrument_boundary_case",
+                "moved: 55",
+                instrument_id="instrument_boundary_case",
+            ),
+            Issue(
+                "instrument_mixed_status",
+                "initial: 25; purged: 7",
+                instrument_id="instrument_mixed_status",
+            ),
         ]
         assert result == expected
 
@@ -144,11 +165,11 @@ class TestInstrumentFilePileUpAlert:
 
         # Complex mix of issues with different pile-up patterns
         issues = [
-            ("instrument_critical", "initial: 45; moved: 120"),
-            ("instrument_single_new", "initial: 30"),
-            ("instrument_complex", "initial: 25; moved: 80; purged: 15"),
-            ("instrument_minor", "purged: 8"),
-            ("instrument_moved_only", "moved: 200"),
+            Issue("instrument_critical", "initial: 45; moved: 120"),
+            Issue("instrument_single_new", "initial: 30"),
+            Issue("instrument_complex", "initial: 25; moved: 80; purged: 15"),
+            Issue("instrument_minor", "purged: 8"),
+            Issue("instrument_moved_only", "moved: 200"),
         ]
 
         # when
@@ -156,7 +177,6 @@ class TestInstrumentFilePileUpAlert:
 
         # then
         expected = (
-            "Instrument file pile up detected (files not moved/purged):\n"
             "- `instrument_critical`: initial: 45; moved: 120\n"
             "- `instrument_single_new`: initial: 30\n"
             "- `instrument_complex`: initial: 25; moved: 80; purged: 15\n"
@@ -230,7 +250,7 @@ class TestInstrumentFilePileUpAlert:
         mock_get_files.side_effect = mock_get_files_side_effect
 
         # when
-        result = alert._get_issues(status_objects)
+        result = alert._get_issues(status_objects, NOW)
 
         # then
         assert result == []
@@ -290,7 +310,7 @@ class TestInstrumentFilePileUpAlert:
         mock_get_files.side_effect = mock_get_files_side_effect
 
         # when
-        result = alert._get_issues(status_objects)
+        result = alert._get_issues(status_objects, NOW)
 
         # then
         # Should only be called for each status type for the instrument
@@ -303,4 +323,10 @@ class TestInstrumentFilePileUpAlert:
             assert kwargs["instrument_id"] == "test_instrument"
             assert kwargs["min_age_hours"] == 8
 
-        assert result == [("test_instrument", "initial: 20; moved: 35")]
+        assert result == [
+            Issue(
+                "test_instrument",
+                "initial: 20; moved: 35",
+                instrument_id="test_instrument",
+            )
+        ]

@@ -1,10 +1,15 @@
 """Unit tests for AlertManager class."""
 
-from unittest.mock import Mock, patch
+from unittest.mock import ANY, Mock, patch
 
 import pytest
 
+# alert_manager imports `messenger_clients` via the monitoring dir on sys.path, so
+# `monitoring.messenger_clients.Message` would be a different class and never compare equal
+from messenger_clients import Message
+
 from monitoring.alert_manager import AlertManager, send_special_alert
+from monitoring.alerts.base_alert import Issue
 
 
 class TestAlertManager:
@@ -26,7 +31,7 @@ class TestAlertManager:
             alert_manager = AlertManager()
 
             # Mock one alert to return issues
-            mock_issue = ("test_id", "test_data")
+            mock_issue = Issue("test_id", "test_data")
             alert_manager.alerts[0].get_issues = Mock(return_value=[mock_issue])
             alert_manager.alerts[0].format_message = Mock(
                 return_value="Test alert message"
@@ -48,11 +53,12 @@ class TestAlertManager:
             # then
             # Should call get_issues on all alerts
             for alert in alert_manager.alerts:
-                alert.get_issues.assert_called_once_with([mock_status_obj])
+                alert.get_issues.assert_called_once_with([mock_status_obj], ANY)
 
             # Should send message for the one alert with issues
             mock_send_channel_message.assert_called_once_with(
-                "Test alert message", "http://webhook.url"
+                Message("Test alert message", alert_manager.alerts[0].title),
+                "http://webhook.url",
             )
 
             # Should mark as not first check
@@ -75,7 +81,7 @@ class TestAlertManager:
             alert_manager = AlertManager()
 
             # Mock one alert to return issues
-            mock_issue = ("test_id", "test_data")
+            mock_issue = Issue("test_id", "test_data")
             alert_with_issue = alert_manager.alerts[0]
             alert_name = alert_with_issue.name
             alert_with_issue.get_issues = Mock(return_value=[mock_issue])
@@ -98,7 +104,7 @@ class TestAlertManager:
 
             # Should log the suppressed alert
             mock_logging.info.assert_any_call(
-                f"Suppressed alert for {alert_name}: Test alert message"
+                f"Suppressed alert for {alert_name} (1 issues)"
             )
 
             # Should mark as not first check after running
@@ -124,9 +130,9 @@ class TestAlertManager:
             alert_manager = AlertManager()
 
             # Mock three alerts to return issues
-            mock_issue_1 = ("id_1", "data_1")
-            mock_issue_2 = ("id_2", "data_2")
-            mock_issue_3 = ("id_3", "data_3")
+            mock_issue_1 = Issue("id_1", "data_1")
+            mock_issue_2 = Issue("id_2", "data_2")
+            mock_issue_3 = Issue("id_3", "data_3")
 
             alert_1 = alert_manager.alerts[0]
             alert_1_name = alert_1.name
@@ -160,13 +166,13 @@ class TestAlertManager:
             # Should send all three messages
             assert mock_send_channel_message.call_count == 3
             mock_send_channel_message.assert_any_call(
-                "Message 1", "http://webhook1.url"
+                Message("Message 1", alert_1.title), "http://webhook1.url"
             )
             mock_send_channel_message.assert_any_call(
-                "Message 2", "http://webhook2.url"
+                Message("Message 2", alert_2.title), "http://webhook2.url"
             )
             mock_send_channel_message.assert_any_call(
-                "Message 3", "http://webhook3.url"
+                Message("Message 3", alert_3.title), "http://webhook3.url"
             )
 
             # Should update last alert times for all identifiers
@@ -192,8 +198,10 @@ class TestAlertManager:
 
         # Set last alert time to 3 hours ago for both identifiers
         three_hours_ago = datetime.now(pytz.UTC) - timedelta(hours=3)
-        alert_manager.last_alerts["health_check_failed_file_remover"] = three_hours_ago
-        alert_manager.last_alerts["health_check_failed_other_instrument"] = (
+        alert_manager.last_alerts["HealthCheckFailedAlert_file_remover"] = (
+            three_hours_ago
+        )
+        alert_manager.last_alerts["HealthCheckFailedAlert_other_instrument"] = (
             three_hours_ago
         )
 
@@ -231,7 +239,7 @@ class TestAlertManager:
                 for a in alert_manager.alerts
                 if a.__class__.__name__ == "QueueStopAlert"
             )
-            queue_issue = ("inst1:f1", Mock())
+            queue_issue = Issue("inst1:f1", Mock())
             queue_alert.get_issues = Mock(return_value=[queue_issue])
 
             for alert in alert_manager.alerts:
@@ -278,7 +286,7 @@ class TestAlertManager:
         ) as mock_send_direct_message:
             # when
             AlertManager._dispatch_queue_stop_dms(
-                mock_alert, [("inst1:f1", issue1), ("inst2:f2", issue2)]
+                mock_alert, [Issue("inst1:f1", issue1), Issue("inst2:f2", issue2)]
             )
 
         # then - 4 DMs, separate per recipient per issue
@@ -312,7 +320,7 @@ class TestAlertManager:
         mock_alert.render_issue.return_value = "msg"
         mock_alert.get_recipients.return_value = ["U_MASC", "U_SUP"]
 
-        def _side_effect(_msg: str, recipient: str, **_kw: object) -> None:
+        def _side_effect(_msg: Message, recipient: str) -> None:
             if recipient == "U_MASC":
                 raise requests.HTTPError("500")
 
@@ -323,7 +331,9 @@ class TestAlertManager:
             caplog.at_level("WARNING"),
         ):
             # when
-            AlertManager._dispatch_queue_stop_dms(mock_alert, [("inst1:f1", issue)])
+            AlertManager._dispatch_queue_stop_dms(
+                mock_alert, [Issue("inst1:f1", issue)]
+            )
 
         # then
         assert mock_send_direct_message.call_count == 2
@@ -355,4 +365,6 @@ class TestSendSpecialAlert:
             # then
             expected_message = f"{message} [{alert_name} {identifier}]"
             mock_send_channel_message.assert_called_once()
-            assert mock_send_channel_message.call_args[0][0] == expected_message
+            assert mock_send_channel_message.call_args[0][0] == Message(
+                expected_message
+            )

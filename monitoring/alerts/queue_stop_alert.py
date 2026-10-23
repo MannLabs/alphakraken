@@ -11,17 +11,16 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import ClassVar
 
-import pytz
+from utils import ensure_utc
 
 from shared.db.models import KrakenStatus, RawFile
 
-from .base_alert import BaseAlert
+from .base_alert import BaseAlert, Issue
 from .config import (
     INSTRUMENT_USER_SLACK_IDS,
     MAX_GRADIENT_LENGTH_HOURS,
     QUEUE_STOP_THRESHOLD_MULTIPLIER,
     SPECIAL_ALERT_SLACK_ID,
-    Cases,
 )
 
 # Trailing boundary is a lookahead so adjacent tokens can both match:
@@ -78,18 +77,15 @@ def _format_size(size_bytes: int | None) -> str:
 class QueueStopAlert(BaseAlert):
     """Notify the prior operator when their measurement queue has ended."""
 
+    title = "Queue stop"
+
     # Class-level so it survives across instances created within a single
     # monitor process; matches the InstrumentStallAlert tracker pattern.
     _alerted_subject_files: ClassVar[set[tuple[str, str]]] = set()
 
-    @property
-    def name(self) -> str:
-        """Return the case name for this alert type."""
-        return Cases.QUEUE_STOP
-
     def _get_issues(
-        self, status_objects: list[KrakenStatus]
-    ) -> list[tuple[str, QueueStopIssue]]:
+        self, status_objects: list[KrakenStatus], now: datetime
+    ) -> list[Issue[QueueStopIssue]]:
         """Detect stop/handoff conditions per instrument."""
         del status_objects
 
@@ -97,10 +93,9 @@ class QueueStopAlert(BaseAlert):
             return []
 
         instrument_ids = RawFile.objects.distinct("instrument_id")
-        now = datetime.now(pytz.UTC)
         max_gradient = timedelta(hours=MAX_GRADIENT_LENGTH_HOURS)
 
-        issues: list[tuple[str, QueueStopIssue]] = []
+        issues: list[Issue[QueueStopIssue]] = []
         for instrument_id in instrument_ids:
             recent = list(
                 RawFile.objects.filter(instrument_id=instrument_id)
@@ -118,10 +113,10 @@ class QueueStopAlert(BaseAlert):
             has_third_file = len(recent) >= MIN_FILES_FOR_HANDOFF_DETECTION
             file1_id: str = recent[0].id
             file2_id: str = recent[1].id
-            file1_created: datetime = _ensure_utc(recent[0].created_at)
-            file2_created: datetime = _ensure_utc(recent[1].created_at)
+            file1_created: datetime = ensure_utc(recent[0].created_at)
+            file2_created: datetime = ensure_utc(recent[1].created_at)
             file3_created: datetime | None = (
-                _ensure_utc(recent[2].created_at) if has_third_file else None
+                ensure_utc(recent[2].created_at) if has_third_file else None
             )
 
             initials1 = _extract_initials(file1_id)
@@ -132,7 +127,7 @@ class QueueStopAlert(BaseAlert):
                 RecentFile(
                     file_id=str(rf.id),
                     size=rf.size,
-                    created_at=_ensure_utc(rf.created_at),
+                    created_at=ensure_utc(rf.created_at),
                 )
                 for rf in recent
             ]
@@ -175,7 +170,14 @@ class QueueStopAlert(BaseAlert):
             self._alerted_subject_files.add(dedup_key)
 
             identifier = f"{instrument_id}:{subject_file_id}"
-            issues.append((identifier, issue))
+            issues.append(
+                Issue(
+                    identifier,
+                    issue,
+                    relevant_file=subject_file_id,
+                    instrument_id=instrument_id,
+                )
+            )
 
         return issues
 
@@ -311,7 +313,7 @@ class QueueStopAlert(BaseAlert):
             recent_files=recent_files,
         )
 
-    def format_message(self, issues: list[tuple[str, QueueStopIssue]]) -> str:
+    def format_message(self, issues: list[Issue[QueueStopIssue]]) -> str:
         """Not used — alert_manager renders per-issue via `render_issue` instead."""
         del issues
         return ""
@@ -371,9 +373,3 @@ class QueueStopAlert(BaseAlert):
             for rf in issue.recent_files
         ]
         return header + "\nRecent files:\n" + "\n".join(file_lines)
-
-
-def _ensure_utc(value: datetime) -> datetime:
-    if value.tzinfo is None:
-        return pytz.utc.localize(value)
-    return value

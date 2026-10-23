@@ -2,12 +2,12 @@
 
 import logging
 import shutil
+from datetime import datetime
 
 from shared.db.models import KrakenStatus
 
 from . import config
-from .base_alert import BaseAlert
-from .config import Cases
+from .base_alert import BaseAlert, Issue
 
 
 class LocalDiskSpaceAlert(BaseAlert):
@@ -17,14 +17,13 @@ class LocalDiskSpaceAlert(BaseAlert):
     database but probes the local filesystem directly.
     """
 
-    @property
-    def name(self) -> str:
-        """Return the case name for this alert type."""
-        return Cases.LOCAL_DISK_SPACE
+    title = "Low local disk space on the monitoring host"
 
-    def _get_issues(self, status_objects: list[KrakenStatus]) -> list[tuple[str, int]]:
+    def _get_issues(
+        self, status_objects: list[KrakenStatus], now: datetime
+    ) -> list[Issue[int]]:
         """Check for low local disk space."""
-        del status_objects  # unused
+        del status_objects, now  # unused
 
         try:
             free_bytes = shutil.disk_usage(config.LOCAL_DISK_PATH).free
@@ -36,14 +35,10 @@ class LocalDiskSpaceAlert(BaseAlert):
 
         free_space_gb = int(free_bytes / config.BYTES_PER_GB)
         if free_space_gb < config.LOCAL_FREE_SPACE_THRESHOLD_GB:
-            return [("local", free_space_gb)]
+            return [Issue("local", free_space_gb)]
 
         return []
 
-    def format_message(self, issues: list[tuple[str, int]]) -> str:
-        """Format local disk space message."""
-        free_space_gb = issues[0][1]
-        return (
-            f"Low local disk space on the monitoring host "
-            f"({config.LOCAL_DISK_PATH}): {free_space_gb} GB free"
-        )
+    def format_message(self, issues: list[Issue[int]]) -> str:
+        """Format local disk space message body."""
+        return f"{config.LOCAL_DISK_PATH}: {issues[0].details} GB free"

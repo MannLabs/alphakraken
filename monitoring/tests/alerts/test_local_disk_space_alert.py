@@ -1,10 +1,15 @@
 """Unit tests for LocalDiskSpaceAlert class."""
 
+from datetime import datetime
 from unittest.mock import Mock, patch
 
+import pytz
+
 from monitoring.alerts import config
-from monitoring.alerts.config import Cases
+from monitoring.alerts.base_alert import Issue
 from monitoring.alerts.local_disk_space_alert import LocalDiskSpaceAlert
+
+NOW = datetime(2024, 1, 15, 12, 0, tzinfo=pytz.UTC)
 
 
 class TestLocalDiskSpaceAlert:
@@ -19,7 +24,7 @@ class TestLocalDiskSpaceAlert:
         result = alert.name
 
         # then
-        assert result == Cases.LOCAL_DISK_SPACE
+        assert result == "LocalDiskSpaceAlert"
 
     @patch("monitoring.alerts.local_disk_space_alert.shutil.disk_usage")
     def test_get_issues_should_return_empty_list_when_above_threshold(
@@ -31,7 +36,7 @@ class TestLocalDiskSpaceAlert:
         mock_disk_usage.return_value = Mock(free=50 * config.BYTES_PER_GB)
 
         # when
-        result = alert._get_issues([])
+        result = alert._get_issues([], NOW)
 
         # then
         assert result == []
@@ -47,10 +52,10 @@ class TestLocalDiskSpaceAlert:
         mock_disk_usage.return_value = Mock(free=5 * config.BYTES_PER_GB)
 
         # when
-        result = alert._get_issues([])
+        result = alert._get_issues([], NOW)
 
         # then
-        assert result == [("local", 5)]
+        assert result == [Issue("local", 5)]
 
     @patch("monitoring.alerts.local_disk_space_alert.shutil.disk_usage")
     def test_get_issues_should_return_empty_list_when_exactly_at_threshold(
@@ -64,7 +69,7 @@ class TestLocalDiskSpaceAlert:
         )
 
         # when
-        result = alert._get_issues([])
+        result = alert._get_issues([], NOW)
 
         # then
         assert result == []
@@ -79,7 +84,7 @@ class TestLocalDiskSpaceAlert:
         mock_disk_usage.side_effect = OSError("no such path")
 
         # when
-        result = alert._get_issues([])
+        result = alert._get_issues([], NOW)
 
         # then
         assert result == []
@@ -88,14 +93,11 @@ class TestLocalDiskSpaceAlert:
         """Test that format_message formats the issue correctly."""
         # given
         alert = LocalDiskSpaceAlert()
-        issues = [("local", 5)]
+        issues = [Issue("local", 5)]
 
         # when
         result = alert.format_message(issues)
 
         # then
-        expected = (
-            f"Low local disk space on the monitoring host "
-            f"({config.LOCAL_DISK_PATH}): 5 GB free"
-        )
+        expected = f"{config.LOCAL_DISK_PATH}: 5 GB free"
         assert result == expected

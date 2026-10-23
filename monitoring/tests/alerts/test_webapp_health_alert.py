@@ -1,12 +1,17 @@
 """Unit tests for WebAppHealthAlert class."""
 
+from datetime import datetime
 from unittest.mock import Mock, patch
 
+import pytest
+import pytz
 import requests
 import requests.exceptions
 
-from monitoring.alerts.config import Cases
+from monitoring.alerts.base_alert import Issue
 from monitoring.alerts.webapp_health_alert import WebAppHealthAlert
+
+NOW = datetime(2024, 1, 15, 12, 0, tzinfo=pytz.UTC)
 
 
 class TestWebAppHealthAlert:
@@ -21,7 +26,7 @@ class TestWebAppHealthAlert:
         result = alert.name
 
         # then
-        assert result == Cases.WEBAPP_HEALTH
+        assert result == "WebAppHealthAlert"
 
     @patch("monitoring.alerts.webapp_health_alert.get_notification_setting")
     def test_get_issues_should_return_empty_list_when_webapp_url_not_configured(
@@ -33,7 +38,7 @@ class TestWebAppHealthAlert:
         alert = WebAppHealthAlert()
 
         # when
-        result = alert._get_issues([])
+        result = alert._get_issues([], NOW)
 
         # then
         assert result == []
@@ -52,7 +57,7 @@ class TestWebAppHealthAlert:
         alert = WebAppHealthAlert()
 
         # when
-        result = alert._get_issues([])
+        result = alert._get_issues([], NOW)
 
         # then
         assert result == []
@@ -75,10 +80,10 @@ class TestWebAppHealthAlert:
         alert = WebAppHealthAlert()
 
         # when
-        result = alert._get_issues([])
+        result = alert._get_issues([], NOW)
 
         # then
-        assert result == [("webapp", "HTTP 503: Service Unavailable")]
+        assert result == [Issue("webapp", "HTTP 503: Service Unavailable")]
 
     @patch("monitoring.alerts.webapp_health_alert.get_notification_setting")
     @patch("monitoring.alerts.webapp_health_alert.requests.get")
@@ -88,14 +93,14 @@ class TestWebAppHealthAlert:
         """Test that get_issues returns issue when request times out."""
         # given
         mock_get_setting.return_value = "http://localhost:8501"
-        mock_requests_get.side_effect = requests.exceptions.Timeout()
+        mock_requests_get.side_effect = requests.exceptions.Timeout("timed out")
         alert = WebAppHealthAlert(timeout=5)
 
         # when
-        result = alert._get_issues([])
+        result = alert._get_issues([], NOW)
 
         # then
-        assert result == [("webapp", "Request timeout after 5 seconds")]
+        assert result == [Issue("webapp", "Timeout: timed out")]
         mock_requests_get.assert_called_once_with(
             "http://localhost:8501/healthz", timeout=5
         )
@@ -108,14 +113,14 @@ class TestWebAppHealthAlert:
         """Test that get_issues returns issue when connection fails."""
         # given
         mock_get_setting.return_value = "http://localhost:8501"
-        mock_requests_get.side_effect = requests.exceptions.ConnectionError()
+        mock_requests_get.side_effect = requests.exceptions.ConnectionError("refused")
         alert = WebAppHealthAlert()
 
         # when
-        result = alert._get_issues([])
+        result = alert._get_issues([], NOW)
 
         # then
-        assert result == [("webapp", "Connection failed - webapp may be down")]
+        assert result == [Issue("webapp", "ConnectionError: refused")]
 
     @patch("monitoring.alerts.webapp_health_alert.get_notification_setting")
     @patch("monitoring.alerts.webapp_health_alert.requests.get")
@@ -131,27 +136,25 @@ class TestWebAppHealthAlert:
         alert = WebAppHealthAlert()
 
         # when
-        result = alert._get_issues([])
+        result = alert._get_issues([], NOW)
 
         # then
-        assert result == [("webapp", "Request failed: SSL error")]
+        assert result == [Issue("webapp", "RequestException: SSL error")]
 
     @patch("monitoring.alerts.webapp_health_alert.get_notification_setting")
     @patch("monitoring.alerts.webapp_health_alert.requests.get")
-    def test_get_issues_should_return_issue_when_unexpected_exception_occurs(
+    def test_get_issues_should_raise_on_unexpected_exception(
         self, mock_requests_get: Mock, mock_get_setting: Mock
     ) -> None:
-        """Test that get_issues returns issue when an unexpected exception occurs."""
+        """Unexpected exceptions are not turned into issues."""
         # given
         mock_get_setting.return_value = "http://localhost:8501"
         mock_requests_get.side_effect = ValueError("Unexpected error")
         alert = WebAppHealthAlert()
 
-        # when
-        result = alert._get_issues([])
-
-        # then
-        assert result == [("webapp", "Unexpected error: Unexpected error")]
+        # when / then
+        with pytest.raises(ValueError, match="Unexpected error"):
+            alert._get_issues([], NOW)
 
     @patch("monitoring.alerts.webapp_health_alert.get_notification_setting")
     def test_format_message_should_format_single_issue_correctly(
@@ -161,13 +164,13 @@ class TestWebAppHealthAlert:
         # given
         mock_get_setting.return_value = "http://localhost:8501"
         alert = WebAppHealthAlert()
-        issues = [("webapp", "HTTP 503: Service Unavailable")]
+        issues = [Issue("webapp", "HTTP 503: Service Unavailable")]
 
         # when
         result = alert.format_message(issues)
 
         # then
-        expected = "Webapp health check failed: HTTP 503: Service Unavailable (URL: http://localhost:8501/healthz)"
+        expected = "HTTP 503: Service Unavailable (URL: http://localhost:8501/healthz)"
         assert result == expected
 
     @patch("monitoring.alerts.webapp_health_alert.get_notification_setting")
@@ -184,7 +187,7 @@ class TestWebAppHealthAlert:
         result = alert.format_message(issues)
 
         # then
-        expected = "Webapp health check failed: Unknown error (URL: http://localhost:8501/healthz)"
+        expected = "Unknown error (URL: http://localhost:8501/healthz)"
         assert result == expected
 
     @patch("monitoring.alerts.webapp_health_alert.get_notification_setting")
@@ -201,7 +204,7 @@ class TestWebAppHealthAlert:
         alert = WebAppHealthAlert(timeout=30)
 
         # when
-        alert._get_issues([])
+        alert._get_issues([], NOW)
 
         # then
         mock_requests_get.assert_called_once_with(
@@ -233,10 +236,10 @@ class TestWebAppHealthAlert:
             mock_requests_get.return_value = mock_response
 
             # when
-            result = alert._get_issues([])
+            result = alert._get_issues([], NOW)
 
             # then
-            assert result == [("webapp", f"HTTP {status_code}: {reason}")]
+            assert result == [Issue("webapp", f"HTTP {status_code}: {reason}")]
 
     @patch("monitoring.alerts.webapp_health_alert.get_notification_setting")
     @patch("monitoring.alerts.webapp_health_alert.requests.get")
@@ -253,7 +256,7 @@ class TestWebAppHealthAlert:
 
         # when
         alert = WebAppHealthAlert()
-        result = alert._get_issues([])
+        result = alert._get_issues([], NOW)
 
         # then
         assert alert.webapp_url == f"{test_url}/healthz"
@@ -272,34 +275,10 @@ class TestWebAppHealthAlert:
             alert = WebAppHealthAlert()
 
             # when
-            result = alert._get_issues([])
+            result = alert._get_issues([], NOW)
 
             # then
             assert result == []
             mock_warning.assert_any_call(
                 "WEBAPP_URL not configured, skipping webapp health check"
             )
-
-    @patch("monitoring.alerts.webapp_health_alert.get_notification_setting")
-    @patch("monitoring.alerts.webapp_health_alert.requests.get")
-    @patch("monitoring.alerts.webapp_health_alert.logging.exception")
-    def test_unexpected_exception_logging(
-        self,
-        mock_logging_exception: Mock,
-        mock_requests_get: Mock,
-        mock_get_setting: Mock,
-    ) -> None:
-        """Test that unexpected exceptions are logged properly."""
-        # given
-        mock_get_setting.return_value = "http://localhost:8501"
-        mock_requests_get.side_effect = ValueError("Unexpected error")
-        alert = WebAppHealthAlert()
-
-        # when
-        result = alert._get_issues([])
-
-        # then
-        assert result == [("webapp", "Unexpected error: Unexpected error")]
-        mock_logging_exception.assert_called_once_with(
-            "Unexpected error during webapp health check"
-        )

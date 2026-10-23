@@ -11,20 +11,18 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any
 
-import pytz
-
 from shared.db.interface import augment_raw_files_with_metrics
 from shared.db.models import KrakenStatus, RawFile
 
-from .base_alert import BaseAlert
+from .base_alert import BaseAlert, Issue
 from .config import (
     BUSINESS_ALERTS_WEBHOOK_URL,
     DEFAULT_ALERT_COOLDOWN_TIME_MINUTES,
     PUMP_PRESSURE_ABSOLUTE_THRESHOLD_BAR,
+    PUMP_PRESSURE_GRADIENT_TOLERANCE,
     PUMP_PRESSURE_LOOKBACK_DAYS,
     PUMP_PRESSURE_THRESHOLD_BAR,
     PUMP_PRESSURE_WINDOW_SIZE,
-    Cases,
 )
 
 # temporary hack to bypass bug in pump pressure extraction
@@ -46,6 +44,8 @@ class PressureDataPoint:
 class PumpPressureAlert(BaseAlert):
     """Check for pump pressure increases across instruments."""
 
+    title = "Pump pressure increase detected"
+
     def __init__(self) -> None:
         """Initialize the alert with memory for tracking reported issues."""
         super().__init__()
@@ -54,11 +54,6 @@ class PumpPressureAlert(BaseAlert):
         # - tuple of pressure_changes for relative increase alerts
         # - string f"absolute_{raw_file_id}" for absolute threshold alerts
         self._reported_issues: set[tuple[str, tuple[Any, ...] | str]] = set()
-
-    @property
-    def name(self) -> str:
-        """Return the case name for this alert type."""
-        return Cases.PUMP_PRESSURE_INCREASE
 
     def get_webhook_url(self) -> str:
         """Return the configured BUSINESS_ALERTS_WEBHOOK_URL for pump pressure alerts."""
@@ -70,7 +65,9 @@ class PumpPressureAlert(BaseAlert):
             return DEFAULT_ALERT_COOLDOWN_TIME_MINUTES
         return 0
 
-    def _get_issues(self, status_objects: list[KrakenStatus]) -> list[tuple[str, str]]:
+    def _get_issues(
+        self, status_objects: list[KrakenStatus], now: datetime
+    ) -> list[Issue[str]]:
         """Check for pump pressure increases per instrument."""
         # Get all instrument IDs
         instrument_ids = [
@@ -82,7 +79,7 @@ class PumpPressureAlert(BaseAlert):
             return []
 
         # Query recent metrics for all instruments
-        cutoff = datetime.now(tz=pytz.utc) - timedelta(days=PUMP_PRESSURE_LOOKBACK_DAYS)
+        cutoff = now - timedelta(days=PUMP_PRESSURE_LOOKBACK_DAYS)
 
         # Get raw files for all instruments in the time window
         raw_files = (
@@ -125,9 +122,12 @@ class PumpPressureAlert(BaseAlert):
                 if memory_key not in self._reported_issues:
                     self._reported_issues.add(memory_key)
                     issues.append(
-                        (
+                        Issue(
                             instrument_id,
                             f"Pressure changes: {self._format(pressure_changes)}",
+                            # the younger file of the (single) change
+                            relevant_file=pressure_changes[0][4],
+                            instrument_id=instrument_id,
                         )
                     )
                 else:
@@ -149,9 +149,11 @@ class PumpPressureAlert(BaseAlert):
                 if memory_key not in self._reported_issues:
                     self._reported_issues.add(memory_key)
                     issues.append(
-                        (
+                        Issue(
                             f"{ABSOLUTE_IDENTIFIER_PREFIX}{instrument_id}",
                             f"High pressure: {pressure:.1f} bar (≥{PUMP_PRESSURE_ABSOLUTE_THRESHOLD_BAR} bar) in `{raw_file_id}` at {timestamp.strftime('%Y-%m-%d %H:%M:%S')}",
+                            relevant_file=raw_file_id,
+                            instrument_id=instrument_id,
                         )
                     )
                 else:
@@ -216,9 +218,9 @@ class PumpPressureAlert(BaseAlert):
         def _is_within_tolerance(
             value: float | None,
             target: float | None,
-            tolerance: float = 0.1,
+            tolerance: float = PUMP_PRESSURE_GRADIENT_TOLERANCE,
         ) -> bool:
-            """Check if value is within relative tolerance of target (default +-10%).
+            """Check if value is within relative tolerance of target.
 
             Returns False if value and/or target are None.
             """
@@ -297,10 +299,3 @@ class PumpPressureAlert(BaseAlert):
                 )
 
         return high_pressure_measurements
-
-    def format_message(self, issues: list[tuple[str, str | None]]) -> str:
-        """Format pump pressure alert message."""
-        instruments_str = "\n".join(
-            [f"- `{instrument_id}`: {details}" for instrument_id, details in issues]
-        )
-        return f"Pump pressure increase detected:\n{instruments_str}"

@@ -237,7 +237,8 @@ class UserStatus:
 
 
 USER_EMAIL_REGEX = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
-USER_INITIALS_REGEX = r"^[a-zA-Z0-9]+$"
+# letters only, 2 to 8: what `INITIALS_PATTERN` in the monitoring can find in raw file names
+USER_INITIALS_REGEX = r"^[a-zA-Z]{2,8}$"
 
 
 class User(Document):
@@ -254,6 +255,8 @@ class User(Document):
         required=True, primary_key=True, max_length=128, regex=USER_EMAIL_REGEX
     )
     initials = StringField(required=True, max_length=8, regex=USER_INITIALS_REGEX)
+    # user id in the messenger (e.g. Slack member ID), to notify the user directly
+    messenger_id = StringField(max_length=512)
 
     status = StringField(max_length=32, default=UserStatus.ACTIVE)
 

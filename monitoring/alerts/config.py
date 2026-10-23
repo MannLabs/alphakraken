@@ -17,6 +17,10 @@ DEFAULT_ALERT_COOLDOWN_TIME_MINUTES = (
 # cooldown of the alerts sent without DB access (startup, DB and check errors)
 SPECIAL_ALERT_COOLDOWN_MINUTES = 10
 
+# bounds on channel messages, so that no message exceeds the webhook payload limits
+MAX_ISSUES_PER_MESSAGE = 20
+MAX_DETAILS_CHARS = 300
+
 STALE_STATUS_THRESHOLD_MINUTES = (
     15  # How old a kraken status can be before considered stale
 )
@@ -56,10 +60,6 @@ INSTRUMENT_STALL_INSTRUMENT_IDS: set[str] = set()  # Instruments to monitor
 # Queue-stop alert configuration
 QUEUE_STOP_THRESHOLD_MULTIPLIER = 3  # stop: pause > N x gradient_length triggers alert
 MAX_GRADIENT_LENGTH_HOURS = 2.5  # gap larger than this => new queue, no alert
-INSTRUMENT_USER_SLACK_IDS: dict[str, str] = {  # initials -> Slack user ID
-    # "MaSc": "U231231231231",
-}
-SPECIAL_ALERT_SLACK_ID: str | None = None  # optional CC'd Slack user ID
 
 # Pump pressure alert configuration
 PUMP_PRESSURE_LOOKBACK_DAYS = 1
@@ -89,5 +89,14 @@ except KeyError:
 try:
     SLACK_BOT_TOKEN: str = get_notification_setting(YamlKeys.SLACK_BOT_TOKEN)
 except KeyError:
-    logging.warning("Slack bot token not found in config; QueueStopAlert DMs disabled.")
+    logging.warning("Slack bot token not found in config; DMs disabled.")
     SLACK_BOT_TOKEN = ""
+
+
+class Destinations:
+    """Where alerts can be sent to."""
+
+    # DM to the user mapped from the initials of the issue's relevant file
+    USER = "user"
+    OPS = "ops"
+    BUSINESS = "business"

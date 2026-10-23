@@ -20,7 +20,9 @@ from alerts import (
     config,
 )
 from alerts.base_alert import Issue
-from messenger_clients import Message, send_channel_message, send_direct_message
+from alerts.config import Destinations
+from alerts.recipients import get_messenger_ids_by_initials, get_recipients
+from messenger import Message, send
 from utils import ensure_utc
 
 from shared.db.interface import (
@@ -61,6 +63,7 @@ class AlertManager:
         logging.info("Checking for issues...")
         status_objects = list(KrakenStatus.objects)
         records = {(r.alert, r.key): r for r in get_alert_issues()}
+        messenger_ids_by_initials = get_messenger_ids_by_initials()
 
         for alert in self.alerts:
             due: list[tuple[Issue, AlertIssue]] = []
@@ -80,8 +83,11 @@ class AlertManager:
                     due.append((issue, record))
 
             # the records are only marked as notified once sent, so failed sends are retried
-            if due and _notify(alert, [issue for issue, _ in due]):
-                for _, record in due:
+            delivered = _dispatch(
+                alert, [issue for issue, _ in due], messenger_ids_by_initials
+            )
+            for issue, record in due:
+                if issue in delivered:
                     set_alert_issue_notified(record, now)
 
     def check_db_free_alerts(self, now: datetime) -> None:
@@ -110,11 +116,7 @@ class AlertManager:
             return
 
         message = Message(f"{message.body} [{key}]", message.title, message.type)
-        try:
-            send_channel_message(message, config.OPS_ALERTS_WEBHOOK_URL)
-        except Exception:
-            logging.exception(f"Failed to send {key}")
-        else:
+        if send(message, {Destinations.OPS}):
             self._last_sent[key] = now
 
 
@@ -127,35 +129,33 @@ def _is_due(record: AlertIssue, cooldown_minutes: int | None, now: datetime) -> 
     return now > ensure_utc(record.last_notified) + timedelta(minutes=cooldown_minutes)
 
 
-def _notify(alert: BaseAlert, issues: list[Issue]) -> bool:
-    """Send the issues of an alert, return whether all sends succeeded."""
-    # TODO: this is tightly coupled, find a better way to handle dm vs channel messages
-    if isinstance(alert, QueueStopAlert):
-        return _dispatch_queue_stop_dms(alert, issues)
+def _dispatch(
+    alert: BaseAlert, issues: list[Issue], messenger_ids_by_initials: dict[str, str]
+) -> list[Issue]:
+    """Send the issues to the destinations of the alert and return the delivered ones.
 
-    message = Message(alert.format_message(issues), alert.title)
-    try:
-        send_channel_message(message, alert.get_webhook_url())
-    except Exception:
-        logging.exception(f"Failed to send {alert.name}, retrying on next check")
-        return False
-    return True
+    Channels get messages of at most MAX_ISSUES_PER_MESSAGE issues, delivered per message.
+    Users get one message per issue of their files, delivered per issue.
+    """
+    delivered = list(issues)
 
+    channels = alert.destinations - {Destinations.USER}
+    if channels:
+        for start in range(0, len(issues), config.MAX_ISSUES_PER_MESSAGE):
+            chunk = issues[start : start + config.MAX_ISSUES_PER_MESSAGE]
+            if not send(Message(alert.format_message(chunk), alert.title), channels):
+                delivered = [i for i in delivered if i not in chunk]
 
-def _dispatch_queue_stop_dms(alert: QueueStopAlert, issues: list[Issue]) -> bool:
-    """Fan out per-issue DMs; a failed send to one recipient does not abort the rest."""
-    all_sent = True
-    for issue in issues:
-        alert.refresh_recent_files(issue.details)
-        message = Message(alert.render_issue(issue.details))
-        for recipient in alert.get_recipients(issue.details):
-            try:
-                send_direct_message(message, recipient)
-            except Exception as exc:  # noqa: BLE001, PERF203
-                logging.warning(
-                    f"Failed to send QueueStopAlert DM "
-                    f"(recipient={recipient}, kind={issue.details.kind}, "
-                    f"instrument={issue.instrument_id}, identifier={issue.identifier}): {exc}"
+    if Destinations.USER in alert.destinations:
+        for issue in issues:
+            recipients = get_recipients(issue.relevant_file, messenger_ids_by_initials)
+            if not recipients:
+                logging.info(
+                    f"No recipients found for {alert.name} issue {issue.identifier}"
                 )
-                all_sent = False
-    return all_sent
+                continue
+            message = Message(alert.format_message([issue]), alert.title)
+            if not send(message, recipients=recipients) and issue in delivered:
+                delivered.remove(issue)
+
+    return delivered

@@ -16,12 +16,12 @@ from shared.db.models import KrakenStatus, RawFile
 
 from .base_alert import BaseAlert, Issue
 from .config import (
-    BUSINESS_ALERTS_WEBHOOK_URL,
     PUMP_PRESSURE_ABSOLUTE_THRESHOLD_BAR,
     PUMP_PRESSURE_GRADIENT_TOLERANCE,
     PUMP_PRESSURE_LOOKBACK_DAYS,
     PUMP_PRESSURE_THRESHOLD_BAR,
     PUMP_PRESSURE_WINDOW_SIZE,
+    Destinations,
 )
 
 # temporary hack to bypass bug in pump pressure extraction
@@ -44,12 +44,9 @@ class PumpPressureAlert(BaseAlert):
     """Check for pump pressure increases across instruments."""
 
     title = "Pump pressure increase detected"
+    destinations = frozenset({Destinations.BUSINESS})
     # once per detected change resp. per file with high pressure
     cooldown_minutes = None
-
-    def get_webhook_url(self) -> str:
-        """Return the configured BUSINESS_ALERTS_WEBHOOK_URL for pump pressure alerts."""
-        return BUSINESS_ALERTS_WEBHOOK_URL
 
     def _get_issues(
         self, status_objects: list[KrakenStatus], now: datetime

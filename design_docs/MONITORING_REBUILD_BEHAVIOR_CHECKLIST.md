@@ -10,11 +10,11 @@ Status: `open` | `done` | `deferred` | `dropped`
 
 | # | Behavior | Origin | Verify with | Status |
 |---|---|---|---|---|
-| B1 | Destinations configurable per alert class: `ops`, `business`, `user` (DM), any combination. Default `ops`. Pump pressure → `business`, queue stop → `user`. | f5486bfb | test: destination table drives `_dispatch` | open |
-| B2 | A failing send to one destination or one DM recipient is logged and does not abort the others. | f5486bfb | test: first webhook raises, second still called | open |
-| B3 | Business webhook URL falls back to the ops URL; if both are equal the message is sent once. | f5486bfb | test: identical URLs → one post | open |
-| B4 | DM recipient is derived from `Issue.relevant_file` for every alert that has one: queue stop (subject file), raw file error, S3 upload failure, instrument stall (last file), pump pressure (younger file of the change, or the high-pressure file). | f5486bfb, 612ebe8c | test per alert: issue carries the expected file | open |
-| B5 | A `user`-destination issue with no resolvable recipient is logged, skipped, and still counts as handled. | f5486bfb | test: no recipients → no send, cooldown set | open |
+| B1 | Destinations configurable per alert class: `ops`, `business`, `user` (DM), any combination. Default `ops`. Pump pressure → `business`, queue stop → `user`. | f5486bfb | test: destination table drives `_dispatch` | done (slice 3) |
+| B2 | A failing send to one destination or one DM recipient is logged and does not abort the others. | f5486bfb | test: first webhook raises, second still called | done (slice 3) |
+| B3 | Business webhook URL falls back to the ops URL; if both are equal the message is sent once. | f5486bfb | test: identical URLs → one post | done (slice 3) |
+| B4 | DM recipient is derived from `Issue.relevant_file` for every alert that has one: queue stop (subject file), raw file error, S3 upload failure, instrument stall (last file), pump pressure (younger file of the change, or the high-pressure file). | f5486bfb, 612ebe8c | test per alert: issue carries the expected file | done (slice 3) |
+| B5 | A `user`-destination issue with no resolvable recipient is logged, skipped, and still counts as handled. | f5486bfb | test: no recipients → no send, cooldown set | done (slice 3) |
 | B6 | Suppression `error_class` accepts `*`; suppressions carry `instrument_id` (exact or `*`); every issue carries the instrument it relates to, `None` for file systems, jobs, webapp, local disk. | c97454d2 | test: `*`/instrument rule mutes all alerts of that instrument only | open |
 | B7 | Suppression `context` matches the issue identifier exactly, not as substring. | 6d361c5f | test: `inst1` does not match `inst10` | open |
 | B8 | Pump pressure absolute-threshold issues use the plain instrument id as identifier plus a `kind`; cooldown is keyed by identifier and kind. Absolute → default cooldown, increase → none. | 6c80ea0b | test: cooldown keys differ per kind; suppression context `inst1` hits both kinds | open |
@@ -24,7 +24,7 @@ Status: `open` | `done` | `deferred` | `dropped`
 | B12 | `StaleStatusAlert` accepts tz-aware `updated_at_` (was `pytz.utc.localize`, which raises on aware datetimes). | ba9d023f | test: aware datetime input | done (slice 1) |
 | B13 | Once-only reporting via `unique_key`, kept in the manager: stall `(instrument, last file)`; pump increase `(instrument, changes)`; pump absolute `(instrument, kind, file)`; queue stop `(instrument, subject file)` shared by stop and handoff; raw file error `(file, status_details)`; S3 `(file,)`. | 982ff34c | test per alert: same key twice → one report | done (slice 2) |
 | B14 | Raw file error and S3 upload failure alerts are stateless: files in `ERROR` / `UPLOAD_FAILED` updated within the last 24 h, deduplicated by B13. (Before: 5 min window diffed against in-memory previous statuses.) A file failing again with different `status_details` is reported again. | 92f2ee9b | test: lookback filter, re-report on changed details | done (slice 2) |
-| B15 | Known initials for queue-stop detection are the initials of active users in the DB; DM recipients are users with a `messenger_id`. The hard-coded `INSTRUMENT_USER_SLACK_IDS` is gone. | 480b1093 | test: unknown token ignored; user without messenger id → no recipient | open |
+| B15 | Known initials for queue-stop detection are the initials of active users in the DB; DM recipients are users with a `messenger_id`. The hard-coded `INSTRUMENT_USER_SLACK_IDS` is gone. | 480b1093 | test: unknown token ignored; user without messenger id → no recipient | done (slice 3) |
 | B16 | Default `format_message`: `title` line plus one `- \`identifier\`: details` line per issue; alerts without a custom format set `title`. | 81566149 | test: default rendering | done (slice 1) |
 
 ## Known side effects worth a decision

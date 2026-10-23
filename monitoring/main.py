@@ -20,7 +20,7 @@ from alerts.config import (
     SPECIAL_ALERT_COOLDOWN_MINUTES,
     STALE_STATUS_THRESHOLD_MINUTES,
 )
-from messenger_clients import AlertTypes, Message
+from messenger import AlertTypes, Message
 from pymongo.errors import ConnectionFailure
 from utils import extract_error_line
 

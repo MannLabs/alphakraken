@@ -7,12 +7,11 @@ from unittest.mock import Mock, call, patch
 import pytest
 import pytz
 
-# alert_manager imports `messenger_clients` via the monitoring dir on sys.path, so
-# `monitoring.messenger_clients.Message` would be a different class and never compare equal
-from alerts import config
-from messenger_clients import Message
+# alert_manager imports `messenger` via the monitoring dir on sys.path, so
+# `monitoring.messenger.Message` would be a different class and never compare equal
+from messenger import Message
 
-from monitoring.alert_manager import AlertManager, _dispatch_queue_stop_dms, _is_due
+from monitoring.alert_manager import AlertManager, _dispatch, _is_due
 from monitoring.alerts.base_alert import Issue
 
 NOW = datetime(2024, 1, 15, 12, 0, tzinfo=pytz.UTC)
@@ -49,8 +48,8 @@ def _alert(name: str = "TestAlert", issues: list[Issue] | None = None) -> Mock:
     alert.format_message.side_effect = lambda issues: ",".join(
         i.identifier for i in issues
     )
-    alert.get_webhook_url.return_value = "http://webhook.url"
     alert.get_cooldown_minutes.return_value = 120
+    alert.destinations = frozenset({"ops"})
     return alert
 
 
@@ -66,8 +65,10 @@ def db() -> Generator[dict[str, Mock], None, None]:
         patch("monitoring.alert_manager.get_alert_issues") as get_open,
         patch("monitoring.alert_manager.add_alert_issue") as add,
         patch("monitoring.alert_manager.set_alert_issue_notified") as set_notified,
+        patch("monitoring.alert_manager.get_messenger_ids_by_initials") as ids,
     ):
         kraken_status.objects = []
+        ids.return_value = {"MaSc": "U_MASC"}
         get_open.return_value = []
         add.side_effect = lambda **kwargs: _record(kwargs["alert"], kwargs["key"])
         yield {
@@ -80,7 +81,7 @@ def db() -> Generator[dict[str, Mock], None, None]:
 class TestCheckForIssues:
     """check_for_issues opens, notifies and resolves records."""
 
-    @patch("monitoring.alert_manager.send_channel_message")
+    @patch("monitoring.alert_manager.send", return_value=True)
     def test_new_issue_is_recorded_and_notified(
         self, mock_send: Mock, db: dict[str, Mock]
     ) -> None:
@@ -103,14 +104,12 @@ class TestCheckForIssues:
             details="150",
             first_seen=NOW,
         )
-        mock_send.assert_called_once_with(
-            Message("inst1", "TestAlert title"), "http://webhook.url"
-        )
+        mock_send.assert_called_once_with(Message("inst1", "TestAlert title"), {"ops"})
         notified_record, notified_at = db["set_notified"].call_args.args
         assert (notified_record.alert, notified_record.key) == ("TestAlert", "inst1:k")
         assert notified_at == NOW
 
-    @patch("monitoring.alert_manager.send_channel_message")
+    @patch("monitoring.alert_manager.send", return_value=True)
     def test_only_due_issues_are_sent(
         self, mock_send: Mock, db: dict[str, Mock]
     ) -> None:
@@ -127,12 +126,10 @@ class TestCheckForIssues:
 
         # then
         db["add"].assert_not_called()
-        mock_send.assert_called_once_with(
-            Message("a", "TestAlert title"), "http://webhook.url"
-        )
+        mock_send.assert_called_once_with(Message("a", "TestAlert title"), {"ops"})
         db["set_notified"].assert_called_once_with(due, NOW)
 
-    @patch("monitoring.alert_manager.send_channel_message")
+    @patch("monitoring.alert_manager.send", return_value=True)
     def test_no_message_when_nothing_is_due(
         self, mock_send: Mock, db: dict[str, Mock]
     ) -> None:
@@ -149,7 +146,7 @@ class TestCheckForIssues:
         mock_send.assert_not_called()
         db["set_notified"].assert_not_called()
 
-    @patch("monitoring.alert_manager.send_channel_message", side_effect=RuntimeError)
+    @patch("monitoring.alert_manager.send", return_value=False)
     def test_failed_send_is_not_recorded(
         self,
         mock_send: Mock,  # noqa: ARG002
@@ -167,7 +164,7 @@ class TestCheckForIssues:
         db["add"].assert_called_once()
         db["set_notified"].assert_not_called()
 
-    @patch("monitoring.alert_manager.send_channel_message")
+    @patch("monitoring.alert_manager.send", return_value=True)
     def test_alerts_use_their_own_cooldown(
         self,
         mock_send: Mock,  # noqa: ARG002
@@ -188,88 +185,133 @@ class TestCheckForIssues:
         # then
         db["set_notified"].assert_called_once_with(record, NOW)
 
-    @patch("monitoring.alert_manager.send_direct_message")
-    @patch("monitoring.alert_manager.send_channel_message")
-    def test_queue_stop_alert_is_sent_as_direct_messages(
-        self, mock_send_channel: Mock, mock_send_direct: Mock, db: dict[str, Mock]
+    @patch("monitoring.alert_manager.send", side_effect=[False, True, True])
+    def test_a_failed_user_send_is_retried_without_resending_the_others(
+        self, mock_send: Mock, db: dict[str, Mock]
     ) -> None:
-        """QueueStopAlert issues go to users, not to a channel."""
+        """Only the issue whose send failed is sent again next check."""
         # given
+        issues = [
+            Issue("a", "d", relevant_file="x_MaSc_a.raw"),
+            Issue("b", "d", relevant_file="x_MaSc_b.raw"),
+        ]
+        record_a, record_b = _record("UserAlert", "a"), _record("UserAlert", "b")
+        db["get_open"].return_value = [record_a, record_b]
+        alert = _alert("UserAlert", issues)
+        alert.destinations = frozenset({"user"})
         manager = AlertManager()
-        queue_alert = next(a for a in manager.alerts if a.name == "QueueStopAlert")
-        details = Mock(kind="stop")
-        queue_alert.get_issues = Mock(return_value=[Issue("inst1:f1", details)])
-        queue_alert.get_recipients = Mock(return_value=["U_1"])
-        queue_alert.render_issue = Mock(return_value="msg")
-        queue_alert.refresh_recent_files = Mock()
-        for alert in manager.alerts:
-            if alert is not queue_alert:
-                alert.get_issues = Mock(return_value=[])
+        manager.alerts = [alert]
+
+        # when - first check: a fails, b succeeds
+        manager.check_for_issues(NOW)
+        db["set_notified"].assert_called_once_with(record_b, NOW)
+        record_b.last_notified = NOW
+
+        # when - second check: only a is sent
+        manager.check_for_issues(NOW + timedelta(minutes=1))
+
+        # then
+        assert [c.args[0].body for c in mock_send.call_args_list] == ["a", "b", "a"]
+        assert db["set_notified"].call_args_list[-1].args[0] is record_a
+
+    @patch("monitoring.alert_manager.send", return_value=True)
+    def test_user_destination_sends_per_issue_to_the_files_user(
+        self, mock_send: Mock, db: dict[str, Mock]
+    ) -> None:
+        """Alerts with the user destination go to the user of each issue's file."""
+        # given
+        alert = _alert(
+            "QueueStopAlert",
+            [Issue("inst1:x_MaSc_a.raw", "d", relevant_file="x_MaSc_a.raw")],
+        )
+        alert.title = None
+        alert.destinations = frozenset({"user"})
+        manager = AlertManager()
+        manager.alerts = [alert]
 
         # when
         manager.check_for_issues(NOW)
 
         # then
-        mock_send_direct.assert_called_once_with(Message("msg"), "U_1")
-        mock_send_channel.assert_not_called()
+        mock_send.assert_called_once_with(
+            Message("inst1:x_MaSc_a.raw", None), recipients=["U_MASC"]
+        )
         db["set_notified"].assert_called_once()
 
 
-class TestDispatchQueueStopDms:
-    """Direct messages are sent per issue and recipient."""
+class TestDispatch:
+    """_dispatch routes an alert's issues to its configured destinations."""
 
-    @patch("monitoring.alert_manager.send_direct_message")
-    def test_fans_out_per_recipient_per_issue(self, mock_send: Mock) -> None:
-        """Each (issue x recipient) yields one send; files are refreshed before rendering."""
+    @patch("monitoring.alert_manager.send", return_value=True)
+    def test_channels_get_one_message_with_all_issues(self, mock_send: Mock) -> None:
+        """All issues go into one message to every channel destination."""
         # given
-        alert = Mock()
-        alert.render_issue.side_effect = ["msg1", "msg2"]
-        alert.get_recipients.side_effect = [["U_A", "U_SUP"], ["U_B", "U_SUP"]]
-        details1, details2 = Mock(), Mock()
+        alert = _alert("BusinessAlert")
+        alert.destinations = frozenset({"business", "ops"})
 
         # when
-        result = _dispatch_queue_stop_dms(
-            alert, [Issue("inst1:f1", details1), Issue("inst2:f2", details2)]
-        )
+        result = _dispatch(alert, [Issue("a", 1), Issue("b", 2)], {})
 
         # then
-        assert result is True
-        assert [c.args[1] for c in mock_send.call_args_list] == [
-            "U_A",
-            "U_SUP",
-            "U_B",
-            "U_SUP",
-        ]
-        assert alert.refresh_recent_files.call_args_list == [
-            call(details1),
-            call(details2),
-        ]
+        assert result == [Issue("a", 1), Issue("b", 2)]
+        mock_send.assert_called_once_with(
+            Message("a,b", "BusinessAlert title"), frozenset({"business", "ops"})
+        )
 
-    @patch("monitoring.alert_manager.send_direct_message")
-    def test_continues_after_failed_send_and_reports_failure(
-        self, mock_send: Mock, caplog: pytest.LogCaptureFixture
+    @patch("monitoring.alert_manager.config.MAX_ISSUES_PER_MESSAGE", 2)
+    @patch("monitoring.alert_manager.send", side_effect=[True, False])
+    def test_channel_messages_are_chunked_and_delivered_per_chunk(
+        self, mock_send: Mock
     ) -> None:
-        """One bad recipient does not abort the rest, but the result is a failure."""
+        """Issues are sent in chunks; a failed chunk leaves only its issues undelivered."""
         # given
-        alert = Mock()
-        alert.render_issue.return_value = "msg"
-        alert.get_recipients.return_value = ["U_BAD", "U_OK"]
-        mock_send.side_effect = lambda _m, recipient: (
-            (_ for _ in ()).throw(RuntimeError("500")) if recipient == "U_BAD" else None
-        )
+        issues = [Issue("a", 1), Issue("b", 2), Issue("c", 3)]
 
         # when
-        with caplog.at_level("WARNING"):
-            result = _dispatch_queue_stop_dms(
-                alert, [Issue("inst1:f1", Mock(kind="stop"))]
-            )
+        result = _dispatch(_alert(), issues, {})
 
         # then
-        assert result is False
-        assert mock_send.call_count == 2
-        assert any("U_BAD" in rec.message for rec in caplog.records)
+        assert [c.args[0].body for c in mock_send.call_args_list] == ["a,b", "c"]
+        assert result == issues[:2]
 
-    @patch("monitoring.alert_manager.send_channel_message")
+    @patch("monitoring.alert_manager.send", side_effect=[True, False])
+    def test_users_get_one_message_per_issue_and_only_delivered_ones_are_returned(
+        self, mock_send: Mock
+    ) -> None:
+        """Each issue goes to its file's user; a failed send leaves that issue undelivered."""
+        # given
+        alert = _alert("UserAlert")
+        alert.destinations = frozenset({"user"})
+        issues = [
+            Issue("a", 1, relevant_file="x_MaSc_a.raw"),
+            Issue("b", 2, relevant_file="x_AnSc_b.raw"),
+        ]
+
+        # when
+        result = _dispatch(alert, issues, {"MaSc": "U_MASC", "AnSc": "U_ANSC"})
+
+        # then
+        assert result == [issues[0]]
+        assert mock_send.call_args_list == [
+            call(Message("a", "UserAlert title"), recipients=["U_MASC"]),
+            call(Message("b", "UserAlert title"), recipients=["U_ANSC"]),
+        ]
+
+    @patch("monitoring.alert_manager.send", return_value=True)
+    def test_issue_without_recipient_is_skipped(self, mock_send: Mock) -> None:
+        """An issue whose file has no user with a messenger id is not sent, but counts as handled."""
+        # given
+        alert = _alert("UserAlert")
+        alert.destinations = frozenset({"user"})
+
+        # when
+        result = _dispatch(alert, [Issue("a", 1, relevant_file="x_UNK_a.raw")], {})
+
+        # then
+        assert result == [Issue("a", 1, relevant_file="x_UNK_a.raw")]
+        mock_send.assert_not_called()
+
+    @patch("monitoring.alert_manager.send", return_value=True)
     def test_an_issue_that_comes_back_within_its_cooldown_is_not_notified_again(
         self, mock_send: Mock, db: dict[str, Mock]
     ) -> None:
@@ -295,7 +337,7 @@ class TestDispatchQueueStopDms:
 class TestSendOnce:
     """send_once sends to the ops channel with an in-memory cooldown."""
 
-    @patch("monitoring.alert_manager.send_channel_message")
+    @patch("monitoring.alert_manager.send", return_value=True)
     def test_sends_with_key_suffix_and_respects_cooldown(self, mock_send: Mock) -> None:
         """The key is appended to the body; repeats within the cooldown are dropped."""
         # given
@@ -309,11 +351,11 @@ class TestSendOnce:
 
         # then
         assert mock_send.call_args_list == [
-            call(Message("db down [db]"), config.OPS_ALERTS_WEBHOOK_URL),
-            call(Message("db down [db]"), config.OPS_ALERTS_WEBHOOK_URL),
+            call(Message("db down [db]"), {"ops"}),
+            call(Message("db down [db]"), {"ops"}),
         ]
 
-    @patch("monitoring.alert_manager.send_channel_message")
+    @patch("monitoring.alert_manager.send", return_value=True)
     def test_cooldown_none_sends_only_once(self, mock_send: Mock) -> None:
         """Without cooldown a key is sent once per process."""
         # given
@@ -326,7 +368,7 @@ class TestSendOnce:
         # then
         mock_send.assert_called_once()
 
-    @patch("monitoring.alert_manager.send_channel_message", side_effect=RuntimeError)
+    @patch("monitoring.alert_manager.send", return_value=False)
     def test_failed_send_is_retried(self, mock_send: Mock) -> None:
         """A failed send does not start the cooldown."""
         # given

@@ -6,8 +6,6 @@ notified; they identify the operator in the raw file names.
 Two mutually exclusive rules per instrument, evaluated on its newest files:
 - Stop: newest two files share known initials and the pause exceeds N x gradient.
 - Handoff: second- and third-newest share known initials but the newest differs.
-Neither applies once the newest file is older than a maximum age: a stop that old is not
-news to the user.
 """
 
 import logging
@@ -23,7 +21,6 @@ from .base_alert import BaseAlert, Issue
 from .config import (
     BYTES_PER_GB,
     MAX_GRADIENT_LENGTH_HOURS,
-    QUEUE_STOP_MAX_AGE_HOURS,
     QUEUE_STOP_THRESHOLD_MULTIPLIER,
     Destinations,
 )
@@ -80,16 +77,15 @@ def _load_recent_files(known_initials: Collection[str]) -> dict[str, list[Recent
     return recent_files
 
 
-def _detect(  # noqa: PLR0913
+def _detect(
     instrument_id: str,
     files: list[RecentFile],
     now: datetime,
     max_gradient: timedelta,
     multiplier: float,
-    max_age: timedelta,
 ) -> QueueStopIssue | None:
     """Return the stop or handoff on an instrument given its newest files, newest first, if any."""
-    if len(files) < MIN_FILES_FOR_DETECTION or now - files[0].created_at > max_age:
+    if len(files) < MIN_FILES_FOR_DETECTION:
         return None
     return _stop(instrument_id, files, now, max_gradient, multiplier) or _handoff(
         instrument_id, files, max_gradient
@@ -224,16 +220,10 @@ class QueueStopAlert(BaseAlert):
             return []
 
         max_gradient = timedelta(hours=MAX_GRADIENT_LENGTH_HOURS)
-        max_age = timedelta(hours=QUEUE_STOP_MAX_AGE_HOURS)
         issues: list[Issue[QueueStopIssue]] = []
         for instrument_id, files in _load_recent_files(known_initials).items():
             issue = _detect(
-                instrument_id,
-                files,
-                now,
-                max_gradient,
-                QUEUE_STOP_THRESHOLD_MULTIPLIER,
-                max_age,
+                instrument_id, files, now, max_gradient, QUEUE_STOP_THRESHOLD_MULTIPLIER
             )
             if issue is None:
                 continue

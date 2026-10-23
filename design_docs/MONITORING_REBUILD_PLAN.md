@@ -226,11 +226,17 @@ Deviations from the text above:
   reopen. An issue that disappears and comes back keeps its cooldown. Decided after review:
   the lifecycle caused flapping alerts and only served a dashboard that does not exist.
 - Slice 9 (resolved notifications) is dropped for the same reason.
-- `SPECIAL_ALERT_SLACK_ID` was kept (slice 1): an earlier decision explicitly kept it.
 - `db_timeout` is folded into `db_connection_error` (slice 2).
 - After review, slice III also retries failed sends per issue, treats permanent Slack errors
-  as done, chunks channel messages and gives up loudly after repeated failures; slice IV
-  rejects empty suppression fields and applies suppressions to the DB-free tier.
+  as done and chunks channel messages; slice IV rejects empty suppression fields and applies
+  suppressions to the DB-free tier.
+- Simplified after a second review (2026-10-23): destinations are a class attribute
+  (`BaseAlert.destinations`) instead of `ALERT_DESTINATIONS`; no give-up after repeated send
+  failures (failed sends are retried forever); `SPECIAL_ALERT_SLACK_ID` is deleted (slice 3).
+  No `muted` flag on the records, muted issues are skipped; the suppression fields are named
+  like the issue fields (`alert`, `instrument_id`, `identifier`, `details`); suppressions are
+  read once per loop before the DB-free checks (slice 4). The claim is renewed once per loop
+  with a timeout of 10 × the interval (slice 5).
 - The pump pressure data is loaded once per class, i.e. twice per cycle (slice 6); the
   queue-stop alert and the recipients each read the users once per cycle (slice 3).
 - `monitoring/tests` are not run in CI (`.github/workflows/branch-checks.yaml` runs `shared`,

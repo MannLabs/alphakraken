@@ -110,7 +110,7 @@ class TestAlertManager:
             assert alert_manager.is_first_check is False
 
             # Should still update last alert time even when suppressed
-            alert_id = alert_manager._get_alert_id(alert_name, "test_id")
+            alert_id = alert_manager._get_alert_id(alert_name, mock_issue)
             assert alert_id in alert_manager.last_alerts
 
     def test_check_for_issues_should_handle_multiple_alerts_with_issues(self) -> None:
@@ -167,9 +167,9 @@ class TestAlertManager:
             mock_send_channel_message.assert_any_call("Message 3", "http://ops.url")
 
             # Should update last alert times for all identifiers
-            alert_id_1 = alert_manager._get_alert_id(alert_1_name, "id_1")
-            alert_id_2 = alert_manager._get_alert_id(alert_2_name, "id_2")
-            alert_id_3 = alert_manager._get_alert_id(alert_3_name, "id_3")
+            alert_id_1 = alert_manager._get_alert_id(alert_1_name, mock_issue_1)
+            alert_id_2 = alert_manager._get_alert_id(alert_2_name, mock_issue_2)
+            alert_id_3 = alert_manager._get_alert_id(alert_3_name, mock_issue_3)
 
             assert alert_id_1 in alert_manager.last_alerts
             assert alert_id_2 in alert_manager.last_alerts
@@ -197,13 +197,32 @@ class TestAlertManager:
         # when & then
         # file_remover should NOT send alert (needs 12 hours, only 3 passed)
         should_send_file_remover = alert_manager.should_send_alert(
-            ["file_remover"], alert
+            [Issue("file_remover", "x")], alert
         )
         assert should_send_file_remover is False
 
         # other_instrument should send alert (needs 2 hours, 3 passed)
-        should_send_other = alert_manager.should_send_alert(["other_instrument"], alert)
+        should_send_other = alert_manager.should_send_alert(
+            [Issue("other_instrument", "x")], alert
+        )
         assert should_send_other is True
+
+    def test_cooldown_should_be_tracked_per_kind(self) -> None:
+        """Issues with the same identifier but different kinds have separate cooldowns."""
+        # given
+        alert_manager = AlertManager()
+        alert = _mock_alert()
+        alert.get_cooldown_time_minutes.return_value = 60
+        issue_a = Issue("inst1", "x", kind="a")
+        issue_b = Issue("inst1", "x", kind="b")
+
+        # when
+        alert_manager.set_last_alert_time(alert.name, issue_a)
+
+        # then
+        assert alert_manager._get_alert_id(alert.name, issue_a) == "my_alert_inst1_a"
+        assert alert_manager.should_send_alert([issue_a], alert) is False
+        assert alert_manager.should_send_alert([issue_b], alert) is True
 
 
 def _mock_alert(name: str = "my_alert") -> Mock:

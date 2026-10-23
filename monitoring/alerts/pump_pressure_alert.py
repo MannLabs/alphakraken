@@ -29,7 +29,8 @@ from .config import (
 # temporary hack to bypass bug in pump pressure extraction
 MAX_PRESSURE_TO_CONSIDER = 1000
 
-ABSOLUTE_IDENTIFIER_PREFIX = "absolute_"
+KIND_INCREASE = "increase"
+KIND_ABSOLUTE = "absolute"
 
 
 @dataclass(frozen=True)
@@ -51,7 +52,7 @@ class PumpPressureAlert(BaseAlert):
         # Memory: set of (instrument_id, issue_identifier) to track reported issues
         # issue_identifier can be:
         # - tuple of pressure_changes for relative increase alerts
-        # - string f"absolute_{raw_file_id}" for absolute threshold alerts
+        # - raw_file_id for absolute threshold alerts
         self._reported_issues: set[tuple[str, tuple[Any, ...] | str]] = set()
 
     @property
@@ -59,9 +60,12 @@ class PumpPressureAlert(BaseAlert):
         """Return the case name for this alert type."""
         return Cases.PUMP_PRESSURE_INCREASE
 
-    def get_cooldown_time_minutes(self, identifier: str) -> int:
-        """Return cooldown in minutes for this alert and identifier."""
-        if identifier.startswith(ABSOLUTE_IDENTIFIER_PREFIX):
+    def get_cooldown_time_minutes(self, issue: Issue) -> int:
+        """Return the default cooldown for absolute threshold issues, none for increases.
+
+        Increases need no cooldown, as `_reported_issues` already prevents repeated alerts.
+        """
+        if issue.kind == KIND_ABSOLUTE:
             return DEFAULT_ALERT_COOLDOWN_TIME_MINUTES
         return 0
 
@@ -126,6 +130,7 @@ class PumpPressureAlert(BaseAlert):
                             # the younger file of the (single) change
                             relevant_file=pressure_changes[0][4],
                             instrument_id=instrument_id,
+                            kind=KIND_INCREASE,
                         )
                     )
                 else:
@@ -139,19 +144,17 @@ class PumpPressureAlert(BaseAlert):
                 pressure_data, PUMP_PRESSURE_ABSOLUTE_THRESHOLD_BAR
             )
             for pressure, raw_file_id, timestamp in high_pressure_alerts:
-                memory_key = (
-                    instrument_id,
-                    f"{ABSOLUTE_IDENTIFIER_PREFIX}{raw_file_id}",
-                )
+                memory_key = (instrument_id, raw_file_id)
 
                 if memory_key not in self._reported_issues:
                     self._reported_issues.add(memory_key)
                     issues.append(
                         Issue(
-                            f"{ABSOLUTE_IDENTIFIER_PREFIX}{instrument_id}",
+                            instrument_id,
                             f"High pressure: {pressure:.1f} bar (≥{PUMP_PRESSURE_ABSOLUTE_THRESHOLD_BAR} bar) in `{raw_file_id}` at {timestamp.strftime('%Y-%m-%d %H:%M:%S')}",
                             relevant_file=raw_file_id,
                             instrument_id=instrument_id,
+                            kind=KIND_ABSOLUTE,
                         )
                     )
                 else:

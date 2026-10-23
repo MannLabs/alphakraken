@@ -181,7 +181,7 @@ class TestBaseAlertSuppressions:
         alert.test_issues = [
             Issue("astral1", "disk full"),
             Issue("astral10", "disk full"),
-            Issue("absolute_astral1", "high pressure"),
+            Issue("backup_astral1", "high pressure"),
         ]
 
         suppressions = [{"error_class": "TestAlert", "context": "astral1"}]
@@ -193,7 +193,7 @@ class TestBaseAlertSuppressions:
             # then
             assert result == [
                 Issue("astral10", "disk full"),
-                Issue("absolute_astral1", "high pressure"),
+                Issue("backup_astral1", "high pressure"),
             ]
 
     def test_missing_error_class_not_suppressed(self) -> None:

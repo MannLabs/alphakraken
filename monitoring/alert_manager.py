@@ -1,7 +1,7 @@
 """Decide when to send alerts based on monitoring checks."""
 
 import logging
-from collections import defaultdict
+from collections.abc import Hashable
 from datetime import datetime, timedelta
 
 import pytz
@@ -35,20 +35,15 @@ _WEBHOOK_URLS = {
 }
 
 
-def _default_value() -> datetime:
-    """Special default value for defaultdict to have an alert on the first occurrence."""
-    return datetime.now(pytz.UTC) - timedelta(
-        minutes=config.DEFAULT_ALERT_COOLDOWN_TIME_MINUTES + 1
-    )
-
-
 class AlertManager:
     """Manages all alert checks and sending."""
 
     def __init__(self):
         """Initialize the AlertManager with checkers and last alert times."""
         # TODO: currently this grows indefinitely, we assume regular restarts of the monitoring app
-        self.last_alerts = defaultdict(_default_value)
+        self.last_alerts: dict[str, datetime] = {}
+        # (alert name, unique key) of handled issues, to report those only once
+        self.reported_unique_keys: set[tuple[str, Hashable]] = set()
 
         self.is_first_check = True
         self.alerts: list[BaseAlert] = [
@@ -81,17 +76,29 @@ class AlertManager:
     def _handle_issues(
         self, alert: BaseAlert, issues: list[Issue], *, suppress_alerts: bool = False
     ) -> None:
-        """Handle sending an alert if cooldown has passed."""
-        if self.should_send_alert(issues, alert):
-            if not suppress_alerts:
-                _dispatch(alert, issues)
-            else:
-                logging.info(
-                    f"Suppressed alert for {alert.name} ({len(issues)} issues)"
-                )
+        """Handle sending an alert if cooldown has passed.
 
-            for issue in issues:
-                self.set_last_alert_time(alert.name, issue)
+        Issues are only marked as reported once handled, so issues blocked by cooldown or
+        failed sends are raised again on the next check.
+        """
+        issues = [
+            issue
+            for issue in issues
+            if (alert.name, issue.unique_key) not in self.reported_unique_keys
+        ]
+        if not issues or not self.should_send_alert(issues, alert):
+            return
+
+        if suppress_alerts:
+            logging.info(f"Suppressed alert for {alert.name} ({len(issues)} issues)")
+        elif not _dispatch(alert, issues):
+            logging.warning(f"Failed to send {alert.name}, retrying on next check")
+            return
+
+        for issue in issues:
+            self.set_last_alert_time(alert.name, issue)
+            if issue.unique_key is not None:
+                self.reported_unique_keys.add((alert.name, issue.unique_key))
 
     def should_send_alert(
         self,
@@ -107,21 +114,18 @@ class AlertManager:
             else:
                 effective_cooldown_time_minutes = alert.get_cooldown_time_minutes(issue)
 
-            earliest_next_alert_time = self._get_last_alert_time(
-                alert.name, issue
-            ) + timedelta(minutes=effective_cooldown_time_minutes)
-            send_alert |= datetime.now(pytz.UTC) > earliest_next_alert_time
+            last_alert_time = self.last_alerts.get(
+                self._get_alert_id(alert.name, issue)
+            )
+            send_alert |= last_alert_time is None or datetime.now(
+                pytz.UTC
+            ) > last_alert_time + timedelta(minutes=effective_cooldown_time_minutes)
         return send_alert
 
     def set_last_alert_time(self, alert_name: str, issue: Issue) -> None:
         """Get the alert ID for tracking last sent time."""
         alert_id = self._get_alert_id(alert_name, issue)
         self.last_alerts[alert_id] = datetime.now(pytz.UTC)
-
-    def _get_last_alert_time(self, alert_name: str, issue: Issue) -> datetime:
-        """Get the alert ID for tracking last sent time."""
-        alert_id = self._get_alert_id(alert_name, issue)
-        return self.last_alerts[alert_id]
 
     @staticmethod
     def _get_alert_id(alert_name: str, issue: Issue) -> str:
@@ -130,11 +134,12 @@ class AlertManager:
         return f"{alert_id}_{issue.kind}" if issue.kind else alert_id
 
 
-def _dispatch(alert: BaseAlert, issues: list[Issue]) -> None:
-    """Send the issues to all destinations configured for the alert.
+def _dispatch(alert: BaseAlert, issues: list[Issue]) -> bool:
+    """Send the issues to all destinations configured for the alert, return whether all sends succeeded.
 
     A failed send to one destination or recipient does not abort the rest.
     """
+    all_sent = True
     destinations = config.ALERT_DESTINATIONS.get(
         alert.name, config.DEFAULT_ALERT_DESTINATIONS
     )
@@ -152,13 +157,20 @@ def _dispatch(alert: BaseAlert, issues: list[Issue]) -> None:
                 send_channel_message(message, webhook_url)
             except Exception:  # noqa: PERF203
                 logging.exception(f"Failed to send {alert.name} channel message")
+                all_sent = False
 
     if Destinations.USER in destinations:
-        _send_direct_messages(alert, issues)
+        all_sent &= _send_direct_messages(alert, issues)
+
+    return all_sent
 
 
-def _send_direct_messages(alert: BaseAlert, issues: list[Issue]) -> None:
-    """Send one direct message per issue to each recipient derived from the issue's relevant file."""
+def _send_direct_messages(alert: BaseAlert, issues: list[Issue]) -> bool:
+    """Send one direct message per issue to each recipient derived from the issue's relevant file.
+
+    Return whether all sends succeeded.
+    """
+    all_sent = True
     for issue in issues:
         recipients = get_recipients(issue.relevant_file)
         if not recipients:
@@ -176,6 +188,8 @@ def _send_direct_messages(alert: BaseAlert, issues: list[Issue]) -> None:
                     f"Failed to send {alert.name} direct message "
                     f"(recipient={recipient}, identifier={issue.identifier})"
                 )
+                all_sent = False
+    return all_sent
 
 
 def send_special_alert(

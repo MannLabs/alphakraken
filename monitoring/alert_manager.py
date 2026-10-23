@@ -180,6 +180,14 @@ def _is_due(record: AlertIssue, cooldown_minutes: int | None, now: datetime) -> 
     return now > ensure_utc(record.last_notified) + timedelta(minutes=cooldown_minutes)
 
 
+def _message(alert: BaseAlert, issues: list[Issue]) -> Message:
+    """Build the message, tagged with the alert class name to name it in a suppression."""
+    body = alert.format_message(issues)
+    if alert.title is None:
+        return Message(f"{body}\n[{alert.name}]")
+    return Message(body, f"{alert.title} [{alert.name}]")
+
+
 def _dispatch(
     alert: BaseAlert, issues: list[Issue], messenger_ids_by_initials: dict[str, str]
 ) -> list[Issue]:
@@ -194,7 +202,7 @@ def _dispatch(
     if channels:
         for start in range(0, len(issues), config.MAX_ISSUES_PER_MESSAGE):
             chunk = issues[start : start + config.MAX_ISSUES_PER_MESSAGE]
-            if not send(Message(alert.format_message(chunk), alert.title), channels):
+            if not send(_message(alert, chunk), channels):
                 delivered = [i for i in delivered if i not in chunk]
 
     if Destinations.USER in alert.destinations:
@@ -205,8 +213,10 @@ def _dispatch(
                     f"No recipients found for {alert.name} issue {issue.identifier}"
                 )
                 continue
-            message = Message(alert.format_message([issue]), alert.title)
-            if not send(message, recipients=recipients) and issue in delivered:
+            if (
+                not send(_message(alert, [issue]), recipients=recipients)
+                and issue in delivered
+            ):
                 delivered.remove(issue)
 
     return delivered

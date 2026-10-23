@@ -86,8 +86,8 @@ def test_returns_test_settings_for_test_environment(
         "instruments": {"_test1_": {"type": "thermo"}},
         "general": {
             "notifications": {
-                "ops_alerts_webhook_url": "http://test-webhook.example.com",
-                "business_alerts_webhook_url": "http://test-webhook.example.com",
+                "ops_alerts_url": "json://test-webhook.example.com",
+                "business_alerts_url": "json://test-webhook.example.com",
                 "webapp_url": "http://localhost:8501",
             }
         },
@@ -229,4 +229,4 @@ class TestGetNotificationSetting:
         from shared.yamlsettings import get_notification_setting
 
         with pytest.raises(KeyError):
-            get_notification_setting("ops_alerts_webhook_url")
+            get_notification_setting("ops_alerts_url")

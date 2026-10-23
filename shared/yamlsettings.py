@@ -31,9 +31,9 @@ class YamlKeys:
     RUNNERS = "runners"
 
     NOTIFICATIONS = "notifications"
-    OPS_ALERTS_WEBHOOK_URL = "ops_alerts_webhook_url"
-    BUSINESS_ALERTS_WEBHOOK_URL = "business_alerts_webhook_url"
-    SLACK_BOT_TOKEN = "slack_bot_token"  # noqa: S105
+    OPS_ALERTS_URL = "ops_alerts_url"
+    BUSINESS_ALERTS_URL = "business_alerts_url"
+    USER_ALERTS_URL = "user_alerts_url"
     WEBAPP_URL = "webapp_url"
     INSTRUMENT_STALL_INSTRUMENT_IDS = "instrument_stall_instrument_ids"
     FREE_SPACE_THRESHOLD_GB = "free_space_threshold_gb"
@@ -77,8 +77,8 @@ class YamlSettings:
                 "instruments": {"_test1_": {"type": "thermo"}},
                 "general": {
                     "notifications": {
-                        "ops_alerts_webhook_url": "http://test-webhook.example.com",
-                        "business_alerts_webhook_url": "http://test-webhook.example.com",
+                        "ops_alerts_url": "json://test-webhook.example.com",
+                        "business_alerts_url": "json://test-webhook.example.com",
                         "webapp_url": "http://localhost:8501",
                     }
                 },

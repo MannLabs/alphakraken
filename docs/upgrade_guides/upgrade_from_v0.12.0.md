@@ -73,3 +73,13 @@ Then, on the PC (VM) hosting the dbs, `cd` to the alphakraken source directory a
    ./compose.sh --profile dbs exec mongodb-service sh -c 'mongosh -u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" admin --quiet --eval "db.getSiblingDB(\"krakendb\").alert_issue.createIndex({first_seen: 1}, {expireAfterSeconds: 7776000})"'
    ```
 6. Fill in noted slack ids, supressions and instrument ids for stall alert
+
+
+# Notifications via apprise
+
+The monitoring sends all messages through [apprise](https://github.com/caronc/apprise), so any of its
+supported services can be configured by URL. In `envs/alphakraken.${ENV}.yaml`, under `general.notifications`:
+
+1. Rename `ops_alerts_webhook_url` to `ops_alerts_url` and `business_alerts_webhook_url` to
+   `business_alerts_url`. Slack incoming webhook URLs and MS Teams Power Automate URLs work unchanged.
+2. Replace `slack_bot_token: "xoxb-..."` with `user_alerts_url: "slack://xoxb-.../@{{ALPHAKRAKEN_MESSENGER_ID}}"`.

@@ -495,7 +495,7 @@ and once to `infrastructure`.
 could be in an `error` state though. Check after a few hours if some files are stuck and resolve the issues with the Airflow UI.
 
 ## Monitoring & alerting
-There is a basic monitoring system in place that sends messages to a Slack channel in the following cases
+There is a basic monitoring system in place that sends messages via [apprise](https://github.com/caronc/apprise) (e.g. to a Slack or MS Teams channel) in the following cases
 - MongoDB is not reachable
 - last heartbeat of a worker is older than 15 minutes
 - a pile up of non-terminal status (e.g. "quanting") is detected

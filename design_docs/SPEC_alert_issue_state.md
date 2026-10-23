@@ -26,8 +26,8 @@ resolved notifications, to keep the design small).
     notified by the active instance only (see `SPEC_alerting_active_instance.md`).
   - DB-free (`db_connection_error`, `startup`, `exception`, local disk, webapp health):
     in-memory cooldown via `AlertManager.send_once`, sent by every instance. These must work
-    while the DB is down. (`db_timeout` is folded into `db_connection_error`: a server selection
-    timeout is a connection failure.)
+    while the DB is down; they apply the last suppressions that could be read. (`db_timeout` is
+    folded into `db_connection_error`: a server selection timeout is a connection failure.)
 - One cycle on the active instance:
   1. Load all records once.
   2. Detect issues (`detect(snapshot, now)` per alert), apply suppressions.

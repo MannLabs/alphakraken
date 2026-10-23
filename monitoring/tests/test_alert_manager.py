@@ -432,9 +432,58 @@ class TestSendOnce:
 
 
 class TestCheckDbFreeAlerts:
-    """DB-free alerts are sent via send_once."""
+    """DB-free alerts are sent via send_once, honoring the last known suppressions."""
 
-    def test_issues_are_sent_once_per_alert_and_key(self) -> None:
+    def test_muted_issue_is_not_sent(self, db: dict[str, Mock]) -> None:
+        """A DB-free issue matching a suppression is skipped."""
+        # given
+        db["suppressions"].return_value = [
+            Mock(
+                error_class="WebAppHealthAlert",
+                instrument_id="*",
+                context="*",
+                message="*",
+            )
+        ]
+        manager = AlertManager()
+        manager.db_free_alerts = [
+            _alert("WebAppHealthAlert", [Issue("webapp", "down")])
+        ]
+
+        # when
+        with patch.object(manager, "send_once") as mock_send_once:
+            manager.check_db_free_alerts(NOW)
+
+        # then
+        mock_send_once.assert_not_called()
+
+    def test_last_known_suppressions_apply_while_the_db_is_down(
+        self, db: dict[str, Mock]
+    ) -> None:
+        """If the suppressions cannot be read, the previous ones stay in effect."""
+        # given
+        manager = AlertManager()
+        manager.db_free_alerts = [
+            _alert("WebAppHealthAlert", [Issue("webapp", "down")])
+        ]
+        manager._suppressions = [
+            Mock(
+                error_class="WebAppHealthAlert",
+                instrument_id="*",
+                context="*",
+                message="*",
+            )
+        ]
+        db["suppressions"].side_effect = RuntimeError("no db")
+
+        # when
+        with patch.object(manager, "send_once") as mock_send_once:
+            manager.check_db_free_alerts(NOW)
+
+        # then
+        mock_send_once.assert_not_called()
+
+    def test_issues_are_sent_once_per_alert_and_key(self, db: dict[str, Mock]) -> None:  # noqa: ARG002
         """Each issue of a DB-free alert is sent with its own cooldown key."""
         # given
         manager = AlertManager()

@@ -33,7 +33,7 @@ from shared.db.interface import (
     set_alert_issue_muted,
     set_alert_issue_notified,
 )
-from shared.db.models import AlertIssue, KrakenStatus
+from shared.db.models import AlertIssue, AlertSuppression, KrakenStatus
 
 
 class AlertManager:
@@ -60,13 +60,16 @@ class AlertManager:
             QueueStopAlert(),
         ]
         self._last_sent: dict[str, datetime] = {}
+        # last suppressions read from the DB, also used while the DB is down
+        self._suppressions: list[AlertSuppression] = []
 
     def check_for_issues(self, now: datetime) -> None:
         """Run the DB-backed checks and notify the issues that are due."""
         logging.info("Checking for issues...")
         status_objects = list(KrakenStatus.objects)
         records = {(r.alert, r.key): r for r in get_alert_issues()}
-        suppressions = get_active_alert_suppressions()
+        self._refresh_suppressions()
+        suppressions = self._suppressions
         messenger_ids_by_initials = get_messenger_ids_by_initials()
 
         for alert in self.alerts:
@@ -100,10 +103,26 @@ class AlertManager:
                 if issue in delivered:
                     set_alert_issue_notified(record, now)
 
+    def _refresh_suppressions(self) -> None:
+        """Read the active suppressions, keeping the last known ones if the DB is unreachable."""
+        try:
+            self._suppressions = get_active_alert_suppressions()
+        except Exception:  # noqa: BLE001
+            logging.warning(
+                "Could not read the alert suppressions, using the last known ones"
+            )
+
     def check_db_free_alerts(self, now: datetime) -> None:
-        """Run the checks that need no DB, sending each issue with an in-memory cooldown."""
+        """Run the checks that need no DB, sending each issue with an in-memory cooldown.
+
+        The suppressions are the last ones that could be read, so they apply while the DB is down.
+        """
+        self._refresh_suppressions()
         for alert in self.db_free_alerts:
             for issue in alert.get_issues([], now):
+                if is_muted(alert.name, issue, self._suppressions):
+                    logging.info(f"Muted {alert.name} issue {issue.identifier}")
+                    continue
                 self.send_once(
                     f"{alert.name}:{issue.key}",
                     Message(alert.format_message([issue]), alert.title),

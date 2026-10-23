@@ -131,7 +131,6 @@ def _send_channel_message_slack(
 def _send_channel_message_msteams(
     message: Message, hostname: str, webhook_url: str
 ) -> None:
-    # Define the adaptive card JSON
     text = f"{_text(message)} (sent from {hostname})"
     adaptive_card_json = {
         "type": "message",

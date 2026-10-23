@@ -11,11 +11,11 @@ from monitoring.alerts.pump_pressure_alert import (
     PressureDataPoint,
     PumpPressureHighAlert,
     PumpPressureIncreaseAlert,
-    detect_high,
-    detect_increase,
-    group_by_instrument,
-    is_within_tolerance,
-    load_pressure_data,
+    _detect_high,
+    _detect_increase,
+    _group_by_instrument,
+    _is_within_tolerance,
+    _load_pressure_data,
 )
 from monitoring.utils import short_digest
 from shared.db.models import KrakenStatusEntities
@@ -61,7 +61,7 @@ class TestGroupByInstrument:
         }
 
         # when
-        result = group_by_instrument(raw_files_with_metrics)
+        result = _group_by_instrument(raw_files_with_metrics)
 
         # then - missing gradient length is kept, missing pressure is skipped
         assert result == {
@@ -86,7 +86,7 @@ def test_is_within_tolerance(
     value: float | None, target: float | None, *, expected: bool
 ) -> None:
     """Values within 10 % of the target are comparable; None never is."""
-    assert is_within_tolerance(value, target) is expected
+    assert _is_within_tolerance(value, target) is expected
 
 
 class TestDetectIncrease:
@@ -98,7 +98,7 @@ class TestDetectIncrease:
         points = _points([125.0, 124.0, 123.0, 122.0, 121.0, 120.0, 100.0])
 
         # when
-        result = detect_increase(points, window_size=5, threshold=20)
+        result = _detect_increase(points, window_size=5, threshold=20)
 
         # then - file2 (124) vs file7 (100) is the first pair above 20 bar
         assert result == PressureChange(points[1], points[6])
@@ -116,7 +116,7 @@ class TestDetectIncrease:
     )
     def test_detects_nothing(self, pressures: list[float]) -> None:
         """No change is returned without an increase strictly above the threshold."""
-        assert detect_increase(_points(pressures), window_size=5, threshold=20) is None
+        assert _detect_increase(_points(pressures), window_size=5, threshold=20) is None
 
     def test_compares_only_comparable_gradient_lengths(self) -> None:
         """Measurements with a different gradient length than the latest are skipped."""
@@ -127,7 +127,7 @@ class TestDetectIncrease:
         ]
 
         # when / then
-        assert detect_increase(points, window_size=5, threshold=20) is None
+        assert _detect_increase(points, window_size=5, threshold=20) is None
 
 
 class TestDetectHigh:
@@ -139,7 +139,7 @@ class TestDetectHigh:
         points = _points([485.0, 480.0, 475.0, 1500.0])
 
         # when / then
-        assert detect_high(points, threshold=480) == [points[0], points[1]]
+        assert _detect_high(points, threshold=480) == [points[0], points[1]]
 
 
 class TestLoadPressureData:
@@ -156,7 +156,7 @@ class TestLoadPressureData:
         mock_rawfile.objects.filter.return_value.only.return_value.order_by.return_value = []
 
         # when
-        result = load_pressure_data(["instrument1"], NOW)
+        result = _load_pressure_data(["instrument1"], NOW)
 
         # then
         assert result == {}
@@ -184,7 +184,7 @@ class TestLoadPressureData:
         }
 
         # when
-        result = load_pressure_data(["instrument1"], NOW)
+        result = _load_pressure_data(["instrument1"], NOW)
 
         # then
         assert result == {"instrument1": [PressureDataPoint(100.0, 0.5, NOW, "file1")]}
@@ -198,7 +198,7 @@ JOB = Mock(id="file_remover", entity_type=KrakenStatusEntities.JOB)
 class TestPumpPressureIncreaseAlert:
     """Issues of the increase alert."""
 
-    @patch("monitoring.alerts.pump_pressure_alert.load_pressure_data")
+    @patch("monitoring.alerts.pump_pressure_alert._load_pressure_data")
     def test_no_instruments_loads_nothing(self, mock_load: Mock) -> None:
         """Without instruments in the status objects, no data is loaded."""
         assert PumpPressureIncreaseAlert()._get_issues([JOB], NOW) == []
@@ -206,7 +206,7 @@ class TestPumpPressureIncreaseAlert:
 
     @patch("monitoring.alerts.pump_pressure_alert.PUMP_PRESSURE_WINDOW_SIZE", 5)
     @patch("monitoring.alerts.pump_pressure_alert.PUMP_PRESSURE_THRESHOLD_BAR", 20)
-    @patch("monitoring.alerts.pump_pressure_alert.load_pressure_data")
+    @patch("monitoring.alerts.pump_pressure_alert._load_pressure_data")
     def test_one_issue_per_instrument_with_an_increase(self, mock_load: Mock) -> None:
         """An increase yields one issue keyed by the two compared files."""
         # given
@@ -238,7 +238,7 @@ class TestPumpPressureHighAlert:
         "monitoring.alerts.pump_pressure_alert.PUMP_PRESSURE_ABSOLUTE_THRESHOLD_BAR",
         480,
     )
-    @patch("monitoring.alerts.pump_pressure_alert.load_pressure_data")
+    @patch("monitoring.alerts.pump_pressure_alert._load_pressure_data")
     def test_one_issue_per_file_above_threshold(self, mock_load: Mock) -> None:
         """Each measurement above the threshold yields one issue keyed by the file."""
         # given

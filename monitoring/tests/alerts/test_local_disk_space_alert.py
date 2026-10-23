@@ -4,7 +4,6 @@ from unittest.mock import Mock, patch
 
 from monitoring.alerts import config
 from monitoring.alerts.base_alert import Issue
-from monitoring.alerts.config import Cases
 from monitoring.alerts.local_disk_space_alert import LocalDiskSpaceAlert
 
 
@@ -20,7 +19,7 @@ class TestLocalDiskSpaceAlert:
         result = alert.name
 
         # then
-        assert result == Cases.LOCAL_DISK_SPACE
+        assert result == "LocalDiskSpaceAlert"
 
     @patch("monitoring.alerts.local_disk_space_alert.shutil.disk_usage")
     def test_get_issues_should_return_empty_list_when_above_threshold(

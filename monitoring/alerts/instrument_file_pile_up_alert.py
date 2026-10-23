@@ -7,17 +7,11 @@ from .base_alert import BaseAlert, Issue
 from .config import (
     INSTRUMENT_FILE_MIN_AGE_HOURS,
     INSTRUMENT_FILE_PILE_UP_THRESHOLDS,
-    Cases,
 )
 
 
 class InstrumentFilePileUpAlert(BaseAlert):
     """Check for instrument file pile-ups (files not moved/purged)."""
-
-    @property
-    def name(self) -> str:
-        """Return the case name for this alert type."""
-        return Cases.INSTRUMENT_FILE_PILE_UP
 
     def _get_issues(self, status_objects: list[KrakenStatus]) -> list[Issue[str]]:
         """Check for instrument file pile-ups."""

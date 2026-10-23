@@ -7,7 +7,7 @@ import pytz
 from shared.db.models import KrakenStatus, RawFile, RawFileStatus
 
 from .base_alert import BaseAlert, Issue
-from .config import CHECK_INTERVAL_SECONDS, Cases
+from .config import CHECK_INTERVAL_SECONDS
 
 
 class RawFileErrorAlert(BaseAlert):
@@ -16,11 +16,6 @@ class RawFileErrorAlert(BaseAlert):
     def __init__(self):
         """Initialize with previous statuses."""
         self.previous_raw_file_statuses = {}
-
-    @property
-    def name(self) -> str:
-        """Return the case name for this alert type."""
-        return Cases.RAW_FILE_ERROR
 
     def _get_issues(self, status_objects: list[KrakenStatus]) -> list[Issue[str]]:
         """Check for raw files that have changed to ERROR status."""

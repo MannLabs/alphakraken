@@ -11,7 +11,6 @@ from .base_alert import BaseAlert, Issue
 from .config import (
     INSTRUMENT_STALL_INSTRUMENT_IDS,
     INSTRUMENT_STALL_THRESHOLD_HOURS,
-    Cases,
 )
 
 
@@ -21,11 +20,6 @@ class InstrumentStallAlert(BaseAlert):
     def __init__(self):
         """Initialize with empty alerted file names tracker."""
         self._alerted_file_names: dict[str, str] = {}
-
-    @property
-    def name(self) -> str:
-        """Return the case name for this alert type."""
-        return Cases.INSTRUMENT_STALL
 
     def _get_issues(self, status_objects: list[KrakenStatus]) -> list[Issue[datetime]]:
         """Check for instruments with no recent file acquisition."""

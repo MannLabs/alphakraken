@@ -6,7 +6,6 @@ from unittest.mock import Mock, patch
 import pytz
 
 from monitoring.alerts.base_alert import Issue
-from monitoring.alerts.config import Cases
 from monitoring.alerts.s3_upload_failure_alert import S3UploadFailureAlert
 from shared.db.models import BackupStatus
 
@@ -31,7 +30,7 @@ class TestS3UploadFailureAlert:
         result = alert.name
 
         # then
-        assert result == Cases.S3_UPLOAD_FAILURE
+        assert result == "S3UploadFailureAlert"
 
     @patch("monitoring.alerts.s3_upload_failure_alert.RawFile")
     @patch("monitoring.alerts.s3_upload_failure_alert.datetime")

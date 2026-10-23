@@ -3,7 +3,6 @@
 from unittest.mock import Mock, patch
 
 from monitoring.alerts.base_alert import Issue
-from monitoring.alerts.config import Cases
 from monitoring.alerts.disk_space_alert import DiskSpaceAlert
 from shared.db.models import KrakenStatusEntities
 
@@ -20,7 +19,7 @@ class TestDiskSpaceAlert:
         result = alert.name
 
         # then
-        assert result == Cases.LOW_DISK_SPACE
+        assert result == "DiskSpaceAlert"
 
     @patch.object(DiskSpaceAlert, "_get_threshold")
     def test_get_issues_should_return_empty_list_when_no_low_disk_space(

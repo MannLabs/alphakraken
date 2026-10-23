@@ -3,16 +3,10 @@
 from shared.db.models import KrakenStatus, KrakenStatusValues
 
 from .base_alert import BaseAlert, Issue, get_instrument_id
-from .config import Cases
 
 
 class HealthCheckFailedAlert(BaseAlert):
     """Check for failed health checks."""
-
-    @property
-    def name(self) -> str:
-        """Return the case name for this alert type."""
-        return Cases.HEALTH_CHECK_FAILED
 
     def _get_issues(
         self, status_objects: list[KrakenStatus]

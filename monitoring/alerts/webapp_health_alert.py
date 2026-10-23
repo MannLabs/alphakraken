@@ -9,7 +9,6 @@ from shared.db.models import KrakenStatus
 from shared.yamlsettings import YamlKeys, get_notification_setting
 
 from .base_alert import BaseAlert, Issue
-from .config import Cases
 
 
 class WebAppHealthAlert(BaseAlert):
@@ -23,11 +22,6 @@ class WebAppHealthAlert(BaseAlert):
         except KeyError:
             logging.warning("WEBAPP_URL not found in config, health check disabled")
             self.webapp_url = ""
-
-    @property
-    def name(self) -> str:
-        """Return the case name for this alert type."""
-        return Cases.WEBAPP_HEALTH
 
     def _get_issues(self, status_objects: list[KrakenStatus]) -> list[Issue[str]]:
         """Check if webapp is accessible via HTTP request."""

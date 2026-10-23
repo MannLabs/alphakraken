@@ -21,7 +21,6 @@ from .config import (
     MAX_GRADIENT_LENGTH_HOURS,
     QUEUE_STOP_THRESHOLD_MULTIPLIER,
     SPECIAL_ALERT_SLACK_ID,
-    Cases,
 )
 
 # Trailing boundary is a lookahead so adjacent tokens can both match:
@@ -81,11 +80,6 @@ class QueueStopAlert(BaseAlert):
     # Class-level so it survives across instances created within a single
     # monitor process; matches the InstrumentStallAlert tracker pattern.
     _alerted_subject_files: ClassVar[set[tuple[str, str]]] = set()
-
-    @property
-    def name(self) -> str:
-        """Return the case name for this alert type."""
-        return Cases.QUEUE_STOP
 
     def _get_issues(
         self, status_objects: list[KrakenStatus]

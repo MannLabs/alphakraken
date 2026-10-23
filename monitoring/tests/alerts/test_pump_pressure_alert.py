@@ -6,7 +6,6 @@ from unittest.mock import Mock, patch
 import pytz
 
 from monitoring.alerts.base_alert import Issue
-from monitoring.alerts.config import Cases
 from monitoring.alerts.pump_pressure_alert import PressureDataPoint, PumpPressureAlert
 from shared.db.models import KrakenStatusEntities
 
@@ -23,7 +22,7 @@ class TestPumpPressureAlert:
         result = alert.name
 
         # then
-        assert result == Cases.PUMP_PRESSURE_INCREASE
+        assert result == "PumpPressureAlert"
 
     @patch("monitoring.alerts.pump_pressure_alert.augment_raw_files_with_metrics")
     @patch("monitoring.alerts.pump_pressure_alert.RawFile")

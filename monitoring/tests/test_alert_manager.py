@@ -193,8 +193,10 @@ class TestAlertManager:
 
         # Set last alert time to 3 hours ago for both identifiers
         three_hours_ago = datetime.now(pytz.UTC) - timedelta(hours=3)
-        alert_manager.last_alerts["health_check_failed_file_remover"] = three_hours_ago
-        alert_manager.last_alerts["health_check_failed_other_instrument"] = (
+        alert_manager.last_alerts["HealthCheckFailedAlert_file_remover"] = (
+            three_hours_ago
+        )
+        alert_manager.last_alerts["HealthCheckFailedAlert_other_instrument"] = (
             three_hours_ago
         )
 

@@ -3,7 +3,6 @@
 from unittest.mock import Mock, patch
 
 from monitoring.alerts.base_alert import Issue
-from monitoring.alerts.config import Cases
 from monitoring.alerts.status_pile_up_alert import StatusPileUpAlert
 from shared.db.models import KrakenStatusEntities
 
@@ -20,7 +19,7 @@ class TestStatusPileUpAlert:
         result = alert.name
 
         # then
-        assert result == Cases.STATUS_PILE_UP
+        assert result == "StatusPileUpAlert"
 
     @patch("monitoring.alerts.status_pile_up_alert.STATUS_PILE_UP_THRESHOLDS")
     @patch("monitoring.alerts.status_pile_up_alert.RawFile")

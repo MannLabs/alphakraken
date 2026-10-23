@@ -6,7 +6,6 @@ from unittest.mock import Mock, patch
 import pytz
 
 from monitoring.alerts.base_alert import Issue
-from monitoring.alerts.config import Cases
 from monitoring.alerts.stale_status_alert import StaleStatusAlert
 from shared.db.models import KrakenStatusEntities
 
@@ -25,7 +24,7 @@ class TestStaleStatusAlert:
         result = alert.name
 
         # then
-        assert result == Cases.STALE
+        assert result == "StaleStatusAlert"
 
     @patch("monitoring.alerts.stale_status_alert.datetime")
     def test_check_should_handle_comprehensive_stale_scenarios(

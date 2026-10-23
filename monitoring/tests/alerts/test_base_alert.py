@@ -13,11 +13,6 @@ class TestAlert(BaseAlert):
         super().__init__()
         self.test_issues: list[Issue] = []
 
-    @property
-    def name(self) -> str:
-        """Return the name of the alert."""
-        return "test_alert"
-
     def _get_issues(
         self,
         status_objects: list,  # noqa: ARG002

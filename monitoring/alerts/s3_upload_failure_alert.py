@@ -7,7 +7,7 @@ import pytz
 from shared.db.models import BackupStatus, KrakenStatus, RawFile
 
 from .base_alert import BaseAlert, Issue
-from .config import CHECK_INTERVAL_SECONDS, Cases
+from .config import CHECK_INTERVAL_SECONDS
 
 
 class S3UploadFailureAlert(BaseAlert):
@@ -16,11 +16,6 @@ class S3UploadFailureAlert(BaseAlert):
     def __init__(self):
         """Initialize with previous upload statuses."""
         self.previous_upload_statuses = {}
-
-    @property
-    def name(self) -> str:
-        """Return the case name for this alert type."""
-        return Cases.S3_UPLOAD_FAILURE
 
     def _get_issues(self, status_objects: list[KrakenStatus]) -> list[Issue[str]]:
         """Check for raw files that have changed to UPLOAD_FAILED status."""

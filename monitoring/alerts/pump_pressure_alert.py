@@ -24,7 +24,6 @@ from .config import (
     PUMP_PRESSURE_LOOKBACK_DAYS,
     PUMP_PRESSURE_THRESHOLD_BAR,
     PUMP_PRESSURE_WINDOW_SIZE,
-    Cases,
 )
 
 # temporary hack to bypass bug in pump pressure extraction
@@ -54,11 +53,6 @@ class PumpPressureAlert(BaseAlert):
         # - tuple of pressure_changes for relative increase alerts
         # - string f"absolute_{raw_file_id}" for absolute threshold alerts
         self._reported_issues: set[tuple[str, tuple[Any, ...] | str]] = set()
-
-    @property
-    def name(self) -> str:
-        """Return the case name for this alert type."""
-        return Cases.PUMP_PRESSURE_INCREASE
 
     def get_webhook_url(self) -> str:
         """Return the configured BUSINESS_ALERTS_WEBHOOK_URL for pump pressure alerts."""

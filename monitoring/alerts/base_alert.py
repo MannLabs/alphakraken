@@ -125,9 +125,9 @@ class BaseAlert(ABC):
         """Format the alert message for the issues found."""
 
     @property
-    @abstractmethod
     def name(self) -> str:
-        """Return the name for this alert type."""
+        """Return the name of this alert type: its class name."""
+        return type(self).__name__
 
     def get_webhook_url(self) -> str:
         """Return webhook URL for this alert.

@@ -7,7 +7,6 @@ from unittest.mock import MagicMock, Mock, patch
 import pytest
 import pytz
 
-from monitoring.alerts.config import Cases
 from monitoring.alerts.queue_stop_alert import (
     KIND_HANDOFF,
     KIND_STOP,
@@ -67,7 +66,7 @@ class TestQueueStopAlertBasics:
         # given / when
         result = QueueStopAlert().name
         # then
-        assert result == Cases.QUEUE_STOP
+        assert result == "QueueStopAlert"
 
     @patch(
         "monitoring.alerts.queue_stop_alert.INSTRUMENT_USER_SLACK_IDS",

@@ -3,7 +3,6 @@
 from unittest.mock import Mock, patch
 
 from monitoring.alerts.base_alert import Issue
-from monitoring.alerts.config import Cases
 from monitoring.alerts.instrument_file_pile_up_alert import InstrumentFilePileUpAlert
 from shared.db.models import InstrumentFileStatus, KrakenStatusEntities
 
@@ -20,7 +19,7 @@ class TestInstrumentFilePileUpAlert:
         result = alert.name
 
         # then
-        assert result == Cases.INSTRUMENT_FILE_PILE_UP
+        assert result == "InstrumentFilePileUpAlert"
 
     @patch(
         "monitoring.alerts.instrument_file_pile_up_alert.INSTRUMENT_FILE_MIN_AGE_HOURS",

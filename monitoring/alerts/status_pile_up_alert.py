@@ -8,16 +8,11 @@ from shared.db.models import (
 )
 
 from .base_alert import BaseAlert, Issue
-from .config import STATUS_PILE_UP_THRESHOLDS, Cases
+from .config import STATUS_PILE_UP_THRESHOLDS
 
 
 class StatusPileUpAlert(BaseAlert):
     """Check for status pile-ups (too many files in non-terminal statuses)."""
-
-    @property
-    def name(self) -> str:
-        """Return the case name for this alert type."""
-        return Cases.STATUS_PILE_UP
 
     def _get_issues(self, status_objects: list[KrakenStatus]) -> list[Issue[str]]:
         """Check for status pile-ups on instruments."""

@@ -6,7 +6,6 @@ import requests
 import requests.exceptions
 
 from monitoring.alerts.base_alert import Issue
-from monitoring.alerts.config import Cases
 from monitoring.alerts.webapp_health_alert import WebAppHealthAlert
 
 
@@ -22,7 +21,7 @@ class TestWebAppHealthAlert:
         result = alert.name
 
         # then
-        assert result == Cases.WEBAPP_HEALTH
+        assert result == "WebAppHealthAlert"
 
     @patch("monitoring.alerts.webapp_health_alert.get_notification_setting")
     def test_get_issues_should_return_empty_list_when_webapp_url_not_configured(

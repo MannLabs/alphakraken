@@ -10,17 +10,11 @@ from .base_alert import BaseAlert, Issue, get_instrument_id
 from .config import (
     FILE_REMOVER_STALE_THRESHOLD_HOURS,
     STALE_STATUS_THRESHOLD_MINUTES,
-    Cases,
 )
 
 
 class StaleStatusAlert(BaseAlert):
     """Check for stale status updates."""
-
-    @property
-    def name(self) -> str:
-        """Return the case name for this alert type."""
-        return Cases.STALE
 
     def _get_issues(self, status_objects: list[KrakenStatus]) -> list[Issue[datetime]]:
         """Check for stale statuses."""

@@ -4,16 +4,10 @@ from shared.db.models import KrakenStatus, KrakenStatusEntities
 
 from . import config
 from .base_alert import BaseAlert, Issue, get_instrument_id
-from .config import Cases
 
 
 class DiskSpaceAlert(BaseAlert):
     """Check for low disk space."""
-
-    @property
-    def name(self) -> str:
-        """Return the case name for this alert type."""
-        return Cases.LOW_DISK_SPACE
 
     def _get_issues(self, status_objects: list[KrakenStatus]) -> list[Issue[int]]:
         """Check for low disk space."""

@@ -7,7 +7,6 @@ from shared.db.models import KrakenStatus
 
 from . import config
 from .base_alert import BaseAlert, Issue
-from .config import Cases
 
 
 class LocalDiskSpaceAlert(BaseAlert):
@@ -16,11 +15,6 @@ class LocalDiskSpaceAlert(BaseAlert):
     Unlike DiskSpaceAlert, this does not rely on KrakenStatus objects from the
     database but probes the local filesystem directly.
     """
-
-    @property
-    def name(self) -> str:
-        """Return the case name for this alert type."""
-        return Cases.LOCAL_DISK_SPACE
 
     def _get_issues(self, status_objects: list[KrakenStatus]) -> list[Issue[int]]:
         """Check for low local disk space."""

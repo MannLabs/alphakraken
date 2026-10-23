@@ -6,7 +6,6 @@ from unittest.mock import Mock, patch
 import pytz
 
 from monitoring.alerts.base_alert import Issue
-from monitoring.alerts.config import Cases
 from monitoring.alerts.raw_file_error_alert import RawFileErrorAlert
 from shared.db.models import RawFileStatus
 
@@ -23,7 +22,7 @@ class TestRawFileErrorAlert:
         result = alert.name
 
         # then
-        assert result == Cases.RAW_FILE_ERROR
+        assert result == "RawFileErrorAlert"
 
     @patch("monitoring.alerts.raw_file_error_alert.RawFile")
     @patch("monitoring.alerts.raw_file_error_alert.datetime")

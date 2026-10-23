@@ -3,7 +3,6 @@
 from unittest.mock import Mock
 
 from monitoring.alerts.base_alert import Issue
-from monitoring.alerts.config import Cases
 from monitoring.alerts.health_check_failed_alert import HealthCheckFailedAlert
 from shared.db.models import KrakenStatusValues
 
@@ -20,7 +19,7 @@ class TestHealthCheckFailedAlert:
         result = alert.name
 
         # then
-        assert result == Cases.HEALTH_CHECK_FAILED
+        assert result == "HealthCheckFailedAlert"
 
     def test_get_issues_should_return_empty_list_when_all_status_ok(self) -> None:
         """Test that get_issues returns empty list when all health checks are OK."""

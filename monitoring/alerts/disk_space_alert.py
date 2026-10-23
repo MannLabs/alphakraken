@@ -41,20 +41,12 @@ class DiskSpaceAlert(BaseAlert):
 
     @staticmethod
     def _get_threshold(kraken_status: KrakenStatus) -> int:
-        """Get the appropriate threshold based on entity type and ID."""
-        id_ = kraken_status.id
-
+        """Get the threshold for a file system or instrument."""
         if kraken_status.entity_type == KrakenStatusEntities.FILE_SYSTEM:
-            if id_ == "backup":
-                threshold = config.BACKUP_FREE_SPACE_THRESHOLD_GB
-            elif id_ == "output":
-                threshold = config.OUTPUT_FREE_SPACE_THRESHOLD_GB
-            else:
-                threshold = config.FREE_SPACE_THRESHOLD_GB
-        else:
-            threshold = config.FREE_SPACE_THRESHOLD_GB
-
-        return threshold
+            return config.FILE_SYSTEM_FREE_SPACE_THRESHOLDS_GB.get(
+                kraken_status.id, config.FREE_SPACE_THRESHOLD_GB
+            )
+        return config.FREE_SPACE_THRESHOLD_GB
 
     def format_message(self, issues: list[Issue[int]]) -> str:
         """Format disk space message body."""

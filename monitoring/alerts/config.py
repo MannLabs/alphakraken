@@ -24,8 +24,8 @@ FILE_REMOVER_STALE_THRESHOLD_HOURS = (
 FREE_SPACE_THRESHOLD_GB = (
     200  # regardless of the configuration in airflow: 200 GB is very low
 )
-BACKUP_FREE_SPACE_THRESHOLD_GB = 500  # Backup filesystem threshold
-OUTPUT_FREE_SPACE_THRESHOLD_GB = 300  # Output filesystem threshold
+# file systems with a threshold other than FREE_SPACE_THRESHOLD_GB
+FILE_SYSTEM_FREE_SPACE_THRESHOLDS_GB = {"backup": 500, "output": 300}
 
 # Local disk alert configuration
 BYTES_PER_GB = 1024**3

@@ -2,6 +2,7 @@
 
 import logging
 from datetime import datetime
+from http import HTTPStatus
 
 import requests
 import requests.exceptions
@@ -36,27 +37,14 @@ class WebAppHealthAlert(BaseAlert):
             logging.warning("WEBAPP_URL not configured, skipping webapp health check")
             return []
 
-        issues = []
-
         try:
             response = requests.get(self.webapp_url, timeout=self.timeout)
-            if response.status_code != 200:  # noqa: PLR2004
-                issues.append(
-                    Issue("webapp", f"HTTP {response.status_code}: {response.reason}")
-                )
-        except requests.exceptions.Timeout:
-            issues.append(
-                Issue("webapp", f"Request timeout after {self.timeout} seconds")
-            )
-        except requests.exceptions.ConnectionError:
-            issues.append(Issue("webapp", "Connection failed - webapp may be down"))
         except requests.exceptions.RequestException as e:
-            issues.append(Issue("webapp", f"Request failed: {e!s}"))
-        except Exception as e:
-            logging.exception("Unexpected error during webapp health check")
-            issues.append(Issue("webapp", f"Unexpected error: {e!s}"))
+            return [Issue("webapp", f"{type(e).__name__}: {e}")]
 
-        return issues
+        if response.status_code != HTTPStatus.OK:
+            return [Issue("webapp", f"HTTP {response.status_code}: {response.reason}")]
+        return []
 
     def format_message(self, issues: list[Issue[str]]) -> str:
         """Format webapp health failure message body."""

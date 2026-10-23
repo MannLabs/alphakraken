@@ -3,6 +3,7 @@
 from datetime import datetime
 from unittest.mock import Mock, patch
 
+import pytest
 import pytz
 
 from monitoring.alerts.base_alert import Issue
@@ -141,6 +142,28 @@ class TestDiskSpaceAlert:
 
         # then
         assert result == [Issue("backup", 150), Issue("output", 180)]
+
+    @pytest.mark.parametrize(
+        ("entity_type", "id_", "expected"),
+        [
+            (KrakenStatusEntities.FILE_SYSTEM, "backup", 500),
+            (KrakenStatusEntities.FILE_SYSTEM, "output", 300),
+            (KrakenStatusEntities.FILE_SYSTEM, "other", 200),
+            (KrakenStatusEntities.INSTRUMENT, "backup", 200),
+        ],
+    )
+    def test_get_threshold_depends_on_entity_type_and_id(
+        self, entity_type: str, id_: str, expected: int
+    ) -> None:
+        """File systems have their own thresholds, instruments the default one."""
+        # given
+        kraken_status = Mock(entity_type=entity_type, id=id_)
+
+        # when
+        result = DiskSpaceAlert._get_threshold(kraken_status)
+
+        # then
+        assert result == expected
 
     def test_format_message_should_format_single_issue_correctly(self) -> None:
         """Test that format_message formats single issue correctly."""

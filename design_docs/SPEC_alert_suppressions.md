@@ -1,6 +1,6 @@
 # Spec: alert suppressions managed in the webapp
 
-Status: to be re-implemented from scratch. Reference implementation on `refactor_alerts_IX`
+Status: implemented (slice 4). Reference implementation on `refactor_alerts_IX`
 (commit 84d82f64; `webapp/pages_/admin.py`, `webapp/pages_/impl/admin_utils.py`,
 `shared/db/models.py:AlertSuppression`, `monitoring/alerts/base_alert.py:_apply_suppressions`).
 Depends on the admin page from the `add_users` branch and on the decision that the alert name is

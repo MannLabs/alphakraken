@@ -1,6 +1,6 @@
 # Spec: persisted alert issue state
 
-Status: new design, no reference implementation. Replaces the in-memory cooldown dict, the
+Status: implemented (slice 2, muted flag with slice 4). Replaces the in-memory cooldown dict, the
 once-only key set, the per-alert memory sets and the "first check suppresses everything" rule.
 
 ## Objective

@@ -214,6 +214,28 @@ users, pressure data) loaded once per cycle; per-instrument queries collapse int
 Follow-up outside this plan: an ops dashboard page in the webapp reading `alert_issue`
 (`OPS_DASHBOARD_IDEAS.md`).
 
+## Status (2026-10-23)
+
+Slices 1 to 8 are implemented, one branch per slice stacked on the previous one
+(`alerts_refactor_I` to `alerts_refactor_IX`, on top of `add_users`). Slice 9 was implemented
+and then dropped; slice 10 is not done.
+
+Deviations from the text above:
+
+- The issue records are notification memory only: no `resolved_at`, no resolve step, no
+  reopen. An issue that disappears and comes back keeps its cooldown. Decided after review:
+  the lifecycle caused flapping alerts and only served a dashboard that does not exist.
+- Slice 9 (resolved notifications) is dropped for the same reason.
+- `SPECIAL_ALERT_SLACK_ID` was kept (slice 1): an earlier decision explicitly kept it.
+- `db_timeout` is folded into `db_connection_error` (slice 2).
+- After review, slice III also retries failed sends per issue, treats permanent Slack errors
+  as done, chunks channel messages and gives up loudly after repeated failures; slice IV
+  rejects empty suppression fields and applies suppressions to the DB-free tier.
+- The pump pressure data is loaded once per class, i.e. twice per cycle (slice 6); the
+  queue-stop alert and the recipients each read the users once per cycle (slice 3).
+- `monitoring/tests` are not run in CI (`.github/workflows/branch-checks.yaml` runs `shared`,
+  `webapp`, `airflow_src` only). Not changed here; worth one line in the workflow.
+
 ## Dependency graph
 
 ```

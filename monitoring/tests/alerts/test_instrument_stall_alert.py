@@ -56,7 +56,9 @@ class TestInstrumentStallAlert:
         assert len(result) == 1
         issue = result[0]
         assert issue.identifier == "inst1"
-        assert issue.details == NOW - timedelta(hours=3)
+        assert issue.details == (
+            'last file "last.raw" acquired at 2024-01-15 09:00:00 UTC (3.0 hours ago)'
+        )
         assert issue.relevant_file == "last.raw"
         assert issue.instrument_id == "inst1"
         assert issue.key == "inst1:last.raw"
@@ -82,17 +84,3 @@ class TestInstrumentStallAlert:
 
         # when / then
         assert InstrumentStallAlert()._get_issues([], NOW) == []
-
-    @patch("monitoring.alerts.instrument_stall_alert.datetime")
-    def test_format_message_lists_last_file_and_age(self, mock_datetime: Mock) -> None:
-        """The body names the last file, its acquisition time and age."""
-        # given
-        mock_datetime.now.return_value = NOW
-        from monitoring.alerts.base_alert import Issue
-
-        issue = Issue("inst1", NOW - timedelta(hours=3), relevant_file="last.raw")
-
-        # when / then
-        assert InstrumentStallAlert().format_message([issue]) == (
-            '- `inst1`: last file "last.raw" acquired at 2024-01-15 09:00:00 UTC (3.0 hours ago)'
-        )

@@ -85,28 +85,27 @@ PUMP_PRESSURE_ABSOLUTE_THRESHOLD_BAR: float = get_notification_setting(
 PUMP_PRESSURE_GRADIENT_TOLERANCE = 0.1
 
 try:
-    OPS_ALERTS_WEBHOOK_URL: str = get_notification_setting(
-        YamlKeys.OPS_ALERTS_WEBHOOK_URL
-    )
+    OPS_ALERTS_URL: str = get_notification_setting(YamlKeys.OPS_ALERTS_URL)
 except KeyError:
-    logging.exception("Failed to load ops alerts webhook URL from config.")
+    logging.exception("Failed to load ops alerts URL from config.")
     sys.exit(1)
 
 try:
-    BUSINESS_ALERTS_WEBHOOK_URL: str = get_notification_setting(
-        YamlKeys.BUSINESS_ALERTS_WEBHOOK_URL
-    )
+    BUSINESS_ALERTS_URL: str = get_notification_setting(YamlKeys.BUSINESS_ALERTS_URL)
 except KeyError:
-    logging.warning(
-        "Business alerts webhook URL not found in config, using ops alerts webhook URL"
-    )
-    BUSINESS_ALERTS_WEBHOOK_URL = OPS_ALERTS_WEBHOOK_URL
+    logging.warning("Business alerts URL not found in config, using ops alerts URL")
+    BUSINESS_ALERTS_URL = OPS_ALERTS_URL
 
+# replaced by the messenger id of the user in the user alerts URL
+MESSENGER_ID_PLACEHOLDER = "{messenger_id}"
 try:
-    SLACK_BOT_TOKEN: str = get_notification_setting(YamlKeys.SLACK_BOT_TOKEN)
+    USER_ALERTS_URL: str = get_notification_setting(YamlKeys.USER_ALERTS_URL)
 except KeyError:
-    logging.warning("Slack bot token not found in config; DMs disabled.")
-    SLACK_BOT_TOKEN = ""
+    logging.warning("User alerts URL not found in config; direct messages disabled.")
+    USER_ALERTS_URL = ""
+if USER_ALERTS_URL and MESSENGER_ID_PLACEHOLDER not in USER_ALERTS_URL:
+    logging.error(f"User alerts URL must contain {MESSENGER_ID_PLACEHOLDER}.")
+    sys.exit(1)
 
 try:
     INSTRUMENT_STALL_INSTRUMENT_IDS: set[str] = set(

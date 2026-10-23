@@ -19,9 +19,13 @@ mounts:
 general:
   timezone: UTC # IANA name of the timezone the webapp displays all timestamps in, e.g. 'Europe/Berlin'. Optional, default: UTC.
   notifications:
-    ops_alerts_webhook_url: "https://hooks.slack.com/services/<something> or https://...api.powerplatform.com:443/powerautomate/automations/<something>"
-    business_alerts_webhook_url: "https://hooks.slack.com/services/<something> or https://...api.powerplatform.com:443/powerautomate/automations/<something>"
-    slack_bot_token: "<slack_bot_token>"
+    # any apprise URL (https://github.com/caronc/apprise#supported-notifications), e.g. a Slack incoming webhook URL
+    # or a MS Teams Power Automate workflow URL.
+    ops_alerts_url: "https://hooks.slack.com/services/<something> or https://...api.powerplatform.com:443/powerautomate/automations/<something>"
+    business_alerts_url: "https://hooks.slack.com/services/<something> or https://...api.powerplatform.com:443/powerautomate/automations/<something>"
+    # optional, for direct messages to users: apprise URL with {messenger_id} replaced by the messenger id of the user, e.g.
+    # "slack://xoxb-.../@{messenger_id}" (bot token from api.slack.com/apps → your app → OAuth & Permissions, needs `chat:write` scope)
+    user_alerts_url: "slack://<slack_bot_token>/@{messenger_id}"
     webapp_url: "<webapp_url>"
     # optional: instruments to alert on if no new file is acquired for a while
     # instrument_stall_instrument_ids: [test1]

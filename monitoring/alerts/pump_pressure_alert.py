@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any
 
+from utils import short_digest
+
 from shared.db.interface import augment_raw_files_with_metrics
 from shared.db.models import KrakenStatus, KrakenStatusEntities, RawFile
 
@@ -181,7 +183,8 @@ class PumpPressureIncreaseAlert(BaseAlert):
                     f"`{change.younger.raw_file_id}` at {change.younger.created_at:%Y-%m-%d %H:%M:%S})",
                     relevant_file=change.younger.raw_file_id,
                     instrument_id=instrument_id,
-                    key=f"{instrument_id}:{change.younger.raw_file_id}:{change.older.raw_file_id}",
+                    # digest: two file ids would exceed the key length
+                    key=f"{instrument_id}:{short_digest(f'{change.younger.raw_file_id}:{change.older.raw_file_id}')}",
                 )
             )
         return issues

@@ -17,6 +17,7 @@ from monitoring.alerts.pump_pressure_alert import (
     is_within_tolerance,
     load_pressure_data,
 )
+from monitoring.utils import short_digest
 from shared.db.models import KrakenStatusEntities
 
 NOW = datetime(2024, 1, 15, 12, 0, tzinfo=pytz.UTC)
@@ -224,7 +225,7 @@ class TestPumpPressureIncreaseAlert:
         assert issue.identifier == "instrument1"
         assert issue.instrument_id == "instrument1"
         assert issue.relevant_file == "file2"
-        assert issue.key == "instrument1:file2:file7"
+        assert issue.key == f"instrument1:{short_digest('file2:file7')}"
         assert issue.details == (
             "+24.0 bar (from 100.0 bar in `file7` to 124.0 bar in `file2` at 2024-01-15 11:00:00)"
         )

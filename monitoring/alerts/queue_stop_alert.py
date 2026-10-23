@@ -1,12 +1,13 @@
-"""Queue-stop alert: DMs the prior operator when their measurement queue ends.
+"""Queue-stop alert: notifies the prior operator when their measurement queue ends.
+
+Known initials are those of the active users; they identify the operator in the raw file names.
 
 Two mutually exclusive modes per instrument (see SPEC.md §2.1):
-- Stall: newest two files share mapped initials and the pause exceeds N x gradient.
-- Handoff: second- and third-newest share mapped initials but the newest differs.
+- Stall: newest two files share known initials and the pause exceeds N x gradient.
+- Handoff: second- and third-newest share known initials but the newest differs.
 """
 
 import logging
-import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
@@ -15,16 +16,8 @@ from utils import ensure_utc
 from shared.db.models import KrakenStatus, RawFile
 
 from .base_alert import BaseAlert, Issue
-from .config import (
-    INSTRUMENT_USER_SLACK_IDS,
-    MAX_GRADIENT_LENGTH_HOURS,
-    QUEUE_STOP_THRESHOLD_MULTIPLIER,
-    SPECIAL_ALERT_SLACK_ID,
-)
-
-# Trailing boundary is a lookahead so adjacent tokens can both match:
-# "_SA_AnSc_" must yield both "SA" and "AnSc", not just "SA".
-INITIALS_PATTERN = re.compile(r"_([A-Za-z]{2,8})(?=_)")
+from .config import MAX_GRADIENT_LENGTH_HOURS, QUEUE_STOP_THRESHOLD_MULTIPLIER
+from .recipients import extract_initials, get_known_initials
 
 KIND_STOP = "stop"
 KIND_HANDOFF = "handoff"
@@ -37,7 +30,7 @@ _BYTES_PER_GB = 1024**3
 
 @dataclass(frozen=True)
 class RecentFile:
-    """One row in the `Recent files:` section of the DM."""
+    """One row in the `Recent files:` section of the message."""
 
     file_id: str
     size: int | None
@@ -50,21 +43,10 @@ class QueueStopIssue:
 
     kind: str
     instrument_id: str
-    messenger_user_id: str
+    subject_file_id: str  # the alerted user's most recent file
     gradient_length: timedelta | None
     pause: timedelta | None
     recent_files: list[RecentFile]
-
-
-def _extract_initials(name: str | None) -> str | None:
-    """Return the first regex match whose token is a mapped initial, else None."""
-    if not name:
-        return None
-    for match in INITIALS_PATTERN.finditer(name):
-        token = match.group(1)
-        if token in INSTRUMENT_USER_SLACK_IDS:
-            return token
-    return None
 
 
 def _format_size(size_bytes: int | None) -> str:
@@ -76,7 +58,8 @@ def _format_size(size_bytes: int | None) -> str:
 class QueueStopAlert(BaseAlert):
     """Notify the prior operator when their measurement queue has ended."""
 
-    title = "Queue stop"
+    # each issue renders its own header
+    title = None
     # once per (instrument, subject file), shared by the stop and handoff rules so that
     # a stop followed by a handoff for the same user-last-file does not notify twice
     cooldown_minutes = None
@@ -87,7 +70,8 @@ class QueueStopAlert(BaseAlert):
         """Detect stop/handoff conditions per instrument."""
         del status_objects
 
-        if not INSTRUMENT_USER_SLACK_IDS:
+        known_initials = get_known_initials()
+        if not known_initials:
             return []
 
         instrument_ids = RawFile.objects.distinct("instrument_id")
@@ -117,9 +101,13 @@ class QueueStopAlert(BaseAlert):
                 ensure_utc(recent[2].created_at) if has_third_file else None
             )
 
-            initials1 = _extract_initials(file1_id)
-            initials2 = _extract_initials(file2_id)
-            initials3 = _extract_initials(recent[2].id) if has_third_file else None
+            initials1 = extract_initials(file1_id, known_initials)
+            initials2 = extract_initials(file2_id, known_initials)
+            initials3 = (
+                extract_initials(recent[2].id, known_initials)
+                if has_third_file
+                else None
+            )
 
             recent_files: list[RecentFile] = [
                 RecentFile(
@@ -145,6 +133,7 @@ class QueueStopAlert(BaseAlert):
             if issue is None and file3_created is not None:
                 issue = self._evaluate_rule_b(
                     instrument_id=instrument_id,
+                    file2_id=file2_id,
                     created2=file2_created,
                     created3=file3_created,
                     initials1=initials1,
@@ -157,8 +146,7 @@ class QueueStopAlert(BaseAlert):
             if issue is None:
                 continue
 
-            # the alerted user's most recent file: file1 for stop, file2 for handoff
-            subject_file_id = file1_id if issue.kind == KIND_STOP else file2_id
+            subject_file_id = issue.subject_file_id
             identifier = f"{instrument_id}:{subject_file_id}"
             issues.append(
                 Issue(
@@ -185,10 +173,10 @@ class QueueStopAlert(BaseAlert):
         max_gradient: timedelta,
         recent_files: list[RecentFile],
     ) -> QueueStopIssue | None:
-        """Rule A — stop: file1 & file2 share mapped initials, pause exceeds threshold.
+        """Rule A — stop: file1 & file2 share known initials, pause exceeds threshold.
 
         Fires when the still-active operator's queue has gone quiet. The shared
-        mapped initials of `file1`/`file2` identify the user; the pause from
+        known initials of `file1`/`file2` identify the user; the pause from
         `file1.created_at` to `now` must exceed `QUEUE_STOP_THRESHOLD_MULTIPLIER`
         times the gradient length inferred from the two files.
 
@@ -236,7 +224,7 @@ class QueueStopAlert(BaseAlert):
         return QueueStopIssue(
             kind=KIND_STOP,
             instrument_id=instrument_id,
-            messenger_user_id=INSTRUMENT_USER_SLACK_IDS[initials1],
+            subject_file_id=file1_id,
             gradient_length=gradient_length,
             pause=pause,
             recent_files=recent_files,
@@ -246,6 +234,7 @@ class QueueStopAlert(BaseAlert):
     def _evaluate_rule_b(  # noqa: PLR0913
         *,
         instrument_id: str,
+        file2_id: str,
         created2: datetime,
         created3: datetime,
         initials1: str | None,
@@ -254,7 +243,7 @@ class QueueStopAlert(BaseAlert):
         max_gradient: timedelta,
         recent_files: list[RecentFile],
     ) -> QueueStopIssue | None:
-        """Rule B — handoff: file2 & file3 share mapped initials, file1 differs.
+        """Rule B — handoff: file2 & file3 share known initials, file1 differs.
 
         Fires when someone else took over: the prior operator's last two files
         are now second- and third-newest, and a different (or unattributable)
@@ -262,7 +251,7 @@ class QueueStopAlert(BaseAlert):
         unconditionally - no 3x pause check, since a new file has arrived from
         someone else, which is itself the queue-end signal.
 
-        Example (fires, new operator with mapped initials):
+        Example (fires, new operator with known initials):
             file1 = "_JoeB_n.raw", file2 = "_MaSc_a.raw", file3 = "_MaSc_b.raw"
             with file2→file3 gap ≤ 2 h → handoff alert for MaSc with
             subject_file_id = file2.id. JoeB is NOT notified.
@@ -297,24 +286,19 @@ class QueueStopAlert(BaseAlert):
         return QueueStopIssue(
             kind=KIND_HANDOFF,
             instrument_id=instrument_id,
-            messenger_user_id=INSTRUMENT_USER_SLACK_IDS[initials2],
+            subject_file_id=file2_id,
             gradient_length=prior_gradient_length,
             pause=None,
             recent_files=recent_files,
         )
 
     def format_message(self, issues: list[Issue[QueueStopIssue]]) -> str:
-        """Not used — alert_manager renders per-issue via `render_issue` instead."""
-        del issues
-        return ""
-
-    @staticmethod
-    def get_recipients(issue: QueueStopIssue) -> list[str]:
-        """Return the deduplicated DM recipient list for an issue."""
-        recipients: list[str] = [issue.messenger_user_id]
-        if SPECIAL_ALERT_SLACK_ID and SPECIAL_ALERT_SLACK_ID not in recipients:
-            recipients.append(SPECIAL_ALERT_SLACK_ID)
-        return recipients
+        """Render all issues, with file metadata refreshed."""
+        messages = []
+        for issue in issues:
+            self.refresh_recent_files(issue.details)
+            messages.append(self.render_issue(issue.details))
+        return "\n\n".join(messages)
 
     @staticmethod
     def refresh_recent_files(issue: QueueStopIssue) -> None:
@@ -339,7 +323,7 @@ class QueueStopAlert(BaseAlert):
 
     @staticmethod
     def render_issue(issue: QueueStopIssue) -> str:
-        """Render a single issue to a DM message string."""
+        """Render a single issue to a message string."""
         if issue.kind == KIND_STOP:
             gradient_minutes = (
                 issue.gradient_length.total_seconds() / 60

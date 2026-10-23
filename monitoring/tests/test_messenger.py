@@ -1,42 +1,87 @@
-"""Unit tests for messenger_clients DM transport (send_direct_message, _send_direct_message_slack)."""
+"""Unit tests for the messenger facade."""
 
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, call, patch
 
 import pytest
 import requests
 
-from monitoring.messenger_clients import (
+from monitoring.messenger import (
     Message,
+    _send_direct_message,
     _send_direct_message_slack,
-    send_direct_message,
+    send,
 )
 
 
-class TestSendDm:
-    """Top-level send_direct_message dispatches by configured credentials."""
+class TestSend:
+    """send fans out to channels and recipients and reports failures."""
 
-    @patch("monitoring.messenger_clients._send_direct_message_slack")
-    @patch("alerts.config.SLACK_BOT_TOKEN", "xoxb-test")
-    def test_send_direct_message_with_slack_token_configured_calls_send_direct_message_slack(
-        self, mock_slack: Mock
+    @patch("monitoring.messenger._send_direct_message")
+    @patch("monitoring.messenger._send_channel_message")
+    @patch(
+        "monitoring.messenger._WEBHOOK_URLS",
+        {"ops": "http://ops", "business": "http://ops"},
+    )
+    def test_sends_once_per_distinct_webhook_and_once_per_recipient(
+        self, mock_channel: Mock, mock_direct: Mock
     ) -> None:
-        """When Slack token is configured, send_direct_message delegates to _send_direct_message_slack."""
+        """Destinations sharing a webhook URL get one message; each recipient gets one."""
+        # when
+        result = send(Message("m"), {"ops", "business"}, ["U_1", "U_2"])
+
+        # then
+        assert result is True
+        mock_channel.assert_called_once_with(Message("m"), "http://ops")
+        assert mock_direct.call_args_list == [
+            call(Message("m"), "U_1"),
+            call(Message("m"), "U_2"),
+        ]
+
+    @patch("monitoring.messenger._send_direct_message", side_effect=RuntimeError)
+    @patch("monitoring.messenger._send_channel_message")
+    @patch("monitoring.messenger._WEBHOOK_URLS", {"ops": "http://ops"})
+    def test_failed_send_does_not_abort_the_rest(
+        self, mock_channel: Mock, mock_direct: Mock
+    ) -> None:
+        """One failure is reported, the other sends still happen."""
+        # when
+        result = send(Message("m"), {"ops"}, ["U_1"])
+
+        # then
+        assert result is False
+        mock_channel.assert_called_once()
+        mock_direct.assert_called_once()
+
+    @patch("monitoring.messenger._send_channel_message")
+    def test_nothing_to_send_succeeds(self, mock_channel: Mock) -> None:
+        """Without destinations and recipients nothing is sent."""
+        assert send(Message("m")) is True
+        mock_channel.assert_not_called()
+
+
+class TestSendDirectMessage:
+    """_send_direct_message dispatches by configured credentials."""
+
+    @patch("monitoring.messenger._send_direct_message_slack")
+    @patch("alerts.config.SLACK_BOT_TOKEN", "xoxb-test")
+    def test_with_slack_token_configured_calls_slack(self, mock_slack: Mock) -> None:
+        """When Slack token is configured, the Slack implementation is called."""
         # given / when
-        send_direct_message(Message("hello"), "U_123")
+        _send_direct_message(Message("hello"), "U_123")
         # then
         mock_slack.assert_called_once_with(Message("hello"), "U_123", "xoxb-test")
 
-    @patch("monitoring.messenger_clients._send_direct_message_slack")
+    @patch("monitoring.messenger._send_direct_message_slack")
     @patch("alerts.config.SLACK_BOT_TOKEN", "")
-    def test_send_direct_message_with_no_credentials_logs_and_returns(
+    def test_with_no_credentials_logs_and_returns(
         self,
         mock_slack: Mock,
         caplog: pytest.LogCaptureFixture,
     ) -> None:
-        """When no DM creds are configured, send_direct_message logs a warning and does not raise."""
+        """When no DM creds are configured, a warning is logged and nothing raised."""
         # given / when
         with caplog.at_level("WARNING"):
-            send_direct_message(Message("hello"), "U_123")
+            _send_direct_message(Message("hello"), "U_123")
         # then - no platform call; warning logged
         mock_slack.assert_not_called()
         assert any(
@@ -48,8 +93,8 @@ class TestSendDm:
 class TestSendSlackDm:
     """Direct tests for _send_direct_message_slack: endpoint, auth, payload, ok-handling."""
 
-    @patch("monitoring.messenger_clients.requests.post")
-    @patch("monitoring.messenger_clients.os.environ.get", return_value="sandbox")
+    @patch("monitoring.messenger.requests.post")
+    @patch("monitoring.messenger.os.environ.get", return_value="sandbox")
     def test_posts_to_chat_postmessage_with_bearer_and_payload(
         self,
         _mock_env: Mock,  # noqa: PT019
@@ -72,8 +117,8 @@ class TestSendSlackDm:
         # alert + non-production → env prefix and emoji
         assert kwargs["json"]["text"].startswith("🚨 [sandbox] hi")
 
-    @patch("monitoring.messenger_clients.requests.post")
-    @patch("monitoring.messenger_clients.os.environ.get", return_value="production")
+    @patch("monitoring.messenger.requests.post")
+    @patch("monitoring.messenger.os.environ.get", return_value="production")
     def test_production_strips_env_prefix(
         self,
         _mock_env: Mock,  # noqa: PT019
@@ -90,7 +135,7 @@ class TestSendSlackDm:
         text = mock_post.call_args.kwargs["json"]["text"]
         assert text == "🚨 hi"
 
-    @patch("monitoring.messenger_clients.requests.post")
+    @patch("monitoring.messenger.requests.post")
     def test_raises_on_ok_false(self, mock_post: Mock) -> None:
         """Slack returns 200 + `ok: false` for API errors — must raise."""
         # given
@@ -101,7 +146,7 @@ class TestSendSlackDm:
         with pytest.raises(RuntimeError, match="channel_not_found"):
             _send_direct_message_slack(Message("hi"), "U_123", "xoxb-test")
 
-    @patch("monitoring.messenger_clients.requests.post")
+    @patch("monitoring.messenger.requests.post")
     def test_raises_on_http_non_2xx(self, mock_post: Mock) -> None:
         """HTTP non-2xx responses propagate via raise_for_status."""
         # given - raise_for_status raises

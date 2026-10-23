@@ -16,7 +16,6 @@ from shared.db.models import KrakenStatus, RawFile
 
 from .base_alert import BaseAlert, Issue
 from .config import (
-    BUSINESS_ALERTS_WEBHOOK_URL,
     PUMP_PRESSURE_ABSOLUTE_THRESHOLD_BAR,
     PUMP_PRESSURE_GRADIENT_TOLERANCE,
     PUMP_PRESSURE_LOOKBACK_DAYS,
@@ -46,10 +45,6 @@ class PumpPressureAlert(BaseAlert):
     title = "Pump pressure increase detected"
     # once per detected change resp. per file with high pressure
     cooldown_minutes = None
-
-    def get_webhook_url(self) -> str:
-        """Return the configured BUSINESS_ALERTS_WEBHOOK_URL for pump pressure alerts."""
-        return BUSINESS_ALERTS_WEBHOOK_URL
 
     def _get_issues(
         self, status_objects: list[KrakenStatus], now: datetime

@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, Generic, TypeVar
 
 import yaml
-from alerts.config import DEFAULT_ALERT_COOLDOWN_TIME_MINUTES, OPS_ALERTS_WEBHOOK_URL
+from alerts.config import DEFAULT_ALERT_COOLDOWN_TIME_MINUTES
 
 from shared.db.models import KrakenStatus, KrakenStatusEntities
 
@@ -69,8 +69,8 @@ _suppressions: list[dict[str, Any]] = _load_suppressions()
 class BaseAlert(ABC):
     """Base class for all alert checkers."""
 
-    # message title, required by the default `format_message`
-    title: str
+    # message title; None if the body carries its own headers
+    title: str | None
     # minimum time between two notifications of the same issue; None: notify only once
     cooldown_minutes: int | None = DEFAULT_ALERT_COOLDOWN_TIME_MINUTES
 
@@ -148,14 +148,6 @@ class BaseAlert(ABC):
     def name(self) -> str:
         """Return the name of this alert type: its class name."""
         return type(self).__name__
-
-    def get_webhook_url(self) -> str:
-        """Return webhook URL for this alert.
-
-        Override this method in subclasses to route alerts to different channels.
-        Default implementation returns the global OPS_ALERTS_WEBHOOK_URL.
-        """
-        return OPS_ALERTS_WEBHOOK_URL
 
     def get_cooldown_minutes(self, issue: Issue) -> int | None:
         """Return the cooldown for an issue of this alert, None to notify it only once.

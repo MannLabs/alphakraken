@@ -261,6 +261,30 @@ class TestCheckForIssues:
         mock_send.assert_not_called()
         db["suppressions"].assert_not_called()
 
+    @patch("monitoring.alert_manager.send", return_value=True)
+    def test_a_failing_alert_is_reported_and_does_not_stop_the_others(
+        self, mock_send: Mock, db: dict[str, Mock]
+    ) -> None:
+        """An exception in one alert is sent to ops; the remaining alerts still run."""
+        # given
+        broken = _alert("BrokenAlert")
+        broken.get_issues.side_effect = TypeError("'<' not supported")
+        manager = AlertManager()
+        manager.alerts = [broken, _alert(issues=[Issue("a", "details")])]
+
+        # when
+        manager.check_for_issues(NOW)
+
+        # then
+        bodies = [c.args[0].body for c in mock_send.call_args_list]
+        assert any(
+            b.startswith("TypeError in BrokenAlert: '<' not supported")
+            and b.endswith("[exception:BrokenAlert]")
+            for b in bodies
+        )
+        assert "a" in bodies
+        db["set_notified"].assert_called_once()
+
 
 class TestDispatch:
     """_dispatch routes an alert's issues to its configured destinations."""

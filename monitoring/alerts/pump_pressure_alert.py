@@ -17,7 +17,6 @@ from shared.db.models import KrakenStatus, RawFile
 from .base_alert import BaseAlert, Issue
 from .config import (
     BUSINESS_ALERTS_WEBHOOK_URL,
-    DEFAULT_ALERT_COOLDOWN_TIME_MINUTES,
     PUMP_PRESSURE_ABSOLUTE_THRESHOLD_BAR,
     PUMP_PRESSURE_GRADIENT_TOLERANCE,
     PUMP_PRESSURE_LOOKBACK_DAYS,
@@ -45,25 +44,12 @@ class PumpPressureAlert(BaseAlert):
     """Check for pump pressure increases across instruments."""
 
     title = "Pump pressure increase detected"
-
-    def __init__(self) -> None:
-        """Initialize the alert with memory for tracking reported issues."""
-        super().__init__()
-        # Memory: set of (instrument_id, issue_identifier) to track reported issues
-        # issue_identifier can be:
-        # - tuple of pressure_changes for relative increase alerts
-        # - string f"absolute_{raw_file_id}" for absolute threshold alerts
-        self._reported_issues: set[tuple[str, tuple[Any, ...] | str]] = set()
+    # once per detected change resp. per file with high pressure
+    cooldown_minutes = None
 
     def get_webhook_url(self) -> str:
         """Return the configured BUSINESS_ALERTS_WEBHOOK_URL for pump pressure alerts."""
         return BUSINESS_ALERTS_WEBHOOK_URL
-
-    def get_cooldown_time_minutes(self, identifier: str) -> int:
-        """Return cooldown in minutes for this alert and identifier."""
-        if identifier.startswith(ABSOLUTE_IDENTIFIER_PREFIX):
-            return DEFAULT_ALERT_COOLDOWN_TIME_MINUTES
-        return 0
 
     def _get_issues(
         self, status_objects: list[KrakenStatus], now: datetime
@@ -115,52 +101,32 @@ class PumpPressureAlert(BaseAlert):
             )
 
             if is_alert:
-                # Create memory key from instrument_id and pressure changes
-                memory_key = (instrument_id, tuple(pressure_changes))
-
-                # Only report if not already reported
-                if memory_key not in self._reported_issues:
-                    self._reported_issues.add(memory_key)
-                    issues.append(
-                        Issue(
-                            instrument_id,
-                            f"Pressure changes: {self._format(pressure_changes)}",
-                            # the younger file of the (single) change
-                            relevant_file=pressure_changes[0][4],
-                            instrument_id=instrument_id,
-                        )
+                # the (single) change: younger and older file
+                _, _, _, _, younger_file, older_file = pressure_changes[0]
+                issues.append(
+                    Issue(
+                        instrument_id,
+                        f"Pressure changes: {self._format(pressure_changes)}",
+                        relevant_file=younger_file,
+                        instrument_id=instrument_id,
+                        key=f"{instrument_id}:{younger_file}:{older_file}",
                     )
-                else:
-                    logging.debug(
-                        f"Suppressing duplicate alert for {instrument_id} "
-                        f"with pressure changes: {pressure_changes}"
-                    )
+                )
 
             # Check for high absolute pressure
             high_pressure_alerts = self._detect_high_absolute_pressure(
                 pressure_data, PUMP_PRESSURE_ABSOLUTE_THRESHOLD_BAR
             )
             for pressure, raw_file_id, timestamp in high_pressure_alerts:
-                memory_key = (
-                    instrument_id,
-                    f"{ABSOLUTE_IDENTIFIER_PREFIX}{raw_file_id}",
+                issues.append(
+                    Issue(
+                        f"{ABSOLUTE_IDENTIFIER_PREFIX}{instrument_id}",
+                        f"High pressure: {pressure:.1f} bar (≥{PUMP_PRESSURE_ABSOLUTE_THRESHOLD_BAR} bar) in `{raw_file_id}` at {timestamp.strftime('%Y-%m-%d %H:%M:%S')}",
+                        relevant_file=raw_file_id,
+                        instrument_id=instrument_id,
+                        key=f"{instrument_id}:{raw_file_id}",
+                    )
                 )
-
-                if memory_key not in self._reported_issues:
-                    self._reported_issues.add(memory_key)
-                    issues.append(
-                        Issue(
-                            f"{ABSOLUTE_IDENTIFIER_PREFIX}{instrument_id}",
-                            f"High pressure: {pressure:.1f} bar (≥{PUMP_PRESSURE_ABSOLUTE_THRESHOLD_BAR} bar) in `{raw_file_id}` at {timestamp.strftime('%Y-%m-%d %H:%M:%S')}",
-                            relevant_file=raw_file_id,
-                            instrument_id=instrument_id,
-                        )
-                    )
-                else:
-                    logging.debug(
-                        f"Suppressing duplicate absolute pressure alert for {instrument_id} "
-                        f"with raw_file_id: {raw_file_id}"
-                    )
 
         return issues
 

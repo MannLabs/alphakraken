@@ -9,7 +9,6 @@ import logging
 import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import ClassVar
 
 from utils import ensure_utc
 
@@ -78,10 +77,9 @@ class QueueStopAlert(BaseAlert):
     """Notify the prior operator when their measurement queue has ended."""
 
     title = "Queue stop"
-
-    # Class-level so it survives across instances created within a single
-    # monitor process; matches the InstrumentStallAlert tracker pattern.
-    _alerted_subject_files: ClassVar[set[tuple[str, str]]] = set()
+    # once per (instrument, subject file), shared by the stop and handoff rules so that
+    # a stop followed by a handoff for the same user-last-file does not notify twice
+    cooldown_minutes = None
 
     def _get_issues(
         self, status_objects: list[KrakenStatus], now: datetime
@@ -159,16 +157,8 @@ class QueueStopAlert(BaseAlert):
             if issue is None:
                 continue
 
-            # Subject = alerted user's most recent file (file1.id for stop,
-            # file2.id for handoff). Sharing the key across rules ensures
-            # stop→handoff for the same user-last-file does not double-notify.
+            # the alerted user's most recent file: file1 for stop, file2 for handoff
             subject_file_id = file1_id if issue.kind == KIND_STOP else file2_id
-            dedup_key = (instrument_id, subject_file_id)
-            if dedup_key in self._alerted_subject_files:
-                logging.debug(f"Skipping already-alerted {issue.kind} for {dedup_key}")
-                continue
-            self._alerted_subject_files.add(dedup_key)
-
             identifier = f"{instrument_id}:{subject_file_id}"
             issues.append(
                 Issue(

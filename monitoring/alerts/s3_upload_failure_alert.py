@@ -2,8 +2,6 @@
 
 from datetime import datetime, timedelta
 
-import pytz
-
 from shared.db.models import BackupStatus, KrakenStatus, RawFile
 
 from .base_alert import BaseAlert, Issue
@@ -19,13 +17,13 @@ class S3UploadFailureAlert(BaseAlert):
         """Initialize with previous upload statuses."""
         self.previous_upload_statuses = {}
 
-    def _get_issues(self, status_objects: list[KrakenStatus]) -> list[Issue[str]]:
+    def _get_issues(
+        self, status_objects: list[KrakenStatus], now: datetime
+    ) -> list[Issue[str]]:
         """Check for raw files that have changed to UPLOAD_FAILED status."""
         del status_objects
 
-        youngest_updated_at = datetime.now(pytz.UTC) - timedelta(
-            seconds=CHECK_INTERVAL_SECONDS * 5
-        )
+        youngest_updated_at = now - timedelta(seconds=CHECK_INTERVAL_SECONDS * 5)
         recently_updated_raw_files = RawFile.objects.filter(
             updated_at___gt=youngest_updated_at
         ).only(

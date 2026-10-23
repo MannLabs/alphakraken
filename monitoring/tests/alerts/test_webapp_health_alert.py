@@ -1,12 +1,16 @@
 """Unit tests for WebAppHealthAlert class."""
 
+from datetime import datetime
 from unittest.mock import Mock, patch
 
+import pytz
 import requests
 import requests.exceptions
 
 from monitoring.alerts.base_alert import Issue
 from monitoring.alerts.webapp_health_alert import WebAppHealthAlert
+
+NOW = datetime(2024, 1, 15, 12, 0, tzinfo=pytz.UTC)
 
 
 class TestWebAppHealthAlert:
@@ -33,7 +37,7 @@ class TestWebAppHealthAlert:
         alert = WebAppHealthAlert()
 
         # when
-        result = alert._get_issues([])
+        result = alert._get_issues([], NOW)
 
         # then
         assert result == []
@@ -52,7 +56,7 @@ class TestWebAppHealthAlert:
         alert = WebAppHealthAlert()
 
         # when
-        result = alert._get_issues([])
+        result = alert._get_issues([], NOW)
 
         # then
         assert result == []
@@ -75,7 +79,7 @@ class TestWebAppHealthAlert:
         alert = WebAppHealthAlert()
 
         # when
-        result = alert._get_issues([])
+        result = alert._get_issues([], NOW)
 
         # then
         assert result == [Issue("webapp", "HTTP 503: Service Unavailable")]
@@ -92,7 +96,7 @@ class TestWebAppHealthAlert:
         alert = WebAppHealthAlert(timeout=5)
 
         # when
-        result = alert._get_issues([])
+        result = alert._get_issues([], NOW)
 
         # then
         assert result == [Issue("webapp", "Request timeout after 5 seconds")]
@@ -112,7 +116,7 @@ class TestWebAppHealthAlert:
         alert = WebAppHealthAlert()
 
         # when
-        result = alert._get_issues([])
+        result = alert._get_issues([], NOW)
 
         # then
         assert result == [Issue("webapp", "Connection failed - webapp may be down")]
@@ -131,7 +135,7 @@ class TestWebAppHealthAlert:
         alert = WebAppHealthAlert()
 
         # when
-        result = alert._get_issues([])
+        result = alert._get_issues([], NOW)
 
         # then
         assert result == [Issue("webapp", "Request failed: SSL error")]
@@ -148,7 +152,7 @@ class TestWebAppHealthAlert:
         alert = WebAppHealthAlert()
 
         # when
-        result = alert._get_issues([])
+        result = alert._get_issues([], NOW)
 
         # then
         assert result == [Issue("webapp", "Unexpected error: Unexpected error")]
@@ -201,7 +205,7 @@ class TestWebAppHealthAlert:
         alert = WebAppHealthAlert(timeout=30)
 
         # when
-        alert._get_issues([])
+        alert._get_issues([], NOW)
 
         # then
         mock_requests_get.assert_called_once_with(
@@ -233,7 +237,7 @@ class TestWebAppHealthAlert:
             mock_requests_get.return_value = mock_response
 
             # when
-            result = alert._get_issues([])
+            result = alert._get_issues([], NOW)
 
             # then
             assert result == [Issue("webapp", f"HTTP {status_code}: {reason}")]
@@ -253,7 +257,7 @@ class TestWebAppHealthAlert:
 
         # when
         alert = WebAppHealthAlert()
-        result = alert._get_issues([])
+        result = alert._get_issues([], NOW)
 
         # then
         assert alert.webapp_url == f"{test_url}/healthz"
@@ -272,7 +276,7 @@ class TestWebAppHealthAlert:
             alert = WebAppHealthAlert()
 
             # when
-            result = alert._get_issues([])
+            result = alert._get_issues([], NOW)
 
             # then
             assert result == []
@@ -296,7 +300,7 @@ class TestWebAppHealthAlert:
         alert = WebAppHealthAlert()
 
         # when
-        result = alert._get_issues([])
+        result = alert._get_issues([], NOW)
 
         # then
         assert result == [Issue("webapp", "Unexpected error: Unexpected error")]

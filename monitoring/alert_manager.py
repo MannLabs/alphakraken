@@ -68,9 +68,10 @@ class AlertManager:
         """Run all alert checks."""
         logging.info("Checking for issues...")
         status_objects = list(KrakenStatus.objects)
+        now = datetime.now(pytz.UTC)
 
         for alert in self.alerts:
-            issues = alert.get_issues(status_objects)
+            issues = alert.get_issues(status_objects, now)
             if issues:
                 self._handle_issues(alert, issues, suppress_alerts=self.is_first_check)
 

@@ -33,16 +33,14 @@ class TestS3UploadFailureAlert:
         assert result == "S3UploadFailureAlert"
 
     @patch("monitoring.alerts.s3_upload_failure_alert.RawFile")
-    @patch("monitoring.alerts.s3_upload_failure_alert.datetime")
     @patch("monitoring.alerts.s3_upload_failure_alert.CHECK_INTERVAL_SECONDS", 60)
     def test_check_should_detect_new_upload_failed_transition(
-        self, mock_datetime: Mock, mock_raw_file: Mock
+        self, mock_raw_file: Mock
     ) -> None:
         """Test that check detects new UPLOAD_FAILED transition."""
         # given
         alert = S3UploadFailureAlert()
         fixed_now = datetime(2024, 1, 1, 12, 0, 0, tzinfo=pytz.UTC)
-        mock_datetime.now.return_value = fixed_now
 
         alert.previous_upload_statuses = {
             "file_was_uploading": BackupStatus.UPLOAD_IN_PROGRESS,
@@ -57,7 +55,7 @@ class TestS3UploadFailureAlert:
         mock_raw_file.objects.filter.return_value.only.return_value = [mock_file]
 
         # when
-        result = alert._get_issues([])
+        result = alert._get_issues([], fixed_now)
 
         # then
         assert len(result) == 1
@@ -67,16 +65,14 @@ class TestS3UploadFailureAlert:
         assert "inst2" in result[0].details
 
     @patch("monitoring.alerts.s3_upload_failure_alert.RawFile")
-    @patch("monitoring.alerts.s3_upload_failure_alert.datetime")
     @patch("monitoring.alerts.s3_upload_failure_alert.CHECK_INTERVAL_SECONDS", 60)
     def test_check_should_ignore_files_already_in_failed_state(
-        self, mock_datetime: Mock, mock_raw_file: Mock
+        self, mock_raw_file: Mock
     ) -> None:
         """Test that check ignores files already in failed state."""
         # given
         alert = S3UploadFailureAlert()
         fixed_now = datetime(2024, 1, 1, 12, 0, 0, tzinfo=pytz.UTC)
-        mock_datetime.now.return_value = fixed_now
 
         alert.previous_upload_statuses = {
             "file_already_failed": BackupStatus.UPLOAD_FAILED,
@@ -91,22 +87,18 @@ class TestS3UploadFailureAlert:
         mock_raw_file.objects.filter.return_value.only.return_value = [mock_file]
 
         # when
-        result = alert._get_issues([])
+        result = alert._get_issues([], fixed_now)
 
         # then
         assert result == []
 
     @patch("monitoring.alerts.s3_upload_failure_alert.RawFile")
-    @patch("monitoring.alerts.s3_upload_failure_alert.datetime")
     @patch("monitoring.alerts.s3_upload_failure_alert.CHECK_INTERVAL_SECONDS", 60)
-    def test_check_should_handle_mixed_scenarios(
-        self, mock_datetime: Mock, mock_raw_file: Mock
-    ) -> None:
+    def test_check_should_handle_mixed_scenarios(self, mock_raw_file: Mock) -> None:
         """Test that check handles complex mixed scenarios correctly."""
         # given
         alert = S3UploadFailureAlert()
         fixed_now = datetime(2024, 1, 1, 12, 0, 0, tzinfo=pytz.UTC)
-        mock_datetime.now.return_value = fixed_now
 
         alert.previous_upload_statuses = {
             "file_already_upload_failed": BackupStatus.UPLOAD_FAILED,
@@ -142,7 +134,7 @@ class TestS3UploadFailureAlert:
         ]
 
         # when
-        result = alert._get_issues([])
+        result = alert._get_issues([], fixed_now)
 
         # then
         assert len(result) == 2
@@ -190,16 +182,14 @@ class TestS3UploadFailureAlert:
         assert result == expected
 
     @patch("monitoring.alerts.s3_upload_failure_alert.RawFile")
-    @patch("monitoring.alerts.s3_upload_failure_alert.datetime")
     @patch("monitoring.alerts.s3_upload_failure_alert.CHECK_INTERVAL_SECONDS", 60)
     def test_should_not_false_positive_when_failed_file_ages_out_and_returns(
-        self, mock_datetime: Mock, mock_raw_file: Mock
+        self, mock_raw_file: Mock
     ) -> None:
         """Test that a file already in UPLOAD_FAILED does not re-alert when it ages out of the query window and re-enters due to an unrelated updated_at_ bump."""
         # given
         alert = S3UploadFailureAlert()
         fixed_now = datetime(2024, 1, 1, 12, 0, 0, tzinfo=pytz.UTC)
-        mock_datetime.now.return_value = fixed_now
 
         mock_failed_file = _create_mock_raw_file(
             id="file_failed",
@@ -210,19 +200,19 @@ class TestS3UploadFailureAlert:
 
         # Round 1: file enters UPLOAD_FAILED
         mock_raw_file.objects.filter.return_value.only.return_value = [mock_failed_file]
-        result1 = alert._get_issues([])
+        result1 = alert._get_issues([], fixed_now)
         assert len(result1) == 1
 
         # Round 2: file ages out of the 5-minute window (empty query result)
         mock_raw_file.objects.filter.return_value.only.return_value = []
-        result2 = alert._get_issues([])
+        result2 = alert._get_issues([], fixed_now)
         assert result2 == []
 
         # Round 3: file re-enters window due to unrelated updated_at_ bump (still UPLOAD_FAILED)
         mock_raw_file.objects.filter.return_value.only.return_value = [mock_failed_file]
 
         # when
-        result3 = alert._get_issues([])
+        result3 = alert._get_issues([], fixed_now)
 
         # then - should NOT alert again
         assert result3 == []

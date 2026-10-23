@@ -3,6 +3,7 @@
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Generic, TypeVar
 
@@ -64,13 +65,15 @@ class BaseAlert(ABC):
     # message title, required by the default `format_message`
     title: str
 
-    def get_issues(self, status_objects: list[KrakenStatus]) -> list[Issue]:
+    def get_issues(
+        self, status_objects: list[KrakenStatus], now: datetime
+    ) -> list[Issue]:
         """Check for issues and return those not muted by a suppression.
 
         Returns empty list if no issues found.
         """
         logging.info(f"Checking for issues: {self.name}...")
-        issues = self._get_issues(status_objects)
+        issues = self._get_issues(status_objects, now)
         issues_before_suppression = len(issues)
         issues = self._apply_suppressions(issues)
 
@@ -120,7 +123,9 @@ class BaseAlert(ABC):
         return filtered_issues
 
     @abstractmethod
-    def _get_issues(self, status_objects: list[KrakenStatus]) -> list[Issue]:
+    def _get_issues(
+        self, status_objects: list[KrakenStatus], now: datetime
+    ) -> list[Issue]:
         """Check for issues and return them."""
 
     def format_message(self, issues: list[Issue]) -> str:
@@ -172,9 +177,11 @@ class CustomAlert(BaseAlert):
         """Return the alert name."""
         return self._name
 
-    def _get_issues(self, status_objects: list[KrakenStatus]) -> list[Issue]:
+    def _get_issues(
+        self, status_objects: list[KrakenStatus], now: datetime
+    ) -> list[Issue]:
         """Not used for custom alerts."""
-        del status_objects  # unused
+        del status_objects, now  # unused
         return []
 
     def format_message(self, issues: list[Issue]) -> str:

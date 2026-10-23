@@ -1,5 +1,7 @@
 """Instrument file pile-up alert checker."""
 
+from datetime import datetime
+
 from shared.db.interface import get_raw_files_by_instrument_file_status
 from shared.db.models import KrakenStatus, KrakenStatusEntities
 
@@ -15,8 +17,11 @@ class InstrumentFilePileUpAlert(BaseAlert):
 
     title = "Instrument file pile up detected (files not moved/purged)"
 
-    def _get_issues(self, status_objects: list[KrakenStatus]) -> list[Issue[str]]:
+    def _get_issues(
+        self, status_objects: list[KrakenStatus], now: datetime
+    ) -> list[Issue[str]]:
         """Check for instrument file pile-ups."""
+        del now  # unused
         instrument_file_pile_up_instruments = []
 
         for kraken_status in [

@@ -1,6 +1,6 @@
 """Unit tests for AlertManager class."""
 
-from unittest.mock import Mock, patch
+from unittest.mock import ANY, Mock, patch
 
 import pytest
 
@@ -53,7 +53,7 @@ class TestAlertManager:
             # then
             # Should call get_issues on all alerts
             for alert in alert_manager.alerts:
-                alert.get_issues.assert_called_once_with([mock_status_obj])
+                alert.get_issues.assert_called_once_with([mock_status_obj], ANY)
 
             # Should send message for the one alert with issues
             mock_send_channel_message.assert_called_once_with(

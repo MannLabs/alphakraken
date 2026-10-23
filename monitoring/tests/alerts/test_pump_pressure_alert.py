@@ -44,7 +44,7 @@ class TestPumpPressureAlert:
         status_objects = [mock_job]
 
         # when
-        result = alert._get_issues(status_objects)
+        result = alert._get_issues(status_objects, datetime.now(tz=pytz.utc))
 
         # then
         assert result == []
@@ -74,7 +74,7 @@ class TestPumpPressureAlert:
         mock_rawfile.objects.filter.return_value = mock_query
 
         # when
-        result = alert._get_issues(status_objects)
+        result = alert._get_issues(status_objects, datetime.now(tz=pytz.utc))
 
         # then
         assert result == []
@@ -528,7 +528,7 @@ class TestPumpPressureAlert:
         }
 
         # when - first call should return the issue
-        result_first = alert._get_issues(status_objects)
+        result_first = alert._get_issues(status_objects, now)
 
         # then - first call returns the issue
         assert len(result_first) == 1
@@ -536,7 +536,7 @@ class TestPumpPressureAlert:
         assert "Pressure changes:" in result_first[0].details
 
         # when - second call with same data should suppress the issue
-        result_second = alert._get_issues(status_objects)
+        result_second = alert._get_issues(status_objects, now)
 
         # then - second call suppresses the duplicate
         assert result_second == []
@@ -693,7 +693,7 @@ class TestPumpPressureAlert:
         }
 
         # when
-        result = alert._get_issues(status_objects)
+        result = alert._get_issues(status_objects, now)
 
         # then
         # Should detect BOTH:

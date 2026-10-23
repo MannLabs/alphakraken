@@ -26,15 +26,11 @@ class TestStaleStatusAlert:
         # then
         assert result == "StaleStatusAlert"
 
-    @patch("monitoring.alerts.stale_status_alert.datetime")
-    def test_check_should_handle_comprehensive_stale_scenarios(
-        self, mock_datetime: Mock
-    ) -> None:
+    def test_check_should_handle_comprehensive_stale_scenarios(self) -> None:
         """Test that check handles complex mixed scenarios with different entity types, thresholds, and time ranges."""
         # given
         alert = StaleStatusAlert()
         now = datetime(2024, 1, 15, 12, 0, 0, tzinfo=pytz.UTC)
-        mock_datetime.now.return_value = now
 
         # Create comprehensive mix of status objects with different scenarios
 
@@ -123,7 +119,7 @@ class TestStaleStatusAlert:
         ]
 
         # when
-        result = alert._get_issues(status_objects)
+        result = alert._get_issues(status_objects, now)
 
         # then
         # Should return only stale entities, with proper timezone handling
@@ -191,15 +187,11 @@ class TestStaleStatusAlert:
         )
         assert result == expected
 
-    @patch("monitoring.alerts.stale_status_alert.datetime")
-    def test_check_should_return_empty_when_all_fresh(
-        self, mock_datetime: Mock
-    ) -> None:
+    def test_check_should_return_empty_when_all_fresh(self) -> None:
         """Test that check returns empty result when all status objects are fresh."""
         # given
         alert = StaleStatusAlert()
         now = datetime(2024, 1, 15, 12, 0, 0, tzinfo=pytz.UTC)
-        mock_datetime.now.return_value = now
 
         # All fresh status objects across different entity types
         status_objects = []
@@ -244,18 +236,16 @@ class TestStaleStatusAlert:
             status_objects.append(mock_status)
 
         # when
-        result = alert._get_issues(status_objects)
+        result = alert._get_issues(status_objects, now)
 
         # then
         assert result == []
 
-    @patch("monitoring.alerts.stale_status_alert.datetime")
-    def test_file_remover_threshold_behavior(self, mock_datetime: Mock) -> None:
+    def test_file_remover_threshold_behavior(self) -> None:
         """Test that file_remover job uses 24-hour threshold while other entities use 15-minute threshold."""
         # given
         alert = StaleStatusAlert()
         now = datetime(2024, 1, 15, 12, 0, 0, tzinfo=pytz.UTC)
-        mock_datetime.now.return_value = now
 
         # File remover at different staleness levels
         mock_file_remover_boundary = Mock()
@@ -276,7 +266,7 @@ class TestStaleStatusAlert:
         status_objects = [mock_file_remover_boundary, mock_regular_job]
 
         # when
-        result = alert._get_issues(status_objects)
+        result = alert._get_issues(status_objects, now)
 
         # then
         # Only regular job should be stale

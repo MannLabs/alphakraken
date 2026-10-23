@@ -1,5 +1,7 @@
 """Disk space alert checker."""
 
+from datetime import datetime
+
 from shared.db.models import KrakenStatus, KrakenStatusEntities
 
 from . import config
@@ -11,8 +13,11 @@ class DiskSpaceAlert(BaseAlert):
 
     title = "Low disk space detected"
 
-    def _get_issues(self, status_objects: list[KrakenStatus]) -> list[Issue[int]]:
+    def _get_issues(
+        self, status_objects: list[KrakenStatus], now: datetime
+    ) -> list[Issue[int]]:
         """Check for low disk space."""
+        del now  # unused
         low_disk_space_instruments = []
 
         for kraken_status in [

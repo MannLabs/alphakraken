@@ -25,16 +25,14 @@ class TestRawFileErrorAlert:
         assert result == "RawFileErrorAlert"
 
     @patch("monitoring.alerts.raw_file_error_alert.RawFile")
-    @patch("monitoring.alerts.raw_file_error_alert.datetime")
     @patch("monitoring.alerts.raw_file_error_alert.CHECK_INTERVAL_SECONDS", 60)
     def test_check_should_handle_comprehensive_error_scenarios(
-        self, mock_datetime: Mock, mock_raw_file: Mock
+        self, mock_raw_file: Mock
     ) -> None:
         """Test that check handles complex mixed scenarios with various file status changes and error conditions."""
         # given
         alert = RawFileErrorAlert()
         fixed_now = datetime(2024, 1, 1, 12, 0, 0, tzinfo=pytz.UTC)
-        mock_datetime.now.return_value = fixed_now
 
         # Set up previous state with some files already in different statuses
         alert.previous_raw_file_statuses = {
@@ -98,7 +96,7 @@ class TestRawFileErrorAlert:
         ]
 
         # when
-        result = alert._get_issues([])
+        result = alert._get_issues([], fixed_now)
 
         # then
         # Should only return files that changed TO error status (not already in error)
@@ -188,16 +186,14 @@ class TestRawFileErrorAlert:
         assert result == expected
 
     @patch("monitoring.alerts.raw_file_error_alert.RawFile")
-    @patch("monitoring.alerts.raw_file_error_alert.datetime")
     @patch("monitoring.alerts.raw_file_error_alert.CHECK_INTERVAL_SECONDS", 120)
     def test_check_should_return_empty_when_no_new_errors(
-        self, mock_datetime: Mock, mock_raw_file: Mock
+        self, mock_raw_file: Mock
     ) -> None:
         """Test that check returns empty result when no files have newly changed to ERROR status."""
         # given
         alert = RawFileErrorAlert()
         fixed_now = datetime(2024, 1, 1, 15, 30, 0, tzinfo=pytz.UTC)
-        mock_datetime.now.return_value = fixed_now
 
         # Set up previous state with files in various statuses
         alert.previous_raw_file_statuses = {
@@ -235,7 +231,7 @@ class TestRawFileErrorAlert:
         ]
 
         # when
-        result = alert._get_issues([])
+        result = alert._get_issues([], fixed_now)
 
         # then
         assert result == []
@@ -246,16 +242,12 @@ class TestRawFileErrorAlert:
         )
 
     @patch("monitoring.alerts.raw_file_error_alert.RawFile")
-    @patch("monitoring.alerts.raw_file_error_alert.datetime")
     @patch("monitoring.alerts.raw_file_error_alert.CHECK_INTERVAL_SECONDS", 90)
-    def test_state_tracking_and_time_window_behavior(
-        self, mock_datetime: Mock, mock_raw_file: Mock
-    ) -> None:
+    def test_state_tracking_and_time_window_behavior(self, mock_raw_file: Mock) -> None:
         """Test that state tracking works correctly and time window is calculated properly."""
         # given
         alert = RawFileErrorAlert()
         fixed_now = datetime(2024, 2, 15, 9, 45, 0, tzinfo=pytz.UTC)
-        mock_datetime.now.return_value = fixed_now
 
         # Empty previous state (first run)
         assert alert.previous_raw_file_statuses == {}
@@ -277,7 +269,7 @@ class TestRawFileErrorAlert:
         ]
 
         # when - first check
-        result1 = alert._get_issues([])
+        result1 = alert._get_issues([], fixed_now)
 
         # then - first check should detect new error
         assert result1 == [
@@ -311,22 +303,20 @@ class TestRawFileErrorAlert:
         ]
 
         # when - second check
-        result2 = alert._get_issues([])
+        result2 = alert._get_issues([], fixed_now)
 
         # then - second check should find no new errors
         assert result2 == []
 
     @patch("monitoring.alerts.raw_file_error_alert.RawFile")
-    @patch("monitoring.alerts.raw_file_error_alert.datetime")
     @patch("monitoring.alerts.raw_file_error_alert.CHECK_INTERVAL_SECONDS", 60)
     def test_should_not_false_positive_when_error_file_ages_out_and_returns(
-        self, mock_datetime: Mock, mock_raw_file: Mock
+        self, mock_raw_file: Mock
     ) -> None:
         """Test that a file already in ERROR does not re-alert when it ages out of the query window and re-enters due to an unrelated updated_at_ bump."""
         # given
         alert = RawFileErrorAlert()
         fixed_now = datetime(2024, 1, 1, 12, 0, 0, tzinfo=pytz.UTC)
-        mock_datetime.now.return_value = fixed_now
 
         mock_error_file = Mock()
         mock_error_file.id = "file_error"
@@ -335,7 +325,7 @@ class TestRawFileErrorAlert:
 
         # Round 1: file enters ERROR
         mock_raw_file.objects.filter.return_value.only.return_value = [mock_error_file]
-        result1 = alert._get_issues([])
+        result1 = alert._get_issues([], fixed_now)
         assert result1 == [
             Issue(
                 "file_error",
@@ -347,14 +337,14 @@ class TestRawFileErrorAlert:
 
         # Round 2: file ages out of the 5-minute window (empty query result)
         mock_raw_file.objects.filter.return_value.only.return_value = []
-        result2 = alert._get_issues([])
+        result2 = alert._get_issues([], fixed_now)
         assert result2 == []
 
         # Round 3: file re-enters window due to unrelated updated_at_ bump (still ERROR)
         mock_raw_file.objects.filter.return_value.only.return_value = [mock_error_file]
 
         # when
-        result3 = alert._get_issues([])
+        result3 = alert._get_issues([], fixed_now)
 
         # then - should NOT alert again
         assert result3 == []

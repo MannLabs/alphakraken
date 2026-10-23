@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import ClassVar
 
-import pytz
+from utils import ensure_utc
 
 from shared.db.models import KrakenStatus, RawFile
 
@@ -84,7 +84,7 @@ class QueueStopAlert(BaseAlert):
     _alerted_subject_files: ClassVar[set[tuple[str, str]]] = set()
 
     def _get_issues(
-        self, status_objects: list[KrakenStatus]
+        self, status_objects: list[KrakenStatus], now: datetime
     ) -> list[Issue[QueueStopIssue]]:
         """Detect stop/handoff conditions per instrument."""
         del status_objects
@@ -93,7 +93,6 @@ class QueueStopAlert(BaseAlert):
             return []
 
         instrument_ids = RawFile.objects.distinct("instrument_id")
-        now = datetime.now(pytz.UTC)
         max_gradient = timedelta(hours=MAX_GRADIENT_LENGTH_HOURS)
 
         issues: list[Issue[QueueStopIssue]] = []
@@ -114,10 +113,10 @@ class QueueStopAlert(BaseAlert):
             has_third_file = len(recent) >= MIN_FILES_FOR_HANDOFF_DETECTION
             file1_id: str = recent[0].id
             file2_id: str = recent[1].id
-            file1_created: datetime = _ensure_utc(recent[0].created_at)
-            file2_created: datetime = _ensure_utc(recent[1].created_at)
+            file1_created: datetime = ensure_utc(recent[0].created_at)
+            file2_created: datetime = ensure_utc(recent[1].created_at)
             file3_created: datetime | None = (
-                _ensure_utc(recent[2].created_at) if has_third_file else None
+                ensure_utc(recent[2].created_at) if has_third_file else None
             )
 
             initials1 = _extract_initials(file1_id)
@@ -128,7 +127,7 @@ class QueueStopAlert(BaseAlert):
                 RecentFile(
                     file_id=str(rf.id),
                     size=rf.size,
-                    created_at=_ensure_utc(rf.created_at),
+                    created_at=ensure_utc(rf.created_at),
                 )
                 for rf in recent
             ]
@@ -374,9 +373,3 @@ class QueueStopAlert(BaseAlert):
             for rf in issue.recent_files
         ]
         return header + "\nRecent files:\n" + "\n".join(file_lines)
-
-
-def _ensure_utc(value: datetime) -> datetime:
-    if value.tzinfo is None:
-        return pytz.utc.localize(value)
-    return value

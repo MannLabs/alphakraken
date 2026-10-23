@@ -11,8 +11,6 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any
 
-import pytz
-
 from shared.db.interface import augment_raw_files_with_metrics
 from shared.db.models import KrakenStatus, RawFile
 
@@ -66,7 +64,9 @@ class PumpPressureAlert(BaseAlert):
             return DEFAULT_ALERT_COOLDOWN_TIME_MINUTES
         return 0
 
-    def _get_issues(self, status_objects: list[KrakenStatus]) -> list[Issue[str]]:
+    def _get_issues(
+        self, status_objects: list[KrakenStatus], now: datetime
+    ) -> list[Issue[str]]:
         """Check for pump pressure increases per instrument."""
         # Get all instrument IDs
         instrument_ids = [
@@ -78,7 +78,7 @@ class PumpPressureAlert(BaseAlert):
             return []
 
         # Query recent metrics for all instruments
-        cutoff = datetime.now(tz=pytz.utc) - timedelta(days=PUMP_PRESSURE_LOOKBACK_DAYS)
+        cutoff = now - timedelta(days=PUMP_PRESSURE_LOOKBACK_DAYS)
 
         # Get raw files for all instruments in the time window
         raw_files = (

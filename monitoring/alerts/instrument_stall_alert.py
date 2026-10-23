@@ -4,6 +4,7 @@ import logging
 from datetime import datetime, timedelta
 
 import pytz
+from utils import ensure_utc
 
 from shared.db.models import KrakenStatus, RawFile
 
@@ -23,14 +24,15 @@ class InstrumentStallAlert(BaseAlert):
         """Initialize with empty alerted file names tracker."""
         self._alerted_file_names: dict[str, str] = {}
 
-    def _get_issues(self, status_objects: list[KrakenStatus]) -> list[Issue[datetime]]:
+    def _get_issues(
+        self, status_objects: list[KrakenStatus], now: datetime
+    ) -> list[Issue[datetime]]:
         """Check for instruments with no recent file acquisition."""
         del status_objects
 
         if not INSTRUMENT_STALL_INSTRUMENT_IDS:
             return []
 
-        now = datetime.now(pytz.UTC)
         threshold = now - timedelta(hours=INSTRUMENT_STALL_THRESHOLD_HOURS)
 
         issues = []
@@ -46,9 +48,7 @@ class InstrumentStallAlert(BaseAlert):
                 logging.debug(f"No raw files found for instrument {instrument_id}")
                 continue
 
-            created_at = latest.created_at
-            if created_at.tzinfo is None:
-                created_at = pytz.utc.localize(created_at)
+            created_at = ensure_utc(latest.created_at)
 
             if created_at < threshold:
                 if self._alerted_file_names.get(instrument_id) == latest.original_name:

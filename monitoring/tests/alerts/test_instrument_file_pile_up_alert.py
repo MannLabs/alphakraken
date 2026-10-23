@@ -1,10 +1,15 @@
 """Unit tests for InstrumentFilePileUpAlert class."""
 
+from datetime import datetime
 from unittest.mock import Mock, patch
+
+import pytz
 
 from monitoring.alerts.base_alert import Issue
 from monitoring.alerts.instrument_file_pile_up_alert import InstrumentFilePileUpAlert
 from shared.db.models import InstrumentFileStatus, KrakenStatusEntities
+
+NOW = datetime(2024, 1, 15, 12, 0, tzinfo=pytz.UTC)
 
 
 class TestInstrumentFilePileUpAlert:
@@ -125,7 +130,7 @@ class TestInstrumentFilePileUpAlert:
         mock_get_files.side_effect = mock_get_files_side_effect
 
         # when
-        result = alert._get_issues(status_objects)
+        result = alert._get_issues(status_objects, NOW)
 
         # then
         # Should only check instruments and return those with pile-ups
@@ -245,7 +250,7 @@ class TestInstrumentFilePileUpAlert:
         mock_get_files.side_effect = mock_get_files_side_effect
 
         # when
-        result = alert._get_issues(status_objects)
+        result = alert._get_issues(status_objects, NOW)
 
         # then
         assert result == []
@@ -305,7 +310,7 @@ class TestInstrumentFilePileUpAlert:
         mock_get_files.side_effect = mock_get_files_side_effect
 
         # when
-        result = alert._get_issues(status_objects)
+        result = alert._get_issues(status_objects, NOW)
 
         # then
         # Should only be called for each status type for the instrument

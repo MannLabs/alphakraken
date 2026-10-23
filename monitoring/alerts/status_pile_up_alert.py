@@ -1,5 +1,7 @@
 """Status pile-up alert checker."""
 
+from datetime import datetime
+
 from shared.db.models import (
     TERMINAL_STATUSES,
     KrakenStatus,
@@ -16,8 +18,11 @@ class StatusPileUpAlert(BaseAlert):
 
     title = "Status pile up detected"
 
-    def _get_issues(self, status_objects: list[KrakenStatus]) -> list[Issue[str]]:
+    def _get_issues(
+        self, status_objects: list[KrakenStatus], now: datetime
+    ) -> list[Issue[str]]:
         """Check for status pile-ups on instruments."""
+        del now  # unused
         status_pile_up_instruments = []
 
         for kraken_status in [

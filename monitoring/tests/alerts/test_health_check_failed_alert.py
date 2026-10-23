@@ -1,10 +1,15 @@
 """Unit tests for  HealthCheckFailedAlert class."""
 
+from datetime import datetime
 from unittest.mock import Mock
+
+import pytz
 
 from monitoring.alerts.base_alert import Issue
 from monitoring.alerts.health_check_failed_alert import HealthCheckFailedAlert
 from shared.db.models import KrakenStatusValues
+
+NOW = datetime(2024, 1, 15, 12, 0, tzinfo=pytz.UTC)
 
 
 class TestHealthCheckFailedAlert:
@@ -33,7 +38,7 @@ class TestHealthCheckFailedAlert:
         status_objects = [mock_status1]
 
         # when
-        result = alert._get_issues(status_objects)
+        result = alert._get_issues(status_objects, NOW)
 
         # then
         assert result == []
@@ -62,7 +67,7 @@ class TestHealthCheckFailedAlert:
         status_objects = [mock_status1, mock_status2, mock_status3]
 
         # when
-        result = alert._get_issues(status_objects)
+        result = alert._get_issues(status_objects, NOW)
 
         # then
         assert result == [

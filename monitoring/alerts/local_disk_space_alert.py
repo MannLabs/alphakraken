@@ -2,6 +2,7 @@
 
 import logging
 import shutil
+from datetime import datetime
 
 from shared.db.models import KrakenStatus
 
@@ -18,9 +19,11 @@ class LocalDiskSpaceAlert(BaseAlert):
 
     title = "Low local disk space on the monitoring host"
 
-    def _get_issues(self, status_objects: list[KrakenStatus]) -> list[Issue[int]]:
+    def _get_issues(
+        self, status_objects: list[KrakenStatus], now: datetime
+    ) -> list[Issue[int]]:
         """Check for low local disk space."""
-        del status_objects  # unused
+        del status_objects, now  # unused
 
         try:
             free_bytes = shutil.disk_usage(config.LOCAL_DISK_PATH).free

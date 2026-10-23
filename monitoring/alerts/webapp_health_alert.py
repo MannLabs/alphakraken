@@ -1,6 +1,7 @@
 """Webapp health alert checker."""
 
 import logging
+from datetime import datetime
 
 import requests
 import requests.exceptions
@@ -25,9 +26,11 @@ class WebAppHealthAlert(BaseAlert):
             logging.warning("WEBAPP_URL not found in config, health check disabled")
             self.webapp_url = ""
 
-    def _get_issues(self, status_objects: list[KrakenStatus]) -> list[Issue[str]]:
+    def _get_issues(
+        self, status_objects: list[KrakenStatus], now: datetime
+    ) -> list[Issue[str]]:
         """Check if webapp is accessible via HTTP request."""
-        del status_objects  # unused
+        del status_objects, now  # unused
 
         if not self.webapp_url:
             logging.warning("WEBAPP_URL not configured, skipping webapp health check")

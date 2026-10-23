@@ -1,8 +1,13 @@
 """Unit tests for BaseAlert suppression functionality."""
 
+from datetime import datetime
 from unittest.mock import patch
 
+import pytz
+
 from monitoring.alerts.base_alert import BaseAlert, Issue
+
+NOW = datetime(2024, 1, 15, 12, 0, tzinfo=pytz.UTC)
 
 
 class TestAlert(BaseAlert):
@@ -16,6 +21,7 @@ class TestAlert(BaseAlert):
     def _get_issues(
         self,
         status_objects: list,  # noqa: ARG002
+        now: datetime,  # noqa: ARG002
     ) -> list[Issue]:
         """Mock implementation to return predefined issues."""
         # Return predefined issues for testing
@@ -31,7 +37,7 @@ class DefaultFormatAlert(BaseAlert):
 
     title = "Default title"
 
-    def _get_issues(self, status_objects: list) -> list[Issue]:  # noqa: ARG002
+    def _get_issues(self, status_objects: list, now: datetime) -> list[Issue]:  # noqa: ARG002
         """Not used."""
         return []
 
@@ -62,7 +68,7 @@ class TestBaseAlertSuppressions:
 
         with patch("monitoring.alerts.base_alert._suppressions", []):
             # when
-            result = alert.get_issues([])
+            result = alert.get_issues([], NOW)
 
             # then
             assert result == [
@@ -89,7 +95,7 @@ class TestBaseAlertSuppressions:
 
         with patch("monitoring.alerts.base_alert._suppressions", suppressions):
             # when
-            result = alert.get_issues([])
+            result = alert.get_issues([], NOW)
 
             # then
             assert result == [Issue("instrument2", "disk full")]
@@ -110,7 +116,7 @@ class TestBaseAlertSuppressions:
 
         with patch("monitoring.alerts.base_alert._suppressions", suppressions):
             # when
-            result = alert.get_issues([])
+            result = alert.get_issues([], NOW)
 
             # then
             assert result == []
@@ -141,7 +147,7 @@ class TestBaseAlertSuppressions:
 
         with patch("monitoring.alerts.base_alert._suppressions", suppressions):
             # when
-            result = alert.get_issues([])
+            result = alert.get_issues([], NOW)
 
             # then
             assert result == [
@@ -165,7 +171,7 @@ class TestBaseAlertSuppressions:
 
         with patch("monitoring.alerts.base_alert._suppressions", suppressions):
             # when
-            result = alert.get_issues([])
+            result = alert.get_issues([], NOW)
 
             # then
             assert result == [Issue("instrument1", "error message")]

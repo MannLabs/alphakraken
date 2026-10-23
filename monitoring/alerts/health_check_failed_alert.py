@@ -1,5 +1,7 @@
 """Health check alert checker."""
 
+from datetime import datetime
+
 from shared.db.models import KrakenStatus, KrakenStatusValues
 
 from .base_alert import BaseAlert, Issue, get_instrument_id
@@ -11,9 +13,10 @@ class HealthCheckFailedAlert(BaseAlert):
     title = "Health check failed"
 
     def _get_issues(
-        self, status_objects: list[KrakenStatus]
+        self, status_objects: list[KrakenStatus], now: datetime
     ) -> list[Issue[str | None]]:
         """Check for health check failures."""
+        del now  # unused
         health_check_failed_instruments = []
 
         for kraken_status in status_objects:

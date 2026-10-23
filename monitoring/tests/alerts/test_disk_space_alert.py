@@ -1,10 +1,15 @@
 """Unit tests for DiskSpaceAlert class."""
 
+from datetime import datetime
 from unittest.mock import Mock, patch
+
+import pytz
 
 from monitoring.alerts.base_alert import Issue
 from monitoring.alerts.disk_space_alert import DiskSpaceAlert
 from shared.db.models import KrakenStatusEntities
+
+NOW = datetime(2024, 1, 15, 12, 0, tzinfo=pytz.UTC)
 
 
 class TestDiskSpaceAlert:
@@ -43,7 +48,7 @@ class TestDiskSpaceAlert:
         status_objects = [mock_status1, mock_status2]
 
         # when
-        result = alert._get_issues(status_objects)
+        result = alert._get_issues(status_objects, NOW)
 
         # then
         assert result == []
@@ -91,7 +96,7 @@ class TestDiskSpaceAlert:
         ]
 
         # when
-        result = alert._get_issues(status_objects)
+        result = alert._get_issues(status_objects, NOW)
 
         # then
         assert result == [
@@ -132,7 +137,7 @@ class TestDiskSpaceAlert:
         status_objects = [mock_status1, mock_status2, mock_status3, mock_status4]
 
         # when
-        result = alert._get_issues(status_objects)
+        result = alert._get_issues(status_objects, NOW)
 
         # then
         assert result == [Issue("backup", 150), Issue("output", 180)]

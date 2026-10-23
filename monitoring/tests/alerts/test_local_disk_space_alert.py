@@ -1,10 +1,15 @@
 """Unit tests for LocalDiskSpaceAlert class."""
 
+from datetime import datetime
 from unittest.mock import Mock, patch
+
+import pytz
 
 from monitoring.alerts import config
 from monitoring.alerts.base_alert import Issue
 from monitoring.alerts.local_disk_space_alert import LocalDiskSpaceAlert
+
+NOW = datetime(2024, 1, 15, 12, 0, tzinfo=pytz.UTC)
 
 
 class TestLocalDiskSpaceAlert:
@@ -31,7 +36,7 @@ class TestLocalDiskSpaceAlert:
         mock_disk_usage.return_value = Mock(free=50 * config.BYTES_PER_GB)
 
         # when
-        result = alert._get_issues([])
+        result = alert._get_issues([], NOW)
 
         # then
         assert result == []
@@ -47,7 +52,7 @@ class TestLocalDiskSpaceAlert:
         mock_disk_usage.return_value = Mock(free=5 * config.BYTES_PER_GB)
 
         # when
-        result = alert._get_issues([])
+        result = alert._get_issues([], NOW)
 
         # then
         assert result == [Issue("local", 5)]
@@ -64,7 +69,7 @@ class TestLocalDiskSpaceAlert:
         )
 
         # when
-        result = alert._get_issues([])
+        result = alert._get_issues([], NOW)
 
         # then
         assert result == []
@@ -79,7 +84,7 @@ class TestLocalDiskSpaceAlert:
         mock_disk_usage.side_effect = OSError("no such path")
 
         # when
-        result = alert._get_issues([])
+        result = alert._get_issues([], NOW)
 
         # then
         assert result == []

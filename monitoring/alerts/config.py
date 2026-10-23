@@ -30,6 +30,8 @@ STALE_STATUS_THRESHOLD_MINUTES = (
 FILE_REMOVER_STALE_THRESHOLD_HOURS = (
     24  # How long file_remover job can go without running
 )
+# a failed file remover run is reported less often, it runs rarely
+FILE_REMOVER_HEALTH_COOLDOWN_MINUTES = 12 * 60
 FREE_SPACE_THRESHOLD_GB = (
     200  # regardless of the configuration in airflow: 200 GB is very low
 )

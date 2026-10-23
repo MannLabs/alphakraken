@@ -19,6 +19,7 @@ from shared.db.models import KrakenStatus, RawFile
 
 from .base_alert import BaseAlert, Issue
 from .config import (
+    BYTES_PER_GB,
     MAX_GRADIENT_LENGTH_HOURS,
     QUEUE_STOP_THRESHOLD_MULTIPLIER,
     Destinations,
@@ -30,8 +31,6 @@ KIND_HANDOFF = "handoff"
 
 MIN_FILES_FOR_DETECTION = 2
 MIN_FILES_FOR_HANDOFF_DETECTION = 3
-
-_BYTES_PER_GB = 1024**3
 
 
 @dataclass(frozen=True)
@@ -177,7 +176,7 @@ def _load_sizes(file_ids: Collection[str]) -> dict[str, int | None]:
 def _format_size(size_bytes: int | None) -> str:
     if size_bytes is None or size_bytes < 0:
         return "n/a"
-    return f"{size_bytes / _BYTES_PER_GB:.2f} GB"
+    return f"{size_bytes / BYTES_PER_GB:.2f} GB"
 
 
 def render_issue(issue: QueueStopIssue, sizes: dict[str, int | None]) -> str:

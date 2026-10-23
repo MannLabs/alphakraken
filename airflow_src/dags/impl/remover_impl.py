@@ -45,6 +45,7 @@ from shared.db.models import (
     KrakenStatusValues,
     RawFile,
 )
+from shared.keys import FILE_REMOVER_STATUS_ID
 from shared.yamlsettings import (
     S3_SWITCH,
     get_purging_verification_type,
@@ -67,7 +68,7 @@ def _create_s3_client() -> BaseAwsConnection:
 def _update_file_remover_status(status: str, status_details: str = "") -> None:
     """Update the status of the file_remover job."""
     update_kraken_status(
-        "file_remover",
+        FILE_REMOVER_STATUS_ID,
         status=status,
         status_details=status_details,
         free_space_gb=-1,  # Not applicable for job status

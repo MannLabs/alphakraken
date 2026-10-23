@@ -143,3 +143,6 @@ SOFTWARE_TYPE_TO_DEFAULT_RESOURCE_PARAMS: dict[str, ResourceParams] = defaultdic
         ),
     },
 )
+
+# KrakenStatus id of the file remover job
+FILE_REMOVER_STATUS_ID = "file_remover"

@@ -10,6 +10,8 @@ q_MONGO_USER_READ=`jq --arg v "$MONGO_USER_READ" -n '$v'`
 q_MONGO_PASSWORD_READ=`jq --arg v "$MONGO_PASSWORD_READ" -n '$v'`
 q_MONGO_USER_WEBAPP=`jq --arg v "$MONGO_USER_WEBAPP" -n '$v'`
 q_MONGO_PASSWORD_WEBAPP=`jq --arg v "$MONGO_PASSWORD_WEBAPP" -n '$v'`
+q_MONGO_USER_ALERTING=`jq --arg v "$MONGO_USER_ALERTING" -n '$v'`
+q_MONGO_PASSWORD_ALERTING=`jq --arg v "$MONGO_PASSWORD_ALERTING" -n '$v'`
 
 mongosh -u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" admin <<EOF
     use krakendb;
@@ -50,6 +52,23 @@ mongosh -u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" admin 
         pwd: $q_MONGO_PASSWORD_WEBAPP,
         roles: ["webappRole"]
     });
+    db.createRole({
+        role: "alertingRole",
+        privileges: [
+            {
+                resource: { db: "krakendb", collection: "alert_issue" },
+                actions: ["find", "insert", "update"]
+            },
+        ],
+        roles: ["read"]
+    });
+    db.createUser({
+        user: $q_MONGO_USER_ALERTING,
+        pwd: $q_MONGO_PASSWORD_ALERTING,
+        roles: ["alertingRole"]
+    });
 
     db.settings.createIndex({name: 1, version: 1}, {unique: true});
+    // resolved alert issues expire after 90 days, cf. ALERT_ISSUE_EXPIRY_S
+    db.alert_issue.createIndex({resolved_at: 1}, {expireAfterSeconds: 7776000});
 EOF

@@ -2,7 +2,8 @@
 
 Direct messages about alerts (e.g. queue stops) now go to the messenger id stored with each user
 on the admin page. The hard-coded `INSTRUMENT_USER_SLACK_IDS` in `monitoring/alerts/config.py` is
-removed. The queue-stop alert now recognizes the initials of all active users in raw file names.
+removed. The queue-stop alert recognizes the initials of all active users with a messenger id in
+raw file names.
 
 There is no DB migration: the new user field `messenger_id` is optional.
 

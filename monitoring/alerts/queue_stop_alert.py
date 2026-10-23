@@ -1,6 +1,7 @@
 """Queue-stop alert: notifies the prior operator when their measurement queue ends.
 
-Known initials are those of the active users; they identify the operator in the raw file names.
+Known initials are those of the active users with a messenger id, the only ones that can be
+notified; they identify the operator in the raw file names.
 
 Two mutually exclusive modes per instrument (see SPEC.md §2.1):
 - Stall: newest two files share known initials and the pause exceeds N x gradient.
@@ -17,7 +18,7 @@ from shared.db.models import KrakenStatus, RawFile
 
 from .base_alert import BaseAlert, Issue
 from .config import MAX_GRADIENT_LENGTH_HOURS, QUEUE_STOP_THRESHOLD_MULTIPLIER
-from .recipients import extract_initials, get_known_initials
+from .recipients import extract_initials, get_messenger_ids_by_initials
 
 KIND_STOP = "stop"
 KIND_HANDOFF = "handoff"
@@ -70,7 +71,7 @@ class QueueStopAlert(BaseAlert):
         """Detect stop/handoff conditions per instrument."""
         del status_objects
 
-        known_initials = get_known_initials()
+        known_initials = get_messenger_ids_by_initials()
         if not known_initials:
             return []
 

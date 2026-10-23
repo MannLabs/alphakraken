@@ -61,8 +61,8 @@ class TestQueueStopAlertBasics:
         assert result == "QueueStopAlert"
 
     @patch(
-        "monitoring.alerts.queue_stop_alert.get_known_initials",
-        Mock(return_value={"MaSc"}),
+        "monitoring.alerts.queue_stop_alert.get_messenger_ids_by_initials",
+        Mock(return_value={"MaSc": "U_MASC"}),
     )
     @patch("monitoring.alerts.queue_stop_alert.RawFile")
     def test_no_alert_when_fewer_than_two_files(self, mock_rawfile: Mock) -> None:
@@ -79,14 +79,12 @@ class TestQueueStopAlertBasics:
         assert result == []
 
     @patch(
-        "monitoring.alerts.queue_stop_alert.get_known_initials",
-        Mock(return_value=set()),
+        "monitoring.alerts.queue_stop_alert.get_messenger_ids_by_initials",
+        Mock(return_value={}),
     )
     @patch("monitoring.alerts.queue_stop_alert.RawFile")
-    def test_no_alert_when_there_are_no_known_initials(
-        self, mock_rawfile: Mock
-    ) -> None:
-        """Without active users the alert short-circuits before any DB query."""
+    def test_no_alert_when_no_user_has_a_messenger_id(self, mock_rawfile: Mock) -> None:
+        """Without users that can be notified, the alert short-circuits before any DB query."""
         # given
         # when
         result = QueueStopAlert()._get_issues([], datetime.now(pytz.UTC))
@@ -95,8 +93,8 @@ class TestQueueStopAlertBasics:
         mock_rawfile.objects.distinct.assert_not_called()
 
     @patch(
-        "monitoring.alerts.queue_stop_alert.get_known_initials",
-        Mock(return_value={"JoeB", "MaSc"}),
+        "monitoring.alerts.queue_stop_alert.get_messenger_ids_by_initials",
+        Mock(return_value={"JoeB": "U_JOEB", "MaSc": "U_MASC"}),
     )
     @patch("monitoring.alerts.queue_stop_alert.MAX_GRADIENT_LENGTH_HOURS", 2)
     @patch("monitoring.alerts.queue_stop_alert.QUEUE_STOP_THRESHOLD_MULTIPLIER", 3)
@@ -132,8 +130,8 @@ class TestQueueStopAlertBasics:
 
 
 @patch(
-    "monitoring.alerts.queue_stop_alert.get_known_initials",
-    Mock(return_value={"MaSc"}),
+    "monitoring.alerts.queue_stop_alert.get_messenger_ids_by_initials",
+    Mock(return_value={"MaSc": "U_MASC"}),
 )
 @patch("monitoring.alerts.queue_stop_alert.MAX_GRADIENT_LENGTH_HOURS", 2)
 @patch("monitoring.alerts.queue_stop_alert.QUEUE_STOP_THRESHOLD_MULTIPLIER", 3)
@@ -302,8 +300,8 @@ class TestRuleAStop:
 
 
 @patch(
-    "monitoring.alerts.queue_stop_alert.get_known_initials",
-    Mock(return_value={"JoeB", "MaSc"}),
+    "monitoring.alerts.queue_stop_alert.get_messenger_ids_by_initials",
+    Mock(return_value={"JoeB": "U_JOEB", "MaSc": "U_MASC"}),
 )
 @patch("monitoring.alerts.queue_stop_alert.MAX_GRADIENT_LENGTH_HOURS", 2)
 @patch("monitoring.alerts.queue_stop_alert.QUEUE_STOP_THRESHOLD_MULTIPLIER", 3)
@@ -501,8 +499,8 @@ _T3 = datetime(2026, 8, 19, 6, 38, tzinfo=pytz.UTC)
 
 
 @patch(
-    "monitoring.alerts.queue_stop_alert.get_known_initials",
-    Mock(return_value={"AnSc"}),
+    "monitoring.alerts.queue_stop_alert.get_messenger_ids_by_initials",
+    Mock(return_value={"AnSc": "U_ANSC"}),
 )
 @patch("monitoring.alerts.queue_stop_alert.MAX_GRADIENT_LENGTH_HOURS", 2.5)
 @patch("monitoring.alerts.queue_stop_alert.QUEUE_STOP_THRESHOLD_MULTIPLIER", 3)
@@ -606,8 +604,8 @@ class TestSubjectAndRendering:
     """The subject file of an issue and the rendering of messages."""
 
     @patch(
-        "monitoring.alerts.queue_stop_alert.get_known_initials",
-        Mock(return_value={"MaSc"}),
+        "monitoring.alerts.queue_stop_alert.get_messenger_ids_by_initials",
+        Mock(return_value={"MaSc": "U_MASC"}),
     )
     @patch("monitoring.alerts.queue_stop_alert.MAX_GRADIENT_LENGTH_HOURS", 2)
     @patch("monitoring.alerts.queue_stop_alert.QUEUE_STOP_THRESHOLD_MULTIPLIER", 3)
@@ -629,8 +627,8 @@ class TestSubjectAndRendering:
         assert issues[0].details.subject_file_id == "x_MaSc_a.raw"
 
     @patch(
-        "monitoring.alerts.queue_stop_alert.get_known_initials",
-        Mock(return_value={"JoeB", "MaSc"}),
+        "monitoring.alerts.queue_stop_alert.get_messenger_ids_by_initials",
+        Mock(return_value={"JoeB": "U_JOEB", "MaSc": "U_MASC"}),
     )
     @patch("monitoring.alerts.queue_stop_alert.MAX_GRADIENT_LENGTH_HOURS", 2)
     @patch("monitoring.alerts.queue_stop_alert.RawFile")

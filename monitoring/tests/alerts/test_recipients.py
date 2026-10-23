@@ -7,7 +7,6 @@ import pytest
 from monitoring.alerts.recipients import (
     INITIALS_PATTERN,
     extract_initials,
-    get_known_initials,
     get_messenger_ids_by_initials,
     get_recipients,
 )
@@ -86,10 +85,10 @@ def test_get_recipients_returns_empty_when_no_user_found(
 
 
 @patch("monitoring.alerts.recipients.get_all_users")
-def test_get_known_initials_and_messenger_ids_from_active_users(
+def test_get_messenger_ids_by_initials_from_active_users_with_an_id(
     mock_get_all_users: MagicMock,
 ) -> None:
-    """All active users' initials are known; only users with a messenger id can be messaged."""
+    """Only active users with a messenger id are known."""
     # given
     mock_get_all_users.return_value = [
         MagicMock(initials="MaSc", messenger_id="U_MASC"),
@@ -97,6 +96,5 @@ def test_get_known_initials_and_messenger_ids_from_active_users(
     ]
 
     # when / then
-    assert get_known_initials() == {"MaSc", "AnSc"}
     assert get_messenger_ids_by_initials() == {"MaSc": "U_MASC"}
     mock_get_all_users.assert_called_with()

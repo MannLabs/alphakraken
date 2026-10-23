@@ -12,11 +12,6 @@ from .config import SPECIAL_ALERT_SLACK_ID
 INITIALS_PATTERN = re.compile(r"_([A-Za-z]{2,8})(?=_)")
 
 
-def get_known_initials() -> set[str]:
-    """Return the initials of all active users."""
-    return {user.initials for user in get_all_users()}
-
-
 def get_messenger_ids_by_initials() -> dict[str, str]:
     """Return the messenger ids of all active users that have one, by initials."""
     return {

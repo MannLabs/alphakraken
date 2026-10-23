@@ -159,7 +159,14 @@ class QueueStopAlert(BaseAlert):
             self._alerted_subject_files.add(dedup_key)
 
             identifier = f"{instrument_id}:{subject_file_id}"
-            issues.append(Issue(identifier, issue, relevant_file=subject_file_id))
+            issues.append(
+                Issue(
+                    identifier,
+                    issue,
+                    relevant_file=subject_file_id,
+                    instrument_id=instrument_id,
+                )
+            )
 
         return issues
 

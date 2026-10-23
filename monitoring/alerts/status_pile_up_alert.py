@@ -47,7 +47,11 @@ class StatusPileUpAlert(BaseAlert):
                     ]
                 )
                 status_pile_up_instruments.append(
-                    Issue(instrument_id, piled_up_statuses_str)
+                    Issue(
+                        instrument_id,
+                        piled_up_statuses_str,
+                        instrument_id=instrument_id,
+                    )
                 )
 
         return status_pile_up_instruments

@@ -127,14 +127,25 @@ class TestStatusPileUpAlert:
         # then
         # Should only check instruments and return those with pile-ups
         expected = [
-            Issue("instrument_processing_issues", "processing: 8"),
             Issue(
-                "instrument_multiple_issues", "processing: 12; quanting: 25; copying: 6"
+                "instrument_processing_issues",
+                "processing: 8",
+                instrument_id="instrument_processing_issues",
             ),
-            Issue("instrument_boundary_case", "quanting: 11; validating: 16"),
+            Issue(
+                "instrument_multiple_issues",
+                "processing: 12; quanting: 25; copying: 6",
+                instrument_id="instrument_multiple_issues",
+            ),
+            Issue(
+                "instrument_boundary_case",
+                "quanting: 11; validating: 16",
+                instrument_id="instrument_boundary_case",
+            ),
             Issue(
                 "instrument_mixed_status",
                 "processing: 7; copying: 4; monitoring: 12; unknown_status: 10",
+                instrument_id="instrument_mixed_status",
             ),
         ]
         assert result == expected
@@ -275,4 +286,6 @@ class TestStatusPileUpAlert:
         call_args = mock_rawfile.objects.call_args
         assert call_args[1]["instrument_id"] == "test_instrument"
         assert "status__nin" in call_args[1]
-        assert result == [Issue("test_instrument", "processing: 8")]
+        assert result == [
+            Issue("test_instrument", "processing: 8", instrument_id="test_instrument")
+        ]

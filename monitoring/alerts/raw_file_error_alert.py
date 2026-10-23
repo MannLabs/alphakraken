@@ -31,7 +31,7 @@ class RawFileErrorAlert(BaseAlert):
         )
         recently_updated_raw_files = RawFile.objects.filter(
             updated_at___gt=youngest_updated_at
-        ).only("id", "status", "status_details")
+        ).only("id", "status", "status_details", "instrument_id")
 
         new_error_files = []
         current_statuses = {}
@@ -48,7 +48,12 @@ class RawFileErrorAlert(BaseAlert):
             ):
                 status_details = raw_file.status_details or "None"
                 new_error_files.append(
-                    Issue(raw_file_id, status_details, relevant_file=raw_file_id)
+                    Issue(
+                        raw_file_id,
+                        status_details,
+                        relevant_file=raw_file_id,
+                        instrument_id=raw_file.instrument_id,
+                    )
                 )
 
         # Update the previous statuses for next check

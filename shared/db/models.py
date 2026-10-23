@@ -9,7 +9,6 @@ from datetime import datetime
 from typing import ClassVar
 
 from mongoengine import (
-    BooleanField,
     DateTimeField,
     DictField,
     Document,
@@ -297,18 +296,19 @@ class AlertIssue(Document):
     first_seen = DateTimeField(required=True)
     # None: never notified
     last_notified = DateTimeField()
-    # matched an alert suppression in the last check, so it is not notified
-    muted = BooleanField(default=False)
 
 
 class AlertSuppression(Document):
-    """Schema for a rule muting monitoring alerts; an issue is muted if all fields match."""
+    """Schema for a rule muting monitoring alerts; an issue is muted if all fields match.
+
+    The match fields mirror the fields of `AlertIssue`.
+    """
 
     meta: ClassVar = {"strict": False}
     objects: ClassVar[QuerySet[AlertSuppression]]
 
     # alert class name, e.g. "PumpPressureAlert"
-    error_class = StringField(
+    alert = StringField(
         required=True, min_length=1, max_length=64, default=ALERT_SUPPRESSION_WILDCARD
     )
     # exact match on the instrument the issue relates to
@@ -316,11 +316,11 @@ class AlertSuppression(Document):
         required=True, min_length=1, max_length=64, default=ALERT_SUPPRESSION_WILDCARD
     )
     # exact match on the issue identifier
-    context = StringField(
+    identifier = StringField(
         required=True, min_length=1, max_length=256, default=ALERT_SUPPRESSION_WILDCARD
     )
     # substring of the issue details
-    message = StringField(
+    details = StringField(
         required=True, min_length=1, max_length=256, default=ALERT_SUPPRESSION_WILDCARD
     )
 

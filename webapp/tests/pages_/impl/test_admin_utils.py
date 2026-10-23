@@ -14,10 +14,10 @@ from service.timezone import DISPLAY_TIMEZONE
 from shared.db.models import AlertSuppression
 
 VALID = {
-    "error_class": "PumpPressureAlert",
+    "alert": "PumpPressureAlert",
     "instrument_id": "*",
-    "context": "*",
-    "message": "*",
+    "identifier": "*",
+    "details": "*",
     "comment": "pump under maintenance",
 }
 
@@ -31,12 +31,12 @@ def test_validate_suppression_should_accept_restricted_suppression() -> None:
 @pytest.mark.parametrize(
     ("overrides", "match"),
     [
-        ({"error_class": " "}, "Alert class is required"),
+        ({"alert": " "}, "Alert is required"),
         ({"instrument_id": ""}, "Instrument is required"),
-        ({"context": " "}, "Context is required"),
-        ({"message": ""}, "Message is required"),
+        ({"identifier": " "}, "Identifier is required"),
+        ({"details": ""}, "Details is required"),
         ({"comment": " "}, "Comment is required"),
-        ({"error_class": "*"}, "would mute all alerts"),
+        ({"alert": "*"}, "would mute all alerts"),
     ],
 )
 def test_validate_suppression_should_reject_invalid_suppression(
@@ -77,4 +77,4 @@ def test_get_suppressions_df_should_mark_expired_suppressions() -> None:
     # then
     assert df["comment"].tolist() == ["old", "future", "never"]
     assert df["expired"].tolist() == [True, False, False]
-    assert df["alert class"].tolist() == ["*", "*", "*"]
+    assert df["alert"].tolist() == ["*", "*", "*"]

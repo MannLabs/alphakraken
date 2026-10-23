@@ -35,7 +35,6 @@ from shared.db.interface import (
     get_raw_files_by_instrument_file_status,
     get_raw_files_by_names,
     get_slurm_job,
-    set_alert_issue_muted,
     set_alert_issue_notified,
     set_user_status,
     unassign_settings_from_project,
@@ -1602,7 +1601,6 @@ def test_add_alert_issue(
         relevant_file=None,
         details="150 GB",
         first_seen=first_seen,
-        muted=False,
     )
 
     # then
@@ -1614,7 +1612,6 @@ def test_add_alert_issue(
         relevant_file=None,
         details="150 GB",
         first_seen=first_seen,
-        muted=False,
     )
     mock_alert_issue.return_value.save.assert_called_once_with(force_insert=True)
     assert result == mock_alert_issue.return_value
@@ -1637,21 +1634,6 @@ def test_set_alert_issue_notified(
 
 
 @patch("shared.db.interface.connect_db")
-def test_set_alert_issue_muted(
-    mock_connect_db: MagicMock,  # noqa: ARG001
-) -> None:
-    """Test that the muted flag is written to the issue."""
-    # given
-    issue = MagicMock()
-
-    # when
-    set_alert_issue_muted(issue, True)  # noqa: FBT003
-
-    # then
-    issue.update.assert_called_once_with(set__muted=True)
-
-
-@patch("shared.db.interface.connect_db")
 @patch("shared.db.interface.AlertSuppression")
 def test_add_alert_suppression(
     mock_suppression: MagicMock, mock_connect_db: MagicMock
@@ -1662,10 +1644,10 @@ def test_add_alert_suppression(
 
     # when
     add_alert_suppression(
-        error_class="PumpPressureAlert",
+        alert="PumpPressureAlert",
         instrument_id="astral1",
-        context="*",
-        message="*",
+        identifier="*",
+        details="*",
         comment="maintenance",
         expires_at=expires_at,
         created_by="me",
@@ -1673,10 +1655,10 @@ def test_add_alert_suppression(
 
     # then
     mock_suppression.assert_called_once_with(
-        error_class="PumpPressureAlert",
+        alert="PumpPressureAlert",
         instrument_id="astral1",
-        context="*",
-        message="*",
+        identifier="*",
+        details="*",
         comment="maintenance",
         expires_at=expires_at,
         created_by="me",

@@ -15,8 +15,7 @@ resolved notifications, to keep the design small).
 
 - Collection `alert_issue`, one document per `(alert, key)`:
   `alert` (class name), `key` (str, see below), `identifier`, `instrument_id`, `relevant_file`,
-  `details` (str rendering), `first_seen`, `last_notified` (`None` = never), `muted` (bool,
-  matched a suppression in the last cycle; added with the suppressions slice).
+  `details` (str rendering), `first_seen`, `last_notified` (`None` = never).
 - `key` is an explicit, stable string built by the alert, never a tuple of floats or a repr.
   Default is `identifier`. Details-dependent keys use a short stable digest of the details.
   Examples: stall `"<instrument>:<last file>"`, raw file error `"<file>:<digest(details)>"`,
@@ -30,17 +29,14 @@ resolved notifications, to keep the design small).
     folded into `db_connection_error`: a server selection timeout is a connection failure.)
 - One cycle on the active instance:
   1. Load all records once.
-  2. Detect issues (`detect(snapshot, now)` per alert), apply suppressions.
-  3. Detected, no record ⇒ insert; notify unless muted.
-  4. Detected, record exists ⇒ notify if not muted and (`last_notified` is `None` or
-     `now > last_notified + cooldown`); `cooldown = None` ⇒ never again. Update `muted`.
+  2. Detect issues (`detect(snapshot, now)` per alert); muted issues are skipped.
+  3. Detected, no record ⇒ insert and notify.
+  4. Detected, record exists ⇒ notify if `last_notified` is `None` or
+     `now > last_notified + cooldown`; `cooldown = None` ⇒ never again.
   5. Not detected ⇒ nothing. An issue that disappears and comes back keeps its cooldown.
 - `last_notified` is written after a successful send. A failed send leaves it unchanged, so the
   issue is retried next cycle. Races between instances are prevented by the election, not by the
   record; the fail-open case accepts duplicates.
-- Suppressed issues get a record with `muted = True` and no notification. When the suppression
-  expires and the issue is still detected, it is notified on the next cycle (its `last_notified`
-  is still `None` or old).
 - No first-check special case. On the first deploy, every currently open issue is notified once.
   The upgrade guide says so.
 - Retention: a TTL index on `first_seen` (90 days) bounds the collection; a once-only issue

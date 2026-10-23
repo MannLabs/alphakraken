@@ -131,8 +131,8 @@ recipient ⇒ skipped and recorded; initials of a user without messenger id ⇒ 
 `webapp/pages_/impl/admin_utils.py`, `misc/init-mongo.sh`, upgrade guide.
 **Details**: the spec is the contract. Stack commit 84d82f64 can be cherry-picked for the webapp
 and shared halves; the monitoring half is re-done against slice 1's `Issue` (matching on
-`issue.identifier`, `issue.instrument_id`, `str(issue.details)`). Muted issues get a record with
-`muted = True`. Delete `suppressions.yaml`.
+`issue.identifier`, `issue.instrument_id`, `str(issue.details)`). Muted issues are skipped. Delete
+`suppressions.yaml`.
 **Covers**: B6, B7, spec.
 **Tests**: matching matrix in monitoring; validation and DataFrame tests in webapp; page tests
 for add and delete.

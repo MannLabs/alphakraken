@@ -30,7 +30,6 @@ from shared.db.interface import (
     add_alert_issue,
     get_active_alert_suppressions,
     get_alert_issues,
-    set_alert_issue_muted,
     set_alert_issue_notified,
 )
 from shared.db.models import AlertIssue, AlertSuppression, KrakenStatus
@@ -64,18 +63,20 @@ class AlertManager:
         self._suppressions: list[AlertSuppression] = []
 
     def check_for_issues(self, now: datetime) -> None:
-        """Run the DB-backed checks and notify the issues that are due."""
+        """Run the DB-backed checks and notify the issues that are due.
+
+        The suppressions are those read by `check_db_free_alerts`.
+        """
         logging.info("Checking for issues...")
         status_objects = list(KrakenStatus.objects)
         records = {(r.alert, r.key): r for r in get_alert_issues()}
-        self._refresh_suppressions()
-        suppressions = self._suppressions
         messenger_ids_by_initials = get_messenger_ids_by_initials()
 
         for alert in self.alerts:
             due: list[tuple[Issue, AlertIssue]] = []
             for issue in alert.get_issues(status_objects, now):
-                muted = is_muted(alert.name, issue, suppressions)
+                if is_muted(alert.name, issue, self._suppressions):
+                    continue
                 record = records.get((alert.name, issue.key))
                 if record is None:
                     record = add_alert_issue(
@@ -86,13 +87,8 @@ class AlertManager:
                         relevant_file=issue.relevant_file,
                         details=str(issue.details),
                         first_seen=now,
-                        muted=muted,
                     )
-                elif record.muted != muted:
-                    set_alert_issue_muted(record, muted)
-                if not muted and _is_due(
-                    record, alert.get_cooldown_minutes(issue), now
-                ):
+                if _is_due(record, alert.get_cooldown_minutes(issue), now):
                     due.append((issue, record))
 
             # the records are only marked as notified once sent, so failed sends are retried
@@ -115,7 +111,8 @@ class AlertManager:
     def check_db_free_alerts(self, now: datetime) -> None:
         """Run the checks that need no DB, sending each issue with an in-memory cooldown.
 
-        The suppressions are the last ones that could be read, so they apply while the DB is down.
+        Reads the suppressions for the whole loop; the last ones that could be read apply while
+        the DB is down.
         """
         self._refresh_suppressions()
         for alert in self.db_free_alerts:

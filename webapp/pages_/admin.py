@@ -200,10 +200,10 @@ st.info(
     f"""
     Alerts matching a suppression are not sent. A suppression matches an alert if all of its fields match,
     `{ALERT_SUPPRESSION_WILDCARD}` matches anything:
-    - **Alert class**: class name of the alert, e.g. `PumpPressureAlert` (cf. `monitoring/alerts`).
+    - **Alert**: class name of the alert, e.g. `PumpPressureAlert` (cf. `monitoring/alerts`).
     - **Instrument**: the instrument the alert relates to.
-    - **Context**: the exact identifier shown in the alert, e.g. an instrument or raw file id.
-    - **Message**: a part of the alert text.
+    - **Identifier**: the exact identifier shown in the alert, e.g. an instrument or raw file id.
+    - **Details**: a part of the alert text.
 
     Expired suppressions no longer apply. Changes take effect with the next monitoring check.
     """,
@@ -227,8 +227,8 @@ else:
             suppression_id = str(suppression.id)  # ty: ignore[unresolved-attribute]
             col_delete, col_info = st.columns([0.15, 0.85])
             col_info.write(
-                f"`{suppression.error_class}` / `{suppression.instrument_id}` / "
-                f"`{suppression.context}` / `{suppression.message}`: {suppression.comment}"
+                f"`{suppression.alert}` / `{suppression.instrument_id}` / "
+                f"`{suppression.identifier}` / `{suppression.details}`: {suppression.comment}"
             )
             if col_delete.button(
                 "Delete",
@@ -247,21 +247,21 @@ st.markdown("### Add suppression")
 
 with st.form("add_suppression_form"):
     c1, c2 = st.columns(2)
-    error_class = c1.text_input(
-        "Alert class*",
+    alert = c1.text_input(
+        "Alert*",
         value=ALERT_SUPPRESSION_WILDCARD,
         help="Class name of the alert, e.g. `PumpPressureAlert`.",
     )
     instrument_id = c2.selectbox(
         "Instrument*", options=[ALERT_SUPPRESSION_WILDCARD, *_INSTRUMENT_IDS]
     )
-    context = c1.text_input(
-        "Context*",
+    identifier = c1.text_input(
+        "Identifier*",
         value=ALERT_SUPPRESSION_WILDCARD,
         help="Exact identifier shown in the alert.",
     )
-    message = c2.text_input(
-        "Message*",
+    details = c2.text_input(
+        "Details*",
         value=ALERT_SUPPRESSION_WILDCARD,
         help="Part of the alert text.",
     )
@@ -285,17 +285,17 @@ with st.form("add_suppression_form"):
 if form_submit:
     try:
         validate_suppression(
-            error_class=error_class,
+            alert=alert,
             instrument_id=instrument_id,
-            context=context,
-            message=message,
+            identifier=identifier,
+            details=details,
             comment=comment,
         )
         add_alert_suppression(
-            error_class=error_class.strip(),
+            alert=alert.strip(),
             instrument_id=instrument_id,
-            context=context.strip(),
-            message=message.strip(),
+            identifier=identifier.strip(),
+            details=details.strip(),
             comment=comment.strip(),
             expires_at=end_of_day(expires_on) if expires_on else None,
             created_by=empty_to_none(created_by),

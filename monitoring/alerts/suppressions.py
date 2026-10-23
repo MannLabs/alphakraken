@@ -12,21 +12,20 @@ def is_muted(
     """Return whether a suppression matches the issue.
 
     All fields of a suppression must match, `ALERT_SUPPRESSION_WILDCARD` matches anything:
-    alert class and instrument exactly, context exactly on the identifier, message as a
-    substring of the details.
+    alert class, instrument and identifier exactly, details as a substring.
     """
     return any(_matches(alert_name, issue, s) for s in suppressions)
 
 
 def _matches(alert_name: str, issue: Issue, suppression: AlertSuppression) -> bool:
     return (
-        suppression.error_class in (ALERT_SUPPRESSION_WILDCARD, alert_name)
+        suppression.alert in (ALERT_SUPPRESSION_WILDCARD, alert_name)
         and suppression.instrument_id
         in (ALERT_SUPPRESSION_WILDCARD, issue.instrument_id)
-        and suppression.context in (ALERT_SUPPRESSION_WILDCARD, issue.identifier)
+        and suppression.identifier in (ALERT_SUPPRESSION_WILDCARD, issue.identifier)
         and (
-            suppression.message == ALERT_SUPPRESSION_WILDCARD
-            # an empty message must not match everything
-            or (bool(suppression.message) and suppression.message in str(issue.details))
+            suppression.details == ALERT_SUPPRESSION_WILDCARD
+            # empty details must not match everything
+            or (bool(suppression.details) and suppression.details in str(issue.details))
         )
     )

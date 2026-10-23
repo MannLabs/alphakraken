@@ -196,7 +196,7 @@ def test_admin_page_should_show_suppressions(
     mock_get.return_value = [
         AlertSuppression(
             id="0123456789abcdef01234567",
-            error_class="PumpPressureAlert",
+            alert="PumpPressureAlert",
             instrument_id="astral1",
             comment="maintenance",
         )
@@ -208,6 +208,6 @@ def test_admin_page_should_show_suppressions(
     # then
     assert not at.exception
     df = at.dataframe[0].value
-    assert df["alert class"].tolist() == ["PumpPressureAlert"]
+    assert df["alert"].tolist() == ["PumpPressureAlert"]
     assert df["instrument"].tolist() == ["astral1"]
     assert at.button(key="delete_suppression_0123456789abcdef01234567")

@@ -13,27 +13,27 @@ ISSUE = Issue("inst1", "copy failed: disk full", instrument_id="inst1")
     ("fields", "expected"),
     [
         ({}, True),  # all wildcards
-        ({"error_class": "DiskSpaceAlert"}, True),
-        ({"error_class": "OtherAlert"}, False),
+        ({"alert": "DiskSpaceAlert"}, True),
+        ({"alert": "OtherAlert"}, False),
         ({"instrument_id": "inst1"}, True),
         ({"instrument_id": "inst2"}, False),
-        ({"context": "inst1"}, True),
-        ({"context": "inst"}, False),  # exact, not substring
-        ({"message": "disk full"}, True),  # substring
-        ({"message": "network"}, False),
+        ({"identifier": "inst1"}, True),
+        ({"identifier": "inst"}, False),  # exact, not substring
+        ({"details": "disk full"}, True),  # substring
+        ({"details": "network"}, False),
         (
             {
-                "error_class": "DiskSpaceAlert",
+                "alert": "DiskSpaceAlert",
                 "instrument_id": "inst1",
-                "message": "copy",
+                "details": "copy",
             },
             True,
         ),
         (
             {
-                "error_class": "DiskSpaceAlert",
+                "alert": "DiskSpaceAlert",
                 "instrument_id": "inst2",
-                "message": "copy",
+                "details": "copy",
             },
             False,
         ),
@@ -54,8 +54,8 @@ def test_is_muted_with_any_matching_suppression() -> None:
     """One matching suppression among several mutes the issue."""
     # given
     suppressions = [
-        AlertSuppression(comment="c", error_class="OtherAlert"),
-        AlertSuppression(comment="c", context="inst1"),
+        AlertSuppression(comment="c", alert="OtherAlert"),
+        AlertSuppression(comment="c", identifier="inst1"),
     ]
 
     # when / then
@@ -81,9 +81,9 @@ def test_issue_without_instrument_only_matches_wildcard() -> None:
 
 
 def test_empty_message_matches_nothing() -> None:
-    """An empty message is not a wildcard."""
+    """An empty details is not a wildcard."""
     # given
-    suppression = AlertSuppression(comment="c", message="")
+    suppression = AlertSuppression(comment="c", details="")
 
     # when / then
     assert is_muted("DiskSpaceAlert", ISSUE, [suppression]) is False

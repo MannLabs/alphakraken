@@ -4,8 +4,6 @@ Alert suppressions moved from `monitoring/suppressions.yaml` to the `alert_suppr
 in MongoDB. They are managed on the webapp's "Admin" page and picked up by the monitoring with
 its next check, without restart. `suppressions.yaml` is no longer read.
 
-A muted issue is still recorded in `alert_issue` (as `muted`), it is just not notified.
-
 ## Steps
 On the PC (VM) hosting the dbs, `cd` to the alphakraken source directory and `export ENV=production`.
 

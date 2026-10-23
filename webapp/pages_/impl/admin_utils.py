@@ -10,14 +10,14 @@ from shared.keys import ALERT_SUPPRESSION_WILDCARD
 
 
 def validate_suppression(
-    *, error_class: str, instrument_id: str, context: str, message: str, comment: str
+    *, alert: str, instrument_id: str, identifier: str, details: str, comment: str
 ) -> None:
     """Raise ValueError if the suppression is incomplete or would mute every alert."""
     for name, value in (
-        ("Alert class", error_class),
+        ("Alert", alert),
         ("Instrument", instrument_id),
-        ("Context", context),
-        ("Message", message),
+        ("Identifier", identifier),
+        ("Details", details),
     ):
         if not value.strip():
             raise ValueError(f"{name} is required, use '*' for any.")
@@ -25,7 +25,7 @@ def validate_suppression(
         raise ValueError("Comment is required: state why the alerts are muted.")
     if all(
         field.strip() == ALERT_SUPPRESSION_WILDCARD
-        for field in (error_class, instrument_id, context, message)
+        for field in (alert, instrument_id, identifier, details)
     ):
         raise ValueError("This would mute all alerts. Restrict at least one field.")
 
@@ -40,10 +40,10 @@ def get_suppressions_df(suppressions: list[AlertSuppression]) -> pd.DataFrame:
     df = pd.DataFrame(
         [
             {
-                "alert class": s.error_class,
+                "alert": s.alert,
                 "instrument": s.instrument_id,
-                "context": s.context,
-                "message": s.message,
+                "identifier": s.identifier,
+                "details": s.details,
                 "comment": s.comment,
                 "expires at": s.expires_at,
                 "created by": s.created_by,

@@ -77,9 +77,7 @@ def test_alert_issue_rejects_missing_key() -> None:
         ).validate()
 
 
-@pytest.mark.parametrize(
-    "field", ["error_class", "instrument_id", "context", "message"]
-)
+@pytest.mark.parametrize("field", ["alert", "instrument_id", "identifier", "details"])
 def test_alert_suppression_rejects_empty_match_fields(field: str) -> None:
     """Match fields must be a value or the wildcard, never empty."""
     with pytest.raises(ValidationError):

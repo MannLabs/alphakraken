@@ -681,7 +681,6 @@ def add_alert_issue(  # noqa: PLR0913
     relevant_file: str | None,
     details: str,
     first_seen: datetime,
-    muted: bool,
 ) -> AlertIssue:
     """Add an open alert issue to the database."""
     connect_db()
@@ -693,10 +692,9 @@ def add_alert_issue(  # noqa: PLR0913
         relevant_file=relevant_file,
         details=details,
         first_seen=first_seen,
-        muted=muted,
     )
     issue.save(force_insert=True)
-    logging.info(f"Added alert issue: {alert=} {key=} {muted=}")
+    logging.info(f"Added alert issue: {alert=} {key=}")
     return issue
 
 
@@ -704,13 +702,6 @@ def set_alert_issue_notified(issue: AlertIssue, notified_at: datetime) -> None:
     """Record that the issue was notified."""
     connect_db()
     issue.update(set__last_notified=notified_at)
-
-
-def set_alert_issue_muted(issue: AlertIssue, muted: bool) -> None:  # noqa: FBT001
-    """Record whether the issue is muted by a suppression."""
-    connect_db()
-    issue.update(set__muted=muted)
-    logging.info(f"Alert issue {issue.alert} {issue.key}: {muted=}")
 
 
 def get_alert_suppressions() -> list[AlertSuppression]:
@@ -728,24 +719,24 @@ def get_active_alert_suppressions() -> list[AlertSuppression]:
 
 def add_alert_suppression(  # noqa: PLR0913
     *,
-    error_class: str,
+    alert: str,
     instrument_id: str,
-    context: str,
-    message: str,
+    identifier: str,
+    details: str,
     comment: str,
     expires_at: datetime | None,
     created_by: str | None,
 ) -> None:
     """Add an alert suppression to the database."""
     logging.info(
-        f"Adding alert suppression to DB: {error_class=} {instrument_id=} {context=} {message=} {expires_at=}"
+        f"Adding alert suppression to DB: {alert=} {instrument_id=} {identifier=} {details=} {expires_at=}"
     )
     connect_db()
     AlertSuppression(
-        error_class=error_class,
+        alert=alert,
         instrument_id=instrument_id,
-        context=context,
-        message=message,
+        identifier=identifier,
+        details=details,
         comment=comment,
         expires_at=expires_at,
         created_by=created_by,

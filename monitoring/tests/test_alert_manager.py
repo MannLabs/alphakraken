@@ -53,10 +53,8 @@ def _alert(name: str = "TestAlert", issues: list[Issue] | None = None) -> Mock:
     return alert
 
 
-def _record(
-    alert: str, key: str, last_notified: datetime | None = None, *, muted: bool = False
-) -> Mock:
-    return Mock(alert=alert, key=key, last_notified=last_notified, muted=muted)
+def _record(alert: str, key: str, last_notified: datetime | None = None) -> Mock:
+    return Mock(alert=alert, key=key, last_notified=last_notified)
 
 
 @pytest.fixture
@@ -69,21 +67,17 @@ def db() -> Generator[dict[str, Mock], None, None]:
         patch("monitoring.alert_manager.set_alert_issue_notified") as set_notified,
         patch("monitoring.alert_manager.get_messenger_ids_by_initials") as ids,
         patch("monitoring.alert_manager.get_active_alert_suppressions") as supp,
-        patch("monitoring.alert_manager.set_alert_issue_muted") as set_muted,
     ):
         kraken_status.objects = []
         ids.return_value = {"MaSc": "U_MASC"}
         supp.return_value = []
         get_open.return_value = []
-        add.side_effect = lambda **kwargs: _record(
-            kwargs["alert"], kwargs["key"], muted=kwargs["muted"]
-        )
+        add.side_effect = lambda **kwargs: _record(kwargs["alert"], kwargs["key"])
         yield {
             "get_open": get_open,
             "add": add,
             "set_notified": set_notified,
             "suppressions": supp,
-            "set_muted": set_muted,
         }
 
 
@@ -112,7 +106,6 @@ class TestCheckForIssues:
             relevant_file=None,
             details="150",
             first_seen=NOW,
-            muted=False,
         )
         mock_send.assert_called_once_with(Message("inst1", "TestAlert title"), {"ops"})
         notified_record, notified_at = db["set_notified"].call_args.args
@@ -249,43 +242,24 @@ class TestCheckForIssues:
         db["set_notified"].assert_called_once()
 
     @patch("monitoring.alert_manager.send", return_value=True)
-    def test_muted_issue_is_recorded_but_not_sent(
+    def test_muted_issue_is_neither_recorded_nor_sent(
         self, mock_send: Mock, db: dict[str, Mock]
     ) -> None:
-        """An issue matching a suppression gets a muted record and no message."""
+        """An issue matching the last read suppressions is ignored."""
         # given
-        db["suppressions"].return_value = [
-            Mock(error_class="TestAlert", instrument_id="*", context="*", message="*")
+        manager = AlertManager()
+        manager._suppressions = [
+            Mock(alert="TestAlert", instrument_id="*", identifier="*", details="*")
         ]
-        manager = AlertManager()
         manager.alerts = [_alert(issues=[Issue("a", "details")])]
 
         # when
         manager.check_for_issues(NOW)
 
         # then
-        assert db["add"].call_args.kwargs["muted"] is True
+        db["add"].assert_not_called()
         mock_send.assert_not_called()
-        db["set_notified"].assert_not_called()
-
-    @patch("monitoring.alert_manager.send", return_value=True)
-    def test_record_is_unmuted_and_sent_when_the_suppression_is_gone(
-        self, mock_send: Mock, db: dict[str, Mock]
-    ) -> None:
-        """A muted record whose suppression expired is unmuted and notified."""
-        # given
-        record = _record("TestAlert", "a", muted=True)
-        db["get_open"].return_value = [record]
-        manager = AlertManager()
-        manager.alerts = [_alert(issues=[Issue("a", "details")])]
-
-        # when
-        manager.check_for_issues(NOW)
-
-        # then
-        db["set_muted"].assert_called_once_with(record, False)  # noqa: FBT003
-        mock_send.assert_called_once()
-        db["set_notified"].assert_called_once_with(record, NOW)
+        db["suppressions"].assert_not_called()
 
 
 class TestDispatch:
@@ -439,10 +413,10 @@ class TestCheckDbFreeAlerts:
         # given
         db["suppressions"].return_value = [
             Mock(
-                error_class="WebAppHealthAlert",
+                alert="WebAppHealthAlert",
                 instrument_id="*",
-                context="*",
-                message="*",
+                identifier="*",
+                details="*",
             )
         ]
         manager = AlertManager()
@@ -468,10 +442,10 @@ class TestCheckDbFreeAlerts:
         ]
         manager._suppressions = [
             Mock(
-                error_class="WebAppHealthAlert",
+                alert="WebAppHealthAlert",
                 instrument_id="*",
-                context="*",
-                message="*",
+                identifier="*",
+                details="*",
             )
         ]
         db["suppressions"].side_effect = RuntimeError("no db")

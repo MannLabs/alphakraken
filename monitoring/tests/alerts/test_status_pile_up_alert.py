@@ -171,7 +171,6 @@ class TestStatusPileUpAlert:
 
         # then
         expected = (
-            "Status pile up detected:\n"
             "- `instrument_critical`: processing: 25; quanting: 18\n"
             "- `instrument_single`: copying: 12\n"
             "- `instrument_complex`: processing: 8; quanting: 15; copying: 7; monitoring: 20\n"

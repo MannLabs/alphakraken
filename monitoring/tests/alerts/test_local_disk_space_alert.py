@@ -94,8 +94,5 @@ class TestLocalDiskSpaceAlert:
         result = alert.format_message(issues)
 
         # then
-        expected = (
-            f"Low local disk space on the monitoring host "
-            f"({config.LOCAL_DISK_PATH}): 5 GB free"
-        )
+        expected = f"{config.LOCAL_DISK_PATH}: 5 GB free"
         assert result == expected

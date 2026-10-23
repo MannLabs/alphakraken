@@ -61,6 +61,9 @@ _suppressions: list[dict[str, Any]] = _load_suppressions()
 class BaseAlert(ABC):
     """Base class for all alert checkers."""
 
+    # message title, required by the default `format_message`
+    title: str
+
     def get_issues(self, status_objects: list[KrakenStatus]) -> list[Issue]:
         """Check for issues and return those not muted by a suppression.
 
@@ -120,9 +123,12 @@ class BaseAlert(ABC):
     def _get_issues(self, status_objects: list[KrakenStatus]) -> list[Issue]:
         """Check for issues and return them."""
 
-    @abstractmethod
     def format_message(self, issues: list[Issue]) -> str:
-        """Format the alert message for the issues found."""
+        """Format the message body: one line per issue.
+
+        Override this method in subclasses that need a different format.
+        """
+        return "\n".join(f"- `{issue.identifier}`: {issue.details}" for issue in issues)
 
     @property
     def name(self) -> str:

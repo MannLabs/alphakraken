@@ -172,7 +172,6 @@ class TestInstrumentFilePileUpAlert:
 
         # then
         expected = (
-            "Instrument file pile up detected (files not moved/purged):\n"
             "- `instrument_critical`: initial: 45; moved: 120\n"
             "- `instrument_single_new`: initial: 30\n"
             "- `instrument_complex`: initial: 25; moved: 80; purged: 15\n"

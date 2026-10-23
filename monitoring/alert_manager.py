@@ -22,7 +22,12 @@ from alerts import (
     config,
 )
 from alerts.base_alert import CustomAlert, Issue
-from messenger_clients import AlertTypes, send_channel_message, send_direct_message
+from messenger_clients import (
+    AlertTypes,
+    Message,
+    send_channel_message,
+    send_direct_message,
+)
 from requests.exceptions import RequestException
 
 from shared.db.models import KrakenStatus
@@ -88,12 +93,14 @@ class AlertManager:
                         f"Suppressed QueueStopAlert dispatch ({len(issues)} issues)"
                     )
             else:
-                message = alert.format_message(issues)
+                message = Message(alert.format_message(issues), alert.title)
                 webhook_url = alert.get_webhook_url()
                 if not suppress_alerts:
                     send_channel_message(message, webhook_url)
                 else:
-                    logging.info(f"Suppressed alert for {alert_name}: {message}")
+                    logging.info(
+                        f"Suppressed alert for {alert_name} ({len(issues)} issues)"
+                    )
 
             for identifier in identifiers:
                 self.set_last_alert_time(alert_name, identifier)
@@ -103,7 +110,7 @@ class AlertManager:
         """Fan out per-issue DMs; a failed send to one recipient does not abort the rest."""
         for issue in issues:
             alert.refresh_recent_files(issue.details)
-            message = alert.render_issue(issue.details)
+            message = Message(alert.render_issue(issue.details))
             for recipient in alert.get_recipients(issue.details):
                 try:
                     send_direct_message(message, recipient)
@@ -167,7 +174,9 @@ def send_special_alert(
 
     message = f"{message} [{alert_name} {identifier}]"
     try:
-        send_channel_message(message, config.OPS_ALERTS_WEBHOOK_URL, alert_type)
+        send_channel_message(
+            Message(message, type=alert_type), config.OPS_ALERTS_WEBHOOK_URL
+        )
     except RequestException:
         logging.exception("Failed to send special alert message.")
     else:

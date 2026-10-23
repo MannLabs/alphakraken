@@ -13,6 +13,8 @@ from .config import CHECK_INTERVAL_SECONDS
 class RawFileErrorAlert(BaseAlert):
     """Check for raw files that have changed to ERROR status."""
 
+    title = "Raw files changed to ERROR status"
+
     def __init__(self):
         """Initialize with previous statuses."""
         self.previous_raw_file_statuses = {}
@@ -55,10 +57,3 @@ class RawFileErrorAlert(BaseAlert):
         self.previous_raw_file_statuses.update(current_statuses)
 
         return new_error_files
-
-    def format_message(self, issues: list[Issue[str | None]]) -> str:
-        """Format raw file error message."""
-        files_str = "\n".join(
-            [f"- `{issue.identifier}`: {issue.details}" for issue in issues]
-        )
-        return f"Raw files changed to ERROR status:\n{files_str}"

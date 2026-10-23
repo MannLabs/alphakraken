@@ -17,6 +17,8 @@ from .config import (
 class InstrumentStallAlert(BaseAlert):
     """Check if no new file has been acquired for a configured time period."""
 
+    title = "No new file acquired"
+
     def __init__(self):
         """Initialize with empty alerted file names tracker."""
         self._alerted_file_names: dict[str, str] = {}
@@ -66,7 +68,7 @@ class InstrumentStallAlert(BaseAlert):
         return issues
 
     def format_message(self, issues: list[Issue[datetime]]) -> str:
-        """Format no new file acquired message."""
+        """Format no new file acquired message body."""
         now = datetime.now(pytz.UTC)
         lines = []
         for issue in issues:
@@ -77,5 +79,4 @@ class InstrumentStallAlert(BaseAlert):
                 f"acquired at {created_at.strftime('%Y-%m-%d %H:%M:%S')} UTC "
                 f"({hours_ago:.1f} hours ago)"
             )
-        instruments_str = "\n".join(lines)
-        return f"No new file acquired:\n{instruments_str}"
+        return "\n".join(lines)

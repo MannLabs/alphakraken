@@ -4,6 +4,10 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+# alert_manager imports `messenger_clients` via the monitoring dir on sys.path, so
+# `monitoring.messenger_clients.Message` would be a different class and never compare equal
+from messenger_clients import Message
+
 from monitoring.alert_manager import AlertManager, send_special_alert
 from monitoring.alerts.base_alert import Issue
 
@@ -53,7 +57,8 @@ class TestAlertManager:
 
             # Should send message for the one alert with issues
             mock_send_channel_message.assert_called_once_with(
-                "Test alert message", "http://webhook.url"
+                Message("Test alert message", alert_manager.alerts[0].title),
+                "http://webhook.url",
             )
 
             # Should mark as not first check
@@ -99,7 +104,7 @@ class TestAlertManager:
 
             # Should log the suppressed alert
             mock_logging.info.assert_any_call(
-                f"Suppressed alert for {alert_name}: Test alert message"
+                f"Suppressed alert for {alert_name} (1 issues)"
             )
 
             # Should mark as not first check after running
@@ -161,13 +166,13 @@ class TestAlertManager:
             # Should send all three messages
             assert mock_send_channel_message.call_count == 3
             mock_send_channel_message.assert_any_call(
-                "Message 1", "http://webhook1.url"
+                Message("Message 1", alert_1.title), "http://webhook1.url"
             )
             mock_send_channel_message.assert_any_call(
-                "Message 2", "http://webhook2.url"
+                Message("Message 2", alert_2.title), "http://webhook2.url"
             )
             mock_send_channel_message.assert_any_call(
-                "Message 3", "http://webhook3.url"
+                Message("Message 3", alert_3.title), "http://webhook3.url"
             )
 
             # Should update last alert times for all identifiers
@@ -315,7 +320,7 @@ class TestAlertManager:
         mock_alert.render_issue.return_value = "msg"
         mock_alert.get_recipients.return_value = ["U_MASC", "U_SUP"]
 
-        def _side_effect(_msg: str, recipient: str, **_kw: object) -> None:
+        def _side_effect(_msg: Message, recipient: str) -> None:
             if recipient == "U_MASC":
                 raise requests.HTTPError("500")
 
@@ -360,4 +365,6 @@ class TestSendSpecialAlert:
             # then
             expected_message = f"{message} [{alert_name} {identifier}]"
             mock_send_channel_message.assert_called_once()
-            assert mock_send_channel_message.call_args[0][0] == expected_message
+            assert mock_send_channel_message.call_args[0][0] == Message(
+                expected_message
+            )

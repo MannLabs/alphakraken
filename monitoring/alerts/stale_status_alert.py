@@ -16,6 +16,8 @@ from .config import (
 class StaleStatusAlert(BaseAlert):
     """Check for stale status updates."""
 
+    title = "Health check status is stale"
+
     def _get_issues(self, status_objects: list[KrakenStatus]) -> list[Issue[datetime]]:
         """Check for stale statuses."""
         now = datetime.now(pytz.UTC)
@@ -47,12 +49,9 @@ class StaleStatusAlert(BaseAlert):
         return stale_instruments
 
     def format_message(self, issues: list[Issue[datetime]]) -> str:
-        """Format stale status message."""
-        instruments_str = "\n".join(
-            [
-                f"- `{issue.identifier}`: {issue.details.strftime('%Y-%m-%d %H:%M:%S')} UTC "
-                f"({(datetime.now(pytz.UTC) - issue.details).total_seconds() / 60 / 60:.1f} hours ago)"
-                for issue in issues
-            ]
+        """Format stale status message body."""
+        return "\n".join(
+            f"- `{issue.identifier}`: {issue.details.strftime('%Y-%m-%d %H:%M:%S')} UTC "
+            f"({(datetime.now(pytz.UTC) - issue.details).total_seconds() / 60 / 60:.1f} hours ago)"
+            for issue in issues
         )
-        return f"Health check status is stale:\n{instruments_str}."

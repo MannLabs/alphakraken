@@ -14,6 +14,8 @@ from .config import STATUS_PILE_UP_THRESHOLDS
 class StatusPileUpAlert(BaseAlert):
     """Check for status pile-ups (too many files in non-terminal statuses)."""
 
+    title = "Status pile up detected"
+
     def _get_issues(self, status_objects: list[KrakenStatus]) -> list[Issue[str]]:
         """Check for status pile-ups on instruments."""
         status_pile_up_instruments = []
@@ -50,10 +52,3 @@ class StatusPileUpAlert(BaseAlert):
                 )
 
         return status_pile_up_instruments
-
-    def format_message(self, issues: list[Issue[str]]) -> str:
-        """Format status pile-up message."""
-        instruments_str = "\n".join(
-            [f"- `{issue.identifier}`: {issue.details}" for issue in issues]
-        )
-        return f"Status pile up detected:\n{instruments_str}"

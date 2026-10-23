@@ -428,7 +428,7 @@ class TestPumpPressureAlert:
         result = alert.format_message(issues)
 
         # then
-        expected = "Pump pressure increase detected:\n- `instrument1`: Pressure changes: [21.5, 22.3, 23.1]"
+        expected = "- `instrument1`: Pressure changes: [21.5, 22.3, 23.1]"
         assert result == expected
 
     def test_format_message_should_format_multiple_issues(self) -> None:
@@ -446,7 +446,6 @@ class TestPumpPressureAlert:
 
         # then
         expected = (
-            "Pump pressure increase detected:\n"
             "- `instrument1`: Pressure changes: [21.5, 22.3]\n"
             "- `instrument2`: Pressure changes: [25.0]\n"
             "- `instrument3`: Pressure changes: [30.2, 31.5, 32.8]"

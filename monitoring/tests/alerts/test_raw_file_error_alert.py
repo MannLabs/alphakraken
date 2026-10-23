@@ -177,7 +177,6 @@ class TestRawFileErrorAlert:
 
         # then
         expected = (
-            "Raw files changed to ERROR status:\n"
             "- `critical_file_001`: Database connection timeout after 30 seconds\n"
             "- `instrument_data_corrupted`: Checksum mismatch - file appears corrupted\n"
             "- `processing_job_123`: None\n"

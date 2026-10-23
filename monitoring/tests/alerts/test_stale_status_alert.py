@@ -183,12 +183,11 @@ class TestStaleStatusAlert:
 
         # then
         expected = (
-            "Health check status is stale:\n"
             "- `instrument_main`: 2024-01-15 10:00:00 UTC (2.0 hours ago)\n"
             "- `backup_system`: 2024-01-15 09:30:00 UTC (2.5 hours ago)\n"
             "- `file_remover`: 2024-01-14 10:00:00 UTC (26.0 hours ago)\n"
             "- `processor_job`: 2024-01-15 11:45:00 UTC (0.2 hours ago)\n"
-            "- `storage_server`: 2024-01-15 11:40:00 UTC (0.3 hours ago)."
+            "- `storage_server`: 2024-01-15 11:40:00 UTC (0.3 hours ago)"
         )
         assert result == expected
 

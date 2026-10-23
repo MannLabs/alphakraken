@@ -147,7 +147,7 @@ class TestDiskSpaceAlert:
         result = alert.format_message(issues)
 
         # then
-        expected = "Low disk space detected:\n- `instrument1`: 150 GB"
+        expected = "- `instrument1`: 150 GB"
         assert result == expected
 
     def test_format_message_should_format_multiple_issues_correctly(self) -> None:
@@ -164,10 +164,5 @@ class TestDiskSpaceAlert:
         result = alert.format_message(issues)
 
         # then
-        expected = (
-            "Low disk space detected:\n"
-            "- `instrument1`: 150 GB\n"
-            "- `backup`: 180 GB\n"
-            "- `output`: 100 GB"
-        )
+        expected = "- `instrument1`: 150 GB\n- `backup`: 180 GB\n- `output`: 100 GB"
         assert result == expected

@@ -184,7 +184,6 @@ class TestS3UploadFailureAlert:
 
         # then
         expected = (
-            "S3 upload failures detected:\n"
             "- `file1`: S3 upload failed | path: s3://bucket/key1 | project: proj1 | instrument: inst1\n"
             "- `file2`: S3 upload failed | path: s3://bucket/key2 | project: proj2 | instrument: inst2"
         )

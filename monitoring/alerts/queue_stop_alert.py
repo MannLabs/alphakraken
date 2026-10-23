@@ -77,6 +77,8 @@ def _format_size(size_bytes: int | None) -> str:
 class QueueStopAlert(BaseAlert):
     """Notify the prior operator when their measurement queue has ended."""
 
+    title = "Queue stop"
+
     # Class-level so it survives across instances created within a single
     # monitor process; matches the InstrumentStallAlert tracker pattern.
     _alerted_subject_files: ClassVar[set[tuple[str, str]]] = set()

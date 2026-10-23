@@ -16,6 +16,8 @@ class LocalDiskSpaceAlert(BaseAlert):
     database but probes the local filesystem directly.
     """
 
+    title = "Low local disk space on the monitoring host"
+
     def _get_issues(self, status_objects: list[KrakenStatus]) -> list[Issue[int]]:
         """Check for low local disk space."""
         del status_objects  # unused
@@ -35,9 +37,5 @@ class LocalDiskSpaceAlert(BaseAlert):
         return []
 
     def format_message(self, issues: list[Issue[int]]) -> str:
-        """Format local disk space message."""
-        free_space_gb = issues[0].details
-        return (
-            f"Low local disk space on the monitoring host "
-            f"({config.LOCAL_DISK_PATH}): {free_space_gb} GB free"
-        )
+        """Format local disk space message body."""
+        return f"{config.LOCAL_DISK_PATH}: {issues[0].details} GB free"

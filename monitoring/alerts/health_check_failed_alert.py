@@ -8,6 +8,8 @@ from .base_alert import BaseAlert, Issue, get_instrument_id
 class HealthCheckFailedAlert(BaseAlert):
     """Check for failed health checks."""
 
+    title = "Health check failed"
+
     def _get_issues(
         self, status_objects: list[KrakenStatus]
     ) -> list[Issue[str | None]]:
@@ -27,13 +29,6 @@ class HealthCheckFailedAlert(BaseAlert):
                 )
 
         return health_check_failed_instruments
-
-    def format_message(self, issues: list[Issue[str | None]]) -> str:
-        """Format health check failure message."""
-        instruments_str = "\n".join(
-            [f"- `{issue.identifier}`: {issue.details}" for issue in issues]
-        )
-        return f"Health check failed:\n{instruments_str}"
 
     def get_cooldown_time_minutes(self, identifier: str) -> int | None:
         """Return custom cooldown for specific instruments."""

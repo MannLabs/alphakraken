@@ -85,7 +85,6 @@ class TestHealthCheckFailedAlert:
 
         # then
         expected = (
-            "Health check failed:\n"
             "- `instrument1`: Disk full\n"
             "- `instrument2`: Connection timeout\n"
             "- `instrument3`: Service unavailable"
@@ -105,9 +104,5 @@ class TestHealthCheckFailedAlert:
         result = alert.format_message(issues)
 
         # then
-        expected = (
-            "Health check failed:\n"
-            "- `instrument1`: None\n"
-            "- `instrument2`: Connection timeout"
-        )
+        expected = "- `instrument1`: None\n- `instrument2`: Connection timeout"
         assert result == expected

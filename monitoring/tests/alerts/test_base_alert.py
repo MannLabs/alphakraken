@@ -26,6 +26,28 @@ class TestAlert(BaseAlert):
         return f"Test message with {len(issues)} issues"
 
 
+class DefaultFormatAlert(BaseAlert):
+    """Alert relying on the default `format_message`."""
+
+    title = "Default title"
+
+    def _get_issues(self, status_objects: list) -> list[Issue]:  # noqa: ARG002
+        """Not used."""
+        return []
+
+
+def test_format_message_default_lists_one_line_per_issue() -> None:
+    """The default message body has one line per issue, without the title."""
+    # given
+    issues = [Issue("instrument1", "disk full"), Issue("instrument2", 42)]
+
+    # when
+    result = DefaultFormatAlert().format_message(issues)
+
+    # then
+    assert result == "- `instrument1`: disk full\n- `instrument2`: 42"
+
+
 class TestBaseAlertSuppressions:
     """Test suite for BaseAlert suppression functionality."""
 

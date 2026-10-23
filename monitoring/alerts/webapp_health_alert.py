@@ -14,6 +14,8 @@ from .base_alert import BaseAlert, Issue
 class WebAppHealthAlert(BaseAlert):
     """Check if the webapp is accessible and responding with HTTP 200."""
 
+    title = "Webapp health check failed"
+
     def __init__(self, timeout: int = 10):
         """Initialize with optional timeout for HTTP requests."""
         self.timeout = timeout
@@ -54,6 +56,6 @@ class WebAppHealthAlert(BaseAlert):
         return issues
 
     def format_message(self, issues: list[Issue[str]]) -> str:
-        """Format webapp health failure message."""
+        """Format webapp health failure message body."""
         error_details = issues[0].details if issues else "Unknown error"
-        return f"Webapp health check failed: {error_details} (URL: {self.webapp_url})"
+        return f"{error_details} (URL: {self.webapp_url})"

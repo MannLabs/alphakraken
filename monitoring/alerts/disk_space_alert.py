@@ -9,6 +9,8 @@ from .base_alert import BaseAlert, Issue, get_instrument_id
 class DiskSpaceAlert(BaseAlert):
     """Check for low disk space."""
 
+    title = "Low disk space detected"
+
     def _get_issues(self, status_objects: list[KrakenStatus]) -> list[Issue[int]]:
         """Check for low disk space."""
         low_disk_space_instruments = []
@@ -50,8 +52,7 @@ class DiskSpaceAlert(BaseAlert):
         return threshold
 
     def format_message(self, issues: list[Issue[int]]) -> str:
-        """Format disk space message."""
-        instruments_str = "\n".join(
-            [f"- `{issue.identifier}`: {issue.details} GB" for issue in issues]
+        """Format disk space message body."""
+        return "\n".join(
+            f"- `{issue.identifier}`: {issue.details} GB" for issue in issues
         )
-        return f"Low disk space detected:\n{instruments_str}"

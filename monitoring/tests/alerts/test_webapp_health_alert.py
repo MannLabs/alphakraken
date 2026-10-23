@@ -167,7 +167,7 @@ class TestWebAppHealthAlert:
         result = alert.format_message(issues)
 
         # then
-        expected = "Webapp health check failed: HTTP 503: Service Unavailable (URL: http://localhost:8501/healthz)"
+        expected = "HTTP 503: Service Unavailable (URL: http://localhost:8501/healthz)"
         assert result == expected
 
     @patch("monitoring.alerts.webapp_health_alert.get_notification_setting")
@@ -184,7 +184,7 @@ class TestWebAppHealthAlert:
         result = alert.format_message(issues)
 
         # then
-        expected = "Webapp health check failed: Unknown error (URL: http://localhost:8501/healthz)"
+        expected = "Unknown error (URL: http://localhost:8501/healthz)"
         assert result == expected
 
     @patch("monitoring.alerts.webapp_health_alert.get_notification_setting")

@@ -2,12 +2,16 @@
 
 from datetime import datetime
 from pathlib import Path
-from unittest import skip
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
+import pytest
 import pytz
+from service.session_state import SessionStateKeys
 from streamlit.testing.v1 import AppTest
+
+from shared.db.models import ProjectStatus
+from shared.keys import FALLBACK_PROJECT_ID
 
 PAGES_FOLDER = Path(__file__).parent / Path("../../pages_")
 
@@ -82,25 +86,109 @@ def test_projects_display_table(
     assert table_data.loc[1, "settings"] == ""
 
 
-@skip("")  # TODO: fix this test
+@patch("service.owner.get_all_users")
 @patch("service.db.get_project_data")
 @patch("service.db.df_from_db_data")
-def test_add_new_project_form_submission(
-    mock_df: MagicMock,  # noqa: ARG001
-    mock_get: MagicMock,  # noqa: ARG001
+@patch("service.components.show_filter", side_effect=lambda df, **_kw: (df,))
+def test_projects_owner_is_shown_and_selectable(
+    mock_show_filter: MagicMock,  # noqa: ARG001
+    mock_df: MagicMock,
+    mock_get_project: MagicMock,
+    mock_get_users: MagicMock,
 ) -> None:
-    """Test that add_project is called with correct arguments when form is submitted."""
-    # given
-    # project_id = "P1234"
-    # name = "new project"
-    # description = "some new project description"
+    """Test that owner initials are shown and the active users are offered as owner."""
+    mock_get_project.return_value = []
+    mock_df.return_value = pd.DataFrame(
+        {"_id": ["P1234", "P5678"], "name": ["a", "b"], "owner": ["a@b.de", None]}
+    )
+    user = MagicMock(initials="AB", email="a@b.de")
+    mock_get_users.return_value = [user]
 
-    # when
-    # Problem 1: this patching seems to interfere with the form
-    #    with patch("pages.projects.add_project") as mock_add_project:
-    at = AppTest.from_file(f"{PAGES_FOLDER}/projects.py").run()
+    at = AppTest.from_file(f"{PAGES_FOLDER}/projects.py").run(timeout=10)
 
-    # Problem 2: this does not do anything on the form:
-    at.text_input[1].set_value("123")
-    at.text_input[2].set_value("1234")
-    at.button[0].click()
+    assert not at.exception
+    assert at.table[0].value["owner"].tolist() == ["AB", ""]
+    owner_select = next(s for s in at.selectbox if s.label == "Owner")
+    assert owner_select.options == ["(none)", "AB (a@b.de)"]
+    assert owner_select.value is None
+
+
+ASSIGN_BUTTON_LABEL = "Assign selected settings to project _FALLBACK"
+
+
+@pytest.mark.parametrize("is_admin", [False, True])
+@patch("pages_.impl.projects_utils.get_resolved_settings_df", side_effect=ValueError)
+@patch("shared.db.interface.assign_settings_to_project")
+@patch("shared.db.interface.get_all_settings")
+@patch("shared.db.interface.get_project_settings", return_value=[])
+@patch("service.db.get_project_data")
+@patch("service.db.df_from_db_data")
+@patch("service.components.show_filter", side_effect=lambda df, **_kw: (df,))
+def test_fallback_assignment_only_for_admins(  # noqa: PLR0913
+    mock_show_filter: MagicMock,  # noqa: ARG001
+    mock_df: MagicMock,
+    mock_get_project: MagicMock,
+    mock_get_project_settings: MagicMock,  # noqa: ARG001
+    mock_get_all_settings: MagicMock,
+    mock_assign: MagicMock,
+    mock_resolved: MagicMock,  # noqa: ARG001
+    *,
+    is_admin: bool,
+) -> None:
+    """Test that only admins can assign settings to _FALLBACK."""
+    mock_get_project.return_value = [
+        MagicMock(id=FALLBACK_PROJECT_ID, status=ProjectStatus.ACTIVE)
+    ]
+    mock_df.return_value = pd.DataFrame({"_id": [FALLBACK_PROJECT_ID]})
+    mock_get_all_settings.return_value = [
+        MagicMock(id="S1", version=1, software_type="alphadia", software="sw")
+    ]
+
+    at = AppTest.from_file(f"{PAGES_FOLDER}/projects.py")
+    if is_admin:
+        at.session_state[SessionStateKeys.IS_ADMIN] = True
+    at.run(timeout=10)
+    at.selectbox(key="assign_project_select").set_value(FALLBACK_PROJECT_ID).run(
+        timeout=10
+    )
+
+    assert not at.exception
+    assign_button = next(b for b in at.button if b.label == ASSIGN_BUTTON_LABEL)
+    assert assign_button.disabled != is_admin
+
+    if is_admin:
+        assign_button.click().run(timeout=10)
+
+        assert not at.exception
+        mock_assign.assert_called_once()
+
+
+@patch("shared.db.interface.add_project")
+@patch("service.owner.get_all_users")
+@patch("service.db.get_project_data", return_value=[])
+@patch("service.db.df_from_db_data", return_value=pd.DataFrame())
+@patch("service.components.show_filter", side_effect=lambda df, **_kw: (df,))
+def test_add_project_passes_selected_owner(
+    mock_show_filter: MagicMock,  # noqa: ARG001
+    mock_df: MagicMock,  # noqa: ARG001
+    mock_get_project: MagicMock,  # noqa: ARG001
+    mock_get_users: MagicMock,
+    mock_add_project: MagicMock,
+) -> None:
+    """Test that the owner selected in the form is passed on when creating a project."""
+    mock_get_users.return_value = [MagicMock(initials="AB", email="a@b.de")]
+    at = AppTest.from_file(f"{PAGES_FOLDER}/projects.py").run(timeout=10)
+
+    next(t for t in at.text_input if t.label.startswith("Project Name")).set_value(
+        "name"
+    )
+    next(t for t in at.text_input if t.label.startswith("Project Id")).set_value(
+        "ABCD1"
+    )
+    next(s for s in at.selectbox if s.label == "Owner").set_value("a@b.de")
+    next(b for b in at.button if b.label == "Create project").click().run(timeout=10)
+
+    assert not at.exception
+    mock_add_project.assert_called_once_with(
+        project_id="ABCD1", name="name", description="", owner_email="a@b.de"
+    )

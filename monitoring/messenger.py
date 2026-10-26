@@ -6,8 +6,10 @@ from collections.abc import Collection
 from dataclasses import dataclass
 
 import apprise
+import requests
 from alerts import config
 from alerts.config import Destinations
+from apprise.decorators import notify as apprise_notify
 
 from shared.keys import EnvVars
 
@@ -17,6 +19,15 @@ _CHANNEL_URLS = {
 }
 # services without a footer ignore this apprise URL argument
 _NO_FOOTER_ARG = "footer=no"
+# custom apprise service posting top-level text to Slack, see _send_slack_text
+SLACK_TEXT_SCHEME = "slacktext"
+_SLACK_TEXT_TIMEOUT_S = 10
+_SLACK_BOT_TOKEN_PREFIX = "xoxb-"  # noqa: S105
+_SLACK_POST_MESSAGE_URL = "https://slack.com/api/chat.postMessage"
+_SLACK_TEXT_EMOJIS = {
+    apprise.NotifyType.FAILURE.value: "🚨",
+    apprise.NotifyType.INFO.value: "ℹ️",  # noqa: RUF001
+}
 
 
 class AlertTypes:
@@ -100,3 +111,35 @@ def _body(message: Message) -> str:
     if message.type == AlertTypes.ALERT and env_name != "production":
         prefix = f"[{env_name}] "
     return f"{prefix}{message.body}\n(sent from {hostname})"
+
+
+@apprise_notify(on=SLACK_TEXT_SCHEME, name="Slack, full-width text")
+def _send_slack_text(
+    body: str, title: str, notify_type: str, meta: dict, *args, **kwargs
+) -> bool:
+    """Post the message as top-level text to a Slack incoming webhook or, with a bot token, to a user.
+
+    Unlike apprise's own Slack service, which posts attachments, Slack renders this at full width.
+    URLs: `slacktext://hooks.slack.com/services/<tokens>` (the webhook URL with its scheme replaced)
+    and `slacktext://<bot token>/@<user id>`.
+    """
+    del args, kwargs
+    emoji = _SLACK_TEXT_EMOJIS.get(notify_type, "")
+    text = f"{emoji} *{title}*\n{body}" if title else f"{emoji} {body}"
+
+    if meta["host"].startswith(_SLACK_BOT_TOKEN_PREFIX):
+        response = requests.post(
+            _SLACK_POST_MESSAGE_URL,
+            headers={"Authorization": f"Bearer {meta['host']}"},
+            json={"channel": meta["fullpath"].lstrip("/@"), "text": text},
+            timeout=_SLACK_TEXT_TIMEOUT_S,
+        )
+        # Slack answers API errors, e.g. a stale user id, with HTTP 200 and ok=false
+        return response.ok and bool(response.json().get("ok"))
+
+    response = requests.post(
+        f"https://{meta['host']}{meta['fullpath']}",
+        json={"text": text},
+        timeout=_SLACK_TEXT_TIMEOUT_S,
+    )
+    return response.ok

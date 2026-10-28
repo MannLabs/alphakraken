@@ -22,6 +22,7 @@ from .base_alert import BaseAlert, Issue
 from .config import (
     BYTES_PER_GB,
     MAX_GRADIENT_LENGTH_HOURS,
+    QUEUE_STOP_MAX_FILE_AGE_HOURS,
     QUEUE_STOP_THRESHOLD_MULTIPLIER,
     Destinations,
 )
@@ -57,12 +58,14 @@ class QueueStopIssue:
     recent_files: tuple[RecentFile, ...]
 
 
-def _load_recent_files(known_initials: Collection[str]) -> dict[str, list[RecentFile]]:
-    """Load the three newest raw files per instrument, newest first."""
+def _load_recent_files(
+    known_initials: Collection[str], cutoff: datetime
+) -> dict[str, list[RecentFile]]:
+    """Load the three newest raw files per instrument created after the cutoff, newest first."""
     recent_files = {}
     for instrument_id in RawFile.objects.distinct("instrument_id"):
         raw_files = (
-            RawFile.objects.filter(instrument_id=instrument_id)
+            RawFile.objects.filter(instrument_id=instrument_id, created_at__gte=cutoff)
             .only("id", "created_at")
             .order_by("-created_at")
             .limit(MIN_FILES_FOR_HANDOFF_DETECTION)
@@ -221,8 +224,9 @@ class QueueStopAlert(BaseAlert):
             return []
 
         max_gradient = timedelta(hours=MAX_GRADIENT_LENGTH_HOURS)
+        cutoff = now - timedelta(hours=QUEUE_STOP_MAX_FILE_AGE_HOURS)
         issues: list[Issue[QueueStopIssue]] = []
-        for instrument_id, files in _load_recent_files(known_initials).items():
+        for instrument_id, files in _load_recent_files(known_initials, cutoff).items():
             issue = _detect(
                 instrument_id, files, now, max_gradient, QUEUE_STOP_THRESHOLD_MULTIPLIER
             )

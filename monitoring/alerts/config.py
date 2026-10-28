@@ -70,6 +70,8 @@ INSTRUMENT_STALL_THRESHOLD_HOURS = 2  # How long without a new file before alert
 # Queue-stop alert configuration
 QUEUE_STOP_THRESHOLD_MULTIPLIER = 3  # stop: pause > N x gradient_length triggers alert
 MAX_GRADIENT_LENGTH_HOURS = 2.5  # gap larger than this => new queue, no alert
+# files older than this are ignored: a queue that ended long ago is not worth a notification
+QUEUE_STOP_MAX_FILE_AGE_HOURS = 24
 
 # Pump pressure alert configuration
 PUMP_PRESSURE_LOOKBACK_DAYS = 1

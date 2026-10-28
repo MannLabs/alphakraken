@@ -40,7 +40,7 @@ class RawFilesListResponse(BaseModel):
 class SettingsAssignmentResponse(BaseModel):
     """A settings assigned to a project, with the scopes and filters it applies to."""
 
-    settings_id: str
+    settings_id: str  # `<name>_v<version>`
     name: str
     version: int
     scopes: list[str]
@@ -72,7 +72,7 @@ class ProjectsListResponse(BaseModel):
 class SettingsResponse(BaseModel):
     """A settings entry."""
 
-    id: str
+    id: str  # `<name>_v<version>`
     number: int
     name: str
     version: int

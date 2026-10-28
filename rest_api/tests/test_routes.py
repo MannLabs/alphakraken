@@ -18,7 +18,7 @@ PROJECT = {
     "created_at_": "2025-01-02T03:04:05",
     "settings": [
         {
-            "settings_id": "0123456789abcdef01234567",
+            "settings_id": "fallback_v1",
             "name": "fallback",
             "version": 1,
             "scopes": ["*"],
@@ -30,7 +30,7 @@ PROJECT = {
 }
 
 SETTINGS = {
-    "id": "0123456789abcdef01234567",
+    "id": "fallback_v1",
     "number": 1,
     "name": "fallback",
     "version": 1,
@@ -110,10 +110,10 @@ def test_list_settings(mock_get_settings: MagicMock) -> None:
     mock_get_settings.assert_called_once_with(name="fallback", limit=100, offset=2)
 
 
-@patch("rest_api.routes.get_settings_by_id")
-def test_read_settings(mock_get_settings_by_id: MagicMock) -> None:
+@patch("rest_api.routes.get_settings_by_unique_name")
+def test_read_settings(mock_get_settings_by_unique_name: MagicMock) -> None:
     """A single settings entry is returned by ID."""
-    mock_get_settings_by_id.return_value = SETTINGS
+    mock_get_settings_by_unique_name.return_value = SETTINGS
 
     response = client.get(f"/settings/{SETTINGS['id']}")
 
@@ -121,10 +121,10 @@ def test_read_settings(mock_get_settings_by_id: MagicMock) -> None:
     assert response.json() == SETTINGS
 
 
-@patch("rest_api.routes.get_settings_by_id", return_value=None)
-def test_read_settings_not_found(mock_get_settings_by_id: MagicMock) -> None:
+@patch("rest_api.routes.get_settings_by_unique_name", return_value=None)
+def test_read_settings_not_found(mock_get_settings_by_unique_name: MagicMock) -> None:
     """Unknown settings IDs yield 404."""
     response = client.get("/settings/nope")
 
     assert response.status_code == status.HTTP_404_NOT_FOUND
-    mock_get_settings_by_id.assert_called_once_with("nope")
+    mock_get_settings_by_unique_name.assert_called_once_with("nope")

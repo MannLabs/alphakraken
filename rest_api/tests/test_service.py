@@ -3,14 +3,11 @@
 from datetime import datetime
 from unittest.mock import MagicMock, patch
 
-from bson import ObjectId
-from mongoengine import ValidationError
-
 from rest_api.service import (
     get_project,
     get_projects,
     get_settings,
-    get_settings_by_id,
+    get_settings_by_unique_name,
 )
 from shared.db.models import (
     Project,
@@ -23,12 +20,8 @@ from shared.db.models import (
 CREATED_AT = datetime(2025, 1, 2, 3, 4, 5)  # noqa: DTZ001
 
 
-SETTINGS_ID = ObjectId()
-
-
-def _settings(name: str = "fallback", version: int = 1) -> Settings:
+def _settings(name: str = "fallback", version: int = 7) -> Settings:
     return Settings(
-        id=SETTINGS_ID,
         number=1,
         name=name,
         version=version,
@@ -88,9 +81,9 @@ def test_get_projects_groups_assignments_by_project(
             "created_at_": CREATED_AT,
             "settings": [
                 {
-                    "settings_id": str(SETTINGS_ID),
+                    "settings_id": "fallback_v7",
                     "name": "fallback",
-                    "version": 1,
+                    "version": 7,
                     "scopes": ["test1"],
                     "excluded_scopes": [],
                     "raw_file_id_filter": ["hela"],
@@ -166,10 +159,10 @@ def test_get_settings_returns_all_fields(
     assert total == 3
     assert data == [
         {
-            "id": str(SETTINGS_ID),
+            "id": "fallback_v7",
             "number": 1,
             "name": "fallback",
-            "version": 1,
+            "version": 7,
             "software_type": "alphadia",
             "software": "alphadia-1.0",
             "runner_name": "slurm",
@@ -191,42 +184,40 @@ def test_get_settings_returns_all_fields(
 
 @patch("rest_api.service.connect_db")
 @patch("rest_api.service.Settings")
-def test_get_settings_by_id(
+def test_get_settings_by_unique_name(
     mock_settings: MagicMock, mock_connect_db: MagicMock
 ) -> None:
-    """Settings are looked up by ID among non-deleted entries."""
-    settings = _settings()
-    mock_settings.objects.return_value.first.return_value = settings
+    """Settings are looked up by name and version among non-deleted entries."""
+    mock_settings.objects.return_value.first.return_value = _settings()
 
-    result = get_settings_by_id(str(SETTINGS_ID))
+    result = get_settings_by_unique_name("fallback_v7")
     mock_connect_db.assert_called_once()
 
     assert result is not None
-    assert result["id"] == str(SETTINGS_ID)
+    assert result["id"] == "fallback_v7"
     mock_settings.objects.assert_called_once_with(
-        id=str(SETTINGS_ID), status__ne=SettingsStatus.DELETED
+        name="fallback", version=7, status__ne=SettingsStatus.DELETED
     )
 
 
 @patch("rest_api.service.connect_db")
 @patch("rest_api.service.Settings")
-def test_get_settings_by_id_returns_none_if_missing(
+def test_get_settings_by_unique_name_returns_none_if_missing(
     mock_settings: MagicMock, mock_connect_db: MagicMock
 ) -> None:
-    """None is returned for unknown IDs."""
+    """None is returned for unknown names."""
     mock_settings.objects.return_value.first.return_value = None
 
-    assert get_settings_by_id(str(ObjectId())) is None
+    assert get_settings_by_unique_name("fallback_v99") is None
     mock_connect_db.assert_called_once()
 
 
 @patch("rest_api.service.connect_db")
 @patch("rest_api.service.Settings")
-def test_get_settings_by_id_returns_none_for_invalid_id(
+def test_get_settings_by_unique_name_returns_none_for_invalid_name(
     mock_settings: MagicMock, mock_connect_db: MagicMock
 ) -> None:
-    """An ID that is not an ObjectId is treated as not found."""
-    mock_settings.objects.side_effect = ValidationError("invalid id")
-
-    assert get_settings_by_id("not-an-object-id") is None
+    """A name without version suffix is treated as not found, without querying."""
+    assert get_settings_by_unique_name("fallback") is None
     mock_connect_db.assert_called_once()
+    mock_settings.objects.assert_not_called()

@@ -3,8 +3,6 @@
 from datetime import datetime
 from typing import Any
 
-from mongoengine import ValidationError
-
 from shared.db.engine import connect_db
 from shared.db.interface import augment_raw_files_with_metrics
 from shared.db.models import (
@@ -14,6 +12,7 @@ from shared.db.models import (
     RawFile,
     Settings,
     SettingsStatus,
+    split_unique_settings_name,
 )
 from shared.display_paths import get_display_backup_path, get_display_output_path
 
@@ -173,16 +172,22 @@ def get_raw_files_with_metrics(  # noqa: PLR0913
     return results, total
 
 
-def _doc_to_dict(doc: Project | Settings) -> dict[str, Any]:
-    """Convert a document to a dict with a string `id`."""
-    data = doc.to_mongo().to_dict()
-    data["id"] = str(data.pop("_id"))
+def _project_to_dict(project: Project) -> dict[str, Any]:
+    data = project.to_mongo().to_dict()
+    data["id"] = data.pop("_id")
     return data
+
+
+def _settings_to_dict(settings: Settings) -> dict[str, Any]:
+    """Convert settings to a dict, with the unique name as `id` instead of the ObjectId."""
+    data = settings.to_mongo().to_dict()
+    data.pop("_id", None)
+    return {"id": settings.unique_name, **data}
 
 
 def _assignment_to_dict(ps: ProjectSettings) -> dict[str, Any]:
     return {
-        "settings_id": str(ps.settings.id),
+        "settings_id": ps.settings.unique_name,
         "name": ps.settings.name,
         "version": ps.settings.version,
         "scopes": ps.scopes,
@@ -216,7 +221,9 @@ def get_projects(
     ):
         assignments[ps.project.id].append(_assignment_to_dict(ps))
 
-    return [{**_doc_to_dict(p), "settings": assignments[p.id]} for p in projects], total
+    return [
+        {**_project_to_dict(p), "settings": assignments[p.id]} for p in projects
+    ], total
 
 
 def get_project(project_id: str) -> dict[str, Any] | None:
@@ -243,16 +250,17 @@ def get_settings(
     total = query.count()
     settings = query.order_by("-created_at_").skip(offset).limit(limit)
 
-    return [_doc_to_dict(s) for s in settings], total
+    return [_settings_to_dict(s) for s in settings], total
 
 
-def get_settings_by_id(settings_id: str) -> dict[str, Any] | None:
-    """Get non-deleted settings by ID, or None if it does not exist."""
+def get_settings_by_unique_name(unique_name: str) -> dict[str, Any] | None:
+    """Get non-deleted settings by unique name (e.g. `fallback_v7`), or None if it does not exist."""
     connect_db()
     try:
-        settings = Settings.objects(
-            id=settings_id, status__ne=SettingsStatus.DELETED
-        ).first()
-    except ValidationError:  # not a valid ObjectId
+        name, version = split_unique_settings_name(unique_name)
+    except ValueError:
         return None
-    return None if settings is None else _doc_to_dict(settings)
+    settings = Settings.objects(
+        name=name, version=version, status__ne=SettingsStatus.DELETED
+    ).first()
+    return None if settings is None else _settings_to_dict(settings)

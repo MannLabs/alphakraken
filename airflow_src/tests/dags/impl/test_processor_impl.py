@@ -386,6 +386,7 @@ def test_prepare_job_windows_runner_yields_windows_paths(
         runner_name="win_box",
     )
     mock_settings.name = "test_settings"
+    mock_settings.unique_name = "test_settings_v1"
     mock_get_settings_by_id.return_value = mock_settings
 
     # when
@@ -832,6 +833,7 @@ def test_create_quanting_env_with_suffix(
         runner_name="slurm",
     )
     mock_settings.name = "test_settings"
+    mock_settings.unique_name = "test_settings_v1"
 
     result = _create_quanting_env(
         settings=mock_settings,

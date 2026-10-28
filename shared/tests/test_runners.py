@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import pytz
 
-from shared.db.models import RawFile
+from shared.db.models import RawFile, Settings
 from shared.keys import JobEngines
 from shared.path_layout import get_output_folder_rel_path, get_raw_file_rel_path
 from shared.path_views import Locations
@@ -203,8 +203,7 @@ def test_build_runners_windows_view_resolves_layout_paths() -> None:
     # when
     view = runners["win_box"].view
     raw_file_path = view.resolve(Locations.BACKUP, get_raw_file_rel_path(raw_file))
-    settings = MagicMock(version=2)
-    settings.name = "s1"
+    settings = Settings(name="s1", version=2)
     output_path = view.resolve(
         Locations.OUTPUT, get_output_folder_rel_path(raw_file, settings)
     )

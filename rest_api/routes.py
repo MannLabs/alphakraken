@@ -17,7 +17,7 @@ from rest_api.service import (
     get_projects,
     get_raw_files_with_metrics,
     get_settings,
-    get_settings_by_id,
+    get_settings_by_unique_name,
 )
 
 router = APIRouter()
@@ -123,8 +123,8 @@ def list_settings(
 
 @router.get("/settings/{settings_id}", response_model=SettingsResponse)
 def read_settings(settings_id: str) -> dict[str, Any]:
-    """Get settings by ID."""
-    settings = get_settings_by_id(settings_id)
+    """Get settings by ID, i.e. `<name>_v<version>`."""
+    settings = get_settings_by_unique_name(settings_id)
     if settings is None:
         raise HTTPException(
             status.HTTP_404_NOT_FOUND, f"Settings '{settings_id}' not found"

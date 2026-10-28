@@ -33,8 +33,8 @@ def get_output_folder_rel_path(
     This is to avoid having too many files in the fallback output folders.
 
     E.g.
-        <project_id>/2024_07/out_RAW-FILE-1.raw/<settings_name>_v<version> in case raw_file has no project ID
-        <project_id>/out_RAW-FILE-1.raw/<settings_name>_v<version> in case raw_file has a project ID
+        <project_id>/2024_07/out_RAW-FILE-1.raw/<settings_unique_name> in case raw_file has no project ID
+        <project_id>/out_RAW-FILE-1.raw/<settings_unique_name> in case raw_file has a project ID
     """
     optional_sub_folder = (
         get_created_at_year_month(raw_file) if not raw_file.has_project else ""
@@ -45,7 +45,5 @@ def get_output_folder_rel_path(
         / f"{OUTPUT_FOLDER_PREFIX}{raw_file.id}"
     )
     if settings is not None:
-        path = (
-            path / f"{settings.name}_v{settings.version}"
-        )  # TODO: logic of creating unique settings name could be moved to settings class
+        path = path / settings.unique_name
     return path

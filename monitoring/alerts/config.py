@@ -106,6 +106,8 @@ except KeyError:
 if USER_ALERTS_URL and MESSENGER_ID_PLACEHOLDER not in USER_ALERTS_URL:
     logging.error(f"User alerts URL must contain {MESSENGER_ID_PLACEHOLDER}.")
     sys.exit(1)
+# optional: messenger id that gets a copy of every direct message
+DEBUG_MESSENGER_ID: str = get_notification_setting(YamlKeys.DEBUG_MESSENGER_ID, "")
 
 try:
     INSTRUMENT_STALL_INSTRUMENT_IDS: set[str] = set(
@@ -121,7 +123,7 @@ except KeyError:
 class Destinations:
     """Where alerts can be sent to."""
 
-    # DM to the user mapped from the initials of the issue's relevant file
+    # DM to the owner of the project of the issue's relevant file, else to the user with the initials in the file name
     USER = "user"
     OPS = "ops"
     BUSINESS = "business"

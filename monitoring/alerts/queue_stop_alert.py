@@ -1,7 +1,8 @@
 """Queue-stop alert: notifies the prior operator when their measurement queue ends.
 
-Known initials are those of the active users with a messenger id, the only ones that can be
-notified; they identify the operator in the raw file names.
+Known initials are those of the active users with a messenger id; they identify the operator
+in the raw file names. The notification goes to the owner of the file's project, if any, else
+to the operator.
 
 Two mutually exclusive rules per instrument, evaluated on its newest files:
 - Stop: newest two files share known initials and the pause exceeds N x gradient.

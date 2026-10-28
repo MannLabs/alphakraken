@@ -60,9 +60,9 @@ class BaseAlert(ABC):
         self, status_objects: list[KrakenStatus], now: datetime
     ) -> list[Issue]:
         """Check for issues and return them."""
-        logging.info(f"Checking for issues: {self.name}...")
+        logging.debug(f"Checking for issues: {self.name}...")
         issues = self._get_issues(status_objects, now)
-        logging.info(f"Found {len(issues)} issues: {self.name}.")
+        logging.debug(f"Found {len(issues)} issues: {self.name}.")
         return issues
 
     @abstractmethod

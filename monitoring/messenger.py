@@ -74,10 +74,31 @@ def send(
         return all_sent
 
     for recipient in recipients:
-        url = config.USER_ALERTS_URL.replace(config.MESSENGER_ID_PLACEHOLDER, recipient)
-        all_sent &= _notify(url, message, f"direct message to {recipient}")
+        all_sent &= _notify(
+            _user_url(recipient), message, f"direct message to {recipient}"
+        )
+        if config.DEBUG_MESSENGER_ID:
+            _send_debug_copy(message, recipient)
 
     return all_sent
+
+
+def _user_url(messenger_id: str) -> str:
+    return config.USER_ALERTS_URL.replace(config.MESSENGER_ID_PLACEHOLDER, messenger_id)
+
+
+def _send_debug_copy(message: Message, recipient: str) -> None:
+    """Send a copy of a direct message to the debug messenger id.
+
+    A failure is only logged: it must not have the message resent to the recipient.
+    """
+    copy = Message(
+        f"[copy of direct message to {recipient}]\n{message.body}",
+        message.title,
+        message.type,
+    )
+    debug_id = config.DEBUG_MESSENGER_ID
+    _notify(_user_url(debug_id), copy, f"debug copy to {debug_id}")
 
 
 def _notify(url: str, message: Message, what: str) -> bool:

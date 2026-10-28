@@ -258,12 +258,20 @@ with st.form("add_suppression_form"):
     identifier = c1.text_input(
         "Identifier*",
         value=ALERT_SUPPRESSION_WILDCARD,
-        help="Exact identifier shown in the alert.",
+        help=(
+            "Exact match on the identifier of the alert: the text in backticks at the start of the alert line, "
+            "e.g. an instrument id, a raw file id or `<instrument id>:<raw file id>`. "
+            f"`{ALERT_SUPPRESSION_WILDCARD}` matches any."
+        ),
     )
     details = c2.text_input(
         "Details*",
         value=ALERT_SUPPRESSION_WILDCARD,
-        help="Part of the alert text.",
+        help=(
+            "Case-sensitive part of the alert text, e.g. a fragment of an error message or a raw file name. "
+            "Matched against the text of a single alert line, not the title. "
+            f"`{ALERT_SUPPRESSION_WILDCARD}` matches any."
+        ),
     )
     comment = st.text_area("Comment*", help="Why are these alerts muted?")
     c3, c4 = st.columns(2)

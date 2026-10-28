@@ -53,17 +53,47 @@ def test_extract_initials_returns_first_known_token(
     assert extract_initials(name, {"MaSc", "AnSc"}) == expected
 
 
-def test_get_recipients_returns_messenger_id_of_user() -> None:
-    """The messenger id of the first user named in the file is the recipient."""
+@patch("monitoring.alerts.recipients.get_project_owner", return_value=None)
+def test_get_recipients_returns_messenger_id_of_user(
+    mock_get_project_owner: MagicMock,
+) -> None:
+    """Without a project owner, the first user named in the file is the recipient."""
+    # when / then
+    assert get_recipients("x_MaSc_a.raw", MESSENGER_IDS) == ["U_MASC"]
+    mock_get_project_owner.assert_called_once_with("x_MaSc_a.raw")
+
+
+@patch("monitoring.alerts.recipients.get_project_owner")
+def test_get_recipients_prefers_the_project_owner(
+    mock_get_project_owner: MagicMock,
+) -> None:
+    """The owner of the file's project is the recipient, not the user named in the file."""
+    # given
+    mock_get_project_owner.return_value = MagicMock(messenger_id="U_OWNER")
+
+    # when / then
+    assert get_recipients("x_MaSc_a.raw", MESSENGER_IDS) == ["U_OWNER"]
+
+
+@patch("monitoring.alerts.recipients.get_project_owner")
+def test_get_recipients_falls_back_to_initials_when_owner_has_no_messenger_id(
+    mock_get_project_owner: MagicMock,
+) -> None:
+    """An owner without a messenger id does not take precedence."""
+    # given
+    mock_get_project_owner.return_value = MagicMock(messenger_id=None)
+
     # when / then
     assert get_recipients("x_MaSc_a.raw", MESSENGER_IDS) == ["U_MASC"]
 
 
 @pytest.mark.parametrize("file_name", [None, "x_UNK_a.raw"])
+@patch("monitoring.alerts.recipients.get_project_owner", return_value=None)
 def test_get_recipients_returns_empty_when_no_user_found(
+    mock_get_project_owner: MagicMock,  # noqa: ARG001
     file_name: str | None,
 ) -> None:
-    """No user with a messenger id means no recipients."""
+    """No project owner and no user with a messenger id means no recipients."""
     # when / then
     assert get_recipients(file_name, MESSENGER_IDS) == []
 

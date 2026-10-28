@@ -193,17 +193,19 @@ def _dispatch(
 ) -> list[Issue]:
     """Send the issues to the destinations of the alert and return the delivered ones.
 
-    Channels get messages of at most MAX_ISSUES_PER_MESSAGE issues, delivered per message.
-    Users get one message per issue of their files, delivered per issue.
+    Channels get messages of at most MAX_ISSUES_PER_MESSAGE issues, users one message per
+    issue of their files. An issue is delivered once any of its sends succeeded: a retry
+    would resend it to the destinations that already got it. An issue without any send is
+    delivered, too.
     """
-    delivered = list(issues)
+    sent: list[Issue] = []
+    failed: list[Issue] = []
 
     channels = alert.destinations - {Destinations.USER}
     if channels:
         for start in range(0, len(issues), config.MAX_ISSUES_PER_MESSAGE):
             chunk = issues[start : start + config.MAX_ISSUES_PER_MESSAGE]
-            if not send(_message(alert, chunk), channels):
-                delivered = [i for i in delivered if i not in chunk]
+            (sent if send(_message(alert, chunk), channels) else failed).extend(chunk)
 
     if Destinations.USER in alert.destinations:
         for issue in issues:
@@ -213,10 +215,7 @@ def _dispatch(
                     f"No recipients found for {alert.name} issue {issue.identifier}"
                 )
                 continue
-            if (
-                not send(_message(alert, [issue]), recipients=recipients)
-                and issue in delivered
-            ):
-                delivered.remove(issue)
+            ok = send(_message(alert, [issue]), recipients=recipients)
+            (sent if ok else failed).append(issue)
 
-    return delivered
+    return [issue for issue in issues if issue in sent or issue not in failed]

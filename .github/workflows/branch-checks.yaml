@@ -35,9 +35,10 @@ jobs:
           pip install -r airflow_src/requirements_airflow.txt
           pip install -r airflow_src/requirements_docker_job_engine.txt
           pip install -r webapp/requirements_webapp.txt
+          pip install -r rest_api/requirements_rest_api.txt
           airflow db migrate
           pip freeze
-          python -m pytest shared webapp airflow_src
+          python -m pytest shared webapp airflow_src rest_api
 
   docker-compose-test:
     runs-on: ubuntu-latest

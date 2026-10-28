@@ -3,9 +3,18 @@
 from datetime import datetime
 from typing import Any
 
+from mongoengine import ValidationError
+
 from shared.db.engine import connect_db
 from shared.db.interface import augment_raw_files_with_metrics
-from shared.db.models import RawFile
+from shared.db.models import (
+    Project,
+    ProjectSettings,
+    ProjectStatus,
+    RawFile,
+    Settings,
+    SettingsStatus,
+)
 from shared.display_paths import get_display_backup_path, get_display_output_path
 
 METRICS_EXCLUDED_KEYS = {
@@ -162,3 +171,88 @@ def get_raw_files_with_metrics(  # noqa: PLR0913
             result[BACKUP_PATH_KEY] = get_display_backup_path(raw_file)
 
     return results, total
+
+
+def _doc_to_dict(doc: Project | Settings) -> dict[str, Any]:
+    """Convert a document to a dict with a string `id`."""
+    data = doc.to_mongo().to_dict()
+    data["id"] = str(data.pop("_id"))
+    return data
+
+
+def _assignment_to_dict(ps: ProjectSettings) -> dict[str, Any]:
+    return {
+        "settings_id": str(ps.settings.id),
+        "name": ps.settings.name,
+        "version": ps.settings.version,
+        "scopes": ps.scopes,
+        "excluded_scopes": ps.excluded_scopes,
+        "raw_file_id_filter": ps.raw_file_id_filter,
+        "raw_file_id_exclude_filter": ps.raw_file_id_exclude_filter,
+    }
+
+
+def get_projects(
+    *, project_id: str | None = None, limit: int = 100, offset: int = 0
+) -> tuple[list[dict[str, Any]], int]:
+    """Query non-deleted projects with their settings assignments.
+
+    Returns:
+        Tuple of (list of project dicts, total count matching the filters).
+
+    """
+    connect_db()
+
+    query = Project.objects(status__ne=ProjectStatus.DELETED)
+    if project_id is not None:
+        query = query.filter(id=project_id)
+
+    total = query.count()
+    projects = list(query.order_by("-created_at_").skip(offset).limit(limit))
+
+    assignments: dict[str, list[dict[str, Any]]] = {p.id: [] for p in projects}
+    for ps in ProjectSettings.objects(project__in=list(assignments)).order_by(
+        "created_at_"
+    ):
+        assignments[ps.project.id].append(_assignment_to_dict(ps))
+
+    return [{**_doc_to_dict(p), "settings": assignments[p.id]} for p in projects], total
+
+
+def get_project(project_id: str) -> dict[str, Any] | None:
+    """Get a non-deleted project by ID, or None if it does not exist."""
+    projects, _ = get_projects(project_id=project_id, limit=1)
+    return projects[0] if projects else None
+
+
+def get_settings(
+    *, name: str | None = None, limit: int = 100, offset: int = 0
+) -> tuple[list[dict[str, Any]], int]:
+    """Query non-deleted settings.
+
+    Returns:
+        Tuple of (list of settings dicts, total count matching the filters).
+
+    """
+    connect_db()
+
+    query = Settings.objects(status__ne=SettingsStatus.DELETED)
+    if name is not None:
+        query = query.filter(name=name)
+
+    total = query.count()
+    settings = query.order_by("-created_at_").skip(offset).limit(limit)
+
+    return [_doc_to_dict(s) for s in settings], total
+
+
+def get_settings_by_id(settings_id: str) -> dict[str, Any] | None:
+    """Get non-deleted settings by ID, or None if it does not exist."""
+    connect_db()
+    try:
+        settings = Settings.objects(
+            id=settings_id, status__ne=SettingsStatus.DELETED
+        ).first()
+    except ValidationError:  # not a valid ObjectId
+        return None
+    return None if settings is None else _doc_to_dict(settings)

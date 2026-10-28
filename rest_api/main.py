@@ -22,7 +22,7 @@ async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(
     title="AlphaKraken REST API",
-    description="Read-only API for querying raw files and metrics.",
+    description="Read-only API for querying raw files and metrics, projects and settings.",
     version="0.1.0",
     lifespan=_lifespan,
 )

@@ -355,6 +355,48 @@ class TestDispatch:
             call(Message("b", "UserAlert title [UserAlert]"), recipients=["U_ANSC"]),
         ]
 
+    @pytest.mark.parametrize(
+        ("channel_sent", "user_sent", "expected_delivered"),
+        [(True, False, True), (False, True, True), (False, False, False)],
+    )
+    @patch("monitoring.alert_manager.send")
+    def test_issue_with_channel_and_user_is_delivered_once_any_send_succeeded(
+        self,
+        mock_send: Mock,
+        *,
+        channel_sent: bool,
+        user_sent: bool,
+        expected_delivered: bool,
+    ) -> None:
+        """A failed send is not retried to a destination that already got the issue."""
+        # given
+        mock_send.side_effect = [channel_sent, user_sent]
+        alert = _alert("MixedAlert")
+        alert.destinations = frozenset({"business", "user"})
+        issue = Issue("a", 1, relevant_file="x_MaSc_a.raw")
+
+        # when
+        result = _dispatch(alert, [issue], {"MaSc": "U_MASC"})
+
+        # then
+        assert result == ([issue] if expected_delivered else [])
+
+    @patch("monitoring.alert_manager.send", return_value=False)
+    def test_issue_with_failed_channel_and_no_recipient_is_not_delivered(
+        self, mock_send: Mock
+    ) -> None:
+        """Without a recipient only the channel counts, and it failed."""
+        # given
+        alert = _alert("MixedAlert")
+        alert.destinations = frozenset({"business", "user"})
+
+        # when
+        result = _dispatch(alert, [Issue("a", 1, relevant_file="x_UNK_a.raw")], {})
+
+        # then
+        assert result == []
+        mock_send.assert_called_once()
+
     @patch("monitoring.alert_manager.send", return_value=True)
     def test_users_destination_prefers_the_project_owner(
         self, mock_send: Mock, no_project_owner: Mock

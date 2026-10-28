@@ -37,7 +37,7 @@ from shared.yamlsettings import YAMLSETTINGS, YamlKeys
 _INSTRUMENT_IDS = list(YAMLSETTINGS.get(YamlKeys.INSTRUMENTS, {}).keys())
 
 _MESSENGER_ID_HELP = (
-    "Id of the user in the messenger (e.g. Slack member ID), to notify the user directly "
+    "Id of the user in the messenger (e.g. Slack member ID), inserted into the user alerts URL to notify the user directly "
     "about alerts concerning raw files with their initials."
 )
 

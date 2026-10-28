@@ -1,37 +1,33 @@
-"""Messenger facade: sends messages to channels and users, hiding the platform (Slack or MS Teams)."""
+"""Messenger facade: sends messages to channels and users through apprise, hiding the platform."""
 
-import json
 import logging
 import os
-from collections.abc import Callable, Collection
+from collections.abc import Collection
 from dataclasses import dataclass
-from functools import partial
+from urllib.parse import unquote
 
+import apprise
 import requests
 from alerts import config
 from alerts.config import Destinations
+from apprise.decorators import notify as apprise_notify
 
 from shared.keys import EnvVars
 
-_WEBHOOK_URLS = {
-    Destinations.OPS: config.OPS_ALERTS_WEBHOOK_URL,
-    Destinations.BUSINESS: config.BUSINESS_ALERTS_WEBHOOK_URL,
+_CHANNEL_URLS = {
+    Destinations.OPS: config.OPS_ALERTS_URL,
+    Destinations.BUSINESS: config.BUSINESS_ALERTS_URL,
 }
-_REQUEST_TIMEOUT_S = 10
+# services without a footer ignore this apprise URL argument
+_NO_FOOTER_ARG = "footer=no"
+# custom apprise service posting top-level text to Slack, see _send_slack_text
+SLACK_TEXT_SCHEME = "slacktext"
+_SLACK_TEXT_TIMEOUT_S = 10
 _SLACK_POST_MESSAGE_URL = "https://slack.com/api/chat.postMessage"
-# Slack API errors that a retry cannot fix, e.g. a stale user id
-_SLACK_PERMANENT_ERRORS = {
-    "user_not_found",
-    "users_not_found",
-    "channel_not_found",
-    "not_in_channel",
-    "account_inactive",
-    "invalid_auth",
+_SLACK_TEXT_EMOJIS = {
+    apprise.NotifyType.FAILURE.value: "🚨",
+    apprise.NotifyType.INFO.value: "ℹ️",  # noqa: RUF001
 }
-
-
-class PermanentSendError(Exception):
-    """A send failed for a reason that a retry cannot fix."""
 
 
 class AlertTypes:
@@ -39,6 +35,12 @@ class AlertTypes:
 
     ALERT = "alert"
     INFO = "info"
+
+
+_NOTIFY_TYPES = {
+    AlertTypes.ALERT: apprise.NotifyType.FAILURE,
+    AlertTypes.INFO: apprise.NotifyType.INFO,
+}
 
 
 @dataclass(frozen=True)
@@ -57,145 +59,101 @@ def send(
 ) -> bool:
     """Send the message to the channels of the destinations and directly to the recipients.
 
-    Every send is attempted; return whether all succeeded. A send that failed permanently
-    counts as done, as retrying it would fail again.
+    Every send is attempted; return whether all succeeded. Recipients are dropped with a
+    warning when no user alerts URL is configured.
     """
     all_sent = True
-    # set: the business webhook URL falls back to the ops one if not configured
-    for webhook_url in {_WEBHOOK_URLS[destination] for destination in destinations}:
-        all_sent &= _attempt(
-            partial(_send_channel_message, message, webhook_url), "channel message"
+    # set: the business URL falls back to the ops one if not configured
+    for url in {_CHANNEL_URLS[destination] for destination in destinations}:
+        all_sent &= _notify(url, message, "channel message")
+
+    if recipients and not config.USER_ALERTS_URL:
+        logging.warning(
+            f"No user alerts URL configured; dropping messages to {list(recipients)}."
         )
+        return all_sent
 
     for recipient in recipients:
-        all_sent &= _attempt(
-            partial(_send_direct_message, message, recipient),
-            f"direct message to {recipient}",
-        )
+        url = config.USER_ALERTS_URL.replace(config.MESSENGER_ID_PLACEHOLDER, recipient)
+        all_sent &= _notify(url, message, f"direct message to {recipient}")
 
     return all_sent
 
 
-def _attempt(send_function: Callable[[], None], what: str) -> bool:
-    """Call the send function, log a failure and return whether it succeeded."""
-    try:
-        send_function()
-    except PermanentSendError as e:
-        logging.warning(f"Not retrying {what}: {e}")
-    except Exception:
-        logging.exception(f"Failed to send {what}")
+def _notify(url: str, message: Message, what: str) -> bool:
+    """Send the message to the apprise URL, log a failure and return whether it succeeded."""
+    body = _body(message)
+    logging.info(f"Sending {what}: {message.title}: {body}")
+
+    notifier = apprise.Apprise()
+    # the URL holds credentials, so it is not logged
+    if not notifier.add(f"{url}{'&' if '?' in url else '?'}{_NO_FOOTER_ARG}"):
+        logging.error(f"Invalid notification URL for {what}")
         return False
-    return True
+
+    sent = bool(
+        notifier.notify(
+            title=message.title or "",
+            body=body,
+            notify_type=_NOTIFY_TYPES[message.type],
+        )
+    )
+    if not sent:
+        logging.error(f"Failed to send {what}")
+    return sent
 
 
-def _text(message: Message) -> str:
-    """Render title and body as one text."""
-    if message.title:
-        return f"{message.title}:\n{message.body}"
-    return message.body
-
-
-def _send_channel_message(message: Message, webhook_url: str) -> None:
-    """Send message to a Slack or MS Teams channel."""
-    logging.info(f"Sending message: {_text(message)}")
+def _body(message: Message) -> str:
+    """Render the body with the environment prefix of non-production alerts and the sender."""
+    env_name = os.environ.get(EnvVars.ENV_NAME)
     hostname = os.environ.get(EnvVars.KRAKEN_HOSTNAME, "")
-
-    if webhook_url.startswith("https://hooks.slack.com"):
-        _send_channel_message_slack(message, hostname, webhook_url)
-    else:
-        _send_channel_message_msteams(message, hostname, webhook_url)
-
-
-def _send_channel_message_slack(
-    message: Message, hostname: str, webhook_url: str
-) -> None:
-    env_name = os.environ.get(EnvVars.ENV_NAME)
-
-    if message.type == AlertTypes.INFO:
-        emoji = "ℹ️"  # noqa: RUF001
-        label = "Info"
-        prefix = ""
-    else:  # alert
-        emoji = "🚨"
-        label = "Alert"
-        prefix = "<!channel> " if env_name == "production" else f"[{env_name}] "
-
-    payload = {
-        "text": f"{emoji} {prefix}*{label}*: {_text(message)} (sent from {hostname})",
-    }
-    response = requests.post(webhook_url, json=payload, timeout=_REQUEST_TIMEOUT_S)
-    response.raise_for_status()
-    logging.info("Successfully sent Slack message.")
+    prefix = ""
+    if message.type == AlertTypes.ALERT and env_name != "production":
+        prefix = f"[{env_name}] "
+    return f"{prefix}{message.body}\n(sent from {hostname})"
 
 
-def _send_channel_message_msteams(
-    message: Message, hostname: str, webhook_url: str
-) -> None:
-    text = f"{_text(message)} (sent from {hostname})"
-    adaptive_card_json = {
-        "type": "message",
-        "attachments": [
-            {
-                "contentType": "application/vnd.microsoft.card.adaptive",
-                "content": {
-                    "type": "AdaptiveCard",
-                    "body": [{"type": "TextBlock", "text": text}],
-                    "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
-                    "version": "1.0",
-                },
-            }
-        ],
-    }
+@apprise_notify(on=SLACK_TEXT_SCHEME, name="Slack, full-width text")
+def _send_slack_text(
+    body: str, title: str, notify_type: str, meta: dict, *args, **kwargs
+) -> bool:
+    """Post the message as top-level text to a Slack channel or user through a bot token.
 
-    response = requests.post(
-        webhook_url,
-        headers={"Content-Type": "application/json", "Accept": "application/json"},
-        data=json.dumps(adaptive_card_json),
-        timeout=_REQUEST_TIMEOUT_S,
-    )
-    response.raise_for_status()
-    logging.info("Successfully sent MS Teams message.")
-
-
-def _send_direct_message(message: Message, recipient_id: str) -> None:
-    """Send a direct message to a user.
-
-    Logs a warning and returns when no DM credentials are configured.
+    Unlike apprise's own Slack service, which posts attachments, Slack renders this at full width.
+    URL: `slacktext://<bot token>/<channel id>`, `/<channel name>` or `/@<user id>`; the bot must be
+    a member of the channel.
     """
-    logging.info(f"Sending direct message to {recipient_id}: {_text(message)}")
-    if config.SLACK_BOT_TOKEN:
-        _send_direct_message_slack(message, recipient_id, config.SLACK_BOT_TOKEN)
-        return
+    del args, kwargs
+    emoji = _SLACK_TEXT_EMOJIS.get(notify_type, "")
+    text = f"{emoji} *{title}*\n{body}" if title else f"{emoji} {body}"
+    # Slack accepts channel ids, bare channel names and user ids; apprise percent-encodes a `#`
+    target = unquote(meta["fullpath"]).lstrip("/@#")
 
-    logging.warning(
-        f"No DM credentials configured; dropping message to recipient {recipient_id}."
-    )
+    try:
+        response = requests.post(
+            _SLACK_POST_MESSAGE_URL,
+            headers={
+                "Authorization": f"Bearer {meta['host']}",
+                "Content-Type": "application/json; charset=utf-8",
+            },
+            json={"channel": target, "text": text},
+            timeout=_SLACK_TEXT_TIMEOUT_S,
+        )
+    except requests.RequestException:
+        logging.exception(f"Slack request to {target} failed")
+        return False
+
+    sent = response.ok and _slack_api_ok(response)
+    if not sent:
+        logging.error(
+            f"Slack rejected the message to {target}: HTTP {response.status_code}, {response.text}"
+        )
+    return sent
 
 
-def _send_direct_message_slack(message: Message, user_id: str, token: str) -> None:
-    env_name = os.environ.get(EnvVars.ENV_NAME)
-
-    if message.type == AlertTypes.INFO:
-        emoji = "ℹ️"  # noqa: RUF001
-        prefix = ""
-    else:
-        emoji = "🚨"
-        prefix = "" if env_name == "production" else f"[{env_name}] "
-
-    payload = {"channel": user_id, "text": f"{emoji} {prefix}{_text(message)}"}
-    response = requests.post(
-        _SLACK_POST_MESSAGE_URL,
-        headers={
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json; charset=utf-8",
-        },
-        json=payload,
-        timeout=_REQUEST_TIMEOUT_S,
-    )
-    response.raise_for_status()
-    body = response.json()
-    if not body.get("ok"):
-        if body.get("error") in _SLACK_PERMANENT_ERRORS:
-            raise PermanentSendError(f"Slack chat.postMessage failed: {body!r}")
-        raise RuntimeError(f"Slack chat.postMessage failed: {body!r}")
-    logging.info(f"Successfully sent Slack DM to {user_id}.")
+def _slack_api_ok(response: requests.Response) -> bool:
+    """Return whether the Slack API accepted the request: it answers errors with HTTP 200 and ok=false."""
+    try:
+        return bool(response.json().get("ok"))
+    except requests.JSONDecodeError:
+        return False

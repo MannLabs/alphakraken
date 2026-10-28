@@ -81,5 +81,7 @@ The monitoring sends all messages through [apprise](https://github.com/caronc/ap
 supported services can be configured by URL. In `envs/alphakraken.${ENV}.yaml`, under `general.notifications`:
 
 1. Rename `ops_alerts_webhook_url` to `ops_alerts_url` and `business_alerts_webhook_url` to
-   `business_alerts_url`. Slack incoming webhook URLs and MS Teams Power Automate URLs work unchanged.
-2. Replace `slack_bot_token: "xoxb-..."` with `user_alerts_url: "slack://xoxb-.../@{{ALPHAKRAKEN_MESSENGER_ID}}"`.
+   `business_alerts_url`. For Slack, use `slacktext://<bot token>/<channel id>` and invite the bot to the
+   channel (full-width messages); a Slack webhook URL works too but posts narrower attachments.
+   MS Teams Power Automate URLs work unchanged.
+2. Replace `slack_bot_token: "xoxb-..."` with `user_alerts_url: "slacktext://xoxb-.../@{{ALPHAKRAKEN_MESSENGER_ID}}"`.

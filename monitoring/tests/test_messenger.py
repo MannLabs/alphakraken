@@ -4,6 +4,7 @@ from unittest.mock import Mock, call, patch
 
 import apprise
 import pytest
+import requests
 from apprise import NotifyType
 
 from monitoring.messenger import AlertTypes, Message, _notify, _send_slack_text, send
@@ -177,23 +178,31 @@ class TestNotify:
 
 
 class TestSendSlackText:
-    """The slacktext service posts top-level text to the Slack webhook."""
+    """The slacktext service posts top-level text through the Slack bot API."""
 
     @patch("monitoring.messenger.requests.post")
-    def test_posts_emoji_title_and_body_to_https_webhook(self, mock_post: Mock) -> None:
-        """The URL is rebuilt with https, the text carries emoji, bold title and body."""
+    def test_posts_emoji_title_and_body_to_chat_postmessage(
+        self, mock_post: Mock
+    ) -> None:
+        """The host is the bearer token, the path the channel; text has emoji, bold title and body."""
         # given
         mock_post.return_value.ok = True
-        meta = {"host": "hooks.slack.com", "fullpath": "/services/T/B/C"}
+        mock_post.return_value.json.return_value = {"ok": True}
 
         # when
-        result = _send_slack_text("body", "Title", "failure", meta)
+        result = _send_slack_text(
+            "body", "Title", "failure", {"host": "xoxb-1-a", "fullpath": "/C0123"}
+        )
 
         # then
         assert result is True
         mock_post.assert_called_once_with(
-            "https://hooks.slack.com/services/T/B/C",
-            json={"text": "🚨 *Title*\nbody"},
+            "https://slack.com/api/chat.postMessage",
+            headers={
+                "Authorization": "Bearer xoxb-1-a",
+                "Content-Type": "application/json; charset=utf-8",
+            },
+            json={"channel": "C0123", "text": "🚨 *Title*\nbody"},
             timeout=10,
         )
 
@@ -202,59 +211,108 @@ class TestSendSlackText:
         """Without a title only the emoji precedes the body."""
         # given
         mock_post.return_value.ok = True
+        mock_post.return_value.json.return_value = {"ok": True}
 
         # when
-        _send_slack_text("body", "", "info", {"host": "h", "fullpath": "/p"})
+        _send_slack_text("body", "", "info", {"host": "xoxb-1", "fullpath": "/C0123"})
 
         # then
-        assert mock_post.call_args.kwargs["json"] == {"text": "ℹ️ body"}  # noqa: RUF001
+        assert mock_post.call_args.kwargs["json"]["text"] == "ℹ️ body"  # noqa: RUF001
+
+    @pytest.mark.parametrize(
+        ("fullpath", "channel"),
+        [("/@U0123", "U0123"), ("/%23ops", "ops"), ("/ops", "ops")],
+    )
+    @patch("monitoring.messenger.requests.post")
+    def test_user_and_channel_name_targets(
+        self, mock_post: Mock, fullpath: str, channel: str
+    ) -> None:
+        """A user id loses its `@`, a channel name its percent-encoded `#`."""
+        # given
+        mock_post.return_value.ok = True
+        mock_post.return_value.json.return_value = {"ok": True}
+
+        # when
+        _send_slack_text("b", "", "failure", {"host": "xoxb-1", "fullpath": fullpath})
+
+        # then
+        assert mock_post.call_args.kwargs["json"]["channel"] == channel
 
     @patch("monitoring.messenger.requests.post")
     def test_http_error_is_a_failed_send(self, mock_post: Mock) -> None:
         """A non-2xx response returns False."""
         # given
         mock_post.return_value.ok = False
+        mock_post.return_value.status_code = 500
 
         # when / then
         assert (
-            _send_slack_text("b", "", "failure", {"host": "h", "fullpath": "/p"})
+            _send_slack_text("b", "", "failure", {"host": "xoxb-1", "fullpath": "/C"})
             is False
         )
 
     @patch("monitoring.messenger.requests.post")
-    def test_bot_token_posts_to_chat_postmessage(self, mock_post: Mock) -> None:
-        """A bot token host is sent as bearer to chat.postMessage, the path as channel."""
+    def test_api_error_is_logged_as_failed_send(
+        self, mock_post: Mock, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Slack answers API errors with HTTP 200 and ok=false; target, status and body are logged."""
         # given
         mock_post.return_value.ok = True
-        mock_post.return_value.json.return_value = {"ok": True}
-        meta = {"host": "xoxb-1-a", "fullpath": "/@U0123"}
+        mock_post.return_value.status_code = 200
+        mock_post.return_value.text = '{"ok":false,"error":"channel_not_found"}'
+        mock_post.return_value.json.return_value = {"ok": False}
 
         # when
-        result = _send_slack_text("body", "", "failure", meta)
+        with caplog.at_level("ERROR"):
+            result = _send_slack_text(
+                "b", "", "failure", {"host": "xoxb-1", "fullpath": "/@U"}
+            )
 
         # then
-        assert result is True
-        mock_post.assert_called_once_with(
-            "https://slack.com/api/chat.postMessage",
-            headers={"Authorization": "Bearer xoxb-1-a"},
-            json={"channel": "U0123", "text": "🚨 body"},
-            timeout=10,
+        assert result is False
+        assert any(
+            "to U: HTTP 200" in rec.message and "channel_not_found" in rec.message
+            for rec in caplog.records
         )
 
     @patch("monitoring.messenger.requests.post")
-    def test_bot_token_api_error_is_a_failed_send(self, mock_post: Mock) -> None:
-        """Slack answers API errors with HTTP 200 and ok=false."""
+    def test_non_json_response_is_a_failed_send(
+        self, mock_post: Mock, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """A 200 without a JSON body is logged as a rejection, not raised."""
         # given
         mock_post.return_value.ok = True
-        mock_post.return_value.json.return_value = {
-            "ok": False,
-            "error": "user_not_found",
-        }
+        mock_post.return_value.status_code = 200
+        mock_post.return_value.text = "<html>proxy</html>"
+        mock_post.return_value.json.side_effect = requests.JSONDecodeError("x", "", 0)
 
-        # when / then
-        assert (
-            _send_slack_text("b", "", "failure", {"host": "xoxb-1", "fullpath": "/@U"})
-            is False
+        # when
+        with caplog.at_level("ERROR"):
+            result = _send_slack_text(
+                "b", "", "failure", {"host": "xoxb-1", "fullpath": "/@U"}
+            )
+
+        # then
+        assert result is False
+        assert any("<html>proxy</html>" in rec.message for rec in caplog.records)
+
+    @patch("monitoring.messenger.requests.post", side_effect=requests.ConnectionError)
+    def test_request_error_is_logged_as_failed_send(
+        self, mock_post: Mock, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """A failed connection is logged with its traceback and returns False."""
+        # when
+        with caplog.at_level("ERROR"):
+            result = _send_slack_text(
+                "b", "", "failure", {"host": "xoxb-1", "fullpath": "/C"}
+            )
+
+        # then
+        assert result is False
+        mock_post.assert_called_once()
+        assert any(
+            "Slack request to C failed" in rec.message and rec.exc_info
+            for rec in caplog.records
         )
 
     @patch("monitoring.messenger.requests.post")
@@ -262,14 +320,18 @@ class TestSendSlackText:
         """A slacktext:// URL goes through the custom service, with the footer argument ignored."""
         # given
         mock_post.return_value.ok = True
+        mock_post.return_value.json.return_value = {"ok": True}
 
         # when
         notifier = apprise.Apprise()
-        assert notifier.add("slacktext://hooks.slack.com/services/T/B/C?footer=no")
+        assert notifier.add("slacktext://xoxb-1-a/C0123?footer=no")
         result = bool(
             notifier.notify(body="body", title="", notify_type=NotifyType.FAILURE)
         )
 
         # then
         assert result is True
-        assert mock_post.call_args.args[0] == "https://hooks.slack.com/services/T/B/C"
+        assert (
+            mock_post.call_args.kwargs["headers"]["Authorization"] == "Bearer xoxb-1-a"
+        )
+        assert mock_post.call_args.kwargs["json"]["channel"] == "C0123"

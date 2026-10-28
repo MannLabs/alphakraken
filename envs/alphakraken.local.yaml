@@ -38,13 +38,15 @@ general:
   # Optional, default: UTC. The database always stores UTC.
   timezone: UTC
   notifications:
-    # any apprise URL (https://github.com/caronc/apprise#supported-notifications), e.g. a Slack incoming webhook URL
-    # or a MS Teams Power Automate workflow URL.
-    ops_alerts_url: "https://hooks.slack.com/services/<something> or https://...api.powerplatform.com:443/powerautomate/automations/<something>"
-    business_alerts_url: "https://hooks.slack.com/services/<something> or https://...api.powerplatform.com:443/powerautomate/automations/<something>"
+    # any apprise URL (https://github.com/caronc/apprise#supported-notifications), e.g. a MS Teams Power Automate
+    # workflow URL. For Slack, "slacktext://<bot token>/<channel id>" posts full-width messages through the bot
+    # (invite it to the channel); apprise's own Slack service (slack://, https://hooks.slack.com/...) posts attachments.
+    ops_alerts_url: "slacktext://xoxb-.../<channel id> or https://...api.powerplatform.com:443/powerautomate/automations/<something>"
+    business_alerts_url: "slacktext://xoxb-.../<channel id> or https://...api.powerplatform.com:443/powerautomate/automations/<something>"
     # optional, for direct messages to users: apprise URL with {{ALPHAKRAKEN_MESSENGER_ID}} replaced by the messenger id of the user, e.g.
-    # "slack://xoxb-.../@{{ALPHAKRAKEN_MESSENGER_ID}}" (bot token from api.slack.com/apps → your app → OAuth & Permissions, needs `chat:write` scope)
-    user_alerts_url: "slack://xoxb-.../@{{ALPHAKRAKEN_MESSENGER_ID}}"
+    # "slacktext://xoxb-.../@{{ALPHAKRAKEN_MESSENGER_ID}}" (bot token from api.slack.com/apps → your app → OAuth & Permissions,
+    # needs `chat:write` scope; `slack://` instead of `slacktext://` uses apprise's own Slack service)
+    user_alerts_url: "slacktext://xoxb-.../@{{ALPHAKRAKEN_MESSENGER_ID}}"
     webapp_url: "http://localhost:8501"
     # optional: instruments to alert on if no new file is acquired for a while
     # instrument_stall_instrument_ids: [test1]

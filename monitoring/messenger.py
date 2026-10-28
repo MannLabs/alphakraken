@@ -4,6 +4,7 @@ import logging
 import os
 from collections.abc import Collection
 from dataclasses import dataclass
+from urllib.parse import unquote
 
 import apprise
 import requests
@@ -22,7 +23,6 @@ _NO_FOOTER_ARG = "footer=no"
 # custom apprise service posting top-level text to Slack, see _send_slack_text
 SLACK_TEXT_SCHEME = "slacktext"
 _SLACK_TEXT_TIMEOUT_S = 10
-_SLACK_BOT_TOKEN_PREFIX = "xoxb-"  # noqa: S105
 _SLACK_POST_MESSAGE_URL = "https://slack.com/api/chat.postMessage"
 _SLACK_TEXT_EMOJIS = {
     apprise.NotifyType.FAILURE.value: "🚨",
@@ -117,29 +117,43 @@ def _body(message: Message) -> str:
 def _send_slack_text(
     body: str, title: str, notify_type: str, meta: dict, *args, **kwargs
 ) -> bool:
-    """Post the message as top-level text to a Slack incoming webhook or, with a bot token, to a user.
+    """Post the message as top-level text to a Slack channel or user through a bot token.
 
     Unlike apprise's own Slack service, which posts attachments, Slack renders this at full width.
-    URLs: `slacktext://hooks.slack.com/services/<tokens>` (the webhook URL with its scheme replaced)
-    and `slacktext://<bot token>/@<user id>`.
+    URL: `slacktext://<bot token>/<channel id>`, `/<channel name>` or `/@<user id>`; the bot must be
+    a member of the channel.
     """
     del args, kwargs
     emoji = _SLACK_TEXT_EMOJIS.get(notify_type, "")
     text = f"{emoji} *{title}*\n{body}" if title else f"{emoji} {body}"
+    # Slack accepts channel ids, bare channel names and user ids; apprise percent-encodes a `#`
+    target = unquote(meta["fullpath"]).lstrip("/@#")
 
-    if meta["host"].startswith(_SLACK_BOT_TOKEN_PREFIX):
+    try:
         response = requests.post(
             _SLACK_POST_MESSAGE_URL,
-            headers={"Authorization": f"Bearer {meta['host']}"},
-            json={"channel": meta["fullpath"].lstrip("/@"), "text": text},
+            headers={
+                "Authorization": f"Bearer {meta['host']}",
+                "Content-Type": "application/json; charset=utf-8",
+            },
+            json={"channel": target, "text": text},
             timeout=_SLACK_TEXT_TIMEOUT_S,
         )
-        # Slack answers API errors, e.g. a stale user id, with HTTP 200 and ok=false
-        return response.ok and bool(response.json().get("ok"))
+    except requests.RequestException:
+        logging.exception(f"Slack request to {target} failed")
+        return False
 
-    response = requests.post(
-        f"https://{meta['host']}{meta['fullpath']}",
-        json={"text": text},
-        timeout=_SLACK_TEXT_TIMEOUT_S,
-    )
-    return response.ok
+    sent = response.ok and _slack_api_ok(response)
+    if not sent:
+        logging.error(
+            f"Slack rejected the message to {target}: HTTP {response.status_code}, {response.text}"
+        )
+    return sent
+
+
+def _slack_api_ok(response: requests.Response) -> bool:
+    """Return whether the Slack API accepted the request: it answers errors with HTTP 200 and ok=false."""
+    try:
+        return bool(response.json().get("ok"))
+    except requests.JSONDecodeError:
+        return False

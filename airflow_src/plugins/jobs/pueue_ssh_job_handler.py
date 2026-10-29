@@ -12,7 +12,8 @@ Notes:
     - the number of parallel jobs on the machine is set with `pueue parallel <n>` on the
       machine; `_SLURM_MEM`, `_SLURM_CPUS_PER_TASK` and `_SLURM_TIME` are not honored.
     - a task removed from pueue (e.g. by `pueue clean`) is reported as `UNKNOWN`.
-    - on windows, pueue runs tasks in Windows PowerShell, whose `>` redirection writes UTF-16.
+    - on windows, pueue runs tasks in Windows PowerShell; the log is redirected by cmd.exe, so its
+      encoding is whatever the software writes.
 
 """
 
@@ -47,11 +48,27 @@ _DONE = "Done"
 _SUCCESS = "Success"
 
 
-def _add_cmd(output_path: PurePath, custom_command: str, label: str) -> str:
-    """The `pueue add` command, printing only the task id."""
+def _posix_add_cmd(output_path: PurePath, custom_command: str, label: str) -> str:
+    """The `pueue add` command for posix, printing only the task id."""
     return (
         f'{PUEUE_EXE} add --print-task-id --working-directory "{output_path}" --label "{label}" '
         f'-- "{custom_command} > {LOG_FILE_NAME} 2>&1"'
+    )
+
+
+def _windows_add_cmd(output_path: PurePath, custom_command: str, label: str) -> str:
+    """The `pueue add` command for windows, printing only the task id.
+
+    The pueue client checks `--working-directory` in the SSH session, which sees neither the mapped
+    drives nor the stored share credentials of the console session that `pueued` and its tasks run in.
+    cmd.exe does the redirection: it writes the output bytes unchanged, whereas the `>` of Windows
+    PowerShell re-encodes them to UTF-16 and wraps stderr lines as error records, which fail the task.
+    `pushd` rather than starting cmd.exe in the output folder: cmd.exe cannot use a UNC path as
+    current directory, but `pushd` maps it to a temporary drive letter.
+    """
+    return (
+        f'{PUEUE_EXE} add --print-task-id --label "{label}" '
+        f"-- \"cmd /c 'pushd {output_path} && {custom_command} > {LOG_FILE_NAME} 2>&1'\""
     )
 
 
@@ -61,7 +78,7 @@ def _posix_start_cmd(
     return "\n".join(
         [
             *posix_export_lines(environment),
-            _add_cmd(output_path, custom_command, label),
+            _posix_add_cmd(output_path, custom_command, label),
         ]
     )
 
@@ -77,7 +94,7 @@ def _windows_start_cmd(
     script = "; ".join(
         [
             *[f"$env:{key} = '{value}'" for key, value in environment.items()],
-            _add_cmd(output_path, custom_command, label),
+            _windows_add_cmd(output_path, custom_command, label),
         ]
     )
     logging.info(f"Encoding powershell script: >>>>\n{script}\n<<<< end of script")

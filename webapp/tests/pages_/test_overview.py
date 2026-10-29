@@ -79,6 +79,7 @@ def _configure_mocks(
         pd.DataFrame(),  # empty msqc metrics
         pd.DataFrame(),  # empty skyline metrics
         pd.DataFrame(),  # empty diann metrics
+        pd.DataFrame(),  # empty peaks metrics
         status_df,
     ]
 

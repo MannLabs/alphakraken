@@ -3,6 +3,8 @@
 import sqlite3
 import struct
 import uuid
+import warnings
+from contextlib import closing
 from pathlib import Path
 
 import numpy as np
@@ -71,7 +73,8 @@ def _feature_proto(rt_min: list[float], fragments: list[bytes]) -> bytes:
 
 
 def _details_proto(indices: list[int], errors_th: list[float]) -> bytes:
-    return _len_field(13, bytes(indices)) + _len_field(14, _f32s(errors_th))
+    packed = b"".join(_varint(i) for i in indices)
+    return _len_field(13, packed) + _len_field(14, _f32s(errors_th))
 
 
 def _lib_proto(names: list[str]) -> bytes:
@@ -147,7 +150,7 @@ def _write_project(output_dir: Path) -> None:
     project.mkdir()
     psm_ids = {1: uuid.uuid4(), 2: uuid.uuid4()}
 
-    with sqlite3.connect(project / "feature_1_dia.db") as c:
+    with closing(sqlite3.connect(project / "feature_1_dia.db")) as c, c:
         c.execute("create table feature_dia (feature_id, fraction_id, psm_details)")
         c.executemany(
             "insert into feature_dia values (?, ?, ?)",
@@ -186,7 +189,7 @@ def _write_project(output_dir: Path) -> None:
         ),
         (str(uuid.uuid4()), "PEPTIDEK", b"", b"", b"", 1),  # decoy: ignored
     ]
-    with sqlite3.connect(project / "dia_psm_task__f1.db") as c:
+    with closing(sqlite3.connect(project / "dia_psm_task__f1.db")) as c, c:
         c.execute(
             "create table dia_psm (psm_id, sequence, details_proto, lib_proto, feature_proto, decoy)"
         )
@@ -253,6 +256,58 @@ def test_calc_peaks_metrics_with_project(tmp_path: Path) -> None:
     assert m["ms2_ppm_median"] == pytest.approx(20, rel=1e-4)
     assert m["ms2_ppm_mad"] == pytest.approx(10, rel=1e-4)
     assert m["n_precursors"] == 120
+
+
+def test_fragment_index_above_127(tmp_path: Path) -> None:
+    """Fragment indices are packed varints: an index >= 128 spans two bytes."""
+    _write_exports(tmp_path)
+    project = tmp_path / "project"
+    project.mkdir()
+    psm_id = uuid.uuid4()
+    with closing(sqlite3.connect(project / "feature_1_dia.db")) as c, c:
+        c.execute("create table feature_dia (feature_id, fraction_id, psm_details)")
+        c.execute(
+            "insert into feature_dia values (1, 'f1', ?)", (_psm_details(psm_id),)
+        )
+    names = ["b2"] + ["p"] * 127 + ["y1"]
+    row = (
+        str(psm_id),
+        "PEPTIDEK",
+        _details_proto([128, 0], [MZ_Y1_K * 10e-6, MZ_B2_PE * 20e-6]),
+        _lib_proto(names),
+        _feature_proto([t / 60 for t in range(3)], []),
+        0,
+    )
+    with closing(sqlite3.connect(project / "dia_psm_task__f1.db")) as c, c:
+        c.execute(
+            "create table dia_psm (psm_id, sequence, details_proto, lib_proto, feature_proto, decoy)"
+        )
+        c.execute("insert into dia_psm values (?, ?, ?, ?, ?, ?)", row)
+
+    m = calc_peaks_metrics(tmp_path)
+
+    assert m["ms2_ppm_median"] == pytest.approx(15, rel=1e-4)
+    assert m["ms2_ppm_mad"] == pytest.approx(5, rel=1e-4)
+
+
+def test_calc_peaks_metrics_project_without_psm_links(tmp_path: Path) -> None:
+    """Feature rows without a decodable psm link count as no project: NaN, no warnings."""
+    _write_exports(tmp_path)
+    project = tmp_path / "project"
+    project.mkdir()
+    with closing(sqlite3.connect(project / "feature_1_dia.db")) as c, c:
+        c.execute("create table feature_dia (feature_id, fraction_id, psm_details)")
+        c.executemany(
+            "insert into feature_dia values (?, ?, ?)",
+            [(1, "f1", b""), (2, "f1", None)],
+        )
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        m = calc_peaks_metrics(tmp_path)
+
+    assert np.isnan(m["fwhm_median_s"])
+    assert np.isnan(m["ms2_ppm_median"])
 
 
 def test_find_run_requires_exactly_one_precursor_file(tmp_path: Path) -> None:

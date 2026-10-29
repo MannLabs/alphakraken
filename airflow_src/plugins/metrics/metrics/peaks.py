@@ -387,6 +387,15 @@ def _varint(b: bytes, i: int) -> tuple[int, int]:
             return v, i
 
 
+def _packed_varints(b: bytes) -> list[int]:
+    """Decode a packed repeated varint field."""
+    out, i = [], 0
+    while i < len(b):
+        v, i = _varint(b, i)
+        out.append(v)
+    return out
+
+
 def _pb(b: bytes) -> dict[int, list]:
     """Flat protobuf decode: {field: [values]}, length-delimited fields as bytes."""
     i, out = 0, defaultdict(list)
@@ -564,7 +573,7 @@ def _fragment_ppms(seq: str, det: bytes, lib: bytes) -> list[float]:
     errs = np.frombuffer(d[_DETAILS_ERROR_FIELD][0], "<f4")
     return [
         e / _fragment_mz(cum, names[i]) * PPM_FACTOR
-        for i, e in zip(d[_DETAILS_INDEX_FIELD][0], errs, strict=False)
+        for i, e in zip(_packed_varints(d[_DETAILS_INDEX_FIELD][0]), errs, strict=False)
         if i < len(names)
     ]
 
@@ -600,6 +609,8 @@ def _load_psm_details(
     if found is None:
         return None
     psm_ids, project, fractions = found
+    if psm_ids.empty:
+        return None
     wanted = set(psm_ids)
     peaks, frag_psm, ppm = {}, [], []
     for db in _psm_dbs(project, fractions):

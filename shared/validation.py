@@ -10,18 +10,24 @@ FORBIDDEN_RAW_FILE_NAME_CHARACTERS_PATTERN = rf"[^{_ALLOWED_RAW_FILE_NAME_CHARAC
 
 
 # Security validation constants
-# Base pattern allows filenames with safe characters, path pattern adds forward slash
-EXECUTABLE_NAME_PATTERN = rf"^[{_ALLOWED_RAW_FILE_NAME_CHARACTERS}/]+$"
-EXECUTABLE_NAME_PATTERN_WITH_SPACES = rf"^[{_ALLOWED_RAW_FILE_NAME_CHARACTERS}/ ]+$"
+# Base pattern allows filenames with safe characters, path pattern adds forward and back slashes.
+# A backslash can only escape one of the allowed characters, so it cannot start a new command;
+# cf. TRAILING_BACKSLASH_ERROR for the exception.
+EXECUTABLE_NAME_PATTERN = rf"^[{_ALLOWED_RAW_FILE_NAME_CHARACTERS}/\\]+$"
+EXECUTABLE_NAME_PATTERN_WITH_SPACES = rf"^[{_ALLOWED_RAW_FILE_NAME_CHARACTERS}/\\ ]+$"
 
 
 # Error messages
 EMPTY_ERROR = "Cannot be empty"
 PARENT_DIR_ERROR = "Cannot contain '..'"
+# a leading backslash is a rooted (`\dir`) or UNC (`\\host\share`) path on windows,
+# which `PureWindowsPath` joins by discarding the base
 ABSOLUTE_PATH_ERROR = "Cannot be an absolute path"
+# a trailing backslash escapes the closing quote of `export KEY="value"`, cf. `posix_export_lines`
+TRAILING_BACKSLASH_ERROR = "Cannot end with a backslash"
 # Error messages derive from _ALLOWED_CHARACTERS to maintain single source of truth
-INVALID_CHARS_ERROR = "Contains invalid characters. Only alphanumeric characters, dots, hyphens, underscores, plus signs, and forward slashes are allowed"
-INVALID_CHARS_ERROR_WITH_SPACES = "Contains invalid characters. Only alphanumeric characters, dots, hyphens, underscores, plus signs, forward slashes, and spaces are allowed"
+INVALID_CHARS_ERROR = "Contains invalid characters. Only alphanumeric characters, dots, hyphens, underscores, plus signs, and forward and back slashes are allowed"
+INVALID_CHARS_ERROR_WITH_SPACES = "Contains invalid characters. Only alphanumeric characters, dots, hyphens, underscores, plus signs, forward and back slashes, and spaces are allowed"
 
 
 def check_for_malicious_content(
@@ -47,8 +53,11 @@ def check_for_malicious_content(
         errors.append(PARENT_DIR_ERROR)
 
     # Check for absolute paths
-    if value.startswith("/") and not allow_absolute_paths:
+    if value.startswith(("/", "\\")) and not allow_absolute_paths:
         errors.append(ABSOLUTE_PATH_ERROR)
+
+    if value.endswith("\\"):
+        errors.append(TRAILING_BACKSLASH_ERROR)
 
     # Validate allowed characters
     if allow_spaces:

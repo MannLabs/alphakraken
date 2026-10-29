@@ -1,10 +1,11 @@
-"""Implementation of a job handler that queues jobs with pueue on a machine reachable via SSH.
+r"""Implementation of a job handler that queues jobs with pueue on a machine reachable via SSH.
 
 `pueued` (https://github.com/Nukesor/pueue) is a task queue daemon for a single machine. The
 handler adds the resolved `custom_command` as a task and reads the task's state back from
 `pueue status --json`; supports the `custom` software type only. The job id is the pueue task id.
 
-Precondition: `custom_command` contains only `a-zA-Z0-9-_+./` and spaces (enforced upstream), so it never needs escaping.
+Precondition: `custom_command` contains only `a-zA-Z0-9-_+./\` and spaces and does not end with a
+backslash (enforced upstream), so it never needs escaping.
 
 Notes:
     - requires `pueued` running on the machine under the SSH user, and `pueue` on the `PATH` of a

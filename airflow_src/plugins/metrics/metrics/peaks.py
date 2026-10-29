@@ -36,6 +36,7 @@ TAILING_CUTOFF = 1.5  # half-height asymmetry above this counts as a tailing pea
 MAX_CHARGE_BIN = 4  # charges >= this share one bin
 MIN_FEATURES_FOR_DYNAMIC_RANGE = 100
 CYCLE_TIME_SAMPLE_SIZE = 5000
+MIN_PRECURSORS_FOR_CYCLE_TIME = 2  # the RT-vs-scan fit needs two points
 P1, P99 = 0.01, 0.99
 SECONDS_PER_MINUTE = 60
 PPM_FACTOR = 1e6
@@ -289,6 +290,8 @@ def cycle_time_s(prec: pd.DataFrame) -> float:
     windows + 1 MS1 = 81 here), and apex scan number vs apex RT is linear, so
     cycle = step x minutes-per-scan.
     """
+    if len(prec) < MIN_PRECURSORS_FOR_CYCLE_TIME:
+        return np.nan
     step = (
         _scan_lists(prec[PrecursorColumns.MS2_SCANS].head(CYCLE_TIME_SAMPLE_SIZE))
         .map(lambda v: np.median(np.diff(v)) if v.size > 1 else np.nan)
@@ -738,14 +741,17 @@ def _signal_metrics(prec: pd.DataFrame) -> dict[str, Any]:
     per_prot = (
         prec[PrecursorColumns.MS2_AREA].groupby(prot).sum().sort_values(ascending=False)
     )
+    total_ms2 = ms2.sum()
     return {
-        "total_ms2_area": ms2.sum(),
+        "total_ms2_area": total_ms2,
         "total_ms1_area": ms1.sum(),
         "frac_with_ms1": prec[PrecursorColumns.AREA].notna().mean(),
         "median_ms2_area": ms2.median(),
         "ms2_dynamic_range_log10": _dynamic_range(ms2),
         "ms1_dynamic_range_log10": _dynamic_range(ms1),
-        "top10_protein_ms2_share": per_prot.head(TOP_N_PROTEINS).sum() / per_prot.sum(),
+        "top10_protein_ms2_share": (
+            per_prot.head(TOP_N_PROTEINS).sum() / total_ms2 if total_ms2 > 0 else np.nan
+        ),
     }
 
 

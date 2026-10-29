@@ -310,6 +310,23 @@ def test_calc_peaks_metrics_project_without_psm_links(tmp_path: Path) -> None:
     assert np.isnan(m["ms2_ppm_median"])
 
 
+def test_calc_peaks_metrics_empty_export(tmp_path: Path) -> None:
+    """A search without identifications yields zero counts and NaN elsewhere."""
+    _write_exports(tmp_path)
+    _write_project(tmp_path)
+    precursor_file = tmp_path / "exports" / f"{RUN}.dia_db.precursor.csv"
+    pd.read_csv(precursor_file).head(0).to_csv(precursor_file, index=False)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        m = calc_peaks_metrics(tmp_path)
+
+    assert m["n_precursors"] == 0
+    assert m["n_protein_groups"] == 2
+    assert np.isnan(m["cycle_time_s"])
+    assert np.isnan(m["top10_protein_ms2_share"])
+
+
 def test_find_run_requires_exactly_one_precursor_file(tmp_path: Path) -> None:
     """Zero or several precursor exports are an error."""
     with pytest.raises(FileNotFoundError):

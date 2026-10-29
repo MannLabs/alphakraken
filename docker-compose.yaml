@@ -162,7 +162,7 @@ services:
     <<: *airflow-common
     command: api-server
     ports:
-      - ${WEBSERVER_PORT:?error}:8080
+      - ${AIRFLOW_APISERVER_PORT:?error}:8080
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
       interval: 30s

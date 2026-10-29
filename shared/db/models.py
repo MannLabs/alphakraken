@@ -5,6 +5,7 @@ Note: this module must not have any dependencies on the rest of the codebase.
 
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from typing import ClassVar
 
@@ -246,6 +247,24 @@ class Project(Document):
 
 
 SETTINGS_NAME_REGEX = r"^[a-zA-Z0-9_]+$"
+SETTINGS_VERSION_SEPARATOR = "_v"
+_UNIQUE_SETTINGS_NAME_REGEX = re.compile(
+    rf"^(?P<name>[a-zA-Z0-9_]+){SETTINGS_VERSION_SEPARATOR}(?P<version>[1-9][0-9]*)$"
+)
+
+
+def split_unique_settings_name(unique_name: str) -> tuple[str, int]:
+    """Split a unique settings name like `fallback_v7` into name and version.
+
+    Raises:
+        ValueError: if `unique_name` does not have the expected format.
+
+    """
+    if (match := _UNIQUE_SETTINGS_NAME_REGEX.match(unique_name)) is None:
+        raise ValueError(
+            f"'{unique_name}' is not of the form <name>{SETTINGS_VERSION_SEPARATOR}<version>"
+        )
+    return match["name"], int(match["version"])
 
 
 class Settings(Document):
@@ -295,6 +314,11 @@ class Settings(Document):
     status = StringField(max_length=64, default=SettingsStatus.ACTIVE)
 
     created_at_ = DateTimeField(default=datetime.now)
+
+    @property
+    def unique_name(self) -> str:
+        """Human-readable unique identifier, e.g. `fallback_v7`."""
+        return f"{self.name}{SETTINGS_VERSION_SEPARATOR}{self.version}"
 
 
 class ProjectSettings(Document):

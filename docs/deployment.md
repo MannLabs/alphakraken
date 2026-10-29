@@ -575,10 +575,12 @@ Finally, substitute `mannlabs/alphakraken-mcp-server:latest` -> `alphakraken-mcp
 
 
 ## REST API
-A read-only REST API for programmatic access to raw files and metrics, available on port 8090.
+A read-only REST API for programmatic access to raw files and metrics, projects and settings, available on port 8090.
 
 - Interactive docs: `http://<alphakraken_ip_address>:8090/docs`
-- Example: `curl "http://<alphakraken_ip_address>:8090/raw_files/?instrument_id=test1&limit=10"`
+- `GET /raw_files/`: raw files with metrics, e.g. `curl "http://<alphakraken_ip_address>:8090/raw_files/?instrument_id=test1&limit=10"`
+- `GET /projects/`, `GET /projects/{project_id}`: non-deleted projects with their settings assignments (settings id, name, version, scopes, filters)
+- `GET /settings/`, `GET /settings/{settings_id}`: non-deleted settings; `settings_id` is `<name>_v<version>`, e.g. `fallback_v7`
 
 The service is started automatically with the `local` and `infrastructure` profiles and uses read-only database credentials.
 See [nbs/rest_api_demo.ipynb](../nbs/rest_api_demo.ipynb) for usage examples.

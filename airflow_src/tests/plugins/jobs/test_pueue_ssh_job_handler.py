@@ -129,11 +129,10 @@ class TestStartJob:
             in statements
         )
         assert not [s for s in statements if s.startswith("$env:_")]
-        assert statements[-1] == (
-            "pueue add --print-task-id "
-            r'--working-directory "Z:\alphakraken\output\P1\out_raw_file_1.raw\custom" '
-            '--label "raw_file_1.raw" '
-            f'-- "{CUSTOM_COMMAND} > {LOG_FILE_NAME} 2>&1"'
+        assert script.endswith(
+            'pueue add --print-task-id --label "raw_file_1.raw" '
+            r"""-- "cmd /c 'pushd Z:\alphakraken\output\P1\out_raw_file_1.raw\custom && """
+            f"{CUSTOM_COMMAND} > {LOG_FILE_NAME} 2>&1'\""
         )
 
     def test_start_job_takes_the_last_line_as_task_id(

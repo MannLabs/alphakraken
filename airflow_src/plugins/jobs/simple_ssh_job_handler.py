@@ -1,4 +1,4 @@
-"""Implementation of a job handler that runs jobs as background processes on a machine reachable via SSH.
+r"""Implementation of a job handler that runs jobs as background processes on a machine reachable via SSH.
 
 The resolved `custom_command` is run directly on the remote machine,
 supports the `custom` software type only. No scheduling or load balancing is done, so this is for very
@@ -7,8 +7,8 @@ lightweight jobs only. The runner must be reachable via SSH and have a POSIX she
 The handler writes a launcher script into the job's output folder (which the worker and the runner
 share) and uses SSH only to start the job and poll its status.
 
-Precondition: `custom_command` contains only `a-zA-Z0-9-_+./` and spaces (enforced upstream),
-so it never needs escaping in the launcher.
+Precondition: `custom_command` contains only `a-zA-Z0-9-_+./\` and spaces and does not end with a
+backslash (enforced upstream), so it never needs escaping in the launcher.
 
 Notes:
     - on windows, `time_elapsed` is always 0.

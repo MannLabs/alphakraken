@@ -32,13 +32,12 @@ FILE_REMOVER_STALE_THRESHOLD_HOURS = (
 )
 # a failed file remover run is reported less often, it runs rarely
 FILE_REMOVER_HEALTH_COOLDOWN_MINUTES = 12 * 60
-# regardless of the configuration in airflow: 200 GB is very low
 FREE_SPACE_THRESHOLD_GB: int = get_notification_setting(
-    YamlKeys.FREE_SPACE_THRESHOLD_GB, 200
+    YamlKeys.FREE_SPACE_THRESHOLD_GB
 )
 # file systems with a threshold other than FREE_SPACE_THRESHOLD_GB
 FILE_SYSTEM_FREE_SPACE_THRESHOLDS_GB: dict[str, int] = get_notification_setting(
-    YamlKeys.FILE_SYSTEM_FREE_SPACE_THRESHOLDS_GB, {"backup": 500, "output": 300}
+    YamlKeys.FILE_SYSTEM_FREE_SPACE_THRESHOLDS_GB
 )
 
 # Local disk alert configuration
@@ -48,7 +47,7 @@ LOCAL_DISK_PATH = (
 )
 # Local disk of the monitoring host
 LOCAL_FREE_SPACE_THRESHOLD_GB: int = get_notification_setting(
-    YamlKeys.LOCAL_FREE_SPACE_THRESHOLD_GB, 10
+    YamlKeys.LOCAL_FREE_SPACE_THRESHOLD_GB
 )
 
 STATUS_PILE_UP_THRESHOLDS = defaultdict(lambda: 5)
@@ -78,11 +77,11 @@ PUMP_PRESSURE_LOOKBACK_DAYS = 1
 PUMP_PRESSURE_WINDOW_SIZE = 5  # Number of samples to compare
 # Pressure increase threshold in bar
 PUMP_PRESSURE_THRESHOLD_BAR: float = get_notification_setting(
-    YamlKeys.PUMP_PRESSURE_THRESHOLD_BAR, 20
+    YamlKeys.PUMP_PRESSURE_THRESHOLD_BAR
 )
 # Absolute pressure threshold in bar
 PUMP_PRESSURE_ABSOLUTE_THRESHOLD_BAR: float = get_notification_setting(
-    YamlKeys.PUMP_PRESSURE_ABSOLUTE_THRESHOLD_BAR, 480
+    YamlKeys.PUMP_PRESSURE_ABSOLUTE_THRESHOLD_BAR
 )
 PUMP_PRESSURE_GRADIENT_TOLERANCE = 0.1
 

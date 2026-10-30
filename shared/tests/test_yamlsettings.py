@@ -89,6 +89,14 @@ def test_returns_test_settings_for_test_environment(
                 "ops_alerts_url": "json://test-webhook.example.com",
                 "business_alerts_url": "json://test-webhook.example.com",
                 "webapp_url": "http://localhost:8501",
+                "free_space_threshold_gb": 200,
+                "file_system_free_space_thresholds_gb": {
+                    "backup": 500,
+                    "output": 300,
+                },
+                "local_free_space_threshold_gb": 10,
+                "pump_pressure_threshold_bar": 20,
+                "pump_pressure_absolute_threshold_bar": 480,
             }
         },
         "display_paths": {

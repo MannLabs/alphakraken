@@ -1,13 +1,10 @@
 # Airflow 2.11.0 → 3.3.2: manual steps
 
-Code changes are on branch `airflow3_migration` (based on `design_docs/AIRFLOW3_B_MIGRATION_GUIDE.md`).
-Verified without a running stack: 553 unit tests, `ty`, `ruff --select AIR`, plugin loading with the
-DAGs folder off `sys.path`, `airflow config lint`, dependency resolution against `constraints-3.13.txt`.
-Everything below needs a human and/or a running deployment.
+This is a major upgrade, approach with caution!
 
 ## 1. Before cutover
 
-- 1.1 On every machine, add to `envs/${ENV}.env` (templates in `envs/production.env`, `envs/sandbox.env`):
+- 1.1 On every machine, add to `envs/${ENV}.env`:
   `AIRFLOW_APISERVER_HOST`, `AIRFLOW_APISERVER_PORT`, `AIRFLOW_BASE_URL`, `AIRFLOW_JWT_SECRET`.
   - `AIRFLOW_APISERVER_HOST/PORT`: reachable from every **worker** host (= infra host IP + `WEBSERVER_PORT`),
     never a compose service name unless all services share one compose network.
@@ -22,40 +19,37 @@ Everything below needs a human and/or a running deployment.
 - 1.3 Rename the SSH connections (Admin → Connections) to `<ssh_connection_id_prefix>_1`, `_2`, ... without gaps,
   e.g. `cluster_ssh_connection` → `cluster_ssh_connection_1`. Workers cannot list connections any more; they probe these ids.
 - 1.4 Staging: build the image (`./compose.sh build`) and run the whole of section 3 there first.
-  paramiko 5 against the cluster SSH daemon and the amazon provider bump are untested.
-- 1.5 Pick an acquisition gap; keep the 2.11 image pullable for rollback.
+- 1.5 Pick an acquisition gap or pause instrument_watchers and wait for all downstream DAGs to clear; keep the 2.11 image pullable for rollback.
 
 ## 2. Cutover (guide §5)
 
 - 2.1 `./compose.sh down` on all machines.
 - 2.2 Back up postgres (the only rollback path):
   `pg_dump -Fc -U "$POSTGRES_USER" -h "$POSTGRES_HOST" "$POSTGRES_DB" > airflow_pre_af3_$(date +%F).dump`
-- 2.3 Still on the **old** image: `airflow db clean --clean-before-timestamp <~90 days ago>` and
+- 2.3 (optional) Still on the **old** image: `airflow db clean --clean-before-timestamp <~90 days ago>` and
   `airflow dags reserialize` (expect 0 import errors).
 - 2.4 `git pull`, then `./compose.sh --profile dbs up airflow-init` (runs `airflow db migrate`; FAB tables are
-  created automatically, no `fab-db migrate`).
-- 2.5 Purge the 2.11 Flask sessions (pickle vs msgpack, otherwise HTTP 500 on `/auth/login/`):
+  created automatically, no `fab-db migrate`). Grep the init log for `Traceback`: the entrypoint runs
+  `airflow db migrate || true`, so exit code 0 proves nothing. Known failure: the FAB migration
+  `0001_3_5_0_fix_fab_db_inconsistencies` aborts with
+  `NotNullViolation: column "view_menu_id" of relation "ab_permission_view"` (orphan rows from 2.11).
+  The following `users create` step deletes them (`Deleted 1 faulty permissions`); rerun `airflow-init` in this case.
+- 2.5 (optional, if troubles opening the apiserver GUI) Purge the 2.11 Flask sessions (pickle vs msgpack, otherwise HTTP 500 on `/auth/login/`):
   `./compose.sh exec postgres-service psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c 'DELETE FROM session;'`
 - 2.6 `./compose.sh --profile infrastructure up --build -d` (api-server, scheduler, dag-processor), then
   `--profile workers`. Read the **whole** first-boot log of the api-server, not the tail.
 - 2.7 Clear the browser cookies for the Airflow host, log in.
+- 2.8 Rebuild and smoke-test webapp, rest_api, mcp_server images.
 
 ## 3. After cutover
-
+Check the following:
 - 3.1 UI reachable in a real browser after login (not curl), through nginx. With two api-server replicas the
   `ip_hash` upstream keeps a browser on one backend; confirm login survives a reload and a second tab.
-- 3.2 Connections not following the naming of 1.3 (or after a gap in the numbering) are silently unused.
-- 3.3 Pools and other Variables survive the migration; verify they are present.
-- 3.4 Smoke test DAGs in this order: `file_remover` (cron + worker→api path), `instrument_watcher`,
+- 3.2 Connections not following the naming of 1.3 (or after a gap in the numbering) are silently unused, remove them.
+- 3.3 Smoke test DAGs in this order: `file_remover` (cron + worker→api path), `instrument_watcher`,
   `acquisition_handler` (checks `trigger_dag_run`; verify the file_mover run starts only after the delay),
   `acquisition_processor` (checks `get_task_states`, SSH connection probing, paramiko 5, mapping), `s3_uploader`.
-- 3.5 Force one branch of `acquisition_processor` to fail and check the resulting `RawFileStatus`
-  (DONE / QUANTING_FAILED / ERROR). Silent if wrong.
-- 3.6 Confirm `on_failure_callback` fires and finds `raw_file_id` (callbacks run in the supervisor now).
-- 3.7 pandas 3: compare one real `msqc` and one `skyline` metrics output with pre-migration values
-  (no test coverage for these two).
-- 3.8 Rebuild and smoke-test webapp, rest_api, mcp_server images: `shared/requirements_shared.txt`
-  now pins `pydantic==2.13.4` (was 2.11.7, forced by the airflow constraints).
+
 
 ## 4. Rollback
 

@@ -701,6 +701,29 @@ def test_get_youngest_file_age(mock_get_file_ctime: MagicMock) -> None:
     )
 
 
+@patch("plugins.sensors.acquisition_monitor.get_file_ctime")
+def test_get_youngest_file_age_file_vanished(mock_get_file_ctime: MagicMock) -> None:
+    """Test _get_youngest_file_age skips a file that vanished during the scan."""
+    mock_get_file_ctime.side_effect = [oldest_age, FileNotFoundError, intermediate_age]
+    assert (
+        AcquisitionMonitor._get_youngest_file_age(
+            Path("file_to_check"), {"file1", "file2", "file3"}
+        )
+        == intermediate_age
+    )
+
+
+@patch("plugins.sensors.acquisition_monitor.get_file_ctime")
+def test_get_youngest_file_age_all_files_vanished(
+    mock_get_file_ctime: MagicMock,
+) -> None:
+    """Test _get_youngest_file_age returns 0 if all files vanished during the scan."""
+    mock_get_file_ctime.side_effect = FileNotFoundError
+    assert (
+        AcquisitionMonitor._get_youngest_file_age(Path("file_to_check"), {"file1"}) == 0
+    )
+
+
 @pytest.mark.parametrize(
     ("age", "expected"),
     [

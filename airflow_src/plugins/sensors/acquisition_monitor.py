@@ -220,21 +220,18 @@ class AcquisitionMonitor(BaseSensorOperator):
     def _get_youngest_file_age(
         instrument_data_path: Path, dir_content: set[str]
     ) -> float:
-        """Return the age (unix epoch) of the youngest file in the directory, 0 (= very old) if the directory is empty."""
-        if not dir_content:
-            return 0
+        """Return the age (unix epoch) of the youngest file in the directory, 0 (= very old) if no file exists."""
+        file_ages = []
+        for file_name in dir_content:
+            try:
+                file_age = get_file_ctime(instrument_data_path / file_name)
+            except FileNotFoundError:
+                # e.g. moved away by the file mover in the meantime
+                continue
+            file_ages.append(file_age)
 
-        file_ages = [
-            get_file_ctime(instrument_data_path / file_name)
-            for file_name in dir_content
-        ]
-
-        # st_ctime gives epoch timestamp ("age in seconds since 1970")
-        return sorted(
-            file_ages,
-            key=lambda item: item,
-            reverse=True,  # youngest first
-        )[0]
+        # st_ctime gives epoch timestamp ("age in seconds since 1970"), so the largest value is the youngest file
+        return max(file_ages, default=0)
 
     @staticmethod
     def _is_older_than_threshold(

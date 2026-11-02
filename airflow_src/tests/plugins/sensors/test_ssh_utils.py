@@ -74,8 +74,17 @@ def test_ssh_execute_multiple_tries(
 
     # then
     assert result == "command output"
-    assert mock_sleep.call_count == 7
     assert ssh_hook.exec_ssh_client_command.call_count == 7
+    # no wait before the first try and after each 254; a growing wait after the other failures
+    assert mock_sleep.call_args_list == [
+        call(0),
+        call(0),
+        call(0),
+        call(180),
+        call(240),
+        call(300),
+        call(360),
+    ]
 
     expected_call = call(
         ssh_hook.get_conn.return_value,
@@ -105,7 +114,7 @@ def test_ssh_execute_too_many_tries(
     with pytest.raises(AirflowFailException):
         ssh_execute("my_command", SSH_PREFIX)
 
-    assert mock_sleep.call_count == 30
+    assert mock_sleep.call_args_list == [call(0)] * 30
     assert ssh_hook.exec_ssh_client_command.call_count == 30
 
 

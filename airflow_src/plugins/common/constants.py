@@ -7,6 +7,9 @@ CLUSTER_SSH_CONNECTION_TIMEOUT = 60
 CLUSTER_SSH_COMMAND_TIMEOUT = 60
 # upper bound when probing for connections `<prefix>_1`, `<prefix>_2`, ...
 CLUSTER_SSH_MAX_CONNECTIONS = 50
+CLUSTER_SSH_RETRY_DELAY_S = 60
+# returned with empty output right after a successful login; the next connection usually works
+CLUSTER_SSH_EXIT_STATUSES_RETRY_IMMEDIATELY = [254]
 
 # lists all queued jobs of the SSH user as lines "<job id> <state>"
 SLURM_QUEUE_STATES_CMD = 'squeue --me --noheader --format="%i %T"'

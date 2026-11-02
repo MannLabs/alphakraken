@@ -42,15 +42,15 @@ def test_parse_file_info_item_invalid_length_raises() -> None:
         parse_file_info_item(item)  # type: ignore[invalid-argument-type]
 
 
-@pytest.mark.parametrize("initials", ["AB", "ab", "MaS", "A1"])
+@pytest.mark.parametrize("initials", ["AB", "ab", "MaS", "ABCDEFGH"])
 def test_user_accepts_initials_of_any_case(initials: str) -> None:
     """Test that initials keep their case and pass validation."""
     User(email="a@b.de", initials=initials).validate()
 
 
-@pytest.mark.parametrize("initials", ["A-B", "A B", "ABCDEFGHI"])
+@pytest.mark.parametrize("initials", ["A-B", "A B", "A1", "A", "ABCDEFGHI"])
 def test_user_rejects_invalid_initials(initials: str) -> None:
-    """Test that initials with other characters or longer than 8 are rejected."""
+    """Test that initials other than 2 to 8 letters are rejected."""
     with pytest.raises(ValidationError):
         User(email="a@b.de", initials=initials).validate()
 

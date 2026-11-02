@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import pytz
 
-from monitoring.alerts.base_alert import BaseAlert, Issue
+from monitoring.alerts.base_alert import BaseAlert, Issue, shorten
 
 NOW = datetime(2024, 1, 15, 12, 0, tzinfo=pytz.UTC)
 
@@ -186,3 +186,19 @@ class TestBaseAlertSuppressions:
 
             # then
             assert result == [Issue("instrument1", "error message")]
+
+
+def test_shorten_cuts_long_text_with_an_ellipsis() -> None:
+    """Texts above the limit end with an ellipsis within the limit."""
+    assert shorten("abc", 3) == "abc"
+    assert shorten("abcd", 3) == "ab…"
+
+
+def test_format_message_default_shortens_long_details() -> None:
+    """Long details are cut, so that messages stay within the webhook limits."""
+    # when
+    result = DefaultFormatAlert().format_message([Issue("a", "x" * 400)])
+
+    # then
+    assert len(result) < 320
+    assert result.endswith("…")

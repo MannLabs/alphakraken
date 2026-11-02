@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, Mock, patch
 import pytest
 import pytz
 
+from monitoring.alerts.base_alert import Issue
 from monitoring.alerts.queue_stop_alert import (
     KIND_HANDOFF,
     KIND_STOP,
@@ -60,8 +61,8 @@ class TestQueueStopAlertBasics:
         assert result == "QueueStopAlert"
 
     @patch(
-        "monitoring.alerts.queue_stop_alert.INSTRUMENT_USER_SLACK_IDS",
-        {"MaSc": "U_MASC"},
+        "monitoring.alerts.queue_stop_alert.get_messenger_ids_by_initials",
+        Mock(return_value={"MaSc": "U_MASC"}),
     )
     @patch("monitoring.alerts.queue_stop_alert.RawFile")
     def test_no_alert_when_fewer_than_two_files(self, mock_rawfile: Mock) -> None:
@@ -77,47 +78,23 @@ class TestQueueStopAlertBasics:
         # then
         assert result == []
 
-    @patch("monitoring.alerts.queue_stop_alert.INSTRUMENT_USER_SLACK_IDS", {})
+    @patch(
+        "monitoring.alerts.queue_stop_alert.get_messenger_ids_by_initials",
+        Mock(return_value={}),
+    )
     @patch("monitoring.alerts.queue_stop_alert.RawFile")
-    def test_no_alert_when_no_files_have_mapped_initials(
-        self, mock_rawfile: Mock
-    ) -> None:
-        """Empty user-id map short-circuits before any DB query."""
-        # given - empty user map -> alert short-circuits without querying DB
+    def test_no_alert_when_no_user_has_a_messenger_id(self, mock_rawfile: Mock) -> None:
+        """Without users that can be notified, the alert short-circuits before any DB query."""
+        # given
         # when
         result = QueueStopAlert()._get_issues([], datetime.now(pytz.UTC))
         # then
         assert result == []
         mock_rawfile.objects.distinct.assert_not_called()
 
-    def test_initials_pattern_matches_underscored_token_only(self) -> None:
-        """The initials regex matches only underscored 2-8 letter tokens."""
-        # given
-        from monitoring.alerts.queue_stop_alert import INITIALS_PATTERN
-
-        # when / then
-        assert INITIALS_PATTERN.search("_MaSc_") is not None
-        assert INITIALS_PATTERN.search("xxx_AB_yyy") is not None
-        # Bare token (no surrounding underscores) must NOT match
-        assert INITIALS_PATTERN.search("MaScfoo") is None
-        # 1-char tokens excluded by {2,8}
-        assert INITIALS_PATTERN.search("_A_") is None
-        # 9-char tokens excluded
-        assert INITIALS_PATTERN.search("_ABCDEFGHI_") is None
-
-    def test_initials_pattern_matches_adjacent_tokens(self) -> None:
-        """Adjacent tokens sharing one underscore both match (overlapping boundary)."""
-        # given
-        from monitoring.alerts.queue_stop_alert import INITIALS_PATTERN
-
-        # when
-        tokens = [m.group(1) for m in INITIALS_PATTERN.finditer("x_SA_AnSc_y.raw")]
-        # then
-        assert tokens == ["SA", "AnSc"]
-
     @patch(
-        "monitoring.alerts.queue_stop_alert.INSTRUMENT_USER_SLACK_IDS",
-        {"MaSc": "U_MASC", "JoeB": "U_JOEB"},
+        "monitoring.alerts.queue_stop_alert.get_messenger_ids_by_initials",
+        Mock(return_value={"JoeB": "U_JOEB", "MaSc": "U_MASC"}),
     )
     @patch("monitoring.alerts.queue_stop_alert.MAX_GRADIENT_LENGTH_HOURS", 2)
     @patch("monitoring.alerts.queue_stop_alert.QUEUE_STOP_THRESHOLD_MULTIPLIER", 3)
@@ -153,7 +130,8 @@ class TestQueueStopAlertBasics:
 
 
 @patch(
-    "monitoring.alerts.queue_stop_alert.INSTRUMENT_USER_SLACK_IDS", {"MaSc": "U_MASC"}
+    "monitoring.alerts.queue_stop_alert.get_messenger_ids_by_initials",
+    Mock(return_value={"MaSc": "U_MASC"}),
 )
 @patch("monitoring.alerts.queue_stop_alert.MAX_GRADIENT_LENGTH_HOURS", 2)
 @patch("monitoring.alerts.queue_stop_alert.QUEUE_STOP_THRESHOLD_MULTIPLIER", 3)
@@ -210,7 +188,7 @@ class TestRuleAStop:
         identifier, issue = result[0].identifier, result[0].details
         assert identifier == "inst1:x_MaSc_a.raw"
         assert issue.kind == KIND_STOP
-        assert issue.messenger_user_id == "U_MASC"
+        assert issue.subject_file_id == "x_MaSc_a.raw"
 
     @patch("monitoring.alerts.queue_stop_alert.RawFile")
     def test_stop_skips_when_gradient_length_exceeds_max(
@@ -322,8 +300,8 @@ class TestRuleAStop:
 
 
 @patch(
-    "monitoring.alerts.queue_stop_alert.INSTRUMENT_USER_SLACK_IDS",
-    {"MaSc": "U_MASC", "JoeB": "U_JOEB"},
+    "monitoring.alerts.queue_stop_alert.get_messenger_ids_by_initials",
+    Mock(return_value={"JoeB": "U_JOEB", "MaSc": "U_MASC"}),
 )
 @patch("monitoring.alerts.queue_stop_alert.MAX_GRADIENT_LENGTH_HOURS", 2)
 @patch("monitoring.alerts.queue_stop_alert.QUEUE_STOP_THRESHOLD_MULTIPLIER", 3)
@@ -357,7 +335,7 @@ class TestRuleBHandoff:
         identifier, issue = result[0].identifier, result[0].details
         assert identifier == "inst1:x_MaSc_a.raw"
         assert issue.kind == KIND_HANDOFF
-        assert issue.messenger_user_id == "U_MASC"
+        assert issue.subject_file_id == "x_MaSc_a.raw"
 
     @patch("monitoring.alerts.queue_stop_alert.RawFile")
     def test_handoff_skips_when_only_two_files_on_instrument(
@@ -443,7 +421,7 @@ class TestRuleBHandoff:
         # then
         assert len(result) == 1
         issue = result[0].details
-        assert issue.messenger_user_id == "U_MASC"
+        assert issue.subject_file_id == "x_MaSc_a.raw"
 
     @patch("monitoring.alerts.queue_stop_alert.RawFile")
     def test_handoff_fires_when_newest_has_no_initials_token(
@@ -466,7 +444,7 @@ class TestRuleBHandoff:
         # then
         assert len(result) == 1
         issue = result[0].details
-        assert issue.messenger_user_id == "U_MASC"
+        assert issue.subject_file_id == "x_MaSc_a.raw"
 
     @patch("monitoring.alerts.queue_stop_alert.RawFile")
     def test_handoff_fires_when_newest_has_unmapped_initials(
@@ -489,7 +467,7 @@ class TestRuleBHandoff:
         # then
         assert len(result) == 1
         issue = result[0].details
-        assert issue.messenger_user_id == "U_MASC"
+        assert issue.subject_file_id == "x_MaSc_a.raw"
 
     @patch("monitoring.alerts.queue_stop_alert.RawFile")
     def test_handoff_skips_when_prior_gap_exceeds_max_gradient_length_hours(
@@ -521,7 +499,8 @@ _T3 = datetime(2026, 8, 19, 6, 38, tzinfo=pytz.UTC)
 
 
 @patch(
-    "monitoring.alerts.queue_stop_alert.INSTRUMENT_USER_SLACK_IDS", {"AnSc": "U_ANSC"}
+    "monitoring.alerts.queue_stop_alert.get_messenger_ids_by_initials",
+    Mock(return_value={"AnSc": "U_ANSC"}),
 )
 @patch("monitoring.alerts.queue_stop_alert.MAX_GRADIENT_LENGTH_HOURS", 2.5)
 @patch("monitoring.alerts.queue_stop_alert.QUEUE_STOP_THRESHOLD_MULTIPLIER", 3)
@@ -575,20 +554,18 @@ class TestAdjacentInitialsTokens:
         assert len(result) == 1
         issue = result[0].details
         assert issue.kind == KIND_STOP
-        assert issue.messenger_user_id == "U_ANSC"
+        assert issue.subject_file_id == self._NEWEST
 
 
 # -- Recipients & delivery ----------------------------------------------------
 
 
-def _build_stop_issue(
-    messenger_user_id: str = "U_MASC", instrument_id: str = "inst1"
-) -> QueueStopIssue:
-    """Construct a stop QueueStopIssue for delivery tests."""
+def _build_stop_issue(instrument_id: str = "inst1") -> QueueStopIssue:
+    """Construct a stop QueueStopIssue for rendering tests."""
     return QueueStopIssue(
         kind=KIND_STOP,
         instrument_id=instrument_id,
-        messenger_user_id=messenger_user_id,
+        subject_file_id="x_MaSc_a.raw",
         gradient_length=timedelta(minutes=30),
         pause=timedelta(minutes=120),
         recent_files=[
@@ -604,12 +581,12 @@ def _build_stop_issue(
     )
 
 
-def _build_handoff_issue(messenger_user_id: str = "U_MASC") -> QueueStopIssue:
-    """Construct a handoff QueueStopIssue for delivery tests."""
+def _build_handoff_issue() -> QueueStopIssue:
+    """Construct a handoff QueueStopIssue for rendering tests."""
     return QueueStopIssue(
         kind=KIND_HANDOFF,
         instrument_id="inst1",
-        messenger_user_id=messenger_user_id,
+        subject_file_id="x_MaSc_a.raw",
         gradient_length=timedelta(minutes=30),
         pause=None,
         recent_files=[
@@ -623,18 +600,18 @@ def _build_handoff_issue(messenger_user_id: str = "U_MASC") -> QueueStopIssue:
     )
 
 
-class TestRecipientsAndDelivery:
-    """Recipient list construction and DM fan-out via `send_direct_message`."""
+class TestSubjectAndRendering:
+    """The subject file of an issue and the rendering of messages."""
 
     @patch(
-        "monitoring.alerts.queue_stop_alert.INSTRUMENT_USER_SLACK_IDS",
-        {"MaSc": "U_MASC"},
+        "monitoring.alerts.queue_stop_alert.get_messenger_ids_by_initials",
+        Mock(return_value={"MaSc": "U_MASC"}),
     )
     @patch("monitoring.alerts.queue_stop_alert.MAX_GRADIENT_LENGTH_HOURS", 2)
     @patch("monitoring.alerts.queue_stop_alert.QUEUE_STOP_THRESHOLD_MULTIPLIER", 3)
     @patch("monitoring.alerts.queue_stop_alert.RawFile")
-    def test_stop_recipient_is_shared_initials_user(self, mock_rawfile: Mock) -> None:
-        """Stop recipient is the Slack user mapped from the shared initials."""
+    def test_stop_subject_is_the_newest_file(self, mock_rawfile: Mock) -> None:
+        """The stop concerns the newest file, i.e. the still-active operator."""
         now = datetime(2026, 1, 1, 12, 0, tzinfo=pytz.UTC)
         gradient = timedelta(minutes=30)
         _install_rawfile_mock(
@@ -647,18 +624,18 @@ class TestRecipientsAndDelivery:
             },
         )
         issues = QueueStopAlert()._get_issues([], now)
-        assert issues[0].details.messenger_user_id == "U_MASC"
+        assert issues[0].details.subject_file_id == "x_MaSc_a.raw"
 
     @patch(
-        "monitoring.alerts.queue_stop_alert.INSTRUMENT_USER_SLACK_IDS",
-        {"MaSc": "U_MASC", "JoeB": "U_JOEB"},
+        "monitoring.alerts.queue_stop_alert.get_messenger_ids_by_initials",
+        Mock(return_value={"JoeB": "U_JOEB", "MaSc": "U_MASC"}),
     )
     @patch("monitoring.alerts.queue_stop_alert.MAX_GRADIENT_LENGTH_HOURS", 2)
     @patch("monitoring.alerts.queue_stop_alert.RawFile")
-    def test_handoff_recipient_is_prior_file_user_not_new_operator(
+    def test_handoff_subject_is_the_prior_users_last_file(
         self, mock_rawfile: Mock
     ) -> None:
-        """Handoff recipient is the prior user only; the new operator is not notified."""
+        """The handoff concerns the prior user's last file, not the new operator's."""
         now = datetime(2026, 1, 1, 12, 0, tzinfo=pytz.UTC)
         _install_rawfile_mock(
             mock_rawfile,
@@ -672,37 +649,7 @@ class TestRecipientsAndDelivery:
         )
         issues = QueueStopAlert()._get_issues([], now)
         assert len(issues) == 1
-        assert issues[0].details.messenger_user_id == "U_MASC"  # prior, not JoeB
-
-    @patch("monitoring.alerts.queue_stop_alert.SPECIAL_ALERT_SLACK_ID", "U_SUP")
-    def test_get_recipients_includes_special_id_when_configured(self) -> None:
-        """When SPECIAL_ALERT_SLACK_ID is set, get_recipients CCs it."""
-        # given
-        issue = _build_stop_issue(messenger_user_id="U_MASC")
-        # when
-        recipients = QueueStopAlert.get_recipients(issue)
-        # then
-        assert recipients == ["U_MASC", "U_SUP"]
-
-    @patch("monitoring.alerts.queue_stop_alert.SPECIAL_ALERT_SLACK_ID", None)
-    def test_get_recipients_excludes_special_id_when_not_configured(self) -> None:
-        """When SPECIAL_ALERT_SLACK_ID is None, get_recipients returns only the user."""
-        # given
-        issue = _build_stop_issue()
-        # when
-        recipients = QueueStopAlert.get_recipients(issue)
-        # then
-        assert recipients == ["U_MASC"]
-
-    @patch("monitoring.alerts.queue_stop_alert.SPECIAL_ALERT_SLACK_ID", "U_MASC")
-    def test_get_recipients_deduplicates_when_user_id_equals_special_id(self) -> None:
-        """If the alerted user IS the special ID, get_recipients dedups to one entry."""
-        # given - user IS the special ID
-        issue = _build_stop_issue(messenger_user_id="U_MASC")
-        # when
-        recipients = QueueStopAlert.get_recipients(issue)
-        # then
-        assert recipients == ["U_MASC"]
+        assert issues[0].details.subject_file_id == "x_MaSc_a.raw"  # prior, not JoeB
 
     def test_render_issue_distinguishes_stop_and_handoff(self) -> None:
         """Stop and handoff messages have different bodies."""
@@ -740,7 +687,7 @@ class TestRecipientsAndDelivery:
         issue = QueueStopIssue(
             kind=KIND_STOP,
             instrument_id="inst1",
-            messenger_user_id="U_MASC",
+            subject_file_id="x_MaSc_a.raw",
             gradient_length=timedelta(minutes=30),
             pause=timedelta(minutes=120),
             recent_files=[
@@ -768,7 +715,7 @@ class TestRecipientsAndDelivery:
         issue = QueueStopIssue(
             kind=KIND_STOP,
             instrument_id="inst1",
-            messenger_user_id="U_MASC",
+            subject_file_id="x_MaSc_a.raw",
             gradient_length=timedelta(minutes=30),
             pause=timedelta(minutes=120),
             recent_files=[
@@ -794,7 +741,7 @@ class TestRecipientsAndDelivery:
         issue = QueueStopIssue(
             kind=KIND_STOP,
             instrument_id="inst1",
-            messenger_user_id="U_MASC",
+            subject_file_id="x_MaSc_a.raw",
             gradient_length=timedelta(minutes=30),
             pause=timedelta(minutes=120),
             recent_files=[
@@ -825,3 +772,27 @@ class TestRecipientsAndDelivery:
 def test_queue_stop_is_reported_once_per_subject_file() -> None:
     """Stop and handoff share the key, so the same user-last-file notifies once."""
     assert QueueStopAlert().cooldown_minutes is None
+
+
+@patch("monitoring.alerts.queue_stop_alert.RawFile")
+def test_format_message_renders_each_issue_with_refreshed_sizes(
+    mock_rawfile: Mock,
+) -> None:
+    """Issues are rendered one after the other, with sizes refreshed from the DB."""
+    # given
+    stop = _build_stop_issue()
+    handoff = _build_handoff_issue()
+    _install_refresh_mock(mock_rawfile, [_make_file("x_MaSc_a.raw", _T1, size=42)])
+
+    # when
+    result = QueueStopAlert().format_message(
+        [Issue("inst1:x_MaSc_a.raw", stop), Issue("inst1:x_MaSc_a.raw", handoff)]
+    )
+
+    # then
+    assert result == (
+        QueueStopAlert.render_issue(stop)
+        + "\n\n"
+        + QueueStopAlert.render_issue(handoff)
+    )
+    assert stop.recent_files[0].size == 42

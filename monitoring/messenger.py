@@ -162,6 +162,7 @@ def _send_direct_message(message: Message, recipient_id: str) -> None:
 
     Logs a warning and returns when no DM credentials are configured.
     """
+    logging.info(f"Sending direct message to {recipient_id}: {_text(message)}")
     if config.SLACK_BOT_TOKEN:
         _send_direct_message_slack(message, recipient_id, config.SLACK_BOT_TOKEN)
         return

@@ -103,7 +103,9 @@ class TestCheckForIssues:
             key="inst1:k",
             first_seen=NOW,
         )
-        mock_send.assert_called_once_with(Message("inst1", "TestAlert title"), {"ops"})
+        mock_send.assert_called_once_with(
+            Message("inst1", "TestAlert title [TestAlert]"), {"ops"}
+        )
         notified_record, notified_at = db["set_notified"].call_args.args
         assert (notified_record.alert, notified_record.key) == ("TestAlert", "inst1:k")
         assert notified_at == NOW
@@ -125,7 +127,9 @@ class TestCheckForIssues:
 
         # then
         db["add"].assert_not_called()
-        mock_send.assert_called_once_with(Message("a", "TestAlert title"), {"ops"})
+        mock_send.assert_called_once_with(
+            Message("a", "TestAlert title [TestAlert]"), {"ops"}
+        )
         db["set_notified"].assert_called_once_with(due, NOW)
 
     @patch("monitoring.alert_manager.send", return_value=True)
@@ -233,7 +237,7 @@ class TestCheckForIssues:
 
         # then
         mock_send.assert_called_once_with(
-            Message("inst1:x_MaSc_a.raw", None), recipients=["U_MASC"]
+            Message("inst1:x_MaSc_a.raw\n[QueueStopAlert]"), recipients=["U_MASC"]
         )
         db["set_notified"].assert_called_once()
 
@@ -298,7 +302,8 @@ class TestDispatch:
         # then
         assert result == [Issue("a", 1), Issue("b", 2)]
         mock_send.assert_called_once_with(
-            Message("a,b", "BusinessAlert title"), frozenset({"business", "ops"})
+            Message("a,b", "BusinessAlert title [BusinessAlert]"),
+            frozenset({"business", "ops"}),
         )
 
     @patch("monitoring.alert_manager.config.MAX_ISSUES_PER_MESSAGE", 2)
@@ -336,8 +341,8 @@ class TestDispatch:
         # then
         assert result == [issues[0]]
         assert mock_send.call_args_list == [
-            call(Message("a", "UserAlert title"), recipients=["U_MASC"]),
-            call(Message("b", "UserAlert title"), recipients=["U_ANSC"]),
+            call(Message("a", "UserAlert title [UserAlert]"), recipients=["U_MASC"]),
+            call(Message("b", "UserAlert title [UserAlert]"), recipients=["U_ANSC"]),
         ]
 
     @patch("monitoring.alert_manager.send", return_value=True)

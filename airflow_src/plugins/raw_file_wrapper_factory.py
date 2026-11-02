@@ -115,7 +115,10 @@ class RawFileMonitorWrapper(ABC):
     @classmethod
     @abstractmethod
     def get_associated_files(cls, folder: Path, file_name: str) -> list[Path]:
-        """Get the absolute paths of all files in `folder` belonging to the raw file `file_name`."""
+        """Get the absolute paths of all files in `folder` belonging to the raw file `file_name`.
+
+        Only existing files are returned.
+        """
 
     @property
     def instrument_path(self) -> Path:
@@ -151,8 +154,8 @@ class ThermoRawFileMonitorWrapper(RawFileMonitorWrapper):
 
     @classmethod
     def get_associated_files(cls, folder: Path, file_name: str) -> list[Path]:
-        """Get the path of the raw file. Note that it is not checked for existence."""
-        return [folder / file_name]
+        """Get the path of the raw file, if it exists."""
+        return [path] if (path := folder / file_name).exists() else []
 
     def get_corrupted_file_name(self) -> str | None:
         """Get the name of the file that the raw file is renamed to by the acquisition software in certain failure cases.
@@ -342,6 +345,7 @@ class RawFileWriteWrapper(ABC):
         """Get a dictionary mapping source file to destination paths for file-by-file operations (copying or removing).
 
         This gives a 1:1 mapping between source and destination files (not folders!).
+        Only existing source files are contained.
 
         :return: A dictionary mapping source to destination paths for 'copy' operations.
         :raises ValueError: If the path provider is not the correct one for the operation.
@@ -360,12 +364,11 @@ class RawFileWriteWrapper(ABC):
     @abstractmethod
     def _get_files_to_copy(self) -> dict[Path, Path]:
         """Actual implementation."""
-        # TODO: there's currently an inconsistent behaviour between the different implementations:
-        #  some always return the source file path, some return nothing if the source file is not present
-        #  (same for _get_files_to_move)
 
     def get_files_to_move(self) -> dict[Path, Path]:
         """Get a dictionary mapping source file to destination paths for moving.
+
+        Only existing sources are contained.
 
         :return: A dictionary mapping source to destination paths for 'move' operations.
         :raises ValueError: If the path provider is not the correct one for the operation.
@@ -396,6 +399,8 @@ class RawFileWriteWrapper(ABC):
     def get_files_to_remove(self) -> dict[Path, Path]:
         """Get a dictionary mapping source file to destination paths for comparing before removing the 'keys'.
 
+        Only existing source files are contained.
+
         :return: A dictionary mapping source to destination paths for comparing before 'remove' operations.
         :raises ValueError: If the path provider is not the correct one for the operation.
         """
@@ -406,7 +411,7 @@ class RawFileWriteWrapper(ABC):
         return files
 
     def _get_source_files(self) -> list[Path]:
-        """Get the absolute paths of all source files belonging to the raw file."""
+        """Get the absolute paths of all existing source files belonging to the raw file."""
         return self._acquisition_monitor.get_associated_files(
             self._source_folder_path, self._source_file_name
         )
@@ -422,10 +427,11 @@ class ThermoRawFileWriteWrapper(RawFileWriteWrapper):
     def _get_files_to_copy(self) -> dict[Path, Path]:
         """Get the mapping of source to destination path (both absolute) for the raw file."""
         # Thermo raw files consist of a single file
-        [src_path] = self._get_source_files()
+        src_paths = self._get_source_files()
+        assert len(src_paths) <= 1
         dst_path = self._target_folder_path / self._target_file_name
 
-        return {src_path: dst_path}
+        return {src_path: dst_path for src_path in src_paths}
 
     def _get_files_to_move(self) -> dict[Path, Path]:
         """Get a dictionary mapping source file to destination paths for moving."""
@@ -486,10 +492,10 @@ class BrukerRawFileWriteWrapper(RawFileWriteWrapper):
 
         In the case of Bruker, just map the folder name as "move" can handle it.
         """
-        return {
-            self._source_folder_path / self._source_file_name: self._target_folder_path
-            / self._target_file_name
-        }
+        src_path = self._source_folder_path / self._source_file_name
+        if not src_path.exists():
+            return {}
+        return {src_path: self._target_folder_path / self._target_file_name}
 
     def _get_folder_to_remove(self) -> Path | None:
         """Get the folder to remove.

@@ -410,8 +410,25 @@ def test_main_file_path_pass_both_raises() -> None:
         )
 
 
+@pytest.mark.parametrize(
+    ("file_exists", "expected_mapping"),
+    [
+        (
+            True,
+            {
+                Path("/path/to/instrument/sample.raw"): Path(
+                    "/path/to/backup/instrument1/1970_01/123-sample.raw"
+                )
+            },
+        ),
+        (False, {}),
+    ],
+)
 def test_thermo_get_files_to_copy(
     mock_instrument_paths: MagicMock,  # noqa: ARG001
+    *,
+    file_exists: bool,
+    expected_mapping: dict[Path, Path],
 ) -> None:
     """Test that get_files_to_copy returns the correct mapping for ThermoRawDataWrapper."""
     mock_raw_file = MagicMock(
@@ -426,12 +443,9 @@ def test_thermo_get_files_to_copy(
         wrapper = ThermoRawFileWriteWrapper(
             "instrument1", raw_file=mock_raw_file, path_provider=CopyPathProvider
         )
-    expected_mapping = {
-        Path("/path/to/instrument/sample.raw"): Path(
-            "/path/to/backup/instrument1/1970_01/123-sample.raw"
-        )
-    }
-    assert wrapper.get_files_to_copy() == expected_mapping
+
+    with patch("pathlib.Path.exists", return_value=file_exists):
+        assert wrapper.get_files_to_copy() == expected_mapping
 
 
 @patch("plugins.raw_file_wrapper_factory.get_internal_instrument_data_path")
@@ -489,6 +503,7 @@ def test_get_associated_files(tmp_path: Path) -> None:
     assert ThermoRawFileMonitorWrapper.get_associated_files(thermo, "sample.raw") == [
         thermo / "sample.raw"
     ]
+    assert ThermoRawFileMonitorWrapper.get_associated_files(thermo, "missing.raw") == []
     assert set(
         SciexRawFileMonitorWrapper.get_associated_files(sciex, "sample.wiff")
     ) == {
@@ -561,6 +576,41 @@ def test_bruker_get_files_to_copy() -> None:
             }
 
             assert files_to_copy == expected_mapping
+
+
+@pytest.mark.parametrize("folder_exists", [True, False])
+def test_bruker_get_files_to_move(tmp_path: Path, *, folder_exists: bool) -> None:
+    """Test that get_files_to_move maps the raw file folder only if it exists."""
+    mock_raw_file = MagicMock(
+        wraps=RawFile,
+        instrument_id="instrument1",
+        id="123-sample.d",
+        created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
+        original_name="sample.d",
+    )
+    instrument_path = tmp_path / "instrument1"
+    raw_file_path = instrument_path / "sample.d"
+    if folder_exists:
+        raw_file_path.mkdir(parents=True)
+
+    with (
+        patch(
+            "plugins.raw_file_wrapper_factory.get_internal_instrument_data_path",
+            return_value=instrument_path,
+        ),
+        patch.dict(_INSTRUMENTS, {"instrument1": {"type": "bruker"}}),
+    ):
+        wrapper = BrukerRawFileWriteWrapper(
+            "instrument1", raw_file=mock_raw_file, path_provider=MovePathProvider
+        )
+
+        # when
+        files_to_move = wrapper.get_files_to_move()
+
+    expected_dst_path = instrument_path / "Backup" / "123-sample.d"
+    assert files_to_move == (
+        {raw_file_path: expected_dst_path} if folder_exists else {}
+    )
 
 
 @pytest.mark.parametrize(

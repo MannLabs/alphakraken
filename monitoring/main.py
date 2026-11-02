@@ -1,4 +1,4 @@
-"""Script to monitor AlphaKraken and send alerts to Slack or MS Teams."""
+"""Script to monitor AlphaKraken and send alerts via apprise."""
 # ruff: noqa: E402
 
 import logging

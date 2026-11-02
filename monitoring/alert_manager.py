@@ -103,7 +103,7 @@ class AlertManager:
             if _is_due(record, alert.get_cooldown_minutes(issue), now):
                 due.append((issue, record))
 
-        logging.info(f"{alert.name}: {len(due)} issues due")
+        logging.debug(f"{alert.name}: {len(due)} issues due")
         # the records are only marked as notified once sent, so failed sends are retried
         delivered = _dispatch(
             alert, [issue for issue, _ in due], messenger_ids_by_initials

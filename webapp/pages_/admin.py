@@ -200,7 +200,7 @@ st.info(
     f"""
     Alerts matching a suppression are not sent. A suppression matches an alert if all of its fields match,
     `{ALERT_SUPPRESSION_WILDCARD}` matches anything:
-    - **Alert**: class name of the alert, e.g. `PumpPressureAlert` (cf. `monitoring/alerts`).
+    - **Alert**: class name of the alert, e.g. `PumpPressureHighAlert` (cf. `monitoring/alerts`).
     - **Instrument**: the instrument the alert relates to.
     - **Identifier**: the exact identifier shown in the alert, e.g. an instrument or raw file id.
     - **Details**: a part of the alert text.
@@ -250,7 +250,7 @@ with st.form("add_suppression_form"):
     alert = c1.text_input(
         "Alert*",
         value=ALERT_SUPPRESSION_WILDCARD,
-        help="Class name of the alert, e.g. `PumpPressureAlert`.",
+        help="Class name of the alert, e.g. `PumpPressureHighAlert`.",
     )
     instrument_id = c2.selectbox(
         "Instrument*", options=[ALERT_SUPPRESSION_WILDCARD, *_INSTRUMENT_IDS]

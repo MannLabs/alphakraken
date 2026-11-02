@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch
 
 import pytz
 
-from monitoring.alerts.config import Cases
+from monitoring.alerts.base_alert import Issue
 from monitoring.alerts.pump_pressure_alert import PressureDataPoint, PumpPressureAlert
 from shared.db.models import KrakenStatusEntities
 
@@ -22,7 +22,7 @@ class TestPumpPressureAlert:
         result = alert.name
 
         # then
-        assert result == Cases.PUMP_PRESSURE_INCREASE
+        assert result == "PumpPressureAlert"
 
     @patch("monitoring.alerts.pump_pressure_alert.augment_raw_files_with_metrics")
     @patch("monitoring.alerts.pump_pressure_alert.RawFile")
@@ -44,7 +44,7 @@ class TestPumpPressureAlert:
         status_objects = [mock_job]
 
         # when
-        result = alert._get_issues(status_objects)
+        result = alert._get_issues(status_objects, datetime.now(tz=pytz.utc))
 
         # then
         assert result == []
@@ -74,7 +74,7 @@ class TestPumpPressureAlert:
         mock_rawfile.objects.filter.return_value = mock_query
 
         # when
-        result = alert._get_issues(status_objects)
+        result = alert._get_issues(status_objects, datetime.now(tz=pytz.utc))
 
         # then
         assert result == []
@@ -422,13 +422,13 @@ class TestPumpPressureAlert:
         """Test that format_message formats single issue correctly."""
         # given
         alert = PumpPressureAlert()
-        issues = [("instrument1", "Pressure changes: [21.5, 22.3, 23.1]")]
+        issues = [Issue("instrument1", "Pressure changes: [21.5, 22.3, 23.1]")]
 
         # when
         result = alert.format_message(issues)
 
         # then
-        expected = "Pump pressure increase detected:\n- `instrument1`: Pressure changes: [21.5, 22.3, 23.1]"
+        expected = "- `instrument1`: Pressure changes: [21.5, 22.3, 23.1]"
         assert result == expected
 
     def test_format_message_should_format_multiple_issues(self) -> None:
@@ -436,9 +436,9 @@ class TestPumpPressureAlert:
         # given
         alert = PumpPressureAlert()
         issues = [
-            ("instrument1", "Pressure changes: [21.5, 22.3]"),
-            ("instrument2", "Pressure changes: [25.0]"),
-            ("instrument3", "Pressure changes: [30.2, 31.5, 32.8]"),
+            Issue("instrument1", "Pressure changes: [21.5, 22.3]"),
+            Issue("instrument2", "Pressure changes: [25.0]"),
+            Issue("instrument3", "Pressure changes: [30.2, 31.5, 32.8]"),
         ]
 
         # when
@@ -446,7 +446,6 @@ class TestPumpPressureAlert:
 
         # then
         expected = (
-            "Pump pressure increase detected:\n"
             "- `instrument1`: Pressure changes: [21.5, 22.3]\n"
             "- `instrument2`: Pressure changes: [25.0]\n"
             "- `instrument3`: Pressure changes: [30.2, 31.5, 32.8]"
@@ -529,15 +528,15 @@ class TestPumpPressureAlert:
         }
 
         # when - first call should return the issue
-        result_first = alert._get_issues(status_objects)
+        result_first = alert._get_issues(status_objects, now)
 
         # then - first call returns the issue
         assert len(result_first) == 1
-        assert result_first[0][0] == "instrument1"
-        assert "Pressure changes:" in result_first[0][1]
+        assert result_first[0].identifier == "instrument1"
+        assert "Pressure changes:" in result_first[0].details
 
         # when - second call with same data should suppress the issue
-        result_second = alert._get_issues(status_objects)
+        result_second = alert._get_issues(status_objects, now)
 
         # then - second call suppresses the duplicate
         assert result_second == []
@@ -694,15 +693,15 @@ class TestPumpPressureAlert:
         }
 
         # when
-        result = alert._get_issues(status_objects)
+        result = alert._get_issues(status_objects, now)
 
         # then
         # Should detect BOTH:
         # 1. Pressure increase (485 - 460 = 25 bar over window of 5)
         # 2. Multiple absolute threshold violations (485, 484, 483, 482, 481, 480 all >= 480)
         assert len(result) > 1
-        instrument_ids = [issue[0] for issue in result]
-        details = [issue[1] for issue in result]
+        instrument_ids = [issue.identifier for issue in result]
+        details = [issue.details for issue in result]
 
         assert all(
             inst_id in ("instrument1", "absolute_instrument1")

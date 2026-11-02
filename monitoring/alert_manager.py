@@ -21,8 +21,13 @@ from alerts import (
     WebAppHealthAlert,
     config,
 )
-from alerts.base_alert import CustomAlert
-from messenger_clients import AlertTypes, send_channel_message, send_direct_message
+from alerts.base_alert import CustomAlert, Issue
+from messenger_clients import (
+    AlertTypes,
+    Message,
+    send_channel_message,
+    send_direct_message,
+)
 from requests.exceptions import RequestException
 
 from shared.db.models import KrakenStatus
@@ -63,20 +68,21 @@ class AlertManager:
         """Run all alert checks."""
         logging.info("Checking for issues...")
         status_objects = list(KrakenStatus.objects)
+        now = datetime.now(pytz.UTC)
 
         for alert in self.alerts:
-            issues = alert.get_issues(status_objects)
+            issues = alert.get_issues(status_objects, now)
             if issues:
                 self._handle_issues(alert, issues, suppress_alerts=self.is_first_check)
 
         self.is_first_check = False
 
     def _handle_issues(
-        self, alert: BaseAlert, issues: list[tuple], *, suppress_alerts: bool = False
+        self, alert: BaseAlert, issues: list[Issue], *, suppress_alerts: bool = False
     ) -> None:
         """Handle sending an alert if cooldown has passed."""
         alert_name = alert.name
-        identifiers = [issue[0] for issue in issues]
+        identifiers = [issue.identifier for issue in issues]
 
         if self.should_send_alert(identifiers, alert):
             # TODO: this is tightly coupled, find a better way to handle dm vs channel messages
@@ -88,51 +94,42 @@ class AlertManager:
                         f"Suppressed QueueStopAlert dispatch ({len(issues)} issues)"
                     )
             else:
-                message = alert.format_message(issues)
+                message = Message(alert.format_message(issues), alert.title)
                 webhook_url = alert.get_webhook_url()
                 if not suppress_alerts:
                     send_channel_message(message, webhook_url)
                 else:
-                    logging.info(f"Suppressed alert for {alert_name}: {message}")
+                    logging.info(
+                        f"Suppressed alert for {alert_name} ({len(issues)} issues)"
+                    )
 
             for identifier in identifiers:
                 self.set_last_alert_time(alert_name, identifier)
 
     @staticmethod
-    def _dispatch_queue_stop_dms(alert: QueueStopAlert, issues: list[tuple]) -> None:
+    def _dispatch_queue_stop_dms(alert: QueueStopAlert, issues: list[Issue]) -> None:
         """Fan out per-issue DMs; a failed send to one recipient does not abort the rest."""
-        for identifier, issue in issues:
-            alert.refresh_recent_files(issue)
-            message = alert.render_issue(issue)
-            for recipient in alert.get_recipients(issue):
+        for issue in issues:
+            alert.refresh_recent_files(issue.details)
+            message = Message(alert.render_issue(issue.details))
+            for recipient in alert.get_recipients(issue.details):
                 try:
                     send_direct_message(message, recipient)
                 except Exception as exc:  # noqa: BLE001, PERF203
                     logging.warning(
                         f"Failed to send QueueStopAlert DM "
-                        f"(recipient={recipient}, kind={issue.kind}, "
-                        f"instrument={issue.instrument_id}, identifier={identifier}): {exc}"
+                        f"(recipient={recipient}, kind={issue.details.kind}, "
+                        f"instrument={issue.instrument_id}, identifier={issue.identifier}): {exc}"
                     )
 
-    def should_send_alert(
-        self,
-        identifiers: list[str],
-        alert: BaseAlert,
-        cooldown_time_minutes: int | None = None,
-    ) -> bool:
+    def should_send_alert(self, identifiers: list[str], alert: BaseAlert) -> bool:
         """Check if we should send an alert based on cooldown period."""
         send_alert = False
         for identifier in identifiers:
-            if cooldown_time_minutes is not None:
-                effective_cooldown_time_minutes = cooldown_time_minutes
-            else:
-                effective_cooldown_time_minutes = alert.get_cooldown_time_minutes(
-                    identifier
-                )
-
+            cooldown_time_minutes = alert.get_cooldown_time_minutes(identifier)
             earliest_next_alert_time = self._get_last_alert_time(
                 alert.name, identifier
-            ) + timedelta(minutes=effective_cooldown_time_minutes)
+            ) + timedelta(minutes=cooldown_time_minutes)
             send_alert |= datetime.now(pytz.UTC) > earliest_next_alert_time
         return send_alert
 
@@ -167,7 +164,9 @@ def send_special_alert(
 
     message = f"{message} [{alert_name} {identifier}]"
     try:
-        send_channel_message(message, config.OPS_ALERTS_WEBHOOK_URL, alert_type)
+        send_channel_message(
+            Message(message, type=alert_type), config.OPS_ALERTS_WEBHOOK_URL
+        )
     except RequestException:
         logging.exception("Failed to send special alert message.")
     else:

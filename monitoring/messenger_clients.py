@@ -3,6 +3,7 @@
 import json
 import logging
 import os
+from dataclasses import dataclass
 
 import requests
 from alerts import config
@@ -17,33 +18,40 @@ class AlertTypes:
     INFO = "info"
 
 
-def send_channel_message(
-    message: str, webhook_url: str, message_type: str = AlertTypes.ALERT
-) -> None:
-    """Send message to a Slack or MS Teams channel.
+@dataclass(frozen=True)
+class Message:
+    """A message to send, independent of the messenger platform."""
 
-    Args:
-        message: The message to send
-        webhook_url: Webhook URL to send to.
-        message_type: Type of message - 'alert' (default) or 'info'
+    body: str
+    title: str | None = None
+    type: str = AlertTypes.ALERT
 
-    """
+
+def _text(message: Message) -> str:
+    """Render title and body as one text."""
+    if message.title:
+        return f"{message.title}:\n{message.body}"
+    return message.body
+
+
+def send_channel_message(message: Message, webhook_url: str) -> None:
+    """Send message to a Slack or MS Teams channel."""
     # TODO: this could be more elegant
-    logging.info(f"Sending message: {message}")
+    logging.info(f"Sending message: {_text(message)}")
     hostname = os.environ.get(EnvVars.KRAKEN_HOSTNAME, "")
 
     if webhook_url.startswith("https://hooks.slack.com"):
-        _send_channel_message_slack(message, hostname, webhook_url, message_type)
+        _send_channel_message_slack(message, hostname, webhook_url)
     else:
         _send_channel_message_msteams(message, hostname, webhook_url)
 
 
 def _send_channel_message_slack(
-    message: str, hostname: str, webhook_url: str, message_type: str = "alert"
+    message: Message, hostname: str, webhook_url: str
 ) -> None:
     env_name = os.environ.get(EnvVars.ENV_NAME)
 
-    if message_type == AlertTypes.INFO:
+    if message.type == AlertTypes.INFO:
         emoji = "ℹ️"  # noqa: RUF001
         label = "Info"
         prefix = ""
@@ -53,7 +61,7 @@ def _send_channel_message_slack(
         prefix = "<!channel> " if env_name == "production" else f"[{env_name}] "
 
     payload = {
-        "text": f"{emoji} {prefix}*{label}*: {message} (sent from {hostname})",
+        "text": f"{emoji} {prefix}*{label}*: {_text(message)} (sent from {hostname})",
     }
     response = requests.post(webhook_url, json=payload, timeout=10)
     response.raise_for_status()
@@ -61,10 +69,10 @@ def _send_channel_message_slack(
 
 
 def _send_channel_message_msteams(
-    message: str, hostname: str, webhook_url: str
+    message: Message, hostname: str, webhook_url: str
 ) -> None:
     # Define the adaptive card JSON
-    message = f"{message} (sent from {hostname})"
+    text = f"{_text(message)} (sent from {hostname})"
     adaptive_card_json = {
         "type": "message",
         "attachments": [
@@ -72,7 +80,7 @@ def _send_channel_message_msteams(
                 "contentType": "application/vnd.microsoft.card.adaptive",
                 "content": {
                     "type": "AdaptiveCard",
-                    "body": [{"type": "TextBlock", "text": message}],
+                    "body": [{"type": "TextBlock", "text": text}],
                     "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
                     "version": "1.0",
                 },
@@ -90,24 +98,13 @@ def _send_channel_message_msteams(
     logging.info("Successfully sent MS Teams message.")
 
 
-def send_direct_message(
-    message: str, recipient_id: str, *, message_type: str = AlertTypes.ALERT
-) -> None:
+def send_direct_message(message: Message, recipient_id: str) -> None:
     """Send a direct message to a user.
 
-    Dispatches to the appropriate platform implementation based on which
-    credentials are configured in `alerts.config`. Logs a warning and
-    returns (no raise) when no DM credentials are configured, mirroring
-    `send_channel_message`'s no-crash policy.
-
-    Note: when multiple platforms' credentials are configured simultaneously,
-    Slack wins by `if/elif` order. Add a configurable preference if a second
-    DM platform actually lands.
+    Logs a warning and returns when no DM credentials are configured.
     """
     if config.SLACK_BOT_TOKEN:
-        _send_direct_message_slack(
-            message, recipient_id, config.SLACK_BOT_TOKEN, message_type
-        )
+        _send_direct_message_slack(message, recipient_id, config.SLACK_BOT_TOKEN)
         return
 
     logging.warning(
@@ -115,19 +112,17 @@ def send_direct_message(
     )
 
 
-def _send_direct_message_slack(
-    message: str, user_id: str, token: str, message_type: str = AlertTypes.ALERT
-) -> None:
+def _send_direct_message_slack(message: Message, user_id: str, token: str) -> None:
     env_name = os.environ.get(EnvVars.ENV_NAME)
 
-    if message_type == AlertTypes.INFO:
+    if message.type == AlertTypes.INFO:
         emoji = "ℹ️"  # noqa: RUF001
         prefix = ""
     else:
         emoji = "🚨"
         prefix = "" if env_name == "production" else f"[{env_name}] "
 
-    payload = {"channel": user_id, "text": f"{emoji} {prefix}{message}"}
+    payload = {"channel": user_id, "text": f"{emoji} {prefix}{_text(message)}"}
     response = requests.post(
         "https://slack.com/api/chat.postMessage",
         headers={
@@ -142,12 +137,3 @@ def _send_direct_message_slack(
     if not body.get("ok"):
         raise RuntimeError(f"Slack chat.postMessage failed: {body!r}")
     logging.info(f"Successfully sent Slack DM to {user_id}.")
-
-
-def _send_direct_message_msteams(
-    message: str,
-    user_id: str,
-    token: str,
-    message_type: str = AlertTypes.ALERT,
-) -> None:
-    raise NotImplementedError("MS Teams DMs not yet supported")

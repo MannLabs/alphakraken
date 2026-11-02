@@ -1,4 +1,4 @@
-"""Unit tests for messenger_clients DM transport (send_direct_message, _send_direct_message_slack, _send_direct_message_msteams)."""
+"""Unit tests for messenger_clients DM transport (send_direct_message, _send_direct_message_slack)."""
 
 from unittest.mock import Mock, patch
 
@@ -6,8 +6,7 @@ import pytest
 import requests
 
 from monitoring.messenger_clients import (
-    AlertTypes,
-    _send_direct_message_msteams,
+    Message,
     _send_direct_message_slack,
     send_direct_message,
 )
@@ -23,11 +22,9 @@ class TestSendDm:
     ) -> None:
         """When Slack token is configured, send_direct_message delegates to _send_direct_message_slack."""
         # given / when
-        send_direct_message("hello", "U_123")
+        send_direct_message(Message("hello"), "U_123")
         # then
-        mock_slack.assert_called_once_with(
-            "hello", "U_123", "xoxb-test", AlertTypes.ALERT
-        )
+        mock_slack.assert_called_once_with(Message("hello"), "U_123", "xoxb-test")
 
     @patch("monitoring.messenger_clients._send_direct_message_slack")
     @patch("alerts.config.SLACK_BOT_TOKEN", "")
@@ -39,7 +36,7 @@ class TestSendDm:
         """When no DM creds are configured, send_direct_message logs a warning and does not raise."""
         # given / when
         with caplog.at_level("WARNING"):
-            send_direct_message("hello", "U_123")
+            send_direct_message(Message("hello"), "U_123")
         # then - no platform call; warning logged
         mock_slack.assert_not_called()
         assert any(
@@ -64,7 +61,7 @@ class TestSendSlackDm:
         mock_resp.json.return_value = {"ok": True}
         mock_post.return_value = mock_resp
         # when
-        _send_direct_message_slack("hi", "U_123", "xoxb-test")
+        _send_direct_message_slack(Message("hi"), "U_123", "xoxb-test")
         # then
         mock_post.assert_called_once()
         url = mock_post.call_args.args[0]
@@ -88,7 +85,7 @@ class TestSendSlackDm:
         mock_resp.json.return_value = {"ok": True}
         mock_post.return_value = mock_resp
         # when
-        _send_direct_message_slack("hi", "U_123", "xoxb-test")
+        _send_direct_message_slack(Message("hi"), "U_123", "xoxb-test")
         # then
         text = mock_post.call_args.kwargs["json"]["text"]
         assert text == "🚨 hi"
@@ -102,7 +99,7 @@ class TestSendSlackDm:
         mock_post.return_value = mock_resp
         # when / then
         with pytest.raises(RuntimeError, match="channel_not_found"):
-            _send_direct_message_slack("hi", "U_123", "xoxb-test")
+            _send_direct_message_slack(Message("hi"), "U_123", "xoxb-test")
 
     @patch("monitoring.messenger_clients.requests.post")
     def test_raises_on_http_non_2xx(self, mock_post: Mock) -> None:
@@ -113,13 +110,4 @@ class TestSendSlackDm:
         mock_post.return_value = mock_resp
         # when / then
         with pytest.raises(requests.HTTPError):
-            _send_direct_message_slack("hi", "U_123", "xoxb-test")
-
-
-class TestSendMsteamsDmStub:
-    """The MS Teams DM stub must raise NotImplementedError."""
-
-    def test_raises_not_implemented_error(self) -> None:
-        """The MS Teams DM stub is not yet implemented and must raise."""
-        with pytest.raises(NotImplementedError, match="MS Teams"):
-            _send_direct_message_msteams("hi", "U_123", "token")
+            _send_direct_message_slack(Message("hi"), "U_123", "xoxb-test")

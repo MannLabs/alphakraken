@@ -2,13 +2,39 @@
 
 import logging
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Generic, TypeVar
 
 import yaml
 from alerts.config import DEFAULT_ALERT_COOLDOWN_TIME_MINUTES, OPS_ALERTS_WEBHOOK_URL
 
-from shared.db.models import KrakenStatus
+from shared.db.models import KrakenStatus, KrakenStatusEntities
+
+# covariant: Issue is immutable, so e.g. Issue[str] is an Issue[str | None]
+D_co = TypeVar("D_co", covariant=True)
+
+
+@dataclass(frozen=True)
+class Issue(Generic[D_co]):
+    """An issue found by an alert."""
+
+    # e.g. an instrument or raw file id; key for cooldown and suppression context
+    identifier: str
+    # alert-specific payload, rendered by the alert's `format_message`
+    details: D_co
+    # raw file the issue relates to, if any
+    relevant_file: str | None = None
+    # instrument the issue relates to, if any
+    instrument_id: str | None = None
+
+
+def get_instrument_id(kraken_status: KrakenStatus) -> str | None:
+    """Return the id of a status object if it belongs to an instrument, else None."""
+    if kraken_status.entity_type == KrakenStatusEntities.INSTRUMENT:
+        return kraken_status.id
+    return None
 
 
 def _load_suppressions() -> list[dict[str, Any]]:
@@ -36,15 +62,18 @@ _suppressions: list[dict[str, Any]] = _load_suppressions()
 class BaseAlert(ABC):
     """Base class for all alert checkers."""
 
-    def get_issues(self, status_objects: list[KrakenStatus]) -> list[tuple[str, Any]]:
-        """Check for issues and return list of (identifier, details) tuples.
+    # message title, required by the default `format_message`
+    title: str
 
-        e.g. [('instrument1', "low disk space: 123 GB"), ...]
+    def get_issues(
+        self, status_objects: list[KrakenStatus], now: datetime
+    ) -> list[Issue]:
+        """Check for issues and return those not muted by a suppression.
 
         Returns empty list if no issues found.
         """
         logging.info(f"Checking for issues: {self.name}...")
-        issues = self._get_issues(status_objects)
+        issues = self._get_issues(status_objects, now)
         issues_before_suppression = len(issues)
         issues = self._apply_suppressions(issues)
 
@@ -56,9 +85,7 @@ class BaseAlert(ABC):
         logging.info(f"Found {len(issues)} issues after suppression: {self.name}.")
         return issues
 
-    def _apply_suppressions(
-        self, issues: list[tuple[str, Any]]
-    ) -> list[tuple[str, Any]]:
+    def _apply_suppressions(self, issues: list[Issue]) -> list[Issue]:
         """Apply suppression rules to filter out suppressed issues."""
         if not _suppressions:
             return issues
@@ -67,8 +94,8 @@ class BaseAlert(ABC):
         filtered_issues = []
 
         for issue in issues:
-            context = issue[0]
-            message = issue[1]
+            context = issue.identifier
+            message = issue.details
 
             suppressed = False
             for suppression in _suppressions:
@@ -96,17 +123,22 @@ class BaseAlert(ABC):
         return filtered_issues
 
     @abstractmethod
-    def _get_issues(self, status_objects: list[KrakenStatus]) -> list[tuple[str, Any]]:
-        """Check for issues and return list of (identifier, details) tuples."""
+    def _get_issues(
+        self, status_objects: list[KrakenStatus], now: datetime
+    ) -> list[Issue]:
+        """Check for issues and return them."""
 
-    @abstractmethod
-    def format_message(self, issues: list[tuple[str, Any]]) -> str:
-        """Format the alert message for the issues found."""
+    def format_message(self, issues: list[Issue]) -> str:
+        """Format the message body: one line per issue.
+
+        Override this method in subclasses that need a different format.
+        """
+        return "\n".join(f"- `{issue.identifier}`: {issue.details}" for issue in issues)
 
     @property
-    @abstractmethod
     def name(self) -> str:
-        """Return the name for this alert type."""
+        """Return the name of this alert type: its class name."""
+        return type(self).__name__
 
     def get_webhook_url(self) -> str:
         """Return webhook URL for this alert.
@@ -145,12 +177,14 @@ class CustomAlert(BaseAlert):
         """Return the alert name."""
         return self._name
 
-    def _get_issues(self, status_objects: list[KrakenStatus]) -> list[tuple[str, Any]]:
+    def _get_issues(
+        self, status_objects: list[KrakenStatus], now: datetime
+    ) -> list[Issue]:
         """Not used for custom alerts."""
-        del status_objects  # unused
+        del status_objects, now  # unused
         return []
 
-    def format_message(self, issues: list[tuple[str, Any]]) -> str:
+    def format_message(self, issues: list[Issue]) -> str:
         """Not used for custom alerts."""
         del issues  # unused
         return ""

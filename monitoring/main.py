@@ -54,6 +54,9 @@ def main() -> None:
                 f"Error connecting to MongoDB: {e}",
                 alert_manager,
             )
+            # checking would fail as well and send a second alert
+            sleep(CHECK_INTERVAL_SECONDS)
+            continue
 
         try:
             alert_manager.check_for_issues()

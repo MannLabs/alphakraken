@@ -1,6 +1,8 @@
 """Webapp health alert checker."""
 
 import logging
+from datetime import datetime
+from http import HTTPStatus
 
 import requests
 import requests.exceptions
@@ -8,12 +10,13 @@ import requests.exceptions
 from shared.db.models import KrakenStatus
 from shared.yamlsettings import YamlKeys, get_notification_setting
 
-from .base_alert import BaseAlert
-from .config import Cases
+from .base_alert import BaseAlert, Issue
 
 
 class WebAppHealthAlert(BaseAlert):
     """Check if the webapp is accessible and responding with HTTP 200."""
+
+    title = "Webapp health check failed"
 
     def __init__(self, timeout: int = 10):
         """Initialize with optional timeout for HTTP requests."""
@@ -24,40 +27,26 @@ class WebAppHealthAlert(BaseAlert):
             logging.warning("WEBAPP_URL not found in config, health check disabled")
             self.webapp_url = ""
 
-    @property
-    def name(self) -> str:
-        """Return the case name for this alert type."""
-        return Cases.WEBAPP_HEALTH
-
-    def _get_issues(self, status_objects: list[KrakenStatus]) -> list[tuple[str, str]]:
+    def _get_issues(
+        self, status_objects: list[KrakenStatus], now: datetime
+    ) -> list[Issue[str]]:
         """Check if webapp is accessible via HTTP request."""
-        del status_objects  # unused
+        del status_objects, now  # unused
 
         if not self.webapp_url:
             logging.warning("WEBAPP_URL not configured, skipping webapp health check")
             return []
 
-        issues = []
-
         try:
             response = requests.get(self.webapp_url, timeout=self.timeout)
-            if response.status_code != 200:  # noqa: PLR2004
-                issues.append(
-                    ("webapp", f"HTTP {response.status_code}: {response.reason}")
-                )
-        except requests.exceptions.Timeout:
-            issues.append(("webapp", f"Request timeout after {self.timeout} seconds"))
-        except requests.exceptions.ConnectionError:
-            issues.append(("webapp", "Connection failed - webapp may be down"))
         except requests.exceptions.RequestException as e:
-            issues.append(("webapp", f"Request failed: {e!s}"))
-        except Exception as e:
-            logging.exception("Unexpected error during webapp health check")
-            issues.append(("webapp", f"Unexpected error: {e!s}"))
+            return [Issue("webapp", f"{type(e).__name__}: {e}")]
 
-        return issues
+        if response.status_code != HTTPStatus.OK:
+            return [Issue("webapp", f"HTTP {response.status_code}: {response.reason}")]
+        return []
 
-    def format_message(self, issues: list[tuple[str, str | None]]) -> str:
-        """Format webapp health failure message."""
-        error_details = issues[0][1] if issues else "Unknown error"
-        return f"Webapp health check failed: {error_details} (URL: {self.webapp_url})"
+    def format_message(self, issues: list[Issue[str]]) -> str:
+        """Format webapp health failure message body."""
+        error_details = issues[0].details if issues else "Unknown error"
+        return f"{error_details} (URL: {self.webapp_url})"

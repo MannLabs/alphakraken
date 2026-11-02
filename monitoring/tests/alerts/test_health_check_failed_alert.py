@@ -1,10 +1,15 @@
 """Unit tests for  HealthCheckFailedAlert class."""
 
+from datetime import datetime
 from unittest.mock import Mock
 
-from monitoring.alerts.config import Cases
+import pytz
+
+from monitoring.alerts.base_alert import Issue
 from monitoring.alerts.health_check_failed_alert import HealthCheckFailedAlert
 from shared.db.models import KrakenStatusValues
+
+NOW = datetime(2024, 1, 15, 12, 0, tzinfo=pytz.UTC)
 
 
 class TestHealthCheckFailedAlert:
@@ -19,7 +24,7 @@ class TestHealthCheckFailedAlert:
         result = alert.name
 
         # then
-        assert result == Cases.HEALTH_CHECK_FAILED
+        assert result == "HealthCheckFailedAlert"
 
     def test_get_issues_should_return_empty_list_when_all_status_ok(self) -> None:
         """Test that get_issues returns empty list when all health checks are OK."""
@@ -33,7 +38,7 @@ class TestHealthCheckFailedAlert:
         status_objects = [mock_status1]
 
         # when
-        result = alert._get_issues(status_objects)
+        result = alert._get_issues(status_objects, NOW)
 
         # then
         assert result == []
@@ -62,12 +67,12 @@ class TestHealthCheckFailedAlert:
         status_objects = [mock_status1, mock_status2, mock_status3]
 
         # when
-        result = alert._get_issues(status_objects)
+        result = alert._get_issues(status_objects, NOW)
 
         # then
         assert result == [
-            ("instrument1", "Disk full"),
-            ("instrument3", "Service unavailable"),
+            Issue("instrument1", "Disk full"),
+            Issue("instrument3", "Service unavailable"),
         ]
 
     def test_format_message_should_format_multiple_issues_correctly(self) -> None:
@@ -75,9 +80,9 @@ class TestHealthCheckFailedAlert:
         # given
         alert = HealthCheckFailedAlert()
         issues = [
-            ("instrument1", "Disk full"),
-            ("instrument2", "Connection timeout"),
-            ("instrument3", "Service unavailable"),
+            Issue("instrument1", "Disk full"),
+            Issue("instrument2", "Connection timeout"),
+            Issue("instrument3", "Service unavailable"),
         ]
 
         # when
@@ -85,7 +90,6 @@ class TestHealthCheckFailedAlert:
 
         # then
         expected = (
-            "Health check failed:\n"
             "- `instrument1`: Disk full\n"
             "- `instrument2`: Connection timeout\n"
             "- `instrument3`: Service unavailable"
@@ -96,15 +100,14 @@ class TestHealthCheckFailedAlert:
         """Test that format_message handles None status details in issues."""
         # given
         alert = HealthCheckFailedAlert()
-        issues = [("instrument1", None), ("instrument2", "Connection timeout")]
+        issues = [
+            Issue("instrument1", None),
+            Issue("instrument2", "Connection timeout"),
+        ]
 
         # when
         result = alert.format_message(issues)
 
         # then
-        expected = (
-            "Health check failed:\n"
-            "- `instrument1`: None\n"
-            "- `instrument2`: Connection timeout"
-        )
+        expected = "- `instrument1`: None\n- `instrument2`: Connection timeout"
         assert result == expected

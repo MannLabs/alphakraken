@@ -1,8 +1,13 @@
 """Unit tests for BaseAlert suppression functionality."""
 
+from datetime import datetime
 from unittest.mock import patch
 
-from monitoring.alerts.base_alert import BaseAlert
+import pytz
+
+from monitoring.alerts.base_alert import BaseAlert, Issue
+
+NOW = datetime(2024, 1, 15, 12, 0, tzinfo=pytz.UTC)
 
 
 class TestAlert(BaseAlert):
@@ -11,24 +16,42 @@ class TestAlert(BaseAlert):
     def __init__(self) -> None:
         """Initialize the TestAlert with no issues."""
         super().__init__()
-        self.test_issues: list[tuple] = []
-
-    @property
-    def name(self) -> str:
-        """Return the name of the alert."""
-        return "test_alert"
+        self.test_issues: list[Issue] = []
 
     def _get_issues(
         self,
         status_objects: list,  # noqa: ARG002
-    ) -> list[tuple]:
+        now: datetime,  # noqa: ARG002
+    ) -> list[Issue]:
         """Mock implementation to return predefined issues."""
         # Return predefined issues for testing
         return self.test_issues if hasattr(self, "test_issues") else []
 
-    def format_message(self, issues: list[tuple]) -> str:
+    def format_message(self, issues: list[Issue]) -> str:
         """Format the alert message for the issues found."""
         return f"Test message with {len(issues)} issues"
+
+
+class DefaultFormatAlert(BaseAlert):
+    """Alert relying on the default `format_message`."""
+
+    title = "Default title"
+
+    def _get_issues(self, status_objects: list, now: datetime) -> list[Issue]:  # noqa: ARG002
+        """Not used."""
+        return []
+
+
+def test_format_message_default_lists_one_line_per_issue() -> None:
+    """The default message body has one line per issue, without the title."""
+    # given
+    issues = [Issue("instrument1", "disk full"), Issue("instrument2", 42)]
+
+    # when
+    result = DefaultFormatAlert().format_message(issues)
+
+    # then
+    assert result == "- `instrument1`: disk full\n- `instrument2`: 42"
 
 
 class TestBaseAlertSuppressions:
@@ -39,18 +62,18 @@ class TestBaseAlertSuppressions:
         # given
         alert = TestAlert()
         alert.test_issues = [
-            ("instrument1", "error message"),
-            ("instrument2", "another error"),
+            Issue("instrument1", "error message"),
+            Issue("instrument2", "another error"),
         ]
 
         with patch("monitoring.alerts.base_alert._suppressions", []):
             # when
-            result = alert.get_issues([])
+            result = alert.get_issues([], NOW)
 
             # then
             assert result == [
-                ("instrument1", "error message"),
-                ("instrument2", "another error"),
+                Issue("instrument1", "error message"),
+                Issue("instrument2", "another error"),
             ]
 
     def test_exact_context_and_message_suppression(self) -> None:
@@ -58,8 +81,8 @@ class TestBaseAlertSuppressions:
         # given
         alert = TestAlert()
         alert.test_issues = [
-            ("instrument1", "copy failed"),
-            ("instrument2", "disk full"),
+            Issue("instrument1", "copy failed"),
+            Issue("instrument2", "disk full"),
         ]
 
         suppressions = [
@@ -72,19 +95,19 @@ class TestBaseAlertSuppressions:
 
         with patch("monitoring.alerts.base_alert._suppressions", suppressions):
             # when
-            result = alert.get_issues([])
+            result = alert.get_issues([], NOW)
 
             # then
-            assert result == [("instrument2", "disk full")]
+            assert result == [Issue("instrument2", "disk full")]
 
     def test_wildcard_context_suppresses_all_contexts(self) -> None:
         """Test that context: '*' suppresses all contexts for the error class."""
         # given
         alert = TestAlert()
         alert.test_issues = [
-            ("instrument1", "disk full"),
-            ("instrument2", "disk full"),
-            ("backup_system", "disk full"),
+            Issue("instrument1", "disk full"),
+            Issue("instrument2", "disk full"),
+            Issue("backup_system", "disk full"),
         ]
 
         suppressions = [
@@ -93,7 +116,7 @@ class TestBaseAlertSuppressions:
 
         with patch("monitoring.alerts.base_alert._suppressions", suppressions):
             # when
-            result = alert.get_issues([])
+            result = alert.get_issues([], NOW)
 
             # then
             assert result == []
@@ -103,10 +126,10 @@ class TestBaseAlertSuppressions:
         # given
         alert = TestAlert()
         alert.test_issues = [
-            ("instrument1", "copy failed"),
-            ("instrument2", "disk full"),
-            ("instrument3", "network error"),
-            ("instrument4", "validation error"),
+            Issue("instrument1", "copy failed"),
+            Issue("instrument2", "disk full"),
+            Issue("instrument3", "network error"),
+            Issue("instrument4", "validation error"),
         ]
 
         suppressions = [
@@ -124,19 +147,19 @@ class TestBaseAlertSuppressions:
 
         with patch("monitoring.alerts.base_alert._suppressions", suppressions):
             # when
-            result = alert.get_issues([])
+            result = alert.get_issues([], NOW)
 
             # then
             assert result == [
-                ("instrument3", "network error"),
-                ("instrument4", "validation error"),
+                Issue("instrument3", "network error"),
+                Issue("instrument4", "validation error"),
             ]
 
     def test_wrong_error_class_not_suppressed(self) -> None:
         """Test that suppressions for different error classes don't affect this alert."""
         # given
         alert = TestAlert()
-        alert.test_issues = [("instrument1", "error message")]
+        alert.test_issues = [Issue("instrument1", "error message")]
 
         suppressions = [
             {
@@ -148,7 +171,7 @@ class TestBaseAlertSuppressions:
 
         with patch("monitoring.alerts.base_alert._suppressions", suppressions):
             # when
-            result = alert.get_issues([])
+            result = alert.get_issues([], NOW)
 
             # then
-            assert result == [("instrument1", "error message")]
+            assert result == [Issue("instrument1", "error message")]

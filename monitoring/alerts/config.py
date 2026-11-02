@@ -24,8 +24,8 @@ FILE_REMOVER_STALE_THRESHOLD_HOURS = (
 FREE_SPACE_THRESHOLD_GB = (
     200  # regardless of the configuration in airflow: 200 GB is very low
 )
-BACKUP_FREE_SPACE_THRESHOLD_GB = 500  # Backup filesystem threshold
-OUTPUT_FREE_SPACE_THRESHOLD_GB = 300  # Output filesystem threshold
+# file systems with a threshold other than FREE_SPACE_THRESHOLD_GB
+FILE_SYSTEM_FREE_SPACE_THRESHOLDS_GB = {"backup": 500, "output": 300}
 
 # Local disk alert configuration
 BYTES_PER_GB = 1024**3
@@ -86,20 +86,3 @@ try:
 except KeyError:
     logging.warning("Slack bot token not found in config; QueueStopAlert DMs disabled.")
     SLACK_BOT_TOKEN = ""
-
-
-class Cases:
-    """Cases for which to send alerts."""
-
-    STALE = "stale"
-    LOW_DISK_SPACE = "low_disk_space"
-    LOCAL_DISK_SPACE = "local_disk_space"
-    HEALTH_CHECK_FAILED = "health_check_failed"
-    STATUS_PILE_UP = "status_pile_up"
-    INSTRUMENT_FILE_PILE_UP = "instrument_file_pile_up"
-    RAW_FILE_ERROR = "raw_file_error"
-    S3_UPLOAD_FAILURE = "s3_upload_failure"
-    WEBAPP_HEALTH = "webapp_health"
-    PUMP_PRESSURE_INCREASE = "pump_pressure_increase"
-    INSTRUMENT_STALL = "instrument_stall"
-    QUEUE_STOP = "queue_stop"

@@ -1,10 +1,16 @@
 """Unit tests for DiskSpaceAlert class."""
 
+from datetime import datetime
 from unittest.mock import Mock, patch
 
-from monitoring.alerts.config import Cases
+import pytest
+import pytz
+
+from monitoring.alerts.base_alert import Issue
 from monitoring.alerts.disk_space_alert import DiskSpaceAlert
 from shared.db.models import KrakenStatusEntities
+
+NOW = datetime(2024, 1, 15, 12, 0, tzinfo=pytz.UTC)
 
 
 class TestDiskSpaceAlert:
@@ -19,7 +25,7 @@ class TestDiskSpaceAlert:
         result = alert.name
 
         # then
-        assert result == Cases.LOW_DISK_SPACE
+        assert result == "DiskSpaceAlert"
 
     @patch.object(DiskSpaceAlert, "_get_threshold")
     def test_get_issues_should_return_empty_list_when_no_low_disk_space(
@@ -43,7 +49,7 @@ class TestDiskSpaceAlert:
         status_objects = [mock_status1, mock_status2]
 
         # when
-        result = alert._get_issues(status_objects)
+        result = alert._get_issues(status_objects, NOW)
 
         # then
         assert result == []
@@ -91,10 +97,14 @@ class TestDiskSpaceAlert:
         ]
 
         # when
-        result = alert._get_issues(status_objects)
+        result = alert._get_issues(status_objects, NOW)
 
         # then
-        assert result == [("instrument1", 150), ("backup", 180), ("instrument2", 100)]
+        assert result == [
+            Issue("instrument1", 150, instrument_id="instrument1"),
+            Issue("backup", 180),
+            Issue("instrument2", 100, instrument_id="instrument2"),
+        ]
 
     @patch.object(DiskSpaceAlert, "_get_threshold")
     def test_get_issues_should_return_mixed_results_when_mixed_disk_space_levels(
@@ -128,22 +138,44 @@ class TestDiskSpaceAlert:
         status_objects = [mock_status1, mock_status2, mock_status3, mock_status4]
 
         # when
-        result = alert._get_issues(status_objects)
+        result = alert._get_issues(status_objects, NOW)
 
         # then
-        assert result == [("backup", 150), ("output", 180)]
+        assert result == [Issue("backup", 150), Issue("output", 180)]
+
+    @pytest.mark.parametrize(
+        ("entity_type", "id_", "expected"),
+        [
+            (KrakenStatusEntities.FILE_SYSTEM, "backup", 500),
+            (KrakenStatusEntities.FILE_SYSTEM, "output", 300),
+            (KrakenStatusEntities.FILE_SYSTEM, "other", 200),
+            (KrakenStatusEntities.INSTRUMENT, "backup", 200),
+        ],
+    )
+    def test_get_threshold_depends_on_entity_type_and_id(
+        self, entity_type: str, id_: str, expected: int
+    ) -> None:
+        """File systems have their own thresholds, instruments the default one."""
+        # given
+        kraken_status = Mock(entity_type=entity_type, id=id_)
+
+        # when
+        result = DiskSpaceAlert._get_threshold(kraken_status)
+
+        # then
+        assert result == expected
 
     def test_format_message_should_format_single_issue_correctly(self) -> None:
         """Test that format_message formats single issue correctly."""
         # given
         alert = DiskSpaceAlert()
-        issues = [("instrument1", 150)]
+        issues = [Issue("instrument1", 150)]
 
         # when
         result = alert.format_message(issues)
 
         # then
-        expected = "Low disk space detected:\n- `instrument1`: 150 GB"
+        expected = "- `instrument1`: 150 GB"
         assert result == expected
 
     def test_format_message_should_format_multiple_issues_correctly(self) -> None:
@@ -151,19 +183,14 @@ class TestDiskSpaceAlert:
         # given
         alert = DiskSpaceAlert()
         issues = [
-            ("instrument1", 150),
-            ("backup", 180),
-            ("output", 100),
+            Issue("instrument1", 150),
+            Issue("backup", 180),
+            Issue("output", 100),
         ]
 
         # when
         result = alert.format_message(issues)
 
         # then
-        expected = (
-            "Low disk space detected:\n"
-            "- `instrument1`: 150 GB\n"
-            "- `backup`: 180 GB\n"
-            "- `output`: 100 GB"
-        )
+        expected = "- `instrument1`: 150 GB\n- `backup`: 180 GB\n- `output`: 100 GB"
         assert result == expected

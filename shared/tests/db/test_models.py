@@ -6,7 +6,7 @@ import pytest
 import pytz
 from mongoengine import ValidationError
 
-from shared.db.models import AlertIssue, User, parse_file_info_item
+from shared.db.models import AlertIssue, AlertSuppression, User, parse_file_info_item
 
 
 def test_parse_file_info_item_empty_tuple() -> None:
@@ -75,3 +75,10 @@ def test_alert_issue_rejects_missing_key() -> None:
             details="150 GB",
             first_seen=datetime(2024, 1, 1, tzinfo=pytz.UTC),
         ).validate()
+
+
+@pytest.mark.parametrize("field", ["alert", "instrument_id", "identifier", "details"])
+def test_alert_suppression_rejects_empty_match_fields(field: str) -> None:
+    """Match fields must be a value or the wildcard, never empty."""
+    with pytest.raises(ValidationError):
+        AlertSuppression(comment="c", **{field: ""}).validate()

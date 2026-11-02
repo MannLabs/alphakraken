@@ -34,9 +34,9 @@ class Timings:
 
     GET_FILES_TO_REMOVE_TIMEOUT_M: int = 60
 
-    REMOVE_RAW_FILE_TASK_TIMEOUT_M: int = 6 * 60  # runs long due to hashsum calculation
+    REMOVE_RAW_FILE_TASK_TIMEOUT_M: int = 6 * 60  # may run long due to hashsum calculation
 
-    DEFAULT_FILE_MOVE_DELAY_M: int = 5
+    DEFAULT_FILE_MOVE_DELAY_M: int = 60
 
     FILE_MOVE_RETRY_DELAY_M: int = 30
 

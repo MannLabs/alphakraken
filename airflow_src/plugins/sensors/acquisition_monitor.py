@@ -3,12 +3,15 @@
 Wait until acquisition is done.
 
 An acquisition is considered "done" if either:
-- exactly one new file has been found and the (size, mtime) of all associated files have settled
+- exactly one new file has been found and all associated files have been unchanged for a short time since then
+- all associated files have been unchanged for a long time (end of an acquisition queue)
 - the main file has not appeared for a certain amount of time (relevant for Bruker only)
 - the file got renamed by the acquisition software, indicating a failed acquisition
-- the file size has not changed for a certain amount of time
 - (only if Airflow  variable 'consider_old_files_acquired' is set) when the file is "old" (default: > 5h) compared to the
   youngest file. This should be used with caution, but can be handy in case a catchup is required.
+
+In the first, second and last case, the acquisition software must additionally have finalized the raw file
+(cf. RawFileMonitorWrapper.acquisition_finalized()), unless the files have been unchanged for a very long time.
 """
 
 import logging
@@ -27,31 +30,29 @@ from common.keys import (
 )
 from common.paths import get_internal_instrument_data_path
 from common.utils import get_airflow_variable, get_timestamp, put_xcom
-from file_handling import get_file_ctime, get_file_size
+from file_handling import get_file_ctime
 from raw_file_wrapper_factory import RawFileMonitorWrapper, RawFileWrapperFactory
 
 from shared.db.interface import get_raw_file_by_id, update_raw_file
 from shared.db.models import RawFile, RawFileStatus
 
-# Soft timeout for the second type of check
 SOFT_TIMEOUT_ON_MISSING_MAIN_FILE_M: int = 120
 
-# For the third type of check, the file size is calculated every SIZE_CHECK_INTERVAL_M minutes,
-# if it has not changed between two checks, the acquisition is considered to be done
-# This part of the logic should be triggered only at the end of an acquisition queue,
-# so this value is rather conservative and hard-coded for now.
-# Note that it takes at least 2*SIZE_CHECK_INTERVAL_M minutes to detect that the acquisition is done that way.
-SIZE_CHECK_INTERVAL_M: int = 60
-
-# After the next file appeared, the (size, mtime) of all associated files must be unchanged for at least this long,
+# After the next file appeared, all associated files must be unchanged for at least this long,
 # as the acquisition software might still be writing to them.
 FILES_SETTLE_TIME_S: int = 5
 
-# heuristics: for Zeno ZT scan mode, conversion takes < 24h
-ZENO_ZT_SIZE_CHECK_INTERVAL_M: int = 24 * 60
+# If all associated files are unchanged for this long, the acquisition is considered done even without a next file.
+# This should only trigger at the end of an acquisition queue, so this value is rather conservative and hard-coded for now.
+FILES_UNCHANGED_TIMEOUT_M: int = 60
 
-# Zeno ZT scan files remain small until conversion completes
-ZENO_ZT_SCAN_FILE_THRESHOLD_BYTES: int = 44 + 100  # 44 magic bytes + buffer
+# If all associated files are unchanged for this long, the acquisition is considered done even if not finalized.
+# heuristics: for Zeno ZT scan mode, conversion takes < 24h
+FINALIZATION_TIMEOUT_M: int = 24 * 60
+
+# Files older than the youngest file in the directory by this margin are considered acquired, cf. 'consider_old_files_acquired'.
+# Picked conservatively.
+OLD_FILE_THRESHOLD_H: int = 5
 
 
 class AcquisitionMonitor(BaseSensorOperator):
@@ -71,11 +72,10 @@ class AcquisitionMonitor(BaseSensorOperator):
         self._file_got_renamed: bool = False
 
         self._first_poke_timestamp: float | None = None
-        self._latest_file_size_check_timestamp: float | None = None
-        self._last_file_size = -1
 
         self._files_stat: dict[Path, tuple[int, float]] | None = None
-        self._files_stat_timestamp: float | None = None
+        self._files_unchanged_since: float | None = None
+        self._next_file_appeared: bool = False
 
         # to track whether the main file showed up (relevant for Bruker only)
         self._main_file_exists: bool = False
@@ -83,7 +83,7 @@ class AcquisitionMonitor(BaseSensorOperator):
         self._file_is_old: bool = False
 
     def pre_execute(self, context: dict[str, Any]) -> None:
-        """_job_id the job id from XCom."""
+        """Initialize the monitoring state from the raw file and the instrument directory."""
         raw_file_id = context[DagContext.PARAMS][DagParams.RAW_FILE_ID]
         self._raw_file = get_raw_file_by_id(raw_file_id)
 
@@ -105,7 +105,6 @@ class AcquisitionMonitor(BaseSensorOperator):
         self._main_file_exists = self._main_file_path.exists()
 
         self._first_poke_timestamp = get_timestamp()
-        self._latest_file_size_check_timestamp = self._first_poke_timestamp
 
         update_raw_file(
             self._raw_file.id, new_status=RawFileStatus.MONITORING_ACQUISITION
@@ -158,63 +157,102 @@ class AcquisitionMonitor(BaseSensorOperator):
         del context  # unused
 
         assert self._main_file_path is not None
+        assert self._raw_file_monitor_wrapper is not None
 
-        # heuristics: for Zeno ZT scan mode, .wiff.scan is very small until the conversion is done
-        # This is very rough, and has some downsides, one being that on failed acquisitions the .wiff.scan file can remain small, which then clogs the pipeline
-        is_not_zeno_or_zeno_ready = (
-            not self._raw_file.original_name.endswith(".wiff")
-            or get_file_size(Path(f"{self._main_file_path}.scan"), -1)
-            > ZENO_ZT_SCAN_FILE_THRESHOLD_BYTES
-        )
+        now = get_timestamp()
+        acquisition_finalized = self._raw_file_monitor_wrapper.acquisition_finalized()
 
         if self._file_is_old:
             logging.info(
                 "File is old compared to the youngest file in the directory. Considering acquisition to be done."
             )
-            return is_not_zeno_or_zeno_ready
+            return acquisition_finalized
 
         if not self._main_file_exists:
             if self._main_file_path.exists():
                 self._main_file_exists = True
             else:
-                return self._main_file_missing_for_too_long()
+                return self._main_file_missing_for_too_long(now)
 
-        if self._file_size_unchanged_for_time():
-            return is_not_zeno_or_zeno_ready or self._file_size_unchanged_for_time(
-                ZENO_ZT_SIZE_CHECK_INTERVAL_M
+        files_unchanged_s = self._update_files_stat(now)
+
+        if files_unchanged_s >= FILES_UNCHANGED_TIMEOUT_M * 60:
+            return self._files_unchanged_for_too_long(
+                files_unchanged_s, acquisition_finalized=acquisition_finalized
             )
 
+        return self._next_file_appeared_and_files_settled(
+            now, files_unchanged_s, acquisition_finalized=acquisition_finalized
+        )
+
+    def _files_unchanged_for_too_long(
+        self, files_unchanged_s: float, *, acquisition_finalized: bool
+    ) -> bool:
+        """Return true if the acquisition is considered done because the associated files did not change for too long."""
+        if self._files_stat and self._get_total_file_size() == 0:
+            # If a file is opened in the acquisition software, but not written to yet (because of, e.g. an LC error)
+            # the size can remain 0 for a long time. Only once the next acquisition is started, the file is written to
+            # and closed. As this could lead to inconsistencies, the acquisition ist not considered to be done in this case.
+            logging.warning(
+                "Total file size is 0. Presuming file is still open and acquisition is not done."
+            )
+            return False
+
+        logging.info(
+            f"Files unchanged for >= {FILES_UNCHANGED_TIMEOUT_M} min. Considering acquisition to be done."
+        )
+        return acquisition_finalized or files_unchanged_s >= FINALIZATION_TIMEOUT_M * 60
+
+    def _next_file_appeared_and_files_settled(
+        self, now: float, files_unchanged_s: float, *, acquisition_finalized: bool
+    ) -> bool:
+        """Return true if the acquisition is considered done because the next file appeared and the associated files settled since.
+
+        Also true if the file got renamed by the acquisition software.
+        """
         # TODO: ignore _CORRUPED files in new_dir_content?
         current_dir_content, new_dir_content = self._get_dir_content()
 
-        # this is the standard case
-        if len(new_dir_content) > 0:
-            logging.info(f"New file(s) found: {new_dir_content}.")
+        if not new_dir_content:
+            return False
 
-            # Handling the case where the file got renamed by the acquisition software. Not restricted to a
-            # single new file, as the exact name match makes false positives from race conditions unlikely.
-            if (
-                self._corrupted_file_name is not None
-                and self._corrupted_file_name in new_dir_content
-            ):
-                logging.warning(f"File got renamed to {self._corrupted_file_name}.")
-                self._file_got_renamed = True
-                return True
+        logging.info(f"New file(s) found: {new_dir_content}.")
 
-            if len(new_dir_content) == 1 or self._files_stat is not None:
-                # potential additional check: is the new file "small enough" to be considered a freshly started acquisition
-                # but: to adjust the threshold the poke frequency and the data output of the instrument need to be considered
-                return self._files_settled() and is_not_zeno_or_zeno_ready
+        # Handling the case where the file got renamed by the acquisition software. Not restricted to a
+        # single new file, as the exact name match makes false positives from race conditions unlikely.
+        if (
+            self._corrupted_file_name is not None
+            and self._corrupted_file_name in new_dir_content
+        ):
+            logging.warning(f"File got renamed to {self._corrupted_file_name}.")
+            self._file_got_renamed = True
+            return True
 
+        if len(new_dir_content) > 1 and not self._next_file_appeared:
             logging.warning(
                 f"More than one new file found: {new_dir_content}. "
                 f"This could be due to a manual intervention on the file system."
             )
-
             # accepting the new content as 'initial' to be able to fire on the next new file
             self._initial_dir_content = current_dir_content
+            return False
 
-        return False
+        # this is the standard case
+        # potential additional check: is the new file "small enough" to be considered a freshly started acquisition
+        # but: to adjust the threshold the poke frequency and the data output of the instrument need to be considered
+        if not self._next_file_appeared:
+            self._next_file_appeared = True
+            # the files must settle from this moment on, regardless of how long they were unchanged before
+            self._files_unchanged_since = now
+            return False
+
+        if files_unchanged_s < FILES_SETTLE_TIME_S:
+            return False
+
+        logging.info(
+            "Files have settled after the next file appeared. Considering previous acquisition to be done."
+        )
+        return acquisition_finalized
 
     @staticmethod
     def _get_youngest_file_age(
@@ -237,7 +275,7 @@ class AcquisitionMonitor(BaseSensorOperator):
     def _is_older_than_threshold(
         file_path_to_check: Path,
         youngest_file_age: float,
-        threshold_h: int = 5,
+        threshold_h: int = OLD_FILE_THRESHOLD_H,
     ) -> bool:
         """Return true if the file age exceeds the youngest file in the directory by the threshold.
 
@@ -246,7 +284,7 @@ class AcquisitionMonitor(BaseSensorOperator):
 
         :param file_path_to_check: The file to check
         :param youngest_file_age: The age of the youngest file in the directory
-        :param threshold_h: The threshold in hours. The default is picked conservatively.
+        :param threshold_h: The threshold in hours.
 
         :return: True if the file is older than the youngest file in the directory by the threshold.
         """
@@ -262,9 +300,9 @@ class AcquisitionMonitor(BaseSensorOperator):
 
         return age_difference_in_h > threshold_h
 
-    def _main_file_missing_for_too_long(self) -> bool:
+    def _main_file_missing_for_too_long(self, now: float) -> bool:
         """Return true if the main file has not appeared for a certain amount of time."""
-        time_since_first_check_s = get_timestamp() - self._first_poke_timestamp
+        time_since_first_check_s = now - self._first_poke_timestamp
 
         if time_since_first_check_s / 60 >= SOFT_TIMEOUT_ON_MISSING_MAIN_FILE_M:
             logging.info(
@@ -295,79 +333,22 @@ class AcquisitionMonitor(BaseSensorOperator):
 
         return current_dir_content, new_dir_content
 
-    def _files_settled(self) -> bool:
-        """Return true if the (size, mtime) of all associated files are unchanged since a check at least FILES_SETTLE_TIME_S ago, or if all are missing."""
+    def _update_files_stat(self, now: float) -> float:
+        """Refresh the (size, mtime) snapshot of all associated files and return the seconds since it last changed."""
         files_stat = self._get_associated_files_stat()
-
-        if not files_stat:
-            # handled downstream by compute_checksum
-            logging.warning(
-                "All files disappeared. Considering previous acquisition to be done."
-            )
-            return True
-
-        current_timestamp = get_timestamp()
 
         if files_stat != self._files_stat:
-            logging.info(
-                f"Files (size, mtime) are {files_stat}, waiting for them to settle."
-            )
+            logging.info(f"Files (size, mtime) changed: {files_stat}")
             self._files_stat = files_stat
-            self._files_stat_timestamp = current_timestamp
-            return False
+            self._files_unchanged_since = now
 
-        if current_timestamp - self._files_stat_timestamp < FILES_SETTLE_TIME_S:
-            return False
+        return now - self._files_unchanged_since
 
-        logging.info(
-            f"Files (size, mtime) {files_stat} have settled. Considering previous acquisition to be done."
-        )
-        return True
+    def _get_total_file_size(self) -> int:
+        """Return the total size of all associated files in the current snapshot."""
+        assert self._files_stat is not None
 
-    def _file_size_unchanged_for_time(
-        self, size_check_interval_m: int = SIZE_CHECK_INTERVAL_M
-    ) -> bool:
-        """Return true if the total size of all associated files has not changed for a certain amount of time."""
-        time_since_last_check_m = (
-            (current_timestamp := get_timestamp())
-            - self._latest_file_size_check_timestamp
-        ) / 60
-
-        if time_since_last_check_m >= size_check_interval_m:
-            size = self._get_total_file_size()
-
-            if size is None:
-                logging.warning(
-                    "No file found. Considering acquisition to be done if still missing at the next check."
-                )
-
-            if size == self._last_file_size:
-                logging.info(
-                    f"Total file size {size} has not changed for {time_since_last_check_m} >= {size_check_interval_m} min. "
-                )
-
-                if size == 0:
-                    # If a file is opened in the acquisition software, but not written to yet (because of, e.g. an LC error)
-                    # the size can remain 0 for a long time. Only once the next acquisition is started, the file is written to
-                    # and closed. As this could lead to inconsistencies, the acquisition ist not considered to be done in this case.
-                    logging.warning(
-                        "Total file size is 0. Presuming file is still open and acquisition is not done."
-                    )
-                    return False
-
-                logging.info("Considering acquisition to be done.")
-                return True
-
-            self._last_file_size = size
-            self._latest_file_size_check_timestamp = current_timestamp
-
-        return False
-
-    def _get_total_file_size(self) -> int | None:
-        """Return the total size of all files associated with the raw file, None if none of them exists."""
-        files_stat = self._get_associated_files_stat()
-
-        return sum(size for size, _ in files_stat.values()) if files_stat else None
+        return sum(size for size, _ in self._files_stat.values())
 
     def _get_associated_files_stat(self) -> dict[Path, tuple[int, float]]:
         """Return the (size, mtime) of all existing files associated with the raw file."""

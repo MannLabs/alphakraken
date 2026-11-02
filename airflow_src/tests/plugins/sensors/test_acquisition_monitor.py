@@ -9,10 +9,15 @@ import pytest
 from common.keys import DagContext, DagParams
 from plugins.sensors.acquisition_monitor import (
     FILES_SETTLE_TIME_S,
-    SIZE_CHECK_INTERVAL_M,
+    FILES_UNCHANGED_TIMEOUT_M,
+    FINALIZATION_TIMEOUT_M,
+    OLD_FILE_THRESHOLD_H,
     SOFT_TIMEOUT_ON_MISSING_MAIN_FILE_M,
     AcquisitionMonitor,
 )
+
+FILES_UNCHANGED_TIMEOUT_S = FILES_UNCHANGED_TIMEOUT_M * 60
+FINALIZATION_TIMEOUT_S = FINALIZATION_TIMEOUT_M * 60
 
 
 def get_sensor() -> AcquisitionMonitor:
@@ -22,6 +27,30 @@ def get_sensor() -> AcquisitionMonitor:
     )
 
 
+def _setup_monitor_wrapper(
+    mock_raw_file_wrapper_factory: MagicMock,
+    *associated_paths: MagicMock,
+    acquisition_finalized: bool = True,
+) -> MagicMock:
+    """Set up the mocked monitor wrapper with the given associated files, the first one being the main file."""
+    mock_monitor_wrapper = (
+        mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value
+    )
+    if associated_paths:
+        mock_monitor_wrapper.main_file_path.return_value = associated_paths[0]
+    mock_monitor_wrapper.get_associated_files.return_value = list(associated_paths)
+    mock_monitor_wrapper.acquisition_finalized.return_value = acquisition_finalized
+    return mock_monitor_wrapper
+
+
+def _mock_path(size: int = 1, mtime: float = 10.0) -> MagicMock:
+    """Get a mock path with a constant stat."""
+    mock_path = MagicMock()
+    mock_path.stat.return_value = MagicMock(st_size=size, st_mtime=mtime)
+    return mock_path
+
+
+@pytest.mark.parametrize("acquisition_finalized", [True, False])
 @patch("plugins.sensors.acquisition_monitor.RawFileWrapperFactory")
 @patch("plugins.sensors.acquisition_monitor.get_timestamp")
 @patch("plugins.sensors.acquisition_monitor.update_raw_file")
@@ -31,18 +60,17 @@ def test_poke_file_dir_contents_change_file_is_added(
     mock_update_raw_file: MagicMock,
     mock_get_timestamp: MagicMock,
     mock_raw_file_wrapper_factory: MagicMock,
+    *,
+    acquisition_finalized: bool,
 ) -> None:
-    """Test poke method returns True once a file is added and the (size, mtime) of all associated files have settled."""
-    mock_path = MagicMock()
-    mock_path.stat.return_value = MagicMock(st_size=1, st_mtime=10.0)
+    """Test poke method returns True once a file is added, the associated files have settled and the raw file is finalized."""
     mock_get_raw_file_by_id.return_value.original_name = "some_file.raw"
-
-    mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.main_file_path.return_value = mock_path
-    mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.get_associated_files.return_value = [
-        mock_path
-    ]
-
-    mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.get_raw_files_on_instrument.side_effect = [
+    mock_monitor_wrapper = _setup_monitor_wrapper(
+        mock_raw_file_wrapper_factory,
+        _mock_path(),
+        acquisition_finalized=acquisition_finalized,
+    )
+    mock_monitor_wrapper.get_raw_files_on_instrument.side_effect = [
         {"some_file.raw"},  # initial content (pre_execute)
         {"some_file.raw"},  # first poke
         {"some_file.raw", "some_new_file.raw"},  # second poke
@@ -51,10 +79,8 @@ def test_poke_file_dir_contents_change_file_is_added(
 
     mock_get_timestamp.side_effect = [
         0,  # pre_execute
-        1,  # first poke: size check
-        2,  # second poke: size check
-        2,  # second poke: files stat recorded
-        2 + FILES_SETTLE_TIME_S,  # third poke: size check
+        1,  # first poke
+        2,  # second poke: next file appeared
         2 + FILES_SETTLE_TIME_S,  # third poke: files settled
     ]
 
@@ -62,18 +88,61 @@ def test_poke_file_dir_contents_change_file_is_added(
     sensor.pre_execute({DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"}})
 
     # when
-    result = sensor.poke({})
-    assert not result
-
-    result = sensor.poke({})
-    assert not result
-
-    result = sensor.poke({})
-    assert result
+    assert not sensor.poke({})
+    assert not sensor.poke({})
+    assert sensor.poke({}) == acquisition_finalized
 
     mock_update_raw_file.assert_called_once_with(
         mock_get_raw_file_by_id.return_value.id, new_status="monitoring_acquisition"
     )
+
+
+@patch("plugins.sensors.acquisition_monitor.RawFileWrapperFactory")
+@patch("plugins.sensors.acquisition_monitor.get_timestamp")
+@patch("plugins.sensors.acquisition_monitor.update_raw_file")
+@patch("plugins.sensors.acquisition_monitor.get_raw_file_by_id")
+def test_poke_file_dir_contents_change_file_is_added_files_change_afterwards(
+    mock_get_raw_file_by_id: MagicMock,
+    mock_update_raw_file: MagicMock,  # noqa: ARG001
+    mock_get_timestamp: MagicMock,
+    mock_raw_file_wrapper_factory: MagicMock,
+) -> None:
+    """Test poke method restarts the settle time if a non-main file changes after the next file appeared."""
+    mock_get_raw_file_by_id.return_value.original_name = "some_file.raw"
+    mock_other_path = MagicMock()
+    mock_other_path.stat.side_effect = [
+        MagicMock(st_size=1, st_mtime=10.0),  # first poke
+        MagicMock(st_size=1, st_mtime=10.0),  # second poke
+        MagicMock(st_size=2, st_mtime=11.0),  # third poke: still written to
+        MagicMock(st_size=2, st_mtime=11.0),  # fourth poke
+    ]
+    mock_monitor_wrapper = _setup_monitor_wrapper(
+        mock_raw_file_wrapper_factory, _mock_path(), mock_other_path
+    )
+    mock_monitor_wrapper.get_raw_files_on_instrument.side_effect = [
+        {"some_file.raw"},  # initial content (pre_execute)
+        {"some_file.raw"},  # first poke
+        {"some_file.raw", "some_new_file.raw"},  # second poke
+        {"some_file.raw", "some_new_file.raw"},  # third poke
+        {"some_file.raw", "some_new_file.raw"},  # fourth poke
+    ]
+
+    mock_get_timestamp.side_effect = [
+        0,  # pre_execute
+        1,  # first poke
+        2,  # second poke: next file appeared
+        2 + FILES_SETTLE_TIME_S,  # third poke: would be settled, but files changed
+        2 + 2 * FILES_SETTLE_TIME_S,  # fourth poke: files settled
+    ]
+
+    sensor = get_sensor()
+    sensor.pre_execute({DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"}})
+
+    # when
+    assert not sensor.poke({})
+    assert not sensor.poke({})
+    assert not sensor.poke({})
+    assert sensor.poke({})
 
 
 @patch("plugins.sensors.acquisition_monitor.RawFileWrapperFactory")
@@ -87,14 +156,14 @@ def test_poke_file_dir_contents_change_corrupt_file_is_added(
     mock_raw_file_wrapper_factory: MagicMock,
 ) -> None:
     """Test poke and post_execute methods correctly return when dir contents change (corrupted file is added)."""
-    mock_path = MagicMock()
-    mock_path.stat.return_value = MagicMock(st_size=1)
     mock_get_raw_file_by_id.return_value.original_name = "some_file.raw"
-
-    mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.main_file_path.return_value = mock_path
-    mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.get_corrupted_file_name.return_value = "some_file_CORRUPTED.raw"
-
-    mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.get_raw_files_on_instrument.side_effect = [
+    mock_monitor_wrapper = _setup_monitor_wrapper(
+        mock_raw_file_wrapper_factory, _mock_path()
+    )
+    mock_monitor_wrapper.get_corrupted_file_name.return_value = (
+        "some_file_CORRUPTED.raw"
+    )
+    mock_monitor_wrapper.get_raw_files_on_instrument.side_effect = [
         {"some_file.raw"},  # initial content (pre_execute)
         {"some_file.raw", "some_file_CORRUPTED.raw"},  # first poke
     ]
@@ -103,8 +172,7 @@ def test_poke_file_dir_contents_change_corrupt_file_is_added(
     sensor.pre_execute({DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"}})
 
     # when
-    result = sensor.poke({})
-    assert result
+    assert sensor.poke({})
 
     mock_update_raw_file.assert_called_once_with(
         mock_get_raw_file_by_id.return_value.id, new_status="monitoring_acquisition"
@@ -131,14 +199,14 @@ def test_poke_file_dir_contents_change_corrupt_file_and_next_file_are_added(
     mock_raw_file_wrapper_factory: MagicMock,
 ) -> None:
     """Test poke and post_execute methods correctly return when a corrupted file appears alongside the next acquisition."""
-    mock_path = MagicMock()
-    mock_path.stat.return_value = MagicMock(st_size=1)
     mock_get_raw_file_by_id.return_value.original_name = "some_file.raw"
-
-    mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.main_file_path.return_value = mock_path
-    mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.get_corrupted_file_name.return_value = "some_file_CORRUPTED.raw"
-
-    mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.get_raw_files_on_instrument.side_effect = [
+    mock_monitor_wrapper = _setup_monitor_wrapper(
+        mock_raw_file_wrapper_factory, _mock_path()
+    )
+    mock_monitor_wrapper.get_corrupted_file_name.return_value = (
+        "some_file_CORRUPTED.raw"
+    )
+    mock_monitor_wrapper.get_raw_files_on_instrument.side_effect = [
         {"some_file.raw"},  # initial content (pre_execute)
         {
             "some_file_CORRUPTED.raw",
@@ -150,8 +218,7 @@ def test_poke_file_dir_contents_change_corrupt_file_and_next_file_are_added(
     sensor.pre_execute({DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"}})
 
     # when
-    result = sensor.poke({})
-    assert result
+    assert sensor.poke({})
 
     mock_update_raw_file.assert_called_once_with(
         mock_get_raw_file_by_id.return_value.id, new_status="monitoring_acquisition"
@@ -178,16 +245,11 @@ def test_poke_file_dir_contents_change_two_files_are_added(
     mock_raw_file_wrapper_factory: MagicMock,
 ) -> None:
     """Test poke method correctly returns when dir contents change (two files are added)."""
-    mock_path = MagicMock()
-    mock_path.stat.return_value = MagicMock(st_size=1, st_mtime=10.0)
     mock_get_raw_file_by_id.return_value.original_name = "some_file.raw"
-
-    mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.main_file_path.return_value = mock_path
-    mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.get_associated_files.return_value = [
-        mock_path
-    ]
-
-    mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.get_raw_files_on_instrument.side_effect = [
+    mock_monitor_wrapper = _setup_monitor_wrapper(
+        mock_raw_file_wrapper_factory, _mock_path()
+    )
+    mock_monitor_wrapper.get_raw_files_on_instrument.side_effect = [
         {"some_file.raw"},  # initial content (pre_execute)
         {"some_file.raw"},  # first poke
         {
@@ -211,11 +273,9 @@ def test_poke_file_dir_contents_change_two_files_are_added(
 
     mock_get_timestamp.side_effect = [
         0,  # pre_execute
-        1,  # first poke: size check
-        2,  # second poke: size check
-        3,  # third poke: size check
-        3,  # third poke: files stat recorded
-        3 + FILES_SETTLE_TIME_S,  # fourth poke: size check
+        1,  # first poke
+        2,  # second poke
+        3,  # third poke: next file appeared
         3 + FILES_SETTLE_TIME_S,  # fourth poke: files settled
     ]
 
@@ -223,19 +283,15 @@ def test_poke_file_dir_contents_change_two_files_are_added(
     sensor.pre_execute({DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"}})
 
     # when
-    result = sensor.poke({})
-    assert not result
+    assert not sensor.poke({})
 
     # two files -> false
-    result = sensor.poke({})
-    assert not result
+    assert not sensor.poke({})
 
-    # one new file -> main file stat recorded
-    result = sensor.poke({})
-    assert not result
+    # one new file -> settle time starts
+    assert not sensor.poke({})
 
-    result = sensor.poke({})
-    assert result
+    assert sensor.poke({})
 
     mock_update_raw_file.assert_called_once_with(
         mock_get_raw_file_by_id.return_value.id, new_status="monitoring_acquisition"
@@ -253,104 +309,38 @@ def _get_sensor_with_associated_files(*mock_paths: MagicMock) -> AcquisitionMoni
     return sensor
 
 
-@pytest.mark.parametrize(
-    ("second_stat", "second_timestamp", "expected_result"),
-    [
-        ((1, 10.0), FILES_SETTLE_TIME_S, True),
-        ((1, 10.0), FILES_SETTLE_TIME_S - 1, False),
-        ((2, 10.0), FILES_SETTLE_TIME_S, False),
-        ((1, 11.0), FILES_SETTLE_TIME_S, False),
-    ],
-)
-@patch("plugins.sensors.acquisition_monitor.get_timestamp")
-def test_files_settled(
-    mock_get_timestamp: MagicMock,
-    second_stat: tuple[int, float],
-    second_timestamp: float,
-    *,
-    expected_result: bool,
-) -> None:
-    """Test _files_settled requires unchanged (size, mtime) of a non-main file for at least FILES_SETTLE_TIME_S."""
-    mock_main_path = MagicMock()
-    mock_main_path.stat.return_value = MagicMock(st_size=5, st_mtime=1.0)
+def test_update_files_stat() -> None:
+    """Test _update_files_stat returns the time since the (size, mtime) of any associated file last changed."""
     mock_other_path = MagicMock()
     mock_other_path.stat.side_effect = [
         MagicMock(st_size=1, st_mtime=10.0),
-        MagicMock(st_size=second_stat[0], st_mtime=second_stat[1]),
+        MagicMock(st_size=1, st_mtime=10.0),
+        MagicMock(st_size=2, st_mtime=10.0),
+        MagicMock(st_size=2, st_mtime=11.0),
+        MagicMock(st_size=2, st_mtime=11.0),
     ]
-    sensor = _get_sensor_with_associated_files(mock_main_path, mock_other_path)
-    mock_get_timestamp.side_effect = [0, second_timestamp]
+    sensor = _get_sensor_with_associated_files(_mock_path(), mock_other_path)
 
     # when
-    assert not sensor._files_settled()
-    assert sensor._files_settled() == expected_result
+    assert sensor._update_files_stat(now=0) == 0
+    assert sensor._update_files_stat(now=7) == 7
+    assert sensor._update_files_stat(now=8) == 0  # size changed
+    assert sensor._update_files_stat(now=9) == 0  # mtime changed
+    assert sensor._update_files_stat(now=12) == 3
 
 
-def test_files_settled_all_files_missing() -> None:
-    """Test _files_settled returns True if all associated files disappeared."""
-    sensor = _get_sensor_with_associated_files()
-
-    # when
-    assert sensor._files_settled()
-
-
-@patch("plugins.sensors.acquisition_monitor.get_timestamp")
-def test_files_settled_file_vanished_after_listing(
-    mock_get_timestamp: MagicMock,
-) -> None:
-    """Test _files_settled ignores a file that vanished between listing and stat."""
-    mock_path = MagicMock()
-    mock_path.stat.return_value = MagicMock(st_size=1, st_mtime=10.0)
+def test_update_files_stat_file_vanished_after_listing() -> None:
+    """Test _update_files_stat ignores a file that vanished between listing and stat."""
+    mock_path = _mock_path()
     mock_vanished_path = MagicMock()
     mock_vanished_path.stat.side_effect = FileNotFoundError
     sensor = _get_sensor_with_associated_files(mock_path, mock_vanished_path)
-    mock_get_timestamp.side_effect = [0, FILES_SETTLE_TIME_S]
 
     # when
-    assert not sensor._files_settled()
-    assert sensor._files_settled()
+    assert sensor._update_files_stat(now=0) == 0
+    assert sensor._update_files_stat(now=3) == 3
 
     assert sensor._files_stat == {mock_path: (1, 10.0)}
-
-
-@patch("plugins.sensors.acquisition_monitor.get_timestamp")
-def test_file_size_unchanged_for_time_no_files(mock_get_timestamp: MagicMock) -> None:
-    """Test _file_size_unchanged_for_time considers the acquisition done if no file is found at two consecutive checks."""
-    sensor = _get_sensor_with_associated_files()
-    sensor._latest_file_size_check_timestamp = 0
-    mock_get_timestamp.side_effect = [
-        SIZE_CHECK_INTERVAL_M * 60,
-        2 * SIZE_CHECK_INTERVAL_M * 60,
-    ]
-
-    # when
-    assert not sensor._file_size_unchanged_for_time()
-    assert sensor._file_size_unchanged_for_time()
-
-
-@patch("plugins.sensors.acquisition_monitor.get_timestamp")
-def test_files_settled_resets_on_change(mock_get_timestamp: MagicMock) -> None:
-    """Test _files_settled restarts the settle time when (size, mtime) changes."""
-    mock_path = MagicMock()
-    mock_path.stat.side_effect = [
-        MagicMock(st_size=1, st_mtime=10.0),
-        MagicMock(st_size=2, st_mtime=11.0),
-        MagicMock(st_size=2, st_mtime=11.0),
-        MagicMock(st_size=2, st_mtime=11.0),
-    ]
-    sensor = _get_sensor_with_associated_files(mock_path)
-    mock_get_timestamp.side_effect = [
-        0,
-        FILES_SETTLE_TIME_S,
-        2 * FILES_SETTLE_TIME_S - 1,
-        2 * FILES_SETTLE_TIME_S,
-    ]
-
-    # when
-    assert not sensor._files_settled()
-    assert not sensor._files_settled()
-    assert not sensor._files_settled()
-    assert sensor._files_settled()
 
 
 @patch("plugins.sensors.acquisition_monitor.RawFileWrapperFactory")
@@ -362,12 +352,10 @@ def test_poke_file_dir_contents_change_file_is_removed(
     mock_raw_file_wrapper_factory: MagicMock,
 ) -> None:
     """Test poke method correctly returns when dir contents change (file is removed)."""
-    mock_path = MagicMock()
-    mock_path.stat.return_value = MagicMock(st_size=1)
-
-    mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.main_file_path.return_value = mock_path
-
-    mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.get_raw_files_on_instrument.side_effect = [
+    mock_monitor_wrapper = _setup_monitor_wrapper(
+        mock_raw_file_wrapper_factory, _mock_path()
+    )
+    mock_monitor_wrapper.get_raw_files_on_instrument.side_effect = [
         {"some_file.raw", "some_file2.raw"},  # initial content (pre_execute)
         {"some_file.raw", "some_file2.raw"},  # first poke
         {"some_file.raw"},  # second poke
@@ -377,11 +365,8 @@ def test_poke_file_dir_contents_change_file_is_removed(
     sensor.pre_execute({DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"}})
 
     # when
-    result = sensor.poke({})
-    assert not result
-
-    result = sensor.poke({})
-    assert not result
+    assert not sensor.poke({})
+    assert not sensor.poke({})
 
     mock_update_raw_file.assert_called_once_with(
         mock_get_raw_file_by_id.return_value.id, new_status="monitoring_acquisition"
@@ -396,18 +381,14 @@ def test_poke_file_dir_contents_change_main_file_does_not_exist(
     mock_update_raw_file: MagicMock,  # noqa: ARG001
     mock_raw_file_wrapper_factory: MagicMock,
 ) -> None:
-    """Test poke method correctly returns when dir contents change (file is removed)."""
-    mock_path = MagicMock()
-    mock_path.stat.return_value = MagicMock(st_size=1)
-
+    """Test poke method correctly returns when the main file does not exist."""
     mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.main_file_path.return_value.exists.return_value = False
 
     sensor = get_sensor()
     sensor.pre_execute({DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"}})
 
     # when
-    result = sensor.poke({})
-    assert not result
+    assert not sensor.poke({})
     assert not sensor._main_file_exists
 
 
@@ -421,10 +402,7 @@ def test_poke_file_dir_contents_change_main_file_does_not_exist_for_too_long(
     mock_get_timestamp: MagicMock,
     mock_raw_file_wrapper_factory: MagicMock,
 ) -> None:
-    """Test poke method correctly returns when dir contents change (file is removed)."""
-    mock_path = MagicMock()
-    mock_path.stat.return_value = MagicMock(st_size=1)
-
+    """Test poke method correctly returns when the main file does not show up for too long."""
     mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.main_file_path.return_value.exists.return_value = False
 
     mock_get_timestamp.side_effect = [
@@ -438,10 +416,9 @@ def test_poke_file_dir_contents_change_main_file_does_not_exist_for_too_long(
     sensor.pre_execute({DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"}})
 
     # when
-    sensor.poke({})
-    sensor.poke({})
-    result = sensor.poke({})
-    assert result
+    assert not sensor.poke({})
+    assert not sensor.poke({})
+    assert sensor.poke({})
 
     assert not sensor._main_file_exists
 
@@ -453,43 +430,40 @@ def test_poke_file_dir_contents_change_main_file_does_not_exist_for_too_long(
 @patch("plugins.sensors.acquisition_monitor.get_timestamp")
 @patch("plugins.sensors.acquisition_monitor.update_raw_file")
 @patch("plugins.sensors.acquisition_monitor.get_raw_file_by_id")
-def test_poke_file_dir_contents_dont_change_but_file_is_unchanged(  # noqa: PLR0913
+def test_poke_file_dir_contents_dont_change_but_files_are_unchanged(  # noqa: PLR0913
     mock_get_raw_file_by_id: MagicMock,
     mock_update_raw_file: MagicMock,
     mock_get_timestamp: MagicMock,
     mock_raw_file_wrapper_factory: MagicMock,
     *,
-    file_size: str,
+    file_size: int,
     expected_sensor_result: bool,
 ) -> None:
-    """Test poke method correctly return file status when dir contents do not change and file also does not (for cases file size = 0 and != 0)."""
-    mock_path = MagicMock()
-    mock_path.stat.return_value.st_size = file_size
+    """Test poke method correctly returns when dir contents do not change and files do not either (for cases file size = 0 and != 0)."""
+    mock_path = _mock_path(size=file_size)
     mock_get_raw_file_by_id.return_value.original_name = "some_file.raw"
-    mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.main_file_path.return_value = mock_path
-    mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.get_raw_files_on_instrument.return_value = set()  # this stays constant
-    mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.get_associated_files.return_value = [
-        mock_path
-    ]
+    mock_monitor_wrapper = _setup_monitor_wrapper(
+        mock_raw_file_wrapper_factory, mock_path
+    )
+    mock_monitor_wrapper.get_raw_files_on_instrument.return_value = (
+        set()
+    )  # this stays constant
 
     mock_get_timestamp.side_effect = [
         1,  # pre_execute (initial time stamp)
         2,  # first poke
-        SIZE_CHECK_INTERVAL_M * 60 + 2,  # second poke, first file check
-        SIZE_CHECK_INTERVAL_M * 60 + 3,  # third poke
-        2 * SIZE_CHECK_INTERVAL_M * 60 + 3,  # fourth poke, second file check
+        3,  # second poke
+        FILES_UNCHANGED_TIMEOUT_S + 2,  # third poke => unchanged for too long
     ]
     sensor = get_sensor()
     sensor.pre_execute({DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"}})
 
     # when
-    for _ in range(3):
-        result = sensor.poke({})
-        assert not result
-    result = sensor.poke({})
-    assert result == expected_sensor_result
+    assert not sensor.poke({})
+    assert not sensor.poke({})
+    assert sensor.poke({}) == expected_sensor_result
 
-    assert mock_path.stat.call_count == 2
+    assert mock_path.stat.call_count == 3
 
     mock_update_raw_file.assert_called_once_with(
         mock_get_raw_file_by_id.return_value.id, new_status="monitoring_acquisition"
@@ -500,45 +474,39 @@ def test_poke_file_dir_contents_dont_change_but_file_is_unchanged(  # noqa: PLR0
 @patch("plugins.sensors.acquisition_monitor.get_timestamp")
 @patch("plugins.sensors.acquisition_monitor.update_raw_file")
 @patch("plugins.sensors.acquisition_monitor.get_raw_file_by_id")
-def test_poke_file_dir_contents_dont_change_total_size_of_associated_files_is_used(
+def test_poke_file_dir_contents_dont_change_all_associated_files_are_considered(
     mock_get_raw_file_by_id: MagicMock,
     mock_update_raw_file: MagicMock,  # noqa: ARG001
     mock_get_timestamp: MagicMock,
     mock_raw_file_wrapper_factory: MagicMock,
 ) -> None:
-    """Test poke method considers the size of all associated files: acquisition is not done while a non-main file grows."""
-    mock_main_path = MagicMock()
-    mock_main_path.stat.return_value.st_size = 100
+    """Test poke method considers all associated files: acquisition is not done while a non-main file grows."""
+    mock_main_path = _mock_path(size=100)
     mock_other_path = MagicMock()
-    # grows between the first two checks, then stays constant
+    # grows between the first two pokes, then stays constant
     type(mock_other_path.stat.return_value).st_size = PropertyMock(
         side_effect=[10, 20, 20]
     )
     mock_get_raw_file_by_id.return_value.original_name = "some_file.raw"
-    mock_monitor_wrapper = (
-        mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value
+    mock_monitor_wrapper = _setup_monitor_wrapper(
+        mock_raw_file_wrapper_factory, mock_main_path, mock_other_path
     )
-    mock_monitor_wrapper.main_file_path.return_value = mock_main_path
     mock_monitor_wrapper.get_raw_files_on_instrument.return_value = (
         set()
     )  # this stays constant
-    mock_monitor_wrapper.get_associated_files.return_value = [
-        mock_main_path,
-        mock_other_path,
-    ]
 
     mock_get_timestamp.side_effect = [
         1,  # pre_execute (initial time stamp)
-        SIZE_CHECK_INTERVAL_M * 60 + 2,  # first poke, first file check
-        2 * SIZE_CHECK_INTERVAL_M * 60 + 3,  # second poke, second file check
-        3 * SIZE_CHECK_INTERVAL_M * 60 + 4,  # third poke, third file check
+        2,  # first poke
+        3,  # second poke: other file grew
+        FILES_UNCHANGED_TIMEOUT_S + 3,  # third poke => unchanged for too long
     ]
     sensor = get_sensor()
     sensor.pre_execute({DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"}})
 
     # when
     assert not sensor.poke({})
-    assert not sensor.poke({})  # main file unchanged, but total size changed
+    assert not sensor.poke({})
     assert sensor.poke({})
 
     mock_monitor_wrapper.get_associated_files.assert_called_with(
@@ -547,10 +515,73 @@ def test_poke_file_dir_contents_dont_change_total_size_of_associated_files_is_us
     )
 
 
+@patch("plugins.sensors.acquisition_monitor.RawFileWrapperFactory")
+@patch("plugins.sensors.acquisition_monitor.get_timestamp")
+@patch("plugins.sensors.acquisition_monitor.update_raw_file")
+@patch("plugins.sensors.acquisition_monitor.get_raw_file_by_id")
+def test_poke_file_dir_contents_dont_change_not_finalized(
+    mock_get_raw_file_by_id: MagicMock,
+    mock_update_raw_file: MagicMock,  # noqa: ARG001
+    mock_get_timestamp: MagicMock,
+    mock_raw_file_wrapper_factory: MagicMock,
+) -> None:
+    """Test poke method waits for the finalization timeout if the raw file is not finalized."""
+    mock_get_raw_file_by_id.return_value.original_name = "some_file.raw"
+    mock_monitor_wrapper = _setup_monitor_wrapper(
+        mock_raw_file_wrapper_factory, _mock_path(), acquisition_finalized=False
+    )
+    mock_monitor_wrapper.get_raw_files_on_instrument.return_value = (
+        set()
+    )  # this stays constant
+
+    mock_get_timestamp.side_effect = [
+        0,  # pre_execute (initial time stamp)
+        1,  # first poke
+        FILES_UNCHANGED_TIMEOUT_S
+        + 1,  # second poke => unchanged for too long, but not finalized
+        FINALIZATION_TIMEOUT_S + 1,  # third poke => not finalized for too long
+    ]
+    sensor = get_sensor()
+    sensor.pre_execute({DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"}})
+
+    # when
+    assert not sensor.poke({})
+    assert not sensor.poke({})
+    assert sensor.poke({})
+
+
+@patch("plugins.sensors.acquisition_monitor.RawFileWrapperFactory")
+@patch("plugins.sensors.acquisition_monitor.get_timestamp")
+@patch("plugins.sensors.acquisition_monitor.update_raw_file")
+@patch("plugins.sensors.acquisition_monitor.get_raw_file_by_id")
+def test_poke_file_dir_contents_dont_change_all_files_missing(
+    mock_get_raw_file_by_id: MagicMock,
+    mock_update_raw_file: MagicMock,  # noqa: ARG001
+    mock_get_timestamp: MagicMock,
+    mock_raw_file_wrapper_factory: MagicMock,
+) -> None:
+    """Test poke method considers the acquisition done if no associated file exists for too long."""
+    mock_get_raw_file_by_id.return_value.original_name = "some_file.raw"
+    mock_monitor_wrapper = _setup_monitor_wrapper(mock_raw_file_wrapper_factory)
+    mock_monitor_wrapper.get_raw_files_on_instrument.return_value = (
+        set()
+    )  # this stays constant
+
+    mock_get_timestamp.side_effect = [
+        0,  # pre_execute (initial time stamp)
+        1,  # first poke
+        FILES_UNCHANGED_TIMEOUT_S + 1,  # second poke => unchanged for too long
+    ]
+    sensor = get_sensor()
+    sensor.pre_execute({DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"}})
+
+    # when
+    assert not sensor.poke({})
+    assert sensor.poke({})
+
+
 oldest_age = 2
-youngest_age = (
-    (5 * 3600) + oldest_age + 1.0
-)  # 5: default parameter for threshold_h in _is_older_than_threshold()
+youngest_age = (OLD_FILE_THRESHOLD_H * 3600) + oldest_age + 1.0
 intermediate_age = youngest_age // 2
 
 
@@ -567,13 +598,11 @@ def test_poke_file_file_is_old(
     mock_get_airflow_variable: MagicMock,  # noqa: ARG001
 ) -> None:
     """Test poke method correctly returns when file is old and this mode is used."""
-    mock_path = MagicMock()
-    mock_path.stat.return_value = MagicMock(st_size=1)
     mock_get_raw_file_by_id.return_value.original_name = "some_file.raw"
-
-    mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.main_file_path.return_value = mock_path
-
-    mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.get_raw_files_on_instrument.side_effect = [
+    mock_monitor_wrapper = _setup_monitor_wrapper(
+        mock_raw_file_wrapper_factory, _mock_path()
+    )
+    mock_monitor_wrapper.get_raw_files_on_instrument.side_effect = [
         {"some_file.raw"},  # initial content (pre_execute)
         {"some_file.raw"},  # first poke
     ]
@@ -604,11 +633,10 @@ def test_post_execute_ok(
     mock_raw_file_wrapper_factory: MagicMock,
 ) -> None:
     """Test post_execute correctly works if no acquisition errors."""
-    mock_path = MagicMock()
-
-    mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.main_file_path.return_value = mock_path
-
-    mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.get_raw_files_on_instrument.side_effect = [
+    mock_monitor_wrapper = _setup_monitor_wrapper(
+        mock_raw_file_wrapper_factory, _mock_path()
+    )
+    mock_monitor_wrapper.get_raw_files_on_instrument.side_effect = [
         {"some_file.raw"},  # initial content (pre_execute)
     ]
 
@@ -643,19 +671,14 @@ def test_post_execute_acquisition_errors(
     mock_put_xcom: MagicMock,
     mock_raw_file_wrapper_factory: MagicMock,
 ) -> None:
-    """Test post_execute correctly works if no acquisition errors."""
+    """Test post_execute correctly reports a missing main file."""
     mock_path = MagicMock()
     mock_path.exists.return_value = False
-
-    mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.main_file_path.return_value = mock_path
-
-    mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.get_raw_files_on_instrument.return_value = (
-        {"some_file.raw"},
-    )  # initial content (pre_execute)
-
-    mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.main_file_name = (
-        "analysis.tdf_bin"
+    mock_monitor_wrapper = _setup_monitor_wrapper(
+        mock_raw_file_wrapper_factory, mock_path
     )
+    mock_monitor_wrapper.get_raw_files_on_instrument.return_value = {"some_file.raw"}
+    mock_monitor_wrapper.main_file_name = "analysis.tdf_bin"
 
     sensor = get_sensor()
     sensor.pre_execute({DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"}})
@@ -685,7 +708,7 @@ def test_post_execute_acquisition_errors(
 
 
 def test_get_youngest_file_age_directory_empty() -> None:
-    """Test _get_youngest_file_age returns None when directory is empty."""
+    """Test _get_youngest_file_age returns 0 when directory is empty."""
     assert AcquisitionMonitor._get_youngest_file_age(Path("file_to_check"), set()) == 0
 
 
@@ -744,10 +767,6 @@ def test_is_older_than_threshold(
 
     # when
     assert (
-        AcquisitionMonitor._is_older_than_threshold(
-            Path("file_name"),
-            youngest_age,
-            threshold_h=5,
-        )
+        AcquisitionMonitor._is_older_than_threshold(Path("file_name"), youngest_age)
         == expected
     )

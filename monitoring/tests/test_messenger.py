@@ -63,6 +63,43 @@ class TestSend:
         mock_notify.assert_not_called()
         assert any("U_1" in rec.message for rec in caplog.records)
 
+    @patch("monitoring.messenger._notify", side_effect=[True, False])
+    @patch("alerts.config.USER_ALERTS_URL", _USER_URL)
+    @patch("alerts.config.DEBUG_MESSENGER_ID", "U_DEBUG")
+    def test_debug_messenger_id_gets_a_copy_of_each_direct_message(
+        self, mock_notify: Mock
+    ) -> None:
+        """The copy names the recipient; its failure does not count as a failed send."""
+        # when
+        result = send(Message("m", "t"), recipients=["U_1"])
+
+        # then
+        assert result is True
+        assert mock_notify.call_args_list == [
+            call("slack://xoxb-test/@U_1", Message("m", "t"), "direct message to U_1"),
+            call(
+                "slack://xoxb-test/@U_DEBUG",
+                Message("[copy of direct message to U_1]\nm", "t"),
+                "debug copy to U_DEBUG",
+            ),
+        ]
+
+    @patch("monitoring.messenger._notify", return_value=True)
+    @patch("alerts.config.USER_ALERTS_URL", _USER_URL)
+    @patch("alerts.config.DEBUG_MESSENGER_ID", "U_DEBUG")
+    @patch("monitoring.messenger._CHANNEL_URLS", {"ops": "http://ops"})
+    def test_debug_messenger_id_gets_no_copy_of_channel_messages(
+        self, mock_notify: Mock
+    ) -> None:
+        """Only direct messages are copied."""
+        # when
+        send(Message("m"), {"ops"})
+
+        # then
+        mock_notify.assert_called_once_with(
+            "http://ops", Message("m"), "channel message"
+        )
+
     @patch("monitoring.messenger._notify")
     def test_nothing_to_send_succeeds(self, mock_notify: Mock) -> None:
         """Without destinations and recipients nothing is sent."""

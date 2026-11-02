@@ -47,6 +47,8 @@ general:
     # "slacktext://xoxb-.../@{{ALPHAKRAKEN_MESSENGER_ID}}" (bot token from api.slack.com/apps → your app → OAuth & Permissions,
     # needs `chat:write` scope; `slack://` instead of `slacktext://` uses apprise's own Slack service)
     user_alerts_url: "slacktext://xoxb-.../@{{ALPHAKRAKEN_MESSENGER_ID}}"
+    # optional: messenger id that gets a copy of every direct message
+    # debug_messenger_id: "<messenger id>"
     webapp_url: "http://localhost:8501"
     # optional: instruments to alert on if no new file is acquired for a while
     # instrument_stall_instrument_ids: [test1]

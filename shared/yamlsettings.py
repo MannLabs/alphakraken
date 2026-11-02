@@ -34,6 +34,7 @@ class YamlKeys:
     OPS_ALERTS_URL = "ops_alerts_url"
     BUSINESS_ALERTS_URL = "business_alerts_url"
     USER_ALERTS_URL = "user_alerts_url"
+    DEBUG_MESSENGER_ID = "debug_messenger_id"
     WEBAPP_URL = "webapp_url"
     INSTRUMENT_STALL_INSTRUMENT_IDS = "instrument_stall_instrument_ids"
     FREE_SPACE_THRESHOLD_GB = "free_space_threshold_gb"

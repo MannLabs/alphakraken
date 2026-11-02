@@ -480,6 +480,19 @@ def get_all_users(*, include_inactive: bool = False) -> list[User]:
     return list(users.order_by("initials"))
 
 
+def get_project_owner(raw_file_id: str) -> User | None:
+    """Get the active owner of the project of a raw file, None if there is none."""
+    connect_db()
+    raw_file = RawFile.objects(id=raw_file_id).only("project_id").first()
+    if raw_file is None or not raw_file.has_project:
+        return None
+    project = Project.objects(id=raw_file.project_id).only("owner").first()
+    owner = project.owner if project is not None else None
+    if owner is None or owner.status != UserStatus.ACTIVE:
+        return None
+    return owner
+
+
 def get_settings_by_id(settings_id: str) -> Settings:
     """Get a settings entry by its ID."""
     connect_db()

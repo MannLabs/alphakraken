@@ -29,6 +29,7 @@ from shared.db.interface import (
     get_all_settings,
     get_all_users,
     get_latest_active_settings_by_name,
+    get_project_owner,
     get_project_settings,
     get_purge_candidates_by_age,
     get_raw_file_by_id,
@@ -1420,6 +1421,66 @@ def test_get_all_users(
         queryset = mock_user.objects.return_value
     queryset.order_by.assert_called_once_with("initials")
     assert result == list(queryset.order_by.return_value)
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.Project")
+@patch("shared.db.interface.RawFile")
+def test_get_project_owner(
+    mock_raw_file: MagicMock,
+    mock_project: MagicMock,
+    mock_connect_db: MagicMock,  # noqa: ARG001
+) -> None:
+    """The active owner of the file's project is returned."""
+    # given
+    mock_raw_file.objects.return_value.only.return_value.first.return_value = MagicMock(
+        has_project=True, project_id="P1"
+    )
+    owner = MagicMock(status=UserStatus.ACTIVE)
+    mock_project.objects.return_value.only.return_value.first.return_value = MagicMock(
+        owner=owner
+    )
+
+    # when
+    result = get_project_owner("file1.raw")
+
+    # then
+    assert result is owner
+    mock_raw_file.objects.assert_called_once_with(id="file1.raw")
+    mock_project.objects.assert_called_once_with(id="P1")
+
+
+@pytest.mark.parametrize(
+    ("raw_file", "project"),
+    [
+        (None, None),
+        (MagicMock(has_project=False, project_id="_FALLBACK"), None),
+        (MagicMock(has_project=True, project_id="P1"), None),
+        (MagicMock(has_project=True, project_id="P1"), MagicMock(owner=None)),
+        (
+            MagicMock(has_project=True, project_id="P1"),
+            MagicMock(owner=MagicMock(status=UserStatus.INACTIVE)),
+        ),
+    ],
+    ids=["no file", "no project", "project missing", "no owner", "inactive owner"],
+)
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.Project")
+@patch("shared.db.interface.RawFile")
+def test_get_project_owner_returns_none(
+    mock_raw_file: MagicMock,
+    mock_project: MagicMock,
+    mock_connect_db: MagicMock,  # noqa: ARG001
+    raw_file: MagicMock | None,
+    project: MagicMock | None,
+) -> None:
+    """No file, project, owner or active owner means no owner."""
+    # given
+    mock_raw_file.objects.return_value.only.return_value.first.return_value = raw_file
+    mock_project.objects.return_value.only.return_value.first.return_value = project
+
+    # when / then
+    assert get_project_owner("file1.raw") is None
 
 
 @patch("shared.db.interface.connect_db")

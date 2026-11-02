@@ -7,6 +7,7 @@ import pytest
 import pytz
 
 from monitoring.alerts.base_alert import Issue
+from monitoring.alerts.config import QUEUE_STOP_MAX_FILE_AGE_HOURS
 from monitoring.alerts.queue_stop_alert import (
     KIND_HANDOFF,
     KIND_STOP,
@@ -204,7 +205,7 @@ class TestLoadRecentFiles:
         mock_rawfile.objects.filter.return_value.only.return_value.order_by.return_value.limit.return_value = raw_files
 
         # when
-        result = _load_recent_files({"AnSc"})
+        result = _load_recent_files({"AnSc"}, NOW - timedelta(hours=24))
 
         # then
         assert result == {
@@ -216,7 +217,9 @@ class TestLoadRecentFiles:
                 RecentFile("QC_03.raw", NOW - timedelta(minutes=8), None),
             ]
         }
-        mock_rawfile.objects.filter.assert_called_once_with(instrument_id="inst1")
+        mock_rawfile.objects.filter.assert_called_once_with(
+            instrument_id="inst1", created_at__gte=NOW - timedelta(hours=24)
+        )
         mock_rawfile.objects.filter.return_value.only.return_value.order_by.return_value.limit.assert_called_once_with(
             3
         )
@@ -269,7 +272,9 @@ class TestQueueStopAlert:
         result = QueueStopAlert()._get_issues([], NOW)
 
         # then
-        mock_load.assert_called_once_with({"MaSc": "U_MASC"})
+        mock_load.assert_called_once_with(
+            {"MaSc": "U_MASC"}, NOW - timedelta(hours=QUEUE_STOP_MAX_FILE_AGE_HOURS)
+        )
         assert len(result) == 1
         issue = result[0]
         assert issue.identifier == "inst1:x_MaSc_a.raw"

@@ -42,6 +42,8 @@ general:
     business_alerts_webhook_url: "https://hooks.slack.com/services/<something> or https://...api.powerplatform.com:443/powerautomate/automations/<something>"
     slack_bot_token: "xoxb-..." # for individual alerts; get from api.slack.com/apps → your app → OAuth & Permissions → "Bot User OAuth Token" (needs `chat:write` scope)
     webapp_url: "http://localhost:8501"
+    # optional: instruments to alert on if no new file is acquired for a while
+    # instrument_stall_instrument_ids: [test1]
 
 # absolute paths (posix or windows) of the data directories as users see them on the shared file system, cf. path_views.Locations.
 # Not used for the pipeline file operations: only prepended to the location-relative paths for display (webapp, REST API),

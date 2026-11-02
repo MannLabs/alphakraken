@@ -58,7 +58,6 @@ RAW_FILE_STATUS_LOOKBACK_HOURS = 24
 
 # Instrument stall alert configuration
 INSTRUMENT_STALL_THRESHOLD_HOURS = 2  # How long without a new file before alerting
-INSTRUMENT_STALL_INSTRUMENT_IDS: set[str] = set()  # Instruments to monitor
 
 # Queue-stop alert configuration
 QUEUE_STOP_THRESHOLD_MULTIPLIER = 3  # stop: pause > N x gradient_length triggers alert
@@ -94,6 +93,16 @@ try:
 except KeyError:
     logging.warning("Slack bot token not found in config; DMs disabled.")
     SLACK_BOT_TOKEN = ""
+
+try:
+    INSTRUMENT_STALL_INSTRUMENT_IDS: set[str] = set(
+        get_notification_setting(YamlKeys.INSTRUMENT_STALL_INSTRUMENT_IDS)
+    )
+except KeyError:
+    logging.warning(
+        "Instrument stall instrument ids not found in config; instrument stall alert disabled."
+    )
+    INSTRUMENT_STALL_INSTRUMENT_IDS = set()
 
 
 class Destinations:

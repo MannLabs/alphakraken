@@ -35,6 +35,7 @@ class YamlKeys:
     BUSINESS_ALERTS_WEBHOOK_URL = "business_alerts_webhook_url"
     SLACK_BOT_TOKEN = "slack_bot_token"  # noqa: S105
     WEBAPP_URL = "webapp_url"
+    INSTRUMENT_STALL_INSTRUMENT_IDS = "instrument_stall_instrument_ids"
 
     class Backup:
         """Keys for accessing backup configuration in the yaml config."""

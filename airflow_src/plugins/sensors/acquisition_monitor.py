@@ -167,13 +167,13 @@ class AcquisitionMonitor(BaseSensorOperator):
         assert self._raw_file_monitor_wrapper is not None
 
         now = get_timestamp()
-        acquisition_finalized = self._acquisition_finalized()
+        is_acquisition_finalized = self._acquisition_finalized()
 
         if self._file_is_old:
             logging.info(
                 "File is old compared to the youngest file in the directory. Considering acquisition to be done."
             )
-            return acquisition_finalized
+            return is_acquisition_finalized
 
         if not self._main_file_exists:
             if self._main_file_path.exists():
@@ -185,11 +185,11 @@ class AcquisitionMonitor(BaseSensorOperator):
 
         if files_unchanged_s >= FILES_UNCHANGED_TIMEOUT_M * 60:
             return self._files_unchanged_for_too_long(
-                files_unchanged_s, acquisition_finalized=acquisition_finalized
+                files_unchanged_s, is_acquisition_finalized=is_acquisition_finalized
             )
 
         return self._next_file_appeared_and_files_settled(
-            now, files_unchanged_s, acquisition_finalized=acquisition_finalized
+            now, files_unchanged_s, is_acquisition_finalized=is_acquisition_finalized
         )
 
     def _acquisition_finalized(self) -> bool:
@@ -198,6 +198,8 @@ class AcquisitionMonitor(BaseSensorOperator):
         heuristics: for Zeno ZT scan mode (Sciex), the .wiff.scan file is very small until the conversion is done.
         This is very rough, and has some downsides, one being that on failed acquisitions the .wiff.scan file can remain
         small, which then clogs the pipeline.
+
+        TODO: remove once Sciex improved this
         """
         if not isinstance(self._raw_file_monitor_wrapper, SciexRawFileMonitorWrapper):
             return True
@@ -209,7 +211,7 @@ class AcquisitionMonitor(BaseSensorOperator):
         )
 
     def _files_unchanged_for_too_long(
-        self, files_unchanged_s: float, *, acquisition_finalized: bool
+        self, files_unchanged_s: float, *, is_acquisition_finalized: bool
     ) -> bool:
         """Return true if the acquisition is considered done because the associated files did not change for too long."""
         if self._files_stat and self._get_total_file_size() == 0:
@@ -224,16 +226,16 @@ class AcquisitionMonitor(BaseSensorOperator):
         logging.info(
             f"Files unchanged for >= {FILES_UNCHANGED_TIMEOUT_M} min. Considering acquisition to be done."
         )
-        return acquisition_finalized or files_unchanged_s >= FINALIZATION_TIMEOUT_M * 60
+        return is_acquisition_finalized or files_unchanged_s >= FINALIZATION_TIMEOUT_M * 60
 
     def _next_file_appeared_and_files_settled(
-        self, now: float, files_unchanged_s: float, *, acquisition_finalized: bool
+        self, now: float, files_unchanged_s: float, *, is_acquisition_finalized: bool
     ) -> bool:
         """Return true if the acquisition is considered done because the next file appeared and the associated files settled since.
 
         Also true if the file got renamed by the acquisition software.
         """
-        # TODO: ignore _CORRUPED files in new_dir_content?
+        # TODO: ignore _CORRUPTED files in new_dir_content?
         current_dir_content, new_dir_content = self._get_dir_content()
 
         if not new_dir_content:
@@ -261,8 +263,6 @@ class AcquisitionMonitor(BaseSensorOperator):
             return False
 
         # this is the standard case
-        # potential additional check: is the new file "small enough" to be considered a freshly started acquisition
-        # but: to adjust the threshold the poke frequency and the data output of the instrument need to be considered
         if not self._next_file_appeared:
             self._next_file_appeared = True
             # the files must settle from this moment on, regardless of how long they were unchanged before
@@ -275,7 +275,7 @@ class AcquisitionMonitor(BaseSensorOperator):
         logging.info(
             "Files have settled after the next file appeared. Considering previous acquisition to be done."
         )
-        return acquisition_finalized
+        return is_acquisition_finalized
 
     @staticmethod
     def _get_youngest_file_age(

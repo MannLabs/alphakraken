@@ -1450,6 +1450,22 @@ def test_get_branch_states_excludes_non_mapped_tasks() -> None:
     assert result == {2: {f"{_TASK_GROUP_PREFIX}submit_job": "failed"}}
 
 
+def test_get_branch_states_excludes_removed_tasks() -> None:
+    """Stale map indexes from a previous attempt (state 'removed') are not part of any branch."""
+    ti = MagicMock()
+    _mock_task_states(
+        ti,
+        ("submit_job", 0, "success"),
+        ("submit_job", 1, "removed"),
+        ("check_job_result", 1, "removed"),
+    )
+
+    # when
+    result = _get_branch_states(ti)
+
+    assert result == {0: {f"{_TASK_GROUP_PREFIX}submit_job": "success"}}
+
+
 def test_get_branch_states_empty_when_run_unknown() -> None:
     """No entry for the current run yields no branches."""
     ti = MagicMock()

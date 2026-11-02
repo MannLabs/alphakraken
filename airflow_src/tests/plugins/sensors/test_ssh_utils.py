@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, call, patch
 
 import pytest
 from airflow.sdk.exceptions import AirflowFailException, AirflowNotFoundException
+from paramiko.ssh_exception import SSHException
 from plugins.common.constants import EXIT_CODE_FILE_NAME, LAUNCHER_SCRIPT_STEM
 from plugins.sensors.ssh_utils import (
     _decode_powershell_command,
@@ -106,6 +107,41 @@ def test_ssh_execute_too_many_tries(
 
     assert mock_sleep.call_count == 30
     assert ssh_hook.exec_ssh_client_command.call_count == 30
+
+
+@patch("plugins.sensors.ssh_utils.get_cluster_ssh_hook")
+def test_ssh_execute_closes_client_after_success(
+    mock_get_cluster_ssh_hook: MagicMock,
+) -> None:
+    """Test that the SSH client is closed after a successful command."""
+    ssh_hook = MagicMock()
+    ssh_hook.exec_ssh_client_command.return_value = (0, b"command output", b"")
+    mock_get_cluster_ssh_hook.return_value = ssh_hook
+
+    # when
+    ssh_execute("my_command", SSH_PREFIX)
+
+    ssh_hook.client.close.assert_called_once_with()
+
+
+@patch("plugins.sensors.ssh_utils.get_cluster_ssh_hook")
+@patch("plugins.sensors.ssh_utils.sleep")
+def test_ssh_execute_closes_client_after_exception(
+    mock_sleep: MagicMock,  # noqa:ARG001
+    mock_get_cluster_ssh_hook: MagicMock,
+) -> None:
+    """Test that the SSH client is closed on every attempt, also on a failed one."""
+    ssh_hook = MagicMock()
+    ssh_hook.exec_ssh_client_command.side_effect = [
+        SSHException("Timeout opening channel."),
+        (0, b"command output", b""),
+    ]
+    mock_get_cluster_ssh_hook.return_value = ssh_hook
+
+    # when
+    ssh_execute("my_command", SSH_PREFIX)
+
+    assert ssh_hook.client.close.call_args_list == [call(), call()]
 
 
 @pytest.mark.parametrize(

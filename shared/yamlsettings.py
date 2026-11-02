@@ -31,10 +31,17 @@ class YamlKeys:
     RUNNERS = "runners"
 
     NOTIFICATIONS = "notifications"
-    OPS_ALERTS_WEBHOOK_URL = "ops_alerts_webhook_url"
-    BUSINESS_ALERTS_WEBHOOK_URL = "business_alerts_webhook_url"
-    SLACK_BOT_TOKEN = "slack_bot_token"  # noqa: S105
+    OPS_ALERTS_URL = "ops_alerts_url"
+    BUSINESS_ALERTS_URL = "business_alerts_url"
+    USER_ALERTS_URL = "user_alerts_url"
+    DEBUG_MESSENGER_ID = "debug_messenger_id"
     WEBAPP_URL = "webapp_url"
+    INSTRUMENT_STALL_INSTRUMENT_IDS = "instrument_stall_instrument_ids"
+    FREE_SPACE_THRESHOLD_GB = "free_space_threshold_gb"
+    FILE_SYSTEM_FREE_SPACE_THRESHOLDS_GB = "file_system_free_space_thresholds_gb"
+    LOCAL_FREE_SPACE_THRESHOLD_GB = "local_free_space_threshold_gb"
+    PUMP_PRESSURE_THRESHOLD_BAR = "pump_pressure_threshold_bar"
+    PUMP_PRESSURE_ABSOLUTE_THRESHOLD_BAR = "pump_pressure_absolute_threshold_bar"
 
     class Backup:
         """Keys for accessing backup configuration in the yaml config."""
@@ -71,8 +78,8 @@ class YamlSettings:
                 "instruments": {"_test1_": {"type": "thermo"}},
                 "general": {
                     "notifications": {
-                        "ops_alerts_webhook_url": "http://test-webhook.example.com",
-                        "business_alerts_webhook_url": "http://test-webhook.example.com",
+                        "ops_alerts_url": "json://test-webhook.example.com",
+                        "business_alerts_url": "json://test-webhook.example.com",
                         "webapp_url": "http://localhost:8501",
                     }
                 },
@@ -133,8 +140,11 @@ class YamlSettings:
 YAMLSETTINGS: dict[str, Any] = cast(dict[str, Any], YamlSettings())
 
 
-def get_notification_setting(setting_key: str) -> str:
-    """Get a notification setting from the yaml settings."""
+_REQUIRED = object()
+
+
+def get_notification_setting(setting_key: str, default: Any = _REQUIRED) -> Any:
+    """Get a notification setting from the yaml settings, or the default if given and not set."""
     setting_value = (
         YAMLSETTINGS.get(YamlKeys.GENERAL, {})
         .get(YamlKeys.NOTIFICATIONS, {})
@@ -142,6 +152,8 @@ def get_notification_setting(setting_key: str) -> str:
     )
 
     if setting_value is None:
+        if default is not _REQUIRED:
+            return default
         raise KeyError(
             f"Key `{YamlKeys.GENERAL}.{YamlKeys.NOTIFICATIONS}.{setting_key}` not found in alphakraken.yaml."
         )

@@ -10,10 +10,13 @@ from datetime import datetime, timedelta
 from typing import Any
 
 import pytz
+from mongoengine import Q
 from pymongo import UpdateOne
 
 from shared.db.engine import connect_db
 from shared.db.models import (
+    AlertIssue,
+    AlertSuppression,
     FileInfoItem,
     InstrumentFileStatus,
     KrakenStatus,
@@ -27,6 +30,8 @@ from shared.db.models import (
     SettingsStatus,
     SlurmJob,
     SlurmJobQueueStates,
+    User,
+    UserStatus,
     get_slurm_job_db_id,
 )
 from shared.keys import DEFAULT_SCOPE
@@ -236,16 +241,23 @@ def add_metrics_to_raw_file(  # noqa: PLR0913
     ).save()
 
 
-def add_project(*, project_id: str, name: str, description: str) -> None:
+def add_project(
+    *, project_id: str, name: str, description: str, owner_email: str | None = None
+) -> None:
     """Add a new project to the database."""
-    logging.info(f"Adding to DB: {project_id=} {name=} {description=}")
+    logging.info(f"Adding to DB: {project_id=} {name=} {description=} {owner_email=}")
     connect_db()
     existing = Project.objects(id=project_id).first()
     if existing is not None and existing.status == ProjectStatus.DELETED:
         raise ValueError(
             f"Project id '{project_id}' was used by a deleted project. Please choose a different one."
         )
-    project = Project(id=project_id, name=name, description=description)
+    project = Project(
+        id=project_id,
+        name=name,
+        description=description,
+        owner=_get_owner(owner_email),
+    )
     # this will fail if the project id already exists
     project.save(force_insert=True)
 
@@ -378,6 +390,7 @@ def create_settings(  # noqa: PLR0913
     slurm_mem: str | None = None,
     slurm_time: str | None = None,
     num_threads: int | None = None,
+    owner_email: str | None = None,
 ) -> Settings:
     """Create a new settings entry.
 
@@ -409,10 +422,75 @@ def create_settings(  # noqa: PLR0913
         slurm_mem=slurm_mem,
         slurm_time=slurm_time,
         num_threads=num_threads,
+        owner=_get_owner(owner_email),
     )
     settings.save(force_insert=True)
     logging.info(f"Created settings: {name=} {version=}")
     return settings
+
+
+def _get_owner(owner_email: str | None) -> User | None:
+    """Get the user to set as owner, raises if it does not exist."""
+    return User.objects.get(email=owner_email) if owner_email else None
+
+
+def add_user(*, email: str, initials: str, messenger_id: str | None = None) -> User:
+    """Add a new active user, the email is normalized to lower case."""
+    connect_db()
+    email = email.strip().lower()
+    if User.objects(email=email).first():
+        raise ValueError(f"A user with email '{email}' already exists.")
+    _check_initials_unique(initials)
+    user = User(email=email, initials=initials, messenger_id=messenger_id)
+    user.save(force_insert=True)
+    logging.info(f"Added user: {email=} {initials=} {messenger_id=}")
+    return user
+
+
+def update_user(email: str, *, initials: str, messenger_id: str | None) -> None:
+    """Update the initials and messenger id of a user, the email is immutable."""
+    connect_db()
+    _check_initials_unique(initials, exclude_email=email)
+    user = User.objects.get(email=email)
+    user.initials = initials
+    user.messenger_id = messenger_id
+    # save() instead of update() to run the field validation
+    user.save()
+    logging.info(f"Updated user: {email=} {initials=} {messenger_id=}")
+
+
+def _check_initials_unique(initials: str, *, exclude_email: str | None = None) -> None:
+    """Raise if another user already has the initials."""
+    others = User.objects(email__ne=exclude_email) if exclude_email else User.objects
+    if others(initials=initials).first():
+        raise ValueError(f"A user with initials '{initials}' already exists.")
+
+
+def set_user_status(email: str, status: str) -> None:
+    """Set the status of a user, used for soft-deleting."""
+    connect_db()
+    User.objects(email=email).update_one(status=status)
+    logging.info(f"Set user status: {email=} {status=}")
+
+
+def get_all_users(*, include_inactive: bool = False) -> list[User]:
+    """Get all users, ordered by initials."""
+    connect_db()
+    users = User.objects if include_inactive else User.objects(status=UserStatus.ACTIVE)
+    return list(users.order_by("initials"))
+
+
+def get_project_owner(raw_file_id: str) -> User | None:
+    """Get the active owner of the project of a raw file, None if there is none."""
+    connect_db()
+    raw_file = RawFile.objects(id=raw_file_id).only("project_id").first()
+    if raw_file is None or not raw_file.has_project:
+        return None
+    project = Project.objects(id=raw_file.project_id).only("owner").first()
+    owner = project.owner if project is not None else None
+    if owner is None or owner.status != UserStatus.ACTIVE:
+        return None
+    return owner
 
 
 def get_settings_by_id(settings_id: str) -> Settings:
@@ -599,3 +677,70 @@ def augment_raw_files_with_metrics(
             raw_files_dict[raw_file_id][f"{prefix}{metrics['type']}"] = metrics
 
     return raw_files_dict
+
+
+def get_alert_issues() -> list[AlertIssue]:
+    """Get all alert issues."""
+    connect_db()
+    return list(AlertIssue.objects)
+
+
+def add_alert_issue(*, alert: str, key: str, first_seen: datetime) -> AlertIssue:
+    """Add an alert issue to the database."""
+    connect_db()
+    issue = AlertIssue(alert=alert, key=key, first_seen=first_seen)
+    issue.save(force_insert=True)
+    logging.info(f"Added alert issue: {alert=} {key=}")
+    return issue
+
+
+def set_alert_issue_notified(issue: AlertIssue, notified_at: datetime) -> None:
+    """Record that the issue was notified."""
+    connect_db()
+    issue.update(set__last_notified=notified_at)
+
+
+def get_alert_suppressions() -> list[AlertSuppression]:
+    """Get all alert suppressions, including expired ones, newest first."""
+    connect_db()
+    return list(AlertSuppression.objects.order_by("-created_at_"))
+
+
+def get_active_alert_suppressions() -> list[AlertSuppression]:
+    """Get all alert suppressions that are not expired."""
+    connect_db()
+    now = datetime.now(tz=pytz.UTC)
+    return list(AlertSuppression.objects(Q(expires_at=None) | Q(expires_at__gt=now)))
+
+
+def add_alert_suppression(  # noqa: PLR0913
+    *,
+    alert: str,
+    instrument_id: str,
+    identifier: str,
+    details: str,
+    comment: str,
+    expires_at: datetime | None,
+    created_by: str | None,
+) -> None:
+    """Add an alert suppression to the database."""
+    logging.info(
+        f"Adding alert suppression to DB: {alert=} {instrument_id=} {identifier=} {details=} {expires_at=}"
+    )
+    connect_db()
+    AlertSuppression(
+        alert=alert,
+        instrument_id=instrument_id,
+        identifier=identifier,
+        details=details,
+        comment=comment,
+        expires_at=expires_at,
+        created_by=created_by,
+    ).save()
+
+
+def delete_alert_suppression(suppression_id: str) -> None:
+    """Delete an alert suppression from the database."""
+    connect_db()
+    AlertSuppression.objects(id=suppression_id).delete()
+    logging.info(f"Deleted alert suppression: {suppression_id=}")

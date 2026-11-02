@@ -162,9 +162,10 @@ services:
     <<: *airflow-common
     command: api-server
     ports:
-      - ${WEBSERVER_PORT:?error}:8080
+      - ${AIRFLOW_APISERVER_PORT:?error}:8080
     healthcheck:
-      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      test:
+        ["CMD", "curl", "--fail", "http://localhost:8080/api/v2/monitor/health"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -334,6 +335,8 @@ services:
       MONGO_PASSWORD_READWRITE: ${MONGO_PASSWORD_READWRITE:?error}
       MONGO_USER_WEBAPP: ${MONGO_USER_WEBAPP:?error}
       MONGO_PASSWORD_WEBAPP: ${MONGO_PASSWORD_WEBAPP:?error}
+      MONGO_USER_ALERTING: ${MONGO_USER_ALERTING:?error}
+      MONGO_PASSWORD_ALERTING: ${MONGO_PASSWORD_ALERTING:?error}
     env_file:
       - ./envs/.env-mongo
     healthcheck:
@@ -366,6 +369,7 @@ services:
       MONGO_PORT: ${MONGO_PORT:?error}
       MONGO_USER: ${MONGO_USER_WEBAPP:?error}
       MONGO_PASSWORD: ${MONGO_PASSWORD_WEBAPP:?error}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD_WEBAPP:-}
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8501/healthz"]
       interval: 30s
@@ -400,15 +404,15 @@ services:
     build:
       context: .
       dockerfile: monitoring/Dockerfile
-    profiles: ["infrastructure", "workers", "dbs"] # have monitoring running on all machines (downsides: potential alerts duplication)
+    profiles: ["infrastructure", "workers", "dbs"] # have monitoring running on all machines
     environment:
       # deliberately not inheriting *airflow-common-env, cf. the comment on the webapp service.
       ENV_NAME: ${ENV_NAME:?error}
       KRAKEN_HOSTNAME: ${KRAKEN_HOSTNAME:-}
       MONGO_HOST: ${MONGO_HOST:?error}
       MONGO_PORT: ${MONGO_PORT:?error}
-      MONGO_USER: ${MONGO_USER_READ:?error}
-      MONGO_PASSWORD: ${MONGO_PASSWORD_READ:?error}
+      MONGO_USER: ${MONGO_USER_ALERTING:?error}
+      MONGO_PASSWORD: ${MONGO_PASSWORD_ALERTING:?error}
     logging: *default-logging
     restart: always
 

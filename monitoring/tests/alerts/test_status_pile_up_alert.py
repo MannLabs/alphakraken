@@ -1,10 +1,15 @@
 """Unit tests for StatusPileUpAlert class."""
 
+from datetime import datetime
 from unittest.mock import Mock, patch
 
-from monitoring.alerts.config import Cases
+import pytz
+
+from monitoring.alerts.base_alert import Issue
 from monitoring.alerts.status_pile_up_alert import StatusPileUpAlert
 from shared.db.models import KrakenStatusEntities
+
+NOW = datetime(2024, 1, 15, 12, 0, tzinfo=pytz.UTC)
 
 
 class TestStatusPileUpAlert:
@@ -19,7 +24,7 @@ class TestStatusPileUpAlert:
         result = alert.name
 
         # then
-        assert result == Cases.STATUS_PILE_UP
+        assert result == "StatusPileUpAlert"
 
     @patch("monitoring.alerts.status_pile_up_alert.STATUS_PILE_UP_THRESHOLDS")
     @patch("monitoring.alerts.status_pile_up_alert.RawFile")
@@ -121,17 +126,30 @@ class TestStatusPileUpAlert:
         mock_rawfile.objects.side_effect = mock_rawfile_side_effect
 
         # when
-        result = alert._get_issues(status_objects)
+        result = alert._get_issues(status_objects, NOW)
 
         # then
         # Should only check instruments and return those with pile-ups
         expected = [
-            ("instrument_processing_issues", "processing: 8"),
-            ("instrument_multiple_issues", "processing: 12; quanting: 25; copying: 6"),
-            ("instrument_boundary_case", "quanting: 11; validating: 16"),
-            (
+            Issue(
+                "instrument_processing_issues",
+                "processing: 8",
+                instrument_id="instrument_processing_issues",
+            ),
+            Issue(
+                "instrument_multiple_issues",
+                "processing: 12; quanting: 25; copying: 6",
+                instrument_id="instrument_multiple_issues",
+            ),
+            Issue(
+                "instrument_boundary_case",
+                "quanting: 11; validating: 16",
+                instrument_id="instrument_boundary_case",
+            ),
+            Issue(
                 "instrument_mixed_status",
                 "processing: 7; copying: 4; monitoring: 12; unknown_status: 10",
+                instrument_id="instrument_mixed_status",
             ),
         ]
         assert result == expected
@@ -143,14 +161,14 @@ class TestStatusPileUpAlert:
 
         # Complex mix of issues with different pile-up patterns
         issues = [
-            ("instrument_critical", "processing: 25; quanting: 18"),
-            ("instrument_single", "copying: 12"),
-            (
+            Issue("instrument_critical", "processing: 25; quanting: 18"),
+            Issue("instrument_single", "copying: 12"),
+            Issue(
                 "instrument_complex",
                 "processing: 8; quanting: 15; copying: 7; monitoring: 20",
             ),
-            ("instrument_minor", "validating: 6"),
-            ("instrument_edge_case", "unknown_status: 50; processing: 10"),
+            Issue("instrument_minor", "validating: 6"),
+            Issue("instrument_edge_case", "unknown_status: 50; processing: 10"),
         ]
 
         # when
@@ -158,7 +176,6 @@ class TestStatusPileUpAlert:
 
         # then
         expected = (
-            "Status pile up detected:\n"
             "- `instrument_critical`: processing: 25; quanting: 18\n"
             "- `instrument_single`: copying: 12\n"
             "- `instrument_complex`: processing: 8; quanting: 15; copying: 7; monitoring: 20\n"
@@ -223,7 +240,7 @@ class TestStatusPileUpAlert:
         mock_rawfile.objects.side_effect = mock_rawfile_side_effect
 
         # when
-        result = alert._get_issues(status_objects)
+        result = alert._get_issues(status_objects, NOW)
 
         # then
         assert result == []
@@ -264,7 +281,7 @@ class TestStatusPileUpAlert:
         mock_rawfile.objects.return_value = mock_query
 
         # when
-        result = alert._get_issues(status_objects)
+        result = alert._get_issues(status_objects, NOW)
 
         # then
         # Should only call RawFile.objects once for the instrument
@@ -272,4 +289,6 @@ class TestStatusPileUpAlert:
         call_args = mock_rawfile.objects.call_args
         assert call_args[1]["instrument_id"] == "test_instrument"
         assert "status__nin" in call_args[1]
-        assert result == [("test_instrument", "processing: 8")]
+        assert result == [
+            Issue("test_instrument", "processing: 8", instrument_id="test_instrument")
+        ]

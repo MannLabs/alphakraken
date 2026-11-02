@@ -1,154 +1,69 @@
-"""Unit tests for BaseAlert suppression functionality."""
+"""Unit tests for BaseAlert and Issue."""
 
+from datetime import datetime
 from unittest.mock import patch
 
-from monitoring.alerts.base_alert import BaseAlert
+import pytz
+
+from monitoring.alerts.base_alert import BaseAlert, Issue, _shorten
+
+NOW = datetime(2024, 1, 15, 12, 0, tzinfo=pytz.UTC)
 
 
-class TestAlert(BaseAlert):
-    """Test implementation of BaseAlert for testing purposes."""
+class DefaultFormatAlert(BaseAlert):
+    """Alert relying on the default `format_message`."""
 
-    def __init__(self) -> None:
-        """Initialize the TestAlert with no issues."""
-        super().__init__()
-        self.test_issues: list[tuple] = []
+    title = "Default title"
 
-    @property
-    def name(self) -> str:
-        """Return the name of the alert."""
-        return "test_alert"
-
-    def _get_issues(
-        self,
-        status_objects: list,  # noqa: ARG002
-    ) -> list[tuple]:
-        """Mock implementation to return predefined issues."""
-        # Return predefined issues for testing
-        return self.test_issues if hasattr(self, "test_issues") else []
-
-    def format_message(self, issues: list[tuple]) -> str:
-        """Format the alert message for the issues found."""
-        return f"Test message with {len(issues)} issues"
+    def _get_issues(self, status_objects: list, now: datetime) -> list[Issue]:  # noqa: ARG002
+        """Not used."""
+        return []
 
 
-class TestBaseAlertSuppressions:
-    """Test suite for BaseAlert suppression functionality."""
+def test_issue_key_defaults_to_identifier() -> None:
+    """Without an explicit key, the identifier is the key."""
+    assert Issue("inst1", 1).key == "inst1"
+    assert Issue("inst1", 1, key="inst1:file").key == "inst1:file"
 
-    def test_no_suppressions_file_returns_all_issues(self) -> None:
-        """Test that when no suppressions file exists, all issues are returned."""
-        # given
-        alert = TestAlert()
-        alert.test_issues = [
-            ("instrument1", "error message"),
-            ("instrument2", "another error"),
-        ]
 
-        with patch("monitoring.alerts.base_alert._suppressions", []):
-            # when
-            result = alert.get_issues([])
+def test_cooldown_defaults_to_the_class_attribute() -> None:
+    """Alerts report their class cooldown for every issue."""
+    assert DefaultFormatAlert().get_cooldown_minutes(Issue("a", 1)) == 120
 
-            # then
-            assert result == [
-                ("instrument1", "error message"),
-                ("instrument2", "another error"),
-            ]
 
-    def test_exact_context_and_message_suppression(self) -> None:
-        """Test exact context and message matching suppression."""
-        # given
-        alert = TestAlert()
-        alert.test_issues = [
-            ("instrument1", "copy failed"),
-            ("instrument2", "disk full"),
-        ]
+def test_format_message_default_lists_one_line_per_issue() -> None:
+    """The default message body has one line per issue, without the title."""
+    # given
+    issues = [Issue("instrument1", "disk full"), Issue("instrument2", 42)]
 
-        suppressions = [
-            {
-                "error_class": "TestAlert",
-                "context": "instrument1",
-                "message": "copy failed",
-            }
-        ]
+    # when
+    result = DefaultFormatAlert().format_message(issues)
 
-        with patch("monitoring.alerts.base_alert._suppressions", suppressions):
-            # when
-            result = alert.get_issues([])
+    # then
+    assert result == "- `instrument1`: disk full\n- `instrument2`: 42"
 
-            # then
-            assert result == [("instrument2", "disk full")]
 
-    def test_wildcard_context_suppresses_all_contexts(self) -> None:
-        """Test that context: '*' suppresses all contexts for the error class."""
-        # given
-        alert = TestAlert()
-        alert.test_issues = [
-            ("instrument1", "disk full"),
-            ("instrument2", "disk full"),
-            ("backup_system", "disk full"),
-        ]
+def test_get_issues_returns_the_issues_of_the_alert() -> None:
+    """get_issues wraps _get_issues."""
+    # given / when
+    with patch.object(DefaultFormatAlert, "_get_issues", return_value=[Issue("a", 1)]):
+        result = DefaultFormatAlert().get_issues([], NOW)
 
-        suppressions = [
-            {"error_class": "TestAlert", "context": "*", "message": "disk full"}
-        ]
+    # then
+    assert result == [Issue("a", 1)]
 
-        with patch("monitoring.alerts.base_alert._suppressions", suppressions):
-            # when
-            result = alert.get_issues([])
 
-            # then
-            assert result == []
+def test_shorten_cuts_long_text_with_an_ellipsis() -> None:
+    """Texts above the limit end with an ellipsis within the limit."""
+    assert _shorten("abc", 3) == "abc"
+    assert _shorten("abcd", 3) == "ab…"
 
-    def test_multiple_suppression_rules(self) -> None:
-        """Test that multiple suppression rules are all applied."""
-        # given
-        alert = TestAlert()
-        alert.test_issues = [
-            ("instrument1", "copy failed"),
-            ("instrument2", "disk full"),
-            ("instrument3", "network error"),
-            ("instrument4", "validation error"),
-        ]
 
-        suppressions = [
-            {
-                "error_class": "TestAlert",
-                "context": "instrument1",
-                "message": "copy failed",
-            },
-            {
-                "error_class": "TestAlert",
-                "context": "instrument2",
-                "message": "disk full",
-            },
-        ]
+def test_format_message_default_shortens_long_details() -> None:
+    """Long details are cut, so that messages stay within the webhook limits."""
+    # when
+    result = DefaultFormatAlert().format_message([Issue("a", "x" * 400)])
 
-        with patch("monitoring.alerts.base_alert._suppressions", suppressions):
-            # when
-            result = alert.get_issues([])
-
-            # then
-            assert result == [
-                ("instrument3", "network error"),
-                ("instrument4", "validation error"),
-            ]
-
-    def test_wrong_error_class_not_suppressed(self) -> None:
-        """Test that suppressions for different error classes don't affect this alert."""
-        # given
-        alert = TestAlert()
-        alert.test_issues = [("instrument1", "error message")]
-
-        suppressions = [
-            {
-                "error_class": "DifferentAlert",
-                "context": "instrument1",
-                "message": "error message",
-            }
-        ]
-
-        with patch("monitoring.alerts.base_alert._suppressions", suppressions):
-            # when
-            result = alert.get_issues([])
-
-            # then
-            assert result == [("instrument1", "error message")]
+    # then
+    assert len(result) < 320
+    assert result.endswith("…")

@@ -55,6 +55,7 @@ def ssh_execute(
         sleep(60 * call_count)  # no sleep in the first iteration
         call_count += 1
 
+        ssh_hook = None
         try:
             ssh_hook = get_cluster_ssh_hook(
                 attempt_no=call_count - 1,
@@ -74,6 +75,9 @@ def ssh_execute(
         ) as e:
             logging.warning(f"Exception while executing SSH command: {e}")
             continue
+        finally:
+            if ssh_hook is not None and ssh_hook.client is not None:
+                ssh_hook.client.close()
 
         str_stdout = _byte_to_string(agg_stdout)
         str_stdout_trunc = truncate_string(str_stdout)

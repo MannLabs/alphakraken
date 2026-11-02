@@ -1,4 +1,4 @@
-"""Script to monitor AlphaKraken and send alerts to Slack or MS Teams."""
+"""Script to monitor AlphaKraken and send alerts via apprise."""
 # ruff: noqa: E402
 
 import logging
@@ -10,18 +10,25 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 
+import os
+from datetime import datetime, timedelta
 from time import sleep
+from uuid import uuid4
 
-from alert_manager import AlertManager, send_special_alert
+import pytz
+from active_instance import ActiveInstanceElection
+from alert_manager import AlertManager
 from alerts.config import (
+    ACTIVE_INSTANCE_TIMEOUT_SECONDS,
     CHECK_INTERVAL_SECONDS,
+    SPECIAL_ALERT_COOLDOWN_MINUTES,
     STALE_STATUS_THRESHOLD_MINUTES,
 )
-from messenger_clients import AlertTypes
-from pymongo.errors import ServerSelectionTimeoutError
-from utils import extract_error_line
+from messenger import AlertTypes, Message
+from pymongo.errors import ConnectionFailure
 
 from shared.db.engine import connect_db
+from shared.keys import EnvVars
 
 # TODO: report when error has resolved
 # TODO: add a "all is well" message once a day/week?
@@ -36,41 +43,40 @@ def main() -> None:
     )
 
     alert_manager = AlertManager()
-    send_special_alert(
-        "general",
+    # unique per instance, also if several instances run on the same host
+    instance = f"{os.environ.get(EnvVars.KRAKEN_HOSTNAME, '')}-{uuid4().hex[:8]}"
+    election = ActiveInstanceElection(
+        instance, timedelta(seconds=ACTIVE_INSTANCE_TIMEOUT_SECONDS)
+    )
+    # sent by every instance, to see which ones are running
+    alert_manager.send_once(
         "startup",
-        "Monitoring started. ",
-        alert_manager,
-        AlertTypes.INFO,
+        Message("Monitoring started.", type=AlertTypes.INFO),
+        SPECIAL_ALERT_COOLDOWN_MINUTES,
+        datetime.now(pytz.UTC),
     )
 
     while True:
+        now = datetime.now(pytz.UTC)
+        # separate from the DB part, so that a failing DB-free check cannot stop the DB checks
+        try:
+            alert_manager.check_db_free_alerts(now)
+        except Exception as e:  # noqa: BLE001
+            alert_manager.report_exception(e, now)
+
         try:
             connect_db(raise_on_error=True)
-        except Exception as e:  # noqa: BLE001
-            send_special_alert(
-                "db",
+            if election.try_become_active(now):
+                alert_manager.check_for_issues(now)
+        except ConnectionFailure as e:
+            alert_manager.send_once(
                 "db_connection_error",
-                f"Error connecting to MongoDB: {e}",
-                alert_manager,
+                Message(f"Error connecting to MongoDB: {e}"),
+                SPECIAL_ALERT_COOLDOWN_MINUTES,
+                now,
             )
-
-        try:
-            alert_manager.check_for_issues()
-        except ServerSelectionTimeoutError:
-            send_special_alert(
-                "db", "db_timeout", "Error connecting to MongoDB", alert_manager
-            )
-
-        except Exception as e:
-            logging.exception("Error checking KrakenStatus")
-            error_line = extract_error_line(e)
-            send_special_alert(
-                "general",
-                "exception",
-                f"{type(e).__name__} during checking alerts: {e} at: {error_line}",
-                alert_manager,
-            )
+        except Exception as e:  # noqa: BLE001
+            alert_manager.report_exception(e, now)
 
         sleep(CHECK_INTERVAL_SECONDS)
 

@@ -10,34 +10,46 @@ import pytz
 from pymongo import UpdateOne
 
 from shared.db.interface import (
+    add_alert_issue,
+    add_alert_suppression,
     add_metrics_to_raw_file,
     add_project,
     add_raw_file,
+    add_user,
     archive_project,
     assign_settings_to_project,
     augment_raw_files_with_metrics,
     create_settings,
+    delete_alert_suppression,
     delete_project,
     delete_settings,
+    get_active_alert_suppressions,
     get_active_project_ids,
+    get_alert_issues,
     get_all_settings,
+    get_all_users,
     get_latest_active_settings_by_name,
+    get_project_owner,
     get_project_settings,
     get_purge_candidates_by_age,
     get_raw_file_by_id,
     get_raw_files_by_instrument_file_status,
     get_raw_files_by_names,
     get_slurm_job,
+    set_alert_issue_notified,
+    set_user_status,
     unassign_settings_from_project,
     update_kraken_status,
     update_raw_file,
     update_slurm_jobs,
+    update_user,
 )
 from shared.db.models import (
     InstrumentFileStatus,
     ProjectStatus,
     RawFileStatus,
     SettingsStatus,
+    UserStatus,
 )
 from shared.keys import MetricsTypes
 
@@ -291,9 +303,31 @@ def test_add_project(mock_project: MagicMock, mock_connect_db: MagicMock) -> Non
 
     # then
     mock_project.assert_called_once_with(
-        id="P1234", name="new project", description="some project description"
+        id="P1234",
+        name="new project",
+        description="some project description",
+        owner=None,
     )
     mock_connect_db.assert_called_once()
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.User")
+@patch("shared.db.interface.Project")
+def test_add_project_with_owner(
+    mock_project: MagicMock,
+    mock_user: MagicMock,
+    mock_connect_db: MagicMock,  # noqa: ARG001
+) -> None:
+    """Test that add_project sets the owner looked up by id."""
+    # when
+    add_project(
+        project_id="P1234", name="new project", description="d", owner_email="a@b.de"
+    )
+
+    # then
+    mock_user.objects.get.assert_called_once_with(email="a@b.de")
+    assert mock_project.call_args.kwargs["owner"] == mock_user.objects.get.return_value
 
 
 @patch("shared.db.interface.connect_db")
@@ -392,6 +426,30 @@ def test_create_settings_auto_increment_version(
     assert call_kwargs["name"] == "plasma_settings"
     assert call_kwargs["version"] == 4
     mock_connect_db.assert_called_once()
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.User")
+@patch("shared.db.interface.Settings")
+def test_create_settings_with_owner(
+    mock_settings: MagicMock,
+    mock_user: MagicMock,
+    mock_connect_db: MagicMock,  # noqa: ARG001
+) -> None:
+    """Test that create_settings sets the owner looked up by id."""
+    mock_settings.objects.return_value.order_by.return_value.first.return_value = None
+
+    create_settings(
+        name="plasma_settings",
+        software_type="alphadia",
+        software="alphadia-1.10.0",
+        runner_name="slurm",
+        metrics_type="alphadia",
+        owner_email="a@b.de",
+    )
+
+    mock_user.objects.get.assert_called_once_with(email="a@b.de")
+    assert mock_settings.call_args.kwargs["owner"] == mock_user.objects.get.return_value
 
 
 def test_create_settings_requires_runner() -> None:
@@ -1245,6 +1303,187 @@ def test_augment_raw_files_with_metrics_should_query_correct_fields_when_fields_
 
 
 @patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.User")
+def test_add_user(mock_user: MagicMock, mock_connect_db: MagicMock) -> None:
+    """Test that add_user saves a new user with normalized email if email and initials are unused."""
+    mock_user.objects.return_value.first.return_value = None
+
+    # when
+    add_user(email=" A@B.de ", initials="AB", messenger_id="U123")
+
+    # then
+    mock_user.objects.assert_any_call(email="a@b.de")
+    mock_user.objects.assert_any_call(initials="AB")
+    mock_user.assert_called_once_with(
+        email="a@b.de", initials="AB", messenger_id="U123"
+    )
+    mock_user.return_value.save.assert_called_once_with(force_insert=True)
+    mock_connect_db.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    ("taken", "error"), [("email", "email 'a@b.de'"), ("initials", "initials 'AB'")]
+)
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.User")
+def test_add_user_rejects_duplicates(
+    mock_user: MagicMock,
+    mock_connect_db: MagicMock,  # noqa: ARG001
+    taken: str,
+    error: str,
+) -> None:
+    """Test that add_user raises if email or initials are already taken."""
+    mock_user.objects.side_effect = lambda **kwargs: MagicMock(
+        first=MagicMock(return_value=MagicMock() if taken in kwargs else None)
+    )
+
+    # when
+    with pytest.raises(ValueError, match=error):
+        add_user(email="a@b.de", initials="AB")
+
+    # then
+    mock_user.return_value.save.assert_not_called()
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.User")
+def test_update_user(mock_user: MagicMock, mock_connect_db: MagicMock) -> None:
+    """Test that update_user excludes the user itself from the uniqueness check and saves."""
+    others = MagicMock()
+    others.return_value.first.return_value = None
+    mock_user.objects.return_value = others
+
+    # when
+    update_user("a@b.de", initials="NB", messenger_id="U123")
+
+    # then
+    mock_user.objects.assert_called_once_with(email__ne="a@b.de")
+    others.assert_called_once_with(initials="NB")
+    mock_user.objects.get.assert_called_once_with(email="a@b.de")
+    user = mock_user.objects.get.return_value
+    assert user.initials == "NB"
+    assert user.messenger_id == "U123"
+    user.save.assert_called_once()
+    mock_connect_db.assert_called_once()
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.User")
+def test_update_user_rejects_duplicate_initials(
+    mock_user: MagicMock,
+    mock_connect_db: MagicMock,  # noqa: ARG001
+) -> None:
+    """Test that update_user raises if another user has the initials."""
+    mock_user.objects.return_value.return_value.first.return_value = MagicMock()
+
+    # when
+    with pytest.raises(ValueError, match="initials 'NB'"):
+        update_user("a@b.de", initials="NB", messenger_id=None)
+
+    # then
+    mock_user.objects.get.assert_not_called()
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.User")
+def test_set_user_status(mock_user: MagicMock, mock_connect_db: MagicMock) -> None:
+    """Test that set_user_status updates the status."""
+    # when
+    set_user_status("a@b.de", UserStatus.INACTIVE)
+
+    # then
+    mock_user.objects.assert_called_once_with(email="a@b.de")
+    mock_user.objects.return_value.update_one.assert_called_once_with(
+        status=UserStatus.INACTIVE
+    )
+    mock_connect_db.assert_called_once()
+
+
+@pytest.mark.parametrize("include_inactive", [True, False])
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.User")
+def test_get_all_users(
+    mock_user: MagicMock,
+    mock_connect_db: MagicMock,  # noqa: ARG001
+    *,
+    include_inactive: bool,
+) -> None:
+    """Test that get_all_users filters inactive users unless requested."""
+    # when
+    result = get_all_users(include_inactive=include_inactive)
+
+    # then
+    if include_inactive:
+        mock_user.objects.assert_not_called()
+        queryset = mock_user.objects
+    else:
+        mock_user.objects.assert_called_once_with(status=UserStatus.ACTIVE)
+        queryset = mock_user.objects.return_value
+    queryset.order_by.assert_called_once_with("initials")
+    assert result == list(queryset.order_by.return_value)
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.Project")
+@patch("shared.db.interface.RawFile")
+def test_get_project_owner(
+    mock_raw_file: MagicMock,
+    mock_project: MagicMock,
+    mock_connect_db: MagicMock,  # noqa: ARG001
+) -> None:
+    """The active owner of the file's project is returned."""
+    # given
+    mock_raw_file.objects.return_value.only.return_value.first.return_value = MagicMock(
+        has_project=True, project_id="P1"
+    )
+    owner = MagicMock(status=UserStatus.ACTIVE)
+    mock_project.objects.return_value.only.return_value.first.return_value = MagicMock(
+        owner=owner
+    )
+
+    # when
+    result = get_project_owner("file1.raw")
+
+    # then
+    assert result is owner
+    mock_raw_file.objects.assert_called_once_with(id="file1.raw")
+    mock_project.objects.assert_called_once_with(id="P1")
+
+
+@pytest.mark.parametrize(
+    ("raw_file", "project"),
+    [
+        (None, None),
+        (MagicMock(has_project=False, project_id="_FALLBACK"), None),
+        (MagicMock(has_project=True, project_id="P1"), None),
+        (MagicMock(has_project=True, project_id="P1"), MagicMock(owner=None)),
+        (
+            MagicMock(has_project=True, project_id="P1"),
+            MagicMock(owner=MagicMock(status=UserStatus.INACTIVE)),
+        ),
+    ],
+    ids=["no file", "no project", "project missing", "no owner", "inactive owner"],
+)
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.Project")
+@patch("shared.db.interface.RawFile")
+def test_get_project_owner_returns_none(
+    mock_raw_file: MagicMock,
+    mock_project: MagicMock,
+    mock_connect_db: MagicMock,  # noqa: ARG001
+    raw_file: MagicMock | None,
+    project: MagicMock | None,
+) -> None:
+    """No file, project, owner or active owner means no owner."""
+    # given
+    mock_raw_file.objects.return_value.only.return_value.first.return_value = raw_file
+    mock_project.objects.return_value.only.return_value.first.return_value = project
+
+    # when / then
+    assert get_project_owner("file1.raw") is None
+
+
+@patch("shared.db.interface.connect_db")
 @patch("shared.db.interface.Project")
 def test_archive_project(mock_project: MagicMock, mock_connect_db: MagicMock) -> None:
     """Test that archive_project sets the project status to INACTIVE."""
@@ -1388,3 +1627,128 @@ def test_delete_assigned_settings_raises(
         delete_settings("settings_id")
 
     mock_settings.objects.assert_not_called()
+
+
+@patch("shared.db.interface.AlertIssue")
+@patch("shared.db.interface.connect_db")
+def test_get_alert_issues(
+    mock_connect_db: MagicMock,  # noqa: ARG001
+    mock_alert_issue: MagicMock,
+) -> None:
+    """Test that all issues are returned."""
+    # given
+    mock_alert_issue.objects = ["a", "b"]
+
+    # when / then
+    assert get_alert_issues() == ["a", "b"]
+
+
+@patch("shared.db.interface.AlertIssue")
+@patch("shared.db.interface.connect_db")
+def test_add_alert_issue(
+    mock_connect_db: MagicMock,  # noqa: ARG001
+    mock_alert_issue: MagicMock,
+) -> None:
+    """Test that an issue is inserted, never upserted."""
+    # given
+    first_seen = datetime(2024, 1, 1, tzinfo=pytz.UTC)
+
+    # when
+    result = add_alert_issue(alert="DiskSpaceAlert", key="inst1", first_seen=first_seen)
+
+    # then
+    mock_alert_issue.assert_called_once_with(
+        alert="DiskSpaceAlert", key="inst1", first_seen=first_seen
+    )
+    mock_alert_issue.return_value.save.assert_called_once_with(force_insert=True)
+    assert result == mock_alert_issue.return_value
+
+
+@patch("shared.db.interface.connect_db")
+def test_set_alert_issue_notified(
+    mock_connect_db: MagicMock,  # noqa: ARG001
+) -> None:
+    """Test that the notification time is written to the issue."""
+    # given
+    issue = MagicMock()
+    notified_at = datetime(2024, 1, 1, tzinfo=pytz.UTC)
+
+    # when
+    set_alert_issue_notified(issue, notified_at)
+
+    # then
+    issue.update.assert_called_once_with(set__last_notified=notified_at)
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.AlertSuppression")
+def test_add_alert_suppression(
+    mock_suppression: MagicMock, mock_connect_db: MagicMock
+) -> None:
+    """add_alert_suppression saves a new suppression with the given fields."""
+    # given
+    expires_at = datetime(2026, 3, 1, tzinfo=pytz.UTC)
+
+    # when
+    add_alert_suppression(
+        alert="PumpPressureAlert",
+        instrument_id="astral1",
+        identifier="*",
+        details="*",
+        comment="maintenance",
+        expires_at=expires_at,
+        created_by="me",
+    )
+
+    # then
+    mock_suppression.assert_called_once_with(
+        alert="PumpPressureAlert",
+        instrument_id="astral1",
+        identifier="*",
+        details="*",
+        comment="maintenance",
+        expires_at=expires_at,
+        created_by="me",
+    )
+    mock_suppression.return_value.save.assert_called_once()
+    mock_connect_db.assert_called_once()
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.AlertSuppression")
+def test_delete_alert_suppression(
+    mock_suppression: MagicMock,
+    mock_connect_db: MagicMock,  # noqa: ARG001
+) -> None:
+    """delete_alert_suppression deletes the suppression with the given id."""
+    # when
+    delete_alert_suppression("abc")
+
+    # then
+    mock_suppression.objects.assert_called_once_with(id="abc")
+    mock_suppression.objects.return_value.delete.assert_called_once()
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.AlertSuppression")
+@patch("shared.db.interface.datetime")
+def test_get_active_alert_suppressions_excludes_expired(
+    mock_datetime: MagicMock,
+    mock_suppression: MagicMock,
+    mock_connect_db: MagicMock,  # noqa: ARG001
+) -> None:
+    """Only suppressions without expiry or expiring in the future are returned."""
+    # given
+    now = datetime(2026, 1, 1, tzinfo=pytz.UTC)
+    mock_datetime.now.return_value = now
+    mock_suppression.objects.return_value = ["s1"]
+
+    # when
+    result = get_active_alert_suppressions()
+
+    # then
+    assert result == ["s1"]
+    (query,) = mock_suppression.objects.call_args.args
+    assert query.to_query(None) == {
+        "$or": [{"expires_at": None}, {"expires_at": {"$gt": now}}]
+    }

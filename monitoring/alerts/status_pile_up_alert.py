@@ -1,5 +1,7 @@
 """Status pile-up alert checker."""
 
+from datetime import datetime
+
 from shared.db.models import (
     TERMINAL_STATUSES,
     KrakenStatus,
@@ -7,20 +9,20 @@ from shared.db.models import (
     RawFile,
 )
 
-from .base_alert import BaseAlert
-from .config import STATUS_PILE_UP_THRESHOLDS, Cases
+from .base_alert import BaseAlert, Issue
+from .config import STATUS_PILE_UP_THRESHOLDS
 
 
 class StatusPileUpAlert(BaseAlert):
     """Check for status pile-ups (too many files in non-terminal statuses)."""
 
-    @property
-    def name(self) -> str:
-        """Return the case name for this alert type."""
-        return Cases.STATUS_PILE_UP
+    title = "Status pile up detected"
 
-    def _get_issues(self, status_objects: list[KrakenStatus]) -> list[tuple[str, str]]:
+    def _get_issues(
+        self, status_objects: list[KrakenStatus], now: datetime
+    ) -> list[Issue[str]]:
         """Check for status pile-ups on instruments."""
+        del now  # unused
         status_pile_up_instruments = []
 
         for kraken_status in [
@@ -47,17 +49,11 @@ class StatusPileUpAlert(BaseAlert):
                     ]
                 )
                 status_pile_up_instruments.append(
-                    (instrument_id, piled_up_statuses_str)
+                    Issue(
+                        instrument_id,
+                        piled_up_statuses_str,
+                        instrument_id=instrument_id,
+                    )
                 )
 
         return status_pile_up_instruments
-
-    def format_message(self, issues: list[tuple[str, str | None]]) -> str:
-        """Format status pile-up message."""
-        instruments_str = "\n".join(
-            [
-                f"- `{instrument_id}`: {status_info}"
-                for instrument_id, status_info in issues
-            ]
-        )
-        return f"Status pile up detected:\n{instruments_str}"

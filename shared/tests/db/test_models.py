@@ -1,9 +1,16 @@
 """Tests for the db.models module."""
 
+from datetime import datetime
+
 import pytest
+import pytz
+from mongoengine import ValidationError
 
 from shared.db.models import (
+    AlertIssue,
+    AlertSuppression,
     Settings,
+    User,
     parse_file_info_item,
     split_unique_settings_name,
 )
@@ -70,3 +77,41 @@ def test_split_unique_settings_name_raises_on_invalid(unique_name: str) -> None:
     """Strings not of the form <name>_v<version> are rejected."""
     with pytest.raises(ValueError):
         split_unique_settings_name(unique_name)
+
+
+@pytest.mark.parametrize("initials", ["AB", "ab", "MaS", "ABCDEFGH"])
+def test_user_accepts_initials_of_any_case(initials: str) -> None:
+    """Test that initials keep their case and pass validation."""
+    User(email="a@b.de", initials=initials).validate()
+
+
+@pytest.mark.parametrize("initials", ["A-B", "A B", "A1", "A", "ABCDEFGHI"])
+def test_user_rejects_invalid_initials(initials: str) -> None:
+    """Test that initials other than 2 to 8 letters are rejected."""
+    with pytest.raises(ValidationError):
+        User(email="a@b.de", initials=initials).validate()
+
+
+def test_alert_issue_validates_with_required_fields() -> None:
+    """Test that an issue needs alert, key and first_seen."""
+    AlertIssue(
+        alert="DiskSpaceAlert",
+        key="inst1",
+        first_seen=datetime(2024, 1, 1, tzinfo=pytz.UTC),
+    ).validate()
+
+
+def test_alert_issue_rejects_missing_key() -> None:
+    """Test that the key is required."""
+    with pytest.raises(ValidationError):
+        AlertIssue(
+            alert="DiskSpaceAlert",
+            first_seen=datetime(2024, 1, 1, tzinfo=pytz.UTC),
+        ).validate()
+
+
+@pytest.mark.parametrize("field", ["alert", "instrument_id", "identifier", "details"])
+def test_alert_suppression_rejects_empty_match_fields(field: str) -> None:
+    """Match fields must be a value or the wildcard, never empty."""
+    with pytest.raises(ValidationError):
+        AlertSuppression(comment="c", **{field: ""}).validate()

@@ -35,6 +35,8 @@ class EnvVars(metaclass=ConstantsClass):
     MONGO_USER = "MONGO_USER"
     MONGO_PASSWORD = "MONGO_PASSWORD"  # noqa: S105  #Possible hardcoded password
 
+    ADMIN_PASSWORD = "ADMIN_PASSWORD"  # noqa: S105  #Possible hardcoded password
+
 
 class InstrumentTypes(metaclass=ConstantsClass):
     """Types of instruments."""
@@ -104,6 +106,9 @@ DEFAULT_SCOPE = "*"
 # and processed with default settings, rather than being rejected.
 FALLBACK_PROJECT_ID = "_FALLBACK"
 
+# matches any value in an alert suppression field
+ALERT_SUPPRESSION_WILDCARD = "*"
+
 
 @dataclass(frozen=True)
 class ResourceParams:
@@ -138,3 +143,7 @@ SOFTWARE_TYPE_TO_DEFAULT_RESOURCE_PARAMS: dict[str, ResourceParams] = defaultdic
         ),
     },
 )
+
+# KrakenStatus id of the file remover job: its DAG name (`common.keys.Dags.FILE_REMOVER`, which the
+# monitoring cannot import)
+FILE_REMOVER_STATUS_ID = "file_remover"

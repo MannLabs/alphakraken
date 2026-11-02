@@ -2,41 +2,36 @@
 
 from datetime import datetime, timedelta
 
-import pytz
+from utils import ensure_utc
 
 from shared.db.models import KrakenStatus, KrakenStatusEntities
+from shared.keys import FILE_REMOVER_STATUS_ID
 
-from .base_alert import BaseAlert
+from .base_alert import BaseAlert, Issue, get_instrument_id
 from .config import (
     FILE_REMOVER_STALE_THRESHOLD_HOURS,
     STALE_STATUS_THRESHOLD_MINUTES,
-    Cases,
 )
 
 
 class StaleStatusAlert(BaseAlert):
     """Check for stale status updates."""
 
-    @property
-    def name(self) -> str:
-        """Return the case name for this alert type."""
-        return Cases.STALE
+    title = "Health check status is stale"
 
     def _get_issues(
-        self, status_objects: list[KrakenStatus]
-    ) -> list[tuple[str, datetime]]:
+        self, status_objects: list[KrakenStatus], now: datetime
+    ) -> list[Issue[str]]:
         """Check for stale statuses."""
-        now = datetime.now(pytz.UTC)
-
         stale_instruments = []
         for kraken_status in status_objects:
-            last_updated_at = pytz.utc.localize(kraken_status.updated_at_)
+            last_updated_at = ensure_utc(kraken_status.updated_at_)
             id_ = kraken_status.id
 
             # Use different thresholds based on entry type
             if (
                 kraken_status.entity_type == KrakenStatusEntities.JOB
-                and id_ == "file_remover"
+                and id_ == FILE_REMOVER_STATUS_ID
             ):
                 time_delta = timedelta(hours=FILE_REMOVER_STALE_THRESHOLD_HOURS)
             else:
@@ -44,17 +39,13 @@ class StaleStatusAlert(BaseAlert):
 
             threshold = now - time_delta
             if last_updated_at < threshold:
-                stale_instruments.append((id_, last_updated_at))
+                hours_ago = (now - last_updated_at).total_seconds() / 3600
+                stale_instruments.append(
+                    Issue(
+                        id_,
+                        f"{last_updated_at:%Y-%m-%d %H:%M:%S} UTC ({hours_ago:.1f} hours ago)",
+                        instrument_id=get_instrument_id(kraken_status),
+                    )
+                )
 
         return stale_instruments
-
-    def format_message(self, issues: list[tuple[str, datetime]]) -> str:
-        """Format stale status message."""
-        instruments_str = "\n".join(
-            [
-                f"- `{instrument_id}`: {updated_at.strftime('%Y-%m-%d %H:%M:%S')} UTC "
-                f"({(datetime.now(pytz.UTC) - updated_at).total_seconds() / 60 / 60:.1f} hours ago)"
-                for instrument_id, updated_at in issues
-            ]
-        )
-        return f"Health check status is stale:\n{instruments_str}."

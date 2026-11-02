@@ -21,7 +21,13 @@ from mongoengine import (
     StringField,
 )
 
-from shared.keys import DEFAULT_SCOPE, FALLBACK_PROJECT_ID, MetricsTypes, SoftwareTypes
+from shared.keys import (
+    ALERT_SUPPRESSION_WILDCARD,
+    DEFAULT_SCOPE,
+    FALLBACK_PROJECT_ID,
+    MetricsTypes,
+    SoftwareTypes,
+)
 
 FileInfoItem = (
     tuple[float | None, str | None] | tuple[float | None, str | None, str | None]
@@ -230,6 +236,98 @@ class SettingsStatus:
     DELETED = "deleted"
 
 
+class UserStatus:
+    """Status of user."""
+
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+
+
+USER_EMAIL_REGEX = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
+# letters only, 2 to 8: what `INITIALS_PATTERN` in the monitoring can find in raw file names
+USER_INITIALS_REGEX = r"^[a-zA-Z]{2,8}$"
+
+
+class User(Document):
+    """Schema for a user, used as owner of projects and settings.
+
+    Not a login identity.
+    """
+
+    # uniqueness of initials is only checked in the interface, a race between concurrent writes is accepted
+    meta: ClassVar = {"strict": False, "auto_create_index": False}
+    objects: ClassVar[QuerySet[User]]
+
+    email = StringField(
+        required=True, primary_key=True, max_length=128, regex=USER_EMAIL_REGEX
+    )
+    initials = StringField(required=True, max_length=8, regex=USER_INITIALS_REGEX)
+    # user id in the messenger (e.g. Slack member ID), to notify the user directly
+    messenger_id = StringField(max_length=512)
+
+    status = StringField(max_length=32, default=UserStatus.ACTIVE)
+
+    created_at_ = DateTimeField(default=datetime.now)
+
+
+ALERT_ISSUE_EXPIRY_S = 90 * 24 * 60 * 60
+
+
+class AlertIssue(Document):
+    """An issue found by the monitoring, and when it was last notified.
+
+    One document per issue key, kept as the notification memory across checks and restarts:
+    an issue that disappears and comes back is subject to its cooldown like any other. The
+    documents expire ALERT_ISSUE_EXPIRY_S after `first_seen` through a TTL index created by
+    `misc/init-mongo.sh`, as the alerting user may not create indexes.
+    """
+
+    meta: ClassVar = {"strict": False, "auto_create_index": False}
+    objects: ClassVar[QuerySet[AlertIssue]]
+
+    # alert class name, e.g. "DiskSpaceAlert"
+    alert = StringField(required=True, max_length=64)
+    # stable per issue within an alert, cf. `Issue.key` in the monitoring
+    key = StringField(required=True, max_length=512)
+
+    first_seen = DateTimeField(required=True)
+    # None: never notified
+    last_notified = DateTimeField()
+
+
+class AlertSuppression(Document):
+    """Schema for a rule muting monitoring alerts; an issue is muted if all fields match.
+
+    The match fields mirror those of `Issue` in the monitoring.
+    """
+
+    meta: ClassVar = {"strict": False}
+    objects: ClassVar[QuerySet[AlertSuppression]]
+
+    # alert class name, e.g. "PumpPressureAlert"
+    alert = StringField(
+        required=True, min_length=1, max_length=64, default=ALERT_SUPPRESSION_WILDCARD
+    )
+    # exact match on the instrument the issue relates to
+    instrument_id = StringField(
+        required=True, min_length=1, max_length=64, default=ALERT_SUPPRESSION_WILDCARD
+    )
+    # exact match on the issue identifier
+    identifier = StringField(
+        required=True, min_length=1, max_length=256, default=ALERT_SUPPRESSION_WILDCARD
+    )
+    # substring of the issue details
+    details = StringField(
+        required=True, min_length=1, max_length=256, default=ALERT_SUPPRESSION_WILDCARD
+    )
+
+    comment = StringField(required=True, max_length=512)
+    # None: never expires
+    expires_at = DateTimeField()
+    created_by = StringField(max_length=64)
+    created_at_ = DateTimeField(default=datetime.now)
+
+
 class Project(Document):
     """Schema for a project."""
 
@@ -242,7 +340,8 @@ class Project(Document):
 
     status = StringField(max_length=32, default=ProjectStatus.ACTIVE)
 
-    # missing: created by
+    owner = ReferenceField(User, default=None)
+
     created_at_ = DateTimeField(default=datetime.now)
 
 
@@ -312,6 +411,8 @@ class Settings(Document):
     num_threads = IntField(required=True, min_value=1, default=1)
 
     status = StringField(max_length=64, default=SettingsStatus.ACTIVE)
+
+    owner = ReferenceField(User, default=None)
 
     created_at_ = DateTimeField(default=datetime.now)
 

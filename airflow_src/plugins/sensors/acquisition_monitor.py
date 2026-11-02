@@ -3,7 +3,7 @@
 Wait until acquisition is done.
 
 An acquisition is considered "done" if either:
-- exactly one new file has been found and the main file's (size, mtime) has settled
+- exactly one new file has been found and the (size, mtime) of all associated files have settled
 - the main file has not appeared for a certain amount of time (relevant for Bruker only)
 - the file got renamed by the acquisition software, indicating a failed acquisition
 - the file size has not changed for a certain amount of time
@@ -43,9 +43,9 @@ SOFT_TIMEOUT_ON_MISSING_MAIN_FILE_M: int = 120
 # Note that it takes at least 2*SIZE_CHECK_INTERVAL_M minutes to detect that the acquisition is done that way.
 SIZE_CHECK_INTERVAL_M: int = 60
 
-# After the next file appeared, the main file's (size, mtime) must be unchanged for at least this long,
-# as the acquisition software might still be writing to it.
-MAIN_FILE_SETTLE_TIME_S: int = 5
+# After the next file appeared, the (size, mtime) of all associated files must be unchanged for at least this long,
+# as the acquisition software might still be writing to them.
+FILES_SETTLE_TIME_S: int = 5
 
 # heuristics: for Zeno ZT scan mode, conversion takes < 24h
 ZENO_ZT_SIZE_CHECK_INTERVAL_M: int = 24 * 60
@@ -74,8 +74,8 @@ class AcquisitionMonitor(BaseSensorOperator):
         self._latest_file_size_check_timestamp: float | None = None
         self._last_file_size = -1
 
-        self._main_file_stat: tuple[int, float] | None = None
-        self._main_file_stat_timestamp: float | None = None
+        self._files_stat: dict[Path, tuple[int, float]] | None = None
+        self._files_stat_timestamp: float | None = None
 
         # to track whether the main file showed up (relevant for Bruker only)
         self._main_file_exists: bool = False
@@ -201,10 +201,10 @@ class AcquisitionMonitor(BaseSensorOperator):
                 self._file_got_renamed = True
                 return True
 
-            if len(new_dir_content) == 1 or self._main_file_stat is not None:
+            if len(new_dir_content) == 1 or self._files_stat is not None:
                 # potential additional check: is the new file "small enough" to be considered a freshly started acquisition
                 # but: to adjust the threshold the poke frequency and the data output of the instrument need to be considered
-                return self._main_file_settled() and is_not_zeno_or_zeno_ready
+                return self._files_settled() and is_not_zeno_or_zeno_ready
 
             logging.warning(
                 f"More than one new file found: {new_dir_content}. "
@@ -298,33 +298,32 @@ class AcquisitionMonitor(BaseSensorOperator):
 
         return current_dir_content, new_dir_content
 
-    def _main_file_settled(self) -> bool:
-        """Return true if the main file's (size, mtime) is unchanged since a check at least MAIN_FILE_SETTLE_TIME_S ago, or if it is missing."""
-        try:
-            stat = self._main_file_path.stat()
-        except FileNotFoundError:
+    def _files_settled(self) -> bool:
+        """Return true if the (size, mtime) of all associated files are unchanged since a check at least FILES_SETTLE_TIME_S ago, or if all are missing."""
+        files_stat = self._get_associated_files_stat()
+
+        if not files_stat:
             # handled downstream by compute_checksum
             logging.warning(
-                "Main file disappeared. Considering previous acquisition to be done."
+                "All files disappeared. Considering previous acquisition to be done."
             )
             return True
 
-        main_file_stat = (stat.st_size, stat.st_mtime)
         current_timestamp = get_timestamp()
 
-        if main_file_stat != self._main_file_stat:
+        if files_stat != self._files_stat:
             logging.info(
-                f"Main file (size, mtime) is {main_file_stat}, waiting for it to settle."
+                f"Files (size, mtime) are {files_stat}, waiting for them to settle."
             )
-            self._main_file_stat = main_file_stat
-            self._main_file_stat_timestamp = current_timestamp
+            self._files_stat = files_stat
+            self._files_stat_timestamp = current_timestamp
             return False
 
-        if current_timestamp - self._main_file_stat_timestamp < MAIN_FILE_SETTLE_TIME_S:
+        if current_timestamp - self._files_stat_timestamp < FILES_SETTLE_TIME_S:
             return False
 
         logging.info(
-            f"Main file (size, mtime) {main_file_stat} has settled. Considering previous acquisition to be done."
+            f"Files (size, mtime) {files_stat} have settled. Considering previous acquisition to be done."
         )
         return True
 
@@ -341,7 +340,9 @@ class AcquisitionMonitor(BaseSensorOperator):
             size = self._get_total_file_size()
 
             if size is None:
-                logging.warning("No file found, presuming acquisition is not done.")
+                logging.warning(
+                    "No file found. Considering acquisition to be done if still missing at the next check."
+                )
 
             if size == self._last_file_size:
                 logging.info(
@@ -367,6 +368,12 @@ class AcquisitionMonitor(BaseSensorOperator):
 
     def _get_total_file_size(self) -> int | None:
         """Return the total size of all files associated with the raw file, None if none of them exists."""
+        files_stat = self._get_associated_files_stat()
+
+        return sum(size for size, _ in files_stat.values()) if files_stat else None
+
+    def _get_associated_files_stat(self) -> dict[Path, tuple[int, float]]:
+        """Return the (size, mtime) of all existing files associated with the raw file."""
         assert self._raw_file_monitor_wrapper is not None
         assert self._raw_file is not None
 
@@ -374,10 +381,14 @@ class AcquisitionMonitor(BaseSensorOperator):
             self._raw_file_monitor_wrapper.instrument_path,
             self._raw_file.original_name,
         )
-        sizes = [
-            file_path.stat().st_size
-            for file_path in associated_files
-            if file_path.exists()
-        ]
 
-        return sum(sizes) if sizes else None
+        files_stat = {}
+        for file_path in associated_files:
+            try:
+                stat = file_path.stat()
+            except FileNotFoundError:
+                # vanished between listing and stat
+                continue
+            files_stat[file_path] = (stat.st_size, stat.st_mtime)
+
+        return files_stat

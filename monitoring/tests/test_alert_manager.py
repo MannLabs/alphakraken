@@ -91,6 +91,16 @@ def db() -> Generator[dict[str, Mock], None, None]:
         }
 
 
+class TestInit:
+    """AlertManager refuses to start with an alert that has no configured destinations."""
+
+    @patch("monitoring.alert_manager.config.ALERT_DESTINATIONS", {})
+    def test_raises_on_alert_without_destinations(self) -> None:
+        """Every DB-backed alert needs an entry in the yaml mapping."""
+        with pytest.raises(KeyError, match="StaleStatusAlert"):
+            AlertManager()
+
+
 class TestCheckForIssues:
     """check_for_issues opens, notifies and resolves records."""
 

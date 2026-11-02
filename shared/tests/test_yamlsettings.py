@@ -97,6 +97,19 @@ def test_returns_test_settings_for_test_environment(
                 "local_free_space_threshold_gb": 10,
                 "pump_pressure_threshold_bar": 20,
                 "pump_pressure_absolute_threshold_bar": 480,
+                "alert_destinations": {
+                    "StaleStatusAlert": ["ops"],
+                    "DiskSpaceAlert": ["ops"],
+                    "HealthCheckFailedAlert": ["ops"],
+                    "StatusPileUpAlert": ["ops"],
+                    "InstrumentFilePileUpAlert": ["ops"],
+                    "InstrumentStallAlert": ["ops"],
+                    "RawFileErrorAlert": ["ops"],
+                    "S3UploadFailureAlert": ["ops"],
+                    "PumpPressureIncreaseAlert": ["business", "user"],
+                    "PumpPressureHighAlert": ["business", "user"],
+                    "QueueStopAlert": ["user"],
+                },
             }
         },
         "display_paths": {

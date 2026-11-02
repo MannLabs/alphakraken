@@ -128,3 +128,20 @@ class Destinations:
     USER = "user"
     OPS = "ops"
     BUSINESS = "business"
+
+    ALL = frozenset({USER, OPS, BUSINESS})
+
+
+# alert class name -> destinations of its issues
+ALERT_DESTINATIONS: dict[str, frozenset[str]] = {
+    alert_name: frozenset(destinations)
+    for alert_name, destinations in get_notification_setting(
+        YamlKeys.ALERT_DESTINATIONS
+    ).items()
+}
+for _alert_name, _destinations in ALERT_DESTINATIONS.items():
+    if unknown := _destinations - Destinations.ALL:
+        logging.error(
+            f"Unknown destinations {sorted(unknown)} for {_alert_name}; allowed: {sorted(Destinations.ALL)}."
+        )
+        sys.exit(1)

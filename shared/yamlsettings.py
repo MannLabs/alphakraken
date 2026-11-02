@@ -42,6 +42,7 @@ class YamlKeys:
     LOCAL_FREE_SPACE_THRESHOLD_GB = "local_free_space_threshold_gb"
     PUMP_PRESSURE_THRESHOLD_BAR = "pump_pressure_threshold_bar"
     PUMP_PRESSURE_ABSOLUTE_THRESHOLD_BAR = "pump_pressure_absolute_threshold_bar"
+    ALERT_DESTINATIONS = "alert_destinations"
 
     class Backup:
         """Keys for accessing backup configuration in the yaml config."""
@@ -89,6 +90,19 @@ class YamlSettings:
                         "local_free_space_threshold_gb": 10,
                         "pump_pressure_threshold_bar": 20,
                         "pump_pressure_absolute_threshold_bar": 480,
+                        "alert_destinations": {
+                            "StaleStatusAlert": ["ops"],
+                            "DiskSpaceAlert": ["ops"],
+                            "HealthCheckFailedAlert": ["ops"],
+                            "StatusPileUpAlert": ["ops"],
+                            "InstrumentFilePileUpAlert": ["ops"],
+                            "InstrumentStallAlert": ["ops"],
+                            "RawFileErrorAlert": ["ops"],
+                            "S3UploadFailureAlert": ["ops"],
+                            "PumpPressureIncreaseAlert": ["business", "user"],
+                            "PumpPressureHighAlert": ["business", "user"],
+                            "QueueStopAlert": ["user"],
+                        },
                     }
                 },
                 "display_paths": {

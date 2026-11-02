@@ -39,6 +39,20 @@ general:
     local_free_space_threshold_gb: 10
     pump_pressure_threshold_bar: 20
     pump_pressure_absolute_threshold_bar: 480
+    # where each alert goes: ops, business (channels) and/or user (direct message to the owner of the project of
+    # the file the issue is about, else to the user with the initials in the file name)
+    alert_destinations:
+      StaleStatusAlert: [ops]
+      DiskSpaceAlert: [ops]
+      HealthCheckFailedAlert: [ops]
+      StatusPileUpAlert: [ops]
+      InstrumentFilePileUpAlert: [ops]
+      InstrumentStallAlert: [ops]
+      RawFileErrorAlert: [ops]
+      S3UploadFailureAlert: [ops]
+      PumpPressureIncreaseAlert: [business, user]
+      PumpPressureHighAlert: [business, user]
+      QueueStopAlert: [user]
 
 display_paths:
   backup: /fs/pool-1/backup

@@ -24,7 +24,6 @@ from .config import (
     MAX_GRADIENT_LENGTH_HOURS,
     QUEUE_STOP_MAX_FILE_AGE_HOURS,
     QUEUE_STOP_THRESHOLD_MULTIPLIER,
-    Destinations,
 )
 from .recipients import extract_initials, get_messenger_ids_by_initials
 
@@ -208,7 +207,6 @@ class QueueStopAlert(BaseAlert):
 
     # each issue renders its own header
     title = None
-    destinations = frozenset({Destinations.USER})
     # once per (instrument, subject file), shared by the stop and handoff rules so that
     # a stop followed by a handoff for the same user-last-file does not notify twice
     cooldown_minutes = None

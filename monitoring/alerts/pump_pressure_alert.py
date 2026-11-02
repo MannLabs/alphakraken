@@ -18,7 +18,6 @@ from .config import (
     PUMP_PRESSURE_LOOKBACK_DAYS,
     PUMP_PRESSURE_THRESHOLD_BAR,
     PUMP_PRESSURE_WINDOW_SIZE,
-    Destinations,
 )
 
 # temporary hack to bypass bug in pump pressure extraction
@@ -156,7 +155,6 @@ class PumpPressureIncreaseAlert(BaseAlert):
     """Check for pump pressure increases over a short period."""
 
     title = "Pump pressure increase detected"
-    destinations = frozenset({Destinations.BUSINESS, Destinations.USER})
     # once per detected change
     cooldown_minutes = None
 
@@ -194,7 +192,6 @@ class PumpPressureHighAlert(BaseAlert):
     """Check for pump pressures above an absolute threshold."""
 
     title = "High pump pressure detected"
-    destinations = frozenset({Destinations.BUSINESS, Destinations.USER})
     # once per file
     cooldown_minutes = None
 

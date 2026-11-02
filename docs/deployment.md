@@ -510,8 +510,9 @@ AlphaKraken implements a role-based access control system for MongoDB with four 
 1. `MONGO_USER_READWRITE`: Full read-write access to the database, used by Airflow workers that need to update file status
 2. `MONGO_USER_READ`: Read-only access to all collections, used by the MCP server and REST API
 3. `MONGO_USER_WEBAPP`: Custom role with read access to all collections, but write access only to project, settings and user collections
-4. `MONGO_USER_ALERTING`: Custom role with read access to all collections, but write access only to the `alert_issue` collection,
-used by the monitoring service to record the issues it found and notified
+4. `MONGO_USER_ALERTING`: Custom role with read access to all collections, but write access only to the `alert_issue` and
+`alerting_active_instance` collections, used by the monitoring service to record the issues it found and notified and to elect
+the one instance that runs the checks
 
 This separation follows the principle of least privilege, ensuring each component has only the permissions it needs.
 

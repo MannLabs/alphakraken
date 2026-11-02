@@ -11,6 +11,9 @@ from shared.yamlsettings import YamlKeys, get_notification_setting
 
 # Constants
 CHECK_INTERVAL_SECONDS = 60
+# only the active instance runs the DB-backed checks; another takes over if it does not renew its claim within this time.
+# The claim is renewed once per loop, so this must cover the checks plus the sleep with a margin
+ACTIVE_INSTANCE_TIMEOUT_SECONDS = 10 * CHECK_INTERVAL_SECONDS
 DEFAULT_ALERT_COOLDOWN_TIME_MINUTES = (
     120  # Minimum time between repeated alerts for the same issue_type
 )

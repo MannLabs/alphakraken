@@ -13,8 +13,10 @@ from plugins.sensors.acquisition_monitor import (
     FINALIZATION_TIMEOUT_M,
     OLD_FILE_THRESHOLD_H,
     SOFT_TIMEOUT_ON_MISSING_MAIN_FILE_M,
+    ZENO_ZT_SCAN_FILE_THRESHOLD_BYTES,
     AcquisitionMonitor,
 )
+from raw_file_wrapper_factory import SciexRawFileMonitorWrapper
 
 FILES_UNCHANGED_TIMEOUT_S = FILES_UNCHANGED_TIMEOUT_M * 60
 FINALIZATION_TIMEOUT_S = FINALIZATION_TIMEOUT_M * 60
@@ -28,9 +30,7 @@ def get_sensor() -> AcquisitionMonitor:
 
 
 def _setup_monitor_wrapper(
-    mock_raw_file_wrapper_factory: MagicMock,
-    *associated_paths: MagicMock,
-    acquisition_finalized: bool = True,
+    mock_raw_file_wrapper_factory: MagicMock, *associated_paths: MagicMock
 ) -> MagicMock:
     """Set up the mocked monitor wrapper with the given associated files, the first one being the main file."""
     mock_monitor_wrapper = (
@@ -39,7 +39,6 @@ def _setup_monitor_wrapper(
     if associated_paths:
         mock_monitor_wrapper.main_file_path.return_value = associated_paths[0]
     mock_monitor_wrapper.get_associated_files.return_value = list(associated_paths)
-    mock_monitor_wrapper.acquisition_finalized.return_value = acquisition_finalized
     return mock_monitor_wrapper
 
 
@@ -66,9 +65,7 @@ def test_poke_file_dir_contents_change_file_is_added(
     """Test poke method returns True once a file is added, the associated files have settled and the raw file is finalized."""
     mock_get_raw_file_by_id.return_value.original_name = "some_file.raw"
     mock_monitor_wrapper = _setup_monitor_wrapper(
-        mock_raw_file_wrapper_factory,
-        _mock_path(),
-        acquisition_finalized=acquisition_finalized,
+        mock_raw_file_wrapper_factory, _mock_path()
     )
     mock_monitor_wrapper.get_raw_files_on_instrument.side_effect = [
         {"some_file.raw"},  # initial content (pre_execute)
@@ -88,9 +85,12 @@ def test_poke_file_dir_contents_change_file_is_added(
     sensor.pre_execute({DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"}})
 
     # when
-    assert not sensor.poke({})
-    assert not sensor.poke({})
-    assert sensor.poke({}) == acquisition_finalized
+    with patch.object(
+        AcquisitionMonitor, "_acquisition_finalized", return_value=acquisition_finalized
+    ):
+        assert not sensor.poke({})
+        assert not sensor.poke({})
+        assert sensor.poke({}) == acquisition_finalized
 
     mock_update_raw_file.assert_called_once_with(
         mock_get_raw_file_by_id.return_value.id, new_status="monitoring_acquisition"
@@ -515,6 +515,10 @@ def test_poke_file_dir_contents_dont_change_all_associated_files_are_considered(
     )
 
 
+@patch(
+    "plugins.sensors.acquisition_monitor.AcquisitionMonitor._acquisition_finalized",
+    return_value=False,
+)
 @patch("plugins.sensors.acquisition_monitor.RawFileWrapperFactory")
 @patch("plugins.sensors.acquisition_monitor.get_timestamp")
 @patch("plugins.sensors.acquisition_monitor.update_raw_file")
@@ -524,11 +528,12 @@ def test_poke_file_dir_contents_dont_change_not_finalized(
     mock_update_raw_file: MagicMock,  # noqa: ARG001
     mock_get_timestamp: MagicMock,
     mock_raw_file_wrapper_factory: MagicMock,
+    mock_acquisition_finalized: MagicMock,  # noqa: ARG001
 ) -> None:
     """Test poke method waits for the finalization timeout if the raw file is not finalized."""
     mock_get_raw_file_by_id.return_value.original_name = "some_file.raw"
     mock_monitor_wrapper = _setup_monitor_wrapper(
-        mock_raw_file_wrapper_factory, _mock_path(), acquisition_finalized=False
+        mock_raw_file_wrapper_factory, _mock_path()
     )
     mock_monitor_wrapper.get_raw_files_on_instrument.return_value = (
         set()
@@ -578,6 +583,35 @@ def test_poke_file_dir_contents_dont_change_all_files_missing(
     # when
     assert not sensor.poke({})
     assert sensor.poke({})
+
+
+def test_acquisition_finalized_non_sciex() -> None:
+    """Test _acquisition_finalized is True for instruments without a finalization step."""
+    sensor = get_sensor()
+    sensor._raw_file_monitor_wrapper = MagicMock()
+
+    assert sensor._acquisition_finalized()
+
+
+@pytest.mark.parametrize(
+    ("scan_file_size", "expected"),
+    [
+        (None, False),  # scan file missing
+        (ZENO_ZT_SCAN_FILE_THRESHOLD_BYTES, False),
+        (ZENO_ZT_SCAN_FILE_THRESHOLD_BYTES + 1, True),
+    ],
+)
+def test_acquisition_finalized_sciex(
+    tmp_path: Path, scan_file_size: int | None, *, expected: bool
+) -> None:
+    """Test _acquisition_finalized for Sciex depends on the .wiff.scan file exceeding the Zeno ZT threshold."""
+    if scan_file_size is not None:
+        (tmp_path / "sample.wiff.scan").write_bytes(b"x" * scan_file_size)
+    sensor = get_sensor()
+    sensor._raw_file_monitor_wrapper = MagicMock(spec=SciexRawFileMonitorWrapper)
+    sensor._main_file_path = tmp_path / "sample.wiff"
+
+    assert sensor._acquisition_finalized() == expected
 
 
 oldest_age = 2

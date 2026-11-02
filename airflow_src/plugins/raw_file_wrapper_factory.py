@@ -24,14 +24,10 @@ from common.settings import (
     INSTRUMENT_BACKUP_FOLDER_NAME,
     get_instrument_settings,
 )
-from file_handling import get_file_size
 
 from shared.db.models import RawFile
 from shared.keys import InstrumentTypes
 from shared.path_layout import get_raw_file_folder_rel_path
-
-# Zeno ZT scan files remain small until conversion completes
-ZENO_ZT_SCAN_FILE_THRESHOLD_BYTES: int = 44 + 100  # 44 magic bytes + buffer
 
 MONITOR = "monitor"
 COPIER = "copier"
@@ -136,13 +132,6 @@ class RawFileMonitorWrapper(ABC):
         """
         return None
 
-    def acquisition_finalized(self) -> bool:
-        """Return whether the acquisition software has finalized the raw file after writing it.
-
-        Defaults to True -> no finalization step.
-        """
-        return True
-
     @classmethod
     def is_corrupted_file_name(cls, file_name: str) -> bool:
         """Check if the given file name is a corrupted file (i.e. renamed by acquisition software).
@@ -198,18 +187,6 @@ class SciexRawFileMonitorWrapper(RawFileMonitorWrapper):
         some_file.timeseries.data.
         """
         return list(folder.glob(f"{Path(file_name).stem}.*"))
-
-    def acquisition_finalized(self) -> bool:
-        """Return whether the Zeno ZT conversion is done, i.e. the .wiff.scan file has grown beyond its initial size.
-
-        This is a rough heuristic with downsides, one being that on failed acquisitions the .wiff.scan file can remain
-        small, which then clogs the pipeline.
-        """
-        scan_file_path = Path(f"{self.main_file_path()}.scan")
-        return (
-            get_file_size(scan_file_path, -1, verbose=False)
-            > ZENO_ZT_SCAN_FILE_THRESHOLD_BYTES
-        )
 
 
 class BrukerRawFileMonitorWrapper(RawFileMonitorWrapper):

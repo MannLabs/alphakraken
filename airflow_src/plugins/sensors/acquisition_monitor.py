@@ -11,7 +11,7 @@ An acquisition is considered "done" if either:
   youngest file. This should be used with caution, but can be handy in case a catchup is required.
 
 In the first, second and last case, the acquisition software must additionally have finalized the raw file
-(cf. RawFileMonitorWrapper.acquisition_finalized()), unless the files have been unchanged for a very long time.
+(cf. _acquisition_finalized()), unless the files have been unchanged for a very long time.
 """
 
 import logging
@@ -30,8 +30,12 @@ from common.keys import (
 )
 from common.paths import get_internal_instrument_data_path
 from common.utils import get_airflow_variable, get_timestamp, put_xcom
-from file_handling import get_file_ctime
-from raw_file_wrapper_factory import RawFileMonitorWrapper, RawFileWrapperFactory
+from file_handling import get_file_ctime, get_file_size
+from raw_file_wrapper_factory import (
+    RawFileMonitorWrapper,
+    RawFileWrapperFactory,
+    SciexRawFileMonitorWrapper,
+)
 
 from shared.db.interface import get_raw_file_by_id, update_raw_file
 from shared.db.models import RawFile, RawFileStatus
@@ -49,6 +53,9 @@ FILES_UNCHANGED_TIMEOUT_M: int = 60
 # If all associated files are unchanged for this long, the acquisition is considered done even if not finalized.
 # heuristics: for Zeno ZT scan mode, conversion takes < 24h
 FINALIZATION_TIMEOUT_M: int = 24 * 60
+
+# Zeno ZT scan files remain small until conversion completes
+ZENO_ZT_SCAN_FILE_THRESHOLD_BYTES: int = 44 + 100  # 44 magic bytes + buffer
 
 # Files older than the youngest file in the directory by this margin are considered acquired, cf. 'consider_old_files_acquired'.
 # Picked conservatively.
@@ -160,7 +167,7 @@ class AcquisitionMonitor(BaseSensorOperator):
         assert self._raw_file_monitor_wrapper is not None
 
         now = get_timestamp()
-        acquisition_finalized = self._raw_file_monitor_wrapper.acquisition_finalized()
+        acquisition_finalized = self._acquisition_finalized()
 
         if self._file_is_old:
             logging.info(
@@ -183,6 +190,22 @@ class AcquisitionMonitor(BaseSensorOperator):
 
         return self._next_file_appeared_and_files_settled(
             now, files_unchanged_s, acquisition_finalized=acquisition_finalized
+        )
+
+    def _acquisition_finalized(self) -> bool:
+        """Return whether the acquisition software has finalized the raw file after writing it.
+
+        heuristics: for Zeno ZT scan mode (Sciex), the .wiff.scan file is very small until the conversion is done.
+        This is very rough, and has some downsides, one being that on failed acquisitions the .wiff.scan file can remain
+        small, which then clogs the pipeline.
+        """
+        if not isinstance(self._raw_file_monitor_wrapper, SciexRawFileMonitorWrapper):
+            return True
+
+        scan_file_path = Path(f"{self._main_file_path}.scan")
+        return (
+            get_file_size(scan_file_path, -1, verbose=False)
+            > ZENO_ZT_SCAN_FILE_THRESHOLD_BYTES
         )
 
     def _files_unchanged_for_too_long(

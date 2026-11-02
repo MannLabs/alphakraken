@@ -14,7 +14,6 @@ import pytest
 import pytz
 from common.settings import _INSTRUMENTS
 from plugins.raw_file_wrapper_factory import (
-    ZENO_ZT_SCAN_FILE_THRESHOLD_BYTES,
     BrukerRawFileMonitorWrapper,
     BrukerRawFileWriteWrapper,
     CopyPathProvider,
@@ -483,43 +482,6 @@ def test_sciex_get_files_to_copy(
     # when
     assert wrapper.get_files_to_copy() == expected_mapping
     mock_instrument_path.return_value.glob.assert_called_once_with("sample.*")
-
-
-def test_acquisition_finalized_default(
-    mock_instrument_paths: MagicMock,  # noqa: ARG001
-) -> None:
-    """Test that acquisition_finalized defaults to True."""
-    wrapper = ThermoRawFileMonitorWrapper(
-        "instrument1", raw_file_original_name="sample.raw"
-    )
-    assert wrapper.acquisition_finalized()
-
-
-@pytest.mark.parametrize(
-    ("scan_file_size", "expected"),
-    [
-        (None, False),  # scan file missing
-        (ZENO_ZT_SCAN_FILE_THRESHOLD_BYTES, False),
-        (ZENO_ZT_SCAN_FILE_THRESHOLD_BYTES + 1, True),
-    ],
-)
-def test_sciex_acquisition_finalized(
-    tmp_path: Path, scan_file_size: int | None, *, expected: bool
-) -> None:
-    """Test that acquisition_finalized for Sciex depends on the .wiff.scan file exceeding the Zeno ZT threshold."""
-    (tmp_path / "sample.wiff").touch()
-    if scan_file_size is not None:
-        (tmp_path / "sample.wiff.scan").write_bytes(b"x" * scan_file_size)
-
-    with patch(
-        "plugins.raw_file_wrapper_factory.get_internal_instrument_data_path",
-        return_value=tmp_path,
-    ):
-        wrapper = SciexRawFileMonitorWrapper(
-            "instrument1", raw_file_original_name="sample.wiff"
-        )
-
-    assert wrapper.acquisition_finalized() == expected
 
 
 def test_get_associated_files(tmp_path: Path) -> None:

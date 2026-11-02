@@ -3,12 +3,13 @@
 Known initials are those of the active users with a messenger id, the only ones that can be
 notified; they identify the operator in the raw file names.
 
-Two mutually exclusive modes per instrument (see SPEC.md §2.1):
-- Stall: newest two files share known initials and the pause exceeds N x gradient.
+Two mutually exclusive rules per instrument, evaluated on its newest files:
+- Stop: newest two files share known initials and the pause exceeds N x gradient.
 - Handoff: second- and third-newest share known initials but the newest differs.
 """
 
 import logging
+from collections.abc import Collection
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
@@ -35,29 +36,168 @@ _BYTES_PER_GB = 1024**3
 
 @dataclass(frozen=True)
 class RecentFile:
-    """One row in the `Recent files:` section of the message."""
+    """One of the newest raw files of an instrument."""
 
     file_id: str
-    size: int | None
     created_at: datetime
+    # known initials of the operator in the file name, if any
+    initials: str | None
 
 
-@dataclass
+@dataclass(frozen=True)
 class QueueStopIssue:
-    """Payload describing a queue-stop event (stop or handoff)."""
+    """A queue-stop event (stop or handoff) on an instrument."""
 
     kind: str
     instrument_id: str
     subject_file_id: str  # the alerted user's most recent file
-    gradient_length: timedelta | None
+    gradient_length: timedelta
+    # time since the subject file; None for a handoff
     pause: timedelta | None
-    recent_files: list[RecentFile]
+    recent_files: tuple[RecentFile, ...]
+
+
+def load_recent_files(known_initials: Collection[str]) -> dict[str, list[RecentFile]]:
+    """Load the three newest raw files per instrument, newest first."""
+    recent_files = {}
+    for instrument_id in RawFile.objects.distinct("instrument_id"):
+        raw_files = (
+            RawFile.objects.filter(instrument_id=instrument_id)
+            .only("id", "created_at")
+            .order_by("-created_at")
+            .limit(MIN_FILES_FOR_HANDOFF_DETECTION)
+        )
+        recent_files[instrument_id] = [
+            RecentFile(
+                str(raw_file.id),
+                ensure_utc(raw_file.created_at),
+                extract_initials(raw_file.id, known_initials),
+            )
+            for raw_file in raw_files
+        ]
+    return recent_files
+
+
+def detect(
+    instrument_id: str,
+    files: list[RecentFile],
+    now: datetime,
+    max_gradient: timedelta,
+    multiplier: float,
+) -> QueueStopIssue | None:
+    """Return the stop or handoff on an instrument given its newest files, newest first, if any."""
+    if len(files) < MIN_FILES_FOR_DETECTION:
+        return None
+    return _stop(instrument_id, files, now, max_gradient, multiplier) or _handoff(
+        instrument_id, files, max_gradient
+    )
+
+
+def _stop(
+    instrument_id: str,
+    files: list[RecentFile],
+    now: datetime,
+    max_gradient: timedelta,
+    multiplier: float,
+) -> QueueStopIssue | None:
+    """Rule A: the newest two files share known initials and the pause exceeds the threshold.
+
+    Fires when the still-active operator's queue has gone quiet: the pause since the newest
+    file must exceed `multiplier` times the gradient length inferred from the two files.
+    A gap above `max_gradient` means the two files belong to different queues, so the
+    newest file is a fresh queue start.
+
+    Example: files at 12:00 and 11:30 by the same user, now 14:00. gradient = 30 min,
+    pause = 2 h > 3 x 30 min → stop for the 12:00 file.
+    """
+    file1, file2 = files[0], files[1]
+    if file1.initials is None or file1.initials != file2.initials:
+        return None
+
+    gradient_length = file1.created_at - file2.created_at
+    if gradient_length <= timedelta(0):
+        logging.warning(
+            f"Skipping stop rule for {instrument_id}: non-positive gradient "
+            f"{gradient_length} between {file1.file_id} and {file2.file_id}"
+        )
+        return None
+    if gradient_length > max_gradient:
+        return None
+
+    pause = now - file1.created_at
+    if pause <= multiplier * gradient_length:
+        return None
+
+    return QueueStopIssue(
+        KIND_STOP, instrument_id, file1.file_id, gradient_length, pause, tuple(files)
+    )
+
+
+def _handoff(
+    instrument_id: str, files: list[RecentFile], max_gradient: timedelta
+) -> QueueStopIssue | None:
+    """Rule B: the second- and third-newest files share known initials, the newest differs.
+
+    Fires when someone else took over, or an unattributable file (e.g. QC) is on top: the
+    new file is itself the queue-end signal, so there is no pause check. A gap above
+    `max_gradient` between the prior pair means they were not one queue, and a prior pair
+    without shared initials means the prior user had no queue to end.
+
+    Example: "_JoeB_" at 12:00 on top of "_MaSc_" files at 11:00 and 10:30 → handoff for
+    MaSc's 11:00 file. JoeB is not notified.
+    """
+    if len(files) < MIN_FILES_FOR_HANDOFF_DETECTION:
+        return None
+    file1, file2, file3 = files[0], files[1], files[2]
+    if file2.initials is None or file2.initials != file3.initials:
+        return None
+    if file1.initials == file2.initials:
+        return None
+
+    prior_gradient_length = file2.created_at - file3.created_at
+    if prior_gradient_length > max_gradient:
+        return None
+
+    return QueueStopIssue(
+        KIND_HANDOFF,
+        instrument_id,
+        file2.file_id,
+        prior_gradient_length,
+        None,
+        tuple(files),
+    )
+
+
+def _load_sizes(file_ids: Collection[str]) -> dict[str, int | None]:
+    """Load the current sizes of the files; sizes may be populated after detection."""
+    raw_files = RawFile.objects.filter(id__in=sorted(file_ids)).only("id", "size")
+    return {str(raw_file.id): raw_file.size for raw_file in raw_files}
 
 
 def _format_size(size_bytes: int | None) -> str:
     if size_bytes is None or size_bytes < 0:
         return "n/a"
     return f"{size_bytes / _BYTES_PER_GB:.2f} GB"
+
+
+def render_issue(issue: QueueStopIssue, sizes: dict[str, int | None]) -> str:
+    """Render a single issue to a message string."""
+    if issue.kind == KIND_STOP:
+        pause_minutes = issue.pause.total_seconds() / 60 if issue.pause else 0
+        header = (
+            f"Queue stopped on `{issue.instrument_id}`: "
+            f"gradient ~{issue.gradient_length.total_seconds() / 60:.0f} min, "
+            f"pause {pause_minutes:.0f} min."
+        )
+    else:
+        header = f"Queue handoff on `{issue.instrument_id}`"
+
+    file_lines = [
+        f"- `{rf.file_id}` ({_format_size(sizes.get(rf.file_id))}) "
+        f"[{rf.created_at:%Y-%m-%d %H:%M UTC}]"
+        for rf in issue.recent_files
+    ]
+    return header + "\nRecent files:\n" + "\n".join(file_lines)
 
 
 class QueueStopAlert(BaseAlert):
@@ -80,276 +220,26 @@ class QueueStopAlert(BaseAlert):
         if not known_initials:
             return []
 
-        instrument_ids = RawFile.objects.distinct("instrument_id")
         max_gradient = timedelta(hours=MAX_GRADIENT_LENGTH_HOURS)
-
         issues: list[Issue[QueueStopIssue]] = []
-        for instrument_id in instrument_ids:
-            recent = list(
-                RawFile.objects.filter(instrument_id=instrument_id)
-                .only("id", "created_at", "size", "instrument_id")
-                .order_by("-created_at")
-                .limit(3)
+        for instrument_id, files in load_recent_files(known_initials).items():
+            issue = detect(
+                instrument_id, files, now, max_gradient, QUEUE_STOP_THRESHOLD_MULTIPLIER
             )
-            if len(recent) < MIN_FILES_FOR_DETECTION:
-                logging.debug(
-                    f"Skipping {instrument_id}: fewer than "
-                    f"{MIN_FILES_FOR_DETECTION} raw files on instrument"
-                )
-                continue
-
-            has_third_file = len(recent) >= MIN_FILES_FOR_HANDOFF_DETECTION
-            file1_id: str = recent[0].id
-            file2_id: str = recent[1].id
-            file1_created: datetime = ensure_utc(recent[0].created_at)
-            file2_created: datetime = ensure_utc(recent[1].created_at)
-            file3_created: datetime | None = (
-                ensure_utc(recent[2].created_at) if has_third_file else None
-            )
-
-            initials1 = extract_initials(file1_id, known_initials)
-            initials2 = extract_initials(file2_id, known_initials)
-            initials3 = (
-                extract_initials(recent[2].id, known_initials)
-                if has_third_file
-                else None
-            )
-
-            recent_files: list[RecentFile] = [
-                RecentFile(
-                    file_id=str(rf.id),
-                    size=rf.size,
-                    created_at=ensure_utc(rf.created_at),
-                )
-                for rf in recent
-            ]
-
-            issue = self._evaluate_rule_a(
-                instrument_id=instrument_id,
-                file1_id=file1_id,
-                file2_id=file2_id,
-                created1=file1_created,
-                created2=file2_created,
-                initials1=initials1,
-                initials2=initials2,
-                now=now,
-                max_gradient=max_gradient,
-                recent_files=recent_files,
-            )
-            if issue is None and file3_created is not None:
-                issue = self._evaluate_rule_b(
-                    instrument_id=instrument_id,
-                    file2_id=file2_id,
-                    created2=file2_created,
-                    created3=file3_created,
-                    initials1=initials1,
-                    initials2=initials2,
-                    initials3=initials3,
-                    max_gradient=max_gradient,
-                    recent_files=recent_files,
-                )
-
             if issue is None:
                 continue
-
-            subject_file_id = issue.subject_file_id
-            identifier = f"{instrument_id}:{subject_file_id}"
             issues.append(
                 Issue(
-                    identifier,
+                    f"{instrument_id}:{issue.subject_file_id}",
                     issue,
-                    relevant_file=subject_file_id,
+                    relevant_file=issue.subject_file_id,
                     instrument_id=instrument_id,
                 )
             )
-
         return issues
 
-    @staticmethod
-    def _evaluate_rule_a(  # noqa: PLR0913
-        *,
-        instrument_id: str,
-        file1_id: str,
-        file2_id: str,
-        created1: datetime,
-        created2: datetime,
-        initials1: str | None,
-        initials2: str | None,
-        now: datetime,
-        max_gradient: timedelta,
-        recent_files: list[RecentFile],
-    ) -> QueueStopIssue | None:
-        """Rule A — stop: file1 & file2 share known initials, pause exceeds threshold.
-
-        Fires when the still-active operator's queue has gone quiet. The shared
-        known initials of `file1`/`file2` identify the user; the pause from
-        `file1.created_at` to `now` must exceed `QUEUE_STOP_THRESHOLD_MULTIPLIER`
-        times the gradient length inferred from the two files.
-
-        Example (fires):
-            file1 = "_MaSc_a.raw" at 12:00, file2 = "_MaSc_b.raw" at 11:30,
-            now = 14:00. gradient = 30 min, pause = 2 h > 3 x 30 min → stop
-            alert for MaSc with subject_file_id = file1.id.
-
-        Example (skipped, gradient too large):
-            file1 at 12:00, file2 at 09:00 → gradient = 3 h > MAX 2 h. The two
-            files belong to different queues; `file1` is treated as a fresh
-            queue start.
-
-        Example (skipped, pause below threshold):
-            file1 at 12:00, file2 at 11:30, now = 13:00. gradient = 30 min,
-            pause = 1 h <= 3 x 30 min → no stop yet.
-
-        Example (skipped, initials don't match):
-            file1 = "_MaSc_a.raw", file2 = "_JoeB_b.raw" → Rule A doesn't apply
-            (Rule B may, evaluated separately).
-        """
-        if initials1 is None or initials1 != initials2:
-            return None
-
-        gradient_length = created1 - created2
-
-        if gradient_length <= timedelta(0):
-            logging.warning(
-                f"Skipping stop rule for {instrument_id}: non-positive gradient "
-                f"{gradient_length} between {file1_id} and {file2_id}"
-            )
-            return None
-
-        if gradient_length > max_gradient:
-            logging.debug(
-                f"Skipping stop rule for {instrument_id}: gradient "
-                f"{gradient_length} > max {max_gradient}"
-            )
-            return None
-
-        pause = now - created1
-        if pause <= QUEUE_STOP_THRESHOLD_MULTIPLIER * gradient_length:
-            return None
-
-        return QueueStopIssue(
-            kind=KIND_STOP,
-            instrument_id=instrument_id,
-            subject_file_id=file1_id,
-            gradient_length=gradient_length,
-            pause=pause,
-            recent_files=recent_files,
-        )
-
-    @staticmethod
-    def _evaluate_rule_b(  # noqa: PLR0913
-        *,
-        instrument_id: str,
-        file2_id: str,
-        created2: datetime,
-        created3: datetime,
-        initials1: str | None,
-        initials2: str | None,
-        initials3: str | None,
-        max_gradient: timedelta,
-        recent_files: list[RecentFile],
-    ) -> QueueStopIssue | None:
-        """Rule B — handoff: file2 & file3 share known initials, file1 differs.
-
-        Fires when someone else took over: the prior operator's last two files
-        are now second- and third-newest, and a different (or unattributable)
-        file is on top. The prior operator's queue is treated as ended
-        unconditionally - no 3x pause check, since a new file has arrived from
-        someone else, which is itself the queue-end signal.
-
-        Example (fires, new operator with known initials):
-            file1 = "_JoeB_n.raw", file2 = "_MaSc_a.raw", file3 = "_MaSc_b.raw"
-            with file2→file3 gap ≤ 2 h → handoff alert for MaSc with
-            subject_file_id = file2.id. JoeB is NOT notified.
-
-        Example (fires, unattributable newest file):
-            file1 = "QC_check.raw", file2/file3 share `_MaSc_` → still alerts
-            MaSc; file1 just has no operator.
-
-        Example (skipped, prior pair gap too large):
-            file2 at 12:00, file3 at 08:00 → prior gradient = 4 h > MAX 2 h.
-            file2 and file3 weren't part of the same queue.
-
-        Example (skipped, single-file prior run):
-            file2 = "_MaSc_a.raw", file3 = "_JoeB_b.raw" → prior pair doesn't
-            share initials; the "prior" user only had one file, so they didn't
-            have a queue to end.
-        """
-        if initials2 is None or initials2 != initials3:
-            return None
-        if initials1 == initials2:
-            return None
-
-        prior_gradient_length = created2 - created3
-
-        if prior_gradient_length > max_gradient:
-            logging.debug(
-                f"Skipping handoff rule for {instrument_id}: prior gradient "
-                f"{prior_gradient_length} > max {max_gradient}"
-            )
-            return None
-
-        return QueueStopIssue(
-            kind=KIND_HANDOFF,
-            instrument_id=instrument_id,
-            subject_file_id=file2_id,
-            gradient_length=prior_gradient_length,
-            pause=None,
-            recent_files=recent_files,
-        )
-
     def format_message(self, issues: list[Issue[QueueStopIssue]]) -> str:
-        """Render all issues, with file metadata refreshed."""
-        messages = []
-        for issue in issues:
-            self.refresh_recent_files(issue.details)
-            messages.append(self.render_issue(issue.details))
-        return "\n\n".join(messages)
-
-    @staticmethod
-    def refresh_recent_files(issue: QueueStopIssue) -> None:
-        """Refresh metadata (size) for the exact files captured at detection.
-
-        Mutates `issue.recent_files`. Called right before render: size may
-        have been populated in the gap between detection and dispatch. Re-queries
-        only the same file IDs - never the ordered top-3 - so files arriving in
-        that gap cannot swap out the subject file the alert was raised for.
-        """
-        file_ids = [rf.file_id for rf in issue.recent_files]
-        fresh = RawFile.objects.filter(id__in=file_ids).only("id", "size")
-        size_by_id = {str(rf.id): rf.size for rf in fresh}
-        issue.recent_files = [
-            RecentFile(
-                file_id=rf.file_id,
-                size=size_by_id.get(rf.file_id, rf.size),
-                created_at=rf.created_at,
-            )
-            for rf in issue.recent_files
-        ]
-
-    @staticmethod
-    def render_issue(issue: QueueStopIssue) -> str:
-        """Render a single issue to a message string."""
-        if issue.kind == KIND_STOP:
-            gradient_minutes = (
-                issue.gradient_length.total_seconds() / 60
-                if issue.gradient_length is not None
-                else 0
-            )
-            pause_minutes = (
-                issue.pause.total_seconds() / 60 if issue.pause is not None else 0
-            )
-            header = (
-                f"Queue stopped on `{issue.instrument_id}`: "
-                f"gradient ~{gradient_minutes:.0f} min, "
-                f"pause {pause_minutes:.0f} min."
-            )
-        else:
-            header = f"Queue handoff on `{issue.instrument_id}`"
-
-        file_lines = [
-            f"- `{rf.file_id}` ({_format_size(rf.size)}) "
-            f"[{rf.created_at:%Y-%m-%d %H:%M UTC}]"
-            for rf in issue.recent_files
-        ]
-        return header + "\nRecent files:\n" + "\n".join(file_lines)
+        """Render all issues with the current file sizes."""
+        file_ids = {rf.file_id for issue in issues for rf in issue.details.recent_files}
+        sizes = _load_sizes(file_ids)
+        return "\n\n".join(render_issue(issue.details, sizes) for issue in issues)

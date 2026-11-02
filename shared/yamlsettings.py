@@ -37,12 +37,6 @@ class YamlKeys:
     DEBUG_MESSENGER_ID = "debug_messenger_id"
     WEBAPP_URL = "webapp_url"
     INSTRUMENT_STALL_INSTRUMENT_IDS = "instrument_stall_instrument_ids"
-    FREE_SPACE_THRESHOLD_GB = "free_space_threshold_gb"
-    FILE_SYSTEM_FREE_SPACE_THRESHOLDS_GB = "file_system_free_space_thresholds_gb"
-    LOCAL_FREE_SPACE_THRESHOLD_GB = "local_free_space_threshold_gb"
-    PUMP_PRESSURE_THRESHOLD_BAR = "pump_pressure_threshold_bar"
-    PUMP_PRESSURE_ABSOLUTE_THRESHOLD_BAR = "pump_pressure_absolute_threshold_bar"
-    ALERT_DESTINATIONS = "alert_destinations"
 
     class Backup:
         """Keys for accessing backup configuration in the yaml config."""
@@ -82,27 +76,6 @@ class YamlSettings:
                         "ops_alerts_url": "json://test-webhook.example.com",
                         "business_alerts_url": "json://test-webhook.example.com",
                         "webapp_url": "http://localhost:8501",
-                        "free_space_threshold_gb": 200,
-                        "file_system_free_space_thresholds_gb": {
-                            "backup": 500,
-                            "output": 300,
-                        },
-                        "local_free_space_threshold_gb": 10,
-                        "pump_pressure_threshold_bar": 20,
-                        "pump_pressure_absolute_threshold_bar": 480,
-                        "alert_destinations": {
-                            "StaleStatusAlert": ["ops"],
-                            "DiskSpaceAlert": ["ops"],
-                            "HealthCheckFailedAlert": ["ops"],
-                            "StatusPileUpAlert": ["ops"],
-                            "InstrumentFilePileUpAlert": ["ops"],
-                            "InstrumentStallAlert": ["ops"],
-                            "RawFileErrorAlert": ["ops"],
-                            "S3UploadFailureAlert": ["ops"],
-                            "PumpPressureIncreaseAlert": ["business", "user"],
-                            "PumpPressureHighAlert": ["business", "user"],
-                            "QueueStopAlert": ["user"],
-                        },
                     }
                 },
                 "display_paths": {

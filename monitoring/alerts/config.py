@@ -1,13 +1,50 @@
 """Configuration for the monitoring service."""
 
 import logging
+import os
 import sys
 from collections import defaultdict
+from pathlib import Path
+from typing import Any
+
+import yaml
 
 from shared.db.models import (
     InstrumentFileStatus,
 )
+from shared.keys import EnvVars, InternalPaths
 from shared.yamlsettings import YamlKeys, get_notification_setting
+
+
+class AlertsYamlKeys:
+    """Keys for accessing the alerts.yaml settings."""
+
+    THRESHOLDS = "thresholds"
+    FREE_SPACE_THRESHOLD_GB = "free_space_threshold_gb"
+    FILE_SYSTEM_FREE_SPACE_THRESHOLDS_GB = "file_system_free_space_thresholds_gb"
+    LOCAL_FREE_SPACE_THRESHOLD_GB = "local_free_space_threshold_gb"
+    PUMP_PRESSURE_THRESHOLD_BAR = "pump_pressure_threshold_bar"
+    PUMP_PRESSURE_ABSOLUTE_THRESHOLD_BAR = "pump_pressure_absolute_threshold_bar"
+
+    DESTINATIONS = "destinations"
+
+
+ALERTS_YAML_PATH = Path(InternalPaths.ENVS_PATH) / "alerts.yaml"
+if os.getenv(EnvVars.ENV_NAME) == "_test_":
+    # tests run outside the container: read the repository's file
+    ALERTS_YAML_PATH = Path(__file__).parents[2] / "envs" / "alerts.yaml"
+
+with ALERTS_YAML_PATH.open() as _file:
+    ALERTSETTINGS: dict[str, Any] = yaml.safe_load(_file)
+
+
+def get_alert_setting(block: str, setting_key: str) -> Any:
+    """Get a setting from a block of alerts.yaml."""
+    try:
+        return ALERTSETTINGS[block][setting_key]
+    except KeyError as e:
+        raise KeyError(f"Key `{block}.{setting_key}` not found in alerts.yaml.") from e
+
 
 # Constants
 CHECK_INTERVAL_SECONDS = 60
@@ -32,12 +69,12 @@ FILE_REMOVER_STALE_THRESHOLD_HOURS = (
 )
 # a failed file remover run is reported less often, it runs rarely
 FILE_REMOVER_HEALTH_COOLDOWN_MINUTES = 12 * 60
-FREE_SPACE_THRESHOLD_GB: int = get_notification_setting(
-    YamlKeys.FREE_SPACE_THRESHOLD_GB
+FREE_SPACE_THRESHOLD_GB: int = get_alert_setting(
+    AlertsYamlKeys.THRESHOLDS, AlertsYamlKeys.FREE_SPACE_THRESHOLD_GB
 )
 # file systems with a threshold other than FREE_SPACE_THRESHOLD_GB
-FILE_SYSTEM_FREE_SPACE_THRESHOLDS_GB: dict[str, int] = get_notification_setting(
-    YamlKeys.FILE_SYSTEM_FREE_SPACE_THRESHOLDS_GB
+FILE_SYSTEM_FREE_SPACE_THRESHOLDS_GB: dict[str, int] = get_alert_setting(
+    AlertsYamlKeys.THRESHOLDS, AlertsYamlKeys.FILE_SYSTEM_FREE_SPACE_THRESHOLDS_GB
 )
 
 # Local disk alert configuration
@@ -46,8 +83,8 @@ LOCAL_DISK_PATH = (
     "/etc/hosts"  # always-present path probing the monitoring host's local disk
 )
 # Local disk of the monitoring host
-LOCAL_FREE_SPACE_THRESHOLD_GB: int = get_notification_setting(
-    YamlKeys.LOCAL_FREE_SPACE_THRESHOLD_GB
+LOCAL_FREE_SPACE_THRESHOLD_GB: int = get_alert_setting(
+    AlertsYamlKeys.THRESHOLDS, AlertsYamlKeys.LOCAL_FREE_SPACE_THRESHOLD_GB
 )
 
 STATUS_PILE_UP_THRESHOLDS = defaultdict(lambda: 5)
@@ -76,12 +113,12 @@ QUEUE_STOP_MAX_FILE_AGE_HOURS = 24
 PUMP_PRESSURE_LOOKBACK_DAYS = 1
 PUMP_PRESSURE_WINDOW_SIZE = 5  # Number of samples to compare
 # Pressure increase threshold in bar
-PUMP_PRESSURE_THRESHOLD_BAR: float = get_notification_setting(
-    YamlKeys.PUMP_PRESSURE_THRESHOLD_BAR
+PUMP_PRESSURE_THRESHOLD_BAR: float = get_alert_setting(
+    AlertsYamlKeys.THRESHOLDS, AlertsYamlKeys.PUMP_PRESSURE_THRESHOLD_BAR
 )
 # Absolute pressure threshold in bar
-PUMP_PRESSURE_ABSOLUTE_THRESHOLD_BAR: float = get_notification_setting(
-    YamlKeys.PUMP_PRESSURE_ABSOLUTE_THRESHOLD_BAR
+PUMP_PRESSURE_ABSOLUTE_THRESHOLD_BAR: float = get_alert_setting(
+    AlertsYamlKeys.THRESHOLDS, AlertsYamlKeys.PUMP_PRESSURE_ABSOLUTE_THRESHOLD_BAR
 )
 PUMP_PRESSURE_GRADIENT_TOLERANCE = 0.1
 
@@ -135,9 +172,7 @@ class Destinations:
 # alert class name -> destinations of its issues
 ALERT_DESTINATIONS: dict[str, frozenset[str]] = {
     alert_name: frozenset(destinations)
-    for alert_name, destinations in get_notification_setting(
-        YamlKeys.ALERT_DESTINATIONS
-    ).items()
+    for alert_name, destinations in ALERTSETTINGS[AlertsYamlKeys.DESTINATIONS].items()
 }
 for _alert_name, _destinations in ALERT_DESTINATIONS.items():
     if unknown := _destinations - Destinations.ALL:

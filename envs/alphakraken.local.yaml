@@ -1,4 +1,5 @@
 # Configuration file for alphakraken: instruments and mounts (environment: local)
+# Setup-related settings only; alert thresholds and destinations are in alerts.yaml.
 instruments:
   test1:
     type: thermo # Needs to match one of the values defined in common.keys.InstrumentTypes (thermo, bruker, sciex).
@@ -52,26 +53,7 @@ general:
     webapp_url: "http://localhost:8501"
     # optional: instruments to alert on if no new file is acquired for a while
     # instrument_stall_instrument_ids: [test1]
-    # alert thresholds
-    free_space_threshold_gb: 200
-    file_system_free_space_thresholds_gb: { backup: 500, output: 300 }
-    local_free_space_threshold_gb: 10
-    pump_pressure_threshold_bar: 20
-    pump_pressure_absolute_threshold_bar: 480
-    # where each alert goes: ops, business (channels) and/or user (direct message to the owner of the project of
-    # the file the issue is about, else to the user with the initials in the file name)
-    alert_destinations:
-      StaleStatusAlert: [ops]
-      DiskSpaceAlert: [ops]
-      HealthCheckFailedAlert: [ops]
-      StatusPileUpAlert: [ops]
-      InstrumentFilePileUpAlert: [ops]
-      InstrumentStallAlert: [ops]
-      RawFileErrorAlert: [ops]
-      S3UploadFailureAlert: [ops]
-      PumpPressureIncreaseAlert: [business, user]
-      PumpPressureHighAlert: [business, user]
-      QueueStopAlert: [user]
+    # alert thresholds and destinations: see alerts.yaml
 
 # absolute paths (posix or windows) of the data directories as users see them on the shared file system, cf. path_views.Locations.
 # Not used for the pipeline file operations: only prepended to the location-relative paths for display (webapp, REST API),

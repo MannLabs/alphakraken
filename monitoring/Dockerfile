@@ -16,7 +16,7 @@ COPY shared ./shared
 
 # Copy YAML configuration files
 RUN mkdir -p /opt/airflow/envs
-COPY envs/alphakraken.*.yaml /opt/airflow/envs/
+COPY envs/alphakraken.*.yaml envs/alerts.yaml /opt/airflow/envs/
 # Remove sensitive data (usernames/passwords) from the config
 RUN sed -i '/\(username\|password\)/d' /opt/airflow/envs/alphakraken.*.yaml
 

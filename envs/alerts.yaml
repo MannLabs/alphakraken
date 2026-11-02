@@ -1,0 +1,27 @@
+# Alert settings of the monitoring service, the same for all environments.
+# Setup-related settings (URLs, instruments) live in alphakraken.<env>.yaml.
+
+thresholds:
+  free_space_threshold_gb: 200
+  # file systems with a threshold other than free_space_threshold_gb
+  file_system_free_space_thresholds_gb: { backup: 500, output: 300 }
+  # local disk of the monitoring host
+  local_free_space_threshold_gb: 10
+  # pressure increase over a few files
+  pump_pressure_threshold_bar: 20
+  pump_pressure_absolute_threshold_bar: 480
+
+# where each alert goes: ops, business (channels) and/or user (direct message to the owner of the project of
+# the file the issue is about, else to the user with the initials in the file name)
+destinations:
+  StaleStatusAlert: [ops]
+  DiskSpaceAlert: [ops]
+  HealthCheckFailedAlert: [ops]
+  StatusPileUpAlert: [ops]
+  InstrumentFilePileUpAlert: [ops]
+  InstrumentStallAlert: [ops]
+  RawFileErrorAlert: [ops]
+  S3UploadFailureAlert: [ops]
+  PumpPressureIncreaseAlert: [business, user]
+  PumpPressureHighAlert: [business, user]
+  QueueStopAlert: [user]

@@ -85,3 +85,15 @@ supported services can be configured by URL. In `envs/alphakraken.${ENV}.yaml`, 
    channel (full-width messages); a Slack webhook URL works too but posts narrower attachments.
    MS Teams Power Automate URLs work unchanged.
 2. Replace `slack_bot_token: "xoxb-..."` with `user_alerts_url: "slacktext://xoxb-.../@{{ALPHAKRAKEN_MESSENGER_ID}}"`.
+
+# Alert settings in `envs/alerts.yaml`
+
+The alert thresholds and the destinations of each alert are the same for all environments and
+live in `envs/alerts.yaml` (template in the repository). `monitoring/Dockerfile` copies it into the
+image, so the monitoring container must be rebuilt.
+
+1. Create `envs/alerts.yaml` from the template on every machine running the monitoring.
+2. Remove `free_space_threshold_gb`, `file_system_free_space_thresholds_gb`,
+   `local_free_space_threshold_gb`, `pump_pressure_threshold_bar` and
+   `pump_pressure_absolute_threshold_bar` from `general.notifications` in `envs/alphakraken.${ENV}.yaml`
+   if present, and set them under `thresholds` in `envs/alerts.yaml` instead.

@@ -56,12 +56,10 @@ def test_user_rejects_invalid_initials(initials: str) -> None:
 
 
 def test_alert_issue_validates_with_required_fields() -> None:
-    """Test that an open issue needs alert, key, identifier, details and first_seen."""
+    """Test that an issue needs alert, key and first_seen."""
     AlertIssue(
         alert="DiskSpaceAlert",
         key="inst1",
-        identifier="inst1",
-        details="150 GB",
         first_seen=datetime(2024, 1, 1, tzinfo=pytz.UTC),
     ).validate()
 
@@ -71,8 +69,6 @@ def test_alert_issue_rejects_missing_key() -> None:
     with pytest.raises(ValidationError):
         AlertIssue(
             alert="DiskSpaceAlert",
-            identifier="inst1",
-            details="150 GB",
             first_seen=datetime(2024, 1, 1, tzinfo=pytz.UTC),
         ).validate()
 

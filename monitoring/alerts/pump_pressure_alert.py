@@ -48,7 +48,7 @@ class PressureChange:
         return self.younger.pressure - self.older.pressure
 
 
-def load_pressure_data(
+def _load_pressure_data(
     instrument_ids: list[str], now: datetime
 ) -> dict[str, list[PressureDataPoint]]:
     """Load the pressure measurements of the recent raw files per instrument, newest first."""
@@ -72,10 +72,10 @@ def load_pressure_data(
             "evosep_pump_hp_pressure_max",
         ],
     )
-    return group_by_instrument(raw_files_with_metrics)
+    return _group_by_instrument(raw_files_with_metrics)
 
 
-def group_by_instrument(
+def _group_by_instrument(
     raw_files_with_metrics: dict[str, Any],
 ) -> dict[str, list[PressureDataPoint]]:
     """Group the metrics by instrument, skipping raw files without pressure."""
@@ -94,7 +94,7 @@ def group_by_instrument(
     return pressure_data
 
 
-def is_within_tolerance(
+def _is_within_tolerance(
     value: float | None,
     target: float | None,
     tolerance: float = PUMP_PRESSURE_GRADIENT_TOLERANCE,
@@ -105,7 +105,7 @@ def is_within_tolerance(
     return (1 - tolerance) < (value / target) < (1 + tolerance)
 
 
-def detect_increase(
+def _detect_increase(
     points: list[PressureDataPoint], window_size: int, threshold: float
 ) -> PressureChange | None:
     """Return the first increase above the threshold over `window_size` samples, newest first.
@@ -119,9 +119,9 @@ def detect_increase(
     for i in range(window_size, len(points)):
         younger, older = points[i - window_size], points[i]
 
-        if not is_within_tolerance(
+        if not _is_within_tolerance(
             older.gradient_length, latest_gradient_length
-        ) or not is_within_tolerance(younger.gradient_length, latest_gradient_length):
+        ) or not _is_within_tolerance(younger.gradient_length, latest_gradient_length):
             continue
 
         if max(younger.pressure, older.pressure) > MAX_PRESSURE_TO_CONSIDER:
@@ -133,7 +133,7 @@ def detect_increase(
     return None
 
 
-def detect_high(
+def _detect_high(
     points: list[PressureDataPoint], threshold: float
 ) -> list[PressureDataPoint]:
     """Return the measurements at or above the threshold."""
@@ -169,8 +169,8 @@ class PumpPressureIncreaseAlert(BaseAlert):
             return []
 
         issues = []
-        for instrument_id, points in load_pressure_data(instrument_ids, now).items():
-            change = detect_increase(
+        for instrument_id, points in _load_pressure_data(instrument_ids, now).items():
+            change = _detect_increase(
                 points, PUMP_PRESSURE_WINDOW_SIZE, PUMP_PRESSURE_THRESHOLD_BAR
             )
             if change is None:
@@ -207,8 +207,8 @@ class PumpPressureHighAlert(BaseAlert):
             return []
 
         issues = []
-        for instrument_id, points in load_pressure_data(instrument_ids, now).items():
-            for point in detect_high(points, PUMP_PRESSURE_ABSOLUTE_THRESHOLD_BAR):
+        for instrument_id, points in _load_pressure_data(instrument_ids, now).items():
+            for point in _detect_high(points, PUMP_PRESSURE_ABSOLUTE_THRESHOLD_BAR):
                 issues.append(  # noqa: PERF401
                     Issue(
                         instrument_id,

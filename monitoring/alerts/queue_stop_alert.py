@@ -19,6 +19,7 @@ from shared.db.models import KrakenStatus, RawFile
 
 from .base_alert import BaseAlert, Issue
 from .config import (
+    BYTES_PER_GB,
     MAX_GRADIENT_LENGTH_HOURS,
     QUEUE_STOP_THRESHOLD_MULTIPLIER,
     Destinations,
@@ -30,8 +31,6 @@ KIND_HANDOFF = "handoff"
 
 MIN_FILES_FOR_DETECTION = 2
 MIN_FILES_FOR_HANDOFF_DETECTION = 3
-
-_BYTES_PER_GB = 1024**3
 
 
 @dataclass(frozen=True)
@@ -57,7 +56,7 @@ class QueueStopIssue:
     recent_files: tuple[RecentFile, ...]
 
 
-def load_recent_files(known_initials: Collection[str]) -> dict[str, list[RecentFile]]:
+def _load_recent_files(known_initials: Collection[str]) -> dict[str, list[RecentFile]]:
     """Load the three newest raw files per instrument, newest first."""
     recent_files = {}
     for instrument_id in RawFile.objects.distinct("instrument_id"):
@@ -78,7 +77,7 @@ def load_recent_files(known_initials: Collection[str]) -> dict[str, list[RecentF
     return recent_files
 
 
-def detect(
+def _detect(
     instrument_id: str,
     files: list[RecentFile],
     now: datetime,
@@ -177,10 +176,10 @@ def _load_sizes(file_ids: Collection[str]) -> dict[str, int | None]:
 def _format_size(size_bytes: int | None) -> str:
     if size_bytes is None or size_bytes < 0:
         return "n/a"
-    return f"{size_bytes / _BYTES_PER_GB:.2f} GB"
+    return f"{size_bytes / BYTES_PER_GB:.2f} GB"
 
 
-def render_issue(issue: QueueStopIssue, sizes: dict[str, int | None]) -> str:
+def _render_issue(issue: QueueStopIssue, sizes: dict[str, int | None]) -> str:
     """Render a single issue to a message string."""
     if issue.kind == KIND_STOP:
         pause_minutes = issue.pause.total_seconds() / 60 if issue.pause else 0
@@ -222,8 +221,8 @@ class QueueStopAlert(BaseAlert):
 
         max_gradient = timedelta(hours=MAX_GRADIENT_LENGTH_HOURS)
         issues: list[Issue[QueueStopIssue]] = []
-        for instrument_id, files in load_recent_files(known_initials).items():
-            issue = detect(
+        for instrument_id, files in _load_recent_files(known_initials).items():
+            issue = _detect(
                 instrument_id, files, now, max_gradient, QUEUE_STOP_THRESHOLD_MULTIPLIER
             )
             if issue is None:
@@ -242,4 +241,4 @@ class QueueStopAlert(BaseAlert):
         """Render all issues with the current file sizes."""
         file_ids = {rf.file_id for issue in issues for rf in issue.details.recent_files}
         sizes = _load_sizes(file_ids)
-        return "\n\n".join(render_issue(issue.details, sizes) for issue in issues)
+        return "\n\n".join(_render_issue(issue.details, sizes) for issue in issues)

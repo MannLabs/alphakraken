@@ -13,7 +13,7 @@ from common.constants import (
     BYTES_TO_GB,
     DEFAULT_MIN_FREE_SPACE_GB,
 )
-from common.keys import AirflowVars, InstrumentKeys, Tasks, XComKeys
+from common.keys import AirflowVars, Dags, InstrumentKeys, Tasks, XComKeys
 from common.paths import (
     get_internal_instrument_data_path,
 )
@@ -67,7 +67,7 @@ def _create_s3_client() -> BaseAwsConnection:
 def _update_file_remover_status(status: str, status_details: str = "") -> None:
     """Update the status of the file_remover job."""
     update_kraken_status(
-        "file_remover",
+        Dags.FILE_REMOVER,
         status=status,
         status_details=status_details,
         free_space_gb=-1,  # Not applicable for job status

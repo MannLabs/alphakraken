@@ -30,18 +30,26 @@ STALE_STATUS_THRESHOLD_MINUTES = (
 FILE_REMOVER_STALE_THRESHOLD_HOURS = (
     24  # How long file_remover job can go without running
 )
-FREE_SPACE_THRESHOLD_GB = (
-    200  # regardless of the configuration in airflow: 200 GB is very low
+# a failed file remover run is reported less often, it runs rarely
+FILE_REMOVER_HEALTH_COOLDOWN_MINUTES = 12 * 60
+# regardless of the configuration in airflow: 200 GB is very low
+FREE_SPACE_THRESHOLD_GB: int = get_notification_setting(
+    YamlKeys.FREE_SPACE_THRESHOLD_GB, 200
 )
 # file systems with a threshold other than FREE_SPACE_THRESHOLD_GB
-FILE_SYSTEM_FREE_SPACE_THRESHOLDS_GB = {"backup": 500, "output": 300}
+FILE_SYSTEM_FREE_SPACE_THRESHOLDS_GB: dict[str, int] = get_notification_setting(
+    YamlKeys.FILE_SYSTEM_FREE_SPACE_THRESHOLDS_GB, {"backup": 500, "output": 300}
+)
 
 # Local disk alert configuration
 BYTES_PER_GB = 1024**3
 LOCAL_DISK_PATH = (
     "/etc/hosts"  # always-present path probing the monitoring host's local disk
 )
-LOCAL_FREE_SPACE_THRESHOLD_GB = 10  # Local disk of the monitoring host
+# Local disk of the monitoring host
+LOCAL_FREE_SPACE_THRESHOLD_GB: int = get_notification_setting(
+    YamlKeys.LOCAL_FREE_SPACE_THRESHOLD_GB, 10
+)
 
 STATUS_PILE_UP_THRESHOLDS = defaultdict(lambda: 5)
 STATUS_PILE_UP_THRESHOLDS["quanting"] = 10
@@ -51,7 +59,7 @@ INSTRUMENT_FILE_PILE_UP_THRESHOLDS = {
     InstrumentFileStatus.INITIAL: 30,  # => indicates something is wrong with file moving
     # InstrumentFileStatus.MOVED: 50,  # doesn't make sense as the number depends on configured free disk space
 }
-INSTRUMENT_FILE_MIN_AGE_HOURS = 6  # Only consider files older than 6 hours
+INSTRUMENT_FILE_MIN_AGE_HOURS = 6  # Only consider files older than 6 hours for pile up
 
 # Raw file error / S3 upload failure alerts: only consider files updated within this time
 RAW_FILE_STATUS_LOOKBACK_HOURS = 24
@@ -66,8 +74,14 @@ MAX_GRADIENT_LENGTH_HOURS = 2.5  # gap larger than this => new queue, no alert
 # Pump pressure alert configuration
 PUMP_PRESSURE_LOOKBACK_DAYS = 1
 PUMP_PRESSURE_WINDOW_SIZE = 5  # Number of samples to compare
-PUMP_PRESSURE_THRESHOLD_BAR = 20  # Pressure increase threshold in bar
-PUMP_PRESSURE_ABSOLUTE_THRESHOLD_BAR = 480  # Absolute pressure threshold in bar
+# Pressure increase threshold in bar
+PUMP_PRESSURE_THRESHOLD_BAR: float = get_notification_setting(
+    YamlKeys.PUMP_PRESSURE_THRESHOLD_BAR, 20
+)
+# Absolute pressure threshold in bar
+PUMP_PRESSURE_ABSOLUTE_THRESHOLD_BAR: float = get_notification_setting(
+    YamlKeys.PUMP_PRESSURE_ABSOLUTE_THRESHOLD_BAR, 480
+)
 PUMP_PRESSURE_GRADIENT_TOLERANCE = 0.1
 
 try:

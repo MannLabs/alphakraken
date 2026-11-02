@@ -3,8 +3,10 @@
 from datetime import datetime
 
 from shared.db.models import KrakenStatus, KrakenStatusValues
+from shared.keys import FILE_REMOVER_STATUS_ID
 
 from .base_alert import BaseAlert, Issue, get_instrument_id
+from .config import FILE_REMOVER_HEALTH_COOLDOWN_MINUTES
 
 
 class HealthCheckFailedAlert(BaseAlert):
@@ -35,6 +37,6 @@ class HealthCheckFailedAlert(BaseAlert):
 
     def get_cooldown_minutes(self, issue: Issue) -> int | None:
         """Return a longer cooldown for the file remover."""
-        if issue.identifier == "file_remover":
-            return 720  # 12 hours
+        if issue.identifier == FILE_REMOVER_STATUS_ID:
+            return FILE_REMOVER_HEALTH_COOLDOWN_MINUTES
         return self.cooldown_minutes

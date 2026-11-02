@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from utils import ensure_utc
 
 from shared.db.models import KrakenStatus, KrakenStatusEntities
+from shared.keys import FILE_REMOVER_STATUS_ID
 
 from .base_alert import BaseAlert, Issue, get_instrument_id
 from .config import (
@@ -30,7 +31,7 @@ class StaleStatusAlert(BaseAlert):
             # Use different thresholds based on entry type
             if (
                 kraken_status.entity_type == KrakenStatusEntities.JOB
-                and id_ == "file_remover"
+                and id_ == FILE_REMOVER_STATUS_ID
             ):
                 time_delta = timedelta(hours=FILE_REMOVER_STALE_THRESHOLD_HOURS)
             else:

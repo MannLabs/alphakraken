@@ -1588,30 +1588,16 @@ def test_add_alert_issue(
     mock_connect_db: MagicMock,  # noqa: ARG001
     mock_alert_issue: MagicMock,
 ) -> None:
-    """Test that an open issue is inserted with all fields."""
+    """Test that an issue is inserted, never upserted."""
     # given
     first_seen = datetime(2024, 1, 1, tzinfo=pytz.UTC)
 
     # when
-    result = add_alert_issue(
-        alert="DiskSpaceAlert",
-        key="inst1",
-        identifier="inst1",
-        instrument_id="inst1",
-        relevant_file=None,
-        details="150 GB",
-        first_seen=first_seen,
-    )
+    result = add_alert_issue(alert="DiskSpaceAlert", key="inst1", first_seen=first_seen)
 
     # then
     mock_alert_issue.assert_called_once_with(
-        alert="DiskSpaceAlert",
-        key="inst1",
-        identifier="inst1",
-        instrument_id="inst1",
-        relevant_file=None,
-        details="150 GB",
-        first_seen=first_seen,
+        alert="DiskSpaceAlert", key="inst1", first_seen=first_seen
     )
     mock_alert_issue.return_value.save.assert_called_once_with(force_insert=True)
     assert result == mock_alert_issue.return_value

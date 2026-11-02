@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import pytz
 
-from monitoring.alerts.base_alert import BaseAlert, Issue, shorten
+from monitoring.alerts.base_alert import BaseAlert, Issue, _shorten
 
 NOW = datetime(2024, 1, 15, 12, 0, tzinfo=pytz.UTC)
 
@@ -55,8 +55,8 @@ def test_get_issues_returns_the_issues_of_the_alert() -> None:
 
 def test_shorten_cuts_long_text_with_an_ellipsis() -> None:
     """Texts above the limit end with an ellipsis within the limit."""
-    assert shorten("abc", 3) == "abc"
-    assert shorten("abcd", 3) == "ab…"
+    assert _shorten("abc", 3) == "abc"
+    assert _shorten("abcd", 3) == "ab…"
 
 
 def test_format_message_default_shortens_long_details() -> None:

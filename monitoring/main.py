@@ -26,7 +26,6 @@ from alerts.config import (
 )
 from messenger import AlertTypes, Message
 from pymongo.errors import ConnectionFailure
-from utils import extract_error_line
 
 from shared.db.engine import connect_db
 from shared.keys import EnvVars
@@ -63,7 +62,7 @@ def main() -> None:
         try:
             alert_manager.check_db_free_alerts(now)
         except Exception as e:  # noqa: BLE001
-            _report_exception(alert_manager, e, now)
+            alert_manager.report_exception(e, now)
 
         try:
             connect_db(raise_on_error=True)
@@ -77,22 +76,9 @@ def main() -> None:
                 now,
             )
         except Exception as e:  # noqa: BLE001
-            _report_exception(alert_manager, e, now)
+            alert_manager.report_exception(e, now)
 
         sleep(CHECK_INTERVAL_SECONDS)
-
-
-def _report_exception(alert_manager: AlertManager, e: Exception, now: datetime) -> None:
-    """Log an unexpected exception and tell ops once per cooldown."""
-    logging.exception("Error checking for issues")
-    alert_manager.send_once(
-        "exception",
-        Message(
-            f"{type(e).__name__} during checking alerts: {e} at: {extract_error_line(e)}"
-        ),
-        SPECIAL_ALERT_COOLDOWN_MINUTES,
-        now,
-    )
 
 
 if __name__ == "__main__":

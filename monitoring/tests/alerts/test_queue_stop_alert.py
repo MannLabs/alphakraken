@@ -13,9 +13,9 @@ from monitoring.alerts.queue_stop_alert import (
     QueueStopAlert,
     QueueStopIssue,
     RecentFile,
-    detect,
-    load_recent_files,
-    render_issue,
+    _detect,
+    _load_recent_files,
+    _render_issue,
 )
 
 NOW = datetime(2026, 1, 1, 12, 0, tzinfo=pytz.UTC)
@@ -28,8 +28,10 @@ def _file(name: str, created_at: datetime, initials: str | None) -> RecentFile:
     return RecentFile(name, created_at, initials)
 
 
-def _detect(files: list[RecentFile], now: datetime = NOW) -> QueueStopIssue | None:
-    return detect("inst1", files, now, MAX_GRADIENT, MULTIPLIER)
+def _detect_on_inst1(
+    files: list[RecentFile], now: datetime = NOW
+) -> QueueStopIssue | None:
+    return _detect("inst1", files, now, MAX_GRADIENT, MULTIPLIER)
 
 
 class TestStopRule:
@@ -44,7 +46,7 @@ class TestStopRule:
         ]
 
         # when
-        result = _detect(files)
+        result = _detect_on_inst1(files)
 
         # then
         assert result == QueueStopIssue(
@@ -57,7 +59,7 @@ class TestStopRule:
             _file("x_MaSc_a.raw", NOW - 2 * GRADIENT, "MaSc"),
             _file("x_MaSc_b.raw", NOW - 3 * GRADIENT, "MaSc"),
         ]
-        assert _detect(files) is None
+        assert _detect_on_inst1(files) is None
 
     def test_no_stop_when_gradient_exceeds_max(self) -> None:
         """A gap above the max gradient is a new queue, not a stop."""
@@ -65,7 +67,7 @@ class TestStopRule:
             _file("x_MaSc_a.raw", NOW - timedelta(hours=10), "MaSc"),
             _file("x_MaSc_b.raw", NOW - timedelta(hours=13), "MaSc"),
         ]
-        assert _detect(files) is None
+        assert _detect_on_inst1(files) is None
 
     def test_no_stop_when_gradient_is_not_positive(
         self, caplog: pytest.LogCaptureFixture
@@ -80,7 +82,7 @@ class TestStopRule:
 
         # when
         with caplog.at_level("WARNING"):
-            result = _detect(files)
+            result = _detect_on_inst1(files)
 
         # then
         assert result is None
@@ -88,7 +90,10 @@ class TestStopRule:
 
     def test_no_detection_with_fewer_than_two_files(self) -> None:
         """One file is not a queue."""
-        assert _detect([_file("x_MaSc_a.raw", NOW - timedelta(days=1), "MaSc")]) is None
+        assert (
+            _detect_on_inst1([_file("x_MaSc_a.raw", NOW - timedelta(days=1), "MaSc")])
+            is None
+        )
 
 
 PRIOR = [
@@ -112,7 +117,7 @@ class TestHandoffRule:
         ]
 
         # when
-        result = _detect(files)
+        result = _detect_on_inst1(files)
 
         # then
         assert result == QueueStopIssue(
@@ -125,7 +130,7 @@ class TestHandoffRule:
             _file("x_JoeB_n.raw", NOW - timedelta(minutes=5), "JoeB"),
             PRIOR[0],
         ]
-        assert _detect(files) is None
+        assert _detect_on_inst1(files) is None
 
     @pytest.mark.parametrize(
         "prior_initials", [("MaSc", "JoeB"), (None, None), ("MaSc", None)]
@@ -139,7 +144,7 @@ class TestHandoffRule:
             _file("x_a.raw", NOW - timedelta(hours=1), prior_initials[0]),
             _file("x_b.raw", NOW - timedelta(hours=2), prior_initials[1]),
         ]
-        assert _detect(files) is None
+        assert _detect_on_inst1(files) is None
 
     def test_no_handoff_when_prior_gap_exceeds_max_gradient(self) -> None:
         """A prior pair further apart than the max gradient was not one queue."""
@@ -148,7 +153,7 @@ class TestHandoffRule:
             _file("x_MaSc_a.raw", NOW - timedelta(hours=1), "MaSc"),
             _file("x_MaSc_b.raw", NOW - timedelta(hours=4), "MaSc"),
         ]
-        assert _detect(files) is None
+        assert _detect_on_inst1(files) is None
 
 
 def test_rules_are_mutually_exclusive() -> None:
@@ -165,7 +170,7 @@ def test_rules_are_mutually_exclusive() -> None:
                 ]
 
                 # when
-                result = _detect(files)
+                result = _detect_on_inst1(files)
 
                 # then - the stop rule takes precedence, the handoff needs a different top
                 if t1 == t2 and t1 is not None:
@@ -199,7 +204,7 @@ class TestLoadRecentFiles:
         mock_rawfile.objects.filter.return_value.only.return_value.order_by.return_value.limit.return_value = raw_files
 
         # when
-        result = load_recent_files({"AnSc"})
+        result = _load_recent_files({"AnSc"})
 
         # then
         assert result == {
@@ -224,7 +229,7 @@ class TestQueueStopAlert:
         """Stop and handoff share the key, so the same user-last-file notifies once."""
         assert QueueStopAlert().cooldown_minutes is None
 
-    @patch("monitoring.alerts.queue_stop_alert.load_recent_files")
+    @patch("monitoring.alerts.queue_stop_alert._load_recent_files")
     @patch(
         "monitoring.alerts.queue_stop_alert.get_messenger_ids_by_initials",
         return_value={},
@@ -240,7 +245,7 @@ class TestQueueStopAlert:
 
     @patch("monitoring.alerts.queue_stop_alert.MAX_GRADIENT_LENGTH_HOURS", 2)
     @patch("monitoring.alerts.queue_stop_alert.QUEUE_STOP_THRESHOLD_MULTIPLIER", 3)
-    @patch("monitoring.alerts.queue_stop_alert.load_recent_files")
+    @patch("monitoring.alerts.queue_stop_alert._load_recent_files")
     @patch(
         "monitoring.alerts.queue_stop_alert.get_messenger_ids_by_initials",
         return_value={"MaSc": "U_MASC"},
@@ -307,8 +312,8 @@ class TestRendering:
     def test_render_issue_distinguishes_stop_and_handoff(self) -> None:
         """Stop and handoff messages have different headers."""
         # when
-        stop_msg = render_issue(_build_stop_issue(), {})
-        handoff_msg = render_issue(_build_handoff_issue(), {})
+        stop_msg = _render_issue(_build_stop_issue(), {})
+        handoff_msg = _render_issue(_build_handoff_issue(), {})
 
         # then
         assert stop_msg.startswith(
@@ -319,7 +324,7 @@ class TestRendering:
     def test_render_issue_lists_files_with_size_and_timestamp(self) -> None:
         """Each `Recent files:` row carries the file id, size and creation timestamp."""
         # when
-        msg = render_issue(_build_stop_issue(), {"x_MaSc_a.raw": 1024**3})
+        msg = _render_issue(_build_stop_issue(), {"x_MaSc_a.raw": 1024**3})
 
         # then
         assert msg.endswith(
@@ -349,7 +354,7 @@ class TestRendering:
             id__in=["x_JoeB_n.raw", "x_MaSc_a.raw", "x_MaSc_b.raw"]
         )
         sizes = {"x_MaSc_a.raw": 42 * 1024**3}
-        assert result == render_issue(stop, sizes) + "\n\n" + render_issue(
+        assert result == _render_issue(stop, sizes) + "\n\n" + _render_issue(
             handoff, sizes
         )
         assert "(42.00 GB)" in result

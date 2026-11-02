@@ -331,21 +331,21 @@ class AcquisitionMonitor(BaseSensorOperator):
     def _file_size_unchanged_for_time(
         self, size_check_interval_m: int = SIZE_CHECK_INTERVAL_M
     ) -> bool:
-        """Return true if the file size has not changed for a certain amount of time."""
+        """Return true if the total size of all associated files has not changed for a certain amount of time."""
         time_since_last_check_m = (
             (current_timestamp := get_timestamp())
             - self._latest_file_size_check_timestamp
         ) / 60
 
         if time_since_last_check_m >= size_check_interval_m:
-            size = get_file_size(self._main_file_path, None)
+            size = self._get_total_file_size()
 
             if size is None:
-                logging.warning("File not found, presuming acquisition is not done.")
+                logging.warning("No file found, presuming acquisition is not done.")
 
             if size == self._last_file_size:
                 logging.info(
-                    f"File size {size} has not changed for {time_since_last_check_m} >= {size_check_interval_m} min. "
+                    f"Total file size {size} has not changed for {time_since_last_check_m} >= {size_check_interval_m} min. "
                 )
 
                 if size == 0:
@@ -353,7 +353,7 @@ class AcquisitionMonitor(BaseSensorOperator):
                     # the size can remain 0 for a long time. Only once the next acquisition is started, the file is written to
                     # and closed. As this could lead to inconsistencies, the acquisition ist not considered to be done in this case.
                     logging.warning(
-                        "File size is 0. Presuming file is still open and acquisition is not done."
+                        "Total file size is 0. Presuming file is still open and acquisition is not done."
                     )
                     return False
 
@@ -364,3 +364,20 @@ class AcquisitionMonitor(BaseSensorOperator):
             self._latest_file_size_check_timestamp = current_timestamp
 
         return False
+
+    def _get_total_file_size(self) -> int | None:
+        """Return the total size of all files associated with the raw file, None if none of them exists."""
+        assert self._raw_file_monitor_wrapper is not None
+        assert self._raw_file is not None
+
+        associated_files = self._raw_file_monitor_wrapper.get_associated_files(
+            self._raw_file_monitor_wrapper.instrument_path,
+            self._raw_file.original_name,
+        )
+        sizes = [
+            file_path.stat().st_size
+            for file_path in associated_files
+            if file_path.exists()
+        ]
+
+        return sum(sizes) if sizes else None

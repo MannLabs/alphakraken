@@ -42,6 +42,10 @@ class TestableRawFileMonitorWrapper(RawFileMonitorWrapper):
     def _main_file_path(self) -> Any:
         """Dummy implementation."""
 
+    @classmethod
+    def get_associated_files(cls, folder: Path, file_name: str) -> Any:
+        """Dummy implementation."""
+
     def _get_files_to_copy(self) -> Any:
         """Dummy implementation."""
 
@@ -406,9 +410,7 @@ def test_main_file_path_pass_both_raises() -> None:
         )
 
 
-@patch("plugins.raw_file_wrapper_factory.RawFileWrapperFactory.create_monitor_wrapper")
 def test_thermo_get_files_to_copy(
-    mock_create_monitor_wrapper: MagicMock,
     mock_instrument_paths: MagicMock,  # noqa: ARG001
 ) -> None:
     """Test that get_files_to_copy returns the correct mapping for ThermoRawDataWrapper."""
@@ -420,23 +422,21 @@ def test_thermo_get_files_to_copy(
         original_name="sample.raw",
     )
 
-    wrapper = ThermoRawFileWriteWrapper(
-        "instrument1", raw_file=mock_raw_file, path_provider=CopyPathProvider
-    )
+    with patch.dict(_INSTRUMENTS, {"instrument1": {"type": "thermo"}}):
+        wrapper = ThermoRawFileWriteWrapper(
+            "instrument1", raw_file=mock_raw_file, path_provider=CopyPathProvider
+        )
     expected_mapping = {
         Path("/path/to/instrument/sample.raw"): Path(
             "/path/to/backup/instrument1/1970_01/123-sample.raw"
         )
     }
     assert wrapper.get_files_to_copy() == expected_mapping
-    mock_create_monitor_wrapper.assert_called_once_with("instrument1", mock_raw_file)
 
 
-@patch("plugins.raw_file_wrapper_factory.RawFileWrapperFactory.create_monitor_wrapper")
 @patch("plugins.raw_file_wrapper_factory.get_internal_instrument_data_path")
 def test_sciex_get_files_to_copy(
     mock_instrument_path: MagicMock,
-    mock_create_monitor_wrapper: MagicMock,
 ) -> None:
     """Test that get_files_to_copy returns the correct mapping for SciexRawDataWrapper."""
     mock_instrument_path.return_value.glob.return_value = [
@@ -452,9 +452,10 @@ def test_sciex_get_files_to_copy(
         original_name="sample.wiff",
     )
 
-    wrapper = SciexRawFileWriteWrapper(
-        "instrument1", raw_file=mock_raw_file, path_provider=CopyPathProvider
-    )
+    with patch.dict(_INSTRUMENTS, {"instrument1": {"type": "sciex"}}):
+        wrapper = SciexRawFileWriteWrapper(
+            "instrument1", raw_file=mock_raw_file, path_provider=CopyPathProvider
+        )
     expected_mapping = {
         Path("/path/to/instrument/sample.wiff"): Path(
             "/opt/airflow/mounts/backup/instrument1/1970_01/123-sample.wiff"
@@ -468,7 +469,39 @@ def test_sciex_get_files_to_copy(
     assert wrapper.get_files_to_copy() == expected_mapping
     mock_instrument_path.return_value.glob.assert_called_once_with("sample.*")
 
-    mock_create_monitor_wrapper.assert_called_once_with("instrument1", mock_raw_file)
+
+def test_get_associated_files(tmp_path: Path) -> None:
+    """Test that get_associated_files returns the vendor-specific set of files belonging to a raw file."""
+    thermo, sciex, bruker = tmp_path / "thermo", tmp_path / "sciex", tmp_path / "bruker"
+    thermo.mkdir()
+    (thermo / "sample.raw").touch()
+    (thermo / "other.raw").touch()
+    sciex.mkdir()
+    (sciex / "sample.wiff").touch()
+    (sciex / "sample.wiff.scan").touch()
+    (sciex / "sample.timeseries.data").touch()
+    (sciex / "other.wiff").touch()
+    (bruker / "sample.d" / "subdir.m").mkdir(parents=True)
+    (bruker / "sample.d" / "analysis.tdf").touch()
+    (bruker / "sample.d" / "subdir.m" / "file.txt").touch()
+    (bruker / "other.d").mkdir()
+
+    assert ThermoRawFileMonitorWrapper.get_associated_files(thermo, "sample.raw") == [
+        thermo / "sample.raw"
+    ]
+    assert set(
+        SciexRawFileMonitorWrapper.get_associated_files(sciex, "sample.wiff")
+    ) == {
+        sciex / "sample.wiff",
+        sciex / "sample.wiff.scan",
+        sciex / "sample.timeseries.data",
+    }
+    assert set(
+        BrukerRawFileMonitorWrapper.get_associated_files(bruker, "sample.d")
+    ) == {
+        bruker / "sample.d" / "analysis.tdf",
+        bruker / "sample.d" / "subdir.m" / "file.txt",
+    }
 
 
 def test_bruker_get_files_to_copy() -> None:

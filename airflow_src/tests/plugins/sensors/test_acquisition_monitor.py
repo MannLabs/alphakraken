@@ -3,7 +3,7 @@
 from pathlib import Path
 
 # ruff: noqa: SLF001
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, PropertyMock, call, patch
 
 import pytest
 from common.keys import DagContext, DagParams
@@ -417,6 +417,9 @@ def test_poke_file_dir_contents_dont_change_but_file_is_unchanged(  # noqa: PLR0
     mock_get_raw_file_by_id.return_value.original_name = "some_file.raw"
     mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.main_file_path.return_value = mock_path
     mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.get_raw_files_on_instrument.return_value = set()  # this stays constant
+    mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value.get_associated_files.return_value = [
+        mock_path
+    ]
 
     mock_get_timestamp.side_effect = [
         1,  # pre_execute (initial time stamp)
@@ -439,6 +442,57 @@ def test_poke_file_dir_contents_dont_change_but_file_is_unchanged(  # noqa: PLR0
 
     mock_update_raw_file.assert_called_once_with(
         mock_get_raw_file_by_id.return_value.id, new_status="monitoring_acquisition"
+    )
+
+
+@patch("plugins.sensors.acquisition_monitor.RawFileWrapperFactory")
+@patch("plugins.sensors.acquisition_monitor.get_timestamp")
+@patch("plugins.sensors.acquisition_monitor.update_raw_file")
+@patch("plugins.sensors.acquisition_monitor.get_raw_file_by_id")
+def test_poke_file_dir_contents_dont_change_total_size_of_associated_files_is_used(
+    mock_get_raw_file_by_id: MagicMock,
+    mock_update_raw_file: MagicMock,  # noqa: ARG001
+    mock_get_timestamp: MagicMock,
+    mock_raw_file_wrapper_factory: MagicMock,
+) -> None:
+    """Test poke method considers the size of all associated files: acquisition is not done while a non-main file grows."""
+    mock_main_path = MagicMock()
+    mock_main_path.stat.return_value.st_size = 100
+    mock_other_path = MagicMock()
+    # grows between the first two checks, then stays constant
+    type(mock_other_path.stat.return_value).st_size = PropertyMock(
+        side_effect=[10, 20, 20]
+    )
+    mock_get_raw_file_by_id.return_value.original_name = "some_file.raw"
+    mock_monitor_wrapper = (
+        mock_raw_file_wrapper_factory.create_monitor_wrapper.return_value
+    )
+    mock_monitor_wrapper.main_file_path.return_value = mock_main_path
+    mock_monitor_wrapper.get_raw_files_on_instrument.return_value = (
+        set()
+    )  # this stays constant
+    mock_monitor_wrapper.get_associated_files.return_value = [
+        mock_main_path,
+        mock_other_path,
+    ]
+
+    mock_get_timestamp.side_effect = [
+        1,  # pre_execute (initial time stamp)
+        SIZE_CHECK_INTERVAL_M * 60 + 2,  # first poke, first file check
+        2 * SIZE_CHECK_INTERVAL_M * 60 + 3,  # second poke, second file check
+        3 * SIZE_CHECK_INTERVAL_M * 60 + 4,  # third poke, third file check
+    ]
+    sensor = get_sensor()
+    sensor.pre_execute({DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"}})
+
+    # when
+    assert not sensor.poke({})
+    assert not sensor.poke({})  # main file unchanged, but total size changed
+    assert sensor.poke({})
+
+    mock_monitor_wrapper.get_associated_files.assert_called_with(
+        mock_monitor_wrapper.instrument_path,
+        mock_get_raw_file_by_id.return_value.original_name,
     )
 
 

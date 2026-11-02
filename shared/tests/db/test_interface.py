@@ -13,6 +13,7 @@ from shared.db.interface import (
     add_metrics_to_raw_file,
     add_project,
     add_raw_file,
+    add_user,
     archive_project,
     assign_settings_to_project,
     augment_raw_files_with_metrics,
@@ -21,6 +22,7 @@ from shared.db.interface import (
     delete_settings,
     get_active_project_ids,
     get_all_settings,
+    get_all_users,
     get_latest_active_settings_by_name,
     get_project_settings,
     get_purge_candidates_by_age,
@@ -28,16 +30,19 @@ from shared.db.interface import (
     get_raw_files_by_instrument_file_status,
     get_raw_files_by_names,
     get_slurm_job,
+    set_user_status,
     unassign_settings_from_project,
     update_kraken_status,
     update_raw_file,
     update_slurm_jobs,
+    update_user,
 )
 from shared.db.models import (
     InstrumentFileStatus,
     ProjectStatus,
     RawFileStatus,
     SettingsStatus,
+    UserStatus,
 )
 from shared.keys import MetricsTypes
 
@@ -291,9 +296,31 @@ def test_add_project(mock_project: MagicMock, mock_connect_db: MagicMock) -> Non
 
     # then
     mock_project.assert_called_once_with(
-        id="P1234", name="new project", description="some project description"
+        id="P1234",
+        name="new project",
+        description="some project description",
+        owner=None,
     )
     mock_connect_db.assert_called_once()
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.User")
+@patch("shared.db.interface.Project")
+def test_add_project_with_owner(
+    mock_project: MagicMock,
+    mock_user: MagicMock,
+    mock_connect_db: MagicMock,  # noqa: ARG001
+) -> None:
+    """Test that add_project sets the owner looked up by id."""
+    # when
+    add_project(
+        project_id="P1234", name="new project", description="d", owner_email="a@b.de"
+    )
+
+    # then
+    mock_user.objects.get.assert_called_once_with(email="a@b.de")
+    assert mock_project.call_args.kwargs["owner"] == mock_user.objects.get.return_value
 
 
 @patch("shared.db.interface.connect_db")
@@ -392,6 +419,30 @@ def test_create_settings_auto_increment_version(
     assert call_kwargs["name"] == "plasma_settings"
     assert call_kwargs["version"] == 4
     mock_connect_db.assert_called_once()
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.User")
+@patch("shared.db.interface.Settings")
+def test_create_settings_with_owner(
+    mock_settings: MagicMock,
+    mock_user: MagicMock,
+    mock_connect_db: MagicMock,  # noqa: ARG001
+) -> None:
+    """Test that create_settings sets the owner looked up by id."""
+    mock_settings.objects.return_value.order_by.return_value.first.return_value = None
+
+    create_settings(
+        name="plasma_settings",
+        software_type="alphadia",
+        software="alphadia-1.10.0",
+        runner_name="slurm",
+        metrics_type="alphadia",
+        owner_email="a@b.de",
+    )
+
+    mock_user.objects.get.assert_called_once_with(email="a@b.de")
+    assert mock_settings.call_args.kwargs["owner"] == mock_user.objects.get.return_value
 
 
 def test_create_settings_requires_runner() -> None:
@@ -1242,6 +1293,124 @@ def test_augment_raw_files_with_metrics_should_query_correct_fields_when_fields_
 
     # then
     mock_metrics_queryset.only.assert_not_called()
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.User")
+def test_add_user(mock_user: MagicMock, mock_connect_db: MagicMock) -> None:
+    """Test that add_user saves a new user with normalized email if email and initials are unused."""
+    mock_user.objects.return_value.first.return_value = None
+
+    # when
+    add_user(email=" A@B.de ", initials="AB")
+
+    # then
+    mock_user.objects.assert_any_call(email="a@b.de")
+    mock_user.objects.assert_any_call(initials="AB")
+    mock_user.assert_called_once_with(email="a@b.de", initials="AB")
+    mock_user.return_value.save.assert_called_once_with(force_insert=True)
+    mock_connect_db.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    ("taken", "error"), [("email", "email 'a@b.de'"), ("initials", "initials 'AB'")]
+)
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.User")
+def test_add_user_rejects_duplicates(
+    mock_user: MagicMock,
+    mock_connect_db: MagicMock,  # noqa: ARG001
+    taken: str,
+    error: str,
+) -> None:
+    """Test that add_user raises if email or initials are already taken."""
+    mock_user.objects.side_effect = lambda **kwargs: MagicMock(
+        first=MagicMock(return_value=MagicMock() if taken in kwargs else None)
+    )
+
+    # when
+    with pytest.raises(ValueError, match=error):
+        add_user(email="a@b.de", initials="AB")
+
+    # then
+    mock_user.return_value.save.assert_not_called()
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.User")
+def test_update_user(mock_user: MagicMock, mock_connect_db: MagicMock) -> None:
+    """Test that update_user excludes the user itself from the uniqueness check and saves."""
+    others = MagicMock()
+    others.return_value.first.return_value = None
+    mock_user.objects.return_value = others
+
+    # when
+    update_user("a@b.de", initials="NB")
+
+    # then
+    mock_user.objects.assert_called_once_with(email__ne="a@b.de")
+    others.assert_called_once_with(initials="NB")
+    mock_user.objects.get.assert_called_once_with(email="a@b.de")
+    user = mock_user.objects.get.return_value
+    assert user.initials == "NB"
+    user.save.assert_called_once()
+    mock_connect_db.assert_called_once()
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.User")
+def test_update_user_rejects_duplicate_initials(
+    mock_user: MagicMock,
+    mock_connect_db: MagicMock,  # noqa: ARG001
+) -> None:
+    """Test that update_user raises if another user has the initials."""
+    mock_user.objects.return_value.return_value.first.return_value = MagicMock()
+
+    # when
+    with pytest.raises(ValueError, match="initials 'NB'"):
+        update_user("a@b.de", initials="NB")
+
+    # then
+    mock_user.objects.get.assert_not_called()
+
+
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.User")
+def test_set_user_status(mock_user: MagicMock, mock_connect_db: MagicMock) -> None:
+    """Test that set_user_status updates the status."""
+    # when
+    set_user_status("a@b.de", UserStatus.INACTIVE)
+
+    # then
+    mock_user.objects.assert_called_once_with(email="a@b.de")
+    mock_user.objects.return_value.update_one.assert_called_once_with(
+        status=UserStatus.INACTIVE
+    )
+    mock_connect_db.assert_called_once()
+
+
+@pytest.mark.parametrize("include_inactive", [True, False])
+@patch("shared.db.interface.connect_db")
+@patch("shared.db.interface.User")
+def test_get_all_users(
+    mock_user: MagicMock,
+    mock_connect_db: MagicMock,  # noqa: ARG001
+    *,
+    include_inactive: bool,
+) -> None:
+    """Test that get_all_users filters inactive users unless requested."""
+    # when
+    result = get_all_users(include_inactive=include_inactive)
+
+    # then
+    if include_inactive:
+        mock_user.objects.assert_not_called()
+        queryset = mock_user.objects
+    else:
+        mock_user.objects.assert_called_once_with(status=UserStatus.ACTIVE)
+        queryset = mock_user.objects.return_value
+    queryset.order_by.assert_called_once_with("initials")
+    assert result == list(queryset.order_by.return_value)
 
 
 @patch("shared.db.interface.connect_db")

@@ -104,6 +104,7 @@ Make sure that the time is in sync between all machines, e.g. by using the same 
 For production: set strong passwords for `AIRFLOW_PASSWORD`, `MONGO_PASSWORD`, `POSTGRES_PASSWORD` and `AIRFLOW_JWT_SECRET`
 in `./env/production.env` and `MONGO_INITDB_ROOT_PASSWORD` in `./env/.env-mongo`.
 Make sure they don't contain special characters (e.g. '\', '#', '@', '$', ..) as they might interfere with name resolution in `docker-compose.yaml`.
+Optionally set `ADMIN_PASSWORD_WEBAPP` to enable the webapp's admin login (sidebar), which unlocks admin-only actions (e.g. assigning the fallback project on the Projects page).
 
 #### Required users
 Two different users are recommended for the deployment:
@@ -172,14 +173,6 @@ To **deactivate** basic auth (e.g. for debugging), comment out the two `auth_bas
 ```bash
 docker compose exec nginx nginx -s reload      # or: ./compose.sh restart nginx
 ```
-With basic auth off, the `X-Remote-User` header is empty, so `is_admin()` in the webapp returns `False` for everyone — admin-only actions (e.g. assigning the fallback project on the Projects page) stay disabled until auth is re-enabled.
-
-To keep admin actions working while basic auth is off, hard-code the username in the proxy header instead of letting it default to the empty `$remote_user`:
-```nginx
-# proxy_set_header X-Remote-User $remote_user;   # original line
-proxy_set_header X-Remote-User admin;            # everyone is admin while auth is off
-```
-Reload nginx after the edit. Use `kraken` (or any non-admin name) instead of `admin` to debug as a regular user.
 
 #### On the cluster
 1. Log into the cluster using the `kraken-read` user.
@@ -516,7 +509,7 @@ AlphaKraken implements a role-based access control system for MongoDB with three
 
 1. `MONGO_USER_READWRITE`: Full read-write access to the database, used by Airflow workers that need to update file status
 2. `MONGO_USER_READ`: Read-only access to all collections, used by monitoring service
-3. `MONGO_USER_WEBAPP`: Custom role with read access to all collections, but write access only to project and settings collections
+3. `MONGO_USER_WEBAPP`: Custom role with read access to all collections, but write access only to project, settings and user collections
 
 This separation follows the principle of least privilege, ensuring each component has only the permissions it needs.
 

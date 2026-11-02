@@ -7,12 +7,14 @@ import pandas as pd
 import streamlit as st
 import streamlit.delta_generator
 from pages_.impl.projects_utils import get_resolved_settings_df
+from service.admin import is_admin
 from service.components import show_filter, show_sandbox_message
 from service.db import (
     df_from_db_data,
     get_project_data,
 )
-from service.query_params import QueryParams, get_all_query_params, is_query_param_true
+from service.owner import add_owner_initials, show_owner_selectbox
+from service.query_params import get_all_query_params
 from service.utils import (
     DISABLE_WRITE,
     _log,
@@ -43,6 +45,9 @@ _INSTRUMENTS_CONFIG = YAMLSETTINGS.get(YamlKeys.INSTRUMENTS, {})
 _INSTRUMENT_IDS = list(_INSTRUMENTS_CONFIG.keys())
 SCOPE_OPTIONS = [DEFAULT_SCOPE, *KNOWN_VENDOR_NAMES, *_INSTRUMENT_IDS]
 DEFAULT_SCOPE_DISPLAY = "(all)"
+FALLBACK_ADMIN_ONLY_MESSAGE = (
+    "Changing settings assignment to _FALLBACK project requires admin privileges."
+)
 
 _log(f"loading {__file__} {get_all_query_params()}")
 
@@ -50,6 +55,13 @@ _log(f"loading {__file__} {get_all_query_params()}")
 def _split_filter(text: str) -> list[str]:
     """Split a comma-separated filter input into its non-empty entries."""
     return [t.strip() for t in text.split(",") if t.strip()]
+
+
+def _check_assignment_allowed(project_id: str) -> None:
+    """Raise if the assignments of the project can't be changed by the current session."""
+    # the buttons are disabled as well, but this is enforced client-side only
+    if project_id == FALLBACK_PROJECT_ID and not is_admin():
+        raise PermissionError(FALLBACK_ADMIN_ONLY_MESSAGE)
 
 
 def _display_scope(scope: str) -> str:
@@ -72,7 +84,7 @@ st.markdown("## Current projects")
 # ########################################### LOGIC
 
 projects_db = get_project_data()
-projects_df = df_from_db_data(projects_db)
+projects_df = add_owner_initials(df_from_db_data(projects_db))
 
 # build settings names column via ProjectSettings M:N relationship
 _project_to_settings: dict[str, list[str]] = {}
@@ -149,9 +161,7 @@ with c_assign1:
     )
 
     is_fallback = selected_project_id == FALLBACK_PROJECT_ID
-    disable_write = DISABLE_WRITE or (
-        is_fallback and not is_query_param_true(QueryParams.ADMIN)
-    )
+    disable_write = DISABLE_WRITE or (is_fallback and not is_admin())
 
     if selected_project_id:
         current_ps_list = get_project_settings(selected_project_id)
@@ -191,6 +201,7 @@ with c_assign1:
                     icon=":material/link_off:",
                 ):
                     try:
+                        _check_assignment_allowed(selected_project_id)
                         unassign_settings_from_project(ps_id)  # type: ignore[unresolved-attribute]
                         show_success_toast(
                             f"Removed settings assignment from project {selected_project_id}."
@@ -211,6 +222,7 @@ with c_assign1:
                     icon=":material/upgrade:",
                 ):
                     try:
+                        _check_assignment_allowed(selected_project_id)
                         check_not_assigned_with_same_filters(
                             selected_project_id,
                             latest,  # type: ignore[arg-type]
@@ -284,9 +296,7 @@ with c_assign1:
             )
 
             if disable_write:
-                st.warning(
-                    "Changing settings assignment to _FALLBACK project requires admin privileges."
-                )
+                st.warning(FALLBACK_ADMIN_ONLY_MESSAGE)
             if st.button(
                 f"Assign selected settings to project {selected_project_id}",
                 disabled=disable_write or not selected_scopes,
@@ -294,6 +304,7 @@ with c_assign1:
                 icon=":material/link:",
             ):
                 try:
+                    _check_assignment_allowed(selected_project_id)
                     new_settings_id = settings_options_map[selected_settings_display]
                     assign_settings_to_project(
                         selected_project_id,
@@ -403,6 +414,7 @@ with c1.form("create_project_form"):
     project_name = st.text_input(**form_items["project_name"])
     project_id = st.text_input(**form_items["project_id"])
     project_description = st.text_area(**form_items["project_description"])
+    owner_email = show_owner_selectbox(st)
 
     st.write(r"\* Required fields")
     form_submit = st.form_submit_button(
@@ -438,6 +450,7 @@ if form_submit:
             project_id=empty_to_none(project_id),
             name=empty_to_none(project_name),
             description=project_description,
+            owner_email=owner_email,
         )
     except Exception as e:  # noqa: BLE001
         show_error_toast(str(e))

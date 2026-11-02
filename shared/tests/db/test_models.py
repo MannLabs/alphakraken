@@ -1,8 +1,9 @@
 """Tests for the db.models module."""
 
 import pytest
+from mongoengine import ValidationError
 
-from shared.db.models import parse_file_info_item
+from shared.db.models import User, parse_file_info_item
 
 
 def test_parse_file_info_item_empty_tuple() -> None:
@@ -36,3 +37,16 @@ def test_parse_file_info_item_invalid_length_raises() -> None:
 
     with pytest.raises(ValueError, match="Invalid file_info item length 1"):
         parse_file_info_item(item)  # type: ignore[invalid-argument-type]
+
+
+@pytest.mark.parametrize("initials", ["AB", "ab", "MaS", "A1"])
+def test_user_accepts_initials_of_any_case(initials: str) -> None:
+    """Test that initials keep their case and pass validation."""
+    User(email="a@b.de", initials=initials).validate()
+
+
+@pytest.mark.parametrize("initials", ["A-B", "A B", "ABCDEFGHI"])
+def test_user_rejects_invalid_initials(initials: str) -> None:
+    """Test that initials with other characters or longer than 8 are rejected."""
+    with pytest.raises(ValidationError):
+        User(email="a@b.de", initials=initials).validate()

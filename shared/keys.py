@@ -35,6 +35,8 @@ class EnvVars(metaclass=ConstantsClass):
     MONGO_USER = "MONGO_USER"
     MONGO_PASSWORD = "MONGO_PASSWORD"  # noqa: S105  #Possible hardcoded password
 
+    ADMIN_PASSWORD = "ADMIN_PASSWORD"  # noqa: S105  #Possible hardcoded password
+
 
 class InstrumentTypes(metaclass=ConstantsClass):
     """Types of instruments."""

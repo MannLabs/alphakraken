@@ -366,6 +366,7 @@ services:
       MONGO_PORT: ${MONGO_PORT:?error}
       MONGO_USER: ${MONGO_USER_WEBAPP:?error}
       MONGO_PASSWORD: ${MONGO_PASSWORD_WEBAPP:?error}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD_WEBAPP:-}
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8501/healthz"]
       interval: 30s

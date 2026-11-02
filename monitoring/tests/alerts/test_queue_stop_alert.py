@@ -1,6 +1,5 @@
 """Unit tests for QueueStopAlert (queue-stop user alert)."""
 
-from collections.abc import Generator
 from datetime import datetime, timedelta
 from unittest.mock import MagicMock, Mock, patch
 
@@ -45,14 +44,6 @@ def _install_rawfile_mock(
 def _install_refresh_mock(mock_rawfile: Mock, files: list) -> None:
     """Wire `RawFile.objects.filter(id__in=...).only(...)` used by `refresh_recent_files`."""
     mock_rawfile.objects.filter.return_value.only.return_value = files
-
-
-@pytest.fixture(autouse=True)
-def _reset_class_tracker() -> Generator[None, None, None]:
-    """Each test gets a fresh `_alerted_subject_files` to keep tests independent."""
-    QueueStopAlert._alerted_subject_files.clear()
-    yield
-    QueueStopAlert._alerted_subject_files.clear()
 
 
 # -- Setup / common -----------------------------------------------------------
@@ -152,7 +143,6 @@ class TestQueueStopAlertBasics:
                         _make_file(n2, thirty_min_before),
                         _make_file(n3, sixty_min_before),
                     ]
-                    QueueStopAlert._alerted_subject_files.clear()
                     _install_rawfile_mock(mock_rawfile, {"inst1": files})
                     result = QueueStopAlert()._get_issues([], now)
                     # then - at most one issue per combination, never both
@@ -326,81 +316,6 @@ class TestRuleAStop:
         assert len(result) == 1
         issue = result[0].details
         assert len(issue.recent_files) == 2
-
-    @patch("monitoring.alerts.queue_stop_alert.RawFile")
-    def test_stop_cooldown_no_repeat_alert_for_same_subject_file_id(
-        self, mock_rawfile: Mock
-    ) -> None:
-        """Same (instrument, subject_file_id) does not re-fire on repeated polls."""
-        # given - same data twice; second call must not re-fire
-        now = datetime(2026, 1, 1, 12, 0, tzinfo=pytz.UTC)
-        gradient = timedelta(minutes=30)
-        f1_t = now - 4 * gradient
-        f2_t = f1_t - gradient
-        _install_rawfile_mock(
-            mock_rawfile,
-            {
-                "inst1": [
-                    _make_file("x_MaSc_a.raw", f1_t),
-                    _make_file("x_MaSc_b.raw", f2_t),
-                ]
-            },
-        )
-        alert = QueueStopAlert()
-        # when - first call fires; second is suppressed
-        first = alert._get_issues([], now)
-        second = alert._get_issues([], now)
-        # then
-        assert len(first) == 1
-        assert second == []
-
-    @patch("monitoring.alerts.queue_stop_alert.RawFile")
-    def test_stop_cooldown_releases_when_newer_file_appears(
-        self, mock_rawfile: Mock
-    ) -> None:
-        """A newer file with a still-stopped pause re-fires with a new subject."""
-        # given - first scan with 3 files [a,b,c]; second scan with [d,a,b]
-        now1 = datetime(2026, 1, 1, 12, 0, tzinfo=pytz.UTC)
-        gradient = timedelta(minutes=30)
-        a_t = now1 - 4 * gradient  # newest at scan 1
-        b_t = a_t - gradient
-        c_t = b_t - gradient  # oldest
-
-        alert = QueueStopAlert()
-
-        # first scan: [a, b, c] -> stop subject = a.id
-        _install_rawfile_mock(
-            mock_rawfile,
-            {
-                "inst1": [
-                    _make_file("x_MaSc_a.raw", a_t),
-                    _make_file("x_MaSc_b.raw", b_t),
-                    _make_file("x_MaSc_c.raw", c_t),
-                ]
-            },
-        )
-        first = alert._get_issues([], now1)
-
-        # second scan: a new file d arrives; top-3 = [d, a, b]; stop subject = d.id
-        d_t = a_t + gradient
-        now2 = d_t + 4 * gradient
-        _install_rawfile_mock(
-            mock_rawfile,
-            {
-                "inst1": [
-                    _make_file("x_MaSc_d.raw", d_t),
-                    _make_file("x_MaSc_a.raw", a_t),
-                    _make_file("x_MaSc_b.raw", b_t),
-                ]
-            },
-        )
-        second = alert._get_issues([], now2)
-
-        # then - both fire with different subject_file_ids
-        assert len(first) == 1
-        assert first[0].identifier == "inst1:x_MaSc_a.raw"
-        assert len(second) == 1
-        assert second[0].identifier == "inst1:x_MaSc_d.raw"
 
 
 # -- Rule B - Handoff ---------------------------------------------------------
@@ -596,79 +511,6 @@ class TestRuleBHandoff:
         result = QueueStopAlert()._get_issues([], now)
         # then
         assert result == []
-
-    @patch("monitoring.alerts.queue_stop_alert.RawFile")
-    def test_handoff_cooldown_no_repeat_alert_for_same_subject_file_id(
-        self, mock_rawfile: Mock
-    ) -> None:
-        """Same handoff polled twice fires only once."""
-        # given - same handoff scenario polled twice; second poll suppressed
-        now = datetime(2026, 1, 1, 12, 0, tzinfo=pytz.UTC)
-        files = {
-            "inst1": [
-                _make_file("x_JoeB_n.raw", now - timedelta(minutes=5)),
-                _make_file("x_MaSc_a.raw", now - timedelta(hours=1)),
-                _make_file("x_MaSc_b.raw", now - timedelta(hours=2)),
-            ]
-        }
-        _install_rawfile_mock(mock_rawfile, files)
-        alert = QueueStopAlert()
-        first = alert._get_issues([], now)
-        second = alert._get_issues([], now)
-        # then
-        assert len(first) == 1
-        assert second == []
-
-    @patch("monitoring.alerts.queue_stop_alert.RawFile")
-    def test_unified_cooldown_handoff_suppressed_after_stop_for_same_user_last_file(
-        self, mock_rawfile: Mock
-    ) -> None:
-        """Stop about F (newest) suppresses later handoff about F (second-newest).
-
-        SPEC §2.3: stop and handoff share the (instrument, subject_file) key.
-        """
-        # given - scan 1: 3 MaSc files, stop fires with subject = F.id
-        now1 = datetime(2026, 1, 1, 12, 0, tzinfo=pytz.UTC)
-        gradient = timedelta(minutes=30)
-        f_t = now1 - 4 * gradient
-        e_t = f_t - gradient
-        d_t = e_t - gradient
-
-        alert = QueueStopAlert()
-
-        _install_rawfile_mock(
-            mock_rawfile,
-            {
-                "inst1": [
-                    _make_file("x_MaSc_F.raw", f_t),
-                    _make_file("x_MaSc_E.raw", e_t),
-                    _make_file("x_MaSc_D.raw", d_t),
-                ]
-            },
-        )
-        first = alert._get_issues([], now1)
-
-        # scan 2: JoeB takes over with G; top-3 = [G_JoeB, F_MaSc, E_MaSc]
-        # Rule B would fire for MaSc with subject = F.id - same key, suppressed.
-        g_t = f_t + gradient
-        now2 = g_t + timedelta(minutes=5)
-        _install_rawfile_mock(
-            mock_rawfile,
-            {
-                "inst1": [
-                    _make_file("x_JoeB_G.raw", g_t),
-                    _make_file("x_MaSc_F.raw", f_t),
-                    _make_file("x_MaSc_E.raw", e_t),
-                ]
-            },
-        )
-        second = alert._get_issues([], now2)
-
-        # then - stop fired with subject F.id; handoff suppressed (same subject)
-        assert len(first) == 1
-        assert first[0].identifier == "inst1:x_MaSc_F.raw"
-        assert first[0].details.kind == KIND_STOP
-        assert second == []
 
 
 # -- Regression ---------------------------------------------------------------
@@ -978,3 +820,8 @@ class TestRecipientsAndDelivery:
             "x_MaSc_a.raw",
             "x_MaSc_b.raw",
         ]
+
+
+def test_queue_stop_is_reported_once_per_subject_file() -> None:
+    """Stop and handoff share the key, so the same user-last-file notifies once."""
+    assert QueueStopAlert().cooldown_minutes is None

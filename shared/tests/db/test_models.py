@@ -1,9 +1,12 @@
 """Tests for the db.models module."""
 
+from datetime import datetime
+
 import pytest
+import pytz
 from mongoengine import ValidationError
 
-from shared.db.models import User, parse_file_info_item
+from shared.db.models import AlertIssue, User, parse_file_info_item
 
 
 def test_parse_file_info_item_empty_tuple() -> None:
@@ -50,3 +53,25 @@ def test_user_rejects_invalid_initials(initials: str) -> None:
     """Test that initials with other characters or longer than 8 are rejected."""
     with pytest.raises(ValidationError):
         User(email="a@b.de", initials=initials).validate()
+
+
+def test_alert_issue_validates_with_required_fields() -> None:
+    """Test that an open issue needs alert, key, identifier, details and first_seen."""
+    AlertIssue(
+        alert="DiskSpaceAlert",
+        key="inst1",
+        identifier="inst1",
+        details="150 GB",
+        first_seen=datetime(2024, 1, 1, tzinfo=pytz.UTC),
+    ).validate()
+
+
+def test_alert_issue_rejects_missing_key() -> None:
+    """Test that the key is required."""
+    with pytest.raises(ValidationError):
+        AlertIssue(
+            alert="DiskSpaceAlert",
+            identifier="inst1",
+            details="150 GB",
+            first_seen=datetime(2024, 1, 1, tzinfo=pytz.UTC),
+        ).validate()

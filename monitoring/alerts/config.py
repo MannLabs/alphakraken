@@ -14,6 +14,8 @@ CHECK_INTERVAL_SECONDS = 60
 DEFAULT_ALERT_COOLDOWN_TIME_MINUTES = (
     120  # Minimum time between repeated alerts for the same issue_type
 )
+# cooldown of the alerts sent without DB access (startup, DB and check errors)
+SPECIAL_ALERT_COOLDOWN_MINUTES = 10
 
 STALE_STATUS_THRESHOLD_MINUTES = (
     15  # How old a kraken status can be before considered stale
@@ -43,6 +45,9 @@ INSTRUMENT_FILE_PILE_UP_THRESHOLDS = {
     # InstrumentFileStatus.MOVED: 50,  # doesn't make sense as the number depends on configured free disk space
 }
 INSTRUMENT_FILE_MIN_AGE_HOURS = 6  # Only consider files older than 6 hours
+
+# Raw file error / S3 upload failure alerts: only consider files updated within this time
+RAW_FILE_STATUS_LOOKBACK_HOURS = 24
 
 # Instrument stall alert configuration
 INSTRUMENT_STALL_THRESHOLD_HOURS = 2  # How long without a new file before alerting

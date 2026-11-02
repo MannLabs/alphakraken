@@ -1,5 +1,6 @@
 """Utility functions for monitoring and error handling."""
 
+import hashlib
 import traceback
 from datetime import datetime
 
@@ -31,3 +32,8 @@ def ensure_utc(value: datetime) -> datetime:
     if value.tzinfo is None:
         return pytz.utc.localize(value)
     return value
+
+
+def short_digest(text: str) -> str:
+    """Return a short stable digest of a text, e.g. to build keys from long strings."""
+    return hashlib.sha256(text.encode()).hexdigest()[:8]

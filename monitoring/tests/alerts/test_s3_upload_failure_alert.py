@@ -9,6 +9,8 @@ from monitoring.alerts.base_alert import Issue
 from monitoring.alerts.s3_upload_failure_alert import S3UploadFailureAlert
 from shared.db.models import BackupStatus
 
+NOW = datetime(2024, 1, 2, 12, 0, 0, tzinfo=pytz.UTC)
+
 
 def _create_mock_raw_file(**kwargs: str | None) -> Mock:
     """Create a mock RawFile with the given attributes."""
@@ -21,198 +23,83 @@ def _create_mock_raw_file(**kwargs: str | None) -> Mock:
 class TestS3UploadFailureAlert:
     """Test suite for S3UploadFailureAlert class."""
 
-    def test_case_name_should_return_correct_value(self) -> None:
-        """Test that name property returns correct value."""
-        # given
-        alert = S3UploadFailureAlert()
+    def test_name_should_return_class_name(self) -> None:
+        """Test that name property returns the class name."""
+        assert S3UploadFailureAlert().name == "S3UploadFailureAlert"
 
-        # when
-        result = alert.name
-
-        # then
-        assert result == "S3UploadFailureAlert"
-
-    @patch("monitoring.alerts.s3_upload_failure_alert.RawFile")
-    @patch("monitoring.alerts.s3_upload_failure_alert.CHECK_INTERVAL_SECONDS", 60)
-    def test_check_should_detect_new_upload_failed_transition(
-        self, mock_raw_file: Mock
-    ) -> None:
-        """Test that check detects new UPLOAD_FAILED transition."""
-        # given
-        alert = S3UploadFailureAlert()
-        fixed_now = datetime(2024, 1, 1, 12, 0, 0, tzinfo=pytz.UTC)
-
-        alert.previous_upload_statuses = {
-            "file_was_uploading": BackupStatus.UPLOAD_IN_PROGRESS,
-        }
-
-        mock_file = Mock()
-        mock_file.id = "file_was_uploading"
-        mock_file.backup_status = BackupStatus.UPLOAD_FAILED
-        mock_file.project_id = "proj2"
-        mock_file.instrument_id = "inst2"
-
-        mock_raw_file.objects.filter.return_value.only.return_value = [mock_file]
-
-        # when
-        result = alert._get_issues([], fixed_now)
-
-        # then
-        assert len(result) == 1
-        assert result[0].identifier == "file_was_uploading"
-        assert "S3 upload failed" in result[0].details
-        assert "proj2" in result[0].details
-        assert "inst2" in result[0].details
-
-    @patch("monitoring.alerts.s3_upload_failure_alert.RawFile")
-    @patch("monitoring.alerts.s3_upload_failure_alert.CHECK_INTERVAL_SECONDS", 60)
-    def test_check_should_ignore_files_already_in_failed_state(
-        self, mock_raw_file: Mock
-    ) -> None:
-        """Test that check ignores files already in failed state."""
-        # given
-        alert = S3UploadFailureAlert()
-        fixed_now = datetime(2024, 1, 1, 12, 0, 0, tzinfo=pytz.UTC)
-
-        alert.previous_upload_statuses = {
-            "file_already_failed": BackupStatus.UPLOAD_FAILED,
-        }
-
-        mock_file = Mock()
-        mock_file.id = "file_already_failed"
-        mock_file.backup_status = BackupStatus.UPLOAD_FAILED
-        mock_file.project_id = "proj1"
-        mock_file.instrument_id = "inst1"
-
-        mock_raw_file.objects.filter.return_value.only.return_value = [mock_file]
-
-        # when
-        result = alert._get_issues([], fixed_now)
-
-        # then
-        assert result == []
-
-    @patch("monitoring.alerts.s3_upload_failure_alert.RawFile")
-    @patch("monitoring.alerts.s3_upload_failure_alert.CHECK_INTERVAL_SECONDS", 60)
-    def test_check_should_handle_mixed_scenarios(self, mock_raw_file: Mock) -> None:
-        """Test that check handles complex mixed scenarios correctly."""
-        # given
-        alert = S3UploadFailureAlert()
-        fixed_now = datetime(2024, 1, 1, 12, 0, 0, tzinfo=pytz.UTC)
-
-        alert.previous_upload_statuses = {
-            "file_already_upload_failed": BackupStatus.UPLOAD_FAILED,
-            "file_was_uploading": BackupStatus.UPLOAD_IN_PROGRESS,
-            "file_copy_done": BackupStatus.COPYING_DONE,
-        }
-
-        mock_raw_file.objects.filter.return_value.only.return_value = [
-            _create_mock_raw_file(
-                id="file_already_upload_failed",
-                backup_status=BackupStatus.UPLOAD_FAILED,
-                project_id="proj1",
-                instrument_id="inst1",
-            ),
-            _create_mock_raw_file(
-                id="file_was_uploading",
-                backup_status=BackupStatus.UPLOAD_FAILED,
-                project_id="proj2",
-                instrument_id="inst2",
-            ),
-            _create_mock_raw_file(
-                id="file_copy_done",
-                backup_status=BackupStatus.UPLOAD_DONE,
-                project_id="proj3",
-                instrument_id="inst3",
-            ),
-            _create_mock_raw_file(
-                id="file_new_failed",
-                backup_status=BackupStatus.UPLOAD_FAILED,
-                project_id="proj4",
-                instrument_id="inst4",
-            ),
-        ]
-
-        # when
-        result = alert._get_issues([], fixed_now)
-
-        # then
-        assert len(result) == 2
-        result_ids = [r.identifier for r in result]
-        assert "file_was_uploading" in result_ids
-        assert "file_new_failed" in result_ids
-        assert "file_already_upload_failed" not in result_ids
-        assert "file_copy_done" not in result_ids
-
-        mock_raw_file.objects.filter.assert_called_once_with(
-            updated_at___gt=fixed_now - timedelta(seconds=300)
-        )
-
-        expected_previous_state = {
-            "file_already_upload_failed": BackupStatus.UPLOAD_FAILED,
-            "file_was_uploading": BackupStatus.UPLOAD_FAILED,
-            "file_copy_done": BackupStatus.UPLOAD_DONE,
-            "file_new_failed": BackupStatus.UPLOAD_FAILED,
-        }
-        assert alert.previous_upload_statuses == expected_previous_state
+    def test_is_reported_once_per_file(self) -> None:
+        """Each file is reported once, without cooldown."""
+        assert S3UploadFailureAlert().cooldown_minutes is None
 
     def test_format_message_should_format_correctly(self) -> None:
         """Test that format_message produces correct output."""
         # given
         alert = S3UploadFailureAlert()
         issues = [
-            Issue(
-                "file1",
-                "S3 upload failed | path: s3://bucket/key1 | project: proj1 | instrument: inst1",
-            ),
-            Issue(
-                "file2",
-                "S3 upload failed | path: s3://bucket/key2 | project: proj2 | instrument: inst2",
-            ),
+            Issue("file1", "S3 upload failed | project: proj1 | instrument: inst1"),
+            Issue("file2", "S3 upload failed | project: proj2 | instrument: inst2"),
         ]
 
         # when
         result = alert.format_message(issues)
 
         # then
-        expected = (
-            "- `file1`: S3 upload failed | path: s3://bucket/key1 | project: proj1 | instrument: inst1\n"
-            "- `file2`: S3 upload failed | path: s3://bucket/key2 | project: proj2 | instrument: inst2"
+        assert result == (
+            "- `file1`: S3 upload failed | project: proj1 | instrument: inst1\n"
+            "- `file2`: S3 upload failed | project: proj2 | instrument: inst2"
         )
-        assert result == expected
 
     @patch("monitoring.alerts.s3_upload_failure_alert.RawFile")
-    @patch("monitoring.alerts.s3_upload_failure_alert.CHECK_INTERVAL_SECONDS", 60)
-    def test_should_not_false_positive_when_failed_file_ages_out_and_returns(
+    @patch(
+        "monitoring.alerts.s3_upload_failure_alert.RAW_FILE_STATUS_LOOKBACK_HOURS", 24
+    )
+    def test_get_issues_should_query_recent_failed_files(
         self, mock_raw_file: Mock
     ) -> None:
-        """Test that a file already in UPLOAD_FAILED does not re-alert when it ages out of the query window and re-enters due to an unrelated updated_at_ bump."""
+        """Only files in UPLOAD_FAILED status updated within the lookback are queried."""
         # given
-        alert = S3UploadFailureAlert()
-        fixed_now = datetime(2024, 1, 1, 12, 0, 0, tzinfo=pytz.UTC)
-
-        mock_failed_file = _create_mock_raw_file(
-            id="file_failed",
-            backup_status=BackupStatus.UPLOAD_FAILED,
-            project_id="proj1",
-            instrument_id="inst1",
-        )
-
-        # Round 1: file enters UPLOAD_FAILED
-        mock_raw_file.objects.filter.return_value.only.return_value = [mock_failed_file]
-        result1 = alert._get_issues([], fixed_now)
-        assert len(result1) == 1
-
-        # Round 2: file ages out of the 5-minute window (empty query result)
         mock_raw_file.objects.filter.return_value.only.return_value = []
-        result2 = alert._get_issues([], fixed_now)
-        assert result2 == []
-
-        # Round 3: file re-enters window due to unrelated updated_at_ bump (still UPLOAD_FAILED)
-        mock_raw_file.objects.filter.return_value.only.return_value = [mock_failed_file]
 
         # when
-        result3 = alert._get_issues([], fixed_now)
+        result = S3UploadFailureAlert()._get_issues([], NOW)
 
-        # then - should NOT alert again
-        assert result3 == []
+        # then
+        assert result == []
+        mock_raw_file.objects.filter.assert_called_once_with(
+            backup_status=BackupStatus.UPLOAD_FAILED,
+            updated_at___gt=NOW - timedelta(hours=24),
+        )
+
+    @patch("monitoring.alerts.s3_upload_failure_alert.RawFile")
+    def test_get_issues_should_return_one_issue_per_failed_file(
+        self, mock_raw_file: Mock
+    ) -> None:
+        """Each failed file yields an issue keyed by file id."""
+        # given
+        mock_raw_file.objects.filter.return_value.only.return_value = [
+            _create_mock_raw_file(id="file1", project_id="P1", instrument_id="inst1"),
+            _create_mock_raw_file(id="file2", project_id=None, instrument_id=None),
+        ]
+        alert = S3UploadFailureAlert()
+
+        # when
+        first = alert._get_issues([], NOW)
+        second = alert._get_issues([], NOW)
+
+        # then
+        assert first == [
+            Issue(
+                "file1",
+                "S3 upload failed | project: P1 | instrument: inst1",
+                relevant_file="file1",
+                instrument_id="inst1",
+            ),
+            Issue(
+                "file2",
+                "S3 upload failed | project: N/A | instrument: N/A",
+                relevant_file="file2",
+                instrument_id=None,
+            ),
+        ]
+        assert [i.key for i in first] == ["file1", "file2"]
+        assert second == first  # stateless: the alert manager reports each key once

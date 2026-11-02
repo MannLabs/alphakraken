@@ -42,6 +42,17 @@ class DefaultFormatAlert(BaseAlert):
         return []
 
 
+def test_issue_key_defaults_to_identifier() -> None:
+    """Without an explicit key, the identifier is the key."""
+    assert Issue("inst1", 1).key == "inst1"
+    assert Issue("inst1", 1, key="inst1:file").key == "inst1:file"
+
+
+def test_cooldown_defaults_to_the_class_attribute() -> None:
+    """Alerts report their class cooldown for every issue."""
+    assert DefaultFormatAlert().get_cooldown_minutes(Issue("a", 1)) == 120
+
+
 def test_format_message_default_lists_one_line_per_issue() -> None:
     """The default message body has one line per issue, without the title."""
     # given

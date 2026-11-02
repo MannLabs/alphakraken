@@ -28,6 +28,13 @@ class Issue(Generic[D_co]):
     relevant_file: str | None = None
     # instrument the issue relates to, if any
     instrument_id: str | None = None
+    # stable per issue within an alert, must be an explicit string; empty: the identifier
+    key: str = ""
+
+    def __post_init__(self) -> None:
+        """Default the key to the identifier."""
+        if not self.key:
+            object.__setattr__(self, "key", self.identifier)
 
 
 def get_instrument_id(kraken_status: KrakenStatus) -> str | None:
@@ -64,6 +71,8 @@ class BaseAlert(ABC):
 
     # message title, required by the default `format_message`
     title: str
+    # minimum time between two notifications of the same issue; None: notify only once
+    cooldown_minutes: int | None = DEFAULT_ALERT_COOLDOWN_TIME_MINUTES
 
     def get_issues(
         self, status_objects: list[KrakenStatus], now: datetime
@@ -148,49 +157,10 @@ class BaseAlert(ABC):
         """
         return OPS_ALERTS_WEBHOOK_URL
 
-    def get_cooldown_time_minutes(self, identifier: str) -> int:
-        """Return cooldown in minutes for this alert and identifier.
+    def get_cooldown_minutes(self, issue: Issue) -> int | None:
+        """Return the cooldown for an issue of this alert, None to notify it only once.
 
-        Override this method in subclasses to specify custom cooldowns for specific identifiers.
-
-        Args:
-            identifier: The identifier (e.g., instrument_id) for this alert instance
-
-        Returns:
-            Cooldown in minutes
-
+        Override this method in subclasses with a cooldown depending on the issue.
         """
-        del identifier  # unused
-        return DEFAULT_ALERT_COOLDOWN_TIME_MINUTES
-
-
-class CustomAlert(BaseAlert):
-    """Simple alert wrapper for special alerts."""
-
-    def __init__(self, alert_name: str, cooldown_time_minutes: int | None = None):
-        """Initialize with alert name."""
-        self._name = alert_name
-        self._cooldown_time_minutes = cooldown_time_minutes
-
-    @property
-    def name(self) -> str:
-        """Return the alert name."""
-        return self._name
-
-    def _get_issues(
-        self, status_objects: list[KrakenStatus], now: datetime
-    ) -> list[Issue]:
-        """Not used for custom alerts."""
-        del status_objects, now  # unused
-        return []
-
-    def format_message(self, issues: list[Issue]) -> str:
-        """Not used for custom alerts."""
-        del issues  # unused
-        return ""
-
-    def get_cooldown_time_minutes(self, identifier: str) -> int:
-        """Return cooldown in minutes for this alert."""
-        if self._cooldown_time_minutes is not None:
-            return self._cooldown_time_minutes
-        return super().get_cooldown_time_minutes(identifier)
+        del issue  # unused
+        return self.cooldown_minutes

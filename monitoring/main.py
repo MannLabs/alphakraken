@@ -10,15 +10,18 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 
+from datetime import datetime
 from time import sleep
 
-from alert_manager import AlertManager, send_special_alert
+import pytz
+from alert_manager import AlertManager
 from alerts.config import (
     CHECK_INTERVAL_SECONDS,
+    SPECIAL_ALERT_COOLDOWN_MINUTES,
     STALE_STATUS_THRESHOLD_MINUTES,
 )
-from messenger_clients import AlertTypes
-from pymongo.errors import ServerSelectionTimeoutError
+from messenger_clients import AlertTypes, Message
+from pymongo.errors import ConnectionFailure
 from utils import extract_error_line
 
 from shared.db.engine import connect_db
@@ -36,43 +39,35 @@ def main() -> None:
     )
 
     alert_manager = AlertManager()
-    send_special_alert(
-        "general",
+    alert_manager.send_once(
         "startup",
-        "Monitoring started. ",
-        alert_manager,
-        AlertTypes.INFO,
+        Message("Monitoring started.", type=AlertTypes.INFO),
+        SPECIAL_ALERT_COOLDOWN_MINUTES,
+        datetime.now(pytz.UTC),
     )
 
     while True:
+        now = datetime.now(pytz.UTC)
         try:
+            alert_manager.check_db_free_alerts(now)
             connect_db(raise_on_error=True)
-        except Exception as e:  # noqa: BLE001
-            send_special_alert(
-                "db",
+            alert_manager.check_for_issues(now)
+        except ConnectionFailure as e:
+            alert_manager.send_once(
                 "db_connection_error",
-                f"Error connecting to MongoDB: {e}",
-                alert_manager,
+                Message(f"Error connecting to MongoDB: {e}"),
+                SPECIAL_ALERT_COOLDOWN_MINUTES,
+                now,
             )
-            # checking would fail as well and send a second alert
-            sleep(CHECK_INTERVAL_SECONDS)
-            continue
-
-        try:
-            alert_manager.check_for_issues()
-        except ServerSelectionTimeoutError:
-            send_special_alert(
-                "db", "db_timeout", "Error connecting to MongoDB", alert_manager
-            )
-
         except Exception as e:
-            logging.exception("Error checking KrakenStatus")
-            error_line = extract_error_line(e)
-            send_special_alert(
-                "general",
+            logging.exception("Error checking for issues")
+            alert_manager.send_once(
                 "exception",
-                f"{type(e).__name__} during checking alerts: {e} at: {error_line}",
-                alert_manager,
+                Message(
+                    f"{type(e).__name__} during checking alerts: {e} at: {extract_error_line(e)}"
+                ),
+                SPECIAL_ALERT_COOLDOWN_MINUTES,
+                now,
             )
 
         sleep(CHECK_INTERVAL_SECONDS)

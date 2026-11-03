@@ -207,7 +207,7 @@ class AcquisitionMonitor(BaseSensorOperator):
         )
         if not zeno_special_criterion:
             logging.info(
-                f"Sciex Zeno ZT scan file {scan_file_path} is too small. Presuming acquisition not finalized yet."
+                f"File {self._main_file_path} is too small. Presuming acquisition not finalized yet."
             )
         return zeno_special_criterion
 

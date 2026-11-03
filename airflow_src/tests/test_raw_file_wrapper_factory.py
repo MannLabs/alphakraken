@@ -43,7 +43,7 @@ class TestableRawFileMonitorWrapper(RawFileMonitorWrapper):
         """Dummy implementation."""
 
     @classmethod
-    def get_associated_files(cls, folder: Path, file_name: str) -> Any:
+    def get_associated_paths(cls, folder: Path, file_name: str) -> Any:
         """Dummy implementation."""
 
     def _get_files_to_copy(self) -> Any:
@@ -444,7 +444,7 @@ def test_thermo_get_files_to_copy(
             "instrument1", raw_file=mock_raw_file, path_provider=CopyPathProvider
         )
 
-    with patch("pathlib.Path.exists", return_value=file_exists):
+    with patch("pathlib.Path.is_file", return_value=file_exists):
         assert wrapper.get_files_to_copy() == expected_mapping
 
 
@@ -480,7 +480,8 @@ def test_sciex_get_files_to_copy(
     }
 
     # when
-    assert wrapper.get_files_to_copy() == expected_mapping
+    with patch("pathlib.Path.is_file", return_value=True):
+        assert wrapper.get_files_to_copy() == expected_mapping
     mock_instrument_path.return_value.glob.assert_called_once_with("sample.*")
 
 

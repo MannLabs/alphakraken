@@ -15,6 +15,8 @@ In the first, second and last case, the acquisition software must additionally h
 """
 
 import logging
+import os
+import stat
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -388,18 +390,26 @@ class AcquisitionMonitor(BaseSensorOperator):
         assert self._raw_file_monitor_wrapper is not None
         assert self._raw_file is not None
 
-        associated_files = self._raw_file_monitor_wrapper.get_associated_files(
+        # a single stat per entry to reduce load on network share
+        associated_paths = self._raw_file_monitor_wrapper.get_associated_paths(
             self._raw_file_monitor_wrapper.instrument_path,
             self._raw_file.original_name,
         )
 
         files_stat = {}
-        for file_path in associated_files:
+        for path in associated_paths:
             try:
-                stat = file_path.stat()
+                st = path.stat()
             except FileNotFoundError:
                 # vanished between listing and stat
                 continue
-            files_stat[file_path] = (stat.st_size, stat.st_mtime)
+            if self._is_regular_file(st):
+                files_stat[path] = (st.st_size, st.st_mtime)
 
         return files_stat
+
+    @staticmethod
+    def _is_regular_file(st: os.stat_result) -> bool:
+        """Return whether the stat result belongs to a regular file (not a directory, symlink, etc.)."""
+        # rglob also yields subfolders, whose size is filesystem-dependent
+        return stat.S_ISREG(st.st_mode)

@@ -1,6 +1,7 @@
 """Unit tests for the acquisition monitor plugin."""
 
 from pathlib import Path
+from stat import S_IFDIR, S_IFREG
 
 # ruff: noqa: SLF001
 from unittest.mock import MagicMock, PropertyMock, call, patch
@@ -38,15 +39,20 @@ def _setup_monitor_wrapper(
     )
     if associated_paths:
         mock_monitor_wrapper.main_file_path.return_value = associated_paths[0]
-    mock_monitor_wrapper.get_associated_files.return_value = list(associated_paths)
+    mock_monitor_wrapper.get_associated_paths.return_value = list(associated_paths)
     mock_monitor_wrapper.is_corrupted_file_name.return_value = False
     return mock_monitor_wrapper
+
+
+def _mock_stat(size: int = 1, mtime: float = 10.0, mode: int = S_IFREG) -> MagicMock:
+    """Get a mock stat result."""
+    return MagicMock(st_size=size, st_mtime=mtime, st_mode=mode)
 
 
 def _mock_path(size: int = 1, mtime: float = 10.0) -> MagicMock:
     """Get a mock path with a constant stat."""
     mock_path = MagicMock()
-    mock_path.stat.return_value = MagicMock(st_size=size, st_mtime=mtime)
+    mock_path.stat.return_value = _mock_stat(size, mtime)
     return mock_path
 
 
@@ -112,10 +118,10 @@ def test_poke_file_dir_contents_change_file_is_added_files_change_afterwards(
     mock_get_raw_file_by_id.return_value.original_name = "some_file.raw"
     mock_other_path = MagicMock()
     mock_other_path.stat.side_effect = [
-        MagicMock(st_size=1, st_mtime=10.0),  # first poke
-        MagicMock(st_size=1, st_mtime=10.0),  # second poke
-        MagicMock(st_size=2, st_mtime=11.0),  # third poke: still written to
-        MagicMock(st_size=2, st_mtime=11.0),  # fourth poke
+        _mock_stat(1, 10.0),  # first poke
+        _mock_stat(1, 10.0),  # second poke
+        _mock_stat(2, 11.0),  # third poke: still written to
+        _mock_stat(2, 11.0),  # fourth poke
     ]
     mock_monitor_wrapper = _setup_monitor_wrapper(
         mock_raw_file_wrapper_factory, _mock_path(), mock_other_path
@@ -362,7 +368,7 @@ def _get_sensor_with_associated_files(*mock_paths: MagicMock) -> AcquisitionMoni
     sensor = get_sensor()
     sensor._raw_file = MagicMock()
     sensor._raw_file_monitor_wrapper = MagicMock()
-    sensor._raw_file_monitor_wrapper.get_associated_files.return_value = list(
+    sensor._raw_file_monitor_wrapper.get_associated_paths.return_value = list(
         mock_paths
     )
     return sensor
@@ -372,11 +378,11 @@ def test_update_files_stat() -> None:
     """Test _update_files_stat returns the time since the (size, mtime) of any associated file last changed."""
     mock_other_path = MagicMock()
     mock_other_path.stat.side_effect = [
-        MagicMock(st_size=1, st_mtime=10.0),
-        MagicMock(st_size=1, st_mtime=10.0),
-        MagicMock(st_size=2, st_mtime=10.0),
-        MagicMock(st_size=2, st_mtime=11.0),
-        MagicMock(st_size=2, st_mtime=11.0),
+        _mock_stat(1, 10.0),
+        _mock_stat(1, 10.0),
+        _mock_stat(2, 10.0),
+        _mock_stat(2, 11.0),
+        _mock_stat(2, 11.0),
     ]
     sensor = _get_sensor_with_associated_files(_mock_path(), mock_other_path)
 
@@ -398,6 +404,19 @@ def test_update_files_stat_file_vanished_after_listing() -> None:
     # when
     assert sensor._update_files_stat(now=0) == 0
     assert sensor._update_files_stat(now=3) == 3
+
+    assert sensor._files_stat == {mock_path: (1, 10.0)}
+
+
+def test_update_files_stat_ignores_directories() -> None:
+    """Test _update_files_stat ignores directories among the associated paths."""
+    mock_path = _mock_path()
+    mock_dir_path = MagicMock()
+    mock_dir_path.stat.return_value = _mock_stat(4096, 10.0, mode=S_IFDIR)
+    sensor = _get_sensor_with_associated_files(mock_path, mock_dir_path)
+
+    # when
+    sensor._update_files_stat(now=0)
 
     assert sensor._files_stat == {mock_path: (1, 10.0)}
 
@@ -581,7 +600,7 @@ def test_poke_file_dir_contents_dont_change_all_associated_files_are_considered(
 ) -> None:
     """Test poke method considers all associated files: acquisition is not done while a non-main file grows."""
     mock_main_path = _mock_path(size=100)
-    mock_other_path = MagicMock()
+    mock_other_path = _mock_path()
     # grows between the first two pokes, then stays constant
     type(mock_other_path.stat.return_value).st_size = PropertyMock(
         side_effect=[10, 20, 20]
@@ -608,7 +627,7 @@ def test_poke_file_dir_contents_dont_change_all_associated_files_are_considered(
     assert not sensor.poke({})
     assert sensor.poke({})
 
-    mock_monitor_wrapper.get_associated_files.assert_called_with(
+    mock_monitor_wrapper.get_associated_paths.assert_called_with(
         mock_monitor_wrapper.instrument_path,
         mock_get_raw_file_by_id.return_value.original_name,
     )

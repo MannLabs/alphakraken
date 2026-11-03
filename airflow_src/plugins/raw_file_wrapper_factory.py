@@ -114,11 +114,23 @@ class RawFileMonitorWrapper(ABC):
 
     @classmethod
     @abstractmethod
+    def get_associated_paths(cls, folder: Path, file_name: str) -> list[Path]:
+        """Get the absolute paths of all entries in `folder` belonging to the raw file `file_name`.
+
+        May contain directories and non-existing paths.
+        """
+
+    @classmethod
     def get_associated_files(cls, folder: Path, file_name: str) -> list[Path]:
         """Get the absolute paths of all files in `folder` belonging to the raw file `file_name`.
 
         Only existing files are returned.
         """
+        return [
+            path
+            for path in cls.get_associated_paths(folder, file_name)
+            if path.is_file()
+        ]
 
     @property
     def instrument_path(self) -> Path:
@@ -153,9 +165,9 @@ class ThermoRawFileMonitorWrapper(RawFileMonitorWrapper):
         return self._instrument_path / self._raw_file_original_name
 
     @classmethod
-    def get_associated_files(cls, folder: Path, file_name: str) -> list[Path]:
-        """Get the path of the raw file, if it exists."""
-        return [path] if (path := folder / file_name).exists() else []
+    def get_associated_paths(cls, folder: Path, file_name: str) -> list[Path]:
+        """Get the path of the raw file."""
+        return [folder / file_name]
 
     def get_corrupted_file_name(self) -> str | None:
         """Get the name of the file that the raw file is renamed to by the acquisition software in certain failure cases.
@@ -180,8 +192,8 @@ class SciexRawFileMonitorWrapper(RawFileMonitorWrapper):
         return self._instrument_path / self._raw_file_original_name
 
     @classmethod
-    def get_associated_files(cls, folder: Path, file_name: str) -> list[Path]:
-        """Get the paths of all files sharing the stem with the raw file.
+    def get_associated_paths(cls, folder: Path, file_name: str) -> list[Path]:
+        """Get the paths of all entries sharing the stem with the raw file.
 
         E.g. for `some_file.wiff` (stem: `some_file`): some_file.wiff, some_file.wiff.scan, some_file.wiff2,
         some_file.timeseries.data.
@@ -202,9 +214,9 @@ class BrukerRawFileMonitorWrapper(RawFileMonitorWrapper):
         )
 
     @classmethod
-    def get_associated_files(cls, folder: Path, file_name: str) -> list[Path]:
-        """Get the paths of all files within the raw file directory (including those in subfolders)."""
-        return [path for path in (folder / file_name).rglob("*") if path.is_file()]
+    def get_associated_paths(cls, folder: Path, file_name: str) -> list[Path]:
+        """Get the paths of all entries within the raw file directory (including those in subfolders)."""
+        return list((folder / file_name).rglob("*"))
 
 
 class PathProvider(ABC):

@@ -244,13 +244,7 @@ class AcquisitionMonitor(BaseSensorOperator):
 
         Also true if the file got renamed by the acquisition software.
         """
-        # TODO: ignore _CORRUPTED files in new_dir_content?
         current_dir_content, new_dir_content = self._get_dir_content()
-
-        if not new_dir_content:
-            return False
-
-        logging.info(f"New file(s) found: {new_dir_content}.")
 
         # Handling the case where the file got renamed by the acquisition software. Not restricted to a
         # single new file, as the exact name match makes false positives from race conditions unlikely.
@@ -261,6 +255,18 @@ class AcquisitionMonitor(BaseSensorOperator):
             logging.warning(f"File got renamed to {self._corrupted_file_name}.")
             self._file_got_renamed = True
             return True
+
+        # corrupted files of other raw files are not the next acquisition
+        new_dir_content = {
+            file_name
+            for file_name in new_dir_content
+            if not self._raw_file_monitor_wrapper.is_corrupted_file_name(file_name)
+        }
+
+        if not new_dir_content:
+            return False
+
+        logging.info(f"New file(s) found: {new_dir_content}.")
 
         if len(new_dir_content) > 1 and not self._next_file_appeared:
             logging.warning(

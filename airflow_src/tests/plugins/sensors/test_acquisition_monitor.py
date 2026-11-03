@@ -39,6 +39,7 @@ def _setup_monitor_wrapper(
     if associated_paths:
         mock_monitor_wrapper.main_file_path.return_value = associated_paths[0]
     mock_monitor_wrapper.get_associated_files.return_value = list(associated_paths)
+    mock_monitor_wrapper.is_corrupted_file_name.return_value = False
     return mock_monitor_wrapper
 
 
@@ -232,6 +233,64 @@ def test_poke_file_dir_contents_change_corrupt_file_and_next_file_are_added(
     mock_put_xcom.assert_called_once_with(
         ti, "acquisition_monitor_errors", ["File got renamed: some_file_CORRUPTED.raw"]
     )
+
+
+@patch("plugins.sensors.acquisition_monitor.RawFileWrapperFactory")
+@patch("plugins.sensors.acquisition_monitor.get_timestamp")
+@patch("plugins.sensors.acquisition_monitor.update_raw_file")
+@patch("plugins.sensors.acquisition_monitor.get_raw_file_by_id")
+def test_poke_file_dir_contents_change_corrupt_file_of_other_raw_file_is_added(
+    mock_get_raw_file_by_id: MagicMock,
+    mock_update_raw_file: MagicMock,  # noqa: ARG001
+    mock_get_timestamp: MagicMock,
+    mock_raw_file_wrapper_factory: MagicMock,
+) -> None:
+    """Test poke method ignores a corrupted file of another raw file, but settles on a real next file."""
+    mock_get_raw_file_by_id.return_value.original_name = "some_file.raw"
+    mock_monitor_wrapper = _setup_monitor_wrapper(
+        mock_raw_file_wrapper_factory, _mock_path()
+    )
+    mock_monitor_wrapper.get_corrupted_file_name.return_value = (
+        "some_file_CORRUPTED.raw"
+    )
+    mock_monitor_wrapper.is_corrupted_file_name.side_effect = (
+        lambda file_name: file_name.endswith("_CORRUPTED.raw")
+    )
+    mock_monitor_wrapper.get_raw_files_on_instrument.side_effect = [
+        {"some_file.raw"},  # initial content (pre_execute)
+        {"some_file.raw", "other_file_CORRUPTED.raw"},  # first poke
+        {"some_file.raw", "other_file_CORRUPTED.raw"},  # second poke
+        {
+            "some_file.raw",
+            "other_file_CORRUPTED.raw",
+            "some_next_file.raw",
+        },  # third poke
+        {
+            "some_file.raw",
+            "other_file_CORRUPTED.raw",
+            "some_next_file.raw",
+        },  # fourth poke
+    ]
+
+    mock_get_timestamp.side_effect = [
+        0,  # pre_execute
+        1,  # first poke
+        1
+        + FILES_SETTLE_TIME_S,  # second poke: would be settled if the corrupted file counted
+        10,  # third poke: next file appeared
+        10 + FILES_SETTLE_TIME_S,  # fourth poke: files settled
+    ]
+
+    sensor = get_sensor()
+    sensor.pre_execute({DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"}})
+
+    # when
+    assert not sensor.poke({})
+    assert not sensor.poke({})
+    assert not sensor.poke({})
+    assert sensor.poke({})
+
+    assert not sensor._file_got_renamed
 
 
 @patch("plugins.sensors.acquisition_monitor.RawFileWrapperFactory")

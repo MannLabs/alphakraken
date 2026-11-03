@@ -1,0 +1,352 @@
+# Database interface design
+
+Status: proposal. Analysis at commit 87937c8c (2026-11-03).
+
+Goal: one interface between the database and its clients (Airflow, webapp, MCP server, REST
+API, monitoring) that hides the storage provider, so that MongoDB can be replaced without
+touching client code.
+
+A second refactoring, centralizing the validation of writes, builds on this one; see
+`VALIDATION_DESIGN.md`. This design only reserves the places that one fills (section 4.8).
+
+## 1. Current state
+
+`shared/db/` holds three modules: `engine.py` (connection), `models.py` (mongoengine
+documents plus all status constants), `interface.py` (~45 functions, written for Airflow).
+
+| Client | Goes through `interface.py` | Direct mongoengine/pymongo use |
+|---|---|---|
+| Airflow | yes, exclusively | catches `DoesNotExist` (processor_impl.py:84), `NotUniqueError` (watcher_impl.py:335) |
+| Webapp | partly (projects, settings, users, suppressions) | `webapp/service/db.py`: 8 query functions on `RawFile`, `Metrics`, `KrakenStatus`, `Project`, `Settings`; pages: `ProjectSettings.objects.all()` (settings.py:580) |
+| REST API | `augment_raw_files_with_metrics` only | `rest_api/service.py`: 4 query functions, `.to_mongo().to_dict()`, `_id` renaming |
+| MCP | no | `mcp_server/server.py`: 3 queries, own copy of `augment_raw_files_with_metrics` |
+| Monitoring | alert issues, suppressions, users | 7 alerts query `RawFile.objects` (`.only`, `.distinct`, `.item_frequencies`); `alert_manager.py:73` `KrakenStatus.objects`; `active_instance.py` raw pymongo; `main.py` catches `pymongo.errors.ConnectionFailure` |
+
+Mongo users per service (docker-compose): Airflow readWrite, webapp `webappRole`,
+monitoring `alertingRole`, MCP and REST read-only. The roles already define which client
+writes which collection.
+
+## 2. Redundant logic
+
+2.1. **Raw files joined with their latest metrics per type**, three implementations:
+`shared/db/interface.py:625` (`augment_raw_files_with_metrics`, used by REST and the pump
+pressure alert), `mcp_server/server.py:221` (near-copy), `webapp/service/data_handling.py:152`
+(`_merge_metrics_by_type` via `df_from_db_data(drop_duplicates=["raw_file"])`).
+
+2.2. **Legacy metric name harmonization** (`raw:gradient_length_m` -> `gradient_length`,
+`msqc_` prefix), five sites: interface.py:658, mcp_server/server.py:268, rest_api/service.py:90,
+webapp/service/data_handling.py:20-56, pump_pressure_alert.py:69-72 (field list).
+
+2.3. **"Non-deleted projects/settings"** filter: interface.py `get_all_settings`,
+webapp/service/db.py `get_project_data`/`get_settings_data`, rest_api/service.py
+`get_projects`/`get_settings`.
+
+2.4. **"Raw files of instrument(s) created after cutoff"**, six variants: MCP
+`get_raw_files_for_instrument`, REST `_query_raw_files`, webapp
+`get_raw_file_and_metrics_data`, pump_pressure_alert.py:57, queue_stop_alert.py:68,
+instrument_stall_alert.py:38.
+
+2.5. **Document to dict**: `to_mongo()` plus `_id` pop/rename in REST
+(`_project_to_dict`, `_settings_to_dict`, `_to_raw_file_dict`), MCP, webapp
+`df_from_db_data`, interface `augment_raw_files_with_metrics`.
+
+2.6. **Instrument ids from `KrakenStatus.entity_type`**: MCP `get_available_instruments`,
+pump_pressure_alert `_get_instrument_ids`, base_alert `get_instrument_id`,
+status_pile_up_alert inline, webapp components.
+
+2.7. **`connect_db()`** as first line of every function (63 test patches of it).
+
+## 3. Storage details that leak
+
+These are what a provider switch would break.
+
+3.1. `_id` key: 15 sites in webapp pages/components, REST, MCP.
+
+3.2. ObjectId as identity of `Settings`, `ProjectSettings`, `AlertSuppression`:
+`str(row["_id"])`, `str(ps.id)` with `# type: ignore[unresolved-attribute]`
+(projects.py:191, 235, 258; settings.py:551-621; admin.py:226). REST already invented
+`unique_name` (`fallback_v7`) as the public settings id, a sign the ObjectId is not a domain id.
+
+3.3. `QuerySet` as a return type (`webapp/service/db.py` returns QuerySets to pages;
+`data_handling.py` caches DataFrames because QuerySets do not pickle).
+
+3.4. mongoengine query DSL at call sites: `__in`, `__gte`, `__icontains`, `__nin`,
+`created_at___gte` (audit field naming), `Q`, `.only`, `.exclude`, `.distinct`,
+`.item_frequencies`, `.skip/.limit/.count`.
+
+3.5. Lazy `ReferenceField` dereferencing in pages: `ps.settings.name`, `ps.project.id`
+(one query per access; projects.py:92 has a TODO "could be single query").
+
+3.6. Provider exceptions in clients: `DoesNotExist`, `NotUniqueError` (Airflow),
+`ConnectionFailure`, `DuplicateKeyError`, `PyMongoError` (monitoring),
+`mongoengine.ValidationError` shown to webapp users as toast text via `str(e)`.
+
+3.7. pymongo collection access: `active_instance.py:35` (`find_one_and_update`),
+interface.py:566 (`_get_collection().bulk_write`).
+
+3.8. `shared/db/models.py` is both the schema and the home of domain constants
+(`RawFileStatus`, `TERMINAL_STATUSES`, ...). Every client imports the ORM module to get a
+string constant. `path_layout`, `display_paths`, `settings_scope_resolver` type-hint on
+mongoengine documents.
+
+3.9. `Metrics` is a `DynamicDocument`: free-form keys per metrics type. `file_info` is a
+`DictField` whose tuples come back as lists. Both are schemaless and the hardest part to port.
+
+3.10. Naive UTC datetimes come back from mongoengine; monitoring compensates with
+`ensure_utc`, webapp with `to_display_timezone`.
+
+3.11. TTL indexes (`SlurmJob` 7 d, `AlertIssue` 90 d via `init-mongo.sh`) do expiry that the
+code relies on silently.
+
+## 4. Target design
+
+Principle: **clients import `shared.domain` and `shared.db` only. Nothing outside
+`shared/db/_mongo/` and the migration scripts imports `mongoengine`, `pymongo`, or
+`shared.db._mongo`.** Enforced by ruff `TID251` (banned-api), not by convention.
+
+```
+webapp / mcp_server / rest_api / monitoring / airflow
+        |  reads and writes:  shared.db
+        |  types:             shared.domain
+        v
+   [ shared/services/   reserved for VALIDATION_DESIGN.md: validate, then call shared.db ]
+        v
+shared/db/raw_files.py  metrics.py  projects.py  settings.py  users.py
+          status.py  alerts.py  slurm_jobs.py  leases.py
+        |
+        v
+shared/db/_mongo/   models.py (mongoengine), mappers.py, connection.py
+```
+
+Dependency direction: `shared.domain` <- `shared.db` <- clients. `shared.db` is persistence
+and must not import `shared.runners` or `shared.yamlsettings`.
+
+### 4.1 Domain types: `shared/domain/`
+
+Frozen dataclasses, one per aggregate, with `id: str` as the domain identifier.
+Status constant classes and `TERMINAL_STATUSES`/`ERROR_STATUSES` move here from `models.py`.
+
+| Type | `id` | Notes |
+|---|---|---|
+| `RawFile` | file name based id (unchanged) | `file_info: dict[str, FileInfoItem]`, tz-aware datetimes |
+| `Metrics` | none | `raw_file_id`, `type`, `settings_name`, `settings_version`, `relative_output_path`, `output_display_base_path`, `created_at`, `values: dict[str, float \| int \| str]` |
+| `Project` | project id (unchanged) | `owner_email: str \| None` instead of a reference |
+| `Settings` | `unique_name`, e.g. `fallback_v7` | `number` stays a field |
+| `ProjectSettings` | opaque string | `project_id: str`, `settings: Settings` (eagerly joined), scope and filter lists |
+| `User` | email | |
+| `KrakenStatus` | entity id | |
+| `AlertIssue` | opaque string | |
+| `AlertSuppression` | opaque string | |
+| `SlurmJob` | `<cluster>/<job>` (unchanged) | |
+
+"Opaque string" means: generated by the backend, only ever passed back to it. Any provider
+can supply one.
+
+`Metrics.values` holds the dynamic keys. Legacy name harmonization (2.2) happens exactly once,
+in the Mongo mapper. On a relational provider, `values` is a JSON column.
+
+These are output types. Dataclasses, not pydantic models: the webapp reads thousands of raw
+files per page, and validating each on the way out of the DB is wasted work. `asdict()`
+serves the DataFrame, MCP and REST conversions. The input types of the validation
+refactoring are separate classes (4.8).
+
+### 4.2 Query functions: `shared/db/*.py`
+
+Plain functions, no Protocol/DI layer: there is one provider at a time, and a switch means
+rewriting function bodies, not call sites. Add a Protocol only if two providers must coexist
+(e.g. dual-write during migration).
+
+Named methods with keyword filters, no generic query builder. The complete raw file surface:
+
+```python
+@dataclass(frozen=True)
+class RawFileFilter:
+    ids: list[str] | None = None
+    original_names: list[str] | None = None          # case-insensitive
+    instrument_ids: list[str] | None = None
+    project_id: str | None = None
+    name_contains: str | None = None                 # case-insensitive
+    created_after: datetime | None = None
+    created_before: datetime | None = None
+    updated_after: datetime | None = None
+    statuses: list[str] | None = None
+    statuses_not: list[str] | None = None
+    backup_status: str | None = None
+    instrument_file_status: str | None = None
+    instrument_file_statuses_not: list[str] | None = None
+
+def find(filter: RawFileFilter, *, order: str = "-created_at", limit: int | None = None,
+         offset: int = 0, include_file_info: bool = True) -> list[RawFile]
+def count(filter: RawFileFilter) -> int
+def get(raw_file_id: str) -> RawFile                 # raises NotFound
+def latest_per_instrument(n: int, *, created_after: datetime) -> dict[str, list[RawFile]]
+def count_by_status(instrument_id: str, *, statuses_not: list[str]) -> dict[str, int]
+def add(...) -> str                                  # raises AlreadyExists
+def update(raw_file_id: str, **fields) -> None       # today's update_raw_file
+def delete(raw_file_id: str) -> None
+```
+
+`include_file_info` is the only projection on raw files: `file_info` is the one field that
+grows without bound (tens of KB for a Bruker folder), the rest of a document is about 1 KB,
+and REST already exposes exactly this flag. The `.only()` calls in monitoring and webapp are
+dropped. Projection saves wire bytes and decoding only; MongoDB reads the whole document
+either way. Measure the status page render time against the current version before closing
+step 5.4; if it regresses, give the status and throughput queries a dedicated function
+returning a small `RawFileSummary` dataclass rather than a generic `fields` parameter, which
+would mean partially filled objects.
+
+`find`/`count` replace: `get_raw_files_by_names`, `get_raw_files_by_instrument_file_status`,
+`get_purge_candidates_by_age`, MCP (2 queries), REST `_query_raw_files`, webapp
+`get_raw_file_and_metrics_data`/`get_full_raw_file_data`/`get_raw_files_for_status_df`/
+`get_raw_files_for_throughput_per_day`, raw_file_error, s3_upload_failure, pump_pressure,
+queue_stop (`latest_per_instrument`), instrument_stall (`find(limit=1)`), status_pile_up
+(`count_by_status`).
+
+Metrics:
+
+```python
+def latest_by_raw_file(raw_file_ids: list[str] | None = None, *,
+                       created_after: datetime | None = None,
+                       types: list[str] | None = None,
+                       fields: list[str] | None = None) -> dict[str, dict[str, Metrics]]
+    # raw_file_id -> metrics type -> latest Metrics; the one join implementation (2.1)
+    # fields: keys of `values` to load, None for all; the metadata fields are always loaded.
+    # Keeps today's projection of augment_raw_files_with_metrics: metrics documents are
+    # wide and open-ended, the pump pressure alert needs four keys of a day's worth.
+def add(raw_file_id: str, metrics: Metrics) -> None
+def output_locations(raw_file_ids) -> list[Metrics]    # webapp get_output_folders
+```
+
+The webapp optimization "fetch metrics by `created_at_` superset instead of sending ids"
+stays inside the Mongo implementation, selected by passing `created_after` without ids.
+
+Projects/settings/users/status/alerts/slurm jobs: today's `interface.py` functions, with
+these changes:
+- settings functions take `unique_name`, not ObjectId strings;
+- `get_project_settings` returns `ProjectSettings` with `settings` embedded (one `in` query);
+- `find_projects(include_deleted=False, ...)`, `find_settings(...)` with `limit/offset` and
+  a `count` replace 2.3;
+- `instrument_ids()` in `status.py` replaces 2.6;
+- the write functions keep their keyword-only signatures and the invariant checks they
+  contain today (archived project, duplicate filters, ...); see 4.8 for what changes later.
+
+`leases.py`: `try_acquire(name: str, holder: str, ttl: timedelta, now: datetime) -> bool`
+replaces `active_instance.py`'s pymongo call. On Postgres: `INSERT ... ON CONFLICT DO UPDATE
+... WHERE expires_at < now`.
+
+`slurm_jobs.py`: `upsert_states`, `get` unchanged; the `bulk_write` stays in the Mongo body.
+
+### 4.3 Errors: `shared/domain/errors.py`
+
+`ValidationError(errors: list[str])`, `NotFound`, `AlreadyExists`, `DatabaseUnavailable`.
+The Mongo layer translates `DoesNotExist`, `NotUniqueError`/`DuplicateKeyError`,
+`ConnectionFailure`/`PyMongoError`, and `mongoengine.ValidationError` (its per-field
+messages become the list). Clients catch only these. The `ValueError`s raised by today's
+invariant checks become `ValidationError` with one entry.
+
+### 4.4 Connection
+
+Lazy and invisible: every function in `_mongo/` calls `_ensure_connected()` (today's
+`connect_db`, which is already idempotent). Clients never call `connect_db`; `rest_api/main.py`
+lifespan and `monitoring/main.py` call `shared.db.ping()` for their startup checks.
+
+### 4.5 Datetimes
+
+The mapper returns tz-aware UTC datetimes. `ensure_utc` call sites in monitoring go away.
+`to_display_timezone` in the webapp stays (display concern).
+
+### 4.6 Webapp DataFrames
+
+`df_from_db_data(QuerySet)` becomes `pd.DataFrame([asdict(x) for x in rows])`; the column is
+`id`, not `_id`. `_merge_metrics_by_type` builds from `metrics.latest_by_raw_file`, which also
+removes the per-type `filter_dict`/`drop_duplicates` dance. The `st.cache_data` note about
+QuerySets not pickling becomes moot.
+
+### 4.7 Enforcement
+
+`pyproject.toml`:
+
+```toml
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"mongoengine".msg = "use shared.db"
+"pymongo".msg = "use shared.db"
+"shared.db._mongo".msg = "use shared.db"
+[tool.ruff.lint.per-file-ignores]
+"shared/db/_mongo/**" = ["TID251"]
+"shared/_migrations/**" = ["TID251"]
+"airflow_src/plugins/_db_migrations/**" = ["TID251"]
+```
+
+### 4.8 What this design reserves for the validation refactoring
+
+`VALIDATION_DESIGN.md` adds `shared/services/` and pydantic input types. So that it changes
+nothing here when it lands:
+
+- `shared.db` write functions get no new validation. The invariant checks they hold today
+  are marked with a comment that they move to `shared/services`. The field constraints of the
+  Mongo models (regex, max_length) stay as they are; they become a backstop later.
+- `shared.db` write functions use keyword-only parameters named like the fields of the
+  domain types. The later input types use the same names, so `create(**new.model_dump())`
+  or a signature change to `create(new: NewSettings)` is mechanical.
+- `shared/domain/` is a package, one module per aggregate (`raw_files.py`, `settings.py`,
+  ...), so the input types land next to the output types. `shared/domain/errors.py` already
+  defines `ValidationError(errors: list[str])`.
+- `shared.db` imports nothing from `shared.runners`, `shared.yamlsettings`,
+  `shared.validation`, `shared.config_params`. The services layer will.
+- The webapp-side validators (`_check_project_id`, `validate_suppression`,
+  `settings_validation.py`, `user_input.py`) are left in place and untouched.
+
+## 5. Migration steps
+
+Each step is a shippable PR; no compatibility shims are kept between steps.
+
+5.1. Move constants from `models.py` to `shared/domain/`; fix imports. Mechanical.
+
+5.2. Add domain dataclasses, `shared/domain/errors.py` and `_mongo/mappers.py`. Make the
+existing `interface.py` functions return domain objects and raise domain errors. Airflow call
+sites only read attributes, so they are unchanged except for the two exception imports (3.6).
+
+5.3. `metrics.latest_by_raw_file` with harmonization. Port REST, MCP, pump pressure alert,
+webapp `data_handling`. Delete the MCP copy and `augment_raw_files_with_metrics`.
+
+5.4. `raw_files.find/count/...`. Port `webapp/service/db.py`, REST, MCP, six alerts. Delete
+the raw file queries from `webapp/service/db.py` (keep the DataFrame helpers).
+
+5.5. Settings id = `unique_name`; `ProjectSettings` with embedded `Settings`. Port webapp
+pages (drop `ProjectSettings.objects.all()`, all `_id`), REST, `settings_scope_resolver`.
+
+5.6. `leases.py`, hidden connection. Delete `active_instance.py`'s pymongo code and all
+client-side `connect_db` calls.
+
+5.7. Enable the ruff ban (4.7). Split `interface.py` into the per-aggregate modules.
+
+Tests: client tests patch `shared.db.*` and construct dataclasses instead of `MagicMock`
+documents. `_mongo/` tests should run against a real MongoDB (CI service container);
+`mongomock` lags behind pymongo and would be a second thing to migrate.
+
+## 6. Things a provider switch does not solve by itself
+
+6.1. `Metrics.values` and `file_info` need a JSON column or an EAV table. Filtering by
+metric value (none today) would need JSON operators.
+
+6.2. TTL expiry (3.11) becomes a backend job; document it as a responsibility of
+`slurm_jobs`/`alerts` in the new provider.
+
+6.3. `Settings.number = count() + 1` (interface.py:403) is a race on every provider;
+a sequence fixes it in SQL.
+
+6.4. The per-collection Mongo roles (`init-mongo.sh`) must be recreated as grants.
+
+## 7. Decisions to confirm
+
+7.1. Settings public id = `unique_name` everywhere (webapp too), ObjectId never leaves
+`_mongo/`.
+
+7.2. Functions per aggregate, no Protocol/DI layer (4.2).
+
+7.3. Dataclasses for the output types (4.1).
+
+7.4. Projections: `include_file_info` on raw files, `fields` on metrics, nothing else (4.2).
+Status page render time is measured before step 5.4 closes.
+
+7.5. Tz-aware datetimes at the boundary (4.5): touches many test fixtures.

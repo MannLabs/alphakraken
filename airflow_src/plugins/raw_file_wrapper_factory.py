@@ -5,7 +5,7 @@ Within this code base, the term "raw file" refers to the file (or folder) produc
 For Thermo, it is the ".raw" file, for Sciex, it is the ".wiff" file, and for Bruker, it is the ".d" folder.
 
 The term "main file" refers to one physical file that is monitored for changes during acquisition, and used for
-decisions that involve size comparisons. For Thermo, it is the ".raw" file itself, for Sciex, it is the ".wiff" file,
+decisions that involve size comparisons. For Thermo, it is the ".raw" file itself, for Sciex, it is the ".wiff.scan" file,
 for Bruker, it is the "analysis.tdf_bin" file within the ".d" folder.
 """
 
@@ -186,10 +186,13 @@ class SciexRawFileMonitorWrapper(RawFileMonitorWrapper):
     """RawFileMonitorWrapper for Sciex instruments."""
 
     _raw_file_extension = ".wiff"
+    _main_file_suffix = ".scan"
 
     def _main_file_path(self) -> Path:
-        """Get the (absolute) path to the raw file to monitor."""
-        return self._instrument_path / self._raw_file_original_name
+        """Get the (absolute) path to the .wiff.scan file to monitor."""
+        return self._instrument_path / (
+            f"{self._raw_file_original_name}{self._main_file_suffix}"
+        )
 
     @classmethod
     def get_associated_paths(cls, folder: Path, file_name: str) -> list[Path]:

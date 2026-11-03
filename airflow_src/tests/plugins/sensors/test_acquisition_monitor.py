@@ -727,7 +727,7 @@ def test_acquisition_finalized_sciex(
         (tmp_path / "sample.wiff.scan").write_bytes(b"x" * scan_file_size)
     sensor = get_sensor()
     sensor._raw_file_monitor_wrapper = MagicMock(spec=SciexRawFileMonitorWrapper)
-    sensor._main_file_path = tmp_path / "sample.wiff"
+    sensor._main_file_path = tmp_path / "sample.wiff.scan"
 
     assert sensor._acquisition_finalized() == expected
 
@@ -826,11 +826,11 @@ def test_post_execute_acquisition_errors(
     """Test post_execute correctly reports a missing main file."""
     mock_path = MagicMock()
     mock_path.exists.return_value = False
+    mock_path.name = "analysis.tdf_bin"
     mock_monitor_wrapper = _setup_monitor_wrapper(
         mock_raw_file_wrapper_factory, mock_path
     )
     mock_monitor_wrapper.get_raw_files_on_instrument.return_value = {"some_file.raw"}
-    mock_monitor_wrapper.main_file_name = "analysis.tdf_bin"
 
     sensor = get_sensor()
     sensor.pre_execute({DagContext.PARAMS: {DagParams.RAW_FILE_ID: "some_file.raw"}})

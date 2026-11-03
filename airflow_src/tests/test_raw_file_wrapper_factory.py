@@ -346,7 +346,7 @@ def test_get_raw_files_on_instrument(mock_instrument_path: MagicMock) -> None:
         (
             SciexRawFileMonitorWrapper,
             "sample.wiff",
-            Path("/path/to/instrument/sample.wiff"),
+            Path("/path/to/instrument/sample.wiff.scan"),
         ),
         (
             BrukerRawFileMonitorWrapper,
@@ -377,7 +377,7 @@ def test_main_file_path_pass_raw_file_original_name(
         (
             SciexRawFileMonitorWrapper,
             MagicMock(wraps=RawFile, original_name="sample.wiff"),
-            Path("/path/to/instrument/sample.wiff"),
+            Path("/path/to/instrument/sample.wiff.scan"),
         ),
         (
             BrukerRawFileMonitorWrapper,
@@ -659,13 +659,17 @@ def test_bruker_get_files_to_move(tmp_path: Path, *, folder_exists: bool) -> Non
 
 
 @pytest.mark.parametrize(
-    (
-        "raw_file_id",
-        "raw_file_original_name",
-    ),
+    ("raw_file_id", "raw_file_original_name", "main_file_name", "file_info_key"),
     [
-        ("sample.raw", "sample.raw"),  # no collsion
-        ("123-sample.raw", "sample.raw"),  # collsion
+        ("sample.raw", "sample.raw", "sample.raw", "sample.raw"),  # no collision
+        ("123-sample.raw", "sample.raw", "sample.raw", "123-sample.raw"),  # collision
+        ("sample.wiff", "sample.wiff", "sample.wiff.scan", "sample.wiff.scan"),
+        (
+            "123-sample.wiff",
+            "sample.wiff",
+            "sample.wiff.scan",
+            "123-sample.wiff.scan",
+        ),  # collision, main file name differs from original name
     ],
 )
 @patch("plugins.raw_file_wrapper_factory.RawFileWrapperFactory.create_monitor_wrapper")
@@ -673,6 +677,8 @@ def test_get_main_file_size_from_db(
     mock_create_monitor_wrapper: MagicMock,
     raw_file_id: str,
     raw_file_original_name: str,
+    main_file_name: str,
+    file_info_key: str,
 ) -> None:
     """Test that get_main_file_size_from_db returns the correct file size."""
     raw_file = RawFile(
@@ -680,13 +686,13 @@ def test_get_main_file_size_from_db(
         original_name=raw_file_original_name,
         instrument_id="instrument1",
         file_info={
-            raw_file_id: (1024, "hash_value"),
+            file_info_key: (1024, "hash_value"),
             "other_file.txt": (2048, "other_hash_value"),
         },
     )
 
     mock_create_monitor_wrapper.return_value.main_file_path.return_value = Path(
-        "/path/to/instrument/sample.raw"
+        f"/path/to/instrument/{main_file_name}"
     )
 
     # when

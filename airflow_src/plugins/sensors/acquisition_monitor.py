@@ -146,7 +146,7 @@ class AcquisitionMonitor(BaseSensorOperator):
         acquisition_monitor_errors = []
         if not self._main_file_exists:
             acquisition_monitor_errors += [
-                f"{AcquisitionMonitorErrors.MAIN_FILE_MISSING}: {self._raw_file_monitor_wrapper.main_file_name}"
+                f"{AcquisitionMonitorErrors.MAIN_FILE_MISSING}: {self._main_file_path.name}"
             ]
         if self._file_got_renamed:
             acquisition_monitor_errors += [
@@ -192,7 +192,7 @@ class AcquisitionMonitor(BaseSensorOperator):
     def _acquisition_finalized(self) -> bool:
         """Return whether the acquisition software has finalized the raw file after writing it.
 
-        heuristics: for Zeno ZT scan mode (Sciex), the .wiff.scan file is very small until the conversion is done.
+        heuristics: for Zeno ZT scan mode (Sciex), the .wiff.scan file (= main file) is very small until the conversion is done.
         This is very rough, and has some downsides, one being that on failed acquisitions the .wiff.scan file can remain
         small, which then clogs the pipeline.
 
@@ -201,9 +201,8 @@ class AcquisitionMonitor(BaseSensorOperator):
         if not isinstance(self._raw_file_monitor_wrapper, SciexRawFileMonitorWrapper):
             return True
 
-        scan_file_path = Path(f"{self._main_file_path}.scan")
         return (
-            get_file_size(scan_file_path, -1, verbose=False)
+            get_file_size(self._main_file_path, -1, verbose=False)
             > ZENO_ZT_SCAN_FILE_THRESHOLD_BYTES
         )
 

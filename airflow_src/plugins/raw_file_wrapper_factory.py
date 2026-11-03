@@ -197,8 +197,17 @@ class SciexRawFileMonitorWrapper(RawFileMonitorWrapper):
 
         E.g. for `some_file.wiff` (stem: `some_file`): some_file.wiff, some_file.wiff.scan, some_file.wiff2,
         some_file.timeseries.data.
+        Entries belonging to another raw file whose stem extends this one (e.g. some_file.rep2.wiff.scan) are excluded.
         """
-        return list(folder.glob(f"{Path(file_name).stem}.*"))
+        stem = Path(file_name).stem
+        other_stems = [
+            p.stem for p in folder.glob(f"{stem}.*{cls._raw_file_extension}")
+        ]
+        return [
+            p
+            for p in folder.glob(f"{stem}.*")
+            if not any(p.name.startswith(f"{other}.") for other in other_stems)
+        ]
 
 
 class BrukerRawFileMonitorWrapper(RawFileMonitorWrapper):
@@ -467,7 +476,7 @@ class SciexRawFileWriteWrapper(RawFileWriteWrapper):
         for src_file_path in self._get_source_files():
             # resorting to string manipulation here, because of double-extensions (e.g. .wiff.scan)
             dst_file_name = Path(
-                src_file_path.name.replace(src_file_stem, dst_file_stem)
+                dst_file_stem + src_file_path.name.removeprefix(src_file_stem)
             )
 
             files_to_copy[src_file_path] = self._target_folder_path / dst_file_name

@@ -453,10 +453,14 @@ def test_sciex_get_files_to_copy(
     mock_instrument_path: MagicMock,
 ) -> None:
     """Test that get_files_to_copy returns the correct mapping for SciexRawDataWrapper."""
-    mock_instrument_path.return_value.glob.return_value = [
-        Path("/path/to/instrument/sample.wiff"),
-        Path("/path/to/instrument/sample.wiff.scan"),
-    ]
+    mock_instrument_path.return_value.glob.side_effect = lambda pattern: (
+        [
+            Path("/path/to/instrument/sample.wiff"),
+            Path("/path/to/instrument/sample.wiff.scan"),
+        ]
+        if pattern == "sample.*"
+        else []
+    )
 
     mock_raw_file = MagicMock(
         wraps=RawFile,
@@ -482,7 +486,37 @@ def test_sciex_get_files_to_copy(
     # when
     with patch("pathlib.Path.is_file", return_value=True):
         assert wrapper.get_files_to_copy() == expected_mapping
-    mock_instrument_path.return_value.glob.assert_called_once_with("sample.*")
+
+
+@patch("plugins.raw_file_wrapper_factory.get_internal_instrument_data_path")
+def test_sciex_get_files_to_copy_stem_recurring_in_suffix(
+    mock_instrument_path: MagicMock,
+) -> None:
+    """Test that only the leading stem is renamed, even if it recurs in the file suffix."""
+    mock_instrument_path.return_value.glob.side_effect = lambda pattern: (
+        [Path("/path/to/instrument/a.wiff.scan")] if pattern == "a.*" else []
+    )
+
+    mock_raw_file = MagicMock(
+        wraps=RawFile,
+        instrument_id="instrument1",
+        id="1-a.wiff",
+        created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
+        original_name="a.wiff",
+    )
+
+    with patch.dict(_INSTRUMENTS, {"instrument1": {"type": "sciex"}}):
+        wrapper = SciexRawFileWriteWrapper(
+            "instrument1", raw_file=mock_raw_file, path_provider=CopyPathProvider
+        )
+
+    # when
+    with patch("pathlib.Path.is_file", return_value=True):
+        assert wrapper.get_files_to_copy() == {
+            Path("/path/to/instrument/a.wiff.scan"): Path(
+                "/opt/airflow/mounts/backup/instrument1/1970_01/1-a.wiff.scan"
+            ),
+        }
 
 
 def test_get_associated_files(tmp_path: Path) -> None:
@@ -496,6 +530,9 @@ def test_get_associated_files(tmp_path: Path) -> None:
     (sciex / "sample.wiff.scan").touch()
     (sciex / "sample.timeseries.data").touch()
     (sciex / "other.wiff").touch()
+    (sciex / "sample.rep2.wiff").touch()
+    (sciex / "sample.rep2.wiff.scan").touch()
+    (sciex / "sample.rep2.timeseries.data").touch()
     (bruker / "sample.d" / "subdir.m").mkdir(parents=True)
     (bruker / "sample.d" / "analysis.tdf").touch()
     (bruker / "sample.d" / "subdir.m" / "file.txt").touch()
@@ -511,6 +548,13 @@ def test_get_associated_files(tmp_path: Path) -> None:
         sciex / "sample.wiff",
         sciex / "sample.wiff.scan",
         sciex / "sample.timeseries.data",
+    }
+    assert set(
+        SciexRawFileMonitorWrapper.get_associated_files(sciex, "sample.rep2.wiff")
+    ) == {
+        sciex / "sample.rep2.wiff",
+        sciex / "sample.rep2.wiff.scan",
+        sciex / "sample.rep2.timeseries.data",
     }
     assert set(
         BrukerRawFileMonitorWrapper.get_associated_files(bruker, "sample.d")

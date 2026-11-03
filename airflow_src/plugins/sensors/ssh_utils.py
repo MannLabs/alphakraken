@@ -14,7 +14,9 @@ from airflow.sdk.exceptions import (
 from common.constants import (
     CLUSTER_SSH_COMMAND_TIMEOUT,
     CLUSTER_SSH_CONNECTION_TIMEOUT,
+    CLUSTER_SSH_EXIT_STATUSES_RETRY_IMMEDIATELY,
     CLUSTER_SSH_MAX_CONNECTIONS,
+    CLUSTER_SSH_RETRY_DELAY_S,
     EXIT_CODE_FILE_NAME,
     LAUNCHER_SCRIPT_STEM,
 )
@@ -35,7 +37,9 @@ def ssh_execute(
     """Execute the given `command` over one of the SSH connections with the given prefix.
 
     Sometimes the SSH command returns a nonzero exit status '254' or empty byte string,
-    in this case it is retried until it is 200 and nonempty until `max_tries` is reached.
+    in this case it is retried until it is 0 and nonempty until `max_tries` is reached.
+    Each retry uses the next connection. Exit status 254 retries right away, as the
+    next connection usually works; other failures wait increasingly long.
     """
     # This is a hack to prevent jobs to be run on the cluster, useful for debugging and initial setup.
     # To get rid of this, e.g. set up a container with a fake ssh server
@@ -46,14 +50,16 @@ def ssh_execute(
         return _get_fake_ssh_response(command)
 
     call_count = 0
+    retry_delay_s = 0
     str_stdout = None
     while True:
         if call_count >= max_tries:
             logging.error(f"Execution of SSH command failed too often: {command=}")
             raise AirflowFailException("Execution of SSH command failed too often.")
 
-        sleep(60 * call_count)  # no sleep in the first iteration
+        sleep(retry_delay_s)
         call_count += 1
+        retry_delay_s = CLUSTER_SSH_RETRY_DELAY_S * call_count
 
         ssh_hook = None
         try:
@@ -85,6 +91,10 @@ def ssh_execute(
         logging.info(
             f"ssh command call #{call_count} returned: {exit_status=} {str_stdout_trunc=} {agg_stderr=}"
         )
+
+        if exit_status in CLUSTER_SSH_EXIT_STATUSES_RETRY_IMMEDIATELY:
+            retry_delay_s = 0
+            continue
 
         # in rare cases, exit_status=0 but agg_stderr contains an error message
         error_messages = ["Batch job submission failed"]

@@ -376,8 +376,10 @@ class AcquisitionMonitor(BaseSensorOperator):
 
         if files_stat != self._files_stat:
             logging.info(
-                f"Files changed: {len(files_stat)} file(s), total size {sum(size for size, _ in files_stat.values())}"
+                f"Files size changed: total size {sum(size for size, _ in files_stat.values())} ({len(files_stat)} file(s))"
             )
+            for path, (size, mtime) in files_stat.items():
+                logging.info(f"  {path.name}: size {size}, mtime {datetime.fromtimestamp(mtime, tz=pytz.utc)}")
             self._files_stat = files_stat
             self._files_unchanged_since = now
 

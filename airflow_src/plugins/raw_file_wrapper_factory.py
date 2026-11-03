@@ -5,7 +5,7 @@ Within this code base, the term "raw file" refers to the file (or folder) produc
 For Thermo, it is the ".raw" file, for Sciex, it is the ".wiff" file, and for Bruker, it is the ".d" folder.
 
 The term "main file" refers to one physical file that is monitored for changes during acquisition, and used for
-decisions that involve size comparisons. For Thermo, it is the ".raw" file itself, for Sciex, it is the ".wiff" file,
+decisions that involve size comparisons. For Thermo, it is the ".raw" file itself, for Sciex, it is the ".wiff.scan" file,
 for Bruker, it is the "analysis.tdf_bin" file within the ".d" folder.
 """
 
@@ -112,6 +112,26 @@ class RawFileMonitorWrapper(ABC):
     def _main_file_path(self) -> Path:
         """Get the (absolute) path to the raw file to monitor."""
 
+    @classmethod
+    @abstractmethod
+    def get_associated_paths(cls, folder: Path, file_name: str) -> list[Path]:
+        """Get the absolute paths of all entries in `folder` belonging to the raw file `file_name`.
+
+        May contain directories and non-existing paths.
+        """
+
+    @classmethod
+    def get_associated_files(cls, folder: Path, file_name: str) -> list[Path]:
+        """Get the absolute paths of all files in `folder` belonging to the raw file `file_name`.
+
+        Only existing files are returned.
+        """
+        return [
+            path
+            for path in cls.get_associated_paths(folder, file_name)
+            if path.is_file()
+        ]
+
     @property
     def instrument_path(self) -> Path:
         """Get the path to the instrument data directory."""
@@ -144,6 +164,11 @@ class ThermoRawFileMonitorWrapper(RawFileMonitorWrapper):
         """Get the (absolute) path to the raw file to monitor."""
         return self._instrument_path / self._raw_file_original_name
 
+    @classmethod
+    def get_associated_paths(cls, folder: Path, file_name: str) -> list[Path]:
+        """Get the path of the raw file."""
+        return [folder / file_name]
+
     def get_corrupted_file_name(self) -> str | None:
         """Get the name of the file that the raw file is renamed to by the acquisition software in certain failure cases.
 
@@ -161,10 +186,31 @@ class SciexRawFileMonitorWrapper(RawFileMonitorWrapper):
     """RawFileMonitorWrapper for Sciex instruments."""
 
     _raw_file_extension = ".wiff"
+    _main_file_suffix = ".scan"
 
     def _main_file_path(self) -> Path:
-        """Get the (absolute) path to the raw file to monitor."""
-        return self._instrument_path / self._raw_file_original_name
+        """Get the (absolute) path to the .wiff.scan file to monitor."""
+        return self._instrument_path / (
+            f"{self._raw_file_original_name}{self._main_file_suffix}"
+        )
+
+    @classmethod
+    def get_associated_paths(cls, folder: Path, file_name: str) -> list[Path]:
+        """Get the paths of all entries sharing the stem with the raw file.
+
+        E.g. for `some_file.wiff` (stem: `some_file`): some_file.wiff, some_file.wiff.scan, some_file.wiff2,
+        some_file.timeseries.data.
+        Entries belonging to another raw file whose stem extends this one (e.g. some_file.rep2.wiff.scan) are excluded.
+        """
+        stem = Path(file_name).stem
+        other_stems = [
+            p.stem for p in folder.glob(f"{stem}.*{cls._raw_file_extension}")
+        ]
+        return [
+            p
+            for p in folder.glob(f"{stem}.*")
+            if not any(p.name.startswith(f"{other}.") for other in other_stems)
+        ]
 
 
 class BrukerRawFileMonitorWrapper(RawFileMonitorWrapper):
@@ -178,6 +224,11 @@ class BrukerRawFileMonitorWrapper(RawFileMonitorWrapper):
         return (
             self._instrument_path / self._raw_file_original_name / self.main_file_name
         )
+
+    @classmethod
+    def get_associated_paths(cls, folder: Path, file_name: str) -> list[Path]:
+        """Get the paths of all entries within the raw file directory (including those in subfolders)."""
+        return list((folder / file_name).rglob("*"))
 
 
 class PathProvider(ABC):
@@ -318,6 +369,7 @@ class RawFileWriteWrapper(ABC):
         """Get a dictionary mapping source file to destination paths for file-by-file operations (copying or removing).
 
         This gives a 1:1 mapping between source and destination files (not folders!).
+        Only existing source files are contained.
 
         :return: A dictionary mapping source to destination paths for 'copy' operations.
         :raises ValueError: If the path provider is not the correct one for the operation.
@@ -336,12 +388,11 @@ class RawFileWriteWrapper(ABC):
     @abstractmethod
     def _get_files_to_copy(self) -> dict[Path, Path]:
         """Actual implementation."""
-        # TODO: there's currently an inconsistent behaviour between the different implementations:
-        #  some always return the source file path, some return nothing if the source file is not present
-        #  (same for _get_files_to_move)
 
     def get_files_to_move(self) -> dict[Path, Path]:
         """Get a dictionary mapping source file to destination paths for moving.
+
+        Only existing sources are contained.
 
         :return: A dictionary mapping source to destination paths for 'move' operations.
         :raises ValueError: If the path provider is not the correct one for the operation.
@@ -372,6 +423,8 @@ class RawFileWriteWrapper(ABC):
     def get_files_to_remove(self) -> dict[Path, Path]:
         """Get a dictionary mapping source file to destination paths for comparing before removing the 'keys'.
 
+        Only existing source files are contained.
+
         :return: A dictionary mapping source to destination paths for comparing before 'remove' operations.
         :raises ValueError: If the path provider is not the correct one for the operation.
         """
@@ -380,6 +433,12 @@ class RawFileWriteWrapper(ABC):
         files = self._get_files_to_copy()
         logging.debug(f"{files=}")
         return files
+
+    def _get_source_files(self) -> list[Path]:
+        """Get the absolute paths of all existing source files belonging to the raw file."""
+        return self._acquisition_monitor.get_associated_files(
+            self._source_folder_path, self._source_file_name
+        )
 
     def main_file_path(self) -> Path:
         """Get the absolute path to the main file (i.e. the one to monitor)."""
@@ -391,10 +450,12 @@ class ThermoRawFileWriteWrapper(RawFileWriteWrapper):
 
     def _get_files_to_copy(self) -> dict[Path, Path]:
         """Get the mapping of source to destination path (both absolute) for the raw file."""
-        src_path = self._source_folder_path / self._source_file_name
+        # Thermo raw files consist of a single file
+        src_paths = self._get_source_files()
+        assert len(src_paths) <= 1
         dst_path = self._target_folder_path / self._target_file_name
 
-        return {src_path: dst_path}
+        return {src_path: dst_path for src_path in src_paths}
 
     def _get_files_to_move(self) -> dict[Path, Path]:
         """Get a dictionary mapping source file to destination paths for moving."""
@@ -409,20 +470,16 @@ class SciexRawFileWriteWrapper(RawFileWriteWrapper):
     """Class wrapping Sciex-specific logic."""
 
     def _get_files_to_copy(self) -> dict[Path, Path]:
-        """Get the mapping of source to destination paths (both absolute) for the raw file.
-
-        All other files sharing the same stem with the raw file (e.g. `some_file.wiff` -> stem: `some_file`),
-        are considered here (e.g. some_file.wiff, some_file.wiff.scan, some_file.wiff2, some_file.timeseries.data).
-        """
+        """Get the mapping of source to destination paths (both absolute) for all files sharing the raw file stem."""
         files_to_copy = {}
 
         src_file_stem = Path(self._source_file_name).stem
         dst_file_stem = Path(self._target_file_name).stem
 
-        for src_file_path in self._source_folder_path.glob(f"{src_file_stem}.*"):
+        for src_file_path in self._get_source_files():
             # resorting to string manipulation here, because of double-extensions (e.g. .wiff.scan)
             dst_file_name = Path(
-                src_file_path.name.replace(src_file_stem, dst_file_stem)
+                dst_file_stem + src_file_path.name.removeprefix(src_file_stem)
             )
 
             files_to_copy[src_file_path] = self._target_folder_path / dst_file_name
@@ -442,34 +499,27 @@ class BrukerRawFileWriteWrapper(RawFileWriteWrapper):
     """Class wrapping Bruker-specific logic."""
 
     def _get_files_to_copy(self) -> dict[Path, Path]:
-        """Get the mapping of source to destination paths (both absolute) for the raw file.
+        """Get the mapping of source to destination paths (both absolute) for all files in the raw file directory.
 
-        All files within the raw file directory are returned (including those in subfolders).
         Note that the code that does the copying must take care of creating the target directory if it does not exist.
         """
         src_base_path = self._source_folder_path / self._source_file_name
         dst_base_path = self._target_folder_path / self._target_file_name
 
-        files_to_copy = {}
-
-        for src_item in src_base_path.rglob("*"):
-            if src_item.is_file():
-                src_file_path = src_item
-                rel_file_path = src_file_path.relative_to(src_base_path)
-
-                files_to_copy[src_file_path] = dst_base_path / rel_file_path
-
-        return files_to_copy
+        return {
+            src_file_path: dst_base_path / src_file_path.relative_to(src_base_path)
+            for src_file_path in self._get_source_files()
+        }
 
     def _get_files_to_move(self) -> dict[Path, Path]:
         """Get a dictionary mapping of items that can be passed to a "move" command.
 
         In the case of Bruker, just map the folder name as "move" can handle it.
         """
-        return {
-            self._source_folder_path / self._source_file_name: self._target_folder_path
-            / self._target_file_name
-        }
+        src_path = self._source_folder_path / self._source_file_name
+        if not src_path.exists():
+            return {}
+        return {src_path: self._target_folder_path / self._target_file_name}
 
     def _get_folder_to_remove(self) -> Path | None:
         """Get the folder to remove.

@@ -207,9 +207,6 @@ class QueueStopAlert(BaseAlert):
 
     # each issue renders its own header
     title = None
-    # once per (instrument, subject file), shared by the stop and handoff rules so that
-    # a stop followed by a handoff for the same user-last-file does not notify twice
-    cooldown_minutes = None
 
     def _get_issues(
         self, status_objects: list[KrakenStatus], now: datetime

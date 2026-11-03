@@ -100,6 +100,12 @@ class TestInit:
         with pytest.raises(KeyError, match="StaleStatusAlert"):
             AlertManager()
 
+    @patch("monitoring.alert_manager.config.ALERT_COOLDOWNS_MINUTES", {})
+    def test_raises_on_db_free_alert_without_cooldown(self) -> None:
+        """The DB-free alerts need a cooldown in the yaml mapping, too."""
+        with pytest.raises(KeyError, match="LocalDiskSpaceAlert"):
+            AlertManager()
+
 
 class TestCheckForIssues:
     """check_for_issues opens, notifies and resolves records."""

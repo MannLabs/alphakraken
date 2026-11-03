@@ -26,8 +26,11 @@ def test_issue_key_defaults_to_identifier() -> None:
     assert Issue("inst1", 1, key="inst1:file").key == "inst1:file"
 
 
-def test_cooldown_defaults_to_the_class_attribute() -> None:
-    """Alerts report their class cooldown for every issue."""
+@patch(
+    "monitoring.alerts.base_alert.ALERT_COOLDOWNS_MINUTES", {"DefaultFormatAlert": 120}
+)
+def test_cooldown_comes_from_the_yaml_mapping() -> None:
+    """Alerts report the cooldown configured for their class name for every issue."""
     assert DefaultFormatAlert().get_cooldown_minutes(Issue("a", 1)) == 120
 
 

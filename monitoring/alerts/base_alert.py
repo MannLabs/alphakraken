@@ -7,8 +7,8 @@ from datetime import datetime
 from typing import Generic, TypeVar
 
 from alerts.config import (
+    ALERT_COOLDOWNS_MINUTES,
     ALERT_DESTINATIONS,
-    DEFAULT_ALERT_COOLDOWN_TIME_MINUTES,
     MAX_DETAILS_CHARS,
 )
 
@@ -51,8 +51,6 @@ class BaseAlert(ABC):
 
     # message title; None if the body carries its own headers
     title: str | None
-    # minimum time between two notifications of the same issue; None: notify only once
-    cooldown_minutes: int | None = DEFAULT_ALERT_COOLDOWN_TIME_MINUTES
 
     def get_issues(
         self, status_objects: list[KrakenStatus], now: datetime
@@ -88,6 +86,11 @@ class BaseAlert(ABC):
     def destinations(self) -> frozenset[str]:
         """Return where the issues of this alert are sent to, cf. `Destinations`."""
         return ALERT_DESTINATIONS[self.name]
+
+    @property
+    def cooldown_minutes(self) -> int | None:
+        """Return the minimum minutes between two notifications of the same issue, None: only once."""
+        return ALERT_COOLDOWNS_MINUTES[self.name]
 
     def get_cooldown_minutes(self, issue: Issue) -> int | None:
         """Return the cooldown for an issue of this alert, None to notify it only once.

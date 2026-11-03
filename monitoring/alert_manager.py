@@ -60,12 +60,15 @@ class AlertManager:
             PumpPressureHighAlert(),
             QueueStopAlert(),
         ]
-        if missing := [
+        missing = [
             a.name for a in self.alerts if a.name not in config.ALERT_DESTINATIONS
-        ]:
-            raise KeyError(
-                f"Alerts without destinations in alphakraken.yaml: {missing}"
-            )
+        ] + [
+            a.name
+            for a in self.db_free_alerts
+            if a.name not in config.ALERT_COOLDOWNS_MINUTES
+        ]
+        if missing:
+            raise KeyError(f"Alerts without settings in alerts.yaml: {missing}")
         self._last_sent: dict[str, datetime] = {}
         # last suppressions read from the DB, also used while the DB is down
         self._suppressions: list[AlertSuppression] = []

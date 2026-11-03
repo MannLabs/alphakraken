@@ -155,8 +155,6 @@ class PumpPressureIncreaseAlert(BaseAlert):
     """Check for pump pressure increases over a short period."""
 
     title = "Pump pressure increase detected"
-    # once per detected change
-    cooldown_minutes = None
 
     def _get_issues(
         self, status_objects: list[KrakenStatus], now: datetime
@@ -192,8 +190,6 @@ class PumpPressureHighAlert(BaseAlert):
     """Check for pump pressures above an absolute threshold."""
 
     title = "High pump pressure detected"
-    # once per file
-    cooldown_minutes = None
 
     def _get_issues(
         self, status_objects: list[KrakenStatus], now: datetime

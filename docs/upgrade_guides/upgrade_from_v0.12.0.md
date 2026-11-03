@@ -88,9 +88,10 @@ supported services can be configured by URL. In `envs/alphakraken.${ENV}.yaml`, 
 
 # Alert settings in `envs/alerts.yaml`
 
-The alert thresholds and the destinations of each alert are the same for all environments and
-live in `envs/alerts.yaml` (template in the repository). `monitoring/Dockerfile` copies it into the
-image, so the monitoring container must be rebuilt.
+The alert thresholds, tuning parameters, and the destinations and cooldowns of each alert are the
+same for all environments and live in `envs/alerts.yaml` (template in the repository, with the
+values that were hardcoded before). `monitoring/Dockerfile` copies it into the image, so the
+monitoring container must be rebuilt.
 
 1. Create `envs/alerts.yaml` from the template on every machine running the monitoring.
 2. Remove `free_space_threshold_gb`, `file_system_free_space_thresholds_gb`,

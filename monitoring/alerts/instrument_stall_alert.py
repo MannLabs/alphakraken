@@ -18,8 +18,6 @@ class InstrumentStallAlert(BaseAlert):
     """Check if no new file has been acquired for a configured time period."""
 
     title = "No new file acquired"
-    # once per stall, i.e. per last file
-    cooldown_minutes = None
 
     def _get_issues(
         self, status_objects: list[KrakenStatus], now: datetime

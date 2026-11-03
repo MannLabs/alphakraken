@@ -14,8 +14,6 @@ class RawFileErrorAlert(BaseAlert):
     """Check for raw files in ERROR status."""
 
     title = "Raw files changed to ERROR status"
-    # once per file and error: a file failing again with a different error is reported again
-    cooldown_minutes = None
 
     def _get_issues(
         self, status_objects: list[KrakenStatus], now: datetime

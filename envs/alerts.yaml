@@ -10,18 +10,84 @@ thresholds:
   # pressure increase over a few files
   pump_pressure_threshold_bar: 20
   pump_pressure_absolute_threshold_bar: 480
+  # how old a kraken status can be before it counts as stale
+  stale_status_threshold_minutes: 15
+  # how long the file remover can go without running
+  file_remover_stale_threshold_hours: 24
+  # how long without a new file before an instrument counts as stalled
+  instrument_stall_threshold_hours: 2
+  # raw file error and S3 upload failure alerts: only files updated within this time
+  raw_file_status_lookback_hours: 24
+  # raw files per status and instrument; `default` applies to the statuses not listed
+  status_pile_up_thresholds: { default: 5, quanting: 10 }
+  # files per instrument file status and instrument; `moved` would depend on the configured free disk space
+  instrument_file_pile_up_thresholds: { initial: 30 }
+  # only files older than this count for the instrument file pile-up
+  instrument_file_min_age_hours: 6
 
-# where each alert goes: ops, business (channels) and/or user (direct message to the owner of the project of
-# the file the issue is about, else to the user with the initials in the file name)
-destinations:
-  StaleStatusAlert: [ops]
-  DiskSpaceAlert: [ops]
-  HealthCheckFailedAlert: [ops]
-  StatusPileUpAlert: [ops]
-  InstrumentFilePileUpAlert: [ops]
-  InstrumentStallAlert: [ops]
-  RawFileErrorAlert: [ops]
-  S3UploadFailureAlert: [ops]
-  PumpPressureIncreaseAlert: [business, user]
-  PumpPressureHighAlert: [business, user]
-  QueueStopAlert: [user]
+pump_pressure:
+  lookback_days: 1
+  # number of samples to compare
+  window_size: 5
+  gradient_tolerance: 0.1
+
+queue_stop:
+  # stop: a pause longer than this multiple of the gradient length
+  threshold_multiplier: 3
+  # a gap longer than this is a new queue, not a stop
+  max_gradient_length_hours: 2.5
+  # files older than this are ignored: a queue that ended long ago is not worth a notification
+  max_file_age_hours: 24
+
+# per alert:
+# - destinations: ops, business (channels) and/or user (direct message to the owner of the project of the file
+#   the issue is about, else to the user with the initials in the file name).
+#   LocalDiskSpaceAlert and WebAppHealthAlert run without the DB and always go to ops.
+# - cooldown_minutes: minimum time between repeated notifications of the same issue, -1: notify only once
+alerts:
+  StaleStatusAlert:
+    destinations: [ops]
+    cooldown_minutes: 120
+  DiskSpaceAlert:
+    destinations: [ops]
+    cooldown_minutes: 120
+  # the file remover runs rarely, so its failure is repeated less often
+  HealthCheckFailedAlert:
+    destinations: [ops]
+    cooldown_minutes: 120
+    file_remover_cooldown_minutes: 720
+  StatusPileUpAlert:
+    destinations: [ops]
+    cooldown_minutes: 120
+  InstrumentFilePileUpAlert:
+    destinations: [ops]
+    cooldown_minutes: 120
+  # once per stall, i.e. per last file
+  InstrumentStallAlert:
+    destinations: [ops]
+    cooldown_minutes: -1
+  # once per file and error: a file failing again with a different error is reported again
+  RawFileErrorAlert:
+    destinations: [ops]
+    cooldown_minutes: -1
+  # once per file
+  S3UploadFailureAlert:
+    destinations: [ops]
+    cooldown_minutes: -1
+  # once per detected change
+  PumpPressureIncreaseAlert:
+    destinations: [business, user]
+    cooldown_minutes: -1
+  # once per file
+  PumpPressureHighAlert:
+    destinations: [business, user]
+    cooldown_minutes: -1
+  # once per (instrument, subject file), shared by the stop and handoff rules so that
+  # a stop followed by a handoff for the same user-last-file does not notify twice
+  QueueStopAlert:
+    destinations: [user]
+    cooldown_minutes: -1
+  LocalDiskSpaceAlert:
+    cooldown_minutes: 120
+  WebAppHealthAlert:
+    cooldown_minutes: 120

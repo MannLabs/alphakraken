@@ -12,8 +12,6 @@ class S3UploadFailureAlert(BaseAlert):
     """Check for raw files in UPLOAD_FAILED backup status."""
 
     title = "S3 upload failures detected"
-    # once per file
-    cooldown_minutes = None
 
     def _get_issues(
         self, status_objects: list[KrakenStatus], now: datetime

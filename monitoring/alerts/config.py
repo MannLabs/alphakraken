@@ -9,9 +9,6 @@ from typing import Any
 
 import yaml
 
-from shared.db.models import (
-    InstrumentFileStatus,
-)
 from shared.keys import EnvVars, InternalPaths
 from shared.yamlsettings import YamlKeys, get_notification_setting
 
@@ -25,8 +22,30 @@ class AlertsYamlKeys:
     LOCAL_FREE_SPACE_THRESHOLD_GB = "local_free_space_threshold_gb"
     PUMP_PRESSURE_THRESHOLD_BAR = "pump_pressure_threshold_bar"
     PUMP_PRESSURE_ABSOLUTE_THRESHOLD_BAR = "pump_pressure_absolute_threshold_bar"
+    STALE_STATUS_THRESHOLD_MINUTES = "stale_status_threshold_minutes"
+    FILE_REMOVER_STALE_THRESHOLD_HOURS = "file_remover_stale_threshold_hours"
+    INSTRUMENT_STALL_THRESHOLD_HOURS = "instrument_stall_threshold_hours"
+    RAW_FILE_STATUS_LOOKBACK_HOURS = "raw_file_status_lookback_hours"
+    STATUS_PILE_UP_THRESHOLDS = "status_pile_up_thresholds"
+    INSTRUMENT_FILE_PILE_UP_THRESHOLDS = "instrument_file_pile_up_thresholds"
+    INSTRUMENT_FILE_MIN_AGE_HOURS = "instrument_file_min_age_hours"
+    # status_pile_up_thresholds: the threshold of the statuses not listed
+    DEFAULT = "default"
 
+    PUMP_PRESSURE = "pump_pressure"
+    LOOKBACK_DAYS = "lookback_days"
+    WINDOW_SIZE = "window_size"
+    GRADIENT_TOLERANCE = "gradient_tolerance"
+
+    QUEUE_STOP = "queue_stop"
+    THRESHOLD_MULTIPLIER = "threshold_multiplier"
+    MAX_GRADIENT_LENGTH_HOURS = "max_gradient_length_hours"
+    MAX_FILE_AGE_HOURS = "max_file_age_hours"
+
+    ALERTS = "alerts"
     DESTINATIONS = "destinations"
+    COOLDOWN_MINUTES = "cooldown_minutes"
+    FILE_REMOVER_COOLDOWN_MINUTES = "file_remover_cooldown_minutes"
 
 
 ALERTS_YAML_PATH = Path(InternalPaths.ENVS_PATH) / "alerts.yaml"
@@ -46,35 +65,39 @@ def get_alert_setting(block: str, setting_key: str) -> Any:
         raise KeyError(f"Key `{block}.{setting_key}` not found in alerts.yaml.") from e
 
 
+def _threshold(setting_key: str) -> Any:
+    return get_alert_setting(AlertsYamlKeys.THRESHOLDS, setting_key)
+
+
+def _cooldown(minutes: int) -> int | None:
+    """Translate a cooldown of alerts.yaml to the internal one: None notifies only once."""
+    return None if minutes == COOLDOWN_ONCE else minutes
+
+
 # Constants
 CHECK_INTERVAL_SECONDS = 60
 # only the active instance runs the DB-backed checks; another takes over if it does not renew its claim within this time.
 # The claim is renewed once per loop, so this must cover the checks plus the sleep with a margin
 ACTIVE_INSTANCE_TIMEOUT_SECONDS = 10 * CHECK_INTERVAL_SECONDS
-DEFAULT_ALERT_COOLDOWN_TIME_MINUTES = (
-    120  # Minimum time between repeated alerts for the same issue_type
-)
 # cooldown of the alerts sent without DB access (startup, DB and check errors)
 SPECIAL_ALERT_COOLDOWN_MINUTES = 10
+# cooldown_minutes in alerts.yaml that notifies an issue only once
+COOLDOWN_ONCE = -1
 
 # bounds on channel messages, so that no message exceeds the webhook payload limits
 MAX_ISSUES_PER_MESSAGE = 20
 MAX_DETAILS_CHARS = 300
 
-STALE_STATUS_THRESHOLD_MINUTES = (
-    15  # How old a kraken status can be before considered stale
+STALE_STATUS_THRESHOLD_MINUTES: int = _threshold(
+    AlertsYamlKeys.STALE_STATUS_THRESHOLD_MINUTES
 )
-FILE_REMOVER_STALE_THRESHOLD_HOURS = (
-    24  # How long file_remover job can go without running
+FILE_REMOVER_STALE_THRESHOLD_HOURS: int = _threshold(
+    AlertsYamlKeys.FILE_REMOVER_STALE_THRESHOLD_HOURS
 )
-# a failed file remover run is reported less often, it runs rarely
-FILE_REMOVER_HEALTH_COOLDOWN_MINUTES = 12 * 60
-FREE_SPACE_THRESHOLD_GB: int = get_alert_setting(
-    AlertsYamlKeys.THRESHOLDS, AlertsYamlKeys.FREE_SPACE_THRESHOLD_GB
-)
+FREE_SPACE_THRESHOLD_GB: int = _threshold(AlertsYamlKeys.FREE_SPACE_THRESHOLD_GB)
 # file systems with a threshold other than FREE_SPACE_THRESHOLD_GB
-FILE_SYSTEM_FREE_SPACE_THRESHOLDS_GB: dict[str, int] = get_alert_setting(
-    AlertsYamlKeys.THRESHOLDS, AlertsYamlKeys.FILE_SYSTEM_FREE_SPACE_THRESHOLDS_GB
+FILE_SYSTEM_FREE_SPACE_THRESHOLDS_GB: dict[str, int] = _threshold(
+    AlertsYamlKeys.FILE_SYSTEM_FREE_SPACE_THRESHOLDS_GB
 )
 
 # Local disk alert configuration
@@ -82,45 +105,58 @@ BYTES_PER_GB = 1024**3
 LOCAL_DISK_PATH = (
     "/etc/hosts"  # always-present path probing the monitoring host's local disk
 )
-# Local disk of the monitoring host
-LOCAL_FREE_SPACE_THRESHOLD_GB: int = get_alert_setting(
-    AlertsYamlKeys.THRESHOLDS, AlertsYamlKeys.LOCAL_FREE_SPACE_THRESHOLD_GB
+LOCAL_FREE_SPACE_THRESHOLD_GB: int = _threshold(
+    AlertsYamlKeys.LOCAL_FREE_SPACE_THRESHOLD_GB
 )
 
-STATUS_PILE_UP_THRESHOLDS = defaultdict(lambda: 5)
-STATUS_PILE_UP_THRESHOLDS["quanting"] = 10
-
-# Instrument file pile-up thresholds
-INSTRUMENT_FILE_PILE_UP_THRESHOLDS = {
-    InstrumentFileStatus.INITIAL: 30,  # => indicates something is wrong with file moving
-    # InstrumentFileStatus.MOVED: 50,  # doesn't make sense as the number depends on configured free disk space
-}
-INSTRUMENT_FILE_MIN_AGE_HOURS = 6  # Only consider files older than 6 hours for pile up
-
-# Raw file error / S3 upload failure alerts: only consider files updated within this time
-RAW_FILE_STATUS_LOOKBACK_HOURS = 24
-
-# Instrument stall alert configuration
-INSTRUMENT_STALL_THRESHOLD_HOURS = 2  # How long without a new file before alerting
-
-# Queue-stop alert configuration
-QUEUE_STOP_THRESHOLD_MULTIPLIER = 3  # stop: pause > N x gradient_length triggers alert
-MAX_GRADIENT_LENGTH_HOURS = 2.5  # gap larger than this => new queue, no alert
-# files older than this are ignored: a queue that ended long ago is not worth a notification
-QUEUE_STOP_MAX_FILE_AGE_HOURS = 24
-
-# Pump pressure alert configuration
-PUMP_PRESSURE_LOOKBACK_DAYS = 1
-PUMP_PRESSURE_WINDOW_SIZE = 5  # Number of samples to compare
-# Pressure increase threshold in bar
-PUMP_PRESSURE_THRESHOLD_BAR: float = get_alert_setting(
-    AlertsYamlKeys.THRESHOLDS, AlertsYamlKeys.PUMP_PRESSURE_THRESHOLD_BAR
+_status_pile_up: dict[str, int] = _threshold(AlertsYamlKeys.STATUS_PILE_UP_THRESHOLDS)
+STATUS_PILE_UP_THRESHOLDS: defaultdict[str, int] = defaultdict(
+    lambda: _status_pile_up[AlertsYamlKeys.DEFAULT],
+    {
+        status: threshold
+        for status, threshold in _status_pile_up.items()
+        if status != AlertsYamlKeys.DEFAULT
+    },
 )
-# Absolute pressure threshold in bar
-PUMP_PRESSURE_ABSOLUTE_THRESHOLD_BAR: float = get_alert_setting(
-    AlertsYamlKeys.THRESHOLDS, AlertsYamlKeys.PUMP_PRESSURE_ABSOLUTE_THRESHOLD_BAR
+# keyed by InstrumentFileStatus
+INSTRUMENT_FILE_PILE_UP_THRESHOLDS: dict[str, int] = _threshold(
+    AlertsYamlKeys.INSTRUMENT_FILE_PILE_UP_THRESHOLDS
 )
-PUMP_PRESSURE_GRADIENT_TOLERANCE = 0.1
+INSTRUMENT_FILE_MIN_AGE_HOURS: int = _threshold(
+    AlertsYamlKeys.INSTRUMENT_FILE_MIN_AGE_HOURS
+)
+RAW_FILE_STATUS_LOOKBACK_HOURS: int = _threshold(
+    AlertsYamlKeys.RAW_FILE_STATUS_LOOKBACK_HOURS
+)
+INSTRUMENT_STALL_THRESHOLD_HOURS: int = _threshold(
+    AlertsYamlKeys.INSTRUMENT_STALL_THRESHOLD_HOURS
+)
+
+QUEUE_STOP_THRESHOLD_MULTIPLIER: int = get_alert_setting(
+    AlertsYamlKeys.QUEUE_STOP, AlertsYamlKeys.THRESHOLD_MULTIPLIER
+)
+MAX_GRADIENT_LENGTH_HOURS: float = get_alert_setting(
+    AlertsYamlKeys.QUEUE_STOP, AlertsYamlKeys.MAX_GRADIENT_LENGTH_HOURS
+)
+QUEUE_STOP_MAX_FILE_AGE_HOURS: int = get_alert_setting(
+    AlertsYamlKeys.QUEUE_STOP, AlertsYamlKeys.MAX_FILE_AGE_HOURS
+)
+
+PUMP_PRESSURE_LOOKBACK_DAYS: int = get_alert_setting(
+    AlertsYamlKeys.PUMP_PRESSURE, AlertsYamlKeys.LOOKBACK_DAYS
+)
+PUMP_PRESSURE_WINDOW_SIZE: int = get_alert_setting(
+    AlertsYamlKeys.PUMP_PRESSURE, AlertsYamlKeys.WINDOW_SIZE
+)
+PUMP_PRESSURE_GRADIENT_TOLERANCE: float = get_alert_setting(
+    AlertsYamlKeys.PUMP_PRESSURE, AlertsYamlKeys.GRADIENT_TOLERANCE
+)
+PUMP_PRESSURE_THRESHOLD_BAR: float = _threshold(
+    AlertsYamlKeys.PUMP_PRESSURE_THRESHOLD_BAR
+)
+PUMP_PRESSURE_ABSOLUTE_THRESHOLD_BAR: float = _threshold(
+    AlertsYamlKeys.PUMP_PRESSURE_ABSOLUTE_THRESHOLD_BAR
+)
 
 try:
     OPS_ALERTS_URL: str = get_notification_setting(YamlKeys.OPS_ALERTS_URL)
@@ -169,10 +205,13 @@ class Destinations:
     ALL = frozenset({USER, OPS, BUSINESS})
 
 
-# alert class name -> destinations of its issues
+_alerts: dict[str, dict[str, Any]] = ALERTSETTINGS[AlertsYamlKeys.ALERTS]
+
+# alert class name -> destinations of its issues; none for the DB-free alerts, they always go to ops
 ALERT_DESTINATIONS: dict[str, frozenset[str]] = {
-    alert_name: frozenset(destinations)
-    for alert_name, destinations in ALERTSETTINGS[AlertsYamlKeys.DESTINATIONS].items()
+    alert_name: frozenset(settings[AlertsYamlKeys.DESTINATIONS])
+    for alert_name, settings in _alerts.items()
+    if AlertsYamlKeys.DESTINATIONS in settings
 }
 for _alert_name, _destinations in ALERT_DESTINATIONS.items():
     if unknown := _destinations - Destinations.ALL:
@@ -180,3 +219,12 @@ for _alert_name, _destinations in ALERT_DESTINATIONS.items():
             f"Unknown destinations {sorted(unknown)} for {_alert_name}; allowed: {sorted(Destinations.ALL)}."
         )
         sys.exit(1)
+
+# alert class name -> minimum minutes between notifications of the same issue, None: only once
+ALERT_COOLDOWNS_MINUTES: dict[str, int | None] = {
+    alert_name: _cooldown(settings[AlertsYamlKeys.COOLDOWN_MINUTES])
+    for alert_name, settings in _alerts.items()
+}
+FILE_REMOVER_HEALTH_COOLDOWN_MINUTES: int | None = _cooldown(
+    _alerts["HealthCheckFailedAlert"][AlertsYamlKeys.FILE_REMOVER_COOLDOWN_MINUTES]
+)

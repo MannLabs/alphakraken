@@ -42,6 +42,10 @@ class TestableRawFileMonitorWrapper(RawFileMonitorWrapper):
     def _main_file_path(self) -> Any:
         """Dummy implementation."""
 
+    @classmethod
+    def get_associated_paths(cls, folder: Path, file_name: str) -> Any:
+        """Dummy implementation."""
+
     def _get_files_to_copy(self) -> Any:
         """Dummy implementation."""
 
@@ -342,7 +346,7 @@ def test_get_raw_files_on_instrument(mock_instrument_path: MagicMock) -> None:
         (
             SciexRawFileMonitorWrapper,
             "sample.wiff",
-            Path("/path/to/instrument/sample.wiff"),
+            Path("/path/to/instrument/sample.wiff.scan"),
         ),
         (
             BrukerRawFileMonitorWrapper,
@@ -373,7 +377,7 @@ def test_main_file_path_pass_raw_file_original_name(
         (
             SciexRawFileMonitorWrapper,
             MagicMock(wraps=RawFile, original_name="sample.wiff"),
-            Path("/path/to/instrument/sample.wiff"),
+            Path("/path/to/instrument/sample.wiff.scan"),
         ),
         (
             BrukerRawFileMonitorWrapper,
@@ -406,10 +410,25 @@ def test_main_file_path_pass_both_raises() -> None:
         )
 
 
-@patch("plugins.raw_file_wrapper_factory.RawFileWrapperFactory.create_monitor_wrapper")
+@pytest.mark.parametrize(
+    ("file_exists", "expected_mapping"),
+    [
+        (
+            True,
+            {
+                Path("/path/to/instrument/sample.raw"): Path(
+                    "/path/to/backup/instrument1/1970_01/123-sample.raw"
+                )
+            },
+        ),
+        (False, {}),
+    ],
+)
 def test_thermo_get_files_to_copy(
-    mock_create_monitor_wrapper: MagicMock,
     mock_instrument_paths: MagicMock,  # noqa: ARG001
+    *,
+    file_exists: bool,
+    expected_mapping: dict[Path, Path],
 ) -> None:
     """Test that get_files_to_copy returns the correct mapping for ThermoRawDataWrapper."""
     mock_raw_file = MagicMock(
@@ -420,29 +439,28 @@ def test_thermo_get_files_to_copy(
         original_name="sample.raw",
     )
 
-    wrapper = ThermoRawFileWriteWrapper(
-        "instrument1", raw_file=mock_raw_file, path_provider=CopyPathProvider
-    )
-    expected_mapping = {
-        Path("/path/to/instrument/sample.raw"): Path(
-            "/path/to/backup/instrument1/1970_01/123-sample.raw"
+    with patch.dict(_INSTRUMENTS, {"instrument1": {"type": "thermo"}}):
+        wrapper = ThermoRawFileWriteWrapper(
+            "instrument1", raw_file=mock_raw_file, path_provider=CopyPathProvider
         )
-    }
-    assert wrapper.get_files_to_copy() == expected_mapping
-    mock_create_monitor_wrapper.assert_called_once_with("instrument1", mock_raw_file)
+
+    with patch("pathlib.Path.is_file", return_value=file_exists):
+        assert wrapper.get_files_to_copy() == expected_mapping
 
 
-@patch("plugins.raw_file_wrapper_factory.RawFileWrapperFactory.create_monitor_wrapper")
 @patch("plugins.raw_file_wrapper_factory.get_internal_instrument_data_path")
 def test_sciex_get_files_to_copy(
     mock_instrument_path: MagicMock,
-    mock_create_monitor_wrapper: MagicMock,
 ) -> None:
     """Test that get_files_to_copy returns the correct mapping for SciexRawDataWrapper."""
-    mock_instrument_path.return_value.glob.return_value = [
-        Path("/path/to/instrument/sample.wiff"),
-        Path("/path/to/instrument/sample.wiff.scan"),
-    ]
+    mock_instrument_path.return_value.glob.side_effect = lambda pattern: (
+        [
+            Path("/path/to/instrument/sample.wiff"),
+            Path("/path/to/instrument/sample.wiff.scan"),
+        ]
+        if pattern == "sample.*"
+        else []
+    )
 
     mock_raw_file = MagicMock(
         wraps=RawFile,
@@ -452,9 +470,10 @@ def test_sciex_get_files_to_copy(
         original_name="sample.wiff",
     )
 
-    wrapper = SciexRawFileWriteWrapper(
-        "instrument1", raw_file=mock_raw_file, path_provider=CopyPathProvider
-    )
+    with patch.dict(_INSTRUMENTS, {"instrument1": {"type": "sciex"}}):
+        wrapper = SciexRawFileWriteWrapper(
+            "instrument1", raw_file=mock_raw_file, path_provider=CopyPathProvider
+        )
     expected_mapping = {
         Path("/path/to/instrument/sample.wiff"): Path(
             "/opt/airflow/mounts/backup/instrument1/1970_01/123-sample.wiff"
@@ -465,10 +484,84 @@ def test_sciex_get_files_to_copy(
     }
 
     # when
-    assert wrapper.get_files_to_copy() == expected_mapping
-    mock_instrument_path.return_value.glob.assert_called_once_with("sample.*")
+    with patch("pathlib.Path.is_file", return_value=True):
+        assert wrapper.get_files_to_copy() == expected_mapping
 
-    mock_create_monitor_wrapper.assert_called_once_with("instrument1", mock_raw_file)
+
+@patch("plugins.raw_file_wrapper_factory.get_internal_instrument_data_path")
+def test_sciex_get_files_to_copy_stem_recurring_in_suffix(
+    mock_instrument_path: MagicMock,
+) -> None:
+    """Test that only the leading stem is renamed, even if it recurs in the file suffix."""
+    mock_instrument_path.return_value.glob.side_effect = lambda pattern: (
+        [Path("/path/to/instrument/a.wiff.scan")] if pattern == "a.*" else []
+    )
+
+    mock_raw_file = MagicMock(
+        wraps=RawFile,
+        instrument_id="instrument1",
+        id="1-a.wiff",
+        created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
+        original_name="a.wiff",
+    )
+
+    with patch.dict(_INSTRUMENTS, {"instrument1": {"type": "sciex"}}):
+        wrapper = SciexRawFileWriteWrapper(
+            "instrument1", raw_file=mock_raw_file, path_provider=CopyPathProvider
+        )
+
+    # when
+    with patch("pathlib.Path.is_file", return_value=True):
+        assert wrapper.get_files_to_copy() == {
+            Path("/path/to/instrument/a.wiff.scan"): Path(
+                "/opt/airflow/mounts/backup/instrument1/1970_01/1-a.wiff.scan"
+            ),
+        }
+
+
+def test_get_associated_files(tmp_path: Path) -> None:
+    """Test that get_associated_files returns the vendor-specific set of files belonging to a raw file."""
+    thermo, sciex, bruker = tmp_path / "thermo", tmp_path / "sciex", tmp_path / "bruker"
+    thermo.mkdir()
+    (thermo / "sample.raw").touch()
+    (thermo / "other.raw").touch()
+    sciex.mkdir()
+    (sciex / "sample.wiff").touch()
+    (sciex / "sample.wiff.scan").touch()
+    (sciex / "sample.timeseries.data").touch()
+    (sciex / "other.wiff").touch()
+    (sciex / "sample.rep2.wiff").touch()
+    (sciex / "sample.rep2.wiff.scan").touch()
+    (sciex / "sample.rep2.timeseries.data").touch()
+    (bruker / "sample.d" / "subdir.m").mkdir(parents=True)
+    (bruker / "sample.d" / "analysis.tdf").touch()
+    (bruker / "sample.d" / "subdir.m" / "file.txt").touch()
+    (bruker / "other.d").mkdir()
+
+    assert ThermoRawFileMonitorWrapper.get_associated_files(thermo, "sample.raw") == [
+        thermo / "sample.raw"
+    ]
+    assert ThermoRawFileMonitorWrapper.get_associated_files(thermo, "missing.raw") == []
+    assert set(
+        SciexRawFileMonitorWrapper.get_associated_files(sciex, "sample.wiff")
+    ) == {
+        sciex / "sample.wiff",
+        sciex / "sample.wiff.scan",
+        sciex / "sample.timeseries.data",
+    }
+    assert set(
+        SciexRawFileMonitorWrapper.get_associated_files(sciex, "sample.rep2.wiff")
+    ) == {
+        sciex / "sample.rep2.wiff",
+        sciex / "sample.rep2.wiff.scan",
+        sciex / "sample.rep2.timeseries.data",
+    }
+    assert set(
+        BrukerRawFileMonitorWrapper.get_associated_files(bruker, "sample.d")
+    ) == {
+        bruker / "sample.d" / "analysis.tdf",
+        bruker / "sample.d" / "subdir.m" / "file.txt",
+    }
 
 
 def test_bruker_get_files_to_copy() -> None:
@@ -530,14 +623,53 @@ def test_bruker_get_files_to_copy() -> None:
             assert files_to_copy == expected_mapping
 
 
+@pytest.mark.parametrize("folder_exists", [True, False])
+def test_bruker_get_files_to_move(tmp_path: Path, *, folder_exists: bool) -> None:
+    """Test that get_files_to_move maps the raw file folder only if it exists."""
+    mock_raw_file = MagicMock(
+        wraps=RawFile,
+        instrument_id="instrument1",
+        id="123-sample.d",
+        created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
+        original_name="sample.d",
+    )
+    instrument_path = tmp_path / "instrument1"
+    raw_file_path = instrument_path / "sample.d"
+    if folder_exists:
+        raw_file_path.mkdir(parents=True)
+
+    with (
+        patch(
+            "plugins.raw_file_wrapper_factory.get_internal_instrument_data_path",
+            return_value=instrument_path,
+        ),
+        patch.dict(_INSTRUMENTS, {"instrument1": {"type": "bruker"}}),
+    ):
+        wrapper = BrukerRawFileWriteWrapper(
+            "instrument1", raw_file=mock_raw_file, path_provider=MovePathProvider
+        )
+
+        # when
+        files_to_move = wrapper.get_files_to_move()
+
+    expected_dst_path = instrument_path / "Backup" / "123-sample.d"
+    assert files_to_move == (
+        {raw_file_path: expected_dst_path} if folder_exists else {}
+    )
+
+
 @pytest.mark.parametrize(
-    (
-        "raw_file_id",
-        "raw_file_original_name",
-    ),
+    ("raw_file_id", "raw_file_original_name", "main_file_name", "file_info_key"),
     [
-        ("sample.raw", "sample.raw"),  # no collsion
-        ("123-sample.raw", "sample.raw"),  # collsion
+        ("sample.raw", "sample.raw", "sample.raw", "sample.raw"),  # no collision
+        ("123-sample.raw", "sample.raw", "sample.raw", "123-sample.raw"),  # collision
+        ("sample.wiff", "sample.wiff", "sample.wiff.scan", "sample.wiff.scan"),
+        (
+            "123-sample.wiff",
+            "sample.wiff",
+            "sample.wiff.scan",
+            "123-sample.wiff.scan",
+        ),  # collision, main file name differs from original name
     ],
 )
 @patch("plugins.raw_file_wrapper_factory.RawFileWrapperFactory.create_monitor_wrapper")
@@ -545,6 +677,8 @@ def test_get_main_file_size_from_db(
     mock_create_monitor_wrapper: MagicMock,
     raw_file_id: str,
     raw_file_original_name: str,
+    main_file_name: str,
+    file_info_key: str,
 ) -> None:
     """Test that get_main_file_size_from_db returns the correct file size."""
     raw_file = RawFile(
@@ -552,13 +686,13 @@ def test_get_main_file_size_from_db(
         original_name=raw_file_original_name,
         instrument_id="instrument1",
         file_info={
-            raw_file_id: (1024, "hash_value"),
+            file_info_key: (1024, "hash_value"),
             "other_file.txt": (2048, "other_hash_value"),
         },
     )
 
     mock_create_monitor_wrapper.return_value.main_file_path.return_value = Path(
-        "/path/to/instrument/sample.raw"
+        f"/path/to/instrument/{main_file_name}"
     )
 
     # when

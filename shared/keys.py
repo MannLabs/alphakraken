@@ -86,6 +86,7 @@ class MetricsTypes(metaclass=ConstantsClass):
     MSQC: str = "msqc"
     SKYLINE: str = "skyline"
     DIANN: str = "diann"
+    PEAKS: str = "peaks"
     # EXAMPLE_METRICS: str = "example_metrics" # dummy code for adding new metrics
 
 

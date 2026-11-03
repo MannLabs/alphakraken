@@ -167,13 +167,12 @@ class AcquisitionMonitor(BaseSensorOperator):
         assert self._raw_file_monitor_wrapper is not None
 
         now = get_timestamp()
-        is_acquisition_finalized = self._acquisition_finalized()
 
         if self._file_is_old:
             logging.info(
                 "File is old compared to the youngest file in the directory. Considering acquisition to be done."
             )
-            return is_acquisition_finalized
+            return self._acquisition_finalized()
 
         if not self._main_file_exists:
             if self._main_file_path.exists():
@@ -184,13 +183,9 @@ class AcquisitionMonitor(BaseSensorOperator):
         files_unchanged_s = self._update_files_stat(now)
 
         if files_unchanged_s >= FILES_UNCHANGED_TIMEOUT_M * 60:
-            return self._files_unchanged_for_too_long(
-                files_unchanged_s, is_acquisition_finalized=is_acquisition_finalized
-            )
+            return self._files_unchanged_for_too_long(files_unchanged_s)
 
-        return self._next_file_appeared_and_files_settled(
-            now, files_unchanged_s, is_acquisition_finalized=is_acquisition_finalized
-        )
+        return self._next_file_appeared_and_files_settled(now, files_unchanged_s)
 
     def _acquisition_finalized(self) -> bool:
         """Return whether the acquisition software has finalized the raw file after writing it.
@@ -210,9 +205,7 @@ class AcquisitionMonitor(BaseSensorOperator):
             > ZENO_ZT_SCAN_FILE_THRESHOLD_BYTES
         )
 
-    def _files_unchanged_for_too_long(
-        self, files_unchanged_s: float, *, is_acquisition_finalized: bool
-    ) -> bool:
+    def _files_unchanged_for_too_long(self, files_unchanged_s: float) -> bool:
         """Return true if the acquisition is considered done because the associated files did not change for too long."""
         if self._files_stat and self._get_total_file_size() == 0:
             # If a file is opened in the acquisition software, but not written to yet (because of, e.g. an LC error)
@@ -224,8 +217,8 @@ class AcquisitionMonitor(BaseSensorOperator):
             return False
 
         if (
-            not is_acquisition_finalized
-            and files_unchanged_s < FINALIZATION_TIMEOUT_M * 60
+            files_unchanged_s < FINALIZATION_TIMEOUT_M * 60
+            and not self._acquisition_finalized()
         ):
             logging.info(
                 f"Files unchanged for >= {FILES_UNCHANGED_TIMEOUT_M} min, but acquisition not finalized yet."
@@ -238,7 +231,7 @@ class AcquisitionMonitor(BaseSensorOperator):
         return True
 
     def _next_file_appeared_and_files_settled(
-        self, now: float, files_unchanged_s: float, *, is_acquisition_finalized: bool
+        self, now: float, files_unchanged_s: float
     ) -> bool:
         """Return true if the acquisition is considered done because the next file appeared and the associated files settled since.
 
@@ -290,7 +283,7 @@ class AcquisitionMonitor(BaseSensorOperator):
         logging.info(
             "Files have settled after the next file appeared. Considering previous acquisition to be done."
         )
-        return is_acquisition_finalized
+        return self._acquisition_finalized()
 
     @staticmethod
     def _get_youngest_file_age(

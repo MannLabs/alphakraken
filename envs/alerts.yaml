@@ -1,6 +1,11 @@
 # Alert settings of the monitoring service, the same for all environments.
 # Setup-related settings (URLs, instruments) live in alphakraken.<env>.yaml.
 
+general:
+  check_interval_seconds: 60
+  # cooldown of the alerts sent without DB access (startup, DB and check errors)
+  special_alert_cooldown_minutes: 10
+
 thresholds:
   free_space_threshold_gb: 200
   # file systems with a threshold other than free_space_threshold_gb

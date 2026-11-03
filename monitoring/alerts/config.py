@@ -12,9 +12,40 @@ import yaml
 from shared.keys import EnvVars, InternalPaths
 from shared.yamlsettings import YamlKeys, get_notification_setting
 
+# Hardcoded constants
+# cooldown_minutes in alerts.yaml that notifies an issue only once
+COOLDOWN_ONCE = -1
+
+# bounds on channel messages, so that no message exceeds the webhook payload limits
+MAX_ISSUES_PER_MESSAGE = 20
+MAX_DETAILS_CHARS = 300
+
+BYTES_PER_GB = 1024**3
+LOCAL_DISK_PATH = (
+    "/etc/hosts"  # always-present path probing the monitoring host's local disk
+)
+
+# replaced by the messenger id of the user in the user alerts URL
+MESSENGER_ID_PLACEHOLDER = "{{ALPHAKRAKEN_MESSENGER_ID}}"
+
+
+class Destinations:
+    """Where alerts can be sent to."""
+
+    # DM to the owner of the project of the issue's relevant file, else to the user with the initials in the file name
+    USER = "user"
+    OPS = "ops"
+    BUSINESS = "business"
+
+    ALL = frozenset({USER, OPS, BUSINESS})
+
 
 class AlertsYamlKeys:
     """Keys for accessing the alerts.yaml settings."""
+
+    GENERAL = "general"
+    CHECK_INTERVAL_SECONDS = "check_interval_seconds"
+    SPECIAL_ALERT_COOLDOWN_MINUTES = "special_alert_cooldown_minutes"
 
     THRESHOLDS = "thresholds"
     FREE_SPACE_THRESHOLD_GB = "free_space_threshold_gb"
@@ -74,19 +105,17 @@ def _cooldown(minutes: int) -> int | None:
     return None if minutes == COOLDOWN_ONCE else minutes
 
 
-# Constants
-CHECK_INTERVAL_SECONDS = 60
+# Settings from alerts.yaml
+CHECK_INTERVAL_SECONDS: int = get_alert_setting(
+    AlertsYamlKeys.GENERAL, AlertsYamlKeys.CHECK_INTERVAL_SECONDS
+)
 # only the active instance runs the DB-backed checks; another takes over if it does not renew its claim within this time.
 # The claim is renewed once per loop, so this must cover the checks plus the sleep with a margin
 ACTIVE_INSTANCE_TIMEOUT_SECONDS = 10 * CHECK_INTERVAL_SECONDS
 # cooldown of the alerts sent without DB access (startup, DB and check errors)
-SPECIAL_ALERT_COOLDOWN_MINUTES = 10
-# cooldown_minutes in alerts.yaml that notifies an issue only once
-COOLDOWN_ONCE = -1
-
-# bounds on channel messages, so that no message exceeds the webhook payload limits
-MAX_ISSUES_PER_MESSAGE = 20
-MAX_DETAILS_CHARS = 300
+SPECIAL_ALERT_COOLDOWN_MINUTES: int = get_alert_setting(
+    AlertsYamlKeys.GENERAL, AlertsYamlKeys.SPECIAL_ALERT_COOLDOWN_MINUTES
+)
 
 STALE_STATUS_THRESHOLD_MINUTES: int = _threshold(
     AlertsYamlKeys.STALE_STATUS_THRESHOLD_MINUTES
@@ -98,12 +127,6 @@ FREE_SPACE_THRESHOLD_GB: int = _threshold(AlertsYamlKeys.FREE_SPACE_THRESHOLD_GB
 # file systems with a threshold other than FREE_SPACE_THRESHOLD_GB
 FILE_SYSTEM_FREE_SPACE_THRESHOLDS_GB: dict[str, int] = _threshold(
     AlertsYamlKeys.FILE_SYSTEM_FREE_SPACE_THRESHOLDS_GB
-)
-
-# Local disk alert configuration
-BYTES_PER_GB = 1024**3
-LOCAL_DISK_PATH = (
-    "/etc/hosts"  # always-present path probing the monitoring host's local disk
 )
 LOCAL_FREE_SPACE_THRESHOLD_GB: int = _threshold(
     AlertsYamlKeys.LOCAL_FREE_SPACE_THRESHOLD_GB
@@ -158,53 +181,6 @@ PUMP_PRESSURE_ABSOLUTE_THRESHOLD_BAR: float = _threshold(
     AlertsYamlKeys.PUMP_PRESSURE_ABSOLUTE_THRESHOLD_BAR
 )
 
-try:
-    OPS_ALERTS_URL: str = get_notification_setting(YamlKeys.OPS_ALERTS_URL)
-except KeyError:
-    logging.exception("Failed to load ops alerts URL from config.")
-    sys.exit(1)
-
-try:
-    BUSINESS_ALERTS_URL: str = get_notification_setting(YamlKeys.BUSINESS_ALERTS_URL)
-except KeyError:
-    logging.warning("Business alerts URL not found in config, using ops alerts URL")
-    BUSINESS_ALERTS_URL = OPS_ALERTS_URL
-
-# replaced by the messenger id of the user in the user alerts URL
-MESSENGER_ID_PLACEHOLDER = "{{ALPHAKRAKEN_MESSENGER_ID}}"
-try:
-    USER_ALERTS_URL: str = get_notification_setting(YamlKeys.USER_ALERTS_URL)
-except KeyError:
-    logging.warning("User alerts URL not found in config; direct messages disabled.")
-    USER_ALERTS_URL = ""
-if USER_ALERTS_URL and MESSENGER_ID_PLACEHOLDER not in USER_ALERTS_URL:
-    logging.error(f"User alerts URL must contain {MESSENGER_ID_PLACEHOLDER}.")
-    sys.exit(1)
-# optional: messenger id that gets a copy of every direct message
-DEBUG_MESSENGER_ID: str = get_notification_setting(YamlKeys.DEBUG_MESSENGER_ID, "")
-
-try:
-    INSTRUMENT_STALL_INSTRUMENT_IDS: set[str] = set(
-        get_notification_setting(YamlKeys.INSTRUMENT_STALL_INSTRUMENT_IDS)
-    )
-except KeyError:
-    logging.warning(
-        "Instrument stall instrument ids not found in config; instrument stall alert disabled."
-    )
-    INSTRUMENT_STALL_INSTRUMENT_IDS = set()
-
-
-class Destinations:
-    """Where alerts can be sent to."""
-
-    # DM to the owner of the project of the issue's relevant file, else to the user with the initials in the file name
-    USER = "user"
-    OPS = "ops"
-    BUSINESS = "business"
-
-    ALL = frozenset({USER, OPS, BUSINESS})
-
-
 _alerts: dict[str, dict[str, Any]] = ALERTSETTINGS[AlertsYamlKeys.ALERTS]
 
 # alert class name -> destinations of its issues; none for the DB-free alerts, they always go to ops
@@ -228,3 +204,37 @@ ALERT_COOLDOWNS_MINUTES: dict[str, int | None] = {
 FILE_REMOVER_HEALTH_COOLDOWN_MINUTES: int | None = _cooldown(
     _alerts["HealthCheckFailedAlert"][AlertsYamlKeys.FILE_REMOVER_COOLDOWN_MINUTES]
 )
+
+# Settings from alphakraken.yaml
+try:
+    OPS_ALERTS_URL: str = get_notification_setting(YamlKeys.OPS_ALERTS_URL)
+except KeyError:
+    logging.exception("Failed to load ops alerts URL from config.")
+    sys.exit(1)
+
+try:
+    BUSINESS_ALERTS_URL: str = get_notification_setting(YamlKeys.BUSINESS_ALERTS_URL)
+except KeyError:
+    logging.warning("Business alerts URL not found in config, using ops alerts URL")
+    BUSINESS_ALERTS_URL = OPS_ALERTS_URL
+
+try:
+    USER_ALERTS_URL: str = get_notification_setting(YamlKeys.USER_ALERTS_URL)
+except KeyError:
+    logging.warning("User alerts URL not found in config; direct messages disabled.")
+    USER_ALERTS_URL = ""
+if USER_ALERTS_URL and MESSENGER_ID_PLACEHOLDER not in USER_ALERTS_URL:
+    logging.error(f"User alerts URL must contain {MESSENGER_ID_PLACEHOLDER}.")
+    sys.exit(1)
+# optional: messenger id that gets a copy of every direct message
+DEBUG_MESSENGER_ID: str = get_notification_setting(YamlKeys.DEBUG_MESSENGER_ID, "")
+
+try:
+    INSTRUMENT_STALL_INSTRUMENT_IDS: set[str] = set(
+        get_notification_setting(YamlKeys.INSTRUMENT_STALL_INSTRUMENT_IDS)
+    )
+except KeyError:
+    logging.warning(
+        "Instrument stall instrument ids not found in config; instrument stall alert disabled."
+    )
+    INSTRUMENT_STALL_INSTRUMENT_IDS = set()

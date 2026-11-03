@@ -223,10 +223,19 @@ class AcquisitionMonitor(BaseSensorOperator):
             )
             return False
 
+        if (
+            not is_acquisition_finalized
+            and files_unchanged_s < FINALIZATION_TIMEOUT_M * 60
+        ):
+            logging.info(
+                f"Files unchanged for >= {FILES_UNCHANGED_TIMEOUT_M} min, but acquisition not finalized yet."
+            )
+            return False
+
         logging.info(
             f"Files unchanged for >= {FILES_UNCHANGED_TIMEOUT_M} min. Considering acquisition to be done."
         )
-        return is_acquisition_finalized or files_unchanged_s >= FINALIZATION_TIMEOUT_M * 60
+        return True
 
     def _next_file_appeared_and_files_settled(
         self, now: float, files_unchanged_s: float, *, is_acquisition_finalized: bool
@@ -361,7 +370,9 @@ class AcquisitionMonitor(BaseSensorOperator):
         files_stat = self._get_associated_files_stat()
 
         if files_stat != self._files_stat:
-            logging.info(f"Files (size, mtime) changed: {files_stat}")
+            logging.info(
+                f"Files changed: {len(files_stat)} file(s), total size {sum(size for size, _ in files_stat.values())}"
+            )
             self._files_stat = files_stat
             self._files_unchanged_since = now
 

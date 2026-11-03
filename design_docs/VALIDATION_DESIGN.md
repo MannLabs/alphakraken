@@ -5,8 +5,8 @@ Status: proposal. Analysis at commit 87937c8c (2026-11-03).
 Goal: one place for the validation of writes, so that a write from the MCP server or REST
 API is checked exactly like one from the webapp.
 
-Builds on `DB_INTERFACE_DESIGN.md`: requires its steps 5.1, 5.2 and 5.5 (domain types,
-domain errors, settings identified by `unique_name`). Section 4.8 there lists what the DB
+Builds on `DB_INTERFACE_DESIGN.md`: requires its steps 5.1, 5.3 and 5.6 (per-aggregate
+modules, domain types and errors, settings identified by `unique_name`). Section 4.8 there lists what the DB
 refactoring leaves in place for this one.
 
 ## 1. Validation today

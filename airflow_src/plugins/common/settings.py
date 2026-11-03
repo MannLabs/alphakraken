@@ -27,8 +27,8 @@ class Timings:
 
     RAW_DATA_COPY_TASK_TIMEOUT_M: int = 30  # large enough to not time out on big files, small enough to not block other tasks
 
-    # must exceed FINALIZATION_TIMEOUT_M in AcquisitionMonitor (24 h), otherwise that fallback can never fire
-    ACQUISITION_MONITOR_TIMEOUT_M: int = 24 * 60 + 6
+    # must exceed FINALIZATION_TIMEOUT_M in AcquisitionMonitor + max length of acquisition, otherwise that fallback can never fire
+    ACQUISITION_MONITOR_TIMEOUT_M: int = (24+2) * 60
 
     MOVE_RAW_FILE_TASK_TIMEOUT_M: int = 5
 

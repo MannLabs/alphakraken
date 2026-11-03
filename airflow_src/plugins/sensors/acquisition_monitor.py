@@ -172,7 +172,7 @@ class AcquisitionMonitor(BaseSensorOperator):
 
         if self._file_is_old:
             logging.info(
-                "File is old compared to the youngest file in the directory. Considering acquisition to be done."
+                "File is old compared to the youngest file in the directory."
             )
             return self._acquisition_finalized()
 
@@ -201,10 +201,15 @@ class AcquisitionMonitor(BaseSensorOperator):
         if not isinstance(self._raw_file_monitor_wrapper, SciexRawFileMonitorWrapper):
             return True
 
-        return (
+        zeno_special_criterion = (
             get_file_size(self._main_file_path, -1, verbose=False)
             > ZENO_ZT_SCAN_FILE_THRESHOLD_BYTES
         )
+        if not zeno_special_criterion:
+            logging.info(
+                f"Sciex Zeno ZT scan file {scan_file_path} is too small. Presuming acquisition not finalized yet."
+            )
+        return zeno_special_criterion
 
     def _files_unchanged_for_too_long(self, files_unchanged_s: float) -> bool:
         """Return true if the acquisition is considered done because the associated files did not change for too long."""
@@ -227,7 +232,7 @@ class AcquisitionMonitor(BaseSensorOperator):
             return False
 
         logging.info(
-            f"Files unchanged for >= {FILES_UNCHANGED_TIMEOUT_M} min. Considering acquisition to be done."
+            f"Files unchanged for >= {FILES_UNCHANGED_TIMEOUT_M} min."
         )
         return True
 

@@ -1,15 +1,21 @@
 """Tests for the db.models module."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 import pytest
 import pytz
-from mongoengine import ValidationError
+from mongoengine import Document, ValidationError
 
 from shared.db.models import (
     AlertIssue,
     AlertSuppression,
+    KrakenStatus,
+    Metrics,
+    Project,
+    ProjectSettings,
+    RawFile,
     Settings,
+    SlurmJob,
     User,
     parse_file_info_item,
     split_unique_settings_name,
@@ -115,3 +121,23 @@ def test_alert_suppression_rejects_empty_match_fields(field: str) -> None:
     """Match fields must be a value or the wildcard, never empty."""
     with pytest.raises(ValidationError):
         AlertSuppression(comment="c", **{field: ""}).validate()
+
+
+@pytest.mark.parametrize(
+    ("document", "field"),
+    [
+        (RawFile(id="file.raw", original_name="file.raw"), "created_at_"),
+        (RawFile(id="file.raw", original_name="file.raw"), "updated_at_"),
+        (Metrics(), "created_at_"),
+        (User(email="a@b.c", initials="ab"), "created_at_"),
+        (AlertSuppression(comment="c"), "created_at_"),
+        (Project(id="P001", name="p"), "created_at_"),
+        (Settings(name="s"), "created_at_"),
+        (ProjectSettings(), "created_at_"),
+        (KrakenStatus(id="inst1"), "updated_at_"),
+        (SlurmJob(id="c/1", cluster_id="c"), "updated_at_"),
+    ],
+)
+def test_audit_timestamp_defaults_are_utc_aware(document: Document, field: str) -> None:
+    """Every stored timestamp is explicitly UTC, so that no reader has to guess."""
+    assert getattr(document, field).tzinfo is UTC

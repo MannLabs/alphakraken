@@ -6,10 +6,9 @@ Note: this module must not have any dependencies on the rest of the codebase.
 import logging
 import re
 from collections.abc import Iterable
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
-import pytz
 from mongoengine import Q
 from pymongo import UpdateOne
 
@@ -85,7 +84,7 @@ def get_raw_files_by_instrument_file_status(
         query = query.filter(instrument_id=instrument_id)
 
     if min_age_hours:
-        cutoff_time = datetime.now(tz=pytz.UTC) - timedelta(hours=min_age_hours)
+        cutoff_time = datetime.now(tz=UTC) - timedelta(hours=min_age_hours)
         query = query.filter(created_at__lt=cutoff_time)
 
     return list(query.order_by("created_at"))
@@ -99,9 +98,7 @@ def get_purge_candidates_by_age(
     """Get raw files older than the given age in days for a given instrument that are not purged, renamed or disappeared, sorted 'oldest first'."""
     connect_db()
 
-    youngest_created_at = datetime.now(tz=pytz.UTC) - timedelta(
-        hours=min_age_in_days * 24
-    )
+    youngest_created_at = datetime.now(tz=UTC) - timedelta(hours=min_age_in_days * 24)
     logging.info(f"Getting from DB: {instrument_id=} {youngest_created_at=}")
 
     return list(
@@ -153,7 +150,7 @@ def add_raw_file(  # noqa: PLR0913 too many arguments
         instrument_id=instrument_id,
         status=status,
         instrument_file_status=instrument_file_status,
-        created_at=datetime.fromtimestamp(creation_ts, pytz.utc),
+        created_at=datetime.fromtimestamp(creation_ts, UTC),
     )
     # this will fail if the file already exists
     raw_file.save(force_insert=True)
@@ -197,7 +194,7 @@ def update_raw_file(  # noqa: PLR0913
     # prevent overwriting these fields with None if they are not given
     kwargs = {
         "status": new_status,
-        "updated_at_": datetime.now(tz=pytz.utc),
+        "updated_at_": datetime.now(tz=UTC),
         "status_details": status_details,
         "size": size,
         "file_info": file_info,
@@ -562,7 +559,7 @@ def update_kraken_status(
     KrakenStatus(
         id=id_,
         status=status,
-        updated_at_=datetime.now(tz=pytz.utc),
+        updated_at_=datetime.now(tz=UTC),
         free_space_gb=free_space_gb,
         status_details=status_details,
         entity_type=entity_type,
@@ -575,7 +572,7 @@ def update_slurm_jobs(cluster_id: str, states: dict[str, str]) -> None:
     Jobs of the cluster that are stored but not in `states` get the state `LEFT_QUEUE`.
     """
     connect_db()
-    now = datetime.now(tz=pytz.utc)
+    now = datetime.now(tz=UTC)
     db_ids = [get_slurm_job_db_id(cluster_id, job_id) for job_id in states]
 
     if states:
@@ -708,7 +705,7 @@ def get_alert_suppressions() -> list[AlertSuppression]:
 def get_active_alert_suppressions() -> list[AlertSuppression]:
     """Get all alert suppressions that are not expired."""
     connect_db()
-    now = datetime.now(tz=pytz.UTC)
+    now = datetime.now(tz=UTC)
     return list(AlertSuppression.objects(Q(expires_at=None) | Q(expires_at__gt=now)))
 
 

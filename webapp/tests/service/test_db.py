@@ -1,11 +1,68 @@
 """Tests for the db module."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytz
-from service.db import df_from_db_data, get_full_raw_file_data, get_output_folders
+from service.db import (
+    df_from_db_data,
+    get_full_raw_file_data,
+    get_output_folders,
+    get_raw_files_for_status_df,
+)
+from service.timezone import DISPLAY_TIMEZONE
+
+from shared.tests.factories import raw_file
+
+
+@patch("shared.db.raw_files.find")
+def test_get_raw_files_for_status_df(mock_find: MagicMock) -> None:
+    """Recent files are returned with their status columns, in display time, per instrument."""
+    # given
+    mock_find.return_value = [
+        raw_file(
+            id="f1",
+            instrument_id="inst2",
+            status="done",
+            status_details=None,
+            created_at=datetime(2024, 1, 2, tzinfo=UTC),
+            updated_at_=datetime(2024, 1, 3, tzinfo=UTC),
+        ),
+        raw_file(
+            id="f2",
+            instrument_id="inst1",
+            status="error",
+            status_details="boom",
+            created_at=datetime(2024, 1, 1, tzinfo=UTC),
+            updated_at_=datetime(2024, 1, 4, tzinfo=UTC),
+        ),
+    ]
+
+    # when
+    result = get_raw_files_for_status_df(max_age_in_days=7)
+
+    # then
+    where = mock_find.call_args.args[0]
+    assert (datetime.now(tz=UTC) - where.created_after).days == 7
+    assert list(result.columns) == [
+        "instrument_id",
+        "created_at",
+        "updated_at_",
+        "status",
+        "status_details",
+    ]
+    assert list(result["instrument_id"]) == ["inst1", "inst2"]
+    assert result["status_details"][0] == "boom"
+    assert pd.isna(result["status_details"][1])
+    assert result["created_at"].dt.tz == DISPLAY_TIMEZONE
+    assert result["created_at"][1] == datetime(2024, 1, 2, tzinfo=UTC)
+
+
+def test_get_raw_files_for_status_df_empty() -> None:
+    """Without recent files the DataFrame is empty."""
+    with patch("shared.db.raw_files.find", return_value=[]):
+        assert get_raw_files_for_status_df(max_age_in_days=7).empty
 
 
 def test_df_from_db_data() -> None:

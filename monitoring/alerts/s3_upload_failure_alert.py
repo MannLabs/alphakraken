@@ -2,8 +2,9 @@
 
 from datetime import datetime, timedelta
 
-from shared.db.models import KrakenStatus, RawFile
-from shared.domain.raw_files import BackupStatus
+from shared.db import raw_files
+from shared.db.models import KrakenStatus
+from shared.domain.raw_files import BackupStatus, RawFile
 
 from .base_alert import BaseAlert, Issue
 from .config import RAW_FILE_STATUS_LOOKBACK_HOURS
@@ -23,10 +24,12 @@ class S3UploadFailureAlert(BaseAlert):
         del status_objects
 
         youngest_updated_at = now - timedelta(hours=RAW_FILE_STATUS_LOOKBACK_HOURS)
-        failed_raw_files = RawFile.objects.filter(
-            backup_status=BackupStatus.UPLOAD_FAILED,
-            updated_at___gt=youngest_updated_at,
-        ).only("id", "project_id", "instrument_id")
+        failed_raw_files = raw_files.find(
+            raw_files.RawFileFilter(
+                backup_status=BackupStatus.UPLOAD_FAILED,
+                updated_after=youngest_updated_at,
+            )
+        )
 
         return [
             Issue(

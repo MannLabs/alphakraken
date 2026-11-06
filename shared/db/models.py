@@ -22,7 +22,7 @@ from mongoengine import (
 )
 
 from shared.domain.projects import ProjectStatus
-from shared.domain.raw_files import InstrumentFileStatus
+from shared.domain.raw_files import FileInfoItem, InstrumentFileStatus
 from shared.domain.settings import SettingsStatus
 from shared.domain.slurm_jobs import SLURM_JOB_EXPIRY_S
 from shared.domain.status import KrakenStatusEntities
@@ -33,10 +33,6 @@ from shared.keys import (
     FALLBACK_PROJECT_ID,
     MetricsTypes,
     SoftwareTypes,
-)
-
-FileInfoItem = (
-    tuple[float | None, str | None] | tuple[float | None, str | None, str | None]
 )
 
 

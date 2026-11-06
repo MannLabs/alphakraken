@@ -316,8 +316,9 @@ QuerySets not pickling becomes moot.
 "pymongo".msg = "use shared.db"
 "shared.db._mongo".msg = "use shared.db"
 [tool.ruff.lint.per-file-ignores]
+"shared/db/*.py" = ["TID251"]      # the API modules are the only importers of the backend
 "shared/db/_mongo/**" = ["TID251"]
-"shared/tests/db/_mongo/**" = ["TID251"]
+"shared/tests/db/**" = ["TID251"]
 "shared/_migrations/**" = ["TID251"]
 "airflow_src/plugins/_db_migrations/**" = ["TID251"]
 ```

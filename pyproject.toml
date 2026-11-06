@@ -52,10 +52,10 @@ ignore = [
 "shared/_migrations/**" = ["TID251"]
 "airflow_src/plugins/_db_migrations/**" = ["TID251"]
 "airflow_src/plugins/celery_config.py" = ["TID251"]
+# the API modules are the only importers of the backend; this also covers the legacy
+# interface.py, models.py and engine.py until they are gone
+"shared/db/*.py" = ["TID251"]
 # legacy, cf. design_docs/DB_INTERFACE_PLAN.md: remove an entry once the module is ported
-"shared/db/interface.py" = ["TID251"]
-"shared/db/models.py" = ["TID251"]
-"shared/db/engine.py" = ["TID251"]
 "shared/path_layout.py" = ["TID251"]
 "shared/display_paths.py" = ["TID251"]
 "shared/settings_scope_resolver.py" = ["TID251"]

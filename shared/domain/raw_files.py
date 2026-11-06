@@ -1,4 +1,14 @@
-"""Raw file constants."""
+"""Raw file domain type and constants."""
+
+from dataclasses import dataclass
+from datetime import datetime
+
+from shared.keys import FALLBACK_PROJECT_ID
+
+# (size, hash) or (size, hash, etag) of one file of a raw file folder
+FileInfoItem = (
+    tuple[float | None, str | None] | tuple[float | None, str | None, str | None]
+)
 
 
 class RawFileStatus:
@@ -74,3 +84,38 @@ class InstrumentFileStatus:
     )
     MOVED = "moved"  # File moved from instrument to instrument backup folder
     PURGED = "purged"  # File removed from instrument backup folder
+
+
+@dataclass(frozen=True)
+class RawFile:
+    """A raw file as acquired by an instrument. Datetimes are UTC-aware."""
+
+    # the file name, prefixed with the collision flag in case of a name collision
+    id: str
+    collision_flag: str | None
+    original_name: str
+    instrument_id: str
+    project_id: str
+    status: str
+    status_details: str | None
+    # bytes
+    size: int | None
+    backup_status: str | None
+    # `display_paths.backup` at copy time: records which backup file system holds the file
+    backup_display_base_path: str | None
+    # bucket_name or bucket_name/sub_path/ -> file_info paths are always relative to that
+    s3_upload_path: str | None
+    instrument_file_status: str
+    # paths relative to the raw file folder (cf. path_layout) to their file info;
+    # None if not loaded, cf. `shared.db.raw_files.find`
+    file_info: dict[str, FileInfoItem] | None
+    created_at: datetime
+    # when the acquisition was finished (mtime of main file)
+    finalized_at: datetime | None
+    created_at_: datetime
+    updated_at_: datetime
+
+    @property
+    def has_project(self) -> bool:
+        """Return whether the raw file has a project assigned or belongs to the fallback project."""
+        return self.project_id != FALLBACK_PROJECT_ID

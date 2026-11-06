@@ -4,7 +4,8 @@ from datetime import datetime, timedelta
 
 from utils import short_digest
 
-from shared.db.models import KrakenStatus, RawFile
+from shared.db import raw_files
+from shared.db.models import KrakenStatus
 from shared.domain.raw_files import RawFileStatus
 
 from .base_alert import BaseAlert, Issue
@@ -25,9 +26,11 @@ class RawFileErrorAlert(BaseAlert):
         del status_objects
 
         youngest_updated_at = now - timedelta(hours=RAW_FILE_STATUS_LOOKBACK_HOURS)
-        error_raw_files = RawFile.objects.filter(
-            status=RawFileStatus.ERROR, updated_at___gt=youngest_updated_at
-        ).only("id", "status_details", "instrument_id")
+        error_raw_files = raw_files.find(
+            raw_files.RawFileFilter(
+                statuses=[RawFileStatus.ERROR], updated_after=youngest_updated_at
+            )
+        )
 
         issues = []
         for raw_file in error_raw_files:

@@ -17,7 +17,6 @@ from shared.db.engine import connect_db
 from shared.db.models import (
     AlertIssue,
     AlertSuppression,
-    FileInfoItem,
     KrakenStatus,
     Metrics,
     Project,
@@ -29,7 +28,7 @@ from shared.db.models import (
     get_slurm_job_db_id,
 )
 from shared.domain.projects import ProjectStatus
-from shared.domain.raw_files import InstrumentFileStatus
+from shared.domain.raw_files import FileInfoItem, InstrumentFileStatus
 from shared.domain.settings import SettingsStatus
 from shared.domain.slurm_jobs import SlurmJobQueueStates
 from shared.domain.status import KrakenStatusEntities

@@ -13,7 +13,7 @@ from plugins.sensors.file_sensor import (
     _check_path_health,
 )
 
-from shared.db.models import KrakenStatusValues
+from shared.domain.status import KrakenStatusValues
 
 
 def get_sensor() -> FileCreationSensor:

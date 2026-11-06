@@ -10,7 +10,7 @@ import pytz
 from service.session_state import SessionStateKeys
 from streamlit.testing.v1 import AppTest
 
-from shared.db.models import ProjectStatus
+from shared.domain.projects import ProjectStatus
 from shared.keys import FALLBACK_PROJECT_ID
 
 PAGES_FOLDER = Path(__file__).parent / Path("../../pages_")

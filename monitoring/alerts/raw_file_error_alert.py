@@ -4,7 +4,8 @@ from datetime import datetime, timedelta
 
 from utils import short_digest
 
-from shared.db.models import KrakenStatus, RawFile, RawFileStatus
+from shared.db.models import KrakenStatus, RawFile
+from shared.domain.raw_files import RawFileStatus
 
 from .base_alert import BaseAlert, Issue
 from .config import RAW_FILE_STATUS_LOOKBACK_HOURS

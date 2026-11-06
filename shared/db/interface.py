@@ -18,22 +18,22 @@ from shared.db.models import (
     AlertIssue,
     AlertSuppression,
     FileInfoItem,
-    InstrumentFileStatus,
     KrakenStatus,
-    KrakenStatusEntities,
     Metrics,
     Project,
     ProjectSettings,
-    ProjectStatus,
     RawFile,
     Settings,
-    SettingsStatus,
     SlurmJob,
-    SlurmJobQueueStates,
     User,
-    UserStatus,
     get_slurm_job_db_id,
 )
+from shared.domain.projects import ProjectStatus
+from shared.domain.raw_files import InstrumentFileStatus
+from shared.domain.settings import SettingsStatus
+from shared.domain.slurm_jobs import SlurmJobQueueStates
+from shared.domain.status import KrakenStatusEntities
+from shared.domain.users import UserStatus
 from shared.keys import DEFAULT_SCOPE
 
 _NON_ACTIVE_PROJECT_STATUSES = [ProjectStatus.INACTIVE, ProjectStatus.DELETED]

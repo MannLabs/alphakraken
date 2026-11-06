@@ -11,7 +11,7 @@ from service.db import df_from_db_data, get_raw_file_and_metrics_data
 from service.timezone import floor_to_seconds
 from service.utils import METRICS_TYPE_SEPARATOR, Cols
 
-from shared.db.models import RawFileStatus
+from shared.domain.raw_files import RawFileStatus
 from shared.keys import MetricsTypes
 
 _ALTERNATIVE_NAMES_MAPPING = build_alternative_names_mapping(load_columns_from_yaml())

@@ -9,13 +9,9 @@ from rest_api.service import (
     get_settings,
     get_settings_by_unique_name,
 )
-from shared.db.models import (
-    Project,
-    ProjectSettings,
-    ProjectStatus,
-    Settings,
-    SettingsStatus,
-)
+from shared.db.models import Project, ProjectSettings, Settings
+from shared.domain.projects import ProjectStatus
+from shared.domain.settings import SettingsStatus
 
 CREATED_AT = datetime(2025, 1, 2, 3, 4, 5)  # noqa: DTZ001
 

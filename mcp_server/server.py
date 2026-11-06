@@ -17,7 +17,8 @@ from mcp.server.fastmcp import FastMCP
 from mongoengine import QuerySet
 
 from shared.db.engine import connect_db
-from shared.db.models import KrakenStatus, KrakenStatusEntities, Metrics, RawFile
+from shared.db.models import KrakenStatus, Metrics, RawFile
+from shared.domain.status import KrakenStatusEntities
 
 mcp = FastMCP(
     name="AlphaKraken",

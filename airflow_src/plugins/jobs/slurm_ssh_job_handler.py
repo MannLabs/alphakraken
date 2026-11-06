@@ -14,7 +14,7 @@ from jobs.job_handler import JobHandler, posix_export_lines
 from sensors.ssh_utils import ssh_execute
 
 from shared.db.interface import get_slurm_job
-from shared.db.models import SlurmJobQueueStates
+from shared.domain.slurm_jobs import SlurmJobQueueStates
 
 
 class SlurmSSHJobHandler(JobHandler):

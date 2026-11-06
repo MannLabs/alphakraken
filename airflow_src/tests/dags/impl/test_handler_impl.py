@@ -23,7 +23,7 @@ from dags.impl.handler_impl import (
     start_s3_uploader,
 )
 
-from shared.db.models import BackupStatus, InstrumentFileStatus, RawFileStatus
+from shared.domain.raw_files import BackupStatus, InstrumentFileStatus, RawFileStatus
 
 FINALIZED_TS = 1786954471.0
 FINALIZED_AT = datetime.fromtimestamp(FINALIZED_TS, tz=pytz.utc)

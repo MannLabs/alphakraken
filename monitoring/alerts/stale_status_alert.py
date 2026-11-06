@@ -4,7 +4,8 @@ from datetime import datetime, timedelta
 
 from utils import ensure_utc
 
-from shared.db.models import KrakenStatus, KrakenStatusEntities
+from shared.db.models import KrakenStatus
+from shared.domain.status import KrakenStatusEntities
 from shared.keys import FILE_REMOVER_STATUS_ID
 
 from .base_alert import BaseAlert, Issue, get_instrument_id

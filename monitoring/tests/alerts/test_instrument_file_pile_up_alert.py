@@ -7,7 +7,8 @@ import pytz
 
 from monitoring.alerts.base_alert import Issue
 from monitoring.alerts.instrument_file_pile_up_alert import InstrumentFilePileUpAlert
-from shared.db.models import InstrumentFileStatus, KrakenStatusEntities
+from shared.domain.raw_files import InstrumentFileStatus
+from shared.domain.status import KrakenStatusEntities
 
 NOW = datetime(2024, 1, 15, 12, 0, tzinfo=pytz.UTC)
 

@@ -12,7 +12,7 @@ from plugins.file_checks import (
 )
 from plugins.s3.client import S3_FILE_NOT_FOUND_ETAG
 
-from shared.db.models import BackupStatus
+from shared.domain.raw_files import BackupStatus
 
 
 @patch("plugins.file_checks.CopyPathProvider")

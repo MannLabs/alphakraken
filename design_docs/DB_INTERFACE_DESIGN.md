@@ -191,10 +191,10 @@ class RawFileFilter:
 def find(filter: RawFileFilter, *, order: str = "-created_at", limit: int | None = None,
          offset: int = 0, include_file_info: bool = False) -> list[RawFile]
 def count(filter: RawFileFilter) -> int
-def get(raw_file_id: str, *, include_file_info: bool = False) -> RawFile   # raises NotFound
+def get(raw_file_id: str, *, include_file_info: bool = False) -> RawFile   # raises NotFoundError
 def latest_per_instrument(n: int, *, created_after: datetime) -> dict[str, list[RawFile]]
 def count_by_status(instrument_id: str, *, statuses_not: list[str]) -> dict[str, int]
-def add(...) -> str                                  # raises AlreadyExists
+def add(...) -> str                                  # raises AlreadyExistsError
 def update(raw_file_id: str, *, status=NO_UPDATE, ...) -> None   # today's typed signature with the sentinel
 def delete(raw_file_id: str) -> None
 ```
@@ -214,7 +214,7 @@ wire bytes and decoding only; MongoDB reads the whole document either way. With 
 default the status page loads what it does today plus a few short fields, so no measurement
 step is needed.
 
-`get` raises `NotFound` where `get_raw_file_by_id` returns `None` today. No caller checks for
+`get` raises `NotFoundError` where `get_raw_file_by_id` returns `None` today. No caller checks for
 `None` (13 call sites in Airflow); a missing file fails on the next attribute access, so only
 the exception type changes.
 
@@ -272,13 +272,13 @@ On Postgres: `INSERT ... ON CONFLICT DO UPDATE ... WHERE expires_at < now`.
 
 ### 4.3 Errors: `shared/domain/errors.py`
 
-`ValidationError(errors: list[str])`, `NotFound`, `AlreadyExists`, and `DatabaseError` with
-the subclass `DatabaseUnavailable` for connection failures. The Mongo layer translates
+`ValidationError(errors: list[str])`, `NotFoundError`, `AlreadyExistsError`, and `DatabaseError` with
+the subclass `DatabaseUnavailableError` for connection failures. The Mongo layer translates
 `DoesNotExist`, `NotUniqueError`/`DuplicateKeyError`, `mongoengine.ValidationError` (its
 per-field messages become the list), `ConnectionFailure`/`ServerSelectionTimeoutError` to
-`DatabaseUnavailable`, and every other `PyMongoError` (`OperationFailure` for auth and
+`DatabaseUnavailableError`, and every other `PyMongoError` (`OperationFailure` for auth and
 permissions among them) to `DatabaseError`. Clients catch only these: the startup checks
-in `monitoring/main.py` catch `DatabaseUnavailable`, the lease caller `DatabaseError`. The
+in `monitoring/main.py` catch `DatabaseUnavailableError`, the lease caller `DatabaseError`. The
 `ValueError`s raised by today's invariant checks become `ValidationError` with one entry.
 
 ### 4.4 Connection
@@ -321,6 +321,10 @@ QuerySets not pickling becomes moot.
 "shared/_migrations/**" = ["TID251"]
 "airflow_src/plugins/_db_migrations/**" = ["TID251"]
 ```
+
+Until `interface.py`, `engine.py` and the top-level `models.py` are gone (5.8), the ban
+also names them, so that every legacy client appears on the exemption list and the list
+measures what is left; cf. `DB_INTERFACE_PLAN.md`.
 
 ### 4.8 What this design reserves for the validation refactoring
 
@@ -379,7 +383,7 @@ the raw file queries from `webapp/service/db.py` (keep the DataFrame helpers).
 5.6. Settings id = `unique_name`. Port webapp pages (drop `ProjectSettings.objects.all()`,
 all `_id`), REST, and Airflow: `processor_impl.py:101` puts `str(settings.id)` into XCom and
 `prepare_job` reads it back with `get_settings_by_id`. In-flight processor DAG runs across
-this deploy carry ObjectIds in XCom and fail at `prepare_job` with `NotFound`. Deploy with
+this deploy carry ObjectIds in XCom and fail at `prepare_job` with `NotFoundError`. Deploy with
 the quanting queue drained, or re-trigger the failed runs; no dual-format lookup.
 
 5.7. `leases.py`, hidden connection. Delete `active_instance.py`'s pymongo code and all

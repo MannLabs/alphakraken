@@ -9,7 +9,7 @@ from pages_.impl.overview_utils import filter_valid_columns
 from service.columns import Column
 from service.utils import METRICS_TYPE_SEPARATOR, Cols, display_plotly_chart
 
-from shared.db.models import ERROR_STATUSES
+from shared.domain.raw_files import ERROR_STATUSES
 
 PLOT_HEIGHT = 400
 # without a figure title, plotly's default top margin leaves a large gap

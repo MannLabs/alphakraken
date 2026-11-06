@@ -18,7 +18,7 @@ from service.utils import (
     Cols,
 )
 
-from shared.db.models import TERMINAL_STATUSES
+from shared.domain.raw_files import TERMINAL_STATUSES
 
 EXPLANATION_STATUS = """
             #### Explanation of 'status' information

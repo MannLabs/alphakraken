@@ -37,7 +37,43 @@ ignore = [
     "LOG015", # root-logger-call
 ]
 
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"mongoengine".msg = "use shared.db"
+"pymongo".msg = "use shared.db"
+"shared.db._mongo".msg = "use shared.db"
+"shared.db.models".msg = "legacy, use shared.db and shared.domain"
+"shared.db.interface".msg = "legacy, use shared.db"
+"shared.db.engine".msg = "legacy, use shared.db"
+
 [tool.ruff.lint.per-file-ignores]
+# the Mongo backend, its tests and the migration scripts
+"shared/db/_mongo/**" = ["TID251"]
+"shared/tests/db/**" = ["TID251"]
+"shared/_migrations/**" = ["TID251"]
+"airflow_src/plugins/_db_migrations/**" = ["TID251"]
+"airflow_src/plugins/celery_config.py" = ["TID251"]
+# legacy, cf. design_docs/DB_INTERFACE_PLAN.md: remove an entry once the module is ported
+"shared/db/interface.py" = ["TID251"]
+"shared/db/models.py" = ["TID251"]
+"shared/db/engine.py" = ["TID251"]
+"shared/path_layout.py" = ["TID251"]
+"shared/display_paths.py" = ["TID251"]
+"shared/settings_scope_resolver.py" = ["TID251"]
+"shared/tests/test_path_layout.py" = ["TID251"]
+"shared/tests/test_display_paths.py" = ["TID251"]
+"shared/tests/test_runners.py" = ["TID251"]
+"webapp/service/db.py" = ["TID251"]
+"webapp/service/data_handling.py" = ["TID251"]
+"webapp/service/owner.py" = ["TID251"]
+"webapp/pages_/**" = ["TID251"]
+"webapp/tests/pages_/test_admin_page.py" = ["TID251"]
+"webapp/tests/pages_/impl/test_admin_utils.py" = ["TID251"]
+"rest_api/main.py" = ["TID251"]
+"rest_api/service.py" = ["TID251"]
+"rest_api/tests/test_service.py" = ["TID251"]
+"mcp_server/server.py" = ["TID251"]
+"monitoring/**" = ["TID251"]
+"airflow_src/**" = ["TID251"]
 "*.ipynb" = [
     "T201" # use of 'print' detected
 ]

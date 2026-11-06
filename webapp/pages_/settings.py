@@ -40,8 +40,10 @@ from shared.config_params import (
     substitute_dummy_values,
 )
 from shared.db.interface import archive_settings, create_settings, delete_settings
-from shared.db.models import ProjectSettings, ProjectStatus, SettingsStatus
+from shared.db.models import ProjectSettings
 from shared.display_paths import DISPLAY_PATHS, get_display_settings_path
+from shared.domain.projects import ProjectStatus
+from shared.domain.settings import SettingsStatus
 from shared.keys import (
     SOFTWARE_TYPE_TO_DEFAULT_RESOURCE_PARAMS,
     SOFTWARE_TYPE_TO_METRICS_TYPES,

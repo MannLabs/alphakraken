@@ -31,7 +31,7 @@ from shared.db.interface import (
     get_active_project_ids,
     get_raw_files_by_names,
 )
-from shared.db.models import InstrumentFileStatus, RawFileStatus
+from shared.domain.raw_files import InstrumentFileStatus, RawFileStatus
 
 
 def _add_raw_file_to_db(  # noqa: PLR0913

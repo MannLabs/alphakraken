@@ -14,7 +14,7 @@ from common.keys import DAG_DELIMITER, DagContext, DagParams, Tasks, XComKeys
 from common.utils import get_xcom
 
 from shared.db.interface import update_raw_file
-from shared.db.models import BackupStatus, RawFileStatus
+from shared.domain.raw_files import BackupStatus, RawFileStatus
 
 
 def on_failure_callback(context: dict[str, Any], **kwargs) -> None:

@@ -23,7 +23,7 @@ from dags.impl.remover_impl import (
 )
 from raw_file_wrapper_factory import RawFileStemEmptyError, RemovePathProvider
 
-from shared.db.models import KrakenStatusValues
+from shared.domain.status import KrakenStatusValues
 
 
 @patch.dict(

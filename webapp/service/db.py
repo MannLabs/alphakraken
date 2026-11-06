@@ -11,16 +11,11 @@ from service.timezone import display_now, to_display_timezone
 from service.utils import _log
 
 from shared.db.engine import connect_db
-from shared.db.models import (
-    KrakenStatus,
-    Metrics,
-    Project,
-    ProjectStatus,
-    RawFile,
-    Settings,
-    SettingsStatus,
-)
+from shared.db.models import KrakenStatus, Metrics, Project, RawFile, Settings
 from shared.display_paths import get_display_backup_path, get_display_output_path
+from shared.domain.projects import ProjectStatus
+from shared.domain.raw_files import TERMINAL_STATUSES
+from shared.domain.settings import SettingsStatus
 from shared.validation import (
     ALLOWED_RAW_FILE_NAME_CHARACTERS_PRETTY,
     FORBIDDEN_RAW_FILE_NAME_CHARACTERS_PATTERN,
@@ -230,8 +225,6 @@ def get_raw_files_for_throughput_per_day(days: int = 14) -> pd.DataFrame:
     :param days: Number of days to look back (default: 14)
     :return: DataFrame with columns: date, instrument_id, count, size_gb
     """
-    from shared.db.models import TERMINAL_STATUSES
-
     connect_db()
     min_created_at = pd.Timestamp(datetime.now(tz=pytz.UTC) - timedelta(days=days))
 

@@ -18,7 +18,7 @@ from monitoring.alerts.pump_pressure_alert import (
     _load_pressure_data,
 )
 from monitoring.utils import short_digest
-from shared.db.models import KrakenStatusEntities
+from shared.domain.status import KrakenStatusEntities
 
 NOW = datetime(2024, 1, 15, 12, 0, tzinfo=pytz.UTC)
 

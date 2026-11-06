@@ -14,7 +14,7 @@ An acquisition is considered "done" if either:
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pytz
 from airflow.sdk import BaseSensorOperator
@@ -31,7 +31,10 @@ from file_handling import get_file_ctime, get_file_size
 from raw_file_wrapper_factory import RawFileMonitorWrapper, RawFileWrapperFactory
 
 from shared.db.interface import get_raw_file_by_id, update_raw_file
-from shared.db.models import RawFile, RawFileStatus
+from shared.domain.raw_files import RawFileStatus
+
+if TYPE_CHECKING:
+    from shared.db.models import RawFile
 
 # Soft timeout for the second type of check
 SOFT_TIMEOUT_ON_MISSING_MAIN_FILE_M: int = 120

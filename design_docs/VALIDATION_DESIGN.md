@@ -133,7 +133,7 @@ def create(new: NewSettings) -> Settings:
     errors += _check_against_db(new)                                                   # owner exists, ...
     if errors:
         raise ValidationError(errors)
-    return db.settings.create(new)                       # raises AlreadyExists on a version race
+    return db.settings.create(new)                       # raises AlreadyExistsError on a version race
 
 def archive(unique_name: str) -> None
 def delete(unique_name: str) -> None                     # not archived, not assigned

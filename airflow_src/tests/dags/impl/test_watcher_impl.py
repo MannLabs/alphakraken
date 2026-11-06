@@ -21,7 +21,8 @@ from dags.impl.watcher_impl import (
 from mongoengine import NotUniqueError
 from plugins.common.keys import OpArgs, XComKeys
 
-from shared.db.models import InstrumentFileStatus, RawFile, RawFileStatus
+from shared.db.models import RawFile
+from shared.domain.raw_files import InstrumentFileStatus, RawFileStatus
 
 SOME_INSTRUMENT_ID = "_test1_"
 

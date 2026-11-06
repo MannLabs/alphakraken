@@ -18,6 +18,7 @@ _CONDITIONS = (
     ("instrument_ids", "instrument_id__in"),
     ("created_after", "created_at__gt"),
     ("updated_after", "updated_at___gt"),
+    ("status", "status"),
     ("statuses", "status__in"),
     ("backup_status", "backup_status"),
 )

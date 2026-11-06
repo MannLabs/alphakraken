@@ -57,7 +57,7 @@ class TestRawFileErrorAlert:
         assert result == []
         mock_find.assert_called_once_with(
             RawFileFilter(
-                statuses=[RawFileStatus.ERROR],
+                status=RawFileStatus.ERROR,
                 updated_after=NOW - timedelta(hours=24),
             )
         )

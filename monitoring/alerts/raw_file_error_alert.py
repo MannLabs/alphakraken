@@ -28,7 +28,7 @@ class RawFileErrorAlert(BaseAlert):
         youngest_updated_at = now - timedelta(hours=RAW_FILE_STATUS_LOOKBACK_HOURS)
         error_raw_files = raw_files.find(
             raw_files.RawFileFilter(
-                statuses=[RawFileStatus.ERROR], updated_after=youngest_updated_at
+                status=RawFileStatus.ERROR, updated_after=youngest_updated_at
             )
         )
 

@@ -6,6 +6,7 @@ from datetime import datetime
 from shared.db._mongo import raw_files as _backend
 from shared.domain.raw_files import RawFile
 
+# "-" prefix for descending: widely understood ORM convention but strictly speaking a _backend detail
 DEFAULT_ORDER = "-created_at"
 
 _ORDER_FIELDS = frozenset(field.name for field in fields(RawFile))
@@ -21,6 +22,7 @@ class RawFileFilter:
     instrument_ids: list[str] | None = None
     created_after: datetime | None = None
     updated_after: datetime | None = None
+    status: str | None = None
     statuses: list[str] | None = None
     backup_status: str | None = None
 

@@ -104,7 +104,8 @@ def test_conditions_of_full_filter() -> None:
         instrument_ids=["inst1", "inst2"],
         created_after=AWARE_TIME,
         updated_after=AWARE_TIME + timedelta(hours=1),
-        statuses=[RawFileStatus.ERROR],
+        status=RawFileStatus.ERROR,
+        statuses=[RawFileStatus.ERROR, RawFileStatus.QUANTING_FAILED],
         backup_status=BackupStatus.UPLOAD_FAILED,
     )
 
@@ -112,7 +113,8 @@ def test_conditions_of_full_filter() -> None:
         "instrument_id__in": ["inst1", "inst2"],
         "created_at__gt": AWARE_TIME,
         "updated_at___gt": AWARE_TIME + timedelta(hours=1),
-        "status__in": [RawFileStatus.ERROR],
+        "status": RawFileStatus.ERROR,
+        "status__in": [RawFileStatus.ERROR, RawFileStatus.QUANTING_FAILED],
         "backup_status": BackupStatus.UPLOAD_FAILED,
     }
 

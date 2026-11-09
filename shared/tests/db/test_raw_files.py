@@ -13,7 +13,7 @@ from shared.db._mongo import raw_files as backend
 from shared.db._mongo.connection import ensure_connected
 from shared.db._mongo.errors import translate_errors
 from shared.db._mongo.mappers import to_raw_file
-from shared.db.raw_files import RawFileFilter, find
+from shared.db.raw_files import RawFileFilter, count, find
 from shared.domain.errors import (
     AlreadyExistsError,
     DatabaseError,
@@ -101,8 +101,13 @@ def test_to_raw_file_keeps_optional_datetimes_none() -> None:
 def test_conditions_of_full_filter() -> None:
     """Each set filter field becomes one query condition."""
     where = RawFileFilter(
+        ids=["f1", "f2"],
+        instrument_id="inst1",
         instrument_ids=["inst1", "inst2"],
+        project_id="P1",
+        name_contains="F1",
         created_after=AWARE_TIME,
+        created_before=AWARE_TIME + timedelta(days=1),
         updated_after=AWARE_TIME + timedelta(hours=1),
         status=RawFileStatus.ERROR,
         statuses=[RawFileStatus.ERROR, RawFileStatus.QUANTING_FAILED],
@@ -110,9 +115,14 @@ def test_conditions_of_full_filter() -> None:
     )
 
     assert backend._conditions(where) == {
+        "id__in": ["f1", "f2"],
+        "instrument_id": "inst1",
         "instrument_id__in": ["inst1", "inst2"],
-        "created_at__gt": AWARE_TIME,
-        "updated_at___gt": AWARE_TIME + timedelta(hours=1),
+        "project_id": "P1",
+        "id__icontains": "F1",
+        "created_at__gte": AWARE_TIME,
+        "created_at__lte": AWARE_TIME + timedelta(days=1),
+        "updated_at___gte": AWARE_TIME + timedelta(hours=1),
         "status": RawFileStatus.ERROR,
         "status__in": [RawFileStatus.ERROR, RawFileStatus.QUANTING_FAILED],
         "backup_status": BackupStatus.UPLOAD_FAILED,
@@ -167,6 +177,14 @@ def test_find_with_all_options(mock_objects: MagicMock) -> None:
     query.exclude.assert_not_called()
     query.skip.assert_called_once_with(2)
     query.limit.assert_called_once_with(1)
+
+
+def test_count(mock_objects: MagicMock) -> None:
+    """The count applies the same conditions as find."""
+    mock_objects.return_value.count.return_value = 3
+
+    assert count(RawFileFilter(project_id="P1")) == 3
+    mock_objects.assert_called_once_with(project_id="P1")
 
 
 def test_find_rejects_unknown_order_field() -> None:

@@ -8,17 +8,14 @@ import os
 # ruff: noqa: BLE001  # Do not catch blind exception
 # ruff: noqa: ANN401  #  Dynamically typed expressions (typing.Any) are disallowed
 import sys
-from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
-import pytz
 from mcp.server.fastmcp import FastMCP
-from mongoengine import QuerySet
 
-from shared.db.engine import connect_db
-from shared.db.models import KrakenStatus, Metrics, RawFile
-from shared.domain.status import KrakenStatusEntities
+from shared.db import metrics, raw_files, status
+from shared.domain.metrics import Metrics
+from shared.domain.raw_files import RawFile
 
 mcp = FastMCP(
     name="AlphaKraken",
@@ -66,8 +63,10 @@ raw_file_keys_whitelist = [
     "size",
     "created_at",
 ]
-metrics_keys_blacklist = ["_id", "raw_file", "created_at_"]
 basic_metrics_keys = ["proteins", "gradient_length"]
+GRADIENT_LENGTH_KEY = "gradient_length"
+# relative tolerance of the gradient length filter
+GRADIENT_LENGTH_TOLERANCE = 0.05
 
 
 @mcp.tool()
@@ -81,22 +80,11 @@ def get_available_instruments() -> list[dict[str, Any]]:
                              If an error occurs, returns a list with one dictionary containing an "error" key.
 
     """
-    # It is a bit of a hack to use the KrakenStatus model here, but much cheaper than going through all raw files.
-
     try:
-        connect_db()
-
-        kraken_status_objects = KrakenStatus.objects()
-        results = []
-
-        for id_ in kraken_status_objects:
-            data_dict = dict(id_.to_mongo())
-            if data_dict["entity_type"] == KrakenStatusEntities.INSTRUMENT:
-                results.append(
-                    {
-                        "instrument_id": data_dict["_id"],
-                    }
-                )
+        results = [
+            {"instrument_id": instrument_id}
+            for instrument_id in status.instrument_ids()
+        ]
 
     except Exception as e:
         msg = f"Failed to retrieve instrument data: {e}"
@@ -124,11 +112,9 @@ def get_raw_files_by_names(
 
     """
     try:
-        connect_db()
-        raw_files = RawFile.objects.filter(id__in=raw_file_names)
-
-        results = augment_raw_files_with_metrics(
-            raw_files, gradient_length_filter=False, only_basic_metrics=False
+        found = raw_files.find(raw_files.RawFileFilter(ids=raw_file_names))
+        results = _with_latest_metrics(
+            found, gradient_length_filter=None, only_basic_metrics=False
         )
 
     except Exception as e:
@@ -153,7 +139,7 @@ def get_raw_files_for_instrument(
     Args:
         instrument_id (str): The ID of the instrument to filter raw files.
         name_search_string (str): A substring to search for in raw file IDs, case insensitive. Default is an empty string.
-        max_age_in_days (int): The maximum age of raw files in days. Default is 7.
+        max_age_in_days (int): The maximum age of raw files in days. Default is 30.
         gradient_length_filter (float | None): If not None, filters raw_files by gradient length (minutes).
             Raw files without metrics or outside this range are excluded. Filter has a tolerance of 5% around the provided value.
             Default is None.
@@ -170,16 +156,17 @@ def get_raw_files_for_instrument(
     """
     # Note: the docstring is used by the MCP server to generate the API documentation for the LLM!
 
-    cutoff = datetime.now(tz=pytz.utc) - timedelta(days=max_age_in_days)
+    cutoff = datetime.now(tz=UTC) - timedelta(days=max_age_in_days)
     try:
-        connect_db()
-        raw_files = RawFile.objects(
-            instrument_id=instrument_id,
-            id__icontains=name_search_string,
-            created_at__gte=cutoff,
+        found = raw_files.find(
+            raw_files.RawFileFilter(
+                instrument_id=instrument_id,
+                name_contains=name_search_string or None,
+                created_after=cutoff,
+            )
         )
-        results = augment_raw_files_with_metrics(
-            raw_files,
+        results = _with_latest_metrics(
+            found,
             gradient_length_filter=gradient_length_filter,
             only_basic_metrics=only_basic_metrics,
         )
@@ -192,43 +179,58 @@ def get_raw_files_for_instrument(
     return results
 
 
-def _flatten_metrics(
-    nested_dict: dict[str, dict[str, Any]],
-) -> dict[str, float | int | str]:
+def _flatten_metrics(by_type: dict[str, Metrics]) -> dict[str, Any]:
     """Flatten metrics from different types into a single dict with type prefixes for conflicts.
 
     On key collisions, only the new key will carry a prefix.
     The assumption is that collisions are rare and only happen for very generic keys like "proteins".
     """
-    flattened = {}
-    if not nested_dict:
-        return flattened
-
-    for metrics_type, metrics_data in nested_dict.items():
-        for key, value in metrics_data.items():
-            if key == "type":
-                continue
-
-            # Check if key already exists from another type
+    flattened: dict[str, Any] = {}
+    for metrics_type, type_metrics in by_type.items():
+        for key, value in {
+            **_metadata(type_metrics),
+            **type_metrics.values,
+        }.items():
             if key not in flattened:
                 flattened[key] = value
             else:
-                prefixed_key = f"{metrics_type}_{key}"
-                flattened[prefixed_key] = value
+                flattened[f"{metrics_type}_{key}"] = value
 
     return flattened
 
 
-def augment_raw_files_with_metrics(
-    raw_files: QuerySet,
+def _metadata(type_metrics: Metrics) -> dict[str, Any]:
+    """Return the metadata of the metrics that is exposed next to the values, skipping unset ones."""
+    metadata = {
+        "settings_name": type_metrics.settings_name,
+        "settings_version": type_metrics.settings_version,
+        "relative_output_path": type_metrics.relative_output_path,
+        "output_display_base_path": type_metrics.output_display_base_path,
+    }
+    return {k: v for k, v in metadata.items() if v is not None}
+
+
+def _matches_gradient_length(gradient_length: Any, target: float) -> bool:
+    """Return whether the gradient length is within the tolerance of the target; a missing one never is."""
+    if gradient_length is None:
+        return False
+    return (
+        float(gradient_length) * (1 - GRADIENT_LENGTH_TOLERANCE)
+        <= target
+        <= float(gradient_length) * (1 + GRADIENT_LENGTH_TOLERANCE)
+    )
+
+
+def _with_latest_metrics(
+    found: list[RawFile],
     *,
     gradient_length_filter: float | None,
     only_basic_metrics: bool,
 ) -> list[dict[str, Any]]:
-    """Augment raw files with their latest metrics.
+    """Combine raw files with their latest metrics.
 
     Args:
-        raw_files (QuerySet): A mongoengine QuerySet of RawFile objects to augment with metrics.
+        found (list[RawFile]): The raw files to combine with their metrics.
         gradient_length_filter (float | None): If not None, filters raw_files by gradient length (minutes).
             Raw files without metrics or outside this range are excluded. Filter has a tolerance of +/- 5% around the provided value.
         only_basic_metrics (bool): If True, only basic metrics (gradient_length, number of proteins) are returned, for a quick overview.
@@ -240,68 +242,30 @@ def augment_raw_files_with_metrics(
                               - "metrics": A dictionary with the latest metrics or an empty dictionary if none exist.
 
     """
-    raw_files_dict: dict = {
-        raw_file_mongo["_id"]: raw_file_mongo
-        for raw_file in raw_files
-        if (
-            raw_file_mongo := dict(raw_file.to_mongo())
-        )  # if condition is always true, but avoids double-calling to_mongo((
-    }
-
-    # querying all metrics at once to avoid load on DB
-    for metrics_ in Metrics.objects.filter(
-        raw_file__in=list(raw_files_dict.keys())
-    ).order_by("-created_at_"):
-        metrics = dict(metrics_.to_mongo())
-        raw_file_id = metrics["raw_file"]
-        if "metrics" not in raw_files_dict[raw_file_id]:
-            raw_files_dict[raw_file_id]["metrics"] = defaultdict(dict)
-
-        metrics_type = metrics.get("type", "default")
-
-        if metrics_type not in raw_files_dict[raw_file_id]["metrics"]:
-            raw_files_dict[raw_file_id]["metrics"][metrics_type] = metrics
+    latest_metrics = metrics.latest_by_raw_file([raw_file.id for raw_file in found])
 
     results = []
-    for raw_file in raw_files_dict.values():
-        metrics = _flatten_metrics(raw_file.get("metrics"))
+    for raw_file in found:
+        flattened = _flatten_metrics(latest_metrics.get(raw_file.id, {}))
 
-        if "raw:gradient_length_m" in metrics:  # alphadia < 2
-            metrics["gradient_length"] = metrics["raw:gradient_length_m"]
-            del metrics["raw:gradient_length_m"]
-
-        if gradient_length_filter and (
-            not metrics
-            or not float(metrics["gradient_length"]) * 0.95
-            <= gradient_length_filter
-            <= float(metrics["gradient_length"]) * 1.05
+        if gradient_length_filter and not _matches_gradient_length(
+            flattened.get(GRADIENT_LENGTH_KEY), gradient_length_filter
         ):
             continue
 
-        # TODO: this needs to be combined with the above step
-        metrics_dict = (
-            {
-                k: _format(v)
-                for k, v in metrics.items()
-                if not any(
-                    k.endswith(blk) for blk in metrics_keys_blacklist
-                )  # using endswith to also consider prefix keys (hacky!)
-                and (k in basic_metrics_keys or not only_basic_metrics)
-            }
-            if metrics
-            else {}
-        )
-
         results.append(
             {
-                # TODO: this needs to be combined with the above step
                 "raw_file": {
                     k: _format(v)
-                    for k, v in raw_file.items()
+                    for k, v in vars(raw_file).items()
                     if k in raw_file_keys_whitelist
                 }
-                | {"name": raw_file["_id"]},
-                "metrics": metrics_dict,
+                | {"name": raw_file.id},
+                "metrics": {
+                    k: _format(v)
+                    for k, v in flattened.items()
+                    if k in basic_metrics_keys or not only_basic_metrics
+                },
             }
         )
     return results

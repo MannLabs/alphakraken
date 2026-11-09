@@ -3,35 +3,27 @@
 from datetime import datetime
 from typing import Any
 
+from shared.db import metrics, raw_files
 from shared.db.engine import connect_db
-from shared.db.interface import augment_raw_files_with_metrics
 from shared.db.models import (
     Project,
     ProjectSettings,
-    RawFile,
     Settings,
     split_unique_settings_name,
 )
 from shared.display_paths import get_display_backup_path, get_display_output_path
+from shared.domain.metrics import Metrics
 from shared.domain.projects import ProjectStatus
+from shared.domain.raw_files import RawFile
 from shared.domain.settings import SettingsStatus
-
-METRICS_EXCLUDED_KEYS = {
-    "_id",
-    "raw_file",
-    "created_at_",
-    "settings_name",
-    "settings_version",
-    "relative_output_path",  # served resolved as `output_path`
-    "output_display_base_path",  # served resolved as `output_path`
-}
 
 FILE_INFO_KEY = "file_info"
 # file_info paths are relative to this folder, so the two are returned together
 BACKUP_PATH_KEY = "backup_path"
 OUTPUT_PATH_KEY = "output_path"
+METRICS_TYPE_KEY = "type"
 
-RAW_FILE_EXCLUDED_KEYS = {"_id", "created_at_", FILE_INFO_KEY}
+RAW_FILE_EXCLUDED_KEYS = {"id", "created_at_", FILE_INFO_KEY}
 
 
 def _query_raw_files(  # noqa: PLR0913
@@ -51,63 +43,38 @@ def _query_raw_files(  # noqa: PLR0913
         Tuple of (paginated raw files, total count matching the filters).
 
     """
-    connect_db()
-
-    query = RawFile.objects
-    if not include_file_info:
-        query = query.exclude(FILE_INFO_KEY)
-
-    if instrument_id is not None:
-        query = query.filter(instrument_id=instrument_id)
-    if name_contains is not None:
-        query = query.filter(id__icontains=name_contains)
-    if project_id is not None:
-        query = query.filter(project_id=project_id)
-    if date_from is not None:
-        query = query.filter(created_at__gte=date_from)
-    if date_to is not None:
-        query = query.filter(created_at__lte=date_to)
-
-    total = query.count()
-    raw_files = list(query.order_by("-created_at").skip(offset).limit(limit))
-
-    return raw_files, total
+    where = raw_files.RawFileFilter(
+        instrument_id=instrument_id,
+        name_contains=name_contains,
+        project_id=project_id,
+        created_after=date_from,
+        created_before=date_to,
+    )
+    found = raw_files.find(
+        where, limit=limit, offset=offset, include_file_info=include_file_info
+    )
+    return found, raw_files.count(where)
 
 
-def _to_metrics_list(raw_file_data: dict[str, Any]) -> list[dict[str, Any]]:
-    """Extract metrics dicts from raw file data into a list, removing internal keys.
-
-    Metrics entries are identified by having a "type" key (added by augment_raw_files_with_metrics).
-    """
-    metrics_list = []
-    for key in list(raw_file_data):
-        value = raw_file_data[key]
-        if not isinstance(value, dict) or "type" not in value:
-            continue
-        raw_file_data.pop(key)
-
-        # harmonize legacy field name
-        if "raw:gradient_length_m" in value:
-            value["gradient_length"] = value.pop("raw:gradient_length_m")
-
-        if (relative_output_path := value.get("relative_output_path")) is not None:
-            value[OUTPUT_PATH_KEY] = get_display_output_path(
-                relative_output_path, value.get("output_display_base_path")
-            )
-
-        metrics_list.append(
-            {k: v for k, v in value.items() if k not in METRICS_EXCLUDED_KEYS}
+def _to_metrics_dict(type_metrics: Metrics) -> dict[str, Any]:
+    """Build a metrics response dict: the type, the values and the output folder as users see it."""
+    data = {METRICS_TYPE_KEY: type_metrics.type, **type_metrics.values}
+    if type_metrics.relative_output_path is not None:
+        data[OUTPUT_PATH_KEY] = get_display_output_path(
+            type_metrics.relative_output_path, type_metrics.output_display_base_path
         )
-    return metrics_list
+    return data
 
 
-def _to_raw_file_dict(
-    raw_file_data: dict[str, Any], *, excluded_keys: set[str]
-) -> dict[str, Any]:
-    """Build a raw file response dict from augmented data, excluding internal keys."""
+def _to_raw_file_dict(raw_file: RawFile, *, excluded_keys: set[str]) -> dict[str, Any]:
+    """Build a raw file response dict, excluding internal keys and unset fields."""
     return {
-        "id": raw_file_data["_id"],
-        **{k: v for k, v in raw_file_data.items() if k not in excluded_keys},
+        "id": raw_file.id,
+        **{
+            k: v
+            for k, v in vars(raw_file).items()
+            if k not in excluded_keys and v is not None
+        },
     }
 
 
@@ -132,7 +99,7 @@ def get_raw_files_with_metrics(  # noqa: PLR0913
         are included only when include_file_info is True.
 
     """
-    raw_files, total = _query_raw_files(
+    found, total = _query_raw_files(
         instrument_id=instrument_id,
         name_contains=name_contains,
         project_id=project_id,
@@ -147,26 +114,20 @@ def get_raw_files_with_metrics(  # noqa: PLR0913
     if include_file_info:
         excluded_keys = excluded_keys - {FILE_INFO_KEY}
 
+    results = [
+        _to_raw_file_dict(raw_file, excluded_keys=excluded_keys) for raw_file in found
+    ]
+
     if include_metrics:
-        results = []
-        for raw_file_data in augment_raw_files_with_metrics(
-            raw_files, prefix=""
-        ).values():
-            metrics = _to_metrics_list(raw_file_data)
-            results.append(
-                {
-                    **_to_raw_file_dict(raw_file_data, excluded_keys=excluded_keys),
-                    "metrics": metrics,
-                }
-            )
-    else:
-        results = [
-            _to_raw_file_dict(dict(raw_file.to_mongo()), excluded_keys=excluded_keys)
-            for raw_file in raw_files
-        ]
+        latest_metrics = metrics.latest_by_raw_file([raw_file.id for raw_file in found])
+        for raw_file, result in zip(found, results, strict=True):
+            result["metrics"] = [
+                _to_metrics_dict(type_metrics)
+                for type_metrics in latest_metrics.get(raw_file.id, {}).values()
+            ]
 
     if include_file_info:
-        for raw_file, result in zip(raw_files, results, strict=True):
+        for raw_file, result in zip(found, results, strict=True):
             result[BACKUP_PATH_KEY] = get_display_backup_path(raw_file)
 
     return results, total

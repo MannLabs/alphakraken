@@ -5,9 +5,7 @@ Note: this module must not have any dependencies on the rest of the codebase.
 
 import logging
 import re
-from collections.abc import Iterable
 from datetime import UTC, datetime, timedelta
-from typing import Any
 
 from mongoengine import Q
 from pymongo import UpdateOne
@@ -607,72 +605,6 @@ def get_slurm_job(cluster_id: str, job_id: str) -> SlurmJob | None:
     connect_db()
 
     return SlurmJob.objects(id=get_slurm_job_db_id(cluster_id, job_id)).first()
-
-
-def augment_raw_files_with_metrics(
-    raw_files: Iterable[RawFile],
-    fields: list[str] | None = None,
-    prefix: str = "metrics_",
-    *,
-    flatten: bool = False,
-) -> dict[str, Any]:
-    """Augment raw files with their latest metrics.
-
-    Args:
-        raw_files: RawFile objects to augment with metrics.
-        fields: Optional list of specific metric fields to retrieve, None means 'all'.
-        prefix: Prefix for the metrics type keys added to each raw file dict.
-        flatten (bool): Whether to flatten the metrics into the main dictionary with keys prefixed by the metric type + "__".
-
-    Returns:
-        dict[str, Any]: A dictionary containing raw file information and their latest metrics.
-                              Each dictionary has the keys:
-                              - "raw_file": A dictionary with raw file details.
-                              - "metrics_{type}": A dictionary with the latest metrics of type "type" or an empty dictionary if none exist.
-
-    """
-    raw_files_dict: dict = {
-        raw_file_mongo["_id"]: raw_file_mongo
-        for raw_file in raw_files
-        if (
-            raw_file_mongo := dict(raw_file.to_mongo())
-        )  # if condition is always true, but avoids double-calling to_mongo((
-    }
-
-    # querying all metrics at once to avoid load on DB
-    if fields is not None:
-        metrics_query = Metrics.objects.only(*["raw_file", "type", *fields])
-    else:
-        metrics_query = Metrics.objects
-
-    for metrics_ in metrics_query.filter(
-        raw_file__in=list(raw_files_dict.keys())
-    ).order_by("-created_at_"):
-        metrics = dict(metrics_.to_mongo())
-
-        # TODO: centralize column names and harmonization
-        if "raw:gradient_length_m" in metrics:  # alphadia < 2
-            metrics["gradient_length"] = metrics["raw:gradient_length_m"]
-            del metrics["raw:gradient_length_m"]
-
-        if "msqc_evosep_pump_hp_pressure_max" in metrics:
-            metrics["evosep_pump_hp_pressure_max"] = metrics[
-                "msqc_evosep_pump_hp_pressure_max"
-            ]
-            del metrics["msqc_evosep_pump_hp_pressure_max"]
-
-        raw_file_id = metrics["raw_file"]
-
-        if flatten:
-            for key, value in metrics.items():
-                if key not in ["raw_file", "type"]:
-                    new_key = f"{metrics['type']}__{key}"
-
-                    raw_files_dict[raw_file_id][new_key] = value
-        else:
-            raw_files_dict[raw_file_id][f"{prefix}{metrics['type']}"] = metrics
-
-    return raw_files_dict
 
 
 def get_alert_issues() -> list[AlertIssue]:

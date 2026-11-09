@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import re
 from datetime import UTC, datetime
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 from mongoengine import (
     DateTimeField,
@@ -34,6 +34,9 @@ from shared.keys import (
     MetricsTypes,
     SoftwareTypes,
 )
+
+if TYPE_CHECKING:
+    from shared.domain import raw_files
 
 
 class RawFile(Document):
@@ -114,7 +117,7 @@ def parse_file_info_item(
     raise ValueError(f"Invalid file_info item length {len(item)} {item}.")
 
 
-def get_created_at_year_month(raw_file: RawFile) -> str:
+def get_created_at_year_month(raw_file: RawFile | raw_files.RawFile) -> str:
     """Get the year and month of the raw file creation date."""
     return raw_file.created_at.strftime("%Y_%m")
 

@@ -16,11 +16,16 @@ _ORDER_FIELDS = frozenset(field.name for field in fields(RawFile))
 class RawFileFilter:
     """Conditions a raw file must all meet; None means no condition.
 
-    `*_after`: strictly later than.
+    `*_after` and `*_before` are inclusive bounds, `name_contains` is case-insensitive.
     """
 
+    ids: list[str] | None = None
+    instrument_id: str | None = None
     instrument_ids: list[str] | None = None
+    project_id: str | None = None
+    name_contains: str | None = None
     created_after: datetime | None = None
+    created_before: datetime | None = None
     updated_after: datetime | None = None
     status: str | None = None
     statuses: list[str] | None = None
@@ -49,3 +54,8 @@ def find(
         offset=offset,
         include_file_info=include_file_info,
     )
+
+
+def count(where: RawFileFilter) -> int:
+    """Return the number of raw files matching `where`."""
+    return _backend.count(where)

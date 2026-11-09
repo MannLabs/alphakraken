@@ -172,7 +172,9 @@ re-quanted files.
 file with the same settings, query `/raw_files/?name_contains=<id>` and the MCP tool, both
 must show the newer metrics; pump alert log unchanged otherwise.
 
-**Exit**: `mcp_server/server.py` and the pump pressure alert off the exemption list.
+**Exit**: `mcp_server/server.py` off the exemption list. The pump pressure alert stays on it
+until slice 5 for the `KrakenStatus` type hint, like the slice 2 alerts; the `KrakenStatus`
+dataclass is not needed before slice 5 either, `instrument_ids()` returns strings.
 
 ### Slice 5: status and the remaining alerts, monitoring off mongoengine (2 days)
 

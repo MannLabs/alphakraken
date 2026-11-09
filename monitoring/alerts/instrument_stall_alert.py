@@ -34,9 +34,7 @@ class InstrumentStallAlert(BaseAlert):
         issues = []
         for instrument_id in INSTRUMENT_STALL_INSTRUMENT_IDS:
             latest_files = raw_files.find(
-                raw_files.RawFileFilter(instrument_ids=[instrument_id]),
-                order="-created_at",
-                limit=1,
+                raw_files.RawFileFilter(instrument_id=instrument_id), limit=1
             )
 
             if not latest_files:

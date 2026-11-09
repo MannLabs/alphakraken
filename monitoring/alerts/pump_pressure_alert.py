@@ -61,8 +61,7 @@ def _load_pressure_data(
     """Load the pressure measurements of the recent raw files per instrument, newest first."""
     cutoff = now - timedelta(days=PUMP_PRESSURE_LOOKBACK_DAYS)
     recent_files = raw_files.find(
-        raw_files.RawFileFilter(instrument_ids=instrument_ids, created_after=cutoff),
-        order="-created_at",
+        raw_files.RawFileFilter(instrument_ids=instrument_ids, created_after=cutoff)
     )
     if not recent_files:
         logging.debug("No raw files found in lookback window")

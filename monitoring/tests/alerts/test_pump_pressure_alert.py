@@ -178,8 +178,7 @@ class TestLoadPressureData:
         mock_find.assert_called_once_with(
             RawFileFilter(
                 instrument_ids=["instrument1"], created_after=NOW - timedelta(days=7)
-            ),
-            order="-created_at",
+            )
         )
         mock_latest.assert_not_called()
 

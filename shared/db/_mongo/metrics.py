@@ -31,14 +31,22 @@ def latest_by_raw_file(
 ) -> dict[str, dict[str, Metrics]]:
     """Return the newest metrics per type of each raw file, cf. `shared.db.metrics`."""
     ensure_connected()
-    query = models.Metrics.objects(raw_file__in=raw_file_ids).order_by("-created_at_")
+    newest_first = (
+        "-created_at_"  # important for the "first per type is the latest" logic below
+    )
+    query = models.Metrics.objects(raw_file__in=raw_file_ids).order_by(newest_first)
     if fields is not None:
+        # mongoengine fills fields left out of a projection with their defaults instead of None,
+        # so the metadata must always be loaded: a missing `created_at_` would read as "now"
         query = query.only(*_METADATA_FIELDS, *_stored_keys(fields))
 
     result: dict[str, dict[str, Metrics]] = {}
     for doc in query:
         metrics = _to_metrics(doc)
-        result.setdefault(metrics.raw_file_id, {}).setdefault(metrics.type, metrics)
+        per_type = result.setdefault(metrics.raw_file_id, {})
+        # newest first, so the first one per type is the latest
+        if metrics.type not in per_type:
+            per_type[metrics.type] = metrics
     return result
 
 

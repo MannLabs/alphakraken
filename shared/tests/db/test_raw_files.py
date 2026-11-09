@@ -1,6 +1,7 @@
 """Tests for the raw files API and its Mongo backend."""
 
 from collections.abc import Iterator
+from dataclasses import fields
 from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock, patch
 
@@ -129,9 +130,35 @@ def test_conditions_of_full_filter() -> None:
     }
 
 
+def test_every_filter_field_has_a_query_key() -> None:
+    """A filter field without a query key would raise instead of being ignored."""
+    assert set(backend._QUERY_KEYS) == {field.name for field in fields(RawFileFilter)}
+
+
 def test_conditions_of_empty_filter() -> None:
     """An empty filter matches everything."""
     assert backend._conditions(RawFileFilter()) == {}
+
+
+def test_conditions_leave_out_unset_fields() -> None:
+    """Only the set fields become conditions."""
+    where = RawFileFilter(instrument_id="inst1", statuses=[RawFileStatus.ERROR])
+
+    assert backend._conditions(where) == {
+        "instrument_id": "inst1",
+        "status__in": [RawFileStatus.ERROR],
+    }
+
+
+def test_conditions_raise_for_a_field_without_query_key() -> None:
+    """A set field that the backend does not know is an error, not a filter silently dropped."""
+    query_keys = {k: v for k, v in backend._QUERY_KEYS.items() if k != "status"}
+
+    with (
+        patch.dict(backend._QUERY_KEYS, query_keys, clear=True),
+        pytest.raises(KeyError, match="status"),
+    ):
+        backend._conditions(RawFileFilter(status=RawFileStatus.ERROR))
 
 
 # find

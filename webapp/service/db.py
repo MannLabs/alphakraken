@@ -1,6 +1,7 @@
 """Database service for the web application."""
 
 import re
+from dataclasses import is_dataclass
 from datetime import datetime, timedelta
 
 # ruff: noqa: PD002 # `inplace=True` should be avoided; it has inconsistent behavior
@@ -10,13 +11,14 @@ from mongoengine import Q, QuerySet
 from service.timezone import display_now, to_display_timezone
 from service.utils import _log
 
-from shared.db import raw_files
+from shared.db import raw_files, status
 from shared.db.engine import connect_db
-from shared.db.models import KrakenStatus, Metrics, Project, RawFile, Settings
+from shared.db.models import Metrics, Project, RawFile, Settings
 from shared.display_paths import get_display_backup_path, get_display_output_path
 from shared.domain.projects import ProjectStatus
 from shared.domain.raw_files import TERMINAL_STATUSES
 from shared.domain.settings import SettingsStatus
+from shared.domain.status import KrakenStatus
 from shared.validation import (
     ALLOWED_RAW_FILE_NAME_CHARACTERS_PRETTY,
     FORBIDDEN_RAW_FILE_NAME_CHARACTERS_PATTERN,
@@ -210,16 +212,12 @@ def get_raw_files_for_throughput_per_day(days: int = 14) -> pd.DataFrame:
     :param days: Number of days to look back (default: 14)
     :return: DataFrame with columns: date, instrument_id, count, size_gb
     """
-    connect_db()
-    min_created_at = pd.Timestamp(datetime.now(tz=pytz.UTC) - timedelta(days=days))
+    min_created_at = datetime.now(tz=pytz.UTC) - timedelta(days=days)
 
-    raw_files_db = (
-        RawFile.objects(
-            created_at__gte=min_created_at,
-            status__in=TERMINAL_STATUSES,
+    raw_files_db = raw_files.find(
+        raw_files.RawFileFilter(
+            created_after=min_created_at, statuses=TERMINAL_STATUSES
         )
-        .only("created_at", "instrument_id", "size")
-        .order_by("created_at")
     )
 
     if not raw_files_db:
@@ -251,15 +249,13 @@ def get_raw_files_for_throughput_per_day(days: int = 14) -> pd.DataFrame:
     return result[["date", "instrument_id", "count", "size_gb"]]
 
 
-def get_status_data() -> QuerySet:
-    """Connect to the database and return the QuerySets for KrakenStatus."""
-    _log("Connecting to the database")
-    connect_db()
+def get_status_data() -> list[KrakenStatus]:
+    """Return the status of all entities."""
     _log("Retrieving all status data")
-    objects = KrakenStatus.objects
+    status_data = status.find()
     _log("Done retrieving all status data")
 
-    return objects
+    return status_data
 
 
 def get_project_data() -> QuerySet:
@@ -279,16 +275,17 @@ def get_settings_data() -> QuerySet:
 
 
 def df_from_db_data(
-    query_set: QuerySet,
+    query_set: QuerySet | list,
     *,
     filter_dict: dict | None = None,
     drop_duplicates: list[str] | None = None,
     drop_columns: list[str] | None = None,
     drop_none_columns: bool = False,
 ) -> pd.DataFrame:
-    """Create a DataFrame from a database QuerySet.
+    """Create a DataFrame from database results.
 
-    :param query_set: the MongoDB QuerySet to convert to a DataFrame
+    :param query_set: the domain objects or, for the queries not ported yet, the MongoDB QuerySet
+        to convert to a DataFrame
     :param filter_dict: optional dictionary to filter the DataFrame, e.g {"status": "done"}
     :param drop_duplicates: optional list of columns to drop duplicates on after applying the filter
         (youngest created_at_ will be kept)
@@ -296,7 +293,9 @@ def df_from_db_data(
     :param drop_none_columns: if True, drop columns that contain only None values
     :return: dataframe containing the data from the QuerySet
     """
-    query_set_as_dicts = [r.to_mongo() for r in query_set]
+    query_set_as_dicts = [
+        vars(r) if is_dataclass(r) else r.to_mongo() for r in query_set
+    ]
     query_set_df = pd.DataFrame(query_set_as_dicts)
 
     if filter_dict:

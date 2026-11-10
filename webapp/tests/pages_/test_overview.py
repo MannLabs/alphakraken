@@ -62,7 +62,7 @@ def _configure_mocks(
     )
     status_df = pd.DataFrame(
         {
-            "_id": ["i1", "i1"],
+            "id": ["i1", "i1"],
             "updated_at_": [ts1, ts2],
             "status": ["ok", "ok"],
             "status_details": ["", ""],

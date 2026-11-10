@@ -16,7 +16,7 @@ PAGES = ["overview.py", "status.py", "projects.py", "settings.py"]
 # generous, as the first page run also pays the matplotlib font cache build
 RUN_TIMEOUT_SECONDS = 30
 
-DB_MODELS = ["RawFile", "Metrics", "KrakenStatus", "Project", "Settings"]
+DB_MODELS = ["RawFile", "Metrics", "Project", "Settings"]
 
 
 def _empty_query_set() -> MagicMock:
@@ -37,6 +37,7 @@ def _empty_db() -> Iterator[None]:
     with (
         patch("shared.db.interface.connect_db"),
         patch("shared.db.raw_files.find", return_value=[]),
+        patch("shared.db.status.find", return_value=[]),
         patch("service.db.connect_db"),
         patch.multiple(
             "service.db", **{model: MagicMock() for model in DB_MODELS}

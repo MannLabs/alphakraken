@@ -17,7 +17,7 @@ def display_status_warning() -> None:
         & (status_data_df["status"] != KrakenStatusValues.OK)
     ]
     if len(nok_status_df):
-        instruments_with_issues = nok_status_df["_id"].unique()
+        instruments_with_issues = nok_status_df["id"].unique()
         st.warning(
             f"Currently, monitoring of the following instrument(s) is disrupted: **{', '.join(instruments_with_issues)}** . "
             "Please check the status page for more information. "

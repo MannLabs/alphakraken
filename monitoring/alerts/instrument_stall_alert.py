@@ -4,7 +4,7 @@ import logging
 from datetime import datetime, timedelta
 
 from shared.db import raw_files
-from shared.db.models import KrakenStatus
+from shared.domain.status import KrakenStatus
 
 from .base_alert import BaseAlert, Issue
 from .config import (

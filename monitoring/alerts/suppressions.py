@@ -2,7 +2,7 @@
 
 from alerts.base_alert import BaseAlert, Issue
 
-from shared.db.models import AlertSuppression
+from shared.domain.alerts import AlertSuppression
 from shared.keys import ALERT_SUPPRESSION_WILDCARD
 
 

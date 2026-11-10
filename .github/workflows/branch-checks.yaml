@@ -36,9 +36,12 @@ jobs:
           pip install -r airflow_src/requirements_docker_job_engine.txt
           pip install -r webapp/requirements_webapp.txt
           pip install -r rest_api/requirements_rest_api.txt
+          pip install -r monitoring/requirements_monitoring.txt
           airflow db migrate
           pip freeze
           python -m pytest shared webapp airflow_src rest_api
+          # separate run: the monitoring puts its own top-level modules on the path
+          python -m pytest monitoring
 
   docker-compose-test:
     runs-on: ubuntu-latest

@@ -7,6 +7,7 @@ import pytz
 
 from monitoring.alerts.base_alert import Issue
 from monitoring.alerts.status_pile_up_alert import StatusPileUpAlert
+from shared.domain.raw_files import TERMINAL_STATUSES
 from shared.domain.status import KrakenStatusEntities
 
 NOW = datetime(2024, 1, 15, 12, 0, tzinfo=pytz.UTC)
@@ -27,7 +28,7 @@ class TestStatusPileUpAlert:
         assert result == "StatusPileUpAlert"
 
     @patch("monitoring.alerts.status_pile_up_alert.STATUS_PILE_UP_THRESHOLDS")
-    @patch("monitoring.alerts.status_pile_up_alert.RawFile")
+    @patch("shared.db.raw_files.count_by_status")
     def test_check_should_handle_comprehensive_pile_up_scenarios(
         self, mock_rawfile: Mock, mock_thresholds: Mock
     ) -> None:
@@ -83,9 +84,10 @@ class TestStatusPileUpAlert:
         ]
 
         # Mock RawFile queries with different pile-up scenarios
-        def mock_rawfile_side_effect(**kwargs) -> Mock:
-            instrument_id = kwargs.get("instrument_id")
-            mock_query = Mock()
+        def mock_rawfile_side_effect(
+            instrument_id: str, *, statuses_not: list[str]
+        ) -> dict[str, int]:
+            assert statuses_not == TERMINAL_STATUSES
 
             # Define status counts for each scenario
             scenarios = {
@@ -120,10 +122,9 @@ class TestStatusPileUpAlert:
                 },
             }
 
-            mock_query.item_frequencies.return_value = scenarios.get(instrument_id, {})
-            return mock_query
+            return scenarios.get(instrument_id, {})
 
-        mock_rawfile.objects.side_effect = mock_rawfile_side_effect
+        mock_rawfile.side_effect = mock_rawfile_side_effect
 
         # when
         result = alert._get_issues(status_objects, NOW)
@@ -185,7 +186,7 @@ class TestStatusPileUpAlert:
         assert result == expected
 
     @patch("monitoring.alerts.status_pile_up_alert.STATUS_PILE_UP_THRESHOLDS")
-    @patch("monitoring.alerts.status_pile_up_alert.RawFile")
+    @patch("shared.db.raw_files.count_by_status")
     def test_check_should_return_empty_when_no_pile_ups(
         self, mock_rawfile: Mock, mock_thresholds: Mock
     ) -> None:
@@ -218,9 +219,10 @@ class TestStatusPileUpAlert:
         status_objects.extend([mock_job, mock_filesystem])
 
         # Mock RawFile queries - all counts below thresholds or empty
-        def mock_rawfile_side_effect(**kwargs) -> Mock:
-            instrument_id = kwargs.get("instrument_id")
-            mock_query = Mock()
+        def mock_rawfile_side_effect(
+            instrument_id: str, *, statuses_not: list[str]
+        ) -> dict[str, int]:
+            assert statuses_not == TERMINAL_STATUSES
 
             scenarios = {
                 "instrument1": {
@@ -234,10 +236,9 @@ class TestStatusPileUpAlert:
                 "instrument3": {},  # No files
             }
 
-            mock_query.item_frequencies.return_value = scenarios.get(instrument_id, {})
-            return mock_query
+            return scenarios.get(instrument_id, {})
 
-        mock_rawfile.objects.side_effect = mock_rawfile_side_effect
+        mock_rawfile.side_effect = mock_rawfile_side_effect
 
         # when
         result = alert._get_issues(status_objects, NOW)
@@ -246,7 +247,7 @@ class TestStatusPileUpAlert:
         assert result == []
 
     @patch("monitoring.alerts.status_pile_up_alert.STATUS_PILE_UP_THRESHOLDS")
-    @patch("monitoring.alerts.status_pile_up_alert.RawFile")
+    @patch("shared.db.raw_files.count_by_status")
     def test_entity_type_filtering_behavior(
         self, mock_rawfile: Mock, mock_thresholds: Mock
     ) -> None:
@@ -275,20 +276,15 @@ class TestStatusPileUpAlert:
 
         status_objects = [mock_instrument, mock_job1, mock_job2, mock_filesystem]
 
-        # Mock RawFile query - only for instrument
-        mock_query = Mock()
-        mock_query.item_frequencies.return_value = {"processing": 8}  # Above threshold
-        mock_rawfile.objects.return_value = mock_query
+        mock_rawfile.return_value = {"processing": 8}  # Above threshold
 
         # when
         result = alert._get_issues(status_objects, NOW)
 
-        # then
-        # Should only call RawFile.objects once for the instrument
-        mock_rawfile.objects.assert_called_once()
-        call_args = mock_rawfile.objects.call_args
-        assert call_args[1]["instrument_id"] == "test_instrument"
-        assert "status__nin" in call_args[1]
+        # then - only the instrument is queried
+        mock_rawfile.assert_called_once_with(
+            "test_instrument", statuses_not=TERMINAL_STATUSES
+        )
         assert result == [
             Issue("test_instrument", "processing: 8", instrument_id="test_instrument")
         ]

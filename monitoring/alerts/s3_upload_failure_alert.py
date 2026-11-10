@@ -3,8 +3,8 @@
 from datetime import datetime, timedelta
 
 from shared.db import raw_files
-from shared.db.models import KrakenStatus
 from shared.domain.raw_files import BackupStatus, RawFile
+from shared.domain.status import KrakenStatus
 
 from .base_alert import BaseAlert, Issue
 from .config import RAW_FILE_STATUS_LOOKBACK_HOURS

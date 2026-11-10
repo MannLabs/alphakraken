@@ -19,7 +19,7 @@ from common.utils import get_timestamp
 from file_handling import get_disk_usage
 from raw_file_wrapper_factory import RawFileWrapperFactory
 
-from shared.db.interface import update_kraken_status
+from shared.db import status as db_status
 from shared.domain.status import KrakenStatusEntities, KrakenStatusValues
 from shared.keys import InternalPaths
 
@@ -48,7 +48,7 @@ def _check_health(instrument_id: str) -> None:
 
     *_, free_space_gb = get_disk_usage(data_path)
 
-    update_kraken_status(
+    db_status.update(
         instrument_id,
         status=KrakenStatusValues.ERROR if status_details else KrakenStatusValues.OK,
         status_details="; ".join(status_details),
@@ -57,7 +57,7 @@ def _check_health(instrument_id: str) -> None:
 
     # Update backup filesystem status
     *_, backup_free_space_gb = get_disk_usage(backup_path)
-    update_kraken_status(
+    db_status.update(
         "backup",
         status=KrakenStatusValues.OK,
         status_details="",
@@ -67,7 +67,7 @@ def _check_health(instrument_id: str) -> None:
 
     # Update output filesystem status
     *_, output_free_space_gb = get_disk_usage(output_path)
-    update_kraken_status(
+    db_status.update(
         "output",
         status=KrakenStatusValues.OK,
         status_details="",

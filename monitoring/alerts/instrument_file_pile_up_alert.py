@@ -1,10 +1,9 @@
 """Instrument file pile-up alert checker."""
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
-from shared.db.interface import get_raw_files_by_instrument_file_status
-from shared.db.models import KrakenStatus
-from shared.domain.status import KrakenStatusEntities
+from shared.db import raw_files
+from shared.domain.status import KrakenStatus, KrakenStatusEntities
 
 from .base_alert import BaseAlert, Issue
 from .config import (
@@ -22,7 +21,7 @@ class InstrumentFilePileUpAlert(BaseAlert):
         self, status_objects: list[KrakenStatus], now: datetime
     ) -> list[Issue[str]]:
         """Check for instrument file pile-ups."""
-        del now  # unused
+        cutoff = now - timedelta(hours=INSTRUMENT_FILE_MIN_AGE_HOURS)
         instrument_file_pile_up_instruments = []
 
         for kraken_status in [
@@ -37,12 +36,13 @@ class InstrumentFilePileUpAlert(BaseAlert):
                 instrument_file_status,
                 threshold,
             ) in INSTRUMENT_FILE_PILE_UP_THRESHOLDS.items():
-                files = get_raw_files_by_instrument_file_status(
-                    instrument_file_status,
-                    instrument_id=instrument_id,
-                    min_age_hours=INSTRUMENT_FILE_MIN_AGE_HOURS,
+                count = raw_files.count(
+                    raw_files.RawFileFilter(
+                        instrument_file_status=instrument_file_status,
+                        instrument_id=instrument_id,
+                        created_before=cutoff,
+                    )
                 )
-                count = len(files)
 
                 if count > threshold:
                     pile_up_detected.append(f"{instrument_file_status}: {count}")

@@ -2,8 +2,7 @@
 
 from datetime import datetime
 
-from shared.db.models import KrakenStatus
-from shared.domain.status import KrakenStatusValues
+from shared.domain.status import KrakenStatus, KrakenStatusValues
 from shared.keys import FILE_REMOVER_STATUS_ID
 
 from .base_alert import BaseAlert, Issue, get_instrument_id

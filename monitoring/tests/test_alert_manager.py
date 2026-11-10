@@ -13,6 +13,8 @@ from messenger import Message
 
 from monitoring.alert_manager import AlertManager, _dispatch, _is_due
 from monitoring.alerts.base_alert import Issue
+from shared.domain.alerts import AlertIssue
+from shared.tests.factories import alert_issue
 
 NOW = datetime(2024, 1, 15, 12, 0, tzinfo=pytz.UTC)
 
@@ -25,8 +27,6 @@ NOW = datetime(2024, 1, 15, 12, 0, tzinfo=pytz.UTC)
         (NOW - timedelta(minutes=121), 120, True),
         (NOW - timedelta(minutes=119), 120, False),
         (NOW - timedelta(days=30), None, False),
-        # naive timestamps from the DB are UTC
-        ((NOW - timedelta(minutes=121)).replace(tzinfo=None), 120, True),
     ],
 )
 def test_is_due(
@@ -53,8 +53,10 @@ def _alert(name: str = "TestAlert", issues: list[Issue] | None = None) -> Mock:
     return alert
 
 
-def _record(alert: str, key: str, last_notified: datetime | None = None) -> Mock:
-    return Mock(alert=alert, key=key, last_notified=last_notified)
+def _record(alert: str, key: str, last_notified: datetime | None = None) -> AlertIssue:
+    return alert_issue(
+        id=f"{alert}:{key}", alert=alert, key=key, last_notified=last_notified
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -63,7 +65,7 @@ def no_project_owner() -> Generator[Mock, None, None]:
 
     Patched under the spelling imported by `alert_manager` (via `sys.path`), not `monitoring.alerts`.
     """
-    with patch("alerts.recipients.get_project_owner", return_value=None) as owner:
+    with patch("shared.db.users.project_owner", return_value=None) as owner:
         yield owner
 
 
@@ -71,14 +73,14 @@ def no_project_owner() -> Generator[Mock, None, None]:
 def db() -> Generator[dict[str, Mock], None, None]:
     """Patch the DB access of the manager."""
     with (
-        patch("monitoring.alert_manager.KrakenStatus") as kraken_status,
-        patch("monitoring.alert_manager.get_alert_issues") as get_open,
-        patch("monitoring.alert_manager.add_alert_issue") as add,
-        patch("monitoring.alert_manager.set_alert_issue_notified") as set_notified,
+        patch("shared.db.status.find") as kraken_status,
+        patch("shared.db.alerts.find_issues") as get_open,
+        patch("shared.db.alerts.add_issue") as add,
+        patch("shared.db.alerts.set_issue_notified") as set_notified,
         patch("monitoring.alert_manager.get_messenger_ids_by_initials") as ids,
-        patch("monitoring.alert_manager.get_active_alert_suppressions") as supp,
+        patch("shared.db.alerts.find_suppressions") as supp,
     ):
-        kraken_status.objects = []
+        kraken_status.return_value = []
         ids.return_value = {"MaSc": "U_MASC"}
         supp.return_value = []
         get_open.return_value = []
@@ -116,9 +118,7 @@ class TestCheckForIssues:
         mock_send.assert_called_once_with(
             Message("inst1", "TestAlert title [TestAlert]"), {"ops"}
         )
-        notified_record, notified_at = db["set_notified"].call_args.args
-        assert (notified_record.alert, notified_record.key) == ("TestAlert", "inst1:k")
-        assert notified_at == NOW
+        db["set_notified"].assert_called_once_with("TestAlert:inst1:k", NOW)
 
     @patch("monitoring.alert_manager.send", return_value=True)
     def test_only_due_issues_are_sent(
@@ -140,7 +140,7 @@ class TestCheckForIssues:
         mock_send.assert_called_once_with(
             Message("a", "TestAlert title [TestAlert]"), {"ops"}
         )
-        db["set_notified"].assert_called_once_with(due, NOW)
+        db["set_notified"].assert_called_once_with(due.id, NOW)
 
     @patch("monitoring.alert_manager.send", return_value=True)
     def test_no_message_when_nothing_is_due(
@@ -196,7 +196,7 @@ class TestCheckForIssues:
         manager.check_for_issues(NOW)
 
         # then
-        db["set_notified"].assert_called_once_with(record, NOW)
+        db["set_notified"].assert_called_once_with(record.id, NOW)
 
     @patch("monitoring.alert_manager.send", side_effect=[False, True, True])
     def test_a_failed_user_send_is_retried_without_resending_the_others(
@@ -217,15 +217,15 @@ class TestCheckForIssues:
 
         # when - first check: a fails, b succeeds
         manager.check_for_issues(NOW)
-        db["set_notified"].assert_called_once_with(record_b, NOW)
-        record_b.last_notified = NOW
+        db["set_notified"].assert_called_once_with(record_b.id, NOW)
+        db["get_open"].return_value = [record_a, _record("UserAlert", "b", NOW)]
 
         # when - second check: only a is sent
         manager.check_for_issues(NOW + timedelta(minutes=1))
 
         # then
         assert [c.args[0].body for c in mock_send.call_args_list] == ["a", "b", "a"]
-        assert db["set_notified"].call_args_list[-1].args[0] is record_a
+        assert db["set_notified"].call_args_list[-1].args[0] == record_a.id
 
     @patch("monitoring.alert_manager.send", return_value=True)
     def test_user_destination_sends_per_issue_to_the_files_user(

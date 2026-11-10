@@ -9,10 +9,9 @@ from typing import Any
 from utils import short_digest
 
 from shared.db import metrics, raw_files
-from shared.db.models import KrakenStatus
 from shared.domain.metrics import Metrics
 from shared.domain.raw_files import RawFile
-from shared.domain.status import KrakenStatusEntities
+from shared.domain.status import KrakenStatus, KrakenStatusEntities
 from shared.keys import MetricsTypes
 
 from .base_alert import BaseAlert, Issue

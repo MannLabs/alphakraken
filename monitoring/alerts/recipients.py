@@ -3,7 +3,7 @@
 import re
 from collections.abc import Collection
 
-from shared.db.interface import get_all_users, get_project_owner
+from shared.db import users
 
 # Trailing boundary is a lookahead so adjacent tokens can both match:
 # "_SA_AnSc_" must yield both "SA" and "AnSc", not just "SA".
@@ -13,9 +13,7 @@ INITIALS_PATTERN = re.compile(r"_([A-Za-z]{2,8})(?=_)")
 def get_messenger_ids_by_initials() -> dict[str, str]:
     """Return the messenger ids of all active users that have one, by initials."""
     return {
-        user.initials: user.messenger_id
-        for user in get_all_users()
-        if user.messenger_id
+        user.initials: user.messenger_id for user in users.find() if user.messenger_id
     }
 
 
@@ -35,7 +33,7 @@ def get_recipients(
 ) -> list[str]:
     """Return the messenger id of the owner of the file's project, else of the user whose initials are in the file name."""
     if file_name:
-        owner = get_project_owner(file_name)
+        owner = users.project_owner(file_name)
         if owner is not None and owner.messenger_id:
             return [owner.messenger_id]
     initials = extract_initials(file_name, messenger_ids_by_initials)

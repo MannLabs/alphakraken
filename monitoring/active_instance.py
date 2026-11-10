@@ -1,14 +1,12 @@
-"""Election of the active instance via a document in MongoDB, so that only one of several monitoring instances runs the DB-backed checks."""
+"""Election of the active instance via a lease in the database, so that only one of several monitoring instances runs the DB-backed checks."""
 
 import logging
 from datetime import datetime, timedelta
 
-from mongoengine.connection import get_db
-from pymongo import ReturnDocument
-from pymongo.errors import DuplicateKeyError, PyMongoError
+from shared.db import leases
+from shared.domain.errors import DatabaseError
 
-ACTIVE_INSTANCE_COLLECTION = "alerting_active_instance"
-ACTIVE_INSTANCE_DOCUMENT_ID = "monitoring"
+ACTIVE_INSTANCE_LEASE = "monitoring"
 
 
 class ActiveInstanceElection:
@@ -29,29 +27,10 @@ class ActiveInstanceElection:
         Note: expiry is compared against this instance's clock, so clocks of all instances must be roughly in sync.
         """
         try:
-            # matches only if the claim is expired or already ours; otherwise the upsert
-            # tries to insert a second document with the same _id, which fails
-            claim = get_db()[ACTIVE_INSTANCE_COLLECTION].find_one_and_update(
-                {
-                    "_id": ACTIVE_INSTANCE_DOCUMENT_ID,
-                    "$or": [
-                        {"instance": self._instance},
-                        {"expires_at": {"$lt": now}},
-                    ],
-                },
-                {
-                    "$set": {
-                        "instance": self._instance,
-                        "expires_at": now + self._timeout,
-                    }
-                },
-                upsert=True,
-                return_document=ReturnDocument.AFTER,
+            is_active = leases.try_acquire(
+                ACTIVE_INSTANCE_LEASE, self._instance, ttl=self._timeout, now=now
             )
-            is_active = claim["instance"] == self._instance
-        except DuplicateKeyError:
-            is_active = False
-        except PyMongoError:
+        except DatabaseError:
             logging.exception(
                 "Failed to claim active alerting instance, acting as active one"
             )

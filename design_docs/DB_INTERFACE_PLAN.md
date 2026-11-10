@@ -204,13 +204,14 @@ fail-open rule, and catches domain errors only.
   dataclasses; `ensure_utc` calls removed where the value now comes from a mapper.
 
 **Testing**: `pytest monitoring shared`; on the stack: stop the DB container for one loop,
-the monitoring must log "acting as active" and keep the last suppressions; restart it, the
-next loop must run the DB-backed checks; add a suppression in the webapp and see the next
-loop mute the issue.
+the monitoring must send one "db_connection_error" message (the ping fails before the
+election, so no "acting as active") and keep the last suppressions; restart it, the next
+loop must run the DB-backed checks; add a suppression in the webapp and see the next loop
+mute the issue. Revoke the alerting role's write access to the lease collection for one
+loop to see "acting as active".
 
-**Exit**: `monitoring/**` off the exemption list. ❗ CI runs `pytest shared webapp
-airflow_src rest_api`; monitoring and MCP tests are not in CI today. Add `monitoring` and
-`mcp_server` to the unit-tests job in this slice (needs `apprise` in the CI requirements).
+**Exit**: `monitoring/**` off the exemption list. `monitoring` is added to the unit-tests
+job as a run of its own, with its requirements. `mcp_server` has no tests.
 
 ### Slice 6: webapp overview and status pages (2 days)
 

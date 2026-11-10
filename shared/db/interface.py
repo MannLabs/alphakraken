@@ -7,14 +7,11 @@ import logging
 import re
 from datetime import UTC, datetime, timedelta
 
-from mongoengine import Q
 from pymongo import UpdateOne
 
 from shared.db.engine import connect_db
 from shared.db.models import (
-    AlertIssue,
     AlertSuppression,
-    KrakenStatus,
     Metrics,
     Project,
     ProjectSettings,
@@ -28,7 +25,6 @@ from shared.domain.projects import ProjectStatus
 from shared.domain.raw_files import FileInfoItem, InstrumentFileStatus
 from shared.domain.settings import SettingsStatus
 from shared.domain.slurm_jobs import SlurmJobQueueStates
-from shared.domain.status import KrakenStatusEntities
 from shared.domain.users import UserStatus
 from shared.keys import DEFAULT_SCOPE
 
@@ -56,36 +52,6 @@ def get_raw_file_by_id(raw_file_id: str) -> RawFile:
     logging.info(f"Getting from DB: {raw_file_id=}")
     connect_db()
     return RawFile.objects(id=raw_file_id).first()
-
-
-def get_raw_files_by_instrument_file_status(
-    instrument_file_status: str,
-    *,
-    instrument_id: str | None = None,
-    min_age_hours: int | None = None,
-) -> list[RawFile]:
-    """Get raw files by instrument file status, optionally filtered by instrument and minimum age.
-
-    Args:
-        instrument_file_status: InstrumentFileStatus value to filter by
-        instrument_id: Optional instrument ID to filter by
-        min_age_hours: Optional minimum age in hours (files older than this)
-
-    Returns:
-        List of RawFile objects matching the criteria, sorted oldest first
-
-    """
-    connect_db()
-    query = RawFile.objects.filter(instrument_file_status=instrument_file_status)
-
-    if instrument_id:
-        query = query.filter(instrument_id=instrument_id)
-
-    if min_age_hours:
-        cutoff_time = datetime.now(tz=UTC) - timedelta(hours=min_age_hours)
-        query = query.filter(created_at__lt=cutoff_time)
-
-    return list(query.order_by("created_at"))
 
 
 def get_purge_candidates_by_age(
@@ -474,19 +440,6 @@ def get_all_users(*, include_inactive: bool = False) -> list[User]:
     return list(users.order_by("initials"))
 
 
-def get_project_owner(raw_file_id: str) -> User | None:
-    """Get the active owner of the project of a raw file, None if there is none."""
-    connect_db()
-    raw_file = RawFile.objects(id=raw_file_id).only("project_id").first()
-    if raw_file is None or not raw_file.has_project:
-        return None
-    project = Project.objects(id=raw_file.project_id).only("owner").first()
-    owner = project.owner if project is not None else None
-    if owner is None or owner.status != UserStatus.ACTIVE:
-        return None
-    return owner
-
-
 def get_settings_by_id(settings_id: str) -> Settings:
     """Get a settings entry by its ID."""
     connect_db()
@@ -540,30 +493,6 @@ def get_latest_active_settings_by_name(name: str) -> Settings | None:
     )
 
 
-def update_kraken_status(
-    id_: str,
-    *,
-    status: str,
-    status_details: str,
-    free_space_gb: int,
-    entity_type: str = KrakenStatusEntities.INSTRUMENT,
-) -> None:
-    """Update the status of an instrument connected to kraken."""
-    logging.info(
-        f"Updating DB: {id_=} to {status=} with {status_details=} {free_space_gb=} {entity_type=}"
-    )
-    connect_db()
-
-    KrakenStatus(
-        id=id_,
-        status=status,
-        updated_at_=datetime.now(tz=UTC),
-        free_space_gb=free_space_gb,
-        status_details=status_details,
-        entity_type=entity_type,
-    ).save()
-
-
 def update_slurm_jobs(cluster_id: str, states: dict[str, str]) -> None:
     """Store the `states` (job id -> state) of all jobs in the queue of the cluster `cluster_id`.
 
@@ -607,38 +536,10 @@ def get_slurm_job(cluster_id: str, job_id: str) -> SlurmJob | None:
     return SlurmJob.objects(id=get_slurm_job_db_id(cluster_id, job_id)).first()
 
 
-def get_alert_issues() -> list[AlertIssue]:
-    """Get all alert issues."""
-    connect_db()
-    return list(AlertIssue.objects)
-
-
-def add_alert_issue(*, alert: str, key: str, first_seen: datetime) -> AlertIssue:
-    """Add an alert issue to the database."""
-    connect_db()
-    issue = AlertIssue(alert=alert, key=key, first_seen=first_seen)
-    issue.save(force_insert=True)
-    logging.info(f"Added alert issue: {alert=} {key=}")
-    return issue
-
-
-def set_alert_issue_notified(issue: AlertIssue, notified_at: datetime) -> None:
-    """Record that the issue was notified."""
-    connect_db()
-    issue.update(set__last_notified=notified_at)
-
-
 def get_alert_suppressions() -> list[AlertSuppression]:
     """Get all alert suppressions, including expired ones, newest first."""
     connect_db()
     return list(AlertSuppression.objects.order_by("-created_at_"))
-
-
-def get_active_alert_suppressions() -> list[AlertSuppression]:
-    """Get all alert suppressions that are not expired."""
-    connect_db()
-    now = datetime.now(tz=UTC)
-    return list(AlertSuppression.objects(Q(expires_at=None) | Q(expires_at__gt=now)))
 
 
 def add_alert_suppression(  # noqa: PLR0913

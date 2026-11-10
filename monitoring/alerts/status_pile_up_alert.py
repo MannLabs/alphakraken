@@ -2,9 +2,9 @@
 
 from datetime import datetime
 
-from shared.db.models import KrakenStatus, RawFile
+from shared.db import raw_files
 from shared.domain.raw_files import TERMINAL_STATUSES
-from shared.domain.status import KrakenStatusEntities
+from shared.domain.status import KrakenStatus, KrakenStatusEntities
 
 from .base_alert import BaseAlert, Issue
 from .config import STATUS_PILE_UP_THRESHOLDS
@@ -28,9 +28,9 @@ class StatusPileUpAlert(BaseAlert):
             if o.entity_type == KrakenStatusEntities.INSTRUMENT
         ]:
             instrument_id = kraken_status.id
-            status_counts = RawFile.objects(
-                instrument_id=instrument_id, status__nin=TERMINAL_STATUSES
-            ).item_frequencies("status")
+            status_counts = raw_files.count_by_status(
+                instrument_id, statuses_not=TERMINAL_STATUSES
+            )
 
             piled_up_statuses = [
                 status

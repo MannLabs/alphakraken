@@ -11,10 +11,10 @@ from service.db import (
     get_output_folders,
     get_raw_files_for_status_df,
     get_raw_files_for_throughput_per_day,
-    get_status_data,
 )
 from service.timezone import DISPLAY_TIMEZONE
 
+from shared.db import status
 from shared.domain.raw_files import TERMINAL_STATUSES
 from shared.tests.factories import kraken_status, raw_file
 
@@ -99,11 +99,11 @@ def test_get_raw_files_for_throughput_per_day_empty() -> None:
 
 
 @patch("shared.db.status.find")
-def test_get_status_data_as_dataframe(mock_find: MagicMock) -> None:
+def test_df_from_db_data_with_domain_objects(mock_find: MagicMock) -> None:
     """Domain objects become rows with `id` as the identifier column, in display time."""
     mock_find.return_value = [kraken_status(id="inst1"), kraken_status(id="backup")]
 
-    result = df_from_db_data(get_status_data())
+    result = df_from_db_data(status.find())
 
     assert list(result["id"]) == ["inst1", "backup"]
     assert result["updated_at_"].dt.tz == DISPLAY_TIMEZONE

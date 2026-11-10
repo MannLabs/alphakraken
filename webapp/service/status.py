@@ -1,14 +1,15 @@
 """Module to display status warnings in the Streamlit app."""
 
 import streamlit as st
-from service.db import df_from_db_data, get_status_data
+from service.db import df_from_db_data
 
+from shared.db import status
 from shared.domain.status import KrakenStatusEntities, KrakenStatusValues
 
 
 def display_status_warning() -> None:
     """Display a warning if there are instruments with issues."""
-    status_data_df = df_from_db_data(get_status_data())
+    status_data_df = df_from_db_data(status.find())
     if status_data_df.empty:
         return
 

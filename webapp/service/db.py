@@ -11,14 +11,13 @@ from mongoengine import Q, QuerySet
 from service.timezone import display_now, to_display_timezone
 from service.utils import _log
 
-from shared.db import raw_files, status
+from shared.db import raw_files
 from shared.db.engine import connect_db
 from shared.db.models import Metrics, Project, RawFile, Settings
 from shared.display_paths import get_display_backup_path, get_display_output_path
 from shared.domain.projects import ProjectStatus
 from shared.domain.raw_files import TERMINAL_STATUSES
 from shared.domain.settings import SettingsStatus
-from shared.domain.status import KrakenStatus
 from shared.validation import (
     ALLOWED_RAW_FILE_NAME_CHARACTERS_PRETTY,
     FORBIDDEN_RAW_FILE_NAME_CHARACTERS_PATTERN,
@@ -247,15 +246,6 @@ def get_raw_files_for_throughput_per_day(days: int = 14) -> pd.DataFrame:
     )
     result["size_gb"] = result["size"] / (1024**3)
     return result[["date", "instrument_id", "count", "size_gb"]]
-
-
-def get_status_data() -> list[KrakenStatus]:
-    """Return the status of all entities."""
-    _log("Retrieving all status data")
-    status_data = status.find()
-    _log("Done retrieving all status data")
-
-    return status_data
 
 
 def get_project_data() -> QuerySet:

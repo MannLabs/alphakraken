@@ -181,7 +181,7 @@ dataclass is not needed before slice 5 either, `instrument_ids()` returns string
 **Business value**: the whole monitoring process is fenced, including the lease and its
 fail-open rule, and catches domain errors only.
 
-**Technical scope**: `shared/db/{status,alerts,users,leases}.py` and backends,
+**Technical scope**: `shared/db/{status,alerts,users,alerting_leases}.py` and backends,
 `shared/db/raw_files.py` (`latest_per_instrument`, `count_by_status`), `monitoring/**`.
 
 **Implementation details**:
@@ -195,7 +195,7 @@ fail-open rule, and catches domain errors only.
 - `AlertIssue`, `AlertSuppression`, `User` dataclasses; `alerts.find_issues/add_issue/
   set_issue_notified(issue_id, at)`, `alerts.find_suppressions(active_only)`,
   `users.find(include_inactive)`, `users.project_owner(raw_file_id)`.
-- `leases.try_acquire(name, holder, ttl, now) -> bool`, raising `DatabaseError`;
+- `alerting_leases.try_acquire(name, holder, ttl, now) -> bool`, raising `DatabaseError`;
   `ActiveInstanceElection` keeps the fail-open rule by catching it. Delete the pymongo code
   in `active_instance.py`.
 - `monitoring/main.py` catches `DatabaseUnavailableError` from `shared.db.ping()` instead of

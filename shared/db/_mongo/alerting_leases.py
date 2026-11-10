@@ -17,7 +17,7 @@ EXPIRES_AT_FIELD = "expires_at"
 
 @translate_errors
 def try_acquire(name: str, holder: str, *, ttl: timedelta, now: datetime) -> bool:
-    """Claim or renew a lease, cf. `shared.db.leases`."""
+    """Claim or renew a lease, cf. `shared.db.alerting_leases`."""
     ensure_connected()
     try:
         # matches only if the lease is expired or already ours; otherwise the upsert

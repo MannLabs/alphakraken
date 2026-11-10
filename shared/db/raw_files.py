@@ -29,6 +29,7 @@ class RawFileFilter:
     updated_after: datetime | None = None
     status: str | None = None
     statuses: list[str] | None = None
+    statuses_not: list[str] | None = None
     backup_status: str | None = None
     instrument_file_status: str | None = None
 
@@ -72,6 +73,6 @@ def latest_per_instrument(
     return _backend.latest_per_instrument(n, created_after=created_after)
 
 
-def count_by_status(instrument_id: str, *, statuses_not: list[str]) -> dict[str, int]:
-    """Return the number of raw files of an instrument per status, leaving out `statuses_not`."""
-    return _backend.count_by_status(instrument_id, statuses_not=statuses_not)
+def count_by_status(where: RawFileFilter) -> dict[str, int]:
+    """Return the number of raw files matching `where` per status."""
+    return _backend.count_by_status(where)

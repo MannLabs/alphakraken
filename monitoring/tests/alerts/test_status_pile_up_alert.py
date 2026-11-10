@@ -7,6 +7,7 @@ import pytz
 
 from monitoring.alerts.base_alert import Issue
 from monitoring.alerts.status_pile_up_alert import StatusPileUpAlert
+from shared.db.raw_files import RawFileFilter
 from shared.domain.raw_files import TERMINAL_STATUSES
 from shared.domain.status import KrakenStatusEntities
 
@@ -84,10 +85,9 @@ class TestStatusPileUpAlert:
         ]
 
         # Mock RawFile queries with different pile-up scenarios
-        def mock_rawfile_side_effect(
-            instrument_id: str, *, statuses_not: list[str]
-        ) -> dict[str, int]:
-            assert statuses_not == TERMINAL_STATUSES
+        def mock_rawfile_side_effect(where: RawFileFilter) -> dict[str, int]:
+            instrument_id = where.instrument_id
+            assert where.statuses_not == TERMINAL_STATUSES
 
             # Define status counts for each scenario
             scenarios = {
@@ -219,10 +219,9 @@ class TestStatusPileUpAlert:
         status_objects.extend([mock_job, mock_filesystem])
 
         # Mock RawFile queries - all counts below thresholds or empty
-        def mock_rawfile_side_effect(
-            instrument_id: str, *, statuses_not: list[str]
-        ) -> dict[str, int]:
-            assert statuses_not == TERMINAL_STATUSES
+        def mock_rawfile_side_effect(where: RawFileFilter) -> dict[str, int]:
+            instrument_id = where.instrument_id
+            assert where.statuses_not == TERMINAL_STATUSES
 
             scenarios = {
                 "instrument1": {
@@ -283,7 +282,9 @@ class TestStatusPileUpAlert:
 
         # then - only the instrument is queried
         mock_rawfile.assert_called_once_with(
-            "test_instrument", statuses_not=TERMINAL_STATUSES
+            RawFileFilter(
+                instrument_id="test_instrument", statuses_not=TERMINAL_STATUSES
+            )
         )
         assert result == [
             Issue("test_instrument", "processing: 8", instrument_id="test_instrument")

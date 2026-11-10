@@ -249,7 +249,9 @@ def test_count_by_status(mock_objects: MagicMock) -> None:
         {"_id": "copying", "count": 1},
     ]
 
-    result = count_by_status("inst1", statuses_not=["done"])
+    result = count_by_status(
+        RawFileFilter(instrument_id="inst1", statuses_not=["done"])
+    )
 
     assert result == {"quanting": 3, "copying": 1}
     mock_objects.assert_called_once_with(instrument_id="inst1", status__nin=["done"])

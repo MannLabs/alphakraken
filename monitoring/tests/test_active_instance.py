@@ -14,7 +14,7 @@ TIMEOUT = timedelta(minutes=3)
 
 
 @pytest.mark.parametrize("acquired", [True, False])
-@patch("shared.db.leases.try_acquire")
+@patch("shared.db.alerting_leases.try_acquire")
 def test_try_become_active_should_follow_the_lease(
     mock_try_acquire: MagicMock, *, acquired: bool
 ) -> None:
@@ -32,7 +32,9 @@ def test_try_become_active_should_follow_the_lease(
     )
 
 
-@patch("shared.db.leases.try_acquire", side_effect=DatabaseError("not authorized"))
+@patch(
+    "shared.db.alerting_leases.try_acquire", side_effect=DatabaseError("not authorized")
+)
 def test_try_become_active_should_fail_open_when_lease_cannot_be_written(
     mock_try_acquire: MagicMock,  # noqa: ARG001
 ) -> None:

@@ -29,7 +29,9 @@ class StatusPileUpAlert(BaseAlert):
         ]:
             instrument_id = kraken_status.id
             status_counts = raw_files.count_by_status(
-                instrument_id, statuses_not=TERMINAL_STATUSES
+                raw_files.RawFileFilter(
+                    instrument_id=instrument_id, statuses_not=TERMINAL_STATUSES
+                )
             )
 
             piled_up_statuses = [

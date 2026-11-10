@@ -3,7 +3,7 @@
 import logging
 from datetime import datetime, timedelta
 
-from shared.db import leases
+from shared.db import alerting_leases
 from shared.domain.errors import DatabaseError
 
 ACTIVE_INSTANCE_LEASE = "monitoring"
@@ -27,7 +27,7 @@ class ActiveInstanceElection:
         Note: expiry is compared against this instance's clock, so clocks of all instances must be roughly in sync.
         """
         try:
-            is_active = leases.try_acquire(
+            is_active = alerting_leases.try_acquire(
                 ACTIVE_INSTANCE_LEASE, self._instance, ttl=self._timeout, now=now
             )
         except DatabaseError:

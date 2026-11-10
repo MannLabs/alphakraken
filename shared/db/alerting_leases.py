@@ -1,8 +1,8 @@
-"""Leases: exclusive, expiring claims, e.g. to elect one of several instances."""
+"""Leases of the alerting: exclusive, expiring claims to elect one of several monitoring instances."""
 
 from datetime import datetime, timedelta
 
-from shared.db._mongo import leases as _backend
+from shared.db._mongo import alerting_leases as _backend
 
 
 def try_acquire(name: str, holder: str, *, ttl: timedelta, now: datetime) -> bool:

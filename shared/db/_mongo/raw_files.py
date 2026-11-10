@@ -28,6 +28,7 @@ _QUERY_KEYS = {
     "updated_after": "updated_at___gte",
     "status": "status",
     "statuses": "status__in",
+    "statuses_not": "status__nin",
     "backup_status": "backup_status",
     "instrument_file_status": "instrument_file_status",
 }
@@ -95,10 +96,10 @@ def latest_per_instrument(
 
 
 @translate_errors
-def count_by_status(instrument_id: str, *, statuses_not: list[str]) -> dict[str, int]:
+def count_by_status(where: RawFileFilter) -> dict[str, int]:
     """Return the number of raw files per status, cf. `shared.db.raw_files.count_by_status`."""
     ensure_connected()
-    rows = models.RawFile.objects(
-        instrument_id=instrument_id, status__nin=statuses_not
-    ).aggregate([{"$group": {"_id": "$status", "count": {"$sum": 1}}}])
+    rows = models.RawFile.objects(**_conditions(where)).aggregate(
+        [{"$group": {"_id": "$status", "count": {"$sum": 1}}}]
+    )
     return {row["_id"]: row["count"] for row in rows}

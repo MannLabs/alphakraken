@@ -33,7 +33,7 @@ from raw_file_wrapper_factory import (
     RemovePathProvider,
 )
 
-from shared.db import status as db_status
+from shared.db import status as status_store
 from shared.db.interface import (
     get_purge_candidates_by_age,
     get_raw_file_by_id,
@@ -63,7 +63,7 @@ def _create_s3_client() -> BaseAwsConnection:
 
 def _update_file_remover_status(status: str, status_details: str = "") -> None:
     """Update the status of the file_remover job."""
-    db_status.update(
+    status_store.update(
         Dags.FILE_REMOVER,
         status=status,
         status_details=status_details,

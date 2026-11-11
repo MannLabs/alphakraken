@@ -3,6 +3,7 @@
 from datetime import UTC, datetime
 from typing import Any, cast, overload
 
+from bson import DBRef
 from mongoengine import Document
 
 from shared.db._mongo import models
@@ -114,7 +115,7 @@ def to_project(doc: models.Project) -> Project:
         name=doc.name,
         description=doc.description,
         status=doc.status,
-        owner_email=_reference_id(doc, "owner"),
+        owner_email=reference_id(doc, "owner"),
         created_at_=as_utc(doc.created_at_),
     )
 
@@ -140,7 +141,7 @@ def to_settings(doc: models.Settings) -> Settings:
         slurm_time=doc.slurm_time,
         num_threads=doc.num_threads,
         status=doc.status,
-        owner_email=_reference_id(doc, "owner"),
+        owner_email=reference_id(doc, "owner"),
         created_at_=as_utc(doc.created_at_),
     )
 
@@ -151,7 +152,7 @@ def to_project_settings(
     """Map a project settings document, with its already loaded settings."""
     return ProjectSettings(
         id=str(doc.pk),
-        project_id=_reference_id(doc, "project"),
+        project_id=reference_id(doc, "project"),
         settings=settings,
         scopes=list(doc.scopes),
         excluded_scopes=list(doc.excluded_scopes),
@@ -171,6 +172,15 @@ def to_slurm_job(doc: models.SlurmJob) -> SlurmJob:
     )
 
 
-def _reference_id(doc: Document, field: str) -> Any:
-    """Return the id a reference field points to, None if unset, without loading the referenced document."""
-    return doc.to_mongo().get(field)
+def reference_id(doc: Document, field: str) -> Any:
+    """Return the id a reference field points to, None if unset, without loading the referenced document.
+
+    Reads what mongoengine holds for the field: a `DBRef` on a document loaded from the
+    database, the referenced document itself on one built in memory or already dereferenced.
+    """
+    value = doc._data.get(field)  # noqa: SLF001
+    if isinstance(value, DBRef):
+        return value.id
+    if isinstance(value, Document):
+        return value.pk
+    return value

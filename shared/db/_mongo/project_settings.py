@@ -2,7 +2,7 @@
 
 from shared.db._mongo import models
 from shared.db._mongo.connection import db_backend_function
-from shared.db._mongo.mappers import to_project_settings, to_settings
+from shared.db._mongo.mappers import reference_id, to_project_settings, to_settings
 from shared.db._mongo.settings import settings_by_unique_name
 from shared.domain.errors import NotFoundError
 from shared.domain.projects import ProjectSettings
@@ -14,14 +14,14 @@ def find(project_ids: list[str] | None) -> list[ProjectSettings]:
     conditions = {} if project_ids is None else {"project__in": project_ids}
     docs = list(models.ProjectSettings.objects(**conditions).order_by("created_at_"))
     # one query for all settings, where dereferencing would run one per assignment
-    settings_ids = {doc.to_mongo()["settings"] for doc in docs}
+    settings_ids = {reference_id(doc, "settings") for doc in docs}
     settings_by_id = {
         settings_doc.pk: to_settings(settings_doc)
         for settings_doc in models.Settings.objects(id__in=settings_ids)
     }
     result = []
     for doc in docs:
-        settings_id = doc.to_mongo()["settings"]
+        settings_id = reference_id(doc, "settings")
         if settings_id not in settings_by_id:
             raise NotFoundError(f"Settings of assignment {doc.pk} do not exist")
         result.append(to_project_settings(doc, settings_by_id[settings_id]))
@@ -37,7 +37,7 @@ def get_project_id(assignment_id: str) -> str:
     doc = models.ProjectSettings.objects(id=assignment_id).first()
     if doc is None:
         raise NotFoundError(f"No settings assignment {assignment_id}")
-    return doc.to_mongo()["project"]
+    return reference_id(doc, "project")
 
 
 @db_backend_function

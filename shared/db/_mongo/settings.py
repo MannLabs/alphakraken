@@ -6,7 +6,7 @@ from mongoengine import QuerySet
 
 from shared.db._mongo import models
 from shared.db._mongo.connection import db_backend_function
-from shared.db._mongo.mappers import to_settings
+from shared.db._mongo.mappers import reference_id, to_settings
 from shared.domain.errors import NotFoundError
 from shared.domain.settings import Settings, SettingsStatus, split_unique_settings_name
 
@@ -78,7 +78,7 @@ def assigned_project_ids(unique_name: str) -> list[str]:
         raise NotFoundError(f"No settings {unique_name}")
     # only these assignments are read, so that a broken one of other settings does not matter
     assignments = models.ProjectSettings.objects(settings=settings)
-    return sorted({doc.to_mongo()["project"] for doc in assignments})
+    return sorted({reference_id(doc, "project") for doc in assignments})
 
 
 @db_backend_function

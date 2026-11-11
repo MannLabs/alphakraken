@@ -14,8 +14,9 @@ from shared.db._mongo import project_settings as project_settings_backend
 from shared.db._mongo import projects as projects_backend
 from shared.db._mongo import settings as settings_backend
 from shared.domain.errors import NotFoundError, ValidationError
-from shared.domain.projects import ProjectStatus
+from shared.domain.projects import NewProject, ProjectStatus
 from shared.domain.settings import SettingsStatus
+from shared.domain.users import UserStatus
 from shared.tests import factories
 
 NAIVE_TIME = datetime(2024, 1, 2, 3, 4, 5)  # noqa: DTZ001 as stored by pymongo
@@ -524,16 +525,48 @@ def test_delete_assigned_settings_raises(
 # project writes
 
 
+@patch("shared.db.users.require_active")
 @patch("shared.db._mongo.projects.add")
 @patch("shared.db.projects.find", return_value=[])
-def test_add_project(mock_find: MagicMock, mock_backend_add: MagicMock) -> None:
-    """A project with an unused id is stored."""
-    projects.add(project_id="P1", name="n", description="d", owner_email="a@b.de")
+def test_add_project(
+    mock_find: MagicMock, mock_backend_add: MagicMock, mock_require_active: MagicMock
+) -> None:
+    """A project with an unused id and an active owner is stored, with the fields cleaned."""
+    projects.add(project_id=" P123 ", name="n", description=" ", owner_email="a@b.de")
 
-    mock_find.assert_called_once_with(ids=["P1"], include_deleted=True)
+    mock_find.assert_called_once_with(ids=["P123"], include_deleted=True)
+    mock_require_active.assert_called_once_with("a@b.de")
     mock_backend_add.assert_called_once_with(
-        project_id="P1", name="n", description="d", owner_email="a@b.de"
+        NewProject(project_id="P123", name="n", owner_email="a@b.de")
     )
+
+
+@patch("shared.db.users.require_active")
+@patch("shared.db._mongo.projects.add")
+@patch("shared.db.projects.find", return_value=[])
+def test_add_project_without_owner(
+    mock_find: MagicMock,  # noqa: ARG001
+    mock_backend_add: MagicMock,
+    mock_require_active: MagicMock,
+) -> None:
+    """A project needs no owner."""
+    projects.add(project_id="P123", name="n", owner_email="")
+
+    mock_require_active.assert_not_called()
+    mock_backend_add.assert_called_once()
+
+
+@patch("shared.db._mongo.projects.add")
+@patch("shared.db.projects.find")
+def test_add_project_with_invalid_field_raises(
+    mock_find: MagicMock, mock_backend_add: MagicMock
+) -> None:
+    """Invalid fields are a validation error before the database is asked."""
+    with pytest.raises(ValidationError, match="project_id: Invalid project id 'p1'"):
+        projects.add(project_id="p1", name="n")
+
+    mock_find.assert_not_called()
+    mock_backend_add.assert_not_called()
 
 
 @patch("shared.db._mongo.projects.add")
@@ -545,33 +578,75 @@ def test_add_project_with_id_of_deleted_project_raises(
     mock_find.return_value = [factories.project(status=ProjectStatus.DELETED)]
 
     with pytest.raises(ValidationError, match="was used by a deleted project"):
-        projects.add(project_id="P1", name="n", description="d")
+        projects.add(project_id="P123", name="n", description="d")
 
     mock_backend_add.assert_not_called()
 
 
-def test_backend_add_project_resolves_owner(mock_models: MagicMock) -> None:
+@patch("shared.db._mongo.users.get")
+@patch("shared.db._mongo.projects.add")
+@patch("shared.db.projects.find", return_value=[])
+def test_add_project_with_inactive_owner_raises(
+    mock_find: MagicMock,  # noqa: ARG001
+    mock_backend_add: MagicMock,
+    mock_get_user: MagicMock,
+) -> None:
+    """Only an active user can own a new project."""
+    mock_get_user.return_value = factories.user(status=UserStatus.INACTIVE)
+
+    with pytest.raises(ValidationError, match="User 'a@b.de' is inactive"):
+        projects.add(project_id="P123", name="n", owner_email="a@b.de")
+
+    mock_backend_add.assert_not_called()
+
+
+@pytest.mark.parametrize("owner_email", ["a@b.de", None])
+def test_backend_add_project_resolves_owner(
+    mock_models: MagicMock, owner_email: str | None
+) -> None:
     """The backend inserts the project, never overwriting one, with the owner looked up by email."""
     projects_backend.add(
-        project_id="P1", name="n", description="d", owner_email="a@b.de"
+        NewProject(
+            project_id="P123", name="n", description="d", owner_email=owner_email
+        )
     )
 
-    mock_models.User.objects.get.assert_called_once_with(email="a@b.de")
+    if owner_email:
+        mock_models.User.objects.get.assert_called_once_with(email="a@b.de")
+    else:
+        mock_models.User.objects.get.assert_not_called()
     mock_models.Project.assert_called_once_with(
-        id="P1",
+        id="P123",
         name="n",
         description="d",
-        owner=mock_models.User.objects.get.return_value,
+        owner=mock_models.User.objects.get.return_value if owner_email else None,
     )
     mock_models.Project.return_value.save.assert_called_once_with(force_insert=True)
 
 
+@pytest.mark.parametrize(
+    ("status", "archived"),
+    [
+        (ProjectStatus.ACTIVE, True),
+        (ProjectStatus.INACTIVE, True),
+        (ProjectStatus.DELETED, False),
+    ],
+)
 @patch("shared.db._mongo.projects.set_status")
-def test_archive_project(mock_set_status: MagicMock) -> None:
-    """Archiving sets the status to inactive."""
-    projects.archive("P1")
+@patch("shared.db.projects.find")
+def test_archive_project_unless_deleted(
+    mock_find: MagicMock, mock_set_status: MagicMock, status: str, *, archived: bool
+) -> None:
+    """Archiving sets the status to inactive, a deleted project stays deleted."""
+    mock_find.return_value = [factories.project(status=status)]
 
-    mock_set_status.assert_called_once_with("P1", ProjectStatus.INACTIVE)
+    if archived:
+        projects.archive("P1")
+        mock_set_status.assert_called_once_with("P1", ProjectStatus.INACTIVE)
+    else:
+        with pytest.raises(ValidationError, match="Cannot archive deleted project"):
+            projects.archive("P1")
+        mock_set_status.assert_not_called()
 
 
 @pytest.mark.parametrize(

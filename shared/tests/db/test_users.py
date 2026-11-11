@@ -151,6 +151,21 @@ def test_backend_email_and_initials_taken(
     ]
 
 
+@pytest.mark.parametrize("status", [UserStatus.ACTIVE, UserStatus.INACTIVE])
+@patch("shared.db._mongo.users.models")
+def test_require_active(mock_models: MagicMock, status: str) -> None:
+    """An active user passes, an inactive one is a validation error."""
+    mock_models.User.objects.get.return_value = _user_document(status)
+
+    if status == UserStatus.ACTIVE:
+        users.require_active("masc@example.org")
+    else:
+        with pytest.raises(ValidationError, match="is inactive"):
+            users.require_active("masc@example.org")
+
+    mock_models.User.objects.get.assert_called_once_with(email="masc@example.org")
+
+
 @pytest.fixture
 def taken() -> Iterator[dict[str, MagicMock]]:
     """No email and no initials are taken; the backend writes are mocked."""

@@ -1,6 +1,5 @@
 """Page allowing Project mgmt."""
 
-import re
 from typing import Any
 
 import pandas as pd
@@ -15,7 +14,6 @@ from service.query_params import get_all_query_params
 from service.utils import (
     DISABLE_WRITE,
     _log,
-    empty_to_none,
     flush_pending_toasts,
     toast_result,
 )
@@ -24,13 +22,8 @@ from shared.db import project_settings as project_settings_store
 from shared.db import projects as project_store
 from shared.db import settings as settings_store
 from shared.display_paths import DISPLAY_PATHS
-from shared.domain.projects import (
-    FORBIDDEN_PROJECT_ID_CHARACTERS_REGEX,
-    PROJECT_ID_MAX_LENGTH,
-    PROJECT_ID_MIN_LENGTH,
-    SPECIAL_PROJECT_IDS,
-    ProjectStatus,
-)
+from shared.domain.inputs import max_length
+from shared.domain.projects import PROJECT_ID_MAX_LENGTH, NewProject, ProjectStatus
 from shared.domain.settings import SettingsStatus
 from shared.keys import DEFAULT_SCOPE, FALLBACK_PROJECT_ID, KNOWN_VENDOR_NAMES
 from shared.path_views import Locations
@@ -343,13 +336,13 @@ form_items = {
     },
     "project_name": {
         "label": "Project Name*",
-        "max_chars": 64,
+        "max_chars": max_length(NewProject, "name"),
         "placeholder": "e.g. Plasma project 42",
         "help": "Human-readable name of the project.",
     },
     "project_description": {
         "label": "Project Description",
-        "max_chars": 256,
+        "max_chars": max_length(NewProject, "description"),
         "placeholder": "(optional)",
         "help": "Human-readable project details.",
     },
@@ -392,27 +385,11 @@ with c1.form("create_project_form"):
     )
 
 
-def _check_project_id(project_id: str) -> None:
-    """Check if the project id is valid, raise ValueError if not."""
-    if (
-        project_id is None
-        or len(project_id) < PROJECT_ID_MIN_LENGTH
-        or len(project_id) > PROJECT_ID_MAX_LENGTH
-        or project_id.isdigit()
-        or re.findall(FORBIDDEN_PROJECT_ID_CHARACTERS_REGEX, project_id)
-    ) and project_id not in SPECIAL_PROJECT_IDS:
-        raise ValueError(
-            f"Invalid project id '{project_id}'. Please choose a different one."
-        )
-
-
 if form_submit:
     with toast_result(f"Added new project '{project_id}' to the database."):
-        _check_project_id(empty_to_none(project_id))
-
         project_store.add(
-            project_id=empty_to_none(project_id),
-            name=empty_to_none(project_name),
+            project_id=project_id,
+            name=project_name,
             description=project_description,
             owner_email=owner_email,
         )

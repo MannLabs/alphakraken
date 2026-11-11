@@ -1,8 +1,12 @@
 """Project domain types and constants."""
 
+import re
 from dataclasses import dataclass
 from datetime import datetime
 
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from shared.domain.inputs import empty_to_none
 from shared.domain.settings import Settings
 from shared.keys import FALLBACK_PROJECT_ID
 
@@ -48,3 +52,31 @@ class ProjectSettings:
     raw_file_id_filter: list[str]
     raw_file_id_exclude_filter: list[str]
     created_at_: datetime
+
+
+class NewProject(BaseModel):
+    """A project to add, cf. `Project`. Strings are stripped."""
+
+    model_config = ConfigDict(frozen=True, str_strip_whitespace=True)
+
+    project_id: str
+    name: str = Field(min_length=1, max_length=64)
+    description: str | None = Field(default=None, max_length=256)
+    owner_email: str | None = None
+
+    _empty_to_none = field_validator("description", "owner_email", mode="before")(
+        empty_to_none
+    )
+
+    @field_validator("project_id")
+    @classmethod
+    def _valid_project_id(cls, value: str) -> str:
+        if value not in SPECIAL_PROJECT_IDS and (
+            not PROJECT_ID_MIN_LENGTH <= len(value) <= PROJECT_ID_MAX_LENGTH
+            or value.isdigit()
+            or re.search(FORBIDDEN_PROJECT_ID_CHARACTERS_REGEX, value)
+        ):
+            raise ValueError(
+                f"Invalid project id '{value}'. Please choose a different one."
+            )
+        return value

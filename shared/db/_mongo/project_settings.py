@@ -31,6 +31,16 @@ def find(project_ids: list[str] | None) -> list[ProjectSettings]:
 
 
 @translate_errors
+def get(assignment_id: str) -> ProjectSettings:
+    """Return a settings assignment with its settings, cf. `shared.db.project_settings`."""
+    ensure_connected()
+    doc = models.ProjectSettings.objects(id=assignment_id).first()
+    if doc is None:
+        raise NotFoundError(f"No settings assignment {assignment_id}")
+    return to_project_settings(doc, to_settings(doc.settings))
+
+
+@translate_errors
 def assign(  # noqa: PLR0913
     project_id: str,
     settings_id: str,

@@ -4,7 +4,7 @@ import logging
 
 from shared.db import projects, settings
 from shared.db._mongo import project_settings as _backend
-from shared.domain.errors import NotFoundError, ValidationError
+from shared.domain.errors import ValidationError
 from shared.domain.projects import ProjectSettings, ProjectStatus
 from shared.domain.settings import SettingsStatus
 from shared.keys import DEFAULT_SCOPE
@@ -121,9 +121,7 @@ def unassign(assignment_id: str) -> None:
 
     """
     # moves to shared/services, cf. VALIDATION_DESIGN.md
-    assignment = next((ps for ps in find() if ps.id == assignment_id), None)
-    if assignment is None:
-        raise NotFoundError(f"No settings assignment {assignment_id}")
+    assignment = _backend.get(assignment_id)
     if projects.get(assignment.project_id).status in _NON_ACTIVE_PROJECT_STATUSES:
         raise ValidationError(
             [

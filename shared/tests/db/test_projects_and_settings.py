@@ -473,6 +473,7 @@ def assignable() -> Iterator[dict[str, MagicMock]]:
         patch("shared.db.project_settings.find", return_value=[]) as find_assignments,
         patch("shared.db._mongo.project_settings.assign") as backend_assign,
         patch("shared.db._mongo.project_settings.unassign") as backend_unassign,
+        patch("shared.db._mongo.project_settings.get") as backend_get,
     ):
         find_projects.return_value = [factories.project()]
         get_settings.return_value = factories.settings()
@@ -482,6 +483,7 @@ def assignable() -> Iterator[dict[str, MagicMock]]:
             "find_assignments": find_assignments,
             "backend_assign": backend_assign,
             "backend_unassign": backend_unassign,
+            "backend_get": backend_get,
         }
 
 
@@ -585,10 +587,12 @@ def test_assign_same_settings_with_different_filters_succeeds(
 
 def test_unassign_settings(assignable: dict[str, MagicMock]) -> None:
     """An assignment of an active project is removed."""
-    assignable["find_assignments"].return_value = [factories.project_settings()]
+    assignable["backend_get"].return_value = factories.project_settings()
 
     project_settings.unassign("assignment1")
 
+    assignable["backend_get"].assert_called_once_with("assignment1")
+    assignable["find_assignments"].assert_not_called()
     assignable["backend_unassign"].assert_called_once_with("assignment1")
 
 
@@ -596,7 +600,7 @@ def test_unassign_settings_from_archived_project_raises(
     assignable: dict[str, MagicMock],
 ) -> None:
     """Assignments of archived and deleted projects are frozen."""
-    assignable["find_assignments"].return_value = [factories.project_settings()]
+    assignable["backend_get"].return_value = factories.project_settings()
     assignable["find_projects"].return_value = [
         factories.project(status=ProjectStatus.INACTIVE)
     ]
@@ -609,6 +613,8 @@ def test_unassign_settings_from_archived_project_raises(
 
 def test_unassign_unknown_assignment_raises(assignable: dict[str, MagicMock]) -> None:
     """An unknown assignment is an error."""
+    assignable["backend_get"].side_effect = NotFoundError("No assignment9")
+
     with pytest.raises(NotFoundError, match="assignment9"):
         project_settings.unassign("assignment9")
 
@@ -648,6 +654,40 @@ def test_backend_assign_and_unassign(mock_models: MagicMock) -> None:
     )
     mock_models.ProjectSettings.objects.assert_called_once_with(id="some_id")
     mock_models.ProjectSettings.objects.return_value.delete.assert_called_once()
+
+
+def test_backend_get_project_settings(mock_models: MagicMock) -> None:
+    """One assignment is loaded by its id, with its settings embedded."""
+    mock_models.ProjectSettings.objects.return_value.first.return_value = (
+        models.ProjectSettings(
+            id=ASSIGNMENT_OBJECT_ID,
+            project=_project_document("P1"),
+            settings=_settings_document(),
+            scopes=["*"],
+            created_at_=NAIVE_TIME,
+        )
+    )
+
+    result = project_settings_backend.get(str(ASSIGNMENT_OBJECT_ID))
+
+    assert result == factories.project_settings(
+        id=str(ASSIGNMENT_OBJECT_ID),
+        settings=factories.settings(created_at_=AWARE_TIME),
+        created_at_=AWARE_TIME,
+    )
+    mock_models.ProjectSettings.objects.assert_called_once_with(
+        id=str(ASSIGNMENT_OBJECT_ID)
+    )
+
+
+def test_backend_get_project_settings_raises_if_missing(
+    mock_models: MagicMock,
+) -> None:
+    """An unknown assignment id is an error."""
+    mock_models.ProjectSettings.objects.return_value.first.return_value = None
+
+    with pytest.raises(NotFoundError, match="some_id"):
+        project_settings_backend.get("some_id")
 
 
 def test_find_project_settings_raises_for_missing_settings(

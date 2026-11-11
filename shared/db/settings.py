@@ -2,7 +2,6 @@
 
 import logging
 
-from shared.db import project_settings
 from shared.db._mongo import settings as _backend
 from shared.domain.errors import ValidationError
 from shared.domain.settings import (
@@ -126,13 +125,7 @@ def delete(unique_name: str) -> None:
     label = f"'{settings.name}' version {settings.version}"
     if settings.status == SettingsStatus.INACTIVE:
         raise ValidationError([f"Cannot delete archived settings {label}"])
-    project_ids = sorted(
-        {
-            ps.project_id
-            for ps in project_settings.find()
-            if ps.settings.id == unique_name
-        }
-    )
+    project_ids = _backend.assigned_project_ids(unique_name)
     if project_ids:
         raise ValidationError(
             [

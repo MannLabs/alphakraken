@@ -121,11 +121,11 @@ def unassign(assignment_id: str) -> None:
 
     """
     # moves to shared/services, cf. VALIDATION_DESIGN.md
-    assignment = _backend.get(assignment_id)
-    if projects.get(assignment.project_id).status in _NON_ACTIVE_PROJECT_STATUSES:
+    project_id = _backend.get_project_id(assignment_id)
+    if projects.get(project_id).status in _NON_ACTIVE_PROJECT_STATUSES:
         raise ValidationError(
             [
-                f"Cannot unassign settings from archived or deleted project '{assignment.project_id}'"
+                f"Cannot unassign settings from archived or deleted project '{project_id}'"
             ]
         )
 

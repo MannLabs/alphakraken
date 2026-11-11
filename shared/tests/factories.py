@@ -5,10 +5,17 @@ from typing import Any
 
 from shared.domain.alerts import AlertIssue, AlertSuppression
 from shared.domain.metrics import Metrics
+from shared.domain.projects import Project, ProjectSettings, ProjectStatus
 from shared.domain.raw_files import InstrumentFileStatus, RawFile, RawFileStatus
+from shared.domain.settings import Settings, SettingsStatus
 from shared.domain.status import KrakenStatus, KrakenStatusEntities, KrakenStatusValues
 from shared.domain.users import User, UserStatus
-from shared.keys import ALERT_SUPPRESSION_WILDCARD, FALLBACK_PROJECT_ID, MetricsTypes
+from shared.keys import (
+    ALERT_SUPPRESSION_WILDCARD,
+    DEFAULT_SCOPE,
+    FALLBACK_PROJECT_ID,
+    MetricsTypes,
+)
 
 SOME_TIME = datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC)
 
@@ -103,3 +110,58 @@ def user(**overrides: Any) -> User:
         "created_at_": SOME_TIME,
     }
     return User(**{**values, **overrides})
+
+
+def project(**overrides: Any) -> Project:
+    """Return an active project without owner."""
+    values: dict[str, Any] = {
+        "id": "P1",
+        "name": "Project 1",
+        "description": "desc",
+        "status": ProjectStatus.ACTIVE,
+        "owner_email": None,
+        "created_at_": SOME_TIME,
+    }
+    return Project(**{**values, **overrides})
+
+
+def settings(**overrides: Any) -> Settings:
+    """Return active alphadia settings `fallback_v7`."""
+    values: dict[str, Any] = {
+        "id": "fallback_v7",
+        "number": 1,
+        "name": "fallback",
+        "version": 7,
+        "description": None,
+        "fasta_file_name": None,
+        "speclib_file_name": None,
+        "config_file_name": None,
+        "config_params": None,
+        "software_type": "alphadia",
+        "software": "alphadia-1.0",
+        "runner_name": "slurm",
+        "metrics_type": "alphadia",
+        "slurm_cpus_per_task": 1,
+        "slurm_mem": "",
+        "slurm_time": "",
+        "num_threads": 1,
+        "status": SettingsStatus.ACTIVE,
+        "owner_email": None,
+        "created_at_": SOME_TIME,
+    }
+    return Settings(**{**values, **overrides})
+
+
+def project_settings(**overrides: Any) -> ProjectSettings:
+    """Return the assignment of `fallback_v7` to project `P1` for all instruments and files."""
+    values: dict[str, Any] = {
+        "id": "assignment1",
+        "project_id": "P1",
+        "settings": settings(),
+        "scopes": [DEFAULT_SCOPE],
+        "excluded_scopes": [],
+        "raw_file_id_filter": [],
+        "raw_file_id_exclude_filter": [],
+        "created_at_": SOME_TIME,
+    }
+    return ProjectSettings(**{**values, **overrides})

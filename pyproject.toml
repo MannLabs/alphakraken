@@ -71,9 +71,6 @@ ignore = [
 "webapp/pages_/impl/projects_utils.py" = ["TID251"]
 "webapp/tests/pages_/test_admin_page.py" = ["TID251"]
 "webapp/tests/pages_/impl/test_admin_utils.py" = ["TID251"]
-"rest_api/main.py" = ["TID251"]
-"rest_api/service.py" = ["TID251"]
-"rest_api/tests/test_service.py" = ["TID251"]
 "airflow_src/**" = ["TID251"]
 "*.ipynb" = [
     "T201" # use of 'print' detected

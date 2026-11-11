@@ -18,8 +18,8 @@ from shared.db.models import (
     SlurmJob,
     User,
     parse_file_info_item,
-    split_unique_settings_name,
 )
+from shared.domain.settings import split_unique_settings_name
 
 
 def test_parse_file_info_item_empty_tuple() -> None:

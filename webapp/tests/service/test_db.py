@@ -14,7 +14,7 @@ from service.db import (
 )
 from service.timezone import DISPLAY_TIMEZONE
 
-from shared.db import status
+from shared.db import status as status_store
 from shared.db.raw_files import RawFileFilter
 from shared.domain.raw_files import TERMINAL_STATUSES
 from shared.tests.factories import kraken_status, metrics, raw_file
@@ -104,7 +104,7 @@ def test_df_from_db_data_with_domain_objects(mock_find: MagicMock) -> None:
     """Domain objects become rows with `id` as the identifier column, in display time."""
     mock_find.return_value = [kraken_status(id="inst1"), kraken_status(id="backup")]
 
-    result = df_from_db_data(status.find())
+    result = df_from_db_data(status_store.find())
 
     assert list(result["id"]) == ["inst1", "backup"]
     assert result["updated_at_"].dt.tz == DISPLAY_TIMEZONE

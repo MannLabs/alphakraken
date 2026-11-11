@@ -13,7 +13,8 @@ from typing import Any
 
 from mcp.server.fastmcp import FastMCP
 
-from shared.db import metrics, raw_files, status
+from shared.db import metrics, raw_files
+from shared.db import status as status_store
 from shared.domain.metrics import Metrics
 from shared.domain.raw_files import RawFile
 
@@ -83,7 +84,7 @@ def get_available_instruments() -> list[dict[str, Any]]:
     try:
         results = [
             {"instrument_id": instrument_id}
-            for instrument_id in status.instrument_ids()
+            for instrument_id in status_store.instrument_ids()
         ]
 
     except Exception as e:

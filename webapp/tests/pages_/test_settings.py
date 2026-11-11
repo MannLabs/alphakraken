@@ -284,6 +284,32 @@ def test_settings_owner_is_shown_and_prefilled_for_new_version(
 @patch("shared.db.projects.find", return_value=[])
 @patch("shared.db.settings.find", return_value=[])
 @patch("service.db.df_from_db_data")
+def test_settings_unset_fields_are_prefilled_empty_for_new_version(
+    mock_df: MagicMock,
+    mock_get: MagicMock,  # noqa: ARG001
+    mock_project_get: MagicMock,  # noqa: ARG001
+    mock_ps_objects: MagicMock,  # noqa: ARG001
+) -> None:
+    """Test that fields the previous version left unset are prefilled empty, not with "None"."""
+    mock_df.return_value = _settings_df().assign(
+        description=[None, None],
+        speclib_file_name=[None, "speclib_file2"],
+        config_params=[None, None],
+    )
+
+    at = AppTest.from_file(f"{PAGES_FOLDER}/settings.py").run(timeout=10)
+    at.selectbox[0].set_value("new settings").run(timeout=10)
+
+    assert not at.exception
+    prefilled = [w.value for w in [*at.text_input, *at.text_area]]
+    assert "fasta_file1" in prefilled
+    assert not {"None", "nan"} & set(prefilled)
+
+
+@patch("shared.db.project_settings.find", return_value=[])
+@patch("shared.db.projects.find", return_value=[])
+@patch("shared.db.settings.find", return_value=[])
+@patch("service.db.df_from_db_data")
 def test_settings_without_users_shows_no_owner_select(
     mock_df: MagicMock,
     mock_get: MagicMock,  # noqa: ARG001

@@ -81,6 +81,11 @@ def get_settings_df() -> pd.DataFrame:
     )
 
 
+def _text(value: object) -> str:
+    """Return the value as text, an empty one if the value is missing."""
+    return "" if pd.isna(value) else str(value)
+
+
 @st.cache_data(ttl=DB_CACHE_TTL_SECONDS)
 def get_active_project_ids() -> set[str]:
     """Get the ids of all active projects."""
@@ -193,18 +198,18 @@ if selected_name_option != CREATE_NEW_OPTION:
 
     # Prepare prefill data from latest version
     prefill_data = {
-        "description": str(latest_settings.get("description", "")),
-        "software": str(latest_settings.get("software", "")),
-        "software_type": str(latest_settings.get("software_type", "")),
-        "runner_name": str(latest_settings.get("runner_name", "")),
-        "fasta_file_name": str(latest_settings.get("fasta_file_name", "")),
-        "speclib_file_name": str(latest_settings.get("speclib_file_name", "")),
-        "config_file_name": str(latest_settings.get("config_file_name", "")),
-        "config_params": str(latest_settings.get("config_params", "")),
-        "metrics_type": str(latest_settings.get("metrics_type", "")),
+        "description": _text(latest_settings.get("description")),
+        "software": _text(latest_settings.get("software")),
+        "software_type": _text(latest_settings.get("software_type")),
+        "runner_name": _text(latest_settings.get("runner_name")),
+        "fasta_file_name": _text(latest_settings.get("fasta_file_name")),
+        "speclib_file_name": _text(latest_settings.get("speclib_file_name")),
+        "config_file_name": _text(latest_settings.get("config_file_name")),
+        "config_params": _text(latest_settings.get("config_params")),
+        "metrics_type": _text(latest_settings.get("metrics_type")),
         "slurm_cpus_per_task": latest_settings.get("slurm_cpus_per_task", ""),
-        "slurm_mem": str(latest_settings.get("slurm_mem", "")),
-        "slurm_time": str(latest_settings.get("slurm_time", "")),
+        "slurm_mem": _text(latest_settings.get("slurm_mem")),
+        "slurm_time": _text(latest_settings.get("slurm_time")),
         "num_threads": latest_settings.get("num_threads", ""),
     }
     owner = latest_settings.get("owner")

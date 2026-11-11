@@ -14,7 +14,7 @@ from collections.abc import Collection
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
-from shared.db import raw_files
+from shared.db import raw_files as raw_file_store
 from shared.domain.status import KrakenStatus
 
 from .base_alert import BaseAlert, Issue
@@ -63,7 +63,7 @@ def _load_recent_files(
     known_initials: Collection[str], cutoff: datetime
 ) -> dict[str, list[RecentFile]]:
     """Load the three newest raw files per instrument created after the cutoff, newest first."""
-    latest = raw_files.latest_per_instrument(
+    latest = raw_file_store.latest_per_instrument(
         MIN_FILES_FOR_HANDOFF_DETECTION, created_after=cutoff
     )
     return {

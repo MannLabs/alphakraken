@@ -13,7 +13,8 @@ from typing import Any
 
 from mcp.server.fastmcp import FastMCP
 
-from shared.db import metrics, raw_files
+from shared.db import metrics as metrics_store
+from shared.db import raw_files as raw_file_store
 from shared.db import status as status_store
 from shared.domain.metrics import Metrics
 from shared.domain.raw_files import RawFile
@@ -113,7 +114,7 @@ def get_raw_files_by_names(
 
     """
     try:
-        found = raw_files.find(raw_files.RawFileFilter(ids=raw_file_names))
+        found = raw_file_store.find(raw_file_store.RawFileFilter(ids=raw_file_names))
         results = _with_latest_metrics(
             found, gradient_length_filter=None, only_basic_metrics=False
         )
@@ -159,8 +160,8 @@ def get_raw_files_for_instrument(
 
     cutoff = datetime.now(tz=UTC) - timedelta(days=max_age_in_days)
     try:
-        found = raw_files.find(
-            raw_files.RawFileFilter(
+        found = raw_file_store.find(
+            raw_file_store.RawFileFilter(
                 instrument_id=instrument_id,
                 name_contains=name_search_string or None,
                 created_after=cutoff,
@@ -243,7 +244,9 @@ def _with_latest_metrics(
                               - "metrics": A dictionary with the latest metrics or an empty dictionary if none exist.
 
     """
-    latest_metrics = metrics.latest_by_raw_file([raw_file.id for raw_file in found])
+    latest_metrics = metrics_store.latest_by_raw_file(
+        [raw_file.id for raw_file in found]
+    )
 
     results = []
     for raw_file in found:

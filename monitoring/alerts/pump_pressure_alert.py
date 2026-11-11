@@ -9,7 +9,8 @@ from typing import Any
 
 from utils import short_digest
 
-from shared.db import metrics, raw_files
+from shared.db import metrics as metrics_store
+from shared.db import raw_files as raw_file_store
 from shared.domain.metrics import Metrics
 from shared.domain.raw_files import RawFile
 from shared.domain.status import KrakenStatus, KrakenStatusEntities
@@ -72,14 +73,16 @@ def _load_pressure_data(
 ) -> dict[str, list[PressureDataPoint]]:
     """Load the pressure measurements of the recent raw files per instrument, newest first."""
     cutoff = now - timedelta(days=PUMP_PRESSURE_LOOKBACK_DAYS)
-    recent_files = raw_files.find(
-        raw_files.RawFileFilter(instrument_ids=instrument_ids, created_after=cutoff)
+    recent_files = raw_file_store.find(
+        raw_file_store.RawFileFilter(
+            instrument_ids=instrument_ids, created_after=cutoff
+        )
     )
     if not recent_files:
         logging.debug("No raw files found in lookback window")
         return {}
 
-    latest_metrics = metrics.latest_by_raw_file(
+    latest_metrics = metrics_store.latest_by_raw_file(
         [raw_file.id for raw_file in recent_files],
         fields=[GRADIENT_LENGTH_KEY, PRESSURE_KEY],
     )

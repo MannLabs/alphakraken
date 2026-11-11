@@ -2,7 +2,7 @@
 
 from datetime import datetime, timedelta
 
-from shared.db import raw_files
+from shared.db import raw_files as raw_file_store
 from shared.domain.status import KrakenStatus, KrakenStatusEntities
 
 from .base_alert import BaseAlert, Issue
@@ -36,8 +36,8 @@ class InstrumentFilePileUpAlert(BaseAlert):
                 instrument_file_status,
                 threshold,
             ) in INSTRUMENT_FILE_PILE_UP_THRESHOLDS.items():
-                count = raw_files.count(
-                    raw_files.RawFileFilter(
+                count = raw_file_store.count(
+                    raw_file_store.RawFileFilter(
                         instrument_file_status=instrument_file_status,
                         instrument_id=instrument_id,
                         created_before=cutoff,

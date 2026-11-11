@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 from utils import short_digest
 
-from shared.db import raw_files
+from shared.db import raw_files as raw_file_store
 from shared.domain.raw_files import RawFileStatus
 from shared.domain.status import KrakenStatus
 
@@ -26,8 +26,8 @@ class RawFileErrorAlert(BaseAlert):
         del status_objects
 
         youngest_updated_at = now - timedelta(hours=RAW_FILE_STATUS_LOOKBACK_HOURS)
-        error_raw_files = raw_files.find(
-            raw_files.RawFileFilter(
+        error_raw_files = raw_file_store.find(
+            raw_file_store.RawFileFilter(
                 status=RawFileStatus.ERROR, updated_after=youngest_updated_at
             )
         )

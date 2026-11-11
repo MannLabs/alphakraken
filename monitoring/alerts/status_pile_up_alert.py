@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from shared.db import raw_files
+from shared.db import raw_files as raw_file_store
 from shared.domain.raw_files import TERMINAL_STATUSES
 from shared.domain.status import KrakenStatus, KrakenStatusEntities
 
@@ -28,8 +28,8 @@ class StatusPileUpAlert(BaseAlert):
             if o.entity_type == KrakenStatusEntities.INSTRUMENT
         ]:
             instrument_id = kraken_status.id
-            status_counts = raw_files.count_by_status(
-                raw_files.RawFileFilter(
+            status_counts = raw_file_store.count_by_status(
+                raw_file_store.RawFileFilter(
                     instrument_id=instrument_id, statuses_not=TERMINAL_STATUSES
                 )
             )

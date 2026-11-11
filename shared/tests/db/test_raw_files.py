@@ -316,6 +316,9 @@ def test_find_rejects_unknown_order_field() -> None:
         (pymongo.errors.ServerSelectionTimeoutError("down"), DatabaseUnavailableError),
         (pymongo.errors.OperationFailure("not authorized"), DatabaseError),
         (mongoengine.ConnectionFailure("alias registered"), DatabaseError),
+        (mongoengine.OperationError("not authorized"), DatabaseError),
+        (mongoengine.MultipleObjectsReturned("two"), DatabaseError),
+        (mongoengine.InvalidQueryError("bad query"), DatabaseError),
     ],
 )
 def test_translate_errors(raised: Exception, expected: type[Exception]) -> None:

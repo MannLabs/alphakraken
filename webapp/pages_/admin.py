@@ -2,11 +2,7 @@
 
 import pandas as pd
 import streamlit as st
-from pages_.impl.admin_utils import (
-    end_of_day,
-    get_suppressions_df,
-    validate_suppression,
-)
+from pages_.impl.admin_utils import end_of_day, get_suppressions_df
 from service.admin import is_admin
 from service.query_params import get_all_query_params
 from service.session_state import SessionStateKeys, set_session_state
@@ -15,7 +11,6 @@ from service.user_input import clean_initials, clean_messenger_id, parse_user_ro
 from service.utils import (
     DISABLE_WRITE,
     _log,
-    empty_to_none,
     flush_pending_toasts,
     toast_result,
 )
@@ -271,19 +266,12 @@ with st.form("add_suppression_form"):
 
 if form_submit:
     with toast_result("Added alert suppression."):
-        validate_suppression(
+        alert_store.add_suppression(
             alert=alert,
             instrument_id=instrument_id,
             identifier=identifier,
             details=details,
             comment=comment,
-        )
-        alert_store.add_suppression(
-            alert=alert.strip(),
-            instrument_id=instrument_id,
-            identifier=identifier.strip(),
-            details=details.strip(),
-            comment=comment.strip(),
             expires_at=end_of_day(expires_on) if expires_on else None,
-            created_by=empty_to_none(created_by),
+            created_by=created_by,
         )

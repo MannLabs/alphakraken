@@ -4,6 +4,7 @@ from shared.db._mongo import models
 from shared.db._mongo.connection import ensure_connected
 from shared.db._mongo.errors import translate_errors
 from shared.db._mongo.mappers import to_user
+from shared.domain.errors import NotFoundError
 from shared.domain.users import User, UserStatus
 
 
@@ -57,4 +58,5 @@ def update(email: str, *, initials: str, messenger_id: str | None) -> None:
 def set_status(email: str, status: str) -> None:
     """Set the status of a user, cf. `shared.db.users`."""
     ensure_connected()
-    models.User.objects(email=email).update_one(status=status)
+    if not models.User.objects(email=email).update_one(status=status):
+        raise NotFoundError(f"No user {email}")

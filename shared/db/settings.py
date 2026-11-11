@@ -103,7 +103,12 @@ def create(  # noqa: PLR0913
 
 
 def archive(unique_name: str) -> None:
-    """Archive settings by setting their status to INACTIVE."""
+    """Archive settings by setting their status to INACTIVE.
+
+    Raises:
+        NotFoundError: if there are no such settings.
+
+    """
     _backend.set_status(unique_name, SettingsStatus.INACTIVE)
     logging.info(f"Archived settings: {unique_name=}")
 

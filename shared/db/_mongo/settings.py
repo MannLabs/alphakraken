@@ -75,4 +75,5 @@ def create(*, owner_email: str | None, **fields: Any) -> Settings:
 def set_status(unique_name: str, status: str) -> None:
     """Set the status of the settings with the given unique name."""
     ensure_connected()
-    settings_by_unique_name(unique_name).update_one(status=status)
+    if not settings_by_unique_name(unique_name).update_one(status=status):
+        raise NotFoundError(f"No settings {unique_name}")

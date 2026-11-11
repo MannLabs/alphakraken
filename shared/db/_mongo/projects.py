@@ -6,6 +6,7 @@ from shared.db._mongo import models
 from shared.db._mongo.connection import ensure_connected
 from shared.db._mongo.errors import translate_errors
 from shared.db._mongo.mappers import to_project
+from shared.domain.errors import NotFoundError
 from shared.domain.projects import Project, ProjectStatus
 
 
@@ -57,4 +58,5 @@ def add(
 def set_status(project_id: str, status: str) -> None:
     """Set the status of a project."""
     ensure_connected()
-    models.Project.objects(id=project_id).update_one(status=status)
+    if not models.Project.objects(id=project_id).update_one(status=status):
+        raise NotFoundError(f"No project {project_id}")

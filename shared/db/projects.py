@@ -71,7 +71,12 @@ def add(
 
 
 def archive(project_id: str) -> None:
-    """Archive a project by setting its status to INACTIVE."""
+    """Archive a project by setting its status to INACTIVE.
+
+    Raises:
+        NotFoundError: if there is no such project.
+
+    """
     _backend.set_status(project_id, ProjectStatus.INACTIVE)
     logging.info(f"Archived project: {project_id=}")
 

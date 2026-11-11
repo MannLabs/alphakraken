@@ -301,6 +301,32 @@ def test_backend_set_status_by_unique_name(mock_models: MagicMock) -> None:
     )
 
 
+def test_backend_set_status_of_unknown_settings_raises(mock_models: MagicMock) -> None:
+    """Setting the status of settings that do not exist is an error."""
+    mock_models.Settings.objects.return_value.update_one.return_value = 0
+
+    with pytest.raises(NotFoundError, match="fallback_v7"):
+        settings_backend.set_status("fallback_v7", SettingsStatus.INACTIVE)
+
+
+def test_backend_set_status_of_project(mock_models: MagicMock) -> None:
+    """The backend sets the status of the project with the given id."""
+    projects_backend.set_status("P1", ProjectStatus.INACTIVE)
+
+    mock_models.Project.objects.assert_called_once_with(id="P1")
+    mock_models.Project.objects.return_value.update_one.assert_called_once_with(
+        status=ProjectStatus.INACTIVE
+    )
+
+
+def test_backend_set_status_of_unknown_project_raises(mock_models: MagicMock) -> None:
+    """Setting the status of a project that does not exist is an error."""
+    mock_models.Project.objects.return_value.update_one.return_value = 0
+
+    with pytest.raises(NotFoundError, match="P1"):
+        projects_backend.set_status("P1", ProjectStatus.INACTIVE)
+
+
 @patch("shared.db._mongo.settings.set_status")
 @patch("shared.db.project_settings.find")
 @patch("shared.db.settings.get")

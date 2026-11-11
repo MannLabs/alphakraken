@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, patch
 import mongoengine
 import pymongo.errors
 import pytest
+from mongoengine import Q
 
 from shared import db
 from shared.db import models
@@ -16,6 +17,7 @@ from shared.db._mongo.connection import ensure_connected
 from shared.db._mongo.errors import translate_errors
 from shared.db._mongo.mappers import to_raw_file
 from shared.db.raw_files import (
+    _ORDER_FIELDS,
     RawFileFilter,
     count,
     count_by_status,
@@ -135,6 +137,36 @@ def test_conditions_of_full_filter() -> None:
         "status__in": [RawFileStatus.ERROR, RawFileStatus.QUANTING_FAILED],
         "backup_status": BackupStatus.UPLOAD_FAILED,
     }
+
+
+def test_conditions_of_full_filter_resolve_against_the_model() -> None:
+    """Every query key names a field and an operator the model knows."""
+    where = RawFileFilter(
+        ids=["f1"],
+        instrument_id="inst1",
+        instrument_ids=["inst1"],
+        project_id="P1",
+        name_contains="F1",
+        created_after=AWARE_TIME,
+        created_before=AWARE_TIME,
+        updated_after=AWARE_TIME,
+        status=RawFileStatus.ERROR,
+        statuses=[RawFileStatus.ERROR],
+        statuses_not=[RawFileStatus.DONE],
+        backup_status=BackupStatus.UPLOAD_FAILED,
+        instrument_file_status=InstrumentFileStatus.MOVED,
+    )
+    conditions = backend._conditions(where)
+    assert set(conditions) == set(backend._QUERY_KEYS.values())
+
+    # raises InvalidQueryError on an unknown field or operator
+    Q(**conditions).to_query(models.RawFile)
+
+
+def test_every_order_field_is_a_model_field() -> None:
+    """Ordering by any field of the domain type is valid for the model."""
+    # raises InvalidQueryError on an unknown field
+    Q(**dict.fromkeys(_ORDER_FIELDS)).to_query(models.RawFile)
 
 
 def test_every_filter_field_has_a_query_key() -> None:

@@ -3,12 +3,13 @@
 import re
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Annotated, Any, Self
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from shared.domain.inputs import empty_to_none
 from shared.domain.settings import Settings
-from shared.keys import FALLBACK_PROJECT_ID
+from shared.keys import DEFAULT_SCOPE, FALLBACK_PROJECT_ID
 
 PROJECT_ID_MIN_LENGTH = 4
 PROJECT_ID_MAX_LENGTH = 16
@@ -80,3 +81,49 @@ class NewProject(BaseModel):
                 f"Invalid project id '{value}'. Please choose a different one."
             )
         return value
+
+
+_Scope = Annotated[str, Field(min_length=1, max_length=64)]
+_FileIdFilter = Annotated[str, Field(min_length=1, max_length=128)]
+
+
+class NewAssignment(BaseModel):
+    """An assignment of settings to a project to add, cf. `ProjectSettings`. Strings are stripped."""
+
+    model_config = ConfigDict(frozen=True, str_strip_whitespace=True)
+
+    project_id: str
+    # the unique name of the settings, e.g. `fallback_v7`
+    settings_id: str
+    scopes: list[_Scope] = [DEFAULT_SCOPE]
+    excluded_scopes: list[_Scope] = []
+    raw_file_id_filter: list[_FileIdFilter] = []
+    raw_file_id_exclude_filter: list[_FileIdFilter] = []
+
+    @field_validator(
+        "excluded_scopes",
+        "raw_file_id_filter",
+        "raw_file_id_exclude_filter",
+        mode="before",
+    )
+    @classmethod
+    def _none_to_empty(cls, value: Any) -> Any:
+        return [] if value is None else value
+
+    @field_validator("scopes", mode="before")
+    @classmethod
+    def _default_scope_absorbs_others(cls, value: Any) -> Any:
+        # the default scope matches everything, so any other entry next to it is redundant
+        return [DEFAULT_SCOPE] if not value or DEFAULT_SCOPE in value else value
+
+    @model_validator(mode="after")
+    def _exclusion_leaves_something(self) -> Self:
+        if DEFAULT_SCOPE in self.excluded_scopes:
+            raise ValueError(
+                f"The scope '{DEFAULT_SCOPE}' cannot be excluded, the assignment would never apply."
+            )
+        if overlap := sorted(set(self.scopes) & set(self.excluded_scopes)):
+            raise ValueError(
+                f"Scopes {overlap} are both included and excluded, they would never apply."
+            )
+        return self

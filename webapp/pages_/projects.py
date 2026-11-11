@@ -9,11 +9,8 @@ import streamlit.delta_generator
 from pages_.impl.projects_utils import get_resolved_settings_df
 from service.admin import is_admin
 from service.components import show_filter, show_sandbox_message
-from service.db import (
-    df_from_db_data,
-    get_project_data,
-)
-from service.owner import add_owner_initials, show_owner_selectbox
+from service.db import df_from_db_data
+from service.owner import OWNER_COLUMN, add_owner_initials, show_owner_selectbox
 from service.query_params import get_all_query_params
 from service.utils import (
     DISABLE_WRITE,
@@ -24,19 +21,12 @@ from service.utils import (
     show_success_toast,
 )
 
-from shared.db.interface import (
-    add_project,
-    archive_project,
-    assign_settings_to_project,
-    check_not_assigned_with_same_filters,
-    delete_project,
-    get_all_settings,
-    get_latest_active_settings_by_name,
-    get_project_settings,
-    unassign_settings_from_project,
-)
+from shared.db import project_settings as project_settings_store
+from shared.db import projects as project_store
+from shared.db import settings as settings_store
 from shared.display_paths import DISPLAY_PATHS
 from shared.domain.projects import ProjectStatus
+from shared.domain.settings import SettingsStatus
 from shared.keys import DEFAULT_SCOPE, FALLBACK_PROJECT_ID, KNOWN_VENDOR_NAMES
 from shared.path_views import Locations
 from shared.yamlsettings import YAMLSETTINGS, YamlKeys
@@ -83,20 +73,20 @@ st.markdown("## Current projects")
 
 # ########################################### LOGIC
 
-projects_db = get_project_data()
-projects_df = add_owner_initials(df_from_db_data(projects_db))
+projects_db = project_store.find()
+projects_df = add_owner_initials(
+    df_from_db_data(projects_db).rename(columns={"owner_email": OWNER_COLUMN})
+)
 
 # build settings names column via ProjectSettings M:N relationship
 _project_to_settings: dict[str, list[str]] = {}
-for p in projects_db:
-    ps_list = get_project_settings(p.id)  # TODO: could be single query
-    if ps_list:
-        _project_to_settings[p.id] = [
-            f"{ps.settings.name} version {ps.settings.version}" for ps in ps_list
-        ]
+for ps in project_settings_store.find([p.id for p in projects_db]):
+    _project_to_settings.setdefault(ps.project_id, []).append(
+        f"{ps.settings.name} version {ps.settings.version}"
+    )
 
 if not projects_df.empty:
-    projects_df["settings"] = projects_df["_id"].map(
+    projects_df["settings"] = projects_df["id"].map(
         lambda pid: ", ".join(_project_to_settings.get(pid, []))
     )
 
@@ -164,7 +154,7 @@ with c_assign1:
     disable_write = DISABLE_WRITE or (is_fallback and not is_admin())
 
     if selected_project_id:
-        current_ps_list = get_project_settings(selected_project_id)
+        current_ps_list = project_settings_store.find([selected_project_id])
 
         if current_ps_list:
             st.markdown("**Current settings assignments:**")
@@ -188,8 +178,8 @@ with c_assign1:
                 col_info.write(
                     f"`[scopes: {', '.join(map(_display_scope, ps.scopes))}]` '{ps.settings.name}' version {ps.settings.version} (type: `{ps.settings.software_type}`, executable: `{ps.settings.software}`){excluded_str}{filter_str}{exclude_filter_str}"
                 )
-                ps_id = str(ps.id)  # type: ignore[unresolved-attribute]
-                latest = get_latest_active_settings_by_name(ps.settings.name)
+                ps_id = ps.id
+                latest = settings_store.latest_active(ps.settings.name)
                 has_newer_version = (
                     latest is not None and latest.version > ps.settings.version
                 )
@@ -202,7 +192,7 @@ with c_assign1:
                 ):
                     try:
                         _check_assignment_allowed(selected_project_id)
-                        unassign_settings_from_project(ps_id)  # type: ignore[unresolved-attribute]
+                        project_settings_store.unassign(ps_id)
                         show_success_toast(
                             f"Removed settings assignment from project {selected_project_id}."
                         )
@@ -223,16 +213,16 @@ with c_assign1:
                 ):
                     try:
                         _check_assignment_allowed(selected_project_id)
-                        check_not_assigned_with_same_filters(
+                        project_settings_store.check_not_assigned_with_same_filters(
                             selected_project_id,
-                            latest,  # type: ignore[arg-type]
+                            latest.id,  # type: ignore[union-attr]
                             list(ps.raw_file_id_filter),
                             list(ps.raw_file_id_exclude_filter),
                         )
-                        unassign_settings_from_project(ps_id)  # type: ignore[unresolved-attribute]
-                        assign_settings_to_project(
+                        project_settings_store.unassign(ps_id)
+                        project_settings_store.assign(
                             selected_project_id,
-                            str(latest.id),  # type: ignore[union-attr, unresolved-attribute]
+                            latest.id,  # type: ignore[union-attr]
                             scopes=list(ps.scopes),
                             excluded_scopes=list(ps.excluded_scopes),
                             raw_file_id_filter=list(ps.raw_file_id_filter),
@@ -248,15 +238,15 @@ with c_assign1:
         else:
             st.info("No settings assigned to this project.")
 
-        all_settings = get_all_settings(include_archived=False)
+        all_settings = [
+            s for s in settings_store.find() if s.status == SettingsStatus.ACTIVE
+        ]
 
         if not all_settings:
             st.warning("No active settings available. Create settings first.")
         else:
             settings_options_map = {
-                f"{s.name} version {s.version} (type: {s.software_type}, executable: {s.software})": str(
-                    s.id  # type: ignore[unresolved-attribute]
-                )
+                f"{s.name} version {s.version} (type: {s.software_type}, executable: {s.software})": s.id
                 for s in all_settings
             }
 
@@ -306,7 +296,7 @@ with c_assign1:
                 try:
                     _check_assignment_allowed(selected_project_id)
                     new_settings_id = settings_options_map[selected_settings_display]
-                    assign_settings_to_project(
+                    project_settings_store.assign(
                         selected_project_id,
                         new_settings_id,
                         scopes=selected_scopes,
@@ -446,7 +436,7 @@ if form_submit:
     try:
         _check_project_id(empty_to_none(project_id))
 
-        add_project(
+        project_store.add(
             project_id=empty_to_none(project_id),
             name=empty_to_none(project_name),
             description=project_description,
@@ -487,7 +477,7 @@ else:
                 icon=":material/archive:",
             ):
                 try:
-                    archive_project(p.id)
+                    project_store.archive(p.id)
                     show_success_toast(f"Archived project '{p.id}'.")
                 except Exception as e:  # noqa: BLE001
                     show_error_toast(str(e))
@@ -498,7 +488,7 @@ else:
                 icon=":material/delete:",
             ):
                 try:
-                    delete_project(p.id)
+                    project_store.delete(p.id)
                     show_success_toast(f"Deleted project '{p.id}'.")
                 except Exception as e:  # noqa: BLE001
                     show_error_toast(str(e))

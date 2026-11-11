@@ -7,30 +7,21 @@ from pages_.impl.projects_utils import (
     get_resolved_settings_df,
 )
 
+from shared.domain.settings import Settings
+from shared.tests.factories import project_settings, settings
+
 _INSTRUMENTS_CONFIG = {"instr1": {"type": "thermo"}, "instr2": {"type": "bruker"}}
 
 
-def _settings(name: str, software_type: str) -> MagicMock:
-    s = MagicMock(
-        id=name,
-        version=1,
-        software_type=software_type,
-        software="sw",
-        description="",
-        config_file_name="",
-        fasta_file_name="",
-        speclib_file_name="",
-        config_params="",
-    )
-    s.name = name
-    return s
+def _settings(name: str, software_type: str) -> Settings:
+    return settings(id=f"{name}_v1", name=name, version=1, software_type=software_type)
 
 
-@patch("pages_.impl.projects_utils.get_project_settings", return_value=[])
+@patch("shared.db.project_settings.find", return_value=[])
 @patch("pages_.impl.projects_utils.resolve_scoped_settings")
 def test_get_resolved_settings_df_lists_all_resolved_settings_per_instrument(
     mock_resolve: MagicMock,
-    mock_get_ps: MagicMock,  # noqa: ARG001
+    mock_find: MagicMock,
 ) -> None:
     """Test that one row per resolved settings and a placeholder row for empty instruments is built."""
     mock_resolve.side_effect = lambda *_, instrument_id, **__: (
@@ -48,13 +39,14 @@ def test_get_resolved_settings_df_lists_all_resolved_settings_per_instrument(
         "--",
     ]
     assert mock_resolve.call_args_list[1].kwargs["instrument_type"] == "bruker"
+    mock_find.assert_called_once_with(["P1"])
 
 
-@patch("pages_.impl.projects_utils.get_project_settings", return_value=[])
+@patch("shared.db.project_settings.find", return_value=[])
 @patch("pages_.impl.projects_utils.resolve_scoped_settings")
 def test_get_resolved_settings_df_warns_on_same_software_type(
     mock_resolve: MagicMock,
-    mock_get_ps: MagicMock,  # noqa: ARG001
+    mock_find: MagicMock,  # noqa: ARG001
 ) -> None:
     """Test that two settings of the same software_type on one instrument are flagged."""
     mock_resolve.return_value = [
@@ -69,27 +61,22 @@ def test_get_resolved_settings_df_warns_on_same_software_type(
     assert flagged == [True, True, False]
 
 
-@patch("pages_.impl.projects_utils.get_project_settings")
+@patch("shared.db.project_settings.find")
 def test_get_resolved_settings_df_annotates_file_name_filters(
-    mock_get_ps: MagicMock,
+    mock_find: MagicMock,
 ) -> None:
     """Test that the filters of the matching assignment are shown, those of a non-matching one not."""
     a = _settings("a", "alphadia")
-    ps_match = MagicMock(
+    ps_match = project_settings(
         settings=a,
         scopes=["thermo"],
-        excluded_scopes=[],
         raw_file_id_filter=["PP", "QQ"],
         raw_file_id_exclude_filter=["blank"],
     )
-    ps_other_instrument = MagicMock(
-        settings=a,
-        scopes=["bruker"],
-        excluded_scopes=[],
-        raw_file_id_filter=["ZZ"],
-        raw_file_id_exclude_filter=[],
+    ps_other_instrument = project_settings(
+        settings=a, scopes=["bruker"], raw_file_id_filter=["ZZ"]
     )
-    mock_get_ps.return_value = [ps_match, ps_other_instrument]
+    mock_find.return_value = [ps_match, ps_other_instrument]
 
     df = get_resolved_settings_df("P1", ["instr1"], _INSTRUMENTS_CONFIG)
 

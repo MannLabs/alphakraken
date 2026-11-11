@@ -1,24 +1,18 @@
 """Database service for the web application."""
 
 import re
-from dataclasses import is_dataclass
 from datetime import datetime, timedelta
 
 # ruff: noqa: PD002 # `inplace=True` should be avoided; it has inconsistent behavior
 import pandas as pd
 import pytz
-from mongoengine import QuerySet
 from service.timezone import display_now, to_display_timezone
 from service.utils import _log
 
 from shared.db import metrics, raw_files
-from shared.db.engine import connect_db
-from shared.db.models import Project, Settings
 from shared.display_paths import get_display_backup_path, get_display_output_path
 from shared.domain.metrics import Metrics
-from shared.domain.projects import ProjectStatus
 from shared.domain.raw_files import TERMINAL_STATUSES, RawFile
-from shared.domain.settings import SettingsStatus
 from shared.validation import (
     ALLOWED_RAW_FILE_NAME_CHARACTERS_PRETTY,
     FORBIDDEN_RAW_FILE_NAME_CHARACTERS_PATTERN,
@@ -231,24 +225,8 @@ def get_raw_files_for_throughput_per_day(days: int = 14) -> pd.DataFrame:
     return result[["date", "instrument_id", "count", "size_gb"]]
 
 
-def get_project_data() -> QuerySet:
-    """Connect to the database and return the QuerySet for all non-deleted Projects."""
-    _log("Connecting to the database")
-    connect_db()
-    _log("Retrieving all project data")
-    return Project.objects(status__ne=ProjectStatus.DELETED)
-
-
-def get_settings_data() -> QuerySet:
-    """Connect to the database and return the QuerySet for all non-deleted Settings."""
-    _log("Connecting to the database")
-    connect_db()
-    _log("Retrieving all settings data")
-    return Settings.objects(status__ne=SettingsStatus.DELETED)
-
-
 def df_from_db_data(
-    query_set: QuerySet | list,
+    rows: list,
     *,
     filter_dict: dict | None = None,
     drop_duplicates: list[str] | None = None,
@@ -257,19 +235,15 @@ def df_from_db_data(
 ) -> pd.DataFrame:
     """Create a DataFrame from database results.
 
-    :param query_set: the domain objects or, for the queries not ported yet, the MongoDB QuerySet
-        to convert to a DataFrame
+    :param rows: the domain objects to convert to a DataFrame, one row each
     :param filter_dict: optional dictionary to filter the DataFrame, e.g {"status": "done"}
     :param drop_duplicates: optional list of columns to drop duplicates on after applying the filter
         (youngest created_at_ will be kept)
     :param drop_columns: optional list of columns to drop
     :param drop_none_columns: if True, drop columns that contain only None values
-    :return: dataframe containing the data from the QuerySet
+    :return: dataframe with one column per field of the domain objects
     """
-    query_set_as_dicts = [
-        vars(r) if is_dataclass(r) else r.to_mongo() for r in query_set
-    ]
-    query_set_df = pd.DataFrame(query_set_as_dicts)
+    query_set_df = pd.DataFrame([vars(row) for row in rows])
 
     if filter_dict:
         for key, value in filter_dict.items():

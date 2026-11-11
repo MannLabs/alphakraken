@@ -22,11 +22,7 @@ from shared.db.models import (
 )
 from shared.domain.projects import ProjectStatus
 from shared.domain.raw_files import FileInfoItem, InstrumentFileStatus
-from shared.domain.settings import SettingsStatus
 from shared.domain.slurm_jobs import SlurmJobQueueStates
-from shared.keys import DEFAULT_SCOPE
-
-_NON_ACTIVE_PROJECT_STATUSES = [ProjectStatus.INACTIVE, ProjectStatus.DELETED]
 
 
 def get_raw_files_by_names(
@@ -199,131 +195,10 @@ def add_metrics_to_raw_file(  # noqa: PLR0913
     ).save()
 
 
-def add_project(
-    *, project_id: str, name: str, description: str, owner_email: str | None = None
-) -> None:
-    """Add a new project to the database."""
-    logging.info(f"Adding to DB: {project_id=} {name=} {description=} {owner_email=}")
-    connect_db()
-    existing = Project.objects(id=project_id).first()
-    if existing is not None and existing.status == ProjectStatus.DELETED:
-        raise ValueError(
-            f"Project id '{project_id}' was used by a deleted project. Please choose a different one."
-        )
-    project = Project(
-        id=project_id,
-        name=name,
-        description=description,
-        owner=_get_owner(owner_email),
-    )
-    # this will fail if the project id already exists
-    project.save(force_insert=True)
-
-
-def archive_project(project_id: str) -> None:
-    """Archive a project by setting its status to INACTIVE."""
-    connect_db()
-    Project.objects(id=project_id).update_one(status=ProjectStatus.INACTIVE)
-    logging.info(f"Archived project: {project_id=}")
-
-
-def delete_project(project_id: str) -> None:
-    """Soft-delete a project by setting its status to DELETED."""
-    connect_db()
-    if Project.objects.get(id=project_id).status == ProjectStatus.INACTIVE:
-        raise ValueError(f"Cannot delete archived project '{project_id}'")
-    Project.objects(id=project_id).update_one(status=ProjectStatus.DELETED)
-    logging.info(f"Deleted project: {project_id=}")
-
-
 def get_active_project_ids() -> list[str]:
     """Get the ids of all projects that are neither archived nor deleted."""
     connect_db()
     return [p.id for p in Project.objects(status=ProjectStatus.ACTIVE)]
-
-
-def assign_settings_to_project(  # noqa: PLR0913
-    project_id: str,
-    settings_id: str,
-    scopes: list[str] | None = None,
-    excluded_scopes: list[str] | None = None,
-    raw_file_id_filter: list[str] | None = None,
-    raw_file_id_exclude_filter: list[str] | None = None,
-) -> ProjectSettings:
-    """Create a new project-settings assignment."""
-    connect_db()
-    project = Project.objects.get(id=project_id)
-    if project.status in _NON_ACTIVE_PROJECT_STATUSES:
-        raise ValueError(
-            f"Cannot assign settings to archived or deleted project '{project_id}'"
-        )
-    settings = Settings.objects.get(id=settings_id)
-    if settings.status == SettingsStatus.INACTIVE:
-        raise ValueError(
-            f"Cannot assign archived settings '{settings.name}' version {settings.version}"
-        )
-
-    # the default scope matches everything, so any other entry next to it is redundant
-    scopes = [DEFAULT_SCOPE] if not scopes or DEFAULT_SCOPE in scopes else scopes
-    excluded_scopes = excluded_scopes or []
-    raw_file_id_filter = raw_file_id_filter or []
-    raw_file_id_exclude_filter = raw_file_id_exclude_filter or []
-
-    check_not_assigned_with_same_filters(
-        project_id, settings, raw_file_id_filter, raw_file_id_exclude_filter
-    )
-
-    ps = ProjectSettings(
-        project=project,
-        settings=settings,
-        # TODO: validate here, not only on the frontend: reject DEFAULT_SCOPE in excluded_scopes
-        #  and scopes overlapping excluded_scopes, both silently match nothing
-        scopes=scopes,
-        excluded_scopes=excluded_scopes,
-        raw_file_id_filter=raw_file_id_filter,
-        raw_file_id_exclude_filter=raw_file_id_exclude_filter,
-    )
-    ps.save()
-    logging.info(
-        f"Created project-settings assignment: {project_id=} {settings.name=} {scopes=} "
-        f"{excluded_scopes=} {raw_file_id_filter=} {raw_file_id_exclude_filter=}"
-    )
-    return ps
-
-
-def check_not_assigned_with_same_filters(
-    project_id: str,
-    settings: Settings,
-    raw_file_id_filter: list[str],
-    raw_file_id_exclude_filter: list[str],
-) -> None:
-    """Raise if the settings are already assigned to the project with identical file name filters."""
-    connect_db()
-    for ps_existing in ProjectSettings.objects(project=project_id, settings=settings):
-        if set(ps_existing.raw_file_id_filter) == set(raw_file_id_filter) and _lower(
-            ps_existing.raw_file_id_exclude_filter
-        ) == _lower(raw_file_id_exclude_filter):
-            raise ValueError(
-                f"Settings '{settings.name}' version {settings.version} already assigned "
-                f"to project '{project_id}' with the same file name filters. "
-                "Unlink the existing assignment and re-assign with the merged scopes."
-            )
-
-
-def _lower(filters: list[str]) -> set[str]:
-    return {f.lower() for f in filters}
-
-
-def unassign_settings_from_project(project_settings_id: str) -> None:
-    """Remove a project-settings assignment by its ID."""
-    connect_db()
-    ps = ProjectSettings.objects.get(id=project_settings_id)
-    if ps.project.status in _NON_ACTIVE_PROJECT_STATUSES:
-        raise ValueError(
-            f"Cannot unassign settings from archived or deleted project '{ps.project.id}'"
-        )
-    ps.delete()
-    logging.info(f"Removed project-settings assignment: {project_settings_id=}")
 
 
 def get_project_settings(project_id: str) -> list[ProjectSettings]:
@@ -341,26 +216,6 @@ def get_settings_by_id(settings_id: str) -> Settings:
     """Get a settings entry by its ID."""
     connect_db()
     return Settings.objects.get(id=settings_id)
-
-
-def get_all_settings(*, include_archived: bool = False) -> list[Settings]:
-    """Get all non-deleted settings from the database."""
-    connect_db()
-    if include_archived:
-        return list(
-            Settings.objects(status__ne=SettingsStatus.DELETED).order_by("-created_at_")
-        )
-    return list(Settings.objects(status=SettingsStatus.ACTIVE).order_by("-created_at_"))
-
-
-def get_latest_active_settings_by_name(name: str) -> Settings | None:
-    """Get the latest active version of settings with the given name."""
-    connect_db()
-    return (
-        Settings.objects(name=name, status=SettingsStatus.ACTIVE)
-        .order_by("-version")
-        .first()
-    )
 
 
 def update_slurm_jobs(cluster_id: str, states: dict[str, str]) -> None:

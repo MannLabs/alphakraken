@@ -37,3 +37,24 @@ def count(*, ids: list[str] | None, include_deleted: bool) -> int:
     """Return the number of projects, cf. `shared.db.projects`."""
     ensure_connected()
     return _query(ids=ids, include_deleted=include_deleted).count()
+
+
+@translate_errors
+def add(
+    *, project_id: str, name: str, description: str, owner_email: str | None
+) -> None:
+    """Insert a new project, cf. `shared.db.projects`."""
+    ensure_connected()
+    owner = models.User.objects.get(email=owner_email) if owner_email else None
+    project = models.Project(
+        id=project_id, name=name, description=description, owner=owner
+    )
+    # this will fail if the project id already exists
+    project.save(force_insert=True)
+
+
+@translate_errors
+def set_status(project_id: str, status: str) -> None:
+    """Set the status of a project."""
+    ensure_connected()
+    models.Project.objects(id=project_id).update_one(status=status)

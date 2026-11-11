@@ -162,11 +162,7 @@ def get_output_folders(raw_file_ids: list[str]) -> pd.DataFrame:
             "settings_name": m.settings_name,
             "settings_version": m.settings_version,
             "type": m.type,
-            "output_path": None
-            if m.relative_output_path is None
-            else get_display_output_path(
-                m.relative_output_path, m.output_display_base_path
-            ),
+            "output_path": get_display_output_path(m),
         }
         for m in all_metrics
     ]

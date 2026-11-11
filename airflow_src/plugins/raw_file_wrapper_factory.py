@@ -25,7 +25,7 @@ from common.settings import (
     get_instrument_settings,
 )
 
-from shared.db.models import RawFile
+from shared.domain.raw_files import RawFile
 from shared.keys import InstrumentTypes
 from shared.path_layout import get_raw_file_folder_rel_path
 
@@ -563,7 +563,8 @@ def get_main_file_size_from_db(raw_file: RawFile) -> int | None:
 
     Returns None if the main file is not found in the `raw_file.file_info` dictionary.
     """
-    if raw_file.file_info == {}:
+    file_info = raw_file.require_file_info()
+    if file_info == {}:
         return None
 
     monitor_wrapper = RawFileWrapperFactory.create_monitor_wrapper(
@@ -577,21 +578,21 @@ def get_main_file_size_from_db(raw_file: RawFile) -> int | None:
 
     file_sizes = [
         size
-        for path, (size, *_hashes) in raw_file.file_info.items()
+        for path, (size, *_hashes) in file_info.items()
         # this compares only file names, could be made more robust by comparing relative paths
         if Path(path).name == main_file_name
     ]
 
     if len(file_sizes) > 1:
         raise AirflowFailException(
-            f"Found more than one item for {main_file_name}: got {file_sizes=} from {raw_file.file_info}"
+            f"Found more than one item for {main_file_name}: got {file_sizes=} from {file_info}"
         )
 
     if len(file_sizes) == 1:
         return file_sizes[0]
 
     logging.warning(
-        f"Main file {main_file_name} not found in raw file {raw_file.file_info}, returning None."
+        f"Main file {main_file_name} not found in raw file {file_info}, returning None."
     )
 
     return None

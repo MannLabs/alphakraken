@@ -9,7 +9,7 @@ from plugins.callbacks import on_failure_callback
 from shared.domain.raw_files import BackupStatus, RawFileStatus
 
 
-@patch("plugins.callbacks.update_raw_file")
+@patch("shared.db.raw_files.update")
 def test_on_failure_callback_with_other_exception(mock_update: MagicMock) -> None:
     """Test that on_failure_callback updates the raw file status to error."""
     ex = Exception("Some error")
@@ -32,7 +32,7 @@ def test_on_failure_callback_with_other_exception(mock_update: MagicMock) -> Non
     )
 
 
-@patch("plugins.callbacks.update_raw_file")
+@patch("shared.db.raw_files.update")
 def test_on_failure_callback_with_s3_exception(mock_update: MagicMock) -> None:
     """Test that on_failure_callback updates the raw file status to error."""
     ex = S3UploadFailedException("Some error")
@@ -54,7 +54,7 @@ def test_on_failure_callback_with_s3_exception(mock_update: MagicMock) -> None:
     )
 
 
-@patch("plugins.callbacks.update_raw_file")
+@patch("shared.db.raw_files.update")
 def test_on_failure_callback_with_no_rawfile_in_xcom_but_dag_context(
     mock_update: MagicMock,
 ) -> None:
@@ -79,7 +79,7 @@ def test_on_failure_callback_with_no_rawfile_in_xcom_but_dag_context(
     )
 
 
-@patch("plugins.callbacks.update_raw_file")
+@patch("shared.db.raw_files.update")
 def test_on_failure_callback_with_rawfile_in_xcom_of_one_task(
     mock_update: MagicMock,
 ) -> None:
@@ -110,7 +110,7 @@ def test_on_failure_callback_with_rawfile_in_xcom_of_one_task(
         ["some_file.raw", "other_file.raw"],
     ],
 )
-@patch("plugins.callbacks.update_raw_file")
+@patch("shared.db.raw_files.update")
 def test_on_failure_callback_with_no_unique_rawfile_in_xcom_nor_dag(
     mock_update: MagicMock, xcom_values: list[str | None]
 ) -> None:
@@ -131,7 +131,7 @@ def test_on_failure_callback_with_no_unique_rawfile_in_xcom_nor_dag(
     mock_update.assert_not_called()
 
 
-@patch("plugins.callbacks.update_raw_file")
+@patch("shared.db.raw_files.update")
 def test_on_failure_callback_with_quanting_failed_exception(
     mock_update: MagicMock,
 ) -> None:

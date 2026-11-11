@@ -1,5 +1,6 @@
 """Business logic for the "acquisition_handler" DAG."""
 
+import dataclasses
 import functools
 import logging
 import re
@@ -52,17 +53,15 @@ from raw_file_wrapper_factory import (
 )
 
 from shared.db import project_settings as project_settings_store
-from shared.db.interface import (
-    get_raw_file_by_id,
-    update_raw_file,
-)
-from shared.db.models import RawFile, parse_file_info_item
+from shared.db import raw_files as raw_file_store
 from shared.display_paths import get_current_backup_display_base_path
 from shared.domain.raw_files import (
     BackupStatus,
     FileInfoItem,
     InstrumentFileStatus,
+    RawFile,
     RawFileStatus,
+    parse_file_info_item,
 )
 from shared.settings_scope_resolver import resolve_scoped_settings
 from shared.validation import FORBIDDEN_RAW_FILE_NAME_CHARACTERS_PATTERN
@@ -87,7 +86,7 @@ def handle_missing_files(task: Callable[..., T]) -> Callable[..., T]:
             return task(ti, **kwargs)
         except FileNotFoundError as e:
             raw_file_id = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID]
-            raw_file = get_raw_file_by_id(raw_file_id)
+            raw_file = raw_file_store.get(raw_file_id)
             msg = f"{AcquisitionHandlerErrors.FILES_MISSING}: {e}"
 
             if not _is_raw_file_listed(
@@ -103,7 +102,7 @@ def handle_missing_files(task: Callable[..., T]) -> Callable[..., T]:
             logging.warning(
                 f"{msg}. Marking raw file as disappeared as requested by Airflow variable {AirflowVars.ACCEPT_MISSING_FILES_FOR_RAW_FILE_ID}."
             )
-            update_raw_file(
+            raw_file_store.update(
                 raw_file_id,
                 new_status=RawFileStatus.DISAPPEARED,
                 status_details=msg,
@@ -120,7 +119,7 @@ def compute_checksum(ti: TaskInstance, **kwargs) -> bool:
     """Compute checksums for files in a raw file and store them in DB and XCom."""
     raw_file_id = kwargs[DagContext.PARAMS][DagParams.RAW_FILE_ID]
 
-    raw_file = get_raw_file_by_id(raw_file_id)
+    raw_file = raw_file_store.get(raw_file_id, include_file_info=True)
 
     # TODO: this could be moved to an upfront task
     acquisition_monitor_errors = get_xcom(
@@ -138,7 +137,7 @@ def compute_checksum(ti: TaskInstance, **kwargs) -> bool:
         )
 
         # Note: the "new" file `x_CORRUPTED.raw` will be treated as any other raw file.
-        update_raw_file(
+        raw_file_store.update(
             raw_file_id,
             new_status=RawFileStatus.ACQUISITION_FAILED,
             status_details=AcquisitionMonitorErrors.FILE_GOT_RENAMED,
@@ -147,15 +146,18 @@ def compute_checksum(ti: TaskInstance, **kwargs) -> bool:
         )
         return False  # skip downstream tasks
 
-    update_raw_file(raw_file_id, new_status=RawFileStatus.CHECKSUMMING)
+    raw_file_store.update(raw_file_id, new_status=RawFileStatus.CHECKSUMMING)
 
     # The creation time read by the watcher during acquisition can still change afterwards (e.g. copy tools
     # restoring the source's creation time), so re-read it from the final file to unambiguously identify it.
     # Must be set before any path is derived from created_at.
     # Updating created_at in the DB is not super-clean, but should be fine in practise.
-    raw_file.created_at = datetime.fromtimestamp(
-        get_file_creation_timestamp(raw_file.original_name, raw_file.instrument_id),
-        tz=pytz.utc,
+    raw_file = dataclasses.replace(
+        raw_file,
+        created_at=datetime.fromtimestamp(
+            get_file_creation_timestamp(raw_file.original_name, raw_file.instrument_id),
+            tz=pytz.utc,
+        ),
     )
 
     copy_wrapper = RawFileWrapperFactory.create_write_wrapper(
@@ -191,7 +193,7 @@ def compute_checksum(ti: TaskInstance, **kwargs) -> bool:
     if not files_size_and_hashsum:
         raise FileNotFoundError("No files were found.")
 
-    if existing_file_info := raw_file.file_info:
+    if existing_file_info := raw_file.require_file_info():
         logging.warning(
             f"Raw file {raw_file_id} already has file_info, checking for equality."
         )
@@ -227,7 +229,7 @@ def compute_checksum(ti: TaskInstance, **kwargs) -> bool:
         else None
     )
 
-    update_raw_file(
+    raw_file_store.update(
         raw_file_id,
         new_status=RawFileStatus.CHECKSUMMING_DONE,
         size=total_file_size,
@@ -302,10 +304,10 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
         ).items()
     }
 
-    raw_file = get_raw_file_by_id(raw_file_id)
+    raw_file = raw_file_store.get(raw_file_id)
 
     if SKIP_COPYING:
-        update_raw_file(
+        raw_file_store.update(
             raw_file_id,
             new_status=RawFileStatus.COPYING_DONE,
             backup_status=BackupStatus.SKIPPED,
@@ -313,7 +315,7 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
         logging.warning("SKIP_COPYING is enabled, skipping file copy.")
         return
 
-    update_raw_file(
+    raw_file_store.update(
         raw_file_id,
         new_status=RawFileStatus.COPYING,
         backup_status=BackupStatus.COPYING_IN_PROGRESS,
@@ -333,13 +335,13 @@ def copy_raw_file(ti: TaskInstance, **kwargs) -> None:
     try:
         _verify_copied_files(copied_files, files_dst_paths, files_size_and_hashsum)
     except ValueError as e:
-        update_raw_file(
+        raw_file_store.update(
             raw_file_id,
             backup_status=BackupStatus.COPYING_FAILED,
         )
         raise AirflowFailException(e) from e
 
-    update_raw_file(
+    raw_file_store.update(
         raw_file_id,
         new_status=RawFileStatus.COPYING_DONE,
         backup_status=BackupStatus.COPYING_DONE,
@@ -484,7 +486,7 @@ def _decide_processing(ti: TaskInstance, raw_file_id: str) -> bool:
         task_ids=Tasks.MONITOR_ACQUISITION,
         default=[],
     )
-    raw_file = get_raw_file_by_id(raw_file_id)
+    raw_file = raw_file_store.get(raw_file_id)
 
     if any(
         AcquisitionMonitorErrors.MAIN_FILE_MISSING in err
@@ -514,7 +516,7 @@ def _decide_processing(ti: TaskInstance, raw_file_id: str) -> bool:
 
     logging.info(f"Skipping processing: {status_details=}")
 
-    update_raw_file(
+    raw_file_store.update(
         raw_file_id,
         new_status=new_status,
         status_details=status_details,
@@ -539,7 +541,7 @@ def start_acquisition_processor(ti: TaskInstance, **kwargs) -> None:
 
     dag_id_to_trigger = f"{Dags.ACQUISITION_PROCESSOR}{DAG_DELIMITER}{instrument_id}"
 
-    update_raw_file(raw_file_id, new_status=RawFileStatus.QUEUED_FOR_QUANTING)
+    raw_file_store.update(raw_file_id, new_status=RawFileStatus.QUEUED_FOR_QUANTING)
 
     trigger_dag_run(
         dag_id_to_trigger,

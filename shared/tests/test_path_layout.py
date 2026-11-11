@@ -2,11 +2,9 @@
 
 from datetime import datetime
 from pathlib import Path
-from unittest.mock import MagicMock
 
 import pytz
 
-from shared.db.models import RawFile
 from shared.path_layout import (
     get_output_folder_rel_path,
     get_raw_file_folder_rel_path,
@@ -17,8 +15,7 @@ from shared.tests import factories
 
 def test_get_output_folder_rel_path_no_fallback() -> None:
     """Test that correct output folder is returned if project_id is given."""
-    mock_raw_file = MagicMock(
-        wraps=RawFile,
+    mock_raw_file = factories.raw_file(
         id="some_file.raw",
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
         project_id="some_project_id",
@@ -32,12 +29,10 @@ def test_get_output_folder_rel_path_no_fallback() -> None:
 
 def test_get_output_folder_rel_path_fallback() -> None:
     """Test that correct output folder is returned if no project_id is given."""
-    mock_raw_file = MagicMock(
-        wraps=RawFile,
+    mock_raw_file = factories.raw_file(
         id="some_file.raw",
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
         project_id="_FALLBACK",
-        has_project=False,
     )
 
     # when
@@ -48,8 +43,7 @@ def test_get_output_folder_rel_path_fallback() -> None:
 
 def test_get_output_folder_rel_path_with_settings() -> None:
     """Test that settings name and version are appended as subfolder."""
-    mock_raw_file = MagicMock(
-        wraps=RawFile,
+    mock_raw_file = factories.raw_file(
         id="some_file.raw",
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
         project_id="some_project_id",
@@ -63,8 +57,7 @@ def test_get_output_folder_rel_path_with_settings() -> None:
 
 def test_get_raw_file_folder_rel_path() -> None:
     """Test that the raw file folder is instrument and creation month."""
-    mock_raw_file = MagicMock(
-        wraps=RawFile,
+    mock_raw_file = factories.raw_file(
         id="some_file.raw",
         instrument_id="test1",
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),
@@ -78,8 +71,7 @@ def test_get_raw_file_folder_rel_path() -> None:
 
 def test_get_raw_file_rel_path() -> None:
     """Test that the raw file path is the raw file folder plus the raw file id."""
-    mock_raw_file = MagicMock(
-        wraps=RawFile,
+    mock_raw_file = factories.raw_file(
         id="some_file.raw",
         instrument_id="test1",
         created_at=datetime.fromtimestamp(0, tz=pytz.UTC),

@@ -58,10 +58,10 @@ def test_upload_raw_file_to_s3_should_raise_when_bucket_prefix_not_configured(
 
 
 @patch("dags.impl.s3_uploader_impl.get_s3_upload_config")
-@patch("dags.impl.s3_uploader_impl.get_raw_file_by_id")
+@patch("shared.db.raw_files.get")
 @patch("dags.impl.s3_uploader_impl.normalize_bucket_name")
 @patch("dags.impl.s3_uploader_impl.get_transfer_config")
-@patch("dags.impl.s3_uploader_impl.update_raw_file")
+@patch("shared.db.raw_files.update")
 @patch("dags.impl.s3_uploader_impl.get_s3_client")
 @patch("dags.impl.s3_uploader_impl.bucket_exists")
 @patch("dags.impl.s3_uploader_impl._prepare_upload")
@@ -113,10 +113,10 @@ def test_upload_raw_file_to_s3_should_complete_successfully(  # noqa: PLR0913
 
 
 @patch("dags.impl.s3_uploader_impl.get_s3_upload_config")
-@patch("dags.impl.s3_uploader_impl.get_raw_file_by_id")
+@patch("shared.db.raw_files.get")
 @patch("dags.impl.s3_uploader_impl.normalize_bucket_name")
 @patch("dags.impl.s3_uploader_impl.get_transfer_config")
-@patch("dags.impl.s3_uploader_impl.update_raw_file")
+@patch("shared.db.raw_files.update")
 @patch("dags.impl.s3_uploader_impl.get_s3_client")
 @patch("dags.impl.s3_uploader_impl.bucket_exists")
 @patch("dags.impl.s3_uploader_impl._prepare_upload")
@@ -166,10 +166,10 @@ def test_upload_raw_file_to_s3_should_include_key_prefix_in_s3_path(  # noqa: PL
 
 
 @patch("dags.impl.s3_uploader_impl.get_s3_upload_config")
-@patch("dags.impl.s3_uploader_impl.get_raw_file_by_id")
+@patch("shared.db.raw_files.get")
 @patch("dags.impl.s3_uploader_impl.normalize_bucket_name")
 @patch("dags.impl.s3_uploader_impl.get_transfer_config")
-@patch("dags.impl.s3_uploader_impl.update_raw_file")
+@patch("shared.db.raw_files.update")
 @patch("dags.impl.s3_uploader_impl.get_s3_client")
 @patch("dags.impl.s3_uploader_impl.bucket_exists")
 def test_upload_raw_file_to_s3_should_raise_when_bucket_not_accessible(
@@ -209,10 +209,10 @@ def test_upload_raw_file_to_s3_should_raise_when_bucket_not_accessible(
 
 
 @patch("dags.impl.s3_uploader_impl.get_s3_upload_config")
-@patch("dags.impl.s3_uploader_impl.get_raw_file_by_id")
+@patch("shared.db.raw_files.get")
 @patch("dags.impl.s3_uploader_impl.normalize_bucket_name")
 @patch("dags.impl.s3_uploader_impl.get_transfer_config")
-@patch("dags.impl.s3_uploader_impl.update_raw_file")
+@patch("shared.db.raw_files.update")
 @patch("dags.impl.s3_uploader_impl.get_s3_client")
 @patch("dags.impl.s3_uploader_impl.bucket_exists")
 @patch("dags.impl.s3_uploader_impl._prepare_upload")
@@ -258,10 +258,10 @@ def test_upload_raw_file_to_s3_should_raise_on_boto_error(  # noqa: PLR0913
 
 
 @patch("dags.impl.s3_uploader_impl.get_s3_upload_config")
-@patch("dags.impl.s3_uploader_impl.get_raw_file_by_id")
+@patch("shared.db.raw_files.get")
 @patch("dags.impl.s3_uploader_impl.normalize_bucket_name")
 @patch("dags.impl.s3_uploader_impl.get_transfer_config")
-@patch("dags.impl.s3_uploader_impl.update_raw_file")
+@patch("shared.db.raw_files.update")
 @patch("dags.impl.s3_uploader_impl.get_s3_client")
 @patch("dags.impl.s3_uploader_impl.bucket_exists")
 @patch("dags.impl.s3_uploader_impl._prepare_upload")
@@ -320,6 +320,7 @@ def test_prepare_upload_should_create_correct_mapping(
         "file1.d/analysis.tdf": ("hash1", 123, "etag1"),
         "file1.d/1234.m/file.txt": ("hash2", 1234, "etag2"),
     }
+    mock_raw_file.require_file_info.return_value = mock_raw_file.file_info
     target_folder_path = Path("/dst/backup")
 
     result, key_prefix = _prepare_upload(mock_raw_file, target_folder_path)
@@ -503,10 +504,10 @@ def test_upload_files_should_raise_when_file_not_found_after_upload(
 
 
 @patch("dags.impl.s3_uploader_impl.get_s3_upload_config")
-@patch("dags.impl.s3_uploader_impl.get_raw_file_by_id")
+@patch("shared.db.raw_files.get")
 @patch("dags.impl.s3_uploader_impl.normalize_bucket_name")
 @patch("dags.impl.s3_uploader_impl.get_transfer_config")
-@patch("dags.impl.s3_uploader_impl.update_raw_file")
+@patch("shared.db.raw_files.update")
 @patch("dags.impl.s3_uploader_impl.get_s3_client")
 @patch("dags.impl.s3_uploader_impl.bucket_exists")
 @patch("dags.impl.s3_uploader_impl._prepare_upload")
@@ -582,10 +583,10 @@ def test_upload_files_should_handle_mixed_upload_needs(
 
 
 @patch("dags.impl.s3_uploader_impl.get_s3_upload_config")
-@patch("dags.impl.s3_uploader_impl.get_raw_file_by_id")
+@patch("shared.db.raw_files.get")
 @patch("dags.impl.s3_uploader_impl.normalize_bucket_name")
 @patch("dags.impl.s3_uploader_impl.get_transfer_config")
-@patch("dags.impl.s3_uploader_impl.update_raw_file")
+@patch("shared.db.raw_files.update")
 @patch("dags.impl.s3_uploader_impl.get_s3_client")
 @patch("dags.impl.s3_uploader_impl.bucket_exists")
 @patch("dags.impl.s3_uploader_impl.create_bucket")
@@ -642,10 +643,10 @@ def test_upload_raw_file_to_s3_should_create_bucket_when_not_found_and_auto_crea
 
 
 @patch("dags.impl.s3_uploader_impl.get_s3_upload_config")
-@patch("dags.impl.s3_uploader_impl.get_raw_file_by_id")
+@patch("shared.db.raw_files.get")
 @patch("dags.impl.s3_uploader_impl.normalize_bucket_name")
 @patch("dags.impl.s3_uploader_impl.get_transfer_config")
-@patch("dags.impl.s3_uploader_impl.update_raw_file")
+@patch("shared.db.raw_files.update")
 @patch("dags.impl.s3_uploader_impl.get_s3_client")
 @patch("dags.impl.s3_uploader_impl.bucket_exists")
 def test_upload_raw_file_to_s3_should_raise_when_bucket_not_found_and_auto_create_disabled(

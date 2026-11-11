@@ -2,14 +2,13 @@
 
 from pathlib import Path
 
-from shared.db.models import RawFile, get_created_at_year_month
-from shared.domain import raw_files
+from shared.domain.raw_files import RawFile, get_created_at_year_month
 from shared.domain.settings import Settings
 
 OUTPUT_FOLDER_PREFIX = "out_"
 
 
-def get_raw_file_folder_rel_path(raw_file: RawFile | raw_files.RawFile) -> Path:
+def get_raw_file_folder_rel_path(raw_file: RawFile) -> Path:
     """Get the path of the folder holding the given raw file, relative to the `backup` folder.
 
     E.g. test1/2024_07

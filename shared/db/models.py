@@ -6,7 +6,7 @@ Note: this module must not have any dependencies on the rest of the codebase.
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, ClassVar
+from typing import ClassVar
 
 from mongoengine import (
     DateTimeField,
@@ -21,7 +21,7 @@ from mongoengine import (
 )
 
 from shared.domain.projects import ProjectStatus
-from shared.domain.raw_files import FileInfoItem, InstrumentFileStatus
+from shared.domain.raw_files import InstrumentFileStatus
 from shared.domain.settings import SETTINGS_VERSION_SEPARATOR, SettingsStatus
 from shared.domain.slurm_jobs import SLURM_JOB_EXPIRY_S
 from shared.domain.status import KrakenStatusEntities
@@ -33,9 +33,6 @@ from shared.keys import (
     MetricsTypes,
     SoftwareTypes,
 )
-
-if TYPE_CHECKING:
-    from shared.domain import raw_files
 
 
 class RawFile(Document):
@@ -88,37 +85,6 @@ class RawFile(Document):
     def has_project(self) -> bool:
         """Return whether the raw file has a project assigned or belongs to the fallback project."""
         return self.project_id != FALLBACK_PROJECT_ID
-
-
-def parse_file_info_item(
-    item: FileInfoItem | None,
-) -> tuple[float | None, str | None]:
-    """Parse a file_info item tuple.
-
-    This is to hide the details of the file_info storage format from the rest of the codebase.
-
-    Args:
-        item: The file_info item tuple to parse.
-
-    Returns:
-        A tuple containing the size and hash.
-
-    Raises:
-        ValueError: If the item length is invalid.
-
-    """
-    if not item:
-        return item  # type: ignore[invalid-return-type]
-
-    if len(item) >= 2:  # noqa: PLR2004
-        return item[0], item[1]
-
-    raise ValueError(f"Invalid file_info item length {len(item)} {item}.")
-
-
-def get_created_at_year_month(raw_file: RawFile | raw_files.RawFile) -> str:
-    """Get the year and month of the raw file creation date."""
-    return raw_file.created_at.strftime("%Y_%m")
 
 
 class Metrics(DynamicDocument):

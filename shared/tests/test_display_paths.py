@@ -4,7 +4,6 @@ from datetime import datetime
 
 import pytest
 
-from shared.db.models import RawFile
 from shared.display_paths import (
     DISPLAY_PATHS,
     _build_display_paths,
@@ -12,6 +11,7 @@ from shared.display_paths import (
     get_display_backup_path,
     get_display_output_path,
 )
+from shared.tests import factories
 
 
 def test_build_display_paths_returns_all_locations() -> None:
@@ -56,7 +56,7 @@ def test_display_path_keeps_the_separator_of_the_base(
 
 def test_get_display_backup_path() -> None:
     """Test that the backup folder follows the path layout below the display backup path."""
-    raw_file = RawFile(
+    raw_file = factories.raw_file(
         id="f.raw",
         instrument_id="test1",
         created_at=datetime(2024, 7, 1),  # noqa: DTZ001
@@ -67,7 +67,7 @@ def test_get_display_backup_path() -> None:
 
 def test_get_display_backup_path_uses_stored_base_path() -> None:
     """Test that the backup folder is placed below the base path stored at copy time."""
-    raw_file = RawFile(
+    raw_file = factories.raw_file(
         id="f.raw",
         instrument_id="test1",
         created_at=datetime(2024, 7, 1),  # noqa: DTZ001

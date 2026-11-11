@@ -18,19 +18,20 @@ from dags.impl.watcher_impl import (
     get_unknown_raw_files,
     start_acquisition_handler,
 )
-from mongoengine import NotUniqueError
 from plugins.common.keys import OpArgs, XComKeys
 
-from shared.db.models import RawFile
+from shared.db.raw_files import RawFileFilter
+from shared.domain.errors import AlreadyExistsError
 from shared.domain.projects import ProjectStatus
 from shared.domain.raw_files import InstrumentFileStatus, RawFileStatus
+from shared.tests import factories
 from shared.tests.factories import project
 
 SOME_INSTRUMENT_ID = "_test1_"
 
 
 @patch("dags.impl.watcher_impl.get_file_creation_timestamp")
-@patch("dags.impl.watcher_impl.add_raw_file")
+@patch("shared.db.raw_files.add")
 @patch("dags.impl.watcher_impl._get_collision_flag")
 def test_add_raw_file_to_db(
     mock_get_collision_flag: MagicMock,
@@ -66,7 +67,7 @@ def test_add_raw_file_to_db(
 
 
 @patch("dags.impl.watcher_impl.RawFileWrapperFactory")
-@patch("dags.impl.watcher_impl.get_raw_files_by_names")
+@patch("shared.db.raw_files.find")
 @patch("dags.impl.watcher_impl.get_main_file_size_from_db")
 @patch("dags.impl.watcher_impl._is_collision")
 @patch("dags.impl.watcher_impl._sort_by_creation_date")
@@ -92,14 +93,14 @@ def test_get_unknown_raw_files_with_existing_files_in_db(  # noqa: PLR0913
         Path("/path/to/file3.raw"),
     ]
 
-    file1 = MagicMock(
-        wraps=RawFile, instrument_id=SOME_INSTRUMENT_ID, original_name="file1.raw"
+    file1 = factories.raw_file(
+        instrument_id=SOME_INSTRUMENT_ID, original_name="file1.raw"
     )
-    file2 = MagicMock(
-        wraps=RawFile, instrument_id=SOME_INSTRUMENT_ID, original_name="file2.raw"
+    file2 = factories.raw_file(
+        instrument_id=SOME_INSTRUMENT_ID, original_name="file2.raw"
     )
-    file3 = MagicMock(
-        wraps=RawFile, instrument_id=SOME_INSTRUMENT_ID, original_name="FILE3.raw"
+    file3 = factories.raw_file(
+        instrument_id=SOME_INSTRUMENT_ID, original_name="FILE3.raw"
     )
     mock_get_raw_files_by_names.return_value = [file1, file2, file3]
 
@@ -131,7 +132,7 @@ def test_get_unknown_raw_files_with_existing_files_in_db(  # noqa: PLR0913
 
 
 @patch("dags.impl.watcher_impl.RawFileWrapperFactory")
-@patch("dags.impl.watcher_impl.get_raw_files_by_names")
+@patch("shared.db.raw_files.find")
 @patch("dags.impl.watcher_impl.get_main_file_size_from_db")
 @patch("dags.impl.watcher_impl._is_collision")
 @patch("dags.impl.watcher_impl._sort_by_creation_date")
@@ -152,8 +153,8 @@ def test_get_unknown_raw_files_with_existing_files_in_db_case_insensitive(  # no
         Path("/path/to/file3.raw"),
     ]
 
-    file3 = MagicMock(
-        wraps=RawFile, instrument_id=SOME_INSTRUMENT_ID, original_name="FILE3.raw"
+    file3 = factories.raw_file(
+        instrument_id=SOME_INSTRUMENT_ID, original_name="FILE3.raw"
     )
     mock_get_raw_files_by_names.return_value = [file3]
 
@@ -173,7 +174,9 @@ def test_get_unknown_raw_files_with_existing_files_in_db_case_insensitive(  # no
         {"file3.raw": True},
     )
     mock_sort.assert_called_once_with(["file3.raw"], SOME_INSTRUMENT_ID)
-    mock_get_raw_files_by_names.assert_called_once_with(["file3.raw"])
+    mock_get_raw_files_by_names.assert_called_once_with(
+        RawFileFilter(original_names=["file3.raw"]), include_file_info=True
+    )
     mock_is_collision.assert_has_calls(
         [
             call(Path("/path/to/file3.raw"), [123]),
@@ -245,7 +248,7 @@ def test_sort_by_creation_date_multiple_files(
 
 
 @patch("dags.impl.watcher_impl.RawFileWrapperFactory")
-@patch("dags.impl.watcher_impl.get_raw_files_by_names")
+@patch("shared.db.raw_files.find")
 @patch("dags.impl.watcher_impl._sort_by_creation_date")
 @patch("dags.impl.watcher_impl.put_xcom")
 def test_get_unknown_raw_files_with_no_existing_files_in_db(
@@ -279,7 +282,7 @@ def test_get_unknown_raw_files_with_no_existing_files_in_db(
 
 
 @patch("dags.impl.watcher_impl.RawFileWrapperFactory")
-@patch("dags.impl.watcher_impl.get_raw_files_by_names")
+@patch("shared.db.raw_files.find")
 @patch("dags.impl.watcher_impl.put_xcom")
 def test_get_unknown_raw_files_with_empty_directory(
     mock_put_xcom: MagicMock,
@@ -293,7 +296,9 @@ def test_get_unknown_raw_files_with_empty_directory(
     # when
     get_unknown_raw_files(ti, **{OpArgs.INSTRUMENT_ID: SOME_INSTRUMENT_ID})
 
-    mock_get_raw_files_by_names.assert_called_once_with([])
+    mock_get_raw_files_by_names.assert_called_once_with(
+        RawFileFilter(original_names=[]), include_file_info=True
+    )
     mock_put_xcom.assert_called_once_with(ti, XComKeys.RAW_FILE_NAMES_TO_PROCESS, {})
 
 
@@ -405,7 +410,7 @@ def test_file_meets_age_criterion_invalid_number(mock_get_var: MagicMock) -> Non
 
 @patch("dags.impl.watcher_impl.get_xcom")
 @patch("dags.impl.watcher_impl._add_raw_file_to_db")
-@patch("dags.impl.watcher_impl.delete_raw_file")
+@patch("shared.db.raw_files.delete")
 @patch("dags.impl.watcher_impl.trigger_dag_run")
 def test_start_acquisition_handler_with_no_files(
     mock_trigger_dag_run: MagicMock,
@@ -429,7 +434,7 @@ def test_start_acquisition_handler_with_no_files(
 
 @patch("dags.impl.watcher_impl.get_xcom")
 @patch("dags.impl.watcher_impl._add_raw_file_to_db")
-@patch("dags.impl.watcher_impl.delete_raw_file")
+@patch("shared.db.raw_files.delete")
 @patch("dags.impl.watcher_impl.trigger_dag_run")
 def test_start_acquisition_handler_with_single_file(
     mock_trigger_dag_run: MagicMock,
@@ -469,7 +474,7 @@ def test_start_acquisition_handler_with_single_file(
 
 @patch("dags.impl.watcher_impl.get_xcom")
 @patch("dags.impl.watcher_impl._add_raw_file_to_db")
-@patch("dags.impl.watcher_impl.delete_raw_file")
+@patch("shared.db.raw_files.delete")
 @patch("dags.impl.watcher_impl.trigger_dag_run")
 def test_start_acquisition_handler_with_multiple_files(  # Too many arguments
     mock_trigger_dag_run: MagicMock,
@@ -546,7 +551,7 @@ def test_start_acquisition_handler_continues_on_duplicate_and_fails_at_end(
     }
     mock_add_raw_file_to_db.side_effect = [
         "file1.raw",
-        NotUniqueError("duplicate"),
+        AlreadyExistsError("duplicate"),
         "file3.raw",
     ]
 
@@ -567,7 +572,7 @@ def test_start_acquisition_handler_continues_on_duplicate_and_fails_at_end(
 
 @patch("dags.impl.watcher_impl.get_xcom")
 @patch("dags.impl.watcher_impl._add_raw_file_to_db")
-@patch("dags.impl.watcher_impl.delete_raw_file")
+@patch("shared.db.raw_files.delete")
 @patch("dags.impl.watcher_impl.trigger_dag_run")
 def test_start_acquisition_handler_dagnotfound(
     mock_trigger_dag_run: MagicMock,
@@ -613,7 +618,7 @@ def test_start_acquisition_handler_dagnotfound(
     [InstrumentFileStatus.RENAMED, InstrumentFileStatus.DISAPPEARED],
 )
 @patch("dags.impl.watcher_impl.RawFileWrapperFactory")
-@patch("dags.impl.watcher_impl.get_raw_files_by_names")
+@patch("shared.db.raw_files.find")
 @patch("dags.impl.watcher_impl.get_main_file_size_from_db")
 @patch("dags.impl.watcher_impl._is_collision")
 @patch("dags.impl.watcher_impl._sort_by_creation_date")
@@ -640,8 +645,7 @@ def test_get_unknown_raw_files_treats_gone_db_entry_as_collision(  # noqa: PLR09
         "/path/to/x.raw"
     )
 
-    renamed_entry = MagicMock(
-        wraps=RawFile,
+    renamed_entry = factories.raw_file(
         instrument_id=SOME_INSTRUMENT_ID,
         original_name="x.raw",
         instrument_file_status=instrument_file_status,

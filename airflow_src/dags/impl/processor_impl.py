@@ -51,15 +51,11 @@ from shared.config_params import (
 )
 from shared.db import metrics as metrics_store
 from shared.db import project_settings as project_settings_store
+from shared.db import raw_files as raw_file_store
 from shared.db import settings as settings_store
-from shared.db.interface import (
-    get_raw_file_by_id,
-    update_raw_file,
-)
-from shared.db.models import RawFile
 from shared.display_paths import get_current_output_display_base_path
 from shared.domain.errors import NotFoundError
-from shared.domain.raw_files import RawFileStatus
+from shared.domain.raw_files import RawFile, RawFileStatus
 from shared.domain.settings import Settings
 from shared.keys import SoftwareTypes
 from shared.path_layout import get_output_folder_rel_path, get_raw_file_rel_path
@@ -71,7 +67,7 @@ from shared.validation import check_for_malicious_content
 
 def resolve_settings(raw_file_id: str) -> list[str]:
     """Resolve which settings apply to a raw file."""
-    raw_file = get_raw_file_by_id(raw_file_id)
+    raw_file = raw_file_store.get(raw_file_id)
     instrument_id = raw_file.instrument_id
 
     instrument_type = get_instrument_settings(instrument_id, InstrumentKeys.TYPE)
@@ -108,7 +104,7 @@ def prepare_job(raw_file_id: str, settings_id: str) -> dict[str, str | int | Non
 
     :return: The quanting environment as a dict, to be passed on via XCom.
     """
-    raw_file = get_raw_file_by_id(raw_file_id)
+    raw_file = raw_file_store.get(raw_file_id)
     settings = settings_store.get(settings_id)
 
     try:
@@ -376,7 +372,7 @@ def submit_job(
     job_id = start_job(quanting_env, runner_name=quanting_env.runner_name)
 
     # TODO: race condition here, e.g. for file in ERROR status
-    update_raw_file(quanting_env.raw_file_id, new_status=RawFileStatus.QUANTING)
+    raw_file_store.update(quanting_env.raw_file_id, new_status=RawFileStatus.QUANTING)
 
     return str(job_id)
 
@@ -465,7 +461,7 @@ def check_job_result(*, quanting_env_dict: dict, job_id: str, ti: TaskInstance) 
     if job_status in [JobStates.FAILED, JobStates.TIMEOUT] or job_status.startswith(
         JobStates.OUT_OF_MEMORY
     ):
-        raw_file = get_raw_file_by_id(quanting_env.raw_file_id)
+        raw_file = raw_file_store.get(quanting_env.raw_file_id)
         output_path = get_internal_output_path() / quanting_env.relative_output_path
 
         if job_status == JobStates.FAILED:
@@ -571,7 +567,7 @@ def finalize_raw_file_status(ti: TaskInstance, raw_file_id: str) -> None:
         logging.info(
             f"{len(airflow_errors)} branch(es) failed for {raw_file_id}: {details}"
         )
-        update_raw_file(
+        raw_file_store.update(
             raw_file_id, new_status=RawFileStatus.ERROR, status_details=details
         )
         raise QuantingFailedException(details)
@@ -581,7 +577,7 @@ def finalize_raw_file_status(ti: TaskInstance, raw_file_id: str) -> None:
         logging.info(
             f"{len(business_errors)} branch(es) with business errors for {raw_file_id}: {details}"
         )
-        update_raw_file(
+        raw_file_store.update(
             raw_file_id,
             new_status=RawFileStatus.QUANTING_FAILED,
             status_details=details,
@@ -589,7 +585,9 @@ def finalize_raw_file_status(ti: TaskInstance, raw_file_id: str) -> None:
         # this is just to find such tasks in the UI more easily
         raise QuantingFailedKnownErrorException(details)
 
-    update_raw_file(raw_file_id, new_status=RawFileStatus.DONE, status_details=None)
+    raw_file_store.update(
+        raw_file_id, new_status=RawFileStatus.DONE, status_details=None
+    )
 
 
 def _get_branch_states(ti: TaskInstance) -> dict[int, dict[str, str | None]]:

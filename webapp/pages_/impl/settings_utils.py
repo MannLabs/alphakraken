@@ -8,6 +8,8 @@ import streamlit.delta_generator
 
 from shared.config_params import PLACEHOLDER_DESCRIPTIONS, PLACEHOLDER_LOCATIONS
 from shared.display_paths import DISPLAY_PATHS, get_display_settings_path
+from shared.domain.inputs import max_length
+from shared.domain.settings import NewSettings
 from shared.keys import JobEngines, SoftwareTypes
 from shared.path_views import Locations
 from shared.runners import get_runner
@@ -37,13 +39,13 @@ def build_form_items(software_type: str) -> dict[str, dict[str, Any]]:
     form_items = {
         "name": {
             "label": "Settings Name*",
-            "max_chars": 64,
+            "max_chars": max_length(NewSettings, "name"),
             "placeholder": "e.g. 'plasma_fast' or 'hela_qc'",
             "help": "Alphanumeric + underscore only. Used as folder name and for versioning.",
         },
         "description": {
             "label": "Description",
-            "max_chars": 512,
+            "max_chars": max_length(NewSettings, "description"),
             "placeholder": "(optional) e.g. 'Fast plasma settings for routine analysis'",
             "help": "Human readable description of these settings.",
         },
@@ -53,25 +55,25 @@ def build_form_items(software_type: str) -> dict[str, dict[str, Any]]:
         form_items |= {
             "fasta_file_name": {
                 "label": "Fasta file name**",
-                "max_chars": 64,
+                "max_chars": max_length(NewSettings, "fasta_file_name"),
                 "placeholder": "e.g. 'human.fasta'",
                 "help": "Name of the fasta file.",
             },
             "speclib_file_name": {
                 "label": "Speclib file name**",
-                "max_chars": 64,
+                "max_chars": max_length(NewSettings, "speclib_file_name"),
                 "placeholder": "e.g. 'human_plasma.speclib'",
                 "help": "Name of the speclib file.",
             },
             "config_file_name": {
                 "label": "Config file name*",
-                "max_chars": 64,
+                "max_chars": max_length(NewSettings, "config_file_name"),
                 "placeholder": "e.g. 'very_fast_config.yaml'",
                 "help": "Name of the config file. If none is given, AlphaDIA's default config will be used.",
             },
             "software": {
                 "label": "Software*",
-                "max_chars": 64,
+                "max_chars": max_length(NewSettings, "software"),
                 "placeholder": "e.g. 'alphadia-2.0.0'",
                 "help": "Name of the conda environment that holds the AlphaDIA executable. Ask an administrator to create this environment.",
             },
@@ -81,7 +83,7 @@ def build_form_items(software_type: str) -> dict[str, dict[str, Any]]:
         form_items |= {
             "software": {
                 "label": "Software*",
-                "max_chars": 64,
+                "max_chars": max_length(NewSettings, "software"),
                 "placeholder": "e.g. 'msqc/run_msqc.sh'",
                 "help": f"Path to executable, relative to `{DISPLAY_PATHS[Locations.SOFTWARE]}/`. Ask an administrator to add the executable to the software folder.",
             },
@@ -91,13 +93,13 @@ def build_form_items(software_type: str) -> dict[str, dict[str, Any]]:
         form_items |= {
             "software": {
                 "label": "Software*",
-                "max_chars": 64,
+                "max_chars": max_length(NewSettings, "software"),
                 "placeholder": "e.g. 'skyline/run_skyline.sh'",
                 "help": f"Path to executable, relative to `{DISPLAY_PATHS[Locations.SOFTWARE]}/`. Ask an administrator to add the executable to the software folder.",
             },
             "config_params": {
                 "label": "Configuration parameters",
-                "max_chars": 2048,
+                "max_chars": max_length(NewSettings, "config_params"),
                 "placeholder": "e.g. '--in iRT_windows.sky --irt-database-path irt_c18_official.irtdb --report-add custom_iRT_report.skyr'",
                 "help": "Configuration options for the Skyline software. Certain placeholders will be substituted.",
             },
@@ -106,7 +108,7 @@ def build_form_items(software_type: str) -> dict[str, dict[str, Any]]:
         form_items |= {
             "software": {
                 "label": "Executable*",
-                "max_chars": 64,
+                "max_chars": max_length(NewSettings, "software"),
                 "placeholder": "e.g. 'custom-software/custom-executable1.2.3'",
                 "help": f"Path to executable, relative to `{DISPLAY_PATHS[Locations.SOFTWARE]}/`. Ask an administrator to add the executable to the software folder. "
                 f"For a runner with the `{JobEngines.DOCKER}` engine, this is a docker image name instead, e.g. `alphakraken-msqc`. "
@@ -114,7 +116,7 @@ def build_form_items(software_type: str) -> dict[str, dict[str, Any]]:
             },
             "config_params": {
                 "label": "Configuration parameters",
-                "max_chars": 2048,
+                "max_chars": max_length(NewSettings, "config_params"),
                 "placeholder": "e.g. '--qvalue 0.01 --f {{RAW_FILE_PATH}} --lib {{SETTINGS_PATH}}/library.speclib --fasta {{SETTINGS_PATH}}/human.fasta --temp {{OUTPUT_PATH}} --threads {{NUM_THREADS}}'",
                 "help": "Configuration options for the custom software. Certain placeholders will be substituted.",
             },

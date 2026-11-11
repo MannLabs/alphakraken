@@ -1,4 +1,4 @@
-"""Validation of settings entries against the runners of alphakraken.yaml."""
+"""Checks of settings entries against the runners of alphakraken.yaml."""
 
 from shared.keys import JobEngines, SoftwareTypes
 from shared.runners import RUNNERS
@@ -14,7 +14,11 @@ _ENGINES_SUPPORTING_ONLY_CUSTOM = (
 def check_runner_supports_software_type(
     runner_name: str, software_type: str
 ) -> list[str]:
-    """Check that the software type can run on the given runner."""
+    """Check that the runner is declared in alphakraken.yaml and can run the software type."""
+    if runner_name not in RUNNERS:
+        return [
+            f"Unknown runner '{runner_name}', declared in alphakraken.yaml are: {list(RUNNERS)}."
+        ]
     engine = RUNNERS[runner_name].engine
     if (
         engine in _ENGINES_SUPPORTING_ONLY_CUSTOM

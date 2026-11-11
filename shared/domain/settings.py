@@ -3,6 +3,21 @@
 import re
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Self
+
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationInfo,
+    field_validator,
+    model_validator,
+)
+
+from shared.config_params import check_for_unknown_placeholders, substitute_dummy_values
+from shared.domain.inputs import empty_to_none
+from shared.keys import SOFTWARE_TYPE_TO_METRICS_TYPES, SoftwareTypes
+from shared.validation import check_for_malicious_content
 
 
 class SettingsStatus:
@@ -69,3 +84,110 @@ class Settings:
     def unique_name(self) -> str:
         """Human-readable unique identifier, e.g. `fallback_v7`."""
         return self.id
+
+
+class NewSettings(BaseModel):
+    """Settings to create, cf. `Settings`. Strings are stripped, empty optional ones are None."""
+
+    model_config = ConfigDict(frozen=True, str_strip_whitespace=True)
+
+    name: str = Field(max_length=64, pattern=SETTINGS_NAME_REGEX)
+    software_type: str
+    software: str = Field(min_length=1, max_length=64)
+    runner_name: str = Field(min_length=1, max_length=64)
+    metrics_type: str
+    description: str | None = Field(default=None, max_length=512)
+    fasta_file_name: str | None = Field(default=None, max_length=64)
+    speclib_file_name: str | None = Field(default=None, max_length=64)
+    config_file_name: str | None = Field(default=None, max_length=64)
+    config_params: str | None = Field(default=None, max_length=2048)
+    slurm_cpus_per_task: int | None = Field(default=None, ge=1)
+    slurm_mem: str | None = Field(default=None, max_length=16)
+    slurm_time: str | None = Field(default=None, max_length=16)
+    num_threads: int | None = Field(default=None, ge=1)
+    owner_email: str | None = None
+
+    _empty_to_none = field_validator(
+        "description",
+        "fasta_file_name",
+        "speclib_file_name",
+        "config_file_name",
+        "config_params",
+        "slurm_mem",
+        "slurm_time",
+        "owner_email",
+        mode="before",
+    )(empty_to_none)
+
+    @field_validator("software_type")
+    @classmethod
+    def _known_software_type(cls, value: str) -> str:
+        if value not in SoftwareTypes.get_values():
+            raise ValueError(
+                f"Unknown software type '{value}', known are: {SoftwareTypes.get_values()}."
+            )
+        return value
+
+    @field_validator("metrics_type")
+    @classmethod
+    def _metrics_type_fits_software_type(cls, value: str, info: ValidationInfo) -> str:
+        # absent if the software type itself is invalid
+        software_type = info.data.get("software_type")
+        if software_type and value not in SOFTWARE_TYPE_TO_METRICS_TYPES[software_type]:
+            raise ValueError(
+                f"Metrics type '{value}' cannot be used with software type '{software_type}', "
+                f"allowed are: {SOFTWARE_TYPE_TO_METRICS_TYPES[software_type]}."
+            )
+        return value
+
+    @field_validator(
+        "software", "fasta_file_name", "speclib_file_name", "config_file_name"
+    )
+    @classmethod
+    def _no_malicious_content(cls, value: str | None) -> str | None:
+        if value and (errors := check_for_malicious_content(value)):
+            raise ValueError("; ".join(errors))
+        return value
+
+    @field_validator("config_params")
+    @classmethod
+    def _safe_config_params(cls, value: str | None) -> str | None:
+        if value:
+            # TODO: warn on bare (RAW_FILE_PATH) and half-open ({{RAW_FILE_PATH) placeholders,
+            # they currently pass validation and fail silently at runtime
+            errors = check_for_unknown_placeholders(
+                value
+            ) or check_for_malicious_content(
+                substitute_dummy_values(value), allow_spaces=True
+            )
+            if errors:
+                raise ValueError("; ".join(errors))
+        return value
+
+    @field_validator("slurm_mem")
+    @classmethod
+    def _slurm_mem_format(cls, value: str | None) -> str | None:
+        if value and not re.match(SLURM_MEM_REGEX, value):
+            raise ValueError(
+                "Memory must be a number followed by a unit (K, M, G, or T), e.g. '62G'."
+            )
+        return value
+
+    @field_validator("slurm_time")
+    @classmethod
+    def _slurm_time_format(cls, value: str | None) -> str | None:
+        if value and not re.match(SLURM_TIME_REGEX, value):
+            raise ValueError("SLURM time must be in HH:MM:SS format.")
+        return value
+
+    @model_validator(mode="after")
+    def _alphadia_needs_fasta_or_speclib(self) -> Self:
+        if (
+            self.software_type == SoftwareTypes.ALPHADIA
+            and not self.fasta_file_name
+            and not self.speclib_file_name
+        ):
+            raise ValueError(
+                "At least one of the fasta and speclib file names must be given."
+            )
+        return self

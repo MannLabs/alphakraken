@@ -1,11 +1,11 @@
-"""Tests for the settings validation helpers."""
+"""Tests for the runner_checks module."""
 
 from unittest.mock import MagicMock, patch
 
 import pytest
-from service.settings_validation import check_runner_supports_software_type
 
 from shared.keys import JobEngines, SoftwareTypes
+from shared.runner_checks import check_runner_supports_software_type
 from shared.runners import RUNNERS
 
 _RUNNERS = {
@@ -58,3 +58,12 @@ def test_plain_machine_runner_accepts_custom_software_type(runner_name: str) -> 
 def test_slurm_runner_accepts_any_software_type() -> None:
     """Test that the rule is keyed by engine, not by runner name."""
     assert check_runner_supports_software_type("cluster", SoftwareTypes.ALPHADIA) == []
+
+
+@patch.dict(RUNNERS, _RUNNERS, clear=True)
+def test_unknown_runner_is_rejected() -> None:
+    """Test that a runner not declared in the yaml is an error, not an exception."""
+    errors = check_runner_supports_software_type("nowhere", SoftwareTypes.CUSTOM)
+
+    assert len(errors) == 1
+    assert "Unknown runner 'nowhere'" in errors[0]

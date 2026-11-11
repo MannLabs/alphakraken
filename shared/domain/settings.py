@@ -13,6 +13,10 @@ class SettingsStatus:
     DELETED = "deleted"
 
 
+SETTINGS_NAME_REGEX = r"^[a-zA-Z0-9_]+$"
+SLURM_MEM_REGEX = r"^\d+[KMGT]$"
+SLURM_TIME_REGEX = r"^\d{2}:\d{2}:\d{2}$"
+
 SETTINGS_VERSION_SEPARATOR = "_v"
 _UNIQUE_SETTINGS_NAME_REGEX = re.compile(
     rf"^(?P<name>.+){SETTINGS_VERSION_SEPARATOR}(?P<version>[1-9][0-9]*)$"

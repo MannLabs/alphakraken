@@ -2,8 +2,6 @@
 
 import re
 from collections import defaultdict
-
-# ruff: noqa: TRY301 # Abstract `raise` to an inner function
 from typing import Any
 
 import pandas as pd
@@ -29,8 +27,7 @@ from service.utils import (
     _log,
     empty_to_none,
     flush_pending_toasts,
-    show_error_toast,
-    show_success_toast,
+    toast_result,
 )
 
 from shared.config_params import (
@@ -527,7 +524,9 @@ if submit:
             "At least one of the fasta and speclib file names must be given."
         )
 
-    try:
+    with toast_result(
+        f"Created new settings '{name}'. Assign it to projects on the Projects page."
+    ):
         if validation_errors:
             errors_str = "\n- ".join(validation_errors)
             raise ValueError(
@@ -557,13 +556,7 @@ if submit:
             owner_email=owner_email,
             archive_previous=is_update and archive_previous,
         )
-    except Exception as e:  # noqa: BLE001
-        show_error_toast(str(e))
-    else:
         get_settings_df.clear()
-        show_success_toast(
-            f"Created new settings '{name}'. Assign it to projects on the Projects page."
-        )
 
 
 # ########################################### ARCHIVE/DELETE SETTINGS
@@ -609,15 +602,12 @@ else:
                 disabled=DISABLE_WRITE,
                 icon=":material/archive:",
             ):
-                try:
+                with toast_result(
+                    f"Archived settings '{row['name']}' version {int(row['version'])}."
+                ):
                     # TODO: consider showing a warning in the webapp when archived settings are still assigned.
                     settings_store.archive(row["id"])
                     get_settings_df.clear()
-                    show_success_toast(
-                        f"Archived settings '{row['name']}' version {int(row['version'])}."
-                    )
-                except Exception as e:  # noqa: BLE001
-                    show_error_toast(str(e))
             is_assigned = row["id"] in assigned_settings_ids
             if col_delete.button(
                 "Delete",
@@ -626,11 +616,8 @@ else:
                 help="Unassign from all projects first." if is_assigned else "",
                 icon=":material/delete:",
             ):
-                try:
+                with toast_result(
+                    f"Deleted settings '{row['name']}' version {int(row['version'])}."
+                ):
                     settings_store.delete(row["id"])
                     get_settings_df.clear()
-                    show_success_toast(
-                        f"Deleted settings '{row['name']}' version {int(row['version'])}."
-                    )
-                except Exception as e:  # noqa: BLE001
-                    show_error_toast(str(e))

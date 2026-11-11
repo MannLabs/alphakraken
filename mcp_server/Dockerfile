@@ -14,6 +14,13 @@ RUN pip install --upgrade pip && pip install -r requirements_mcp.txt && pip inst
 COPY mcp_server/server.py .
 COPY shared shared
 
+# the yaml holds the runners and instruments that writes are validated against,
+# cf. shared.runner_checks and shared.settings_scope_resolver
+RUN mkdir -p /opt/airflow/envs
+COPY envs/alphakraken.*.yaml /opt/airflow/envs
+# avoid sensitive data in the container
+RUN sed -i '/\(username\|password\)/d'  /opt/airflow/envs/alphakraken.*.yaml
+
 # only required for streamable-http
 ENV MCP_PORT=8089
 EXPOSE $MCP_PORT

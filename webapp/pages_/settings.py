@@ -23,7 +23,6 @@ from service.query_params import get_all_query_params
 from service.utils import (
     DISABLE_WRITE,
     _log,
-    empty_to_none,
     flush_pending_toasts,
     toast_result,
 )
@@ -413,15 +412,12 @@ with c1.expander("Resource parameters"):
     )
 
 c1.markdown("### Required files and software")
-settings_name_clean = empty_to_none(name)
-settings_folder = get_display_settings_path(
-    settings_name_clean or SETTINGS_NAME_PLACEHOLDER
-)
+settings_folder = get_display_settings_path(name.strip() or SETTINGS_NAME_PLACEHOLDER)
 
 referenced_files = [
     file_name
     for file_name in (fasta_file_name, speclib_file_name, config_file_name)
-    if empty_to_none(file_name)
+    if file_name and file_name.strip()
 ]
 if referenced_files:
     c1.markdown(
@@ -433,7 +429,7 @@ if software_used_by:
     c1.markdown(
         f"The software `{software}` is already used by {', '.join(software_used_by)}."
     )
-elif empty_to_none(software):
+elif software.strip():
     # `software` is a path below the software folder only for the non-containerized non-alphadia case
     if software_type == SoftwareTypes.ALPHADIA:
         software_hint = f"the Conda environment `{software}`"

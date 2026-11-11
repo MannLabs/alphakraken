@@ -208,6 +208,8 @@ a webapp user sees.
 **Scope**: `mcp_server/server.py`, `docker-compose.yaml`, `misc/init-mongo.sh`,
 `docs/deployment.md`, env files.
 **Details**:
+- The image already holds `alphakraken.yaml`, which `shared.db.settings` and
+  `shared.db.project_settings` need at import.
 - New Mongo user `MONGO_USER_MCP` with `webappRole`; compose passes it to `mcp-server`.
   Existing deployments need the user created by hand, documented in `docs/deployment.md`.
 - Tools `create_project`, `create_settings`, `assign_settings` (A3): one API call each,
@@ -217,10 +219,10 @@ a webapp user sees.
 **Testing**: tool tests with the `shared.db` functions patched, incl. the error shape;
 manual run against the local profile.
 
-## After the last slice
+## State
 
-- Delete `webapp/service/utils.py::empty_to_none` if only display uses remain and they can
-  use a plain truthiness check.
-- Update `VALIDATION_DESIGN.md` section 2 to the built state, or delete it with this plan.
-- Collapsing the pass-through API modules (`status`, `slurm_jobs`, `alerting_leases`,
-  `alerts` issue functions) is independent of this plan.
+R1 to R4 and slices 1 to 5 are done (branches `refactor_validation_II` to `_X`). Slice 6 is
+open, blocked by B1. `VALIDATION_DESIGN.md` section 2 describes the built state.
+
+Independent of this plan: collapsing the pass-through API modules (`status`, `slurm_jobs`,
+`alerting_leases`, `alerts` issue functions).

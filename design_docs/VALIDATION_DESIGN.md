@@ -1,22 +1,22 @@
 # Write validation design
 
-Status: proposal. Analysis at commit c93a6b73 (2026-11-11).
+Status: built for the webapp (2026-11-11), cf. `VALIDATION_PLAN.md`. MCP server write tools are open.
 
 Goal: one place for the validation of writes, so that a write from the MCP server or REST
 API is checked exactly like one from the webapp.
 
-Starting point: the DB refactoring is done. Clients use `shared/db/<aggregate>.py` (API
-modules) and the types and errors of `shared/domain`; `shared/db/_mongo` is the only
-importer of mongoengine; settings are identified by `unique_name`. The API modules still
-hold the invariant checks, each marked `# moves to shared/services, cf. VALIDATION_DESIGN.md`
-(8 places).
+Clients use `shared/db/<aggregate>.py` (API modules) and the types and errors of
+`shared/domain`; `shared/db/_mongo` is the only importer of mongoengine.
 
 The webapp is the only client that writes projects, settings, assignments, users and
 suppressions. The MCP server and the REST API are read-only (`MONGO_USER_READ`).
 
-## 1. Validation today
+## 1. Validation before
 
-Write validation is spread over three layers. Only the middle one applies to every client.
+The state at commit c93a6b73, kept as the record of what section 2 replaced. Paths and line
+numbers refer to that commit.
+
+Write validation was spread over three layers. Only the middle one applied to every client.
 
 | # | Rule | Where | Applies to |
 |---|---|---|---|
@@ -85,239 +85,121 @@ forbidden characters only in the webapp.
 
 The query is built from the typed `RawFileFilter`, and the backend escapes the name search
 (`_mongo/raw_files.py:41`, mongoengine for `icontains`). So this is an inconsistency more
-than a risk. See 4.6.
+than a risk. Resolved by deleting the webapp check (4.6).
 
-## 2. Target design
+## 2. Design
 
 ```
 webapp / mcp_server / rest_api
-        |  writes:  shared.services   (validate + persist)
-        |  reads:   shared.db
-        |  types:   shared.domain     (output types, input types, errors)
+        |  reads and writes:  shared.db       (validate + persist)
+        |  types:             shared.domain   (output types, input types, errors)
         v
-shared/services/projects.py  settings.py  users.py  alerts.py
-        |  may import: shared.runners, shared.yamlsettings
+shared/db/projects.py  settings.py  project_settings.py  users.py  alerts.py
+        |  may import: shared.runner_checks, shared.settings_scope_resolver (yaml)
         v
-shared/db/...                 (persistence, no validation)
+shared/db/_mongo/...          (persistence, no rules)
 ```
 
-Dependency direction: `shared.domain` <- `shared.db` <- `shared.services` <- clients.
+Dependency direction: `shared.domain` <- `shared.db._mongo` <- `shared.db` <- clients.
 
-Naming: the webapp already has a package `webapp/service` and the REST API a module
-`rest_api/service.py`.
+The API modules are the only entry point to the database (ruff bans `shared.db._mongo`
+elsewhere), so a write cannot bypass the rules and no further ban is needed.
 
 ### 2.1 Input types: `shared/domain/<aggregate>.py`
 
-One pydantic model per user-triggered write. Pydantic is already a dependency
-(`shared/requirements_shared.txt`, used by `shared/runners.py`). It holds every rule of
-section 1 that needs neither the DB nor the yaml: field limits and patterns, strip and
-empty-to-None, the pure checks of `shared/validation.py` and `shared/config_params.py` as
-field validators, cross-field rules as model validators.
+One frozen pydantic model per user-triggered write, next to the output dataclass:
+
+| Input type | Module | Write |
+|---|---|---|
+| `NewProject` | `shared/domain/projects.py` | `projects.add` |
+| `NewAssignment` | `shared/domain/projects.py` | `project_settings.assign` |
+| `NewSettings` | `shared/domain/settings.py` | `settings.create` |
+| `NewUser`, `UserUpdate` | `shared/domain/users.py` | `users.add`, `users.update` |
+| `NewSuppression` | `shared/domain/alerts.py` | `alerts.add_suppression` |
+
+An input type holds every rule that needs neither the DB nor the yaml: strip
+(`str_strip_whitespace`), empty-to-None for optional strings, field limits and patterns,
+the pure checks of `shared/validation.py` and `shared/config_params.py` as field
+validators, cross-field rules as model validators.
+
+Field limits are declared once here, with the values the forms had. The forms read
+`max_chars` through `max_length(model, field)`. The Mongo models keep their own, larger
+limits as a backstop; the regex constants are shared (`shared/domain`).
+
+Rules with a hand-written message are field validators raising `ValueError`; the purely
+declarative ones (`max_length`, `pattern`, `ge`) give pydantic's message.
+
+`shared/domain/inputs.py` holds the helpers: `parse`, `max_length`, `empty_to_none`.
+
+### 2.2 Write operations: `shared/db/<aggregate>.py`
+
+A write function takes the fields as keyword arguments, builds the input type with
+`parse`, adds the rules that need the DB or the yaml, and passes the input type to the
+backend:
 
 ```python
-# shared/domain/settings.py
-class NewSettings(BaseModel):
-    model_config = ConfigDict(frozen=True, str_strip_whitespace=True)
-
-    name: str = Field(max_length=64, pattern=SETTINGS_NAME_REGEX)
-    software_type: str
-    software: str = Field(max_length=128)
-    runner_name: str = Field(max_length=64)
-    metrics_type: str = Field(max_length=128)
-    description: str | None = Field(default=None, max_length=512)
-    fasta_file_name: str | None = Field(default=None, max_length=128)
-    speclib_file_name: str | None = Field(default=None, max_length=128)
-    config_file_name: str | None = Field(default=None, max_length=128)
-    config_params: str | None = Field(default=None, max_length=2048)
-    slurm_cpus_per_task: int | None = Field(default=None, ge=1)
-    slurm_mem: str | None = Field(default=None, max_length=16)
-    slurm_time: str | None = Field(default=None, max_length=16)
-    num_threads: int | None = Field(default=None, ge=1)
-    owner_email: str | None = None
-
-    _empty_to_none = field_validator("*", mode="before")(empty_to_none)
-
-    @field_validator("fasta_file_name", "speclib_file_name", "config_file_name", "software")
-    @classmethod
-    def _safe_path(cls, value):            # check_for_malicious_content, raises ValueError(messages)
-        ...
-
-    @field_validator("config_params")
-    @classmethod
-    def _safe_config_params(cls, value):   # check_for_unknown_placeholders, then injection check on dummy-substituted value
-        ...
-
-    @field_validator("slurm_mem")          # likewise slurm_time: regex, today's message
-    @classmethod
-    def _slurm_mem_format(cls, value):
-        ...
-
-    @model_validator(mode="after")
-    def _software_type_rules(self):        # known type, metrics type allowed for it, fasta or speclib for alphadia
-        ...
+# shared/db/settings.py
+def create(*, archive_previous: bool = False, **fields: Any) -> Settings:
+    new = parse(NewSettings, **fields)                    # field and cross-field rules
+    if errors := check_runner_supports_software_type(new.runner_name, new.software_type):
+        raise ValidationError(errors)                     # yaml
+    if new.owner_email:
+        users.require_active(new.owner_email)             # DB
+    ...                                                   # next version of the name, next number
+    return _backend.create(new, number=number, version=version)
 ```
 
-Likewise `NewProject` (id pattern, special ids), `NewUser` (email lower-cased, initials
-regex), `NewAssignment` (`*` not in excluded scopes, scopes and excluded scopes disjoint,
-default scope normalization), `NewSuppression` (fields required, not all wildcards).
+Rules beyond the input types:
 
-Field limits and patterns are declared once here. The regex constants move from
-`_mongo/models.py` to `shared/domain`, the Mongo models import them from there. The webapp
-forms read `max_chars` from the field metadata (a `MaxLen` entry in
-`NewSettings.model_fields["name"].metadata`, through one helper). Where the limits differ
-today (section 1), one value has to be chosen, see 4.5.
-
-Field validators raise `ValueError` with today's hand-written messages. A declarative
-`pattern=` yields pydantic's "String should match pattern '...'", so rules that have a
-hand-written message today (`slurm_mem`, `slurm_time`, project id) are field validators.
-
-Behaviour changes against today: all string values are stripped (today only the empty check
-strips); `empty_to_none` must pass non-strings through, as it then also sees the int fields.
-
-The output types stay dataclasses.
-
-### 2.2 Write operations: `shared/services/<aggregate>.py`
-
-One function per write. It adds the checks that need the DB or the yaml, then persists:
-
-```python
-# shared/services/settings.py
-def create(new: NewSettings, *, archive_previous: bool = False) -> Settings:
-    # NewSettings(...) already raised on field and cross-field errors
-    errors = check_runner_supports_software_type(new.runner_name, new.software_type)  # yaml, incl. unknown runner
-    errors += _check_against_db(new)                                                   # owner exists and is active
-    if errors:
-        raise ValidationError(errors)
-    version, number = ...                                 # next version of the name, next number
-    return db.settings.create(new, version=version, number=number)  # AlreadyExistsError on a version race
-
-def archive(unique_name: str) -> None                    # not deleted
-def delete(unique_name: str) -> None                     # not archived, not assigned
-
-# shared/services/project_settings.py
-def assign(new: NewAssignment) -> ProjectSettings        # project active, settings active, scopes known (yaml), no duplicate filters
-def unassign(assignment_id: str) -> None                 # project active
-def update_to_latest(assignment_id: str) -> ProjectSettings  # today's check + unassign + assign of the webapp
-```
-
-Likewise `services.projects.create`, `archive`, `delete`; `services.users.create`,
-`update`, `set_status`; `services.alerts.add_suppression`, `delete_suppression`.
-
-The invariant checks that the `shared.db` API modules hold today (the 8 marked places)
-move here. Most already read only what they need (`_backend.get_project_id`,
-`_backend.assigned_project_ids`, `projects.find(ids=...)`); the user checks still load all
-users and filter (`shared/db/users.py:29,47`) and get a lookup by email or initials. `shared.db` write functions take the
-input type and do not validate. `check_not_assigned_with_same_filters` becomes private.
-The Mongo field constraints stay as a backstop; `_mongo/errors.py` already translates them
-to the domain `ValidationError`.
-
-Names today differ from the ones above: `shared.db.projects.add`, `shared.db.users.add`.
+| Write | Rules |
+|---|---|
+| `projects.add` | id not used by a deleted project, owner active |
+| `projects.archive` / `delete` | not deleted / not archived |
+| `settings.create` | runner declared in the yaml and able to run the software type, owner active |
+| `settings.archive` / `delete` | not deleted / not archived, not assigned |
+| `project_settings.assign` | fallback project only with `allow_fallback`, scopes known (yaml), project active, settings active, no duplicate file filters |
+| `project_settings.unassign` | fallback project only with `allow_fallback`, project active |
+| `project_settings.update_to_latest` | a newer active version exists, then as `assign`; assigns before it unassigns |
+| `users.add` / `update` | email and initials not taken |
 
 ### 2.3 Errors
 
-Clients construct the input type and catch both `pydantic.ValidationError` and the domain
-`ValidationError`. `shared/domain/errors.py` gets `format_errors(pydantic_error) -> list[str]`
-rendering each entry as `<field>: <message>`, the format `_mongo/errors.py` already uses, so
-the webapp keeps its "Found N input validation errors" toast and the MCP server returns the
-same list.
+Clients catch the errors of `shared/domain/errors.py` only. `parse` turns a pydantic error
+into the domain `ValidationError`, one `<field>: <message>` entry per invalid field and
+the bare message for a cross-field rule; this is the format `_mongo/errors.py` uses for the
+Mongo field constraints.
 
-The webapp has 13 `except Exception as e: show_error_toast(str(e))` blocks around writes;
-`str()` of a pydantic error is multi-line with documentation URLs, so each of them needs
-the formatter, see 3.0.3.
-
-What this gives the MCP server: a `create_settings` tool is
-`services.settings.create(NewSettings(**args))` with the two `except` clauses returning
-`{"errors": [...]}`, and the LLM sees the same messages a webapp user sees.
+The webapp wraps every write in `toast_result(success_msg)` (`webapp/service/utils.py`),
+which shows the success toast, or the error as toast, several validation errors as a list.
 
 ### 2.4 What stays in the clients
 
 - UI parsing: splitting a comma-separated filter field, the upload checkbox, bulk user row
-  parsing. The MCP server passes lists directly.
-- `empty_to_none` where the page uses it for display (`settings.py:425-445`).
-- Authorization: `_check_assignment_allowed` (fallback project admin-only) is a webapp
-  session rule; the MCP server and REST API need their own. See 4.2.
+  splitting.
+- Authorization: whether the caller may change the fallback project's assignments is the
+  client's to state (`allow_fallback`); the webapp passes `is_admin()`.
 
-### 2.5 Enforcement
+## 3. Open
 
-In addition to the existing ruff bans (`mongoengine`, `pymongo`, `shared.db._mongo`):
-the `shared.db` write functions of the four aggregates banned outside `shared/services/**`:
-`shared.db.projects.{add,archive,delete}`, `shared.db.settings.{create,archive,delete}`,
-`shared.db.project_settings.{assign,unassign}`, `shared.db.users.{add,update,set_status}`,
-`shared.db.alerts.{add_suppression,delete_suppression}`.
+MCP server write tools (`VALIDATION_PLAN.md` slice 6): one API call per tool, the errors of
+2.3 returned as `{"errors": [...]}`. Needs a write-capable DB user (`webappRole` in
+`misc/init-mongo.sh` fits) and, first, access control: the server listens on plain HTTP
+outside the nginx basic auth and has no authentication of its own.
 
-## 3. Migration steps
+## 4. Decisions
 
-Each step is a shippable PR; no compatibility shims are kept between steps.
+4.1. Clients catch one error type; pydantic is not visible to them (2.3).
 
-3.0. Upfront, each independent of the design decisions except where noted:
+4.2. Fallback-project protection is a parameter every client must state (2.4).
 
-- 3.0.1. Move the regex constants from `_mongo/models.py` to `shared/domain`; add the
-  project id and slurm patterns there, replacing the inline ones of the webapp.
-- 3.0.2. Make each composite write one function (section 1): `update_to_latest` and
-  `create(..., archive_previous=)`, for now in the `shared.db` API modules. Every write
-  button of the webapp is then one call, and the public check function is gone.
-- 3.0.3. One `toast_errors()` context manager in `webapp/service/utils.py` replacing the 13
-  `try/except Exception/show_error_toast` blocks; it also covers the two unguarded writes
-  (`admin.py:180`, `settings.py:559`). The error formatting of 2.3 then has one call site.
-- 3.0.4. Choose the field limits (4.5) and align forms and models.
+4.3. The MCP server gets write tools (section 3).
 
-3.1. `NewSettings` and `shared/services/settings.py`. Move the settings rules of section 1
-out of `webapp/pages_/settings.py`, `webapp/service/settings_validation.py` (moves to
-`shared/services`), `shared/db/settings.py`. The settings page constructs `NewSettings` and
-calls the service; delete the inline checks and the `empty_to_none` call sites of the
-submit. Forms read `max_chars` from the field metadata.
+4.4. The rules stay in the `shared.db` API modules, no `shared/services` (section 2). The
+API/backend split thereby keeps its purpose for these aggregates; only `status`,
+`slurm_jobs`, `alerting_leases` and the issue functions of `alerts` are pure pass-through
+(`DB_INTERFACE_RETROSPECTIVE.md` 1.1, 2.4).
 
-3.2. Same for projects (`_check_project_id`), assignments (incl. the scope rules of the TODO),
-users (`user_input.py` cleaners), suppressions (`validate_suppression`).
+4.5. Where forms and Mongo models differed, the form's limit is the declared one (2.1).
 
-3.3. Enable the ruff ban (2.5).
-
-3.4. MCP server write tools, if wanted: one service call each. Needs a write-capable DB user
-for the MCP server; today it has `MONGO_USER_READ`. `webappRole` in `misc/init-mongo.sh`
-already grants exactly the five collections, a second user with that role suffices.
-
-Tests: input types are tested by construction, without any mocking. Services are tested with
-`shared.db` functions patched, as the rule tests in `shared/tests/db/test_projects_and_settings.py`
-and `test_users.py` already patch the backend; they move to `shared/tests/services`. The
-webapp validation tests (`test_settings_validation.py`, `test_user_input.py`,
-`test_admin_utils.py::test_validate_suppression*`) move to `shared/tests/domain`.
-
-## 4. Decisions to confirm
-
-/Decided 2026-11-11, cf. `VALIDATION_PLAN.md`: 4.1 the alternative (one error type), 4.3
-yes, 4.4 the rules stay in the `shared.db` API modules, 4.5 the form's. Section 2 is to be
-read accordingly: `shared/services/<aggregate>.py` is `shared/db/<aggregate>.py`, and 2.5
-is dropped. Open: 4.2, 4.6.
-
-4.1. Pydantic for the input types, dataclasses for the output types (2.1). Clients catch two
-error types, `pydantic.ValidationError` and the domain one, rendered by one formatter.
-Alternative: the service takes keyword arguments and builds the input type itself, wrapping
-the pydantic error into the domain one. Clients then catch a single type and never see
-pydantic; the forms still import the input type for `max_chars`.
-
-4.2. Fallback-project protection (`_FALLBACK` assignments admin-only) stays a client rule,
-or becomes a service parameter `allow_fallback: bool` so that every client must state it.
-
-4.3. Whether the MCP server gets write tools at all (3.4). Without a second writing client,
-the goal of this document is not yet a requirement; what remains is closing the gaps of
-section 1 (rows 16, the state transitions) and giving the invariant checks a home.
-
-4.4. A `shared/services` layer (2.2), or the rules stay in the `shared.db` API modules,
-which then take the input types. The API modules are already the only entry point, so the
-second option needs no ruff ban (2.5), no new package and no test moves; `shared.db` would
-import `shared.runners`, and business rules stay in a package named `db`.
-
-Interplay with the pass-through layer (`DB_INTERFACE_RETROSPECTIVE.md` 1.1, 2.4): today the
-API/backend split pays off only where the API module holds rules. With `shared/services`,
-the API modules of projects, settings, assignments and users lose their rules and become
-pass-through as well, so a write passes three modules (service, API, backend) of which one
-only forwards; the layer should then be collapsed to re-exports in the same effort. With
-the rules staying in the API modules, the split keeps its purpose for these four, and only
-`status`, `slurm_jobs`, `alerting_leases` and `alerts` are candidates for collapsing.
-
-4.5. Which field limit applies where forms and models differ (section 1): the model's or
-the form's.
-
-4.6. Read filters (1.1): delete the webapp check and rely on the typed filter and the
-escaping of the backend, or move the check into `RawFileFilter` so that all three clients
-get it.
+4.6. Read filters (1.1): the webapp check was deleted; the typed filter and the escaping of
+the backend apply to all clients.
